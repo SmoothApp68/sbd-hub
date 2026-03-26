@@ -432,7 +432,7 @@ function processHevy() {
             return; // Skip les variantes
         }
         
-        if (n.includes("bench")) type = "bench";
+        if ((n.includes("bench") || (n.includes("couché") && !n.includes("incliné") && !n.includes("haltères"))) && !n.includes("pause") && !n.includes("spoto")) type = "bench";
         else if (n.includes("squat") && !n.includes("hack")) type = "squat";
         else if (n.includes("deadlift") || n.includes("soulevé")) type = "deadlift";
         
@@ -739,7 +739,7 @@ function renderCharts() {
                 let n = exo.name.toLowerCase();
                 let exoType = null;
                 
-                if (n.includes("bench") && !n.includes("pause") && !n.includes("spoto")) exoType = "bench";
+                if ((n.includes("bench") || (n.includes("couché") && !n.includes("incliné") && !n.includes("haltères"))) && !n.includes("pause") && !n.includes("spoto")) exoType = "bench";
                 else if (n.includes("squat") && !n.includes("hack") && !n.includes("pause")) exoType = "squat";
                 else if ((n.includes("deadlift") || n.includes("soulevé")) && !n.includes("pause")) exoType = "deadlift";
                 

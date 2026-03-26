@@ -1,0 +1,21 @@
+name: Update SBD Hub
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update getMuscleGroup
+        run: |
+          sed -i "s/n.includes('deadlift') || n.includes('row')/n.includes('deadlift') || n.includes('soulevé') || n.includes('row')/g" index.html
+          sed -i "s/n.includes('quad') || n.includes('ischio'))/n.includes('quad') || n.includes('ischio') || n.includes('presse'))/g" index.html
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add index.html
+          git commit -m "improvement: enhance getMuscleGroup classifier"
+          git push

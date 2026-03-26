@@ -3,29 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBD Hub - Performance</title>
+    <title>SBD Hub - Performance Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --purple: #BF5AF2; --text: #FFF; --sub: #8E8E93; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 100px; }
         .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #2C2C2E; }
         h2 { font-size: 10px; color: var(--sub); text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px; }
-        .ratio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 10px; }
-        .ratio-val { font-size: 18px; font-weight: 800; color: var(--blue); }
-        .ratio-label { font-size: 9px; color: var(--sub); }
         
-        /* Styles identiques aux précédents pour la cohérence */
+        /* Ratios */
+        .ratio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 15px; border-top: 1px solid #2C2C2E; padding-top: 10px; }
+        .ratio-val { font-size: 16px; font-weight: 800; color: var(--blue); }
+        .ratio-label { font-size: 8px; color: var(--sub); text-transform: uppercase; }
+
+        /* Suppléments */
         .supp-group { display: flex; flex-direction: column; gap: 6px; }
         .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); }
-        .supp-name { font-weight: 700; font-size: 13px; }
-        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; }
-        .coach-box { border-left: 3px solid var(--green); padding-left: 12px; font-style: italic; color: #CCC; font-size: 12px; }
-        textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 12px; height: 55px; font-size: 13px; box-sizing: border-box; }
-        .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 8px; }
-        .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; }
+        .supp-info { display: flex; flex-direction: column; }
+        .supp-name { font-weight: 700; font-size: 13px; color: #FFF; }
+        .supp-timing { font-size: 9px; color: var(--sub); text-transform: uppercase; margin-top: 2px; }
+        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; font-size: 13px; }
+        .special { border-left-color: var(--purple); }
+
+        /* UI Elements */
+        .coach-box { border-left: 3px solid var(--green); padding-left: 12px; font-style: italic; color: #CCC; font-size: 12px; line-height: 1.4; }
+        textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 12px; height: 55px; font-size: 13px; box-sizing: border-box; outline: none; margin-top: 5px; }
+        .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 8px; font-size: 14px; }
+        
+        .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none; }
         .day-btn { background: #1C1C1E; border: 1px solid #2C2C2E; color: var(--sub); padding: 8px 14px; border-radius: 20px; white-space: nowrap; font-size: 12px; }
-        .day-btn.active { background: var(--blue); color: white; }
+        .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
+
         .exo-card { border-bottom: 1px solid #2C2C2E; padding: 10px 0; }
+        .exo-card.superset { border-left: 3px solid var(--orange); padding-left: 10px; background: rgba(255,159,10,0.05); }
+        .exo-name { font-weight: 700; font-size: 14px; color: var(--blue); }
+        .set-val { color: var(--green); font-family: monospace; font-weight: bold; font-size: 12px; }
+        .degressif { color: var(--red); font-weight: 800; font-size: 9px; border: 1px solid var(--red); padding: 0 3px; border-radius: 3px; margin-left: 4px; }
+
+        /* Modal Settings */
         #configModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
         .config-input { background: #2C2C2E; border: 1px solid #444; color: white; padding: 8px; border-radius: 8px; width: 70px; text-align: center; }
         .config-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -35,7 +50,7 @@
 
     <div class="card">
         <h2>SBD Progression & Ratios</h2>
-        <canvas id="sbdChart" height="120"></canvas>
+        <canvas id="sbdChart" height="130"></canvas>
         <div class="ratio-grid" id="ratioDisplay"></div>
     </div>
 
@@ -45,44 +60,58 @@
     </div>
 
     <div class="card">
-        <h2>Coach Indications</h2>
+        <h2>Indications Coach</h2>
         <div class="coach-box" id="coachAdvice">-</div>
     </div>
 
     <div class="card">
         <h2>Hevy Import</h2>
         <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
-        <button class="btn-import" onclick="importHevy()">Analyser & Calculer Ratio</button>
+        <button class="btn-import" onclick="importHevy()">Analyser & Update</button>
     </div>
 
     <div id="dayNav" class="day-nav"></div>
     <div id="dayContent"></div>
 
-    <button onclick="toggleConfig()" style="background:none; border:1px solid #333; color:#555; width:100%; padding:10px; border-radius:10px; font-size:12px;">⚙️ Configuration & Poids de corps</button>
+    <button onclick="toggleConfig()" style="background:none; border:1px solid #333; color:#555; width:100%; padding:10px; border-radius:10px; font-size:11px; margin-top:10px;">⚙️ Configuration Manuelle</button>
 
     <div id="configModal">
-        <h1 style="font-size: 18px;">Réglages</h1>
+        <h1 style="font-size: 18px; margin-bottom: 20px;">Réglages</h1>
         <div class="card">
             <h2>Poids de Corps (BW)</h2>
-            <div class="config-row"><span>Ton poids actuel (kg)</span> <input type="number" id="cfg-bw" class="config-input" step="0.1"></div>
+            <div class="config-row"><span>Poids (kg)</span> <input type="number" id="cfg-bw" class="config-input" step="0.1"></div>
         </div>
         <div class="card">
-            <h2>Records (1RM)</h2>
+            <h2>Éditer les Records</h2>
             <div class="config-row"><span>Bench</span> <input type="number" id="cfg-rb" class="config-input"></div>
             <div class="config-row"><span>Squat</span> <input type="number" id="cfg-rs" class="config-input"></div>
             <div class="config-row"><span>Deadlift</span> <input type="number" id="cfg-rd" class="config-input"></div>
         </div>
-        <button class="btn-import" style="background: var(--green);" onclick="saveConfig()">Appliquer les changements</button>
+        <div class="card">
+            <h2>Éditer les Objectifs</h2>
+            <div class="config-row"><span>Obj. Bench</span> <input type="number" id="cfg-tb" class="config-input"></div>
+            <div class="config-row"><span>Obj. Squat</span> <input type="number" id="cfg-ts" class="config-input"></div>
+            <div class="config-row"><span>Obj. Deadlift</span> <input type="number" id="cfg-td" class="config-input"></div>
+        </div>
+        <button class="btn-import" style="background: var(--green);" onclick="saveConfig()">Sauvegarder</button>
         <button onclick="toggleConfig()" style="background:var(--red); border:none; color:white; width:100%; padding:12px; border-radius:10px; margin-top:10px; font-weight:bold;">Fermer</button>
     </div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('gymHub_Ratio_V15')) || {
+    let db = JSON.parse(localStorage.getItem('gymHub_Final_V16')) || {
         bodyWeight: 80,
         records: { bench: 130, squat: 140, deadlift: 175 },
         targets: { bench: 140, squat: 148, deadlift: 185 },
         history: {},
-        coachTips: {"Lundi":"Focus Quads.","Mardi":"Push Day.","Mercredi":"Natation.","Jeudi":"Deadlift.","Vendredi":"Cardio/Abs.","Samedi":"SBD Technique.","Dimanche":"Repos."}
+        coachTips: {
+            "Lundi": "Squat Focus. Buste vertical, engage les fessiers.",
+            "Mardi": "Bench Focus. Leg drive constant. Ne décolle pas les fesses.",
+            "Mercredi": "Natation 1km. Récupération active du système nerveux.",
+            "Jeudi": "Deadlift Focus. Traction initiale sans à-coup. Gainage dorsal.",
+            "Vendredi": "Cardio / Points faibles. Travail d'isolation propre.",
+            "Samedi": "SBD Technique. Respecte les pauses au point mort.",
+            "Dimanche": "Repos total. Hydratation et sommeil."
+        }
     };
 
     let sbdChart;
@@ -95,6 +124,9 @@
             document.getElementById('cfg-rb').value = db.records.bench;
             document.getElementById('cfg-rs').value = db.records.squat;
             document.getElementById('cfg-rd').value = db.records.deadlift;
+            document.getElementById('cfg-tb').value = db.targets.bench;
+            document.getElementById('cfg-ts').value = db.targets.squat;
+            document.getElementById('cfg-td').value = db.targets.deadlift;
         }
     }
 
@@ -103,9 +135,30 @@
         db.records.bench = parseFloat(document.getElementById('cfg-rb').value);
         db.records.squat = parseFloat(document.getElementById('cfg-rs').value);
         db.records.deadlift = parseFloat(document.getElementById('cfg-rd').value);
-        localStorage.setItem('gymHub_Ratio_V15', JSON.stringify(db));
+        db.targets.bench = parseFloat(document.getElementById('cfg-tb').value);
+        db.targets.squat = parseFloat(document.getElementById('cfg-ts').value);
+        db.targets.deadlift = parseFloat(document.getElementById('cfg-td').value);
+        localStorage.setItem('gymHub_Final_V16', JSON.stringify(db));
         updateUI();
         toggleConfig();
+    }
+
+    function updateSupps(day) {
+        const container = document.getElementById('suppContainer');
+        const isSBD = (day === "Samedi");
+        const isStrength = ["Lundi", "Mardi", "Jeudi", "Samedi"].includes(day);
+        
+        let preWorkout = "";
+        if (isSBD) preWorkout = `<div class="supp-item special"><div class="supp-info"><span class="supp-name">Endurance Infini</span><span class="supp-timing">Pre-Training SBD</span></div><span class="supp-dose">1 Scoop</span></div>`;
+        else if (isStrength) preWorkout = `<div class="supp-item"><div class="supp-info"><span class="supp-name">Work! (Raptor)</span><span class="supp-timing">Pre-Training</span></div><span class="supp-dose">10g</span></div>`;
+
+        container.innerHTML = `
+            ${preWorkout}
+            <div class="supp-item"><div class="supp-info"><span class="supp-name">Omega 3 + Créatine</span><span class="supp-timing">Midi</span></div><span class="supp-dose">4 Gél / 5g</span></div>
+            <div class="supp-item"><div class="supp-info"><span class="supp-name">Whey Isolate (Raptor)</span><span class="supp-timing">Post-Training</span></div><span class="supp-dose">30g</span></div>
+            <div class="supp-item special"><div class="supp-info"><span class="supp-name">Collage + Glycine + ZMB</span><span class="supp-timing">Coucher (Réparation)</span></div><span class="supp-dose">Pack Soir</span></div>
+        `;
+        document.getElementById('currentDayTitle').innerText = day;
     }
 
     function updateUI() {
@@ -114,34 +167,110 @@
         const rD = (db.records.deadlift / db.bodyWeight).toFixed(2);
         
         document.getElementById('ratioDisplay').innerHTML = `
-            <div><div class="ratio-label">BENCH</div><div class="ratio-val">x${rB}</div></div>
-            <div><div class="ratio-label">SQUAT</div><div class="ratio-val">x${rS}</div></div>
-            <div><div class="ratio-label">DEADLIFT</div><div class="ratio-val">x${rD}</div></div>
+            <div><div class="ratio-label">Ratio Bench</div><div class="ratio-val">x${rB}</div></div>
+            <div><div class="ratio-label">Ratio Squat</div><div class="ratio-val">x${rS}</div></div>
+            <div><div class="ratio-label">Ratio DL</div><div class="ratio-val">x${rD}</div></div>
         `;
 
         sbdChart.data.datasets[0].data = [db.records.bench, db.records.squat, db.records.deadlift];
+        sbdChart.data.datasets[1].data = [db.targets.bench, db.targets.squat, db.targets.deadlift];
         sbdChart.update();
     }
 
-    // Fonctions Import & Render identiques (omises ici pour la brièveté mais incluses dans ton fichier final)
-    // [Garder ici les fonctions updateSupps, renderDay et importHevy du code précédent]
+    function renderDay(day) {
+        const container = document.getElementById('dayContent');
+        const content = db.history[day] || [];
+        updateSupps(day);
+        document.getElementById('coachAdvice').innerText = db.coachTips[day] || "";
+        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === day));
+
+        container.innerHTML = `<div class="card"><h2>Séance ${day}</h2>${content.map(exo => `
+            <div class="exo-card ${exo.isSuperset ? 'superset' : ''}">
+                <span class="exo-name">${exo.isSuperset ? '⚡ ' : ''}${exo.n}</span>
+                ${exo.sets.map(s => `
+                    <div style="display:flex; justify-content:space-between; margin-top:3px;">
+                        <span style="font-size:11px; color:var(--sub)">${s.label}</span>
+                        <span class="set-val">${s.val.replace(/abandon/gi, '<span class="degressif">DÉGRESSIF</span>')}</span>
+                    </div>
+                `).join('')}
+            </div>`).join('') || '<p style="color:var(--sub); font-size:12px; text-align:center; padding:20px;">Aucun import Hevy pour ce jour.</p>'}</div>`;
+    }
+
+    function importHevy() {
+        const text = document.getElementById('hevyInput').value;
+        if (!text) return;
+        const daysArr = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+        const dayMatch = daysArr.find(d => text.toLowerCase().includes(d.toLowerCase())) || "Lundi";
+        
+        const lines = text.split('\n');
+        let session = []; let current = null; let isSuper = false;
+
+        lines.forEach(line => {
+            let t = line.trim();
+            if (t.toLowerCase().includes("superset")) { isSuper = true; return; }
+            if (t.toLowerCase().startsWith("série")) {
+                let p = t.split(":");
+                if (current && p[1]) current.sets.push({ label: p[0].trim(), val: p[1].trim() });
+            } else if (t && !t.includes("kg x") && !t.includes("Hevy")) {
+                if (current) session.push(current);
+                current = { n: t, sets: [], isSuperset: isSuper };
+                isSuper = false;
+            }
+        });
+        if (current) session.push(current);
+        
+        session.forEach(exo => {
+            let m = 0;
+            exo.sets.forEach(s => {
+                const match = s.val.match(/(\d+\.?\d*)\s*kg/i);
+                if (match) { let w = parseFloat(match[1]); if (w > m) m = w; }
+            });
+            const n = exo.n.toLowerCase();
+            const keys = [{k:'bench',t:['couché','bench']},{k:'squat',t:['squat'],e:['hack']},{k:'deadlift',t:['deadlift','terre']}];
+            keys.forEach(type => {
+                if (type.t.some(t => n.includes(t)) && (!type.e || !type.e.some(e => n.includes(e))) && m > 0) {
+                    if (m > db.records[type.k]) {
+                        db.records[type.k] = m;
+                        if (db.records[type.k] >= db.targets[type.k]) db.targets[type.k] = db.records[type.k] + 5;
+                    }
+                }
+            });
+        });
+
+        db.history[dayMatch] = session;
+        localStorage.setItem('gymHub_Final_V16', JSON.stringify(db));
+        updateUI();
+        renderDay(dayMatch);
+        document.getElementById('hevyInput').value = "";
+    }
 
     const ctx = document.getElementById('sbdChart').getContext('2d');
     sbdChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Bench', 'Squat', 'Deadlift'],
-            datasets: [{ data: [db.records.bench, db.records.squat, db.records.deadlift], backgroundColor: '#0A84FF', borderRadius: 6 }]
+            datasets: [
+                { label: 'Record', data: [db.records.bench, db.records.squat, db.records.deadlift], backgroundColor: '#0A84FF', borderRadius: 6 },
+                { label: 'Objectif', data: [db.targets.bench, db.targets.squat, db.targets.deadlift], backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 6 }
+            ]
         },
-        options: { scales: { y: { min: 60, grid: { color: '#222' } } }, plugins: { legend: { display: false } } }
+        options: { 
+            scales: { 
+                y: { min: 60, grid: { color: '#222' }, ticks: { color: '#8E8E93' } },
+                x: { ticks: { color: '#FFF' } }
+            }, 
+            plugins: { legend: { display: false } } 
+        }
     });
 
     const nav = document.getElementById('dayNav');
     ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].forEach(d => {
         const btn = document.createElement('button'); btn.className = 'day-btn'; btn.innerText = d; btn.onclick = () => renderDay(d); nav.appendChild(btn);
     });
+
     updateUI();
-    renderDay(new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date()).replace(/^\w/, c => c.toUpperCase()));
+    const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
+    renderDay(today.charAt(0).toUpperCase() + today.slice(1));
 </script>
 </body>
 </html>

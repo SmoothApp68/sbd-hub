@@ -204,30 +204,49 @@ function updateTargets() {
 function processHevy() {
     const text = document.getElementById('hevyPaste').value;
     if(!text) return;
+    
     const lines = text.split('\n');
     let session = { date: new Date().toLocaleDateString('fr-FR'), exercises: [] };
     let currExo = null;
 
     lines.forEach(line => {
-        let l = line.trim();
-        if(l.startsWith("série")) {
-            let m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-            if(m && currExo) {
-                let w = parseFloat(m[1]), r = parseInt(m[2]);
+        let l = line.trim().toLowerCase();
+        
+        // 1. Détection de l'exercice (plus flexible)
+        if(l && !l.includes('kg x') && !l.includes('série') && !l.includes('hevy') && !l.includes('km')) {
+            if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
+            currExo = { name: line.trim(), maxRM: 0 };
+        } 
+        
+        // 2. Détection de la série (on ignore les échauffements)
+        else if(l.startsWith("série") && l.includes('kg x') && !l.includes('échauffement')) {
+            // Extraction propre du poids et des reps, même avec RPE @...
+            let match = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+            if(match && currExo) {
+                let w = parseFloat(match[1]);
+                let r = parseInt(match[2]);
+                
+                // Formule de Brzycki pour le RM
                 let rm = r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r)));
                 if(rm > currExo.maxRM) currExo.maxRM = rm;
             }
-        } else if(l && !l.includes('kg x') && !l.includes('Hevy')) {
-            if(currExo) session.exercises.push(currExo);
-            currExo = { name: l, maxRM: 0 };
         }
     });
-    if(currExo) session.exercises.push(currExo);
+    
+    // Push du dernier exo si valide
+    if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
 
+    // 3. Mise à jour des records SBD
     session.exercises.forEach(exo => {
         let n = exo.name.toLowerCase();
-        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
-        if(type && exo.maxRM > db.bestPR[type]) db.bestPR[type] = exo.maxRM;
+        let type = null;
+        if(n.includes("bench")) type = "bench";
+        else if(n.includes("squat")) type = "squat";
+        else if(n.includes("deadlift")) type = "deadlift";
+        
+        if(type && exo.maxRM > db.bestPR[type]) {
+            db.bestPR[type] = exo.maxRM;
+        }
     });
 
     db.logs.unshift(session);
@@ -235,9 +254,9 @@ function processHevy() {
     document.getElementById('hevyPaste').value = "";
     renderDash();
     renderDayList();
-    cloudPush(); // Envoi automatique
+    cloudPush(); // Synchro auto vers le cloud
+    alert("Séance Legs traitée !");
 }
-
 function updateProfile() {
     let bw = parseFloat(document.getElementById('inputBW').value);
     if(bw > 0) { db.user.bw = bw; cloudPush(); renderDash(); }

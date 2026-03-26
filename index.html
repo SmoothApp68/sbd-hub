@@ -39,13 +39,6 @@
         .btn:active { transform: scale(0.98); }
         .btn.syncing { opacity: 0.6; pointer-events: none; }
         
-        /* Statut Sync */
-        .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; background: #1C1C1E; color: var(--sub); border: 1px solid var(--border); }
-        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sub); }
-        .sync-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
-        .sync-dot.syncing { background: #FF9F0A; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-
         /* Stats spécifiques */
         .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .report-box { background: #1C1C1E; padding: 15px; border-radius: 14px; border: 1px solid #2C2C2E; text-align: center; }
@@ -69,7 +62,6 @@
         <div class="card">
             <div class="header-card">
                 <h2>Performance</h2>
-                <div id="syncStatus" class="sync-badge"><div class="sync-dot" id="syncDot"></div><span id="syncText">Hors ligne</span></div>
             </div>
             <div class="sbd-grid" id="sbdDisplay"></div>
             <div style="height: 220px; margin-top: 25px;"><canvas id="chartSBD"></canvas></div>
@@ -133,17 +125,31 @@
         </div>
         
         <div class="card">
-            <h2>Moteur de Synchronisation</h2>
-            <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">L'application se synchronise automatiquement.</p>
-            <input type="password" id="syncToken" placeholder="GitHub Token (ghp_...)">
-            <input type="text" id="syncGistId" placeholder="ID du Gist">
-            <button class="btn" id="syncBtn" onclick="saveKeys()">Activer la Synchro</button>
+            <h2>Synchronisation Cloud</h2>
+            <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">Partagez vos données entre appareils</p>
+            
+            <div style="margin-bottom: 15px;">
+                <p style="font-size: 12px; color: var(--sub); margin: 10px 0;">📱 Sur votre TEL :</p>
+                <button class="btn" onclick="generateShareCode()" style="background: var(--green);">Générer Code de Partage</button>
+                <div id="shareCodeDisplay" style="margin-top: 10px; padding: 10px; background: #1C1C1E; border-radius: 10px; border: 1px solid var(--green); display: none;">
+                    <p style="font-size: 11px; color: var(--sub); margin: 0 0 5px 0;">Copier ce code:</p>
+                    <div id="shareCode" style="font-size: 13px; font-family: monospace; color: var(--green); word-break: break-all;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <p style="font-size: 12px; color: var(--sub); margin: 10px 0;">🖥️ Sur votre PC :</p>
+                <input type="text" id="importCode" placeholder="Collez le code ici..." style="margin-bottom: 10px;">
+                <button class="btn" onclick="importFromCode()">Importer les Données</button>
+            </div>
+            
+            <div id="syncMessage" style="margin-top: 10px; text-align: center; font-size: 12px; color: var(--sub);"></div>
         </div>
 
         <div class="card" style="border-color: var(--red);">
             <h2>Zone de Danger</h2>
             <button class="btn" style="background: var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button>
-            <p style="font-size: 10px; color: var(--sub); text-align: center; margin-top: 8px;">Efface l'historique et synchronise le vide sur GitHub.</p>
+            <p style="font-size: 10px; color: var(--sub); text-align: center; margin-top: 8px;">Efface l'historique local.</p>
         </div>
     </div>
 
@@ -165,15 +171,14 @@
 <script>
 // --- CONSTANTES ---
 const STORAGE_DB_KEY = 'SBD_HUB_V28';
-const STORAGE_KEYS_KEY = 'SBD_KEYS';
-const GIST_FILE_NAME = 'sbd_hub_v28.json';
 
-// --- DB & CONFIG ---
-let keys = JSON.parse(localStorage.getItem(STORAGE_KEYS_KEY)) || { token: "", gistId: "" };
+// --- DB LOCAL ---
 let db = JSON.parse(localStorage.getItem(STORAGE_DB_KEY)) || {
     user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
     logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: 0
 };
+
+let keys = { token: "", gistId: "" }; // Garder pour compatibilité
 
 // --- ÉTAT GLOBAL ---
 const state = {
@@ -256,17 +261,6 @@ function showTab(id) {
     if (id === 'tab-stats') { renderStats(); renderReports('week'); }
 }
 
-// --- SYNC ENGINE ---
-function updateSyncUI(status) {
-    const dot = document.getElementById('syncDot');
-    const txt = document.getElementById('syncText');
-    const btn = document.getElementById('syncBtn');
-    if(!dot || !txt) return;
-    dot.className = 'sync-dot';
-    if(status === 'online') { dot.classList.add('online'); txt.innerText = "À jour"; if(btn) btn.classList.remove('syncing'); }
-    else if(status === 'syncing') { dot.classList.add('syncing'); txt.innerText = "Sync..."; if(btn) btn.classList.add('syncing'); }
-    else { txt.innerText = "Hors ligne"; if(btn) btn.classList.remove('syncing'); }
-}
 
 function refreshUI() {
     renderDash();
@@ -277,63 +271,48 @@ function refreshUI() {
     }
 }
 
-async function cloudPush() {
-    if (!keys.token || !keys.gistId || state.isSyncing) return;
-    state.isSyncing = true; 
-    updateSyncUI('syncing');
-    db.lastSync = Date.now();
-    localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
-    try {
-        const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `token ${keys.token}` },
-            body: JSON.stringify({ files: { [GIST_FILE_NAME]: { content: JSON.stringify(db) } } })
-        });
-        updateSyncUI(res.ok ? 'online' : 'offline');
-    } catch (e) { 
-        updateSyncUI('offline'); 
+// --- SYNC PAR CODE ---
+function generateShareCode() {
+    const code = btoa(JSON.stringify(db));
+    const display = document.getElementById('shareCodeDisplay');
+    const codeDiv = document.getElementById('shareCode');
+    if(codeDiv && display) {
+        codeDiv.innerText = code;
+        display.style.display = 'block';
+        showToast('✓ Code généré - Copie-le !');
     }
-    state.isSyncing = false;
 }
 
-async function cloudPull() {
-    if (!keys.token || !keys.gistId || state.isSyncing) return;
-    state.isSyncing = true; 
-    updateSyncUI('syncing');
+function importFromCode() {
+    const code = document.getElementById('importCode').value.trim();
+    if(!code) {
+        showToast('❌ Colle le code d\'abord');
+        return;
+    }
+    
     try {
-        const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, { headers: { 'Authorization': `token ${keys.token}` } });
-        if (res.ok) {
-            const data = await res.json();
-            if(data.files && data.files[GIST_FILE_NAME]) {
-                try {
-                    const remoteDB = JSON.parse(data.files[GIST_FILE_NAME].content);
-                    if ((remoteDB.lastSync >= db.lastSync && remoteDB.logs.length !== db.logs.length) || remoteDB.lastSync > db.lastSync) {
-                        db = remoteDB;
-                        localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
-                        refreshUI();
-                    }
-                } catch(e) {
-                    console.error("Erreur parse Gist:", e);
-                    updateSyncUI('offline');
-                    state.isSyncing = false;
-                    return;
-                }
-            }
-            updateSyncUI('online');
-        } else {
-            updateSyncUI('offline');
+        const imported = JSON.parse(atob(code));
+        if(!imported.logs || !imported.user) {
+            showToast('❌ Code invalide');
+            return;
         }
-    } catch (e) { 
-        updateSyncUI('offline'); 
+        
+        db = imported;
+        localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
+        document.getElementById('importCode').value = '';
+        const msg = document.getElementById('syncMessage');
+        if(msg) msg.innerText = '✓ Données importées !';
+        
+        refreshUI();
+        showToast('✓ Synchronisation réussie!');
+        
+        setTimeout(() => {
+            if(msg) msg.innerText = '';
+        }, 3000);
+    } catch(e) {
+        console.error(e);
+        showToast('❌ Erreur - code invalide');
     }
-    state.isSyncing = false;
-}
-
-function saveKeys() {
-    keys.token = document.getElementById('syncToken').value;
-    keys.gistId = document.getElementById('syncGistId').value;
-    localStorage.setItem(STORAGE_KEYS_KEY, JSON.stringify(keys));
-    cloudPull();
 }
 
 function showToast(message) {
@@ -500,7 +479,6 @@ function processHevy() {
     document.getElementById('hevyPaste').value = "";
     showToast("✓ Séance importée");
     refreshUI();
-    cloudPush();
 }
 
 function deleteLog(logId) {
@@ -532,7 +510,6 @@ function deleteLog(logId) {
         localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
         
         refreshUI();
-        cloudPush();
         showToast("✓ Séance supprimée");
     };
 }
@@ -649,6 +626,17 @@ function renderStats() {
         });
     });
 
+    // Déclarer radarLabels et radarData pour les utiliser plus bas
+    const radarLabels = ['Dos', 'Torse', 'Tronc', 'Jambes', 'Bras', 'Épaules'];
+    const radarData = [
+        muscleSets['Dos'] || 0,
+        muscleSets['Pecs'] || 0,
+        muscleSets['Abdos'] || 0,
+        muscleSets['Jambes'] || 0,
+        muscleSets['Bras'] || 0,
+        muscleSets['Épaules'] || 0
+    ];
+
     const labelsMuscle = Object.keys(muscleSets).filter(k => muscleSets[k] > 0);
     const dataMuscle = labelsMuscle.map(k => muscleSets[k]);
     const colorsMuscle = labelsMuscle.map(k => muscleColors[k]);
@@ -658,15 +646,6 @@ function renderStats() {
         if (state.chartMuscle) state.chartMuscle.destroy();
         
         // Créer un hexagone SVG au lieu d'un chart
-        const radarLabels = ['Dos', 'Torse', 'Tronc', 'Jambes', 'Bras', 'Épaules'];
-        const radarData = [
-            muscleSets['Dos'] || 0,
-            muscleSets['Pecs'] || 0,
-            muscleSets['Abdos'] || 0,
-            muscleSets['Jambes'] || 0,
-            muscleSets['Bras'] || 0,
-            muscleSets['Épaules'] || 0
-        ];
         
         // Normaliser les données (0-100 pour le visuel)
         const maxValue = Math.max(...radarData, 1) * 1.2;
@@ -846,7 +825,6 @@ function updateProfile() {
     db.user.bw = parseFloat(document.getElementById('inputBW').value) || 80;
     localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
     renderDash(); 
-    cloudPush();
 }
 
 async function fullReset() {
@@ -854,7 +832,6 @@ async function fullReset() {
     db = { user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: Date.now() };
     localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
     refreshUI();
-    await cloudPush();
     alert("Application remise à zéro.");
 }
 
@@ -906,19 +883,11 @@ window.addEventListener('load', () => {
     if(keys.gistId) document.getElementById('syncGistId').value = keys.gistId;
     renderDash(); renderDayList();
     if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
-    if(keys.token && keys.gistId) cloudPull();
 });
 
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && keys.token && keys.gistId) cloudPull();
+    // Rien à faire - on utilise le partage par code maintenant
 });
-
-// Auto-sync toutes les 10 secondes quand l'app est visible
-setInterval(() => {
-    if (document.visibilityState === 'visible' && keys.token && keys.gistId) {
-        cloudPull();
-    }
-}, 10000);
 </script>
 </body>
 </html>

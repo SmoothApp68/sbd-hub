@@ -49,25 +49,26 @@
 </head>
 <body>
 
-    <div id="tab-dash" class="content-section active">
+<div id="tab-dash" class="content-section active">
         <div class="card">
             <div class="header-card">
                 <h2>Performance (Estimé)</h2>
                 <div id="syncStatus" class="sync-badge"><div class="sync-dot" id="syncDot"></div><span id="syncText">Hors ligne</span></div>
             </div>
             <div class="sbd-grid" id="sbdDisplay"></div>
-            <div style="height: 180px; margin-top: 25px;"><canvas id="chartSBD"></canvas></div>
+            <div style="height: 220px; margin-top: 25px;"><canvas id="chartSBD"></canvas></div>
         </div>
 
         <div class="card">
             <div class="header-card">
-                <h2 id="dayTitle">Protocole</h2>
+                <h2 id="dayTitle">Programme du jour</h2>
                 <select id="daySelect" style="width:130px; margin:0; padding:8px; font-size:14px;" onchange="renderDash()">
                     <option value="Lundi">Lundi</option><option value="Mardi">Mardi</option><option value="Mercredi">Mercredi</option>
                     <option value="Jeudi">Jeudi</option><option value="Vendredi">Vendredi</option><option value="Samedi">Samedi</option><option value="Dimanche">Dimanche</option>
                 </select>
             </div>
-            <div id="dashSupps"></div>
+            <div style="text-align: center; padding: 10px 0; color: var(--blue); font-weight: 600; font-size: 18px;" id="routineDisplay">
+                </div>
         </div>
     </div>
 
@@ -244,7 +245,8 @@ function updateProfile() {
 
 function renderDash() {
     const day = document.getElementById('daySelect').value;
-    document.getElementById('dayTitle').innerText = routines[day];
+    document.getElementById('dayTitle').innerText = "Programme";
+    document.getElementById('routineDisplay').innerText = routines[day];
     
     // Grille SBD
     document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
@@ -256,28 +258,6 @@ function renderDash() {
         </div>
     `).join('');
 
-    // Protocole Suppléments - MAJ DOSAGES RÉELS
-    const isTraining = ["Lundi","Mardi","Jeudi","Vendredi","Samedi"].includes(day);
-    let html = '';
-    
-    // Matin / Midi
-    html += `<div class="supp-item"><span>Oméga 3</span><span style="color:var(--green)">4 gélules - Midi</span></div>`;
-    
-    // Autour de l'entraînement
-    if(isTraining) {
-        html += `<div class="supp-item"><span style="font-weight:bold; color:var(--orange)">WORK! (Pré)</span><span style="color:var(--orange); font-weight:bold;">10g</span></div>`;
-        html += `<div class="supp-item"><span style="font-weight:bold; color:var(--blue)">Whey Isolate (Post)</span><span style="color:var(--blue); font-weight:bold;">30g</span></div>`;
-    }
-    
-    // Soir
-    html += `<div class="supp-item"><span>Articulations</span><span style="color:var(--purple)">${isTraining?'20g':'10g'} - Soir</span></div>`;
-    html += `<div class="supp-item"><span>Créatine</span><span style="color:var(--sub)">5g - Soir</span></div>`;
-    html += `<div class="supp-item"><span>Glycine</span><span style="color:#BF5AF2">15g - Soir</span></div>`;
-    
-    // Coucher
-    html += `<div class="supp-item"><span>ZMB Pidolates</span><span style="color:#5E5CE6">3 gélules - Coucher</span></div>`;
-    
-    document.getElementById('dashSupps').innerHTML = html;
     renderCharts();
 }
 

@@ -106,10 +106,12 @@
     </nav>
 
 <script>
+let syncConfig = JSON.parse(localStorage.getItem('SBD_SYNC_CONFIG')) || { token: "", gistId: "" };
 let db = JSON.parse(localStorage.getItem('SBD_HUB_V26')) || {
     user: { bw: 80, targets: { bench: 140, squat: 148, deadlift: 185 } },
     logs: [],
-    bestPR: { bench: 0, squat: 0, deadlift: 0 }
+    bestPR: { bench: 0, squat: 0, deadlift: 0 },
+    lastSync: null
 };
 
 const muscleDict = {
@@ -118,10 +120,37 @@ const muscleDict = {
     "Dos": ["deadlift", "terre", "row", "tirage", "traction", "lat"],
     "Épaules": ["militaire", "shoulder", "épaules", "élévation", "lateral"],
     "Bras": ["curl", "bicep", "tricep", "extension"],
-    "Cardio": ["natation", "tapis", "vélo", "bike", "run"]
+    "Cardio": ["natation", "tapis", "vélo", "bike", "run", "swimming"]
 };
 
 let chartSBD = null; let chartTonnage = null;
+
+async function cloudPush(auto = false) {
+    if (!syncConfig.token || !syncConfig.gistId) return;
+    try {
+        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `token ${syncConfig.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: { "sbd_hub_data.json": { content: JSON.stringify(db) } } })
+        });
+        if (res.ok) {
+            db.lastSync = new Date().toLocaleString();
+            saveDB();
+            if(!auto) alert("Cloud Sync OK");
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function cloudPull() {
+    if (!syncConfig.token || !syncConfig.gistId) return;
+    try {
+        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`);
+        const data = await res.json();
+        db = JSON.parse(data.files["sbd_hub_data.json"].content);
+        saveDB();
+        location.reload();
+    } catch (e) { alert("Erreur Pull"); }
+}
 
 function showTab(id) {
     document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
@@ -131,33 +160,29 @@ function showTab(id) {
     if(id === 'tab-dash') renderDash();
 }
 
-function calc1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r))); }
-
 function processHevy() {
     const text = document.getElementById('hevyPaste').value;
     if(!text) return;
-
     const lines = text.split('\n');
     let session = { date: new Date().toLocaleDateString('fr-FR'), tonnage: 0, exercises: [] };
     let currExo = null; let isSuper = false;
 
     lines.forEach(line => {
         let l = line.trim(); let low = l.toLowerCase();
-        if(low.includes("hevy") || low.includes("http") || low.startsWith("routine") || low.includes("note:")) return;
+        if(low.includes("hevy") || low.includes("http") || low.startsWith("routine")) return;
         if(low.includes("superset")) { isSuper = true; return; }
-
         if(low.startsWith("série")) {
-            let parts = l.split(':');
-            if(currExo && parts[1]) {
-                let deg = parts[1].includes("abandon") || parts[1].includes("dégressif");
-                let m = parts[1].match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+            let p = l.split(':');
+            if(currExo && p[1]) {
+                let deg = p[1].includes("abandon") || p[1].includes("dégressif");
+                let m = p[1].match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
                 if(m) {
-                    let w = parseFloat(m[1]); let r = parseInt(m[2]);
+                    let w = parseFloat(m[1]), r = parseInt(m[2]);
                     session.tonnage += (w * r);
-                    let rm = calc1RM(w, r);
+                    let rm = r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r)));
                     if(rm > currExo.maxRM) currExo.maxRM = rm;
                 }
-                currExo.sets.push({ txt: parts[1].trim(), deg: deg });
+                currExo.sets.push({ txt: p[1].trim(), deg: deg });
             }
         } else if(l && !l.includes('kg x')) {
             if(currExo) session.exercises.push(currExo);
@@ -167,15 +192,15 @@ function processHevy() {
         }
     });
     if(currExo) session.exercises.push(currExo);
-
     session.exercises.forEach(exo => {
         let n = exo.name.toLowerCase();
-        let type = n.includes("bench") || n.includes("couché") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
+        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
         if(type && exo.maxRM > db.bestPR[type]) db.bestPR[type] = exo.maxRM;
     });
-
     db.logs.unshift(session);
-    saveDB(); renderDayList();
+    saveDB();
+    cloudPush(true);
+    renderDayList();
     document.getElementById('hevyPaste').value = "";
 }
 
@@ -183,34 +208,21 @@ function renderDash() {
     const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
     const dayCap = today.charAt(0).toUpperCase() + today.slice(1);
     document.getElementById('dashDay').innerText = dayCap;
-    
-    const isSalle = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(dayCap);
-    const isForce = ["Lundi", "Mardi", "Jeudi"].includes(dayCap);
-    const isSBD = dayCap === "Samedi";
-
+    const isSalle = ["Lundi","Mardi","Jeudi","Vendredi","Samedi"].includes(dayCap);
+    const isForce = ["Lundi","Mardi","Jeudi"].includes(dayCap);
     let html = '';
-    if(isForce) html += `<div class="supp-item"><span><b>Work! + Whey Isolate</b> (Pré)</span><span style="color:var(--orange)">10g / 30g</span></div>`;
-    if(isSBD) html += `<div class="supp-item"><span><b>Endurance Infini</b> (Pré)</span><span style="color:var(--orange)">1 Scoop</span></div>`;
+    if(isForce) html += `<div class="supp-item"><span><b>Work! + Whey</b></span><span style="color:var(--orange)">10g / 30g</span></div>`;
+    if(dayCap === "Samedi") html += `<div class="supp-item"><span><b>Endurance Infini</b></span><span style="color:var(--orange)">1 Scoop</span></div>`;
     html += `<div class="supp-item"><span>Omega 3 (Midi)</span><span>4 gélules</span></div>`;
     html += `<div class="supp-item"><span>Artic. + Glycine + Créatine</span><span style="color:var(--purple)">${isSalle?'20g':'10g'}/15g/5g</span></div>`;
-    html += `<div class="supp-item"><span>ZMB Pidolates (Coucher)</span><span>3 gélules</span></div>`;
+    html += `<div class="supp-item"><span>ZMB (Coucher)</span><span>3 gélules</span></div>`;
     document.getElementById('dashSupps').innerHTML = html;
-
-    const rb = (db.bestPR.bench / db.user.bw).toFixed(2);
-    const rs = (db.bestPR.squat / db.user.bw).toFixed(2);
-    const rd = (db.bestPR.deadlift / db.user.bw).toFixed(2);
-    document.getElementById('ratioDisplay').innerHTML = `
-        <div class="ratio-box"><h2>Bench</h2><div class="ratio-val">x${rb}</div></div>
-        <div class="ratio-box"><h2>Squat</h2><div class="ratio-val">x${rs}</div></div>
-        <div class="ratio-box"><h2>Terre</h2><div class="ratio-val">x${rd}</div></div>`;
-
+    document.getElementById('ratioDisplay').innerHTML = ['bench','squat','deadlift'].map(k => `
+        <div class="ratio-box"><h2>${k.toUpperCase()}</h2><div class="ratio-val">x${(db.bestPR[k]/db.user.bw).toFixed(2)}</div></div>
+    `).join('');
     if(chartSBD) chartSBD.destroy();
-    chartSBD = new Chart(document.getElementById('chartSBD').getContext('2d'), {
-        type: 'bar',
-        data: { labels: ['Bench', 'Squat', 'Terre'], datasets: [
-            { label: 'Actuel', data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift], backgroundColor: '#0A84FF', borderRadius: 6 },
-            { label: 'Cible', data: [db.user.targets.bench, db.user.targets.squat, db.user.targets.deadlift], backgroundColor: '#2C2C2E', borderRadius: 6 }
-        ]},
+    chartSBD = new Chart(document.getElementById('chartSBD'), {
+        type: 'bar', data: { labels: ['Bench', 'Squat', 'Dead'], datasets: [{ data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift], backgroundColor: '#0A84FF', borderRadius: 6 }] },
         options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { ticks: { color: '#FFF' } } } }
     });
 }
@@ -218,12 +230,11 @@ function renderDash() {
 function renderDayList() {
     document.getElementById('trainingLogs').innerHTML = db.logs.slice(0, 5).map(log => `
         <div class="card">
-            <h2>${log.date} — Vol: ${Math.round(log.tonnage)} kg</h2>
+            <h2>${log.date} — ${Math.round(log.tonnage)} kg</h2>
             ${log.exercises.map(exo => `
                 <div class="exo-card">
-                    <div style="font-weight:bold;">${exo.isSuper ? '<span class="tag tag-super">Super</span>' : ''}${exo.name}</div>
-                    <div style="font-size:11px; color:var(--blue)">Max Est: ${exo.maxRM}kg</div>
-                    ${exo.sets.map(s => `<div class="set-row"><span>Série ${s.deg?'<span class="tag tag-deg">Dégres.</span>':''}</span><span style="color:var(--green)">${s.txt.replace(/abandon|dégressif/gi,'')}</span></div>`).join('')}
+                    <div style="font-weight:bold;">${exo.isSuper ? 'S/S ' : ''}${exo.name}</div>
+                    ${exo.sets.map(s => `<div class="set-row"><span>${s.deg?'[D] ':''}Set</span><span style="color:var(--green)">${s.txt}</span></div>`).join('')}
                 </div>
             `).join('')}
         </div>`).join('');
@@ -235,34 +246,43 @@ function renderStats() {
         distribution[exo.muscle] = (distribution[exo.muscle] || 0) + exo.sets.length;
         total += exo.sets.length;
     }));
-    document.getElementById('muscleDistribution').innerHTML = Object.entries(distribution).sort((a,b)=>b[1]-a[1]).map(([m, s]) => {
-        let pct = total ? Math.round((s/total)*100) : 0;
-        return `<div><div class="stat-row"><span>${m}</span><span>${s} séries</span></div><div class="muscle-bar"><div class="muscle-fill" style="width:${pct}%"></div></div></div>`;
-    }).join('');
-
+    document.getElementById('muscleDistribution').innerHTML = Object.entries(distribution).map(([m, s]) => `
+        <div class="stat-row"><span>${m}</span><span>${s} sets</span></div>
+        <div class="muscle-bar"><div class="muscle-fill" style="width:${(s/total*100)}%"></div></div>
+    `).join('');
     if(chartTonnage) chartTonnage.destroy();
     const lastLogs = [...db.logs].reverse().slice(-7);
-    chartTonnage = new Chart(document.getElementById('chartTonnage').getContext('2d'), {
-        type: 'line',
-        data: { labels: lastLogs.map(l => l.date.split('/')[0]+'/'+l.date.split('/')[1]), datasets: [{ data: lastLogs.map(l => l.tonnage), borderColor: '#30D158', tension: 0.3, fill: false, pointBackgroundColor: '#30D158' }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' }, ticks: { color: '#8E8E93' } }, x: { ticks: { color: '#8E8E93' } } } }
+    chartTonnage = new Chart(document.getElementById('chartTonnage'), {
+        type: 'line', data: { labels: lastLogs.map(l => l.date), datasets: [{ data: lastLogs.map(l => l.tonnage), borderColor: '#30D158' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#8E8E93' } } } }
     });
 }
 
 function saveDB() { localStorage.setItem('SBD_HUB_V26', JSON.stringify(db)); }
-function saveSettings() { db.user.bw = parseFloat(document.getElementById('inputBW').value); saveDB(); renderDash(); alert("Profil mis à jour !"); }
-function exportData() {
-    const blob = new Blob([JSON.stringify(db)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `sbd_backup.json`; a.click();
+function saveSettings() { db.user.bw = parseFloat(document.getElementById('inputBW').value); saveDB(); renderDash(); alert("OK"); }
+function saveSyncConfig() {
+    syncConfig.token = document.getElementById('syncToken').value;
+    syncConfig.gistId = document.getElementById('syncGistId').value;
+    localStorage.setItem('SBD_SYNC_CONFIG', JSON.stringify(syncConfig));
+    alert("Keys Saved");
 }
-function importData(input) {
-    const reader = new FileReader();
-    reader.onload = function(){ db = JSON.parse(reader.result); saveDB(); location.reload(); };
-    reader.readAsText(input.files[0]);
+function exportData() { 
+    let blob = new Blob([JSON.stringify(db)], {type:'application/json'}); 
+    let a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `sbd_hub.json`; a.click(); 
 }
-function resetApp() { if(confirm("Supprimer tout ?")) { localStorage.clear(); location.reload(); } }
+function resetApp() { if(confirm("Reset?")) { localStorage.clear(); location.reload(); } }
 
+document.getElementById('syncPanel').innerHTML = `
+    <div class="card" style="border-color: var(--blue)">
+        <h2>Cloud Sync</h2>
+        <input type="password" id="syncToken" placeholder="Token" value="${syncConfig.token}" style="margin-bottom:8px;">
+        <input type="text" id="syncGistId" placeholder="Gist ID" value="${syncConfig.gistId}" style="margin-bottom:8px;">
+        <button class="btn" onclick="saveSyncConfig()">Save Keys</button>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn-outline" style="flex:1" onclick="cloudPull()">Pull</button>
+            <button class="btn-outline" style="flex:1" onclick="cloudPush()">Push</button>
+        </div>
+    </div>`;
 document.getElementById('inputBW').value = db.user.bw;
 renderDash(); renderDayList();
 </script>

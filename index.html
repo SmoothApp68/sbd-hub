@@ -3,201 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBD Hub Pro - Stats & Performance</title>
+    <title>SBD Hub Pro - Ultimate Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --text: #FFF; --sub: #8E8E93; }
+        :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --purple: #BF5AF2; --text: #FFF; --sub: #8E8E93; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
-        .tab-content { display: none; padding: 15px; }
-        .tab-content.active { display: block; }
         
-        /* Navigation Basse style Hevy */
-        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: #121212; border-top: 1px solid #2C2C2E; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
-        .tab-item { color: var(--sub); text-align: center; font-size: 10px; text-decoration: none; display: flex; flex-direction: column; gap: 4px; }
-        .tab-item.active { color: var(--blue); }
-        .tab-icon { font-size: 20px; }
+        /* Navigation Tabs */
+        .tab-content { display: none; padding: 15px; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: rgba(18, 18, 18, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #2C2C2E; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+        .tab-item { color: var(--sub); text-align: center; font-size: 10px; text-decoration: none; display: flex; flex-direction: column; gap: 4px; padding: 10px; width: 50%; }
+        .tab-item.active { color: var(--blue); font-weight: bold; }
+        .tab-icon { font-size: 22px; }
 
-        .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #2C2C2E; }
+        /* UI Elements */
+        .card { background: var(--card); padding: 15px; border-radius: 16px; margin-bottom: 12px; border: 1px solid #2C2C2E; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         h2 { font-size: 11px; color: var(--sub); text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.5px; }
         
-        .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2C2C2E; font-size: 13px; }
-        .muscle-bar-container { width: 100%; height: 8px; background: #2C2C2E; border-radius: 4px; margin-top: 5px; overflow: hidden; }
-        .muscle-bar-fill { height: 100%; background: var(--blue); }
+        .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none; }
+        .day-btn { background: #1C1C1E; border: 1px solid #2C2C2E; color: var(--sub); padding: 8px 16px; border-radius: 20px; white-space: nowrap; font-size: 12px; font-weight: 600; }
+        .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
+
+        /* Suppléments */
+        .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); margin-bottom: 6px; }
+        .supp-name { font-weight: 700; font-size: 13px; }
+        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; }
+
+        /* Exercices & Tags */
+        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 12px 0; position: relative; }
+        .exo-card:last-child { border-bottom: none; }
+        .exo-name { font-weight: 700; font-size: 15px; color: var(--blue); display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
         
-        .badge-pr { background: var(--orange); color: #000; font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px; }
-        textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 10px; height: 60px; box-sizing: border-box; }
-        .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer;}
+        .tag { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+        .tag-super { background: rgba(255, 159, 10, 0.2); color: var(--orange); border: 1px solid var(--orange); }
+        .tag-pr { background: var(--orange); color: #000; float: right; }
+        .tag-deg { color: var(--red); border: 1px solid var(--red); margin-left: 6px; }
+
+        .perf-line { font-size: 11px; color: var(--sub); margin: 4px 0 8px 0; display: flex; justify-content: space-between; }
+        .perf-val { color: #FFF; font-weight: bold; }
+        .set-row { display: flex; justify-content: space-between; font-size: 13px; margin-top: 4px; padding: 4px 0; }
+        
+        /* Stats & Forms */
+        .stat-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; align-items: center; }
+        .muscle-bar { width: 100%; height: 6px; background: #2C2C2E; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+        .muscle-fill { height: 100%; background: var(--blue); border-radius: 3px; }
+        
+        textarea { width: 100%; background: #262629; border: 1px solid #3A3A3C; color: white; border-radius: 12px; padding: 12px; height: 70px; box-sizing: border-box; font-size: 14px; outline: none; }
+        .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 14px; border-radius: 12px; font-weight: bold; margin-top: 10px; font-size: 15px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="workout" class="tab-content active">
         <div class="card">
-            <h2>Protocole du jour</h2>
+            <h2>Protocole <span id="currentDayTitle" style="color:var(--blue); float:right;"></span></h2>
             <div id="suppContainer"></div>
         </div>
+
         <div class="card">
-            <h2>Import Hevy</h2>
-            <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
-            <button class="btn" onclick="importHevy()">Enregistrer la séance</button>
+            <h2>Enregistrer une Séance</h2>
+            <textarea id="hevyInput" placeholder="Colle ta séance Hevy ici..."></textarea>
+            <button class="btn" onclick="importHevy()">Analyser & Archiver</button>
         </div>
+
+        <div id="dayNav" class="day-nav"></div>
         <div id="dayContent"></div>
     </div>
 
     <div id="stats" class="tab-content">
         <div class="card">
-            <h2>Volume par Muscle (Séries)</h2>
+            <h2>SBD Performance (Records vs BW)</h2>
+            <canvas id="sbdChart" height="140"></canvas>
+            <div id="ratioDisplay" style="display:grid; grid-template-columns: repeat(3, 1fr); text-align:center; margin-top:15px; gap:10px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Volume par Groupe Musculaire</h2>
             <div id="muscleDistribution"></div>
         </div>
+
         <div class="card">
-            <h2>Classement Exercices (1RM Est.)</h2>
+            <h2>Top 5 Exercices (1RM Est.)</h2>
             <div id="topExos"></div>
-        </div>
-        <div class="card">
-            <h2>SBD Ratios</h2>
-            <canvas id="sbdChart" height="150"></canvas>
-            <div id="ratioDisplay" style="display:grid; grid-template-columns: repeat(3, 1fr); text-align:center; margin-top:15px;"></div>
         </div>
     </div>
 
     <nav class="tab-bar">
         <a href="#" class="tab-item active" onclick="switchTab('workout')"><span class="tab-icon">🏋️</span><span>Workout</span></a>
-        <a href="#" class="tab-item" onclick="switchTab('stats')"><span class="tab-icon">📊</span><span>Stats</span></a>
+        <a href="#" class="tab-item" onclick="switchTab('stats')"><span class="tab-icon">📊</span><span>Statistiques</span></a>
     </nav>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('gymHub_Ultimate_V23')) || {
-        bodyWeight: 80,
-        records: { bench: 0, squat: 0, deadlift: 0 },
+    // --- BASE DE DONNÉES ---
+    let db = JSON.parse(localStorage.getItem('gymHub_V24')) || {
+        bw: 80,
+        sbd: { bench: 0, squat: 0, deadlift: 0 },
         targets: { bench: 140, squat: 148, deadlift: 185 },
-        logs: [], 
-        exerciseHistory: {} 
+        logs: [], // Archive infinie
+        exoHist: {} // Historique pour courbes et PR
     };
 
     const muscleMap = {
         "couché": "Pectoraux", "bench": "Pectoraux", "écarté": "Pectoraux",
-        "squat": "Quadriceps", "presse": "Quadriceps", "fentes": "Quadriceps",
-        "deadlift": "Dos/Ischios", "terre": "Dos/Ischios", "tirage": "Dos", "rowing": "Dos",
-        "curl": "Biceps", "triceps": "Triceps", "barre au front": "Triceps",
-        "épaules": "Épaules", "développé militaire": "Épaules", "élévation": "Épaules",
+        "squat": "Quadriceps", "presse": "Quadriceps", "fentes": "Quadriceps", "leg extension": "Quadriceps",
+        "deadlift": "Dos/Ischios", "terre": "Dos/Ischios", "tirage": "Dos", "rowing": "Dos", "traction": "Dos",
+        "curl": "Biceps", "triceps": "Triceps", "front": "Triceps",
+        "épaules": "Épaules", "militaire": "Épaules", "élévation": "Épaules",
         "natation": "Cardio", "tapis": "Cardio"
     };
 
+    let sbdChart;
+
+    // --- LOGIQUE METIER ---
+    function calculate1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r))); }
+
     function switchTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.tab-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.tab-content, .tab-item').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         event.currentTarget.classList.add('active');
         if(tabId === 'stats') renderStats();
     }
 
-    function calculate1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r))); }
-
     function importHevy() {
         const text = document.getElementById('hevyInput').value;
         if (!text) return;
-        const dateNow = new Date().toISOString();
-        const lines = text.split('\n');
-        let sessionExos = []; let current = null;
+        
+        const dateNow = new Date().toLocaleDateString('fr-FR');
+        const days = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+        const dayMatch = days.find(d => text.toLowerCase().includes(d.toLowerCase())) || new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date()).replace(/^\w/, c => c.toUpperCase());
+        
+        let exos = []; let curr = null; let isSuper = false;
 
-        lines.forEach(line => {
-            let t = line.trim();
-            if (t.toLowerCase().startsWith("série")) {
+        text.split('\n').forEach(line => {
+            let t = line.trim().toLowerCase();
+            if (t.includes("superset")) isSuper = true;
+            
+            if (t.startsWith("série")) {
                 let p = t.split(":");
-                if (current && p[1]) current.sets.push(p[1].trim());
-            } else if (t && !t.includes("kg x") && !t.includes("Hevy")) {
-                if (current) sessionExos.push(current);
-                current = { n: t, sets: [] };
+                if (curr && p[1]) {
+                    // Détection du dégressif ("abandon" ou "dégressif")
+                    let isDeg = p[1].includes("abandon") || p[1].includes("dégressif");
+                    curr.sets.push({ label: p[0].trim(), val: p[1].trim(), deg: isDeg });
+                }
+            } else if (t && !t.includes("kg x") && !t.includes("hevy")) {
+                if (curr) exos.push(curr);
+                // Le nom de l'exercice garde sa casse d'origine via la ligne brute
+                curr = { n: line.trim(), sets: [], super: isSuper, topW: 0, top1RM: 0, pr: false };
+                isSuper = false; 
             }
         });
-        if (current) sessionExos.push(current);
-
-        sessionExos.forEach(exo => {
-            let max1RM = 0;
+        if (curr) exos.push(curr);
+        
+        exos.forEach(exo => {
+            let mW = 0; let m1RM = 0;
             exo.sets.forEach(s => {
-                const match = s.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+                const match = s.val.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
                 if (match) {
-                    let val1RM = calculate1RM(parseFloat(match[1]), parseInt(match[2]));
-                    if (val1RM > max1RM) max1RM = val1RM;
+                    let w = parseFloat(match[1]); let r = parseInt(match[2]);
+                    let c1RM = calculate1RM(w, r);
+                    if (w > mW) mW = w;
+                    if (c1RM > m1RM) m1RM = c1RM;
                 }
             });
-            if (!db.exerciseHistory[exo.n]) db.exerciseHistory[exo.n] = [];
-            db.exerciseHistory[exo.n].push({ date: dateNow, oneRM: max1RM, setsCount: exo.sets.length });
-            
-            // Check SBD
-            const n = exo.n.toLowerCase();
-            const sbd = n.includes("couché") || n.includes("bench") ? 'bench' : (n.includes("squat") ? 'squat' : (n.includes("deadlift") ? 'deadlift' : null));
-            if(sbd && max1RM > db.records[sbd]) db.records[sbd] = max1RM;
+            exo.topW = mW; exo.top1RM = m1RM;
+
+            if (!db.exoHist[exo.n]) db.exoHist[exo.n] = [];
+            let lastPR = db.exoHist[exo.n].length > 0 ? Math.max(...db.exoHist[exo.n].map(h => h.rm)) : 0;
+            if (m1RM > lastPR && m1RM > 0) exo.pr = true;
+
+            if(m1RM > 0) {
+                db.exoHist[exo.n].push({ d: dateNow, w: mW, rm: m1RM, sc: exo.sets.length });
+            }
+
+            // Maj SBD automatique
+            const nLower = exo.n.toLowerCase();
+            const sbdKey = (nLower.includes("couché") || nLower.includes("bench")) ? 'bench' : 
+                           (nLower.includes("squat") && !nLower.includes("hack") ? 'squat' : 
+                           (nLower.includes("deadlift") || nLower.includes("terre") ? 'deadlift' : null));
+            if (sbdKey && m1RM > db.sbd[sbdKey]) {
+                db.sbd[sbdKey] = m1RM;
+                if(db.sbd[sbdKey] >= db.targets[sbdKey]) db.targets[sbdKey] += 5;
+            }
         });
 
-        db.logs.unshift({ date: dateNow, exercises: sessionExos });
-        localStorage.setItem('gymHub_Ultimate_V23', JSON.stringify(db));
-        alert("Séance enregistrée !");
-        location.reload();
+        db.logs.unshift({ date: dateNow, day: dayMatch, exos: exos });
+        localStorage.setItem('gymHub_V24', JSON.stringify(db));
+        
+        document.getElementById('hevyInput').value = "";
+        renderDay(dayMatch);
+    }
+
+    // --- RENDU UI ---
+    function renderDay(dayName) {
+        updateSupps(dayName);
+        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === dayName));
+        
+        const log = db.logs.find(l => l.day === dayName);
+        document.getElementById('dayContent').innerHTML = log ? `<div class="card"><h2>Dernière Archive : ${log.date}</h2>${log.exos.map(exo => `
+            <div class="exo-card">
+                <div class="exo-name">
+                    ${exo.n} 
+                    ${exo.super ? '<span class="tag tag-super">Superset</span>' : ''}
+                    ${exo.pr ? '<span class="tag tag-pr">Nouveau PR !</span>' : ''}
+                </div>
+                ${exo.top1RM > 0 ? `<div class="perf-line"><span>Max: <span class="perf-val">${exo.topW}kg</span></span><span>1RM Est: <span class="perf-val">${exo.top1RM}kg</span></span></div>` : ''}
+                ${exo.sets.map(s => `
+                    <div class="set-row">
+                        <span style="color:var(--sub)">${s.label} ${s.deg ? '<span class="tag tag-deg">Dégres.</span>' : ''}</span>
+                        <span style="color:var(--green); font-weight:bold;">${s.val.replace(/abandon|dégressif/gi, '')}</span>
+                    </div>`).join('')}
+            </div>`).join('')}</div>` : '<div class="card"><p style="text-align:center; color:var(--sub); font-size:12px;">Aucune séance enregistrée pour ce jour.</p></div>';
+    }
+
+    function updateSupps(day) {
+        document.getElementById('currentDayTitle').innerText = day;
+        const isSalle = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(day);
+        const isForce = ["Lundi", "Mardi", "Jeudi"].includes(day);
+        
+        let html = '';
+        if(day === "Samedi") html += `<div class="supp-item"><span class="supp-name">Endurance Infini (Pré)</span><span class="supp-dose">1 Scoop</span></div>`;
+        if(isForce) html += `<div class="supp-item" style="border-left-color:var(--orange)"><span class="supp-name">Work! + Whey (Pré)</span><span class="supp-dose">1 Sc. / 30g</span></div>`;
+        
+        html += `
+            <div class="supp-item"><span class="supp-name">Omega 3 (Midi)</span><span class="supp-dose">4 gélules</span></div>
+            <div class="supp-item" style="border-left-color:var(--purple)"><span class="supp-name">Articulations + Glycine + Créatine</span><span class="supp-dose">${isSalle ? '20g' : '10g'} / 15g / 5g</span></div>
+            <div class="supp-item"><span class="supp-name">ZMB Pidolates (Coucher)</span><span class="supp-dose">3 gélules</span></div>
+        `;
+        document.getElementById('suppContainer').innerHTML = html;
     }
 
     function renderStats() {
-        // 1. Distribution Musculaire
-        const distribution = {};
-        Object.keys(db.exerciseHistory).forEach(name => {
-            let muscle = "Autre";
-            for (let key in muscleMap) { if(name.toLowerCase().includes(key)) muscle = muscleMap[key]; }
-            let sets = db.exerciseHistory[name].reduce((acc, curr) => acc + curr.setsCount, 0);
-            distribution[muscle] = (distribution[muscle] || 0) + sets;
-        });
-
-        const totalSets = Object.values(distribution).reduce((a, b) => a + b, 0);
-        let distHTML = "";
-        for (let m in distribution) {
-            let pct = (distribution[m] / totalSets * 100).toFixed(0);
-            distHTML += `<div class="stat-row"><span>${m}</span><span>${distribution[m]} séries (${pct}%)</span></div>
-                         <div class="muscle-bar-container"><div class="muscle-bar-fill" style="width:${pct}%"></div></div>`;
-        }
-        document.getElementById('muscleDistribution').innerHTML = distHTML || "Aucune donnée.";
-
-        // 2. Top Exercices
-        let topExos = Object.keys(db.exerciseHistory).map(name => {
-            let best = Math.max(...db.exerciseHistory[name].map(h => h.oneRM));
-            return { name, best };
-        }).sort((a, b) => b.best - a.best).slice(0, 5);
-
-        document.getElementById('topExos').innerHTML = topExos.map(e => `
-            <div class="stat-row"><span>${e.name}</span><span class="badge-pr">${e.best} kg Est.</span></div>
-        `).join('');
-
-        // 3. SBD UI
-        updateSBDChart();
-    }
-
-    function updateSBDChart() {
-        const rB = (db.records.bench / db.bodyWeight).toFixed(2);
-        const rS = (db.records.squat / db.bodyWeight).toFixed(2);
-        const rD = (db.records.deadlift / db.bodyWeight).toFixed(2);
-        document.getElementById('ratioDisplay').innerHTML = `<div><div style="font-size:14px;font-weight:bold;color:var(--blue)">x${rB}</div><div style="font-size:8px;color:var(--sub)">BENCH</div></div><div><div style="font-size:14px;font-weight:bold;color:var(--blue)">x${rS}</div><div style="font-size:8px;color:var(--sub)">SQUAT</div></div><div><div style="font-size:14px;font-weight:bold;color:var(--blue)">x${rD}</div><div style="font-size:8px;color:var(--sub)">TERRE</div></div>`;
+        // Ratios & Chart
+        const rb = (db.sbd.bench / db.bw).toFixed(2); const rs = (db.sbd.squat / db.bw).toFixed(2); const rd = (db.sbd.deadlift / db.bw).toFixed(2);
+        document.getElementById('ratioDisplay').innerHTML = `
+            <div><div style="font-size:16px;font-weight:900;color:var(--blue)">x${rb}</div><div style="font-size:9px;color:var(--sub);letter-spacing:1px">BENCH</div></div>
+            <div><div style="font-size:16px;font-weight:900;color:var(--blue)">x${rs}</div><div style="font-size:9px;color:var(--sub);letter-spacing:1px">SQUAT</div></div>
+            <div><div style="font-size:16px;font-weight:900;color:var(--blue)">x${rd}</div><div style="font-size:9px;color:var(--sub);letter-spacing:1px">TERRE</div></div>`;
         
-        const ctx = document.getElementById('sbdChart').getContext('2d');
         if(sbdChart) sbdChart.destroy();
-        sbdChart = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: ['Bench', 'Squat', 'Terre'], datasets: [{ data: [db.records.bench, db.records.squat, db.records.deadlift], backgroundColor: '#0A84FF', borderRadius: 8 }] },
-            options: { scales: { y: { display: false }, x: { ticks: { color: '#FFF' } } }, plugins: { legend: { display: false } } }
+        sbdChart = new Chart(document.getElementById('sbdChart').getContext('2d'), {
+            type: 'bar', data: { labels: ['Bench', 'Squat', 'Terre'], datasets: [
+                { label:'PR', data: [db.sbd.bench, db.sbd.squat, db.sbd.deadlift], backgroundColor: '#0A84FF', borderRadius: 4 },
+                { label:'Obj', data: [db.targets.bench, db.targets.squat, db.targets.deadlift], backgroundColor: '#2C2C2E', borderRadius: 4 }
+            ]}, options: { scales: { y: { display: false }, x: { ticks: { color: '#FFF' } } }, plugins: { legend: { display: false } } }
         });
+
+        // Distribution Musculaire
+        let dist = {}; let totalSets = 0;
+        Object.keys(db.exoHist).forEach(n => {
+            let m = "Autres";
+            for (let k in muscleMap) if(n.toLowerCase().includes(k)) { m = muscleMap[k]; break; }
+            let sets = db.exoHist[n].reduce((sum, h) => sum + h.sc, 0);
+            dist[m] = (dist[m] || 0) + sets; totalSets += sets;
+        });
+
+        document.getElementById('muscleDistribution').innerHTML = Object.entries(dist).sort((a,b)=>b[1]-a[1]).map(([m, val]) => {
+            let pct = totalSets ? Math.round((val/totalSets)*100) : 0;
+            return `<div class="stat-row"><span>${m}</span><span style="color:var(--sub); font-size:11px;">${val} séries</span></div>
+                    <div class="muscle-bar"><div class="muscle-fill" style="width:${pct}%"></div></div>`;
+        }).join('') || '<p style="font-size:12px;color:var(--sub);">Importe des séances pour voir la répartition.</p>';
+
+        // Top 5 Exercices
+        let top = Object.keys(db.exoHist).map(n => ({ n, max: Math.max(...db.exoHist[n].map(h=>h.rm)) })).sort((a,b)=>b.max-a.max).slice(0,5);
+        document.getElementById('topExos').innerHTML = top.map((e, i) => `
+            <div class="stat-row" style="border-bottom:1px solid #2C2C2E; padding:12px 0;">
+                <span style="font-weight:bold;"><span style="color:var(--sub); margin-right:8px;">#${i+1}</span>${e.n}</span>
+                <span class="tag tag-pr" style="float:none;">${e.max} kg</span>
+            </div>`).join('') || '<p style="font-size:12px;color:var(--sub);">En attente de données...</p>';
     }
 
-    // Init Supps
-    const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
-    const capitalizedDay = day.charAt(0).toUpperCase() + day.slice(1);
-    const isSBD = (capitalizedDay === "Samedi");
-    const isForce = ["Lundi", "Mardi", "Jeudi"].includes(capitalizedDay);
-    const artDose = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(capitalizedDay) ? "20g" : "10g";
+    // --- INITIALISATION ---
+    const nav = document.getElementById('dayNav');
+    ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].forEach(d => {
+        let btn = document.createElement('button'); btn.className = 'day-btn'; btn.innerText = d; 
+        btn.onclick = () => renderDay(d); nav.appendChild(btn);
+    });
 
-    document.getElementById('suppContainer').innerHTML = `
-        ${isSBD ? '<div class="supp-item"><span class="supp-name">Endurance Infini</span><span class="supp-dose">1 Scoop</span></div>' : ''}
-        ${isForce ? '<div class="supp-item"><span class="supp-name">Work! + Whey</span><span class="supp-dose">1 Scoop / 30g</span></div>' : ''}
-        <div class="supp-item"><span class="supp-name">Omega 3</span><span class="supp-dose">4 gélules</span></div>
-        <div class="supp-item"><span class="supp-name">Artic. + Glycine + Créatine</span><span class="supp-dose">${artDose}/15g/5g</span></div>
-        <div class="supp-item"><span class="supp-name">ZMB</span><span class="supp-dose">3 gélules</span></div>
-    `;
+    const todayStr = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
+    renderDay(todayStr.charAt(0).toUpperCase() + todayStr.slice(1));
 </script>
 </body>
 </html>

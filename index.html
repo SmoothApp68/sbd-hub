@@ -6,7 +6,7 @@
     <title>SBD Elite Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --bg: #000; --card: #151517; --blue: #0A84FF; --green: #32D74B; --red: #FF453A; --text: #F5F5F7; --sub: #86868B; --border: #2C2C2E; --orange: #FF9F0A; --purple: #BF5AF2; }
+        :root { --bg: #000; --card: #151517; --blue: #0A84FF; --green: #32D74B; --red: #FF453A; --text: #F5F5F7; --sub: #86868B; --border: #2C2C2E; --orange: #FF9F0A; --purple: #BF5AF2; --teal: #64D2FF; }
         body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px 15px 100px 15px; -webkit-font-smoothing: antialiased; }
         
         /* Navigation Premium */
@@ -27,7 +27,7 @@
         /* Composants */
         .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
         .rm-box { padding: 12px; border-radius: 14px; background: #1C1C1E; border: 1px solid #2C2C2E; }
-        .rm-val { font-size: 20px; font-weight: 800; color: var(--blue); margin: 4px 0; }
+        .rm-val { font-size: 20px; font-weight: 800; color: var(--blue); margin: 4px 0; display: flex; align-items: baseline; justify-content: center; gap: 2px; }
         .rm-target { font-size: 11px; color: var(--sub); }
         
         input, select, textarea { width: 100%; background: #1C1C1E; border: 1px solid #3A3A3C; color: white; border-radius: 12px; padding: 14px; box-sizing: border-box; margin-bottom: 12px; font-size: 16px; transition: 0.2s; }
@@ -42,6 +42,14 @@
         .sync-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
         .sync-dot.syncing { background: #FF9F0A; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* Stats spécifiques */
+        .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .report-box { background: #1C1C1E; padding: 15px; border-radius: 14px; border: 1px solid #2C2C2E; text-align: center; }
+        .report-val { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+        .report-label { font-size: 11px; color: var(--sub); text-transform: uppercase; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .stat-row:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -49,7 +57,7 @@
     <div id="tab-dash" class="content-section active">
         <div class="card">
             <div class="header-card">
-                <h2>Performance (Estimé)</h2>
+                <h2>Performance</h2>
                 <div id="syncStatus" class="sync-badge"><div class="sync-dot" id="syncDot"></div><span id="syncText">Hors ligne</span></div>
             </div>
             <div class="sbd-grid" id="sbdDisplay"></div>
@@ -79,8 +87,31 @@
 
     <div id="tab-stats" class="content-section">
         <div class="card">
-            <h2>Évolution</h2>
-            <p style="color:var(--sub); font-size:14px; text-align:center; padding: 20px 0;">Données de tonnage bientôt disponibles.</p>
+            <h2>Rapports</h2>
+            <div style="display:flex; justify-content:center; gap: 10px; margin-bottom:15px; margin-top:10px;">
+                <button class="sync-badge" style="background:var(--blue); color:white; border:none;" onclick="renderReports('week')">7 Jours</button>
+                <button class="sync-badge" onclick="renderReports('month')">30 Jours</button>
+            </div>
+            <div class="report-grid" id="reportDisplay">
+                </div>
+        </div>
+
+        <div class="card">
+            <h2>Répartition Musculaire</h2>
+            <div style="position: relative; height: 200px; margin-top: 15px; margin-bottom: 10px;">
+                <canvas id="chartMuscle"></canvas>
+            </div>
+            <div id="muscleList"></div>
+        </div>
+
+        <div class="card">
+            <h2>Top Exercices (7 derniers jours)</h2>
+            <div id="topExosList" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Tonnage Total</h2>
+            <div style="height: 200px; margin-top: 15px;"><canvas id="chartVolume"></canvas></div>
         </div>
     </div>
 
@@ -123,11 +154,13 @@
 <script>
 // --- DB & CONFIG ---
 let keys = JSON.parse(localStorage.getItem('SBD_KEYS')) || { token: "", gistId: "" };
-let db = JSON.parse(localStorage.getItem('SBD_HUB_V27')) || {
+let db = JSON.parse(localStorage.getItem('SBD_HUB_V28')) || {
     user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
     logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: 0
 };
 let chartSBD = null;
+let chartVolume = null;
+let chartMuscle = null;
 let isSyncing = false;
 
 const routines = {
@@ -140,13 +173,42 @@ const routines = {
     "Dimanche": "Repos Complet"
 };
 
+const muscleColors = { 'Jambes': '#32D74B', 'Pecs': '#0A84FF', 'Dos': '#FF9F0A', 'Épaules': '#BF5AF2', 'Bras': '#64D2FF', 'Abdos': '#FF453A', 'Autre': '#86868B' };
+
+function getMuscleGroup(name) {
+    let n = name.toLowerCase();
+    if (n.includes('squat') || n.includes('leg') || n.includes('press') || n.includes('fente') || n.includes('mollet') || n.includes('quad') || n.includes('ischio')) return 'Jambes';
+    if (n.includes('bench') || n.includes('couché') || n.includes('pec') || n.includes('écarté') || n.includes('chest') || n.includes('pompe')) return 'Pecs';
+    if (n.includes('deadlift') || n.includes('row') || n.includes('pull') || n.includes('tirage') || n.includes('lat') || n.includes('dos')) return 'Dos';
+    if (n.includes('shoulder') || n.includes('épaule') || n.includes('militaire') || n.includes('élévation') || n.includes('face')) return 'Épaules';
+    if (n.includes('curl') || n.includes('tricep') || n.includes('bicep') || n.includes('bras') || n.includes('extension') || n.includes('skull')) return 'Bras';
+    if (n.includes('crunch') || n.includes('abs') || n.includes('abdo') || n.includes('gainage') || n.includes('core')) return 'Abdos';
+    return 'Autre';
+}
+
+// --- DATE PARSER ---
+function parseHevyDate(dateStr) {
+    const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    const regex = /(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d+),\s+(\d{4})/i;
+    const match = dateStr.match(regex);
+    if(match) {
+        let mIndex = months.indexOf(match[1].toLowerCase());
+        let d = parseInt(match[2]);
+        let y = parseInt(match[3]);
+        return new Date(y, mIndex, d, 12, 0, 0).getTime();
+    }
+    return Date.now();
+}
+
 // --- NAVIGATION ---
 function showTab(id) {
     document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     if(event) event.currentTarget.classList.add('active');
+    
     if (id === 'tab-dash') renderDash();
     if (id === 'tab-train') renderDayList();
+    if (id === 'tab-stats') { renderStats(); renderReports('week'); }
 }
 
 // --- SYNC ENGINE ---
@@ -164,12 +226,12 @@ async function cloudPush() {
     if (!keys.token || !keys.gistId || isSyncing) return;
     isSyncing = true; updateSyncUI('syncing');
     db.lastSync = Date.now();
-    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
+    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
     try {
         await fetch(`https://api.github.com/gists/${keys.gistId}`, {
             method: 'PATCH',
             headers: { 'Authorization': `token ${keys.token}` },
-            body: JSON.stringify({ files: { "sbd_hub_v27.json": { content: JSON.stringify(db) } } })
+            body: JSON.stringify({ files: { "sbd_hub_v28.json": { content: JSON.stringify(db) } } })
         });
         updateSyncUI('online');
     } catch (e) { updateSyncUI('offline'); }
@@ -183,12 +245,13 @@ async function cloudPull() {
         const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, { headers: { 'Authorization': `token ${keys.token}` } });
         if (res.ok) {
             const data = await res.json();
-            if(data.files["sbd_hub_v27.json"]) {
-                const remoteDB = JSON.parse(data.files["sbd_hub_v27.json"].content);
+            if(data.files["sbd_hub_v28.json"]) {
+                const remoteDB = JSON.parse(data.files["sbd_hub_v28.json"].content);
                 if (remoteDB.lastSync > db.lastSync) {
                     db = remoteDB;
-                    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
+                    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
                     renderDash(); renderDayList();
+                    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
                 }
             }
             updateSyncUI('online');
@@ -209,19 +272,32 @@ function processHevy() {
     const text = document.getElementById('hevyPaste').value;
     if(!text) return;
     const lines = text.split('\n');
-    let session = { date: new Date().toLocaleDateString('fr-FR'), exercises: [] };
+    
+    let sessionDate = new Date().toLocaleDateString('fr-FR');
+    let sessionTimestamp = Date.now();
+
+    let dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
+    if(dateLine) {
+        sessionDate = dateLine.trim();
+        sessionTimestamp = parseHevyDate(sessionDate);
+    }
+
+    let session = { date: sessionDate, timestamp: sessionTimestamp, volume: 0, exercises: [] };
     let currExo = null;
 
     lines.forEach(line => {
         let l = line.trim().toLowerCase();
-        if(l && !l.includes('kg x') && !l.includes('série') && !l.includes('hevy') && !l.includes('km')) {
+        
+        if(l && !l.includes('kg x') && !l.startsWith('série') && !l.includes('hevy') && !l.includes('km') && !(l.startsWith('le ') && l.includes('202'))) {
             if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
-            currExo = { name: line.trim(), maxRM: 0 };
+            currExo = { name: line.trim(), maxRM: 0, sets: 0 };
         } 
-        else if(l.startsWith("série") && l.includes('kg x') && !l.includes('échauffement')) {
+        else if(l.startsWith("série") && l.includes('kg x') && !l.includes('échau')) {
             let match = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
             if(match && currExo) {
                 let w = parseFloat(match[1]), r = parseInt(match[2]);
+                session.volume += (w * r);
+                currExo.sets++;
                 let rm = r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r)));
                 if(rm > currExo.maxRM) currExo.maxRM = rm;
             }
@@ -229,6 +305,7 @@ function processHevy() {
     });
     if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
 
+    // Mettre à jour les PRs
     session.exercises.forEach(exo => {
         let n = exo.name.toLowerCase();
         let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
@@ -239,17 +316,23 @@ function processHevy() {
     });
 
     db.logs.unshift(session);
+    db.logs.sort((a,b) => b.timestamp - a.timestamp); // Toujours classer du plus récent au plus ancien
+
     document.getElementById('hevyPaste').value = "";
-    renderDash(); renderDayList(); cloudPush();
+    renderDash(); renderDayList(); 
+    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
+    cloudPush();
 }
 
+// --- RENDERERS ---
 function renderDash() {
     const day = document.getElementById('daySelect').value;
     document.getElementById('routineDisplay').innerText = routines[day];
+    
     document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
         <div class="rm-box">
-            <div style="font-size:10px; color:var(--sub);">${k.toUpperCase()}</div>
-            <div class="rm-val">${db.bestPR[k]}</div>
+            <div style="font-size:10px; color:var(--sub);">${k.toUpperCase()} (1RM)</div>
+            <div class="rm-val">${db.bestPR[k]}<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg</span></div>
             <div class="rm-target">Objectif: ${db.user.targets[k]}</div>
             <div style="font-size:11px; color:var(--green); margin-top:6px; font-weight:600;">x${(db.bestPR[k]/db.user.bw).toFixed(2)} bw</div>
         </div>`).join('');
@@ -260,12 +343,122 @@ function renderDayList() {
     const container = document.getElementById('trainingLogs');
     container.innerHTML = db.logs.slice(0, 7).map(log => `
         <div class="card" style="padding: 15px;">
-            <h2 style="color:var(--text); margin-bottom:10px;">${log.date}</h2>
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <h2 style="color:var(--text); text-transform:none;">${log.date.split(' à')[0]}</h2>
+                <span style="font-size:12px; color:var(--purple);">${(log.volume/1000).toFixed(1)}t</span>
+            </div>
             ${log.exercises.map(exo => `
                 <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; color:var(--sub);">
-                    <span>${exo.name}</span><strong style="color:var(--blue)">${exo.maxRM} kg</strong>
+                    <span>${exo.sets}x ${exo.name}</span><strong style="color:var(--blue)">1RM Est: ${exo.maxRM}kg</strong>
                 </div>`).join('')}
         </div>`).join('');
+}
+
+function renderReports(period) {
+    // Boutons style
+    const btns = document.getElementById('tab-stats').querySelectorAll('button.sync-badge');
+    btns[0].style.background = period === 'week' ? 'var(--blue)' : 'transparent';
+    btns[0].style.color = period === 'week' ? 'white' : 'var(--sub)';
+    btns[1].style.background = period === 'month' ? 'var(--blue)' : 'transparent';
+    btns[1].style.color = period === 'month' ? 'white' : 'var(--sub)';
+
+    const limitDays = period === 'week' ? 7 : 30;
+    const limitMs = Date.now() - (limitDays * 24 * 60 * 60 * 1000);
+    const recentLogs = db.logs.filter(l => l.timestamp >= limitMs);
+
+    let totalVolume = 0;
+    let totalSets = 0;
+    
+    recentLogs.forEach(l => {
+        totalVolume += l.volume;
+        l.exercises.forEach(e => totalSets += e.sets);
+    });
+
+    document.getElementById('reportDisplay').innerHTML = `
+        <div class="report-box"><div class="report-val">${recentLogs.length}</div><div class="report-label">Séances</div></div>
+        <div class="report-box"><div class="report-val">${totalSets}</div><div class="report-label">Séries</div></div>
+        <div class="report-box"><div class="report-val">${(totalVolume/1000).toFixed(1)}t</div><div class="report-label">Volume</div></div>
+        <div class="report-box"><div class="report-val">${recentLogs.length > 0 ? Math.round(totalSets/recentLogs.length) : 0}</div><div class="report-label">Séries/Séance</div></div>
+    `;
+}
+
+function renderStats() {
+    // Top Exercices (7 derniers jours)
+    const limit7Days = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const logs7D = db.logs.filter(l => l.timestamp >= limit7Days);
+    const exoCounts = {};
+    logs7D.forEach(l => {
+        l.exercises.forEach(e => {
+            exoCounts[e.name] = (exoCounts[e.name] || 0) + 1;
+        });
+    });
+    
+    const topExos = Object.entries(exoCounts).filter(x => x[1] >= 2).sort((a,b) => b[1] - a[1]);
+    const topDiv = document.getElementById('topExosList');
+    if(topExos.length === 0) {
+        topDiv.innerHTML = `<p style="color:var(--sub); font-size:13px; text-align:center;">Pas assez de données sur 7j.</p>`;
+    } else {
+        topDiv.innerHTML = topExos.map(x => `
+            <div class="stat-row">
+                <span style="font-size:14px;">${x[0]}</span>
+                <span style="color:var(--blue); font-weight:bold; font-size:14px;">${x[1]}x</span>
+            </div>`).join('');
+    }
+
+    // Répartition Musculaire (30 jours)
+    const limit30Days = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const logs30D = db.logs.filter(l => l.timestamp >= limit30Days);
+    const muscleSets = { 'Jambes': 0, 'Pecs': 0, 'Dos': 0, 'Épaules': 0, 'Bras': 0, 'Abdos': 0, 'Autre': 0 };
+    
+    logs30D.forEach(l => {
+        l.exercises.forEach(e => {
+            let mg = getMuscleGroup(e.name);
+            muscleSets[mg] += e.sets;
+        });
+    });
+
+    const labelsMuscle = Object.keys(muscleSets).filter(k => muscleSets[k] > 0);
+    const dataMuscle = labelsMuscle.map(k => muscleSets[k]);
+    const colorsMuscle = labelsMuscle.map(k => muscleColors[k]);
+
+    const ctxM = document.getElementById('chartMuscle');
+    if (ctxM) {
+        if (chartMuscle) chartMuscle.destroy();
+        chartMuscle = new Chart(ctxM, {
+            type: 'doughnut',
+            data: { labels: labelsMuscle, datasets: [{ data: dataMuscle, backgroundColor: colorsMuscle, borderWidth: 0, cutout: '75%' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // Liste des muscles en dessous
+    document.getElementById('muscleList').innerHTML = labelsMuscle.map((k, i) => `
+        <div class="stat-row" style="padding: 6px 0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="width:10px; height:10px; border-radius:50%; background:${colorsMuscle[i]}"></div>
+                <span style="font-size:13px;">${k}</span>
+            </div>
+            <span style="font-size:13px; font-weight:bold;">${dataMuscle[i]} séries</span>
+        </div>
+    `).join('');
+
+    // Chart Volume
+    const ctxV = document.getElementById('chartVolume');
+    if (ctxV) {
+        if (chartVolume) chartVolume.destroy();
+        let validLogs = db.logs.filter(l => l.volume > 0).slice(0, 10).reverse();
+        let labelsV = validLogs.map(l => l.date.substring(0, 5));
+        let dataV = validLogs.map(l => l.volume);
+
+        chartVolume = new Chart(ctxV, {
+            type: 'line',
+            data: {
+                labels: labelsV,
+                datasets: [{ data: dataV, borderColor: '#BF5AF2', backgroundColor: 'rgba(191, 90, 242, 0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#BF5AF2' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display:false }, x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 } } } } }
+        });
+    }
 }
 
 function renderCharts() {
@@ -274,22 +467,8 @@ function renderCharts() {
     if (chartSBD) chartSBD.destroy();
     chartSBD = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: ['Bench', 'Squat', 'Dead'],
-            datasets: [{
-                data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift],
-                backgroundColor: ['#0A84FF', '#32D74B', '#FF9F0A'],
-                borderRadius: 8, barThickness: 40
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } },
-                x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
-            }
-        }
+        data: { labels: ['Bench', 'Squat', 'Dead'], datasets: [{ data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift], backgroundColor: ['#0A84FF', '#32D74B', '#FF9F0A'], borderRadius: 8, barThickness: 40 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } }, x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } } } }
     });
 }
 
@@ -301,8 +480,10 @@ function updateProfile() {
 async function fullReset() {
     if (!confirm("Effacer toutes les données ?")) return;
     db = { user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: Date.now() };
-    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
-    renderDash(); renderDayList(); await cloudPush();
+    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
+    renderDash(); renderDayList();
+    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
+    await cloudPush();
     alert("Application remise à zéro.");
 }
 
@@ -315,6 +496,7 @@ window.addEventListener('load', () => {
     if(keys.token) document.getElementById('syncToken').value = keys.token;
     if(keys.gistId) document.getElementById('syncGistId').value = keys.gistId;
     renderDash(); renderDayList();
+    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
     if(keys.token && keys.gistId) cloudPull();
 });
 

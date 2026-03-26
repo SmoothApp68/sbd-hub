@@ -3,143 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBD Hub - Fondation Elite</title>
+    <title>SBD Elite Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --purple: #BF5AF2; --text: #FFF; --sub: #8E8E93; --border: #2C2C2E; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
-        .tab-bar { position: fixed; bottom: 0; width: 100%; height: 65px; background: rgba(18,18,18,0.9); backdrop-filter: blur(15px); border-top: 1px solid var(--border); display: flex; z-index: 1000; }
-        .tab-btn { flex: 1; border: none; background: none; color: var(--sub); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 10px; }
-        .tab-btn.active { color: var(--blue); font-weight: bold; }
-        .content-section { display: none; padding: 15px; }
+        :root { --bg: #000; --card: #151517; --blue: #0A84FF; --green: #32D74B; --red: #FF453A; --text: #F5F5F7; --sub: #86868B; --border: #2C2C2E; }
+        body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px 15px 100px 15px; -webkit-font-smoothing: antialiased; }
+        
+        /* Navigation Premium */
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: rgba(20,20,20,0.85); backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--border); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
+        .tab-btn { flex: 1; border: none; background: transparent; color: var(--sub); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+        .tab-btn.active { color: var(--blue); }
+        .tab-btn svg { width: 24px; height: 24px; fill: currentColor; }
+
+        /* Structure */
+        .content-section { display: none; animation: fadeIn 0.3s ease; }
         .content-section.active { display: block; }
-        .card { background: var(--card); padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--border); }
-        h2 { font-size: 11px; color: var(--sub); text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.8px; }
-        .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
-        .rm-box { padding: 10px; border-radius: 10px; background: #262629; }
-        .rm-val { font-size: 16px; font-weight: 900; color: var(--blue); }
-        .rm-target { font-size: 10px; color: var(--sub); }
-        input, select, textarea { width: 100%; background: #262629; border: 1px solid #3A3A3C; color: white; border-radius: 8px; padding: 10px; box-sizing: border-box; margin-bottom: 10px; }
-        .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 14px; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        .supp-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        h2 { font-size: 14px; color: var(--sub); text-transform: uppercase; margin: 0; letter-spacing: 1px; font-weight: 600; }
+        
+        /* Composants */
+        .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
+        .rm-box { padding: 12px; border-radius: 14px; background: #1C1C1E; border: 1px solid #2C2C2E; }
+        .rm-val { font-size: 20px; font-weight: 800; color: var(--blue); margin: 4px 0; }
+        .rm-target { font-size: 11px; color: var(--sub); }
+        
+        input, select, textarea { width: 100%; background: #1C1C1E; border: 1px solid #3A3A3C; color: white; border-radius: 12px; padding: 14px; box-sizing: border-box; margin-bottom: 12px; font-size: 16px; transition: 0.2s; }
+        input:focus, textarea:focus { border-color: var(--blue); outline: none; }
+        
+        .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 16px; border-radius: 14px; font-weight: 700; cursor: pointer; font-size: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn:active { transform: scale(0.98); }
+        
+        .supp-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2C2C2E; font-size: 14px; }
+        .supp-item:last-child { border-bottom: none; padding-bottom: 0; }
+        
+        /* Statut Sync */
+        .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; background: #1C1C1E; color: var(--sub); border: 1px solid var(--border); }
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sub); }
+        .sync-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .sync-dot.syncing { background: #FF9F0A; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-<div id="tab-dash" class="content-section active">
+    <div id="tab-dash" class="content-section active">
         <div class="card">
-            <h2>Performance SBD (Estimé vs Visé)</h2>
-            
-            <div class="sbd-grid" id="sbdDisplay"></div>
-            
-            <div style="height: 200px; margin-top: 20px;">
-                <canvas id="chartSBD"></canvas>
+            <div class="header-card">
+                <h2>Performance (Estimé)</h2>
+                <div id="syncStatus" class="sync-badge"><div class="sync-dot" id="syncDot"></div><span id="syncText">Hors ligne</span></div>
             </div>
+            <div class="sbd-grid" id="sbdDisplay"></div>
+            <div style="height: 180px; margin-top: 25px;"><canvas id="chartSBD"></canvas></div>
         </div>
 
         <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2>Suppléments</h2>
-                <select id="daySelect" style="width:120px; margin:0;" onchange="renderDash()">
-                    <option value="Lundi">Lundi</option>
-                    <option value="Mardi">Mardi</option>
-                    <option value="Mercredi">Mercredi</option>
-                    <option value="Jeudi">Jeudi</option>
-                    <option value="Vendredi">Vendredi</option>
-                    <option value="Samedi">Samedi</option>
-                    <option value="Dimanche">Dimanche</option>
+            <div class="header-card">
+                <h2 id="dayTitle">Protocole</h2>
+                <select id="daySelect" style="width:130px; margin:0; padding:8px; font-size:14px;" onchange="renderDash()">
+                    <option value="Lundi">Lundi</option><option value="Mardi">Mardi</option><option value="Mercredi">Mercredi</option>
+                    <option value="Jeudi">Jeudi</option><option value="Vendredi">Vendredi</option><option value="Samedi">Samedi</option><option value="Dimanche">Dimanche</option>
                 </select>
             </div>
             <div id="dashSupps"></div>
         </div>
     </div>
 
+    <div id="tab-train" class="content-section">
+        <div class="card">
+            <h2>Importer Séance (Hevy)</h2>
+            <textarea id="hevyPaste" rows="5" placeholder="Colle le texte Hevy ici..."></textarea>
+            <button class="btn" onclick="processHevy()">Traiter & Sauvegarder</button>
+        </div>
+        <div id="trainingLogs"></div>
+    </div>
+
     <div id="tab-stats" class="content-section">
         <div class="card">
-            <h2>Volume & Progression</h2>
-            <canvas id="chartTonnage" height="200"></canvas>
+            <h2>Évolution</h2>
+            <p style="color:var(--sub); font-size:14px; text-align:center; padding: 20px 0;">Données de tonnage bientôt disponibles.</p>
         </div>
     </div>
 
     <div id="tab-settings" class="content-section">
         <div class="card">
-            <h2>Profil</h2>
-            <label style="font-size: 12px; color: var(--sub);">Poids de corps (kg)</label>
-            <input type="number" id="inputBW">
-            <button class="btn" onclick="saveSettings()">Sauvegarder</button>
+            <h2>Profil Athlète</h2>
+            <input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()">
         </div>
         <div class="card">
-            <h2>Data Sync (Manuel)</h2>
-            <input type="password" id="syncToken" placeholder="GitHub Token">
-            <input type="text" id="syncGistId" placeholder="Gist ID">
-            <button class="btn" style="background: var(--green);" onclick="saveKeys()">Sauver les clés</button>
-            <div style="display:flex; gap:10px; margin-top:10px;">
-                <button class="btn" style="flex:1; background:var(--purple)" onclick="cloudPush()">Push</button>
-                <button class="btn" style="flex:1; background:var(--orange)" onclick="cloudPull()">Pull</button>
-            </div>
+            <h2>Moteur de Synchronisation</h2>
+            <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">L'application se synchronise automatiquement. Renseigne tes clés GitHub ci-dessous.</p>
+            <input type="password" id="syncToken" placeholder="GitHub Token (ghp_...)">
+            <input type="text" id="syncGistId" placeholder="ID du Gist">
+            <button class="btn" onclick="saveKeys()">Activer la Synchro</button>
         </div>
     </div>
 
     <nav class="tab-bar">
-        <button class="tab-btn active" onclick="showTab('tab-dash')">🏆 Dash</button>
-        <button class="tab-btn" onclick="showTab('tab-train')">🏋️ Train</button>
-        <button class="tab-btn" onclick="showTab('tab-stats')">📊 Stats</button>
-        <button class="tab-btn" onclick="showTab('tab-settings')">⚙️ Settings</button>
+        <button class="tab-btn active" onclick="showTab('tab-dash')">
+            <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg> Dash
+        </button>
+        <button class="tab-btn" onclick="showTab('tab-train')">
+            <svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg> Train
+        </button>
+        <button class="tab-btn" onclick="showTab('tab-stats')">
+            <svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm6 14H7v-5h2v5zm4 0h-2v-3h2v3zm0-5h-2v-2h2v2zm4 5h-2V7h2v10z"/></svg> Stats
+        </button>
+        <button class="tab-btn" onclick="showTab('tab-settings')">
+            <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg> Sync
+        </button>
     </nav>
 
 <script>
+// --- INITIALISATION & BASE DE DONNÉES ---
 let keys = JSON.parse(localStorage.getItem('SBD_KEYS')) || { token: "", gistId: "" };
-let db = JSON.parse(localStorage.getItem('SBD_HUB_V26')) || {
+let db = JSON.parse(localStorage.getItem('SBD_HUB_V27')) || {
     user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
-    logs: [],
-    bestPR: { bench: 0, squat: 0, deadlift: 0 }
+    logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: 0
+};
+let chartSBD = null;
+let isSyncing = false;
+
+// Le vrai programme d'entraînement
+const routines = {
+    "Lundi": "Legs (Quads & Squat Focus)",
+    "Mardi": "Push (Chest, Shoulders & Triceps)",
+    "Mercredi": "Active Recovery (Swimming)",
+    "Jeudi": "Pull (Back, Hams, Biceps & Deadlift)",
+    "Vendredi": "Weak Point (Abs/Calves/Cardio)",
+    "Samedi": "SBD (Full Body Technique)",
+    "Dimanche": "Repos Complet"
 };
 
-let chartSBD = null;
-
-function saveDB() { localStorage.setItem('SBD_HUB_V26', JSON.stringify(db)); }
-
+// --- NAVIGATION ---
 function showTab(id) {
     document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     event.currentTarget.classList.add('active');
     if (id === 'tab-dash') renderDash();
+    if (id === 'tab-train') renderDayList();
 }
 
+// --- MOTEUR DE SYNCHRONISATION (GOOGLE DOCS STYLE) ---
+function updateSyncUI(status) {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('syncText');
+    dot.className = 'sync-dot';
+    if(status === 'online') { dot.classList.add('online'); txt.innerText = "À jour"; }
+    else if(status === 'syncing') { dot.classList.add('syncing'); txt.innerText = "Synchronisation..."; }
+    else { txt.innerText = "Hors ligne"; }
+}
+
+async function cloudPush() {
+    if (!keys.token || !keys.gistId || isSyncing) return;
+    isSyncing = true; updateSyncUI('syncing');
+    db.lastSync = Date.now();
+    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
+    try {
+        await fetch(`https://api.github.com/gists/${keys.gistId}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `token ${keys.token}` },
+            body: JSON.stringify({ files: { "sbd_hub_v27.json": { content: JSON.stringify(db) } } })
+        });
+        updateSyncUI('online');
+    } catch (e) { updateSyncUI('offline'); }
+    isSyncing = false;
+}
+
+async function cloudPull() {
+    if (!keys.token || !keys.gistId || isSyncing) return;
+    isSyncing = true; updateSyncUI('syncing');
+    try {
+        const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, { headers: { 'Authorization': `token ${keys.token}` } });
+        if (res.ok) {
+            const data = await res.json();
+            if(data.files["sbd_hub_v27.json"]) {
+                const remoteDB = JSON.parse(data.files["sbd_hub_v27.json"].content);
+                if (remoteDB.lastSync > db.lastSync) {
+                    db = remoteDB;
+                    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
+                    renderDash(); renderDayList();
+                }
+            }
+            updateSyncUI('online');
+        }
+    } catch (e) { updateSyncUI('offline'); }
+    isSyncing = false;
+}
+
+// --- LOGIQUE MÉTIER ---
 function updateTargets() {
     ['bench', 'squat', 'deadlift'].forEach(lift => {
-        if (db.bestPR[lift] >= db.user.targets[lift]) {
-            db.user.targets[lift] = Math.round(db.bestPR[lift] + 2.5);
-        }
-    });
-}
-
-function renderCharts() {
-    const ctx = document.getElementById('chartSBD');
-    if (!ctx) return;
-    
-    if (chartSBD) chartSBD.destroy();
-    
-    chartSBD = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Bench', 'Squat', 'Dead'],
-            datasets: [{
-                data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift],
-                backgroundColor: '#0A84FF',
-                borderRadius: 8,
-                borderSkipped: false,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#2C2C2E' }, ticks: { color: '#8E8E93' } },
-                x: { grid: { display: false }, ticks: { color: '#FFF', font: { weight: 'bold' } } }
-            }
-        }
+        if (db.bestPR[lift] >= db.user.targets[lift]) { db.user.targets[lift] = Math.round(db.bestPR[lift] + 2.5); }
     });
 }
 
@@ -174,85 +231,121 @@ function processHevy() {
 
     db.logs.unshift(session);
     updateTargets();
-    saveDB();
+    document.getElementById('hevyPaste').value = "";
     renderDash();
     renderDayList();
-    document.getElementById('hevyPaste').value = "";
+    cloudPush(); // Envoi automatique
 }
 
+function updateProfile() {
+    let bw = parseFloat(document.getElementById('inputBW').value);
+    if(bw > 0) { db.user.bw = bw; cloudPush(); renderDash(); }
+}
+
+function saveKeys() {
+    keys.token = document.getElementById('syncToken').value.trim();
+    keys.gistId = document.getElementById('syncGistId').value.trim();
+    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
+    cloudPull(); // Vérifie la co au clic
+}
+
+// --- AFFICHAGE ---
 function renderDash() {
     const day = document.getElementById('daySelect').value;
+    document.getElementById('dayTitle').innerText = routines[day];
+    
+    // Grille SBD
     document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
         <div class="rm-box">
-            <div style="font-size:9px; color:var(--sub);">${k.toUpperCase()}</div>
-            <div class="rm-val">${db.bestPR[k]}<small>kg</small></div>
-            <div class="rm-target">Visé: ${db.user.targets[k]}</div>
-            <div style="font-size:10px; color:var(--blue); margin-top:4px;">x${(db.bestPR[k]/db.user.bw).toFixed(2)}</div>
+            <div style="font-size:10px; color:var(--sub);">${k.toUpperCase()}</div>
+            <div class="rm-val">${db.bestPR[k]}</div>
+            <div class="rm-target">Objectif: ${db.user.targets[k]}</div>
+            <div style="font-size:11px; color:var(--green); margin-top:6px; font-weight:600;">x${(db.bestPR[k]/db.user.bw).toFixed(2)} bw</div>
         </div>
     `).join('');
 
-    const isSalle = ["Lundi","Mardi","Jeudi","Vendredi","Samedi"].includes(day);
+    // Protocole Suppléments selon données réelles
+    const isTraining = ["Lundi","Mardi","Jeudi","Vendredi","Samedi"].includes(day);
     let html = '';
-    if(["Lundi","Mardi","Jeudi"].includes(day)) html += `<div class="supp-item"><span>Work! (Pré)</span><span style="color:var(--orange)">10g</span></div>`;
-    if(day === "Samedi") html += `<div class="supp-item"><span>Endurance Infini</span><span style="color:var(--orange)">1 Scoop</span></div>`;
-    html += `<div class="supp-item"><span>Articulations</span><span style="color:var(--purple)">${isSalle?'20g':'10g'}</span></div>`;
-    html += `<div class="supp-item"><span>Créatine / Glycine</span><span>5g / 10g</span></div>`;
-    html += `<div class="supp-item"><span>ZMB (Coucher)</span><span>3 caps</span></div>`;
-    document.getElementById('dashSupps').innerHTML = html;
     
+    // NUTRIMUSCLE & RAPTOR & NUTRIPURE
+    html += `<div class="supp-item"><span>Oméga 3</span><span style="color:var(--sub)">Repas</span></div>`;
+    html += `<div class="supp-item"><span>Créatine Creapure</span><span style="color:var(--sub)">5g - Libre</span></div>`;
+    
+    if(isTraining) {
+        html += `<div class="supp-item"><span style="font-weight:bold; color:var(--orange)">WORK! (Pré)</span><span style="color:var(--orange); font-weight:bold;">10g</span></div>`;
+        html += `<div class="supp-item"><span style="font-weight:bold; color:var(--blue)">Whey Isolate (Post)</span><span style="color:var(--blue); font-weight:bold;">30g</span></div>`;
+    }
+    
+    html += `<div class="supp-item"><span>ZMB Pidolates</span><span style="color:#5E5CE6">3 caps - Soir</span></div>`;
+    html += `<div class="supp-item"><span>Collagène Peptan 1</span><span style="color:#BF5AF2">15g - Coucher</span></div>`;
+    html += `<div class="supp-item"><span>Glycine Cristallisée</span><span style="color:#BF5AF2">10g - Coucher</span></div>`;
+    
+    document.getElementById('dashSupps').innerHTML = html;
     renderCharts();
 }
 
 function renderDayList() {
-    document.getElementById('trainingLogs').innerHTML = db.logs.slice(0, 5).map(log => `
-        <div class="card">
-            <h2>${log.date}</h2>
+    const container = document.getElementById('trainingLogs');
+    container.innerHTML = db.logs.slice(0, 7).map(log => `
+        <div class="card" style="padding: 15px;">
+            <h2 style="color:var(--text); margin-bottom:10px;">${log.date}</h2>
             ${log.exercises.filter(e => e.maxRM > 0).map(exo => `
-                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-                    <span>${exo.name}</span><span style="color:var(--blue)">Max: ${exo.maxRM}kg</span>
+                <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; color:var(--sub);">
+                    <span>${exo.name}</span><strong style="color:var(--blue)">${exo.maxRM} kg</strong>
                 </div>
             `).join('')}
         </div>`).join('');
 }
 
-async function cloudPush() {
-    if (!keys.token || !keys.gistId) return alert("Clés manquantes");
-    await fetch(`https://api.github.com/gists/${keys.gistId}`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `token ${keys.token}` },
-        body: JSON.stringify({ files: { "sbd_hub_data.json": { content: JSON.stringify(db) } } })
+function renderCharts() {
+    const ctx = document.getElementById('chartSBD');
+    if (!ctx) return;
+    if (chartSBD) chartSBD.destroy();
+    
+    Chart.defaults.color = '#86868B';
+    Chart.defaults.font.family = '-apple-system, sans-serif';
+    
+    chartSBD = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Bench', 'Squat', 'Dead'],
+            datasets: [{
+                data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift],
+                backgroundColor: ['#0A84FF', '#32D74B', '#FF9F0A'],
+                borderRadius: 8, barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: '#2C2C2E', drawBorder: false } },
+                x: { grid: { display: false, drawBorder: false }, ticks: { font: { weight: 'bold' } } }
+            }
+        }
     });
-    alert("Sync OK (Push)");
 }
 
-async function cloudPull() {
-    if (!keys.token || !keys.gistId) return alert("Clés manquantes");
-    const res = await fetch(`https://api.github.com/gists/${keys.gistId}`);
-    const data = await res.json();
-    db = JSON.parse(data.files["sbd_hub_data.json"].content);
-    saveDB(); location.reload();
-}
-
-function saveKeys() {
-    keys.token = document.getElementById('syncToken').value;
-    keys.gistId = document.getElementById('syncGistId').value;
-    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
-    alert("Clés sauvées");
-}
-
-function saveSettings() {
-    db.user.bw = parseFloat(document.getElementById('inputBW').value);
-    saveDB(); renderDash(); alert("Profil mis à jour");
-}
-
-window.onload = () => {
+// --- TRIGGERS AUTOMATIQUES ---
+window.addEventListener('load', () => {
     const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
     document.getElementById('daySelect').value = today.charAt(0).toUpperCase() + today.slice(1);
+    
+    if(keys.token) { document.getElementById('syncToken').value = keys.token; }
+    if(keys.gistId) { document.getElementById('syncGistId').value = keys.gistId; }
     document.getElementById('inputBW').value = db.user.bw;
-    document.getElementById('syncToken').value = keys.token;
-    document.getElementById('syncGistId').value = keys.gistId;
+    
     renderDash(); renderDayList();
-};
+    if (keys.token && keys.gistId) cloudPull(); // Auto-pull au chargement
+});
+
+// Auto-pull quand on revient sur l'application (changement d'onglet ou déverrouillage tel)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && keys.token && keys.gistId) {
+        cloudPull();
+    }
+});
 </script>
 </body>
 </html>

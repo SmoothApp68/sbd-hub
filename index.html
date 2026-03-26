@@ -6,7 +6,7 @@
     <title>SBD Elite Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --bg: #000; --card: #151517; --blue: #0A84FF; --green: #32D74B; --red: #FF453A; --text: #F5F5F7; --sub: #86868B; --border: #2C2C2E; }
+        :root { --bg: #000; --card: #151517; --blue: #0A84FF; --green: #32D74B; --red: #FF453A; --text: #F5F5F7; --sub: #86868B; --border: #2C2C2E; --orange: #FF9F0A; --purple: #BF5AF2; }
         body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px 15px 100px 15px; -webkit-font-smoothing: antialiased; }
         
         /* Navigation Premium */
@@ -36,9 +36,6 @@
         .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 16px; border-radius: 14px; font-weight: 700; cursor: pointer; font-size: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; }
         .btn:active { transform: scale(0.98); }
         
-        .supp-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2C2C2E; font-size: 14px; }
-        .supp-item:last-child { border-bottom: none; padding-bottom: 0; }
-        
         /* Statut Sync */
         .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; background: #1C1C1E; color: var(--sub); border: 1px solid var(--border); }
         .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sub); }
@@ -49,7 +46,7 @@
 </head>
 <body>
 
-<div id="tab-dash" class="content-section active">
+    <div id="tab-dash" class="content-section active">
         <div class="card">
             <div class="header-card">
                 <h2>Performance (Estimé)</h2>
@@ -67,8 +64,7 @@
                     <option value="Jeudi">Jeudi</option><option value="Vendredi">Vendredi</option><option value="Samedi">Samedi</option><option value="Dimanche">Dimanche</option>
                 </select>
             </div>
-            <div style="text-align: center; padding: 10px 0; color: var(--blue); font-weight: 600; font-size: 18px;" id="routineDisplay">
-                </div>
+            <div style="text-align: center; padding: 10px 0; color: var(--blue); font-weight: 600; font-size: 18px;" id="routineDisplay"></div>
         </div>
     </div>
 
@@ -93,18 +89,19 @@
             <h2>Profil Athlète</h2>
             <input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()">
         </div>
-        <div style="margin-top: 20px; border-top: 1px solid #3A3A3C; padding-top: 20px;">
-    <button class="btn" style="background: var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button>
-    <p style="font-size: 10px; color: var(--sub); text-align: center; margin-top: 8px;">
-        Efface l'historique, les PR et synchronise le vide sur le Cloud.
-    </p>
-</div>
+        
         <div class="card">
             <h2>Moteur de Synchronisation</h2>
-            <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">L'application se synchronise automatiquement. Renseigne tes clés GitHub ci-dessous.</p>
+            <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">L'application se synchronise automatiquement.</p>
             <input type="password" id="syncToken" placeholder="GitHub Token (ghp_...)">
             <input type="text" id="syncGistId" placeholder="ID du Gist">
             <button class="btn" onclick="saveKeys()">Activer la Synchro</button>
+        </div>
+
+        <div class="card" style="border-color: var(--red);">
+            <h2>Zone de Danger</h2>
+            <button class="btn" style="background: var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button>
+            <p style="font-size: 10px; color: var(--sub); text-align: center; margin-top: 8px;">Efface l'historique et synchronise le vide sur GitHub.</p>
         </div>
     </div>
 
@@ -124,7 +121,7 @@
     </nav>
 
 <script>
-// --- INITIALISATION & BASE DE DONNÉES ---
+// --- DB & CONFIG ---
 let keys = JSON.parse(localStorage.getItem('SBD_KEYS')) || { token: "", gistId: "" };
 let db = JSON.parse(localStorage.getItem('SBD_HUB_V27')) || {
     user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
@@ -133,7 +130,6 @@ let db = JSON.parse(localStorage.getItem('SBD_HUB_V27')) || {
 let chartSBD = null;
 let isSyncing = false;
 
-// Le vrai programme d'entraînement
 const routines = {
     "Lundi": "Legs (Quads & Squat Focus)",
     "Mardi": "Push (Chest, Shoulders & Triceps)",
@@ -148,18 +144,19 @@ const routines = {
 function showTab(id) {
     document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    event.currentTarget.classList.add('active');
+    if(event) event.currentTarget.classList.add('active');
     if (id === 'tab-dash') renderDash();
     if (id === 'tab-train') renderDayList();
 }
 
-// --- MOTEUR DE SYNCHRONISATION (GOOGLE DOCS STYLE) ---
+// --- SYNC ENGINE ---
 function updateSyncUI(status) {
     const dot = document.getElementById('syncDot');
     const txt = document.getElementById('syncText');
+    if(!dot || !txt) return;
     dot.className = 'sync-dot';
     if(status === 'online') { dot.classList.add('online'); txt.innerText = "À jour"; }
-    else if(status === 'syncing') { dot.classList.add('syncing'); txt.innerText = "Synchronisation..."; }
+    else if(status === 'syncing') { dot.classList.add('syncing'); txt.innerText = "Sync..."; }
     else { txt.innerText = "Hors ligne"; }
 }
 
@@ -200,89 +197,62 @@ async function cloudPull() {
     isSyncing = false;
 }
 
-// --- LOGIQUE MÉTIER ---
-function updateTargets() {
-    ['bench', 'squat', 'deadlift'].forEach(lift => {
-        if (db.bestPR[lift] >= db.user.targets[lift]) { db.user.targets[lift] = Math.round(db.bestPR[lift] + 2.5); }
-    });
+function saveKeys() {
+    keys.token = document.getElementById('syncToken').value;
+    keys.gistId = document.getElementById('syncGistId').value;
+    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
+    cloudPull();
 }
 
+// --- CORE LOGIC ---
 function processHevy() {
     const text = document.getElementById('hevyPaste').value;
     if(!text) return;
-    
     const lines = text.split('\n');
     let session = { date: new Date().toLocaleDateString('fr-FR'), exercises: [] };
     let currExo = null;
 
     lines.forEach(line => {
         let l = line.trim().toLowerCase();
-        
-        // 1. Détection de l'exercice (plus flexible)
         if(l && !l.includes('kg x') && !l.includes('série') && !l.includes('hevy') && !l.includes('km')) {
             if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
             currExo = { name: line.trim(), maxRM: 0 };
         } 
-        
-        // 2. Détection de la série (on ignore les échauffements)
         else if(l.startsWith("série") && l.includes('kg x') && !l.includes('échauffement')) {
-            // Extraction propre du poids et des reps, même avec RPE @...
             let match = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
             if(match && currExo) {
-                let w = parseFloat(match[1]);
-                let r = parseInt(match[2]);
-                
-                // Formule de Brzycki pour le RM
+                let w = parseFloat(match[1]), r = parseInt(match[2]);
                 let rm = r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r)));
                 if(rm > currExo.maxRM) currExo.maxRM = rm;
             }
         }
     });
-    
-    // Push du dernier exo si valide
     if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
 
-    // 3. Mise à jour des records SBD
     session.exercises.forEach(exo => {
         let n = exo.name.toLowerCase();
-        let type = null;
-        if(n.includes("bench")) type = "bench";
-        else if(n.includes("squat")) type = "squat";
-        else if(n.includes("deadlift")) type = "deadlift";
-        
+        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
         if(type && exo.maxRM > db.bestPR[type]) {
             db.bestPR[type] = exo.maxRM;
+            if(db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] = Math.round(db.bestPR[type] + 2.5);
         }
     });
 
     db.logs.unshift(session);
-    updateTargets();
     document.getElementById('hevyPaste').value = "";
-    renderDash();
-    renderDayList();
-    cloudPush(); // Synchro auto vers le cloud
-    alert("Séance Legs traitée !");
-}
-function updateProfile() {
-    let bw = parseFloat(document.getElementById('inputBW').value);
-    if(bw > 0) { db.user.bw = bw; cloudPush(); renderDash(); }
+    renderDash(); renderDayList(); cloudPush();
 }
 
 function renderDash() {
     const day = document.getElementById('daySelect').value;
-    document.getElementById('dayTitle').innerText = "Programme";
     document.getElementById('routineDisplay').innerText = routines[day];
-    
-    // Grille SBD
     document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
         <div class="rm-box">
             <div style="font-size:10px; color:var(--sub);">${k.toUpperCase()}</div>
             <div class="rm-val">${db.bestPR[k]}</div>
             <div class="rm-target">Objectif: ${db.user.targets[k]}</div>
             <div style="font-size:11px; color:var(--green); margin-top:6px; font-weight:600;">x${(db.bestPR[k]/db.user.bw).toFixed(2)} bw</div>
-        </div>
-    `).join('');
-
+        </div>`).join('');
     renderCharts();
 }
 
@@ -291,11 +261,10 @@ function renderDayList() {
     container.innerHTML = db.logs.slice(0, 7).map(log => `
         <div class="card" style="padding: 15px;">
             <h2 style="color:var(--text); margin-bottom:10px;">${log.date}</h2>
-            ${log.exercises.filter(e => e.maxRM > 0).map(exo => `
+            ${log.exercises.map(exo => `
                 <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; color:var(--sub);">
                     <span>${exo.name}</span><strong style="color:var(--blue)">${exo.maxRM} kg</strong>
-                </div>
-            `).join('')}
+                </div>`).join('')}
         </div>`).join('');
 }
 
@@ -303,10 +272,6 @@ function renderCharts() {
     const ctx = document.getElementById('chartSBD');
     if (!ctx) return;
     if (chartSBD) chartSBD.destroy();
-    
-    Chart.defaults.color = '#86868B';
-    Chart.defaults.font.family = '-apple-system, sans-serif';
-    
     chartSBD = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -321,53 +286,40 @@ function renderCharts() {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { grid: { color: '#2C2C2E', drawBorder: false } },
-                x: { grid: { display: false, drawBorder: false }, ticks: { font: { weight: 'bold' } } }
+                y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } },
+                x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
             }
         }
     });
 }
 
-// --- TRIGGERS AUTOMATIQUES ---
+function updateProfile() {
+    db.user.bw = parseFloat(document.getElementById('inputBW').value) || 80;
+    renderDash(); cloudPush();
+}
+
+async function fullReset() {
+    if (!confirm("Effacer toutes les données ?")) return;
+    db = { user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: Date.now() };
+    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
+    renderDash(); renderDayList(); await cloudPush();
+    alert("Application remise à zéro.");
+}
+
+// --- INIT ---
 window.addEventListener('load', () => {
-    const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
-    document.getElementById('daySelect').value = today.charAt(0).toUpperCase() + today.slice(1);
-    
-    if(keys.token) { document.getElementById('syncToken').value = keys.token; }
-    if(keys.gistId) { document.getElementById('syncGistId').value = keys.gistId; }
+    const days = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+    const today = days[new Date().getDay()];
+    document.getElementById('daySelect').value = today;
     document.getElementById('inputBW').value = db.user.bw;
-    
+    if(keys.token) document.getElementById('syncToken').value = keys.token;
+    if(keys.gistId) document.getElementById('syncGistId').value = keys.gistId;
     renderDash(); renderDayList();
-    if (keys.token && keys.gistId) cloudPull(); // Auto-pull au chargement
+    if(keys.token && keys.gistId) cloudPull();
 });
 
-// Auto-pull quand on revient sur l'application (changement d'onglet ou déverrouillage tel)
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && keys.token && keys.gistId) {
-        cloudPull();
-        async function fullReset() {
-    if (!confirm("Es-tu sûr de vouloir tout effacer ? Cette action est irréversible sur le Cloud.")) return;
-
-    // Réinitialisation de l'objet DB
-    db = {
-        user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
-        logs: [],
-        bestPR: { bench: 0, squat: 0, deadlift: 0 },
-        lastSync: Date.now()
-    };
-
-    // Sauvegarde locale
-    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
-
-    // Mise à jour interface
-    renderDash();
-    renderDayList();
-    
-    // Synchronisation du "vide" vers GitHub
-    await cloudPush();
-    
-    alert("Application réinitialisée avec succès.");
-    }
+    if (document.visibilityState === 'visible' && keys.token && keys.gistId) cloudPull();
 });
 </script>
 </body>

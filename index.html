@@ -26,32 +26,32 @@
 </head>
 <body>
 
-    <div id="tab-dash" class="content-section active">
+<div id="tab-dash" class="content-section active">
         <div class="card">
             <h2>Performance SBD (Estimé vs Visé)</h2>
+            
             <div class="sbd-grid" id="sbdDisplay"></div>
+            
+            <div style="height: 200px; margin-top: 20px;">
+                <canvas id="chartSBD"></canvas>
+            </div>
         </div>
+
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h2>Suppléments</h2>
                 <select id="daySelect" style="width:120px; margin:0;" onchange="renderDash()">
-                    <option value="Lundi">Lundi</option><option value="Mardi">Mardi</option>
-                    <option value="Mercredi">Mercredi</option><option value="Jeudi">Jeudi</option>
-                    <option value="Vendredi">Vendredi</option><option value="Samedi">Samedi</option>
+                    <option value="Lundi">Lundi</option>
+                    <option value="Mardi">Mardi</option>
+                    <option value="Mercredi">Mercredi</option>
+                    <option value="Jeudi">Jeudi</option>
+                    <option value="Vendredi">Vendredi</option>
+                    <option value="Samedi">Samedi</option>
                     <option value="Dimanche">Dimanche</option>
                 </select>
             </div>
             <div id="dashSupps"></div>
         </div>
-    </div>
-
-    <div id="tab-train" class="content-section">
-        <div class="card">
-            <h2>Import Hevy</h2>
-            <textarea id="hevyPaste" placeholder="Colle ta séance..."></textarea>
-            <button class="btn" onclick="processHevy()">Analyser la séance</button>
-        </div>
-        <div id="trainingLogs"></div>
     </div>
 
     <div id="tab-stats" class="content-section">
@@ -95,6 +95,8 @@ let db = JSON.parse(localStorage.getItem('SBD_HUB_V26')) || {
     bestPR: { bench: 0, squat: 0, deadlift: 0 }
 };
 
+let chartSBD = null;
+
 function saveDB() { localStorage.setItem('SBD_HUB_V26', JSON.stringify(db)); }
 
 function showTab(id) {
@@ -102,13 +104,41 @@ function showTab(id) {
     document.getElementById(id).classList.add('active');
     event.currentTarget.classList.add('active');
     if (id === 'tab-dash') renderDash();
-    if (id === 'tab-stats') renderStats();
 }
 
 function updateTargets() {
     ['bench', 'squat', 'deadlift'].forEach(lift => {
         if (db.bestPR[lift] >= db.user.targets[lift]) {
             db.user.targets[lift] = Math.round(db.bestPR[lift] + 2.5);
+        }
+    });
+}
+
+function renderCharts() {
+    const ctx = document.getElementById('chartSBD');
+    if (!ctx) return;
+    
+    if (chartSBD) chartSBD.destroy();
+    
+    chartSBD = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Bench', 'Squat', 'Dead'],
+            datasets: [{
+                data: [db.bestPR.bench, db.bestPR.squat, db.bestPR.deadlift],
+                backgroundColor: '#0A84FF',
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#2C2C2E' }, ticks: { color: '#8E8E93' } },
+                x: { grid: { display: false }, ticks: { color: '#FFF', font: { weight: 'bold' } } }
+            }
         }
     });
 }
@@ -148,7 +178,6 @@ function processHevy() {
     renderDash();
     renderDayList();
     document.getElementById('hevyPaste').value = "";
-    alert("Séance analysée !");
 }
 
 function renderDash() {
@@ -170,6 +199,8 @@ function renderDash() {
     html += `<div class="supp-item"><span>Créatine / Glycine</span><span>5g / 10g</span></div>`;
     html += `<div class="supp-item"><span>ZMB (Coucher)</span><span>3 caps</span></div>`;
     document.getElementById('dashSupps').innerHTML = html;
+    
+    renderCharts();
 }
 
 function renderDayList() {

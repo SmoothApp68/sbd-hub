@@ -3,33 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBD Hub - Full Protocol</title>
+    <title>SBD Hub - Performance Data</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --purple: #BF5AF2; --text: #FFF; --sub: #8E8E93; }
+        :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --text: #FFF; --sub: #8E8E93; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 100px; }
         .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #2C2C2E; }
         h2 { font-size: 10px; color: var(--sub); text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px; }
         .ratio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 15px; border-top: 1px solid #2C2C2E; padding-top: 10px; }
         .ratio-val { font-size: 16px; font-weight: 800; color: var(--blue); }
-        .ratio-label { font-size: 8px; color: var(--sub); text-transform: uppercase; }
-        .supp-group { display: flex; flex-direction: column; gap: 6px; }
-        .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); }
-        .supp-info { display: flex; flex-direction: column; }
-        .supp-name { font-weight: 700; font-size: 13px; color: #FFF; }
-        .supp-timing { font-size: 9px; color: var(--sub); text-transform: uppercase; margin-top: 2px; }
-        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; font-size: 13px; }
-        .special { border-left-color: var(--purple); }
-        .coach-box { border-left: 3px solid var(--green); padding-left: 12px; font-style: italic; color: #CCC; font-size: 12px; line-height: 1.4; }
-        textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 12px; height: 55px; font-size: 13px; box-sizing: border-box; outline: none; margin-top: 5px; }
-        .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 8px; font-size: 14px; }
+        .ratio-label { font-size: 8px; color: var(--sub); }
+        .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); margin-bottom: 6px; }
+        .supp-name { font-weight: 700; font-size: 13px; }
+        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; }
         .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none; }
         .day-btn { background: #1C1C1E; border: 1px solid #2C2C2E; color: var(--sub); padding: 8px 14px; border-radius: 20px; white-space: nowrap; font-size: 12px; }
         .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
-        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 10px 0; }
-        #configModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-        .config-input { background: #2C2C2E; border: 1px solid #444; color: white; padding: 8px; border-radius: 8px; width: 70px; text-align: center; }
-        .config-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 12px 0; }
+        .exo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .exo-name { font-weight: 700; font-size: 14px; color: var(--blue); }
+        .badge-record { background: var(--orange); color: black; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+        .perf-data { font-size: 10px; color: var(--sub); margin-bottom: 8px; font-style: italic; }
+        .set-row { display: flex; justify-content: space-between; font-size: 12px; margin-top: 2px; }
+        .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+        textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 10px; height: 60px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -42,102 +39,135 @@
 
     <div class="card">
         <h2>Protocole <span id="currentDayTitle" style="color:var(--blue)">-</span></h2>
-        <div id="suppContainer" class="supp-group"></div>
-    </div>
-
-    <div class="card">
-        <h2>Coach Indications</h2>
-        <div class="coach-box" id="coachAdvice">-</div>
+        <div id="suppContainer"></div>
     </div>
 
     <div class="card">
         <h2>Hevy Import</h2>
-        <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
-        <button class="btn-import" onclick="importHevy()">Analyser & Sauvegarder</button>
+        <textarea id="hevyInput" placeholder="Colle ta séance Hevy ici..."></textarea>
+        <button class="btn-import" onclick="importHevy()">Analyser & Calculer Performance</button>
     </div>
 
     <div id="dayNav" class="day-nav"></div>
     <div id="dayContent"></div>
 
-    <button onclick="toggleConfig()" style="background:none; border:1px solid #333; color:#555; width:100%; padding:10px; border-radius:10px; font-size:11px; margin-top:10px;">⚙️ Réglages & Poids</button>
-
-    <div id="configModal">
-        <h1 style="font-size: 18px; margin-bottom: 20px;">Configuration</h1>
-        <div class="card">
-            <h2>Poids de Corps</h2>
-            <div class="config-row"><span>Poids (kg)</span> <input type="number" id="cfg-bw" class="config-input" step="0.1"></div>
-        </div>
-        <div class="card">
-            <h2>Records & Objectifs</h2>
-            <div class="config-row"><span>Bench (Rec/Obj)</span> <div><input type="number" id="cfg-rb" class="config-input" style="width:50px"> <input type="number" id="cfg-tb" class="config-input" style="width:50px"></div></div>
-            <div class="config-row"><span>Squat (Rec/Obj)</span> <div><input type="number" id="cfg-rs" class="config-input" style="width:50px"> <input type="number" id="cfg-ts" class="config-input" style="width:50px"></div></div>
-            <div class="config-row"><span>Deadlift (Rec/Obj)</span> <div><input type="number" id="cfg-rd" class="config-input" style="width:50px"> <input type="number" id="cfg-td" class="config-input" style="width:50px"></div></div>
-        </div>
-        <button class="btn-import" style="background: var(--green);" onclick="saveConfig()">Appliquer</button>
-        <button onclick="toggleConfig()" style="background:var(--red); border:none; color:white; width:100%; padding:12px; border-radius:10px; margin-top:10px; font-weight:bold;">Fermer</button>
-    </div>
-
 <script>
-    let db = JSON.parse(localStorage.getItem('gymHub_Final_V17')) || {
+    let db = JSON.parse(localStorage.getItem('gymHub_Data_V21')) || {
         bodyWeight: 80,
         records: { bench: 130, squat: 140, deadlift: 175 },
         targets: { bench: 140, squat: 148, deadlift: 185 },
         history: {},
-        coachTips: {
-            "Lundi": "Squat Focus. Buste vertical, engage les fessiers.",
-            "Mardi": "Bench Focus. Leg drive constant.",
-            "Mercredi": "Natation 1km. Récupération active.",
-            "Jeudi": "Deadlift Focus. Gainage dorsal maximum.",
-            "Vendredi": "Cardio / Points faibles.",
-            "Samedi": "SBD Technique. Respecte les pauses.",
-            "Dimanche": "Repos total."
-        }
+        best1RM: {} // Stocke le meilleur 1RM historique par exo
     };
 
     let sbdChart;
 
+    function calculate1RM(weight, reps) {
+        if (reps === 1) return weight;
+        return Math.round(weight / (1.0278 - (0.0278 * reps)));
+    }
+
+    function importHevy() {
+        const text = document.getElementById('hevyInput').value;
+        if (!text) return;
+        
+        const daysArr = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+        const dayMatch = daysArr.find(d => text.toLowerCase().includes(d.toLowerCase())) || "Lundi";
+        
+        const lines = text.split('\n');
+        let session = []; let current = null;
+
+        lines.forEach(line => {
+            let t = line.trim();
+            if (t.toLowerCase().startsWith("série")) {
+                let p = t.split(":");
+                if (current && p[1]) current.sets.push({ label: p[0].trim(), val: p[1].trim() });
+            } else if (t && !t.includes("kg x") && !t.includes("Hevy")) {
+                if (current) session.push(current);
+                current = { n: t, sets: [], topSet: null, estimated1RM: 0, isNewRecord: false };
+            }
+        });
+        if (current) session.push(current);
+        
+        session.forEach(exo => {
+            let max1RM = 0;
+            let bestSetText = "";
+
+            exo.sets.forEach(s => {
+                const match = s.val.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+                if (match) {
+                    let w = parseFloat(match[1]);
+                    let r = parseInt(match[2]);
+                    let current1RM = calculate1RM(w, r);
+                    if (current1RM > max1RM) {
+                        max1RM = current1RM;
+                        bestSetText = `${w}kg x ${r}`;
+                    }
+                }
+            });
+
+            if (max1RM > 0) {
+                exo.estimated1RM = max1RM;
+                exo.topSet = bestSetText;
+                
+                // Vérification du record historique
+                if (!db.best1RM[exo.n] || max1RM > db.best1RM[exo.n]) {
+                    db.best1RM[exo.n] = max1RM;
+                    exo.isNewRecord = true;
+                }
+
+                // Update SBD si applicable
+                const n = exo.n.toLowerCase();
+                const sbdType = n.includes("couché") || n.includes("bench") ? 'bench' : 
+                                (n.includes("squat") && !n.includes("hack") ? 'squat' : 
+                                (n.includes("deadlift") || n.includes("terre") ? 'deadlift' : null));
+                
+                if (sbdType && max1RM > db.records[sbdType]) {
+                    db.records[sbdType] = max1RM;
+                    if (db.records[sbdType] >= db.targets[sbdType]) db.targets[sbdType] = db.records[sbdType] + 5;
+                }
+            }
+        });
+
+        // NETTOYAGE : La nouvelle séance écrase l'ancienne pour ce jour précis
+        db.history[dayMatch] = session;
+        localStorage.setItem('gymHub_Data_V21', JSON.stringify(db));
+        updateUI();
+        renderDay(dayMatch);
+        document.getElementById('hevyInput').value = "";
+    }
+
+    function renderDay(day) {
+        const container = document.getElementById('dayContent');
+        const content = db.history[day] || [];
+        updateSupps(day);
+        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === day));
+        
+        container.innerHTML = `<div class="card"><h2>${day}</h2>${content.map(exo => `
+            <div class="exo-card">
+                <div class="exo-header">
+                    <span class="exo-name">${exo.n}</span>
+                    ${exo.isNewRecord ? '<span class="badge-record">New PR !</span>' : ''}
+                </div>
+                <div class="perf-data">Top: ${exo.topSet} | Est. 1RM: ${exo.estimated1RM}kg</div>
+                ${exo.sets.map(s => `<div class="set-row"><span>${s.label}</span><span style="color:var(--green); font-weight:bold;">${s.val}</span></div>`).join('')}
+            </div>`).join('') || '<p style="font-size:11px; color:var(--sub); text-align:center;">Aucune donnée.</p>'}</div>`;
+    }
+
     function updateSupps(day) {
         const container = document.getElementById('suppContainer');
         const isSBD = (day === "Samedi");
-        const isStrength = ["Lundi", "Mardi", "Jeudi"].includes(day); // Jours de salle sauf Samedi
-        const isTrainingDay = ["Lundi", "Mardi", "Jeudi", "Samedi", "Vendredi"].includes(day); // Jours avec séance salle
-
-        let preWorkoutHTML = "";
-        if (isSBD) {
-            preWorkoutHTML = `<div class="supp-item special"><div class="supp-info"><span class="supp-name">Endurance Infini</span><span class="supp-timing">Pre-Training SBD</span></div><span class="supp-dose">1 Scoop</span></div>`;
-        } else if (isStrength) {
-            preWorkoutHTML = `
-                <div class="supp-item"><div class="supp-info"><span class="supp-name">Work!</span><span class="supp-timing">Pre-Training</span></div><span class="supp-dose">1 Scoop</span></div>
-                <div class="supp-item"><div class="supp-info"><span class="supp-name">Whey Isolate</span><span class="supp-timing">Pre-Training</span></div><span class="supp-dose">30g</span></div>`;
-        }
-
-        const artDose = isTrainingDay ? "20g" : "10g";
+        const isForce = ["Lundi", "Mardi", "Jeudi"].includes(day);
+        const artDose = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(day) ? "20g" : "10g";
 
         container.innerHTML = `
-            ${preWorkoutHTML}
-            <div class="supp-item"><div class="supp-info"><span class="supp-name">Omega 3</span><span class="supp-timing">Déjeuner</span></div><span class="supp-dose">4 Géllules</span></div>
-            <div class="supp-item special"><div class="supp-info"><span class="supp-name">Artic. + Glycine + Créatine</span><span class="supp-timing">Dîner</span></div><span class="supp-dose">${artDose} / 15g / 5g</span></div>
-            <div class="supp-item special"><div class="supp-info"><span class="supp-name">ZMB Pidolates</span><span class="supp-timing">Coucher</span></div><span class="supp-dose">3 Géllules</span></div>
+            ${isSBD ? '<div class="supp-item"><span class="supp-name">Endurance Infini</span><span class="supp-dose">1 Scoop</span></div>' : ''}
+            ${isForce ? '<div class="supp-item"><span class="supp-name">Work! + Whey</span><span class="supp-dose">1 Scoop / 30g</span></div>' : ''}
+            <div class="supp-item"><span class="supp-name">Omega 3 (Midi)</span><span class="supp-dose">4 Gél.</span></div>
+            <div class="supp-item"><span class="supp-name">Artic. + Glycine + Créat. (Soir)</span><span class="supp-dose">${artDose}/15g/5g</span></div>
+            <div class="supp-item"><span class="supp-name">ZMB (Coucher)</span><span class="supp-dose">3 Gél.</span></div>
         `;
         document.getElementById('currentDayTitle').innerText = day;
-    }
-
-    function toggleConfig() {
-        const m = document.getElementById('configModal');
-        m.style.display = (m.style.display === 'block') ? 'none' : 'block';
-        if(m.style.display === 'block') {
-            document.getElementById('cfg-bw').value = db.bodyWeight;
-            document.getElementById('cfg-rb').value = db.records.bench; document.getElementById('cfg-rs').value = db.records.squat; document.getElementById('cfg-rd').value = db.records.deadlift;
-            document.getElementById('cfg-tb').value = db.targets.bench; document.getElementById('cfg-ts').value = db.targets.squat; document.getElementById('cfg-td').value = db.targets.deadlift;
-        }
-    }
-
-    function saveConfig() {
-        db.bodyWeight = parseFloat(document.getElementById('cfg-bw').value);
-        db.records.bench = parseFloat(document.getElementById('cfg-rb').value); db.records.squat = parseFloat(document.getElementById('cfg-rs').value); db.records.deadlift = parseFloat(document.getElementById('cfg-rd').value);
-        db.targets.bench = parseFloat(document.getElementById('cfg-tb').value); db.targets.squat = parseFloat(document.getElementById('cfg-ts').value); db.targets.deadlift = parseFloat(document.getElementById('cfg-td').value);
-        localStorage.setItem('gymHub_Final_V17', JSON.stringify(db));
-        updateUI(); toggleConfig();
     }
 
     function updateUI() {
@@ -148,35 +178,6 @@
         sbdChart.data.datasets[0].data = [db.records.bench, db.records.squat, db.records.deadlift];
         sbdChart.data.datasets[1].data = [db.targets.bench, db.targets.squat, db.targets.deadlift];
         sbdChart.update();
-    }
-
-    function renderDay(day) {
-        const container = document.getElementById('dayContent');
-        const content = db.history[day] || [];
-        updateSupps(day);
-        document.getElementById('coachAdvice').innerText = db.coachTips[day] || "";
-        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === day));
-        container.innerHTML = `<div class="card"><h2>${day}</h2>${content.map(exo => `<div class="exo-card ${exo.isSuperset ? 'superset' : ''}"><span class="exo-name">${exo.isSuperset ? '⚡ ' : ''}${exo.n}</span>${exo.sets.map(s => `<div style="display:flex; justify-content:space-between; margin-top:3px;"><span style="font-size:11px; color:var(--sub)">${s.label}</span><span class="set-val">${s.val.replace(/abandon/gi, '<span class="degressif">DÉGRESSIF</span>')}</span></div>`).join('')}</div>`).join('') || '<p style="color:var(--sub); font-size:11px; text-align:center;">Aucune donnée.</p>'}</div>`;
-    }
-
-    function importHevy() {
-        const text = document.getElementById('hevyInput').value; if (!text) return;
-        const daysArr = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
-        const dayMatch = daysArr.find(d => text.toLowerCase().includes(d.toLowerCase())) || "Lundi";
-        const lines = text.split('\n'); let session = []; let current = null; let isSuper = false;
-        lines.forEach(line => {
-            let t = line.trim(); if (t.toLowerCase().includes("superset")) { isSuper = true; return; }
-            if (t.toLowerCase().startsWith("série")) { let p = t.split(":"); if (current && p[1]) current.sets.push({ label: p[0].trim(), val: p[1].trim() }); }
-            else if (t && !t.includes("kg x") && !t.includes("Hevy")) { if (current) session.push(current); current = { n: t, sets: [], isSuperset: isSuper }; isSuper = false; }
-        });
-        if (current) session.push(current);
-        session.forEach(exo => {
-            let m = 0; exo.sets.forEach(s => { const match = s.val.match(/(\d+\.?\d*)\s*kg/i); if (match) { let w = parseFloat(match[1]); if (w > m) m = w; } });
-            const n = exo.n.toLowerCase(); const keys = [{k:'bench',t:['couché','bench']},{k:'squat',t:['squat'],e:['hack']},{k:'deadlift',t:['deadlift','terre']}];
-            keys.forEach(type => { if (type.t.some(t => n.includes(t)) && (!type.e || !type.e.some(e => n.includes(e))) && m > db.records[type.k]) { db.records[type.k] = m; if (db.records[type.k] >= db.targets[type.k]) db.targets[type.k] = db.records[type.k] + 5; } });
-        });
-        db.history[dayMatch] = session; localStorage.setItem('gymHub_Final_V17', JSON.stringify(db));
-        updateUI(); renderDay(dayMatch); document.getElementById('hevyInput').value = "";
     }
 
     const ctx = document.getElementById('sbdChart').getContext('2d');
@@ -190,6 +191,7 @@
     ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].forEach(d => {
         const btn = document.createElement('button'); btn.className = 'day-btn'; btn.innerText = d; btn.onclick = () => renderDay(d); nav.appendChild(btn);
     });
+
     updateUI();
     const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
     renderDay(today.charAt(0).toUpperCase() + today.slice(1));

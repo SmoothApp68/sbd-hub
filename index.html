@@ -912,6 +912,13 @@ window.addEventListener('load', () => {
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && keys.token && keys.gistId) cloudPull();
 });
+
+// Auto-sync toutes les 10 secondes quand l'app est visible
+setInterval(() => {
+    if (document.visibilityState === 'visible' && keys.token && keys.gistId) {
+        cloudPull();
+    }
+}, 10000);
 </script>
 </body>
 </html>

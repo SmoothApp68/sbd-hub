@@ -87,93 +87,17 @@ let db = JSON.parse(localStorage.getItem('SBD_HUB_V26')) || {
     bestPR: { bench: 0, squat: 0, deadlift: 0 }
 };
 
-function saveDB() { localStorage.setItem('SBD_HUB_V26', JSON.stringify(db)); }
+const muscleDict = {
+    "Pectoraux": ["bench", "couché", "pec", "fly", "dips"],
+    "Quadriceps": ["squat", "presse", "extension", "hack", "fentes"],
+    "Dos": ["deadlift", "terre", "row", "tirage", "traction", "lat"],
+    "Épaules": ["militaire", "shoulder", "épaules", "élévation", "lateral"],
+    "Bras": ["curl", "bicep", "tricep", "extension"],
+    "Cardio": ["natation", "tapis", "vélo", "bike", "run", "swimming"]
+};
 
-function showTab(id) {
-    document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    event.currentTarget.classList.add('active');
-    if(id === 'tab-dash') renderDash();
-}
-
-// ALGORITHME DE PROGRESSION AUTOMATIQUE
-function updateTargets() {
-    ['bench', 'squat', 'deadlift'].forEach(lift => {
-        if (db.bestPR[lift] >= db.user.targets[lift]) {
-            db.user.targets[lift] = Math.round(db.bestPR[lift] + 2.5); 
-        }
-    });
-    saveDB();
-}
-
-function processHevy() {
-    const text = document.getElementById('hevyPaste').value;
-    if(!text) return;
-    const lines = text.split('\n');
-    let session = { date: new Date().toLocaleDateString('fr-FR'), exercises: [] };
-    let currExo = null;
-
-    lines.forEach(line => {
-        let l = line.trim();
-        if(l.startsWith("série")) {
-            let m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-            if(m && currExo) {
-                let w = parseFloat(m[1]), r = parseInt(m[2]);
-                let rm = r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r)));
-                if(rm > currExo.maxRM) currExo.maxRM = rm;
-            }
-        } else if(l && !l.includes('kg x') && !l.includes('Hevy')) {
-            if(currExo) session.exercises.push(currExo);
-            currExo = { name: l, maxRM: 0 };
-        }
-    });
-    if(currExo) session.exercises.push(currExo);
-
-    session.exercises.forEach(exo => {
-        let n = exo.name.toLowerCase();
-        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
-        if(type && exo.maxRM > db.bestPR[type]) db.bestPR[type] = exo.maxRM;
-    });
-
-    db.logs.unshift(session);
-    updateTargets();
-    cloudPush(true);
-    renderDash();
-    document.getElementById('hevyPaste').value = "";
-    alert("Séance enregistrée et synchronisée !");
-}
-
-function renderDash() {
-    const day = document.getElementById('daySelect').value || new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
-    
-    // Ratios & PRs
-    document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
-        <div class="rm-box">
-            <div style="font-size:9px; color:var(--sub);">${k.toUpperCase()}</div>
-            <div class="rm-val">${db.bestPR[k]}<small>kg</small></div>
-            <div class="rm-target">Visé: ${db.user.targets[k]}</div>
-            <div style="font-size:10px; color:var(--blue); margin-top:4px;">x${(db.bestPR[k]/db.user.bw).toFixed(2)} BW</div>
-        </div>
-    `).join('');
-
-    // Suppléments selon le jour
-    const isSalle = ["Lundi","Mardi","Jeudi","Vendredi","Samedi"].includes(day);
-    const hasWork = ["Lundi","Mardi","Jeudi"].includes(day);
-    let html = '';
-    if(hasWork) html += `<div class="supp-item"><span>Work! (Pré)</span><span style="color:var(--orange)">10g</span></div>`;
-    if(day === "Samedi") html += `<div class="supp-item"><span>Endurance Infini</span><span style="color:var(--orange)">1 Scoop</span></div>`;
-    html += `<div class="supp-item"><span>Articulations</span><span style="color:var(--purple)">${isSalle?'20g':'10g'}</span></div>`;
-    html += `<div class="supp-item"><span>Créatine / Glycine</span><span>5g / 10g</span></div>`;
-    html += `<div class="supp-item"><span>ZMB (Coucher)</span><span>3 caps</span></div>`;
-    document.getElementById('dashSupps').innerHTML = html;
-}
-
-// SYNC CLOUD FONCTIONS
-function saveKeys() {
-    keys.token = document.getElementById('syncToken').value;
-    keys.gistId = document.getElementById('syncGistId').value;
-    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
-    alert("Clés sauvées !");
+function saveDB() {
+    localStorage.setItem('SBD_HUB_V26', JSON.stringify(db));
 }
 
 async function cloudPush(auto = false) {
@@ -181,36 +105,145 @@ async function cloudPush(auto = false) {
     try {
         await fetch(`https://api.github.com/gists/${keys.gistId}`, {
             method: 'PATCH',
-            headers: { 'Authorization': `token ${keys.token}` },
+            headers: { 'Authorization': `token ${keys.token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: { "sbd_hub_data.json": { content: JSON.stringify(db) } } })
         });
-        if(!auto) alert("Sync Terminée !");
+        if (!auto) alert("Sync OK");
     } catch (e) { console.error(e); }
 }
 
-async function cloudPull() {
+async function autoPull() {
     if (!keys.token || !keys.gistId) return;
-    const res = await fetch(`https://api.github.com/gists/${keys.gistId}`);
-    const data = await res.json();
-    db = JSON.parse(data.files["sbd_hub_data.json"].content);
-    saveDB();
-    location.reload();
+    try {
+        const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, {
+            headers: { 'Authorization': `token ${keys.token}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.files["sbd_hub_data.json"]) {
+                const remoteDB = JSON.parse(data.files["sbd_hub_data.json"].content);
+                if (JSON.stringify(remoteDB) !== JSON.stringify(db)) {
+                    db = remoteDB;
+                    saveDB();
+                    renderDash();
+                    renderDayList();
+                }
+            }
+        }
+    } catch (e) { console.error(e); }
 }
 
-function saveSettings() {
+function showTab(id) {
+    document.querySelectorAll('.content-section, .tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (id === 'tab-dash') renderDash();
+}
+
+function updateTargets() {
+    ['bench', 'squat', 'deadlift'].forEach(lift => {
+        if (db.bestPR[lift] >= db.user.targets[lift]) {
+            db.user.targets[lift] = Math.round(db.bestPR[lift] + 2.5);
+        }
+    });
+}
+
+async function processHevy() {
+    const text = document.getElementById('hevyPaste').value;
+    if (!text) return;
+    const lines = text.split('\n');
+    let session = { date: new Date().toLocaleDateString('fr-FR'), exercises: [] };
+    let currExo = null;
+
+    lines.forEach(line => {
+        let l = line.trim();
+        if (l.startsWith("série")) {
+            let m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+            if (m && currExo) {
+                let w = parseFloat(m[1]), r = parseInt(m[2]);
+                let rm = r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r)));
+                if (rm > currExo.maxRM) currExo.maxRM = rm;
+            }
+        } else if (l && !l.includes('kg x') && !l.includes('Hevy')) {
+            if (currExo) session.exercises.push(currExo);
+            currExo = { name: l, maxRM: 0 };
+        }
+    });
+    if (currExo) session.exercises.push(currExo);
+
+    session.exercises.forEach(exo => {
+        let n = exo.name.toLowerCase();
+        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
+        if (type && exo.maxRM > db.bestPR[type]) db.bestPR[type] = exo.maxRM;
+    });
+
+    db.logs.unshift(session);
+    updateTargets();
+    saveDB();
+    await cloudPush(true);
+    renderDash();
+    renderDayList();
+    document.getElementById('hevyPaste').value = "";
+}
+
+function renderDash() {
+    const day = document.getElementById('daySelect').value;
+    document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
+        <div class="rm-box">
+            <div style="font-size:9px; color:var(--sub);">${k.toUpperCase()}</div>
+            <div class="rm-val">${db.bestPR[k]}<small>kg</small></div>
+            <div class="rm-target">Visé: ${db.user.targets[k]}</div>
+            <div style="font-size:10px; color:var(--blue); margin-top:4px;">x${(db.bestPR[k] / db.user.bw).toFixed(2)} BW</div>
+        </div>
+    `).join('');
+
+    const isSalle = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(day);
+    const hasWork = ["Lundi", "Mardi", "Jeudi"].includes(day);
+    let html = '';
+    if (hasWork) html += `<div class="supp-item"><span>Work! (Pré)</span><span style="color:var(--orange)">10g</span></div>`;
+    if (day === "Samedi") html += `<div class="supp-item"><span>Endurance Infini</span><span style="color:var(--orange)">1 Scoop</span></div>`;
+    html += `<div class="supp-item"><span>Articulations</span><span style="color:var(--purple)">${isSalle ? '20g' : '10g'}</span></div>`;
+    html += `<div class="supp-item"><span>Créatine / Glycine</span><span>5g / 10g</span></div>`;
+    html += `<div class="supp-item"><span>ZMB (Coucher)</span><span>3 caps</span></div>`;
+    document.getElementById('dashSupps').innerHTML = html;
+}
+
+function renderDayList() {
+    const container = document.getElementById('trainingLogs');
+    if (!container) return;
+    container.innerHTML = db.logs.slice(0, 5).map(log => `
+        <div class="card">
+            <h2>${log.date}</h2>
+            ${log.exercises.filter(e => e.maxRM > 0).map(exo => `
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;">
+                    <span>${exo.name}</span>
+                    <span style="color:var(--blue)">Max: ${exo.maxRM}kg</span>
+                </div>
+            `).join('')}
+        </div>`).join('');
+}
+
+async function saveKeys() {
+    keys.token = document.getElementById('syncToken').value;
+    keys.gistId = document.getElementById('syncGistId').value;
+    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
+    await autoPull();
+}
+
+async function saveSettings() {
     db.user.bw = parseFloat(document.getElementById('inputBW').value);
     saveDB();
+    await cloudPush(true);
     renderDash();
 }
 
-// Init au chargement
-const currentDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
-const capitalizedDay = currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
-document.getElementById('daySelect').value = capitalizedDay;
-document.getElementById('syncToken').value = keys.token;
-document.getElementById('syncGistId').value = keys.gistId;
-document.getElementById('inputBW').value = db.user.bw;
-renderDash();
-</script>
-</body>
-</html>
+window.addEventListener('load', async () => {
+    const currentDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
+    document.getElementById('daySelect').value = currentDay.charAt(0).toUpperCase() + currentDay.slice(1);
+    document.getElementById('syncToken').value = keys.token;
+    document.getElementById('syncGistId').value = keys.gistId;
+    document.getElementById('inputBW').value = db.user.bw;
+    await autoPull();
+    renderDash();
+    renderDayList();
+});

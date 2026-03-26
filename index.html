@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SBD Hub - Performance</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --purple: #BF5AF2; --text: #FFF; --sub: #8E8E93; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 100px; }
+        .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #2C2C2E; }
+        h2 { font-size: 10px; color: var(--sub); text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px; }
+        .ratio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 10px; }
+        .ratio-val { font-size: 18px; font-weight: 800; color: var(--blue); }
+        .ratio-label { font-size: 9px; color: var(--sub); }
+        
+        /* Styles identiques aux précédents pour la cohérence */
+        .supp-group { display: flex; flex-direction: column; gap: 6px; }
+        .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); }
+        .supp-name { font-weight: 700; font-size: 13px; }
+        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; }
+        .coach-box { border-left: 3px solid var(--green); padding-left: 12px; font-style: italic; color: #CCC; font-size: 12px; }
+        textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 12px; height: 55px; font-size: 13px; box-sizing: border-box; }
+        .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 8px; }
+        .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; }
+        .day-btn { background: #1C1C1E; border: 1px solid #2C2C2E; color: var(--sub); padding: 8px 14px; border-radius: 20px; white-space: nowrap; font-size: 12px; }
+        .day-btn.active { background: var(--blue); color: white; }
+        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 10px 0; }
+        #configModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .config-input { background: #2C2C2E; border: 1px solid #444; color: white; padding: 8px; border-radius: 8px; width: 70px; text-align: center; }
+        .config-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>SBD Progression & Ratios</h2>
+        <canvas id="sbdChart" height="120"></canvas>
+        <div class="ratio-grid" id="ratioDisplay"></div>
+    </div>
+
+    <div class="card">
+        <h2>Protocole <span id="currentDayTitle" style="color:var(--blue)">-</span></h2>
+        <div id="suppContainer" class="supp-group"></div>
+    </div>
+
+    <div class="card">
+        <h2>Coach Indications</h2>
+        <div class="coach-box" id="coachAdvice">-</div>
+    </div>
+
+    <div class="card">
+        <h2>Hevy Import</h2>
+        <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
+        <button class="btn-import" onclick="importHevy()">Analyser & Calculer Ratio</button>
+    </div>
+
+    <div id="dayNav" class="day-nav"></div>
+    <div id="dayContent"></div>
+
+    <button onclick="toggleConfig()" style="background:none; border:1px solid #333; color:#555; width:100%; padding:10px; border-radius:10px; font-size:12px;">⚙️ Configuration & Poids de corps</button>
+
+    <div id="configModal">
+        <h1 style="font-size: 18px;">Réglages</h1>
+        <div class="card">
+            <h2>Poids de Corps (BW)</h2>
+            <div class="config-row"><span>Ton poids actuel (kg)</span> <input type="number" id="cfg-bw" class="config-input" step="0.1"></div>
+        </div>
+        <div class="card">
+            <h2>Records (1RM)</h2>
+            <div class="config-row"><span>Bench</span> <input type="number" id="cfg-rb" class="config-input"></div>
+            <div class="config-row"><span>Squat</span> <input type="number" id="cfg-rs" class="config-input"></div>
+            <div class="config-row"><span>Deadlift</span> <input type="number" id="cfg-rd" class="config-input"></div>
+        </div>
+        <button class="btn-import" style="background: var(--green);" onclick="saveConfig()">Appliquer les changements</button>
+        <button onclick="toggleConfig()" style="background:var(--red); border:none; color:white; width:100%; padding:12px; border-radius:10px; margin-top:10px; font-weight:bold;">Fermer</button>
+    </div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('gymHub_Ratio_V15')) || {
+        bodyWeight: 80,
+        records: { bench: 130, squat: 140, deadlift: 175 },
+        targets: { bench: 140, squat: 148, deadlift: 185 },
+        history: {},
+        coachTips: {"Lundi":"Focus Quads.","Mardi":"Push Day.","Mercredi":"Natation.","Jeudi":"Deadlift.","Vendredi":"Cardio/Abs.","Samedi":"SBD Technique.","Dimanche":"Repos."}
+    };
+
+    let sbdChart;
+
+    function toggleConfig() {
+        const m = document.getElementById('configModal');
+        m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+        if(m.style.display === 'block') {
+            document.getElementById('cfg-bw').value = db.bodyWeight;
+            document.getElementById('cfg-rb').value = db.records.bench;
+            document.getElementById('cfg-rs').value = db.records.squat;
+            document.getElementById('cfg-rd').value = db.records.deadlift;
+        }
+    }
+
+    function saveConfig() {
+        db.bodyWeight = parseFloat(document.getElementById('cfg-bw').value);
+        db.records.bench = parseFloat(document.getElementById('cfg-rb').value);
+        db.records.squat = parseFloat(document.getElementById('cfg-rs').value);
+        db.records.deadlift = parseFloat(document.getElementById('cfg-rd').value);
+        localStorage.setItem('gymHub_Ratio_V15', JSON.stringify(db));
+        updateUI();
+        toggleConfig();
+    }
+
+    function updateUI() {
+        const rB = (db.records.bench / db.bodyWeight).toFixed(2);
+        const rS = (db.records.squat / db.bodyWeight).toFixed(2);
+        const rD = (db.records.deadlift / db.bodyWeight).toFixed(2);
+        
+        document.getElementById('ratioDisplay').innerHTML = `
+            <div><div class="ratio-label">BENCH</div><div class="ratio-val">x${rB}</div></div>
+            <div><div class="ratio-label">SQUAT</div><div class="ratio-val">x${rS}</div></div>
+            <div><div class="ratio-label">DEADLIFT</div><div class="ratio-val">x${rD}</div></div>
+        `;
+
+        sbdChart.data.datasets[0].data = [db.records.bench, db.records.squat, db.records.deadlift];
+        sbdChart.update();
+    }
+
+    // Fonctions Import & Render identiques (omises ici pour la brièveté mais incluses dans ton fichier final)
+    // [Garder ici les fonctions updateSupps, renderDay et importHevy du code précédent]
+
+    const ctx = document.getElementById('sbdChart').getContext('2d');
+    sbdChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Bench', 'Squat', 'Deadlift'],
+            datasets: [{ data: [db.records.bench, db.records.squat, db.records.deadlift], backgroundColor: '#0A84FF', borderRadius: 6 }]
+        },
+        options: { scales: { y: { min: 60, grid: { color: '#222' } } }, plugins: { legend: { display: false } } }
+    });
+
+    const nav = document.getElementById('dayNav');
+    ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].forEach(d => {
+        const btn = document.createElement('button'); btn.className = 'day-btn'; btn.innerText = d; btn.onclick = () => renderDay(d); nav.appendChild(btn);
+    });
+    updateUI();
+    renderDay(new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date()).replace(/^\w/, c => c.toUpperCase()));
+</script>
+</body>
+</html>

@@ -163,17 +163,27 @@
     </nav>
 
 <script>
+// --- CONSTANTES ---
+const STORAGE_DB_KEY = 'SBD_HUB_V28';
+const STORAGE_KEYS_KEY = 'SBD_KEYS';
+const GIST_FILE_NAME = 'sbd_hub_v28.json';
+
 // --- DB & CONFIG ---
-let keys = JSON.parse(localStorage.getItem('SBD_KEYS')) || { token: "", gistId: "" };
-let db = JSON.parse(localStorage.getItem('SBD_HUB_V28')) || {
+let keys = JSON.parse(localStorage.getItem(STORAGE_KEYS_KEY)) || { token: "", gistId: "" };
+let db = JSON.parse(localStorage.getItem(STORAGE_DB_KEY)) || {
     user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
     logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: 0
 };
-let chartSBD = null;
-let chartVolume = null;
-let chartMuscle = null;
-let isSyncing = false;
-let newPRs = { bench: false, squat: false, deadlift: false };
+
+// --- ÉTAT GLOBAL ---
+const state = {
+    chartSBD: null,
+    chartVolume: null,
+    chartMuscle: null,
+    isSyncing: false,
+    newPRs: { bench: false, squat: false, deadlift: false },
+    hasMigrated: false
+};
 
 const routines = {
     "Lundi": "Legs (Quads & Squat Focus)",
@@ -258,48 +268,71 @@ function updateSyncUI(status) {
     else { txt.innerText = "Hors ligne"; if(btn) btn.classList.remove('syncing'); }
 }
 
+function refreshUI() {
+    renderDash();
+    renderDayList();
+    if(document.getElementById('tab-stats') && document.getElementById('tab-stats').classList.contains('active')) { 
+        renderStats(); 
+        renderReports('week'); 
+    }
+}
+
 async function cloudPush() {
-    if (!keys.token || !keys.gistId || isSyncing) return;
-    isSyncing = true; updateSyncUI('syncing');
+    if (!keys.token || !keys.gistId || state.isSyncing) return;
+    state.isSyncing = true; 
+    updateSyncUI('syncing');
     db.lastSync = Date.now();
-    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
+    localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
     try {
-        await fetch(`https://api.github.com/gists/${keys.gistId}`, {
+        const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, {
             method: 'PATCH',
             headers: { 'Authorization': `token ${keys.token}` },
-            body: JSON.stringify({ files: { "sbd_hub_v28.json": { content: JSON.stringify(db) } } })
+            body: JSON.stringify({ files: { [GIST_FILE_NAME]: { content: JSON.stringify(db) } } })
         });
-        updateSyncUI('online');
-    } catch (e) { updateSyncUI('offline'); }
-    isSyncing = false;
+        updateSyncUI(res.ok ? 'online' : 'offline');
+    } catch (e) { 
+        updateSyncUI('offline'); 
+    }
+    state.isSyncing = false;
 }
 
 async function cloudPull() {
-    if (!keys.token || !keys.gistId || isSyncing) return;
-    isSyncing = true; updateSyncUI('syncing');
+    if (!keys.token || !keys.gistId || state.isSyncing) return;
+    state.isSyncing = true; 
+    updateSyncUI('syncing');
     try {
         const res = await fetch(`https://api.github.com/gists/${keys.gistId}`, { headers: { 'Authorization': `token ${keys.token}` } });
         if (res.ok) {
             const data = await res.json();
-            if(data.files["sbd_hub_v28.json"]) {
-                const remoteDB = JSON.parse(data.files["sbd_hub_v28.json"].content);
-                if (remoteDB.lastSync > db.lastSync) {
-                    db = remoteDB;
-                    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
-                    renderDash(); renderDayList();
-                    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
+            if(data.files && data.files[GIST_FILE_NAME]) {
+                try {
+                    const remoteDB = JSON.parse(data.files[GIST_FILE_NAME].content);
+                    if ((remoteDB.lastSync >= db.lastSync && remoteDB.logs.length !== db.logs.length) || remoteDB.lastSync > db.lastSync) {
+                        db = remoteDB;
+                        localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
+                        refreshUI();
+                    }
+                } catch(e) {
+                    console.error("Erreur parse Gist:", e);
+                    updateSyncUI('offline');
+                    state.isSyncing = false;
+                    return;
                 }
             }
             updateSyncUI('online');
+        } else {
+            updateSyncUI('offline');
         }
-    } catch (e) { updateSyncUI('offline'); }
-    isSyncing = false;
+    } catch (e) { 
+        updateSyncUI('offline'); 
+    }
+    state.isSyncing = false;
 }
 
 function saveKeys() {
     keys.token = document.getElementById('syncToken').value;
     keys.gistId = document.getElementById('syncGistId').value;
-    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
+    localStorage.setItem(STORAGE_KEYS_KEY, JSON.stringify(keys));
     cloudPull();
 }
 
@@ -339,9 +372,24 @@ function processHevy() {
     lines.forEach(line => {
         let l = line.trim().toLowerCase();
         
-        // Détection d'un nouvel exercice (ligne sans "kg x", sans "série", sans date)
-        if(l && !l.includes('kg x') && !l.startsWith('série') && !l.includes('hevy') && !(l.startsWith('le ') && l.includes('202'))) {
-            // Sauvegarder l'exercice précédent s'il existe
+        // Ignorer les lignes vides, headers, dates et liens
+        if(!l || l.includes('hevy') || (l.startsWith('le ') && l.includes('202')) || l.includes('http')) {
+            return;
+        }
+        
+        // Ignorer les lignes de tempo "3/1/0" ou "15 sec iso + 15 reps"
+        if(l.match(/^\d+\/\d+\/\d+/) || (l.includes('"') && (l.match(/\d+\/\d+\/\d+/) || l.includes('sec') || l.includes('iso')))) {
+            return;
+        }
+        
+        // Vérifier si c'est une DONNÉE (commence par "Série" ou "0x"/"2x" etc)
+        let isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min'));
+        let isCompressedData = l.match(/^\d+x/) || l.match(/^\d+[.,]\d+km/) || l.includes('1rm est:');
+        let isData = isSerieData || isCompressedData;
+        
+        // Si c'est pas une donnée, c'est un nouvel exercice
+        if(!isData) {
+            // Sauvegarder l'exercice précédent
             if(currExo) {
                 if(currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.sets > 0) {
                     session.exercises.push(currExo);
@@ -349,28 +397,15 @@ function processHevy() {
             }
             
             // Vérifier si c'est du cardio
-            let isCardio = l.includes('km') || l.includes('tapis') || l.includes('natation') || l.includes('running');
-            
-            // Parser le cardio : "1 km - 9min 0s" ou "1,5 km"
-            if(isCardio) {
-                let kmMatch = l.match(/(\d+[.,]\d*|\d+)\s*km/);
-                let minMatch = l.match(/(\d+)min\s*(\d+)s/);
-                let distanceStr = kmMatch ? kmMatch[1].replace(',', '.') : '0';
-                let distanceKm = parseFloat(distanceStr);
-                let minutes = minMatch ? parseInt(minMatch[1]) : 0;
-                let seconds = minMatch ? parseInt(minMatch[2]) : 0;
-                let totalSeconds = minutes * 60 + seconds;
-                
-                currExo = { name: line.trim(), maxRM: 0, sets: 1, isCardio: true, distance: distanceKm, duration: totalSeconds };
-                if(distanceKm > 0) session.volume += distanceKm * 1000;
-            } else {
-                currExo = { name: line.trim(), maxRM: 0, sets: 0, isCardio: false };
-            }
-        } 
-        // Parser les séries de force
-        else if(l.startsWith("série") && l.includes('kg x') && !l.includes('échau')) {
+            let isCardio = l.includes('tapis') || l.includes('roulant') || l.includes('natation') || l.includes('running') || l.includes('nage');
+            // Nettoyer le nom en enlevant le tempo entre guillemets
+            let cleanName = line.trim().replace(/\s*"[^"]*"\s*$/g, '').trim();
+            currExo = { name: cleanName, maxRM: 0, sets: 0, isCardio: isCardio, isTime: false, distance: 0, maxTime: 0 };
+        }
+        // ANCIEN FORMAT: Parser les séries "Série 1: 77.6 kg x 10"
+        else if(l.startsWith('série') && l.includes('kg x') && currExo && !currExo.isCardio) {
             let match = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-            if(match && currExo && !currExo.isCardio) {
+            if(match) {
                 let w = parseFloat(match[1]), r = parseInt(match[2]);
                 session.volume += (w * r);
                 currExo.sets++;
@@ -378,38 +413,49 @@ function processHevy() {
                 if(rm > currExo.maxRM) currExo.maxRM = rm;
             }
         }
-        // Parser les séries de temps (planche) : "Série 1: 45 sec" ou "Série 1: 1min" ou "1min 30s"
-        else if(l.startsWith("série") && (l.includes('sec') || l.includes('min')) && currExo && !currExo.isCardio) {
-            let minMatch = l.match(/(\d+)\s*min/i);
-            let secMatch = l.match(/(\d+)\s*sec/i) || l.match(/(\d+)s(?!pin)/i);
-            
-            if((minMatch || secMatch) && currExo) {
-                let minutes = minMatch ? parseInt(minMatch[1]) : 0;
-                let seconds = secMatch ? parseInt(secMatch[1]) : 0;
-                let totalSeconds = minutes * 60 + seconds;
-                
-                currExo.sets++;
-                if(!currExo.isTime) {
-                    currExo.isTime = true;
-                    currExo.maxTime = 0;
-                }
-                if(totalSeconds > currExo.maxTime) currExo.maxTime = totalSeconds;
-                session.volume += totalSeconds / 10; // Compter 10 sec = 1 unité de volume
+        // ANCIEN FORMAT: Parser cardio "Série 1: 1 km - 9min 0s"
+        else if(l.startsWith('série') && l.includes('km') && currExo && currExo.isCardio) {
+            let kmMatch = l.match(/(\d+[.,]\d*|\d+)\s*km/);
+            if(kmMatch) {
+                let distanceKm = parseFloat(kmMatch[1].replace(',', '.'));
+                currExo.distance = Math.max(currExo.distance, distanceKm);
+                session.volume += distanceKm * 1000;
             }
         }
-        // Parser les séries cardio : "Série 1: 1 km - 9min 0s"
-        else if(l.startsWith("série") && (l.includes('km') || l.includes('min')) && currExo && currExo.isCardio) {
+        // ANCIEN FORMAT: Parser temps "Série 1: 70.4 kg x 15"
+        else if(l.startsWith('série') && l.includes('sec') && currExo && !currExo.isCardio && !currExo.maxRM) {
+            let secMatch = l.match(/(\d+)\s*sec/i);
+            if(secMatch) {
+                let seconds = parseInt(secMatch[1]);
+                currExo.isTime = true;
+                currExo.maxTime = Math.max(currExo.maxTime || 0, seconds);
+                session.volume += seconds / 10;
+            }
+        }
+        // NOUVEAU FORMAT: Parser cardio "1.0km - 9m0s"
+        else if(l.match(/^\d+[.,]\d*km/) && currExo && currExo.isCardio) {
             let kmMatch = l.match(/(\d+[.,]\d*|\d+)\s*km/);
-            let minMatch = l.match(/(\d+)min\s*(\d+)s/);
-            let distanceStr = kmMatch ? kmMatch[1].replace(',', '.') : '0';
-            let distanceKm = parseFloat(distanceStr);
-            let minutes = minMatch ? parseInt(minMatch[1]) : 0;
-            let seconds = minMatch ? parseInt(minMatch[2]) : 0;
-            
-            if(distanceKm > 0) {
+            if(kmMatch) {
+                let distanceKm = parseFloat(kmMatch[1].replace(',', '.'));
                 currExo.distance = Math.max(currExo.distance, distanceKm);
-                currExo.duration = minutes * 60 + seconds;
                 session.volume += distanceKm * 1000;
+            }
+        }
+        // NOUVEAU FORMAT: Parser 1RM "1RM Est: 103kg"
+        else if(l.includes('1rm est:') && currExo && !currExo.isCardio) {
+            let match = l.match(/(\d+)\s*kg/i);
+            if(match) {
+                let rm = parseInt(match[1]);
+                if(rm > currExo.maxRM) currExo.maxRM = rm;
+            }
+        }
+        // NOUVEAU FORMAT: Parser séries "2x" ou "0x 2x"
+        else if(l.match(/\d+x/) && currExo && !currExo.isCardio) {
+            let matches = l.match(/\d+x/g);
+            if(matches) {
+                let lastMatch = matches[matches.length - 1];
+                let setCount = parseInt(lastMatch.match(/(\d+)/)[1]);
+                currExo.sets = setCount;
             }
         }
     });
@@ -422,7 +468,7 @@ function processHevy() {
     }
 
     // Mettre à jour les PRs
-    newPRs = { bench: false, squat: false, deadlift: false };
+    state.newPRs = { bench: false, squat: false, deadlift: false };
     session.exercises.forEach(exo => {
         let n = exo.name.toLowerCase();
         let type = null;
@@ -438,7 +484,7 @@ function processHevy() {
         
         if(type && exo.maxRM > db.bestPR[type]) {
             db.bestPR[type] = exo.maxRM;
-            newPRs[type] = true;
+            state.newPRs[type] = true;
             
             // Auto-augmenter l'objectif de 5kg si atteint
             if(db.bestPR[type] >= db.user.targets[type]) {
@@ -453,8 +499,7 @@ function processHevy() {
 
     document.getElementById('hevyPaste').value = "";
     showToast("✓ Séance importée");
-    renderDash(); renderDayList(); 
-    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
+    refreshUI();
     cloudPush();
 }
 
@@ -484,15 +529,9 @@ function deleteLog(logId) {
         modal.remove();
         
         db.logs = db.logs.filter(log => log.id !== logId);
-        localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
+        localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
         
-        renderDayList();
-        renderDash();
-        if(document.getElementById('tab-stats') && document.getElementById('tab-stats').classList.contains('active')) { 
-            renderStats(); 
-            renderReports('week');
-        }
-        
+        refreshUI();
         cloudPush();
         showToast("✓ Séance supprimée");
     };
@@ -504,7 +543,7 @@ function renderDash() {
     document.getElementById('routineDisplay').innerText = routines[day];
     
     document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => {
-        const prBadge = newPRs[k] ? `<div class="pr-badge">🔥 PR!</div>` : '';
+        const prBadge = state.newPRs[k] ? `<div class="pr-badge">🔥 PR!</div>` : '';
         return `
         <div class="rm-box">
             ${prBadge}
@@ -616,7 +655,7 @@ function renderStats() {
 
     const ctxM = document.getElementById('chartMuscle');
     if (ctxM) {
-        if (chartMuscle) chartMuscle.destroy();
+        if (state.chartMuscle) state.chartMuscle.destroy();
         
         // Créer un hexagone SVG au lieu d'un chart
         const radarLabels = ['Dos', 'Torse', 'Tronc', 'Jambes', 'Bras', 'Épaules'];
@@ -710,12 +749,12 @@ function renderStats() {
 
     const ctxV = document.getElementById('chartVolume');
     if (ctxV) {
-        if (chartVolume) chartVolume.destroy();
+        if (state.chartVolume) state.chartVolume.destroy();
         let validLogs = db.logs.filter(l => l.volume > 0).slice(0, 10).reverse();
         let labelsV = validLogs.map(l => l.date.substring(0, 5));
         let dataV = validLogs.map(l => l.volume);
 
-        chartVolume = new Chart(ctxV, {
+        state.chartVolume = new Chart(ctxV, {
             type: 'line',
             data: {
                 labels: labelsV,
@@ -729,7 +768,7 @@ function renderStats() {
 function renderCharts() {
     const ctx = document.getElementById('chartSBD');
     if (!ctx) return;
-    if (chartSBD) chartSBD.destroy();
+    if (state.chartSBD) state.chartSBD.destroy();
     
     // Trouver les dates des derniers PRs
     let lastPRDates = { bench: null, squat: null, deadlift: null };
@@ -752,7 +791,7 @@ function renderCharts() {
         }
     });
     
-    chartSBD = new Chart(ctx, {
+    state.chartSBD = new Chart(ctx, {
         type: 'bar',
         data: { 
             labels: ['Bench', 'Squat', 'Dead'], 
@@ -805,54 +844,59 @@ function renderCharts() {
 
 function updateProfile() {
     db.user.bw = parseFloat(document.getElementById('inputBW').value) || 80;
-    renderDash(); cloudPush();
+    localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
+    renderDash(); 
+    cloudPush();
 }
 
 async function fullReset() {
     if (!confirm("Effacer toutes les données ?")) return;
     db = { user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, lastSync: Date.now() };
-    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
-    renderDash(); renderDayList();
-    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
+    localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
+    refreshUI();
     await cloudPush();
     alert("Application remise à zéro.");
 }
 
 // --- INIT ---
 window.addEventListener('load', () => {
-    // Migration : ajouter des IDs aux séances existantes
-    db.logs.forEach(log => {
-        if(!log.id) {
-            log.id = Math.random().toString(36).substr(2, 9);
-        }
-    });
-    
-    // Migration : recalculer les PRs en excluant les variantes
-    db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
-    db.logs.forEach(log => {
-        log.exercises.forEach(exo => {
-            let n = exo.name.toLowerCase();
-            
-            // Exclure les variantes
-            if (n.includes("pause") || n.includes("spoto") || n.includes("deficit") || n.includes("board")) {
-                return;
-            }
-            
-            let type = null;
-            if (n.includes("bench")) type = "bench";
-            else if (n.includes("squat") && !n.includes("hack")) type = "squat";
-            else if (n.includes("deadlift") || n.includes("soulevé")) type = "deadlift";
-            
-            if(type && exo.maxRM > db.bestPR[type]) {
-                db.bestPR[type] = exo.maxRM;
-                if(db.bestPR[type] >= db.user.targets[type]) {
-                    db.user.targets[type] = Math.round(db.bestPR[type] + 2.5);
-                }
+    // Migration : une seule fois
+    if (!state.hasMigrated) {
+        // Ajouter des IDs aux séances existantes
+        db.logs.forEach(log => {
+            if(!log.id) {
+                log.id = Math.random().toString(36).substr(2, 9);
             }
         });
-    });
-    
-    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
+        
+        // Recalculer les PRs en excluant les variantes
+        db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
+        db.logs.forEach(log => {
+            log.exercises.forEach(exo => {
+                let n = exo.name.toLowerCase();
+                
+                // Exclure les variantes
+                if (n.includes("pause") || n.includes("spoto") || n.includes("deficit") || n.includes("board")) {
+                    return;
+                }
+                
+                let type = null;
+                if ((n.includes("bench") || n.includes("couché")) && !n.includes("incliné") && !n.includes("haltères")) type = "bench";
+                else if (n.includes("squat") && !n.includes("hack")) type = "squat";
+                else if (n.includes("deadlift") || n.includes("soulevé")) type = "deadlift";
+                
+                if(type && exo.maxRM > db.bestPR[type]) {
+                    db.bestPR[type] = exo.maxRM;
+                    if(db.bestPR[type] >= db.user.targets[type]) {
+                        db.user.targets[type] = Math.round(db.bestPR[type] + 2.5);
+                    }
+                }
+            });
+        });
+        
+        localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
+        state.hasMigrated = true;
+    }
     
     const days = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
     const today = days[new Date().getDay()];

@@ -242,14 +242,6 @@ function updateProfile() {
     if(bw > 0) { db.user.bw = bw; cloudPush(); renderDash(); }
 }
 
-function saveKeys() {
-    keys.token = document.getElementById('syncToken').value.trim();
-    keys.gistId = document.getElementById('syncGistId').value.trim();
-    localStorage.setItem('SBD_KEYS', JSON.stringify(keys));
-    cloudPull(); // Vérifie la co au clic
-}
-
-// --- AFFICHAGE ---
 function renderDash() {
     const day = document.getElementById('daySelect').value;
     document.getElementById('dayTitle').innerText = routines[day];
@@ -264,22 +256,26 @@ function renderDash() {
         </div>
     `).join('');
 
-    // Protocole Suppléments selon données réelles
+    // Protocole Suppléments - MAJ DOSAGES RÉELS
     const isTraining = ["Lundi","Mardi","Jeudi","Vendredi","Samedi"].includes(day);
     let html = '';
     
-    // NUTRIMUSCLE & RAPTOR & NUTRIPURE
-    html += `<div class="supp-item"><span>Oméga 3</span><span style="color:var(--sub)">Repas</span></div>`;
-    html += `<div class="supp-item"><span>Créatine Creapure</span><span style="color:var(--sub)">5g - Libre</span></div>`;
+    // Matin / Midi
+    html += `<div class="supp-item"><span>Oméga 3</span><span style="color:var(--green)">4 gélules - Midi</span></div>`;
     
+    // Autour de l'entraînement
     if(isTraining) {
         html += `<div class="supp-item"><span style="font-weight:bold; color:var(--orange)">WORK! (Pré)</span><span style="color:var(--orange); font-weight:bold;">10g</span></div>`;
         html += `<div class="supp-item"><span style="font-weight:bold; color:var(--blue)">Whey Isolate (Post)</span><span style="color:var(--blue); font-weight:bold;">30g</span></div>`;
     }
     
-    html += `<div class="supp-item"><span>ZMB Pidolates</span><span style="color:#5E5CE6">3 caps - Soir</span></div>`;
-    html += `<div class="supp-item"><span>Collagène Peptan 1</span><span style="color:#BF5AF2">15g - Coucher</span></div>`;
-    html += `<div class="supp-item"><span>Glycine Cristallisée</span><span style="color:#BF5AF2">10g - Coucher</span></div>`;
+    // Soir
+    html += `<div class="supp-item"><span>Articulations</span><span style="color:var(--purple)">${isTraining?'20g':'10g'} - Soir</span></div>`;
+    html += `<div class="supp-item"><span>Créatine</span><span style="color:var(--sub)">5g - Soir</span></div>`;
+    html += `<div class="supp-item"><span>Glycine</span><span style="color:#BF5AF2">15g - Soir</span></div>`;
+    
+    // Coucher
+    html += `<div class="supp-item"><span>ZMB Pidolates</span><span style="color:#5E5CE6">3 gélules - Coucher</span></div>`;
     
     document.getElementById('dashSupps').innerHTML = html;
     renderCharts();

@@ -3,210 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBD Hub - Archive Permanente</title>
+    <title>SBD Hub Pro - Stats & Performance</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --text: #FFF; --sub: #8E8E93; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 100px; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
+        .tab-content { display: none; padding: 15px; }
+        .tab-content.active { display: block; }
+        
+        /* Navigation Basse style Hevy */
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background: #121212; border-top: 1px solid #2C2C2E; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+        .tab-item { color: var(--sub); text-align: center; font-size: 10px; text-decoration: none; display: flex; flex-direction: column; gap: 4px; }
+        .tab-item.active { color: var(--blue); }
+        .tab-icon { font-size: 20px; }
+
         .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #2C2C2E; }
-        h2 { font-size: 10px; color: var(--sub); text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px; }
-        .ratio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 15px; border-top: 1px solid #2C2C2E; padding-top: 10px; }
-        .ratio-val { font-size: 16px; font-weight: 800; color: var(--blue); }
-        .ratio-label { font-size: 8px; color: var(--sub); }
-        .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); margin-bottom: 6px; }
-        .supp-name { font-weight: 700; font-size: 13px; }
-        .supp-dose { color: var(--green); font-weight: 800; }
-        .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none; }
-        .day-btn { background: #1C1C1E; border: 1px solid #2C2C2E; color: var(--sub); padding: 8px 14px; border-radius: 20px; white-space: nowrap; font-size: 12px; }
-        .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
-        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 12px 0; position: relative; }
-        .superset-tag { color: var(--orange); font-size: 9px; font-weight: 900; text-transform: uppercase; margin-right: 5px; }
-        .degressif-tag { color: var(--red); font-size: 9px; font-weight: 900; text-transform: uppercase; }
-        .exo-name { font-weight: 700; font-size: 14px; color: var(--blue); }
-        .badge-record { background: var(--orange); color: black; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; float: right; }
-        .perf-line { font-size: 10px; color: var(--sub); margin: 4px 0; }
-        .perf-val { color: var(--green); font-weight: bold; }
-        .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+        h2 { font-size: 11px; color: var(--sub); text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 0.5px; }
+        
+        .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2C2C2E; font-size: 13px; }
+        .muscle-bar-container { width: 100%; height: 8px; background: #2C2C2E; border-radius: 4px; margin-top: 5px; overflow: hidden; }
+        .muscle-bar-fill { height: 100%; background: var(--blue); }
+        
+        .badge-pr { background: var(--orange); color: #000; font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px; }
         textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 10px; height: 60px; box-sizing: border-box; }
+        .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer;}
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>SBD Progression & Ratios</h2>
-        <canvas id="sbdChart" height="130"></canvas>
-        <div class="ratio-grid" id="ratioDisplay"></div>
+    <div id="workout" class="tab-content active">
+        <div class="card">
+            <h2>Protocole du jour</h2>
+            <div id="suppContainer"></div>
+        </div>
+        <div class="card">
+            <h2>Import Hevy</h2>
+            <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
+            <button class="btn" onclick="importHevy()">Enregistrer la séance</button>
+        </div>
+        <div id="dayContent"></div>
     </div>
 
-    <div class="card">
-        <h2>Protocole <span id="currentDayTitle" style="color:var(--blue)">-</span></h2>
-        <div id="suppContainer"></div>
+    <div id="stats" class="tab-content">
+        <div class="card">
+            <h2>Volume par Muscle (Séries)</h2>
+            <div id="muscleDistribution"></div>
+        </div>
+        <div class="card">
+            <h2>Classement Exercices (1RM Est.)</h2>
+            <div id="topExos"></div>
+        </div>
+        <div class="card">
+            <h2>SBD Ratios</h2>
+            <canvas id="sbdChart" height="150"></canvas>
+            <div id="ratioDisplay" style="display:grid; grid-template-columns: repeat(3, 1fr); text-align:center; margin-top:15px;"></div>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Import Hevy (Permanent)</h2>
-        <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
-        <button class="btn-import" onclick="importHevy()">Archiver la Performance</button>
-    </div>
-
-    <div id="dayNav" class="day-nav"></div>
-    <div id="dayContent"></div>
+    <nav class="tab-bar">
+        <a href="#" class="tab-item active" onclick="switchTab('workout')"><span class="tab-icon">🏋️</span><span>Workout</span></a>
+        <a href="#" class="tab-item" onclick="switchTab('stats')"><span class="tab-icon">📊</span><span>Stats</span></a>
+    </nav>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('gymHub_Archive_V22')) || {
+    let db = JSON.parse(localStorage.getItem('gymHub_Ultimate_V23')) || {
         bodyWeight: 80,
         records: { bench: 0, squat: 0, deadlift: 0 },
         targets: { bench: 140, squat: 148, deadlift: 185 },
-        logs: [], // TOUTES les séances sont ici
-        exerciseHistory: {} // Historique par exercice pour les courbes
+        logs: [], 
+        exerciseHistory: {} 
     };
 
-    let sbdChart;
+    const muscleMap = {
+        "couché": "Pectoraux", "bench": "Pectoraux", "écarté": "Pectoraux",
+        "squat": "Quadriceps", "presse": "Quadriceps", "fentes": "Quadriceps",
+        "deadlift": "Dos/Ischios", "terre": "Dos/Ischios", "tirage": "Dos", "rowing": "Dos",
+        "curl": "Biceps", "triceps": "Triceps", "barre au front": "Triceps",
+        "épaules": "Épaules", "développé militaire": "Épaules", "élévation": "Épaules",
+        "natation": "Cardio", "tapis": "Cardio"
+    };
 
-    function calculate1RM(weight, reps) {
-        if (reps <= 1) return weight;
-        return Math.round(weight / (1.0278 - (0.0278 * reps)));
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-item').forEach(i => i.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+        if(tabId === 'stats') renderStats();
     }
+
+    function calculate1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - (0.0278 * r))); }
 
     function importHevy() {
         const text = document.getElementById('hevyInput').value;
         if (!text) return;
-        
-        const dateNow = new Date().toLocaleDateString('fr-FR');
-        const daysArr = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
-        const dayMatch = daysArr.find(d => text.toLowerCase().includes(d.toLowerCase())) || "Séance";
-        
+        const dateNow = new Date().toISOString();
         const lines = text.split('\n');
-        let sessionExos = [];
-        let current = null;
-        let isSuperset = false;
+        let sessionExos = []; let current = null;
 
         lines.forEach(line => {
             let t = line.trim();
-            if (t.toLowerCase().includes("superset")) isSuperset = true;
-            
             if (t.toLowerCase().startsWith("série")) {
                 let p = t.split(":");
-                if (current && p[1]) {
-                    const isDegressif = p[1].toLowerCase().includes("abandon") || p[1].toLowerCase().includes("dégressif");
-                    current.sets.push({ label: p[0].trim(), val: p[1].trim(), degressif: isDegressif });
-                }
+                if (current && p[1]) current.sets.push(p[1].trim());
             } else if (t && !t.includes("kg x") && !t.includes("Hevy")) {
                 if (current) sessionExos.push(current);
-                current = { n: t, sets: [], isSuperset: isSuperset, topWeight: 0, top1RM: 0, isNewPR: false };
-                isSuperset = false; 
+                current = { n: t, sets: [] };
             }
         });
         if (current) sessionExos.push(current);
-        
+
         sessionExos.forEach(exo => {
-            let mWeight = 0; let m1RM = 0;
+            let max1RM = 0;
             exo.sets.forEach(s => {
-                const match = s.val.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+                const match = s.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
                 if (match) {
-                    let w = parseFloat(match[1]); let r = parseInt(match[2]);
-                    let c1RM = calculate1RM(w, r);
-                    if (w > mWeight) mWeight = w;
-                    if (c1RM > m1RM) m1RM = c1RM;
+                    let val1RM = calculate1RM(parseFloat(match[1]), parseInt(match[2]));
+                    if (val1RM > max1RM) max1RM = val1RM;
                 }
             });
-
-            exo.topWeight = mWeight;
-            exo.top1RM = m1RM;
-
-            // Enregistrement dans l'historique de l'exercice (Courbe)
             if (!db.exerciseHistory[exo.n]) db.exerciseHistory[exo.n] = [];
+            db.exerciseHistory[exo.n].push({ date: dateNow, oneRM: max1RM, setsCount: exo.sets.length });
             
-            const lastRecord = db.exerciseHistory[exo.n].slice(-1)[0];
-            if (!lastRecord || m1RM > lastRecord.oneRM) exo.isNewPR = true;
-
-            db.exerciseHistory[exo.n].push({
-                date: dateNow,
-                weight: mWeight,
-                oneRM: m1RM
-            });
-
-            // Update SBD
-            const name = exo.n.toLowerCase();
-            const sbd = name.includes("couché") || name.includes("bench") ? 'bench' : 
-                        (name.includes("squat") && !name.includes("hack") ? 'squat' : 
-                        (name.includes("deadlift") || name.includes("terre") ? 'deadlift' : null));
-            if (sbd && m1RM > db.records[sbd]) {
-                db.records[sbd] = m1RM;
-                if (db.records[sbd] >= db.targets[sbd]) db.targets[sbd] = db.records[sbd] + 5;
-            }
+            // Check SBD
+            const n = exo.n.toLowerCase();
+            const sbd = n.includes("couché") || n.includes("bench") ? 'bench' : (n.includes("squat") ? 'squat' : (n.includes("deadlift") ? 'deadlift' : null));
+            if(sbd && max1RM > db.records[sbd]) db.records[sbd] = max1RM;
         });
 
-        // Archive la séance
-        db.logs.unshift({ date: dateNow, day: dayMatch, exercises: sessionExos });
-        localStorage.setItem('gymHub_Archive_V22', JSON.stringify(db));
-        updateUI();
-        renderDay(dayMatch);
-        document.getElementById('hevyInput').value = "";
+        db.logs.unshift({ date: dateNow, exercises: sessionExos });
+        localStorage.setItem('gymHub_Ultimate_V23', JSON.stringify(db));
+        alert("Séance enregistrée !");
+        location.reload();
     }
 
-    function renderDay(dayName) {
-        const container = document.getElementById('dayContent');
-        updateSupps(dayName);
-        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === dayName));
-        
-        // On cherche la dernière séance correspondant à ce jour dans les logs
-        const lastLog = db.logs.find(l => l.day === dayName);
-        
-        container.innerHTML = `<div class="card"><h2>Dernière séance : ${dayName}</h2>${lastLog ? lastLog.exercises.map(exo => `
-            <div class="exo-card">
-                ${exo.isNewPR ? '<span class="badge-record">Record !</span>' : ''}
-                <div class="exo-name">${exo.isSuperset ? '<span class="superset-tag">Superset</span>' : ''}${exo.n}</div>
-                <div class="perf-line">Charge Max: <span class="perf-val">${exo.topWeight}kg</span> | 1RM Est: <span class="perf-val">${exo.top1RM}kg</span></div>
-                <div style="font-size:9px; color:var(--sub); margin-bottom:8px;">Historique : ${db.exerciseHistory[exo.n].slice(-3).map(h => h.oneRM + 'kg').join(' ➔ ')}</div>
-                ${exo.sets.map(s => `<div class="set-row">
-                    <span>${s.label} ${s.degressif ? '<span class="degressif-tag">Dégres.</span>' : ''}</span>
-                    <span style="color:var(--green)">${s.val}</span>
-                </div>`).join('')}
-            </div>`).join('') : '<p style="text-align:center; font-size:11px; color:var(--sub);">Aucune archive pour ce jour.</p>'}</div>`;
+    function renderStats() {
+        // 1. Distribution Musculaire
+        const distribution = {};
+        Object.keys(db.exerciseHistory).forEach(name => {
+            let muscle = "Autre";
+            for (let key in muscleMap) { if(name.toLowerCase().includes(key)) muscle = muscleMap[key]; }
+            let sets = db.exerciseHistory[name].reduce((acc, curr) => acc + curr.setsCount, 0);
+            distribution[muscle] = (distribution[muscle] || 0) + sets;
+        });
+
+        const totalSets = Object.values(distribution).reduce((a, b) => a + b, 0);
+        let distHTML = "";
+        for (let m in distribution) {
+            let pct = (distribution[m] / totalSets * 100).toFixed(0);
+            distHTML += `<div class="stat-row"><span>${m}</span><span>${distribution[m]} séries (${pct}%)</span></div>
+                         <div class="muscle-bar-container"><div class="muscle-bar-fill" style="width:${pct}%"></div></div>`;
+        }
+        document.getElementById('muscleDistribution').innerHTML = distHTML || "Aucune donnée.";
+
+        // 2. Top Exercices
+        let topExos = Object.keys(db.exerciseHistory).map(name => {
+            let best = Math.max(...db.exerciseHistory[name].map(h => h.oneRM));
+            return { name, best };
+        }).sort((a, b) => b.best - a.best).slice(0, 5);
+
+        document.getElementById('topExos').innerHTML = topExos.map(e => `
+            <div class="stat-row"><span>${e.name}</span><span class="badge-pr">${e.best} kg Est.</span></div>
+        `).join('');
+
+        // 3. SBD UI
+        updateSBDChart();
     }
 
-    function updateSupps(day) {
-        const container = document.getElementById('suppContainer');
-        const isSBD = (day === "Samedi");
-        const isForce = ["Lundi", "Mardi", "Jeudi"].includes(day);
-        const artDose = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(day) ? "20g" : "10g";
-
-        container.innerHTML = `
-            ${isSBD ? '<div class="supp-item"><span class="supp-name">Endurance Infini</span><span class="supp-dose">1 Scoop</span></div>' : ''}
-            ${isForce ? '<div class="supp-item"><span class="supp-name">Work! + Whey</span><span class="supp-dose">1 Scoop / 30g</span></div>' : ''}
-            <div class="supp-item"><span class="supp-name">Omega 3 (Midi)</span><span class="supp-dose">4 gélules</span></div>
-            <div class="supp-item"><span class="supp-name">Artic. + Glycine + Créatine (Soir)</span><span class="supp-dose">${artDose}/15g/5g</span></div>
-            <div class="supp-item"><span class="supp-name">ZMB (Coucher)</span><span class="supp-dose">3 gélules</span></div>
-        `;
-        document.getElementById('currentDayTitle').innerText = day;
-    }
-
-    function updateUI() {
+    function updateSBDChart() {
         const rB = (db.records.bench / db.bodyWeight).toFixed(2);
         const rS = (db.records.squat / db.bodyWeight).toFixed(2);
         const rD = (db.records.deadlift / db.bodyWeight).toFixed(2);
-        document.getElementById('ratioDisplay').innerHTML = `<div><div class="ratio-label">Bench</div><div class="ratio-val">x${rB}</div></div><div><div class="ratio-label">Squat</div><div class="ratio-val">x${rS}</div></div><div><div class="ratio-label">Deadlift</div><div class="ratio-val">x${rD}</div></div>`;
-        sbdChart.data.datasets[0].data = [db.records.bench, db.records.squat, db.records.deadlift];
-        sbdChart.data.datasets[1].data = [db.targets.bench, db.targets.squat, db.targets.deadlift];
-        sbdChart.update();
+        document.getElementById('ratioDisplay').innerHTML = `<div><div style="font-size:14px;font-weight:bold;color:var(--blue)">x${rB}</div><div style="font-size:8px;color:var(--sub)">BENCH</div></div><div><div style="font-size:14px;font-weight:bold;color:var(--blue)">x${rS}</div><div style="font-size:8px;color:var(--sub)">SQUAT</div></div><div><div style="font-size:14px;font-weight:bold;color:var(--blue)">x${rD}</div><div style="font-size:8px;color:var(--sub)">TERRE</div></div>`;
+        
+        const ctx = document.getElementById('sbdChart').getContext('2d');
+        if(sbdChart) sbdChart.destroy();
+        sbdChart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: ['Bench', 'Squat', 'Terre'], datasets: [{ data: [db.records.bench, db.records.squat, db.records.deadlift], backgroundColor: '#0A84FF', borderRadius: 8 }] },
+            options: { scales: { y: { display: false }, x: { ticks: { color: '#FFF' } } }, plugins: { legend: { display: false } } }
+        });
     }
 
-    const ctx = document.getElementById('sbdChart').getContext('2d');
-    sbdChart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels: ['Bench', 'Squat', 'Deadlift'], datasets: [{ label: 'Record', data: [db.records.bench, db.records.squat, db.records.deadlift], backgroundColor: '#0A84FF', borderRadius: 6 }, { label: 'Objectif', data: [db.targets.bench, db.targets.squat, db.targets.deadlift], backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 6 }] },
-        options: { scales: { y: { min: 60, grid: { color: '#222' }, ticks: { color: '#8E8E93' } }, x: { ticks: { color: '#FFF' } } }, plugins: { legend: { display: false } } }
-    });
+    // Init Supps
+    const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
+    const capitalizedDay = day.charAt(0).toUpperCase() + day.slice(1);
+    const isSBD = (capitalizedDay === "Samedi");
+    const isForce = ["Lundi", "Mardi", "Jeudi"].includes(capitalizedDay);
+    const artDose = ["Lundi", "Mardi", "Jeudi", "Vendredi", "Samedi"].includes(capitalizedDay) ? "20g" : "10g";
 
-    const nav = document.getElementById('dayNav');
-    ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].forEach(d => {
-        const btn = document.createElement('button'); btn.className = 'day-btn'; btn.innerText = d; btn.onclick = () => renderDay(d); nav.appendChild(btn);
-    });
-
-    updateUI();
-    const today = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(new Date());
-    renderDay(today.charAt(0).toUpperCase() + today.slice(1));
+    document.getElementById('suppContainer').innerHTML = `
+        ${isSBD ? '<div class="supp-item"><span class="supp-name">Endurance Infini</span><span class="supp-dose">1 Scoop</span></div>' : ''}
+        ${isForce ? '<div class="supp-item"><span class="supp-name">Work! + Whey</span><span class="supp-dose">1 Scoop / 30g</span></div>' : ''}
+        <div class="supp-item"><span class="supp-name">Omega 3</span><span class="supp-dose">4 gélules</span></div>
+        <div class="supp-item"><span class="supp-name">Artic. + Glycine + Créatine</span><span class="supp-dose">${artDose}/15g/5g</span></div>
+        <div class="supp-item"><span class="supp-name">ZMB</span><span class="supp-dose">3 gélules</span></div>
+    `;
 </script>
 </body>
 </html>

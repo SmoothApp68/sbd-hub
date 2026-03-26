@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBD Hub - Performance Data</title>
+    <title>SBD Hub - Archive Permanente</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #000; --card: #1C1C1E; --blue: #0A84FF; --green: #30D158; --red: #FF453A; --orange: #FF9F0A; --text: #FFF; --sub: #8E8E93; }
@@ -15,16 +15,17 @@
         .ratio-label { font-size: 8px; color: var(--sub); }
         .supp-item { background: #262629; padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--blue); margin-bottom: 6px; }
         .supp-name { font-weight: 700; font-size: 13px; }
-        .supp-dose { color: var(--green); font-weight: 800; font-family: monospace; }
+        .supp-dose { color: var(--green); font-weight: 800; }
         .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none; }
         .day-btn { background: #1C1C1E; border: 1px solid #2C2C2E; color: var(--sub); padding: 8px 14px; border-radius: 20px; white-space: nowrap; font-size: 12px; }
         .day-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
-        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 12px 0; }
-        .exo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .exo-card { border-bottom: 1px solid #2C2C2E; padding: 12px 0; position: relative; }
+        .superset-tag { color: var(--orange); font-size: 9px; font-weight: 900; text-transform: uppercase; margin-right: 5px; }
+        .degressif-tag { color: var(--red); font-size: 9px; font-weight: 900; text-transform: uppercase; }
         .exo-name { font-weight: 700; font-size: 14px; color: var(--blue); }
-        .badge-record { background: var(--orange); color: black; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
-        .perf-data { font-size: 10px; color: var(--sub); margin-bottom: 8px; font-style: italic; }
-        .set-row { display: flex; justify-content: space-between; font-size: 12px; margin-top: 2px; }
+        .badge-record { background: var(--orange); color: black; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; float: right; }
+        .perf-line { font-size: 10px; color: var(--sub); margin: 4px 0; }
+        .perf-val { color: var(--green); font-weight: bold; }
         .btn-import { background: var(--blue); border: none; color: white; width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; margin-top: 10px; }
         textarea { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; color: white; border-radius: 10px; padding: 10px; height: 60px; box-sizing: border-box; }
     </style>
@@ -43,27 +44,27 @@
     </div>
 
     <div class="card">
-        <h2>Hevy Import</h2>
-        <textarea id="hevyInput" placeholder="Colle ta séance Hevy ici..."></textarea>
-        <button class="btn-import" onclick="importHevy()">Analyser & Calculer Performance</button>
+        <h2>Import Hevy (Permanent)</h2>
+        <textarea id="hevyInput" placeholder="Colle ta séance..."></textarea>
+        <button class="btn-import" onclick="importHevy()">Archiver la Performance</button>
     </div>
 
     <div id="dayNav" class="day-nav"></div>
     <div id="dayContent"></div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('gymHub_Data_V21')) || {
+    let db = JSON.parse(localStorage.getItem('gymHub_Archive_V22')) || {
         bodyWeight: 80,
-        records: { bench: 130, squat: 140, deadlift: 175 },
+        records: { bench: 0, squat: 0, deadlift: 0 },
         targets: { bench: 140, squat: 148, deadlift: 185 },
-        history: {},
-        best1RM: {} // Stocke le meilleur 1RM historique par exo
+        logs: [], // TOUTES les séances sont ici
+        exerciseHistory: {} // Historique par exercice pour les courbes
     };
 
     let sbdChart;
 
     function calculate1RM(weight, reps) {
-        if (reps === 1) return weight;
+        if (reps <= 1) return weight;
         return Math.round(weight / (1.0278 - (0.0278 * reps)));
     }
 
@@ -71,87 +72,98 @@
         const text = document.getElementById('hevyInput').value;
         if (!text) return;
         
+        const dateNow = new Date().toLocaleDateString('fr-FR');
         const daysArr = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
-        const dayMatch = daysArr.find(d => text.toLowerCase().includes(d.toLowerCase())) || "Lundi";
+        const dayMatch = daysArr.find(d => text.toLowerCase().includes(d.toLowerCase())) || "Séance";
         
         const lines = text.split('\n');
-        let session = []; let current = null;
+        let sessionExos = [];
+        let current = null;
+        let isSuperset = false;
 
         lines.forEach(line => {
             let t = line.trim();
+            if (t.toLowerCase().includes("superset")) isSuperset = true;
+            
             if (t.toLowerCase().startsWith("série")) {
                 let p = t.split(":");
-                if (current && p[1]) current.sets.push({ label: p[0].trim(), val: p[1].trim() });
+                if (current && p[1]) {
+                    const isDegressif = p[1].toLowerCase().includes("abandon") || p[1].toLowerCase().includes("dégressif");
+                    current.sets.push({ label: p[0].trim(), val: p[1].trim(), degressif: isDegressif });
+                }
             } else if (t && !t.includes("kg x") && !t.includes("Hevy")) {
-                if (current) session.push(current);
-                current = { n: t, sets: [], topSet: null, estimated1RM: 0, isNewRecord: false };
+                if (current) sessionExos.push(current);
+                current = { n: t, sets: [], isSuperset: isSuperset, topWeight: 0, top1RM: 0, isNewPR: false };
+                isSuperset = false; 
             }
         });
-        if (current) session.push(current);
+        if (current) sessionExos.push(current);
         
-        session.forEach(exo => {
-            let max1RM = 0;
-            let bestSetText = "";
-
+        sessionExos.forEach(exo => {
+            let mWeight = 0; let m1RM = 0;
             exo.sets.forEach(s => {
                 const match = s.val.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
                 if (match) {
-                    let w = parseFloat(match[1]);
-                    let r = parseInt(match[2]);
-                    let current1RM = calculate1RM(w, r);
-                    if (current1RM > max1RM) {
-                        max1RM = current1RM;
-                        bestSetText = `${w}kg x ${r}`;
-                    }
+                    let w = parseFloat(match[1]); let r = parseInt(match[2]);
+                    let c1RM = calculate1RM(w, r);
+                    if (w > mWeight) mWeight = w;
+                    if (c1RM > m1RM) m1RM = c1RM;
                 }
             });
 
-            if (max1RM > 0) {
-                exo.estimated1RM = max1RM;
-                exo.topSet = bestSetText;
-                
-                // Vérification du record historique
-                if (!db.best1RM[exo.n] || max1RM > db.best1RM[exo.n]) {
-                    db.best1RM[exo.n] = max1RM;
-                    exo.isNewRecord = true;
-                }
+            exo.topWeight = mWeight;
+            exo.top1RM = m1RM;
 
-                // Update SBD si applicable
-                const n = exo.n.toLowerCase();
-                const sbdType = n.includes("couché") || n.includes("bench") ? 'bench' : 
-                                (n.includes("squat") && !n.includes("hack") ? 'squat' : 
-                                (n.includes("deadlift") || n.includes("terre") ? 'deadlift' : null));
-                
-                if (sbdType && max1RM > db.records[sbdType]) {
-                    db.records[sbdType] = max1RM;
-                    if (db.records[sbdType] >= db.targets[sbdType]) db.targets[sbdType] = db.records[sbdType] + 5;
-                }
+            // Enregistrement dans l'historique de l'exercice (Courbe)
+            if (!db.exerciseHistory[exo.n]) db.exerciseHistory[exo.n] = [];
+            
+            const lastRecord = db.exerciseHistory[exo.n].slice(-1)[0];
+            if (!lastRecord || m1RM > lastRecord.oneRM) exo.isNewPR = true;
+
+            db.exerciseHistory[exo.n].push({
+                date: dateNow,
+                weight: mWeight,
+                oneRM: m1RM
+            });
+
+            // Update SBD
+            const name = exo.n.toLowerCase();
+            const sbd = name.includes("couché") || name.includes("bench") ? 'bench' : 
+                        (name.includes("squat") && !name.includes("hack") ? 'squat' : 
+                        (name.includes("deadlift") || name.includes("terre") ? 'deadlift' : null));
+            if (sbd && m1RM > db.records[sbd]) {
+                db.records[sbd] = m1RM;
+                if (db.records[sbd] >= db.targets[sbd]) db.targets[sbd] = db.records[sbd] + 5;
             }
         });
 
-        // NETTOYAGE : La nouvelle séance écrase l'ancienne pour ce jour précis
-        db.history[dayMatch] = session;
-        localStorage.setItem('gymHub_Data_V21', JSON.stringify(db));
+        // Archive la séance
+        db.logs.unshift({ date: dateNow, day: dayMatch, exercises: sessionExos });
+        localStorage.setItem('gymHub_Archive_V22', JSON.stringify(db));
         updateUI();
         renderDay(dayMatch);
         document.getElementById('hevyInput').value = "";
     }
 
-    function renderDay(day) {
+    function renderDay(dayName) {
         const container = document.getElementById('dayContent');
-        const content = db.history[day] || [];
-        updateSupps(day);
-        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === day));
+        updateSupps(dayName);
+        document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.innerText === dayName));
         
-        container.innerHTML = `<div class="card"><h2>${day}</h2>${content.map(exo => `
+        // On cherche la dernière séance correspondant à ce jour dans les logs
+        const lastLog = db.logs.find(l => l.day === dayName);
+        
+        container.innerHTML = `<div class="card"><h2>Dernière séance : ${dayName}</h2>${lastLog ? lastLog.exercises.map(exo => `
             <div class="exo-card">
-                <div class="exo-header">
-                    <span class="exo-name">${exo.n}</span>
-                    ${exo.isNewRecord ? '<span class="badge-record">New PR !</span>' : ''}
-                </div>
-                <div class="perf-data">Top: ${exo.topSet} | Est. 1RM: ${exo.estimated1RM}kg</div>
-                ${exo.sets.map(s => `<div class="set-row"><span>${s.label}</span><span style="color:var(--green); font-weight:bold;">${s.val}</span></div>`).join('')}
-            </div>`).join('') || '<p style="font-size:11px; color:var(--sub); text-align:center;">Aucune donnée.</p>'}</div>`;
+                ${exo.isNewPR ? '<span class="badge-record">Record !</span>' : ''}
+                <div class="exo-name">${exo.isSuperset ? '<span class="superset-tag">Superset</span>' : ''}${exo.n}</div>
+                <div class="perf-line">Charge Max: <span class="perf-val">${exo.topWeight}kg</span> | 1RM Est: <span class="perf-val">${exo.top1RM}kg</span></div>
+                <div style="font-size:9px; color:var(--sub); margin-bottom:8px;">Historique : ${db.exerciseHistory[exo.n].slice(-3).map(h => h.oneRM + 'kg').join(' ➔ ')}</div>
+                ${exo.sets.map(s => `<div class="set-row">
+                    <span>${s.label} ${s.degressif ? '<span class="degressif-tag">Dégres.</span>' : ''}</span>
+                    <span style="color:var(--green)">${s.val}</span>
+                </div>`).join('')}
+            </div>`).join('') : '<p style="text-align:center; font-size:11px; color:var(--sub);">Aucune archive pour ce jour.</p>'}</div>`;
     }
 
     function updateSupps(day) {
@@ -163,9 +175,9 @@
         container.innerHTML = `
             ${isSBD ? '<div class="supp-item"><span class="supp-name">Endurance Infini</span><span class="supp-dose">1 Scoop</span></div>' : ''}
             ${isForce ? '<div class="supp-item"><span class="supp-name">Work! + Whey</span><span class="supp-dose">1 Scoop / 30g</span></div>' : ''}
-            <div class="supp-item"><span class="supp-name">Omega 3 (Midi)</span><span class="supp-dose">4 Gél.</span></div>
-            <div class="supp-item"><span class="supp-name">Artic. + Glycine + Créat. (Soir)</span><span class="supp-dose">${artDose}/15g/5g</span></div>
-            <div class="supp-item"><span class="supp-name">ZMB (Coucher)</span><span class="supp-dose">3 Gél.</span></div>
+            <div class="supp-item"><span class="supp-name">Omega 3 (Midi)</span><span class="supp-dose">4 gélules</span></div>
+            <div class="supp-item"><span class="supp-name">Artic. + Glycine + Créatine (Soir)</span><span class="supp-dose">${artDose}/15g/5g</span></div>
+            <div class="supp-item"><span class="supp-name">ZMB (Coucher)</span><span class="supp-dose">3 gélules</span></div>
         `;
         document.getElementById('currentDayTitle').innerText = day;
     }

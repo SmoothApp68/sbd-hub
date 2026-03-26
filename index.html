@@ -93,6 +93,12 @@
             <h2>Profil Athlète</h2>
             <input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()">
         </div>
+        <div style="margin-top: 20px; border-top: 1px solid #3A3A3C; padding-top: 20px;">
+    <button class="btn" style="background: var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button>
+    <p style="font-size: 10px; color: var(--sub); text-align: center; margin-top: 8px;">
+        Efface l'historique, les PR et synchronise le vide sur le Cloud.
+    </p>
+</div>
         <div class="card">
             <h2>Moteur de Synchronisation</h2>
             <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">L'application se synchronise automatiquement. Renseigne tes clés GitHub ci-dessous.</p>
@@ -339,6 +345,28 @@ window.addEventListener('load', () => {
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && keys.token && keys.gistId) {
         cloudPull();
+        async function fullReset() {
+    if (!confirm("Es-tu sûr de vouloir tout effacer ? Cette action est irréversible sur le Cloud.")) return;
+
+    // Réinitialisation de l'objet DB
+    db = {
+        user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } },
+        logs: [],
+        bestPR: { bench: 0, squat: 0, deadlift: 0 },
+        lastSync: Date.now()
+    };
+
+    // Sauvegarde locale
+    localStorage.setItem('SBD_HUB_V27', JSON.stringify(db));
+
+    // Mise à jour interface
+    renderDash();
+    renderDayList();
+    
+    // Synchronisation du "vide" vers GitHub
+    await cloudPush();
+    
+    alert("Application réinitialisée avec succès.");
     }
 });
 </script>

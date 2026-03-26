@@ -26,15 +26,17 @@
         
         /* Composants */
         .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
-        .rm-box { padding: 12px; border-radius: 14px; background: #1C1C1E; border: 1px solid #2C2C2E; }
+        .rm-box { padding: 12px; border-radius: 14px; background: #1C1C1E; border: 1px solid #2C2C2E; position: relative; }
         .rm-val { font-size: 20px; font-weight: 800; color: var(--blue); margin: 4px 0; display: flex; align-items: baseline; justify-content: center; gap: 2px; }
         .rm-target { font-size: 11px; color: var(--sub); }
+        .pr-badge { position: absolute; top: -8px; right: 8px; background: var(--green); color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
         
         input, select, textarea { width: 100%; background: #1C1C1E; border: 1px solid #3A3A3C; color: white; border-radius: 12px; padding: 14px; box-sizing: border-box; margin-bottom: 12px; font-size: 16px; transition: 0.2s; }
         input:focus, textarea:focus { border-color: var(--blue); outline: none; }
         
         .btn { background: var(--blue); border: none; color: white; width: 100%; padding: 16px; border-radius: 14px; font-weight: 700; cursor: pointer; font-size: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; }
         .btn:active { transform: scale(0.98); }
+        .btn.syncing { opacity: 0.6; }
         
         /* Statut Sync */
         .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; background: #1C1C1E; color: var(--sub); border: 1px solid var(--border); }
@@ -50,6 +52,14 @@
         .report-label { font-size: 11px; color: var(--sub); text-transform: uppercase; }
         .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
         .stat-row:last-child { border-bottom: none; }
+        
+        /* Suppression */
+        .delete-btn { background: var(--red); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .delete-btn:active { transform: scale(0.95); }
+        
+        /* Toast notifications */
+        .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--green); color: #000; padding: 12px 20px; border-radius: 20px; font-weight: 600; font-size: 13px; z-index: 999; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     </style>
 </head>
 <body>
@@ -126,7 +136,7 @@
             <p style="font-size: 12px; color: var(--sub); margin-bottom: 15px;">L'application se synchronise automatiquement.</p>
             <input type="password" id="syncToken" placeholder="GitHub Token (ghp_...)">
             <input type="text" id="syncGistId" placeholder="ID du Gist">
-            <button class="btn" onclick="saveKeys()">Activer la Synchro</button>
+            <button class="btn" id="syncBtn" onclick="saveKeys()">Activer la Synchro</button>
         </div>
 
         <div class="card" style="border-color: var(--red);">
@@ -162,6 +172,7 @@ let chartSBD = null;
 let chartVolume = null;
 let chartMuscle = null;
 let isSyncing = false;
+let newPRs = { bench: false, squat: false, deadlift: false };
 
 const routines = {
     "Lundi": "Legs (Quads & Squat Focus)",
@@ -173,16 +184,17 @@ const routines = {
     "Dimanche": "Repos Complet"
 };
 
-const muscleColors = { 'Jambes': '#32D74B', 'Pecs': '#0A84FF', 'Dos': '#FF9F0A', 'Épaules': '#BF5AF2', 'Bras': '#64D2FF', 'Abdos': '#FF453A', 'Autre': '#86868B' };
+const muscleColors = { 'Jambes': '#32D74B', 'Pecs': '#0A84FF', 'Dos': '#FF9F0A', 'Épaules': '#BF5AF2', 'Bras': '#64D2FF', 'Abdos': '#FF453A', 'Cardio': '#64D2FF', 'Autre': '#86868B' };
 
 function getMuscleGroup(name) {
     let n = name.toLowerCase();
-    if (n.includes('squat') || n.includes('leg') || n.includes('press') || n.includes('fente') || n.includes('mollet') || n.includes('quad') || n.includes('ischio')) return 'Jambes';
-    if (n.includes('bench') || n.includes('couché') || n.includes('pec') || n.includes('écarté') || n.includes('chest') || n.includes('pompe')) return 'Pecs';
-    if (n.includes('deadlift') || n.includes('row') || n.includes('pull') || n.includes('tirage') || n.includes('lat') || n.includes('dos')) return 'Dos';
-    if (n.includes('shoulder') || n.includes('épaule') || n.includes('militaire') || n.includes('élévation') || n.includes('face')) return 'Épaules';
+    if (n.includes('squat') || n.includes('leg') || n.includes('press') || n.includes('fente') || n.includes('mollet') || n.includes('quad') || n.includes('ischio') || n.includes('presse')) return 'Jambes';
+    if (n.includes('bench') || n.includes('couché') || n.includes('pec') || n.includes('écarté') || n.includes('chest') || n.includes('pompe') || n.includes('spoto')) return 'Pecs';
+    if (n.includes('deadlift') || n.includes('soulevé') || n.includes('row') || n.includes('pull') || n.includes('tirage') || n.includes('lat') || n.includes('dos') || n.includes('rowing')) return 'Dos';
+    if (n.includes('shoulder') || n.includes('épaule') || n.includes('militaire') || n.includes('élévation') || n.includes('face') || n.includes('latérale')) return 'Épaules';
     if (n.includes('curl') || n.includes('tricep') || n.includes('bicep') || n.includes('bras') || n.includes('extension') || n.includes('skull')) return 'Bras';
-    if (n.includes('crunch') || n.includes('abs') || n.includes('abdo') || n.includes('gainage') || n.includes('core')) return 'Abdos';
+    if (n.includes('crunch') || n.includes('abs') || n.includes('abdo') || n.includes('gainage') || n.includes('core') || n.includes('planche') || n.includes('plank')) return 'Abdos';
+    if (n.includes('natation') || n.includes('swimming') || n.includes('nage')) return 'Cardio';
     return 'Autre';
 }
 
@@ -215,11 +227,12 @@ function showTab(id) {
 function updateSyncUI(status) {
     const dot = document.getElementById('syncDot');
     const txt = document.getElementById('syncText');
+    const btn = document.getElementById('syncBtn');
     if(!dot || !txt) return;
     dot.className = 'sync-dot';
-    if(status === 'online') { dot.classList.add('online'); txt.innerText = "À jour"; }
-    else if(status === 'syncing') { dot.classList.add('syncing'); txt.innerText = "Sync..."; }
-    else { txt.innerText = "Hors ligne"; }
+    if(status === 'online') { dot.classList.add('online'); txt.innerText = "À jour"; if(btn) btn.classList.remove('syncing'); }
+    else if(status === 'syncing') { dot.classList.add('syncing'); txt.innerText = "Sync..."; if(btn) btn.classList.add('syncing'); }
+    else { txt.innerText = "Hors ligne"; if(btn) btn.classList.remove('syncing'); }
 }
 
 async function cloudPush() {
@@ -267,6 +280,14 @@ function saveKeys() {
     cloudPull();
 }
 
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+
 // --- CORE LOGIC ---
 function processHevy() {
     const text = document.getElementById('hevyPaste').value;
@@ -306,22 +327,35 @@ function processHevy() {
     if(currExo && currExo.maxRM > 0) session.exercises.push(currExo);
 
     // Mettre à jour les PRs
+    newPRs = { bench: false, squat: false, deadlift: false };
     session.exercises.forEach(exo => {
         let n = exo.name.toLowerCase();
-        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") ? "deadlift" : null));
+        let type = n.includes("bench") ? "bench" : (n.includes("squat") ? "squat" : (n.includes("deadlift") || n.includes("soulevé") ? "deadlift" : null));
         if(type && exo.maxRM > db.bestPR[type]) {
             db.bestPR[type] = exo.maxRM;
+            newPRs[type] = true;
             if(db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] = Math.round(db.bestPR[type] + 2.5);
         }
     });
 
     db.logs.unshift(session);
-    db.logs.sort((a,b) => b.timestamp - a.timestamp); // Toujours classer du plus récent au plus ancien
+    db.logs.sort((a,b) => b.timestamp - a.timestamp);
 
     document.getElementById('hevyPaste').value = "";
+    showToast("✓ Séance importée");
     renderDash(); renderDayList(); 
     if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
     cloudPush();
+}
+
+function deleteLog(index) {
+    if (!confirm("Supprimer cette séance ?")) return;
+    db.logs.splice(index, 1);
+    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
+    renderDayList();
+    if(document.getElementById('tab-stats').classList.contains('active')) { renderStats(); renderReports('week'); }
+    cloudPush();
+    showToast("✓ Séance supprimée");
 }
 
 // --- RENDERERS ---
@@ -329,23 +363,30 @@ function renderDash() {
     const day = document.getElementById('daySelect').value;
     document.getElementById('routineDisplay').innerText = routines[day];
     
-    document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => `
+    document.getElementById('sbdDisplay').innerHTML = ['bench', 'squat', 'deadlift'].map(k => {
+        const prBadge = newPRs[k] ? `<div class="pr-badge">🔥 PR!</div>` : '';
+        return `
         <div class="rm-box">
+            ${prBadge}
             <div style="font-size:10px; color:var(--sub);">${k.toUpperCase()} (1RM)</div>
             <div class="rm-val">${db.bestPR[k]}<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg</span></div>
             <div class="rm-target">Objectif: ${db.user.targets[k]}</div>
             <div style="font-size:11px; color:var(--green); margin-top:6px; font-weight:600;">x${(db.bestPR[k]/db.user.bw).toFixed(2)} bw</div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
     renderCharts();
 }
 
 function renderDayList() {
     const container = document.getElementById('trainingLogs');
-    container.innerHTML = db.logs.slice(0, 7).map(log => `
+    container.innerHTML = db.logs.slice(0, 7).map((log, idx) => `
         <div class="card" style="padding: 15px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <h2 style="color:var(--text); text-transform:none;">${log.date.split(' à')[0]}</h2>
-                <span style="font-size:12px; color:var(--purple);">${(log.volume/1000).toFixed(1)}t</span>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span style="font-size:12px; color:var(--purple);">${(log.volume/1000).toFixed(1)}t</span>
+                    <button class="delete-btn" onclick="deleteLog(${idx})">✕</button>
+                </div>
             </div>
             ${log.exercises.map(exo => `
                 <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; color:var(--sub);">
@@ -355,7 +396,6 @@ function renderDayList() {
 }
 
 function renderReports(period) {
-    // Boutons style
     const btns = document.getElementById('tab-stats').querySelectorAll('button.sync-badge');
     btns[0].style.background = period === 'week' ? 'var(--blue)' : 'transparent';
     btns[0].style.color = period === 'week' ? 'white' : 'var(--sub)';
@@ -383,7 +423,6 @@ function renderReports(period) {
 }
 
 function renderStats() {
-    // Top Exercices (7 derniers jours)
     const limit7Days = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const logs7D = db.logs.filter(l => l.timestamp >= limit7Days);
     const exoCounts = {};
@@ -405,10 +444,9 @@ function renderStats() {
             </div>`).join('');
     }
 
-    // Répartition Musculaire (30 jours)
     const limit30Days = Date.now() - (30 * 24 * 60 * 60 * 1000);
     const logs30D = db.logs.filter(l => l.timestamp >= limit30Days);
-    const muscleSets = { 'Jambes': 0, 'Pecs': 0, 'Dos': 0, 'Épaules': 0, 'Bras': 0, 'Abdos': 0, 'Autre': 0 };
+    const muscleSets = { 'Jambes': 0, 'Pecs': 0, 'Dos': 0, 'Épaules': 0, 'Bras': 0, 'Abdos': 0, 'Cardio': 0, 'Autre': 0 };
     
     logs30D.forEach(l => {
         l.exercises.forEach(e => {
@@ -431,7 +469,6 @@ function renderStats() {
         });
     }
 
-    // Liste des muscles en dessous
     document.getElementById('muscleList').innerHTML = labelsMuscle.map((k, i) => `
         <div class="stat-row" style="padding: 6px 0;">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -442,7 +479,6 @@ function renderStats() {
         </div>
     `).join('');
 
-    // Chart Volume
     const ctxV = document.getElementById('chartVolume');
     if (ctxV) {
         if (chartVolume) chartVolume.destroy();

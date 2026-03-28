@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SBD Elite Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --bg:#000; --card:#151517; --blue:#0A84FF; --green:#32D74B; --red:#FF453A; --text:#F5F5F7; --sub:#86868B; --border:#2C2C2E; --orange:#FF9F0A; --purple:#BF5AF2; --teal:#64D2FF; --surface:#1C1C1E; --surface-border:#2C2C2E; }
         * { box-sizing: border-box; }
@@ -146,7 +147,7 @@
 
     <div id="tab-settings" class="content-section">
         <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" onchange="saveAPIKey()"><p style="font-size:10px;color:var(--sub);margin-top:-8px;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
-        <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Partagez vos données entre appareils</p><div style="margin-bottom:15px;"><p style="font-size:12px;color:var(--sub);margin:0 0 10px;">📱 Générer code :</p><button class="btn" style="background:var(--green);" onclick="generateShareCode()">Générer Code</button><div id="codeDisplay" style="margin-top:10px;padding:15px;background:var(--surface);border-radius:10px;border:2px solid var(--green);display:none;text-align:center;"><p style="font-size:11px;color:var(--sub);margin:0 0 8px;">Copie ce code :</p><div id="shareCode" style="font-size:18px;font-family:monospace;color:var(--green);font-weight:bold;letter-spacing:2px;word-break:break-all;"></div></div></div><div><p style="font-size:12px;color:var(--sub);margin:0 0 10px;">🖥️ Importer code :</p><input type="text" id="importCode" placeholder="Colle le code ici..." style="margin-bottom:10px;"><button class="btn" onclick="importShareCode()">Importer</button></div></div>
+        <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Sync automatique entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div style="display:flex;gap:10px;margin-bottom:12px;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Auto-sync 2s apres chaque modification</p></div>
         <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p></div>
     </div>
 
@@ -165,12 +166,20 @@ const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS = 7 * 86400000; // 7 days
 
+const SUPABASE_URL = 'https://swwygywahfdenyzotrce.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
+let supaClient = null;
+let cloudSyncEnabled = false;
+let syncDebounceTimer = null;
+try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
+
 const defaultDB=()=>({user:{bw:80,targets:{bench:100,squat:120,deadlift:140}},logs:[],bestPR:{bench:0,squat:0,deadlift:0},reports:[],lastSync:0});
 let db=(()=>{try{const s=localStorage.getItem(STORAGE_KEY);if(!s)return defaultDB();const p=JSON.parse(s);if(!p.logs||!p.user)return defaultDB();if(!p.reports)p.reports=[];return p;}catch{return defaultDB();}})();
 let selectedDay='Lundi',chartSBD=null,chartVolume=null,newPRs={bench:false,squat:false,deadlift:false};
 
 // === UTILS ===
-function saveDB(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db));}
+function saveDB(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db));debouncedCloudSync();}
+function debouncedCloudSync(){if(!cloudSyncEnabled)return;clearTimeout(syncDebounceTimer);syncDebounceTimer=setTimeout(()=>{syncToCloud(true);},2000);}
 function generateId(){return Math.random().toString(36).substr(2,9);}
 function showToast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2500);}
 function showModal(msg,confirmText,confirmColor,onConfirm){const o=document.createElement('div');o.className='modal-overlay';o.innerHTML='<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">Annuler</button><button class="modal-confirm" style="background:'+confirmColor+';color:white;">'+confirmText+'</button></div></div>';document.body.appendChild(o);o.querySelector('.modal-cancel').onclick=()=>o.remove();o.querySelector('.modal-confirm').onclick=()=>{o.remove();onConfirm();};}
@@ -281,6 +290,56 @@ function toggleReport(id){
     else{body.style.display='none';btn.textContent='Voir le rapport ▾';}
 }
 
+// === CLOUD SYNC ===
+async function cloudSignIn(){
+  if(!supaClient)return null;
+  try{
+    const {data:{session}}=await supaClient.auth.getSession();
+    if(session){cloudSyncEnabled=true;updateCloudUI(session.user);return session.user;}
+    const {data,error}=await supaClient.auth.signInAnonymously();
+    if(error)throw error;
+    cloudSyncEnabled=true;updateCloudUI(data.user);return data.user;
+  }catch(e){console.error('Cloud sign-in:',e);updateCloudUI(null,e.message);return null;}
+}
+async function syncToCloud(silent){
+  if(!supaClient||!cloudSyncEnabled)return;
+  try{
+    const {data:{user}}=await supaClient.auth.getUser();
+    if(!user)return;
+    const payload={user_id:user.id,data:db,updated_at:new Date().toISOString()};
+    const {error}=await supaClient.from('sbd_profiles').upsert(payload,{onConflict:'user_id'});
+    if(error)throw error;
+    if(!silent)showToast('Synchronise !');
+    updateSyncStatus('sync');
+  }catch(e){console.error('Cloud sync:',e);if(!silent)showToast('Erreur sync');updateSyncStatus('error');}
+}
+async function syncFromCloud(){
+  if(!supaClient)return false;
+  try{
+    const {data:{user}}=await supaClient.auth.getUser();
+    if(!user)return false;
+    const {data,error}=await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id',user.id).maybeSingle();
+    if(error)throw error;
+    if(data&&data.data){
+      db=data.data;if(!db.reports)db.reports=[];
+      db.lastSync=Date.now();
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
+      refreshUI();showToast('Donnees cloud chargees !');return true;
+    }else{showToast('Aucune donnee cloud trouvee');return false;}
+  }catch(e){console.error('Cloud pull:',e);showToast('Erreur chargement cloud');return false;}
+}
+function updateCloudUI(user,err){
+  const el=document.getElementById('cloudStatus');if(!el)return;
+  if(err){el.innerHTML='<span style="color:var(--red);">Erreur: '+err+'</span>';return;}
+  if(user){el.innerHTML='<span style="color:var(--green);">Connecte au cloud</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:4px;">ID: '+user.id.substring(0,8)+'...</span>';return;}
+  el.innerHTML='<span style="color:var(--sub);">Non connecte</span>';
+}
+function updateSyncStatus(s){
+  const el=document.getElementById('syncIndicator');if(!el)return;
+  el.textContent=s==='sync'?'Sync OK':s==='error'?'Erreur':'';
+  setTimeout(()=>{if(el)el.textContent='';},3000);
+}
+
 // === NAV ===
 function showTab(tabId){document.querySelectorAll('.content-section').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));document.getElementById(tabId).classList.add('active');document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active');if(tabId==='tab-dash')renderDash();if(tabId==='tab-stats'){renderReports('week');renderMuscleChart('week');renderTopLifts();renderVolumeChart('week');}if(tabId==='tab-ai'){markReportsRead();renderReportsTimeline();}}
 document.querySelector('.tab-bar').addEventListener('click',e=>{const b=e.target.closest('.tab-btn');if(b)showTab(b.dataset.tab);});
@@ -387,7 +446,11 @@ function fullReset(){showModal('⚠️ Toutes les données seront effacées.','E
     purgeExpiredReports();
     const today=DAYS_FULL[new Date().getDay()];selectedDay=today;document.querySelectorAll('.day-btn').forEach(b=>b.classList.toggle('active',b.dataset.day===today));document.getElementById('inputBW').value=db.user.bw;newPRs={bench:false,squat:false,deadlift:false};
     renderDash();updateCoachBadge();
-    // Auto-generate weekly on Saturday
+    // Auto-connect to cloud
+  cloudSignIn().then(user=>{if(user&&db.logs.length===0)syncFromCloud();else if(user)syncToCloud(true);});
+  // Auto-connect cloud
+  cloudSignIn().then(user=>{if(user&&db.logs.length===0)syncFromCloud();else if(user)syncToCloud(true);});
+  // Auto-generate weekly on Saturday
     if(shouldGenerateWeekly()){setTimeout(()=>{aiGenerateWeekly();},1500);}
 })();
 </script>

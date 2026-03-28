@@ -122,6 +122,14 @@
         <div class="card"><h2>Importer Séance (Hevy)</h2><textarea id="hevyPaste" rows="5" placeholder="Colle le texte Hevy ici..."></textarea><button class="btn" onclick="processHevy()">Traiter & Sauvegarder</button></div>
         <div id="importSummary" class="card" style="margin-top:15px;display:none;"><h2>✓ Séance Importée</h2><div id="importDetails"></div></div>
         <div id="aiImportAnalysis" style="display:none;"></div>
+
+    <div class="card" style="margin-top:15px;border-color:var(--purple);">
+      <h2>📁 Importer CSV (Hevy Export)</h2>
+      <p style="font-size:11px;color:var(--sub);margin:4px 0 12px;">Importe toutes tes séances depuis le fichier CSV exporté de Hevy</p>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCSVFile(event)">
+      <button class="btn" style="background:var(--purple);" onclick="document.getElementById('csvFileInput').click()">📂 Choisir un fichier CSV</button>
+      <div id="csvProgress" style="display:none;margin-top:12px;padding:12px;background:var(--surface);border-radius:10px;text-align:center;font-size:13px;color:var(--sub);"></div>
+    </div>
     </div>
 
     <div id="tab-ai" class="content-section">
@@ -391,6 +399,204 @@ function generateShareCode(){const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 function importShareCode(){const input=document.getElementById('importCode');const code=input.value.trim().toUpperCase();if(!code){showToast("❌ Colle le code d'abord");return;}try{const codes=JSON.parse(localStorage.getItem('SBD_CODES')||'{}');if(!codes[code]){showToast('❌ Code non trouvé');return;}const imp=JSON.parse(atob(codes[code]));if(!imp.logs||!imp.user){showToast('❌ Données invalides');return;}db=imp;if(!db.reports)db.reports=[];saveDB();input.value='';refreshUI();showToast('✓ Données importées !');}catch{showToast('❌ Code corrompu');}}
 
 // === HEVY IMPORT ===
+
+// === CSV IMPORT ===
+function handleCSVFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const progress = document.getElementById('csvProgress');
+  progress.style.display = 'block';
+  progress.innerHTML = 'Lecture du fichier...';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      processCSVImport(text, file.name);
+    } catch(err) {
+      progress.innerHTML = '<span style="color:var(--red);">Erreur: ' + err.message + '</span>';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i+1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',' || ch === ';') { result.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function processCSVImport(csvText, fileName) {
+  const progress = document.getElementById('csvProgress');
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) { progress.innerHTML = '<span style="color:var(--red);">Fichier vide ou invalide</span>'; return; }
+
+  const headers = parseCSVLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').toLowerCase().trim());
+  const colDate = headers.indexOf('date');
+  const colWorkout = headers.indexOf('workout name');
+  const colDuration = headers.indexOf('duration');
+  const colExercise = headers.indexOf('exercise name');
+  const colSetOrder = headers.indexOf('set order');
+  const colWeight = headers.indexOf('weight');
+  const colReps = headers.indexOf('reps');
+  const colDistance = headers.indexOf('distance');
+  const colSeconds = headers.indexOf('seconds');
+  const colNotes = headers.indexOf('notes');
+  const colRPE = headers.indexOf('rpe');
+  const colWeightUnit = headers.indexOf('weight unit');
+  const colWorkoutNotes = headers.indexOf('workout notes');
+
+  if (colDate === -1 || colExercise === -1) {
+    progress.innerHTML = '<span style="color:var(--red);">En-têtes CSV invalides. Colonnes requises: Date, Exercise Name</span>';
+    return;
+  }
+
+  // Group rows by workout (date + workout name)
+  const workouts = {};
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length <= Math.max(colDate, colExercise)) continue;
+    const dateStr = cols[colDate] || '';
+    const workoutName = colWorkout >= 0 ? (cols[colWorkout] || '') : '';
+    const key = dateStr + '|' + workoutName;
+    if (!workouts[key]) workouts[key] = { date: dateStr, name: workoutName, rows: [] };
+    workouts[key].rows.push(cols);
+  }
+
+  const workoutKeys = Object.keys(workouts);
+  let imported = 0, skipped = 0, totalExercises = 0;
+
+  progress.innerHTML = 'Traitement de ' + workoutKeys.length + ' séances...';
+
+  workoutKeys.forEach(key => {
+    const w = workouts[key];
+    // Parse date
+    let ts = Date.now();
+    if (w.date) {
+      const d = new Date(w.date);
+      if (!isNaN(d.getTime())) ts = d.getTime();
+    }
+    const shortDate = formatDate(ts);
+
+    // Check for duplicate
+    const existingDateKey = shortDate;
+    const alreadyExists = db.logs.some(l => {
+      const lDate = l.shortDate || formatDate(l.timestamp);
+      return lDate === existingDateKey && (l.title || '') === (w.name || '');
+    });
+    if (alreadyExists) { skipped++; return; }
+
+    // Group rows by exercise
+    const exercises = {};
+    w.rows.forEach(cols => {
+      const exName = cols[colExercise] || 'Unknown';
+      if (!exercises[exName]) exercises[exName] = [];
+      exercises[exName].push(cols);
+    });
+
+    const session = {
+      date: w.date,
+      shortDate: shortDate,
+      timestamp: ts,
+      volume: 0,
+      exercises: [],
+      id: generateId(),
+      title: w.name || '',
+      type: '',
+      day: DAYS_FULL[new Date(ts).getDay()]
+    };
+
+    Object.entries(exercises).forEach(([exName, rows]) => {
+      const isCardio = /tapis|roulant|natation|running|nage|vélo|bike|cycling/i.test(exName);
+      const isPlank = /planche|plank/i.test(exName);
+      const exo = {
+        name: exName,
+        maxRM: 0,
+        sets: 0,
+        isCardio: isCardio,
+        isTime: false,
+        distance: 0,
+        maxTime: 0,
+        series: []
+      };
+
+      rows.forEach(cols => {
+        let weight = colWeight >= 0 ? parseFloat(cols[colWeight]) || 0 : 0;
+        const reps = colReps >= 0 ? parseInt(cols[colReps]) || 0 : 0;
+        const distance = colDistance >= 0 ? parseFloat(cols[colDistance]) || 0 : 0;
+        const seconds = colSeconds >= 0 ? parseInt(cols[colSeconds]) || 0 : 0;
+
+        // Convert lbs to kg if needed
+        if (colWeightUnit >= 0 && (cols[colWeightUnit] || '').toLowerCase() === 'lbs') {
+          weight = Math.round(weight * 0.453592 * 100) / 100;
+        }
+
+        exo.sets++;
+
+        if (isCardio && distance > 0) {
+          if (distance > exo.distance) { exo.distance = distance; exo.maxTime = seconds; exo.cardioDate = ts; }
+        } else if ((isPlank || (!weight && seconds > 0)) && seconds > 0) {
+          exo.isTime = true;
+          if (seconds > (exo.maxTime || 0)) { exo.maxTime = seconds; exo.maxTimeDate = ts; }
+          session.volume += seconds / 10;
+        } else if (weight > 0 && reps > 0) {
+          session.volume += weight * reps;
+          const existing = exo.series.find(s => s.reps === reps);
+          if (existing) { if (weight > existing.weight) { existing.weight = weight; existing.date = ts; } }
+          else exo.series.push({ weight: weight, reps: reps, date: ts });
+          const rm = calcE1RM(weight, reps);
+          if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+        } else if (reps > 0) {
+          exo.sets++;
+        }
+      });
+
+      if (exo.maxRM > 0 || exo.isCardio || exo.isTime || exo.sets > 0) {
+        session.exercises.push(exo);
+        totalExercises++;
+      }
+    });
+
+    // Update PRs
+    session.exercises.forEach(exo => {
+      const type = getSBDType(exo.name);
+      if (type && exo.maxRM > db.bestPR[type]) {
+        db.bestPR[type] = exo.maxRM;
+        while (db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5;
+      }
+    });
+
+    db.logs.push(session);
+    imported++;
+  });
+
+  db.logs.sort((a, b) => b.timestamp - a.timestamp);
+  saveDB();
+  refreshUI();
+  document.getElementById('csvFileInput').value = '';
+
+  progress.innerHTML = '<div style="color:var(--green);font-weight:600;">✓ Import terminé !</div>' +
+    '<div style="margin-top:8px;font-size:12px;">' +
+    '<span style="color:var(--blue);">' + imported + ' séances importées</span>' +
+    (skipped > 0 ? ' • <span style="color:var(--orange);">' + skipped + ' doublons ignorés</span>' : '') +
+    ' • <span style="color:var(--sub);">' + totalExercises + ' exercices</span>' +
+    '</div>';
+  if (imported > 0) showToast('✓ ' + imported + ' séances importées depuis CSV');
+}
+
 function processHevy(){const text=document.getElementById('hevyPaste').value;if(!text.trim())return;const lines=text.split('\n');let sessionTimestamp=Date.now(),sessionDate=new Date().toLocaleDateString('fr-FR'),sessionTitle='',sessionType='';const firstLine=lines[0].trim();if(firstLine&&!firstLine.toLowerCase().startsWith('le ')){const parts=firstLine.split('-').map(p=>p.trim());sessionTitle=parts[0];if(parts[1])sessionType=parts[1];}const dateLine=lines.find(l=>l.toLowerCase().startsWith('le ')&&l.includes('202'));if(dateLine){sessionDate=dateLine.trim();sessionTimestamp=parseHevyDate(sessionDate);}const shortDate=formatDate(sessionTimestamp);const dateKey=sessionDate.split(' à')[0];if(db.logs.some(l=>l.date.split(' à')[0]===dateKey)){showModal('Une séance du '+dateKey+' existe déjà. Continuer ?','Confirmer','var(--blue)',()=>executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine));return;}executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine);}
 
 function executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine){const session={date:sessionDate,shortDate,timestamp:sessionTimestamp,volume:0,exercises:[],id:generateId(),title:sessionTitle,type:sessionType,day:DAYS_FULL[new Date(sessionTimestamp).getDay()]};let currExo=null;for(const line of lines){const l=line.trim().toLowerCase();if(!l||l.includes('hevy')||(l.startsWith('le ')&&l.includes('202'))||l.includes('http')||line.trim()===firstLine)continue;if(/^\d+\/\d+\/\d+/.test(l)||(l.includes('"')&&(/\d+\/\d+\/\d+/.test(l)||l.includes('sec')||l.includes('iso'))))continue;const isSerieData=l.startsWith('série')&&(l.includes('kg x')||l.includes('km')||l.includes('sec')||l.includes('min'));const isCompressedData=/^\d+x/.test(l)||/^\d+[.,]\d+km/.test(l)||l.includes('1rm est:');if(!isSerieData&&!isCompressedData){if(currExo&&(currExo.maxRM>0||currExo.isCardio||currExo.isTime||currExo.sets>0))session.exercises.push(currExo);const isCardio=/tapis|roulant|natation|running|nage/.test(l);currExo={name:line.trim().replace(/\s*"[^"]*"\s*$/g,'').trim(),maxRM:0,sets:0,isCardio,isTime:false,distance:0,maxTime:0,series:[]};continue;}if(!currExo)continue;if(l.startsWith('série')&&l.includes('kg x')&&!currExo.isCardio){const m=l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);const isW=line.includes('[Échauffement]')||line.includes('[échauffement]');session.volume+=w*r;currExo.sets++;if(!isW){const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}}}else if(l.startsWith('série')&&l.includes('km')&&currExo.isCardio)parseCardioLine(l,currExo,sessionTimestamp);else if(l.startsWith('série')&&l.includes('min')&&currExo.name.toLowerCase().includes('planche'))parsePlankLine(l,currExo,session,sessionTimestamp);else if(l.startsWith('série')&&l.includes('sec')&&!currExo.isCardio&&!currExo.maxRM&&!currExo.name.toLowerCase().includes('planche')){const sm=l.match(/(\d+)\s*sec/i);if(sm){currExo.isTime=true;currExo.maxTime=Math.max(currExo.maxTime||0,parseInt(sm[1]));session.volume+=parseInt(sm[1])/10;}}else if(/^\d+[.,]\d*km/.test(l)&&currExo.isCardio)parseCardioLine(l,currExo,sessionTimestamp);else if(l.includes('1rm est:')&&!currExo.isCardio){const m2=l.match(/(\d+)\s*kg/i);if(m2){const rm=parseInt(m2[1]);if(rm>currExo.maxRM)currExo.maxRM=rm;}}else if(/\d+x/.test(l)&&!currExo.isCardio){const mx=l.match(/\d+x/g);if(mx)currExo.sets=parseInt(mx[mx.length-1]);}}if(currExo&&(currExo.maxRM>0||currExo.isCardio||currExo.isTime||currExo.sets>0))session.exercises.push(currExo);newPRs={bench:false,squat:false,deadlift:false};session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;newPRs[type]=true;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;showToast('🎯 '+type+': visé '+db.user.targets[type]+'kg');}});db.logs.unshift(session);db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDB();document.getElementById('hevyPaste').value='';showImportSummary(session);showToast('✓ Séance importée');refreshUI();aiGenerateDebrief(session,lines.join('\n'));}

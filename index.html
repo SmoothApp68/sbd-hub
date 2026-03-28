@@ -147,7 +147,7 @@
 
     <div id="tab-settings" class="content-section">
         <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" onchange="saveAPIKey()"><p style="font-size:10px;color:var(--sub);margin-top:-8px;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
-        <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Sync automatique entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div style="display:flex;gap:10px;margin-bottom:12px;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Auto-sync 2s apres chaque modification</p></div>
+        <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Connecte-toi avec ton email pour sync entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div id="emailLoginSection"><input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;"><button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:6px;">Un lien de connexion sera envoye a ton email. Clique dessus pour lier cet appareil.</p></div><div style="display:flex;gap:10px;margin:12px 0;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="cloudLogout()">Deconnexion cloud</button></div>
         <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p></div>
     </div>
 
@@ -330,9 +330,18 @@ async function syncFromCloud(){
 }
 function updateCloudUI(user,err){
   const el=document.getElementById('cloudStatus');if(!el)return;
+  const emailSection=document.getElementById('emailLoginSection');
   if(err){el.innerHTML='<span style="color:var(--red);">Erreur: '+err+'</span>';return;}
-  if(user){el.innerHTML='<span style="color:var(--green);">Connecte au cloud</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:4px;">ID: '+user.id.substring(0,8)+'...</span>';return;}
+  if(user){
+    const label=user.email?user.email:'Anonyme ('+user.id.substring(0,8)+'...)';
+    const color=user.email?'var(--green)':'var(--orange)';
+    const hint=user.email?'Sync entre appareils active':'Connecte-toi par email pour sync multi-appareils';
+    el.innerHTML='<span style="color:'+color+';">Connecte au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>';
+    if(emailSection)emailSection.style.display=user.email?'none':'block';
+    return;
+  }
   el.innerHTML='<span style="color:var(--sub);">Non connecte</span>';
+  if(emailSection)emailSection.style.display='block';
 }
 function updateSyncStatus(s){
   const el=document.getElementById('syncIndicator');if(!el)return;
@@ -340,6 +349,38 @@ function updateSyncStatus(s){
   setTimeout(()=>{if(el)el.textContent='';},3000);
 }
 
+async function sendMagicLink(){
+  const email=document.getElementById('inputEmail').value.trim();
+  if(!email||!email.includes('@')){showToast('Entre un email valide');return;}
+  try{
+    const {error}=await supaClient.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+    if(error)throw error;
+    showToast('Lien envoye ! Check tes emails');
+  }catch(e){showToast('Erreur: '+e.message);}
+}
+async function handleAuthCallback(){
+  if(window.location.hash&&window.location.hash.includes('access_token')){
+    try{
+      const {data,error}=await supaClient.auth.getSession();
+      if(error)throw error;
+      if(data.session){
+        cloudSyncEnabled=true;
+        updateCloudUI(data.session.user);
+        // Push local data to new account then pull to merge
+        await syncToCloud(true);
+        showToast('Compte lie ! Sync active');
+        window.history.replaceState(null,'',window.location.pathname);
+      }
+    }catch(e){console.error('Auth callback error:',e);}
+  }
+}
+async function cloudLogout(){
+  if(!supaClient)return;
+  await supaClient.auth.signOut();
+  cloudSyncEnabled=false;
+  updateCloudUI(null);
+  showToast('Deconnecte du cloud');
+}
 // === NAV ===
 function showTab(tabId){document.querySelectorAll('.content-section').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));document.getElementById(tabId).classList.add('active');document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active');if(tabId==='tab-dash')renderDash();if(tabId==='tab-stats'){renderReports('week');renderMuscleChart('week');renderTopLifts();renderVolumeChart('week');}if(tabId==='tab-ai'){markReportsRead();renderReportsTimeline();}}
 document.querySelector('.tab-bar').addEventListener('click',e=>{const b=e.target.closest('.tab-btn');if(b)showTab(b.dataset.tab);});
@@ -448,6 +489,8 @@ function fullReset(){showModal('⚠️ Toutes les données seront effacées.','E
     renderDash();updateCoachBadge();
     // Auto-connect to cloud
   cloudSignIn().then(user=>{if(user&&db.logs.length===0)syncFromCloud();else if(user)syncToCloud(true);});
+  // Handle magic link callback
+  handleAuthCallback();
   // Auto-connect cloud
   cloudSignIn().then(user=>{if(user&&db.logs.length===0)syncFromCloud();else if(user)syncToCloud(true);});
   // Auto-generate weekly on Saturday

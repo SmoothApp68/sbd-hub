@@ -875,12 +875,13 @@ function formatExoDropdown(name, exo, idx) {
     mainDisplay = parts.join(' • ') || 'Cardio';
     dateTs = exo.cardioDate;
   } else if (exoType === 'time') {
-    mainDisplay = formatTime(exo.maxTime||0);
+    // maxTime <= 1 = marqueur migration (vraie valeur inconnue) → afficher "?" 
+    mainDisplay = (!exo.maxTime || exo.maxTime <= 1) ? '⚠️ Re-importer' : formatTime(exo.maxTime);
     dateTs = exo.maxTimeDate;
   } else if (exoType === 'reps') {
     // Afficher max reps + lest si dispo
     if (exo.maxRM > 0) mainDisplay = exo.maxReps ? exo.maxReps+' reps · e1RM '+exo.maxRM+'kg' : 'e1RM '+exo.maxRM+'kg';
-    else mainDisplay = exo.maxReps ? exo.maxReps+' reps' : '0 reps';
+    else mainDisplay = exo.maxReps ? exo.maxReps+' reps' : '⚠️ Re-importer';
     dateTs = exo.maxRepsDate;
   } else {
     mainDisplay = exo.maxRM ? exo.maxRM+'kg e1RM' : '0kg';
@@ -927,7 +928,10 @@ function formatExoDropdown(name, exo, idx) {
     }
     detailsHtml = rows.join('');
   } else if (exoType === 'time') {
-    detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Record</span><span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime||0)+'</span></div>';
+    const timeVal = (!exo.maxTime || exo.maxTime <= 1)
+      ? '<span style="color:var(--orange);">Re-importe la séance pour récupérer le temps</span>'
+      : '<span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span>';
+    detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Record</span>'+timeVal+'</div>';
   }
 
   return '<div class="exo-header" onclick="toggleExo(\''+id+'\')"><span>'+icon+' '+name+medal+'</span><div style="display:flex;align-items:center;"><div style="text-align:right;"><div style="color:var(--blue);font-weight:600;font-size:12px;">'+mainDisplay+'</div>'+(ds?'<div style="font-size:10px;color:var(--sub);">'+ds+'</div>':'')+'</div><span class="chevron">▾</span></div></div>'+(detailsHtml?'<div class="exo-details" id="'+id+'">'+detailsHtml+'</div>':'');
@@ -1064,29 +1068,24 @@ function cleanupExistingLogs() {
             }
           });
         }
-        // Cas C: on a sets mais rien d'autre - au moins montrer que c'est fait
-        if ((!exo.maxReps || exo.maxReps === 0) && exo.sets > 0) {
-          exo.maxReps = 1; changed = true;
-        }
+        // Cas C: on a sets mais rien d'autre - laisser maxReps à 0, géré à l'affichage
+        // (on ne peut pas inventer des reps)
       }
 
       // 5. Recalcul maxTime pour gainage/planche
-      // L'ancien parseur stockait le temps dans series[] sous forme {reps, weight}
-      // ou directement dans maxTime. Si maxTime=0 et sets>0, c'est une perte de données.
-      // On pose un marqueur minimal (1s) pour ne pas afficher "0s"
       if (exoType === 'time') {
+        // Essai A : certains anciens logs avaient le temps mal stocké en "reps" dans series[]
         if (exo.series && exo.series.length > 0) {
-          // Certains anciens logs stockaient le temps en "reps" dans series
           exo.series.forEach(s => {
-            const t = s.reps || 0; // temps en secondes mal stocké comme reps
+            const t = s.reps || 0;
             if (t > 1 && t < 3600 && t > (exo.maxTime || 0)) {
               exo.maxTime = t; changed = true;
             }
           });
         }
-        if ((!exo.maxTime || exo.maxTime === 0) && exo.sets > 0) {
-          exo.maxTime = 1; changed = true; // marqueur minimal
-        }
+        // Essai B : si l'ancien parseur a stocké les sets mais pas le temps
+        // → on ne peut pas récupérer la valeur, on laisse maxTime=0
+        // L'affichage montrera "Re-importer" à la place de "0s"
       }
     });
   });

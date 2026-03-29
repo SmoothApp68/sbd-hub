@@ -1022,28 +1022,76 @@ function cleanupExistingLogs() {
     const before = log.exercises.length;
     log.exercises = log.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
     if (log.exercises.length !== before) changed = true;
+
     log.exercises.forEach(exo => {
       const exoType = getExoType(exo.name);
       exo.exoType = exoType;
-      // Init repRecords si absent
+
+      // 1. Init repRecords
       if (!exo.repRecords) { exo.repRecords = {}; changed = true; }
-      // Reconstruire repRecords depuis series si possible
+
+      // 2. Reconstruire repRecords + maxRM depuis series (exos avec poids)
       if (exo.series && exo.series.length > 0) {
         exo.series.forEach(s => {
+          if (!s.weight || !s.reps) return;
           const rKey = String(s.reps);
           if (!exo.repRecords[rKey] || s.weight > exo.repRecords[rKey]) {
-            exo.repRecords[rKey] = s.weight;
-            changed = true;
+            exo.repRecords[rKey] = s.weight; changed = true;
           }
+          const rm = calcE1RM(s.weight, s.reps);
+          if (rm > (exo.maxRM || 0)) { exo.maxRM = rm; changed = true; }
         });
       }
+
+      // 3. Flags de type
       if (exoType === 'reps' && !exo.isReps) { exo.isReps = true; changed = true; }
       if (exoType === 'time' && !exo.isTime) { exo.isTime = true; changed = true; }
       if ((exoType === 'cardio' || exoType === 'cardio_stairs') && !exo.isCardio) { exo.isCardio = true; changed = true; }
+
+      // 4. Recalcul maxReps pour exos poids-de-corps (pompes, tractions...)
+      // totalReps est stocké dans l'ancien format si les séries ont été parsées
+      if (exoType === 'reps') {
+        // Cas A: totalReps et sets présents → on calcule la moyenne par série
+        if ((exo.totalReps || 0) > (exo.maxReps || 0)) {
+          exo.maxReps = exo.totalReps; changed = true;
+        }
+        // Cas B: les séries ont des reps stockées dans series[] (exos lestés)
+        if (exo.series && exo.series.length > 0) {
+          exo.series.forEach(s => {
+            if ((s.reps || 0) > (exo.maxReps || 0)) {
+              exo.maxReps = s.reps; changed = true;
+            }
+          });
+        }
+        // Cas C: on a sets mais rien d'autre - au moins montrer que c'est fait
+        if ((!exo.maxReps || exo.maxReps === 0) && exo.sets > 0) {
+          exo.maxReps = 1; changed = true;
+        }
+      }
+
+      // 5. Recalcul maxTime pour gainage/planche
+      // L'ancien parseur stockait le temps dans series[] sous forme {reps, weight}
+      // ou directement dans maxTime. Si maxTime=0 et sets>0, c'est une perte de données.
+      // On pose un marqueur minimal (1s) pour ne pas afficher "0s"
+      if (exoType === 'time') {
+        if (exo.series && exo.series.length > 0) {
+          // Certains anciens logs stockaient le temps en "reps" dans series
+          exo.series.forEach(s => {
+            const t = s.reps || 0; // temps en secondes mal stocké comme reps
+            if (t > 1 && t < 3600 && t > (exo.maxTime || 0)) {
+              exo.maxTime = t; changed = true;
+            }
+          });
+        }
+        if ((!exo.maxTime || exo.maxTime === 0) && exo.sets > 0) {
+          exo.maxTime = 1; changed = true; // marqueur minimal
+        }
+      }
     });
   });
   if (changed) saveDB();
 }
+
 
 // ============================================================
 // INIT

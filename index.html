@@ -235,7 +235,7 @@ function getMuscleGroup(name) {
   // ── ÉPAULES ─────────────────────────────────────────────
   if (/developpe\s*militaire|overhead\s*press|ohp\b|press\s*militaire/.test(n)) return 'Épaules';
   if (/elevation\s*(laterale|frontale|posterieure)|lateral\s*raise|front\s*raise|rear\s*(delt|felt)|oiseau\b/.test(n)) return 'Épaules';
-  if (/face\s*pull/.test(n)) return 'Épaules';
+  if (/face\s*pull|tirage\s*(vers\s*(le\s*)?visage|nuque|haut\s*poulie|poulie\s*haute)|pull\s*(apart|through)|rear\s*delt\s*fly/.test(n)) return 'Épaules';
   if (/arnold/.test(n)) return 'Épaules';
   if (/\bepaule\b|\bshoulder\b/.test(n) && !/decollement|rotatoire|coiffe/.test(n)) return 'Épaules';
   if (/upright\s*row|tirage\s*(menton|au\s*menton)/.test(n)) return 'Épaules';
@@ -332,7 +332,8 @@ function getMuscleGroup(name) {
 // SBD DETECTION
 // ============================================================
 function getSBDType(name) {
-  const n = name.toLowerCase();
+  // Normalise accents + parenthèses: "Développé Couché (Barre)" → "developpe couche barre"
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
   if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
   if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare')) return 'squat';
@@ -470,7 +471,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     if (!l || l.includes('hevy') || (l.startsWith('le ') && l.includes('202')) || l.includes('http') || line.trim() === firstLine) continue;
     if (/^\d+\/\d+\/\d+/.test(l) || (l.includes('"') && (/\d+\/\d+\/\d+/.test(l) || l.includes('sec') || l.includes('iso')))) continue;
 
-    const isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min'));
+    const isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min') || l.includes('répétitions') || l.includes('repetitions') || l.includes('reps') || /\d+s\b/.test(l));
     const isCompressedData = /^\d+x/.test(l) || /^\d+[.,]\d+km/.test(l) || l.includes('1rm est:');
 
     if (!isSerieData && !isCompressedData) {
@@ -525,7 +526,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     }
     // ── Série poids de corps (reps only) ────────────────────
     else if (currExo.isReps && l.startsWith('série')) {
-      const repMatch = l.match(/x\s*(\d+)/i) || l.match(/(\d+)\s*rep/i);
+      const repMatch = l.match(/(\d+)\s*r[ée]p[ée]?t?i?t?i?o?n?s?/i) || l.match(/x\s*(\d+)/i) || l.match(/(\d+)\s*reps?\b/i);
       const kgMatch = l.match(/(\d+\.?\d*)\s*kg/i);
       if (repMatch) {
         const reps = parseInt(repMatch[1]);

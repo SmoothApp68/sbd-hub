@@ -149,7 +149,7 @@
 // ============================================================
 // CONSTANTS & CONFIG
 // ============================================================
-const STORAGE_KEY='SBD_HUB_V28';
+const STORAGE_KEY='SBD_HUB_V29';
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const SBD_TYPES=['bench','squat','deadlift'];
 const ROUTINES={Lundi:'🦵 Jambes (Quads & Squat)',Mardi:'💪 Push (Poitrine, Épaules & Triceps)',Mercredi:'🏊 Récupération Active (Natation)',Jeudi:'🔙 Pull (Dos, Ischio & Biceps)',Vendredi:'🎯 Points Faibles (Abdos/Mollets/Cardio)',Samedi:'⚡ SBD (Technique Complète)',Dimanche:'😴 Repos Complet'};
@@ -160,7 +160,7 @@ const REPORT_TTL_MS=7*86400000;
 // ============================================================
 // SESSION NAME BLACKLIST — noms de séance à ignorer comme exo
 // ============================================================
-const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
+const SESSION_NAME_BLACKLIST=/^(dos$|dos[\s\u00a0]|bonsoir|cul$|biceps$|[\u00e9e]paules$|avant-bras$|devenue|push$|pull$|leg[\s\u00a0]?day|jambes$|dos[\s\u00a0]*&|dos[\s\u00a0]*et[\s\u00a0]|dos[\s\u00a0]*wtf|dos[\s\u00a0]*faa|dos[\s\u00a0]*en[\s\u00a0]*spe|dos[\s\u00a0]*\u{1f525}|dos[\s\u00a0]*avec|upper[\s\u00a0\b]|muscu[\s\u00a0]*day|sbd[\s\u00a0]?day|sbday|cardio[\s\u00a0-]*r[e\u00e9]cup|fullbody|full[\s\u00a0]*body|push[^\n]*(deload|reload)|pull[^\n]*(deload|reload)|legs?[^\n]*(deload|reload)|upper[^\n]*(deload|reload)|lower[^\n]*(deload|reload))/iu;
 
 // ============================================================
 // EXERCISE TYPE ENGINE (v2 — exhaustif)
@@ -253,9 +253,10 @@ function getMuscleGroup(name) {
 
   // ── ISCHIO / FESSIERS / JAMBES ARRIÈRE ──────────────────
   if (/deadlift|souleve\s*de\s*terre|romanian|rdl\b/.test(n)) return 'Jambes';
-  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Jambes';
+  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Jambes';
   if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge|hip\s*extension/.test(n)) return 'Jambes';
-  if (/good\s*morning|hyperextension|extension\s*du\s*dos\b|extension\s*lombaire/.test(n)) return 'Jambes';
+  if (/good\s*morning/.test(n)) return 'Jambes';
+  if (/hyperextension|extension\s*(du\s*)?dos\b|extension\s*lombaire/.test(n)) return 'Dos';
   if (/abduction|adduction|kickback|hip\s*abduction/.test(n)) return 'Jambes';
   if (/fessier|glute/.test(n)) return 'Jambes';
   if (/sumo/.test(n) && !/wrestl/.test(n)) return 'Jambes';
@@ -292,6 +293,7 @@ function getMuscleGroup(name) {
   if (/shrugs?\b|hausse.?epaule|trapeze|trapezius/.test(n)) return 'Dos';
   // Rhomboïdes
   if (/rhomboid|retraction\s*scapulaire/.test(n)) return 'Dos';
+  if (/pull.?over|pull\s*over|pullover/.test(n)) return 'Dos';
 
   // ── BRAS — BICEPS ────────────────────────────────────────
   if (/curl\s*(biceps?|barre|halteres?|1\s*bras|incline|concentre|cable|poulie|marteau|hammer|inversee?|preacher|scott|araignee)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Bras';
@@ -348,7 +350,7 @@ const EXERCISE_DAY_MAP = {
   Lundi:    /squat|quad|extension\s*(des\s*)?(jambes?)|leg\s*(press|extension)|presse\s*cuisse|hack|fente|lunge|step.?up|goblet|sissy|bulgare/i,
   Mardi:    /bench|couche|pec|ecarte|chest|pompe|push.?up|epaule|shoulder|militaire|elevation|laterale|frontale|tricep|skull|dips|extension\s*(tricep|bras|poulie|cable|coude)|face\s*pull|arnold|upright/i,
   Mercredi: /natation|swimming|nage|tapis|running|velo\b|cycling|cardio|elliptique|escalier|stair|randonnee|rameur|corde\s*a\s*sauter|sprint|jogging|marche\s*(rapide|sportive)/i,
-  Jeudi:    /deadlift|souleve|row\b|rowing\b|tirage|lat\b|pull.?up|traction|chin.?up|leg\s*curl|ischio|hip\s*thrust|glute|curl\s*(bicep|barre|marteau|haltere)|bicep|abduction|adduction|hyperextension/i,
+  Jeudi:    /deadlift|souleve|row\b|rowing\b|tirage|lat\b|pull.?up|traction|chin.?up|leg\s*curl|ischio|hip\s*thrust|glute|curl\s*(bicep|barre|marteau|haltere)|bicep|abduction|adduction|hyperextension|pull.?over|rowing\s*assis|extension\s*dos/i,
   Vendredi: /crunch|ab\b|abdo|gainage|planche|plank|l.sit|releve|v.?up|sit.?up|ciseaux|battement|russian\s*twist|oblique|roue\s*ab|mollet|calf|escalier|stair|cardio/i,
   Samedi:   /squat.*barre|bench.*barre|couche.*barre|deadlift|souleve.*terre/i
 };

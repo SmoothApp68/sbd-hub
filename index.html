@@ -113,6 +113,19 @@
   </div>
   <div id="tab-train" class="content-section">
     <div class="card"><h2>Importer Séance (Hevy)</h2><textarea id="hevyPaste" rows="5" placeholder="Colle le texte Hevy ici..."></textarea><button class="btn" onclick="processHevy()">Traiter & Sauvegarder</button></div>
+    <div class="card" style="border-color:var(--purple);">
+      <h2>📂 Importer Historique CSV</h2>
+      <p style="font-size:12px;color:var(--sub);margin:4px 0 12px;">Importe toutes tes séances depuis le fichier CSV Google Sheets (séparateur point-virgule).</p>
+      <input type="file" id="csvFileInput" accept=".csv" style="margin-bottom:12px;font-size:13px;padding:10px;" onchange="previewCSV(this)">
+      <div id="csvPreview" style="display:none;background:var(--surface);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;color:var(--sub);"></div>
+      <button class="btn" style="background:var(--purple);" onclick="importCSV()" id="csvImportBtn" disabled>Importer l'historique</button>
+      <div id="csvProgress" style="margin-top:10px;display:none;">
+        <div style="background:var(--surface);border-radius:8px;height:6px;overflow:hidden;">
+          <div id="csvProgressBar" style="height:100%;background:var(--purple);width:0%;transition:width 0.3s;border-radius:8px;"></div>
+        </div>
+        <p id="csvProgressText" style="font-size:11px;color:var(--sub);text-align:center;margin:6px 0 0;"></p>
+      </div>
+    </div>
     <div id="importSummary" class="card" style="margin-top:15px;display:none;"><h2>✓ Séance Importée</h2><div id="importDetails"></div></div>
     <div id="aiImportAnalysis" style="display:none;"></div>
   </div>
@@ -1324,6 +1337,263 @@ function cleanupExistingLogs() {
   handleAuthCallback();
   if (shouldGenerateWeekly()) { setTimeout(() => { aiGenerateWeekly(); }, 1500); }
 })();
+
+// ============================================================
+// CSV IMPORT — Historique Google Sheets
+// ============================================================
+
+let csvParsedData = null;
+
+function previewCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const result = parseCSVData(text);
+    if (!result) {
+      document.getElementById('csvPreview').style.display = 'block';
+      document.getElementById('csvPreview').innerHTML = '<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';
+      document.getElementById('csvImportBtn').disabled = true;
+      return;
+    }
+    csvParsedData = result;
+    const preview = document.getElementById('csvPreview');
+    preview.style.display = 'block';
+
+    // Count new vs existing
+    const existingDates = new Set(db.logs.map(l => l.shortDate));
+    const newSessions = result.sessions.filter(s => !existingDates.has(s.shortDate));
+
+    preview.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">' +
+      '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--purple);">'+result.sessions.length+'</div><div>Séances</div></div>' +
+      '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--green);">'+newSessions.length+'</div><div>Nouvelles</div></div>' +
+      '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--blue);">'+result.totalRows+'</div><div>Séries</div></div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--sub);">Période : '+result.dateMin+' → '+result.dateMax+'</div>' +
+      (newSessions.length < result.sessions.length ?
+        '<div style="font-size:11px;color:var(--orange);margin-top:4px;">⚠️ '+(result.sessions.length - newSessions.length)+' séance(s) déjà importée(s) — ignorées.</div>' : '');
+
+    document.getElementById('csvImportBtn').disabled = newSessions.length === 0;
+    if (newSessions.length === 0)
+      document.getElementById('csvImportBtn').textContent = 'Tout est déjà importé';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCSVData(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return null;
+
+  // Detect separator
+  const header = lines[0];
+  const sep = header.includes(';') ? ';' : ',';
+  const cols = header.split(sep).map(c => c.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+
+  // Find column indices
+  const iDate     = cols.findIndex(c => c === 'date');
+  const iSeance   = cols.findIndex(c => c.includes('seance') || c.includes('séance'));
+  const iExo      = cols.findIndex(c => c.includes('exercice'));
+  const iPoids    = cols.findIndex(c => c.includes('poids'));
+  const iReps     = cols.findIndex(c => c === 'reps');
+  const iDist     = cols.findIndex(c => c.includes('distance') || c.includes('dist'));
+  const iDuree    = cols.findIndex(c => c.includes('duree') || c.includes('durée') || c.includes('dur'));
+
+  if (iDate === -1 || iExo === -1) return null;
+
+  // Group rows by date+séance
+  const sessionsMap = new Map();
+  let totalRows = 0;
+  let dateMin = '99/99/9999', dateMax = '01/01/1900';
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].split(sep);
+    if (row.length < 3) continue;
+
+    const dateRaw = (row[iDate] || '').trim();
+    const seance  = (iSeance >= 0 ? row[iSeance] : '').trim();
+    const exo     = (row[iExo] || '').trim();
+    if (!dateRaw || !exo) continue;
+
+    const poids   = parseFloat((row[iPoids] || '').replace(',', '.')) || 0;
+    const reps    = parseInt(row[iReps] || '') || 0;
+    const dist    = parseFloat((row[iDist] || '').replace(',', '.')) || 0; // en mètres
+    const duree   = parseFloat((row[iDuree] || '').replace(',', '.')) || 0; // en secondes
+
+    const key = dateRaw + '||' + seance;
+    if (!sessionsMap.has(key)) {
+      sessionsMap.set(key, { dateRaw, seance, rows: [] });
+    }
+    sessionsMap.get(key).rows.push({ exo, poids, reps, dist, duree });
+    totalRows++;
+
+    // Track date range (DD/MM/YYYY → compare as strings after reversal)
+    if (dateRaw < dateMin) dateMin = dateRaw;
+    if (dateRaw > dateMax) dateMax = dateRaw;
+  }
+
+  // Convert to session objects
+  const sessions = [];
+  for (const [, v] of sessionsMap) {
+    const session = buildSessionFromCSV(v.dateRaw, v.seance, v.rows);
+    if (session) sessions.push(session);
+  }
+
+  // Sort by date desc
+  sessions.sort((a, b) => b.timestamp - a.timestamp);
+
+  return { sessions, totalRows, dateMin, dateMax };
+}
+
+function buildSessionFromCSV(dateRaw, seanceName, rows) {
+  // Parse DD/MM/YYYY
+  const parts = dateRaw.split('/');
+  if (parts.length !== 3) return null;
+  const ts = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]), 12, 0, 0).getTime();
+  if (isNaN(ts)) return null;
+
+  const titleParts = seanceName.split(' - ');
+  const title = titleParts[0].trim();
+  const type  = titleParts[1] ? titleParts[1].trim() : '';
+
+  const session = {
+    date: dateRaw, shortDate: dateRaw,
+    timestamp: ts, volume: 0,
+    exercises: [], id: generateId(),
+    title, type,
+    day: DAYS_FULL[new Date(ts).getDay()]
+  };
+
+  // Group rows by exercise
+  const exoMap = new Map();
+  for (const row of rows) {
+    if (!exoMap.has(row.exo)) exoMap.set(row.exo, []);
+    exoMap.get(row.exo).push(row);
+  }
+
+  for (const [exoName, sets] of exoMap) {
+    const exoType = getExoType(exoName);
+    const isCardio = exoType === 'cardio' || exoType === 'cardio_stairs';
+    const isTime   = exoType === 'time';
+    const isReps   = exoType === 'reps';
+
+    const exo = {
+      name: exoName,
+      exoType, isCardio, isTime, isReps,
+      maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0,
+      distance: 0, sets: 0,
+      repRecords: {}, series: []
+    };
+
+    for (const s of sets) {
+      exo.sets++;
+
+      if (isCardio) {
+        // Distance en mètres → km
+        const distKm = s.dist > 0 ? s.dist / 1000 : 0;
+        if (distKm > exo.distance) exo.distance = distKm;
+        if (s.duree > exo.maxTime) { exo.maxTime = s.duree; exo.cardioDate = ts; }
+
+      } else if (isTime) {
+        // Durée en secondes
+        if (s.duree > exo.maxTime) { exo.maxTime = s.duree; exo.maxTimeDate = ts; }
+        session.volume += s.duree / 10;
+
+      } else if (isReps) {
+        // Poids de corps (avec ou sans lest)
+        exo.totalReps += s.reps;
+        if (s.reps > exo.maxReps) { exo.maxReps = s.reps; exo.maxRepsDate = ts; }
+        if (s.poids > 0) {
+          session.volume += s.poids * s.reps;
+          const rm = calcE1RM(s.poids, s.reps);
+          if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+          const rKey = String(s.reps);
+          if (!exo.repRecords[rKey] || s.poids > exo.repRecords[rKey]) exo.repRecords[rKey] = s.poids;
+        }
+
+      } else {
+        // Exercice avec poids
+        const w = s.poids, r = s.reps;
+        if (w > 0 && r > 0) {
+          session.volume += w * r;
+          const rKey = String(r);
+          if (!exo.repRecords[rKey] || w > exo.repRecords[rKey]) exo.repRecords[rKey] = w;
+          const ex = exo.series.find(x => x.reps === r);
+          if (ex) { if (w > ex.weight) { ex.weight = w; ex.date = ts; } }
+          else exo.series.push({ weight: w, reps: r, date: ts });
+          const rm = calcE1RM(w, r);
+          if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+        }
+      }
+    }
+
+    // Ne garder que les exos avec des données
+    if (exo.maxRM > 0 || exo.isCardio || exo.maxTime > 0 || exo.maxReps > 0 || exo.sets > 0)
+      session.exercises.push(exo);
+  }
+
+  return session.exercises.length > 0 ? session : null;
+}
+
+async function importCSV() {
+  if (!csvParsedData) return;
+
+  const btn = document.getElementById('csvImportBtn');
+  btn.disabled = true;
+  btn.textContent = 'Import en cours...';
+
+  const progress = document.getElementById('csvProgress');
+  const bar = document.getElementById('csvProgressBar');
+  const txt = document.getElementById('csvProgressText');
+  progress.style.display = 'block';
+
+  const existingDates = new Set(db.logs.map(l => l.shortDate));
+  const newSessions = csvParsedData.sessions.filter(s => !existingDates.has(s.shortDate));
+
+  let imported = 0, prs = { bench: 0, squat: 0, deadlift: 0 };
+
+  for (const session of newSessions) {
+    // Update PRs SBD
+    session.exercises.forEach(exo => {
+      const type = getSBDType(exo.name);
+      if (type && exo.maxRM > db.bestPR[type]) {
+        db.bestPR[type] = exo.maxRM;
+        prs[type] = exo.maxRM;
+        while (db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5;
+      }
+    });
+    db.logs.push(session);
+    imported++;
+
+    // Update progress every 10 sessions
+    if (imported % 10 === 0 || imported === newSessions.length) {
+      const pct = Math.round((imported / newSessions.length) * 100);
+      bar.style.width = pct + '%';
+      txt.textContent = imported + ' / ' + newSessions.length + ' séances importées';
+      await new Promise(r => setTimeout(r, 0)); // yield to UI
+    }
+  }
+
+  // Sort all logs by date
+  db.logs.sort((a, b) => b.timestamp - a.timestamp);
+  saveDB();
+
+  bar.style.width = '100%';
+  txt.textContent = '✓ ' + imported + ' séances importées !';
+  btn.textContent = '✓ Importé';
+  showToast('✓ ' + imported + ' séances importées');
+
+  // Show PR summary
+  const prSummary = Object.entries(prs).filter(([,v]) => v > 0)
+    .map(([k,v]) => k.toUpperCase()+' : '+v+'kg').join(' · ');
+  if (prSummary) showToast('🏆 PRs : ' + prSummary);
+
+  refreshUI();
+  csvParsedData = null;
+}
+
 </script>
 </body>
 </html>

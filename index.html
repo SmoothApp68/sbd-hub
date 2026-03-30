@@ -201,9 +201,9 @@
     <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">10 Séances</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Séances</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
   </div>
   <div id="tab-settings" class="content-section">
-    <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" onchange="saveAPIKey()"><p style="font-size:10px;color:var(--sub);margin-top:-8px;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
+    <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><div style="display:flex;gap:8px;margin-bottom:12px;"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" style="margin-bottom:0;flex:1;"><button onclick="saveAPIKey()" style="background:var(--blue);border:none;color:white;padding:0 16px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:13px;">Sauver</button></div><p style="font-size:10px;color:var(--sub);margin-top:0;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
     <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Connecte-toi avec ton email pour sync entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div id="emailLoginSection"><input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;"><button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:6px;">Un lien de connexion sera envoyé à ton email.</p></div><div style="display:flex;gap:10px;margin:12px 0;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button></div>
-    <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p></div>
+    <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="deleteAPIKey()">Supprimer la clé API</button></div>
   </div>
   <nav class="tab-bar">
     <button class="tab-btn active" data-tab="tab-dash"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg> Accueil</button>
@@ -1726,15 +1726,22 @@ function renderTopLifts() {
 // SETTINGS
 // ============================================================
 function updateProfile() { db.user.bw = parseFloat(document.getElementById('inputBW').value)||80; saveDB(); renderDash(); }
-function saveAPIKey() {
-  // Sanitize: strip all non-printable and non-ASCII chars (smart quotes, zero-width spaces, BOM...)
-  const raw = document.getElementById('inputAPIKey').value;
-  const k = raw.replace(/[^ -~]/g, '').trim(); // ASCII printable only
-  if (k) { localStorage.setItem('SBD_API_KEY', k); document.getElementById('inputAPIKey').value = k; }
-  else localStorage.removeItem('SBD_API_KEY');
-  showToast(k ? '✓ Clé API sauvegardée' : '✓ Clé API supprimée');
-}
+function deleteAPIKey() { showModal('Supprimer la clé API ?', 'Supprimer', 'var(--red)', () => { localStorage.removeItem('SBD_API_KEY'); document.getElementById('inputAPIKey').value = ''; showToast('✓ Clé API supprimée'); }); }
 function fullReset() { showModal('⚠️ Toutes les données seront effacées.', 'Effacer', 'var(--red)', () => { db = defaultDB(); saveDB(); refreshUI(); showToast('✓ Réinitialisé'); }); }
+function saveAPIKey() {
+  const raw = document.getElementById('inputAPIKey').value;
+  const k = raw.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!k) {
+    const existing = localStorage.getItem('SBD_API_KEY');
+    if (existing) { showToast('Clé déjà sauvegardée ✓'); return; }
+    showToast('Entre une clé API valide');
+    return;
+  }
+  if (k.length < 20) { showToast('⚠️ Clé trop courte, vérifie le copier-coller'); return; }
+  localStorage.setItem('SBD_API_KEY', k);
+  document.getElementById('inputAPIKey').value = k;
+  showToast('✓ Clé API sauvegardée');
+}
 
 // ============================================================
 // MIGRATION & CLEANUP
@@ -2045,6 +2052,8 @@ function renderWpExercise(exo) {
   selectedDay = today;
   document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.dataset.day === today));
   document.getElementById('inputBW').value = db.user.bw;
+  const savedAPIKey = localStorage.getItem('SBD_API_KEY');
+  if (savedAPIKey) { const k = document.getElementById('inputAPIKey'); if (k) k.value = savedAPIKey; }
   newPRs = { bench: false, squat: false, deadlift: false };
   renderDash();
   updateCoachBadge();

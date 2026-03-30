@@ -1083,7 +1083,7 @@ function buildAthleteContext() {
   return{bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()],sbdTrend,weakGroup,bwRatio,daysSinceTraining,sets14,programme};
 }
 
-async function callAI(systemPrompt, userPrompt) {
+async function callAI(systemPrompt, userPrompt, maxTokens) {
   const rawKey = localStorage.getItem('SBD_API_KEY') || '';
   const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
   if (!apiKey) { console.warn('AI: no API key'); return null; }
@@ -1097,8 +1097,8 @@ async function callAI(systemPrompt, userPrompt) {
         'anthropic-dangerous-request-check': 'client'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
+        model: 'claude-sonnet-4-6',
+        max_tokens: maxTokens || 1200,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       })
@@ -1106,8 +1106,7 @@ async function callAI(systemPrompt, userPrompt) {
     if (!r.ok) {
       const errBody = await r.text();
       console.error('AI HTTP ' + r.status + ':', errBody);
-      // Afficher l'erreur précise à l'utilisateur
-      window._lastAIError = 'Erreur ' + r.status + (r.status === 401 ? ' - cle API invalide' : r.status === 403 ? ' - acces refuse' : r.status === 429 ? ' - limite de debit atteinte' : ': ' + errBody.substring(0, 100));
+      window._lastAIError = 'Erreur ' + r.status + (r.status === 401 ? ' - clé API invalide' : r.status === 403 ? ' - accès refusé' : r.status === 429 ? ' - limite atteinte, réessaie dans 1 min' : ': ' + errBody.substring(0, 120));
       return null;
     }
     const d = await r.json();
@@ -1120,7 +1119,7 @@ async function callAI(systemPrompt, userPrompt) {
     return d.content.map(b => b.text||'').join('');
   } catch(err) {
     console.error('AI fetch error:', err);
-    window._lastAIError = err.message || 'Erreur réseau (CORS ?)';
+    window._lastAIError = err.message || 'Erreur réseau';
     return null;
   }
 }
@@ -1177,12 +1176,10 @@ function startAIProgress(id) {
 
 function stopAIProgress(id) {
   if (_aiProgressTimers[id]) { clearTimeout(_aiProgressTimers[id]); delete _aiProgressTimers[id]; }
-  // Flash to 100% then response takes over
-  const b = document.getElementById('aipb_' + id);
-  if (b) b.style.width = '100%';
 }
 
 function showAILoading(id) {
+  stopAIProgress(id);
   const el = document.getElementById(id);
   el.classList.remove('empty');
   el.innerHTML =
@@ -1933,21 +1930,23 @@ ${sqRef ? sqRef+'\n' : ''}Séances récentes : ${ctx.recentVolumes.map(v=>v.titl
 
 Génère le JSON complet pour les 7 jours (Lundi → Dimanche).`;
 
-  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt);
+  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt, 4000);
   btn.disabled = false;
   btn.innerHTML = '✦ Générer le programme de la semaine';
-  if (!result) { showToast('⚠️ Erreur génération'); return; }
+  if (!result) { showToast('⚠️ ' + (window._lastAIError || 'Erreur IA')); return; }
   try {
-    const clean = result.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    const plan = JSON.parse(clean);
+    // Extraire le JSON même si entouré de texte parasite
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Pas de JSON trouvé dans la réponse');
+    const plan = JSON.parse(jsonMatch[0]);
     plan.generated_at = new Date().toISOString();
     db.weeklyPlan = plan;
     saveDB();
     showToast('✅ Programme généré !');
     renderWeeklyPlanUI();
   } catch(e) {
-    console.error('Weekly plan parse error:', e, result);
-    showToast('⚠️ Erreur format — réessaie');
+    console.error('Weekly plan parse error:', e, result.substring(0, 300));
+    showToast('⚠️ Format invalide — réessaie');
   }
 }
 

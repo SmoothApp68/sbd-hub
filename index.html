@@ -1893,7 +1893,7 @@ ${sqRef ? sqRef+'\n' : ''}Séances récentes : ${ctx.recentVolumes.map(v=>v.titl
 
 Génère le JSON complet pour les 7 jours (Lundi → Dimanche).`;
 
-  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt, 4000);
+  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt, 6000);
   btn.disabled = false;
   btn.innerHTML = '✦ Générer le programme de la semaine';
   if (!result) { showToast('⚠️ ' + (window._lastAIError || 'Erreur IA')); return; }

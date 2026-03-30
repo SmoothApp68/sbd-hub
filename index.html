@@ -107,7 +107,7 @@
 </head>
 <body>
   <div id="tab-dash" class="content-section active">
-    <div class="card"><div class="header-card"><h2>Performance</h2></div><div class="sbd-grid" id="sbdDisplay"></div><div style="height:220px;margin-top:25px;"><canvas id="chartSBD"></canvas></div></div>
+    <div class="card"><div class="header-card"><h2>Performance</h2></div><div class="sbd-grid" id="sbdDisplay"></div><div style="display:flex;gap:8px;margin-top:14px;"><button class="period-btn active" data-sbd="bar" onclick="setSBDView('bar')">Comparatif</button><button class="period-btn" data-sbd="line" onclick="setSBDView('line')">Progression</button></div><div style="height:220px;margin-top:12px;"><canvas id="chartSBD"></canvas></div></div>
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
   </div>
@@ -145,11 +145,20 @@
     <div class="card"><h2>Rapports</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="reportButtons"><button class="period-btn active" data-period="week" onclick="renderReports('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderReports('month')">30 Jours</button></div><div class="report-grid" id="reportDisplay"></div></div>
     <div class="card"><h2>Répartition Musculaire</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="muscleButtons"><button class="period-btn active" data-period="week" onclick="renderMuscleChart('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderMuscleChart('month')">30 Jours</button></div><div style="position:relative;height:200px;margin:15px 0 10px;" id="chartMuscleContainer"></div><div id="muscleList"></div></div>
     <div class="card"><h2>💪 Meilleurs Lifts (All Time)</h2><div id="topExosList" style="margin-top:10px;"></div></div>
-    <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Jours</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
+    <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">10 Séances</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Séances</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
   </div>
   <div id="tab-settings" class="content-section">
     <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" onchange="saveAPIKey()"><p style="font-size:10px;color:var(--sub);margin-top:-8px;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
     <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Connecte-toi avec ton email pour sync entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div id="emailLoginSection"><input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;"><button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:6px;">Un lien de connexion sera envoyé à ton email.</p></div><div style="display:flex;gap:10px;margin:12px 0;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button></div>
+    <div class="card">
+      <h2>📅 Mon Programme</h2>
+      <p style="font-size:12px;color:var(--sub);margin:4px 0 12px;">Saisi ton programme pour que le Coach IA le connaisse et adapte ses conseils.</p>
+      <div id="programmeForm">
+        <div style="margin-bottom:14px;" id="programmeJours"></div>
+        <button class="btn" onclick="saveProgramme()" style="background:var(--green);">💾 Sauvegarder le programme</button>
+      </div>
+      <div id="programmeSaved" style="display:none;font-size:12px;color:var(--green);margin-top:8px;text-align:center;">✓ Programme sauvegardé</div>
+    </div>
     <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p></div>
   </div>
   <nav class="tab-bar">
@@ -490,7 +499,7 @@ async function cloudLogout() { if (!supaClient) return; await supaClient.auth.si
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); } }
+function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); } if (tabId==='tab-settings') renderProgrammeForm(); }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = ROUTINES[selectedDay]; renderDayExercises(selectedDay); });
 
@@ -959,7 +968,24 @@ function buildAthleteContext() {
       if (sbdHistory[type].length >= 5) break;
     }
   });
-  return { bw: db.user.bw, bestPR: db.bestPR, targets: db.user.targets, totalSessions: db.logs.length, sessions7d: logs7.length, sessions30d: logs30.length, daysWithTraining7: new Set(logs7.map(l => l.day)).size, muscleSets7, recentVolumes, sbdHistory, todayDay: DAYS_FULL[new Date().getDay()] };
+  const logs30b=db.logs.filter(l=>{const a=Date.now()-l.timestamp;return a>=30*86400000&&a<60*86400000;});
+  const sbdTrend={};
+  SBD_TYPES.forEach(type=>{
+    const r=logs30.flatMap(l=>l.exercises).filter(e=>getSBDType(e.name)===type&&e.maxRM>0);
+    const p=logs30b.flatMap(l=>l.exercises).filter(e=>getSBDType(e.name)===type&&e.maxRM>0);
+    const avgR=r.length?Math.round(r.reduce((s,e)=>s+e.maxRM,0)/r.length):null;
+    const avgP=p.length?Math.round(p.reduce((s,e)=>s+e.maxRM,0)/p.length):null;
+    sbdTrend[type]=(avgR!==null&&avgP!==null)?avgR-avgP:null;
+  });
+  const logs14=getLogsInRange(14),sets14={};
+  logs14.forEach(l=>l.exercises.forEach(e=>{const mg=getMuscleGroup(e.name);sets14[mg]=(sets14[mg]||0)+e.sets;}));
+  const mainGroups=['Pecs','Dos','Jambes','Épaules','Bras'];
+  const weakGroup=mainGroups.reduce((min,g)=>(sets14[g]||0)<(sets14[min]||0)?g:min,mainGroups[0]);
+  const bwRatio=db.user.bw>0?{bench:(db.bestPR.bench/db.user.bw).toFixed(2),squat:(db.bestPR.squat/db.user.bw).toFixed(2),deadlift:(db.bestPR.deadlift/db.user.bw).toFixed(2)}:null;
+  const daysSince=[...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0];
+  const daysSinceTraining=daysSince?Math.floor((Date.now()-daysSince.timestamp)/86400000):null;
+  const programme = getProgrammeContext ? getProgrammeContext() : null;
+  return{bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()],sbdTrend,weakGroup,bwRatio,daysSinceTraining,sets14,programme};
 }
 
 async function callAI(systemPrompt, userPrompt) {
@@ -974,17 +1000,21 @@ async function callAI(systemPrompt, userPrompt) {
   } catch(err) { console.error('AI:', err); return null; }
 }
 
-const AI_SYSTEM = `Tu es un coach de force spécialisé en powerlifting (SBD). Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
-RÈGLES IMPORTANTES:
-- Les charges indiquées dans les séances sont les POIDS RÉELS soulevés (ex: "125kg × 4" = 4 reps à 125kg).
-- Les "e1RM" ou "records" sont des ESTIMATIONS calculées par la formule d'Epley, PAS des charges réellement soulevées.
-- Quand tu parles d'une performance, cite le poids réel et les reps, pas l'e1RM.
-RÈGLES DE FORMAT:
-- Réponds UNIQUEMENT en HTML (pas de markdown).
-- Structure TOUJOURS en 3 sections: <div class="ai-section"><div class="ai-section-title">TITRE</div>contenu</div>
-- Sections: 1. "📊 DÉBRIEF/BILAN" 2. "🎯 VISION SEMAINE" 3. "💡 CONSEIL PERSO"
+const AI_SYSTEM = `Tu es un coach de force expert en powerlifting (SBD) et musculation.
+
+RÈGLES D'ANALYSE:
+- Les charges sont les POIDS RÉELS soulevés. Les e1RM sont des estimations Epley.
+- Cite toujours le poids réel + reps (ex: "120kg × 4"), jamais l'e1RM seul.
+- Analyse la TENDANCE, pas juste le dernier entraînement.
+- Identifie les déséquilibres (ex: bench fort mais squat stagne) et propose une action concrète.
+- Utilise le ratio force/poids de corps pour contextualiser le niveau.
+- Si la fréquence baisse, mentionne-le sans juger. Sois direct, motivant, sans bullshit. Tutoie.
+
+FORMAT HTML UNIQUEMENT:
+- 3 sections: <div class="ai-section"><div class="ai-section-title">TITRE</div>contenu</div>
+- Sections: 1."📊 ANALYSE" 2."🎯 ACTION CETTE SEMAINE" 3."💡 FOCUS"
 - Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
-- 150-250 mots max. Tutoie. Français.`;
+- 180-280 mots. Français.` ;
 
 function showAILoading(id) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>'; }
 function showAIResponse(id, html) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'; }
@@ -995,8 +1025,9 @@ async function aiGenerateDebrief(session, rawText) {
   container.style.display = 'block';
   container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
   const ctx = buildAthleteContext();
+  const progStr = ctx.programme ? '\n\nPROGRAMME PRÉVU:\n'+ctx.programme : '';
   const prompt = 'Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
-  const result = await callAI(AI_SYSTEM, prompt);
+  const result = await callAI(AI_SYSTEM, prompt+progStr);
   if (result) { showAIResponse('aiImportResponse', result); upsertReport('debrief', result, session.id); }
   else showAIError('aiImportResponse');
 }
@@ -1015,8 +1046,24 @@ async function aiAction(type) {
   showAILoading('aiResponseArea');
   const ctx = buildAthleteContext();
   let prompt = '';
-  if (type === 'progression') prompt = 'Progression SBD:\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nPoids: '+ctx.bw+'kg\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\nTotal: '+ctx.totalSessions+' | 30j: '+ctx.sessions30d;
-  else if (type === 'weakpoints') prompt = 'Points faibles:\nMuscles 7j: '+(Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucune donnée')+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nPoids: '+ctx.bw+'kg | Fréq: '+ctx.sessions7d+'/sem';
+  if (type === 'progression') {
+    const ratioStr=ctx.bwRatio?'B×'+ctx.bwRatio.bench+' S×'+ctx.bwRatio.squat+' D×'+ctx.bwRatio.deadlift:'N/A';
+    const trendStr=SBD_TYPES.map(t=>{const d=ctx.sbdTrend[t];return t+(d!==null?(d>=0?'+':'')+d+'kg':' ?');}).join(', ');
+    prompt='PROGRESSION SBD\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'kg | Poids: '+ctx.bw+'kg\n'
+      +'Ratio /pdc: '+ratioStr+'\nTendance 30j: '+trendStr+'\n'
+      +'Objectifs: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\n'
+      +'Historique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\n'
+      +'Séances: total='+ctx.totalSessions+' | 30j='+ctx.sessions30d+' | repos: '+ctx.daysSinceTraining+'j';
+  }
+  else if (type === 'weakpoints') {
+    const m7=Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucun';
+    const m14=Object.entries(ctx.sets14||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+': '+v+'s').join(', ')||'Aucun';
+    const trendStr=SBD_TYPES.map(t=>{const d=ctx.sbdTrend[t];return t+(d!==null?(d>=0?'+':'')+d+'kg':' ?');}).join(', ');
+    prompt='POINTS FAIBLES\nMuscles 7j: '+m7+'\nMuscles 14j: '+m14+'\n'
+      +'Groupe le moins travaillé: '+ctx.weakGroup+'\n'
+      +'PRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'kg | Poids: '+ctx.bw+'kg\n'
+      +'Tendance SBD: '+trendStr+'\nFréquence: '+ctx.sessions7d+'/sem | Repos: '+ctx.daysSinceTraining+'j';
+  }
   else if (type === 'next') prompt = "Séance du jour:\nAUJOURD'HUI: "+ctx.todayDay+'\nPROGRAMME: '+ROUTINES[ctx.todayDay]+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+' | '+ctx.bw+'kg\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nRécent: '+(ctx.recentVolumes.slice(0,3).map(v=>v.title+' ('+v.date+')').join(', ')||'Aucune')+'\nSéances/sem: '+ctx.sessions7d;
   const result = await callAI(AI_SYSTEM, prompt);
   if (result) showAIResponse('aiResponseArea', result);
@@ -1241,21 +1288,170 @@ function toggleExo(id) { const el = document.getElementById(id); if (!el) return
 // ============================================================
 // CHARTS
 // ============================================================
-function renderSBDChart() {
+function renderSBDChart() { setSBDView(window._sbdView||'bar'); }
+
+function setSBDView(view) {
+  window._sbdView = view;
+  document.querySelectorAll('[data-sbd]').forEach(b => b.classList.toggle('active', b.dataset.sbd === view));
+  if (view === 'bar') renderSBDBar(); else renderSBDLine();
+}
+
+function renderSBDBar() {
   const ctx = document.getElementById('chartSBD');
   if (!ctx) return;
   if (chartSBD) chartSBD.destroy();
   const lastPRDates = {};
-  SBD_TYPES.forEach(type => { for (const log of db.logs) { for (const exo of log.exercises) { if (getSBDType(exo.name) === type && exo.maxRM === db.bestPR[type]) { lastPRDates[type] = log.date.split(' à')[0]; return; } } } });
-  chartSBD = new Chart(ctx, { type: 'bar', data: { labels: ['Bench','Squat','Dead'], datasets: [{ label: '1RM Actuel', data: SBD_TYPES.map(t=>db.bestPR[t]), backgroundColor: ['#0A84FF','#32D74B','#FF9F0A'], borderRadius: 8, barThickness: 35 },{ label: '1RM Visé', data: SBD_TYPES.map(t=>db.user.targets[t]), backgroundColor: ['rgba(10,132,255,0.3)','rgba(50,215,75,0.3)','rgba(255,159,10,0.3)'], borderColor: ['#0A84FF','#32D74B','#FF9F0A'], borderWidth: 2, borderDash: [5,5], barThickness: 35 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 } } }, tooltip: { callbacks: { afterLabel(c) { const t = SBD_TYPES[c.dataIndex]; return c.datasetIndex===0?'Depuis: '+(lastPRDates[t]||'N/A'):'Reste: '+(db.user.targets[t]-db.bestPR[t])+'kg'; } } } }, scales: { y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } }, x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } } } } });
+  SBD_TYPES.forEach(type => {
+    for (const log of db.logs) {
+      for (const exo of log.exercises) {
+        if (getSBDType(exo.name)===type && exo.maxRM===db.bestPR[type]) { lastPRDates[type]=log.date.split(' à')[0]; return; }
+      }
+    }
+  });
+  chartSBD = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Bench','Squat','Dead'], datasets: [
+      { label: '1RM Actuel', data: SBD_TYPES.map(t=>db.bestPR[t]),
+        backgroundColor: ['#0A84FF','#32D74B','#FF9F0A'], borderRadius: 8, barThickness: 35 },
+      { label: '1RM Visé', data: SBD_TYPES.map(t=>db.user.targets[t]),
+        backgroundColor: ['rgba(10,132,255,0.3)','rgba(50,215,75,0.3)','rgba(255,159,10,0.3)'],
+        borderColor: ['#0A84FF','#32D74B','#FF9F0A'], borderWidth: 2, borderDash: [5,5], barThickness: 35 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 } } },
+        tooltip: { callbacks: { afterLabel(c) {
+          const t=SBD_TYPES[c.dataIndex];
+          return c.datasetIndex===0?'Depuis: '+(lastPRDates[t]||'N/A'):'Reste: '+(db.user.targets[t]-db.bestPR[t])+'kg';
+        }}}},
+      scales: { y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } },
+                x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } } }
+    }
+  });
+}
+
+function renderSBDLine() {
+  const ctx = document.getElementById('chartSBD');
+  if (!ctx) return;
+  if (chartSBD) chartSBD.destroy();
+  const colors = { bench: '#0A84FF', squat: '#32D74B', deadlift: '#FF9F0A' };
+  const lbls   = { bench: 'Bench', squat: 'Squat', deadlift: 'Deadlift' };
+
+  // Collect progression data: running maximum per type, chronological
+  const typeData = {};
+  SBD_TYPES.forEach(type => {
+    typeData[type] = [];
+    let max = 0;
+    [...db.logs].sort((a,b)=>a.timestamp-b.timestamp).forEach(log => {
+      log.exercises.forEach(exo => {
+        if (getSBDType(exo.name)===type && exo.maxRM>0 && exo.maxRM>max) {
+          max = exo.maxRM;
+          typeData[type].push({ x: log.shortDate||formatDate(log.timestamp), y: max });
+        }
+      });
+    });
+  });
+
+  // Collect all dates
+  const allDates = new Set();
+  SBD_TYPES.forEach(type => typeData[type].forEach(p => allDates.add(p.x)));
+  const sortedDates = [...allDates].sort((a,b) => {
+    const pa=a.split('/'), pb=b.split('/');
+    return new Date(+pa[2],+pa[1]-1,+pa[0]) - new Date(+pb[2],+pb[1]-1,+pb[0]);
+  });
+
+  const tickStep = Math.max(1, Math.floor(sortedDates.length/8));
+  const tickSet  = new Set(sortedDates.filter((_,i) => i%tickStep===0 || i===sortedDates.length-1));
+
+  const datasets = SBD_TYPES
+    .filter(type => typeData[type].length > 0)
+    .map(type => ({
+      label: lbls[type],
+      data: typeData[type],
+      borderColor: colors[type],
+      backgroundColor: colors[type]+'22',
+      borderWidth: 2.5,
+      pointRadius: 3,
+      pointBackgroundColor: colors[type],
+      tension: 0.3,
+      fill: false
+    }));
+
+  if (datasets.length === 0) { renderSBDBar(); return; }
+
+  chartSBD = new Chart(ctx, {
+    type: 'line',
+    data: { labels: sortedDates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 12 } },
+        tooltip: { callbacks: {
+          title: items => items[0]?.label||'',
+          label: c => ' '+c.dataset.label+': '+c.parsed.y+' kg (e1RM)'
+        }}
+      },
+      scales: {
+        x: { type: 'category', grid: { color: '#2C2C2E' },
+          ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 0,
+            callback: function(val,i) {
+              const lbl = this.getLabelForValue(val);
+              return tickSet.has(lbl) ? lbl.substring(0,5) : '';
+            }}},
+        y: { grid: { color: '#2C2C2E', drawBorder: false },
+             ticks: { color: '#86868B', callback: v => v+'kg' }}
+      }
+    }
+  });
 }
 
 function renderVolumeChart(period) {
   period = period||'week'; setPeriodButtons('volumeButtons', period);
   const cv = document.getElementById('chartVolume'); if (!cv) return;
   if (chartVolume) chartVolume.destroy();
-  const vl = getLogsInRange(period==='week'?7:30).filter(l=>l.volume>0).slice(0,10).reverse();
-  chartVolume = new Chart(cv, { type: 'line', data: { labels: vl.map(l=>(l.shortDate||l.date).substring(0,5)), datasets: [{ data: vl.map(l=>l.volume), borderColor: '#BF5AF2', backgroundColor: 'rgba(191,90,242,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#BF5AF2' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 } } } } } });
+  // Dernières N séances chronologiquement
+  const n = period === 'week' ? 10 : 30;
+  const sorted = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  const vl = sorted.filter(l => l.volume > 0).slice(0, n).reverse();
+  const labels = vl.map(l => {
+    const d = l.shortDate || l.date || '';
+    // Show DD/MM format
+    return d.length >= 5 ? d.substring(0,5) : d;
+  });
+  chartVolume = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: vl.map(l => l.volume),
+        borderColor: '#BF5AF2',
+        backgroundColor: 'rgba(191,90,242,0.1)',
+        borderWidth: 3, fill: true, tension: 0.4,
+        pointBackgroundColor: '#BF5AF2',
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const idx = items[0].dataIndex;
+              const log = vl[idx];
+              return (log.title || '') + ' — ' + (log.shortDate || log.date || '');
+            },
+            label: items => ' ' + (items.raw / 1000).toFixed(2) + ' tonnes'
+          }
+        }
+      },
+      scales: {
+        y: { display: false },
+        x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 45 } }
+      }
+    }
+  });
 }
 
 function renderMuscleChart(period) {
@@ -1275,15 +1471,32 @@ function renderMuscleChart(period) {
   svg += '</svg>';
   const ct = document.getElementById('chartMuscleContainer'); if (ct) ct.innerHTML = svg;
   const allGroups = [...RADAR_CONFIG, {label:'Cardio',key:'Cardio',color:'#FF9F0A'}];
-  document.getElementById('muscleList').innerHTML = allGroups.map(cfg => { const val = ms[cfg.key]||0; return '<div class="stat-row" style="padding:6px 0;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:'+cfg.color+'"></div><span style="font-size:13px;">'+cfg.label+'</span></div><span style="font-size:13px;font-weight:bold;">'+val+' séries</span></div>'; }).join('');
+  const totalSets = Object.values(ms).reduce((s,v)=>s+v,0);
+  const lastLog2 = db.logs.length > 0 ? [...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0] : null;
+  const emptyNote = totalSets === 0 && lastLog2
+    ? '<div style="text-align:center;font-size:11px;color:var(--sub);margin-top:8px;">Aucune séance dans cette période — dernière séance : '+(lastLog2.shortDate||lastLog2.date||'')+'</div>'
+    : '';
+  document.getElementById('muscleList').innerHTML = allGroups.map(cfg => { const val = ms[cfg.key]||0; return '<div class="stat-row" style="padding:6px 0;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:'+cfg.color+'"></div><span style="font-size:13px;">'+cfg.label+'</span></div><span style="font-size:13px;font-weight:bold;">'+val+' séries</span></div>'; }).join('') + emptyNote;
 }
 
 function renderReports(period) {
   period = period||'week'; setPeriodButtons('reportButtons', period);
-  const rl = getLogsInRange(period==='week'?7:30);
+  const days = period==='week' ? 7 : 30;
+  const rl = getLogsInRange(days);
   let tv=0, ts=0;
   rl.forEach(l => { tv += l.volume; l.exercises.forEach(e => ts += e.sets); });
-  document.getElementById('reportDisplay').innerHTML = '<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div><div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div><div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div><div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>';
+  // Si aucune donnée récente, afficher la dernière séance connue pour info
+  const lastLog = db.logs.length > 0 ? [...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0] : null;
+  const lastDateStr = lastLog ? (lastLog.shortDate||lastLog.date||'') : '';
+  const noDataNote = rl.length === 0 && lastLog
+    ? '<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--sub);margin-top:6px;">Aucune séance dans les '+days+'j — dernière séance : '+lastDateStr+'</div>'
+    : '';
+  document.getElementById('reportDisplay').innerHTML =
+    '<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div>'
+    +'<div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div>'
+    +'<div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div>'
+    +'<div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>'
+    +noDataNote;
 }
 
 function renderTopLifts() {
@@ -1632,6 +1845,55 @@ async function importCSV() {
   if (prSummary) showToast('🏆 PRs : ' + prSummary);
   refreshUI();
   csvParsedData = null;
+}
+
+
+// ============================================================
+// PROGRAMME PERSONNALISÉ
+// ============================================================
+const PROGRAMME_KEY = 'SBD_PROGRAMME_V1';
+const DAYS_PROGRAMME = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+function loadProgramme() {
+  try { return JSON.parse(localStorage.getItem(PROGRAMME_KEY)) || {}; } catch { return {}; }
+}
+
+function saveProgramme() {
+  const prog = {};
+  DAYS_PROGRAMME.forEach(day => {
+    const el = document.getElementById('prog_' + day);
+    if (el) prog[day] = el.value.trim();
+  });
+  localStorage.setItem(PROGRAMME_KEY, JSON.stringify(prog));
+  const saved = document.getElementById('programmeSaved');
+  if (saved) { saved.style.display = 'block'; setTimeout(() => saved.style.display='none', 2000); }
+  showToast('✓ Programme sauvegardé');
+}
+
+function renderProgrammeForm() {
+  const container = document.getElementById('programmeJours');
+  if (!container) return;
+  const prog = loadProgramme();
+  const dayEmojis = { Lundi:'🦵', Mardi:'💪', Mercredi:'🏊', Jeudi:'🔙', Vendredi:'🎯', Samedi:'⚡', Dimanche:'😴' };
+  container.innerHTML = DAYS_PROGRAMME.map(day => {
+    const emoji = dayEmojis[day] || '📅';
+    const val = prog[day] || '';
+    return '<div style="margin-bottom:10px;">'
+      + '<label style="font-size:12px;font-weight:600;color:var(--sub);display:block;margin-bottom:4px;">'
+      + emoji + ' ' + day + '</label>'
+      + '<input type="text" id="prog_' + day + '" value="' + val.replace(/"/g,'&quot;') + '" '
+      + 'placeholder="ex: Squat 5×5 @80% + Leg press + Fentes" '
+      + 'style="margin-bottom:0;font-size:13px;">'
+      + '</div>';
+  }).join('');
+}
+
+function getProgrammeContext() {
+  const prog = loadProgramme();
+  const lines = DAYS_PROGRAMME
+    .filter(d => prog[d])
+    .map(d => d + ': ' + prog[d]);
+  return lines.length > 0 ? lines.join('\n') : null;
 }
 
 </script>

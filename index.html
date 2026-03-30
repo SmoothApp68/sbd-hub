@@ -1637,18 +1637,22 @@ function saveAPIKey() {
 
 async function syncAPIKeyToCloud(k) {
   try {
-    const { data: { session } } = await supaClient.auth.getSession();
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: { session } } = await client.auth.getSession();
     if (!session) return;
-    const uid = session.user.id;
-    await supaClient.from('user_settings').upsert({ user_id: uid, api_key: k || null, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    await client.from('user_settings').upsert(
+      { user_id: session.user.id, api_key: k || null, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
   } catch(e) { console.warn('syncAPIKeyToCloud error:', e); }
 }
 
 async function loadAPIKeyFromCloud() {
   try {
-    const { data: { session } } = await supaClient.auth.getSession();
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: { session } } = await client.auth.getSession();
     if (!session) return;
-    const { data } = await supaClient.from('user_settings').select('api_key').eq('user_id', session.user.id).single();
+    const { data } = await client.from('user_settings').select('api_key').eq('user_id', session.user.id).single();
     if (data && data.api_key) {
       localStorage.setItem('SBD_API_KEY', data.api_key);
       const input = document.getElementById('inputAPIKey');

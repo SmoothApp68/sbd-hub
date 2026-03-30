@@ -192,7 +192,7 @@
       <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
       <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
     </div>
-    <div class="card"><h2>💬 Réponse Libre</h2><div id="aiResponseArea" class="ai-response-area empty">Appuie sur une action ci-dessus ou importe une séance</div></div>
+    <div class="card"><h2>💬 Réponse Libre</h2><div id="aiResponseArea" class="ai-response-area empty">Appuie sur une action ci-dessus ou importe une séance</div><button onclick="testAPIConnection()" style="margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--sub);width:100%;padding:10px;border-radius:10px;font-size:12px;cursor:pointer;">🔌 Tester la connexion IA</button></div>
   </div>
   <div id="tab-stats" class="content-section">
     <div class="card"><h2>Rapports</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="reportButtons"><button class="period-btn active" data-period="week" onclick="renderReports('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderReports('month')">30 Jours</button></div><div class="report-grid" id="reportDisplay"></div></div>
@@ -1089,9 +1089,15 @@ async function callAI(systemPrompt, userPrompt, maxTokens) {
     window._lastAIError = 'Clé API manquante — va dans Réglages';
     return null;
   }
+
+  // Timeout 45s
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
@@ -1105,20 +1111,23 @@ async function callAI(systemPrompt, userPrompt, maxTokens) {
         messages: [{ role: 'user', content: userPrompt }]
       })
     });
+    clearTimeout(timeoutId);
+
     if (!r.ok) {
       const errBody = await r.text();
-      console.error('AI HTTP ' + r.status + ':', errBody);
-      let errMsg = 'Erreur ' + r.status;
-      if (r.status === 401) errMsg += ' — clé API invalide';
-      else if (r.status === 403) errMsg += ' — accès refusé';
-      else if (r.status === 429) errMsg += ' — limite atteinte, réessaie dans 1 min';
-      else {
-        try { const j = JSON.parse(errBody); errMsg += ': ' + (j.error?.message || errBody.substring(0,120)); }
-        catch { errMsg += ': ' + errBody.substring(0,120); }
+      let errMsg = 'HTTP ' + r.status;
+      if (r.status === 401) errMsg = 'Clé API invalide (401)';
+      else if (r.status === 403) errMsg = 'Accès refusé (403) — clé ou plan incorrect';
+      else if (r.status === 429) errMsg = 'Trop de requêtes (429) — réessaie dans 1 min';
+      else if (r.status === 400) {
+        try { const j = JSON.parse(errBody); errMsg = '400: ' + (j.error?.message || errBody.substring(0,150)); }
+        catch { errMsg = '400: ' + errBody.substring(0,150); }
       }
       window._lastAIError = errMsg;
+      console.error('callAI', r.status, errBody);
       return null;
     }
+
     const d = await r.json();
     if (d.error) {
       window._lastAIError = d.error.message || JSON.stringify(d.error);
@@ -1126,9 +1135,15 @@ async function callAI(systemPrompt, userPrompt, maxTokens) {
     }
     window._lastAIError = null;
     return d.content.map(b => b.text||'').join('');
+
   } catch(err) {
-    console.error('AI fetch error:', err);
-    window._lastAIError = err.message || 'Erreur réseau';
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      window._lastAIError = 'Timeout 45s — connexion trop lente ou clé invalide';
+    } else {
+      window._lastAIError = err.message || 'Erreur réseau';
+    }
+    console.error('callAI catch:', err);
     return null;
   }
 }
@@ -2234,6 +2249,32 @@ async function importCSV() {
 }
 
 
+async function testAPIConnection() {
+  const apiKey = (localStorage.getItem('SBD_API_KEY') || '').replace(/[^\x20-\x7E]/g,'').trim();
+  showToast('🔌 Test en cours...');
+  if (!apiKey) { showToast('❌ Pas de clé API'); return; }
+  showToast('Clé trouvée: ' + apiKey.substring(0,12) + '...');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-request-check': 'client'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Dis juste OK' }]
+      })
+    });
+    const txt = await r.text();
+    showToast('HTTP ' + r.status + ' — ' + txt.substring(0, 80));
+  } catch(e) {
+    showToast('❌ CATCH: ' + e.message);
+  }
+}
 </script>
 </body>
 </html>

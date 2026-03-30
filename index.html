@@ -19,7 +19,7 @@
     .content-section.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-    .header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }h
     h2 { font-size: 14px; color: var(--sub); text-transform: uppercase; margin: 0; letter-spacing: 1px; font-weight: 600; }
     .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
     .rm-box { padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--surface-border); position: relative; }
@@ -804,7 +804,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
           if (ex) { if (w > ex.weight) { ex.weight = w; ex.date = sessionTimestamp; } }
           else currExo.series.push({ weight: w, reps: r, date: sessionTimestamp });
           const rm = calcE1RM(w, r);
-          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
+          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; currExo.maxRMWeight = w; currExo.maxRMReps = r; }
         }
       }
     }
@@ -821,7 +821,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
         if (w > 0) {
           session.volume += w * reps;
           const rm = calcE1RM(w, reps);
-          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
+          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; currExo.maxRMWeight = w; currExo.maxRMReps = reps; }
           const rKey = String(reps);
           if (!currExo.repRecords[rKey] || w > currExo.repRecords[rKey]) currExo.repRecords[rKey] = w;
         }
@@ -1087,7 +1087,7 @@ function renderDayExercises(day) {
       } else if (exoType === 'reps') {
         if ((exo.maxReps||0) > (best[key].maxReps||0)) best[key].maxReps = exo.maxReps;
         if ((exo.totalReps||0) > (best[key].totalReps||0)) best[key].totalReps = exo.totalReps;
-        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key].maxRM = exo.maxRM;
+        if ((exo.maxRM||0) > (best[key].maxRM||0)) { best[key].maxRM = exo.maxRM; best[key].maxRMWeight = exo.maxRMWeight; best[key].maxRMReps = exo.maxRMReps; }
         // Merge repRecords
         if (exo.repRecords) {
           if (!best[key].repRecords) best[key].repRecords = {};
@@ -1194,6 +1194,9 @@ function formatExoDropdown(name, exo, idx) {
           const color = diff >= 0 ? 'var(--green)' : 'var(--orange)';
           const sign = diff >= 0 ? '+' : '';
           badge = '<span style="font-size:9px;color:'+color+';margin-left:5px;">✓ réel: '+direct+'kg ('+sign+diff+')</span>';
+        }
+        else if (exo.maxRMWeight && exo.maxRMReps) {
+          badge = '<span style="font-size:9px;color:var(--sub);margin-left:5px;">base '+exo.maxRMWeight+'kg×'+exo.maxRMReps+'</span>';
         }
         return '<div class="exo-detail-row"><span style="color:var(--sub);">'+label+'</span>'
           + '<span style="color:var(--blue);font-weight:700;">'+display+' kg'+badge+'</span></div>';
@@ -1353,7 +1356,7 @@ function cleanupExistingLogs() {
             exo.repRecords[rKey] = s.weight; changed = true;
           }
           const rm = calcE1RM(s.weight, s.reps);
-          if (rm > (exo.maxRM || 0)) { exo.maxRM = rm; changed = true; }
+          if (rm > (exo.maxRM || 0)) { exo.maxRM = rm; exo.maxRMWeight = s.weight; exo.maxRMReps = s.reps; changed = true; }
         });
       }
 

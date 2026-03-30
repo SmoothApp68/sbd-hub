@@ -19,7 +19,7 @@
     .content-section.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-    .header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }h
     h2 { font-size: 14px; color: var(--sub); text-transform: uppercase; margin: 0; letter-spacing: 1px; font-weight: 600; }
     .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
     .rm-box { padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--surface-border); position: relative; }
@@ -560,7 +560,7 @@ async function extractWithAI(rawText) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-client-side-api-key-check': 'client'
+        'anthropic-dangerous-direct-browser-access': 'client'
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
@@ -992,7 +992,7 @@ async function callAI(systemPrompt, userPrompt) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-client-side-api-key-check': 'client'
+        'anthropic-dangerous-direct-browser-access': 'client'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',

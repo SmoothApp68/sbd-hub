@@ -104,22 +104,20 @@
     .report-toggle { background: none; border: none; color: var(--blue); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0; }
     .report-new-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); display: inline-block; animation: aiPulse 2s infinite; }
 
-    /* ★ NOUVEAU — Weekly Plan Styles */
+    /* ── Weekly Plan ─────────────────────────────────────────── */
     .wp-card { background: linear-gradient(135deg, rgba(10,132,255,0.06) 0%, rgba(191,90,242,0.06) 100%); border: 1px solid rgba(10,132,255,0.2); border-radius: 20px; padding: 20px; margin-bottom: 15px; }
-    .wp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .wp-title { font-size: 14px; color: var(--sub); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-    .wp-meta { font-size: 11px; color: var(--sub); text-align: right; }
+    .wp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .wp-meta { font-size: 11px; color: var(--sub); }
     .wp-bloc-badge { display: inline-block; background: rgba(191,90,242,0.2); color: var(--purple); padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-bottom: 14px; }
     .wp-days { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none; }
     .wp-days::-webkit-scrollbar { display: none; }
     .wp-day-pill { flex-shrink: 0; padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--sub); transition: all 0.2s; white-space: nowrap; }
     .wp-day-pill.active { background: var(--blue); color: white; border-color: var(--blue); }
-    .wp-day-pill.rest { color: rgba(134,134,139,0.5); border-color: rgba(44,44,46,0.5); cursor: default; }
+    .wp-day-pill.rest { color: rgba(134,134,139,0.4); border-color: rgba(44,44,46,0.4); cursor: default; }
     .wp-day-pill.today { border-color: var(--orange); color: var(--orange); }
     .wp-day-pill.today.active { background: var(--orange); color: #000; border-color: var(--orange); }
     .wp-session { animation: fadeIn 0.25s ease; }
     .wp-session-title { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-    .wp-session-sub { font-size: 12px; color: var(--sub); margin-bottom: 14px; }
     .wp-exo { background: var(--surface); border-radius: 14px; padding: 14px; margin-bottom: 10px; border: 1px solid var(--surface-border); }
     .wp-exo-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
     .wp-exo-type { font-size: 10px; color: var(--sub); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 6px; font-weight: 500; }
@@ -130,9 +128,7 @@
     .wp-warmup-row td { color: var(--sub); }
     .wp-work-row td { color: var(--text); }
     .wp-charge { color: var(--blue); font-weight: 700; font-size: 13px; }
-    .wp-charge.new { color: var(--orange); }
-    .wp-charge.pr { color: var(--green); }
-    .wp-rest { display: inline-block; background: rgba(100,210,255,0.1); color: var(--teal); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-top: 8px; }
+    .wp-rest-tag { display: inline-block; background: rgba(100,210,255,0.1); color: var(--teal); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-top: 8px; }
     .wp-coach-note { margin-top: 10px; padding: 10px 12px; background: rgba(255,159,10,0.08); border-left: 3px solid var(--orange); border-radius: 0 8px 8px 0; font-size: 12px; color: var(--text); line-height: 1.5; }
     .wp-rest-day { text-align: center; padding: 30px 0; color: var(--sub); font-size: 14px; }
     .wp-generate-btn { background: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%); border: none; color: white; width: 100%; padding: 16px; border-radius: 14px; font-weight: 700; cursor: pointer; font-size: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; transition: transform 0.2s; margin-bottom: 14px; }
@@ -146,7 +142,7 @@
 </head>
 <body>
   <div id="tab-dash" class="content-section active">
-    <div class="card"><div class="header-card"><h2>Performance</h2></div><div class="sbd-grid" id="sbdDisplay"></div><div style="height:220px;margin-top:25px;"><canvas id="chartSBD"></canvas></div></div>
+    <div class="card"><div class="header-card"><h2>Performance</h2></div><div class="sbd-grid" id="sbdDisplay"></div><div style="display:flex;gap:8px;margin-top:14px;"><button class="period-btn active" data-sbd="bar" onclick="setSBDView('bar')">Comparatif</button><button class="period-btn" data-sbd="line" onclick="setSBDView('line')">Progression</button></div><div style="height:220px;margin-top:12px;"><canvas id="chartSBD"></canvas></div></div>
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
   </div>
@@ -165,11 +161,10 @@
         <p id="csvProgressText" style="font-size:11px;color:var(--sub);text-align:center;margin:6px 0 0;"></p>
       </div>
     </div>
+        </div>
     <div id="importSummary" class="card" style="margin-top:15px;display:none;"><h2>✓ Séance Importée</h2><div id="importDetails"></div></div>
     <div id="aiImportAnalysis" style="display:none;"></div>
   </div>
-
-  <!-- ★ NOUVEAU — tab-ai avec section Programme Semaine -->
   <div id="tab-ai" class="content-section">
     <div class="card"><div class="ai-header"><div class="ai-avatar">🤖</div><div class="ai-header-text"><h3>Coach IA</h3><p>Rapports automatiques • Conseils personnalisés</p></div></div>
       <div class="ai-action-grid">
@@ -178,11 +173,11 @@
         <button class="ai-action-btn" onclick="aiAction('weakpoints')"><div class="ai-action-icon">🎯</div><div class="ai-action-label">Points Faibles</div><div class="ai-action-desc">Déséquilibres détectés</div></button>
         <button class="ai-action-btn" onclick="aiAction('next')"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Quoi faire aujourd'hui</div></button>
       </div></div>
-
-    <!-- ★ NOUVEAU — Bloc Programme de la Semaine -->
+    <div id="aiReportsTimeline"></div>
+    <!-- ── Weekly Plan block ── -->
     <div class="wp-card" id="weeklyPlanSection">
       <div class="wp-header">
-        <div class="wp-title">🏋️ Programme Semaine</div>
+        <div style="font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">🏋️ Programme Semaine</div>
         <div class="wp-meta" id="wpMeta"></div>
       </div>
       <div class="wp-bloc-controls">
@@ -192,23 +187,18 @@
           <option value="3">Bloc 2 — Semaine 3</option>
           <option value="4">Bloc 2 — Semaine 4 (Peak)</option>
         </select>
-        <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn">↺ Regén.</button>
+        <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
       </div>
-      <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">
-        ✦ Générer le programme de la semaine
-      </button>
-      <div id="wpContent"></div>
+      <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
+      <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
     </div>
-
-    <div id="aiReportsTimeline"></div>
     <div class="card"><h2>💬 Réponse Libre</h2><div id="aiResponseArea" class="ai-response-area empty">Appuie sur une action ci-dessus ou importe une séance</div></div>
   </div>
-
   <div id="tab-stats" class="content-section">
     <div class="card"><h2>Rapports</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="reportButtons"><button class="period-btn active" data-period="week" onclick="renderReports('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderReports('month')">30 Jours</button></div><div class="report-grid" id="reportDisplay"></div></div>
     <div class="card"><h2>Répartition Musculaire</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="muscleButtons"><button class="period-btn active" data-period="week" onclick="renderMuscleChart('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderMuscleChart('month')">30 Jours</button></div><div style="position:relative;height:200px;margin:15px 0 10px;" id="chartMuscleContainer"></div><div id="muscleList"></div></div>
     <div class="card"><h2>💪 Meilleurs Lifts (All Time)</h2><div id="topExosList" style="margin-top:10px;"></div></div>
-    <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Jours</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
+    <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">10 Séances</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Séances</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
   </div>
   <div id="tab-settings" class="content-section">
     <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" onchange="saveAPIKey()"><p style="font-size:10px;color:var(--sub);margin-top:-8px;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
@@ -229,15 +219,28 @@
 const STORAGE_KEY='SBD_HUB_V28';
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const SBD_TYPES=['bench','squat','deadlift'];
-const ROUTINES={Lundi:'🦵 Jambes (Quads & Squat)',Mardi:'💪 Push (Poitrine, Épaules & Triceps)',Mercredi:'🏊 Récupération Active (Natation)',Jeudi:'🔙 Pull (Dos, Ischio & Biceps)',Vendredi:'🎯 Points Faibles (Abdos/Mollets/Cardio)',Samedi:'⚡ SBD (Technique Complète)',Dimanche:'😴 Repos Complet'};
+const ROUTINES={Lundi:'🦵 Squat Lourd — Quads',Mardi:'🏋️ Bench Lourd — Dos',Mercredi:'🏊 Récupération Active (Natation)',Jeudi:'💀 Deadlift Lourd — Fessiers',Vendredi:'💪 Bench Volume — HDC',Samedi:'⚡ SBD Technique (Pause/Spoto)',Dimanche:'😴 Repos Complet'};
 const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
+
+// ============================================================
+// SESSION NAME BLACKLIST — noms de séance à ignorer comme exo
+// ============================================================
 const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
 
+// ============================================================
+// EXERCISE TYPE ENGINE (v2 — exhaustif)
+// ============================================================
+// Ordre de priorité : cardio > time/gainage > reps-only > weight
 function getExoType(name) {
-  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");
+  const n = name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents for matching
+    .replace(/['']/g, "'");
+
   if (SESSION_NAME_BLACKLIST.test(name.toLowerCase())) return 'session_name';
+
+  // ── CARDIO distance/vitesse ──────────────────────────────
   if (/tapis\s*roulant|treadmill/.test(n)) return 'cardio';
   if (/\bvelo\b|stationnaire|bike|cycling|cyclisme|ergometre\b|\berg\b/.test(n) && !/leg\s*press/.test(n)) return 'cardio';
   if (/natation|swimming|nage\s*(libre|papillon|dos|brasse)|brasse\b|crawl\b/.test(n)) return 'cardio';
@@ -250,60 +253,190 @@ function getExoType(name) {
   if (/escalier|stair|step\s*machine|stepper/.test(n)) return 'cardio_stairs';
   if (/assault\s*bike|air\s*bike|ski\s*erg|velo\s*assault/.test(n)) return 'cardio';
   if (/boxe|shadow\s*boxing|corde\s*de\s*combat|battle\s*rope/.test(n)) return 'cardio';
+
+  // ── TEMPS (isométrique / gainage) ───────────────────────
   if (/\bplanche\b|plank/.test(n)) return 'time';
+  if (/gainage.*(tape|lateral|oblique|dynam|tou)/i.test(n)) return 'reps'; // gainage dynamique
   if (/gainage/.test(n) && !/nage/.test(n.replace('gainage',''))) return 'time';
   if (/l.sit|l\s*sit/.test(n)) return 'time';
   if (/poirier|handstand\s*hold/.test(n)) return 'time';
   if (/dead\s*hang|suspension/.test(n) && !/deadlift|souleve/.test(n)) return 'time';
   if (/chaise\s*(murale|isometrique|wall\s*sit)|wall\s*sit/.test(n)) return 'time';
   if (/isometri/.test(n)) return 'time';
+  if (/bras\s*(en\s*croix|tendus?\s*face)|croix\s*tendu/.test(n)) return 'time';
+
+  // ── RÉPÉTITIONS POIDS DE CORPS ──────────────────────────
+  if (/extension\s*dos\s*\(hyperextension\)(?!\s*lest)/i.test(n)) return 'reps';
   if (/pompe|push.?up/.test(n)) return 'reps';
-  if (/\bdips?\b/.test(n)) return 'reps';
+  if (/\bdips?\b/.test(n) && !/machine|assis/.test(n)) return 'reps'; // machine dips → weight
   if (/traction|pull.?up|chin.?up/.test(n)) return 'reps';
   if (/burpee/.test(n)) return 'reps';
+  if (/mountain\s*climber|grimpeur/.test(n)) return 'reps';
+  if (/jumping\s*jack|squat\s*saut|jump\s*squat/.test(n)) return 'reps';
+  if (/rowing\s*inverse|inverted\s*row/.test(n)) return 'reps';
+  if (/squat\s*[\(]?\s*(poids\s*du\s*corps|bodyweight|bw)/.test(n)) return 'reps';
+  // Abdos poids de corps (sans machine/charge)
   if (/\b(crunch|ab\s*crunch)\b/.test(n) && !/machine|poulie|cable|charge|lest/.test(n)) return 'reps';
+  if (/releve\s*(de\s*)?(genoux|jambes|jambe)|hanging\s*(knee|leg)/.test(n) && !/machine/.test(n)) return 'reps';
   if (/v.?up\b|sit.?up\b/.test(n)) return 'reps';
+  if (/ab\s*wheel|roue\s*(abdominale|ab)|wheel\s*rollout/.test(n)) return 'reps';
+  if (/ciseaux\s*(abdos?|jambes?)|battement\s*(de\s*)?(jambes?|pieds)/.test(n)) return 'reps';
+  if (/flexion\s*laterale/.test(n) && !/haltere|barre|poulie/.test(n)) return 'reps';
+  if (/\bknee\s*raise\b|\bleg\s*raise\b/.test(n) && !/machine/.test(n)) return 'reps';
+  if (/russian\s*twist/.test(n) && !/haltere|barre|medecine/.test(n)) return 'reps';
+
   return 'weight';
 }
 
+// ============================================================
+// MUSCLE GROUP ENGINE (v2 — exhaustif)
+// ============================================================
 function getMuscleGroup(name) {
-  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g, "'");
+  const n = name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/['']/g, "'");
+
   if (SESSION_NAME_BLACKLIST.test(name.toLowerCase())) return 'Autre';
+  if (/gainage.*(tape|touche)/i.test(n)) return 'Abdos'; // gainage tape épaule = abdos
+
+  // ── CARDIO (groupe à part) ───────────────────────────────
   if (/natation|swimming|\bnage\b|tapis|treadmill|cardio|running|jogging|velo\b|cycling|bike|elliptique|cross.?trainer|escalier|stair|randonnee|hiking|rameur|rowing\s*machine|concept\s*2|corde\s*a\s*sauter|jump\s*rope|sprint|marche\s*(rapide|sportive|nordique)|assault\s*bike|ski\s*erg|boxe|shadow\s*box|battle\s*rope/.test(n)) return 'Cardio';
+
+  // ── ÉPAULES ─────────────────────────────────────────────
   if (/developpe\s*militaire|overhead\s*press|ohp\b|press\s*militaire/.test(n)) return 'Épaules';
-  if (/elevation\s*(laterale|frontale|posterieure)|lateral\s*raise|front\s*raise|rear\s*(delt|felt)|oiseau\b/.test(n)) return 'Épaules';
+  if (/elevation\s*(laterale|frontale|posterieure|y\b|disque|y$)|lateral\s*raise|front\s*raise|rear\s*(delt|felt)|oiseau\b/.test(n)) return 'Épaules';
   if (/face\s*pull|tirage\s*(vers\s*(le\s*)?visage|nuque|haut\s*poulie|poulie\s*haute)|pull\s*(apart|through)|rear\s*delt\s*fly/.test(n)) return 'Épaules';
   if (/arnold/.test(n)) return 'Épaules';
   if (/\bepaule\b|\bshoulder\b/.test(n) && !/decollement|rotatoire|coiffe/.test(n)) return 'Épaules';
   if (/upright\s*row|tirage\s*(menton|au\s*menton)/.test(n)) return 'Épaules';
+  if (/rotation\s*(externe|interne)\s*(epaule|coiffe)/.test(n)) return 'Épaules';
+
+  // ── QUADRICEPS / JAMBES AVANT ────────────────────────────
   if (/\bsquat\b/.test(n) && !/hack|avant-bras/.test(n)) return 'Jambes';
   if (/hack\s*squat|leg\s*press|presse\s*(a\s*cuisses?|cuisse|jambe)/.test(n)) return 'Jambes';
   if (/leg\s*extension|extension\s*(des\s*)?(jambes?|quadriceps?)|quadriceps/.test(n)) return 'Jambes';
   if (/fente\s*(avant|laterale|bulgare|inversee|marchee)?|lunge/.test(n)) return 'Jambes';
+  if (/step.?up\b/.test(n) && !/stepper/.test(n)) return 'Jambes';
+  if (/sissy\s*squat/.test(n)) return 'Jambes';
+  if (/split\s*squat|goblet\s*squat|zercher\s*squat/.test(n)) return 'Jambes';
+  if (/pied\s*(a\s*)?(45|plat)/.test(n)) return 'Jambes';
+
+  // ── ISCHIO / FESSIERS / JAMBES ARRIÈRE ──────────────────
   if (/deadlift|souleve\s*de\s*terre|romanian|rdl\b/.test(n)) return 'Jambes';
   if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Jambes';
-  if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge/.test(n)) return 'Jambes';
-  if (/mollet|calf/.test(n)) return 'Jambes';
+  if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge|hip\s*extension/.test(n)) return 'Jambes';
+  if (/good\s*morning|hyperextension|extension\s*du\s*dos\b|extension\s*lombaire/.test(n)) return 'Jambes';
+  if (/abduction|adduction|kickback|hip\s*abduction/.test(n)) return 'Jambes';
+  if (/fessier|glute/.test(n)) return 'Jambes';
+  if (/sumo/.test(n) && !/wrestl/.test(n)) return 'Jambes';
+
+  // ── MOLLETS ─────────────────────────────────────────────
+  if (/mollet|calf|extension\s*(des\s*)?mollets?|donkey\s*calf|standing\s*calf|seated\s*calf/.test(n)) return 'Jambes';
+
+  // ── PECTORAUX ───────────────────────────────────────────
   if (/bench\s*press|developpe\s*couche|presse\s*(de\s*)?(poitrine|pectoraux)/.test(n)) return 'Pecs';
   if (/\bpec\b|\bpecs\b|pectoral/.test(n)) return 'Pecs';
-  if (/ecarte|fly\b|chest\s*fly/.test(n)) return 'Pecs';
+  if (/ecarte\s*(couche|halteres?|poulie|cable|bras)?|fly\b|chest\s*fly/.test(n)) return 'Pecs';
+  if (/chest\s*press|machine\s*(poitrine|pectoraux)/.test(n)) return 'Pecs';
   if (/pompe|push.?up/.test(n)) return 'Pecs';
-  if (/traction|pull.?up|chin.?up/.test(n)) return 'Dos';
-  if (/tirage\s*(horizontal|vertical|barre|poulie|cable|pronation|supination)/.test(n)) return 'Dos';
+  if (/\bdips?\b/.test(n) && /pec|poitrine|chest/.test(n)) return 'Pecs';
+  if (/\bspoto\b/.test(n)) return 'Pecs';
+  if (/\bdeveloppe\b.*\bcouche\b|\bcouche\b.*\bbarre\b|\bcouche\b.*\bhaltere\b|\bcouche\b.*(incline|decline|plat)/.test(n) && !/deadlift/.test(n)) return 'Pecs';
+  if (/cable\s*crossover|croisement\s*(de\s*)?poulie/.test(n)) return 'Pecs';
+  if (/incline\s*(bench|press|dumbbell)|decline\s*(bench|press)/.test(n)) return 'Pecs';
+
+  // ── DOS ─────────────────────────────────────────────────
+  // Tractions / pull
+  if (/traction|pull.?up|chin.?up|muscle.?up/.test(n)) return 'Dos';
+  // Tirage
+  if (/tirage\s*(horizontal|vertical|barre|poulie|cable|pronation|supination|1\s*bras|prise\s*neutre|serre\s*poignee|poitrine|nuque)/.test(n)) return 'Dos';
   if (/lat\s*(pulldown|machine|poulie)|pull\s*down/.test(n)) return 'Dos';
-  if (/rowing\b(?!\s*inverse|\s*machine)/.test(n)) return 'Dos';
+  // Rowing
+  if (/rowing\b(?!\s*inverse|\s*machine)/.test(n)) return 'Dos'; // rowing barbell/haltère/machine sauf rowing inversé (pecs) et rowing machine (cardio)
   if (/\brow\b/.test(n) && !/inverted|inverse/.test(n)) return 'Dos';
-  if (/shrugs?\b|hausse.?epaule|trapeze/.test(n)) return 'Dos';
-  if (/curl\s*(biceps?|barre|halteres?|marteau|hammer)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Bras';
+  if (/t.bar\s*row|yates\s*row/.test(n)) return 'Dos';
+  if (/back\s*(machine|extension\s*machine)|dos\s*machine/.test(n)) return 'Dos';
+  // Lombaires (avec résistance)
+  if (/back\s*extension\s*(haltere|barre|charge|leste)|extension\s*dorsale\s*(avec)/.test(n)) return 'Dos';
+  // Trapèzes
+  if (/shrugs?\b|hausse.?epaule|trapeze|trapezius/.test(n)) return 'Dos';
+  // Rhomboïdes
+  if (/rhomboid|retraction\s*scapulaire/.test(n)) return 'Dos';
+
+  // ── BRAS — BICEPS ────────────────────────────────────────
+  if (/curl\s*(biceps?|barre|halteres?|1\s*bras|incline|concentre|cable|poulie|marteau|hammer|inversee?|preacher|scott|araignee)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Bras';
+  if (/marteau|hammer\s*curl/.test(n)) return 'Bras';
+  if (/curl\s*araignee|spider\s*curl|scott\b|preacher\b/.test(n)) return 'Bras';
+  if (/flexion\s*(du\s*)?(coude|biceps|avant.bras)/.test(n)) return 'Bras';
   if (/bicep/.test(n)) return 'Bras';
+
+  // ── BRAS — TRICEPS ───────────────────────────────────────
   if (/tricep/.test(n)) return 'Bras';
-  if (/extension\s*(triceps?|des\s*bras|coude|poulie|cable)/.test(n) && !/jambe|mollet/.test(n)) return 'Bras';
-  if (/skull\s*crusher|barre\s*front|french\s*press/.test(n)) return 'Bras';
-  if (/crunch|planche|plank|gainage|ab\b|abdo|core\b/.test(n)) return 'Abdos';
+  if (/extension\s*(triceps?|des\s*bras|coude|poulie|cable|1\s*bras|2\s*bras|poignee|barre)/.test(n) && !/jambe|mollet|extension\s*(des\s*)?(jambes?|quadriceps?)/.test(n)) return 'Bras';
+  if (/skull\s*crusher|barre\s*front|jm\s*press|french\s*press/.test(n)) return 'Bras';
+  if (/\bdips?\b/.test(n) && !/pec|poitrine|chest/.test(n)) return 'Bras'; // dips triceps par défaut
+  if (/kick.?back|pushdown|push\s*down/.test(n)) return 'Bras';
+  if (/rope\s*(pushdown|tricep)|cable\s*(tricep|overhead)/.test(n)) return 'Bras';
+  if (/close\s*grip\s*(bench|press)|prise\s*(serree|etroite)/.test(n)) return 'Bras';
+
+  // ── AVANT-BRAS ───────────────────────────────────────────
+  if (/avant.bras|forearm|poignet|wrist\s*curl|reverse\s*curl/.test(n)) return 'Bras';
+
+  // ── ABDOMINAUX ──────────────────────────────────────────
+  if (/crunch|ab\s*crunch|crunch\s*(cable|machine|poulie|oblique|rotation|lateral)/.test(n)) return 'Abdos';
+  if (/planche|plank|gainage/.test(n)) return 'Abdos';
+  if (/l.sit|l\s*sit/.test(n)) return 'Abdos';
+  if (/ab\b|abdo|abdominaux|core\b/.test(n)) return 'Abdos';
+  if (/releve\s*(de\s*)?(genoux|jambes?)|hanging\s*(knee|leg)|knee\s*raise|leg\s*raise/.test(n) && !/machine/.test(n)) return 'Abdos';
+  if (/v.?up|sit.?up/.test(n)) return 'Abdos';
+  if (/ciseaux|battement/.test(n)) return 'Abdos';
+  if (/russian\s*twist/.test(n)) return 'Abdos';
+  if (/oblique|rotation\s*(tronc|buste|du\s*buste)/.test(n)) return 'Abdos';
+  if (/roue\s*(abdominale|ab)|ab\s*wheel|wheel\s*rollout/.test(n)) return 'reps';
+  if (/wood\s*chop|bûcheron/.test(n)) return 'Abdos';
+
+  // ── Exercices non classés précédemment ─────────────────
+  // Presse cuisses (variantes)
+  if (/presse.*(cuisses?|jambes?|cuisse|pieds|horizontal|une\s*jambe)/i.test(n)) return 'Jambes';
+  // Extension dos machine / sans lest
+  if (/extension\s*dos/i.test(n)) return 'Dos';
+  // Extensions une jambe (leg extension unilat)
+  if (/extensions?\s*une\s*jambe/i.test(n)) return 'Jambes';
+  // Step Up
+  if (/step[\s_]?up/i.test(n)) return 'Jambes';
+  // Rear Kick (machine fessiers)
+  if (/rear\s*kick|kickback/i.test(n)) return 'Jambes';
+  // Pull-Over (dos/pecs)
+  if (/pull.?over/i.test(n)) return 'Dos';
+  // Rowing inversé = pecs (bodyweight)
+  if (/rowing\s*invers[eé]/i.test(n)) return 'Pecs';
+  // Tirage machine convergente = dos
+  if (/tirage\s*machine|tirage.*convergente/i.test(n)) return 'Dos';
+  // Presse au sol haltère = pecs
+  if (/presse\s*au\s*sol/i.test(n)) return 'Pecs';
+  // Presse épaules assis (toutes variantes)
+  if (/presse.*[eé]paules?.*assis|presse\s*[eé]paules?|shoulder\s*press/i.test(n)) return 'Épaules';
+  // Élévation frontale disque / Y
+  if (/[eé]l[eé]vation\s*(disque|y|frontale)/i.test(n)) return 'Épaules';
+  // L-Sit Hold = abdos
+  if (/l.sit/i.test(n)) return 'Abdos';
+  // Poirier = épaules/gainage
+  if (/poirier|handstand/i.test(n)) return 'Épaules';
+  // Flexion latérale = obliques
+  if (/flexion\s*lat[eé]rale/i.test(n)) return 'Abdos';
+  // Rotation russe = abdos
+  if (/rotation\s*russe/i.test(n)) return 'Abdos';
+  // Burpee = cardio
+  if (/burpee/i.test(n)) return 'Cardio';
+
   return 'Autre';
 }
 
+// ============================================================
+// SBD DETECTION
+// ============================================================
 function getSBDType(name) {
+  // Normalise accents + parenthèses: "Développé Couché (Barre)" → "developpe couche barre"
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
   if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
@@ -312,22 +445,88 @@ function getSBDType(name) {
   return null;
 }
 
-const EXERCISE_DAY_MAP = {
-  Lundi:    /squat|quad|extension\s*(des\s*)?(jambes?)|leg\s*(press|extension)|presse\s*cuisse|hack|fente|lunge|step.?up|goblet|sissy|bulgare/i,
-  Mardi:    /bench|couche|pec|ecarte|chest|pompe|push.?up|epaule|shoulder|militaire|elevation|laterale|frontale|tricep|skull|dips|extension\s*(tricep|bras|poulie|cable|coude)|face\s*pull|arnold|upright/i,
-  Mercredi: /natation|swimming|nage|tapis|running|velo\b|cycling|cardio|elliptique|escalier|stair|randonnee|rameur|corde\s*a\s*sauter|sprint|jogging|marche\s*(rapide|sportive)/i,
-  Jeudi:    /deadlift|souleve|row\b|rowing\b|tirage|lat\b|pull.?up|traction|chin.?up|leg\s*curl|ischio|hip\s*thrust|glute|curl\s*(bicep|barre|marteau|haltere)|bicep|abduction|adduction|hyperextension/i,
-  Vendredi: /crunch|ab\b|abdo|gainage|planche|plank|l.sit|releve|v.?up|sit.?up|ciseaux|battement|russian\s*twist|oblique|roue\s*ab|mollet|calf|escalier|stair|cardio/i,
-  Samedi:   /squat.*barre|bench.*barre|couche.*barre|deadlift|souleve.*terre/i
-};
-function getExerciseDay(name) {
-  const n = name.toLowerCase();
-  for (const [day, regex] of Object.entries(EXERCISE_DAY_MAP)) {
-    if (regex.test(n)) return day;
+// ============================================================
+// EXERCISE DAY MAP — multi-jour
+// Un exercice peut apparaître dans plusieurs jours (ex: curl biceps → Mardi ET Vendredi)
+// ============================================================
+const EXERCISE_DAY_RULES = [
+  // ── SAMEDI SBD technique (priorité absolue) ──────────────
+  { days:['Samedi'],           rx:/squat.*(avec.)?pause|spoto|bench.*pause|couche.*pause|souleve.*pause|deadlift.*pause|deficit.dead|board.press/i },
+
+  // ── LUNDI — Squat lourd + Quads + Mollets ───────────────
+  { days:['Lundi'],            rx:/squat[^s](?!.*(pause|poids|corps|machine|bulgare|avant))/i },
+  { days:['Lundi'],            rx:/leg[\s_]?press|presse[\s\Sa-z]*cuisse|presse[\s\Sa-z]*jambe/i },
+  { days:['Lundi'],            rx:/hack[\s_]?squat|goblet[\s_]?squat|split[\s_]?squat|zercher|front[\s_]?squat|bulgare|sissy/i },
+  { days:['Lundi'],            rx:/extension[\s_]?jambe|extension[\s_]?quad|leg[\s_]?extension/i },
+  { days:['Lundi'],            rx:/fente|lunge/i },
+  { days:['Lundi'],            rx:/adduction/i },
+  { days:['Lundi'],            rx:/mollet|calf|extension[\s_]?mollet/i },
+  { days:['Lundi'],            rx:/step[\s_]?up/i },
+
+  // ── MARDI — Bench lourd + Dos (tractions, rowing) ───────
+  { days:['Mardi'],            rx:/d[eé]velopp[eé]\s*(couch[eé](?!.*inclin)|bench(?!.*inclin))/i },
+  { days:['Mardi'],            rx:/bench[\s_]?press(?!.*inclin)/i },
+  { days:['Mardi'],            rx:/tractions?|pull[\s_]?up|chin[\s_]?up|muscle[\s_]?up/i },
+  { days:['Mardi'],            rx:/rowing[\s_]?(poulie|assis|cable(?!.*machine))/i },
+  { days:['Mardi'],            rx:/[eé]cart[eé]s?\s*(poulie|basse|pec|fly|cable)/i },
+  { days:['Mardi'],            rx:/tirage[\s\S]*(vers[\s_]?visage|visage)|face[\s_]?pull/i },
+  { days:['Mardi'],            rx:/face[\s_]?pull/i },
+
+  // ── MERCREDI — Natation uniquement ──────────────────────
+  { days:['Mercredi'],         rx:/natation|swimming|\bnage\b|crawl|brasse|papillon/i },
+
+  // ── JEUDI — Deadlift + Fessiers/Ischio/Abduction ────────
+  { days:['Jeudi'],            rx:/deadlift(?!.*pause)|soulev[eé]\s*de\s*terre(?!.*pause)|romanian|rdl\b/i },
+  { days:['Jeudi'],            rx:/hip[\s_]?thrust|glute[\s_]?bridge|pont[\s_]?fessier/i },
+  { days:['Jeudi'],            rx:/leg[\s_]?curl|curl.*jambes?|ischio/i },
+  { days:['Jeudi'],            rx:/abduction/i },
+  { days:['Jeudi'],            rx:/kickback|rear[\s_]?kick/i },
+  { days:['Jeudi'],            rx:/good[\s_]?morning|hyperextension|extension[\s_]?(dos|lombaire)/i },
+
+  // ── VENDREDI — Bench volume + HDC ───────────────────────
+  // Développé incliné → Vendredi ET Mardi
+  { days:['Vendredi','Mardi'], rx:/d[eé]velopp[eé].*(inclin[eé]|incline)|incline[\s_]?(bench|press)/i },
+  // Tirage poitrine/lat → Vendredi ET Jeudi
+  { days:['Vendredi','Jeudi'], rx:/tirage[\s_]?poitrine|lat[\s_]?(pulldown|pull[\s_]?down|machine)|pull[\s_]?down/i },
+  // Tirage horizontal général → Vendredi ET Jeudi
+  { days:['Vendredi','Jeudi'], rx:/tirage[\s_]?(horiz|vert|barre|nuque|prise|serre|assis|cable|convergente)/i },
+  // Curl biceps → Vendredi ET Mardi (et parfois Jeudi via pull)
+  { days:['Vendredi','Mardi'], rx:/curl[\s_]?(bicep|barre[\s_]?ez|ez|haltere|inclin|concentr|araign|scott|preacher)/i },
+  { days:['Vendredi','Mardi'], rx:/bicep|hammer[\s_]?curl|curl[\s_]?marteau/i },
+  { days:['Vendredi','Mardi'], rx:/curl[\s_]?poulie/i },
+  // Extension triceps → Vendredi ET Mardi
+  { days:['Vendredi','Mardi'], rx:/extension[\s_]?(tricep|corde|coude|poulie[\s_]?haute)|skull[\s_]?crusher|french[\s_]?press/i },
+  { days:['Vendredi','Mardi'], rx:/dips/i },
+  // Épaules → Vendredi ET Mardi
+  { days:['Vendredi','Mardi'], rx:/d[eé]velopp[eé][\s_]?militaire|overhead[\s_]?press|ohp\b/i },
+  { days:['Vendredi','Mardi'], rx:/[eé]l[eé]vation[\s_]?(lat[eé]rale|frontale|post[eé]rieure|poulie)/i },
+  { days:['Vendredi','Mardi'], rx:/lateral[\s_]?raise|arnold/i },
+  { days:['Vendredi','Mardi'], rx:/oiseau|rear[\s_]?delt[\s_]?fly/i },
+  { days:['Vendredi','Mardi'], rx:/upright[\s_]?row|tirage[\s_]?menton/i },
+];
+
+function getExerciseDays(name) {
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const found = [], seen = new Set();
+  for (const rule of EXERCISE_DAY_RULES) {
+    if (rule.rx.test(n)) {
+      for (const d of rule.days) {
+        if (!seen.has(d)) { found.push(d); seen.add(d); }
+      }
+    }
   }
-  return null;
+  return found; // [] = non classifié → fallback sur log.day
 }
 
+// Compat shim — retourne le premier jour ou null
+function getExerciseDay(name) {
+  const days = getExerciseDays(name);
+  return days.length > 0 ? days[0] : null;
+}
+
+// ============================================================
+// DATE PARSING
+// ============================================================
 function parseHevyDate(dateStr) {
   const monthMap = {'janvier':0,'janv.':0,'janv':0,'février':1,'fevrier':1,'févr.':1,'fevr':1,'mars':2,'avril':3,'avr.':3,'avr':3,'mai':4,'juin':5,'juillet':6,'juil.':6,'juil':6,'août':7,'aout':7,'sept.':8,'sept':8,'septembre':8,'octobre':9,'oct.':9,'oct':9,'novembre':10,'nov.':10,'nov':10,'décembre':11,'decembre':11,'déc.':11,'dec':11};
   const allMonths = Object.keys(monthMap).sort((a,b)=>b.length-a.length).join('|');
@@ -398,233 +597,457 @@ document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = ROUTINES[selectedDay]; renderDayExercises(selectedDay); });
 
 // ============================================================
-// HEVY IMPORT
+// HEVY IMPORT — CORE
 // ============================================================
+
+// Prompt système pour l'extraction IA
 const AI_EXTRACT_SYSTEM = `Tu es un parseur de données d'entraînement. Tu reçois un export texte brut de l'app Hevy et tu dois extraire les données sous forme de JSON strict.
+
 RÈGLES ABSOLUES :
 - Réponds UNIQUEMENT avec du JSON valide, rien d'autre (pas de markdown, pas de \`\`\`json)
 - Ne jamais inventer de données absentes
 - Les séries [Échauffement] sont des warmups (isWarmup: true), ne comptent PAS dans les records
+
 FORMAT DE SORTIE :
-{"title":"nom","type":"type","date":"date brute","exercises":[{"name":"nom exact","muscleGroup":"Pecs|Dos|Jambes|Épaules|Bras|Abdos|Cardio|Autre","exoType":"weight|reps|time|cardio","sets":[{"weight":100,"reps":5,"isWarmup":false,"rpe":8.5}]}]}
-Pour "time" : sets avec { "duration": 60 }. Pour "cardio" : sets avec { "distance": 1.5, "duration": 720 }. Pour "reps" sans poids : { "reps": 10, "isWarmup": false }`;
-
-async function extractWithAI(rawText) {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
-  if (!apiKey) return null;
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-request-check': 'client' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 2000, system: AI_EXTRACT_SYSTEM, messages: [{ role: 'user', content: rawText }] })
-    });
-    const d = await r.json();
-    if (d.error) { console.warn('AI extract error:', d.error); return null; }
-    const raw = d.content.map(b => b.text || '').join('').trim();
-    return JSON.parse(raw);
-  } catch (e) { console.warn('AI extract failed:', e); return null; }
-}
-
-function buildSessionFromAI(parsed, rawText) {
-  const lines = rawText.split('\n');
-  const firstLine = lines[0].trim();
-  let sessionTimestamp = Date.now();
-  let sessionDate = new Date().toLocaleDateString('fr-FR');
-  if (parsed.date) { sessionTimestamp = parseHevyDate(parsed.date); sessionDate = parsed.date; }
-  else { const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202')); if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); } }
-  const session = { date: sessionDate, shortDate: formatDate(sessionTimestamp), timestamp: sessionTimestamp, volume: 0, exercises: [], id: generateId(), title: parsed.title || firstLine.split('-')[0].trim(), type: parsed.type || '', day: DAYS_FULL[new Date(sessionTimestamp).getDay()] };
-  (parsed.exercises || []).forEach(exo => {
-    const exoType = exo.exoType || 'weight';
-    const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio: exoType==='cardio', isTime: exoType==='time', isReps: exoType==='reps', maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [] };
-    (exo.sets || []).forEach(s => {
-      const isW = s.isWarmup || false; obj.sets++;
-      if (exoType === 'weight') { const w = s.weight||0, r = s.reps||0; if (w>0&&r>0) { session.volume+=w*r; if (!isW) { const rKey=String(r); if (!obj.repRecords[rKey]||w>obj.repRecords[rKey]) obj.repRecords[rKey]=w; const ex=obj.series.find(x=>x.reps===r); if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp}); const rm=calcE1RM(w,r); if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;} } } }
-      else if (exoType==='reps') { const r=s.reps||0,w=s.weight||0; obj.totalReps+=r; if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;} if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;} }
-      else if (exoType==='time') { const t=s.duration||0; if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;} session.volume+=t/10; }
-      else if (exoType==='cardio') { const d=s.distance||0,t=s.duration||0; if(d>obj.distance)obj.distance=d; if(t>obj.maxTime){obj.maxTime=t;obj.cardioDate=sessionTimestamp;} }
-    });
-    session.exercises.push(obj);
-  });
-  return session;
-}
-
-function processHevy() {
-  const text = document.getElementById('hevyPaste').value;
-  if (!text.trim()) return;
-  const lines = text.split('\n');
-  const firstLine = lines[0].trim();
-  let sessionTimestamp = Date.now(), sessionDate = new Date().toLocaleDateString('fr-FR');
-  let sessionTitle = '', sessionType = '';
-  if (firstLine && !firstLine.toLowerCase().startsWith('le ')) { const parts = firstLine.split('-').map(p => p.trim()); sessionTitle = parts[0]; if (parts[1]) sessionType = parts[1]; }
-  const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
-  if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
-  const shortDate = formatDate(sessionTimestamp);
-  const dateKey = sessionDate.split(' à')[0];
-  const doImport = () => {
-    const apiKey = localStorage.getItem('SBD_API_KEY');
-    if (apiKey) { showAIImportLoading(); extractWithAI(text).then(parsed => { if (parsed && parsed.exercises && parsed.exercises.length > 0) { const session = buildSessionFromAI(parsed, text); finalizeSession(session, text); } else { showToast('IA indisponible — import regex'); executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine); } }); }
-    else { executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine); }
-  };
-  if (db.logs.some(l => l.date.split(' à')[0] === dateKey)) { showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => { db.logs = db.logs.filter(l => l.date.split(' à')[0] !== dateKey); doImport(); }); return; }
-  doImport();
-}
-
-function showAIImportLoading() { const container = document.getElementById('aiImportAnalysis'); container.style.display = 'block'; container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données en cours...</div></div></div>'; }
-
-function finalizeSession(session, rawText) {
-  session.exercises = session.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
-  newPRs = { bench: false, squat: false, deadlift: false };
-  session.exercises.forEach(exo => { const type = getSBDType(exo.name); if (type && exo.maxRM > db.bestPR[type]) { db.bestPR[type] = exo.maxRM; newPRs[type] = true; while (db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5; showToast('🎯 ' + type + ': visé ' + db.user.targets[type] + 'kg'); } });
-  db.logs.unshift(session); db.logs.sort((a, b) => b.timestamp - a.timestamp);
-  saveDB(); document.getElementById('hevyPaste').value = '';
-  showImportSummary(session); showToast('✓ Séance importée' + (localStorage.getItem('SBD_API_KEY') ? ' (IA)' : ''));
-  refreshUI(); aiGenerateDebrief(session, rawText);
-}
-
-function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
-  const session = { date: sessionDate, shortDate, timestamp: sessionTimestamp, volume: 0, exercises: [], id: generateId(), title: sessionTitle, type: sessionType, day: DAYS_FULL[new Date(sessionTimestamp).getDay()] };
-  let currExo = null;
-  for (const line of lines) {
-    const l = line.trim().toLowerCase();
-    if (!l || l.includes('hevy') || (l.startsWith('le ') && l.includes('202')) || l.includes('http') || line.trim() === firstLine) continue;
-    if (/^\d+\/\d+\/\d+/.test(l) || (l.includes('"') && (/\d+\/\d+\/\d+/.test(l) || l.includes('sec') || l.includes('iso')))) continue;
-    if (l.startsWith('@')) continue;
-    const isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min') || l.includes('répétitions') || l.includes('repetitions') || l.includes('reps') || /\d+s\b/.test(l));
-    const isCompressedData = /^\d+x/.test(l) || /^\d+[.,]\d+km/.test(l) || l.includes('1rm est:');
-    if (!isSerieData && !isCompressedData) {
-      if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0)) session.exercises.push(currExo);
-      const exoType = getExoType(line.trim());
-      if (exoType === 'session_name') { currExo = null; continue; }
-      const cleanName = line.trim().replace(/\s*"[^"]*"\s*$/g, '').trim();
-      currExo = { name: cleanName, maxRM: 0, sets: 0, isCardio: exoType==='cardio'||exoType==='cardio_stairs', isTime: exoType==='time', isReps: exoType==='reps', distance: 0, maxTime: 0, maxReps: 0, totalReps: 0, repRecords: {}, series: [], exoType }; continue;
-    }
-    if (!currExo) continue;
-    if (l.startsWith('série') && l.includes('kg x') && !currExo.isCardio && !currExo.isReps) { const m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i); if (m) { const w=parseFloat(m[1]),r=parseInt(m[2]); const isW=line.includes('[Échauffement]')||line.includes('[échauffement]'); session.volume+=w*r; currExo.sets++; if (!isW) { const rKey=String(r); if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w; const ex=currExo.series.find(s=>s.reps===r); if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp}); const rm=calcE1RM(w,r); if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;} } } }
-    else if (currExo.isReps && l.startsWith('série')) { const repMatch=l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i)||l.match(/x\s*(\d+)/i)||l.match(/(\d+)\s*reps?\b/i); const kgMatch=l.match(/(\d+\.?\d*)\s*kg/i); if (repMatch) { const reps=parseInt(repMatch[1]); const w=kgMatch?parseFloat(kgMatch[1]):0; currExo.sets++; currExo.totalReps+=reps; if(reps>currExo.maxReps){currExo.maxReps=reps;currExo.maxRepsDate=sessionTimestamp;} if(w>0){session.volume+=w*reps;const rm=calcE1RM(w,reps);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}const rKey=String(reps);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;} } else { currExo.sets++; } }
-    else if (l.startsWith('série') && l.includes('km') && currExo.isCardio) { parseCardioLine(l, currExo, sessionTimestamp); }
-    else if (l.startsWith('série') && (l.includes('min')||l.includes('sec')||/\d+s\b/.test(l)) && (currExo.isTime||currExo.exoType==='time')) { parsePlankLine(l, currExo, session, sessionTimestamp); }
-    else if (l.startsWith('série') && l.includes('sec') && !currExo.isCardio && !currExo.maxRM) { const sm=l.match(/(\d+)\s*sec/i); if(sm){currExo.isTime=true;const t=parseInt(sm[1]);if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=sessionTimestamp;}currExo.sets++;session.volume+=t/10;} }
-    else if (l.includes('1rm est:') && !currExo.isCardio) { const m2=l.match(/(\d+)\s*kg/i); if(m2){const rm=parseInt(m2[1]);if(rm>currExo.maxRM)currExo.maxRM=rm;} }
-    else if (/\d+x/.test(l) && !currExo.isCardio) { const mx=l.match(/\d+x/g); if(mx)currExo.sets=parseInt(mx[mx.length-1]); }
-  }
-  if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0)) session.exercises.push(currExo);
-  finalizeSession(session, lines.join('\n'));
-}
-
-function parseCardioLine(l, currExo, ts) {
-  const km=l.match(/(\d+[.,]\d*|\d+)\s*km/); const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i); const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i); const ms=l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i); const colon=l.match(/(\d+):(\d+):?(\d+)?/);
-  let totalSec=null;
-  if(hm)totalSec=parseInt(hm[1])*3600+parseInt(hm[2])*60; else if(mm)totalSec=parseInt(mm[1])*60+parseInt(mm[2]); else if(colon&&colon[3])totalSec=parseInt(colon[1])*3600+parseInt(colon[2])*60+parseInt(colon[3]); else if(colon)totalSec=parseInt(colon[1])*60+parseInt(colon[2]); else if(ms)totalSec=parseInt(ms[1])*60+(ms[2]?parseInt(ms[2]):0);
-  if(km){const d=parseFloat(km[1].replace(',','.')); if(d>(currExo.distance||0))currExo.distance=d; if(totalSec){const kmh=d/(totalSec/3600);const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0;if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}}else if(totalSec){if(totalSec>(currExo.maxTime||0)){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}
-  if(!currExo.sets)currExo.sets=1; else currExo.sets++;
-}
-
-function parsePlankLine(l, currExo, session, ts) {
-  const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i); const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i); const mOnly=l.match(/(\d+)\s*m(?:in)?(?!\d)/i); const sOnly=l.match(/(\d+)\s*s(?:ec)?(?!\d)/i);
-  let t=0;
-  if(hm)t=parseInt(hm[1])*3600+parseInt(hm[2])*60; else if(mm)t=parseInt(mm[1])*60+parseInt(mm[2]); else if(mOnly)t=parseInt(mOnly[1])*60+(sOnly?parseInt(sOnly[1]):0); else if(sOnly)t=parseInt(sOnly[1]);
-  if(t>0){currExo.isTime=true;if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=ts;}currExo.sets=(currExo.sets||0)+1;session.volume+=t/10;}
-}
-
-function showImportSummary(session) {
-  document.getElementById('importSummary').style.display = 'block';
-  const ts = session.type ? ' - ' + session.type : '';
-  document.getElementById('importDetails').innerHTML = '<div style="padding:10px;background:var(--surface);border-radius:8px;position:relative;"><button onclick="deleteLog(\''+session.id+'\')" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--sub);cursor:pointer;font-size:18px;">✕</button><p style="margin:0 0 8px;font-size:13px;"><strong>'+session.title+ts+' - '+session.shortDate+'</strong></p><p style="margin:0 0 8px;font-size:12px;color:var(--purple);"><strong>Volume: '+(session.volume/1000).toFixed(1)+'t</strong></p><p style="margin:0;font-size:11px;color:var(--sub);">'+session.exercises.length+' exercice(s)</p></div>';
-}
-
-function deleteLog(logId) {
-  showModal('Supprimer cette séance ?', 'Supprimer', 'var(--red)', () => {
-    db.logs = db.logs.filter(l => l.id !== logId); db.reports = db.reports.filter(r => !(r.type === 'debrief' && r.sessionId === logId));
-    saveDB(); document.getElementById('importSummary').style.display = 'none'; document.getElementById('importDetails').innerHTML = ''; document.getElementById('hevyPaste').value = ''; document.getElementById('aiImportAnalysis').style.display = 'none';
-    refreshUI(); showToast('✓ Séance supprimée');
-  });
-}
-
-// ============================================================
-// AI — SYSTÈME PRINCIPAL
-// ============================================================
-const AI_SYSTEM = `Tu es un coach de force expert en Powerlifting / Powerbuilding. Ton surnom : Coach SBD 🦍. Ton ton est fraternel, direct, chirurgical et exigeant — pas de fausse complaisance, tu exiges la discipline. Tu utilises 🦍 et 🦾 avec parcimonie.
-
-[CONTEXTE ATHLÈTE — LOI ABSOLUE]
-Programme :
-• Lundi : Squat / Quadriceps
-• Mardi : Push (Pecs, Épaules, Triceps)
-• Mercredi : Récupération active (Natation ~1km)
-• Jeudi : Pull (Dos, Ischios, Biceps) + Deadlift
-• Vendredi : Bench volume ou Points faibles (Abs/Mollets/Cardio)
-• Samedi : SBD Technique (Squat pause, Spoto Bench, Deadlift pause)
-• Dimanche : Repos total
-
-Nutrition : Intolérance lactose (Whey Isolate et Skyr OK). Sources : bœuf, poulet, colin, œufs, riz, pâtes, quinoa, patate douce.
-Suppléments : Créatine Creapure 5g, Oméga-3 4gél, Whey Isolate Native (post), ZMB Pidolates (soir), Peptan Collagène 15g (coucher), Glycine 15g (coucher), Work! pre-workout 10g.
-Vocabulaire : "abandon" = drop-set (série dégressive).
-
-[RÈGLES CRITIQUES]
-1. CHARGES RÉELLES : Les poids en séance sont les poids RÉELS soulevés. Les "e1RM" sont des ESTIMATIONS (formule Epley). Toujours citer le poids réel + reps, pas l'e1RM.
-2. SNC : Si PR Deadlift dans les 48h, adapter le SBD du samedi avec variantes isométriques (pause squat, spoto) pour préserver les lombaires.
-3. Charges précises : ne jamais donner une fourchette vague — propose des charges précises avec tempo (ex: 3/1/1) et temps de repos.
-
-[FORMAT DE RÉPONSE — IMPÉRATIF]
-- Réponds UNIQUEMENT en HTML (pas de markdown).
-- Structure TOUJOURS en 3 sections :
-  <div class="ai-section"><div class="ai-section-title">📊 DÉBRIEF / BILAN</div>contenu</div>
-  <div class="ai-section"><div class="ai-section-title">🎯 VISION SEMAINE</div>contenu</div>
-  <div class="ai-section"><div class="ai-section-title">💡 CONSEIL PERSO</div>contenu</div>
-- Utilise <span class="ai-highlight green|blue|orange|red|purple">texte</span> pour les métriques clés.
-- 150–250 mots max. Tutoie. Français uniquement.`;
-
-// ★ NOUVEAU — Prompt dédié programme semaine (JSON)
-const AI_WEEKLY_PLAN_SYSTEM = `Tu es un coach powerlifting expert. Tu génères un programme hebdomaire structuré en JSON strict.
-
-CONTEXTE ATHLÈTE :
-• Programme : Lundi=Squat/Quads, Mardi=Push, Mercredi=Natation récup, Jeudi=Pull+Deadlift, Vendredi=Points faibles, Samedi=SBD technique, Dimanche=Repos
-• Nutrition : intolérance lactose (Whey Isolate OK). Suppléments : Créatine 5g, Oméga-3, ZMB, Collagène, Glycine, Work! pre-workout.
-• "abandon" = drop-set
-
-RÈGLES :
-- Répondre UNIQUEMENT avec du JSON valide, aucun texte avant ou après
-- Les séries d'échauffement ont isWarmup: true
-- Les charges sont des POIDS RÉELS (pas des e1RM)
-- Adapter les charges selon le numéro de semaine de bloc et les PRs fournis
-- Semaine 1 post-deload : -5% sur les charges par rapport au peak, volume modéré (4 séries travail max)
-- Chaque jour a un "coachNote" court et percutant (max 20 mots)
-- Dimanche : rest: true, exercises: []
-
-FORMAT JSON :
 {
-  "bloc": 2,
-  "week": 1,
-  "generated_at": "timestamp ISO",
-  "days": [
+  "title": "nom de la séance (avant le tiret)",
+  "type": "type de séance (après le tiret, ex: Dos)",
+  "date": "date brute trouvée dans le texte",
+  "exercises": [
     {
-      "day": "Lundi",
-      "title": "🦵 Squat / Quadriceps",
-      "rest": false,
-      "coachNote": "Texte court motivant max 20 mots",
-      "exercises": [
+      "name": "nom exact de l'exercice",
+      "muscleGroup": "Pecs|Dos|Jambes|Épaules|Bras|Abdos|Cardio|Autre",
+      "exoType": "weight|reps|time|cardio",
+      "sets": [
         {
-          "name": "Squat (Barre)",
-          "type": "weight",
-          "restSeconds": 180,
-          "sets": [
-            { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
-            { "isWarmup": true,  "weight": 80,  "reps": 6,  "rpe": null },
-            { "isWarmup": true,  "weight": 90,  "reps": 3,  "rpe": null },
-            { "isWarmup": false, "weight": 100, "reps": 8,  "rpe": 7 },
-            { "isWarmup": false, "weight": 100, "reps": 8,  "rpe": 7.5 },
-            { "isWarmup": false, "weight": 100, "reps": 8,  "rpe": 8.5 },
-            { "isWarmup": false, "weight": 100, "reps": 8,  "rpe": 9 }
-          ]
+          "weight": 100,
+          "reps": 5,
+          "isWarmup": false,
+          "rpe": 8.5
         }
       ]
     }
   ]
 }
 
-Pour les exercices cardio (type: "cardio") : sets avec { "distance": 1.0, "durationMin": 10 }
-Pour les exercices isométriques (type: "time") : sets avec { "durationSec": 60, "isWarmup": false }
-Pour les exercices poids de corps (type: "reps") : sets avec { "reps": 10, "isWarmup": false }`;
+RÈGLES DE CLASSIFICATION :
+- exoType "weight" : exercices avec poids + reps (bench, squat, rowing...)
+- exoType "reps" : poids de corps avec reps (pompes, tractions, dips...)
+- exoType "time" : exercices chronométrés en secondes (planche, gainage...)
+- exoType "cardio" : distance + temps (tapis, vélo, natation...)
 
+Pour "time", les sets ont : { "duration": 60 } (en secondes)
+Pour "cardio", les sets ont : { "distance": 1.5, "duration": 720 } (km et secondes)
+Pour "reps" sans poids : { "reps": 10, "isWarmup": false }
+
+muscleGroup :
+- Pecs : bench, développé couché, écarté, pompes, dips pec
+- Dos : traction, tirage, rowing, lat, tirage vers visage
+- Jambes : squat, deadlift, leg press, fente, hip thrust, leg curl, mollets
+- Épaules : militaire, élévation latérale, face pull, tirage vers visage, arnold
+- Bras : curl biceps, extension triceps, skull crusher, dips triceps
+- Abdos : planche, gainage, crunch, relevé de genoux, russian twist
+- Cardio : tapis roulant, vélo, natation, rameur, escalier
+- Autre : tout le reste`;
+
+async function extractWithAI(rawText) {
+  const rawKey2 = localStorage.getItem('SBD_API_KEY') || '';
+  const apiKey = rawKey2.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!apiKey) return null;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-request-check': 'client'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        system: AI_EXTRACT_SYSTEM,
+        messages: [{ role: 'user', content: rawText }]
+      })
+    });
+    const d = await r.json();
+    if (d.error) { console.warn('AI extract error:', d.error); return null; }
+    const raw = d.content.map(b => b.text || '').join('').trim();
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('AI extract failed:', e);
+    return null;
+  }
+}
+
+function buildSessionFromAI(parsed, rawText) {
+  const lines = rawText.split('\n');
+  const firstLine = lines[0].trim();
+
+  // Date
+  let sessionTimestamp = Date.now();
+  let sessionDate = new Date().toLocaleDateString('fr-FR');
+  if (parsed.date) {
+    sessionTimestamp = parseHevyDate(parsed.date);
+    sessionDate = parsed.date;
+  } else {
+    const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
+    if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
+  }
+
+  const session = {
+    date: sessionDate,
+    shortDate: formatDate(sessionTimestamp),
+    timestamp: sessionTimestamp,
+    volume: 0,
+    exercises: [],
+    id: generateId(),
+    title: parsed.title || firstLine.split('-')[0].trim(),
+    type: parsed.type || '',
+    day: DAYS_FULL[new Date(sessionTimestamp).getDay()]
+  };
+
+  (parsed.exercises || []).forEach(exo => {
+    const exoType = exo.exoType || 'weight';
+    const isCardio = exoType === 'cardio';
+    const isTime   = exoType === 'time';
+    const isReps   = exoType === 'reps';
+
+    const obj = {
+      name: exo.name,
+      muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name),
+      exoType,
+      isCardio, isTime, isReps,
+      maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0,
+      distance: 0, sets: 0,
+      repRecords: {}, series: []
+    };
+
+    (exo.sets || []).forEach(s => {
+      const isW = s.isWarmup || false;
+      obj.sets++;
+
+      if (exoType === 'weight') {
+        const w = s.weight || 0, r = s.reps || 0;
+        if (w > 0 && r > 0) {
+          session.volume += w * r;
+          if (!isW) {
+            const rKey = String(r);
+            if (!obj.repRecords[rKey] || w > obj.repRecords[rKey]) obj.repRecords[rKey] = w;
+            const ex = obj.series.find(x => x.reps === r);
+            if (ex) { if (w > ex.weight) ex.weight = w; }
+            else obj.series.push({ weight: w, reps: r, date: sessionTimestamp });
+            const rm = calcE1RM(w, r);
+            if (rm > obj.maxRM) { obj.maxRM = rm; obj.maxRMDate = sessionTimestamp; }
+          }
+        }
+      } else if (exoType === 'reps') {
+        const r = s.reps || 0, w = s.weight || 0;
+        obj.totalReps += r;
+        if (r > obj.maxReps) { obj.maxReps = r; obj.maxRepsDate = sessionTimestamp; }
+        if (w > 0) {
+          session.volume += w * r;
+          const rm = calcE1RM(w, r);
+          if (rm > obj.maxRM) { obj.maxRM = rm; obj.maxRMDate = sessionTimestamp; }
+          const rKey = String(r);
+          if (!obj.repRecords[rKey] || w > obj.repRecords[rKey]) obj.repRecords[rKey] = w;
+        }
+      } else if (exoType === 'time') {
+        const t = s.duration || 0;
+        if (t > obj.maxTime) { obj.maxTime = t; obj.maxTimeDate = sessionTimestamp; }
+        session.volume += t / 10;
+      } else if (exoType === 'cardio') {
+        const d = s.distance || 0, t = s.duration || 0;
+        if (d > obj.distance) obj.distance = d;
+        if (t > obj.maxTime) { obj.maxTime = t; obj.cardioDate = sessionTimestamp; }
+      }
+    });
+
+    session.exercises.push(obj);
+  });
+
+  return session;
+}
+
+function processHevy() {
+  const text = document.getElementById('hevyPaste').value;
+  if (!text.trim()) return;
+
+  const lines = text.split('\n');
+  const firstLine = lines[0].trim();
+  let sessionTimestamp = Date.now(), sessionDate = new Date().toLocaleDateString('fr-FR');
+  let sessionTitle = '', sessionType = '';
+
+  if (firstLine && !firstLine.toLowerCase().startsWith('le ')) {
+    const parts = firstLine.split('-').map(p => p.trim());
+    sessionTitle = parts[0];
+    if (parts[1]) sessionType = parts[1];
+  }
+  const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
+  if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
+  const shortDate = formatDate(sessionTimestamp);
+  const dateKey = sessionDate.split(' à')[0];
+
+  const doImport = () => {
+    const apiKey = localStorage.getItem('SBD_API_KEY');
+    if (apiKey) {
+      // Mode IA
+      showAIImportLoading();
+      extractWithAI(text).then(parsed => {
+        if (parsed && parsed.exercises && parsed.exercises.length > 0) {
+          const session = buildSessionFromAI(parsed, text);
+          finalizeSession(session, text);
+        } else {
+          console.warn('AI extraction empty, falling back to regex');
+          showToast('IA indisponible — import regex');
+          executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+        }
+      });
+    } else {
+      // Mode regex
+      executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+    }
+  };
+
+  if (db.logs.some(l => l.date.split(' à')[0] === dateKey)) {
+    showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => {
+      db.logs = db.logs.filter(l => l.date.split(' à')[0] !== dateKey);
+      doImport();
+    });
+    return;
+  }
+  doImport();
+}
+
+function showAIImportLoading() {
+  const container = document.getElementById('aiImportAnalysis');
+  container.style.display = 'block';
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div id="aiImportLoadArea" class="ai-response-area"><div class="ai-progress-wrap"><div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Extraction des données...</div><div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_aiImportLoadArea"></div></div><div style="display:flex;justify-content:space-between;"><div class="ai-progress-step" id="aips_aiImportLoadArea">Lecture du texte Hevy...</div><div class="ai-progress-pct" id="aipp_aiImportLoadArea">0%</div></div></div></div></div>';
+  startAIProgress('aiImportLoadArea');
+}
+
+function finalizeSession(session, rawText) {
+  // Filtre noms de séance parasites
+  session.exercises = session.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
+
+  // PRs SBD
+  newPRs = { bench: false, squat: false, deadlift: false };
+  session.exercises.forEach(exo => {
+    const type = getSBDType(exo.name);
+    if (type && exo.maxRM > db.bestPR[type]) {
+      db.bestPR[type] = exo.maxRM;
+      newPRs[type] = true;
+      while (db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5;
+      showToast('🎯 ' + type + ': visé ' + db.user.targets[type] + 'kg');
+    }
+  });
+
+  db.logs.unshift(session);
+  db.logs.sort((a, b) => b.timestamp - a.timestamp);
+  saveDB();
+  document.getElementById('hevyPaste').value = '';
+  showImportSummary(session);
+  showToast('✓ Séance importée' + (localStorage.getItem('SBD_API_KEY') ? ' (IA)' : ''));
+  refreshUI();
+  aiGenerateDebrief(session, rawText);
+}
+
+
+
+function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
+  const session = {
+    date: sessionDate, shortDate, timestamp: sessionTimestamp,
+    volume: 0, exercises: [], id: generateId(),
+    title: sessionTitle, type: sessionType,
+    day: DAYS_FULL[new Date(sessionTimestamp).getDay()]
+  };
+  let currExo = null;
+
+  for (const line of lines) {
+    const l = line.trim().toLowerCase();
+    if (!l || l.includes('hevy') || (l.startsWith('le ') && l.includes('202')) || l.includes('http') || line.trim() === firstLine) continue;
+    if (/^\d+\/\d+\/\d+/.test(l) || (l.includes('"') && (/\d+\/\d+\/\d+/.test(l) || l.includes('sec') || l.includes('iso')))) continue;
+    if (l.startsWith('@')) continue;
+
+    const isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min') || l.includes('répétitions') || l.includes('repetitions') || l.includes('reps') || /\d+s\b/.test(l));
+    const isCompressedData = /^\d+x/.test(l) || /^\d+[.,]\d+km/.test(l) || l.includes('1rm est:');
+
+    if (!isSerieData && !isCompressedData) {
+      if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0))
+        session.exercises.push(currExo);
+      const exoType = getExoType(line.trim());
+      if (exoType === 'session_name') { currExo = null; continue; }
+      const cleanName = line.trim().replace(/\s*"[^"]*"\s*$/g, '').trim();
+      const isCardio = exoType === 'cardio' || exoType === 'cardio_stairs';
+      const isTime = exoType === 'time';
+      const isReps = exoType === 'reps';
+      currExo = {
+        name: cleanName, maxRM: 0, sets: 0,
+        isCardio, isTime, isReps,
+        distance: 0, maxTime: 0, maxReps: 0, totalReps: 0,
+        repRecords: {}, series: [], exoType
+      };
+      continue;
+    }
+
+    if (!currExo) continue;
+
+    // Série avec poids
+    if (l.startsWith('série') && l.includes('kg x') && !currExo.isCardio && !currExo.isReps) {
+      const m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+      if (m) {
+        const w = parseFloat(m[1]), r = parseInt(m[2]);
+        const isW = line.includes('[Échauffement]') || line.includes('[échauffement]');
+        session.volume += w * r;
+        currExo.sets++;
+        if (!isW) {
+          const rKey = String(r);
+          if (!currExo.repRecords[rKey] || w > currExo.repRecords[rKey]) currExo.repRecords[rKey] = w;
+          const ex = currExo.series.find(s => s.reps === r);
+          if (ex) { if (w > ex.weight) { ex.weight = w; ex.date = sessionTimestamp; } }
+          else currExo.series.push({ weight: w, reps: r, date: sessionTimestamp });
+          const rm = calcE1RM(w, r);
+          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
+        }
+      }
+    }
+    // Série poids de corps
+    else if (currExo.isReps && l.startsWith('série')) {
+      const repMatch = l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i) || l.match(/x\s*(\d+)/i) || l.match(/(\d+)\s*reps?\b/i);
+      const kgMatch = l.match(/(\d+\.?\d*)\s*kg/i);
+      if (repMatch) {
+        const reps = parseInt(repMatch[1]);
+        const w = kgMatch ? parseFloat(kgMatch[1]) : 0;
+        currExo.sets++;
+        currExo.totalReps += reps;
+        if (reps > currExo.maxReps) { currExo.maxReps = reps; currExo.maxRepsDate = sessionTimestamp; }
+        if (w > 0) {
+          session.volume += w * reps;
+          const rm = calcE1RM(w, reps);
+          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
+          const rKey = String(reps);
+          if (!currExo.repRecords[rKey] || w > currExo.repRecords[rKey]) currExo.repRecords[rKey] = w;
+        }
+      } else { currExo.sets++; }
+    }
+    // Cardio distance
+    else if (l.startsWith('série') && l.includes('km') && currExo.isCardio) {
+      parseCardioLine(l, currExo, sessionTimestamp);
+    }
+    // Planche / gainage
+    else if (l.startsWith('série') && (l.includes('min') || l.includes('sec') || /\d+s\b/.test(l)) && (currExo.isTime || currExo.exoType === 'time')) {
+      parsePlankLine(l, currExo, session, sessionTimestamp);
+    }
+    // Fallback isométrique
+    else if (l.startsWith('série') && l.includes('sec') && !currExo.isCardio && !currExo.maxRM) {
+      const sm = l.match(/(\d+)\s*sec/i);
+      if (sm) {
+        currExo.isTime = true;
+        const t = parseInt(sm[1]);
+        if (t > (currExo.maxTime || 0)) { currExo.maxTime = t; currExo.maxTimeDate = sessionTimestamp; }
+        currExo.sets++;
+        session.volume += t / 10;
+      }
+    }
+    // e1RM Hevy injecté
+    else if (l.includes('1rm est:') && !currExo.isCardio) {
+      const m2 = l.match(/(\d+)\s*kg/i);
+      if (m2) { const rm = parseInt(m2[1]); if (rm > currExo.maxRM) currExo.maxRM = rm; }
+    }
+    // Sets compressés
+    else if (/\d+x/.test(l) && !currExo.isCardio) {
+      const mx = l.match(/\d+x/g);
+      if (mx) currExo.sets = parseInt(mx[mx.length - 1]);
+    }
+  }
+
+  // Flush last exercise
+  if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0))
+    session.exercises.push(currExo);
+
+  finalizeSession(session, lines.join('\n'));
+}
+
+function parseCardioLine(l, currExo, ts) {
+  // Distance en km
+  const km = l.match(/(\d+[.,]\d*|\d+)\s*km/);
+  // Temps : formats "15min 30s", "15m30s", "15:30", "1h30min"
+  const hm = l.match(/(\d+)\s*h\s*(\d+)\s*m/i);
+  const mm = l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);
+  const ms = l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i);
+  const colon = l.match(/(\d+):(\d+):?(\d+)?/);
+
+  let totalSec = null;
+  if (hm) totalSec = parseInt(hm[1])*3600 + parseInt(hm[2])*60;
+  else if (mm) totalSec = parseInt(mm[1])*60 + parseInt(mm[2]);
+  else if (colon && colon[3]) totalSec = parseInt(colon[1])*3600 + parseInt(colon[2])*60 + parseInt(colon[3]);
+  else if (colon) totalSec = parseInt(colon[1])*60 + parseInt(colon[2]);
+  else if (ms) totalSec = parseInt(ms[1])*60 + (ms[2] ? parseInt(ms[2]) : 0);
+
+  if (km) {
+    const d = parseFloat(km[1].replace(',', '.'));
+    if (d > (currExo.distance || 0)) currExo.distance = d;
+    if (totalSec) {
+      const kmh = d / (totalSec / 3600);
+      const curKmh = currExo.distance && currExo.maxTime ? currExo.distance / (currExo.maxTime / 3600) : 0;
+      if (kmh > curKmh || !currExo.maxTime) { currExo.maxTime = totalSec; currExo.cardioDate = ts; }
+    }
+  } else if (totalSec) {
+    if (totalSec > (currExo.maxTime || 0)) { currExo.maxTime = totalSec; currExo.cardioDate = ts; }
+  }
+  if (!currExo.sets) currExo.sets = 1;
+  else currExo.sets++;
+}
+
+function parsePlankLine(l, currExo, session, ts) {
+  const hm = l.match(/(\d+)\s*h\s*(\d+)\s*m/i);
+  const mm = l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);
+  const mOnly = l.match(/(\d+)\s*m(?:in)?(?!\d)/i);
+  const sOnly = l.match(/(\d+)\s*s(?:ec)?(?!\d)/i);
+
+  let t = 0;
+  if (hm) t = parseInt(hm[1])*3600 + parseInt(hm[2])*60;
+  else if (mm) t = parseInt(mm[1])*60 + parseInt(mm[2]);
+  else if (mOnly) t = parseInt(mOnly[1])*60 + (sOnly ? parseInt(sOnly[1]) : 0);
+  else if (sOnly) t = parseInt(sOnly[1]);
+
+  if (t > 0) {
+    currExo.isTime = true;
+    if (t > (currExo.maxTime || 0)) { currExo.maxTime = t; currExo.maxTimeDate = ts; }
+    currExo.sets = (currExo.sets || 0) + 1;
+    session.volume += t / 10;
+  }
+}
+
+function showImportSummary(session) {
+  document.getElementById('importSummary').style.display = 'block';
+  const ts = session.type ? ' - ' + session.type : '';
+  document.getElementById('importDetails').innerHTML =
+    '<div style="padding:10px;background:var(--surface);border-radius:8px;position:relative;">' +
+    '<button onclick="deleteLog(\''+session.id+'\')" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--sub);cursor:pointer;font-size:18px;">✕</button>' +
+    '<p style="margin:0 0 8px;font-size:13px;"><strong>'+session.title+ts+' - '+session.shortDate+'</strong></p>' +
+    '<p style="margin:0 0 8px;font-size:12px;color:var(--purple);"><strong>Volume: '+(session.volume/1000).toFixed(1)+'t</strong></p>' +
+    '<p style="margin:0;font-size:11px;color:var(--sub);">'+session.exercises.length+' exercice(s)</p></div>';
+}
+
+function deleteLog(logId) {
+  showModal('Supprimer cette séance ?', 'Supprimer', 'var(--red)', () => {
+    db.logs = db.logs.filter(l => l.id !== logId);
+    db.reports = db.reports.filter(r => !(r.type === 'debrief' && r.sessionId === logId));
+    saveDB();
+    document.getElementById('importSummary').style.display = 'none';
+    document.getElementById('importDetails').innerHTML = '';
+    document.getElementById('hevyPaste').value = '';
+    document.getElementById('aiImportAnalysis').style.display = 'none';
+    refreshUI();
+    showToast('✓ Séance supprimée');
+  });
+}
+
+// ============================================================
+// AI
+// ============================================================
 function buildAthleteContext() {
   const logs7 = getLogsInRange(7), logs30 = getLogsInRange(30);
   const muscleSets7 = {};
@@ -634,36 +1057,164 @@ function buildAthleteContext() {
   SBD_TYPES.forEach(type => {
     sbdHistory[type] = [];
     for (const log of db.logs) {
-      for (const exo of log.exercises) { if (getSBDType(exo.name) === type && exo.maxRM > 0) { sbdHistory[type].push({ rm: exo.maxRM, date: log.shortDate||formatDate(log.timestamp) }); break; } }
+      for (const exo of log.exercises) {
+        if (getSBDType(exo.name) === type && exo.maxRM > 0) { sbdHistory[type].push({ rm: exo.maxRM, date: log.shortDate||formatDate(log.timestamp) }); break; }
+      }
       if (sbdHistory[type].length >= 5) break;
     }
   });
-  return { bw: db.user.bw, bestPR: db.bestPR, targets: db.user.targets, totalSessions: db.logs.length, sessions7d: logs7.length, sessions30d: logs30.length, daysWithTraining7: new Set(logs7.map(l => l.day)).size, muscleSets7, recentVolumes, sbdHistory, todayDay: DAYS_FULL[new Date().getDay()] };
+  const logs30b=db.logs.filter(l=>{const a=Date.now()-l.timestamp;return a>=30*86400000&&a<60*86400000;});
+  const sbdTrend={};
+  SBD_TYPES.forEach(type=>{
+    const r=logs30.flatMap(l=>l.exercises).filter(e=>getSBDType(e.name)===type&&e.maxRM>0);
+    const p=logs30b.flatMap(l=>l.exercises).filter(e=>getSBDType(e.name)===type&&e.maxRM>0);
+    const avgR=r.length?Math.round(r.reduce((s,e)=>s+e.maxRM,0)/r.length):null;
+    const avgP=p.length?Math.round(p.reduce((s,e)=>s+e.maxRM,0)/p.length):null;
+    sbdTrend[type]=(avgR!==null&&avgP!==null)?avgR-avgP:null;
+  });
+  const logs14=getLogsInRange(14),sets14={};
+  logs14.forEach(l=>l.exercises.forEach(e=>{const mg=getMuscleGroup(e.name);sets14[mg]=(sets14[mg]||0)+e.sets;}));
+  const mainGroups=['Pecs','Dos','Jambes','Épaules','Bras'];
+  const weakGroup=mainGroups.reduce((min,g)=>(sets14[g]||0)<(sets14[min]||0)?g:min,mainGroups[0]);
+  const bwRatio=db.user.bw>0?{bench:(db.bestPR.bench/db.user.bw).toFixed(2),squat:(db.bestPR.squat/db.user.bw).toFixed(2),deadlift:(db.bestPR.deadlift/db.user.bw).toFixed(2)}:null;
+  const daysSince=[...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0];
+  const daysSinceTraining=daysSince?Math.floor((Date.now()-daysSince.timestamp)/86400000):null;
+  const programme = getProgrammeContext ? getProgrammeContext() : null;
+  return{bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()],sbdTrend,weakGroup,bwRatio,daysSinceTraining,sets14,programme};
 }
 
 async function callAI(systemPrompt, userPrompt) {
+  const rawKey = localStorage.getItem('SBD_API_KEY') || '';
+  const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!apiKey) { console.warn('AI: no API key'); return null; }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': localStorage.getItem('SBD_API_KEY')||'', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-request-check': 'client' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 3000, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-request-check': 'client'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
     });
+    if (!r.ok) {
+      const errBody = await r.text();
+      console.error('AI HTTP ' + r.status + ':', errBody);
+      // Afficher l'erreur précise à l'utilisateur
+      window._lastAIError = 'Erreur ' + r.status + (r.status === 401 ? ' - cle API invalide' : r.status === 403 ? ' - acces refuse' : r.status === 429 ? ' - limite de debit atteinte' : ': ' + errBody.substring(0, 100));
+      return null;
+    }
     const d = await r.json();
+    if (d.error) {
+      console.error('AI error:', d.error);
+      window._lastAIError = d.error.message || JSON.stringify(d.error);
+      return null;
+    }
+    window._lastAIError = null;
     return d.content.map(b => b.text||'').join('');
-  } catch(err) { console.error('AI:', err); return null; }
+  } catch(err) {
+    console.error('AI fetch error:', err);
+    window._lastAIError = err.message || 'Erreur réseau (CORS ?)';
+    return null;
+  }
 }
 
-function showAILoading(id) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>'; }
-function showAIResponse(id, html) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'; }
-function showAIError(id) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">⚠️ Impossible de contacter le coach IA.<br><span style="font-size:11px;color:var(--sub);">Vérifie ta connexion et réessaie.</span></div>'; }
+const AI_SYSTEM = `Tu es un coach de force expert en powerlifting (SBD) et musculation.
+
+RÈGLES D'ANALYSE:
+- Les charges sont les POIDS RÉELS soulevés. Les e1RM sont des estimations Epley.
+- Cite toujours le poids réel + reps (ex: "120kg × 4"), jamais l'e1RM seul.
+- Analyse la TENDANCE, pas juste le dernier entraînement.
+- Identifie les déséquilibres (ex: bench fort mais squat stagne) et propose une action concrète.
+- Utilise le ratio force/poids de corps pour contextualiser le niveau.
+- Si la fréquence baisse, mentionne-le sans juger. Sois direct, motivant, sans bullshit. Tutoie.
+
+FORMAT HTML UNIQUEMENT:
+- 3 sections: <div class="ai-section"><div class="ai-section-title">TITRE</div>contenu</div>
+- Sections: 1."📊 ANALYSE" 2."🎯 ACTION CETTE SEMAINE" 3."💡 FOCUS"
+- Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
+- 180-280 mots. Français.` ;
+
+
+// ── AI Progress bar ──────────────────────────────────────────────────────────
+const _aiProgressTimers = {};
+const AI_STEPS = [
+  [5,  'Preparation du contexte...'],
+  [20, 'Envoi a Claude...'],
+  [40, 'Analyse de tes donnees...'],
+  [60, 'Generation des conseils...'],
+  [80, 'Finalisation de la reponse...'],
+  [92, 'Dernieres touches...'],
+];
+
+function startAIProgress(id) {
+  stopAIProgress(id);
+  let pct = 0;
+  function tick() {
+    const speed = pct < 30 ? 2.5 : pct < 60 ? 1.5 : pct < 85 ? 0.8 : 0.15;
+    pct = Math.min(95, pct + speed);
+    const b = document.getElementById('aipb_' + id);
+    const s = document.getElementById('aips_' + id);
+    const p = document.getElementById('aipp_' + id);
+    if (!b) return; // element removed = response arrived
+    b.style.width = pct + '%';
+    if (p) p.textContent = Math.round(pct) + '%';
+    if (s) {
+      let label = AI_STEPS[0][1];
+      for (const [threshold, txt] of AI_STEPS) { if (pct >= threshold) label = txt; }
+      s.textContent = label;
+    }
+    _aiProgressTimers[id] = setTimeout(tick, 180);
+  }
+  _aiProgressTimers[id] = setTimeout(tick, 100);
+}
+
+function stopAIProgress(id) {
+  if (_aiProgressTimers[id]) { clearTimeout(_aiProgressTimers[id]); delete _aiProgressTimers[id]; }
+  // Flash to 100% then response takes over
+  const b = document.getElementById('aipb_' + id);
+  if (b) b.style.width = '100%';
+}
+
+function showAILoading(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('empty');
+  el.innerHTML =
+    '<div class="ai-progress-wrap">'
+    + '<div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Claude analyse...</div>'
+    + '<div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_'+id+'"></div></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div class="ai-progress-step" id="aips_'+id+'">Preparation du contexte...</div>'
+    + '<div class="ai-progress-pct" id="aipp_'+id+'">0%</div>'
+    + '</div></div>';
+  startAIProgress(id);
+}
+function showAIResponse(id, html) { stopAIProgress(id); const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'; }
+function showAIError(id) {
+  stopAIProgress(id);
+  const el = document.getElementById(id);
+  el.classList.remove('empty');
+  const detail = window._lastAIError || 'Vérifie ta connexion et réessaie.';
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">'
+    + '⚠️ Impossible de contacter le coach IA.<br>'
+    + '<span style="font-size:11px;color:var(--sub);">' + detail + '</span></div>';
+}
 
 async function aiGenerateDebrief(session, rawText) {
   const container = document.getElementById('aiImportAnalysis');
   container.style.display = 'block';
-  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-progress-wrap"><div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Claude analyse ta séance...</div><div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_aiImportResponse"></div></div><div style="display:flex;justify-content:space-between;"><div class="ai-progress-step" id="aips_aiImportResponse">Lecture de la séance...</div><div class="ai-progress-pct" id="aipp_aiImportResponse">0%</div></div></div></div></div>';
+  startAIProgress('aiImportResponse');
   const ctx = buildAthleteContext();
+  const progStr = ctx.programme ? '\n\nPROGRAMME PRÉVU:\n'+ctx.programme : '';
   const prompt = 'Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
-  const result = await callAI(AI_SYSTEM, prompt);
+  const result = await callAI(AI_SYSTEM, prompt+progStr);
   if (result) { showAIResponse('aiImportResponse', result); upsertReport('debrief', result, session.id); }
   else showAIError('aiImportResponse');
 }
@@ -682,235 +1233,28 @@ async function aiAction(type) {
   showAILoading('aiResponseArea');
   const ctx = buildAthleteContext();
   let prompt = '';
-  if (type === 'progression') prompt = 'Progression SBD:\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nPoids: '+ctx.bw+'kg\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\nTotal: '+ctx.totalSessions+' | 30j: '+ctx.sessions30d;
-  else if (type === 'weakpoints') prompt = 'Points faibles:\nMuscles 7j: '+(Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucune donnée')+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nPoids: '+ctx.bw+'kg | Fréq: '+ctx.sessions7d+'/sem';
+  if (type === 'progression') {
+    const ratioStr=ctx.bwRatio?'B×'+ctx.bwRatio.bench+' S×'+ctx.bwRatio.squat+' D×'+ctx.bwRatio.deadlift:'N/A';
+    const trendStr=SBD_TYPES.map(t=>{const d=ctx.sbdTrend[t];return t+(d!==null?(d>=0?'+':'')+d+'kg':' ?');}).join(', ');
+    prompt='PROGRESSION SBD\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'kg | Poids: '+ctx.bw+'kg\n'
+      +'Ratio /pdc: '+ratioStr+'\nTendance 30j: '+trendStr+'\n'
+      +'Objectifs: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\n'
+      +'Historique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\n'
+      +'Séances: total='+ctx.totalSessions+' | 30j='+ctx.sessions30d+' | repos: '+ctx.daysSinceTraining+'j';
+  }
+  else if (type === 'weakpoints') {
+    const m7=Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucun';
+    const m14=Object.entries(ctx.sets14||{}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+': '+v+'s').join(', ')||'Aucun';
+    const trendStr=SBD_TYPES.map(t=>{const d=ctx.sbdTrend[t];return t+(d!==null?(d>=0?'+':'')+d+'kg':' ?');}).join(', ');
+    prompt='POINTS FAIBLES\nMuscles 7j: '+m7+'\nMuscles 14j: '+m14+'\n'
+      +'Groupe le moins travaillé: '+ctx.weakGroup+'\n'
+      +'PRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'kg | Poids: '+ctx.bw+'kg\n'
+      +'Tendance SBD: '+trendStr+'\nFréquence: '+ctx.sessions7d+'/sem | Repos: '+ctx.daysSinceTraining+'j';
+  }
   else if (type === 'next') prompt = "Séance du jour:\nAUJOURD'HUI: "+ctx.todayDay+'\nPROGRAMME: '+ROUTINES[ctx.todayDay]+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+' | '+ctx.bw+'kg\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nRécent: '+(ctx.recentVolumes.slice(0,3).map(v=>v.title+' ('+v.date+')').join(', ')||'Aucune')+'\nSéances/sem: '+ctx.sessions7d;
   const result = await callAI(AI_SYSTEM, prompt);
   if (result) showAIResponse('aiResponseArea', result);
   else showAIError('aiResponseArea');
-}
-
-// ============================================================
-// ★ NOUVEAU — WEEKLY PLAN FUNCTIONS
-// ============================================================
-
-let wpSelectedDay = DAYS_FULL[new Date().getDay()] || 'Lundi';
-
-async function generateWeeklyPlan() {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
-  if (!apiKey) { showToast('⚠️ Clé API requise dans Réglages'); return; }
-
-  const btn = document.getElementById('wpGenerateBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="ai-loading-dots" style="margin:0;"><span></span><span></span><span></span></div> Génération en cours...';
-
-  const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
-  const ctx = buildAthleteContext();
-
-  // Récupérer les dernières séances par jour pour calibrer
-  const recentByDay = {};
-  db.logs.slice(0, 20).forEach(log => {
-    const day = log.day;
-    if (!recentByDay[day]) recentByDay[day] = log;
-  });
-
-  // Chercher la dernière séance Lundi pour le squat
-  const lastLundi = recentByDay['Lundi'];
-  let sqRef = '';
-  if (lastLundi) {
-    const sqExo = lastLundi.exercises.find(e => getSBDType(e.name) === 'squat');
-    if (sqExo && sqExo.repRecords) {
-      const best = Object.entries(sqExo.repRecords).sort((a,b)=>parseInt(b[0])-parseInt(a[0]));
-      sqRef = 'Dernière séance Lundi: '+best.map(([r,w])=>w+'kg×'+r).join(', ');
-    }
-  }
-
-  const prompt = `Génère le programme complet de la semaine.
-
-PROFIL : ${ctx.bw}kg de corps
-PRs (e1RM estimés) : Bench=${ctx.bestPR.bench}kg | Squat=${ctx.bestPR.squat}kg | Deadlift=${ctx.bestPR.deadlift}kg
-Objectifs : Bench=${ctx.targets.bench}kg | Squat=${ctx.targets.squat}kg | Deadlift=${ctx.targets.deadlift}kg
-Bloc 2 — Semaine ${weekNum} ${weekNum===1?'(première semaine post-deload, reprendre à ~90% du volume habituel)':''}
-${sqRef}
-
-Séances récentes : ${ctx.recentVolumes.map(v=>v.title+' ('+v.date+', '+(v.vol/1000).toFixed(1)+'t)').join(' | ')||'Aucune'}
-
-IMPORTANT semaine ${weekNum} :
-${weekNum===1 ? '- Post-deload : charges à 90-92% du peak, 3-4 séries de travail max, RPE cible 7-8\n- Squat lundi : baser sur '+sqRef : ''}
-${weekNum===2 ? '- Bloc 2 sem 2 : +2.5kg sur les charges, ajouter 1 série de travail' : ''}
-${weekNum===3 ? '- Bloc 2 sem 3 : +2.5kg, montée en intensité, RPE cible 8-9' : ''}
-${weekNum===4 ? '- Peak semaine : test ou near-max, 2-3 séries de travail seulement, charges maximales' : ''}
-
-Génère le JSON complet pour les 7 jours.`;
-
-  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt);
-
-  btn.disabled = false;
-  btn.innerHTML = '✦ Générer le programme de la semaine';
-
-  if (!result) { showToast('⚠️ Erreur génération'); return; }
-
-  try {
-    const clean = result.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    const plan = JSON.parse(clean);
-    plan.generated_at = new Date().toISOString();
-    db.weeklyPlan = plan;
-    saveDB();
-    showToast('✅ Programme généré !');
-    renderWeeklyPlanUI();
-  } catch(e) {
-    console.error('Parse weekly plan error:', e, result);
-    showToast('⚠️ Erreur format JSON');
-  }
-}
-
-function regenerateWeeklyPlan() {
-  showModal('Régénérer le programme ? Les charges actuelles seront remplacées.', 'Régénérer', 'var(--blue)', () => {
-    db.weeklyPlan = null;
-    saveDB();
-    renderWeeklyPlanUI();
-    generateWeeklyPlan();
-  });
-}
-
-function renderWeeklyPlanUI() {
-  const plan = db.weeklyPlan;
-  const btn = document.getElementById('wpGenerateBtn');
-  const regenBtn = document.getElementById('wpRegenBtn');
-  const meta = document.getElementById('wpMeta');
-  const content = document.getElementById('wpContent');
-  const select = document.getElementById('wpBlocSelect');
-
-  if (!plan) {
-    btn.style.display = 'flex';
-    regenBtn.style.display = 'none';
-    content.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div>';
-    meta.textContent = '';
-    return;
-  }
-
-  // Plan exists
-  btn.style.display = 'none';
-  regenBtn.style.display = 'block';
-  if (select) select.value = String(plan.week || 1);
-
-  const genDate = plan.generated_at ? new Date(plan.generated_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}) : '';
-  meta.innerHTML = 'Généré le '+genDate;
-
-  const todayName = DAYS_FULL[new Date().getDay()];
-
-  // Day pills
-  const pillsHtml = DAYS_FULL.map((day, i) => {
-    if (i === 0) return ''; // skip Dimanche index 0 in display order
-    const dayData = plan.days ? plan.days.find(d => d.day === day) : null;
-    const isRest = !dayData || dayData.rest;
-    const isToday = day === todayName;
-    const isActive = day === wpSelectedDay;
-    let cls = 'wp-day-pill';
-    if (isRest) cls += ' rest';
-    if (isToday && !isRest) cls += ' today';
-    if (isActive) cls += ' active';
-    const shortDay = day.substring(0,3);
-    const onclick = isRest ? '' : `onclick="wpSelectDay('${day}')"`;
-    return `<div class="${cls}" ${onclick}>${shortDay}</div>`;
-  }).filter(Boolean);
-
-  // Also add Dimanche at end
-  const dimData = plan.days ? plan.days.find(d => d.day === 'Dimanche') : null;
-  const isDimToday = 'Dimanche' === todayName;
-  const isDimActive = 'Dimanche' === wpSelectedDay;
-  pillsHtml.push(`<div class="wp-day-pill rest ${isDimToday?'today':''} ${isDimActive?'active':''}" >Dim</div>`);
-
-  // Session content for selected day
-  const selectedData = plan.days ? plan.days.find(d => d.day === wpSelectedDay) : null;
-
-  let sessionHtml = '';
-  if (!selectedData || selectedData.rest) {
-    sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
-  } else {
-    const exosHtml = (selectedData.exercises || []).map(exo => renderWpExercise(exo)).join('');
-    sessionHtml = `
-      <div class="wp-session">
-        <div class="wp-session-title">${selectedData.title || wpSelectedDay}</div>
-        ${selectedData.coachNote ? `<div class="wp-coach-note">🦍 ${selectedData.coachNote}</div>` : ''}
-        <div style="margin-top:14px;">${exosHtml}</div>
-      </div>`;
-  }
-
-  content.innerHTML = `
-    <div class="wp-bloc-badge">Bloc ${plan.bloc || 2} — Semaine ${plan.week || 1}</div>
-    <div class="wp-days">${pillsHtml.join('')}</div>
-    ${sessionHtml}`;
-}
-
-function wpSelectDay(day) {
-  wpSelectedDay = day;
-  renderWeeklyPlanUI();
-}
-
-function renderWpExercise(exo) {
-  const type = exo.type || 'weight';
-  const restMin = exo.restSeconds ? Math.floor(exo.restSeconds/60)+'min'+(exo.restSeconds%60?String(exo.restSeconds%60).padStart(2,'0')+'s':'') : '';
-
-  let tableHtml = '';
-  const sets = exo.sets || [];
-
-  if (type === 'weight') {
-    const warmupSets = sets.filter(s => s.isWarmup);
-    const workSets = sets.filter(s => !s.isWarmup);
-    let rows = '';
-    warmupSets.forEach((s, i) => {
-      rows += `<tr class="wp-warmup-row">
-        <td style="color:var(--sub);font-size:11px;">Éch. ${i+1}</td>
-        <td class="wp-charge">${s.weight}kg</td>
-        <td>${s.reps} reps</td>
-        <td style="color:var(--sub);">—</td>
-      </tr>`;
-    });
-    workSets.forEach((s, i) => {
-      rows += `<tr class="wp-work-row">
-        <td style="font-weight:600;">Série ${i+1}</td>
-        <td class="wp-charge new">${s.weight}kg</td>
-        <td style="font-weight:600;">${s.reps} reps</td>
-        <td style="color:var(--orange);font-size:11px;">${s.rpe ? 'RPE '+s.rpe : '—'}</td>
-      </tr>`;
-    });
-    tableHtml = `<table class="wp-sets-table">
-      <thead><tr><th>Série</th><th>Charge</th><th>Reps</th><th>RPE</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  } else if (type === 'time') {
-    let rows = sets.map((s, i) => `<tr class="wp-work-row">
-      <td style="font-weight:600;">Série ${i+1}</td>
-      <td colspan="3" class="wp-charge new">${s.durationSec ? (s.durationSec >= 60 ? Math.floor(s.durationSec/60)+'min'+(s.durationSec%60?String(s.durationSec%60).padStart(2,'0')+'s':'') : s.durationSec+'s') : '—'}</td>
-    </tr>`).join('');
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th>Série</th><th colspan="3">Durée</th></tr></thead><tbody>${rows}</tbody></table>`;
-  } else if (type === 'cardio') {
-    let rows = sets.map((s, i) => `<tr class="wp-work-row">
-      <td style="font-weight:600;">${i===0?'Objectif':'Alt.'}</td>
-      <td class="wp-charge new">${s.distance ? s.distance+'km' : '—'}</td>
-      <td>${s.durationMin ? s.durationMin+'min' : '—'}</td>
-      <td style="color:var(--sub);font-size:11px;">Allure libre</td>
-    </tr>`).join('');
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Distance</th><th>Durée</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table>`;
-  } else if (type === 'reps') {
-    let rows = sets.map((s, i) => `<tr class="wp-work-row">
-      <td style="font-weight:600;">Série ${i+1}</td>
-      <td class="wp-charge new">${s.weight ? s.weight+'kg' : 'Poids corps'}</td>
-      <td style="font-weight:600;">${s.reps} reps</td>
-      <td>—</td>
-    </tr>`).join('');
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th>Série</th><th>Charge</th><th>Reps</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
-  }
-
-  return `<div class="wp-exo">
-    <div class="wp-exo-name">
-      <span>${exo.name}</span>
-      <span class="wp-exo-type">${type === 'weight' ? '🏋️ Poids' : type === 'cardio' ? '🏃 Cardio' : type === 'time' ? '⏱ Temps' : '🔄 Reps'}</span>
-    </div>
-    ${tableHtml}
-    ${restMin ? `<div class="wp-rest">⏸ Repos : ${restMin}</div>` : ''}
-  </div>`;
 }
 
 // ============================================================
@@ -919,7 +1263,8 @@ function renderWpExercise(exo) {
 function refreshUI() {
   const savedKey = localStorage.getItem('SBD_API_KEY');
   if (savedKey) { const kInput = document.getElementById('inputAPIKey'); if (kInput) kInput.value = savedKey; }
-  renderDash(); updateCoachBadge();
+  renderDash();
+  updateCoachBadge();
   if (document.getElementById('tab-stats').classList.contains('active')) { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); }
   if (document.getElementById('tab-ai').classList.contains('active')) { renderReportsTimeline(); renderWeeklyPlanUI(); }
 }
@@ -937,17 +1282,37 @@ function renderDash() {
 
 function renderDayExercises(day) {
   const c = document.getElementById('trainingLogs');
+  // Dimanche = repos, rien à afficher
+  if (day === 'Dimanche') {
+    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;">😴 Repos complet</p>';
+    return;
+  }
   const best = {};
+  // Compter nb de séances distinctes par exercice (sur 180 jours)
+  const limit180 = Date.now() - 180 * 86400000;
+  const recentLogs = db.logs.filter(l => l.timestamp >= limit180);
+  const exoCount = {};
+  recentLogs.forEach(log => {
+    const seen = new Set();
+    log.exercises.forEach(e => {
+      if (!seen.has(e.name)) { exoCount[e.name] = (exoCount[e.name]||0)+1; seen.add(e.name); }
+    });
+  });
+
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-      const exoDay = getExerciseDay(exo.name);
-      const matchDay = log.day === day || (exoDay === day);
-      if (!matchDay && exoDay !== null) return;
-      if (!matchDay && exoDay === null && log.day !== day) return;
+      const exoDays = getExerciseDays(exo.name);
+      // L'exo est classifié → vérifier s'il appartient au jour demandé
+      if (exoDays.length > 0 && !exoDays.includes(day)) return;
+      // Non classifié → utiliser le jour de la séance comme fallback
+      if (exoDays.length === 0 && log.day !== day) return;
+
       const key = exo.name;
       const exoType = getExoType(exo.name);
+
       if (!best[key]) { best[key] = {...exo, exoType}; return; }
+
       if (exoType === 'cardio' || exoType === 'cardio_stairs') {
         if ((exo.distance||0) > (best[key].distance||0)) { best[key].distance = exo.distance; best[key].cardioDate = exo.cardioDate; }
         if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key].maxTime = exo.maxTime;
@@ -957,43 +1322,151 @@ function renderDayExercises(day) {
         if ((exo.maxReps||0) > (best[key].maxReps||0)) best[key].maxReps = exo.maxReps;
         if ((exo.totalReps||0) > (best[key].totalReps||0)) best[key].totalReps = exo.totalReps;
         if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key].maxRM = exo.maxRM;
-        if (exo.repRecords) { if (!best[key].repRecords) best[key].repRecords = {}; Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; }); }
+        // Merge repRecords
+        if (exo.repRecords) {
+          if (!best[key].repRecords) best[key].repRecords = {};
+          Object.entries(exo.repRecords).forEach(([r, w]) => {
+            if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w;
+          });
+        }
       } else {
         if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key] = {...exo, exoType};
-        if (exo.repRecords) { if (!best[key].repRecords) best[key].repRecords = {}; Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; }); }
+        // Merge repRecords
+        if (exo.repRecords) {
+          if (!best[key].repRecords) best[key].repRecords = {};
+          Object.entries(exo.repRecords).forEach(([r, w]) => {
+            if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w;
+          });
+        }
       }
     });
   });
-  if (!Object.keys(best).length) { c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:12px;">Aucun exercice pour ce jour</p>'; return; }
-  c.innerHTML = '<div style="padding:8px;background:var(--surface);border-radius:10px;">'+Object.entries(best).map(([n,e],idx) => formatExoDropdown(n,e,idx)).join('')+'</div>';
+
+  // Filtrer exercices vus < 2 fois (sauf Samedi = technique SBD rare → ≥1)
+  const minCount = day === 'Samedi' ? 1 : 2;
+  const filtered = Object.fromEntries(
+    Object.entries(best).filter(([n]) => (exoCount[n]||0) >= minCount)
+  );
+  if (!Object.keys(filtered).length) {
+    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:12px;">Aucun exercice pour ce jour</p>';
+    return;
+  }
+  c.innerHTML = '<div style="padding:8px;background:var(--surface);border-radius:10px;">'+Object.entries(filtered).map(([n,e],idx) => formatExoDropdown(n,e,idx)).join('')+'</div>';
 }
 
+// ============================================================
+// EXERCISE CARD DISPLAY
+// ============================================================
 function formatExoDropdown(name, exo, idx) {
   const exoType = exo.exoType || getExoType(name);
   const isPR = SBD_TYPES.some(t => exo.maxRM === db.bestPR[t] && db.bestPR[t] > 0);
   const medal = isPR ? ' 🥇' : '';
+
   let icon = '💪';
-  if (exoType === 'cardio') { const n = name.toLowerCase(); if (/natation|swimming|nage/.test(n)) icon = '🏊'; else if (/velo|cycling|bike/.test(n)) icon = '🚴'; else if (/randonnee|hiking/.test(n)) icon = '🥾'; else if (/rameur/.test(n)) icon = '🚣'; else icon = '🏃'; }
-  else if (exoType === 'cardio_stairs') icon = '🪜';
+  if (exoType === 'cardio') {
+    const n = name.toLowerCase();
+    if (/natation|swimming|nage/.test(n)) icon = '🏊';
+    else if (/velo|cycling|bike/.test(n)) icon = '🚴';
+    else if (/randonnee|hiking/.test(n)) icon = '🥾';
+    else if (/rameur/.test(n)) icon = '🚣';
+    else if (/corde.*sauter|jump.*rope/.test(n)) icon = '🪢';
+    else icon = '🏃';
+  } else if (exoType === 'cardio_stairs') icon = '🪜';
   else if (exoType === 'time') icon = '⏱';
   else if (exoType === 'reps') icon = '🔄';
+
   let mainDisplay = '', dateTs = null;
-  if (exoType === 'cardio' || exoType === 'cardio_stairs') { const parts=[]; if(exo.distance)parts.push(exo.distance.toFixed(2)+'km'); if(exo.maxTime){parts.push(formatTime(exo.maxTime));if(exo.distance){const kmh=exo.distance/(exo.maxTime/3600);parts.push(kmh.toFixed(1)+' km/h');}} mainDisplay=parts.join(' • ')||'Cardio'; dateTs=exo.cardioDate; }
-  else if (exoType === 'time') { mainDisplay=(!exo.maxTime||exo.maxTime<=1)?'⚠️ Re-importer':formatTime(exo.maxTime); dateTs=exo.maxTimeDate; }
-  else if (exoType === 'reps') { if(exo.maxRM>0)mainDisplay=exo.maxReps?exo.maxReps+' reps · e1RM '+exo.maxRM+'kg':'e1RM '+exo.maxRM+'kg'; else mainDisplay=exo.maxReps?exo.maxReps+' reps':'⚠️ Re-importer'; dateTs=exo.maxRepsDate; }
-  else { mainDisplay=exo.maxRM?exo.maxRM+'kg e1RM':'0kg'; dateTs=exo.maxRMDate; }
+
+  if (exoType === 'cardio' || exoType === 'cardio_stairs') {
+    const parts = [];
+    if (exo.distance) parts.push(exo.distance.toFixed(2)+'km');
+    if (exo.maxTime) {
+      parts.push(formatTime(exo.maxTime));
+      if (exo.distance) { const kmh = exo.distance/(exo.maxTime/3600); parts.push(kmh.toFixed(1)+' km/h'); }
+    }
+    mainDisplay = parts.join(' • ') || 'Cardio';
+    dateTs = exo.cardioDate;
+  } else if (exoType === 'time') {
+    // maxTime <= 1 = marqueur migration (vraie valeur inconnue) → afficher "?" 
+    mainDisplay = (!exo.maxTime || exo.maxTime <= 1) ? '⚠️ Re-importer' : formatTime(exo.maxTime);
+    dateTs = exo.maxTimeDate;
+  } else if (exoType === 'reps') {
+    // Afficher max reps + lest si dispo
+    if (exo.maxRM > 0) mainDisplay = exo.maxReps ? exo.maxReps+' reps · e1RM '+exo.maxRM+'kg' : 'e1RM '+exo.maxRM+'kg';
+    else mainDisplay = exo.maxReps ? exo.maxReps+' reps' : '⚠️ Re-importer';
+    dateTs = exo.maxRepsDate;
+  } else {
+    mainDisplay = exo.maxRM ? exo.maxRM+'kg e1RM' : '0kg';
+    dateTs = exo.maxRMDate;
+  }
+
   const ds = dateTs ? formatDate(dateTs) : '';
   const id = 'exo-'+idx;
+
   let detailsHtml = '';
-  if (exoType === 'weight' && exo.repRecords && Object.keys(exo.repRecords).length > 0) {
-    detailsHtml = Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).map(([reps,weight]) => { const e1rm=calcE1RM(weight,parseInt(reps)); const label=parseInt(reps)===1?'1RM réel':reps+'RM'; return '<div class="exo-detail-row"><span style="color:var(--sub);">'+label+': '+weight+'kg</span><span style="color:var(--green);font-weight:600;">e1RM: '+e1rm+'kg</span></div>'; }).join('');
-  } else if (exoType === 'cardio' || exoType === 'cardio_stairs') {
-    const records=[]; if(exo.distance)records.push('<div class="exo-detail-row"><span style="color:var(--sub);">📏 Distance</span><span style="color:var(--green);font-weight:600;">'+exo.distance.toFixed(2)+' km</span></div>'); if(exo.maxTime)records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Temps</span><span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span></div>'); if(exo.distance&&exo.maxTime){const kmh=exo.distance/(exo.maxTime/3600);records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ Vitesse moy.</span><span style="color:var(--green);font-weight:600;">'+kmh.toFixed(1)+' km/h</span></div>'); const minkm=(exo.maxTime/60)/exo.distance;const minPart=Math.floor(minkm);const secPart=Math.round((minkm-minPart)*60);records.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏃 Allure</span><span style="color:var(--green);font-weight:600;">'+minPart+"'"+String(secPart).padStart(2,'0')+'" /km</span></div>');} detailsHtml=records.join('');
+
+  if (exoType === 'weight') {
+    // Table RM : basée sur e1RM (Epley inverse), perf directe en badge
+    const TARGET_REPS = [1, 3, 5, 8, 10, 12, 15, 20];
+    const e1rm = exo.maxRM || 0;
+    if (e1rm > 0) {
+      const header = '<div style="font-size:10px;color:var(--sub);padding:6px 16px 4px;border-bottom:1px solid rgba(255,255,255,0.04);">Poids estimé depuis e1RM · ✓ = performance confirmée</div>';
+      const rows = TARGET_REPS.map(r => {
+        // Estimation Epley inverse — arrondi au 0.5kg le plus proche
+        const epley = r === 1 ? e1rm : e1rm * (1.0278 - 0.0278 * r);
+        const estimated = Math.round(epley * 2) / 2; // arrondi à 0.5
+        if (estimated <= 0) return '';
+        // Perf directe pour ce nb de reps exact
+        const direct = exo.repRecords && exo.repRecords[String(r)] ? parseFloat(exo.repRecords[String(r)]) : null;
+        // Afficher le max des deux
+        const display = direct && direct > estimated ? direct : estimated;
+        const label = r === 1 ? '1RM' : r + ' reps';
+        // Badge compact sur une 2e ligne si perf directe existe
+        let badge = '';
+        if (direct !== null) {
+          const diff = Math.round((direct - estimated) * 2) / 2;
+          const color = diff >= 0 ? 'var(--green)' : 'var(--orange)';
+          const sign = diff >= 0 ? '+' : '';
+          badge = '<div style="font-size:10px;color:'+color+';">✓ réel '+direct+'kg ('+sign+diff+')</div>';
+        }
+        return '<div class="exo-detail-row" style="align-items:flex-start;padding:7px 16px;">'
+          + '<span style="color:var(--sub);padding-top:1px;">'+label+'</span>'
+          + '<div style="text-align:right;"><div style="color:var(--blue);font-weight:700;">'+display+' kg</div>'+badge+'</div>'
+          + '</div>';
+      }).filter(Boolean).join('');
+      detailsHtml = rows ? header + rows : '';
+    }
+  } else if ((exoType === 'cardio' || exoType === 'cardio_stairs')) {
+    const records = [];
+    if (exo.distance) records.push('<div class="exo-detail-row"><span style="color:var(--sub);">📏 Distance</span><span style="color:var(--green);font-weight:600;">'+exo.distance.toFixed(2)+' km</span></div>');
+    if (exo.maxTime) records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Temps</span><span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span></div>');
+    if (exo.distance && exo.maxTime) { const kmh = exo.distance/(exo.maxTime/3600); records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ Vitesse moy.</span><span style="color:var(--green);font-weight:600;">'+kmh.toFixed(1)+' km/h</span></div>'); }
+    // Allure (min/km)
+    if (exo.distance && exo.maxTime) {
+      const minkm = (exo.maxTime/60) / exo.distance;
+      const minPart = Math.floor(minkm);
+      const secPart = Math.round((minkm - minPart)*60);
+      records.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏃 Allure</span><span style="color:var(--green);font-weight:600;">'+minPart+"'"+String(secPart).padStart(2,'0')+'" /km</span></div>');
+    }
+    detailsHtml = records.join('');
   } else if (exoType === 'reps') {
-    const rows=[]; if(exo.maxReps)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🔝 Max reps</span><span style="color:var(--green);font-weight:600;">'+(exo.maxReps||0)+' reps</span></div>'); if(exo.maxRM>0)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ e1RM lesté</span><span style="color:var(--green);font-weight:600;">'+exo.maxRM+'kg</span></div>'); if(exo.repRecords)Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([r,w])=>{rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">'+r+' reps lesté</span><span style="color:var(--green);font-weight:600;">'+w+'kg</span></div>');}); detailsHtml=rows.join('');
+    const rows = [];
+    if (exo.maxReps) rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🔝 Max reps</span><span style="color:var(--green);font-weight:600;">'+(exo.maxReps||0)+' reps</span></div>');
+    if (exo.maxRM > 0) rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ e1RM lesté</span><span style="color:var(--green);font-weight:600;">'+exo.maxRM+'kg</span></div>');
+    // Rep records lestés
+    if (exo.repRecords) {
+      Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([r,w])=>{
+        rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">'+r+' reps lesté</span><span style="color:var(--green);font-weight:600;">'+w+'kg</span></div>');
+      });
+    }
+    detailsHtml = rows.join('');
   } else if (exoType === 'time') {
-    const timeVal=(!exo.maxTime||exo.maxTime<=1)?'<span style="color:var(--orange);">Re-importe la séance</span>':'<span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span>'; detailsHtml='<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Record</span>'+timeVal+'</div>';
+    const timeVal = (!exo.maxTime || exo.maxTime <= 1)
+      ? '<span style="color:var(--orange);">Re-importe la séance pour récupérer le temps</span>'
+      : '<span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span>';
+    detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Record</span>'+timeVal+'</div>';
   }
+
   return '<div class="exo-header" onclick="toggleExo(\''+id+'\')"><span>'+icon+' '+name+medal+'</span><div style="display:flex;align-items:center;"><div style="text-align:right;"><div style="color:var(--blue);font-weight:600;font-size:12px;">'+mainDisplay+'</div>'+(ds?'<div style="font-size:10px;color:var(--sub);">'+ds+'</div>':'')+'</div><span class="chevron">▾</span></div></div>'+(detailsHtml?'<div class="exo-details" id="'+id+'">'+detailsHtml+'</div>':'');
 }
 
@@ -1002,20 +1475,170 @@ function toggleExo(id) { const el = document.getElementById(id); if (!el) return
 // ============================================================
 // CHARTS
 // ============================================================
-function renderSBDChart() {
-  const ctx = document.getElementById('chartSBD'); if (!ctx) return;
+function renderSBDChart() { setSBDView(window._sbdView||'bar'); }
+
+function setSBDView(view) {
+  window._sbdView = view;
+  document.querySelectorAll('[data-sbd]').forEach(b => b.classList.toggle('active', b.dataset.sbd === view));
+  if (view === 'bar') renderSBDBar(); else renderSBDLine();
+}
+
+function renderSBDBar() {
+  const ctx = document.getElementById('chartSBD');
+  if (!ctx) return;
   if (chartSBD) chartSBD.destroy();
   const lastPRDates = {};
-  SBD_TYPES.forEach(type => { for (const log of db.logs) { for (const exo of log.exercises) { if (getSBDType(exo.name) === type && exo.maxRM === db.bestPR[type]) { lastPRDates[type] = log.date.split(' à')[0]; return; } } } });
-  chartSBD = new Chart(ctx, { type: 'bar', data: { labels: ['Bench','Squat','Dead'], datasets: [{ label: '1RM Actuel', data: SBD_TYPES.map(t=>db.bestPR[t]), backgroundColor: ['#0A84FF','#32D74B','#FF9F0A'], borderRadius: 8, barThickness: 35 },{ label: '1RM Visé', data: SBD_TYPES.map(t=>db.user.targets[t]), backgroundColor: ['rgba(10,132,255,0.3)','rgba(50,215,75,0.3)','rgba(255,159,10,0.3)'], borderColor: ['#0A84FF','#32D74B','#FF9F0A'], borderWidth: 2, borderDash: [5,5], barThickness: 35 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 } } }, tooltip: { callbacks: { afterLabel(c) { const t=SBD_TYPES[c.dataIndex]; return c.datasetIndex===0?'Depuis: '+(lastPRDates[t]||'N/A'):'Reste: '+(db.user.targets[t]-db.bestPR[t])+'kg'; } } } }, scales: { y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } }, x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } } } } });
+  SBD_TYPES.forEach(type => {
+    for (const log of db.logs) {
+      for (const exo of log.exercises) {
+        if (getSBDType(exo.name)===type && exo.maxRM===db.bestPR[type]) { lastPRDates[type]=log.date.split(' à')[0]; return; }
+      }
+    }
+  });
+  chartSBD = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Bench','Squat','Dead'], datasets: [
+      { label: '1RM Actuel', data: SBD_TYPES.map(t=>db.bestPR[t]),
+        backgroundColor: ['#0A84FF','#32D74B','#FF9F0A'], borderRadius: 8, barThickness: 35 },
+      { label: '1RM Visé', data: SBD_TYPES.map(t=>db.user.targets[t]),
+        backgroundColor: ['rgba(10,132,255,0.3)','rgba(50,215,75,0.3)','rgba(255,159,10,0.3)'],
+        borderColor: ['#0A84FF','#32D74B','#FF9F0A'], borderWidth: 2, borderDash: [5,5], barThickness: 35 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 } } },
+        tooltip: { callbacks: { afterLabel(c) {
+          const t=SBD_TYPES[c.dataIndex];
+          return c.datasetIndex===0?'Depuis: '+(lastPRDates[t]||'N/A'):'Reste: '+(db.user.targets[t]-db.bestPR[t])+'kg';
+        }}}},
+      scales: { y: { grid: { color: '#2C2C2E', drawBorder: false }, ticks: { color: '#86868B' } },
+                x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } } }
+    }
+  });
+}
+
+function renderSBDLine() {
+  const ctx = document.getElementById('chartSBD');
+  if (!ctx) return;
+  if (chartSBD) chartSBD.destroy();
+  const colors = { bench: '#0A84FF', squat: '#32D74B', deadlift: '#FF9F0A' };
+  const lbls   = { bench: 'Bench', squat: 'Squat', deadlift: 'Deadlift' };
+
+  // Collect progression data: running maximum per type, chronological
+  const typeData = {};
+  SBD_TYPES.forEach(type => {
+    typeData[type] = [];
+    let max = 0;
+    [...db.logs].sort((a,b)=>a.timestamp-b.timestamp).forEach(log => {
+      log.exercises.forEach(exo => {
+        if (getSBDType(exo.name)===type && exo.maxRM>0 && exo.maxRM>max) {
+          max = exo.maxRM;
+          typeData[type].push({ x: log.shortDate||formatDate(log.timestamp), y: max });
+        }
+      });
+    });
+  });
+
+  // Collect all dates
+  const allDates = new Set();
+  SBD_TYPES.forEach(type => typeData[type].forEach(p => allDates.add(p.x)));
+  const sortedDates = [...allDates].sort((a,b) => {
+    const pa=a.split('/'), pb=b.split('/');
+    return new Date(+pa[2],+pa[1]-1,+pa[0]) - new Date(+pb[2],+pb[1]-1,+pb[0]);
+  });
+
+  const tickStep = Math.max(1, Math.floor(sortedDates.length/8));
+  const tickSet  = new Set(sortedDates.filter((_,i) => i%tickStep===0 || i===sortedDates.length-1));
+
+  const datasets = SBD_TYPES
+    .filter(type => typeData[type].length > 0)
+    .map(type => ({
+      label: lbls[type],
+      data: typeData[type],
+      borderColor: colors[type],
+      backgroundColor: colors[type]+'22',
+      borderWidth: 2.5,
+      pointRadius: 3,
+      pointBackgroundColor: colors[type],
+      tension: 0.3,
+      fill: false
+    }));
+
+  if (datasets.length === 0) { renderSBDBar(); return; }
+
+  chartSBD = new Chart(ctx, {
+    type: 'line',
+    data: { labels: sortedDates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 12 } },
+        tooltip: { callbacks: {
+          title: items => items[0]?.label||'',
+          label: c => ' '+c.dataset.label+': '+c.parsed.y+' kg (e1RM)'
+        }}
+      },
+      scales: {
+        x: { type: 'category', grid: { color: '#2C2C2E' },
+          ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 0,
+            callback: function(val,i) {
+              const lbl = this.getLabelForValue(val);
+              return tickSet.has(lbl) ? lbl.substring(0,5) : '';
+            }}},
+        y: { grid: { color: '#2C2C2E', drawBorder: false },
+             ticks: { color: '#86868B', callback: v => v+'kg' }}
+      }
+    }
+  });
 }
 
 function renderVolumeChart(period) {
   period = period||'week'; setPeriodButtons('volumeButtons', period);
   const cv = document.getElementById('chartVolume'); if (!cv) return;
   if (chartVolume) chartVolume.destroy();
-  const vl = getLogsInRange(period==='week'?7:30).filter(l=>l.volume>0).slice(0,10).reverse();
-  chartVolume = new Chart(cv, { type: 'line', data: { labels: vl.map(l=>(l.shortDate||l.date).substring(0,5)), datasets: [{ data: vl.map(l=>l.volume), borderColor: '#BF5AF2', backgroundColor: 'rgba(191,90,242,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#BF5AF2' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 } } } } } });
+  // Dernières N séances chronologiquement
+  const n = period === 'week' ? 10 : 30;
+  const sorted = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  const vl = sorted.filter(l => l.volume > 0).slice(0, n).reverse();
+  const labels = vl.map(l => {
+    const d = l.shortDate || l.date || '';
+    // Show DD/MM format
+    return d.length >= 5 ? d.substring(0,5) : d;
+  });
+  chartVolume = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: vl.map(l => l.volume),
+        borderColor: '#BF5AF2',
+        backgroundColor: 'rgba(191,90,242,0.1)',
+        borderWidth: 3, fill: true, tension: 0.4,
+        pointBackgroundColor: '#BF5AF2',
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const idx = items[0].dataIndex;
+              const log = vl[idx];
+              return (log.title || '') + ' — ' + (log.shortDate || log.date || '');
+            },
+            label: items => ' ' + (items.raw / 1000).toFixed(2) + ' tonnes'
+          }
+        }
+      },
+      scales: {
+        y: { display: false },
+        x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 45 } }
+      }
+    }
+  });
 }
 
 function renderMuscleChart(period) {
@@ -1028,27 +1651,65 @@ function renderMuscleChart(period) {
   const numAxes = RADAR_CONFIG.length, R = 120, cx = 150, cy = 150;
   const angleStep = 360/numAxes;
   let svg = '<svg viewBox="0 0 300 300" style="width:100%;height:100%;max-width:100%;">';
-  for (let lv=1; lv<=5; lv++) { const pts=[]; for (let i=0;i<numAxes;i++){const a=(i*angleStep-90)*Math.PI/180;const r=(lv/5)*R;pts.push((cx+r*Math.cos(a))+','+(cy+r*Math.sin(a)));}svg+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="#1C1C1E" stroke-width="0.8"/>'; }
-  const dp = []; for (let i=0;i<numAxes;i++){const a=(i*angleStep-90)*Math.PI/180;const r=(rd[i]/mx)*R;dp.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)});}
+  for (let lv=1; lv<=5; lv++) { const pts=[]; for (let i=0;i<numAxes;i++){const a=(i*angleStep)*Math.PI/180;const r=(lv/5)*R;pts.push((cx+r*Math.cos(a))+','+(cy+r*Math.sin(a)));}svg+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="#1C1C1E" stroke-width="0.8"/>'; }
+  const dp = []; for (let i=0;i<numAxes;i++){const a=(i*angleStep)*Math.PI/180;const r=(rd[i]/mx)*R;dp.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)});}
   svg += '<polygon points="'+dp.map(p=>p.x+','+p.y).join(' ')+'" fill="rgba(10,132,255,0.25)" stroke="#0A84FF" stroke-width="2.5"/>';
-  RADAR_CONFIG.forEach((cfg,i) => { svg += '<circle cx="'+dp[i].x+'" cy="'+dp[i].y+'" r="5" fill="'+cfg.color+'" stroke="white" stroke-width="2"/>'; const a=(i*angleStep-90)*Math.PI/180; svg += '<text x="'+(cx+(R+40)*Math.cos(a))+'" y="'+(cy+(R+40)*Math.sin(a))+'" text-anchor="middle" dominant-baseline="middle" fill="#86868B" font-size="11">'+cfg.label+'</text>'; });
+  RADAR_CONFIG.forEach((cfg,i) => { svg += '<circle cx="'+dp[i].x+'" cy="'+dp[i].y+'" r="5" fill="'+cfg.color+'" stroke="white" stroke-width="2"/>'; const a=(i*angleStep)*Math.PI/180; svg += '<text x="'+(cx+(R+40)*Math.cos(a))+'" y="'+(cy+(R+40)*Math.sin(a))+'" text-anchor="middle" dominant-baseline="middle" fill="#86868B" font-size="11">'+cfg.label+'</text>'; });
   svg += '</svg>';
   const ct = document.getElementById('chartMuscleContainer'); if (ct) ct.innerHTML = svg;
   const allGroups = [...RADAR_CONFIG, {label:'Cardio',key:'Cardio',color:'#FF9F0A'}];
-  document.getElementById('muscleList').innerHTML = allGroups.map(cfg => { const val = ms[cfg.key]||0; return '<div class="stat-row" style="padding:6px 0;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:'+cfg.color+'"></div><span style="font-size:13px;">'+cfg.label+'</span></div><span style="font-size:13px;font-weight:bold;">'+val+' séries</span></div>'; }).join('');
+  const totalSets = Object.values(ms).reduce((s,v)=>s+v,0);
+  const lastLog2 = db.logs.length > 0 ? [...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0] : null;
+  const emptyNote = totalSets === 0 && lastLog2
+    ? '<div style="text-align:center;font-size:11px;color:var(--sub);margin-top:8px;">Aucune séance dans cette période — dernière séance : '+(lastLog2.shortDate||lastLog2.date||'')+'</div>'
+    : '';
+  document.getElementById('muscleList').innerHTML = allGroups.map(cfg => { const val = ms[cfg.key]||0; return '<div class="stat-row" style="padding:6px 0;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:'+cfg.color+'"></div><span style="font-size:13px;">'+cfg.label+'</span></div><span style="font-size:13px;font-weight:bold;">'+val+' séries</span></div>'; }).join('') + emptyNote;
 }
 
 function renderReports(period) {
   period = period||'week'; setPeriodButtons('reportButtons', period);
-  const rl = getLogsInRange(period==='week'?7:30);
+  const days = period==='week' ? 7 : 30;
+  const rl = getLogsInRange(days);
   let tv=0, ts=0;
   rl.forEach(l => { tv += l.volume; l.exercises.forEach(e => ts += e.sets); });
-  document.getElementById('reportDisplay').innerHTML = '<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div><div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div><div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div><div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>';
+  // Si aucune donnée récente, afficher la dernière séance connue pour info
+  const lastLog = db.logs.length > 0 ? [...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0] : null;
+  const lastDateStr = lastLog ? (lastLog.shortDate||lastLog.date||'') : '';
+  const noDataNote = rl.length === 0 && lastLog
+    ? '<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--sub);margin-top:6px;">Aucune séance dans les '+days+'j — dernière séance : '+lastDateStr+'</div>'
+    : '';
+  document.getElementById('reportDisplay').innerHTML =
+    '<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div>'
+    +'<div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div>'
+    +'<div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div>'
+    +'<div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>'
+    +noDataNote;
 }
 
 function renderTopLifts() {
+  // Compter occurrences sur 180 jours
+  const limit180 = Date.now() - 180 * 86400000;
+  const recentLogs = db.logs.filter(l => l.timestamp >= limit180);
+  const exoCount = {};
+  recentLogs.forEach(log => {
+    const seen = new Set();
+    log.exercises.forEach(e => {
+      if (!seen.has(e.name)) { exoCount[e.name] = (exoCount[e.name]||0)+1; seen.add(e.name); }
+    });
+  });
+
   const bl = {};
-  db.logs.forEach(log => { log.exercises.forEach(exo => { if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return; const exoType = getExoType(exo.name); if (exoType !== 'weight' && exoType !== 'reps') return; if (!exo.maxRM || exo.maxRM <= 0) return; if (!bl[exo.name] || exo.maxRM > bl[exo.name].maxRM) bl[exo.name] = { name: exo.name, maxRM: exo.maxRM, date: exo.maxRMDate?formatDate(exo.maxRMDate):'N/A', muscle: getMuscleGroup(exo.name) }; }); });
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
+      if ((exoCount[exo.name]||0) < 4) return; // filtre < 4 occurrences
+      const exoType = getExoType(exo.name);
+      if (exoType !== 'weight' && exoType !== 'reps') return;
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      if (!bl[exo.name] || exo.maxRM > bl[exo.name].maxRM)
+        bl[exo.name] = { name: exo.name, maxRM: exo.maxRM, date: exo.maxRMDate?formatDate(exo.maxRMDate):'N/A', muscle: getMuscleGroup(exo.name) };
+    });
+  });
   const byMuscle = {};
   Object.values(bl).forEach(lift => { if (!byMuscle[lift.muscle]) byMuscle[lift.muscle]=[]; byMuscle[lift.muscle].push(lift); });
   const finalLifts = [];
@@ -1056,14 +1717,23 @@ function renderTopLifts() {
   finalLifts.sort((a,b) => b.maxRM - a.maxRM);
   const sorted = finalLifts.slice(0,15);
   const medals = ['🥇','🥈','🥉'];
-  document.getElementById('topExosList').innerHTML = sorted.length===0 ? '<p style="color:var(--sub);font-size:13px;text-align:center;">Aucun lift</p>' : sorted.map((l,i) => '<div class="stat-row"><span style="font-size:14px;">'+(medals[i]||'💪')+' '+l.name+'<span style="font-size:10px;color:var(--sub);margin-left:6px;">'+l.muscle+'</span></span><div style="text-align:right;"><div style="color:var(--blue);font-weight:bold;font-size:14px;">'+l.maxRM+'kg</div><div style="font-size:10px;color:var(--sub);">'+l.date+'</div></div></div>').join('');
+  document.getElementById('topExosList').innerHTML = sorted.length===0 ?
+    '<p style="color:var(--sub);font-size:13px;text-align:center;">Aucun lift</p>' :
+    sorted.map((l,i) => '<div class="stat-row"><span style="font-size:14px;">'+(medals[i]||'💪')+' '+l.name+'<span style="font-size:10px;color:var(--sub);margin-left:6px;">'+l.muscle+'</span></span><div style="text-align:right;"><div style="color:var(--blue);font-weight:bold;font-size:14px;">'+l.maxRM+'kg</div><div style="font-size:10px;color:var(--sub);">'+l.date+'</div></div></div>').join('');
 }
 
 // ============================================================
 // SETTINGS
 // ============================================================
 function updateProfile() { db.user.bw = parseFloat(document.getElementById('inputBW').value)||80; saveDB(); renderDash(); }
-function saveAPIKey() { const k = document.getElementById('inputAPIKey').value.trim(); if (k) localStorage.setItem('SBD_API_KEY', k); else localStorage.removeItem('SBD_API_KEY'); showToast(k?'✓ Clé API sauvegardée':'✓ Clé API supprimée'); }
+function saveAPIKey() {
+  // Sanitize: strip all non-printable and non-ASCII chars (smart quotes, zero-width spaces, BOM...)
+  const raw = document.getElementById('inputAPIKey').value;
+  const k = raw.replace(/[^ -~]/g, '').trim(); // ASCII printable only
+  if (k) { localStorage.setItem('SBD_API_KEY', k); document.getElementById('inputAPIKey').value = k; }
+  else localStorage.removeItem('SBD_API_KEY');
+  showToast(k ? '✓ Clé API sauvegardée' : '✓ Clé API supprimée');
+}
 function fullReset() { showModal('⚠️ Toutes les données seront effacées.', 'Effacer', 'var(--red)', () => { db = defaultDB(); saveDB(); refreshUI(); showToast('✓ Réinitialisé'); }); }
 
 // ============================================================
@@ -1075,18 +1745,277 @@ function cleanupExistingLogs() {
     const before = log.exercises.length;
     log.exercises = log.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
     if (log.exercises.length !== before) changed = true;
+
     log.exercises.forEach(exo => {
-      const exoType = getExoType(exo.name); exo.exoType = exoType;
+      const exoType = getExoType(exo.name);
+      exo.exoType = exoType;
+
+      // 1. Init repRecords
       if (!exo.repRecords) { exo.repRecords = {}; changed = true; }
-      if (exo.series && exo.series.length > 0) { exo.series.forEach(s => { if (!s.weight || !s.reps) return; const rKey=String(s.reps); if(!exo.repRecords[rKey]||s.weight>exo.repRecords[rKey]){exo.repRecords[rKey]=s.weight;changed=true;} const rm=calcE1RM(s.weight,s.reps); if(rm>(exo.maxRM||0)){exo.maxRM=rm;changed=true;} }); }
-      if (exoType==='reps'&&!exo.isReps){exo.isReps=true;changed=true;}
-      if (exoType==='time'&&!exo.isTime){exo.isTime=true;changed=true;}
-      if ((exoType==='cardio'||exoType==='cardio_stairs')&&!exo.isCardio){exo.isCardio=true;changed=true;}
-      if (exoType==='reps'){ if((exo.totalReps||0)>(exo.maxReps||0)){exo.maxReps=exo.totalReps;changed=true;} if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{if((s.reps||0)>(exo.maxReps||0)){exo.maxReps=s.reps;changed=true;}});} }
-      if (exoType==='time'){ if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{const t=s.reps||0;if(t>1&&t<3600&&t>(exo.maxTime||0)){exo.maxTime=t;changed=true;}});} }
+
+      // 2. Reconstruire repRecords + maxRM depuis series (exos avec poids)
+      if (exo.series && exo.series.length > 0) {
+        exo.series.forEach(s => {
+          if (!s.weight || !s.reps) return;
+          const rKey = String(s.reps);
+          if (!exo.repRecords[rKey] || s.weight > exo.repRecords[rKey]) {
+            exo.repRecords[rKey] = s.weight; changed = true;
+          }
+          const rm = calcE1RM(s.weight, s.reps);
+          if (rm > (exo.maxRM || 0)) { exo.maxRM = rm; changed = true; }
+        });
+      }
+
+      // 3. Flags de type
+      if (exoType === 'reps' && !exo.isReps) { exo.isReps = true; changed = true; }
+      if (exoType === 'time' && !exo.isTime) { exo.isTime = true; changed = true; }
+      if ((exoType === 'cardio' || exoType === 'cardio_stairs') && !exo.isCardio) { exo.isCardio = true; changed = true; }
+
+      // 4. Recalcul maxReps pour exos poids-de-corps
+      if (exoType === 'reps') {
+        // Récupérer depuis series[] si disponible (exos lestés)
+        if (exo.series && exo.series.length > 0) {
+          exo.series.forEach(s => {
+            if ((s.reps || 0) > (exo.maxReps || 0)) {
+              exo.maxReps = s.reps; changed = true;
+            }
+          });
+        }
+        // Détection de valeur corrompue: maxReps trop élevé ET pas de series[]
+        // (ancien bug: totalReps copié dans maxReps)
+        const hasNoSeries = !exo.series || exo.series.length === 0;
+        if (hasNoSeries && (exo.maxReps || 0) > 60) {
+          // Valeur suspecte — totalReps cumulé sur toutes les séances
+          // On remet à 0, l'affichage dira "Re-importer"
+          exo.maxReps = 0; changed = true;
+        }
+      }
+
+      // 5. Recalcul maxTime pour gainage/planche
+      if (exoType === 'time') {
+        // Essai A : certains anciens logs avaient le temps mal stocké en "reps" dans series[]
+        if (exo.series && exo.series.length > 0) {
+          exo.series.forEach(s => {
+            const t = s.reps || 0;
+            if (t > 1 && t < 3600 && t > (exo.maxTime || 0)) {
+              exo.maxTime = t; changed = true;
+            }
+          });
+        }
+        // Essai B : si l'ancien parseur a stocké les sets mais pas le temps
+        // → on ne peut pas récupérer la valeur, on laisse maxTime=0
+        // L'affichage montrera "Re-importer" à la place de "0s"
+      }
     });
   });
   if (changed) saveDB();
+}
+
+
+// ============================================================
+// WEEKLY PLAN AI
+// ============================================================
+let wpSelectedDay = DAYS_FULL[new Date().getDay()] === 'Dimanche' ? 'Lundi' : DAYS_FULL[new Date().getDay()];
+
+const AI_WEEKLY_PLAN_SYSTEM = `Tu es un coach powerlifting expert. Tu génères un programme hebdomadaire structuré en JSON strict.
+
+CONTEXTE ATHLÈTE :
+• Programme : Lundi=Squat/Quads, Mardi=Push, Mercredi=Natation récup, Jeudi=Pull+Deadlift, Vendredi=Upper/Points faibles, Samedi=SBD technique, Dimanche=Repos
+• Nutrition : intolérance lactose (Whey Isolate OK). Suppléments : Créatine 5g, Oméga-3, ZMB, Collagène, Glycine, Work! pre-workout.
+• "abandon" = drop-set
+
+SÉANCES DE RÉFÉRENCE (bloc précédent — base de calibration des charges) :
+
+LUNDI — Squat Lourd / Quads
+Squat (Barre): échauff 60×8/80×6/100×4/120×2/130×1 | travail 130×4@9 / 115×4@10 (drop)
+Extension Jambes: 45×15 / 45×15 / 47.3×12
+Presse à Cuisses: 235.7×10 / 255.7×10 / 275.7×8
+Extension Mollets Debout (Machine): 70.4×20 / 90.4×20 / 100.4×15
+
+MARDI — Bench Lourd / Dos
+Développé Couché (Barre): échauff 60×8/80×6/100×4/110×2/120×1 | travail 120×4@7 / 120×4@8 / 120×4@8.5 / 120×4@10
+Tractions: 6 ×4 (poids de corps)
+Rowing Poulie Assis: échauff 59×10 | 73×10@7 / 73×10@8 / 75.3×8
+Écartés Poulie Basse: 18×15 ×3
+Tirage vers Visage: 18×15 ×3
+
+MERCREDI — Natation ~1km
+Récupération active. Donner conseil de nage dans coachNote (style, tempo, récup entre longueurs).
+
+JEUDI — Deadlift Lourd / Fessiers
+Soulevé de Terre (Barre): échauff 60×10/100×6/120×4/140×2/150×1 | travail 150×3 ×2 / 160×3
+Hip Thrust (Machine): 62.7×10 / 72.7×10 / 77.7×8
+Leg Curl Allongé (Machine): 34.3×12 / 36×12 / 38.3×10
+Abduction Hanche: 52×20 / 59×20 / 66×15
+
+VENDREDI — Bench Volume / HDC
+Développé Couché (Barre): échauff 60×10/75×6/90×4/100×2/110×1 | travail 105×6 ×5 (volume)
+Développé Couché Incliné (Haltère): 72×10 / 72×10 / 72×8
+Tirage Poitrine (Poulie): 45×12 / 52×12 / 59×10
+Curl Biceps (Poulie): 11.3×15 / 15.8×15 / 13.5×12
+Extension Triceps Poulie Haute: 18×15 / 22.5×15 / 27×12
+
+SAMEDI — SBD Technique
+Squat avec pause (barre): échauff 60×8/80×4 | 95×6 ×2 / 100×6
+Spoto Bench: échauff 60×8/80×4 | 90×6 ×2 / 90×8
+Soulevé De Terre avec pause: échauff 60×8/80×4/100×2 | 110×5 / 115×5 ×2
+
+RÈGLES DE GÉNÉRATION :
+- Répondre UNIQUEMENT avec du JSON valide, aucun texte avant ou après, pas de backticks
+- isWarmup: true pour les séries d'échauffement
+- Charges = poids réels (pas des e1RM)
+- Semaine 1 post-deload : 90-92% des charges de référence, 3-4 séries de travail, RPE cible 7-8
+- Semaine 2 : +2.5kg sur les mouvements principaux, 1 série supplémentaire si toléré
+- Semaine 3 : +2.5kg supplémentaires, RPE cible 8-9
+- Semaine 4 Peak : 2-3 séries seulement, charges maximales
+- Dimanche : rest: true, exercises: []
+- coachNote : max 25 mots, direct, motivant 🦍. Pour mercredi, inclure conseil de nage.
+
+FORMAT JSON :
+{
+  "bloc": 2,
+  "week": 1,
+  "generated_at": "ISO timestamp",
+  "days": [
+    {
+      "day": "Lundi",
+      "title": "🦵 Squat / Quadriceps",
+      "rest": false,
+      "coachNote": "texte coach max 25 mots",
+      "exercises": [
+        {
+          "name": "Squat (Barre)",
+          "type": "weight",
+          "restSeconds": 180,
+          "sets": [
+            { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 100, "reps": 8,  "rpe": 7 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+Pour cardio (type:"cardio"): sets avec { "distance": 1.0, "durationMin": 10 }
+Pour isométrique (type:"time"): sets avec { "durationSec": 60, "isWarmup": false }
+Pour poids de corps (type:"reps"): sets avec { "reps": 10, "weight": 0, "isWarmup": false }`;
+
+async function generateWeeklyPlan() {
+  const apiKey = localStorage.getItem('SBD_API_KEY');
+  if (!apiKey) { showToast('⚠️ Clé API requise dans Réglages'); return; }
+  const btn = document.getElementById('wpGenerateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="ai-loading-dots" style="margin:0;"><span></span><span></span><span></span></div> Génération en cours...';
+  const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
+  const ctx = buildAthleteContext();
+  // Chercher dernière séance lundi pour référence squat
+  const lastLundi = db.logs.find(l => l.day === 'Lundi');
+  let sqRef = '';
+  if (lastLundi) {
+    const sqExo = lastLundi.exercises.find(e => getSBDType(e.name) === 'squat');
+    if (sqExo && sqExo.repRecords) {
+      sqRef = 'Dernière séance Lundi — Squat: '+Object.entries(sqExo.repRecords).map(([r,w])=>w+'kg×'+r).join(', ');
+    }
+  }
+  const prompt = `Génère le programme complet de la semaine.
+
+PROFIL : ${ctx.bw}kg | PRs e1RM estimés : Bench=${ctx.bestPR.bench}kg | Squat=${ctx.bestPR.squat}kg | Deadlift=${ctx.bestPR.deadlift}kg
+Objectifs : Bench=${ctx.targets.bench}kg | Squat=${ctx.targets.squat}kg | Deadlift=${ctx.targets.deadlift}kg
+Bloc 2 — Semaine ${weekNum}${weekNum===1?' (première semaine post-deload)':''}
+${sqRef ? sqRef+'\n' : ''}Séances récentes : ${ctx.recentVolumes.map(v=>v.title+' ('+v.date+', '+(v.vol/1000).toFixed(1)+'t)').join(' | ')||'Aucune'}
+
+Génère le JSON complet pour les 7 jours (Lundi → Dimanche).`;
+
+  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt);
+  btn.disabled = false;
+  btn.innerHTML = '✦ Générer le programme de la semaine';
+  if (!result) { showToast('⚠️ Erreur génération'); return; }
+  try {
+    const clean = result.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const plan = JSON.parse(clean);
+    plan.generated_at = new Date().toISOString();
+    db.weeklyPlan = plan;
+    saveDB();
+    showToast('✅ Programme généré !');
+    renderWeeklyPlanUI();
+  } catch(e) {
+    console.error('Weekly plan parse error:', e, result);
+    showToast('⚠️ Erreur format — réessaie');
+  }
+}
+
+function regenerateWeeklyPlan() {
+  showModal('Régénérer le programme ? Les charges actuelles seront remplacées.', 'Régénérer', 'var(--blue)', () => {
+    db.weeklyPlan = null; saveDB(); renderWeeklyPlanUI(); generateWeeklyPlan();
+  });
+}
+
+function wpSelectDay(day) { wpSelectedDay = day; renderWeeklyPlanUI(); }
+
+function renderWeeklyPlanUI() {
+  const plan = db.weeklyPlan;
+  const genBtn = document.getElementById('wpGenerateBtn');
+  const regenBtn = document.getElementById('wpRegenBtn');
+  const meta = document.getElementById('wpMeta');
+  const content = document.getElementById('wpContent');
+  const select = document.getElementById('wpBlocSelect');
+  if (!plan) {
+    genBtn.style.display = 'flex'; regenBtn.style.display = 'none'; meta.textContent = '';
+    content.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div>';
+    return;
+  }
+  genBtn.style.display = 'none'; regenBtn.style.display = 'block';
+  if (select) select.value = String(plan.week || 1);
+  const genDate = plan.generated_at ? new Date(plan.generated_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) : '';
+  meta.textContent = genDate ? 'Généré le '+genDate : '';
+  const todayName = DAYS_FULL[new Date().getDay()];
+  // Day pills — Lundi→Samedi puis Dimanche
+  const orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  const pillsHtml = orderedDays.map(day => {
+    const dayData = plan.days ? plan.days.find(d => d.day === day) : null;
+    const isRest = !dayData || dayData.rest;
+    const isToday = day === todayName;
+    const isActive = day === wpSelectedDay;
+    let cls = 'wp-day-pill';
+    if (isRest) cls += ' rest';
+    else if (isToday) cls += ' today';
+    if (isActive) cls += ' active';
+    const onclick = isRest ? '' : `onclick="wpSelectDay('${day}')"`;
+    return `<div class="${cls}" ${onclick}>${day.substring(0,3)}</div>`;
+  }).join('');
+  // Session for selected day
+  const sel = plan.days ? plan.days.find(d => d.day === wpSelectedDay) : null;
+  let sessionHtml = '';
+  if (!sel || sel.rest) {
+    sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
+  } else {
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote ? `<div class="wp-coach-note">🦍 ${sel.coachNote}</div>` : ''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div></div>`;
+  }
+  content.innerHTML = `<div class="wp-bloc-badge">Bloc ${plan.bloc||2} — Semaine ${plan.week||1}</div><div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
+}
+
+function renderWpExercise(exo) {
+  const type = exo.type || 'weight';
+  const restFmt = exo.restSeconds ? Math.floor(exo.restSeconds/60)+'min'+(exo.restSeconds%60?String(exo.restSeconds%60).padStart(2,'0')+'s':'') : '';
+  const sets = exo.sets || [];
+  let tableHtml = '';
+  if (type === 'weight') {
+    const wup = sets.filter(s=>s.isWarmup), wrk = sets.filter(s=>!s.isWarmup);
+    let rows = wup.map((s,i)=>`<tr class="wp-warmup-row"><td style="font-size:11px;">Éch.${i+1}</td><td class="wp-charge" style="color:var(--sub);">${s.weight}kg</td><td>${s.reps} reps</td><td style="color:var(--sub);">—</td></tr>`).join('');
+    rows += wrk.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight}kg</td><td style="font-weight:600;">${s.reps} reps</td><td style="color:var(--orange);font-size:11px;">${s.rpe?'RPE '+s.rpe:'—'}</td></tr>`).join('');
+    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Charge</th><th>Reps</th><th>RPE</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else if (type === 'time') {
+    const rows = sets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td colspan="3" class="wp-charge">${s.durationSec?(s.durationSec>=60?Math.floor(s.durationSec/60)+'min'+(s.durationSec%60?String(s.durationSec%60).padStart(2,'0')+'s':''):s.durationSec+'s'):'—'}</td></tr>`).join('');
+    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th colspan="3">Durée</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else if (type === 'cardio') {
+    const rows = sets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.distance?s.distance+'km':'—'}</td><td>${s.durationMin?s.durationMin+'min':'—'}</td><td style="color:var(--sub);font-size:11px;">Allure libre</td></tr>`).join('');
+    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Dist.</th><th>Durée</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else {
+    const rows = sets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight?s.weight+'kg':'Corps'}</td><td style="font-weight:600;">${s.reps} reps</td><td>—</td></tr>`).join('');
+    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Charge</th><th>Reps</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  const typeLabel = type==='weight'?'🏋️':type==='cardio'?'🏃':type==='time'?'⏱':'🔄';
+  return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}</span><span class="wp-exo-type">${typeLabel}</span></div>${tableHtml}${restFmt?`<div class="wp-rest-tag">⏸ Repos : ${restFmt}</div>`:''}</div>`;
 }
 
 // ============================================================
@@ -1097,109 +2026,229 @@ function cleanupExistingLogs() {
   if (!db.weeklyPlan) db.weeklyPlan = null;
   let ns = false;
   db.logs.forEach(l => { if (!l.id) { l.id = generateId(); ns = true; } });
+  // Recalcul PRs SBD
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
-  db.logs.forEach(log => { log.exercises.forEach(exo => { const t = getSBDType(exo.name); if (t && exo.maxRM > db.bestPR[t]) { db.bestPR[t] = exo.maxRM; while (db.bestPR[t] >= db.user.targets[t]) db.user.targets[t] += 5; ns = true; } }); });
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      const t = getSBDType(exo.name);
+      if (t && exo.maxRM > db.bestPR[t]) {
+        db.bestPR[t] = exo.maxRM;
+        while (db.bestPR[t] >= db.user.targets[t]) db.user.targets[t] += 5;
+        ns = true;
+      }
+    });
+  });
   if (ns) saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
   const today = DAYS_FULL[new Date().getDay()];
   selectedDay = today;
-  wpSelectedDay = today === 'Dimanche' ? 'Lundi' : today;
   document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.dataset.day === today));
   document.getElementById('inputBW').value = db.user.bw;
   newPRs = { bench: false, squat: false, deadlift: false };
   renderDash();
   updateCoachBadge();
-  cloudSignIn().then(user => { if (user && db.logs.length === 0) syncFromCloud(); else if (user) syncToCloud(true); });
+  cloudSignIn().then(user => {
+    if (user && db.logs.length === 0) syncFromCloud();
+    else if (user) syncToCloud(true);
+  });
   handleAuthCallback();
   if (shouldGenerateWeekly()) { setTimeout(() => { aiGenerateWeekly(); }, 1500); }
 })();
 
 // ============================================================
-// CSV IMPORT
+// CSV IMPORT — Historique Google Sheets
 // ============================================================
 let csvParsedData = null;
 
 function previewCSV(input) {
-  const file = input.files[0]; if (!file) return;
+  const file = input.files[0];
+  if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     const text = e.target.result;
     const result = parseCSVData(text);
-    if (!result) { document.getElementById('csvPreview').style.display='block'; document.getElementById('csvPreview').innerHTML='<span style="color:var(--red);">❌ Format non reconnu.</span>'; document.getElementById('csvImportBtn').disabled=true; return; }
+    if (!result) {
+      document.getElementById('csvPreview').style.display = 'block';
+      document.getElementById('csvPreview').innerHTML = '<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';
+      document.getElementById('csvImportBtn').disabled = true;
+      return;
+    }
     csvParsedData = result;
-    const preview = document.getElementById('csvPreview');
-    preview.style.display = 'block';
     const existingDates = new Set(db.logs.map(l => l.shortDate));
     const newSessions = result.sessions.filter(s => !existingDates.has(s.shortDate));
-    preview.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;"><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--purple);">'+result.sessions.length+'</div><div>Séances</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--green);">'+newSessions.length+'</div><div>Nouvelles</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--blue);">'+result.totalRows+'</div><div>Séries</div></div></div><div style="font-size:11px;color:var(--sub);">Période : '+result.dateMin+' → '+result.dateMax+'</div>'+(newSessions.length < result.sessions.length ? '<div style="font-size:11px;color:var(--orange);margin-top:4px;">⚠️ '+(result.sessions.length - newSessions.length)+' séance(s) déjà importée(s) — ignorées.</div>' : '');
+    const preview = document.getElementById('csvPreview');
+    preview.style.display = 'block';
+    preview.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">' +
+      '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--purple);">'+result.sessions.length+'</div><div>Séances</div></div>' +
+      '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--green);">'+newSessions.length+'</div><div>Nouvelles</div></div>' +
+      '<div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--blue);">'+result.totalRows+'</div><div>Séries</div></div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--sub);">Période : '+result.dateMin+' → '+result.dateMax+'</div>' +
+      (newSessions.length < result.sessions.length ?
+        '<div style="font-size:11px;color:var(--orange);margin-top:4px;">⚠️ '+(result.sessions.length - newSessions.length)+' séance(s) déjà importée(s) — ignorées.</div>' : '');
     document.getElementById('csvImportBtn').disabled = newSessions.length === 0;
     if (newSessions.length === 0) document.getElementById('csvImportBtn').textContent = 'Tout est déjà importé';
+    else document.getElementById('csvImportBtn').textContent = "Importer l'historique";
   };
   reader.readAsText(file, 'UTF-8');
 }
 
 function parseCSVData(text) {
-  const lines = text.split('\n').filter(l => l.trim()); if (lines.length < 2) return null;
-  const header = lines[0]; const sep = header.includes(';') ? ';' : ',';
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return null;
+  const header = lines[0];
+  const sep = header.includes(';') ? ';' : ',';
   const cols = header.split(sep).map(c => c.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
-  const iDate=cols.findIndex(c=>c==='date'); const iSeance=cols.findIndex(c=>c.includes('seance')||c.includes('séance')); const iExo=cols.findIndex(c=>c.includes('exercice')); const iPoids=cols.findIndex(c=>c.includes('poids')); const iReps=cols.findIndex(c=>c==='reps'); const iDist=cols.findIndex(c=>c.includes('distance')||c.includes('dist')); const iDuree=cols.findIndex(c=>c.includes('duree')||c.includes('durée')||c.includes('dur'));
-  if (iDate===-1||iExo===-1) return null;
-  const sessionsMap = new Map(); let totalRows=0, dateMin='99/99/9999', dateMax='01/01/1900';
-  for (let i=1; i<lines.length; i++) {
-    const row=lines[i].split(sep); if(row.length<3)continue;
-    const dateRaw=(row[iDate]||'').trim(); const seance=(iSeance>=0?row[iSeance]:'').trim(); const exo=(row[iExo]||'').trim();
-    if(!dateRaw||!exo)continue;
-    const poids=parseFloat((row[iPoids]||'').replace(',','.'))||0; const reps=parseInt(row[iReps]||'')||0; const dist=parseFloat((row[iDist]||'').replace(',','.'))||0; const duree=parseFloat((row[iDuree]||'').replace(',','.'))||0;
-    const key=dateRaw+'||'+seance; if(!sessionsMap.has(key))sessionsMap.set(key,{dateRaw,seance,rows:[]});
-    sessionsMap.get(key).rows.push({exo,poids,reps,dist,duree}); totalRows++;
-    if(dateRaw<dateMin)dateMin=dateRaw; if(dateRaw>dateMax)dateMax=dateRaw;
+  const iDate  = cols.findIndex(c => c === 'date');
+  const iSeance= cols.findIndex(c => c.includes('seance'));
+  const iExo   = cols.findIndex(c => c.includes('exercice'));
+  const iPoids = cols.findIndex(c => c.includes('poids'));
+  const iReps  = cols.findIndex(c => c === 'reps');
+  const iDist  = cols.findIndex(c => c.includes('distance') || c.includes('dist'));
+  const iDuree = cols.findIndex(c => c.includes('duree') || c.includes('dur'));
+  if (iDate === -1 || iExo === -1) return null;
+
+  const sessionsMap = new Map();
+  let totalRows = 0, dateMin = '99/99/9999', dateMax = '01/01/1900';
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i].split(sep);
+    if (row.length < 3) continue;
+    const dateRaw = (row[iDate]||'').trim();
+    const seance  = (iSeance >= 0 ? row[iSeance] : '').trim();
+    const exo     = (row[iExo]||'').trim();
+    if (!dateRaw || !exo) continue;
+    const poids = parseFloat((row[iPoids]||'').replace(',','.')) || 0;
+    const reps  = parseInt(row[iReps]||'') || 0;
+    const dist  = parseFloat((row[iDist]||'').replace(',','.')) || 0;
+    const duree = parseFloat((row[iDuree]||'').replace(',','.')) || 0;
+    const key = dateRaw + '||' + seance;
+    if (!sessionsMap.has(key)) sessionsMap.set(key, { dateRaw, seance, rows: [] });
+    sessionsMap.get(key).rows.push({ exo, poids, reps, dist, duree });
+    totalRows++;
+    if (dateRaw < dateMin) dateMin = dateRaw;
+    if (dateRaw > dateMax) dateMax = dateRaw;
   }
-  const sessions=[]; for(const[,v]of sessionsMap){const session=buildSessionFromCSV(v.dateRaw,v.seance,v.rows);if(session)sessions.push(session);}
-  sessions.sort((a,b)=>b.timestamp-a.timestamp);
-  return {sessions,totalRows,dateMin,dateMax};
+  const sessions = [];
+  for (const [, v] of sessionsMap) {
+    const s = buildSessionFromCSV(v.dateRaw, v.seance, v.rows);
+    if (s) sessions.push(s);
+  }
+  sessions.sort((a,b) => b.timestamp - a.timestamp);
+  return { sessions, totalRows, dateMin, dateMax };
 }
 
 function buildSessionFromCSV(dateRaw, seanceName, rows) {
-  const parts=dateRaw.split('/'); if(parts.length!==3)return null;
-  const ts=new Date(parseInt(parts[2]),parseInt(parts[1])-1,parseInt(parts[0]),12,0,0).getTime(); if(isNaN(ts))return null;
-  const titleParts=seanceName.split(' - '); const title=titleParts[0].trim(); const type=titleParts[1]?titleParts[1].trim():'';
-  const session={date:dateRaw,shortDate:dateRaw,timestamp:ts,volume:0,exercises:[],id:generateId(),title,type,day:DAYS_FULL[new Date(ts).getDay()]};
-  const exoMap=new Map(); for(const row of rows){if(!exoMap.has(row.exo))exoMap.set(row.exo,[]);exoMap.get(row.exo).push(row);}
-  for(const[exoName,sets]of exoMap){
-    const exoType=getExoType(exoName); const isCardio=exoType==='cardio'||exoType==='cardio_stairs'; const isTime=exoType==='time'; const isReps=exoType==='reps';
-    const exo={name:exoName,exoType,isCardio,isTime,isReps,maxRM:0,maxReps:0,totalReps:0,maxTime:0,distance:0,sets:0,repRecords:{},series:[]};
-    for(const s of sets){
-      exo.sets++;
-      if(isCardio){const distKm=s.dist>0?s.dist/1000:0;if(distKm>exo.distance)exo.distance=distKm;if(s.duree>exo.maxTime){exo.maxTime=s.duree;exo.cardioDate=ts;}}
-      else if(isTime){if(s.duree>exo.maxTime){exo.maxTime=s.duree;exo.maxTimeDate=ts;}session.volume+=s.duree/10;}
-      else if(isReps){exo.totalReps+=s.reps;if(s.reps>exo.maxReps){exo.maxReps=s.reps;exo.maxRepsDate=ts;}if(s.poids>0){session.volume+=s.poids*s.reps;const rm=calcE1RM(s.poids,s.reps);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}const rKey=String(s.reps);if(!exo.repRecords[rKey]||s.poids>exo.repRecords[rKey])exo.repRecords[rKey]=s.poids;}}
-      else{const w=s.poids,r=s.reps;if(w>0&&r>0){session.volume+=w*r;const rKey=String(r);if(!exo.repRecords[rKey]||w>exo.repRecords[rKey])exo.repRecords[rKey]=w;const ex=exo.series.find(x=>x.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=ts;}}else exo.series.push({weight:w,reps:r,date:ts});const rm=calcE1RM(w,r);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}}}
-    }
-    if(exo.maxRM>0||exo.isCardio||exo.maxTime>0||exo.maxReps>0||exo.sets>0)session.exercises.push(exo);
+  const parts = dateRaw.split('/');
+  if (parts.length !== 3) return null;
+  const ts = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]), 12, 0, 0).getTime();
+  if (isNaN(ts)) return null;
+  const titleParts = seanceName.split(' - ');
+  const session = {
+    date: dateRaw, shortDate: dateRaw,
+    timestamp: ts, volume: 0,
+    exercises: [], id: generateId(),
+    title: titleParts[0].trim(), type: titleParts[1] ? titleParts[1].trim() : '',
+    day: DAYS_FULL[new Date(ts).getDay()]
+  };
+  const exoMap = new Map();
+  for (const row of rows) {
+    if (!exoMap.has(row.exo)) exoMap.set(row.exo, []);
+    exoMap.get(row.exo).push(row);
   }
-  return session.exercises.length>0?session:null;
+  for (const [exoName, sets] of exoMap) {
+    const exoType = getExoType(exoName);
+    const isCardio = exoType === 'cardio' || exoType === 'cardio_stairs';
+    const isTime   = exoType === 'time';
+    const isReps   = exoType === 'reps';
+    const exo = {
+      name: exoName, exoType, isCardio, isTime, isReps,
+      maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0,
+      distance: 0, sets: 0, repRecords: {}, series: []
+    };
+    for (const s of sets) {
+      exo.sets++;
+      if (isCardio) {
+        const distKm = s.dist > 0 ? s.dist / 1000 : 0;
+        if (distKm > exo.distance) exo.distance = distKm;
+        if (s.duree > exo.maxTime) { exo.maxTime = s.duree; exo.cardioDate = ts; }
+      } else if (isTime) {
+        if (s.duree > exo.maxTime) { exo.maxTime = s.duree; exo.maxTimeDate = ts; }
+        session.volume += s.duree / 10;
+      } else if (isReps) {
+        exo.totalReps += s.reps;
+        if (s.reps > exo.maxReps) { exo.maxReps = s.reps; exo.maxRepsDate = ts; }
+        if (s.poids > 0) {
+          session.volume += s.poids * s.reps;
+          const rm = calcE1RM(s.poids, s.reps);
+          if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+          const rKey = String(s.reps);
+          if (!exo.repRecords[rKey] || s.poids > exo.repRecords[rKey]) exo.repRecords[rKey] = s.poids;
+        }
+      } else {
+        const w = s.poids, r = s.reps;
+        if (w > 0 && r > 0) {
+          session.volume += w * r;
+          const rKey = String(r);
+          if (!exo.repRecords[rKey] || w > exo.repRecords[rKey]) exo.repRecords[rKey] = w;
+          const ex = exo.series.find(x => x.reps === r);
+          if (ex) { if (w > ex.weight) ex.weight = w; } else exo.series.push({ weight: w, reps: r, date: ts });
+          const rm = calcE1RM(w, r);
+          if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+        }
+      }
+    }
+    if (exo.maxRM > 0 || exo.isCardio || exo.maxTime > 0 || exo.maxReps > 0 || exo.sets > 0)
+      session.exercises.push(exo);
+  }
+  return session.exercises.length > 0 ? session : null;
 }
 
 async function importCSV() {
   if (!csvParsedData) return;
-  const btn=document.getElementById('csvImportBtn'); btn.disabled=true; btn.textContent='Import en cours...';
-  const progress=document.getElementById('csvProgress'); const bar=document.getElementById('csvProgressBar'); const txt=document.getElementById('csvProgressText');
-  progress.style.display='block';
-  const existingDates=new Set(db.logs.map(l=>l.shortDate)); const newSessions=csvParsedData.sessions.filter(s=>!existingDates.has(s.shortDate));
-  let imported=0, prs={bench:0,squat:0,deadlift:0};
-  for(const session of newSessions){
-    session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;prs[type]=exo.maxRM;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;}});
-    db.logs.push(session); imported++;
-    if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
+  const btn = document.getElementById('csvImportBtn');
+  btn.disabled = true;
+  btn.textContent = 'Import en cours...';
+  const progress = document.getElementById('csvProgress');
+  const bar = document.getElementById('csvProgressBar');
+  const txt = document.getElementById('csvProgressText');
+  progress.style.display = 'block';
+  const existingDates = new Set(db.logs.map(l => l.shortDate));
+  const newSessions = csvParsedData.sessions.filter(s => !existingDates.has(s.shortDate));
+  let imported = 0;
+  const prs = { bench: 0, squat: 0, deadlift: 0 };
+  for (const session of newSessions) {
+    session.exercises.forEach(exo => {
+      const type = getSBDType(exo.name);
+      if (type && exo.maxRM > db.bestPR[type]) {
+        db.bestPR[type] = exo.maxRM;
+        prs[type] = exo.maxRM;
+        while (db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5;
+      }
+    });
+    db.logs.push(session);
+    imported++;
+    if (imported % 10 === 0 || imported === newSessions.length) {
+      const pct = Math.round((imported / newSessions.length) * 100);
+      bar.style.width = pct + '%';
+      txt.textContent = imported + ' / ' + newSessions.length + ' séances';
+      await new Promise(r => setTimeout(r, 0));
+    }
   }
-  db.logs.sort((a,b)=>b.timestamp-a.timestamp); saveDB();
-  bar.style.width='100%'; txt.textContent='✓ '+imported+' séances importées !'; btn.textContent='✓ Importé';
-  showToast('✓ '+imported+' séances importées');
-  const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
-  if(prSummary)showToast('🏆 PRs : '+prSummary);
-  refreshUI(); csvParsedData=null;
+  db.logs.sort((a,b) => b.timestamp - a.timestamp);
+  saveDB();
+  bar.style.width = '100%';
+  txt.textContent = '✓ ' + imported + ' séances importées !';
+  btn.textContent = '✓ Importé';
+  showToast('✓ ' + imported + ' séances importées');
+  const prSummary = Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+': '+v+'kg').join(' · ');
+  if (prSummary) showToast('🏆 PRs : ' + prSummary);
+  refreshUI();
+  csvParsedData = null;
 }
+
+
 </script>
 </body>
 </html>

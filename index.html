@@ -1622,6 +1622,7 @@ async function importCSV() {
   }
   db.logs.sort((a,b) => b.timestamp - a.timestamp);
   saveDB();
+  await syncToCloud(false);
   bar.style.width = '100%';
   txt.textContent = '✓ ' + imported + ' séances importées !';
   btn.textContent = '✓ Importé';

@@ -823,8 +823,7 @@ function processHevy() {
 function showAIImportLoading() {
   const container = document.getElementById('aiImportAnalysis');
   container.style.display = 'block';
-  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div id="aiImportLoadArea" class="ai-response-area"><div class="ai-progress-wrap"><div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Extraction des données...</div><div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_aiImportLoadArea"></div></div><div style="display:flex;justify-content:space-between;"><div class="ai-progress-step" id="aips_aiImportLoadArea">Lecture du texte Hevy...</div><div class="ai-progress-pct" id="aipp_aiImportLoadArea">0%</div></div></div></div></div>';
-  startAIProgress('aiImportLoadArea');
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div id="aiImportLoadArea" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données...</div></div></div>';
 }
 
 function finalizeSession(session, rawText) {
@@ -1086,7 +1085,10 @@ function buildAthleteContext() {
 async function callAI(systemPrompt, userPrompt, maxTokens) {
   const rawKey = localStorage.getItem('SBD_API_KEY') || '';
   const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
-  if (!apiKey) { console.warn('AI: no API key'); return null; }
+  if (!apiKey) {
+    window._lastAIError = 'Clé API manquante — va dans Réglages';
+    return null;
+  }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -1097,7 +1099,7 @@ async function callAI(systemPrompt, userPrompt, maxTokens) {
         'anthropic-dangerous-request-check': 'client'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: maxTokens || 1200,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
@@ -1106,12 +1108,19 @@ async function callAI(systemPrompt, userPrompt, maxTokens) {
     if (!r.ok) {
       const errBody = await r.text();
       console.error('AI HTTP ' + r.status + ':', errBody);
-      window._lastAIError = 'Erreur ' + r.status + (r.status === 401 ? ' - clé API invalide' : r.status === 403 ? ' - accès refusé' : r.status === 429 ? ' - limite atteinte, réessaie dans 1 min' : ': ' + errBody.substring(0, 120));
+      let errMsg = 'Erreur ' + r.status;
+      if (r.status === 401) errMsg += ' — clé API invalide';
+      else if (r.status === 403) errMsg += ' — accès refusé';
+      else if (r.status === 429) errMsg += ' — limite atteinte, réessaie dans 1 min';
+      else {
+        try { const j = JSON.parse(errBody); errMsg += ': ' + (j.error?.message || errBody.substring(0,120)); }
+        catch { errMsg += ': ' + errBody.substring(0,120); }
+      }
+      window._lastAIError = errMsg;
       return null;
     }
     const d = await r.json();
     if (d.error) {
-      console.error('AI error:', d.error);
       window._lastAIError = d.error.message || JSON.stringify(d.error);
       return null;
     }
@@ -1141,73 +1150,41 @@ FORMAT HTML UNIQUEMENT:
 - 180-280 mots. Français.` ;
 
 
-// ── AI Progress bar ──────────────────────────────────────────────────────────
-const _aiProgressTimers = {};
-const AI_STEPS = [
-  [5,  'Preparation du contexte...'],
-  [20, 'Envoi a Claude...'],
-  [40, 'Analyse de tes donnees...'],
-  [60, 'Generation des conseils...'],
-  [80, 'Finalisation de la reponse...'],
-  [92, 'Dernieres touches...'],
-];
-
-function startAIProgress(id) {
-  stopAIProgress(id);
-  let pct = 0;
-  function tick() {
-    const speed = pct < 30 ? 2.5 : pct < 60 ? 1.5 : pct < 85 ? 0.8 : 0.15;
-    pct = Math.min(95, pct + speed);
-    const b = document.getElementById('aipb_' + id);
-    const s = document.getElementById('aips_' + id);
-    const p = document.getElementById('aipp_' + id);
-    if (!b) return; // element removed = response arrived
-    b.style.width = pct + '%';
-    if (p) p.textContent = Math.round(pct) + '%';
-    if (s) {
-      let label = AI_STEPS[0][1];
-      for (const [threshold, txt] of AI_STEPS) { if (pct >= threshold) label = txt; }
-      s.textContent = label;
-    }
-    _aiProgressTimers[id] = setTimeout(tick, 180);
-  }
-  _aiProgressTimers[id] = setTimeout(tick, 100);
-}
-
-function stopAIProgress(id) {
-  if (_aiProgressTimers[id]) { clearTimeout(_aiProgressTimers[id]); delete _aiProgressTimers[id]; }
-}
-
+// ── AI Loading helpers ───────────────────────────────────────
 function showAILoading(id) {
-  stopAIProgress(id);
   const el = document.getElementById(id);
+  if (!el) return;
   el.classList.remove('empty');
-  el.innerHTML =
-    '<div class="ai-progress-wrap">'
-    + '<div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Claude analyse...</div>'
-    + '<div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_'+id+'"></div></div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-    + '<div class="ai-progress-step" id="aips_'+id+'">Preparation du contexte...</div>'
-    + '<div class="ai-progress-pct" id="aipp_'+id+'">0%</div>'
-    + '</div></div>';
-  startAIProgress(id);
+  el.innerHTML = '<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Claude analyse...</div>';
 }
-function showAIResponse(id, html) { stopAIProgress(id); const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'; }
-function showAIError(id) {
-  stopAIProgress(id);
+function showAIResponse(id, html) {
   const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('empty');
+  el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA \u2022 '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>';
+}
+function showAIError(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
   el.classList.remove('empty');
   const detail = window._lastAIError || 'Vérifie ta connexion et réessaie.';
-  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">'
-    + '⚠️ Impossible de contacter le coach IA.<br>'
-    + '<span style="font-size:11px;color:var(--sub);">' + detail + '</span></div>';
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">\u26a0\ufe0f Erreur IA<br><span style="font-size:11px;color:var(--sub);">'+detail+'</span></div>';
+  // Toast visible partout avec l'erreur réelle
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.style.background = 'var(--red)';
+  t.style.color = 'white';
+  t.style.maxWidth = '90vw';
+  t.style.textAlign = 'center';
+  t.textContent = detail.length > 60 ? detail.substring(0,60)+'...' : detail;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
 }
 
 async function aiGenerateDebrief(session, rawText) {
   const container = document.getElementById('aiImportAnalysis');
   container.style.display = 'block';
-  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-progress-wrap"><div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Claude analyse ta séance...</div><div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_aiImportResponse"></div></div><div style="display:flex;justify-content:space-between;"><div class="ai-progress-step" id="aips_aiImportResponse">Lecture de la séance...</div><div class="ai-progress-pct" id="aipp_aiImportResponse">0%</div></div></div></div></div>';
-  startAIProgress('aiImportResponse');
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
   const ctx = buildAthleteContext();
   const progStr = ctx.programme ? '\n\nPROGRAMME PRÉVU:\n'+ctx.programme : '';
   const prompt = 'Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;

@@ -24,7 +24,7 @@
     .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
     .rm-box { padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--surface-border); position: relative; }
     .rm-val { font-size: 20px; font-weight: 800; color: var(--blue); margin: 4px 0; display: flex; align-items: baseline; justify-content: center; gap: 2px; }
-    .rm-target { font-size: 11px; color: var(--sub); }
+    .rm-target { font-size: 11px; color: var(--sub); }h
     .pr-badge { position: absolute; top: -8px; right: 8px; background: var(--green); color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; animation: popIn 0.4s ease; }
     @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     input, select, textarea { width: 100%; background: var(--surface); border: 1px solid #3A3A3C; color: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; font-size: 16px; transition: border-color 0.2s; }
@@ -977,7 +977,7 @@ function buildAthleteContext() {
   const bwRatio=db.user.bw>0?{bench:(db.bestPR.bench/db.user.bw).toFixed(2),squat:(db.bestPR.squat/db.user.bw).toFixed(2),deadlift:(db.bestPR.deadlift/db.user.bw).toFixed(2)}:null;
   const daysSince=[...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0];
   const daysSinceTraining=daysSince?Math.floor((Date.now()-daysSince.timestamp)/86400000):null;
-  const programme = getProgrammeContext ? getProgrammeContext() : null;
+  const programme = typeof getProgrammeContext !== 'undefined' ? getProgrammeContext() : null;
   return{bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()],sbdTrend,weakGroup,bwRatio,daysSinceTraining,sets14,programme};
 }
 

@@ -149,7 +149,7 @@
 // ============================================================
 // CONSTANTS & CONFIG
 // ============================================================
-const STORAGE_KEY='SBD_HUB_V29';
+const STORAGE_KEY='SBD_HUB_V28';
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const SBD_TYPES=['bench','squat','deadlift'];
 const ROUTINES={Lundi:'🦵 Jambes (Quads & Squat)',Mardi:'💪 Push (Poitrine, Épaules & Triceps)',Mercredi:'🏊 Récupération Active (Natation)',Jeudi:'🔙 Pull (Dos, Ischio & Biceps)',Vendredi:'🎯 Points Faibles (Abdos/Mollets/Cardio)',Samedi:'⚡ SBD (Technique Complète)',Dimanche:'😴 Repos Complet'};
@@ -160,7 +160,7 @@ const REPORT_TTL_MS=7*86400000;
 // ============================================================
 // SESSION NAME BLACKLIST — noms de séance à ignorer comme exo
 // ============================================================
-const SESSION_NAME_BLACKLIST=/^(dos$|dos[\s\u00a0]|bonsoir|cul$|biceps$|[\u00e9e]paules$|avant-bras$|devenue|push$|pull$|leg[\s\u00a0]?day|jambes$|dos[\s\u00a0]*&|dos[\s\u00a0]*et[\s\u00a0]|dos[\s\u00a0]*wtf|dos[\s\u00a0]*faa|dos[\s\u00a0]*en[\s\u00a0]*spe|dos[\s\u00a0]*\u{1f525}|dos[\s\u00a0]*avec|upper[\s\u00a0\b]|muscu[\s\u00a0]*day|sbd[\s\u00a0]?day|sbday|cardio[\s\u00a0-]*r[e\u00e9]cup|fullbody|full[\s\u00a0]*body|push[^\n]*(deload|reload)|pull[^\n]*(deload|reload)|legs?[^\n]*(deload|reload)|upper[^\n]*(deload|reload)|lower[^\n]*(deload|reload))/iu;
+const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
 
 // ============================================================
 // EXERCISE TYPE ENGINE (v2 — exhaustif)
@@ -253,10 +253,9 @@ function getMuscleGroup(name) {
 
   // ── ISCHIO / FESSIERS / JAMBES ARRIÈRE ──────────────────
   if (/deadlift|souleve\s*de\s*terre|romanian|rdl\b/.test(n)) return 'Jambes';
-  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Jambes';
+  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Jambes';
   if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge|hip\s*extension/.test(n)) return 'Jambes';
-  if (/good\s*morning/.test(n)) return 'Jambes';
-  if (/hyperextension|extension\s*(du\s*)?dos\b|extension\s*lombaire/.test(n)) return 'Dos';
+  if (/good\s*morning|hyperextension|extension\s*du\s*dos\b|extension\s*lombaire/.test(n)) return 'Jambes';
   if (/abduction|adduction|kickback|hip\s*abduction/.test(n)) return 'Jambes';
   if (/fessier|glute/.test(n)) return 'Jambes';
   if (/sumo/.test(n) && !/wrestl/.test(n)) return 'Jambes';
@@ -293,7 +292,6 @@ function getMuscleGroup(name) {
   if (/shrugs?\b|hausse.?epaule|trapeze|trapezius/.test(n)) return 'Dos';
   // Rhomboïdes
   if (/rhomboid|retraction\s*scapulaire/.test(n)) return 'Dos';
-  if (/pull.?over|pull\s*over|pullover/.test(n)) return 'Dos';
 
   // ── BRAS — BICEPS ────────────────────────────────────────
   if (/curl\s*(biceps?|barre|halteres?|1\s*bras|incline|concentre|cable|poulie|marteau|hammer|inversee?|preacher|scott|araignee)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Bras';
@@ -350,7 +348,7 @@ const EXERCISE_DAY_MAP = {
   Lundi:    /squat|quad|extension\s*(des\s*)?(jambes?)|leg\s*(press|extension)|presse\s*cuisse|hack|fente|lunge|step.?up|goblet|sissy|bulgare/i,
   Mardi:    /bench|couche|pec|ecarte|chest|pompe|push.?up|epaule|shoulder|militaire|elevation|laterale|frontale|tricep|skull|dips|extension\s*(tricep|bras|poulie|cable|coude)|face\s*pull|arnold|upright/i,
   Mercredi: /natation|swimming|nage|tapis|running|velo\b|cycling|cardio|elliptique|escalier|stair|randonnee|rameur|corde\s*a\s*sauter|sprint|jogging|marche\s*(rapide|sportive)/i,
-  Jeudi:    /deadlift|souleve|row\b|rowing\b|tirage|lat\b|pull.?up|traction|chin.?up|leg\s*curl|ischio|hip\s*thrust|glute|curl\s*(bicep|barre|marteau|haltere)|bicep|abduction|adduction|hyperextension|pull.?over|rowing\s*assis|extension\s*dos/i,
+  Jeudi:    /deadlift|souleve|row\b|rowing\b|tirage|lat\b|pull.?up|traction|chin.?up|leg\s*curl|ischio|hip\s*thrust|glute|curl\s*(bicep|barre|marteau|haltere)|bicep|abduction|adduction|hyperextension/i,
   Vendredi: /crunch|ab\b|abdo|gainage|planche|plank|l.sit|releve|v.?up|sit.?up|ciseaux|battement|russian\s*twist|oblique|roue\s*ab|mollet|calf|escalier|stair|cardio/i,
   Samedi:   /squat.*barre|bench.*barre|couche.*barre|deadlift|souleve.*terre/i
 };
@@ -437,12 +435,185 @@ document.getElementById('dayButtonsContainer').addEventListener('click', e => { 
 // ============================================================
 // HEVY IMPORT — CORE
 // ============================================================
+
+// Prompt système pour l'extraction IA
+const AI_EXTRACT_SYSTEM = `Tu es un parseur de données d'entraînement. Tu reçois un export texte brut de l'app Hevy et tu dois extraire les données sous forme de JSON strict.
+
+RÈGLES ABSOLUES :
+- Réponds UNIQUEMENT avec du JSON valide, rien d'autre (pas de markdown, pas de \`\`\`json)
+- Ne jamais inventer de données absentes
+- Les séries [Échauffement] sont des warmups (isWarmup: true), ne comptent PAS dans les records
+
+FORMAT DE SORTIE :
+{
+  "title": "nom de la séance (avant le tiret)",
+  "type": "type de séance (après le tiret, ex: Dos)",
+  "date": "date brute trouvée dans le texte",
+  "exercises": [
+    {
+      "name": "nom exact de l'exercice",
+      "muscleGroup": "Pecs|Dos|Jambes|Épaules|Bras|Abdos|Cardio|Autre",
+      "exoType": "weight|reps|time|cardio",
+      "sets": [
+        {
+          "weight": 100,
+          "reps": 5,
+          "isWarmup": false,
+          "rpe": 8.5
+        }
+      ]
+    }
+  ]
+}
+
+RÈGLES DE CLASSIFICATION :
+- exoType "weight" : exercices avec poids + reps (bench, squat, rowing...)
+- exoType "reps" : poids de corps avec reps (pompes, tractions, dips...)
+- exoType "time" : exercices chronométrés en secondes (planche, gainage...)
+- exoType "cardio" : distance + temps (tapis, vélo, natation...)
+
+Pour "time", les sets ont : { "duration": 60 } (en secondes)
+Pour "cardio", les sets ont : { "distance": 1.5, "duration": 720 } (km et secondes)
+Pour "reps" sans poids : { "reps": 10, "isWarmup": false }
+
+muscleGroup :
+- Pecs : bench, développé couché, écarté, pompes, dips pec
+- Dos : traction, tirage, rowing, lat, tirage vers visage
+- Jambes : squat, deadlift, leg press, fente, hip thrust, leg curl, mollets
+- Épaules : militaire, élévation latérale, face pull, tirage vers visage, arnold
+- Bras : curl biceps, extension triceps, skull crusher, dips triceps
+- Abdos : planche, gainage, crunch, relevé de genoux, russian twist
+- Cardio : tapis roulant, vélo, natation, rameur, escalier
+- Autre : tout le reste`;
+
+async function extractWithAI(rawText) {
+  const apiKey = localStorage.getItem('SBD_API_KEY');
+  if (!apiKey) return null;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-request-check': 'client'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        system: AI_EXTRACT_SYSTEM,
+        messages: [{ role: 'user', content: rawText }]
+      })
+    });
+    const d = await r.json();
+    if (d.error) { console.warn('AI extract error:', d.error); return null; }
+    const raw = d.content.map(b => b.text || '').join('').trim();
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('AI extract failed:', e);
+    return null;
+  }
+}
+
+function buildSessionFromAI(parsed, rawText) {
+  const lines = rawText.split('\n');
+  const firstLine = lines[0].trim();
+
+  // Date
+  let sessionTimestamp = Date.now();
+  let sessionDate = new Date().toLocaleDateString('fr-FR');
+  if (parsed.date) {
+    sessionTimestamp = parseHevyDate(parsed.date);
+    sessionDate = parsed.date;
+  } else {
+    const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
+    if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
+  }
+
+  const session = {
+    date: sessionDate,
+    shortDate: formatDate(sessionTimestamp),
+    timestamp: sessionTimestamp,
+    volume: 0,
+    exercises: [],
+    id: generateId(),
+    title: parsed.title || firstLine.split('-')[0].trim(),
+    type: parsed.type || '',
+    day: DAYS_FULL[new Date(sessionTimestamp).getDay()]
+  };
+
+  (parsed.exercises || []).forEach(exo => {
+    const exoType = exo.exoType || 'weight';
+    const isCardio = exoType === 'cardio';
+    const isTime   = exoType === 'time';
+    const isReps   = exoType === 'reps';
+
+    const obj = {
+      name: exo.name,
+      muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name),
+      exoType,
+      isCardio, isTime, isReps,
+      maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0,
+      distance: 0, sets: 0,
+      repRecords: {}, series: []
+    };
+
+    (exo.sets || []).forEach(s => {
+      const isW = s.isWarmup || false;
+      obj.sets++;
+
+      if (exoType === 'weight') {
+        const w = s.weight || 0, r = s.reps || 0;
+        if (w > 0 && r > 0) {
+          session.volume += w * r;
+          if (!isW) {
+            const rKey = String(r);
+            if (!obj.repRecords[rKey] || w > obj.repRecords[rKey]) obj.repRecords[rKey] = w;
+            const ex = obj.series.find(x => x.reps === r);
+            if (ex) { if (w > ex.weight) ex.weight = w; }
+            else obj.series.push({ weight: w, reps: r, date: sessionTimestamp });
+            const rm = calcE1RM(w, r);
+            if (rm > obj.maxRM) { obj.maxRM = rm; obj.maxRMDate = sessionTimestamp; }
+          }
+        }
+      } else if (exoType === 'reps') {
+        const r = s.reps || 0, w = s.weight || 0;
+        obj.totalReps += r;
+        if (r > obj.maxReps) { obj.maxReps = r; obj.maxRepsDate = sessionTimestamp; }
+        if (w > 0) {
+          session.volume += w * r;
+          const rm = calcE1RM(w, r);
+          if (rm > obj.maxRM) { obj.maxRM = rm; obj.maxRMDate = sessionTimestamp; }
+          const rKey = String(r);
+          if (!obj.repRecords[rKey] || w > obj.repRecords[rKey]) obj.repRecords[rKey] = w;
+        }
+      } else if (exoType === 'time') {
+        const t = s.duration || 0;
+        if (t > obj.maxTime) { obj.maxTime = t; obj.maxTimeDate = sessionTimestamp; }
+        session.volume += t / 10;
+      } else if (exoType === 'cardio') {
+        const d = s.distance || 0, t = s.duration || 0;
+        if (d > obj.distance) obj.distance = d;
+        if (t > obj.maxTime) { obj.maxTime = t; obj.cardioDate = sessionTimestamp; }
+      }
+    });
+
+    session.exercises.push(obj);
+  });
+
+  return session;
+}
+
 function processHevy() {
   const text = document.getElementById('hevyPaste').value;
   if (!text.trim()) return;
+
   const lines = text.split('\n');
-  let sessionTimestamp = Date.now(), sessionDate = new Date().toLocaleDateString('fr-FR'), sessionTitle = '', sessionType = '';
   const firstLine = lines[0].trim();
+  let sessionTimestamp = Date.now(), sessionDate = new Date().toLocaleDateString('fr-FR');
+  let sessionTitle = '', sessionType = '';
+
   if (firstLine && !firstLine.toLowerCase().startsWith('le ')) {
     const parts = firstLine.split('-').map(p => p.trim());
     sessionTitle = parts[0];
@@ -452,143 +623,49 @@ function processHevy() {
   if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
   const shortDate = formatDate(sessionTimestamp);
   const dateKey = sessionDate.split(' à')[0];
+
+  const doImport = () => {
+    const apiKey = localStorage.getItem('SBD_API_KEY');
+    if (apiKey) {
+      // Mode IA
+      showAIImportLoading();
+      extractWithAI(text).then(parsed => {
+        if (parsed && parsed.exercises && parsed.exercises.length > 0) {
+          const session = buildSessionFromAI(parsed, text);
+          finalizeSession(session, text);
+        } else {
+          console.warn('AI extraction empty, falling back to regex');
+          showToast('IA indisponible — import regex');
+          executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+        }
+      });
+    } else {
+      // Mode regex
+      executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+    }
+  };
+
   if (db.logs.some(l => l.date.split(' à')[0] === dateKey)) {
-    showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine));
+    showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => {
+      db.logs = db.logs.filter(l => l.date.split(' à')[0] !== dateKey);
+      doImport();
+    });
     return;
   }
-  executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+  doImport();
 }
 
-function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
-  const session = {
-    date: sessionDate, shortDate, timestamp: sessionTimestamp,
-    volume: 0, exercises: [], id: generateId(),
-    title: sessionTitle, type: sessionType,
-    day: DAYS_FULL[new Date(sessionTimestamp).getDay()]
-  };
-  let currExo = null;
+function showAIImportLoading() {
+  const container = document.getElementById('aiImportAnalysis');
+  container.style.display = 'block';
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données en cours...</div></div></div>';
+}
 
-  for (const line of lines) {
-    const l = line.trim().toLowerCase();
-    if (!l || l.includes('hevy') || (l.startsWith('le ') && l.includes('202')) || l.includes('http') || line.trim() === firstLine) continue;
-    if (/^\d+\/\d+\/\d+/.test(l) || (l.includes('"') && (/\d+\/\d+\/\d+/.test(l) || l.includes('sec') || l.includes('iso')))) continue;
-
-    const isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min') || l.includes('répétitions') || l.includes('repetitions') || l.includes('reps') || /\d+s\b/.test(l));
-    const isCompressedData = /^\d+x/.test(l) || /^\d+[.,]\d+km/.test(l) || l.includes('1rm est:');
-
-    if (!isSerieData && !isCompressedData) {
-      // Flush previous exercise
-      if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0))
-        session.exercises.push(currExo);
-
-      const exoType = getExoType(line.trim());
-      if (exoType === 'session_name') { currExo = null; continue; }
-
-      const cleanName = line.trim().replace(/\s*"[^"]*"\s*$/g, '').trim();
-      const isCardio = exoType === 'cardio' || exoType === 'cardio_stairs';
-      const isTime = exoType === 'time';
-      const isReps = exoType === 'reps';
-
-      currExo = {
-        name: cleanName, maxRM: 0, sets: 0,
-        isCardio, isTime, isReps,
-        distance: 0, maxTime: 0, maxReps: 0, totalReps: 0,
-        // Nouveaux champs pour records multi-reps
-        repRecords: {}, // { '1': maxWeight, '3': maxWeight, '5': maxWeight, ... }
-        series: [], exoType
-      };
-      continue;
-    }
-
-    if (!currExo) continue;
-
-    // ── Série avec poids ────────────────────────────────────
-    if (l.startsWith('série') && l.includes('kg x') && !currExo.isCardio && !currExo.isReps) {
-      const m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-      if (m) {
-        const w = parseFloat(m[1]), r = parseInt(m[2]);
-        const isW = line.includes('[Échauffement]') || line.includes('[échauffement]');
-        session.volume += w * r;
-        currExo.sets++;
-        if (!isW) {
-          // Record par nombre de reps (ex: meilleur 1RM, 3RM, 5RM réel)
-          const rKey = String(r);
-          if (!currExo.repRecords[rKey] || w > currExo.repRecords[rKey]) {
-            currExo.repRecords[rKey] = w;
-          }
-          // Séries pour affichage
-          const ex = currExo.series.find(s => s.reps === r);
-          if (ex) { if (w > ex.weight) { ex.weight = w; ex.date = sessionTimestamp; } }
-          else currExo.series.push({ weight: w, reps: r, date: sessionTimestamp });
-          // e1RM
-          const rm = calcE1RM(w, r);
-          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
-        }
-      }
-    }
-    // ── Série poids de corps (reps only) ────────────────────
-    else if (currExo.isReps && l.startsWith('série')) {
-      const repMatch = l.match(/(\d+)\s*r[ée]p[ée]?t?i?t?i?o?n?s?/i) || l.match(/x\s*(\d+)/i) || l.match(/(\d+)\s*reps?\b/i);
-      const kgMatch = l.match(/(\d+\.?\d*)\s*kg/i);
-      if (repMatch) {
-        const reps = parseInt(repMatch[1]);
-        const w = kgMatch ? parseFloat(kgMatch[1]) : 0;
-        currExo.sets++;
-        currExo.totalReps += reps;
-        if (reps > currExo.maxReps) { currExo.maxReps = reps; currExo.maxRepsDate = sessionTimestamp; }
-        if (w > 0) {
-          session.volume += w * reps;
-          // Aussi tracker l'e1RM pour les exos au poids de corps lesté
-          const rm = calcE1RM(w, reps);
-          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
-        }
-      } else {
-        currExo.sets++;
-      }
-    }
-    // ── Cardio avec distance ─────────────────────────────────
-    else if (l.startsWith('série') && l.includes('km') && currExo.isCardio) {
-      parseCardioLine(l, currExo, sessionTimestamp);
-    }
-    // ── Planche / gainage (temps) ────────────────────────────
-    else if (l.startsWith('série') && (l.includes('min') || l.includes('sec')) && (currExo.isTime || currExo.exoType === 'time')) {
-      parsePlankLine(l, currExo, session, sessionTimestamp);
-    }
-    // ── Fallback isométrique (sec sans type reconnu) ─────────
-    else if (l.startsWith('série') && l.includes('sec') && !currExo.isCardio && !currExo.maxRM) {
-      const sm = l.match(/(\d+)\s*sec/i);
-      if (sm) {
-        currExo.isTime = true;
-        const t = parseInt(sm[1]);
-        if (t > (currExo.maxTime || 0)) { currExo.maxTime = t; currExo.maxTimeDate = sessionTimestamp; }
-        currExo.sets++;
-        session.volume += t / 10;
-      }
-    }
-    // ── Cardio compressé (format 1.5km) ──────────────────────
-    else if (/^\d+[.,]\d*km/.test(l) && currExo.isCardio) {
-      parseCardioLine(l, currExo, sessionTimestamp);
-    }
-    // ── e1RM injecté par Hevy ────────────────────────────────
-    else if (l.includes('1rm est:') && !currExo.isCardio) {
-      const m2 = l.match(/(\d+)\s*kg/i);
-      if (m2) { const rm = parseInt(m2[1]); if (rm > currExo.maxRM) currExo.maxRM = rm; }
-    }
-    // ── Sets compressés (3x) ─────────────────────────────────
-    else if (/\d+x/.test(l) && !currExo.isCardio) {
-      const mx = l.match(/\d+x/g);
-      if (mx) currExo.sets = parseInt(mx[mx.length - 1]);
-    }
-  }
-
-  // Flush last exercise
-  if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0))
-    session.exercises.push(currExo);
-
-  // Nettoyer les faux exercices (noms de séance)
+function finalizeSession(session, rawText) {
+  // Filtre noms de séance parasites
   session.exercises = session.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
 
-  // Mise à jour PRs SBD
+  // PRs SBD
   newPRs = { bench: false, squat: false, deadlift: false };
   session.exercises.forEach(exo => {
     const type = getSBDType(exo.name);
@@ -605,9 +682,125 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
   saveDB();
   document.getElementById('hevyPaste').value = '';
   showImportSummary(session);
-  showToast('✓ Séance importée');
+  showToast('✓ Séance importée' + (localStorage.getItem('SBD_API_KEY') ? ' (IA)' : ''));
   refreshUI();
-  aiGenerateDebrief(session, lines.join('\n'));
+  aiGenerateDebrief(session, rawText);
+}
+
+
+
+function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
+  const session = {
+    date: sessionDate, shortDate, timestamp: sessionTimestamp,
+    volume: 0, exercises: [], id: generateId(),
+    title: sessionTitle, type: sessionType,
+    day: DAYS_FULL[new Date(sessionTimestamp).getDay()]
+  };
+  let currExo = null;
+
+  for (const line of lines) {
+    const l = line.trim().toLowerCase();
+    if (!l || l.includes('hevy') || (l.startsWith('le ') && l.includes('202')) || l.includes('http') || line.trim() === firstLine) continue;
+    if (/^\d+\/\d+\/\d+/.test(l) || (l.includes('"') && (/\d+\/\d+\/\d+/.test(l) || l.includes('sec') || l.includes('iso')))) continue;
+    if (l.startsWith('@')) continue;
+
+    const isSerieData = l.startsWith('série') && (l.includes('kg x') || l.includes('km') || l.includes('sec') || l.includes('min') || l.includes('répétitions') || l.includes('repetitions') || l.includes('reps') || /\d+s\b/.test(l));
+    const isCompressedData = /^\d+x/.test(l) || /^\d+[.,]\d+km/.test(l) || l.includes('1rm est:');
+
+    if (!isSerieData && !isCompressedData) {
+      if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0))
+        session.exercises.push(currExo);
+      const exoType = getExoType(line.trim());
+      if (exoType === 'session_name') { currExo = null; continue; }
+      const cleanName = line.trim().replace(/\s*"[^"]*"\s*$/g, '').trim();
+      const isCardio = exoType === 'cardio' || exoType === 'cardio_stairs';
+      const isTime = exoType === 'time';
+      const isReps = exoType === 'reps';
+      currExo = {
+        name: cleanName, maxRM: 0, sets: 0,
+        isCardio, isTime, isReps,
+        distance: 0, maxTime: 0, maxReps: 0, totalReps: 0,
+        repRecords: {}, series: [], exoType
+      };
+      continue;
+    }
+
+    if (!currExo) continue;
+
+    // Série avec poids
+    if (l.startsWith('série') && l.includes('kg x') && !currExo.isCardio && !currExo.isReps) {
+      const m = l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
+      if (m) {
+        const w = parseFloat(m[1]), r = parseInt(m[2]);
+        const isW = line.includes('[Échauffement]') || line.includes('[échauffement]');
+        session.volume += w * r;
+        currExo.sets++;
+        if (!isW) {
+          const rKey = String(r);
+          if (!currExo.repRecords[rKey] || w > currExo.repRecords[rKey]) currExo.repRecords[rKey] = w;
+          const ex = currExo.series.find(s => s.reps === r);
+          if (ex) { if (w > ex.weight) { ex.weight = w; ex.date = sessionTimestamp; } }
+          else currExo.series.push({ weight: w, reps: r, date: sessionTimestamp });
+          const rm = calcE1RM(w, r);
+          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
+        }
+      }
+    }
+    // Série poids de corps
+    else if (currExo.isReps && l.startsWith('série')) {
+      const repMatch = l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i) || l.match(/x\s*(\d+)/i) || l.match(/(\d+)\s*reps?\b/i);
+      const kgMatch = l.match(/(\d+\.?\d*)\s*kg/i);
+      if (repMatch) {
+        const reps = parseInt(repMatch[1]);
+        const w = kgMatch ? parseFloat(kgMatch[1]) : 0;
+        currExo.sets++;
+        currExo.totalReps += reps;
+        if (reps > currExo.maxReps) { currExo.maxReps = reps; currExo.maxRepsDate = sessionTimestamp; }
+        if (w > 0) {
+          session.volume += w * reps;
+          const rm = calcE1RM(w, reps);
+          if (rm > currExo.maxRM) { currExo.maxRM = rm; currExo.maxRMDate = sessionTimestamp; }
+          const rKey = String(reps);
+          if (!currExo.repRecords[rKey] || w > currExo.repRecords[rKey]) currExo.repRecords[rKey] = w;
+        }
+      } else { currExo.sets++; }
+    }
+    // Cardio distance
+    else if (l.startsWith('série') && l.includes('km') && currExo.isCardio) {
+      parseCardioLine(l, currExo, sessionTimestamp);
+    }
+    // Planche / gainage
+    else if (l.startsWith('série') && (l.includes('min') || l.includes('sec') || /\d+s\b/.test(l)) && (currExo.isTime || currExo.exoType === 'time')) {
+      parsePlankLine(l, currExo, session, sessionTimestamp);
+    }
+    // Fallback isométrique
+    else if (l.startsWith('série') && l.includes('sec') && !currExo.isCardio && !currExo.maxRM) {
+      const sm = l.match(/(\d+)\s*sec/i);
+      if (sm) {
+        currExo.isTime = true;
+        const t = parseInt(sm[1]);
+        if (t > (currExo.maxTime || 0)) { currExo.maxTime = t; currExo.maxTimeDate = sessionTimestamp; }
+        currExo.sets++;
+        session.volume += t / 10;
+      }
+    }
+    // e1RM Hevy injecté
+    else if (l.includes('1rm est:') && !currExo.isCardio) {
+      const m2 = l.match(/(\d+)\s*kg/i);
+      if (m2) { const rm = parseInt(m2[1]); if (rm > currExo.maxRM) currExo.maxRM = rm; }
+    }
+    // Sets compressés
+    else if (/\d+x/.test(l) && !currExo.isCardio) {
+      const mx = l.match(/\d+x/g);
+      if (mx) currExo.sets = parseInt(mx[mx.length - 1]);
+    }
+  }
+
+  // Flush last exercise
+  if (currExo && (currExo.maxRM > 0 || currExo.isCardio || currExo.isTime || currExo.isReps || currExo.sets > 0))
+    session.exercises.push(currExo);
+
+  finalizeSession(session, lines.join('\n'));
 }
 
 function parseCardioLine(l, currExo, ts) {

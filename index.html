@@ -150,15 +150,6 @@
   <div id="tab-settings" class="content-section">
     <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" onchange="saveAPIKey()"><p style="font-size:10px;color:var(--sub);margin-top:-8px;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
     <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Connecte-toi avec ton email pour sync entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div id="emailLoginSection"><input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;"><button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:6px;">Un lien de connexion sera envoyé à ton email.</p></div><div style="display:flex;gap:10px;margin:12px 0;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button></div>
-    <div class="card">
-      <h2>📅 Mon Programme</h2>
-      <p style="font-size:12px;color:var(--sub);margin:4px 0 12px;">Saisi ton programme pour que le Coach IA le connaisse et adapte ses conseils.</p>
-      <div id="programmeForm">
-        <div style="margin-bottom:14px;" id="programmeJours"></div>
-        <button class="btn" onclick="saveProgramme()" style="background:var(--green);">💾 Sauvegarder le programme</button>
-      </div>
-      <div id="programmeSaved" style="display:none;font-size:12px;color:var(--green);margin-top:8px;text-align:center;">✓ Programme sauvegardé</div>
-    </div>
     <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p></div>
   </div>
   <nav class="tab-bar">
@@ -499,7 +490,7 @@ async function cloudLogout() { if (!supaClient) return; await supaClient.auth.si
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); } if (tabId==='tab-settings') renderProgrammeForm(); }
+function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); } }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = ROUTINES[selectedDay]; renderDayExercises(selectedDay); });
 
@@ -558,7 +549,8 @@ muscleGroup :
 - Autre : tout le reste`;
 
 async function extractWithAI(rawText) {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
+  const rawKey2 = localStorage.getItem('SBD_API_KEY') || '';
+  const apiKey = rawKey2.replace(/[^\x20-\x7E]/g, '').trim();
   if (!apiKey) return null;
 
   try {
@@ -729,7 +721,8 @@ function processHevy() {
 function showAIImportLoading() {
   const container = document.getElementById('aiImportAnalysis');
   container.style.display = 'block';
-  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données en cours...</div></div></div>';
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Import IA</h2><div id="aiImportLoadArea" class="ai-response-area"><div class="ai-progress-wrap"><div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Extraction des données...</div><div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_aiImportLoadArea"></div></div><div style="display:flex;justify-content:space-between;"><div class="ai-progress-step" id="aips_aiImportLoadArea">Lecture du texte Hevy...</div><div class="ai-progress-pct" id="aipp_aiImportLoadArea">0%</div></div></div></div></div>';
+  startAIProgress('aiImportLoadArea');
 }
 
 function finalizeSession(session, rawText) {
@@ -989,55 +982,133 @@ function buildAthleteContext() {
 }
 
 async function callAI(systemPrompt, userPrompt) {
+  const rawKey = localStorage.getItem('SBD_API_KEY') || '';
+  const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!apiKey) { console.warn('AI: no API key'); return null; }
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': localStorage.getItem('SBD_API_KEY')||'', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-request-check': 'client' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] })
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-request-check': 'client'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
     });
+    if (!r.ok) {
+      const errBody = await r.text();
+      console.error('AI HTTP ' + r.status + ':', errBody);
+      // Afficher l'erreur précise à l'utilisateur
+      window._lastAIError = 'Erreur ' + r.status + (r.status === 401 ? ' - cle API invalide' : r.status === 403 ? ' - acces refuse' : r.status === 429 ? ' - limite de debit atteinte' : ': ' + errBody.substring(0, 100));
+      return null;
+    }
     const d = await r.json();
+    if (d.error) {
+      console.error('AI error:', d.error);
+      window._lastAIError = d.error.message || JSON.stringify(d.error);
+      return null;
+    }
+    window._lastAIError = null;
     return d.content.map(b => b.text||'').join('');
-  } catch(err) { console.error('AI:', err); return null; }
+  } catch(err) {
+    console.error('AI fetch error:', err);
+    window._lastAIError = err.message || 'Erreur réseau (CORS ?)';
+    return null;
+  }
 }
 
-const AI_SYSTEM = `Tu es un coach de force expert en Powerlifting / Powerbuilding. Ton surnom : Coach SBD 🦍. Ton ton est fraternel, direct, chirurgical et exigeant — pas de fausse complaisance, tu exiges la discipline. Tu utilises 🦍 et 🦾 avec parcimonie.
+const AI_SYSTEM = `Tu es un coach de force expert en powerlifting (SBD) et musculation.
 
-[CONTEXTE ATHLÈTE — LOI ABSOLUE]
-Programme :
-- Lundi : Squat / Quadriceps
-- Mardi : Push (Pecs, Épaules, Triceps)
-- Mercredi : Récupération active (Natation ~1km)
-- Jeudi : Pull (Dos, Ischios, Biceps) + Deadlift
-- Vendredi : Bench volume ou Points faibles (Abs/Mollets/Cardio)
-- Samedi : SBD Technique (Squat pause, Spoto Bench, Deadlift pause)
-- Dimanche : Repos total
+RÈGLES D'ANALYSE:
+- Les charges sont les POIDS RÉELS soulevés. Les e1RM sont des estimations Epley.
+- Cite toujours le poids réel + reps (ex: "120kg × 4"), jamais l'e1RM seul.
+- Analyse la TENDANCE, pas juste le dernier entraînement.
+- Identifie les déséquilibres (ex: bench fort mais squat stagne) et propose une action concrète.
+- Utilise le ratio force/poids de corps pour contextualiser le niveau.
+- Si la fréquence baisse, mentionne-le sans juger. Sois direct, motivant, sans bullshit. Tutoie.
 
-Nutrition : Intolérance lactose (Whey Isolate et Skyr OK). Sources : bœuf, poulet, colin, œufs, riz, pâtes, quinoa, patate douce.
-Suppléments : Créatine Creapure 5g, Oméga-3 4gél, Whey Isolate Native (post), ZMB Pidolates (soir), Peptan Collagène 15g (coucher), Glycine 15g (coucher), Work! pre-workout 10g.
-Vocabulaire : "abandon" = drop-set (série dégressive).
+FORMAT HTML UNIQUEMENT:
+- 3 sections: <div class="ai-section"><div class="ai-section-title">TITRE</div>contenu</div>
+- Sections: 1."📊 ANALYSE" 2."🎯 ACTION CETTE SEMAINE" 3."💡 FOCUS"
+- Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
+- 180-280 mots. Français.` ;
 
-[RÈGLES CRITIQUES]
-1. CHARGES RÉELLES : Les poids en séance (ex: "125kg × 4") sont les poids RÉELS. Les "e1RM" sont des ESTIMATIONS calculées (formule Epley), JAMAIS des charges soulevées. Toujours citer le poids réel + reps, pas l'e1RM.
-2. SNC : Si PR Deadlift dans les 48h, adapter le SBD du samedi avec variantes isométriques (pause squat, spoto) pour préserver les lombaires.
-3. Charges précises : ne jamais donner une fourchette vague — propose des charges précises avec tempo (ex: 3/1/1) et temps de repos en fonction du type de séance.
 
-[FORMAT DE RÉPONSE — IMPÉRATIF]
-- Réponds UNIQUEMENT en HTML (pas de markdown, pas de \`\`\`).
-- Structure TOUJOURS en 3 sections :
-  <div class="ai-section"><div class="ai-section-title">📊 DÉBRIEF / BILAN</div>contenu</div>
-  <div class="ai-section"><div class="ai-section-title">🎯 VISION SEMAINE</div>contenu</div>
-  <div class="ai-section"><div class="ai-section-title">💡 CONSEIL PERSO</div>contenu</div>
-- Utilise <span class="ai-highlight green|blue|orange|red|purple">texte</span> pour les métriques clés.
-- 150–250 mots max. Tutoie. Français uniquement.`;
+// ── AI Progress bar ──────────────────────────────────────────────────────────
+const _aiProgressTimers = {};
+const AI_STEPS = [
+  [5,  'Preparation du contexte...'],
+  [20, 'Envoi a Claude...'],
+  [40, 'Analyse de tes donnees...'],
+  [60, 'Generation des conseils...'],
+  [80, 'Finalisation de la reponse...'],
+  [92, 'Dernieres touches...'],
+];
 
-function showAILoading(id) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>'; }
-function showAIResponse(id, html) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'; }
-function showAIError(id) { const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">⚠️ Impossible de contacter le coach IA.<br><span style="font-size:11px;color:var(--sub);">Vérifie ta connexion et réessaie.</span></div>'; }
+function startAIProgress(id) {
+  stopAIProgress(id);
+  let pct = 0;
+  function tick() {
+    const speed = pct < 30 ? 2.5 : pct < 60 ? 1.5 : pct < 85 ? 0.8 : 0.15;
+    pct = Math.min(95, pct + speed);
+    const b = document.getElementById('aipb_' + id);
+    const s = document.getElementById('aips_' + id);
+    const p = document.getElementById('aipp_' + id);
+    if (!b) return; // element removed = response arrived
+    b.style.width = pct + '%';
+    if (p) p.textContent = Math.round(pct) + '%';
+    if (s) {
+      let label = AI_STEPS[0][1];
+      for (const [threshold, txt] of AI_STEPS) { if (pct >= threshold) label = txt; }
+      s.textContent = label;
+    }
+    _aiProgressTimers[id] = setTimeout(tick, 180);
+  }
+  _aiProgressTimers[id] = setTimeout(tick, 100);
+}
+
+function stopAIProgress(id) {
+  if (_aiProgressTimers[id]) { clearTimeout(_aiProgressTimers[id]); delete _aiProgressTimers[id]; }
+  // Flash to 100% then response takes over
+  const b = document.getElementById('aipb_' + id);
+  if (b) b.style.width = '100%';
+}
+
+function showAILoading(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('empty');
+  el.innerHTML =
+    '<div class="ai-progress-wrap">'
+    + '<div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Claude analyse...</div>'
+    + '<div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_'+id+'"></div></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div class="ai-progress-step" id="aips_'+id+'">Preparation du contexte...</div>'
+    + '<div class="ai-progress-pct" id="aipp_'+id+'">0%</div>'
+    + '</div></div>';
+  startAIProgress(id);
+}
+function showAIResponse(id, html) { stopAIProgress(id); const el = document.getElementById(id); el.classList.remove('empty'); el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>'; }
+function showAIError(id) {
+  stopAIProgress(id);
+  const el = document.getElementById(id);
+  el.classList.remove('empty');
+  const detail = window._lastAIError || 'Vérifie ta connexion et réessaie.';
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">'
+    + '⚠️ Impossible de contacter le coach IA.<br>'
+    + '<span style="font-size:11px;color:var(--sub);">' + detail + '</span></div>';
+}
 
 async function aiGenerateDebrief(session, rawText) {
   const container = document.getElementById('aiImportAnalysis');
   container.style.display = 'block';
-  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
+  container.innerHTML = '<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-progress-wrap"><div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">🤖 Claude analyse ta séance...</div><div class="ai-progress-bar-bg"><div class="ai-progress-bar-fill" id="aipb_aiImportResponse"></div></div><div style="display:flex;justify-content:space-between;"><div class="ai-progress-step" id="aips_aiImportResponse">Lecture de la séance...</div><div class="ai-progress-pct" id="aipp_aiImportResponse">0%</div></div></div></div></div>';
+  startAIProgress('aiImportResponse');
   const ctx = buildAthleteContext();
   const progStr = ctx.programme ? '\n\nPROGRAMME PRÉVU:\n'+ctx.programme : '';
   const prompt = 'Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
@@ -1553,7 +1624,14 @@ function renderTopLifts() {
 // SETTINGS
 // ============================================================
 function updateProfile() { db.user.bw = parseFloat(document.getElementById('inputBW').value)||80; saveDB(); renderDash(); }
-function saveAPIKey() { const k = document.getElementById('inputAPIKey').value.trim(); if (k) localStorage.setItem('SBD_API_KEY', k); else localStorage.removeItem('SBD_API_KEY'); showToast(k?'✓ Clé API sauvegardée':'✓ Clé API supprimée'); }
+function saveAPIKey() {
+  // Sanitize: strip all non-printable and non-ASCII chars (smart quotes, zero-width spaces, BOM...)
+  const raw = document.getElementById('inputAPIKey').value;
+  const k = raw.replace(/[^ -~]/g, '').trim(); // ASCII printable only
+  if (k) { localStorage.setItem('SBD_API_KEY', k); document.getElementById('inputAPIKey').value = k; }
+  else localStorage.removeItem('SBD_API_KEY');
+  showToast(k ? '✓ Clé API sauvegardée' : '✓ Clé API supprimée');
+}
 function fullReset() { showModal('⚠️ Toutes les données seront effacées.', 'Effacer', 'var(--red)', () => { db = defaultDB(); saveDB(); refreshUI(); showToast('✓ Réinitialisé'); }); }
 
 // ============================================================
@@ -1861,54 +1939,6 @@ async function importCSV() {
   csvParsedData = null;
 }
 
-
-// ============================================================
-// PROGRAMME PERSONNALISÉ
-// ============================================================
-const PROGRAMME_KEY = 'SBD_PROGRAMME_V1';
-const DAYS_PROGRAMME = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-
-function loadProgramme() {
-  try { return JSON.parse(localStorage.getItem(PROGRAMME_KEY)) || {}; } catch { return {}; }
-}
-
-function saveProgramme() {
-  const prog = {};
-  DAYS_PROGRAMME.forEach(day => {
-    const el = document.getElementById('prog_' + day);
-    if (el) prog[day] = el.value.trim();
-  });
-  localStorage.setItem(PROGRAMME_KEY, JSON.stringify(prog));
-  const saved = document.getElementById('programmeSaved');
-  if (saved) { saved.style.display = 'block'; setTimeout(() => saved.style.display='none', 2000); }
-  showToast('✓ Programme sauvegardé');
-}
-
-function renderProgrammeForm() {
-  const container = document.getElementById('programmeJours');
-  if (!container) return;
-  const prog = loadProgramme();
-  const dayEmojis = { Lundi:'🦵', Mardi:'💪', Mercredi:'🏊', Jeudi:'🔙', Vendredi:'🎯', Samedi:'⚡', Dimanche:'😴' };
-  container.innerHTML = DAYS_PROGRAMME.map(day => {
-    const emoji = dayEmojis[day] || '📅';
-    const val = prog[day] || '';
-    return '<div style="margin-bottom:10px;">'
-      + '<label style="font-size:12px;font-weight:600;color:var(--sub);display:block;margin-bottom:4px;">'
-      + emoji + ' ' + day + '</label>'
-      + '<input type="text" id="prog_' + day + '" value="' + val.replace(/"/g,'&quot;') + '" '
-      + 'placeholder="ex: Squat 5×5 @80% + Leg press + Fentes" '
-      + 'style="margin-bottom:0;font-size:13px;">'
-      + '</div>';
-  }).join('');
-}
-
-function getProgrammeContext() {
-  const prog = loadProgramme();
-  const lines = DAYS_PROGRAMME
-    .filter(d => prog[d])
-    .map(d => d + ': ' + prog[d]);
-  return lines.length > 0 ? lines.join('\n') : null;
-}
 
 </script>
 </body>

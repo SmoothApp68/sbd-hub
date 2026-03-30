@@ -25,7 +25,7 @@
     .rm-box { padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--surface-border); position: relative; }
     .rm-val { font-size: 20px; font-weight: 800; color: var(--blue); margin: 4px 0; display: flex; align-items: baseline; justify-content: center; gap: 2px; }
     .rm-target { font-size: 11px; color: var(--sub); }h
-    .pr-badge { position: absolute; top: -8px; right: 8px; background: var(--green); color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; animation: popIn 0.4s ease; }
+    .pr-badge { position: absolute; top: -8px; right: 8px; background: var(--green); color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; animation: popIn 0.4s easeh; }
     @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     input, select, textarea { width: 100%; background: var(--surface); border: 1px solid #3A3A3C; color: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; font-size: 16px; transition: border-color 0.2s; }
     input:focus, textarea:focus { border-color: var(--blue); outline: none; }
@@ -560,7 +560,7 @@ async function extractWithAI(rawText) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-request-check': 'client'
+        'anthropic-dangerous-client-side-api-key-check': 'client'
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
@@ -992,7 +992,7 @@ async function callAI(systemPrompt, userPrompt) {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-request-check': 'client'
+        'anthropic-dangerous-client-side-api-key-check': 'client'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',

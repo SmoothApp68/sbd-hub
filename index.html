@@ -1072,7 +1072,7 @@ function buildAthleteContext() {
   const bwRatio=db.user.bw>0?{bench:(db.bestPR.bench/db.user.bw).toFixed(2),squat:(db.bestPR.squat/db.user.bw).toFixed(2),deadlift:(db.bestPR.deadlift/db.user.bw).toFixed(2)}:null;
   const daysSince=[...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0];
   const daysSinceTraining=daysSince?Math.floor((Date.now()-daysSince.timestamp)/86400000):null;
-  const programme = getProgrammeContext ? getProgrammeContext() : null;
+  const programme = typeof getProgrammeContext === 'function' ? getProgrammeContext() : null;
   return{bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()],sbdTrend,weakGroup,bwRatio,daysSinceTraining,sets14,programme};
 }
 

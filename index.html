@@ -103,6 +103,67 @@
     .report-card-body .ai-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .report-toggle { background: none; border: none; color: var(--blue); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0; }
     .report-new-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); display: inline-block; animation: aiPulse 2s infinite; }
+    /* ── Onglet Corps ─────────────────────────────────────── */
+    .body-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .body-metric { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 14px; padding: 14px; text-align: center; }
+    .body-metric-val { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+    .body-metric-label { font-size: 10px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; }
+    .body-metric-sub { font-size: 11px; color: var(--sub); margin-top: 3px; }
+    .body-metric.highlight { border-color: rgba(10,132,255,0.3); background: rgba(10,132,255,0.06); }
+    .body-metric.green { border-color: rgba(50,215,75,0.3); background: rgba(50,215,75,0.06); }
+    .body-metric.orange { border-color: rgba(255,159,10,0.3); background: rgba(255,159,10,0.06); }
+    .body-metric.red { border-color: rgba(255,69,58,0.3); background: rgba(255,69,58,0.06); }
+    .macro-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .macro-input-wrap { flex: 1; text-align: center; }
+    .macro-input-wrap label { font-size: 10px; color: var(--sub); text-transform: uppercase; display: block; margin-bottom: 4px; }
+    .macro-input-wrap input { text-align: center; padding: 10px 6px; font-size: 15px; margin: 0; }
+    .weight-history-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .weight-history-item:last-child { border-bottom: none; }
+    .trend-up { color: var(--green); }
+    .trend-down { color: var(--red); }
+    .trend-flat { color: var(--sub); }
+
+    /* ── Comparaison programme vs réel ───────────────────── */
+    .cmp-card { border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1px solid rgba(10,132,255,0.25); background: linear-gradient(135deg, rgba(10,132,255,0.05) 0%, rgba(191,90,242,0.05) 100%); }
+    .cmp-title { font-size: 13px; font-weight: 700; color: var(--blue); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .cmp-exo { background: var(--surface); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+    .cmp-exo-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .cmp-badge { font-size: 10px; padding: 2px 7px; border-radius: 6px; font-weight: 700; }
+    .cmp-badge.ok   { background: rgba(50,215,75,0.15); color: var(--green); }
+    .cmp-badge.over { background: rgba(255,159,10,0.15); color: var(--orange); }
+    .cmp-badge.under{ background: rgba(255,69,58,0.15); color: var(--red); }
+    .cmp-badge.miss { background: rgba(134,134,139,0.15); color: var(--sub); }
+    .cmp-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); padding: 2px 0; }
+    .cmp-row span.ok    { color: var(--green); font-weight: 600; }
+    .cmp-row span.over  { color: var(--orange); font-weight: 600; }
+    .cmp-row span.under { color: var(--red); font-weight: 600; }
+    .cmp-adapt-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .cmp-adapt-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--sub); margin-bottom: 8px; font-weight: 600; }
+    .cmp-adapt-item { font-size: 12px; color: var(--text); padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; gap: 8px; }
+    .cmp-adapt-item:last-child { border-bottom: none; }
+    .cmp-adapt-day { color: var(--blue); font-weight: 600; min-width: 60px; }
+    .cmp-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .cmp-btn-apply { flex: 1; background: var(--blue); border: none; color: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 13px; }
+    .cmp-btn-skip  { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--sub); padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .cmp-note { font-size: 11px; color: var(--orange); font-style: italic; margin-top: 2px; }
+    .cmp-decision { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
+    .cmp-decision-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--sub); font-weight: 600; margin-bottom: 8px; }
+    .cmp-decision-body { font-size: 12px; color: var(--text); margin-bottom: 10px; line-height: 1.5; }
+    .cmp-decision-actions { display: flex; gap: 8px; }
+    .cmp-btn-yes { flex: 1; background: var(--blue); border: none; color: white; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px; }
+    .cmp-btn-yes.green { background: var(--green); color: #000; }
+    .cmp-btn-no  { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--sub); padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 12px; }
+    .cmp-decision.applied { border-color: rgba(50,215,75,0.4); background: rgba(50,215,75,0.06); opacity: 0.7; pointer-events: none; }
+    .cmp-decision.applied .cmp-decision-actions { display: none; }
+    .cmp-decision.applied::after { content: '✓ Appliqué'; display: block; text-align: center; color: var(--green); font-size: 12px; font-weight: 600; margin-top: 4px; }
+
+    .coach-algo-card { background: linear-gradient(135deg, rgba(50,215,75,0.06) 0%, rgba(10,132,255,0.06) 100%); border: 1px solid rgba(50,215,75,0.2); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    .coach-algo-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--green); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .plateau-alert { background: rgba(255,159,10,0.1); border: 1px solid rgba(255,159,10,0.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
+    .surplus-bar-wrap { background: var(--surface); border-radius: 8px; height: 8px; overflow: hidden; margin: 6px 0; }
+    .surplus-bar { height: 100%; border-radius: 8px; transition: width 0.5s; }
+    .ipf-score-big { font-size: 36px; font-weight: 900; text-align: center; padding: 10px 0; }
+
 
     /* ── Weekly Plan ─────────────────────────────────────────── */
     .wp-card { background: linear-gradient(135deg, rgba(10,132,255,0.06) 0%, rgba(191,90,242,0.06) 100%); border: 1px solid rgba(10,132,255,0.2); border-radius: 20px; padding: 20px; margin-bottom: 15px; }
@@ -166,13 +227,15 @@
     <div id="aiImportAnalysis" style="display:none;"></div>
   </div>
   <div id="tab-ai" class="content-section">
-    <div class="card"><div class="ai-header"><div class="ai-avatar">🤖</div><div class="ai-header-text"><h3>Coach IA</h3><p>Rapports automatiques • Conseils personnalisés</p></div></div>
-      <div class="ai-action-grid">
-        <button class="ai-action-btn" onclick="aiAction('weekly')"><div class="ai-action-icon">📊</div><div class="ai-action-label">Bilan Hebdo</div><div class="ai-action-desc">Forcer le résumé semaine</div></button>
-        <button class="ai-action-btn" onclick="aiAction('progression')"><div class="ai-action-icon">📈</div><div class="ai-action-label">Progression SBD</div><div class="ai-action-desc">Analyse & suggestions</div></button>
-        <button class="ai-action-btn" onclick="aiAction('weakpoints')"><div class="ai-action-icon">🎯</div><div class="ai-action-label">Points Faibles</div><div class="ai-action-desc">Déséquilibres détectés</div></button>
-        <button class="ai-action-btn" onclick="aiAction('next')"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Quoi faire aujourd'hui</div></button>
-      </div></div>
+
+    <!-- Coach Algo — analyse instantanée sans IA -->
+    <div class="coach-algo-card" id="coachAlgoCardAI">
+      <div class="coach-algo-title">🧠 Coach — Analyse Instantanée</div>
+      <div id="coachAlgoContentAI" style="font-size:13px;line-height:1.65;color:var(--text);">
+        <div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Calcul en cours...</div>
+      </div>
+    </div>
+
     <div id="aiReportsTimeline"></div>
     <!-- ── Weekly Plan block ── -->
     <div class="wp-card" id="weeklyPlanSection">
@@ -192,13 +255,101 @@
       <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
       <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
     </div>
-    <div class="card"><h2>💬 Réponse Libre</h2><div id="aiResponseArea" class="ai-response-area empty">Appuie sur une action ci-dessus ou importe une séance</div><button onclick="testAPIConnection()" style="margin-top:10px;background:var(--surface);border:1px solid var(--border);color:var(--sub);width:100%;padding:10px;border-radius:10px;font-size:12px;cursor:pointer;">🔌 Tester la connexion IA</button></div>
+    <!-- Rapport IA complet — bouton unique -->
+    <div class="card" style="border-color:rgba(191,90,242,0.2);background:rgba(191,90,242,0.04);">
+      <h2 style="color:var(--purple);">⚡ Rapport IA Approfondi</h2>
+      <p style="font-size:12px;color:var(--sub);margin:4px 0 14px;">Analyse complète par Claude — nécessite une clé API dans Réglages.</p>
+      <div class="ai-action-grid" style="margin-bottom:12px;">
+        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
+        <button class="ai-action-btn" onclick="aiAction('next')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Conseils du jour</div></button>
+      </div>
+      <button class="btn" style="background:var(--purple);" onclick="aiAction('weekly')">✦ Rapport Coach Complet</button>
+      <div id="aiResponseArea" class="ai-response-area empty" style="margin-top:12px;display:none;"></div>
+    </div>
   </div>
   <div id="tab-stats" class="content-section">
     <div class="card"><h2>Rapports</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="reportButtons"><button class="period-btn active" data-period="week" onclick="renderReports('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderReports('month')">30 Jours</button></div><div class="report-grid" id="reportDisplay"></div></div>
     <div class="card"><h2>Répartition Musculaire</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="muscleButtons"><button class="period-btn active" data-period="week" onclick="renderMuscleChart('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderMuscleChart('month')">30 Jours</button></div><div style="position:relative;height:200px;margin:15px 0 10px;" id="chartMuscleContainer"></div><div id="muscleList"></div></div>
     <div class="card"><h2>💪 Meilleurs Lifts (All Time)</h2><div id="topExosList" style="margin-top:10px;"></div></div>
     <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">10 Séances</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Séances</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
+  </div>
+
+  <div id="tab-corps" class="content-section">
+    <!-- Coach Algo -->
+    <div class="coach-algo-card" id="coachAlgoCard">
+      <div class="coach-algo-title">🧠 Coach — Analyse Instantanée</div>
+      <div id="coachAlgoContent" style="font-size:13px;line-height:1.6;color:var(--text);">
+        Entre ton poids et tes macros pour activer l'analyse.
+      </div>
+    </div>
+
+    <!-- Saisie Poids du jour -->
+    <div class="card">
+      <h2>⚖️ Poids du jour</h2>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <input type="number" id="inputBodyWeight" placeholder="kg" step="0.1" style="flex:1;margin:0;font-size:20px;text-align:center;" />
+        <button onclick="saveBodyEntry()" class="btn" style="width:auto;padding:14px 20px;">Sauver</button>
+      </div>
+      <div id="weightHistory"></div>
+    </div>
+
+    <!-- Macros du jour -->
+    <div class="card">
+      <h2>🍽️ Macros du jour</h2>
+      <div class="macro-row">
+        <div class="macro-input-wrap">
+          <label>Protéines (g)</label>
+          <input type="number" id="inputProt" placeholder="0" min="0" oninput="updateCalcCalories()" />
+        </div>
+        <div class="macro-input-wrap">
+          <label>Glucides (g)</label>
+          <input type="number" id="inputCarb" placeholder="0" min="0" oninput="updateCalcCalories()" />
+        </div>
+        <div class="macro-input-wrap">
+          <label>Lipides (g)</label>
+          <input type="number" id="inputFat" placeholder="0" min="0" oninput="updateCalcCalories()" />
+        </div>
+        <div class="macro-input-wrap">
+          <label>Calories</label>
+          <input type="number" id="inputKcal" placeholder="0" min="0" />
+        </div>
+      </div>
+      <button onclick="saveMacroEntry()" class="btn">Enregistrer les macros</button>
+    </div>
+
+    <!-- Métriques calculées -->
+    <div class="card">
+      <h2>📊 Métriques</h2>
+      <div class="body-metric-grid" id="bodyMetricsGrid">
+        <div class="body-metric highlight">
+          <div class="body-metric-val" id="metricIPF">—</div>
+          <div class="body-metric-label">IPF GL Points</div>
+          <div class="body-metric-sub" id="metricIPFsub">Score de force normalisé</div>
+        </div>
+        <div class="body-metric">
+          <div class="body-metric-val" id="metricRatio">—</div>
+          <div class="body-metric-label">Ratio Force/Masse</div>
+          <div class="body-metric-sub" id="metricRatioSub">IPF GL / poids de corps</div>
+        </div>
+        <div class="body-metric" id="metricTDEECard">
+          <div class="body-metric-val" id="metricTDEE">—</div>
+          <div class="body-metric-label">TDEE Estimé</div>
+          <div class="body-metric-sub" id="metricTDEESub">kcal/jour</div>
+        </div>
+        <div class="body-metric" id="metricBalanceCard">
+          <div class="body-metric-val" id="metricBalance">—</div>
+          <div class="body-metric-label">Balance</div>
+          <div class="body-metric-sub" id="metricBalanceSub">vs TDEE</div>
+        </div>
+      </div>
+      <div id="plateauAlerts"></div>
+    </div>
+
+    <!-- Graphique poids -->
+    <div class="card">
+      <h2>📈 Évolution Poids</h2>
+      <div style="height:180px;margin-top:10px;"><canvas id="chartBodyWeight"></canvas></div>
+    </div>
   </div>
   <div id="tab-settings" class="content-section">
     <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><div style="display:flex;gap:8px;margin-bottom:12px;"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" style="margin-bottom:0;flex:1;"><button onclick="saveAPIKey()" style="background:var(--blue);border:none;color:white;padding:0 16px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:13px;">Sauver</button></div><p style="font-size:10px;color:var(--sub);margin-top:0;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
@@ -210,6 +361,7 @@
     <button class="tab-btn" data-tab="tab-train"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg> Séance</button>
     <button class="tab-btn" data-tab="tab-ai"><svg viewBox="0 0 24 24"><path d="M21 10.975V8a2 2 0 0 0-2-2h-6V4.688c.305-.274.5-.668.5-1.11a1.5 1.5 0 0 0-3 0c0 .442.195.836.5 1.11V6H5a2 2 0 0 0-2 2v2.998l-.072.005A.999.999 0 0 0 2 12v2a1 1 0 0 0 1 1v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1.025zM9 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg> Coach</button>
     <button class="tab-btn" data-tab="tab-stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm6 14H7v-5h2v5zm4 0h-2v-3h2v3zm0-5h-2v-2h2v2zm4 5h-2V7h2v10z"/></svg> Stats</button>
+    <button class="tab-btn" data-tab="tab-corps"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Corps</button>
     <button class="tab-btn" data-tab="tab-settings"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg> Réglages</button>
   </nav>
 <script>
@@ -549,7 +701,7 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 // ============================================================
 // DB
 // ============================================================
-const defaultDB = () => ({ user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], weeklyPlan: null, lastSync: 0 });
+const defaultDB = () => ({ user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], weeklyPlan: null, body: [], lastSync: 0 });
 let db = (() => { try { const s = localStorage.getItem(STORAGE_KEY); if (!s) return defaultDB(); const p = JSON.parse(s); if (!p.logs || !p.user) return defaultDB(); if (!p.reports) p.reports = []; if (!p.weeklyPlan) p.weeklyPlan = null; return p; } catch { return defaultDB(); } })();
 let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 
@@ -582,7 +734,7 @@ function toggleReport(id) { const body = document.getElementById('report-body-'+
 // ============================================================
 async function cloudSignIn() { if (!supaClient) return null; try { const {data:{session}} = await supaClient.auth.getSession(); if (session) { cloudSyncEnabled = true; updateCloudUI(session.user); return session.user; } const {data, error} = await supaClient.auth.signInAnonymously(); if (error) throw error; cloudSyncEnabled = true; updateCloudUI(data.user); return data.user; } catch(e) { console.error('Cloud sign-in:', e); updateCloudUI(null, e.message); return null; } }
 async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
-async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; if (!db.weeklyPlan) db.weeklyPlan = null; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
+async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; if (!db.weeklyPlan) db.weeklyPlan = null; if (!db.body) db.body = []; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
 function updateSyncStatus(s) { const el = document.getElementById('syncIndicator'); if (!el) return; el.textContent = s==='sync'?'Sync OK':s==='error'?'Erreur':''; setTimeout(() => { if (el) el.textContent = ''; }, 3000); }
 async function sendMagicLink() { const email = document.getElementById('inputEmail').value.trim(); if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; } try { const {error} = await supaClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin+window.location.pathname } }); if (error) throw error; showToast('Lien envoyé ! Check tes emails'); } catch(e) { showToast('Erreur: '+e.message); } }
@@ -592,7 +744,7 @@ async function cloudLogout() { if (!supaClient) return; await supaClient.auth.si
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); renderWeeklyPlanUI(); } }
+function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); renderWeeklyPlanUI(); renderCoachAlgoAI(); } if (tabId==='tab-corps') { renderCorpsTab(); } }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = ROUTINES[selectedDay]; renderDayExercises(selectedDay); });
 
@@ -651,26 +803,31 @@ muscleGroup :
 - Autre : tout le reste`;
 
 async function extractWithAI(rawText) {
-  const rawKey = localStorage.getItem('SBD_API_KEY') || '';
-  const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
+  const rawKey2 = localStorage.getItem('SBD_API_KEY') || '';
+  const apiKey = rawKey2.replace(/[^\x20-\x7E]/g, '').trim();
   if (!apiKey) return null;
+
   try {
-    const PROXY_URL = 'https://swwygywahfdenyzotrce.supabase.co/functions/v1/anthropic-proxy';
-    const r = await fetch(PROXY_URL, {
+    const r = await fetch('https://swwygywahfdenyzotrce.supabase.co/functions/v1/anthropic-proxy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
-        apiKey: apiKey,
-        model: 'claude-opus-4-5',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
         system: AI_EXTRACT_SYSTEM,
-        messages: [{ role: 'user', content: rawText.substring(0, 8000) }],
-        max_tokens: 1500,
-      }),
+        messages: [{ role: 'user', content: rawText }]
+      })
     });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data?.content?.[0]?.text || null;
+    const d = await r.json();
+    if (d.error) { console.warn('AI extract error:', d.error); return null; }
+    const raw = d.content.map(b => b.text || '').join('').trim();
+    return JSON.parse(raw);
   } catch (e) {
+    console.warn('AI extract failed:', e);
     return null;
   }
 }
@@ -841,9 +998,18 @@ function finalizeSession(session, rawText) {
   saveDB();
   document.getElementById('hevyPaste').value = '';
   showImportSummary(session);
-  showToast('✓ Séance importée' + (localStorage.getItem('SBD_API_KEY') ? ' (IA)' : ''));
+  showToast('✓ Séance importée');
   refreshUI();
-  aiGenerateDebrief(session, rawText);
+
+  // Comparaison programme vs réel
+  const planDay = findProgramDay(session);
+  if (planDay) {
+    const comparison = compareSessions(session, planDay);
+    showComparisonCard(session, comparison);
+  } else {
+    // Pas de programme pour ce jour — débrief IA si clé dispo
+    if (localStorage.getItem('SBD_API_KEY')) aiGenerateDebrief(session, rawText);
+  }
 }
 
 
@@ -1072,7 +1238,7 @@ function buildAthleteContext() {
   const bwRatio=db.user.bw>0?{bench:(db.bestPR.bench/db.user.bw).toFixed(2),squat:(db.bestPR.squat/db.user.bw).toFixed(2),deadlift:(db.bestPR.deadlift/db.user.bw).toFixed(2)}:null;
   const daysSince=[...db.logs].sort((a,b)=>b.timestamp-a.timestamp)[0];
   const daysSinceTraining=daysSince?Math.floor((Date.now()-daysSince.timestamp)/86400000):null;
-  const programme = typeof getProgrammeContext === 'function' ? getProgrammeContext() : null;
+  const programme = getProgrammeContext ? getProgrammeContext() : null;
   return{bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()],sbdTrend,weakGroup,bwRatio,daysSinceTraining,sets14,programme};
 }
 
@@ -1089,32 +1255,55 @@ async function callAI(systemPrompt, userPrompt, maxTokens) {
   const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   try {
-    const PROXY_URL = 'https://swwygywahfdenyzotrce.supabase.co/functions/v1/anthropic-proxy';
-    const r = await fetch(PROXY_URL, {
+    const PROXY = 'https://swwygywahfdenyzotrce.supabase.co/functions/v1/anthropic-proxy';
+    const r = await fetch(PROXY, {
       method: 'POST',
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
-        apiKey: apiKey,
-        model: 'claude-opus-4-5',
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: maxTokens || 1200,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-        max_tokens: maxTokens || 1024,
-      }),
+        messages: [{ role: 'user', content: userPrompt }]
+      })
     });
     clearTimeout(timeoutId);
+
     if (!r.ok) {
-      const errData = await r.json().catch(() => ({}));
-      const msg = errData?.error?.message || errData?.error || r.statusText;
-      window._lastAIError = 'Erreur API: ' + msg;
+      const errBody = await r.text();
+      let errMsg = 'HTTP ' + r.status;
+      if (r.status === 401) errMsg = 'Clé API invalide (401)';
+      else if (r.status === 403) errMsg = 'Accès refusé (403) — clé ou plan incorrect';
+      else if (r.status === 429) errMsg = 'Trop de requêtes (429) — réessaie dans 1 min';
+      else if (r.status === 400) {
+        try { const j = JSON.parse(errBody); errMsg = '400: ' + (j.error?.message || errBody.substring(0,150)); }
+        catch { errMsg = '400: ' + errBody.substring(0,150); }
+      }
+      window._lastAIError = errMsg;
+      console.error('callAI', r.status, errBody);
       return null;
     }
-    const data = await r.json();
-    return data?.content?.[0]?.text || null;
-  } catch (e) {
+
+    const d = await r.json();
+    if (d.error) {
+      window._lastAIError = d.error.message || JSON.stringify(d.error);
+      return null;
+    }
+    window._lastAIError = null;
+    return d.content.map(b => b.text||'').join('');
+
+  } catch(err) {
     clearTimeout(timeoutId);
-    if (e.name === 'AbortError') window._lastAIError = 'Timeout — réessaie';
-    else window._lastAIError = String(e);
+    if (err.name === 'AbortError') {
+      window._lastAIError = 'Timeout 45s — connexion trop lente ou clé invalide';
+    } else {
+      window._lastAIError = err.message || 'Erreur réseau';
+    }
+    console.error('callAI catch:', err);
     return null;
   }
 }
@@ -1140,18 +1329,21 @@ FORMAT HTML UNIQUEMENT:
 function showAILoading(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  el.style.display = 'block';
   el.classList.remove('empty');
   el.innerHTML = '<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Claude analyse...</div>';
 }
 function showAIResponse(id, html) {
   const el = document.getElementById(id);
   if (!el) return;
+  el.style.display = 'block';
   el.classList.remove('empty');
   el.innerHTML = '<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA \u2022 '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>';
 }
 function showAIError(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  el.style.display = 'block';
   el.classList.remove('empty');
   const detail = window._lastAIError || 'Vérifie ta connexion et réessaie.';
   el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">\u26a0\ufe0f Erreur IA<br><span style="font-size:11px;color:var(--sub);">'+detail+'</span></div>';
@@ -1220,13 +1412,19 @@ async function aiAction(type) {
 // ============================================================
 // RENDER — DASHBOARD
 // ============================================================
+function renderCoachAlgoAI() {
+  const el = document.getElementById('coachAlgoContentAI');
+  if (!el) return;
+  el.innerHTML = generateCoachAlgoMessage();
+}
+
 function refreshUI() {
   const savedKey = localStorage.getItem('SBD_API_KEY');
   if (savedKey) { const kInput = document.getElementById('inputAPIKey'); if (kInput) kInput.value = savedKey; }
   renderDash();
   updateCoachBadge();
   if (document.getElementById('tab-stats').classList.contains('active')) { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); }
-  if (document.getElementById('tab-ai').classList.contains('active')) { renderReportsTimeline(); renderWeeklyPlanUI(); }
+  if (document.getElementById('tab-ai').classList.contains('active')) { renderReportsTimeline(); renderWeeklyPlanUI(); } if (document.getElementById('tab-corps').classList.contains('active')) { renderCorpsTab(); }
 }
 
 function renderDash() {
@@ -1784,133 +1982,362 @@ function cleanupExistingLogs() {
 // ============================================================
 let wpSelectedDay = DAYS_FULL[new Date().getDay()] === 'Dimanche' ? 'Lundi' : DAYS_FULL[new Date().getDay()];
 
-const AI_WEEKLY_PLAN_SYSTEM = `Tu es un coach powerlifting expert. Tu génères un programme hebdomadaire structuré en JSON strict.
-
-CONTEXTE ATHLÈTE :
-• Programme : Lundi=Squat/Quads, Mardi=Push, Mercredi=Natation récup, Jeudi=Pull+Deadlift, Vendredi=Upper/Points faibles, Samedi=SBD technique, Dimanche=Repos
-• Nutrition : intolérance lactose (Whey Isolate OK). Suppléments : Créatine 5g, Oméga-3, ZMB, Collagène, Glycine, Work! pre-workout.
-• "abandon" = drop-set
-
-SÉANCES DE RÉFÉRENCE (bloc précédent — base de calibration des charges) :
-
-LUNDI — Squat Lourd / Quads
-Squat (Barre): échauff 60×8/80×6/100×4/120×2/130×1 | travail 130×4@9 / 115×4@10 (drop)
-Extension Jambes: 45×15 / 45×15 / 47.3×12
-Presse à Cuisses: 235.7×10 / 255.7×10 / 275.7×8
-Extension Mollets Debout (Machine): 70.4×20 / 90.4×20 / 100.4×15
-
-MARDI — Bench Lourd / Dos
-Développé Couché (Barre): échauff 60×8/80×6/100×4/110×2/120×1 | travail 120×4@7 / 120×4@8 / 120×4@8.5 / 120×4@10
-Tractions: 6 ×4 (poids de corps)
-Rowing Poulie Assis: échauff 59×10 | 73×10@7 / 73×10@8 / 75.3×8
-Écartés Poulie Basse: 18×15 ×3
-Tirage vers Visage: 18×15 ×3
-
-MERCREDI — Natation ~1km
-Récupération active. Donner conseil de nage dans coachNote (style, tempo, récup entre longueurs).
-
-JEUDI — Deadlift Lourd / Fessiers
-Soulevé de Terre (Barre): échauff 60×10/100×6/120×4/140×2/150×1 | travail 150×3 ×2 / 160×3
-Hip Thrust (Machine): 62.7×10 / 72.7×10 / 77.7×8
-Leg Curl Allongé (Machine): 34.3×12 / 36×12 / 38.3×10
-Abduction Hanche: 52×20 / 59×20 / 66×15
-
-VENDREDI — Bench Volume / HDC
-Développé Couché (Barre): échauff 60×10/75×6/90×4/100×2/110×1 | travail 105×6 ×5 (volume)
-Développé Couché Incliné (Haltère): 72×10 / 72×10 / 72×8
-Tirage Poitrine (Poulie): 45×12 / 52×12 / 59×10
-Curl Biceps (Poulie): 11.3×15 / 15.8×15 / 13.5×12
-Extension Triceps Poulie Haute: 18×15 / 22.5×15 / 27×12
-
-SAMEDI — SBD Technique
-Squat avec pause (barre): échauff 60×8/80×4 | 95×6 ×2 / 100×6
-Spoto Bench: échauff 60×8/80×4 | 90×6 ×2 / 90×8
-Soulevé De Terre avec pause: échauff 60×8/80×4/100×2 | 110×5 / 115×5 ×2
-
-RÈGLES DE GÉNÉRATION :
-- Répondre UNIQUEMENT avec du JSON valide, aucun texte avant ou après, pas de backticks
-- isWarmup: true pour les séries d'échauffement
-- Charges = poids réels (pas des e1RM)
-- Semaine 1 post-deload : 90-92% des charges de référence, 3-4 séries de travail, RPE cible 7-8
-- Semaine 2 : +2.5kg sur les mouvements principaux, 1 série supplémentaire si toléré
-- Semaine 3 : +2.5kg supplémentaires, RPE cible 8-9
-- Semaine 4 Peak : 2-3 séries seulement, charges maximales
-- Dimanche : rest: true, exercises: []
-- coachNote : max 25 mots, direct, motivant 🦍. Pour mercredi, inclure conseil de nage.
-
-FORMAT JSON :
-{
+// Programme de base FIXE — structure qui ne change jamais
+const BASE_PROGRAMME = {
   "bloc": 2,
-  "week": 1,
-  "generated_at": "ISO timestamp",
   "days": [
     {
-      "day": "Lundi",
-      "title": "🦵 Squat / Quadriceps",
-      "rest": false,
-      "coachNote": "texte coach max 25 mots",
+      "day": "Lundi", "title": "🦵 Squat Lourd — Quads", "rest": false, "coachNote": "",
       "exercises": [
-        {
-          "name": "Squat (Barre)",
-          "type": "weight",
-          "restSeconds": 180,
+        { "name": "Squat (Barre)", "type": "weight", "restSeconds": 180,
           "sets": [
-            { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 100, "reps": 8,  "rpe": 7 }
+            { "isWarmup": true,  "weight": 60,  "reps": 8,  "rpe": null },
+            { "isWarmup": true,  "weight": 80,  "reps": 6,  "rpe": null },
+            { "isWarmup": true,  "weight": 100, "reps": 4,  "rpe": null },
+            { "isWarmup": true,  "weight": 120, "reps": 2,  "rpe": null },
+            { "isWarmup": true,  "weight": 130, "reps": 1,  "rpe": null },
+            { "isWarmup": false, "weight": 130, "reps": 4,  "rpe": 9 },
+            { "isWarmup": false, "weight": 115, "reps": 4,  "rpe": 10 }
+          ]
+        },
+        { "name": "Extension Jambes", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 45,   "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 45,   "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 47.3, "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Presse à Cuisses", "type": "weight", "restSeconds": 120,
+          "sets": [
+            { "isWarmup": false, "weight": 235.7, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 255.7, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 275.7, "reps": 8,  "rpe": null }
+          ]
+        },
+        { "name": "Extension Mollets Debout (Machine)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 70.4,  "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 90.4,  "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 100.4, "reps": 15, "rpe": null }
           ]
         }
       ]
+    },
+    {
+      "day": "Mardi", "title": "🏋️ Bench Lourd — Dos", "rest": false, "coachNote": "",
+      "exercises": [
+        { "name": "Développé Couché (Barre)", "type": "weight", "restSeconds": 180,
+          "sets": [
+            { "isWarmup": true,  "weight": 60,  "reps": 8, "rpe": null },
+            { "isWarmup": true,  "weight": 80,  "reps": 6, "rpe": null },
+            { "isWarmup": true,  "weight": 100, "reps": 4, "rpe": null },
+            { "isWarmup": true,  "weight": 110, "reps": 2, "rpe": null },
+            { "isWarmup": true,  "weight": 120, "reps": 1, "rpe": null },
+            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 7 },
+            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 8 },
+            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 8.5 },
+            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 10 }
+          ]
+        },
+        { "name": "Tractions", "type": "reps", "restSeconds": 120,
+          "sets": [
+            { "isWarmup": false, "reps": 6, "weight": 0 },
+            { "isWarmup": false, "reps": 6, "weight": 0 },
+            { "isWarmup": false, "reps": 6, "weight": 0 },
+            { "isWarmup": false, "reps": 6, "weight": 0 }
+          ]
+        },
+        { "name": "Rowing Poulie Assis", "type": "weight", "restSeconds": 120,
+          "sets": [
+            { "isWarmup": true,  "weight": 59,   "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 73,   "reps": 10, "rpe": 7 },
+            { "isWarmup": false, "weight": 73,   "reps": 10, "rpe": 8 },
+            { "isWarmup": false, "weight": 75.3, "reps": 8,  "rpe": null }
+          ]
+        },
+        { "name": "Écartés Poulie Basse", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null }
+          ]
+        },
+        { "name": "Tirage vers Visage", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null }
+          ]
+        }
+      ]
+    },
+    {
+      "day": "Mercredi", "title": "🏊 Natation — Récup Active", "rest": false, "coachNote": "",
+      "exercises": [
+        { "name": "Natation", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 25 } ]
+        }
+      ]
+    },
+    {
+      "day": "Jeudi", "title": "💀 Deadlift Lourd — Fessiers", "rest": false, "coachNote": "",
+      "exercises": [
+        { "name": "Soulevé de Terre (Barre)", "type": "weight", "restSeconds": 180,
+          "sets": [
+            { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
+            { "isWarmup": true,  "weight": 100, "reps": 6,  "rpe": null },
+            { "isWarmup": true,  "weight": 120, "reps": 4,  "rpe": null },
+            { "isWarmup": true,  "weight": 140, "reps": 2,  "rpe": null },
+            { "isWarmup": true,  "weight": 150, "reps": 1,  "rpe": null },
+            { "isWarmup": false, "weight": 150, "reps": 3,  "rpe": null },
+            { "isWarmup": false, "weight": 150, "reps": 3,  "rpe": null },
+            { "isWarmup": false, "weight": 160, "reps": 3,  "rpe": null }
+          ]
+        },
+        { "name": "Hip Thrust (Machine)", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 62.7, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 72.7, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 77.7, "reps": 8,  "rpe": null }
+          ]
+        },
+        { "name": "Leg Curl Allongé (Machine)", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 34.3, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 36,   "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 38.3, "reps": 10, "rpe": null }
+          ]
+        },
+        { "name": "Abduction Hanche", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 52, "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 59, "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 66, "reps": 15, "rpe": null }
+          ]
+        }
+      ]
+    },
+    {
+      "day": "Vendredi", "title": "💪 Bench Volume — HDC", "rest": false, "coachNote": "",
+      "exercises": [
+        { "name": "Développé Couché (Barre)", "type": "weight", "restSeconds": 150,
+          "sets": [
+            { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
+            { "isWarmup": true,  "weight": 75,  "reps": 6,  "rpe": null },
+            { "isWarmup": true,  "weight": 90,  "reps": 4,  "rpe": null },
+            { "isWarmup": true,  "weight": 100, "reps": 2,  "rpe": null },
+            { "isWarmup": true,  "weight": 110, "reps": 1,  "rpe": null },
+            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
+            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
+            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
+            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
+            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null }
+          ]
+        },
+        { "name": "Développé Couché Incliné (Haltère)", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 72, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 72, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 72, "reps": 8,  "rpe": null }
+          ]
+        },
+        { "name": "Tirage Poitrine (Poulie)", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 45, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 52, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 59, "reps": 10, "rpe": null }
+          ]
+        },
+        { "name": "Curl Biceps (Poulie)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 11.3, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 15.8, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 13.5, "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Extension Triceps Poulie Haute", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 18,   "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 22.5, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 27,   "reps": 12, "rpe": null }
+          ]
+        }
+      ]
+    },
+    {
+      "day": "Samedi", "title": "⚡ SBD Technique", "rest": false, "coachNote": "",
+      "exercises": [
+        { "name": "Squat avec pause (barre)", "type": "weight", "restSeconds": 180,
+          "sets": [
+            { "isWarmup": true,  "weight": 60, "reps": 8, "rpe": null },
+            { "isWarmup": true,  "weight": 80, "reps": 4, "rpe": null },
+            { "isWarmup": false, "weight": 95, "reps": 6, "rpe": null },
+            { "isWarmup": false, "weight": 95, "reps": 6, "rpe": null },
+            { "isWarmup": false, "weight": 100,"reps": 6, "rpe": null }
+          ]
+        },
+        { "name": "Spoto Bench", "type": "weight", "restSeconds": 180,
+          "sets": [
+            { "isWarmup": true,  "weight": 60, "reps": 8, "rpe": null },
+            { "isWarmup": true,  "weight": 80, "reps": 4, "rpe": null },
+            { "isWarmup": false, "weight": 90, "reps": 6, "rpe": null },
+            { "isWarmup": false, "weight": 90, "reps": 6, "rpe": null },
+            { "isWarmup": false, "weight": 90, "reps": 8, "rpe": null }
+          ]
+        },
+        { "name": "Soulevé De Terre avec pause", "type": "weight", "restSeconds": 180,
+          "sets": [
+            { "isWarmup": true,  "weight": 60,  "reps": 8, "rpe": null },
+            { "isWarmup": true,  "weight": 80,  "reps": 4, "rpe": null },
+            { "isWarmup": true,  "weight": 100, "reps": 2, "rpe": null },
+            { "isWarmup": false, "weight": 110, "reps": 5, "rpe": null },
+            { "isWarmup": false, "weight": 115, "reps": 5, "rpe": null },
+            { "isWarmup": false, "weight": 115, "reps": 5, "rpe": null }
+          ]
+        }
+      ]
+    },
+    {
+      "day": "Dimanche", "title": "😴 Repos Complet", "rest": true, "coachNote": "", "exercises": []
     }
   ]
-}
-Pour cardio (type:"cardio"): sets avec { "distance": 1.0, "durationMin": 10 }
-Pour isométrique (type:"time"): sets avec { "durationSec": 60, "isWarmup": false }
-Pour poids de corps (type:"reps"): sets avec { "reps": 10, "weight": 0, "isWarmup": false }`;
+};
 
-async function generateWeeklyPlan() {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
-  if (!apiKey) { showToast('⚠️ Clé API requise dans Réglages'); return; }
+const AI_WEEKLY_PLAN_SYSTEM = `Tu es un coach powerlifting expert. Tu reçois un programme de base en JSON et tu dois UNIQUEMENT ajuster les poids des séries de travail (isWarmup: false) selon la semaine de bloc demandée.
+
+RÈGLE ABSOLUE N°1 : Tu ne changes PAS la structure. Mêmes exercices, même ordre, mêmes séries d'échauffement, mêmes reps. SEULS les "weight" des séries de travail (isWarmup:false) changent.
+
+RÈGLE ABSOLUE N°2 : Les séries d'échauffement (isWarmup:true) restent EXACTEMENT les mêmes, inchangées.
+
+RÈGLE ABSOLUE N°3 : Tu réponds UNIQUEMENT avec du JSON valide, rien d'autre.
+
+PROGRESSIONS PAR SEMAINE :
+- Semaine 1 (post-deload) : poids de référence × 0.92, RPE cible 7-8
+- Semaine 2 : poids de référence × 0.95, RPE cible 8
+- Semaine 3 : poids de référence × 0.98, RPE cible 8.5
+- Semaine 4 (peak) : poids de référence × 1.00-1.02, RPE cible 9-10
+
+Arrondir au 0.5kg le plus proche. Pour les exercices d'isolation (leg curl, mollets, curl, etc.) : progression +1-2kg/semaine.
+
+Pour le coachNote de chaque jour : max 20 mots, motivant, direct 🦍.
+Pour Mercredi (natation) : conseil de nage concret dans coachNote (style, tempo, récup entre longueurs).
+
+Retourne le JSON complet avec TOUS les jours, en ayant uniquement modifié les poids des séries de travail et les coachNote.`;
+
+function generateWeeklyPlan() {
   const btn = document.getElementById('wpGenerateBtn');
   btn.disabled = true;
-  btn.innerHTML = '<div class="ai-loading-dots" style="margin:0;"><span></span><span></span><span></span></div> Génération en cours...';
+  btn.textContent = 'Calcul en cours...';
+
   const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
-  const ctx = buildAthleteContext();
-  // Chercher dernière séance lundi pour référence squat
-  const lastLundi = db.logs.find(l => l.day === 'Lundi');
-  let sqRef = '';
-  if (lastLundi) {
-    const sqExo = lastLundi.exercises.find(e => getSBDType(e.name) === 'squat');
-    if (sqExo && sqExo.repRecords) {
-      sqRef = 'Dernière séance Lundi — Squat: '+Object.entries(sqExo.repRecords).map(([r,w])=>w+'kg×'+r).join(', ');
+
+  // Multiplicateurs de charge par semaine (algo pur, zéro IA)
+  const multipliers = { 1: 0.92, 2: 0.95, 3: 0.98, 4: 1.01 };
+  const rpeTargets  = { 1: '7-8', 2: '8',  3: '8.5', 4: '9-10' };
+  const mult = multipliers[weekNum] || 0.92;
+
+  // Coach notes par jour selon la semaine
+  const coachNotes = {
+    1: {
+      Lundi:    '\u2018Post-deload — sensations avant tout, technique impeccable \uD83E\uDD8D',
+      Mardi:    'Bench lourd en reprise, 4 sets @7-8 RPE, pas de frime \uD83E\uDD8D',
+      Mercredi: 'Crawl 25m x 20 longueurs, 20s de r\u00e9cup entre chaque. Respire.',
+      Jeudi:    'Deadlift en reprise — ancre les hanches, dos plat, drive \uD83E\uDD8D',
+      Vendredi: '5x6 au bench volume, r\u00e9gularit\u00e9 du tempo, repos 2min30',
+      Samedi:   'SBD technique — pause 2sec en bas, chaque rep est un atout \uD83E\uDD8D',
+      Dimanche: 'Repos m\u00e9rit\u00e9. Collag\u00e8ne + Glycine ce soir.'
+    },
+    2: {
+      Lundi:    '+2.5kg sur le squat — tu es en progression, impose-toi \uD83E\uDD8D',
+      Mardi:    'Bench @8 RPE — les 4 s\u00e9ries doivent se sentir identiques',
+      Mercredi: 'Crawl + dos crawl\u00e9, alterne style toutes les 5 longueurs',
+      Jeudi:    'Deadlift +2.5kg — tire comme si tu voulais d\u00e9chirer le sol',
+      Vendredi: 'Volume bench : 5x6 chargi. Si tu finissais @9 RPE, monte +2.5kg',
+      Samedi:   'Spoto et pause squat — la technique se paye en force brute plus tard',
+      Dimanche: 'Repos. Le muscle se construit pendant la r\u00e9cup.'
+    },
+    3: {
+      Lundi:    'Semaine 3 — les charges montent, le mental aussi \uD83E\uDD8D Reste propre',
+      Mardi:    '@8.5 RPE sur le bench lourd — t\u2019approches du sommet du bloc',
+      Mercredi: 'Nage active : crawl 30 longueurs, 15s de repos entre chaque',
+      Jeudi:    'Deadlift @8.5 — 3 \u00e9tirements de la cha\u00eene post\u00e9rieure apr\u00e8s',
+      Vendredi: 'Bench volume charg\u00e9 — si \u00e7a passe @8 RPE, le peak sera costaud',
+      Samedi:   'SBD technique lourde. Note mentalement chaque sensation.',
+      Dimanche: 'Repos total. Someil 8h minimum. Collag\u00e8ne.'
+    },
+    4: {
+      Lundi:    'PEAK \uD83D\uDCA5 Squat max — \u00e9chauffement long, puis tu tues la barre',
+      Mardi:    'Bench peak — si tu sens la forme, tente un PR sur la s\u00e9rie 1',
+      Mercredi: 'Nage l\u00e9g\u00e8re uniquement, 20 min max. Pr\u00e9serve le SNC.',
+      Jeudi:    'Deadlift peak — attaque 160kg+ si les s\u00e9ries de chauffe passent bien',
+      Vendredi: 'Volume r\u00e9duit. Maintien uniquement. Corps frais pour samedi.',
+      Samedi:   'SBD TEST \uD83D\uDCA5 — pause squat + Spoto + pause dead max du bloc',
+      Dimanche: 'Repos total m\u00e9rit\u00e9. D\u00e9brief dans 48h.'
     }
+  };
+
+  // Arrondir au 0.5kg le plus proche
+  function round05(v) { return Math.round(v * 2) / 2; }
+
+  // Progression isolation : +1kg/sem pour accessoires, +2kg pour gros mouvements
+  const isoBonus = { 1: 0, 2: 1, 3: 2, 4: 3 };
+  const bigBonus = { 1: 0, 2: 2.5, 3: 5, 4: 7.5 };
+
+  // Mouvements principaux (SBD + bench volume)
+  const BIG_MOVEMENTS = ['squat', 'bench', 'développé', 'soulevé', 'deadlift', 'spoto'];
+  function isBig(name) {
+    const n = name.toLowerCase();
+    return BIG_MOVEMENTS.some(k => n.includes(k));
   }
-  const prompt = `Génère le programme complet de la semaine.
 
-PROFIL : ${ctx.bw}kg | PRs e1RM estimés : Bench=${ctx.bestPR.bench}kg | Squat=${ctx.bestPR.squat}kg | Deadlift=${ctx.bestPR.deadlift}kg
-Objectifs : Bench=${ctx.targets.bench}kg | Squat=${ctx.targets.squat}kg | Deadlift=${ctx.targets.deadlift}kg
-Bloc 2 — Semaine ${weekNum}${weekNum===1?' (première semaine post-deload)':''}
-${sqRef ? sqRef+'\n' : ''}Séances récentes : ${ctx.recentVolumes.map(v=>v.title+' ('+v.date+', '+(v.vol/1000).toFixed(1)+'t)').join(' | ')||'Aucune'}
+  // Cloner BASE_PROGRAMME en profondeur
+  const plan = JSON.parse(JSON.stringify(BASE_PROGRAMME));
+  plan.week = weekNum;
+  plan.bloc = 2;
+  plan.generated_at = new Date().toISOString();
 
-Génère le JSON complet pour les 7 jours (Lundi → Dimanche).`;
+  const notes = coachNotes[weekNum] || coachNotes[1];
 
-  const result = await callAI(AI_WEEKLY_PLAN_SYSTEM, prompt, 6000);
+  plan.days.forEach(day => {
+    // Coach note
+    day.coachNote = notes[day.day] || '';
+
+    if (day.rest) return;
+
+    day.exercises.forEach(exo => {
+      if (exo.type === 'cardio' || exo.type === 'reps' || exo.type === 'time') return;
+
+      const big = isBig(exo.name);
+      exo.sets.forEach(set => {
+        if (set.isWarmup) return; // échauffements inchangés
+        if (!set.weight || set.weight === 0) return;
+
+        if (weekNum === 1) {
+          // Semaine 1 : appliquer le multiplicateur sur le poids de référence
+          set.weight = round05(set.weight * mult);
+        } else {
+          // Semaines 2-4 : ajouter le bonus progressif
+          const bonus = big ? bigBonus[weekNum] : isoBonus[weekNum];
+          // Recalcul depuis la base (BASE_PROGRAMME contient les poids de référence)
+          set.weight = round05(set.weight + bonus);
+        }
+
+        // Mettre à jour le RPE cible
+        if (set.rpe !== null && set.rpe !== undefined) {
+          const rpeMap = { 1: set.rpe * 0.92, 2: set.rpe * 0.95, 3: set.rpe, 4: set.rpe * 1.02 };
+          // On ne touche pas au RPE, juste indicatif
+        }
+      });
+    });
+  });
+
+  db.weeklyPlan = plan;
+  saveDB();
+
   btn.disabled = false;
   btn.innerHTML = '✦ Générer le programme de la semaine';
-  if (!result) { showToast('⚠️ ' + (window._lastAIError || 'Erreur IA')); return; }
-  try {
-    // Extraire le JSON même si entouré de texte parasite
-    const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Pas de JSON trouvé dans la réponse');
-    const plan = JSON.parse(jsonMatch[0]);
-    plan.generated_at = new Date().toISOString();
-    db.weeklyPlan = plan;
-    saveDB();
-    showToast('✅ Programme généré !');
-    renderWeeklyPlanUI();
-  } catch(e) {
-    console.error('Weekly plan parse error:', e, result.substring(0, 300));
-    showToast('⚠️ Format invalide — réessaie');
-  }
+  showToast('\u2705 Programme calcul\u00e9 !');
+  renderWeeklyPlanUI();
 }
 
 function regenerateWeeklyPlan() {
@@ -1950,7 +2377,8 @@ function renderWeeklyPlanUI() {
     else if (isToday) cls += ' today';
     if (isActive) cls += ' active';
     const onclick = isRest ? '' : `onclick="wpSelectDay('${day}')"`;
-    return `<div class="${cls}" ${onclick}>${day.substring(0,3)}</div>`;
+    const doneMark = dayData && dayData.sessionDone ? ' ✓' : '';
+    return `<div class="${cls}" ${onclick}>${day.substring(0,3)}${doneMark}</div>`;
   }).join('');
   // Session for selected day
   const sel = plan.days ? plan.days.find(d => d.day === wpSelectedDay) : null;
@@ -1958,7 +2386,10 @@ function renderWeeklyPlanUI() {
   if (!sel || sel.rest) {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote ? `<div class="wp-coach-note">🦍 ${sel.coachNote}</div>` : ''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div></div>`;
+    const doneNote = sel.sessionDone && sel.sessionNote
+      ? `<div style="background:rgba(50,215,75,0.08);border:1px solid rgba(50,215,75,0.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--green);">✓ Séance faite — ${sel.sessionNote}</div>`
+      : '';
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote ? `<div class="wp-coach-note">🦍 ${sel.coachNote}</div>` : ''}${doneNote}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div></div>`;
   }
   content.innerHTML = `<div class="wp-bloc-badge">Bloc ${plan.bloc||2} — Semaine ${plan.week||1}</div><div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
 }
@@ -1985,6 +2416,348 @@ function renderWpExercise(exo) {
   }
   const typeLabel = type==='weight'?'🏋️':type==='cardio'?'🏃':type==='time'?'⏱':'🔄';
   return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}</span><span class="wp-exo-type">${typeLabel}</span></div>${tableHtml}${restFmt?`<div class="wp-rest-tag">⏸ Repos : ${restFmt}</div>`:''}</div>`;
+}
+
+
+// ============================================================
+// PROGRAMME VIVANT — Comparaison & Adaptation
+// ============================================================
+
+// Trouve le jour du programme correspondant à la session importée
+function findProgramDay(session) {
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return null;
+  const sessionDay = session.day; // ex: "Lundi"
+  return db.weeklyPlan.days.find(d => d.day === sessionDay && !d.rest) || null;
+}
+
+// Compare séance réelle vs programme prévu
+// Retourne { exos: [...comparaisons], adaptations: [...] }
+function compareSessions(session, planDay) {
+  const result = { dayName: planDay.day, exos: [], adaptations: [], hasChanges: false };
+
+  const planExos = (planDay.exercises || []).filter(e => e.type === 'weight');
+  const doneExos = session.exercises.filter(e => !e.isCardio && !e.isTime && e.maxRM > 0);
+
+  // Map des exos faits par nom normalisé
+  const doneMap = {};
+  doneExos.forEach(e => { doneMap[e.name.toLowerCase().trim()] = e; });
+
+  // Ordre réel des exos faits
+  const doneOrder = doneExos.map(e => e.name);
+  const planOrder = planExos.map(e => e.name);
+  const orderChanged = planOrder.length > 0 && doneOrder.length > 0 &&
+    planOrder[0] !== doneOrder[0];
+
+  planExos.forEach(planExo => {
+    const key = planExo.name.toLowerCase().trim();
+    const done = doneMap[key];
+
+    // Charges prévues (séries travail)
+    const planWorkSets = (planExo.sets || []).filter(s => !s.isWarmup);
+    const planAvgWeight = planWorkSets.length
+      ? planWorkSets.reduce((s, x) => s + x.weight, 0) / planWorkSets.length : 0;
+    const planSetsCount = planWorkSets.length;
+
+    if (!done) {
+      // Exo zappé
+      result.exos.push({ name: planExo.name, status: 'miss', planWeight: planAvgWeight, doneWeight: null, planSets: planSetsCount, doneSets: 0 });
+      result.hasChanges = true;
+      return;
+    }
+
+    // Comparer charges réelles vs prévues
+    const doneWorkSets = Object.values(done.repRecords || {});
+    const doneAvgWeight = doneWorkSets.length
+      ? doneWorkSets.reduce((s, w) => s + w, 0) / doneWorkSets.length : done.maxRM;
+    const doneSetsCount = done.sets || planSetsCount;
+
+    const delta = doneAvgWeight - planAvgWeight;
+    const deltaRatio = planAvgWeight > 0 ? delta / planAvgWeight : 0;
+
+    let status = 'ok';
+    if (deltaRatio > 0.03)  status = 'over';   // +3% ou plus
+    if (deltaRatio < -0.03) status = 'under';   // -3% ou moins
+
+    result.exos.push({
+      name: planExo.name,
+      status,
+      planWeight: Math.round(planAvgWeight * 10) / 10,
+      doneWeight: Math.round(doneAvgWeight * 10) / 10,
+      delta: Math.round(delta * 10) / 10,
+      planSets: planSetsCount,
+      doneSets: doneSetsCount
+    });
+
+    if (status !== 'ok') result.hasChanges = true;
+  });
+
+  // Construire les adaptations pour les jours suivants
+  const adaptations = buildAdaptations(session, planDay, result.exos, orderChanged);
+  result.adaptations = adaptations;
+  result.orderChanged = orderChanged;
+  result.doneOrder = doneOrder;
+
+  return result;
+}
+
+// Calcule les adaptations pour les jours suivants
+function buildAdaptations(session, planDay, exoComparisons, orderChanged) {
+  const adaptations = [];
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return adaptations;
+
+  const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const currentDayIdx = days.indexOf(planDay.day);
+
+  // Jours futurs du programme
+  const futureDays = db.weeklyPlan.days.filter(d => {
+    const idx = days.indexOf(d.day);
+    return idx > currentDayIdx && !d.rest;
+  });
+
+  exoComparisons.forEach(cmp => {
+    if (cmp.status === 'ok' || cmp.status === 'miss') return;
+
+    const deltaKg = cmp.delta || 0;
+    const adjKg = Math.round(Math.abs(deltaKg) * 0.5 * 2) / 2; // 50% du delta, arrondi 0.5
+
+    // Chercher le même exo ou un exo du même groupe dans les jours suivants
+    futureDays.forEach(futDay => {
+      futDay.exercises.forEach(futExo => {
+        if (futExo.name.toLowerCase() !== cmp.name.toLowerCase()) return;
+        const dir = cmp.status === 'over' ? '+' : '-';
+        adaptations.push({
+          day: futDay.day,
+          exo: futExo.name,
+          change: `${dir}${adjKg}kg sur les séries de travail`,
+          reason: cmp.status === 'over'
+            ? `Tu as fait ${cmp.doneWeight}kg vs ${cmp.planWeight}kg prévu`
+            : `Tu as fait ${cmp.doneWeight}kg vs ${cmp.planWeight}kg prévu`,
+          deltaKg: cmp.status === 'over' ? adjKg : -adjKg
+        });
+      });
+    });
+  });
+
+  if (orderChanged) {
+    adaptations.push({
+      day: planDay.day,
+      exo: 'Ordre des exercices',
+      change: 'Mise à jour selon ton ordre réel',
+      reason: 'Tu as fait les exos dans un ordre différent',
+      isOrder: true
+    });
+  }
+
+  return adaptations;
+}
+
+// Applique les adaptations validées
+// Affiche la carte de comparaison après import
+function showComparisonCard(session, comparison) {
+  const container = document.getElementById('aiImportAnalysis');
+  if (!container) return;
+
+  const statusIcon  = { ok: '✓', over: '↑', under: '↓', miss: '✕' };
+  const statusLabel = { ok: 'OK', over: 'Dépassé', under: 'En dessous', miss: 'Zappé' };
+
+  window._lastComparison = comparison;
+
+  // ── Récap exercices ──────────────────────────────────────
+  const exosHtml = comparison.exos.map(e => {
+    const weightInfo = e.status === 'miss'
+      ? `<span style="color:var(--sub);">Prévu: ${e.planWeight}kg — non fait</span>`
+      : `<span>Prévu: <strong>${e.planWeight}kg</strong></span>
+         <span class="${e.status}">Fait: ${e.doneWeight}kg (${e.delta > 0 ? '+' : ''}${e.delta}kg)</span>`;
+    const setsInfo = e.doneSets !== e.planSets && e.status !== 'miss'
+      ? `<div class="cmp-note">Séries: ${e.doneSets} faites vs ${e.planSets} prévues</div>` : '';
+    return `<div class="cmp-exo">
+      <div class="cmp-exo-name">
+        <span>${e.name}</span>
+        <span class="cmp-badge ${e.status}">${statusIcon[e.status]} ${statusLabel[e.status]}</span>
+      </div>
+      <div class="cmp-row">${weightInfo}</div>${setsInfo}
+    </div>`;
+  }).join('');
+
+  // ── Décisions indépendantes ───────────────────────────────
+  const decisionsHtml = buildDecisionBlocks(comparison);
+
+  const noChanges = !comparison.hasChanges && comparison.adaptations.length === 0 && !comparison.orderChanged;
+
+  container.style.display = 'block';
+  container.innerHTML = `<div class="cmp-card">
+    <div class="cmp-title">
+      <span>📊 Fait vs Programme — ${comparison.dayName}</span>
+      ${noChanges ? '<span class="cmp-badge ok">Parfait ✓</span>' : ''}
+    </div>
+    ${exosHtml}
+    ${decisionsHtml}
+    ${noChanges ? '<p style="text-align:center;color:var(--green);font-size:13px;margin-top:10px;">Programme respecté — rien à adapter 💪</p>' : ''}
+  </div>`;
+}
+
+// Construit les blocs de décision indépendants par catégorie
+function buildDecisionBlocks(comparison) {
+  let html = '';
+
+  // ── 1. Ajustements de charges ────────────────────────────
+  const chargeAdapts = comparison.adaptations.filter(a => !a.isOrder);
+  if (chargeAdapts.length > 0) {
+    const detail = chargeAdapts.map(a =>
+      `<strong>${a.day}</strong> — ${a.exo} : ${a.change} <span style="color:var(--sub);font-size:11px;">(${a.reason})</span>`
+    ).join('<br>');
+    html += `<div class="cmp-decision" id="decision-charges">
+      <div class="cmp-decision-label">⚖️ Ajustements de charges</div>
+      <div class="cmp-decision-body">${detail}</div>
+      <div class="cmp-decision-actions">
+        <button class="cmp-btn-yes green" onclick="applyDecision('charges')">✓ Appliquer</button>
+        <button class="cmp-btn-no" onclick="skipDecision('charges')">Ignorer</button>
+      </div>
+    </div>`;
+  }
+
+  // ── 2. Séries manquantes ─────────────────────────────────
+  const missedSets = comparison.exos.filter(e => e.doneSets < e.planSets && e.status !== 'miss');
+  if (missedSets.length > 0) {
+    const detail = missedSets.map(e =>
+      `<strong>${e.name}</strong> : ${e.doneSets} séries faites vs ${e.planSets} prévues`
+    ).join('<br>');
+    html += `<div class="cmp-decision" id="decision-series">
+      <div class="cmp-decision-label">📉 Séries incomplètes</div>
+      <div class="cmp-decision-body">${detail}<br><span style="color:var(--sub);font-size:11px;">Mettre à jour le programme pour refléter tes séries réelles ?</span></div>
+      <div class="cmp-decision-actions">
+        <button class="cmp-btn-yes" onclick="applyDecision('series')">✓ Mettre à jour</button>
+        <button class="cmp-btn-no" onclick="skipDecision('series')">Garder prévu</button>
+      </div>
+    </div>`;
+  }
+
+  // ── 3. Exercices zappés ──────────────────────────────────
+  const missed = comparison.exos.filter(e => e.status === 'miss');
+  if (missed.length > 0) {
+    const detail = missed.map(e => `<strong>${e.name}</strong>`).join(', ');
+    html += `<div class="cmp-decision" id="decision-missed">
+      <div class="cmp-decision-label">✕ Exercices non faits</div>
+      <div class="cmp-decision-body">${detail}<br><span style="color:var(--sub);font-size:11px;">Ajouter une note sur le jour passé ?</span></div>
+      <div class="cmp-decision-actions">
+        <button class="cmp-btn-yes" onclick="applyDecision('missed')">✓ Noter</button>
+        <button class="cmp-btn-no" onclick="skipDecision('missed')">Ignorer</button>
+      </div>
+    </div>`;
+  }
+
+  // ── 4. Ordre des exercices ───────────────────────────────
+  if (comparison.orderChanged) {
+    const planOrder = comparison.exos.map(e => e.name).join(' → ');
+    const doneOrder = (comparison.doneOrder || []).join(' → ');
+    html += `<div class="cmp-decision" id="decision-order">
+      <div class="cmp-decision-label">🔀 Ordre différent détecté</div>
+      <div class="cmp-decision-body">
+        <span style="color:var(--sub);">Prévu :</span> ${planOrder}<br>
+        <span style="color:var(--blue);">Fait :</span> ${doneOrder}
+      </div>
+      <div class="cmp-decision-actions">
+        <button class="cmp-btn-yes" onclick="applyDecision('order')">✓ Adopter cet ordre</button>
+        <button class="cmp-btn-no" onclick="skipDecision('order')">Garder l'ordre actuel</button>
+      </div>
+    </div>`;
+  }
+
+  // ── 5. Note de séance ────────────────────────────────────
+  if (comparison.hasChanges || comparison.orderChanged) {
+    html += `<div class="cmp-decision" id="decision-note">
+      <div class="cmp-decision-label">📝 Note de séance</div>
+      <div class="cmp-decision-body">Marquer ce jour comme "fait" dans le programme avec un résumé ?</div>
+      <div class="cmp-decision-actions">
+        <button class="cmp-btn-yes green" onclick="applyDecision('note')">✓ Marquer fait</button>
+        <button class="cmp-btn-no" onclick="skipDecision('note')">Non merci</button>
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+// Applique une décision spécifique
+function applyDecision(type) {
+  const cmp = window._lastComparison;
+  if (!cmp || !db.weeklyPlan) return;
+
+  const planDay = db.weeklyPlan.days.find(d => d.day === cmp.dayName);
+
+  if (type === 'charges') {
+    // Ajuster charges jours suivants
+    const days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    const currentIdx = days.indexOf(cmp.dayName);
+    cmp.adaptations.filter(a => !a.isOrder).forEach(adapt => {
+      const futDay = db.weeklyPlan.days.find(d => d.day === adapt.day);
+      if (!futDay) return;
+      const futExo = futDay.exercises.find(e => e.name === adapt.exo);
+      if (!futExo) return;
+      futExo.sets.forEach(set => {
+        if (set.isWarmup || !set.weight) return;
+        set.weight = Math.round((set.weight + adapt.deltaKg) * 2) / 2;
+      });
+    });
+    showToast('⚖️ Charges adaptées pour la suite');
+  }
+
+  if (type === 'series' && planDay) {
+    // Mettre à jour le nb de séries dans le programme
+    cmp.exos.filter(e => e.doneSets < e.planSets && e.status !== 'miss').forEach(e => {
+      const planExo = planDay.exercises.find(x => x.name === e.name);
+      if (!planExo) return;
+      // Retirer les séries en trop (garder les premières)
+      const workSets = planExo.sets.filter(s => !s.isWarmup);
+      const warmSets = planExo.sets.filter(s => s.isWarmup);
+      planExo.sets = [...warmSets, ...workSets.slice(0, e.doneSets)];
+    });
+    showToast('📉 Séries mises à jour');
+  }
+
+  if (type === 'missed' && planDay) {
+    const missedNames = cmp.exos.filter(e => e.status === 'miss').map(e => e.name).join(', ');
+    planDay.sessionNote = (planDay.sessionNote ? planDay.sessionNote + ' | ' : '') + 'Non faits: ' + missedNames;
+    showToast('✕ Exercices notés');
+  }
+
+  if (type === 'order' && planDay) {
+    if (cmp.doneOrder && cmp.doneOrder.length > 0) {
+      const newOrder = [];
+      cmp.doneOrder.forEach(name => {
+        const found = planDay.exercises.find(e => e.name === name);
+        if (found) newOrder.push(found);
+      });
+      planDay.exercises.forEach(e => {
+        if (!newOrder.find(x => x.name === e.name)) newOrder.push(e);
+      });
+      planDay.exercises = newOrder;
+    }
+    showToast('🔀 Ordre mis à jour');
+  }
+
+  if (type === 'note' && planDay) {
+    const doneStr = cmp.exos.map(e => {
+      if (e.status === 'miss')  return e.name + ': ✕';
+      if (e.status === 'ok')    return e.name + ': ✓';
+      return e.name + ': ' + (e.delta > 0 ? '+' : '') + e.delta + 'kg';
+    }).join(' | ');
+    planDay.sessionNote = doneStr;
+    planDay.sessionDone = true;
+    showToast('✓ Séance marquée comme faite');
+  }
+
+  saveDB();
+  renderWeeklyPlanUI();
+
+  // Marquer la décision comme appliquée visuellement
+  const el = document.getElementById('decision-' + type);
+  if (el) el.className = 'cmp-decision applied';
+}
+
+function skipDecision(type) {
+  const el = document.getElementById('decision-' + type);
+  if (el) { el.style.opacity = '0.4'; el.style.pointerEvents = 'none'; }
 }
 
 // ============================================================
@@ -2221,37 +2994,356 @@ async function importCSV() {
 
 
 async function testAPIConnection() {
-  const rawKey = localStorage.getItem('SBD_API_KEY') || '';
-  const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
-  if (!apiKey) {
-    showToast('Clé API manquante — va dans Réglages', 'error');
-    return;
-  }
+  const apiKey = (localStorage.getItem('SBD_API_KEY') || '').replace(/[^\x20-\x7E]/g,'').trim();
+  showToast('🔌 Test en cours...');
+  if (!apiKey) { showToast('❌ Pas de clé API'); return; }
+  showToast('Clé trouvée: ' + apiKey.substring(0,12) + '...');
   try {
-    const PROXY_URL = 'https://swwygywahfdenyzotrce.supabase.co/functions/v1/anthropic-proxy';
-    const r = await fetch(PROXY_URL, {
+    const r = await fetch('https://swwygywahfdenyzotrce.supabase.co/functions/v1/anthropic-proxy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
-        apiKey: apiKey,
-        model: 'claude-opus-4-5',
-        system: 'Tu es un assistant de test.',
-        messages: [{ role: 'user', content: 'Réponds juste OK' }],
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 10,
-      }),
+        messages: [{ role: 'user', content: 'Dis juste OK' }]
+      })
     });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      showToast('Erreur API: ' + (err?.error?.message || err?.error || r.statusText), 'error');
-      return;
-    }
-    const data = await r.json();
-    const reply = data?.content?.[0]?.text || '';
-    showToast('✅ Connexion OK — Claude répond: ' + reply.substring(0, 50), 'success');
-  } catch (e) {
-    showToast('Erreur: ' + String(e), 'error');
+    const txt = await r.text();
+    showToast('HTTP ' + r.status + ' — ' + txt.substring(0, 80));
+  } catch(e) {
+    showToast('❌ CATCH: ' + e.message);
   }
 }
+// ============================================================
+// ONGLET CORPS — Algorithmes & Fake Coach
+// ============================================================
+
+let chartBodyWeight = null;
+
+// ── IPF GL Points (formule officielle 2020) ───────────────────
+function calcIPFGL(lift, bw, sex = 'M') {
+  // Coefficients IPF GL 2020 — Hommes
+  const coef = sex === 'M'
+    ? { a: 1236.25115, b: 1449.21864, c: 0.01644, d: 2.12345 }
+    : { a: 758.63878,  b: 949.31382,  c: 0.02435, d: 1.78340 };
+  const denom = coef.a - coef.b * Math.exp(-coef.c * Math.pow(bw, coef.d));
+  if (!denom || denom <= 0) return 0;
+  return Math.round((600 / denom) * lift * 100) / 100;
+}
+
+function calcIPFGLTotal(bench, squat, deadlift, bw) {
+  if (!bw || bw <= 0) return 0;
+  const total = (bench || 0) + (squat || 0) + (deadlift || 0);
+  if (total <= 0) return 0;
+  return calcIPFGL(total, bw);
+}
+
+// ── TDEE Estimé ───────────────────────────────────────────────
+// Harris-Benedict révisé + bonus tonnage hebdomadaire
+function calcTDEE(bw, tonnage7d) {
+  if (!bw || bw <= 0) return 0;
+  // BMR homme (on suppose H par défaut)
+  const bmr = 88.362 + 13.397 * bw + 4.799 * 175 - 5.677 * 25;
+  // Facteur activité basé sur tonnage hebdo
+  let actFactor = 1.55; // modérément actif par défaut
+  if (tonnage7d > 30000) actFactor = 1.725;      // très actif
+  else if (tonnage7d > 15000) actFactor = 1.625;  // actif
+  else if (tonnage7d < 5000) actFactor = 1.375;   // légèrement actif
+  return Math.round(bmr * actFactor);
+}
+
+// ── Détection de plateau ──────────────────────────────────────
+function detectPlateau(type, weeksThreshold = 3) {
+  const history = [];
+  for (const log of db.logs) {
+    for (const exo of log.exercises) {
+      if (getSBDType(exo.name) === type && exo.maxRM > 0) {
+        history.push({ rm: exo.maxRM, ts: log.timestamp });
+        break;
+      }
+    }
+    if (history.length >= 8) break;
+  }
+  if (history.length < weeksThreshold) return null;
+  // Prend les N dernières séances
+  const recent = history.slice(0, weeksThreshold);
+  const oldest = recent[recent.length - 1].rm;
+  const newest = recent[0].rm;
+  const daysDiff = (recent[0].ts - recent[recent.length - 1].ts) / 86400000;
+  if (daysDiff < weeksThreshold * 5) return null; // pas assez étalé dans le temps
+  if (newest <= oldest) return { type, sessions: weeksThreshold, delta: newest - oldest };
+  return null;
+}
+
+// ── Momentum de progression (pente régression linéaire) ───────
+function calcMomentum(type) {
+  const pts = [];
+  for (const log of db.logs.slice(0, 10)) {
+    for (const exo of log.exercises) {
+      if (getSBDType(exo.name) === type && exo.maxRM > 0) {
+        pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+        break;
+      }
+    }
+  }
+  if (pts.length < 3) return null;
+  const n = pts.length;
+  const sumX = pts.reduce((s, p) => s + p.x, 0);
+  const sumY = pts.reduce((s, p) => s + p.y, 0);
+  const sumXY = pts.reduce((s, p) => s + p.x * p.y, 0);
+  const sumX2 = pts.reduce((s, p) => s + p.x * p.x, 0);
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  return Math.round(slope * 7 * 10) / 10; // kg/semaine
+}
+
+// ── Ratio Force/Masse ─────────────────────────────────────────
+function calcForceRatio(ipfScore, bw) {
+  if (!bw || bw <= 0 || !ipfScore) return 0;
+  return Math.round((ipfScore / bw) * 100) / 100;
+}
+
+// ── Fake Coach — génère message algo ─────────────────────────
+function generateCoachAlgoMessage() {
+  const bw = db.user.bw;
+  const bench = db.bestPR.bench, squat = db.bestPR.squat, dead = db.bestPR.deadlift;
+  const logs7 = getLogsInRange(7);
+  const tonnage7 = logs7.reduce((s, l) => s + l.volume, 0);
+
+  // Calculs
+  const ipf = calcIPFGLTotal(bench, squat, dead, bw);
+  const tdee = calcTDEE(bw, tonnage7);
+  const ratio = calcForceRatio(ipf, bw);
+
+  // Dernière entrée macros
+  const today = new Date().toDateString();
+  const todayEntry = (db.body || []).find(e => new Date(e.ts).toDateString() === today);
+  const kcalAuj = todayEntry ? todayEntry.kcal : null;
+  const protAuj = todayEntry ? todayEntry.prot : null;
+
+  // Plateaux
+  const plateaux = ['bench', 'squat', 'deadlift']
+    .map(t => detectPlateau(t))
+    .filter(Boolean);
+
+  // Momentum
+  const momB = calcMomentum('bench');
+  const momS = calcMomentum('squat');
+  const momD = calcMomentum('deadlift');
+
+  // Historique IPF (compare avec il y a 30j)
+  const bwLast = (db.body || []).filter(e => e.bw > 0)
+    .sort((a, b) => b.ts - a.ts);
+
+  // Construction du message
+  let sections = [];
+
+  // Section Analyse force
+  let analyseForce = `<div class="ai-section-title">📊 FORCE</div>`;
+  if (ipf > 0) {
+    let ipfLabel = ipf < 300 ? 'débutant' : ipf < 400 ? 'intermédiaire' : ipf < 500 ? 'avancé' : 'élite';
+    analyseForce += `Score IPF GL : <span class="ai-highlight blue">${ipf} pts</span> (niveau ${ipfLabel})<br>`;
+    analyseForce += `Ratio force/masse : <span class="ai-highlight ${ratio > 3.5 ? 'green' : 'blue'}">${ratio}</span><br>`;
+  }
+  const moms = [momB && `Bench ${momB > 0 ? '+' : ''}${momB}kg/sem`, momS && `Squat ${momS > 0 ? '+' : ''}${momS}kg/sem`, momD && `Dead ${momD > 0 ? '+' : ''}${momD}kg/sem`].filter(Boolean);
+  if (moms.length) analyseForce += `Momentum : <span class="ai-highlight ${moms.some(m => m.includes('-')) ? 'orange' : 'green'}">${moms.join(' · ')}</span>`;
+  sections.push(`<div class="ai-section">${analyseForce}</div>`);
+
+  // Section Nutrition / Recompo
+  if (tdee > 0) {
+    let nutri = `<div class="ai-section-title">🍽️ NUTRITION & RECOMPO</div>`;
+    nutri += `TDEE estimé : <span class="ai-highlight blue">${tdee} kcal/jour</span><br>`;
+    if (kcalAuj) {
+      const delta = kcalAuj - tdee;
+      const deltaLabel = delta > 200 ? `Surplus ${delta > 0 ? '+' : ''}${delta} kcal` : delta < -200 ? `Déficit ${delta} kcal` : `Maintenance (${delta > 0 ? '+' : ''}${delta} kcal)`;
+      const deltaColor = delta > 300 ? 'orange' : delta < -400 ? 'red' : 'green';
+      nutri += `Aujourd'hui : <span class="ai-highlight ${deltaColor}">${deltaLabel}</span><br>`;
+    }
+    if (protAuj && bw > 0) {
+      const protPerKg = Math.round((protAuj / bw) * 10) / 10;
+      const protOk = protPerKg >= 1.8;
+      nutri += `Protéines : <span class="ai-highlight ${protOk ? 'green' : 'red'}">${protAuj}g (${protPerKg}g/kg)</span> ${protOk ? '✓' : '→ cible 2g/kg'}`;
+    } else if (!kcalAuj) {
+      nutri += `<span style="color:var(--sub);font-size:12px;">Entre tes macros du jour pour l'analyse.</span>`;
+    }
+    sections.push(`<div class="ai-section">${nutri}</div>`);
+  }
+
+  // Section Alertes plateaux
+  if (plateaux.length > 0) {
+    let alertes = `<div class="ai-section-title">⚠️ ALERTES</div>`;
+    plateaux.forEach(p => {
+      const suggestions = {
+        bench: 'Essaie Spoto Bench ou monte le volume vendredi',
+        squat: 'Variation pause squat ou fentes lestées en accessoire',
+        deadlift: 'Déficit deadlift ou stiff-leg Romanian'
+      };
+      alertes += `<div class="plateau-alert">📉 <strong>${p.type.toUpperCase()}</strong> en plateau depuis ${p.sessions} séances. → ${suggestions[p.type]}</div>`;
+    });
+    sections.push(`<div class="ai-section">${alertes}</div>`);
+  }
+
+  if (sections.length === 0) {
+    return '<span style="color:var(--sub);font-size:13px;">Importe des s\u00e9ances pour activer l\u2019analyse.</span>';
+  }
+
+  return `<div class="ai-response-content">${sections.join('')}</div>
+    <div class="ai-timestamp">Coach Algo • Calcul instantané • Sans IA</div>`;
+}
+
+// ── Entrée poids du jour ──────────────────────────────────────
+function saveBodyEntry() {
+  const bwVal = parseFloat(document.getElementById('inputBodyWeight').value);
+  if (!bwVal || bwVal < 30 || bwVal > 300) { showToast('Poids invalide'); return; }
+  if (!db.body) db.body = [];
+  const today = new Date().toDateString();
+  db.body = db.body.filter(e => new Date(e.ts).toDateString() !== today);
+  db.body.unshift({ ts: Date.now(), bw: bwVal, prot: 0, carb: 0, fat: 0, kcal: 0 });
+  db.body = db.body.slice(0, 90); // garder 90 jours
+  db.user.bw = bwVal; // met à jour le poids de profil aussi
+  saveDB();
+  document.getElementById('inputBodyWeight').value = '';
+  showToast('✓ Poids enregistré');
+  renderCorpsTab();
+}
+
+// ── Entrée macros ─────────────────────────────────────────────
+function saveMacroEntry() {
+  const prot = parseFloat(document.getElementById('inputProt').value) || 0;
+  const carb = parseFloat(document.getElementById('inputCarb').value) || 0;
+  const fat  = parseFloat(document.getElementById('inputFat').value) || 0;
+  const kcalManual = parseFloat(document.getElementById('inputKcal').value) || 0;
+  const kcalCalc = Math.round(prot * 4 + carb * 4 + fat * 9);
+  const kcal = kcalManual > 0 ? kcalManual : kcalCalc;
+  if (!db.body) db.body = [];
+  const today = new Date().toDateString();
+  const existing = db.body.find(e => new Date(e.ts).toDateString() === today);
+  if (existing) {
+    existing.prot = prot; existing.carb = carb; existing.fat = fat; existing.kcal = kcal;
+  } else {
+    db.body.unshift({ ts: Date.now(), bw: db.user.bw, prot, carb, fat, kcal });
+    db.body = db.body.slice(0, 90);
+  }
+  saveDB();
+  ['inputProt','inputCarb','inputFat','inputKcal'].forEach(id => document.getElementById(id).value = '');
+  showToast('✓ Macros enregistrées');
+  renderCorpsTab();
+}
+
+function updateCalcCalories() {
+  const p = parseFloat(document.getElementById('inputProt').value) || 0;
+  const c = parseFloat(document.getElementById('inputCarb').value) || 0;
+  const f = parseFloat(document.getElementById('inputFat').value) || 0;
+  const calc = Math.round(p * 4 + c * 4 + f * 9);
+  if (calc > 0) document.getElementById('inputKcal').placeholder = calc + ' (calculé)';
+}
+
+// ── Render Corps Tab ──────────────────────────────────────────
+function renderCorpsTab() {
+  const bw = db.user.bw;
+  const bench = db.bestPR.bench, squat = db.bestPR.squat, dead = db.bestPR.deadlift;
+  const logs7 = getLogsInRange(7);
+  const tonnage7 = logs7.reduce((s, l) => s + l.volume, 0);
+
+  // IPF GL
+  const ipf = calcIPFGLTotal(bench, squat, dead, bw);
+  const ratio = calcForceRatio(ipf, bw);
+  const tdee = calcTDEE(bw, tonnage7);
+
+  // Métriques
+  document.getElementById('metricIPF').textContent = ipf > 0 ? ipf : '—';
+  document.getElementById('metricIPFsub').textContent = ipf > 0 ? (ipf < 300 ? 'Débutant' : ipf < 400 ? 'Intermédiaire' : ipf < 500 ? 'Avancé' : '🏆 Élite') : 'Importe des séances';
+  document.getElementById('metricRatio').textContent = ratio > 0 ? ratio : '—';
+  document.getElementById('metricRatioSub').textContent = ratio > 0 ? (ratio > 4 ? '🔥 Recompo active' : ratio > 3 ? 'Bonne progression' : 'Continue à pousser') : 'IPF GL / kg corps';
+
+  document.getElementById('metricTDEE').textContent = tdee > 0 ? tdee : '—';
+  document.getElementById('metricTDEESub').textContent = tdee > 0 ? `Tonnage 7j: ${(tonnage7/1000).toFixed(1)}t` : 'kcal/jour';
+
+  // Balance vs TDEE
+  const today = new Date().toDateString();
+  const todayEntry = (db.body || []).find(e => new Date(e.ts).toDateString() === today);
+  const kcalAuj = todayEntry ? todayEntry.kcal : null;
+  if (kcalAuj && tdee) {
+    const delta = kcalAuj - tdee;
+    document.getElementById('metricBalance').textContent = (delta > 0 ? '+' : '') + delta + ' kcal';
+    document.getElementById('metricBalanceSub').textContent = delta > 200 ? 'Surplus' : delta < -200 ? 'Déficit' : 'Maintenance';
+    const card = document.getElementById('metricBalanceCard');
+    card.className = 'body-metric ' + (delta > 300 ? 'orange' : delta < -400 ? 'red' : 'green');
+  } else {
+    document.getElementById('metricBalance').textContent = '—';
+    document.getElementById('metricBalanceSub').textContent = 'Macros du jour manquantes';
+  }
+
+  // Historique poids
+  const bwHistory = (db.body || []).filter(e => e.bw > 0).slice(0, 10);
+  const wEl = document.getElementById('weightHistory');
+  if (bwHistory.length === 0) {
+    wEl.innerHTML = '<p style="color:var(--sub);font-size:12px;text-align:center;">Aucune entrée pour le moment</p>';
+  } else {
+    wEl.innerHTML = bwHistory.map((e, i) => {
+      const prev = bwHistory[i + 1];
+      const delta = prev ? Math.round((e.bw - prev.bw) * 10) / 10 : null;
+      const trendClass = delta === null ? '' : delta > 0 ? 'trend-up' : delta < 0 ? 'trend-down' : 'trend-flat';
+      const trendStr = delta === null ? '' : (delta > 0 ? '↑' : delta < 0 ? '↓' : '→') + Math.abs(delta) + 'kg';
+      const d = new Date(e.ts);
+      const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+      return `<div class="weight-history-item">
+        <span>${dateStr}</span>
+        <span style="font-weight:700;">${e.bw} kg</span>
+        <span class="${trendClass}" style="font-size:12px;min-width:50px;text-align:right;">${trendStr}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Graphique poids
+  renderBodyWeightChart(bwHistory);
+
+  // Alertes plateau
+  const plateaux = ['bench', 'squat', 'deadlift'].map(t => detectPlateau(t)).filter(Boolean);
+  const pEl = document.getElementById('plateauAlerts');
+  pEl.innerHTML = plateaux.length > 0 ? plateaux.map(p =>
+    `<div class="plateau-alert">📉 ${p.type.toUpperCase()} en plateau depuis ${p.sessions} séances — adapte la variation</div>`
+  ).join('') : '';
+
+  // Fake Coach message
+  document.getElementById('coachAlgoContent').innerHTML = generateCoachAlgoMessage();
+}
+
+function renderBodyWeightChart(entries) {
+  const ctx = document.getElementById('chartBodyWeight');
+  if (!ctx) return;
+  if (chartBodyWeight) chartBodyWeight.destroy();
+  if (entries.length < 2) { chartBodyWeight = null; return; }
+  const sorted = [...entries].reverse();
+  chartBodyWeight = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sorted.map(e => new Date(e.ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })),
+      datasets: [{
+        data: sorted.map(e => e.bw),
+        borderColor: '#32D74B',
+        backgroundColor: 'rgba(50,215,75,0.1)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#32D74B',
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B', callback: v => v + 'kg' } },
+        x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
 </script>
 </body>
 </html>

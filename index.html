@@ -2190,14 +2190,32 @@ function getProgExosForDay(day) {
   return Array.isArray(saved) ? saved.filter(Boolean) : saved.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
 }
 
-// Matcher un nom d'exercice Hevy avec un nom de programme (tolérant aux accents/casse)
+// Matcher un nom d'exercice Hevy avec un nom de programme (tolérant)
 function matchExoName(hevyName, progName) {
-  const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim();
-  const h = normalize(hevyName);
-  const p = normalize(progName);
+  const norm = s => s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accents
+    .replace(/[()[\]]/g, ' ')                          // parenthèses
+    .replace(/[^a-z0-9\s]/g, ' ')                      // ponctuation
+    .replace(/\s+/g, ' ').trim();
+
+  const h = norm(hevyName);
+  const p = norm(progName);
+
   if (h === p) return true;
-  const pWords = p.split(' ').filter(w => w.length > 3);
-  return pWords.length > 0 && pWords.every(w => h.includes(w));
+
+  // Mots significatifs (>2 lettres) — bidirectionnel
+  const sig = w => w.length > 2;
+  const hWords = h.split(' ').filter(sig);
+  const pWords = p.split(' ').filter(sig);
+
+  if (!hWords.length || !pWords.length) return false;
+
+  // Les mots du programme sont tous dans le nom Hevy
+  if (pWords.every(w => hWords.some(hw => hw.startsWith(w) || w.startsWith(hw)))) return true;
+  // Les mots du nom Hevy sont tous dans le programme
+  if (hWords.every(w => pWords.some(pw => pw.startsWith(w) || w.startsWith(pw)))) return true;
+
+  return false;
 }
 
 // ============================================================

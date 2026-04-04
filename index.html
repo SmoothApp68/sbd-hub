@@ -155,6 +155,16 @@
     .cmp-note { font-size: 11px; color: var(--orange); font-style: italic; margin-top: 2px; }
 
     /* ── Cercle nutrition ────────────────────────────────── */
+
+    /* ── Stats musculaires ───────────────────────────────── */
+    .muscle-bar-row { margin-bottom: 10px; }
+    .muscle-bar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 12px; }
+    .muscle-bar-name { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .muscle-bar-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .muscle-bar-count { font-weight: 700; font-size: 13px; }
+    .muscle-bar-bg { background: #2C2C2E; border-radius: 4px; height: 7px; overflow: hidden; }
+    .muscle-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .muscle-period-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--sub); margin-top: 2px; }
     .nutri-ring-wrap { display: flex; justify-content: center; align-items: center; padding: 20px 0 10px; position: relative; }
     .nutri-ring-svg { transform: rotate(-220deg); }
     .nutri-ring-bg  { fill: none; stroke: #2C2C2E; stroke-width: 14; stroke-linecap: round; }
@@ -303,6 +313,24 @@
   </div>
   <div id="tab-stats" class="content-section">
     <div class="card"><h2>Rapports</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="reportButtons"><button class="period-btn active" data-period="week" onclick="renderReports('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderReports('month')">30 Jours</button></div><div class="report-grid" id="reportDisplay"></div></div>
+
+    <!-- Graphique multi-muscles 4 semaines -->
+    <div class="card">
+      <h2>📈 Évolution Musculaire — 4 Semaines</h2>
+      <div style="height:220px;margin-top:12px;"><canvas id="chartMuscleLines"></canvas></div>
+      <div id="muscleLinesLegend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:center;"></div>
+    </div>
+
+    <!-- Liste complète groupes musculaires avec barres -->
+    <div class="card">
+      <h2>💪 Volume par Muscle</h2>
+      <div style="display:flex;justify-content:center;gap:10px;margin:8px 0 14px;" id="muscleVolumeButtons">
+        <button class="period-btn active" data-period="week" onclick="renderMuscleVolume('week')">7 Jours</button>
+        <button class="period-btn" data-period="month" onclick="renderMuscleVolume('month')">28 Jours</button>
+      </div>
+      <div id="muscleVolumeList"></div>
+    </div>
+
     <div class="card"><h2>Répartition Musculaire</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="muscleButtons"><button class="period-btn active" data-period="week" onclick="renderMuscleChart('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderMuscleChart('month')">30 Jours</button></div><div style="position:relative;height:200px;margin:15px 0 10px;" id="chartMuscleContainer"></div><div id="muscleList"></div></div>
     <div class="card"><h2>💪 Meilleurs Lifts (All Time)</h2><div id="topExosList" style="margin-top:10px;"></div></div>
     <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">10 Séances</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Séances</button></div><div style="height:200px;margin-top:15px;"><canvas id="chartVolume"></canvas></div></div>
@@ -522,6 +550,48 @@ function getExoType(name) {
 // ============================================================
 // MUSCLE GROUP ENGINE (v2 — exhaustif)
 // ============================================================
+// Retourne { group, sub } pour les groupes segmentés (barres colorées)
+function getMuscleGroupFull(name) {
+  const g = getMuscleGroup(name);
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'");
+
+  // ÉPAULES
+  if (g === 'Épaules') {
+    if (/face.pull|oiseau|rear.delt|posterieur|reverse.fly|tirage.*visage/.test(n)) return { group:'Épaules', sub:'Épaules post.' };
+    if (/elevation.lat|lateral.raise/.test(n)) return { group:'Épaules', sub:'Épaules lat.' };
+    return { group:'Épaules', sub:'Épaules ant.' };
+  }
+  // DOS
+  if (g === 'Dos') {
+    if (/lombaire|bas.du.dos|lower.back|good.morning|hyperextension/.test(n)) return { group:'Dos', sub:'Bas du Dos' };
+    if (/shrug|haussement|trapeze|trapezius/.test(n)) return { group:'Dos', sub:'Trapèzes' };
+    if (/lat.pulldown|lat.poulie|pulldown|pull.down|traction|chin|tirage.poitrine|tirage.vertical|bras.tendu|straight.arm/.test(n)) return { group:'Dos', sub:'Grand Dorsal' };
+    return { group:'Dos', sub:'Haut du Dos' };
+  }
+  // PECS
+  if (g === 'Pecs') {
+    if (/inclin/.test(n)) return { group:'Pecs', sub:'Haut du Pec' };
+    if (/declin/.test(n)) return { group:'Pecs', sub:'Bas du Pec' };
+    return { group:'Pecs', sub:'Pec Complet' };
+  }
+  // JAMBES
+  if (g === 'Jambes') {
+    if (/adduction|adducteur/.test(n)) return { group:'Jambes', sub:'Adducteurs' };
+    if (/abduction|abducteur/.test(n)) return { group:'Jambes', sub:'Abducteurs' };
+    if (/mollet|calf/.test(n)) return { group:'Jambes', sub:'Mollets' };
+    if (/fessier|glute|hip.thrust|hip.extension|pont.fessier/.test(n)) return { group:'Jambes', sub:'Fessiers' };
+    if (/ischio|leg.curl|romanian|rdl|deadlift|souleve.*terre/.test(n)) return { group:'Jambes', sub:'Ischio' };
+    return { group:'Jambes', sub:'Quads' };
+  }
+  // BRAS
+  if (g === 'Bras') {
+    if (/avant.bras|forearm|reverse.curl|wrist/.test(n)) return { group:'Bras', sub:'Avant-bras' };
+    if (/tricep|extension.*(tricep|bras|coude|poulie|barre)|skull|pushdown|push.down|french|jm.press|close.grip/.test(n)) return { group:'Bras', sub:'Triceps' };
+    return { group:'Bras', sub:'Biceps' };
+  }
+  return { group:g, sub:null };
+}
+
 function getMuscleGroup(name) {
   const n = name.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -823,7 +893,7 @@ async function cloudLogout() { if (!supaClient) return; await supaClient.auth.si
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); renderWeeklyPlanUI(); renderCoachAlgoAI(); } if (tabId==='tab-corps') { renderCorpsTab(); } }
+function showTab(tabId) { document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active')); document.getElementById(tabId).classList.add('active'); document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active'); if (tabId==='tab-dash') renderDash(); if (tabId==='tab-stats') { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); renderMuscleLinesChart(); renderMuscleVolume('week'); } if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); renderWeeklyPlanUI(); renderCoachAlgoAI(); } if (tabId==='tab-corps') { renderCorpsTab(); } }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = ROUTINES[selectedDay]; renderDayExercises(selectedDay); });
 
@@ -1502,7 +1572,7 @@ function refreshUI() {
   if (savedKey) { const kInput = document.getElementById('inputAPIKey'); if (kInput) kInput.value = savedKey; }
   renderDash();
   updateCoachBadge();
-  if (document.getElementById('tab-stats').classList.contains('active')) { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); }
+  if (document.getElementById('tab-stats').classList.contains('active')) { renderReports('week'); renderMuscleChart('week'); renderTopLifts(); renderVolumeChart('week'); renderMuscleLinesChart(); renderMuscleVolume('week'); }
   if (document.getElementById('tab-ai').classList.contains('active')) { renderReportsTimeline(); renderWeeklyPlanUI(); } if (document.getElementById('tab-corps').classList.contains('active')) { renderCorpsTab(); }
 }
 
@@ -3664,6 +3734,297 @@ if ('serviceWorker' in navigator) {
       .then(reg => console.log('SW registered:', reg.scope))
       .catch(err => console.warn('SW registration failed:', err));
   });
+}
+
+// ============================================================
+// STATS — Graphique linéaire multi-muscles 4 semaines
+// ============================================================
+let chartMuscleLines = null;
+
+// Couleurs par sous-groupe musculaire
+const MUSCLE_COLORS = {
+  // Épaules
+  'Épaules ant.':  '#7B61FF',
+  'Épaules lat.':  '#BF5AF2',
+  'Épaules post.': '#FF6B9D',
+  // Dos
+  'Grand Dorsal':  '#0A84FF',
+  'Haut du Dos':   '#64D2FF',
+  'Bas du Dos':    '#2E5BFF',
+  'Trapèzes':      '#E9C46A',
+  // Pecs
+  'Haut du Pec':   '#3DD9EB',
+  'Pec Complet':   '#00C2FF',
+  'Bas du Pec':    '#0077B6',
+  // Jambes
+  'Quads':         '#32D74B',
+  'Fessiers':      '#30D158',
+  'Ischio':        '#FFD60A',
+  'Mollets':       '#34C759',
+  'Adducteurs':    '#00C7BE',
+  'Abducteurs':    '#5AC8FA',
+  // Bras
+  'Biceps':        '#FF9F0A',
+  'Triceps':       '#FF6B00',
+  'Avant-bras':    '#FFD93D',
+  // Simples
+  'Abdos':         '#FF453A',
+  'Bas du Dos':    '#8E8E93',
+  'Cardio':        '#64D2FF',
+};
+
+// Groupes segmentés et leurs sous-groupes dans l'ordre
+const SEGMENTED_GROUPS = {
+  'Épaules': ['Épaules ant.', 'Épaules lat.', 'Épaules post.'],
+  'Dos':     ['Grand Dorsal', 'Haut du Dos', 'Bas du Dos', 'Trapèzes'],
+  'Pecs':    ['Haut du Pec', 'Pec Complet', 'Bas du Pec'],
+  'Jambes':  ['Quads', 'Fessiers', 'Ischio', 'Mollets', 'Adducteurs', 'Abducteurs'],
+  'Bras':    ['Biceps', 'Triceps', 'Avant-bras'],
+};
+
+// Groupes simples (pas de segmentation)
+const SIMPLE_GROUPS = ['Abdos', 'Cardio'];
+
+// Couleur principale par groupe (pour le graphique linéaire)
+const GROUP_MAIN_COLOR = {
+  'Épaules': '#BF5AF2',
+  'Dos':     '#0A84FF',
+  'Pecs':    '#00C2FF',
+  'Jambes':  '#32D74B',
+  'Bras':    '#FF9F0A',
+  'Abdos':   '#FF453A',
+  'Cardio':  '#64D2FF',
+};
+
+// Groupes principaux et leurs sous-groupes (ordre d'affichage)
+const MUSCLE_GROUPS_DEF = [
+  { group: 'Épaules',  subs: ['Épaules ant.','Épaules lat.','Épaules post.'] },
+  { group: 'Dos',      subs: ['Grand Dorsal','Haut du Dos','Bas du Dos','Trapèzes'] },
+  { group: 'Pecs',     subs: ['Haut du Pec','Pec Complet','Bas du Pec'] },
+  { group: 'Jambes',   subs: ['Quads','Fessiers','Ischio','Mollets','Adducteurs','Abducteurs'] },
+  { group: 'Bras',     subs: ['Biceps','Triceps','Avant-bras'] },
+  { group: 'Abdos',    subs: null },
+  { group: 'Cardio',   subs: null },
+];
+
+// Calcule les séries par sous-groupe musculaire sur une plage de dates
+function getMuscleSeriesInRange(startTs, endTs) {
+  const result = {};
+  Object.keys(MUSCLE_COLORS).forEach(k => result[k] = 0);
+  db.logs.forEach(log => {
+    if (log.timestamp < startTs || log.timestamp > endTs) return;
+    log.exercises.forEach(exo => {
+      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
+      const { sub } = getMuscleGroupFull(exo.name);
+      const key = sub || getMuscleGroup(exo.name);
+      if (!result.hasOwnProperty(key)) return;
+      let sets = 0;
+      if (exo.repRecords && Object.keys(exo.repRecords).length > 0) sets = Object.keys(exo.repRecords).length;
+      else if (exo.series && exo.series.length > 0) sets = exo.series.length;
+      else sets = exo.sets || 0;
+      result[key] += sets;
+    });
+  });
+  return result;
+}
+
+function renderMuscleLinesChart() {
+  const ctx = document.getElementById('chartMuscleLines');
+  if (!ctx) return;
+  if (chartMuscleLines) chartMuscleLines.destroy();
+
+  // 4 semaines : S4 = la plus ancienne, S1 = cette semaine
+  const now = Date.now();
+  const week = 7 * 86400000;
+  const weeks = [
+    { label: 'S-3', start: now - 4*week, end: now - 3*week },
+    { label: 'S-2', start: now - 3*week, end: now - 2*week },
+    { label: 'S-1', start: now - 2*week, end: now - 1*week },
+    { label: 'Cette sem.', start: now - week, end: now },
+  ];
+
+  // Calculer les données par semaine
+  const weekData = weeks.map(w => getMuscleSeriesInRange(w.start, w.end));
+
+  // Sélectionner les muscles avec au moins 1 série sur les 4 semaines
+  const allGroups = [...Object.keys(SEGMENTED_GROUPS), ...SIMPLE_GROUPS];
+  const activeMuscles = allGroups.filter(mg =>
+    weekData.some(w => (w[mg]||0) > 0)
+  );
+
+  const datasets = activeMuscles.map(mg => {
+    const color = GROUP_MAIN_COLOR[mg] || MUSCLE_COLORS[mg] || '#86868B';
+    return {
+      label: mg,
+      data: weekData.map(w => w[mg] || 0),
+      borderColor: color,
+      backgroundColor: color + '22',
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointBackgroundColor: color,
+      tension: 0.3,
+      fill: false,
+    };
+  });
+
+  chartMuscleLines = new Chart(ctx, {
+    type: 'line',
+    data: { labels: weeks.map(w => w.label), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}s`
+          }
+        }
+      },
+      scales: {
+        y: {
+          grid: { color: '#2C2C2E' },
+          ticks: { color: '#86868B', font: { size: 10 }, callback: v => v + 's' },
+          beginAtZero: true
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#86868B', font: { size: 11 } }
+        }
+      }
+    }
+  });
+
+  // Légende manuelle
+  const legend = document.getElementById('muscleLinesLegend');
+  if (legend) {
+    legend.innerHTML = activeMuscles.map(mg => {
+      const color = GROUP_MAIN_COLOR[mg] || MUSCLE_COLORS[mg] || '#86868B';
+      return `<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--sub);">
+        <div style="width:12px;height:3px;border-radius:2px;background:${color};"></div>
+        <span>${mg}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ============================================================
+// STATS — Liste muscles avec barres segmentées colorées
+// ============================================================
+
+// Compte les séries par sous-groupe musculaire
+function countSubGroupSets(logs) {
+  const totals = {};
+  Object.keys(MUSCLE_COLORS).forEach(k => totals[k] = 0);
+  logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
+      const { sub } = getMuscleGroupFull(exo.name);
+      const key = sub || getMuscleGroup(exo.name);
+      if (!totals.hasOwnProperty(key)) return;
+      let sets = 0;
+      if (exo.repRecords && Object.keys(exo.repRecords).length > 0) sets = Object.keys(exo.repRecords).length;
+      else if (exo.series && exo.series.length > 0) sets = exo.series.length;
+      else sets = exo.sets || 0;
+      totals[key] += sets;
+    });
+  });
+  return totals;
+}
+
+function renderMuscleVolume(period) {
+  period = period || 'week';
+  setPeriodButtons('muscleVolumeButtons', period);
+  const days = period === 'week' ? 7 : 28;
+  const logs = getLogsInRange(days);
+
+  // Compter séries par sous-groupe
+  const subTotals = {};
+  logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (exo.isCardio) { subTotals['Cardio'] = (subTotals['Cardio']||0) + (exo.sets||0); return; }
+      const { group, sub } = getMuscleGroupFull(exo.name);
+      if (!group || group === 'Autre') return;
+      const key = sub || group;
+      let sets = 0;
+      if (exo.repRecords && Object.keys(exo.repRecords).length > 0) sets = Object.keys(exo.repRecords).length;
+      else if (exo.series && exo.series.length > 0) sets = exo.series.length;
+      else sets = exo.sets || 0;
+      subTotals[key] = (subTotals[key]||0) + sets;
+    });
+  });
+
+  // Totaux par groupe pour la barre max
+  const groupTotals = {};
+  Object.entries(SEGMENTED_GROUPS).forEach(([grp, subs]) => {
+    groupTotals[grp] = subs.reduce((s, sub) => s + (subTotals[sub]||0), 0);
+  });
+  SIMPLE_GROUPS.forEach(g => { groupTotals[g] = subTotals[g]||0; });
+
+  const maxVal = Math.max(...Object.values(groupTotals), 1);
+
+  const el = document.getElementById('muscleVolumeList');
+  if (!el) return;
+
+  let html = '';
+
+  // ── Groupes segmentés ──────────────────────────────────
+  Object.entries(SEGMENTED_GROUPS).forEach(([grp, subs]) => {
+    const total = groupTotals[grp] || 0;
+    const pct = Math.round(total / maxVal * 100);
+
+    // Segments de la barre
+    const segments = subs.map(sub => {
+      const count = subTotals[sub] || 0;
+      const segPct = total > 0 ? Math.round(count / total * 100) : 0;
+      const color = MUSCLE_COLORS[sub] || '#86868B';
+      return { sub, count, segPct, color };
+    }).filter(s => s.count > 0);
+
+    // Labels des sous-groupes
+    const subLabels = segments.map(s =>
+      `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--sub);">
+        <span style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0;"></span>
+        ${s.sub.replace(grp+' ','').replace('Épaules ','')}: <strong style="color:var(--text);">${s.count}s</strong>
+      </span>`
+    ).join('');
+
+    html += `<div class="muscle-bar-row">
+      <div class="muscle-bar-header">
+        <div class="muscle-bar-name">
+          <div class="muscle-bar-dot" style="background:${GROUP_MAIN_COLOR[grp]||'#86868B'};"></div>
+          <strong>${grp}</strong>
+        </div>
+        <span class="muscle-bar-count" style="color:${GROUP_MAIN_COLOR[grp]||'#86868B'};">${total}s</span>
+      </div>
+      <div class="muscle-bar-bg" style="height:8px;display:flex;border-radius:4px;overflow:hidden;">
+        ${segments.map(s =>
+          `<div style="width:${s.segPct}%;background:${s.color};transition:width 0.6s ease;" title="${s.sub}: ${s.count}s"></div>`
+        ).join('')}
+        ${pct < 100 ? `<div style="flex:1;background:#2C2C2E;"></div>` : ''}
+      </div>
+      ${segments.length > 1 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;">${subLabels}</div>` : ''}
+    </div>`;
+  });
+
+  // ── Groupes simples ────────────────────────────────────
+  const simpleColors = { 'Abdos':'#FF453A', 'Cardio':'#64D2FF' };
+  SIMPLE_GROUPS.forEach(grp => {
+    const total = groupTotals[grp] || 0;
+    if (total === 0) return;
+    const pct = Math.round(total / maxVal * 100);
+    const color = simpleColors[grp] || '#86868B';
+    html += `<div class="muscle-bar-row">
+      <div class="muscle-bar-header">
+        <div class="muscle-bar-name"><div class="muscle-bar-dot" style="background:${color};"></div><strong>${grp}</strong></div>
+        <span class="muscle-bar-count" style="color:${color};">${total}s</span>
+      </div>
+      <div class="muscle-bar-bg"><div class="muscle-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+    </div>`;
+  });
+
+  el.innerHTML = html || '<p style="color:var(--sub);font-size:12px;text-align:center;">Aucune séance sur cette période</p>';
 }
 
 </script>

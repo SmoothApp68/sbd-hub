@@ -1589,76 +1589,127 @@ function renderDash() {
 
 function renderDayExercises(day) {
   const c = document.getElementById('trainingLogs');
-  // Dimanche = repos, rien à afficher
+
   if (day === 'Dimanche') {
     c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;">😴 Repos complet</p>';
     return;
   }
+
+  // ── Récupérer les exercices du programme pour ce jour ────
+  const programDay = (BASE_PROGRAMME.days || []).find(d => d.day === day);
+  const programExos = programDay
+    ? programDay.exercises
+        .filter(e => e.type !== 'cardio') // exclure tapis roulant
+        .map(e => e.name)
+    : [];
+
+  if (programExos.length === 0 && day !== 'Mercredi') {
+    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:12px;">Aucun exercice au programme pour ce jour</p>';
+    return;
+  }
+
+  // Mercredi = natation uniquement
+  if (day === 'Mercredi') {
+    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;">🏊 Natation — récupération active</p>';
+    return;
+  }
+
+  // ── Trouver le meilleur résultat historique pour chaque exo du programme ──
   const best = {};
-  // Compter nb de séances distinctes par exercice (sur 180 jours)
-  const limit180 = Date.now() - 180 * 86400000;
-  const recentLogs = db.logs.filter(l => l.timestamp >= limit180);
-  const exoCount = {};
-  recentLogs.forEach(log => {
-    const seen = new Set();
-    log.exercises.forEach(e => {
-      if (!seen.has(e.name)) { exoCount[e.name] = (exoCount[e.name]||0)+1; seen.add(e.name); }
-    });
-  });
+
+  // Init avec les noms du programme (dans l'ordre du programme)
+  programExos.forEach(name => { best[name] = null; });
 
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-      const exoDays = getExerciseDays(exo.name);
-      // L'exo est classifié → vérifier s'il appartient au jour demandé
-      if (exoDays.length > 0 && !exoDays.includes(day)) return;
-      // Non classifié → utiliser le jour de la séance comme fallback
-      if (exoDays.length === 0 && log.day !== day) return;
 
-      const key = exo.name;
+      // Normaliser un nom pour la comparaison
+      const normStr = s => s.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[()'"]/g,'').replace(/\s+/g,' ').trim();
+
+      const eNorm = normStr(exo.name);
+
+      // Chercher le meilleur match dans le programme (priorité exact > longueur)
+      let matchName = null;
+      let bestScore = 0;
+
+      for (const pName of programExos) {
+        const pNorm = normStr(pName);
+        let score = 0;
+
+        // 1. Match exact → score maximum
+        if (eNorm === pNorm) { score = 1000; }
+        // 2. Matching par mots communs normalisés (ratio)
+        else {
+          const eWords = new Set(eNorm.split(' '));
+          const pWords = new Set(pNorm.split(' '));
+          const common = [...eWords].filter(w => pWords.has(w) && w.length > 2).length;
+          const total = Math.max(eWords.size, pWords.size);
+          score = total > 0 ? (common / total) * 100 : 0;
+          // Bonus si le nom du log commence pareil que le programme
+          if (eNorm.startsWith(pNorm) || pNorm.startsWith(eNorm)) score += 50;
+          // Pénalité si longueurs très différentes (évite incliné → plat)
+          const lenDiff = Math.abs(eNorm.length - pNorm.length);
+          if (lenDiff > 8) score -= 20;
+        }
+
+        if (score > bestScore && score >= 60) {
+          bestScore = score;
+          matchName = pName;
+        }
+      }
+      if (!matchName) return;
+
       const exoType = getExoType(exo.name);
+      const current = best[matchName];
 
-      if (!best[key]) { best[key] = {...exo, exoType}; return; }
+      if (!current) {
+        best[matchName] = { ...exo, exoType, name: matchName };
+        return;
+      }
 
       if (exoType === 'cardio' || exoType === 'cardio_stairs') {
-        if ((exo.distance||0) > (best[key].distance||0)) { best[key].distance = exo.distance; best[key].cardioDate = exo.cardioDate; }
-        if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key].maxTime = exo.maxTime;
+        if ((exo.distance||0) > (current.distance||0)) { current.distance = exo.distance; current.cardioDate = exo.cardioDate; }
+        if ((exo.maxTime||0) > (current.maxTime||0)) current.maxTime = exo.maxTime;
       } else if (exoType === 'time') {
-        if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key] = {...exo, exoType};
+        if ((exo.maxTime||0) > (current.maxTime||0)) best[matchName] = { ...exo, exoType, name: matchName };
       } else if (exoType === 'reps') {
-        if ((exo.maxReps||0) > (best[key].maxReps||0)) best[key].maxReps = exo.maxReps;
-        if ((exo.totalReps||0) > (best[key].totalReps||0)) best[key].totalReps = exo.totalReps;
-        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key].maxRM = exo.maxRM;
-        // Merge repRecords
+        if ((exo.maxReps||0) > (current.maxReps||0)) current.maxReps = exo.maxReps;
+        if ((exo.maxRM||0) > (current.maxRM||0)) current.maxRM = exo.maxRM;
         if (exo.repRecords) {
-          if (!best[key].repRecords) best[key].repRecords = {};
+          if (!current.repRecords) current.repRecords = {};
           Object.entries(exo.repRecords).forEach(([r, w]) => {
-            if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w;
+            if (!current.repRecords[r] || w > current.repRecords[r]) current.repRecords[r] = w;
           });
         }
       } else {
-        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key] = {...exo, exoType};
-        // Merge repRecords
+        if ((exo.maxRM||0) > (current.maxRM||0)) best[matchName] = { ...exo, exoType, name: matchName };
         if (exo.repRecords) {
-          if (!best[key].repRecords) best[key].repRecords = {};
+          if (!best[matchName].repRecords) best[matchName].repRecords = {};
           Object.entries(exo.repRecords).forEach(([r, w]) => {
-            if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w;
+            if (!best[matchName].repRecords[r] || w > best[matchName].repRecords[r]) best[matchName].repRecords[r] = w;
           });
         }
       }
     });
   });
 
-  // Filtrer exercices vus < 2 fois (sauf Samedi = technique SBD rare → ≥1)
-  const minCount = day === 'Samedi' ? 1 : 2;
-  const filtered = Object.fromEntries(
-    Object.entries(best).filter(([n]) => (exoCount[n]||0) >= minCount)
-  );
-  if (!Object.keys(filtered).length) {
-    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:12px;">Aucun exercice pour ce jour</p>';
-    return;
-  }
-  c.innerHTML = '<div style="padding:8px;background:var(--surface);border-radius:10px;">'+Object.entries(filtered).map(([n,e],idx) => formatExoDropdown(n,e,idx)).join('')+'</div>';
+  // ── Affichage dans l'ordre du programme ─────────────────
+  const entries = programExos.map((name, idx) => {
+    const exo = best[name];
+    if (!exo) {
+      // Exo au programme mais jamais fait → afficher placeholder
+      return `<div class="exo-header" style="opacity:0.4;">
+        <span>💪 ${name}</span>
+        <div style="color:var(--sub);font-size:11px;">Pas encore fait</div>
+      </div>`;
+    }
+    return formatExoDropdown(name, exo, idx);
+  });
+
+  c.innerHTML = '<div style="padding:8px;background:var(--surface);border-radius:10px;">' + entries.join('') + '</div>';
 }
 
 // ============================================================
@@ -2256,13 +2307,6 @@ const BASE_PROGRAMME = {
             { "isWarmup": false, "weight": 79, "reps": 8,  "rpe": null },
             { "isWarmup": false, "weight": 86, "reps": 6,  "rpe": null },
             { "isWarmup": false, "weight": 86, "reps": 6,  "rpe": null }
-          ]
-        },
-        { "name": "Tirage Poitrine (Machine)", "type": "weight", "restSeconds": 90,
-          "sets": [
-            { "isWarmup": false, "weight": 52, "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 66, "reps": 8,  "rpe": null },
-            { "isWarmup": false, "weight": 73, "reps": 8,  "rpe": null }
           ]
         },
         { "name": "Tirage Poitrine Bras Tendus (Poulie)", "type": "weight", "restSeconds": 75,

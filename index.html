@@ -1191,21 +1191,21 @@ function getSBDType(name) {
 // ============================================================
 // EXERCISE DAY MAP
 // ============================================================
-const EXERCISE_DAY_MAP = {
-  Lundi:    /squat|quad|extension\s*(des\s*)?(jambes?)|leg\s*(press|extension)|presse\s*cuisse|hack|fente|lunge|step.?up|goblet|sissy|bulgare/i,
-  Mardi:    /bench|couche|pec|ecarte|chest|pompe|push.?up|epaule|shoulder|militaire|elevation|laterale|frontale|tricep|skull|dips|extension\s*(tricep|bras|poulie|cable|coude)|face\s*pull|arnold|upright/i,
-  Mercredi: /natation|swimming|nage|tapis|running|velo\b|cycling|cardio|elliptique|escalier|stair|randonnee|rameur|corde\s*a\s*sauter|sprint|jogging|marche\s*(rapide|sportive)/i,
-  Jeudi:    /deadlift|souleve|row\b|rowing\b|tirage|lat\b|pull.?up|traction|chin.?up|leg\s*curl|ischio|hip\s*thrust|glute|curl\s*(bicep|barre|marteau|haltere)|bicep|abduction|adduction|hyperextension/i,
-  Vendredi: /crunch|ab\b|abdo|gainage|planche|plank|l.sit|releve|v.?up|sit.?up|ciseaux|battement|russian\s*twist|oblique|roue\s*ab|mollet|calf|escalier|stair|cardio/i,
-  Samedi:   /squat.*barre|bench.*barre|couche.*barre|deadlift|souleve.*terre/i
-};
+// getExerciseDay — déduit depuis l'historique importé de l'utilisateur
+// Retourne le jour où un exercice apparaît le plus souvent (source: db.logs)
 function getExerciseDay(name) {
-  const n = name.toLowerCase();
-  for (const [day, regex] of Object.entries(EXERCISE_DAY_MAP)) {
-    if (regex.test(n)) return day;
-  }
-  return null;
+  const dayCounts = {};
+  db.logs.forEach(log => {
+    if (!log.day) return;
+    if (log.exercises.some(e => e.name === name)) {
+      dayCounts[log.day] = (dayCounts[log.day] || 0) + 1;
+    }
+  });
+  if (!Object.keys(dayCounts).length) return null;
+  return Object.entries(dayCounts).sort((a,b) => b[1]-a[1])[0][0];
 }
+
+
 
 // ============================================================
 // DATE PARSING
@@ -2428,51 +2428,48 @@ function renderDash() {
 
 function renderDayExercises(day) {
   const c = document.getElementById('trainingLogs');
-  const routine = getRoutine();
-  const dayLabel = (routine[day] || '').toLowerCase();
 
-  // ── 1. Trouver les exercices du programme pour ce jour ──────
-  // Depuis le programme généré (generatedProgram) ou la routine texte
-  const progExoNames = new Set();
-  if (db.generatedProgram) {
-    const progDay = db.generatedProgram.find(d => d.day === day);
-    if (progDay && !progDay.isRest) {
-      (progDay.exos || []).forEach(id => {
-        const exo = EXO_DB[id]; if (exo) progExoNames.add(exo.name);
-      });
-    }
-  }
-  // Fallback : chercher dans l'historique les exos qui apparaissent souvent ce jour-là
-  if (progExoNames.size === 0) {
-    const dayCount = {};
-    db.logs.filter(l => l.day === day).forEach(log => {
-      log.exercises.forEach(e => {
-        if (!SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()))
-          dayCount[e.name] = (dayCount[e.name] || 0) + 1;
-      });
+  // ── 1. Quels exercices fais-tu réellement ce jour-là ? ──────
+  // On compte la fréquence d'apparition de chaque exo dans les séances de ce jour
+  const exoFreq = {};
+  db.logs.filter(l => l.day === day).forEach(log => {
+    const seen = new Set();
+    log.exercises.forEach(exo => {
+      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
+      if (!seen.has(exo.name)) { exoFreq[exo.name] = (exoFreq[exo.name] || 0) + 1; seen.add(exo.name); }
     });
-    Object.entries(dayCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .forEach(([name]) => progExoNames.add(name));
-  }
+  });
 
-  // ── 2. Trouver les groupes musculaires travaillés ce jour ────
+  const sessionCount = db.logs.filter(l => l.day === day).length;
+  // Seuil : exercice présent dans au moins 30% des séances de ce jour (min 1)
+  const threshold = Math.max(1, Math.floor(sessionCount * 0.3));
+  const progExoNames = new Set(
+    Object.entries(exoFreq).filter(([,freq]) => freq >= threshold).map(([name]) => name)
+  );
+
+  // ── 2. Groupes musculaires de ce jour ────────────────────────
   const dayMuscles = new Set();
   progExoNames.forEach(name => dayMuscles.add(getMuscleGroup(name)));
-  // Aussi depuis le label de la routine (ex: "Push", "Legs"...)
-  const muscleKeywords = {
-    'jambes': 'Jambes', 'squat': 'Jambes', 'leg': 'Jambes', 'quad': 'Jambes', 'ischio': 'Jambes',
-    'pec': 'Pecs', 'chest': 'Pecs', 'push': 'Pecs', 'bench': 'Pecs', 'développé': 'Pecs',
-    'dos': 'Dos', 'pull': 'Dos', 'row': 'Dos', 'traction': 'Dos', 'back': 'Dos',
-    'épaule': 'Épaules', 'shoulder': 'Épaules', 'press': 'Épaules',
-    'bras': 'Bras', 'bicep': 'Bras', 'tricep': 'Bras', 'curl': 'Bras',
-    'abdo': 'Abdos', 'core': 'Abdos', 'gainage': 'Abdos',
-    'cardio': 'Cardio', 'course': 'Cardio', 'vélo': 'Cardio',
-  };
-  Object.entries(muscleKeywords).forEach(([kw, grp]) => {
-    if (dayLabel.includes(kw)) dayMuscles.add(grp);
-  });
+
+  // Si on n'a aucune séance pour ce jour, on utilise le libellé de la routine
+  if (dayMuscles.size === 0) {
+    const routine = getRoutine();
+    const label = (routine[day] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const labelMap = [
+      [/squat|jambe|leg|quad|ischio|fessier|rdl|deadlift|souleve/,'Jambes'],
+      [/bench|pec|chest|push|couche|developpe|incline|decline|ecarte/,'Pecs'],
+      [/dos|pull|row|traction|tirage|lat|back/,'Dos'],
+      [/epaule|shoulder|militaire|ohp|lateral|front|raise/,'Épaules'],
+      [/bras|bicep|tricep|curl|extension.*bras/,'Bras'],
+      [/abdo|core|gainage|plank|crunch/,'Abdos'],
+      [/cardio|course|velo|natation|rameur|elliptique/,'Cardio'],
+    ];
+    labelMap.forEach(([rx, muscle]) => { if (rx.test(label)) dayMuscles.add(muscle); });
+    // "full body" ou "upper" = tous les groupes principaux
+    if (/full.?body|upper|complet/.test(label)) ['Jambes','Pecs','Dos','Épaules','Bras'].forEach(m => dayMuscles.add(m));
+    if (/upper/.test(label)) ['Pecs','Dos','Épaules','Bras'].forEach(m => dayMuscles.add(m));
+    if (/lower/.test(label)) ['Jambes'].forEach(m => dayMuscles.add(m));
+  }
 
   // ── 3. Construire le best-of depuis l'historique ─────────────
   const best = {};
@@ -2480,9 +2477,8 @@ function renderDayExercises(day) {
     log.exercises.forEach(exo => {
       if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
       const mg = getMuscleGroup(exo.name);
-      // Inclure si : dans le programme OU même groupe musculaire que le programme
       const inProg = progExoNames.has(exo.name);
-      const sameGroup = dayMuscles.has(mg);
+      const sameGroup = dayMuscles.has(mg) && mg !== 'Autre';
       if (!inProg && !sameGroup) return;
 
       const key = exo.name;
@@ -2493,23 +2489,19 @@ function renderDayExercises(day) {
         if ((exo.distance||0) > (best[key].distance||0)) best[key].distance = exo.distance;
         if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key].maxTime = exo.maxTime;
       } else if (exoType === 'time') {
-        if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key] = { ...exo, exoType, inProg: true };
+        if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key] = { ...exo, exoType, inProg: best[key].inProg || inProg };
       } else if (exoType === 'reps') {
         if ((exo.maxReps||0) > (best[key].maxReps||0)) best[key].maxReps = exo.maxReps;
         if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key].maxRM = exo.maxRM;
         if (exo.repRecords) {
           if (!best[key].repRecords) best[key].repRecords = {};
-          Object.entries(exo.repRecords).forEach(([r,w]) => {
-            if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w;
-          });
+          Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; });
         }
       } else {
-        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key] = { ...exo, exoType, inProg };
+        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key] = { ...exo, exoType, inProg: best[key].inProg || inProg };
         if (exo.repRecords) {
           if (!best[key].repRecords) best[key].repRecords = {};
-          Object.entries(exo.repRecords).forEach(([r,w]) => {
-            if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w;
-          });
+          Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; });
         }
       }
     });
@@ -2517,23 +2509,31 @@ function renderDayExercises(day) {
 
   const entries = Object.entries(best);
   if (!entries.length) {
-    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">Aucun exercice trouvé pour ce jour.<br><span style="font-size:11px;">Configure ton programme dans Réglages.</span></p>';
+    const msg = sessionCount === 0
+      ? 'Aucune séance enregistrée pour ce jour.<br><span style="font-size:11px;">Importe des séances Hevy dans Réglages.</span>'
+      : 'Aucun exercice trouvé.';
+    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">' + msg + '</p>';
     return;
   }
 
-  // ── 4. Trier : exercices du programme en premier, alternatives ensuite
-  const progEntries = entries.filter(([,e]) => e.inProg);
-  const altEntries  = entries.filter(([,e]) => !e.inProg);
+  // ── 4. Tri : programme en premier (par fréquence), alternatives ensuite ─
+  const progEntries = entries
+    .filter(([,e]) => e.inProg)
+    .sort((a, b) => (exoFreq[b[0]]||0) - (exoFreq[a[0]]||0));
+  const altEntries = entries
+    .filter(([,e]) => !e.inProg)
+    .sort((a, b) => (b[1].maxRM||0) - (a[1].maxRM||0));
 
   let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
 
   if (progEntries.length) {
-    html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 6px;">Programme</div>';
+    const label = sessionCount > 0 ? `Tes exercices (${sessionCount} séance${sessionCount>1?'s':''})` : 'Programme';
+    html += `<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 8px;">${label}</div>`;
     html += progEntries.map(([n,e], idx) => formatExoDropdown(n, e, 'prog-'+idx)).join('');
   }
 
   if (altEntries.length) {
-    html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:10px 8px 6px;border-top:1px solid var(--border);margin-top:6px;">Alternatives / même groupe</div>';
+    html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:10px 8px 8px;border-top:1px solid var(--border);margin-top:4px;">Alternatives · même groupe</div>';
     html += altEntries.slice(0, 8).map(([n,e], idx) => formatExoDropdown(n, e, 'alt-'+idx)).join('');
   }
 

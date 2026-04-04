@@ -2,12 +2,15 @@
 const CACHE_NAME = 'sbd-elite-v1';
 
 // Fichiers à mettre en cache pour le mode offline
+// Détection automatique du base path (GitHub Pages ou custom domain)
+const BASE = self.location.pathname.replace(/\/sw\.js$/, '') || '';
+
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/manifest.json',
+  BASE + '/icon-192.png',
+  BASE + '/icon-512.png',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
@@ -62,7 +65,7 @@ self.addEventListener('fetch', event => {
       }).catch(() => {
         // Offline fallback — retourner l'index.html pour la navigation
         if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match(BASE + '/index.html') || caches.match(BASE + '/');
         }
       });
     })

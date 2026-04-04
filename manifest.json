@@ -2,7 +2,7 @@
   "name": "SBD Elite Tracker",
   "short_name": "SBD Elite",
   "description": "Tracker de force SBD — powerlifting & recomposition corporelle",
-  "start_url": "/",
+  "start_url": "/sbd-hub/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
@@ -21,6 +21,11 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["fitness", "health", "sports"],
-  "lang": "fr"
+  "categories": [
+    "fitness",
+    "health",
+    "sports"
+  ],
+  "lang": "fr",
+  "scope": "/sbd-hub/"
 }

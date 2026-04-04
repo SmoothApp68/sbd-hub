@@ -401,6 +401,23 @@
     .wp-coach-note{margin-top:10px;padding:10px 12px;background:rgba(255,159,10,0.08);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);line-height:1.5;}
     .wp-rest-day{text-align:center;padding:30px 0;color:var(--sub);font-size:14px;}
     .wp-bloc-badge{display:inline-block;background:rgba(191,90,242,0.2);color:var(--purple);padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:14px;}
+    /* ── Éditeur programme par liste ── */
+    .prog-day-section{margin-bottom:16px;border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+    .prog-day-section-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--surface);cursor:pointer;}
+    .prog-day-section-name{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;}
+    .prog-day-section-count{font-size:11px;color:var(--sub);background:var(--border);padding:2px 8px;border-radius:10px;}
+    .prog-day-section-toggle{font-size:11px;color:var(--blue);font-weight:600;cursor:pointer;padding:4px 8px;}
+    .prog-exo-list{padding:8px 12px;}
+    .prog-exo-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+    .prog-exo-item:last-child{border-bottom:none;}
+    .prog-exo-item-name{flex:1;font-size:13px;color:var(--text);}
+    .prog-exo-del{background:none;border:none;color:var(--red);opacity:0.5;cursor:pointer;font-size:16px;padding:2px 6px;transition:opacity 0.2s;flex-shrink:0;}
+    .prog-exo-del:hover{opacity:1;}
+    .prog-exo-add-row{display:flex;gap:6px;padding:8px 12px;background:rgba(255,255,255,0.02);}
+    .prog-exo-add-input{flex:1;margin:0;padding:8px 10px;font-size:13px;border-radius:8px;}
+    .prog-exo-add-btn{background:var(--blue);border:none;color:white;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+    .prog-day-label-input{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--sub);font-size:11px;padding:2px 4px;width:120px;margin-left:4px;}
+    .prog-day-label-input:focus{outline:none;border-color:var(--blue);}
   </style>
 </head>
 <body>
@@ -890,10 +907,9 @@
         <span>📅 Mon Programme</span><span class="acc-chevron" id="chev-acc-prog">▾</span>
       </div>
       <div class="acc-body" id="acc-prog">
-        <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Édite chaque jour manuellement.</p>
-        <div class="template-grid" id="settingsTemplateGrid"></div>
+        <p style="font-size:12px;color:var(--sub);margin:0 0 12px;">Définis les exercices de chaque jour. Utilisé par "Meilleurs Résultats".</p>
         <div id="routineEditor"></div>
-        <button class="btn" style="margin-top:10px;" onclick="saveRoutine()">Sauvegarder le programme</button>
+        <button class="btn" style="margin-top:12px;" onclick="saveRoutine()">Sauvegarder le programme</button>
       </div>
     </div>
 
@@ -2026,49 +2042,162 @@ function obFinish() {
 // ROUTINE EDITOR (Réglages)
 // ============================================================
 let editingRoutine = {};
+let editingExos = {}; // { Lundi: ['Squat (Barre)', 'Presse', ...], ... }
 
 function renderSettingsRoutineEditor() {
-  // Templates
-  const grid = document.getElementById('settingsTemplateGrid');
-  grid.innerHTML = Object.entries(ROUTINE_TEMPLATES).filter(([k])=>k!=='custom').map(([key, tpl]) =>
-    '<div class="template-btn" onclick="applySettingsTemplate(\''+key+'\')">'+
-    '<span class="tpl-name">'+tpl.icon+' '+tpl.name+'</span>'+
-    '<div class="tpl-desc">'+tpl.desc+'</div></div>'
-  ).join('');
-
-  // Editor champs
+  // Charger l'état actuel
   const currentRoutine = getRoutine();
   editingRoutine = JSON.parse(JSON.stringify(currentRoutine));
-
-  const editor = document.getElementById('routineEditor');
-  editor.innerHTML = DAYS_FULL.slice(1).concat(['Dimanche']).map(day =>
-    '<div class="routine-day-row">'+
-    '<div class="routine-day-label">'+day.substring(0,3)+'</div>'+
-    '<input class="routine-day-input" type="text" id="rdInput_'+day+'" value="'+(editingRoutine[day]||'')+'" placeholder="Ex: Push (Pecs, Triceps)" oninput="editingRoutine[\''+day+'\']=this.value">'+
-    '</div>'
-  ).join('');
-}
-
-function applySettingsTemplate(key) {
-  const tpl = ROUTINE_TEMPLATES[key];
-  editingRoutine = JSON.parse(JSON.stringify(tpl.routine));
+  // Charger les exercices sauvegardés
+  const savedExos = db.routineExos || {};
+  editingExos = {};
   DAYS_FULL.forEach(day => {
-    const inp = document.getElementById('rdInput_'+day);
-    if (inp) inp.value = editingRoutine[day] || '';
+    editingExos[day] = savedExos[day]
+      ? (Array.isArray(savedExos[day]) ? [...savedExos[day]] : savedExos[day].split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean))
+      : [];
   });
-  showToast('Template "'+tpl.name+'" appliqué');
+  renderExoEditor();
 }
+
+function renderExoEditor() {
+  const orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  const editor = document.getElementById('routineEditor');
+  const DAY_ICONS = { Lundi:'🦵', Mardi:'💪', Mercredi:'🏊', Jeudi:'🏋️', Vendredi:'🎯', Samedi:'⚡', Dimanche:'😴' };
+
+  editor.innerHTML = orderedDays.map(day => {
+    const label = editingRoutine[day] || '';
+    const exos = editingExos[day] || [];
+    const isRest = label.toLowerCase().includes('repos') || label.includes('😴') || (!label && !exos.length);
+    const count = exos.length;
+
+    return `<div class="prog-day-section" id="prog-section-${day}">
+      <div class="prog-day-section-header" onclick="toggleProgSection('${day}')">
+        <div class="prog-day-section-name">
+          ${DAY_ICONS[day]||'📅'} ${day}
+          <input class="prog-day-label-input" type="text" value="${label}" placeholder="${isRest ? 'Repos' : 'Ex: Squat Lourd'}"
+            onclick="event.stopPropagation()"
+            oninput="editingRoutine['${day}']=this.value;updateProgSectionStyle('${day}')">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${count > 0 ? `<span class="prog-day-section-count">${count} exo${count>1?'s':''}</span>` : ''}
+          <span style="color:var(--sub);font-size:12px;" id="prog-chev-${day}">▾</span>
+        </div>
+      </div>
+      <div id="prog-body-${day}" style="display:none;">
+        <div class="prog-exo-list" id="prog-exo-list-${day}">
+          ${exos.length === 0
+            ? `<div style="color:var(--sub);font-size:12px;padding:6px 0;text-align:center;opacity:0.6;">Aucun exercice — ajouter ci-dessous</div>`
+            : exos.map((e, i) => `
+              <div class="prog-exo-item" id="prog-exo-${day}-${i}">
+                <span class="prog-exo-item-name">${e}</span>
+                <button class="prog-exo-del" onclick="removeProgExo('${day}', ${i})" title="Supprimer">✕</button>
+              </div>`).join('')
+          }
+        </div>
+        <div class="prog-exo-add-row">
+          <input class="prog-exo-add-input" type="text" id="prog-add-${day}"
+            placeholder="Ajouter un exercice..."
+            onkeydown="if(event.key==='Enter')addProgExo('${day}')">
+          <button class="prog-exo-add-btn" onclick="addProgExo('${day}')">+ Ajouter</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleProgSection(day) {
+  const body = document.getElementById('prog-body-' + day);
+  const chev = document.getElementById('prog-chev-' + day);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) chev.textContent = open ? '▾' : '▴';
+}
+
+function addProgExo(day) {
+  const inp = document.getElementById('prog-add-' + day);
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!editingExos[day]) editingExos[day] = [];
+  editingExos[day].push(val);
+  inp.value = '';
+  // Re-render juste la liste + compteur
+  const listEl = document.getElementById('prog-exo-list-' + day);
+  const sectionEl = document.getElementById('prog-section-' + day);
+  if (listEl) {
+    listEl.innerHTML = editingExos[day].map((e, i) => `
+      <div class="prog-exo-item" id="prog-exo-${day}-${i}">
+        <span class="prog-exo-item-name">${e}</span>
+        <button class="prog-exo-del" onclick="removeProgExo('${day}', ${i})" title="Supprimer">✕</button>
+      </div>`).join('');
+  }
+  // Mettre à jour le compteur dans le header
+  updateProgCounter(day);
+  inp.focus();
+}
+
+function removeProgExo(day, idx) {
+  if (!editingExos[day]) return;
+  editingExos[day].splice(idx, 1);
+  const listEl = document.getElementById('prog-exo-list-' + day);
+  if (listEl) {
+    listEl.innerHTML = editingExos[day].length === 0
+      ? `<div style="color:var(--sub);font-size:12px;padding:6px 0;text-align:center;opacity:0.6;">Aucun exercice — ajouter ci-dessous</div>`
+      : editingExos[day].map((e, i) => `
+          <div class="prog-exo-item" id="prog-exo-${day}-${i}">
+            <span class="prog-exo-item-name">${e}</span>
+            <button class="prog-exo-del" onclick="removeProgExo('${day}', ${i})" title="Supprimer">✕</button>
+          </div>`).join('');
+  }
+  updateProgCounter(day);
+}
+
+function updateProgCounter(day) {
+  const count = (editingExos[day] || []).length;
+  const header = document.querySelector(`#prog-section-${day} .prog-day-section-count`);
+  if (header) { header.textContent = count + ' exo' + (count > 1 ? 's' : ''); header.style.display = count > 0 ? '' : 'none'; }
+  else if (count > 0) {
+    const nameEl = document.querySelector(`#prog-section-${day} .prog-day-section-name`);
+    if (nameEl) { const badge = document.createElement('span'); badge.className = 'prog-day-section-count'; badge.textContent = count + ' exo' + (count > 1 ? 's' : ''); nameEl.parentElement.insertBefore(badge, nameEl.nextSibling); }
+  }
+}
+
+function updateProgSectionStyle(day) { /* réactivité label — rien à faire */ }
 
 function saveRoutine() {
-  // Lire toutes les valeurs des inputs
+  // Lire les labels depuis les inputs
   DAYS_FULL.forEach(day => {
-    const inp = document.getElementById('rdInput_'+day);
+    const inp = document.getElementById('rdInput_' + day);
     if (inp) editingRoutine[day] = inp.value.trim();
+    // Récupérer aussi depuis les prog-day-label-input
+    const labelInp = document.querySelector(`#prog-section-${day} .prog-day-label-input`);
+    if (labelInp) editingRoutine[day] = labelInp.value.trim();
   });
   db.routine = JSON.parse(JSON.stringify(editingRoutine));
+  // Sauvegarder les listes d'exercices (format tableau)
+  if (!db.routineExos) db.routineExos = {};
+  DAYS_FULL.forEach(day => { db.routineExos[day] = editingExos[day] || []; });
   saveDB();
   showToast('✓ Programme sauvegardé !');
   renderDash();
+}
+
+// Extraire la liste des exercices d'un jour depuis db.routineExos
+function getProgExosForDay(day) {
+  const saved = (db.routineExos || {})[day];
+  if (!saved) return [];
+  return Array.isArray(saved) ? saved.filter(Boolean) : saved.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
+}
+
+// Matcher un nom d'exercice Hevy avec un nom de programme (tolérant aux accents/casse)
+function matchExoName(hevyName, progName) {
+  const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').replace(/\s+/g,' ').trim();
+  const h = normalize(hevyName);
+  const p = normalize(progName);
+  if (h === p) return true;
+  const pWords = p.split(' ').filter(w => w.length > 3);
+  return pWords.length > 0 && pWords.every(w => h.includes(w));
 }
 
 // ============================================================
@@ -2429,60 +2558,24 @@ function renderDash() {
 function renderDayExercises(day) {
   const c = document.getElementById('trainingLogs');
 
-  // ── 1. Quels exercices fais-tu réellement ce jour-là ? ──────
-  // On compte la fréquence d'apparition de chaque exo dans les séances de ce jour
-  const exoFreq = {};
-  db.logs.filter(l => l.day === day).forEach(log => {
-    const seen = new Set();
-    log.exercises.forEach(exo => {
-      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-      if (!seen.has(exo.name)) { exoFreq[exo.name] = (exoFreq[exo.name] || 0) + 1; seen.add(exo.name); }
-    });
-  });
+  // ── 1. Exercices du programme pour ce jour ───────────────────
+  // Source prioritaire : db.routineExos (défini dans Réglages)
+  // Fallback : exercices les plus fréquents dans l'historique ce jour-là
+  const progNames = getProgExosForDay(day); // noms saisis dans Réglages
 
-  const sessionCount = db.logs.filter(l => l.day === day).length;
-  // Seuil : exercice présent dans au moins 30% des séances de ce jour (min 1)
-  const threshold = Math.max(1, Math.floor(sessionCount * 0.3));
-  const progExoNames = new Set(
-    Object.entries(exoFreq).filter(([,freq]) => freq >= threshold).map(([name]) => name)
-  );
-
-  // ── 2. Groupes musculaires de ce jour ────────────────────────
-  const dayMuscles = new Set();
-  progExoNames.forEach(name => dayMuscles.add(getMuscleGroup(name)));
-
-  // Si on n'a aucune séance pour ce jour, on utilise le libellé de la routine
-  if (dayMuscles.size === 0) {
-    const routine = getRoutine();
-    const label = (routine[day] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const labelMap = [
-      [/squat|jambe|leg|quad|ischio|fessier|rdl|deadlift|souleve/,'Jambes'],
-      [/bench|pec|chest|push|couche|developpe|incline|decline|ecarte/,'Pecs'],
-      [/dos|pull|row|traction|tirage|lat|back/,'Dos'],
-      [/epaule|shoulder|militaire|ohp|lateral|front|raise/,'Épaules'],
-      [/bras|bicep|tricep|curl|extension.*bras/,'Bras'],
-      [/abdo|core|gainage|plank|crunch/,'Abdos'],
-      [/cardio|course|velo|natation|rameur|elliptique/,'Cardio'],
-    ];
-    labelMap.forEach(([rx, muscle]) => { if (rx.test(label)) dayMuscles.add(muscle); });
-    // "full body" ou "upper" = tous les groupes principaux
-    if (/full.?body|upper|complet/.test(label)) ['Jambes','Pecs','Dos','Épaules','Bras'].forEach(m => dayMuscles.add(m));
-    if (/upper/.test(label)) ['Pecs','Dos','Épaules','Bras'].forEach(m => dayMuscles.add(m));
-    if (/lower/.test(label)) ['Jambes'].forEach(m => dayMuscles.add(m));
-  }
-
-  // ── 3. Construire le best-of depuis l'historique ─────────────
+  // ── 2. Construire le best-of depuis tout l'historique ────────
   const best = {};
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-      const mg = getMuscleGroup(exo.name);
-      const inProg = progExoNames.has(exo.name);
-      const sameGroup = dayMuscles.has(mg) && mg !== 'Autre';
-      if (!inProg && !sameGroup) return;
-
       const key = exo.name;
       const exoType = getExoType(exo.name);
+
+      // Marquer si cet exo correspond au programme du jour
+      const inProg = progNames.length > 0
+        ? progNames.some(p => matchExoName(exo.name, p))
+        : log.day === day; // fallback : séances de ce jour
+
       if (!best[key]) { best[key] = { ...exo, exoType, inProg }; return; }
       best[key].inProg = best[key].inProg || inProg;
       if (exoType === 'cardio' || exoType === 'cardio_stairs') {
@@ -2507,36 +2600,54 @@ function renderDayExercises(day) {
     });
   });
 
-  const entries = Object.entries(best);
-  if (!entries.length) {
-    const msg = sessionCount === 0
-      ? 'Aucune séance enregistrée pour ce jour.<br><span style="font-size:11px;">Importe des séances Hevy dans Réglages.</span>'
-      : 'Aucun exercice trouvé.';
-    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">' + msg + '</p>';
+  // ── 3. Si programme défini mais pas encore d'historique ──────
+  // Afficher les noms du programme avec "Aucun record encore"
+  if (progNames.length > 0) {
+    const progEntries = progNames.map((progName, idx) => {
+      // Chercher un match dans best
+      const match = Object.entries(best).find(([n]) => matchExoName(n, progName));
+      if (match) return { progName, hevyName: match[0], exo: match[1], found: true };
+      return { progName, hevyName: null, exo: null, found: false };
+    });
+
+    let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
+    const sessionCount = db.logs.filter(l => l.day === day).length;
+    const label = sessionCount > 0
+      ? 'Programme · ' + sessionCount + ' séance' + (sessionCount > 1 ? 's' : '')
+      : 'Programme (pas encore de séances ce jour)';
+    html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 8px;">' + label + '</div>';
+
+    progEntries.forEach(({ progName, hevyName, exo, found }, idx) => {
+      if (found) {
+        html += formatExoDropdown(hevyName, exo, 'prog-' + idx);
+      } else {
+        // Pas encore dans l'historique — afficher le nom du programme sans record
+        html += '<div class="exo-header" style="opacity:0.5;">' +
+          '<span>💪 ' + progName + '</span>' +
+          '<div style="font-size:11px;color:var(--sub);">Aucun record</div>' +
+          '</div>';
+      }
+    });
+
+    html += '</div>';
+    c.innerHTML = html;
     return;
   }
 
-  // ── 4. Tri : programme en premier (par fréquence), alternatives ensuite ─
-  const progEntries = entries
-    .filter(([,e]) => e.inProg)
-    .sort((a, b) => (exoFreq[b[0]]||0) - (exoFreq[a[0]]||0));
-  const altEntries = entries
-    .filter(([,e]) => !e.inProg)
-    .sort((a, b) => (b[1].maxRM||0) - (a[1].maxRM||0));
+  // ── 4. Fallback : pas de programme défini → historique du jour ─
+  const dayEntries = Object.entries(best).filter(([,e]) => e.inProg);
+  if (!dayEntries.length) {
+    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">' +
+      'Aucun exercice pour ce jour.<br>' +
+      '<span style="font-size:11px;">Définis ton programme dans Réglages → Mon Programme.</span>' +
+      '</p>';
+    return;
+  }
 
   let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
-
-  if (progEntries.length) {
-    const label = sessionCount > 0 ? `Tes exercices (${sessionCount} séance${sessionCount>1?'s':''})` : 'Programme';
-    html += `<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 8px;">${label}</div>`;
-    html += progEntries.map(([n,e], idx) => formatExoDropdown(n, e, 'prog-'+idx)).join('');
-  }
-
-  if (altEntries.length) {
-    html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:10px 8px 8px;border-top:1px solid var(--border);margin-top:4px;">Alternatives · même groupe</div>';
-    html += altEntries.slice(0, 8).map(([n,e], idx) => formatExoDropdown(n, e, 'alt-'+idx)).join('');
-  }
-
+  const sc = db.logs.filter(l => l.day === day).length;
+  html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 8px;">Tes exercices (' + sc + ' séance' + (sc > 1 ? 's' : '') + ')</div>';
+  html += dayEntries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
   html += '</div>';
   c.innerHTML = html;
 }

@@ -146,6 +146,33 @@
     .cmp-btn-apply { flex: 1; background: var(--blue); border: none; color: white; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 13px; }
     .cmp-btn-skip  { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--sub); padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 13px; }
     .cmp-note { font-size: 11px; color: var(--orange); font-style: italic; margin-top: 2px; }
+
+    /* ── Cercle nutrition ────────────────────────────────── */
+    .nutri-ring-wrap { display: flex; justify-content: center; align-items: center; padding: 20px 0 10px; position: relative; }
+    .nutri-ring-svg { transform: rotate(-220deg); }
+    .nutri-ring-bg  { fill: none; stroke: #2C2C2E; stroke-width: 14; stroke-linecap: round; }
+    .nutri-ring-fill{ fill: none; stroke: #32D74B; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+    .nutri-ring-fill.warn { stroke: #FF9F0A; }
+    .nutri-ring-fill.over { stroke: #FF453A; }
+    .nutri-ring-center { position: absolute; text-align: center; }
+    .nutri-ring-val   { font-size: 32px; font-weight: 900; color: var(--text); line-height: 1; }
+    .nutri-ring-label { font-size: 12px; color: var(--sub); margin-top: 2px; }
+    .nutri-ring-sub   { font-size: 11px; color: var(--sub); margin-top: 1px; }
+    .nutri-three-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 16px; }
+    .nutri-col        { text-align: center; padding: 0 4px; }
+    .nutri-col-val    { font-size: 18px; font-weight: 800; color: var(--text); }
+    .nutri-col-label  { font-size: 10px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+    .nutri-macro-bar  { margin-bottom: 12px; }
+    .nutri-macro-label{ display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); margin-bottom: 5px; }
+    .nutri-macro-label span:last-child { color: var(--text); font-weight: 600; }
+    .nutri-bar-bg     { background: #2C2C2E; border-radius: 4px; height: 6px; overflow: hidden; }
+    .nutri-bar-fill   { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+    .nutri-bar-prot   { background: #0A84FF; }
+    .nutri-bar-carb   { background: #FF9F0A; }
+    .nutri-bar-fat    { background: #BF5AF2; }
+    .nutri-bar-fill.over { background: #FF453A; }
+    .nutri-targets-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--sub); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .nutri-targets-row span strong { color: var(--text); }
     .cmp-decision { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
     .cmp-decision-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--sub); font-weight: 600; margin-bottom: 8px; }
     .cmp-decision-body { font-size: 12px; color: var(--text); margin-bottom: 10px; line-height: 1.5; }
@@ -275,51 +302,98 @@
   </div>
 
   <div id="tab-corps" class="content-section">
-    <!-- Coach Algo -->
-    <div class="coach-algo-card" id="coachAlgoCard">
-      <div class="coach-algo-title">🧠 Coach — Analyse Instantanée</div>
-      <div id="coachAlgoContent" style="font-size:13px;line-height:1.6;color:var(--text);">
-        Entre ton poids et tes macros pour activer l'analyse.
+
+    <!-- Vue nutrition principale (style MyFitnessPal) -->
+    <div class="card" id="nutriCard">
+      <h2>🍽️ Nutrition du jour</h2>
+
+      <!-- Cercle calories -->
+      <div class="nutri-ring-wrap">
+        <svg class="nutri-ring-svg" width="200" height="200" viewBox="0 0 200 200">
+          <circle class="nutri-ring-bg"   cx="100" cy="100" r="84" stroke-dasharray="440" stroke-dashoffset="0"/>
+          <circle class="nutri-ring-fill" cx="100" cy="100" r="84" id="nutriRingFill"
+                  stroke-dasharray="440" stroke-dashoffset="440"/>
+        </svg>
+        <div class="nutri-ring-center">
+          <div class="nutri-ring-val"  id="nutriKcalRestantes">—</div>
+          <div class="nutri-ring-label">Restantes</div>
+          <div class="nutri-ring-sub"  id="nutriKcalSub">kcal</div>
+        </div>
+      </div>
+
+      <!-- 3 colonnes : mangées / cible / brûlées -->
+      <div class="nutri-three-cols">
+        <div class="nutri-col">
+          <div class="nutri-col-val" id="nutriMangees">0</div>
+          <div class="nutri-col-label">Mangées</div>
+        </div>
+        <div class="nutri-col">
+          <div class="nutri-col-val" id="nutriCible" style="color:var(--sub);">—</div>
+          <div class="nutri-col-label">Objectif</div>
+        </div>
+        <div class="nutri-col">
+          <div class="nutri-col-val" id="nutriBrulees" style="color:var(--orange);">—</div>
+          <div class="nutri-col-label">Brûlées</div>
+        </div>
+      </div>
+
+      <!-- Barres macros -->
+      <div class="nutri-macro-bar">
+        <div class="nutri-macro-label"><span>Glucides</span><span id="nutriCarbLabel">0 / — g</span></div>
+        <div class="nutri-bar-bg"><div class="nutri-bar-fill nutri-bar-carb" id="nutriCarbBar" style="width:0%"></div></div>
+      </div>
+      <div class="nutri-macro-bar">
+        <div class="nutri-macro-label"><span>Protéines</span><span id="nutriProtLabel">0 / — g</span></div>
+        <div class="nutri-bar-bg"><div class="nutri-bar-fill nutri-bar-prot" id="nutriProtBar" style="width:0%"></div></div>
+      </div>
+      <div class="nutri-macro-bar">
+        <div class="nutri-macro-label"><span>Lipides</span><span id="nutriFatLabel">0 / — g</span></div>
+        <div class="nutri-bar-bg"><div class="nutri-bar-fill nutri-bar-fat" id="nutriFatBar" style="width:0%"></div></div>
+      </div>
+
+      <div class="nutri-targets-row">
+        <span>TDEE estimé: <strong id="nutriTDEELabel">—</strong></span>
+        <span>Prot cible: <strong id="nutriProtCible">—</strong></span>
       </div>
     </div>
 
-    <!-- Saisie Poids du jour -->
+    <!-- Saisie macros rapide -->
+    <div class="card">
+      <h2>📝 Saisir les macros</h2>
+      <div class="macro-row">
+        <div class="macro-input-wrap">
+          <label>Prot (g)</label>
+          <input type="number" id="inputProt" placeholder="0" min="0" oninput="updateCalcCalories()" />
+        </div>
+        <div class="macro-input-wrap">
+          <label>Carb (g)</label>
+          <input type="number" id="inputCarb" placeholder="0" min="0" oninput="updateCalcCalories()" />
+        </div>
+        <div class="macro-input-wrap">
+          <label>Lip (g)</label>
+          <input type="number" id="inputFat" placeholder="0" min="0" oninput="updateCalcCalories()" />
+        </div>
+        <div class="macro-input-wrap">
+          <label>kcal</label>
+          <input type="number" id="inputKcal" placeholder="auto" min="0" />
+        </div>
+      </div>
+      <button onclick="saveMacroEntry()" class="btn">Enregistrer</button>
+    </div>
+
+    <!-- Poids du jour + historique -->
     <div class="card">
       <h2>⚖️ Poids du jour</h2>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
         <input type="number" id="inputBodyWeight" placeholder="kg" step="0.1" style="flex:1;margin:0;font-size:20px;text-align:center;" />
-        <button onclick="saveBodyEntry()" class="btn" style="width:auto;padding:14px 20px;">Sauver</button>
+        <button onclick="saveBodyEntry()" class="btn" style="width:auto;padding:14px 20px;">OK</button>
       </div>
       <div id="weightHistory"></div>
     </div>
 
-    <!-- Macros du jour -->
+    <!-- Métriques force -->
     <div class="card">
-      <h2>🍽️ Macros du jour</h2>
-      <div class="macro-row">
-        <div class="macro-input-wrap">
-          <label>Protéines (g)</label>
-          <input type="number" id="inputProt" placeholder="0" min="0" oninput="updateCalcCalories()" />
-        </div>
-        <div class="macro-input-wrap">
-          <label>Glucides (g)</label>
-          <input type="number" id="inputCarb" placeholder="0" min="0" oninput="updateCalcCalories()" />
-        </div>
-        <div class="macro-input-wrap">
-          <label>Lipides (g)</label>
-          <input type="number" id="inputFat" placeholder="0" min="0" oninput="updateCalcCalories()" />
-        </div>
-        <div class="macro-input-wrap">
-          <label>Calories</label>
-          <input type="number" id="inputKcal" placeholder="0" min="0" />
-        </div>
-      </div>
-      <button onclick="saveMacroEntry()" class="btn">Enregistrer les macros</button>
-    </div>
-
-    <!-- Métriques calculées -->
-    <div class="card">
-      <h2>📊 Métriques</h2>
+      <h2>📊 Métriques Force</h2>
       <div class="body-metric-grid" id="bodyMetricsGrid">
         <div class="body-metric highlight">
           <div class="body-metric-val" id="metricIPF">—</div>
@@ -329,20 +403,18 @@
         <div class="body-metric">
           <div class="body-metric-val" id="metricRatio">—</div>
           <div class="body-metric-label">Ratio Force/Masse</div>
-          <div class="body-metric-sub" id="metricRatioSub">IPF GL / poids de corps</div>
-        </div>
-        <div class="body-metric" id="metricTDEECard">
-          <div class="body-metric-val" id="metricTDEE">—</div>
-          <div class="body-metric-label">TDEE Estimé</div>
-          <div class="body-metric-sub" id="metricTDEESub">kcal/jour</div>
-        </div>
-        <div class="body-metric" id="metricBalanceCard">
-          <div class="body-metric-val" id="metricBalance">—</div>
-          <div class="body-metric-label">Balance</div>
-          <div class="body-metric-sub" id="metricBalanceSub">vs TDEE</div>
+          <div class="body-metric-sub" id="metricRatioSub">Progression recompo</div>
         </div>
       </div>
-      <div id="plateauAlerts"></div>
+      <div id="plateauAlerts" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- Coach Algo -->
+    <div class="coach-algo-card" id="coachAlgoCard">
+      <div class="coach-algo-title">🧠 Coach — Analyse Instantanée</div>
+      <div id="coachAlgoContent" style="font-size:13px;line-height:1.6;color:var(--text);">
+        Entre ton poids et tes macros pour activer l'analyse.
+      </div>
     </div>
 
     <!-- Graphique poids -->
@@ -352,7 +424,7 @@
     </div>
   </div>
   <div id="tab-settings" class="content-section">
-    <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><div style="display:flex;gap:8px;margin-bottom:12px;"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" style="margin-bottom:0;flex:1;"><button onclick="saveAPIKey()" style="background:var(--blue);border:none;color:white;padding:0 16px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:13px;">Sauver</button></div><p style="font-size:10px;color:var(--sub);margin-top:0;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
+    <div class="card"><h2>Profil Athlète</h2><input type="number" id="inputBW" placeholder="Poids de corps (kg)" onchange="updateProfile()"><div style="display:flex;gap:8px;margin-bottom:12px;"><input type="number" id="inputKcalBase" placeholder="Cible kcal de départ (ex: 2300)" onchange="updateNutriTargets()" style="flex:1;margin:0;"><input type="number" id="inputBWBase" placeholder="Poids de départ (kg, ex: 98)" onchange="updateNutriTargets()" style="flex:1;margin:0;"></div><div style="display:flex;gap:8px;margin-bottom:12px;"><input type="password" id="inputAPIKey" placeholder="Clé API Anthropic (sk-ant-...)" style="margin-bottom:0;flex:1;"><button onclick="saveAPIKey()" style="background:var(--blue);border:none;color:white;padding:0 16px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:13px;">Sauver</button></div><p style="font-size:10px;color:var(--sub);margin-top:0;margin-bottom:0;">Requise pour le Coach IA. Stockée localement.</p></div>
     <div class="card"><h2>Synchronisation Cloud</h2><p style="font-size:12px;color:var(--sub);margin-bottom:15px;">Connecte-toi avec ton email pour sync entre appareils</p><div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div><div id="emailLoginSection"><input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;"><button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:6px;">Un lien de connexion sera envoyé à ton email.</p></div><div style="display:flex;gap:10px;margin:12px 0;"><button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button><button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button></div><div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button></div>
     <div class="card" style="border-color:var(--red);"><h2>Zone de Danger</h2><button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button><p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface l'historique local.</p><button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="deleteAPIKey()">Supprimer la clé API</button></div>
   </div>
@@ -371,7 +443,7 @@
 const STORAGE_KEY='SBD_HUB_V28';
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const SBD_TYPES=['bench','squat','deadlift'];
-const ROUTINES={Lundi:'🦵 Squat Lourd — Quads',Mardi:'🏋️ Bench Lourd — Dos',Mercredi:'🏊 Récupération Active (Natation)',Jeudi:'💀 Deadlift Lourd — Fessiers',Vendredi:'💪 Bench Volume — HDC',Samedi:'⚡ SBD Technique (Pause/Spoto)',Dimanche:'😴 Repos Complet'};
+const ROUTINES={Lundi:'🦵 Squat Lourd — Quads',Mardi:'🏋️ Bench Lourd — Dos',Mercredi:'🏊 Récupération Active (Natation)',Jeudi:'💀 Deadlift Lourd — Fessiers',Vendredi:'🎯 Rééquilibrage & Points Faibles',Samedi:'⚡ SBD Technique (Pause/Spoto)',Dimanche:'😴 Repos Complet'};
 const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
@@ -621,7 +693,7 @@ const EXERCISE_DAY_RULES = [
   { days:['Mardi'],            rx:/tractions?|pull[\s_]?up|chin[\s_]?up|muscle[\s_]?up/i },
   { days:['Mardi'],            rx:/rowing[\s_]?(poulie|assis|cable(?!.*machine))/i },
   { days:['Mardi'],            rx:/[eé]cart[eé]s?\s*(poulie|basse|pec|fly|cable)/i },
-  { days:['Mardi'],            rx:/tirage[\s\S]*(vers[\s_]?visage|visage)|face[\s_]?pull/i },
+  { days:['Mardi','Vendredi'], rx:/tirage[\s\S]*(vers[\s_]?visage|visage)|face[\s_]?pull/i },
   { days:['Mardi'],            rx:/face[\s_]?pull/i },
 
   // ── MERCREDI — Natation uniquement ──────────────────────
@@ -647,7 +719,7 @@ const EXERCISE_DAY_RULES = [
   { days:['Vendredi','Mardi'], rx:/bicep|hammer[\s_]?curl|curl[\s_]?marteau/i },
   { days:['Vendredi','Mardi'], rx:/curl[\s_]?poulie/i },
   // Extension triceps → Vendredi ET Mardi
-  { days:['Vendredi','Mardi'], rx:/extension[\s_]?(tricep|corde|coude|poulie[\s_]?haute)|skull[\s_]?crusher|french[\s_]?press/i },
+  { days:['Vendredi','Mardi'], rx:/extension[\s_]?(tricep|corde|coude|poulie[\s_]?haute|barre[\s_]?ez)|skull[\s_]?crusher|french[\s_]?press/i },
   { days:['Vendredi','Mardi'], rx:/dips/i },
   // Épaules → Vendredi ET Mardi
   { days:['Vendredi','Mardi'], rx:/d[eé]velopp[eé][\s_]?militaire|overhead[\s_]?press|ohp\b/i },
@@ -701,7 +773,7 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 // ============================================================
 // DB
 // ============================================================
-const defaultDB = () => ({ user: { bw: 80, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], weeklyPlan: null, body: [], lastSync: 0 });
+const defaultDB = () => ({ user: { bw: 80, height: 182, age: 25, kcalBase: 2300, bwBase: 98, targets: { bench: 100, squat: 120, deadlift: 140 } }, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], weeklyPlan: null, body: [], lastSync: 0 });
 let db = (() => { try { const s = localStorage.getItem(STORAGE_KEY); if (!s) return defaultDB(); const p = JSON.parse(s); if (!p.logs || !p.user) return defaultDB(); if (!p.reports) p.reports = []; if (!p.weeklyPlan) p.weeklyPlan = null; return p; } catch { return defaultDB(); } })();
 let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 
@@ -1884,6 +1956,15 @@ function renderTopLifts() {
 // SETTINGS
 // ============================================================
 function updateProfile() { db.user.bw = parseFloat(document.getElementById('inputBW').value)||80; saveDB(); renderDash(); }
+function updateNutriTargets() {
+  const kcal = parseFloat(document.getElementById('inputKcalBase').value);
+  const bw   = parseFloat(document.getElementById('inputBWBase').value);
+  if (kcal > 0) db.user.kcalBase = kcal;
+  if (bw   > 0) db.user.bwBase   = bw;
+  saveDB();
+  if (document.getElementById('tab-corps').classList.contains('active')) renderCorpsTab();
+  showToast('✓ Cibles nutritionnelles sauvegardées');
+}
 function deleteAPIKey() { showModal('Supprimer la clé API ?', 'Supprimer', 'var(--red)', () => { localStorage.removeItem('SBD_API_KEY'); document.getElementById('inputAPIKey').value = ''; showToast('✓ Clé API supprimée'); }); }
 function fullReset() { showModal('⚠️ Toutes les données seront effacées.', 'Effacer', 'var(--red)', () => { db = defaultDB(); saveDB(); refreshUI(); showToast('✓ Réinitialisé'); }); }
 function saveAPIKey() {
@@ -1989,54 +2070,98 @@ const BASE_PROGRAMME = {
     {
       "day": "Lundi", "title": "🦵 Squat Lourd — Quads", "rest": false, "coachNote": "",
       "exercises": [
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 9 } ]
+        },
         { "name": "Squat (Barre)", "type": "weight", "restSeconds": 180,
           "sets": [
             { "isWarmup": true,  "weight": 60,  "reps": 8,  "rpe": null },
             { "isWarmup": true,  "weight": 80,  "reps": 6,  "rpe": null },
             { "isWarmup": true,  "weight": 100, "reps": 4,  "rpe": null },
-            { "isWarmup": true,  "weight": 120, "reps": 2,  "rpe": null },
-            { "isWarmup": true,  "weight": 130, "reps": 1,  "rpe": null },
-            { "isWarmup": false, "weight": 130, "reps": 4,  "rpe": 9 },
-            { "isWarmup": false, "weight": 115, "reps": 4,  "rpe": 10 }
-          ]
-        },
-        { "name": "Extension Jambes", "type": "weight", "restSeconds": 90,
-          "sets": [
-            { "isWarmup": false, "weight": 45,   "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 45,   "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 47.3, "reps": 12, "rpe": null }
+            { "isWarmup": false, "weight": 102.5, "reps": 5, "rpe": null },
+            { "isWarmup": false, "weight": 110,   "reps": 4, "rpe": null },
+            { "isWarmup": false, "weight": 117.5, "reps": 3, "rpe": null },
+            { "isWarmup": false, "weight": 122.5, "reps": 2, "rpe": 9 }
           ]
         },
         { "name": "Presse à Cuisses", "type": "weight", "restSeconds": 120,
           "sets": [
+            { "isWarmup": false, "weight": 215.7, "reps": 10, "rpe": null },
             { "isWarmup": false, "weight": 235.7, "reps": 10, "rpe": null },
             { "isWarmup": false, "weight": 255.7, "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 275.7, "reps": 8,  "rpe": null }
+            { "isWarmup": false, "weight": 255.7, "reps": 10, "rpe": null }
+          ]
+        },
+        { "name": "Extension Jambes", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 41.3, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 41.3, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 45,   "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Adduction Hanche (Machine)", "type": "weight", "restSeconds": 30,
+          "sets": [
+            { "isWarmup": false, "weight": 63.6, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 66,   "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 70.6, "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Abduction Hanche", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 52, "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 59, "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 66, "reps": 15, "rpe": null }
           ]
         },
         { "name": "Extension Mollets Debout (Machine)", "type": "weight", "restSeconds": 60,
           "sets": [
-            { "isWarmup": false, "weight": 70.4,  "reps": 20, "rpe": null },
-            { "isWarmup": false, "weight": 90.4,  "reps": 20, "rpe": null },
-            { "isWarmup": false, "weight": 100.4, "reps": 15, "rpe": null }
+            { "isWarmup": false, "weight": 95.4,  "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 95.4,  "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 100.4, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 105.4, "reps": 12, "rpe": null }
           ]
+        },
+        { "name": "Planche", "type": "time", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "durationSec": 75 },
+            { "isWarmup": false, "durationSec": 75 },
+            { "isWarmup": false, "durationSec": 75 }
+          ]
+        },
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 9 } ]
         }
       ]
     },
     {
       "day": "Mardi", "title": "🏋️ Bench Lourd — Dos", "rest": false, "coachNote": "",
       "exercises": [
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 9 } ]
+        },
         { "name": "Développé Couché (Barre)", "type": "weight", "restSeconds": 180,
           "sets": [
             { "isWarmup": true,  "weight": 60,  "reps": 8, "rpe": null },
             { "isWarmup": true,  "weight": 80,  "reps": 6, "rpe": null },
-            { "isWarmup": true,  "weight": 100, "reps": 4, "rpe": null },
-            { "isWarmup": true,  "weight": 110, "reps": 2, "rpe": null },
-            { "isWarmup": true,  "weight": 120, "reps": 1, "rpe": null },
-            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 7 },
-            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 8 },
-            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 8.5 },
-            { "isWarmup": false, "weight": 120, "reps": 4, "rpe": 10 }
+            { "isWarmup": true,  "weight": 90,  "reps": 4, "rpe": null },
+            { "isWarmup": false, "weight": 100,   "reps": 5, "rpe": null },
+            { "isWarmup": false, "weight": 107.5, "reps": 4, "rpe": null },
+            { "isWarmup": false, "weight": 112.5, "reps": 3, "rpe": null },
+            { "isWarmup": false, "weight": 117.5, "reps": 2, "rpe": 9 }
+          ]
+        },
+        { "name": "Développé Couché Incliné (Haltère)", "type": "weight", "restSeconds": 90,
+          "sets": [
+            { "isWarmup": false, "weight": 72, "reps": 8, "rpe": null },
+            { "isWarmup": false, "weight": 76, "reps": 8, "rpe": null },
+            { "isWarmup": false, "weight": 80, "reps": 6, "rpe": null }
+          ]
+        },
+        { "name": "Écarté (Machine)", "type": "weight", "restSeconds": 75,
+          "sets": [
+            { "isWarmup": false, "weight": 100, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 100, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 120, "reps": 8,  "rpe": null }
           ]
         },
         { "name": "Tractions", "type": "reps", "restSeconds": 120,
@@ -2049,25 +2174,36 @@ const BASE_PROGRAMME = {
         },
         { "name": "Rowing Poulie Assis", "type": "weight", "restSeconds": 120,
           "sets": [
-            { "isWarmup": true,  "weight": 59,   "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 73,   "reps": 10, "rpe": 7 },
-            { "isWarmup": false, "weight": 73,   "reps": 10, "rpe": 8 },
-            { "isWarmup": false, "weight": 75.3, "reps": 8,  "rpe": null }
+            { "isWarmup": true,  "weight": 52, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 73, "reps": 8,  "rpe": null },
+            { "isWarmup": false, "weight": 79, "reps": 8,  "rpe": null },
+            { "isWarmup": false, "weight": 86, "reps": 6,  "rpe": null },
+            { "isWarmup": false, "weight": 86, "reps": 6,  "rpe": null }
           ]
         },
-        { "name": "Écartés Poulie Basse", "type": "weight", "restSeconds": 60,
+        { "name": "Tirage Poitrine (Machine)", "type": "weight", "restSeconds": 90,
           "sets": [
-            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null }
+            { "isWarmup": false, "weight": 52, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 66, "reps": 8,  "rpe": null },
+            { "isWarmup": false, "weight": 73, "reps": 8,  "rpe": null }
           ]
         },
-        { "name": "Tirage vers Visage", "type": "weight", "restSeconds": 60,
+        { "name": "Tirage Poitrine Bras Tendus (Poulie)", "type": "weight", "restSeconds": 75,
           "sets": [
-            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 18, "reps": 15, "rpe": null }
+            { "isWarmup": false, "weight": 31.5, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 36,   "reps": 8,  "rpe": null },
+            { "isWarmup": false, "weight": 36,   "reps": 8,  "rpe": null }
           ]
+        },
+        { "name": "Oiseau (Machine)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 52, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 59, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 73, "reps": 8,  "rpe": null }
+          ]
+        },
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.5, "durationMin": 13 } ]
         }
       ]
     },
@@ -2075,37 +2211,45 @@ const BASE_PROGRAMME = {
       "day": "Mercredi", "title": "🏊 Natation — Récup Active", "rest": false, "coachNote": "",
       "exercises": [
         { "name": "Natation", "type": "cardio", "restSeconds": 0,
-          "sets": [ { "distance": 1.0, "durationMin": 25 } ]
+          "sets": [ { "distance": 1.5, "durationMin": 35 } ]
         }
       ]
     },
     {
       "day": "Jeudi", "title": "💀 Deadlift Lourd — Fessiers", "rest": false, "coachNote": "",
       "exercises": [
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 9 } ]
+        },
         { "name": "Soulevé de Terre (Barre)", "type": "weight", "restSeconds": 180,
           "sets": [
             { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
             { "isWarmup": true,  "weight": 100, "reps": 6,  "rpe": null },
             { "isWarmup": true,  "weight": 120, "reps": 4,  "rpe": null },
-            { "isWarmup": true,  "weight": 140, "reps": 2,  "rpe": null },
-            { "isWarmup": true,  "weight": 150, "reps": 1,  "rpe": null },
-            { "isWarmup": false, "weight": 150, "reps": 3,  "rpe": null },
-            { "isWarmup": false, "weight": 150, "reps": 3,  "rpe": null },
-            { "isWarmup": false, "weight": 160, "reps": 3,  "rpe": null }
+            { "isWarmup": false, "weight": 135, "reps": 4,  "rpe": null },
+            { "isWarmup": false, "weight": 142.5,"reps": 3, "rpe": null },
+            { "isWarmup": false, "weight": 150, "reps": 2,  "rpe": 9 }
           ]
         },
         { "name": "Hip Thrust (Machine)", "type": "weight", "restSeconds": 90,
           "sets": [
-            { "isWarmup": false, "weight": 62.7, "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 72.7, "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 77.7, "reps": 8,  "rpe": null }
+            { "isWarmup": false, "weight": 57.7, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 67.7, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 72.7, "reps": 8,  "rpe": null }
           ]
         },
         { "name": "Leg Curl Allongé (Machine)", "type": "weight", "restSeconds": 90,
           "sets": [
-            { "isWarmup": false, "weight": 34.3, "reps": 12, "rpe": null },
-            { "isWarmup": false, "weight": 36,   "reps": 12, "rpe": null },
-            { "isWarmup": false, "weight": 38.3, "reps": 10, "rpe": null }
+            { "isWarmup": false, "weight": 32,   "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 34.2, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 36,   "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Adduction Hanche (Machine)", "type": "weight", "restSeconds": 30,
+          "sets": [
+            { "isWarmup": false, "weight": 63.6, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 66,   "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 70.6, "reps": 12, "rpe": null }
           ]
         },
         { "name": "Abduction Hanche", "type": "weight", "restSeconds": 60,
@@ -2114,53 +2258,106 @@ const BASE_PROGRAMME = {
             { "isWarmup": false, "weight": 59, "reps": 20, "rpe": null },
             { "isWarmup": false, "weight": 66, "reps": 15, "rpe": null }
           ]
+        },
+        { "name": "Extension Mollets Debout (Machine)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 95.4,  "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 95.4,  "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 100.4, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 105.4, "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Élévation Latérale (Haltères)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 10, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 12, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 12, "reps": 15, "rpe": null }
+          ]
+        },
+        { "name": "Planche", "type": "time", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "durationSec": 75 },
+            { "isWarmup": false, "durationSec": 75 },
+            { "isWarmup": false, "durationSec": 75 }
+          ]
+        },
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 9 } ]
         }
       ]
     },
     {
-      "day": "Vendredi", "title": "💪 Bench Volume — HDC", "rest": false, "coachNote": "",
+      "day": "Vendredi", "title": "🎯 Rééquilibrage & Points Faibles", "rest": false, "coachNote": "",
       "exercises": [
-        { "name": "Développé Couché (Barre)", "type": "weight", "restSeconds": 150,
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 1.0, "durationMin": 9 } ]
+        },
+        { "name": "Tirage vers Visage", "type": "weight", "restSeconds": 60,
           "sets": [
-            { "isWarmup": true,  "weight": 60,  "reps": 10, "rpe": null },
-            { "isWarmup": true,  "weight": 75,  "reps": 6,  "rpe": null },
-            { "isWarmup": true,  "weight": 90,  "reps": 4,  "rpe": null },
-            { "isWarmup": true,  "weight": 100, "reps": 2,  "rpe": null },
-            { "isWarmup": true,  "weight": 110, "reps": 1,  "rpe": null },
-            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
-            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
-            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
-            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null },
-            { "isWarmup": false, "weight": 105, "reps": 6,  "rpe": null }
+            { "isWarmup": false, "weight": 13.5,  "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 13.5,  "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 13.5,  "reps": 20, "rpe": null },
+            { "isWarmup": false, "weight": 14.75, "reps": 20, "rpe": null }
           ]
         },
-        { "name": "Développé Couché Incliné (Haltère)", "type": "weight", "restSeconds": 90,
+        { "name": "Oiseau (Machine)", "type": "weight", "restSeconds": 60,
           "sets": [
-            { "isWarmup": false, "weight": 72, "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 72, "reps": 10, "rpe": null },
-            { "isWarmup": false, "weight": 72, "reps": 8,  "rpe": null }
+            { "isWarmup": false, "weight": 45, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 52, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 52, "reps": 15, "rpe": null }
           ]
         },
-        { "name": "Tirage Poitrine (Poulie)", "type": "weight", "restSeconds": 90,
+        { "name": "Tirage Poitrine (Poulie)", "type": "weight", "restSeconds": 75,
           "sets": [
-            { "isWarmup": false, "weight": 45, "reps": 12, "rpe": null },
             { "isWarmup": false, "weight": 52, "reps": 12, "rpe": null },
-            { "isWarmup": false, "weight": 59, "reps": 10, "rpe": null }
+            { "isWarmup": false, "weight": 59, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 59, "reps": 12, "rpe": null }
           ]
         },
-        { "name": "Curl Biceps (Poulie)", "type": "weight", "restSeconds": 60,
+        { "name": "Shrugs (Barre)", "type": "weight", "restSeconds": 60,
           "sets": [
-            { "isWarmup": false, "weight": 11.3, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 15.8, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 13.5, "reps": 12, "rpe": null }
+            { "isWarmup": false, "weight": 80,  "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 100, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 100, "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Curl Marteau (Haltère)", "type": "weight", "restSeconds": 30,
+          "sets": [
+            { "isWarmup": false, "weight": 20, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 20, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 20, "reps": 10, "rpe": null }
           ]
         },
         { "name": "Extension Triceps Poulie Haute", "type": "weight", "restSeconds": 60,
           "sets": [
-            { "isWarmup": false, "weight": 18,   "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 22.5, "reps": 15, "rpe": null },
-            { "isWarmup": false, "weight": 27,   "reps": 12, "rpe": null }
+            { "isWarmup": false, "weight": 24.8, "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 27,   "reps": 10, "rpe": null },
+            { "isWarmup": false, "weight": 27,   "reps": 10, "rpe": null }
           ]
+        },
+        { "name": "Reverse Curl (Barre EZ)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 20, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 20, "reps": 12, "rpe": null },
+            { "isWarmup": false, "weight": 20, "reps": 12, "rpe": null }
+          ]
+        },
+        { "name": "Élévation Latérale (Haltères)", "type": "weight", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "weight": 10, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 12, "reps": 15, "rpe": null },
+            { "isWarmup": false, "weight": 12, "reps": 15, "rpe": null }
+          ]
+        },
+        { "name": "Ab Wheel", "type": "reps", "restSeconds": 75,
+          "sets": [
+            { "isWarmup": false, "reps": 10, "weight": 0 },
+            { "isWarmup": false, "reps": 10, "weight": 0 },
+            { "isWarmup": false, "reps": 10, "weight": 0 }
+          ]
+        },
+        { "name": "Tapis Roulant", "type": "cardio", "restSeconds": 0,
+          "sets": [ { "distance": 2.0, "durationMin": 18 } ]
         }
       ]
     },
@@ -2188,11 +2385,17 @@ const BASE_PROGRAMME = {
         { "name": "Soulevé De Terre avec pause", "type": "weight", "restSeconds": 180,
           "sets": [
             { "isWarmup": true,  "weight": 60,  "reps": 8, "rpe": null },
-            { "isWarmup": true,  "weight": 80,  "reps": 4, "rpe": null },
-            { "isWarmup": true,  "weight": 100, "reps": 2, "rpe": null },
+            { "isWarmup": true,  "weight": 100, "reps": 4, "rpe": null },
             { "isWarmup": false, "weight": 110, "reps": 5, "rpe": null },
             { "isWarmup": false, "weight": 115, "reps": 5, "rpe": null },
             { "isWarmup": false, "weight": 115, "reps": 5, "rpe": null }
+          ]
+        },
+        { "name": "Planche", "type": "time", "restSeconds": 60,
+          "sets": [
+            { "isWarmup": false, "durationSec": 75 },
+            { "isWarmup": false, "durationSec": 75 },
+            { "isWarmup": false, "durationSec": 75 }
           ]
         }
       ]
@@ -2231,9 +2434,8 @@ function generateWeeklyPlan() {
 
   const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
 
-  // Multiplicateurs de charge par semaine (algo pur, zéro IA)
+  // Multiplicateurs de charge par semaine
   const multipliers = { 1: 0.92, 2: 0.95, 3: 0.98, 4: 1.01 };
-  const rpeTargets  = { 1: '7-8', 2: '8',  3: '8.5', 4: '9-10' };
   const mult = multipliers[weekNum] || 0.92;
 
   // Coach notes par jour selon la semaine
@@ -2438,9 +2640,41 @@ function compareSessions(session, planDay) {
   const planExos = (planDay.exercises || []).filter(e => e.type === 'weight');
   const doneExos = session.exercises.filter(e => !e.isCardio && !e.isTime && e.maxRM > 0);
 
-  // Map des exos faits par nom normalisé
+  // Map des exos faits par nom normalisé + synonymes
+  const EXO_SYNONYMS = {
+    'hip thrust (machine)': ['poussée de hanches (machine)', 'poussee de hanches', 'hip thrust machine', 'hip thrust'],
+    'poussée de hanches (machine)': ['hip thrust (machine)', 'hip thrust machine', 'hip thrust'],
+    'soulevé de terre (barre)': ['soulevé de terre', 'deadlift barre', 'souleve de terre (barre)'],
+    'développé couché (barre)': ['bench press', 'developpe couche barre', 'développé couché barre'],
+    'traction': ['tractions', 'pull-up', 'pull up', 'pullup'],
+  };
+  function normName(n) { return n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
   const doneMap = {};
-  doneExos.forEach(e => { doneMap[e.name.toLowerCase().trim()] = e; });
+  doneExos.forEach(e => {
+    const key = normName(e.name);
+    doneMap[key] = e;
+    // Ajouter aussi sans parenthèses
+    const noParens = key.replace(/\s*\([^)]*\)/g, '').trim();
+    if (noParens !== key) doneMap[noParens] = e;
+  });
+
+  // Fonction de lookup avec fallback synonymes
+  function findDoneExo(planName) {
+    const key = normName(planName);
+    if (doneMap[key]) return doneMap[key];
+    // Synonymes directs
+    const syns = EXO_SYNONYMS[planName.toLowerCase()] || EXO_SYNONYMS[normName(planName)] || [];
+    for (const syn of syns) {
+      const synKey = normName(syn);
+      if (doneMap[synKey]) return doneMap[synKey];
+    }
+    // Matching partiel : si le nom du plan est contenu dans un nom fait (ou inversement)
+    for (const [dKey, dVal] of Object.entries(doneMap)) {
+      if (dKey.includes(key.split(' ')[0]) && key.split(' ')[0].length > 4) return dVal;
+      if (key.includes(dKey.split(' ')[0]) && dKey.split(' ')[0].length > 4) return dVal;
+    }
+    return null;
+  }
 
   // Ordre réel des exos faits
   const doneOrder = doneExos.map(e => e.name);
@@ -2449,8 +2683,7 @@ function compareSessions(session, planDay) {
     planOrder[0] !== doneOrder[0];
 
   planExos.forEach(planExo => {
-    const key = planExo.name.toLowerCase().trim();
-    const done = doneMap[key];
+    const done = findDoneExo(planExo.name);
 
     // Charges prévues (séries travail)
     const planWorkSets = (planExo.sets || []).filter(s => !s.isWarmup);
@@ -2466,10 +2699,19 @@ function compareSessions(session, planDay) {
     }
 
     // Comparer charges réelles vs prévues
+    // repRecords = { "reps": maxWeight } — représente les séries de travail distinctes
     const doneWorkSets = Object.values(done.repRecords || {});
     const doneAvgWeight = doneWorkSets.length
       ? doneWorkSets.reduce((s, w) => s + w, 0) / doneWorkSets.length : done.maxRM;
-    const doneSetsCount = done.sets || planSetsCount;
+    // Estimer nb séries de travail : total séries - nb séries d'échauffement
+    // On estime les échauffements comme les séries sous 60% du max
+    const totalSets = done.sets || 0;
+    // Approx : séries de travail = séries avec poids dans repRecords voisins du maxRM
+    // Fallback simple : si repRecords disponible, c'est le nb de charges distinctes utilisées
+    // Pour un vrai compte, on se base sur planSetsCount comme référence
+    const doneWorkSetsCount = doneWorkSets.length > 0
+      ? Math.min(doneWorkSets.length, totalSets) // au max autant que les séries totales
+      : planSetsCount; // fallback : supposer OK
 
     const delta = doneAvgWeight - planAvgWeight;
     const deltaRatio = planAvgWeight > 0 ? delta / planAvgWeight : 0;
@@ -2485,7 +2727,7 @@ function compareSessions(session, planDay) {
       doneWeight: Math.round(doneAvgWeight * 10) / 10,
       delta: Math.round(delta * 10) / 10,
       planSets: planSetsCount,
-      doneSets: doneSetsCount
+      doneSets: doneWorkSetsCount
     });
 
     if (status !== 'ok') result.hasChanges = true;
@@ -2787,6 +3029,8 @@ function skipDecision(type) {
   selectedDay = today;
   document.querySelectorAll('.day-btn').forEach(b => b.classList.toggle('active', b.dataset.day === today));
   document.getElementById('inputBW').value = db.user.bw;
+  const kbEl = document.getElementById('inputKcalBase'); if (kbEl) kbEl.value = db.user.kcalBase || 2300;
+  const bwbEl = document.getElementById('inputBWBase');  if (bwbEl) bwbEl.value = db.user.bwBase || 98;
   const savedAPIKey = localStorage.getItem('SBD_API_KEY');
   if (savedAPIKey) { const k = document.getElementById('inputAPIKey'); if (k) k.value = savedAPIKey; }
   newPRs = { bench: false, squat: false, deadlift: false };
@@ -3044,16 +3288,42 @@ function calcIPFGLTotal(bench, squat, deadlift, bw) {
 
 // ── TDEE Estimé ───────────────────────────────────────────────
 // Harris-Benedict révisé + bonus tonnage hebdomadaire
-function calcTDEE(bw, tonnage7d) {
+// Calibré pour recomposition corporelle (pas pour prise de masse)
+function calcTDEE(bw, tonnage7d, heightCm, ageProfil) {
   if (!bw || bw <= 0) return 0;
-  // BMR homme (on suppose H par défaut)
-  const bmr = 88.362 + 13.397 * bw + 4.799 * 175 - 5.677 * 25;
-  // Facteur activité basé sur tonnage hebdo
-  let actFactor = 1.55; // modérément actif par défaut
-  if (tonnage7d > 30000) actFactor = 1.725;      // très actif
-  else if (tonnage7d > 15000) actFactor = 1.625;  // actif
-  else if (tonnage7d < 5000) actFactor = 1.375;   // légèrement actif
-  return Math.round(bmr * actFactor);
+  const h = heightCm || 182; // taille par défaut
+  const age = ageProfil || 25;
+  // Harris-Benedict révisé (homme)
+  const bmr = 88.362 + 13.397 * bw + 4.799 * h - 5.677 * age;
+  // Facteur activité calibré powerlifting (effort intense mais court)
+  let actFactor = 1.55; // sportif actif 5-6j/sem
+  if (tonnage7d > 40000) actFactor = 1.60;
+  else if (tonnage7d > 20000) actFactor = 1.57;
+  else if (tonnage7d < 3000)  actFactor = 1.40; // deload
+  const tdeeTotal = Math.round(bmr * actFactor);
+  // Cible recompo = déficit ~20% sur TDEE
+  // pour 98kg/182cm → ~3300 kcal TDEE → cible ~2640 kcal
+  // On retourne le TDEE brut, la cible est calculée séparément
+  return tdeeTotal;
+}
+
+// Cible calorique — proportionnelle au poids actuel
+// Base : 2300 kcal pour 98kg. Descend avec le poids.
+function calcCalorieCible(bw) {
+  const kcalBase = db.user.kcalBase || 2300;
+  const bwBase   = db.user.bwBase   || 98;
+  if (!bw || bw <= 0) return kcalBase;
+  // Proportionnel au poids — la cible descend quand tu maigris
+  return Math.round(kcalBase * (bw / bwBase));
+}
+
+// Macros cibles depuis la cible calorique
+function calcMacrosCibles(kcalCible, bw) {
+  const prot = Math.round(bw * 1.95);           // ~1.95g/kg
+  const fat  = Math.round(bw * 0.73);            // ~0.73g/kg
+  const carbKcal = kcalCible - prot * 4 - fat * 9;
+  const carb = Math.max(0, Math.round(carbKcal / 4));
+  return { prot, carb, fat, kcal: kcalCible };
 }
 
 // ── Détection de plateau ──────────────────────────────────────
@@ -3248,68 +3518,104 @@ function renderCorpsTab() {
   const logs7 = getLogsInRange(7);
   const tonnage7 = logs7.reduce((s, l) => s + l.volume, 0);
 
-  // IPF GL
-  const ipf = calcIPFGLTotal(bench, squat, dead, bw);
-  const ratio = calcForceRatio(ipf, bw);
-  const tdee = calcTDEE(bw, tonnage7);
+  // Calculs de base
+  const ipf   = calcIPFGLTotal(bench, squat, dead, bw);
+  const ratio  = calcForceRatio(ipf, bw);
+  const tdee   = calcTDEE(bw, tonnage7, 182, 25);
+  const cible  = calcCalorieCible(bw);
+  const macros = calcMacrosCibles(cible, bw);
 
-  // Métriques
-  document.getElementById('metricIPF').textContent = ipf > 0 ? ipf : '—';
-  document.getElementById('metricIPFsub').textContent = ipf > 0 ? (ipf < 300 ? 'Débutant' : ipf < 400 ? 'Intermédiaire' : ipf < 500 ? 'Avancé' : '🏆 Élite') : 'Importe des séances';
-  document.getElementById('metricRatio').textContent = ratio > 0 ? ratio : '—';
-  document.getElementById('metricRatioSub').textContent = ratio > 0 ? (ratio > 4 ? '🔥 Recompo active' : ratio > 3 ? 'Bonne progression' : 'Continue à pousser') : 'IPF GL / kg corps';
-
-  document.getElementById('metricTDEE').textContent = tdee > 0 ? tdee : '—';
-  document.getElementById('metricTDEESub').textContent = tdee > 0 ? `Tonnage 7j: ${(tonnage7/1000).toFixed(1)}t` : 'kcal/jour';
-
-  // Balance vs TDEE
-  const today = new Date().toDateString();
+  // Entrée du jour
+  const today      = new Date().toDateString();
   const todayEntry = (db.body || []).find(e => new Date(e.ts).toDateString() === today);
-  const kcalAuj = todayEntry ? todayEntry.kcal : null;
-  if (kcalAuj && tdee) {
-    const delta = kcalAuj - tdee;
-    document.getElementById('metricBalance').textContent = (delta > 0 ? '+' : '') + delta + ' kcal';
-    document.getElementById('metricBalanceSub').textContent = delta > 200 ? 'Surplus' : delta < -200 ? 'Déficit' : 'Maintenance';
-    const card = document.getElementById('metricBalanceCard');
-    card.className = 'body-metric ' + (delta > 300 ? 'orange' : delta < -400 ? 'red' : 'green');
-  } else {
-    document.getElementById('metricBalance').textContent = '—';
-    document.getElementById('metricBalanceSub').textContent = 'Macros du jour manquantes';
+  const kcalMange  = todayEntry ? todayEntry.kcal : 0;
+  const protMange  = todayEntry ? todayEntry.prot : 0;
+  const carbMange  = todayEntry ? todayEntry.carb : 0;
+  const fatMange   = todayEntry ? todayEntry.fat  : 0;
+
+  // Calories brûlées estimées (TDEE / 24h × heures passées)
+  const now = new Date();
+  const heuresPassed = now.getHours() + now.getMinutes() / 60;
+  // TDEE déjà inclut les calories de séance — on affiche juste la dépense estimée au fil de la journée
+  const brulees = Math.round((tdee / 24) * heuresPassed);
+
+  const restantes = Math.max(0, cible - kcalMange);
+
+  // ── Cercle calories ─────────────────────────────────────
+  const RING_CIRCUM = 440; // 2π × 70 ≈ 440
+  const pctMange = cible > 0 ? Math.min(1, kcalMange / cible) : 0;
+  const dashOffset = Math.round(RING_CIRCUM * (1 - pctMange));
+  const ring = document.getElementById('nutriRingFill');
+  if (ring) {
+    ring.style.strokeDashoffset = dashOffset;
+    ring.className = 'nutri-ring-fill' + (pctMange > 1 ? ' over' : pctMange > 0.9 ? ' warn' : '');
   }
 
-  // Historique poids
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('nutriKcalRestantes', restantes > 0 ? restantes : '0');
+  setEl('nutriKcalSub', kcalMange > 0 ? `sur ${cible} kcal` : `Objectif: ${cible} kcal`);
+  setEl('nutriMangees', kcalMange);
+  setEl('nutriCible', cible);
+  setEl('nutriBrulees', brulees);
+
+  // ── Barres macros ────────────────────────────────────────
+  const barW = (done, target) => Math.min(100, target > 0 ? Math.round(done / target * 100) : 0) + '%';
+  const barOver = (done, target) => done > target * 1.05;
+
+  const protBar = document.getElementById('nutriProtBar');
+  if (protBar) { protBar.style.width = barW(protMange, macros.prot); if (barOver(protMange, macros.prot)) protBar.classList.add('over'); else protBar.classList.remove('over'); }
+  const carbBar = document.getElementById('nutriCarbBar');
+  if (carbBar) { carbBar.style.width = barW(carbMange, macros.carb); if (barOver(carbMange, macros.carb)) carbBar.classList.add('over'); else carbBar.classList.remove('over'); }
+  const fatBar  = document.getElementById('nutriFatBar');
+  if (fatBar)  { fatBar.style.width  = barW(fatMange,  macros.fat);  if (barOver(fatMange,  macros.fat))  fatBar.classList.add('over');  else fatBar.classList.remove('over'); }
+
+  setEl('nutriProtLabel', `${protMange} / ${macros.prot} g`);
+  setEl('nutriCarbLabel', `${carbMange} / ${macros.carb} g`);
+  setEl('nutriFatLabel',  `${fatMange}  / ${macros.fat}  g`);
+  setEl('nutriTDEELabel', tdee > 0 ? `${tdee} kcal` : '—');
+  setEl('nutriProtCible', `${macros.prot}g`);
+
+  // ── Métriques force ──────────────────────────────────────
+  setEl('metricIPF', ipf > 0 ? ipf : '—');
+  setEl('metricIPFsub', ipf > 0 ? (ipf < 300 ? 'Débutant' : ipf < 400 ? 'Intermédiaire' : ipf < 500 ? 'Avancé' : '🏆 Élite') : 'Importe des séances');
+  setEl('metricRatio', ratio > 0 ? ratio : '—');
+  setEl('metricRatioSub', ratio > 0 ? (ratio > 4 ? '🔥 Recompo active' : ratio > 3 ? 'En progression' : 'Continue') : 'IPF GL / kg corps');
+
+  // ── Historique poids ─────────────────────────────────────
   const bwHistory = (db.body || []).filter(e => e.bw > 0).slice(0, 10);
   const wEl = document.getElementById('weightHistory');
-  if (bwHistory.length === 0) {
-    wEl.innerHTML = '<p style="color:var(--sub);font-size:12px;text-align:center;">Aucune entrée pour le moment</p>';
-  } else {
-    wEl.innerHTML = bwHistory.map((e, i) => {
-      const prev = bwHistory[i + 1];
-      const delta = prev ? Math.round((e.bw - prev.bw) * 10) / 10 : null;
-      const trendClass = delta === null ? '' : delta > 0 ? 'trend-up' : delta < 0 ? 'trend-down' : 'trend-flat';
-      const trendStr = delta === null ? '' : (delta > 0 ? '↑' : delta < 0 ? '↓' : '→') + Math.abs(delta) + 'kg';
-      const d = new Date(e.ts);
-      const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-      return `<div class="weight-history-item">
-        <span>${dateStr}</span>
-        <span style="font-weight:700;">${e.bw} kg</span>
-        <span class="${trendClass}" style="font-size:12px;min-width:50px;text-align:right;">${trendStr}</span>
-      </div>`;
-    }).join('');
+  if (wEl) {
+    if (!bwHistory.length) {
+      wEl.innerHTML = '<p style="color:var(--sub);font-size:12px;text-align:center;">Aucune entrée</p>';
+    } else {
+      wEl.innerHTML = bwHistory.map((e, i) => {
+        const prev = bwHistory[i + 1];
+        const delta = prev ? Math.round((e.bw - prev.bw) * 10) / 10 : null;
+        const cls = delta === null ? '' : delta > 0 ? 'trend-up' : delta < 0 ? 'trend-down' : 'trend-flat';
+        const str = delta === null ? '' : (delta > 0 ? '↑' : delta < 0 ? '↓' : '→') + Math.abs(delta) + 'kg';
+        return `<div class="weight-history-item">
+          <span>${new Date(e.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>
+          <span style="font-weight:700;">${e.bw} kg</span>
+          <span class="${cls}" style="font-size:12px;min-width:50px;text-align:right;">${str}</span>
+        </div>`;
+      }).join('');
+    }
   }
 
-  // Graphique poids
   renderBodyWeightChart(bwHistory);
 
-  // Alertes plateau
-  const plateaux = ['bench', 'squat', 'deadlift'].map(t => detectPlateau(t)).filter(Boolean);
+  // ── Alertes plateau ──────────────────────────────────────
   const pEl = document.getElementById('plateauAlerts');
-  pEl.innerHTML = plateaux.length > 0 ? plateaux.map(p =>
-    `<div class="plateau-alert">📉 ${p.type.toUpperCase()} en plateau depuis ${p.sessions} séances — adapte la variation</div>`
-  ).join('') : '';
+  if (pEl) {
+    const plateaux = ['bench','squat','deadlift'].map(t => detectPlateau(t)).filter(Boolean);
+    pEl.innerHTML = plateaux.map(p =>
+      `<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`
+    ).join('');
+  }
 
-  // Fake Coach message
-  document.getElementById('coachAlgoContent').innerHTML = generateCoachAlgoMessage();
+  // ── Coach Algo ───────────────────────────────────────────
+  const cEl = document.getElementById('coachAlgoContent');
+  if (cEl) cEl.innerHTML = generateCoachAlgoMessage();
 }
 
 function renderBodyWeightChart(entries) {

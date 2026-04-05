@@ -2618,53 +2618,54 @@ function renderDayExercises(day) {
     });
   });
 
-  // ── 3. Si programme défini mais pas encore d'historique ──────
-  // Afficher les noms du programme avec "Aucun record encore"
+  // ── 3. Jours de repos — affichage simple ────────────────────
+  const routine = getRoutine();
+  const dayLabel = routine[day] || '';
+  const isRestDay = (!progNames.length && !dayLabel) ||
+    dayLabel.toLowerCase().includes('repos') || dayLabel.includes('😴') ||
+    (day === 'Dimanche' && !progNames.length);
+
+  if (isRestDay && !progNames.length) {
+    c.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--sub);">' +
+      '<div style="font-size:32px;margin-bottom:8px;">😴</div>' +
+      '<div style="font-size:14px;font-weight:600;color:var(--text);">Repos complet</div>' +
+      '<div style="font-size:12px;margin-top:4px;">Récupération & adaptation</div>' +
+      '</div>';
+    return;
+  }
+
+  // ── 4. Programme défini → afficher exercices + records ───────
   if (progNames.length > 0) {
     const progEntries = progNames.map((progName, idx) => {
-      // Chercher un match dans best
       const match = Object.entries(best).find(([n]) => matchExoName(n, progName));
       if (match) return { progName, hevyName: match[0], exo: match[1], found: true };
       return { progName, hevyName: null, exo: null, found: false };
     });
 
     let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
-    const sessionCount = db.logs.filter(l => l.day === day).length;
-    const label = sessionCount > 0
-      ? 'Programme · ' + sessionCount + ' séance' + (sessionCount > 1 ? 's' : '')
-      : 'Programme (pas encore de séances ce jour)';
-    html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 8px;">' + label + '</div>';
-
     progEntries.forEach(({ progName, hevyName, exo, found }, idx) => {
       if (found) {
         html += formatExoDropdown(hevyName, exo, 'prog-' + idx);
       } else {
-        // Pas encore dans l'historique — afficher le nom du programme sans record
-        html += '<div class="exo-header" style="opacity:0.5;">' +
+        html += '<div class="exo-header" style="opacity:0.45;">' +
           '<span>💪 ' + progName + '</span>' +
           '<div style="font-size:11px;color:var(--sub);">Aucun record</div>' +
           '</div>';
       }
     });
-
     html += '</div>';
     c.innerHTML = html;
     return;
   }
 
-  // ── 4. Fallback : pas de programme défini → historique du jour ─
+  // ── 5. Fallback : historique du jour ─────────────────────────
   const dayEntries = Object.entries(best).filter(([,e]) => e.inProg);
   if (!dayEntries.length) {
     c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">' +
-      'Aucun exercice pour ce jour.<br>' +
-      '<span style="font-size:11px;">Définis ton programme dans Réglages → Mon Programme.</span>' +
-      '</p>';
+      'Définis ton programme dans<br>Réglages → Mon Programme.</p>';
     return;
   }
-
   let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
-  const sc = db.logs.filter(l => l.day === day).length;
-  html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;padding:4px 8px 8px;">Tes exercices (' + sc + ' séance' + (sc > 1 ? 's' : '') + ')</div>';
   html += dayEntries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
   html += '</div>';
   c.innerHTML = html;
@@ -2706,28 +2707,82 @@ function renderSBDChart() {
 }
 
 function renderVolumeChart(period) {
-  period=period||'week';setPeriodButtons('volumeButtons',period);
-  const cv=document.getElementById('chartVolume');if(!cv)return;if(chartVolume)chartVolume.destroy();
-  const vl=getLogsInRange(period==='week'?7:30).filter(l=>l.volume>0).slice(0,10).reverse();
-  chartVolume=new Chart(cv,{type:'line',data:{labels:vl.map(l=>(l.shortDate||l.date).substring(0,5)),datasets:[{data:vl.map(l=>l.volume),borderColor:'#BF5AF2',backgroundColor:'rgba(191,90,242,0.1)',borderWidth:3,fill:true,tension:0.4,pointBackgroundColor:'#BF5AF2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{display:false},x:{grid:{display:false},ticks:{color:'#86868B',font:{size:10}}}}}});
+  period = period || 'week';
+  setPeriodButtons('volumeButtons', period);
+  const cv = document.getElementById('chartVolume'); if (!cv) return; if (chartVolume) chartVolume.destroy();
+  // 'week' = 10 dernières séances, 'month' = 30 dernières séances
+  const limit = period === 'week' ? 10 : 30;
+  const vl = [...db.logs].sort((a,b) => a.timestamp-b.timestamp).filter(l => l.volume > 0).slice(-limit);
+  chartVolume = new Chart(cv, {type:'line', data:{labels:vl.map(l=>(l.shortDate||l.date||'').substring(0,5)), datasets:[{data:vl.map(l=>l.volume), borderColor:'#BF5AF2', backgroundColor:'rgba(191,90,242,0.1)', borderWidth:3, fill:true, tension:0.4, pointBackgroundColor:'#BF5AF2', pointRadius:3}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{title:items=>{const log=vl[items[0].dataIndex];return(log.title||'')+(log.shortDate?' · '+log.shortDate:'');}, label:c=>' '+(c.raw/1000).toFixed(2)+'t'}}}, scales:{y:{display:false}, x:{grid:{display:false}, ticks:{color:'#86868B', font:{size:10}, maxRotation:30}}}}});
 }
 
 function renderMuscleChart(period) {
-  period=period||'week';setPeriodButtons('muscleButtons',period);
-  const rl=getLogsInRange(period==='week'?7:30);
-  const ms={Jambes:0,Pecs:0,Dos:0,Épaules:0,Bras:0,Abdos:0,Cardio:0,Autre:0};
-  rl.forEach(l=>{l.exercises.forEach(e=>{const mg=getMuscleGroup(e.name);if(ms.hasOwnProperty(mg))ms[mg]+=e.sets;else ms['Autre']+=e.sets;});});
-  const rd=RADAR_CONFIG.map(r=>ms[r.key]||0);const mx=Math.max(...rd,1)*1.2;
-  const numAxes=RADAR_CONFIG.length,R=120,cx=150,cy=150;const angleStep=360/numAxes;
-  let svg='<svg viewBox="0 0 300 300" style="width:100%;height:100%;max-width:100%;">';
-  for(let lv=1;lv<=5;lv++){const pts=[];for(let i=0;i<numAxes;i++){const a=(i*angleStep-90)*Math.PI/180;const r=(lv/5)*R;pts.push((cx+r*Math.cos(a))+','+(cy+r*Math.sin(a)));}svg+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="#1C1C1E" stroke-width="0.8"/>';}
-  const dp=[];for(let i=0;i<numAxes;i++){const a=(i*angleStep-90)*Math.PI/180;const r=(rd[i]/mx)*R;dp.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)});}
-  svg+='<polygon points="'+dp.map(p=>p.x+','+p.y).join(' ')+'" fill="rgba(10,132,255,0.25)" stroke="#0A84FF" stroke-width="2.5"/>';
-  RADAR_CONFIG.forEach((cfg,i)=>{svg+='<circle cx="'+dp[i].x+'" cy="'+dp[i].y+'" r="5" fill="'+cfg.color+'" stroke="white" stroke-width="2"/>';const a=(i*angleStep-90)*Math.PI/180;svg+='<text x="'+(cx+(R+40)*Math.cos(a))+'" y="'+(cy+(R+40)*Math.sin(a))+'" text-anchor="middle" dominant-baseline="middle" fill="#86868B" font-size="11">'+cfg.label+'</text>';});
-  svg+='</svg>';
-  const ct=document.getElementById('chartMuscleContainer');if(ct)ct.innerHTML=svg;
-  const allGroups=[...RADAR_CONFIG,{label:'Cardio',key:'Cardio',color:'#FF9F0A'}];
-  document.getElementById('muscleList').innerHTML=allGroups.map(cfg=>{const val=ms[cfg.key]||0;return'<div class="stat-row" style="padding:6px 0;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:'+cfg.color+'"></div><span style="font-size:13px;">'+cfg.label+'</span></div><span style="font-size:13px;font-weight:bold;">'+val+' séries</span></div>';}).join('');
+  period = period || 'week';
+  // Mettre à jour les boutons 7j/28j
+  document.querySelectorAll('[data-mperiod]').forEach(b => b.classList.toggle('active', b.dataset.mperiod === period));
+  // Utiliser la nouvelle fonction du volume musculaire (barres + mini-évolution)
+  // stocke la période courante pour setMuscleView
+  window._musclePeriod = period;
+  renderMuscleVolumeContent(period);
+}
+
+function renderMuscleVolumeContent(period) {
+  period = period || window._musclePeriod || 'week';
+  const days = period === 'week' ? 7 : 28;
+  const rl = getLogsInRange(days);
+  const ms = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
+  rl.forEach(l => l.exercises.forEach(e => {
+    const mg = getMuscleGroup(e.name);
+    if (ms.hasOwnProperty(mg)) ms[mg] += e.sets;
+  }));
+
+  // 4 semaines pour les mini-barres
+  const now = Date.now(); const week = 7*86400000;
+  const weeks = [
+    { label:'S-3', start:now-4*week, end:now-3*week },
+    { label:'S-2', start:now-3*week, end:now-2*week },
+    { label:'S-1', start:now-2*week, end:now-week },
+    { label:'Sem.', start:now-week, end:now }
+  ];
+  const weeklyData = weeks.map(w => {
+    const wd = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
+    db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end)
+      .forEach(l => l.exercises.forEach(e => { const mg = getMuscleGroup(e.name); if (wd.hasOwnProperty(mg)) wd[mg] += e.sets; }));
+    return wd;
+  });
+
+  const maxVal = Math.max(...Object.values(ms), 1);
+  const muscles = ['Jambes','Dos','Pecs','Épaules','Bras','Abdos','Cardio'];
+  const COLORS = { Jambes:'#32D74B', Dos:'#FF9F0A', Pecs:'#0A84FF', Épaules:'#BF5AF2', Bras:'#64D2FF', Abdos:'#FF453A', Cardio:'#FF6B00' };
+
+  const listEl = document.getElementById('muscleList');
+  if (!listEl) return;
+
+  listEl.innerHTML = muscles.map(grp => {
+    const total = ms[grp] || 0;
+    const pct = Math.round((total / maxVal) * 100);
+    const color = COLORS[grp] || '#86868B';
+    const weekMaxAll = Math.max(...weeklyData.map(wd => wd[grp] || 0), 1);
+
+    const miniCells = weeklyData.map((wd, wi) => {
+      const wv = wd[grp] || 0;
+      const h = Math.round((wv / weekMaxAll) * 20);
+      return '<div class="muscle-week-cell">' +
+        '<div class="muscle-week-bar-wrap"><div class="muscle-week-bar" style="height:' + Math.max(h, 2) + 'px;background:' + color + ';opacity:' + (wi === 3 ? '1' : '0.4') + '"></div></div>' +
+        '<div class="muscle-week-label">' + weeks[wi].label + '</div>' +
+        '<div class="muscle-week-val" style="color:' + (wv > 0 ? color : 'var(--sub)') + '">' + (wv || '—') + '</div>' +
+        '</div>';
+    }).join('');
+
+    return '<div class="muscle-group-row">' +
+      '<div class="muscle-group-header">' +
+        '<div class="muscle-group-name"><div class="muscle-group-dot" style="background:' + color + '"></div>' + grp + '</div>' +
+        '<span class="muscle-group-count" style="color:' + color + '">' + total + 's</span>' +
+      '</div>' +
+      '<div class="muscle-group-bar-bg"><div class="muscle-group-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+      '<div class="muscle-week-evol">' + miniCells + '</div>' +
+      '</div>';
+  }).join('');
 }
 
 function renderReports(period) {
@@ -3434,64 +3489,7 @@ function setMuscleView(v) {
   document.getElementById('muscleViewBarsSection').style.display = v==='bars' ? 'block' : 'none';
   document.getElementById('muscleViewEvolSection').style.display = v==='evol' ? 'block' : 'none';
   if (v === 'evol') renderMuscleEvolChart();
-}
-
-function renderMuscleChart(period) {
-  period = period || 'week';
-  const days = period === 'week' ? 7 : 28;
-  document.querySelectorAll('[data-mperiod]').forEach(b => b.classList.toggle('active', b.dataset.mperiod === period));
-
-  const rl = getLogsInRange(days);
-  const ms = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
-  rl.forEach(l => l.exercises.forEach(e => {
-    const mg = getMuscleGroup(e.name);
-    if (ms.hasOwnProperty(mg)) ms[mg] += e.sets;
-  }));
-
-  // 4-week mini bars
-  const now = Date.now(); const week = 7*86400000;
-  const weeks = [
-    { label: 'S-3', start: now-4*week, end: now-3*week },
-    { label: 'S-2', start: now-3*week, end: now-2*week },
-    { label: 'S-1', start: now-2*week, end: now-week },
-    { label: 'Sem.', start: now-week, end: now }
-  ];
-  const weeklyData = weeks.map(w => {
-    const wd = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
-    db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end).forEach(l => {
-      l.exercises.forEach(e => { const mg = getMuscleGroup(e.name); if (wd.hasOwnProperty(mg)) wd[mg] += e.sets; });
-    });
-    return wd;
-  });
-
-  const maxVal = Math.max(...Object.values(ms), 1);
-  const muscles = ['Jambes','Dos','Pecs','Épaules','Bras','Abdos','Cardio'];
-
-  document.getElementById('muscleList').innerHTML = muscles.map(grp => {
-    const total = ms[grp] || 0;
-    const pct = Math.round((total/maxVal)*100);
-    const color = MUSCLE_COLORS_RADAR[grp] || '#86868B';
-    const weekMaxAll = Math.max(...weeklyData.map(wd => wd[grp] || 0), 1);
-
-    const miniCells = weeklyData.map((wd, wi) => {
-      const wv = wd[grp] || 0;
-      const h = Math.round((wv / weekMaxAll) * 20);
-      return '<div class="muscle-week-cell">' +
-        '<div class="muscle-week-bar-wrap"><div class="muscle-week-bar" style="height:' + Math.max(h,2) + 'px;background:' + color + ';opacity:' + (wi===3?'1':'0.4') + '"></div></div>' +
-        '<div class="muscle-week-label">' + weeks[wi].label + '</div>' +
-        '<div class="muscle-week-val" style="color:' + (wv>0?color:'var(--sub)') + '">' + (wv||'—') + '</div>' +
-        '</div>';
-    }).join('');
-
-    return '<div class="muscle-group-row">' +
-      '<div class="muscle-group-header">' +
-        '<div class="muscle-group-name"><div class="muscle-group-dot" style="background:' + color + '"></div>' + grp + '</div>' +
-        '<span class="muscle-group-count" style="color:' + color + '">' + total + 's</span>' +
-      '</div>' +
-      '<div class="muscle-group-bar-bg"><div class="muscle-group-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
-      '<div class="muscle-week-evol">' + miniCells + '</div>' +
-      '</div>';
-  }).join('');
+  else renderMuscleVolumeContent(window._musclePeriod || 'week');
 }
 
 function renderMuscleEvolChart() {

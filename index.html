@@ -2233,23 +2233,41 @@ function matchExoName(hevyName, progName) {
 
   if (h === p) return true;
 
+  // Correspondance exacte après normalisation
+  if (h.includes(p) && p.length > 4) return true;
+  if (p.includes(h) && h.length > 4) return true;
+
   // Vérifier les synonymes — si h et p appartiennent au même groupe → match
   for (const group of EXO_SYNONYMS) {
     const normGroup = group.map(norm);
-    const hInGroup = normGroup.some(s => h.includes(s) || s.includes(h));
-    const pInGroup = normGroup.some(s => p.includes(s) || s.includes(p));
+    const hInGroup = normGroup.some(s => h === s || h.includes(s) || s.includes(h));
+    const pInGroup = normGroup.some(s => p === s || p.includes(s) || s.includes(p));
     if (hInGroup && pInGroup) return true;
   }
 
-  // Mots significatifs (>2 lettres) — bidirectionnel
-  const sig = w => w.length > 2;
+  // Mots significatifs (>3 lettres) — les DEUX directions doivent matcher
+  const sig = w => w.length > 3;
   const hWords = h.split(' ').filter(sig);
   const pWords = p.split(' ').filter(sig);
 
   if (!hWords.length || !pWords.length) return false;
 
-  if (pWords.every(w => hWords.some(hw => hw.startsWith(w) || w.startsWith(hw)))) return true;
-  if (hWords.every(w => pWords.some(pw => pw.startsWith(w) || w.startsWith(pw)))) return true;
+  // Strict : tous les mots du programme doivent être dans Hevy ET vice-versa
+  // (pour éviter "Mollets" qui matche "Leg Curl Allongé" via un mot commun)
+  const pInH = pWords.every(w => hWords.some(hw => hw.startsWith(w) || w.startsWith(hw)));
+  const hInP = hWords.every(w => pWords.some(pw => pw.startsWith(w) || w.startsWith(pw)));
+
+  // Exiger la correspondance dans AU MOINS une direction,
+  // mais seulement si l'exercice le plus court a au moins 2 mots significatifs
+  const shorter = pWords.length <= hWords.length ? pWords : hWords;
+  if (shorter.length >= 2 && (pInH || hInP)) return true;
+
+  // Pour les exercices à 1 mot significatif, exiger correspondance exacte du mot
+  if (shorter.length === 1) {
+    const w = shorter[0];
+    const other = shorter === pWords ? hWords : pWords;
+    return other.some(hw => hw === w); // strict : identique, pas startsWith
+  }
 
   return false;
 }
@@ -2729,36 +2747,47 @@ function renderPerfCard() {
     });
   }
 
-  // Graphique courbe progression
+  // Courbe progression — 1 point par séance, 360 derniers jours
   const cvLine = document.getElementById('chartPerfLine');
   if (cvLine) {
     if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') window.chartPerfLine.destroy();
 
-    function _mkKey(d) { const p = d.split('/'); return p[2] + '-' + (p[1].length<2?'0'+p[1]:p[1]); }
-    function _mkLabel(k) {
-      const parts = k.split('-');
-      const mn = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-      return mn[parseInt(parts[1])-1] + ' ' + parts[0].slice(2);
-    }
+    const limit360 = Date.now() - 360 * 86400000;
 
-    const allM = new Set();
-    keyLifts.forEach(kl => { records[kl.name].history.forEach(p => { allM.add(_mkKey(p.date)); }); });
-    const months = Array.from(allM).sort();
-    const lineLabels = months.map(_mkLabel);
+    // Collecter tous les timestamps uniques (séances) dans la fenêtre
+    const allTs = new Set();
+    keyLifts.forEach(kl => {
+      records[kl.name].history
+        .filter(p => p.ts >= limit360)
+        .forEach(p => allTs.add(p.ts));
+    });
+    // Trier chronologiquement
+    const sortedTs = Array.from(allTs).sort((a, b) => a - b);
+
+    // Labels : date courte dd/mm
+    const lineLabels = sortedTs.map(ts => {
+      const d = new Date(ts);
+      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+    });
+
+    const nPts = sortedTs.length;
+    const ptRadius = nPts > 30 ? 0 : nPts > 15 ? 2 : 3;
+    const ptHover  = nPts > 30 ? 3 : 5;
 
     const datasets = keyLifts.map((kl, i) => {
-      const hist = records[kl.name].history;
+      const hist = records[kl.name].history.filter(p => p.ts >= limit360);
       if (!hist.length) return null;
-      const byM = {};
-      hist.forEach(p => { const mk = _mkKey(p.date); if (!byM[mk] || p.rm > byM[mk]) byM[mk] = Math.round(p.rm*10)/10; });
-      const data = months.map(m => byM[m] != null ? byM[m] : null);
+      // Map ts → rm pour cet exercice
+      const byTs = {};
+      hist.forEach(p => { byTs[p.ts] = Math.round(p.rm * 10) / 10; });
+      const data = sortedTs.map(ts => byTs[ts] != null ? byTs[ts] : null);
       const color = PALETTE[i % PALETTE.length];
       return {
         label: kl.name.replace(/\s*\(.*\)/, '').split(' ')[0],
-        data, borderColor: color, backgroundColor: color + '18',
-        fill: true, borderWidth: 2.5, tension: 0.4, spanGaps: true,
-        pointRadius: months.length > 24 ? 2 : 4, pointHoverRadius: 6,
-        pointBackgroundColor: color, pointBorderColor: '#1C1C1E', pointBorderWidth: 1
+        data, borderColor: color, backgroundColor: color + '15',
+        fill: false, borderWidth: 2, tension: 0.3, spanGaps: true,
+        pointRadius: ptRadius, pointHoverRadius: ptHover,
+        pointBackgroundColor: color, pointBorderColor: '#000', pointBorderWidth: 1
       };
     }).filter(Boolean);
 
@@ -2770,15 +2799,28 @@ function renderPerfCard() {
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 10, padding: 14 } },
-            tooltip: { backgroundColor: '#1C1C1E', borderColor: '#2C2C2E', borderWidth: 1,
+            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 10, padding: 12 } },
+            tooltip: {
+              backgroundColor: '#1C1C1E', borderColor: '#2C2C2E', borderWidth: 1,
               titleColor: '#F5F5F7', bodyColor: '#86868B',
-              callbacks: { label: ctx => ctx.parsed.y != null ? ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + ' kg e1RM' : null }
+              callbacks: {
+                label: ctx => ctx.parsed.y != null ? ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y + ' kg' : null
+              }
             }
           },
           scales: {
-            x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 }, maxTicksLimit: 12, maxRotation: 0 } },
-            y: { grid: { color: '#2C2C2E44' }, ticks: { color: '#86868B', font: { size: 10 }, callback: v => v + ' kg' } }
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: '#86868B', font: { size: 9 }, maxRotation: 0,
+                // N'afficher qu'un label tous les N points pour éviter la surcharge
+                callback: (val, i) => i % Math.max(1, Math.floor(nPts / 8)) === 0 ? lineLabels[i] : ''
+              }
+            },
+            y: {
+              grid: { color: '#2C2C2E55' },
+              ticks: { color: '#86868B', font: { size: 10 }, callback: v => v + ' kg' }
+            }
           }
         }
       });
@@ -2839,7 +2881,6 @@ function saveKeyLifts() {
 
 function renderDayExercises(day) {
   const c = document.getElementById('trainingLogs');
-
   const progNames = getProgExosForDay(day);
 
   // ── Repos ────────────────────────────────────────────────────
@@ -2857,16 +2898,13 @@ function renderDayExercises(day) {
     return;
   }
 
-  // ── Programme défini dans Réglages ───────────────────────────
-  // On cherche le meilleur record ALL TIME pour chaque exercice du programme
-  if (progNames.length > 0) {
-    // Accumuler best par nom d'exo depuis tout l'historique
+  // Fonction utilitaire : accumule le meilleur record pour une liste de noms Hevy exacts
+  function accumulateBest(logsToSearch, nameFilter) {
     const best = {};
-    db.logs.forEach(log => {
+    logsToSearch.forEach(log => {
       log.exercises.forEach(exo => {
         if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-        // Cet exo correspond-il à un exercice du programme de ce jour ?
-        if (!progNames.some(p => matchExoName(exo.name, p))) return;
+        if (nameFilter && !nameFilter.has(exo.name)) return;
         const key = exo.name;
         const exoType = getExoType(exo.name);
         if (!best[key]) { best[key] = { ...exo, exoType }; return; }
@@ -2891,16 +2929,51 @@ function renderDayExercises(day) {
         }
       });
     });
+    return best;
+  }
 
-    const progEntries = progNames.map((progName, idx) => {
-      const match = Object.entries(best).find(([n]) => matchExoName(n, progName));
-      if (match) return { progName, hevyName: match[0], exo: match[1], found: true };
-      return { progName, hevyName: null, exo: null, found: false };
+  // ── Programme configuré dans Réglages ────────────────────────
+  if (progNames.length > 0) {
+    // Étape 1 : pour chaque exercice du programme, trouver le NOM EXACT Hevy
+    // en cherchant d'abord dans les séances du même jour de la semaine
+    const logsOfDay = db.logs.filter(l => l.day === day);
+    const hevyNameForProg = {}; // progName → nom Hevy exact
+
+    progNames.forEach(progName => {
+      // Priorité 1 : séances du même jour
+      for (const log of logsOfDay) {
+        for (const exo of log.exercises) {
+          if (matchExoName(exo.name, progName)) {
+            hevyNameForProg[progName] = exo.name;
+            break;
+          }
+        }
+        if (hevyNameForProg[progName]) break;
+      }
+      // Priorité 2 : tout l'historique si pas trouvé ce jour
+      if (!hevyNameForProg[progName]) {
+        for (const log of db.logs) {
+          for (const exo of log.exercises) {
+            if (matchExoName(exo.name, progName)) {
+              hevyNameForProg[progName] = exo.name;
+              break;
+            }
+          }
+          if (hevyNameForProg[progName]) break;
+        }
+      }
     });
 
+    // Étape 2 : accumuler les records ALL TIME pour les noms Hevy trouvés
+    const hevyNamesNeeded = new Set(Object.values(hevyNameForProg).filter(Boolean));
+    const best = accumulateBest(db.logs, hevyNamesNeeded);
+
+    // Étape 3 : afficher dans l'ordre du programme
     let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
-    progEntries.forEach(({ progName, hevyName, exo, found }, idx) => {
-      if (found) {
+    progNames.forEach((progName, idx) => {
+      const hevyName = hevyNameForProg[progName];
+      const exo = hevyName ? best[hevyName] : null;
+      if (exo) {
         html += formatExoDropdown(hevyName, exo, 'prog-' + idx);
       } else {
         html += '<div class="exo-header" style="opacity:0.45;">' +
@@ -2914,36 +2987,8 @@ function renderDayExercises(day) {
     return;
   }
 
-  // ── Fallback : exercices des séances de CE jour uniquement ───
-  const best = {};
-  db.logs.filter(l => l.day === day).forEach(log => {
-    log.exercises.forEach(exo => {
-      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-      const key = exo.name;
-      const exoType = getExoType(exo.name);
-      if (!best[key]) { best[key] = { ...exo, exoType }; return; }
-      if (exoType === 'cardio' || exoType === 'cardio_stairs') {
-        if ((exo.distance||0) > (best[key].distance||0)) best[key].distance = exo.distance;
-        if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key].maxTime = exo.maxTime;
-      } else if (exoType === 'time') {
-        if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key] = { ...exo, exoType };
-      } else if (exoType === 'reps') {
-        if ((exo.maxReps||0) > (best[key].maxReps||0)) best[key].maxReps = exo.maxReps;
-        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key].maxRM = exo.maxRM;
-        if (exo.repRecords) {
-          if (!best[key].repRecords) best[key].repRecords = {};
-          Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; });
-        }
-      } else {
-        if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key] = { ...exo, exoType };
-        if (exo.repRecords) {
-          if (!best[key].repRecords) best[key].repRecords = {};
-          Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; });
-        }
-      }
-    });
-  });
-
+  // ── Fallback : séances de CE jour de la semaine uniquement ───
+  const best = accumulateBest(db.logs.filter(l => l.day === day), null);
   const entries = Object.entries(best);
   if (!entries.length) {
     c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">' +

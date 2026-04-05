@@ -2747,75 +2747,102 @@ function renderPerfCard() {
     });
   }
 
-  // Courbe progression — 1 point par séance, 360 derniers jours
+  // Courbe progression — PR glissant par séance, 360 derniers jours
   const cvLine = document.getElementById('chartPerfLine');
   if (cvLine) {
     if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') window.chartPerfLine.destroy();
 
     const limit360 = Date.now() - 360 * 86400000;
 
-    // Collecter tous les timestamps uniques (séances) dans la fenêtre
-    const allTs = new Set();
+    // Construire par exercice : liste chronologique des séances avec e1RM
+    // On garde le MAX COURANT (PR glissant) → la courbe ne descend jamais
+    const exoSeries = {}; // klName → [{ts, label, rm}] triés chronologiquement
     keyLifts.forEach(kl => {
-      records[kl.name].history
+      const hist = [...records[kl.name].history]
         .filter(p => p.ts >= limit360)
-        .forEach(p => allTs.add(p.ts));
+        .sort((a, b) => a.ts - b.ts);
+      if (!hist.length) return;
+      let runMax = 0;
+      const pts = [];
+      hist.forEach(p => {
+        if (p.rm > runMax) runMax = p.rm;
+        const d = new Date(p.ts);
+        const label = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+        pts.push({ ts: p.ts, label, rm: runMax });
+      });
+      exoSeries[kl.name] = pts;
     });
-    // Trier chronologiquement
-    const sortedTs = Array.from(allTs).sort((a, b) => a - b);
 
-    // Labels : date courte dd/mm
-    const lineLabels = sortedTs.map(ts => {
+    // Axe X commun = union de tous les ts, triés
+    const allTs = new Set();
+    Object.values(exoSeries).forEach(pts => pts.forEach(p => allTs.add(p.ts)));
+    const sortedTs = Array.from(allTs).sort((a, b) => a - b);
+    const nPts = sortedTs.length;
+
+    // Labels X : afficher ~8 dates max
+    const step = Math.max(1, Math.floor(nPts / 8));
+    const xLabels = sortedTs.map((ts, i) => {
+      if (i % step !== 0 && i !== nPts - 1) return '';
       const d = new Date(ts);
       return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
     });
 
-    const nPts = sortedTs.length;
-    const ptRadius = nPts > 30 ? 0 : nPts > 15 ? 2 : 3;
-    const ptHover  = nPts > 30 ? 3 : 5;
-
     const datasets = keyLifts.map((kl, i) => {
-      const hist = records[kl.name].history.filter(p => p.ts >= limit360);
-      if (!hist.length) return null;
-      // Map ts → rm pour cet exercice
+      const pts = exoSeries[kl.name];
+      if (!pts || !pts.length) return null;
+      // Interpoler : pour chaque ts de l'axe commun, prendre la dernière valeur connue
       const byTs = {};
-      hist.forEach(p => { byTs[p.ts] = Math.round(p.rm * 10) / 10; });
-      const data = sortedTs.map(ts => byTs[ts] != null ? byTs[ts] : null);
+      pts.forEach(p => { byTs[p.ts] = p.rm; });
+      let lastVal = null;
+      const data = sortedTs.map(ts => {
+        if (byTs[ts] != null) lastVal = byTs[ts];
+        return lastVal; // propagation forward → pas de null = pas de trous
+      });
       const color = PALETTE[i % PALETTE.length];
       return {
-        label: kl.name.replace(/\s*\(.*\)/, '').split(' ')[0],
-        data, borderColor: color, backgroundColor: color + '15',
-        fill: false, borderWidth: 2, tension: 0.3, spanGaps: true,
-        pointRadius: ptRadius, pointHoverRadius: ptHover,
-        pointBackgroundColor: color, pointBorderColor: '#000', pointBorderWidth: 1
+        label: kl.name.replace(/\s*\(.*\)/, '').split(' ').slice(0, 2).join(' '),
+        data,
+        borderColor: color,
+        backgroundColor: color + '12',
+        fill: false,
+        borderWidth: 2.5,
+        tension: 0.4,
+        pointRadius: 0,        // pas de points → ligne propre
+        pointHoverRadius: 5,
+        pointHitRadius: 10,
+        pointBackgroundColor: color,
       };
     }).filter(Boolean);
 
     if (datasets.length) {
       window.chartPerfLine = new Chart(cvLine, {
         type: 'line',
-        data: { labels: lineLabels, datasets },
+        data: { labels: xLabels, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 10, padding: 12 } },
+            legend: {
+              display: true,
+              labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 12, padding: 14 }
+            },
             tooltip: {
-              backgroundColor: '#1C1C1E', borderColor: '#2C2C2E', borderWidth: 1,
-              titleColor: '#F5F5F7', bodyColor: '#86868B',
+              backgroundColor: '#1C1C1E', borderColor: '#3A3A3C', borderWidth: 1,
+              titleColor: '#F5F5F7', bodyColor: '#86868B', padding: 10,
               callbacks: {
-                label: ctx => ctx.parsed.y != null ? ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y + ' kg' : null
+                title: items => {
+                  const ts = sortedTs[items[0].dataIndex];
+                  const d = new Date(ts);
+                  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+                },
+                label: ctx => ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y + ' kg e1RM'
               }
             }
           },
           scales: {
             x: {
               grid: { display: false },
-              ticks: {
-                color: '#86868B', font: { size: 9 }, maxRotation: 0,
-                // N'afficher qu'un label tous les N points pour éviter la surcharge
-                callback: (val, i) => i % Math.max(1, Math.floor(nPts / 8)) === 0 ? lineLabels[i] : ''
-              }
+              ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 0 }
             },
             y: {
               grid: { color: '#2C2C2E55' },

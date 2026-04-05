@@ -467,8 +467,8 @@
           </select>
         </div>
         <button class="btn" onclick="obNext(1)">Continuer â</button>
-        <button class="ob-skip" onclick="obSkipAll()">J'ai dÃ©jÃ  mon programme â Passer la config</button>
       </div>
+        <button class="ob-skip" onclick="obSkipAll()">J'ai déjà mon programme — Passer la config ›</button>
 
       <!-- Step 2 : Objectifs SBD -->
       <div class="ob-step" id="ob-step-2">
@@ -1651,6 +1651,7 @@ function obSkip(step) {
 }
 
 function obSkipAll() {
+  // Skip all onboarding — user already has their own program
   const nameVal = (document.getElementById('ob-name')?.value || '').trim();
   if (nameVal) db.user.name = nameVal;
   const bwVal = parseFloat(document.getElementById('ob-bw')?.value);
@@ -1661,7 +1662,7 @@ function obSkipAll() {
   saveDB();
   document.getElementById('onboarding-overlay').style.display = 'none';
   renderAll();
-  showToast('Bienvenue ! Configure ton programme dans RÃ©glages.');
+  showToast('✓ Bienvenue ! Configure ton programme dans Réglages.');
 }
 
 function selectPath(p) {
@@ -2249,7 +2250,7 @@ function matchExoName(hevyName, progName) {
   if (h === p) return true;
 
   // Correspondance exacte aprÃ¨s normalisation
-  // Ne pas matcher les variantes au mouvement de base
+  // Ne pas matcher les variantes (incliné/décliné) au mouvement de base
   const INCLINE_GUARDS = ['incline', 'decline'];
   const hHasVariant = INCLINE_GUARDS.some(v => h.includes(v));
   const pHasVariant = INCLINE_GUARDS.some(v => p.includes(v));
@@ -2823,13 +2824,15 @@ function renderPerfCard() {
         data,
         borderColor: color,
         backgroundColor: color + '20',
-        fill: false,
-        borderWidth: 2.5,
-        tension: 0.4,
-        pointRadius: 0,        // pas de points â ligne propre
-        pointHoverRadius: 5,
-        pointHitRadius: 10,
+        fill: 'origin',
+        borderWidth: 2,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 7,
+        pointHitRadius: 14,
         pointBackgroundColor: color,
+        pointBorderColor: 'rgba(0,0,0,0.3)',
+        pointBorderWidth: 1,
       };
     }).filter(Boolean);
 
@@ -4030,16 +4033,16 @@ function renderLifts() {
         (pad + (i/(vals.length-1))*(W-2*pad)).toFixed(1) + ',' +
         (H - pad - ((v-minV)/range)*(H-2*pad)).toFixed(1)
       );
-            const areaPath = pts[0] + ' ' + pts.slice(1).join(' ') + ' ' +
-        (pad + (vals.length > 1 ? 1 : 0)*(W-2*pad)).toFixed(1) + ',' + (H-pad) + ' ' +
+      const areaPath = pts[0] + ' ' + pts.slice(1).join(' ') + ' ' +
+        (pad + (vals.length-1)/(vals.length-1)*(W-2*pad)).toFixed(1) + ',' + (H-pad) + ' ' +
         pad.toFixed(1) + ',' + (H-pad);
       sparkSVG = '<div class="lift-sparkline-wrap"><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:52px;">' +
-        '<defs><linearGradient id="sg' + idx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.2"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
+        '<defs><linearGradient id="sg' + idx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.25"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
         '<polygon points="' + areaPath + '" fill="url(#sg' + idx + ')"/>' +
         '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
         vals.map((v,i) => '<circle cx="' + pts[i].split(',')[0] + '" cy="' + pts[i].split(',')[1] + '" r="2.5" fill="' + color + '" opacity="0.5"/>').join('') +
         '<circle cx="' + pts[pts.length-1].split(',')[0] + '" cy="' + pts[pts.length-1].split(',')[1] + '" r="4.5" fill="' + color + '"/>' +
-        '</svg></div>';
+        '</svg></div>'
     }
 
     // RM grid: estimated vs real

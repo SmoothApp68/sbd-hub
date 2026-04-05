@@ -2211,17 +2211,35 @@ function getProgExosForDay(day) {
 }
 
 // Matcher un nom d'exercice Hevy avec un nom de programme (tolérant)
+// Table de synonymes inter-langues pour les exercices clés
+const EXO_SYNONYMS = [
+  ['deadlift', 'souleve de terre', 'soulevé de terre'],
+  ['squat barre', 'squat barbell', 'back squat'],
+  ['bench press', 'developpe couche', 'développé couché', 'bench barre'],
+  ['overhead press', 'developpe militaire', 'développé militaire', 'ohp'],
+  ['pull up', 'traction', 'chin up'],
+  ['romanian deadlift', 'rdl', 'souleve roumain'],
+];
+
 function matchExoName(hevyName, progName) {
   const norm = s => s.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accents
-    .replace(/[()[\]]/g, ' ')                          // parenthèses
-    .replace(/[^a-z0-9\s]/g, ' ')                      // ponctuation
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[()[\]]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ').trim();
 
   const h = norm(hevyName);
   const p = norm(progName);
 
   if (h === p) return true;
+
+  // Vérifier les synonymes — si h et p appartiennent au même groupe → match
+  for (const group of EXO_SYNONYMS) {
+    const normGroup = group.map(norm);
+    const hInGroup = normGroup.some(s => h.includes(s) || s.includes(h));
+    const pInGroup = normGroup.some(s => p.includes(s) || s.includes(p));
+    if (hInGroup && pInGroup) return true;
+  }
 
   // Mots significatifs (>2 lettres) — bidirectionnel
   const sig = w => w.length > 2;
@@ -2230,9 +2248,7 @@ function matchExoName(hevyName, progName) {
 
   if (!hWords.length || !pWords.length) return false;
 
-  // Les mots du programme sont tous dans le nom Hevy
   if (pWords.every(w => hWords.some(hw => hw.startsWith(w) || w.startsWith(hw)))) return true;
-  // Les mots du nom Hevy sont tous dans le programme
   if (hWords.every(w => pWords.some(pw => pw.startsWith(w) || w.startsWith(pw)))) return true;
 
   return false;
@@ -2587,6 +2603,12 @@ function renderDash() {
 // ── Rubrique Performance configurable ────────────────────────
 let chartPerf = null;
 
+// Incrément objectif selon le groupe musculaire de l'exercice
+function getPerfIncrement(exoName) {
+  const mg = getMuscleGroup(exoName);
+  return (mg === 'Jambes') ? 5 : 2.5;
+}
+
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
@@ -2597,104 +2619,146 @@ function renderPerfCard() {
     return;
   }
 
-  // Récupérer le meilleur e1RM par exercice clé
-  const records = {};
-  db.logs.forEach(log => {
+  // Construire records par exercice clé : real1RM, e1RM, historique progression
+  const records = {}; // { name: { real1rm, e1rm, date, history:[{ts,rm}] } }
+  keyLifts.forEach(kl => { records[kl.name] = { real1rm: 0, e1rm: 0, date: null, history: [] }; });
+
+  // Parcourir tout l'historique chronologiquement pour la courbe
+  [...db.logs].sort((a, b) => a.timestamp - b.timestamp).forEach(log => {
     log.exercises.forEach(exo => {
       keyLifts.forEach(kl => {
         if (!matchExoName(exo.name, kl.name)) return;
-        if (!records[kl.name] || (exo.maxRM||0) > records[kl.name].rm)
-          records[kl.name] = { rm: exo.maxRM||0, date: log.shortDate||formatDate(log.timestamp) };
+        const rec = records[kl.name];
+        // e1RM estimé (meilleur all time)
+        if ((exo.maxRM || 0) > rec.e1rm) {
+          rec.e1rm = exo.maxRM || 0;
+          rec.date = log.shortDate || formatDate(log.timestamp);
+        }
+        // 1RM réel = poids soulevé pour exactement 1 rep (dans repRecords['1'])
+        const real = parseFloat((exo.repRecords || {})['1'] || 0);
+        if (real > rec.real1rm) rec.real1rm = real;
+        // Historique e1RM pour courbe
+        if ((exo.maxRM || 0) > 0) rec.history.push({ ts: log.timestamp, rm: exo.maxRM, date: log.shortDate || formatDate(log.timestamp) });
       });
     });
   });
 
-  // Grille rm-box style original
+  // Auto-incrément objectif si 1RM réel dépasse l'objectif actuel
+  let changed = false;
+  keyLifts.forEach(kl => {
+    const rec = records[kl.name];
+    const inc = getPerfIncrement(kl.name);
+    if (rec.real1rm > 0 && kl.target > 0 && rec.real1rm >= kl.target) {
+      while (kl.target <= rec.real1rm) kl.target += inc;
+      changed = true;
+      showToast('🎯 ' + kl.name.split(' ')[0] + ' → nouvel objectif ' + kl.target + 'kg !');
+    }
+  });
+  if (changed) saveDB();
+
+  // ── Boîtes rm-box ─────────────────────────────────────────
   const cols = keyLifts.length <= 3 ? 'repeat(' + keyLifts.length + ',1fr)' : 'repeat(3,1fr)';
-  const boxesHtml = keyLifts.map(kl => {
-    const rec = records[kl.name] || { rm: 0 };
-    const rm = rec.rm;
+  const PALETTE = ['#0A84FF','#32D74B','#FF9F0A','#FF453A','#BF5AF2','#64D2FF'];
+
+  const boxesHtml = keyLifts.map((kl, i) => {
+    const rec = records[kl.name];
+    const e1rm = rec.e1rm;
+    const real = rec.real1rm;
     const target = kl.target || 0;
-    const bw = db.user.bw > 0 && rm > 0 ? (rm / db.user.bw).toFixed(2) : null;
+    const bw = db.user.bw > 0 && e1rm > 0 ? '×' + (e1rm / db.user.bw).toFixed(2) + ' bw' : null;
     const isPR = !!(newPRs && newPRs[kl.name]);
-    // Nom court pour la boîte (premier mot ou acronyme)
-    const shortName = kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0,2).join(' ');
+    const shortName = kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0, 2).join(' ');
+    const color = PALETTE[i % PALETTE.length];
 
     return '<div class="rm-box">' +
       (isPR ? '<div class="pr-badge">🔥 PR!</div>' : '') +
       '<div style="font-size:10px;color:var(--sub);">' + shortName.toUpperCase() + '</div>' +
-      '<div class="rm-val">' + (rm || 0) + '<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg</span></div>' +
-      (target > 0 ? '<div class="rm-target">Objectif : ' + target + 'kg</div>' : '<div class="rm-target" style="color:var(--border);">—</div>') +
-      (bw ? '<div style="font-size:11px;color:var(--green);margin-top:6px;font-weight:600;">×' + bw + ' bw</div>' : '') +
+      '<div class="rm-val" style="color:' + color + '">' + (e1rm || 0) + '<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg e1RM</span></div>' +
+      (real > 0 ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">✓ ' + real + 'kg réel</div>' : '') +
+      (target > 0 ? '<div class="rm-target">Visé : ' + target + 'kg</div>' : '<div class="rm-target" style="color:var(--border);">—</div>') +
+      (bw ? '<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">' + bw + '</div>' : '') +
       '</div>';
   }).join('');
 
+  // ── Graphique barres 3 datasets ────────────────────────────
+  const labels   = keyLifts.map(kl => kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0, 2).join(' '));
+  const real1rms = keyLifts.map(kl => records[kl.name].real1rm);
+  const e1rms    = keyLifts.map(kl => records[kl.name].e1rm);
+  const targets  = keyLifts.map(kl => kl.target || 0);
+  const bgMain   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length]);
+  const bgE1rm   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '99');
+  const bgTarget = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '33');
+
   el.innerHTML =
     '<div class="sbd-grid" style="grid-template-columns:' + cols + ';">' + boxesHtml + '</div>' +
-    '<div style="height:220px;margin-top:25px;"><canvas id="chartPerf"></canvas></div>';
+    '<div style="height:220px;margin-top:25px;"><canvas id="chartPerf"></canvas></div>' +
+    '<div style="height:160px;margin-top:20px;"><canvas id="chartPerfLine"></canvas></div>';
 
-  // Graphique barres (PR actuel vs Objectif) — même style que l'ancien chartSBD
-  const cv = document.getElementById('chartPerf');
-  if (!cv) return;
-  if (chartPerf) chartPerf.destroy();
-
-  const labels  = keyLifts.map(kl => kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0,2).join(' '));
-  const current = keyLifts.map(kl => (records[kl.name]||{rm:0}).rm);
-  const targets = keyLifts.map(kl => kl.target || 0);
-
-  // Couleurs cycliques
-  const PALETTE = ['#0A84FF','#32D74B','#FF9F0A','#FF453A','#BF5AF2','#64D2FF'];
-  const bgColors  = keyLifts.map((_,i) => PALETTE[i % PALETTE.length]);
-  const bgTargets = keyLifts.map((_,i) => PALETTE[i % PALETTE.length] + '4D'); // 30% opacity
-
-  chartPerf = new Chart(cv, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'e1RM actuel',
-          data: current,
-          backgroundColor: bgColors,
-          borderRadius: 8,
-          barThickness: 32
-        },
-        {
-          label: 'Objectif',
-          data: targets,
-          backgroundColor: bgTargets,
-          borderColor: bgColors,
-          borderWidth: 2,
-          borderRadius: 8,
-          barThickness: 32
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 } } },
-        tooltip: { callbacks: {
-          afterLabel: c => {
-            const kl = keyLifts[c.dataIndex];
-            if (!kl) return '';
-            const rec = records[kl.name];
-            if (c.datasetIndex === 0 && rec) return 'Depuis : ' + (rec.date || 'N/A');
-            if (c.datasetIndex === 1) {
-              const rm = (records[kl.name]||{rm:0}).rm;
-              return kl.target > 0 && rm > 0 ? 'Reste : ' + (kl.target - rm) + 'kg' : '';
+  // Graphique barres
+  const cvBar = document.getElementById('chartPerf');
+  if (cvBar) {
+    if (chartPerf) chartPerf.destroy();
+    chartPerf = new Chart(cvBar, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: '1RM Réel',  data: real1rms, backgroundColor: bgMain,   borderRadius: 6, barThickness: 22 },
+          { label: 'e1RM (Epley)', data: e1rms, backgroundColor: bgE1rm,   borderRadius: 6, barThickness: 22 },
+          { label: 'Objectif',  data: targets,  backgroundColor: bgTarget,  borderRadius: 6, barThickness: 22,
+            borderColor: bgMain, borderWidth: 2 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } },
+          tooltip: { callbacks: { afterLabel: c => {
+            if (c.datasetIndex === 2) {
+              const rm = e1rms[c.dataIndex];
+              return targets[c.dataIndex] > 0 && rm > 0 ? 'Reste : ' + (targets[c.dataIndex] - rm) + 'kg' : '';
             }
             return '';
-          }
-        }}
-      },
-      scales: {
-        y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
-        x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
+          }}}
+        },
+        scales: {
+          y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
+          x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
+        }
       }
-    }
-  });
+    });
+  }
+
+  // Graphique courbe progression (e1RM dans le temps, 1 ligne par exercice)
+  const cvLine = document.getElementById('chartPerfLine');
+  if (cvLine && keyLifts.some(kl => records[kl.name].history.length > 1)) {
+    if (window.chartPerfLine) window.chartPerfLine.destroy();
+    const datasets = keyLifts.map((kl, i) => {
+      const pts = records[kl.name].history;
+      return {
+        label: kl.name.replace(/\s*\(.*\)/, '').split(' ')[0],
+        data: pts.map(p => ({ x: p.date, y: p.rm })),
+        borderColor: PALETTE[i % PALETTE.length],
+        backgroundColor: 'transparent',
+        borderWidth: 2, tension: 0.3,
+        pointRadius: pts.length > 10 ? 2 : 4,
+        pointBackgroundColor: PALETTE[i % PALETTE.length]
+      };
+    }).filter((_, i) => records[keyLifts[i].name].history.length > 1);
+
+    window.chartPerfLine = new Chart(cvLine, {
+      type: 'line',
+      data: { datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } } },
+        scales: {
+          x: { type: 'category', grid: { display: false }, ticks: { color: '#86868B', font: { size: 9 }, maxTicksLimit: 6 } },
+          y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } }
+        }
+      }
+    });
+  }
 }
 
 // ── Réglages : éditeur exercices clés ────────────────────────

@@ -418,6 +418,25 @@
     .prog-exo-add-btn{background:var(--blue);border:none;color:white;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
     .prog-day-label-input{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--sub);font-size:11px;padding:2px 4px;width:120px;margin-left:4px;}
     .prog-day-label-input:focus{outline:none;border-color:var(--blue);}
+    /* ── Exercices Clés / Performance ── */
+    .keylift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .keylift-box { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 14px; padding: 14px 12px; position: relative; }
+    .keylift-box.pr { border-color: var(--green); }
+    .keylift-name { font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .keylift-val { font-size: 22px; font-weight: 800; color: var(--blue); display: flex; align-items: baseline; gap: 3px; }
+    .keylift-val span { font-size: 12px; color: var(--sub); font-weight: 400; }
+    .keylift-progress { margin-top: 8px; }
+    .keylift-progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .keylift-progress-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .keylift-target { font-size: 10px; color: var(--sub); margin-top: 4px; display: flex; justify-content: space-between; }
+    .keylift-pr-badge { position: absolute; top: -7px; right: 10px; background: var(--green); color: #000; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 8px; }
+    .keylift-empty { text-align: center; padding: 20px; color: var(--sub); font-size: 13px; }
+    .keylift-editor-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+    .keylift-editor-row input { margin: 0; padding: 8px 10px; font-size: 13px; flex: 1; }
+    .keylift-editor-row input.tgt-input { width: 80px; flex: 0 0 80px; text-align: center; }
+    .keylift-editor-del { background: none; border: none; color: var(--red); opacity: 0.5; cursor: pointer; font-size: 18px; padding: 0 4px; flex-shrink: 0; }
+    .keylift-editor-del:hover { opacity: 1; }
+    .keylift-chart { height: 80px; margin-top: 12px; }
   </style>
 </head>
 <body>
@@ -697,7 +716,7 @@
   <!-- APP PRINCIPALE -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-dash" class="content-section active">
-    <div class="card"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div class="sbd-grid" id="sbdDisplay"></div><div style="height:220px;margin-top:25px;"><canvas id="chartSBD"></canvas></div></div>
+    <div class="card" id="perfCard"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div id="perfDisplay"></div></div>
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
@@ -887,17 +906,16 @@
       </div>
     </div>
 
-    <!-- Accordéon Objectifs SBD -->
+    <!-- Accordéon Exercices Clés -->
     <div class="acc-card">
-      <div class="acc-header" onclick="toggleAcc('acc-sbd')">
-        <span>🎯 Objectifs SBD (kg)</span><span class="acc-chevron" id="chev-acc-sbd">▾</span>
+      <div class="acc-header" onclick="toggleAcc('acc-keylifts')">
+        <span>🎯 Exercices Clés</span><span class="acc-chevron" id="chev-acc-keylifts">▾</span>
       </div>
-      <div class="acc-body" id="acc-sbd">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;">
-          <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Bench</div><input type="number" id="tgtBench" placeholder="100" onchange="updateTargets()" style="margin-bottom:0;padding:10px;font-size:14px;text-align:center;"></div>
-          <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Squat</div><input type="number" id="tgtSquat" placeholder="120" onchange="updateTargets()" style="margin-bottom:0;padding:10px;font-size:14px;text-align:center;"></div>
-          <div><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Deadlift</div><input type="number" id="tgtDead" placeholder="140" onchange="updateTargets()" style="margin-bottom:0;padding:10px;font-size:14px;text-align:center;"></div>
-        </div>
+      <div class="acc-body" id="acc-keylifts">
+        <p style="font-size:12px;color:var(--sub);margin:0 0 12px;">Les exercices affichés dans la rubrique Performance sur l'accueil. Jusqu'à 6.</p>
+        <div id="keyLiftsEditor"></div>
+        <button class="btn" style="margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:13px;" onclick="addKeyLift()">+ Ajouter un exercice</button>
+        <button class="btn" style="margin-top:8px;" onclick="saveKeyLifts()">Sauvegarder</button>
       </div>
     </div>
 
@@ -1250,7 +1268,8 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 // ============================================================
 const defaultDB = () => ({
   user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', onboarded: false, kcalBase: 2300, bwBase: 80 },
-  routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0
+  routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
+  keyLifts: [] // exercices clés configurables pour la rubrique Performance
 });
 let db = (() => {
   try {
@@ -1261,6 +1280,7 @@ let db = (() => {
     if (!p.reports) p.reports = [];
     if (!p.routine) p.routine = null;
     if (!p.body) p.body = [];
+    if (!p.keyLifts) p.keyLifts = [];
     if (p.user.name === undefined) p.user.name = '';
     if (p.user.onboarded === undefined) p.user.onboarded = true; // existants = déjà configurés
     return p;
@@ -2253,7 +2273,7 @@ function showTab(tabId) {
   if (tabId==='tab-seances') renderSeancesTab();
   if (tabId==='tab-stats') { renderReports('week'); renderRadarImproved('week'); renderMuscleChart('week'); renderLifts(); renderVolumeChart('week'); }
   if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
-  if (tabId==='tab-settings') { renderSettingsRoutineEditor(); fillSettingsFields(); }
+  if (tabId==='tab-settings') { renderSettingsRoutineEditor(); renderKeyLiftsEditor(); fillSettingsFields(); }
   if (tabId==='tab-corps') { renderCorpsTab(); }
 }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
@@ -2346,14 +2366,14 @@ function buildSessionFromAI(parsed, rawText) {
     const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [] };
     (exo.sets || []).forEach(s => {
       const isW = s.isWarmup || false;
-      obj.sets++;
+      if (!isW) obj.sets++; // séries de travail uniquement pour le comptage
       if (exoType === 'weight') {
         const w = s.weight||0, r = s.reps||0;
         if (w>0&&r>0) { session.volume+=w*r; if(!isW){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
       } else if (exoType==='reps') {
-        const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}
+        if(!isW){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
       } else if (exoType==='time') {
-        const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;
+        if(!isW){const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;}
       } else if (exoType==='cardio') {
         const d=s.distance||0,t=s.duration||0;if(d>obj.distance)obj.distance=d;if(t>obj.maxTime){obj.maxTime=t;obj.cardioDate=sessionTimestamp;}
       }
@@ -2423,7 +2443,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     if (!currExo) continue;
     if (l.startsWith('série')&&l.includes('kg x')&&!currExo.isCardio&&!currExo.isReps) {
       const m=l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);const isW=line.includes('[Échauffement]')||line.includes('[échauffement]');session.volume+=w*r;currExo.sets++;if(!isW){const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}}
+      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);const isW=line.includes('[Échauffement]')||line.includes('[échauffement]');session.volume+=w*r;if(!isW){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}}
     } else if (currExo.isReps&&l.startsWith('série')) {
       const repMatch=l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i)||l.match(/x\s*(\d+)/i)||l.match(/(\d+)\s*reps?\b/i);
       const kgMatch=l.match(/(\d+\.?\d*)\s*kg/i);
@@ -2546,8 +2566,6 @@ function refreshUI() {
   if (savedKey) { const kInput=document.getElementById('inputAPIKey'); if(kInput)kInput.value=savedKey; }
   if (db.user.name) { const ni=document.getElementById('inputName'); if(ni)ni.value=db.user.name; }
   if (db.user.bw) { const bi=document.getElementById('inputBW'); if(bi)bi.value=db.user.bw; }
-  const tB=document.getElementById('tgtBench'),tS=document.getElementById('tgtSquat'),tD=document.getElementById('tgtDead');
-  if(tB)tB.value=db.user.targets.bench; if(tS)tS.value=db.user.targets.squat; if(tD)tD.value=db.user.targets.deadlift;
   renderDash();
   updateCoachBadge();
   renderProgramViewer();
@@ -2560,17 +2578,116 @@ function refreshUI() {
 function renderDash() {
   const routine = getRoutine();
   document.getElementById('routineDisplay').textContent = routine[selectedDay] || '—';
-  // Greeting
   const greet = document.getElementById('dashGreeting');
   if (greet && db.user.name) greet.textContent = 'Salut ' + db.user.name + ' 👋';
-
-  document.getElementById('sbdDisplay').innerHTML = SBD_TYPES.map(k => {
-    const pr=newPRs[k]?'<div class="pr-badge">🔥 PR!</div>':'';
-    const bw=db.user.bw>0?(db.bestPR[k]/db.user.bw).toFixed(2):'0.00';
-    return '<div class="rm-box">'+pr+'<div style="font-size:10px;color:var(--sub);">'+k.toUpperCase()+' (1RM)</div><div class="rm-val">'+db.bestPR[k]+'<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg</span></div><div class="rm-target">Objectif: '+db.user.targets[k]+'</div><div style="font-size:11px;color:var(--green);margin-top:6px;font-weight:600;">x'+bw+' bw</div></div>';
-  }).join('');
-  renderSBDChart();
+  renderPerfCard();
   renderDayExercises(selectedDay);
+}
+
+// ── Rubrique Performance configurable ────────────────────────
+function renderPerfCard() {
+  const el = document.getElementById('perfDisplay');
+  if (!el) return;
+  const keyLifts = db.keyLifts || [];
+
+  if (!keyLifts.length) {
+    el.innerHTML = '<div class="keylift-empty">Configure tes exercices clés dans<br>Réglages → 🎯 Exercices Clés</div>';
+    return;
+  }
+
+  // Récupérer le meilleur e1RM de l'historique pour chaque exercice clé
+  const records = {};
+  const history = {}; // { name: [{ts, rm}] }
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      keyLifts.forEach(kl => {
+        if (!matchExoName(exo.name, kl.name)) return;
+        const key = kl.name;
+        if (!records[key] || (exo.maxRM||0) > records[key].rm) {
+          records[key] = { rm: exo.maxRM||0, date: log.shortDate||formatDate(log.timestamp), isPR: newPRs[key] };
+        }
+        if (!history[key]) history[key] = [];
+        if (exo.maxRM > 0) history[key].push({ ts: log.timestamp, rm: exo.maxRM });
+      });
+    });
+  });
+
+  const html = '<div class="keylift-grid">' +
+    keyLifts.map(kl => {
+      const rec = records[kl.name] || { rm: 0 };
+      const rm = rec.rm;
+      const target = kl.target || 0;
+      const pct = target > 0 ? Math.min(100, Math.round((rm / target) * 100)) : 0;
+      const color = pct >= 100 ? 'var(--green)' : pct >= 80 ? 'var(--blue)' : pct >= 60 ? 'var(--orange)' : 'var(--red)';
+      const isPR = newPRs[kl.name];
+      const bwRatio = db.user.bw > 0 && rm > 0 ? ' · ×' + (rm/db.user.bw).toFixed(2) + ' bw' : '';
+
+      return '<div class="keylift-box' + (isPR ? ' pr' : '') + '">' +
+        (isPR ? '<div class="keylift-pr-badge">🔥 PR</div>' : '') +
+        '<div class="keylift-name">' + kl.name + '</div>' +
+        '<div class="keylift-val">' + (rm || '—') + (rm ? '<span>kg e1RM</span>' : '') + '</div>' +
+        (target > 0 ? (
+          '<div class="keylift-progress">' +
+          '<div class="keylift-progress-bar"><div class="keylift-progress-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+          '<div class="keylift-target"><span>' + pct + '%' + bwRatio + '</span><span>→ ' + target + 'kg</span></div>' +
+          '</div>'
+        ) : (rm > 0 ? '<div style="font-size:11px;color:var(--sub);margin-top:6px;">' + bwRatio.replace(' · ','') + '</div>' : '')) +
+        '</div>';
+    }).join('') +
+    '</div>';
+
+  el.innerHTML = html;
+}
+
+// ── Réglages : éditeur exercices clés ────────────────────────
+function renderKeyLiftsEditor() {
+  const keyLifts = db.keyLifts || [];
+  const editor = document.getElementById('keyLiftsEditor');
+  if (!editor) return;
+  if (!keyLifts.length) {
+    editor.innerHTML = '<p style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Aucun exercice clé — ajoute-en ci-dessous.</p>';
+    return;
+  }
+  editor.innerHTML = keyLifts.map((kl, i) =>
+    '<div class="keylift-editor-row">' +
+    '<input type="text" value="' + kl.name + '" placeholder="Ex: Squat (Barre)" oninput="db.keyLifts['+i+'].name=this.value">' +
+    '<input class="tgt-input" type="number" value="' + (kl.target||'') + '" placeholder="Obj kg" oninput="db.keyLifts['+i+'].target=parseFloat(this.value)||0">' +
+    '<button class="keylift-editor-del" onclick="removeKeyLift('+i+')">✕</button>' +
+    '</div>'
+  ).join('');
+}
+
+function addKeyLift() {
+  if (!db.keyLifts) db.keyLifts = [];
+  if (db.keyLifts.length >= 6) { showToast('Maximum 6 exercices'); return; }
+  db.keyLifts.push({ name: '', target: 0 });
+  renderKeyLiftsEditor();
+  // Focus sur le dernier input
+  const rows = document.querySelectorAll('.keylift-editor-row input[type="text"]');
+  if (rows.length) rows[rows.length-1].focus();
+}
+
+function removeKeyLift(i) {
+  if (!db.keyLifts) return;
+  db.keyLifts.splice(i, 1);
+  renderKeyLiftsEditor();
+}
+
+function saveKeyLifts() {
+  // Relire les inputs au cas où l'utilisateur aurait tapé sans déclencher oninput
+  const rows = document.querySelectorAll('.keylift-editor-row');
+  if (rows.length && db.keyLifts) {
+    rows.forEach((row, i) => {
+      const nameInp = row.querySelector('input[type="text"]');
+      const tgtInp = row.querySelector('input[type="number"]');
+      if (nameInp && db.keyLifts[i]) db.keyLifts[i].name = nameInp.value.trim();
+      if (tgtInp && db.keyLifts[i]) db.keyLifts[i].target = parseFloat(tgtInp.value) || 0;
+    });
+    db.keyLifts = db.keyLifts.filter(kl => kl.name);
+  }
+  saveDB();
+  showToast('✓ Exercices clés sauvegardés !');
+  renderPerfCard();
 }
 
 function renderDayExercises(day) {
@@ -3394,18 +3511,34 @@ const RADAR_AXES = ['Dos','Pecs','Abdos','Jambes','Bras','Épaules','Cardio'];
 
 function renderRadarImproved(period) {
   period = period || 'week';
-  // Update buttons
   document.getElementById('radarBtn7').classList.toggle('active', period==='week');
   document.getElementById('radarBtn30').classList.toggle('active', period==='month');
 
   const rl = getLogsInRange(period==='week' ? 7 : 30);
-  const ms = {}; RADAR_AXES.forEach(k => ms[k] = 0);
+
+  // Compter séries ET nombre d'exercices distincts par groupe
+  const msSets = {}; const msExos = {};
+  RADAR_AXES.forEach(k => { msSets[k] = 0; msExos[k] = new Set(); });
+
   rl.forEach(l => l.exercises.forEach(e => {
     const mg = getMuscleGroup(e.name);
-    if (ms.hasOwnProperty(mg)) ms[mg] += e.sets;
+    if (msSets.hasOwnProperty(mg)) {
+      msSets[mg] += e.sets;
+      msExos[mg].add(e.name);
+    }
   }));
 
-  const values = RADAR_AXES.map(k => ms[k] || 0);
+  // Normalisation : séries moyennes par exercice (évite que Jambes avec 8 exos domine)
+  // + racine carrée pour aplatir les écarts extrêmes
+  const normalized = {};
+  RADAR_AXES.forEach(k => {
+    const exoCount = msExos[k].size || 1;
+    const setsPerExo = msSets[k] / exoCount;
+    normalized[k] = Math.sqrt(setsPerExo * msSets[k]); // géomédiatrice sets/exo × sets totaux
+  });
+
+  const values = RADAR_AXES.map(k => normalized[k] || 0);
+  const rawValues = RADAR_AXES.map(k => msSets[k] || 0); // pour affichage des labels
   const maxVal = Math.max(...values, 1);
   const numAxes = RADAR_AXES.length;
   const R = 95, cx = 150, cy = 135;
@@ -3451,24 +3584,21 @@ function renderRadarImproved(period) {
     const lDist = R + 30;
     const lx = cx + lDist * Math.cos(a);
     const ly = cy + lDist * Math.sin(a);
-    const val = values[i];
-    const pct = maxVal > 0 ? Math.round((val/maxVal)*100) : 0;
+    const val = values[i]; // valeur normalisée pour la forme
+    const rawVal = rawValues[i]; // séries réelles pour affichage
 
-    // Point
     svg += '<circle cx="' + dp[i].x.toFixed(1) + '" cy="' + dp[i].y.toFixed(1) + '" r="' + (val > 0 ? 5 : 3) + '" fill="' + (val > 0 ? color : '#3A3A3C') + '" stroke="var(--card)" stroke-width="2"/>';
-
-    // Label with value
     svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly - 6).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" fill="' + (val > 0 ? color : '#5A5A5E') + '" font-size="11" font-weight="600">' + muscle + '</text>';
-    if (val > 0) svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 7).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" fill="' + color + '" font-size="9" opacity="0.9">' + val + 's (' + pct + '%)</text>';
+    if (rawVal > 0) svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 7).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" fill="' + color + '" font-size="9" opacity="0.9">' + rawVal + 's</text>';
   });
 
   svg += '</svg>';
   const ct = document.getElementById('radarContainer'); if (ct) ct.innerHTML = svg;
 
-  // Legend
+  // Legend — affiche les séries réelles
   const legend = document.getElementById('radarLegend');
   if (legend) legend.innerHTML = RADAR_AXES.map(muscle => {
-    const val = ms[muscle] || 0;
+    const val = rawValues[RADAR_AXES.indexOf(muscle)] || 0;
     const color = MUSCLE_COLORS_RADAR[muscle];
     return '<div style="display:flex;align-items:center;gap:5px;font-size:11px;">' +
       '<div style="width:10px;height:10px;border-radius:50%;background:' + (val>0?color:'#3A3A3C') + '"></div>' +
@@ -3568,6 +3698,8 @@ function renderLifts() {
     log.exercises.forEach(exo => {
       if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
       if ((exoCount[exo.name]||0) < 3) return;
+      // Exclure les variantes techniques — elles sont dans les stats SBD mais pas dans Meilleurs Lifts
+      if (VARIANT_KEYWORDS.some(kw => exo.name.toLowerCase().includes(kw))) return;
       const exoType = getExoType(exo.name);
       if (exoType !== 'weight' && exoType !== 'reps') return;
       if (!exo.maxRM || exo.maxRM <= 0) return;

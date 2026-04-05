@@ -9,7 +9,7 @@
   <style>
     :root { --bg:#000; --card:#151517; --blue:#0A84FF; --green:#32D74B; --red:#FF453A; --text:#F5F5F7; --sub:#86868B; --border:#2C2C2E; --orange:#FF9F0A; --purple:#BF5AF2; --teal:#64D2FF; --surface:#1C1C1E; --surface-border:#2C2C2E; }
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segohe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px 15px 100px; -webkit-font-smoothing: antialiased; }
+    body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px 15px 100px; -webkit-font-smoothing: antialiased; }
     .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: rgba(20,20,20,0.85); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--border); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
     .tab-btn { flex: 1; border: none; background: transparent; color: var(--sub); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: color 0.2s; position: relative; }
     .tab-btn.active { color: var(--blue); }
@@ -2730,46 +2730,36 @@ function renderPerfCard() {
   }
 
   // Graphique courbe progression (e1RM dans le temps, 1 ligne par exercice)
-    const cvLine = document.getElementById("chartPerfLine");
-    if (cvLine && keyLifts.some(kl => records[kl.name].history.length > 1)) {
-      if (window.chartPerfLine && typeof window.chartPerfLine.destroy === "function") window.chartPerfLine.destroy();
-      function _mkKey(d) { var p = d.split("/"); return p[2] + "-" + (p[1].length<2?"0"+p[1]:p[1]); }
-      function _mkLabel(k) {
-        var parts = k.split("-");
-        var mn = ["Jan","Feb","Mar","Avr","Mai","Jun","Jul","Aou","Sep","Oct","Nov","Dec"];
-        return mn[parseInt(parts[1])-1] + " " + parts[0].slice(2);
-      }
-      var _allM = new Set();
-      keyLifts.forEach(function(kl) { records[kl.name].history.forEach(function(p) { _allM.add(_mkKey(p.date)); }); });
-      var _months = Array.from(_allM).sort();
-      var _labels = _months.map(_mkLabel);
-      var datasets = keyLifts.map(function(kl, i) {
-        var hist = records[kl.name].history;
-        if (hist.length < 2) return null;
-        var byM = {};
-        hist.forEach(function(p) { var mk = _mkKey(p.date); if (!byM[mk] || p.rm > byM[mk]) byM[mk] = Math.round(p.rm*10)/10; });
-        var data = _months.map(function(m) { return byM[m]!=null ? byM[m] : null; });
-        var color = PALETTE[i%PALETTE.length];
-        return { label:kl.name, data:data, borderColor:color, backgroundColor:color+"18", fill:true, borderWidth:2.5, tension:0.4, spanGaps:true, pointRadius:_months.length>24?2:4, pointHoverRadius:6, pointBackgroundColor:color, pointBorderColor:"#1C1C1E", pointBorderWidth:1 };
-      }).filter(Boolean);
-      window.chartPerfLine = new Chart(cvLine, {
-        type:"line",
-        data:{labels:_labels,datasets:datasets},
-        options:{
-          responsive:true, maintainAspectRatio:false,
-          interaction:{mode:"index",intersect:false},
-          plugins:{
-            legend:{display:true,labels:{color:"#F5F5F7",font:{size:11},boxWidth:10,padding:14}},
-            tooltip:{backgroundColor:"#1C1C1E",borderColor:"#2C2C2E",borderWidth:1,titleColor:"#F5F5F7",bodyColor:"#86868B",
-              callbacks:{label:function(ctx){return ctx.parsed.y!=null?" "+ctx.dataset.label+": "+ctx.parsed.y+" kg e1RM":null;}}}
-          },
-          scales:{
-            x:{grid:{display:false},ticks:{color:"#86868B",font:{size:10},maxTicksLimit:12,maxRotation:0}},
-            y:{grid:{color:"#2C2C2E44"},ticks:{color:"#86868B",font:{size:10},callback:function(v){return v+" kg";}}}
-          }
+  const cvLine = document.getElementById('chartPerfLine');
+  if (cvLine && keyLifts.some(kl => records[kl.name].history.length > 1)) {
+    if (window.chartPerfLine) window.chartPerfLine.destroy();
+    const datasets = keyLifts.map((kl, i) => {
+      const pts = records[kl.name].history;
+      return {
+        label: kl.name.replace(/\s*\(.*\)/, '').split(' ')[0],
+        data: pts.map(p => ({ x: p.date, y: p.rm })),
+        borderColor: PALETTE[i % PALETTE.length],
+        backgroundColor: 'transparent',
+        borderWidth: 2, tension: 0.3,
+        pointRadius: pts.length > 10 ? 2 : 4,
+        pointBackgroundColor: PALETTE[i % PALETTE.length]
+      };
+    }).filter((_, i) => records[keyLifts[i].name].history.length > 1);
+
+    window.chartPerfLine = new Chart(cvLine, {
+      type: 'line',
+      data: { datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } } },
+        scales: {
+          x: { type: 'category', grid: { display: false }, ticks: { color: '#86868B', font: { size: 9 }, maxTicksLimit: 6 } },
+          y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } }
         }
-      });
-    }
+      }
+    });
+  }
+}
 
 // ── Réglages : éditeur exercices clés ────────────────────────
 function renderKeyLiftsEditor() {

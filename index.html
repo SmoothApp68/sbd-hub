@@ -2732,7 +2732,7 @@ function renderPerfCard() {
   // Graphique courbe progression (e1RM dans le temps, 1 ligne par exercice)
   const cvLine = document.getElementById('chartPerfLine');
   if (cvLine && keyLifts.some(kl => records[kl.name].history.length > 1)) {
-    if (window.chartPerfLine) window.chartPerfLine.destroy();
+    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') window.chartPerfLine.destroy();
     const datasets = keyLifts.map((kl, i) => {
       const pts = records[kl.name].history;
       return {

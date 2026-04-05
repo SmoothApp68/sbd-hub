@@ -4115,8 +4115,8 @@ function renderSBDLine() {
   const allDates = new Set(); SBD_TYPES.forEach(type => typeData[type].forEach(p => allDates.add(p.x)));
   const sortedDates = [...allDates].sort((a,b) => { const pa=a.split('/'),pb=b.split('/'); return new Date(+pa[2],+pa[1]-1,+pa[0])-new Date(+pb[2],+pb[1]-1,+pb[0]); });
   const datasets = SBD_TYPES.filter(type => typeData[type].length>0).map(type => ({
-    label: type[0].toUpperCase()+type.slice(1), data: typeData[type], borderColor:colors[type], backgroundColor:colors[type]+'22',
-    borderWidth:2.5, pointRadius:3, pointBackgroundColor:colors[type], tension:0.3, fill:false
+    label: type[0].toUpperCase()+type.slice(1), data: typeData[type], borderColor:colors[type], backgroundColor:'transparent',
+    borderWidth:3, pointRadius:3, pointBackgroundColor:colors[type], pointBorderColor:'transparent', pointHoverRadius:5, tension:0.4, fill:false
   }));
   if (!datasets.length) { renderSBDBar(); return; }
   chartSBD = new Chart(ctx, {

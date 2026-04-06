@@ -983,12 +983,9 @@
           <input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;">
           <button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button>
         </div>
-        <div style="display:flex;gap:10px;margin:12px 0;">
-          <button class="btn" style="background:var(--green);flex:1;" onclick="syncToCloud()">Push cloud</button>
-          <button class="btn" style="background:var(--blue);flex:1;" onclick="syncFromCloud()">Pull cloud</button>
-        </div>
-        <div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;"></div>
-        <button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button>
+        <div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;margin:8px 0;"></div>
+        <div id="lastSyncDisplay" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+        <button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button>
       </div>
     </div>
 
@@ -2310,7 +2307,21 @@ async function cloudSignIn() { if (!supaClient) return null; try { const {data:{
 async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
-function updateSyncStatus(s) { const el = document.getElementById('syncIndicator'); if (!el) return; el.textContent = s==='sync'?'Sync OK':s==='error'?'Erreur':''; setTimeout(() => { if (el) el.textContent = ''; }, 3000); }
+function updateSyncStatus(s) {
+  const el = document.getElementById('syncIndicator');
+  if (el) {
+    el.textContent = s==='sync' ? '✓ Sauvegardé' : s==='error' ? '⚠️ Erreur de sauvegarde' : '';
+    el.style.color = s==='error' ? 'var(--red)' : 'var(--green)';
+    setTimeout(() => { if (el) el.textContent = ''; }, 3000);
+  }
+  if (s === 'sync') {
+    const lsd = document.getElementById('lastSyncDisplay');
+    if (lsd) {
+      const now = new Date();
+      lsd.textContent = 'Dernière sauvegarde : ' + now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    }
+  }
+}
 async function sendMagicLink() { const email = document.getElementById('inputEmail').value.trim(); if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; } try { const {error} = await supaClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin+window.location.pathname } }); if (error) throw error; showToast('Lien envoyé ! Check tes emails'); } catch(e) { showToast('Erreur: '+e.message); } }
 async function handleAuthCallback() { if (window.location.hash && window.location.hash.includes('access_token')) { try { const {data, error} = await supaClient.auth.getSession(); if (error) throw error; if (data.session) { cloudSyncEnabled = true; updateCloudUI(data.session.user); await syncToCloud(true); showToast('Compte lié ! Sync active'); window.history.replaceState(null, '', window.location.pathname); } } catch(e) { console.error('Auth callback error:', e); } } }
 async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
@@ -2450,9 +2461,7 @@ function processHevy() {
   const shortDate = formatDate(sessionTimestamp);
   const dateKey = sessionDate.split(' à')[0];
   const doImport = () => {
-    const apiKey = localStorage.getItem('SBD_API_KEY');
-    if (apiKey) { showAIImportLoading(); extractWithAI(text).then(parsed => { if (parsed&&parsed.exercises&&parsed.exercises.length>0) { const session=buildSessionFromAI(parsed,text); finalizeSession(session,text); } else { showToast('IA indisponible — import regex'); executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine); } }); }
-    else { executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine); }
+    executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine);
   };
   if (db.logs.some(l => l.date.split(' à')[0] === dateKey)) { showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => { db.logs = db.logs.filter(l => l.date.split(' à')[0] !== dateKey); doImport(); }); return; }
   doImport();
@@ -2471,7 +2480,6 @@ function finalizeSession(session, rawText) {
   showImportSummary(session);
   showToast('✓ Séance importée'+(localStorage.getItem('SBD_API_KEY')?' (IA)':''));
   refreshUI();
-  if (localStorage.getItem('SBD_API_KEY')) aiGenerateDebrief(session, rawText);
 }
 
 function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
@@ -3503,7 +3511,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     }
   });
   handleAuthCallback();
-  if(shouldGenerateWeekly()){setTimeout(()=>{aiGenerateWeekly();},1500);}
 })();
 
 // ============================================================

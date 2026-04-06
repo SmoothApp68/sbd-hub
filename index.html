@@ -2732,7 +2732,10 @@ const AI_EXTRACT_SYSTEM = `Tu es un parseur de données d'entraînement. Tu reç
 RÈGLES ABSOLUES :
 - Réponds UNIQUEMENT avec du JSON valide, rien d'autre (pas de markdown, pas de \`\`\`json)
 - Ne jamais inventer de données absentes
-- Les séries [Échauffement] sont des warmups (isWarmup: true), ne comptent PAS dans les records
+- Les séries [Échauffement] sont des warmups (setType: "warmup"), ne comptent PAS dans les records
+- Les séries [Abandon] = poussées à l'échec (setType: "abandon"), ne comptent PAS dans les records
+- Les séries [Drop] ou [Drop set] = drop sets immédiats (setType: "drop"), ne comptent PAS dans les records
+- Toutes les autres séries normales : setType: "normal"
 
 FORMAT DE SORTIE :
 {
@@ -2748,7 +2751,7 @@ FORMAT DE SORTIE :
         {
           "weight": 100,
           "reps": 5,
-          "isWarmup": false,
+          "setType": "normal",
           "rpe": 8.5
         }
       ]
@@ -2810,15 +2813,18 @@ function buildSessionFromAI(parsed, rawText) {
     const isCardio = exoType === 'cardio', isTime = exoType === 'time', isReps = exoType === 'reps';
     const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [] };
     (exo.sets || []).forEach(s => {
-      const isW = s.isWarmup || false;
-      if (!isW) obj.sets++; // séries de travail uniquement pour le comptage
+      const isW      = s.isWarmup || s.setType === 'warmup';
+      const isAbandon= s.setType === 'abandon';
+      const isDrop   = s.setType === 'drop';
+      const countForRecord = !isW && !isAbandon && !isDrop;
+      if (countForRecord) obj.sets++;
       if (exoType === 'weight') {
         const w = s.weight||0, r = s.reps||0;
-        if (w>0&&r>0) { session.volume+=w*r; if(!isW){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
+        if (w>0&&r>0) { session.volume+=w*r; if(countForRecord){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
       } else if (exoType==='reps') {
-        if(!isW){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
+        if(countForRecord){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
       } else if (exoType==='time') {
-        if(!isW){const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;}
+        if(countForRecord){const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;}
       } else if (exoType==='cardio') {
         const d=s.distance||0,t=s.duration||0;if(d>obj.distance)obj.distance=d;if(t>obj.maxTime){obj.maxTime=t;obj.cardioDate=sessionTimestamp;}
       }
@@ -2885,7 +2891,17 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     if (!currExo) continue;
     if (l.startsWith('série')&&l.includes('kg x')&&!currExo.isCardio&&!currExo.isReps) {
       const m=l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);const isW=line.includes('[Échauffement]')||line.includes('[échauffement]');session.volume+=w*r;if(!isW){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}}
+      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);
+        const isW      = line.includes('[Échauffement]')||line.includes('[échauffement]');
+        // Abandon = poussé à l'échec volontaire ; Drop = série descendante immédiate
+        // Ces séries ne comptent PAS pour les records (elles ne reflètent pas une vraie performance)
+        const isAbandon= /\[abandon\]/i.test(line);
+        const isDrop   = /\[drop(\s*set)?\]/i.test(line);
+        const countForRecord = !isW && !isAbandon && !isDrop;
+        session.volume+=w*r;
+        if(countForRecord){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}
+        else if(isW){/* warmup : volume comptabilisé mais pas les records */}
+        }
     } else if (currExo.isReps&&l.startsWith('série')) {
       const repMatch=l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i)||l.match(/x\s*(\d+)/i)||l.match(/(\d+)\s*reps?\b/i);
       const kgMatch=l.match(/(\d+\.?\d*)\s*kg/i);
@@ -5173,42 +5189,213 @@ function generateWeeklyPlan() {
   const btn = document.getElementById('wpGenerateBtn');
   btn.disabled = true; btn.textContent = 'Calcul en cours...';
   const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
+  const wi = weekNum - 1; // 0-based index
 
-  // ── Progression par semaine ─────────────────────────────────
-  const mult      = { 1:0.92, 2:0.95, 3:0.98, 4:1.01 }[weekNum] || 0.92;
-  const bigBonus  = { 1:0, 2:2.5, 3:5,   4:7.5 }[weekNum];
-  const isoBonus  = { 1:0, 2:1,   3:2,   4:3   }[weekNum];
-  const rpe       = { 1:7, 2:7,   3:8,   4:9   }[weekNum];
+  // ── Niveau de l'athlète ──────────────────────────────────────
+  // Ajuste la vitesse de progression et l'intensité maximale
+  const LEVEL = db.user.level || 'intermediaire';
+  const LVL = {
+    //                loadOfs : décalage du % de charge de base
+    //                progFactor : multiplicateur des bonuses de progression
+    //                rpeMax : plafond RPE (on ne va jamais au-delà)
+    debutant:      { loadOfs:+0.02, progFactor:0.6,  rpeMax:8.0 },
+    intermediaire: { loadOfs: 0.00, progFactor:1.0,  rpeMax:9.0 },
+    avance:        { loadOfs:-0.02, progFactor:1.3,  rpeMax:9.5 },
+    competiteur:   { loadOfs:-0.04, progFactor:1.6,  rpeMax:10  },
+  }[LEVEL] || { loadOfs:0, progFactor:1, rpeMax:9 };
 
-  // ── Temps de repos par catégorie ────────────────────────────
-  function getRestSeconds(name, exoType) {
-    if (exoType === 'cardio' || exoType === 'cardio_stairs' || exoType === 'time') return 0;
+  // ── Catégorie d'exercice ─────────────────────────────────────
+  function getExoCategory(name) {
     const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if (/squat|deadlift|souleve|bench|developpe\s*couche/.test(n)) return 210;   // 3min30 composés lourds
-    if (/militaire|overhead|ohp|rowing|tirage|row\b|traction|pull.?up/.test(n)) return 150; // 2min30 composés légers
-    if (exoType === 'reps') return 90;   // BW : 1min30
-    return 90;                           // isolation : 1min30
+    if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) return 'big';
+    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain/.test(n)) return 'compound';
+    return 'isolation';
+  }
+
+  // ── Schémas reps/séries/RPE par catégorie ────────────────────
+  const SCHEME = {
+    //               S1    S2    S3    S4
+    big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
+    compound:  { reps:[8,  8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
+    isolation: { reps:[12, 12, 10, 8 ], sets:[3,3,4,4], rpe:[7,  7,  7.5,8  ], rest:90  },
+  };
+
+  // ── Notes coach par semaine ──────────────────────────────────
+  const WEEK_NOTES = [
+    'Semaine de base — pose les fondations, pas d\'ego sur la barre.',
+    'Accumulation — monte progressivement, technique avant tout.',
+    'Intensification — charges lourdes, récupère bien entre séries.',
+    LEVEL === 'avance' || LEVEL === 'competiteur'
+      ? 'Peak — RPE max autorisé, tout sur la table.'
+      : 'Peak — séances courtes et intenses, c\'est là que ça compte.',
+  ];
+
+  // ── Facteurs de charge (modulés par niveau) ──────────────────
+  const LOAD_PCT   = [0.88, 0.92, 0.96, 1.00][wi] + LVL.loadOfs;
+  // Avancé/compétiteur : bonus plus grands car leurs PRs sont plus durs à battre
+  const BONUS_BIG  = round05([0, 2.5, 5.0, 7.5][wi]  * LVL.progFactor);
+  const BONUS_COMP = round05([0, 1.25, 2.5, 5.0][wi]  * LVL.progFactor);
+  const BONUS_ISO  = round05([0, 0,   1.25, 2.5][wi]  * LVL.progFactor);
+
+  function getBonusForCat(cat) {
+    return cat === 'big' ? BONUS_BIG : cat === 'compound' ? BONUS_COMP : BONUS_ISO;
+  }
+
+  // ── Tendance réelle par exercice (régression linéaire) ───────
+  // Utilise les 6 sessions les plus RÉCENTES (pas les plus anciennes)
+  function computeExoTrend(exoName) {
+    const pts = [];
+    // Trier décroissant (récent en premier), collecter les 6 dernières occurrences
+    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    for (const log of desc) {
+      const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+      if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+      pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+      if (pts.length >= 6) break;
+    }
+    if (pts.length < 2) return { kgPerWeek: 0, lastE1rm: pts[0]?.y || 0, n: pts.length };
+    // Re-trier croissant pour la régression (x croissant = temps croissant)
+    pts.sort((a,b) => a.x - b.x);
+    const n = pts.length;
+    const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+    const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+    const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+    return { kgPerWeek: Math.round(slope*7*10)/10, lastE1rm: pts[pts.length-1].y, n };
+  }
+
+  // ── Fréquence hebdomadaire d'un exercice ─────────────────────
+  // Compte le nombre de jours dans db.routineExos où cet exercice apparaît.
+  function getExoFreqPerWeek(exoName) {
+    let freq = 0;
+    DAYS_FULL.forEach(day => {
+      const dayExos = getProgExosForDay(day);
+      if (dayExos.some(e => e === exoName || matchExoName(e, exoName))) freq++;
+    });
+    return freq || 1; // minimum 1 (évite la division par zéro)
   }
 
   // ── Agréger meilleurs records tous jours confondus ──────────
   const allBest = {};
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
-      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxReps:0, maxTime:0, distance:0, repRecords:{} };
+      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxReps:0, maxTime:0, distance:0, repRecords:{}, _ts:0 };
       const r = allBest[exo.name];
-      if ((exo.maxRM   ||0) > r.maxRM)   r.maxRM   = exo.maxRM;
-      if ((exo.maxReps ||0) > r.maxReps) r.maxReps = exo.maxReps;
-      if ((exo.maxTime ||0) > r.maxTime) r.maxTime = exo.maxTime;
+      if ((exo.maxRM   ||0) > r.maxRM)    r.maxRM    = exo.maxRM;
+      if ((exo.maxReps ||0) > r.maxReps)  r.maxReps  = exo.maxReps;
+      if ((exo.maxTime ||0) > r.maxTime)  r.maxTime  = exo.maxTime;
       if ((exo.distance||0) > r.distance) r.distance = exo.distance;
       Object.entries(exo.repRecords||{}).forEach(([k,v]) => { if (!r.repRecords[k]||v>r.repRecords[k]) r.repRecords[k]=v; });
+      if ((log.timestamp||0) > r._ts) r._ts = log.timestamp;
     });
   });
-  // Résoudre un nom de programme vers la clé dans allBest (tolérant)
+
+  // Résoudre un nom de programme → record dans allBest
+  // En cas d'ambiguïté, préférer le plus récemment enregistré
   function resolveRecord(exoName) {
-    const direct = allBest[exoName];
-    if (direct) return direct;
-    const key = Object.keys(allBest).find(k => matchExoName(k, exoName) || matchExoName(exoName, k));
-    return key ? allBest[key] : null;
+    if (allBest[exoName]) return allBest[exoName];
+    const matches = Object.keys(allBest).filter(k => matchExoName(k, exoName) || matchExoName(exoName, k));
+    if (!matches.length) return null;
+    matches.sort((a,b) => (allBest[b]._ts||0) - (allBest[a]._ts||0));
+    return allBest[matches[0]];
+  }
+
+  // ── Record RÉCENT (90 derniers jours) ───────────────────────
+  // Pour la programmation, ce qui compte c'est ce que tu fais MAINTENANT,
+  // pas ton PR de l'année dernière. Fallback sur all-time si rien de récent.
+  function resolveRecentRecord(exoName) {
+    const cutoff = Date.now() - 90 * 86400000;
+    const recent = { maxRM: 0, maxReps: 0, maxTime: 0, distance: 0, repRecords: {} };
+    db.logs
+      .filter(l => l.timestamp >= cutoff)
+      .sort((a,b) => b.timestamp - a.timestamp)
+      .forEach(log => {
+        const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+        if (!exo) return;
+        if ((exo.maxRM||0) > recent.maxRM) recent.maxRM = exo.maxRM;
+        if ((exo.maxReps||0) > recent.maxReps) recent.maxReps = exo.maxReps;
+        if ((exo.maxTime||0) > recent.maxTime) recent.maxTime = exo.maxTime;
+        if ((exo.distance||0) > recent.distance) recent.distance = exo.distance;
+        Object.entries(exo.repRecords||{}).forEach(([k,v]) => {
+          if (!recent.repRecords[k] || v > recent.repRecords[k]) recent.repRecords[k] = v;
+        });
+      });
+    const hasData = recent.maxRM > 0 || Object.keys(recent.repRecords).length > 0 || recent.maxReps > 0 || recent.maxTime > 0;
+    return hasData ? recent : resolveRecord(exoName); // fallback all-time si rien de récent
+  }
+
+  // ── Calculer le poids de travail cible ──────────────────────
+  // hist : record récent, tReps : reps cibles, cat : catégorie
+  // exoName : pour trend, fatigue : score fatigue [0..1]
+  function computeWorkWeight(hist, tReps, cat, exoName) {
+    const bonus = getBonusForCat(cat);
+    const trend = exoName ? computeExoTrend(exoName) : { kgPerWeek:0, n:0 };
+
+    // Ajustement tendance inter-séances (si ≥3 séances de données)
+    // Forte progression → soyons un peu plus agressifs ; régression → on recule
+    let adj = 0;
+    if (trend.n >= 3) {
+      if (trend.kgPerWeek > 1.5)       adj = round05(Math.min(trend.kgPerWeek * 0.4, 5));
+      else if (trend.kgPerWeek < -0.5) adj = round05(Math.max(trend.kgPerWeek * 0.5, -5));
+    }
+
+    // 1. Record exact au nombre de reps cible
+    const exactW = hist?.repRecords?.[String(tReps)];
+    if (exactW > 0) {
+      return round05((wi === 0 ? exactW * LOAD_PCT : exactW + bonus) + adj);
+    }
+    // 2. Estimer depuis le record disponible le plus lourd via Epley
+    const recs = Object.entries(hist?.repRecords||{})
+      .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
+      .sort((a,b) => a[0] - b[0]);
+    if (recs.length > 0) {
+      const [r0, w0] = recs[0];
+      const e1   = calcE1RM(w0, r0);
+      const base = round05(e1 * (1.0278 - 0.0278 * tReps));
+      return round05((wi === 0 ? base * LOAD_PCT : base + bonus) + adj);
+    }
+    // 3. Depuis le e1RM global
+    if (hist?.maxRM > 0) {
+      return round05(hist.maxRM * (1.0278 - 0.0278 * tReps) * LOAD_PCT + adj);
+    }
+    return null;
+  }
+
+  // ── Note coach dynamique par jour ───────────────────────────
+  // Utilise detectPlateau() + calcMomentum() + computeExoTrend()
+  // Priorité : plateau SBD > tendance principale > note générique semaine
+  function buildDayCoachNote(dayExoNames) {
+    if (!dayExoNames || !dayExoNames.length) return WEEK_NOTES[wi];
+
+    // 1. Vérifier plateaux SBD pour les lifts présents ce jour
+    for (const sbdType of ['squat', 'bench', 'deadlift']) {
+      if (!dayExoNames.some(n => getSBDType(n) === sbdType)) continue;
+      const plat = detectPlateau(sbdType, 3);
+      if (plat) {
+        const nm = sbdType === 'bench' ? 'Bench' : sbdType === 'squat' ? 'Squat' : 'Dead';
+        return nm + ' en plateau — essaie une variante ou décharge légèrement.';
+      }
+      // Momentum fort → note positive
+      const mom = calcMomentum(sbdType);
+      if (mom !== null && mom > 1.5) {
+        const nm = sbdType === 'bench' ? 'Bench' : sbdType === 'squat' ? 'Squat' : 'Dead';
+        return nm + ' en feu (+' + mom + 'kg/sem) — reste sur cette lancée.';
+      }
+    }
+
+    // 2. Tendance sur le premier exercice composé non-SBD du jour
+    for (const exoName of dayExoNames.slice(0, 4)) {
+      if (getSBDType(exoName)) continue;
+      const cat = getExoCategory(exoName);
+      if (cat === 'isolation') continue;
+      const tr = computeExoTrend(exoName);
+      if (tr.n < 3) continue;
+      const short = exoName.split(' ').slice(0,2).join(' ');
+      if (tr.kgPerWeek > 1.5) return short + ' progresse (+' + tr.kgPerWeek + 'kg/sem) — continue.';
+      if (tr.kgPerWeek < -1)  return short + ' en recul — priorité technique, pas la charge.';
+    }
+
+    // 3. Note générique de la semaine
+    return WEEK_NOTES[wi];
   }
 
   const routine = getRoutine();
@@ -5220,24 +5407,37 @@ function generateWeeklyPlan() {
     const exercises = [];
 
     if (!isRest) {
-      // Priorité 1 : exercices configurés dans Réglages → Mon Programme
+      // Priorité 1 : exercices configurés dans Réglages
       let exoNames = getProgExosForDay(day);
-      // Priorité 2 : session récente du même jour (si pas de programme configuré)
+      // Priorité 2 : session la plus récente du même jour
       if (!exoNames.length) {
-        const recent = db.logs.find(l => l.day === day && l.exercises.length > 0);
+        const recent = [...db.logs]
+          .filter(l => l.day === day && l.exercises.length > 0)
+          .sort((a,b) => b.timestamp - a.timestamp)[0];
         if (recent) exoNames = recent.exercises.filter(e => !e.isCardio).slice(0,8).map(e => e.name);
       }
 
       exoNames.forEach(exoName => {
         const exoType = getExoType(exoName);
-        const hist    = resolveRecord(exoName);
-        const rest    = getRestSeconds(exoName, exoType);
-        const big     = /squat|deadlift|soulevé|souleve|bench|développé\s*couché|developpe\s*couche/.test(exoName.toLowerCase());
+        const hist    = resolveRecentRecord(exoName); // basé sur les 90 derniers jours, pas all-time
+        const cat     = getExoCategory(exoName);
+        const sc      = SCHEME[cat] || SCHEME.isolation;
+        const tReps   = sc.reps[wi];
+        const rest    = (exoType === 'cardio' || exoType === 'cardio_stairs' || exoType === 'time') ? 0 : sc.rest;
+
+        // RPE plafonné au niveau de l'athlète
+        const tRpe = Math.min(sc.rpe[wi], LVL.rpeMax);
+
+        // Fréquence hebdomadaire → ajuster le volume par séance
+        // Si tu fais l'exercice 3×/sem → 1 série de moins par séance (charge cumulée)
+        // Si 1×/sem → 1 série de plus (moins d'occasions, plus de volume par séance)
+        const freq = (exoType === 'weight' || exoType === 'reps') ? getExoFreqPerWeek(exoName) : 1;
+        const nSets = Math.max(2, sc.sets[wi] + (freq >= 3 ? -1 : freq === 1 ? +1 : 0));
 
         if (exoType === 'time') {
-          // ── Gainage / isométrique ────────────────────────────
+          // ── Gainage / isométrique — progression durée ────────
           const recSec  = hist?.maxTime || 30;
-          const progSec = weekNum === 1 ? recSec : Math.round(recSec * (1 + (weekNum-1) * 0.08));
+          const progSec = Math.round(recSec * (1 + wi * 0.08));
           exercises.push({ name:exoName, type:'time', restSeconds:0,
             sets: Array.from({length:3}, () => ({ isWarmup:false, durationSec:progSec })) });
 
@@ -5245,19 +5445,18 @@ function generateWeeklyPlan() {
           // ── BW ou lesté (tractions, pompes, dips…) ───────────
           const weightedRecs = Object.entries(hist?.repRecords||{})
             .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
-            .sort((a,b) => a[0] - b[0]); // ascending reps (lowest = heaviest)
+            .sort((a,b) => a[0] - b[0]);
           if (weightedRecs.length > 0) {
-            // Séries lestées : prendre le record le plus lourd comme référence → 3 séries identiques
-            const [refReps, refW] = weightedRecs[0];
-            const workW = round05(weekNum === 1 ? refW * mult : refW + isoBonus);
+            const workW = computeWorkWeight(hist, tReps, cat, exoName);
             exercises.push({ name:exoName, type:'reps', restSeconds:rest,
-              sets: Array.from({length:3}, () => ({ isWarmup:false, weight:workW, reps:refReps, rpe })) });
+              sets: Array.from({length:nSets}, () => ({ isWarmup:false, weight:workW, reps:tReps, rpe:tRpe })) });
           } else {
-            // Poids de corps pur → N séries × reps cibles
+            // Poids de corps pur → % du max progressif
             const recMax = hist?.maxReps || 0;
-            const target = recMax > 0 ? Math.max(3, Math.round(recMax * (0.75 + weekNum*0.05))) : 'max';
+            const bwFactors = [0.75, 0.80, 0.85, 0.90];
+            const target = recMax > 0 ? Math.max(3, Math.round(recMax * bwFactors[wi])) : 'max';
             exercises.push({ name:exoName, type:'reps', restSeconds:rest,
-              sets: Array.from({length:3}, () => ({ isWarmup:false, weight:null, reps:target, rpe })) });
+              sets: Array.from({length:nSets}, () => ({ isWarmup:false, weight:null, reps:target, rpe:tRpe })) });
           }
 
         } else if (exoType === 'cardio' || exoType === 'cardio_stairs') {
@@ -5267,36 +5466,19 @@ function generateWeeklyPlan() {
             sets: [{ isWarmup:false, durationMin:recMin, distance:hist?.distance||null }] });
 
         } else {
-          // ── Poids (défaut) ───────────────────────────────────
-          // Cibler un seul nombre de reps par semaine → séries identiques (plus cohérent)
-          const targetReps  = [8, 8, 6, 5][weekNum-1] || 6;
-          const nWorkSets   = [4, 4, 3, 3][weekNum-1] || 3;
-          let workWeight    = null;
-
-          if (hist?.repRecords && Object.keys(hist.repRecords).length > 0) {
-            const exactW = hist.repRecords[String(targetReps)];
-            if (exactW > 0) {
-              workWeight = round05(weekNum===1 ? exactW*mult : exactW + (big?bigBonus:isoBonus));
-            } else {
-              // Estimer depuis le record disponible le plus lourd (via e1RM)
-              const recs = Object.entries(hist.repRecords).map(([r,w])=>[parseInt(r),w]).filter(([,w])=>w>0).sort((a,b)=>a[0]-b[0]);
-              if (recs.length > 0) {
-                const [r0, w0] = recs[0];
-                const e1rmEst  = calcE1RM(w0, r0);
-                const base     = round05(e1rmEst * (1.0278 - 0.0278 * targetReps));
-                workWeight     = round05(weekNum===1 ? base*mult : base + (big?bigBonus:isoBonus));
-              }
-            }
-          }
-          if (!workWeight && hist?.maxRM > 0) {
-            workWeight = round05(hist.maxRM * (1.0278 - 0.0278 * targetReps) * mult);
-          }
-
+          // ── Poids — N séries identiques au poids cible ───────
+          const workWeight = computeWorkWeight(hist, tReps, cat, exoName);
           if (workWeight && workWeight > 0) {
+            // Échauffements adaptés : 2 paliers si gros lift, 1 si composé/isolation
+            const warmups = cat === 'big'
+              ? [ { isWarmup:true, weight:round05(workWeight*0.4), reps:8 },
+                  { isWarmup:true, weight:round05(workWeight*0.65), reps:5 },
+                  { isWarmup:true, weight:round05(workWeight*0.85), reps:2 } ]
+              : [ { isWarmup:true, weight:round05(workWeight*0.5), reps:10 },
+                  { isWarmup:true, weight:round05(workWeight*0.75), reps:5  } ];
             exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[
-              { isWarmup:true,  weight:round05(workWeight*0.5),  reps:10 },
-              { isWarmup:true,  weight:round05(workWeight*0.75), reps:5  },
-              ...Array.from({length:nWorkSets}, () => ({ isWarmup:false, weight:workWeight, reps:targetReps, rpe }))
+              ...warmups,
+              ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:workWeight, reps:tReps, rpe:tRpe }))
             ]});
           } else {
             exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
@@ -5305,7 +5487,7 @@ function generateWeeklyPlan() {
       });
     }
 
-    plan.days.push({ day, title: label || day, rest: isRest, coachNote:'', exercises });
+    plan.days.push({ day, title: label || day, rest: isRest, coachNote: isRest ? '' : buildDayCoachNote(exoNames), exercises });
   });
 
   db.weeklyPlan = plan;
@@ -5426,7 +5608,25 @@ function renderWpExercise(exo) {
     tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Charge</th><th>Reps</th><th>RPE</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}</span><span class="wp-exo-type">${typeIcon}</span></div>${tableHtml}${restTag}</div>`;
+  // Résumé compact au-dessus du tableau (ex: "4×5 @ RPE 8")
+  const wrkSetsAll = sets.filter(s=>!s.isWarmup);
+  let summary = '';
+  if (wrkSetsAll.length > 0 && type !== 'cardio' && type !== 'cardio_stairs' && !exo.noData) {
+    const s0 = wrkSetsAll[0];
+    if (type === 'time') {
+      const sec = s0.durationSec||0;
+      summary = wrkSetsAll.length + '×' + (sec>=60 ? Math.floor(sec/60)+'min'+(sec%60?sec%60+'s':'') : sec+'s');
+    } else if (type === 'reps' && s0.weight > 0) {
+      summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
+    } else if (type === 'reps') {
+      summary = wrkSetsAll.length + '×' + (s0.reps === 'max' ? 'max' : s0.reps);
+    } else if (type === 'weight' && s0.weight > 0) {
+      summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
+    }
+    if (s0.rpe && type !== 'time') summary += ' · RPE ' + s0.rpe;
+  }
+  const summaryTag = summary ? `<span style="font-size:11px;color:var(--blue);font-weight:600;margin-left:6px;">${summary}</span>` : '';
+  return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}${summaryTag}</span><span class="wp-exo-type">${typeIcon}</span></div>${tableHtml}${restTag}</div>`;
 }
 </script>
 </body>

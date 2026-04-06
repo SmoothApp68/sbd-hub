@@ -774,8 +774,6 @@
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
-    <div class="acc-card" id="acc-dash-reports-card" style="display:none;"><div class="acc-header" onclick="toggleAcc('acc-dash-reports')"><span>📋 Rapports récents <span id="dashReportsBadge" class="dash-acc-badge" style="display:none;"></span></span><span class="acc-chevron" id="chev-acc-dash-reports">▾</span></div><div class="acc-body" id="acc-dash-reports"></div></div>
-    <div class="acc-card" id="acc-dash-weekly-card" style="display:none;"><div class="acc-header" onclick="toggleAcc('acc-dash-weekly')"><span>🏋️ Programme Semaine <span id="dashWeeklyBadge" class="dash-acc-badge green" style="display:none;">✓</span></span><span class="acc-chevron" id="chev-acc-dash-weekly">▾</span></div><div class="acc-body" id="acc-dash-weekly"></div></div>
   </div>
   <div id="tab-seances" class="content-section">
     <div class="card">
@@ -802,23 +800,28 @@
 
     <div id="aiReportsTimeline"></div>
 
-    <!-- Weekly Plan -->
+    <!-- Weekly Plan — collapsible -->
     <div class="wp-card" id="weeklyPlanSection">
-      <div class="wp-header">
+      <div class="wp-header" onclick="toggleWpBody()" style="cursor:pointer;">
         <div style="font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">🏋️ Programme Semaine</div>
-        <div id="wpMeta" style="font-size:11px;color:var(--sub);"></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="wpMeta" style="font-size:11px;color:var(--sub);"></div>
+          <span id="wpChevron" style="font-size:12px;color:var(--sub);transition:transform 0.3s;">▾</span>
+        </div>
       </div>
-      <div class="wp-bloc-controls">
-        <select class="wp-bloc-select" id="wpBlocSelect">
-          <option value="1">Bloc — Semaine 1 (Post-deload)</option>
-          <option value="2">Bloc — Semaine 2</option>
-          <option value="3">Bloc — Semaine 3</option>
-          <option value="4">Bloc — Semaine 4 (Peak)</option>
-        </select>
-        <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
+      <div id="wpBody">
+        <div class="wp-bloc-controls">
+          <select class="wp-bloc-select" id="wpBlocSelect">
+            <option value="1">Bloc — Semaine 1 (Post-deload)</option>
+            <option value="2">Bloc — Semaine 2</option>
+            <option value="3">Bloc — Semaine 3</option>
+            <option value="4">Bloc — Semaine 4 (Peak)</option>
+          </select>
+          <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
+        </div>
+        <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
+        <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
       </div>
-      <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
-      <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
     </div>
 
     <!-- Rapport IA Approfondi — Claude uniquement sur demande -->
@@ -2353,11 +2356,53 @@ function matchExoName(hevyName, progName) {
 // REPORTS
 // ============================================================
 function purgeExpiredReports() { const now = Date.now(); const before = db.reports.length; db.reports = db.reports.filter(r => r.expires_at > now); if (db.reports.length !== before) saveDB(); }
-function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); renderReportsTimeline(); renderDashReports(); }
+function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); renderReportsTimeline(); }
 function markReportsRead() { let changed = false; db.reports.forEach(r => { if (!r.read) { r.read = true; changed = true; } }); if (changed) saveDB(); updateCoachBadge(); }
 function updateCoachBadge() { const unread = db.reports.filter(r => !r.read && r.expires_at > Date.now()).length; const btn = document.querySelector('.tab-btn[data-tab="tab-ai"]'); const existing = btn.querySelector('.tab-badge'); if (unread > 0 && !existing) { const dot = document.createElement('span'); dot.className = 'tab-badge'; btn.appendChild(dot); } else if (unread === 0 && existing) existing.remove(); }
 function shouldGenerateWeekly() { const today = new Date(); if (today.getDay() !== 6) return false; const existing = db.reports.find(r => r.type === 'weekly'); if (existing) { const created = new Date(existing.created_at); if (created.toDateString() === today.toDateString()) return false; } return getLogsInRange(7).length > 0; }
-function renderReportsTimeline() { purgeExpiredReports(); const container = document.getElementById('aiReportsTimeline'); const reports = db.reports.filter(r => r.expires_at > Date.now()).sort((a,b) => b.created_at - a.created_at); if (reports.length === 0) { container.innerHTML = ''; return; } container.innerHTML = '<div class="card"><h2>📋 Rapports récents</h2><p style="font-size:11px;color:var(--sub);margin:4px 0 14px;">Auto-suppression après 7 jours</p>'+reports.map(r => { const typeLabel = r.type==='debrief'?'🏋️ Débrief Séance':'📊 Bilan Hebdo'; const dl = daysLeft(r.expires_at); const unreadDot = r.read?'':'<span class="report-new-dot"></span>'; return '<div class="report-card '+r.type+'" id="report-'+r.id+'"><div class="report-card-header"><div class="report-card-type">'+unreadDot+' '+typeLabel+'</div><div style="text-align:right;"><div class="report-card-date">'+timeAgo(r.created_at)+'</div><div class="report-card-expiry">⏳ Expire dans '+dl+'j</div></div></div><div class="report-card-body" id="report-body-'+r.id+'" style="display:none;"><div class="ai-response-content">'+r.html+'</div></div><button class="report-toggle" onclick="toggleReport(\''+r.id+'\')">Voir le rapport ▾</button></div>'; }).join('')+'</div>'; }
+let reportsTimelineOpen = true;
+function toggleReportsTimeline() {
+  reportsTimelineOpen = !reportsTimelineOpen;
+  const body = document.getElementById('reportsTimelineBody');
+  const chev = document.getElementById('reportsTimelineChevron');
+  if (body) body.style.display = reportsTimelineOpen ? '' : 'none';
+  if (chev) chev.style.transform = reportsTimelineOpen ? '' : 'rotate(-90deg)';
+}
+function renderReportsTimeline() {
+  purgeExpiredReports();
+  const container = document.getElementById('aiReportsTimeline');
+  const reports = db.reports.filter(r => r.expires_at > Date.now()).sort((a,b) => b.created_at - a.created_at);
+  if (reports.length === 0) { container.innerHTML = ''; return; }
+  const cardsHtml = reports.map(r => {
+    const typeLabel = r.type==='debrief'?'🏋️ Débrief Séance':'📊 Bilan Hebdo';
+    const dl = daysLeft(r.expires_at);
+    const unreadDot = r.read?'':'<span class="report-new-dot"></span>';
+    return '<div class="report-card '+r.type+'" id="report-'+r.id+'">' +
+      '<div class="report-card-header"><div class="report-card-type">'+unreadDot+' '+typeLabel+'</div>' +
+      '<div style="text-align:right;"><div class="report-card-date">'+timeAgo(r.created_at)+'</div>' +
+      '<div class="report-card-expiry">⏳ Expire dans '+dl+'j</div></div></div>' +
+      '<div class="report-card-body" id="report-body-'+r.id+'" style="display:none;"><div class="ai-response-content">'+r.html+'</div></div>' +
+      '<button class="report-toggle" onclick="toggleReport(\''+r.id+'\')">Voir le rapport ▾</button></div>';
+  }).join('');
+  container.innerHTML =
+    '<div class="acc-card" style="margin-bottom:12px;">' +
+      '<div class="acc-header" onclick="toggleReportsTimeline()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">' +
+        '<h2 style="margin:0;">📋 Rapports récents</h2>' +
+        '<span id="reportsTimelineChevron" class="acc-chevron" style="transition:transform 0.3s;">▾</span>' +
+      '</div>' +
+      '<div id="reportsTimelineBody" class="acc-body">' +
+        '<p style="font-size:11px;color:var(--sub);margin:0 0 14px;">Auto-suppression après 7 jours</p>' +
+        cardsHtml +
+      '</div>' +
+    '</div>';
+  // restore open/closed state
+  if (!reportsTimelineOpen) {
+    const body = document.getElementById('reportsTimelineBody');
+    const chev = document.getElementById('reportsTimelineChevron');
+    if (body) body.style.display = 'none';
+    if (chev) chev.style.transform = 'rotate(-90deg)';
+  }
+}
 function toggleReport(id) { const body = document.getElementById('report-body-'+id); const btn = body.parentElement.querySelector('.report-toggle'); if (body.style.display === 'none') { body.style.display = 'block'; btn.textContent = 'Masquer ▴'; } else { body.style.display = 'none'; btn.textContent = 'Voir le rapport ▾'; } }
 
 // ============================================================
@@ -2706,12 +2751,12 @@ function renderDash() {
   if (greet && db.user.name) greet.textContent = 'Salut ' + db.user.name + ' 👋';
   renderPerfCard();
   renderDayExercises(selectedDay);
-  renderDashReports();
-  renderDashWeeklyPlan();
 }
 
 // ── Rubrique Performance configurable ────────────────────────
 let chartPerf = null;
+let perfChartMode = 'bars';
+function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
 
 // Incrément objectif selon le groupe musculaire de l'exercice
 function getPerfIncrement(exoName) {
@@ -2826,43 +2871,126 @@ function renderPerfCard() {
     window.chartPerfLine.destroy(); window.chartPerfLine = null;
   }
 
-  el.innerHTML =
-    '<div class="sbd-grid" style="grid-template-columns:' + cols + ';">' + boxesHtml + '</div>' +
-    '<div style="height:220px;margin-top:25px;"><canvas id="chartPerf"></canvas></div>';
+  const toggleHtml =
+    '<div style="display:flex;gap:6px;margin-bottom:16px;">' +
+    '<button class="period-btn' + (perfChartMode==='bars'?' active':'') + '" onclick="setPerfMode(\'bars\')" style="font-size:11px;">📊 Barres</button>' +
+    '<button class="period-btn' + (perfChartMode==='curve'?' active':'') + '" onclick="setPerfMode(\'curve\')" style="font-size:11px;">📈 Progression</button>' +
+    '</div>';
 
-  // Graphique barres
-  const cvBar = document.getElementById('chartPerf');
-  if (cvBar) {
-    if (chartPerf) chartPerf.destroy();
-    chartPerf = new Chart(cvBar, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: '1RM Réel',  data: real1rms, backgroundColor: bgMain,   borderRadius: 6, barThickness: 22 },
-          { label: 'e1RM (Epley)', data: e1rms, backgroundColor: bgE1rm,   borderRadius: 6, barThickness: 22 },
-          { label: 'Objectif',  data: targets,  backgroundColor: bgTarget,  borderRadius: 6, barThickness: 22,
-            borderColor: bgMain, borderWidth: 2 }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } },
-          tooltip: { callbacks: { afterLabel: c => {
-            if (c.datasetIndex === 2) {
-              const rm = e1rms[c.dataIndex];
-              return targets[c.dataIndex] > 0 && rm > 0 ? 'Reste : ' + (targets[c.dataIndex] - rm) + 'kg' : '';
-            }
-            return '';
-          }}}
+  el.innerHTML =
+    toggleHtml +
+    '<div class="sbd-grid" style="grid-template-columns:' + cols + ';">' + boxesHtml + '</div>' +
+    (perfChartMode === 'bars'
+      ? '<div style="height:210px;margin-top:20px;"><canvas id="chartPerf"></canvas></div>'
+      : '<div style="height:210px;margin-top:20px;"><canvas id="chartPerfLine"></canvas></div>');
+
+  if (perfChartMode === 'bars') {
+    // ── Graphique barres ────────────────────────────────────────
+    const cvBar = document.getElementById('chartPerf');
+    if (cvBar) {
+      if (chartPerf) chartPerf.destroy();
+      chartPerf = new Chart(cvBar, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: '1RM Réel',     data: real1rms, backgroundColor: bgMain,   borderRadius: 6, barThickness: 22 },
+            { label: 'e1RM (Epley)', data: e1rms,    backgroundColor: bgE1rm,   borderRadius: 6, barThickness: 22 },
+            { label: 'Objectif',     data: targets,  backgroundColor: bgTarget,  borderRadius: 6, barThickness: 22,
+              borderColor: bgMain, borderWidth: 2 }
+          ]
         },
-        scales: {
-          y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
-          x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } },
+            tooltip: { callbacks: { afterLabel: c => {
+              if (c.datasetIndex === 2) {
+                const rm = e1rms[c.dataIndex];
+                return targets[c.dataIndex] > 0 && rm > 0 ? 'Reste : ' + (targets[c.dataIndex] - rm) + 'kg' : '';
+              }
+              return '';
+            }}}
+          },
+          scales: {
+            y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
+            x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
+          }
         }
+      });
+    }
+  } else {
+    // ── Courbe de progression — PR glissant, 360j ───────────────
+    const cvLine = document.getElementById('chartPerfLine');
+    if (cvLine) {
+      if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') window.chartPerfLine.destroy();
+      const limit360 = Date.now() - 360 * 86400000;
+      // Construire séries par exercice : running max chronologique
+      const exoSeries = {};
+      keyLifts.forEach(kl => {
+        const hist = [...records[kl.name].history].filter(p => p.ts >= limit360).sort((a,b) => a.ts-b.ts);
+        if (!hist.length) return;
+        let runMax = 0;
+        exoSeries[kl.name] = hist.map(p => {
+          if (p.rm > runMax) runMax = p.rm;
+          return { ts: p.ts, rm: runMax };
+        });
+      });
+      const allTs = [...new Set(Object.values(exoSeries).flatMap(pts => pts.map(p => p.ts)))].sort((a,b)=>a-b);
+      if (!allTs.length) { cvLine.parentElement.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">Pas assez de données</div>'; return; }
+      const step = Math.max(1, Math.floor(allTs.length / 8));
+      const xLabels = allTs.map((ts,i) => {
+        if (i % step !== 0 && i !== allTs.length-1) return '';
+        const d = new Date(ts);
+        return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+      });
+      // Valeur min globale pour Y-axis (zoom sur la plage réelle)
+      const allVals = Object.values(exoSeries).flatMap(pts => pts.map(p => p.rm)).filter(Boolean);
+      const globalMin = allVals.length ? Math.max(0, Math.min(...allVals) - 10) : 0;
+      const datasets = keyLifts.map((kl, i) => {
+        const pts = exoSeries[kl.name];
+        if (!pts) return null;
+        const byTs = Object.fromEntries(pts.map(p => [p.ts, p.rm]));
+        let last = null;
+        // Marquer les vrais PR (changements de valeur)
+        const prTs = new Set(pts.map(p => p.ts));
+        const data = allTs.map(ts => { if (byTs[ts] != null) last = byTs[ts]; return last; });
+        const pointR = allTs.map(ts => prTs.has(ts) && byTs[ts] != null && (byTs[ts] > (pts.find(p=>p.ts<ts)?.rm||0)) ? 4 : 0);
+        const color = PALETTE[i % PALETTE.length];
+        return {
+          label: kl.name.replace(/\s*\(.*\)/, '').split(' ').slice(0,2).join(' '),
+          data, borderColor: color, backgroundColor: color+'15',
+          fill: false, borderWidth: 2.5, tension: 0.3,
+          pointRadius: pointR, pointHoverRadius: 6,
+          pointBackgroundColor: color, pointBorderColor: 'var(--card)', pointBorderWidth: 2
+        };
+      }).filter(Boolean);
+      if (datasets.length) {
+        window.chartPerfLine = new Chart(cvLine, {
+          type: 'line',
+          data: { labels: xLabels, datasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+              tooltip: {
+                backgroundColor: '#1C1C1E', borderColor: '#3A3A3C', borderWidth: 1,
+                titleColor: '#F5F5F7', bodyColor: '#86868B', padding: 10,
+                callbacks: {
+                  title: items => { const d = new Date(allTs[items[0].dataIndex]); return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}); },
+                  label: ctx => { const v = ctx.parsed.y; return v != null ? ' ' + ctx.dataset.label + ' : ' + v + ' kg' : ''; }
+                }
+              }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 0 } },
+              y: { min: globalMin, grid: { color: '#2C2C2E55' }, ticks: { color: '#86868B', font: { size: 10 }, callback: v => v + 'kg' } }
+            }
+          }
+        });
       }
-    });
+    }
   }
 
 }
@@ -4288,21 +4416,6 @@ function renderLifts() {
     });
   });
 
-  // Build progression history per lift
-  Object.keys(liftMap).forEach(name => {
-    let runMax = 0;
-    const pts = [];
-    [...db.logs].sort((a,b) => a.timestamp-b.timestamp).forEach(log => {
-      log.exercises.forEach(exo => {
-        if (matchExoName(exo.name, name) && exo.maxRM > 0 && exo.maxRM > runMax) {
-          runMax = exo.maxRM;
-          pts.push({ rm: exo.maxRM, date: log.shortDate||formatDate(log.timestamp), ts: log.timestamp });
-        }
-      });
-    });
-    liftMap[name].history = pts;
-  });
-
   const lifts = Object.values(liftMap).sort((a,b) => b.maxRM - a.maxRM);
   const muscles = ['Tout', ...new Set(lifts.map(l => l.muscle))];
 
@@ -4315,7 +4428,24 @@ function renderLifts() {
   const el = document.getElementById('liftsList');
   if (!filtered.length) { el.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;">Aucun lift</p>'; return; }
 
-  el.innerHTML = filtered.slice(0, 20).map((lift, idx) => {
+  // Build history only for the displayed lifts (top 10)
+  const displayLifts = filtered.slice(0, 10);
+  const sortedLogs = [...db.logs].sort((a,b) => a.timestamp - b.timestamp);
+  displayLifts.forEach(lift => {
+    let runMax = 0;
+    const pts = [];
+    sortedLogs.forEach(log => {
+      log.exercises.forEach(exo => {
+        if (matchExoName(exo.name, lift.name) && exo.maxRM > 0 && exo.maxRM > runMax) {
+          runMax = exo.maxRM;
+          pts.push({ rm: exo.maxRM, date: log.shortDate||formatDate(log.timestamp), ts: log.timestamp });
+        }
+      });
+    });
+    lift.history = pts;
+  });
+
+  el.innerHTML = displayLifts.map((lift, idx) => {
     const medals = ['🥇','🥈','🥉'];
     const medal = idx < 3 ? medals[idx] : '💪';
     const color = MUSCLE_COLORS_RADAR[lift.muscle] || '#86868B';
@@ -4647,6 +4777,15 @@ function regenerateWeeklyPlan() {
 }
 
 function wpSelectDay(day) { wpSelectedDay = day; renderWeeklyPlanUI(); }
+
+let wpBodyOpen = true;
+function toggleWpBody() {
+  wpBodyOpen = !wpBodyOpen;
+  const body = document.getElementById('wpBody');
+  const chev = document.getElementById('wpChevron');
+  if (body) body.style.display = wpBodyOpen ? '' : 'none';
+  if (chev) chev.style.transform = wpBodyOpen ? '' : 'rotate(-90deg)';
+}
 
 function renderWeeklyPlanUI() {
   const plan = db.weeklyPlan;

@@ -3585,6 +3585,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
   } else if (exoType === 'reps') {
     // maxReps = best single-set reps (might include weighted sets)
     if (exo.maxRM > 0) mainDisplay = (exo.maxReps ? exo.maxReps + ' reps' : '') + (exo.maxReps ? ' · ' : '') + 'e1RM lest ' + exo.maxRM + 'kg';
+    else if (exo.maxReps > 25) mainDisplay = exo.maxReps + ' reps <span style="color:var(--orange);font-size:10px;">(total séance ?)</span>';
     else mainDisplay = exo.maxReps ? exo.maxReps + ' reps (max série)' : '⚠️ Re-importer';
     dateTs = exo.maxRepsDate;
   } else {
@@ -3813,6 +3814,9 @@ function cleanupExistingLogs() {
         if(exo.repRecords&&Object.keys(exo.repRecords).length>0){
           const maxRepKey=Math.max(...Object.keys(exo.repRecords).map(Number));
           if(maxRepKey>0&&(exo.maxReps||0)>Math.max(maxRepKey*3,30)){exo.maxReps=maxRepKey;changed=true;}
+        } else if((exo.maxReps||0)>30){
+          // Poids de corps pur sans repRecords : >30 reps = probablement total séance, pas une série
+          exo.maxReps=Math.min(exo.maxReps,20);changed=true;
         }
       }
       if(exoType==='time'){if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{const t=s.reps||0;if(t>1&&t<3600&&t>(exo.maxTime||0)){exo.maxTime=t;changed=true;}});}}
@@ -5209,8 +5213,8 @@ function generateWeeklyPlan() {
   const SCHEME = {
     //               S1    S2    S3    S4
     big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
-    compound:  { reps:[8,  8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
-    isolation: { reps:[12, 12, 10, 8 ], sets:[3,3,4,4], rpe:[7,  7,  7.5,8  ], rest:90  },
+    compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
+    isolation: { reps:[15, 12, 10, 8 ], sets:[3,3,4,3], rpe:[7,  7,  7.5,8  ], rest:90  },
   };
 
   // ── Notes coach par semaine ──────────────────────────────────
@@ -5443,7 +5447,8 @@ function generateWeeklyPlan() {
               sets: Array.from({length:nSets}, () => ({ isWarmup:false, weight:workW, reps:tReps, rpe:tRpe })) });
           } else {
             // Poids de corps pur → % du max progressif
-            const recMax = hist?.maxReps || 0;
+            // Cap à 25 : au-delà c'est probablement un total séance mal importé
+            const recMax = Math.min(hist?.maxReps || 0, 25);
             const bwFactors = [0.75, 0.80, 0.85, 0.90];
             const target = recMax > 0 ? Math.max(3, Math.round(recMax * bwFactors[wi])) : 'max';
             exercises.push({ name:exoName, type:'reps', restSeconds:rest,

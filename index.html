@@ -372,8 +372,6 @@
     /* Dashboard accordion badges */
     .dash-acc-badge{background:var(--blue);color:white;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:8px;vertical-align:middle;}
     .dash-acc-badge.green{background:var(--green);color:#000;}
-    /* Perf card mini sparklines */
-    .rm-mini-spark{height:36px;margin-top:6px;}
     /* ── Stats sous-onglets ── */
     .stats-sub-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none;}
     .stats-sub-nav::-webkit-scrollbar{display:none;}
@@ -3058,8 +3056,6 @@ function renderDash() {
 
 // ── Rubrique Performance configurable ────────────────────────
 let chartPerf = null;
-let perfChartMode = 'bars';
-function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
 
 // Incrément objectif selon le groupe musculaire de l'exercice
 function getPerfIncrement(exoName) {
@@ -3133,26 +3129,6 @@ function renderPerfCard() {
     const shortName = kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0, 2).join(' ');
     const color = PALETTE[i % PALETTE.length];
 
-    // Mini sparkline : PR glissant sur l'historique
-    let sparkHtml = '';
-    const hist = [...rec.history].sort((a, b) => a.ts - b.ts);
-    if (hist.length > 1) {
-      let runMax = 0;
-      const rmPts = hist.map(p => { if (p.rm > runMax) runMax = p.rm; return runMax; });
-      const minV = Math.min(...rmPts), maxV = Math.max(...rmPts), range = maxV - minV || 1;
-      const W = 200, H = 34, pad = 3;
-      const svgPts = rmPts.map((v, j) =>
-        (pad + (j / (rmPts.length - 1)) * (W - 2 * pad)).toFixed(1) + ',' +
-        (H - pad - ((v - minV) / range) * (H - 2 * pad)).toFixed(1)
-      );
-      const lx = svgPts[svgPts.length - 1].split(',')[0];
-      const ly = svgPts[svgPts.length - 1].split(',')[1];
-      sparkHtml = '<div class="rm-mini-spark"><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:34px;" preserveAspectRatio="none">' +
-        '<polyline points="' + svgPts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.75"/>' +
-        '<circle cx="' + lx + '" cy="' + ly + '" r="3" fill="' + color + '"/>' +
-        '</svg></div>';
-    }
-
     return '<div class="rm-box">' +
       (isPR ? '<div class="pr-badge">🔥 PR!</div>' : '') +
       '<div style="font-size:10px;color:var(--sub);">' + shortName.toUpperCase() + '</div>' +
@@ -3160,146 +3136,98 @@ function renderPerfCard() {
       (real > 0 ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">✓ ' + real + 'kg réel</div>' : '') +
       (target > 0 ? '<div class="rm-target">Visé : ' + target + 'kg</div>' : '<div class="rm-target" style="color:var(--border);">—</div>') +
       (bw ? '<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">' + bw + '</div>' : '') +
-      sparkHtml +
       '</div>';
   }).join('');
 
-  // ── Graphique barres 3 datasets ────────────────────────────
-  const labels   = keyLifts.map(kl => kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0, 2).join(' '));
-  const real1rms = keyLifts.map(kl => records[kl.name].real1rm);
-  const e1rms    = keyLifts.map(kl => records[kl.name].e1rm);
-  const targets  = keyLifts.map(kl => kl.target || 0);
-  const bgMain   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length]);
-  const bgE1rm   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '99');
-  const bgTarget = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '33');
+  // ── Trend rows : progression récente par exercice ──────────
+  // Montre la tendance inter-séances (kg/sem) + dernier vs avant-dernier
+  const trendRows = keyLifts.map((kl, i) => {
+    const color = PALETTE[i % PALETTE.length];
+    const hist = [...records[kl.name].history].sort((a,b) => a.ts - b.ts);
 
-  // Nettoyage ancienne courbe combinée si elle existait
-  if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') {
-    window.chartPerfLine.destroy(); window.chartPerfLine = null;
-  }
+    let trendHtml = '';
+    if (hist.length >= 2) {
+      // Régression linéaire sur les points disponibles (max 8)
+      const pts = hist.slice(-8);
+      const n = pts.length;
+      const sumX = pts.reduce((s,p,i) => s+i, 0);
+      const sumY = pts.reduce((s,p) => s+p.rm, 0);
+      const sumXY = pts.reduce((s,p,i) => s+i*p.rm, 0);
+      const sumX2 = pts.reduce((s,p,i) => s+i*i, 0);
+      const denom = n*sumX2 - sumX*sumX;
+      const kgPerSess = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
 
-  const toggleHtml =
-    '<div style="display:flex;gap:6px;margin-bottom:16px;">' +
-    '<button class="period-btn' + (perfChartMode==='bars'?' active':'') + '" onclick="setPerfMode(\'bars\')" style="font-size:11px;">📊 Barres</button>' +
-    '<button class="period-btn' + (perfChartMode==='curve'?' active':'') + '" onclick="setPerfMode(\'curve\')" style="font-size:11px;">📈 Progression</button>' +
+      const last = pts[pts.length-1].rm;
+      const prev = pts[pts.length-2].rm;
+      const delta = last - prev;
+      const deltaStr = delta > 0 ? '+' + delta : String(delta);
+      const deltaColor = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--sub)';
+      const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+
+      // Tendance globale
+      const trendKg = Math.round(kgPerSess * 10) / 10;
+      let trendLabel = '';
+      if (Math.abs(trendKg) < 0.2 && hist.length >= 3) trendLabel = '<span style="color:var(--orange);font-size:10px;">● plateau</span>';
+      else if (trendKg > 0) trendLabel = '<span style="color:var(--green);font-size:10px;">↑ +' + Math.abs(trendKg) + 'kg/séance</span>';
+      else trendLabel = '<span style="color:var(--red);font-size:10px;">↓ ' + trendKg + 'kg/séance</span>';
+
+      trendHtml =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
+        '<span style="color:' + deltaColor + ';font-size:12px;font-weight:700;">' + arrow + ' ' + deltaStr + 'kg vs préc.</span>' +
+        trendLabel +
+        '</div>';
+    } else if (hist.length === 1) {
+      trendHtml = '<div style="color:var(--sub);font-size:11px;margin-top:6px;">1 séance enregistrée</div>';
+    } else {
+      trendHtml = '<div style="color:var(--sub);font-size:11px;margin-top:6px;">Aucune donnée</div>';
+    }
+
+    // Mini sparkline SVG (petite, dans la ligne de tendance)
+    let sparkSvg = '';
+    if (hist.length > 2) {
+      const pts = hist.slice(-12);
+      let runMax = 0;
+      const vals = pts.map(p => { if (p.rm > runMax) runMax = p.rm; return runMax; });
+      const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
+      const W = 80, H = 24, pad = 2;
+      const svgPts = vals.map((v, j) =>
+        (pad + (j / (vals.length-1)) * (W-2*pad)).toFixed(1) + ',' +
+        (H - pad - ((v-minV)/range) * (H-2*pad)).toFixed(1)
+      );
+      sparkSvg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:80px;height:24px;flex-shrink:0;">' +
+        '<polyline points="' + svgPts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/>' +
+        '<circle cx="' + svgPts[svgPts.length-1].split(',')[0] + '" cy="' + svgPts[svgPts.length-1].split(',')[1] + '" r="2.5" fill="' + color + '"/>' +
+        '</svg>';
+    }
+
+    const target = kl.target || 0;
+    const e1rm = records[kl.name].e1rm;
+    const pct = target > 0 && e1rm > 0 ? Math.min(100, Math.round(e1rm / target * 100)) : null;
+    const progressBar = pct !== null
+      ? '<div style="height:3px;background:var(--border);border-radius:2px;margin-top:8px;"><div style="height:3px;background:' + color + ';border-radius:2px;width:' + pct + '%;transition:width 0.5s;"></div></div>' +
+        '<div style="font-size:10px;color:var(--sub);margin-top:3px;text-align:right;">' + pct + '% de l\'objectif</div>'
+      : '';
+
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+      '<div style="width:3px;height:36px;background:' + color + ';border-radius:2px;flex-shrink:0;"></div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + kl.name.replace(/\s*\(.*\)/, '').trim() + '</div>' +
+        trendHtml +
+        progressBar +
+      '</div>' +
+      sparkSvg +
     '</div>';
+  }).join('');
 
   el.innerHTML =
-    toggleHtml +
-    '<div class="sbd-grid" style="grid-template-columns:' + cols + ';">' + boxesHtml + '</div>' +
-    (perfChartMode === 'bars'
-      ? '<div style="height:210px;margin-top:20px;"><canvas id="chartPerf"></canvas></div>'
-      : '<div style="height:210px;margin-top:20px;"><canvas id="chartPerfLine"></canvas></div>');
+    '<div class="sbd-grid" style="grid-template-columns:' + cols + ';margin-bottom:16px;">' + boxesHtml + '</div>' +
+    (trendRows
+      ? '<div style="background:var(--surface);border-radius:12px;padding:4px 12px;">' + trendRows + '</div>'
+      : '');
 
-  if (perfChartMode === 'bars') {
-    // ── Graphique barres ────────────────────────────────────────
-    const cvBar = document.getElementById('chartPerf');
-    if (cvBar) {
-      if (chartPerf) chartPerf.destroy();
-      chartPerf = new Chart(cvBar, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [
-            { label: '1RM Réel',     data: real1rms, backgroundColor: bgMain,   borderRadius: 6, barThickness: 22 },
-            { label: 'e1RM (Epley)', data: e1rms,    backgroundColor: bgE1rm,   borderRadius: 6, barThickness: 22 },
-            { label: 'Objectif',     data: targets,  backgroundColor: bgTarget,  borderRadius: 6, barThickness: 22,
-              borderColor: bgMain, borderWidth: 2 }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } },
-            tooltip: { callbacks: { afterLabel: c => {
-              if (c.datasetIndex === 2) {
-                const rm = e1rms[c.dataIndex];
-                return targets[c.dataIndex] > 0 && rm > 0 ? 'Reste : ' + (targets[c.dataIndex] - rm) + 'kg' : '';
-              }
-              return '';
-            }}}
-          },
-          scales: {
-            y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
-            x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
-          }
-        }
-      });
-    }
-  } else {
-    // ── Courbe de progression — PR glissant, 360j ───────────────
-    const cvLine = document.getElementById('chartPerfLine');
-    if (cvLine) {
-      if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') window.chartPerfLine.destroy();
-      const limit360 = Date.now() - 360 * 86400000;
-      // Construire séries par exercice : running max chronologique
-      const exoSeries = {};
-      keyLifts.forEach(kl => {
-        const hist = [...records[kl.name].history].filter(p => p.ts >= limit360).sort((a,b) => a.ts-b.ts);
-        if (!hist.length) return;
-        let runMax = 0;
-        exoSeries[kl.name] = hist.map(p => {
-          if (p.rm > runMax) runMax = p.rm;
-          return { ts: p.ts, rm: runMax };
-        });
-      });
-      const allTs = [...new Set(Object.values(exoSeries).flatMap(pts => pts.map(p => p.ts)))].sort((a,b)=>a-b);
-      if (!allTs.length) { cvLine.parentElement.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">Pas assez de données</div>'; return; }
-      const step = Math.max(1, Math.floor(allTs.length / 8));
-      const xLabels = allTs.map((ts,i) => {
-        if (i % step !== 0 && i !== allTs.length-1) return '';
-        const d = new Date(ts);
-        return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
-      });
-      // Valeur min globale pour Y-axis (zoom sur la plage réelle)
-      const allVals = Object.values(exoSeries).flatMap(pts => pts.map(p => p.rm)).filter(Boolean);
-      const globalMin = allVals.length ? Math.max(0, Math.min(...allVals) - 10) : 0;
-      const datasets = keyLifts.map((kl, i) => {
-        const pts = exoSeries[kl.name];
-        if (!pts) return null;
-        const byTs = Object.fromEntries(pts.map(p => [p.ts, p.rm]));
-        let last = null;
-        // Marquer les vrais PR (changements de valeur)
-        const prTs = new Set(pts.map(p => p.ts));
-        const data = allTs.map(ts => { if (byTs[ts] != null) last = byTs[ts]; return last; });
-        const pointR = allTs.map(ts => prTs.has(ts) && byTs[ts] != null && (byTs[ts] > (pts.find(p=>p.ts<ts)?.rm||0)) ? 4 : 0);
-        const color = PALETTE[i % PALETTE.length];
-        return {
-          label: kl.name.replace(/\s*\(.*\)/, '').split(' ').slice(0,2).join(' '),
-          data, borderColor: color, backgroundColor: color+'15',
-          fill: false, borderWidth: 2.5, tension: 0.3,
-          pointRadius: pointR, pointHoverRadius: 6,
-          pointBackgroundColor: color, pointBorderColor: 'var(--card)', pointBorderWidth: 2
-        };
-      }).filter(Boolean);
-      if (datasets.length) {
-        window.chartPerfLine = new Chart(cvLine, {
-          type: 'line',
-          data: { labels: xLabels, datasets },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-              legend: { display: true, labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 12, padding: 12 } },
-              tooltip: {
-                backgroundColor: '#1C1C1E', borderColor: '#3A3A3C', borderWidth: 1,
-                titleColor: '#F5F5F7', bodyColor: '#86868B', padding: 10,
-                callbacks: {
-                  title: items => { const d = new Date(allTs[items[0].dataIndex]); return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}); },
-                  label: ctx => { const v = ctx.parsed.y; return v != null ? ' ' + ctx.dataset.label + ' : ' + v + ' kg' : ''; }
-                }
-              }
-            },
-            scales: {
-              x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 0 } },
-              y: { min: globalMin, grid: { color: '#2C2C2E55' }, ticks: { color: '#86868B', font: { size: 10 }, callback: v => v + 'kg' } }
-            }
-          }
-        });
-      }
-    }
-  }
-
+  // Détruire les anciens charts Chart.js si présents
+  if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
+  if (window.chartPerf && typeof window.chartPerf.destroy === 'function') { window.chartPerf.destroy(); window.chartPerf = null; }
 }
 
 // ── Réglages : éditeur exercices clés ────────────────────────
@@ -5191,6 +5119,9 @@ function generateWeeklyPlan() {
   const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
   const wi = weekNum - 1; // 0-based index
 
+  // Pre-sort once for all computeExoTrend calls
+  const _logsByDesc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+
   // ── Niveau de l'athlète ──────────────────────────────────────
   // Ajuste la vitesse de progression et l'intensité maximale
   const LEVEL = db.user.level || 'intermediaire';
@@ -5246,7 +5177,7 @@ function generateWeeklyPlan() {
   function computeExoTrend(exoName) {
     const pts = [];
     // Trier décroissant (récent en premier), collecter les 6 dernières occurrences
-    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    const desc = _logsByDesc;
     for (const log of desc) {
       const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
       if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
@@ -5289,6 +5220,9 @@ function generateWeeklyPlan() {
     });
   });
 
+  // Cache: programme name → list of matching Hevy names (for resolveRecentRecord)
+  const _progNameToHevyNames = {};
+
   // Résoudre un nom de programme → record dans allBest
   // En cas d'ambiguïté, préférer le plus récemment enregistré
   function resolveRecord(exoName) {
@@ -5305,11 +5239,18 @@ function generateWeeklyPlan() {
   function resolveRecentRecord(exoName) {
     const cutoff = Date.now() - 90 * 86400000;
     const recent = { maxRM: 0, maxReps: 0, maxTime: 0, distance: 0, repRecords: {} };
+    // Find matching Hevy names once (cached)
+    if (!_progNameToHevyNames[exoName]) {
+      _progNameToHevyNames[exoName] = Object.keys(allBest).filter(k =>
+        k === exoName || matchExoName(k, exoName) || matchExoName(exoName, k)
+      );
+    }
+    const hevyNames = new Set([exoName, ..._progNameToHevyNames[exoName]]);
+
     db.logs
       .filter(l => l.timestamp >= cutoff)
-      .sort((a,b) => b.timestamp - a.timestamp)
       .forEach(log => {
-        const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+        const exo = log.exercises.find(e => hevyNames.has(e.name));
         if (!exo) return;
         if ((exo.maxRM||0) > recent.maxRM) recent.maxRM = exo.maxRM;
         if ((exo.maxReps||0) > recent.maxReps) recent.maxReps = exo.maxReps;

@@ -2732,7 +2732,10 @@ const AI_EXTRACT_SYSTEM = `Tu es un parseur de données d'entraînement. Tu reç
 RÈGLES ABSOLUES :
 - Réponds UNIQUEMENT avec du JSON valide, rien d'autre (pas de markdown, pas de \`\`\`json)
 - Ne jamais inventer de données absentes
-- Les séries [Échauffement] sont des warmups (isWarmup: true), ne comptent PAS dans les records
+- Les séries [Échauffement] sont des warmups (setType: "warmup"), ne comptent PAS dans les records
+- Les séries [Abandon] = poussées à l'échec (setType: "abandon"), ne comptent PAS dans les records
+- Les séries [Drop] ou [Drop set] = drop sets immédiats (setType: "drop"), ne comptent PAS dans les records
+- Toutes les autres séries normales : setType: "normal"
 
 FORMAT DE SORTIE :
 {
@@ -2748,7 +2751,7 @@ FORMAT DE SORTIE :
         {
           "weight": 100,
           "reps": 5,
-          "isWarmup": false,
+          "setType": "normal",
           "rpe": 8.5
         }
       ]
@@ -2810,15 +2813,18 @@ function buildSessionFromAI(parsed, rawText) {
     const isCardio = exoType === 'cardio', isTime = exoType === 'time', isReps = exoType === 'reps';
     const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [] };
     (exo.sets || []).forEach(s => {
-      const isW = s.isWarmup || false;
-      if (!isW) obj.sets++; // séries de travail uniquement pour le comptage
+      const isW      = s.isWarmup || s.setType === 'warmup';
+      const isAbandon= s.setType === 'abandon';
+      const isDrop   = s.setType === 'drop';
+      const countForRecord = !isW && !isAbandon && !isDrop;
+      if (countForRecord) obj.sets++;
       if (exoType === 'weight') {
         const w = s.weight||0, r = s.reps||0;
-        if (w>0&&r>0) { session.volume+=w*r; if(!isW){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
+        if (w>0&&r>0) { session.volume+=w*r; if(countForRecord){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
       } else if (exoType==='reps') {
-        if(!isW){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
+        if(countForRecord){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
       } else if (exoType==='time') {
-        if(!isW){const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;}
+        if(countForRecord){const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;}
       } else if (exoType==='cardio') {
         const d=s.distance||0,t=s.duration||0;if(d>obj.distance)obj.distance=d;if(t>obj.maxTime){obj.maxTime=t;obj.cardioDate=sessionTimestamp;}
       }
@@ -2885,7 +2891,17 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     if (!currExo) continue;
     if (l.startsWith('série')&&l.includes('kg x')&&!currExo.isCardio&&!currExo.isReps) {
       const m=l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);const isW=line.includes('[Échauffement]')||line.includes('[échauffement]');session.volume+=w*r;if(!isW){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}}
+      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);
+        const isW      = line.includes('[Échauffement]')||line.includes('[échauffement]');
+        // Abandon = poussé à l'échec volontaire ; Drop = série descendante immédiate
+        // Ces séries ne comptent PAS pour les records (elles ne reflètent pas une vraie performance)
+        const isAbandon= /\[abandon\]/i.test(line);
+        const isDrop   = /\[drop(\s*set)?\]/i.test(line);
+        const countForRecord = !isW && !isAbandon && !isDrop;
+        session.volume+=w*r;
+        if(countForRecord){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}
+        else if(isW){/* warmup : volume comptabilisé mais pas les records */}
+        }
     } else if (currExo.isReps&&l.startsWith('série')) {
       const repMatch=l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i)||l.match(/x\s*(\d+)/i)||l.match(/(\d+)\s*reps?\b/i);
       const kgMatch=l.match(/(\d+\.?\d*)\s*kg/i);
@@ -5247,27 +5263,6 @@ function generateWeeklyPlan() {
     return { kgPerWeek: Math.round(slope*7*10)/10, lastE1rm: pts[pts.length-1].y, n };
   }
 
-  // ── Fatigue intra-séance ─────────────────────────────────────
-  // Analyse les series[] réelles pour détecter une chute de reps entre séries.
-  // Retourne un score [0..1] : 0 = aucune chute, 1 = chute totale.
-  // > 0.25 → poids trop lourd (réduire), < 0.05 → poids gérable (peut monter).
-  function detectRepFatigue(exoName) {
-    let totalScore = 0, count = 0;
-    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-    for (const log of desc) {
-      const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
-      if (!exo || !exo.series || exo.series.length < 2) continue;
-      // Ne considérer que les séries avec poids (exclure les échauffements à 0)
-      const ws = exo.series.filter(s => (s.weight||0) > 0 && (s.reps||0) > 0);
-      if (ws.length < 2) continue;
-      const first = ws[0].reps, last = ws[ws.length-1].reps;
-      if (first > 0) totalScore += (first - last) / first;
-      count++;
-      if (count >= 4) break; // 4 dernières séances suffisent
-    }
-    return count > 0 ? totalScore / count : 0;
-  }
-
   // ── Fréquence hebdomadaire d'un exercice ─────────────────────
   // Compte le nombre de jours dans db.routineExos où cet exercice apparaît.
   function getExoFreqPerWeek(exoName) {
@@ -5331,24 +5326,17 @@ function generateWeeklyPlan() {
   // ── Calculer le poids de travail cible ──────────────────────
   // hist : record récent, tReps : reps cibles, cat : catégorie
   // exoName : pour trend, fatigue : score fatigue [0..1]
-  function computeWorkWeight(hist, tReps, cat, exoName, fatigue) {
-    const bonus  = getBonusForCat(cat);
-    const trend  = exoName ? computeExoTrend(exoName) : { kgPerWeek:0, n:0 };
+  function computeWorkWeight(hist, tReps, cat, exoName) {
+    const bonus = getBonusForCat(cat);
+    const trend = exoName ? computeExoTrend(exoName) : { kgPerWeek:0, n:0 };
 
-    // Ajustement tendance (si ≥3 séances)
-    let trendAdj = 0;
+    // Ajustement tendance inter-séances (si ≥3 séances de données)
+    // Forte progression → soyons un peu plus agressifs ; régression → on recule
+    let adj = 0;
     if (trend.n >= 3) {
-      if (trend.kgPerWeek > 1.5)       trendAdj = round05(Math.min(trend.kgPerWeek * 0.4, 5));
-      else if (trend.kgPerWeek < -0.5) trendAdj = round05(Math.max(trend.kgPerWeek * 0.5, -5));
+      if (trend.kgPerWeek > 1.5)       adj = round05(Math.min(trend.kgPerWeek * 0.4, 5));
+      else if (trend.kgPerWeek < -0.5) adj = round05(Math.max(trend.kgPerWeek * 0.5, -5));
     }
-
-    // Ajustement fatigue intra-séance (si ≥2 séances analysées)
-    // Chute sévère → réduire ; aucune chute → légère surcharge possible
-    let fatigueAdj = 0;
-    if (fatigue > 0.25)      fatigueAdj = -2.5; // poids trop lourd, on recule
-    else if (fatigue < 0.05) fatigueAdj = +1.0; // poids gérable, on peut monter légèrement
-
-    const adj = trendAdj + fatigueAdj;
 
     // 1. Record exact au nombre de reps cible
     const exactW = hist?.repRecords?.[String(tReps)];
@@ -5441,12 +5429,10 @@ function generateWeeklyPlan() {
         const tRpe = Math.min(sc.rpe[wi], LVL.rpeMax);
 
         // Fréquence hebdomadaire → ajuster le volume par séance
-        // Ex: Squat 3×/sem → 1 série de moins que si 1×/sem (surcharge cumulée)
+        // Si tu fais l'exercice 3×/sem → 1 série de moins par séance (charge cumulée)
+        // Si 1×/sem → 1 série de plus (moins d'occasions, plus de volume par séance)
         const freq = (exoType === 'weight' || exoType === 'reps') ? getExoFreqPerWeek(exoName) : 1;
         const nSets = Math.max(2, sc.sets[wi] + (freq >= 3 ? -1 : freq === 1 ? +1 : 0));
-
-        // Fatigue intra-séance → signal sur le poids prescrit
-        const fatigue = (exoType === 'weight' || exoType === 'reps') ? detectRepFatigue(exoName) : 0;
 
         if (exoType === 'time') {
           // ── Gainage / isométrique — progression durée ────────
@@ -5461,7 +5447,7 @@ function generateWeeklyPlan() {
             .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
             .sort((a,b) => a[0] - b[0]);
           if (weightedRecs.length > 0) {
-            const workW = computeWorkWeight(hist, tReps, cat, exoName, fatigue);
+            const workW = computeWorkWeight(hist, tReps, cat, exoName);
             exercises.push({ name:exoName, type:'reps', restSeconds:rest,
               sets: Array.from({length:nSets}, () => ({ isWarmup:false, weight:workW, reps:tReps, rpe:tRpe })) });
           } else {
@@ -5481,7 +5467,7 @@ function generateWeeklyPlan() {
 
         } else {
           // ── Poids — N séries identiques au poids cible ───────
-          const workWeight = computeWorkWeight(hist, tReps, cat, exoName, fatigue);
+          const workWeight = computeWorkWeight(hist, tReps, cat, exoName);
           if (workWeight && workWeight > 0) {
             // Échauffements adaptés : 2 paliers si gros lift, 1 si composé/isolation
             const warmups = cat === 'big'

@@ -3660,38 +3660,61 @@ function showStatsSub(id, btn) {
 function renderCardioStats() {
   const el = document.getElementById('cardioStatsContent');
   if (!el) return;
-  const cardioLogs = [];
+
+  const isSwim = n => /natation|swimming|nage|crawl|brasse|papillon|dos crawl/.test(n.toLowerCase());
+  const isTapis = n => /tapis|treadmill|course|running|jogging/.test(n.toLowerCase());
+  const fmtDur = sec => { if (!sec) return '—'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60); return h > 0 ? h+'h'+String(m).padStart(2,'0') : m+'min'; };
+  const fmtPace = (dist, sec) => dist > 0 && sec > 0 ? ((sec/60)/dist).toFixed(1) + ' min/km' : null;
+
+  const all = [];
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (!exo.isCardio) return;
-      cardioLogs.push({ name: exo.name, distance: exo.distance || 0, duration: exo.maxTime || 0, ts: log.timestamp, date: log.shortDate || formatDate(log.timestamp) });
+      all.push({ name: exo.name, distance: exo.distance || 0, duration: exo.maxTime || 0, ts: log.timestamp, date: log.shortDate || formatDate(log.timestamp) });
     });
   });
-  if (!cardioLogs.length) {
+
+  if (!all.length) {
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">Aucune session cardio détectée.<br><span style="font-size:11px;">Tapis, natation, vélo… apparaissent ici automatiquement.</span></div>';
     return;
   }
+
   const limit30 = Date.now() - 30 * 86400000;
-  const recent = cardioLogs.filter(c => c.ts >= limit30);
-  const totalDist = recent.reduce((s, c) => s + c.distance, 0);
-  const totalDur = recent.reduce((s, c) => s + c.duration, 0);
-  const bestDist = Math.max(...cardioLogs.map(c => c.distance), 0);
-  const fmtDur = sec => { if (!sec) return '—'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60); return h > 0 ? h+'h'+String(m).padStart(2,'0') : m+'min'; };
-  const latest = [...cardioLogs].sort((a, b) => b.ts - a.ts).slice(0, 8);
+  const swim = all.filter(c => isSwim(c.name));
+  const tapis = all.filter(c => isTapis(c.name));
+  const other = all.filter(c => !isSwim(c.name) && !isTapis(c.name));
+
+  const sectionStats = (list, label, icon, color) => {
+    if (!list.length) return '';
+    const recent = list.filter(c => c.ts >= limit30);
+    const totalDist = recent.reduce((s,c) => s + c.distance, 0);
+    const totalDur  = recent.reduce((s,c) => s + c.duration, 0);
+    const bestDist  = Math.max(...list.map(c => c.distance), 0);
+    const avgPace   = totalDist > 0 && totalDur > 0 ? fmtPace(totalDist, totalDur) : null;
+    return '<div style="margin-bottom:18px;">' +
+      '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:8px;">' + icon + ' ' + label + '</div>' +
+      '<div class="report-grid">' +
+        '<div class="report-box"><div class="report-val">' + recent.length + '</div><div class="report-label">Sessions 30j</div></div>' +
+        (totalDist > 0 ? '<div class="report-box"><div class="report-val">' + totalDist.toFixed(1) + '<span style="font-size:13px;">km</span></div><div class="report-label">Distance</div></div>' : '') +
+        (totalDur > 0 ? '<div class="report-box"><div class="report-val">' + fmtDur(totalDur) + '</div><div class="report-label">Durée</div></div>' : '') +
+        (bestDist > 0 ? '<div class="report-box"><div class="report-val">' + bestDist.toFixed(1) + '<span style="font-size:13px;">km</span></div><div class="report-label">Record</div></div>' : '') +
+        (avgPace ? '<div class="report-box"><div class="report-val" style="font-size:16px;">' + avgPace + '</div><div class="report-label">Allure moy.</div></div>' : '') +
+      '</div>' +
+      '</div>';
+  };
+
+  const recentAll = [...all].sort((a,b) => b.ts - a.ts).slice(0, 8);
+  const rowIcon = c => isSwim(c.name) ? '🏊' : isTapis(c.name) ? '🏃' : /velo|cycling|bike/.test(c.name.toLowerCase()) ? '🚴' : '💪';
+
   el.innerHTML =
-    '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">30 derniers jours</div>' +
-    '<div class="report-grid" style="margin-bottom:16px;">' +
-      '<div class="report-box"><div class="report-val">' + recent.length + '</div><div class="report-label">Sessions</div></div>' +
-      '<div class="report-box"><div class="report-val">' + totalDist.toFixed(1) + '<span style="font-size:14px;">km</span></div><div class="report-label">Distance</div></div>' +
-      '<div class="report-box"><div class="report-val">' + fmtDur(totalDur) + '</div><div class="report-label">Durée totale</div></div>' +
-      '<div class="report-box"><div class="report-val">' + bestDist.toFixed(1) + '<span style="font-size:14px;">km</span></div><div class="report-label">Record dist.</div></div>' +
-    '</div>' +
-    '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Sessions récentes</div>' +
-    latest.map(c => {
-      const icon = /natation|swimming|nage/.test(c.name.toLowerCase()) ? '🏊' : /velo|cycling|bike/.test(c.name.toLowerCase()) ? '🚴' : '🏃';
-      const pace = c.distance > 0 && c.duration > 0 ? ((c.duration / 60) / c.distance).toFixed(1) + ' min/km' : null;
+    sectionStats(swim,  'Natation', '🏊', '#64D2FF') +
+    sectionStats(tapis, 'Course / Tapis', '🏃', '#32D74B') +
+    (other.length ? sectionStats(other, 'Autre cardio', '💪', '#86868B') : '') +
+    '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Historique récent</div>' +
+    recentAll.map(c => {
+      const pace = fmtPace(c.distance, c.duration);
       return '<div class="stat-row">' +
-        '<div><div style="font-size:13px;font-weight:600;">' + icon + ' ' + c.name + '</div>' +
+        '<div><div style="font-size:13px;font-weight:600;">' + rowIcon(c) + ' ' + c.name + '</div>' +
         '<div style="font-size:11px;color:var(--sub);">' + c.date + (pace ? ' · ' + pace : '') + '</div></div>' +
         '<div style="text-align:right;">' +
         (c.distance ? '<div style="font-weight:700;color:var(--blue);">' + c.distance.toFixed(2) + ' km</div>' : '') +
@@ -4079,38 +4102,38 @@ function renderRadarImproved(period) {
     }
   }));
 
-  // Normalisation : séries moyennes par exercice (évite que Jambes avec 8 exos domine)
-  // + racine carrée pour aplatir les écarts extrêmes
-  const normalized = {};
-  RADAR_AXES.forEach(k => {
-    const exoCount = msExos[k].size || 1;
-    const setsPerExo = msSets[k] / exoCount;
-    normalized[k] = Math.sqrt(setsPerExo * msSets[k]); // géomédiatrice sets/exo × sets totaux
-  });
+  // Séries brutes par groupe — pas de normalisation artificielle
+  const values = RADAR_AXES.map(k => msSets[k] || 0);
+  const rawMax = Math.max(...values, 1);
 
-  const values = RADAR_AXES.map(k => normalized[k] || 0);
-  const rawValues = RADAR_AXES.map(k => msSets[k] || 0); // pour affichage des labels
-  const maxVal = Math.max(...values, 1);
+  // Pas propre pour les anneaux (ex: max=28 → step=5, ringMax=30)
+  function niceStep(v) {
+    if (v <= 5) return 1;
+    if (v <= 15) return 2;
+    if (v <= 40) return 5;
+    if (v <= 100) return 10;
+    return 20;
+  }
+  const step = niceStep(rawMax / 4);
+  const ringMax = Math.ceil(rawMax / step) * step || 4;
+  const numRings = 4;
   const numAxes = RADAR_AXES.length;
   const R = 95, cx = 150, cy = 135;
   const angleStep = (2 * Math.PI) / numAxes;
 
   let svg = '<svg viewBox="0 0 300 270" style="width:100%;height:100%;max-width:100%;">';
 
-  // Grid rings with labels
-  for (let lv = 1; lv <= 4; lv++) {
-    const r = (lv/4) * R;
+  // Grid rings avec labels propres (multiples du step)
+  for (let lv = 1; lv <= numRings; lv++) {
+    const r = (lv / numRings) * R;
     const pts = [];
     for (let i = 0; i < numAxes; i++) {
       const a = i * angleStep - Math.PI/2;
       pts.push((cx + r*Math.cos(a)).toFixed(1) + ',' + (cy + r*Math.sin(a)).toFixed(1));
     }
-    svg += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="rgba(255,255,255,' + (lv===4?'0.12':'0.06') + ')" stroke-width="' + (lv===4?'1.5':'0.8') + '"/>';
-    // Ring label on right side
-    if (lv > 1) {
-      const labelVal = Math.round((lv/4) * maxVal);
-      svg += '<text x="' + (cx + r + 4) + '" y="' + cy + '" fill="rgba(134,134,139,0.6)" font-size="8" dominant-baseline="middle">' + labelVal + 's</text>';
-    }
+    svg += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="rgba(255,255,255,' + (lv===numRings?'0.14':'0.06') + ')" stroke-width="' + (lv===numRings?'1.5':'0.8') + '"/>';
+    const labelVal = Math.round((lv / numRings) * ringMax);
+    svg += '<text x="' + (cx + r + 4) + '" y="' + (cy - 4) + '" fill="rgba(134,134,139,0.65)" font-size="8" dominant-baseline="middle">' + labelVal + '</text>';
   }
 
   // Axis lines
@@ -4119,14 +4142,14 @@ function renderRadarImproved(period) {
     svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + R*Math.cos(a)).toFixed(1) + '" y2="' + (cy + R*Math.sin(a)).toFixed(1) + '" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
   }
 
-  // Data polygon with gradient fill
+  // Data polygon — basé sur séries brutes / ringMax
   const dp = [];
   for (let i = 0; i < numAxes; i++) {
     const a = i * angleStep - Math.PI/2;
-    const r = maxVal > 0 ? (values[i] / maxVal) * R : 0;
+    const r = (values[i] / ringMax) * R;
     dp.push({ x: cx + r*Math.cos(a), y: cy + r*Math.sin(a), color: MUSCLE_COLORS_RADAR[RADAR_AXES[i]] });
   }
-  svg += '<polygon points="' + dp.map(p => p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ') + '" fill="rgba(10,132,255,0.12)" stroke="#0A84FF" stroke-width="2.5" stroke-linejoin="round"/>';
+  svg += '<polygon points="' + dp.map(p => p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ') + '" fill="rgba(10,132,255,0.1)" stroke="#0A84FF" stroke-width="2" stroke-linejoin="round"/>';
 
   // Points + labels
   RADAR_AXES.forEach((muscle, i) => {
@@ -4135,21 +4158,20 @@ function renderRadarImproved(period) {
     const lDist = R + 30;
     const lx = cx + lDist * Math.cos(a);
     const ly = cy + lDist * Math.sin(a);
-    const val = values[i]; // valeur normalisée pour la forme
-    const rawVal = rawValues[i]; // séries réelles pour affichage
+    const val = values[i];
 
     svg += '<circle cx="' + dp[i].x.toFixed(1) + '" cy="' + dp[i].y.toFixed(1) + '" r="' + (val > 0 ? 5 : 3) + '" fill="' + (val > 0 ? color : '#3A3A3C') + '" stroke="var(--card)" stroke-width="2"/>';
     svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly - 6).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" fill="' + (val > 0 ? color : '#5A5A5E') + '" font-size="11" font-weight="600">' + muscle + '</text>';
-    if (rawVal > 0) svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 7).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" fill="' + color + '" font-size="9" opacity="0.9">' + rawVal + 's</text>';
+    if (val > 0) svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 7).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" fill="' + color + '" font-size="9" opacity="0.9">' + val + 's</text>';
   });
 
   svg += '</svg>';
   const ct = document.getElementById('radarContainer'); if (ct) ct.innerHTML = svg;
 
-  // Legend — affiche les séries réelles
+  // Légende — séries brutes
   const legend = document.getElementById('radarLegend');
-  if (legend) legend.innerHTML = RADAR_AXES.map(muscle => {
-    const val = rawValues[RADAR_AXES.indexOf(muscle)] || 0;
+  if (legend) legend.innerHTML = RADAR_AXES.map((muscle, i) => {
+    const val = values[i] || 0;
     const color = MUSCLE_COLORS_RADAR[muscle];
     return '<div style="display:flex;align-items:center;gap:5px;font-size:11px;">' +
       '<div style="width:10px;height:10px;border-radius:50%;background:' + (val>0?color:'#3A3A3C') + '"></div>' +

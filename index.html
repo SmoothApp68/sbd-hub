@@ -346,6 +346,23 @@
     .lift-rm-est{font-size:13px;font-weight:700;color:var(--blue);}
     .lift-rm-real{font-size:11px;color:var(--green);font-weight:600;margin-top:2px;}
     .lift-rm-real::before{content:'✓ ';}
+    /* Lift card collapsible */
+    .lift-card-body{max-height:0;overflow:hidden;transition:max-height 0.4s ease;}
+    .lift-card-body.open{max-height:900px;}
+    .lift-card-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:5px 0 0;border-top:1px solid rgba(255,255,255,0.05);margin-top:4px;}
+    .lift-card-toggle-label{font-size:11px;color:var(--sub);}
+    .lift-card-chevron{font-size:10px;color:var(--sub);transition:transform 0.3s;}
+    .lift-card-chevron.open{transform:rotate(180deg);}
+    /* Mini 1RM calc */
+    .lift-calc{display:flex;align-items:center;gap:8px;margin-top:10px;padding:10px;background:rgba(10,132,255,0.06);border-radius:10px;border:1px solid rgba(10,132,255,0.15);}
+    .lift-calc-label{font-size:11px;color:var(--sub);white-space:nowrap;}
+    .lift-calc input{flex:0 0 60px;width:60px;padding:7px;font-size:13px;margin:0;border-radius:8px;text-align:center;}
+    .lift-calc-result{font-size:14px;font-weight:700;color:var(--blue);white-space:nowrap;flex:1;text-align:right;}
+    /* Dashboard accordion badges */
+    .dash-acc-badge{background:var(--blue);color:white;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:8px;vertical-align:middle;}
+    .dash-acc-badge.green{background:var(--green);color:#000;}
+    /* Perf card mini sparklines */
+    .rm-mini-spark{height:36px;margin-top:6px;}
     /* ── Muscle bars ── */
     .muscle-group-row{margin-bottom:14px;}
     .muscle-group-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
@@ -720,6 +737,8 @@
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
+    <div class="acc-card" id="acc-dash-reports-card" style="display:none;"><div class="acc-header" onclick="toggleAcc('acc-dash-reports')"><span>📋 Rapports récents <span id="dashReportsBadge" class="dash-acc-badge" style="display:none;"></span></span><span class="acc-chevron" id="chev-acc-dash-reports">▾</span></div><div class="acc-body" id="acc-dash-reports"></div></div>
+    <div class="acc-card" id="acc-dash-weekly-card" style="display:none;"><div class="acc-header" onclick="toggleAcc('acc-dash-weekly')"><span>🏋️ Programme Semaine <span id="dashWeeklyBadge" class="dash-acc-badge green" style="display:none;">✓</span></span><span class="acc-chevron" id="chev-acc-dash-weekly">▾</span></div><div class="acc-body" id="acc-dash-weekly"></div></div>
   </div>
   <div id="tab-seances" class="content-section">
     <div class="card">
@@ -2293,7 +2312,7 @@ function matchExoName(hevyName, progName) {
 // REPORTS
 // ============================================================
 function purgeExpiredReports() { const now = Date.now(); const before = db.reports.length; db.reports = db.reports.filter(r => r.expires_at > now); if (db.reports.length !== before) saveDB(); }
-function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); renderReportsTimeline(); }
+function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); renderReportsTimeline(); renderDashReports(); }
 function markReportsRead() { let changed = false; db.reports.forEach(r => { if (!r.read) { r.read = true; changed = true; } }); if (changed) saveDB(); updateCoachBadge(); }
 function updateCoachBadge() { const unread = db.reports.filter(r => !r.read && r.expires_at > Date.now()).length; const btn = document.querySelector('.tab-btn[data-tab="tab-ai"]'); const existing = btn.querySelector('.tab-badge'); if (unread > 0 && !existing) { const dot = document.createElement('span'); dot.className = 'tab-badge'; btn.appendChild(dot); } else if (unread === 0 && existing) existing.remove(); }
 function shouldGenerateWeekly() { const today = new Date(); if (today.getDay() !== 6) return false; const existing = db.reports.find(r => r.type === 'weekly'); if (existing) { const created = new Date(existing.created_at); if (created.toDateString() === today.toDateString()) return false; } return getLogsInRange(7).length > 0; }
@@ -2646,6 +2665,8 @@ function renderDash() {
   if (greet && db.user.name) greet.textContent = 'Salut ' + db.user.name + ' 👋';
   renderPerfCard();
   renderDayExercises(selectedDay);
+  renderDashReports();
+  renderDashWeeklyPlan();
 }
 
 // ── Rubrique Performance configurable ────────────────────────
@@ -2719,6 +2740,26 @@ function renderPerfCard() {
     const shortName = kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0, 2).join(' ');
     const color = PALETTE[i % PALETTE.length];
 
+    // Mini sparkline : PR glissant sur l'historique
+    let sparkHtml = '';
+    const hist = [...rec.history].sort((a, b) => a.ts - b.ts);
+    if (hist.length > 1) {
+      let runMax = 0;
+      const rmPts = hist.map(p => { if (p.rm > runMax) runMax = p.rm; return runMax; });
+      const minV = Math.min(...rmPts), maxV = Math.max(...rmPts), range = maxV - minV || 1;
+      const W = 200, H = 34, pad = 3;
+      const svgPts = rmPts.map((v, j) =>
+        (pad + (j / (rmPts.length - 1)) * (W - 2 * pad)).toFixed(1) + ',' +
+        (H - pad - ((v - minV) / range) * (H - 2 * pad)).toFixed(1)
+      );
+      const lx = svgPts[svgPts.length - 1].split(',')[0];
+      const ly = svgPts[svgPts.length - 1].split(',')[1];
+      sparkHtml = '<div class="rm-mini-spark"><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:34px;" preserveAspectRatio="none">' +
+        '<polyline points="' + svgPts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.75"/>' +
+        '<circle cx="' + lx + '" cy="' + ly + '" r="3" fill="' + color + '"/>' +
+        '</svg></div>';
+    }
+
     return '<div class="rm-box">' +
       (isPR ? '<div class="pr-badge">🔥 PR!</div>' : '') +
       '<div style="font-size:10px;color:var(--sub);">' + shortName.toUpperCase() + '</div>' +
@@ -2726,6 +2767,7 @@ function renderPerfCard() {
       (real > 0 ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">✓ ' + real + 'kg réel</div>' : '') +
       (target > 0 ? '<div class="rm-target">Visé : ' + target + 'kg</div>' : '<div class="rm-target" style="color:var(--border);">—</div>') +
       (bw ? '<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">' + bw + '</div>' : '') +
+      sparkHtml +
       '</div>';
   }).join('');
 
@@ -2738,10 +2780,14 @@ function renderPerfCard() {
   const bgE1rm   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '99');
   const bgTarget = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '33');
 
+  // Nettoyage ancienne courbe combinée si elle existait
+  if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') {
+    window.chartPerfLine.destroy(); window.chartPerfLine = null;
+  }
+
   el.innerHTML =
     '<div class="sbd-grid" style="grid-template-columns:' + cols + ';">' + boxesHtml + '</div>' +
-    '<div style="height:220px;margin-top:25px;"><canvas id="chartPerf"></canvas></div>' +
-    '<div style="height:160px;margin-top:20px;"><canvas id="chartPerfLine"></canvas></div>';
+    '<div style="height:220px;margin-top:25px;"><canvas id="chartPerf"></canvas></div>';
 
   // Graphique barres
   const cvBar = document.getElementById('chartPerf');
@@ -2778,112 +2824,6 @@ function renderPerfCard() {
     });
   }
 
-  // Courbe progression — PR glissant par séance, 360 derniers jours
-  const cvLine = document.getElementById('chartPerfLine');
-  if (cvLine) {
-    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') window.chartPerfLine.destroy();
-
-    const limit360 = Date.now() - 360 * 86400000;
-
-    // Construire par exercice : liste chronologique des séances avec e1RM
-    // On garde le MAX COURANT (PR glissant) → la courbe ne descend jamais
-    const exoSeries = {}; // klName → [{ts, label, rm}] triés chronologiquement
-    keyLifts.forEach(kl => {
-      const hist = [...records[kl.name].history]
-        .filter(p => p.ts >= limit360)
-        .sort((a, b) => a.ts - b.ts);
-      if (!hist.length) return;
-      let runMax = 0;
-      const pts = [];
-      hist.forEach(p => {
-        if (p.rm > runMax) runMax = p.rm;
-        const d = new Date(p.ts);
-        const label = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-        pts.push({ ts: p.ts, label, rm: runMax });
-      });
-      exoSeries[kl.name] = pts;
-    });
-
-    // Axe X commun = union de tous les ts, triés
-    const allTs = new Set();
-    Object.values(exoSeries).forEach(pts => pts.forEach(p => allTs.add(p.ts)));
-    const sortedTs = Array.from(allTs).sort((a, b) => a - b);
-    const nPts = sortedTs.length;
-
-    // Labels X : afficher ~8 dates max
-    const step = Math.max(1, Math.floor(nPts / 8));
-    const xLabels = sortedTs.map((ts, i) => {
-      if (i % step !== 0 && i !== nPts - 1) return '';
-      const d = new Date(ts);
-      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-    });
-
-    const datasets = keyLifts.map((kl, i) => {
-      const pts = exoSeries[kl.name];
-      if (!pts || !pts.length) return null;
-      // Interpoler : pour chaque ts de l'axe commun, prendre la dernière valeur connue
-      const byTs = {};
-      pts.forEach(p => { byTs[p.ts] = p.rm; });
-      let lastVal = null;
-      const data = sortedTs.map(ts => {
-        if (byTs[ts] != null) lastVal = byTs[ts];
-        return lastVal; // propagation forward → pas de null = pas de trous
-      });
-      const color = PALETTE[i % PALETTE.length];
-      return {
-        label: kl.name.replace(/\s*\(.*\)/, '').split(' ').slice(0, 2).join(' '),
-        data,
-        borderColor: color,
-        backgroundColor: color + '12',
-        fill: false,
-        borderWidth: 2.5,
-        tension: 0.4,
-        pointRadius: 0,        // pas de points → ligne propre
-        pointHoverRadius: 5,
-        pointHitRadius: 10,
-        pointBackgroundColor: color,
-      };
-    }).filter(Boolean);
-
-    if (datasets.length) {
-      window.chartPerfLine = new Chart(cvLine, {
-        type: 'line',
-        data: { labels: xLabels, datasets },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: {
-              display: true,
-              labels: { color: '#F5F5F7', font: { size: 11 }, boxWidth: 12, padding: 14 }
-            },
-            tooltip: {
-              backgroundColor: '#1C1C1E', borderColor: '#3A3A3C', borderWidth: 1,
-              titleColor: '#F5F5F7', bodyColor: '#86868B', padding: 10,
-              callbacks: {
-                title: items => {
-                  const ts = sortedTs[items[0].dataIndex];
-                  const d = new Date(ts);
-                  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
-                },
-                label: ctx => ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y + ' kg e1RM'
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { color: '#86868B', font: { size: 10 }, maxRotation: 0 }
-            },
-            y: {
-              grid: { color: '#2C2C2E55' },
-              ticks: { color: '#86868B', font: { size: 10 }, callback: v => v + ' kg' }
-            }
-          }
-        }
-      });
-    }
-  }
 }
 
 // ── Réglages : éditeur exercices clés ────────────────────────
@@ -4122,16 +4062,27 @@ function renderLifts() {
         '</div>';
     }).join('');
 
+    const lcId = 'lc-' + idx;
     return '<div class="lift-card">' +
-      '<div class="lift-card-header">' +
+      '<div class="lift-card-header" onclick="toggleLiftCard(\'' + lcId + '\')" style="cursor:pointer;margin-bottom:0;">' +
         '<div><div class="lift-card-name">' + medal + ' ' + lift.name + '</div>' +
         '<div class="lift-card-muscle" style="color:' + color + '">' + lift.muscle + '</div></div>' +
         '<div class="lift-card-right"><div class="lift-card-pr" style="color:' + color + '">' + lift.maxRM + 'kg</div>' +
         '<div class="lift-card-date">e1RM · ' + prDate + '</div></div>' +
       '</div>' +
-      '<div class="lift-badges">' + badges + '</div>' +
-      sparkSVG +
-      '<div class="lift-rm-grid" style="grid-template-columns:repeat(6,1fr);">' + rmCells + '</div>' +
+      '<div class="lift-card-toggle" onclick="toggleLiftCard(\'' + lcId + '\')">' +
+        '<span class="lift-card-toggle-label">Voir détails</span>' +
+        '<span class="lift-card-chevron" id="chev-' + lcId + '">▾</span>' +
+      '</div>' +
+      '<div class="lift-card-body" id="' + lcId + '">' +
+        '<div style="height:6px;"></div>' +
+        '<div class="lift-badges">' + badges + '</div>' +
+        sparkSVG +
+        '<div class="lift-rm-grid" style="grid-template-columns:repeat(6,1fr);">' + rmCells + '</div>' +
+        '<div class="lift-calc"><span class="lift-calc-label">🧮 Calculer :</span>' +
+        '<input type="number" min="1" max="30" placeholder="reps" oninput="calcLiftWeight(this)" data-e1rm="' + lift.maxRM + '" id="calc-' + lcId + '">' +
+        '<span class="lift-calc-result" id="calc-res-' + lcId + '">— kg</span></div>' +
+      '</div>' +
       '</div>';
   }).join('');
 }
@@ -4139,6 +4090,95 @@ function renderLifts() {
 function setLiftsFilter(muscle) {
   liftsMuscleFilter = muscle;
   renderLifts();
+}
+
+function toggleLiftCard(id) {
+  const body = document.getElementById(id);
+  const chev = document.getElementById('chev-' + id);
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (chev) chev.classList.toggle('open', !isOpen);
+}
+
+function calcLiftWeight(input) {
+  const reps = parseInt(input.value);
+  const e1rm = parseFloat(input.dataset.e1rm || 0);
+  const resultEl = document.getElementById('calc-res-' + input.id.replace('calc-', ''));
+  if (!resultEl) return;
+  if (!reps || reps < 1 || reps > 30 || !e1rm) { resultEl.textContent = '— kg'; return; }
+  // Epley: weight = e1RM / (1 + reps/30)
+  const weight = Math.round((e1rm / (1 + reps / 30)) * 2) / 2;
+  resultEl.textContent = weight + ' kg';
+}
+
+function renderDashReports() {
+  purgeExpiredReports();
+  const reports = db.reports.filter(r => r.expires_at > Date.now()).sort((a, b) => b.created_at - a.created_at);
+  const card = document.getElementById('acc-dash-reports-card');
+  const badge = document.getElementById('dashReportsBadge');
+  if (!card) return;
+  if (!reports.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const unread = reports.filter(r => !r.read).length;
+  if (badge) { badge.textContent = unread; badge.style.display = unread ? '' : 'none'; }
+  const container = document.getElementById('acc-dash-reports');
+  if (!container) return;
+  container.innerHTML = '<div style="padding-top:4px;">' +
+    reports.map(r => {
+      const typeLabel = r.type === 'debrief' ? '🏋️ Débrief Séance' : '📊 Bilan Hebdo';
+      const dl = daysLeft(r.expires_at);
+      const unreadDot = r.read ? '' : '<span class="report-new-dot"></span>';
+      return '<div class="report-card ' + r.type + '" style="margin-bottom:8px;">' +
+        '<div class="report-card-header"><div class="report-card-type">' + unreadDot + ' ' + typeLabel + '</div>' +
+        '<div style="text-align:right;"><div class="report-card-date">' + timeAgo(r.created_at) + '</div>' +
+        '<div class="report-card-expiry">⏳ ' + dl + 'j restants</div></div></div>' +
+        '<div class="report-card-body" id="dr-body-' + r.id + '" style="display:none;"><div class="ai-response-content">' + r.html + '</div></div>' +
+        '<button class="report-toggle" onclick="toggleDashReport(\'' + r.id + '\')">Voir ▾</button>' +
+        '</div>';
+    }).join('') + '</div>';
+}
+
+function toggleDashReport(id) {
+  const body = document.getElementById('dr-body-' + id);
+  if (!body) return;
+  const btn = body.parentElement.querySelector('.report-toggle');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (btn) btn.textContent = isOpen ? 'Voir ▾' : 'Masquer ▴';
+}
+
+function renderDashWeeklyPlan() {
+  const card = document.getElementById('acc-dash-weekly-card');
+  const badge = document.getElementById('dashWeeklyBadge');
+  const container = document.getElementById('acc-dash-weekly');
+  if (!card || !container) return;
+  const plan = db.weeklyPlan;
+  if (!plan || !plan.days || !plan.days.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  if (badge) badge.style.display = '';
+  const todayName = DAYS_FULL[new Date().getDay()];
+  const orderedDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  container.innerHTML = '<div style="padding-top:4px;">' +
+    orderedDays.map(day => {
+      const d = plan.days.find(p => p.day === day);
+      if (!d) return '';
+      const isToday = day === todayName;
+      const isRest = d.rest;
+      const dayColor = isRest ? 'var(--sub)' : isToday ? 'var(--blue)' : 'var(--text)';
+      const exoPreview = !isRest && d.exercises && d.exercises.length
+        ? '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' +
+          d.exercises.slice(0, 3).map(e => e.name).join(' · ') +
+          (d.exercises.length > 3 ? ' +' + (d.exercises.length - 3) : '') + '</div>'
+        : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);">' +
+        '<div><span style="font-size:13px;font-weight:' + (isToday ? '800' : '600') + ';color:' + dayColor + ';">' + (isToday ? '▶ ' : '') + day.substring(0, 3) + '</span>' +
+        exoPreview + '</div>' +
+        '<span style="font-size:11px;color:' + (isRest ? 'var(--sub)' : 'var(--green)') + ';">' + (isRest ? '😴 Repos' : '💪 ' + (d.exercises || []).length + ' exos') + '</span>' +
+        '</div>';
+    }).join('') +
+    '<button onclick="showTab(\'tab-ai\')" style="margin-top:12px;width:100%;background:transparent;border:1px solid var(--border);color:var(--sub);border-radius:10px;padding:10px;font-size:12px;cursor:pointer;">Voir le programme complet →</button>' +
+    '</div>';
 }
 
 function updateNutriTargets() {

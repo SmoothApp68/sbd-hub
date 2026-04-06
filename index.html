@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>SBD Elite Tracker</title>
+  <title>Training Hub</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -516,8 +516,8 @@
       <!-- Step 1 : Bienvenue + profil -->
       <div class="ob-step active" id="ob-step-1">
         <div class="ob-logo">🏋️</div>
-        <div class="ob-title">Bienvenue sur<br>SBD Tracker</div>
-        <div class="ob-sub">L'app de suivi pour les athlètes de force.<br>2 minutes pour tout configurer.</div>
+        <div class="ob-title">Bienvenue sur<br>Training Hub</div>
+        <div class="ob-sub">Ton journal d'entraînement personnel.<br>2 minutes pour tout configurer.</div>
         <div class="ob-label">Ton prénom</div>
         <div class="ob-fields">
           <input type="text" id="ob-name" placeholder="Ex: Alex" maxlength="20">
@@ -528,17 +528,20 @@
             <option value="debutant">Débutant (moins de 1 an)</option>
             <option value="intermediaire" selected>Intermédiaire (1–3 ans)</option>
             <option value="avance">Avancé (3+ ans)</option>
-            <option value="competiteur">Compétiteur</option>
+            <option value="competiteur">Compétiteur / Elite</option>
           </select>
         </div>
         <button class="btn" onclick="obNext(1)">Continuer →</button>
       </div>
 
-      <!-- Step 2 : Objectifs SBD -->
+      <!-- Step 2 : Objectifs SBD (optionnel) -->
       <div class="ob-step" id="ob-step-2">
         <div class="ob-logo">🎯</div>
-        <div class="ob-title">Tes records SBD</div>
-        <div class="ob-sub">Records actuels et objectifs en kg (e1RM estimé).<br>Laisse vide si tu ne sais pas encore.</div>
+        <div class="ob-title">Records de force</div>
+        <div class="ob-sub">Tu fais du Squat, Bench press et Soulevé de terre ?<br>Remplis tes records actuels et objectifs.</div>
+        <div style="background:rgba(10,132,255,0.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--sub);text-align:center;">
+          🏃 Tu ne fais pas ces exercices ? Clique sur <strong style="color:var(--text);">Passer</strong> — cette étape est 100% optionnelle.
+        </div>
         <div class="ob-label">Records actuels (kg)</div>
         <div class="ob-fields">
           <div class="ob-row">
@@ -553,8 +556,10 @@
             <input type="number" id="ob-dead-tgt"  placeholder="Dead"  min="0" max="700">
           </div>
         </div>
-        <button class="btn" onclick="obNext(2)">Continuer →</button>
-        <button class="ob-skip" onclick="obSkip(2)">Passer — je remplirai plus tard</button>
+        <div style="display:flex;gap:8px;flex-direction:column;">
+          <button class="btn" onclick="obNext(2)">Continuer →</button>
+          <button class="btn" onclick="obSkip(2)" style="background:var(--surface);color:var(--sub);border:1px solid var(--border);">Passer cette étape</button>
+        </div>
       </div>
 
       <!-- Step 3 : Choix du chemin programme -->
@@ -781,6 +786,25 @@
   <!-- APP PRINCIPALE -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-dash" class="content-section active">
+    <!-- Carte de bienvenue — visible seulement sans données -->
+    <div class="card" id="welcomeCard" style="display:none;text-align:center;padding:28px 20px;">
+      <div style="font-size:44px;margin-bottom:12px;">👋</div>
+      <div id="welcomeTitle" style="font-size:20px;font-weight:700;margin-bottom:8px;">Tout est prêt !</div>
+      <div style="font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:20px;">
+        Importe tes séances depuis Hevy pour débloquer<br>tes statistiques, records et suivi de progression.
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:14px;margin-bottom:20px;text-align:left;">
+        <div style="font-size:12px;color:var(--sub);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Comment importer depuis Hevy</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;">
+          1. Ouvre Hevy → ton profil<br>
+          2. "Exporter les données" → copie le texte<br>
+          3. Réglages → 📥 Importer des Séances → colle
+        </div>
+      </div>
+      <button class="btn" onclick="switchTab('tab-settings'); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
+        📥 Aller à l'import
+      </button>
+    </div>
     <div class="card" id="perfCard"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div id="perfDisplay"></div></div>
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
@@ -2760,6 +2784,18 @@ function renderDash() {
   document.getElementById('routineDisplay').textContent = routine[selectedDay] || '—';
   const greet = document.getElementById('dashGreeting');
   if (greet && db.user.name) greet.textContent = 'Salut ' + db.user.name + ' 👋';
+
+  // Carte de bienvenue : visible seulement si aucune séance importée
+  const welcomeCard = document.getElementById('welcomeCard');
+  if (welcomeCard) {
+    const noData = !db.logs || db.logs.length === 0;
+    welcomeCard.style.display = noData ? '' : 'none';
+    if (noData && db.user.name) {
+      const title = document.getElementById('welcomeTitle');
+      if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
+    }
+  }
+
   renderPerfCard();
   renderDayExercises(selectedDay);
 }
@@ -2781,7 +2817,11 @@ function renderPerfCard() {
   const keyLifts = db.keyLifts || [];
 
   if (!keyLifts.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Configure tes exercices clés dans<br>Réglages → 🎯 Exercices Clés</div>';
+    el.innerHTML = '<div style="text-align:center;padding:20px;">' +
+      '<div style="font-size:28px;margin-bottom:10px;">🎯</div>' +
+      '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Aucun exercice clé configuré</div>' +
+      '<div style="font-size:12px;color:var(--sub);line-height:1.6;">Choisis les mouvements que tu veux suivre<br>dans Réglages → 🎯 Exercices Clés</div>' +
+      '</div>';
     return;
   }
 
@@ -3179,8 +3219,14 @@ function renderDayExercises(day) {
   const best = accumulateBest(db.logs.filter(l => l.day === day), null);
   const entries = Object.entries(best);
   if (!entries.length) {
-    c.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;padding:20px 0;">' +
-      'Définis ton programme dans<br>Réglages → Mon Programme.</p>';
+    const hasLogs = db.logs && db.logs.length > 0;
+    c.innerHTML = '<div style="text-align:center;padding:20px 0;">' +
+      '<div style="font-size:28px;margin-bottom:10px;">' + (hasLogs ? '📅' : '📥') + '</div>' +
+      '<div style="font-size:13px;color:var(--sub);line-height:1.6;">' +
+      (hasLogs
+        ? 'Définis ton programme dans<br><strong style="color:var(--text);">Réglages → 📅 Mon Programme</strong>'
+        : 'Importe tes séances depuis Hevy<br>dans <strong style="color:var(--text);">Réglages → 📥 Import</strong>') +
+      '</div></div>';
     return;
   }
   let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
@@ -3413,6 +3459,11 @@ function renderMuscleVolumeContent(period) {
 
   const listEl = document.getElementById('muscleList');
   if (!listEl) return;
+
+  if (!db.logs.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--sub);font-size:13px;">Importe des séances pour voir<br>la répartition musculaire.</div>';
+    return;
+  }
 
   listEl.innerHTML = muscles.map(grp => {
     const total = ms[grp] || 0;
@@ -4050,7 +4101,7 @@ function renderFormeScore() {
   const el = document.getElementById('formeScoreContent');
   const tag = document.getElementById('formeScoreTag');
   if (!el) return;
-  if (!db.logs.length) { el.innerHTML = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:8px;">Importe des séances pour calculer le score.</div>'; return; }
+  if (!db.logs.length) { el.innerHTML = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Importe des séances<br>pour calculer le score de forme.</div>'; return; }
   const fs = calcFormScore();
   const color = fs.total >= 80 ? 'var(--green)' : fs.total >= 60 ? 'var(--blue)' : fs.total >= 40 ? 'var(--orange)' : 'var(--red)';
   const label = fs.total >= 80 ? 'Optimal' : fs.total >= 60 ? 'Bon' : fs.total >= 40 ? 'Moyen' : 'À améliorer';
@@ -4078,7 +4129,7 @@ function renderFormeScore() {
 function renderTrainingLoad() {
   const el = document.getElementById('trainingLoadContent');
   if (!el) return;
-  if (!db.logs.length) { el.innerHTML = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:8px;">Aucune donnée.</div>'; return; }
+  if (!db.logs.length) { el.innerHTML = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Aucune séance importée.</div>'; return; }
   const fs = calcFormScore();
   const { atl, ctl } = fs;
   const ratio = ctl > 0 ? atl / ctl : (atl > 0 ? 1.0 : 0);
@@ -4568,7 +4619,17 @@ function renderLifts() {
 
   const filtered = liftsMuscleFilter === 'Tout' ? lifts : lifts.filter(l => l.muscle === liftsMuscleFilter);
   const el = document.getElementById('liftsList');
-  if (!filtered.length) { el.innerHTML = '<p style="color:var(--sub);text-align:center;font-size:13px;">Aucun lift</p>'; return; }
+  if (!filtered.length) {
+    const hasLogs = db.logs && db.logs.length > 0;
+    el.innerHTML = '<div style="text-align:center;padding:24px 0;">' +
+      '<div style="font-size:28px;margin-bottom:10px;">' + (hasLogs ? '💪' : '📥') + '</div>' +
+      '<div style="font-size:13px;color:var(--sub);line-height:1.6;">' +
+      (hasLogs
+        ? 'Aucun lift trouvé pour ce filtre.<br>Essaie le filtre "Tout".'
+        : 'Importe des séances depuis Hevy<br>dans <strong style="color:var(--text);">Réglages → 📥 Import</strong>') +
+      '</div></div>';
+    return;
+  }
 
   // Build history only for the displayed lifts (top 10)
   const displayLifts = filtered.slice(0, 10);
@@ -4842,7 +4903,7 @@ function renderSBDLine() {
 // ============================================================
 function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
-  if (db.logs.length === 0) { el.textContent = 'Importe des séances pour activer l\'analyse.'; return; }
+  if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
 }
 

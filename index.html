@@ -3056,6 +3056,8 @@ function renderDash() {
 
 // ── Rubrique Performance configurable ────────────────────────
 let chartPerf = null;
+let perfChartMode = 'bars';
+function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
 
 // Incrément objectif selon le groupe musculaire de l'exercice
 function getPerfIncrement(exoName) {
@@ -3219,15 +3221,75 @@ function renderPerfCard() {
     '</div>';
   }).join('');
 
-  el.innerHTML =
-    '<div class="sbd-grid" style="grid-template-columns:' + cols + ';margin-bottom:16px;">' + boxesHtml + '</div>' +
-    (trendRows
-      ? '<div style="background:var(--surface);border-radius:12px;padding:4px 12px;">' + trendRows + '</div>'
-      : '');
+  // ── Toggle barres / courbe ────────────────────────────────
+  const toggleHtml =
+    '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
+    '<button class="period-btn' + (perfChartMode==='bars'?' active':'') + '" onclick="setPerfMode(\'bars\')" style="font-size:11px;">📊 Barres</button>' +
+    '<button class="period-btn' + (perfChartMode==='curve'?' active':'') + '" onclick="setPerfMode(\'curve\')" style="font-size:11px;">📈 Progression</button>' +
+    '</div>';
 
-  // Détruire les anciens charts Chart.js si présents
-  if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
-  if (window.chartPerf && typeof window.chartPerf.destroy === 'function') { window.chartPerf.destroy(); window.chartPerf = null; }
+  if (perfChartMode === 'bars') {
+    // ── Mode barres : bar chart e1RM / réel / objectif ─────
+    const labels   = keyLifts.map(kl => kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0,2).join(' '));
+    const real1rms = keyLifts.map(kl => records[kl.name].real1rm);
+    const e1rms    = keyLifts.map(kl => records[kl.name].e1rm);
+    const targets  = keyLifts.map(kl => kl.target || 0);
+    const bgMain   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length]);
+    const bgE1rm   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '99');
+    const bgTarget = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '33');
+
+    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
+
+    el.innerHTML =
+      toggleHtml +
+      '<div class="sbd-grid" style="grid-template-columns:' + cols + ';margin-bottom:16px;">' + boxesHtml + '</div>' +
+      '<div style="height:200px;"><canvas id="chartPerf"></canvas></div>';
+
+    const cvBar = document.getElementById('chartPerf');
+    if (cvBar) {
+      if (chartPerf && typeof chartPerf.destroy === 'function') chartPerf.destroy();
+      chartPerf = new Chart(cvBar, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: '1RM Réel',     data: real1rms, backgroundColor: bgMain,   borderRadius: 6, barThickness: 22 },
+            { label: 'e1RM (Epley)', data: e1rms,    backgroundColor: bgE1rm,   borderRadius: 6, barThickness: 22 },
+            { label: 'Objectif',     data: targets,  backgroundColor: bgTarget, borderRadius: 6, barThickness: 22, borderColor: bgMain, borderWidth: 2 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } },
+            tooltip: { callbacks: { afterLabel: c => {
+              if (c.datasetIndex === 2) {
+                const rm = e1rms[c.dataIndex];
+                return targets[c.dataIndex] > 0 && rm > 0 ? 'Reste : ' + (targets[c.dataIndex] - rm) + 'kg' : '';
+              }
+              return '';
+            }}}
+          },
+          scales: {
+            y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
+            x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
+          }
+        }
+      });
+    }
+
+  } else {
+    // ── Mode courbe : trend rows + sparklines SVG ──────────
+    if (chartPerf && typeof chartPerf.destroy === 'function') { chartPerf.destroy(); chartPerf = null; }
+    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
+
+    el.innerHTML =
+      toggleHtml +
+      '<div class="sbd-grid" style="grid-template-columns:' + cols + ';margin-bottom:16px;">' + boxesHtml + '</div>' +
+      (trendRows
+        ? '<div style="background:var(--surface);border-radius:12px;padding:4px 12px;">' + trendRows + '</div>'
+        : '');
+  }
 }
 
 // ── Réglages : éditeur exercices clés ────────────────────────
@@ -5347,9 +5409,10 @@ function generateWeeklyPlan() {
     const isRest = !label || /repos|😴/i.test(label);
     const exercises = [];
 
+    let exoNames = [];
     if (!isRest) {
       // Priorité 1 : exercices configurés dans Réglages
-      let exoNames = getProgExosForDay(day);
+      exoNames = getProgExosForDay(day);
       // Priorité 2 : session la plus récente du même jour
       if (!exoNames.length) {
         const recent = [...db.logs]

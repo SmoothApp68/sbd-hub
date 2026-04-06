@@ -5216,6 +5216,26 @@ function generateWeeklyPlan() {
     return cat === 'big' ? BONUS_BIG : cat === 'compound' ? BONUS_COMP : BONUS_ISO;
   }
 
+  // ── Tendance réelle par exercice (régression linéaire) ───────
+  // Généralise calcMomentum() à n'importe quel nom d'exercice
+  // Retourne kgPerWeek (pente) et lastE1rm (dernier e1RM mesuré)
+  function computeExoTrend(exoName) {
+    const pts = [];
+    const sorted = [...db.logs].sort((a,b) => a.timestamp - b.timestamp);
+    for (const log of sorted) {
+      const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+      if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+      pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+      if (pts.length >= 6) break;
+    }
+    if (pts.length < 2) return { kgPerWeek: 0, lastE1rm: pts[0]?.y || 0, n: pts.length };
+    const n = pts.length;
+    const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+    const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+    const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+    return { kgPerWeek: Math.round(slope*7*10)/10, lastE1rm: pts[pts.length-1].y, n };
+  }
+
   // ── Agréger meilleurs records tous jours confondus ──────────
   const allBest = {};
   db.logs.forEach(log => {
@@ -5242,29 +5262,78 @@ function generateWeeklyPlan() {
   }
 
   // ── Calculer le poids de travail cible ──────────────────────
-  // hist = enregistrement, tReps = reps cibles, cat = catégorie, bonus = kg absolu
-  function computeWorkWeight(hist, tReps, cat) {
-    const bonus = getBonusForCat(cat);
+  // Intègre la tendance réelle de l'athlète pour calibrer la charge
+  // hist = record all-time, tReps = reps cibles, cat = catégorie, exoName = pour trend
+  function computeWorkWeight(hist, tReps, cat, exoName) {
+    const bonus  = getBonusForCat(cat);
+    const trend  = exoName ? computeExoTrend(exoName) : { kgPerWeek:0, n:0 };
+
+    // Ajustement tendance : uniquement si ≥3 séances de données
+    // Forte progression (>1.5kg/sem) → légère surcharge ; régression (<-0.5) → sécurité
+    let trendAdj = 0;
+    if (trend.n >= 3) {
+      if (trend.kgPerWeek > 1.5)       trendAdj = round05(Math.min(trend.kgPerWeek * 0.4, 5));
+      else if (trend.kgPerWeek < -0.5) trendAdj = round05(Math.max(trend.kgPerWeek * 0.5, -5));
+    }
+
     // 1. Record exact au nombre de reps cible
     const exactW = hist?.repRecords?.[String(tReps)];
     if (exactW > 0) {
-      return round05(wi === 0 ? exactW * LOAD_PCT : exactW + bonus);
+      return round05((wi === 0 ? exactW * LOAD_PCT : exactW + bonus) + trendAdj);
     }
     // 2. Estimer depuis le record disponible le plus lourd via Epley
     const recs = Object.entries(hist?.repRecords||{})
       .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
       .sort((a,b) => a[0] - b[0]);
     if (recs.length > 0) {
-      const [r0, w0] = recs[0]; // poids le plus lourd = moins de reps
-      const e1 = calcE1RM(w0, r0);
+      const [r0, w0] = recs[0];
+      const e1   = calcE1RM(w0, r0);
       const base = round05(e1 * (1.0278 - 0.0278 * tReps));
-      return round05(wi === 0 ? base * LOAD_PCT : base + bonus);
+      return round05((wi === 0 ? base * LOAD_PCT : base + bonus) + trendAdj);
     }
     // 3. Depuis le e1RM global
     if (hist?.maxRM > 0) {
-      return round05(hist.maxRM * (1.0278 - 0.0278 * tReps) * LOAD_PCT);
+      return round05(hist.maxRM * (1.0278 - 0.0278 * tReps) * LOAD_PCT + trendAdj);
     }
     return null;
+  }
+
+  // ── Note coach dynamique par jour ───────────────────────────
+  // Utilise detectPlateau() + calcMomentum() + computeExoTrend()
+  // Priorité : plateau SBD > tendance principale > note générique semaine
+  function buildDayCoachNote(dayExoNames) {
+    if (!dayExoNames || !dayExoNames.length) return WEEK_NOTES[wi];
+
+    // 1. Vérifier plateaux SBD pour les lifts présents ce jour
+    for (const sbdType of ['squat', 'bench', 'deadlift']) {
+      if (!dayExoNames.some(n => getSBDType(n) === sbdType)) continue;
+      const plat = detectPlateau(sbdType, 3);
+      if (plat) {
+        const nm = sbdType === 'bench' ? 'Bench' : sbdType === 'squat' ? 'Squat' : 'Dead';
+        return nm + ' en plateau — essaie une variante ou décharge légèrement.';
+      }
+      // Momentum fort → note positive
+      const mom = calcMomentum(sbdType);
+      if (mom !== null && mom > 1.5) {
+        const nm = sbdType === 'bench' ? 'Bench' : sbdType === 'squat' ? 'Squat' : 'Dead';
+        return nm + ' en feu (+' + mom + 'kg/sem) — reste sur cette lancée.';
+      }
+    }
+
+    // 2. Tendance sur le premier exercice composé non-SBD du jour
+    for (const exoName of dayExoNames.slice(0, 4)) {
+      if (getSBDType(exoName)) continue;
+      const cat = getExoCategory(exoName);
+      if (cat === 'isolation') continue;
+      const tr = computeExoTrend(exoName);
+      if (tr.n < 3) continue;
+      const short = exoName.split(' ').slice(0,2).join(' ');
+      if (tr.kgPerWeek > 1.5) return short + ' progresse (+' + tr.kgPerWeek + 'kg/sem) — continue.';
+      if (tr.kgPerWeek < -1)  return short + ' en recul — priorité technique, pas la charge.';
+    }
+
+    // 3. Note générique de la semaine
+    return WEEK_NOTES[wi];
   }
 
   const routine = getRoutine();
@@ -5309,7 +5378,7 @@ function generateWeeklyPlan() {
             .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
             .sort((a,b) => a[0] - b[0]);
           if (weightedRecs.length > 0) {
-            const workW = computeWorkWeight(hist, tReps, cat);
+            const workW = computeWorkWeight(hist, tReps, cat, exoName);
             exercises.push({ name:exoName, type:'reps', restSeconds:rest,
               sets: Array.from({length:nSets}, () => ({ isWarmup:false, weight:workW, reps:tReps, rpe:tRpe })) });
           } else {
@@ -5329,7 +5398,7 @@ function generateWeeklyPlan() {
 
         } else {
           // ── Poids — N séries identiques au poids cible ───────
-          const workWeight = computeWorkWeight(hist, tReps, cat);
+          const workWeight = computeWorkWeight(hist, tReps, cat, exoName);
           if (workWeight && workWeight > 0) {
             // Échauffements adaptés : 2 paliers si gros lift, 1 si composé/isolation
             const warmups = cat === 'big'
@@ -5349,7 +5418,7 @@ function generateWeeklyPlan() {
       });
     }
 
-    plan.days.push({ day, title: label || day, rest: isRest, coachNote: isRest ? '' : WEEK_NOTES[wi], exercises });
+    plan.days.push({ day, title: label || day, rest: isRest, coachNote: isRest ? '' : buildDayCoachNote(exoNames), exercises });
   });
 
   db.weeklyPlan = plan;

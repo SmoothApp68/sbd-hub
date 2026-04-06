@@ -1087,6 +1087,24 @@
       </div>
     </div>
 
+    <!-- Accordéon Sauvegarde -->
+    <div class="acc-card">
+      <div class="acc-header" onclick="toggleAcc('acc-backup')">
+        <span>💾 Sauvegarde & Restauration</span><span class="acc-chevron" id="chev-acc-backup">▾</span>
+      </div>
+      <div class="acc-body" id="acc-backup">
+        <p style="font-size:12px;color:var(--sub);margin:0 0 14px;line-height:1.5;">Exporte toutes tes données dans un fichier JSON. Utile avant de changer d'appareil ou de navigateur.</p>
+        <button class="btn" style="margin-bottom:12px;" onclick="exportData()">⬇️ Exporter mes données</button>
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+          <div style="font-size:12px;color:var(--sub);margin-bottom:10px;">Restaurer depuis une sauvegarde :</div>
+          <input type="file" id="restoreFileInput" accept=".json" style="font-size:13px;padding:10px;margin-bottom:10px;" onchange="previewRestore(this)">
+          <div id="restorePreview" style="display:none;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;color:var(--sub);"></div>
+          <button class="btn" style="background:var(--orange);" id="restoreBtn" disabled onclick="importData()">⬆️ Restaurer les données</button>
+          <p style="font-size:10px;color:var(--red);text-align:center;margin-top:8px;">⚠️ Remplace toutes les données actuelles.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Accordéon Danger -->
     <div class="acc-card" style="border-color:rgba(255,69,58,0.3);">
       <div class="acc-header" onclick="toggleAcc('acc-danger')">
@@ -1390,6 +1408,69 @@ function getRoutine() { return db.routine || DEFAULT_ROUTINE; }
 function saveDB() { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); debouncedCloudSync(); }
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+// ── EXPORT / IMPORT JSON ─────────────────────────────────────
+function exportData() {
+  const json = JSON.stringify(db, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = 'training-hub-backup-' + date + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ Sauvegarde téléchargée !');
+}
+
+let _restoreData = null;
+function previewRestore(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Validation minimale
+      if (!parsed.logs || !parsed.user) throw new Error('Format invalide');
+      _restoreData = parsed;
+      const preview = document.getElementById('restorePreview');
+      const btn = document.getElementById('restoreBtn');
+      const sessions = parsed.logs ? parsed.logs.length : 0;
+      const name = parsed.user ? (parsed.user.name || 'Inconnu') : '—';
+      preview.style.display = '';
+      preview.innerHTML = '✅ Fichier valide<br>' +
+        '<strong>' + sessions + '</strong> séances · Profil : <strong>' + name + '</strong>';
+      btn.disabled = false;
+    } catch(err) {
+      _restoreData = null;
+      const preview = document.getElementById('restorePreview');
+      preview.style.display = '';
+      preview.innerHTML = '❌ Fichier invalide : ' + err.message;
+      document.getElementById('restoreBtn').disabled = true;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importData() {
+  if (!_restoreData) return;
+  showModal(
+    'Restaurer les données ? Toutes les données actuelles seront remplacées.',
+    'Restaurer',
+    'var(--orange)',
+    () => {
+      db = sanitizeDB(_restoreData);
+      saveDB();
+      _restoreData = null;
+      document.getElementById('restoreFileInput').value = '';
+      document.getElementById('restorePreview').style.display = 'none';
+      document.getElementById('restoreBtn').disabled = true;
+      refreshUI();
+      showToast('✓ Données restaurées !');
+    }
+  );
+}
 function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
 function showModal(msg, cText, cColor, onConfirm) { const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">Annuler</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => o.remove(); o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
 function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
@@ -2144,8 +2225,63 @@ function renderObGeneratedProgram(plan) {
     '</div>';
 }
 
+function autoPopulateKeyLifts() {
+  if (db.keyLifts && db.keyLifts.length > 0) return; // déjà configurés
+
+  const lifts = [];
+
+  // Priorité 1 : exercices SBD renseignés pendant l'onboarding
+  const SBD_DEFAULTS = [
+    { key: 'bench',    name: 'Bench press (Barre)', targetKey: 'bench' },
+    { key: 'squat',    name: 'Squat (Barre)',        targetKey: 'squat' },
+    { key: 'deadlift', name: 'Soulevé de Terre',     targetKey: 'deadlift' }
+  ];
+  SBD_DEFAULTS.forEach(({ key, name, targetKey }) => {
+    if ((db.bestPR[key] || 0) > 0 || (db.user.targets[targetKey] || 0) > 0) {
+      lifts.push({ name, target: db.user.targets[targetKey] || 0 });
+    }
+  });
+
+  // Priorité 2 : exercices du programme généré (si pas de SBD)
+  if (lifts.length === 0 && db.generatedProgram) {
+    const seen = new Set();
+    for (const day of db.generatedProgram) {
+      if (day.isRest || day.isCardio || day._compInfo) continue;
+      const exos = day.exosSets || (day.exos || []).map(id => ({ id }));
+      for (const e of exos) {
+        const exo = EXO_DB[e.id];
+        if (exo && !seen.has(exo.name) && seen.size < 4) {
+          seen.add(exo.name);
+          lifts.push({ name: exo.name, target: 0 });
+        }
+      }
+      if (seen.size >= 4) break;
+    }
+  }
+
+  // Priorité 3 : exercices du programme importé manuellement
+  if (lifts.length === 0 && db.routineExos) {
+    const seen = new Set();
+    for (const day of DAYS_FULL) {
+      const exos = getProgExosForDay(day);
+      for (const name of exos) {
+        if (!seen.has(name) && seen.size < 4 && name) {
+          seen.add(name);
+          lifts.push({ name, target: 0 });
+        }
+      }
+      if (seen.size >= 4) break;
+    }
+  }
+
+  if (lifts.length > 0) {
+    db.keyLifts = lifts.slice(0, 6);
+  }
+}
+
 function obFinish() {
   db.user.onboarded = true;
+  autoPopulateKeyLifts();
   saveDB();
   hideOnboarding();
   refreshUI();
@@ -2439,6 +2575,110 @@ function renderReportsTimeline() {
   }
 }
 function toggleReport(id) { const body = document.getElementById('report-body-'+id); const btn = body.parentElement.querySelector('.report-toggle'); if (body.style.display === 'none') { body.style.display = 'block'; btn.textContent = 'Masquer ▴'; } else { body.style.display = 'none'; btn.textContent = 'Voir le rapport ▾'; } }
+
+// ============================================================
+// SESSION FORMAT — HELPERS POUR LE JOURNAL (Phase 2)
+// ============================================================
+// Ces fonctions définissent le format canonique d'une session et
+// de ses exercices. Le journal de séance les utilisera pour créer
+// des entrées compatibles avec tout le système analytics existant.
+// NE PAS modifier ces structures sans mettre à jour sanitizeDB().
+
+/**
+ * Crée une session vide au format attendu par db.logs[].
+ * @param {string} title  - Intitulé de la séance (ex : "Push A")
+ * @param {number} [ts]   - Timestamp de début (default: maintenant)
+ */
+function createSession(title, ts) {
+  const t = ts || Date.now();
+  const d = new Date(t);
+  return {
+    id:         generateId(),
+    timestamp:  t,
+    date:       d.toLocaleDateString('fr-FR'),
+    shortDate:  String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'),
+    day:        DAYS_FULL[d.getDay()],
+    title:      title || 'Séance',
+    volume:     0,        // kg×reps — calculé par finalizeSessionFromSeries()
+    duration:   0,        // secondes — à remplir par le journal (timer)
+    exercises:  []
+  };
+}
+
+/**
+ * Crée un exercice vide au format attendu dans session.exercises[].
+ * Remplir .series[] puis appeler finalizeSessionFromSeries().
+ * @param {string} name - Nom exact de l'exercice (correspond aux logs Hevy)
+ */
+function createExercise(name) {
+  const exoType = getExoType(name);
+  return {
+    name,
+    exoType,
+    sets:        0,
+    maxRM:       0,   maxRMDate:    null,
+    maxReps:     0,   maxRepsDate:  null,
+    maxTime:     0,   maxTimeDate:  null,
+    distance:    0,   cardioDate:   null,
+    totalReps:   0,
+    repRecords:  {},  // { "5": 80, "8": 70 } — meilleur poids par compte de reps
+    series:      [],  // [{ weight, reps, date }] — séries individuelles (sparklines + repRecords)
+    isCardio:    exoType === 'cardio' || exoType === 'cardio_stairs',
+    isReps:      exoType === 'reps',
+    isTime:      exoType === 'time',
+  };
+}
+
+/**
+ * Calcule volume, e1RM, repRecords et maxReps depuis session.exercises[].series.
+ * À appeler juste avant de pousser la session dans db.logs.
+ * @param {Object} session - Session créée par createSession()
+ */
+function finalizeSessionFromSeries(session) {
+  let vol = 0;
+  const ts = session.timestamp;
+  session.exercises.forEach(exo => {
+    exo.sets = exo.series.length;
+    if (exo.isReps) {
+      exo.totalReps = exo.series.reduce((s, x) => s + (x.reps || 0), 0);
+      exo.series.forEach(s => {
+        if ((s.reps || 0) > (exo.maxReps || 0)) { exo.maxReps = s.reps; exo.maxRepsDate = ts; }
+        if ((s.weight || 0) > 0) {
+          vol += s.weight * s.reps;
+          const rm = calcE1RM(s.weight, s.reps);
+          if (rm > (exo.maxRM || 0)) { exo.maxRM = rm; exo.maxRMDate = ts; }
+          const rKey = String(s.reps);
+          if (!exo.repRecords[rKey] || s.weight > exo.repRecords[rKey]) exo.repRecords[rKey] = s.weight;
+        }
+      });
+    } else if (exo.isTime) {
+      exo.series.forEach(s => {
+        const t = s.reps || 0; // le temps est stocké dans le champ reps
+        if (t > 1 && t < 3600 && t > (exo.maxTime || 0)) { exo.maxTime = t; exo.maxTimeDate = ts; }
+      });
+    } else if (exo.isCardio) {
+      exo.series.forEach(s => {
+        const distKm = (s.dist || 0) > 0 ? s.dist / 1000 : 0;
+        if (distKm > (exo.distance || 0)) exo.distance = distKm;
+        if ((s.duree || 0) > (exo.maxTime || 0)) { exo.maxTime = s.duree; exo.cardioDate = ts; }
+      });
+    } else {
+      // Type weight (défaut)
+      exo.series.forEach(s => {
+        const w = s.weight || 0, r = s.reps || 0;
+        if (w > 0 && r > 0) {
+          vol += w * r;
+          const rm = calcE1RM(w, r);
+          if (rm > (exo.maxRM || 0)) { exo.maxRM = rm; exo.maxRMDate = ts; }
+          const rKey = String(r);
+          if (!exo.repRecords[rKey] || w > exo.repRecords[rKey]) exo.repRecords[rKey] = w;
+        }
+      });
+    }
+  });
+  session.volume = vol;
+  return session;
+}
 
 // ============================================================
 // CLOUD SYNC

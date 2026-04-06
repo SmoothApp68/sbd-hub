@@ -5217,18 +5217,20 @@ function generateWeeklyPlan() {
   }
 
   // ── Tendance réelle par exercice (régression linéaire) ───────
-  // Généralise calcMomentum() à n'importe quel nom d'exercice
-  // Retourne kgPerWeek (pente) et lastE1rm (dernier e1RM mesuré)
+  // Utilise les 6 sessions les plus RÉCENTES (pas les plus anciennes)
   function computeExoTrend(exoName) {
     const pts = [];
-    const sorted = [...db.logs].sort((a,b) => a.timestamp - b.timestamp);
-    for (const log of sorted) {
+    // Trier décroissant (récent en premier), collecter les 6 dernières occurrences
+    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    for (const log of desc) {
       const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
       if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
       pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
       if (pts.length >= 6) break;
     }
     if (pts.length < 2) return { kgPerWeek: 0, lastE1rm: pts[0]?.y || 0, n: pts.length };
+    // Re-trier croissant pour la régression (x croissant = temps croissant)
+    pts.sort((a,b) => a.x - b.x);
     const n = pts.length;
     const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
     const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
@@ -5259,6 +5261,30 @@ function generateWeeklyPlan() {
     if (!matches.length) return null;
     matches.sort((a,b) => (allBest[b]._ts||0) - (allBest[a]._ts||0));
     return allBest[matches[0]];
+  }
+
+  // ── Record RÉCENT (90 derniers jours) ───────────────────────
+  // Pour la programmation, ce qui compte c'est ce que tu fais MAINTENANT,
+  // pas ton PR de l'année dernière. Fallback sur all-time si rien de récent.
+  function resolveRecentRecord(exoName) {
+    const cutoff = Date.now() - 90 * 86400000;
+    const recent = { maxRM: 0, maxReps: 0, maxTime: 0, distance: 0, repRecords: {} };
+    db.logs
+      .filter(l => l.timestamp >= cutoff)
+      .sort((a,b) => b.timestamp - a.timestamp)
+      .forEach(log => {
+        const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+        if (!exo) return;
+        if ((exo.maxRM||0) > recent.maxRM) recent.maxRM = exo.maxRM;
+        if ((exo.maxReps||0) > recent.maxReps) recent.maxReps = exo.maxReps;
+        if ((exo.maxTime||0) > recent.maxTime) recent.maxTime = exo.maxTime;
+        if ((exo.distance||0) > recent.distance) recent.distance = exo.distance;
+        Object.entries(exo.repRecords||{}).forEach(([k,v]) => {
+          if (!recent.repRecords[k] || v > recent.repRecords[k]) recent.repRecords[k] = v;
+        });
+      });
+    const hasData = recent.maxRM > 0 || Object.keys(recent.repRecords).length > 0 || recent.maxReps > 0 || recent.maxTime > 0;
+    return hasData ? recent : resolveRecord(exoName); // fallback all-time si rien de récent
   }
 
   // ── Calculer le poids de travail cible ──────────────────────
@@ -5357,7 +5383,7 @@ function generateWeeklyPlan() {
 
       exoNames.forEach(exoName => {
         const exoType = getExoType(exoName);
-        const hist    = resolveRecord(exoName);
+        const hist    = resolveRecentRecord(exoName); // basé sur les 90 derniers jours, pas all-time
         const cat     = getExoCategory(exoName);
         const sc      = SCHEME[cat] || SCHEME.isolation;
         const tReps   = sc.reps[wi];

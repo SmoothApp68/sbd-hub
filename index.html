@@ -55,9 +55,20 @@
     .exo-header .chevron { transition: transform 0.3s; font-size: 10px; color: var(--sub); margin-left: 8px; }
     .exo-header.open .chevron { transform: rotate(180deg); }
     .exo-details { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: rgba(255,255,255,0.01); border-radius: 0 0 8px 8px; margin-bottom: 6px; }
-    .exo-details.open { max-height: 500px; }
+    .exo-details.open { max-height: 700px; }
     .exo-detail-row { display: flex; justify-content: space-between; padding: 6px 16px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); }
     .exo-detail-row:first-child { border-top: none; }
+    .rm-table { margin: 8px 0; }
+    .rm-table-header { display: grid; grid-template-columns: 60px 1fr 1fr; padding: 4px 8px; font-size: 10px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; }
+    .rm-table-row { display: grid; grid-template-columns: 60px 1fr 1fr; padding: 5px 8px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); align-items: center; }
+    .rm-table-row.rm-row-done { background: rgba(50,215,75,0.04); }
+    .rm-table-row.rm-row-potential { background: rgba(255,159,10,0.06); }
+    .rm-table-row.rm-row-missing { opacity: 0.6; }
+    .rm-table-label { color: var(--sub); }
+    .rm-table-theo { color: var(--text); }
+    .rm-coach-tip { font-size: 11px; padding: 6px 8px; margin-top: 4px; background: rgba(10,132,255,0.08); border-radius: 6px; color: var(--sub); line-height: 1.4; }
+    .rm-calc-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 4px; }
+    .exo-details { max-height: 600px; }
     .ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .ai-avatar { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
     .ai-header-text h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
@@ -3105,26 +3116,31 @@ function renderDayExercises(day) {
   if (progNames.length > 0) {
     // Étape 1 : pour chaque exercice du programme, trouver le NOM EXACT Hevy
     // en cherchant d'abord dans les séances du même jour de la semaine
-    const logsOfDay = db.logs.filter(l => l.day === day);
+    // Sort same-day logs and all logs by most recent first
+    const logsOfDay = db.logs.filter(l => l.day === day).sort((a,b) => b.timestamp - a.timestamp);
+    const allLogsByRecency = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
     const hevyNameForProg = {}; // progName → nom Hevy exact
+    const matchTimestamp = {}; // progName → timestamp of matched log (to detect staleness)
 
     progNames.forEach(progName => {
-      // Priorité 1 : séances du même jour
+      // Priorité 1 : séances du même jour (les plus récentes d'abord)
       for (const log of logsOfDay) {
         for (const exo of log.exercises) {
           if (matchExoName(exo.name, progName)) {
             hevyNameForProg[progName] = exo.name;
+            matchTimestamp[progName] = log.timestamp;
             break;
           }
         }
         if (hevyNameForProg[progName]) break;
       }
-      // Priorité 2 : tout l'historique si pas trouvé ce jour
+      // Priorité 2 : tout l'historique, récent d'abord
       if (!hevyNameForProg[progName]) {
-        for (const log of db.logs) {
+        for (const log of allLogsByRecency) {
           for (const exo of log.exercises) {
             if (matchExoName(exo.name, progName)) {
               hevyNameForProg[progName] = exo.name;
+              matchTimestamp[progName] = log.timestamp;
               break;
             }
           }
@@ -3137,13 +3153,16 @@ function renderDayExercises(day) {
     const hevyNamesNeeded = new Set(Object.values(hevyNameForProg).filter(Boolean));
     const best = accumulateBest(db.logs, hevyNamesNeeded);
 
+    const staleThreshold = Date.now() - 60 * 86400000; // 60 days
+
     // Étape 3 : afficher dans l'ordre du programme
     let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
     progNames.forEach((progName, idx) => {
       const hevyName = hevyNameForProg[progName];
       const exo = hevyName ? best[hevyName] : null;
+      const isStale = hevyName && (matchTimestamp[progName] || 0) < staleThreshold;
       if (exo) {
-        html += formatExoDropdown(hevyName, exo, 'prog-' + idx);
+        html += formatExoDropdown(hevyName, exo, 'prog-' + idx, isStale ? progName : null);
       } else {
         html += '<div class="exo-header" style="opacity:0.45;">' +
           '<span>💪 ' + progName + '</span>' +
@@ -3173,49 +3192,163 @@ function renderDayExercises(day) {
 // ============================================================
 // EXERCISE CARD DISPLAY
 // ============================================================
-function formatExoDropdown(name, exo, idx) {
-  const exoType=exo.exoType||getExoType(name);
-  const isPR=SBD_TYPES.some(t=>exo.maxRM===db.bestPR[t]&&db.bestPR[t]>0);
-  const medal=isPR?' 🥇':'';
-  let icon='💪';
-  if(exoType==='cardio'){const n=name.toLowerCase();if(/natation|swimming|nage/.test(n))icon='🏊';else if(/velo|cycling|bike/.test(n))icon='🚴';else if(/randonnee|hiking/.test(n))icon='🥾';else if(/rameur/.test(n))icon='🚣';else if(/corde.*sauter|jump.*rope/.test(n))icon='🪢';else icon='🏃';}else if(exoType==='cardio_stairs')icon='🪜';else if(exoType==='time')icon='⏱';else if(exoType==='reps')icon='🔄';
-  let mainDisplay='',dateTs=null;
-  if(exoType==='cardio'||exoType==='cardio_stairs'){const parts=[];if(exo.distance)parts.push(exo.distance.toFixed(2)+'km');if(exo.maxTime){parts.push(formatTime(exo.maxTime));if(exo.distance){const kmh=exo.distance/(exo.maxTime/3600);parts.push(kmh.toFixed(1)+' km/h');}}mainDisplay=parts.join(' • ')||'Cardio';dateTs=exo.cardioDate;}
-  else if(exoType==='time'){const _mt=exo.maxTime;mainDisplay=(!_mt||_mt<=1)?'⚠️ Re-importer':(Math.floor(_mt/60)+':'+String(_mt%60).padStart(2,'0'));dateTs=exo.maxTimeDate;}
-  else if(exoType==='reps'){if(exo.maxRM>0)mainDisplay=exo.maxReps?exo.maxReps+' reps · e1RM '+exo.maxRM+'kg':'e1RM '+exo.maxRM+'kg';else mainDisplay=exo.maxReps?exo.maxReps+' reps':'⚠️ Re-importer';dateTs=exo.maxRepsDate;}
-  else{mainDisplay=exo.maxRM?exo.maxRM+'kg e1RM':'0kg';dateTs=exo.maxRMDate;}
-  const ds=dateTs?formatDate(dateTs):'';
-  const id='exo-'+idx;
-  let detailsHtml='';
-  if(exoType==='weight'&&exo.repRecords&&Object.keys(exo.repRecords).length>0){const sorted=Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));detailsHtml=sorted.map(([reps,weight])=>{const e1rm=calcE1RM(weight,parseInt(reps));const label=parseInt(reps)===1?'1RM réel':reps+'RM';return'<div class="exo-detail-row"><span style="color:var(--sub);">'+label+': '+weight+'kg</span><span style="color:var(--green);font-weight:600;">e1RM: '+e1rm+'kg</span></div>';}).join('');}
-  else if(exoType==='cardio'||exoType==='cardio_stairs'){const records=[];if(exo.distance)records.push('<div class="exo-detail-row"><span style="color:var(--sub);">📏 Distance</span><span style="color:var(--green);font-weight:600;">'+exo.distance.toFixed(2)+' km</span></div>');if(exo.maxTime)records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Temps</span><span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span></div>');if(exo.distance&&exo.maxTime){const kmh=exo.distance/(exo.maxTime/3600);records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ Vitesse moy.</span><span style="color:var(--green);font-weight:600;">'+kmh.toFixed(1)+' km/h</span></div>');const minkm=(exo.maxTime/60)/exo.distance;const minPart=Math.floor(minkm);const secPart=Math.round((minkm-minPart)*60);records.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏃 Allure</span><span style="color:var(--green);font-weight:600;">'+minPart+"'"+String(secPart).padStart(2,'0')+'" /km</span></div>');}detailsHtml=records.join('');}
-  else if(exoType==='reps'){const rows=[];if(exo.maxReps)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🔝 Max reps</span><span style="color:var(--green);font-weight:600;">'+(exo.maxReps||0)+' reps</span></div>');if(exo.maxRM>0)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ e1RM lesté</span><span style="color:var(--green);font-weight:600;">'+exo.maxRM+'kg</span></div>');if(exo.repRecords){Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([r,w])=>{rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">'+r+' reps lesté</span><span style="color:var(--green);font-weight:600;">'+w+'kg</span></div>');});}detailsHtml=rows.join('');}
-  else if(exoType==='time'){
-    const fmtT=s=>{if(!s||s<=0)return'0:00';const m=Math.floor(s/60),sc=s%60;return m+':'+String(sc).padStart(2,'0');};
-    const timeSessions=[];
-    [...db.logs].sort((a,b)=>b.timestamp-a.timestamp).forEach(log=>{
-      if(timeSessions.length>=5)return;
-      const found=log.exercises.find(e=>e.name===name);
-      if(found&&(found.maxTime||0)>1)timeSessions.push({date:log.shortDate||formatDate(log.timestamp),time:found.maxTime});
-    });
-    const rows=[];
-    if(exo.maxTime>1)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏆 Record</span><span style="color:var(--green);font-weight:600;">'+fmtT(exo.maxTime)+'</span></div>');
-    timeSessions.forEach((s,i)=>{
-      const prev=timeSessions[i+1];
-      const delta=prev?s.time-prev.time:null;
-      const dStr=delta===null?'':delta>0?' <span style="color:var(--green);">↑ +'+delta+'s</span>':delta<0?' <span style="color:var(--red);">↓ '+delta+'s</span>':' <span style="color:var(--sub);">= égal</span>';
-      rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">'+s.date+'</span><span>'+fmtT(s.time)+dStr+'</span></div>');
-    });
-    if(timeSessions.length>=3){
-      const times=timeSessions.map(s=>s.time);
-      const avgD=((times[0]-times[times.length-1])/(times.length-1)).toFixed(1);
-      const tc=parseFloat(avgD)>0?'var(--green)':parseFloat(avgD)<0?'var(--red)':'var(--sub)';
-      rows.push('<div class="exo-detail-row" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:6px;"><span style="color:var(--sub);">📈 Tendance</span><span style="color:'+tc+';font-weight:600;">'+(parseFloat(avgD)>0?'↑ +':parseFloat(avgD)<0?'↓ ':'= ')+avgD+'s/séance</span></div>');
+function buildRMTable(e1rm, repRecords) {
+  // Builds a théorique vs réel table for target rep counts
+  const TARGET_REPS = [1, 3, 5, 8, 10, 12, 15];
+  let missingReal = 0;
+  let coachTips = [];
+  const rows = TARGET_REPS.map(r => {
+    const theo = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+    const realW = (repRecords && repRecords[String(r)]) ? repRecords[String(r)] : null;
+    const realE1rm = realW ? calcE1RM(realW, r) : null;
+    const label = r === 1 ? '1 rep' : r + ' reps';
+    let realHtml, statusClass;
+    if (realW) {
+      const datePart = ''; // we don't store date per-rep-count — omit
+      const gap = theo - realW;
+      if (gap > 2.5) {
+        statusClass = 'rm-row-potential';
+        realHtml = '<span style="color:var(--orange);font-weight:600;">' + realW + 'kg</span> <span style="color:var(--orange);font-size:10px;">↑ +' + gap.toFixed(1) + 'kg possible</span>';
+        coachTips.push(r + ' reps');
+      } else {
+        statusClass = 'rm-row-done';
+        realHtml = '<span style="color:var(--green);font-weight:600;">' + realW + 'kg ✓</span>';
+      }
+    } else {
+      missingReal++;
+      statusClass = 'rm-row-missing';
+      realHtml = '<span style="color:var(--sub);font-size:11px;">— théorique</span>';
     }
-    if(!rows.length)rows.push('<div class="exo-detail-row"><span style="color:var(--orange);">Re-importe la séance pour récupérer le temps</span></div>');
-    detailsHtml=rows.join('');
+    return '<div class="rm-table-row ' + statusClass + '">' +
+      '<span class="rm-table-label">' + label + '</span>' +
+      '<span class="rm-table-theo">~' + theo + 'kg</span>' +
+      '<span class="rm-table-real">' + realHtml + '</span>' +
+      '</div>';
+  }).join('');
+
+  const header = '<div class="rm-table-header">' +
+    '<span class="rm-table-label">Reps</span>' +
+    '<span class="rm-table-theo">Théorique</span>' +
+    '<span class="rm-table-real">Réel enregistré</span>' +
+    '</div>';
+
+  let tip = '';
+  if (coachTips.length > 0) {
+    tip = '<div class="rm-coach-tip">💡 <strong>Coach :</strong> Tu as du potentiel non exploité à ' + coachTips.join(', ') + ' reps — essaie ces charges lors de ta prochaine séance !</div>';
+  } else if (missingReal === TARGET_REPS.length) {
+    tip = '<div class="rm-coach-tip" style="color:var(--sub);">💡 Ces poids sont <em>estimés</em> depuis ton e1RM. Enregistre des séries à différents reps pour valider.</div>';
   }
-  return'<div class="exo-header" onclick="toggleExo(\''+id+'\')"><span>'+icon+' '+name+medal+'</span><div style="display:flex;align-items:center;"><div style="text-align:right;"><div style="color:var(--blue);font-weight:600;font-size:12px;">'+mainDisplay+'</div>'+(ds?'<div style="font-size:10px;color:var(--sub);">'+ds+'</div>':'')+'</div><span class="chevron">▾</span></div></div>'+(detailsHtml?'<div class="exo-details" id="'+id+'">'+detailsHtml+'</div>':'');
+
+  // Interactive calculator
+  const calcHtml = '<div class="rm-calc-row"><span style="color:var(--sub);font-size:12px;">Calcul rapide :</span> <input type="number" min="1" max="30" placeholder="reps" style="width:56px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;" oninput="calcDashRM(this,' + e1rm + ')" id="dash-calc-in-' + e1rm + '"> <span style="font-size:12px;color:var(--sub);">→</span> <span id="dash-calc-out-' + e1rm + '" style="font-size:12px;color:var(--blue);font-weight:600;">—</span></div>';
+
+  return '<div class="rm-table">' + header + rows + '</div>' + tip + calcHtml;
+}
+
+function calcDashRM(input, e1rm) {
+  const r = parseInt(input.value);
+  const outId = 'dash-calc-out-' + e1rm;
+  const out = document.getElementById(outId);
+  if (!out) return;
+  if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
+  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+  out.textContent = '~' + w + 'kg (théorique)';
+}
+
+function formatExoDropdown(name, exo, idx, staleMatchName) {
+  const exoType = exo.exoType || getExoType(name);
+  const isPR = SBD_TYPES.some(t => exo.maxRM === db.bestPR[t] && db.bestPR[t] > 0);
+  const medal = isPR ? ' 🥇' : '';
+  let icon = '💪';
+  if (exoType === 'cardio') { const n = name.toLowerCase(); if (/natation|swimming|nage/.test(n)) icon = '🏊'; else if (/velo|cycling|bike/.test(n)) icon = '🚴'; else if (/randonnee|hiking/.test(n)) icon = '🥾'; else if (/rameur/.test(n)) icon = '🚣'; else if (/corde.*sauter|jump.*rope/.test(n)) icon = '🪢'; else icon = '🏃'; } else if (exoType === 'cardio_stairs') icon = '🪜'; else if (exoType === 'time') icon = '⏱'; else if (exoType === 'reps') icon = '🔄';
+
+  // Staleness warning: matched exercise is different from prog name and last seen > 60 days
+  const staleHtml = staleMatchName
+    ? '<div style="font-size:10px;color:var(--orange);padding:4px 8px 0;">⚠️ Correspondu à "' + staleMatchName + '" — dernière séance > 60j. Vérifie le nom dans Réglages.</div>'
+    : '';
+
+  let mainDisplay = '', dateTs = null;
+  if (exoType === 'cardio' || exoType === 'cardio_stairs') {
+    const parts = [];
+    if (exo.distance) parts.push(exo.distance.toFixed(2) + 'km');
+    if (exo.maxTime) { parts.push(formatTime(exo.maxTime)); if (exo.distance) { const kmh = exo.distance / (exo.maxTime / 3600); parts.push(kmh.toFixed(1) + ' km/h'); } }
+    mainDisplay = parts.join(' • ') || 'Cardio'; dateTs = exo.cardioDate;
+  } else if (exoType === 'time') {
+    const _mt = exo.maxTime;
+    mainDisplay = (!_mt || _mt <= 1) ? '⚠️ Re-importer' : (Math.floor(_mt / 60) + ':' + String(_mt % 60).padStart(2, '0')); dateTs = exo.maxTimeDate;
+  } else if (exoType === 'reps') {
+    // maxReps = best single-set reps (might include weighted sets)
+    if (exo.maxRM > 0) mainDisplay = (exo.maxReps ? exo.maxReps + ' reps' : '') + (exo.maxReps ? ' · ' : '') + 'e1RM lest ' + exo.maxRM + 'kg';
+    else mainDisplay = exo.maxReps ? exo.maxReps + ' reps (max série)' : '⚠️ Re-importer';
+    dateTs = exo.maxRepsDate;
+  } else {
+    mainDisplay = exo.maxRM ? exo.maxRM + 'kg e1RM' : '0kg'; dateTs = exo.maxRMDate;
+  }
+
+  const ds = dateTs ? formatDate(dateTs) : '';
+  const id = 'exo-' + idx;
+
+  let detailsHtml = '';
+  if ((exoType === 'weight' || exoType === 'reps') && exo.maxRM > 0) {
+    // Full RM table: théorique vs réel
+    detailsHtml = buildRMTable(exo.maxRM, exo.repRecords);
+    // For reps type: add bodyweight note
+    if (exoType === 'reps' && exo.maxReps) {
+      const bwNote = db.user.bw > 0
+        ? '<div class="exo-detail-row"><span style="color:var(--sub);">💪 Force totale estimée</span><span style="color:var(--blue);font-weight:600;">' + (db.user.bw + exo.maxRM) + 'kg (PC+lest)</span></div>'
+        : '';
+      detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">Max reps (poids corps)</span><span style="color:var(--green);font-weight:600;">' + exo.maxReps + ' reps</span></div>' +
+        bwNote +
+        '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">' +
+        '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Tableau RM lest seul :</div>' +
+        buildRMTable(exo.maxRM, exo.repRecords) + '</div>';
+    }
+  } else if (exoType === 'weight' && (!exo.repRecords || !Object.keys(exo.repRecords).length)) {
+    detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">e1RM estimé</span><span style="color:var(--blue);font-weight:600;">' + (exo.maxRM || 0) + 'kg</span></div>';
+  } else if (exoType === 'reps' && !exo.maxRM && exo.maxReps) {
+    // Bodyweight only, no weighted sets recorded
+    detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">Max reps (poids corps)</span><span style="color:var(--green);font-weight:600;">' + exo.maxReps + ' reps</span></div>' +
+      '<div class="rm-coach-tip">💡 Pas de séries lestées enregistrées. Ajoute du poids pour débloquer le tableau RM.</div>';
+  } else if (exoType === 'cardio' || exoType === 'cardio_stairs') {
+    const records = [];
+    if (exo.distance) records.push('<div class="exo-detail-row"><span style="color:var(--sub);">📏 Distance</span><span style="color:var(--green);font-weight:600;">' + exo.distance.toFixed(2) + ' km</span></div>');
+    if (exo.maxTime) records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Temps</span><span style="color:var(--green);font-weight:600;">' + formatTime(exo.maxTime) + '</span></div>');
+    if (exo.distance && exo.maxTime) {
+      const kmh = exo.distance / (exo.maxTime / 3600);
+      records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ Vitesse moy.</span><span style="color:var(--green);font-weight:600;">' + kmh.toFixed(1) + ' km/h</span></div>');
+      const minkm = (exo.maxTime / 60) / exo.distance;
+      const minPart = Math.floor(minkm);
+      const secPart = Math.round((minkm - minPart) * 60);
+      records.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏃 Allure</span><span style="color:var(--green);font-weight:600;">' + minPart + "'" + String(secPart).padStart(2, '0') + '" /km</span></div>');
+    }
+    detailsHtml = records.join('');
+  } else if (exoType === 'time') {
+    const fmtT = s => { if (!s || s <= 0) return '0:00'; const m = Math.floor(s / 60), sc = s % 60; return m + ':' + String(sc).padStart(2, '0'); };
+    const timeSessions = [];
+    [...db.logs].sort((a, b) => b.timestamp - a.timestamp).forEach(log => {
+      if (timeSessions.length >= 5) return;
+      const found = log.exercises.find(e => e.name === name);
+      if (found && (found.maxTime || 0) > 1) timeSessions.push({ date: log.shortDate || formatDate(log.timestamp), time: found.maxTime });
+    });
+    const rows = [];
+    if (exo.maxTime > 1) rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏆 Record</span><span style="color:var(--green);font-weight:600;">' + fmtT(exo.maxTime) + '</span></div>');
+    timeSessions.forEach((s, i) => {
+      const prev = timeSessions[i + 1];
+      const delta = prev ? s.time - prev.time : null;
+      const dStr = delta === null ? '' : delta > 0 ? ' <span style="color:var(--green);">↑ +' + delta + 's</span>' : delta < 0 ? ' <span style="color:var(--red);">↓ ' + delta + 's</span>' : ' <span style="color:var(--sub);">= égal</span>';
+      rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">' + s.date + '</span><span>' + fmtT(s.time) + dStr + '</span></div>');
+    });
+    if (timeSessions.length >= 3) {
+      const times = timeSessions.map(s => s.time);
+      const avgD = ((times[0] - times[times.length - 1]) / (times.length - 1)).toFixed(1);
+      const tc = parseFloat(avgD) > 0 ? 'var(--green)' : parseFloat(avgD) < 0 ? 'var(--red)' : 'var(--sub)';
+      rows.push('<div class="exo-detail-row" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:6px;"><span style="color:var(--sub);">📈 Tendance</span><span style="color:' + tc + ';font-weight:600;">' + (parseFloat(avgD) > 0 ? '↑ +' : parseFloat(avgD) < 0 ? '↓ ' : '= ') + avgD + 's/séance</span></div>');
+    }
+    if (!rows.length) rows.push('<div class="exo-detail-row"><span style="color:var(--orange);">Re-importe la séance pour récupérer le temps</span></div>');
+    detailsHtml = rows.join('');
+  }
+
+  return '<div class="exo-header" onclick="toggleExo(\'' + id + '\')"><span>' + icon + ' ' + name + medal + '</span><div style="display:flex;align-items:center;"><div style="text-align:right;"><div style="color:var(--blue);font-weight:600;font-size:12px;">' + mainDisplay + '</div>' + (ds ? '<div style="font-size:10px;color:var(--sub);">' + ds + '</div>' : '') + '</div><span class="chevron">▾</span></div></div>' + staleHtml + (detailsHtml ? '<div class="exo-details" id="' + id + '">' + detailsHtml + '</div>' : '');
 }
 
 function toggleExo(id){const el=document.getElementById(id);if(!el)return;const header=el.previousElementSibling;el.classList.toggle('open');header.classList.toggle('open');}
@@ -3361,7 +3494,16 @@ function cleanupExistingLogs() {
       if(exoType==='reps'&&!exo.isReps){exo.isReps=true;changed=true;}
       if(exoType==='time'&&!exo.isTime){exo.isTime=true;changed=true;}
       if((exoType==='cardio'||exoType==='cardio_stairs')&&!exo.isCardio){exo.isCardio=true;changed=true;}
-      if(exoType==='reps'){if((exo.totalReps||0)>(exo.maxReps||0)){exo.maxReps=exo.totalReps;changed=true;}if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{if((s.reps||0)>(exo.maxReps||0)){exo.maxReps=s.reps;changed=true;}});}}
+      if(exoType==='reps'){
+        // Repair corrupted maxReps: if series data exists use it; never use totalReps
+        if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{if((s.reps||0)>(exo.maxReps||0)){exo.maxReps=s.reps;changed=true;}});}
+        // Repair via repRecords: if the max weighted rep count < current maxReps, trust repRecords
+        // (totalReps was wrongly assigned to maxReps in old migration — cap to max rep key in repRecords if available)
+        if(exo.repRecords&&Object.keys(exo.repRecords).length>0){
+          const maxRepKey=Math.max(...Object.keys(exo.repRecords).map(Number));
+          if(maxRepKey>0&&(exo.maxReps||0)>Math.max(maxRepKey*3,30)){exo.maxReps=maxRepKey;changed=true;}
+        }
+      }
       if(exoType==='time'){if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{const t=s.reps||0;if(t>1&&t<3600&&t>(exo.maxTime||0)){exo.maxTime=t;changed=true;}});}}
     });
   });

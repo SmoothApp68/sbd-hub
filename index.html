@@ -3435,12 +3435,26 @@ function renderDayExercises(day) {
 
     const staleThreshold = Date.now() - 60 * 86400000; // 60 days
 
+    // Étape 2b : trouver la date réelle de la dernière séance pour chaque exercice
+    // (pas seulement le jour de la semaine correspondant — évite les faux positifs stale)
+    const lastSeen = {};
+    progNames.forEach(progName => {
+      const hevyName = hevyNameForProg[progName];
+      if (!hevyName) return;
+      for (const log of allLogsByRecency) {
+        if (log.exercises.some(e => e.name === hevyName)) {
+          lastSeen[progName] = log.timestamp;
+          break;
+        }
+      }
+    });
+
     // Étape 3 : afficher dans l'ordre du programme
     let html = '<div style="background:var(--surface);border-radius:10px;padding:8px;">';
     progNames.forEach((progName, idx) => {
       const hevyName = hevyNameForProg[progName];
       const exo = hevyName ? best[hevyName] : null;
-      const isStale = hevyName && (matchTimestamp[progName] || 0) < staleThreshold;
+      const isStale = hevyName && (lastSeen[progName] || 0) < staleThreshold;
       if (exo) {
         html += formatExoDropdown(hevyName, exo, 'prog-' + idx, isStale ? progName : null);
       } else {
@@ -5229,17 +5243,17 @@ function generateWeeklyPlan() {
 
         } else if (exoType === 'reps') {
           // ── BW ou lesté (tractions, pompes, dips…) ───────────
-          const repsArr = Object.entries(hist?.repRecords||{}).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
-          if (repsArr.length > 0) {
-            // Séries lestées enregistrées → progression de charge
-            const workSets = repsArr.map(([reps,weight]) => ({
-              isWarmup:false,
-              weight: weekNum===1 ? round05(weight*mult) : round05(weight+isoBonus),
-              reps:parseInt(reps), rpe
-            }));
-            exercises.push({ name:exoName, type:'reps', restSeconds:rest, sets:workSets });
+          const weightedRecs = Object.entries(hist?.repRecords||{})
+            .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
+            .sort((a,b) => a[0] - b[0]); // ascending reps (lowest = heaviest)
+          if (weightedRecs.length > 0) {
+            // Séries lestées : prendre le record le plus lourd comme référence → 3 séries identiques
+            const [refReps, refW] = weightedRecs[0];
+            const workW = round05(weekNum === 1 ? refW * mult : refW + isoBonus);
+            exercises.push({ name:exoName, type:'reps', restSeconds:rest,
+              sets: Array.from({length:3}, () => ({ isWarmup:false, weight:workW, reps:refReps, rpe })) });
           } else {
-            // Poids de corps pur → sets × reps cibles ou max
+            // Poids de corps pur → N séries × reps cibles
             const recMax = hist?.maxReps || 0;
             const target = recMax > 0 ? Math.max(3, Math.round(recMax * (0.75 + weekNum*0.05))) : 'max';
             exercises.push({ name:exoName, type:'reps', restSeconds:rest,
@@ -5254,32 +5268,37 @@ function generateWeeklyPlan() {
 
         } else {
           // ── Poids (défaut) ───────────────────────────────────
-          const repsArr = Object.entries(hist?.repRecords||{}).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
-          if (repsArr.length > 0) {
-            const mainW    = repsArr[0][1];
-            const warmSets = [
-              { isWarmup:true, weight:round05(mainW*0.5), reps:10 },
-              { isWarmup:true, weight:round05(mainW*0.75), reps:5 }
-            ];
-            const workSets = repsArr.map(([reps,weight]) => ({
-              isWarmup:false,
-              weight: weekNum===1 ? round05(weight*mult) : round05(weight+(big?bigBonus:isoBonus)),
-              reps:parseInt(reps), rpe
-            }));
-            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[...warmSets,...workSets] });
-          } else if (hist?.maxRM > 0) {
-            // Pas de repRecords mais e1RM connu → estimer 3×8 / 3×6 / 3×5
-            const targetReps = [8,8,6,5][weekNum-1] || 6;
-            const estW       = round05(hist.maxRM * (1.0278 - 0.0278 * targetReps) * mult);
+          // Cibler un seul nombre de reps par semaine → séries identiques (plus cohérent)
+          const targetReps  = [8, 8, 6, 5][weekNum-1] || 6;
+          const nWorkSets   = [4, 4, 3, 3][weekNum-1] || 3;
+          let workWeight    = null;
+
+          if (hist?.repRecords && Object.keys(hist.repRecords).length > 0) {
+            const exactW = hist.repRecords[String(targetReps)];
+            if (exactW > 0) {
+              workWeight = round05(weekNum===1 ? exactW*mult : exactW + (big?bigBonus:isoBonus));
+            } else {
+              // Estimer depuis le record disponible le plus lourd (via e1RM)
+              const recs = Object.entries(hist.repRecords).map(([r,w])=>[parseInt(r),w]).filter(([,w])=>w>0).sort((a,b)=>a[0]-b[0]);
+              if (recs.length > 0) {
+                const [r0, w0] = recs[0];
+                const e1rmEst  = calcE1RM(w0, r0);
+                const base     = round05(e1rmEst * (1.0278 - 0.0278 * targetReps));
+                workWeight     = round05(weekNum===1 ? base*mult : base + (big?bigBonus:isoBonus));
+              }
+            }
+          }
+          if (!workWeight && hist?.maxRM > 0) {
+            workWeight = round05(hist.maxRM * (1.0278 - 0.0278 * targetReps) * mult);
+          }
+
+          if (workWeight && workWeight > 0) {
             exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[
-              { isWarmup:true,  weight:round05(estW*0.5),  reps:10 },
-              { isWarmup:true,  weight:round05(estW*0.75), reps:5  },
-              { isWarmup:false, weight:estW, reps:targetReps, rpe },
-              { isWarmup:false, weight:estW, reps:targetReps, rpe },
-              { isWarmup:false, weight:estW, reps:targetReps, rpe }
+              { isWarmup:true,  weight:round05(workWeight*0.5),  reps:10 },
+              { isWarmup:true,  weight:round05(workWeight*0.75), reps:5  },
+              ...Array.from({length:nWorkSets}, () => ({ isWarmup:false, weight:workWeight, reps:targetReps, rpe }))
             ]});
           } else {
-            // Aucune donnée : placeholder
             exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
           }
         }

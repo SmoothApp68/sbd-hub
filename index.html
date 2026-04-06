@@ -5223,16 +5223,12 @@ function generateWeeklyPlan() {
       : 'Peak — séances courtes et intenses, c\'est là que ça compte.',
   ];
 
-  // ── Facteurs de charge (modulés par niveau) ──────────────────
-  const LOAD_PCT   = [0.88, 0.92, 0.96, 1.00][wi] + LVL.loadOfs;
-  // Avancé/compétiteur : bonus plus grands car leurs PRs sont plus durs à battre
-  const BONUS_BIG  = round05([0, 2.5, 5.0, 7.5][wi]  * LVL.progFactor);
-  const BONUS_COMP = round05([0, 1.25, 2.5, 5.0][wi]  * LVL.progFactor);
-  const BONUS_ISO  = round05([0, 0,   1.25, 2.5][wi]  * LVL.progFactor);
-
-  function getBonusForCat(cat) {
-    return cat === 'big' ? BONUS_BIG : cat === 'compound' ? BONUS_COMP : BONUS_ISO;
-  }
+  // ── Facteurs de charge par semaine ──────────────────────────
+  // Semaine 4 = Peak : toujours 100% du théorique, pas de dékalage de niveau
+  // (le niveau joue sur les semaines 1-3 uniquement)
+  const LOAD_PCT = wi === 3
+    ? 1.00
+    : [0.88, 0.92, 0.96][wi] + LVL.loadOfs;
 
   // ── Tendance réelle par exercice (régression linéaire) ───────
   // Utilise les 6 sessions les plus RÉCENTES (pas les plus anciennes)
@@ -5327,40 +5323,31 @@ function generateWeeklyPlan() {
   }
 
   // ── Calculer le poids de travail cible ──────────────────────
-  // hist : record récent, tReps : reps cibles, cat : catégorie
-  // exoName : pour trend, fatigue : score fatigue [0..1]
+  // Toujours calculé depuis le meilleur e1RM estimé × LOAD_PCT de la semaine.
+  // Garantit une progression monotone S1→S4 quel que soit le repRecord disponible.
   function computeWorkWeight(hist, tReps, cat, exoName) {
-    const bonus = getBonusForCat(cat);
     const trend = exoName ? computeExoTrend(exoName) : { kgPerWeek:0, n:0 };
 
-    // Ajustement tendance inter-séances (si ≥3 séances de données)
-    // Forte progression → soyons un peu plus agressifs ; régression → on recule
+    // Ajustement tendance : progression forte → +kg ; régression → −kg
     let adj = 0;
     if (trend.n >= 3) {
       if (trend.kgPerWeek > 1.5)       adj = round05(Math.min(trend.kgPerWeek * 0.4, 5));
       else if (trend.kgPerWeek < -0.5) adj = round05(Math.max(trend.kgPerWeek * 0.5, -5));
     }
 
-    // 1. Record exact au nombre de reps cible
-    const exactW = hist?.repRecords?.[String(tReps)];
-    if (exactW > 0) {
-      return round05((wi === 0 ? exactW * LOAD_PCT : exactW + bonus) + adj);
-    }
-    // 2. Estimer depuis le record disponible le plus lourd via Epley
-    const recs = Object.entries(hist?.repRecords||{})
-      .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
-      .sort((a,b) => a[0] - b[0]);
-    if (recs.length > 0) {
-      const [r0, w0] = recs[0];
-      const e1   = calcE1RM(w0, r0);
-      const base = round05(e1 * (1.0278 - 0.0278 * tReps));
-      return round05((wi === 0 ? base * LOAD_PCT : base + bonus) + adj);
-    }
-    // 3. Depuis le e1RM global
-    if (hist?.maxRM > 0) {
-      return round05(hist.maxRM * (1.0278 - 0.0278 * tReps) * LOAD_PCT + adj);
-    }
-    return null;
+    // Meilleur e1RM depuis tous les repRecords disponibles
+    const allRecs = Object.entries(hist?.repRecords||{})
+      .map(([r,w]) => [parseInt(r), parseFloat(w)]).filter(([,w]) => w > 0);
+    const bestE1rm = Math.max(
+      hist?.maxRM || 0,
+      ...(allRecs.length ? allRecs.map(([r,w]) => calcE1RM(w, r)) : [0])
+    );
+    if (bestE1rm <= 0) return null;
+
+    // Charge cible = Epley(e1RM → tReps) × LOAD_PCT de la semaine
+    const epleyTarget = bestE1rm * (1.0278 - 0.0278 * tReps);
+    const workWeight  = round05(epleyTarget * LOAD_PCT + adj);
+    return workWeight > 0 ? workWeight : null;
   }
 
   // ── Note coach dynamique par jour ───────────────────────────

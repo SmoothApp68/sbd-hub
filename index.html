@@ -2307,8 +2307,8 @@ function toggleReport(id) { const body = document.getElementById('report-body-'+
 // CLOUD SYNC
 // ============================================================
 async function cloudSignIn() { if (!supaClient) return null; try { const {data:{session}} = await supaClient.auth.getSession(); if (session) { cloudSyncEnabled = true; updateCloudUI(session.user); return session.user; } const {data, error} = await supaClient.auth.signInAnonymously(); if (error) throw error; cloudSyncEnabled = true; updateCloudUI(data.user); return data.user; } catch(e) { console.error('Cloud sign-in:', e); updateCloudUI(null, e.message); return null; } }
-async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
-async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
+async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
 function updateSyncStatus(s) { const el = document.getElementById('syncIndicator'); if (!el) return; el.textContent = s==='sync'?'Sync OK':s==='error'?'Erreur':''; setTimeout(() => { if (el) el.textContent = ''; }, 3000); }
 async function sendMagicLink() { const email = document.getElementById('inputEmail').value.trim(); if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; } try { const {error} = await supaClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin+window.location.pathname } }); if (error) throw error; showToast('Lien envoyé ! Check tes emails'); } catch(e) { showToast('Erreur: '+e.message); } }
@@ -2471,7 +2471,7 @@ function finalizeSession(session, rawText) {
   showImportSummary(session);
   showToast('✓ Séance importée'+(localStorage.getItem('SBD_API_KEY')?' (IA)':''));
   refreshUI();
-  aiGenerateDebrief(session, rawText);
+  if (localStorage.getItem('SBD_API_KEY')) aiGenerateDebrief(session, rawText);
 }
 
 function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
@@ -2558,8 +2558,10 @@ function buildAthleteContext() {
 }
 
 async function callAI(systemPrompt, userPrompt) {
+  const apiKey = localStorage.getItem('SBD_API_KEY');
+  if (!apiKey) return null;
   try {
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('SBD_API_KEY')||'','anthropic-version':'2023-06-01','anthropic-dangerous-request-check':'client'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:userPrompt}]})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-request-check':'client'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:userPrompt}]})});
     const d=await r.json();
     return d.content.map(b=>b.text||'').join('');
   } catch(err){console.error('AI:',err);return null;}
@@ -3467,7 +3469,39 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     showOnboarding();
   }
 
-  cloudSignIn().then(user=>{if(user&&db.logs.length===0)syncFromCloud();else if(user)syncToCloud(true);});
+  cloudSignIn().then(async user => {
+    if (!user) return;
+    if (db.logs.length === 0) {
+      // Aucune donnée locale → pull cloud sans hésiter
+      syncFromCloud();
+      return;
+    }
+    if (!db.lastSync) {
+      // Jamais synchronisé depuis cet appareil → push local vers cloud
+      syncToCloud(true);
+      return;
+    }
+    // Données locales présentes + déjà synchronisé → comparer updated_at cloud
+    try {
+      const {data:{user:u}} = await supaClient.auth.getUser();
+      if (!u) { syncToCloud(true); return; }
+      const {data} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
+      if (data && data.updated_at) {
+        const cloudTs = new Date(data.updated_at).getTime();
+        if (cloudTs > db.lastSync + 5000) {
+          // Cloud plus récent de +5s → pull avec alerte
+          showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
+          syncFromCloud();
+        } else {
+          syncToCloud(true);
+        }
+      } else {
+        syncToCloud(true); // Pas encore de profil cloud → push
+      }
+    } catch(e) {
+      syncToCloud(true); // Erreur réseau → fallback push
+    }
+  });
   handleAuthCallback();
   if(shouldGenerateWeekly()){setTimeout(()=>{aiGenerateWeekly();},1500);}
 })();

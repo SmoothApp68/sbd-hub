@@ -5159,50 +5159,134 @@ function generateWeeklyPlan() {
   const btn = document.getElementById('wpGenerateBtn');
   btn.disabled = true; btn.textContent = 'Calcul en cours...';
   const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
-  const multipliers = { 1:0.92, 2:0.95, 3:0.98, 4:1.01 };
-  const mult = multipliers[weekNum] || 0.92;
-  const isoBonus = { 1:0, 2:1, 3:2, 4:3 };
-  const bigBonus = { 1:0, 2:2.5, 3:5, 4:7.5 };
-  const BIG = ['squat','bench','développé','soulevé','deadlift','spoto'];
-  function isBig(name) { return BIG.some(k => name.toLowerCase().includes(k)); }
 
-  // Build plan from routine
+  // ── Progression par semaine ─────────────────────────────────
+  const mult      = { 1:0.92, 2:0.95, 3:0.98, 4:1.01 }[weekNum] || 0.92;
+  const bigBonus  = { 1:0, 2:2.5, 3:5,   4:7.5 }[weekNum];
+  const isoBonus  = { 1:0, 2:1,   3:2,   4:3   }[weekNum];
+  const rpe       = { 1:7, 2:7,   3:8,   4:9   }[weekNum];
+
+  // ── Temps de repos par catégorie ────────────────────────────
+  function getRestSeconds(name, exoType) {
+    if (exoType === 'cardio' || exoType === 'cardio_stairs' || exoType === 'time') return 0;
+    const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (/squat|deadlift|souleve|bench|developpe\s*couche/.test(n)) return 210;   // 3min30 composés lourds
+    if (/militaire|overhead|ohp|rowing|tirage|row\b|traction|pull.?up/.test(n)) return 150; // 2min30 composés légers
+    if (exoType === 'reps') return 90;   // BW : 1min30
+    return 90;                           // isolation : 1min30
+  }
+
+  // ── Agréger meilleurs records tous jours confondus ──────────
+  const allBest = {};
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxReps:0, maxTime:0, distance:0, repRecords:{} };
+      const r = allBest[exo.name];
+      if ((exo.maxRM   ||0) > r.maxRM)   r.maxRM   = exo.maxRM;
+      if ((exo.maxReps ||0) > r.maxReps) r.maxReps = exo.maxReps;
+      if ((exo.maxTime ||0) > r.maxTime) r.maxTime = exo.maxTime;
+      if ((exo.distance||0) > r.distance) r.distance = exo.distance;
+      Object.entries(exo.repRecords||{}).forEach(([k,v]) => { if (!r.repRecords[k]||v>r.repRecords[k]) r.repRecords[k]=v; });
+    });
+  });
+  // Résoudre un nom de programme vers la clé dans allBest (tolérant)
+  function resolveRecord(exoName) {
+    const direct = allBest[exoName];
+    if (direct) return direct;
+    const key = Object.keys(allBest).find(k => matchExoName(k, exoName) || matchExoName(exoName, k));
+    return key ? allBest[key] : null;
+  }
+
   const routine = getRoutine();
   const plan = { week: weekNum, generated_at: new Date().toISOString(), days: [] };
 
   DAYS_FULL.forEach(day => {
-    const label = routine[day] || '';
-    const isRest = !label || label.includes('Repos') || label.includes('😴');
-
-    // Find recent session for this day to get exercise data
-    const recentSession = db.logs.find(l => l.day === day && l.exercises.length > 0);
-
+    const label  = routine[day] || '';
+    const isRest = !label || /repos|😴/i.test(label);
     const exercises = [];
-    if (recentSession && !isRest) {
-      recentSession.exercises.filter(e => !e.isCardio).slice(0, 8).forEach(exo => {
-        const big = isBig(exo.name);
-        const workSets = [];
-        const warmSets = [];
-        // Reconstruct sets from repRecords
-        const repsArr = Object.entries(exo.repRecords || {}).sort((a,b) => parseInt(a[0])-parseInt(b[0]));
-        if (repsArr.length > 0) {
-          // Add warmup sets
-          const mainW = repsArr[0][1];
-          warmSets.push({ isWarmup:true, weight:round05(mainW*0.5), reps:10 });
-          warmSets.push({ isWarmup:true, weight:round05(mainW*0.75), reps:5 });
-          // Work sets with progression
-          repsArr.forEach(([reps, weight]) => {
-            let newW;
-            if (weekNum === 1) newW = round05(weight * mult);
-            else newW = round05(weight + (big ? bigBonus[weekNum] : isoBonus[weekNum]));
-            workSets.push({ isWarmup:false, weight:newW, reps:parseInt(reps), rpe: weekNum === 4 ? 9 : weekNum+6 });
-          });
+
+    if (!isRest) {
+      // Priorité 1 : exercices configurés dans Réglages → Mon Programme
+      let exoNames = getProgExosForDay(day);
+      // Priorité 2 : session récente du même jour (si pas de programme configuré)
+      if (!exoNames.length) {
+        const recent = db.logs.find(l => l.day === day && l.exercises.length > 0);
+        if (recent) exoNames = recent.exercises.filter(e => !e.isCardio).slice(0,8).map(e => e.name);
+      }
+
+      exoNames.forEach(exoName => {
+        const exoType = getExoType(exoName);
+        const hist    = resolveRecord(exoName);
+        const rest    = getRestSeconds(exoName, exoType);
+        const big     = /squat|deadlift|soulevé|souleve|bench|développé\s*couché|developpe\s*couche/.test(exoName.toLowerCase());
+
+        if (exoType === 'time') {
+          // ── Gainage / isométrique ────────────────────────────
+          const recSec  = hist?.maxTime || 30;
+          const progSec = weekNum === 1 ? recSec : Math.round(recSec * (1 + (weekNum-1) * 0.08));
+          exercises.push({ name:exoName, type:'time', restSeconds:0,
+            sets: Array.from({length:3}, () => ({ isWarmup:false, durationSec:progSec })) });
+
+        } else if (exoType === 'reps') {
+          // ── BW ou lesté (tractions, pompes, dips…) ───────────
+          const repsArr = Object.entries(hist?.repRecords||{}).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
+          if (repsArr.length > 0) {
+            // Séries lestées enregistrées → progression de charge
+            const workSets = repsArr.map(([reps,weight]) => ({
+              isWarmup:false,
+              weight: weekNum===1 ? round05(weight*mult) : round05(weight+isoBonus),
+              reps:parseInt(reps), rpe
+            }));
+            exercises.push({ name:exoName, type:'reps', restSeconds:rest, sets:workSets });
+          } else {
+            // Poids de corps pur → sets × reps cibles ou max
+            const recMax = hist?.maxReps || 0;
+            const target = recMax > 0 ? Math.max(3, Math.round(recMax * (0.75 + weekNum*0.05))) : 'max';
+            exercises.push({ name:exoName, type:'reps', restSeconds:rest,
+              sets: Array.from({length:3}, () => ({ isWarmup:false, weight:null, reps:target, rpe })) });
+          }
+
+        } else if (exoType === 'cardio' || exoType === 'cardio_stairs') {
+          // ── Cardio ───────────────────────────────────────────
+          const recMin = hist?.maxTime ? Math.round(hist.maxTime/60) : 20;
+          exercises.push({ name:exoName, type:'cardio', restSeconds:0,
+            sets: [{ isWarmup:false, durationMin:recMin, distance:hist?.distance||null }] });
+
+        } else {
+          // ── Poids (défaut) ───────────────────────────────────
+          const repsArr = Object.entries(hist?.repRecords||{}).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
+          if (repsArr.length > 0) {
+            const mainW    = repsArr[0][1];
+            const warmSets = [
+              { isWarmup:true, weight:round05(mainW*0.5), reps:10 },
+              { isWarmup:true, weight:round05(mainW*0.75), reps:5 }
+            ];
+            const workSets = repsArr.map(([reps,weight]) => ({
+              isWarmup:false,
+              weight: weekNum===1 ? round05(weight*mult) : round05(weight+(big?bigBonus:isoBonus)),
+              reps:parseInt(reps), rpe
+            }));
+            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[...warmSets,...workSets] });
+          } else if (hist?.maxRM > 0) {
+            // Pas de repRecords mais e1RM connu → estimer 3×8 / 3×6 / 3×5
+            const targetReps = [8,8,6,5][weekNum-1] || 6;
+            const estW       = round05(hist.maxRM * (1.0278 - 0.0278 * targetReps) * mult);
+            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[
+              { isWarmup:true,  weight:round05(estW*0.5),  reps:10 },
+              { isWarmup:true,  weight:round05(estW*0.75), reps:5  },
+              { isWarmup:false, weight:estW, reps:targetReps, rpe },
+              { isWarmup:false, weight:estW, reps:targetReps, rpe },
+              { isWarmup:false, weight:estW, reps:targetReps, rpe }
+            ]});
+          } else {
+            // Aucune donnée : placeholder
+            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
+          }
         }
-        exercises.push({ name:exo.name, type:'weight', restSeconds:big?180:90, sets:[...warmSets,...workSets] });
       });
     }
 
-    plan.days.push({ day, title: label || day, rest: isRest, coachNote: '', exercises });
+    plan.days.push({ day, title: label || day, rest: isRest, coachNote:'', exercises });
   });
 
   db.weeklyPlan = plan;
@@ -5269,22 +5353,61 @@ function renderWeeklyPlanUI() {
   content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div><div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
 }
 
+function fmtRest(sec) {
+  if (!sec) return '';
+  const m = Math.floor(sec/60), s = sec%60;
+  return m + 'min' + (s ? ' ' + s + 's' : '');
+}
+
 function renderWpExercise(exo) {
   const type = exo.type || 'weight';
-  const restFmt = exo.restSeconds ? Math.floor(exo.restSeconds/60)+'min'+(exo.restSeconds%60?String(exo.restSeconds%60).padStart(2,'0')+'s':'') : '';
-  const sets = exo.sets || [];
+  const sets  = exo.sets || [];
+  const restTag = exo.restSeconds ? `<div class="wp-rest-tag">⏸ Repos : ${fmtRest(exo.restSeconds)}</div>` : '';
+  const typeIcon = { weight:'🏋️', reps:'🔄', time:'⏱', cardio:'🏃', cardio_stairs:'🪜' }[type] || '💪';
   let tableHtml = '';
-  if (type === 'weight') {
-    const wup = sets.filter(s=>s.isWarmup), wrk = sets.filter(s=>!s.isWarmup);
-    let rows = wup.map((s,i)=>`<tr class="wp-warmup-row"><td style="font-size:11px;">Éch.${i+1}</td><td class="wp-charge" style="color:var(--sub);">${s.weight}kg</td><td>${s.reps} reps</td><td style="color:var(--sub);">—</td></tr>`).join('');
-    rows += wrk.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight}kg</td><td style="font-weight:600;">${s.reps} reps</td><td style="color:var(--orange);font-size:11px;">${s.rpe?'RPE '+s.rpe:'—'}</td></tr>`).join('');
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Charge</th><th>Reps</th><th>RPE</th></tr></thead><tbody>${rows}</tbody></table>`;
-  } else if (type === 'cardio') {
-    const rows = sets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.distance?s.distance+'km':'—'}</td><td>${s.durationMin?s.durationMin+'min':'—'}</td><td>—</td></tr>`).join('');
+
+  if (exo.noData) {
+    // Aucune donnée enregistrée pour cet exercice
+    tableHtml = `<div style="font-size:12px;color:var(--orange);padding:6px 0;">⚠️ Pas encore de données — importe une séance Hevy pour cet exercice.</div>`;
+
+  } else if (type === 'time') {
+    // Gainage / isométrique : N × X secondes
+    const wrkSets = sets.filter(s=>!s.isWarmup);
+    const sec = wrkSets[0]?.durationSec || 30;
+    const durFmt = sec >= 60 ? Math.floor(sec/60)+'min'+(sec%60?' '+sec%60+'s':'') : sec+'s';
+    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Durée</th><th></th><th></th></tr></thead><tbody>` +
+      wrkSets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge" style="color:var(--teal);">${durFmt}</td><td></td><td></td></tr>`).join('') +
+      `</tbody></table>`;
+
+  } else if (type === 'reps') {
+    // BW ou lesté : reps max ou cibles
+    const wrkSets = sets.filter(s=>!s.isWarmup);
+    const hasWeight = wrkSets.some(s => s.weight !== null && s.weight > 0);
+    if (hasWeight) {
+      // Lesté : afficher charge + reps + RPE
+      tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Lest</th><th>Reps</th><th>RPE</th></tr></thead><tbody>` +
+        wrkSets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight}kg</td><td style="font-weight:600;">${s.reps === 'max' ? 'max' : s.reps+' reps'}</td><td style="color:var(--orange);font-size:11px;">${s.rpe?'RPE '+s.rpe:'—'}</td></tr>`).join('') +
+        `</tbody></table>`;
+    } else {
+      // Poids de corps pur
+      const target = wrkSets[0]?.reps ?? 'max';
+      const repsLabel = target === 'max' ? 'max reps' : target + ' reps';
+      tableHtml = `<div style="font-size:13px;padding:8px 0;"><span style="color:var(--sub);">${wrkSets.length} séries</span> <span style="font-weight:700;color:var(--text);"> × ${repsLabel}</span><span style="font-size:11px;color:var(--sub);margin-left:8px;">(poids de corps)</span></div>`;
+    }
+
+  } else if (type === 'cardio' || type === 'cardio_stairs') {
+    const rows = sets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.distance ? s.distance.toFixed(2)+'km' : '—'}</td><td>${s.durationMin ? s.durationMin+'min' : '—'}</td><td>—</td></tr>`).join('');
     tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Dist.</th><th>Durée</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  } else {
+    // Poids (défaut) : échauffement grisé + séries de travail
+    const wup = sets.filter(s=>s.isWarmup), wrk = sets.filter(s=>!s.isWarmup);
+    let rows = wup.map((s,i)=>`<tr class="wp-warmup-row"><td style="font-size:11px;color:var(--sub);">Éch.${i+1}</td><td class="wp-charge" style="color:var(--sub);">${s.weight}kg</td><td style="color:var(--sub);">${s.reps} reps</td><td style="color:var(--sub);">—</td></tr>`).join('');
+    rows += wrk.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight}kg</td><td style="font-weight:600;">${s.reps} reps</td><td style="color:var(--orange);font-size:11px;">${s.rpe ? 'RPE '+s.rpe : '—'}</td></tr>`).join('');
+    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Charge</th><th>Reps</th><th>RPE</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
-  const typeLabel = type==='weight'?'🏋️':type==='cardio'?'🏃':'⏱';
-  return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}</span><span class="wp-exo-type">${typeLabel}</span></div>${tableHtml}${restFmt?`<div class="wp-rest-tag">⏸ Repos : ${restFmt}</div>`:''}</div>`;
+
+  return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}</span><span class="wp-exo-type">${typeIcon}</span></div>${tableHtml}${restTag}</div>`;
 }
 </script>
 </body>

@@ -2233,40 +2233,60 @@ function matchExoName(hevyName, progName) {
 
   if (h === p) return true;
 
-  // Correspondance exacte après normalisation
-  if (h.includes(p) && p.length > 4) return true;
-  if (p.includes(h) && h.length > 4) return true;
+  // Mots significatifs (>3 lettres)
+  const sig = w => w.length > 3;
+
+  // Mots qui distinguent formellement une variante d'exercice
+  // (leur présence en "surplus" indique un exercice différent)
+  const DIFF = new Set([
+    'incline','decline','sumo','bulgare','inverse','inversee',
+    'nuque','pause','spoto','deficit','board'
+  ]);
+
+  // Vérifie si name correspond à ref, en acceptant des mots extra
+  // seulement s'ils ne sont pas des différenciateurs
+  const softIncludes = (name, ref) => {
+    if (name === ref) return true;
+    if (!name.includes(ref)) return false;
+    const extra = name.replace(ref, '').trim().split(' ').filter(sig);
+    return extra.every(w => !DIFF.has(w));
+  };
 
   // Vérifier les synonymes — si h et p appartiennent au même groupe → match
   for (const group of EXO_SYNONYMS) {
     const normGroup = group.map(norm);
-    const hInGroup = normGroup.some(s => h === s || h.includes(s) || s.includes(h));
-    const pInGroup = normGroup.some(s => p === s || p.includes(s) || s.includes(p));
+    const hInGroup = normGroup.some(s => softIncludes(h, s) || softIncludes(s, h));
+    const pInGroup = normGroup.some(s => softIncludes(p, s) || softIncludes(s, p));
     if (hInGroup && pInGroup) return true;
   }
 
-  // Mots significatifs (>3 lettres) — les DEUX directions doivent matcher
-  const sig = w => w.length > 3;
   const hWords = h.split(' ').filter(sig);
   const pWords = p.split(' ').filter(sig);
-
   if (!hWords.length || !pWords.length) return false;
 
-  // Strict : tous les mots du programme doivent être dans Hevy ET vice-versa
-  // (pour éviter "Mollets" qui matche "Leg Curl Allongé" via un mot commun)
-  const pInH = pWords.every(w => hWords.some(hw => hw.startsWith(w) || w.startsWith(hw)));
-  const hInP = hWords.every(w => pWords.some(pw => pw.startsWith(w) || w.startsWith(pw)));
+  const wMatch = (a, b) => a === b || a.startsWith(b) || b.startsWith(a);
+  const pInH = pWords.every(w => hWords.some(hw => wMatch(w, hw)));
+  const hInP = hWords.every(w => pWords.some(pw => wMatch(w, pw)));
 
-  // Exiger la correspondance dans AU MOINS une direction,
-  // mais seulement si l'exercice le plus court a au moins 2 mots significatifs
+  // Correspondance bidirectionnelle complète
+  if (pInH && hInP) return true;
+
+  // Unidirectionnelle tolérée seulement si les mots "extra" ne sont pas des différenciateurs
+  if (pInH && !hInP) {
+    const extraH = hWords.filter(w => !pWords.some(pw => wMatch(w, pw)));
+    if (extraH.length > 0 && extraH.every(w => !DIFF.has(w))) return true;
+  }
+  if (hInP && !pInH) {
+    const extraP = pWords.filter(w => !hWords.some(hw => wMatch(w, hw)));
+    if (extraP.length > 0 && extraP.every(w => !DIFF.has(w))) return true;
+  }
+
+  // Exercice à 1 mot significatif : tolérer les variations pluriel/singulier
   const shorter = pWords.length <= hWords.length ? pWords : hWords;
-  if (shorter.length >= 2 && (pInH || hInP)) return true;
-
-  // Pour les exercices à 1 mot significatif, exiger correspondance exacte du mot
   if (shorter.length === 1) {
     const w = shorter[0];
     const other = shorter === pWords ? hWords : pWords;
-    return other.some(hw => hw === w); // strict : identique, pas startsWith
+    return other.some(hw => wMatch(w, hw));
   }
 
   return false;
@@ -2661,13 +2681,14 @@ function renderPerfCard() {
     });
   });
 
-  // Auto-incrément objectif si 1RM réel dépasse l'objectif actuel
+  // Auto-incrément objectif si e1RM (Epley) dépasse l'objectif actuel
+  // On utilise e1RM et non real1rm : le 1RM réel est rare, l'e1RM est la mesure standard
   let changed = false;
   keyLifts.forEach(kl => {
     const rec = records[kl.name];
     const inc = getPerfIncrement(kl.name);
-    if (rec.real1rm > 0 && kl.target > 0 && rec.real1rm >= kl.target) {
-      while (kl.target <= rec.real1rm) kl.target += inc;
+    if (rec.e1rm > 0 && kl.target > 0 && rec.e1rm >= kl.target) {
+      while (kl.target <= rec.e1rm) kl.target += inc;
       changed = true;
       showToast('🎯 ' + kl.name.split(' ')[0] + ' → nouvel objectif ' + kl.target + 'kg !');
     }
@@ -2941,8 +2962,10 @@ function renderDayExercises(day) {
         } else if (exoType === 'time') {
           if ((exo.maxTime||0) > (best[key].maxTime||0)) best[key] = { ...exo, exoType };
         } else if (exoType === 'reps') {
-          if ((exo.maxReps||0) > (best[key].maxReps||0)) best[key].maxReps = exo.maxReps;
-          if ((exo.maxRM||0) > (best[key].maxRM||0)) best[key].maxRM = exo.maxRM;
+          if ((exo.maxReps||0) > (best[key].maxReps||0)) { best[key].maxReps = exo.maxReps; best[key].maxRepsDate = exo.maxRepsDate; }
+          else if ((exo.maxReps||0) === (best[key].maxReps||0) && exo.maxRepsDate && (!best[key].maxRepsDate || exo.maxRepsDate > best[key].maxRepsDate)) { best[key].maxRepsDate = exo.maxRepsDate; }
+          if ((exo.maxRM||0) > (best[key].maxRM||0)) { best[key].maxRM = exo.maxRM; best[key].maxRMDate = exo.maxRMDate; }
+          else if ((exo.maxRM||0) === (best[key].maxRM||0) && exo.maxRMDate && (!best[key].maxRMDate || exo.maxRMDate > best[key].maxRMDate)) { best[key].maxRMDate = exo.maxRMDate; }
           if (exo.repRecords) {
             if (!best[key].repRecords) best[key].repRecords = {};
             Object.entries(exo.repRecords).forEach(([r,w]) => { if (!best[key].repRecords[r] || w > best[key].repRecords[r]) best[key].repRecords[r] = w; });
@@ -3039,7 +3062,7 @@ function formatExoDropdown(name, exo, idx) {
   if(exoType==='cardio'){const n=name.toLowerCase();if(/natation|swimming|nage/.test(n))icon='🏊';else if(/velo|cycling|bike/.test(n))icon='🚴';else if(/randonnee|hiking/.test(n))icon='🥾';else if(/rameur/.test(n))icon='🚣';else if(/corde.*sauter|jump.*rope/.test(n))icon='🪢';else icon='🏃';}else if(exoType==='cardio_stairs')icon='🪜';else if(exoType==='time')icon='⏱';else if(exoType==='reps')icon='🔄';
   let mainDisplay='',dateTs=null;
   if(exoType==='cardio'||exoType==='cardio_stairs'){const parts=[];if(exo.distance)parts.push(exo.distance.toFixed(2)+'km');if(exo.maxTime){parts.push(formatTime(exo.maxTime));if(exo.distance){const kmh=exo.distance/(exo.maxTime/3600);parts.push(kmh.toFixed(1)+' km/h');}}mainDisplay=parts.join(' • ')||'Cardio';dateTs=exo.cardioDate;}
-  else if(exoType==='time'){mainDisplay=(!exo.maxTime||exo.maxTime<=1)?'⚠️ Re-importer':formatTime(exo.maxTime);dateTs=exo.maxTimeDate;}
+  else if(exoType==='time'){const _mt=exo.maxTime;mainDisplay=(!_mt||_mt<=1)?'⚠️ Re-importer':(Math.floor(_mt/60)+':'+String(_mt%60).padStart(2,'0'));dateTs=exo.maxTimeDate;}
   else if(exoType==='reps'){if(exo.maxRM>0)mainDisplay=exo.maxReps?exo.maxReps+' reps · e1RM '+exo.maxRM+'kg':'e1RM '+exo.maxRM+'kg';else mainDisplay=exo.maxReps?exo.maxReps+' reps':'⚠️ Re-importer';dateTs=exo.maxRepsDate;}
   else{mainDisplay=exo.maxRM?exo.maxRM+'kg e1RM':'0kg';dateTs=exo.maxRMDate;}
   const ds=dateTs?formatDate(dateTs):'';
@@ -3048,7 +3071,31 @@ function formatExoDropdown(name, exo, idx) {
   if(exoType==='weight'&&exo.repRecords&&Object.keys(exo.repRecords).length>0){const sorted=Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));detailsHtml=sorted.map(([reps,weight])=>{const e1rm=calcE1RM(weight,parseInt(reps));const label=parseInt(reps)===1?'1RM réel':reps+'RM';return'<div class="exo-detail-row"><span style="color:var(--sub);">'+label+': '+weight+'kg</span><span style="color:var(--green);font-weight:600;">e1RM: '+e1rm+'kg</span></div>';}).join('');}
   else if(exoType==='cardio'||exoType==='cardio_stairs'){const records=[];if(exo.distance)records.push('<div class="exo-detail-row"><span style="color:var(--sub);">📏 Distance</span><span style="color:var(--green);font-weight:600;">'+exo.distance.toFixed(2)+' km</span></div>');if(exo.maxTime)records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Temps</span><span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span></div>');if(exo.distance&&exo.maxTime){const kmh=exo.distance/(exo.maxTime/3600);records.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ Vitesse moy.</span><span style="color:var(--green);font-weight:600;">'+kmh.toFixed(1)+' km/h</span></div>');const minkm=(exo.maxTime/60)/exo.distance;const minPart=Math.floor(minkm);const secPart=Math.round((minkm-minPart)*60);records.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏃 Allure</span><span style="color:var(--green);font-weight:600;">'+minPart+"'"+String(secPart).padStart(2,'0')+'" /km</span></div>');}detailsHtml=records.join('');}
   else if(exoType==='reps'){const rows=[];if(exo.maxReps)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🔝 Max reps</span><span style="color:var(--green);font-weight:600;">'+(exo.maxReps||0)+' reps</span></div>');if(exo.maxRM>0)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">⚡ e1RM lesté</span><span style="color:var(--green);font-weight:600;">'+exo.maxRM+'kg</span></div>');if(exo.repRecords){Object.entries(exo.repRecords).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).forEach(([r,w])=>{rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">'+r+' reps lesté</span><span style="color:var(--green);font-weight:600;">'+w+'kg</span></div>');});}detailsHtml=rows.join('');}
-  else if(exoType==='time'){const timeVal=(!exo.maxTime||exo.maxTime<=1)?'<span style="color:var(--orange);">Re-importe la séance pour récupérer le temps</span>':'<span style="color:var(--green);font-weight:600;">'+formatTime(exo.maxTime)+'</span>';detailsHtml='<div class="exo-detail-row"><span style="color:var(--sub);">⏱ Record</span>'+timeVal+'</div>';}
+  else if(exoType==='time'){
+    const fmtT=s=>{if(!s||s<=0)return'0:00';const m=Math.floor(s/60),sc=s%60;return m+':'+String(sc).padStart(2,'0');};
+    const timeSessions=[];
+    [...db.logs].sort((a,b)=>b.timestamp-a.timestamp).forEach(log=>{
+      if(timeSessions.length>=5)return;
+      const found=log.exercises.find(e=>e.name===name);
+      if(found&&(found.maxTime||0)>1)timeSessions.push({date:log.shortDate||formatDate(log.timestamp),time:found.maxTime});
+    });
+    const rows=[];
+    if(exo.maxTime>1)rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">🏆 Record</span><span style="color:var(--green);font-weight:600;">'+fmtT(exo.maxTime)+'</span></div>');
+    timeSessions.forEach((s,i)=>{
+      const prev=timeSessions[i+1];
+      const delta=prev?s.time-prev.time:null;
+      const dStr=delta===null?'':delta>0?' <span style="color:var(--green);">↑ +'+delta+'s</span>':delta<0?' <span style="color:var(--red);">↓ '+delta+'s</span>':' <span style="color:var(--sub);">= égal</span>';
+      rows.push('<div class="exo-detail-row"><span style="color:var(--sub);">'+s.date+'</span><span>'+fmtT(s.time)+dStr+'</span></div>');
+    });
+    if(timeSessions.length>=3){
+      const times=timeSessions.map(s=>s.time);
+      const avgD=((times[0]-times[times.length-1])/(times.length-1)).toFixed(1);
+      const tc=parseFloat(avgD)>0?'var(--green)':parseFloat(avgD)<0?'var(--red)':'var(--sub)';
+      rows.push('<div class="exo-detail-row" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:6px;"><span style="color:var(--sub);">📈 Tendance</span><span style="color:'+tc+';font-weight:600;">'+(parseFloat(avgD)>0?'↑ +':parseFloat(avgD)<0?'↓ ':'= ')+avgD+'s/séance</span></div>');
+    }
+    if(!rows.length)rows.push('<div class="exo-detail-row"><span style="color:var(--orange);">Re-importe la séance pour récupérer le temps</span></div>');
+    detailsHtml=rows.join('');
+  }
   return'<div class="exo-header" onclick="toggleExo(\''+id+'\')"><span>'+icon+' '+name+medal+'</span><div style="display:flex;align-items:center;"><div style="text-align:right;"><div style="color:var(--blue);font-weight:600;font-size:12px;">'+mainDisplay+'</div>'+(ds?'<div style="font-size:10px;color:var(--sub);">'+ds+'</div>':'')+'</div><span class="chevron">▾</span></div></div>'+(detailsHtml?'<div class="exo-details" id="'+id+'">'+detailsHtml+'</div>':'');
 }
 
@@ -3944,9 +3991,13 @@ function renderLifts() {
       if (exoType !== 'weight' && exoType !== 'reps') return;
       if (!exo.maxRM || exo.maxRM <= 0) return;
       const muscle = getMuscleGroup(exo.name);
-      if (!liftMap[exo.name]) liftMap[exo.name] = { name: exo.name, muscle, maxRM: 0, maxRMDate: null, repRecords: {}, history: [] };
-      const l = liftMap[exo.name];
+      // Grouper par nom canonique : fusionner les variantes orthographiques
+      // (ex: "Tirage visage" et "Tirage vers le visage" → même entrée)
+      const canonKey = Object.keys(liftMap).find(k => matchExoName(exo.name, k)) || exo.name;
+      if (!liftMap[canonKey]) liftMap[canonKey] = { name: canonKey, muscle, maxRM: 0, maxRMDate: null, repRecords: {}, history: [] };
+      const l = liftMap[canonKey];
       if (exo.maxRM > l.maxRM) { l.maxRM = exo.maxRM; l.maxRMDate = exo.maxRMDate; }
+      else if (exo.maxRM === l.maxRM && exo.maxRMDate && (!l.maxRMDate || exo.maxRMDate > l.maxRMDate)) { l.maxRMDate = exo.maxRMDate; }
       if (exo.repRecords) Object.entries(exo.repRecords).forEach(([r,w]) => { if (!l.repRecords[r] || w > l.repRecords[r]) l.repRecords[r] = w; });
     });
   });
@@ -3957,7 +4008,7 @@ function renderLifts() {
     const pts = [];
     [...db.logs].sort((a,b) => a.timestamp-b.timestamp).forEach(log => {
       log.exercises.forEach(exo => {
-        if (exo.name === name && exo.maxRM > 0 && exo.maxRM > runMax) {
+        if (matchExoName(exo.name, name) && exo.maxRM > 0 && exo.maxRM > runMax) {
           runMax = exo.maxRM;
           pts.push({ rm: exo.maxRM, date: log.shortDate||formatDate(log.timestamp), ts: log.timestamp });
         }

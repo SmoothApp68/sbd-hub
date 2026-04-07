@@ -2889,7 +2889,7 @@ function showTab(tabId) {
   if (tabId==='tab-dash') renderDash();
   if (tabId==='tab-seances') renderSeancesTab();
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
-  if (tabId==='tab-ai') { markReportsRead(); renderReportsTimeline(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
+  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
   if (tabId==='tab-settings') { renderSettingsRoutineEditor(); renderKeyLiftsEditor(); fillSettingsFields(); }
   if (tabId==='tab-corps') { renderCorpsTab(); }
 }
@@ -4164,9 +4164,23 @@ function cleanupExistingLogs() {
           if(ex.series&&ex.series.length>0){ex.series.forEach(s=>{if((s.reps||0)>trueMax)trueMax=s.reps;});}
           // repRecords keys = nombre de reps réellement fait en une série
           if(ex.repRecords){Object.keys(ex.repRecords).forEach(k=>{const r=parseInt(k);if(r>trueMax)trueMax=r;});}
+          // Pour les exos au poids du corps (series vide, repRecords vide):
+          // détecter si maxReps est en fait le total de toutes les séries (corruption ancienne)
+          // Signe: maxReps >= totalReps && sets > 1 → totalReps stocké à la place du max par série
+          if(trueMax===0&&(ex.sets||0)>1&&(ex.totalReps||0)>0&&(ex.maxReps||0)>=(ex.totalReps||0)){
+            // totalReps = max d'une séance (corrompue) → estimer le vrai max par série
+            const estimated=Math.ceil(ex.totalReps/ex.sets);
+            if(estimated>trueMax)trueMax=estimated;
+          }
+          // Cas où maxReps > totalReps/sets mais proche du total (ex: max=24, total=24, sets=4)
+          if(trueMax===0&&(ex.sets||0)>1&&(ex.totalReps||0)>0&&(ex.maxReps||0)===ex.totalReps){
+            const estimated=Math.ceil(ex.totalReps/ex.sets);
+            if(estimated>trueMax)trueMax=estimated;
+          }
         });});
-        // Si on a trouvé un vrai max par série, l'utiliser ; sinon cap à 20
+        // Si on a trouvé un vrai max par série, l'utiliser
         if(trueMax>0&&trueMax<(exo.maxReps||0)){exo.maxReps=trueMax;changed=true;}
+        // Fallback: si toujours rien (valeur suspecte > 25), cap à 20
         else if(trueMax===0&&(exo.maxReps||0)>25){exo.maxReps=20;changed=true;}
       }
       if(exoType==='time'){if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{const t=s.reps||0;if(t>1&&t<3600&&t>(exo.maxTime||0)){exo.maxTime=t;changed=true;}});}}
@@ -4216,9 +4230,9 @@ function parseCSVRow(line, sep) {
   return fields;
 }
 
-// ── Parser de dates françaises Hevy ─────────────────────────
+// ── Parser de dates françaises Hevy (format CSV) ────────────
 // Format : "29 mars 2026, 14:50" ou "1 juil. 2025, 16:02"
-function parseHevyDate(raw) {
+function parseHevyCSVDate(raw) {
   const MOIS = {
     'janvier':1,'fevrier':2,'février':2,'fevr':2,'févr':2,
     'mars':3,'avril':4,'mai':5,'juin':6,
@@ -4287,7 +4301,7 @@ function parseHevyCSV(text) {
 
   const sessions = [];
   for (const [, v] of sessMap) {
-    const ts = parseHevyDate(v.start);
+    const ts = parseHevyCSVDate(v.start);
     if (!ts) continue;
 
     const d  = new Date(ts);

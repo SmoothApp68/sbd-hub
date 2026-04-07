@@ -2700,7 +2700,7 @@ function matchExoName(hevyName, progName) {
 // REPORTS
 // ============================================================
 function purgeExpiredReports() { const now = Date.now(); const before = db.reports.length; db.reports = db.reports.filter(r => r.expires_at > now); if (db.reports.length !== before) saveDB(); }
-function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); renderReportsTimeline(); }
+function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); console.log('[upsertReport] added report type:', type, 'total reports:', db.reports.length); renderReportsTimeline(); }
 function markReportsRead() { let changed = false; db.reports.forEach(r => { if (!r.read) { r.read = true; changed = true; } }); if (changed) saveDB(); updateCoachBadge(); }
 function updateCoachBadge() { const unread = db.reports.filter(r => !r.read && r.expires_at > Date.now()).length; const btn = document.querySelector('.tab-btn[data-tab="tab-ai"]'); const existing = btn.querySelector('.tab-badge'); if (unread > 0 && !existing) { const dot = document.createElement('span'); dot.className = 'tab-badge'; btn.appendChild(dot); } else if (unread === 0 && existing) existing.remove(); }
 function shouldGenerateWeekly() { const today = new Date(); if (today.getDay() !== 6) return false; const existing = db.reports.find(r => r.type === 'weekly'); if (existing) { const created = new Date(existing.created_at); if (created.toDateString() === today.toDateString()) return false; } return getLogsInRange(7).length > 0; }
@@ -2715,9 +2715,11 @@ function toggleReportsTimeline() {
 function renderReportsTimeline() {
   purgeExpiredReports();
   const container = document.getElementById('aiReportsTimeline');
-  if (!container) return;
+  console.log('[renderReportsTimeline] container found:', !!container, 'total db.reports:', db.reports.length);
+  if (!container) { console.log('[renderReportsTimeline] container not found!'); return; }
   const reports = db.reports.filter(r => r.expires_at > Date.now()).sort((a,b) => b.created_at - a.created_at);
-  if (reports.length === 0) { container.innerHTML = ''; return; }
+  console.log('[renderReportsTimeline] valid reports to display:', reports.length);
+  if (reports.length === 0) { console.log('[renderReportsTimeline] no reports, clearing container'); container.innerHTML = ''; return; }
   // Auto-ouvrir si rapports non lus
   const hasUnread = reports.some(r => !r.read);
   if (hasUnread) reportsTimelineOpen = true;
@@ -4999,7 +5001,9 @@ function generateAlgoWeeklyReport() {
 
 function saveAlgoDebrief(session) {
   const html = generateAlgoSessionDebrief(session);
+  console.log('[saveAlgoDebrief] html generated:', !!html, 'session.id:', session.id);
   if (!html) return;
+  console.log('[saveAlgoDebrief] calling upsertReport');
   upsertReport('debrief', html, session.id);
 }
 

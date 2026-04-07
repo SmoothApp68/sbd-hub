@@ -1043,7 +1043,7 @@
         <div>
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">CSV (historique Google Sheets)</div>
           <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Séparateur point-virgule (;)</p>
-          <input type="file" id="csvFileInput" accept=".csv" style="margin-bottom:10px;font-size:13px;padding:10px;" onchange="previewCSV(this)">
+          <input type="file" id="csvFileInput" accept=".csv,.txt,text/csv,text/plain" style="margin-bottom:10px;font-size:13px;padding:10px;" onchange="previewCSV(this)">
           <div id="csvPreview" style="display:none;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;color:var(--sub);"></div>
           <button class="btn" style="background:var(--purple);" onclick="importCSV()" id="csvImportBtn" disabled>Importer l'historique</button>
           <div id="csvProgress" style="margin-top:10px;display:none;">
@@ -2448,6 +2448,11 @@ const EXO_SYNONYMS = [
   ['overhead press', 'developpe militaire', 'développé militaire', 'ohp'],
   ['pull up', 'traction', 'chin up'],
   ['romanian deadlift', 'rdl', 'souleve roumain'],
+  ['hip thrust', 'poussee de hanche', 'poussée de hanche'],
+  ['shrug', 'haussement d epaules', 'haussement d\'épaules', 'haussement epaules'],
+  ['lunge', 'fente', 'fentes'],
+  ['leg press', 'presse a cuisses', 'presse à cuisses', 'presse cuisses'],
+  ['good morning', 'bon matin'],
 ];
 
 function matchExoName(hevyName, progName) {
@@ -3807,17 +3812,19 @@ function cleanupExistingLogs() {
       if(exoType==='time'&&!exo.isTime){exo.isTime=true;changed=true;}
       if((exoType==='cardio'||exoType==='cardio_stairs')&&!exo.isCardio){exo.isCardio=true;changed=true;}
       if(exoType==='reps'){
-        // Repair corrupted maxReps: if series data exists use it; never use totalReps
-        if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{if((s.reps||0)>(exo.maxReps||0)){exo.maxReps=s.reps;changed=true;}});}
-        // Repair via repRecords: if the max weighted rep count < current maxReps, trust repRecords
-        // (totalReps was wrongly assigned to maxReps in old migration — cap to max rep key in repRecords if available)
-        if(exo.repRecords&&Object.keys(exo.repRecords).length>0){
-          const maxRepKey=Math.max(...Object.keys(exo.repRecords).map(Number));
-          if(maxRepKey>0&&(exo.maxReps||0)>Math.max(maxRepKey*3,30)){exo.maxReps=maxRepKey;changed=true;}
-        } else if((exo.maxReps||0)>30){
-          // Poids de corps pur sans repRecords : >30 reps = probablement total séance, pas une série
-          exo.maxReps=Math.min(exo.maxReps,20);changed=true;
-        }
+        // Repair corrupted maxReps: recalculer depuis TOUS les logs de cet exercice
+        // Cherche le vrai max par série (pas le total séance)
+        let trueMax=0;
+        db.logs.forEach(lg=>{lg.exercises.forEach(ex=>{
+          if(ex.name!==exo.name)return;
+          // series[] contient les best weight/reps (dédupliqués) — fiable
+          if(ex.series&&ex.series.length>0){ex.series.forEach(s=>{if((s.reps||0)>trueMax)trueMax=s.reps;});}
+          // repRecords keys = nombre de reps réellement fait en une série
+          if(ex.repRecords){Object.keys(ex.repRecords).forEach(k=>{const r=parseInt(k);if(r>trueMax)trueMax=r;});}
+        });});
+        // Si on a trouvé un vrai max par série, l'utiliser ; sinon cap à 20
+        if(trueMax>0&&trueMax<(exo.maxReps||0)){exo.maxReps=trueMax;changed=true;}
+        else if(trueMax===0&&(exo.maxReps||0)>25){exo.maxReps=20;changed=true;}
       }
       if(exoType==='time'){if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{const t=s.reps||0;if(t>1&&t<3600&&t>(exo.maxTime||0)){exo.maxTime=t;changed=true;}});}}
     });
@@ -5205,7 +5212,7 @@ function generateWeeklyPlan() {
   function getExoCategory(name) {
     const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) return 'big';
-    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain/.test(n)) return 'compound';
+    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning/.test(n)) return 'compound';
     return 'isolation';
   }
 

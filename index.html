@@ -995,7 +995,48 @@
       <div class="acc-body open" id="acc-profil">
         <input type="text"   id="inputName" placeholder="Prénom" onchange="updateProfile()">
         <input type="number" id="inputBW"   placeholder="Poids de corps (kg)" onchange="updateProfile()">
-        <div style="display:flex;gap:8px;">
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Niveau</div>
+          <select id="settingsLevel" onchange="updateProfileField('level', this.value)" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
+            <option value="debutant">Débutant (moins de 1 an)</option>
+            <option value="intermediaire">Intermédiaire (1–3 ans)</option>
+            <option value="avance">Avancé (3+ ans)</option>
+            <option value="competiteur">Compétiteur / Elite</option>
+          </select>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Objectifs (coche par priorité)</div>
+          <div id="settingsGoals" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Fréquence d'entraînement</div>
+          <div id="settingsFreq" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Matériel disponible</div>
+          <div id="settingsMat" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Durée de séance</div>
+          <div id="settingsDuration" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Zones fragiles / Blessures</div>
+          <div id="settingsInjuries" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Cardio</div>
+          <div id="settingsCardio" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;">
           <input type="number" id="inputKcalBase" placeholder="Cible kcal (ex: 2300)" onchange="updateNutriTargets()" style="flex:1;margin:0;">
           <input type="number" id="inputBWBase" placeholder="Poids départ (ex: 98)" onchange="updateNutriTargets()" style="flex:1;margin:0;">
         </div>
@@ -1100,6 +1141,17 @@
           <button class="btn" style="background:var(--orange);" id="restoreBtn" disabled onclick="importData()">⬆️ Restaurer les données</button>
           <p style="font-size:10px;color:var(--red);text-align:center;margin-top:8px;">⚠️ Remplace toutes les données actuelles.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Accordéon Correction Records -->
+    <div class="acc-card">
+      <div class="acc-header" onclick="toggleAcc('acc-records')">
+        <span>🔧 Correction des Records</span><span class="acc-chevron" id="chev-acc-records">▾</span>
+      </div>
+      <div class="acc-body" id="acc-records">
+        <p style="font-size:12px;color:var(--sub);margin:0 0 12px;line-height:1.5;">Si un record semble aberrant (mauvais import, 1RM irréaliste), corrige ou supprime-le ici.</p>
+        <div id="recordsCorrectionList"></div>
       </div>
     </div>
 
@@ -1262,26 +1314,38 @@ function getMuscleGroup(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'");
   if (SESSION_NAME_BLACKLIST.test(name.toLowerCase())) return 'Autre';
   if (/natation|swimming|\bnage\b|tapis|treadmill|cardio|running|jogging|velo\b|cycling|bike|elliptique|cross.?trainer|escalier|stair|randonnee|hiking|rameur|rowing\s*machine|concept\s*2|corde\s*a\s*sauter|jump\s*rope|sprint|marche\s*(rapide|sportive|nordique)|assault\s*bike|ski\s*erg|boxe|shadow\s*box|battle\s*rope/.test(n)) return 'Cardio';
+  // Épaules
   if (/developpe\s*militaire|overhead\s*press|ohp\b|press\s*militaire/.test(n)) return 'Épaules';
-  if (/elevation\s*(laterale|frontale|posterieure)|lateral\s*raise|front\s*raise|rear\s*(delt|felt)|oiseau\b/.test(n)) return 'Épaules';
-  if (/face\s*pull|tirage\s*(vers\s*(le\s*)?visage|nuque|haut\s*poulie|poulie\s*haute)|pull\s*(apart|through)|rear\s*delt\s*fly/.test(n)) return 'Épaules';
+  if (/elevation\s*laterale|lateral\s*raise/.test(n)) return 'Épaules (latéral)';
+  if (/elevation\s*frontale|front\s*raise/.test(n)) return 'Épaules (antérieur)';
+  if (/elevation\s*posterieure|rear\s*(delt|felt)|oiseau\b|face\s*pull|rear\s*delt\s*fly|pull\s*(apart|through)/.test(n)) return 'Épaules (postérieur)';
+  if (/tirage\s*(vers\s*(le\s*)?visage|nuque|haut\s*poulie|poulie\s*haute)/.test(n)) return 'Épaules (postérieur)';
   if (/arnold/.test(n)) return 'Épaules';
   if (/\bepaule\b|\bshoulder\b/.test(n) && !/decollement|rotatoire|coiffe/.test(n)) return 'Épaules';
   if (/upright\s*row|tirage\s*(menton|au\s*menton)/.test(n)) return 'Épaules';
-  if (/\bsquat\b/.test(n) && !/hack|avant-bras/.test(n)) return 'Jambes';
-  if (/hack\s*squat|leg\s*press|presse\s*(a\s*cuisses?|cuisse|jambe)/.test(n)) return 'Jambes';
-  if (/leg\s*extension|extension\s*(des\s*)?(jambes?|quadriceps?)|quadriceps/.test(n)) return 'Jambes';
-  if (/fente\s*(avant|laterale|bulgare|inversee|marchee)?|lunge/.test(n)) return 'Jambes';
-  if (/step.?up\b/.test(n) && !/stepper/.test(n)) return 'Jambes';
-  if (/sissy\s*squat|split\s*squat|goblet\s*squat|zercher\s*squat/.test(n)) return 'Jambes';
-  if (/deadlift|souleve\s*de\s*terre|romanian|rdl\b/.test(n)) return 'Jambes';
-  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Jambes';
-  if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge|hip\s*extension/.test(n)) return 'Jambes';
-  if (/good\s*morning|hyperextension|extension\s*du\s*dos\b|extension\s*lombaire/.test(n)) return 'Jambes';
-  if (/abduction|adduction|kickback|hip\s*abduction/.test(n)) return 'Jambes';
-  if (/fessier|glute/.test(n)) return 'Jambes';
-  if (/sumo/.test(n) && !/wrestl/.test(n)) return 'Jambes';
-  if (/mollet|calf|extension\s*(des\s*)?mollets?|donkey\s*calf|standing\s*calf|seated\s*calf/.test(n)) return 'Jambes';
+  // Jambes — Quadriceps
+  if (/\bsquat\b/.test(n) && !/hack|avant-bras/.test(n)) return 'Quadriceps';
+  if (/hack\s*squat|leg\s*press|presse\s*(a\s*cuisses?|cuisse|jambe)/.test(n)) return 'Quadriceps';
+  if (/leg\s*extension|extension\s*(des\s*)?(jambes?|quadriceps?)|quadriceps/.test(n)) return 'Quadriceps';
+  if (/fente\s*(avant|laterale|bulgare|inversee|marchee)?|lunge/.test(n)) return 'Quadriceps';
+  if (/step.?up\b/.test(n) && !/stepper/.test(n)) return 'Quadriceps';
+  if (/sissy\s*squat|split\s*squat|goblet\s*squat|zercher\s*squat/.test(n)) return 'Quadriceps';
+  // Jambes — Ischio-jambiers
+  if (/deadlift|souleve\s*de\s*terre|romanian|rdl\b/.test(n)) return 'Ischio-jambiers';
+  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n)) return 'Ischio-jambiers';
+  if (/good\s*morning/.test(n)) return 'Ischio-jambiers';
+  // Jambes — Fessiers
+  if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge|hip\s*extension/.test(n)) return 'Fessiers';
+  if (/abduction|adduction|kickback|hip\s*abduction/.test(n)) return 'Fessiers';
+  if (/fessier|glute/.test(n)) return 'Fessiers';
+  // Jambes — Lombaires
+  if (/hyperextension|extension\s*du\s*dos\b|extension\s*lombaire/.test(n)) return 'Lombaires';
+  // Jambes — Autres
+  if (/sumo/.test(n) && !/wrestl/.test(n)) return 'Ischio-jambiers';
+  if (/mollet|calf|extension\s*(des\s*)?mollets?|donkey\s*calf|standing\s*calf|seated\s*calf/.test(n)) return 'Mollets';
+  // Pecs — haut / bas
+  if (/incline\s*(bench|press|dumbbell)|developpe\s*incline|incline/.test(n) && /bench|press|developpe|haltere|dumbbell/.test(n)) return 'Pecs (haut)';
+  if (/decline\s*(bench|press)|developpe\s*decline/.test(n)) return 'Pecs (bas)';
   if (/bench\s*press|developpe\s*couche|presse\s*(de\s*)?(poitrine|pectoraux)/.test(n)) return 'Pecs';
   if (/\bpec\b|\bpecs\b|pectoral/.test(n)) return 'Pecs';
   if (/ecarte\s*(couche|halteres?|poulie|cable|bras)?|fly\b|chest\s*fly/.test(n)) return 'Pecs';
@@ -1289,25 +1353,27 @@ function getMuscleGroup(name) {
   if (/pompe|push.?up/.test(n)) return 'Pecs';
   if (/\bspoto\b/.test(n)) return 'Pecs';
   if (/cable\s*crossover|croisement\s*(de\s*)?poulie/.test(n)) return 'Pecs';
-  if (/incline\s*(bench|press|dumbbell)|decline\s*(bench|press)/.test(n)) return 'Pecs';
-  if (/traction|pull.?up|chin.?up|muscle.?up/.test(n)) return 'Dos';
-  if (/tirage\s*(horizontal|vertical|barre|poulie|cable|pronation|supination|1\s*bras|prise\s*neutre|serre\s*poignee|poitrine|nuque)/.test(n)) return 'Dos';
-  if (/lat\s*(pulldown|machine|poulie)|pull\s*down/.test(n)) return 'Dos';
-  if (/rowing\b(?!\s*inverse|\s*machine)/.test(n)) return 'Dos';
-  if (/\brow\b/.test(n) && !/inverted|inverse/.test(n)) return 'Dos';
-  if (/t.bar\s*row|yates\s*row/.test(n)) return 'Dos';
-  if (/shrugs?\b|hausse.?epaule|trapeze|trapezius/.test(n)) return 'Dos';
-  if (/rhomboid|retraction\s*scapulaire/.test(n)) return 'Dos';
-  if (/curl\s*(biceps?|barre|halteres?|1\s*bras|incline|concentre|cable|poulie|marteau|hammer|inversee?|preacher|scott|araignee)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Bras';
-  if (/marteau|hammer\s*curl/.test(n)) return 'Bras';
-  if (/flexion\s*(du\s*)?(coude|biceps|avant.bras)/.test(n)) return 'Bras';
-  if (/bicep/.test(n)) return 'Bras';
-  if (/tricep/.test(n)) return 'Bras';
-  if (/extension\s*(triceps?|des\s*bras|coude|poulie|cable|1\s*bras|2\s*bras|poignee|barre)/.test(n) && !/jambe|mollet|extension\s*(des\s*)?(jambes?|quadriceps?)/.test(n)) return 'Bras';
-  if (/skull\s*crusher|barre\s*front|jm\s*press|french\s*press/.test(n)) return 'Bras';
-  if (/kick.?back|pushdown|push\s*down/.test(n)) return 'Bras';
-  if (/close\s*grip\s*(bench|press)|prise\s*(serree|etroite)/.test(n)) return 'Bras';
-  if (/avant.bras|forearm|poignet|wrist\s*curl/.test(n)) return 'Bras';
+  // Dos — sous-groupes
+  if (/traction|pull.?up|chin.?up|muscle.?up/.test(n)) return 'Dorsaux';
+  if (/tirage\s*(horizontal|vertical|barre|poulie|cable|pronation|supination|1\s*bras|prise\s*neutre|serre\s*poignee|poitrine|nuque)/.test(n)) return 'Dorsaux';
+  if (/lat\s*(pulldown|machine|poulie)|pull\s*down/.test(n)) return 'Dorsaux';
+  if (/rowing\b(?!\s*inverse|\s*machine)/.test(n)) return 'Dorsaux';
+  if (/\brow\b/.test(n) && !/inverted|inverse/.test(n)) return 'Dorsaux';
+  if (/t.bar\s*row|yates\s*row/.test(n)) return 'Dorsaux';
+  if (/shrugs?\b|hausse.?epaule|trapeze|trapezius/.test(n)) return 'Trapèzes';
+  if (/rhomboid|retraction\s*scapulaire/.test(n)) return 'Dorsaux';
+  // Bras — Biceps / Triceps / Avant-bras
+  if (/curl\s*(biceps?|barre|halteres?|1\s*bras|incline|concentre|cable|poulie|marteau|hammer|inversee?|preacher|scott|araignee)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Biceps';
+  if (/marteau|hammer\s*curl/.test(n)) return 'Biceps';
+  if (/flexion\s*(du\s*)?(coude|biceps|avant.bras)/.test(n)) return 'Biceps';
+  if (/bicep/.test(n)) return 'Biceps';
+  if (/tricep/.test(n)) return 'Triceps';
+  if (/extension\s*(triceps?|des\s*bras|coude|poulie|cable|1\s*bras|2\s*bras|poignee|barre)/.test(n) && !/jambe|mollet|extension\s*(des\s*)?(jambes?|quadriceps?)/.test(n)) return 'Triceps';
+  if (/skull\s*crusher|barre\s*front|jm\s*press|french\s*press/.test(n)) return 'Triceps';
+  if (/kick.?back|pushdown|push\s*down/.test(n)) return 'Triceps';
+  if (/close\s*grip\s*(bench|press)|prise\s*(serree|etroite)/.test(n)) return 'Triceps';
+  if (/avant.bras|forearm|poignet|wrist\s*curl/.test(n)) return 'Avant-bras';
+  // Abdos
   if (/crunch|ab\s*crunch|crunch\s*(cable|machine|poulie|oblique|rotation|lateral)/.test(n)) return 'Abdos';
   if (/planche|plank|gainage/.test(n)) return 'Abdos';
   if (/l.sit|l\s*sit/.test(n)) return 'Abdos';
@@ -1317,8 +1383,21 @@ function getMuscleGroup(name) {
   if (/ciseaux|battement/.test(n)) return 'Abdos';
   if (/russian\s*twist/.test(n)) return 'Abdos';
   if (/oblique|rotation\s*(tronc|buste|du\s*buste)/.test(n)) return 'Abdos';
-  if (/wood\s*chop|bûcheron/.test(n)) return 'Abdos';
+  if (/wood\s*chop|bucheron/.test(n)) return 'Abdos';
   return 'Autre';
+}
+
+// Regroupe les sous-groupes en catégorie principale (pour radar/graphiques qui utilisent les groupes simples)
+function getMuscleGroupParent(subGroup) {
+  const map = {
+    'Quadriceps':'Jambes','Ischio-jambiers':'Jambes','Fessiers':'Jambes','Mollets':'Jambes','Lombaires':'Jambes',
+    'Pecs':'Pecs','Pecs (haut)':'Pecs','Pecs (bas)':'Pecs',
+    'Dorsaux':'Dos','Trapèzes':'Dos',
+    'Épaules':'Épaules','Épaules (latéral)':'Épaules','Épaules (antérieur)':'Épaules','Épaules (postérieur)':'Épaules',
+    'Biceps':'Bras','Triceps':'Bras','Avant-bras':'Bras',
+    'Abdos':'Abdos','Cardio':'Cardio','Autre':'Autre'
+  };
+  return map[subGroup] || subGroup;
 }
 
 // ============================================================
@@ -1470,7 +1549,7 @@ function importData() {
   );
 }
 function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
-function showModal(msg, cText, cColor, onConfirm) { const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">Annuler</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => o.remove(); o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
+function showModal(msg, cText, cColor, onConfirm, onCancel) { const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">Annuler</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
 function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
 function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
@@ -2442,18 +2521,86 @@ function getProgExosForDay(day) {
 // Matcher un nom d'exercice Hevy avec un nom de programme (tolérant)
 // Table de synonymes inter-langues pour les exercices clés
 const EXO_SYNONYMS = [
-  ['deadlift', 'souleve de terre', 'soulevé de terre'],
-  ['squat barre', 'squat barbell', 'back squat'],
-  ['bench press', 'developpe couche', 'développé couché', 'bench barre'],
-  ['overhead press', 'developpe militaire', 'développé militaire', 'ohp'],
-  ['pull up', 'traction', 'chin up'],
-  ['romanian deadlift', 'rdl', 'souleve roumain'],
-  ['hip thrust', 'poussee de hanche', 'poussée de hanche'],
-  ['shrug', 'haussement d epaules', 'haussement d\'épaules', 'haussement epaules'],
-  ['lunge', 'fente', 'fentes'],
-  ['leg press', 'presse a cuisses', 'presse à cuisses', 'presse cuisses'],
+  // Big 3
+  ['deadlift', 'souleve de terre', 'soulevé de terre', 'soulevé de terre conventionnel'],
+  ['squat barre', 'squat barbell', 'back squat', 'squat arriere'],
+  ['bench press', 'developpe couche', 'développé couché', 'bench barre', 'developpe couche barre'],
+  // Compounds
+  ['overhead press', 'developpe militaire', 'développé militaire', 'ohp', 'press militaire'],
+  ['pull up', 'traction', 'chin up', 'tractions pronation', 'tractions supination'],
+  ['romanian deadlift', 'rdl', 'souleve roumain', 'soulevé roumain'],
+  ['hip thrust', 'poussee de hanche', 'poussée de hanche', 'hip thrust barre'],
+  ['shrug', 'haussement d epaules', 'haussement d\'épaules', 'haussement epaules', 'shrug barre', 'shrug halteres'],
+  ['lunge', 'fente', 'fentes', 'fente avant', 'fentes avant'],
+  ['leg press', 'presse a cuisses', 'presse à cuisses', 'presse cuisses', 'presse jambes'],
   ['good morning', 'bon matin'],
+  // Bench variants
+  ['developpe incline', 'développé incliné', 'incline bench', 'incline bench press', 'developpe incline barre', 'developpe incline halteres'],
+  ['developpe decline', 'développé décliné', 'decline bench', 'decline bench press'],
+  ['developpe halteres', 'développé haltères', 'dumbbell bench press', 'bench halteres'],
+  // Squat variants
+  ['front squat', 'squat avant', 'squat frontal'],
+  ['goblet squat', 'squat goblet'],
+  ['squat bulgare', 'bulgarian split squat', 'split squat bulgare'],
+  ['hack squat', 'hack squat machine'],
+  // Dos
+  ['rowing barre', 'barbell row', 'bent over row', 'rowing penche'],
+  ['rowing haltere', 'rowing haltères', 'dumbbell row', 'rowing 1 bras', 'rowing un bras'],
+  ['tirage vertical', 'lat pulldown', 'tirage poulie haute', 'pulldown'],
+  ['tirage horizontal', 'tirage poulie basse', 'seated cable row', 'rowing assis'],
+  ['t bar row', 'tirage t barre', 't-bar row'],
+  // Épaules
+  ['elevation laterale', 'élévation latérale', 'lateral raise', 'elev laterale'],
+  ['elevation frontale', 'élévation frontale', 'front raise'],
+  ['face pull', 'tirage visage', 'tirage vers le visage'],
+  ['arnold press', 'developpe arnold', 'développé arnold'],
+  // Bras
+  ['curl biceps', 'curl barre', 'barbell curl', 'curl biceps barre'],
+  ['curl halteres', 'curl haltères', 'dumbbell curl', 'curl biceps halteres'],
+  ['curl marteau', 'hammer curl', 'curl marteau halteres'],
+  ['extension triceps', 'triceps extension', 'extension poulie', 'pushdown triceps'],
+  ['skull crusher', 'barre front', 'barre au front', 'lying triceps extension'],
+  ['dips', 'dip', 'dips leste', 'dips poids de corps'],
+  // Jambes
+  ['leg curl', 'curl jambes', 'leg curl couche', 'leg curl assis'],
+  ['leg extension', 'extension jambes', 'extension quadriceps'],
+  ['mollet debout', 'standing calf raise', 'extension mollets debout', 'mollets machine'],
+  ['mollet assis', 'seated calf raise', 'mollets assis'],
+  // Pecs
+  ['ecarte couche', 'écarté couché', 'dumbbell fly', 'chest fly', 'ecarte halteres'],
+  ['cable crossover', 'croisement poulie', 'vis a vis poulie'],
+  ['pompes', 'push up', 'push-up', 'pushup'],
+  // Abdos
+  ['crunch', 'crunch abdo', 'crunch cable', 'crunch poulie'],
+  ['gainage', 'planche', 'plank'],
+  // Cardio
+  ['tapis course', 'treadmill', 'tapis de course', 'course tapis'],
+  ['velo elliptique', 'elliptique', 'elliptical'],
+  ['rameur', 'rowing machine', 'concept 2', 'concept2'],
 ];
+
+// ── Equipment detection (barbell vs dumbbell) ────────────────
+// Retourne 'barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', ou null
+function getEquipmentType(name) {
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // Explicit markers
+  if (/\bbarre\b|barbell|barre\s*(ez|olympique|droite)/.test(n)) return 'barbell';
+  if (/haltere|dumbbell|haltères/.test(n)) return 'dumbbell';
+  if (/cable|poulie|vis\s*a\s*vis/.test(n)) return 'cable';
+  if (/machine|smith|presse|press\s*machine|guided/.test(n)) return 'machine';
+  if (/poids\s*de\s*corps|bodyweight|body\s*weight|\bpdec?\b/.test(n)) return 'bodyweight';
+  // Implicit from exercise name
+  if (/bench\s*press$|developpe\s*couche$|squat$|back\s*squat|deadlift$|souleve\s*de\s*terre$|overhead\s*press$|developpe\s*militaire$|rowing\s*barre|barbell\s*row|t.bar/.test(n)) return 'barbell';
+  if (/curl\s*marteau|hammer|goblet|lateral\s*raise|elevation\s*laterale|ecarte/.test(n)) return 'dumbbell';
+  if (/lat\s*pulldown|tirage\s*(vertical|horizontal|poulie)|pulldown|push\s*down|face\s*pull|cable\s*crossover/.test(n)) return 'cable';
+  if (/hack\s*squat|leg\s*press|presse|leg\s*curl|leg\s*extension|smith/.test(n)) return 'machine';
+  if (/traction|pull.?up|chin.?up|pompe|push.?up|dips?|gainage|planche|plank/.test(n)) return 'bodyweight';
+  return null;
+}
+
+// Factor to convert barbell-equivalent weight for dumbbell exercises
+// (e.g., 120kg barbell bench ≠ 120kg dumbbell press)
+const DUMBBELL_TO_BARBELL_FACTOR = 0.57;
 
 function matchExoName(hevyName, progName) {
   const norm = s => s.toLowerCase()
@@ -2860,6 +3007,35 @@ function showAIImportLoading() { const c=document.getElementById('aiImportAnalys
 
 function finalizeSession(session, rawText) {
   session.exercises = session.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
+
+  // Traiter les "1RM est:" en attente — demander confirmation pour chaque
+  const pending = session._pending1RM || [];
+  delete session._pending1RM;
+  if (pending.length) {
+    processPending1RM(pending, 0, () => doFinalizeSession(session));
+  } else {
+    doFinalizeSession(session);
+  }
+}
+
+function processPending1RM(list, idx, callback) {
+  if (idx >= list.length) { callback(); return; }
+  const item = list[idx];
+  const exo = item.exoRef;
+  const currentE1RM = exo.maxRM || 0;
+  const msg = `Hevy indique un 1RM de <strong>${item.rm}kg</strong> pour <strong>${item.exoName}</strong>.` +
+    (currentE1RM > 0 ? `<br>e1RM calculé depuis tes séries : ${Math.round(currentE1RM)}kg.` : '') +
+    `<br><br>Accepter ce 1RM ?`;
+  showModal(msg, 'Accepter', 'var(--blue)', () => {
+    if (item.rm > exo.maxRM) exo.maxRM = item.rm;
+    processPending1RM(list, idx + 1, callback);
+  }, () => {
+    // Refusé — on garde le e1RM calculé des séries
+    processPending1RM(list, idx + 1, callback);
+  });
+}
+
+function doFinalizeSession(session) {
   newPRs = { bench: false, squat: false, deadlift: false };
   session.exercises.forEach(exo => { const type=getSBDType(exo.name); if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;newPRs[type]=true;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;showToast('🎯 '+type+': visé '+db.user.targets[type]+'kg');} });
   db.logs.unshift(session);
@@ -2868,6 +3044,10 @@ function finalizeSession(session, rawText) {
   document.getElementById('hevyPaste').value='';
   showImportSummary(session);
   showToast('✓ Séance importée'+(localStorage.getItem('SBD_API_KEY')?' (IA)':''));
+  // Générer le debrief algo de la séance
+  saveAlgoDebrief(session);
+  // Vérifier si c'est le dernier jour d'entraînement → bilan hebdo
+  checkAndGenerateWeeklyReport();
   refreshUI();
 }
 
@@ -2916,7 +3096,13 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     } else if (l.startsWith('série')&&l.includes('sec')&&!currExo.isCardio&&!currExo.maxRM) {
       const sm=l.match(/(\d+)\s*sec/i);if(sm){currExo.isTime=true;const t=parseInt(sm[1]);if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=sessionTimestamp;}currExo.sets++;session.volume+=t/10;}
     } else if (l.includes('1rm est:')&&!currExo.isCardio) {
-      const m2=l.match(/(\d+)\s*kg/i);if(m2){const rm=parseInt(m2[1]);if(rm>currExo.maxRM)currExo.maxRM=rm;}
+      const m2=l.match(/(\d+)\s*kg/i);
+      if(m2){
+        const rm=parseInt(m2[1]);
+        // Stocker pour confirmation ultérieure au lieu d'appliquer directement
+        if(!session._pending1RM) session._pending1RM=[];
+        session._pending1RM.push({exoName:currExo.name, rm, exoRef:currExo});
+      }
     } else if (/\d+x/.test(l)&&!currExo.isCardio) {
       const mx=l.match(/\d+x/g);if(mx)currExo.sets=parseInt(mx[mx.length-1]);
     }
@@ -3032,9 +3218,9 @@ function refreshUI() {
   renderDash();
   updateCoachBadge();
   renderProgramViewer();
+  renderReportsTimeline();
   if (document.getElementById('tab-stats').classList.contains('active')) { showStatsSub(activeStatsSub); }
   if (document.getElementById('tab-seances') && document.getElementById('tab-seances').classList.contains('active')) renderSeancesTab();
-  if (document.getElementById('tab-ai').classList.contains('active')) renderReportsTimeline();
   if (document.getElementById('tab-corps') && document.getElementById('tab-corps').classList.contains('active')) renderCorpsTab();
 }
 
@@ -3066,7 +3252,7 @@ function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
 
 // Incrément objectif selon le groupe musculaire de l'exercice
 function getPerfIncrement(exoName) {
-  const mg = getMuscleGroup(exoName);
+  const mg = getMuscleGroupParent(getMuscleGroup(exoName));
   return (mg === 'Jambes') ? 5 : 2.5;
 }
 
@@ -3700,7 +3886,7 @@ function renderMuscleVolumeContent(period) {
   const rl = getLogsInRange(days);
   const ms = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
   rl.forEach(l => l.exercises.forEach(e => {
-    const mg = getMuscleGroup(e.name);
+    const mg = getMuscleGroupParent(getMuscleGroup(e.name));
     if (ms.hasOwnProperty(mg)) ms[mg] += e.sets;
   }));
 
@@ -3715,7 +3901,7 @@ function renderMuscleVolumeContent(period) {
   const weeklyData = weeks.map(w => {
     const wd = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
     db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end)
-      .forEach(l => l.exercises.forEach(e => { const mg = getMuscleGroup(e.name); if (wd.hasOwnProperty(mg)) wd[mg] += e.sets; }));
+      .forEach(l => l.exercises.forEach(e => { const mg = getMuscleGroupParent(getMuscleGroup(e.name)); if (wd.hasOwnProperty(mg)) wd[mg] += e.sets; }));
     return wd;
   });
 
@@ -4394,6 +4580,295 @@ function generateCoachAlgoMessage() {
   return `<div class="ai-response-content">${sections.join('')}</div><div class="ai-timestamp">Coach Algo • Calcul instantané • Sans IA</div>`;
 }
 
+// ── ALGO REPORTS : Debrief Séance + Bilan Hebdo ───────────────
+// Stockés dans db.reports avec TTL 7j, affichés dans "Rapports récents"
+
+function generateAlgoSessionDebrief(session) {
+  if (!session || !session.exercises || !session.exercises.length) return null;
+  const exos = session.exercises.filter(e => !e.isCardio);
+  const cardioExos = session.exercises.filter(e => e.isCardio);
+  const totalVol = session.volume || 0;
+  const nbExos = session.exercises.length;
+  const nbSets = session.exercises.reduce((s,e) => s + (e.sets||0), 0);
+  const date = session.shortDate || session.date || '';
+
+  // PRs de cette séance
+  const prs = [];
+  session.exercises.forEach(exo => {
+    if (!exo.maxRM || exo.maxRM <= 0) return;
+    const prev = findPreviousBestE1RM(exo.name, session.timestamp);
+    if (prev > 0 && exo.maxRM > prev) {
+      prs.push({ name: exo.name, old: prev, new: exo.maxRM, delta: Math.round((exo.maxRM - prev)*10)/10 });
+    } else if (prev === 0) {
+      prs.push({ name: exo.name, old: 0, new: exo.maxRM, delta: 0, isFirst: true });
+    }
+  });
+
+  // Groupes musculaires travaillés
+  const muscleMap = {};
+  session.exercises.forEach(e => {
+    const mg = getMuscleGroup(e.name);
+    muscleMap[mg] = (muscleMap[mg]||0) + (e.sets||1);
+  });
+  const muscles = Object.entries(muscleMap).sort((a,b) => b[1]-a[1]);
+
+  // Construction HTML
+  let html = '';
+
+  // En-tête
+  const title = session.title || 'Séance';
+  html += `<div class="ai-section"><div class="ai-section-title">🏋️ ${title} — ${date}</div>`;
+  html += `<strong>${nbExos}</strong> exercices · <strong>${nbSets}</strong> séries · <strong>${(totalVol/1000).toFixed(1)}t</strong> de volume`;
+  if (cardioExos.length) html += ` · <strong>${cardioExos.length}</strong> cardio`;
+  html += '</div>';
+
+  // Muscles travaillés
+  if (muscles.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">💪 Muscles travaillés</div>';
+    muscles.forEach(([mg, sets]) => {
+      html += `<span class="ai-highlight blue">${mg}</span> (${sets} séries) `;
+    });
+    html += '</div>';
+  }
+
+  // PRs
+  if (prs.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">🏆 Records</div>';
+    prs.forEach(pr => {
+      if (pr.isFirst) {
+        html += `<div>🆕 <strong>${pr.name}</strong> — premier e1RM : <span class="ai-highlight green">${Math.round(pr.new)}kg</span></div>`;
+      } else {
+        html += `<div>📈 <strong>${pr.name}</strong> : ${Math.round(pr.old)}kg → <span class="ai-highlight green">${Math.round(pr.new)}kg (+${pr.delta}kg)</span></div>`;
+      }
+    });
+    html += '</div>';
+  }
+
+  // Analyse par exercice (top 5)
+  const topExos = exos.filter(e => e.maxRM > 0).slice(0, 5);
+  if (topExos.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">📊 Détails</div>';
+    topExos.forEach(exo => {
+      const bestSet = exo.series && exo.series.length ? exo.series.sort((a,b) => (b.weight||0) - (a.weight||0))[0] : null;
+      const setInfo = bestSet ? `${bestSet.weight}kg × ${bestSet.reps}` : '';
+      html += `<div style="margin-bottom:4px;"><strong>${exo.name}</strong> — e1RM <span class="ai-highlight blue">${Math.round(exo.maxRM)}kg</span> ${setInfo ? '(meilleure série: '+setInfo+')' : ''} · ${exo.sets||0} séries</div>`;
+    });
+    html += '</div>';
+  }
+
+  // Coaching contextuel
+  const tips = [];
+  if (totalVol > 0) {
+    const logs7 = getLogsInRange(7).filter(l => l.id !== session.id);
+    const avgVol7 = logs7.length ? logs7.reduce((s,l) => s+l.volume, 0) / logs7.length : 0;
+    if (avgVol7 > 0) {
+      const ratio = totalVol / avgVol7;
+      if (ratio > 1.3) tips.push('Volume élevé aujourd\'hui (+' + Math.round((ratio-1)*100) + '% vs moyenne). Pense à bien récupérer.');
+      else if (ratio < 0.6) tips.push('Volume léger — parfait pour un jour de récupération active ou deload.');
+    }
+  }
+  if (prs.length >= 2) tips.push('Plusieurs PRs en une séance — belle performance ! Continue sur ta lancée.');
+  if (prs.length === 0 && exos.length > 3) tips.push('Pas de record aujourd\'hui, mais la régularité est la clé. Chaque séance compte.');
+  const plateaux = ['bench','squat','deadlift'].map(t => detectPlateau(t)).filter(Boolean);
+  plateaux.forEach(p => {
+    const nm = p.type === 'bench' ? 'Bench' : p.type === 'squat' ? 'Squat' : 'Deadlift';
+    tips.push(nm + ' en plateau — envisage une variante (pause rep, tempo, déficit) ou un deload.');
+  });
+  if (nbSets > 25) tips.push('Grosse séance (+25 séries). Assure-toi de dormir 7-8h et de manger suffisamment de protéines.');
+  if (cardioExos.length && exos.length) tips.push('Combo muscu + cardio — bon pour la santé globale et l\'endurance.');
+
+  if (tips.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">💡 Coaching</div>';
+    tips.forEach(t => { html += `<div style="margin-bottom:4px;">→ ${t}</div>`; });
+    html += '</div>';
+  }
+
+  html += '<div class="ai-timestamp">Coach Algo · Debrief automatique · Sans IA</div>';
+  return html;
+}
+
+function findPreviousBestE1RM(exoName, beforeTs) {
+  let best = 0;
+  db.logs.forEach(log => {
+    if (log.timestamp >= beforeTs) return;
+    log.exercises.forEach(exo => {
+      if (!matchExoName(exo.name, exoName)) return;
+      if ((exo.maxRM||0) > best) best = exo.maxRM;
+    });
+  });
+  return best;
+}
+
+function generateAlgoWeeklyReport() {
+  const logs7 = getLogsInRange(7);
+  if (!logs7.length) return null;
+
+  const bw = db.user.bw;
+  const bench = db.bestPR.bench, squat = db.bestPR.squat, dead = db.bestPR.deadlift;
+  const ipf = calcIPFGLTotal(bench, squat, dead, bw);
+  const tonnage7 = logs7.reduce((s,l) => s+l.volume, 0);
+  const logs14 = getLogsInRange(14);
+  const tonnagePrev7 = logs14.filter(l => !logs7.includes(l)).reduce((s,l) => s+l.volume, 0);
+  const nbSessions = logs7.length;
+
+  // Muscles de la semaine
+  const muscleMap = {};
+  logs7.forEach(log => {
+    log.exercises.forEach(e => {
+      const mg = getMuscleGroup(e.name);
+      muscleMap[mg] = (muscleMap[mg]||0) + (e.sets||1);
+    });
+  });
+  const muscles = Object.entries(muscleMap).filter(([k]) => k !== 'Cardio' && k !== 'Autre').sort((a,b) => b[1]-a[1]);
+
+  // PRs de la semaine
+  const weekPRs = [];
+  const now = Date.now(), oneWeek = 7*86400000;
+  logs7.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      const prev = findPreviousBestE1RM(exo.name, log.timestamp);
+      if (prev > 0 && exo.maxRM > prev) {
+        weekPRs.push({ name: exo.name, delta: Math.round((exo.maxRM-prev)*10)/10 });
+      }
+    });
+  });
+
+  // Momentum SBD
+  const momB = calcMomentum('bench'), momS = calcMomentum('squat'), momD = calcMomentum('deadlift');
+  const plateaux = ['bench','squat','deadlift'].map(t => detectPlateau(t)).filter(Boolean);
+
+  // Programme actuel : quelle semaine ?
+  const weekNum = db.weeklyPlan ? db.weeklyPlan.week : null;
+  const nextWeek = weekNum ? (weekNum >= 4 ? 1 : weekNum + 1) : null;
+
+  let html = '';
+
+  // En-tête
+  html += '<div class="ai-section"><div class="ai-section-title">📊 Bilan de la semaine</div>';
+  html += `<strong>${nbSessions}</strong> séance${nbSessions>1?'s':''} · <strong>${(tonnage7/1000).toFixed(1)}t</strong> de volume total`;
+  if (tonnagePrev7 > 0) {
+    const delta = Math.round((tonnage7/tonnagePrev7 - 1)*100);
+    const color = delta > 0 ? 'green' : delta < -10 ? 'orange' : 'blue';
+    html += ` · <span class="ai-highlight ${color}">${delta>0?'+':''}${delta}% vs semaine précédente</span>`;
+  }
+  html += '</div>';
+
+  // Muscles
+  if (muscles.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">💪 Répartition musculaire</div>';
+    const totalSets = muscles.reduce((s,[,v]) => s+v, 0);
+    muscles.forEach(([mg, sets]) => {
+      const pct = Math.round(sets/totalSets*100);
+      html += `<div style="margin-bottom:3px;"><strong>${mg}</strong> : ${sets} séries (${pct}%)</div>`;
+    });
+    // Détection déséquilibre
+    const topMg = muscles[0], botMg = muscles[muscles.length-1];
+    if (muscles.length >= 3 && topMg[1] > botMg[1] * 3) {
+      html += `<div style="margin-top:6px;color:var(--orange);">⚠️ Déséquilibre : ${topMg[0]} surreprésenté vs ${botMg[0]}. Pense à rééquilibrer.</div>`;
+    }
+    html += '</div>';
+  }
+
+  // PRs
+  if (weekPRs.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">🏆 Records de la semaine</div>';
+    weekPRs.slice(0, 8).forEach(pr => {
+      html += `<div>📈 <strong>${pr.name}</strong> : <span class="ai-highlight green">+${pr.delta}kg</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  // Force & IPF
+  if (ipf > 0 || momB || momS || momD) {
+    html += '<div class="ai-section"><div class="ai-section-title">🏋️ Force</div>';
+    if (ipf > 0) {
+      const ipfLabel = ipf<300?'débutant':ipf<400?'intermédiaire':ipf<500?'avancé':'élite';
+      html += `Score IPF GL : <span class="ai-highlight blue">${ipf} pts</span> (${ipfLabel})<br>`;
+    }
+    const moms = [momB&&`Bench ${momB>0?'+':''}${momB}kg/sem`, momS&&`Squat ${momS>0?'+':''}${momS}kg/sem`, momD&&`Dead ${momD>0?'+':''}${momD}kg/sem`].filter(Boolean);
+    if (moms.length) html += `Momentum : ${moms.join(' · ')}`;
+    html += '</div>';
+  }
+
+  // Alertes
+  if (plateaux.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">⚠️ Alertes</div>';
+    const sugg = {bench:'Spoto Bench, larsen press ou tempo bench',squat:'Pause squat, pin squat ou tempo',deadlift:'Déficit deadlift, Romanian ou block pulls'};
+    plateaux.forEach(p => {
+      html += `<div class="plateau-alert">📉 <strong>${p.type.toUpperCase()}</strong> en plateau — essaie : ${sugg[p.type]}</div>`;
+    });
+    html += '</div>';
+  }
+
+  // Coaching semaine prochaine
+  html += '<div class="ai-section"><div class="ai-section-title">🚀 Semaine prochaine</div>';
+  const encouragements = [];
+
+  if (nextWeek) {
+    const weekNames = {1:'Base (volume modéré, pose les fondations)', 2:'Accumulation (monte progressivement)', 3:'Intensification (charges lourdes, technique)', 4:'Peak (c\'est le moment de tout donner !)'};
+    encouragements.push(`Semaine ${nextWeek} — ${weekNames[nextWeek]||''}`);
+  }
+
+  if (weekPRs.length >= 3) encouragements.push('Excellente dynamique cette semaine ! Continue sur cette lancée, tu es en pleine progression.');
+  else if (weekPRs.length > 0) encouragements.push('De beaux records cette semaine. La régularité paie, continue comme ça.');
+  else if (nbSessions >= 3) encouragements.push('Bonne fréquence d\'entraînement. Les résultats viendront avec la constance.');
+  else encouragements.push('Chaque séance compte. Essaie de garder au moins 3 séances par semaine pour progresser.');
+
+  if (tonnagePrev7 > 0 && tonnage7 > tonnagePrev7 * 1.15) encouragements.push('Volume en hausse — attention à la fatigue. N\'hésite pas à prendre un jour off si tu te sens claqué.');
+  if (plateaux.length) encouragements.push('Un plateau n\'est pas un échec — c\'est un signal pour adapter. Variantes et deload sont tes meilleurs outils.');
+  if (nbSessions >= 4 && !muscles.some(([mg]) => mg === 'Abdos')) encouragements.push('N\'oublie pas le gainage et les abdos — importants pour la stabilité sur les gros lifts.');
+
+  encouragements.forEach(e => { html += `<div style="margin-bottom:4px;">→ ${e}</div>`; });
+  html += '</div>';
+
+  html += '<div class="ai-timestamp">Coach Algo · Bilan hebdomadaire · Sans IA</div>';
+  return html;
+}
+
+function saveAlgoDebrief(session) {
+  const html = generateAlgoSessionDebrief(session);
+  if (!html) return;
+  upsertReport('debrief', html, session.id);
+}
+
+function saveAlgoWeekly() {
+  const html = generateAlgoWeeklyReport();
+  if (!html) return;
+  upsertReport('weekly', html, null);
+}
+
+function checkAndGenerateWeeklyReport() {
+  // Générer un bilan hebdomadaire si : dernier jour d'entraînement du programme cette semaine
+  const routine = getRoutine();
+  const todayDay = DAYS_FULL[new Date().getDay()];
+  const trainingDays = DAYS_FULL.filter(d => {
+    const label = routine[d] || '';
+    return label && !/repos|😴/i.test(label);
+  });
+  if (!trainingDays.length) return;
+
+  // Trouver le dernier jour d'entraînement de la semaine
+  const orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  const lastTrainingDay = [...trainingDays].sort((a,b) => orderedDays.indexOf(b) - orderedDays.indexOf(a))[0];
+
+  if (todayDay !== lastTrainingDay) return;
+
+  // Vérifier qu'on n'a pas déjà un bilan cette semaine
+  const existingWeekly = db.reports.find(r => r.type === 'weekly' && r.expires_at > Date.now());
+  if (existingWeekly) {
+    const created = new Date(existingWeekly.created_at);
+    const now = new Date();
+    // Si créé aujourd'hui, ne pas recréer
+    if (created.toDateString() === now.toDateString()) return;
+  }
+
+  // Au moins 1 séance cette semaine
+  if (getLogsInRange(7).length === 0) return;
+
+  saveAlgoWeekly();
+}
+
 function saveBodyEntry() {
   const bwVal=parseFloat(document.getElementById('inputBodyWeight').value);
   if (!bwVal||bwVal<30||bwVal>300){showToast('Poids invalide');return;}
@@ -4888,7 +5363,7 @@ function renderRadarImproved(period) {
   RADAR_AXES.forEach(k => { msSets[k] = 0; msExos[k] = new Set(); });
 
   rl.forEach(l => l.exercises.forEach(e => {
-    const mg = getMuscleGroup(e.name);
+    const mg = getMuscleGroupParent(getMuscleGroup(e.name));
     if (msSets.hasOwnProperty(mg)) {
       msSets[mg] += e.sets;
       msExos[mg].add(e.name);
@@ -5007,7 +5482,7 @@ function renderMuscleEvolChart() {
       data: weeks.map(w => {
         let sets = 0;
         db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end).forEach(l => {
-          l.exercises.forEach(e => { if (getMuscleGroup(e.name) === mg) sets += e.sets; });
+          l.exercises.forEach(e => { if (getMuscleGroupParent(getMuscleGroup(e.name)) === mg) sets += e.sets; });
         });
         return sets;
       }),
@@ -5321,6 +5796,255 @@ function fillSettingsFields() {
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
   const savedKey = localStorage.getItem('SBD_API_KEY');
   if (savedKey) { const ki = document.getElementById('inputAPIKey'); if (ki) ki.value = savedKey; }
+  renderSettingsProfile();
+  renderRecordsCorrectionList();
+}
+
+// ── Settings Profile Editor ──────────────────────────────────
+function updateProfileField(field, value) {
+  if (!db.user.programParams) db.user.programParams = {};
+  if (field === 'level') {
+    db.user.level = value;
+    db.user.programParams.level = value;
+  } else {
+    db.user.programParams[field] = value;
+  }
+  saveDB();
+  showToast('✓ Profil mis à jour');
+}
+
+function renderSettingsProfile() {
+  const params = db.user.programParams || {};
+
+  // Niveau
+  const lvl = document.getElementById('settingsLevel');
+  if (lvl) lvl.value = db.user.level || 'intermediaire';
+
+  // Objectifs (toggle buttons)
+  const goalsEl = document.getElementById('settingsGoals');
+  if (goalsEl) {
+    const allGoals = [
+      { id:'force', icon:'🏋️', label:'Force' },
+      { id:'masse', icon:'💪', label:'Masse' },
+      { id:'seche', icon:'🔥', label:'Sèche' },
+      { id:'recompo', icon:'⚖️', label:'Recompo' },
+      { id:'maintien', icon:'🎯', label:'Maintien' },
+      { id:'reprise', icon:'🌱', label:'Reprise' },
+    ];
+    const selected = params.goals || ['force'];
+    goalsEl.innerHTML = allGoals.map(g => {
+      const active = selected.includes(g.id);
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="toggleSettingsGoal('${g.id}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${g.icon} ${g.label}</button>`;
+    }).join('');
+  }
+
+  // Fréquence
+  const freqEl = document.getElementById('settingsFreq');
+  if (freqEl) {
+    const currentFreq = params.freq || 3;
+    freqEl.innerHTML = [1,2,3,4,5,6].map(f => {
+      const active = f === currentFreq;
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsFreq(${f}, this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:13px;font-weight:700;cursor:pointer;">${f}j/sem</button>`;
+    }).join('');
+  }
+
+  // Matériel
+  const matEl = document.getElementById('settingsMat');
+  if (matEl) {
+    const currentMat = params.mat || 'salle';
+    const mats = [{id:'salle',label:'🏢 Salle'},{id:'halteres',label:'🏠 Haltères'},{id:'maison',label:'🏡 Maison'}];
+    matEl.innerHTML = mats.map(m => {
+      const active = m.id === currentMat;
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsMat('${m.id}', this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${m.label}</button>`;
+    }).join('');
+  }
+
+  // Durée
+  const durEl = document.getElementById('settingsDuration');
+  if (durEl) {
+    const currentDur = params.duration || 60;
+    const durs = [{v:30,l:'30min'},{v:45,l:'45min'},{v:60,l:'1h'},{v:75,l:'1h15'},{v:90,l:'1h30'},{v:120,l:'2h'}];
+    durEl.innerHTML = durs.map(d => {
+      const active = d.v === currentDur;
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsDuration(${d.v}, this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${d.l}</button>`;
+    }).join('');
+  }
+
+  // Blessures
+  const injEl = document.getElementById('settingsInjuries');
+  if (injEl) {
+    const currentInj = params.injuries || [];
+    const zones = ['Épaules','Genoux','Dos','Poignets','Nuque','Hanches'];
+    injEl.innerHTML = zones.map(z => {
+      const active = currentInj.includes(z);
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="toggleSettingsInjury('${z}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--orange)':'var(--border)'};background:${active?'rgba(255,159,10,0.15)':'var(--surface)'};color:${active?'var(--orange)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${z}</button>`;
+    }).join('');
+  }
+
+  // Cardio
+  const cardioEl = document.getElementById('settingsCardio');
+  if (cardioEl) {
+    const currentCardio = params.cardio || 'integre';
+    const opts = [{id:'integre',l:'🏃 Intégré'},{id:'dedie',l:'📅 Jours dédiés'},{id:'aucun',l:'❌ Aucun'}];
+    cardioEl.innerHTML = opts.map(o => {
+      const active = o.id === currentCardio;
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsCardio('${o.id}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${o.l}</button>`;
+    }).join('');
+  }
+}
+
+function toggleSettingsGoal(goalId, btn) {
+  if (!db.user.programParams) db.user.programParams = {};
+  const goals = db.user.programParams.goals || ['force'];
+  const idx = goals.indexOf(goalId);
+  if (idx >= 0) { if (goals.length > 1) goals.splice(idx, 1); }
+  else goals.push(goalId);
+  db.user.programParams.goals = goals;
+  saveDB();
+  renderSettingsProfile();
+}
+
+function setSettingsFreq(f, btn) { updateProfileField('freq', f); renderSettingsProfile(); }
+function setSettingsMat(m, btn) { updateProfileField('mat', m); renderSettingsProfile(); }
+function setSettingsDuration(d, btn) { updateProfileField('duration', d); renderSettingsProfile(); }
+function setSettingsCardio(c, btn) { updateProfileField('cardio', c); renderSettingsProfile(); }
+
+function toggleSettingsInjury(zone, btn) {
+  if (!db.user.programParams) db.user.programParams = {};
+  const inj = db.user.programParams.injuries || [];
+  const idx = inj.indexOf(zone);
+  if (idx >= 0) inj.splice(idx, 1); else inj.push(zone);
+  db.user.programParams.injuries = inj;
+  saveDB();
+  renderSettingsProfile();
+}
+
+// ── Records Correction Tool ──────────────────────────────────
+function renderRecordsCorrectionList() {
+  const el = document.getElementById('recordsCorrectionList');
+  if (!el) return;
+
+  // Collecter tous les exercices avec un e1RM depuis les logs
+  const exoMap = {};
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      const key = exo.name;
+      if (!exoMap[key] || exo.maxRM > exoMap[key].maxRM) {
+        exoMap[key] = { name: exo.name, maxRM: exo.maxRM, date: log.shortDate || log.date, logId: log.id };
+      }
+    });
+  });
+
+  // SBD records aussi
+  ['bench','squat','deadlift'].forEach(t => {
+    if (db.bestPR[t] > 0) {
+      const label = t === 'bench' ? 'Bench Press' : t === 'squat' ? 'Squat' : 'Deadlift';
+      if (!exoMap[label] || db.bestPR[t] > exoMap[label].maxRM) {
+        exoMap[label] = { name: label, maxRM: db.bestPR[t], date: 'SBD record', isSBD: true, sbdType: t };
+      }
+    }
+  });
+
+  const sorted = Object.values(exoMap).sort((a,b) => b.maxRM - a.maxRM);
+
+  if (!sorted.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--sub);text-align:center;">Aucun record enregistré.</p>';
+    return;
+  }
+
+  el.innerHTML = sorted.slice(0, 20).map(r => {
+    const suspicious = r.maxRM > 350;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${r.name} ${suspicious?'⚠️':''}</div>
+        <div style="font-size:11px;color:var(--sub);">e1RM: <strong style="color:${suspicious?'var(--red)':'var(--blue)'};">${Math.round(r.maxRM)}kg</strong> — ${r.date}</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="editRecord('${r.name.replace(/'/g,"\\'")}', ${r.maxRM}, ${r.isSBD?'true':'false'}, '${r.sbdType||''}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--blue);font-size:11px;font-weight:600;cursor:pointer;">Modifier</button>
+        <button onclick="deleteRecord('${r.name.replace(/'/g,"\\'")}', ${r.isSBD?'true':'false'}, '${r.sbdType||''}')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,69,58,0.3);background:rgba(255,69,58,0.08);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;">Supprimer</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function editRecord(exoName, currentRM, isSBD, sbdType) {
+  const newVal = prompt('Nouveau e1RM pour ' + exoName + ' (actuellement ' + Math.round(currentRM) + 'kg) :', Math.round(currentRM));
+  if (!newVal) return;
+  const val = parseFloat(newVal);
+  if (isNaN(val) || val < 0 || val > 500) { showToast('Valeur invalide'); return; }
+
+  if (isSBD && sbdType) {
+    db.bestPR[sbdType] = val;
+  }
+
+  // Corriger dans les logs
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (exo.name !== exoName) return;
+      if (exo.maxRM > val) exo.maxRM = val;
+      // Recalculer les repRecords si besoin
+      if (exo.repRecords) {
+        Object.keys(exo.repRecords).forEach(rKey => {
+          const reps = parseInt(rKey);
+          const w = exo.repRecords[rKey];
+          if (calcE1RM(w, reps) > val * 1.05) {
+            // Ajuster le poids pour ce nombre de reps
+            exo.repRecords[rKey] = Math.round(val * (1.0278 - 0.0278 * reps) * 10) / 10;
+          }
+        });
+      }
+    });
+  });
+
+  saveDB();
+  renderRecordsCorrectionList();
+  refreshUI();
+  showToast('✓ Record corrigé : ' + exoName + ' → ' + val + 'kg');
+}
+
+function deleteRecord(exoName, isSBD, sbdType) {
+  showModal('Supprimer le record de ' + exoName + ' ? Les séries seront conservées mais le e1RM sera recalculé.', 'Supprimer', 'var(--red)', () => {
+    if (isSBD && sbdType) {
+      db.bestPR[sbdType] = 0;
+    }
+
+    // Reset maxRM in all logs for this exercise, then recalculate
+    db.logs.forEach(log => {
+      log.exercises.forEach(exo => {
+        if (exo.name !== exoName) return;
+        exo.maxRM = 0;
+        if (exo.series && exo.series.length) {
+          exo.series.forEach(s => {
+            const rm = calcE1RM(s.weight, s.reps);
+            if (rm > exo.maxRM) exo.maxRM = rm;
+          });
+        }
+        if (exo.repRecords) {
+          Object.entries(exo.repRecords).forEach(([rKey, w]) => {
+            const rm = calcE1RM(w, parseInt(rKey));
+            if (rm > exo.maxRM) exo.maxRM = rm;
+          });
+        }
+      });
+    });
+
+    // Recalculate SBD best PRs
+    if (isSBD && sbdType) {
+      let best = 0;
+      db.logs.forEach(log => {
+        log.exercises.forEach(exo => {
+          if (getSBDType(exo.name) === sbdType && exo.maxRM > best) best = exo.maxRM;
+        });
+      });
+      db.bestPR[sbdType] = best;
+    }
+
+    saveDB();
+    renderRecordsCorrectionList();
+    refreshUI();
+    showToast('✓ Record supprimé pour ' + exoName);
+  });
 }
 
 // ============================================================
@@ -5671,7 +6395,12 @@ function generateWeeklyPlan() {
 
         } else {
           // ── Poids — N séries identiques au poids cible ───────
-          const workWeight = computeWorkWeight(hist, tReps, cat, exoName);
+          let workWeight = computeWorkWeight(hist, tReps, cat, exoName);
+          // Si exercice haltères et poids > 60kg/main → probablement des records barre mal attribués
+          const eqType = getEquipmentType(exoName);
+          if (workWeight && eqType === 'dumbbell' && workWeight > 60) {
+            workWeight = round05(workWeight * DUMBBELL_TO_BARBELL_FACTOR);
+          }
           if (workWeight && workWeight > 0) {
             // Échauffements adaptés : 2 paliers si gros lift, 1 si composé/isolation
             const warmups = cat === 'big'

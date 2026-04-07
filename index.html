@@ -1040,6 +1040,7 @@
           <input type="number" id="inputKcalBase" placeholder="Cible kcal (ex: 2300)" onchange="updateNutriTargets()" style="flex:1;margin:0;">
           <input type="number" id="inputBWBase" placeholder="Poids départ (ex: 98)" onchange="updateNutriTargets()" style="flex:1;margin:0;">
         </div>
+        <button class="btn" style="margin-top:16px;width:100%;" onclick="saveProfileSettings()">💾 Sauvegarder le profil</button>
       </div>
     </div>
 
@@ -1435,11 +1436,33 @@ function getExerciseDay(name) {
 // DATE PARSING
 // ============================================================
 function parseHevyDate(dateStr) {
-  const monthMap = {'janvier':0,'janv.':0,'janv':0,'février':1,'fevrier':1,'févr.':1,'fevr':1,'mars':2,'avril':3,'avr.':3,'avr':3,'mai':4,'juin':5,'juillet':6,'juil.':6,'juil':6,'août':7,'aout':7,'sept.':8,'sept':8,'septembre':8,'octobre':9,'oct.':9,'oct':9,'novembre':10,'nov.':10,'nov':10,'décembre':11,'decembre':11,'déc.':11,'dec':11};
-  const allMonths = Object.keys(monthMap).sort((a,b)=>b.length-a.length).join('|');
-  const rx = new RegExp('('+allMonths+')\\s*(\\d{1,2}),?\\s*(\\d{4})','i');
-  const m = dateStr.match(rx);
-  if (m) { const mi = monthMap[m[1].toLowerCase()]; if (mi !== undefined) return new Date(parseInt(m[3]), mi, parseInt(m[2]), 12, 0, 0).getTime(); }
+  const monthMap = {
+    'janvier':0,'janv':0,'fevrier':1,'février':1,'fevr':1,'févr':1,
+    'mars':2,'avril':3,'avr':3,'mai':4,'juin':5,
+    'juillet':6,'juil':6,'aout':7,'août':7,
+    'septembre':8,'sept':8,'octobre':9,'oct':9,
+    'novembre':10,'nov':10,'decembre':11,'décembre':11,'dec':11,'déc':11
+  };
+  // Normaliser : minuscules, sans accents, sans points d'abréviation
+  const norm = dateStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\./g,'').trim();
+
+  // Format 1 : "le mardi, avr 07, 2026 à 1:00pm" ou "le mardi, avr 07, 2026 a 1:00pm"
+  // Format 2 : "le 7 avril 2026 a 14:50" (ancien format)
+  // Format 3 : "avril 7, 2026 1:00pm"
+  const allMonths = Object.keys(monthMap).sort((a,b) => b.length - a.length).join('|');
+  const rxFull = new RegExp('(' + allMonths + ')\\s+(\\d{1,2}),?\\s*(\\d{4})(?:[^\\d]+(\\d{1,2}):(\\d{2})\\s*(am|pm)?)?', 'i');
+  const m = norm.match(rxFull);
+  if (m) {
+    const mi = monthMap[m[1]];
+    if (mi === undefined) return Date.now();
+    let h = m[4] ? parseInt(m[4]) : 12;
+    const min = m[5] ? parseInt(m[5]) : 0;
+    const ampm = m[6];
+    if (ampm === 'pm' && h < 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+    return new Date(parseInt(m[3]), mi, parseInt(m[2]), h, min, 0).getTime();
+  }
+  // Fallback DD/MM/YYYY
   const a = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (a) return new Date(parseInt(a[3]), parseInt(a[2])-1, parseInt(a[1]), 12, 0, 0).getTime();
   return Date.now();
@@ -2692,8 +2715,12 @@ function toggleReportsTimeline() {
 function renderReportsTimeline() {
   purgeExpiredReports();
   const container = document.getElementById('aiReportsTimeline');
+  if (!container) return;
   const reports = db.reports.filter(r => r.expires_at > Date.now()).sort((a,b) => b.created_at - a.created_at);
   if (reports.length === 0) { container.innerHTML = ''; return; }
+  // Auto-ouvrir si rapports non lus
+  const hasUnread = reports.some(r => !r.read);
+  if (hasUnread) reportsTimelineOpen = true;
   const cardsHtml = reports.map(r => {
     const typeLabel = r.type==='debrief'?'🏋️ Débrief Séance':'📊 Bilan Hebdo';
     const dl = daysLeft(r.expires_at);
@@ -2705,24 +2732,19 @@ function renderReportsTimeline() {
       '<div class="report-card-body" id="report-body-'+r.id+'" style="display:none;"><div class="ai-response-content">'+r.html+'</div></div>' +
       '<button class="report-toggle" onclick="toggleReport(\''+r.id+'\')">Voir le rapport ▾</button></div>';
   }).join('');
+  const bodyDisplay = reportsTimelineOpen ? '' : 'none';
+  const chevTransform = reportsTimelineOpen ? '' : 'rotate(-90deg)';
   container.innerHTML =
     '<div class="acc-card" style="margin-bottom:12px;">' +
       '<div class="acc-header" onclick="toggleReportsTimeline()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">' +
         '<h2 style="margin:0;">📋 Rapports récents</h2>' +
-        '<span id="reportsTimelineChevron" class="acc-chevron" style="transition:transform 0.3s;">▾</span>' +
+        '<span id="reportsTimelineChevron" class="acc-chevron" style="transition:transform 0.3s;transform:'+chevTransform+';">▾</span>' +
       '</div>' +
-      '<div id="reportsTimelineBody" class="acc-body">' +
+      '<div id="reportsTimelineBody" class="acc-body" style="display:'+bodyDisplay+';">' +
         '<p style="font-size:11px;color:var(--sub);margin:0 0 14px;">Auto-suppression après 7 jours</p>' +
         cardsHtml +
       '</div>' +
     '</div>';
-  // restore open/closed state
-  if (!reportsTimelineOpen) {
-    const body = document.getElementById('reportsTimelineBody');
-    const chev = document.getElementById('reportsTimelineChevron');
-    if (body) body.style.display = 'none';
-    if (chev) chev.style.transform = 'rotate(-90deg)';
-  }
 }
 function toggleReport(id) { const body = document.getElementById('report-body-'+id); const btn = body.parentElement.querySelector('.report-toggle'); if (body.style.display === 'none') { body.style.display = 'block'; btn.textContent = 'Masquer ▴'; } else { body.style.display = 'none'; btn.textContent = 'Voir le rapport ▾'; } }
 
@@ -2995,11 +3017,12 @@ function processHevy() {
   const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
   if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
   const shortDate = formatDate(sessionTimestamp);
-  const dateKey = sessionDate.split(' à')[0];
+  // Normaliser le dateKey pour la déduplication : utiliser le shortDate (dd/mm/yyyy)
+  const dateKey = shortDate;
   const doImport = () => {
     executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine);
   };
-  if (db.logs.some(l => l.date.split(' à')[0] === dateKey)) { showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => { db.logs = db.logs.filter(l => l.date.split(' à')[0] !== dateKey); doImport(); }); return; }
+  if (db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey)) { showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => { db.logs = db.logs.filter(l => (l.shortDate || formatDate(l.timestamp)) !== dateKey); doImport(); }); return; }
   doImport();
 }
 
@@ -3037,18 +3060,134 @@ function processPending1RM(list, idx, callback) {
 
 function doFinalizeSession(session) {
   newPRs = { bench: false, squat: false, deadlift: false };
-  session.exercises.forEach(exo => { const type=getSBDType(exo.name); if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;newPRs[type]=true;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;showToast('🎯 '+type+': visé '+db.user.targets[type]+'kg');} });
+
+  // Collecter tous les nouveaux records AVANT d'écraser l'historique
+  const allPRs = [];
+  session.exercises.forEach(exo => {
+    if (exo.isCardio || exo.isTime) return;
+    const type = getSBDType(exo.name);
+
+    // 1. e1RM all-time
+    const prevE1RM = findPreviousBestE1RM(exo.name, session.timestamp);
+    if (exo.maxRM > 0 && exo.maxRM > prevE1RM) {
+      allPRs.push({ exo: exo.name, kind: 'e1rm', old: prevE1RM, new: exo.maxRM, delta: Math.round((exo.maxRM - prevE1RM)*10)/10, isSBD: !!type });
+      if (type) { db.bestPR[type] = exo.maxRM; newPRs[type] = true; while(db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5; }
+    }
+
+    // 2. Records par nb de répétitions (ex: nouveau record à 5 reps)
+    if (exo.repRecords) {
+      Object.entries(exo.repRecords).forEach(([rKey, w]) => {
+        const reps = parseInt(rKey);
+        const prevBest = getPrevRepRecord(exo.name, reps, session.timestamp);
+        if (w > prevBest) {
+          allPRs.push({ exo: exo.name, kind: 'rep', reps, old: prevBest, new: w, isSBD: !!type });
+        }
+      });
+    }
+
+    // 3. Record de reps (poids de corps)
+    if (exo.isReps && exo.maxReps > 0) {
+      const prevMaxReps = getPrevMaxReps(exo.name, session.timestamp);
+      if (exo.maxReps > prevMaxReps) {
+        allPRs.push({ exo: exo.name, kind: 'reps', old: prevMaxReps, new: exo.maxReps });
+      }
+    }
+  });
+
   db.logs.unshift(session);
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);
   saveDB();
   document.getElementById('hevyPaste').value='';
   showImportSummary(session);
   showToast('✓ Séance importée'+(localStorage.getItem('SBD_API_KEY')?' (IA)':''));
-  // Générer le debrief algo de la séance
   saveAlgoDebrief(session);
-  // Vérifier si c'est le dernier jour d'entraînement → bilan hebdo
   checkAndGenerateWeeklyReport();
   refreshUI();
+
+  // Afficher les modales de PR en séquence (après un court délai pour laisser l'UI se rendre)
+  if (allPRs.length > 0) {
+    setTimeout(() => showPRModals(allPRs, 0), 500);
+  }
+}
+
+function getPrevRepRecord(exoName, reps, beforeTs) {
+  let best = 0;
+  db.logs.forEach(log => {
+    if (log.timestamp >= beforeTs) return;
+    log.exercises.forEach(exo => {
+      if (!matchExoName(exo.name, exoName)) return;
+      const w = (exo.repRecords || {})[String(reps)] || 0;
+      if (w > best) best = w;
+    });
+  });
+  return best;
+}
+
+function getPrevMaxReps(exoName, beforeTs) {
+  let best = 0;
+  db.logs.forEach(log => {
+    if (log.timestamp >= beforeTs) return;
+    log.exercises.forEach(exo => {
+      if (!matchExoName(exo.name, exoName)) return;
+      if ((exo.maxReps || 0) > best) best = exo.maxReps;
+    });
+  });
+  return best;
+}
+
+function showPRModals(prs, idx) {
+  if (idx >= prs.length) return;
+  const pr = prs[idx];
+  const next = () => showPRModals(prs, idx + 1);
+
+  let title, detail, emoji;
+  if (pr.kind === 'e1rm') {
+    emoji = pr.isSBD ? '🏆' : '📈';
+    title = `${emoji} Nouveau record — ${pr.exo}`;
+    if (pr.old > 0) {
+      detail = `e1RM : <strong>${Math.round(pr.old)}kg → <span style="color:var(--green)">${Math.round(pr.new)}kg</span></strong> (+${pr.delta}kg)`;
+    } else {
+      detail = `Premier e1RM enregistré : <strong style="color:var(--green)">${Math.round(pr.new)}kg</strong>`;
+    }
+  } else if (pr.kind === 'rep') {
+    emoji = '💪';
+    title = `${emoji} Record à ${pr.reps} rep${pr.reps > 1 ? 's' : ''} — ${pr.exo}`;
+    if (pr.old > 0) {
+      detail = `${pr.reps} rep${pr.reps > 1 ? 's' : ''} : <strong>${pr.old}kg → <span style="color:var(--green)">${pr.new}kg</span></strong>`;
+    } else {
+      detail = `Premier record à ${pr.reps} rep${pr.reps > 1 ? 's' : ''} : <strong style="color:var(--green)">${pr.new}kg</strong>`;
+    }
+  } else {
+    emoji = '🔥';
+    title = `${emoji} Record de reps — ${pr.exo}`;
+    detail = pr.old > 0
+      ? `Max reps : <strong>${pr.old} → <span style="color:var(--green)">${pr.new}</span></strong>`
+      : `Premier record : <strong style="color:var(--green)">${pr.new} reps</strong>`;
+  }
+
+  const remaining = prs.length - idx - 1;
+  const remainingText = remaining > 0 ? `<div style="font-size:11px;color:var(--sub);margin-top:8px;">+${remaining} autre${remaining > 1 ? 's' : ''} record${remaining > 1 ? 's' : ''} à valider</div>` : '';
+
+  showPRModal(title, detail + remainingText, next);
+}
+
+function showPRModal(title, detail, onNext) {
+  const o = document.createElement('div');
+  o.className = 'modal-overlay';
+  o.innerHTML = `
+    <div class="modal-box" style="text-align:center;max-width:320px;">
+      <div style="font-size:22px;margin-bottom:8px;">${title.split(' ')[0]}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px;">${title.split(' ').slice(1).join(' ')}</div>
+      <div style="font-size:13px;color:var(--sub);margin-bottom:18px;line-height:1.5;">${detail}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="pr-dismiss" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--sub);font-size:13px;font-weight:600;cursor:pointer;">Ignorer</button>
+        <button class="pr-confirm" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--green);color:#000;font-size:13px;font-weight:700;cursor:pointer;">✓ Valider</button>
+      </div>
+    </div>`;
+  document.body.appendChild(o);
+  const dismiss = () => { o.remove(); onNext(); };
+  o.querySelector('.pr-dismiss').onclick = dismiss;
+  o.querySelector('.pr-confirm').onclick = dismiss;
 }
 
 function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
@@ -3970,6 +4109,24 @@ function updateProfile() {
   if (name) db.user.name = name;
   db.user.bw = bw;
   saveDB(); renderDash();
+}
+function saveProfileSettings() {
+  // Nom + poids de corps
+  const name = document.getElementById('inputName').value.trim();
+  const bw   = parseFloat(document.getElementById('inputBW').value) || 0;
+  if (name) db.user.name = name;
+  if (bw > 0) db.user.bw = bw;
+  // Niveau (déjà sauvé en live via updateProfileField, mais on s'assure)
+  const lvlEl = document.getElementById('settingsLevel');
+  if (lvlEl) db.user.level = lvlEl.value;
+  // Nutrition
+  const kcal = parseFloat(document.getElementById('inputKcalBase').value);
+  const bwBase = parseFloat(document.getElementById('inputBWBase').value);
+  if (kcal > 0) db.user.kcalBase = kcal;
+  if (bwBase > 0) db.user.bwBase = bwBase;
+  saveDB();
+  renderDash();
+  showToast('✓ Profil sauvegardé');
 }
 function updateTargets() {
   const b=parseFloat(document.getElementById('tgtBench').value)||db.user.targets.bench;

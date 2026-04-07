@@ -1041,8 +1041,8 @@
           <div id="aiImportAnalysis" style="display:none;margin-top:8px;"></div>
         </div>
         <div>
-          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">CSV (historique Google Sheets)</div>
-          <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Séparateur point-virgule (;)</p>
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">CSV (Hevy ou Google Sheets)</div>
+          <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Formats supportés : export Hevy (,) ou Google Sheets (;)</p>
           <input type="file" id="csvFileInput" accept=".csv,.txt,text/csv,text/plain" style="margin-bottom:10px;font-size:13px;padding:10px;" onchange="previewCSV(this)">
           <div id="csvPreview" style="display:none;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;color:var(--sub);"></div>
           <button class="btn" style="background:var(--purple);" onclick="importCSV()" id="csvImportBtn" disabled>Importer l'historique</button>
@@ -3852,8 +3852,209 @@ function previewCSV(input) {
   reader.readAsText(file,'UTF-8');
 }
 
+// ── Parser CSV RFC 4180 (gère les champs entre guillemets) ───
+function parseCSVRow(line, sep) {
+  const fields = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') {
+        if (line[i+1] === '"') { cur += '"'; i++; } // guillemet échappé ""
+        else inQ = false;
+      } else cur += c;
+    } else {
+      if (c === '"') { inQ = true; }
+      else if (c === sep) { fields.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+  }
+  fields.push(cur.trim());
+  return fields;
+}
+
+// ── Parser de dates françaises Hevy ─────────────────────────
+// Format : "29 mars 2026, 14:50" ou "1 juil. 2025, 16:02"
+function parseHevyDate(raw) {
+  const MOIS = {
+    'janvier':1,'fevrier':2,'février':2,'fevr':2,'févr':2,
+    'mars':3,'avril':4,'mai':5,'juin':6,
+    'juillet':7,'juil':7,'aout':8,'août':8,
+    'septembre':9,'sept':9,'octobre':10,'oct':10,
+    'novembre':11,'nov':11,'decembre':12,'décembre':12,'dec':12,'déc':12
+  };
+  // Normaliser : retirer les points d'abréviation, mettre en minuscules sans accents
+  const norm = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\./g,'').trim();
+  const m = norm.match(/^(\d{1,2})\s+([a-z]+)\s+(\d{4}),?\s+(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const [,d,mo,y,h,min] = m;
+  const month = MOIS[mo.trim()];
+  if (!month) return null;
+  return new Date(parseInt(y), month-1, parseInt(d), parseInt(h), parseInt(min), 0).getTime();
+}
+
+// ── Parser CSV natif Hevy ────────────────────────────────────
+function parseHevyCSV(text) {
+  const rawLines = text.split('\n');
+  if (rawLines.length < 2) return null;
+
+  const header = parseCSVRow(rawLines[0], ',');
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const idx = {};
+  header.forEach((h,i) => { idx[norm(h)] = i; });
+
+  const iTitle  = idx['title'];
+  const iStart  = idx['start_time'];
+  const iExo    = idx['exercise_title'];
+  const iType   = idx['set_type'];
+  const iWeight = idx['weight_kg'];
+  const iReps   = idx['reps'];
+  const iDist   = idx['distance_km'];
+  const iDur    = idx['duration_seconds'];
+  const iRpe    = idx['rpe'];
+
+  if (iExo === undefined || iWeight === undefined || iStart === undefined) return null;
+
+  const sessMap = new Map(); // key: title||start_time
+  let totalRows = 0;
+  let dateMin = '99/99/9999', dateMax = '01/01/1900';
+
+  for (let i = 1; i < rawLines.length; i++) {
+    const line = rawLines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVRow(line, ',');
+
+    const title  = (cols[iTitle]  || '').trim();
+    const start  = (cols[iStart]  || '').trim();
+    const exoN   = (cols[iExo]    || '').trim();
+    const setType= (cols[iType]   || 'normal').trim().toLowerCase();
+    const wkg    = parseFloat(cols[iWeight]) || 0;
+    const reps   = parseInt(cols[iReps])     || 0;
+    const distKm = parseFloat(cols[iDist])   || 0;
+    const durSec = parseFloat(cols[iDur])    || 0;
+    const rpe    = parseFloat(cols[iRpe])    || 0;
+
+    if (!exoN || !start) continue;
+    totalRows++;
+
+    const key = title + '||' + start;
+    if (!sessMap.has(key)) sessMap.set(key, { title, start, rows: [] });
+    sessMap.get(key).rows.push({ exoN, setType, wkg, reps, distKm, durSec, rpe });
+  }
+
+  const sessions = [];
+  for (const [, v] of sessMap) {
+    const ts = parseHevyDate(v.start);
+    if (!ts) continue;
+
+    const d  = new Date(ts);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = d.getFullYear();
+    const shortDate = dd+'/'+mm+'/'+yy;
+
+    if (shortDate < dateMin) dateMin = shortDate;
+    if (shortDate > dateMax) dateMax = shortDate;
+
+    const session = {
+      date: v.start, shortDate, timestamp: ts, volume: 0,
+      title: v.title, type: '', day: DAYS_FULL[d.getDay()],
+      id: generateId(), exercises: []
+    };
+
+    // Grouper par exercice
+    const exoMap = new Map();
+    for (const row of v.rows) {
+      if (!exoMap.has(row.exoN)) exoMap.set(row.exoN, []);
+      exoMap.get(row.exoN).push(row);
+    }
+
+    for (const [exoName, sets] of exoMap) {
+      const exoType = getExoType(exoName);
+      const isCardio = exoType === 'cardio' || exoType === 'cardio_stairs';
+      const isTime   = exoType === 'time';
+      const isReps   = exoType === 'reps';
+
+      const exo = {
+        name: exoName,
+        muscleGroup: getMuscleGroup(exoName),
+        exoType, isCardio, isTime, isReps,
+        maxRM: 0, maxRMDate: null,
+        maxReps: 0, maxRepsDate: null,
+        totalReps: 0, maxTime: 0, distance: 0,
+        sets: 0, repRecords: {}, series: []
+      };
+
+      for (const s of sets) {
+        // warmup, dropset, failure : comptent dans le volume mais PAS dans les records
+        const isWarmup  = s.setType === 'warmup';
+        const isDrop    = s.setType === 'dropset';
+        const isFailure = s.setType === 'failure';
+        const countForRecord = !isWarmup && !isDrop && !isFailure;
+
+        if (isCardio) {
+          if (s.distKm > exo.distance) exo.distance = s.distKm;
+          if (s.durSec > exo.maxTime)  { exo.maxTime = s.durSec; exo.cardioDate = ts; }
+          if (s.distKm > 0) session.volume += s.distKm * 1000;
+        } else if (isTime) {
+          session.volume += s.durSec / 10;
+          if (s.durSec > exo.maxTime) { exo.maxTime = s.durSec; exo.maxTimeDate = ts; }
+        } else if (isReps) {
+          // BW ou lest (poids optionnel)
+          if (countForRecord) {
+            exo.totalReps += s.reps;
+            if (s.reps > exo.maxReps) { exo.maxReps = s.reps; exo.maxRepsDate = ts; }
+            if (s.wkg > 0) {
+              session.volume += s.wkg * s.reps;
+              const rm = calcE1RM(s.wkg, s.reps);
+              if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+              const rKey = String(s.reps);
+              if (!exo.repRecords[rKey] || s.wkg > exo.repRecords[rKey]) exo.repRecords[rKey] = s.wkg;
+            }
+            exo.sets++;
+          } else {
+            // warmup/drop/failure : tonnage mais pas records
+            if (s.wkg > 0) session.volume += s.wkg * s.reps;
+          }
+        } else {
+          // Exercice avec poids (weight)
+          // Toujours compter dans le tonnage
+          if (s.wkg > 0 && s.reps > 0) session.volume += s.wkg * s.reps;
+          if (countForRecord && s.wkg > 0 && s.reps > 0) {
+            exo.sets++;
+            const rKey = String(s.reps);
+            if (!exo.repRecords[rKey] || s.wkg > exo.repRecords[rKey]) exo.repRecords[rKey] = s.wkg;
+            const existing = exo.series.find(x => x.reps === s.reps);
+            if (existing) { if (s.wkg > existing.weight) { existing.weight = s.wkg; existing.date = ts; } }
+            else exo.series.push({ weight: s.wkg, reps: s.reps, date: ts });
+            const rm = calcE1RM(s.wkg, s.reps);
+            if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+          } else if (!countForRecord && s.wkg > 0) {
+            // warmup léger : quand même dans le tonnage (déjà ajouté ci-dessus)
+          }
+        }
+      }
+
+      if (exo.maxRM > 0 || exo.isCardio || exo.maxTime > 0 || exo.maxReps > 0 || exo.sets > 0)
+        session.exercises.push(exo);
+    }
+
+    if (session.exercises.length > 0) sessions.push(session);
+  }
+
+  sessions.sort((a, b) => b.timestamp - a.timestamp);
+  return { sessions, totalRows, dateMin, dateMax };
+}
+
 function parseCSVData(text) {
   const lines=text.split('\n').filter(l=>l.trim());if(lines.length<2)return null;
+  // Détection format Hevy natif
+  const firstLine=lines[0];
+  const hNorm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/"/g,'').trim();
+  const hCols=firstLine.split(',').map(hNorm);
+  if(hCols.includes('exercise_title')&&hCols.includes('weight_kg')&&hCols.includes('start_time')){
+    return parseHevyCSV(text);
+  }
   const header=lines[0];const sep=header.includes(';')?';':',';
   const cols=header.split(sep).map(c=>c.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
   const iDate=cols.findIndex(c=>c==='date');const iSeance=cols.findIndex(c=>c.includes('seance')||c.includes('séance'));

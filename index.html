@@ -7652,10 +7652,8 @@ function renderLifts() {
 
     // Sparkline SVG with gradient + date tooltips
     let sparkHtml = '';
-    const sparkId = 'spark-' + idx;
     if (lift.history.length > 1) {
       const vals = lift.history.map(p => p.rm);
-      const dates = lift.history.map(p => p.date);
       const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
       const W = 280, H = 50, pad = 4, topPad = 16;
       const points = vals.map((v, i) => ({
@@ -7664,40 +7662,21 @@ function renderLifts() {
       }));
       const line = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
       const area = line + ' L' + points[points.length-1].x.toFixed(1) + ',' + H + ' L' + points[0].x.toFixed(1) + ',' + H + ' Z';
-      const last = points[points.length - 1];
       const gid = 'lcg' + Math.random().toString(36).substr(2,5);
-      // Cercles interactifs avec tooltip
+      const tipId = 'stip-' + idx;
       const circles = points.map((p, i) =>
         '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="' + color + '" opacity="' + (i === points.length-1 ? '1' : '0.5') + '"/>' +
-        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="12" fill="transparent" class="spark-hit" data-idx="' + i + '"/>'
+        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="14" fill="transparent" class="spark-hit" ' +
+        'data-tip="' + tipId + '" data-label="' + vals[i] + 'kg · ' + lift.history[i].date + '" data-color="' + color + '"/>'
       ).join('');
-      // Tooltip label (hidden by default, shown on touch/hover)
-      const tipId = 'stip-' + idx;
       sparkHtml = '<div class="lc-spark" style="position:relative;">' +
         '<div id="' + tipId + '" style="position:absolute;top:0;left:0;right:0;text-align:center;font-size:10px;font-weight:600;color:var(--sub);height:14px;pointer-events:none;opacity:0;transition:opacity 0.15s;"></div>' +
-        '<svg id="' + sparkId + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="touch-action:none;">' +
+        '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="touch-action:none;">' +
         '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.15"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
         '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
         '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
         circles +
-        '</svg>' +
-        '<script>(' + function(svgId, tipId, dates, vals, color) {
-          var svg = document.getElementById(svgId);
-          var tip = document.getElementById(tipId);
-          if (!svg || !tip) return;
-          function show(i) {
-            tip.innerHTML = '<span style="color:' + color + ';">' + vals[i] + 'kg</span> · ' + dates[i];
-            tip.style.opacity = '1';
-          }
-          function hide() { tip.style.opacity = '0'; }
-          svg.querySelectorAll('.spark-hit').forEach(function(c) {
-            c.addEventListener('mouseenter', function() { show(+c.dataset.idx); });
-            c.addEventListener('mouseleave', hide);
-            c.addEventListener('touchstart', function(e) { e.preventDefault(); show(+c.dataset.idx); }, {passive:false});
-          });
-          svg.addEventListener('touchend', function() { setTimeout(hide, 1500); });
-        } + ')("' + sparkId + '","' + tipId + '",' + JSON.stringify(dates) + ',' + JSON.stringify(vals) + ',"' + color + '")</script>' +
-        '</div>';
+        '</svg></div>';
     }
 
     // RM grid — reps dynamiques pour garantir au moins un ✓
@@ -7752,6 +7731,27 @@ function renderLifts() {
         '<span style="color:var(--sub);">→</span><span class="lc-calc-res" id="' + uid + '">—</span></div>' +
       '</div></div>';
   }).join('');
+
+  // Délégation d'événements pour les tooltips sparkline
+  el.addEventListener('mouseenter', function(e) {
+    var hit = e.target.closest('.spark-hit');
+    if (!hit) return;
+    var tip = document.getElementById(hit.dataset.tip);
+    if (tip) { tip.innerHTML = '<span style="color:' + hit.dataset.color + ';">' + hit.dataset.label + '</span>'; tip.style.opacity = '1'; }
+  }, true);
+  el.addEventListener('mouseleave', function(e) {
+    var hit = e.target.closest('.spark-hit');
+    if (!hit) return;
+    var tip = document.getElementById(hit.dataset.tip);
+    if (tip) tip.style.opacity = '0';
+  }, true);
+  el.addEventListener('touchstart', function(e) {
+    var hit = e.target.closest('.spark-hit');
+    if (!hit) return;
+    e.preventDefault();
+    var tip = document.getElementById(hit.dataset.tip);
+    if (tip) { tip.innerHTML = '<span style="color:' + hit.dataset.color + ';">' + hit.dataset.label + '</span>'; tip.style.opacity = '1'; setTimeout(function() { tip.style.opacity = '0'; }, 2000); }
+  }, {passive: false});
 }
 
 function setLiftsFilter(muscle) {

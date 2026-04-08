@@ -7642,8 +7642,22 @@ function renderLifts() {
         '</svg></div>';
     }
 
-    // RM grid 3 columns
-    const TARGET_REPS = [1, 3, 5, 8, 10, 12];
+    // RM grid — reps dynamiques pour garantir au moins un ✓
+    const STANDARD_REPS = [1, 3, 5, 8, 10, 12];
+    const realReps = Object.keys(lift.repRecords).map(Number).filter(r => r > 0).sort((a,b) => a - b);
+    const standardWithReal = STANDARD_REPS.filter(r => lift.repRecords[String(r)]);
+
+    let TARGET_REPS;
+    if (standardWithReal.length >= 1) {
+      TARGET_REPS = STANDARD_REPS;
+    } else if (realReps.length > 0) {
+      const toInclude = realReps.slice(0, 3);
+      const remaining = STANDARD_REPS.filter(r => !toInclude.includes(r));
+      TARGET_REPS = [...toInclude, ...remaining].sort((a,b) => a - b).slice(0, 6);
+    } else {
+      TARGET_REPS = STANDARD_REPS;
+    }
+
     const rmCells = TARGET_REPS.map(r => {
       const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (1.0278 - 0.0278 * r)) * 2) / 2;
       const realKg = lift.repRecords[String(r)] || null;

@@ -342,48 +342,14 @@
     .weight-avg-sub{font-size:11px;color:var(--sub);margin-top:2px;}
     /* ── Accordéon Réglages ── */
     .acc-card{background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:10px;overflow:hidden;}
-    .acc-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;cursor:pointer;font-size:14px;font-weight:700;color:var(--text);transition:background 0.2s;}
+    .acc-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;font-size:14px;font-weight:700;color:var(--text);transition:background 0.2s;}
     .acc-header:hover{background:rgba(255,255,255,0.03);}
+    .acc-left{display:flex;align-items:center;gap:12px;}
+    .acc-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
     .acc-chevron{font-size:12px;color:var(--sub);transition:transform 0.3s;}
     .acc-chevron.open{transform:rotate(180deg);}
     .acc-body{max-height:0;overflow:hidden;transition:max-height 0.35s ease;padding:0 18px;}
     .acc-body.open{max-height:1200px;padding:0 18px 18px;}
-    /* ── Gamification ── */
-    .gam-level-card{background:linear-gradient(135deg,rgba(191,90,242,0.08),rgba(10,132,255,0.08));border:1px solid rgba(191,90,242,0.25);border-radius:20px;padding:20px;margin-bottom:15px;text-align:center;}
-    .gam-level-icon{font-size:48px;margin-bottom:4px;}
-    .gam-level-name{font-size:20px;font-weight:800;color:var(--purple);margin-bottom:1px;}
-    .gam-level-sub{font-size:12px;color:var(--sub);font-style:italic;margin-bottom:4px;}
-    .gam-level-num{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
-    .gam-xp-bar-wrap{background:var(--surface);border-radius:10px;height:14px;overflow:hidden;margin-bottom:6px;border:1px solid var(--border);}
-    .gam-xp-bar{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--purple),var(--blue));transition:width 0.6s ease;}
-    .gam-xp-text{font-size:11px;color:var(--sub);display:flex;justify-content:space-between;}
-    .gam-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
-    .gam-stat{text-align:center;background:var(--surface);border-radius:12px;padding:10px 6px;border:1px solid var(--border);}
-    .gam-stat-val{font-size:18px;font-weight:800;color:var(--text);}
-    .gam-stat-label{font-size:10px;color:var(--sub);text-transform:uppercase;}
-    .gam-str-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;}
-    .gam-str-title{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text);}
-    .gam-str-exo{margin-bottom:14px;}
-    .gam-str-exo-name{font-size:13px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
-    .gam-str-bar-wrap{position:relative;height:20px;background:var(--surface);border-radius:10px;overflow:visible;border:1px solid var(--border);}
-    .gam-str-bar{height:100%;border-radius:10px;transition:width 0.6s ease;}
-    .gam-str-marker{position:absolute;top:-3px;width:3px;height:26px;background:var(--text);border-radius:2px;transform:translateX(-1px);box-shadow:0 0 6px rgba(255,255,255,0.4);}
-    .gam-str-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--sub);margin-top:3px;}
-    .gam-str-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
-    .gam-badge-section{margin-bottom:16px;}
-    .gam-badge-section-title{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-left:2px;}
-    .gam-badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-    .gam-badge{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center;transition:all 0.2s;position:relative;}
-    .gam-badge.locked{opacity:0.30;filter:grayscale(0.5);}
-    .gam-badge.uncommon{border-color:#32d74b;}
-    .gam-badge.rare{border-color:#0a84ff;}
-    .gam-badge.epic{border-color:#bf5af2;}
-    .gam-badge.legendary{border-color:#ff9f0a;box-shadow:0 0 8px rgba(255,159,10,0.25);}
-    .gam-badge.mythic{border-color:#ff453a;border-width:2px;box-shadow:0 0 10px rgba(255,69,58,0.3);}
-    .gam-badge.divine{border:2px solid #ff9f0a;background:linear-gradient(135deg,rgba(255,159,10,0.08),rgba(191,90,242,0.08),rgba(10,132,255,0.08));box-shadow:0 0 14px rgba(191,90,242,0.35);}
-    .gam-badge-icon{font-size:28px;margin-bottom:4px;}
-    .gam-badge-name{font-size:12px;font-weight:600;color:var(--text);}
-    .gam-badge-desc{font-size:10px;color:var(--sub);margin-top:2px;}
     /* ── Weekly Plan ── */
     .wp-card{background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);border:1px solid rgba(10,132,255,0.2);border-radius:20px;padding:20px;margin-bottom:15px;}
     .wp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
@@ -651,6 +617,90 @@
     .wpe-warmup .wpe-set-num { color: rgba(134,134,139,0.5); }
     .wpe-rest { display: inline-block; background: rgba(100,210,255,0.08); color: var(--teal); padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; margin: 6px 16px 12px; }
     .wpe-nodata { font-size: 12px; color: var(--orange); padding: 8px 16px 12px; border-top: 1px solid rgba(255,255,255,0.04); }
+
+    /* ── Level card (.lvl-*) ── */
+    .lvl-card { position: relative; border-radius: 20px; padding: 24px 20px 20px; margin-bottom: 14px; overflow: hidden; border: 1px solid rgba(191,90,242,0.2); background: var(--card); }
+    .lvl-bg { position: absolute; inset: 0; opacity: 0.06; background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(191,90,242,0.3) 20px, rgba(191,90,242,0.3) 21px); }
+    .lvl-top { position: relative; display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .lvl-icon-wrap { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 38px; flex-shrink: 0; position: relative; border: 3px solid rgba(191,90,242,0.4); background: rgba(191,90,242,0.08); }
+    .lvl-icon-ring { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--purple); border-right-color: var(--purple); animation: lvlSpin 8s linear infinite; }
+    @keyframes lvlSpin { to { transform: rotate(360deg); } }
+    .lvl-info { flex: 1; }
+    .lvl-num { font-size: 10px; color: var(--purple); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+    .lvl-name { font-size: 22px; font-weight: 800; color: var(--text); margin: 2px 0; }
+    .lvl-xp-row { position: relative; margin-bottom: 6px; }
+    .lvl-xp-bar-bg { height: 10px; border-radius: 5px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+    .lvl-xp-bar { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.6s; }
+    .lvl-xp-text { display: flex; justify-content: space-between; font-size: 10px; color: var(--sub); margin-top: 4px; }
+    .lvl-xp-text strong { color: var(--text); }
+    .lvl-next { font-size: 10px; color: var(--purple); }
+    .lvl-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; position: relative; }
+    .lvl-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 6px; text-align: center; }
+    .lvl-stat-val { font-size: 18px; font-weight: 800; }
+    .lvl-stat-lbl { font-size: 9px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+    /* ── Strength card (.str-*) ── */
+    .str-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
+    .str-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .str-name { font-size: 14px; font-weight: 700; }
+    .str-right { text-align: right; }
+    .str-e1rm { font-size: 16px; font-weight: 800; color: var(--blue); }
+    .str-e1rm span { font-size: 11px; font-weight: 400; color: var(--sub); }
+    .str-bw { font-size: 10px; color: var(--sub); margin-top: 1px; }
+    .str-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .str-badge { padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+    .str-top { font-size: 10px; color: var(--sub); }
+    .str-bar-wrap { position: relative; height: 16px; border-radius: 8px; overflow: visible; border: 1px solid var(--border); background: var(--surface); }
+    .str-bar-segs { position: absolute; inset: 0; display: flex; border-radius: 8px; overflow: hidden; }
+    .str-bar-seg { height: 100%; }
+    .str-bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 8px; opacity: 0.5; }
+    .str-bar-needle { position: absolute; top: -3px; width: 4px; height: 22px; background: white; border-radius: 2px; transform: translateX(-2px); box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+    .str-bar-legend { display: flex; justify-content: space-between; margin-top: 5px; font-size: 8px; }
+    .str-legend-item { display: flex; align-items: center; gap: 3px; }
+    .str-legend-dot { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Badges (.bdg-*) ── */
+    .bdg-overview { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; text-align: center; }
+    .bdg-total-val { font-size: 32px; font-weight: 800; color: var(--purple); }
+    .bdg-total-val span { font-size: 16px; color: var(--sub); font-weight: 400; }
+    .bdg-total-lbl { font-size: 11px; color: var(--sub); margin-top: 2px; }
+    .bdg-total-bar-bg { height: 6px; border-radius: 3px; background: var(--surface); border: 1px solid var(--border); margin: 10px 0 6px; overflow: hidden; }
+    .bdg-total-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--purple), var(--blue), var(--green)); }
+    .bdg-rarity-row { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .bdg-rarity { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+    .bdg-section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 10px; overflow: hidden; }
+    .bdg-sec-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; cursor: pointer; }
+    .bdg-sec-head:active { background: rgba(255,255,255,0.02); }
+    .bdg-sec-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .bdg-sec-count { font-size: 11px; color: var(--purple); font-weight: 600; }
+    .bdg-sec-chev { font-size: 10px; color: var(--sub); transition: transform 0.3s; }
+    .bdg-sec-chev.open { transform: rotate(180deg); }
+    .bdg-sec-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+    .bdg-sec-body.open { max-height: 3000px; }
+    .bdg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px 14px; }
+    .bdg { border-radius: 12px; padding: 12px 10px; text-align: center; position: relative; }
+    .bdg-rarity-bar { position: absolute; top: 0; left: 16px; right: 16px; height: 2px; border-radius: 0 0 2px 2px; }
+    .bdg.common { background: var(--surface); border: 1px solid #3A3A3C; }
+    .bdg.common .bdg-rarity-bar { background: #86868B; }
+    .bdg.uncommon { background: var(--surface); border: 1px solid rgba(50,215,75,0.3); }
+    .bdg.uncommon .bdg-rarity-bar { background: var(--green); }
+    .bdg.rare { background: var(--surface); border: 1px solid rgba(10,132,255,0.3); }
+    .bdg.rare .bdg-rarity-bar { background: var(--blue); }
+    .bdg.epic { background: var(--surface); border: 1px solid rgba(191,90,242,0.3); }
+    .bdg.epic .bdg-rarity-bar { background: var(--purple); }
+    .bdg.legendary { background: var(--surface); border: 1px solid rgba(255,159,10,0.35); box-shadow: 0 0 12px rgba(255,159,10,0.08); }
+    .bdg.legendary .bdg-rarity-bar { background: var(--orange); }
+    .bdg.mythic { background: var(--surface); border: 2px solid rgba(255,69,58,0.35); box-shadow: 0 0 14px rgba(255,69,58,0.1); }
+    .bdg.mythic .bdg-rarity-bar { background: var(--red); height: 3px; }
+    .bdg.divine { border: 2px solid var(--orange); background: linear-gradient(135deg, rgba(255,159,10,0.06), rgba(191,90,242,0.06)); box-shadow: 0 0 18px rgba(191,90,242,0.12); }
+    .bdg.divine .bdg-rarity-bar { background: linear-gradient(90deg, var(--orange), var(--purple)); height: 3px; }
+    .bdg.locked { opacity: 0.35; background: var(--surface); border: 1px solid var(--border); }
+    .bdg.locked .bdg-rarity-bar { display: none; }
+    .bdg-icon { font-size: 26px; margin-bottom: 4px; }
+    .bdg-rarity-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .bdg-name { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+    .bdg-desc { font-size: 9px; color: var(--sub); line-height: 1.3; }
+    .bdg-condition { font-size: 9px; color: var(--blue); line-height: 1.3; margin-top: 3px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -1190,15 +1240,10 @@
   </div>
 
   <div id="tab-game" class="content-section">
-    <div id="gamLevelCard" class="gam-level-card"></div>
-    <div id="gamStrengthCard" class="gam-str-card">
-      <div class="gam-str-title">📊 Niveau de force par exercice</div>
-      <div id="gamStrengthContent"></div>
-    </div>
-    <div class="gam-str-card">
-      <div class="gam-str-title">🏅 Badges & Succès</div>
-      <div id="gamBadgesContent"></div>
-    </div>
+    <div id="gamLevelCard"></div>
+    <div id="gamStrengthContent"></div>
+    <div id="gamBadgesOverview"></div>
+    <div id="gamBadgesSections"></div>
   </div>
 
   <div id="tab-settings" class="content-section">
@@ -1206,7 +1251,7 @@
     <!-- Accordéon Profil -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-profil')">
-        <span>👤 Profil Athlète</span><span class="acc-chevron" id="chev-acc-profil">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(10,132,255,0.1);">👤</div><span>Profil Athlète</span></div><span class="acc-chevron" id="chev-acc-profil">▾</span>
       </div>
       <div class="acc-body open" id="acc-profil">
         <input type="text"   id="inputName" placeholder="Prénom" onchange="updateProfile()">
@@ -1224,7 +1269,11 @@
 
         <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Genre</div>
-          <div id="settingsGender" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+          <select id="settingsGender" onchange="setSettingsGender(this.value)" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
+            <option value="unspecified">Ne pas préciser</option>
+            <option value="male">Homme</option>
+            <option value="female">Femme</option>
+          </select>
         </div>
 
         <div style="margin-top:12px;">
@@ -1268,7 +1317,7 @@
     <!-- Accordéon Exercices Clés -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-keylifts')">
-        <span>🎯 Exercices Clés</span><span class="acc-chevron" id="chev-acc-keylifts">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(191,90,242,0.1);">🎯</div><span>Exercices Clés</span></div><span class="acc-chevron" id="chev-acc-keylifts">▾</span>
       </div>
       <div class="acc-body" id="acc-keylifts">
         <p style="font-size:12px;color:var(--sub);margin:0 0 12px;">Les exercices affichés dans la rubrique Performance sur l'accueil. Jusqu'à 6.</p>
@@ -1281,7 +1330,7 @@
     <!-- Accordéon Programme -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-prog')">
-        <span>📅 Mon Programme</span><span class="acc-chevron" id="chev-acc-prog">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(50,215,75,0.1);">📅</div><span>Mon Programme</span></div><span class="acc-chevron" id="chev-acc-prog">▾</span>
       </div>
       <div class="acc-body" id="acc-prog">
         <p style="font-size:12px;color:var(--sub);margin:0 0 12px;">Définis les exercices de chaque jour. Utilisé par "Meilleurs Résultats".</p>
@@ -1293,7 +1342,7 @@
     <!-- Accordéon Import -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-import')">
-        <span>📥 Importer des Séances</span><span class="acc-chevron" id="chev-acc-import">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(255,159,10,0.1);">📥</div><span>Importer des Séances</span></div><span class="acc-chevron" id="chev-acc-import">▾</span>
       </div>
       <div class="acc-body" id="acc-import">
         <div style="margin-bottom:16px;">
@@ -1320,7 +1369,7 @@
     <!-- Accordéon Clé API -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-api')">
-        <span>🔑 Clé API Anthropic</span><span class="acc-chevron" id="chev-acc-api">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(100,210,255,0.1);">🔑</div><span>Clé API Anthropic</span></div><span class="acc-chevron" id="chev-acc-api">▾</span>
       </div>
       <div class="acc-body" id="acc-api">
         <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Requise pour le Rapport IA Approfondi. Stockée localement.</p>
@@ -1334,7 +1383,7 @@
     <!-- Accordéon Cloud -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-cloud')">
-        <span>☁️ Synchronisation Cloud</span><span class="acc-chevron" id="chev-acc-cloud">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(191,90,242,0.1);">☁️</div><span>Synchronisation Cloud</span></div><span class="acc-chevron" id="chev-acc-cloud">▾</span>
       </div>
       <div class="acc-body" id="acc-cloud">
         <div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div>
@@ -1351,7 +1400,7 @@
     <!-- Accordéon Sauvegarde -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-backup')">
-        <span>💾 Sauvegarde & Restauration</span><span class="acc-chevron" id="chev-acc-backup">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(50,215,75,0.1);">💾</div><span>Sauvegarde & Restauration</span></div><span class="acc-chevron" id="chev-acc-backup">▾</span>
       </div>
       <div class="acc-body" id="acc-backup">
         <p style="font-size:12px;color:var(--sub);margin:0 0 14px;line-height:1.5;">Exporte toutes tes données dans un fichier JSON. Utile avant de changer d'appareil ou de navigateur.</p>
@@ -1369,7 +1418,7 @@
     <!-- Accordéon Correction Records -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-records')">
-        <span>🔧 Correction des Records</span><span class="acc-chevron" id="chev-acc-records">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(255,159,10,0.1);">🔧</div><span>Correction des Records</span></div><span class="acc-chevron" id="chev-acc-records">▾</span>
       </div>
       <div class="acc-body" id="acc-records">
         <p style="font-size:12px;color:var(--sub);margin:0 0 12px;line-height:1.5;">Si un record semble aberrant (mauvais import, 1RM irréaliste), corrige ou supprime-le ici.</p>
@@ -1380,7 +1429,7 @@
     <!-- Accordéon Danger -->
     <div class="acc-card" style="border-color:rgba(255,69,58,0.3);">
       <div class="acc-header" onclick="toggleAcc('acc-danger')">
-        <span style="color:var(--red);">⚠️ Zone de Danger</span><span class="acc-chevron" id="chev-acc-danger">▾</span>
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(255,69,58,0.1);">⚠️</div><span style="color:var(--red);">Zone de Danger</span></div><span class="acc-chevron" id="chev-acc-danger">▾</span>
       </div>
       <div class="acc-body" id="acc-danger">
         <button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button>
@@ -3359,76 +3408,76 @@ function getAllBadges() {
   const total       = B+S+D;
 
   // ── Séances ──
-  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Reçu à l\'Examen',          ref:'Bleach', desc:'Première séance — bienvenue à l\'Académie des Shinigamis',                           ck:()=>db.logs.length>=1});
-  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Carte Shinigami',            ref:'Bleach', desc:'10 séances — ton diplôme de Shinigami est officiellement validé',                   ck:()=>db.logs.length>=10});
-  b.push({id:'s25',   r:'uncommon',  icon:'🏘️', name:'Aventurier d\'Astrub',       ref:'Dofus',  desc:'25 séances — tu quittes enfin le tutoriel d\'Astrub',                               ck:()=>db.logs.length>=25});
-  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Siège au Seireitei',         ref:'Bleach', desc:'50 séances — on t\'attribue enfin un siège dans une division',                     ck:()=>db.logs.length>=50});
-  b.push({id:'s75',   r:'rare',      icon:'🛡️', name:'Chevalier de Bonta',         ref:'Dofus',  desc:'75 séances — la milice de Bonta te reconnaît comme l\'un des siens',               ck:()=>db.logs.length>=75});
-  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion',                  ref:'Bleach', desc:'100 séances — même un vice-capitaine te respecte désormais',                        ck:()=>db.logs.length>=100});
-  b.push({id:'s200',  r:'epic',      icon:'🎓', name:'Maître de Guilde',           ref:'Dofus',  desc:'200 séances — ta guilde te suit les yeux fermés en toutes circonstances',           ck:()=>db.logs.length>=200});
-  b.push({id:'s300',  r:'epic',      icon:'⚔️', name:'Vice-Capitaine',             ref:'Bleach', desc:'300 séances — le haori blanc t\'attend au bout du couloir du Gotei 13',            ck:()=>db.logs.length>=300});
-  b.push({id:'s365',  r:'legendary', icon:'🌍', name:'Tour du Monde des Douze',    ref:'Dofus',  desc:'365 séances — tu as parcouru les 12 nations sans jamais fléchir',                  ck:()=>db.logs.length>=365});
-  b.push({id:'s500',  r:'legendary', icon:'💀', name:'Capitaine du Gotei 13',      ref:'Bleach', desc:'500 séances — Yamamoto en personne t\'a nommé à la tête d\'une division',          ck:()=>db.logs.length>=500});
-  b.push({id:'s750',  r:'mythic',    icon:'🥚', name:'Gardien des 6 Dofus',        ref:'Dofus',  desc:'750 séances — les six œufs légendaires sont sous ta garde exclusive',               ck:()=>db.logs.length>=750});
-  b.push({id:'s1000', r:'divine',    icon:'🔥', name:'Bankai Éternel',             ref:'Bleach', desc:'1000 séances — ton Bankai ne se désactive plus jamais. Tu ES ton Bankai',           ck:()=>db.logs.length>=1000});
+  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Reçu à l\'Examen',          ref:'Bleach', desc:'Première séance — bienvenue à l\'Académie des Shinigamis', condition:'1 séance', ck:()=>db.logs.length>=1});
+  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Carte Shinigami',            ref:'Bleach', desc:'10 séances — ton diplôme de Shinigami est officiellement validé', condition:'10 séances', ck:()=>db.logs.length>=10});
+  b.push({id:'s25',   r:'uncommon',  icon:'🏘️', name:'Aventurier d\'Astrub',       ref:'Dofus',  desc:'25 séances — tu quittes enfin le tutoriel d\'Astrub', condition:'25 séances', ck:()=>db.logs.length>=25});
+  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Siège au Seireitei',         ref:'Bleach', desc:'50 séances — on t\'attribue enfin un siège dans une division', condition:'50 séances', ck:()=>db.logs.length>=50});
+  b.push({id:'s75',   r:'rare',      icon:'🛡️', name:'Chevalier de Bonta',         ref:'Dofus',  desc:'75 séances — la milice de Bonta te reconnaît comme l\'un des siens', condition:'75 séances', ck:()=>db.logs.length>=75});
+  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion',                  ref:'Bleach', desc:'100 séances — même un vice-capitaine te respecte désormais', condition:'100 séances', ck:()=>db.logs.length>=100});
+  b.push({id:'s200',  r:'epic',      icon:'🎓', name:'Maître de Guilde',           ref:'Dofus',  desc:'200 séances — ta guilde te suit les yeux fermés en toutes circonstances', condition:'200 séances', ck:()=>db.logs.length>=200});
+  b.push({id:'s300',  r:'epic',      icon:'⚔️', name:'Vice-Capitaine',             ref:'Bleach', desc:'300 séances — le haori blanc t\'attend au bout du couloir du Gotei 13', condition:'300 séances', ck:()=>db.logs.length>=300});
+  b.push({id:'s365',  r:'legendary', icon:'🌍', name:'Tour du Monde des Douze',    ref:'Dofus',  desc:'365 séances — tu as parcouru les 12 nations sans jamais fléchir', condition:'365 séances', ck:()=>db.logs.length>=365});
+  b.push({id:'s500',  r:'legendary', icon:'💀', name:'Capitaine du Gotei 13',      ref:'Bleach', desc:'500 séances — Yamamoto en personne t\'a nommé à la tête d\'une division', condition:'500 séances', ck:()=>db.logs.length>=500});
+  b.push({id:'s750',  r:'mythic',    icon:'🥚', name:'Gardien des 6 Dofus',        ref:'Dofus',  desc:'750 séances — les six œufs légendaires sont sous ta garde exclusive', condition:'750 séances', ck:()=>db.logs.length>=750});
+  b.push({id:'s1000', r:'divine',    icon:'🔥', name:'Bankai Éternel',             ref:'Bleach', desc:'1000 séances — ton Bankai ne se désactive plus jamais. Tu ES ton Bankai', condition:'1000 séances', ck:()=>db.logs.length>=1000});
 
   // ── Volume par séance (max session) ──
-  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Tonneau d\'Astrub',           ref:'Dofus',  desc:'1t en une séance — les marchands d\'Astrub notent ton premier passage',              ck:()=>maxSessVol>=1000});
-  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur de Pandawa',           ref:'Dofus',  desc:'3t — même un Pandawa sobre ne porterait pas plus sans tituber',                      ck:()=>maxSessVol>=3000});
-  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Reishi Compressé',             ref:'Bleach', desc:'5t — ton énergie spirituelle commence à peser comme des particules Reishi',            ck:()=>maxSessVol>=5000});
-  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Forgeron de Bonta',            ref:'Dofus',  desc:'10t en une séance — les forges de Bonta s\'inclinent devant ton labeur',              ck:()=>maxSessVol>=10000});
-  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Bankai Partiel',               ref:'Bleach', desc:'20t — ta libération commence à faire trembler les murs de la salle',                  ck:()=>maxSessVol>=20000});
-  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Chaos d\'Ogrest',              ref:'Dofus',  desc:'30t — Ogrest lui-même a pleuré moins de tonnes en une seule journée',                ck:()=>maxSessVol>=30000});
-  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'Mugetsu',                      ref:'Bleach', desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance',                ck:()=>maxSessVol>=40000});
-  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Dieu Iop',                     ref:'Dofus',  desc:'50t en une séance — Goultard le Barbare en personne s\'incline',                    ck:()=>maxSessVol>=50000});
-  b.push({id:'vs100', r:'divine',    icon:'💀', name:'Mais t\'es malade ?',          ref:'—',      desc:'100t en une séance — appelle un médecin, pas un coach', impossible:true,              ck:()=>false});
+  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Tonneau d\'Astrub',           ref:'Dofus',  desc:'1t en une séance — les marchands d\'Astrub notent ton premier passage', condition:'1t en 1 séance', ck:()=>maxSessVol>=1000});
+  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur de Pandawa',           ref:'Dofus',  desc:'3t — même un Pandawa sobre ne porterait pas plus sans tituber', condition:'3t en 1 séance', ck:()=>maxSessVol>=3000});
+  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Reishi Compressé',             ref:'Bleach', desc:'5t — ton énergie spirituelle commence à peser comme des particules Reishi', condition:'5t en 1 séance', ck:()=>maxSessVol>=5000});
+  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Forgeron de Bonta',            ref:'Dofus',  desc:'10t en une séance — les forges de Bonta s\'inclinent devant ton labeur', condition:'10t en 1 séance', ck:()=>maxSessVol>=10000});
+  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Bankai Partiel',               ref:'Bleach', desc:'20t — ta libération commence à faire trembler les murs de la salle', condition:'20t en 1 séance', ck:()=>maxSessVol>=20000});
+  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Chaos d\'Ogrest',              ref:'Dofus',  desc:'30t — Ogrest lui-même a pleuré moins de tonnes en une seule journée', condition:'30t en 1 séance', ck:()=>maxSessVol>=30000});
+  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'Mugetsu',                      ref:'Bleach', desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance', condition:'40t en 1 séance', ck:()=>maxSessVol>=40000});
+  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Dieu Iop',                     ref:'Dofus',  desc:'50t en une séance — Goultard le Barbare en personne s\'incline', condition:'50t en 1 séance', ck:()=>maxSessVol>=50000});
+  b.push({id:'vs100', r:'divine',    icon:'💀', name:'Mais t\'es malade ?',          ref:'—',      desc:'100t en une séance — appelle un médecin, pas un coach', impossible:true, condition:'100t en 1 séance', ck:()=>false});
 
   // ── Volume cumulatif total ──
-  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',           ref:'Dofus',  desc:'10t cumulées — la forge ne fait que commencer',                                       ck:()=>totalVol>=10000});
-  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan d\'Astrub',            ref:'Dofus',  desc:'50t — tes premiers pas d\'artisan sont validés par la guilde',                       ck:()=>totalVol>=50000});
-  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',                 ref:'Bleach', desc:'100t — ton zanpakuto prend enfin une forme reconnaissable',                           ck:()=>totalVol>=100000});
-  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Sacrieur Éprouvé',            ref:'Dofus',  desc:'250t — la douleur est devenue ton alliée la plus fidèle',                             ck:()=>totalVol>=250000});
-  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Shikai du Tonnage',           ref:'Bleach', desc:'500t — ton zanpakuto rugit de satisfaction à chaque kilo supplémentaire',              ck:()=>totalVol>=500000});
-  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur du Monde',          ref:'Dofus',  desc:'1000t cumulées — assez pour remodeler les continents des Douze nations',              ck:()=>totalVol>=1000000});
-  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure du Zanpakuto',        ref:'Bleach', desc:'2500t — ton nom est gravé dans la lame pour l\'éternité',                             ck:()=>totalVol>=2500000});
-  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien des Douze',           ref:'Dofus',  desc:'5000t — les 12 dieux reconnaissent enfin l\'étendue de ton labeur',                   ck:()=>totalVol>=5000000});
-  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Kenpachi du Volume',          ref:'Bleach', desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter',    ck:()=>totalVol>=7500000});
-  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Krosmoz',                     ref:'Dofus',  desc:'10 000t cumulées — tu dépasses le monde des Douze. Tu ES le Krosmoz',                 ck:()=>totalVol>=10000000});
+  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',           ref:'Dofus',  desc:'10t cumulées — la forge ne fait que commencer', condition:'10t cumulées', ck:()=>totalVol>=10000});
+  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan d\'Astrub',            ref:'Dofus',  desc:'50t — tes premiers pas d\'artisan sont validés par la guilde', condition:'50t cumulées', ck:()=>totalVol>=50000});
+  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',                 ref:'Bleach', desc:'100t — ton zanpakuto prend enfin une forme reconnaissable', condition:'100t cumulées', ck:()=>totalVol>=100000});
+  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Sacrieur Éprouvé',            ref:'Dofus',  desc:'250t — la douleur est devenue ton alliée la plus fidèle', condition:'250t cumulées', ck:()=>totalVol>=250000});
+  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Shikai du Tonnage',           ref:'Bleach', desc:'500t — ton zanpakuto rugit de satisfaction à chaque kilo supplémentaire', condition:'500t cumulées', ck:()=>totalVol>=500000});
+  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur du Monde',          ref:'Dofus',  desc:'1000t cumulées — assez pour remodeler les continents des Douze nations', condition:'1000t cumulées', ck:()=>totalVol>=1000000});
+  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure du Zanpakuto',        ref:'Bleach', desc:'2500t — ton nom est gravé dans la lame pour l\'éternité', condition:'2500t cumulées', ck:()=>totalVol>=2500000});
+  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien des Douze',           ref:'Dofus',  desc:'5000t — les 12 dieux reconnaissent enfin l\'étendue de ton labeur', condition:'5000t cumulées', ck:()=>totalVol>=5000000});
+  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Kenpachi du Volume',          ref:'Bleach', desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter', condition:'7500t cumulées', ck:()=>totalVol>=7500000});
+  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Krosmoz',                     ref:'Dofus',  desc:'10 000t cumulées — tu dépasses le monde des Douze. Tu ES le Krosmoz', condition:'10 000t cumulées', ck:()=>totalVol>=10000000});
 
   // ── Durée de séance (max) ──
-  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',             ref:'Dofus',  desc:'1h — le temps d\'un donjon Astrub en solo. Pas mal pour commencer',                  ck:()=>maxSessDur>=3600});
-  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Entraînement de Division',   ref:'Bleach', desc:'1h30 — un entraînement standard au Seireitei entre deux missions',                    ck:()=>maxSessDur>=5400});
-  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Donjon Majeur',              ref:'Dofus',  desc:'2h — le temps d\'un donjon de haut niveau avec une bonne équipe',                    ck:()=>maxSessDur>=7200});
-  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Dangai Training',            ref:'Bleach', desc:'2h30 — Ichigo s\'entraînait dans le Dangai avant l\'affrontement final',              ck:()=>maxSessDur>=9000});
-  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',            ref:'Dofus',  desc:'3h — même Xelor est impressionné par ta maîtrise du tempo',                          ck:()=>maxSessDur>=10800});
-  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Retraite de Seireitei',      ref:'Bleach', desc:'4h — comme Byakuya en méditation solitaire avant d\'activer son Bankai',              ck:()=>maxSessDur>=14400});
-  b.push({id:'dur480', r:'divine',    icon:'🛋️', name:'T\'es au chômage ?',         ref:'—',      desc:'8h en une séance — c\'est une journée de boulot. Appelle tes proches', impossible:true, ck:()=>false});
+  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',             ref:'Dofus',  desc:'1h — le temps d\'un donjon Astrub en solo. Pas mal pour commencer', condition:'1h en 1 séance', ck:()=>maxSessDur>=3600});
+  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Entraînement de Division',   ref:'Bleach', desc:'1h30 — un entraînement standard au Seireitei entre deux missions', condition:'1h30 en 1 séance', ck:()=>maxSessDur>=5400});
+  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Donjon Majeur',              ref:'Dofus',  desc:'2h — le temps d\'un donjon de haut niveau avec une bonne équipe', condition:'2h en 1 séance', ck:()=>maxSessDur>=7200});
+  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Dangai Training',            ref:'Bleach', desc:'2h30 — Ichigo s\'entraînait dans le Dangai avant l\'affrontement final', condition:'2h30 en 1 séance', ck:()=>maxSessDur>=9000});
+  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',            ref:'Dofus',  desc:'3h — même Xelor est impressionné par ta maîtrise du tempo', condition:'3h en 1 séance', ck:()=>maxSessDur>=10800});
+  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Retraite de Seireitei',      ref:'Bleach', desc:'4h — comme Byakuya en méditation solitaire avant d\'activer son Bankai', condition:'4h en 1 séance', ck:()=>maxSessDur>=14400});
+  b.push({id:'dur480', r:'divine',    icon:'🛋️', name:'T\'es au chômage ?',         ref:'—',      desc:'8h en une séance — c\'est une journée de boulot. Appelle tes proches', impossible:true, condition:'8h en 1 séance', ck:()=>false});
 
   // ── Temps d\'entraînement cumulatif ──
-  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures de Forge',         ref:'Dofus',  desc:'50h cumulées — un forgeron de Bonta met moins de temps pour une épée légendaire',    ck:()=>totalDur>=180000});
-  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Siège Confirmé',             ref:'Bleach', desc:'100h — ta place au Seireitei n\'est plus discutable pour personne',                  ck:()=>totalDur>=360000});
-  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maîtrise du Reishi',         ref:'Bleach', desc:'250h — ton énergie spirituelle prend une forme permanente et visible',               ck:()=>totalDur>=900000});
-  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Reiatsu Écrasant',           ref:'Bleach', desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire',         ck:()=>totalDur>=1800000});
-  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Millénaire des Douze',        ref:'Dofus',  desc:'1000h — mille heures gravées dans l\'histoire du monde des Douze nations',            ck:()=>totalDur>=3600000});
-  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Bankai Final',               ref:'Bleach', desc:'1500h — même Yamamoto regardait avec respect ceux qui avaient autant forgé',         ck:()=>totalDur>=5400000});
-  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu Forgeron',              ref:'Dofus',  desc:'2000h — les dieux des Douze eux-mêmes n\'ont pas forgé autant dans leur vie',        ck:()=>totalDur>=7200000});
+  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures de Forge',         ref:'Dofus',  desc:'50h cumulées — un forgeron de Bonta met moins de temps pour une épée légendaire', condition:'50h cumulées', ck:()=>totalDur>=180000});
+  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Siège Confirmé',             ref:'Bleach', desc:'100h — ta place au Seireitei n\'est plus discutable pour personne', condition:'100h cumulées', ck:()=>totalDur>=360000});
+  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maîtrise du Reishi',         ref:'Bleach', desc:'250h — ton énergie spirituelle prend une forme permanente et visible', condition:'250h cumulées', ck:()=>totalDur>=900000});
+  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Reiatsu Écrasant',           ref:'Bleach', desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire', condition:'500h cumulées', ck:()=>totalDur>=1800000});
+  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Millénaire des Douze',        ref:'Dofus',  desc:'1000h — mille heures gravées dans l\'histoire du monde des Douze nations', condition:'1000h cumulées', ck:()=>totalDur>=3600000});
+  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Bankai Final',               ref:'Bleach', desc:'1500h — même Yamamoto regardait avec respect ceux qui avaient autant forgé', condition:'1500h cumulées', ck:()=>totalDur>=5400000});
+  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu Forgeron',              ref:'Dofus',  desc:'2000h — les dieux des Douze eux-mêmes n\'ont pas forgé autant dans leur vie', condition:'2000h cumulées', ck:()=>totalDur>=7200000});
 
   // ── Séries totales ──
-  b.push({id:'st100',   r:'common',    icon:'📊', name:'Recrue du Seireitei',         ref:'Bleach', desc:'100 séries — les officiers du Seireitei commencent à te remarquer',                  ck:()=>totalSets>=100});
-  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier de Bonta',           ref:'Dofus',  desc:'500 séries — la milice de Bonta t\'inscrit dans ses rangs officiels',                ck:()=>totalSets>=500});
-  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Sacrieur Confirmé',           ref:'Dofus',  desc:'1000 séries de douleur — ton corps est devenu un véritable temple sacré',             ck:()=>totalSets>=1000});
-  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Libération Shikai',           ref:'Bleach', desc:'2500 séries — ta lame intérieure se libère enfin et révèle son vrai nom',             ck:()=>totalSets>=2500});
-  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant des Douze',        ref:'Dofus',  desc:'5000 séries — les 12 nations connaissent ton nom et tremblent',                       ck:()=>totalSets>=5000});
-  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Les 10 000 Coups',            ref:'Bleach', desc:'10 000 séries — Yamamoto frappait 10 000 fois par jour depuis des siècles',          ck:()=>totalSets>=10000});
-  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Ascension Divine',            ref:'Dofus',  desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende des Douze',     ck:()=>totalSets>=20000});
-  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Finale Absolue',        ref:'Bleach', desc:'40 000 séries — au-delà du Bankai. Au-delà de tout ce qui existe',                   ck:()=>totalSets>=40000});
+  b.push({id:'st100',   r:'common',    icon:'📊', name:'Recrue du Seireitei',         ref:'Bleach', desc:'100 séries — les officiers du Seireitei commencent à te remarquer', condition:'100 séries', ck:()=>totalSets>=100});
+  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier de Bonta',           ref:'Dofus',  desc:'500 séries — la milice de Bonta t\'inscrit dans ses rangs officiels', condition:'500 séries', ck:()=>totalSets>=500});
+  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Sacrieur Confirmé',           ref:'Dofus',  desc:'1000 séries de douleur — ton corps est devenu un véritable temple sacré', condition:'1000 séries', ck:()=>totalSets>=1000});
+  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Libération Shikai',           ref:'Bleach', desc:'2500 séries — ta lame intérieure se libère enfin et révèle son vrai nom', condition:'2500 séries', ck:()=>totalSets>=2500});
+  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant des Douze',        ref:'Dofus',  desc:'5000 séries — les 12 nations connaissent ton nom et tremblent', condition:'5000 séries', ck:()=>totalSets>=5000});
+  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Les 10 000 Coups',            ref:'Bleach', desc:'10 000 séries — Yamamoto frappait 10 000 fois par jour depuis des siècles', condition:'10 000 séries', ck:()=>totalSets>=10000});
+  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Ascension Divine',            ref:'Dofus',  desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende des Douze', condition:'20 000 séries', ck:()=>totalSets>=20000});
+  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Finale Absolue',        ref:'Bleach', desc:'40 000 séries — au-delà du Bankai. Au-delà de tout ce qui existe', condition:'40 000 séries', ck:()=>totalSets>=40000});
 
   // ── Exercices uniques maîtrisés ──
-  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet d\'Astrub',             ref:'Dofus',  desc:'10 exercices — le carnet de l\'apprenti commence à se remplir',                      ck:()=>uniqueExos>=10});
-  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent du Gotei',          ref:'Bleach', desc:'25 exercices — tu maîtrises Kidō, Zanjutsu et Hakuda à la fois',                    ck:()=>uniqueExos>=25});
-  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie des Douze',       ref:'Dofus',  desc:'50 exercices — les 12 nations n\'ont plus de secrets pour toi',                     ck:()=>uniqueExos>=50});
-  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit d\'Urahara',            ref:'Bleach', desc:'75 exercices — même Kisuke serait impressionné par ta pluridisciplinarité',          ck:()=>uniqueExos>=75});
-  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de toutes les Classes', ref:'Dofus',  desc:'100 exercices — Iop, Sacrieur, Pandawa... tu les incarnes tous à la fois',           ck:()=>uniqueExos>=100});
+  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet d\'Astrub',             ref:'Dofus',  desc:'10 exercices — le carnet de l\'apprenti commence à se remplir', condition:'10 exercices', ck:()=>uniqueExos>=10});
+  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent du Gotei',          ref:'Bleach', desc:'25 exercices — tu maîtrises Kidō, Zanjutsu et Hakuda à la fois', condition:'25 exercices', ck:()=>uniqueExos>=25});
+  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie des Douze',       ref:'Dofus',  desc:'50 exercices — les 12 nations n\'ont plus de secrets pour toi', condition:'50 exercices', ck:()=>uniqueExos>=50});
+  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit d\'Urahara',            ref:'Bleach', desc:'75 exercices — même Kisuke serait impressionné par ta pluridisciplinarité', condition:'75 exercices', ck:()=>uniqueExos>=75});
+  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de toutes les Classes', ref:'Dofus',  desc:'100 exercices — Iop, Sacrieur, Pandawa... tu les incarnes tous à la fois', condition:'100 exercices', ck:()=>uniqueExos>=100});
 
 
   // ── Bench Press ──
@@ -3437,7 +3486,7 @@ function getAllBadges() {
   const _benchNames = ["L'Apprenti d'Astrub","Cogneur de la Milice","Iop Authentique","Sacrieur de la Fonte","Shikai Débloqué","Champion de Brakmar","Reishi Condensé","Goultard le Barbare","Reiatsu d'Élite","Fracture du Temps","Lame de Glace de Rukia","Kenpachi Sans Bandeau","BANKAI — Pectoraux"];
   const _benchRefs = ['Dofus','Dofus','Dofus','Dofus','Bleach','Dofus','Bleach','Dofus','Bleach','Bleach','Bleach','Bleach','Bleach'];
   const _benchDescs = ["Astrub reconnaît tes efforts. La forge ne fait que commencer","Les miliciens d'Astrub s'écartent sur ton passage","Force avant tout — l'intelligence peut attendre selon les Iops","Ta douleur est ton carburant — sang et acier mêlés","Ton zanpakuto pectoraux a enfin révélé sa vraie forme","Même les forces obscures de Brakmar fléchissent devant toi","Ton aura déborde — les plafonds de la salle tremblent","Tu atteins la légende du plus grand des Iops de l'histoire","Ton reiatsu commence à impressionner les capitaines du Gotei","Tout sacrifier pour un PR — ta lame brise le temps lui-même","Ton press glace l'atmosphère — Sode no Shirayuki s'incline","Il a retiré son bandeau — il te voit enfin comme un rival digne","Forme finale. Byakuya pose Senbonzakura pour t'admirer"];
-  _bt.bench.forEach((kg,i)=>b.push({id:`bench_${kg}`,r:_benchRarities[i]||'mythic',icon:_benchIcons[i]||'💥',name:_benchNames[i]||('Bench '+kg+'kg'),ref:_benchRefs[i]||'Bleach',desc:_benchDescs[i]||('Bench press '+kg+'kg'),ck:()=>B>=kg}));
+  _bt.bench.forEach((kg,i)=>b.push({id:`bench_${kg}`,r:_benchRarities[i]||'mythic',icon:_benchIcons[i]||'💥',name:_benchNames[i]||('Bench '+kg+'kg'),ref:_benchRefs[i]||'Bleach',desc:_benchDescs[i]||('Bench press '+kg+'kg'),condition:'Bench '+kg+'kg',ck:()=>B>=kg}));
 
   // ── Squat ──
   const _squatRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
@@ -3445,7 +3494,7 @@ function getAllBadges() {
   const _squatNames = ["Cavalier de Dragodinde","Pandawa en Transe","Racines d'Amakna","Flux de Reishi","Guerrier du Seireitei","Aura Condensée","Ancré comme un Sadida","Iop Transcendé","Déferlante d'Ogrest","Reiatsu Oppressant","Bankai des Jambes","Flamme de Yamamoto","Chaos Primordial"];
   const _squatRefs = ['Dofus','Dofus','Dofus','Bleach','Bleach','Bleach','Dofus','Dofus','Dofus','Bleach','Bleach','Bleach','Dofus'];
   const _squatDescs = ["Tes cuisses portent ta Dragodinde avec fierté et aisance","L'ivresse de l'acier — la sagesse du Bambou sacré","Tes jambes sont enracinées comme les arbres de la forêt d'Amakna","Ton énergie spirituelle descend dans tes jambes à chaque rep","Pour l'honneur du Gotei — Renji Abarai serait jaloux","Ton aura se condense jusqu'aux genoux à chaque répétition","Les arbres-poupées du Sadida sont jaloux de la force de tes cuisses","Tu dépasses la simple force brute — même un dieu-Iop t'envie","Là où tu squattes, le sol s'en souvient pour toujours","Ton reiatsu involontaire fait plier les genoux des autres clients","Tu as transcendé les limites — la forme finale est atteinte","300kg — Yamamoto lui-même salue cette chaleur dans ses jambes","Au-delà du monde des Douze — tu existes dans l'Extérieur"];
-  _bt.squat.forEach((kg,i)=>b.push({id:`squat_${kg}`,r:_squatRarities[i]||'mythic',icon:_squatIcons[i]||'🌌',name:_squatNames[i]||('Squat '+kg+'kg'),ref:_squatRefs[i]||'Dofus',desc:_squatDescs[i]||('Squat '+kg+'kg'),ck:()=>S>=kg}));
+  _bt.squat.forEach((kg,i)=>b.push({id:`squat_${kg}`,r:_squatRarities[i]||'mythic',icon:_squatIcons[i]||'🌌',name:_squatNames[i]||('Squat '+kg+'kg'),ref:_squatRefs[i]||'Dofus',desc:_squatDescs[i]||('Squat '+kg+'kg'),condition:'Squat '+kg+'kg',ck:()=>S>=kg}));
 
   // ── Deadlift ──
   const _deadRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
@@ -3453,7 +3502,7 @@ function getAllBadges() {
   const _deadNames = ["Forgeron d'Amakna","Bûcheron Musclé","Ombre du Seireitei","Kenpachi t'a Senti","Flamme d'Amaterasu","Sacrieur Transcendé","Shunpo du Sol","Chaos d'Ogrest","Sode no Shirayuki","Getsuga Tensho","Les Trois Cents","Mugetsu du Sol","Zanka no Tachi"];
   const _deadRefs = ['Dofus','Dofus','Bleach','Bleach','Bleach','Dofus','Bleach','Dofus','Bleach','Bleach','Dofus','Bleach','Bleach'];
   const _deadDescs = ["Les forges d'Amakna te font confiance pour le premier lingot","Plus solide que les arbres millénaires de la forêt d'Amakna","Tu tires depuis l'ombre — comme les agents de la Division 2","Il a senti ton reiatsu depuis les profondeurs du Seireitei","Ta barre brûle comme la flamme noire inextinguible de Yamamoto","La douleur du bas du dos t'alimente comme rien d'autre ne peut","Tes mains attrapent la barre avec la vitesse du pas flash","Même Ogrest n'aurait pas osé soulever un tel poids du sol","Ton deadlift gèle l'air ambiant — Rukia approuve dans l'ombre","Ton cri intérieur libère une énergie obscure et dévastatrice","Les 12 Dieux s'inclinent ensemble devant ce chiffre légendaire","Tout ou rien — comme Ichigo face au Roi des Quincies","Yamamoto libère la flamme ultime — ton deadlift en est l'écho"];
-  _bt.deadlift.forEach((kg,i)=>b.push({id:`dead_${kg}`,r:_deadRarities[i]||'mythic',icon:_deadIcons[i]||'🔥',name:_deadNames[i]||('Deadlift '+kg+'kg'),ref:_deadRefs[i]||'Bleach',desc:_deadDescs[i]||('Deadlift '+kg+'kg'),ck:()=>D>=kg}));
+  _bt.deadlift.forEach((kg,i)=>b.push({id:`dead_${kg}`,r:_deadRarities[i]||'mythic',icon:_deadIcons[i]||'🔥',name:_deadNames[i]||('Deadlift '+kg+'kg'),ref:_deadRefs[i]||'Bleach',desc:_deadDescs[i]||('Deadlift '+kg+'kg'),condition:'Dead '+kg+'kg',ck:()=>D>=kg}));
 
   // ── Overhead Press ──
   const _ohpRarities = ['common','uncommon','rare','epic','legendary','mythic'];
@@ -3461,30 +3510,30 @@ function getAllBadges() {
   const _ohpNames = ["Bras d'Iop Junior","Brise de Seireitei","Épaules de la Division","Iop Divin","Épaules de Goultard","Zanka no Tachi — Higashi"];
   const _ohpRefsArr = ['Dofus','Bleach','Bleach','Dofus','Dofus','Bleach'];
   const _ohpDescs = ["Premier pas sur la voie du dieu-Iop. L'acier au-dessus ne fait que commencer","60kg au-dessus — un Shinigami de 6e division te regarderait avec respect","Les épaulières du Seireitei ont été forgées pour tes épaules","La paume tendue vers le ciel — 100kg au-dessus comme un dieu-Iop","Goultard portait ses victoires légendaires sur ces épaules millénaires","Yamamoto libère sa flamme vers les cieux — ton press en est l'écho terrestre"];
-  _bt.ohp.forEach((kg,i)=>b.push({id:`ohp_${kg}`,r:_ohpRarities[i]||'mythic',icon:_ohpIcons[i]||'🔥',name:_ohpNames[i]||('OHP '+kg+'kg'),ref:_ohpRefsArr[i]||'Bleach',desc:_ohpDescs[i]||('OHP '+kg+'kg'),ck:()=>ohpRM>=kg}));
+  _bt.ohp.forEach((kg,i)=>b.push({id:`ohp_${kg}`,r:_ohpRarities[i]||'mythic',icon:_ohpIcons[i]||'🔥',name:_ohpNames[i]||('OHP '+kg+'kg'),ref:_ohpRefsArr[i]||'Bleach',desc:_ohpDescs[i]||('OHP '+kg+'kg'),condition:'OHP '+kg+'kg',ck:()=>ohpRM>=kg}));
 
   // ── Total SBD ──
-  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            ref:'Dofus',  desc:'B+S+D ≥ 300kg — les trois piliers accomplis. Rushu frémit depuis sa prison',       ck:()=>total>=300});
-  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          ref:'Bleach', desc:'B+S+D ≥ 400kg — ton reiatsu combiné commence à impressionner le Gotei 13',          ck:()=>total>=400});
-  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total de Goultard',      ref:'Dofus',  desc:'B+S+D ≥ 500kg — le légendaire Iop te tend la main en signe d\'égal à égal',        ck:()=>total>=500});
-  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     ref:'Bleach', desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un capitaine du Gotei 13',     ck:()=>total>=600});
-  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos de l\'Extérieur',  ref:'Dofus',  desc:'B+S+D ≥ 700kg — même les Dieux des Douze se taisent devant ta force brute',        ck:()=>total>=700});
-  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Bankai Total',           ref:'Bleach', desc:'B+S+D ≥ 800kg — Yamamoto libère sa flamme en signe d\'hommage ultime',             ck:()=>total>=800});
+  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            ref:'Dofus',  desc:'B+S+D ≥ 300kg — les trois piliers accomplis. Rushu frémit depuis sa prison', condition:'Total SBD ≥ 300kg', ck:()=>total>=300});
+  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          ref:'Bleach', desc:'B+S+D ≥ 400kg — ton reiatsu combiné commence à impressionner le Gotei 13', condition:'Total SBD ≥ 400kg', ck:()=>total>=400});
+  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total de Goultard',      ref:'Dofus',  desc:'B+S+D ≥ 500kg — le légendaire Iop te tend la main en signe d\'égal à égal', condition:'Total SBD ≥ 500kg', ck:()=>total>=500});
+  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     ref:'Bleach', desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un capitaine du Gotei 13', condition:'Total SBD ≥ 600kg', ck:()=>total>=600});
+  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos de l\'Extérieur',  ref:'Dofus',  desc:'B+S+D ≥ 700kg — même les Dieux des Douze se taisent devant ta force brute', condition:'Total SBD ≥ 700kg', ck:()=>total>=700});
+  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Bankai Total',           ref:'Bleach', desc:'B+S+D ≥ 800kg — Yamamoto libère sa flamme en signe d\'hommage ultime', condition:'Total SBD ≥ 800kg', ck:()=>total>=800});
 
   // ── Poids de Corps ──
   if (bw > 0) {
     const _bwB = _gender === 'female' ? [0.75, 1.0, 1.25] : [1.0, 1.5, 2.0];
     const _bwS = _gender === 'female' ? [1.0, 1.5, 2.0] : [1.5, 2.0, 2.5];
     const _bwD = _gender === 'female' ? [1.25, 1.75, 2.25] : [2.0, 2.5, 3.0];
-    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:_bwB[0]+'× au Bench',    ref:'Dofus',  desc:`${Math.round(bw*_bwB[0])}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`,  ck:()=>B>=bw*_bwB[0]});
-    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:_bwB[1]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[1])}kg — digne d'un combattant du Seireitei`,                             ck:()=>B>=bw*_bwB[1]});
-    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:_bwB[2]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[2])}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`,              ck:()=>B>=bw*_bwB[2]});
-    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:_bwS[0]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[0])}kg — la milice de Bonta est impressionnée par ta puissance`,            ck:()=>S>=bw*_bwS[0]});
-    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:_bwS[1]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[1])}kg — les Sadidas sont jaloux de ta puissance de jambes`,                ck:()=>S>=bw*_bwS[1]});
-    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:_bwS[2]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[2])}kg — Ogrest lui-même ne squattait pas autant à son pic`,                ck:()=>S>=bw*_bwS[2]});
-    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:_bwD[0]+'× au Deadlift', ref:'Dofus',  desc:`${Math.round(bw*_bwD[0])}kg deadlift — les forgerons de Bonta s'inclinent en silence`,           ck:()=>D>=bw*_bwD[0]});
-    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[1])}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`,                  ck:()=>D>=bw*_bwD[1]});
-    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[2])}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`,         ck:()=>D>=bw*_bwD[2]});
+    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:_bwB[0]+'× au Bench',    ref:'Dofus',  desc:`${Math.round(bw*_bwB[0])}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`, condition:_bwB[0]+'× BW au Bench', ck:()=>B>=bw*_bwB[0]});
+    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:_bwB[1]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[1])}kg — digne d'un combattant du Seireitei`, condition:_bwB[1]+'× BW au Bench', ck:()=>B>=bw*_bwB[1]});
+    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:_bwB[2]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[2])}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`, condition:_bwB[2]+'× BW au Bench', ck:()=>B>=bw*_bwB[2]});
+    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:_bwS[0]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[0])}kg — la milice de Bonta est impressionnée par ta puissance`, condition:_bwS[0]+'× BW au Squat', ck:()=>S>=bw*_bwS[0]});
+    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:_bwS[1]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[1])}kg — les Sadidas sont jaloux de ta puissance de jambes`, condition:_bwS[1]+'× BW au Squat', ck:()=>S>=bw*_bwS[1]});
+    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:_bwS[2]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[2])}kg — Ogrest lui-même ne squattait pas autant à son pic`, condition:_bwS[2]+'× BW au Squat', ck:()=>S>=bw*_bwS[2]});
+    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:_bwD[0]+'× au Deadlift', ref:'Dofus',  desc:`${Math.round(bw*_bwD[0])}kg deadlift — les forgerons de Bonta s'inclinent en silence`, condition:_bwD[0]+'× BW au Dead', ck:()=>D>=bw*_bwD[0]});
+    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[1])}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`, condition:_bwD[1]+'× BW au Dead', ck:()=>D>=bw*_bwD[1]});
+    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[2])}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`, condition:_bwD[2]+'× BW au Dead', ck:()=>D>=bw*_bwD[2]});
   }
 
   // ── Streak (semaines consécutives) ──
@@ -3513,19 +3562,19 @@ function getAllBadges() {
     [494, 'mythic',    '🌠', "Mugetsu de l'Âme",          'Bleach', "9 ans et demi — tu brûles tout ce qui te reste pour tenir debout"],
     [520, 'divine',    '🔥', "Zanka no Tachi",            'Bleach', "10 ans — Yamamoto libérait la flamme ultime. Tu ES cette flamme"],
   ];
-  streakData.forEach(([w,r,icon,name,ref,desc])=>b.push({id:`streak_${w}`,r,icon,name,ref,desc,ck:()=>streak>=w}));
+  streakData.forEach(([w,r,icon,name,ref,desc])=>b.push({id:`streak_${w}`,r,icon,name,ref,desc,condition:w+' semaines',ck:()=>streak>=w}));
 
   // ── Collectionneur ──
   const normalBadges = b.filter(x=>!x.impossible);
   const baseUnlocked = normalBadges.filter(x=>x.ck()).length;
   const totalNormal  = normalBadges.length;
-  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      ref:'Dofus',        desc:'5 badges — ton inventaire commence à se remplir d\'histoire',                       ck:()=>baseUnlocked>=5});
-  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur d\'Âmes',  ref:'Bleach',       desc:'15 badges — tu accumules les lames comme un Shinigami expérimenté',                ck:()=>baseUnlocked>=15});
-  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    ref:'Dofus',        desc:'30 badges — les vitrines d\'Astrub ne suffisent plus à tout exposer',               ck:()=>baseUnlocked>=30});
-  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste du Seireitei', ref:'Bleach',       desc:'50 badges — le Département de Recherche du Seireitei t\'envie profondément',        ck:()=>baseUnlocked>=50});
-  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     ref:'Dofus',        desc:'75 badges — ta panoplie légendaire fait pâlir les marchands d\'équipement',         ck:()=>baseUnlocked>=75});
-  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal',            ck:()=>baseUnlocked>=100});
-  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes',          ck:()=>baseUnlocked>=totalNormal});
+  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      ref:'Dofus',        desc:'5 badges — ton inventaire commence à se remplir d\'histoire', condition:'5 badges', ck:()=>baseUnlocked>=5});
+  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur d\'Âmes',  ref:'Bleach',       desc:'15 badges — tu accumules les lames comme un Shinigami expérimenté', condition:'15 badges', ck:()=>baseUnlocked>=15});
+  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    ref:'Dofus',        desc:'30 badges — les vitrines d\'Astrub ne suffisent plus à tout exposer', condition:'30 badges', ck:()=>baseUnlocked>=30});
+  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste du Seireitei', ref:'Bleach',       desc:'50 badges — le Département de Recherche du Seireitei t\'envie profondément', condition:'50 badges', ck:()=>baseUnlocked>=50});
+  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     ref:'Dofus',        desc:'75 badges — ta panoplie légendaire fait pâlir les marchands d\'équipement', condition:'75 badges', ck:()=>baseUnlocked>=75});
+  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>baseUnlocked>=100});
+  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>baseUnlocked>=totalNormal});
 
   return b;
 }
@@ -3600,6 +3649,13 @@ function getAllBestE1RMs() {
   return best;
 }
 
+function toggleBdgSection(head) {
+  const body = head.nextElementSibling;
+  const chev = head.querySelector('.bdg-sec-chev');
+  body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open');
+}
+
 function renderGamificationTab() {
   const bw = db.user.bw || 80;
   const totalXP = calcTotalXP();
@@ -3607,28 +3663,39 @@ function renderGamificationTab() {
   const nextLevel = getNextXPLevel(totalXP);
   const streak = calcStreak();
 
-  // ── Level card ──
+  // ── Level card (.lvl-*) ──
   const levelCard = document.getElementById('gamLevelCard');
   const xpInLevel = totalXP - currLevel.xp;
   const xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
   const pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
-  const nextName = nextLevel ? `→ ${nextLevel.icon} ${nextLevel.name}` : 'NIVEAU MAX';
-  levelCard.innerHTML =
-    `<div class="gam-level-icon">${currLevel.icon}</div>` +
-    `<div class="gam-level-name">${currLevel.name}</div>` +
-    `<div class="gam-level-sub">${currLevel.sub||''}</div>` +
-    `<div class="gam-level-num">Niveau ${currLevel.level} · ${totalXP.toLocaleString()} XP</div>` +
-    `<div class="gam-xp-bar-wrap"><div class="gam-xp-bar" style="width:${pct}%;"></div></div>` +
-    `<div class="gam-xp-text"><span>${xpInLevel.toLocaleString()} / ${xpToNext.toLocaleString()} XP</span><span style="color:var(--purple);font-size:10px;">${nextName}</span></div>` +
-    `<div class="gam-stats-row">` +
-      `<div class="gam-stat"><div class="gam-stat-val">${db.logs.length}</div><div class="gam-stat-label">Séances</div></div>` +
-      `<div class="gam-stat"><div class="gam-stat-val">${streak}</div><div class="gam-stat-label">🔥 Sem. streak</div></div>` +
-      `<div class="gam-stat"><div class="gam-stat-val">${Math.round(db.logs.reduce((s,l)=>s+(l.volume||0),0)/1000)}t</div><div class="gam-stat-label">Vol. total</div></div>` +
-    `</div>`;
+  const nextName = nextLevel ? '→ ' + nextLevel.icon + ' ' + nextLevel.name : 'NIVEAU MAX';
+  const totalVolT = Math.round(db.logs.reduce((s,l) => s + (l.volume||0), 0) / 1000);
 
-  // ── Strength levels per exercise ──
+  levelCard.innerHTML =
+    '<div class="lvl-card">' +
+      '<div class="lvl-bg"></div>' +
+      '<div class="lvl-top">' +
+        '<div class="lvl-icon-wrap">' + currLevel.icon + '<div class="lvl-icon-ring"></div></div>' +
+        '<div class="lvl-info">' +
+          '<div class="lvl-num">Niveau ' + currLevel.level + ' · ' + totalXP.toLocaleString() + ' XP</div>' +
+          '<div class="lvl-name">' + currLevel.name + '</div>' +
+          '<div style="font-size:11px;color:var(--sub);font-style:italic;">' + (currLevel.sub||'') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="lvl-xp-row">' +
+        '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar" style="width:' + pct + '%;"></div></div>' +
+        '<div class="lvl-xp-text"><span><strong>' + xpInLevel.toLocaleString() + '</strong> / ' + xpToNext.toLocaleString() + ' XP</span><span class="lvl-next">' + nextName + '</span></div>' +
+      '</div>' +
+      '<div class="lvl-stats">' +
+        '<div class="lvl-stat"><div class="lvl-stat-val">' + db.logs.length + '</div><div class="lvl-stat-lbl">Séances</div></div>' +
+        '<div class="lvl-stat"><div class="lvl-stat-val">' + streak + '🔥</div><div class="lvl-stat-lbl">Streak sem.</div></div>' +
+        '<div class="lvl-stat"><div class="lvl-stat-val">' + totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
+      '</div>' +
+    '</div>';
+
+  // ── Strength cards (.str-*) ──
   const bestE1RMs = getAllBestE1RMs();
-  const strContent = document.getElementById('gamStrengthContent');
+  const strContainer = document.getElementById('gamStrengthContent');
   let strHtml = '';
   const categorized = [];
   for (const [name, data] of Object.entries(bestE1RMs)) {
@@ -3636,92 +3703,153 @@ function renderGamificationTab() {
     if (sl) categorized.push({ name, e1rm: data.e1rm, sl });
   }
   categorized.sort((a,b) => b.sl.levelIdx - a.sl.levelIdx || b.sl.ratio - a.sl.ratio);
+
   if (categorized.length === 0) {
     strHtml = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div>';
   } else {
-    categorized.forEach(({ name, e1rm, sl }) => {
-      const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      let ratios = null;
-      for (const [,std] of Object.entries(STRENGTH_STANDARDS)) {
-        if (std.patterns.some(p=>p.test(norm))) { ratios=std.ratios; break; }
+    const segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+    const segLabels = ['Déb.','Novice','Inter.','Avancé','Élite'];
+
+    categorized.forEach(function(item) {
+      var name = item.name, e1rm = item.e1rm, sl = item.sl;
+      var norm = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+      var ratios = null;
+      for (var key in STRENGTH_STANDARDS) {
+        if (STRENGTH_STANDARDS[key].patterns.some(function(p){ return p.test(norm); })) { ratios = STRENGTH_STANDARDS[key].ratios; break; }
       }
       if (!ratios) return;
-      const maxR = ratios[ratios.length-1]*1.2;
-      const markerPct = Math.min(98,Math.max(2,(sl.ratio/maxR)*100));
-      const segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
-      const segPcts = ratios.map(r=>(r/maxR)*100);
-      strHtml += `<div class="gam-str-exo">`;
-      strHtml += `<div class="gam-str-exo-name"><span>${name}</span><span><span class="gam-str-badge" style="background:${sl.color}22;color:${sl.color};">${sl.label}</span> <span style="color:var(--sub);font-size:11px;">${sl.topPct}</span></span></div>`;
-      strHtml += `<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">e1RM : <strong style="color:var(--text);">${Math.round(e1rm)}kg</strong> (${sl.ratio}× BW)</div>`;
-      strHtml += `<div class="gam-str-bar-wrap">`;
-      let last=0;
-      segPcts.forEach((sp,i)=>{const w=sp-last;strHtml+=`<div style="position:absolute;left:${last}%;width:${w}%;height:100%;background:${segColors[i]};opacity:0.3;${i===0?'border-radius:10px 0 0 10px':''}${i===segPcts.length-1?'border-radius:0 10px 10px 0':''}"></div>`;last=sp;});
-      strHtml+=`<div style="position:absolute;left:0;width:${markerPct}%;height:100%;background:${sl.color};opacity:0.5;border-radius:10px;"></div>`;
-      strHtml+=`<div class="gam-str-marker" style="left:${markerPct}%;"></div>`;
-      strHtml += `</div><div class="gam-str-labels"><span>Déb.</span><span>Novice</span><span>Inter.</span><span>Avancé</span><span>Élite</span></div></div>`;
+      var maxR = ratios[ratios.length-1] * 1.2;
+      var needlePct = Math.min(98, Math.max(2, (sl.ratio / maxR) * 100));
+
+      var segsHtml = '', prev = 0;
+      ratios.forEach(function(r, i) {
+        var p = (r / maxR) * 100, w = p - prev;
+        segsHtml += '<div class="str-bar-seg" style="width:' + w + '%;background:' + segColors[i] + ';opacity:0.3;"></div>';
+        prev = p;
+      });
+
+      var legendHtml = '';
+      segLabels.forEach(function(lbl, i) {
+        legendHtml += '<div class="str-legend-item"><div class="str-legend-dot" style="background:' + segColors[i] + ';"></div>' + lbl + '</div>';
+      });
+
+      strHtml +=
+        '<div class="str-card">' +
+          '<div class="str-head"><div class="str-name">' + name + '</div><div class="str-right"><div class="str-e1rm">' + Math.round(e1rm) + '<span>kg</span></div><div class="str-bw">' + sl.ratio + '× BW</div></div></div>' +
+          '<div class="str-badge-row"><div class="str-badge" style="background:' + sl.color + '22;color:' + sl.color + ';">' + sl.label + '</div><div class="str-top">' + sl.topPct + '</div></div>' +
+          '<div class="str-bar-wrap">' +
+            '<div class="str-bar-segs">' + segsHtml + '</div>' +
+            '<div class="str-bar-fill" style="width:' + needlePct + '%;background:' + sl.color + ';"></div>' +
+            '<div class="str-bar-needle" style="left:' + needlePct + '%;"></div>' +
+          '</div>' +
+          '<div class="str-bar-legend">' + legendHtml + '</div>' +
+        '</div>';
     });
   }
-  strContent.innerHTML = strHtml;
+  strContainer.innerHTML = strHtml;
 
-  // ── Badges par sections ──
-  const badgesContent = document.getElementById('gamBadgesContent');
-  const allBadges = getAllBadges();
-  const rarityLabel = {common:'Commun',uncommon:'Peu Commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
-  const rarityColor = {common:'#555',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+  // ── Badges overview (.bdg-*) ──
+  var allBadges = getAllBadges();
+  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
+  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
 
-  const sections = [
-    { title:'🎯 Séances',                     ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
-    { title:'💪 Volume par Séance',           ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
-    { title:'📦 Volume Cumulatif',            ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
-    { title:'⏱️ Durée de Séance',             ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
-    { title:'🕐 Temps Total d\'Entraînement', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
-    { title:'🔢 Séries Totales',              ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
-    { title:'🧩 Exercices Maîtrisés',         ids: ['ex10','ex25','ex50','ex75','ex100'] },
-    { title:'🏋️ Bench Press',                 ids: allBadges.filter(b=>b.id.startsWith('bench_')).map(b=>b.id) },
-    { title:'🦵 Squat',                       ids: allBadges.filter(b=>b.id.startsWith('squat_')).map(b=>b.id) },
-    { title:'💀 Deadlift',                    ids: allBadges.filter(b=>b.id.startsWith('dead_')).map(b=>b.id) },
-    { title:'🔝 Overhead Press',              ids: allBadges.filter(b=>b.id.startsWith('ohp_')).map(b=>b.id) },
-    { title:'🔱 Total SBD',                   ids: allBadges.filter(b=>b.id.startsWith('total_')).map(b=>b.id) },
-    { title:'⚖️ Poids de Corps',              ids: allBadges.filter(b=>b.id.startsWith('bw_')).map(b=>b.id) },
-    { title:'📅 Assiduité',                   ids: allBadges.filter(b=>b.id.startsWith('streak_')).map(b=>b.id) },
-    { title:'🏆 Collectionneur',              ids: allBadges.filter(b=>b.id.startsWith('col')).map(b=>b.id) },
+  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
+  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
+  var totalCount = normalBadges.length;
+  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
+
+  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
+  var rarityBreakdown = '';
+  rarityOrder.forEach(function(r) {
+    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
+    if (!rBadges.length) return;
+    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
+    var rc = rarityColor[r];
+    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
+  });
+
+  document.getElementById('gamBadgesOverview').innerHTML =
+    '<div class="bdg-overview">' +
+      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
+      '<div class="bdg-total-lbl">Badges débloqués</div>' +
+      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
+      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
+    '</div>';
+
+  // ── Badge sections ──
+  var sections = [
+    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
+    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
+    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
+    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
+    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
+    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
+    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
+    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
+    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
+    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
+    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
+    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
+    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
+    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
+    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
   ];
 
-  const badgeMap = {};
-  allBadges.forEach(b => badgeMap[b.id] = b);
+  var badgeMap = {};
+  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
 
-  let html = '';
-  sections.forEach(sec => {
-    const sectionBadges = sec.ids.map(id=>badgeMap[id]).filter(Boolean);
+  var secHtml = '';
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
     if (!sectionBadges.length) return;
-    const countable = sectionBadges.filter(b=>!b.impossible);
-    const unlocked = countable.filter(b=>b.ck()).length;
-    html += `<div class="gam-badge-section">`;
-    html += `<div class="gam-badge-section-title">${sec.title} <span style="color:var(--purple);font-weight:400;">${unlocked}/${countable.length}</span></div>`;
-    html += `<div class="gam-badge-grid">`;
-    sectionBadges.forEach(badge => {
-      const isUnlocked = badge.ck();
-      const rc = rarityColor[badge.r]||'#555';
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var isOpen = si === 0 ? ' open' : '';
+
+    secHtml += '<div class="bdg-section">';
+    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
+    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
+    secHtml += '</div>';
+    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
+    secHtml += '<div class="bdg-grid">';
+
+    sectionBadges.forEach(function(badge) {
+      var isUnlocked = badge.ck();
+      var rc = rarityColor[badge.r] || '#86868B';
+
       if (badge.impossible) {
-        html += `<div class="gam-badge locked" style="opacity:0.55;border-style:dashed;">`;
-        html += `<div style="font-size:9px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>`;
-        html += `<div class="gam-badge-icon">${badge.icon}</div>`;
-        html += `<div class="gam-badge-name" style="font-size:11px;font-weight:700;margin-bottom:2px;">${badge.name}</div>`;
-        html += `<div class="gam-badge-desc" style="font-size:10px;color:var(--sub);line-height:1.3;">${badge.desc}</div>`;
-        html += `</div>`;
+        secHtml += '<div class="bdg locked" style="opacity:0.55;border-style:dashed;">';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        secHtml += '</div>';
+      } else if (isUnlocked) {
+        secHtml += '<div class="bdg ' + badge.r + '">';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        secHtml += '</div>';
       } else {
-        html += `<div class="gam-badge ${isUnlocked ? badge.r : 'locked'}">`;
-        if (isUnlocked) html += `<div style="font-size:9px;font-weight:700;color:${rc};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">${rarityLabel[badge.r]||''}</div>`;
-        html += `<div class="gam-badge-icon">${isUnlocked ? badge.icon : '🔒'}</div>`;
-        html += `<div class="gam-badge-name" style="font-size:11px;font-weight:700;margin-bottom:2px;">${badge.name}</div>`;
-        if (isUnlocked) html += `<div style="font-size:9px;color:var(--purple);margin-bottom:3px;font-style:italic;">${badge.ref}</div>`;
-        html += `<div class="gam-badge-desc" style="font-size:10px;color:var(--sub);line-height:1.3;">${isUnlocked ? badge.desc : '???'}</div>`;
-        html += `</div>`;
+        secHtml += '<div class="bdg locked">';
+        secHtml += '<div class="bdg-icon">🔒</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">???</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        secHtml += '</div>';
       }
     });
-    html += `</div></div>`;
+
+    secHtml += '</div></div></div>';
   });
-  badgesContent.innerHTML = html;
+
+  document.getElementById('gamBadgesSections').innerHTML = secHtml;
 }
 
 // ============================================================
@@ -7702,14 +7830,7 @@ function renderSettingsProfile() {
 
   // Genre
   const genderEl = document.getElementById('settingsGender');
-  if (genderEl) {
-    const currentGender = db.user.gender || 'unspecified';
-    const genderOpts = [{id:'unspecified',l:'Ne pas préciser'},{id:'male',l:'Homme'},{id:'female',l:'Femme'}];
-    genderEl.innerHTML = genderOpts.map(g => {
-      const active = g.id === currentGender;
-      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsGender('${g.id}', this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${g.l}</button>`;
-    }).join('');
-  }
+  if (genderEl) genderEl.value = db.user.gender || 'unspecified';
 
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
@@ -7795,7 +7916,7 @@ function toggleSettingsGoal(goalId, btn) {
   renderSettingsProfile();
 }
 
-function setSettingsGender(g, btn) { db.user.gender = g; saveDB(); showToast('✓ Profil mis à jour'); renderSettingsProfile(); }
+function setSettingsGender(g) { db.user.gender = g; saveDB(); showToast('✓ Profil mis à jour'); }
 function setSettingsFreq(f, btn) { updateProfileField('freq', f); renderSettingsProfile(); }
 function setSettingsMat(m, btn) { updateProfileField('mat', m); renderSettingsProfile(); }
 function setSettingsDuration(d, btn) { updateProfileField('duration', d); renderSettingsProfile(); }

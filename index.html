@@ -4603,6 +4603,12 @@ function renderPerfCard() {
       changed = true;
       showToast('🎯 ' + kl.name.split(' ')[0] + ' → nouvel objectif ' + kl.target + 'kg !');
     }
+    // Synchroniser db.bestPR depuis les exercices clés (source de vérité)
+    const sbdType = getSBDType(kl.name);
+    if (sbdType && rec.e1rm > 0 && rec.e1rm !== db.bestPR[sbdType]) {
+      db.bestPR[sbdType] = rec.e1rm;
+      changed = true;
+    }
   });
   if (changed) saveDB();
 
@@ -4962,6 +4968,7 @@ function renderDayExercises(day) {
       }
     });
     c.innerHTML = html;
+    _initSparkTooltips(c);
     return;
   }
 
@@ -4981,6 +4988,29 @@ function renderDayExercises(day) {
   }
   let html = entries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
   c.innerHTML = html;
+  _initSparkTooltips(c);
+}
+
+function _initSparkTooltips(container) {
+  container.addEventListener('mouseenter', function(e) {
+    var hit = e.target.closest('.spark-hit');
+    if (!hit) return;
+    var tip = document.getElementById(hit.dataset.tip);
+    if (tip) { tip.innerHTML = '<span style="color:' + hit.dataset.color + ';">' + hit.dataset.label + '</span>'; tip.style.opacity = '1'; }
+  }, true);
+  container.addEventListener('mouseleave', function(e) {
+    var hit = e.target.closest('.spark-hit');
+    if (!hit) return;
+    var tip = document.getElementById(hit.dataset.tip);
+    if (tip) tip.style.opacity = '0';
+  }, true);
+  container.addEventListener('touchstart', function(e) {
+    var hit = e.target.closest('.spark-hit');
+    if (!hit) return;
+    e.preventDefault();
+    var tip = document.getElementById(hit.dataset.tip);
+    if (tip) { tip.innerHTML = '<span style="color:' + hit.dataset.color + ';">' + hit.dataset.label + '</span>'; tip.style.opacity = '1'; setTimeout(function() { tip.style.opacity = '0'; }, 2000); }
+  }, {passive: false});
 }
 
 // ============================================================
@@ -5012,7 +5042,7 @@ function _ecMuscleStyle(name) {
   return { ...s, tag: mg };
 }
 
-// Build sparkline SVG for e1RM progression
+// Build sparkline SVG for e1RM progression (with date tooltips)
 function _buildSparkSVG(exoName, muscleColor) {
   const pts = [];
   const sorted = getSortedLogs();
@@ -5020,31 +5050,38 @@ function _buildSparkSVG(exoName, muscleColor) {
     const log = sorted[i];
     for (const exo of log.exercises) {
       if (matchExoName(exo.name, exoName) && (exo.maxRM || 0) > 0) {
-        pts.push({ ts: log.timestamp, rm: exo.maxRM });
+        pts.push({ ts: log.timestamp, rm: exo.maxRM, date: log.shortDate || formatDate(log.timestamp) });
         break;
       }
     }
   }
   if (pts.length < 2) return '';
   pts.reverse();
-  const w = 280, h = 32, pad = 2;
+  const w = 280, h = 46, pad = 2, topPad = 14;
   const minRM = Math.min(...pts.map(p => p.rm)), maxRM = Math.max(...pts.map(p => p.rm));
   const range = maxRM - minRM || 1;
   const points = pts.map((p, i) => {
     const x = pad + (i / (pts.length - 1)) * (w - pad * 2);
-    const y = pad + (1 - (p.rm - minRM) / range) * (h - pad * 2);
+    const y = topPad + pad + (1 - (p.rm - minRM) / range) * (h - topPad - pad * 2);
     return { x, y };
   });
   const line = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
   const area = line + ' L' + points[points.length - 1].x.toFixed(1) + ',' + h + ' L' + points[0].x.toFixed(1) + ',' + h + ' Z';
-  const last = points[points.length - 1];
   const gradId = 'sg' + Math.random().toString(36).substr(2, 5);
+  const tipId = 'ectip' + Math.random().toString(36).substr(2, 5);
   const col = muscleColor || 'var(--blue)';
-  return '<div class="ec-spark"><svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+  const circles = points.map((p, i) =>
+    '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="' + col + '" opacity="' + (i === points.length-1 ? '1' : '0.5') + '"/>' +
+    '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="14" fill="transparent" class="spark-hit" ' +
+    'data-tip="' + tipId + '" data-label="' + pts[i].rm + 'kg · ' + pts[i].date + '" data-color="' + col + '"/>'
+  ).join('');
+  return '<div class="ec-spark" style="position:relative;">' +
+    '<div id="' + tipId + '" style="position:absolute;top:0;left:0;right:0;text-align:center;font-size:10px;font-weight:600;color:var(--sub);height:12px;pointer-events:none;opacity:0;transition:opacity 0.15s;"></div>' +
+    '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="touch-action:none;">' +
     '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + col + '" stop-opacity="0.15"/><stop offset="100%" stop-color="' + col + '" stop-opacity="0"/></linearGradient></defs>' +
     '<path d="' + area + '" fill="url(#' + gradId + ')"/>' +
     '<path d="' + line + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + col + '"/>' +
+    circles +
     '</svg></div>';
 }
 

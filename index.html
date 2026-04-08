@@ -2967,13 +2967,88 @@ function getAllBadges() {
   const b = [];
   const B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
 
-  // ── Séances & Volume ──
-  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Reçu à l\'Examen',       ref:'Hunter × Hunter', desc:'Première séance — bienvenue dans la Guilde des Hunters',           ck:()=>db.logs.length>=1});
-  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Carte Hunter',            ref:'Hunter × Hunter', desc:'10 séances — ta carte de Hunter est officiellement validée',        ck:()=>db.logs.length>=10});
-  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Hunter Étoile',           ref:'Hunter × Hunter', desc:'50 séances — tu atteins le rang des Hunters d\'élite',             ck:()=>db.logs.length>=50});
-  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion d\'Azeroth',    ref:'World of Warcraft',desc:'100 séances — 100 batailles, 100 victoires. Pour la Horde !',      ck:()=>db.logs.length>=100});
-  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Forgeron de Bonta',       ref:'Dofus',           desc:'10t en une séance — les forges de Bonta s\'inclinent devant toi',  ck:()=>db.logs.some(l=>(l.volume||0)>=10000)});
-  b.push({id:'v20t',  r:'epic',      icon:'🗿', name:'Titan Forgé par Azeroth', ref:'World of Warcraft',desc:'20t en une séance — même les Titans du Panthéon forgent moins',     ck:()=>db.logs.some(l=>(l.volume||0)>=20000)});
+  // ── Stats pré-calculées ──
+  const totalVol    = db.logs.reduce((s,l)=>s+(l.volume||0),0);
+  const maxSessVol  = db.logs.length ? Math.max(...db.logs.map(l=>l.volume||0)) : 0;
+  const totalSets   = db.logs.reduce((s,l)=>s+(l.exercises||[]).reduce((ss,e)=>ss+(e.sets||0),0),0);
+  const uniqueExos  = new Set(db.logs.flatMap(l=>(l.exercises||[]).map(e=>e.name))).size;
+  const weekMs      = 7*86400000;
+  const weekCounts  = {};
+  db.logs.forEach(l=>{ const wk=Math.floor(l.timestamp/weekMs); weekCounts[wk]=(weekCounts[wk]||0)+1; });
+  const maxPerWeek  = Object.values(weekCounts).length ? Math.max(...Object.values(weekCounts)) : 0;
+  const bw          = db.user.bw||0;
+  const ohpRM       = db.logs.reduce((mx,l)=>{ const e=(l.exercises||[]).find(ex=>/overhead|militaire|\bohp\b|press mil/i.test(ex.name)); return e?Math.max(mx,e.maxRM||0):mx; },0);
+  const maxSessDur  = db.logs.reduce((mx,l)=>{ const sets=(l.exercises||[]).reduce((s,e)=>s+(e.sets||0),0); return Math.max(mx,l.duration||(sets*210)); },0);
+  const totalDur    = db.logs.reduce((s,l)=>{ const sets=(l.exercises||[]).reduce((ss,e)=>ss+(e.sets||0),0); return s+(l.duration||(sets*210)); },0);
+  const total       = B+S+D;
+
+  // ── Séances (count) ──
+  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Reçu à l\'Examen',         ref:'Hunter × Hunter',  desc:'Première séance — bienvenue dans la Guilde des Hunters',                          ck:()=>db.logs.length>=1});
+  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Carte Hunter',              ref:'Hunter × Hunter',  desc:'10 séances — ta carte de Hunter est officiellement validée',                      ck:()=>db.logs.length>=10});
+  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Hunter Étoile',             ref:'Hunter × Hunter',  desc:'50 séances — tu atteins le rang des Hunters d\'élite',                            ck:()=>db.logs.length>=50});
+  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion d\'Azeroth',      ref:'World of Warcraft',desc:'100 séances — 100 batailles gagnées. Pour la Horde !',                            ck:()=>db.logs.length>=100});
+  b.push({id:'s200',  r:'epic',      icon:'🎓', name:'Académie Shino Diplômé',    ref:'Bleach',           desc:'200 séances — 6 ans d\'académie shinigami accomplis par ton dévouement',           ck:()=>db.logs.length>=200});
+  b.push({id:'s365',  r:'legendary', icon:'🌍', name:'Tour du Monde des Douze',   ref:'Dofus',            desc:'365 séances — tu as parcouru les 12 nations comme Joris dans la série animée',    ck:()=>db.logs.length>=365});
+  b.push({id:'s500',  r:'legendary', icon:'💀', name:'Héros de la Légion',        ref:'World of Warcraft',desc:'500 séances — la Légion Ardente tremble devant un mortel si acharné',              ck:()=>db.logs.length>=500});
+  b.push({id:'s1000', r:'divine',    icon:'🙏', name:'Corps de Prière',           ref:'Hunter × Hunter',  desc:'1000 séances — Netero n\'avait que 10 000 répétitions. Tu comprends enfin',         ck:()=>db.logs.length>=1000});
+
+  // ── Volume par séance (max session) ──
+  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Tonneau d\'Astrub',          ref:'Dofus',            desc:'1t en une séance — les marchands d\'Astrub notent ton premier passage',              ck:()=>maxSessVol>=1000});
+  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur de Pandawa',          ref:'Dofus',            desc:'3t — même un Pandawa sobre ne porterait pas plus sans tituber',                      ck:()=>maxSessVol>=3000});
+  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Reishi Compressé',            ref:'Bleach',           desc:'5t — ton énergie spirituelle commence à peser comme des particules Reishi',            ck:()=>maxSessVol>=5000});
+  b.push({id:'vs7',   r:'uncommon',  icon:'🎒', name:'Équipement de Chimère',       ref:'Hunter × Hunter',  desc:'7.5t — le chargement tactique d\'un soldat d\'élite de la Reine Chimère Ant',         ck:()=>maxSessVol>=7500});
+  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Forgeron de Bonta',           ref:'Dofus',            desc:'10t en une séance — les forges de Bonta s\'inclinent devant ton labeur',              ck:()=>maxSessVol>=10000});
+  b.push({id:'vs15',  r:'epic',      icon:'🤖', name:'Mécaniste de Gnomeregan',     ref:'World of Warcraft',desc:'15t — même les machines de Gnomeregan n\'auraient pas calculé un tel volume',          ck:()=>maxSessVol>=15000});
+  b.push({id:'v20t',  r:'legendary', icon:'🗿', name:'Titan Forgé par Azeroth',     ref:'World of Warcraft',desc:'20t en une séance — même les Titans du Panthéon forgent moins que toi',               ck:()=>maxSessVol>=20000});
+  b.push({id:'vs30',  r:'mythic',    icon:'😤', name:'Le Cri de Gon',               ref:'Hunter × Hunter',  desc:'30t — ce cri primordial de Gon face à Neferpitou. Tout y passe en une séance',        ck:()=>maxSessVol>=30000});
+  b.push({id:'vs50',  r:'divine',    icon:'🌊', name:'Chaos d\'Ogrest',             ref:'Dofus',            desc:'50t en une séance — Ogrest lui-même a pleuré moins de tonnes ce jour-là',              ck:()=>maxSessVol>=50000});
+
+  // ── Volume cumulatif total ──
+  b.push({id:'vt10',   r:'common',    icon:'⛏️', name:'Apprenti Mineur de Khaz',    ref:'World of Warcraft',desc:'10t cumulées — les mines de Khaz Modan te saluent d\'un hochement de pioche',         ck:()=>totalVol>=10000});
+  b.push({id:'vt50',   r:'uncommon',  icon:'⚒️', name:'Artisan des Douze',           ref:'Dofus',            desc:'50t — les ateliers des 12 nations reconnaissent enfin ton labeur',                    ck:()=>totalVol>=50000});
+  b.push({id:'vt100',  r:'rare',      icon:'🏭', name:'Champion des Fonderies',      ref:'World of Warcraft',desc:'100t — Blackrock Foundry te connaît intimement. Ragnaros approuve',                   ck:()=>totalVol>=100000});
+  b.push({id:'vt250',  r:'epic',      icon:'🧬', name:'Entraîneur des Zoldyeck',     ref:'Hunter × Hunter',  desc:'250t — Silva Zoldyeck lui-même approuve ta méthode de développement physique',         ck:()=>totalVol>=250000});
+  b.push({id:'vt500',  r:'legendary', icon:'🗡️', name:'Shikai du Tonnage',           ref:'Bleach',           desc:'500t — ton zanpakuto rugit de satisfaction à chaque kilo supplémentaire',              ck:()=>totalVol>=500000});
+  b.push({id:'vt1000', r:'mythic',    icon:'🌋', name:'Sculpteur du Monde',          ref:'Dofus',            desc:'1000t cumulées — assez pour remodeler les continents des Douze nations',              ck:()=>totalVol>=1000000});
+  b.push({id:'vt2500', r:'divine',    icon:'🙏', name:'Corps de Netero Forgé',       ref:'Hunter × Hunter',  desc:'2500t — seul Netero avait bâti un corps d\'un tel volume de travail accumulé',         ck:()=>totalVol>=2500000});
+  b.push({id:'vt5000', r:'divine',    icon:'⚡', name:'Titan du Panthéon',           ref:'World of Warcraft',desc:'5000t — les Titans eux-mêmes te classent comme Aspect du Volume Pur',                  ck:()=>totalVol>=5000000});
+
+  // ── Durée de séance (max) ──
+  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Tournoi de Hearthstone',      ref:'World of Warcraft',desc:'60min — le temps d\'une partie de Hearthstone. Sauf que toi tu transpires',           ck:()=>maxSessDur>=3600});
+  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Forêt de Kukuroo',            ref:'Hunter × Hunter',  desc:'90min — Gon et Killua s\'entraînaient ces heures dans la forêt des Zoldyeck',         ck:()=>maxSessDur>=5400});
+  b.push({id:'dur120', r:'rare',      icon:'⚔️', name:'Dangai Training',             ref:'Bleach',           desc:'2h — comme Ichigo et Isshin dans le Dangai avant l\'affrontement final contre Aizen', ck:()=>maxSessDur>=7200});
+  b.push({id:'dur150', r:'epic',      icon:'⏰', name:'Maître du Temps de Xelor',    ref:'Dofus',            desc:'2h30 — Xelor lui-même admire ta capacité à étirer les minutes comme les heures',       ck:()=>maxSessDur>=9000});
+  b.push({id:'dur180', r:'legendary', icon:'🏔️', name:'Gardien de la Montagne',      ref:'Hunter × Hunter',  desc:'3h — l\'endurance légendaire des gardes de la montagne Kukuroo des Zoldyeck',          ck:()=>maxSessDur>=10800});
+  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Retraite de Seireitei',        ref:'Bleach',           desc:'4h — comme Byakuya en méditation solitaire avant d\'activer son Bankai',               ck:()=>maxSessDur>=14400});
+
+  // ── Temps d\'entraînement cumulatif ──
+  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures de Forge',         ref:'Dofus',            desc:'50h cumulées — les artisans de Bonta mettent moins de temps à forger une épée légendaire', ck:()=>totalDur>=180000});
+  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'100 Heures de Combat',        ref:'World of Warcraft',desc:'100h — un vrai soldat d\'Orgrimmar. Thrall compte sur toi pour les prochaines batailles',   ck:()=>totalDur>=360000});
+  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'250 Heures de Nen',           ref:'Hunter × Hunter',  desc:'250h — ton aura commence à prendre une forme permanente visible pour les autres',           ck:()=>totalDur>=900000});
+  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'500 Heures de Reiatsu',       ref:'Bleach',           desc:'500h — ton reiatsu écrase involontairement les humains ordinaires à proximité',              ck:()=>totalDur>=1800000});
+  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'1000 Heures — Prière Éternelle',ref:'Hunter × Hunter',desc:'1000h — Netero priait 1000h par an. Tu comprends maintenant le sens de son geste',          ck:()=>totalDur>=3600000});
+
+  // ── Séries totales ──
+  b.push({id:'st100',  r:'common',    icon:'📊', name:'Premier Bilan',               ref:'World of Warcraft',desc:'100 séries — les officiers d\'Orgrimmar commencent à te remarquer dans la caserne',      ck:()=>totalSets>=100});
+  b.push({id:'st500',  r:'uncommon',  icon:'📈', name:'Académicien du Seireitei',     ref:'Bleach',           desc:'500 séries — les cours de l\'Académie shinigami n\'ont rien à t\'apprendre',              ck:()=>totalSets>=500});
+  b.push({id:'st1000', r:'rare',      icon:'⚡', name:'Sacrieur Éprouvé',             ref:'Dofus',            desc:'1000 séries de douleur — ton corps est devenu un temple sacré du Sacrieur',               ck:()=>totalSets>=1000});
+  b.push({id:'st2500', r:'epic',      icon:'💎', name:'Disciple d\'Isaac Netero',     ref:'Hunter × Hunter',  desc:'2500 séries — Netero n\'acceptait que les élèves ayant franchi ce seuil',                  ck:()=>totalSets>=2500});
+  b.push({id:'st5000', r:'legendary', icon:'🏆', name:'Légion Solitaire',             ref:'World of Warcraft',desc:'5000 séries — tu aurais pu défaire Archimonde seul ce jour-là',                          ck:()=>totalSets>=5000});
+  b.push({id:'st10000',r:'divine',    icon:'🙏', name:'Les 10 000 Coups de Netero',   ref:'Hunter × Hunter',  desc:'10 000 séries — Netero frappait 10 000 fois par jour. Maintenant tu comprends',            ck:()=>totalSets>=10000});
+
+  // ── Exercices uniques maîtrisés ──
+  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet d\'Astrub',             ref:'Dofus',            desc:'10 exercices différents — le carnet de l\'apprenti commence à se remplir',                ck:()=>uniqueExos>=10});
+  b.push({id:'ex25',  r:'uncommon',  icon:'🗺️', name:'Hunter Polyvalent',            ref:'Hunter × Hunter',  desc:'25 exercices — ton carnet Hunter couvre déjà bien des disciplines de combat',              ck:()=>uniqueExos>=25});
+  b.push({id:'ex50',  r:'rare',      icon:'📖', name:'Catalogue d\'Azeroth',         ref:'World of Warcraft',desc:'50 exercices maîtrisés — tu connais tous les arts de l\'Alliance et de la Horde',           ck:()=>uniqueExos>=50});
+  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit de Kisuke Urahara',     ref:'Bleach',           desc:'75 exercices — même Kisuke serait impressionné par ta maîtrise pluridisciplinaire',          ck:()=>uniqueExos>=75});
+  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Encyclopédie des Douze',       ref:'Dofus',            desc:'100 exercices — tu es l\'encyclopédie vivante des arts physiques du monde',                ck:()=>uniqueExos>=100});
+
+  // ── Fréquence hebdomadaire maximale ──
+  b.push({id:'f3',  r:'common',    icon:'🔄', name:'Rythme de Guilde',               ref:'Dofus',            desc:'3 séances/sem — ta guilde te voit comme l\'entraîneur le plus régulier d\'Astrub',         ck:()=>maxPerWeek>=3});
+  b.push({id:'f4',  r:'uncommon',  icon:'💪', name:'Athlète d\'Azeroth',             ref:'World of Warcraft',desc:'4 séances/sem — le rythme des champions de l\'Arène de Dalaran',                          ck:()=>maxPerWeek>=4});
+  b.push({id:'f5',  r:'rare',      icon:'🏹', name:'Candidat Hunter Intensif',       ref:'Hunter × Hunter',  desc:'5 séances/sem — Gon lui-même n\'en faisait pas autant à Whale Island',                    ck:()=>maxPerWeek>=5});
+  b.push({id:'f6',  r:'epic',      icon:'⚡', name:'Régime Zoldyeck',                ref:'Hunter × Hunter',  desc:'6 séances/sem — le programme d\'entraînement quotidien de la famille d\'assassins légendaires', ck:()=>maxPerWeek>=6});
+  b.push({id:'f7',  r:'legendary', icon:'🌑', name:'Zanka no Tachi — Nishi',         ref:'Bleach',           desc:'7 séances/sem — sans repos comme Yamamoto avant que son zanpakuto ne brûle tout',             ck:()=>maxPerWeek>=7});
 
   // ── Bench ──
   const bench = [
@@ -3029,10 +3104,37 @@ function getAllBadges() {
   ];
   dead.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`dead_${kg}`,r,icon,name,ref,desc,ck:()=>D>=kg}));
 
+  // ── Overhead Press ──
+  const ohpData = [
+    [40,  'common',    '💪', "Bras d'Iop Junior",          'Dofus',            "Premier pas sur la voie du dieu-Iop. L'acier au-dessus ne fait que commencer"],
+    [60,  'uncommon',  '🌤️', "Brise de Seireitei",         'Bleach',           "60kg au-dessus — un Shinigami de 6e division te regarderait avec respect"],
+    [80,  'rare',      '🛡️', "Pauldrons de Centurion",     'World of Warcraft',"Les épaulières des Centurions d'Orgrimmar ont été forgées pour tes épaules"],
+    [100, 'epic',      '🤲', "Jajanken — Papier",          'Hunter × Hunter',  "La paume de Gon projetant son énergie vers le ciel — 100kg au-dessus"],
+    [120, 'legendary', '💫', "Épaules de Goultard",        'Dofus',            "Goultard portait ses victoires légendaires sur ces épaules millénaires"],
+    [140, 'mythic',    '🔥', "Zanka no Tachi — Higashi",   'Bleach',           "Yamamoto libère sa flamme vers les cieux — ton press en est l'écho terrestre"],
+  ];
+  ohpData.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`ohp_${kg}`,r,icon,name,ref,desc,ck:()=>ohpRM>=kg}));
+
   // ── Total SBD ──
-  const total = B+S+D;
-  b.push({id:'total_300',r:'rare',     icon:'🔱',name:'La Trinité',         ref:'Dofus',           desc:'B+S+D ≥ 300kg — les trois piliers sont accomplis. Rushu frémit',ck:()=>total>=300});
-  b.push({id:'total_500',r:'legendary',icon:'👑',name:'Total de Goultard',   ref:'Dofus',           desc:'B+S+D ≥ 500kg — le légendaire Iop te tend la main',             ck:()=>total>=500});
+  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',           ref:'Dofus',            desc:'B+S+D ≥ 300kg — les trois piliers accomplis. Rushu frémit depuis sa prison',       ck:()=>total>=300});
+  b.push({id:'total_400',r:'epic',      icon:'🌀',name:'Aura d\'Élite',         ref:'Hunter × Hunter',  desc:'B+S+D ≥ 400kg — ton aura Nen impressionne même Bisky Krueger',                    ck:()=>total>=400});
+  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total de Goultard',     ref:'Dofus',            desc:'B+S+D ≥ 500kg — le légendaire Iop te tend la main en signe d\'égal',               ck:()=>total>=500});
+  b.push({id:'total_600',r:'legendary', icon:'⚡',name:'Shunpo de Force',       ref:'Bleach',           desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un capitaine du Gotei 13',     ck:()=>total>=600});
+  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Armée de l\'Ombre',     ref:'World of Warcraft',desc:'B+S+D ≥ 700kg — Sylvanas elle-même recule devant un tel total de force brute',     ck:()=>total>=700});
+  b.push({id:'total_800',r:'divine',    icon:'🙏',name:'Dieu du Total',         ref:'Hunter × Hunter',  desc:'B+S+D ≥ 800kg — Gon libéré te salue d\'égal à égal depuis son sommet',             ck:()=>total>=800});
+
+  // ── Poids de Corps ──
+  if (bw > 0) {
+    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:'Propre Poids au Bench',  ref:'Dofus',            desc:`${bw}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`,        ck:()=>B>=bw});
+    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:'1.5× au Bench',          ref:'World of Warcraft',desc:`${Math.round(bw*1.5)}kg — digne d'un combattant de l'Arène d'Orgrimmar`,         ck:()=>B>=bw*1.5});
+    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:'Double au Bench',        ref:'Bleach',           desc:`${Math.round(bw*2)}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`,    ck:()=>B>=bw*2});
+    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:'1.5× au Squat',          ref:'Hunter × Hunter',  desc:`${Math.round(bw*1.5)}kg — Ikalgo lui-même est impressionné par ta puissance`,     ck:()=>S>=bw*1.5});
+    b.push({id:'bw_s2',  r:'rare',     icon:'🐂', name:'Double au Squat',        ref:'World of Warcraft',desc:`${Math.round(bw*2)}kg — les Taurens sont jaloux de ta puissance de jambes`,       ck:()=>S>=bw*2});
+    b.push({id:'bw_s25', r:'epic',     icon:'🌌', name:'2.5× au Squat',          ref:'Dofus',            desc:`${Math.round(bw*2.5)}kg — Ogrest lui-même ne squattait pas autant`,              ck:()=>S>=bw*2.5});
+    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:'Double au Deadlift',     ref:'Dofus',            desc:`${Math.round(bw*2)}kg deadlift — les forgerons de Bonta s'inclinent en silence`,  ck:()=>D>=bw*2});
+    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:'2.5× au Deadlift',       ref:'Bleach',           desc:`${Math.round(bw*2.5)}kg — ton Getsuga résonne depuis le sol même jusqu'au ciel`,  ck:()=>D>=bw*2.5});
+    b.push({id:'bw_d3',  r:'legendary',icon:'🙏', name:'Triple au Deadlift',     ref:'Hunter × Hunter',  desc:`${Math.round(bw*3)}kg — tu portes trois fois ton âme. Netero acquiesce`,           ck:()=>D>=bw*3});
+  }
 
   // ── Streak ──
   const streakData = [
@@ -3091,7 +3193,7 @@ function calcStreak() {
   const now = Date.now();
   const weekMs = 7 * 86400000;
   let streak = 0;
-  for (let w = 0; w < 52; w++) {
+  for (let w = 0; w < 530; w++) {
     const weekStart = now - (w + 1) * weekMs;
     const weekEnd = now - w * weekMs;
     const has = db.logs.some(l => l.timestamp >= weekStart && l.timestamp < weekEnd);
@@ -3200,12 +3302,21 @@ function renderGamificationTab() {
   const rarityColor = {common:'#555',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
 
   const sections = [
-    { title:'🎯 Séances & Volume',  ids: ['s1','s10','s50','s100','v10t','v20t'] },
-    { title:'🏋️ Bench Press',       ids: allBadges.filter(b=>b.id.startsWith('bench_')).map(b=>b.id) },
-    { title:'🦵 Squat',             ids: allBadges.filter(b=>b.id.startsWith('squat_')).map(b=>b.id) },
-    { title:'💀 Deadlift',          ids: allBadges.filter(b=>b.id.startsWith('dead_')).map(b=>b.id) },
-    { title:'🔱 Total SBD',         ids: ['total_300','total_500'] },
-    { title:'📅 Assiduité',         ids: allBadges.filter(b=>b.id.startsWith('streak_')).map(b=>b.id) },
+    { title:'🎯 Séances',                  ids: ['s1','s10','s50','s100','s200','s365','s500','s1000'] },
+    { title:'💪 Volume par Séance',        ids: ['vs1','vs3','vs5','vs7','v10t','vs15','v20t','vs30','vs50'] },
+    { title:'📦 Volume Cumulatif',         ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000'] },
+    { title:'⏱️ Durée de Séance',          ids: ['dur60','dur90','dur120','dur150','dur180','dur240'] },
+    { title:'🕐 Temps Total d\'Entraînement', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000'] },
+    { title:'🔢 Séries Totales',           ids: ['st100','st500','st1000','st2500','st5000','st10000'] },
+    { title:'🧩 Exercices Maîtrisés',      ids: ['ex10','ex25','ex50','ex75','ex100'] },
+    { title:'📆 Fréquence Hebdo',          ids: ['f3','f4','f5','f6','f7'] },
+    { title:'🏋️ Bench Press',              ids: allBadges.filter(b=>b.id.startsWith('bench_')).map(b=>b.id) },
+    { title:'🦵 Squat',                    ids: allBadges.filter(b=>b.id.startsWith('squat_')).map(b=>b.id) },
+    { title:'💀 Deadlift',                 ids: allBadges.filter(b=>b.id.startsWith('dead_')).map(b=>b.id) },
+    { title:'🔝 Overhead Press',           ids: allBadges.filter(b=>b.id.startsWith('ohp_')).map(b=>b.id) },
+    { title:'🔱 Total SBD',               ids: allBadges.filter(b=>b.id.startsWith('total_')).map(b=>b.id) },
+    { title:'⚖️ Poids de Corps',           ids: allBadges.filter(b=>b.id.startsWith('bw_')).map(b=>b.id) },
+    { title:'📅 Assiduité',               ids: allBadges.filter(b=>b.id.startsWith('streak_')).map(b=>b.id) },
   ];
 
   const badgeMap = {};

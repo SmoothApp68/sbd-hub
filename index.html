@@ -3121,11 +3121,14 @@ function matchExoName(hevyName, progName) {
   }
 
   // Exercice à 1 mot significatif : tolérer les variations pluriel/singulier
+  // MAIS vérifier que les mots extra ne sont pas des différenciateurs
   const shorter = pWords.length <= hWords.length ? pWords : hWords;
   if (shorter.length === 1) {
     const w = shorter[0];
     const other = shorter === pWords ? hWords : pWords;
-    return other.some(hw => wMatch(w, hw));
+    if (!other.some(hw => wMatch(w, hw))) return false;
+    const extra = other.filter(hw => !wMatch(w, hw));
+    return extra.every(ew => !DIFF.has(ew));
   }
 
   return false;

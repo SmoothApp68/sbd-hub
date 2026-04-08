@@ -5950,12 +5950,14 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       let recalc=0;
       if(exo.series&&exo.series.length){exo.series.forEach(s=>{if(s.weight>0&&s.reps>0){const rm=calcE1RM(s.weight,s.reps);if(rm>recalc)recalc=rm;}});}
       if(exo.repRecords){Object.entries(exo.repRecords).forEach(([rKey,w])=>{if(w>0){const rm=calcE1RM(w,parseInt(rKey));if(rm>recalc)recalc=rm;}});}
-      if(recalc>0&&exo.maxRM!==recalc){exo.maxRM=recalc;ns=true;}
+      // Toujours écraser maxRM avec la valeur recalculée (même 0 si aucune donnée)
+      if(exo.maxRM!==recalc){exo.maxRM=recalc;ns=true;}
     });
   });
 
-  db.bestPR={bench:0,squat:0,deadlift:0};
-  db.logs.forEach(log=>{log.exercises.forEach(exo=>{const t=getSBDType(exo.name);if(!t||!exo.maxRM||exo.maxRM<=0)return;if(exo.maxRM>db.bestPR[t]){db.bestPR[t]=exo.maxRM;while(db.bestPR[t]>=db.user.targets[t])db.user.targets[t]+=5;ns=true;}});});
+  // db.bestPR sera synchronisé par renderLifts() lors du refreshUI (source de vérité unique = liftMap)
+  // Ici on initialise juste avec les valeurs sauvegardées, renderLifts les corrigera
+  if(!db.bestPR)db.bestPR={bench:0,squat:0,deadlift:0};
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
@@ -7577,23 +7579,20 @@ function renderLifts() {
     });
   });
 
-  // Pour les exercices SBD, fusionner TOUS les noms reconnus par getSBDType
-  // (ex: "Squat (Barre)", "Back Squat" → même entrée) et aligner sur db.bestPR
+  // Synchroniser db.bestPR depuis liftMap (source de vérité unique)
+  // Ceci garantit que le graphe SBD affiche les mêmes valeurs que Meilleurs Résultats
+  let _bestPRChanged = false;
   SBD_TYPES.forEach(sbdType => {
-    // Trouver l'entrée principale dans liftMap pour ce type SBD
-    const mainKey = Object.keys(liftMap).find(k => getSBDType(k) === sbdType);
-    if (!mainKey) return;
-    const mainLift = liftMap[mainKey];
-    // Scanner TOUS les logs pour des noms SBD qui n'auraient pas été fusionnés
-    db.logs.forEach(log => {
-      log.exercises.forEach(exo => {
-        if (getSBDType(exo.name) !== sbdType) return;
-        if (!exo.maxRM || exo.maxRM <= 0) return;
-        if (exo.maxRM > mainLift.maxRM) { mainLift.maxRM = exo.maxRM; mainLift.maxRMDate = exo.maxRMDate; }
-        if (exo.repRecords) Object.entries(exo.repRecords).forEach(([r,w]) => { if (!mainLift.repRecords[r] || w > mainLift.repRecords[r]) mainLift.repRecords[r] = w; });
-      });
-    });
+    const key = Object.keys(liftMap).find(k => getSBDType(k) === sbdType);
+    if (!key) return;
+    const val = liftMap[key].maxRM || 0;
+    if (val !== db.bestPR[sbdType]) {
+      db.bestPR[sbdType] = val;
+      while (db.bestPR[sbdType] >= db.user.targets[sbdType]) db.user.targets[sbdType] += 5;
+      _bestPRChanged = true;
+    }
   });
+  if (_bestPRChanged) saveDB();
 
   const lifts = Object.values(liftMap).sort((a,b) => b.maxRM - a.maxRM);
   const muscles = ['Tout', ...new Set(lifts.map(l => l.muscle))];

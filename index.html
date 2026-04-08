@@ -431,6 +431,33 @@
     .acc-chevron.open{transform:rotate(180deg);}
     .acc-body{max-height:0;overflow:hidden;transition:max-height 0.35s ease;padding:0 18px;}
     .acc-body.open{max-height:1200px;padding:0 18px 18px;}
+    /* ── Gamification ── */
+    .gam-level-card{background:linear-gradient(135deg,rgba(191,90,242,0.08),rgba(10,132,255,0.08));border:1px solid rgba(191,90,242,0.25);border-radius:20px;padding:20px;margin-bottom:15px;text-align:center;}
+    .gam-level-icon{font-size:48px;margin-bottom:4px;}
+    .gam-level-name{font-size:20px;font-weight:800;color:var(--purple);margin-bottom:2px;}
+    .gam-level-num{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+    .gam-xp-bar-wrap{background:var(--surface);border-radius:10px;height:14px;overflow:hidden;margin-bottom:6px;border:1px solid var(--border);}
+    .gam-xp-bar{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--purple),var(--blue));transition:width 0.6s ease;}
+    .gam-xp-text{font-size:11px;color:var(--sub);display:flex;justify-content:space-between;}
+    .gam-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
+    .gam-stat{text-align:center;background:var(--surface);border-radius:12px;padding:10px 6px;border:1px solid var(--border);}
+    .gam-stat-val{font-size:18px;font-weight:800;color:var(--text);}
+    .gam-stat-label{font-size:10px;color:var(--sub);text-transform:uppercase;}
+    .gam-str-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;}
+    .gam-str-title{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text);}
+    .gam-str-exo{margin-bottom:14px;}
+    .gam-str-exo-name{font-size:13px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+    .gam-str-bar-wrap{position:relative;height:20px;background:var(--surface);border-radius:10px;overflow:visible;border:1px solid var(--border);}
+    .gam-str-bar{height:100%;border-radius:10px;transition:width 0.6s ease;}
+    .gam-str-marker{position:absolute;top:-3px;width:3px;height:26px;background:var(--text);border-radius:2px;transform:translateX(-1px);box-shadow:0 0 6px rgba(255,255,255,0.4);}
+    .gam-str-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--sub);margin-top:3px;}
+    .gam-str-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+    .gam-badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .gam-badge{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center;transition:opacity 0.2s;}
+    .gam-badge.locked{opacity:0.35;}
+    .gam-badge-icon{font-size:28px;margin-bottom:4px;}
+    .gam-badge-name{font-size:12px;font-weight:600;color:var(--text);}
+    .gam-badge-desc{font-size:10px;color:var(--sub);margin-top:2px;}
     /* ── Weekly Plan ── */
     .wp-card{background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);border:1px solid rgba(10,132,255,0.2);border-radius:20px;padding:20px;margin-bottom:15px;}
     .wp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
@@ -985,6 +1012,18 @@
     </div>
   </div>
 
+  <div id="tab-game" class="content-section">
+    <div id="gamLevelCard" class="gam-level-card"></div>
+    <div id="gamStrengthCard" class="gam-str-card">
+      <div class="gam-str-title">📊 Niveau de force par exercice</div>
+      <div id="gamStrengthContent"></div>
+    </div>
+    <div class="gam-str-card">
+      <div class="gam-str-title">🏅 Badges & Succès</div>
+      <div id="gamBadgesContent" class="gam-badge-grid"></div>
+    </div>
+  </div>
+
   <div id="tab-settings" class="content-section">
 
     <!-- Accordéon Profil -->
@@ -1174,6 +1213,7 @@
     <button class="tab-btn" data-tab="tab-ai"><svg viewBox="0 0 24 24"><path d="M21 10.975V8a2 2 0 0 0-2-2h-6V4.688c.305-.274.5-.668.5-1.11a1.5 1.5 0 0 0-3 0c0 .442.195.836.5 1.11V6H5a2 2 0 0 0-2 2v2.998l-.072.005A.999.999 0 0 0 2 12v2a1 1 0 0 0 1 1v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1.025zM9 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg> Coach</button>
     <button class="tab-btn" data-tab="tab-stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm6 14H7v-5h2v5zm4 0h-2v-3h2v3zm0-5h-2v-2h2v2zm4 5h-2V7h2v10z"/></svg> Stats</button>
     <button class="tab-btn" data-tab="tab-corps"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Corps</button>
+    <button class="tab-btn" data-tab="tab-game"><svg viewBox="0 0 24 24"><path d="M2 12c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10S2 17.5 2 12zm10-6l-1.5 3.5L7 11l3.5 1.5L12 16l1.5-3.5L17 11l-3.5-1.5L12 6z"/></svg> Niveau</button>
     <button class="tab-btn" data-tab="tab-settings"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg> Réglages</button>
   </nav>
 <script>
@@ -2890,11 +2930,208 @@ function showTab(tabId) {
   if (tabId==='tab-seances') renderSeancesTab();
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
+  if (tabId==='tab-game') { renderGamificationTab(); }
   if (tabId==='tab-settings') { renderSettingsRoutineEditor(); renderKeyLiftsEditor(); fillSettingsFields(); }
   if (tabId==='tab-corps') { renderCorpsTab(); }
 }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
+
+// ============================================================
+// GAMIFICATION — XP, NIVEAUX, BADGES
+// ============================================================
+const XP_LEVELS = [
+  { level: 1,  name: 'Novice',    xp: 0,     icon: '🌱' },
+  { level: 2,  name: 'Régulier',  xp: 500,   icon: '💪' },
+  { level: 3,  name: 'Athlète',   xp: 1500,  icon: '🏋️' },
+  { level: 4,  name: 'Guerrier',  xp: 3500,  icon: '⚔️' },
+  { level: 5,  name: 'Vétéran',   xp: 6000,  icon: '🛡️' },
+  { level: 6,  name: 'Champion',  xp: 9000,  icon: '🏆' },
+  { level: 7,  name: 'Titan',     xp: 13000, icon: '🔱' },
+  { level: 8,  name: 'Légende',   xp: 18000, icon: '👑' },
+  { level: 9,  name: 'Mythique',  xp: 25000, icon: '🌟' },
+  { level: 10, name: 'Divin',     xp: 35000, icon: '⚡' },
+];
+
+const BADGES = [
+  { id:'first_session',  icon:'🎯', name:'Première séance',    desc:'Importer ta première séance',     check: () => db.logs.length >= 1 },
+  { id:'ten_sessions',   icon:'🔥', name:'10 séances',         desc:'Importer 10 séances',             check: () => db.logs.length >= 10 },
+  { id:'fifty_sessions', icon:'💎', name:'50 séances',         desc:'Importer 50 séances',             check: () => db.logs.length >= 50 },
+  { id:'hundred_sessions',icon:'🌟',name:'Centurion',          desc:'100 séances importées',           check: () => db.logs.length >= 100 },
+  { id:'bench_100',      icon:'🏋️', name:'Club 100kg Bench',   desc:'e1RM Bench ≥ 100kg',              check: () => (db.bestPR.bench||0) >= 100 },
+  { id:'bench_140',      icon:'🫁', name:'Bench 1.5× BW',     desc:'e1RM Bench ≥ 1.5× ton poids',    check: () => db.user.bw > 0 && (db.bestPR.bench||0) >= db.user.bw * 1.5 },
+  { id:'squat_140',      icon:'🦵', name:'Club 140kg Squat',   desc:'e1RM Squat ≥ 140kg',              check: () => (db.bestPR.squat||0) >= 140 },
+  { id:'squat_2x',       icon:'⚡', name:'Squat 2× BW',       desc:'e1RM Squat ≥ 2× ton poids',      check: () => db.user.bw > 0 && (db.bestPR.squat||0) >= db.user.bw * 2 },
+  { id:'dead_180',       icon:'💀', name:'Club 180kg Dead',    desc:'e1RM Deadlift ≥ 180kg',           check: () => (db.bestPR.deadlift||0) >= 180 },
+  { id:'dead_2_5x',      icon:'🔱', name:'Dead 2.5× BW',      desc:'e1RM Deadlift ≥ 2.5× ton poids', check: () => db.user.bw > 0 && (db.bestPR.deadlift||0) >= db.user.bw * 2.5 },
+  { id:'total_300',      icon:'🏆', name:'Total 300kg',        desc:'B+S+D ≥ 300kg',                   check: () => (db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0) >= 300 },
+  { id:'total_400',      icon:'👑', name:'Total 400kg',        desc:'B+S+D ≥ 400kg',                   check: () => (db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0) >= 400 },
+  { id:'volume_10t',     icon:'🏗️', name:'10 tonnes',          desc:'10t de volume en une séance',     check: () => db.logs.some(l => (l.volume||0) >= 10000) },
+  { id:'volume_20t',     icon:'🗿', name:'20 tonnes',          desc:'20t de volume en une séance',     check: () => db.logs.some(l => (l.volume||0) >= 20000) },
+  { id:'streak_4',       icon:'📅', name:'Mois de fer',        desc:'4 semaines consécutives',          check: () => calcStreak() >= 4 },
+  { id:'streak_12',      icon:'🗓️', name:'Trimestre de fer',   desc:'12 semaines consécutives',         check: () => calcStreak() >= 12 },
+];
+
+function calcTotalXP() {
+  let xp = 0;
+  db.logs.forEach((log, idx) => {
+    xp += 100; // base par séance
+    xp += Math.min(10, (log.exercises||[]).length) * 8; // par exercice (cap 10)
+    xp += Math.floor((log.volume || 0) / 500); // volume bonus
+    // PR bonus
+    (log.exercises||[]).forEach(exo => {
+      if (exo.maxRM > 0) {
+        const prev = findPreviousBestE1RM(exo.name, log.timestamp);
+        if (prev > 0 && exo.maxRM > prev) xp += 50;
+        else if (prev === 0) xp += 20;
+      }
+    });
+  });
+  // Streak bonus
+  xp += calcStreak() * 25;
+  return xp;
+}
+
+function calcStreak() {
+  if (!db.logs.length) return 0;
+  // Count consecutive weeks with at least 1 session (from most recent)
+  const now = Date.now();
+  const weekMs = 7 * 86400000;
+  let streak = 0;
+  for (let w = 0; w < 52; w++) {
+    const weekStart = now - (w + 1) * weekMs;
+    const weekEnd = now - w * weekMs;
+    const has = db.logs.some(l => l.timestamp >= weekStart && l.timestamp < weekEnd);
+    if (has) streak++;
+    else if (w > 0) break; // allow current week to be empty
+  }
+  return streak;
+}
+
+function getXPLevel(xp) {
+  let lvl = XP_LEVELS[0];
+  for (const l of XP_LEVELS) {
+    if (xp >= l.xp) lvl = l;
+  }
+  return lvl;
+}
+
+function getNextXPLevel(xp) {
+  for (const l of XP_LEVELS) {
+    if (l.xp > xp) return l;
+  }
+  return null;
+}
+
+function getAllBestE1RMs() {
+  // Returns { exoName: { e1rm, date } } for all exercises across all logs
+  const best = {};
+  db.logs.forEach(log => {
+    (log.exercises||[]).forEach(exo => {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      if (!best[exo.name] || exo.maxRM > best[exo.name].e1rm) {
+        best[exo.name] = { e1rm: exo.maxRM, date: log.shortDate || log.date || '' };
+      }
+    });
+  });
+  return best;
+}
+
+function renderGamificationTab() {
+  const bw = db.user.bw || 80;
+  const totalXP = calcTotalXP();
+  const currLevel = getXPLevel(totalXP);
+  const nextLevel = getNextXPLevel(totalXP);
+  const streak = calcStreak();
+
+  // ── Level card ──
+  const levelCard = document.getElementById('gamLevelCard');
+  const xpInLevel = totalXP - currLevel.xp;
+  const xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
+  const pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
+  levelCard.innerHTML =
+    `<div class="gam-level-icon">${currLevel.icon}</div>` +
+    `<div class="gam-level-name">${currLevel.name}</div>` +
+    `<div class="gam-level-num">Niveau ${currLevel.level}</div>` +
+    `<div class="gam-xp-bar-wrap"><div class="gam-xp-bar" style="width:${pct}%;"></div></div>` +
+    `<div class="gam-xp-text"><span>${totalXP.toLocaleString()} XP</span><span>${nextLevel ? nextLevel.xp.toLocaleString() + ' XP' : 'MAX'}</span></div>` +
+    `<div class="gam-stats-row">` +
+      `<div class="gam-stat"><div class="gam-stat-val">${db.logs.length}</div><div class="gam-stat-label">Séances</div></div>` +
+      `<div class="gam-stat"><div class="gam-stat-val">${streak}</div><div class="gam-stat-label">Sem. streak</div></div>` +
+      `<div class="gam-stat"><div class="gam-stat-val">${Math.round((db.logs.reduce((s,l)=>s+(l.volume||0),0))/1000)}t</div><div class="gam-stat-label">Vol. total</div></div>` +
+    `</div>`;
+
+  // ── Strength levels per exercise ──
+  const bestE1RMs = getAllBestE1RMs();
+  const strContent = document.getElementById('gamStrengthContent');
+  let strHtml = '';
+
+  // Categorize exercises that have standards
+  const categorized = [];
+  for (const [name, data] of Object.entries(bestE1RMs)) {
+    const sl = getStrengthLevel(name, data.e1rm, bw);
+    if (sl) categorized.push({ name, e1rm: data.e1rm, date: data.date, sl });
+  }
+  // Sort: elite first, then by ratio desc
+  categorized.sort((a,b) => b.sl.levelIdx - a.sl.levelIdx || b.sl.ratio - a.sl.ratio);
+
+  if (categorized.length === 0) {
+    strHtml = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div>';
+  } else {
+    categorized.forEach(item => {
+      const { name, e1rm, sl } = item;
+      // Find which standard this matches
+      const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      let ratios = null;
+      for (const [, std] of Object.entries(STRENGTH_STANDARDS)) {
+        if (std.patterns.some(p => p.test(norm))) { ratios = std.ratios; break; }
+      }
+      if (!ratios) return;
+
+      // Calculate marker position (0-100%)
+      const minR = 0, maxR = ratios[ratios.length - 1] * 1.2;
+      const markerPct = Math.min(98, Math.max(2, ((sl.ratio - minR) / (maxR - minR)) * 100));
+
+      // Color gradient segments
+      const segColors = ['#86868B', '#0A84FF', '#32D74B', '#FF9F0A', '#BF5AF2'];
+      const segPcts = ratios.map(r => ((r - minR) / (maxR - minR)) * 100);
+
+      strHtml += `<div class="gam-str-exo">`;
+      strHtml += `<div class="gam-str-exo-name"><span>${name}</span><span style="font-size:12px;"><span class="gam-str-badge" style="background:${sl.color}22;color:${sl.color};">${sl.label}</span> <span style="color:var(--sub);font-size:11px;">${sl.topPct}</span></span></div>`;
+      strHtml += `<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">e1RM: <strong style="color:var(--text);">${Math.round(e1rm)}kg</strong> (${sl.ratio}× BW)</div>`;
+      strHtml += `<div class="gam-str-bar-wrap">`;
+      // Colored segments
+      let lastPct = 0;
+      segPcts.forEach((sp, i) => {
+        const w = sp - lastPct;
+        strHtml += `<div style="position:absolute;left:${lastPct}%;width:${w}%;height:100%;background:${segColors[i]};opacity:0.3;${i===0?'border-radius:10px 0 0 10px;':''}${i===segPcts.length-1?'border-radius:0 10px 10px 0;':''}"></div>`;
+        lastPct = sp;
+      });
+      // Fill up to marker
+      const fillColor = sl.color;
+      strHtml += `<div style="position:absolute;left:0;width:${markerPct}%;height:100%;background:${fillColor};opacity:0.5;border-radius:10px;"></div>`;
+      // Marker
+      strHtml += `<div class="gam-str-marker" style="left:${markerPct}%;"></div>`;
+      strHtml += `</div>`;
+      strHtml += `<div class="gam-str-labels"><span>Déb.</span><span>Novice</span><span>Inter.</span><span>Avancé</span><span>Élite</span></div>`;
+      strHtml += `</div>`;
+    });
+  }
+  strContent.innerHTML = strHtml;
+
+  // ── Badges ──
+  const badgesContent = document.getElementById('gamBadgesContent');
+  let badgesHtml = '';
+  BADGES.forEach(badge => {
+    const unlocked = badge.check();
+    badgesHtml += `<div class="gam-badge ${unlocked ? '' : 'locked'}">`;
+    badgesHtml += `<div class="gam-badge-icon">${unlocked ? badge.icon : '🔒'}</div>`;
+    badgesHtml += `<div class="gam-badge-name">${badge.name}</div>`;
+    badgesHtml += `<div class="gam-badge-desc">${badge.desc}</div>`;
+    badgesHtml += `</div>`;
+  });
+  badgesContent.innerHTML = badgesHtml;
+}
 
 // ============================================================
 // HEVY IMPORT — CORE
@@ -4762,8 +4999,9 @@ function generateAlgoSessionDebrief(session) {
   const nbExos = session.exercises.length;
   const nbSets = session.exercises.reduce((s,e) => s + (e.sets||0), 0);
   const date = session.shortDate || session.date || '';
+  const bw = db.user.bw || 80;
 
-  // PRs de cette séance
+  // ── PRs ──
   const prs = [];
   session.exercises.forEach(exo => {
     if (!exo.maxRM || exo.maxRM <= 0) return;
@@ -4775,29 +5013,140 @@ function generateAlgoSessionDebrief(session) {
     }
   });
 
-  // Groupes musculaires travaillés
-  const muscleMap = {};
+  // ── Sub-muscle groups ──
+  const subMuscleMap = {};
+  const parentMuscleMap = {};
   session.exercises.forEach(e => {
     const mg = getMuscleGroup(e.name);
-    muscleMap[mg] = (muscleMap[mg]||0) + (e.sets||1);
+    const parent = getMuscleGroupParent(mg);
+    subMuscleMap[mg] = (subMuscleMap[mg]||0) + (e.sets||1);
+    if (!parentMuscleMap[parent]) parentMuscleMap[parent] = { subs: new Set(), sets: 0 };
+    parentMuscleMap[parent].sets += (e.sets||1);
+    if (mg !== parent) parentMuscleMap[parent].subs.add(mg);
   });
-  const muscles = Object.entries(muscleMap).sort((a,b) => b[1]-a[1]);
 
-  // Construction HTML
+  // ── Comparison vs last session per exercise ──
+  const exoComparisons = [];
+  session.exercises.forEach(exo => {
+    if (exo.isCardio || exo.isTime) return;
+    let prevExo = null, prevDate = '';
+    for (const log of db.logs) {
+      if (log.timestamp >= session.timestamp || log.id === session.id) continue;
+      const match = log.exercises.find(e => matchExoName(e.name, exo.name));
+      if (match) { prevExo = match; prevDate = log.shortDate || log.date || ''; break; }
+    }
+    const comp = { name: exo.name, e1rm: exo.maxRM || 0, sets: exo.sets || 0 };
+    if (prevExo) {
+      comp.prevE1RM = prevExo.maxRM || 0;
+      comp.prevSets = prevExo.sets || 0;
+      comp.prevDate = prevDate;
+      if (comp.e1rm > 0 && comp.prevE1RM > 0) {
+        comp.e1rmDelta = Math.round((comp.e1rm - comp.prevE1RM)*10)/10;
+      }
+    }
+    // Strength level
+    const sl = getStrengthLevel(exo.name, exo.maxRM, bw);
+    if (sl) comp.strengthLevel = sl;
+    exoComparisons.push(comp);
+  });
+
+  // ── Program compliance ──
+  let compliance = null;
+  const sessionDay = session.day || DAYS_FULL[new Date(session.timestamp).getDay()];
+  if (db.weeklyPlan && db.weeklyPlan.days) {
+    const planDay = db.weeklyPlan.days.find(d => d.day === sessionDay && !d.rest);
+    if (planDay && planDay.exercises && planDay.exercises.length > 0) {
+      const planned = planDay.exercises.filter(e => e.type === 'weight' && !e.noData);
+      let matched = 0, weightOk = 0, weightTotal = 0;
+      planned.forEach(pe => {
+        const sessMatch = session.exercises.find(se => matchExoName(se.name, pe.name));
+        if (sessMatch) {
+          matched++;
+          const planWeight = pe.sets && pe.sets.length ? pe.sets.filter(s => !s.isWarmup)[0]?.weight || 0 : 0;
+          const sessWeight = sessMatch.series && sessMatch.series.length ? Math.max(...sessMatch.series.map(s => s.weight || 0)) : 0;
+          if (planWeight > 0 && sessWeight > 0) {
+            weightTotal++;
+            if (Math.abs(sessWeight - planWeight) <= 2.5) weightOk++;
+          }
+        }
+      });
+      compliance = { total: planned.length, matched, weightOk, weightTotal, title: planDay.title };
+    }
+  }
+  // Fallback: check routine text
+  if (!compliance && db.generatedProgram) {
+    const planDay = db.generatedProgram.find(d => d.day === sessionDay && !d.isRest);
+    if (planDay && planDay.exos && planDay.exos.length > 0) {
+      let matched = 0;
+      planDay.exos.forEach(exoId => {
+        const exoName = (EXO_DB[exoId] || {}).name || exoId;
+        if (session.exercises.some(se => matchExoName(se.name, exoName))) matched++;
+      });
+      compliance = { total: planDay.exos.length, matched, weightOk: 0, weightTotal: 0, title: planDay.label };
+    }
+  }
+
+  // ── Session score (0-100) ──
+  let score = 40;
+  if (prs.length >= 1) score += 10;
+  if (prs.length >= 3) score += 10;
+  if (nbSets >= 12) score += 5;
+  if (nbSets >= 20) score += 5;
+  const logs7 = getLogsInRange(7).filter(l => l.id !== session.id);
+  const avgVol7 = logs7.length ? logs7.reduce((s,l) => s+l.volume, 0) / logs7.length : 0;
+  if (avgVol7 > 0) {
+    const ratio = totalVol / avgVol7;
+    if (ratio >= 0.8 && ratio <= 1.3) score += 10;
+    else if (ratio > 1.3) score += 5;
+  } else if (totalVol > 0) { score += 10; }
+  if (compliance) {
+    const pct = compliance.total > 0 ? compliance.matched / compliance.total : 0;
+    score += Math.round(pct * 15);
+    if (compliance.weightTotal > 0) score += Math.round((compliance.weightOk / compliance.weightTotal) * 5);
+  }
+  const hasProgressions = exoComparisons.filter(c => c.e1rmDelta > 0).length;
+  score += Math.min(10, hasProgressions * 3);
+  score = Math.min(100, Math.max(0, score));
+
+  // ── BUILD HTML ──
   let html = '';
-
-  // En-tête
   const title = session.title || 'Séance';
-  html += `<div class="ai-section"><div class="ai-section-title">🏋️ ${title} — ${date}</div>`;
-  html += `<strong>${nbExos}</strong> exercices · <strong>${nbSets}</strong> séries · <strong>${(totalVol/1000).toFixed(1)}t</strong> de volume`;
-  if (cardioExos.length) html += ` · <strong>${cardioExos.length}</strong> cardio`;
-  html += '</div>';
+  const scoreColor = score >= 80 ? 'green' : score >= 60 ? 'blue' : score >= 40 ? 'orange' : 'red';
+  const scoreEmoji = score >= 80 ? '🔥' : score >= 60 ? '💪' : score >= 40 ? '👍' : '📈';
 
-  // Muscles travaillés
-  if (muscles.length) {
+  // En-tête + score
+  html += `<div class="ai-section"><div class="ai-section-title">${scoreEmoji} ${title} — ${date}</div>`;
+  html += `<div style="display:flex;align-items:center;gap:12px;">`;
+  html += `<div style="flex:1;"><strong>${nbExos}</strong> exercices · <strong>${nbSets}</strong> séries · <strong>${(totalVol/1000).toFixed(1)}t</strong> de volume`;
+  if (cardioExos.length) html += ` · <strong>${cardioExos.length}</strong> cardio`;
+  html += `</div>`;
+  html += `<div style="text-align:center;min-width:50px;"><div style="font-size:22px;font-weight:800;color:var(--${scoreColor});">${score}</div><div style="font-size:9px;color:var(--sub);text-transform:uppercase;">Score</div></div>`;
+  html += `</div></div>`;
+
+  // Conformité programme
+  if (compliance) {
+    const pct = compliance.total > 0 ? Math.round(compliance.matched / compliance.total * 100) : 0;
+    const pctColor = pct >= 80 ? 'green' : pct >= 50 ? 'orange' : 'red';
+    html += `<div class="ai-section"><div class="ai-section-title">📋 Conformité programme</div>`;
+    html += `<div style="margin-bottom:4px;">Programme du jour : <strong>${compliance.title}</strong></div>`;
+    html += `<div>Exercices suivis : <span class="ai-highlight ${pctColor}">${compliance.matched}/${compliance.total} (${pct}%)</span></div>`;
+    if (compliance.weightTotal > 0) {
+      html += `<div>Charges conformes (±2.5kg) : <span class="ai-highlight ${compliance.weightOk === compliance.weightTotal ? 'green' : 'orange'}">${compliance.weightOk}/${compliance.weightTotal}</span></div>`;
+    }
+    html += '</div>';
+  }
+
+  // Muscles travaillés (sub-groups)
+  const parentEntries = Object.entries(parentMuscleMap).sort((a,b) => b[1].sets - a[1].sets);
+  if (parentEntries.length) {
     html += '<div class="ai-section"><div class="ai-section-title">💪 Muscles travaillés</div>';
-    muscles.forEach(([mg, sets]) => {
-      html += `<span class="ai-highlight blue">${mg}</span> (${sets} séries) `;
+    parentEntries.forEach(([parent, data]) => {
+      const subsArr = [...data.subs];
+      if (subsArr.length > 0) {
+        html += `<div style="margin-bottom:3px;"><span class="ai-highlight blue">${parent}</span> <span style="font-size:11px;color:var(--sub);">(${subsArr.join(', ')})</span> — ${data.sets} séries</div>`;
+      } else {
+        html += `<div style="margin-bottom:3px;"><span class="ai-highlight blue">${parent}</span> — ${data.sets} séries</div>`;
+      }
     });
     html += '</div>';
   }
@@ -4815,47 +5164,130 @@ function generateAlgoSessionDebrief(session) {
     html += '</div>';
   }
 
-  // Analyse par exercice (top 5)
-  const topExos = exos.filter(e => e.maxRM > 0).slice(0, 5);
-  if (topExos.length) {
-    html += '<div class="ai-section"><div class="ai-section-title">📊 Détails</div>';
-    topExos.forEach(exo => {
-      const bestSet = exo.series && exo.series.length ? exo.series.sort((a,b) => (b.weight||0) - (a.weight||0))[0] : null;
-      const setInfo = bestSet ? `${bestSet.weight}kg × ${bestSet.reps}` : '';
-      html += `<div style="margin-bottom:4px;"><strong>${exo.name}</strong> — e1RM <span class="ai-highlight blue">${Math.round(exo.maxRM)}kg</span> ${setInfo ? '(meilleure série: '+setInfo+')' : ''} · ${exo.sets||0} séries</div>`;
+  // Détails par exercice (vs dernière séance + niveau)
+  const weightExos = exoComparisons.filter(c => c.e1rm > 0);
+  if (weightExos.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">📊 Détails par exercice</div>';
+    weightExos.forEach(comp => {
+      html += `<div style="margin-bottom:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">`;
+      html += `<div><strong>${comp.name}</strong> — e1RM <span class="ai-highlight blue">${Math.round(comp.e1rm)}kg</span> · ${comp.sets} séries</div>`;
+      // vs last session
+      if (comp.prevE1RM) {
+        const arrow = comp.e1rmDelta > 0 ? '↑' : comp.e1rmDelta < 0 ? '↓' : '=';
+        const color = comp.e1rmDelta > 0 ? 'var(--green)' : comp.e1rmDelta < 0 ? 'var(--red)' : 'var(--sub)';
+        html += `<div style="font-size:11px;color:var(--sub);">vs dernière (${comp.prevDate}) : ${Math.round(comp.prevE1RM)}kg <span style="color:${color};font-weight:600;">${arrow} ${comp.e1rmDelta > 0 ? '+' : ''}${comp.e1rmDelta}kg</span></div>`;
+      }
+      // strength level
+      if (comp.strengthLevel) {
+        const sl = comp.strengthLevel;
+        html += `<div style="font-size:11px;margin-top:2px;">`;
+        html += `<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${sl.color}22;color:${sl.color};">${sl.label}</span>`;
+        html += ` <span style="color:var(--sub);">${sl.topPct}</span>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
     });
     html += '</div>';
   }
 
-  // Coaching contextuel
+  // Coaching contextuel enrichi
   const tips = [];
-  if (totalVol > 0) {
-    const logs7 = getLogsInRange(7).filter(l => l.id !== session.id);
-    const avgVol7 = logs7.length ? logs7.reduce((s,l) => s+l.volume, 0) / logs7.length : 0;
-    if (avgVol7 > 0) {
-      const ratio = totalVol / avgVol7;
-      if (ratio > 1.3) tips.push('Volume élevé aujourd\'hui (+' + Math.round((ratio-1)*100) + '% vs moyenne). Pense à bien récupérer.');
-      else if (ratio < 0.6) tips.push('Volume léger — parfait pour un jour de récupération active ou deload.');
-    }
+  if (avgVol7 > 0) {
+    const ratio = totalVol / avgVol7;
+    if (ratio > 1.3) tips.push('⚡ Volume élevé (+' + Math.round((ratio-1)*100) + '% vs ta moyenne). Assure-toi de bien récupérer (sommeil, protéines, hydratation).');
+    else if (ratio < 0.6) tips.push('🧘 Volume léger — parfait pour un deload ou une récupération active.');
+    else tips.push('✅ Volume dans ta zone habituelle — bonne régularité.');
   }
-  if (prs.length >= 2) tips.push('Plusieurs PRs en une séance — belle performance ! Continue sur ta lancée.');
-  if (prs.length === 0 && exos.length > 3) tips.push('Pas de record aujourd\'hui, mais la régularité est la clé. Chaque séance compte.');
+  if (prs.length >= 2) tips.push('🎯 Plusieurs PRs en une séance — tu es clairement en forme ! Profite de cette dynamique.');
+  else if (prs.length === 0 && exos.length > 3) tips.push('📊 Pas de record aujourd\'hui, mais la constance est ta meilleure arme. Les PRs viendront.');
+
+  // Déséquilibre agoniste/antagoniste
+  const pecSets = parentMuscleMap['Pecs'] ? parentMuscleMap['Pecs'].sets : 0;
+  const dosSets = parentMuscleMap['Dos'] ? parentMuscleMap['Dos'].sets : 0;
+  if (pecSets > 0 && dosSets === 0) tips.push('⚠️ Beaucoup de pecs sans dos — pense à équilibrer (rowing, tractions) pour éviter les déséquilibres posturaux.');
+  if (dosSets > 0 && pecSets === 0 && session.exercises.some(e => getMuscleGroupParent(getMuscleGroup(e.name)) === 'Bras')) {
+    tips.push('👌 Bonne séance dos + bras — combo efficace pour le développement du haut du corps.');
+  }
+
+  // Quadriceps vs ischio
+  const quadSets = subMuscleMap['Quadriceps'] || 0;
+  const ischioSets = subMuscleMap['Ischio-jambiers'] || 0;
+  if (quadSets > 6 && ischioSets === 0) tips.push('⚠️ Beaucoup de quadriceps sans ischios — ajoute du leg curl ou RDL pour protéger tes genoux.');
+
   const plateaux = ['bench','squat','deadlift'].map(t => detectPlateau(t)).filter(Boolean);
   plateaux.forEach(p => {
-    const nm = p.type === 'bench' ? 'Bench' : p.type === 'squat' ? 'Squat' : 'Deadlift';
-    tips.push(nm + ' en plateau — envisage une variante (pause rep, tempo, déficit) ou un deload.');
+    const sugg = { bench: 'Spoto press, larsen press ou tempo bench', squat: 'Pause squat, pin squat ou tempo', deadlift: 'Déficit deadlift, Romanian ou block pulls' };
+    tips.push(`📉 ${p.type.charAt(0).toUpperCase()+p.type.slice(1)} en plateau — essaie : ${sugg[p.type]}.`);
   });
-  if (nbSets > 25) tips.push('Grosse séance (+25 séries). Assure-toi de dormir 7-8h et de manger suffisamment de protéines.');
-  if (cardioExos.length && exos.length) tips.push('Combo muscu + cardio — bon pour la santé globale et l\'endurance.');
+  if (nbSets > 25) tips.push('🏋️ Grosse séance (+25 séries). Vise 7-8h de sommeil et 2g/kg de protéines.');
+  if (cardioExos.length && exos.length) tips.push('🏃 Combo muscu + cardio — excellent pour la santé cardiovasculaire.');
+
+  // Compliance tips
+  if (compliance && compliance.total > 0 && compliance.matched < compliance.total * 0.5) {
+    tips.push('📋 Séance assez éloignée du programme prévu. Essaie de suivre le plan pour optimiser ta progression.');
+  }
 
   if (tips.length) {
     html += '<div class="ai-section"><div class="ai-section-title">💡 Coaching</div>';
-    tips.forEach(t => { html += `<div style="margin-bottom:4px;">→ ${t}</div>`; });
+    tips.forEach(t => { html += `<div style="margin-bottom:6px;line-height:1.4;">${t}</div>`; });
     html += '</div>';
   }
 
   html += '<div class="ai-timestamp">Coach Algo · Debrief automatique · Sans IA</div>';
   return html;
+}
+
+// ── STRENGTH STANDARDS — Niveaux par exercice ──────────────
+// Ratios e1RM / poids de corps pour classifier le niveau
+// 5 niveaux: Débutant, Novice, Intermédiaire, Avancé, Élite
+const STRENGTH_STANDARDS = {
+  bench:    { patterns: [/bench\s*press|developpe\s*couche/i], ratios: [0.50, 0.75, 1.00, 1.50, 2.00] },
+  incline:  { patterns: [/incline|developpe\s*incline/i], ratios: [0.40, 0.65, 0.85, 1.25, 1.70] },
+  squat:    { patterns: [/\bsquat\b/i], ratios: [0.75, 1.00, 1.50, 2.00, 2.50] },
+  deadlift: { patterns: [/deadlift|souleve\s*de\s*terre/i], ratios: [1.00, 1.25, 1.75, 2.25, 3.00] },
+  ohp:      { patterns: [/overhead|militaire|ohp\b/i], ratios: [0.35, 0.50, 0.75, 1.00, 1.35] },
+  row:      { patterns: [/rowing|row\b/i], ratios: [0.50, 0.70, 1.00, 1.30, 1.60] },
+  legpress: { patterns: [/leg\s*press|presse/i], ratios: [1.50, 2.00, 3.00, 4.00, 5.50] },
+  latpull:  { patterns: [/lat\s*pull|tirage\s*(poulie\s*)?haute/i], ratios: [0.50, 0.70, 0.90, 1.10, 1.30] },
+  curl:     { patterns: [/curl/i], ratios: [0.15, 0.25, 0.40, 0.55, 0.70] },
+  dips:     { patterns: [/dips/i], ratios: [0.0, 0.10, 0.30, 0.55, 0.80] },
+  hipthrust:{ patterns: [/hip\s*thrust/i], ratios: [0.75, 1.00, 1.50, 2.00, 2.75] },
+  rdl:      { patterns: [/rdl|romanian/i], ratios: [0.75, 1.00, 1.40, 1.80, 2.30] },
+};
+const STRENGTH_LABELS = [
+  { label: 'Débutant',      color: '#86868B', topPct: 'Top 80%' },
+  { label: 'Novice',        color: '#0A84FF', topPct: 'Top 60%' },
+  { label: 'Intermédiaire', color: '#32D74B', topPct: 'Top 40%' },
+  { label: 'Avancé',        color: '#FF9F0A', topPct: 'Top 15%' },
+  { label: 'Élite',         color: '#BF5AF2', topPct: 'Top 3%'  },
+];
+
+function getStrengthLevel(exoName, e1rm, bw) {
+  if (!e1rm || e1rm <= 0 || !bw || bw <= 0) return null;
+  const norm = exoName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let stdKey = null;
+  for (const [key, std] of Object.entries(STRENGTH_STANDARDS)) {
+    if (std.patterns.some(p => p.test(norm))) { stdKey = key; break; }
+  }
+  if (!stdKey) return null;
+  const ratios = STRENGTH_STANDARDS[stdKey].ratios;
+  const ratio = e1rm / bw;
+  let level = 0;
+  for (let i = 0; i < ratios.length; i++) {
+    if (ratio >= ratios[i]) level = i;
+  }
+  // Interpolate for finer Top X%
+  const basePcts = [80, 60, 40, 15, 3];
+  let topPct;
+  if (level < ratios.length - 1) {
+    const lo = ratios[level], hi = ratios[level + 1];
+    const frac = Math.min(1, (ratio - lo) / (hi - lo));
+    const pctLo = basePcts[level], pctHi = basePcts[level + 1];
+    topPct = 'Top ' + Math.round(pctLo - frac * (pctLo - pctHi)) + '%';
+  } else {
+    topPct = ratio >= ratios[ratios.length-1] * 1.15 ? 'Top 1%' : 'Top 3%';
+  }
+  return { ...STRENGTH_LABELS[level], topPct, ratio: Math.round(ratio * 100) / 100, levelIdx: level };
 }
 
 function findPreviousBestE1RM(exoName, beforeTs) {

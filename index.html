@@ -3516,7 +3516,7 @@ function buildSessionFromAI(parsed, rawText) {
   (parsed.exercises || []).forEach(exo => {
     const exoType = exo.exoType || 'weight';
     const isCardio = exoType === 'cardio', isTime = exoType === 'time', isReps = exoType === 'reps';
-    const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [] };
+    const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [], _rawSets: [] };
     (exo.sets || []).forEach(s => {
       const isW      = s.isWarmup || s.setType === 'warmup';
       const isAbandon= s.setType === 'abandon';
@@ -3525,6 +3525,7 @@ function buildSessionFromAI(parsed, rawText) {
       if (countForRecord) obj.sets++;
       if (exoType === 'weight') {
         const w = s.weight||0, r = s.reps||0;
+        if (countForRecord && w>0 && r>0) obj._rawSets.push({weight:w, reps:r});
         if (w>0&&r>0) { session.volume+=w*r; if(countForRecord){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
       } else if (exoType==='reps') {
         if(countForRecord){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
@@ -3561,16 +3562,194 @@ function processHevy() {
 
 function showAIImportLoading() { const c=document.getElementById('aiImportAnalysis');c.style.display='block';c.innerHTML='<div class="card ai-import-card"><h2>🤖 Import IA</h2><div class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données en cours...</div></div></div>'; }
 
+// ── Détection de séries suspectes (erreurs de saisie) ──────────
+function detectSuspiciousSets(session) {
+  const suspicious = [];
+
+  for (const exo of session.exercises) {
+    if (exo.isCardio || exo.isTime || exo.isReps) continue;
+    if (!exo.maxRM || exo.maxRM <= 0) continue;
+
+    const rawSets = (exo._rawSets && exo._rawSets.length > 0) ? exo._rawSets : exo.series || [];
+    if (!rawSets.length) continue;
+
+    // Collecter l'historique pour cet exercice
+    const histE1RMs = [];
+    const histWeights = [];
+    db.logs.forEach(log => {
+      log.exercises.forEach(e => {
+        if (!matchExoName(e.name, exo.name)) return;
+        if (e.maxRM > 0) histE1RMs.push(e.maxRM);
+        if (e.repRecords) Object.values(e.repRecords).forEach(w => { if (w > 0) histWeights.push(w); });
+        if (e.series) e.series.forEach(s => { if (s.weight > 0) histWeights.push(s.weight); });
+      });
+    });
+
+    // ── Critère 1 : Saut d'e1RM vs historique (>30% au-dessus du meilleur + hors IQR) ──
+    if (histE1RMs.length >= 2) {
+      const sorted = [...histE1RMs].sort((a, b) => a - b);
+      const prevBest = sorted[sorted.length - 1];
+      const q1 = sorted[Math.floor(sorted.length * 0.25)];
+      const q3 = sorted[Math.floor(sorted.length * 0.75)];
+      const iqr = q3 - q1 || prevBest * 0.15;
+      const upperFence = q3 + 2 * iqr;
+
+      if (exo.maxRM > prevBest * 1.3 && exo.maxRM > upperFence) {
+        // Identifier quelle(s) série(s) causent l'anomalie
+        for (const s of rawSets) {
+          const rm = calcE1RM(s.weight, s.reps);
+          if (rm > prevBest * 1.3) {
+            if (!suspicious.some(x => x.exoName === exo.name && x.weight === s.weight && x.reps === s.reps)) {
+              suspicious.push({
+                exoName: exo.name, exoRef: exo,
+                weight: s.weight, reps: s.reps, e1rm: rm,
+                reason: 'e1rm_jump', prevBest: Math.round(prevBest)
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // ── Critère 2 : Poids aberrant vs historique (IQR sur les poids) ──
+    if (histWeights.length >= 5) {
+      const sorted = [...histWeights].sort((a, b) => a - b);
+      const q1 = sorted[Math.floor(sorted.length * 0.25)];
+      const q3 = sorted[Math.floor(sorted.length * 0.75)];
+      const iqr = q3 - q1 || q3 * 0.2;
+      const upperFence = q3 + 2.5 * iqr;
+
+      for (const s of rawSets) {
+        if (s.weight > upperFence && s.weight > q3 * 1.5) {
+          if (!suspicious.some(x => x.exoName === exo.name && x.weight === s.weight && x.reps === s.reps)) {
+            suspicious.push({
+              exoName: exo.name, exoRef: exo,
+              weight: s.weight, reps: s.reps, e1rm: calcE1RM(s.weight, s.reps),
+              reason: 'weight_outlier', upperFence: Math.round(upperFence), q3: Math.round(q3)
+            });
+          }
+        }
+      }
+    }
+
+    // ── Critère 3 : Anomalie intra-session (une série >2× la médiane des autres) ──
+    if (rawSets.length >= 3) {
+      const weights = rawSets.filter(s => s.weight > 0).map(s => s.weight);
+      if (weights.length >= 3) {
+        const sortedW = [...weights].sort((a, b) => a - b);
+        const medianW = sortedW[Math.floor(sortedW.length / 2)];
+        for (const s of rawSets) {
+          if (s.weight > medianW * 2 && s.weight - medianW > 20) {
+            if (!suspicious.some(x => x.exoName === exo.name && x.weight === s.weight && x.reps === s.reps)) {
+              suspicious.push({
+                exoName: exo.name, exoRef: exo,
+                weight: s.weight, reps: s.reps, e1rm: calcE1RM(s.weight, s.reps),
+                reason: 'intra_session', median: Math.round(medianW)
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return suspicious;
+}
+
+function buildSuspiciousMessage(item) {
+  let msg = `<div style="text-align:left;line-height:1.7;">`;
+  msg += `<div style="font-size:15px;font-weight:700;margin-bottom:8px;">⚠️ Série suspecte détectée</div>`;
+  msg += `<div style="font-size:13px;"><strong style="color:var(--blue);">${item.exoName}</strong></div>`;
+  msg += `<div style="font-size:14px;font-weight:700;color:var(--orange);margin:4px 0;">${item.weight}kg × ${item.reps} reps</div>`;
+  msg += `<div style="font-size:12px;color:var(--sub);">e1RM calculé : <strong style="color:var(--text);">${Math.round(item.e1rm)}kg</strong></div>`;
+
+  if (item.reason === 'e1rm_jump') {
+    msg += `<div style="margin-top:6px;padding:6px 8px;background:rgba(255,159,10,0.08);border-radius:8px;font-size:11px;color:var(--orange);">`;
+    msg += `Le e1RM fait un bond de <strong>+${Math.round(item.e1rm - item.prevBest)}kg</strong> vs le record précédent (${item.prevBest}kg) — soit +${Math.round((item.e1rm/item.prevBest - 1)*100)}%`;
+    msg += `</div>`;
+  } else if (item.reason === 'weight_outlier') {
+    msg += `<div style="margin-top:6px;padding:6px 8px;background:rgba(255,159,10,0.08);border-radius:8px;font-size:11px;color:var(--orange);">`;
+    msg += `Ce poids est bien au-dessus de ta fourchette habituelle (max habituel ~${item.q3}kg)`;
+    msg += `</div>`;
+  } else if (item.reason === 'intra_session') {
+    msg += `<div style="margin-top:6px;padding:6px 8px;background:rgba(255,159,10,0.08);border-radius:8px;font-size:11px;color:var(--orange);">`;
+    msg += `Ce poids est anormalement élevé par rapport aux autres séries de cet exercice (médiane : ${item.median}kg)`;
+    msg += `</div>`;
+  }
+
+  msg += `<div style="margin-top:8px;font-size:11px;color:var(--sub);">Garder cette série dans tes records ?</div>`;
+  msg += `</div>`;
+  return msg;
+}
+
+function removeSuspiciousSet(exo, weight, reps) {
+  // Retirer la série des repRecords
+  const rKey = String(reps);
+  if (exo.repRecords && exo.repRecords[rKey] === weight) {
+    delete exo.repRecords[rKey];
+  }
+  // Retirer de series
+  if (exo.series) {
+    exo.series = exo.series.filter(s => !(s.weight === weight && s.reps === reps));
+  }
+  // Retirer de _rawSets
+  if (exo._rawSets) {
+    const idx = exo._rawSets.findIndex(s => s.weight === weight && s.reps === reps);
+    if (idx >= 0) exo._rawSets.splice(idx, 1);
+  }
+  // Recalculer maxRM depuis les données restantes
+  exo.maxRM = 0;
+  if (exo.series) {
+    exo.series.forEach(s => {
+      const rm = calcE1RM(s.weight, s.reps);
+      if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = s.date; }
+    });
+  }
+  if (exo.repRecords) {
+    Object.entries(exo.repRecords).forEach(([rk, w]) => {
+      const rm = calcE1RM(w, parseInt(rk));
+      if (rm > exo.maxRM) exo.maxRM = rm;
+    });
+  }
+}
+
+function processSuspiciousSets(list, idx, callback) {
+  if (idx >= list.length) { callback(); return; }
+  const item = list[idx];
+  const msg = buildSuspiciousMessage(item);
+  showModal(msg, '✓ Garder', 'var(--blue)', () => {
+    // Gardé — on passe au suivant
+    processSuspiciousSets(list, idx + 1, callback);
+  }, () => {
+    // Rejeté — supprimer la série et recalculer
+    removeSuspiciousSet(item.exoRef, item.weight, item.reps);
+    processSuspiciousSets(list, idx + 1, callback);
+  });
+}
+
 function finalizeSession(session, rawText) {
   session.exercises = session.exercises.filter(e => !SESSION_NAME_BLACKLIST.test(e.name.toLowerCase()));
 
   // Traiter les "1RM est:" en attente — demander confirmation pour chaque
   const pending = session._pending1RM || [];
   delete session._pending1RM;
+
+  const afterPending = () => {
+    // Détecter les séries suspectes (erreurs de saisie potentielles)
+    const suspicious = detectSuspiciousSets(session);
+    // Nettoyer les _rawSets avant de sauvegarder
+    session.exercises.forEach(e => { delete e._rawSets; });
+    if (suspicious.length > 0) {
+      processSuspiciousSets(suspicious, 0, () => doFinalizeSession(session));
+    } else {
+      doFinalizeSession(session);
+    }
+  };
+
   if (pending.length) {
-    processPending1RM(pending, 0, () => doFinalizeSession(session));
+    processPending1RM(pending, 0, afterPending);
   } else {
-    doFinalizeSession(session);
+    afterPending();
   }
 }
 
@@ -3740,7 +3919,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
       const cleanName=line.trim().replace(/\s*"[^"]*"\s*$/g,'').trim();
       const isCardio=exoType==='cardio'||exoType==='cardio_stairs';
       const isTime=exoType==='time',isReps=exoType==='reps';
-      currExo={name:cleanName,maxRM:0,sets:0,isCardio,isTime,isReps,distance:0,maxTime:0,maxReps:0,totalReps:0,repRecords:{},series:[],exoType};
+      currExo={name:cleanName,maxRM:0,sets:0,isCardio,isTime,isReps,distance:0,maxTime:0,maxReps:0,totalReps:0,repRecords:{},series:[],exoType,_rawSets:[]};
       continue;
     }
     if (!currExo) continue;
@@ -3753,6 +3932,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
         const isAbandon= /\[abandon\]/i.test(line);
         const isDrop   = /\[drop(\s*set)?\]/i.test(line);
         const countForRecord = !isW && !isAbandon && !isDrop;
+        if(countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
         session.volume+=w*r;
         if(countForRecord){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}
         else if(isW){/* warmup : volume comptabilisé mais pas les records */}
@@ -4872,7 +5052,7 @@ function parseHevyCSV(text) {
         maxRM: 0, maxRMDate: null,
         maxReps: 0, maxRepsDate: null,
         totalReps: 0, maxTime: 0, distance: 0,
-        sets: 0, repRecords: {}, series: []
+        sets: 0, repRecords: {}, series: [], _rawSets: []
       };
 
       for (const s of sets) {
@@ -4881,6 +5061,7 @@ function parseHevyCSV(text) {
         const isDrop    = s.setType === 'dropset';
         const isFailure = s.setType === 'failure';
         const countForRecord = !isWarmup && !isDrop && !isFailure;
+        if (countForRecord && s.wkg > 0 && s.reps > 0 && !isCardio && !isTime) exo._rawSets.push({weight: s.wkg, reps: s.reps});
 
         if (isCardio) {
           if (s.distKm > exo.distance) exo.distance = s.distKm;
@@ -4976,13 +5157,13 @@ function buildSessionFromCSV(dateRaw, seanceName, rows) {
   const exoMap=new Map();for(const row of rows){if(!exoMap.has(row.exo))exoMap.set(row.exo,[]);exoMap.get(row.exo).push(row);}
   for(const[exoName,sets]of exoMap){
     const exoType=getExoType(exoName);const isCardio=exoType==='cardio'||exoType==='cardio_stairs';const isTime=exoType==='time';const isReps=exoType==='reps';
-    const exo={name:exoName,exoType,isCardio,isTime,isReps,maxRM:0,maxReps:0,totalReps:0,maxTime:0,distance:0,sets:0,repRecords:{},series:[]};
+    const exo={name:exoName,exoType,isCardio,isTime,isReps,maxRM:0,maxReps:0,totalReps:0,maxTime:0,distance:0,sets:0,repRecords:{},series:[],_rawSets:[]};
     for(const s of sets){
       exo.sets++;
       if(isCardio){const distKm=s.dist>0?s.dist/1000:0;if(distKm>exo.distance)exo.distance=distKm;if(s.duree>exo.maxTime){exo.maxTime=s.duree;exo.cardioDate=ts;}}
       else if(isTime){if(s.duree>exo.maxTime){exo.maxTime=s.duree;exo.maxTimeDate=ts;}session.volume+=s.duree/10;}
       else if(isReps){exo.totalReps+=s.reps;if(s.reps>exo.maxReps){exo.maxReps=s.reps;exo.maxRepsDate=ts;}if(s.poids>0){session.volume+=s.poids*s.reps;const rm=calcE1RM(s.poids,s.reps);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}const rKey=String(s.reps);if(!exo.repRecords[rKey]||s.poids>exo.repRecords[rKey])exo.repRecords[rKey]=s.poids;}}
-      else{const w=s.poids,r=s.reps;if(w>0&&r>0){session.volume+=w*r;const rKey=String(r);if(!exo.repRecords[rKey]||w>exo.repRecords[rKey])exo.repRecords[rKey]=w;const ex=exo.series.find(x=>x.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=ts;}}else exo.series.push({weight:w,reps:r,date:ts});const rm=calcE1RM(w,r);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}}}
+      else{const w=s.poids,r=s.reps;if(w>0&&r>0){exo._rawSets.push({weight:w,reps:r});session.volume+=w*r;const rKey=String(r);if(!exo.repRecords[rKey]||w>exo.repRecords[rKey])exo.repRecords[rKey]=w;const ex=exo.series.find(x=>x.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=ts;}}else exo.series.push({weight:w,reps:r,date:ts});const rm=calcE1RM(w,r);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}}}
     }
     if(exo.maxRM>0||exo.isCardio||exo.maxTime>0||exo.maxReps>0||exo.sets>0)session.exercises.push(exo);
   }
@@ -4996,6 +5177,8 @@ async function importCSV() {
   const existingDates=new Set(db.logs.map(l=>l.shortDate));const newSessions=csvParsedData.sessions.filter(s=>!existingDates.has(s.shortDate));
   let imported=0,prs={bench:0,squat:0,deadlift:0};
   for(const session of newSessions){
+    // Nettoyer les _rawSets avant de sauvegarder (évite de gonfler localStorage)
+    session.exercises.forEach(exo=>{ delete exo._rawSets; });
     session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;prs[type]=exo.maxRM;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;}});
     db.logs.push(session);imported++;
     if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
@@ -5004,7 +5187,29 @@ async function importCSV() {
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
   if(prSummary)showToast('🏆 PRs : '+prSummary);
+  // Vérifier les records suspects après import CSV
+  const suspectCount = Object.values(getSuspiciousRecordsSummary()).length;
+  if (suspectCount > 0) {
+    setTimeout(() => showToast('⚠️ ' + suspectCount + ' record' + (suspectCount>1?'s':'') + ' suspect' + (suspectCount>1?'s':'') + ' détecté' + (suspectCount>1?'s':'') + ' — vérifie dans Réglages → Correction des Records'), 1500);
+  }
   refreshUI();csvParsedData=null;
+}
+
+function getSuspiciousRecordsSummary() {
+  const exoMap = {};
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      if (!exoMap[exo.name] || exo.maxRM > exoMap[exo.name].maxRM) {
+        exoMap[exo.name] = { name: exo.name, maxRM: exo.maxRM };
+      }
+    });
+  });
+  const suspects = {};
+  Object.values(exoMap).forEach(r => {
+    if (isRecordSuspicious(r.name, r.maxRM)) suspects[r.name] = r;
+  });
+  return suspects;
 }
 
 // ============================================================
@@ -6835,6 +7040,25 @@ function toggleSettingsInjury(zone, btn) {
 }
 
 // ── Records Correction Tool ──────────────────────────────────
+function isRecordSuspicious(exoName, maxRM) {
+  // Collecter tous les e1RM historiques pour cet exercice
+  const histE1RMs = [];
+  db.logs.forEach(log => {
+    log.exercises.forEach(e => {
+      if (!matchExoName(e.name, exoName)) return;
+      if (e.maxRM > 0) histE1RMs.push(e.maxRM);
+    });
+  });
+  if (histE1RMs.length < 3) return false;
+  const sorted = [...histE1RMs].sort((a, b) => a - b);
+  const q1 = sorted[Math.floor(sorted.length * 0.25)];
+  const q3 = sorted[Math.floor(sorted.length * 0.75)];
+  const iqr = q3 - q1 || q3 * 0.15;
+  const median = sorted[Math.floor(sorted.length / 2)];
+  // Suspect si le record est au-delà de Q3 + 2×IQR ET >40% au-dessus de la médiane
+  return maxRM > q3 + 2 * iqr && maxRM > median * 1.4;
+}
+
 function renderRecordsCorrectionList() {
   const el = document.getElementById('recordsCorrectionList');
   if (!el) return;
@@ -6869,11 +7093,11 @@ function renderRecordsCorrectionList() {
   }
 
   el.innerHTML = sorted.slice(0, 20).map(r => {
-    const suspicious = r.maxRM > 350;
+    const suspicious = isRecordSuspicious(r.name, r.maxRM);
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--text);">${r.name} ${suspicious?'⚠️':''}</div>
-        <div style="font-size:11px;color:var(--sub);">e1RM: <strong style="color:${suspicious?'var(--red)':'var(--blue)'};">${Math.round(r.maxRM)}kg</strong> — ${r.date}</div>
+        <div style="font-size:11px;color:var(--sub);">e1RM: <strong style="color:${suspicious?'var(--red)':'var(--blue)'};">${Math.round(r.maxRM)}kg</strong> — ${r.date}${suspicious?' <span style="color:var(--orange);font-size:10px;">(possible erreur de saisie)</span>':''}</div>
       </div>
       <div style="display:flex;gap:6px;">
         <button onclick="editRecord('${r.name.replace(/'/g,"\\'")}', ${r.maxRM}, ${r.isSBD?'true':'false'}, '${r.sbdType||''}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--blue);font-size:11px;font-weight:600;cursor:pointer;">Modifier</button>

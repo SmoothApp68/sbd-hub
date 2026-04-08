@@ -3780,10 +3780,12 @@ function doFinalizeSession(session) {
     const type = getSBDType(exo.name);
 
     // 1. e1RM all-time
+    const isVariant = VARIANT_KEYWORDS.some(kw => exo.name.toLowerCase().includes(kw));
     const prevE1RM = findPreviousBestE1RM(exo.name, session.timestamp);
     if (exo.maxRM > 0 && exo.maxRM > prevE1RM) {
       allPRs.push({ exo: exo.name, kind: 'e1rm', old: prevE1RM, new: exo.maxRM, delta: Math.round((exo.maxRM - prevE1RM)*10)/10, isSBD: !!type });
-      if (type) { db.bestPR[type] = exo.maxRM; newPRs[type] = true; while(db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5; }
+      // Les variantes (pause, spoto, etc.) ne comptent pas pour les records SBD
+      if (type && !isVariant) { db.bestPR[type] = exo.maxRM; newPRs[type] = true; while(db.bestPR[type] >= db.user.targets[type]) db.user.targets[type] += 5; }
     }
 
     // 2. Records par nb de répétitions (ex: nouveau record à 5 reps)
@@ -5179,7 +5181,7 @@ async function importCSV() {
   for(const session of newSessions){
     // Nettoyer les _rawSets avant de sauvegarder (évite de gonfler localStorage)
     session.exercises.forEach(exo=>{ delete exo._rawSets; });
-    session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;prs[type]=exo.maxRM;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;}});
+    session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(!type||!exo.maxRM)return;if(VARIANT_KEYWORDS.some(kw=>exo.name.toLowerCase().includes(kw)))return;if(exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;prs[type]=exo.maxRM;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;}});
     db.logs.push(session);imported++;
     if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
@@ -5317,7 +5319,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   let ns=false;
   db.logs.forEach(l=>{if(!l.id){l.id=generateId();ns=true;}});
   db.bestPR={bench:0,squat:0,deadlift:0};
-  db.logs.forEach(log=>{log.exercises.forEach(exo=>{const t=getSBDType(exo.name);if(t&&exo.maxRM>db.bestPR[t]){db.bestPR[t]=exo.maxRM;while(db.bestPR[t]>=db.user.targets[t])db.user.targets[t]+=5;ns=true;}});});
+  db.logs.forEach(log=>{log.exercises.forEach(exo=>{const t=getSBDType(exo.name);if(!t||!exo.maxRM||exo.maxRM<=0)return;if(VARIANT_KEYWORDS.some(kw=>exo.name.toLowerCase().includes(kw)))return;if(exo.maxRM>db.bestPR[t]){db.bestPR[t]=exo.maxRM;while(db.bestPR[t]>=db.user.targets[t])db.user.targets[t]+=5;ns=true;}});});
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
@@ -6753,8 +6755,25 @@ function renderLifts() {
         '</svg></div>';
     }
 
-    // RM grid: estimated vs real
-    const TARGET_REPS = [1, 3, 5, 8, 10, 12];
+    // RM grid: estimated vs real — avec reps réels garantis
+    const STANDARD_REPS = [1, 3, 5, 8, 10, 12];
+    const realReps = Object.keys(lift.repRecords).map(Number).filter(r => r > 0).sort((a,b) => a - b);
+    const standardWithReal = STANDARD_REPS.filter(r => lift.repRecords[String(r)]);
+
+    let TARGET_REPS;
+    if (standardWithReal.length >= 1) {
+      // Au moins 1 valeur réelle dans les standards → garder les standards
+      TARGET_REPS = STANDARD_REPS;
+    } else if (realReps.length > 0) {
+      // Aucune valeur réelle dans les standards → intégrer les reps réels
+      // Prendre jusqu'à 3 reps réels et compléter avec les standards les plus proches
+      const toInclude = realReps.slice(0, 3);
+      const remaining = STANDARD_REPS.filter(r => !toInclude.includes(r));
+      TARGET_REPS = [...toInclude, ...remaining].sort((a,b) => a - b).slice(0, 6);
+    } else {
+      TARGET_REPS = STANDARD_REPS;
+    }
+
     const rmCells = TARGET_REPS.map(r => {
       const epley = r === 1 ? lift.maxRM : lift.maxRM * (1.0278 - 0.0278 * r);
       const estKg = Math.round(epley * 2) / 2;
@@ -6766,6 +6785,8 @@ function renderLifts() {
         (realKg ? '<div class="lift-rm-real">' + realKg + 'kg</div>' : '') +
         '</div>';
     }).join('');
+
+    const gridCols = TARGET_REPS.length;
 
     const lcId = 'lc-' + idx;
     return '<div class="lift-card">' +
@@ -6783,7 +6804,7 @@ function renderLifts() {
         '<div style="height:6px;"></div>' +
         '<div class="lift-badges">' + badges + '</div>' +
         sparkSVG +
-        '<div class="lift-rm-grid" style="grid-template-columns:repeat(6,1fr);">' + rmCells + '</div>' +
+        '<div class="lift-rm-grid" style="grid-template-columns:repeat(' + gridCols + ',1fr);">' + rmCells + '</div>' +
         '<div class="lift-calc"><span class="lift-calc-label">🧮 Calculer :</span>' +
         '<input type="number" min="1" max="30" placeholder="reps" oninput="calcLiftWeight(this)" data-e1rm="' + lift.maxRM + '" id="calc-' + lcId + '">' +
         '<span class="lift-calc-result" id="calc-res-' + lcId + '">— kg</span></div>' +
@@ -7168,12 +7189,14 @@ function deleteRecord(exoName, isSBD, sbdType) {
       });
     });
 
-    // Recalculate SBD best PRs
+    // Recalculate SBD best PRs (variantes exclues)
     if (isSBD && sbdType) {
       let best = 0;
       db.logs.forEach(log => {
         log.exercises.forEach(exo => {
-          if (getSBDType(exo.name) === sbdType && exo.maxRM > best) best = exo.maxRM;
+          if (getSBDType(exo.name) === sbdType && exo.maxRM > best) {
+            if (!VARIANT_KEYWORDS.some(kw => exo.name.toLowerCase().includes(kw))) best = exo.maxRM;
+          }
         });
       });
       db.bestPR[sbdType] = best;

@@ -297,41 +297,9 @@
     .coach-algo-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--green); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
     .plateau-alert { background: rgba(255,159,10,0.1); border: 1px solid rgba(255,159,10,0.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
     .week-empty{text-align:center;padding:50px 0;color:var(--sub);font-size:14px;}
-    /* ── Lifts améliorés ── */
+    /* ── Lifts filter ── */
     .lifts-filter-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
     .lifts-filter-chip.active{background:var(--blue);color:white;border-color:var(--blue);}
-    .lift-card{background:var(--surface);border:1px solid var(--surface-border);border-radius:14px;padding:14px;margin-bottom:10px;}
-    .lift-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
-    .lift-card-name{font-size:14px;font-weight:700;color:var(--text);}
-    .lift-card-muscle{font-size:11px;margin-top:3px;}
-    .lift-card-right{text-align:right;}
-    .lift-card-pr{font-size:20px;font-weight:800;color:var(--blue);}
-    .lift-card-date{font-size:10px;color:var(--sub);margin-top:2px;}
-    .lift-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
-    .lift-badge{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600;}
-    .lift-badge.blue{background:rgba(10,132,255,0.15);color:var(--blue);}
-    .lift-badge.green{background:rgba(50,215,75,0.15);color:var(--green);}
-    .lift-badge.orange{background:rgba(255,159,10,0.15);color:var(--orange);}
-    .lift-badge.purple{background:rgba(191,90,242,0.15);color:var(--purple);}
-    .lift-sparkline-wrap{height:44px;margin:6px 0 10px;}
-    .lift-rm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
-    .lift-rm-cell{background:rgba(255,255,255,0.04);border-radius:8px;padding:6px 8px;text-align:center;}
-    .lift-rm-label{font-size:10px;color:var(--sub);display:block;margin-bottom:3px;}
-    .lift-rm-est{font-size:13px;font-weight:700;color:var(--blue);}
-    .lift-rm-real{font-size:11px;color:var(--green);font-weight:600;margin-top:2px;}
-    .lift-rm-real::before{content:'✓ ';}
-    /* Lift card collapsible */
-    .lift-card-body{max-height:0;overflow:hidden;transition:max-height 0.4s ease;}
-    .lift-card-body.open{max-height:900px;}
-    .lift-card-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:5px 0 0;border-top:1px solid rgba(255,255,255,0.05);margin-top:4px;}
-    .lift-card-toggle-label{font-size:11px;color:var(--sub);}
-    .lift-card-chevron{font-size:10px;color:var(--sub);transition:transform 0.3s;}
-    .lift-card-chevron.open{transform:rotate(180deg);}
-    /* Mini 1RM calc */
-    .lift-calc{display:flex;align-items:center;gap:8px;margin-top:10px;padding:10px;background:rgba(10,132,255,0.06);border-radius:10px;border:1px solid rgba(10,132,255,0.15);}
-    .lift-calc-label{font-size:11px;color:var(--sub);white-space:nowrap;}
-    .lift-calc input{flex:0 0 60px;width:60px;padding:7px;font-size:13px;margin:0;border-radius:8px;text-align:center;}
-    .lift-calc-result{font-size:14px;font-weight:700;color:var(--blue);white-space:nowrap;flex:1;text-align:right;}
     /* Dashboard accordion badges */
     .dash-acc-badge{background:var(--blue);color:white;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:8px;vertical-align:middle;}
     .dash-acc-badge.green{background:var(--green);color:#000;}
@@ -372,20 +340,6 @@
     .weight-trend-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
     .weight-avg{font-size:30px;font-weight:800;color:var(--text);}
     .weight-avg-sub{font-size:11px;color:var(--sub);margin-top:2px;}
-    /* ── Muscle bars ── */
-    .muscle-group-row{margin-bottom:14px;}
-    .muscle-group-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-    .muscle-group-name{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;}
-    .muscle-group-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-    .muscle-group-count{font-size:13px;font-weight:700;}
-    .muscle-group-bar-bg{background:#2C2C2E;border-radius:5px;height:9px;overflow:hidden;margin-bottom:4px;}
-    .muscle-group-bar-fill{height:100%;border-radius:5px;transition:width 0.6s ease;}
-    .muscle-week-evol{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:5px;}
-    .muscle-week-cell{text-align:center;}
-    .muscle-week-bar-wrap{height:24px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:2px;}
-    .muscle-week-bar{width:70%;border-radius:2px 2px 0 0;min-height:2px;transition:height 0.4s;}
-    .muscle-week-label{font-size:9px;color:var(--sub);}
-    .muscle-week-val{font-size:10px;font-weight:600;}
     /* ── Accordéon Réglages ── */
     .acc-card{background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:10px;overflow:hidden;}
     .acc-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;cursor:pointer;font-size:14px;font-weight:700;color:var(--text);transition:background 0.2s;}
@@ -449,17 +403,6 @@
     .wp-days::-webkit-scrollbar{display:none;}
     .wp-session{animation:fadeIn 0.25s ease;}
     .wp-session-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;}
-    .wp-exo{background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--surface-border);}
-    .wp-exo-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
-    .wp-exo-type{font-size:10px;color:var(--sub);background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:6px;font-weight:500;}
-    .wp-sets-table{width:100%;border-collapse:collapse;font-size:12px;}
-    .wp-sets-table th{color:var(--sub);font-weight:600;text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);}
-    .wp-sets-table td{padding:6px 6px;border-bottom:1px solid rgba(44,44,46,0.5);vertical-align:middle;}
-    .wp-sets-table tr:last-child td{border-bottom:none;}
-    .wp-warmup-row td{color:var(--sub);}
-    .wp-work-row td{color:var(--text);}
-    .wp-charge{color:var(--blue);font-weight:700;font-size:13px;}
-    .wp-rest-tag{display:inline-block;background:rgba(100,210,255,0.1);color:var(--teal);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;margin-top:8px;}
     .wp-coach-note{margin-top:10px;padding:10px 12px;background:rgba(255,159,10,0.08);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);line-height:1.5;}
     .wp-rest-day{text-align:center;padding:30px 0;color:var(--sub);font-size:14px;}
     .wp-bloc-badge{display:inline-block;background:rgba(191,90,242,0.2);color:var(--purple);padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:14px;}
@@ -603,6 +546,111 @@
     .corps-acc-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
     .corps-acc-body.open { max-height: 800px; }
     .corps-acc-inner { padding: 0 16px 16px; }
+
+    /* ── Muscle cards dépliables (.mg-*) ── */
+    .mg-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+    .mg-head { padding: 14px 16px; cursor: pointer; }
+    .mg-head-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .mg-name { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .mg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .mg-count { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+    .mg-chev { font-size: 9px; color: var(--sub); transition: transform 0.3s; }
+    .mg-chev.open { transform: rotate(180deg); }
+    .mg-bar-bg { background: var(--border); border-radius: 5px; height: 8px; overflow: hidden; }
+    .mg-bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s; }
+    .mg-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .mg-body.open { max-height: 600px; }
+    .mg-subs { padding: 0 16px 12px; }
+    .mg-sub-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .mg-sub-row:last-child { margin-bottom: 0; }
+    .mg-sub-name { font-size: 11px; color: var(--sub); width: 110px; flex-shrink: 0; }
+    .mg-sub-bar-bg { flex: 1; background: var(--border); border-radius: 4px; height: 6px; overflow: hidden; }
+    .mg-sub-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+    .mg-sub-count { font-size: 11px; font-weight: 600; min-width: 30px; text-align: right; }
+    .mg-weeks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04); }
+    .mg-week { text-align: center; }
+    .mg-week-bar-area { height: 24px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 2px; }
+    .mg-week-bar { width: 65%; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.4s; }
+    .mg-week-lbl { font-size: 9px; color: var(--sub); }
+    .mg-week-val { font-size: 10px; font-weight: 600; }
+
+    /* ── Lift card (.lc-*) ── */
+    .lc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+    .lc-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
+    .lc-rank { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+    .lc-info { flex: 1; min-width: 0; }
+    .lc-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lc-muscle { font-size: 11px; margin-top: 2px; }
+    .lc-right { text-align: right; flex-shrink: 0; }
+    .lc-e1rm { font-size: 20px; font-weight: 800; color: var(--blue); }
+    .lc-e1rm span { font-size: 11px; font-weight: 400; color: var(--sub); }
+    .lc-date { font-size: 10px; color: var(--sub); margin-top: 2px; }
+    .lc-badges { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 16px 8px; }
+    .lc-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 600; }
+    .lc-badge.blue { background: rgba(10,132,255,0.12); color: var(--blue); }
+    .lc-badge.green { background: rgba(50,215,75,0.12); color: var(--green); }
+    .lc-badge.purple { background: rgba(191,90,242,0.12); color: var(--purple); }
+    .lc-badge.orange { background: rgba(255,159,10,0.12); color: var(--orange); }
+    .lc-spark { padding: 4px 16px 6px; height: 40px; }
+    .lc-spark svg { width: 100%; height: 100%; }
+    .lc-toggle { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 16px 10px; font-size: 11px; color: var(--sub); cursor: pointer; border-top: 1px solid rgba(255,255,255,0.04); }
+    .lc-toggle:hover { color: var(--blue); }
+    .lc-toggle .chev { transition: transform 0.3s; font-size: 9px; }
+    .lc-toggle.open .chev { transform: rotate(180deg); }
+    .lc-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .lc-body.open { max-height: 600px; }
+    .lc-rm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 16px 12px; }
+    .lc-rm-cell { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px; text-align: center; }
+    .lc-rm-label { font-size: 10px; color: var(--sub); margin-bottom: 3px; }
+    .lc-rm-est { font-size: 14px; font-weight: 700; color: var(--blue); }
+    .lc-rm-real { font-size: 11px; font-weight: 600; margin-top: 2px; }
+    .lc-rm-real.done { color: var(--green); }
+    .lc-rm-real.pot { color: var(--orange); }
+    .lc-rm-real.miss { color: var(--sub); opacity: 0.5; }
+    .lc-calc { display: flex; align-items: center; gap: 8px; padding: 6px 16px 14px; font-size: 12px; }
+    .lc-calc-lbl { color: var(--sub); white-space: nowrap; font-size: 11px; }
+    .lc-calc input { width: 52px; padding: 6px; font-size: 12px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); }
+    .lc-calc input:focus { outline: none; border-color: var(--blue); }
+    .lc-calc-res { color: var(--blue); font-weight: 700; flex: 1; text-align: right; }
+
+    /* ── Cardio sections (.cardio-*) ── */
+    .cardio-sec { margin-bottom: 16px; }
+    .cardio-sec-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .cardio-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .cardio-metric { background: var(--surface); border-radius: 12px; padding: 12px; text-align: center; }
+    .cardio-metric-val { font-size: 18px; font-weight: 800; }
+    .cardio-metric-val span { font-size: 12px; font-weight: 400; }
+    .cardio-metric-lbl { font-size: 10px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+    .cardio-h-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .cardio-h-item:last-child { border-bottom: none; }
+    .cardio-h-left { display: flex; align-items: center; gap: 10px; }
+    .cardio-h-ico { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+    .cardio-h-name { font-size: 13px; font-weight: 600; }
+    .cardio-h-date { font-size: 11px; color: var(--sub); margin-top: 1px; }
+    .cardio-h-right { text-align: right; }
+    .cardio-h-dist { font-size: 14px; font-weight: 700; color: var(--blue); }
+    .cardio-h-time { font-size: 11px; color: var(--sub); }
+    .cardio-h-pace { font-size: 10px; color: var(--green); margin-top: 1px; }
+
+    /* ── Weekly plan exercise card (.wpe-*) ── */
+    .wpe { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+    .wpe-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+    .wpe-ico { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .wpe-info { flex: 1; min-width: 0; }
+    .wpe-name { font-size: 14px; font-weight: 700; }
+    .wpe-summary { font-size: 11px; color: var(--blue); font-weight: 600; margin-top: 2px; }
+    .wpe-type-tag { font-size: 10px; color: var(--sub); background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
+    .wpe-sets { padding: 0 16px 12px; border-top: 1px solid rgba(255,255,255,0.04); }
+    .wpe-set-hdr { display: grid; grid-template-columns: 40px 1fr 1fr 1fr; font-size: 9px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px; }
+    .wpe-set-row { display: grid; grid-template-columns: 40px 1fr 1fr 1fr; font-size: 13px; padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.03); align-items: center; }
+    .wpe-set-num { font-weight: 600; font-size: 11px; color: var(--sub); }
+    .wpe-set-charge { font-weight: 700; color: var(--blue); }
+    .wpe-set-reps { font-weight: 600; }
+    .wpe-set-rpe { font-size: 11px; color: var(--orange); }
+    .wpe-warmup .wpe-set-charge, .wpe-warmup .wpe-set-reps { color: var(--sub); font-weight: 400; }
+    .wpe-warmup .wpe-set-num { color: rgba(134,134,139,0.5); }
+    .wpe-rest { display: inline-block; background: rgba(100,210,255,0.08); color: var(--teal); padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; margin: 6px 16px 12px; }
+    .wpe-nodata { font-size: 12px; color: var(--orange); padding: 8px 16px 12px; border-top: 1px solid rgba(255,255,255,0.04); }
   </style>
 </head>
 <body>
@@ -5106,13 +5154,38 @@ function renderMuscleVolumeContent(period) {
   period = period || window._musclePeriod || 'week';
   const days = period === 'week' ? 7 : 28;
   const rl = getLogsInRange(days);
-  const ms = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
+
+  // Sub-group volume via getMuscleContributions
+  const subVol = {};
   rl.forEach(l => l.exercises.forEach(e => {
-    const mg = getMuscleGroupParent(getMuscleGroup(e.name));
-    if (ms.hasOwnProperty(mg)) ms[mg] += e.sets;
+    const contribs = getMuscleContributions(e.name);
+    const exoType = getExoType(e.name);
+    if (exoType === 'cardio' || exoType === 'cardio_stairs') {
+      subVol['Cardio'] = (subVol['Cardio'] || 0) + (e.sets || 1);
+      return;
+    }
+    contribs.forEach(c => {
+      const key = c.muscle;
+      subVol[key] = (subVol[key] || 0) + (e.sets || 1) * c.coeff;
+    });
   }));
 
-  // 4 semaines pour les mini-barres
+  // Group by parent
+  const PARENTS = ['Jambes','Dos','Pecs','Épaules','Bras','Abdos','Cardio'];
+  const COLORS = { Jambes:'#32D74B', Dos:'#FF9F0A', Pecs:'#0A84FF', Épaules:'#BF5AF2', Bras:'#64D2FF', Abdos:'#FF453A', Cardio:'#FF6B00' };
+  const parentTotals = {};
+  const parentSubs = {};
+  PARENTS.forEach(p => { parentTotals[p] = 0; parentSubs[p] = {}; });
+
+  Object.entries(subVol).forEach(([sub, vol]) => {
+    const parent = getMuscleGroupParent(sub);
+    if (!parentTotals.hasOwnProperty(parent)) return;
+    parentTotals[parent] += vol;
+    if (parent === sub || sub === 'Cardio') return; // no sub-breakdown for Cardio or if sub===parent
+    parentSubs[parent][sub] = (parentSubs[parent][sub] || 0) + vol;
+  });
+
+  // 4-week evolution (by parent)
   const now = Date.now(); const week = 7*86400000;
   const weeks = [
     { label:'S-3', start:now-4*week, end:now-3*week },
@@ -5121,16 +5194,20 @@ function renderMuscleVolumeContent(period) {
     { label:'Sem.', start:now-week, end:now }
   ];
   const weeklyData = weeks.map(w => {
-    const wd = { Jambes:0, Pecs:0, Dos:0, Épaules:0, Bras:0, Abdos:0, Cardio:0 };
-    db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end)
-      .forEach(l => l.exercises.forEach(e => { const mg = getMuscleGroupParent(getMuscleGroup(e.name)); if (wd.hasOwnProperty(mg)) wd[mg] += e.sets; }));
+    const wd = {};
+    PARENTS.forEach(p => wd[p] = 0);
+    db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end).forEach(l => l.exercises.forEach(e => {
+      const exoType = getExoType(e.name);
+      if (exoType === 'cardio' || exoType === 'cardio_stairs') { wd['Cardio'] += (e.sets || 1); return; }
+      getMuscleContributions(e.name).forEach(c => {
+        const p = getMuscleGroupParent(c.muscle);
+        if (wd.hasOwnProperty(p)) wd[p] += (e.sets || 1) * c.coeff;
+      });
+    }));
     return wd;
   });
 
-  const maxVal = Math.max(...Object.values(ms), 1);
-  const muscles = ['Jambes','Dos','Pecs','Épaules','Bras','Abdos','Cardio'];
-  const COLORS = { Jambes:'#32D74B', Dos:'#FF9F0A', Pecs:'#0A84FF', Épaules:'#BF5AF2', Bras:'#64D2FF', Abdos:'#FF453A', Cardio:'#FF6B00' };
-
+  const maxVal = Math.max(...PARENTS.map(p => parentTotals[p] || 0), 1);
   const listEl = document.getElementById('muscleList');
   if (!listEl) return;
 
@@ -5139,31 +5216,55 @@ function renderMuscleVolumeContent(period) {
     return;
   }
 
-  listEl.innerHTML = muscles.map(grp => {
-    const total = ms[grp] || 0;
+  listEl.innerHTML = PARENTS.map((grp, gi) => {
+    const total = Math.round((parentTotals[grp] || 0) * 10) / 10;
     const pct = Math.round((total / maxVal) * 100);
     const color = COLORS[grp] || '#86868B';
-    const weekMaxAll = Math.max(...weeklyData.map(wd => wd[grp] || 0), 1);
+    const mgId = 'mg-' + gi;
 
-    const miniCells = weeklyData.map((wd, wi) => {
-      const wv = wd[grp] || 0;
-      const h = Math.round((wv / weekMaxAll) * 20);
-      return '<div class="muscle-week-cell">' +
-        '<div class="muscle-week-bar-wrap"><div class="muscle-week-bar" style="height:' + Math.max(h, 2) + 'px;background:' + color + ';opacity:' + (wi === 3 ? '1' : '0.4') + '"></div></div>' +
-        '<div class="muscle-week-label">' + weeks[wi].label + '</div>' +
-        '<div class="muscle-week-val" style="color:' + (wv > 0 ? color : 'var(--sub)') + '">' + (wv || '—') + '</div>' +
-        '</div>';
+    // Sub-groups
+    const subs = Object.entries(parentSubs[grp] || {}).sort((a, b) => b[1] - a[1]);
+    const subMax = subs.length ? Math.max(...subs.map(s => s[1]), 1) : 1;
+    const subsHtml = subs.map(([sub, vol]) => {
+      const sv = Math.round(vol * 10) / 10;
+      const sp = Math.round((vol / subMax) * 100);
+      return '<div class="mg-sub-row">' +
+        '<span class="mg-sub-name">' + sub + '</span>' +
+        '<div class="mg-sub-bar-bg"><div class="mg-sub-bar-fill" style="width:' + sp + '%;background:' + color + ';opacity:0.7;"></div></div>' +
+        '<span class="mg-sub-count" style="color:' + color + ';">' + sv + 's</span></div>';
     }).join('');
 
-    return '<div class="muscle-group-row">' +
-      '<div class="muscle-group-header">' +
-        '<div class="muscle-group-name"><div class="muscle-group-dot" style="background:' + color + '"></div>' + grp + '</div>' +
-        '<span class="muscle-group-count" style="color:' + color + '">' + total + 's</span>' +
+    // Weekly evolution
+    const weekMaxAll = Math.max(...weeklyData.map(wd => wd[grp] || 0), 1);
+    const weekCells = weeklyData.map((wd, wi) => {
+      const wv = Math.round((wd[grp] || 0) * 10) / 10;
+      const h = Math.round((wv / weekMaxAll) * 20);
+      return '<div class="mg-week"><div class="mg-week-bar-area"><div class="mg-week-bar" style="height:' + Math.max(h, 2) + 'px;background:' + color + ';opacity:' + (wi === 3 ? '1' : '0.4') + '"></div></div>' +
+        '<div class="mg-week-lbl">' + weeks[wi].label + '</div>' +
+        '<div class="mg-week-val" style="color:' + (wv > 0 ? color : 'var(--sub)') + ';">' + (wv || '—') + '</div></div>';
+    }).join('');
+
+    return '<div class="mg-card">' +
+      '<div class="mg-head" onclick="toggleMgCard(\'' + mgId + '\')">' +
+        '<div class="mg-head-row">' +
+          '<span class="mg-name"><span class="mg-dot" style="background:' + color + ';"></span>' + grp + '</span>' +
+          '<span class="mg-count" style="color:' + color + ';">' + total + 's <span class="mg-chev" id="chev-' + mgId + '">▾</span></span>' +
+        '</div>' +
+        '<div class="mg-bar-bg"><div class="mg-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
       '</div>' +
-      '<div class="muscle-group-bar-bg"><div class="muscle-group-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
-      '<div class="muscle-week-evol">' + miniCells + '</div>' +
-      '</div>';
+      '<div class="mg-body" id="' + mgId + '">' +
+        (subsHtml ? '<div class="mg-subs">' + subsHtml + '</div>' : '') +
+        '<div class="mg-weeks" style="padding:10px 16px 12px;">' + weekCells + '</div>' +
+      '</div></div>';
   }).join('');
+}
+
+function toggleMgCard(id) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  body.classList.toggle('open');
+  const chev = document.getElementById('chev-' + id);
+  if (chev) chev.classList.toggle('open', body.classList.contains('open'));
 }
 
 function renderReports(period) {
@@ -6628,6 +6729,7 @@ function renderCardioStats() {
 
   const isSwim = n => /natation|swimming|nage|crawl|brasse|papillon|dos crawl/.test(n.toLowerCase());
   const isTapis = n => /tapis|treadmill|course|running|jogging/.test(n.toLowerCase());
+  const isVelo = n => /velo|cycling|bike/.test(n.toLowerCase());
   const fmtDur = sec => { if (!sec) return '—'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60); return h > 0 ? h+'h'+String(m).padStart(2,'0') : m+'min'; };
   const fmtPace = (dist, sec) => dist > 0 && sec > 0 ? ((sec/60)/dist).toFixed(1) + ' min/km' : null;
 
@@ -6647,45 +6749,61 @@ function renderCardioStats() {
   const limit30 = Date.now() - 30 * 86400000;
   const swim = all.filter(c => isSwim(c.name));
   const tapis = all.filter(c => isTapis(c.name));
-  const other = all.filter(c => !isSwim(c.name) && !isTapis(c.name));
+  const velo = all.filter(c => isVelo(c.name) && !isSwim(c.name) && !isTapis(c.name));
+  const other = all.filter(c => !isSwim(c.name) && !isTapis(c.name) && !isVelo(c.name));
 
-  const sectionStats = (list, label, icon, color) => {
-    if (!list.length) return '';
-    const recent = list.filter(c => c.ts >= limit30);
-    const totalDist = recent.reduce((s,c) => s + c.distance, 0);
-    const totalDur  = recent.reduce((s,c) => s + c.duration, 0);
-    const bestDist  = Math.max(...list.map(c => c.distance), 0);
-    const avgPace   = totalDist > 0 && totalDur > 0 ? fmtPace(totalDist, totalDur) : null;
-    return '<div style="margin-bottom:18px;">' +
-      '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:8px;">' + icon + ' ' + label + '</div>' +
-      '<div class="report-grid">' +
-        '<div class="report-box"><div class="report-val">' + recent.length + '</div><div class="report-label">Sessions 30j</div></div>' +
-        (totalDist > 0 ? '<div class="report-box"><div class="report-val">' + totalDist.toFixed(1) + '<span style="font-size:13px;">km</span></div><div class="report-label">Distance</div></div>' : '') +
-        (totalDur > 0 ? '<div class="report-box"><div class="report-val">' + fmtDur(totalDur) + '</div><div class="report-label">Durée</div></div>' : '') +
-        (bestDist > 0 ? '<div class="report-box"><div class="report-val">' + bestDist.toFixed(1) + '<span style="font-size:13px;">km</span></div><div class="report-label">Record</div></div>' : '') +
-        (avgPace ? '<div class="report-box"><div class="report-val" style="font-size:16px;">' + avgPace + '</div><div class="report-label">Allure moy.</div></div>' : '') +
-      '</div>' +
-      '</div>';
+  const CARDIO_TYPES = [
+    { list: swim,  label: 'Natation',        icon: '🏊', color: '#64D2FF', bg: 'rgba(100,210,255,0.1)' },
+    { list: tapis, label: 'Course / Tapis',   icon: '🏃', color: '#32D74B', bg: 'rgba(50,215,75,0.1)' },
+    { list: velo,  label: 'Vélo',             icon: '🚴', color: '#FF9F0A', bg: 'rgba(255,159,10,0.1)' },
+    { list: other, label: 'Autre cardio',     icon: '💪', color: '#86868B', bg: 'rgba(134,134,139,0.1)' }
+  ];
+
+  const sectionHtml = CARDIO_TYPES.map(t => {
+    if (!t.list.length) return '';
+    const recent = t.list.filter(c => c.ts >= limit30);
+    const totalDist = recent.reduce((s, c) => s + c.distance, 0);
+    const totalDur = recent.reduce((s, c) => s + c.duration, 0);
+    const bestDist = Math.max(...t.list.map(c => c.distance), 0);
+    const avgPace = totalDist > 0 && totalDur > 0 ? fmtPace(totalDist, totalDur) : null;
+
+    let metrics = '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + recent.length + '</div><div class="cardio-metric-lbl">Sessions 30j</div></div>';
+    if (totalDist > 0) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + totalDist.toFixed(1) + '<span>km</span></div><div class="cardio-metric-lbl">Distance</div></div>';
+    if (totalDur > 0) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + fmtDur(totalDur) + '</div><div class="cardio-metric-lbl">Durée totale</div></div>';
+    if (bestDist > 0) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + bestDist.toFixed(1) + '<span>km</span></div><div class="cardio-metric-lbl">Record dist.</div></div>';
+    if (avgPace) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + avgPace + '</div><div class="cardio-metric-lbl">Allure moy.</div></div>';
+
+    return '<div class="cardio-sec"><div class="cardio-sec-title" style="color:' + t.color + ';">' + t.icon + ' ' + t.label + '</div>' +
+      '<div class="cardio-metrics">' + metrics + '</div></div>';
+  }).join('');
+
+  // Recent history
+  const recentAll = [...all].sort((a, b) => b.ts - a.ts).slice(0, 10);
+  const getCardioStyle = c => {
+    if (isSwim(c.name)) return { icon: '🏊', color: '#64D2FF', bg: 'rgba(100,210,255,0.1)' };
+    if (isTapis(c.name)) return { icon: '🏃', color: '#32D74B', bg: 'rgba(50,215,75,0.1)' };
+    if (isVelo(c.name)) return { icon: '🚴', color: '#FF9F0A', bg: 'rgba(255,159,10,0.1)' };
+    return { icon: '💪', color: '#86868B', bg: 'rgba(134,134,139,0.1)' };
   };
 
-  const recentAll = [...all].sort((a,b) => b.ts - a.ts).slice(0, 8);
-  const rowIcon = c => isSwim(c.name) ? '🏊' : isTapis(c.name) ? '🏃' : /velo|cycling|bike/.test(c.name.toLowerCase()) ? '🚴' : '💪';
+  const historyHtml = recentAll.map(c => {
+    const cs = getCardioStyle(c);
+    const pace = fmtPace(c.distance, c.duration);
+    return '<div class="cardio-h-item">' +
+      '<div class="cardio-h-left">' +
+        '<div class="cardio-h-ico" style="background:' + cs.bg + ';">' + cs.icon + '</div>' +
+        '<div><div class="cardio-h-name">' + c.name + '</div><div class="cardio-h-date">' + c.date + '</div></div>' +
+      '</div>' +
+      '<div class="cardio-h-right">' +
+        (c.distance ? '<div class="cardio-h-dist">' + c.distance.toFixed(2) + ' km</div>' : '') +
+        (c.duration ? '<div class="cardio-h-time">' + fmtDur(c.duration) + '</div>' : '') +
+        (pace ? '<div class="cardio-h-pace">' + pace + '</div>' : '') +
+      '</div></div>';
+  }).join('');
 
-  el.innerHTML =
-    sectionStats(swim,  'Natation', '🏊', '#64D2FF') +
-    sectionStats(tapis, 'Course / Tapis', '🏃', '#32D74B') +
-    (other.length ? sectionStats(other, 'Autre cardio', '💪', '#86868B') : '') +
-    '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Historique récent</div>' +
-    recentAll.map(c => {
-      const pace = fmtPace(c.distance, c.duration);
-      return '<div class="stat-row">' +
-        '<div><div style="font-size:13px;font-weight:600;">' + rowIcon(c) + ' ' + c.name + '</div>' +
-        '<div style="font-size:11px;color:var(--sub);">' + c.date + (pace ? ' · ' + pace : '') + '</div></div>' +
-        '<div style="text-align:right;">' +
-        (c.distance ? '<div style="font-weight:700;color:var(--blue);">' + c.distance.toFixed(2) + ' km</div>' : '') +
-        (c.duration ? '<div style="font-size:11px;color:var(--sub);">' + fmtDur(c.duration) + '</div>' : '') +
-        '</div></div>';
-    }).join('');
+  el.innerHTML = sectionHtml +
+    '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin:14px 0 8px;">Historique récent</div>' +
+    historyHtml;
 }
 
 // ============================================================
@@ -7288,7 +7406,6 @@ function toggleEvolFilter(btn, muscle) {
 let liftsMuscleFilter = 'Tout';
 
 function renderLifts() {
-  // Build lift map from all logs
   const liftMap = {};
   const limit180 = Date.now() - 180*86400000;
   const recentLogs = db.logs.filter(l => l.timestamp >= limit180);
@@ -7302,14 +7419,11 @@ function renderLifts() {
     log.exercises.forEach(exo => {
       if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
       if ((exoCount[exo.name]||0) < 3) return;
-      // Exclure les variantes techniques — elles sont dans les stats SBD mais pas dans Meilleurs Lifts
       if (VARIANT_KEYWORDS.some(kw => exo.name.toLowerCase().includes(kw))) return;
       const exoType = getExoType(exo.name);
       if (exoType !== 'weight' && exoType !== 'reps') return;
       if (!exo.maxRM || exo.maxRM <= 0) return;
       const muscle = getMuscleGroup(exo.name);
-      // Grouper par nom canonique : fusionner les variantes orthographiques
-      // (ex: "Tirage visage" et "Tirage vers le visage" → même entrée)
       const canonKey = Object.keys(liftMap).find(k => matchExoName(exo.name, k)) || exo.name;
       if (!liftMap[canonKey]) liftMap[canonKey] = { name: canonKey, muscle, maxRM: 0, maxRMDate: null, repRecords: {}, history: [] };
       const l = liftMap[canonKey];
@@ -7322,7 +7436,6 @@ function renderLifts() {
   const lifts = Object.values(liftMap).sort((a,b) => b.maxRM - a.maxRM);
   const muscles = ['Tout', ...new Set(lifts.map(l => l.muscle))];
 
-  // Filter chips
   document.getElementById('liftsFilterRow').innerHTML = muscles.map(m =>
     '<button class="lifts-filter-chip' + (m===liftsMuscleFilter?' active':'') + '" onclick="setLiftsFilter(\'' + m + '\')">' + m + '</button>'
   ).join('');
@@ -7334,19 +7447,15 @@ function renderLifts() {
     el.innerHTML = '<div style="text-align:center;padding:24px 0;">' +
       '<div style="font-size:28px;margin-bottom:10px;">' + (hasLogs ? '💪' : '📥') + '</div>' +
       '<div style="font-size:13px;color:var(--sub);line-height:1.6;">' +
-      (hasLogs
-        ? 'Aucun lift trouvé pour ce filtre.<br>Essaie le filtre "Tout".'
-        : 'Importe des séances depuis Hevy<br>dans <strong style="color:var(--text);">Réglages → 📥 Import</strong>') +
+      (hasLogs ? 'Aucun lift trouvé pour ce filtre.<br>Essaie "Tout".' : 'Importe des séances depuis Hevy<br>dans <strong style="color:var(--text);">Réglages → 📥 Import</strong>') +
       '</div></div>';
     return;
   }
 
-  // Build history only for the displayed lifts (top 10)
   const displayLifts = filtered.slice(0, 10);
-  const sortedLogs = getSortedLogs().slice().reverse(); // chronological
+  const sortedLogs = getSortedLogs().slice().reverse();
   displayLifts.forEach(lift => {
-    let runMax = 0;
-    const pts = [];
+    let runMax = 0; const pts = [];
     sortedLogs.forEach(log => {
       log.exercises.forEach(exo => {
         if (matchExoName(exo.name, lift.name) && exo.maxRM > 0 && exo.maxRM > runMax) {
@@ -7358,80 +7467,88 @@ function renderLifts() {
     lift.history = pts;
   });
 
+  const RANK_STYLES = [
+    'background:rgba(255,215,0,0.15);color:#FFD700;',
+    'background:rgba(192,192,192,0.12);color:#C0C0C0;',
+    'background:rgba(205,127,50,0.12);color:#CD7F32;'
+  ];
+
   el.innerHTML = displayLifts.map((lift, idx) => {
-    const medals = ['🥇','🥈','🥉'];
-    const medal = idx < 3 ? medals[idx] : '💪';
     const color = MUSCLE_COLORS_RADAR[lift.muscle] || '#86868B';
     const bwRatio = db.user.bw > 0 ? (lift.maxRM / db.user.bw).toFixed(2) : null;
     const prDate = lift.maxRMDate ? formatDate(lift.maxRMDate) : '—';
     const isSBD = !!getSBDType(lift.name);
+    const rankStyle = idx < 3 ? RANK_STYLES[idx] : 'background:var(--surface);color:var(--sub);';
+    const lcId = 'lc-' + idx;
 
     // Badges
-    let badges = '';
-    if (isSBD) badges += '<span class="lift-badge purple">SBD</span>';
-    if (bwRatio) badges += '<span class="lift-badge blue">×' + bwRatio + ' bw</span>';
+    let badgesHtml = '';
+    if (isSBD) badgesHtml += '<span class="lc-badge purple">SBD</span>';
+    if (bwRatio) badgesHtml += '<span class="lc-badge blue">×' + bwRatio + ' bw</span>';
     if (lift.history.length > 1) {
       const gain = lift.history[lift.history.length-1].rm - lift.history[0].rm;
-      badges += '<span class="lift-badge ' + (gain>=0?'green':'orange') + '">' + (gain>=0?'+':'') + gain + 'kg total</span>';
-    }
-    if (lift.history.length > 0) {
-      const firstDate = lift.history[0].date;
-      badges += '<span class="lift-badge" style="background:rgba(134,134,139,0.12);color:var(--sub);">depuis ' + firstDate + '</span>';
+      badgesHtml += '<span class="lc-badge ' + (gain >= 0 ? 'green' : 'orange') + '">' + (gain >= 0 ? '+' : '') + gain + 'kg total</span>';
     }
 
-    // Sparkline SVG
-    let sparkSVG = '';
+    // Sparkline SVG with gradient
+    let sparkHtml = '';
     if (lift.history.length > 1) {
       const vals = lift.history.map(p => p.rm);
       const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
-      const W = 300, H = 44, pad = 6;
-      const pts = vals.map((v, i) =>
-        (pad + (i/(vals.length-1))*(W-2*pad)).toFixed(1) + ',' +
-        (H - pad - ((v-minV)/range)*(H-2*pad)).toFixed(1)
-      );
-      sparkSVG = '<div class="lift-sparkline-wrap"><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:44px;">' +
-        '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' +
-        vals.map((v,i) => '<circle cx="' + pts[i].split(',')[0] + '" cy="' + pts[i].split(',')[1] + '" r="3" fill="' + color + '" opacity="0.6"/>').join('') +
-        '<circle cx="' + pts[pts.length-1].split(',')[0] + '" cy="' + pts[pts.length-1].split(',')[1] + '" r="5" fill="' + color + '"/>' +
+      const W = 280, H = 36, pad = 4;
+      const points = vals.map((v, i) => ({
+        x: pad + (i / (vals.length - 1)) * (W - pad * 2),
+        y: pad + (1 - (v - minV) / range) * (H - pad * 2)
+      }));
+      const line = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+      const area = line + ' L' + points[points.length-1].x.toFixed(1) + ',' + H + ' L' + points[0].x.toFixed(1) + ',' + H + ' Z';
+      const last = points[points.length - 1];
+      const gid = 'lcg' + Math.random().toString(36).substr(2,5);
+      sparkHtml = '<div class="lc-spark"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+        '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.15"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
+        '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
+        '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
         '</svg></div>';
     }
 
-    // RM grid: estimated vs real
+    // RM grid 3 columns
     const TARGET_REPS = [1, 3, 5, 8, 10, 12];
     const rmCells = TARGET_REPS.map(r => {
-      const epley = r === 1 ? lift.maxRM : lift.maxRM * (1.0278 - 0.0278 * r);
-      const estKg = Math.round(epley * 2) / 2;
+      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (1.0278 - 0.0278 * r)) * 2) / 2;
       const realKg = lift.repRecords[String(r)] || null;
       const label = r === 1 ? '1RM' : r + ' reps';
-      return '<div class="lift-rm-cell">' +
-        '<span class="lift-rm-label">' + label + '</span>' +
-        '<div class="lift-rm-est">' + estKg + 'kg</div>' +
-        (realKg ? '<div class="lift-rm-real">' + realKg + 'kg</div>' : '') +
-        '</div>';
+      let realHtml = '', cls = 'miss';
+      if (realKg) {
+        const gap = theo - realKg;
+        if (gap > 2.5) { cls = 'pot'; realHtml = realKg + 'kg ↑'; }
+        else { cls = 'done'; realHtml = realKg + 'kg ✓'; }
+      } else { realHtml = '—'; }
+      return '<div class="lc-rm-cell">' +
+        '<div class="lc-rm-label">' + label + '</div>' +
+        '<div class="lc-rm-est">' + theo + 'kg</div>' +
+        '<div class="lc-rm-real ' + cls + '">' + realHtml + '</div></div>';
     }).join('');
 
-    const lcId = 'lc-' + idx;
-    return '<div class="lift-card">' +
-      '<div class="lift-card-header" onclick="toggleLiftCard(\'' + lcId + '\')" style="cursor:pointer;margin-bottom:0;">' +
-        '<div><div class="lift-card-name">' + medal + ' ' + lift.name + '</div>' +
-        '<div class="lift-card-muscle" style="color:' + color + '">' + lift.muscle + '</div></div>' +
-        '<div class="lift-card-right"><div class="lift-card-pr" style="color:' + color + '">' + lift.maxRM + 'kg</div>' +
-        '<div class="lift-card-date">e1RM · ' + prDate + '</div></div>' +
+    const uid = 'lcc' + Math.random().toString(36).substr(2,5);
+
+    return '<div class="lc">' +
+      '<div class="lc-head">' +
+        '<div class="lc-rank" style="' + rankStyle + '">' + (idx + 1) + '</div>' +
+        '<div class="lc-info"><div class="lc-name">' + lift.name + '</div>' +
+        '<div class="lc-muscle" style="color:' + color + ';">' + lift.muscle + '</div></div>' +
+        '<div class="lc-right"><div class="lc-e1rm">' + lift.maxRM + '<span>kg</span></div>' +
+        '<div class="lc-date">' + prDate + '</div></div>' +
       '</div>' +
-      '<div class="lift-card-toggle" onclick="toggleLiftCard(\'' + lcId + '\')">' +
-        '<span class="lift-card-toggle-label">Voir détails</span>' +
-        '<span class="lift-card-chevron" id="chev-' + lcId + '">▾</span>' +
-      '</div>' +
-      '<div class="lift-card-body" id="' + lcId + '">' +
-        '<div style="height:6px;"></div>' +
-        '<div class="lift-badges">' + badges + '</div>' +
-        sparkSVG +
-        '<div class="lift-rm-grid" style="grid-template-columns:repeat(6,1fr);">' + rmCells + '</div>' +
-        '<div class="lift-calc"><span class="lift-calc-label">🧮 Calculer :</span>' +
-        '<input type="number" min="1" max="30" placeholder="reps" oninput="calcLiftWeight(this)" data-e1rm="' + lift.maxRM + '" id="calc-' + lcId + '">' +
-        '<span class="lift-calc-result" id="calc-res-' + lcId + '">— kg</span></div>' +
-      '</div>' +
-      '</div>';
+      (badgesHtml ? '<div class="lc-badges">' + badgesHtml + '</div>' : '') +
+      sparkHtml +
+      '<div class="lc-toggle" onclick="toggleLiftCard(\'' + lcId + '\')">Voir détails <span class="chev">▾</span></div>' +
+      '<div class="lc-body" id="' + lcId + '">' +
+        '<div class="lc-rm-grid">' + rmCells + '</div>' +
+        '<div class="lc-calc"><span class="lc-calc-lbl">Calcul rapide</span>' +
+        '<input type="number" min="1" max="30" placeholder="reps" oninput="calcLiftWeight(this,' + lift.maxRM + ',\'' + uid + '\')">' +
+        '<span style="color:var(--sub);">→</span><span class="lc-calc-res" id="' + uid + '">—</span></div>' +
+      '</div></div>';
   }).join('');
 }
 
@@ -7442,22 +7559,22 @@ function setLiftsFilter(muscle) {
 
 function toggleLiftCard(id) {
   const body = document.getElementById(id);
-  const chev = document.getElementById('chev-' + id);
   if (!body) return;
-  const isOpen = body.classList.contains('open');
-  body.classList.toggle('open', !isOpen);
-  if (chev) chev.classList.toggle('open', !isOpen);
+  body.classList.toggle('open');
+  const card = body.closest('.lc');
+  if (card) {
+    const toggle = card.querySelector('.lc-toggle');
+    if (toggle) toggle.classList.toggle('open', body.classList.contains('open'));
+  }
 }
 
-function calcLiftWeight(input) {
-  const reps = parseInt(input.value);
-  const e1rm = parseFloat(input.dataset.e1rm || 0);
-  const resultEl = document.getElementById('calc-res-' + input.id.replace('calc-', ''));
-  if (!resultEl) return;
-  if (!reps || reps < 1 || reps > 30 || !e1rm) { resultEl.textContent = '— kg'; return; }
-  // Epley: weight = e1RM / (1 + reps/30)
-  const weight = Math.round((e1rm / (1 + reps / 30)) * 2) / 2;
-  resultEl.textContent = weight + ' kg';
+function calcLiftWeight(input, e1rm, uid) {
+  const r = parseInt(input.value);
+  const out = document.getElementById(uid);
+  if (!out) return;
+  if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
+  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+  out.textContent = '~' + w + 'kg';
 }
 
 function renderDashReports() {
@@ -8289,60 +8406,31 @@ function fmtRest(sec) {
 
 function renderWpExercise(exo) {
   const type = exo.type || 'weight';
-  const sets  = exo.sets || [];
-  const restTag = exo.restSeconds ? `<div class="wp-rest-tag">⏸ Repos : ${fmtRest(exo.restSeconds)}</div>` : '';
-  const typeIcon = { weight:'🏋️', reps:'🔄', time:'⏱', cardio:'🏃', cardio_stairs:'🪜' }[type] || '💪';
-  let tableHtml = '';
+  const sets = exo.sets || [];
+  const restHtml = exo.restSeconds ? '<div class="wpe-rest">⏸ Repos : ' + fmtRest(exo.restSeconds) + '</div>' : '';
 
-  if (exo.noData) {
-    // Aucune donnée enregistrée pour cet exercice
-    tableHtml = `<div style="font-size:12px;color:var(--orange);padding:6px 0;">⚠️ Pas encore de données — importe une séance Hevy pour cet exercice.</div>`;
+  // Muscle icon
+  const ms = _ecMuscleStyle(exo.name);
 
-  } else if (type === 'time') {
-    // Gainage / isométrique : N × X secondes
-    const wrkSets = sets.filter(s=>!s.isWarmup);
-    const sec = wrkSets[0]?.durationSec || 30;
-    const durFmt = sec >= 60 ? Math.floor(sec/60)+'min'+(sec%60?' '+sec%60+'s':'') : sec+'s';
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Durée</th><th></th><th></th></tr></thead><tbody>` +
-      wrkSets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge" style="color:var(--teal);">${durFmt}</td><td></td><td></td></tr>`).join('') +
-      `</tbody></table>`;
-
-  } else if (type === 'reps') {
-    // BW ou lesté : reps max ou cibles
-    const wrkSets = sets.filter(s=>!s.isWarmup);
-    const hasWeight = wrkSets.some(s => s.weight !== null && s.weight > 0);
-    if (hasWeight) {
-      // Lesté : afficher charge + reps + RPE
-      tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Lest</th><th>Reps</th><th>RPE</th></tr></thead><tbody>` +
-        wrkSets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight}kg</td><td style="font-weight:600;">${s.reps === 'max' ? 'max' : s.reps+' reps'}</td><td style="color:var(--orange);font-size:11px;">${s.rpe?'RPE '+s.rpe:'—'}</td></tr>`).join('') +
-        `</tbody></table>`;
-    } else {
-      // Poids de corps pur
-      const target = wrkSets[0]?.reps ?? 'max';
-      const repsLabel = target === 'max' ? 'max reps' : target + ' reps';
-      tableHtml = `<div style="font-size:13px;padding:8px 0;"><span style="color:var(--sub);">${wrkSets.length} séries</span> <span style="font-weight:700;color:var(--text);"> × ${repsLabel}</span><span style="font-size:11px;color:var(--sub);margin-left:8px;">(poids de corps)</span></div>`;
-    }
-
-  } else if (type === 'cardio' || type === 'cardio_stairs') {
-    const rows = sets.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.distance ? s.distance.toFixed(2)+'km' : '—'}</td><td>${s.durationMin ? s.durationMin+'min' : '—'}</td><td>—</td></tr>`).join('');
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Dist.</th><th>Durée</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
-
-  } else {
-    // Poids (défaut) : échauffement grisé + séries de travail
-    const wup = sets.filter(s=>s.isWarmup), wrk = sets.filter(s=>!s.isWarmup);
-    let rows = wup.map((s,i)=>`<tr class="wp-warmup-row"><td style="font-size:11px;color:var(--sub);">Éch.${i+1}</td><td class="wp-charge" style="color:var(--sub);">${s.weight}kg</td><td style="color:var(--sub);">${s.reps} reps</td><td style="color:var(--sub);">—</td></tr>`).join('');
-    rows += wrk.map((s,i)=>`<tr class="wp-work-row"><td style="font-weight:600;">S${i+1}</td><td class="wp-charge">${s.weight}kg</td><td style="font-weight:600;">${s.reps} reps</td><td style="color:var(--orange);font-size:11px;">${s.rpe ? 'RPE '+s.rpe : '—'}</td></tr>`).join('');
-    tableHtml = `<table class="wp-sets-table"><thead><tr><th></th><th>Charge</th><th>Reps</th><th>RPE</th></tr></thead><tbody>${rows}</tbody></table>`;
+  // Type tag
+  const exoType = getExoType(exo.name);
+  let typeTag = 'Isolation';
+  if (exoType === 'cardio' || exoType === 'cardio_stairs') typeTag = 'Cardio';
+  else if (exoType === 'time') typeTag = 'Isométrique';
+  else {
+    const n = exo.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) typeTag = 'Composé';
+    else if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|leg\s*press|presse|fentes?|\blunge|good\s*morning/.test(n)) typeTag = 'Composé';
   }
 
-  // Résumé compact au-dessus du tableau (ex: "4×5 @ RPE 8")
-  const wrkSetsAll = sets.filter(s=>!s.isWarmup);
+  // Summary
+  const wrkSetsAll = sets.filter(s => !s.isWarmup);
   let summary = '';
   if (wrkSetsAll.length > 0 && type !== 'cardio' && type !== 'cardio_stairs' && !exo.noData) {
     const s0 = wrkSetsAll[0];
     if (type === 'time') {
-      const sec = s0.durationSec||0;
-      summary = wrkSetsAll.length + '×' + (sec>=60 ? Math.floor(sec/60)+'min'+(sec%60?sec%60+'s':'') : sec+'s');
+      const sec = s0.durationSec || 0;
+      summary = wrkSetsAll.length + '×' + (sec >= 60 ? Math.floor(sec/60) + 'min' + (sec%60 ? sec%60+'s' : '') : sec + 's');
     } else if (type === 'reps' && s0.weight > 0) {
       summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
     } else if (type === 'reps') {
@@ -8352,8 +8440,55 @@ function renderWpExercise(exo) {
     }
     if (s0.rpe && type !== 'time') summary += ' · RPE ' + s0.rpe;
   }
-  const summaryTag = summary ? `<span style="font-size:11px;color:var(--blue);font-weight:600;margin-left:6px;">${summary}</span>` : '';
-  return `<div class="wp-exo"><div class="wp-exo-name"><span>${exo.name}${summaryTag}</span><span class="wp-exo-type">${typeIcon}</span></div>${tableHtml}${restTag}</div>`;
+
+  // Sets content
+  let setsHtml = '';
+
+  if (exo.noData) {
+    setsHtml = '<div class="wpe-nodata">⚠️ Pas encore de données — importe une séance Hevy pour cet exercice.</div>';
+
+  } else if (type === 'time') {
+    const wrkSets = sets.filter(s => !s.isWarmup);
+    const sec = wrkSets[0]?.durationSec || 30;
+    const durFmt = sec >= 60 ? Math.floor(sec/60) + 'min' + (sec%60 ? ' ' + sec%60 + 's' : '') : sec + 's';
+    const hdr = '<div class="wpe-set-hdr"><span></span><span>Durée</span><span></span><span></span></div>';
+    const rows = wrkSets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--teal);">' + durFmt + '</span><span></span><span></span></div>').join('');
+    setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
+
+  } else if (type === 'reps') {
+    const wrkSets = sets.filter(s => !s.isWarmup);
+    const hasWeight = wrkSets.some(s => s.weight !== null && s.weight > 0);
+    if (hasWeight) {
+      const hdr = '<div class="wpe-set-hdr"><span></span><span>Lest</span><span>Reps</span><span>RPE</span></div>';
+      const rows = wrkSets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + (s.reps === 'max' ? 'max' : s.reps) + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+      setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
+    } else {
+      const target = wrkSets[0]?.reps ?? 'max';
+      const repsLabel = target === 'max' ? 'max reps' : target + ' reps';
+      setsHtml = '<div style="padding:8px 16px;font-size:13px;"><span style="color:var(--sub);">' + wrkSets.length + ' séries</span> <span style="font-weight:700;color:var(--text);"> × ' + repsLabel + '</span><span style="font-size:11px;color:var(--sub);margin-left:8px;">(poids de corps)</span></div>';
+    }
+
+  } else if (type === 'cardio' || type === 'cardio_stairs') {
+    const hdr = '<div class="wpe-set-hdr"><span></span><span>Dist.</span><span>Durée</span><span></span></div>';
+    const rows = sets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + (s.distance ? s.distance.toFixed(2) + 'km' : '—') + '</span><span class="wpe-set-reps">' + (s.durationMin ? s.durationMin + 'min' : '—') + '</span><span>—</span></div>').join('');
+    setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
+
+  } else {
+    const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
+    const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
+    let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
+  }
+
+  return '<div class="wpe">' +
+    '<div class="wpe-head">' +
+      '<div class="wpe-ico" style="background:' + ms.bg + ';">' + ms.icon + '</div>' +
+      '<div class="wpe-info"><div class="wpe-name">' + exo.name + '</div>' +
+      (summary ? '<div class="wpe-summary">' + summary + '</div>' : '') + '</div>' +
+      '<span class="wpe-type-tag">' + typeTag + '</span>' +
+    '</div>' +
+    setsHtml + restHtml + '</div>';
 }
 </script>
 </body>

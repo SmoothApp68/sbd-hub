@@ -5950,7 +5950,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       let recalc=0;
       if(exo.series&&exo.series.length){exo.series.forEach(s=>{if(s.weight>0&&s.reps>0){const rm=calcE1RM(s.weight,s.reps);if(rm>recalc)recalc=rm;}});}
       if(exo.repRecords){Object.entries(exo.repRecords).forEach(([rKey,w])=>{if(w>0){const rm=calcE1RM(w,parseInt(rKey));if(rm>recalc)recalc=rm;}});}
-      if(recalc>0&&exo.maxRM!==recalc){exo.maxRM=recalc;ns=true;}
+      // Toujours écraser maxRM avec la valeur recalculée (même 0 si aucune donnée)
+      if(exo.maxRM!==recalc){exo.maxRM=recalc;ns=true;}
     });
   });
 

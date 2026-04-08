@@ -1313,9 +1313,31 @@ const DEFAULT_ROUTINE = ROUTINE_TEMPLATES.sbd.routine;
 const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
 
 // ============================================================
+// PERFORMANCE — MEMOIZATION CACHES
+// ============================================================
+const _cache = {
+  exoType: new Map(),
+  muscleGroup: new Map(),
+  sbdType: new Map(),
+  exoDay: new Map(),
+  _version: 0,
+  _sortedLogs: null
+};
+function clearCaches() {
+  _cache.exoType.clear(); _cache.muscleGroup.clear();
+  _cache.sbdType.clear(); _cache.exoDay.clear();
+  _cache._sortedLogs = null;
+  _cache._version++;
+}
+function getSortedLogs() {
+  if (!_cache._sortedLogs) _cache._sortedLogs = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  return _cache._sortedLogs;
+}
+
+// ============================================================
 // EXERCISE TYPE ENGINE
 // ============================================================
-function getExoType(name) {
+function _getExoTypeRaw(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");
   if (SESSION_NAME_BLACKLIST.test(name.toLowerCase())) return 'session_name';
   if (/tapis\s*roulant|treadmill/.test(n)) return 'cardio';
@@ -1356,11 +1378,15 @@ function getExoType(name) {
   if (/russian\s*twist/.test(n) && !/haltere|barre|medecine/.test(n)) return 'reps';
   return 'weight';
 }
+function getExoType(name) {
+  let r = _cache.exoType.get(name); if (r !== undefined) return r;
+  r = _getExoTypeRaw(name); _cache.exoType.set(name, r); return r;
+}
 
 // ============================================================
 // MUSCLE GROUP ENGINE
 // ============================================================
-function getMuscleGroup(name) {
+function _getMuscleGroupRaw(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'");
   if (SESSION_NAME_BLACKLIST.test(name.toLowerCase())) return 'Autre';
   if (/natation|swimming|\bnage\b|tapis|treadmill|cardio|running|jogging|velo\b|cycling|bike|elliptique|cross.?trainer|escalier|stair|randonnee|hiking|rameur|rowing\s*machine|concept\s*2|corde\s*a\s*sauter|jump\s*rope|sprint|marche\s*(rapide|sportive|nordique)|assault\s*bike|ski\s*erg|boxe|shadow\s*box|battle\s*rope/.test(n)) return 'Cardio';
@@ -1436,6 +1462,10 @@ function getMuscleGroup(name) {
   if (/wood\s*chop|bucheron/.test(n)) return 'Abdos';
   return 'Autre';
 }
+function getMuscleGroup(name) {
+  let r = _cache.muscleGroup.get(name); if (r !== undefined) return r;
+  r = _getMuscleGroupRaw(name); _cache.muscleGroup.set(name, r); return r;
+}
 
 // Regroupe les sous-groupes en catégorie principale (pour radar/graphiques qui utilisent les groupes simples)
 function getMuscleGroupParent(subGroup) {
@@ -1453,13 +1483,17 @@ function getMuscleGroupParent(subGroup) {
 // ============================================================
 // SBD DETECTION
 // ============================================================
-function getSBDType(name) {
+function _getSBDTypeRaw(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
   if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
   if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare')) return 'squat';
   if (n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) return 'deadlift';
   return null;
+}
+function getSBDType(name) {
+  if (_cache.sbdType.has(name)) return _cache.sbdType.get(name);
+  const r = _getSBDTypeRaw(name); _cache.sbdType.set(name, r); return r;
 }
 
 // ============================================================
@@ -1554,7 +1588,17 @@ let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench
 // Routine active (user ou fallback)
 function getRoutine() { return db.routine || DEFAULT_ROUTINE; }
 
-function saveDB() { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); debouncedCloudSync(); }
+let _saveDBTimer = null;
+function saveDB() {
+  clearCaches();
+  // Debounce actual localStorage write to avoid blocking main thread on rapid calls
+  if (_saveDBTimer) clearTimeout(_saveDBTimer);
+  _saveDBTimer = setTimeout(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch(e) { console.warn('saveDB error:', e); }
+    _saveDBTimer = null;
+  }, 100);
+  debouncedCloudSync();
+}
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
 
@@ -3827,13 +3871,17 @@ function refreshUI() {
   if (savedKey) { const kInput=document.getElementById('inputAPIKey'); if(kInput)kInput.value=savedKey; }
   if (db.user.name) { const ni=document.getElementById('inputName'); if(ni)ni.value=db.user.name; }
   if (db.user.bw) { const bi=document.getElementById('inputBW'); if(bi)bi.value=db.user.bw; }
-  renderDash();
   updateCoachBadge();
-  renderProgramViewer();
-  renderReportsTimeline();
-  if (document.getElementById('tab-stats').classList.contains('active')) { showStatsSub(activeStatsSub); }
-  if (document.getElementById('tab-seances') && document.getElementById('tab-seances').classList.contains('active')) renderSeancesTab();
-  if (document.getElementById('tab-corps') && document.getElementById('tab-corps').classList.contains('active')) renderCorpsTab();
+  // Only render the currently active tab instead of everything
+  const activeTab = document.querySelector('.content-section.active');
+  const tabId = activeTab ? activeTab.id : 'tab-dash';
+  if (tabId === 'tab-dash') { renderDash(); renderProgramViewer(); }
+  else if (tabId === 'tab-seances') renderSeancesTab();
+  else if (tabId === 'tab-stats') showStatsSub(activeStatsSub);
+  else if (tabId === 'tab-ai') { renderReportsTimeline(); renderCoachAlgoAI(); }
+  else if (tabId === 'tab-corps') renderCorpsTab();
+  else if (tabId === 'tab-settings') { renderProgramViewer(); renderSettingsRoutineEditor(); }
+  else { renderDash(); renderProgramViewer(); }
 }
 
 function renderDash() {
@@ -4207,7 +4255,7 @@ function renderDayExercises(day) {
     // en cherchant d'abord dans les séances du même jour de la semaine
     // Sort same-day logs and all logs by most recent first
     const logsOfDay = db.logs.filter(l => l.day === day).sort((a,b) => b.timestamp - a.timestamp);
-    const allLogsByRecency = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    const allLogsByRecency = getSortedLogs();
     const hevyNameForProg = {}; // progName → nom Hevy exact
     const matchTimestamp = {}; // progName → timestamp of matched log (to detect staleness)
 
@@ -5262,12 +5310,14 @@ function generateAlgoSessionDebrief(session) {
   });
 
   // ── Comparison vs last session per exercise ──
+  // Pre-sort prior logs once (descending by timestamp) instead of re-scanning for each exercise
+  const _priorLogs = db.logs.filter(l => l.timestamp < session.timestamp && l.id !== session.id)
+    .sort((a,b) => b.timestamp - a.timestamp);
   const exoComparisons = [];
   session.exercises.forEach(exo => {
     if (exo.isCardio || exo.isTime) return;
     let prevExo = null, prevDate = '';
-    for (const log of db.logs) {
-      if (log.timestamp >= session.timestamp || log.id === session.id) continue;
+    for (const log of _priorLogs) {
       const match = log.exercises.find(e => matchExoName(e.name, exo.name));
       if (match) { prevExo = match; prevDate = log.shortDate || log.date || ''; break; }
     }
@@ -5528,13 +5578,12 @@ function getStrengthLevel(exoName, e1rm, bw) {
 
 function findPreviousBestE1RM(exoName, beforeTs) {
   let best = 0;
-  db.logs.forEach(log => {
-    if (log.timestamp >= beforeTs) return;
-    log.exercises.forEach(exo => {
-      if (!matchExoName(exo.name, exoName)) return;
-      if ((exo.maxRM||0) > best) best = exo.maxRM;
-    });
-  });
+  for (const log of db.logs) {
+    if (log.timestamp >= beforeTs) continue;
+    for (const exo of log.exercises) {
+      if ((exo.maxRM||0) > best && matchExoName(exo.name, exoName)) best = exo.maxRM;
+    }
+  }
   return best;
 }
 
@@ -6142,36 +6191,43 @@ function renderSeancesTab() {
       '</div></div>';
   }).join('');
 
-  // Draw mini volume sparklines after DOM is ready
-  setTimeout(() => {
-    weekLogs.forEach((session, si) => {
-      const ctx = document.getElementById('spark-' + si);
-      if (!ctx) return;
-      // Volume par exercice pour ce jour
-      const vols = session.exercises.filter(e => e.sets > 0).map(e => ({
-        name: e.name.substring(0,12),
-        vol: e.isCardio ? (e.distance||0)*100 : (e.isTime ? (e.maxTime||0)/10 : e.maxRM * (e.sets||1))
-      })).filter(e => e.vol > 0).slice(0, 8);
-      if (!vols.length) { ctx.parentElement.style.display = 'none'; return; }
-      sparklineCharts['spark-'+si] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: vols.map(v => v.name),
-          datasets: [{ data: vols.map(v => v.vol), backgroundColor: '#BF5AF2', borderRadius: 3, barThickness: 14 }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label } } },
-          scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 9 }, maxRotation: 30 } } }
-        }
-      });
-    });
-  }, 50);
+  // Store weekLogs reference for lazy sparkline creation on toggle
+  _seancesWeekLogs = weekLogs;
+}
+let _seancesWeekLogs = [];
+function _renderSparkline(si) {
+  if (sparklineCharts['spark-'+si]) return; // already created
+  const session = _seancesWeekLogs[si]; if (!session) return;
+  const ctx = document.getElementById('spark-' + si); if (!ctx) return;
+  const vols = session.exercises.filter(e => e.sets > 0).map(e => ({
+    name: e.name.substring(0,12),
+    vol: e.isCardio ? (e.distance||0)*100 : (e.isTime ? (e.maxTime||0)/10 : e.maxRM * (e.sets||1))
+  })).filter(e => e.vol > 0).slice(0, 8);
+  if (!vols.length) { ctx.parentElement.style.display = 'none'; return; }
+  sparklineCharts['spark-'+si] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: vols.map(v => v.name),
+      datasets: [{ data: vols.map(v => v.vol), backgroundColor: '#BF5AF2', borderRadius: 3, barThickness: 14 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label } } },
+      scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#86868B', font: { size: 9 }, maxRotation: 30 } } }
+    }
+  });
 }
 
 function toggleSession(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
+  if (el) {
+    el.classList.toggle('open');
+    // Lazy-render sparkline chart when session is opened
+    if (el.classList.contains('open')) {
+      const si = parseInt(id.replace('sess-', ''), 10);
+      if (!isNaN(si)) setTimeout(() => _renderSparkline(si), 30);
+    }
+  }
 }
 function deleteSessionFromList(logId) {
   showModal('Supprimer cette séance ?', 'Supprimer', 'var(--red)', () => {
@@ -6314,17 +6370,25 @@ function renderMuscleEvolChart() {
     { label:'Cette sem.', start:now-week, end:now }
   ];
   const muscles = ['Jambes','Dos','Pecs','Épaules','Bras','Abdos','Cardio'];
+  // Single pass: accumulate sets per muscle per week bucket
+  const weekBuckets = weeks.map(() => ({})); // array of { muscle: sets }
+  muscles.forEach(m => weekBuckets.forEach(b => b[m] = 0));
+  db.logs.forEach(l => {
+    for (let wi = 0; wi < weeks.length; wi++) {
+      if (l.timestamp >= weeks[wi].start && l.timestamp <= weeks[wi].end) {
+        l.exercises.forEach(e => {
+          const mg = getMuscleGroupParent(getMuscleGroup(e.name));
+          if (weekBuckets[wi].hasOwnProperty(mg)) weekBuckets[wi][mg] += e.sets;
+        });
+        break; // a log can only be in one week
+      }
+    }
+  });
   const datasets = muscles.map(mg => {
     const color = MUSCLE_COLORS_RADAR[mg] || '#86868B';
     return {
       label: mg,
-      data: weeks.map(w => {
-        let sets = 0;
-        db.logs.filter(l => l.timestamp >= w.start && l.timestamp <= w.end).forEach(l => {
-          l.exercises.forEach(e => { if (getMuscleGroupParent(getMuscleGroup(e.name)) === mg) sets += e.sets; });
-        });
-        return sets;
-      }),
+      data: weekBuckets.map(b => b[mg] || 0),
       borderColor: color, backgroundColor: color + '22',
       borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: color, tension: 0.3, fill: false
     };

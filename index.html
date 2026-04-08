@@ -1815,7 +1815,7 @@ function _getSBDTypeRaw(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
   if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
-  if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare')) return 'squat';
+  if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split')) return 'squat';
   if (n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) return 'deadlift';
   return null;
 }
@@ -3067,7 +3067,9 @@ function matchExoName(hevyName, progName) {
   // (leur présence en "surplus" indique un exercice différent)
   const DIFF = new Set([
     'incline','decline','sumo','bulgare','inverse','inversee',
-    'nuque','pause','spoto','deficit','board','hack','goblet','sissy','zercher','split'
+    'nuque','pause','spoto','deficit','board',
+    'hack','goblet','sissy','front','zercher','split','bulgarian',
+    'roumain','romanian'
   ]);
 
   // Vérifie si name correspond à ref, en acceptant des mots extra

@@ -564,6 +564,12 @@
             <option value="avance">Avancé (3+ ans)</option>
             <option value="competiteur">Compétiteur / Elite</option>
           </select>
+          <div class="ob-label">Genre</div>
+          <select id="ob-gender">
+            <option value="unspecified">Ne pas préciser</option>
+            <option value="male">Homme</option>
+            <option value="female">Femme</option>
+          </select>
         </div>
         <button class="btn" onclick="obNext(1)">Continuer →</button>
       </div>
@@ -1055,6 +1061,11 @@
         </div>
 
         <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Genre</div>
+          <div id="settingsGender" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Objectifs (coche par priorité)</div>
           <div id="settingsGoals" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
@@ -1430,14 +1441,17 @@ function _getMuscleGroupRaw(name) {
   if (/\bspoto\b/.test(n)) return 'Pecs';
   if (/cable\s*crossover|croisement\s*(de\s*)?poulie/.test(n)) return 'Pecs';
   // Dos — sous-groupes
-  if (/traction|pull.?up|chin.?up|muscle.?up/.test(n)) return 'Dorsaux';
-  if (/tirage\s*(horizontal|vertical|barre|poulie|cable|pronation|supination|1\s*bras|prise\s*neutre|serre\s*poignee|poitrine|nuque)/.test(n)) return 'Dorsaux';
-  if (/lat\s*(pulldown|machine|poulie)|pull\s*down/.test(n)) return 'Dorsaux';
-  if (/rowing\b(?!\s*inverse|\s*machine)/.test(n)) return 'Dorsaux';
-  if (/\brow\b/.test(n) && !/inverted|inverse/.test(n)) return 'Dorsaux';
-  if (/t.bar\s*row|yates\s*row/.test(n)) return 'Dorsaux';
+  if (/traction|pull.?up|chin.?up|muscle.?up/.test(n)) return 'Grand dorsal';
+  if (/tirage\s*vertical|lat\s*(pulldown|machine|poulie)|pull\s*down/.test(n)) return 'Grand dorsal';
+  if (/t.bar\s*row|yates\s*row/.test(n)) return 'Grand dorsal';
+  if (/face\s*pull/.test(n)) return 'Haut du dos';
+  if (/tirage\s*horizontal/.test(n)) return 'Haut du dos';
+  if (/rowing\s*invers|inverted\s*row/.test(n)) return 'Haut du dos';
+  if (/rhomboid|retraction\s*scapulaire|rear\s*delt/.test(n)) return 'Haut du dos';
+  if (/rowing\b(?!\s*inverse|\s*machine)/.test(n)) return 'Grand dorsal';
+  if (/\brow\b/.test(n) && !/inverted|inverse/.test(n)) return 'Grand dorsal';
+  if (/tirage\s*(barre|poulie|cable|pronation|supination|1\s*bras|prise\s*neutre|serre\s*poignee|poitrine|nuque)/.test(n)) return 'Grand dorsal';
   if (/shrugs?\b|hausse.?epaule|trapeze|trapezius/.test(n)) return 'Trapèzes';
-  if (/rhomboid|retraction\s*scapulaire/.test(n)) return 'Dorsaux';
   // Bras — Biceps / Triceps / Avant-bras
   if (/curl\s*(biceps?|barre|halteres?|1\s*bras|incline|concentre|cable|poulie|marteau|hammer|inversee?|preacher|scott|araignee)?/.test(n) && !/leg\s*curl|jambe/.test(n)) return 'Biceps';
   if (/marteau|hammer\s*curl/.test(n)) return 'Biceps';
@@ -1449,17 +1463,19 @@ function _getMuscleGroupRaw(name) {
   if (/kick.?back|pushdown|push\s*down/.test(n)) return 'Triceps';
   if (/close\s*grip\s*(bench|press)|prise\s*(serree|etroite)/.test(n)) return 'Triceps';
   if (/avant.bras|forearm|poignet|wrist\s*curl/.test(n)) return 'Avant-bras';
-  // Abdos
-  if (/crunch|ab\s*crunch|crunch\s*(cable|machine|poulie|oblique|rotation|lateral)/.test(n)) return 'Abdos';
-  if (/planche|plank|gainage/.test(n)) return 'Abdos';
-  if (/l.sit|l\s*sit/.test(n)) return 'Abdos';
-  if (/ab\b|abdo|abdominaux|core\b/.test(n)) return 'Abdos';
-  if (/releve\s*(de\s*)?(genoux|jambes?)|hanging\s*(knee|leg)|knee\s*raise|leg\s*raise/.test(n) && !/machine/.test(n)) return 'Abdos';
-  if (/v.?up|sit.?up/.test(n)) return 'Abdos';
-  if (/ciseaux|battement/.test(n)) return 'Abdos';
-  if (/russian\s*twist/.test(n)) return 'Abdos';
-  if (/oblique|rotation\s*(tronc|buste|du\s*buste)/.test(n)) return 'Abdos';
-  if (/wood\s*chop|bucheron/.test(n)) return 'Abdos';
+  // Abdos — frontal vs obliques
+  if (/russian\s*twist/.test(n)) return 'Obliques';
+  if (/oblique|rotation\s*(tronc|buste|du\s*buste)/.test(n)) return 'Obliques';
+  if (/wood\s*chop|bucheron/.test(n)) return 'Obliques';
+  if (/crunch\s*oblique|flexion\s*laterale/.test(n)) return 'Obliques';
+  if (/ciseaux|battement/.test(n)) return 'Obliques';
+  if (/crunch|ab\s*crunch|crunch\s*(cable|machine|poulie)/.test(n)) return 'Abdos (frontal)';
+  if (/planche|plank|gainage/.test(n)) return 'Abdos (frontal)';
+  if (/l.sit|l\s*sit/.test(n)) return 'Abdos (frontal)';
+  if (/releve\s*(de\s*)?(genoux|jambes?)|hanging\s*(knee|leg)|knee\s*raise|leg\s*raise/.test(n) && !/machine/.test(n)) return 'Abdos (frontal)';
+  if (/v.?up|sit.?up/.test(n)) return 'Abdos (frontal)';
+  if (/ab\s*wheel/.test(n)) return 'Abdos (frontal)';
+  if (/ab\b|abdo|abdominaux|core\b/.test(n)) return 'Abdos (frontal)';
   return 'Autre';
 }
 function getMuscleGroup(name) {
@@ -1470,14 +1486,115 @@ function getMuscleGroup(name) {
 // Regroupe les sous-groupes en catégorie principale (pour radar/graphiques qui utilisent les groupes simples)
 function getMuscleGroupParent(subGroup) {
   const map = {
-    'Quadriceps':'Jambes','Ischio-jambiers':'Jambes','Fessiers':'Jambes','Mollets':'Jambes','Lombaires':'Jambes',
+    'Quadriceps':'Jambes','Ischio-jambiers':'Jambes','Fessiers':'Jambes','Mollets':'Jambes',
     'Pecs':'Pecs','Pecs (haut)':'Pecs','Pecs (bas)':'Pecs',
-    'Dorsaux':'Dos','Trapèzes':'Dos',
+    'Grand dorsal':'Dos','Haut du dos':'Dos','Lombaires':'Dos','Trapèzes':'Dos','Dorsaux':'Dos',
     'Épaules':'Épaules','Épaules (latéral)':'Épaules','Épaules (antérieur)':'Épaules','Épaules (postérieur)':'Épaules',
     'Biceps':'Bras','Triceps':'Bras','Avant-bras':'Bras',
-    'Abdos':'Abdos','Cardio':'Cardio','Autre':'Autre'
+    'Abdos (frontal)':'Abdos','Obliques':'Abdos','Abdos':'Abdos',
+    'Cardio':'Cardio','Autre':'Autre'
   };
   return map[subGroup] || subGroup;
+}
+
+// Retourne les contributions musculaires multi-coefficients d'un exercice
+function getMuscleContributions(name) {
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'");
+  // Squat (Barre)
+  if (/\bsquat\b/.test(n) && !/hack|split|sissy|goblet|zercher/.test(n))
+    return [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5},{muscle:'Lombaires',coeff:0.5},{muscle:'Abdos (frontal)',coeff:0.25}];
+  // Bench Press
+  if (/bench\s*press|developpe\s*couche/.test(n) && !/incline|decline|close\s*grip/.test(n))
+    return [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.5}];
+  // Deadlift / Soulevé de terre (conventional)
+  if ((/deadlift|souleve\s*de\s*terre/.test(n)) && !/romanian|rdl|deficit|sumo/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:1},{muscle:'Grand dorsal',coeff:0.5},{muscle:'Trapèzes',coeff:0.5},{muscle:'Fessiers',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
+  // Romanian Deadlift / RDL
+  if (/romanian|rdl\b/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:0.5},{muscle:'Fessiers',coeff:0.5},{muscle:'Grand dorsal',coeff:0.25}];
+  // Développé militaire / OHP
+  if (/developpe\s*militaire|overhead\s*press|ohp\b|press\s*militaire/.test(n))
+    return [{muscle:'Épaules (antérieur)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Pecs (haut)',coeff:0.25},{muscle:'Abdos (frontal)',coeff:0.25}];
+  // Développé incliné
+  if (/incline\s*(bench|press|dumbbell)|developpe\s*incline/.test(n))
+    return [{muscle:'Pecs (haut)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.5}];
+  // Développé couché haltères
+  if (/developpe\s*couche\s*haltere|dumbbell\s*(bench|press)/.test(n))
+    return [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
+  // Tractions / Pull-up
+  if (/traction|pull.?up|chin.?up/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Biceps',coeff:0.5},{muscle:'Haut du dos',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
+  // Rowing barre
+  if (/rowing\s*(barre|barbell)|barbell\s*row|bent.over\s*row|t.bar\s*row|yates\s*row/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Haut du dos',coeff:0.5},{muscle:'Biceps',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
+  // Rowing haltère 1 bras
+  if (/rowing\s*(haltere|dumbbell|1\s*bras)|dumbbell\s*row|one.arm\s*row/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Haut du dos',coeff:0.5},{muscle:'Biceps',coeff:0.25}];
+  // Lat Pulldown
+  if (/lat\s*(pulldown|machine|poulie)|pull\s*down|tirage\s*vertical/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Biceps',coeff:0.5},{muscle:'Haut du dos',coeff:0.25}];
+  // Hip Thrust
+  if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge/.test(n))
+    return [{muscle:'Fessiers',coeff:1},{muscle:'Ischio-jambiers',coeff:0.5},{muscle:'Lombaires',coeff:0.25}];
+  // Dips
+  if (/\bdips?\b/.test(n))
+    return [{muscle:'Pecs (bas)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
+  // Curl biceps
+  if (/curl\s*(biceps?|barre|haltere|concentre|cable|poulie|marteau|hammer|preacher|scott|araignee|incline|1\s*bras|inversee?)?/.test(n) && !/leg\s*curl|jambe|poignet|wrist/.test(n) && /curl/.test(n))
+    return [{muscle:'Biceps',coeff:1},{muscle:'Avant-bras',coeff:0.25}];
+  // Extension triceps / Skull crusher
+  if (/extension\s*triceps|skull\s*crusher|barre\s*front|french\s*press|pushdown|push\s*down|kick.?back/.test(n))
+    return [{muscle:'Triceps',coeff:1},{muscle:'Épaules (postérieur)',coeff:0.25}];
+  // Élévation latérale
+  if (/elevation\s*laterale|lateral\s*raise/.test(n))
+    return [{muscle:'Épaules (latéral)',coeff:1}];
+  // Face pull
+  if (/face\s*pull/.test(n))
+    return [{muscle:'Épaules (postérieur)',coeff:1},{muscle:'Haut du dos',coeff:0.5}];
+  // Leg press
+  if (/leg\s*press|presse\s*(a\s*cuisses?|cuisse|jambe)/.test(n))
+    return [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5}];
+  // Leg curl
+  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1}];
+  // Leg extension
+  if (/leg\s*extension|extension\s*(des\s*)?(jambes?|quadriceps?)/.test(n))
+    return [{muscle:'Quadriceps',coeff:1}];
+  // Écarté / Fly
+  if (/ecarte|fly\b|chest\s*fly|cable\s*crossover/.test(n))
+    return [{muscle:'Pecs',coeff:1}];
+  // Crunch
+  if (/crunch/.test(n) && !/oblique/.test(n))
+    return [{muscle:'Abdos (frontal)',coeff:1}];
+  // Russian twist / rotation
+  if (/russian\s*twist|rotation\s*(tronc|buste)/.test(n))
+    return [{muscle:'Obliques',coeff:1},{muscle:'Abdos (frontal)',coeff:0.25}];
+  // Planche / Gainage
+  if (/planche|plank|gainage/.test(n))
+    return [{muscle:'Abdos (frontal)',coeff:1},{muscle:'Obliques',coeff:0.5},{muscle:'Lombaires',coeff:0.25}];
+  // Good morning
+  if (/good\s*morning/.test(n))
+    return [{muscle:'Lombaires',coeff:1},{muscle:'Ischio-jambiers',coeff:0.5},{muscle:'Fessiers',coeff:0.25}];
+  // Hyperextension
+  if (/hyperextension|extension\s*du\s*dos|extension\s*lombaire/.test(n))
+    return [{muscle:'Lombaires',coeff:1},{muscle:'Fessiers',coeff:0.5}];
+  // Shrugs
+  if (/shrugs?\b|hausse.?epaule/.test(n))
+    return [{muscle:'Trapèzes',coeff:1},{muscle:'Haut du dos',coeff:0.25}];
+  // Mollets
+  if (/mollet|calf/.test(n))
+    return [{muscle:'Mollets',coeff:1}];
+  // Fentes / Lunges
+  if (/fente|lunge/.test(n))
+    return [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5},{muscle:'Ischio-jambiers',coeff:0.25}];
+  // Pompes / Push-ups
+  if (/pompe|push.?up/.test(n))
+    return [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
+  // Sumo deadlift
+  if (/sumo/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:1},{muscle:'Grand dorsal',coeff:0.5},{muscle:'Fessiers',coeff:0.5}];
+  // Fallback : muscle principal avec coeff 1
+  return [{ muscle: getMuscleGroup(name), coeff: 1 }];
 }
 
 // ============================================================
@@ -1563,7 +1680,7 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', onboarded: false, kcalBase: 2300, bwBase: 80 },
+  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80 },
   routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [] // exercices clés configurables pour la rubrique Performance
 });
@@ -1579,6 +1696,7 @@ let db = (() => {
     if (!p.keyLifts) p.keyLifts = [];
     if (p.user.name === undefined) p.user.name = '';
     if (p.user.onboarded === undefined) p.user.onboarded = true; // existants = déjà configurés
+    if (!p.user.gender) p.user.gender = 'unspecified';
     return p;
   } catch { return defaultDB(); }
 })();
@@ -1943,6 +2061,7 @@ function obNext(step) {
     db.user.name  = name;
     db.user.bw    = parseFloat(document.getElementById('ob-bw').value) || 0;
     db.user.level = document.getElementById('ob-level').value;
+    db.user.gender = document.getElementById('ob-gender').value || 'unspecified';
     saveDB();
     const defaults = { debutant:{b:80,s:100,d:120}, intermediaire:{b:100,s:130,d:150}, avance:{b:130,s:160,d:190}, competiteur:{b:150,s:180,d:220} };
     const d = defaults[db.user.level] || defaults.intermediaire;
@@ -2888,6 +3007,7 @@ function createExercise(name) {
     totalReps:   0,
     repRecords:  {},  // { "5": 80, "8": 70 } — meilleur poids par compte de reps
     series:      [],  // [{ weight, reps, date }] — séries individuelles (sparklines + repRecords)
+    allSets:     [],  // [{ weight, reps, setType, rpe }] — toutes les séries brutes conservées
     isCardio:    exoType === 'cardio' || exoType === 'cardio_stairs',
     isReps:      exoType === 'reps',
     isTime:      exoType === 'time',
@@ -2939,6 +3059,17 @@ function finalizeSessionFromSeries(session) {
           if (!exo.repRecords[rKey] || w > exo.repRecords[rKey]) exo.repRecords[rKey] = w;
         }
       });
+    }
+  });
+  // Build allSets from series if not already populated
+  session.exercises.forEach(exo => {
+    if (!exo.allSets || exo.allSets.length === 0) {
+      exo.allSets = (exo.series || []).map(s => ({
+        weight: s.weight || 0,
+        reps: s.reps || 0,
+        setType: 'normal',
+        rpe: null
+      }));
     }
   });
   session.volume = vol;
@@ -2994,22 +3125,54 @@ document.getElementById('dayButtonsContainer').addEventListener('click', e => { 
 // GAMIFICATION — XP, NIVEAUX, BADGES
 // ============================================================
 const XP_LEVELS = [
-  { level:1,  name:'Novice',      sub:'Apprenti d\'Incarnam',        xp:0,     icon:'🌱' },
-  { level:2,  name:'Apprenti',    sub:'Élève d\'Astrub',             xp:500,   icon:'💪' },
-  { level:3,  name:'Chasseur',    sub:'Licencié Hunter',             xp:1500,  icon:'🏹' },
-  { level:4,  name:'Guerrier',    sub:'Iop de Cœur',                 xp:3500,  icon:'⚔️' },
-  { level:5,  name:'Shinigami',   sub:'Shikai Activé',               xp:6000,  icon:'⚡' },
-  { level:6,  name:'Nen Master',  sub:'Aura Maîtrisée',              xp:9000,  icon:'🌀' },
-  { level:7,  name:'BANKAI',      sub:'Forme Finale Atteinte',       xp:13000, icon:'🔱' },
-  { level:8,  name:'Goultard',    sub:'Le Barbare Légendaire',       xp:18000, icon:'👑' },
-  { level:9,  name:'Gon Libéré',  sub:'Au-delà des Limites',         xp:25000, icon:'🌟' },
-  { level:10, name:'Xélor',       sub:'Dieu du Temps Incarné',       xp:35000, icon:'⏰' },
+  { level:1,  name:'Âme errante',             xp:0,       icon:'👻' },
+  { level:2,  name:'Porteur de lame',         xp:500,     icon:'🗡️' },
+  { level:3,  name:'Recrue du Rukongai',      xp:1500,    icon:'🏘️' },
+  { level:4,  name:'Élève de l\'Académie',    xp:3500,    icon:'📜' },
+  { level:5,  name:'Faucheur d\'âmes',        xp:6000,    icon:'💀' },
+  { level:6,  name:'Lame nommée',             xp:10000,   icon:'⚔️' },
+  { level:7,  name:'Gardien de division',     xp:16000,   icon:'🛡️' },
+  { level:8,  name:'Chasseur de Hollows',     xp:24000,   icon:'👹' },
+  { level:9,  name:'Porteur du masque',       xp:35000,   icon:'🎭' },
+  { level:10, name:'Lame libérée',            xp:50000,   icon:'✨' },
+  { level:11, name:'Bras droit du Capitaine', xp:70000,   icon:'💪' },
+  { level:12, name:'Maître de division',      xp:95000,   icon:'🏯' },
+  { level:13, name:'Éveilleur de Bankai',     xp:125000,  icon:'🔥' },
+  { level:14, name:'Lame finale',             xp:160000,  icon:'⚡' },
+  { level:15, name:'Dévoreur de mondes',      xp:200000,  icon:'🌑' },
+  { level:16, name:'Sang Royal',              xp:240000,  icon:'👑' },
+  { level:17, name:'Fléau du Seireitei',      xp:280000,  icon:'🌊' },
+  { level:18, name:'Flamme millénaire',       xp:320000,  icon:'🔱' },
+  { level:19, name:'Trancheur de ciel',       xp:360000,  icon:'⛩️' },
+  { level:20, name:'L\'Ombre qui marche',     xp:400000,  icon:'🌒' },
+  { level:21, name:'Forgeur d\'âmes',         xp:430000,  icon:'⚒️' },
+  { level:22, name:'Au-delà de la lame',      xp:455000,  icon:'🌟' },
+  { level:23, name:'Gardien du Trône',        xp:475000,  icon:'🏰' },
+  { level:24, name:'Dieu déchu',              xp:490000,  icon:'💫' },
+  { level:25, name:'Roi des Âmes',            xp:500000,  icon:'👁️' },
 ];
+
+const BADGE_THRESHOLDS = {
+  male: {
+    bench:    [60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300],
+    squat:    [80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 350],
+    deadlift: [100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 350, 400],
+    ohp:      [40, 60, 80, 100, 120, 140]
+  },
+  female: {
+    bench:    [30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150],
+    squat:    [50, 65, 80, 95, 110, 125, 140, 155, 170, 185, 200, 220, 250],
+    deadlift: [60, 75, 90, 105, 120, 135, 150, 170, 190, 210, 230, 260, 300],
+    ohp:      [20, 30, 40, 50, 60, 70]
+  }
+};
 
 function getAllBadges() {
   const streak = calcStreak();
   const b = [];
   const B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
+  const _gender = (db.user.gender === 'female') ? 'female' : 'male';
+  const _bt = BADGE_THRESHOLDS[_gender];
 
   // ── Stats pré-calculées (single pass) ──
   let totalVol = 0, maxSessVol = 0, totalSets = 0, ohpRM = 0, maxSessDur = 0, totalDur = 0;
@@ -3107,69 +3270,36 @@ function getAllBadges() {
 
 
   // ── Bench Press ──
-  const bench = [
-    [60,  'common',    '🌱', "L'Apprenti d'Astrub",     'Dofus',  "Astrub reconnaît tes efforts. La forge ne fait que commencer"],
-    [80,  'common',    '💪', "Cogneur de la Milice",    'Dofus',  "Les miliciens d'Astrub s'écartent sur ton passage"],
-    [100, 'uncommon',  '⚔️', "Iop Authentique",         'Dofus',  "Force avant tout — l'intelligence peut attendre selon les Iops"],
-    [120, 'uncommon',  '🩸', "Sacrieur de la Fonte",    'Dofus',  "Ta douleur est ton carburant — sang et acier mêlés"],
-    [140, 'rare',      '⚡', "Shikai Débloqué",         'Bleach', "Ton zanpakuto pectoraux a enfin révélé sa vraie forme"],
-    [160, 'rare',      '🏰', "Champion de Brakmar",     'Dofus',  "Même les forces obscures de Brakmar fléchissent devant toi"],
-    [180, 'rare',      '🌀', "Reishi Condensé",         'Bleach', "Ton aura déborde — les plafonds de la salle tremblent"],
-    [200, 'epic',      '🪓', "Goultard le Barbare",     'Dofus',  "Tu atteins la légende du plus grand des Iops de l'histoire"],
-    [220, 'epic',      '🌊', "Reiatsu d'Élite",         'Bleach', "Ton reiatsu commence à impressionner les capitaines du Gotei"],
-    [240, 'epic',      '🔥', "Fracture du Temps",       'Bleach', "Tout sacrifier pour un PR — ta lame brise le temps lui-même"],
-    [260, 'legendary', '❄️', "Lame de Glace de Rukia",  'Bleach', "Ton press glace l'atmosphère — Sode no Shirayuki s'incline"],
-    [280, 'legendary', '👁️', "Kenpachi Sans Bandeau",   'Bleach', "Il a retiré son bandeau — il te voit enfin comme un rival digne"],
-    [300, 'mythic',    '💥', "BANKAI — Pectoraux",      'Bleach', "Forme finale. Byakuya pose Senbonzakura pour t'admirer"],
-  ];
-  bench.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`bench_${kg}`,r,icon,name,ref,desc,ck:()=>B>=kg}));
+  const _benchRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
+  const _benchIcons = ['🌱','💪','⚔️','🩸','⚡','🏰','🌀','🪓','🌊','🔥','❄️','👁️','💥'];
+  const _benchNames = ["L'Apprenti d'Astrub","Cogneur de la Milice","Iop Authentique","Sacrieur de la Fonte","Shikai Débloqué","Champion de Brakmar","Reishi Condensé","Goultard le Barbare","Reiatsu d'Élite","Fracture du Temps","Lame de Glace de Rukia","Kenpachi Sans Bandeau","BANKAI — Pectoraux"];
+  const _benchRefs = ['Dofus','Dofus','Dofus','Dofus','Bleach','Dofus','Bleach','Dofus','Bleach','Bleach','Bleach','Bleach','Bleach'];
+  const _benchDescs = ["Astrub reconnaît tes efforts. La forge ne fait que commencer","Les miliciens d'Astrub s'écartent sur ton passage","Force avant tout — l'intelligence peut attendre selon les Iops","Ta douleur est ton carburant — sang et acier mêlés","Ton zanpakuto pectoraux a enfin révélé sa vraie forme","Même les forces obscures de Brakmar fléchissent devant toi","Ton aura déborde — les plafonds de la salle tremblent","Tu atteins la légende du plus grand des Iops de l'histoire","Ton reiatsu commence à impressionner les capitaines du Gotei","Tout sacrifier pour un PR — ta lame brise le temps lui-même","Ton press glace l'atmosphère — Sode no Shirayuki s'incline","Il a retiré son bandeau — il te voit enfin comme un rival digne","Forme finale. Byakuya pose Senbonzakura pour t'admirer"];
+  _bt.bench.forEach((kg,i)=>b.push({id:`bench_${kg}`,r:_benchRarities[i]||'mythic',icon:_benchIcons[i]||'💥',name:_benchNames[i]||('Bench '+kg+'kg'),ref:_benchRefs[i]||'Bleach',desc:_benchDescs[i]||('Bench press '+kg+'kg'),ck:()=>B>=kg}));
 
   // ── Squat ──
-  const squat = [
-    [80,  'common',    '🦵', "Cavalier de Dragodinde",  'Dofus',  "Tes cuisses portent ta Dragodinde avec fierté et aisance"],
-    [100, 'common',    '🐼', "Pandawa en Transe",       'Dofus',  "L'ivresse de l'acier — la sagesse du Bambou sacré"],
-    [120, 'uncommon',  '🌲', "Racines d'Amakna",        'Dofus',  "Tes jambes sont enracinées comme les arbres de la forêt d'Amakna"],
-    [140, 'uncommon',  '💧', "Flux de Reishi",          'Bleach', "Ton énergie spirituelle descend dans tes jambes à chaque rep"],
-    [160, 'rare',      '⚔️', "Guerrier du Seireitei",   'Bleach', "Pour l'honneur du Gotei — Renji Abarai serait jaloux"],
-    [180, 'rare',      '🌀', "Aura Condensée",          'Bleach', "Ton aura se condense jusqu'aux genoux à chaque répétition"],
-    [200, 'rare',      '🌳', "Ancré comme un Sadida",   'Dofus',  "Les arbres-poupées du Sadida sont jaloux de la force de tes cuisses"],
-    [220, 'epic',      '🩸', "Iop Transcendé",          'Dofus',  "Tu dépasses la simple force brute — même un dieu-Iop t'envie"],
-    [240, 'epic',      '🌊', "Déferlante d'Ogrest",     'Dofus',  "Là où tu squattes, le sol s'en souvient pour toujours"],
-    [260, 'epic',      '👻', "Reiatsu Oppressant",      'Bleach', "Ton reiatsu involontaire fait plier les genoux des autres clients"],
-    [280, 'legendary', '✨', "Bankai des Jambes",       'Bleach', "Tu as transcendé les limites — la forme finale est atteinte"],
-    [300, 'legendary', '🔥', "Flamme de Yamamoto",      'Bleach', "300kg — Yamamoto lui-même salue cette chaleur dans ses jambes"],
-    [350, 'mythic',    '🌌', "Chaos Primordial",        'Dofus',  "Au-delà du monde des Douze — tu existes dans l'Extérieur"],
-  ];
-  squat.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`squat_${kg}`,r,icon,name,ref,desc,ck:()=>S>=kg}));
+  const _squatRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
+  const _squatIcons = ['🦵','🐼','🌲','💧','⚔️','🌀','🌳','🩸','🌊','👻','✨','🔥','🌌'];
+  const _squatNames = ["Cavalier de Dragodinde","Pandawa en Transe","Racines d'Amakna","Flux de Reishi","Guerrier du Seireitei","Aura Condensée","Ancré comme un Sadida","Iop Transcendé","Déferlante d'Ogrest","Reiatsu Oppressant","Bankai des Jambes","Flamme de Yamamoto","Chaos Primordial"];
+  const _squatRefs = ['Dofus','Dofus','Dofus','Bleach','Bleach','Bleach','Dofus','Dofus','Dofus','Bleach','Bleach','Bleach','Dofus'];
+  const _squatDescs = ["Tes cuisses portent ta Dragodinde avec fierté et aisance","L'ivresse de l'acier — la sagesse du Bambou sacré","Tes jambes sont enracinées comme les arbres de la forêt d'Amakna","Ton énergie spirituelle descend dans tes jambes à chaque rep","Pour l'honneur du Gotei — Renji Abarai serait jaloux","Ton aura se condense jusqu'aux genoux à chaque répétition","Les arbres-poupées du Sadida sont jaloux de la force de tes cuisses","Tu dépasses la simple force brute — même un dieu-Iop t'envie","Là où tu squattes, le sol s'en souvient pour toujours","Ton reiatsu involontaire fait plier les genoux des autres clients","Tu as transcendé les limites — la forme finale est atteinte","300kg — Yamamoto lui-même salue cette chaleur dans ses jambes","Au-delà du monde des Douze — tu existes dans l'Extérieur"];
+  _bt.squat.forEach((kg,i)=>b.push({id:`squat_${kg}`,r:_squatRarities[i]||'mythic',icon:_squatIcons[i]||'🌌',name:_squatNames[i]||('Squat '+kg+'kg'),ref:_squatRefs[i]||'Dofus',desc:_squatDescs[i]||('Squat '+kg+'kg'),ck:()=>S>=kg}));
 
   // ── Deadlift ──
-  const dead = [
-    [100, 'common',    '⚒️', "Forgeron d'Amakna",      'Dofus',  "Les forges d'Amakna te font confiance pour le premier lingot"],
-    [120, 'common',    '🌲', "Bûcheron Musclé",        'Dofus',  "Plus solide que les arbres millénaires de la forêt d'Amakna"],
-    [140, 'uncommon',  '🌑', "Ombre du Seireitei",     'Bleach', "Tu tires depuis l'ombre — comme les agents de la Division 2"],
-    [160, 'uncommon',  '👁️', "Kenpachi t'a Senti",     'Bleach', "Il a senti ton reiatsu depuis les profondeurs du Seireitei"],
-    [180, 'rare',      '🔥', "Flamme d'Amaterasu",     'Bleach', "Ta barre brûle comme la flamme noire inextinguible de Yamamoto"],
-    [200, 'rare',      '🩸', "Sacrieur Transcendé",    'Dofus',  "La douleur du bas du dos t'alimente comme rien d'autre ne peut"],
-    [220, 'rare',      '⚡', "Shunpo du Sol",           'Bleach', "Tes mains attrapent la barre avec la vitesse du pas flash"],
-    [240, 'epic',      '🌊', "Chaos d'Ogrest",         'Dofus',  "Même Ogrest n'aurait pas osé soulever un tel poids du sol"],
-    [260, 'epic',      '❄️', "Sode no Shirayuki",      'Bleach', "Ton deadlift gèle l'air ambiant — Rukia approuve dans l'ombre"],
-    [280, 'epic',      '🌑', "Getsuga Tensho",         'Bleach', "Ton cri intérieur libère une énergie obscure et dévastatrice"],
-    [300, 'legendary', '🏆', "Les Trois Cents",        'Dofus',  "Les 12 Dieux s'inclinent ensemble devant ce chiffre légendaire"],
-    [350, 'legendary', '💥', "Mugetsu du Sol",         'Bleach', "Tout ou rien — comme Ichigo face au Roi des Quincies"],
-    [400, 'mythic',    '🔥', "Zanka no Tachi",         'Bleach', "Yamamoto libère la flamme ultime — ton deadlift en est l'écho"],
-  ];
-  dead.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`dead_${kg}`,r,icon,name,ref,desc,ck:()=>D>=kg}));
+  const _deadRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
+  const _deadIcons = ['⚒️','🌲','🌑','👁️','🔥','🩸','⚡','🌊','❄️','🌑','🏆','💥','🔥'];
+  const _deadNames = ["Forgeron d'Amakna","Bûcheron Musclé","Ombre du Seireitei","Kenpachi t'a Senti","Flamme d'Amaterasu","Sacrieur Transcendé","Shunpo du Sol","Chaos d'Ogrest","Sode no Shirayuki","Getsuga Tensho","Les Trois Cents","Mugetsu du Sol","Zanka no Tachi"];
+  const _deadRefs = ['Dofus','Dofus','Bleach','Bleach','Bleach','Dofus','Bleach','Dofus','Bleach','Bleach','Dofus','Bleach','Bleach'];
+  const _deadDescs = ["Les forges d'Amakna te font confiance pour le premier lingot","Plus solide que les arbres millénaires de la forêt d'Amakna","Tu tires depuis l'ombre — comme les agents de la Division 2","Il a senti ton reiatsu depuis les profondeurs du Seireitei","Ta barre brûle comme la flamme noire inextinguible de Yamamoto","La douleur du bas du dos t'alimente comme rien d'autre ne peut","Tes mains attrapent la barre avec la vitesse du pas flash","Même Ogrest n'aurait pas osé soulever un tel poids du sol","Ton deadlift gèle l'air ambiant — Rukia approuve dans l'ombre","Ton cri intérieur libère une énergie obscure et dévastatrice","Les 12 Dieux s'inclinent ensemble devant ce chiffre légendaire","Tout ou rien — comme Ichigo face au Roi des Quincies","Yamamoto libère la flamme ultime — ton deadlift en est l'écho"];
+  _bt.deadlift.forEach((kg,i)=>b.push({id:`dead_${kg}`,r:_deadRarities[i]||'mythic',icon:_deadIcons[i]||'🔥',name:_deadNames[i]||('Deadlift '+kg+'kg'),ref:_deadRefs[i]||'Bleach',desc:_deadDescs[i]||('Deadlift '+kg+'kg'),ck:()=>D>=kg}));
 
   // ── Overhead Press ──
-  const ohpData = [
-    [40,  'common',    '💪', "Bras d'Iop Junior",         'Dofus',  "Premier pas sur la voie du dieu-Iop. L'acier au-dessus ne fait que commencer"],
-    [60,  'uncommon',  '🌤️', "Brise de Seireitei",        'Bleach', "60kg au-dessus — un Shinigami de 6e division te regarderait avec respect"],
-    [80,  'rare',      '🛡️', "Épaules de la Division",    'Bleach', "Les épaulières du Seireitei ont été forgées pour tes épaules"],
-    [100, 'epic',      '🌊', "Iop Divin",                 'Dofus',  "La paume tendue vers le ciel — 100kg au-dessus comme un dieu-Iop"],
-    [120, 'legendary', '💫', "Épaules de Goultard",       'Dofus',  "Goultard portait ses victoires légendaires sur ces épaules millénaires"],
-    [140, 'mythic',    '🔥', "Zanka no Tachi — Higashi",  'Bleach', "Yamamoto libère sa flamme vers les cieux — ton press en est l'écho terrestre"],
-  ];
-  ohpData.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`ohp_${kg}`,r,icon,name,ref,desc,ck:()=>ohpRM>=kg}));
+  const _ohpRarities = ['common','uncommon','rare','epic','legendary','mythic'];
+  const _ohpIcons = ['💪','🌤️','🛡️','🌊','💫','🔥'];
+  const _ohpNames = ["Bras d'Iop Junior","Brise de Seireitei","Épaules de la Division","Iop Divin","Épaules de Goultard","Zanka no Tachi — Higashi"];
+  const _ohpRefsArr = ['Dofus','Bleach','Bleach','Dofus','Dofus','Bleach'];
+  const _ohpDescs = ["Premier pas sur la voie du dieu-Iop. L'acier au-dessus ne fait que commencer","60kg au-dessus — un Shinigami de 6e division te regarderait avec respect","Les épaulières du Seireitei ont été forgées pour tes épaules","La paume tendue vers le ciel — 100kg au-dessus comme un dieu-Iop","Goultard portait ses victoires légendaires sur ces épaules millénaires","Yamamoto libère sa flamme vers les cieux — ton press en est l'écho terrestre"];
+  _bt.ohp.forEach((kg,i)=>b.push({id:`ohp_${kg}`,r:_ohpRarities[i]||'mythic',icon:_ohpIcons[i]||'🔥',name:_ohpNames[i]||('OHP '+kg+'kg'),ref:_ohpRefsArr[i]||'Bleach',desc:_ohpDescs[i]||('OHP '+kg+'kg'),ck:()=>ohpRM>=kg}));
 
   // ── Total SBD ──
   b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            ref:'Dofus',  desc:'B+S+D ≥ 300kg — les trois piliers accomplis. Rushu frémit depuis sa prison',       ck:()=>total>=300});
@@ -3181,15 +3311,18 @@ function getAllBadges() {
 
   // ── Poids de Corps ──
   if (bw > 0) {
-    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:'Propre Poids au Bench',  ref:'Dofus',  desc:`${bw}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`,          ck:()=>B>=bw});
-    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:'1.5× au Bench',          ref:'Bleach', desc:`${Math.round(bw*1.5)}kg — digne d'un combattant du Seireitei`,                     ck:()=>B>=bw*1.5});
-    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:'Double au Bench',        ref:'Bleach', desc:`${Math.round(bw*2)}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`,      ck:()=>B>=bw*2});
-    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:'1.5× au Squat',          ref:'Dofus',  desc:`${Math.round(bw*1.5)}kg — la milice de Bonta est impressionnée par ta puissance`,   ck:()=>S>=bw*1.5});
-    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:'Double au Squat',        ref:'Dofus',  desc:`${Math.round(bw*2)}kg — les Sadidas sont jaloux de ta puissance de jambes`,         ck:()=>S>=bw*2});
-    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:'2.5× au Squat',          ref:'Dofus',  desc:`${Math.round(bw*2.5)}kg — Ogrest lui-même ne squattait pas autant à son pic`,      ck:()=>S>=bw*2.5});
-    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:'Double au Deadlift',     ref:'Dofus',  desc:`${Math.round(bw*2)}kg deadlift — les forgerons de Bonta s'inclinent en silence`,    ck:()=>D>=bw*2});
-    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:'2.5× au Deadlift',       ref:'Bleach', desc:`${Math.round(bw*2.5)}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`,        ck:()=>D>=bw*2.5});
-    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:'Triple au Deadlift',     ref:'Bleach', desc:`${Math.round(bw*3)}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`,  ck:()=>D>=bw*3});
+    const _bwB = _gender === 'female' ? [0.75, 1.0, 1.25] : [1.0, 1.5, 2.0];
+    const _bwS = _gender === 'female' ? [1.0, 1.5, 2.0] : [1.5, 2.0, 2.5];
+    const _bwD = _gender === 'female' ? [1.25, 1.75, 2.25] : [2.0, 2.5, 3.0];
+    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:_bwB[0]+'× au Bench',    ref:'Dofus',  desc:`${Math.round(bw*_bwB[0])}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`,  ck:()=>B>=bw*_bwB[0]});
+    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:_bwB[1]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[1])}kg — digne d'un combattant du Seireitei`,                             ck:()=>B>=bw*_bwB[1]});
+    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:_bwB[2]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[2])}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`,              ck:()=>B>=bw*_bwB[2]});
+    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:_bwS[0]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[0])}kg — la milice de Bonta est impressionnée par ta puissance`,            ck:()=>S>=bw*_bwS[0]});
+    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:_bwS[1]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[1])}kg — les Sadidas sont jaloux de ta puissance de jambes`,                ck:()=>S>=bw*_bwS[1]});
+    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:_bwS[2]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[2])}kg — Ogrest lui-même ne squattait pas autant à son pic`,                ck:()=>S>=bw*_bwS[2]});
+    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:_bwD[0]+'× au Deadlift', ref:'Dofus',  desc:`${Math.round(bw*_bwD[0])}kg deadlift — les forgerons de Bonta s'inclinent en silence`,           ck:()=>D>=bw*_bwD[0]});
+    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[1])}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`,                  ck:()=>D>=bw*_bwD[1]});
+    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[2])}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`,         ck:()=>D>=bw*_bwD[2]});
   }
 
   // ── Streak (semaines consécutives) ──
@@ -3321,7 +3454,7 @@ function renderGamificationTab() {
   levelCard.innerHTML =
     `<div class="gam-level-icon">${currLevel.icon}</div>` +
     `<div class="gam-level-name">${currLevel.name}</div>` +
-    `<div class="gam-level-sub">${currLevel.sub}</div>` +
+    `<div class="gam-level-sub">${currLevel.sub||''}</div>` +
     `<div class="gam-level-num">Niveau ${currLevel.level} · ${totalXP.toLocaleString()} XP</div>` +
     `<div class="gam-xp-bar-wrap"><div class="gam-xp-bar" style="width:${pct}%;"></div></div>` +
     `<div class="gam-xp-text"><span>${xpInLevel.toLocaleString()} / ${xpToNext.toLocaleString()} XP</span><span style="color:var(--purple);font-size:10px;">${nextName}</span></div>` +
@@ -3516,15 +3649,17 @@ function buildSessionFromAI(parsed, rawText) {
   (parsed.exercises || []).forEach(exo => {
     const exoType = exo.exoType || 'weight';
     const isCardio = exoType === 'cardio', isTime = exoType === 'time', isReps = exoType === 'reps';
-    const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [], _rawSets: [] };
+    const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [], allSets: [], _rawSets: [] };
     (exo.sets || []).forEach(s => {
       const isW      = s.isWarmup || s.setType === 'warmup';
       const isAbandon= s.setType === 'abandon';
       const isDrop   = s.setType === 'drop';
       const countForRecord = !isW && !isAbandon && !isDrop;
       if (countForRecord) obj.sets++;
+      const _aiSetType = isW ? 'warmup' : isAbandon ? 'failure' : isDrop ? 'drop' : 'normal';
       if (exoType === 'weight') {
         const w = s.weight||0, r = s.reps||0;
+        obj.allSets.push({ weight: w, reps: r, setType: _aiSetType, rpe: s.rpe || null });
         if (countForRecord && w>0 && r>0) obj._rawSets.push({weight:w, reps:r});
         if (w>0&&r>0) { session.volume+=w*r; if(countForRecord){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
       } else if (exoType==='reps') {
@@ -3737,8 +3872,7 @@ function finalizeSession(session, rawText) {
   const afterPending = () => {
     // Détecter les séries suspectes (erreurs de saisie potentielles)
     const suspicious = detectSuspiciousSets(session);
-    // Nettoyer les _rawSets avant de sauvegarder
-    session.exercises.forEach(e => { delete e._rawSets; });
+    // _rawSets sera nettoyé dans doFinalizeSession (après détection suspecte)
     if (suspicious.length > 0) {
       processSuspiciousSets(suspicious, 0, () => doFinalizeSession(session));
     } else {
@@ -3771,6 +3905,8 @@ function processPending1RM(list, idx, callback) {
 }
 
 function doFinalizeSession(session) {
+  // Nettoyer les _rawSets temporaires avant de sauvegarder (allSets est conservé)
+  session.exercises.forEach(e => { delete e._rawSets; });
   newPRs = { bench: false, squat: false, deadlift: false };
 
   // Collecter tous les nouveaux records AVANT d'écraser l'historique
@@ -3919,7 +4055,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
       const cleanName=line.trim().replace(/\s*"[^"]*"\s*$/g,'').trim();
       const isCardio=exoType==='cardio'||exoType==='cardio_stairs';
       const isTime=exoType==='time',isReps=exoType==='reps';
-      currExo={name:cleanName,maxRM:0,sets:0,isCardio,isTime,isReps,distance:0,maxTime:0,maxReps:0,totalReps:0,repRecords:{},series:[],exoType,_rawSets:[]};
+      currExo={name:cleanName,maxRM:0,sets:0,isCardio,isTime,isReps,distance:0,maxTime:0,maxReps:0,totalReps:0,repRecords:{},series:[],allSets:[],exoType,_rawSets:[]};
       continue;
     }
     if (!currExo) continue;
@@ -3932,6 +4068,9 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
         const isAbandon= /\[abandon\]/i.test(line);
         const isDrop   = /\[drop(\s*set)?\]/i.test(line);
         const countForRecord = !isW && !isAbandon && !isDrop;
+        const _setType = isW ? 'warmup' : isAbandon ? 'failure' : isDrop ? 'drop' : 'normal';
+        const _rpeMatch = line.match(/RPE\s*:?\s*(\d+\.?\d*)/i);
+        currExo.allSets.push({ weight: w, reps: r, setType: _setType, rpe: _rpeMatch ? parseFloat(_rpeMatch[1]) : null });
         if(countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
         session.volume+=w*r;
         if(countForRecord){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}
@@ -4554,7 +4693,29 @@ function renderDayExercises(day) {
 // ============================================================
 // EXERCISE CARD DISPLAY
 // ============================================================
-function buildRMTable(e1rm, repRecords) {
+function buildRMTable(e1rm, repRecords, exoName) {
+  // e1RM coherence: if repRecords is empty but e1rm > 0, try to reconstruct
+  if (e1rm > 0 && (!repRecords || Object.keys(repRecords).length === 0)) {
+    repRecords = repRecords || {};
+    // Search logs for the series that generated this e1RM
+    if (exoName) {
+      for (const log of db.logs) {
+        for (const exo of log.exercises) {
+          if (matchExoName(exo.name, exoName)) {
+            // Try allSets first, then series
+            const source = (exo.allSets && exo.allSets.length > 0) ? exo.allSets : (exo.series || []);
+            source.forEach(s => {
+              const w = s.weight || 0, r = s.reps || 0;
+              if (w > 0 && r > 0) {
+                const rKey = String(r);
+                if (!repRecords[rKey] || w > repRecords[rKey]) repRecords[rKey] = w;
+              }
+            });
+          }
+        }
+      }
+    }
+  }
   // Builds a théorique vs réel table for target rep counts
   const TARGET_REPS = [1, 3, 5, 8, 10, 12, 15];
   let missingReal = 0;
@@ -4654,7 +4815,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
   let detailsHtml = '';
   if ((exoType === 'weight' || exoType === 'reps') && exo.maxRM > 0) {
     // Full RM table: théorique vs réel
-    detailsHtml = buildRMTable(exo.maxRM, exo.repRecords);
+    detailsHtml = buildRMTable(exo.maxRM, exo.repRecords, exo.name);
     // For reps type: add bodyweight note
     if (exoType === 'reps' && exo.maxReps) {
       const bwNote = db.user.bw > 0
@@ -4664,7 +4825,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
         bwNote +
         '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">' +
         '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Tableau RM lest seul :</div>' +
-        buildRMTable(exo.maxRM, exo.repRecords) + '</div>';
+        buildRMTable(exo.maxRM, exo.repRecords, exo.name) + '</div>';
     }
   } else if (exoType === 'weight' && (!exo.repRecords || !Object.keys(exo.repRecords).length)) {
     detailsHtml = '<div class="exo-detail-row"><span style="color:var(--sub);">e1RM estimé</span><span style="color:var(--blue);font-weight:600;">' + (exo.maxRM || 0) + 'kg</span></div>';
@@ -4877,6 +5038,40 @@ function cleanupExistingLogs() {
       const exoType=getExoType(exo.name);exo.exoType=exoType;
       if(!exo.repRecords){exo.repRecords={};changed=true;}
       if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{if(!s.weight||!s.reps)return;const rKey=String(s.reps);if(!exo.repRecords[rKey]||s.weight>exo.repRecords[rKey]){exo.repRecords[rKey]=s.weight;changed=true;}const rm=calcE1RM(s.weight,s.reps);if(rm>(exo.maxRM||0)){exo.maxRM=rm;changed=true;}});}
+
+      // ── Migration allSets : reconstruire depuis series[] et/ou repRecords{} ──
+      if (!exo.allSets || !Array.isArray(exo.allSets)) {
+        exo.allSets = [];
+        // Priorité à series[] si elle a plus de données
+        const fromSeries = (exo.series && exo.series.length > 0) ? exo.series : [];
+        const fromRepRecords = exo.repRecords ? Object.entries(exo.repRecords) : [];
+        if (fromSeries.length >= fromRepRecords.length && fromSeries.length > 0) {
+          fromSeries.forEach(s => {
+            if (s.weight > 0 || s.reps > 0) exo.allSets.push({ weight: s.weight || 0, reps: s.reps || 0, setType: 'normal', rpe: null });
+          });
+        } else if (fromRepRecords.length > 0) {
+          fromRepRecords.forEach(([rKey, w]) => {
+            const r = parseInt(rKey);
+            if (w > 0 && r > 0) exo.allSets.push({ weight: w, reps: r, setType: 'normal', rpe: null });
+          });
+        }
+        changed = true;
+      }
+
+      // ── Repair e1RM coherence: if e1rm > 0 but repRecords empty, reconstruct ──
+      if ((exo.maxRM || 0) > 0 && exo.repRecords && Object.keys(exo.repRecords).length === 0) {
+        // Try to reconstruct from allSets or series
+        const source = (exo.allSets && exo.allSets.length > 0) ? exo.allSets : (exo.series || []);
+        source.forEach(s => {
+          const w = s.weight || 0, r = s.reps || 0;
+          if (w > 0 && r > 0) {
+            const rKey = String(r);
+            if (!exo.repRecords[rKey] || w > exo.repRecords[rKey]) exo.repRecords[rKey] = w;
+          }
+        });
+        if (Object.keys(exo.repRecords).length > 0) changed = true;
+      }
+
       if(exoType==='reps'&&!exo.isReps){exo.isReps=true;changed=true;}
       if(exoType==='time'&&!exo.isTime){exo.isTime=true;changed=true;}
       if((exoType==='cardio'||exoType==='cardio_stairs')&&!exo.isCardio){exo.isCardio=true;changed=true;}
@@ -5052,7 +5247,7 @@ function parseHevyCSV(text) {
         maxRM: 0, maxRMDate: null,
         maxReps: 0, maxRepsDate: null,
         totalReps: 0, maxTime: 0, distance: 0,
-        sets: 0, repRecords: {}, series: [], _rawSets: []
+        sets: 0, repRecords: {}, series: [], allSets: [], _rawSets: []
       };
 
       for (const s of sets) {
@@ -5061,6 +5256,8 @@ function parseHevyCSV(text) {
         const isDrop    = s.setType === 'dropset';
         const isFailure = s.setType === 'failure';
         const countForRecord = !isWarmup && !isDrop && !isFailure;
+        const _csvSetType = isWarmup ? 'warmup' : isDrop ? 'drop' : isFailure ? 'failure' : 'normal';
+        exo.allSets.push({ weight: s.wkg || 0, reps: s.reps || 0, setType: _csvSetType, rpe: s.rpe || null });
         if (countForRecord && s.wkg > 0 && s.reps > 0 && !isCardio && !isTime) exo._rawSets.push({weight: s.wkg, reps: s.reps});
 
         if (isCardio) {
@@ -5157,13 +5354,13 @@ function buildSessionFromCSV(dateRaw, seanceName, rows) {
   const exoMap=new Map();for(const row of rows){if(!exoMap.has(row.exo))exoMap.set(row.exo,[]);exoMap.get(row.exo).push(row);}
   for(const[exoName,sets]of exoMap){
     const exoType=getExoType(exoName);const isCardio=exoType==='cardio'||exoType==='cardio_stairs';const isTime=exoType==='time';const isReps=exoType==='reps';
-    const exo={name:exoName,exoType,isCardio,isTime,isReps,maxRM:0,maxReps:0,totalReps:0,maxTime:0,distance:0,sets:0,repRecords:{},series:[],_rawSets:[]};
+    const exo={name:exoName,exoType,isCardio,isTime,isReps,maxRM:0,maxReps:0,totalReps:0,maxTime:0,distance:0,sets:0,repRecords:{},series:[],allSets:[],_rawSets:[]};
     for(const s of sets){
       exo.sets++;
       if(isCardio){const distKm=s.dist>0?s.dist/1000:0;if(distKm>exo.distance)exo.distance=distKm;if(s.duree>exo.maxTime){exo.maxTime=s.duree;exo.cardioDate=ts;}}
       else if(isTime){if(s.duree>exo.maxTime){exo.maxTime=s.duree;exo.maxTimeDate=ts;}session.volume+=s.duree/10;}
-      else if(isReps){exo.totalReps+=s.reps;if(s.reps>exo.maxReps){exo.maxReps=s.reps;exo.maxRepsDate=ts;}if(s.poids>0){session.volume+=s.poids*s.reps;const rm=calcE1RM(s.poids,s.reps);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}const rKey=String(s.reps);if(!exo.repRecords[rKey]||s.poids>exo.repRecords[rKey])exo.repRecords[rKey]=s.poids;}}
-      else{const w=s.poids,r=s.reps;if(w>0&&r>0){exo._rawSets.push({weight:w,reps:r});session.volume+=w*r;const rKey=String(r);if(!exo.repRecords[rKey]||w>exo.repRecords[rKey])exo.repRecords[rKey]=w;const ex=exo.series.find(x=>x.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=ts;}}else exo.series.push({weight:w,reps:r,date:ts});const rm=calcE1RM(w,r);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}}}
+      else if(isReps){exo.totalReps+=s.reps;if(s.reps>exo.maxReps){exo.maxReps=s.reps;exo.maxRepsDate=ts;}if(s.poids>0){session.volume+=s.poids*s.reps;const rm=calcE1RM(s.poids,s.reps);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}const rKey=String(s.reps);if(!exo.repRecords[rKey]||s.poids>exo.repRecords[rKey])exo.repRecords[rKey]=s.poids;}exo.allSets.push({weight:s.poids||0,reps:s.reps||0,setType:'normal',rpe:null});}
+      else{const w=s.poids,r=s.reps;exo.allSets.push({weight:w||0,reps:r||0,setType:'normal',rpe:null});if(w>0&&r>0){exo._rawSets.push({weight:w,reps:r});session.volume+=w*r;const rKey=String(r);if(!exo.repRecords[rKey]||w>exo.repRecords[rKey])exo.repRecords[rKey]=w;const ex=exo.series.find(x=>x.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=ts;}}else exo.series.push({weight:w,reps:r,date:ts});const rm=calcE1RM(w,r);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}}}
     }
     if(exo.maxRM>0||exo.isCardio||exo.maxTime>0||exo.maxReps>0||exo.sets>0)session.exercises.push(exo);
   }
@@ -5177,7 +5374,7 @@ async function importCSV() {
   const existingDates=new Set(db.logs.map(l=>l.shortDate));const newSessions=csvParsedData.sessions.filter(s=>!existingDates.has(s.shortDate));
   let imported=0,prs={bench:0,squat:0,deadlift:0};
   for(const session of newSessions){
-    // Nettoyer les _rawSets avant de sauvegarder (évite de gonfler localStorage)
+    // Nettoyer les _rawSets temporaires avant de sauvegarder (allSets est conservé)
     session.exercises.forEach(exo=>{ delete exo._rawSets; });
     session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM>db.bestPR[type]){db.bestPR[type]=exo.maxRM;prs[type]=exo.maxRM;while(db.bestPR[type]>=db.user.targets[type])db.user.targets[type]+=5;}});
     db.logs.push(session);imported++;
@@ -5447,6 +5644,155 @@ function calcMomentum(type) {
   const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX);
   return Math.round(slope*7*10)/10;
 }
+
+function analyzePlateauCauses(exoName) {
+  // 1. Check if exercise is in plateau (e1RM stable/declining over last 3-4 sessions)
+  const history = [];
+  for (const log of db.logs) {
+    for (const exo of log.exercises) {
+      if (matchExoName(exo.name, exoName) && exo.maxRM > 0) {
+        history.push({ rm: exo.maxRM, ts: log.timestamp, exo });
+        break;
+      }
+    }
+    if (history.length >= 6) break;
+  }
+  if (history.length < 3) return null;
+  const recent = history.slice(0, 4);
+  if (recent.length >= 3 && recent[0].rm > recent[recent.length - 1].rm) return null; // progressing
+
+  const causes = [];
+  const suggestions = [];
+  const bw = db.user.bw || 80;
+  const logs4w = getLogsInRange(28);
+
+  // 2. Analyze secondary muscles via getMuscleContributions
+  const contribs = getMuscleContributions(exoName);
+  const weeklyMuscleSets = {};
+  logs4w.forEach(log => {
+    log.exercises.forEach(e => {
+      const c = getMuscleContributions(e.name);
+      c.forEach(({ muscle, coeff }) => {
+        weeklyMuscleSets[muscle] = (weeklyMuscleSets[muscle] || 0) + (e.sets || 0) * coeff;
+      });
+    });
+  });
+  const weeks = Math.max(1, logs4w.length > 0 ? (Date.now() - logs4w[logs4w.length - 1].timestamp) / (7 * 86400000) : 4);
+
+  const _muscleExoSuggestions = {
+    'Triceps':               'Extension triceps câble, Skull crusher',
+    'Lombaires':             'Good morning, Hyperextension',
+    'Fessiers':              'Hip Thrust, Pont fessier',
+    'Avant-bras':            'Curl poignets, Farmer walk',
+    'Biceps':                'Curl biceps, Curl marteau',
+    'Grand dorsal':          'Tractions, Lat pulldown',
+    'Haut du dos':           'Face pull, Rowing inversé',
+    'Trapèzes':              'Shrugs, Face pull',
+    'Épaules (antérieur)':   'Développé militaire, Élévation frontale',
+    'Épaules (postérieur)':  'Face pull, Oiseau',
+    'Épaules (latéral)':     'Élévation latérale',
+    'Ischio-jambiers':       'Leg curl, Romanian deadlift',
+    'Quadriceps':            'Leg extension, Squat bulgare',
+    'Abdos (frontal)':       'Crunch câble, Ab wheel',
+    'Obliques':              'Russian twist, Wood chop',
+    'Pecs':                  'Développé couché haltères, Écarté poulie',
+    'Pecs (haut)':           'Développé incliné, Écarté incliné',
+  };
+
+  contribs.forEach(({ muscle, coeff }) => {
+    if (coeff >= 1) return; // primary muscle, skip
+    const weekSets = (weeklyMuscleSets[muscle] || 0) / weeks;
+    const minSets = coeff >= 0.5 ? 6 : 3;
+    if (weekSets < minSets) {
+      causes.push(`${muscle} sous-entraîné (${Math.round(weekSets)}s/sem, minimum ${minSets})`);
+      if (_muscleExoSuggestions[muscle]) suggestions.push(_muscleExoSuggestions[muscle]);
+    }
+  });
+
+  // 3. Check frequency
+  const exoCountPerWeek = logs4w.filter(l => l.exercises.some(e => matchExoName(e.name, exoName))).length / weeks;
+  const otherSBD = ['bench', 'squat', 'deadlift'];
+  let maxOtherFreq = 0;
+  otherSBD.forEach(t => {
+    const cnt = logs4w.filter(l => l.exercises.some(e => getSBDType(e.name) === t)).length / weeks;
+    if (cnt > maxOtherFreq) maxOtherFreq = cnt;
+  });
+  if (exoCountPerWeek <= 1.2 && maxOtherFreq >= 1.8) {
+    causes.push(`Fréquence insuffisante (${Math.round(exoCountPerWeek * 10) / 10}×/sem vs ${Math.round(maxOtherFreq * 10) / 10}×/sem pour d'autres lifts)`);
+  }
+
+  // 4. Check intensity distribution from allSets or repRecords
+  const allReps = [];
+  history.slice(0, 4).forEach(h => {
+    const exo = h.exo;
+    if (exo.allSets && exo.allSets.length > 0) {
+      exo.allSets.forEach(s => { if (s.reps > 0 && s.setType === 'normal') allReps.push(s.reps); });
+    } else if (exo.repRecords) {
+      Object.keys(exo.repRecords).forEach(k => allReps.push(parseInt(k)));
+    }
+  });
+  if (allReps.length >= 4) {
+    const heavy = allReps.filter(r => r >= 3 && r <= 5).length;
+    const medium = allReps.filter(r => r >= 8 && r <= 12).length;
+    if (heavy === 0 && allReps.every(r => r > 5)) causes.push('Pas assez de travail lourd (3-5 reps)');
+    if (medium === 0 && allReps.every(r => r < 6)) causes.push('Pas assez de volume (8-12 reps)');
+  }
+
+  // 5. Check agonist/antagonist imbalance
+  const _agonistPairs = { 'Pecs': 'Dos', 'Dos': 'Pecs', 'Quadriceps': 'Ischio-jambiers', 'Ischio-jambiers': 'Quadriceps' };
+  const primaryMuscle = contribs[0]?.muscle;
+  const primaryParent = primaryMuscle ? getMuscleGroupParent(primaryMuscle) : null;
+  if (primaryParent && _agonistPairs[primaryParent]) {
+    const antagonist = _agonistPairs[primaryParent];
+    let agonistSets = 0, antagonistSets = 0;
+    logs4w.forEach(log => {
+      log.exercises.forEach(e => {
+        const p = getMuscleGroupParent(getMuscleGroup(e.name));
+        if (p === primaryParent) agonistSets += (e.sets || 0);
+        if (p === antagonist) antagonistSets += (e.sets || 0);
+      });
+    });
+    if (antagonistSets > 0 && agonistSets / antagonistSets > 2) {
+      causes.push(`Déséquilibre ${primaryParent}/${antagonist} (ratio ${Math.round(agonistSets / antagonistSets * 10) / 10}:1)`);
+    }
+  }
+
+  // 6. Cross with strength standards
+  const latestRM = history[0]?.rm || 0;
+  const mainSL = getStrengthLevel(exoName, latestRM, bw);
+  if (mainSL) {
+    contribs.forEach(({ muscle, coeff }) => {
+      if (coeff >= 1) return;
+      // Find best exercise for this secondary muscle
+      let secRM = 0, secName = '';
+      db.logs.slice(0, 20).forEach(l => {
+        l.exercises.forEach(e => {
+          const mg = getMuscleGroup(e.name);
+          if (mg === muscle && (e.maxRM || 0) > secRM) { secRM = e.maxRM; secName = e.name; }
+        });
+      });
+      if (secRM > 0 && secName) {
+        const secSL = getStrengthLevel(secName, secRM, bw);
+        if (secSL && mainSL.levelIdx >= 2 && secSL.levelIdx <= 0) {
+          causes.push(`${muscle} niveau ${secSL.label} (vs ${mainSL.label} sur ${exoName})`);
+        }
+      }
+    });
+  }
+
+  // 7. Check fatigue (ATL/CTL ratio)
+  const logs7 = getLogsInRange(7), logs28 = getLogsInRange(28);
+  const atl = logs7.reduce((s, l) => s + l.volume, 0) / 7;
+  const ctl = logs28.reduce((s, l) => s + l.volume, 0) / 28;
+  if (ctl > 0 && atl / ctl > 1.4) {
+    causes.push('Fatigue accumulée, besoin de deload');
+    suggestions.push('Semaine légère à 50-60% des charges');
+  }
+
+  if (causes.length === 0) return null;
+  return { causes, suggestions };
+}
+
 function generateCoachAlgoMessage() {
   const bw=db.user.bw,bench=db.bestPR.bench,squat=db.bestPR.squat,dead=db.bestPR.deadlift;
   const logs7=getLogsInRange(7),tonnage7=logs7.reduce((s,l)=>s+l.volume,0);
@@ -5482,7 +5828,22 @@ function generateCoachAlgoMessage() {
   if (plateaux.length>0) {
     let alertes=`<div class="ai-section-title">⚠️ ALERTES</div>`;
     const sugg={bench:'Essaie Spoto Bench ou monte le volume',squat:'Variation pause squat ou fentes lestées',deadlift:'Déficit deadlift ou Romanian'};
-    plateaux.forEach(p=>{alertes+=`<div class="plateau-alert">📉 <strong>${p.type.toUpperCase()}</strong> plateau → ${sugg[p.type]}</div>`;});
+    const _sbdNames={bench:'Bench Press (Barbell)',squat:'Squat (Barbell)',deadlift:'Deadlift (Barbell)'};
+    plateaux.forEach(p=>{
+      alertes+=`<div class="plateau-alert">📉 <strong>${p.type.toUpperCase()}</strong> plateau depuis ${p.sessions} séances`;
+      const analysis = analyzePlateauCauses(_sbdNames[p.type]||p.type);
+      if (analysis && analysis.causes.length > 0) {
+        alertes+=`<div style="margin-top:6px;font-size:11px;">Causes probables :<br>`;
+        analysis.causes.forEach(c=>{alertes+=`• ${c}<br>`;});
+        if (analysis.suggestions.length > 0) {
+          alertes+=`→ Ajoute : ${analysis.suggestions.slice(0,2).join(', ')}`;
+        }
+        alertes+=`</div>`;
+      } else {
+        alertes+=` → ${sugg[p.type]}`;
+      }
+      alertes+=`</div>`;
+    });
     sections.push(`<div class="ai-section">${alertes}</div>`);
   }
   if (!sections.length) return '<span style="color:var(--sub);font-size:13px;">Importe des séances pour activer l\'analyse.</span>';
@@ -5718,9 +6079,18 @@ function generateAlgoSessionDebrief(session) {
   if (quadSets > 6 && ischioSets === 0) tips.push('⚠️ Beaucoup de quadriceps sans ischios — ajoute du leg curl ou RDL pour protéger tes genoux.');
 
   const plateaux = ['bench','squat','deadlift'].map(t => detectPlateau(t)).filter(Boolean);
+  const _sbdDebriefNames={bench:'Bench Press (Barbell)',squat:'Squat (Barbell)',deadlift:'Deadlift (Barbell)'};
   plateaux.forEach(p => {
     const sugg = { bench: 'Spoto press, larsen press ou tempo bench', squat: 'Pause squat, pin squat ou tempo', deadlift: 'Déficit deadlift, Romanian ou block pulls' };
-    tips.push(`📉 ${p.type.charAt(0).toUpperCase()+p.type.slice(1)} en plateau — essaie : ${sugg[p.type]}.`);
+    let plateauTip = `📉 ${p.type.charAt(0).toUpperCase()+p.type.slice(1)} en plateau`;
+    const analysis = analyzePlateauCauses(_sbdDebriefNames[p.type]||p.type);
+    if (analysis && analysis.causes.length > 0) {
+      plateauTip += ` — Causes : ${analysis.causes.slice(0,2).join(', ')}`;
+      if (analysis.suggestions.length > 0) plateauTip += `. Ajoute : ${analysis.suggestions[0]}`;
+    } else {
+      plateauTip += ` — essaie : ${sugg[p.type]}`;
+    }
+    tips.push(plateauTip + '.');
   });
   if (nbSets > 25) tips.push('🏋️ Grosse séance (+25 séries). Vise 7-8h de sommeil et 2g/kg de protéines.');
   if (cardioExos.length && exos.length) tips.push('🏃 Combo muscu + cardio — excellent pour la santé cardiovasculaire.');
@@ -5757,6 +6127,20 @@ const STRENGTH_STANDARDS = {
   hipthrust:{ patterns: [/hip\s*thrust/i], ratios: [0.75, 1.00, 1.50, 2.00, 2.75] },
   rdl:      { patterns: [/rdl|romanian/i], ratios: [0.75, 1.00, 1.40, 1.80, 2.30] },
 };
+const STRENGTH_STANDARDS_FEMALE = {
+  bench:    { patterns: [/bench\s*press|developpe\s*couche/i], ratios: [0.25, 0.45, 0.65, 0.90, 1.20] },
+  incline:  { patterns: [/incline|developpe\s*incline/i], ratios: [0.20, 0.35, 0.55, 0.75, 1.00] },
+  squat:    { patterns: [/\bsquat\b/i], ratios: [0.50, 0.75, 1.00, 1.40, 1.80] },
+  deadlift: { patterns: [/deadlift|souleve\s*de\s*terre/i], ratios: [0.65, 0.90, 1.20, 1.60, 2.10] },
+  ohp:      { patterns: [/overhead|militaire|ohp\b/i], ratios: [0.20, 0.35, 0.50, 0.65, 0.80] },
+  row:      { patterns: [/rowing|row\b/i], ratios: [0.35, 0.50, 0.70, 0.95, 1.20] },
+  legpress: { patterns: [/leg\s*press|presse/i], ratios: [1.00, 1.50, 2.25, 3.00, 4.00] },
+  latpull:  { patterns: [/lat\s*pull|tirage\s*(poulie\s*)?haute/i], ratios: [0.35, 0.50, 0.70, 0.85, 1.00] },
+  curl:     { patterns: [/curl/i], ratios: [0.10, 0.18, 0.28, 0.40, 0.55] },
+  dips:     { patterns: [/dips/i], ratios: [0.0, 0.0, 0.15, 0.35, 0.55] },
+  hipthrust:{ patterns: [/hip\s*thrust/i], ratios: [0.50, 0.80, 1.20, 1.60, 2.25] },
+  rdl:      { patterns: [/rdl|romanian/i], ratios: [0.50, 0.75, 1.00, 1.40, 1.80] },
+};
 const STRENGTH_LABELS = [
   { label: 'Débutant',      color: '#86868B', topPct: 'Top 80%' },
   { label: 'Novice',        color: '#0A84FF', topPct: 'Top 60%' },
@@ -5768,12 +6152,13 @@ const STRENGTH_LABELS = [
 function getStrengthLevel(exoName, e1rm, bw) {
   if (!e1rm || e1rm <= 0 || !bw || bw <= 0) return null;
   const norm = exoName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
   let stdKey = null;
-  for (const [key, std] of Object.entries(STRENGTH_STANDARDS)) {
+  for (const [key, std] of Object.entries(_stds)) {
     if (std.patterns.some(p => p.test(norm))) { stdKey = key; break; }
   }
   if (!stdKey) return null;
-  const ratios = STRENGTH_STANDARDS[stdKey].ratios;
+  const ratios = _stds[stdKey].ratios;
   const ratio = e1rm / bw;
   let level = 0;
   for (let i = 0; i < ratios.length; i++) {
@@ -5900,8 +6285,19 @@ function generateAlgoWeeklyReport() {
   if (plateaux.length) {
     html += '<div class="ai-section"><div class="ai-section-title">⚠️ Alertes</div>';
     const sugg = {bench:'Spoto Bench, larsen press ou tempo bench',squat:'Pause squat, pin squat ou tempo',deadlift:'Déficit deadlift, Romanian ou block pulls'};
+    const _sbdWeeklyNames={bench:'Bench Press (Barbell)',squat:'Squat (Barbell)',deadlift:'Deadlift (Barbell)'};
     plateaux.forEach(p => {
-      html += `<div class="plateau-alert">📉 <strong>${p.type.toUpperCase()}</strong> en plateau — essaie : ${sugg[p.type]}</div>`;
+      html += `<div class="plateau-alert">📉 <strong>${p.type.toUpperCase()}</strong> plateau depuis ${p.sessions} séances`;
+      const analysis = analyzePlateauCauses(_sbdWeeklyNames[p.type]||p.type);
+      if (analysis && analysis.causes.length > 0) {
+        html += `<div style="margin-top:6px;font-size:11px;">Causes probables :<br>`;
+        analysis.causes.forEach(c => { html += `• ${c}<br>`; });
+        if (analysis.suggestions.length > 0) html += `→ Ajoute : ${analysis.suggestions.slice(0,2).join(', ')}`;
+        html += `</div>`;
+      } else {
+        html += ` — essaie : ${sugg[p.type]}`;
+      }
+      html += `</div>`;
     });
     html += '</div>';
   }
@@ -6940,6 +7336,17 @@ function renderSettingsProfile() {
   const lvl = document.getElementById('settingsLevel');
   if (lvl) lvl.value = db.user.level || 'intermediaire';
 
+  // Genre
+  const genderEl = document.getElementById('settingsGender');
+  if (genderEl) {
+    const currentGender = db.user.gender || 'unspecified';
+    const genderOpts = [{id:'unspecified',l:'Ne pas préciser'},{id:'male',l:'Homme'},{id:'female',l:'Femme'}];
+    genderEl.innerHTML = genderOpts.map(g => {
+      const active = g.id === currentGender;
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsGender('${g.id}', this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${g.l}</button>`;
+    }).join('');
+  }
+
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
   if (goalsEl) {
@@ -7024,6 +7431,7 @@ function toggleSettingsGoal(goalId, btn) {
   renderSettingsProfile();
 }
 
+function setSettingsGender(g, btn) { db.user.gender = g; saveDB(); showToast('✓ Profil mis à jour'); renderSettingsProfile(); }
 function setSettingsFreq(f, btn) { updateProfileField('freq', f); renderSettingsProfile(); }
 function setSettingsMat(m, btn) { updateProfileField('mat', m); renderSettingsProfile(); }
 function setSettingsDuration(d, btn) { updateProfileField('duration', d); renderSettingsProfile(); }

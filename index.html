@@ -8044,10 +8044,10 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
     db.bestPR[sbdType] = val;
   }
 
-  // Corriger dans les logs
+  // Corriger dans les logs (matchExoName pour couvrir les variantes orthographiques)
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
-      if (exo.name !== exoName) return;
+      if (!matchExoName(exo.name, exoName)) return;
       if (exo.maxRM > val) exo.maxRM = val;
       // Recalculer les repRecords si besoin
       if (exo.repRecords) {
@@ -8055,10 +8055,13 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
           const reps = parseInt(rKey);
           const w = exo.repRecords[rKey];
           if (calcE1RM(w, reps) > val * 1.05) {
-            // Ajuster le poids pour ce nombre de reps
             exo.repRecords[rKey] = Math.round(val * (1.0278 - 0.0278 * reps) * 10) / 10;
           }
         });
+      }
+      // Aussi corriger les séries
+      if (exo.series) {
+        exo.series = exo.series.filter(s => calcE1RM(s.weight, s.reps) <= val * 1.05);
       }
     });
   });
@@ -8070,39 +8073,22 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
 }
 
 function deleteRecord(exoName, isSBD, sbdType) {
-  showModal('Supprimer le record de ' + exoName + ' ? Les séries seront conservées mais le e1RM sera recalculé.', 'Supprimer', 'var(--red)', () => {
+  showModal('Supprimer le record de ' + exoName + ' ? Les séries et records seront effacés pour cet exercice.', 'Supprimer', 'var(--red)', () => {
     if (isSBD && sbdType) {
       db.bestPR[sbdType] = 0;
     }
 
-    // Reset maxRM in all logs for this exercise, then recalculate
+    // Effacer complètement l'exercice de tous les logs (matchExoName pour couvrir les variantes orthographiques)
     db.logs.forEach(log => {
-      log.exercises.forEach(exo => {
-        if (exo.name !== exoName) return;
-        exo.maxRM = 0;
-        if (exo.series && exo.series.length) {
-          exo.series.forEach(s => {
-            const rm = calcE1RM(s.weight, s.reps);
-            if (rm > exo.maxRM) exo.maxRM = rm;
-          });
-        }
-        if (exo.repRecords) {
-          Object.entries(exo.repRecords).forEach(([rKey, w]) => {
-            const rm = calcE1RM(w, parseInt(rKey));
-            if (rm > exo.maxRM) exo.maxRM = rm;
-          });
-        }
-      });
+      log.exercises = log.exercises.filter(exo => !matchExoName(exo.name, exoName));
     });
 
-    // Recalculate SBD best PRs (variantes exclues)
+    // Recalculate SBD best PRs
     if (isSBD && sbdType) {
       let best = 0;
       db.logs.forEach(log => {
         log.exercises.forEach(exo => {
-          if (getSBDType(exo.name) === sbdType && exo.maxRM > best) {
-            if (!VARIANT_KEYWORDS.some(kw => exo.name.toLowerCase().includes(kw))) best = exo.maxRM;
-          }
+          if (getSBDType(exo.name) === sbdType && exo.maxRM > best) best = exo.maxRM;
         });
       });
       db.bestPR[sbdType] = best;

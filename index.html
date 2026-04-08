@@ -7563,6 +7563,24 @@ function renderLifts() {
     });
   });
 
+  // Pour les exercices SBD, fusionner TOUS les noms reconnus par getSBDType
+  // (ex: "Squat (Barre)", "Back Squat" → même entrée) et aligner sur db.bestPR
+  SBD_TYPES.forEach(sbdType => {
+    // Trouver l'entrée principale dans liftMap pour ce type SBD
+    const mainKey = Object.keys(liftMap).find(k => getSBDType(k) === sbdType);
+    if (!mainKey) return;
+    const mainLift = liftMap[mainKey];
+    // Scanner TOUS les logs pour des noms SBD qui n'auraient pas été fusionnés
+    db.logs.forEach(log => {
+      log.exercises.forEach(exo => {
+        if (getSBDType(exo.name) !== sbdType) return;
+        if (!exo.maxRM || exo.maxRM <= 0) return;
+        if (exo.maxRM > mainLift.maxRM) { mainLift.maxRM = exo.maxRM; mainLift.maxRMDate = exo.maxRMDate; }
+        if (exo.repRecords) Object.entries(exo.repRecords).forEach(([r,w]) => { if (!mainLift.repRecords[r] || w > mainLift.repRecords[r]) mainLift.repRecords[r] = w; });
+      });
+    });
+  });
+
   const lifts = Object.values(liftMap).sort((a,b) => b.maxRM - a.maxRM);
   const muscles = ['Tout', ...new Set(lifts.map(l => l.muscle))];
 

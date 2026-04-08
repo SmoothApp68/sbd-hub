@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    :root { --bg:#000; --card:#151517; --blue:#0A84FF; --green:#32D74B; --red:#FF453A; --text:#F5F5F7; --sub:#86868B; --border:#2C2C2E; --orange:#FF9F0A; --purple:#BF5AF2; --teal:#64D2FF; --surface:#1C1C1E; --surface-border:#2C2C2E; }
+    :root { --bg:#000; --card:#151517; --blue:#0A84FF; --green:#32D74B; --red:#FF453A; --text:#F5F5F7; --sub:#86868B; --border:#2C2C2E; --orange:#FF9F0A; --purple:#BF5AF2; --teal:#64D2FF; --surface:#1C1C1E; --surface-border:#2C2C2E; --gold:#C8A24C; --gold-subtle:rgba(200,162,76,0.15); --gold-border:rgba(200,162,76,0.3); --parchment:#1e1c1a; }
     * { box-sizing: border-box; }
     body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px 15px 100px; -webkit-font-smoothing: antialiased; }
     .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: rgba(20,20,20,0.85); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--border); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
@@ -797,6 +797,84 @@
     .bp-bar-bg { height: 4px; border-radius: 2px; background: var(--surface-border); overflow: hidden; }
     .bp-bar { height: 100%; border-radius: 2px; background: var(--blue); }
     .bp-text { font-size: 8px; color: var(--sub); margin-top: 2px; text-align: center; }
+
+    /* ── Gamification V2 — Animations ── */
+    @keyframes reiatsuPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 20px rgba(191,90,242,0.15); } }
+    @keyframes xpFlow { 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+    @keyframes badgeUnlock { 0%{ transform:scale(0);opacity:0; } 70%{ transform:scale(1.1);opacity:1; } 100%{ transform:scale(1);opacity:1; } }
+    @keyframes xpFloat { 0%{ opacity:1;transform:translateY(0); } 100%{ opacity:0;transform:translateY(-30px); } }
+    @keyframes shimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
+    @keyframes newDot { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(0.7); } }
+    @keyframes flamePulse { 0%,100%{ transform:scaleY(1);opacity:0.9; } 50%{ transform:scaleY(1.15);opacity:1; } }
+
+    .lvl-card-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
+    .lvl-xp-bar-v2 { background: linear-gradient(90deg, var(--purple), var(--blue), var(--purple)); background-size: 200% 100%; animation: xpFlow 3s linear infinite; }
+    .lvl-stat-click { cursor: pointer; transition: transform 0.15s, border-color 0.2s; }
+    .lvl-stat-click:active { transform: scale(0.95); }
+    .lvl-stat-click:hover { border-color: var(--purple); }
+    .lvl-xp-today { position:absolute;top:16px;right:16px;background:rgba(191,90,242,0.15);color:var(--purple);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;z-index:2; }
+    .lvl-title { font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s; }
+    .lvl-title:active { opacity:0.6; }
+
+    /* ── Quest Card (Dofus style) ── */
+    .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.04) 0%, rgba(200,162,76,0.01) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; }
+    .quest-card::before { content:''; position:absolute; top:0; left:0; width:0; height:0; border-style:solid; border-width:12px 12px 0 0; border-color:var(--gold-border) transparent transparent transparent; border-radius:16px 0 0 0; }
+    .quest-item { background: var(--surface); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.15s; position: relative; }
+    .quest-item:active { transform: scale(0.98); }
+    .quest-item:last-child { margin-bottom: 0; }
+    .quest-item.q-done { background: rgba(50,215,75,0.06); }
+    .quest-item.q-active { border: 1px solid rgba(255,159,10,0.3); }
+    .quest-item.q-secret { border: 1px solid var(--gold-border); }
+    .quest-perfect { background: linear-gradient(90deg, rgba(200,162,76,0.12), rgba(200,162,76,0.04)); border: 1px solid var(--gold-border); border-radius: 12px; padding: 10px 14px; margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--gold); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+    .quest-arc { background: linear-gradient(135deg, rgba(191,90,242,0.03), rgba(10,132,255,0.03)); border: 1px solid rgba(191,90,242,0.2); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+    .quest-arc-bar { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
+    .quest-arc-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.6s; }
+    .quest-remaining { font-size: 10px; color: var(--sub); margin-top: 4px; text-align: right; }
+
+    /* ── Flame ── */
+    .flame-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
+    .flame-icon { display:inline-block; width:14px; height:18px; background:linear-gradient(to top, #FF9F0A, #FF453A); clip-path:polygon(50% 0%,80% 35%,100% 70%,85% 100%,50% 80%,15% 100%,0% 70%,20% 35%); }
+    .flame-icon.gold { background:linear-gradient(to top, var(--gold), #FF9F0A); animation:flamePulse 2s ease-in-out infinite; }
+    .flame-icon.dim { opacity:0.35; }
+    .flame-bonus { font-size:10px; color:var(--orange); font-weight:600; }
+
+    /* ── Title Modal ── */
+    .title-modal-list { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .title-row { display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:12px; margin-bottom:6px; background:var(--surface); border:1px solid var(--border); cursor:pointer; transition:border-color 0.2s; }
+    .title-row:active { transform:scale(0.98); }
+    .title-row.active-title { border-color:var(--purple); background:rgba(191,90,242,0.06); }
+    .title-row.locked-title { opacity:0.4; cursor:default; }
+    .title-rarity { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:2px 6px; border-radius:6px; }
+    .title-cond { font-size:9px; color:var(--sub); margin-top:2px; }
+
+    /* ── Secret quest badge in recent ── */
+    .ru-item.secret-badge { border:1px solid var(--gold-border); box-shadow:0 0 8px rgba(200,162,76,0.1); }
+    .secret-label { font-size:7px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ── New dot indicator ── */
+    .new-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); animation:newDot 2s infinite; margin-left:4px; vertical-align:middle; }
+
+    /* ── Badge rarity enhancements (Dofus/Bleach theme) ── */
+    .bdg.common-v2, .bdg.uncommon-v2 { background: var(--parchment); }
+    .bdg.mythic-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
+    .bdg.divine-v2 { animation: reiatsuPulse 3s ease-in-out infinite; }
+
+    /* ── XP source bars clickable ── */
+    .xs-bar-row-click { cursor: pointer; transition: transform 0.15s; border-radius: 8px; padding: 4px; margin: -4px; }
+    .xs-bar-row-click:active { transform: scale(0.97); background: rgba(255,255,255,0.02); }
+
+    /* ── Heatmap clickable cells ── */
+    .hm-cell-click { cursor: pointer; transition: transform 0.1s; }
+    .hm-cell-click:active { transform: scale(1.4); }
+
+    /* ── Strength card clickable ── */
+    .sg-card-click { cursor: pointer; transition: transform 0.15s; }
+    .sg-card-click:active { transform: scale(0.97); }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
   </style>
 </head>
 <body>
@@ -1337,12 +1415,13 @@
 
   <div id="tab-game" class="content-section">
     <div id="gamLevelCard"></div>
-    <div id="gamHeatmap"></div>
+    <div id="gamXPSources"></div>
     <div id="gamChallenges"></div>
+    <div id="gamMonthlyChallenges"></div>
     <div id="gamRecentBadges"></div>
     <div id="gamNextBadges"></div>
-    <div id="gamXPSources"></div>
     <div id="gamStrengthContent"></div>
+    <div id="gamHeatmap"></div>
     <div id="gamBadgesOverview"></div>
     <div id="gamBadgesSections"></div>
   </div>
@@ -1994,8 +2073,15 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 const defaultDB = () => ({
   user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80 },
   routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
-  keyLifts: [], // exercices clés configurables pour la rubrique Performance
-  weeklyChallenges: null
+  keyLifts: [],
+  weeklyChallenges: null,
+  monthlyChallenges: null,
+  secretQuestsCompleted: [],
+  questHistory: [],
+  questStreak: 0,
+  seenBadges: [],
+  unlockedTitles: [],
+  activeTitle: null
 });
 let db = (() => {
   try {
@@ -2008,8 +2094,15 @@ let db = (() => {
     if (!p.body) p.body = [];
     if (!p.keyLifts) p.keyLifts = [];
     if (p.user.name === undefined) p.user.name = '';
-    if (p.user.onboarded === undefined) p.user.onboarded = true; // existants = déjà configurés
+    if (p.user.onboarded === undefined) p.user.onboarded = true;
     if (!p.user.gender) p.user.gender = 'unspecified';
+    if (!p.monthlyChallenges) p.monthlyChallenges = null;
+    if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
+    if (!p.questHistory) p.questHistory = [];
+    if (p.questStreak === undefined) p.questStreak = 0;
+    if (!p.seenBadges) p.seenBadges = [];
+    if (!p.unlockedTitles) p.unlockedTitles = [];
+    if (p.activeTitle === undefined) p.activeTitle = null;
     return p;
   } catch { return defaultDB(); }
 })();
@@ -3698,12 +3791,10 @@ function getAllBadges() {
 
 function calcTotalXP() {
   let xp = 0;
-  // Pre-build running best e1RM map to avoid O(n³) findPreviousBestE1RM calls
-  // Sort logs chronologically, track best e1RM per exercise as we go
-  const sorted = getSortedLogs().slice().reverse(); // chronological order
-  const runningBest = {}; // exoName → best e1RM seen so far
+  const sorted = getSortedLogs().slice().reverse();
+  const runningBest = {};
   sorted.forEach(log => {
-    xp += 100; // base par séance
+    xp += 100;
     xp += Math.min(10, (log.exercises||[]).length) * 8;
     xp += Math.floor((log.volume || 0) / 500);
     (log.exercises||[]).forEach(exo => {
@@ -3716,10 +3807,31 @@ function calcTotalXP() {
     });
   });
   xp += calcStreak() * 25;
-  // XP from completed weekly challenges
+  // Weekly challenges XP
+  var weeklyXP = 0;
   if (db.weeklyChallenges && db.weeklyChallenges.challenges) {
-    db.weeklyChallenges.challenges.forEach(function(c) { if (c.completed) xp += (c.xpReward || 0); });
+    db.weeklyChallenges.challenges.forEach(function(c) { if (c.completed) weeklyXP += (c.xpReward || 0); });
   }
+  // Perfect quest bonus (25%)
+  if (db.weeklyChallenges && db.weeklyChallenges.challenges) {
+    var allDone = db.weeklyChallenges.challenges.every(function(c) { return c.completed; });
+    if (allDone && db.weeklyChallenges.challenges.length > 0) weeklyXP = Math.round(weeklyXP * 1.25);
+  }
+  // Flame bonus
+  var qs = db.questStreak || 0;
+  if (qs >= 4) weeklyXP = Math.round(weeklyXP * 1.20);
+  else if (qs >= 3) weeklyXP = Math.round(weeklyXP * 1.15);
+  else if (qs >= 2) weeklyXP = Math.round(weeklyXP * 1.10);
+  xp += weeklyXP;
+  // Monthly challenges XP
+  if (db.monthlyChallenges && db.monthlyChallenges.challenges) {
+    db.monthlyChallenges.challenges.forEach(function(c) { if (c.completed) xp += (c.xpReward || 0); });
+  }
+  // Secret quests XP
+  (db.secretQuestsCompleted || []).forEach(function(sqId) {
+    var sq = SECRET_QUESTS.find(function(s) { return s.id === sqId; });
+    if (sq) xp += sq.xp;
+  });
   return xp;
 }
 
@@ -3797,72 +3909,157 @@ function _getLogsThisWeek() {
   return db.logs.filter(function(l) { return l.timestamp >= start && l.timestamp < end; });
 }
 
+// ── Weekly Quest Pool (V2) ──
+var WEEKLY_QUEST_POOL = [
+  { id:'pr', name:'Chasseur de records', desc:'Bats un record personnel cette semaine', targetFn:function(){return 1;}, currentFn:function(wl,pb){ var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(e.maxRM>0&&e.maxRM>(pb[e.name]||0)) prs++; }); }); return prs; }, xp:250 },
+  { id:'discovery', name:'Explorateur', desc:'Essaie un exercice jamais fait', targetFn:function(){return 1;}, currentFn:function(wl){ var allExos=new Set(); db.logs.forEach(function(l){(l.exercises||[]).forEach(function(e){allExos.add(e.name);}); }); var weekExos=new Set(); wl.forEach(function(l){(l.exercises||[]).forEach(function(e){weekExos.add(e.name);}); }); var newCount=0; weekExos.forEach(function(n){ var foundBefore=false; db.logs.forEach(function(l2){ if(wl.indexOf(l2)>=0)return; (l2.exercises||[]).forEach(function(e2){if(e2.name===n)foundBefore=true;}); }); if(!foundBefore)newCount++; }); return newCount; }, xp:100 },
+  { id:'muscle_weak', name:'Rééquilibrage', descFn:function(t,m){return t+' séries de '+m+' cette semaine';}, targetFn:function(){ var muscleVol={}; getLogsInRange(28).forEach(function(l){(l.exercises||[]).forEach(function(e){ var mg=getMuscleGroupParent?getMuscleGroupParent(getMuscleGroup(e.name)||'Autre'):(getMuscleGroup(e.name)||'Autre'); if(mg!=='Autre') muscleVol[mg]=(muscleVol[mg]||0)+(e.sets||0); }); }); var sorted=Object.keys(muscleVol).sort(function(a,b){return muscleVol[a]-muscleVol[b];}); var weak=sorted[0]||'Pectoraux'; var isSmall=/Biceps|Triceps|Épaules|Mollets|Avant-bras/i.test(weak); return {target:isSmall?10:14, muscle:weak}; }, currentFn:function(wl,pb,meta){ var sets=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ var mg=getMuscleGroupParent?getMuscleGroupParent(getMuscleGroup(e.name)||'Autre'):(getMuscleGroup(e.name)||'Autre'); if(mg===meta.muscle)sets+=(e.sets||0); }); }); return sets; }, xp:100 },
+  { id:'tonnage', name:'Tonnage record', descFn:function(t){return 'Dépasse '+Math.round(t/1000)+'t de volume cette semaine';}, targetFn:function(){ var avg=getLogsInRange(28).reduce(function(s,l){return s+(l.volume||0);},0)/4; return Math.max(1000, Math.round(avg*1.05/100)*100); }, currentFn:function(wl){ return wl.reduce(function(s,l){return s+(l.volume||0);},0); }, xp:100 },
+  { id:'consistency', name:'Machine de guerre', descFn:function(t){return 'Entraîne-toi '+t+' jours d\'affilée';}, targetFn:function(){ var st=_getRoutineDays(); return Math.max(2,st-1); }, currentFn:function(wl){ var days=wl.map(function(l){return new Date(l.timestamp).toISOString().slice(0,10);}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(); var maxStreak=0,cur=1; for(var i=1;i<days.length;i++){ var d1=new Date(days[i-1]),d2=new Date(days[i]); if((d2-d1)===86400000)cur++; else cur=1; if(cur>maxStreak)maxStreak=cur; } return days.length?Math.max(maxStreak,cur):0; }, xp:150 },
+  { id:'compound', name:'Force brute', desc:'Fais au moins 15 séries de mouvements composés', targetFn:function(){return 15;}, currentFn:function(wl){ var compoundRe=/squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press/i; var sets=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(compoundRe.test(e.name))sets+=(e.sets||0);}); }); return sets; }, xp:100 },
+  { id:'tempo', name:'Contrôle total', desc:'3 séries en tempo lent (RPE renseigné)', targetFn:function(){return 3;}, currentFn:function(wl){ var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(e.rpe&&e.rpe>0)count+=(e.sets||0); }); }); return count; }, xp:80 },
+  { id:'volume_session', name:'Séance monstre', descFn:function(t){return 'Dépasse '+Math.round(t/1000)+'t dans une seule séance';}, targetFn:function(){ var maxes=[]; getLogsInRange(28).forEach(function(l){maxes.push(l.volume||0);}); var avg=maxes.length?Math.max.apply(null,maxes):5000; return Math.round(avg*1.1/100)*100; }, currentFn:function(wl){ var mx=0; wl.forEach(function(l){if((l.volume||0)>mx)mx=l.volume||0;}); return mx; }, xp:120 },
+  { id:'variety', name:'Touche à tout', descFn:function(t){return 'Fais au moins '+t+' exercices différents cette semaine';}, targetFn:function(){ var avg=new Set(); getLogsInRange(28).forEach(function(l){(l.exercises||[]).forEach(function(e){avg.add(e.name);}); }); return Math.max(8, Math.min(15, Math.round(avg.size/4))); }, currentFn:function(wl){ var s=new Set(); wl.forEach(function(l){(l.exercises||[]).forEach(function(e){s.add(e.name);}); }); return s.size; }, xp:80 },
+  { id:'rpe_log', name:'Scientifique', desc:'Renseigne l\'EPE sur 10 séries', targetFn:function(){return 10;}, currentFn:function(wl){ var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.rpe&&e.rpe>0)count+=(e.sets||0);}); }); return count; }, xp:60 },
+  { id:'accessory', name:'Petits détails', descFn:function(t){return t+' séries d\'isolation cette semaine';}, targetFn:function(){ var compoundRe=/squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press|dips|traction|pull.?up/i; var isoSets=[]; getLogsInRange(28).forEach(function(l){var s=0;(l.exercises||[]).forEach(function(e){if(!compoundRe.test(e.name))s+=(e.sets||0);}); isoSets.push(s); }); var avg=isoSets.length?isoSets.reduce(function(a,b){return a+b;},0)/Math.max(1,isoSets.length):12; return Math.max(10, Math.min(20, Math.round(avg/4*1.05))); }, currentFn:function(wl){ var compoundRe=/squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press|dips|traction|pull.?up/i; var sets=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(!compoundRe.test(e.name))sets+=(e.sets||0);}); }); return sets; }, xp:80 },
+  { id:'heavy', name:'Charges lourdes', desc:'Au moins 5 séries à +85% e1RM', targetFn:function(){return 5;}, currentFn:function(wl){ var best=getAllBestE1RMs(); var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ var b=best[e.name]; if(b&&e.maxRM>=b.e1rm*0.85)count+=(e.sets||0); }); }); return count; }, xp:150 },
+  { id:'endurance', name:'Endurance', desc:'Au moins 8 séries de 10+ reps', targetFn:function(){return 8;}, currentFn:function(wl){ var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(e.reps&&e.reps>=10)count+=(e.sets||0); else if(e.sets&&!e.reps)count+=0; }); }); return count; }, xp:80 },
+  { id:'upper_lower', name:'Équilibre', desc:'Ratio haut/bas du corps entre 40-60%', targetFn:function(){return 1;}, currentFn:function(wl){ var upper=0,lower=0; var lowerRe=/squat|deadlift|souleve|leg|mollet|ischio|quadri|fessier|hip.*thrust|rdl|presse|lunge|fente/i; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(lowerRe.test(e.name))lower+=(e.sets||0); else upper+=(e.sets||0); }); }); var total=upper+lower; if(total===0)return 0; var ratio=upper/total; return(ratio>=0.4&&ratio<=0.6)?1:0; }, xp:100 },
+  { id:'no_skip', name:'Zéro impasse', desc:'Complète toutes les séries prévues du programme', targetFn:function(){return 1;}, currentFn:function(wl){ return wl.length>=_getRoutineDays()?1:0; }, xp:120 }
+];
+
+// ── Monthly Quest Pool ──
+var MONTHLY_QUEST_POOL = [
+  { id:'m_pr_count', name:'Série de records', descFn:function(t){return 'Bats '+t+' records personnels ce mois';}, targetFn:function(){ return Math.max(3, Math.min(5, Math.round(db.logs.length/50))); }, xp:500 },
+  { id:'m_volume', name:'Titan', descFn:function(t){return 'Accumule '+Math.round(t/1000)+'t de volume ce mois';}, targetFn:function(){ var avg=getLogsInRange(28).reduce(function(s,l){return s+(l.volume||0);},0); return Math.round(avg*1.1/1000)*1000; }, xp:400 },
+  { id:'m_sessions', name:'Régulier', descFn:function(t){return 'Complète '+t+' séances ce mois';}, targetFn:function(){ return _getRoutineDays()*4; }, xp:400 },
+  { id:'m_streak', name:'Inarrêtable', descFn:function(t){return 'Maintiens ta série '+t+' semaines d\'affilée';}, targetFn:function(){ return Math.max(4, calcStreak()+2); }, xp:350 },
+  { id:'m_strength', name:'Palier de force', desc:'Atteins un nouveau palier de force sur un exercice', targetFn:function(){return 1;}, xp:600 },
+  { id:'m_muscle_balance', name:'Harmonie', desc:'Travaille tous les groupes musculaires au moins 8 séries', targetFn:function(){return 8;}, xp:300 },
+  { id:'m_nutrition', name:'Discipline', descFn:function(t){return 'Remplis tes macros '+t+' jours ce mois';}, targetFn:function(){return 20;}, xp:350 },
+  { id:'m_discovery', name:'Aventurier', desc:'Essaie 3 nouveaux exercices ce mois', targetFn:function(){return 3;}, xp:250 },
+  { id:'m_heavy_month', name:'Mois de force', desc:'15 séries à +90% e1RM ce mois', targetFn:function(){return 15;}, xp:400 },
+  { id:'m_consistency', name:'Métronome', descFn:function(t){return 'Entraîne-toi au moins '+t+' jours chaque semaine pendant 4 semaines';}, targetFn:function(){ return _getRoutineDays(); }, xp:500 }
+];
+
+// ── Secret Quests ──
+var SECRET_QUESTS = [
+  { id:'sq_triple', condition:function(){ var wl=_getLogsThisWeek(); var pb=_getPrevBest(); var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.maxRM>0&&e.maxRM>(pb[e.name]||0))prs++;}); }); return prs>=3; }, name:'Triplé d\'or', msg:'🔥 3 records en une semaine — tu es en feu !', xp:300 },
+  { id:'sq_marathon', condition:function(){ var maxDur=0; db.logs.forEach(function(l){ var dur=l.duration||0; if(dur>maxDur)maxDur=dur; }); return maxDur>=10800; }, name:'Marathon de fer', msg:'⏱ Plus de 3 heures de training — respect !', xp:150 },
+  { id:'sq_first', condition:function(){ return db.logs.length>=1; }, name:'Premier pas', msg:'👣 Tu as essayé quelque chose de nouveau !', xp:50 },
+  { id:'sq_hyper', condition:function(){ var now=Date.now(); var twoWeeks=14*86400000; var count=db.logs.filter(function(l){return (now-l.timestamp)<twoWeeks;}).length; return count>=10; }, name:'Hyperactif', msg:'💪 10 séances en 14 jours — machine !', xp:200 },
+  { id:'sq_club400', condition:function(){ return (db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0)>=400; }, name:'Club des 400', msg:'🏋️ Bienvenue dans le club des 400kg total !', xp:500 },
+  { id:'sq_early', condition:function(){ return db.logs.some(function(l){ var h=new Date(l.timestamp).getHours(); return h<7; }); }, name:'Lève-tôt', msg:'🌅 Séance avant 7h — la discipline !', xp:100 },
+  { id:'sq_nutrition7', condition:function(){ if(!db.body||!db.body.length)return false; var sorted=db.body.slice().sort(function(a,b){return new Date(a.date)-new Date(b.date);}); var streak=0,maxStreak=0; for(var i=0;i<sorted.length;i++){ if(sorted[i].kcal&&sorted[i].kcal>0){streak++;if(streak>maxStreak)maxStreak=streak;}else{streak=0;} } return maxStreak>=7; }, name:'Nutrition parfaite', msg:'🥗 7 jours de macros impeccables !', xp:200 },
+  { id:'sq_breakthrough', condition:function(){ var best=getAllBestE1RMs(); var bw=db.user.bw||80; for(var name in best){ var sl=getStrengthLevel(name,best[name].e1rm,bw); if(sl&&sl.levelIdx>=3)return true; } return false; }, name:'Percée', msg:'📈 Tu as franchi un cap de force !', xp:250 }
+];
+
+// ── Title Pool ──
+var TITLE_POOL = [
+  { id:'t_apprenti', condition:function(){return db.logs.length>=10;}, title:'Apprenti guerrier', rarity:'common', condText:'10 séances' },
+  { id:'t_veteran', condition:function(){return db.logs.length>=50;}, title:'Vétéran de la salle', rarity:'uncommon', condText:'50 séances' },
+  { id:'t_bench_bw', condition:function(){var bw=db.user.bw||0;return bw>0&&(db.bestPR.bench||0)>=bw;}, title:'Presser de son poids', rarity:'uncommon', condText:'Bench ≥ poids de corps' },
+  { id:'t_squat15', condition:function(){var bw=db.user.bw||0;return bw>0&&(db.bestPR.squat||0)>=bw*1.5;}, title:'Roi du squat', rarity:'rare', condText:'Squat ≥ 1.5× poids de corps' },
+  { id:'t_dead2', condition:function(){var bw=db.user.bw||0;return bw>0&&(db.bestPR.deadlift||0)>=bw*2;}, title:'Maître du soulevé', rarity:'rare', condText:'Deadlift ≥ 2× poids de corps' },
+  { id:'t_club400', condition:function(){return (db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0)>=400;}, title:'Membre du club 400', rarity:'epic', condText:'Total SBD ≥ 400kg' },
+  { id:'t_streak10', condition:function(){return calcStreak()>=10;}, title:'L\'Inarrêtable', rarity:'epic', condText:'Série ≥ 10 semaines' },
+  { id:'t_hunter', condition:function(){ var wl=_getLogsThisWeek(); var pb=_getPrevBest(); var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.maxRM>0&&e.maxRM>(pb[e.name]||0))prs++;}); }); return prs>=3; }, title:'Chasseur de records', rarity:'rare', condText:'3 PRs en 1 semaine' },
+  { id:'t_centurion', condition:function(){return db.logs.length>=100;}, title:'Centurion du fer', rarity:'legendary', condText:'100 séances' },
+  { id:'t_elite', condition:function(){ var best=getAllBestE1RMs(); var bw=db.user.bw||80; for(var n in best){ var sl=getStrengthLevel(n,best[n].e1rm,bw); if(sl&&sl.levelIdx>=4)return true; } return false; }, title:'Forgeron d\'élite', rarity:'mythic', condText:'Niveau Élite sur 1 exercice' },
+  { id:'t_quester', condition:function(){return db.questStreak>=8;}, title:'Quêteur infatigable', rarity:'mythic', condText:'Toutes quêtes hebdo 8 sem d\'affilée' },
+  { id:'t_legend', condition:function(){return db.logs.length>=200&&(db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0)>=500;}, title:'Légende vivante', rarity:'divine', condText:'200 séances + Total > 500kg' }
+];
+
+var _titleRarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+
+// ── Helpers ──
+function _getRoutineDays() {
+  if (!db.routine) return 4;
+  var days = 0;
+  for (var k in db.routine) { if (db.routine[k] && db.routine[k] !== 'Repos') days++; }
+  return days > 0 ? days : 4;
+}
+
+function _hashWeekKey(key) {
+  var h = 0;
+  for (var i = 0; i < key.length; i++) h += key.charCodeAt(i);
+  return h;
+}
+
+function _getPrevBest() {
+  var wkStart = new Date(_getWeekKey()).getTime();
+  var prevBest = {};
+  db.logs.forEach(function(l) {
+    if (l.timestamp >= wkStart) return;
+    (l.exercises||[]).forEach(function(e) {
+      if (e.maxRM > 0 && e.maxRM > (prevBest[e.name]||0)) prevBest[e.name] = e.maxRM;
+    });
+  });
+  return prevBest;
+}
+
+function _getMonthKey() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function _getLogsThisMonth() {
+  var mk = _getMonthKey();
+  var parts = mk.split('-');
+  var start = new Date(parseInt(parts[0]), parseInt(parts[1])-1, 1).getTime();
+  var end = new Date(parseInt(parts[0]), parseInt(parts[1]), 1).getTime();
+  return db.logs.filter(function(l) { return l.timestamp >= start && l.timestamp < end; });
+}
+
+function _daysLeftInMonth() {
+  var d = new Date();
+  var last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  return last - d.getDate();
+}
+
+// ── Weekly Challenges V2 ──
 function generateWeeklyChallenges() {
   var weekKey = _getWeekKey();
   if (db.weeklyChallenges && db.weeklyChallenges.weekKey === weekKey) return;
 
+  // Check previous week completion for quest streak
+  if (db.weeklyChallenges && db.weeklyChallenges.challenges) {
+    var allDone = db.weeklyChallenges.challenges.every(function(c) { return c.completed; });
+    if (allDone) { db.questStreak = (db.questStreak || 0) + 1; }
+    else { db.questStreak = 0; }
+  }
+
+  var sessTarget = _getRoutineDays();
   var challenges = [];
-  var logs = db.logs;
-  var recentLogs = getLogsInRange(28);
 
-  // Frequency of exercises
-  var exoFreq = {};
-  recentLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { exoFreq[e.name] = (exoFreq[e.name]||0) + 1; }); });
-  var sortedExos = Object.keys(exoFreq).sort(function(a,b) { return exoFreq[b] - exoFreq[a]; });
+  // 1. Assiduité (fixed)
+  challenges.push({ id:'w_assiduite', type:'assiduite', label:'Respecte ton programme', description:'Complète ' + sessTarget + ' séances cette semaine', target:sessTarget, current:0, xpReward:200, completed:false });
 
-  // Muscle group volumes (sets) last 4 weeks
-  var muscleVol = {};
-  recentLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
-    var mg = getMuscleGroup(e.name) || 'Autre';
-    muscleVol[mg] = (muscleVol[mg]||0) + (e.sets||0);
-  }); });
-  var weakMuscle = Object.keys(muscleVol).sort(function(a,b) { return muscleVol[a] - muscleVol[b]; })[0] || 'Pectoraux';
+  // 2. Nutrition (fixed)
+  challenges.push({ id:'w_nutrition', type:'nutrition', label:'Remplis tes macros ' + sessTarget + ' jours', description:'Enregistre tes calories ' + sessTarget + ' jours cette semaine', target:sessTarget, current:0, xpReward:150, completed:false, onclick:'nutrition' });
 
-  // Average weekly tonnage
-  var avg4wVol = recentLogs.reduce(function(s,l) { return s + (l.volume||0); }, 0) / 4;
+  // 3. Pesée (fixed)
+  challenges.push({ id:'w_pesee', type:'pesee', label:'Pèse-toi cette semaine', description:'Enregistre au moins 1 pesée cette semaine', target:1, current:0, xpReward:50, completed:false, onclick:'pesee' });
 
-  // Sessions per week target from routine
-  var sessTarget = 4;
-  if (db.routine) {
-    var days = 0;
-    for (var k in db.routine) { if (db.routine[k] && db.routine[k] !== 'Repos') days++; }
-    if (days > 0) sessTarget = days;
+  // 4. Rotating quest from pool
+  var history = db.questHistory || [];
+  var poolIdx = _hashWeekKey(weekKey) % WEEKLY_QUEST_POOL.length;
+  var attempts = 0;
+  while (history.indexOf(WEEKLY_QUEST_POOL[poolIdx].id) >= 0 && attempts < WEEKLY_QUEST_POOL.length) {
+    poolIdx = (poolIdx + 1) % WEEKLY_QUEST_POOL.length;
+    attempts++;
   }
+  var chosen = WEEKLY_QUEST_POOL[poolIdx];
+  var targetData = chosen.targetFn();
+  var target = typeof targetData === 'object' ? targetData.target : targetData;
+  var meta = typeof targetData === 'object' ? targetData : {};
+  var description = chosen.descFn ? chosen.descFn(target, meta.muscle) : chosen.desc;
+  challenges.push({ id:'w_rotating', type:chosen.id, label:chosen.name, description:description, target:target, current:0, xpReward:chosen.xp, completed:false, meta:meta });
 
-  // Rare exercises
-  var rareExo = sortedExos.length > 5 ? sortedExos[sortedExos.length - 1] : (sortedExos[0] || 'Curl');
-  var rareTarget = Math.max(6, Math.round((exoFreq[rareExo]||2) * 1.5));
-
-  // Build pool of challenge types
-  var pool = [];
-
-  // 1. Progression charge
-  if (sortedExos.length > 0) {
-    pool.push({ id: 'prog', type: 'progression', label: '+2.5kg sur ' + sortedExos[0], description: 'Dépasser ton meilleur e1RM sur cet exercice', target: 1, current: 0, xpReward: 150 });
-  }
-
-  // 2. Volume musculaire
-  pool.push({ id: 'musc', type: 'volume_musculaire', label: '20 séries de ' + weakMuscle, description: 'Travaille ton groupe musculaire le moins sollicité', target: 20, current: 0, xpReward: 150 });
-
-  // 3. Assiduité
-  pool.push({ id: 'assi', type: 'assiduite', label: sessTarget + ' séances cette semaine', description: 'Respecte ta fréquence d\'entraînement', target: sessTarget, current: 0, xpReward: 100 });
-
-  // 4. Tonnage
-  var tonTarget = Math.round((avg4wVol * 1.05) / 100) * 100;
-  if (tonTarget > 0) {
-    pool.push({ id: 'ton', type: 'tonnage', label: 'Dépasser ' + Math.round(tonTarget/1000) + 't de tonnage', description: 'Volume total de la semaine', target: tonTarget, current: 0, xpReward: 200 });
-  }
-
-  // 5. Record
-  pool.push({ id: 'rec', type: 'record', label: 'Battre un record personnel', description: 'Établis au moins 1 nouveau PR cette semaine', target: 1, current: 0, xpReward: 200 });
-
-  // 6. Exercice spécifique
-  pool.push({ id: 'spec', type: 'exercice_specifique', label: rareTarget + ' séries de ' + rareExo, description: 'Travaille un exercice sous-représenté', target: rareTarget, current: 0, xpReward: 100 });
-
-  // Shuffle and pick 3
-  for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i+1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
-  challenges = pool.slice(0, 3);
-  challenges.forEach(function(c) { c.completed = false; });
+  // Update quest history (keep last 6)
+  history.push(chosen.id);
+  if (history.length > 6) history = history.slice(-6);
+  db.questHistory = history;
 
   db.weeklyChallenges = { weekKey: weekKey, challenges: challenges };
   saveDB();
@@ -3871,53 +4068,221 @@ function generateWeeklyChallenges() {
 function updateChallengeProgress() {
   if (!db.weeklyChallenges || !db.weeklyChallenges.challenges) return;
   var weekLogs = _getLogsThisWeek();
-  var bestE1RMs = getAllBestE1RMs();
+  var prevBest = _getPrevBest();
 
-  // Pre-compute previous week's best e1RMs
+  // Count body entries this week
   var wkStart = new Date(db.weeklyChallenges.weekKey).getTime();
+  var wkEnd = wkStart + 7 * 86400000;
+  var bodyThisWeek = (db.body || []).filter(function(b) {
+    var ts = new Date(b.date).getTime();
+    return ts >= wkStart && ts < wkEnd;
+  });
+
+  db.weeklyChallenges.challenges.forEach(function(c) {
+    if (c.type === 'assiduite') {
+      c.current = weekLogs.length;
+    } else if (c.type === 'nutrition') {
+      c.current = bodyThisWeek.filter(function(b) { return b.kcal && b.kcal > 0; }).length;
+    } else if (c.type === 'pesee') {
+      c.current = bodyThisWeek.filter(function(b) { return b.bw && b.bw > 0; }).length;
+    } else {
+      // Rotating quest — find matching pool entry
+      var poolEntry = WEEKLY_QUEST_POOL.find(function(p) { return p.id === c.type; });
+      if (poolEntry) {
+        c.current = poolEntry.currentFn(weekLogs, prevBest, c.meta || {});
+      }
+    }
+    if (c.current >= c.target && !c.completed) { c.completed = true; saveDB(); }
+  });
+}
+
+// ── Monthly Challenges ──
+function generateMonthlyChallenges() {
+  var monthKey = _getMonthKey();
+  if (db.monthlyChallenges && db.monthlyChallenges.monthKey === monthKey) return;
+
+  var monthHash = _hashWeekKey(monthKey);
+  var challenges = [];
+  var idx1 = monthHash % MONTHLY_QUEST_POOL.length;
+  var idx2 = (idx1 + 1 + (monthHash % Math.max(1, MONTHLY_QUEST_POOL.length - 1))) % MONTHLY_QUEST_POOL.length;
+  if (idx2 === idx1) idx2 = (idx1 + 1) % MONTHLY_QUEST_POOL.length;
+
+  [idx1, idx2].forEach(function(idx) {
+    var q = MONTHLY_QUEST_POOL[idx];
+    var target = q.targetFn();
+    var description = q.descFn ? q.descFn(target) : q.desc;
+    challenges.push({ id: q.id, type: q.id, label: q.name, description: description, target: target, current: 0, xpReward: q.xp, completed: false });
+  });
+
+  db.monthlyChallenges = { monthKey: monthKey, challenges: challenges };
+  saveDB();
+}
+
+function updateMonthlyChallengeProgress() {
+  if (!db.monthlyChallenges || !db.monthlyChallenges.challenges) return;
+  var monthLogs = _getLogsThisMonth();
   var prevBest = {};
+  var mk = _getMonthKey();
+  var parts = mk.split('-');
+  var monthStart = new Date(parseInt(parts[0]), parseInt(parts[1])-1, 1).getTime();
   db.logs.forEach(function(l) {
-    if (l.timestamp >= wkStart) return;
+    if (l.timestamp >= monthStart) return;
     (l.exercises||[]).forEach(function(e) {
       if (e.maxRM > 0 && e.maxRM > (prevBest[e.name]||0)) prevBest[e.name] = e.maxRM;
     });
   });
 
-  db.weeklyChallenges.challenges.forEach(function(c) {
-    if (c.type === 'progression') {
-      // Check if any e1RM this week beats previous best on the target exercise
-      var exoName = c.label.replace('+2.5kg sur ', '');
-      var prev = prevBest[exoName] || 0;
-      var thisWeekBest = 0;
-      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { if (e.name === exoName && e.maxRM > thisWeekBest) thisWeekBest = e.maxRM; }); });
-      c.current = (prev > 0 && thisWeekBest > prev) ? 1 : 0;
-    } else if (c.type === 'volume_musculaire') {
-      var muscle = c.label.replace(/^\d+ séries de /, '');
-      var sets = 0;
-      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
-        if ((getMuscleGroup(e.name)||'') === muscle) sets += (e.sets||0);
-      }); });
-      c.current = sets;
-    } else if (c.type === 'assiduite') {
-      c.current = weekLogs.length;
-    } else if (c.type === 'tonnage') {
-      c.current = weekLogs.reduce(function(s,l) { return s + (l.volume||0); }, 0);
-    } else if (c.type === 'record') {
+  db.monthlyChallenges.challenges.forEach(function(c) {
+    if (c.type === 'm_pr_count') {
       var prs = 0;
-      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
-        if (e.maxRM > 0 && e.maxRM > (prevBest[e.name]||0)) prs++;
+      monthLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { if (e.maxRM > 0 && e.maxRM > (prevBest[e.name]||0)) prs++; }); });
+      c.current = prs;
+    } else if (c.type === 'm_volume') {
+      c.current = monthLogs.reduce(function(s,l) { return s + (l.volume||0); }, 0);
+    } else if (c.type === 'm_sessions') {
+      c.current = monthLogs.length;
+    } else if (c.type === 'm_streak') {
+      c.current = calcStreak();
+    } else if (c.type === 'm_strength') {
+      var best = getAllBestE1RMs(); var bw = db.user.bw || 80; var found = 0;
+      for (var n in best) { var sl = getStrengthLevel(n, best[n].e1rm, bw); if (sl && sl.levelIdx >= 2) found++; }
+      c.current = found > 0 ? 1 : 0;
+    } else if (c.type === 'm_muscle_balance') {
+      var muscleMin = Infinity; var muscleVol = {};
+      monthLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
+        var mg = getMuscleGroupParent ? getMuscleGroupParent(getMuscleGroup(e.name)||'Autre') : (getMuscleGroup(e.name)||'Autre');
+        if (mg !== 'Autre') muscleVol[mg] = (muscleVol[mg]||0) + (e.sets||0);
       }); });
-      c.current = Math.min(1, prs);
-    } else if (c.type === 'exercice_specifique') {
-      var exo = c.label.replace(/^\d+ séries de /, '');
-      var ss = 0;
-      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
-        if (e.name === exo) ss += (e.sets||0);
+      for (var g in muscleVol) { if (muscleVol[g] < muscleMin) muscleMin = muscleVol[g]; }
+      c.current = muscleMin === Infinity ? 0 : muscleMin;
+    } else if (c.type === 'm_nutrition') {
+      c.current = (db.body || []).filter(function(b) {
+        var d = new Date(b.date); var bm = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        return bm === mk && b.kcal && b.kcal > 0;
+      }).length;
+    } else if (c.type === 'm_discovery') {
+      var beforeExos = new Set();
+      db.logs.forEach(function(l) { if (l.timestamp < monthStart) (l.exercises||[]).forEach(function(e) { beforeExos.add(e.name); }); });
+      var newCount = 0;
+      monthLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { if (!beforeExos.has(e.name)) { beforeExos.add(e.name); newCount++; } }); });
+      c.current = newCount;
+    } else if (c.type === 'm_heavy_month') {
+      var best2 = getAllBestE1RMs(); var count = 0;
+      monthLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
+        var b = best2[e.name]; if (b && e.maxRM >= b.e1rm * 0.9) count += (e.sets||0);
       }); });
-      c.current = ss;
+      c.current = count;
+    } else if (c.type === 'm_consistency') {
+      // Count weeks in month where sessions >= routine days
+      var routineDays = _getRoutineDays();
+      var weekMap = {};
+      monthLogs.forEach(function(l) {
+        var ws = _getWeekStart(new Date(l.timestamp)).toISOString().slice(0,10);
+        weekMap[ws] = (weekMap[ws]||0) + 1;
+      });
+      var completeWeeks = 0;
+      for (var w in weekMap) { if (weekMap[w] >= routineDays) completeWeeks++; }
+      c.current = completeWeeks;
     }
     if (c.current >= c.target && !c.completed) { c.completed = true; saveDB(); }
   });
+}
+
+// ── Secret Quests ──
+function checkSecretQuests() {
+  var completed = db.secretQuestsCompleted || [];
+  var newlyCompleted = [];
+  SECRET_QUESTS.forEach(function(sq) {
+    if (completed.indexOf(sq.id) >= 0) return;
+    try {
+      if (sq.condition()) {
+        completed.push(sq.id);
+        newlyCompleted.push(sq);
+      }
+    } catch(e) {}
+  });
+  if (newlyCompleted.length > 0) {
+    db.secretQuestsCompleted = completed;
+    saveDB();
+    // Show toast for first new one
+    newlyCompleted.forEach(function(sq) {
+      _showSecretQuestToast(sq);
+    });
+  }
+}
+
+function _showSecretQuestToast(sq) {
+  var el = document.createElement('div');
+  el.className = 'toast';
+  el.style.background = 'var(--gold)';
+  el.style.color = '#000';
+  el.innerHTML = '🔮 ' + sq.name + ' — +' + sq.xp + ' XP';
+  document.body.appendChild(el);
+  setTimeout(function() { el.remove(); }, 3000);
+}
+
+// ── Titles ──
+function checkTitles() {
+  var unlocked = db.unlockedTitles || [];
+  TITLE_POOL.forEach(function(t) {
+    if (unlocked.indexOf(t.id) >= 0) return;
+    try { if (t.condition()) { unlocked.push(t.id); } } catch(e) {}
+  });
+  db.unlockedTitles = unlocked;
+}
+
+function showTitleModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  var box = document.createElement('div');
+  box.className = 'modal-box';
+  box.style.maxWidth = '340px';
+  box.style.textAlign = 'left';
+  box.innerHTML = '<div style="font-size:16px;font-weight:800;margin-bottom:14px;text-align:center;">Choisis ton titre</div><div class="title-modal-list" id="titleList"></div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  var list = box.querySelector('#titleList');
+  var html = '';
+  var unlocked = db.unlockedTitles || [];
+  TITLE_POOL.forEach(function(t) {
+    var isUnlocked = unlocked.indexOf(t.id) >= 0;
+    var isActive = db.activeTitle === t.id;
+    var rc = _titleRarityColor[t.rarity] || '#86868B';
+    html += '<div class="title-row ' + (isActive ? 'active-title' : '') + (isUnlocked ? '' : ' locked-title') + '" ' + (isUnlocked ? 'onclick="db.activeTitle=\'' + t.id + '\';saveDB();document.querySelector(\'.modal-overlay\').remove();renderGamificationTab();"' : '') + '>';
+    html += '<div><div style="font-size:13px;font-weight:700;color:' + (isUnlocked ? rc : 'var(--sub)') + ';">' + (isUnlocked ? '' : '🔒 ') + t.title + '</div>';
+    html += '<div class="title-cond">' + t.condText + '</div></div>';
+    html += '<div class="title-rarity" style="background:' + rc + '15;color:' + rc + ';">' + t.rarity + '</div>';
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function _calcTodayXP() {
+  var today = new Date().toISOString().slice(0, 10);
+  var xp = 0;
+  var runBest = {};
+  getSortedLogs().slice().reverse().forEach(function(log) {
+    var logDate = log.shortDate || (log.date ? log.date.slice(0,10) : '');
+    var isToday = logDate === today;
+    (log.exercises||[]).forEach(function(exo) {
+      if (exo.maxRM > 0) {
+        var prev = runBest[exo.name] || 0;
+        if (isToday) {
+          if (prev > 0 && exo.maxRM > prev) xp += 50;
+          else if (prev === 0) xp += 20;
+        }
+        if (exo.maxRM > (runBest[exo.name]||0)) runBest[exo.name] = exo.maxRM;
+      }
+    });
+    if (isToday) {
+      xp += 100;
+      xp += Math.min(10, (log.exercises||[]).length) * 8;
+      xp += Math.floor((log.volume || 0) / 500);
+    }
+  });
+  return xp;
 }
 
 function calcBadgeProgress(badge) {
@@ -4023,6 +4388,13 @@ function calcXPBreakdown() {
   if (db.weeklyChallenges && db.weeklyChallenges.challenges) {
     db.weeklyChallenges.challenges.forEach(function(c) { if (c.completed) xpDefis += (c.xpReward||0); });
   }
+  if (db.monthlyChallenges && db.monthlyChallenges.challenges) {
+    db.monthlyChallenges.challenges.forEach(function(c) { if (c.completed) xpDefis += (c.xpReward||0); });
+  }
+  (db.secretQuestsCompleted || []).forEach(function(sqId) {
+    var sq = SECRET_QUESTS.find(function(s) { return s.id === sqId; });
+    if (sq) xpDefis += sq.xp;
+  });
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
 }
 
@@ -4050,95 +4422,195 @@ function renderGamificationTab() {
   var nextLevel = getNextXPLevel(totalXP);
   var streak = calcStreak();
 
-  // ── 1. Level card (UNCHANGED) ──
+  // ── Check titles & secret quests ──
+  checkTitles();
+  checkSecretQuests();
+
+  // ── Mark seen badges ──
+  var allBadgesForSeen = getAllBadges();
+  var seenBadges = db.seenBadges || [];
+  allBadgesForSeen.forEach(function(b) { if (!b.impossible && b.ck() && seenBadges.indexOf(b.id) < 0) {} });
+
+  // ── 1. Level card (V2 — reiatsu + today XP + clickable stats + title) ──
   var levelCard = document.getElementById('gamLevelCard');
   var xpInLevel = totalXP - currLevel.xp;
   var xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
   var pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
   var nextName = nextLevel ? '→ ' + nextLevel.icon + ' ' + nextLevel.name : 'NIVEAU MAX';
   var totalVolT = Math.round(db.logs.reduce(function(s,l){return s+(l.volume||0);}, 0) / 1000);
+  var todayXP = _calcTodayXP();
+
+  // Active title
+  var activeTitleText = '';
+  if (db.activeTitle) {
+    var at = TITLE_POOL.find(function(t) { return t.id === db.activeTitle; });
+    if (at) {
+      var atColor = _titleRarityColor[at.rarity] || 'var(--sub)';
+      activeTitleText = '<div class="lvl-title" style="color:' + atColor + ';" onclick="showTitleModal()">' + at.title + '</div>';
+    }
+  } else {
+    activeTitleText = '<div class="lvl-title" style="color:var(--sub);" onclick="showTitleModal()">Choisir un titre ▾</div>';
+  }
 
   levelCard.innerHTML =
-    '<div class="lvl-card">' +
+    '<div class="lvl-card lvl-card-v2">' +
       '<div class="lvl-bg"></div>' +
+      (todayXP > 0 ? '<div class="lvl-xp-today">Aujourd\'hui : +' + todayXP + ' XP</div>' : '') +
       '<div class="lvl-top">' +
         '<div class="lvl-icon-wrap">' + currLevel.icon + '<div class="lvl-icon-ring"></div></div>' +
         '<div class="lvl-info">' +
           '<div class="lvl-num">Niveau ' + currLevel.level + ' · ' + totalXP.toLocaleString() + ' XP</div>' +
           '<div class="lvl-name">' + currLevel.name + '</div>' +
-          '<div style="font-size:11px;color:var(--sub);font-style:italic;">' + (currLevel.sub||'') + '</div>' +
+          activeTitleText +
         '</div>' +
       '</div>' +
       '<div class="lvl-xp-row">' +
-        '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar" style="width:' + pct + '%;"></div></div>' +
+        '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar lvl-xp-bar-v2" style="width:' + pct + '%;"></div></div>' +
         '<div class="lvl-xp-text"><span><strong>' + xpInLevel.toLocaleString() + '</strong> / ' + xpToNext.toLocaleString() + ' XP</span><span class="lvl-next">' + nextName + '</span></div>' +
       '</div>' +
       '<div class="lvl-stats">' +
-        '<div class="lvl-stat"><div class="lvl-stat-val">' + db.logs.length + '</div><div class="lvl-stat-lbl">Séances</div></div>' +
-        '<div class="lvl-stat"><div class="lvl-stat-val">' + streak + '🔥</div><div class="lvl-stat-lbl">Streak sem.</div></div>' +
-        '<div class="lvl-stat"><div class="lvl-stat-val">' + totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
+        '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-seances\')"><div class="lvl-stat-val">' + db.logs.length + '</div><div class="lvl-stat-lbl">Séances</div></div>' +
+        '<div class="lvl-stat lvl-stat-click" onclick="document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})"><div class="lvl-stat-val">' + streak + '🔥</div><div class="lvl-stat-lbl">Série sem.</div></div>' +
+        '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-stats\')"><div class="lvl-stat-val">' + totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
       '</div>' +
     '</div>';
 
-  // ── 2. Heatmap de régularité ──
+  // ── 2. Sources d'XP (clickable) ──
   (function() {
-    var now = Date.now();
-    var weekMs = 7 * 86400000;
-    var weekCounts = new Array(52).fill(0);
-    db.logs.forEach(function(l) {
-      var wIdx = Math.floor((now - l.timestamp) / weekMs);
-      if (wIdx >= 0 && wIdx < 52) weekCounts[wIdx]++;
-    });
-    var cells = '';
-    for (var w = 51; w >= 0; w--) {
-      var c = weekCounts[w];
-      var cls = c === 0 ? '' : c === 1 ? ' l1' : c === 2 ? ' l2' : c === 3 ? ' l3' : ' l4';
-      cells += '<div class="hm-cell' + cls + '"></div>';
-    }
-    document.getElementById('gamHeatmap').innerHTML =
-      '<div class="mc">' +
-        '<div class="mc-title"><span>🔥 Régularité & activité</span><span class="hm-streak">' + streak + ' semaines</span></div>' +
-        '<div class="hm-grid">' + cells + '</div>' +
-        '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell l1" style="background:rgba(50,215,75,0.15);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.35);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.55);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
+    var bd = calcXPBreakdown();
+    var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, 1);
+    var bars = [
+      {label:'Séances', val:bd.seances, color:'var(--blue)', click:'showTab(\'tab-seances\')'},
+      {label:'Records', val:bd.records, color:'var(--green)', click:'showTab(\'tab-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)'},
+      {label:'Régularité', val:bd.regularite, color:'var(--orange)', click:'document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
+      {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
+      {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'}
+    ];
+    var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
+      '<div class="xs-counters">' +
+        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--blue);">' + bd.seances.toLocaleString() + '</div><div class="xs-counter-lbl">Séances</div></div>' +
+        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--green);">' + bd.records.toLocaleString() + '</div><div class="xs-counter-lbl">Records</div></div>' +
+        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--orange);">' + bd.regularite.toLocaleString() + '</div><div class="xs-counter-lbl">Régularité</div></div>' +
       '</div>';
+    bars.forEach(function(br) {
+      var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
+      html += '<div class="xs-bar-row xs-bar-row-click" onclick="' + br.click + '"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';
+    });
+    html += '</div>';
+    document.getElementById('gamXPSources').innerHTML = html;
   })();
 
-  // ── 3. Défis hebdomadaires ──
+  // ── 3. Quêtes hebdomadaires (Dofus quest style) ──
   generateWeeklyChallenges();
   updateChallengeProgress();
   (function() {
     var ch = db.weeklyChallenges ? db.weeklyChallenges.challenges : [];
     var done = ch.filter(function(c){return c.completed;}).length;
-    var html = '<div class="mc wc-wrap"><div class="mc-title"><span>⚡ Défis de la semaine</span><span class="mc-title-right">' + done + '/3 complétés</span></div>';
+    var qs = db.questStreak || 0;
+
+    // Flame rendering
+    var flameHtml = '';
+    if (qs > 0) {
+      var flameCount = Math.min(3, qs);
+      var flameClass = qs >= 4 ? 'gold' : (qs <= 1 ? 'dim' : '');
+      for (var fi = 0; fi < flameCount; fi++) flameHtml += '<div class="flame-icon ' + flameClass + '"></div>';
+      var bonusPct = qs >= 4 ? 20 : qs >= 3 ? 15 : qs >= 2 ? 10 : 0;
+      if (bonusPct > 0) flameHtml += '<span class="flame-bonus">Série ×' + qs + ' — bonus +' + bonusPct + '%</span>';
+    }
+    var flameSec = flameHtml ? '<div class="flame-wrap">' + flameHtml + '</div>' : '';
+
+    var html = '<div class="quest-card"><div class="mc-title"><span>⚡ Quêtes de la semaine ' + flameSec + '</span><span class="mc-title-right">' + done + '/' + ch.length + ' complétées</span></div>';
+
     ch.forEach(function(c) {
       var isDone = c.completed;
       var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
-      html += '<div class="wc-item">' +
-        '<div class="wc-status">' + (isDone ? '✓' : '○') + '</div>' +
-        '<div class="wc-info"><div class="wc-label ' + (isDone?'done':'active') + '">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
-        '<div class="wc-bar-bg"><div class="wc-bar ' + (isDone?'done':'active') + '" style="width:' + pctC + '%;"></div></div></div>' +
+      var remaining = Math.max(0, c.target - c.current);
+      var onclick = '';
+      if (c.type === 'assiduite') onclick = 'showTab(\'tab-seances\')';
+      else if (c.type === 'nutrition' || c.onclick === 'nutrition') onclick = 'showTab(\'tab-corps\')';
+      else if (c.type === 'pesee' || c.onclick === 'pesee') onclick = 'showTab(\'tab-corps\')';
+
+      html += '<div class="quest-item ' + (isDone ? 'q-done' : 'q-active') + '"' + (onclick ? ' onclick="' + onclick + '"' : '') + '>' +
+        '<div class="wc-status" style="color:' + (isDone ? 'var(--green)' : 'var(--orange)') + ';">' + (isDone ? '✓' : '○') + '</div>' +
+        '<div class="wc-info"><div class="wc-label ' + (isDone ? 'done' : 'active') + '">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
+        (isDone ? '' : '<div style="font-size:10px;color:var(--orange);margin-top:2px;">Il t\'en manque ' + remaining + '</div>') +
+        '<div class="wc-bar-bg"><div class="wc-bar ' + (isDone ? 'done' : 'active') + '" style="width:' + pctC + '%;"></div></div></div>' +
         '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
     });
-    if (!ch.length) html += '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Pas encore de données pour générer des défis.</div>';
+
+    if (!ch.length) html += '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Pas encore de données pour générer des quêtes.</div>';
+
+    // Perfect quest bonus
+    if (done === ch.length && ch.length > 0) {
+      var baseXP = ch.reduce(function(s,c){return s+c.xpReward;},0);
+      var bonusXP = Math.round(baseXP * 0.25);
+      html += '<div class="quest-perfect">🌟 Quête parfaite ! +' + bonusXP + ' XP bonus</div>';
+    }
     html += '</div>';
     document.getElementById('gamChallenges').innerHTML = html;
   })();
+
+  // ── 3b. Quêtes mensuelles — Arcs du mois ──
+  generateMonthlyChallenges();
+  updateMonthlyChallengeProgress();
+  (function() {
+    var mc = db.monthlyChallenges ? db.monthlyChallenges.challenges : [];
+    if (!mc.length) { document.getElementById('gamMonthlyChallenges').innerHTML = ''; return; }
+    var done = mc.filter(function(c){return c.completed;}).length;
+    var daysLeft = _daysLeftInMonth();
+    var html = '<div class="quest-arc"><div class="mc-title"><span>🏔 Arcs du mois</span><span class="mc-title-right">' + done + '/' + mc.length + '</span></div>';
+    mc.forEach(function(c) {
+      var isDone = c.completed;
+      var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
+      html += '<div class="quest-item ' + (isDone ? 'q-done' : '') + '" style="' + (isDone ? 'border:1px solid var(--gold-border);' : '') + '">' +
+        '<div class="wc-status" style="color:' + (isDone ? 'var(--green)' : 'var(--purple)') + ';">' + (isDone ? '✓' : '○') + '</div>' +
+        '<div class="wc-info"><div class="wc-label" style="color:' + (isDone ? 'var(--green)' : 'var(--text)') + ';">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
+        '<div class="quest-arc-bar"><div class="quest-arc-fill" style="width:' + pctC + '%;"></div></div>' +
+        '<div class="quest-remaining">Il reste ' + daysLeft + ' jours</div></div>' +
+        '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
+    });
+    html += '</div>';
+    document.getElementById('gamMonthlyChallenges').innerHTML = html;
+  })();
+
+  // ── 3c. Secret quests section (in badges, rendered later) ──
 
   // ── 4. Récemment débloqués ──
   (function() {
     var allBadges = getAllBadges();
     var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
     var unlocked = allBadges.filter(function(b){return !b.impossible && b.ck();});
-    // Try to date badges by finding earliest log where condition becomes true (simplified: show last 5 unlocked by type order)
     var recent = unlocked.slice(-5).reverse();
-    if (!recent.length) { document.getElementById('gamRecentBadges').innerHTML = ''; return; }
+
+    // Add recently completed secret quests
+    var secretCompleted = db.secretQuestsCompleted || [];
+    var secretBadges = secretCompleted.map(function(sqId) {
+      var sq = SECRET_QUESTS.find(function(s){return s.id===sqId;});
+      return sq ? { icon:'🔮', name:sq.name, ref:'SECRÈTE', r:'legendary', isSecret:true } : null;
+    }).filter(Boolean).slice(-2);
+
+    var combined = secretBadges.concat(recent).slice(0, 5);
+    if (!combined.length) { document.getElementById('gamRecentBadges').innerHTML = ''; return; }
+
+    var seenBadges = db.seenBadges || [];
     var html = '<div class="mc"><div class="mc-title">🏆 Récemment débloqués</div><div class="ru-scroll">';
-    recent.forEach(function(b) {
+    combined.forEach(function(b) {
       var rc = rarityColor[b.r] || '#86868B';
-      html += '<div class="ru-item" style="border:1px solid ' + rc + '33;"><div class="ru-icon">' + b.icon + '</div><div class="ru-name">' + b.name + '</div><div class="ru-date">' + (b.ref||'') + '</div></div>';
+      var isNew = !b.isSecret && b.id && seenBadges.indexOf(b.id) < 0;
+      var secClass = b.isSecret ? ' secret-badge' : '';
+      html += '<div class="ru-item' + secClass + '" style="border:1px solid ' + rc + '33;">' +
+        (isNew ? '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>' : '') +
+        '<div class="ru-icon">' + b.icon + '</div><div class="ru-name">' + b.name + '</div>' +
+        (b.isSecret ? '<div class="secret-label">SECRÈTE</div>' : '<div class="ru-date">' + (b.ref||'') + '</div>') +
+        '</div>';
     });
     html += '</div></div>';
     document.getElementById('gamRecentBadges').innerHTML = html;
+
+    // Mark as seen
+    unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) seenBadges.push(b.id); });
+    db.seenBadges = seenBadges;
+    saveDB();
   })();
 
   // ── 5. Prochains badges ──
@@ -4158,68 +4630,38 @@ function renderGamificationTab() {
     top4.forEach(function(item) {
       var b = item.badge, p = item.progress;
       var rc = rarityColor[b.r] || '#86868B';
-      html += '<div class="nb-item" style="border:1px solid ' + rc + '22;"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
+      var isAlmost = p.pct > 90;
+      html += '<div class="nb-item" style="border:1px solid ' + rc + '22;' + (isAlmost ? 'border-color:var(--gold-border);' : '') + '"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
         '<div class="nb-info"><div class="nb-name">' + b.name + '</div><div class="nb-desc">' + b.desc + '</div>' +
         '<div class="nb-bar-bg"><div class="nb-bar" style="width:' + p.pct + '%;background:' + rc + ';"></div></div></div>' +
-        '<div class="nb-pct" style="color:' + rc + ';">' + p.pct + '%</div></div>';
+        '<div class="nb-pct" style="color:' + (isAlmost ? 'var(--orange)' : rc) + ';">' + p.pct + '%' + (isAlmost ? '<div style="font-size:9px;">Presque !</div>' : '') + '</div></div>';
     });
     html += '</div>';
     document.getElementById('gamNextBadges').innerHTML = html;
   })();
 
-  // ── 6. Sources d'XP ──
-  (function() {
-    var bd = calcXPBreakdown();
-    var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, 1);
-    var bars = [
-      {label:'Séances', val:bd.seances, color:'var(--blue)'},
-      {label:'Records', val:bd.records, color:'var(--green)'},
-      {label:'Régularité', val:bd.regularite, color:'var(--orange)'},
-      {label:'Tonnage', val:bd.tonnage, color:'var(--purple)'},
-      {label:'Défis', val:bd.defis, color:'var(--teal)'}
-    ];
-    var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
-      '<div class="xs-counters">' +
-        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--blue);">' + bd.seances.toLocaleString() + '</div><div class="xs-counter-lbl">Séances</div></div>' +
-        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--green);">' + bd.records.toLocaleString() + '</div><div class="xs-counter-lbl">Records</div></div>' +
-        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--orange);">' + bd.regularite.toLocaleString() + '</div><div class="xs-counter-lbl">Régularité</div></div>' +
-      '</div>';
-    bars.forEach(function(br) {
-      var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
-      html += '<div class="xs-bar-row"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';
-    });
-    html += '</div>';
-    document.getElementById('gamXPSources').innerHTML = html;
-  })();
-
-  // ── 7. Strength cards (grille paginée) ──
+  // ── 6. Strength cards (grille paginée + clickable) ──
   (function() {
     var bestE1RMs = getAllBestE1RMs();
     var strContainer = document.getElementById('gamStrengthContent');
     var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
     var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
 
-    // Build all exercise cards with strength data
     var allExos = [];
     for (var eName in bestE1RMs) {
       var data = bestE1RMs[eName];
       var sl = getStrengthLevel(eName, data.e1rm, bw);
-      // Count sessions & PRs for this exercise
       var sesCount = 0, prCount = 0, runBest = 0;
       getSortedLogs().slice().reverse().forEach(function(log) {
         var found = false;
         (log.exercises||[]).forEach(function(e) {
-          if (e.name === eName) {
-            found = true;
-            if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; }
-          }
+          if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
         });
         if (found) sesCount++;
       });
       var exoXP = prCount * 50 + sesCount * 8;
       allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
     }
-    // Sort by levelIdx desc (exercises with strength level first)
     allExos.sort(function(a,b) {
       var aIdx = a.sl ? a.sl.levelIdx : -1;
       var bIdx = b.sl ? b.sl.levelIdx : -1;
@@ -4234,7 +4676,6 @@ function renderGamificationTab() {
 
     var perPage = 6;
     var totalPages = Math.ceil(allExos.length / perPage);
-
     var pagesHtml = '';
     for (var pg = 0; pg < totalPages; pg++) {
       pagesHtml += '<div class="sg-page">';
@@ -4243,38 +4684,29 @@ function renderGamificationTab() {
         var item = allExos[ei];
         var hasSL = !!item.sl;
         var isDim = item.sesCount <= 2 && !hasSL;
-
-        // Find ratios for gauge
         var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         var ratios = null;
-        for (var sKey in _stds) {
-          if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; }
-        }
+        for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
 
-        pagesHtml += '<div class="sg-card' + (isDim?' dim':'') + '">';
-        // Top: name + badge
+        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
         pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
         if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
         pagesHtml += '</div>';
-        // e1RM line
         pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
 
-        // Gauge (5 segments)
         if (ratios && hasSL) {
           var maxR = ratios[ratios.length-1] * 1.2;
           var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
           var gaugeHtml = '';
-          var prev = 0;
-          ratios.forEach(function(r, i) {
-            var p = (r / maxR) * 100, w = p - prev;
-            gaugeHtml += '<div class="sg-gauge-seg" style="width:' + w + '%;background:' + segColors[i] + ';opacity:0.3;"></div>';
-            prev = p;
-          });
+          for (var gi = 0; gi < 5; gi++) {
+            var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
+            pagesHtml += '';
+            gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
+          }
           pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
           pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
         }
 
-        // Footer
         pagesHtml += '<div class="sg-footer">';
         if (isDim) {
           pagesHtml += '<span>Pas assez de données</span>';
@@ -4295,7 +4727,6 @@ function renderGamificationTab() {
       pagesHtml += '</div>';
     }
 
-    // Pagination dots
     var dotsHtml = '';
     for (var di = 0; di < totalPages; di++) {
       dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
@@ -4308,7 +4739,6 @@ function renderGamificationTab() {
         '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
       '</div>';
 
-    // Wire up scroll pagination
     var pagesEl = document.getElementById('sgPages');
     var dotsEl = document.getElementById('sgDots');
     var labelEl = strContainer.querySelector('.mc-title-right');
@@ -4328,10 +4758,35 @@ function renderGamificationTab() {
     }
   })();
 
-  // ── 8. Badges (overview + chips + accordions + progress) ──
+  // ── 7. Heatmap de régularité (52 semaines, clickable) ──
+  (function() {
+    var now = Date.now();
+    var weekMs = 7 * 86400000;
+    var weekCounts = new Array(52).fill(0);
+    db.logs.forEach(function(l) {
+      var wIdx = Math.floor((now - l.timestamp) / weekMs);
+      if (wIdx >= 0 && wIdx < 52) weekCounts[wIdx]++;
+    });
+    var cells = '';
+    for (var w = 51; w >= 0; w--) {
+      var c = weekCounts[w];
+      var cls = c === 0 ? '' : c === 1 ? ' l1' : c === 2 ? ' l2' : c === 3 ? ' l3' : ' l4';
+      var weekOffset = -(w);
+      cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
+    }
+    document.getElementById('gamHeatmap').innerHTML =
+      '<div class="mc">' +
+        '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + streak + ' semaines</span></div>' +
+        '<div class="hm-grid">' + cells + '</div>' +
+        '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.20);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.40);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.60);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
+      '</div>';
+  })();
+
+  // ── 8. Badges (overview + chips + secret quests section + accordions + progress) ──
   var allBadges = getAllBadges();
   var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
   var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+  var seenBadgesSet = db.seenBadges || [];
 
   var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
   var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
@@ -4356,7 +4811,7 @@ function renderGamificationTab() {
       '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
     '</div>';
 
-  // ── Badge sections with chips nav ──
+  // Badge sections
   var sections = [
     { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
     { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
@@ -4378,8 +4833,11 @@ function renderGamificationTab() {
   var badgeMap = {};
   allBadges.forEach(function(b) { badgeMap[b.id] = b; });
 
-  // Build chips nav
+  // Chips nav
   var chipsHtml = '<div class="bc-scroll">';
+  // Add secret quests chip
+  var sqCompleted = (db.secretQuestsCompleted || []).length;
+  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
   sections.forEach(function(sec, si) {
     var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
     if (!sectionBadges.length) return;
@@ -4393,6 +4851,35 @@ function renderGamificationTab() {
 
   // Build sections
   var secHtml = chipsHtml;
+
+  // Secret quests section
+  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
+  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
+  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
+  SECRET_QUESTS.forEach(function(sq) {
+    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
+    if (isCompleted) {
+      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
+      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
+      secHtml += '<div class="secret-label">SECRÈTE</div>';
+      secHtml += '<div class="bdg-icon">🔮</div>';
+      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
+      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
+      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
+      secHtml += '</div>';
+    } else {
+      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
+      secHtml += '<div class="bdg-icon">🔒</div>';
+      secHtml += '<div class="bdg-name">???</div>';
+      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
+      secHtml += '</div>';
+    }
+  });
+  secHtml += '</div></div></div>';
+
+  // Regular badge sections
   sections.forEach(function(sec, si) {
     var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
     if (!sectionBadges.length) return;
@@ -4411,6 +4898,7 @@ function renderGamificationTab() {
     sectionBadges.forEach(function(badge) {
       var isUnlocked = badge.ck();
       var rc = rarityColor[badge.r] || '#86868B';
+      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
 
       if (badge.impossible) {
         secHtml += '<div class="bdg locked" style="opacity:0.55;border-style:dashed;">';
@@ -4422,7 +4910,11 @@ function renderGamificationTab() {
         if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
         secHtml += '</div>';
       } else if (isUnlocked) {
-        secHtml += '<div class="bdg ' + badge.r + '">';
+        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
+        if (badge.r === 'mythic') themeClass = ' mythic-v2';
+        if (badge.r === 'divine') themeClass = ' divine-v2';
+        secHtml += '<div class="bdg ' + badge.r + themeClass + '" style="position:relative;">';
+        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
         secHtml += '<div class="bdg-rarity-bar"></div>';
         secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
         secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
@@ -4431,7 +4923,6 @@ function renderGamificationTab() {
         secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
         secHtml += '</div>';
       } else {
-        // Locked badge with progress
         var prog = calcBadgeProgress(badge);
         var progPct = prog ? prog.pct : 0;
         var closeToUnlock = progPct > 50;

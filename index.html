@@ -3341,7 +3341,7 @@ function showTab(tabId) {
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
   if (tabId==='tab-game') { renderGamificationTab(); }
-  if (tabId==='tab-settings') { renderSettingsRoutineEditor(); renderKeyLiftsEditor(); fillSettingsFields(); }
+  if (tabId==='tab-settings') { fillSettingsFields(); }
   if (tabId==='tab-corps') { renderCorpsTab(); }
 }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
@@ -4523,7 +4523,7 @@ function refreshUI() {
   else if (tabId === 'tab-stats') showStatsSub(activeStatsSub);
   else if (tabId === 'tab-ai') { renderReportsTimeline(); renderCoachAlgoAI(); }
   else if (tabId === 'tab-corps') renderCorpsTab();
-  else if (tabId === 'tab-settings') { renderProgramViewer(); renderSettingsRoutineEditor(); }
+  else if (tabId === 'tab-settings') { renderProgramViewer(); _accDirty.prog = true; _accDirty.records = true; _accDirty.keylifts = true; fillSettingsFields(); }
   else { renderDash(); renderProgramViewer(); }
 }
 
@@ -5868,17 +5868,26 @@ async function importCSV() {
 
 function getSuspiciousRecordsSummary() {
   const exoMap = {};
+  const histByName = {};
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (!exo.maxRM || exo.maxRM <= 0) return;
       if (!exoMap[exo.name] || exo.maxRM > exoMap[exo.name].maxRM) {
         exoMap[exo.name] = { name: exo.name, maxRM: exo.maxRM };
       }
+      if (!histByName[exo.name]) histByName[exo.name] = [];
+      histByName[exo.name].push(exo.maxRM);
     });
   });
   const suspects = {};
   Object.values(exoMap).forEach(r => {
-    if (isRecordSuspicious(r.name, r.maxRM)) suspects[r.name] = r;
+    const hist = histByName[r.name];
+    if (!hist || hist.length < 3) return;
+    const s = [...hist].sort((a, b) => a - b);
+    const q3 = s[Math.floor(s.length * 0.75)];
+    const iqr = (q3 - s[Math.floor(s.length * 0.25)]) || q3 * 0.15;
+    const median = s[Math.floor(s.length / 2)];
+    if (r.maxRM > q3 + 2 * iqr && r.maxRM > median * 1.4) suspects[r.name] = r;
   });
   return suspects;
 }
@@ -7889,13 +7898,23 @@ function updateNutriTargets() {
 // ============================================================
 // ACCORDÉON RÉGLAGES
 // ============================================================
+// Lazy-render flags for heavy accordion content
+const _accDirty = { records: true, keylifts: true, prog: true };
+
 function toggleAcc(id) {
   const body = document.getElementById(id);
   const chev = document.getElementById('chev-' + id);
   if (!body) return;
   const isOpen = body.classList.contains('open');
-  body.classList.toggle('open', !isOpen);
-  if (chev) chev.classList.toggle('open', !isOpen);
+  const opening = !isOpen;
+  body.classList.toggle('open', opening);
+  if (chev) chev.classList.toggle('open', opening);
+  // Lazy render heavy content only when accordion opens
+  if (opening) {
+    if (id === 'acc-records' && _accDirty.records) { _accDirty.records = false; renderRecordsCorrectionList(); }
+    if (id === 'acc-keylifts' && _accDirty.keylifts) { _accDirty.keylifts = false; renderKeyLiftsEditor(); }
+    if (id === 'acc-prog' && _accDirty.prog) { _accDirty.prog = false; renderSettingsRoutineEditor(); }
+  }
 }
 
 function fillSettingsFields() {
@@ -7908,10 +7927,20 @@ function fillSettingsFields() {
   const savedKey = localStorage.getItem('SBD_API_KEY');
   if (savedKey) { const ki = document.getElementById('inputAPIKey'); if (ki) ki.value = savedKey; }
   renderSettingsProfile();
-  renderRecordsCorrectionList();
+  // Mark lazy accordions as dirty so they render on open
+  _accDirty.records = true;
+  _accDirty.keylifts = true;
+  _accDirty.prog = true;
 }
 
 // ── Settings Profile Editor ──────────────────────────────────
+// Debounced save for rapid toggle interactions (avoids clearCaches + JSON.stringify on each click)
+let _saveSettingsTimer = null;
+function _debouncedSaveSettings() {
+  if (_saveSettingsTimer) clearTimeout(_saveSettingsTimer);
+  _saveSettingsTimer = setTimeout(() => { saveDB(); _saveSettingsTimer = null; }, 300);
+}
+
 function updateProfileField(field, value) {
   if (!db.user.programParams) db.user.programParams = {};
   if (field === 'level') {
@@ -7920,7 +7949,7 @@ function updateProfileField(field, value) {
   } else {
     db.user.programParams[field] = value;
   }
-  saveDB();
+  _debouncedSaveSettings();
   showToast('✓ Profil mis à jour');
 }
 
@@ -8012,18 +8041,45 @@ function toggleSettingsGoal(goalId, btn) {
   if (!db.user.programParams) db.user.programParams = {};
   const goals = db.user.programParams.goals || ['force'];
   const idx = goals.indexOf(goalId);
-  if (idx >= 0) { if (goals.length > 1) goals.splice(idx, 1); }
+  if (idx >= 0) { if (goals.length > 1) goals.splice(idx, 1); else return; }
   else goals.push(goalId);
   db.user.programParams.goals = goals;
-  saveDB();
-  renderSettingsProfile();
+  _debouncedSaveSettings();
+  // Toggle just this button instead of re-rendering all groups
+  const active = goals.includes(goalId);
+  btn.classList.toggle('active', active);
+  btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+  btn.style.background = active ? 'rgba(10,132,255,0.15)' : 'var(--surface)';
+  btn.style.color = active ? 'var(--blue)' : 'var(--sub)';
 }
 
-function setSettingsGender(g) { db.user.gender = g; saveDB(); showToast('✓ Profil mis à jour'); }
-function setSettingsFreq(f, btn) { updateProfileField('freq', f); renderSettingsProfile(); }
-function setSettingsMat(m, btn) { updateProfileField('mat', m); renderSettingsProfile(); }
-function setSettingsDuration(d, btn) { updateProfileField('duration', d); renderSettingsProfile(); }
-function setSettingsCardio(c, btn) { updateProfileField('cardio', c); renderSettingsProfile(); }
+function setSettingsGender(g) { db.user.gender = g; _debouncedSaveSettings(); showToast('✓ Profil mis à jour'); }
+
+// Helper to toggle a single-select button group without full re-render
+function _toggleSingleSelect(containerId, btn, field, value, color) {
+  if (!db.user.programParams) db.user.programParams = {};
+  db.user.programParams[field] = value;
+  const c = color || 'var(--blue)';
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.querySelectorAll('.settings-toggle-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.borderColor = 'var(--border)';
+      b.style.background = 'var(--surface)';
+      b.style.color = 'var(--sub)';
+    });
+  }
+  btn.classList.add('active');
+  btn.style.borderColor = c;
+  btn.style.background = c === 'var(--blue)' ? 'rgba(10,132,255,0.15)' : 'rgba(255,159,10,0.15)';
+  btn.style.color = c;
+  _debouncedSaveSettings();
+}
+
+function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'freq', f); }
+function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
+function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
+function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }
 
 function toggleSettingsInjury(zone, btn) {
   if (!db.user.programParams) db.user.programParams = {};
@@ -8031,47 +8087,38 @@ function toggleSettingsInjury(zone, btn) {
   const idx = inj.indexOf(zone);
   if (idx >= 0) inj.splice(idx, 1); else inj.push(zone);
   db.user.programParams.injuries = inj;
-  saveDB();
-  renderSettingsProfile();
+  _debouncedSaveSettings();
+  // Toggle just this button
+  const active = inj.includes(zone);
+  btn.classList.toggle('active', active);
+  btn.style.borderColor = active ? 'var(--orange)' : 'var(--border)';
+  btn.style.background = active ? 'rgba(255,159,10,0.15)' : 'var(--surface)';
+  btn.style.color = active ? 'var(--orange)' : 'var(--sub)';
 }
 
 // ── Records Correction Tool ──────────────────────────────────
-function isRecordSuspicious(exoName, maxRM) {
-  // Collecter tous les e1RM historiques pour cet exercice
-  const histE1RMs = [];
-  db.logs.forEach(log => {
-    log.exercises.forEach(e => {
-      if (!matchExoName(e.name, exoName)) return;
-      if (e.maxRM > 0) histE1RMs.push(e.maxRM);
-    });
-  });
-  if (histE1RMs.length < 3) return false;
-  const sorted = [...histE1RMs].sort((a, b) => a - b);
-  const q1 = sorted[Math.floor(sorted.length * 0.25)];
-  const q3 = sorted[Math.floor(sorted.length * 0.75)];
-  const iqr = q3 - q1 || q3 * 0.15;
-  const median = sorted[Math.floor(sorted.length / 2)];
-  // Suspect si le record est au-delà de Q3 + 2×IQR ET >40% au-dessus de la médiane
-  return maxRM > q3 + 2 * iqr && maxRM > median * 1.4;
-}
-
 function renderRecordsCorrectionList() {
   const el = document.getElementById('recordsCorrectionList');
   if (!el) return;
 
-  // Collecter tous les exercices avec un e1RM depuis les logs
+  // Single pass: collect all e1RMs per exercise name AND find best records
   const exoMap = {};
+  const histByName = {};
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (!exo.maxRM || exo.maxRM <= 0) return;
       const key = exo.name;
+      // Track best record
       if (!exoMap[key] || exo.maxRM > exoMap[key].maxRM) {
         exoMap[key] = { name: exo.name, maxRM: exo.maxRM, date: log.shortDate || log.date, logId: log.id };
       }
+      // Collect history for suspicious detection
+      if (!histByName[key]) histByName[key] = [];
+      histByName[key].push(exo.maxRM);
     });
   });
 
-  // SBD records aussi
+  // SBD records
   ['bench','squat','deadlift'].forEach(t => {
     if (db.bestPR[t] > 0) {
       const label = t === 'bench' ? 'Bench Press' : t === 'squat' ? 'Squat' : 'Deadlift';
@@ -8088,8 +8135,20 @@ function renderRecordsCorrectionList() {
     return;
   }
 
+  // Pre-compute suspicious flags using already-collected history (no second pass)
+  function isSuspicious(name, maxRM) {
+    const hist = histByName[name];
+    if (!hist || hist.length < 3) return false;
+    const s = [...hist].sort((a, b) => a - b);
+    const q1 = s[Math.floor(s.length * 0.25)];
+    const q3 = s[Math.floor(s.length * 0.75)];
+    const iqr = q3 - q1 || q3 * 0.15;
+    const median = s[Math.floor(s.length / 2)];
+    return maxRM > q3 + 2 * iqr && maxRM > median * 1.4;
+  }
+
   el.innerHTML = sorted.slice(0, 20).map(r => {
-    const suspicious = isRecordSuspicious(r.name, r.maxRM);
+    const suspicious = isSuspicious(r.name, r.maxRM);
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--text);">${r.name} ${suspicious?'⚠️':''}</div>

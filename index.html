@@ -3011,15 +3011,26 @@ function getAllBadges() {
   const b = [];
   const B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
 
-  // ── Stats pré-calculées ──
-  const totalVol    = db.logs.reduce((s,l)=>s+(l.volume||0),0);
-  const maxSessVol  = db.logs.length ? Math.max(...db.logs.map(l=>l.volume||0)) : 0;
-  const totalSets   = db.logs.reduce((s,l)=>s+(l.exercises||[]).reduce((ss,e)=>ss+(e.sets||0),0),0);
-  const uniqueExos  = new Set(db.logs.flatMap(l=>(l.exercises||[]).map(e=>e.name))).size;
-  const bw          = db.user.bw||0;
-  const ohpRM       = db.logs.reduce((mx,l)=>{ const e=(l.exercises||[]).find(ex=>/overhead|militaire|\bohp\b|press mil/i.test(ex.name)); return e?Math.max(mx,e.maxRM||0):mx; },0);
-  const maxSessDur  = db.logs.reduce((mx,l)=>{ const sets=(l.exercises||[]).reduce((s,e)=>s+(e.sets||0),0); return Math.max(mx,l.duration||(sets*210)); },0);
-  const totalDur    = db.logs.reduce((s,l)=>{ const sets=(l.exercises||[]).reduce((ss,e)=>ss+(e.sets||0),0); return s+(l.duration||(sets*210)); },0);
+  // ── Stats pré-calculées (single pass) ──
+  let totalVol = 0, maxSessVol = 0, totalSets = 0, ohpRM = 0, maxSessDur = 0, totalDur = 0;
+  const _uniqueExos = new Set();
+  const bw = db.user.bw||0;
+  const _ohpRe = /overhead|militaire|\bohp\b|press mil/i;
+  db.logs.forEach(l => {
+    totalVol += (l.volume||0);
+    if ((l.volume||0) > maxSessVol) maxSessVol = l.volume||0;
+    let sessSets = 0;
+    (l.exercises||[]).forEach(e => {
+      sessSets += (e.sets||0);
+      _uniqueExos.add(e.name);
+      if (_ohpRe.test(e.name) && (e.maxRM||0) > ohpRM) ohpRM = e.maxRM;
+    });
+    totalSets += sessSets;
+    const dur = l.duration || (sessSets * 210);
+    if (dur > maxSessDur) maxSessDur = dur;
+    totalDur += dur;
+  });
+  const uniqueExos = _uniqueExos.size;
   const total       = B+S+D;
 
   // ── Séances ──
@@ -3226,36 +3237,41 @@ function getAllBadges() {
 
 function calcTotalXP() {
   let xp = 0;
-  db.logs.forEach((log, idx) => {
+  // Pre-build running best e1RM map to avoid O(n³) findPreviousBestE1RM calls
+  // Sort logs chronologically, track best e1RM per exercise as we go
+  const sorted = getSortedLogs().slice().reverse(); // chronological order
+  const runningBest = {}; // exoName → best e1RM seen so far
+  sorted.forEach(log => {
     xp += 100; // base par séance
-    xp += Math.min(10, (log.exercises||[]).length) * 8; // par exercice (cap 10)
-    xp += Math.floor((log.volume || 0) / 500); // volume bonus
-    // PR bonus
+    xp += Math.min(10, (log.exercises||[]).length) * 8;
+    xp += Math.floor((log.volume || 0) / 500);
     (log.exercises||[]).forEach(exo => {
       if (exo.maxRM > 0) {
-        const prev = findPreviousBestE1RM(exo.name, log.timestamp);
+        const prev = runningBest[exo.name] || 0;
         if (prev > 0 && exo.maxRM > prev) xp += 50;
         else if (prev === 0) xp += 20;
+        if (exo.maxRM > (runningBest[exo.name] || 0)) runningBest[exo.name] = exo.maxRM;
       }
     });
   });
-  // Streak bonus
   xp += calcStreak() * 25;
   return xp;
 }
 
 function calcStreak() {
   if (!db.logs.length) return 0;
-  // Count consecutive weeks with at least 1 session (from most recent)
   const now = Date.now();
   const weekMs = 7 * 86400000;
+  // Build Set of week indices that have sessions — single pass O(n)
+  const weeksWithSessions = new Set();
+  db.logs.forEach(l => {
+    const weekIdx = Math.floor((now - l.timestamp) / weekMs);
+    if (weekIdx >= 0 && weekIdx < 530) weeksWithSessions.add(weekIdx);
+  });
   let streak = 0;
   for (let w = 0; w < 530; w++) {
-    const weekStart = now - (w + 1) * weekMs;
-    const weekEnd = now - w * weekMs;
-    const has = db.logs.some(l => l.timestamp >= weekStart && l.timestamp < weekEnd);
-    if (has) streak++;
-    else if (w > 0) break; // allow current week to be empty
+    if (weeksWithSessions.has(w)) streak++;
+    else if (w > 0) break;
   }
   return streak;
 }
@@ -3312,7 +3328,7 @@ function renderGamificationTab() {
     `<div class="gam-stats-row">` +
       `<div class="gam-stat"><div class="gam-stat-val">${db.logs.length}</div><div class="gam-stat-label">Séances</div></div>` +
       `<div class="gam-stat"><div class="gam-stat-val">${streak}</div><div class="gam-stat-label">🔥 Sem. streak</div></div>` +
-      `<div class="gam-stat"><div class="gam-stat-val">${Math.round((db.logs.reduce((s,l)=>s+(l.volume||0),0))/1000)}t</div><div class="gam-stat-label">Vol. total</div></div>` +
+      `<div class="gam-stat"><div class="gam-stat-val">${Math.round(db.logs.reduce((s,l)=>s+(l.volume||0),0)/1000)}t</div><div class="gam-stat-label">Vol. total</div></div>` +
     `</div>`;
 
   // ── Strength levels per exercise ──
@@ -3934,23 +3950,32 @@ function renderPerfCard() {
   const records = {}; // { name: { real1rm, e1rm, date, history:[{ts,rm}] } }
   keyLifts.forEach(kl => { records[kl.name] = { real1rm: 0, e1rm: 0, date: null, history: [] }; });
 
-  // Parcourir tout l'historique chronologiquement pour la courbe
-  [...db.logs].sort((a, b) => a.timestamp - b.timestamp).forEach(log => {
+  // Pre-build a map of exercise names to key lift names for O(1) lookup
+  // instead of calling matchExoName for each keyLift × each exercise
+  const _exoToKeyLift = new Map(); // hevyName → kl.name
+  function _resolveKeyLift(exoName) {
+    if (_exoToKeyLift.has(exoName)) return _exoToKeyLift.get(exoName);
+    for (const kl of keyLifts) {
+      if (matchExoName(exoName, kl.name)) { _exoToKeyLift.set(exoName, kl.name); return kl.name; }
+    }
+    _exoToKeyLift.set(exoName, null);
+    return null;
+  }
+
+  // Parcourir tout l'historique chronologiquement pour la courbe (use cached sorted)
+  const _chronoLogs = getSortedLogs().slice().reverse();
+  _chronoLogs.forEach(log => {
     log.exercises.forEach(exo => {
-      keyLifts.forEach(kl => {
-        if (!matchExoName(exo.name, kl.name)) return;
-        const rec = records[kl.name];
-        // e1RM estimé (meilleur all time)
-        if ((exo.maxRM || 0) > rec.e1rm) {
-          rec.e1rm = exo.maxRM || 0;
-          rec.date = log.shortDate || formatDate(log.timestamp);
-        }
-        // 1RM réel = poids soulevé pour exactement 1 rep (dans repRecords['1'])
-        const real = parseFloat((exo.repRecords || {})['1'] || 0);
-        if (real > rec.real1rm) rec.real1rm = real;
-        // Historique e1RM pour courbe
-        if ((exo.maxRM || 0) > 0) rec.history.push({ ts: log.timestamp, rm: exo.maxRM, date: log.shortDate || formatDate(log.timestamp) });
-      });
+      const klName = _resolveKeyLift(exo.name);
+      if (!klName) return;
+      const rec = records[klName];
+      if ((exo.maxRM || 0) > rec.e1rm) {
+        rec.e1rm = exo.maxRM || 0;
+        rec.date = log.shortDate || formatDate(log.timestamp);
+      }
+      const real = parseFloat((exo.repRecords || {})['1'] || 0);
+      if (real > rec.real1rm) rec.real1rm = real;
+      if ((exo.maxRM || 0) > 0) rec.history.push({ ts: log.timestamp, rm: exo.maxRM, date: log.shortDate || formatDate(log.timestamp) });
     });
   });
 
@@ -4254,8 +4279,8 @@ function renderDayExercises(day) {
     // Étape 1 : pour chaque exercice du programme, trouver le NOM EXACT Hevy
     // en cherchant d'abord dans les séances du même jour de la semaine
     // Sort same-day logs and all logs by most recent first
-    const logsOfDay = db.logs.filter(l => l.day === day).sort((a,b) => b.timestamp - a.timestamp);
     const allLogsByRecency = getSortedLogs();
+    const logsOfDay = allLogsByRecency.filter(l => l.day === day);
     const hevyNameForProg = {}; // progName → nom Hevy exact
     const matchTimestamp = {}; // progName → timestamp of matched log (to detect staleness)
 
@@ -4676,32 +4701,19 @@ function cleanupExistingLogs() {
       if(exoType==='time'&&!exo.isTime){exo.isTime=true;changed=true;}
       if((exoType==='cardio'||exoType==='cardio_stairs')&&!exo.isCardio){exo.isCardio=true;changed=true;}
       if(exoType==='reps'){
-        // Repair corrupted maxReps: recalculer depuis TOUS les logs de cet exercice
-        // Cherche le vrai max par série (pas le total séance)
+        // Repair corrupted maxReps from local exercise data only (avoid O(n²) nested scan)
         let trueMax=0;
-        db.logs.forEach(lg=>{lg.exercises.forEach(ex=>{
-          if(ex.name!==exo.name)return;
-          // series[] contient les best weight/reps (dédupliqués) — fiable
-          if(ex.series&&ex.series.length>0){ex.series.forEach(s=>{if((s.reps||0)>trueMax)trueMax=s.reps;});}
-          // repRecords keys = nombre de reps réellement fait en une série
-          if(ex.repRecords){Object.keys(ex.repRecords).forEach(k=>{const r=parseInt(k);if(r>trueMax)trueMax=r;});}
-          // Pour les exos au poids du corps (series vide, repRecords vide):
-          // détecter si maxReps est en fait le total de toutes les séries (corruption ancienne)
-          // Signe: maxReps >= totalReps && sets > 1 → totalReps stocké à la place du max par série
-          if(trueMax===0&&(ex.sets||0)>1&&(ex.totalReps||0)>0&&(ex.maxReps||0)>=(ex.totalReps||0)){
-            // totalReps = max d'une séance (corrompue) → estimer le vrai max par série
-            const estimated=Math.ceil(ex.totalReps/ex.sets);
-            if(estimated>trueMax)trueMax=estimated;
-          }
-          // Cas où maxReps > totalReps/sets mais proche du total (ex: max=24, total=24, sets=4)
-          if(trueMax===0&&(ex.sets||0)>1&&(ex.totalReps||0)>0&&(ex.maxReps||0)===ex.totalReps){
-            const estimated=Math.ceil(ex.totalReps/ex.sets);
-            if(estimated>trueMax)trueMax=estimated;
-          }
-        });});
-        // Si on a trouvé un vrai max par série, l'utiliser
+        if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{if((s.reps||0)>trueMax)trueMax=s.reps;});}
+        if(exo.repRecords){Object.keys(exo.repRecords).forEach(k=>{const r=parseInt(k);if(r>trueMax)trueMax=r;});}
+        if(trueMax===0&&(exo.sets||0)>1&&(exo.totalReps||0)>0&&(exo.maxReps||0)>=(exo.totalReps||0)){
+          const estimated=Math.ceil(exo.totalReps/exo.sets);
+          if(estimated>trueMax)trueMax=estimated;
+        }
+        if(trueMax===0&&(exo.sets||0)>1&&(exo.totalReps||0)>0&&(exo.maxReps||0)===exo.totalReps){
+          const estimated=Math.ceil(exo.totalReps/exo.sets);
+          if(estimated>trueMax)trueMax=estimated;
+        }
         if(trueMax>0&&trueMax<(exo.maxReps||0)){exo.maxReps=trueMax;changed=true;}
-        // Fallback: si toujours rien (valeur suspecte > 25), cap à 20
         else if(trueMax===0&&(exo.maxReps||0)>25){exo.maxReps=20;changed=true;}
       }
       if(exoType==='time'){if(exo.series&&exo.series.length>0){exo.series.forEach(s=>{const t=s.reps||0;if(t>1&&t<3600&&t>(exo.maxTime||0)){exo.maxTime=t;changed=true;}});}}
@@ -6483,7 +6495,7 @@ function renderLifts() {
 
   // Build history only for the displayed lifts (top 10)
   const displayLifts = filtered.slice(0, 10);
-  const sortedLogs = [...db.logs].sort((a,b) => a.timestamp - b.timestamp);
+  const sortedLogs = getSortedLogs().slice().reverse(); // chronological
   displayLifts.forEach(lift => {
     let runMax = 0;
     const pts = [];

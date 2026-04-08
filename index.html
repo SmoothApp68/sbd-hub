@@ -431,6 +431,42 @@
     .acc-chevron.open{transform:rotate(180deg);}
     .acc-body{max-height:0;overflow:hidden;transition:max-height 0.35s ease;padding:0 18px;}
     .acc-body.open{max-height:1200px;padding:0 18px 18px;}
+    /* ── Gamification ── */
+    .gam-level-card{background:linear-gradient(135deg,rgba(191,90,242,0.08),rgba(10,132,255,0.08));border:1px solid rgba(191,90,242,0.25);border-radius:20px;padding:20px;margin-bottom:15px;text-align:center;}
+    .gam-level-icon{font-size:48px;margin-bottom:4px;}
+    .gam-level-name{font-size:20px;font-weight:800;color:var(--purple);margin-bottom:1px;}
+    .gam-level-sub{font-size:12px;color:var(--sub);font-style:italic;margin-bottom:4px;}
+    .gam-level-num{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+    .gam-xp-bar-wrap{background:var(--surface);border-radius:10px;height:14px;overflow:hidden;margin-bottom:6px;border:1px solid var(--border);}
+    .gam-xp-bar{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--purple),var(--blue));transition:width 0.6s ease;}
+    .gam-xp-text{font-size:11px;color:var(--sub);display:flex;justify-content:space-between;}
+    .gam-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
+    .gam-stat{text-align:center;background:var(--surface);border-radius:12px;padding:10px 6px;border:1px solid var(--border);}
+    .gam-stat-val{font-size:18px;font-weight:800;color:var(--text);}
+    .gam-stat-label{font-size:10px;color:var(--sub);text-transform:uppercase;}
+    .gam-str-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px;}
+    .gam-str-title{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text);}
+    .gam-str-exo{margin-bottom:14px;}
+    .gam-str-exo-name{font-size:13px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+    .gam-str-bar-wrap{position:relative;height:20px;background:var(--surface);border-radius:10px;overflow:visible;border:1px solid var(--border);}
+    .gam-str-bar{height:100%;border-radius:10px;transition:width 0.6s ease;}
+    .gam-str-marker{position:absolute;top:-3px;width:3px;height:26px;background:var(--text);border-radius:2px;transform:translateX(-1px);box-shadow:0 0 6px rgba(255,255,255,0.4);}
+    .gam-str-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--sub);margin-top:3px;}
+    .gam-str-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+    .gam-badge-section{margin-bottom:16px;}
+    .gam-badge-section-title{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-left:2px;}
+    .gam-badge-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .gam-badge{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center;transition:all 0.2s;position:relative;}
+    .gam-badge.locked{opacity:0.30;filter:grayscale(0.5);}
+    .gam-badge.uncommon{border-color:#32d74b;}
+    .gam-badge.rare{border-color:#0a84ff;}
+    .gam-badge.epic{border-color:#bf5af2;}
+    .gam-badge.legendary{border-color:#ff9f0a;box-shadow:0 0 8px rgba(255,159,10,0.25);}
+    .gam-badge.mythic{border-color:#ff453a;border-width:2px;box-shadow:0 0 10px rgba(255,69,58,0.3);}
+    .gam-badge.divine{border:2px solid #ff9f0a;background:linear-gradient(135deg,rgba(255,159,10,0.08),rgba(191,90,242,0.08),rgba(10,132,255,0.08));box-shadow:0 0 14px rgba(191,90,242,0.35);}
+    .gam-badge-icon{font-size:28px;margin-bottom:4px;}
+    .gam-badge-name{font-size:12px;font-weight:600;color:var(--text);}
+    .gam-badge-desc{font-size:10px;color:var(--sub);margin-top:2px;}
     /* ── Weekly Plan ── */
     .wp-card{background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);border:1px solid rgba(10,132,255,0.2);border-radius:20px;padding:20px;margin-bottom:15px;}
     .wp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
@@ -985,6 +1021,18 @@
     </div>
   </div>
 
+  <div id="tab-game" class="content-section">
+    <div id="gamLevelCard" class="gam-level-card"></div>
+    <div id="gamStrengthCard" class="gam-str-card">
+      <div class="gam-str-title">📊 Niveau de force par exercice</div>
+      <div id="gamStrengthContent"></div>
+    </div>
+    <div class="gam-str-card">
+      <div class="gam-str-title">🏅 Badges & Succès</div>
+      <div id="gamBadgesContent"></div>
+    </div>
+  </div>
+
   <div id="tab-settings" class="content-section">
 
     <!-- Accordéon Profil -->
@@ -1174,6 +1222,7 @@
     <button class="tab-btn" data-tab="tab-ai"><svg viewBox="0 0 24 24"><path d="M21 10.975V8a2 2 0 0 0-2-2h-6V4.688c.305-.274.5-.668.5-1.11a1.5 1.5 0 0 0-3 0c0 .442.195.836.5 1.11V6H5a2 2 0 0 0-2 2v2.998l-.072.005A.999.999 0 0 0 2 12v2a1 1 0 0 0 1 1v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1.025zM9 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg> Coach</button>
     <button class="tab-btn" data-tab="tab-stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm6 14H7v-5h2v5zm4 0h-2v-3h2v3zm0-5h-2v-2h2v2zm4 5h-2V7h2v10z"/></svg> Stats</button>
     <button class="tab-btn" data-tab="tab-corps"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Corps</button>
+    <button class="tab-btn" data-tab="tab-game"><svg viewBox="0 0 24 24"><path d="M2 12c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10S2 17.5 2 12zm10-6l-1.5 3.5L7 11l3.5 1.5L12 16l1.5-3.5L17 11l-3.5-1.5L12 6z"/></svg> Niveau</button>
     <button class="tab-btn" data-tab="tab-settings"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg> Réglages</button>
   </nav>
 <script>
@@ -2890,11 +2939,435 @@ function showTab(tabId) {
   if (tabId==='tab-seances') renderSeancesTab();
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
+  if (tabId==='tab-game') { renderGamificationTab(); }
   if (tabId==='tab-settings') { renderSettingsRoutineEditor(); renderKeyLiftsEditor(); fillSettingsFields(); }
   if (tabId==='tab-corps') { renderCorpsTab(); }
 }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
+
+// ============================================================
+// GAMIFICATION — XP, NIVEAUX, BADGES
+// ============================================================
+const XP_LEVELS = [
+  { level:1,  name:'Novice',      sub:'Apprenti d\'Incarnam',        xp:0,     icon:'🌱' },
+  { level:2,  name:'Apprenti',    sub:'Élève d\'Astrub',             xp:500,   icon:'💪' },
+  { level:3,  name:'Chasseur',    sub:'Licencié Hunter',             xp:1500,  icon:'🏹' },
+  { level:4,  name:'Guerrier',    sub:'Iop de Cœur',                 xp:3500,  icon:'⚔️' },
+  { level:5,  name:'Shinigami',   sub:'Shikai Activé',               xp:6000,  icon:'⚡' },
+  { level:6,  name:'Nen Master',  sub:'Aura Maîtrisée',              xp:9000,  icon:'🌀' },
+  { level:7,  name:'BANKAI',      sub:'Forme Finale Atteinte',       xp:13000, icon:'🔱' },
+  { level:8,  name:'Goultard',    sub:'Le Barbare Légendaire',       xp:18000, icon:'👑' },
+  { level:9,  name:'Gon Libéré',  sub:'Au-delà des Limites',         xp:25000, icon:'🌟' },
+  { level:10, name:'Xélor',       sub:'Dieu du Temps Incarné',       xp:35000, icon:'⏰' },
+];
+
+function getAllBadges() {
+  const streak = calcStreak();
+  const b = [];
+  const B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
+
+  // ── Stats pré-calculées ──
+  const totalVol    = db.logs.reduce((s,l)=>s+(l.volume||0),0);
+  const maxSessVol  = db.logs.length ? Math.max(...db.logs.map(l=>l.volume||0)) : 0;
+  const totalSets   = db.logs.reduce((s,l)=>s+(l.exercises||[]).reduce((ss,e)=>ss+(e.sets||0),0),0);
+  const uniqueExos  = new Set(db.logs.flatMap(l=>(l.exercises||[]).map(e=>e.name))).size;
+  const bw          = db.user.bw||0;
+  const ohpRM       = db.logs.reduce((mx,l)=>{ const e=(l.exercises||[]).find(ex=>/overhead|militaire|\bohp\b|press mil/i.test(ex.name)); return e?Math.max(mx,e.maxRM||0):mx; },0);
+  const maxSessDur  = db.logs.reduce((mx,l)=>{ const sets=(l.exercises||[]).reduce((s,e)=>s+(e.sets||0),0); return Math.max(mx,l.duration||(sets*210)); },0);
+  const totalDur    = db.logs.reduce((s,l)=>{ const sets=(l.exercises||[]).reduce((ss,e)=>ss+(e.sets||0),0); return s+(l.duration||(sets*210)); },0);
+  const total       = B+S+D;
+
+  // ── Séances ──
+  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Reçu à l\'Examen',          ref:'Bleach', desc:'Première séance — bienvenue à l\'Académie des Shinigamis',                           ck:()=>db.logs.length>=1});
+  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Carte Shinigami',            ref:'Bleach', desc:'10 séances — ton diplôme de Shinigami est officiellement validé',                   ck:()=>db.logs.length>=10});
+  b.push({id:'s25',   r:'uncommon',  icon:'🏘️', name:'Aventurier d\'Astrub',       ref:'Dofus',  desc:'25 séances — tu quittes enfin le tutoriel d\'Astrub',                               ck:()=>db.logs.length>=25});
+  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Siège au Seireitei',         ref:'Bleach', desc:'50 séances — on t\'attribue enfin un siège dans une division',                     ck:()=>db.logs.length>=50});
+  b.push({id:'s75',   r:'rare',      icon:'🛡️', name:'Chevalier de Bonta',         ref:'Dofus',  desc:'75 séances — la milice de Bonta te reconnaît comme l\'un des siens',               ck:()=>db.logs.length>=75});
+  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion',                  ref:'Bleach', desc:'100 séances — même un vice-capitaine te respecte désormais',                        ck:()=>db.logs.length>=100});
+  b.push({id:'s200',  r:'epic',      icon:'🎓', name:'Maître de Guilde',           ref:'Dofus',  desc:'200 séances — ta guilde te suit les yeux fermés en toutes circonstances',           ck:()=>db.logs.length>=200});
+  b.push({id:'s300',  r:'epic',      icon:'⚔️', name:'Vice-Capitaine',             ref:'Bleach', desc:'300 séances — le haori blanc t\'attend au bout du couloir du Gotei 13',            ck:()=>db.logs.length>=300});
+  b.push({id:'s365',  r:'legendary', icon:'🌍', name:'Tour du Monde des Douze',    ref:'Dofus',  desc:'365 séances — tu as parcouru les 12 nations sans jamais fléchir',                  ck:()=>db.logs.length>=365});
+  b.push({id:'s500',  r:'legendary', icon:'💀', name:'Capitaine du Gotei 13',      ref:'Bleach', desc:'500 séances — Yamamoto en personne t\'a nommé à la tête d\'une division',          ck:()=>db.logs.length>=500});
+  b.push({id:'s750',  r:'mythic',    icon:'🥚', name:'Gardien des 6 Dofus',        ref:'Dofus',  desc:'750 séances — les six œufs légendaires sont sous ta garde exclusive',               ck:()=>db.logs.length>=750});
+  b.push({id:'s1000', r:'divine',    icon:'🔥', name:'Bankai Éternel',             ref:'Bleach', desc:'1000 séances — ton Bankai ne se désactive plus jamais. Tu ES ton Bankai',           ck:()=>db.logs.length>=1000});
+
+  // ── Volume par séance (max session) ──
+  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Tonneau d\'Astrub',           ref:'Dofus',  desc:'1t en une séance — les marchands d\'Astrub notent ton premier passage',              ck:()=>maxSessVol>=1000});
+  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur de Pandawa',           ref:'Dofus',  desc:'3t — même un Pandawa sobre ne porterait pas plus sans tituber',                      ck:()=>maxSessVol>=3000});
+  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Reishi Compressé',             ref:'Bleach', desc:'5t — ton énergie spirituelle commence à peser comme des particules Reishi',            ck:()=>maxSessVol>=5000});
+  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Forgeron de Bonta',            ref:'Dofus',  desc:'10t en une séance — les forges de Bonta s\'inclinent devant ton labeur',              ck:()=>maxSessVol>=10000});
+  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Bankai Partiel',               ref:'Bleach', desc:'20t — ta libération commence à faire trembler les murs de la salle',                  ck:()=>maxSessVol>=20000});
+  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Chaos d\'Ogrest',              ref:'Dofus',  desc:'30t — Ogrest lui-même a pleuré moins de tonnes en une seule journée',                ck:()=>maxSessVol>=30000});
+  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'Mugetsu',                      ref:'Bleach', desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance',                ck:()=>maxSessVol>=40000});
+  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Dieu Iop',                     ref:'Dofus',  desc:'50t en une séance — Goultard le Barbare en personne s\'incline',                    ck:()=>maxSessVol>=50000});
+  b.push({id:'vs100', r:'divine',    icon:'💀', name:'Mais t\'es malade ?',          ref:'—',      desc:'100t en une séance — appelle un médecin, pas un coach', impossible:true,              ck:()=>false});
+
+  // ── Volume cumulatif total ──
+  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',           ref:'Dofus',  desc:'10t cumulées — la forge ne fait que commencer',                                       ck:()=>totalVol>=10000});
+  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan d\'Astrub',            ref:'Dofus',  desc:'50t — tes premiers pas d\'artisan sont validés par la guilde',                       ck:()=>totalVol>=50000});
+  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',                 ref:'Bleach', desc:'100t — ton zanpakuto prend enfin une forme reconnaissable',                           ck:()=>totalVol>=100000});
+  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Sacrieur Éprouvé',            ref:'Dofus',  desc:'250t — la douleur est devenue ton alliée la plus fidèle',                             ck:()=>totalVol>=250000});
+  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Shikai du Tonnage',           ref:'Bleach', desc:'500t — ton zanpakuto rugit de satisfaction à chaque kilo supplémentaire',              ck:()=>totalVol>=500000});
+  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur du Monde',          ref:'Dofus',  desc:'1000t cumulées — assez pour remodeler les continents des Douze nations',              ck:()=>totalVol>=1000000});
+  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure du Zanpakuto',        ref:'Bleach', desc:'2500t — ton nom est gravé dans la lame pour l\'éternité',                             ck:()=>totalVol>=2500000});
+  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien des Douze',           ref:'Dofus',  desc:'5000t — les 12 dieux reconnaissent enfin l\'étendue de ton labeur',                   ck:()=>totalVol>=5000000});
+  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Kenpachi du Volume',          ref:'Bleach', desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter',    ck:()=>totalVol>=7500000});
+  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Krosmoz',                     ref:'Dofus',  desc:'10 000t cumulées — tu dépasses le monde des Douze. Tu ES le Krosmoz',                 ck:()=>totalVol>=10000000});
+
+  // ── Durée de séance (max) ──
+  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',             ref:'Dofus',  desc:'1h — le temps d\'un donjon Astrub en solo. Pas mal pour commencer',                  ck:()=>maxSessDur>=3600});
+  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Entraînement de Division',   ref:'Bleach', desc:'1h30 — un entraînement standard au Seireitei entre deux missions',                    ck:()=>maxSessDur>=5400});
+  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Donjon Majeur',              ref:'Dofus',  desc:'2h — le temps d\'un donjon de haut niveau avec une bonne équipe',                    ck:()=>maxSessDur>=7200});
+  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Dangai Training',            ref:'Bleach', desc:'2h30 — Ichigo s\'entraînait dans le Dangai avant l\'affrontement final',              ck:()=>maxSessDur>=9000});
+  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',            ref:'Dofus',  desc:'3h — même Xelor est impressionné par ta maîtrise du tempo',                          ck:()=>maxSessDur>=10800});
+  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Retraite de Seireitei',      ref:'Bleach', desc:'4h — comme Byakuya en méditation solitaire avant d\'activer son Bankai',              ck:()=>maxSessDur>=14400});
+  b.push({id:'dur480', r:'divine',    icon:'🛋️', name:'T\'es au chômage ?',         ref:'—',      desc:'8h en une séance — c\'est une journée de boulot. Appelle tes proches', impossible:true, ck:()=>false});
+
+  // ── Temps d\'entraînement cumulatif ──
+  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures de Forge',         ref:'Dofus',  desc:'50h cumulées — un forgeron de Bonta met moins de temps pour une épée légendaire',    ck:()=>totalDur>=180000});
+  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Siège Confirmé',             ref:'Bleach', desc:'100h — ta place au Seireitei n\'est plus discutable pour personne',                  ck:()=>totalDur>=360000});
+  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maîtrise du Reishi',         ref:'Bleach', desc:'250h — ton énergie spirituelle prend une forme permanente et visible',               ck:()=>totalDur>=900000});
+  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Reiatsu Écrasant',           ref:'Bleach', desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire',         ck:()=>totalDur>=1800000});
+  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Millénaire des Douze',        ref:'Dofus',  desc:'1000h — mille heures gravées dans l\'histoire du monde des Douze nations',            ck:()=>totalDur>=3600000});
+  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Bankai Final',               ref:'Bleach', desc:'1500h — même Yamamoto regardait avec respect ceux qui avaient autant forgé',         ck:()=>totalDur>=5400000});
+  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu Forgeron',              ref:'Dofus',  desc:'2000h — les dieux des Douze eux-mêmes n\'ont pas forgé autant dans leur vie',        ck:()=>totalDur>=7200000});
+
+  // ── Séries totales ──
+  b.push({id:'st100',   r:'common',    icon:'📊', name:'Recrue du Seireitei',         ref:'Bleach', desc:'100 séries — les officiers du Seireitei commencent à te remarquer',                  ck:()=>totalSets>=100});
+  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier de Bonta',           ref:'Dofus',  desc:'500 séries — la milice de Bonta t\'inscrit dans ses rangs officiels',                ck:()=>totalSets>=500});
+  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Sacrieur Confirmé',           ref:'Dofus',  desc:'1000 séries de douleur — ton corps est devenu un véritable temple sacré',             ck:()=>totalSets>=1000});
+  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Libération Shikai',           ref:'Bleach', desc:'2500 séries — ta lame intérieure se libère enfin et révèle son vrai nom',             ck:()=>totalSets>=2500});
+  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant des Douze',        ref:'Dofus',  desc:'5000 séries — les 12 nations connaissent ton nom et tremblent',                       ck:()=>totalSets>=5000});
+  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Les 10 000 Coups',            ref:'Bleach', desc:'10 000 séries — Yamamoto frappait 10 000 fois par jour depuis des siècles',          ck:()=>totalSets>=10000});
+  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Ascension Divine',            ref:'Dofus',  desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende des Douze',     ck:()=>totalSets>=20000});
+  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Finale Absolue',        ref:'Bleach', desc:'40 000 séries — au-delà du Bankai. Au-delà de tout ce qui existe',                   ck:()=>totalSets>=40000});
+
+  // ── Exercices uniques maîtrisés ──
+  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet d\'Astrub',             ref:'Dofus',  desc:'10 exercices — le carnet de l\'apprenti commence à se remplir',                      ck:()=>uniqueExos>=10});
+  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent du Gotei',          ref:'Bleach', desc:'25 exercices — tu maîtrises Kidō, Zanjutsu et Hakuda à la fois',                    ck:()=>uniqueExos>=25});
+  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie des Douze',       ref:'Dofus',  desc:'50 exercices — les 12 nations n\'ont plus de secrets pour toi',                     ck:()=>uniqueExos>=50});
+  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit d\'Urahara',            ref:'Bleach', desc:'75 exercices — même Kisuke serait impressionné par ta pluridisciplinarité',          ck:()=>uniqueExos>=75});
+  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de toutes les Classes', ref:'Dofus',  desc:'100 exercices — Iop, Sacrieur, Pandawa... tu les incarnes tous à la fois',           ck:()=>uniqueExos>=100});
+
+
+  // ── Bench Press ──
+  const bench = [
+    [60,  'common',    '🌱', "L'Apprenti d'Astrub",     'Dofus',  "Astrub reconnaît tes efforts. La forge ne fait que commencer"],
+    [80,  'common',    '💪', "Cogneur de la Milice",    'Dofus',  "Les miliciens d'Astrub s'écartent sur ton passage"],
+    [100, 'uncommon',  '⚔️', "Iop Authentique",         'Dofus',  "Force avant tout — l'intelligence peut attendre selon les Iops"],
+    [120, 'uncommon',  '🩸', "Sacrieur de la Fonte",    'Dofus',  "Ta douleur est ton carburant — sang et acier mêlés"],
+    [140, 'rare',      '⚡', "Shikai Débloqué",         'Bleach', "Ton zanpakuto pectoraux a enfin révélé sa vraie forme"],
+    [160, 'rare',      '🏰', "Champion de Brakmar",     'Dofus',  "Même les forces obscures de Brakmar fléchissent devant toi"],
+    [180, 'rare',      '🌀', "Reishi Condensé",         'Bleach', "Ton aura déborde — les plafonds de la salle tremblent"],
+    [200, 'epic',      '🪓', "Goultard le Barbare",     'Dofus',  "Tu atteins la légende du plus grand des Iops de l'histoire"],
+    [220, 'epic',      '🌊', "Reiatsu d'Élite",         'Bleach', "Ton reiatsu commence à impressionner les capitaines du Gotei"],
+    [240, 'epic',      '🔥', "Fracture du Temps",       'Bleach', "Tout sacrifier pour un PR — ta lame brise le temps lui-même"],
+    [260, 'legendary', '❄️', "Lame de Glace de Rukia",  'Bleach', "Ton press glace l'atmosphère — Sode no Shirayuki s'incline"],
+    [280, 'legendary', '👁️', "Kenpachi Sans Bandeau",   'Bleach', "Il a retiré son bandeau — il te voit enfin comme un rival digne"],
+    [300, 'mythic',    '💥', "BANKAI — Pectoraux",      'Bleach', "Forme finale. Byakuya pose Senbonzakura pour t'admirer"],
+  ];
+  bench.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`bench_${kg}`,r,icon,name,ref,desc,ck:()=>B>=kg}));
+
+  // ── Squat ──
+  const squat = [
+    [80,  'common',    '🦵', "Cavalier de Dragodinde",  'Dofus',  "Tes cuisses portent ta Dragodinde avec fierté et aisance"],
+    [100, 'common',    '🐼', "Pandawa en Transe",       'Dofus',  "L'ivresse de l'acier — la sagesse du Bambou sacré"],
+    [120, 'uncommon',  '🌲', "Racines d'Amakna",        'Dofus',  "Tes jambes sont enracinées comme les arbres de la forêt d'Amakna"],
+    [140, 'uncommon',  '💧', "Flux de Reishi",          'Bleach', "Ton énergie spirituelle descend dans tes jambes à chaque rep"],
+    [160, 'rare',      '⚔️', "Guerrier du Seireitei",   'Bleach', "Pour l'honneur du Gotei — Renji Abarai serait jaloux"],
+    [180, 'rare',      '🌀', "Aura Condensée",          'Bleach', "Ton aura se condense jusqu'aux genoux à chaque répétition"],
+    [200, 'rare',      '🌳', "Ancré comme un Sadida",   'Dofus',  "Les arbres-poupées du Sadida sont jaloux de la force de tes cuisses"],
+    [220, 'epic',      '🩸', "Iop Transcendé",          'Dofus',  "Tu dépasses la simple force brute — même un dieu-Iop t'envie"],
+    [240, 'epic',      '🌊', "Déferlante d'Ogrest",     'Dofus',  "Là où tu squattes, le sol s'en souvient pour toujours"],
+    [260, 'epic',      '👻', "Reiatsu Oppressant",      'Bleach', "Ton reiatsu involontaire fait plier les genoux des autres clients"],
+    [280, 'legendary', '✨', "Bankai des Jambes",       'Bleach', "Tu as transcendé les limites — la forme finale est atteinte"],
+    [300, 'legendary', '🔥', "Flamme de Yamamoto",      'Bleach', "300kg — Yamamoto lui-même salue cette chaleur dans ses jambes"],
+    [350, 'mythic',    '🌌', "Chaos Primordial",        'Dofus',  "Au-delà du monde des Douze — tu existes dans l'Extérieur"],
+  ];
+  squat.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`squat_${kg}`,r,icon,name,ref,desc,ck:()=>S>=kg}));
+
+  // ── Deadlift ──
+  const dead = [
+    [100, 'common',    '⚒️', "Forgeron d'Amakna",      'Dofus',  "Les forges d'Amakna te font confiance pour le premier lingot"],
+    [120, 'common',    '🌲', "Bûcheron Musclé",        'Dofus',  "Plus solide que les arbres millénaires de la forêt d'Amakna"],
+    [140, 'uncommon',  '🌑', "Ombre du Seireitei",     'Bleach', "Tu tires depuis l'ombre — comme les agents de la Division 2"],
+    [160, 'uncommon',  '👁️', "Kenpachi t'a Senti",     'Bleach', "Il a senti ton reiatsu depuis les profondeurs du Seireitei"],
+    [180, 'rare',      '🔥', "Flamme d'Amaterasu",     'Bleach', "Ta barre brûle comme la flamme noire inextinguible de Yamamoto"],
+    [200, 'rare',      '🩸', "Sacrieur Transcendé",    'Dofus',  "La douleur du bas du dos t'alimente comme rien d'autre ne peut"],
+    [220, 'rare',      '⚡', "Shunpo du Sol",           'Bleach', "Tes mains attrapent la barre avec la vitesse du pas flash"],
+    [240, 'epic',      '🌊', "Chaos d'Ogrest",         'Dofus',  "Même Ogrest n'aurait pas osé soulever un tel poids du sol"],
+    [260, 'epic',      '❄️', "Sode no Shirayuki",      'Bleach', "Ton deadlift gèle l'air ambiant — Rukia approuve dans l'ombre"],
+    [280, 'epic',      '🌑', "Getsuga Tensho",         'Bleach', "Ton cri intérieur libère une énergie obscure et dévastatrice"],
+    [300, 'legendary', '🏆', "Les Trois Cents",        'Dofus',  "Les 12 Dieux s'inclinent ensemble devant ce chiffre légendaire"],
+    [350, 'legendary', '💥', "Mugetsu du Sol",         'Bleach', "Tout ou rien — comme Ichigo face au Roi des Quincies"],
+    [400, 'mythic',    '🔥', "Zanka no Tachi",         'Bleach', "Yamamoto libère la flamme ultime — ton deadlift en est l'écho"],
+  ];
+  dead.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`dead_${kg}`,r,icon,name,ref,desc,ck:()=>D>=kg}));
+
+  // ── Overhead Press ──
+  const ohpData = [
+    [40,  'common',    '💪', "Bras d'Iop Junior",         'Dofus',  "Premier pas sur la voie du dieu-Iop. L'acier au-dessus ne fait que commencer"],
+    [60,  'uncommon',  '🌤️', "Brise de Seireitei",        'Bleach', "60kg au-dessus — un Shinigami de 6e division te regarderait avec respect"],
+    [80,  'rare',      '🛡️', "Épaules de la Division",    'Bleach', "Les épaulières du Seireitei ont été forgées pour tes épaules"],
+    [100, 'epic',      '🌊', "Iop Divin",                 'Dofus',  "La paume tendue vers le ciel — 100kg au-dessus comme un dieu-Iop"],
+    [120, 'legendary', '💫', "Épaules de Goultard",       'Dofus',  "Goultard portait ses victoires légendaires sur ces épaules millénaires"],
+    [140, 'mythic',    '🔥', "Zanka no Tachi — Higashi",  'Bleach', "Yamamoto libère sa flamme vers les cieux — ton press en est l'écho terrestre"],
+  ];
+  ohpData.forEach(([kg,r,icon,name,ref,desc])=>b.push({id:`ohp_${kg}`,r,icon,name,ref,desc,ck:()=>ohpRM>=kg}));
+
+  // ── Total SBD ──
+  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            ref:'Dofus',  desc:'B+S+D ≥ 300kg — les trois piliers accomplis. Rushu frémit depuis sa prison',       ck:()=>total>=300});
+  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          ref:'Bleach', desc:'B+S+D ≥ 400kg — ton reiatsu combiné commence à impressionner le Gotei 13',          ck:()=>total>=400});
+  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total de Goultard',      ref:'Dofus',  desc:'B+S+D ≥ 500kg — le légendaire Iop te tend la main en signe d\'égal à égal',        ck:()=>total>=500});
+  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     ref:'Bleach', desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un capitaine du Gotei 13',     ck:()=>total>=600});
+  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos de l\'Extérieur',  ref:'Dofus',  desc:'B+S+D ≥ 700kg — même les Dieux des Douze se taisent devant ta force brute',        ck:()=>total>=700});
+  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Bankai Total',           ref:'Bleach', desc:'B+S+D ≥ 800kg — Yamamoto libère sa flamme en signe d\'hommage ultime',             ck:()=>total>=800});
+
+  // ── Poids de Corps ──
+  if (bw > 0) {
+    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:'Propre Poids au Bench',  ref:'Dofus',  desc:`${bw}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`,          ck:()=>B>=bw});
+    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:'1.5× au Bench',          ref:'Bleach', desc:`${Math.round(bw*1.5)}kg — digne d'un combattant du Seireitei`,                     ck:()=>B>=bw*1.5});
+    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:'Double au Bench',        ref:'Bleach', desc:`${Math.round(bw*2)}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`,      ck:()=>B>=bw*2});
+    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:'1.5× au Squat',          ref:'Dofus',  desc:`${Math.round(bw*1.5)}kg — la milice de Bonta est impressionnée par ta puissance`,   ck:()=>S>=bw*1.5});
+    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:'Double au Squat',        ref:'Dofus',  desc:`${Math.round(bw*2)}kg — les Sadidas sont jaloux de ta puissance de jambes`,         ck:()=>S>=bw*2});
+    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:'2.5× au Squat',          ref:'Dofus',  desc:`${Math.round(bw*2.5)}kg — Ogrest lui-même ne squattait pas autant à son pic`,      ck:()=>S>=bw*2.5});
+    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:'Double au Deadlift',     ref:'Dofus',  desc:`${Math.round(bw*2)}kg deadlift — les forgerons de Bonta s'inclinent en silence`,    ck:()=>D>=bw*2});
+    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:'2.5× au Deadlift',       ref:'Bleach', desc:`${Math.round(bw*2.5)}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`,        ck:()=>D>=bw*2.5});
+    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:'Triple au Deadlift',     ref:'Bleach', desc:`${Math.round(bw*3)}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`,  ck:()=>D>=bw*3});
+  }
+
+  // ── Streak (semaines consécutives) ──
+  const streakData = [
+    [4,   'common',    '📅', "Collectionneur d'Almanax",  'Dofus',  "4 semaines parfaites — l'engagement de l'Almanax Dofus est là"],
+    [8,   'common',    '🏠', "Guildien Modèle",           'Dofus',  "Ta guilde compte sur toi chaque semaine — tu n'as jamais déçu"],
+    [12,  'uncommon',  '⏳', "Survivant Temporis",        'Dofus',  "Un serveur saisonnier Temporis complet sans jamais fléchir"],
+    [26,  'uncommon',  '🎯', "Élève de l'Académie",       'Bleach', "6 mois d'assiduité — Yoruichi t'a sélectionné pour la formation avancée"],
+    [52,  'rare',      '🎂', "Anniversaire de Serveur",   'Dofus',  "Un an de connexion — les anciens du serveur t'accueillent parmi eux"],
+    [78,  'rare',      '⚡', "Shikai Débloqué",           'Bleach', "78 semaines — ton zanpakuto te révèle enfin son vrai nom en entier"],
+    [104, 'rare',      '💎', "Shinigami Confirmé",        'Bleach', "2 ans — ta Division ne peut plus t'imaginer absent du Seireitei"],
+    [130, 'epic',      '🌋', "Grands Comptes des Douze",  'Dofus',  "2 ans et demi — les Grands Comptes murmurent ton nom avec respect"],
+    [156, 'epic',      '👻', "Reiatsu Perceptible",       'Bleach', "3 ans — les humains ordinaires commencent à sentir ta présence"],
+    [182, 'epic',      '📚', "Mémoire du Monde",          'Dofus',  "3 ans et demi — les bibliothèques du monde des Douze conservent ton histoire"],
+    [208, 'epic',      '⚔️', "Rang de Capitaine",         'Bleach', "4 ans — tu portes dignement le haori blanc du Gotei 13"],
+    [234, 'legendary', '⭐', "Vice-Capitaine Permanent",  'Bleach', "4 ans et demi — ta présence est aussi immuable que le Gotei lui-même"],
+    [260, 'legendary', '🔗', "Pilier des Douze",          'Dofus',  "5 ans — les dieux des Douze te confient la garde de leurs reliques sacrées"],
+    [286, 'legendary', '🌀', "Reiatsu Permanent",         'Bleach', "5 ans et demi — ton énergie spirituelle ne se dissipe plus jamais"],
+    [312, 'legendary', '💥', "Bankai Maîtrisé",           'Bleach', "6 ans — tu ne l'actives plus, tu l'es en permanence désormais"],
+    [338, 'legendary', '🌍', "Émissaire des Douze",       'Dofus',  "6 ans et demi — les 12 dieux t'ont choisi pour porter leur message"],
+    [364, 'legendary', '📜', "Chronique Éternelle",       'Dofus',  "7 ans — les historiens des Douze nations écrivent des livres sur toi"],
+    [390, 'mythic',    '🌊', "Témoin d'Ogrest",           'Dofus',  "7 ans et demi — tu as vu le Chaos d'Ogrest de près sans fléchir"],
+    [416, 'mythic',    '🌺', "Chroniqueur des Âges",      'Dofus',  "8 ans — tu as vécu assez de saisons pour voir le monde changer"],
+    [442, 'mythic',    '🌑', "Forme Libérée",             'Bleach', "8 ans et demi — au-delà de toute limite, comme après la libération finale"],
+    [468, 'mythic',    '🥚', "Porteur des 6 Dofus",       'Dofus',  "9 ans — les six œufs légendaires t'ont désigné comme gardien éternel"],
+    [494, 'mythic',    '🌠', "Mugetsu de l'Âme",          'Bleach', "9 ans et demi — tu brûles tout ce qui te reste pour tenir debout"],
+    [520, 'divine',    '🔥', "Zanka no Tachi",            'Bleach', "10 ans — Yamamoto libérait la flamme ultime. Tu ES cette flamme"],
+  ];
+  streakData.forEach(([w,r,icon,name,ref,desc])=>b.push({id:`streak_${w}`,r,icon,name,ref,desc,ck:()=>streak>=w}));
+
+  // ── Collectionneur ──
+  const normalBadges = b.filter(x=>!x.impossible);
+  const baseUnlocked = normalBadges.filter(x=>x.ck()).length;
+  const totalNormal  = normalBadges.length;
+  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      ref:'Dofus',        desc:'5 badges — ton inventaire commence à se remplir d\'histoire',                       ck:()=>baseUnlocked>=5});
+  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur d\'Âmes',  ref:'Bleach',       desc:'15 badges — tu accumules les lames comme un Shinigami expérimenté',                ck:()=>baseUnlocked>=15});
+  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    ref:'Dofus',        desc:'30 badges — les vitrines d\'Astrub ne suffisent plus à tout exposer',               ck:()=>baseUnlocked>=30});
+  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste du Seireitei', ref:'Bleach',       desc:'50 badges — le Département de Recherche du Seireitei t\'envie profondément',        ck:()=>baseUnlocked>=50});
+  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     ref:'Dofus',        desc:'75 badges — ta panoplie légendaire fait pâlir les marchands d\'équipement',         ck:()=>baseUnlocked>=75});
+  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal',            ck:()=>baseUnlocked>=100});
+  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes',          ck:()=>baseUnlocked>=totalNormal});
+
+  return b;
+}
+
+function calcTotalXP() {
+  let xp = 0;
+  db.logs.forEach((log, idx) => {
+    xp += 100; // base par séance
+    xp += Math.min(10, (log.exercises||[]).length) * 8; // par exercice (cap 10)
+    xp += Math.floor((log.volume || 0) / 500); // volume bonus
+    // PR bonus
+    (log.exercises||[]).forEach(exo => {
+      if (exo.maxRM > 0) {
+        const prev = findPreviousBestE1RM(exo.name, log.timestamp);
+        if (prev > 0 && exo.maxRM > prev) xp += 50;
+        else if (prev === 0) xp += 20;
+      }
+    });
+  });
+  // Streak bonus
+  xp += calcStreak() * 25;
+  return xp;
+}
+
+function calcStreak() {
+  if (!db.logs.length) return 0;
+  // Count consecutive weeks with at least 1 session (from most recent)
+  const now = Date.now();
+  const weekMs = 7 * 86400000;
+  let streak = 0;
+  for (let w = 0; w < 530; w++) {
+    const weekStart = now - (w + 1) * weekMs;
+    const weekEnd = now - w * weekMs;
+    const has = db.logs.some(l => l.timestamp >= weekStart && l.timestamp < weekEnd);
+    if (has) streak++;
+    else if (w > 0) break; // allow current week to be empty
+  }
+  return streak;
+}
+
+function getXPLevel(xp) {
+  let lvl = XP_LEVELS[0];
+  for (const l of XP_LEVELS) {
+    if (xp >= l.xp) lvl = l;
+  }
+  return lvl;
+}
+
+function getNextXPLevel(xp) {
+  for (const l of XP_LEVELS) {
+    if (l.xp > xp) return l;
+  }
+  return null;
+}
+
+function getAllBestE1RMs() {
+  // Returns { exoName: { e1rm, date } } for all exercises across all logs
+  const best = {};
+  db.logs.forEach(log => {
+    (log.exercises||[]).forEach(exo => {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      if (!best[exo.name] || exo.maxRM > best[exo.name].e1rm) {
+        best[exo.name] = { e1rm: exo.maxRM, date: log.shortDate || log.date || '' };
+      }
+    });
+  });
+  return best;
+}
+
+function renderGamificationTab() {
+  const bw = db.user.bw || 80;
+  const totalXP = calcTotalXP();
+  const currLevel = getXPLevel(totalXP);
+  const nextLevel = getNextXPLevel(totalXP);
+  const streak = calcStreak();
+
+  // ── Level card ──
+  const levelCard = document.getElementById('gamLevelCard');
+  const xpInLevel = totalXP - currLevel.xp;
+  const xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
+  const pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
+  const nextName = nextLevel ? `→ ${nextLevel.icon} ${nextLevel.name}` : 'NIVEAU MAX';
+  levelCard.innerHTML =
+    `<div class="gam-level-icon">${currLevel.icon}</div>` +
+    `<div class="gam-level-name">${currLevel.name}</div>` +
+    `<div class="gam-level-sub">${currLevel.sub}</div>` +
+    `<div class="gam-level-num">Niveau ${currLevel.level} · ${totalXP.toLocaleString()} XP</div>` +
+    `<div class="gam-xp-bar-wrap"><div class="gam-xp-bar" style="width:${pct}%;"></div></div>` +
+    `<div class="gam-xp-text"><span>${xpInLevel.toLocaleString()} / ${xpToNext.toLocaleString()} XP</span><span style="color:var(--purple);font-size:10px;">${nextName}</span></div>` +
+    `<div class="gam-stats-row">` +
+      `<div class="gam-stat"><div class="gam-stat-val">${db.logs.length}</div><div class="gam-stat-label">Séances</div></div>` +
+      `<div class="gam-stat"><div class="gam-stat-val">${streak}</div><div class="gam-stat-label">🔥 Sem. streak</div></div>` +
+      `<div class="gam-stat"><div class="gam-stat-val">${Math.round((db.logs.reduce((s,l)=>s+(l.volume||0),0))/1000)}t</div><div class="gam-stat-label">Vol. total</div></div>` +
+    `</div>`;
+
+  // ── Strength levels per exercise ──
+  const bestE1RMs = getAllBestE1RMs();
+  const strContent = document.getElementById('gamStrengthContent');
+  let strHtml = '';
+  const categorized = [];
+  for (const [name, data] of Object.entries(bestE1RMs)) {
+    const sl = getStrengthLevel(name, data.e1rm, bw);
+    if (sl) categorized.push({ name, e1rm: data.e1rm, sl });
+  }
+  categorized.sort((a,b) => b.sl.levelIdx - a.sl.levelIdx || b.sl.ratio - a.sl.ratio);
+  if (categorized.length === 0) {
+    strHtml = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div>';
+  } else {
+    categorized.forEach(({ name, e1rm, sl }) => {
+      const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      let ratios = null;
+      for (const [,std] of Object.entries(STRENGTH_STANDARDS)) {
+        if (std.patterns.some(p=>p.test(norm))) { ratios=std.ratios; break; }
+      }
+      if (!ratios) return;
+      const maxR = ratios[ratios.length-1]*1.2;
+      const markerPct = Math.min(98,Math.max(2,(sl.ratio/maxR)*100));
+      const segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+      const segPcts = ratios.map(r=>(r/maxR)*100);
+      strHtml += `<div class="gam-str-exo">`;
+      strHtml += `<div class="gam-str-exo-name"><span>${name}</span><span><span class="gam-str-badge" style="background:${sl.color}22;color:${sl.color};">${sl.label}</span> <span style="color:var(--sub);font-size:11px;">${sl.topPct}</span></span></div>`;
+      strHtml += `<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">e1RM : <strong style="color:var(--text);">${Math.round(e1rm)}kg</strong> (${sl.ratio}× BW)</div>`;
+      strHtml += `<div class="gam-str-bar-wrap">`;
+      let last=0;
+      segPcts.forEach((sp,i)=>{const w=sp-last;strHtml+=`<div style="position:absolute;left:${last}%;width:${w}%;height:100%;background:${segColors[i]};opacity:0.3;${i===0?'border-radius:10px 0 0 10px':''}${i===segPcts.length-1?'border-radius:0 10px 10px 0':''}"></div>`;last=sp;});
+      strHtml+=`<div style="position:absolute;left:0;width:${markerPct}%;height:100%;background:${sl.color};opacity:0.5;border-radius:10px;"></div>`;
+      strHtml+=`<div class="gam-str-marker" style="left:${markerPct}%;"></div>`;
+      strHtml += `</div><div class="gam-str-labels"><span>Déb.</span><span>Novice</span><span>Inter.</span><span>Avancé</span><span>Élite</span></div></div>`;
+    });
+  }
+  strContent.innerHTML = strHtml;
+
+  // ── Badges par sections ──
+  const badgesContent = document.getElementById('gamBadgesContent');
+  const allBadges = getAllBadges();
+  const rarityLabel = {common:'Commun',uncommon:'Peu Commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
+  const rarityColor = {common:'#555',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+
+  const sections = [
+    { title:'🎯 Séances',                     ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
+    { title:'💪 Volume par Séance',           ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
+    { title:'📦 Volume Cumulatif',            ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
+    { title:'⏱️ Durée de Séance',             ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
+    { title:'🕐 Temps Total d\'Entraînement', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
+    { title:'🔢 Séries Totales',              ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
+    { title:'🧩 Exercices Maîtrisés',         ids: ['ex10','ex25','ex50','ex75','ex100'] },
+    { title:'🏋️ Bench Press',                 ids: allBadges.filter(b=>b.id.startsWith('bench_')).map(b=>b.id) },
+    { title:'🦵 Squat',                       ids: allBadges.filter(b=>b.id.startsWith('squat_')).map(b=>b.id) },
+    { title:'💀 Deadlift',                    ids: allBadges.filter(b=>b.id.startsWith('dead_')).map(b=>b.id) },
+    { title:'🔝 Overhead Press',              ids: allBadges.filter(b=>b.id.startsWith('ohp_')).map(b=>b.id) },
+    { title:'🔱 Total SBD',                   ids: allBadges.filter(b=>b.id.startsWith('total_')).map(b=>b.id) },
+    { title:'⚖️ Poids de Corps',              ids: allBadges.filter(b=>b.id.startsWith('bw_')).map(b=>b.id) },
+    { title:'📅 Assiduité',                   ids: allBadges.filter(b=>b.id.startsWith('streak_')).map(b=>b.id) },
+    { title:'🏆 Collectionneur',              ids: allBadges.filter(b=>b.id.startsWith('col')).map(b=>b.id) },
+  ];
+
+  const badgeMap = {};
+  allBadges.forEach(b => badgeMap[b.id] = b);
+
+  let html = '';
+  sections.forEach(sec => {
+    const sectionBadges = sec.ids.map(id=>badgeMap[id]).filter(Boolean);
+    if (!sectionBadges.length) return;
+    const countable = sectionBadges.filter(b=>!b.impossible);
+    const unlocked = countable.filter(b=>b.ck()).length;
+    html += `<div class="gam-badge-section">`;
+    html += `<div class="gam-badge-section-title">${sec.title} <span style="color:var(--purple);font-weight:400;">${unlocked}/${countable.length}</span></div>`;
+    html += `<div class="gam-badge-grid">`;
+    sectionBadges.forEach(badge => {
+      const isUnlocked = badge.ck();
+      const rc = rarityColor[badge.r]||'#555';
+      if (badge.impossible) {
+        html += `<div class="gam-badge locked" style="opacity:0.55;border-style:dashed;">`;
+        html += `<div style="font-size:9px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>`;
+        html += `<div class="gam-badge-icon">${badge.icon}</div>`;
+        html += `<div class="gam-badge-name" style="font-size:11px;font-weight:700;margin-bottom:2px;">${badge.name}</div>`;
+        html += `<div class="gam-badge-desc" style="font-size:10px;color:var(--sub);line-height:1.3;">${badge.desc}</div>`;
+        html += `</div>`;
+      } else {
+        html += `<div class="gam-badge ${isUnlocked ? badge.r : 'locked'}">`;
+        if (isUnlocked) html += `<div style="font-size:9px;font-weight:700;color:${rc};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">${rarityLabel[badge.r]||''}</div>`;
+        html += `<div class="gam-badge-icon">${isUnlocked ? badge.icon : '🔒'}</div>`;
+        html += `<div class="gam-badge-name" style="font-size:11px;font-weight:700;margin-bottom:2px;">${badge.name}</div>`;
+        if (isUnlocked) html += `<div style="font-size:9px;color:var(--purple);margin-bottom:3px;font-style:italic;">${badge.ref}</div>`;
+        html += `<div class="gam-badge-desc" style="font-size:10px;color:var(--sub);line-height:1.3;">${isUnlocked ? badge.desc : '???'}</div>`;
+        html += `</div>`;
+      }
+    });
+    html += `</div></div>`;
+  });
+  badgesContent.innerHTML = html;
+}
 
 // ============================================================
 // HEVY IMPORT — CORE
@@ -4762,8 +5235,9 @@ function generateAlgoSessionDebrief(session) {
   const nbExos = session.exercises.length;
   const nbSets = session.exercises.reduce((s,e) => s + (e.sets||0), 0);
   const date = session.shortDate || session.date || '';
+  const bw = db.user.bw || 80;
 
-  // PRs de cette séance
+  // ── PRs ──
   const prs = [];
   session.exercises.forEach(exo => {
     if (!exo.maxRM || exo.maxRM <= 0) return;
@@ -4775,29 +5249,140 @@ function generateAlgoSessionDebrief(session) {
     }
   });
 
-  // Groupes musculaires travaillés
-  const muscleMap = {};
+  // ── Sub-muscle groups ──
+  const subMuscleMap = {};
+  const parentMuscleMap = {};
   session.exercises.forEach(e => {
     const mg = getMuscleGroup(e.name);
-    muscleMap[mg] = (muscleMap[mg]||0) + (e.sets||1);
+    const parent = getMuscleGroupParent(mg);
+    subMuscleMap[mg] = (subMuscleMap[mg]||0) + (e.sets||1);
+    if (!parentMuscleMap[parent]) parentMuscleMap[parent] = { subs: new Set(), sets: 0 };
+    parentMuscleMap[parent].sets += (e.sets||1);
+    if (mg !== parent) parentMuscleMap[parent].subs.add(mg);
   });
-  const muscles = Object.entries(muscleMap).sort((a,b) => b[1]-a[1]);
 
-  // Construction HTML
+  // ── Comparison vs last session per exercise ──
+  const exoComparisons = [];
+  session.exercises.forEach(exo => {
+    if (exo.isCardio || exo.isTime) return;
+    let prevExo = null, prevDate = '';
+    for (const log of db.logs) {
+      if (log.timestamp >= session.timestamp || log.id === session.id) continue;
+      const match = log.exercises.find(e => matchExoName(e.name, exo.name));
+      if (match) { prevExo = match; prevDate = log.shortDate || log.date || ''; break; }
+    }
+    const comp = { name: exo.name, e1rm: exo.maxRM || 0, sets: exo.sets || 0 };
+    if (prevExo) {
+      comp.prevE1RM = prevExo.maxRM || 0;
+      comp.prevSets = prevExo.sets || 0;
+      comp.prevDate = prevDate;
+      if (comp.e1rm > 0 && comp.prevE1RM > 0) {
+        comp.e1rmDelta = Math.round((comp.e1rm - comp.prevE1RM)*10)/10;
+      }
+    }
+    // Strength level
+    const sl = getStrengthLevel(exo.name, exo.maxRM, bw);
+    if (sl) comp.strengthLevel = sl;
+    exoComparisons.push(comp);
+  });
+
+  // ── Program compliance ──
+  let compliance = null;
+  const sessionDay = session.day || DAYS_FULL[new Date(session.timestamp).getDay()];
+  if (db.weeklyPlan && db.weeklyPlan.days) {
+    const planDay = db.weeklyPlan.days.find(d => d.day === sessionDay && !d.rest);
+    if (planDay && planDay.exercises && planDay.exercises.length > 0) {
+      const planned = planDay.exercises.filter(e => e.type === 'weight' && !e.noData);
+      let matched = 0, weightOk = 0, weightTotal = 0;
+      planned.forEach(pe => {
+        const sessMatch = session.exercises.find(se => matchExoName(se.name, pe.name));
+        if (sessMatch) {
+          matched++;
+          const planWeight = pe.sets && pe.sets.length ? pe.sets.filter(s => !s.isWarmup)[0]?.weight || 0 : 0;
+          const sessWeight = sessMatch.series && sessMatch.series.length ? Math.max(...sessMatch.series.map(s => s.weight || 0)) : 0;
+          if (planWeight > 0 && sessWeight > 0) {
+            weightTotal++;
+            if (Math.abs(sessWeight - planWeight) <= 2.5) weightOk++;
+          }
+        }
+      });
+      compliance = { total: planned.length, matched, weightOk, weightTotal, title: planDay.title };
+    }
+  }
+  // Fallback: check routine text
+  if (!compliance && db.generatedProgram) {
+    const planDay = db.generatedProgram.find(d => d.day === sessionDay && !d.isRest);
+    if (planDay && planDay.exos && planDay.exos.length > 0) {
+      let matched = 0;
+      planDay.exos.forEach(exoId => {
+        const exoName = (EXO_DB[exoId] || {}).name || exoId;
+        if (session.exercises.some(se => matchExoName(se.name, exoName))) matched++;
+      });
+      compliance = { total: planDay.exos.length, matched, weightOk: 0, weightTotal: 0, title: planDay.label };
+    }
+  }
+
+  // ── Session score (0-100) ──
+  let score = 40;
+  if (prs.length >= 1) score += 10;
+  if (prs.length >= 3) score += 10;
+  if (nbSets >= 12) score += 5;
+  if (nbSets >= 20) score += 5;
+  const logs7 = getLogsInRange(7).filter(l => l.id !== session.id);
+  const avgVol7 = logs7.length ? logs7.reduce((s,l) => s+l.volume, 0) / logs7.length : 0;
+  if (avgVol7 > 0) {
+    const ratio = totalVol / avgVol7;
+    if (ratio >= 0.8 && ratio <= 1.3) score += 10;
+    else if (ratio > 1.3) score += 5;
+  } else if (totalVol > 0) { score += 10; }
+  if (compliance) {
+    const pct = compliance.total > 0 ? compliance.matched / compliance.total : 0;
+    score += Math.round(pct * 15);
+    if (compliance.weightTotal > 0) score += Math.round((compliance.weightOk / compliance.weightTotal) * 5);
+  }
+  const hasProgressions = exoComparisons.filter(c => c.e1rmDelta > 0).length;
+  score += Math.min(10, hasProgressions * 3);
+  score = Math.min(100, Math.max(0, score));
+
+  // ── BUILD HTML ──
   let html = '';
-
-  // En-tête
   const title = session.title || 'Séance';
-  html += `<div class="ai-section"><div class="ai-section-title">🏋️ ${title} — ${date}</div>`;
-  html += `<strong>${nbExos}</strong> exercices · <strong>${nbSets}</strong> séries · <strong>${(totalVol/1000).toFixed(1)}t</strong> de volume`;
-  if (cardioExos.length) html += ` · <strong>${cardioExos.length}</strong> cardio`;
-  html += '</div>';
+  const scoreColor = score >= 80 ? 'green' : score >= 60 ? 'blue' : score >= 40 ? 'orange' : 'red';
+  const scoreEmoji = score >= 80 ? '🔥' : score >= 60 ? '💪' : score >= 40 ? '👍' : '📈';
 
-  // Muscles travaillés
-  if (muscles.length) {
+  // En-tête + score
+  html += `<div class="ai-section"><div class="ai-section-title">${scoreEmoji} ${title} — ${date}</div>`;
+  html += `<div style="display:flex;align-items:center;gap:12px;">`;
+  html += `<div style="flex:1;"><strong>${nbExos}</strong> exercices · <strong>${nbSets}</strong> séries · <strong>${(totalVol/1000).toFixed(1)}t</strong> de volume`;
+  if (cardioExos.length) html += ` · <strong>${cardioExos.length}</strong> cardio`;
+  html += `</div>`;
+  html += `<div style="text-align:center;min-width:50px;"><div style="font-size:22px;font-weight:800;color:var(--${scoreColor});">${score}</div><div style="font-size:9px;color:var(--sub);text-transform:uppercase;">Score</div></div>`;
+  html += `</div></div>`;
+
+  // Conformité programme
+  if (compliance) {
+    const pct = compliance.total > 0 ? Math.round(compliance.matched / compliance.total * 100) : 0;
+    const pctColor = pct >= 80 ? 'green' : pct >= 50 ? 'orange' : 'red';
+    html += `<div class="ai-section"><div class="ai-section-title">📋 Conformité programme</div>`;
+    html += `<div style="margin-bottom:4px;">Programme du jour : <strong>${compliance.title}</strong></div>`;
+    html += `<div>Exercices suivis : <span class="ai-highlight ${pctColor}">${compliance.matched}/${compliance.total} (${pct}%)</span></div>`;
+    if (compliance.weightTotal > 0) {
+      html += `<div>Charges conformes (±2.5kg) : <span class="ai-highlight ${compliance.weightOk === compliance.weightTotal ? 'green' : 'orange'}">${compliance.weightOk}/${compliance.weightTotal}</span></div>`;
+    }
+    html += '</div>';
+  }
+
+  // Muscles travaillés (sub-groups)
+  const parentEntries = Object.entries(parentMuscleMap).sort((a,b) => b[1].sets - a[1].sets);
+  if (parentEntries.length) {
     html += '<div class="ai-section"><div class="ai-section-title">💪 Muscles travaillés</div>';
-    muscles.forEach(([mg, sets]) => {
-      html += `<span class="ai-highlight blue">${mg}</span> (${sets} séries) `;
+    parentEntries.forEach(([parent, data]) => {
+      const subsArr = [...data.subs];
+      if (subsArr.length > 0) {
+        html += `<div style="margin-bottom:3px;"><span class="ai-highlight blue">${parent}</span> <span style="font-size:11px;color:var(--sub);">(${subsArr.join(', ')})</span> — ${data.sets} séries</div>`;
+      } else {
+        html += `<div style="margin-bottom:3px;"><span class="ai-highlight blue">${parent}</span> — ${data.sets} séries</div>`;
+      }
     });
     html += '</div>';
   }
@@ -4815,47 +5400,130 @@ function generateAlgoSessionDebrief(session) {
     html += '</div>';
   }
 
-  // Analyse par exercice (top 5)
-  const topExos = exos.filter(e => e.maxRM > 0).slice(0, 5);
-  if (topExos.length) {
-    html += '<div class="ai-section"><div class="ai-section-title">📊 Détails</div>';
-    topExos.forEach(exo => {
-      const bestSet = exo.series && exo.series.length ? exo.series.sort((a,b) => (b.weight||0) - (a.weight||0))[0] : null;
-      const setInfo = bestSet ? `${bestSet.weight}kg × ${bestSet.reps}` : '';
-      html += `<div style="margin-bottom:4px;"><strong>${exo.name}</strong> — e1RM <span class="ai-highlight blue">${Math.round(exo.maxRM)}kg</span> ${setInfo ? '(meilleure série: '+setInfo+')' : ''} · ${exo.sets||0} séries</div>`;
+  // Détails par exercice (vs dernière séance + niveau)
+  const weightExos = exoComparisons.filter(c => c.e1rm > 0);
+  if (weightExos.length) {
+    html += '<div class="ai-section"><div class="ai-section-title">📊 Détails par exercice</div>';
+    weightExos.forEach(comp => {
+      html += `<div style="margin-bottom:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">`;
+      html += `<div><strong>${comp.name}</strong> — e1RM <span class="ai-highlight blue">${Math.round(comp.e1rm)}kg</span> · ${comp.sets} séries</div>`;
+      // vs last session
+      if (comp.prevE1RM) {
+        const arrow = comp.e1rmDelta > 0 ? '↑' : comp.e1rmDelta < 0 ? '↓' : '=';
+        const color = comp.e1rmDelta > 0 ? 'var(--green)' : comp.e1rmDelta < 0 ? 'var(--red)' : 'var(--sub)';
+        html += `<div style="font-size:11px;color:var(--sub);">vs dernière (${comp.prevDate}) : ${Math.round(comp.prevE1RM)}kg <span style="color:${color};font-weight:600;">${arrow} ${comp.e1rmDelta > 0 ? '+' : ''}${comp.e1rmDelta}kg</span></div>`;
+      }
+      // strength level
+      if (comp.strengthLevel) {
+        const sl = comp.strengthLevel;
+        html += `<div style="font-size:11px;margin-top:2px;">`;
+        html += `<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${sl.color}22;color:${sl.color};">${sl.label}</span>`;
+        html += ` <span style="color:var(--sub);">${sl.topPct}</span>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
     });
     html += '</div>';
   }
 
-  // Coaching contextuel
+  // Coaching contextuel enrichi
   const tips = [];
-  if (totalVol > 0) {
-    const logs7 = getLogsInRange(7).filter(l => l.id !== session.id);
-    const avgVol7 = logs7.length ? logs7.reduce((s,l) => s+l.volume, 0) / logs7.length : 0;
-    if (avgVol7 > 0) {
-      const ratio = totalVol / avgVol7;
-      if (ratio > 1.3) tips.push('Volume élevé aujourd\'hui (+' + Math.round((ratio-1)*100) + '% vs moyenne). Pense à bien récupérer.');
-      else if (ratio < 0.6) tips.push('Volume léger — parfait pour un jour de récupération active ou deload.');
-    }
+  if (avgVol7 > 0) {
+    const ratio = totalVol / avgVol7;
+    if (ratio > 1.3) tips.push('⚡ Volume élevé (+' + Math.round((ratio-1)*100) + '% vs ta moyenne). Assure-toi de bien récupérer (sommeil, protéines, hydratation).');
+    else if (ratio < 0.6) tips.push('🧘 Volume léger — parfait pour un deload ou une récupération active.');
+    else tips.push('✅ Volume dans ta zone habituelle — bonne régularité.');
   }
-  if (prs.length >= 2) tips.push('Plusieurs PRs en une séance — belle performance ! Continue sur ta lancée.');
-  if (prs.length === 0 && exos.length > 3) tips.push('Pas de record aujourd\'hui, mais la régularité est la clé. Chaque séance compte.');
+  if (prs.length >= 2) tips.push('🎯 Plusieurs PRs en une séance — tu es clairement en forme ! Profite de cette dynamique.');
+  else if (prs.length === 0 && exos.length > 3) tips.push('📊 Pas de record aujourd\'hui, mais la constance est ta meilleure arme. Les PRs viendront.');
+
+  // Déséquilibre agoniste/antagoniste
+  const pecSets = parentMuscleMap['Pecs'] ? parentMuscleMap['Pecs'].sets : 0;
+  const dosSets = parentMuscleMap['Dos'] ? parentMuscleMap['Dos'].sets : 0;
+  if (pecSets > 0 && dosSets === 0) tips.push('⚠️ Beaucoup de pecs sans dos — pense à équilibrer (rowing, tractions) pour éviter les déséquilibres posturaux.');
+  if (dosSets > 0 && pecSets === 0 && session.exercises.some(e => getMuscleGroupParent(getMuscleGroup(e.name)) === 'Bras')) {
+    tips.push('👌 Bonne séance dos + bras — combo efficace pour le développement du haut du corps.');
+  }
+
+  // Quadriceps vs ischio
+  const quadSets = subMuscleMap['Quadriceps'] || 0;
+  const ischioSets = subMuscleMap['Ischio-jambiers'] || 0;
+  if (quadSets > 6 && ischioSets === 0) tips.push('⚠️ Beaucoup de quadriceps sans ischios — ajoute du leg curl ou RDL pour protéger tes genoux.');
+
   const plateaux = ['bench','squat','deadlift'].map(t => detectPlateau(t)).filter(Boolean);
   plateaux.forEach(p => {
-    const nm = p.type === 'bench' ? 'Bench' : p.type === 'squat' ? 'Squat' : 'Deadlift';
-    tips.push(nm + ' en plateau — envisage une variante (pause rep, tempo, déficit) ou un deload.');
+    const sugg = { bench: 'Spoto press, larsen press ou tempo bench', squat: 'Pause squat, pin squat ou tempo', deadlift: 'Déficit deadlift, Romanian ou block pulls' };
+    tips.push(`📉 ${p.type.charAt(0).toUpperCase()+p.type.slice(1)} en plateau — essaie : ${sugg[p.type]}.`);
   });
-  if (nbSets > 25) tips.push('Grosse séance (+25 séries). Assure-toi de dormir 7-8h et de manger suffisamment de protéines.');
-  if (cardioExos.length && exos.length) tips.push('Combo muscu + cardio — bon pour la santé globale et l\'endurance.');
+  if (nbSets > 25) tips.push('🏋️ Grosse séance (+25 séries). Vise 7-8h de sommeil et 2g/kg de protéines.');
+  if (cardioExos.length && exos.length) tips.push('🏃 Combo muscu + cardio — excellent pour la santé cardiovasculaire.');
+
+  // Compliance tips
+  if (compliance && compliance.total > 0 && compliance.matched < compliance.total * 0.5) {
+    tips.push('📋 Séance assez éloignée du programme prévu. Essaie de suivre le plan pour optimiser ta progression.');
+  }
 
   if (tips.length) {
     html += '<div class="ai-section"><div class="ai-section-title">💡 Coaching</div>';
-    tips.forEach(t => { html += `<div style="margin-bottom:4px;">→ ${t}</div>`; });
+    tips.forEach(t => { html += `<div style="margin-bottom:6px;line-height:1.4;">${t}</div>`; });
     html += '</div>';
   }
 
   html += '<div class="ai-timestamp">Coach Algo · Debrief automatique · Sans IA</div>';
   return html;
+}
+
+// ── STRENGTH STANDARDS — Niveaux par exercice ──────────────
+// Ratios e1RM / poids de corps pour classifier le niveau
+// 5 niveaux: Débutant, Novice, Intermédiaire, Avancé, Élite
+const STRENGTH_STANDARDS = {
+  bench:    { patterns: [/bench\s*press|developpe\s*couche/i], ratios: [0.50, 0.75, 1.00, 1.50, 2.00] },
+  incline:  { patterns: [/incline|developpe\s*incline/i], ratios: [0.40, 0.65, 0.85, 1.25, 1.70] },
+  squat:    { patterns: [/\bsquat\b/i], ratios: [0.75, 1.00, 1.50, 2.00, 2.50] },
+  deadlift: { patterns: [/deadlift|souleve\s*de\s*terre/i], ratios: [1.00, 1.25, 1.75, 2.25, 3.00] },
+  ohp:      { patterns: [/overhead|militaire|ohp\b/i], ratios: [0.35, 0.50, 0.75, 1.00, 1.35] },
+  row:      { patterns: [/rowing|row\b/i], ratios: [0.50, 0.70, 1.00, 1.30, 1.60] },
+  legpress: { patterns: [/leg\s*press|presse/i], ratios: [1.50, 2.00, 3.00, 4.00, 5.50] },
+  latpull:  { patterns: [/lat\s*pull|tirage\s*(poulie\s*)?haute/i], ratios: [0.50, 0.70, 0.90, 1.10, 1.30] },
+  curl:     { patterns: [/curl/i], ratios: [0.15, 0.25, 0.40, 0.55, 0.70] },
+  dips:     { patterns: [/dips/i], ratios: [0.0, 0.10, 0.30, 0.55, 0.80] },
+  hipthrust:{ patterns: [/hip\s*thrust/i], ratios: [0.75, 1.00, 1.50, 2.00, 2.75] },
+  rdl:      { patterns: [/rdl|romanian/i], ratios: [0.75, 1.00, 1.40, 1.80, 2.30] },
+};
+const STRENGTH_LABELS = [
+  { label: 'Débutant',      color: '#86868B', topPct: 'Top 80%' },
+  { label: 'Novice',        color: '#0A84FF', topPct: 'Top 60%' },
+  { label: 'Intermédiaire', color: '#32D74B', topPct: 'Top 40%' },
+  { label: 'Avancé',        color: '#FF9F0A', topPct: 'Top 15%' },
+  { label: 'Élite',         color: '#BF5AF2', topPct: 'Top 3%'  },
+];
+
+function getStrengthLevel(exoName, e1rm, bw) {
+  if (!e1rm || e1rm <= 0 || !bw || bw <= 0) return null;
+  const norm = exoName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let stdKey = null;
+  for (const [key, std] of Object.entries(STRENGTH_STANDARDS)) {
+    if (std.patterns.some(p => p.test(norm))) { stdKey = key; break; }
+  }
+  if (!stdKey) return null;
+  const ratios = STRENGTH_STANDARDS[stdKey].ratios;
+  const ratio = e1rm / bw;
+  let level = 0;
+  for (let i = 0; i < ratios.length; i++) {
+    if (ratio >= ratios[i]) level = i;
+  }
+  // Interpolate for finer Top X%
+  const basePcts = [80, 60, 40, 15, 3];
+  let topPct;
+  if (level < ratios.length - 1) {
+    const lo = ratios[level], hi = ratios[level + 1];
+    const frac = Math.min(1, (ratio - lo) / (hi - lo));
+    const pctLo = basePcts[level], pctHi = basePcts[level + 1];
+    topPct = 'Top ' + Math.round(pctLo - frac * (pctLo - pctHi)) + '%';
+  } else {
+    topPct = ratio >= ratios[ratios.length-1] * 1.15 ? 'Top 1%' : 'Top 3%';
+  }
+  return { ...STRENGTH_LABELS[level], topPct, ratio: Math.round(ratio * 100) / 100, levelIdx: level };
 }
 
 function findPreviousBestE1RM(exoName, beforeTs) {

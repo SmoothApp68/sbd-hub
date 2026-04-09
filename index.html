@@ -1592,7 +1592,7 @@
       <h2 style="color:var(--purple);">⚡ Rapport IA Approfondi</h2>
       <p style="font-size:12px;color:var(--sub);margin:4px 0 14px;">Analyse complète par Claude — nécessite une clé API dans Réglages.</p>
       <div class="ai-action-grid" style="margin-bottom:12px;">
-        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
+        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label" id="aiProgressionLabel">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
         <button class="ai-action-btn" onclick="aiAction('weakpoints')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🎯</div><div class="ai-action-label">Points Faibles</div><div class="ai-action-desc">Déséquilibres</div></button>
         <button class="ai-action-btn" onclick="aiAction('next')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Conseils du jour</div></button>
         <button class="ai-action-btn" onclick="aiAction('weekly')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📊</div><div class="ai-action-label">Bilan Hebdo</div><div class="ai-action-desc">Résumé semaine</div></button>
@@ -6314,7 +6314,15 @@ async function callAI(systemPrompt, userPrompt) {
   } catch(err){console.error('AI:',err);return null;}
 }
 
-const AI_SYSTEM=`Tu es un coach de force spécialisé en powerlifting (SBD). Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
+function getAISystem() {
+  const modeLabels = {
+    bien_etre: 'coach sportif spécialisé en bien-être, forme générale et santé',
+    bodybuilding: 'coach de musculation spécialisé en hypertrophie et bodybuilding',
+    powerlifting: 'coach de force spécialisé en powerlifting (SBD)',
+    force_athletique: 'coach de force athlétique spécialisé en compétition et périodisation'
+  };
+  const role = modeLabels[db.user.trainingMode] || modeLabels.powerlifting;
+  return `Tu es un ${role}. Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
 RÈGLES IMPORTANTES:
 - Les charges indiquées dans les séances sont les POIDS RÉELS soulevés (ex: "125kg × 4" = 4 reps à 125kg).
 - Les "e1RM" ou "records" sont des ESTIMATIONS calculées par la formule d'Epley, PAS des charges réellement soulevées.
@@ -6325,6 +6333,8 @@ RÈGLES DE FORMAT:
 - Sections: 1. "📊 DÉBRIEF/BILAN" 2. "🎯 VISION SEMAINE" 3. "💡 CONSEIL PERSO"
 - Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
 - 150-250 mots max. Tutoie. Français.`;
+}
+const AI_SYSTEM = ''; // legacy — use getAISystem() instead
 
 function showAILoading(id){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>';}
 function showAIResponse(id,html){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>';}
@@ -6334,7 +6344,7 @@ async function aiGenerateDebrief(session, rawText) {
   const container=document.getElementById('aiImportAnalysis');container.style.display='block';container.innerHTML='<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
   const ctx=buildAthleteContext();
   const prompt='Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+(ctx.name?ctx.name+', ':'')+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
-  const result=await callAI(AI_SYSTEM,prompt);
+  const result=await callAI(getAISystem(),prompt);
   if(result){showAIResponse('aiImportResponse',result);upsertReport('debrief',result,session.id);}
   else showAIError('aiImportResponse');
 }
@@ -6343,7 +6353,7 @@ async function aiGenerateWeekly() {
   showAILoading('aiResponseArea');
   const ctx=buildAthleteContext();
   const prompt='Bilan hebdo'+(ctx.name?' pour '+ctx.name:'')+(':\n\n7J: '+ctx.sessions7d+' séances, '+ctx.daysWithTraining7+'/7j\nMuscles: '+Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')+'\nVolumes: '+ctx.recentVolumes.map(v=>v.date+': '+(v.vol/1000).toFixed(1)+'t ('+v.title+')').join(' | ')+'\n\nPROFIL: '+ctx.bw+'kg | B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nOBJ: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n'));
-  const result=await callAI(AI_SYSTEM,prompt);
+  const result=await callAI(getAISystem(),prompt);
   if(result){showAIResponse('aiResponseArea',result);upsertReport('weekly',result);showToast('📊 Bilan hebdo enregistré');}
   else showAIError('aiResponseArea');
 }
@@ -6356,7 +6366,7 @@ async function aiAction(type) {
   if(type==='progression')prompt='Progression SBD'+(ctx.name?' de '+ctx.name:'')+':\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nPoids: '+ctx.bw+'kg\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\nTotal: '+ctx.totalSessions+' | 30j: '+ctx.sessions30d;
   else if(type==='weakpoints')prompt='Points faibles'+(ctx.name?' de '+ctx.name:'')+':\nMuscles 7j: '+(Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucune donnée')+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nPoids: '+ctx.bw+'kg | Fréq: '+ctx.sessions7d+'/sem';
   else if(type==='next')prompt="Séance du jour"+(ctx.name?' pour '+ctx.name:'')+":\nAUJOURD'HUI: "+ctx.todayDay+'\nPROGRAMME: '+getRoutine()[ctx.todayDay]+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+' | '+ctx.bw+'kg\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nRécent: '+(ctx.recentVolumes.slice(0,3).map(v=>v.title+' ('+v.date+')').join(', ')||'Aucune')+'\nSéances/sem: '+ctx.sessions7d;
-  const result=await callAI(AI_SYSTEM,prompt);
+  const result=await callAI(getAISystem(),prompt);
   if(result)showAIResponse('aiResponseArea',result);
   else showAIError('aiResponseArea');
 }
@@ -8174,14 +8184,22 @@ function generateCoachAlgoMessage() {
   const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);
   const momB=calcMomentum('bench'),momS=calcMomentum('squat'),momD=calcMomentum('deadlift');
   let sections=[];
-  let analyseForce=`<div class="ai-section-title">📊 FORCE</div>`;
-  if (ipf>0) {
-    const ipfLabel=ipf<300?'débutant':ipf<400?'intermédiaire':ipf<500?'avancé':'élite';
-    analyseForce+=`Score IPF GL : <span class="ai-highlight blue">${ipf} pts</span> (niveau ${ipfLabel})<br>`;
+  // Force section: adapt to mode
+  if (modeFeature('showSBDCards')) {
+    let analyseForce=`<div class="ai-section-title">📊 FORCE</div>`;
+    if (modeFeature('showIPF') && ipf>0) {
+      const ipfLabel=ipf<300?'débutant':ipf<400?'intermédiaire':ipf<500?'avancé':'élite';
+      analyseForce+=`Score IPF GL : <span class="ai-highlight blue">${ipf} pts</span> (niveau ${ipfLabel})<br>`;
+    }
+    const moms=[momB&&`Bench ${momB>0?'+':''}${momB}kg/sem`,momS&&`Squat ${momS>0?'+':''}${momS}kg/sem`,momD&&`Dead ${momD>0?'+':''}${momD}kg/sem`].filter(Boolean);
+    if (moms.length) analyseForce+=`Momentum : <span class="ai-highlight ${moms.some(m=>m.includes('-'))?'orange':'green'}">${moms.join(' · ')}</span>`;
+    sections.push(`<div class="ai-section">${analyseForce}</div>`);
+  } else {
+    // Non-SBD mode: show general training stats
+    let analyseGeneral=`<div class="ai-section-title">📊 ENTRAÎNEMENT</div>`;
+    analyseGeneral+=`Séances (7j) : <span class="ai-highlight blue">${logs7.length}</span> · Tonnage : <span class="ai-highlight green">${Math.round(tonnage7)}kg</span>`;
+    sections.push(`<div class="ai-section">${analyseGeneral}</div>`);
   }
-  const moms=[momB&&`Bench ${momB>0?'+':''}${momB}kg/sem`,momS&&`Squat ${momS>0?'+':''}${momS}kg/sem`,momD&&`Dead ${momD>0?'+':''}${momD}kg/sem`].filter(Boolean);
-  if (moms.length) analyseForce+=`Momentum : <span class="ai-highlight ${moms.some(m=>m.includes('-'))?'orange':'green'}">${moms.join(' · ')}</span>`;
-  sections.push(`<div class="ai-section">${analyseForce}</div>`);
   if (tdee>0) {
     let nutri=`<div class="ai-section-title">🍽️ NUTRITION</div>`;
     nutri+=`TDEE estimé : <span class="ai-highlight blue">${tdee} kcal/jour</span><br>`;
@@ -8195,7 +8213,7 @@ function generateCoachAlgoMessage() {
     } else if (!kcalAuj) nutri+=`<span style="color:var(--sub);font-size:12px;">Entre tes macros du jour pour l'analyse.</span>`;
     sections.push(`<div class="ai-section">${nutri}</div>`);
   }
-  if (plateaux.length>0) {
+  if (modeFeature('showPlateauDetection') && plateaux.length>0) {
     let alertes=`<div class="ai-section-title">⚠️ ALERTES</div>`;
     const sugg={bench:'Essaie Spoto Bench ou monte le volume',squat:'Variation pause squat ou fentes lestées',deadlift:'Déficit deadlift ou Romanian'};
     const _sbdNames={bench:'Bench Press (Barbell)',squat:'Squat (Barbell)',deadlift:'Deadlift (Barbell)'};
@@ -10185,6 +10203,12 @@ function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
   if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
+  // Update progression button label based on mode
+  const progLabel = document.getElementById('aiProgressionLabel');
+  if (progLabel) {
+    const labels = { bien_etre: 'Évolution Forme', bodybuilding: 'Progression Volume', powerlifting: 'Progression SBD', force_athletique: 'Progression Force' };
+    progLabel.textContent = labels[db.user.trainingMode] || 'Progression SBD';
+  }
 }
 
 // ============================================================

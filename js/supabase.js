@@ -921,56 +921,12 @@ async function createNewInviteCode() {
   }
 }
 
-async function regenerateInviteCode() {
-  const code = await createNewInviteCode();
-  if (code) {
-    document.getElementById('myInviteCode').textContent = code;
-    showToast('Nouveau code généré');
-  }
-}
-
 function copyFriendCode() {
   const code = document.getElementById('myFriendCode').textContent;
   if (!code || code === '---') return;
   navigator.clipboard.writeText(code).then(() => showToast('Code ami copié !')).catch(() => showToast('Erreur copie'));
 }
 
-function copyInviteCode() {
-  const code = document.getElementById('myInviteCode').textContent;
-  if (!code || code === '---') return;
-  navigator.clipboard.writeText(code).then(() => showToast('Code copié !')).catch(() => showToast('Erreur copie'));
-}
-
-async function useInviteCode() {
-  const input = document.getElementById('useInviteCodeInput');
-  const code = (input.value || '').trim().toUpperCase();
-  if (!code) { showToast('Entre un code'); return; }
-  const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient) return;
-
-  try {
-    const { data: invite } = await supaClient.from('invite_codes')
-      .select('id, user_id, used_by')
-      .eq('code', code)
-      .maybeSingle();
-    if (!invite) { showToast('Code invalide'); return; }
-    if (invite.used_by) { showToast('Code déjà utilisé'); return; }
-    if (invite.user_id === uid) { showToast('C\'est ton propre code !'); return; }
-
-    // Mark code as used
-    await supaClient.from('invite_codes').update({
-      used_by: uid,
-      used_at: new Date().toISOString()
-    }).eq('id', invite.id);
-
-    // Send friend request
-    await sendFriendRequest(invite.user_id);
-    input.value = '';
-  } catch (e) {
-    console.error('useInviteCode error:', e);
-    showToast('Erreur');
-  }
-}
 
 // ============================================================
 // SOCIAL MODULE — ACTIVITY FEED
@@ -1547,10 +1503,6 @@ async function renderFriendsTab() {
   const friendCode = await ensureFriendCode();
   const fcEl = document.getElementById('myFriendCode');
   if (fcEl) fcEl.textContent = friendCode || '---';
-
-  // Load invite code
-  const code = await loadMyInviteCode();
-  document.getElementById('myInviteCode').textContent = code || '---';
 
   // Load friendships
   const friends = await loadFriends();

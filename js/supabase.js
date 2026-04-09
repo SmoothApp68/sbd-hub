@@ -1,0 +1,2004 @@
+// ============================================================
+// supabase.js — Auth, cloud sync, social module
+// ============================================================
+
+// ============================================================
+// SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://swwygywahfdenyzotrce.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
+let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
+try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
+
+
+// ============================================================
+// CLOUD SYNC
+// ============================================================
+async function cloudSignIn() {
+  if (!supaClient) return null;
+  try {
+    const {data:{session}} = await supaClient.auth.getSession();
+    if (session) {
+      cloudSyncEnabled = true;
+      updateCloudUI(session.user);
+      // Check password migration (handles anonymous vs email)
+      checkPasswordMigration(session.user);
+      return session.user;
+    }
+    const {data, error} = await supaClient.auth.signInAnonymously();
+    if (error) throw error;
+    cloudSyncEnabled = true;
+    updateCloudUI(data.user);
+    return data.user;
+  } catch(e) {
+    console.error('Cloud sign-in:', e);
+    updateCloudUI(null, e.message);
+    return null;
+  }
+}
+
+// Listen for auth state changes (handles password recovery callback)
+if (supaClient) {
+  supaClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showSetNewPasswordModal();
+    }
+  });
+}
+
+function showSetNewPasswordModal() {
+  const existing = document.getElementById('setNewPasswordOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'setNewPasswordOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.style.zIndex = '99999';
+  overlay.innerHTML =
+    '<div class="modal-box" style="max-width:340px;text-align:left;">' +
+      '<div style="font-size:28px;text-align:center;margin-bottom:8px;">🔑</div>' +
+      '<p style="font-size:16px;font-weight:700;margin:0 0 6px;text-align:center;">Définir ton mot de passe</p>' +
+      '<p style="font-size:12px;color:var(--sub);margin:0 0 16px;text-align:center;line-height:1.5;">Choisis un mot de passe pour sécuriser ton compte. Tes données seront conservées.</p>' +
+      '<input type="password" id="newPwInput" placeholder="Nouveau mot de passe (min. 8 car.)" style="margin-bottom:8px;" minlength="8">' +
+      '<input type="password" id="newPwConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:4px;">' +
+      '<div id="newPwError" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;text-align:center;"></div>' +
+      '<button class="btn" onclick="submitNewPassword()" id="newPwBtn">Valider</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('newPwInput')?.focus(), 100);
+}
+
+async function submitNewPassword() {
+  const pw = (document.getElementById('newPwInput')?.value || '').trim();
+  const pw2 = (document.getElementById('newPwConfirm')?.value || '').trim();
+  const errEl = document.getElementById('newPwError');
+  const btn = document.getElementById('newPwBtn');
+  if (!pw || pw.length < 8) { if (errEl) errEl.textContent = 'Minimum 8 caractères'; return; }
+  if (pw !== pw2) { if (errEl) errEl.textContent = 'Les mots de passe ne correspondent pas'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement...'; }
+  try {
+    const { error } = await supaClient.auth.updateUser({ password: pw });
+    if (error) throw error;
+    db.passwordMigrated = true;
+    saveDB();
+    const uid = await getMyUserIdAsync();
+    if (uid) {
+      try {
+        await supaClient.from('profiles').upsert({
+          id: uid, password_migrated: true, updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      } catch(pe) { console.warn('Profile upsert on recovery:', pe); }
+    }
+    const overlay = document.getElementById('setNewPasswordOverlay');
+    if (overlay) overlay.remove();
+    cloudSyncEnabled = true;
+    const { data } = await supaClient.auth.getUser();
+    if (data?.user) updateCloudUI(data.user);
+    await syncToCloud(true);
+    showToast('Mot de passe défini ! Tes données sont synchronisées.');
+  } catch(e) {
+    if (errEl) errEl.textContent = translateSupaError(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Valider'; }
+  }
+}
+
+async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
+function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
+function updateSyncStatus(s) {
+  const el = document.getElementById('syncIndicator');
+  if (el) {
+    el.textContent = s==='sync' ? '✓ Sauvegardé' : s==='error' ? '⚠️ Erreur de sauvegarde' : '';
+    el.style.color = s==='error' ? 'var(--red)' : 'var(--green)';
+    setTimeout(() => { if (el) el.textContent = ''; }, 3000);
+  }
+  if (s === 'sync') {
+    const lsd = document.getElementById('lastSyncDisplay');
+    if (lsd) {
+      const now = new Date();
+      lsd.textContent = 'Dernière sauvegarde : ' + now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    }
+  }
+}
+// ── Auth mode toggle ──
+let _authMode = 'login';
+function switchAuthMode(mode) {
+  _authMode = mode;
+  const loginBtn = document.getElementById('authModeLogin');
+  const signupBtn = document.getElementById('authModeSignup');
+  const confirmField = document.getElementById('inputPasswordConfirm');
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const forgotBtn = document.getElementById('forgotPasswordBtn');
+  if (mode === 'login') {
+    loginBtn.style.background = 'var(--blue)'; loginBtn.style.color = 'white';
+    signupBtn.style.background = 'var(--surface)'; signupBtn.style.color = 'var(--sub)';
+    confirmField.style.display = 'none';
+    submitBtn.textContent = 'Se connecter';
+    forgotBtn.style.display = '';
+  } else {
+    signupBtn.style.background = 'var(--blue)'; signupBtn.style.color = 'white';
+    loginBtn.style.background = 'var(--surface)'; loginBtn.style.color = 'var(--sub)';
+    confirmField.style.display = '';
+    submitBtn.textContent = 'Créer un compte';
+    forgotBtn.style.display = 'none';
+  }
+}
+
+function translateSupaError(msg) {
+  if (!msg) return 'Erreur inconnue';
+  if (msg.includes('Invalid login credentials')) return 'Email ou mot de passe incorrect';
+  if (msg.includes('Email not confirmed')) return 'Confirme ton email avant de te connecter';
+  if (msg.includes('User already registered')) return 'Cet email est déjà utilisé';
+  if (msg.includes('Password should be at least')) return 'Le mot de passe doit faire au moins 8 caractères';
+  if (msg.includes('Email rate limit exceeded')) return 'Trop de tentatives, réessaie plus tard';
+  if (msg.includes('Signup requires a valid password')) return 'Mot de passe invalide';
+  if (msg.includes('Unable to validate email')) return 'Email invalide';
+  return msg;
+}
+
+async function authSubmit() {
+  const email = document.getElementById('inputEmail').value.trim();
+  const password = document.getElementById('inputPassword').value;
+  if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; }
+  if (!password || password.length < 8) { showToast('Le mot de passe doit faire au moins 8 caractères'); return; }
+  if (_authMode === 'signup') {
+    const confirm = document.getElementById('inputPasswordConfirm').value;
+    if (password !== confirm) { showToast('Les mots de passe ne correspondent pas'); return; }
+    try {
+      const { data, error } = await supaClient.auth.signUp({ email, password });
+      if (error) {
+        // If email already exists (magic link user), offer password reset
+        if (error.message && (error.message.includes('User already registered') || error.message.includes('already been registered'))) {
+          showMagicLinkMigrationPrompt(email);
+          return;
+        }
+        throw error;
+      }
+      if (data.user) {
+        db.passwordMigrated = true;
+        saveDB();
+        try {
+          await supaClient.from('profiles').upsert({
+            id: data.user.id,
+            password_migrated: true,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        } catch(pe) { console.warn('Profile upsert on signup:', pe); }
+        cloudSyncEnabled = true;
+        updateCloudUI(data.user);
+        await syncToCloud(true);
+        showToast('Compte créé ! Bienvenue');
+      }
+    } catch(e) { showToast(translateSupaError(e.message)); }
+  } else {
+    try {
+      const { data, error } = await supaClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (data.user) {
+        cloudSyncEnabled = true;
+        updateCloudUI(data.user);
+        await syncToCloud(true);
+        showToast('Connecté !');
+        checkPasswordMigration(data.user);
+      }
+    } catch(e) { showToast(translateSupaError(e.message)); }
+  }
+}
+
+function showMagicLinkMigrationPrompt(email) {
+  const existing = document.getElementById('magicLinkMigrationOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'magicLinkMigrationOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.style.zIndex = '99999';
+  overlay.innerHTML =
+    '<div class="modal-box" style="max-width:340px;text-align:left;">' +
+      '<div style="font-size:28px;text-align:center;margin-bottom:8px;">📧</div>' +
+      '<p style="font-size:16px;font-weight:700;margin:0 0 6px;text-align:center;">Compte existant détecté</p>' +
+      '<p style="font-size:13px;color:var(--sub);margin:0 0 16px;text-align:center;line-height:1.6;">' +
+        'L\'email <strong style="color:var(--text);">' + email + '</strong> est déjà associé à un compte (magic link).<br><br>' +
+        'Pour définir un mot de passe et garder toutes tes données, clique ci-dessous. Tu recevras un email pour créer ton mot de passe.' +
+      '</p>' +
+      '<button class="btn" onclick="sendMigrationReset(\'' + email + '\')" id="migrationResetBtn">Envoyer l\'email de création de mot de passe</button>' +
+      '<button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);margin-top:8px;font-size:13px;" onclick="document.getElementById(\'magicLinkMigrationOverlay\').remove()">Annuler</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+}
+
+async function sendMigrationReset(email) {
+  const btn = document.getElementById('migrationResetBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi en cours...'; }
+  try {
+    const { error } = await supaClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if (error) throw error;
+    const overlay = document.getElementById('magicLinkMigrationOverlay');
+    if (overlay) overlay.remove();
+    showToast('Email envoyé ! Vérifie ta boîte mail pour définir ton mot de passe.');
+  } catch(e) {
+    showToast(translateSupaError(e.message));
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer l\'email de création de mot de passe'; }
+  }
+}
+
+async function forgotPassword() {
+  const email = document.getElementById('inputEmail').value.trim();
+  if (!email || !email.includes('@')) { showToast('Entre d\'abord ton email'); return; }
+  try {
+    const { error } = await supaClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if (error) throw error;
+    showToast('Email de réinitialisation envoyé !');
+  } catch(e) { showToast(translateSupaError(e.message)); }
+}
+
+// ── Password migration check (handles anonymous vs email users) ──
+async function checkPasswordMigration(user) {
+  if (!user) return;
+
+  // Anonymous user (no email) — sign out silently, show normal login
+  if (!user.email) {
+    await supaClient.auth.signOut();
+    cloudSyncEnabled = false;
+    updateCloudUI(null);
+    // Do NOT touch db or localStorage — data stays intact
+    return;
+  }
+
+  // Email user — mark as migrated if profile confirms it
+  if (db.passwordMigrated === true) return;
+  try {
+    const { data } = await supaClient.from('profiles').select('password_migrated').eq('id', user.id).maybeSingle();
+    if (data && data.password_migrated === true) {
+      db.passwordMigrated = true;
+      saveDB();
+    }
+  } catch(e) { console.warn('Migration check error:', e); }
+  // No blocking modal — users who need a password can use "Mot de passe oublié"
+  // or the automatic prompt when signing up with an existing magic link email
+}
+async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
+
+
+// ============================================================
+// SOCIAL MODULE — STATE & HELPERS
+// ============================================================
+let _socialInitialized = false;
+let _feedPage = 0;
+const FEED_PAGE_SIZE = 20;
+let _feedItems = [];
+let _friendsCache = [];
+let _notifCache = [];
+let _leaderboardCache = [];
+let _socialSearchTimeout = null;
+
+const COMMON_EMOJIS = ['💪','🔥','👏','🎉','❤️','😤','🏆','⚡','👊','💯','🙌','😂','🤯','💀','🫡','👑'];
+
+function getMyUserId() {
+  if (!supaClient) return null;
+  try {
+    const session = supaClient.auth.getSession();
+    return session?.data?.session?.user?.id || null;
+  } catch { return null; }
+}
+
+async function getMyUserIdAsync() {
+  if (!supaClient) return null;
+  try {
+    const { data } = await supaClient.auth.getUser();
+    return data?.user?.id || null;
+  } catch { return null; }
+}
+
+function timeAgo(dateStr) {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return 'à l\'instant';
+  if (diff < 3600) return Math.floor(diff / 60) + 'min';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'j';
+  return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+
+function avatarInitial(username) {
+  return (username || '?').charAt(0).toUpperCase();
+}
+
+function generateInviteCodeString() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  code += '-';
+  for (let i = 0; i < 2; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function showSocialSub(subId, btn) {
+  document.querySelectorAll('.social-sub-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.social-sub-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(subId).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelector('.social-sub-tab[data-sub="'+subId+'"]')?.classList.add('active');
+  if (subId === 'social-feed') renderFeed();
+  if (subId === 'social-leaderboard') renderLeaderboard();
+  if (subId === 'social-friends') renderFriendsTab();
+}
+
+async function initSocialTab() {
+  if (!supaClient || !cloudSyncEnabled) {
+    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
+    return;
+  }
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
+
+  // Ensure friend code exists
+  ensureFriendCode().then(code => {
+    const el = document.getElementById('myFriendCode');
+    if (el) el.textContent = code || '---';
+  });
+
+  // Check if social onboarding needed
+  if (!db.social.onboardingCompleted) {
+    showSocialOnboarding();
+    return;
+  }
+
+  // Load the active sub-tab
+  const activeSub = document.querySelector('.social-sub-content.active');
+  const subId = activeSub ? activeSub.id : 'social-feed';
+  if (subId === 'social-feed') renderFeed();
+  else if (subId === 'social-leaderboard') renderLeaderboard();
+  else if (subId === 'social-friends') renderFriendsTab();
+
+  // Update notification badge
+  updateSocialBadge();
+}
+
+// ============================================================
+// SOCIAL MODULE — PROFILE MANAGEMENT
+// ============================================================
+/*
+-- NOTE DÉVELOPPEUR : créer cette table dans Supabase Dashboard > SQL Editor
+-- (ajouter les colonnes friend_code et password_migrated à la table profiles existante)
+--
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS friend_code text UNIQUE;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_migrated boolean DEFAULT false;
+--
+-- Si la table profiles n'existe pas encore :
+-- CREATE TABLE profiles (
+--   id uuid REFERENCES auth.users PRIMARY KEY,
+--   username text,
+--   friend_code text UNIQUE,
+--   password_migrated boolean DEFAULT false,
+--   updated_at timestamp DEFAULT now()
+-- );
+-- RLS : lecture publique pour lookup par code ami, écriture uniquement sur soi-même
+-- ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Public read" ON profiles FOR SELECT USING (true);
+-- CREATE POLICY "Self write" ON profiles FOR ALL USING (auth.uid() = id);
+*/
+
+function generateFriendCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function ensureFriendCode() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return null;
+
+  // If we already have it locally
+  if (db.friendCode) return db.friendCode;
+
+  try {
+    // Check if profile already has a friend_code in Supabase
+    const { data } = await supaClient.from('profiles').select('friend_code').eq('id', uid).maybeSingle();
+    if (data && data.friend_code) {
+      db.friendCode = data.friend_code;
+      saveDB();
+      return data.friend_code;
+    }
+
+    // Generate a new unique code
+    let code = generateFriendCode();
+    let attempts = 0;
+    while (attempts < 10) {
+      const { data: existing } = await supaClient.from('profiles').select('id').eq('friend_code', code).maybeSingle();
+      if (!existing) break;
+      code = generateFriendCode();
+      attempts++;
+    }
+
+    // Save to Supabase
+    const { error } = await supaClient.from('profiles').upsert({
+      id: uid,
+      friend_code: code,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if (error) throw error;
+
+    db.friendCode = code;
+    saveDB();
+    return code;
+  } catch (e) {
+    console.error('ensureFriendCode error:', e);
+    return null;
+  }
+}
+
+async function lookupFriendByCode(code) {
+  if (!supaClient || !code) return null;
+  code = code.trim().toUpperCase();
+  try {
+    const { data, error } = await supaClient.from('profiles')
+      .select('id, username')
+      .eq('friend_code', code)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('lookupFriendByCode error:', e);
+    return null;
+  }
+}
+
+async function addFriendByCode() {
+  const input = document.getElementById('friendCodeInput');
+  const code = (input.value || '').trim().toUpperCase();
+  if (!code || code.length !== 6) { showToast('Entre un code de 6 caractères'); return; }
+
+  const uid = await getMyUserIdAsync();
+  if (!uid) { showToast('Connexion requise'); return; }
+
+  // Can't add yourself
+  if (code === db.friendCode) { showToast('C\'est ton propre code !'); return; }
+
+  const friend = await lookupFriendByCode(code);
+  if (!friend) { showToast('Code ami introuvable'); return; }
+
+  // Check if already friends
+  if (db.friends && db.friends.includes(friend.id)) {
+    showToast('Déjà dans ta liste d\'amis');
+    return;
+  }
+
+  // Send friend request via existing system
+  await sendFriendRequest(friend.id);
+
+  // Add to local friends list
+  if (!db.friends) db.friends = [];
+  if (!db.friends.includes(friend.id)) {
+    db.friends.push(friend.id);
+    saveDB();
+  }
+
+  input.value = '';
+  showToast('Demande envoyée à ' + (friend.username || 'cet utilisateur') + ' !');
+  renderFriendsTab();
+}
+
+async function ensureProfile() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !db.social.username) return null;
+
+  try {
+    const { data } = await supaClient.from('profiles').select('id, friend_code').eq('id', uid).maybeSingle();
+    if (data) {
+      db.social.profileId = uid;
+      // Sync friend_code if present
+      if (data.friend_code && !db.friendCode) {
+        db.friendCode = data.friend_code;
+        saveDB();
+      }
+      return uid;
+    }
+    // Generate friend code for new profile
+    const friendCode = generateFriendCode();
+    // Create profile
+    const { error } = await supaClient.from('profiles').insert({
+      id: uid,
+      username: db.social.username,
+      bio: db.social.bio || '',
+      friend_code: friendCode,
+      visibility_bio: db.social.visibility.bio,
+      visibility_prs: db.social.visibility.prs,
+      visibility_programme: db.social.visibility.programme,
+      visibility_seances: db.social.visibility.seances,
+      visibility_stats: db.social.visibility.stats,
+      onboarding_completed: true
+    });
+    if (error) throw error;
+    db.social.profileId = uid;
+    db.friendCode = friendCode;
+    saveDB();
+    return uid;
+  } catch (e) {
+    console.error('ensureProfile error:', e);
+    return null;
+  }
+}
+
+async function checkUsernameAvailability(username) {
+  const statusEl = document.getElementById('sob-username-status');
+  if (!statusEl) return;
+  username = (username || '').trim().toLowerCase();
+  if (!username || username.length < 3) {
+    statusEl.innerHTML = '<span style="color:var(--sub);">3 caractères minimum</span>';
+    return;
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    statusEl.innerHTML = '<span style="color:var(--red);">Lettres, chiffres et _ uniquement</span>';
+    return;
+  }
+  if (!supaClient) return;
+  try {
+    // Check profiles
+    const { data: existing } = await supaClient.from('profiles').select('id').eq('username', username).maybeSingle();
+    if (existing) {
+      statusEl.innerHTML = '<span style="color:var(--red);">❌ Pseudo déjà pris</span>';
+      return;
+    }
+    // Check reserved
+    const { data: reserved } = await supaClient.from('reserved_usernames').select('username').eq('username', username).maybeSingle();
+    if (reserved) {
+      statusEl.innerHTML = '<span style="color:var(--red);">❌ Pseudo réservé temporairement</span>';
+      return;
+    }
+    statusEl.innerHTML = '<span style="color:var(--green);">✓ Disponible</span>';
+  } catch (e) {
+    statusEl.innerHTML = '<span style="color:var(--sub);">Vérification impossible</span>';
+  }
+}
+
+async function updateUsername(newUsername) {
+  const uid = await getMyUserIdAsync();
+  if (!uid) return false;
+
+  // Check cooldown (30 days)
+  if (db.social.usernameChangedAt) {
+    const daysSince = (Date.now() - new Date(db.social.usernameChangedAt).getTime()) / 86400000;
+    if (daysSince < 30) {
+      showToast('Tu peux changer de pseudo dans ' + Math.ceil(30 - daysSince) + ' jours');
+      return false;
+    }
+  }
+
+  const oldUsername = db.social.username;
+  try {
+    // Reserve old username for 30 days
+    if (oldUsername) {
+      await supaClient.from('reserved_usernames').upsert({
+        username: oldUsername.toLowerCase(),
+        released_at: new Date(Date.now() + 30 * 86400000).toISOString()
+      }, { onConflict: 'username' });
+    }
+    // Update profile
+    const { error } = await supaClient.from('profiles').update({
+      username: newUsername.toLowerCase(),
+      username_changed_at: new Date().toISOString()
+    }).eq('id', uid);
+    if (error) throw error;
+
+    db.social.username = newUsername.toLowerCase();
+    db.social.usernameChangedAt = new Date().toISOString();
+    saveDB();
+    showToast('Pseudo mis à jour !');
+    return true;
+  } catch (e) {
+    console.error('updateUsername error:', e);
+    showToast('Erreur lors du changement de pseudo');
+    return false;
+  }
+}
+
+async function updateProfileVisibility(field, value) {
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
+  const col = 'visibility_' + field;
+  try {
+    await supaClient.from('profiles').update({ [col]: value }).eq('id', uid);
+    db.social.visibility[field] = value;
+    saveDB();
+  } catch (e) {
+    console.error('updateProfileVisibility error:', e);
+  }
+}
+
+async function updateBio(newBio) {
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
+  try {
+    await supaClient.from('profiles').update({ bio: newBio }).eq('id', uid);
+    db.social.bio = newBio;
+    saveDB();
+    showToast('Bio mise à jour');
+  } catch (e) {
+    console.error('updateBio error:', e);
+  }
+}
+
+// ============================================================
+// SOCIAL MODULE — FRIEND SYSTEM
+// ============================================================
+async function searchUsers(query) {
+  if (!supaClient || !query || query.length < 2) return [];
+  const uid = await getMyUserIdAsync();
+  try {
+    const { data, error } = await supaClient.from('profiles')
+      .select('id, username')
+      .ilike('username', '%' + query + '%')
+      .neq('id', uid)
+      .is('deleted_at', null)
+      .limit(10);
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.error('searchUsers error:', e);
+    return [];
+  }
+}
+
+function onFriendSearchInput(val) {
+  clearTimeout(_socialSearchTimeout);
+  const dropdown = document.getElementById('friendAutocomplete');
+  if (!val || val.length < 2) {
+    dropdown.classList.remove('open');
+    dropdown.innerHTML = '';
+    return;
+  }
+  _socialSearchTimeout = setTimeout(async () => {
+    const results = await searchUsers(val);
+    if (!results.length) {
+      dropdown.classList.remove('open');
+      return;
+    }
+    dropdown.innerHTML = results.map(u =>
+      '<div class="friends-ac-item" onclick="onSelectSearchUser(\'' + u.id + '\',\'' + u.username + '\')">' +
+        '<div class="friends-ac-avatar">' + avatarInitial(u.username) + '</div>' +
+        '<span class="friends-ac-name">' + u.username + '</span>' +
+      '</div>'
+    ).join('');
+    dropdown.classList.add('open');
+  }, 300);
+}
+
+async function onSelectSearchUser(userId, username) {
+  document.getElementById('friendAutocomplete').classList.remove('open');
+  document.getElementById('friendSearchInput').value = '';
+  // Show profile overlay
+  await showProfileOverlay(userId);
+}
+
+async function loadFriends() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return [];
+  try {
+    const { data, error } = await supaClient.from('friendships')
+      .select('id, requester_id, target_id, status, created_at')
+      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid);
+    if (error) throw error;
+    _friendsCache = data || [];
+    return _friendsCache;
+  } catch (e) {
+    console.error('loadFriends error:', e);
+    return [];
+  }
+}
+
+async function getAcceptedFriendIds() {
+  const uid = await getMyUserIdAsync();
+  if (!uid) return [];
+  const friends = await loadFriends();
+  return friends
+    .filter(f => f.status === 'accepted')
+    .map(f => f.requester_id === uid ? f.target_id : f.requester_id);
+}
+
+async function getFriendProfiles(friendIds) {
+  if (!friendIds.length || !supaClient) return [];
+  try {
+    const { data, error } = await supaClient.from('profiles')
+      .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
+      .in('id', friendIds)
+      .is('deleted_at', null);
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.error('getFriendProfiles error:', e);
+    return [];
+  }
+}
+
+async function sendFriendRequest(targetId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    // Check if relationship already exists
+    const { data: existing } = await supaClient.from('friendships')
+      .select('id, status')
+      .or(
+        'and(requester_id.eq.' + uid + ',target_id.eq.' + targetId + '),' +
+        'and(requester_id.eq.' + targetId + ',target_id.eq.' + uid + ')'
+      )
+      .maybeSingle();
+    if (existing) {
+      if (existing.status === 'blocked') { showToast('Action impossible'); return; }
+      if (existing.status === 'accepted') { showToast('Déjà amis !'); return; }
+      if (existing.status === 'pending') { showToast('Demande déjà envoyée'); return; }
+    }
+    const { error } = await supaClient.from('friendships').insert({
+      requester_id: uid,
+      target_id: targetId,
+      status: 'pending'
+    });
+    if (error) throw error;
+    showToast('Demande envoyée !');
+    renderFriendsTab();
+  } catch (e) {
+    console.error('sendFriendRequest error:', e);
+    showToast('Erreur lors de l\'envoi');
+  }
+}
+
+async function acceptFriendRequest(friendshipId) {
+  if (!supaClient) return;
+  try {
+    const { data: fs } = await supaClient.from('friendships').select('requester_id').eq('id', friendshipId).single();
+    const { error } = await supaClient.from('friendships').update({
+      status: 'accepted',
+      updated_at: new Date().toISOString()
+    }).eq('id', friendshipId);
+    if (error) throw error;
+    // Create notification for requester
+    if (fs) {
+      await supaClient.from('notifications').insert({
+        user_id: fs.requester_id,
+        type: 'friend_accepted',
+        data: { username: db.social.username }
+      });
+    }
+    showToast('Ami ajouté !');
+    renderFriendsTab();
+  } catch (e) {
+    console.error('acceptFriendRequest error:', e);
+  }
+}
+
+async function declineFriendRequest(friendshipId) {
+  if (!supaClient) return;
+  try {
+    await supaClient.from('friendships').delete().eq('id', friendshipId);
+    showToast('Demande refusée');
+    renderFriendsTab();
+  } catch (e) {
+    console.error('declineFriendRequest error:', e);
+  }
+}
+
+async function removeFriend(friendshipId) {
+  showModal(
+    'Retirer cet ami ?<br><span style="font-size:12px;color:var(--sub);">Il ne sera pas notifié.</span>',
+    'Retirer',
+    'var(--red)',
+    async function() {
+      try {
+        await supaClient.from('friendships').delete().eq('id', friendshipId);
+        showToast('Ami retiré');
+        renderFriendsTab();
+      } catch (e) {
+        console.error('removeFriend error:', e);
+      }
+    }
+  );
+}
+
+async function blockUser(targetId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    // Check existing relationship
+    const { data: existing } = await supaClient.from('friendships')
+      .select('id')
+      .or(
+        'and(requester_id.eq.' + uid + ',target_id.eq.' + targetId + '),' +
+        'and(requester_id.eq.' + targetId + ',target_id.eq.' + uid + ')'
+      )
+      .maybeSingle();
+    if (existing) {
+      await supaClient.from('friendships').update({
+        requester_id: uid,
+        target_id: targetId,
+        status: 'blocked',
+        updated_at: new Date().toISOString()
+      }).eq('id', existing.id);
+    } else {
+      await supaClient.from('friendships').insert({
+        requester_id: uid,
+        target_id: targetId,
+        status: 'blocked'
+      });
+    }
+    showToast('Utilisateur bloqué');
+    renderFriendsTab();
+    closeProfileOverlay();
+  } catch (e) {
+    console.error('blockUser error:', e);
+  }
+}
+
+async function unblockUser(friendshipId) {
+  if (!supaClient) return;
+  try {
+    await supaClient.from('friendships').delete().eq('id', friendshipId);
+    showToast('Utilisateur débloqué');
+    renderFriendsTab();
+  } catch (e) {
+    console.error('unblockUser error:', e);
+  }
+}
+
+// ── Invite Codes ──
+async function loadMyInviteCode() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return null;
+  try {
+    const { data } = await supaClient.from('invite_codes')
+      .select('code')
+      .eq('user_id', uid)
+      .is('used_by', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) return data.code;
+    // Create one
+    return await createNewInviteCode();
+  } catch (e) {
+    console.error('loadMyInviteCode error:', e);
+    return null;
+  }
+}
+
+async function createNewInviteCode() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return null;
+  const code = generateInviteCodeString();
+  try {
+    const { error } = await supaClient.from('invite_codes').insert({
+      user_id: uid,
+      code: code
+    });
+    if (error) throw error;
+    return code;
+  } catch (e) {
+    console.error('createNewInviteCode error:', e);
+    return null;
+  }
+}
+
+async function regenerateInviteCode() {
+  const code = await createNewInviteCode();
+  if (code) {
+    document.getElementById('myInviteCode').textContent = code;
+    showToast('Nouveau code généré');
+  }
+}
+
+function copyFriendCode() {
+  const code = document.getElementById('myFriendCode').textContent;
+  if (!code || code === '---') return;
+  navigator.clipboard.writeText(code).then(() => showToast('Code ami copié !')).catch(() => showToast('Erreur copie'));
+}
+
+function copyInviteCode() {
+  const code = document.getElementById('myInviteCode').textContent;
+  if (!code || code === '---') return;
+  navigator.clipboard.writeText(code).then(() => showToast('Code copié !')).catch(() => showToast('Erreur copie'));
+}
+
+async function useInviteCode() {
+  const input = document.getElementById('useInviteCodeInput');
+  const code = (input.value || '').trim().toUpperCase();
+  if (!code) { showToast('Entre un code'); return; }
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+
+  try {
+    const { data: invite } = await supaClient.from('invite_codes')
+      .select('id, user_id, used_by')
+      .eq('code', code)
+      .maybeSingle();
+    if (!invite) { showToast('Code invalide'); return; }
+    if (invite.used_by) { showToast('Code déjà utilisé'); return; }
+    if (invite.user_id === uid) { showToast('C\'est ton propre code !'); return; }
+
+    // Mark code as used
+    await supaClient.from('invite_codes').update({
+      used_by: uid,
+      used_at: new Date().toISOString()
+    }).eq('id', invite.id);
+
+    // Send friend request
+    await sendFriendRequest(invite.user_id);
+    input.value = '';
+  } catch (e) {
+    console.error('useInviteCode error:', e);
+    showToast('Erreur');
+  }
+}
+
+// ============================================================
+// SOCIAL MODULE — ACTIVITY FEED
+// ============================================================
+async function loadFeedItems(page) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return [];
+  try {
+    const { data, error } = await supaClient.from('activity_feed')
+      .select('id, user_id, type, data, pinned, created_at')
+      .order('created_at', { ascending: false })
+      .range(page * FEED_PAGE_SIZE, (page + 1) * FEED_PAGE_SIZE - 1);
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.error('loadFeedItems error:', e);
+    return [];
+  }
+}
+
+async function loadReactionsForActivity(activityId) {
+  if (!supaClient) return [];
+  try {
+    const { data } = await supaClient.from('reactions')
+      .select('id, user_id, emoji, created_at')
+      .eq('activity_id', activityId);
+    return data || [];
+  } catch { return []; }
+}
+
+async function loadCommentsForActivity(activityId) {
+  if (!supaClient) return [];
+  try {
+    const { data } = await supaClient.from('comments')
+      .select('id, user_id, text, created_at')
+      .eq('activity_id', activityId)
+      .order('created_at', { ascending: true });
+    return data || [];
+  } catch { return []; }
+}
+
+async function renderFeed() {
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
+
+  const feedContent = document.getElementById('feedContent');
+  const pinnedSection = document.getElementById('feedPinnedSection');
+  const loadMoreBtn = document.getElementById('feedLoadMore');
+
+  if (_feedPage === 0) {
+    _feedItems = [];
+    feedContent.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);">Chargement...</div>';
+    pinnedSection.innerHTML = '';
+  }
+
+  const items = await loadFeedItems(_feedPage);
+  _feedItems = _feedItems.concat(items);
+
+  // Get unique user IDs
+  const userIds = [...new Set(_feedItems.map(i => i.user_id))];
+  let profiles = {};
+  if (userIds.length) {
+    try {
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+      (data || []).forEach(p => profiles[p.id] = p);
+    } catch {}
+  }
+
+  if (!_feedItems.length) {
+    const friendIds = await getAcceptedFriendIds();
+    feedContent.innerHTML = '<div class="feed-empty">' +
+      '<div class="feed-empty-icon">🤝</div>' +
+      '<div class="feed-empty-title">' + (friendIds.length ? 'Rien de nouveau' : 'Invite tes amis !') + '</div>' +
+      '<div class="feed-empty-sub">' + (friendIds.length ? 'Tes amis n\'ont pas encore posté.' : 'Partage ton code d\'invitation pour retrouver tes partenaires.') + '</div>' +
+      (!friendIds.length ? '<button class="btn" style="max-width:200px;margin:0 auto;" onclick="showSocialSub(\'social-friends\')">Ajouter des amis</button>' : '') +
+    '</div>';
+    pinnedSection.innerHTML = '';
+    loadMoreBtn.style.display = 'none';
+    return;
+  }
+
+  // Separate pinned (today's PRs)
+  const today = new Date().toDateString();
+  const pinned = _feedItems.filter(i => i.pinned && new Date(i.created_at).toDateString() === today);
+  const regular = _feedItems.filter(i => !pinned.includes(i));
+
+  if (pinned.length) {
+    pinnedSection.innerHTML = '<div class="feed-pinned-header">🔥 PRs du jour</div>' +
+      pinned.map(i => renderFeedCard(i, profiles, uid)).join('');
+  } else {
+    pinnedSection.innerHTML = '';
+  }
+
+  feedContent.innerHTML = regular.map(i => renderFeedCard(i, profiles, uid)).join('');
+  loadMoreBtn.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';
+
+  // Load reactions for all visible items
+  _feedItems.forEach(i => loadAndRenderReactions(i.id));
+}
+
+function renderFeedCard(item, profiles, uid) {
+  const profile = profiles[item.user_id] || { username: 'Utilisateur supprimé' };
+  const initial = avatarInitial(profile.username);
+  const isMe = item.user_id === uid;
+  const typeLabels = { session: 'Séance', pr: 'Nouveau PR', goal: 'Objectif' };
+  const d = item.data || {};
+
+  let body = '';
+  let detail = '';
+  if (item.type === 'session') {
+    body = '<strong>' + profile.username + '</strong> a terminé une séance';
+    if (d.title) body += ' : ' + d.title;
+    if (d.duration) body += ' · ' + formatTime(d.duration);
+    if (d.volume) body += ' · ' + Math.round(d.volume) + 'kg';
+    if (d.exercises && d.exercises.length) {
+      detail = d.exercises.map(e =>
+        '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>'
+      ).join('');
+    }
+  } else if (item.type === 'pr') {
+    body = '<strong>' + profile.username + '</strong> a battu son PR ' +
+      (d.exercise || '') + ' : <strong>' + (d.value || 0) + 'kg</strong>' +
+      (d.delta ? ' (+' + d.delta + 'kg)' : '');
+  } else if (item.type === 'goal') {
+    body = '<strong>' + profile.username + '</strong> — Objectif atteint ! ' +
+      (d.exercise || '') + ' ' + (d.value || 0) + 'kg' +
+      (d.weeks ? ' (en ' + d.weeks + ' semaines)' : '');
+  }
+
+  return '<div class="feed-card' + (item.pinned ? ' pinned' : '') + '" id="feed-' + item.id + '">' +
+    '<div class="feed-card-header">' +
+      '<div class="feed-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
+      '<div class="feed-user-info">' +
+        '<div class="feed-username" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + profile.username + '</div>' +
+        '<div class="feed-time">' + timeAgo(item.created_at) + '</div>' +
+      '</div>' +
+      '<span class="feed-type-badge ' + item.type + '">' + (typeLabels[item.type] || '') + '</span>' +
+    '</div>' +
+    '<div class="feed-body">' + body + '</div>' +
+    (detail ? '<button class="feed-detail-toggle" onclick="toggleFeedDetail(\'' + item.id + '\')">Voir le détail ▾</button><div class="feed-detail-content" id="feed-detail-' + item.id + '">' + detail + '</div>' : '') +
+    '<div class="feed-reactions" id="feed-reactions-' + item.id + '"></div>' +
+    '<div class="feed-actions">' +
+      '<div style="position:relative;"><button class="feed-action-btn" onclick="toggleEmojiPicker(\'' + item.id + '\')">😀 Réagir</button>' +
+        '<div class="emoji-picker-popup" id="emoji-picker-' + item.id + '">' +
+          '<div class="emoji-picker-grid">' + COMMON_EMOJIS.map(e => '<button onclick="addReaction(\'' + item.id + '\',\'' + e + '\')">' + e + '</button>').join('') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<button class="feed-action-btn" onclick="toggleComments(\'' + item.id + '\')">💬 Commenter</button>' +
+    '</div>' +
+    '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
+  '</div>';
+}
+
+function toggleFeedDetail(activityId) {
+  const el = document.getElementById('feed-detail-' + activityId);
+  if (el) el.classList.toggle('open');
+}
+
+function toggleEmojiPicker(activityId) {
+  const el = document.getElementById('emoji-picker-' + activityId);
+  if (el) {
+    // Close all others first
+    document.querySelectorAll('.emoji-picker-popup.open').forEach(p => { if (p !== el) p.classList.remove('open'); });
+    el.classList.toggle('open');
+  }
+}
+
+async function addReaction(activityId, emoji) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  document.getElementById('emoji-picker-' + activityId)?.classList.remove('open');
+  try {
+    // Toggle: if already reacted with this emoji, remove it
+    const { data: existing } = await supaClient.from('reactions')
+      .select('id')
+      .eq('activity_id', activityId)
+      .eq('user_id', uid)
+      .eq('emoji', emoji)
+      .maybeSingle();
+    if (existing) {
+      await supaClient.from('reactions').delete().eq('id', existing.id);
+    } else {
+      await supaClient.from('reactions').insert({
+        activity_id: activityId,
+        user_id: uid,
+        emoji: emoji
+      });
+      // Notify post author
+      const { data: activity } = await supaClient.from('activity_feed').select('user_id').eq('id', activityId).single();
+      if (activity && activity.user_id !== uid) {
+        await supaClient.from('notifications').insert({
+          user_id: activity.user_id,
+          type: 'reaction',
+          data: { username: db.social.username, emoji: emoji, activity_id: activityId }
+        });
+      }
+    }
+    loadAndRenderReactions(activityId);
+  } catch (e) {
+    console.error('addReaction error:', e);
+  }
+}
+
+async function loadAndRenderReactions(activityId) {
+  const uid = await getMyUserIdAsync();
+  const reactions = await loadReactionsForActivity(activityId);
+  const container = document.getElementById('feed-reactions-' + activityId);
+  if (!container) return;
+
+  // Group by emoji
+  const grouped = {};
+  reactions.forEach(r => {
+    if (!grouped[r.emoji]) grouped[r.emoji] = { count: 0, mine: false };
+    grouped[r.emoji].count++;
+    if (r.user_id === uid) grouped[r.emoji].mine = true;
+  });
+
+  container.innerHTML = Object.entries(grouped).map(([emoji, data]) =>
+    '<div class="feed-reaction' + (data.mine ? ' mine' : '') + '" onclick="addReaction(\'' + activityId + '\',\'' + emoji + '\')">' +
+      emoji + ' <span class="feed-reaction-count">' + data.count + '</span>' +
+    '</div>'
+  ).join('');
+}
+
+async function toggleComments(activityId) {
+  const section = document.getElementById('feed-comments-' + activityId);
+  if (!section) return;
+  const isOpen = section.style.display !== 'none';
+  section.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    await loadAndRenderComments(activityId);
+  }
+}
+
+async function loadAndRenderComments(activityId) {
+  const uid = await getMyUserIdAsync();
+  const comments = await loadCommentsForActivity(activityId);
+  const section = document.getElementById('feed-comments-' + activityId);
+  if (!section) return;
+
+  // Get user profiles for comments
+  const userIds = [...new Set(comments.map(c => c.user_id))];
+  let profiles = {};
+  if (userIds.length) {
+    try {
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+      (data || []).forEach(p => profiles[p.id] = p);
+    } catch {}
+  }
+
+  // Get activity author for delete permission
+  let activityAuthorId = null;
+  try {
+    const { data } = await supaClient.from('activity_feed').select('user_id').eq('id', activityId).single();
+    if (data) activityAuthorId = data.user_id;
+  } catch {}
+
+  const commentsHtml = comments.map(c => {
+    const p = profiles[c.user_id] || { username: '?' };
+    const canDelete = c.user_id === uid || activityAuthorId === uid;
+    return '<div class="feed-comment">' +
+      '<div class="feed-comment-avatar">' + avatarInitial(p.username) + '</div>' +
+      '<div class="feed-comment-body">' +
+        '<div class="feed-comment-user">' + p.username + '</div>' +
+        '<div class="feed-comment-text">' + escapeHtml(c.text) + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<span class="feed-comment-time">' + timeAgo(c.created_at) + '</span>' +
+          (canDelete ? '<button class="feed-comment-delete" onclick="deleteComment(\'' + c.id + '\',\'' + activityId + '\')">Supprimer</button>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  section.innerHTML = commentsHtml +
+    '<div class="feed-comment-input">' +
+      '<input type="text" id="comment-input-' + activityId + '" placeholder="Commenter..." maxlength="200" onkeydown="if(event.key===\'Enter\')postComment(\'' + activityId + '\')">' +
+      '<button onclick="postComment(\'' + activityId + '\')">➤</button>' +
+    '</div>';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function postComment(activityId) {
+  const input = document.getElementById('comment-input-' + activityId);
+  const text = (input?.value || '').trim();
+  if (!text) return;
+  if (text.length > 200) { showToast('200 caractères max'); return; }
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+
+  try {
+    await supaClient.from('comments').insert({
+      activity_id: activityId,
+      user_id: uid,
+      text: text
+    });
+    // Notify post author
+    const { data: activity } = await supaClient.from('activity_feed').select('user_id').eq('id', activityId).single();
+    if (activity && activity.user_id !== uid) {
+      await supaClient.from('notifications').insert({
+        user_id: activity.user_id,
+        type: 'comment',
+        data: { username: db.social.username, text: text.substring(0, 50), activity_id: activityId }
+      });
+    }
+    input.value = '';
+    loadAndRenderComments(activityId);
+  } catch (e) {
+    console.error('postComment error:', e);
+  }
+}
+
+async function deleteComment(commentId, activityId) {
+  if (!supaClient) return;
+  try {
+    await supaClient.from('comments').delete().eq('id', commentId);
+    loadAndRenderComments(activityId);
+  } catch (e) {
+    console.error('deleteComment error:', e);
+  }
+}
+
+function loadMoreFeed() {
+  _feedPage++;
+  renderFeed();
+}
+
+// ── Auto-publish activity events ──
+async function publishSessionActivity(logEntry) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  try {
+    await supaClient.from('activity_feed').insert({
+      user_id: uid,
+      type: 'session',
+      data: {
+        title: logEntry.title || '',
+        duration: logEntry.duration || 0,
+        volume: logEntry.volume || 0,
+        exercises: (logEntry.exercises || []).map(e => ({ name: e.name, sets: e.sets }))
+      }
+    });
+  } catch (e) {
+    console.error('publishSessionActivity error:', e);
+  }
+}
+
+async function publishPRActivity(exerciseName, newValue, oldValue) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  try {
+    await supaClient.from('activity_feed').insert({
+      user_id: uid,
+      type: 'pr',
+      pinned: true,
+      data: {
+        exercise: exerciseName,
+        value: newValue,
+        delta: oldValue ? Math.round(newValue - oldValue) : null
+      }
+    });
+    // Check if any friend had this PR and notify them
+    const friendIds = await getAcceptedFriendIds();
+    if (friendIds.length) {
+      const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
+        .select('user_id, value')
+        .in('user_id', friendIds)
+        .eq('exercise_name', exerciseName)
+        .order('value', { ascending: false });
+      if (snapshots) {
+        for (const s of snapshots) {
+          if (newValue > s.value) {
+            await supaClient.from('notifications').insert({
+              user_id: s.user_id,
+              type: 'pr_beaten',
+              data: { username: db.social.username, exercise: exerciseName, value: newValue }
+            });
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('publishPRActivity error:', e);
+  }
+}
+
+async function publishGoalActivity(exerciseName, value, weeks) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  try {
+    await supaClient.from('activity_feed').insert({
+      user_id: uid,
+      type: 'goal',
+      data: { exercise: exerciseName, value: value, weeks: weeks }
+    });
+  } catch (e) {
+    console.error('publishGoalActivity error:', e);
+  }
+}
+
+// ============================================================
+// SOCIAL MODULE — LEADERBOARD
+// ============================================================
+async function renderLeaderboard() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+
+  const friendIds = await getAcceptedFriendIds();
+  const allIds = [uid, ...friendIds];
+  const filterSelect = document.getElementById('lbExerciseFilter');
+  const podiumEl = document.getElementById('lbPodium');
+  const tableEl = document.getElementById('lbTable');
+  const emptyEl = document.getElementById('lbEmpty');
+
+  if (!friendIds.length) {
+    podiumEl.innerHTML = '';
+    tableEl.innerHTML = '';
+    emptyEl.style.display = '';
+    filterSelect.innerHTML = '<option value="">Aucun ami</option>';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  // Get all snapshots for these users
+  try {
+    const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
+      .select('user_id, exercise_name, value')
+      .in('user_id', allIds)
+      .order('value', { ascending: false });
+
+    if (!snapshots || !snapshots.length) {
+      podiumEl.innerHTML = '';
+      tableEl.innerHTML = '<div class="lb-empty">Aucune donnée de classement</div>';
+      filterSelect.innerHTML = '<option value="">Aucune donnée</option>';
+      return;
+    }
+
+    // Get common exercises
+    const exercisesByUser = {};
+    snapshots.forEach(s => {
+      if (!exercisesByUser[s.user_id]) exercisesByUser[s.user_id] = new Set();
+      exercisesByUser[s.user_id].add(s.exercise_name);
+    });
+    const allExercises = new Set();
+    snapshots.forEach(s => allExercises.add(s.exercise_name));
+
+    // Populate filter
+    const currentFilter = filterSelect.value;
+    filterSelect.innerHTML = Array.from(allExercises).sort().map(ex =>
+      '<option value="' + ex + '"' + (ex === currentFilter ? ' selected' : '') + '>' + ex + '</option>'
+    ).join('');
+    if (!currentFilter && filterSelect.options.length) filterSelect.value = filterSelect.options[0].value;
+
+    const selectedExercise = filterSelect.value;
+    if (!selectedExercise) return;
+
+    // Get best values per user for this exercise
+    const bestByUser = {};
+    snapshots.filter(s => s.exercise_name === selectedExercise).forEach(s => {
+      if (!bestByUser[s.user_id] || s.value > bestByUser[s.user_id]) bestByUser[s.user_id] = s.value;
+    });
+
+    // Get profiles
+    const profileIds = Object.keys(bestByUser);
+    let profiles = {};
+    if (profileIds.length) {
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', profileIds);
+      (data || []).forEach(p => profiles[p.id] = p);
+    }
+
+    // Sort by value descending
+    const ranking = Object.entries(bestByUser)
+      .map(([userId, value]) => ({ userId, value, username: (profiles[userId] || { username: '?' }).username }))
+      .sort((a, b) => b.value - a.value);
+
+    // Render podium (top 3)
+    const top3 = ranking.slice(0, 3);
+    if (top3.length >= 1) {
+      const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : [top3[0]];
+      const medals = top3.length >= 3 ? ['🥈', '🥇', '🥉'] : top3.length === 2 ? ['🥈', '🥇'] : ['🥇'];
+      podiumEl.innerHTML = podiumOrder.map((entry, i) =>
+        '<div class="lb-podium-item">' +
+          '<div class="lb-podium-rank">' + medals[i] + '</div>' +
+          '<div class="lb-podium-avatar" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + avatarInitial(entry.username) + '</div>' +
+          '<div class="lb-podium-name">' + entry.username + '</div>' +
+          '<div class="lb-podium-val">' + Math.round(entry.value) + 'kg</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    // Render table (rest)
+    const rest = ranking.slice(3);
+    tableEl.innerHTML = rest.map((entry, i) =>
+      '<div class="lb-row' + (entry.userId === uid ? ' me' : '') + '">' +
+        '<div class="lb-rank">' + (i + 4) + '</div>' +
+        '<div class="lb-row-avatar" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + avatarInitial(entry.username) + '</div>' +
+        '<div class="lb-row-name" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + entry.username + '</div>' +
+        '<div class="lb-row-val">' + Math.round(entry.value) + 'kg</div>' +
+      '</div>'
+    ).join('');
+
+  } catch (e) {
+    console.error('renderLeaderboard error:', e);
+    podiumEl.innerHTML = '';
+    tableEl.innerHTML = '<div class="lb-empty">Erreur de chargement</div>';
+  }
+}
+
+async function updateLeaderboardSnapshot() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const weekStr = monday.toISOString().split('T')[0];
+
+  // Get key lifts and their best values (mode-aware)
+  const keyLifts = db.keyLifts || [];
+  const prData = [];
+  const seenExercises = new Set();
+
+  // SBD only if mode uses SBD cards
+  if (modeFeature('showSBDCards')) {
+    SBD_TYPES.forEach(type => {
+      if (db.bestPR[type] > 0) {
+        const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
+        prData.push({ exercise_name: name, value: db.bestPR[type] });
+        seenExercises.add(name);
+      }
+    });
+  }
+
+  // Always include user's key lifts
+  keyLifts.forEach(kl => {
+    if (seenExercises.has(kl.name)) return;
+    let best = 0;
+    db.logs.forEach(log => {
+      log.exercises.forEach(e => {
+        if (e.name === kl.name && e.maxRM > best) best = e.maxRM;
+      });
+    });
+    if (best > 0) {
+      prData.push({ exercise_name: kl.name, value: best });
+      seenExercises.add(kl.name);
+    }
+  });
+
+  for (const pr of prData) {
+    try {
+      await supaClient.from('leaderboard_snapshots').upsert({
+        user_id: uid,
+        exercise_name: pr.exercise_name,
+        value: pr.value,
+        snapshot_week: weekStr
+      }, { onConflict: 'user_id,exercise_name,snapshot_week', ignoreDuplicates: false });
+    } catch (e) {
+      console.error('updateLeaderboardSnapshot error:', e);
+    }
+  }
+}
+
+// ============================================================
+// SOCIAL MODULE — RENDER FRIENDS TAB
+// ============================================================
+async function renderFriendsTab() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+
+  // Load friend code
+  const friendCode = await ensureFriendCode();
+  const fcEl = document.getElementById('myFriendCode');
+  if (fcEl) fcEl.textContent = friendCode || '---';
+
+  // Load invite code
+  const code = await loadMyInviteCode();
+  document.getElementById('myInviteCode').textContent = code || '---';
+
+  // Load friendships
+  const friends = await loadFriends();
+
+  // Get all user IDs from friendships
+  const allUserIds = new Set();
+  friends.forEach(f => { allUserIds.add(f.requester_id); allUserIds.add(f.target_id); });
+  allUserIds.delete(uid);
+
+  let profiles = {};
+  if (allUserIds.size) {
+    try {
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(allUserIds));
+      (data || []).forEach(p => profiles[p.id] = p);
+    } catch {}
+  }
+
+  // Pending requests (where I'm the target)
+  const pending = friends.filter(f => f.status === 'pending' && f.target_id === uid);
+  const pendingSection = document.getElementById('pendingRequestsSection');
+  const pendingList = document.getElementById('pendingRequestsList');
+  if (pending.length) {
+    pendingSection.style.display = '';
+    pendingList.innerHTML = pending.map(f => {
+      const p = profiles[f.requester_id] || { username: '?' };
+      return '<div class="friends-item">' +
+        '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + avatarInitial(p.username) + '</div>' +
+        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + p.username + '</div><div class="friends-item-status">Demande reçue</div></div>' +
+        '<div class="friends-item-actions">' +
+          '<button class="friends-item-btn accept" onclick="acceptFriendRequest(\'' + f.id + '\')">Accepter</button>' +
+          '<button class="friends-item-btn decline" onclick="declineFriendRequest(\'' + f.id + '\')">Refuser</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } else {
+    pendingSection.style.display = 'none';
+  }
+
+  // Accepted friends
+  const accepted = friends.filter(f => f.status === 'accepted');
+  const friendsList = document.getElementById('friendsList');
+  if (accepted.length) {
+    friendsList.innerHTML = accepted.map(f => {
+      const friendId = f.requester_id === uid ? f.target_id : f.requester_id;
+      const p = profiles[friendId] || { username: '?' };
+      return '<div class="friends-item">' +
+        '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')">' + avatarInitial(p.username) + '</div>' +
+        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div></div>' +
+        '<div class="friends-item-actions">' +
+          '<button class="friends-item-btn remove" onclick="removeFriend(\'' + f.id + '\')">Retirer</button>' +
+          '<button class="friends-item-btn block" onclick="blockUser(\'' + friendId + '\')">Bloquer</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } else {
+    friendsList.innerHTML = '<div style="text-align:center;padding:16px;color:var(--sub);font-size:13px;">Aucun ami pour le moment</div>';
+  }
+
+  // Blocked users (where I'm the blocker)
+  const blocked = friends.filter(f => f.status === 'blocked' && f.requester_id === uid);
+  const blockedSection = document.getElementById('blockedSection');
+  const blockedList = document.getElementById('blockedList');
+  if (blocked.length) {
+    blockedSection.style.display = '';
+    blockedList.innerHTML = blocked.map(f => {
+      const p = profiles[f.target_id] || { username: '?' };
+      return '<div class="friends-item">' +
+        '<div class="friends-item-avatar">' + avatarInitial(p.username) + '</div>' +
+        '<div class="friends-item-info"><div class="friends-item-name">' + p.username + '</div><div class="friends-item-status">Bloqué</div></div>' +
+        '<div class="friends-item-actions">' +
+          '<button class="friends-item-btn unblock" onclick="unblockUser(\'' + f.id + '\')">Débloquer</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } else {
+    blockedSection.style.display = 'none';
+  }
+
+  // Notifications
+  await renderNotifications();
+
+  // Update friend badge
+  const badgeEl = document.getElementById('socialFriendsBadge');
+  if (pending.length) {
+    badgeEl.textContent = pending.length;
+    badgeEl.style.display = '';
+  } else {
+    badgeEl.style.display = 'none';
+  }
+}
+
+// ============================================================
+// SOCIAL MODULE — NOTIFICATIONS
+// ============================================================
+async function loadNotifications() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return [];
+  try {
+    const { data, error } = await supaClient.from('notifications')
+      .select('id, type, data, read, created_at')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    _notifCache = data || [];
+    return _notifCache;
+  } catch (e) {
+    console.error('loadNotifications error:', e);
+    return [];
+  }
+}
+
+async function renderNotifications() {
+  const notifs = await loadNotifications();
+  const container = document.getElementById('notifList');
+  if (!container) return;
+
+  if (!notifs.length) {
+    container.innerHTML = '<div class="notif-empty">Aucune notification</div>';
+    return;
+  }
+
+  const icons = {
+    friend_accepted: { icon: '🤝', css: 'friend' },
+    reaction: { icon: '😀', css: 'reaction' },
+    comment: { icon: '💬', css: 'comment' },
+    pr_beaten: { icon: '💥', css: 'pr_beaten' }
+  };
+
+  container.innerHTML = notifs.map(n => {
+    const ic = icons[n.type] || { icon: '🔔', css: '' };
+    const d = n.data || {};
+    let text = '';
+    if (n.type === 'friend_accepted') text = '<strong>' + (d.username || '?') + '</strong> a accepté ta demande d\'ami';
+    else if (n.type === 'reaction') text = '<strong>' + (d.username || '?') + '</strong> a réagi ' + (d.emoji || '') + ' à ton post';
+    else if (n.type === 'comment') text = '<strong>' + (d.username || '?') + '</strong> a commenté : "' + (d.text || '') + '"';
+    else if (n.type === 'pr_beaten') text = '<strong>' + (d.username || '?') + '</strong> a battu ton PR ' + (d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
+
+    return '<div class="notif-item' + (!n.read ? ' unread' : '') + '">' +
+      '<div class="notif-icon ' + ic.css + '">' + ic.icon + '</div>' +
+      '<div class="notif-body">' + text + '<div class="notif-time">' + timeAgo(n.created_at) + '</div></div>' +
+    '</div>';
+  }).join('');
+}
+
+async function markAllNotifsRead() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    await supaClient.from('notifications').update({ read: true }).eq('user_id', uid).eq('read', false);
+    _notifCache.forEach(n => n.read = true);
+    renderNotifications();
+    updateSocialBadge();
+  } catch (e) {
+    console.error('markAllNotifsRead error:', e);
+  }
+}
+
+async function updateSocialBadge() {
+  const notifs = _notifCache.length ? _notifCache : await loadNotifications();
+  const unreadCount = notifs.filter(n => !n.read).length;
+  const badge = document.getElementById('socialTabBadge');
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
+  }
+}
+
+// ============================================================
+// SOCIAL MODULE — PROFILE OVERLAY
+// ============================================================
+async function showProfileOverlay(userId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  const overlay = document.getElementById('profileOverlay');
+
+  overlay.style.display = '';
+  overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Chargement...</div>';
+
+  try {
+    const { data: profile } = await supaClient.from('profiles')
+      .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
+      .eq('id', userId)
+      .single();
+    if (!profile) { overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Profil introuvable</div>'; return; }
+
+    const isMe = userId === uid;
+    // Check friendship
+    let friendship = null;
+    if (!isMe) {
+      const { data } = await supaClient.from('friendships')
+        .select('id, status, requester_id, target_id')
+        .or(
+          'and(requester_id.eq.' + uid + ',target_id.eq.' + userId + '),' +
+          'and(requester_id.eq.' + userId + ',target_id.eq.' + uid + ')'
+        )
+        .maybeSingle();
+      friendship = data;
+    }
+    const isFriend = friendship?.status === 'accepted';
+    const isPending = friendship?.status === 'pending';
+
+    // Determine visibility
+    const canSeeBio = isMe || profile.visibility_bio === 'public' || (profile.visibility_bio === 'friends' && isFriend);
+    const canSeePrs = isMe || profile.visibility_prs === 'public' || (profile.visibility_prs === 'friends' && isFriend);
+    const canSeeProgramme = isMe || profile.visibility_programme === 'public' || (profile.visibility_programme === 'friends' && isFriend);
+    const canSeeSeances = isMe || profile.visibility_seances === 'public' || (profile.visibility_seances === 'friends' && isFriend);
+    const canSeeStats = isMe || profile.visibility_stats === 'public' || (profile.visibility_stats === 'friends' && isFriend);
+
+    let html = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button>';
+    html += '<div class="profile-header">';
+    html += '<div class="profile-big-avatar">' + avatarInitial(profile.username) + '</div>';
+    html += '<div class="profile-username">' + profile.username + '</div>';
+    if (canSeeBio && profile.bio) html += '<div class="profile-bio">' + escapeHtml(profile.bio) + '</div>';
+    else if (!canSeeBio) html += '<div class="profile-bio" style="font-style:italic;color:var(--sub);">Bio privée</div>';
+    html += '</div>';
+
+    // Action buttons
+    if (!isMe) {
+      html += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
+      if (isFriend) {
+        html += '<button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--red);font-size:13px;" onclick="removeFriend(\'' + friendship.id + '\');closeProfileOverlay();">Retirer</button>';
+      } else if (isPending) {
+        if (friendship.target_id === uid) {
+          html += '<button class="btn" style="background:var(--green);color:#000;font-size:13px;" onclick="acceptFriendRequest(\'' + friendship.id + '\')">Accepter</button>';
+        } else {
+          html += '<button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);font-size:13px;" disabled>Demande envoyée</button>';
+        }
+      } else if (!friendship || friendship.status !== 'blocked') {
+        html += '<button class="btn" style="font-size:13px;" onclick="sendFriendRequest(\'' + userId + '\')">Ajouter en ami</button>';
+      }
+      html += '<button class="btn" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);font-size:13px;width:auto;padding:10px 16px;" onclick="blockUser(\'' + userId + '\')">Bloquer</button>';
+      html += '</div>';
+    }
+
+    // PRs section
+    html += '<div class="profile-section"><div class="card"><div class="profile-section-title">PRs / Exercices clés</div>';
+    if (canSeePrs) {
+      // Show leaderboard snapshots for this user
+      const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
+        .select('exercise_name, value')
+        .eq('user_id', userId)
+        .order('value', { ascending: false });
+      if (snapshots && snapshots.length) {
+        const best = {};
+        snapshots.forEach(s => { if (!best[s.exercise_name] || s.value > best[s.exercise_name]) best[s.exercise_name] = s.value; });
+        html += Object.entries(best).map(([name, val]) =>
+          '<div class="stat-row"><span style="font-size:13px;">' + name + '</span><span style="font-weight:700;color:var(--blue);">' + Math.round(val) + 'kg</span></div>'
+        ).join('');
+      } else {
+        html += '<div style="color:var(--sub);font-size:13px;text-align:center;padding:12px;">Aucun PR enregistré</div>';
+      }
+    } else {
+      html += '<div class="profile-private">🔒 Section privée</div>';
+    }
+    html += '</div></div>';
+
+    // Stats section
+    html += '<div class="profile-section"><div class="card"><div class="profile-section-title">Stats</div>';
+    if (canSeeStats) {
+      const { data: activities } = await supaClient.from('activity_feed')
+        .select('type, created_at')
+        .eq('user_id', userId)
+        .eq('type', 'session')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      const totalSessions = activities ? activities.length : 0;
+      html += '<div class="stat-row"><span>Séances</span><span style="font-weight:700;">' + totalSessions + '</span></div>';
+    } else {
+      html += '<div class="profile-private">🔒 Section privée</div>';
+    }
+    html += '</div></div>';
+
+    overlay.innerHTML = html;
+  } catch (e) {
+    console.error('showProfileOverlay error:', e);
+    overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--red);">Erreur de chargement</div>';
+  }
+}
+
+function closeProfileOverlay() {
+  document.getElementById('profileOverlay').style.display = 'none';
+}
+
+// ============================================================
+// SOCIAL MODULE — SOCIAL ONBOARDING (3 screens)
+// ============================================================
+function showSocialOnboarding() {
+  document.getElementById('social-onboarding-overlay').style.display = '';
+  // Pre-fill with user name if available
+  const nameInput = document.getElementById('sob-username');
+  if (db.user.name && !nameInput.value) {
+    nameInput.value = db.user.name.toLowerCase().replace(/\s+/g, '_');
+  }
+}
+
+function sobUpdateProgress(step) {
+  const dots = document.querySelectorAll('#sob-progress .sob-dot');
+  dots.forEach((d, i) => d.classList.toggle('active', i < step));
+}
+
+async function sobNext(currentStep) {
+  if (currentStep === 1) {
+    // Validate username
+    const username = (document.getElementById('sob-username').value || '').trim().toLowerCase();
+    if (!username || username.length < 3) {
+      showToast('Pseudo trop court (3 car. min)');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      showToast('Lettres, chiffres et _ uniquement');
+      return;
+    }
+    // Check availability
+    if (supaClient) {
+      const { data: existing } = await supaClient.from('profiles').select('id').eq('username', username).maybeSingle();
+      if (existing) { showToast('Pseudo déjà pris'); return; }
+      const { data: reserved } = await supaClient.from('reserved_usernames').select('username').eq('username', username).maybeSingle();
+      if (reserved) { showToast('Pseudo réservé temporairement'); return; }
+    }
+
+    db.social.username = username;
+    db.social.bio = (document.getElementById('sob-bio').value || '').trim();
+
+    document.getElementById('sob-step-1').classList.remove('active');
+    document.getElementById('sob-step-2').classList.add('active');
+    sobUpdateProgress(2);
+  } else if (currentStep === 2) {
+    // Save visibility settings
+    db.social.visibility.bio = document.getElementById('sob-vis-bio').value;
+    db.social.visibility.prs = document.getElementById('sob-vis-prs').value;
+    db.social.visibility.programme = document.getElementById('sob-vis-programme').value;
+    db.social.visibility.seances = document.getElementById('sob-vis-seances').value;
+    db.social.visibility.stats = document.getElementById('sob-vis-stats').value;
+
+    document.getElementById('sob-step-2').classList.remove('active');
+    document.getElementById('sob-step-3').classList.add('active');
+    sobUpdateProgress(3);
+
+    // Generate invite code
+    await ensureProfile();
+    const code = await createNewInviteCode();
+    document.getElementById('sob-invite-code').textContent = code || '---';
+  }
+}
+
+function copySobInviteCode() {
+  const code = document.getElementById('sob-invite-code').textContent;
+  if (!code || code === '---') return;
+  navigator.clipboard.writeText(code).then(() => showToast('Code copié !')).catch(() => showToast('Erreur copie'));
+}
+
+async function sobFinish() {
+  db.social.onboardingCompleted = true;
+  saveDB();
+
+  // Ensure profile is created in Supabase
+  await ensureProfile();
+
+  // Update leaderboard
+  await updateLeaderboardSnapshot();
+
+  document.getElementById('social-onboarding-overlay').style.display = 'none';
+  showToast('Bienvenue dans la communauté !');
+  initSocialTab();
+}
+
+// ============================================================
+// SOCIAL MODULE — ACCOUNT DELETION
+// ============================================================
+function showAccountDeletionDialog() {
+  let selectedOption = null;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-box" style="max-width:340px;text-align:left;">' +
+      '<p style="font-size:16px;font-weight:700;margin:0 0 6px;text-align:center;">Supprimer le compte social</p>' +
+      '<p style="font-size:12px;color:var(--sub);margin:0 0 16px;text-align:center;">Cette action est irréversible.</p>' +
+      '<div class="deletion-option" id="del-erase" onclick="selectDeletionOption(\'erase\')">' +
+        '<div class="deletion-option-title">Effacement total</div>' +
+        '<div class="deletion-option-desc">Posts, commentaires, réactions, profil — tout disparaît.</div>' +
+      '</div>' +
+      '<div class="deletion-option" id="del-anon" onclick="selectDeletionOption(\'anon\')">' +
+        '<div class="deletion-option-title">Anonymisation</div>' +
+        '<div class="deletion-option-desc">Le profil disparaît mais les commentaires restent sous "Utilisateur supprimé".</div>' +
+      '</div>' +
+      '<div class="modal-actions" style="margin-top:16px;">' +
+        '<button class="modal-cancel" style="background:var(--sub);color:#000;">Annuler</button>' +
+        '<button class="modal-confirm" id="del-confirm" style="background:var(--red);color:white;" disabled>Supprimer</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+  overlay.querySelector('.modal-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('.modal-confirm').onclick = async () => {
+    overlay.remove();
+    await executeAccountDeletion(selectedOption);
+  };
+
+  window.selectDeletionOption = function(opt) {
+    selectedOption = opt;
+    document.querySelectorAll('.deletion-option').forEach(el => el.classList.remove('selected'));
+    document.getElementById('del-' + opt).classList.add('selected');
+    document.getElementById('del-confirm').disabled = false;
+  };
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.emoji-picker-popup') && !e.target.closest('.feed-action-btn')) {
+    document.querySelectorAll('.emoji-picker-popup.open').forEach(p => p.classList.remove('open'));
+  }
+  if (!e.target.closest('.friends-search')) {
+    document.getElementById('friendAutocomplete')?.classList.remove('open');
+  }
+});
+
+async function executeAccountDeletion(mode) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+
+  try {
+    if (mode === 'erase') {
+      // Delete everything
+      await supaClient.from('reactions').delete().eq('user_id', uid);
+      await supaClient.from('comments').delete().eq('user_id', uid);
+      await supaClient.from('notifications').delete().eq('user_id', uid);
+      await supaClient.from('activity_feed').delete().eq('user_id', uid);
+      await supaClient.from('invite_codes').delete().eq('user_id', uid);
+      await supaClient.from('leaderboard_snapshots').delete().eq('user_id', uid);
+      await supaClient.from('friendships').delete().or('requester_id.eq.' + uid + ',target_id.eq.' + uid);
+      await supaClient.from('profiles').delete().eq('id', uid);
+    } else {
+      // Anonymize: mark profile as deleted, keep comments
+      await supaClient.from('profiles').update({
+        deleted_at: new Date().toISOString(),
+        anonymized: true,
+        username: 'deleted_' + uid.substring(0, 8),
+        bio: ''
+      }).eq('id', uid);
+      // Remove personal data
+      await supaClient.from('activity_feed').delete().eq('user_id', uid);
+      await supaClient.from('reactions').delete().eq('user_id', uid);
+      await supaClient.from('friendships').delete().or('requester_id.eq.' + uid + ',target_id.eq.' + uid);
+      await supaClient.from('invite_codes').delete().eq('user_id', uid);
+      await supaClient.from('leaderboard_snapshots').delete().eq('user_id', uid);
+      await supaClient.from('notifications').delete().eq('user_id', uid);
+    }
+
+    // Reset local social data
+    db.social = {
+      profileId: null,
+      username: '',
+      bio: '',
+      visibility: { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' },
+      onboardingCompleted: false,
+      usernameChangedAt: null
+    };
+    saveDB();
+    showToast('Compte social supprimé');
+    initSocialTab();
+  } catch (e) {
+    console.error('executeAccountDeletion error:', e);
+    showToast('Erreur lors de la suppression');
+  }
+}
+

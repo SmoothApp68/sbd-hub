@@ -10709,9 +10709,9 @@ function generateWeeklyPlan() {
   const allBest = {};
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
-      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxReps:0, maxTime:0, distance:0, repRecords:{}, _ts:0 };
+      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxRMDate:null, maxReps:0, maxTime:0, distance:0, repRecords:{}, _ts:0 };
       const r = allBest[exo.name];
-      if ((exo.maxRM   ||0) > r.maxRM)    r.maxRM    = exo.maxRM;
+      if ((exo.maxRM||0) > r.maxRM) { r.maxRM = exo.maxRM; r.maxRMDate = exo.maxRMDate || log.timestamp; }
       if ((exo.maxReps ||0) > r.maxReps)  r.maxReps  = exo.maxReps;
       if ((exo.maxTime ||0) > r.maxTime)  r.maxTime  = exo.maxTime;
       if ((exo.distance||0) > r.distance) r.distance = exo.distance;
@@ -10988,9 +10988,37 @@ function renderWeeklyPlanUI() {
   if (!sel || sel.rest) {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div></div>`;
+    const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
-  content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div><div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
+  const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
+  content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div>${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
+}
+
+function wpApplyDay(day) {
+  const plan = db.weeklyPlan;
+  if (!plan || !plan.days) return;
+  const dayData = plan.days.find(d => d.day === day && !d.rest);
+  if (!dayData || !dayData.exercises || !dayData.exercises.length) return;
+  if (!db.routineExos) db.routineExos = {};
+  db.routineExos[day] = dayData.exercises.map(e => e.name);
+  saveDB();
+  showToast('✓ Programme du ' + day + ' mis à jour');
+}
+
+function wpApplyAll() {
+  const plan = db.weeklyPlan;
+  if (!plan || !plan.days) return;
+  showModal('Appliquer tout ?', 'Appliquer', 'var(--blue)', () => {
+    if (!db.routineExos) db.routineExos = {};
+    plan.days.forEach(d => {
+      if (d.rest || !d.exercises || !d.exercises.length) return;
+      db.routineExos[d.day] = d.exercises.map(e => e.name);
+    });
+    saveDB();
+    showToast('✓ Programme complet mis à jour');
+    refreshUI();
+  });
 }
 
 function fmtRest(sec) {

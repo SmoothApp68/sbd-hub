@@ -52,6 +52,11 @@
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; }
     .modal-box { background: var(--card); color: var(--text); padding: 20px; border-radius: 20px; text-align: center; border: 1px solid var(--border); max-width: 280px; width: 90%; }
     .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+    .readiness-sliders { display:flex; flex-direction:column; gap:10px; margin:12px 0; }
+    .readiness-row { display:flex; align-items:center; gap:8px; font-size:12px; }
+    .readiness-row span:first-child { width:100px; text-align:left; white-space:nowrap; }
+    .readiness-row input[type=range] { flex:1; accent-color:var(--green); }
+    .readiness-row span:last-child { width:18px; text-align:center; font-weight:700; }
     .modal-actions button { flex: 1; padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; }
     .exo-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; }
     .ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
@@ -1528,6 +1533,9 @@
       </button>
     </div>
     <div class="card" id="perfCard"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div id="perfDisplay"></div></div>
+    <div class="card" id="readinessCard" style="padding:14px 16px;"><div id="readinessSparkline"></div></div>
+    <div class="card" id="dotsWilksCard" style="display:none;padding:14px 16px;"><div id="dotsWilksContent"></div></div>
+    <div class="card" id="formScoreCard" style="padding:14px 16px;"><div id="formScoreContent"></div></div>
     <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
     <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
@@ -1586,6 +1594,7 @@
           </select>
           <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
         </div>
+        <div id="deloadBanner"></div>
         <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
         <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
       </div>
@@ -1636,6 +1645,8 @@
           <div id="muscleEvolLegend" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px;"></div>
         </div>
       </div>
+      <div class="card"><h2>📊 Volume Landmarks</h2><div id="volumeLandmarksContent"></div></div>
+      <div class="card"><h2>⚖️ Équilibre</h2><div id="strengthRatiosContent"></div></div>
     </div>
     <div id="stats-records" class="stats-sub-section">
       <div class="card">
@@ -1681,6 +1692,15 @@
       <div class="corps-acc-body" id="ca-load"><div class="corps-acc-inner" id="trainingLoadContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Chargement...</div></div></div>
     </div>
 
+    <!-- 2b. Heatmap de récupération musculaire -->
+    <div class="corps-acc">
+      <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-heatmap')">
+        <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(255,69,58,0.1);">🔥</div><div class="corps-acc-info">Récupération Musculaire</div></div>
+        <span class="corps-acc-chev" id="chev-ca-heatmap">▾</span>
+      </div>
+      <div class="corps-acc-body" id="ca-heatmap"><div class="corps-acc-inner" id="muscleHeatmapContent"></div></div>
+    </div>
+
     <!-- 3. Poids & Courbe -->
     <div class="corps-acc">
       <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-poids')">
@@ -1719,6 +1739,7 @@
               <div class="nutri-ring-sub" id="nutriKcalSub">kcal</div>
             </div>
           </div>
+          <div id="nutriDayTypeLabel" style="text-align:center;font-size:11px;color:var(--sub);margin:-4px 0 8px;"></div>
           <div class="nutri-three-cols">
             <div class="nutri-col"><div class="nutri-col-val" id="nutriMangees">0</div><div class="nutri-col-label">Mangées</div></div>
             <div class="nutri-col"><div class="nutri-col-val" id="nutriCible" style="color:var(--sub);">—</div><div class="nutri-col-label">Objectif</div></div>
@@ -1995,6 +2016,12 @@
       <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Feed</button>
       <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
       <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
+      <button class="social-sub-tab" data-sub="social-challenges" onclick="showSocialSub('social-challenges',this)">Défis</button>
+    </div>
+
+    <!-- Challenges Sub-tab -->
+    <div id="social-challenges" class="social-sub-content">
+      <div class="card" id="challengesContent"></div>
     </div>
 
     <!-- Feed Sub-tab -->

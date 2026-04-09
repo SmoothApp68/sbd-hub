@@ -13,6 +13,40 @@ const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
 
+// ── Volume Landmarks (sets/semaine par groupe musculaire) ────
+const VOLUME_LANDMARKS = {
+  chest:      { MEV: 8,  MAV: 14, MRV: 20 },
+  back:       { MEV: 8,  MAV: 16, MRV: 23 },
+  shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
+  quads:      { MEV: 6,  MAV: 14, MRV: 20 },
+  hamstrings: { MEV: 4,  MAV: 10, MRV: 16 },
+  glutes:     { MEV: 4,  MAV: 10, MRV: 16 },
+  biceps:     { MEV: 4,  MAV: 10, MRV: 18 },
+  triceps:    { MEV: 4,  MAV: 10, MRV: 16 },
+  calves:     { MEV: 6,  MAV: 10, MRV: 16 },
+  abs:        { MEV: 0,  MAV: 10, MRV: 18 },
+  traps:      { MEV: 0,  MAV: 8,  MRV: 14 },
+  forearms:   { MEV: 0,  MAV: 6,  MRV: 12 },
+};
+
+// Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
+const MUSCLE_TO_VL_KEY = {
+  'Pecs': 'chest', 'Pecs (haut)': 'chest',
+  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back',
+  'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
+  'Quadriceps': 'quads', 'Quads': 'quads',
+  'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',
+  'Fessiers': 'glutes', 'Glutes': 'glutes',
+  'Biceps': 'biceps',
+  'Triceps': 'triceps',
+  'Mollets': 'calves',
+  'Abdos': 'abs', 'Abdos (frontal)': 'abs', 'Core': 'abs', 'Obliques': 'abs',
+  'Trapèzes': 'traps', 'Traps': 'traps',
+  'Avant-bras': 'forearms',
+  'Jambes': 'quads', // fallback
+  'Bras': 'biceps',  // fallback
+};
+
 // ── TRAINING MODES ──────────────────────────────────────────
 const TRAINING_MODES = {
   bien_etre: {
@@ -1018,4 +1052,76 @@ function findPreviousBestE1RM(exoName, beforeTs) {
     }
   }
   return best;
+}
+
+// ── DOTS / Wilks scoring ────────────────────────────────────
+function computeDOTS(total, bw, gender) {
+  if (!gender) gender = 'M';
+  var coeffs = gender === 'M'
+    ? [-307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093]
+    : [-57.96288, 13.6175032, -0.1126655495, 0.0005158568, -0.0000010706];
+  var denom = 0;
+  for (var i = 0; i < coeffs.length; i++) denom += coeffs[i] * Math.pow(bw, i);
+  return Math.round((500 / denom) * total * 100) / 100;
+}
+
+function computeWilks(total, bw, gender) {
+  if (!gender) gender = 'M';
+  var coeffs = gender === 'M'
+    ? [-216.0475144, 16.2606339, -0.002388645, -0.00113732, 7.01863e-6, -1.291e-8]
+    : [594.31747775582, -27.23842536447, 0.82112226871, -0.00930733913, 4.731582e-5, -9.054e-8];
+  var denom = 0;
+  for (var i = 0; i < coeffs.length; i++) denom += coeffs[i] * Math.pow(bw, i);
+  return Math.round((500 / denom) * total * 100) / 100;
+}
+
+// ── Volume hebdomadaire réel par groupe musculaire ──────────
+function computeWeeklyVolume(logs, weeksBack) {
+  if (weeksBack === undefined) weeksBack = 1;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - (weeksBack * 7));
+  const recentLogs = logs.filter(l => new Date(l.date || l.timestamp).getTime() >= cutoff.getTime());
+
+  const volumeByMuscle = {};
+  for (const log of recentLogs) {
+    for (const exo of log.exercises || []) {
+      const contributions = getMuscleContributions(exo.name);
+      const workSets = (exo.sets || exo.setCount || 0);
+      const setCount = typeof workSets === 'number' ? workSets : (Array.isArray(workSets) ? workSets.filter(function(s){ return !s.isWarmup; }).length : 0);
+      for (var ci = 0; ci < contributions.length; ci++) {
+        var mc = contributions[ci];
+        var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();
+        volumeByMuscle[vlKey] = (volumeByMuscle[vlKey] || 0) + setCount * mc.coeff;
+      }
+    }
+  }
+  return volumeByMuscle;
+}
+
+// ── Fatigue musculaire (décroissance exponentielle 48h) ─────
+function computeMuscleFatigue(logs) {
+  var now = Date.now();
+  var fatigue = {};
+  for (var li = 0; li < logs.length; li++) {
+    var log = logs[li];
+    var ts = log.timestamp || new Date(log.date).getTime();
+    var hoursAgo = (now - ts) / 3600000;
+    if (hoursAgo > 168) continue; // 7 jours max
+    var decayFactor = Math.exp(-hoursAgo / 48);
+    for (var ei = 0; ei < (log.exercises || []).length; ei++) {
+      var exo = log.exercises[ei];
+      var contributions = getMuscleContributions(exo.name);
+      var workSets = typeof exo.sets === 'number' ? exo.sets : (exo.setCount || 0);
+      for (var ci = 0; ci < contributions.length; ci++) {
+        var mc = contributions[ci];
+        var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();
+        fatigue[vlKey] = (fatigue[vlKey] || 0) + workSets * mc.coeff * decayFactor;
+      }
+    }
+  }
+  for (var muscle in fatigue) {
+    var mrv = (VOLUME_LANDMARKS[muscle] || {}).MRV || 15;
+    fatigue[muscle] = Math.min(100, Math.round((fatigue[muscle] / (mrv / 7 * 2)) * 100));
+  }
+  return fatigue;
 }

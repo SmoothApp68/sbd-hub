@@ -55,6 +55,8 @@ let db = (() => {
     if (p.passwordMigrated === undefined) p.passwordMigrated = false;
     if (!p.friendCode) p.friendCode = null;
     if (!p.friends) p.friends = [];
+    if (!p.readiness) p.readiness = [];
+    if (!p.challenges) p.challenges = [];
     return p;
   } catch { return defaultDB(); }
 })();
@@ -82,6 +84,76 @@ function saveDB() {
 }
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+// ── READINESS PRÉ-SÉANCE ────────────────────────────────────
+db.readiness = db.readiness || [];
+
+function getTodayStr() { return new Date().toISOString().slice(0, 10); }
+
+function hasTodayReadiness() {
+  const today = getTodayStr();
+  return (db.readiness || []).some(r => r.date === today);
+}
+
+function isTodayTrainingDay() {
+  const routine = getRoutine();
+  const todayName = DAYS_FULL[new Date().getDay()];
+  const label = routine[todayName] || '';
+  return label && !/repos|😴/i.test(label);
+}
+
+function getTodayReadiness() {
+  const today = getTodayStr();
+  return (db.readiness || []).find(r => r.date === today) || null;
+}
+
+function showReadinessModal() {
+  if (hasTodayReadiness()) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'readinessModal';
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:20px;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Comment te sens-tu ?</div>
+    <div class="readiness-sliders">
+      <div class="readiness-row"><span>😴 Sommeil</span><input type="range" min="1" max="5" value="3" id="rd-sleep"><span id="rd-sleep-val">3</span></div>
+      <div class="readiness-row"><span>⚡ Énergie</span><input type="range" min="1" max="5" value="3" id="rd-energy"><span id="rd-energy-val">3</span></div>
+      <div class="readiness-row"><span>💪 Courbatures</span><input type="range" min="1" max="5" value="3" id="rd-soreness"><span id="rd-soreness-val">3</span></div>
+      <div class="readiness-row"><span>🧠 Stress</span><input type="range" min="1" max="5" value="3" id="rd-stress"><span id="rd-stress-val">3</span></div>
+    </div>
+    <div style="font-size:10px;color:var(--sub);text-align:center;margin:8px 0;">1 = mauvais · 5 = excellent</div>
+    <div class="modal-actions">
+      <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="document.getElementById('readinessModal').remove()">Passer</button>
+      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  ['sleep','energy','soreness','stress'].forEach(k => {
+    const slider = document.getElementById('rd-'+k);
+    slider.oninput = () => document.getElementById('rd-'+k+'-val').textContent = slider.value;
+  });
+}
+
+function submitReadiness() {
+  const sleep = parseInt(document.getElementById('rd-sleep').value);
+  const energy = parseInt(document.getElementById('rd-energy').value);
+  const soreness = parseInt(document.getElementById('rd-soreness').value);
+  const stress = parseInt(document.getElementById('rd-stress').value);
+  const score = Math.round(((sleep + energy + soreness + stress) / 20) * 100);
+  db.readiness.push({ date: getTodayStr(), sleep, energy, soreness, stress, score });
+  saveDB();
+  const modal = document.getElementById('readinessModal');
+  if (modal) modal.remove();
+  showToast('✅ Readiness : ' + score + '/100');
+}
+
+function getReadinessBannerHtml() {
+  const r = getTodayReadiness();
+  if (!r) return '';
+  if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — séance allégée recommandée (volume -40%, charge -15%)</div>';
+  if (r.score < 60) return '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--orange);">Readiness modérée (' + r.score + '/100) — charge maintenue, volume réduit (-1 set/exo)</div>';
+  if (r.score >= 80) return '<div style="background:rgba(50,215,75,0.12);border-left:3px solid var(--green);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--green);">Readiness excellente (' + r.score + '/100) — go ! 💪</div>';
+  return '';
+}
 
 // ── EXPORT / IMPORT JSON ─────────────────────────────────────
 function exportData() {
@@ -231,74 +303,7 @@ const EXO_DB = {
 };
 
 // ── PROGRAMME GENERATOR ─────────────────────────────────────
-// Retourne un tableau de 7 jours { day, label, exos:[exo_id,...] }
-function generateProgram(goals, freq, mat) {
-  const g1 = goals[0]?.id || 'force';
-  const g2 = goals[1]?.id || 'maintien';
-  // Utilise les jours choisis par l'user, sinon fallback intelligent
-  const trainingDays = obSelectedDays.length === freq
-    ? obSelectedDays
-    : {
-        1: ['Lundi'],
-        2: ['Lundi','Jeudi'],
-        3: ['Lundi','Mercredi','Vendredi'],
-        4: ['Lundi','Mardi','Jeudi','Vendredi'],
-        5: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'],
-        6: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
-      }[Math.min(freq,6)] || ['Lundi','Mercredi','Vendredi'];
-
-  // Blocs d'exercices selon objectif × matériel
-  const BLOCS = {
-    force: {
-      push:    { label:'Push — Force', exos: filtMat(['bench','ohp','incline_bench','tri_cable'], mat) },
-      pull:    { label:'Pull — Force', exos: filtMat(['deadlift','row_barre','lat_pull','curl_barre'], mat) },
-      legs:    { label:'Jambes — Force', exos: filtMat(['squat','leg_press','rdl','mollet'], mat) },
-      full_a:  { label:'Full Body A (Force)', exos: filtMat(['squat','bench','row_barre','ohp'], mat) },
-      full_b:  { label:'Full Body B (Force)', exos: filtMat(['deadlift','incline_bench','lat_pull','curl_barre'], mat) },
-      sbd:     { label:'SBD Technique', exos: filtMat(['squat','bench','deadlift'], mat) },
-      faibles: { label:'Points Faibles', exos: filtMat(['elev_lat','face_pull','crunch','mollet'], mat) },
-    },
-    masse: {
-      push:    { label:'Push — Volume', exos: filtMat(['bench_halt','incline_bench','ecarte','dips_pec','tri_cable'], mat) },
-      pull:    { label:'Pull — Volume', exos: filtMat(['row_halt','lat_pull','traction','face_pull','curl_halt'], mat) },
-      legs:    { label:'Jambes — Volume', exos: filtMat(['leg_press','leg_curl','fente','hip_thrust','mollet'], mat) },
-      full_a:  { label:'Full Body A (Volume)', exos: filtMat(['bench_halt','squat','row_halt','ohp_halt'], mat) },
-      full_b:  { label:'Full Body B (Volume)', exos: filtMat(['incline_bench','rdl','lat_pull','elev_lat'], mat) },
-      upper:   { label:'Upper Body', exos: filtMat(['bench_halt','row_halt','ohp_halt','lat_pull','elev_lat'], mat) },
-      lower:   { label:'Lower Body', exos: filtMat(['squat','leg_press','rdl','leg_curl','mollet'], mat) },
-    },
-    seche: {
-      push:    { label:'Push + Cardio', exos: filtMat(['bench_halt','incline_bench','pompe','tri_cable','cardio_hiit'], mat) },
-      pull:    { label:'Pull + Cardio', exos: filtMat(['row_halt','traction','lat_pull','curl_halt','cardio_liss'], mat) },
-      legs:    { label:'Jambes + Cardio', exos: filtMat(['squat','rdl','leg_press','fente','cardio_hiit'], mat) },
-      full_a:  { label:'Full Body + HIIT', exos: filtMat(['squat','pompe','rowing_inv','crunch','cardio_hiit'], mat) },
-      cardio:  { label:'Cardio actif', exos: filtMat(['cardio_hiit','cardio_liss','planche','crunch'], mat) },
-    },
-    recompo: {
-      push:    { label:'Push (Recompo)', exos: filtMat(['bench_halt','ohp_halt','ecarte','dips_pec'], mat) },
-      pull:    { label:'Pull (Recompo)', exos: filtMat(['traction','row_halt','lat_pull','curl_halt'], mat) },
-      legs:    { label:'Jambes (Recompo)', exos: filtMat(['squat','rdl','leg_press','hip_thrust'], mat) },
-      full_a:  { label:'Full Body A', exos: filtMat(['squat','bench_halt','row_halt','crunch'], mat) },
-      full_b:  { label:'Full Body B', exos: filtMat(['rdl','ohp_halt','traction','planche'], mat) },
-      cardio:  { label:'Cardio modéré', exos: filtMat(['cardio_liss','planche','crunch'], mat) },
-    },
-    maintien: {
-      full_a:  { label:'Full Body A', exos: filtMat(['squat','bench_halt','row_halt','ohp_halt'], mat) },
-      full_b:  { label:'Full Body B', exos: filtMat(['rdl','pompe','traction','elev_lat'], mat) },
-      full_c:  { label:'Full Body C', exos: filtMat(['fente','incline_bench','lat_pull','crunch'], mat) },
-      cardio:  { label:'Cardio + Mobilité', exos: filtMat(['cardio_liss','planche','russian_twist'], mat) },
-    },
-    reprise: {
-      full_a:  { label:'Full Body Doux A', exos: filtMat(['squat','pompe','rowing_inv','planche'], mat) },
-      full_b:  { label:'Full Body Doux B', exos: filtMat(['rdl','ohp_halt','rowing_inv','crunch'], mat) },
-      cardio:  { label:'Cardio léger', exos: filtMat(['cardio_liss','planche'], mat) },
-    }
-  };
-
-  // Sélection du plan selon objectif principal + fréquence
-  const plan = buildPlan(g1, g2, freq, BLOCS, trainingDays);
-  return plan;
-}
+// (Version courte supprimée — seule la version enrichie à 9 paramètres est conservée)
 
 function filtMat(ids, mat) {
   // Filtre les exos selon matériel, garde ceux compatibles ou prend premier alt
@@ -315,76 +320,6 @@ function filtMat(ids, mat) {
     }
     return id;
   });
-}
-
-function buildPlan(g1, g2, freq, BLOCS, trainingDays) {
-  const B = BLOCS[g1] || BLOCS.maintien;
-  const plan = [];
-  const allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-
-  // Séquences selon objectif + fréquence
-  const sequences = {
-    force: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.legs, B.push, B.pull],
-      4: [B.legs, B.push, B.pull, B.sbd],
-      5: [B.legs, B.push, B.pull, B.sbd, B.faibles],
-      6: [B.legs, B.push, B.pull, B.sbd, B.faibles, B.full_a]
-    },
-    masse: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.push, B.pull, B.legs],
-      4: [B.upper, B.lower, B.push, B.pull],
-      5: [B.push, B.pull, B.legs, B.upper, B.lower],
-      6: [B.push, B.pull, B.legs, B.push, B.pull, B.legs]
-    },
-    seche: {
-      1: [B.full_a],
-      2: [B.full_a, B.cardio],
-      3: [B.full_a, B.cardio, B.full_a],
-      4: [B.push, B.pull, B.legs, B.cardio],
-      5: [B.push, B.pull, B.legs, B.cardio, B.full_a],
-      6: [B.push, B.pull, B.legs, B.cardio, B.full_a, B.cardio]
-    },
-    recompo: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.push, B.pull, B.legs],
-      4: [B.full_a, B.full_b, B.cardio, B.full_a],
-      5: [B.push, B.pull, B.legs, B.cardio, B.full_b],
-      6: [B.push, B.pull, B.legs, B.cardio, B.full_b, B.cardio]
-    },
-    maintien: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.full_a, B.full_b, B.full_c],
-      4: [B.full_a, B.full_b, B.full_c, B.cardio],
-      5: [B.full_a, B.full_b, B.full_c, B.cardio, B.full_a],
-      6: [B.full_a, B.full_b, B.full_c, B.cardio, B.full_a, B.full_b]
-    },
-    reprise: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.full_a, B.cardio, B.full_b],
-      4: [B.full_a, B.cardio, B.full_b, B.cardio],
-      5: [B.full_a, B.cardio, B.full_b, B.cardio, B.full_a],
-      6: [B.full_a, B.cardio, B.full_b, B.cardio, B.full_a, B.cardio]
-    }
-  };
-
-  const seq = (sequences[g1] || sequences.maintien)[Math.min(freq,6)] || [B.full_a];
-
-  allDays.forEach((day, i) => {
-    const tIdx = trainingDays.indexOf(day);
-    if (tIdx >= 0 && seq[tIdx]) {
-      plan.push({ day, label: seq[tIdx].label, exos: seq[tIdx].exos || [], isRest: false });
-    } else {
-      plan.push({ day, label: 'Repos', exos: [], isRest: true });
-    }
-  });
-  return plan;
 }
 
 // ── ONBOARDING FLOW ──────────────────────────────────────────
@@ -495,6 +430,12 @@ function obNext(step) {
     if (!text) { showToast('Colle ton programme d\'abord'); return; }
     const parsed = parseManualProgram(text);
     db.routine = parsed;
+    db.routineExos = db.routineExos || {};
+    for (const [day, content] of Object.entries(parsed)) {
+      if (content && content.toLowerCase() !== 'repos' && content.toLowerCase() !== 'off') {
+        db.routineExos[day] = content.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+      }
+    }
     saveDB();
     obFinish();
   } else if (s === '5') {
@@ -574,7 +515,13 @@ function doGenerateProgram() {
   db.generatedProgram = generated;
   db.user.programParams = { goals: obGoals.map(g=>g.id), freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, compDate: obCompDate, compType: obCompType, level: db.user.level };
   db.routine = {};
-  generated.forEach(d => { db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label); });
+  db.routineExos = db.routineExos || {};
+  generated.forEach(d => {
+    db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label);
+    if (!d.isRest && d.exos && d.exos.length > 0) {
+      db.routineExos[d.day] = d.exos.map(id => EXO_DB[id] ? EXO_DB[id].name : id);
+    }
+  });
   renderObGeneratedProgram(generated);
   gotoObStep('7');
 }
@@ -654,11 +601,17 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     return filtMat(ids.filter(id => !excluded.has(id)), m).slice(0, exosN);
   }
 
-  // Débutants : pas d'exercices à haute complexité technique
+  // Débutants : remplacer les exercices complexes par des alternatives plus simples
   function filtLevel(ids) {
     if (lp.complexity === 'low') {
-      const complex = ['deadlift','squat','ohp','skull','rdl'];
-      return ids.filter(id => !complex.includes(id));
+      const REPLACEMENTS = {
+        'squat':    'leg_press',
+        'deadlift': 'rdl',
+        'rdl':      'leg_curl',
+        'ohp':      'ohp_halt',
+        'skull':    'tri_cable',
+      };
+      return ids.map(id => REPLACEMENTS[id] || id);
     }
     return ids;
   }
@@ -1198,9 +1151,10 @@ function showTab(tabId) {
   if (tabId==='tab-seances') {
     if (activeSeancesSub === 'seances-go') renderGoTab();
     else renderSeancesTab();
+    if (isTodayTrainingDay() && !hasTodayReadiness()) showReadinessModal();
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
-  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
+  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); renderDeloadBanner(); }
   if (tabId==='tab-game') { renderGamificationTab(); }
   if (tabId==='tab-profil') {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
@@ -2737,6 +2691,293 @@ function renderDash() {
 
   renderPerfCard();
   renderDayExercises(selectedDay);
+  renderReadinessSparkline();
+  renderDotsWilks();
+  renderFormScoreDash();
+}
+
+function renderReadinessSparkline() {
+  const el = document.getElementById('readinessSparkline');
+  if (!el) return;
+  const cutoff = Date.now() - 28 * 86400000;
+  const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
+  if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
+  const vals = recent.map(r => r.score);
+  const labels = recent.map(r => r.date.slice(5));
+  const W = 280, H = 60, pad = 6;
+  const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
+  const pts = vals.map((v, i) => ({
+    x: pad + (i / (vals.length - 1)) * (W - pad * 2),
+    y: pad + (1 - (v - minV) / range) * (H - pad * 2)
+  }));
+  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  const lastScore = vals[vals.length - 1];
+  const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px;">READINESS</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
+    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
+    '</svg></div>';
+}
+
+// ── Heatmap de récupération musculaire ──────────────────────
+function renderMuscleHeatmap() {
+  const el = document.getElementById('muscleHeatmapContent');
+  if (!el) return;
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const vol = computeWeeklyVolume(db.logs, 1);
+
+  function fColor(level) {
+    if (level < 30) return '#32D74B';
+    if (level < 60) return '#FFD60A';
+    if (level < 85) return '#FF9F0A';
+    return '#FF453A';
+  }
+  function fLabel(level) {
+    if (level < 30) return 'Frais';
+    if (level < 60) return 'Récupération';
+    if (level < 85) return 'Fatigué';
+    return 'Surentraîné';
+  }
+
+  // Simplified body SVG (front view) with muscle zones
+  const muscles = [
+    { key:'shoulders', label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
+    { key:'shoulders', label:'Épaules',   cx:138, cy:68,  rx:14, ry:10 },
+    { key:'chest',     label:'Pecs',      cx:100, cy:85,  rx:22, ry:14 },
+    { key:'biceps',    label:'Biceps',    cx:52,  cy:105, rx:8,  ry:16 },
+    { key:'triceps',   label:'Triceps',   cx:148, cy:105, rx:8,  ry:16 },
+    { key:'abs',       label:'Abdos',     cx:100, cy:120, rx:16, ry:18 },
+    { key:'forearms',  label:'Avant-bras',cx:44,  cy:140, rx:6,  ry:14 },
+    { key:'forearms',  label:'Avant-bras',cx:156, cy:140, rx:6,  ry:14 },
+    { key:'quads',     label:'Quads',     cx:85,  cy:170, rx:12, ry:22 },
+    { key:'quads',     label:'Quads',     cx:115, cy:170, rx:12, ry:22 },
+    { key:'hamstrings',label:'Ischio',    cx:85,  cy:175, rx:8,  ry:12 },
+    { key:'hamstrings',label:'Ischio',    cx:115, cy:175, rx:8,  ry:12 },
+    { key:'calves',    label:'Mollets',   cx:85,  cy:210, rx:8,  ry:14 },
+    { key:'calves',    label:'Mollets',   cx:115, cy:210, rx:8,  ry:14 },
+    { key:'traps',     label:'Trapèzes',  cx:100, cy:55,  rx:18, ry:8  },
+    { key:'back',      label:'Dos',       cx:100, cy:100, rx:18, ry:16 },
+    { key:'glutes',    label:'Fessiers',  cx:100, cy:148, rx:16, ry:10 },
+  ];
+
+  const seen = new Set();
+  let svgParts = '';
+  const tooltipData = [];
+  muscles.forEach((m, i) => {
+    const f = fatigue[m.key] || 0;
+    const color = fColor(f);
+    const opacity = 0.4 + (f / 100) * 0.5;
+    svgParts += `<ellipse cx="${m.cx}" cy="${m.cy}" rx="${m.rx}" ry="${m.ry}" fill="${color}" opacity="${opacity}" style="cursor:pointer;" onclick="showMuscleFatigueTooltip('${m.key}')"/>`;
+    if (!seen.has(m.key)) {
+      seen.add(m.key);
+      const lm = VOLUME_LANDMARKS[m.key];
+      const sets = Math.round((vol[m.key] || 0) * 10) / 10;
+      tooltipData.push({ key: m.key, label: m.label, fatigue: f, sets, mav: lm ? lm.MAV : '—' });
+    }
+  });
+
+  // Outline body shape
+  const bodyOutline = '<path d="M100,20 C85,20 78,30 78,45 L72,60 60,65 45,90 40,130 48,155 55,150 58,120 65,105 70,85 80,65 85,150 80,180 78,220 82,240 92,240 95,205 100,195 105,205 108,240 118,240 122,220 120,180 115,150 120,65 130,85 135,105 142,120 145,150 152,155 160,130 155,90 140,65 128,60 122,45 C122,30 115,20 100,20Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>';
+
+  const svg = '<svg viewBox="30 10 140 240" style="width:180px;height:280px;display:block;margin:0 auto;">' + bodyOutline + svgParts + '</svg>';
+
+  // Legend bars below
+  let legendHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;">';
+  tooltipData.forEach(d => {
+    const color = fColor(d.fatigue);
+    legendHtml += '<div style="display:flex;align-items:center;gap:6px;font-size:10px;padding:4px 6px;background:rgba(255,255,255,0.03);border-radius:6px;cursor:pointer;" onclick="showMuscleFatigueTooltip(\'' + d.key + '\')">' +
+      '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0;"></div>' +
+      '<span style="color:var(--text);font-weight:600;">' + d.label + '</span>' +
+      '<span style="color:var(--sub);margin-left:auto;">' + d.fatigue + '%</span></div>';
+  });
+  legendHtml += '</div>';
+
+  // Color legend
+  const colorLegend = '<div style="display:flex;gap:8px;justify-content:center;margin-top:10px;font-size:9px;color:var(--sub);">' +
+    '<span><span style="color:#32D74B;">●</span> Frais</span>' +
+    '<span><span style="color:#FFD60A;">●</span> Récup</span>' +
+    '<span><span style="color:#FF9F0A;">●</span> Fatigué</span>' +
+    '<span><span style="color:#FF453A;">●</span> Surent.</span></div>';
+
+  el.innerHTML = svg + colorLegend + legendHtml + '<div id="muscleFatigueTooltip" style="display:none;margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;"></div>';
+}
+
+function showMuscleFatigueTooltip(key) {
+  const el = document.getElementById('muscleFatigueTooltip');
+  if (!el) return;
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const vol = computeWeeklyVolume(db.logs, 1);
+  const lm = VOLUME_LANDMARKS[key] || {};
+  const LABELS_FR = { chest:'Pecs', back:'Dos', shoulders:'Épaules', quads:'Quads', hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps', calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras' };
+  const f = fatigue[key] || 0;
+  const sets = Math.round((vol[key] || 0) * 10) / 10;
+  // Find last session with this muscle
+  let lastSession = '—';
+  for (let i = db.logs.length - 1; i >= 0; i--) {
+    const log = db.logs[i];
+    const found = log.exercises.some(exo => {
+      const contribs = getMuscleContributions(exo.name);
+      return contribs.some(c => (MUSCLE_TO_VL_KEY[c.muscle] || c.muscle.toLowerCase()) === key);
+    });
+    if (found) {
+      const d = new Date(log.timestamp);
+      const diff = Math.round((Date.now() - d.getTime()) / 86400000);
+      lastSession = diff === 0 ? "aujourd'hui" : diff === 1 ? 'hier' : 'il y a ' + diff + 'j';
+      break;
+    }
+  }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">' + (LABELS_FR[key] || key) + '</div>' +
+    '<div>Fatigue : <strong>' + f + '%</strong></div>' +
+    '<div>Dernière séance : ' + lastSession + '</div>' +
+    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV || '—') + ')</div>';
+}
+
+// ── Score de forme composite (Dashboard) ────────────────────
+function computeFormScoreComposite() {
+  const components = {};
+  // 1. Readiness moyenne 7j (20%)
+  const recent = (db.readiness || []).filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000);
+  components.readiness = recent.length > 0 ? recent.reduce((s, r) => s + r.score, 0) / recent.length : 50;
+  // 2. Compliance 7j (25%)
+  const routine = getRoutine();
+  const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
+  const logsWeek = (db.logs || []).filter(l => (Date.now() - (l.timestamp || 0)) < 7 * 86400000).length;
+  components.compliance = Math.min(100, (logsWeek / planned) * 100);
+  // 3. Tendance force (20%)
+  const mainLifts = ['squat', 'bench', 'deadlift'];
+  let trendScore = 0, trendCount = 0;
+  mainLifts.forEach(name => {
+    const pts = [];
+    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    for (const log of desc) {
+      const exo = log.exercises.find(e => getSBDType(e.name) === name && e.maxRM > 0);
+      if (exo) { pts.push(exo.maxRM); if (pts.length >= 4) break; }
+    }
+    if (pts.length >= 2) {
+      trendCount++;
+      trendScore += pts[0] >= pts[pts.length - 1] ? 1 : -1;
+    }
+  });
+  components.trend = trendCount > 0 ? 50 + (trendScore / trendCount) * 25 : 50;
+  // 4. Fatigue inverse (15%)
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const fatVals = Object.values(fatigue);
+  const avgFat = fatVals.length > 0 ? fatVals.reduce((s,v) => s+v, 0) / fatVals.length : 50;
+  components.recovery = 100 - avgFat;
+  // 5. Nutrition (10%)
+  const nutriDays = (db.body || []).filter(e => (Date.now() - (e.ts||0)) < 7 * 86400000 && (e.kcal > 0 || e.prot > 0));
+  components.nutrition = nutriDays.length > 0 ? Math.min(100, (nutriDays.length / 7) * 100) : 30;
+  // 6. Sommeil (10%)
+  components.sleep = recent.length > 0 ? (recent.reduce((s, r) => s + r.sleep, 0) / recent.length) * 20 : 50;
+  // Final
+  const score = Math.round(
+    components.readiness * 0.20 + components.compliance * 0.25 +
+    components.trend * 0.20 + components.recovery * 0.15 +
+    components.nutrition * 0.10 + components.sleep * 0.10
+  );
+  return { score: Math.max(0, Math.min(100, score)), components };
+}
+
+function renderFormScoreDash() {
+  const el = document.getElementById('formScoreContent');
+  if (!el) return;
+  const { score, components } = computeFormScoreComposite();
+  const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
+  const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
+  const barsHtml = Object.entries(components).map(([k,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
+    '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
+    '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;">' +
+    '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
+    '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
+  ).join('');
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
+    '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+    '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme</div>' +
+    '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
+    (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
+    '</div></div></div>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>';
+}
+
+// ── Prédiction de PR ────────────────────────────────────────
+function predictPR(exerciseName, targetWeight) {
+  // Use inline trend calculation (same as renderPerfCard's logic)
+  const pts = [];
+  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  for (const log of desc) {
+    const exo = log.exercises.find(e => e.name === exerciseName || matchExoName(e.name, exerciseName));
+    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+    if (pts.length >= 6) break;
+  }
+  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données' };
+  pts.sort((a,b) => a.x - b.x);
+  const n = pts.length;
+  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+  const denom = n*sumX2 - sumX*sumX;
+  const slope = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
+  const kgPerWeek = slope * 7;
+
+  // R² calculation
+  const meanY = sumY / n;
+  const ssTot = pts.reduce((s,p) => s + Math.pow(p.y - meanY, 2), 0);
+  const ssRes = pts.reduce((s,p) => { const pred = (slope * p.x) + ((sumY - slope * sumX) / n); return s + Math.pow(p.y - pred, 2); }, 0);
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+
+  const currentE1RM = pts[pts.length - 1].y;
+  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée' };
+  if (currentE1RM >= targetWeight) return { reachable: true, reason: 'Objectif déjà atteint !', weeks: 0 };
+  const gap = targetWeight - currentE1RM;
+  const weeks = Math.ceil(gap / kgPerWeek);
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + weeks * 7);
+  return {
+    reachable: true, weeks, date: targetDate.toLocaleDateString('fr-FR'),
+    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2)
+  };
+}
+
+// ── DOTS / Wilks dans le Dashboard ──────────────────────────
+function renderDotsWilks() {
+  const card = document.getElementById('dotsWilksCard');
+  const el = document.getElementById('dotsWilksContent');
+  if (!card || !el) return;
+  const bw = db.user.bw;
+  if (!bw || bw <= 0) { card.style.display = 'none'; return; }
+  // Get best e1RM for SBD
+  let squat = 0, bench = 0, deadlift = 0;
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      const type = getSBDType(exo.name);
+      if (type === 'squat' && (exo.maxRM||0) > squat) squat = exo.maxRM;
+      if (type === 'bench' && (exo.maxRM||0) > bench) bench = exo.maxRM;
+      if (type === 'deadlift' && (exo.maxRM||0) > deadlift) deadlift = exo.maxRM;
+    });
+  });
+  if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const total = squat + bench + deadlift;
+  const gender = db.user.gender === 'F' ? 'F' : 'M';
+  const dots = computeDOTS(total, bw, gender);
+  const wilks = computeWilks(total, bw, gender);
+  const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
+    '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
+    '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
+    '<div style="display:flex;gap:16px;margin-top:8px;">' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
+    '</div>';
 }
 
 // ── Rubrique Performance configurable ────────────────────────
@@ -2921,6 +3162,16 @@ function renderPerfCard() {
       ? '<div style="height:3px;background:var(--border);border-radius:2px;margin-top:8px;"><div style="height:3px;background:' + color + ';border-radius:2px;width:' + pct + '%;transition:width 0.5s;"></div></div>' +
         '<div style="font-size:10px;color:var(--sub);margin-top:3px;text-align:right;">' + pct + '% de l\'objectif</div>'
       : '';
+    // PR Prediction
+    let predHtml = '';
+    if (target > 0 && e1rm > 0 && e1rm < target) {
+      const pred = predictPR(kl.name, target);
+      if (pred.reachable && pred.weeks > 0) {
+        predHtml = '<div style="font-size:10px;color:var(--teal);margin-top:4px;">📈 +' + pred.weeklyGain + ' kg/sem → ' + target + 'kg vers ' + pred.date + ' (confiance ' + pred.confidence + '%)</div>';
+      } else if (!pred.reachable) {
+        predHtml = '<div style="font-size:10px;color:var(--orange);margin-top:4px;">📉 ' + pred.reason + '</div>';
+      }
+    }
 
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
       '<div style="width:3px;height:36px;background:' + color + ';border-radius:2px;flex-shrink:0;"></div>' +
@@ -2928,6 +3179,7 @@ function renderPerfCard() {
         '<div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + kl.name.replace(/\s*\(.*\)/, '').trim() + '</div>' +
         trendHtml +
         progressBar +
+        predHtml +
       '</div>' +
       sparkSvg +
     '</div>';
@@ -4370,9 +4622,92 @@ function showStatsSub(id, btn) {
   if (btn) btn.classList.add('active');
   else { const pill = document.querySelector('.stats-sub-pill[onclick*="' + id + '"]'); if (pill) pill.classList.add('active'); }
   if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
-  if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); }
+  if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
   if (id === 'stats-cardio') { renderCardioStats(); }
+}
+
+// ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────
+function renderVolumeLandmarks() {
+  const el = document.getElementById('volumeLandmarksContent');
+  if (!el) return;
+  const vol = computeWeeklyVolume(db.logs, 1);
+  const LABELS_FR = {
+    chest:'Pecs', back:'Dos', shoulders:'Épaules', quads:'Quads',
+    hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps',
+    calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras'
+  };
+  let html = '';
+  for (const [key, lm] of Object.entries(VOLUME_LANDMARKS)) {
+    const sets = Math.round((vol[key] || 0) * 10) / 10;
+    const pct = Math.min(100, (sets / lm.MRV) * 100);
+    let color = 'var(--sub)'; let status = '< MEV';
+    if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️'; }
+    else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV'; }
+    else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅'; }
+    html += '<div style="margin-bottom:8px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
+      '<span style="font-weight:600;">' + (LABELS_FR[key] || key) + '</span>' +
+      '<span style="color:' + color + ';">' + sets + '/' + lm.MRV + ' sets · ' + status + '</span></div>' +
+      '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
+      '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div></div>';
+  }
+  el.innerHTML = html || '<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Importe des séances pour voir le volume</div>';
+}
+
+// ── Ratios d'équilibre ──────────────────────────────────────
+function renderStrengthRatios() {
+  const el = document.getElementById('strengthRatiosContent');
+  if (!el) return;
+  const ratios = computeStrengthRatios();
+  if (!ratios || !Object.keys(ratios).length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Pas assez de données pour calculer les ratios</div>';
+    return;
+  }
+  let html = '';
+  for (const [key, r] of Object.entries(ratios)) {
+    const val = r.value;
+    const lo = r.ideal[0], hi = r.ideal[1];
+    const inRange = val >= lo && val <= hi;
+    const pctPos = Math.min(95, Math.max(5, ((val - (lo - 0.3)) / ((hi + 0.3) - (lo - 0.3))) * 100));
+    const idealLeft = ((lo - (lo - 0.3)) / ((hi + 0.3) - (lo - 0.3))) * 100;
+    const idealWidth = ((hi - lo) / ((hi + 0.3) - (lo - 0.3))) * 100;
+    const color = inRange ? 'var(--green)' : 'var(--orange)';
+    const alert = !inRange ? (val < lo ? '⚠️ Trop bas' : '⚠️ Trop haut') : '✅';
+    html += '<div style="margin-bottom:12px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">' +
+      '<span style="font-weight:600;">' + r.label + '</span>' +
+      '<span style="color:' + color + ';">' + val.toFixed(2) + ' ' + alert + '</span></div>' +
+      '<div style="position:relative;height:8px;background:var(--border);border-radius:4px;">' +
+      '<div style="position:absolute;left:' + idealLeft + '%;width:' + idealWidth + '%;height:100%;background:rgba(50,215,75,0.25);border-radius:4px;"></div>' +
+      '<div style="position:absolute;left:' + pctPos + '%;top:-2px;width:4px;height:12px;background:' + color + ';border-radius:2px;transform:translateX(-50%);"></div>' +
+      '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+function computeStrengthRatios() {
+  const e1rm = (name) => {
+    let best = 0;
+    db.logs.forEach(log => {
+      log.exercises.forEach(exo => {
+        if ((exo.maxRM || 0) > best && matchExoName(exo.name, name)) best = exo.maxRM;
+      });
+    });
+    return best > 0 ? best : null;
+  };
+  const squat = e1rm('squat'), bench = e1rm('bench'), deadlift = e1rm('deadlift');
+  const ohp = e1rm('ohp'), row = e1rm('barbell row');
+  const ratios = {};
+  if (squat && deadlift) ratios.squat_deadlift = { value: squat/deadlift, ideal: [0.80, 0.85], label: 'Squat / Deadlift' };
+  if (bench && squat)    ratios.bench_squat    = { value: bench/squat,    ideal: [0.60, 0.70], label: 'Bench / Squat' };
+  if (ohp && bench)      ratios.ohp_bench      = { value: ohp/bench,      ideal: [0.60, 0.65], label: 'OHP / Bench' };
+  if (row && bench)      ratios.row_bench       = { value: row/bench,      ideal: [0.90, 1.00], label: 'Row / Bench' };
+  const vol = computeWeeklyVolume(db.logs, 1);
+  const pushVol = (vol.chest || 0) + (vol.shoulders || 0) * 0.5 + (vol.triceps || 0);
+  const pullVol = (vol.back || 0) + (vol.biceps || 0);
+  if (pullVol > 0) ratios.push_pull = { value: pushVol/pullVol, ideal: [0.80, 1.10], label: 'Push / Pull (volume)' };
+  return ratios;
 }
 
 function renderCardioStats() {
@@ -4775,15 +5110,37 @@ function renderCorpsTab() {
   const logs7=getLogsInRange(7),tonnage7=logs7.reduce((s,l)=>s+l.volume,0);
   const ipf=calcIPFGLTotal(bench,squat,dead,bw);
   const ratio=bw>0&&ipf>0?Math.round((ipf/bw)*100)/100:0;
-  const tdee=calcTDEE(bw,tonnage7);
+  const baseTdee=calcTDEE(bw,tonnage7);
+  // Dynamic TDEE based on today's programme
+  const todayDayName = DAYS_FULL[new Date().getDay()];
+  const todayRoutine = getRoutine();
+  const todayLabel = todayRoutine[todayDayName] || '';
+  const todayIsRest = !todayLabel || /repos|😴/i.test(todayLabel);
+  const todayIsDeload = isDeloadWeek();
+  let tdeeMultiplier = 0.95; // Repos par défaut
+  let tdeeLabel = '🛋️ Jour de repos — -5% kcal';
+  if (todayIsDeload) {
+    tdeeMultiplier = 0.95; tdeeLabel = '🔄 Jour de deload — -5% kcal';
+  } else if (!todayIsRest) {
+    // Check if today has a big lift
+    const todayExos = getProgExosForDay(todayDayName);
+    const hasBig = todayExos.some(n => {
+      const nl = n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return /squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(nl);
+    });
+    if (hasBig) { tdeeMultiplier = 1.10; tdeeLabel = '🏋️ Jour lourd — +10% kcal'; }
+    else { tdeeMultiplier = 1.05; tdeeLabel = '💪 Jour modéré — +5% kcal'; }
+  }
+  const tdee = baseTdee > 0 ? Math.round(baseTdee * tdeeMultiplier) : 0;
   const cible=calcCalorieCible(bw);
-  const macros=calcMacrosCibles(cible,bw);
+  const adjustedCible = baseTdee > 0 ? Math.round(cible * tdeeMultiplier / (cible > 0 && baseTdee > 0 ? baseTdee / baseTdee : 1)) : cible;
+  const macros=calcMacrosCibles(adjustedCible > 0 ? adjustedCible : cible, bw);
   const today=new Date().toDateString();
   const todayEntry=(db.body||[]).find(e=>new Date(e.ts).toDateString()===today);
   const kcalMange=todayEntry?todayEntry.kcal:0,protMange=todayEntry?todayEntry.prot:0,carbMange=todayEntry?todayEntry.carb:0,fatMange=todayEntry?todayEntry.fat:0;
   const now2=new Date(),heuresPassed=now2.getHours()+now2.getMinutes()/60;
   const brulees=tdee>0?Math.round((tdee/24)*heuresPassed):0;
-  const restantes=Math.max(0,cible-kcalMange);
+  const restantes=Math.max(0,(adjustedCible||cible)-kcalMange);
   const RING_CIRCUM=440,pctMange=cible>0?Math.min(1,kcalMange/cible):0,dashOffset=Math.round(RING_CIRCUM*(1-pctMange));
   const ring=document.getElementById('nutriRingFill');
   if (ring){ring.style.strokeDashoffset=dashOffset;ring.className='nutri-ring-fill'+(pctMange>1?' over':pctMange>0.9?' warn':'');}
@@ -4795,6 +5152,8 @@ function renderCorpsTab() {
   applyBar('nutriProtBar',protMange,macros.prot);applyBar('nutriCarbBar',carbMange,macros.carb);applyBar('nutriFatBar',fatMange,macros.fat);
   setEl('nutriProtLabel',`${protMange} / ${macros.prot} g`);setEl('nutriCarbLabel',`${carbMange} / ${macros.carb} g`);setEl('nutriFatLabel',`${fatMange} / ${macros.fat} g`);
   setEl('nutriTDEELabel',tdee>0?`${tdee} kcal`:'—');setEl('nutriProtCible',`${macros.prot}g`);
+  const tdeeDayEl = document.getElementById('nutriDayTypeLabel');
+  if (tdeeDayEl) tdeeDayEl.textContent = tdeeLabel;
   // IPF GL card: only show if mode supports it
   const ipfCard = document.getElementById('metricIPFCard');
   if (ipfCard) ipfCard.style.display = modeFeature('showIPF') ? '' : 'none';
@@ -4825,6 +5184,7 @@ function renderCorpsTab() {
   renderWeightTrend();
   renderMacroHistory();
   renderBodyWeightChart(bwHistory);
+  renderMuscleHeatmap();
 }
 function renderBodyWeightChart(entries) {
   const el = document.getElementById('chartBodyWeight');
@@ -5902,6 +6262,69 @@ let wpSelectedDay = DAYS_FULL[new Date().getDay()] === 'Dimanche' ? 'Lundi' : DA
 // Arrondi au 0.5kg
 function round05(v) { return Math.round(v * 2) / 2; }
 
+// Ratios poids de corps pour estimation de charge sans historique
+const BW_RATIOS = {
+  big:       { debutant: 0.5,  intermediaire: 0.8,  avance: 1.2,  competiteur: 1.5  },
+  compound:  { debutant: 0.3,  intermediaire: 0.5,  avance: 0.8,  competiteur: 1.0  },
+  isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
+};
+
+// ── Deload automatique ──────────────────────────────────────
+function shouldDeload() {
+  const reasons = [];
+  // 1. Fin de mésocycle (semaine 4 complétée)
+  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
+    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
+    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
+  }
+  // 2. Readiness basse chronique
+  const last3 = (db.readiness || []).slice(-3);
+  if (last3.length === 3 && last3.every(r => r.score < 40)) {
+    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
+  }
+  // 3. Plateau multiple
+  const bigLifts = ['squat', 'bench', 'deadlift'];
+  const plateaus = bigLifts.filter(l => detectPlateau(l));
+  if (plateaus.length >= 2) {
+    reasons.push('Plateau sur ' + plateaus.join(' et '));
+  }
+  return { needed: reasons.length > 0, reasons };
+}
+
+let _deloadDismissed = false;
+function renderDeloadBanner() {
+  const el = document.getElementById('deloadBanner');
+  if (!el) return;
+  if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
+  const { needed, reasons } = shouldDeload();
+  if (!needed) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée</div>' +
+    '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
+    '<button onclick="dismissDeload()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Ignorer</button>' +
+    '</div></div>';
+}
+
+function acceptDeload() {
+  db._deloadAccepted = true;
+  saveDB();
+  showToast('🔄 Deload activé — charges et volume réduits');
+  const el = document.getElementById('deloadBanner');
+  if (el) el.innerHTML = '';
+}
+
+function dismissDeload() {
+  _deloadDismissed = true;
+  const el = document.getElementById('deloadBanner');
+  if (el) el.innerHTML = '';
+}
+
+function isDeloadWeek() {
+  return !!db._deloadAccepted;
+}
+
 function generateWeeklyPlan() {
   const btn = document.getElementById('wpGenerateBtn');
   btn.disabled = true; btn.textContent = 'Calcul en cours...';
@@ -5928,17 +6351,34 @@ function generateWeeklyPlan() {
   function getExoCategory(name) {
     const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) return 'big';
-    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning/.test(n)) return 'compound';
+    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) return 'compound';
     return 'isolation';
   }
 
-  // ── Schémas reps/séries/RPE par catégorie ────────────────────
-  const SCHEME = {
-    //               S1    S2    S3    S4
-    big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
-    compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
-    isolation: { reps:[15, 12, 12, 12], sets:[3,4,4,3], rpe:[7,  7,  7.5,7  ], rest:90  },
+  // ── Schémas reps/séries/RPE par catégorie et mode d'entraînement ──
+  const SCHEMES = {
+    powerlifting: {
+      big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
+      compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
+      isolation: { reps:[15, 12, 12, 12], sets:[3,4,4,3], rpe:[7,  7,  7.5,7  ], rest:90  },
+    },
+    force_athletique: {
+      big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
+      compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
+      isolation: { reps:[15, 12, 12, 12], sets:[3,4,4,3], rpe:[7,  7,  7.5,7  ], rest:90  },
+    },
+    bodybuilding: {
+      big:       { reps:[10, 8,  8,  6 ], sets:[4,4,5,4], rpe:[7,  7.5,8,  8.5], rest:150 },
+      compound:  { reps:[12, 10, 10, 8 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:120 },
+      isolation: { reps:[15, 12, 12, 10], sets:[3,4,4,4], rpe:[8,  8,  8.5,9  ], rest:75  },
+    },
+    bien_etre: {
+      big:       { reps:[12, 12, 10, 10], sets:[3,3,3,3], rpe:[6,  6.5,7,  7  ], rest:120 },
+      compound:  { reps:[12, 12, 10, 10], sets:[3,3,3,3], rpe:[6,  6.5,7,  7  ], rest:90  },
+      isolation: { reps:[15, 15, 12, 12], sets:[2,3,3,3], rpe:[6,  6,  6.5,7  ], rest:60  },
+    }
   };
+  const SCHEME = SCHEMES[db.user.trainingMode] || SCHEMES.powerlifting;
 
   // ── Notes coach par semaine ──────────────────────────────────
   const WEEK_NOTES = [
@@ -6195,17 +6635,37 @@ function generateWeeklyPlan() {
           if (workWeight && workWeight > 0) {
             // Échauffements adaptés : 2 paliers si gros lift, 1 si composé/isolation
             const warmups = cat === 'big'
-              ? [ { isWarmup:true, weight:round05(workWeight*0.4), reps:8 },
-                  { isWarmup:true, weight:round05(workWeight*0.65), reps:5 },
-                  { isWarmup:true, weight:round05(workWeight*0.85), reps:2 } ]
-              : [ { isWarmup:true, weight:round05(workWeight*0.5), reps:10 },
-                  { isWarmup:true, weight:round05(workWeight*0.75), reps:5  } ];
+              ? [ { isWarmup:true, weight:Math.max(20, round05(workWeight*0.4)), reps:8 },
+                  { isWarmup:true, weight:Math.max(20, round05(workWeight*0.65)), reps:5 },
+                  { isWarmup:true, weight:Math.max(20, round05(workWeight*0.85)), reps:2 } ]
+              : [ { isWarmup:true, weight:Math.max(20, round05(workWeight*0.5)), reps:10 },
+                  { isWarmup:true, weight:Math.max(20, round05(workWeight*0.75)), reps:5  } ];
             exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[
               ...warmups,
               ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:workWeight, reps:tReps, rpe:tRpe }))
             ]});
           } else {
-            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
+            // Estimation depuis le poids de corps
+            const bw = db.user.bw || 70;
+            const lvl = db.user.level || 'intermediaire';
+            const bwRatio = (BW_RATIOS[cat] || BW_RATIOS.compound)[lvl] || 0.5;
+            const estimatedE1RM = bw * bwRatio;
+            const epleyEst = estimatedE1RM * (1.0278 - 0.0278 * tReps);
+            const estWork = round05(epleyEst * LOAD_PCT);
+            if (estWork > 0) {
+              const warmups = cat === 'big'
+                ? [ { isWarmup:true, weight:Math.max(20, round05(estWork*0.4)), reps:8 },
+                    { isWarmup:true, weight:Math.max(20, round05(estWork*0.65)), reps:5 },
+                    { isWarmup:true, weight:Math.max(20, round05(estWork*0.85)), reps:2 } ]
+                : [ { isWarmup:true, weight:Math.max(20, round05(estWork*0.5)), reps:10 },
+                    { isWarmup:true, weight:Math.max(20, round05(estWork*0.75)), reps:5  } ];
+              exercises.push({ name:exoName, type:'weight', restSeconds:rest, estimated:true, sets:[
+                ...warmups,
+                ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:estWork, reps:tReps, rpe:tRpe }))
+              ]});
+            } else {
+              exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
+            }
           }
         }
       });
@@ -6214,11 +6674,33 @@ function generateWeeklyPlan() {
     plan.days.push({ day, title: label || day, rest: isRest, coachNote: isRest ? '' : buildDayCoachNote(exoNames), exercises });
   });
 
+  // Appliquer deload si activé
+  if (isDeloadWeek()) {
+    plan.isDeload = true;
+    plan.days.forEach(d => {
+      if (d.rest) return;
+      d.exercises.forEach(exo => {
+        if (!exo.sets) return;
+        const work = exo.sets.filter(s => !s.isWarmup);
+        const keep = Math.ceil(work.length / 2);
+        const toRemove = work.length - keep;
+        for (let r = 0; r < toRemove; r++) {
+          const idx = exo.sets.findIndex(s => !s.isWarmup);
+          if (idx >= 0) exo.sets.splice(idx, 1);
+        }
+        exo.sets.forEach(s => {
+          if (s.weight) s.weight = round05(s.weight * 0.6);
+          if (s.rpe) s.rpe = Math.min(s.rpe, 6);
+        });
+      });
+    });
+  }
+
   db.weeklyPlan = plan;
   saveDB();
   btn.disabled = false;
   btn.innerHTML = '✦ Générer le programme de la semaine';
-  showToast('✅ Programme calculé !');
+  showToast(isDeloadWeek() ? '🔄 Programme deload généré !' : '✅ Programme calculé !');
   renderWeeklyPlanUI();
 }
 
@@ -6274,7 +6756,8 @@ function renderWeeklyPlanUI() {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
+    const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
   content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div>${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
@@ -6328,7 +6811,7 @@ function renderWpExercise(exo) {
   else {
     const n = exo.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) typeTag = 'Composé';
-    else if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|leg\s*press|presse|fentes?|\blunge|good\s*morning/.test(n)) typeTag = 'Composé';
+    else if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|leg\s*press|presse|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) typeTag = 'Composé';
   }
 
   // Summary
@@ -6354,6 +6837,15 @@ function renderWpExercise(exo) {
 
   if (exo.noData) {
     setsHtml = '<div class="wpe-nodata">⚠️ Pas encore de données — importe une séance Hevy pour cet exercice.</div>';
+
+  } else if (exo.estimated) {
+    // Charges estimées depuis le poids de corps
+    const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
+    const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
+    let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    setsHtml = '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:6px 10px;margin:4px 12px 8px;border-radius:6px;font-size:11px;color:var(--orange);">📐 Charges estimées — à ajuster après ta première séance</div>' +
+      '<div class="wpe-sets">' + hdr + rows + '</div>';
 
   } else if (type === 'time') {
     const wrkSets = sets.filter(s => !s.isWarmup);

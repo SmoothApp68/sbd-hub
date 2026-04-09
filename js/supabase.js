@@ -365,6 +365,7 @@ function showSocialSub(subId, btn) {
   if (subId === 'social-feed') renderFeed();
   if (subId === 'social-leaderboard') renderLeaderboard();
   if (subId === 'social-friends') renderFriendsTab();
+  if (subId === 'social-challenges') renderChallengesTab();
 }
 
 async function initSocialTab() {
@@ -1974,3 +1975,129 @@ async function executeAccountDeletion(mode) {
   }
 }
 
+// ============================================================
+// SOCIAL CHALLENGES (DÉFIS)
+// ============================================================
+const CHALLENGE_TYPES = {
+  volume:     { label: 'Volume', icon: '💪', desc: 'Tonnage total sur la période', unit: 'kg' },
+  pr:         { label: 'Records', icon: '🏆', desc: 'Nombre de PR battus', unit: 'PRs' },
+  compliance: { label: 'Assiduité', icon: '📅', desc: "% d'adhérence au programme", unit: '%' },
+  streak:     { label: 'Streak', icon: '🔥', desc: "Jours consécutifs d'entraînement", unit: 'j' }
+};
+
+function renderChallengesTab() {
+  const el = document.getElementById('challengesContent');
+  if (!el) return;
+
+  if (!supaClient || !cloudSyncEnabled) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">☁️ Connexion cloud requise pour les défis sociaux</div>';
+    return;
+  }
+
+  // Local challenges (works without specific Supabase table)
+  const challenges = db.challenges || [];
+  const active = challenges.filter(c => c.status === 'active');
+  const completed = challenges.filter(c => c.status === 'completed').slice(0, 5);
+
+  let html = '<h2>🏆 Défis</h2>';
+
+  // Create challenge button
+  html += '<button onclick="showCreateChallengeModal()" style="width:100%;padding:10px;background:var(--blue);border:none;color:white;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Créer un défi</button>';
+
+  // Active challenges
+  if (active.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">En cours</div>';
+    active.forEach(c => {
+      const t = CHALLENGE_TYPES[c.type] || CHALLENGE_TYPES.volume;
+      const progress = getChallengeProgress(c);
+      const daysLeft = Math.max(0, Math.ceil((new Date(c.end_date) - Date.now()) / 86400000));
+      html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div><span style="font-size:16px;">' + t.icon + '</span> <span style="font-weight:700;font-size:13px;">' + t.label + '</span></div>' +
+        '<span style="font-size:10px;color:var(--sub);">' + daysLeft + 'j restants</span></div>' +
+        '<div style="margin-top:8px;font-size:20px;font-weight:800;color:var(--blue);">' + progress + ' <span style="font-size:11px;color:var(--sub);">' + t.unit + '</span></div>' +
+        '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + Math.min(100, (daysLeft > 0 ? 100 - (daysLeft / 7) * 100 : 100)) + '%;"></div></div></div>';
+    });
+  }
+
+  // Completed
+  if (completed.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin:14px 0 8px;">Terminés</div>';
+    completed.forEach(c => {
+      const t = CHALLENGE_TYPES[c.type] || CHALLENGE_TYPES.volume;
+      html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">' +
+        t.icon + ' ' + t.label + ' — <strong>' + (c.finalScore || 0) + '</strong> ' + t.unit + '</div>';
+    });
+  }
+
+  if (!active.length && !completed.length) {
+    html += '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Aucun défi en cours.<br>Crée un défi pour te challenger !</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function getChallengeProgress(challenge) {
+  const start = new Date(challenge.start_date).getTime();
+  const recentLogs = db.logs.filter(l => l.timestamp >= start);
+  switch (challenge.type) {
+    case 'volume': return Math.round(recentLogs.reduce((s, l) => s + (l.volume || 0), 0));
+    case 'pr': {
+      let count = 0;
+      const seen = {};
+      recentLogs.forEach(l => l.exercises.forEach(e => {
+        const key = e.name;
+        if (!seen[key]) seen[key] = 0;
+        if ((e.maxRM || 0) > seen[key]) { count++; seen[key] = e.maxRM; }
+      }));
+      return count;
+    }
+    case 'compliance': {
+      const routine = getRoutine();
+      const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
+      const weeks = Math.max(1, (Date.now() - start) / (7 * 86400000));
+      return Math.round((recentLogs.length / (planned * weeks)) * 100);
+    }
+    case 'streak': return db.questStreak || 0;
+    default: return 0;
+  }
+}
+
+function showCreateChallengeModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'challengeModal';
+  const typeBtns = Object.entries(CHALLENGE_TYPES).map(([k, v]) =>
+    '<button class="ob-mode-btn" style="padding:10px;font-size:12px;" onclick="document.querySelectorAll(\'#challengeModal .ob-mode-btn\').forEach(b=>b.classList.remove(\'selected\'));this.classList.add(\'selected\');this.dataset.type=\'' + k + '\';" data-type="' + k + '">' + v.icon + ' ' + v.label + '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + v.desc + '</div></button>'
+  ).join('');
+  overlay.innerHTML = '<div class="modal-box" style="max-width:320px;padding:20px;">' +
+    '<div style="font-size:16px;font-weight:700;margin-bottom:14px;">Créer un défi</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' + typeBtns + '</div>' +
+    '<select id="challengeDuration" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin-bottom:12px;">' +
+    '<option value="7">1 semaine</option><option value="30">1 mois</option></select>' +
+    '<div class="modal-actions">' +
+    '<button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="document.getElementById(\'challengeModal\').remove()">Annuler</button>' +
+    '<button class="modal-confirm" style="background:var(--blue);color:white;" onclick="createChallenge()">Créer</button></div></div>';
+  document.body.appendChild(overlay);
+}
+
+function createChallenge() {
+  const selected = document.querySelector('#challengeModal .ob-mode-btn.selected');
+  if (!selected) { showToast('Choisis un type de défi'); return; }
+  const type = selected.dataset.type;
+  const dur = parseInt(document.getElementById('challengeDuration').value) || 7;
+  const start = new Date(); start.setHours(0,0,0,0);
+  const end = new Date(start); end.setDate(end.getDate() + dur);
+  if (!db.challenges) db.challenges = [];
+  db.challenges.push({
+    id: Math.random().toString(36).substr(2,9),
+    type,
+    start_date: start.toISOString(),
+    end_date: end.toISOString(),
+    status: 'active'
+  });
+  saveDB();
+  document.getElementById('challengeModal').remove();
+  showToast('🏆 Défi créé !');
+  renderChallengesTab();
+}

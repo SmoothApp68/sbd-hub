@@ -619,8 +619,8 @@
     .wpe-nodata { font-size: 12px; color: var(--orange); padding: 8px 16px 12px; border-top: 1px solid rgba(255,255,255,0.04); }
 
     /* ── Level card (.lvl-*) ── */
-    .lvl-card { position: relative; border-radius: 20px; padding: 24px 20px 20px; margin-bottom: 14px; overflow: hidden; border: 1px solid rgba(191,90,242,0.2); background: var(--card); }
-    .lvl-bg { position: absolute; inset: 0; opacity: 0.06; background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(191,90,242,0.3) 20px, rgba(191,90,242,0.3) 21px); }
+    .lvl-card { position: relative; border-radius: 20px; padding: 24px 20px 20px; margin-bottom: 14px; overflow: visible; border: 1px solid rgba(191,90,242,0.2); background: var(--card); }
+    .lvl-bg { position: absolute; inset: 0; opacity: 0.06; background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(191,90,242,0.3) 20px, rgba(191,90,242,0.3) 21px); border-radius: 20px; overflow: hidden; pointer-events: none; }
     .lvl-top { position: relative; display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
     .lvl-icon-wrap { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 38px; flex-shrink: 0; position: relative; border: 3px solid rgba(191,90,242,0.4); background: rgba(191,90,242,0.08); }
     .lvl-icon-ring { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--purple); border-right-color: var(--purple); animation: lvlSpin 8s linear infinite; }
@@ -702,6 +702,198 @@
     .bdg-desc { font-size: 9px; color: var(--sub); line-height: 1.3; }
     .bdg-condition { font-size: 9px; color: var(--blue); line-height: 1.3; margin-top: 3px; font-weight: 600; }
 
+    /* ── Mini card wrapper (.mc) ── */
+    .mc { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+    .mc-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .mc-title-right { font-size: 12px; color: var(--sub); font-weight: 400; }
+
+    /* ── Heatmap (.hm-*) ── */
+    .hm-grid { display: grid; grid-template-columns: repeat(52, 1fr); gap: 2px; }
+    .hm-cell { height: 10px; border-radius: 2px; background: #1C1C1E; }
+    .hm-cell.l1 { background: rgba(50,215,75,0.20); }
+    .hm-cell.l2 { background: rgba(50,215,75,0.40); }
+    .hm-cell.l3 { background: rgba(50,215,75,0.60); }
+    .hm-cell.l4 { background: rgba(50,215,75,0.85); }
+    .hm-streak { font-size: 13px; font-weight: 700; color: var(--orange); }
+    .hm-legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 6px; font-size: 9px; color: var(--sub); }
+    .hm-legend-cell { width: 10px; height: 10px; border-radius: 2px; }
+
+    /* ── Weekly Challenges (.wc-*) ── */
+    .wc-wrap { background: linear-gradient(135deg, rgba(255,159,10,0.04) 0%, rgba(255,159,10,0.02) 100%); border-color: rgba(255,159,10,0.2); }
+    .wc-item { background: #1C1C1E; border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+    .wc-item:last-child { margin-bottom: 0; }
+    .wc-status { font-size: 16px; flex-shrink: 0; }
+    .wc-info { flex: 1; min-width: 0; }
+    .wc-label { font-size: 13px; font-weight: 700; }
+    .wc-label.done { color: var(--green); }
+    .wc-label.active { color: var(--orange); }
+    .wc-desc { font-size: 11px; color: var(--sub); margin-top: 2px; }
+    .wc-bar-bg { height: 5px; border-radius: 3px; background: var(--surface-border); margin-top: 6px; overflow: hidden; }
+    .wc-bar { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .wc-bar.done { background: var(--green); }
+    .wc-bar.active { background: var(--orange); }
+    .wc-xp { font-size: 11px; font-weight: 700; color: var(--purple); background: rgba(191,90,242,0.12); padding: 3px 8px; border-radius: 8px; flex-shrink: 0; white-space: nowrap; }
+
+    /* ── Recently Unlocked (.ru-*) ── */
+    .ru-scroll { display: flex; overflow-x: auto; gap: 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; }
+    .ru-scroll::-webkit-scrollbar { display: none; }
+    .ru-item { min-width: 110px; background: #1C1C1E; border-radius: 12px; padding: 10px 8px; text-align: center; flex-shrink: 0; position: relative; }
+    .ru-icon { font-size: 24px; margin-bottom: 4px; }
+    .ru-name { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ru-date { font-size: 9px; color: var(--sub); margin-top: 2px; }
+
+    /* ── Next Badges (.nb-*) ── */
+    .nb-item { display: flex; align-items: center; gap: 12px; background: #1C1C1E; border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+    .nb-item:last-child { margin-bottom: 0; }
+    .nb-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 22px; border-radius: 10px; background: var(--surface); flex-shrink: 0; }
+    .nb-info { flex: 1; min-width: 0; }
+    .nb-name { font-size: 13px; font-weight: 700; }
+    .nb-desc { font-size: 10px; color: var(--sub); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nb-bar-bg { height: 5px; border-radius: 3px; background: var(--surface-border); margin-top: 6px; overflow: hidden; }
+    .nb-bar { height: 100%; border-radius: 3px; background: var(--purple); transition: width 0.4s; }
+    .nb-pct { font-size: 18px; font-weight: 800; color: var(--purple); flex-shrink: 0; min-width: 44px; text-align: right; }
+
+    /* ── XP Sources (.xs-*) ── */
+    .xs-counters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .xs-counter { background: #1C1C1E; border-radius: 12px; padding: 10px 6px; text-align: center; }
+    .xs-counter-val { font-size: 18px; font-weight: 800; }
+    .xs-counter-lbl { font-size: 9px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+    .xs-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .xs-bar-label { width: 80px; font-size: 11px; font-weight: 600; color: var(--sub); flex-shrink: 0; text-align: right; }
+    .xs-bar-bg { flex: 1; height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
+    .xs-bar { height: 100%; border-radius: 4px; transition: width 0.4s; }
+    .xs-bar-val { font-size: 11px; font-weight: 700; min-width: 50px; text-align: right; flex-shrink: 0; }
+
+    /* ── Strength Grid (.sg-*) ── */
+    .sg-pages { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .sg-pages::-webkit-scrollbar { display: none; }
+    .sg-page { min-width: 100%; scroll-snap-align: start; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 2px; }
+    .sg-card { background: #1C1C1E; border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; }
+    .sg-card.dim { opacity: 0.45; border-style: dashed; }
+    .sg-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+    .sg-name { font-size: 13px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sg-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px; flex-shrink: 0; margin-left: 4px; }
+    .sg-e1rm { font-size: 11px; color: var(--sub); margin-bottom: 6px; }
+    .sg-gauge { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 2px; position: relative; }
+    .sg-gauge-seg { height: 100%; }
+    .sg-gauge-needle { position: absolute; top: -2px; width: 3px; height: 12px; background: white; border-radius: 2px; transform: translateX(-1.5px); box-shadow: 0 0 6px rgba(255,255,255,0.4); }
+    .sg-labels { display: flex; justify-content: space-between; font-size: 7px; color: var(--sub); margin-bottom: 6px; }
+    .sg-footer { font-size: 10px; color: var(--sub); display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 6px; margin-top: auto; }
+    .sg-footer-xp { font-size: 9px; font-weight: 700; color: var(--purple); background: rgba(191,90,242,0.12); padding: 2px 6px; border-radius: 6px; }
+    .sg-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+    .sg-dot { height: 4px; border-radius: 2px; background: var(--border); transition: all 0.3s; cursor: pointer; }
+    .sg-dot.active { width: 20px; background: var(--orange); }
+    .sg-dot:not(.active) { width: 8px; }
+
+    /* ── Badge Chips Nav (.bc-*) ── */
+    .bc-scroll { display: flex; overflow-x: auto; gap: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin-bottom: 14px; padding-bottom: 4px; }
+    .bc-scroll::-webkit-scrollbar { display: none; }
+    .bc-chip { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s; }
+    .bc-chip:active { transform: scale(0.96); }
+    .bc-chip-count { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+
+    /* ── Badge Progress (.bp-*) ── */
+    .bp-wrap { margin-top: 6px; }
+    .bp-bar-bg { height: 4px; border-radius: 2px; background: var(--surface-border); overflow: hidden; }
+    .bp-bar { height: 100%; border-radius: 2px; background: var(--blue); }
+    .bp-text { font-size: 8px; color: var(--sub); margin-top: 2px; text-align: center; }
+
+    /* ── Tab game background ── */
+    #tab-game { background: linear-gradient(180deg, #000 0%, #0a0812 30%, #0d0816 60%, #000 100%); margin: -15px -15px 0; padding: 15px 15px 0; }
+
+    /* ── Themed separators ── */
+    .gam-separator { text-align:center; padding:8px 0; color:var(--gold); font-size:10px; letter-spacing:4px; opacity:0.4; }
+
+    /* ── Gamification V2 — Animations ── */
+    @keyframes reiatsuPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0), inset 0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 25px rgba(191,90,242,0.12), inset 0 0 15px rgba(191,90,242,0.04); } }
+    @keyframes xpFlow { 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+    @keyframes badgeUnlock { 0%{ transform:scale(0);opacity:0; } 70%{ transform:scale(1.1);opacity:1; } 100%{ transform:scale(1);opacity:1; } }
+    @keyframes xpFloat { 0%{ opacity:1;transform:translateY(0); } 100%{ opacity:0;transform:translateY(-30px); } }
+    @keyframes shimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
+    @keyframes newDot { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(0.7); } }
+    @keyframes flamePulse { 0%,100%{ transform:scaleY(1);opacity:0.9; } 50%{ transform:scaleY(1.15);opacity:1; } }
+
+    .lvl-card-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
+    .lvl-card-v2::before, .lvl-card-v2::after { content:''; position:absolute; width:20px; height:20px; border:2px solid var(--gold); opacity:0.25; pointer-events:none; }
+    .lvl-card-v2::before { top:8px; left:8px; border-right:none; border-bottom:none; }
+    .lvl-card-v2::after { bottom:8px; right:8px; border-left:none; border-top:none; }
+    .lvl-xp-bar-v2 { background: linear-gradient(90deg, var(--purple), var(--blue), var(--purple)); background-size: 200% 100%; animation: xpFlow 3s linear infinite; }
+    .lvl-xp-particle { position:absolute; top:0; width:6px; height:6px; border-radius:50%; background:white; transform:translate(-50%, 2px); box-shadow:0 0 6px rgba(255,255,255,0.6); animation:newDot 1.5s ease-in-out infinite; pointer-events:none; z-index:2; }
+    .lvl-stat-click { cursor: pointer; transition: transform 0.15s, border-color 0.2s; }
+    .lvl-stat-click:active { transform: scale(0.95); }
+    .lvl-stat-click:hover { border-color: var(--purple); }
+    .lvl-xp-today { position:absolute;top:16px;right:16px;background:rgba(191,90,242,0.15);color:var(--purple);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;z-index:2; }
+    .lvl-title { font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s; }
+    .lvl-title:active { opacity:0.6; }
+
+    /* ── Quest Card (Dofus style) ── */
+    .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.03) 0%, transparent 40%, rgba(200,162,76,0.02) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; }
+    .quest-card::before { content:'◆'; position:absolute; top:-6px; left:12px; color:var(--gold); font-size:8px; background:#0d0816; padding:0 4px; opacity:0.5; }
+    .quest-item { background: var(--surface); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.15s; position: relative; }
+    .quest-item:active { transform: scale(0.98); }
+    .quest-item:last-child { margin-bottom: 0; }
+    .quest-item.q-done { background: rgba(50,215,75,0.06); }
+    .quest-item.q-active { border: 1px solid rgba(255,159,10,0.3); }
+    .quest-item.q-secret { border: 1px solid var(--gold-border); }
+    .quest-perfect { background-color: rgba(200,162,76,0.06); border: 1px solid var(--gold-border); border-radius: 12px; padding: 10px 14px; margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--gold); }
+    .quest-arc { background: linear-gradient(135deg, rgba(191,90,242,0.03), rgba(10,132,255,0.03)); border: 1px solid rgba(191,90,242,0.3); outline: 1px solid rgba(191,90,242,0.08); outline-offset: 3px; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+    .quest-arc-bar { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
+    .quest-arc-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.6s; }
+    .quest-remaining { font-size: 10px; color: var(--sub); margin-top: 4px; text-align: right; }
+
+    /* ── Flame ── */
+    .flame-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; vertical-align: middle; margin-left: 6px; }
+    .flame-icon { display:inline-block; width:14px; height:18px; background:linear-gradient(to top, #FF9F0A, #FF453A); clip-path:polygon(50% 0%,80% 35%,100% 70%,85% 100%,50% 80%,15% 100%,0% 70%,20% 35%); vertical-align: middle; }
+    .flame-icon.gold { background:linear-gradient(to top, var(--gold), #FF9F0A); animation:flamePulse 2s ease-in-out infinite; }
+    .flame-icon.dim { opacity:0.35; }
+    .flame-bonus { font-size:10px; color:var(--orange); font-weight:600; }
+
+    /* ── Title Modal ── */
+    .title-modal-list { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .title-row { display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:12px; margin-bottom:6px; background:var(--surface); border:1px solid var(--border); cursor:pointer; transition:border-color 0.2s; }
+    .title-row:active { transform:scale(0.98); }
+    .title-row.active-title { border-color:var(--purple); background:rgba(191,90,242,0.06); }
+    .title-row.locked-title { opacity:0.4; cursor:default; }
+    .title-rarity { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:2px 6px; border-radius:6px; }
+    .title-cond { font-size:9px; color:var(--sub); margin-top:2px; }
+
+    /* ── Secret quest badge in recent ── */
+    .ru-item.secret-badge { border:1px solid var(--gold-border); box-shadow:0 0 8px rgba(200,162,76,0.1); }
+    .secret-label { font-size:7px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ── Shimmer effect ── */
+    .shimmer { background-image: linear-gradient(90deg, transparent 30%, rgba(200,162,76,0.08) 50%, transparent 70%); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+
+    /* ── New dot indicator ── */
+    .new-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); animation:newDot 2s ease infinite; margin-left:4px; vertical-align:middle; }
+
+    /* ── Badge rarity enhancements (Dofus/Bleach theme) ── */
+    .bdg.common-v2, .bdg.uncommon-v2 { background: var(--parchment); }
+    .bdg.mythic-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
+    .bdg.divine-v2 { animation: reiatsuPulse 3s ease-in-out infinite; }
+
+    /* ── XP source bars clickable ── */
+    .xs-bar-row-click { cursor: pointer; transition: transform 0.15s; border-radius: 8px; padding: 4px; margin: -4px; }
+    .xs-bar-row-click:active { transform: scale(0.97); background: rgba(255,255,255,0.02); }
+
+    /* ── Heatmap clickable cells ── */
+    .hm-cell-click { cursor: pointer; transition: transform 0.1s; }
+    .hm-cell-click:active { transform: scale(1.15); }
+
+    /* ── Strength card clickable ── */
+    .sg-card-click { cursor: pointer; transition: transform 0.15s; }
+    .sg-card-click:active { transform: scale(0.97); }
+
+    /* ── Weekly recap banner ── */
+    .gam-recap { background: linear-gradient(135deg, rgba(200,162,76,0.08), rgba(200,162,76,0.03)); border: 1px solid var(--gold-border); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .gam-recap-text { font-size: 13px; font-weight: 600; color: var(--text); }
+    .gam-recap-sub { font-size: 11px; color: var(--sub); margin-top: 2px; }
+    .gam-recap-close { background: none; border: none; color: var(--sub); font-size: 18px; cursor: pointer; padding: 4px; }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
     /* ── Onglet GO — Journal de séance ── */
     .go-idle-wrap{text-align:center;padding:40px 16px 20px;max-width:400px;margin:0 auto;}
     .go-idle-icon{font-size:56px;margin-bottom:12px;line-height:1.2;}
@@ -4372,14 +4564,20 @@ function calcBadgeProgress(badge) {
   }
   // Streak
   if (id.startsWith('streak_')) { var t = parseInt(id.split('_')[1]); var s = calcStreak(); return { current: s, target: t, pct: Math.min(100, Math.round(s/t*100)) }; }
-  // Collector
+  // Collector — count non-collector badges only (matches _colCount unlock logic)
   if (id.startsWith('col')) {
     var allB = getAllBadges();
-    var norm = allB.filter(function(x){return !x.impossible;});
-    var unl = norm.filter(function(x){return x.ck();}).length;
+    var nonCol = allB.filter(function(x){return !x.impossible && !x.id.startsWith('col');});
+    var unl = nonCol.filter(function(x){return x.ck();}).length;
     var t2;
-    if (id === 'col_all') t2 = norm.length;
-    else t2 = parseInt(id.slice(3));
+    if (id === 'col_all') {
+      // For col_all, target = total non-impossible badges (including collector)
+      var allNorm = allB.filter(function(x){return !x.impossible;});
+      t2 = allNorm.length;
+      unl = allNorm.filter(function(x){return x.ck();}).length;
+    } else {
+      t2 = parseInt(id.slice(3));
+    }
     return t2 > 0 ? { current: unl, target: t2, pct: Math.min(100, Math.round(unl/t2*100)) } : null;
   }
   return null;
@@ -4445,10 +4643,9 @@ function renderGamificationTab() {
   checkTitles();
   checkSecretQuests();
 
-  // ── Mark seen badges ──
-  var allBadgesForSeen = getAllBadges();
-  var seenBadges = db.seenBadges || [];
-  allBadgesForSeen.forEach(function(b) { if (!b.impossible && b.ck() && seenBadges.indexOf(b.id) < 0) {} });
+  // ── Clean up previous render artifacts (recap banners, separators) ──
+  document.querySelectorAll('#tab-game > .gam-recap, #tab-game > .gam-separator').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#tab-game .gam-separator').forEach(function(el) { el.remove(); });
 
   // ── 0. Weekly recap banner (Monday) ──
   (function() {
@@ -4505,6 +4702,7 @@ function renderGamificationTab() {
       '</div>' +
       '<div class="lvl-xp-row">' +
         '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar lvl-xp-bar-v2" style="width:' + pct + '%;"></div></div>' +
+        (pct > 0 && pct < 100 ? '<div class="lvl-xp-particle" style="left:' + pct + '%;"></div>' : '') +
         '<div class="lvl-xp-text"><span><strong>' + xpInLevel.toLocaleString() + '</strong> / ' + xpToNext.toLocaleString() + ' XP</span><span class="lvl-next">' + nextName + '</span></div>' +
       '</div>' +
       '<div class="lvl-stats">' +
@@ -4628,10 +4826,14 @@ function renderGamificationTab() {
       return sq ? { icon:'🔮', name:sq.name, ref:'SECRÈTE', r:'legendary', isSecret:true } : null;
     }).filter(Boolean).slice(-2);
 
+    // Mark all unlocked badges as seen (even if we don't display them)
+    var seenBadges = db.seenBadges || [];
+    var seenChanged = false;
+    unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) { seenBadges.push(b.id); seenChanged = true; } });
+    if (seenChanged) { db.seenBadges = seenBadges; saveDB(); }
+
     var combined = secretBadges.concat(recent).slice(0, 5);
     if (!combined.length) { document.getElementById('gamRecentBadges').innerHTML = ''; return; }
-
-    var seenBadges = db.seenBadges || [];
     var html = '<div class="mc"><div class="mc-title">🏆 Récemment débloqués</div><div class="ru-scroll">';
     combined.forEach(function(b) {
       var rc = rarityColor[b.r] || '#86868B';
@@ -4646,11 +4848,6 @@ function renderGamificationTab() {
     });
     html += '</div></div>';
     document.getElementById('gamRecentBadges').innerHTML = html;
-
-    // Mark as seen
-    unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) seenBadges.push(b.id); });
-    db.seenBadges = seenBadges;
-    saveDB();
   })();
 
   // ── 5. Prochains badges ──

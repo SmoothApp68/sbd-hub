@@ -2710,6 +2710,120 @@ function renderReadinessSparkline() {
     '</svg></div>';
 }
 
+// ── Heatmap de récupération musculaire ──────────────────────
+function renderMuscleHeatmap() {
+  const el = document.getElementById('muscleHeatmapContent');
+  if (!el) return;
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const vol = computeWeeklyVolume(db.logs, 1);
+
+  function fColor(level) {
+    if (level < 30) return '#32D74B';
+    if (level < 60) return '#FFD60A';
+    if (level < 85) return '#FF9F0A';
+    return '#FF453A';
+  }
+  function fLabel(level) {
+    if (level < 30) return 'Frais';
+    if (level < 60) return 'Récupération';
+    if (level < 85) return 'Fatigué';
+    return 'Surentraîné';
+  }
+
+  // Simplified body SVG (front view) with muscle zones
+  const muscles = [
+    { key:'shoulders', label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
+    { key:'shoulders', label:'Épaules',   cx:138, cy:68,  rx:14, ry:10 },
+    { key:'chest',     label:'Pecs',      cx:100, cy:85,  rx:22, ry:14 },
+    { key:'biceps',    label:'Biceps',    cx:52,  cy:105, rx:8,  ry:16 },
+    { key:'triceps',   label:'Triceps',   cx:148, cy:105, rx:8,  ry:16 },
+    { key:'abs',       label:'Abdos',     cx:100, cy:120, rx:16, ry:18 },
+    { key:'forearms',  label:'Avant-bras',cx:44,  cy:140, rx:6,  ry:14 },
+    { key:'forearms',  label:'Avant-bras',cx:156, cy:140, rx:6,  ry:14 },
+    { key:'quads',     label:'Quads',     cx:85,  cy:170, rx:12, ry:22 },
+    { key:'quads',     label:'Quads',     cx:115, cy:170, rx:12, ry:22 },
+    { key:'hamstrings',label:'Ischio',    cx:85,  cy:175, rx:8,  ry:12 },
+    { key:'hamstrings',label:'Ischio',    cx:115, cy:175, rx:8,  ry:12 },
+    { key:'calves',    label:'Mollets',   cx:85,  cy:210, rx:8,  ry:14 },
+    { key:'calves',    label:'Mollets',   cx:115, cy:210, rx:8,  ry:14 },
+    { key:'traps',     label:'Trapèzes',  cx:100, cy:55,  rx:18, ry:8  },
+    { key:'back',      label:'Dos',       cx:100, cy:100, rx:18, ry:16 },
+    { key:'glutes',    label:'Fessiers',  cx:100, cy:148, rx:16, ry:10 },
+  ];
+
+  const seen = new Set();
+  let svgParts = '';
+  const tooltipData = [];
+  muscles.forEach((m, i) => {
+    const f = fatigue[m.key] || 0;
+    const color = fColor(f);
+    const opacity = 0.4 + (f / 100) * 0.5;
+    svgParts += `<ellipse cx="${m.cx}" cy="${m.cy}" rx="${m.rx}" ry="${m.ry}" fill="${color}" opacity="${opacity}" style="cursor:pointer;" onclick="showMuscleFatigueTooltip('${m.key}')"/>`;
+    if (!seen.has(m.key)) {
+      seen.add(m.key);
+      const lm = VOLUME_LANDMARKS[m.key];
+      const sets = Math.round((vol[m.key] || 0) * 10) / 10;
+      tooltipData.push({ key: m.key, label: m.label, fatigue: f, sets, mav: lm ? lm.MAV : '—' });
+    }
+  });
+
+  // Outline body shape
+  const bodyOutline = '<path d="M100,20 C85,20 78,30 78,45 L72,60 60,65 45,90 40,130 48,155 55,150 58,120 65,105 70,85 80,65 85,150 80,180 78,220 82,240 92,240 95,205 100,195 105,205 108,240 118,240 122,220 120,180 115,150 120,65 130,85 135,105 142,120 145,150 152,155 160,130 155,90 140,65 128,60 122,45 C122,30 115,20 100,20Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>';
+
+  const svg = '<svg viewBox="30 10 140 240" style="width:180px;height:280px;display:block;margin:0 auto;">' + bodyOutline + svgParts + '</svg>';
+
+  // Legend bars below
+  let legendHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;">';
+  tooltipData.forEach(d => {
+    const color = fColor(d.fatigue);
+    legendHtml += '<div style="display:flex;align-items:center;gap:6px;font-size:10px;padding:4px 6px;background:rgba(255,255,255,0.03);border-radius:6px;cursor:pointer;" onclick="showMuscleFatigueTooltip(\'' + d.key + '\')">' +
+      '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0;"></div>' +
+      '<span style="color:var(--text);font-weight:600;">' + d.label + '</span>' +
+      '<span style="color:var(--sub);margin-left:auto;">' + d.fatigue + '%</span></div>';
+  });
+  legendHtml += '</div>';
+
+  // Color legend
+  const colorLegend = '<div style="display:flex;gap:8px;justify-content:center;margin-top:10px;font-size:9px;color:var(--sub);">' +
+    '<span><span style="color:#32D74B;">●</span> Frais</span>' +
+    '<span><span style="color:#FFD60A;">●</span> Récup</span>' +
+    '<span><span style="color:#FF9F0A;">●</span> Fatigué</span>' +
+    '<span><span style="color:#FF453A;">●</span> Surent.</span></div>';
+
+  el.innerHTML = svg + colorLegend + legendHtml + '<div id="muscleFatigueTooltip" style="display:none;margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;"></div>';
+}
+
+function showMuscleFatigueTooltip(key) {
+  const el = document.getElementById('muscleFatigueTooltip');
+  if (!el) return;
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const vol = computeWeeklyVolume(db.logs, 1);
+  const lm = VOLUME_LANDMARKS[key] || {};
+  const LABELS_FR = { chest:'Pecs', back:'Dos', shoulders:'Épaules', quads:'Quads', hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps', calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras' };
+  const f = fatigue[key] || 0;
+  const sets = Math.round((vol[key] || 0) * 10) / 10;
+  // Find last session with this muscle
+  let lastSession = '—';
+  for (let i = db.logs.length - 1; i >= 0; i--) {
+    const log = db.logs[i];
+    const found = log.exercises.some(exo => {
+      const contribs = getMuscleContributions(exo.name);
+      return contribs.some(c => (MUSCLE_TO_VL_KEY[c.muscle] || c.muscle.toLowerCase()) === key);
+    });
+    if (found) {
+      const d = new Date(log.timestamp);
+      const diff = Math.round((Date.now() - d.getTime()) / 86400000);
+      lastSession = diff === 0 ? "aujourd'hui" : diff === 1 ? 'hier' : 'il y a ' + diff + 'j';
+      break;
+    }
+  }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">' + (LABELS_FR[key] || key) + '</div>' +
+    '<div>Fatigue : <strong>' + f + '%</strong></div>' +
+    '<div>Dernière séance : ' + lastSession + '</div>' +
+    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV || '—') + ')</div>';
+}
+
 // ── Score de forme composite (Dashboard) ────────────────────
 function computeFormScoreComposite() {
   const components = {};
@@ -5057,6 +5171,7 @@ function renderCorpsTab() {
   renderWeightTrend();
   renderMacroHistory();
   renderBodyWeightChart(bwHistory);
+  renderMuscleHeatmap();
 }
 function renderBodyWeightChart(entries) {
   const el = document.getElementById('chartBodyWeight');

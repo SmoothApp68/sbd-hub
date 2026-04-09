@@ -1742,8 +1742,8 @@
       <div class="corps-acc-body" id="ca-force">
         <div class="corps-acc-inner">
           <div class="body-metric-grid" id="bodyMetricsGrid">
-            <div class="body-metric highlight"><div class="body-metric-val" id="metricIPF">—</div><div class="body-metric-label">IPF GL Points</div><div class="body-metric-sub" id="metricIPFsub">Score de force normalisé</div></div>
-            <div class="body-metric"><div class="body-metric-val" id="metricRatio">—</div><div class="body-metric-label">Ratio Force/Masse</div><div class="body-metric-sub" id="metricRatioSub">Progression recompo</div></div>
+            <div class="body-metric highlight" id="metricIPFCard"><div class="body-metric-val" id="metricIPF">—</div><div class="body-metric-label">IPF GL Points</div><div class="body-metric-sub" id="metricIPFsub">Score de force normalisé</div></div>
+            <div class="body-metric" id="metricRatioCard"><div class="body-metric-val" id="metricRatio">—</div><div class="body-metric-label">Ratio Force/Masse</div><div class="body-metric-sub" id="metricRatioSub">Progression recompo</div></div>
           </div>
           <div id="plateauAlerts" style="margin-top:10px;"></div>
         </div>
@@ -9087,15 +9087,29 @@ function renderCorpsTab() {
   applyBar('nutriProtBar',protMange,macros.prot);applyBar('nutriCarbBar',carbMange,macros.carb);applyBar('nutriFatBar',fatMange,macros.fat);
   setEl('nutriProtLabel',`${protMange} / ${macros.prot} g`);setEl('nutriCarbLabel',`${carbMange} / ${macros.carb} g`);setEl('nutriFatLabel',`${fatMange} / ${macros.fat} g`);
   setEl('nutriTDEELabel',tdee>0?`${tdee} kcal`:'—');setEl('nutriProtCible',`${macros.prot}g`);
-  setEl('metricIPF',ipf>0?ipf:'—');setEl('metricIPFsub',ipf>0?(ipf<300?'Débutant':ipf<400?'Intermédiaire':ipf<500?'Avancé':'🏆 Élite'):'Importe des séances');
-  setEl('metricRatio',ratio>0?ratio:'—');setEl('metricRatioSub',ratio>0?(ratio>4?'🔥 Recompo active':ratio>3?'En progression':'Continue'):'IPF GL / kg corps');
+  // IPF GL card: only show if mode supports it
+  const ipfCard = document.getElementById('metricIPFCard');
+  if (ipfCard) ipfCard.style.display = modeFeature('showIPF') ? '' : 'none';
+  if (modeFeature('showIPF')) {
+    setEl('metricIPF',ipf>0?ipf:'—');setEl('metricIPFsub',ipf>0?(ipf<300?'Débutant':ipf<400?'Intermédiaire':ipf<500?'Avancé':'🏆 Élite'):'Importe des séances');
+  }
+  // Ratio card: only show if mode supports it
+  const ratioCard = document.getElementById('metricRatioCard');
+  if (ratioCard) ratioCard.style.display = modeFeature('showBWRatio') ? '' : 'none';
+  if (modeFeature('showBWRatio')) {
+    setEl('metricRatio',ratio>0?ratio:'—');setEl('metricRatioSub',ratio>0?(ratio>4?'🔥 Recompo active':ratio>3?'En progression':'Continue'):'IPF GL / kg corps');
+  }
   // Poids : historique 15 dernières entrées
   const bwHistory=(db.body||[]).filter(e=>e.bw>0).sort((a,b)=>b.ts-a.ts).slice(0,15);
   const wEl=document.getElementById('weightHistory');
   if (wEl){if(!bwHistory.length){wEl.innerHTML='<p style="color:var(--sub);font-size:12px;text-align:center;">Aucune entrée</p>';}
   else{wEl.innerHTML=bwHistory.map((e,i)=>{const prev=bwHistory[i+1];const delta=prev?Math.round((e.bw-prev.bw)*10)/10:null;const cls=delta===null?'':delta>0?'trend-up':delta<0?'trend-down':'trend-flat';const str=delta===null?'':(delta>0?'↑':delta<0?'↓':'→')+Math.abs(delta)+'kg';return`<div class="weight-history-item"><span>${new Date(e.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span><span style="font-weight:700;">${e.bw} kg</span><span class="${cls}" style="font-size:12px;min-width:50px;text-align:right;">${str}</span></div>`;}).join('');}}
   const pEl=document.getElementById('plateauAlerts');
-  if (pEl){const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);pEl.innerHTML=plateaux.map(p=>`<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`).join('');}
+  if (pEl){
+    if (modeFeature('showPlateauDetection')) {
+      const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);pEl.innerHTML=plateaux.map(p=>`<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`).join('');
+    } else { pEl.innerHTML = ''; }
+  }
   const cEl=document.getElementById('coachAlgoContent');if(cEl)cEl.innerHTML=generateCoachAlgoMessage();
   // Nouvelles sections
   renderFormeScore();

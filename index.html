@@ -12982,25 +12982,34 @@ async function updateLeaderboardSnapshot() {
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   const weekStr = monday.toISOString().split('T')[0];
 
-  // Get key lifts and their best values
+  // Get key lifts and their best values (mode-aware)
   const keyLifts = db.keyLifts || [];
   const prData = [];
-  SBD_TYPES.forEach(type => {
-    if (db.bestPR[type] > 0) {
-      const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
-      prData.push({ exercise_name: name, value: db.bestPR[type] });
-    }
-  });
+  const seenExercises = new Set();
+
+  // SBD only if mode uses SBD cards
+  if (modeFeature('showSBDCards')) {
+    SBD_TYPES.forEach(type => {
+      if (db.bestPR[type] > 0) {
+        const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
+        prData.push({ exercise_name: name, value: db.bestPR[type] });
+        seenExercises.add(name);
+      }
+    });
+  }
+
+  // Always include user's key lifts
   keyLifts.forEach(kl => {
-    if (kl.target && kl.target > 0) {
-      // Find best from logs
-      let best = 0;
-      db.logs.forEach(log => {
-        log.exercises.forEach(e => {
-          if (e.name === kl.name && e.maxRM > best) best = e.maxRM;
-        });
+    if (seenExercises.has(kl.name)) return;
+    let best = 0;
+    db.logs.forEach(log => {
+      log.exercises.forEach(e => {
+        if (e.name === kl.name && e.maxRM > best) best = e.maxRM;
       });
-      if (best > 0) prData.push({ exercise_name: kl.name, value: best });
+    });
+    if (best > 0) {
+      prData.push({ exercise_name: kl.name, value: best });
+      seenExercises.add(kl.name);
     }
   });
 

@@ -1054,6 +1054,27 @@ function findPreviousBestE1RM(exoName, beforeTs) {
   return best;
 }
 
+// ── DOTS / Wilks scoring ────────────────────────────────────
+function computeDOTS(total, bw, gender) {
+  if (!gender) gender = 'M';
+  var coeffs = gender === 'M'
+    ? [-307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093]
+    : [-57.96288, 13.6175032, -0.1126655495, 0.0005158568, -0.0000010706];
+  var denom = 0;
+  for (var i = 0; i < coeffs.length; i++) denom += coeffs[i] * Math.pow(bw, i);
+  return Math.round((500 / denom) * total * 100) / 100;
+}
+
+function computeWilks(total, bw, gender) {
+  if (!gender) gender = 'M';
+  var coeffs = gender === 'M'
+    ? [-216.0475144, 16.2606339, -0.002388645, -0.00113732, 7.01863e-6, -1.291e-8]
+    : [594.31747775582, -27.23842536447, 0.82112226871, -0.00930733913, 4.731582e-5, -9.054e-8];
+  var denom = 0;
+  for (var i = 0; i < coeffs.length; i++) denom += coeffs[i] * Math.pow(bw, i);
+  return Math.round((500 / denom) * total * 100) / 100;
+}
+
 // ── Volume hebdomadaire réel par groupe musculaire ──────────
 function computeWeeklyVolume(logs, weeksBack) {
   if (weeksBack === undefined) weeksBack = 1;

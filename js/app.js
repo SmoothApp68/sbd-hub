@@ -2679,6 +2679,8 @@ function renderDash() {
   renderPerfCard();
   renderDayExercises(selectedDay);
   renderReadinessSparkline();
+  renderDotsWilks();
+  renderFormScoreDash();
 }
 
 function renderReadinessSparkline() {
@@ -2706,6 +2708,149 @@ function renderReadinessSparkline() {
     '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
     '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
     '</svg></div>';
+}
+
+// ── Score de forme composite (Dashboard) ────────────────────
+function computeFormScoreComposite() {
+  const components = {};
+  // 1. Readiness moyenne 7j (20%)
+  const recent = (db.readiness || []).filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000);
+  components.readiness = recent.length > 0 ? recent.reduce((s, r) => s + r.score, 0) / recent.length : 50;
+  // 2. Compliance 7j (25%)
+  const routine = getRoutine();
+  const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
+  const logsWeek = (db.logs || []).filter(l => (Date.now() - (l.timestamp || 0)) < 7 * 86400000).length;
+  components.compliance = Math.min(100, (logsWeek / planned) * 100);
+  // 3. Tendance force (20%)
+  const mainLifts = ['squat', 'bench', 'deadlift'];
+  let trendScore = 0, trendCount = 0;
+  mainLifts.forEach(name => {
+    const pts = [];
+    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    for (const log of desc) {
+      const exo = log.exercises.find(e => getSBDType(e.name) === name && e.maxRM > 0);
+      if (exo) { pts.push(exo.maxRM); if (pts.length >= 4) break; }
+    }
+    if (pts.length >= 2) {
+      trendCount++;
+      trendScore += pts[0] >= pts[pts.length - 1] ? 1 : -1;
+    }
+  });
+  components.trend = trendCount > 0 ? 50 + (trendScore / trendCount) * 25 : 50;
+  // 4. Fatigue inverse (15%)
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const fatVals = Object.values(fatigue);
+  const avgFat = fatVals.length > 0 ? fatVals.reduce((s,v) => s+v, 0) / fatVals.length : 50;
+  components.recovery = 100 - avgFat;
+  // 5. Nutrition (10%)
+  const nutriDays = (db.body || []).filter(e => (Date.now() - (e.ts||0)) < 7 * 86400000 && (e.kcal > 0 || e.prot > 0));
+  components.nutrition = nutriDays.length > 0 ? Math.min(100, (nutriDays.length / 7) * 100) : 30;
+  // 6. Sommeil (10%)
+  components.sleep = recent.length > 0 ? (recent.reduce((s, r) => s + r.sleep, 0) / recent.length) * 20 : 50;
+  // Final
+  const score = Math.round(
+    components.readiness * 0.20 + components.compliance * 0.25 +
+    components.trend * 0.20 + components.recovery * 0.15 +
+    components.nutrition * 0.10 + components.sleep * 0.10
+  );
+  return { score: Math.max(0, Math.min(100, score)), components };
+}
+
+function renderFormScoreDash() {
+  const el = document.getElementById('formScoreContent');
+  if (!el) return;
+  const { score, components } = computeFormScoreComposite();
+  const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
+  const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
+  const barsHtml = Object.entries(components).map(([k,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
+    '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
+    '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;">' +
+    '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
+    '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
+  ).join('');
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
+    '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+    '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme</div>' +
+    '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
+    (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
+    '</div></div></div>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>';
+}
+
+// ── Prédiction de PR ────────────────────────────────────────
+function predictPR(exerciseName, targetWeight) {
+  // Use inline trend calculation (same as renderPerfCard's logic)
+  const pts = [];
+  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  for (const log of desc) {
+    const exo = log.exercises.find(e => e.name === exerciseName || matchExoName(e.name, exerciseName));
+    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+    if (pts.length >= 6) break;
+  }
+  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données' };
+  pts.sort((a,b) => a.x - b.x);
+  const n = pts.length;
+  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+  const denom = n*sumX2 - sumX*sumX;
+  const slope = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
+  const kgPerWeek = slope * 7;
+
+  // R² calculation
+  const meanY = sumY / n;
+  const ssTot = pts.reduce((s,p) => s + Math.pow(p.y - meanY, 2), 0);
+  const ssRes = pts.reduce((s,p) => { const pred = (slope * p.x) + ((sumY - slope * sumX) / n); return s + Math.pow(p.y - pred, 2); }, 0);
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+
+  const currentE1RM = pts[pts.length - 1].y;
+  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée' };
+  if (currentE1RM >= targetWeight) return { reachable: true, reason: 'Objectif déjà atteint !', weeks: 0 };
+  const gap = targetWeight - currentE1RM;
+  const weeks = Math.ceil(gap / kgPerWeek);
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + weeks * 7);
+  return {
+    reachable: true, weeks, date: targetDate.toLocaleDateString('fr-FR'),
+    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2)
+  };
+}
+
+// ── DOTS / Wilks dans le Dashboard ──────────────────────────
+function renderDotsWilks() {
+  const card = document.getElementById('dotsWilksCard');
+  const el = document.getElementById('dotsWilksContent');
+  if (!card || !el) return;
+  const bw = db.user.bw;
+  if (!bw || bw <= 0) { card.style.display = 'none'; return; }
+  // Get best e1RM for SBD
+  let squat = 0, bench = 0, deadlift = 0;
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      const type = getSBDType(exo.name);
+      if (type === 'squat' && (exo.maxRM||0) > squat) squat = exo.maxRM;
+      if (type === 'bench' && (exo.maxRM||0) > bench) bench = exo.maxRM;
+      if (type === 'deadlift' && (exo.maxRM||0) > deadlift) deadlift = exo.maxRM;
+    });
+  });
+  if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const total = squat + bench + deadlift;
+  const gender = db.user.gender === 'F' ? 'F' : 'M';
+  const dots = computeDOTS(total, bw, gender);
+  const wilks = computeWilks(total, bw, gender);
+  const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
+    '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
+    '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
+    '<div style="display:flex;gap:16px;margin-top:8px;">' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
+    '</div>';
 }
 
 // ── Rubrique Performance configurable ────────────────────────
@@ -2890,6 +3035,16 @@ function renderPerfCard() {
       ? '<div style="height:3px;background:var(--border);border-radius:2px;margin-top:8px;"><div style="height:3px;background:' + color + ';border-radius:2px;width:' + pct + '%;transition:width 0.5s;"></div></div>' +
         '<div style="font-size:10px;color:var(--sub);margin-top:3px;text-align:right;">' + pct + '% de l\'objectif</div>'
       : '';
+    // PR Prediction
+    let predHtml = '';
+    if (target > 0 && e1rm > 0 && e1rm < target) {
+      const pred = predictPR(kl.name, target);
+      if (pred.reachable && pred.weeks > 0) {
+        predHtml = '<div style="font-size:10px;color:var(--teal);margin-top:4px;">📈 +' + pred.weeklyGain + ' kg/sem → ' + target + 'kg vers ' + pred.date + ' (confiance ' + pred.confidence + '%)</div>';
+      } else if (!pred.reachable) {
+        predHtml = '<div style="font-size:10px;color:var(--orange);margin-top:4px;">📉 ' + pred.reason + '</div>';
+      }
+    }
 
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
       '<div style="width:3px;height:36px;background:' + color + ';border-radius:2px;flex-shrink:0;"></div>' +
@@ -2897,6 +3052,7 @@ function renderPerfCard() {
         '<div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + kl.name.replace(/\s*\(.*\)/, '').trim() + '</div>' +
         trendHtml +
         progressBar +
+        predHtml +
       '</div>' +
       sparkSvg +
     '</div>';

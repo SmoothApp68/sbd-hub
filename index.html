@@ -58,13 +58,6 @@
     .ai-avatar { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
     .ai-header-text h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
     .ai-header-text p { margin: 2px 0 0; font-size: 12px; color: var(--sub); }
-    .ai-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .ai-action-btn { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 14px; padding: 14px 12px; cursor: pointer; transition: all 0.2s; text-align: left; }
-    .ai-action-btn:hover { border-color: var(--blue); }
-    .ai-action-btn:active { transform: scale(0.97); }
-    .ai-action-btn .ai-action-icon { font-size: 20px; margin-bottom: 6px; }
-    .ai-action-btn .ai-action-label { font-size: 12px; font-weight: 600; color: var(--text); }
-    .ai-action-btn .ai-action-desc { font-size: 10px; color: var(--sub); margin-top: 2px; }
     .ai-response-area { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; padding: 18px; min-height: 80px; position: relative; overflow: hidden; }
     .ai-response-area.empty { display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px; min-height: 100px; }
     .ai-response-content { font-size: 13px; line-height: 1.65; color: var(--text); }
@@ -1601,18 +1594,6 @@
       </div>
     </div>
 
-    <!-- Rapport IA Approfondi — Claude uniquement sur demande -->
-    <div class="card" style="border-color:rgba(191,90,242,0.2);background:rgba(191,90,242,0.04);">
-      <h2 style="color:var(--purple);">⚡ Rapport IA Approfondi</h2>
-      <p style="font-size:12px;color:var(--sub);margin:4px 0 14px;">Analyse complète par Claude — nécessite une clé API dans Réglages.</p>
-      <div class="ai-action-grid" style="margin-bottom:12px;">
-        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label" id="aiProgressionLabel">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
-        <button class="ai-action-btn" onclick="aiAction('weakpoints')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🎯</div><div class="ai-action-label">Points Faibles</div><div class="ai-action-desc">Déséquilibres</div></button>
-        <button class="ai-action-btn" onclick="aiAction('next')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Conseils du jour</div></button>
-        <button class="ai-action-btn" onclick="aiAction('weekly')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📊</div><div class="ai-action-label">Bilan Hebdo</div><div class="ai-action-desc">Résumé semaine</div></button>
-      </div>
-      <div id="aiResponseArea" class="ai-response-area empty" style="display:none;">Appuie sur un bouton ci-dessus</div>
-    </div>
   </div>
   <div id="tab-stats" class="content-section">
     <div class="stats-sub-nav">
@@ -1679,10 +1660,19 @@
     <!-- 1. Score de forme -->
     <div class="corps-acc">
       <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-forme')">
-        <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(50,215,75,0.1);">⚡</div><div><div class="corps-acc-info">Score de Forme</div><div class="corps-acc-sub" id="formeScoreTag"></div></div></div>
+        <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(50,215,75,0.1);">⚡</div><div><div class="corps-acc-info">Score de Forme <span onclick="event.stopPropagation();document.getElementById('formeScoreTooltip').style.display=document.getElementById('formeScoreTooltip').style.display==='block'?'none':'block';" style="cursor:pointer;font-size:13px;color:var(--sub);vertical-align:middle;margin-left:4px;">&#9432;</span></div><div class="corps-acc-sub" id="formeScoreTag"></div></div></div>
         <span class="corps-acc-chev" id="chev-ca-forme">▾</span>
       </div>
-      <div class="corps-acc-body open" id="ca-forme"><div class="corps-acc-inner" id="formeScoreContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Chargement...</div></div></div>
+      <div class="corps-acc-body open" id="ca-forme"><div class="corps-acc-inner" id="formeScoreContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Chargement...</div></div>
+        <div id="formeScoreTooltip" style="display:none;padding:12px 16px;background:var(--surface);border-radius:10px;margin:8px 12px;font-size:11px;line-height:1.7;color:var(--sub);border:1px solid rgba(255,255,255,0.08);">
+          <strong style="color:var(--text);font-size:12px;">Composantes du score :</strong><br>
+          <span style="color:var(--green);">Régularité</span> (25pts) — Séances réalisées vs jours planifiés<br>
+          <span style="color:var(--blue);">Charge</span> (25pts) — Ratio charge aiguë/chronique (EWMA)<br>
+          <span style="color:var(--orange);">Progression</span> (25pts) — Tendance de tes exercices clés<br>
+          <span style="color:var(--teal);">Nutrition</span> (25pts) — Tracking (12.5) + adhérence cibles (12.5)<br>
+          <span style="color:var(--purple);">Momentum</span> (+5 bonus) — Séances consécutives respectées
+        </div>
+      </div>
     </div>
 
     <!-- 2. Charge d'Entraînement -->
@@ -1922,7 +1912,7 @@
         <div class="acc-left"><div class="acc-ico" style="background:rgba(100,210,255,0.1);">🔑</div><span>Clé API Anthropic</span></div><span class="acc-chevron" id="chev-acc-api">▾</span>
       </div>
       <div class="acc-body" id="acc-api">
-        <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Requise pour le Rapport IA Approfondi. Stockée localement.</p>
+        <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Optionnelle — l'app fonctionne à 100% sans clé API. Stockée localement.</p>
         <div style="display:flex;gap:8px;">
           <input type="password" id="inputAPIKey" placeholder="sk-ant-..." style="margin-bottom:0;flex:1;">
           <button onclick="saveAPIKey()" style="background:var(--blue);border:none;color:white;padding:0 16px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:13px;">Sauver</button>
@@ -3995,40 +3985,55 @@ function matchExoName(hevyName, progName) {
 
   if (h === p) return true;
 
-  // Mots significatifs (>3 lettres)
-  const sig = w => w.length > 3;
+  // Mots significatifs (>=3 lettres)
+  const sig = w => w.length >= 3;
 
   // Mots qui distinguent formellement une variante d'exercice
-  // (leur présence en "surplus" indique un exercice différent)
+  // Includes NFD-normalized French forms (incliné→incline, décliné→decline, etc.)
   const DIFF = new Set([
-    'incline','decline','sumo','bulgare','inverse','inversee',
+    'incline','inclinee','decline','declinee','sumo',
+    'bulgare','bulgarian','inverse','inversee',
     'nuque','pause','spoto','deficit','board',
-    'hack','goblet','sissy','front','zercher','split','bulgarian',
-    'roumain','romanian'
+    'hack','goblet','sissy','front','zercher','split',
+    'roumain','romanian',
+    'lateral','laterale','frontal','frontale'
   ]);
 
-  // Vérifie si name correspond à ref, en acceptant des mots extra
-  // seulement s'ils ne sont pas des différenciateurs
-  const softIncludes = (name, ref) => {
+  // Word-level matching: check that all words of ref appear as whole words in name
+  const wordsOf = s => s.split(' ').filter(sig);
+  // Prefix match only for small length differences (plurals: shrug/shrugs, curl/curls)
+  const wMatch = (a, b) => {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    return a.startsWith(b) || b.startsWith(a);
+  };
+
+  const softWordMatch = (name, ref) => {
     if (name === ref) return true;
-    if (!name.includes(ref)) return false;
-    const extra = name.replace(ref, '').trim().split(' ').filter(sig);
+    const nameWords = wordsOf(name);
+    const refWords = wordsOf(ref);
+    if (!refWords.length) return false;
+    // All ref words must appear as whole words in name
+    const refInName = refWords.every(rw => nameWords.some(nw => wMatch(nw, rw)));
+    if (!refInName) return false;
+    // Extra words in name must not be differentiators
+    const extra = nameWords.filter(nw => !refWords.some(rw => wMatch(nw, rw)));
     return extra.every(w => !DIFF.has(w));
   };
 
   // Vérifier les synonymes — si h et p appartiennent au même groupe → match
+  // Only check name-contains-synonym (not reverse) to avoid false positives
   for (const group of EXO_SYNONYMS) {
     const normGroup = group.map(norm);
-    const hInGroup = normGroup.some(s => softIncludes(h, s) || softIncludes(s, h));
-    const pInGroup = normGroup.some(s => softIncludes(p, s) || softIncludes(s, p));
+    const hInGroup = normGroup.some(s => softWordMatch(h, s));
+    const pInGroup = normGroup.some(s => softWordMatch(p, s));
     if (hInGroup && pInGroup) return true;
   }
 
-  const hWords = h.split(' ').filter(sig);
-  const pWords = p.split(' ').filter(sig);
+  const hWords = wordsOf(h);
+  const pWords = wordsOf(p);
   if (!hWords.length || !pWords.length) return false;
 
-  const wMatch = (a, b) => a === b || a.startsWith(b) || b.startsWith(a);
   const pInH = pWords.every(w => hWords.some(hw => wMatch(w, hw)));
   const hInP = hWords.every(w => pWords.some(pw => wMatch(w, pw)));
 
@@ -4057,6 +4062,34 @@ function matchExoName(hevyName, progName) {
   }
 
   return false;
+}
+
+// Test suite for matchExoName — callable from browser console
+function _testMatchExoName() {
+  const tests = [
+    { a: 'Développé Couché (Barre)', b: 'Développé Couché', expected: true },
+    { a: 'Développé Couché (Barre)', b: 'Développé Couché Incliné', expected: false },
+    { a: 'Développé Couché Incliné (Haltères)', b: 'Développé Couché Incliné', expected: true },
+    { a: 'Squat (Barre)', b: 'Squat', expected: true },
+    { a: 'Squat (Barre)', b: 'Squat Bulgare', expected: false },
+    { a: 'Soulevé de Terre', b: 'Deadlift', expected: true },
+    { a: 'Rowing Barre', b: 'Rowing T-Bar', expected: false },
+    { a: 'Curl Biceps (Barre)', b: 'Curl Biceps', expected: true },
+    { a: 'Shrugs', b: 'Shrugs (Haltères)', expected: true },
+  ];
+  let passed = 0, failed = 0;
+  tests.forEach(t => {
+    const result = matchExoName(t.a, t.b);
+    const ok = result === t.expected;
+    if (ok) passed++; else failed++;
+    console.log(
+      (ok ? '✅' : '❌') +
+      ' matchExoName("' + t.a + '", "' + t.b + '") → ' + result +
+      (ok ? '' : ' (expected ' + t.expected + ')')
+    );
+  });
+  console.log('\n' + passed + '/' + tests.length + ' passed' + (failed ? ', ' + failed + ' FAILED' : ' — all good!'));
+  return { passed, failed, total: tests.length };
 }
 
 // ============================================================
@@ -6166,7 +6199,6 @@ function processHevy() {
   doImport();
 }
 
-function showAIImportLoading() { const c=document.getElementById('aiImportAnalysis');c.style.display='block';c.innerHTML='<div class="card ai-import-card"><h2>🤖 Import IA</h2><div class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données en cours...</div></div></div>'; }
 
 // ── Détection de séries suspectes (erreurs de saisie) ──────────
 function detectSuspiciousSets(session) {
@@ -6422,7 +6454,7 @@ function doFinalizeSession(session) {
   saveDB();
   document.getElementById('hevyPaste').value='';
   showImportSummary(session);
-  showToast('✓ Séance importée'+(localStorage.getItem('SBD_API_KEY')?' (IA)':''));
+  showToast('✓ Séance importée');
   saveAlgoDebrief(session);
   checkAndGenerateWeeklyReport();
   refreshUI();
@@ -6616,85 +6648,6 @@ function deleteLog(logId) {
   showModal('Supprimer cette séance ?','Supprimer','var(--red)',()=>{db.logs=db.logs.filter(l=>l.id!==logId);db.reports=db.reports.filter(r=>!(r.type==='debrief'&&r.sessionId===logId));saveDB();document.getElementById('importSummary').style.display='none';document.getElementById('importDetails').innerHTML='';document.getElementById('hevyPaste').value='';document.getElementById('aiImportAnalysis').style.display='none';refreshUI();showToast('✓ Séance supprimée');});
 }
 
-// ============================================================
-// AI
-// ============================================================
-function buildAthleteContext() {
-  const logs7=getLogsInRange(7),logs30=getLogsInRange(30);
-  const muscleSets7={};
-  logs7.forEach(l=>l.exercises.forEach(e=>{const mg=getMuscleGroup(e.name);muscleSets7[mg]=(muscleSets7[mg]||0)+e.sets;}));
-  const recentVolumes=db.logs.slice(0,5).map(l=>({date:l.shortDate||l.date,vol:l.volume,title:l.title}));
-  const sbdHistory={};
-  SBD_TYPES.forEach(type=>{sbdHistory[type]=[];for(const log of db.logs){for(const exo of log.exercises){if(getSBDType(exo.name)===type&&exo.maxRM>0){sbdHistory[type].push({rm:exo.maxRM,date:log.shortDate||formatDate(log.timestamp)});break;}}if(sbdHistory[type].length>=5)break;}});
-  return {name:db.user.name,bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()]};
-}
-
-async function callAI(systemPrompt, userPrompt) {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
-  if (!apiKey) return null;
-  try {
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-request-check':'client'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:userPrompt}]})});
-    const d=await r.json();
-    return d.content.map(b=>b.text||'').join('');
-  } catch(err){console.error('AI:',err);return null;}
-}
-
-function getAISystem() {
-  const modeLabels = {
-    bien_etre: 'coach sportif spécialisé en bien-être, forme générale et santé',
-    bodybuilding: 'coach de musculation spécialisé en hypertrophie et bodybuilding',
-    powerlifting: 'coach de force spécialisé en powerlifting (SBD)',
-    force_athletique: 'coach de force athlétique spécialisé en compétition et périodisation'
-  };
-  const role = modeLabels[db.user.trainingMode] || modeLabels.powerlifting;
-  return `Tu es un ${role}. Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
-RÈGLES IMPORTANTES:
-- Les charges indiquées dans les séances sont les POIDS RÉELS soulevés (ex: "125kg × 4" = 4 reps à 125kg).
-- Les "e1RM" ou "records" sont des ESTIMATIONS calculées par la formule d'Epley, PAS des charges réellement soulevées.
-- Quand tu parles d'une performance, cite le poids réel et les reps, pas l'e1RM.
-RÈGLES DE FORMAT:
-- Réponds UNIQUEMENT en HTML (pas de markdown).
-- Structure TOUJOURS en 3 sections: <div class="ai-section"><div class="ai-section-title">TITRE</div>contenu</div>
-- Sections: 1. "📊 DÉBRIEF/BILAN" 2. "🎯 VISION SEMAINE" 3. "💡 CONSEIL PERSO"
-- Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
-- 150-250 mots max. Tutoie. Français.`;
-}
-const AI_SYSTEM = ''; // legacy — use getAISystem() instead
-
-function showAILoading(id){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>';}
-function showAIResponse(id,html){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>';}
-function showAIError(id){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">⚠️ Impossible de contacter le coach IA.<br><span style="font-size:11px;color:var(--sub);">Vérifie ta connexion et réessaie.</span></div>';}
-
-async function aiGenerateDebrief(session, rawText) {
-  const container=document.getElementById('aiImportAnalysis');container.style.display='block';container.innerHTML='<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
-  const ctx=buildAthleteContext();
-  const prompt='Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+(ctx.name?ctx.name+', ':'')+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
-  const result=await callAI(getAISystem(),prompt);
-  if(result){showAIResponse('aiImportResponse',result);upsertReport('debrief',result,session.id);}
-  else showAIError('aiImportResponse');
-}
-
-async function aiGenerateWeekly() {
-  showAILoading('aiResponseArea');
-  const ctx=buildAthleteContext();
-  const prompt='Bilan hebdo'+(ctx.name?' pour '+ctx.name:'')+(':\n\n7J: '+ctx.sessions7d+' séances, '+ctx.daysWithTraining7+'/7j\nMuscles: '+Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')+'\nVolumes: '+ctx.recentVolumes.map(v=>v.date+': '+(v.vol/1000).toFixed(1)+'t ('+v.title+')').join(' | ')+'\n\nPROFIL: '+ctx.bw+'kg | B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nOBJ: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n'));
-  const result=await callAI(getAISystem(),prompt);
-  if(result){showAIResponse('aiResponseArea',result);upsertReport('weekly',result);showToast('📊 Bilan hebdo enregistré');}
-  else showAIError('aiResponseArea');
-}
-
-async function aiAction(type) {
-  if(type==='weekly'){await aiGenerateWeekly();return;}
-  showAILoading('aiResponseArea');
-  const ctx=buildAthleteContext();
-  let prompt='';
-  if(type==='progression')prompt='Progression SBD'+(ctx.name?' de '+ctx.name:'')+':\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nPoids: '+ctx.bw+'kg\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\nTotal: '+ctx.totalSessions+' | 30j: '+ctx.sessions30d;
-  else if(type==='weakpoints')prompt='Points faibles'+(ctx.name?' de '+ctx.name:'')+':\nMuscles 7j: '+(Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucune donnée')+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nPoids: '+ctx.bw+'kg | Fréq: '+ctx.sessions7d+'/sem';
-  else if(type==='next')prompt="Séance du jour"+(ctx.name?' pour '+ctx.name:'')+":\nAUJOURD'HUI: "+ctx.todayDay+'\nPROGRAMME: '+getRoutine()[ctx.todayDay]+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+' | '+ctx.bw+'kg\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nRécent: '+(ctx.recentVolumes.slice(0,3).map(v=>v.title+' ('+v.date+')').join(', ')||'Aucune')+'\nSéances/sem: '+ctx.sessions7d;
-  const result=await callAI(getAISystem(),prompt);
-  if(result)showAIResponse('aiResponseArea',result);
-  else showAIError('aiResponseArea');
-}
 
 // ============================================================
 // RENDER — DASHBOARD
@@ -9220,7 +9173,7 @@ function renderCardioStats() {
 }
 
 // ============================================================
-// SCORE DE FORME (Foster ATL/CTL + composantes)
+// SCORE DE FORME (EWMA ATL/CTL + composantes + Momentum)
 // ============================================================
 function calcFormScore() {
   // Composante 1 — Régularité (25pts)
@@ -9229,44 +9182,164 @@ function calcFormScore() {
   const plannedDays = Math.max(3, Object.values(routine).filter(v => v && !v.includes('Repos') && !v.includes('😴')).length);
   const c1 = Math.min(25, Math.round((sessions7 / plannedDays) * 25));
 
-  // Composante 2 — Ratio charge aiguë/chronique ATL/CTL (25pts) — Foster method
-  const setsInRange = days => db.logs.filter(l => l.timestamp >= Date.now() - days*86400000)
-    .reduce((s, l) => s + l.exercises.reduce((ss, e) => ss + (e.sets || 0), 0), 0);
-  const atl = setsInRange(7);
-  const ctl = setsInRange(28) / 4; // moyenne hebdo sur 4 semaines
-  let c2 = 0;
-  if (ctl > 0) {
-    const r = atl / ctl;
-    if (r >= 0.8 && r <= 1.3) c2 = 25;
-    else if (r >= 0.5 && r < 0.8) c2 = Math.round(((r-0.5)/0.3)*18)+4;
-    else if (r > 1.3 && r <= 1.8) c2 = Math.round(((1.8-r)/0.5)*20);
-    else c2 = 5;
-  } else if (atl > 0) c2 = 15;
+  // Composante 2 — Ratio charge aiguë/chronique ATL/CTL (25pts) — EWMA
+  let atl = 0, ctl = 0, c2 = 0;
+  const allLogs = [...db.logs].sort((a,b) => a.timestamp - b.timestamp);
+  // Count distinct training days in history
+  const distinctDays = new Set(allLogs.map(l => new Date(l.timestamp).toDateString())).size;
+  if (distinctDays >= 7) {
+    // EWMA approach: walk day by day over the last 60 days
+    const alphaAcute = 2 / (7 + 1);    // ~0.25
+    const alphaChronic = 2 / (28 + 1);  // ~0.069
+    const now = Date.now();
+    const startMs = now - 60 * 86400000;
+    // Build daily sets map
+    const dailySets = {};
+    allLogs.forEach(l => {
+      if (l.timestamp < startMs) return;
+      const dayKey = new Date(l.timestamp).toDateString();
+      const sets = l.exercises.reduce((s, e) => s + (e.sets || 0), 0);
+      dailySets[dayKey] = (dailySets[dayKey] || 0) + sets;
+    });
+    // Initialize EWMA with first day's value
+    let ewmaAcute = 0, ewmaChronic = 0, initialized = false;
+    for (let d = 60; d >= 0; d--) {
+      const dt = new Date(now - d * 86400000);
+      const dayKey = dt.toDateString();
+      const load = dailySets[dayKey] || 0;
+      if (!initialized) {
+        ewmaAcute = load; ewmaChronic = load; initialized = true;
+      } else {
+        ewmaAcute = alphaAcute * load + (1 - alphaAcute) * ewmaAcute;
+        ewmaChronic = alphaChronic * load + (1 - alphaChronic) * ewmaChronic;
+      }
+    }
+    atl = Math.round(ewmaAcute * 10) / 10;
+    ctl = Math.round(ewmaChronic * 10) / 10;
+    if (ctl > 0) {
+      const r = atl / ctl;
+      if (r >= 0.8 && r <= 1.3) c2 = 25;
+      else if (r >= 0.5 && r < 0.8) c2 = Math.round(((r - 0.5) / 0.3) * 18) + 4;
+      else if (r > 1.3 && r <= 1.8) c2 = Math.round(((1.8 - r) / 0.5) * 20);
+      else c2 = 5;
+    } else if (atl > 0) c2 = 15;
+  } else {
+    // Fallback: raw sets counting (not enough history for EWMA)
+    const setsInRange = days => db.logs.filter(l => l.timestamp >= Date.now() - days * 86400000)
+      .reduce((s, l) => s + l.exercises.reduce((ss, e) => ss + (e.sets || 0), 0), 0);
+    atl = setsInRange(7);
+    ctl = setsInRange(28) / 4;
+    if (ctl > 0) {
+      const r = atl / ctl;
+      if (r >= 0.8 && r <= 1.3) c2 = 25;
+      else if (r >= 0.5 && r < 0.8) c2 = Math.round(((r - 0.5) / 0.3) * 18) + 4;
+      else if (r > 1.3 && r <= 1.8) c2 = Math.round(((1.8 - r) / 0.5) * 20);
+      else c2 = 5;
+    } else if (atl > 0) c2 = 15;
+  }
 
-  // Composante 3 — Progression SBD 4 semaines (25pts)
-  let c3 = 0, sbdFound = 0;
-  ['bench','squat','deadlift'].forEach(type => {
-    const pts = [];
-    [...db.logs].sort((a,b)=>a.timestamp-b.timestamp)
-      .filter(l => l.timestamp >= Date.now()-28*86400000)
-      .forEach(log => log.exercises.forEach(e => { if (getSBDType(e.name)===type && e.maxRM>0) pts.push(e.maxRM); }));
-    if (pts.length < 2) return;
-    sbdFound++;
-    if (pts[pts.length-1] > pts[0]) c3 += 25/3;
-    else if (pts[pts.length-1] === pts[0]) c3 += 10/3;
-  });
-  if (sbdFound === 0) c3 = 12;
-  else c3 = Math.round(c3);
+  // Composante 3 — Progression exercices clés (25pts) — via computeExoTrend
+  let c3 = 0;
+  const keyExos = (db.keyLifts && db.keyLifts.length > 0)
+    ? db.keyLifts.map(k => k.name || k)
+    : null;
+  if (keyExos && keyExos.length > 0) {
+    // Use computeExoTrend-style regression on key lifts
+    let progCount = 0, stagCount = 0, regCount = 0;
+    keyExos.forEach(exoName => {
+      const pts = [];
+      const desc = [...db.logs].sort((a, b) => b.timestamp - a.timestamp);
+      for (const log of desc) {
+        const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+        if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+        pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+        if (pts.length >= 6) break;
+      }
+      if (pts.length < 2) return;
+      pts.sort((a, b) => a.x - b.x);
+      const n = pts.length;
+      const sumX = pts.reduce((s, p) => s + p.x, 0), sumY = pts.reduce((s, p) => s + p.y, 0);
+      const sumXY = pts.reduce((s, p) => s + p.x * p.y, 0), sumX2 = pts.reduce((s, p) => s + p.x * p.x, 0);
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      if (slope > 0.01) progCount++;
+      else if (slope < -0.01) regCount++;
+      else stagCount++;
+    });
+    const total3 = progCount + stagCount + regCount;
+    if (total3 > 0) {
+      c3 = Math.round((progCount / total3) * 25 + (stagCount / total3) * 12.5 + (regCount / total3) * 5);
+    } else {
+      c3 = 12; // no data
+    }
+  } else {
+    // Fallback SBD
+    let sbdFound = 0;
+    ['bench', 'squat', 'deadlift'].forEach(type => {
+      const pts = [];
+      [...db.logs].sort((a, b) => a.timestamp - b.timestamp)
+        .filter(l => l.timestamp >= Date.now() - 28 * 86400000)
+        .forEach(log => log.exercises.forEach(e => { if (getSBDType(e.name) === type && e.maxRM > 0) pts.push(e.maxRM); }));
+      if (pts.length < 2) return;
+      sbdFound++;
+      if (pts[pts.length - 1] > pts[0]) c3 += 25 / 3;
+      else if (pts[pts.length - 1] === pts[0]) c3 += 10 / 3;
+    });
+    if (sbdFound === 0) c3 = 12;
+    else c3 = Math.round(c3);
+  }
 
-  // Composante 4 — Tracking nutrition 7j (25pts)
-  const limit7 = Date.now() - 7*86400000;
-  const nutriEntries = (db.body||[]).filter(e => e.ts >= limit7 && (e.kcal > 0 || e.prot > 0)).length;
-  const c4 = Math.min(25, Math.round((nutriEntries/7)*25));
+  // Composante 4 — Nutrition (25pts) : tracking (12.5) + adhérence (12.5)
+  const limit7 = Date.now() - 7 * 86400000;
+  const nutriDays = (db.body || []).filter(e => e.ts >= limit7 && (e.kcal > 0 || e.prot > 0));
+  const c4_tracking = Math.min(12.5, Math.round((nutriDays.length / 7) * 12.5 * 10) / 10);
+  let c4_adherence = 0;
+  if (nutriDays.length > 0) {
+    const bw = db.user.bw || 80;
+    const tdee = db.user.tdee || calcCalorieCible(bw);
+    const protTarget = db.user.protTarget || Math.round(bw * 1.95);
+    let adherentDays = 0;
+    nutriDays.forEach(entry => {
+      let ok = true;
+      if (entry.kcal > 0 && tdee > 0 && Math.abs(entry.kcal - tdee) / tdee > 0.10) ok = false;
+      if (entry.prot > 0 && protTarget > 0 && Math.abs(entry.prot - protTarget) / protTarget > 0.10) ok = false;
+      if (ok) adherentDays++;
+    });
+    c4_adherence = Math.min(12.5, Math.round((adherentDays / nutriDays.length) * 12.5 * 10) / 10);
+  }
+  const c4 = Math.round(c4_tracking + c4_adherence);
 
-  const total = Math.min(100, Math.max(0, c1 + Math.max(0,c2) + c3 + c4));
-  return { total, atl, ctl, components: [
+  // Bonus Momentum (+5 pts max, capped at 100 total)
+  let momentum = 0;
+  const routineDays = Object.entries(routine).filter(([, v]) => v && !v.includes('Repos') && !v.includes('😴')).map(([d]) => d);
+  if (routineDays.length > 0) {
+    const orderedDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    const todayIdx = orderedDays.indexOf(DAYS_FULL[new Date().getDay()]);
+    // Walk backwards from today, counting consecutive routine days that had a session
+    const logDaySet = new Set();
+    db.logs.forEach(l => {
+      const d = new Date(l.timestamp);
+      logDaySet.add(d.toDateString());
+    });
+    let streak = 0;
+    for (let i = 0; i < 14; i++) { // max 2 weeks back
+      const checkDate = new Date();
+      checkDate.setDate(checkDate.getDate() - i);
+      const dayName = DAYS_FULL[checkDate.getDay()];
+      if (!routineDays.includes(dayName)) continue; // skip rest days
+      if (logDaySet.has(checkDate.toDateString())) {
+        streak++;
+      } else {
+        break; // streak broken
+      }
+    }
+    momentum = Math.min(5, streak);
+  }
+
+  const rawTotal = c1 + Math.max(0, c2) + c3 + c4 + momentum;
+  const total = Math.min(100, Math.max(0, rawTotal));
+  return { total, atl, ctl, momentum, components: [
     { label: 'Régularité', score: c1 },
-    { label: 'Charge', score: Math.max(0,c2) },
+    { label: 'Charge', score: Math.max(0, c2) },
     { label: 'Progression', score: c3 },
     { label: 'Nutrition', score: c4 }
   ]};
@@ -9281,6 +9354,14 @@ function renderFormeScore() {
   const color = fs.total >= 80 ? 'var(--green)' : fs.total >= 60 ? 'var(--blue)' : fs.total >= 40 ? 'var(--orange)' : 'var(--red)';
   const label = fs.total >= 80 ? 'Optimal' : fs.total >= 60 ? 'Bon' : fs.total >= 40 ? 'Moyen' : 'À améliorer';
   if (tag) { tag.textContent = label; tag.style.color = color; }
+  let momentumHtml = '';
+  if (fs.momentum && fs.momentum > 0) {
+    momentumHtml = '<div class="forme-bar-row">' +
+      '<span class="forme-bar-name">Momentum</span>' +
+      '<div class="forme-bar-bg"><div class="forme-bar-fill" style="width:' + Math.round((fs.momentum / 5) * 100) + '%;background:var(--purple);"></div></div>' +
+      '<span class="forme-bar-score" style="color:var(--purple);">+' + fs.momentum + '</span>' +
+      '</div>';
+  }
   el.innerHTML =
     '<div class="forme-score-wrap">' +
       '<div class="forme-circle" style="color:' + color + ';border-color:' + color + ';">' +
@@ -9289,7 +9370,7 @@ function renderFormeScore() {
       '</div>' +
       '<div class="forme-bars">' +
         fs.components.map(c => {
-          const pct = Math.round((c.score/25)*100);
+          const pct = Math.round((c.score / 25) * 100);
           const bColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--blue)' : pct >= 30 ? 'var(--orange)' : 'var(--red)';
           return '<div class="forme-bar-row">' +
             '<span class="forme-bar-name">' + c.label + '</span>' +
@@ -9297,6 +9378,7 @@ function renderFormeScore() {
             '<span class="forme-bar-score" style="color:' + bColor + ';">' + c.score + '/25</span>' +
             '</div>';
         }).join('') +
+        momentumHtml +
       '</div>' +
     '</div>';
 }
@@ -10525,12 +10607,6 @@ function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
   if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
-  // Update progression button label based on mode
-  const progLabel = document.getElementById('aiProgressionLabel');
-  if (progLabel) {
-    const labels = { bien_etre: 'Évolution Forme', bodybuilding: 'Progression Volume', powerlifting: 'Progression SBD', force_athletique: 'Progression Force' };
-    progLabel.textContent = labels[db.user.trainingMode] || 'Progression SBD';
-  }
 }
 
 // ============================================================
@@ -10633,9 +10709,9 @@ function generateWeeklyPlan() {
   const allBest = {};
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
-      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxReps:0, maxTime:0, distance:0, repRecords:{}, _ts:0 };
+      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxRMDate:null, maxReps:0, maxTime:0, distance:0, repRecords:{}, _ts:0 };
       const r = allBest[exo.name];
-      if ((exo.maxRM   ||0) > r.maxRM)    r.maxRM    = exo.maxRM;
+      if ((exo.maxRM||0) > r.maxRM) { r.maxRM = exo.maxRM; r.maxRMDate = exo.maxRMDate || log.timestamp; }
       if ((exo.maxReps ||0) > r.maxReps)  r.maxReps  = exo.maxReps;
       if ((exo.maxTime ||0) > r.maxTime)  r.maxTime  = exo.maxTime;
       if ((exo.distance||0) > r.distance) r.distance = exo.distance;
@@ -10912,9 +10988,37 @@ function renderWeeklyPlanUI() {
   if (!sel || sel.rest) {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div></div>`;
+    const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
-  content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div><div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
+  const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
+  content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div>${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
+}
+
+function wpApplyDay(day) {
+  const plan = db.weeklyPlan;
+  if (!plan || !plan.days) return;
+  const dayData = plan.days.find(d => d.day === day && !d.rest);
+  if (!dayData || !dayData.exercises || !dayData.exercises.length) return;
+  if (!db.routineExos) db.routineExos = {};
+  db.routineExos[day] = dayData.exercises.map(e => e.name);
+  saveDB();
+  showToast('✓ Programme du ' + day + ' mis à jour');
+}
+
+function wpApplyAll() {
+  const plan = db.weeklyPlan;
+  if (!plan || !plan.days) return;
+  showModal('Appliquer tout ?', 'Appliquer', 'var(--blue)', () => {
+    if (!db.routineExos) db.routineExos = {};
+    plan.days.forEach(d => {
+      if (d.rest || !d.exercises || !d.exercises.length) return;
+      db.routineExos[d.day] = d.exercises.map(e => e.name);
+    });
+    saveDB();
+    showToast('✓ Programme complet mis à jour');
+    refreshUI();
+  });
 }
 
 function fmtRest(sec) {

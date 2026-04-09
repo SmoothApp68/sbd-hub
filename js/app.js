@@ -4339,9 +4339,92 @@ function showStatsSub(id, btn) {
   if (btn) btn.classList.add('active');
   else { const pill = document.querySelector('.stats-sub-pill[onclick*="' + id + '"]'); if (pill) pill.classList.add('active'); }
   if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
-  if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); }
+  if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
   if (id === 'stats-cardio') { renderCardioStats(); }
+}
+
+// ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────
+function renderVolumeLandmarks() {
+  const el = document.getElementById('volumeLandmarksContent');
+  if (!el) return;
+  const vol = computeWeeklyVolume(db.logs, 1);
+  const LABELS_FR = {
+    chest:'Pecs', back:'Dos', shoulders:'Épaules', quads:'Quads',
+    hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps',
+    calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras'
+  };
+  let html = '';
+  for (const [key, lm] of Object.entries(VOLUME_LANDMARKS)) {
+    const sets = Math.round((vol[key] || 0) * 10) / 10;
+    const pct = Math.min(100, (sets / lm.MRV) * 100);
+    let color = 'var(--sub)'; let status = '< MEV';
+    if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️'; }
+    else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV'; }
+    else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅'; }
+    html += '<div style="margin-bottom:8px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
+      '<span style="font-weight:600;">' + (LABELS_FR[key] || key) + '</span>' +
+      '<span style="color:' + color + ';">' + sets + '/' + lm.MRV + ' sets · ' + status + '</span></div>' +
+      '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
+      '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div></div>';
+  }
+  el.innerHTML = html || '<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Importe des séances pour voir le volume</div>';
+}
+
+// ── Ratios d'équilibre ──────────────────────────────────────
+function renderStrengthRatios() {
+  const el = document.getElementById('strengthRatiosContent');
+  if (!el) return;
+  const ratios = computeStrengthRatios();
+  if (!ratios || !Object.keys(ratios).length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Pas assez de données pour calculer les ratios</div>';
+    return;
+  }
+  let html = '';
+  for (const [key, r] of Object.entries(ratios)) {
+    const val = r.value;
+    const lo = r.ideal[0], hi = r.ideal[1];
+    const inRange = val >= lo && val <= hi;
+    const pctPos = Math.min(95, Math.max(5, ((val - (lo - 0.3)) / ((hi + 0.3) - (lo - 0.3))) * 100));
+    const idealLeft = ((lo - (lo - 0.3)) / ((hi + 0.3) - (lo - 0.3))) * 100;
+    const idealWidth = ((hi - lo) / ((hi + 0.3) - (lo - 0.3))) * 100;
+    const color = inRange ? 'var(--green)' : 'var(--orange)';
+    const alert = !inRange ? (val < lo ? '⚠️ Trop bas' : '⚠️ Trop haut') : '✅';
+    html += '<div style="margin-bottom:12px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">' +
+      '<span style="font-weight:600;">' + r.label + '</span>' +
+      '<span style="color:' + color + ';">' + val.toFixed(2) + ' ' + alert + '</span></div>' +
+      '<div style="position:relative;height:8px;background:var(--border);border-radius:4px;">' +
+      '<div style="position:absolute;left:' + idealLeft + '%;width:' + idealWidth + '%;height:100%;background:rgba(50,215,75,0.25);border-radius:4px;"></div>' +
+      '<div style="position:absolute;left:' + pctPos + '%;top:-2px;width:4px;height:12px;background:' + color + ';border-radius:2px;transform:translateX(-50%);"></div>' +
+      '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+function computeStrengthRatios() {
+  const e1rm = (name) => {
+    let best = 0;
+    db.logs.forEach(log => {
+      log.exercises.forEach(exo => {
+        if ((exo.maxRM || 0) > best && matchExoName(exo.name, name)) best = exo.maxRM;
+      });
+    });
+    return best > 0 ? best : null;
+  };
+  const squat = e1rm('squat'), bench = e1rm('bench'), deadlift = e1rm('deadlift');
+  const ohp = e1rm('ohp'), row = e1rm('barbell row');
+  const ratios = {};
+  if (squat && deadlift) ratios.squat_deadlift = { value: squat/deadlift, ideal: [0.80, 0.85], label: 'Squat / Deadlift' };
+  if (bench && squat)    ratios.bench_squat    = { value: bench/squat,    ideal: [0.60, 0.70], label: 'Bench / Squat' };
+  if (ohp && bench)      ratios.ohp_bench      = { value: ohp/bench,      ideal: [0.60, 0.65], label: 'OHP / Bench' };
+  if (row && bench)      ratios.row_bench       = { value: row/bench,      ideal: [0.90, 1.00], label: 'Row / Bench' };
+  const vol = computeWeeklyVolume(db.logs, 1);
+  const pushVol = (vol.chest || 0) + (vol.shoulders || 0) * 0.5 + (vol.triceps || 0);
+  const pullVol = (vol.back || 0) + (vol.biceps || 0);
+  if (pullVol > 0) ratios.push_pull = { value: pushVol/pullVol, ideal: [0.80, 1.10], label: 'Push / Pull (volume)' };
+  return ratios;
 }
 
 function renderCardioStats() {

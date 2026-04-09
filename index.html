@@ -1379,6 +1379,11 @@
 
   <div id="tab-game" class="content-section">
     <div id="gamLevelCard"></div>
+    <div id="gamHeatmap"></div>
+    <div id="gamChallenges"></div>
+    <div id="gamRecentBadges"></div>
+    <div id="gamNextBadges"></div>
+    <div id="gamXPSources"></div>
     <div id="gamStrengthContent"></div>
     <div id="gamBadgesOverview"></div>
     <div id="gamBadgesSections"></div>
@@ -3760,6 +3765,10 @@ function calcTotalXP() {
     });
   });
   xp += calcStreak() * 25;
+  // XP from completed weekly challenges
+  if (db.weeklyChallenges && db.weeklyChallenges.challenges) {
+    db.weeklyChallenges.challenges.forEach(function(c) { if (c.completed) xp += (c.xpReward || 0); });
+  }
   return xp;
 }
 
@@ -3817,20 +3826,286 @@ function toggleBdgSection(head) {
   if (chev) chev.classList.toggle('open');
 }
 
-function renderGamificationTab() {
-  const bw = db.user.bw || 80;
-  const totalXP = calcTotalXP();
-  const currLevel = getXPLevel(totalXP);
-  const nextLevel = getNextXPLevel(totalXP);
-  const streak = calcStreak();
+// ── Gamification helpers ──
 
-  // ── Level card (.lvl-*) ──
-  const levelCard = document.getElementById('gamLevelCard');
-  const xpInLevel = totalXP - currLevel.xp;
-  const xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
-  const pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
-  const nextName = nextLevel ? '→ ' + nextLevel.icon + ' ' + nextLevel.name : 'NIVEAU MAX';
-  const totalVolT = Math.round(db.logs.reduce((s,l) => s + (l.volume||0), 0) / 1000);
+function _getWeekKey() {
+  var d = new Date(); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  var mon = new Date(d.setDate(diff)); mon.setHours(0,0,0,0);
+  return mon.toISOString().slice(0,10);
+}
+
+function _getWeekStart(date) {
+  var d = new Date(date); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff); d.setHours(0,0,0,0); return d;
+}
+
+function _getLogsThisWeek() {
+  var wk = _getWeekKey();
+  var start = new Date(wk).getTime();
+  var end = start + 7 * 86400000;
+  return db.logs.filter(function(l) { return l.timestamp >= start && l.timestamp < end; });
+}
+
+function generateWeeklyChallenges() {
+  var weekKey = _getWeekKey();
+  if (db.weeklyChallenges && db.weeklyChallenges.weekKey === weekKey) return;
+
+  var challenges = [];
+  var logs = db.logs;
+  var recentLogs = getLogsInRange(28);
+
+  // Frequency of exercises
+  var exoFreq = {};
+  recentLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { exoFreq[e.name] = (exoFreq[e.name]||0) + 1; }); });
+  var sortedExos = Object.keys(exoFreq).sort(function(a,b) { return exoFreq[b] - exoFreq[a]; });
+
+  // Muscle group volumes (sets) last 4 weeks
+  var muscleVol = {};
+  recentLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
+    var mg = getMuscleGroup(e.name) || 'Autre';
+    muscleVol[mg] = (muscleVol[mg]||0) + (e.sets||0);
+  }); });
+  var weakMuscle = Object.keys(muscleVol).sort(function(a,b) { return muscleVol[a] - muscleVol[b]; })[0] || 'Pectoraux';
+
+  // Average weekly tonnage
+  var avg4wVol = recentLogs.reduce(function(s,l) { return s + (l.volume||0); }, 0) / 4;
+
+  // Sessions per week target from routine
+  var sessTarget = 4;
+  if (db.routine) {
+    var days = 0;
+    for (var k in db.routine) { if (db.routine[k] && db.routine[k] !== 'Repos') days++; }
+    if (days > 0) sessTarget = days;
+  }
+
+  // Rare exercises
+  var rareExo = sortedExos.length > 5 ? sortedExos[sortedExos.length - 1] : (sortedExos[0] || 'Curl');
+  var rareTarget = Math.max(6, Math.round((exoFreq[rareExo]||2) * 1.5));
+
+  // Build pool of challenge types
+  var pool = [];
+
+  // 1. Progression charge
+  if (sortedExos.length > 0) {
+    pool.push({ id: 'prog', type: 'progression', label: '+2.5kg sur ' + sortedExos[0], description: 'Dépasser ton meilleur e1RM sur cet exercice', target: 1, current: 0, xpReward: 150 });
+  }
+
+  // 2. Volume musculaire
+  pool.push({ id: 'musc', type: 'volume_musculaire', label: '20 séries de ' + weakMuscle, description: 'Travaille ton groupe musculaire le moins sollicité', target: 20, current: 0, xpReward: 150 });
+
+  // 3. Assiduité
+  pool.push({ id: 'assi', type: 'assiduite', label: sessTarget + ' séances cette semaine', description: 'Respecte ta fréquence d\'entraînement', target: sessTarget, current: 0, xpReward: 100 });
+
+  // 4. Tonnage
+  var tonTarget = Math.round((avg4wVol * 1.05) / 100) * 100;
+  if (tonTarget > 0) {
+    pool.push({ id: 'ton', type: 'tonnage', label: 'Dépasser ' + Math.round(tonTarget/1000) + 't de tonnage', description: 'Volume total de la semaine', target: tonTarget, current: 0, xpReward: 200 });
+  }
+
+  // 5. Record
+  pool.push({ id: 'rec', type: 'record', label: 'Battre un record personnel', description: 'Établis au moins 1 nouveau PR cette semaine', target: 1, current: 0, xpReward: 200 });
+
+  // 6. Exercice spécifique
+  pool.push({ id: 'spec', type: 'exercice_specifique', label: rareTarget + ' séries de ' + rareExo, description: 'Travaille un exercice sous-représenté', target: rareTarget, current: 0, xpReward: 100 });
+
+  // Shuffle and pick 3
+  for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i+1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+  challenges = pool.slice(0, 3);
+  challenges.forEach(function(c) { c.completed = false; });
+
+  db.weeklyChallenges = { weekKey: weekKey, challenges: challenges };
+  saveDB();
+}
+
+function updateChallengeProgress() {
+  if (!db.weeklyChallenges || !db.weeklyChallenges.challenges) return;
+  var weekLogs = _getLogsThisWeek();
+  var bestE1RMs = getAllBestE1RMs();
+
+  // Pre-compute previous week's best e1RMs
+  var wkStart = new Date(db.weeklyChallenges.weekKey).getTime();
+  var prevBest = {};
+  db.logs.forEach(function(l) {
+    if (l.timestamp >= wkStart) return;
+    (l.exercises||[]).forEach(function(e) {
+      if (e.maxRM > 0 && e.maxRM > (prevBest[e.name]||0)) prevBest[e.name] = e.maxRM;
+    });
+  });
+
+  db.weeklyChallenges.challenges.forEach(function(c) {
+    if (c.type === 'progression') {
+      // Check if any e1RM this week beats previous best on the target exercise
+      var exoName = c.label.replace('+2.5kg sur ', '');
+      var prev = prevBest[exoName] || 0;
+      var thisWeekBest = 0;
+      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { if (e.name === exoName && e.maxRM > thisWeekBest) thisWeekBest = e.maxRM; }); });
+      c.current = (prev > 0 && thisWeekBest > prev) ? 1 : 0;
+    } else if (c.type === 'volume_musculaire') {
+      var muscle = c.label.replace(/^\d+ séries de /, '');
+      var sets = 0;
+      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
+        if ((getMuscleGroup(e.name)||'') === muscle) sets += (e.sets||0);
+      }); });
+      c.current = sets;
+    } else if (c.type === 'assiduite') {
+      c.current = weekLogs.length;
+    } else if (c.type === 'tonnage') {
+      c.current = weekLogs.reduce(function(s,l) { return s + (l.volume||0); }, 0);
+    } else if (c.type === 'record') {
+      var prs = 0;
+      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
+        if (e.maxRM > 0 && e.maxRM > (prevBest[e.name]||0)) prs++;
+      }); });
+      c.current = Math.min(1, prs);
+    } else if (c.type === 'exercice_specifique') {
+      var exo = c.label.replace(/^\d+ séries de /, '');
+      var ss = 0;
+      weekLogs.forEach(function(l) { (l.exercises||[]).forEach(function(e) {
+        if (e.name === exo) ss += (e.sets||0);
+      }); });
+      c.current = ss;
+    }
+    if (c.current >= c.target && !c.completed) { c.completed = true; saveDB(); }
+  });
+}
+
+function calcBadgeProgress(badge) {
+  if (!badge || badge.impossible) return null;
+  var id = badge.id;
+  var logs = db.logs;
+  var B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
+  var bw = db.user.bw||80;
+
+  // Pre-compute stats
+  var totalVol = 0, maxSessVol = 0, totalSets = 0, totalDur = 0, maxSessDur = 0;
+  var uniqueExos = new Set();
+  logs.forEach(function(l) {
+    totalVol += (l.volume||0);
+    if ((l.volume||0) > maxSessVol) maxSessVol = l.volume||0;
+    var ss = 0;
+    (l.exercises||[]).forEach(function(e) { ss += (e.sets||0); uniqueExos.add(e.name); });
+    totalSets += ss;
+    var dur = l.duration || (ss * 210);
+    if (dur > maxSessDur) maxSessDur = dur;
+    totalDur += dur;
+  });
+
+  // Sessions
+  if (/^s\d+$/.test(id)) { var t = parseInt(id.slice(1)); return { current: logs.length, target: t, pct: Math.min(100, Math.round(logs.length/t*100)) }; }
+  // Volume session
+  if (/^vs\d+$/.test(id) || id === 'v10t') { var t = id === 'v10t' ? 10000 : parseInt(id.slice(2)) * 1000; return { current: maxSessVol, target: t, pct: Math.min(100, Math.round(maxSessVol/t*100)) }; }
+  // Volume cumul
+  if (/^vt\d+$/.test(id)) { var t = parseInt(id.slice(2)) * 1000; return { current: totalVol, target: t, pct: Math.min(100, Math.round(totalVol/t*100)) }; }
+  // Duration session
+  if (/^dur\d+$/.test(id)) { var mins = parseInt(id.slice(3)); var t = mins * 60; return { current: maxSessDur, target: t, pct: Math.min(100, Math.round(maxSessDur/t*100)) }; }
+  // Duration cumul
+  if (/^tdur\d+$/.test(id)) { var h = parseInt(id.slice(4)); var t = h * 3600; return { current: totalDur, target: t, pct: Math.min(100, Math.round(totalDur/t*100)) }; }
+  // Sets
+  if (/^st\d+$/.test(id)) { var t = parseInt(id.slice(2)); return { current: totalSets, target: t, pct: Math.min(100, Math.round(totalSets/t*100)) }; }
+  // Exercises
+  if (/^ex\d+$/.test(id)) { var t = parseInt(id.slice(2)); return { current: uniqueExos.size, target: t, pct: Math.min(100, Math.round(uniqueExos.size/t*100)) }; }
+  // Bench
+  if (id.startsWith('bench_')) { var t = parseInt(id.split('_')[1]); return { current: B, target: t, pct: Math.min(100, Math.round(B/t*100)) }; }
+  // Squat
+  if (id.startsWith('squat_')) { var t = parseInt(id.split('_')[1]); return { current: S, target: t, pct: Math.min(100, Math.round(S/t*100)) }; }
+  // Deadlift
+  if (id.startsWith('dead_')) { var t = parseInt(id.split('_')[1]); return { current: D, target: t, pct: Math.min(100, Math.round(D/t*100)) }; }
+  // OHP
+  if (id.startsWith('ohp_')) {
+    var ohpRM = 0;
+    var _ohpRe = /overhead|militaire|\bohp\b|press mil/i;
+    logs.forEach(function(l) { (l.exercises||[]).forEach(function(e) { if (_ohpRe.test(e.name) && (e.maxRM||0) > ohpRM) ohpRM = e.maxRM; }); });
+    var t = parseInt(id.split('_')[1]);
+    return { current: ohpRM, target: t, pct: Math.min(100, Math.round(ohpRM/t*100)) };
+  }
+  // Total SBD
+  if (id.startsWith('total_')) { var t = parseInt(id.split('_')[1]); var total = B+S+D; return { current: total, target: t, pct: Math.min(100, Math.round(total/t*100)) }; }
+  // BW ratios
+  if (id.startsWith('bw_')) {
+    var m = id.match(/bw_(b|s|d)(\d+)/);
+    if (m) {
+      var val = m[1] === 'b' ? B : m[1] === 's' ? S : D;
+      var ratio = parseFloat(m[2]) / 10 || 1;
+      // Determine actual ratio from badge condition
+      if (badge.condition) {
+        var rm = badge.condition.match(/([\d.]+)×/);
+        if (rm) ratio = parseFloat(rm[1]);
+      }
+      var t = bw * ratio;
+      return t > 0 ? { current: val, target: Math.round(t), pct: Math.min(100, Math.round(val/t*100)) } : null;
+    }
+  }
+  // Streak
+  if (id.startsWith('streak_')) { var t = parseInt(id.split('_')[1]); var s = calcStreak(); return { current: s, target: t, pct: Math.min(100, Math.round(s/t*100)) }; }
+  // Collector
+  if (id.startsWith('col')) {
+    var allB = getAllBadges();
+    var norm = allB.filter(function(x){return !x.impossible;});
+    var unl = norm.filter(function(x){return x.ck();}).length;
+    var t2;
+    if (id === 'col_all') t2 = norm.length;
+    else t2 = parseInt(id.slice(3));
+    return t2 > 0 ? { current: unl, target: t2, pct: Math.min(100, Math.round(unl/t2*100)) } : null;
+  }
+  return null;
+}
+
+function calcXPBreakdown() {
+  var xpSeances = 0, xpRecords = 0, xpTonnage = 0;
+  var sorted = getSortedLogs().slice().reverse();
+  var runningBest = {};
+  sorted.forEach(function(log) {
+    xpSeances += 100;
+    xpSeances += Math.min(10, (log.exercises||[]).length) * 8;
+    xpTonnage += Math.floor((log.volume||0) / 500);
+    (log.exercises||[]).forEach(function(exo) {
+      if (exo.maxRM > 0) {
+        var prev = runningBest[exo.name] || 0;
+        if (prev > 0 && exo.maxRM > prev) xpRecords += 50;
+        else if (prev === 0) xpRecords += 20;
+        if (exo.maxRM > (runningBest[exo.name]||0)) runningBest[exo.name] = exo.maxRM;
+      }
+    });
+  });
+  var xpRegularite = calcStreak() * 25;
+  var xpDefis = 0;
+  if (db.weeklyChallenges && db.weeklyChallenges.challenges) {
+    db.weeklyChallenges.challenges.forEach(function(c) { if (c.completed) xpDefis += (c.xpReward||0); });
+  }
+  return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
+}
+
+function _calcExoXP(exoName) {
+  var xp = 0;
+  var sorted = getSortedLogs().slice().reverse();
+  var best = 0;
+  sorted.forEach(function(log) {
+    var found = false;
+    (log.exercises||[]).forEach(function(e) {
+      if (e.name === exoName) {
+        found = true;
+        if (e.maxRM > 0 && e.maxRM > best) { xp += 50; best = e.maxRM; }
+      }
+    });
+    if (found) xp += 8;
+  });
+  return xp;
+}
+
+function renderGamificationTab() {
+  var bw = db.user.bw || 80;
+  var totalXP = calcTotalXP();
+  var currLevel = getXPLevel(totalXP);
+  var nextLevel = getNextXPLevel(totalXP);
+  var streak = calcStreak();
+
+  // ── 1. Level card (UNCHANGED) ──
+  var levelCard = document.getElementById('gamLevelCard');
+  var xpInLevel = totalXP - currLevel.xp;
+  var xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
+  var pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
+  var nextName = nextLevel ? '→ ' + nextLevel.icon + ' ' + nextLevel.name : 'NIVEAU MAX';
+  var totalVolT = Math.round(db.logs.reduce(function(s,l){return s+(l.volume||0);}, 0) / 1000);
 
   levelCard.innerHTML =
     '<div class="lvl-card">' +
@@ -3854,62 +4129,255 @@ function renderGamificationTab() {
       '</div>' +
     '</div>';
 
-  // ── Strength cards (.str-*) ──
-  const bestE1RMs = getAllBestE1RMs();
-  const strContainer = document.getElementById('gamStrengthContent');
-  let strHtml = '';
-  const categorized = [];
-  for (const [name, data] of Object.entries(bestE1RMs)) {
-    const sl = getStrengthLevel(name, data.e1rm, bw);
-    if (sl) categorized.push({ name, e1rm: data.e1rm, sl });
-  }
-  categorized.sort((a,b) => b.sl.levelIdx - a.sl.levelIdx || b.sl.ratio - a.sl.ratio);
-
-  if (categorized.length === 0) {
-    strHtml = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div>';
-  } else {
-    const segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
-    const segLabels = ['Déb.','Novice','Inter.','Avancé','Élite'];
-
-    categorized.forEach(function(item) {
-      var name = item.name, e1rm = item.e1rm, sl = item.sl;
-      var norm = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-      var ratios = null;
-      for (var key in STRENGTH_STANDARDS) {
-        if (STRENGTH_STANDARDS[key].patterns.some(function(p){ return p.test(norm); })) { ratios = STRENGTH_STANDARDS[key].ratios; break; }
-      }
-      if (!ratios) return;
-      var maxR = ratios[ratios.length-1] * 1.2;
-      var needlePct = Math.min(98, Math.max(2, (sl.ratio / maxR) * 100));
-
-      var segsHtml = '', prev = 0;
-      ratios.forEach(function(r, i) {
-        var p = (r / maxR) * 100, w = p - prev;
-        segsHtml += '<div class="str-bar-seg" style="width:' + w + '%;background:' + segColors[i] + ';opacity:0.3;"></div>';
-        prev = p;
-      });
-
-      var legendHtml = '';
-      segLabels.forEach(function(lbl, i) {
-        legendHtml += '<div class="str-legend-item"><div class="str-legend-dot" style="background:' + segColors[i] + ';"></div>' + lbl + '</div>';
-      });
-
-      strHtml +=
-        '<div class="str-card">' +
-          '<div class="str-head"><div class="str-name">' + name + '</div><div class="str-right"><div class="str-e1rm">' + Math.round(e1rm) + '<span>kg</span></div><div class="str-bw">' + sl.ratio + '× BW</div></div></div>' +
-          '<div class="str-badge-row"><div class="str-badge" style="background:' + sl.color + '22;color:' + sl.color + ';">' + sl.label + '</div><div class="str-top">' + sl.topPct + '</div></div>' +
-          '<div class="str-bar-wrap">' +
-            '<div class="str-bar-segs">' + segsHtml + '</div>' +
-            '<div class="str-bar-fill" style="width:' + needlePct + '%;background:' + sl.color + ';"></div>' +
-            '<div class="str-bar-needle" style="left:' + needlePct + '%;"></div>' +
-          '</div>' +
-          '<div class="str-bar-legend">' + legendHtml + '</div>' +
-        '</div>';
+  // ── 2. Heatmap de régularité ──
+  (function() {
+    var now = Date.now();
+    var weekMs = 7 * 86400000;
+    var weekCounts = new Array(52).fill(0);
+    db.logs.forEach(function(l) {
+      var wIdx = Math.floor((now - l.timestamp) / weekMs);
+      if (wIdx >= 0 && wIdx < 52) weekCounts[wIdx]++;
     });
-  }
-  strContainer.innerHTML = strHtml;
+    var cells = '';
+    for (var w = 51; w >= 0; w--) {
+      var c = weekCounts[w];
+      var cls = c === 0 ? '' : c === 1 ? ' l1' : c === 2 ? ' l2' : c === 3 ? ' l3' : ' l4';
+      cells += '<div class="hm-cell' + cls + '"></div>';
+    }
+    document.getElementById('gamHeatmap').innerHTML =
+      '<div class="mc">' +
+        '<div class="mc-title"><span>🔥 Régularité & activité</span><span class="hm-streak">' + streak + ' semaines</span></div>' +
+        '<div class="hm-grid">' + cells + '</div>' +
+        '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell l1" style="background:rgba(50,215,75,0.15);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.35);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.55);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
+      '</div>';
+  })();
 
-  // ── Badges overview (.bdg-*) ──
+  // ── 3. Défis hebdomadaires ──
+  generateWeeklyChallenges();
+  updateChallengeProgress();
+  (function() {
+    var ch = db.weeklyChallenges ? db.weeklyChallenges.challenges : [];
+    var done = ch.filter(function(c){return c.completed;}).length;
+    var html = '<div class="mc wc-wrap"><div class="mc-title"><span>⚡ Défis de la semaine</span><span class="mc-title-right">' + done + '/3 complétés</span></div>';
+    ch.forEach(function(c) {
+      var isDone = c.completed;
+      var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
+      html += '<div class="wc-item">' +
+        '<div class="wc-status">' + (isDone ? '✓' : '○') + '</div>' +
+        '<div class="wc-info"><div class="wc-label ' + (isDone?'done':'active') + '">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
+        '<div class="wc-bar-bg"><div class="wc-bar ' + (isDone?'done':'active') + '" style="width:' + pctC + '%;"></div></div></div>' +
+        '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
+    });
+    if (!ch.length) html += '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Pas encore de données pour générer des défis.</div>';
+    html += '</div>';
+    document.getElementById('gamChallenges').innerHTML = html;
+  })();
+
+  // ── 4. Récemment débloqués ──
+  (function() {
+    var allBadges = getAllBadges();
+    var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+    var unlocked = allBadges.filter(function(b){return !b.impossible && b.ck();});
+    // Try to date badges by finding earliest log where condition becomes true (simplified: show last 5 unlocked by type order)
+    var recent = unlocked.slice(-5).reverse();
+    if (!recent.length) { document.getElementById('gamRecentBadges').innerHTML = ''; return; }
+    var html = '<div class="mc"><div class="mc-title">🏆 Récemment débloqués</div><div class="ru-scroll">';
+    recent.forEach(function(b) {
+      var rc = rarityColor[b.r] || '#86868B';
+      html += '<div class="ru-item" style="border:1px solid ' + rc + '33;"><div class="ru-icon">' + b.icon + '</div><div class="ru-name">' + b.name + '</div><div class="ru-date">' + (b.ref||'') + '</div></div>';
+    });
+    html += '</div></div>';
+    document.getElementById('gamRecentBadges').innerHTML = html;
+  })();
+
+  // ── 5. Prochains badges ──
+  (function() {
+    var allBadges = getAllBadges();
+    var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+    var locked = allBadges.filter(function(b){return !b.impossible && !b.ck();});
+    var withProgress = [];
+    locked.forEach(function(b) {
+      var p = calcBadgeProgress(b);
+      if (p && p.pct > 0) withProgress.push({badge:b, progress:p});
+    });
+    withProgress.sort(function(a,b){return b.progress.pct - a.progress.pct;});
+    var top4 = withProgress.slice(0,4);
+    if (!top4.length) { document.getElementById('gamNextBadges').innerHTML = ''; return; }
+    var html = '<div class="mc"><div class="mc-title"><span>🎯 Prochains badges</span><span class="mc-title-right">Les plus proches</span></div>';
+    top4.forEach(function(item) {
+      var b = item.badge, p = item.progress;
+      var rc = rarityColor[b.r] || '#86868B';
+      html += '<div class="nb-item" style="border:1px solid ' + rc + '22;"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
+        '<div class="nb-info"><div class="nb-name">' + b.name + '</div><div class="nb-desc">' + b.desc + '</div>' +
+        '<div class="nb-bar-bg"><div class="nb-bar" style="width:' + p.pct + '%;background:' + rc + ';"></div></div></div>' +
+        '<div class="nb-pct" style="color:' + rc + ';">' + p.pct + '%</div></div>';
+    });
+    html += '</div>';
+    document.getElementById('gamNextBadges').innerHTML = html;
+  })();
+
+  // ── 6. Sources d'XP ──
+  (function() {
+    var bd = calcXPBreakdown();
+    var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, 1);
+    var bars = [
+      {label:'Séances', val:bd.seances, color:'var(--blue)'},
+      {label:'Records', val:bd.records, color:'var(--green)'},
+      {label:'Régularité', val:bd.regularite, color:'var(--orange)'},
+      {label:'Tonnage', val:bd.tonnage, color:'var(--purple)'},
+      {label:'Défis', val:bd.defis, color:'var(--teal)'}
+    ];
+    var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
+      '<div class="xs-counters">' +
+        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--blue);">' + bd.seances.toLocaleString() + '</div><div class="xs-counter-lbl">Séances</div></div>' +
+        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--green);">' + bd.records.toLocaleString() + '</div><div class="xs-counter-lbl">Records</div></div>' +
+        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--orange);">' + bd.regularite.toLocaleString() + '</div><div class="xs-counter-lbl">Régularité</div></div>' +
+      '</div>';
+    bars.forEach(function(br) {
+      var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
+      html += '<div class="xs-bar-row"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';
+    });
+    html += '</div>';
+    document.getElementById('gamXPSources').innerHTML = html;
+  })();
+
+  // ── 7. Strength cards (grille paginée) ──
+  (function() {
+    var bestE1RMs = getAllBestE1RMs();
+    var strContainer = document.getElementById('gamStrengthContent');
+    var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
+    var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+
+    // Build all exercise cards with strength data
+    var allExos = [];
+    for (var eName in bestE1RMs) {
+      var data = bestE1RMs[eName];
+      var sl = getStrengthLevel(eName, data.e1rm, bw);
+      // Count sessions & PRs for this exercise
+      var sesCount = 0, prCount = 0, runBest = 0;
+      getSortedLogs().slice().reverse().forEach(function(log) {
+        var found = false;
+        (log.exercises||[]).forEach(function(e) {
+          if (e.name === eName) {
+            found = true;
+            if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; }
+          }
+        });
+        if (found) sesCount++;
+      });
+      var exoXP = prCount * 50 + sesCount * 8;
+      allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
+    }
+    // Sort by levelIdx desc (exercises with strength level first)
+    allExos.sort(function(a,b) {
+      var aIdx = a.sl ? a.sl.levelIdx : -1;
+      var bIdx = b.sl ? b.sl.levelIdx : -1;
+      if (bIdx !== aIdx) return bIdx - aIdx;
+      return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
+    });
+
+    if (!allExos.length) {
+      strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
+      return;
+    }
+
+    var perPage = 6;
+    var totalPages = Math.ceil(allExos.length / perPage);
+
+    var pagesHtml = '';
+    for (var pg = 0; pg < totalPages; pg++) {
+      pagesHtml += '<div class="sg-page">';
+      var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
+      for (var ei = start; ei < end; ei++) {
+        var item = allExos[ei];
+        var hasSL = !!item.sl;
+        var isDim = item.sesCount <= 2 && !hasSL;
+
+        // Find ratios for gauge
+        var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        var ratios = null;
+        for (var sKey in _stds) {
+          if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; }
+        }
+
+        pagesHtml += '<div class="sg-card' + (isDim?' dim':'') + '">';
+        // Top: name + badge
+        pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
+        if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
+        pagesHtml += '</div>';
+        // e1RM line
+        pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
+
+        // Gauge (5 segments)
+        if (ratios && hasSL) {
+          var maxR = ratios[ratios.length-1] * 1.2;
+          var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
+          var gaugeHtml = '';
+          var prev = 0;
+          ratios.forEach(function(r, i) {
+            var p = (r / maxR) * 100, w = p - prev;
+            gaugeHtml += '<div class="sg-gauge-seg" style="width:' + w + '%;background:' + segColors[i] + ';opacity:0.3;"></div>';
+            prev = p;
+          });
+          pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
+          pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
+        }
+
+        // Footer
+        pagesHtml += '<div class="sg-footer">';
+        if (isDim) {
+          pagesHtml += '<span>Pas assez de données</span>';
+        } else if (hasSL) {
+          var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
+          if (nextLvl && ratios) {
+            var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
+            pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
+          } else {
+            pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
+          }
+        } else {
+          pagesHtml += '<span></span>';
+        }
+        pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
+        pagesHtml += '</div></div>';
+      }
+      pagesHtml += '</div>';
+    }
+
+    // Pagination dots
+    var dotsHtml = '';
+    for (var di = 0; di < totalPages; di++) {
+      dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
+    }
+
+    strContainer.innerHTML =
+      '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
+        '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
+        '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
+        '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
+      '</div>';
+
+    // Wire up scroll pagination
+    var pagesEl = document.getElementById('sgPages');
+    var dotsEl = document.getElementById('sgDots');
+    var labelEl = strContainer.querySelector('.mc-title-right');
+    if (pagesEl && dotsEl) {
+      pagesEl.addEventListener('scroll', function() {
+        var pageW = pagesEl.offsetWidth;
+        var idx = Math.round(pagesEl.scrollLeft / pageW);
+        dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
+        if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
+      });
+      dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
+        dot.addEventListener('click', function() {
+          var pg = parseInt(dot.getAttribute('data-page'));
+          pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
+        });
+      });
+    }
+  })();
+
+  // ── 8. Badges (overview + chips + accordions + progress) ──
   var allBadges = getAllBadges();
   var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
   var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
@@ -3937,7 +4405,7 @@ function renderGamificationTab() {
       '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
     '</div>';
 
-  // ── Badge sections ──
+  // ── Badge sections with chips nav ──
   var sections = [
     { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
     { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
@@ -3959,7 +4427,21 @@ function renderGamificationTab() {
   var badgeMap = {};
   allBadges.forEach(function(b) { badgeMap[b.id] = b; });
 
-  var secHtml = '';
+  // Build chips nav
+  var chipsHtml = '<div class="bc-scroll">';
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var icon = sec.title.split(' ')[0];
+    var name = sec.title.replace(/^[^\s]+\s*/, '');
+    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
+  });
+  chipsHtml += '</div>';
+
+  // Build sections
+  var secHtml = chipsHtml;
   sections.forEach(function(sec, si) {
     var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
     if (!sectionBadges.length) return;
@@ -3967,7 +4449,7 @@ function renderGamificationTab() {
     var unlocked = countable.filter(function(b){ return b.ck(); }).length;
     var isOpen = si === 0 ? ' open' : '';
 
-    secHtml += '<div class="bdg-section">';
+    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
     secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
     secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
     secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
@@ -3998,11 +4480,19 @@ function renderGamificationTab() {
         secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
         secHtml += '</div>';
       } else {
-        secHtml += '<div class="bdg locked">';
+        // Locked badge with progress
+        var prog = calcBadgeProgress(badge);
+        var progPct = prog ? prog.pct : 0;
+        var closeToUnlock = progPct > 50;
+        secHtml += '<div class="bdg locked" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
         secHtml += '<div class="bdg-icon">🔒</div>';
         secHtml += '<div class="bdg-name">' + badge.name + '</div>';
         secHtml += '<div class="bdg-desc">???</div>';
         if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        if (prog && prog.pct > 0) {
+          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
+          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
+        }
         secHtml += '</div>';
       }
     });

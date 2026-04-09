@@ -4186,7 +4186,90 @@ function finalizeSessionFromSeries(session) {
 // ============================================================
 // CLOUD SYNC
 // ============================================================
-async function cloudSignIn() { if (!supaClient) return null; try { const {data:{session}} = await supaClient.auth.getSession(); if (session) { cloudSyncEnabled = true; updateCloudUI(session.user); return session.user; } const {data, error} = await supaClient.auth.signInAnonymously(); if (error) throw error; cloudSyncEnabled = true; updateCloudUI(data.user); return data.user; } catch(e) { console.error('Cloud sign-in:', e); updateCloudUI(null, e.message); return null; } }
+async function cloudSignIn() {
+  if (!supaClient) return null;
+  try {
+    const {data:{session}} = await supaClient.auth.getSession();
+    if (session) {
+      // ── Password migration check ──
+      const needsMigration = session.user && !session.user.user_metadata?.password_migrated;
+      if (needsMigration) {
+        const userEmail = session.user.email;
+        if (!userEmail) {
+          // Cas 1: Anonymous user — sign out silently, show normal login
+          await supaClient.auth.signOut();
+          cloudSyncEnabled = false;
+          updateCloudUI(null);
+          return null;
+        } else {
+          // Cas 2: Email user — show blocking password modal
+          cloudSyncEnabled = true;
+          updateCloudUI(session.user);
+          showPasswordMigrationModal(session.user);
+          return session.user;
+        }
+      }
+      cloudSyncEnabled = true;
+      updateCloudUI(session.user);
+      return session.user;
+    }
+    const {data, error} = await supaClient.auth.signInAnonymously();
+    if (error) throw error;
+    cloudSyncEnabled = true;
+    updateCloudUI(data.user);
+    return data.user;
+  } catch(e) {
+    console.error('Cloud sign-in:', e);
+    updateCloudUI(null, e.message);
+    return null;
+  }
+}
+
+function showPasswordMigrationModal(user) {
+  // Remove existing modal if any
+  const existing = document.getElementById('pwMigrationOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'pwMigrationOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.style.zIndex = '99999';
+  overlay.innerHTML =
+    '<div class="modal-box" style="max-width:340px;text-align:left;">' +
+      '<div style="font-size:28px;text-align:center;margin-bottom:8px;">🔒</div>' +
+      '<p style="font-size:16px;font-weight:700;margin:0 0 6px;text-align:center;">Sécurise ton compte</p>' +
+      '<p style="font-size:12px;color:var(--sub);margin:0 0 16px;text-align:center;line-height:1.5;">Pour continuer à utiliser le cloud, choisis un mot de passe.<br>Ton email : <strong style="color:var(--text);">' + (user.email || '') + '</strong></p>' +
+      '<input type="password" id="pwMigrationInput" placeholder="Nouveau mot de passe (min 6 car.)" style="margin-bottom:8px;">' +
+      '<input type="password" id="pwMigrationConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:4px;">' +
+      '<div id="pwMigrationError" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;text-align:center;"></div>' +
+      '<button class="btn" onclick="submitPasswordMigration()" id="pwMigrationBtn">Valider le mot de passe</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  // Focus
+  setTimeout(() => document.getElementById('pwMigrationInput')?.focus(), 100);
+}
+
+async function submitPasswordMigration() {
+  const pw = (document.getElementById('pwMigrationInput')?.value || '').trim();
+  const confirm = (document.getElementById('pwMigrationConfirm')?.value || '').trim();
+  const errEl = document.getElementById('pwMigrationError');
+  const btn = document.getElementById('pwMigrationBtn');
+  if (!pw || pw.length < 6) { if (errEl) errEl.textContent = 'Minimum 6 caractères'; return; }
+  if (pw !== confirm) { if (errEl) errEl.textContent = 'Les mots de passe ne correspondent pas'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement...'; }
+  try {
+    const {error} = await supaClient.auth.updateUser({
+      password: pw,
+      data: { password_migrated: true }
+    });
+    if (error) throw error;
+    const overlay = document.getElementById('pwMigrationOverlay');
+    if (overlay) overlay.remove();
+    showToast('Mot de passe enregistré !');
+  } catch(e) {
+    if (errEl) errEl.textContent = e.message || 'Erreur lors de l\'enregistrement';
+    if (btn) { btn.disabled = false; btn.textContent = 'Valider le mot de passe'; }
+  }
+}
 async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
@@ -4206,7 +4289,26 @@ function updateSyncStatus(s) {
   }
 }
 async function sendMagicLink() { const email = document.getElementById('inputEmail').value.trim(); if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; } try { const {error} = await supaClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin+window.location.pathname } }); if (error) throw error; showToast('Lien envoyé ! Check tes emails'); } catch(e) { showToast('Erreur: '+e.message); } }
-async function handleAuthCallback() { if (window.location.hash && window.location.hash.includes('access_token')) { try { const {data, error} = await supaClient.auth.getSession(); if (error) throw error; if (data.session) { cloudSyncEnabled = true; updateCloudUI(data.session.user); await syncToCloud(true); showToast('Compte lié ! Sync active'); window.history.replaceState(null, '', window.location.pathname); } } catch(e) { console.error('Auth callback error:', e); } } }
+async function handleAuthCallback() {
+  if (window.location.hash && window.location.hash.includes('access_token')) {
+    try {
+      const {data, error} = await supaClient.auth.getSession();
+      if (error) throw error;
+      if (data.session) {
+        cloudSyncEnabled = true;
+        updateCloudUI(data.session.user);
+        await syncToCloud(true);
+        showToast('Compte lié ! Sync active');
+        window.history.replaceState(null, '', window.location.pathname);
+        // Check password migration for returning magic link users
+        const u = data.session.user;
+        if (u.email && !u.user_metadata?.password_migrated) {
+          showPasswordMigrationModal(u);
+        }
+      }
+    } catch(e) { console.error('Auth callback error:', e); }
+  }
+}
 async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
 
 // ============================================================

@@ -7116,7 +7116,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
   // ── Body (collapsible) ──
   let bodyContent = '';
   if ((exoType === 'weight' || exoType === 'reps') && exo.maxRM > 0) {
-    bodyContent = buildRMTable(exo.maxRM, exo.repRecords, exo.name);
+    bodyContent = modeFeature('show1RM') ? buildRMTable(exo.maxRM, exo.repRecords, exo.name) : '<div style="padding:12px 16px;font-size:12px;color:var(--sub);">Meilleur : <strong style="color:var(--blue);">' + exo.maxRM + 'kg</strong></div>';
     if (exoType === 'reps' && exo.maxReps) {
       const bwNote = db.user.bw > 0
         ? '<div class="ec-bw">💪 Force totale : ' + (db.user.bw + exo.maxRM) + 'kg (PC+lest)</div>'
@@ -9588,8 +9588,8 @@ function renderLifts() {
 
     // Badges
     let badgesHtml = '';
-    if (isSBD) badgesHtml += '<span class="lc-badge purple">SBD</span>';
-    if (bwRatio) badgesHtml += '<span class="lc-badge blue">×' + bwRatio + ' bw</span>';
+    if (isSBD && modeFeature('showSBDCards')) badgesHtml += '<span class="lc-badge purple">SBD</span>';
+    if (bwRatio && modeFeature('showBWRatio')) badgesHtml += '<span class="lc-badge blue">×' + bwRatio + ' bw</span>';
     if (lift.history.length > 1) {
       const gain = lift.history[lift.history.length-1].rm - lift.history[0].rm;
       badgesHtml += '<span class="lc-badge ' + (gain >= 0 ? 'green' : 'orange') + '">' + (gain >= 0 ? '+' : '') + gain + 'kg total</span>';

@@ -703,8 +703,8 @@
     .bdg-condition { font-size: 9px; color: var(--blue); line-height: 1.3; margin-top: 3px; font-weight: 600; }
 
     /* ── Onglet GO — Journal de séance ── */
-    .go-idle-wrap{text-align:center;padding:40px 0 20px;}
-    .go-idle-icon{font-size:56px;margin-bottom:12px;}
+    .go-idle-wrap{text-align:center;padding:40px 16px 20px;max-width:400px;margin:0 auto;}
+    .go-idle-icon{font-size:56px;margin-bottom:12px;line-height:1.2;}
     .go-idle-title{font-size:22px;font-weight:800;margin-bottom:6px;}
     .go-idle-sub{font-size:14px;color:var(--sub);margin-bottom:24px;line-height:1.5;}
     .go-btn-main{background:linear-gradient(135deg,#0A84FF 0%,#BF5AF2 100%);border:none;color:white;width:100%;padding:18px;border-radius:14px;font-weight:700;cursor:pointer;font-size:16px;display:flex;justify-content:center;align-items:center;gap:10px;transition:transform 0.2s;margin-bottom:10px;}
@@ -734,12 +734,12 @@
     .go-exo-e1rm{font-size:11px;color:var(--sub);}
     .go-exo-menu{background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer;padding:4px 8px;}
     .go-exo-notes{padding:0 16px;}
-    .go-exo-notes input{margin:8px 0;padding:10px 12px;font-size:13px;border-radius:8px;background:var(--surface);border:1px solid transparent;}
+    .go-exo-notes input{width:calc(100% - 0px);margin:8px 0 0;padding:10px 12px;font-size:13px;border-radius:8px;background:var(--surface);border:1px solid transparent;box-sizing:border-box;}
     .go-exo-notes input:focus{border-color:var(--blue);}
     .go-rest-badge{padding:4px 16px 8px;font-size:12px;color:var(--sub);cursor:pointer;display:flex;align-items:center;gap:4px;}
     .go-rest-badge:hover{color:var(--blue);}
     /* Sets table */
-    .go-sets-table{width:100%;border-collapse:collapse;padding:0 8px;}
+    .go-sets-table{width:100%;border-collapse:collapse;margin:0;}
     .go-sets-table th{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;padding:6px 4px;text-align:center;}
     .go-sets-table td{padding:4px 3px;text-align:center;vertical-align:middle;}
     .go-set-type-btn{background:var(--surface);border:1px solid var(--border);color:var(--sub);border-radius:6px;width:28px;height:28px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
@@ -9636,10 +9636,15 @@ function goStartWorkout(withProgram) {
       }
       var name = found ? found.name : exoRef;
       var exoId = found ? found.id : null;
+      var initSets = [];
+      // Pre-add one empty set per exercise from program
+      var prevData = goGetPreviousSets(name);
+      var firstPrev = prevData && prevData.series.length > 0 ? prevData.series[0] : null;
+      initSets.push({ weight: firstPrev ? (firstPrev.weight || 0) : 0, reps: firstPrev ? (firstPrev.reps || 0) : 0, type: 'normal', completed: false, rpe: null, duration: 0, distance: 0 });
       activeWorkout.exercises.push({
         exoId: exoId,
         name: name,
-        sets: [],
+        sets: initSets,
         restSeconds: goGetDefaultRest(name, exoId),
         notes: ''
       });
@@ -9721,7 +9726,8 @@ function renderGoActiveView() {
   h += '<div class="go-header-timer" id="goTimerDisplay">' + goFormatTime(elapsed) + '</div></div>';
   h += '<div class="go-header-btns">';
   h += '<button class="go-header-btn" onclick="goTogglePause()">' + (_goSessionPaused ? '▶' : '⏸') + '</button>';
-  h += '<button class="go-header-btn danger" onclick="goConfirmFinish()">⏹</button>';
+  h += '<button class="go-header-btn danger" onclick="goConfirmDiscard()">✕</button>';
+  h += '<button class="go-header-btn" style="background:rgba(50,215,75,0.7);" onclick="goConfirmFinish()">✓</button>';
   h += '</div></div>';
   h += '<div class="go-counters">';
   h += '<div class="go-counter-box"><div class="go-counter-val" id="goCntTonnage">' + tonnageDisplay + '</div><div class="go-counter-lbl">Tonnage</div></div>';
@@ -9761,8 +9767,9 @@ function renderGoActiveView() {
   // ── Add Exercise ──
   h += '<button class="go-add-exo" onclick="goOpenSearch()">➕ Ajouter un exercice</button>';
 
-  // ── Finish Button ──
-  h += '<button class="go-finish-btn" onclick="goConfirmFinish()">⏹ Terminer la séance</button>';
+  // ── Finish / Cancel Buttons ──
+  h += '<button class="go-finish-btn" style="background:var(--green);color:#000;" onclick="goConfirmFinish()">✓ Terminer la séance</button>';
+  h += '<button class="go-btn-sec" style="border-color:rgba(255,69,58,0.3);color:var(--red);" onclick="goConfirmDiscard()">✕ Annuler la séance</button>';
 
   document.getElementById('goActiveView').innerHTML = h;
 }
@@ -9792,6 +9799,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   h += '<div class="go-rest-badge" onclick="goEditRest(' + exoIdx + ')">⏱ Repos: ' + goFormatRestBadge(exo.restSeconds || 90) + '</div>';
 
   // Sets table
+  h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
   if (tt === 'weight') { h += '<th>KG</th><th>RÉPS</th><th style="width:44px;">RPE</th>'; }
@@ -9829,12 +9837,17 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
 
     // Inputs based on tracking type
     if (tt === 'weight') {
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.weight || '') + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.reps || '') + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.rpe || '') + '" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      var wVal = set.weight ? set.weight : '';
+      var rVal = set.reps ? set.reps : '';
+      var rpVal = set.rpe ? set.rpe : '';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + wVal + '" placeholder="kg" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal + '" placeholder="reps" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'reps') {
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.reps || '') + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.rpe || '') + '" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      var rVal2 = set.reps ? set.reps : '';
+      var rpVal2 = set.rpe ? set.rpe : '';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal2 + '" placeholder="reps" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal2 + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'time') {
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.duration || '') + '" placeholder="sec" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'duration\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'cardio') {
@@ -9847,7 +9860,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '</tr>';
   });
 
-  h += '</tbody></table>';
+  h += '</tbody></table></div>';
 
   // Add set button
   h += '<button class="go-add-set-btn" onclick="goAddSet(' + exoIdx + ')">+ Série</button>';
@@ -10570,6 +10583,27 @@ function goFinishWorkout() {
   _goSessionPaused = false;
 
   showToast('✅ Séance sauvegardée');
+  renderGoTab();
+}
+
+function goConfirmDiscard() {
+  showModal(
+    'Annuler la séance ?<br><span style="font-size:12px;color:var(--sub);">Toutes les données de cette séance seront perdues.</span>',
+    'Annuler la séance',
+    'var(--red)',
+    function() { goDiscardWorkout(); }
+  );
+}
+
+function goDiscardWorkout() {
+  try { localStorage.removeItem('SBD_ACTIVE_WORKOUT'); } catch(e) {}
+  goStopAutoSave();
+  goStopSessionTimer();
+  goSkipRest();
+  goReleaseWakeLock();
+  activeWorkout = null;
+  _goSessionPaused = false;
+  showToast('Séance annulée');
   renderGoTab();
 }
 

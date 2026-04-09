@@ -2751,7 +2751,12 @@ let db = (() => {
 let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 
 // Routine active (user ou fallback)
-function getRoutine() { return db.routine || DEFAULT_ROUTINE; }
+function getRoutine() {
+  if (db.routine) return db.routine;
+  const style = modeFeature('programStyle');
+  if (style && ROUTINE_TEMPLATES[style]) return ROUTINE_TEMPLATES[style].routine;
+  return DEFAULT_ROUTINE;
+}
 
 let _saveDBTimer = null;
 function saveDB() {

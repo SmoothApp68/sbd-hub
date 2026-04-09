@@ -55,6 +55,7 @@ let db = (() => {
     if (p.passwordMigrated === undefined) p.passwordMigrated = false;
     if (!p.friendCode) p.friendCode = null;
     if (!p.friends) p.friends = [];
+    if (!p.readiness) p.readiness = [];
     return p;
   } catch { return defaultDB(); }
 })();
@@ -82,6 +83,76 @@ function saveDB() {
 }
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+// ── READINESS PRÉ-SÉANCE ────────────────────────────────────
+db.readiness = db.readiness || [];
+
+function getTodayStr() { return new Date().toISOString().slice(0, 10); }
+
+function hasTodayReadiness() {
+  const today = getTodayStr();
+  return (db.readiness || []).some(r => r.date === today);
+}
+
+function isTodayTrainingDay() {
+  const routine = getRoutine();
+  const todayName = DAYS_FULL[new Date().getDay()];
+  const label = routine[todayName] || '';
+  return label && !/repos|😴/i.test(label);
+}
+
+function getTodayReadiness() {
+  const today = getTodayStr();
+  return (db.readiness || []).find(r => r.date === today) || null;
+}
+
+function showReadinessModal() {
+  if (hasTodayReadiness()) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'readinessModal';
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:20px;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Comment te sens-tu ?</div>
+    <div class="readiness-sliders">
+      <div class="readiness-row"><span>😴 Sommeil</span><input type="range" min="1" max="5" value="3" id="rd-sleep"><span id="rd-sleep-val">3</span></div>
+      <div class="readiness-row"><span>⚡ Énergie</span><input type="range" min="1" max="5" value="3" id="rd-energy"><span id="rd-energy-val">3</span></div>
+      <div class="readiness-row"><span>💪 Courbatures</span><input type="range" min="1" max="5" value="3" id="rd-soreness"><span id="rd-soreness-val">3</span></div>
+      <div class="readiness-row"><span>🧠 Stress</span><input type="range" min="1" max="5" value="3" id="rd-stress"><span id="rd-stress-val">3</span></div>
+    </div>
+    <div style="font-size:10px;color:var(--sub);text-align:center;margin:8px 0;">1 = mauvais · 5 = excellent</div>
+    <div class="modal-actions">
+      <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="document.getElementById('readinessModal').remove()">Passer</button>
+      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  ['sleep','energy','soreness','stress'].forEach(k => {
+    const slider = document.getElementById('rd-'+k);
+    slider.oninput = () => document.getElementById('rd-'+k+'-val').textContent = slider.value;
+  });
+}
+
+function submitReadiness() {
+  const sleep = parseInt(document.getElementById('rd-sleep').value);
+  const energy = parseInt(document.getElementById('rd-energy').value);
+  const soreness = parseInt(document.getElementById('rd-soreness').value);
+  const stress = parseInt(document.getElementById('rd-stress').value);
+  const score = Math.round(((sleep + energy + soreness + stress) / 20) * 100);
+  db.readiness.push({ date: getTodayStr(), sleep, energy, soreness, stress, score });
+  saveDB();
+  const modal = document.getElementById('readinessModal');
+  if (modal) modal.remove();
+  showToast('✅ Readiness : ' + score + '/100');
+}
+
+function getReadinessBannerHtml() {
+  const r = getTodayReadiness();
+  if (!r) return '';
+  if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — séance allégée recommandée (volume -40%, charge -15%)</div>';
+  if (r.score < 60) return '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--orange);">Readiness modérée (' + r.score + '/100) — charge maintenue, volume réduit (-1 set/exo)</div>';
+  if (r.score >= 80) return '<div style="background:rgba(50,215,75,0.12);border-left:3px solid var(--green);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--green);">Readiness excellente (' + r.score + '/100) — go ! 💪</div>';
+  return '';
+}
 
 // ── EXPORT / IMPORT JSON ─────────────────────────────────────
 function exportData() {
@@ -1067,6 +1138,7 @@ function showTab(tabId) {
   if (tabId==='tab-seances') {
     if (activeSeancesSub === 'seances-go') renderGoTab();
     else renderSeancesTab();
+    if (isTodayTrainingDay() && !hasTodayReadiness()) showReadinessModal();
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
@@ -2606,6 +2678,34 @@ function renderDash() {
 
   renderPerfCard();
   renderDayExercises(selectedDay);
+  renderReadinessSparkline();
+}
+
+function renderReadinessSparkline() {
+  const el = document.getElementById('readinessSparkline');
+  if (!el) return;
+  const cutoff = Date.now() - 28 * 86400000;
+  const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
+  if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
+  const vals = recent.map(r => r.score);
+  const labels = recent.map(r => r.date.slice(5));
+  const W = 280, H = 60, pad = 6;
+  const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
+  const pts = vals.map((v, i) => ({
+    x: pad + (i / (vals.length - 1)) * (W - pad * 2),
+    y: pad + (1 - (v - minV) / range) * (H - pad * 2)
+  }));
+  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  const lastScore = vals[vals.length - 1];
+  const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px;">READINESS</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
+    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
+    '</svg></div>';
 }
 
 // ── Rubrique Performance configurable ────────────────────────
@@ -6187,7 +6287,8 @@ function renderWeeklyPlanUI() {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
+    const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
   content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div>${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;

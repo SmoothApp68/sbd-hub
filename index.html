@@ -58,13 +58,6 @@
     .ai-avatar { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
     .ai-header-text h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
     .ai-header-text p { margin: 2px 0 0; font-size: 12px; color: var(--sub); }
-    .ai-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .ai-action-btn { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 14px; padding: 14px 12px; cursor: pointer; transition: all 0.2s; text-align: left; }
-    .ai-action-btn:hover { border-color: var(--blue); }
-    .ai-action-btn:active { transform: scale(0.97); }
-    .ai-action-btn .ai-action-icon { font-size: 20px; margin-bottom: 6px; }
-    .ai-action-btn .ai-action-label { font-size: 12px; font-weight: 600; color: var(--text); }
-    .ai-action-btn .ai-action-desc { font-size: 10px; color: var(--sub); margin-top: 2px; }
     .ai-response-area { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; padding: 18px; min-height: 80px; position: relative; overflow: hidden; }
     .ai-response-area.empty { display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px; min-height: 100px; }
     .ai-response-content { font-size: 13px; line-height: 1.65; color: var(--text); }
@@ -1601,18 +1594,6 @@
       </div>
     </div>
 
-    <!-- Rapport IA Approfondi — Claude uniquement sur demande -->
-    <div class="card" style="border-color:rgba(191,90,242,0.2);background:rgba(191,90,242,0.04);">
-      <h2 style="color:var(--purple);">⚡ Rapport IA Approfondi</h2>
-      <p style="font-size:12px;color:var(--sub);margin:4px 0 14px;">Analyse complète par Claude — nécessite une clé API dans Réglages.</p>
-      <div class="ai-action-grid" style="margin-bottom:12px;">
-        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label" id="aiProgressionLabel">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
-        <button class="ai-action-btn" onclick="aiAction('weakpoints')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🎯</div><div class="ai-action-label">Points Faibles</div><div class="ai-action-desc">Déséquilibres</div></button>
-        <button class="ai-action-btn" onclick="aiAction('next')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Conseils du jour</div></button>
-        <button class="ai-action-btn" onclick="aiAction('weekly')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📊</div><div class="ai-action-label">Bilan Hebdo</div><div class="ai-action-desc">Résumé semaine</div></button>
-      </div>
-      <div id="aiResponseArea" class="ai-response-area empty" style="display:none;">Appuie sur un bouton ci-dessus</div>
-    </div>
   </div>
   <div id="tab-stats" class="content-section">
     <div class="stats-sub-nav">
@@ -1931,7 +1912,7 @@
         <div class="acc-left"><div class="acc-ico" style="background:rgba(100,210,255,0.1);">🔑</div><span>Clé API Anthropic</span></div><span class="acc-chevron" id="chev-acc-api">▾</span>
       </div>
       <div class="acc-body" id="acc-api">
-        <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Requise pour le Rapport IA Approfondi. Stockée localement.</p>
+        <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">Optionnelle — l'app fonctionne à 100% sans clé API. Stockée localement.</p>
         <div style="display:flex;gap:8px;">
           <input type="password" id="inputAPIKey" placeholder="sk-ant-..." style="margin-bottom:0;flex:1;">
           <button onclick="saveAPIKey()" style="background:var(--blue);border:none;color:white;padding:0 16px;border-radius:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:13px;">Sauver</button>
@@ -6218,7 +6199,6 @@ function processHevy() {
   doImport();
 }
 
-function showAIImportLoading() { const c=document.getElementById('aiImportAnalysis');c.style.display='block';c.innerHTML='<div class="card ai-import-card"><h2>🤖 Import IA</h2><div class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Extraction des données en cours...</div></div></div>'; }
 
 // ── Détection de séries suspectes (erreurs de saisie) ──────────
 function detectSuspiciousSets(session) {
@@ -6474,7 +6454,7 @@ function doFinalizeSession(session) {
   saveDB();
   document.getElementById('hevyPaste').value='';
   showImportSummary(session);
-  showToast('✓ Séance importée'+(localStorage.getItem('SBD_API_KEY')?' (IA)':''));
+  showToast('✓ Séance importée');
   saveAlgoDebrief(session);
   checkAndGenerateWeeklyReport();
   refreshUI();
@@ -6668,85 +6648,6 @@ function deleteLog(logId) {
   showModal('Supprimer cette séance ?','Supprimer','var(--red)',()=>{db.logs=db.logs.filter(l=>l.id!==logId);db.reports=db.reports.filter(r=>!(r.type==='debrief'&&r.sessionId===logId));saveDB();document.getElementById('importSummary').style.display='none';document.getElementById('importDetails').innerHTML='';document.getElementById('hevyPaste').value='';document.getElementById('aiImportAnalysis').style.display='none';refreshUI();showToast('✓ Séance supprimée');});
 }
 
-// ============================================================
-// AI
-// ============================================================
-function buildAthleteContext() {
-  const logs7=getLogsInRange(7),logs30=getLogsInRange(30);
-  const muscleSets7={};
-  logs7.forEach(l=>l.exercises.forEach(e=>{const mg=getMuscleGroup(e.name);muscleSets7[mg]=(muscleSets7[mg]||0)+e.sets;}));
-  const recentVolumes=db.logs.slice(0,5).map(l=>({date:l.shortDate||l.date,vol:l.volume,title:l.title}));
-  const sbdHistory={};
-  SBD_TYPES.forEach(type=>{sbdHistory[type]=[];for(const log of db.logs){for(const exo of log.exercises){if(getSBDType(exo.name)===type&&exo.maxRM>0){sbdHistory[type].push({rm:exo.maxRM,date:log.shortDate||formatDate(log.timestamp)});break;}}if(sbdHistory[type].length>=5)break;}});
-  return {name:db.user.name,bw:db.user.bw,bestPR:db.bestPR,targets:db.user.targets,totalSessions:db.logs.length,sessions7d:logs7.length,sessions30d:logs30.length,daysWithTraining7:new Set(logs7.map(l=>l.day)).size,muscleSets7,recentVolumes,sbdHistory,todayDay:DAYS_FULL[new Date().getDay()]};
-}
-
-async function callAI(systemPrompt, userPrompt) {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
-  if (!apiKey) return null;
-  try {
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-request-check':'client'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:userPrompt}]})});
-    const d=await r.json();
-    return d.content.map(b=>b.text||'').join('');
-  } catch(err){console.error('AI:',err);return null;}
-}
-
-function getAISystem() {
-  const modeLabels = {
-    bien_etre: 'coach sportif spécialisé en bien-être, forme générale et santé',
-    bodybuilding: 'coach de musculation spécialisé en hypertrophie et bodybuilding',
-    powerlifting: 'coach de force spécialisé en powerlifting (SBD)',
-    force_athletique: 'coach de force athlétique spécialisé en compétition et périodisation'
-  };
-  const role = modeLabels[db.user.trainingMode] || modeLabels.powerlifting;
-  return `Tu es un ${role}. Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
-RÈGLES IMPORTANTES:
-- Les charges indiquées dans les séances sont les POIDS RÉELS soulevés (ex: "125kg × 4" = 4 reps à 125kg).
-- Les "e1RM" ou "records" sont des ESTIMATIONS calculées par la formule d'Epley, PAS des charges réellement soulevées.
-- Quand tu parles d'une performance, cite le poids réel et les reps, pas l'e1RM.
-RÈGLES DE FORMAT:
-- Réponds UNIQUEMENT en HTML (pas de markdown).
-- Structure TOUJOURS en 3 sections: <div class="ai-section"><div class="ai-section-title">TITRE</div>contenu</div>
-- Sections: 1. "📊 DÉBRIEF/BILAN" 2. "🎯 VISION SEMAINE" 3. "💡 CONSEIL PERSO"
-- Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
-- 150-250 mots max. Tutoie. Français.`;
-}
-const AI_SYSTEM = ''; // legacy — use getAISystem() instead
-
-function showAILoading(id){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>';}
-function showAIResponse(id,html){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>';}
-function showAIError(id){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div style="text-align:center;padding:20px;color:var(--red);font-size:13px;">⚠️ Impossible de contacter le coach IA.<br><span style="font-size:11px;color:var(--sub);">Vérifie ta connexion et réessaie.</span></div>';}
-
-async function aiGenerateDebrief(session, rawText) {
-  const container=document.getElementById('aiImportAnalysis');container.style.display='block';container.innerHTML='<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
-  const ctx=buildAthleteContext();
-  const prompt='Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+(ctx.name?ctx.name+', ':'')+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
-  const result=await callAI(getAISystem(),prompt);
-  if(result){showAIResponse('aiImportResponse',result);upsertReport('debrief',result,session.id);}
-  else showAIError('aiImportResponse');
-}
-
-async function aiGenerateWeekly() {
-  showAILoading('aiResponseArea');
-  const ctx=buildAthleteContext();
-  const prompt='Bilan hebdo'+(ctx.name?' pour '+ctx.name:'')+(':\n\n7J: '+ctx.sessions7d+' séances, '+ctx.daysWithTraining7+'/7j\nMuscles: '+Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')+'\nVolumes: '+ctx.recentVolumes.map(v=>v.date+': '+(v.vol/1000).toFixed(1)+'t ('+v.title+')').join(' | ')+'\n\nPROFIL: '+ctx.bw+'kg | B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nOBJ: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n'));
-  const result=await callAI(getAISystem(),prompt);
-  if(result){showAIResponse('aiResponseArea',result);upsertReport('weekly',result);showToast('📊 Bilan hebdo enregistré');}
-  else showAIError('aiResponseArea');
-}
-
-async function aiAction(type) {
-  if(type==='weekly'){await aiGenerateWeekly();return;}
-  showAILoading('aiResponseArea');
-  const ctx=buildAthleteContext();
-  let prompt='';
-  if(type==='progression')prompt='Progression SBD'+(ctx.name?' de '+ctx.name:'')+':\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nPoids: '+ctx.bw+'kg\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\nTotal: '+ctx.totalSessions+' | 30j: '+ctx.sessions30d;
-  else if(type==='weakpoints')prompt='Points faibles'+(ctx.name?' de '+ctx.name:'')+':\nMuscles 7j: '+(Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucune donnée')+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nPoids: '+ctx.bw+'kg | Fréq: '+ctx.sessions7d+'/sem';
-  else if(type==='next')prompt="Séance du jour"+(ctx.name?' pour '+ctx.name:'')+":\nAUJOURD'HUI: "+ctx.todayDay+'\nPROGRAMME: '+getRoutine()[ctx.todayDay]+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+' | '+ctx.bw+'kg\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nRécent: '+(ctx.recentVolumes.slice(0,3).map(v=>v.title+' ('+v.date+')').join(', ')||'Aucune')+'\nSéances/sem: '+ctx.sessions7d;
-  const result=await callAI(getAISystem(),prompt);
-  if(result)showAIResponse('aiResponseArea',result);
-  else showAIError('aiResponseArea');
-}
 
 // ============================================================
 // RENDER — DASHBOARD
@@ -10706,12 +10607,6 @@ function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
   if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
-  // Update progression button label based on mode
-  const progLabel = document.getElementById('aiProgressionLabel');
-  if (progLabel) {
-    const labels = { bien_etre: 'Évolution Forme', bodybuilding: 'Progression Volume', powerlifting: 'Progression SBD', force_athletique: 'Progression Force' };
-    progLabel.textContent = labels[db.user.trainingMode] || 'Progression SBD';
-  }
 }
 
 // ============================================================

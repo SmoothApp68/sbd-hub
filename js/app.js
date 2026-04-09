@@ -509,7 +509,13 @@ function doGenerateProgram() {
   db.generatedProgram = generated;
   db.user.programParams = { goals: obGoals.map(g=>g.id), freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, compDate: obCompDate, compType: obCompType, level: db.user.level };
   db.routine = {};
-  generated.forEach(d => { db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label); });
+  db.routineExos = db.routineExos || {};
+  generated.forEach(d => {
+    db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label);
+    if (!d.isRest && d.exos && d.exos.length > 0) {
+      db.routineExos[d.day] = d.exos.map(id => EXO_DB[id] ? EXO_DB[id].name : id);
+    }
+  });
   renderObGeneratedProgram(generated);
   gotoObStep('7');
 }

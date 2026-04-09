@@ -1977,6 +1977,16 @@
         </div>
 
         <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Mode d'entraînement</div>
+          <select id="settingsTrainingMode" onchange="updateProfileField('trainingMode', this.value)" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
+            <option value="bien_etre">🧘 Bien-être & Santé</option>
+            <option value="bodybuilding">💪 Bodybuilding</option>
+            <option value="powerlifting">🏋️ Powerlifting (SBD)</option>
+            <option value="force_athletique">🏆 Force Athlétique / Compétition</option>
+          </select>
+        </div>
+
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Objectifs (coche par priorité)</div>
           <div id="settingsGoals" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
@@ -1984,6 +1994,11 @@
         <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Fréquence d'entraînement</div>
           <div id="settingsFreq" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Jours d'entraînement</div>
+          <div id="settingsDays" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
         </div>
 
         <div style="margin-top:12px;">
@@ -9778,6 +9793,8 @@ function updateProfileField(field, value) {
   if (field === 'level') {
     db.user.level = value;
     db.user.programParams.level = value;
+  } else if (field === 'trainingMode') {
+    db.user.trainingMode = value;
   } else {
     db.user.programParams[field] = value;
   }
@@ -9795,6 +9812,10 @@ function renderSettingsProfile() {
   // Genre
   const genderEl = document.getElementById('settingsGender');
   if (genderEl) genderEl.value = db.user.gender || 'unspecified';
+
+  // Mode d'entraînement
+  const modeEl = document.getElementById('settingsTrainingMode');
+  if (modeEl) modeEl.value = db.user.trainingMode || 'powerlifting';
 
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
@@ -9821,6 +9842,17 @@ function renderSettingsProfile() {
     freqEl.innerHTML = [1,2,3,4,5,6].map(f => {
       const active = f === currentFreq;
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsFreq(${f}, this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:13px;font-weight:700;cursor:pointer;">${f}j/sem</button>`;
+    }).join('');
+  }
+
+  // Jours d'entraînement
+  const daysEl = document.getElementById('settingsDays');
+  if (daysEl) {
+    const currentDays = params.selectedDays || [];
+    const dayLabels = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    daysEl.innerHTML = dayLabels.map(d => {
+      const active = currentDays.includes(d);
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="toggleSettingsDay('${d}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${d.substring(0,3)}</button>`;
     }).join('');
   }
 
@@ -9912,6 +9944,20 @@ function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'fre
 function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
 function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
 function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }
+
+function toggleSettingsDay(day, btn) {
+  if (!db.user.programParams) db.user.programParams = {};
+  const days = db.user.programParams.selectedDays || [];
+  const idx = days.indexOf(day);
+  if (idx >= 0) days.splice(idx, 1); else days.push(day);
+  db.user.programParams.selectedDays = days;
+  _debouncedSaveSettings();
+  const active = days.includes(day);
+  btn.classList.toggle('active', active);
+  btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+  btn.style.background = active ? 'rgba(10,132,255,0.15)' : 'var(--surface)';
+  btn.style.color = active ? 'var(--blue)' : 'var(--sub)';
+}
 
 function toggleSettingsInjury(zone, btn) {
   if (!db.user.programParams) db.user.programParams = {};

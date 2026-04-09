@@ -710,9 +710,9 @@
     /* ── Heatmap (.hm-*) ── */
     .hm-grid { display: grid; grid-template-columns: repeat(52, 1fr); gap: 2px; }
     .hm-cell { height: 10px; border-radius: 2px; background: #1C1C1E; }
-    .hm-cell.l1 { background: rgba(50,215,75,0.15); }
-    .hm-cell.l2 { background: rgba(50,215,75,0.35); }
-    .hm-cell.l3 { background: rgba(50,215,75,0.55); }
+    .hm-cell.l1 { background: rgba(50,215,75,0.20); }
+    .hm-cell.l2 { background: rgba(50,215,75,0.40); }
+    .hm-cell.l3 { background: rgba(50,215,75,0.60); }
     .hm-cell.l4 { background: rgba(50,215,75,0.85); }
     .hm-streak { font-size: 13px; font-weight: 700; color: var(--orange); }
     .hm-legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 6px; font-size: 9px; color: var(--sub); }
@@ -737,7 +737,7 @@
     /* ── Recently Unlocked (.ru-*) ── */
     .ru-scroll { display: flex; overflow-x: auto; gap: 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; }
     .ru-scroll::-webkit-scrollbar { display: none; }
-    .ru-item { min-width: 110px; background: #1C1C1E; border-radius: 12px; padding: 10px 8px; text-align: center; flex-shrink: 0; }
+    .ru-item { min-width: 110px; background: #1C1C1E; border-radius: 12px; padding: 10px 8px; text-align: center; flex-shrink: 0; position: relative; }
     .ru-icon { font-size: 24px; margin-bottom: 4px; }
     .ru-name { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ru-date { font-size: 9px; color: var(--sub); margin-top: 2px; }
@@ -817,7 +817,7 @@
     .lvl-title:active { opacity:0.6; }
 
     /* ── Quest Card (Dofus style) ── */
-    .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.04) 0%, rgba(200,162,76,0.01) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; }
+    .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.04) 0%, rgba(200,162,76,0.01) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; overflow: hidden; }
     .quest-card::before { content:''; position:absolute; top:0; left:0; width:0; height:0; border-style:solid; border-width:12px 12px 0 0; border-color:var(--gold-border) transparent transparent transparent; border-radius:16px 0 0 0; }
     .quest-item { background: var(--surface); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.15s; position: relative; }
     .quest-item:active { transform: scale(0.98); }
@@ -832,8 +832,8 @@
     .quest-remaining { font-size: 10px; color: var(--sub); margin-top: 4px; text-align: right; }
 
     /* ── Flame ── */
-    .flame-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
-    .flame-icon { display:inline-block; width:14px; height:18px; background:linear-gradient(to top, #FF9F0A, #FF453A); clip-path:polygon(50% 0%,80% 35%,100% 70%,85% 100%,50% 80%,15% 100%,0% 70%,20% 35%); }
+    .flame-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; vertical-align: middle; margin-left: 6px; }
+    .flame-icon { display:inline-block; width:14px; height:18px; background:linear-gradient(to top, #FF9F0A, #FF453A); clip-path:polygon(50% 0%,80% 35%,100% 70%,85% 100%,50% 80%,15% 100%,0% 70%,20% 35%); vertical-align: middle; }
     .flame-icon.gold { background:linear-gradient(to top, var(--gold), #FF9F0A); animation:flamePulse 2s ease-in-out infinite; }
     .flame-icon.dim { opacity:0.35; }
     .flame-bonus { font-size:10px; color:var(--orange); font-weight:600; }
@@ -4250,7 +4250,7 @@ function showTitleModal() {
     var isUnlocked = unlocked.indexOf(t.id) >= 0;
     var isActive = db.activeTitle === t.id;
     var rc = _titleRarityColor[t.rarity] || '#86868B';
-    html += '<div class="title-row ' + (isActive ? 'active-title' : '') + (isUnlocked ? '' : ' locked-title') + '" ' + (isUnlocked ? 'onclick="db.activeTitle=\'' + t.id + '\';saveDB();document.querySelector(\'.modal-overlay\').remove();renderGamificationTab();"' : '') + '>';
+    html += '<div class="title-row ' + (isActive ? 'active-title' : '') + (isUnlocked ? '' : ' locked-title') + '" ' + (isUnlocked ? 'onclick="db.activeTitle=&quot;' + t.id + '&quot;;saveDB();document.querySelector(&quot;.modal-overlay&quot;).remove();renderGamificationTab();"' : '') + '>';
     html += '<div><div style="font-size:13px;font-weight:700;color:' + (isUnlocked ? rc : 'var(--sub)') + ';">' + (isUnlocked ? '' : '🔒 ') + t.title + '</div>';
     html += '<div class="title-cond">' + t.condText + '</div></div>';
     html += '<div class="title-rarity" style="background:' + rc + '15;color:' + rc + ';">' + t.rarity + '</div>';
@@ -4260,12 +4260,13 @@ function showTitleModal() {
 }
 
 function _calcTodayXP() {
-  var today = new Date().toISOString().slice(0, 10);
+  var now = new Date();
+  var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var todayEnd = todayStart + 86400000;
   var xp = 0;
   var runBest = {};
   getSortedLogs().slice().reverse().forEach(function(log) {
-    var logDate = log.shortDate || (log.date ? log.date.slice(0,10) : '');
-    var isToday = logDate === today;
+    var isToday = log.timestamp >= todayStart && log.timestamp < todayEnd;
     (log.exercises||[]).forEach(function(exo) {
       if (exo.maxRM > 0) {
         var prev = runBest[exo.name] || 0;
@@ -4513,11 +4514,11 @@ function renderGamificationTab() {
     if (qs > 0) {
       var flameCount = Math.min(3, qs);
       var flameClass = qs >= 4 ? 'gold' : (qs <= 1 ? 'dim' : '');
-      for (var fi = 0; fi < flameCount; fi++) flameHtml += '<div class="flame-icon ' + flameClass + '"></div>';
+      for (var fi = 0; fi < flameCount; fi++) flameHtml += '<span class="flame-icon ' + flameClass + '"></span>';
       var bonusPct = qs >= 4 ? 20 : qs >= 3 ? 15 : qs >= 2 ? 10 : 0;
       if (bonusPct > 0) flameHtml += '<span class="flame-bonus">Série ×' + qs + ' — bonus +' + bonusPct + '%</span>';
     }
-    var flameSec = flameHtml ? '<div class="flame-wrap">' + flameHtml + '</div>' : '';
+    var flameSec = flameHtml ? '<span class="flame-wrap">' + flameHtml + '</span>' : '';
 
     var html = '<div class="quest-card"><div class="mc-title"><span>⚡ Quêtes de la semaine ' + flameSec + '</span><span class="mc-title-right">' + done + '/' + ch.length + ' complétées</span></div>';
 
@@ -4772,7 +4773,7 @@ function renderGamificationTab() {
       var c = weekCounts[w];
       var cls = c === 0 ? '' : c === 1 ? ' l1' : c === 2 ? ' l2' : c === 3 ? ' l3' : ' l4';
       var weekOffset = -(w);
-      cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
+      cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=-' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
     }
     document.getElementById('gamHeatmap').innerHTML =
       '<div class="mc">' +

@@ -212,6 +212,13 @@
     .ob-day-exos { display: flex; flex-wrap: wrap; gap: 4px; }
     .ob-exo-tag { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--sub); }
     /* Import program path */
+    .ob-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .ob-mode-btn { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 16px 12px; cursor: pointer; text-align: center; transition: all 0.2s; }
+    .ob-mode-btn:hover { border-color: var(--blue); transform: scale(1.02); }
+    .ob-mode-btn.selected { border-color: var(--blue); background: rgba(10,132,255,0.08); }
+    .ob-mode-icon { font-size: 28px; margin-bottom: 6px; }
+    .ob-mode-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .ob-mode-desc { font-size: 10px; color: var(--sub); line-height: 1.4; }
     .ob-path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .ob-path-btn { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 20px 14px; cursor: pointer; text-align: center; transition: all 0.2s; }
     .ob-path-btn:hover { border-color: var(--blue); transform: scale(1.02); }
@@ -1241,7 +1248,21 @@
         <button class="btn" onclick="obNext(1)">Continuer →</button>
       </div>
 
-      <!-- Step 2 : Objectifs SBD (optionnel) -->
+      <!-- Step 1b : Mode d'entraînement -->
+      <div class="ob-step" id="ob-step-1b">
+        <div class="ob-logo">🎯</div>
+        <div class="ob-title">Ton objectif principal</div>
+        <div class="ob-sub">Choisis le mode qui correspond le mieux<br>à ta pratique actuelle.</div>
+        <div class="ob-mode-grid" id="ob-mode-grid">
+          <div class="ob-mode-btn" onclick="selectTrainingMode('bien_etre')"><div class="ob-mode-icon">🧘</div><div class="ob-mode-name">Bien-être & Santé</div><div class="ob-mode-desc">Forme générale, mobilité, cardio</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('bodybuilding')"><div class="ob-mode-icon">💪</div><div class="ob-mode-name">Bodybuilding</div><div class="ob-mode-desc">Hypertrophie, volume, esthétique</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('powerlifting')"><div class="ob-mode-icon">🏋️</div><div class="ob-mode-name">Powerlifting (SBD)</div><div class="ob-mode-desc">Squat, Bench, Deadlift — force max</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('force_athletique')"><div class="ob-mode-icon">🏆</div><div class="ob-mode-name">Force Athlétique</div><div class="ob-mode-desc">Périodisation, peaking, compétition</div></div>
+        </div>
+        <button class="btn" onclick="obNext('1b')" id="ob-mode-continue" disabled>Continuer →</button>
+      </div>
+
+      <!-- Step 2 : Objectifs SBD (optionnel, visible seulement si mode SBD/force) -->
       <div class="ob-step" id="ob-step-2">
         <div class="ob-logo">🎯</div>
         <div class="ob-title">Records de force</div>
@@ -1571,7 +1592,7 @@
       <h2 style="color:var(--purple);">⚡ Rapport IA Approfondi</h2>
       <p style="font-size:12px;color:var(--sub);margin:4px 0 14px;">Analyse complète par Claude — nécessite une clé API dans Réglages.</p>
       <div class="ai-action-grid" style="margin-bottom:12px;">
-        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
+        <button class="ai-action-btn" onclick="aiAction('progression')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📈</div><div class="ai-action-label" id="aiProgressionLabel">Progression SBD</div><div class="ai-action-desc">Analyse détaillée</div></button>
         <button class="ai-action-btn" onclick="aiAction('weakpoints')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🎯</div><div class="ai-action-label">Points Faibles</div><div class="ai-action-desc">Déséquilibres</div></button>
         <button class="ai-action-btn" onclick="aiAction('next')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">🗓️</div><div class="ai-action-label">Prochaine Séance</div><div class="ai-action-desc">Conseils du jour</div></button>
         <button class="ai-action-btn" onclick="aiAction('weekly')" style="border-color:rgba(191,90,242,0.2);"><div class="ai-action-icon">📊</div><div class="ai-action-label">Bilan Hebdo</div><div class="ai-action-desc">Résumé semaine</div></button>
@@ -1721,8 +1742,8 @@
       <div class="corps-acc-body" id="ca-force">
         <div class="corps-acc-inner">
           <div class="body-metric-grid" id="bodyMetricsGrid">
-            <div class="body-metric highlight"><div class="body-metric-val" id="metricIPF">—</div><div class="body-metric-label">IPF GL Points</div><div class="body-metric-sub" id="metricIPFsub">Score de force normalisé</div></div>
-            <div class="body-metric"><div class="body-metric-val" id="metricRatio">—</div><div class="body-metric-label">Ratio Force/Masse</div><div class="body-metric-sub" id="metricRatioSub">Progression recompo</div></div>
+            <div class="body-metric highlight" id="metricIPFCard"><div class="body-metric-val" id="metricIPF">—</div><div class="body-metric-label">IPF GL Points</div><div class="body-metric-sub" id="metricIPFsub">Score de force normalisé</div></div>
+            <div class="body-metric" id="metricRatioCard"><div class="body-metric-val" id="metricRatio">—</div><div class="body-metric-label">Ratio Force/Masse</div><div class="body-metric-sub" id="metricRatioSub">Progression recompo</div></div>
           </div>
           <div id="plateauAlerts" style="margin-top:10px;"></div>
         </div>
@@ -1956,6 +1977,16 @@
         </div>
 
         <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Mode d'entraînement</div>
+          <select id="settingsTrainingMode" onchange="updateProfileField('trainingMode', this.value)" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
+            <option value="bien_etre">🧘 Bien-être & Santé</option>
+            <option value="bodybuilding">💪 Bodybuilding</option>
+            <option value="powerlifting">🏋️ Powerlifting (SBD)</option>
+            <option value="force_athletique">🏆 Force Athlétique / Compétition</option>
+          </select>
+        </div>
+
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Objectifs (coche par priorité)</div>
           <div id="settingsGoals" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
@@ -1963,6 +1994,11 @@
         <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Fréquence d'entraînement</div>
           <div id="settingsFreq" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Jours d'entraînement</div>
+          <div id="settingsDays" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
         </div>
 
         <div style="margin-top:12px;">
@@ -2141,6 +2177,97 @@ const SBD_TYPES=['bench','squat','deadlift'];
 const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
+
+// ── TRAINING MODES ──────────────────────────────────────────
+const TRAINING_MODES = {
+  bien_etre: {
+    id: 'bien_etre',
+    label: 'Bien-être & Santé',
+    icon: '🧘',
+    desc: 'Forme générale, mobilité, cardio modéré',
+    features: {
+      show1RM: false,
+      showIPF: false,
+      showSBDCards: false,
+      showStrengthLevel: false,
+      showPlateauDetection: false,
+      showCompetition: false,
+      showWeeklyPlan: false,
+      showBWRatio: false,
+      defaultKeyLifts: [],
+      primaryMetrics: ['sessions_count', 'streak', 'calories', 'body_weight'],
+      programStyle: 'full_body',
+      badgeTheme: 'wellness'
+    }
+  },
+  bodybuilding: {
+    id: 'bodybuilding',
+    label: 'Bodybuilding',
+    icon: '💪',
+    desc: 'Hypertrophie, volume, esthétique',
+    features: {
+      show1RM: true,
+      showIPF: false,
+      showSBDCards: false,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: false,
+      showWeeklyPlan: true,
+      showBWRatio: false,
+      defaultKeyLifts: ['Développé Couché (Haltères)', 'Squat Barre', 'Rowing Barre', 'Développé Militaire'],
+      primaryMetrics: ['volume_total', 'muscle_balance', 'body_weight', 'tonnage_week'],
+      programStyle: 'ppl',
+      badgeTheme: 'volume'
+    }
+  },
+  powerlifting: {
+    id: 'powerlifting',
+    label: 'Powerlifting (SBD)',
+    icon: '🏋️',
+    desc: 'Squat, Bench, Deadlift — force maximale',
+    features: {
+      show1RM: true,
+      showIPF: true,
+      showSBDCards: true,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: true,
+      showWeeklyPlan: true,
+      showBWRatio: true,
+      defaultKeyLifts: ['Bench Press (Barre)', 'Squat (Barre)', 'Soulevé de Terre'],
+      primaryMetrics: ['total_sbd', 'ipf_gl', 'e1rm_progress', 'bw_ratio'],
+      programStyle: 'sbd',
+      badgeTheme: 'strength'
+    }
+  },
+  force_athletique: {
+    id: 'force_athletique',
+    label: 'Force Athlétique / Compétition',
+    icon: '🏆',
+    desc: 'Périodisation, peaking, catégories de poids',
+    features: {
+      show1RM: true,
+      showIPF: true,
+      showSBDCards: true,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: true,
+      showWeeklyPlan: true,
+      showBWRatio: true,
+      defaultKeyLifts: ['Bench Press (Barre)', 'Squat (Barre)', 'Soulevé de Terre'],
+      primaryMetrics: ['total_sbd', 'ipf_gl', 'wilks', 'comp_countdown'],
+      programStyle: 'sbd',
+      badgeTheme: 'strength'
+    }
+  }
+};
+
+function getMode() {
+  return TRAINING_MODES[db.user.trainingMode] || TRAINING_MODES.powerlifting;
+}
+function modeFeature(key) {
+  return getMode().features[key];
+}
 
 // ── TEMPLATES DE PROGRAMME ──────────────────────────────────
 const ROUTINE_TEMPLATES = {
@@ -2574,7 +2701,7 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80 },
+  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null },
   routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -2607,6 +2734,7 @@ let db = (() => {
     if (p.user.name === undefined) p.user.name = '';
     if (p.user.onboarded === undefined) p.user.onboarded = true;
     if (!p.user.gender) p.user.gender = 'unspecified';
+    if (p.user.trainingMode === undefined) p.user.trainingMode = 'powerlifting';
     if (!p.monthlyChallenges) p.monthlyChallenges = null;
     if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
     if (!p.questHistory) p.questHistory = [];
@@ -2623,7 +2751,12 @@ let db = (() => {
 let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 
 // Routine active (user ou fallback)
-function getRoutine() { return db.routine || DEFAULT_ROUTINE; }
+function getRoutine() {
+  if (db.routine) return db.routine;
+  const style = modeFeature('programStyle');
+  if (style && ROUTINE_TEMPLATES[style]) return ROUTINE_TEMPLATES[style].routine;
+  return DEFAULT_ROUTINE;
+}
 
 let _saveDBTimer = null;
 function saveDB() {
@@ -2944,8 +3077,17 @@ function buildPlan(g1, g2, freq, BLOCS, trainingDays) {
 }
 
 // ── ONBOARDING FLOW ──────────────────────────────────────────
-const OB_STEPS_GENERATE = ['1','2','3','4a','5','5b','6','6b','6c','6d','7']; // +6e si compétiteur
-const OB_STEPS_IMPORT   = ['1','2','3','4b','7_import'];
+const OB_STEPS_GENERATE = ['1','1b','2','3','4a','5','5b','6','6b','6c','6d','7']; // +6e si force_athletique
+const OB_STEPS_IMPORT   = ['1','1b','2','3','4b','7_import'];
+
+let _obSelectedMode = null;
+function selectTrainingMode(modeId) {
+  _obSelectedMode = modeId;
+  db.user.trainingMode = modeId;
+  document.querySelectorAll('#ob-mode-grid .ob-mode-btn').forEach(el => el.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('ob-mode-continue').disabled = false;
+}
 let obStepHistory = [];
 let obSelectedDays = [];
 let obDuration    = 60;    // minutes par séance
@@ -2973,9 +3115,22 @@ function gotoObStep(stepId) {
   window.scrollTo(0,0);
 }
 
+function getObSteps() {
+  let steps = obPath === 'import' ? [...OB_STEPS_IMPORT] : [...OB_STEPS_GENERATE];
+  // Remove step 2 (SBD records) if mode doesn't use SBD
+  if (db.user.trainingMode && !TRAINING_MODES[db.user.trainingMode]?.features?.showSBDCards) {
+    steps = steps.filter(s => s !== '2');
+  }
+  // Add 6e only for force_athletique
+  if (db.user.trainingMode === 'force_athletique' && !steps.includes('6e')) {
+    const idx6d = steps.indexOf('6d');
+    if (idx6d !== -1) steps.splice(idx6d + 1, 0, '6e');
+  }
+  return steps;
+}
+
 function updateObProgress(stepId) {
-  const allSteps = obPath === 'import' ? OB_STEPS_IMPORT : OB_STEPS_GENERATE;
-  const total = allSteps.length;
+  const allSteps = getObSteps();
   const current = allSteps.indexOf(stepId) + 1;
   document.getElementById('ob-progress').innerHTML = allSteps.map((_,i) =>
     '<div class="ob-dot'+(i < current ? ' active' : '')+'"></div>'
@@ -2992,12 +3147,20 @@ function obNext(step) {
     db.user.level = document.getElementById('ob-level').value;
     db.user.gender = document.getElementById('ob-gender').value || 'unspecified';
     saveDB();
-    const defaults = { debutant:{b:80,s:100,d:120}, intermediaire:{b:100,s:130,d:150}, avance:{b:130,s:160,d:190}, competiteur:{b:150,s:180,d:220} };
-    const d = defaults[db.user.level] || defaults.intermediaire;
-    document.getElementById('ob-bench-tgt').value = d.b;
-    document.getElementById('ob-squat-tgt').value = d.s;
-    document.getElementById('ob-dead-tgt').value  = d.d;
-    gotoObStep('2');
+    gotoObStep('1b');
+  } else if (s === '1b') {
+    if (!db.user.trainingMode) { showToast('Choisis un objectif'); return; }
+    // Only show SBD records if powerlifting or force_athletique
+    if (modeFeature('showSBDCards')) {
+      const defaults = { debutant:{b:80,s:100,d:120}, intermediaire:{b:100,s:130,d:150}, avance:{b:130,s:160,d:190}, competiteur:{b:150,s:180,d:220} };
+      const d = defaults[db.user.level] || defaults.intermediaire;
+      document.getElementById('ob-bench-tgt').value = d.b;
+      document.getElementById('ob-squat-tgt').value = d.s;
+      document.getElementById('ob-dead-tgt').value  = d.d;
+      gotoObStep('2');
+    } else {
+      gotoObStep('3');
+    }
   } else if (s === '2') {
     const benchPR = parseFloat(document.getElementById('ob-bench-pr').value) || 0;
     const squatPR = parseFloat(document.getElementById('ob-squat-pr').value) || 0;
@@ -3046,8 +3209,8 @@ function obNext(step) {
     // Blessures → cardio
     gotoObStep('6d');
   } else if (s === '6d') {
-    // Cardio → compétition si niveau compétiteur, sinon générer
-    if (db.user.level === 'competiteur') {
+    // Cardio → compétition si force_athletique, sinon générer
+    if (db.user.trainingMode === 'force_athletique') {
       gotoObStep('6e');
     } else {
       doGenerateProgram();
@@ -3471,17 +3634,27 @@ function autoPopulateKeyLifts() {
 
   const lifts = [];
 
-  // Priorité 1 : exercices SBD renseignés pendant l'onboarding
-  const SBD_DEFAULTS = [
-    { key: 'bench',    name: 'Bench press (Barre)', targetKey: 'bench' },
-    { key: 'squat',    name: 'Squat (Barre)',        targetKey: 'squat' },
-    { key: 'deadlift', name: 'Soulevé de Terre',     targetKey: 'deadlift' }
-  ];
-  SBD_DEFAULTS.forEach(({ key, name, targetKey }) => {
-    if ((db.bestPR[key] || 0) > 0 || (db.user.targets[targetKey] || 0) > 0) {
-      lifts.push({ name, target: db.user.targets[targetKey] || 0 });
-    }
-  });
+  // Priorité 1 : exercices par défaut du mode actif
+  const modeDefaults = modeFeature('defaultKeyLifts') || [];
+  if (modeDefaults.length > 0) {
+    modeDefaults.forEach(name => {
+      lifts.push({ name, target: 0 });
+    });
+  }
+
+  // Priorité 1b : exercices SBD si mode SBD et renseignés pendant l'onboarding
+  if (modeFeature('showSBDCards') && lifts.length === 0) {
+    const SBD_DEFAULTS = [
+      { key: 'bench',    name: 'Bench press (Barre)', targetKey: 'bench' },
+      { key: 'squat',    name: 'Squat (Barre)',        targetKey: 'squat' },
+      { key: 'deadlift', name: 'Soulevé de Terre',     targetKey: 'deadlift' }
+    ];
+    SBD_DEFAULTS.forEach(({ key, name, targetKey }) => {
+      if ((db.bestPR[key] || 0) > 0 || (db.user.targets[targetKey] || 0) > 0) {
+        lifts.push({ name, target: db.user.targets[targetKey] || 0 });
+      }
+    });
+  }
 
   // Priorité 2 : exercices du programme généré (si pas de SBD)
   if (lifts.length === 0 && db.generatedProgram) {
@@ -4205,7 +4378,8 @@ function getAllBadges() {
   b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de toutes les Classes', ref:'Dofus',  desc:'100 exercices — Iop, Sacrieur, Pandawa... tu les incarnes tous à la fois', condition:'100 exercices', ck:()=>uniqueExos>=100});
 
 
-  // ── Bench Press ──
+  // ── Bench Press (only if SBD mode) ──
+  if (modeFeature('showSBDCards')) {
   const _benchRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _benchIcons = ['🌱','💪','⚔️','🩸','⚡','🏰','🌀','🪓','🌊','🔥','❄️','👁️','💥'];
   const _benchNames = ["L'Apprenti d'Astrub","Cogneur de la Milice","Iop Authentique","Sacrieur de la Fonte","Shikai Débloqué","Champion de Brakmar","Reishi Condensé","Goultard le Barbare","Reiatsu d'Élite","Fracture du Temps","Lame de Glace de Rukia","Kenpachi Sans Bandeau","BANKAI — Pectoraux"];
@@ -4260,6 +4434,7 @@ function getAllBadges() {
     b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[1])}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`, condition:_bwD[1]+'× BW au Dead', ck:()=>D>=bw*_bwD[1]});
     b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[2])}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`, condition:_bwD[2]+'× BW au Dead', ck:()=>D>=bw*_bwD[2]});
   }
+  } // end if showSBDCards
 
   // ── Streak (semaines consécutives) ──
   const streakData = [
@@ -5231,8 +5406,9 @@ function renderGamificationTab() {
 
   // ── 6. Strength cards (grille paginée + clickable) ──
   (function() {
-    var bestE1RMs = getAllBestE1RMs();
     var strContainer = document.getElementById('gamStrengthContent');
+    if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
+    var bestE1RMs = getAllBestE1RMs();
     var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
     var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
 
@@ -6145,7 +6321,15 @@ async function callAI(systemPrompt, userPrompt) {
   } catch(err){console.error('AI:',err);return null;}
 }
 
-const AI_SYSTEM=`Tu es un coach de force spécialisé en powerlifting (SBD). Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
+function getAISystem() {
+  const modeLabels = {
+    bien_etre: 'coach sportif spécialisé en bien-être, forme générale et santé',
+    bodybuilding: 'coach de musculation spécialisé en hypertrophie et bodybuilding',
+    powerlifting: 'coach de force spécialisé en powerlifting (SBD)',
+    force_athletique: 'coach de force athlétique spécialisé en compétition et périodisation'
+  };
+  const role = modeLabels[db.user.trainingMode] || modeLabels.powerlifting;
+  return `Tu es un ${role}. Tu analyses les données d'un athlète et donnes des conseils concrets, directs et motivants.
 RÈGLES IMPORTANTES:
 - Les charges indiquées dans les séances sont les POIDS RÉELS soulevés (ex: "125kg × 4" = 4 reps à 125kg).
 - Les "e1RM" ou "records" sont des ESTIMATIONS calculées par la formule d'Epley, PAS des charges réellement soulevées.
@@ -6156,6 +6340,8 @@ RÈGLES DE FORMAT:
 - Sections: 1. "📊 DÉBRIEF/BILAN" 2. "🎯 VISION SEMAINE" 3. "💡 CONSEIL PERSO"
 - Utilise <span class="ai-highlight green/blue/orange/red/purple">texte</span>
 - 150-250 mots max. Tutoie. Français.`;
+}
+const AI_SYSTEM = ''; // legacy — use getAISystem() instead
 
 function showAILoading(id){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse en cours...</div>';}
 function showAIResponse(id,html){const el=document.getElementById(id);el.classList.remove('empty');el.innerHTML='<div class="ai-response-content">'+html+'</div><div class="ai-timestamp">Coach IA • '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</div>';}
@@ -6165,7 +6351,7 @@ async function aiGenerateDebrief(session, rawText) {
   const container=document.getElementById('aiImportAnalysis');container.style.display='block';container.innerHTML='<div class="card ai-import-card"><h2>🤖 Débrief IA</h2><div id="aiImportResponse" class="ai-response-area"><div class="ai-loading"><div class="ai-loading-dots"><span></span><span></span><span></span></div> Analyse de ta séance...</div></div></div>';
   const ctx=buildAthleteContext();
   const prompt='Voici le récap brut de la séance importée depuis Hevy.\n\n--- SÉANCE HEVY ---\n'+rawText+'\n--- FIN ---\n\nVolume total: '+(session.volume/1000).toFixed(1)+' tonnes\n\nCONTEXTE: '+(ctx.name?ctx.name+', ':'')+ctx.bw+'kg | Records (e1RM): B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nSéances/sem: '+ctx.sessions7d+' | Obj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift;
-  const result=await callAI(AI_SYSTEM,prompt);
+  const result=await callAI(getAISystem(),prompt);
   if(result){showAIResponse('aiImportResponse',result);upsertReport('debrief',result,session.id);}
   else showAIError('aiImportResponse');
 }
@@ -6174,7 +6360,7 @@ async function aiGenerateWeekly() {
   showAILoading('aiResponseArea');
   const ctx=buildAthleteContext();
   const prompt='Bilan hebdo'+(ctx.name?' pour '+ctx.name:'')+(':\n\n7J: '+ctx.sessions7d+' séances, '+ctx.daysWithTraining7+'/7j\nMuscles: '+Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')+'\nVolumes: '+ctx.recentVolumes.map(v=>v.date+': '+(v.vol/1000).toFixed(1)+'t ('+v.title+')').join(' | ')+'\n\nPROFIL: '+ctx.bw+'kg | B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nOBJ: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n'));
-  const result=await callAI(AI_SYSTEM,prompt);
+  const result=await callAI(getAISystem(),prompt);
   if(result){showAIResponse('aiResponseArea',result);upsertReport('weekly',result);showToast('📊 Bilan hebdo enregistré');}
   else showAIError('aiResponseArea');
 }
@@ -6187,7 +6373,7 @@ async function aiAction(type) {
   if(type==='progression')prompt='Progression SBD'+(ctx.name?' de '+ctx.name:'')+':\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nPoids: '+ctx.bw+'kg\nHistorique:\n'+SBD_TYPES.map(t=>t+': '+ctx.sbdHistory[t].map(h=>h.rm+'kg ('+h.date+')').join(' → ')).join('\n')+'\nTotal: '+ctx.totalSessions+' | 30j: '+ctx.sessions30d;
   else if(type==='weakpoints')prompt='Points faibles'+(ctx.name?' de '+ctx.name:'')+':\nMuscles 7j: '+(Object.entries(ctx.muscleSets7).filter(([,v])=>v>0).map(([k,v])=>k+': '+v).join(', ')||'Aucune donnée')+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+'\nPoids: '+ctx.bw+'kg | Fréq: '+ctx.sessions7d+'/sem';
   else if(type==='next')prompt="Séance du jour"+(ctx.name?' pour '+ctx.name:'')+":\nAUJOURD'HUI: "+ctx.todayDay+'\nPROGRAMME: '+getRoutine()[ctx.todayDay]+'\nPRs: B'+ctx.bestPR.bench+' S'+ctx.bestPR.squat+' D'+ctx.bestPR.deadlift+' | '+ctx.bw+'kg\nObj: B'+ctx.targets.bench+' S'+ctx.targets.squat+' D'+ctx.targets.deadlift+'\nRécent: '+(ctx.recentVolumes.slice(0,3).map(v=>v.title+' ('+v.date+')').join(', ')||'Aucune')+'\nSéances/sem: '+ctx.sessions7d;
-  const result=await callAI(AI_SYSTEM,prompt);
+  const result=await callAI(getAISystem(),prompt);
   if(result)showAIResponse('aiResponseArea',result);
   else showAIError('aiResponseArea');
 }
@@ -6250,6 +6436,24 @@ function getPerfIncrement(exoName) {
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
+
+  // Bien-être mode: show wellness metrics instead of key lifts
+  if (db.user.trainingMode === 'bien_etre') {
+    const logs7d = getLogsInRange(7);
+    const sessionsWeek = logs7d.length;
+    const streak = db.questStreak || 0;
+    const lastBody = (db.body || []).slice(-1)[0];
+    const bw = lastBody ? lastBody.bw : (db.user.bw || 0);
+    const kcal = lastBody ? (lastBody.kcal || 0) : 0;
+    el.innerHTML = '<div class="sbd-grid" style="grid-template-columns:repeat(2,1fr);">' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Séances / sem</div><div class="rm-val" style="color:var(--green);">' + sessionsWeek + '</div></div>' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Streak</div><div class="rm-val" style="color:var(--orange);">' + streak + 'j</div></div>' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Poids du jour</div><div class="rm-val">' + (bw > 0 ? bw + '<span style="font-size:12px;color:var(--sub);">kg</span>' : '—') + '</div></div>' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Calories</div><div class="rm-val" style="color:var(--teal);">' + (kcal > 0 ? kcal : '—') + '</div></div>' +
+    '</div>';
+    return;
+  }
+
   const keyLifts = db.keyLifts || [];
 
   if (!keyLifts.length) {
@@ -6905,7 +7109,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
       else deltaHtml = '<span class="ec-trend-delta fl">= stable</span>';
     }
     let bwHtml = '';
-    if (db.user.bw > 0) {
+    if (db.user.bw > 0 && modeFeature('showBWRatio')) {
       bwHtml = '<span class="ec-trend-meta">' + (exo.maxRM / db.user.bw).toFixed(2) + '× PC</span>';
     }
     if (deltaHtml || bwHtml) html += '<div class="ec-trend">' + deltaHtml + bwHtml + '</div>';
@@ -6919,7 +7123,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
   // ── Body (collapsible) ──
   let bodyContent = '';
   if ((exoType === 'weight' || exoType === 'reps') && exo.maxRM > 0) {
-    bodyContent = buildRMTable(exo.maxRM, exo.repRecords, exo.name);
+    bodyContent = modeFeature('show1RM') ? buildRMTable(exo.maxRM, exo.repRecords, exo.name) : '<div style="padding:12px 16px;font-size:12px;color:var(--sub);">Meilleur : <strong style="color:var(--blue);">' + exo.maxRM + 'kg</strong></div>';
     if (exoType === 'reps' && exo.maxReps) {
       const bwNote = db.user.bw > 0
         ? '<div class="ec-bw">💪 Force totale : ' + (db.user.bw + exo.maxRM) + 'kg (PC+lest)</div>'
@@ -7987,14 +8191,22 @@ function generateCoachAlgoMessage() {
   const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);
   const momB=calcMomentum('bench'),momS=calcMomentum('squat'),momD=calcMomentum('deadlift');
   let sections=[];
-  let analyseForce=`<div class="ai-section-title">📊 FORCE</div>`;
-  if (ipf>0) {
-    const ipfLabel=ipf<300?'débutant':ipf<400?'intermédiaire':ipf<500?'avancé':'élite';
-    analyseForce+=`Score IPF GL : <span class="ai-highlight blue">${ipf} pts</span> (niveau ${ipfLabel})<br>`;
+  // Force section: adapt to mode
+  if (modeFeature('showSBDCards')) {
+    let analyseForce=`<div class="ai-section-title">📊 FORCE</div>`;
+    if (modeFeature('showIPF') && ipf>0) {
+      const ipfLabel=ipf<300?'débutant':ipf<400?'intermédiaire':ipf<500?'avancé':'élite';
+      analyseForce+=`Score IPF GL : <span class="ai-highlight blue">${ipf} pts</span> (niveau ${ipfLabel})<br>`;
+    }
+    const moms=[momB&&`Bench ${momB>0?'+':''}${momB}kg/sem`,momS&&`Squat ${momS>0?'+':''}${momS}kg/sem`,momD&&`Dead ${momD>0?'+':''}${momD}kg/sem`].filter(Boolean);
+    if (moms.length) analyseForce+=`Momentum : <span class="ai-highlight ${moms.some(m=>m.includes('-'))?'orange':'green'}">${moms.join(' · ')}</span>`;
+    sections.push(`<div class="ai-section">${analyseForce}</div>`);
+  } else {
+    // Non-SBD mode: show general training stats
+    let analyseGeneral=`<div class="ai-section-title">📊 ENTRAÎNEMENT</div>`;
+    analyseGeneral+=`Séances (7j) : <span class="ai-highlight blue">${logs7.length}</span> · Tonnage : <span class="ai-highlight green">${Math.round(tonnage7)}kg</span>`;
+    sections.push(`<div class="ai-section">${analyseGeneral}</div>`);
   }
-  const moms=[momB&&`Bench ${momB>0?'+':''}${momB}kg/sem`,momS&&`Squat ${momS>0?'+':''}${momS}kg/sem`,momD&&`Dead ${momD>0?'+':''}${momD}kg/sem`].filter(Boolean);
-  if (moms.length) analyseForce+=`Momentum : <span class="ai-highlight ${moms.some(m=>m.includes('-'))?'orange':'green'}">${moms.join(' · ')}</span>`;
-  sections.push(`<div class="ai-section">${analyseForce}</div>`);
   if (tdee>0) {
     let nutri=`<div class="ai-section-title">🍽️ NUTRITION</div>`;
     nutri+=`TDEE estimé : <span class="ai-highlight blue">${tdee} kcal/jour</span><br>`;
@@ -8008,7 +8220,7 @@ function generateCoachAlgoMessage() {
     } else if (!kcalAuj) nutri+=`<span style="color:var(--sub);font-size:12px;">Entre tes macros du jour pour l'analyse.</span>`;
     sections.push(`<div class="ai-section">${nutri}</div>`);
   }
-  if (plateaux.length>0) {
+  if (modeFeature('showPlateauDetection') && plateaux.length>0) {
     let alertes=`<div class="ai-section-title">⚠️ ALERTES</div>`;
     const sugg={bench:'Essaie Spoto Bench ou monte le volume',squat:'Variation pause squat ou fentes lestées',deadlift:'Déficit deadlift ou Romanian'};
     const _sbdNames={bench:'Bench Press (Barbell)',squat:'Squat (Barbell)',deadlift:'Deadlift (Barbell)'};
@@ -8900,15 +9112,29 @@ function renderCorpsTab() {
   applyBar('nutriProtBar',protMange,macros.prot);applyBar('nutriCarbBar',carbMange,macros.carb);applyBar('nutriFatBar',fatMange,macros.fat);
   setEl('nutriProtLabel',`${protMange} / ${macros.prot} g`);setEl('nutriCarbLabel',`${carbMange} / ${macros.carb} g`);setEl('nutriFatLabel',`${fatMange} / ${macros.fat} g`);
   setEl('nutriTDEELabel',tdee>0?`${tdee} kcal`:'—');setEl('nutriProtCible',`${macros.prot}g`);
-  setEl('metricIPF',ipf>0?ipf:'—');setEl('metricIPFsub',ipf>0?(ipf<300?'Débutant':ipf<400?'Intermédiaire':ipf<500?'Avancé':'🏆 Élite'):'Importe des séances');
-  setEl('metricRatio',ratio>0?ratio:'—');setEl('metricRatioSub',ratio>0?(ratio>4?'🔥 Recompo active':ratio>3?'En progression':'Continue'):'IPF GL / kg corps');
+  // IPF GL card: only show if mode supports it
+  const ipfCard = document.getElementById('metricIPFCard');
+  if (ipfCard) ipfCard.style.display = modeFeature('showIPF') ? '' : 'none';
+  if (modeFeature('showIPF')) {
+    setEl('metricIPF',ipf>0?ipf:'—');setEl('metricIPFsub',ipf>0?(ipf<300?'Débutant':ipf<400?'Intermédiaire':ipf<500?'Avancé':'🏆 Élite'):'Importe des séances');
+  }
+  // Ratio card: only show if mode supports it
+  const ratioCard = document.getElementById('metricRatioCard');
+  if (ratioCard) ratioCard.style.display = modeFeature('showBWRatio') ? '' : 'none';
+  if (modeFeature('showBWRatio')) {
+    setEl('metricRatio',ratio>0?ratio:'—');setEl('metricRatioSub',ratio>0?(ratio>4?'🔥 Recompo active':ratio>3?'En progression':'Continue'):'IPF GL / kg corps');
+  }
   // Poids : historique 15 dernières entrées
   const bwHistory=(db.body||[]).filter(e=>e.bw>0).sort((a,b)=>b.ts-a.ts).slice(0,15);
   const wEl=document.getElementById('weightHistory');
   if (wEl){if(!bwHistory.length){wEl.innerHTML='<p style="color:var(--sub);font-size:12px;text-align:center;">Aucune entrée</p>';}
   else{wEl.innerHTML=bwHistory.map((e,i)=>{const prev=bwHistory[i+1];const delta=prev?Math.round((e.bw-prev.bw)*10)/10:null;const cls=delta===null?'':delta>0?'trend-up':delta<0?'trend-down':'trend-flat';const str=delta===null?'':(delta>0?'↑':delta<0?'↓':'→')+Math.abs(delta)+'kg';return`<div class="weight-history-item"><span>${new Date(e.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span><span style="font-weight:700;">${e.bw} kg</span><span class="${cls}" style="font-size:12px;min-width:50px;text-align:right;">${str}</span></div>`;}).join('');}}
   const pEl=document.getElementById('plateauAlerts');
-  if (pEl){const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);pEl.innerHTML=plateaux.map(p=>`<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`).join('');}
+  if (pEl){
+    if (modeFeature('showPlateauDetection')) {
+      const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);pEl.innerHTML=plateaux.map(p=>`<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`).join('');
+    } else { pEl.innerHTML = ''; }
+  }
   const cEl=document.getElementById('coachAlgoContent');if(cEl)cEl.innerHTML=generateCoachAlgoMessage();
   // Nouvelles sections
   renderFormeScore();
@@ -9369,8 +9595,8 @@ function renderLifts() {
 
     // Badges
     let badgesHtml = '';
-    if (isSBD) badgesHtml += '<span class="lc-badge purple">SBD</span>';
-    if (bwRatio) badgesHtml += '<span class="lc-badge blue">×' + bwRatio + ' bw</span>';
+    if (isSBD && modeFeature('showSBDCards')) badgesHtml += '<span class="lc-badge purple">SBD</span>';
+    if (bwRatio && modeFeature('showBWRatio')) badgesHtml += '<span class="lc-badge blue">×' + bwRatio + ' bw</span>';
     if (lift.history.length > 1) {
       const gain = lift.history[lift.history.length-1].rm - lift.history[0].rm;
       badgesHtml += '<span class="lc-badge ' + (gain >= 0 ? 'green' : 'orange') + '">' + (gain >= 0 ? '+' : '') + gain + 'kg total</span>';
@@ -9634,6 +9860,8 @@ function updateProfileField(field, value) {
   if (field === 'level') {
     db.user.level = value;
     db.user.programParams.level = value;
+  } else if (field === 'trainingMode') {
+    db.user.trainingMode = value;
   } else {
     db.user.programParams[field] = value;
   }
@@ -9651,6 +9879,10 @@ function renderSettingsProfile() {
   // Genre
   const genderEl = document.getElementById('settingsGender');
   if (genderEl) genderEl.value = db.user.gender || 'unspecified';
+
+  // Mode d'entraînement
+  const modeEl = document.getElementById('settingsTrainingMode');
+  if (modeEl) modeEl.value = db.user.trainingMode || 'powerlifting';
 
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
@@ -9677,6 +9909,17 @@ function renderSettingsProfile() {
     freqEl.innerHTML = [1,2,3,4,5,6].map(f => {
       const active = f === currentFreq;
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsFreq(${f}, this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:13px;font-weight:700;cursor:pointer;">${f}j/sem</button>`;
+    }).join('');
+  }
+
+  // Jours d'entraînement
+  const daysEl = document.getElementById('settingsDays');
+  if (daysEl) {
+    const currentDays = params.selectedDays || [];
+    const dayLabels = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    daysEl.innerHTML = dayLabels.map(d => {
+      const active = currentDays.includes(d);
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="toggleSettingsDay('${d}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${d.substring(0,3)}</button>`;
     }).join('');
   }
 
@@ -9768,6 +10011,20 @@ function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'fre
 function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
 function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
 function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }
+
+function toggleSettingsDay(day, btn) {
+  if (!db.user.programParams) db.user.programParams = {};
+  const days = db.user.programParams.selectedDays || [];
+  const idx = days.indexOf(day);
+  if (idx >= 0) days.splice(idx, 1); else days.push(day);
+  db.user.programParams.selectedDays = days;
+  _debouncedSaveSettings();
+  const active = days.includes(day);
+  btn.classList.toggle('active', active);
+  btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+  btn.style.background = active ? 'rgba(10,132,255,0.15)' : 'var(--surface)';
+  btn.style.color = active ? 'var(--blue)' : 'var(--sub)';
+}
 
 function toggleSettingsInjury(zone, btn) {
   if (!db.user.programParams) db.user.programParams = {};
@@ -9953,6 +10210,12 @@ function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
   if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
+  // Update progression button label based on mode
+  const progLabel = document.getElementById('aiProgressionLabel');
+  if (progLabel) {
+    const labels = { bien_etre: 'Évolution Forme', bodybuilding: 'Progression Volume', powerlifting: 'Progression SBD', force_athletique: 'Progression Force' };
+    progLabel.textContent = labels[db.user.trainingMode] || 'Progression SBD';
+  }
 }
 
 // ============================================================
@@ -12723,25 +12986,34 @@ async function updateLeaderboardSnapshot() {
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   const weekStr = monday.toISOString().split('T')[0];
 
-  // Get key lifts and their best values
+  // Get key lifts and their best values (mode-aware)
   const keyLifts = db.keyLifts || [];
   const prData = [];
-  SBD_TYPES.forEach(type => {
-    if (db.bestPR[type] > 0) {
-      const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
-      prData.push({ exercise_name: name, value: db.bestPR[type] });
-    }
-  });
+  const seenExercises = new Set();
+
+  // SBD only if mode uses SBD cards
+  if (modeFeature('showSBDCards')) {
+    SBD_TYPES.forEach(type => {
+      if (db.bestPR[type] > 0) {
+        const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
+        prData.push({ exercise_name: name, value: db.bestPR[type] });
+        seenExercises.add(name);
+      }
+    });
+  }
+
+  // Always include user's key lifts
   keyLifts.forEach(kl => {
-    if (kl.target && kl.target > 0) {
-      // Find best from logs
-      let best = 0;
-      db.logs.forEach(log => {
-        log.exercises.forEach(e => {
-          if (e.name === kl.name && e.maxRM > best) best = e.maxRM;
-        });
+    if (seenExercises.has(kl.name)) return;
+    let best = 0;
+    db.logs.forEach(log => {
+      log.exercises.forEach(e => {
+        if (e.name === kl.name && e.maxRM > best) best = e.maxRM;
       });
-      if (best > 0) prData.push({ exercise_name: kl.name, value: best });
+    });
+    if (best > 0) {
+      prData.push({ exercise_name: kl.name, value: best });
+      seenExercises.add(kl.name);
     }
   });
 

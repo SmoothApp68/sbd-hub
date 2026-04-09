@@ -719,6 +719,11 @@ function _testMatchExoName() {
     { a: 'Rowing Barre', b: 'Rowing T-Bar', expected: false },
     { a: 'Curl Biceps (Barre)', b: 'Curl Biceps', expected: true },
     { a: 'Shrugs', b: 'Shrugs (Haltères)', expected: true },
+    // Phase 1 bench detection: cross-language via EXO_SYNONYMS
+    { a: 'Développé Couché (Barre)', b: 'Bench Press', expected: true },
+    { a: 'Développé Couché (Barre)', b: 'Bench Press (Barbell)', expected: true },
+    // Bench ≠ Incline Bench
+    { a: 'Développé Couché (Barre)', b: 'Incline Bench Press', expected: false },
   ];
   let passed = 0, failed = 0;
   tests.forEach(t => {

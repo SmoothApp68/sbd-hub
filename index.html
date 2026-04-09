@@ -58,6 +58,22 @@
     .readiness-row input[type=range] { flex:1; accent-color:var(--green); }
     .readiness-row span:last-child { width:18px; text-align:center; font-weight:700; }
     .modal-actions button { flex: 1; padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; }
+    /* ── Glossary & Transparency ── */
+    .glossary-tip { cursor:pointer; font-size:12px; opacity:0.7; display:inline; vertical-align:middle; user-select:none; transition:opacity 0.2s; }
+    .glossary-tip:hover { opacity:1; }
+    .glossary-item { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:6px; cursor:pointer; transition:background 0.2s; }
+    .glossary-item:active { background:rgba(10,132,255,0.08); }
+    .breakdown { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:8px; }
+    .breakdown-line { display:flex; align-items:center; gap:6px; font-size:11px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+    .breakdown-line:last-of-type { border-bottom:none; }
+    .bl-label { flex:1; color:var(--sub); }
+    .bl-value { width:55px; text-align:right; font-weight:600; color:var(--text); }
+    .bl-weight { width:40px; text-align:center; color:var(--sub); font-size:10px; }
+    .bl-contribution { width:40px; text-align:right; font-weight:700; color:var(--blue); font-size:11px; }
+    .breakdown-total { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); font-size:12px; font-weight:800; color:var(--text); text-align:right; }
+    .breakdown-delta { font-size:11px; color:var(--green); text-align:right; margin-top:2px; }
+    .breakdown-toggle { font-size:11px; color:var(--blue); cursor:pointer; margin-top:8px; text-align:center; padding:6px; border-radius:8px; background:rgba(10,132,255,0.06); font-weight:600; transition:background 0.2s; user-select:none; }
+    .breakdown-toggle:active { background:rgba(10,132,255,0.15); }
     .exo-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; }
     .ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .ai-avatar { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
@@ -1975,6 +1991,17 @@
       <div class="acc-body" id="acc-records">
         <p style="font-size:12px;color:var(--sub);margin:0 0 12px;line-height:1.5;">Si un record semble aberrant (mauvais import, 1RM irréaliste), corrige ou supprime-le ici.</p>
         <div id="recordsCorrectionList"></div>
+      </div>
+    </div>
+
+    <!-- Accordéon Glossaire -->
+    <div class="acc-card">
+      <div class="acc-header" onclick="toggleAcc('acc-glossary')">
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(10,132,255,0.1);">📖</div><span>Glossaire</span></div><span class="acc-chevron" id="chev-acc-glossary">▾</span>
+      </div>
+      <div class="acc-body" id="acc-glossary">
+        <p style="font-size:12px;color:var(--sub);margin:0 0 12px;line-height:1.5;">Tous les termes techniques utilisés dans l'app, expliqués simplement.</p>
+        <div id="glossaryPageContent"></div>
       </div>
     </div>
 

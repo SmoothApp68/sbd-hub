@@ -2702,8 +2702,6 @@ function renderGamificationTab() {
 // ============================================================
 function refreshUI() {
   recalcBestPR();
-  const savedKey = localStorage.getItem('SBD_API_KEY');
-  if (savedKey) { const kInput=document.getElementById('inputAPIKey'); if(kInput)kInput.value=savedKey; }
   if (db.user.name) { const ni=document.getElementById('inputName'); if(ni)ni.value=db.user.name; }
   if (db.user.bw) { const bi=document.getElementById('inputBW'); if(bi)bi.value=db.user.bw; }
   updateCoachBadge();
@@ -3707,7 +3705,6 @@ function updateTargets() {
   db.user.targets={bench:b,squat:s,deadlift:d};
   saveDB(); renderDash();
 }
-function saveAPIKey() { const k=document.getElementById('inputAPIKey').value.trim();if(k)localStorage.setItem('SBD_API_KEY',k);else localStorage.removeItem('SBD_API_KEY');showToast(k?'✓ Clé API sauvegardée':'✓ Clé API supprimée'); }
 function fullReset() { showModal('⚠️ Toutes les données seront effacées.','Effacer','var(--red)',()=>{db=defaultDB();saveDB();refreshUI();showToast('✓ Réinitialisé');}); }
 
 // ============================================================
@@ -4232,8 +4229,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   // Pré-remplir settings
   if(db.user.name){const ni=document.getElementById('inputName');if(ni)ni.value=db.user.name;}
   document.getElementById('inputBW').value=db.user.bw||'';
-  const savedKey=localStorage.getItem('SBD_API_KEY');
-  if(savedKey){const ki=document.getElementById('inputAPIKey');if(ki)ki.value=savedKey;}
   const tB=document.getElementById('tgtBench'),tS=document.getElementById('tgtSquat'),tD=document.getElementById('tgtDead');
   if(tB)tB.value=db.user.targets.bench;if(tS)tS.value=db.user.targets.squat;if(tD)tD.value=db.user.targets.deadlift;
 
@@ -5526,8 +5521,6 @@ function fillSettingsFields() {
   const bwEl = document.getElementById('inputBWBase'); if (bwEl) bwEl.value = db.user.bwBase || 80;
   const tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
-  const savedKey = localStorage.getItem('SBD_API_KEY');
-  if (savedKey) { const ki = document.getElementById('inputAPIKey'); if (ki) ki.value = savedKey; }
   renderSettingsProfile();
   // Mark lazy accordions as dirty so they render on open
   _accDirty.records = true;

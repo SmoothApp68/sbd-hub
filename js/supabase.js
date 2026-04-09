@@ -10,6 +10,26 @@ const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
 let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
 try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
 
+// ============================================================
+// ANTHROPIC PROXY HELPER
+// ============================================================
+async function callAnthropicProxy(body) {
+  if (!supaClient || !cloudSyncEnabled) throw new Error('Cloud connection required for AI features');
+  const { data: { session } } = await supaClient.auth.getSession();
+  if (!session) throw new Error('No active session');
+  const r = await fetch(SUPABASE_URL + '/functions/v1/anthropic-proxy', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token
+    },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Proxy request failed');
+  return d;
+}
+
 
 // ============================================================
 // CLOUD SYNC

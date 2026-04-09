@@ -227,15 +227,9 @@ muscleGroup :
 - Autre : tout le reste`;
 
 async function extractWithAI(rawText) {
-  const apiKey = localStorage.getItem('SBD_API_KEY');
-  if (!apiKey) return null;
+  if (!cloudSyncEnabled) return null;
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-request-check': 'client' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 2000, system: AI_EXTRACT_SYSTEM, messages: [{ role: 'user', content: rawText }] })
-    });
-    const d = await r.json();
+    const d = await callAnthropicProxy({ model: 'claude-haiku-4-5-20251001', max_tokens: 2000, system: AI_EXTRACT_SYSTEM, messages: [{ role: 'user', content: rawText }] });
     if (d.error) { console.warn('AI extract error:', d.error); return null; }
     const raw = d.content.map(b => b.text || '').join('').trim();
     return JSON.parse(raw);

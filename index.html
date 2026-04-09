@@ -4004,40 +4004,55 @@ function matchExoName(hevyName, progName) {
 
   if (h === p) return true;
 
-  // Mots significatifs (>3 lettres)
-  const sig = w => w.length > 3;
+  // Mots significatifs (>=3 lettres)
+  const sig = w => w.length >= 3;
 
   // Mots qui distinguent formellement une variante d'exercice
-  // (leur présence en "surplus" indique un exercice différent)
+  // Includes NFD-normalized French forms (incliné→incline, décliné→decline, etc.)
   const DIFF = new Set([
-    'incline','decline','sumo','bulgare','inverse','inversee',
+    'incline','inclinee','decline','declinee','sumo',
+    'bulgare','bulgarian','inverse','inversee',
     'nuque','pause','spoto','deficit','board',
-    'hack','goblet','sissy','front','zercher','split','bulgarian',
-    'roumain','romanian'
+    'hack','goblet','sissy','front','zercher','split',
+    'roumain','romanian',
+    'lateral','laterale','frontal','frontale'
   ]);
 
-  // Vérifie si name correspond à ref, en acceptant des mots extra
-  // seulement s'ils ne sont pas des différenciateurs
-  const softIncludes = (name, ref) => {
+  // Word-level matching: check that all words of ref appear as whole words in name
+  const wordsOf = s => s.split(' ').filter(sig);
+  // Prefix match only for small length differences (plurals: shrug/shrugs, curl/curls)
+  const wMatch = (a, b) => {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    return a.startsWith(b) || b.startsWith(a);
+  };
+
+  const softWordMatch = (name, ref) => {
     if (name === ref) return true;
-    if (!name.includes(ref)) return false;
-    const extra = name.replace(ref, '').trim().split(' ').filter(sig);
+    const nameWords = wordsOf(name);
+    const refWords = wordsOf(ref);
+    if (!refWords.length) return false;
+    // All ref words must appear as whole words in name
+    const refInName = refWords.every(rw => nameWords.some(nw => wMatch(nw, rw)));
+    if (!refInName) return false;
+    // Extra words in name must not be differentiators
+    const extra = nameWords.filter(nw => !refWords.some(rw => wMatch(nw, rw)));
     return extra.every(w => !DIFF.has(w));
   };
 
   // Vérifier les synonymes — si h et p appartiennent au même groupe → match
+  // Only check name-contains-synonym (not reverse) to avoid false positives
   for (const group of EXO_SYNONYMS) {
     const normGroup = group.map(norm);
-    const hInGroup = normGroup.some(s => softIncludes(h, s) || softIncludes(s, h));
-    const pInGroup = normGroup.some(s => softIncludes(p, s) || softIncludes(s, p));
+    const hInGroup = normGroup.some(s => softWordMatch(h, s));
+    const pInGroup = normGroup.some(s => softWordMatch(p, s));
     if (hInGroup && pInGroup) return true;
   }
 
-  const hWords = h.split(' ').filter(sig);
-  const pWords = p.split(' ').filter(sig);
+  const hWords = wordsOf(h);
+  const pWords = wordsOf(p);
   if (!hWords.length || !pWords.length) return false;
 
-  const wMatch = (a, b) => a === b || a.startsWith(b) || b.startsWith(a);
   const pInH = pWords.every(w => hWords.some(hw => wMatch(w, hw)));
   const hInP = hWords.every(w => pWords.some(pw => wMatch(w, pw)));
 
@@ -4066,6 +4081,34 @@ function matchExoName(hevyName, progName) {
   }
 
   return false;
+}
+
+// Test suite for matchExoName — callable from browser console
+function _testMatchExoName() {
+  const tests = [
+    { a: 'Développé Couché (Barre)', b: 'Développé Couché', expected: true },
+    { a: 'Développé Couché (Barre)', b: 'Développé Couché Incliné', expected: false },
+    { a: 'Développé Couché Incliné (Haltères)', b: 'Développé Couché Incliné', expected: true },
+    { a: 'Squat (Barre)', b: 'Squat', expected: true },
+    { a: 'Squat (Barre)', b: 'Squat Bulgare', expected: false },
+    { a: 'Soulevé de Terre', b: 'Deadlift', expected: true },
+    { a: 'Rowing Barre', b: 'Rowing T-Bar', expected: false },
+    { a: 'Curl Biceps (Barre)', b: 'Curl Biceps', expected: true },
+    { a: 'Shrugs', b: 'Shrugs (Haltères)', expected: true },
+  ];
+  let passed = 0, failed = 0;
+  tests.forEach(t => {
+    const result = matchExoName(t.a, t.b);
+    const ok = result === t.expected;
+    if (ok) passed++; else failed++;
+    console.log(
+      (ok ? '✅' : '❌') +
+      ' matchExoName("' + t.a + '", "' + t.b + '") → ' + result +
+      (ok ? '' : ' (expected ' + t.expected + ')')
+    );
+  });
+  console.log('\n' + passed + '/' + tests.length + ' passed' + (failed ? ', ' + failed + ' FAILED' : ' — all good!'));
+  return { passed, failed, total: tests.length };
 }
 
 // ============================================================

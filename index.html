@@ -3629,17 +3629,27 @@ function autoPopulateKeyLifts() {
 
   const lifts = [];
 
-  // Priorité 1 : exercices SBD renseignés pendant l'onboarding
-  const SBD_DEFAULTS = [
-    { key: 'bench',    name: 'Bench press (Barre)', targetKey: 'bench' },
-    { key: 'squat',    name: 'Squat (Barre)',        targetKey: 'squat' },
-    { key: 'deadlift', name: 'Soulevé de Terre',     targetKey: 'deadlift' }
-  ];
-  SBD_DEFAULTS.forEach(({ key, name, targetKey }) => {
-    if ((db.bestPR[key] || 0) > 0 || (db.user.targets[targetKey] || 0) > 0) {
-      lifts.push({ name, target: db.user.targets[targetKey] || 0 });
-    }
-  });
+  // Priorité 1 : exercices par défaut du mode actif
+  const modeDefaults = modeFeature('defaultKeyLifts') || [];
+  if (modeDefaults.length > 0) {
+    modeDefaults.forEach(name => {
+      lifts.push({ name, target: 0 });
+    });
+  }
+
+  // Priorité 1b : exercices SBD si mode SBD et renseignés pendant l'onboarding
+  if (modeFeature('showSBDCards') && lifts.length === 0) {
+    const SBD_DEFAULTS = [
+      { key: 'bench',    name: 'Bench press (Barre)', targetKey: 'bench' },
+      { key: 'squat',    name: 'Squat (Barre)',        targetKey: 'squat' },
+      { key: 'deadlift', name: 'Soulevé de Terre',     targetKey: 'deadlift' }
+    ];
+    SBD_DEFAULTS.forEach(({ key, name, targetKey }) => {
+      if ((db.bestPR[key] || 0) > 0 || (db.user.targets[targetKey] || 0) > 0) {
+        lifts.push({ name, target: db.user.targets[targetKey] || 0 });
+      }
+    });
+  }
 
   // Priorité 2 : exercices du programme généré (si pas de SBD)
   if (lifts.length === 0 && db.generatedProgram) {
@@ -6409,6 +6419,24 @@ function getPerfIncrement(exoName) {
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
+
+  // Bien-être mode: show wellness metrics instead of key lifts
+  if (db.user.trainingMode === 'bien_etre') {
+    const logs7d = getLogsInRange(7);
+    const sessionsWeek = logs7d.length;
+    const streak = db.questStreak || 0;
+    const lastBody = (db.body || []).slice(-1)[0];
+    const bw = lastBody ? lastBody.bw : (db.user.bw || 0);
+    const kcal = lastBody ? (lastBody.kcal || 0) : 0;
+    el.innerHTML = '<div class="sbd-grid" style="grid-template-columns:repeat(2,1fr);">' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Séances / sem</div><div class="rm-val" style="color:var(--green);">' + sessionsWeek + '</div></div>' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Streak</div><div class="rm-val" style="color:var(--orange);">' + streak + 'j</div></div>' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Poids du jour</div><div class="rm-val">' + (bw > 0 ? bw + '<span style="font-size:12px;color:var(--sub);">kg</span>' : '—') + '</div></div>' +
+      '<div class="rm-box"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Calories</div><div class="rm-val" style="color:var(--teal);">' + (kcal > 0 ? kcal : '—') + '</div></div>' +
+    '</div>';
+    return;
+  }
+
   const keyLifts = db.keyLifts || [];
 
   if (!keyLifts.length) {
@@ -7064,7 +7092,7 @@ function formatExoDropdown(name, exo, idx, staleMatchName) {
       else deltaHtml = '<span class="ec-trend-delta fl">= stable</span>';
     }
     let bwHtml = '';
-    if (db.user.bw > 0) {
+    if (db.user.bw > 0 && modeFeature('showBWRatio')) {
       bwHtml = '<span class="ec-trend-meta">' + (exo.maxRM / db.user.bw).toFixed(2) + '× PC</span>';
     }
     if (deltaHtml || bwHtml) html += '<div class="ec-trend">' + deltaHtml + bwHtml + '</div>';

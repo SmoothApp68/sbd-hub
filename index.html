@@ -1779,204 +1779,7 @@
         <div class="corps-acc-inner" id="coachAlgoContent" style="font-size:13px;line-height:1.6;color:var(--text);">Entre ton poids et tes macros pour activer l'analyse.</div>
       </div>
     </div>
-  </div>
-
-  <div id="tab-game" class="content-section">
-    <div id="gamLevelCard"></div>
-    <div id="gamXPSources"></div>
-    <div id="gamChallenges"></div>
-    <div id="gamMonthlyChallenges"></div>
-    <div id="gamRecentBadges"></div>
-    <div id="gamNextBadges"></div>
-    <div id="gamStrengthContent"></div>
-    <div id="gamHeatmap"></div>
-    <div id="gamBadgesOverview"></div>
-    <div id="gamBadgesSections"></div>
-  </div>
-
-
-  <!-- ══════════════════════════════════════════════ -->
-  <!-- COMMUNAUTÉ -->
-  <!-- ══════════════════════════════════════════════ -->
-  <div id="tab-social" class="content-section">
-    <div class="social-sub-tabs">
-      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Feed</button>
-      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
-      <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
-    </div>
-
-    <!-- Feed Sub-tab -->
-    <div id="social-feed" class="social-sub-content active">
-      <div id="feedPinnedSection"></div>
-      <div id="feedContent"></div>
-      <div id="feedLoadMore" style="display:none;">
-        <button class="feed-load-more" onclick="loadMoreFeed()">Voir plus</button>
-      </div>
-    </div>
-
-    <!-- Leaderboard Sub-tab -->
-    <div id="social-leaderboard" class="social-sub-content">
-      <div class="card">
-        <h2>Classement</h2>
-        <div class="lb-filter">
-          <select id="lbExerciseFilter" onchange="renderLeaderboard()">
-            <option value="">Chargement...</option>
-          </select>
-        </div>
-        <div id="lbPodium" class="lb-podium"></div>
-        <div id="lbTable" class="lb-table"></div>
-        <div id="lbEmpty" class="lb-empty" style="display:none;">Ajoute des amis pour voir le classement !</div>
-      </div>
-    </div>
-
-    <!-- Friends Sub-tab -->
-    <div id="social-friends" class="social-sub-content">
-      <!-- Search -->
-      <div class="friends-search">
-        <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
-        <span class="friends-search-icon">🔍</span>
-        <div class="friends-autocomplete" id="friendAutocomplete"></div>
-      </div>
-
-      <!-- Friend Code -->
-      <div class="card" style="margin-bottom:16px;text-align:center;border:1px solid rgba(10,132,255,0.25);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);">
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code ami</div>
-        <div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Partage ce code permanent pour que tes amis t'ajoutent</div>
-        <div id="myFriendCode" style="font-family:monospace;font-size:28px;font-weight:800;letter-spacing:4px;color:var(--blue);padding:12px 0;user-select:all;">---</div>
-        <button class="btn" style="width:auto;padding:10px 24px;font-size:13px;margin:0 auto;" onclick="copyFriendCode()">📋 Copier</button>
-      </div>
-
-      <!-- Add friend by code -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Ajouter un ami par code</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
-        </div>
-      </div>
-
-      <!-- Invite Code (legacy) -->
-      <div class="friends-invite-card">
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Code d'invitation (usage unique)</div>
-        <div class="friends-invite-sub">Partage ce code pour ajouter des amis</div>
-        <div class="friends-invite-code" id="myInviteCode">---</div>
-        <div style="display:flex;gap:8px;justify-content:center;">
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;" onclick="copyInviteCode()">Copier</button>
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="regenerateInviteCode()">Nouveau</button>
-        </div>
-      </div>
-
-      <!-- Use invite code -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Utiliser un code d'invitation</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="useInviteCodeInput" placeholder="Ex: AUR3L-7X" style="margin-bottom:0;text-transform:uppercase;letter-spacing:1px;font-family:monospace;" maxlength="10">
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="useInviteCode()">Ajouter</button>
-        </div>
-      </div>
-
-      <!-- Notifications -->
-      <div class="card" id="notifSection">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <h2>Notifications</h2>
-          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
-        </div>
-        <div id="notifList" class="notif-list"></div>
-      </div>
-
-      <!-- Pending Requests -->
-      <div class="card" id="pendingRequestsSection" style="display:none;">
-        <h2>Demandes en attente</h2>
-        <div id="pendingRequestsList" class="friends-list"></div>
-      </div>
-
-      <!-- Friends List -->
-      <div class="card">
-        <h2>Mes amis</h2>
-        <div id="friendsList" class="friends-list"></div>
-      </div>
-
-      <!-- Blocked Users -->
-      <div class="card" id="blockedSection" style="display:none;">
-        <h2>Bloqués</h2>
-        <div id="blockedList" class="friends-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Profile overlay (friend profile view) -->
-  <div id="profileOverlay" class="profile-overlay" style="display:none;"></div>
-
-  <!-- ══════════════════════════════════════════════ -->
-  <!-- SOCIAL ONBOARDING OVERLAY -->
-  <!-- ══════════════════════════════════════════════ -->
-  <div id="social-onboarding-overlay" style="display:none;">
-    <div class="sob-wrap">
-      <div class="sob-progress" id="sob-progress">
-        <div class="sob-dot active"></div>
-        <div class="sob-dot"></div>
-        <div class="sob-dot"></div>
-      </div>
-
-      <!-- Step 1: Bienvenue + pseudo -->
-      <div class="sob-step active" id="sob-step-1">
-        <div class="sob-logo">🤝</div>
-        <div class="sob-title">Rejoins la communauté</div>
-        <div class="sob-sub">Choisis un pseudo unique pour te faire connaître et suivre tes amis.</div>
-        <div class="sob-fields">
-          <div class="sob-label">Ton pseudo</div>
-          <input type="text" id="sob-username" placeholder="Ex: MaxSquat92" maxlength="20" oninput="checkUsernameAvailability(this.value)">
-          <div id="sob-username-status" style="font-size:12px;margin-top:-8px;margin-bottom:12px;"></div>
-          <div class="sob-label">Bio courte (optionnel)</div>
-          <textarea id="sob-bio" placeholder="Powerlifter depuis 2020..." maxlength="200" rows="2" style="resize:none;"></textarea>
-        </div>
-        <button class="btn" onclick="sobNext(1)">Continuer →</button>
-      </div>
-
-      <!-- Step 2: Vie privée -->
-      <div class="sob-step" id="sob-step-2">
-        <div class="sob-logo">🔒</div>
-        <div class="sob-title">Vie privée</div>
-        <div class="sob-sub">Choisis qui peut voir chaque section de ton profil.</div>
-        <div class="sob-fields">
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Bio</span>
-            <select class="sob-visibility-select" id="sob-vis-bio"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">PRs / Exercices clés</span>
-            <select class="sob-visibility-select" id="sob-vis-prs"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Programme</span>
-            <select class="sob-visibility-select" id="sob-vis-programme"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Séances détaillées</span>
-            <select class="sob-visibility-select" id="sob-vis-seances"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Stats</span>
-            <select class="sob-visibility-select" id="sob-vis-stats"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-        </div>
-        <button class="btn" onclick="sobNext(2)">Continuer →</button>
-      </div>
-
-      <!-- Step 3: Code d'invitation -->
-      <div class="sob-step" id="sob-step-3">
-        <div class="sob-logo">🎉</div>
-        <div class="sob-title">Invite tes amis !</div>
-        <div class="sob-sub">Partage ce code pour retrouver tes partenaires d'entraînement.</div>
-        <div class="sob-fields" style="text-align:center;">
-          <div class="sob-code-display" id="sob-invite-code">---</div>
-          <button class="btn" style="margin-bottom:12px;" onclick="copySobInviteCode()">📋 Copier le code</button>
-        </div>
-        <button class="btn" onclick="sobFinish()">C'est parti ! →</button>
-        <button class="ob-skip" onclick="sobFinish()">Passer</button>
-      </div>
-    </div>
-  </div>
+  </div><!-- /tab-corps -->
 
   <div id="tab-settings" class="profil-sub-section">
 
@@ -2195,6 +1998,203 @@
 
   </div><!-- /tab-settings -->
   </div><!-- /tab-profil -->
+
+  <div id="tab-game" class="content-section">
+    <div id="gamLevelCard"></div>
+    <div id="gamXPSources"></div>
+    <div id="gamChallenges"></div>
+    <div id="gamMonthlyChallenges"></div>
+    <div id="gamRecentBadges"></div>
+    <div id="gamNextBadges"></div>
+    <div id="gamStrengthContent"></div>
+    <div id="gamHeatmap"></div>
+    <div id="gamBadgesOverview"></div>
+    <div id="gamBadgesSections"></div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- COMMUNAUTÉ -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="tab-social" class="content-section">
+    <div class="social-sub-tabs">
+      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Feed</button>
+      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
+      <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
+    </div>
+
+    <!-- Feed Sub-tab -->
+    <div id="social-feed" class="social-sub-content active">
+      <div id="feedPinnedSection"></div>
+      <div id="feedContent"></div>
+      <div id="feedLoadMore" style="display:none;">
+        <button class="feed-load-more" onclick="loadMoreFeed()">Voir plus</button>
+      </div>
+    </div>
+
+    <!-- Leaderboard Sub-tab -->
+    <div id="social-leaderboard" class="social-sub-content">
+      <div class="card">
+        <h2>Classement</h2>
+        <div class="lb-filter">
+          <select id="lbExerciseFilter" onchange="renderLeaderboard()">
+            <option value="">Chargement...</option>
+          </select>
+        </div>
+        <div id="lbPodium" class="lb-podium"></div>
+        <div id="lbTable" class="lb-table"></div>
+        <div id="lbEmpty" class="lb-empty" style="display:none;">Ajoute des amis pour voir le classement !</div>
+      </div>
+    </div>
+
+    <!-- Friends Sub-tab -->
+    <div id="social-friends" class="social-sub-content">
+      <!-- Search -->
+      <div class="friends-search">
+        <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
+        <span class="friends-search-icon">🔍</span>
+        <div class="friends-autocomplete" id="friendAutocomplete"></div>
+      </div>
+
+      <!-- Friend Code -->
+      <div class="card" style="margin-bottom:16px;text-align:center;border:1px solid rgba(10,132,255,0.25);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);">
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code ami</div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Partage ce code permanent pour que tes amis t'ajoutent</div>
+        <div id="myFriendCode" style="font-family:monospace;font-size:28px;font-weight:800;letter-spacing:4px;color:var(--blue);padding:12px 0;user-select:all;">---</div>
+        <button class="btn" style="width:auto;padding:10px 24px;font-size:13px;margin:0 auto;" onclick="copyFriendCode()">📋 Copier</button>
+      </div>
+
+      <!-- Add friend by code -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Ajouter un ami par code</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
+        </div>
+      </div>
+
+      <!-- Invite Code (legacy) -->
+      <div class="friends-invite-card">
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Code d'invitation (usage unique)</div>
+        <div class="friends-invite-sub">Partage ce code pour ajouter des amis</div>
+        <div class="friends-invite-code" id="myInviteCode">---</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;" onclick="copyInviteCode()">Copier</button>
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="regenerateInviteCode()">Nouveau</button>
+        </div>
+      </div>
+
+      <!-- Use invite code -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Utiliser un code d'invitation</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="useInviteCodeInput" placeholder="Ex: AUR3L-7X" style="margin-bottom:0;text-transform:uppercase;letter-spacing:1px;font-family:monospace;" maxlength="10">
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="useInviteCode()">Ajouter</button>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="card" id="notifSection">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h2>Notifications</h2>
+          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
+        </div>
+        <div id="notifList" class="notif-list"></div>
+      </div>
+
+      <!-- Pending Requests -->
+      <div class="card" id="pendingRequestsSection" style="display:none;">
+        <h2>Demandes en attente</h2>
+        <div id="pendingRequestsList" class="friends-list"></div>
+      </div>
+
+      <!-- Friends List -->
+      <div class="card">
+        <h2>Mes amis</h2>
+        <div id="friendsList" class="friends-list"></div>
+      </div>
+
+      <!-- Blocked Users -->
+      <div class="card" id="blockedSection" style="display:none;">
+        <h2>Bloqués</h2>
+        <div id="blockedList" class="friends-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile overlay (friend profile view) -->
+  <div id="profileOverlay" class="profile-overlay" style="display:none;"></div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SOCIAL ONBOARDING OVERLAY -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="social-onboarding-overlay" style="display:none;">
+    <div class="sob-wrap">
+      <div class="sob-progress" id="sob-progress">
+        <div class="sob-dot active"></div>
+        <div class="sob-dot"></div>
+        <div class="sob-dot"></div>
+      </div>
+
+      <!-- Step 1: Bienvenue + pseudo -->
+      <div class="sob-step active" id="sob-step-1">
+        <div class="sob-logo">🤝</div>
+        <div class="sob-title">Rejoins la communauté</div>
+        <div class="sob-sub">Choisis un pseudo unique pour te faire connaître et suivre tes amis.</div>
+        <div class="sob-fields">
+          <div class="sob-label">Ton pseudo</div>
+          <input type="text" id="sob-username" placeholder="Ex: MaxSquat92" maxlength="20" oninput="checkUsernameAvailability(this.value)">
+          <div id="sob-username-status" style="font-size:12px;margin-top:-8px;margin-bottom:12px;"></div>
+          <div class="sob-label">Bio courte (optionnel)</div>
+          <textarea id="sob-bio" placeholder="Powerlifter depuis 2020..." maxlength="200" rows="2" style="resize:none;"></textarea>
+        </div>
+        <button class="btn" onclick="sobNext(1)">Continuer →</button>
+      </div>
+
+      <!-- Step 2: Vie privée -->
+      <div class="sob-step" id="sob-step-2">
+        <div class="sob-logo">🔒</div>
+        <div class="sob-title">Vie privée</div>
+        <div class="sob-sub">Choisis qui peut voir chaque section de ton profil.</div>
+        <div class="sob-fields">
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Bio</span>
+            <select class="sob-visibility-select" id="sob-vis-bio"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">PRs / Exercices clés</span>
+            <select class="sob-visibility-select" id="sob-vis-prs"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Programme</span>
+            <select class="sob-visibility-select" id="sob-vis-programme"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Séances détaillées</span>
+            <select class="sob-visibility-select" id="sob-vis-seances"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Stats</span>
+            <select class="sob-visibility-select" id="sob-vis-stats"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+        </div>
+        <button class="btn" onclick="sobNext(2)">Continuer →</button>
+      </div>
+
+      <!-- Step 3: Code d'invitation -->
+      <div class="sob-step" id="sob-step-3">
+        <div class="sob-logo">🎉</div>
+        <div class="sob-title">Invite tes amis !</div>
+        <div class="sob-sub">Partage ce code pour retrouver tes partenaires d'entraînement.</div>
+        <div class="sob-fields" style="text-align:center;">
+          <div class="sob-code-display" id="sob-invite-code">---</div>
+          <button class="btn" style="margin-bottom:12px;" onclick="copySobInviteCode()">📋 Copier le code</button>
+        </div>
+        <button class="btn" onclick="sobFinish()">C'est parti ! →</button>
+        <button class="ob-skip" onclick="sobFinish()">Passer</button>
+      </div>
+    </div>
+  </div>
   <nav class="tab-bar">
     <button class="tab-btn active" data-tab="tab-dash"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg> Accueil</button>
     <button class="tab-btn" data-tab="tab-seances"><svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg> Séances</button>

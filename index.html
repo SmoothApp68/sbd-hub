@@ -619,8 +619,8 @@
     .wpe-nodata { font-size: 12px; color: var(--orange); padding: 8px 16px 12px; border-top: 1px solid rgba(255,255,255,0.04); }
 
     /* ── Level card (.lvl-*) ── */
-    .lvl-card { position: relative; border-radius: 20px; padding: 24px 20px 20px; margin-bottom: 14px; overflow: hidden; border: 1px solid rgba(191,90,242,0.2); background: var(--card); }
-    .lvl-bg { position: absolute; inset: 0; opacity: 0.06; background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(191,90,242,0.3) 20px, rgba(191,90,242,0.3) 21px); }
+    .lvl-card { position: relative; border-radius: 20px; padding: 24px 20px 20px; margin-bottom: 14px; overflow: visible; border: 1px solid rgba(191,90,242,0.2); background: var(--card); }
+    .lvl-bg { position: absolute; inset: 0; opacity: 0.06; background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(191,90,242,0.3) 20px, rgba(191,90,242,0.3) 21px); border-radius: 20px; overflow: hidden; pointer-events: none; }
     .lvl-top { position: relative; display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
     .lvl-icon-wrap { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 38px; flex-shrink: 0; position: relative; border: 3px solid rgba(191,90,242,0.4); background: rgba(191,90,242,0.08); }
     .lvl-icon-ring { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--purple); border-right-color: var(--purple); animation: lvlSpin 8s linear infinite; }
@@ -799,7 +799,7 @@
     .bp-text { font-size: 8px; color: var(--sub); margin-top: 2px; text-align: center; }
 
     /* ── Tab game background ── */
-    #tab-game { background: linear-gradient(180deg, #000 0%, #0a0812 30%, #0d0816 60%, #000 100%); }
+    #tab-game { background: linear-gradient(180deg, #000 0%, #0a0812 30%, #0d0816 60%, #000 100%); margin: -15px -15px 0; padding: 15px 15px 0; }
 
     /* ── Themed separators ── */
     .gam-separator { text-align:center; padding:8px 0; color:var(--gold); font-size:10px; letter-spacing:4px; opacity:0.4; }
@@ -817,8 +817,8 @@
     .lvl-card-v2::before, .lvl-card-v2::after { content:''; position:absolute; width:20px; height:20px; border:2px solid var(--gold); opacity:0.25; pointer-events:none; }
     .lvl-card-v2::before { top:8px; left:8px; border-right:none; border-bottom:none; }
     .lvl-card-v2::after { bottom:8px; right:8px; border-left:none; border-top:none; }
-    .lvl-xp-bar-v2 { background: linear-gradient(90deg, var(--purple), var(--blue), var(--purple)); background-size: 200% 100%; animation: xpFlow 3s linear infinite; position: relative; }
-    .lvl-xp-bar-v2::after { content:''; position:absolute; right:-2px; top:50%; width:6px; height:6px; border-radius:50%; background:white; transform:translateY(-50%); box-shadow:0 0 6px rgba(255,255,255,0.6); animation:newDot 1.5s ease-in-out infinite; }
+    .lvl-xp-bar-v2 { background: linear-gradient(90deg, var(--purple), var(--blue), var(--purple)); background-size: 200% 100%; animation: xpFlow 3s linear infinite; }
+    .lvl-xp-particle { position:absolute; top:0; width:6px; height:6px; border-radius:50%; background:white; transform:translate(-50%, 2px); box-shadow:0 0 6px rgba(255,255,255,0.6); animation:newDot 1.5s ease-in-out infinite; pointer-events:none; z-index:2; }
     .lvl-stat-click { cursor: pointer; transition: transform 0.15s, border-color 0.2s; }
     .lvl-stat-click:active { transform: scale(0.95); }
     .lvl-stat-click:hover { border-color: var(--purple); }
@@ -828,14 +828,14 @@
 
     /* ── Quest Card (Dofus style) ── */
     .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.03) 0%, transparent 40%, rgba(200,162,76,0.02) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; }
-    .quest-card::before { content:'◆'; position:absolute; top:-6px; left:12px; color:var(--gold); font-size:8px; background:var(--card); padding:0 4px; opacity:0.5; }
+    .quest-card::before { content:'◆'; position:absolute; top:-6px; left:12px; color:var(--gold); font-size:8px; background:#0d0816; padding:0 4px; opacity:0.5; }
     .quest-item { background: var(--surface); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.15s; position: relative; }
     .quest-item:active { transform: scale(0.98); }
     .quest-item:last-child { margin-bottom: 0; }
     .quest-item.q-done { background: rgba(50,215,75,0.06); }
     .quest-item.q-active { border: 1px solid rgba(255,159,10,0.3); }
     .quest-item.q-secret { border: 1px solid var(--gold-border); }
-    .quest-perfect { background: linear-gradient(90deg, rgba(200,162,76,0.12), rgba(200,162,76,0.04)); border: 1px solid var(--gold-border); border-radius: 12px; padding: 10px 14px; margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--gold); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+    .quest-perfect { background-color: rgba(200,162,76,0.06); border: 1px solid var(--gold-border); border-radius: 12px; padding: 10px 14px; margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--gold); }
     .quest-arc { background: linear-gradient(135deg, rgba(191,90,242,0.03), rgba(10,132,255,0.03)); border: 1px solid rgba(191,90,242,0.3); outline: 1px solid rgba(191,90,242,0.08); outline-offset: 3px; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
     .quest-arc-bar { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
     .quest-arc-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.6s; }
@@ -878,7 +878,7 @@
 
     /* ── Heatmap clickable cells ── */
     .hm-cell-click { cursor: pointer; transition: transform 0.1s; }
-    .hm-cell-click:active { transform: scale(1.4); }
+    .hm-cell-click:active { transform: scale(1.15); }
 
     /* ── Strength card clickable ── */
     .sg-card-click { cursor: pointer; transition: transform 0.15s; }
@@ -4500,10 +4500,9 @@ function renderGamificationTab() {
   checkTitles();
   checkSecretQuests();
 
-  // ── Mark seen badges ──
-  var allBadgesForSeen = getAllBadges();
-  var seenBadges = db.seenBadges || [];
-  allBadgesForSeen.forEach(function(b) { if (!b.impossible && b.ck() && seenBadges.indexOf(b.id) < 0) {} });
+  // ── Clean up previous render artifacts (recap banners, separators) ──
+  document.querySelectorAll('#tab-game > .gam-recap, #tab-game > .gam-separator').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#tab-game .gam-separator').forEach(function(el) { el.remove(); });
 
   // ── 0. Weekly recap banner (Monday) ──
   (function() {
@@ -4560,6 +4559,7 @@ function renderGamificationTab() {
       '</div>' +
       '<div class="lvl-xp-row">' +
         '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar lvl-xp-bar-v2" style="width:' + pct + '%;"></div></div>' +
+        (pct > 0 && pct < 100 ? '<div class="lvl-xp-particle" style="left:' + pct + '%;"></div>' : '') +
         '<div class="lvl-xp-text"><span><strong>' + xpInLevel.toLocaleString() + '</strong> / ' + xpToNext.toLocaleString() + ' XP</span><span class="lvl-next">' + nextName + '</span></div>' +
       '</div>' +
       '<div class="lvl-stats">' +
@@ -4683,10 +4683,14 @@ function renderGamificationTab() {
       return sq ? { icon:'🔮', name:sq.name, ref:'SECRÈTE', r:'legendary', isSecret:true } : null;
     }).filter(Boolean).slice(-2);
 
+    // Mark all unlocked badges as seen (even if we don't display them)
+    var seenBadges = db.seenBadges || [];
+    var seenChanged = false;
+    unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) { seenBadges.push(b.id); seenChanged = true; } });
+    if (seenChanged) { db.seenBadges = seenBadges; saveDB(); }
+
     var combined = secretBadges.concat(recent).slice(0, 5);
     if (!combined.length) { document.getElementById('gamRecentBadges').innerHTML = ''; return; }
-
-    var seenBadges = db.seenBadges || [];
     var html = '<div class="mc"><div class="mc-title">🏆 Récemment débloqués</div><div class="ru-scroll">';
     combined.forEach(function(b) {
       var rc = rarityColor[b.r] || '#86868B';
@@ -4701,11 +4705,6 @@ function renderGamificationTab() {
     });
     html += '</div></div>';
     document.getElementById('gamRecentBadges').innerHTML = html;
-
-    // Mark as seen
-    unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) seenBadges.push(b.id); });
-    db.seenBadges = seenBadges;
-    saveDB();
   })();
 
   // ── 5. Prochains badges ──

@@ -894,6 +894,143 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
+    /* ── Onglet GO — Journal de séance ── */
+    .go-idle-wrap{text-align:center;padding:40px 16px 20px;max-width:400px;margin:0 auto;}
+    .go-idle-icon{font-size:56px;margin-bottom:12px;line-height:1.2;}
+    .go-idle-title{font-size:22px;font-weight:800;margin-bottom:6px;}
+    .go-idle-sub{font-size:14px;color:var(--sub);margin-bottom:24px;line-height:1.5;}
+    .go-btn-main{background:linear-gradient(135deg,#0A84FF 0%,#BF5AF2 100%);border:none;color:white;width:100%;padding:18px;border-radius:14px;font-weight:700;cursor:pointer;font-size:16px;display:flex;justify-content:center;align-items:center;gap:10px;transition:transform 0.2s;margin-bottom:10px;}
+    .go-btn-main:active{transform:scale(0.98);}
+    .go-btn-sec{background:var(--surface);border:1px solid var(--border);color:var(--text);width:100%;padding:14px;border-radius:14px;font-weight:600;cursor:pointer;font-size:14px;display:flex;justify-content:center;align-items:center;gap:8px;transition:all 0.2s;margin-bottom:10px;}
+    .go-btn-sec:hover{border-color:var(--blue);}
+    /* Active session header */
+    .go-header{background:var(--blue);border-radius:16px;padding:12px 16px;margin-bottom:14px;position:sticky;top:0;z-index:50;}
+    .go-header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+    .go-header-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.7);}
+    .go-header-timer{font-size:22px;font-weight:800;color:white;}
+    .go-header-btns{display:flex;gap:8px;}
+    .go-header-btn{background:rgba(255,255,255,0.2);border:none;color:white;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.2s;}
+    .go-header-btn:hover{background:rgba(255,255,255,0.3);}
+    .go-header-btn.danger{background:rgba(255,69,58,0.8);}
+    .go-header-btn.danger:hover{background:rgba(255,69,58,1);}
+    .go-counters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+    .go-counter-box{background:rgba(255,255,255,0.12);border-radius:10px;padding:8px;text-align:center;}
+    .go-counter-val{font-size:16px;font-weight:800;color:white;}
+    .go-counter-lbl{font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;}
+    /* Exercise card */
+    .go-exo-card{background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:14px;overflow:hidden;}
+    .go-exo-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
+    .go-exo-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .go-exo-info{flex:1;min-width:0;}
+    .go-exo-name{font-size:15px;font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .go-exo-e1rm{font-size:11px;color:var(--sub);}
+    .go-exo-menu{background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer;padding:4px 8px;}
+    .go-exo-notes{padding:0 16px;}
+    .go-exo-notes input{width:calc(100% - 0px);margin:8px 0 0;padding:10px 12px;font-size:13px;border-radius:8px;background:var(--surface);border:1px solid transparent;box-sizing:border-box;}
+    .go-exo-notes input:focus{border-color:var(--blue);}
+    .go-rest-badge{padding:4px 16px 8px;font-size:12px;color:var(--sub);cursor:pointer;display:flex;align-items:center;gap:4px;}
+    .go-rest-badge:hover{color:var(--blue);}
+    /* Sets table */
+    .go-sets-table{width:100%;border-collapse:collapse;margin:0;}
+    .go-sets-table th{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;padding:6px 4px;text-align:center;}
+    .go-sets-table td{padding:4px 3px;text-align:center;vertical-align:middle;}
+    .go-set-type-btn{background:var(--surface);border:1px solid var(--border);color:var(--sub);border-radius:6px;width:28px;height:28px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+    .go-set-type-btn.warmup{color:#C8A24C;border-color:rgba(200,162,76,0.3);}
+    .go-set-type-btn.failure{color:var(--red);border-color:rgba(255,69,58,0.3);}
+    .go-set-type-btn.drop{color:var(--orange);border-color:rgba(255,159,10,0.3);}
+    .go-set-prev{font-size:11px;color:var(--sub);white-space:nowrap;}
+    .go-set-input{width:56px;background:var(--surface);border:1px solid #3A3A3C;color:white;border-radius:8px;padding:8px 4px;font-size:14px;font-weight:600;text-align:center;-moz-appearance:textfield;}
+    .go-set-input::-webkit-inner-spin-button,.go-set-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+    .go-set-input:focus{border-color:var(--blue);outline:none;}
+    .go-check-btn{width:30px;height:30px;border-radius:8px;border:none;background:#3A3A3C;color:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;}
+    .go-check-btn.done{background:var(--green);color:white;}
+    .go-row-done{background:rgba(50,215,75,0.08);}
+    .go-row-done .go-set-input{background:transparent;border-color:transparent;color:var(--sub);pointer-events:none;}
+    .go-add-set-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:transparent;border:1px dashed var(--border);border-radius:0 0 16px 16px;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s;}
+    .go-add-set-btn:hover{background:rgba(10,132,255,0.06);}
+    .go-exo-footer{display:flex;gap:8px;padding:8px 16px;border-top:1px solid var(--border);}
+    .go-exo-footer button{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--sub);border-radius:8px;padding:8px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+    .go-exo-footer button:hover{border-color:var(--blue);color:var(--blue);}
+    .go-last-time{font-size:11px;color:var(--sub);padding:6px 16px 10px;display:flex;align-items:center;gap:4px;}
+    /* Rest timer */
+    .go-rest-timer{background:rgba(50,215,75,0.04);border:1px solid rgba(50,215,75,0.2);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center;}
+    .go-rest-timer-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:6px;}
+    .go-rest-timer-exo{font-size:11px;color:var(--sub);margin-bottom:8px;}
+    .go-rest-timer-count{font-size:42px;font-weight:800;color:var(--text);line-height:1;margin-bottom:4px;}
+    .go-rest-timer-rec{font-size:11px;color:var(--sub);margin-bottom:12px;}
+    .go-rest-timer-btns{display:flex;gap:8px;justify-content:center;}
+    .go-rest-timer-btns button{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+    .go-rest-timer-btns button:hover{border-color:var(--blue);}
+    .go-rest-timer-btns button.skip{background:rgba(255,69,58,0.15);border-color:rgba(255,69,58,0.3);color:var(--red);}
+    /* Add exercise btn */
+    .go-add-exo{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:16px;background:transparent;border:2px dashed var(--blue);border-radius:16px;color:var(--blue);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;transition:background 0.2s;}
+    .go-add-exo:hover{background:rgba(10,132,255,0.06);}
+    /* Finish btn */
+    .go-finish-btn{background:var(--red);border:none;color:white;width:100%;padding:16px;border-radius:14px;font-weight:700;cursor:pointer;font-size:15px;display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:20px;transition:transform 0.2s;}
+    .go-finish-btn:active{transform:scale(0.98);}
+    /* Search overlay */
+    .go-search-overlay{position:fixed;inset:0;background:var(--bg);z-index:10001;display:flex;flex-direction:column;animation:fadeIn 0.2s ease;}
+    .go-search-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+    .go-search-back{background:none;border:none;color:var(--blue);font-size:16px;cursor:pointer;padding:4px;}
+    .go-search-input{flex:1;background:var(--surface);border:1px solid var(--border);color:white;border-radius:10px;padding:10px 14px;font-size:15px;}
+    .go-search-input:focus{border-color:var(--blue);outline:none;}
+    .go-search-filters{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;scrollbar-width:none;}
+    .go-search-filters::-webkit-scrollbar{display:none;}
+    .go-search-chip{flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
+    .go-search-chip.active{background:var(--blue);color:white;border-color:var(--blue);}
+    .go-search-results{flex:1;overflow-y:auto;padding:8px 16px;}
+    .go-search-section{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;padding:10px 0 6px;}
+    .go-search-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;}
+    .go-search-item:hover{border-color:var(--blue);}
+    .go-search-item:active{transform:scale(0.98);}
+    .go-search-item-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .go-search-item-info{flex:1;min-width:0;}
+    .go-search-item-name{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .go-search-item-sub{font-size:11px;color:var(--sub);margin-top:2px;}
+    .go-search-item-e1rm{font-size:11px;font-weight:700;color:var(--blue);}
+    .go-search-create{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--surface);border:1px dashed var(--blue);border-radius:12px;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;}
+    /* Bottom sheet */
+    .go-bottom-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.15s ease;}
+    .go-sheet-box{background:var(--card);border-radius:24px 24px 0 0;padding:20px 16px;padding-bottom:calc(20px + env(safe-area-inset-bottom));width:100%;max-width:500px;max-height:80vh;overflow-y:auto;}
+    .go-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+    .go-sheet-title{font-size:16px;font-weight:800;margin-bottom:12px;text-align:center;}
+    .go-sheet-item{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;text-align:left;font-size:14px;font-weight:600;color:var(--text);}
+    .go-sheet-item:hover{border-color:var(--blue);}
+    .go-sheet-item.danger{color:var(--red);border-color:rgba(255,69,58,0.3);}
+    .go-sheet-item .sheet-icon{font-size:18px;flex-shrink:0;}
+    /* Wizard (custom exo creation) */
+    .go-wizard{padding:16px;}
+    .go-wizard-step{display:none;animation:fadeIn 0.25s ease;}
+    .go-wizard-step.active{display:block;}
+    .go-wizard-title{font-size:18px;font-weight:800;margin-bottom:4px;}
+    .go-wizard-sub{font-size:13px;color:var(--sub);margin-bottom:16px;}
+    .go-wizard-label{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;}
+    .go-wizard-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+    .go-wizard-grid.col2{grid-template-columns:repeat(2,1fr);}
+    .go-wizard-opt{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;text-align:center;transition:all 0.2s;font-size:12px;font-weight:600;color:var(--text);}
+    .go-wizard-opt:hover{border-color:var(--blue);}
+    .go-wizard-opt.selected{border-color:var(--blue);background:rgba(10,132,255,0.12);}
+    .go-wizard-opt .wiz-icon{font-size:22px;margin-bottom:4px;}
+    .go-wizard-muscles{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+    .go-wizard-muscle{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;}
+    .go-wizard-muscle.selected{background:var(--blue);color:white;border-color:var(--blue);}
+    .go-wizard-next{background:var(--blue);border:none;color:white;width:100%;padding:14px;border-radius:14px;font-weight:700;cursor:pointer;font-size:15px;margin-top:8px;transition:transform 0.2s;}
+    .go-wizard-next:active{transform:scale(0.98);}
+    /* Muscle distribution */
+    .go-muscles-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;}
+    .go-muscles-title{font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;}
+    .go-muscle-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    .go-muscle-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .go-muscle-name{font-size:12px;font-weight:600;color:var(--text);width:90px;flex-shrink:0;}
+    .go-muscle-bar-bg{flex:1;background:var(--border);border-radius:3px;height:6px;overflow:hidden;}
+    .go-muscle-bar-fill{height:100%;border-radius:3px;transition:width 0.4s ease;}
+    .go-muscle-sets{font-size:11px;font-weight:700;color:var(--sub);min-width:36px;text-align:right;}
+    .go-muscle-subs{padding-left:16px;margin-bottom:6px;}
+    .go-muscle-sub-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:11px;color:var(--sub);}
+    .go-muscle-sub-badge{padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;flex-shrink:0;}
+    .go-muscle-sub-badge.primary{background:rgba(10,132,255,0.2);color:var(--blue);}
+    .go-muscle-sub-badge.secondary{background:rgba(191,90,242,0.15);color:var(--purple);}
+    .go-muscle-sub-badge.tertiary{background:rgba(134,134,139,0.15);color:var(--sub);}
   </style>
 </head>
 <body>
@@ -10184,10 +10321,15 @@ function goStartWorkout(withProgram) {
       }
       var name = found ? found.name : exoRef;
       var exoId = found ? found.id : null;
+      var initSets = [];
+      // Pre-add one empty set per exercise from program
+      var prevData = goGetPreviousSets(name);
+      var firstPrev = prevData && prevData.series.length > 0 ? prevData.series[0] : null;
+      initSets.push({ weight: firstPrev ? (firstPrev.weight || 0) : 0, reps: firstPrev ? (firstPrev.reps || 0) : 0, type: 'normal', completed: false, rpe: null, duration: 0, distance: 0 });
       activeWorkout.exercises.push({
         exoId: exoId,
         name: name,
-        sets: [],
+        sets: initSets,
         restSeconds: goGetDefaultRest(name, exoId),
         notes: ''
       });
@@ -10269,7 +10411,8 @@ function renderGoActiveView() {
   h += '<div class="go-header-timer" id="goTimerDisplay">' + goFormatTime(elapsed) + '</div></div>';
   h += '<div class="go-header-btns">';
   h += '<button class="go-header-btn" onclick="goTogglePause()">' + (_goSessionPaused ? '▶' : '⏸') + '</button>';
-  h += '<button class="go-header-btn danger" onclick="goConfirmFinish()">⏹</button>';
+  h += '<button class="go-header-btn danger" onclick="goConfirmDiscard()">✕</button>';
+  h += '<button class="go-header-btn" style="background:rgba(50,215,75,0.7);" onclick="goConfirmFinish()">✓</button>';
   h += '</div></div>';
   h += '<div class="go-counters">';
   h += '<div class="go-counter-box"><div class="go-counter-val" id="goCntTonnage">' + tonnageDisplay + '</div><div class="go-counter-lbl">Tonnage</div></div>';
@@ -10309,8 +10452,9 @@ function renderGoActiveView() {
   // ── Add Exercise ──
   h += '<button class="go-add-exo" onclick="goOpenSearch()">➕ Ajouter un exercice</button>';
 
-  // ── Finish Button ──
-  h += '<button class="go-finish-btn" onclick="goConfirmFinish()">⏹ Terminer la séance</button>';
+  // ── Finish / Cancel Buttons ──
+  h += '<button class="go-finish-btn" style="background:var(--green);color:#000;" onclick="goConfirmFinish()">✓ Terminer la séance</button>';
+  h += '<button class="go-btn-sec" style="border-color:rgba(255,69,58,0.3);color:var(--red);" onclick="goConfirmDiscard()">✕ Annuler la séance</button>';
 
   document.getElementById('goActiveView').innerHTML = h;
 }
@@ -10340,6 +10484,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   h += '<div class="go-rest-badge" onclick="goEditRest(' + exoIdx + ')">⏱ Repos: ' + goFormatRestBadge(exo.restSeconds || 90) + '</div>';
 
   // Sets table
+  h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
   if (tt === 'weight') { h += '<th>KG</th><th>RÉPS</th><th style="width:44px;">RPE</th>'; }
@@ -10377,12 +10522,17 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
 
     // Inputs based on tracking type
     if (tt === 'weight') {
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.weight || '') + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.reps || '') + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.rpe || '') + '" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      var wVal = set.weight ? set.weight : '';
+      var rVal = set.reps ? set.reps : '';
+      var rpVal = set.rpe ? set.rpe : '';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + wVal + '" placeholder="kg" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal + '" placeholder="reps" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'reps') {
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.reps || '') + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.rpe || '') + '" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      var rVal2 = set.reps ? set.reps : '';
+      var rpVal2 = set.rpe ? set.rpe : '';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal2 + '" placeholder="reps" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal2 + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'time') {
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.duration || '') + '" placeholder="sec" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'duration\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'cardio') {
@@ -10395,7 +10545,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '</tr>';
   });
 
-  h += '</tbody></table>';
+  h += '</tbody></table></div>';
 
   // Add set button
   h += '<button class="go-add-set-btn" onclick="goAddSet(' + exoIdx + ')">+ Série</button>';
@@ -11118,6 +11268,27 @@ function goFinishWorkout() {
   _goSessionPaused = false;
 
   showToast('✅ Séance sauvegardée');
+  renderGoTab();
+}
+
+function goConfirmDiscard() {
+  showModal(
+    'Annuler la séance ?<br><span style="font-size:12px;color:var(--sub);">Toutes les données de cette séance seront perdues.</span>',
+    'Annuler la séance',
+    'var(--red)',
+    function() { goDiscardWorkout(); }
+  );
+}
+
+function goDiscardWorkout() {
+  try { localStorage.removeItem('SBD_ACTIVE_WORKOUT'); } catch(e) {}
+  goStopAutoSave();
+  goStopSessionTimer();
+  goSkipRest();
+  goReleaseWakeLock();
+  activeWorkout = null;
+  _goSessionPaused = false;
+  showToast('Séance annulée');
   renderGoTab();
 }
 

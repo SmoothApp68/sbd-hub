@@ -107,8 +107,11 @@ function getTodayReadiness() {
   return (db.readiness || []).find(r => r.date === today) || null;
 }
 
-function showReadinessModal() {
-  if (hasTodayReadiness()) return;
+let _pendingWorkoutWithProgram = null;
+
+function showReadinessModal(onComplete) {
+  if (hasTodayReadiness()) { if (onComplete) onComplete(); return; }
+  _readinessOnComplete = onComplete || null;
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
@@ -122,7 +125,7 @@ function showReadinessModal() {
     </div>
     <div style="font-size:10px;color:var(--sub);text-align:center;margin:8px 0;">1 = mauvais · 5 = excellent</div>
     <div class="modal-actions">
-      <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="document.getElementById('readinessModal').remove()">Passer</button>
+      <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="skipReadiness()">Passer</button>
       <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider</button>
     </div>
   </div>`;
@@ -131,6 +134,14 @@ function showReadinessModal() {
     const slider = document.getElementById('rd-'+k);
     slider.oninput = () => document.getElementById('rd-'+k+'-val').textContent = slider.value;
   });
+}
+
+let _readinessOnComplete = null;
+
+function skipReadiness() {
+  const modal = document.getElementById('readinessModal');
+  if (modal) modal.remove();
+  if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
 }
 
 function submitReadiness() {
@@ -144,15 +155,225 @@ function submitReadiness() {
   const modal = document.getElementById('readinessModal');
   if (modal) modal.remove();
   showToast('✅ Readiness : ' + score + '/100');
+  if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
 }
 
 function getReadinessBannerHtml() {
   const r = getTodayReadiness();
   if (!r) return '';
-  if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — séance allégée recommandée (volume -40%, charge -15%)</div>';
-  if (r.score < 60) return '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--orange);">Readiness modérée (' + r.score + '/100) — charge maintenue, volume réduit (-1 set/exo)</div>';
-  if (r.score >= 80) return '<div style="background:rgba(50,215,75,0.12);border-left:3px solid var(--green);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--green);">Readiness excellente (' + r.score + '/100) — go ! 💪</div>';
+  var detail = '<div class="readiness-detail" style="display:none;margin-top:6px;font-size:11px;line-height:1.6;opacity:0.85;">' +
+    '😴 Sommeil : ' + r.sleep + '/5 · ⚡ Énergie : ' + r.energy + '/5 · 💪 Courbatures : ' + r.soreness + '/5 · 🧠 Stress : ' + r.stress + '/5<br>' +
+    'Score : (' + r.sleep + '+' + r.energy + '+' + r.soreness + '+' + r.stress + ') / 20 × 100 = ' + r.score + '/100' +
+    '</div>';
+  var toggleBtn = ' <span class="glossary-tip" onclick="event.stopPropagation();var d=this.parentElement.querySelector(\'.readiness-detail\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">ℹ️</span>';
+  if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — séance allégée recommandée (volume -40%, charge -15%)' + toggleBtn + detail + '</div>';
+  if (r.score < 60) return '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--orange);">Readiness modérée (' + r.score + '/100) — charge maintenue, volume réduit (-1 set/exo)' + toggleBtn + detail + '</div>';
+  if (r.score >= 80) return '<div style="background:rgba(50,215,75,0.12);border-left:3px solid var(--green);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--green);">Readiness excellente (' + r.score + '/100) — go ! 💪' + toggleBtn + detail + '</div>';
+  if (r.score >= 60) return '<div style="background:rgba(255,255,255,0.05);border-left:3px solid var(--sub);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--text);">Readiness correcte (' + r.score + '/100) — programme normal' + toggleBtn + detail + '</div>';
   return '';
+}
+
+// ── GLOSSAIRE & TRANSPARENCE ────────────────────────────────
+const GLOSSARY = {
+  rpe: {
+    short: "RPE (Rate of Perceived Exertion)",
+    desc: "Échelle de 1 à 10 qui mesure l'effort ressenti. RPE 7 = tu aurais pu faire 3 reps de plus. RPE 10 = impossible d'en faire une de plus.",
+    example: "Si tu fais 5 reps et que tu aurais pu en faire 2 de plus → RPE 8.",
+    category: "bases"
+  },
+  e1rm: {
+    short: "e1RM (1RM estimé)",
+    desc: "Le poids maximum que tu pourrais soulever 1 seule fois, estimé à partir de tes séries. Calculé avec la formule d'Epley : poids × (1 + reps / 30).",
+    example: "100kg × 5 reps → e1RM ≈ 117kg",
+    category: "performance"
+  },
+  mev: {
+    short: "MEV (Volume Minimum Efficace)",
+    desc: "Le nombre minimum de séries par semaine pour qu'un muscle progresse. En dessous, tu maintiens mais tu ne grandis pas.",
+    example: "MEV pecs = 8 séries/semaine. Si tu fais 6 → pas assez pour progresser.",
+    category: "volume"
+  },
+  mav: {
+    short: "MAV (Volume Adaptatif Maximum)",
+    desc: "La zone de volume optimale pour progresser. C'est le sweet spot entre 'pas assez' et 'trop'.",
+    example: "MAV pecs = 14 séries/semaine. C'est là que la croissance musculaire est maximale.",
+    category: "volume"
+  },
+  mrv: {
+    short: "MRV (Volume Maximum Récupérable)",
+    desc: "Le volume maximum que ton corps peut encaisser et dont il peut récupérer. Au-delà, tu accumules de la fatigue sans bénéfice.",
+    example: "MRV pecs = 20 séries/semaine. Au-delà, risque de surmenage et de blessure.",
+    category: "volume"
+  },
+  dots: {
+    short: "DOTS Score",
+    desc: "Score qui compare ta force relative à ton poids de corps. Remplace le Wilks depuis 2020. Plus le score est haut, plus tu es fort pour ton poids.",
+    calc: "DOTS = (500 / coefficient) × total. Le coefficient dépend de ton poids de corps et de ton sexe. Un DOTS > 400 = niveau national.",
+    example: "Total 520kg à 98kg de poids de corps → DOTS ≈ 387 (niveau avancé).",
+    category: "performance"
+  },
+  wilks: {
+    short: "Wilks Score",
+    desc: "Ancien score de force relative (utilisé avant 2020, encore populaire). Même principe que le DOTS mais avec des coefficients différents.",
+    calc: "Wilks = (500 / coefficient) × total. Coefficient polynomial basé sur le poids de corps.",
+    example: "Total 520kg à 98kg → Wilks ≈ 342.",
+    category: "performance"
+  },
+  deload: {
+    short: "Deload (semaine de récupération)",
+    desc: "Semaine où on réduit volontairement le volume (-40%) et la charge (-15 à 20%) pour laisser le corps récupérer. Ça permet de repartir plus fort ensuite.",
+    example: "Après 4 semaines d'entraînement intensif, 1 semaine de deload pour dissiper la fatigue.",
+    category: "recuperation"
+  },
+  mesocycle: {
+    short: "Mésocycle",
+    desc: "Bloc d'entraînement de 4 à 6 semaines avec une progression planifiée. Chaque semaine est un peu plus intense que la précédente, puis on récupère.",
+    example: "Semaine 1 : base → Semaine 2 : montée → Semaine 3 : pic → Semaine 4 : peak → Semaine 5 : deload.",
+    category: "recuperation"
+  },
+  readiness: {
+    short: "Score de Readiness",
+    desc: "Indique à quel point ton corps est prêt à s'entraîner aujourd'hui, sur 100.",
+    calc: "Moyenne de 4 critères notés de 1 à 5 : sommeil, énergie, douleurs (inversé), stress. Score = (somme / 20) × 100.",
+    example: "Sommeil 4/5 + Énergie 3/5 + Douleurs 4/5 + Stress 3/5 = 14/20 → Readiness 70/100.",
+    category: "recuperation"
+  },
+  form_score: {
+    short: "Score de Forme",
+    desc: "Score global de 0 à 100 qui résume ton état actuel en combinant plusieurs facteurs.",
+    calc: "Score = Readiness moy. 7j (×20%) + Compliance programme (×25%) + Tendance force (×20%) + Récupération musculaire (×15%) + Régularité nutrition (×10%) + Qualité sommeil (×10%).",
+    example: "Readiness 70 × 0.20 + Compliance 80 × 0.25 + Tendance +1 × 0.20 + Récupération 60 × 0.15 + Nutrition 50 × 0.10 + Sommeil 70 × 0.10 = 68/100.",
+    category: "scores"
+  },
+  pr_prediction: {
+    short: "Prédiction de PR",
+    desc: "Estimation de quand tu atteindras ton objectif de poids, basée sur ta progression actuelle.",
+    calc: "1. Progression hebdomadaire en kg (régression linéaire sur 6 dernières séances). 2. Écart entre e1RM actuel et objectif. 3. Semaines = écart ÷ progression/semaine. 4. Confiance (%) = R² de la régression (régularité de la progression).",
+    example: "e1RM 140kg, objectif 160kg, progression +1.84 kg/sem → ~11 semaines. R² = 0.16 → confiance 16%.",
+    category: "scores"
+  },
+  tonnage: {
+    short: "Tonnage",
+    desc: "Le poids total soulevé pendant une séance ou une semaine. C'est la somme de (poids × reps) pour chaque série.",
+    calc: "Tonnage = Σ (poids × reps) pour chaque série de travail.",
+    example: "Squat : 100kg × 5 × 4 séries = 2000kg. Bench : 80kg × 8 × 3 = 1920kg. Total séance = 3920kg ≈ 3.9 tonnes.",
+    category: "performance"
+  },
+  compliance: {
+    short: "Compliance (adhérence)",
+    desc: "Le pourcentage de séances que tu as réellement faites par rapport à ce qui était prévu.",
+    calc: "Compliance = (séances réalisées ÷ séances prévues) × 100.",
+    example: "4 séances prévues, 3 réalisées → Compliance = 75%.",
+    category: "scores"
+  },
+  progressive_overload: {
+    short: "Surcharge progressive",
+    desc: "Le principe fondamental de la progression : augmenter progressivement la difficulté (poids, reps, ou séries) pour forcer le corps à s'adapter.",
+    example: "Semaine 1 : 60kg × 10. Semaine 2 : 62.5kg × 10. Semaine 3 : 62.5kg × 12. Semaine 4 : 65kg × 10.",
+    category: "bases"
+  },
+  load_pct: {
+    short: "Pourcentage de charge (LOAD_PCT)",
+    desc: "Le pourcentage de ton max estimé utilisé comme charge de travail. Change chaque semaine du mésocycle.",
+    calc: "Semaine 1 : 88% | Semaine 2 : 92% | Semaine 3 : 96% | Semaine 4 : 100%. Ajusté par le niveau.",
+    example: "e1RM squat = 150kg. Semaine 2 (92%) pour 5 reps : charge Epley = 150 × 0.889 = 133kg × 0.92 = 122.5kg.",
+    category: "formules"
+  },
+  epley: {
+    short: "Formule d'Epley",
+    desc: "Formule mathématique pour estimer ton 1RM à partir d'une série de plusieurs reps.",
+    calc: "e1RM = poids × (1 + reps ÷ 30). Inversement : poids = e1RM × (1.0278 − 0.0278 × reps cibles).",
+    example: "100kg × 5 reps → e1RM = 100 × 1.167 = 116.7kg. Limites : moins précis au-delà de 10 reps.",
+    category: "formules"
+  },
+  fatigue_index: {
+    short: "Indice de fatigue musculaire",
+    desc: "Estime à quel point un muscle est fatigué, de 0% (frais) à 100% (surentraîné).",
+    calc: "Pour chaque séance des 7 derniers jours, on compte les séries pondérées par la contribution musculaire, avec décroissance exponentielle (demi-vie 48h). Normalisé par rapport au MRV.",
+    example: "Pecs : 12 séries avec décroissance → score 65%. Entraîné hier = plus fatigué qu'il y a 3 jours.",
+    category: "recuperation"
+  },
+  strength_ratios: {
+    short: "Ratios de force",
+    desc: "Comparaison entre tes performances sur différents exercices pour détecter des déséquilibres musculaires.",
+    calc: "Ratio = e1RM exercice A ÷ e1RM exercice B. Comparé à des plages idéales établies par la science du sport.",
+    example: "Row/Bench idéal : 0.90-1.00. Si < 0.75 → dos trop faible par rapport aux pecs → risque épaule.",
+    category: "scores"
+  }
+};
+
+const GLOSSARY_CATEGORIES = {
+  bases: { label: 'Bases', icon: '📚', keys: ['rpe', 'progressive_overload'] },
+  performance: { label: 'Mesures de performance', icon: '📊', keys: ['e1rm', 'tonnage', 'dots', 'wilks'] },
+  volume: { label: 'Gestion du volume', icon: '📐', keys: ['mev', 'mav', 'mrv'] },
+  recuperation: { label: 'Récupération & fatigue', icon: '🔄', keys: ['readiness', 'deload', 'fatigue_index', 'mesocycle'] },
+  scores: { label: 'Scores & prédictions', icon: '🎯', keys: ['form_score', 'pr_prediction', 'compliance', 'strength_ratios'] },
+  formules: { label: 'Formules', icon: '🧮', keys: ['epley', 'load_pct'] }
+};
+
+function renderGlossaryTip(key) {
+  if (!GLOSSARY[key]) return '';
+  return '<span class="glossary-tip" onclick="event.stopPropagation();showGlossaryModal(\'' + key + '\')">ℹ️</span>';
+}
+
+function showGlossaryModal(key) {
+  var g = GLOSSARY[key];
+  if (!g) return;
+  var existing = document.getElementById('glossaryModal');
+  if (existing) existing.remove();
+  var body = '<p style="font-size:13px;line-height:1.6;color:var(--text);margin:0 0 12px;">' + g.desc + '</p>';
+  if (g.calc) body += '<div style="background:rgba(10,132,255,0.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;"><div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px;">📐 Comment c\'est calculé</div><div style="font-size:12px;color:var(--text);line-height:1.5;">' + g.calc + '</div></div>';
+  if (g.example) body += '<div style="background:rgba(50,215,75,0.08);border-radius:10px;padding:10px 12px;"><div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px;">💡 Exemple concret</div><div style="font-size:12px;color:var(--text);line-height:1.5;">' + g.example + '</div></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'glossaryModal';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = '<div class="modal-box" style="max-width:380px;padding:20px;text-align:left;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
+    '<div style="font-size:15px;font-weight:700;color:var(--text);">' + g.short + '</div>' +
+    '<button onclick="document.getElementById(\'glossaryModal\').remove()" style="background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer;padding:0;">✕</button>' +
+    '</div>' + body + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function renderGlossaryPage() {
+  var el = document.getElementById('glossaryPageContent');
+  if (!el) return;
+  var html = '';
+  for (var catKey in GLOSSARY_CATEGORIES) {
+    var cat = GLOSSARY_CATEGORIES[catKey];
+    html += '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">' + cat.icon + ' ' + cat.label + '</div>';
+    cat.keys.forEach(function(key) {
+      var g = GLOSSARY[key];
+      if (!g) return;
+      html += '<div class="glossary-item" onclick="showGlossaryModal(\'' + key + '\')">' +
+        '<span style="font-size:12px;font-weight:600;color:var(--text);">' + g.short + '</span>' +
+        '<span class="glossary-tip">ℹ️</span>' +
+        '</div>';
+    });
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderScoreBreakdown(breakdown) {
+  var html = '<div class="breakdown">';
+  for (var i = 0; i < breakdown.lines.length; i++) {
+    var line = breakdown.lines[i];
+    html += '<div class="breakdown-line">' +
+      '<span class="bl-label">' + line.label + '</span>' +
+      '<span class="bl-value">' + Math.round(line.value) + '/100</span>' +
+      '<span class="bl-weight">× ' + line.weight + '</span>' +
+      '<span class="bl-contribution">= ' + line.contribution + '</span>' +
+      '</div>';
+  }
+  html += '<div class="breakdown-total">Total : ' + breakdown.total + '/100</div>';
+  if (breakdown.delta !== undefined && breakdown.delta !== 0) {
+    html += '<div class="breakdown-delta">' + (breakdown.delta > 0 ? '↑' : '↓') + ' ' + Math.abs(breakdown.delta) + ' vs semaine dernière</div>';
+  }
+  html += '</div>';
+  return html;
 }
 
 // ── EXPORT / IMPORT JSON ─────────────────────────────────────
@@ -1151,7 +1372,6 @@ function showTab(tabId) {
   if (tabId==='tab-seances') {
     if (activeSeancesSub === 'seances-go') renderGoTab();
     else renderSeancesTab();
-    if (isTodayTrainingDay() && !hasTodayReadiness()) showReadinessModal();
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); renderDeloadBanner(); }
@@ -2832,9 +3052,9 @@ function showMuscleFatigueTooltip(key) {
   }
   el.style.display = 'block';
   el.innerHTML = '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">' + (LABELS_FR[key] || key) + '</div>' +
-    '<div>Fatigue : <strong>' + f + '%</strong></div>' +
+    '<div>Fatigue : <strong>' + f + '%</strong> ' + renderGlossaryTip('fatigue_index') + '</div>' +
     '<div>Dernière séance : ' + lastSession + '</div>' +
-    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV || '—') + ')</div>';
+    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV || '—') + ') ' + renderGlossaryTip('mav') + '</div>';
 }
 
 // ── Score de forme composite (Dashboard) ────────────────────
@@ -2889,6 +3109,7 @@ function renderFormScoreDash() {
   const { score, components } = computeFormScoreComposite();
   const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
   const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
+  const COMP_WEIGHTS = { readiness:'20%', compliance:'25%', trend:'20%', recovery:'15%', nutrition:'10%', sleep:'10%' };
   const barsHtml = Object.entries(components).map(([k,v]) =>
     '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
     '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
@@ -2896,14 +3117,27 @@ function renderFormScoreDash() {
     '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
     '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
   ).join('');
+  // Detailed breakdown (expandable)
+  const breakdownHtml = Object.entries(components).map(([k,v]) => {
+    const w = COMP_WEIGHTS[k] || '?';
+    const wNum = parseFloat(w) / 100;
+    return '<div class="breakdown-line">' +
+      '<span class="bl-label">' + (COMP_LABELS[k]||k) + '</span>' +
+      '<span class="bl-value">' + Math.round(v) + '/100</span>' +
+      '<span class="bl-weight">× ' + w + '</span>' +
+      '<span class="bl-contribution">= ' + (v * wNum).toFixed(1) + '</span></div>';
+  }).join('');
   el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
     '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
     '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
-    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme</div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme ' + renderGlossaryTip('form_score') + '</div>' +
     '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
     (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
     '</div></div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>';
+    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>' +
+    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail du calcul\':\'📐 Masquer le détail\';">📐 Voir le détail du calcul</div>' +
+    '<div class="breakdown" style="display:none;">' + breakdownHtml +
+    '<div class="breakdown-total">Total : ' + score + '/100</div></div>';
 }
 
 // ── Prédiction de PR ────────────────────────────────────────
@@ -2941,7 +3175,8 @@ function predictPR(exerciseName, targetWeight) {
   targetDate.setDate(targetDate.getDate() + weeks * 7);
   return {
     reachable: true, weeks, date: targetDate.toLocaleDateString('fr-FR'),
-    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2)
+    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2),
+    currentE1RM: Math.round(currentE1RM), gap: Math.round(gap), dataPoints: n
   };
 }
 
@@ -2969,15 +3204,25 @@ function renderDotsWilks() {
   const dots = computeDOTS(total, bw, gender);
   const wilks = computeWilks(total, bw, gender);
   const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
+  var dotsBreakdown = '<div class="breakdown" style="display:none;margin-top:8px;">' +
+    '<div class="breakdown-line"><span class="bl-label">Squat (e1RM)</span><span class="bl-value">' + squat + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Bench (e1RM)</span><span class="bl-value">' + bench + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Deadlift (e1RM)</span><span class="bl-value">' + deadlift + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Total</span><span class="bl-value" style="font-weight:700;">' + total + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Poids de corps</span><span class="bl-value">' + bw + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Genre</span><span class="bl-value">' + (gender === 'F' ? 'Femme' : 'Homme') + '</span></div>' +
+    '<div class="breakdown-total">DOTS = ' + dots + ' · Wilks = ' + wilks + '</div></div>';
   el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
     '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
     '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
     '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
     '<div style="display:flex;gap:16px;margin-top:8px;">' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
     '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
-    '</div>';
+    '</div>' +
+    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail\':\'📐 Masquer le détail\';">📐 Voir le détail</div>' +
+    dotsBreakdown;
 }
 
 // ── Rubrique Performance configurable ────────────────────────
@@ -3087,7 +3332,7 @@ function renderPerfCard() {
     return '<div class="rm-box">' +
       (isPR ? '<div class="pr-badge">🔥 PR!</div>' : '') +
       '<div style="font-size:10px;color:var(--sub);">' + shortName.toUpperCase() + '</div>' +
-      '<div class="rm-val" style="color:' + color + '">' + (e1rm || 0) + '<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg e1RM</span></div>' +
+      '<div class="rm-val" style="color:' + color + '">' + (e1rm || 0) + '<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg e1RM ' + renderGlossaryTip('e1rm') + '</span></div>' +
       (real > 0 ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">✓ ' + real + 'kg réel</div>' : '') +
       (target > 0 ? '<div class="rm-target">Visé : ' + target + 'kg</div>' : '<div class="rm-target" style="color:var(--border);">—</div>') +
       (bw ? '<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">' + bw + '</div>' : '') +
@@ -3167,7 +3412,16 @@ function renderPerfCard() {
     if (target > 0 && e1rm > 0 && e1rm < target) {
       const pred = predictPR(kl.name, target);
       if (pred.reachable && pred.weeks > 0) {
-        predHtml = '<div style="font-size:10px;color:var(--teal);margin-top:4px;">📈 +' + pred.weeklyGain + ' kg/sem → ' + target + 'kg vers ' + pred.date + ' (confiance ' + pred.confidence + '%)</div>';
+        var predDetail = '<div class="pred-detail" style="display:none;font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;background:rgba(100,210,255,0.06);border-radius:6px;padding:6px 8px;">' +
+          '• e1RM actuel : ' + pred.currentE1RM + 'kg ' + renderGlossaryTip('e1rm') + '<br>' +
+          '• Progression : +' + pred.weeklyGain + ' kg/semaine (sur ' + pred.dataPoints + ' séances)<br>' +
+          '• Écart : ' + pred.gap + 'kg à combler<br>' +
+          '• Temps : ' + pred.gap + ' ÷ ' + pred.weeklyGain + ' ≈ ' + pred.weeks + ' semaines<br>' +
+          '• Confiance : ' + pred.confidence + '% ' + (pred.confidence < 30 ? '(progression irrégulière)' : pred.confidence < 60 ? '(progression modérée)' : '(progression régulière)') +
+          '</div>';
+        predHtml = '<div style="font-size:10px;color:var(--teal);margin-top:4px;">📈 +' + pred.weeklyGain + ' kg/sem → ' + target + 'kg vers ' + pred.date + ' (confiance ' + pred.confidence + '%) ' +
+          '<span class="glossary-tip" onclick="event.stopPropagation();var d=this.parentElement.querySelector(\'.pred-detail\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">ℹ️</span>' +
+          predDetail + '</div>';
       } else if (!pred.reachable) {
         predHtml = '<div style="font-size:10px;color:var(--orange);margin-top:4px;">📉 ' + pred.reason + '</div>';
       }
@@ -4642,15 +4896,23 @@ function renderVolumeLandmarks() {
     const sets = Math.round((vol[key] || 0) * 10) / 10;
     const pct = Math.min(100, (sets / lm.MRV) * 100);
     let color = 'var(--sub)'; let status = '< MEV';
-    if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️'; }
-    else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV'; }
-    else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅'; }
+    if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
+    else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
+    else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
+    var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
     html += '<div style="margin-bottom:8px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
       '<span style="font-weight:600;">' + (LABELS_FR[key] || key) + '</span>' +
       '<span style="color:' + color + ';">' + sets + '/' + lm.MRV + ' sets · ' + status + '</span></div>' +
       '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
-      '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div></div>';
+      '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div>' +
+      '<div class="vol-detail" style="display:none;font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;">' +
+      'MEV: ' + lm.MEV + ' · MAV: ' + lm.MAV + ' · MRV: ' + lm.MRV + ' sets/sem<br>' +
+      'Actuel : ' + sets + ' sets → ' + zoneLabel + '</div>' +
+      '</div>';
+  }
+  if (html) {
+    html += '<div class="breakdown-toggle" onclick="document.querySelectorAll(\'.vol-detail\').forEach(function(d){d.style.display=d.style.display===\'none\'?\'block\':\'none\';});this.textContent=this.textContent.indexOf(\'Voir\')>=0?\'📐 Masquer les zones\':\'📐 Voir les zones MEV/MAV/MRV\';">📐 Voir les zones MEV/MAV/MRV</div>';
   }
   el.innerHTML = html || '<div style="font-size:12px;color:var(--sub);text-align:center;padding:10px;">Importe des séances pour voir le volume</div>';
 }
@@ -4676,12 +4938,14 @@ function renderStrengthRatios() {
     const alert = !inRange ? (val < lo ? '⚠️ Trop bas' : '⚠️ Trop haut') : '✅';
     html += '<div style="margin-bottom:12px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">' +
-      '<span style="font-weight:600;">' + r.label + '</span>' +
+      '<span style="font-weight:600;">' + r.label + ' ' + renderGlossaryTip('strength_ratios') + '</span>' +
       '<span style="color:' + color + ';">' + val.toFixed(2) + ' ' + alert + '</span></div>' +
       '<div style="position:relative;height:8px;background:var(--border);border-radius:4px;">' +
       '<div style="position:absolute;left:' + idealLeft + '%;width:' + idealWidth + '%;height:100%;background:rgba(50,215,75,0.25);border-radius:4px;"></div>' +
       '<div style="position:absolute;left:' + pctPos + '%;top:-2px;width:4px;height:12px;background:' + color + ';border-radius:2px;transform:translateX(-50%);"></div>' +
-      '</div></div>';
+      '</div>' +
+      '<div style="font-size:9px;color:var(--sub);margin-top:2px;">Plage idéale : ' + lo.toFixed(2) + ' – ' + hi.toFixed(2) + '</div>' +
+      '</div>';
   }
   el.innerHTML = html;
 }
@@ -5871,6 +6135,7 @@ function toggleAcc(id) {
     if (id === 'acc-records' && _accDirty.records) { _accDirty.records = false; renderRecordsCorrectionList(); }
     if (id === 'acc-keylifts' && _accDirty.keylifts) { _accDirty.keylifts = false; renderKeyLiftsEditor(); }
     if (id === 'acc-prog' && _accDirty.prog) { _accDirty.prog = false; renderSettingsRoutineEditor(); }
+    if (id === 'acc-glossary') { renderGlossaryPage(); }
   }
 }
 
@@ -6299,7 +6564,7 @@ function renderDeloadBanner() {
   const { needed, reasons } = shouldDeload();
   if (!needed) { el.innerHTML = ''; return; }
   el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée</div>' +
+    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée ' + renderGlossaryTip('deload') + '</div>' +
     '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
     '<div style="display:flex;gap:8px;">' +
     '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
@@ -7120,6 +7385,15 @@ function renderGoIdleView() {
 
 // ── Start Workout ──
 function goStartWorkout(withProgram) {
+  // Show readiness modal before starting (only if not already filled today)
+  if (withProgram && !hasTodayReadiness()) {
+    showReadinessModal(function() { _goDoStartWorkout(withProgram); });
+    return;
+  }
+  _goDoStartWorkout(withProgram);
+}
+
+function _goDoStartWorkout(withProgram) {
   var todayDay = DAYS_FULL[new Date().getDay()];
   var routine = getRoutine();
   activeWorkout = {
@@ -7241,10 +7515,13 @@ function renderGoActiveView() {
   h += '<button class="go-header-btn" style="background:rgba(50,215,75,0.7);" onclick="goConfirmFinish()">✓</button>';
   h += '</div></div>';
   h += '<div class="go-counters">';
-  h += '<div class="go-counter-box"><div class="go-counter-val" id="goCntTonnage">' + tonnageDisplay + '</div><div class="go-counter-lbl">Tonnage</div></div>';
+  h += '<div class="go-counter-box"><div class="go-counter-val" id="goCntTonnage">' + tonnageDisplay + '</div><div class="go-counter-lbl">Tonnage ' + renderGlossaryTip('tonnage') + '</div></div>';
   h += '<div class="go-counter-box"><div class="go-counter-val" id="goCntExos">' + totalExos + '</div><div class="go-counter-lbl">Exercices</div></div>';
   h += '<div class="go-counter-box"><div class="go-counter-val" id="goCntSets">' + totalSets + '</div><div class="go-counter-lbl">Séries</div></div>';
   h += '</div></div>';
+
+  // ── Readiness Banner (post-GO) ──
+  h += getReadinessBannerHtml();
 
   // ── Rest Timer (if active) ──
   if (activeWorkout.restTimer && activeWorkout.restTimer.running) {
@@ -7298,7 +7575,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   h += '<div class="go-exo-header">';
   h += '<div class="go-exo-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
   h += '<div class="go-exo-info"><div class="go-exo-name">' + exo.name + '</div>';
-  if (e1rm > 0) h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg</div>';
+  if (e1rm > 0) h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg ' + renderGlossaryTip('e1rm') + '</div>';
   h += '</div>';
   h += '<button class="go-exo-menu" onclick="goShowExoMenu(' + exoIdx + ')">⋮</button>';
   h += '</div>';
@@ -7313,8 +7590,8 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
-  if (tt === 'weight') { h += '<th>KG</th><th>RÉPS</th><th style="width:44px;">RPE</th>'; }
-  else if (tt === 'reps') { h += '<th>RÉPS</th><th style="width:44px;">RPE</th>'; }
+  if (tt === 'weight') { h += '<th>KG</th><th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
+  else if (tt === 'reps') { h += '<th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'time') { h += '<th>DURÉE</th>'; }
   else if (tt === 'cardio') { h += '<th>KM</th><th>TEMPS</th>'; }
   h += '<th style="width:36px;">✓</th></tr></thead><tbody>';

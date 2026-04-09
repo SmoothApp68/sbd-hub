@@ -4427,14 +4427,20 @@ function calcBadgeProgress(badge) {
   }
   // Streak
   if (id.startsWith('streak_')) { var t = parseInt(id.split('_')[1]); var s = calcStreak(); return { current: s, target: t, pct: Math.min(100, Math.round(s/t*100)) }; }
-  // Collector
+  // Collector — count non-collector badges only (matches _colCount unlock logic)
   if (id.startsWith('col')) {
     var allB = getAllBadges();
-    var norm = allB.filter(function(x){return !x.impossible;});
-    var unl = norm.filter(function(x){return x.ck();}).length;
+    var nonCol = allB.filter(function(x){return !x.impossible && !x.id.startsWith('col');});
+    var unl = nonCol.filter(function(x){return x.ck();}).length;
     var t2;
-    if (id === 'col_all') t2 = norm.length;
-    else t2 = parseInt(id.slice(3));
+    if (id === 'col_all') {
+      // For col_all, target = total non-impossible badges (including collector)
+      var allNorm = allB.filter(function(x){return !x.impossible;});
+      t2 = allNorm.length;
+      unl = allNorm.filter(function(x){return x.ck();}).length;
+    } else {
+      t2 = parseInt(id.slice(3));
+    }
     return t2 > 0 ? { current: unl, target: t2, pct: Math.min(100, Math.round(unl/t2*100)) } : null;
   }
   return null;

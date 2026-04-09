@@ -2142,6 +2142,97 @@ const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
 
+// ── TRAINING MODES ──────────────────────────────────────────
+const TRAINING_MODES = {
+  bien_etre: {
+    id: 'bien_etre',
+    label: 'Bien-être & Santé',
+    icon: '🧘',
+    desc: 'Forme générale, mobilité, cardio modéré',
+    features: {
+      show1RM: false,
+      showIPF: false,
+      showSBDCards: false,
+      showStrengthLevel: false,
+      showPlateauDetection: false,
+      showCompetition: false,
+      showWeeklyPlan: false,
+      showBWRatio: false,
+      defaultKeyLifts: [],
+      primaryMetrics: ['sessions_count', 'streak', 'calories', 'body_weight'],
+      programStyle: 'full_body',
+      badgeTheme: 'wellness'
+    }
+  },
+  bodybuilding: {
+    id: 'bodybuilding',
+    label: 'Bodybuilding',
+    icon: '💪',
+    desc: 'Hypertrophie, volume, esthétique',
+    features: {
+      show1RM: true,
+      showIPF: false,
+      showSBDCards: false,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: false,
+      showWeeklyPlan: true,
+      showBWRatio: false,
+      defaultKeyLifts: ['Développé Couché (Haltères)', 'Squat Barre', 'Rowing Barre', 'Développé Militaire'],
+      primaryMetrics: ['volume_total', 'muscle_balance', 'body_weight', 'tonnage_week'],
+      programStyle: 'ppl',
+      badgeTheme: 'volume'
+    }
+  },
+  powerlifting: {
+    id: 'powerlifting',
+    label: 'Powerlifting (SBD)',
+    icon: '🏋️',
+    desc: 'Squat, Bench, Deadlift — force maximale',
+    features: {
+      show1RM: true,
+      showIPF: true,
+      showSBDCards: true,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: true,
+      showWeeklyPlan: true,
+      showBWRatio: true,
+      defaultKeyLifts: ['Bench Press (Barre)', 'Squat (Barre)', 'Soulevé de Terre'],
+      primaryMetrics: ['total_sbd', 'ipf_gl', 'e1rm_progress', 'bw_ratio'],
+      programStyle: 'sbd',
+      badgeTheme: 'strength'
+    }
+  },
+  force_athletique: {
+    id: 'force_athletique',
+    label: 'Force Athlétique / Compétition',
+    icon: '🏆',
+    desc: 'Périodisation, peaking, catégories de poids',
+    features: {
+      show1RM: true,
+      showIPF: true,
+      showSBDCards: true,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: true,
+      showWeeklyPlan: true,
+      showBWRatio: true,
+      defaultKeyLifts: ['Bench Press (Barre)', 'Squat (Barre)', 'Soulevé de Terre'],
+      primaryMetrics: ['total_sbd', 'ipf_gl', 'wilks', 'comp_countdown'],
+      programStyle: 'sbd',
+      badgeTheme: 'strength'
+    }
+  }
+};
+
+function getMode() {
+  return TRAINING_MODES[db.user.trainingMode] || TRAINING_MODES.powerlifting;
+}
+function modeFeature(key) {
+  return getMode().features[key];
+}
+
 // ── TEMPLATES DE PROGRAMME ──────────────────────────────────
 const ROUTINE_TEMPLATES = {
   sbd: {
@@ -2574,7 +2665,7 @@ try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e)
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80 },
+  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null },
   routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -2607,6 +2698,7 @@ let db = (() => {
     if (p.user.name === undefined) p.user.name = '';
     if (p.user.onboarded === undefined) p.user.onboarded = true;
     if (!p.user.gender) p.user.gender = 'unspecified';
+    if (p.user.trainingMode === undefined) p.user.trainingMode = 'powerlifting';
     if (!p.monthlyChallenges) p.monthlyChallenges = null;
     if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
     if (!p.questHistory) p.questHistory = [];

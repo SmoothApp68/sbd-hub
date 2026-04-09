@@ -4474,7 +4474,7 @@ async function forgotPassword() {
 async function checkPasswordMigration(user) {
   if (!user) return;
 
-  // Cas 1: Anonymous user (no email) — sign out silently, show normal login
+  // Anonymous user (no email) — sign out silently, show normal login
   if (!user.email) {
     await supaClient.auth.signOut();
     cloudSyncEnabled = false;
@@ -4483,70 +4483,17 @@ async function checkPasswordMigration(user) {
     return;
   }
 
-  // Cas 2: Email user — check if password already migrated
+  // Email user — mark as migrated if profile confirms it
   if (db.passwordMigrated === true) return;
   try {
     const { data } = await supaClient.from('profiles').select('password_migrated').eq('id', user.id).maybeSingle();
     if (data && data.password_migrated === true) {
       db.passwordMigrated = true;
       saveDB();
-      return;
     }
   } catch(e) { console.warn('Migration check error:', e); }
-  // Email user needs migration — show blocking modal
-  showPasswordMigrationModal();
-}
-
-function showPasswordMigrationModal() {
-  const existing = document.getElementById('passwordMigrationOverlay');
-  if (existing) existing.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'passwordMigrationOverlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:99999;';
-  overlay.innerHTML = `
-    <div style="background:var(--card);padding:24px;border-radius:20px;border:1px solid var(--border);max-width:340px;width:90%;text-align:center;">
-      <div style="font-size:36px;margin-bottom:12px;">🔐</div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Sécurise ton compte</div>
-      <p style="font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:16px;">
-        Pour sécuriser ton compte, tu dois définir un mot de passe.<br>
-        Cette étape est obligatoire et ne supprime pas tes données.
-      </p>
-      <input type="password" id="migrationPassword" placeholder="Nouveau mot de passe (min. 8 car.)" style="margin-bottom:8px;" minlength="8">
-      <input type="password" id="migrationPasswordConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:12px;">
-      <div id="migrationError" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;"></div>
-      <button class="btn" onclick="submitPasswordMigration()">Définir mon mot de passe</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-async function submitPasswordMigration() {
-  const pw = document.getElementById('migrationPassword').value;
-  const pw2 = document.getElementById('migrationPasswordConfirm').value;
-  const errEl = document.getElementById('migrationError');
-  errEl.style.display = 'none';
-  if (!pw || pw.length < 8) { errEl.textContent = 'Le mot de passe doit faire au moins 8 caractères'; errEl.style.display = ''; return; }
-  if (pw !== pw2) { errEl.textContent = 'Les mots de passe ne correspondent pas'; errEl.style.display = ''; return; }
-  try {
-    const { error } = await supaClient.auth.updateUser({ password: pw });
-    if (error) throw error;
-    // Mark as migrated
-    db.passwordMigrated = true;
-    saveDB();
-    const uid = await getMyUserIdAsync();
-    if (uid) {
-      await supaClient.from('profiles').upsert({
-        id: uid,
-        password_migrated: true,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-    }
-    document.getElementById('passwordMigrationOverlay').remove();
-    showToast('Mot de passe défini avec succès !');
-  } catch(e) {
-    errEl.textContent = translateSupaError(e.message);
-    errEl.style.display = '';
-  }
+  // No blocking modal — users who need a password can use "Mot de passe oublié"
+  // or the automatic prompt when signing up with an existing magic link email
 }
 async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
 

@@ -212,6 +212,13 @@
     .ob-day-exos { display: flex; flex-wrap: wrap; gap: 4px; }
     .ob-exo-tag { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--sub); }
     /* Import program path */
+    .ob-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .ob-mode-btn { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 16px 12px; cursor: pointer; text-align: center; transition: all 0.2s; }
+    .ob-mode-btn:hover { border-color: var(--blue); transform: scale(1.02); }
+    .ob-mode-btn.selected { border-color: var(--blue); background: rgba(10,132,255,0.08); }
+    .ob-mode-icon { font-size: 28px; margin-bottom: 6px; }
+    .ob-mode-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .ob-mode-desc { font-size: 10px; color: var(--sub); line-height: 1.4; }
     .ob-path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .ob-path-btn { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 20px 14px; cursor: pointer; text-align: center; transition: all 0.2s; }
     .ob-path-btn:hover { border-color: var(--blue); transform: scale(1.02); }
@@ -1241,7 +1248,21 @@
         <button class="btn" onclick="obNext(1)">Continuer →</button>
       </div>
 
-      <!-- Step 2 : Objectifs SBD (optionnel) -->
+      <!-- Step 1b : Mode d'entraînement -->
+      <div class="ob-step" id="ob-step-1b">
+        <div class="ob-logo">🎯</div>
+        <div class="ob-title">Ton objectif principal</div>
+        <div class="ob-sub">Choisis le mode qui correspond le mieux<br>à ta pratique actuelle.</div>
+        <div class="ob-mode-grid" id="ob-mode-grid">
+          <div class="ob-mode-btn" onclick="selectTrainingMode('bien_etre')"><div class="ob-mode-icon">🧘</div><div class="ob-mode-name">Bien-être & Santé</div><div class="ob-mode-desc">Forme générale, mobilité, cardio</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('bodybuilding')"><div class="ob-mode-icon">💪</div><div class="ob-mode-name">Bodybuilding</div><div class="ob-mode-desc">Hypertrophie, volume, esthétique</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('powerlifting')"><div class="ob-mode-icon">🏋️</div><div class="ob-mode-name">Powerlifting (SBD)</div><div class="ob-mode-desc">Squat, Bench, Deadlift — force max</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('force_athletique')"><div class="ob-mode-icon">🏆</div><div class="ob-mode-name">Force Athlétique</div><div class="ob-mode-desc">Périodisation, peaking, compétition</div></div>
+        </div>
+        <button class="btn" onclick="obNext('1b')" id="ob-mode-continue" disabled>Continuer →</button>
+      </div>
+
+      <!-- Step 2 : Objectifs SBD (optionnel, visible seulement si mode SBD/force) -->
       <div class="ob-step" id="ob-step-2">
         <div class="ob-logo">🎯</div>
         <div class="ob-title">Records de force</div>
@@ -3036,8 +3057,17 @@ function buildPlan(g1, g2, freq, BLOCS, trainingDays) {
 }
 
 // ── ONBOARDING FLOW ──────────────────────────────────────────
-const OB_STEPS_GENERATE = ['1','2','3','4a','5','5b','6','6b','6c','6d','7']; // +6e si compétiteur
-const OB_STEPS_IMPORT   = ['1','2','3','4b','7_import'];
+const OB_STEPS_GENERATE = ['1','1b','2','3','4a','5','5b','6','6b','6c','6d','7']; // +6e si force_athletique
+const OB_STEPS_IMPORT   = ['1','1b','2','3','4b','7_import'];
+
+let _obSelectedMode = null;
+function selectTrainingMode(modeId) {
+  _obSelectedMode = modeId;
+  db.user.trainingMode = modeId;
+  document.querySelectorAll('#ob-mode-grid .ob-mode-btn').forEach(el => el.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('ob-mode-continue').disabled = false;
+}
 let obStepHistory = [];
 let obSelectedDays = [];
 let obDuration    = 60;    // minutes par séance
@@ -3065,9 +3095,22 @@ function gotoObStep(stepId) {
   window.scrollTo(0,0);
 }
 
+function getObSteps() {
+  let steps = obPath === 'import' ? [...OB_STEPS_IMPORT] : [...OB_STEPS_GENERATE];
+  // Remove step 2 (SBD records) if mode doesn't use SBD
+  if (db.user.trainingMode && !TRAINING_MODES[db.user.trainingMode]?.features?.showSBDCards) {
+    steps = steps.filter(s => s !== '2');
+  }
+  // Add 6e only for force_athletique
+  if (db.user.trainingMode === 'force_athletique' && !steps.includes('6e')) {
+    const idx6d = steps.indexOf('6d');
+    if (idx6d !== -1) steps.splice(idx6d + 1, 0, '6e');
+  }
+  return steps;
+}
+
 function updateObProgress(stepId) {
-  const allSteps = obPath === 'import' ? OB_STEPS_IMPORT : OB_STEPS_GENERATE;
-  const total = allSteps.length;
+  const allSteps = getObSteps();
   const current = allSteps.indexOf(stepId) + 1;
   document.getElementById('ob-progress').innerHTML = allSteps.map((_,i) =>
     '<div class="ob-dot'+(i < current ? ' active' : '')+'"></div>'
@@ -3084,12 +3127,20 @@ function obNext(step) {
     db.user.level = document.getElementById('ob-level').value;
     db.user.gender = document.getElementById('ob-gender').value || 'unspecified';
     saveDB();
-    const defaults = { debutant:{b:80,s:100,d:120}, intermediaire:{b:100,s:130,d:150}, avance:{b:130,s:160,d:190}, competiteur:{b:150,s:180,d:220} };
-    const d = defaults[db.user.level] || defaults.intermediaire;
-    document.getElementById('ob-bench-tgt').value = d.b;
-    document.getElementById('ob-squat-tgt').value = d.s;
-    document.getElementById('ob-dead-tgt').value  = d.d;
-    gotoObStep('2');
+    gotoObStep('1b');
+  } else if (s === '1b') {
+    if (!db.user.trainingMode) { showToast('Choisis un objectif'); return; }
+    // Only show SBD records if powerlifting or force_athletique
+    if (modeFeature('showSBDCards')) {
+      const defaults = { debutant:{b:80,s:100,d:120}, intermediaire:{b:100,s:130,d:150}, avance:{b:130,s:160,d:190}, competiteur:{b:150,s:180,d:220} };
+      const d = defaults[db.user.level] || defaults.intermediaire;
+      document.getElementById('ob-bench-tgt').value = d.b;
+      document.getElementById('ob-squat-tgt').value = d.s;
+      document.getElementById('ob-dead-tgt').value  = d.d;
+      gotoObStep('2');
+    } else {
+      gotoObStep('3');
+    }
   } else if (s === '2') {
     const benchPR = parseFloat(document.getElementById('ob-bench-pr').value) || 0;
     const squatPR = parseFloat(document.getElementById('ob-squat-pr').value) || 0;
@@ -3138,8 +3189,8 @@ function obNext(step) {
     // Blessures → cardio
     gotoObStep('6d');
   } else if (s === '6d') {
-    // Cardio → compétition si niveau compétiteur, sinon générer
-    if (db.user.level === 'competiteur') {
+    // Cardio → compétition si force_athletique, sinon générer
+    if (db.user.trainingMode === 'force_athletique') {
       gotoObStep('6e');
     } else {
       doGenerateProgram();

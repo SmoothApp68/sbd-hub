@@ -56,6 +56,7 @@ let db = (() => {
     if (!p.friendCode) p.friendCode = null;
     if (!p.friends) p.friends = [];
     if (!p.readiness) p.readiness = [];
+    if (!p.challenges) p.challenges = [];
     return p;
   } catch { return defaultDB(); }
 })();

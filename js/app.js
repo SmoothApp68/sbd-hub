@@ -231,74 +231,7 @@ const EXO_DB = {
 };
 
 // ── PROGRAMME GENERATOR ─────────────────────────────────────
-// Retourne un tableau de 7 jours { day, label, exos:[exo_id,...] }
-function generateProgram(goals, freq, mat) {
-  const g1 = goals[0]?.id || 'force';
-  const g2 = goals[1]?.id || 'maintien';
-  // Utilise les jours choisis par l'user, sinon fallback intelligent
-  const trainingDays = obSelectedDays.length === freq
-    ? obSelectedDays
-    : {
-        1: ['Lundi'],
-        2: ['Lundi','Jeudi'],
-        3: ['Lundi','Mercredi','Vendredi'],
-        4: ['Lundi','Mardi','Jeudi','Vendredi'],
-        5: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'],
-        6: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
-      }[Math.min(freq,6)] || ['Lundi','Mercredi','Vendredi'];
-
-  // Blocs d'exercices selon objectif × matériel
-  const BLOCS = {
-    force: {
-      push:    { label:'Push — Force', exos: filtMat(['bench','ohp','incline_bench','tri_cable'], mat) },
-      pull:    { label:'Pull — Force', exos: filtMat(['deadlift','row_barre','lat_pull','curl_barre'], mat) },
-      legs:    { label:'Jambes — Force', exos: filtMat(['squat','leg_press','rdl','mollet'], mat) },
-      full_a:  { label:'Full Body A (Force)', exos: filtMat(['squat','bench','row_barre','ohp'], mat) },
-      full_b:  { label:'Full Body B (Force)', exos: filtMat(['deadlift','incline_bench','lat_pull','curl_barre'], mat) },
-      sbd:     { label:'SBD Technique', exos: filtMat(['squat','bench','deadlift'], mat) },
-      faibles: { label:'Points Faibles', exos: filtMat(['elev_lat','face_pull','crunch','mollet'], mat) },
-    },
-    masse: {
-      push:    { label:'Push — Volume', exos: filtMat(['bench_halt','incline_bench','ecarte','dips_pec','tri_cable'], mat) },
-      pull:    { label:'Pull — Volume', exos: filtMat(['row_halt','lat_pull','traction','face_pull','curl_halt'], mat) },
-      legs:    { label:'Jambes — Volume', exos: filtMat(['leg_press','leg_curl','fente','hip_thrust','mollet'], mat) },
-      full_a:  { label:'Full Body A (Volume)', exos: filtMat(['bench_halt','squat','row_halt','ohp_halt'], mat) },
-      full_b:  { label:'Full Body B (Volume)', exos: filtMat(['incline_bench','rdl','lat_pull','elev_lat'], mat) },
-      upper:   { label:'Upper Body', exos: filtMat(['bench_halt','row_halt','ohp_halt','lat_pull','elev_lat'], mat) },
-      lower:   { label:'Lower Body', exos: filtMat(['squat','leg_press','rdl','leg_curl','mollet'], mat) },
-    },
-    seche: {
-      push:    { label:'Push + Cardio', exos: filtMat(['bench_halt','incline_bench','pompe','tri_cable','cardio_hiit'], mat) },
-      pull:    { label:'Pull + Cardio', exos: filtMat(['row_halt','traction','lat_pull','curl_halt','cardio_liss'], mat) },
-      legs:    { label:'Jambes + Cardio', exos: filtMat(['squat','rdl','leg_press','fente','cardio_hiit'], mat) },
-      full_a:  { label:'Full Body + HIIT', exos: filtMat(['squat','pompe','rowing_inv','crunch','cardio_hiit'], mat) },
-      cardio:  { label:'Cardio actif', exos: filtMat(['cardio_hiit','cardio_liss','planche','crunch'], mat) },
-    },
-    recompo: {
-      push:    { label:'Push (Recompo)', exos: filtMat(['bench_halt','ohp_halt','ecarte','dips_pec'], mat) },
-      pull:    { label:'Pull (Recompo)', exos: filtMat(['traction','row_halt','lat_pull','curl_halt'], mat) },
-      legs:    { label:'Jambes (Recompo)', exos: filtMat(['squat','rdl','leg_press','hip_thrust'], mat) },
-      full_a:  { label:'Full Body A', exos: filtMat(['squat','bench_halt','row_halt','crunch'], mat) },
-      full_b:  { label:'Full Body B', exos: filtMat(['rdl','ohp_halt','traction','planche'], mat) },
-      cardio:  { label:'Cardio modéré', exos: filtMat(['cardio_liss','planche','crunch'], mat) },
-    },
-    maintien: {
-      full_a:  { label:'Full Body A', exos: filtMat(['squat','bench_halt','row_halt','ohp_halt'], mat) },
-      full_b:  { label:'Full Body B', exos: filtMat(['rdl','pompe','traction','elev_lat'], mat) },
-      full_c:  { label:'Full Body C', exos: filtMat(['fente','incline_bench','lat_pull','crunch'], mat) },
-      cardio:  { label:'Cardio + Mobilité', exos: filtMat(['cardio_liss','planche','russian_twist'], mat) },
-    },
-    reprise: {
-      full_a:  { label:'Full Body Doux A', exos: filtMat(['squat','pompe','rowing_inv','planche'], mat) },
-      full_b:  { label:'Full Body Doux B', exos: filtMat(['rdl','ohp_halt','rowing_inv','crunch'], mat) },
-      cardio:  { label:'Cardio léger', exos: filtMat(['cardio_liss','planche'], mat) },
-    }
-  };
-
-  // Sélection du plan selon objectif principal + fréquence
-  const plan = buildPlan(g1, g2, freq, BLOCS, trainingDays);
-  return plan;
-}
+// (Version courte supprimée — seule la version enrichie à 9 paramètres est conservée)
 
 function filtMat(ids, mat) {
   // Filtre les exos selon matériel, garde ceux compatibles ou prend premier alt
@@ -315,76 +248,6 @@ function filtMat(ids, mat) {
     }
     return id;
   });
-}
-
-function buildPlan(g1, g2, freq, BLOCS, trainingDays) {
-  const B = BLOCS[g1] || BLOCS.maintien;
-  const plan = [];
-  const allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-
-  // Séquences selon objectif + fréquence
-  const sequences = {
-    force: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.legs, B.push, B.pull],
-      4: [B.legs, B.push, B.pull, B.sbd],
-      5: [B.legs, B.push, B.pull, B.sbd, B.faibles],
-      6: [B.legs, B.push, B.pull, B.sbd, B.faibles, B.full_a]
-    },
-    masse: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.push, B.pull, B.legs],
-      4: [B.upper, B.lower, B.push, B.pull],
-      5: [B.push, B.pull, B.legs, B.upper, B.lower],
-      6: [B.push, B.pull, B.legs, B.push, B.pull, B.legs]
-    },
-    seche: {
-      1: [B.full_a],
-      2: [B.full_a, B.cardio],
-      3: [B.full_a, B.cardio, B.full_a],
-      4: [B.push, B.pull, B.legs, B.cardio],
-      5: [B.push, B.pull, B.legs, B.cardio, B.full_a],
-      6: [B.push, B.pull, B.legs, B.cardio, B.full_a, B.cardio]
-    },
-    recompo: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.push, B.pull, B.legs],
-      4: [B.full_a, B.full_b, B.cardio, B.full_a],
-      5: [B.push, B.pull, B.legs, B.cardio, B.full_b],
-      6: [B.push, B.pull, B.legs, B.cardio, B.full_b, B.cardio]
-    },
-    maintien: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.full_a, B.full_b, B.full_c],
-      4: [B.full_a, B.full_b, B.full_c, B.cardio],
-      5: [B.full_a, B.full_b, B.full_c, B.cardio, B.full_a],
-      6: [B.full_a, B.full_b, B.full_c, B.cardio, B.full_a, B.full_b]
-    },
-    reprise: {
-      1: [B.full_a],
-      2: [B.full_a, B.full_b],
-      3: [B.full_a, B.cardio, B.full_b],
-      4: [B.full_a, B.cardio, B.full_b, B.cardio],
-      5: [B.full_a, B.cardio, B.full_b, B.cardio, B.full_a],
-      6: [B.full_a, B.cardio, B.full_b, B.cardio, B.full_a, B.cardio]
-    }
-  };
-
-  const seq = (sequences[g1] || sequences.maintien)[Math.min(freq,6)] || [B.full_a];
-
-  allDays.forEach((day, i) => {
-    const tIdx = trainingDays.indexOf(day);
-    if (tIdx >= 0 && seq[tIdx]) {
-      plan.push({ day, label: seq[tIdx].label, exos: seq[tIdx].exos || [], isRest: false });
-    } else {
-      plan.push({ day, label: 'Repos', exos: [], isRest: true });
-    }
-  });
-  return plan;
 }
 
 // ── ONBOARDING FLOW ──────────────────────────────────────────
@@ -654,11 +517,17 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     return filtMat(ids.filter(id => !excluded.has(id)), m).slice(0, exosN);
   }
 
-  // Débutants : pas d'exercices à haute complexité technique
+  // Débutants : remplacer les exercices complexes par des alternatives plus simples
   function filtLevel(ids) {
     if (lp.complexity === 'low') {
-      const complex = ['deadlift','squat','ohp','skull','rdl'];
-      return ids.filter(id => !complex.includes(id));
+      const REPLACEMENTS = {
+        'squat':    'leg_press',
+        'deadlift': 'rdl',
+        'rdl':      'leg_curl',
+        'ohp':      'ohp_halt',
+        'skull':    'tri_cable',
+      };
+      return ids.map(id => REPLACEMENTS[id] || id);
     }
     return ids;
   }
@@ -5902,6 +5771,13 @@ let wpSelectedDay = DAYS_FULL[new Date().getDay()] === 'Dimanche' ? 'Lundi' : DA
 // Arrondi au 0.5kg
 function round05(v) { return Math.round(v * 2) / 2; }
 
+// Ratios poids de corps pour estimation de charge sans historique
+const BW_RATIOS = {
+  big:       { debutant: 0.5,  intermediaire: 0.8,  avance: 1.2,  competiteur: 1.5  },
+  compound:  { debutant: 0.3,  intermediaire: 0.5,  avance: 0.8,  competiteur: 1.0  },
+  isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
+};
+
 function generateWeeklyPlan() {
   const btn = document.getElementById('wpGenerateBtn');
   btn.disabled = true; btn.textContent = 'Calcul en cours...';
@@ -5932,13 +5808,30 @@ function generateWeeklyPlan() {
     return 'isolation';
   }
 
-  // ── Schémas reps/séries/RPE par catégorie ────────────────────
-  const SCHEME = {
-    //               S1    S2    S3    S4
-    big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
-    compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
-    isolation: { reps:[15, 12, 12, 12], sets:[3,4,4,3], rpe:[7,  7,  7.5,7  ], rest:90  },
+  // ── Schémas reps/séries/RPE par catégorie et mode d'entraînement ──
+  const SCHEMES = {
+    powerlifting: {
+      big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
+      compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
+      isolation: { reps:[15, 12, 12, 12], sets:[3,4,4,3], rpe:[7,  7,  7.5,7  ], rest:90  },
+    },
+    force_athletique: {
+      big:       { reps:[5,  5,  3,  2 ], sets:[4,4,4,3], rpe:[7,  8,  8.5,9  ], rest:210 },
+      compound:  { reps:[10, 8,  6,  5 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:150 },
+      isolation: { reps:[15, 12, 12, 12], sets:[3,4,4,3], rpe:[7,  7,  7.5,7  ], rest:90  },
+    },
+    bodybuilding: {
+      big:       { reps:[10, 8,  8,  6 ], sets:[4,4,5,4], rpe:[7,  7.5,8,  8.5], rest:150 },
+      compound:  { reps:[12, 10, 10, 8 ], sets:[3,4,4,3], rpe:[7,  7.5,8,  8.5], rest:120 },
+      isolation: { reps:[15, 12, 12, 10], sets:[3,4,4,4], rpe:[8,  8,  8.5,9  ], rest:75  },
+    },
+    bien_etre: {
+      big:       { reps:[12, 12, 10, 10], sets:[3,3,3,3], rpe:[6,  6.5,7,  7  ], rest:120 },
+      compound:  { reps:[12, 12, 10, 10], sets:[3,3,3,3], rpe:[6,  6.5,7,  7  ], rest:90  },
+      isolation: { reps:[15, 15, 12, 12], sets:[2,3,3,3], rpe:[6,  6,  6.5,7  ], rest:60  },
+    }
   };
+  const SCHEME = SCHEMES[db.user.trainingMode] || SCHEMES.powerlifting;
 
   // ── Notes coach par semaine ──────────────────────────────────
   const WEEK_NOTES = [
@@ -6195,17 +6088,37 @@ function generateWeeklyPlan() {
           if (workWeight && workWeight > 0) {
             // Échauffements adaptés : 2 paliers si gros lift, 1 si composé/isolation
             const warmups = cat === 'big'
-              ? [ { isWarmup:true, weight:round05(workWeight*0.4), reps:8 },
-                  { isWarmup:true, weight:round05(workWeight*0.65), reps:5 },
-                  { isWarmup:true, weight:round05(workWeight*0.85), reps:2 } ]
-              : [ { isWarmup:true, weight:round05(workWeight*0.5), reps:10 },
-                  { isWarmup:true, weight:round05(workWeight*0.75), reps:5  } ];
+              ? [ { isWarmup:true, weight:Math.max(20, round05(workWeight*0.4)), reps:8 },
+                  { isWarmup:true, weight:Math.max(20, round05(workWeight*0.65)), reps:5 },
+                  { isWarmup:true, weight:Math.max(20, round05(workWeight*0.85)), reps:2 } ]
+              : [ { isWarmup:true, weight:Math.max(20, round05(workWeight*0.5)), reps:10 },
+                  { isWarmup:true, weight:Math.max(20, round05(workWeight*0.75)), reps:5  } ];
             exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[
               ...warmups,
               ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:workWeight, reps:tReps, rpe:tRpe }))
             ]});
           } else {
-            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
+            // Estimation depuis le poids de corps
+            const bw = db.user.bw || 70;
+            const lvl = db.user.level || 'intermediaire';
+            const bwRatio = (BW_RATIOS[cat] || BW_RATIOS.compound)[lvl] || 0.5;
+            const estimatedE1RM = bw * bwRatio;
+            const epleyEst = estimatedE1RM * (1.0278 - 0.0278 * tReps);
+            const estWork = round05(epleyEst * LOAD_PCT);
+            if (estWork > 0) {
+              const warmups = cat === 'big'
+                ? [ { isWarmup:true, weight:Math.max(20, round05(estWork*0.4)), reps:8 },
+                    { isWarmup:true, weight:Math.max(20, round05(estWork*0.65)), reps:5 },
+                    { isWarmup:true, weight:Math.max(20, round05(estWork*0.85)), reps:2 } ]
+                : [ { isWarmup:true, weight:Math.max(20, round05(estWork*0.5)), reps:10 },
+                    { isWarmup:true, weight:Math.max(20, round05(estWork*0.75)), reps:5  } ];
+              exercises.push({ name:exoName, type:'weight', restSeconds:rest, estimated:true, sets:[
+                ...warmups,
+                ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:estWork, reps:tReps, rpe:tRpe }))
+              ]});
+            } else {
+              exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
+            }
           }
         }
       });
@@ -6354,6 +6267,15 @@ function renderWpExercise(exo) {
 
   if (exo.noData) {
     setsHtml = '<div class="wpe-nodata">⚠️ Pas encore de données — importe une séance Hevy pour cet exercice.</div>';
+
+  } else if (exo.estimated) {
+    // Charges estimées depuis le poids de corps
+    const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
+    const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
+    let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    setsHtml = '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:6px 10px;margin:4px 12px 8px;border-radius:6px;font-size:11px;color:var(--orange);">📐 Charges estimées — à ajuster après ta première séance</div>' +
+      '<div class="wpe-sets">' + hdr + rows + '</div>';
 
   } else if (type === 'time') {
     const wrkSets = sets.filter(s => !s.isWarmup);

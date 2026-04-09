@@ -798,8 +798,14 @@
     .bp-bar { height: 100%; border-radius: 2px; background: var(--blue); }
     .bp-text { font-size: 8px; color: var(--sub); margin-top: 2px; text-align: center; }
 
+    /* ── Tab game background ── */
+    #tab-game { background: linear-gradient(180deg, #000 0%, #0a0812 30%, #0d0816 60%, #000 100%); }
+
+    /* ── Themed separators ── */
+    .gam-separator { text-align:center; padding:8px 0; color:var(--gold); font-size:10px; letter-spacing:4px; opacity:0.4; }
+
     /* ── Gamification V2 — Animations ── */
-    @keyframes reiatsuPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 20px rgba(191,90,242,0.15); } }
+    @keyframes reiatsuPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0), inset 0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 25px rgba(191,90,242,0.12), inset 0 0 15px rgba(191,90,242,0.04); } }
     @keyframes xpFlow { 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
     @keyframes badgeUnlock { 0%{ transform:scale(0);opacity:0; } 70%{ transform:scale(1.1);opacity:1; } 100%{ transform:scale(1);opacity:1; } }
     @keyframes xpFloat { 0%{ opacity:1;transform:translateY(0); } 100%{ opacity:0;transform:translateY(-30px); } }
@@ -808,7 +814,11 @@
     @keyframes flamePulse { 0%,100%{ transform:scaleY(1);opacity:0.9; } 50%{ transform:scaleY(1.15);opacity:1; } }
 
     .lvl-card-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
-    .lvl-xp-bar-v2 { background: linear-gradient(90deg, var(--purple), var(--blue), var(--purple)); background-size: 200% 100%; animation: xpFlow 3s linear infinite; }
+    .lvl-card-v2::before, .lvl-card-v2::after { content:''; position:absolute; width:20px; height:20px; border:2px solid var(--gold); opacity:0.25; pointer-events:none; }
+    .lvl-card-v2::before { top:8px; left:8px; border-right:none; border-bottom:none; }
+    .lvl-card-v2::after { bottom:8px; right:8px; border-left:none; border-top:none; }
+    .lvl-xp-bar-v2 { background: linear-gradient(90deg, var(--purple), var(--blue), var(--purple)); background-size: 200% 100%; animation: xpFlow 3s linear infinite; position: relative; }
+    .lvl-xp-bar-v2::after { content:''; position:absolute; right:-2px; top:50%; width:6px; height:6px; border-radius:50%; background:white; transform:translateY(-50%); box-shadow:0 0 6px rgba(255,255,255,0.6); animation:newDot 1.5s ease-in-out infinite; }
     .lvl-stat-click { cursor: pointer; transition: transform 0.15s, border-color 0.2s; }
     .lvl-stat-click:active { transform: scale(0.95); }
     .lvl-stat-click:hover { border-color: var(--purple); }
@@ -817,8 +827,8 @@
     .lvl-title:active { opacity:0.6; }
 
     /* ── Quest Card (Dofus style) ── */
-    .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.04) 0%, rgba(200,162,76,0.01) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; overflow: hidden; }
-    .quest-card::before { content:''; position:absolute; top:0; left:0; width:0; height:0; border-style:solid; border-width:12px 12px 0 0; border-color:var(--gold-border) transparent transparent transparent; border-radius:16px 0 0 0; }
+    .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.03) 0%, transparent 40%, rgba(200,162,76,0.02) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; }
+    .quest-card::before { content:'◆'; position:absolute; top:-6px; left:12px; color:var(--gold); font-size:8px; background:var(--card); padding:0 4px; opacity:0.5; }
     .quest-item { background: var(--surface); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.15s; position: relative; }
     .quest-item:active { transform: scale(0.98); }
     .quest-item:last-child { margin-bottom: 0; }
@@ -826,7 +836,7 @@
     .quest-item.q-active { border: 1px solid rgba(255,159,10,0.3); }
     .quest-item.q-secret { border: 1px solid var(--gold-border); }
     .quest-perfect { background: linear-gradient(90deg, rgba(200,162,76,0.12), rgba(200,162,76,0.04)); border: 1px solid var(--gold-border); border-radius: 12px; padding: 10px 14px; margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--gold); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
-    .quest-arc { background: linear-gradient(135deg, rgba(191,90,242,0.03), rgba(10,132,255,0.03)); border: 1px solid rgba(191,90,242,0.2); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+    .quest-arc { background: linear-gradient(135deg, rgba(191,90,242,0.03), rgba(10,132,255,0.03)); border: 1px solid rgba(191,90,242,0.3); outline: 1px solid rgba(191,90,242,0.08); outline-offset: 3px; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
     .quest-arc-bar { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
     .quest-arc-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.6s; }
     .quest-remaining { font-size: 10px; color: var(--sub); margin-top: 4px; text-align: right; }
@@ -851,8 +861,11 @@
     .ru-item.secret-badge { border:1px solid var(--gold-border); box-shadow:0 0 8px rgba(200,162,76,0.1); }
     .secret-label { font-size:7px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; }
 
+    /* ── Shimmer effect ── */
+    .shimmer { background-image: linear-gradient(90deg, transparent 30%, rgba(200,162,76,0.08) 50%, transparent 70%); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+
     /* ── New dot indicator ── */
-    .new-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); animation:newDot 2s infinite; margin-left:4px; vertical-align:middle; }
+    .new-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); animation:newDot 2s ease infinite; margin-left:4px; vertical-align:middle; }
 
     /* ── Badge rarity enhancements (Dofus/Bleach theme) ── */
     .bdg.common-v2, .bdg.uncommon-v2 { background: var(--parchment); }
@@ -870,6 +883,12 @@
     /* ── Strength card clickable ── */
     .sg-card-click { cursor: pointer; transition: transform 0.15s; }
     .sg-card-click:active { transform: scale(0.97); }
+
+    /* ── Weekly recap banner ── */
+    .gam-recap { background: linear-gradient(135deg, rgba(200,162,76,0.08), rgba(200,162,76,0.03)); border: 1px solid var(--gold-border); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .gam-recap-text { font-size: 13px; font-weight: 600; color: var(--text); }
+    .gam-recap-sub { font-size: 11px; color: var(--sub); margin-top: 2px; }
+    .gam-recap-close { background: none; border: none; color: var(--sub); font-size: 18px; cursor: pointer; padding: 4px; }
 
     /* ── Reduced motion ── */
     @media (prefers-reduced-motion: reduce) {
@@ -3782,16 +3801,29 @@ function getAllBadges() {
   streakData.forEach(([w,r,icon,name,ref,desc])=>b.push({id:`streak_${w}`,r,icon,name,ref,desc,condition:w+' semaines',ck:()=>streak>=w}));
 
   // ── Collectionneur ──
-  const normalBadges = b.filter(x=>!x.impossible);
-  const baseUnlocked = normalBadges.filter(x=>x.ck()).length;
-  const totalNormal  = normalBadges.length;
-  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      ref:'Dofus',        desc:'5 badges — ton inventaire commence à se remplir d\'histoire', condition:'5 badges', ck:()=>baseUnlocked>=5});
-  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur d\'Âmes',  ref:'Bleach',       desc:'15 badges — tu accumules les lames comme un Shinigami expérimenté', condition:'15 badges', ck:()=>baseUnlocked>=15});
-  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    ref:'Dofus',        desc:'30 badges — les vitrines d\'Astrub ne suffisent plus à tout exposer', condition:'30 badges', ck:()=>baseUnlocked>=30});
-  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste du Seireitei', ref:'Bleach',       desc:'50 badges — le Département de Recherche du Seireitei t\'envie profondément', condition:'50 badges', ck:()=>baseUnlocked>=50});
-  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     ref:'Dofus',        desc:'75 badges — ta panoplie légendaire fait pâlir les marchands d\'équipement', condition:'75 badges', ck:()=>baseUnlocked>=75});
-  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>baseUnlocked>=100});
-  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>baseUnlocked>=totalNormal});
+  // Fix: use a function that counts all non-collector, non-impossible unlocked badges
+  // plus recursively includes collector badges that are themselves unlocked
+  const _nonColBadges = b.filter(x => !x.impossible);
+  const _nonColCount = _nonColBadges.filter(x => x.ck()).length;
+  function _colCount(threshold) {
+    // Count non-collector unlocked + collector badges whose threshold is met
+    let count = _nonColCount;
+    if (count >= 5) count++;   // col5 unlocked
+    if (count >= 15) count++;  // col15 unlocked
+    if (count >= 30) count++;  // col30 unlocked
+    if (count >= 50) count++;  // col50 unlocked
+    if (count >= 75) count++;  // col75 unlocked
+    if (count >= 100) count++; // col100 unlocked
+    return count >= threshold;
+  }
+  const totalNormal = _nonColBadges.length + 7; // +7 for the collector badges about to be added
+  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      ref:'Dofus',        desc:'5 badges — ton inventaire commence à se remplir d\'histoire', condition:'5 badges', ck:()=>_colCount(5)});
+  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur d\'Âmes',  ref:'Bleach',       desc:'15 badges — tu accumules les lames comme un Shinigami expérimenté', condition:'15 badges', ck:()=>_colCount(15)});
+  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    ref:'Dofus',        desc:'30 badges — les vitrines d\'Astrub ne suffisent plus à tout exposer', condition:'30 badges', ck:()=>_colCount(30)});
+  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste du Seireitei', ref:'Bleach',       desc:'50 badges — le Département de Recherche du Seireitei t\'envie profondément', condition:'50 badges', ck:()=>_colCount(50)});
+  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     ref:'Dofus',        desc:'75 badges — ta panoplie légendaire fait pâlir les marchands d\'équipement', condition:'75 badges', ck:()=>_colCount(75)});
+  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
+  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
 
   return b;
 }
@@ -3922,7 +3954,7 @@ var WEEKLY_QUEST_POOL = [
   { id:'discovery', name:'Explorateur', desc:'Essaie un exercice jamais fait', targetFn:function(){return 1;}, currentFn:function(wl){ var allExos=new Set(); db.logs.forEach(function(l){(l.exercises||[]).forEach(function(e){allExos.add(e.name);}); }); var weekExos=new Set(); wl.forEach(function(l){(l.exercises||[]).forEach(function(e){weekExos.add(e.name);}); }); var newCount=0; weekExos.forEach(function(n){ var foundBefore=false; db.logs.forEach(function(l2){ if(wl.indexOf(l2)>=0)return; (l2.exercises||[]).forEach(function(e2){if(e2.name===n)foundBefore=true;}); }); if(!foundBefore)newCount++; }); return newCount; }, xp:100 },
   { id:'muscle_weak', name:'Rééquilibrage', descFn:function(t,m){return t+' séries de '+m+' cette semaine';}, targetFn:function(){ var muscleVol={}; getLogsInRange(28).forEach(function(l){(l.exercises||[]).forEach(function(e){ var mg=getMuscleGroupParent?getMuscleGroupParent(getMuscleGroup(e.name)||'Autre'):(getMuscleGroup(e.name)||'Autre'); if(mg!=='Autre') muscleVol[mg]=(muscleVol[mg]||0)+(e.sets||0); }); }); var sorted=Object.keys(muscleVol).sort(function(a,b){return muscleVol[a]-muscleVol[b];}); var weak=sorted[0]||'Pectoraux'; var isSmall=/Biceps|Triceps|Épaules|Mollets|Avant-bras/i.test(weak); return {target:isSmall?10:14, muscle:weak}; }, currentFn:function(wl,pb,meta){ var sets=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ var mg=getMuscleGroupParent?getMuscleGroupParent(getMuscleGroup(e.name)||'Autre'):(getMuscleGroup(e.name)||'Autre'); if(mg===meta.muscle)sets+=(e.sets||0); }); }); return sets; }, xp:100 },
   { id:'tonnage', name:'Tonnage record', descFn:function(t){return 'Dépasse '+Math.round(t/1000)+'t de volume cette semaine';}, targetFn:function(){ var avg=getLogsInRange(28).reduce(function(s,l){return s+(l.volume||0);},0)/4; return Math.max(1000, Math.round(avg*1.05/100)*100); }, currentFn:function(wl){ return wl.reduce(function(s,l){return s+(l.volume||0);},0); }, xp:100 },
-  { id:'consistency', name:'Machine de guerre', descFn:function(t){return 'Entraîne-toi '+t+' jours d\'affilée';}, targetFn:function(){ var st=_getRoutineDays(); return Math.max(2,st-1); }, currentFn:function(wl){ var days=wl.map(function(l){return new Date(l.timestamp).toISOString().slice(0,10);}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(); var maxStreak=0,cur=1; for(var i=1;i<days.length;i++){ var d1=new Date(days[i-1]),d2=new Date(days[i]); if((d2-d1)===86400000)cur++; else cur=1; if(cur>maxStreak)maxStreak=cur; } return days.length?Math.max(maxStreak,cur):0; }, xp:150 },
+  { id:'consistency', name:'Machine de guerre', descFn:function(t){return 'Entraîne-toi '+t+' jours d\'affilée';}, targetFn:function(){ var st=getTrainingDaysCount(); return Math.max(2,st-1); }, currentFn:function(wl){ var days=wl.map(function(l){return new Date(l.timestamp).toISOString().slice(0,10);}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(); var maxStreak=0,cur=1; for(var i=1;i<days.length;i++){ var d1=new Date(days[i-1]),d2=new Date(days[i]); if((d2-d1)===86400000)cur++; else cur=1; if(cur>maxStreak)maxStreak=cur; } return days.length?Math.max(maxStreak,cur):0; }, xp:150 },
   { id:'compound', name:'Force brute', desc:'Fais au moins 15 séries de mouvements composés', targetFn:function(){return 15;}, currentFn:function(wl){ var compoundRe=/squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press/i; var sets=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(compoundRe.test(e.name))sets+=(e.sets||0);}); }); return sets; }, xp:100 },
   { id:'tempo', name:'Contrôle total', desc:'3 séries en tempo lent (RPE renseigné)', targetFn:function(){return 3;}, currentFn:function(wl){ var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(e.rpe&&e.rpe>0)count+=(e.sets||0); }); }); return count; }, xp:80 },
   { id:'volume_session', name:'Séance monstre', descFn:function(t){return 'Dépasse '+Math.round(t/1000)+'t dans une seule séance';}, targetFn:function(){ var maxes=[]; getLogsInRange(28).forEach(function(l){maxes.push(l.volume||0);}); var avg=maxes.length?Math.max.apply(null,maxes):5000; return Math.round(avg*1.1/100)*100; }, currentFn:function(wl){ var mx=0; wl.forEach(function(l){if((l.volume||0)>mx)mx=l.volume||0;}); return mx; }, xp:120 },
@@ -3932,21 +3964,21 @@ var WEEKLY_QUEST_POOL = [
   { id:'heavy', name:'Charges lourdes', desc:'Au moins 5 séries à +85% e1RM', targetFn:function(){return 5;}, currentFn:function(wl){ var best=getAllBestE1RMs(); var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ var b=best[e.name]; if(b&&e.maxRM>=b.e1rm*0.85)count+=(e.sets||0); }); }); return count; }, xp:150 },
   { id:'endurance', name:'Endurance', desc:'Au moins 8 séries de 10+ reps', targetFn:function(){return 8;}, currentFn:function(wl){ var count=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(e.reps&&e.reps>=10)count+=(e.sets||0); else if(e.sets&&!e.reps)count+=0; }); }); return count; }, xp:80 },
   { id:'upper_lower', name:'Équilibre', desc:'Ratio haut/bas du corps entre 40-60%', targetFn:function(){return 1;}, currentFn:function(wl){ var upper=0,lower=0; var lowerRe=/squat|deadlift|souleve|leg|mollet|ischio|quadri|fessier|hip.*thrust|rdl|presse|lunge|fente/i; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){ if(lowerRe.test(e.name))lower+=(e.sets||0); else upper+=(e.sets||0); }); }); var total=upper+lower; if(total===0)return 0; var ratio=upper/total; return(ratio>=0.4&&ratio<=0.6)?1:0; }, xp:100 },
-  { id:'no_skip', name:'Zéro impasse', desc:'Complète toutes les séries prévues du programme', targetFn:function(){return 1;}, currentFn:function(wl){ return wl.length>=_getRoutineDays()?1:0; }, xp:120 }
+  { id:'no_skip', name:'Zéro impasse', desc:'Complète toutes les séries prévues du programme', targetFn:function(){return 1;}, currentFn:function(wl){ return wl.length>=getTrainingDaysCount()?1:0; }, xp:120 }
 ];
 
 // ── Monthly Quest Pool ──
 var MONTHLY_QUEST_POOL = [
   { id:'m_pr_count', name:'Série de records', descFn:function(t){return 'Bats '+t+' records personnels ce mois';}, targetFn:function(){ return Math.max(3, Math.min(5, Math.round(db.logs.length/50))); }, xp:500 },
   { id:'m_volume', name:'Titan', descFn:function(t){return 'Accumule '+Math.round(t/1000)+'t de volume ce mois';}, targetFn:function(){ var avg=getLogsInRange(28).reduce(function(s,l){return s+(l.volume||0);},0); return Math.round(avg*1.1/1000)*1000; }, xp:400 },
-  { id:'m_sessions', name:'Régulier', descFn:function(t){return 'Complète '+t+' séances ce mois';}, targetFn:function(){ return _getRoutineDays()*4; }, xp:400 },
+  { id:'m_sessions', name:'Régulier', descFn:function(t){return 'Complète '+t+' séances ce mois';}, targetFn:function(){ return getTrainingDaysCount()*4; }, xp:400 },
   { id:'m_streak', name:'Inarrêtable', descFn:function(t){return 'Maintiens ta série '+t+' semaines d\'affilée';}, targetFn:function(){ return Math.max(4, calcStreak()+2); }, xp:350 },
   { id:'m_strength', name:'Palier de force', desc:'Atteins un nouveau palier de force sur un exercice', targetFn:function(){return 1;}, xp:600 },
   { id:'m_muscle_balance', name:'Harmonie', desc:'Travaille tous les groupes musculaires au moins 8 séries', targetFn:function(){return 8;}, xp:300 },
   { id:'m_nutrition', name:'Discipline', descFn:function(t){return 'Remplis tes macros '+t+' jours ce mois';}, targetFn:function(){return 20;}, xp:350 },
   { id:'m_discovery', name:'Aventurier', desc:'Essaie 3 nouveaux exercices ce mois', targetFn:function(){return 3;}, xp:250 },
   { id:'m_heavy_month', name:'Mois de force', desc:'15 séries à +90% e1RM ce mois', targetFn:function(){return 15;}, xp:400 },
-  { id:'m_consistency', name:'Métronome', descFn:function(t){return 'Entraîne-toi au moins '+t+' jours chaque semaine pendant 4 semaines';}, targetFn:function(){ return _getRoutineDays(); }, xp:500 }
+  { id:'m_consistency', name:'Métronome', descFn:function(t){return 'Entraîne-toi au moins '+t+' jours chaque semaine pendant 4 semaines';}, targetFn:function(){ return getTrainingDaysCount(); }, xp:500 }
 ];
 
 // ── Secret Quests ──
@@ -4036,13 +4068,13 @@ function generateWeeklyChallenges() {
     else { db.questStreak = 0; }
   }
 
-  var sessTarget = _getRoutineDays();
+  var sessTarget = getTrainingDaysCount();
   var challenges = [];
 
-  // 1. Assiduité (fixed)
+  // 1. Assiduité (fixed — uses getTrainingDaysCount())
   challenges.push({ id:'w_assiduite', type:'assiduite', label:'Respecte ton programme', description:'Complète ' + sessTarget + ' séances cette semaine', target:sessTarget, current:0, xpReward:200, completed:false });
 
-  // 2. Nutrition (fixed)
+  // 2. Nutrition (fixed — uses same dynamic count)
   challenges.push({ id:'w_nutrition', type:'nutrition', label:'Remplis tes macros ' + sessTarget + ' jours', description:'Enregistre tes calories ' + sessTarget + ' jours cette semaine', target:sessTarget, current:0, xpReward:150, completed:false, onclick:'nutrition' });
 
   // 3. Pesée (fixed)
@@ -4099,7 +4131,7 @@ function updateChallengeProgress() {
         c.current = poolEntry.currentFn(weekLogs, prevBest, c.meta || {});
       }
     }
-    if (c.current >= c.target && !c.completed) { c.completed = true; saveDB(); }
+    if (c.current >= c.target && !c.completed) { c.completed = true; try { navigator.vibrate([50,50,50]); } catch(e) {} saveDB(); }
   });
 }
 
@@ -4181,7 +4213,7 @@ function updateMonthlyChallengeProgress() {
       c.current = count;
     } else if (c.type === 'm_consistency') {
       // Count weeks in month where sessions >= routine days
-      var routineDays = _getRoutineDays();
+      var routineDays = getTrainingDaysCount();
       var weekMap = {};
       monthLogs.forEach(function(l) {
         var ws = _getWeekStart(new Date(l.timestamp)).toISOString().slice(0,10);
@@ -4191,7 +4223,7 @@ function updateMonthlyChallengeProgress() {
       for (var w in weekMap) { if (weekMap[w] >= routineDays) completeWeeks++; }
       c.current = completeWeeks;
     }
-    if (c.current >= c.target && !c.completed) { c.completed = true; saveDB(); }
+    if (c.current >= c.target && !c.completed) { c.completed = true; try { navigator.vibrate([50,50,50]); } catch(e) {} saveDB(); }
   });
 }
 
@@ -4219,6 +4251,7 @@ function checkSecretQuests() {
 }
 
 function _showSecretQuestToast(sq) {
+  try { navigator.vibrate(100); } catch(e) {}
   var el = document.createElement('div');
   el.className = 'toast';
   el.style.background = 'var(--gold)';
@@ -4291,6 +4324,39 @@ function _calcTodayXP() {
     }
   });
   return xp;
+}
+
+function scrollToBadgeCategory(badgeId) {
+  var sections = document.querySelectorAll('.bdg-section');
+  sections.forEach(function(sec) {
+    var found = sec.querySelector('[data-badge-id="' + badgeId + '"]');
+    if (found) {
+      var body = sec.querySelector('.bdg-sec-body');
+      if (body && !body.classList.contains('open')) {
+        toggleBdgSection(sec.querySelector('.bdg-sec-head'));
+      }
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      found.style.outline = '2px solid var(--purple)';
+      found.style.outlineOffset = '2px';
+      setTimeout(function() { found.style.outline = ''; found.style.outlineOffset = ''; }, 2000);
+    }
+  });
+}
+
+function getTrainingDaysCount() {
+  var routine = getRoutine();
+  if (routine) {
+    var days = 0;
+    for (var k in routine) {
+      var v = routine[k];
+      if (v && typeof v === 'string' && v.toLowerCase() !== 'repos' && v.toLowerCase() !== 'rest' && v !== '') days++;
+    }
+    if (days > 0) return days;
+  }
+  if (db.user.trainingDays) return db.user.trainingDays;
+  var last4w = getLogsInRange(28);
+  if (last4w.length >= 4) return Math.round(last4w.length / 4);
+  return 5;
 }
 
 function calcBadgeProgress(badge) {
@@ -4439,6 +4505,26 @@ function renderGamificationTab() {
   var seenBadges = db.seenBadges || [];
   allBadgesForSeen.forEach(function(b) { if (!b.impossible && b.ck() && seenBadges.indexOf(b.id) < 0) {} });
 
+  // ── 0. Weekly recap banner (Monday) ──
+  (function() {
+    var levelCardEl = document.getElementById('gamLevelCard');
+    var today = new Date();
+    var isMonday = today.getDay() === 1;
+    var dismissed = sessionStorage.getItem('gamRecapDismissed');
+    if (isMonday && !dismissed && db.weeklyChallenges && db.weeklyChallenges.challenges) {
+      var ch = db.weeklyChallenges.challenges;
+      var prevDone = ch.filter(function(c) { return c.completed; }).length;
+      var prevXP = ch.reduce(function(s,c) { return s + (c.completed ? c.xpReward : 0); }, 0);
+      var prevSessions = _getLogsThisWeek().length;
+      var isPerfect = prevDone === ch.length && ch.length > 0;
+      var recapHtml = '<div class="gam-recap' + (isPerfect ? ' shimmer' : '') + '" style="' + (isPerfect ? 'border-color:var(--gold);' : '') + '">' +
+        '<div><div class="gam-recap-text">' + (isPerfect ? '🔥 Semaine parfaite !' : '📊 Semaine dernière') + '</div>' +
+        '<div class="gam-recap-sub">' + prevDone + '/' + ch.length + ' quêtes · +' + prevXP + ' XP · ' + prevSessions + ' séances</div></div>' +
+        '<button class="gam-recap-close" onclick="this.parentElement.remove();sessionStorage.setItem(\'gamRecapDismissed\',\'1\')">✕</button></div>';
+      levelCardEl.insertAdjacentHTML('beforebegin', recapHtml);
+    }
+  })();
+
   // ── 1. Level card (V2 — reiatsu + today XP + clickable stats + title) ──
   var levelCard = document.getElementById('gamLevelCard');
   var xpInLevel = totalXP - currLevel.xp;
@@ -4504,7 +4590,7 @@ function renderGamificationTab() {
       var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
       html += '<div class="xs-bar-row xs-bar-row-click" onclick="' + br.click + '"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';
     });
-    html += '</div>';
+    html += '</div><div class="gam-separator">✦ ─── ✦ ─── ✦</div>';
     document.getElementById('gamXPSources').innerHTML = html;
   })();
 
@@ -4552,7 +4638,7 @@ function renderGamificationTab() {
     if (done === ch.length && ch.length > 0) {
       var baseXP = ch.reduce(function(s,c){return s+c.xpReward;},0);
       var bonusXP = Math.round(baseXP * 0.25);
-      html += '<div class="quest-perfect">🌟 Quête parfaite ! +' + bonusXP + ' XP bonus</div>';
+      html += '<div class="quest-perfect shimmer">🌟 Quête parfaite ! +' + bonusXP + ' XP bonus</div>';
     }
     html += '</div>';
     document.getElementById('gamChallenges').innerHTML = html;
@@ -4577,7 +4663,7 @@ function renderGamificationTab() {
         '<div class="quest-remaining">Il reste ' + daysLeft + ' jours</div></div>' +
         '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
     });
-    html += '</div>';
+    html += '</div><div class="gam-separator">⟡ ── ⟡</div>';
     document.getElementById('gamMonthlyChallenges').innerHTML = html;
   })();
 
@@ -4606,7 +4692,8 @@ function renderGamificationTab() {
       var rc = rarityColor[b.r] || '#86868B';
       var isNew = !b.isSecret && b.id && seenBadges.indexOf(b.id) < 0;
       var secClass = b.isSecret ? ' secret-badge' : '';
-      html += '<div class="ru-item' + secClass + '" style="border:1px solid ' + rc + '33;">' +
+      var clickAttr = b.id && !b.isSecret ? ' onclick="scrollToBadgeCategory(\'' + b.id + '\')" style="cursor:pointer;border:1px solid ' + rc + '33;"' : ' style="border:1px solid ' + rc + '33;"';
+      html += '<div class="ru-item' + secClass + '"' + clickAttr + '>' +
         (isNew ? '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>' : '') +
         '<div class="ru-icon">' + b.icon + '</div><div class="ru-name">' + b.name + '</div>' +
         (b.isSecret ? '<div class="secret-label">SECRÈTE</div>' : '<div class="ru-date">' + (b.ref||'') + '</div>') +
@@ -4639,7 +4726,7 @@ function renderGamificationTab() {
       var b = item.badge, p = item.progress;
       var rc = rarityColor[b.r] || '#86868B';
       var isAlmost = p.pct > 90;
-      html += '<div class="nb-item" style="border:1px solid ' + rc + '22;' + (isAlmost ? 'border-color:var(--gold-border);' : '') + '"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
+      html += '<div class="nb-item" style="cursor:pointer;border:1px solid ' + rc + '22;' + (isAlmost ? 'border-color:var(--gold-border);' : '') + '" onclick="scrollToBadgeCategory(\'' + b.id + '\')"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
         '<div class="nb-info"><div class="nb-name">' + b.name + '</div><div class="nb-desc">' + b.desc + '</div>' +
         '<div class="nb-bar-bg"><div class="nb-bar" style="width:' + p.pct + '%;background:' + rc + ';"></div></div></div>' +
         '<div class="nb-pct" style="color:' + (isAlmost ? 'var(--orange)' : rc) + ';">' + p.pct + '%' + (isAlmost ? '<div style="font-size:9px;">Presque !</div>' : '') + '</div></div>';
@@ -4766,6 +4853,9 @@ function renderGamificationTab() {
     }
   })();
 
+  // Separator
+  document.getElementById('gamStrengthContent').insertAdjacentHTML('beforeend', '<div class="gam-separator">✦ ─── ✦ ─── ✦</div>');
+
   // ── 7. Heatmap de régularité (52 semaines, clickable) ──
   (function() {
     var now = Date.now();
@@ -4789,6 +4879,9 @@ function renderGamificationTab() {
         '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.20);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.40);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.60);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
       '</div>';
   })();
+
+  // Separator
+  document.getElementById('gamHeatmap').insertAdjacentHTML('beforeend', '<div class="gam-separator">⟡ ── ⟡</div>');
 
   // ── 8. Badges (overview + chips + secret quests section + accordions + progress) ──
   var allBadges = getAllBadges();
@@ -4909,7 +5002,7 @@ function renderGamificationTab() {
       var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
 
       if (badge.impossible) {
-        secHtml += '<div class="bdg locked" style="opacity:0.55;border-style:dashed;">';
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
         secHtml += '<div class="bdg-rarity-bar"></div>';
         secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
         secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
@@ -4921,7 +5014,7 @@ function renderGamificationTab() {
         var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
         if (badge.r === 'mythic') themeClass = ' mythic-v2';
         if (badge.r === 'divine') themeClass = ' divine-v2';
-        secHtml += '<div class="bdg ' + badge.r + themeClass + '" style="position:relative;">';
+        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
         if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
         secHtml += '<div class="bdg-rarity-bar"></div>';
         secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
@@ -4934,7 +5027,7 @@ function renderGamificationTab() {
         var prog = calcBadgeProgress(badge);
         var progPct = prog ? prog.pct : 0;
         var closeToUnlock = progPct > 50;
-        secHtml += '<div class="bdg locked" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
         secHtml += '<div class="bdg-icon">🔒</div>';
         secHtml += '<div class="bdg-name">' + badge.name + '</div>';
         secHtml += '<div class="bdg-desc">???</div>';

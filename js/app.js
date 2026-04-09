@@ -6351,7 +6351,7 @@ function generateWeeklyPlan() {
   function getExoCategory(name) {
     const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) return 'big';
-    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning/.test(n)) return 'compound';
+    if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) return 'compound';
     return 'isolation';
   }
 
@@ -6811,7 +6811,7 @@ function renderWpExercise(exo) {
   else {
     const n = exo.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) typeTag = 'Composé';
-    else if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|leg\s*press|presse|fentes?|\blunge|good\s*morning/.test(n)) typeTag = 'Composé';
+    else if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|leg\s*press|presse|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) typeTag = 'Composé';
   }
 
   // Summary

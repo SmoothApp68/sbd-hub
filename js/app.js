@@ -430,6 +430,12 @@ function obNext(step) {
     if (!text) { showToast('Colle ton programme d\'abord'); return; }
     const parsed = parseManualProgram(text);
     db.routine = parsed;
+    db.routineExos = db.routineExos || {};
+    for (const [day, content] of Object.entries(parsed)) {
+      if (content && content.toLowerCase() !== 'repos' && content.toLowerCase() !== 'off') {
+        db.routineExos[day] = content.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+      }
+    }
     saveDB();
     obFinish();
   } else if (s === '5') {

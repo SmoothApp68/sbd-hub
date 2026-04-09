@@ -1141,7 +1141,7 @@ function showTab(tabId) {
     if (isTodayTrainingDay() && !hasTodayReadiness()) showReadinessModal();
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
-  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
+  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); renderDeloadBanner(); }
   if (tabId==='tab-game') { renderGamificationTab(); }
   if (tabId==='tab-profil') {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
@@ -6117,6 +6117,62 @@ const BW_RATIOS = {
   isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
 };
 
+// ── Deload automatique ──────────────────────────────────────
+function shouldDeload() {
+  const reasons = [];
+  // 1. Fin de mésocycle (semaine 4 complétée)
+  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
+    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
+    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
+  }
+  // 2. Readiness basse chronique
+  const last3 = (db.readiness || []).slice(-3);
+  if (last3.length === 3 && last3.every(r => r.score < 40)) {
+    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
+  }
+  // 3. Plateau multiple
+  const bigLifts = ['squat', 'bench', 'deadlift'];
+  const plateaus = bigLifts.filter(l => detectPlateau(l));
+  if (plateaus.length >= 2) {
+    reasons.push('Plateau sur ' + plateaus.join(' et '));
+  }
+  return { needed: reasons.length > 0, reasons };
+}
+
+let _deloadDismissed = false;
+function renderDeloadBanner() {
+  const el = document.getElementById('deloadBanner');
+  if (!el) return;
+  if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
+  const { needed, reasons } = shouldDeload();
+  if (!needed) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée</div>' +
+    '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
+    '<button onclick="dismissDeload()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Ignorer</button>' +
+    '</div></div>';
+}
+
+function acceptDeload() {
+  db._deloadAccepted = true;
+  saveDB();
+  showToast('🔄 Deload activé — charges et volume réduits');
+  const el = document.getElementById('deloadBanner');
+  if (el) el.innerHTML = '';
+}
+
+function dismissDeload() {
+  _deloadDismissed = true;
+  const el = document.getElementById('deloadBanner');
+  if (el) el.innerHTML = '';
+}
+
+function isDeloadWeek() {
+  return !!db._deloadAccepted;
+}
+
 function generateWeeklyPlan() {
   const btn = document.getElementById('wpGenerateBtn');
   btn.disabled = true; btn.textContent = 'Calcul en cours...';
@@ -6466,11 +6522,33 @@ function generateWeeklyPlan() {
     plan.days.push({ day, title: label || day, rest: isRest, coachNote: isRest ? '' : buildDayCoachNote(exoNames), exercises });
   });
 
+  // Appliquer deload si activé
+  if (isDeloadWeek()) {
+    plan.isDeload = true;
+    plan.days.forEach(d => {
+      if (d.rest) return;
+      d.exercises.forEach(exo => {
+        if (!exo.sets) return;
+        const work = exo.sets.filter(s => !s.isWarmup);
+        const keep = Math.ceil(work.length / 2);
+        const toRemove = work.length - keep;
+        for (let r = 0; r < toRemove; r++) {
+          const idx = exo.sets.findIndex(s => !s.isWarmup);
+          if (idx >= 0) exo.sets.splice(idx, 1);
+        }
+        exo.sets.forEach(s => {
+          if (s.weight) s.weight = round05(s.weight * 0.6);
+          if (s.rpe) s.rpe = Math.min(s.rpe, 6);
+        });
+      });
+    });
+  }
+
   db.weeklyPlan = plan;
   saveDB();
   btn.disabled = false;
   btn.innerHTML = '✦ Générer le programme de la semaine';
-  showToast('✅ Programme calculé !');
+  showToast(isDeloadWeek() ? '🔄 Programme deload généré !' : '✅ Programme calculé !');
   renderWeeklyPlanUI();
 }
 

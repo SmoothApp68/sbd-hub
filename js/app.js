@@ -4983,15 +4983,37 @@ function renderCorpsTab() {
   const logs7=getLogsInRange(7),tonnage7=logs7.reduce((s,l)=>s+l.volume,0);
   const ipf=calcIPFGLTotal(bench,squat,dead,bw);
   const ratio=bw>0&&ipf>0?Math.round((ipf/bw)*100)/100:0;
-  const tdee=calcTDEE(bw,tonnage7);
+  const baseTdee=calcTDEE(bw,tonnage7);
+  // Dynamic TDEE based on today's programme
+  const todayDayName = DAYS_FULL[new Date().getDay()];
+  const todayRoutine = getRoutine();
+  const todayLabel = todayRoutine[todayDayName] || '';
+  const todayIsRest = !todayLabel || /repos|😴/i.test(todayLabel);
+  const todayIsDeload = isDeloadWeek();
+  let tdeeMultiplier = 0.95; // Repos par défaut
+  let tdeeLabel = '🛋️ Jour de repos — -5% kcal';
+  if (todayIsDeload) {
+    tdeeMultiplier = 0.95; tdeeLabel = '🔄 Jour de deload — -5% kcal';
+  } else if (!todayIsRest) {
+    // Check if today has a big lift
+    const todayExos = getProgExosForDay(todayDayName);
+    const hasBig = todayExos.some(n => {
+      const nl = n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return /squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(nl);
+    });
+    if (hasBig) { tdeeMultiplier = 1.10; tdeeLabel = '🏋️ Jour lourd — +10% kcal'; }
+    else { tdeeMultiplier = 1.05; tdeeLabel = '💪 Jour modéré — +5% kcal'; }
+  }
+  const tdee = baseTdee > 0 ? Math.round(baseTdee * tdeeMultiplier) : 0;
   const cible=calcCalorieCible(bw);
-  const macros=calcMacrosCibles(cible,bw);
+  const adjustedCible = baseTdee > 0 ? Math.round(cible * tdeeMultiplier / (cible > 0 && baseTdee > 0 ? baseTdee / baseTdee : 1)) : cible;
+  const macros=calcMacrosCibles(adjustedCible > 0 ? adjustedCible : cible, bw);
   const today=new Date().toDateString();
   const todayEntry=(db.body||[]).find(e=>new Date(e.ts).toDateString()===today);
   const kcalMange=todayEntry?todayEntry.kcal:0,protMange=todayEntry?todayEntry.prot:0,carbMange=todayEntry?todayEntry.carb:0,fatMange=todayEntry?todayEntry.fat:0;
   const now2=new Date(),heuresPassed=now2.getHours()+now2.getMinutes()/60;
   const brulees=tdee>0?Math.round((tdee/24)*heuresPassed):0;
-  const restantes=Math.max(0,cible-kcalMange);
+  const restantes=Math.max(0,(adjustedCible||cible)-kcalMange);
   const RING_CIRCUM=440,pctMange=cible>0?Math.min(1,kcalMange/cible):0,dashOffset=Math.round(RING_CIRCUM*(1-pctMange));
   const ring=document.getElementById('nutriRingFill');
   if (ring){ring.style.strokeDashoffset=dashOffset;ring.className='nutri-ring-fill'+(pctMange>1?' over':pctMange>0.9?' warn':'');}
@@ -5003,6 +5025,8 @@ function renderCorpsTab() {
   applyBar('nutriProtBar',protMange,macros.prot);applyBar('nutriCarbBar',carbMange,macros.carb);applyBar('nutriFatBar',fatMange,macros.fat);
   setEl('nutriProtLabel',`${protMange} / ${macros.prot} g`);setEl('nutriCarbLabel',`${carbMange} / ${macros.carb} g`);setEl('nutriFatLabel',`${fatMange} / ${macros.fat} g`);
   setEl('nutriTDEELabel',tdee>0?`${tdee} kcal`:'—');setEl('nutriProtCible',`${macros.prot}g`);
+  const tdeeDayEl = document.getElementById('nutriDayTypeLabel');
+  if (tdeeDayEl) tdeeDayEl.textContent = tdeeLabel;
   // IPF GL card: only show if mode supports it
   const ipfCard = document.getElementById('metricIPFCard');
   if (ipfCard) ipfCard.style.display = modeFeature('showIPF') ? '' : 'none';

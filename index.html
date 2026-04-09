@@ -4373,7 +4373,8 @@ function getAllBadges() {
   b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de toutes les Classes', ref:'Dofus',  desc:'100 exercices — Iop, Sacrieur, Pandawa... tu les incarnes tous à la fois', condition:'100 exercices', ck:()=>uniqueExos>=100});
 
 
-  // ── Bench Press ──
+  // ── Bench Press (only if SBD mode) ──
+  if (modeFeature('showSBDCards')) {
   const _benchRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _benchIcons = ['🌱','💪','⚔️','🩸','⚡','🏰','🌀','🪓','🌊','🔥','❄️','👁️','💥'];
   const _benchNames = ["L'Apprenti d'Astrub","Cogneur de la Milice","Iop Authentique","Sacrieur de la Fonte","Shikai Débloqué","Champion de Brakmar","Reishi Condensé","Goultard le Barbare","Reiatsu d'Élite","Fracture du Temps","Lame de Glace de Rukia","Kenpachi Sans Bandeau","BANKAI — Pectoraux"];
@@ -4428,6 +4429,7 @@ function getAllBadges() {
     b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[1])}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`, condition:_bwD[1]+'× BW au Dead', ck:()=>D>=bw*_bwD[1]});
     b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[2])}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`, condition:_bwD[2]+'× BW au Dead', ck:()=>D>=bw*_bwD[2]});
   }
+  } // end if showSBDCards
 
   // ── Streak (semaines consécutives) ──
   const streakData = [
@@ -5399,8 +5401,9 @@ function renderGamificationTab() {
 
   // ── 6. Strength cards (grille paginée + clickable) ──
   (function() {
-    var bestE1RMs = getAllBestE1RMs();
     var strContainer = document.getElementById('gamStrengthContent');
+    if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
+    var bestE1RMs = getAllBestE1RMs();
     var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
     var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
 

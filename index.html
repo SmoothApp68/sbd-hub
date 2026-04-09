@@ -17,6 +17,10 @@
     .tab-badge { position: absolute; top: 8px; right: 50%; transform: translateX(16px); width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
     .content-section { display: none; animation: fadeIn 0.3s ease; }
     .content-section.active { display: block; }
+    .seances-sub-section { display: none; }
+    .seances-sub-section.active { display: block; }
+    .profil-sub-section { display: none; }
+    .profil-sub-section.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
     .header-card { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -774,7 +778,7 @@
     /* ── Strength Grid (.sg-*) ── */
     .sg-pages { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .sg-pages::-webkit-scrollbar { display: none; }
-    .sg-page { min-width: 100%; scroll-snap-align: start; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 2px; }
+    .sg-page { flex: 0 0 100%; scroll-snap-align: start; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 2px; box-sizing: border-box; }
     .sg-card { background: #1C1C1E; border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; }
     .sg-card.dim { opacity: 0.45; border-style: dashed; }
     .sg-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
@@ -1529,7 +1533,7 @@
           3. Réglages → 📥 Importer des Séances → colle
         </div>
       </div>
-      <button class="btn" onclick="switchTab('tab-settings'); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
+      <button class="btn" onclick="showTab('tab-profil'); showProfilSub('tab-settings', document.querySelector('#tab-profil .stats-sub-pill:last-child')); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
         📥 Aller à l'import
       </button>
     </div>
@@ -1539,16 +1543,26 @@
     <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
   </div>
   <div id="tab-seances" class="content-section">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <button id="prevWeekBtn" onclick="navigateWeek(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;cursor:pointer;font-size:18px;font-weight:700;transition:all 0.2s;">←</button>
-        <div style="text-align:center;flex:1;">
-          <div id="weekRangeLabel" style="font-size:14px;font-weight:700;color:var(--text);">—</div>
-          <div id="weekIndexLabel" style="font-size:11px;color:var(--sub);margin-top:2px;"></div>
+    <div class="stats-sub-nav" style="margin-bottom:14px;">
+      <button class="stats-sub-pill active" onclick="showSeancesSub('seances-list',this)">📋 Séances</button>
+      <button class="stats-sub-pill" onclick="showSeancesSub('seances-go',this)">🏋️ GO</button>
+    </div>
+    <div id="seances-list" class="seances-sub-section active">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <button id="prevWeekBtn" onclick="navigateWeek(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;cursor:pointer;font-size:18px;font-weight:700;transition:all 0.2s;">←</button>
+          <div style="text-align:center;flex:1;">
+            <div id="weekRangeLabel" style="font-size:14px;font-weight:700;color:var(--text);">—</div>
+            <div id="weekIndexLabel" style="font-size:11px;color:var(--sub);margin-top:2px;"></div>
+          </div>
+          <button id="nextWeekBtn" onclick="navigateWeek(1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;cursor:pointer;font-size:18px;font-weight:700;transition:all 0.2s;">→</button>
         </div>
-        <button id="nextWeekBtn" onclick="navigateWeek(1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;cursor:pointer;font-size:18px;font-weight:700;transition:all 0.2s;">→</button>
+        <div id="weekSessionsContainer"></div>
       </div>
-      <div id="weekSessionsContainer"></div>
+    </div>
+    <div id="seances-go" class="seances-sub-section">
+      <div id="goIdleView"></div>
+      <div id="goActiveView" style="display:none;"></div>
     </div>
   </div>
   <div id="tab-ai" class="content-section">
@@ -1656,7 +1670,12 @@
       <div class="card"><h2>🏃 Cardio</h2><div id="cardioStatsContent"><div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Chargement...</div></div></div>
     </div>
   </div>
-  <div id="tab-corps" class="content-section">
+  <div id="tab-profil" class="content-section">
+    <div class="stats-sub-nav" style="margin-bottom:14px;">
+      <button class="stats-sub-pill active" onclick="showProfilSub('tab-corps',this)">⚖️ Corps</button>
+      <button class="stats-sub-pill" onclick="showProfilSub('tab-settings',this)">⚙️ Réglages</button>
+    </div>
+    <div id="tab-corps" class="profil-sub-section active">
     <!-- 1. Score de forme -->
     <div class="corps-acc">
       <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-forme')">
@@ -1760,193 +1779,9 @@
         <div class="corps-acc-inner" id="coachAlgoContent" style="font-size:13px;line-height:1.6;color:var(--text);">Entre ton poids et tes macros pour activer l'analyse.</div>
       </div>
     </div>
-  </div>
+  </div><!-- /tab-corps -->
 
-  <div id="tab-game" class="content-section">
-    <div id="gamLevelCard"></div>
-    <div id="gamXPSources"></div>
-    <div id="gamChallenges"></div>
-    <div id="gamMonthlyChallenges"></div>
-    <div id="gamRecentBadges"></div>
-    <div id="gamNextBadges"></div>
-    <div id="gamStrengthContent"></div>
-    <div id="gamHeatmap"></div>
-    <div id="gamBadgesOverview"></div>
-    <div id="gamBadgesSections"></div>
-  </div>
-
-  <div id="tab-go" class="content-section">
-    <div id="goIdleView"></div>
-    <div id="goActiveView" style="display:none;"></div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════ -->
-  <!-- COMMUNAUTÉ -->
-  <!-- ══════════════════════════════════════════════ -->
-  <div id="tab-social" class="content-section">
-    <div class="social-sub-tabs">
-      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Feed</button>
-      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
-      <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
-    </div>
-
-    <!-- Feed Sub-tab -->
-    <div id="social-feed" class="social-sub-content active">
-      <div id="feedPinnedSection"></div>
-      <div id="feedContent"></div>
-      <div id="feedLoadMore" style="display:none;">
-        <button class="feed-load-more" onclick="loadMoreFeed()">Voir plus</button>
-      </div>
-    </div>
-
-    <!-- Leaderboard Sub-tab -->
-    <div id="social-leaderboard" class="social-sub-content">
-      <div class="card">
-        <h2>Classement</h2>
-        <div class="lb-filter">
-          <select id="lbExerciseFilter" onchange="renderLeaderboard()">
-            <option value="">Chargement...</option>
-          </select>
-        </div>
-        <div id="lbPodium" class="lb-podium"></div>
-        <div id="lbTable" class="lb-table"></div>
-        <div id="lbEmpty" class="lb-empty" style="display:none;">Ajoute des amis pour voir le classement !</div>
-      </div>
-    </div>
-
-    <!-- Friends Sub-tab -->
-    <div id="social-friends" class="social-sub-content">
-      <!-- Search -->
-      <div class="friends-search">
-        <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
-        <span class="friends-search-icon">🔍</span>
-        <div class="friends-autocomplete" id="friendAutocomplete"></div>
-      </div>
-
-      <!-- Invite Code -->
-      <div class="friends-invite-card">
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code d'invitation</div>
-        <div class="friends-invite-sub">Partage ce code pour ajouter des amis</div>
-        <div class="friends-invite-code" id="myInviteCode">---</div>
-        <div style="display:flex;gap:8px;justify-content:center;">
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;" onclick="copyInviteCode()">Copier</button>
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="regenerateInviteCode()">Nouveau</button>
-        </div>
-      </div>
-
-      <!-- Use invite code -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Utiliser un code</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="useInviteCodeInput" placeholder="Ex: AUR3L-7X" style="margin-bottom:0;text-transform:uppercase;letter-spacing:1px;font-family:monospace;" maxlength="10">
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="useInviteCode()">Ajouter</button>
-        </div>
-      </div>
-
-      <!-- Notifications -->
-      <div class="card" id="notifSection">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <h2>Notifications</h2>
-          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
-        </div>
-        <div id="notifList" class="notif-list"></div>
-      </div>
-
-      <!-- Pending Requests -->
-      <div class="card" id="pendingRequestsSection" style="display:none;">
-        <h2>Demandes en attente</h2>
-        <div id="pendingRequestsList" class="friends-list"></div>
-      </div>
-
-      <!-- Friends List -->
-      <div class="card">
-        <h2>Mes amis</h2>
-        <div id="friendsList" class="friends-list"></div>
-      </div>
-
-      <!-- Blocked Users -->
-      <div class="card" id="blockedSection" style="display:none;">
-        <h2>Bloqués</h2>
-        <div id="blockedList" class="friends-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Profile overlay (friend profile view) -->
-  <div id="profileOverlay" class="profile-overlay" style="display:none;"></div>
-
-  <!-- ══════════════════════════════════════════════ -->
-  <!-- SOCIAL ONBOARDING OVERLAY -->
-  <!-- ══════════════════════════════════════════════ -->
-  <div id="social-onboarding-overlay" style="display:none;">
-    <div class="sob-wrap">
-      <div class="sob-progress" id="sob-progress">
-        <div class="sob-dot active"></div>
-        <div class="sob-dot"></div>
-        <div class="sob-dot"></div>
-      </div>
-
-      <!-- Step 1: Bienvenue + pseudo -->
-      <div class="sob-step active" id="sob-step-1">
-        <div class="sob-logo">🤝</div>
-        <div class="sob-title">Rejoins la communauté</div>
-        <div class="sob-sub">Choisis un pseudo unique pour te faire connaître et suivre tes amis.</div>
-        <div class="sob-fields">
-          <div class="sob-label">Ton pseudo</div>
-          <input type="text" id="sob-username" placeholder="Ex: MaxSquat92" maxlength="20" oninput="checkUsernameAvailability(this.value)">
-          <div id="sob-username-status" style="font-size:12px;margin-top:-8px;margin-bottom:12px;"></div>
-          <div class="sob-label">Bio courte (optionnel)</div>
-          <textarea id="sob-bio" placeholder="Powerlifter depuis 2020..." maxlength="200" rows="2" style="resize:none;"></textarea>
-        </div>
-        <button class="btn" onclick="sobNext(1)">Continuer →</button>
-      </div>
-
-      <!-- Step 2: Vie privée -->
-      <div class="sob-step" id="sob-step-2">
-        <div class="sob-logo">🔒</div>
-        <div class="sob-title">Vie privée</div>
-        <div class="sob-sub">Choisis qui peut voir chaque section de ton profil.</div>
-        <div class="sob-fields">
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Bio</span>
-            <select class="sob-visibility-select" id="sob-vis-bio"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">PRs / Exercices clés</span>
-            <select class="sob-visibility-select" id="sob-vis-prs"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Programme</span>
-            <select class="sob-visibility-select" id="sob-vis-programme"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Séances détaillées</span>
-            <select class="sob-visibility-select" id="sob-vis-seances"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-          <div class="sob-visibility-row">
-            <span class="sob-visibility-label">Stats</span>
-            <select class="sob-visibility-select" id="sob-vis-stats"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
-          </div>
-        </div>
-        <button class="btn" onclick="sobNext(2)">Continuer →</button>
-      </div>
-
-      <!-- Step 3: Code d'invitation -->
-      <div class="sob-step" id="sob-step-3">
-        <div class="sob-logo">🎉</div>
-        <div class="sob-title">Invite tes amis !</div>
-        <div class="sob-sub">Partage ce code pour retrouver tes partenaires d'entraînement.</div>
-        <div class="sob-fields" style="text-align:center;">
-          <div class="sob-code-display" id="sob-invite-code">---</div>
-          <button class="btn" style="margin-bottom:12px;" onclick="copySobInviteCode()">📋 Copier le code</button>
-        </div>
-        <button class="btn" onclick="sobFinish()">C'est parti ! →</button>
-        <button class="ob-skip" onclick="sobFinish()">Passer</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="tab-settings" class="content-section">
+  <div id="tab-settings" class="profil-sub-section">
 
     <!-- Accordéon Profil -->
     <div class="acc-card">
@@ -2103,8 +1938,15 @@
       <div class="acc-body" id="acc-cloud">
         <div id="cloudStatus" style="padding:12px;background:var(--surface);border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px;font-weight:600;">Connexion...</div>
         <div id="emailLoginSection">
+          <div id="authModeTabs" style="display:flex;gap:0;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border);">
+            <button id="authModeLogin" class="auth-mode-btn active" onclick="switchAuthMode('login')" style="flex:1;padding:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:var(--blue);color:white;">Connexion</button>
+            <button id="authModeSignup" class="auth-mode-btn" onclick="switchAuthMode('signup')" style="flex:1;padding:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:var(--surface);color:var(--sub);">Inscription</button>
+          </div>
           <input type="email" id="inputEmail" placeholder="ton@email.com" style="margin-bottom:8px;">
-          <button class="btn" style="background:var(--purple);" onclick="sendMagicLink()">Envoyer un lien magique</button>
+          <input type="password" id="inputPassword" placeholder="Mot de passe (min. 8 car.)" style="margin-bottom:8px;" minlength="8">
+          <input type="password" id="inputPasswordConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:8px;display:none;">
+          <button class="btn" style="background:var(--purple);" id="authSubmitBtn" onclick="authSubmit()">Se connecter</button>
+          <button id="forgotPasswordBtn" onclick="forgotPassword()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;width:100%;text-align:center;padding:8px;margin-top:4px;">Mot de passe oublié ?</button>
         </div>
         <div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;margin:8px 0;"></div>
         <div id="lastSyncDisplay" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
@@ -2154,17 +1996,213 @@
       </div>
     </div>
 
+  </div><!-- /tab-settings -->
+  </div><!-- /tab-profil -->
+
+  <div id="tab-game" class="content-section">
+    <div id="gamLevelCard"></div>
+    <div id="gamXPSources"></div>
+    <div id="gamChallenges"></div>
+    <div id="gamMonthlyChallenges"></div>
+    <div id="gamRecentBadges"></div>
+    <div id="gamNextBadges"></div>
+    <div id="gamStrengthContent"></div>
+    <div id="gamHeatmap"></div>
+    <div id="gamBadgesOverview"></div>
+    <div id="gamBadgesSections"></div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- COMMUNAUTÉ -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="tab-social" class="content-section">
+    <div class="social-sub-tabs">
+      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Feed</button>
+      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
+      <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
+    </div>
+
+    <!-- Feed Sub-tab -->
+    <div id="social-feed" class="social-sub-content active">
+      <div id="feedPinnedSection"></div>
+      <div id="feedContent"></div>
+      <div id="feedLoadMore" style="display:none;">
+        <button class="feed-load-more" onclick="loadMoreFeed()">Voir plus</button>
+      </div>
+    </div>
+
+    <!-- Leaderboard Sub-tab -->
+    <div id="social-leaderboard" class="social-sub-content">
+      <div class="card">
+        <h2>Classement</h2>
+        <div class="lb-filter">
+          <select id="lbExerciseFilter" onchange="renderLeaderboard()">
+            <option value="">Chargement...</option>
+          </select>
+        </div>
+        <div id="lbPodium" class="lb-podium"></div>
+        <div id="lbTable" class="lb-table"></div>
+        <div id="lbEmpty" class="lb-empty" style="display:none;">Ajoute des amis pour voir le classement !</div>
+      </div>
+    </div>
+
+    <!-- Friends Sub-tab -->
+    <div id="social-friends" class="social-sub-content">
+      <!-- Search -->
+      <div class="friends-search">
+        <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
+        <span class="friends-search-icon">🔍</span>
+        <div class="friends-autocomplete" id="friendAutocomplete"></div>
+      </div>
+
+      <!-- Friend Code -->
+      <div class="card" style="margin-bottom:16px;text-align:center;border:1px solid rgba(10,132,255,0.25);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);">
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code ami</div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Partage ce code permanent pour que tes amis t'ajoutent</div>
+        <div id="myFriendCode" style="font-family:monospace;font-size:28px;font-weight:800;letter-spacing:4px;color:var(--blue);padding:12px 0;user-select:all;">---</div>
+        <button class="btn" style="width:auto;padding:10px 24px;font-size:13px;margin:0 auto;" onclick="copyFriendCode()">📋 Copier</button>
+      </div>
+
+      <!-- Add friend by code -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Ajouter un ami par code</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
+        </div>
+      </div>
+
+      <!-- Invite Code (legacy) -->
+      <div class="friends-invite-card">
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Code d'invitation (usage unique)</div>
+        <div class="friends-invite-sub">Partage ce code pour ajouter des amis</div>
+        <div class="friends-invite-code" id="myInviteCode">---</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;" onclick="copyInviteCode()">Copier</button>
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="regenerateInviteCode()">Nouveau</button>
+        </div>
+      </div>
+
+      <!-- Use invite code -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Utiliser un code d'invitation</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="useInviteCodeInput" placeholder="Ex: AUR3L-7X" style="margin-bottom:0;text-transform:uppercase;letter-spacing:1px;font-family:monospace;" maxlength="10">
+          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="useInviteCode()">Ajouter</button>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="card" id="notifSection">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h2>Notifications</h2>
+          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
+        </div>
+        <div id="notifList" class="notif-list"></div>
+      </div>
+
+      <!-- Pending Requests -->
+      <div class="card" id="pendingRequestsSection" style="display:none;">
+        <h2>Demandes en attente</h2>
+        <div id="pendingRequestsList" class="friends-list"></div>
+      </div>
+
+      <!-- Friends List -->
+      <div class="card">
+        <h2>Mes amis</h2>
+        <div id="friendsList" class="friends-list"></div>
+      </div>
+
+      <!-- Blocked Users -->
+      <div class="card" id="blockedSection" style="display:none;">
+        <h2>Bloqués</h2>
+        <div id="blockedList" class="friends-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile overlay (friend profile view) -->
+  <div id="profileOverlay" class="profile-overlay" style="display:none;"></div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SOCIAL ONBOARDING OVERLAY -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="social-onboarding-overlay" style="display:none;">
+    <div class="sob-wrap">
+      <div class="sob-progress" id="sob-progress">
+        <div class="sob-dot active"></div>
+        <div class="sob-dot"></div>
+        <div class="sob-dot"></div>
+      </div>
+
+      <!-- Step 1: Bienvenue + pseudo -->
+      <div class="sob-step active" id="sob-step-1">
+        <div class="sob-logo">🤝</div>
+        <div class="sob-title">Rejoins la communauté</div>
+        <div class="sob-sub">Choisis un pseudo unique pour te faire connaître et suivre tes amis.</div>
+        <div class="sob-fields">
+          <div class="sob-label">Ton pseudo</div>
+          <input type="text" id="sob-username" placeholder="Ex: MaxSquat92" maxlength="20" oninput="checkUsernameAvailability(this.value)">
+          <div id="sob-username-status" style="font-size:12px;margin-top:-8px;margin-bottom:12px;"></div>
+          <div class="sob-label">Bio courte (optionnel)</div>
+          <textarea id="sob-bio" placeholder="Powerlifter depuis 2020..." maxlength="200" rows="2" style="resize:none;"></textarea>
+        </div>
+        <button class="btn" onclick="sobNext(1)">Continuer →</button>
+      </div>
+
+      <!-- Step 2: Vie privée -->
+      <div class="sob-step" id="sob-step-2">
+        <div class="sob-logo">🔒</div>
+        <div class="sob-title">Vie privée</div>
+        <div class="sob-sub">Choisis qui peut voir chaque section de ton profil.</div>
+        <div class="sob-fields">
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Bio</span>
+            <select class="sob-visibility-select" id="sob-vis-bio"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">PRs / Exercices clés</span>
+            <select class="sob-visibility-select" id="sob-vis-prs"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Programme</span>
+            <select class="sob-visibility-select" id="sob-vis-programme"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Séances détaillées</span>
+            <select class="sob-visibility-select" id="sob-vis-seances"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+          <div class="sob-visibility-row">
+            <span class="sob-visibility-label">Stats</span>
+            <select class="sob-visibility-select" id="sob-vis-stats"><option value="private">Privé</option><option value="friends">Amis</option><option value="public">Public</option></select>
+          </div>
+        </div>
+        <button class="btn" onclick="sobNext(2)">Continuer →</button>
+      </div>
+
+      <!-- Step 3: Code d'invitation -->
+      <div class="sob-step" id="sob-step-3">
+        <div class="sob-logo">🎉</div>
+        <div class="sob-title">Invite tes amis !</div>
+        <div class="sob-sub">Partage ce code pour retrouver tes partenaires d'entraînement.</div>
+        <div class="sob-fields" style="text-align:center;">
+          <div class="sob-code-display" id="sob-invite-code">---</div>
+          <button class="btn" style="margin-bottom:12px;" onclick="copySobInviteCode()">📋 Copier le code</button>
+        </div>
+        <button class="btn" onclick="sobFinish()">C'est parti ! →</button>
+        <button class="ob-skip" onclick="sobFinish()">Passer</button>
+      </div>
+    </div>
   </div>
   <nav class="tab-bar">
     <button class="tab-btn active" data-tab="tab-dash"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg> Accueil</button>
     <button class="tab-btn" data-tab="tab-seances"><svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg> Séances</button>
-    <button class="tab-btn" data-tab="tab-ai"><svg viewBox="0 0 24 24"><path d="M21 10.975V8a2 2 0 0 0-2-2h-6V4.688c.305-.274.5-.668.5-1.11a1.5 1.5 0 0 0-3 0c0 .442.195.836.5 1.11V6H5a2 2 0 0 0-2 2v2.998l-.072.005A.999.999 0 0 0 2 12v2a1 1 0 0 0 1 1v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1.025zM9 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg> Coach</button>
     <button class="tab-btn" data-tab="tab-stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm6 14H7v-5h2v5zm4 0h-2v-3h2v3zm0-5h-2v-2h2v2zm4 5h-2V7h2v10z"/></svg> Stats</button>
-    <button class="tab-btn" data-tab="tab-corps"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Corps</button>
+    <button class="tab-btn" data-tab="tab-ai"><svg viewBox="0 0 24 24"><path d="M21 10.975V8a2 2 0 0 0-2-2h-6V4.688c.305-.274.5-.668.5-1.11a1.5 1.5 0 0 0-3 0c0 .442.195.836.5 1.11V6H5a2 2 0 0 0-2 2v2.998l-.072.005A.999.999 0 0 0 2 12v2a1 1 0 0 0 1 1v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1.025zM9 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg> Coach</button>
     <button class="tab-btn" data-tab="tab-game"><svg viewBox="0 0 24 24"><path d="M2 12c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10S2 17.5 2 12zm10-6l-1.5 3.5L7 11l3.5 1.5L12 16l1.5-3.5L17 11l-3.5-1.5L12 6z"/></svg> Niveau</button>
-    <button class="tab-btn" data-tab="tab-go"><svg viewBox="0 0 24 24"><path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg> GO</button>
     <button class="tab-btn" data-tab="tab-social"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Social</button>
-    <button class="tab-btn" data-tab="tab-settings"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg> Réglages</button>
+    <button class="tab-btn" data-tab="tab-profil"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
   </nav>
 <script>
 // ============================================================
@@ -2712,6 +2750,9 @@ const defaultDB = () => ({
   seenBadges: [],
   unlockedTitles: [],
   activeTitle: null,
+  passwordMigrated: false,
+  friendCode: null,
+  friends: [],
   social: {
     profileId: null,
     username: '',
@@ -2744,6 +2785,9 @@ let db = (() => {
     if (p.activeTitle === undefined) p.activeTitle = null;
     if (!p.social) p.social = { profileId: null, username: '', bio: '', visibility: { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' }, onboardingCompleted: false, usernameChangedAt: null };
     if (!p.social.visibility) p.social.visibility = { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' };
+    if (p.passwordMigrated === undefined) p.passwordMigrated = false;
+    if (!p.friendCode) p.friendCode = null;
+    if (!p.friends) p.friends = [];
     return p;
   } catch { return defaultDB(); }
 })();
@@ -4191,26 +4235,10 @@ async function cloudSignIn() {
   try {
     const {data:{session}} = await supaClient.auth.getSession();
     if (session) {
-      // ── Password migration check ──
-      const needsMigration = session.user && !session.user.user_metadata?.password_migrated;
-      if (needsMigration) {
-        const userEmail = session.user.email;
-        if (!userEmail) {
-          // Cas 1: Anonymous user — sign out silently, show normal login
-          await supaClient.auth.signOut();
-          cloudSyncEnabled = false;
-          updateCloudUI(null);
-          return null;
-        } else {
-          // Cas 2: Email user — show blocking password modal
-          cloudSyncEnabled = true;
-          updateCloudUI(session.user);
-          showPasswordMigrationModal(session.user);
-          return session.user;
-        }
-      }
       cloudSyncEnabled = true;
       updateCloudUI(session.user);
+      // Check password migration (handles anonymous vs email)
+      checkPasswordMigration(session.user);
       return session.user;
     }
     const {data, error} = await supaClient.auth.signInAnonymously();
@@ -4288,25 +4316,175 @@ function updateSyncStatus(s) {
     }
   }
 }
-async function sendMagicLink() { const email = document.getElementById('inputEmail').value.trim(); if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; } try { const {error} = await supaClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin+window.location.pathname } }); if (error) throw error; showToast('Lien envoyé ! Check tes emails'); } catch(e) { showToast('Erreur: '+e.message); } }
-async function handleAuthCallback() {
-  if (window.location.hash && window.location.hash.includes('access_token')) {
+// ── Auth mode toggle ──
+let _authMode = 'login';
+function switchAuthMode(mode) {
+  _authMode = mode;
+  const loginBtn = document.getElementById('authModeLogin');
+  const signupBtn = document.getElementById('authModeSignup');
+  const confirmField = document.getElementById('inputPasswordConfirm');
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const forgotBtn = document.getElementById('forgotPasswordBtn');
+  if (mode === 'login') {
+    loginBtn.style.background = 'var(--blue)'; loginBtn.style.color = 'white';
+    signupBtn.style.background = 'var(--surface)'; signupBtn.style.color = 'var(--sub)';
+    confirmField.style.display = 'none';
+    submitBtn.textContent = 'Se connecter';
+    forgotBtn.style.display = '';
+  } else {
+    signupBtn.style.background = 'var(--blue)'; signupBtn.style.color = 'white';
+    loginBtn.style.background = 'var(--surface)'; loginBtn.style.color = 'var(--sub)';
+    confirmField.style.display = '';
+    submitBtn.textContent = 'Créer un compte';
+    forgotBtn.style.display = 'none';
+  }
+}
+
+function translateSupaError(msg) {
+  if (!msg) return 'Erreur inconnue';
+  if (msg.includes('Invalid login credentials')) return 'Email ou mot de passe incorrect';
+  if (msg.includes('Email not confirmed')) return 'Confirme ton email avant de te connecter';
+  if (msg.includes('User already registered')) return 'Cet email est déjà utilisé';
+  if (msg.includes('Password should be at least')) return 'Le mot de passe doit faire au moins 8 caractères';
+  if (msg.includes('Email rate limit exceeded')) return 'Trop de tentatives, réessaie plus tard';
+  if (msg.includes('Signup requires a valid password')) return 'Mot de passe invalide';
+  if (msg.includes('Unable to validate email')) return 'Email invalide';
+  return msg;
+}
+
+async function authSubmit() {
+  const email = document.getElementById('inputEmail').value.trim();
+  const password = document.getElementById('inputPassword').value;
+  if (!email || !email.includes('@')) { showToast('Entre un email valide'); return; }
+  if (!password || password.length < 8) { showToast('Le mot de passe doit faire au moins 8 caractères'); return; }
+  if (_authMode === 'signup') {
+    const confirm = document.getElementById('inputPasswordConfirm').value;
+    if (password !== confirm) { showToast('Les mots de passe ne correspondent pas'); return; }
     try {
-      const {data, error} = await supaClient.auth.getSession();
+      const { data, error } = await supaClient.auth.signUp({ email, password });
       if (error) throw error;
-      if (data.session) {
+      if (data.user) {
+        // New user: set passwordMigrated = true immediately
+        db.passwordMigrated = true;
+        saveDB();
+        // Ensure profile entry with password_migrated flag
+        try {
+          await supaClient.from('profiles').upsert({
+            id: data.user.id,
+            password_migrated: true,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        } catch(pe) { console.warn('Profile upsert on signup:', pe); }
         cloudSyncEnabled = true;
-        updateCloudUI(data.session.user);
+        updateCloudUI(data.user);
         await syncToCloud(true);
-        showToast('Compte lié ! Sync active');
-        window.history.replaceState(null, '', window.location.pathname);
-        // Check password migration for returning magic link users
-        const u = data.session.user;
-        if (u.email && !u.user_metadata?.password_migrated) {
-          showPasswordMigrationModal(u);
-        }
+        showToast('Compte créé ! Bienvenue');
       }
-    } catch(e) { console.error('Auth callback error:', e); }
+    } catch(e) { showToast(translateSupaError(e.message)); }
+  } else {
+    try {
+      const { data, error } = await supaClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (data.user) {
+        cloudSyncEnabled = true;
+        updateCloudUI(data.user);
+        await syncToCloud(true);
+        showToast('Connecté !');
+        // Check migration status
+        checkPasswordMigration(data.user);
+      }
+    } catch(e) { showToast(translateSupaError(e.message)); }
+  }
+}
+
+async function forgotPassword() {
+  const email = document.getElementById('inputEmail').value.trim();
+  if (!email || !email.includes('@')) { showToast('Entre d\'abord ton email'); return; }
+  try {
+    const { error } = await supaClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if (error) throw error;
+    showToast('Email de réinitialisation envoyé !');
+  } catch(e) { showToast(translateSupaError(e.message)); }
+}
+
+// ── Password migration check (handles anonymous vs email users) ──
+async function checkPasswordMigration(user) {
+  if (!user) return;
+
+  // Cas 1: Anonymous user (no email) — sign out silently, show normal login
+  if (!user.email) {
+    await supaClient.auth.signOut();
+    cloudSyncEnabled = false;
+    updateCloudUI(null);
+    // Do NOT touch db or localStorage — data stays intact
+    return;
+  }
+
+  // Cas 2: Email user — check if password already migrated
+  if (db.passwordMigrated === true) return;
+  try {
+    const { data } = await supaClient.from('profiles').select('password_migrated').eq('id', user.id).maybeSingle();
+    if (data && data.password_migrated === true) {
+      db.passwordMigrated = true;
+      saveDB();
+      return;
+    }
+  } catch(e) { console.warn('Migration check error:', e); }
+  // Email user needs migration — show blocking modal
+  showPasswordMigrationModal();
+}
+
+function showPasswordMigrationModal() {
+  const existing = document.getElementById('passwordMigrationOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'passwordMigrationOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:99999;';
+  overlay.innerHTML = `
+    <div style="background:var(--card);padding:24px;border-radius:20px;border:1px solid var(--border);max-width:340px;width:90%;text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">🔐</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Sécurise ton compte</div>
+      <p style="font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:16px;">
+        Pour sécuriser ton compte, tu dois définir un mot de passe.<br>
+        Cette étape est obligatoire et ne supprime pas tes données.
+      </p>
+      <input type="password" id="migrationPassword" placeholder="Nouveau mot de passe (min. 8 car.)" style="margin-bottom:8px;" minlength="8">
+      <input type="password" id="migrationPasswordConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:12px;">
+      <div id="migrationError" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none;"></div>
+      <button class="btn" onclick="submitPasswordMigration()">Définir mon mot de passe</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function submitPasswordMigration() {
+  const pw = document.getElementById('migrationPassword').value;
+  const pw2 = document.getElementById('migrationPasswordConfirm').value;
+  const errEl = document.getElementById('migrationError');
+  errEl.style.display = 'none';
+  if (!pw || pw.length < 8) { errEl.textContent = 'Le mot de passe doit faire au moins 8 caractères'; errEl.style.display = ''; return; }
+  if (pw !== pw2) { errEl.textContent = 'Les mots de passe ne correspondent pas'; errEl.style.display = ''; return; }
+  try {
+    const { error } = await supaClient.auth.updateUser({ password: pw });
+    if (error) throw error;
+    // Mark as migrated
+    db.passwordMigrated = true;
+    saveDB();
+    const uid = await getMyUserIdAsync();
+    if (uid) {
+      await supaClient.from('profiles').upsert({
+        id: uid,
+        password_migrated: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    }
+    document.getElementById('passwordMigrationOverlay').remove();
+    showToast('Mot de passe défini avec succès !');
+  } catch(e) {
+    errEl.textContent = translateSupaError(e.message);
+    errEl.style.display = '';
   }
 }
 async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
@@ -4314,19 +4492,49 @@ async function cloudLogout() { if (!supaClient) return; await supaClient.auth.si
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
+let activeSeancesSub = 'seances-list';
+let activeProfilSub = 'tab-corps';
+
+function showSeancesSub(id, btn) {
+  activeSeancesSub = id;
+  document.querySelectorAll('.seances-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'seances-list') renderSeancesTab();
+  if (id === 'seances-go') renderGoTab();
+}
+
+function showProfilSub(id, btn) {
+  activeProfilSub = id;
+  document.querySelectorAll('.profil-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-profil > .stats-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'tab-corps') renderCorpsTab();
+  if (id === 'tab-settings') fillSettingsFields();
+}
+
 function showTab(tabId) {
   document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
-  document.querySelector('.tab-btn[data-tab="'+tabId+'"]').classList.add('active');
+  const tabBtn = document.querySelector('.tab-btn[data-tab="'+tabId+'"]');
+  if (tabBtn) tabBtn.classList.add('active');
   if (tabId==='tab-dash') renderDash();
-  if (tabId==='tab-seances') renderSeancesTab();
+  if (tabId==='tab-seances') {
+    if (activeSeancesSub === 'seances-go') renderGoTab();
+    else renderSeancesTab();
+  }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); }
   if (tabId==='tab-game') { renderGamificationTab(); }
-  if (tabId==='tab-settings') { fillSettingsFields(); }
-  if (tabId==='tab-corps') { renderCorpsTab(); }
-  if (tabId==='tab-go') { renderGoTab(); }
+  if (tabId==='tab-profil') {
+    if (activeProfilSub === 'tab-settings') fillSettingsFields();
+    else renderCorpsTab();
+  }
   if (tabId==='tab-social') { initSocialTab(); }
 }
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
@@ -5393,8 +5601,8 @@ function renderGamificationTab() {
       var remaining = Math.max(0, c.target - c.current);
       var onclick = '';
       if (c.type === 'assiduite') onclick = 'showTab(\'tab-seances\')';
-      else if (c.type === 'nutrition' || c.onclick === 'nutrition') onclick = 'showTab(\'tab-corps\')';
-      else if (c.type === 'pesee' || c.onclick === 'pesee') onclick = 'showTab(\'tab-corps\')';
+      else if (c.type === 'nutrition' || c.onclick === 'nutrition') onclick = 'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')';
+      else if (c.type === 'pesee' || c.onclick === 'pesee') onclick = 'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')';
 
       html += '<div class="quest-item ' + (isDone ? 'q-done' : 'q-active') + '"' + (onclick ? ' onclick="' + onclick + '"' : '') + '>' +
         '<div class="wc-status" style="color:' + (isDone ? 'var(--green)' : 'var(--orange)') + ';">' + (isDone ? '✓' : '○') + '</div>' +
@@ -5567,7 +5775,6 @@ function renderGamificationTab() {
           var gaugeHtml = '';
           for (var gi = 0; gi < 5; gi++) {
             var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
-            pagesHtml += '';
             gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
           }
           pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
@@ -6495,12 +6702,12 @@ function refreshUI() {
   const activeTab = document.querySelector('.content-section.active');
   const tabId = activeTab ? activeTab.id : 'tab-dash';
   if (tabId === 'tab-dash') { renderDash(); renderProgramViewer(); }
-  else if (tabId === 'tab-seances') renderSeancesTab();
+  else if (tabId === 'tab-seances') { if (activeSeancesSub === 'seances-go') renderGoTab(); else renderSeancesTab(); }
   else if (tabId === 'tab-stats') showStatsSub(activeStatsSub);
   else if (tabId === 'tab-ai') { renderReportsTimeline(); renderCoachAlgoAI(); }
-  else if (tabId === 'tab-corps') renderCorpsTab();
-  else if (tabId === 'tab-settings') { renderProgramViewer(); _accDirty.prog = true; _accDirty.records = true; _accDirty.keylifts = true; fillSettingsFields(); }
+  else if (tabId === 'tab-profil') { if (activeProfilSub === 'tab-settings') { renderProgramViewer(); _accDirty.prog = true; _accDirty.records = true; _accDirty.keylifts = true; fillSettingsFields(); } else { renderCorpsTab(); } }
   else if (tabId === 'tab-social') { initSocialTab(); }
+  else if (tabId === 'tab-game') { renderGamificationTab(); }
   else { renderDash(); renderProgramViewer(); }
 }
 
@@ -8036,16 +8243,13 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   cloudSignIn().then(async user => {
     if (!user) return;
     if (db.logs.length === 0) {
-      // Aucune donnée locale → pull cloud sans hésiter
       syncFromCloud();
       return;
     }
     if (!db.lastSync) {
-      // Jamais synchronisé depuis cet appareil → push local vers cloud
       syncToCloud(true);
       return;
     }
-    // Données locales présentes + déjà synchronisé → comparer updated_at cloud
     try {
       const {data:{user:u}} = await supaClient.auth.getUser();
       if (!u) { syncToCloud(true); return; }
@@ -8053,20 +8257,20 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       if (data && data.updated_at) {
         const cloudTs = new Date(data.updated_at).getTime();
         if (cloudTs > db.lastSync + 5000) {
-          // Cloud plus récent de +5s → pull avec alerte
           showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
           syncFromCloud();
         } else {
           syncToCloud(true);
         }
       } else {
-        syncToCloud(true); // Pas encore de profil cloud → push
+        syncToCloud(true);
       }
     } catch(e) {
-      syncToCloud(true); // Erreur réseau → fallback push
+      syncToCloud(true);
     }
+    // Check password migration for existing magic-link users
+    checkPasswordMigration(user);
   });
-  handleAuthCallback();
 })();
 
 // ============================================================
@@ -12110,11 +12314,17 @@ function showSocialSub(subId, btn) {
 
 async function initSocialTab() {
   if (!supaClient || !cloudSyncEnabled) {
-    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Réglages pour accéder au module social.</div></div>';
+    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
     return;
   }
   const uid = await getMyUserIdAsync();
   if (!uid) return;
+
+  // Ensure friend code exists
+  ensureFriendCode().then(code => {
+    const el = document.getElementById('myFriendCode');
+    if (el) el.textContent = code || '---';
+  });
 
   // Check if social onboarding needed
   if (!db.social.onboardingCompleted) {
@@ -12136,21 +12346,151 @@ async function initSocialTab() {
 // ============================================================
 // SOCIAL MODULE — PROFILE MANAGEMENT
 // ============================================================
+/*
+-- NOTE DÉVELOPPEUR : créer cette table dans Supabase Dashboard > SQL Editor
+-- (ajouter les colonnes friend_code et password_migrated à la table profiles existante)
+--
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS friend_code text UNIQUE;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_migrated boolean DEFAULT false;
+--
+-- Si la table profiles n'existe pas encore :
+-- CREATE TABLE profiles (
+--   id uuid REFERENCES auth.users PRIMARY KEY,
+--   username text,
+--   friend_code text UNIQUE,
+--   password_migrated boolean DEFAULT false,
+--   updated_at timestamp DEFAULT now()
+-- );
+-- RLS : lecture publique pour lookup par code ami, écriture uniquement sur soi-même
+-- ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Public read" ON profiles FOR SELECT USING (true);
+-- CREATE POLICY "Self write" ON profiles FOR ALL USING (auth.uid() = id);
+*/
+
+function generateFriendCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function ensureFriendCode() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return null;
+
+  // If we already have it locally
+  if (db.friendCode) return db.friendCode;
+
+  try {
+    // Check if profile already has a friend_code in Supabase
+    const { data } = await supaClient.from('profiles').select('friend_code').eq('id', uid).maybeSingle();
+    if (data && data.friend_code) {
+      db.friendCode = data.friend_code;
+      saveDB();
+      return data.friend_code;
+    }
+
+    // Generate a new unique code
+    let code = generateFriendCode();
+    let attempts = 0;
+    while (attempts < 10) {
+      const { data: existing } = await supaClient.from('profiles').select('id').eq('friend_code', code).maybeSingle();
+      if (!existing) break;
+      code = generateFriendCode();
+      attempts++;
+    }
+
+    // Save to Supabase
+    const { error } = await supaClient.from('profiles').upsert({
+      id: uid,
+      friend_code: code,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if (error) throw error;
+
+    db.friendCode = code;
+    saveDB();
+    return code;
+  } catch (e) {
+    console.error('ensureFriendCode error:', e);
+    return null;
+  }
+}
+
+async function lookupFriendByCode(code) {
+  if (!supaClient || !code) return null;
+  code = code.trim().toUpperCase();
+  try {
+    const { data, error } = await supaClient.from('profiles')
+      .select('id, username')
+      .eq('friend_code', code)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('lookupFriendByCode error:', e);
+    return null;
+  }
+}
+
+async function addFriendByCode() {
+  const input = document.getElementById('friendCodeInput');
+  const code = (input.value || '').trim().toUpperCase();
+  if (!code || code.length !== 6) { showToast('Entre un code de 6 caractères'); return; }
+
+  const uid = await getMyUserIdAsync();
+  if (!uid) { showToast('Connexion requise'); return; }
+
+  // Can't add yourself
+  if (code === db.friendCode) { showToast('C\'est ton propre code !'); return; }
+
+  const friend = await lookupFriendByCode(code);
+  if (!friend) { showToast('Code ami introuvable'); return; }
+
+  // Check if already friends
+  if (db.friends && db.friends.includes(friend.id)) {
+    showToast('Déjà dans ta liste d\'amis');
+    return;
+  }
+
+  // Send friend request via existing system
+  await sendFriendRequest(friend.id);
+
+  // Add to local friends list
+  if (!db.friends) db.friends = [];
+  if (!db.friends.includes(friend.id)) {
+    db.friends.push(friend.id);
+    saveDB();
+  }
+
+  input.value = '';
+  showToast('Demande envoyée à ' + (friend.username || 'cet utilisateur') + ' !');
+  renderFriendsTab();
+}
+
 async function ensureProfile() {
   const uid = await getMyUserIdAsync();
   if (!uid || !db.social.username) return null;
 
   try {
-    const { data } = await supaClient.from('profiles').select('id').eq('id', uid).maybeSingle();
+    const { data } = await supaClient.from('profiles').select('id, friend_code').eq('id', uid).maybeSingle();
     if (data) {
       db.social.profileId = uid;
+      // Sync friend_code if present
+      if (data.friend_code && !db.friendCode) {
+        db.friendCode = data.friend_code;
+        saveDB();
+      }
       return uid;
     }
+    // Generate friend code for new profile
+    const friendCode = generateFriendCode();
     // Create profile
     const { error } = await supaClient.from('profiles').insert({
       id: uid,
       username: db.social.username,
       bio: db.social.bio || '',
+      friend_code: friendCode,
       visibility_bio: db.social.visibility.bio,
       visibility_prs: db.social.visibility.prs,
       visibility_programme: db.social.visibility.programme,
@@ -12160,6 +12500,7 @@ async function ensureProfile() {
     });
     if (error) throw error;
     db.social.profileId = uid;
+    db.friendCode = friendCode;
     saveDB();
     return uid;
   } catch (e) {
@@ -12531,6 +12872,12 @@ async function regenerateInviteCode() {
     document.getElementById('myInviteCode').textContent = code;
     showToast('Nouveau code généré');
   }
+}
+
+function copyFriendCode() {
+  const code = document.getElementById('myFriendCode').textContent;
+  if (!code || code === '---') return;
+  navigator.clipboard.writeText(code).then(() => showToast('Code ami copié !')).catch(() => showToast('Erreur copie'));
 }
 
 function copyInviteCode() {
@@ -13140,6 +13487,11 @@ async function updateLeaderboardSnapshot() {
 async function renderFriendsTab() {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
+
+  // Load friend code
+  const friendCode = await ensureFriendCode();
+  const fcEl = document.getElementById('myFriendCode');
+  if (fcEl) fcEl.textContent = friendCode || '---';
 
   // Load invite code
   const code = await loadMyInviteCode();

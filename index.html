@@ -799,6 +799,7 @@
     @keyframes shimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
     @keyframes newDot { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(0.7); } }
     @keyframes flamePulse { 0%,100%{ transform:scaleY(1);opacity:0.9; } 50%{ transform:scaleY(1.15);opacity:1; } }
+    @keyframes pulse { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(0.8); } }
 
     .lvl-card-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
     .lvl-card-v2::before, .lvl-card-v2::after { content:''; position:absolute; width:20px; height:20px; border:2px solid var(--gold); opacity:0.25; pointer-events:none; }
@@ -2026,7 +2027,12 @@
 
     <!-- Challenges Sub-tab -->
     <div id="social-challenges" class="social-sub-content">
-      <div class="card" id="challengesContent"></div>
+      <div id="challengesCreateBtn" style="margin-bottom:16px;">
+        <button class="btn" onclick="showCreateChallengeModal()" style="background:linear-gradient(135deg,var(--orange,#ff9500),var(--red,#ff3b30));border:none;">🔥 Créer un défi</button>
+      </div>
+      <div id="challengeTemplates"></div>
+      <div id="challengesActiveList"></div>
+      <div id="challengesFinishedList"></div>
     </div>
 
     <!-- Feed Sub-tab -->
@@ -2055,11 +2061,21 @@
 
     <!-- Friends Sub-tab -->
     <div id="social-friends" class="social-sub-content">
-      <!-- Search -->
-      <div class="friends-search">
-        <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
-        <span class="friends-search-icon">🔍</span>
-        <div class="friends-autocomplete" id="friendAutocomplete"></div>
+      <!-- Mon Profil Social (accordéon) -->
+      <div class="corps-acc" id="socialProfileCard">
+        <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-social-profile')">
+          <div class="corps-acc-left">
+            <div class="corps-acc-ico" style="background:rgba(10,132,255,0.1);">👤</div>
+            <div>
+              <div class="corps-acc-info">Mon Profil</div>
+              <div class="corps-acc-sub">Pseudo, bio, vie privée</div>
+            </div>
+          </div>
+          <span class="corps-acc-chev" id="chev-ca-social-profile">▾</span>
+        </div>
+        <div class="corps-acc-body" id="ca-social-profile">
+          <div class="corps-acc-inner" id="socialProfileContent"></div>
+        </div>
       </div>
 
       <!-- Friend Code -->
@@ -2077,16 +2093,12 @@
           <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
           <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
         </div>
-      </div>
-
-
-      <!-- Notifications -->
-      <div class="card" id="notifSection">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <h2>Notifications</h2>
-          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
+        <!-- Search -->
+        <div class="friends-search" style="margin-top:10px;">
+          <input type="text" id="friendSearchInput" placeholder="Ou rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
+          <span class="friends-search-icon">🔍</span>
+          <div class="friends-autocomplete" id="friendAutocomplete"></div>
         </div>
-        <div id="notifList" class="notif-list"></div>
       </div>
 
       <!-- Pending Requests -->
@@ -2096,9 +2108,18 @@
       </div>
 
       <!-- Friends List -->
-      <div class="card">
-        <h2>Mes amis</h2>
+      <div class="card" id="friendsListCard">
+        <h2 id="friendsListTitle">Mes amis</h2>
         <div id="friendsList" class="friends-list"></div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="card" id="notifSection">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h2>Notifications</h2>
+          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
+        </div>
+        <div id="notifList" class="notif-list"></div>
       </div>
 
       <!-- Blocked Users -->

@@ -729,6 +729,22 @@ async function updateBio(newBio) {
 }
 
 // ============================================================
+// SOCIAL MODULE — TRAINING STATUS (live)
+// ============================================================
+async function setTrainingStatus(active, sessionTitle) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    await supaClient.from('profiles').update({
+      training_status: active ? (sessionTitle || 'Séance') : null,
+      training_since: active ? new Date().toISOString() : null
+    }).eq('id', uid);
+  } catch (e) {
+    console.error('setTrainingStatus error:', e);
+  }
+}
+
+// ============================================================
 // SOCIAL MODULE — FRIEND SYSTEM
 // ============================================================
 async function searchUsers(query) {
@@ -960,27 +976,7 @@ async function unblockUser(friendshipId) {
   }
 }
 
-// ── Invite Codes ──
-async function loadMyInviteCode() {
-  const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient) return null;
-  try {
-    const { data } = await supaClient.from('invite_codes')
-      .select('code')
-      .eq('user_id', uid)
-      .is('used_by', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) return data.code;
-    // Create one
-    return await createNewInviteCode();
-  } catch (e) {
-    console.error('loadMyInviteCode error:', e);
-    return null;
-  }
-}
-
+// ── Invite Codes (legacy — kept for onboarding compat) ──
 async function createNewInviteCode() {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
@@ -1085,16 +1081,35 @@ async function renderFeed() {
     return;
   }
 
+  // Training banner — friends currently training
+  let trainingBanner = '';
+  try {
+    const friendIds = await getAcceptedFriendIds();
+    if (friendIds.length) {
+      const { data: trainingFriends } = await supaClient.from('profiles')
+        .select('username, training_status, training_since')
+        .in('id', friendIds)
+        .not('training_status', 'is', null);
+      if (trainingFriends && trainingFriends.length) {
+        trainingBanner = '<div style="background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;">' +
+          trainingFriends.map(f => {
+            const mins = Math.floor((Date.now() - new Date(f.training_since).getTime()) / 60000);
+            return '<div style="font-size:12px;color:var(--green);padding:2px 0;">🟢 <strong>' + f.username + '</strong> s\'entraîne — ' + f.training_status + ' · depuis ' + mins + 'min</div>';
+          }).join('') + '</div>';
+      }
+    }
+  } catch (e) {}
+
   // Separate pinned (today's PRs)
   const today = new Date().toDateString();
   const pinned = _feedItems.filter(i => i.pinned && new Date(i.created_at).toDateString() === today);
   const regular = _feedItems.filter(i => !pinned.includes(i));
 
   if (pinned.length) {
-    pinnedSection.innerHTML = '<div class="feed-pinned-header">🔥 PRs du jour</div>' +
+    pinnedSection.innerHTML = trainingBanner + '<div class="feed-pinned-header">🔥 PRs du jour</div>' +
       pinned.map(i => renderFeedCard(i, profiles, uid)).join('');
   } else {
-    pinnedSection.innerHTML = '';
+    pinnedSection.innerHTML = trainingBanner;
   }
 
   feedContent.innerHTML = regular.map(i => renderFeedCard(i, profiles, uid)).join('');
@@ -1108,29 +1123,37 @@ function renderFeedCard(item, profiles, uid) {
   const profile = profiles[item.user_id] || { username: 'Utilisateur supprimé' };
   const initial = avatarInitial(profile.username);
   const isMe = item.user_id === uid;
-  const typeLabels = { session: 'Séance', pr: 'Nouveau PR', goal: 'Objectif' };
+  const typeLabels = { session: 'Séance', pr: 'Nouveau PR', goal: 'Objectif', achievement: 'Badge' };
+  const typeIcons = { session: '🏋️', pr: '🏆', goal: '🎯', achievement: '⭐' };
   const d = item.data || {};
 
   let body = '';
   let detail = '';
   if (item.type === 'session') {
-    body = '<strong>' + profile.username + '</strong> a terminé une séance';
-    if (d.title) body += ' : ' + d.title;
-    if (d.duration) body += ' · ' + formatTime(d.duration);
-    if (d.volume) body += ' · ' + Math.round(d.volume) + 'kg';
+    body = '🏋️ <strong>' + profile.username + '</strong> a terminé';
+    if (d.title) body += ' <em>' + d.title + '</em>';
+    const stats = [];
+    if (d.exercise_count) stats.push(d.exercise_count + ' exos');
+    if (d.volume) stats.push(Math.round(d.volume) + 'kg de tonnage');
+    if (d.duration) stats.push(formatTime(d.duration));
+    if (stats.length) body += ' · ' + stats.join(' · ');
+    if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + d.top_set + '</span>';
     if (d.exercises && d.exercises.length) {
       detail = d.exercises.map(e =>
         '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>'
       ).join('');
     }
   } else if (item.type === 'pr') {
-    body = '<strong>' + profile.username + '</strong> a battu son PR ' +
-      (d.exercise || '') + ' : <strong>' + (d.value || 0) + 'kg</strong>' +
-      (d.delta ? ' (+' + d.delta + 'kg)' : '');
+    body = '🏆 <strong>' + profile.username + '</strong> nouveau PR !';
+    body += ' <em>' + (d.exercise || '') + '</em> <strong style="color:var(--green);">' + (d.value || 0) + 'kg</strong>';
+    if (d.delta && d.delta > 0) body += ' <span style="color:var(--green);">(+' + d.delta + 'kg)</span>';
+    if (d.previous) body += '<br><span style="color:var(--sub);font-size:12px;">Ancien : ' + d.previous + 'kg</span>';
   } else if (item.type === 'goal') {
-    body = '<strong>' + profile.username + '</strong> — Objectif atteint ! ' +
+    body = '🎯 <strong>' + profile.username + '</strong> — Objectif atteint ! ' +
       (d.exercise || '') + ' ' + (d.value || 0) + 'kg' +
       (d.weeks ? ' (en ' + d.weeks + ' semaines)' : '');
+  } else if (item.type === 'achievement') {
+    body = '⭐ <strong>' + profile.username + '</strong> a débloqué <em>' + (d.badge || d.title || '') + '</em>';
   }
 
   return '<div class="feed-card' + (item.pinned ? ' pinned' : '') + '" id="feed-' + item.id + '">' +
@@ -1335,40 +1358,72 @@ function loadMoreFeed() {
   renderFeed();
 }
 
+// ── Generic feed posting helper ──
+async function postToFeed(type, data, options) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  try {
+    // Dedup: check if a post with same type and dedup key exists
+    if (options && options.dedupKey) {
+      const { data: existing } = await supaClient.from('activity_feed')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('type', type)
+        .contains('data', options.dedupKey)
+        .limit(1)
+        .maybeSingle();
+      if (existing) return; // Already posted
+    }
+    await supaClient.from('activity_feed').insert({
+      user_id: uid,
+      type: type,
+      pinned: (options && options.pinned) || false,
+      data: data
+    });
+  } catch (e) {
+    console.error('postToFeed error:', e);
+  }
+}
+
 // ── Auto-publish activity events ──
 async function publishSessionActivity(logEntry) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
-  try {
-    await supaClient.from('activity_feed').insert({
-      user_id: uid,
-      type: 'session',
-      data: {
-        title: logEntry.title || '',
-        duration: logEntry.duration || 0,
-        volume: logEntry.volume || 0,
-        exercises: (logEntry.exercises || []).map(e => ({ name: e.name, sets: e.sets }))
-      }
-    });
-  } catch (e) {
-    console.error('publishSessionActivity error:', e);
-  }
+
+  // Build top set string (best e1RM set)
+  let topSet = '';
+  let bestE1RM = 0;
+  (logEntry.exercises || []).forEach(e => {
+    if (e.maxRM && e.maxRM > bestE1RM) {
+      bestE1RM = e.maxRM;
+      topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg';
+    }
+  });
+
+  const sessionDate = logEntry.shortDate || logEntry.date || '';
+
+  await postToFeed('session', {
+    title: logEntry.title || '',
+    duration: logEntry.duration || 0,
+    volume: logEntry.volume || 0,
+    exercise_count: (logEntry.exercises || []).length,
+    top_set: topSet,
+    date: sessionDate,
+    exercises: (logEntry.exercises || []).map(e => ({ name: e.name, sets: e.sets }))
+  }, { dedupKey: { date: sessionDate } });
 }
 
 async function publishPRActivity(exerciseName, newValue, oldValue) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
   try {
-    await supaClient.from('activity_feed').insert({
-      user_id: uid,
-      type: 'pr',
-      pinned: true,
-      data: {
-        exercise: exerciseName,
-        value: newValue,
-        delta: oldValue ? Math.round(newValue - oldValue) : null
-      }
-    });
+    await postToFeed('pr', {
+      exercise: exerciseName,
+      value: newValue,
+      previous: oldValue || null,
+      delta: oldValue ? Math.round(newValue - oldValue) : null,
+      bodyweight: db.user.bw || null
+    }, { pinned: true });
     // Check if any friend had this PR and notify them
     const friendIds = await getAcceptedFriendIds();
     if (friendIds.length) {
@@ -1395,17 +1450,7 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
 }
 
 async function publishGoalActivity(exerciseName, value, weeks) {
-  const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
-  try {
-    await supaClient.from('activity_feed').insert({
-      user_id: uid,
-      type: 'goal',
-      data: { exercise: exerciseName, value: value, weeks: weeks }
-    });
-  } catch (e) {
-    console.error('publishGoalActivity error:', e);
-  }
+  await postToFeed('goal', { exercise: exerciseName, value: value, weeks: weeks });
 }
 
 // ============================================================
@@ -1431,7 +1476,6 @@ async function renderLeaderboard() {
   }
   emptyEl.style.display = 'none';
 
-  // Get all snapshots for these users
   try {
     const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
       .select('user_id, exercise_name, value')
@@ -1445,18 +1489,20 @@ async function renderLeaderboard() {
       return;
     }
 
-    // Get common exercises
-    const exercisesByUser = {};
-    snapshots.forEach(s => {
-      if (!exercisesByUser[s.user_id]) exercisesByUser[s.user_id] = new Set();
-      exercisesByUser[s.user_id].add(s.exercise_name);
-    });
+    // Collect all exercises + add "Total SBD" option
     const allExercises = new Set();
     snapshots.forEach(s => allExercises.add(s.exercise_name));
+    const SBD_NAMES = ['Squat', 'Développé couché', 'Soulevé de terre'];
+    const hasSBD = SBD_NAMES.some(n => allExercises.has(n));
 
-    // Populate filter
+    // Build sorted exercise list with priority order
+    const priorityExercises = [];
+    if (hasSBD) priorityExercises.push('Total SBD');
+    SBD_NAMES.forEach(n => { if (allExercises.has(n)) priorityExercises.push(n); });
+    const otherExercises = Array.from(allExercises).filter(n => !SBD_NAMES.includes(n)).sort();
+
     const currentFilter = filterSelect.value;
-    filterSelect.innerHTML = Array.from(allExercises).sort().map(ex =>
+    filterSelect.innerHTML = priorityExercises.concat(otherExercises).map(ex =>
       '<option value="' + ex + '"' + (ex === currentFilter ? ' selected' : '') + '>' + ex + '</option>'
     ).join('');
     if (!currentFilter && filterSelect.options.length) filterSelect.value = filterSelect.options[0].value;
@@ -1464,11 +1510,27 @@ async function renderLeaderboard() {
     const selectedExercise = filterSelect.value;
     if (!selectedExercise) return;
 
-    // Get best values per user for this exercise
+    // Calculate best values per user
     const bestByUser = {};
-    snapshots.filter(s => s.exercise_name === selectedExercise).forEach(s => {
-      if (!bestByUser[s.user_id] || s.value > bestByUser[s.user_id]) bestByUser[s.user_id] = s.value;
-    });
+    if (selectedExercise === 'Total SBD') {
+      // Sum best SBD for each user
+      const userSBD = {};
+      allIds.forEach(id => { userSBD[id] = { squat: 0, bench: 0, deadlift: 0 }; });
+      snapshots.forEach(s => {
+        if (!userSBD[s.user_id]) return;
+        if (s.exercise_name === 'Squat') userSBD[s.user_id].squat = Math.max(userSBD[s.user_id].squat, s.value);
+        else if (s.exercise_name === 'Développé couché') userSBD[s.user_id].bench = Math.max(userSBD[s.user_id].bench, s.value);
+        else if (s.exercise_name === 'Soulevé de terre') userSBD[s.user_id].deadlift = Math.max(userSBD[s.user_id].deadlift, s.value);
+      });
+      Object.entries(userSBD).forEach(([userId, vals]) => {
+        const total = vals.squat + vals.bench + vals.deadlift;
+        if (total > 0) bestByUser[userId] = total;
+      });
+    } else {
+      snapshots.filter(s => s.exercise_name === selectedExercise).forEach(s => {
+        if (!bestByUser[s.user_id] || s.value > bestByUser[s.user_id]) bestByUser[s.user_id] = s.value;
+      });
+    }
 
     // Get profiles
     const profileIds = Object.keys(bestByUser);
@@ -1489,7 +1551,7 @@ async function renderLeaderboard() {
       const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : [top3[0]];
       const medals = top3.length >= 3 ? ['🥈', '🥇', '🥉'] : top3.length === 2 ? ['🥈', '🥇'] : ['🥇'];
       podiumEl.innerHTML = podiumOrder.map((entry, i) =>
-        '<div class="lb-podium-item">' +
+        '<div class="lb-podium-item' + (entry.userId === uid ? ' me' : '') + '">' +
           '<div class="lb-podium-rank">' + medals[i] + '</div>' +
           '<div class="lb-podium-avatar" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + avatarInitial(entry.username) + '</div>' +
           '<div class="lb-podium-name">' + entry.username + '</div>' +
@@ -1515,6 +1577,9 @@ async function renderLeaderboard() {
     tableEl.innerHTML = '<div class="lb-empty">Erreur de chargement</div>';
   }
 }
+
+// Alias for clarity — called after import
+var updateLeaderboardAfterImport = updateLeaderboardSnapshot;
 
 async function updateLeaderboardSnapshot() {
   const uid = await getMyUserIdAsync();
@@ -1570,6 +1635,81 @@ async function updateLeaderboardSnapshot() {
 }
 
 // ============================================================
+// SOCIAL MODULE — PROFILE CARD IN FRIENDS TAB
+// ============================================================
+function renderSocialProfileCard() {
+  const container = document.getElementById('socialProfileContent');
+  if (!container) return;
+
+  const username = db.social.username || '';
+  const bio = db.social.bio || '';
+  const vis = db.social.visibility || {};
+  const initial = avatarInitial(username);
+
+  const visOptions = function(field) {
+    const val = vis[field] || 'private';
+    return '<select class="sob-visibility-select" onchange="updateProfileVisibility(\'' + field + '\', this.value)">' +
+      '<option value="private"' + (val === 'private' ? ' selected' : '') + '>🔒 Privé</option>' +
+      '<option value="friends"' + (val === 'friends' ? ' selected' : '') + '>👥 Amis</option>' +
+      '<option value="public"' + (val === 'public' ? ' selected' : '') + '>🌍 Public</option>' +
+    '</select>';
+  };
+
+  let html = '';
+  // Avatar + pseudo + bio (lecture)
+  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">';
+  html += '<div style="width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">' + initial + '</div>';
+  html += '<div><div style="font-weight:700;font-size:15px;color:var(--text);">' + (username || '—') + '</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' + (bio || 'Aucune bio') + '</div></div>';
+  html += '</div>';
+
+  // Edit pseudo
+  html += '<div style="margin-bottom:12px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Pseudo</div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<input type="text" id="socialEditUsername" value="' + (username || '').replace(/"/g, '&quot;') + '" placeholder="Ton pseudo" maxlength="20" style="margin-bottom:0;flex:1;">';
+  html += '<button class="btn" style="width:auto;padding:8px 14px;font-size:16px;flex-shrink:0;" onclick="saveSocialUsername()">💾</button>';
+  html += '</div></div>';
+
+  // Edit bio
+  html += '<div style="margin-bottom:14px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Bio</div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<textarea id="socialEditBio" placeholder="Powerlifter depuis 2020..." maxlength="200" rows="2" style="resize:none;margin-bottom:0;flex:1;">' + (bio || '').replace(/</g, '&lt;') + '</textarea>';
+  html += '<button class="btn" style="width:auto;padding:8px 14px;font-size:16px;flex-shrink:0;align-self:flex-end;" onclick="saveSocialBio()">💾</button>';
+  html += '</div></div>';
+
+  // Visibility settings
+  html += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Visibilité</div>';
+  var fields = [
+    { key: 'bio', label: 'Bio' },
+    { key: 'prs', label: 'PRs / Exercices clés' },
+    { key: 'programme', label: 'Programme' },
+    { key: 'seances', label: 'Séances détaillées' },
+    { key: 'stats', label: 'Stats' }
+  ];
+  fields.forEach(function(f) {
+    html += '<div class="sob-visibility-row"><span class="sob-visibility-label">' + f.label + '</span>' + visOptions(f.key) + '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+async function saveSocialUsername() {
+  const input = document.getElementById('socialEditUsername');
+  const newName = (input.value || '').trim();
+  if (!newName || newName.length < 2) { showToast('Pseudo trop court (min. 2 car.)'); return; }
+  const ok = await updateUsername(newName);
+  if (ok) renderSocialProfileCard();
+}
+
+async function saveSocialBio() {
+  const textarea = document.getElementById('socialEditBio');
+  await updateBio((textarea.value || '').trim());
+  renderSocialProfileCard();
+}
+
+// ============================================================
 // SOCIAL MODULE — RENDER FRIENDS TAB
 // ============================================================
 async function renderFriendsTab() {
@@ -1592,7 +1732,7 @@ async function renderFriendsTab() {
   let profiles = {};
   if (allUserIds.size) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(allUserIds));
+      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -1621,13 +1761,28 @@ async function renderFriendsTab() {
   // Accepted friends
   const accepted = friends.filter(f => f.status === 'accepted');
   const friendsList = document.getElementById('friendsList');
+  const friendsListTitle = document.getElementById('friendsListTitle');
+  if (friendsListTitle) friendsListTitle.textContent = 'Mes amis (' + accepted.length + ')';
   if (accepted.length) {
     friendsList.innerHTML = accepted.map(f => {
       const friendId = f.requester_id === uid ? f.target_id : f.requester_id;
       const p = profiles[friendId] || { username: 'Utilisateur' };
+      const daysSince = f.created_at ? Math.floor((Date.now() - new Date(f.created_at).getTime()) / 86400000) : 0;
+      const sinceText = daysSince <= 0 ? 'Ami depuis aujourd\'hui' : 'Ami depuis ' + daysSince + 'j';
+      const isTraining = p.training_status && p.training_since;
+      let statusHtml = '';
+      if (isTraining) {
+        const minsSince = Math.floor((Date.now() - new Date(p.training_since).getTime()) / 60000);
+        statusHtml = '<div style="color:var(--green);font-size:11px;font-weight:600;">🟢 S\'entraîne — ' + p.training_status + ' · depuis ' + minsSince + 'min</div>';
+      } else {
+        statusHtml = '<div class="friends-item-status" style="color:var(--sub);font-size:11px;">' + sinceText + '</div>';
+      }
       return '<div class="friends-item">' +
-        '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')">' + avatarInitial(p.username) + '</div>' +
-        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div></div>' +
+        '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')" style="position:relative;">' + avatarInitial(p.username) +
+        (isTraining ? '<span style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--card);animation:pulse 2s infinite;"></span>' : '') +
+        '</div>' +
+        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div>' +
+        statusHtml + '</div>' +
         '<div class="friends-item-actions">' +
           '<button class="friends-item-btn remove" onclick="removeFriend(\'' + f.id + '\')">Retirer</button>' +
           '<button class="friends-item-btn block" onclick="blockUser(\'' + friendId + '\')">Bloquer</button>' +
@@ -1669,6 +1824,9 @@ async function renderFriendsTab() {
   } else {
     badgeEl.style.display = 'none';
   }
+
+  // Render profile card
+  renderSocialProfileCard();
 }
 
 // ============================================================
@@ -1939,6 +2097,10 @@ async function showProfileOverlay(userId) {
       }
       html += '<button class="btn" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);font-size:13px;width:auto;padding:10px 16px;" onclick="blockUser(\'' + userId + '\')">Bloquer</button>';
       html += '</div>';
+      // Compare button (only for accepted friends)
+      if (isFriend) {
+        html += '<div style="margin-bottom:16px;"><button class="btn" style="background:linear-gradient(135deg,rgba(255,149,0,0.15),rgba(255,59,48,0.15));border:1px solid rgba(255,149,0,0.3);color:var(--orange,#ff9500);font-size:13px;font-weight:700;" onclick="showComparisonView(\'' + userId + '\')">⚔️ Comparer</button></div>';
+      }
     }
 
     // PRs section
@@ -1988,6 +2150,147 @@ async function showProfileOverlay(userId) {
 
 function closeProfileOverlay() {
   document.getElementById('profileOverlay').style.display = 'none';
+}
+
+// ============================================================
+// SOCIAL MODULE — COMPARISON VIEW (⚔️)
+// ============================================================
+async function showComparisonView(friendId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  const overlay = document.getElementById('profileOverlay');
+  overlay.style.display = '';
+  overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Chargement comparaison...</div>';
+
+  try {
+    // Load friend profile
+    const { data: friendProfile } = await supaClient.from('profiles')
+      .select('id, username, visibility_prs, visibility_stats')
+      .eq('id', friendId)
+      .maybeSingle();
+    if (!friendProfile) { overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--sub);">Profil introuvable</div>'; return; }
+
+    const canSeePrs = friendProfile.visibility_prs === 'public' || friendProfile.visibility_prs === 'friends';
+    const canSeeStats = friendProfile.visibility_stats === 'public' || friendProfile.visibility_stats === 'friends';
+
+    // Load friend's leaderboard snapshots
+    let friendPRs = {};
+    if (canSeePrs) {
+      const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
+        .select('exercise_name, value')
+        .eq('user_id', friendId)
+        .order('value', { ascending: false });
+      if (snapshots) {
+        snapshots.forEach(s => {
+          if (!friendPRs[s.exercise_name] || s.value > friendPRs[s.exercise_name]) friendPRs[s.exercise_name] = s.value;
+        });
+      }
+    }
+
+    // Load friend's session stats
+    let friendSessionsPerWeek = 0;
+    let friendAvgVolume = 0;
+    if (canSeeStats) {
+      const { data: activities } = await supaClient.from('activity_feed')
+        .select('data, created_at')
+        .eq('user_id', friendId)
+        .eq('type', 'session')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (activities && activities.length) {
+        const weeks = Math.max(1, (Date.now() - new Date(activities[activities.length - 1].created_at).getTime()) / (7 * 86400000));
+        friendSessionsPerWeek = Math.round((activities.length / weeks) * 10) / 10;
+        const totalVol = activities.reduce((s, a) => s + ((a.data && a.data.volume) || 0), 0);
+        friendAvgVolume = activities.length ? Math.round(totalVol / activities.length) : 0;
+      }
+    }
+
+    // My data
+    const myUsername = db.social.username || 'Moi';
+    const myPRs = {};
+    // SBD
+    if (db.bestPR.squat > 0) myPRs['Squat'] = db.bestPR.squat;
+    if (db.bestPR.bench > 0) myPRs['Développé couché'] = db.bestPR.bench;
+    if (db.bestPR.deadlift > 0) myPRs['Soulevé de terre'] = db.bestPR.deadlift;
+    // Key lifts
+    (db.keyLifts || []).forEach(kl => {
+      if (myPRs[kl.name]) return;
+      let best = 0;
+      db.logs.forEach(log => { log.exercises.forEach(e => { if (e.name === kl.name && e.maxRM > best) best = e.maxRM; }); });
+      if (best > 0) myPRs[kl.name] = best;
+    });
+
+    // My session stats (last 30 sessions)
+    const recentLogs = db.logs.slice(0, 30);
+    let mySessionsPerWeek = 0;
+    let myAvgVolume = 0;
+    if (recentLogs.length) {
+      const weeks = Math.max(1, (Date.now() - recentLogs[recentLogs.length - 1].timestamp) / (7 * 86400000));
+      mySessionsPerWeek = Math.round((recentLogs.length / weeks) * 10) / 10;
+      myAvgVolume = Math.round(recentLogs.reduce((s, l) => s + (l.volume || 0), 0) / recentLogs.length);
+    }
+
+    // Total SBD
+    const myTotal = (myPRs['Squat'] || 0) + (myPRs['Développé couché'] || 0) + (myPRs['Soulevé de terre'] || 0);
+    const friendTotal = (friendPRs['Squat'] || 0) + (friendPRs['Développé couché'] || 0) + (friendPRs['Soulevé de terre'] || 0);
+
+    // Build comparison HTML
+    let html = '<button class="profile-back" onclick="showProfileOverlay(\'' + friendId + '\')">← Retour au profil</button>';
+    html += '<div style="text-align:center;padding:16px 0 12px;"><div style="font-size:20px;font-weight:800;">⚔️ Comparaison</div>';
+    html += '<div style="display:flex;justify-content:center;align-items:center;gap:20px;margin-top:12px;">';
+    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(myUsername) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + myUsername + '</div></div>';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--sub);">VS</div>';
+    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(friendProfile.username) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + friendProfile.username + '</div></div>';
+    html += '</div></div>';
+
+    function compRow(label, myVal, friendVal, unit) {
+      const myNum = typeof myVal === 'number' ? myVal : 0;
+      const fNum = typeof friendVal === 'number' ? friendVal : 0;
+      const maxVal = Math.max(myNum, fNum, 1);
+      const myPct = (myNum / maxVal) * 100;
+      const fPct = (fNum / maxVal) * 100;
+      const myColor = myNum > fNum ? 'var(--green)' : myNum === fNum ? 'var(--blue)' : 'var(--sub)';
+      const fColor = fNum > myNum ? 'var(--green)' : fNum === myNum ? 'var(--blue)' : 'var(--sub)';
+      const myDisplay = myVal === '🔒' ? '🔒' : Math.round(myNum) + (unit || '');
+      const fDisplay = friendVal === '🔒' ? '🔒' : Math.round(fNum) + (unit || '');
+
+      return '<div style="margin-bottom:12px;">' +
+        '<div style="text-align:center;font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">' + label + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<div style="width:60px;text-align:right;font-size:13px;font-weight:700;color:' + myColor + ';">' + myDisplay + '</div>' +
+          '<div style="flex:1;display:flex;gap:2px;align-items:center;">' +
+            '<div style="flex:1;height:8px;border-radius:4px;background:var(--border);overflow:hidden;direction:rtl;"><div style="height:100%;border-radius:4px;background:' + myColor + ';width:' + myPct + '%;"></div></div>' +
+            '<div style="flex:1;height:8px;border-radius:4px;background:var(--border);overflow:hidden;"><div style="height:100%;border-radius:4px;background:' + fColor + ';width:' + fPct + '%;"></div></div>' +
+          '</div>' +
+          '<div style="width:60px;text-align:left;font-size:13px;font-weight:700;color:' + fColor + ';">' + fDisplay + '</div>' +
+        '</div></div>';
+    }
+
+    html += '<div class="card" style="margin-top:12px;">';
+
+    // SBD exercises
+    const sbdExos = ['Squat', 'Développé couché', 'Soulevé de terre'];
+    sbdExos.forEach(exo => {
+      const myVal = myPRs[exo] || 0;
+      const fVal = canSeePrs ? (friendPRs[exo] || 0) : '🔒';
+      html += compRow(exo, myVal, fVal, 'kg');
+    });
+
+    // Total SBD
+    html += compRow('Total SBD', myTotal, canSeePrs ? friendTotal : '🔒', 'kg');
+
+    // Session stats
+    html += '<div style="border-top:1px solid var(--border);margin:8px 0;"></div>';
+    html += compRow('Séances / semaine', mySessionsPerWeek, canSeeStats ? friendSessionsPerWeek : '🔒', '');
+    html += compRow('Tonnage moyen / séance', myAvgVolume, canSeeStats ? friendAvgVolume : '🔒', 'kg');
+
+    html += '</div>';
+
+    overlay.innerHTML = html;
+  } catch (e) {
+    console.error('showComparisonView error:', e);
+    overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--red);">Erreur de chargement</div>';
+  }
 }
 
 // ============================================================
@@ -2174,130 +2477,351 @@ async function executeAccountDeletion(mode) {
 }
 
 // ============================================================
-// SOCIAL CHALLENGES (DÉFIS)
+// SOCIAL CHALLENGES (DÉFIS ENTRE AMIS)
 // ============================================================
 const CHALLENGE_TYPES = {
-  volume:     { label: 'Volume', icon: '💪', desc: 'Tonnage total sur la période', unit: 'kg' },
-  pr:         { label: 'Records', icon: '🏆', desc: 'Nombre de PR battus', unit: 'PRs' },
-  compliance: { label: 'Assiduité', icon: '📅', desc: "% d'adhérence au programme", unit: '%' },
-  streak:     { label: 'Streak', icon: '🔥', desc: "Jours consécutifs d'entraînement", unit: 'j' }
+  volume:    { label: 'Volume', icon: '📊', desc: 'Tonnage total sur la période', unit: 'kg' },
+  reps:      { label: 'Reps', icon: '💪', desc: 'Nombre total de reps', unit: 'reps' },
+  weight:    { label: 'Charge max', icon: '🏋️', desc: 'Meilleur e1RM', unit: 'kg' },
+  frequency: { label: 'Nb séances', icon: '🔥', desc: 'Nombre de séances', unit: 'séances' },
+  custom:    { label: 'Perso', icon: '📝', desc: 'Objectif personnalisé', unit: '' }
 };
 
-function renderChallengesTab() {
-  const el = document.getElementById('challengesContent');
-  if (!el) return;
+const CHALLENGE_TEMPLATES = [
+  { icon: '💪', label: '100 pompes en 7j', type: 'reps', target: 100, duration: 7, exercise: 'Pompes' },
+  { icon: '🏋️', label: 'Max Bench cette semaine', type: 'weight', target: null, duration: 7, exercise: 'Développé couché' },
+  { icon: '📊', label: 'Plus gros tonnage de la semaine', type: 'volume', target: null, duration: 7, exercise: null },
+  { icon: '🔥', label: '5 séances cette semaine', type: 'frequency', target: 5, duration: 7, exercise: null },
+  { icon: '🦵', label: 'PR Squat ce mois', type: 'weight', target: null, duration: 30, exercise: 'Squat' }
+];
+
+async function renderChallengesTab() {
+  const templatesEl = document.getElementById('challengeTemplates');
+  const activeEl = document.getElementById('challengesActiveList');
+  const finishedEl = document.getElementById('challengesFinishedList');
+  if (!templatesEl || !activeEl || !finishedEl) return;
 
   if (!supaClient || !cloudSyncEnabled) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">☁️ Connexion cloud requise pour les défis sociaux</div>';
+    activeEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">☁️ Connexion cloud requise pour les défis sociaux</div>';
+    templatesEl.innerHTML = '';
+    finishedEl.innerHTML = '';
     return;
   }
 
-  // Local challenges (works without specific Supabase table)
-  const challenges = db.challenges || [];
-  const active = challenges.filter(c => c.status === 'active');
-  const completed = challenges.filter(c => c.status === 'completed').slice(0, 5);
+  // Render quick templates
+  templatesEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Défis rapides</div>' +
+    '<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;">' +
+    CHALLENGE_TEMPLATES.map((t, i) =>
+      '<button onclick="createChallengeFromTemplate(' + i + ')" style="flex-shrink:0;padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">' +
+      t.icon + ' ' + t.label + '</button>'
+    ).join('') + '</div>';
 
-  let html = '<h2>🏆 Défis</h2>';
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
 
-  // Create challenge button
-  html += '<button onclick="showCreateChallengeModal()" style="width:100%;padding:10px;background:var(--blue);border:none;color:white;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Créer un défi</button>';
+  try {
+    // Load challenges where user is participant or creator
+    const { data: participations } = await supaClient.from('challenge_participants')
+      .select('challenge_id')
+      .eq('user_id', uid);
+    const myChIds = (participations || []).map(p => p.challenge_id);
 
-  // Active challenges
-  if (active.length) {
-    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">En cours</div>';
-    active.forEach(c => {
-      const t = CHALLENGE_TYPES[c.type] || CHALLENGE_TYPES.volume;
-      const progress = getChallengeProgress(c);
-      const daysLeft = Math.max(0, Math.ceil((new Date(c.end_date) - Date.now()) / 86400000));
-      html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><span style="font-size:16px;">' + t.icon + '</span> <span style="font-weight:700;font-size:13px;">' + t.label + '</span></div>' +
-        '<span style="font-size:10px;color:var(--sub);">' + daysLeft + 'j restants</span></div>' +
-        '<div style="margin-top:8px;font-size:20px;font-weight:800;color:var(--blue);">' + progress + ' <span style="font-size:11px;color:var(--sub);">' + t.unit + '</span></div>' +
-        '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + Math.min(100, (daysLeft > 0 ? 100 - (daysLeft / 7) * 100 : 100)) + '%;"></div></div></div>';
-    });
+    // Also load challenges created by friends (that user can join)
+    const friendIds = await getAcceptedFriendIds();
+    const allCreatorIds = [uid, ...friendIds];
+
+    let allChallenges = [];
+    if (myChIds.length) {
+      const { data } = await supaClient.from('social_challenges')
+        .select('*')
+        .in('id', myChIds)
+        .order('created_at', { ascending: false });
+      if (data) allChallenges = data;
+    }
+    // Also get friend-created challenges not yet joined
+    if (friendIds.length) {
+      const { data } = await supaClient.from('social_challenges')
+        .select('*')
+        .in('creator_id', friendIds)
+        .order('created_at', { ascending: false });
+      if (data) {
+        data.forEach(c => {
+          if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
+        });
+      }
+    }
+    // Also get own created challenges
+    const { data: ownChallenges } = await supaClient.from('social_challenges')
+      .select('*')
+      .eq('creator_id', uid)
+      .order('created_at', { ascending: false });
+    if (ownChallenges) {
+      ownChallenges.forEach(c => {
+        if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
+      });
+    }
+
+    const now = new Date();
+    const active = allChallenges.filter(c => new Date(c.end_date) > now);
+    const finished = allChallenges.filter(c => new Date(c.end_date) <= now).slice(0, 10);
+
+    // Load all participants for these challenges
+    const allChIds = allChallenges.map(c => c.id);
+    let allParticipants = [];
+    if (allChIds.length) {
+      const { data } = await supaClient.from('challenge_participants')
+        .select('*')
+        .in('challenge_id', allChIds);
+      allParticipants = data || [];
+    }
+
+    // Load profiles for all involved users
+    const involvedIds = new Set();
+    allChallenges.forEach(c => involvedIds.add(c.creator_id));
+    allParticipants.forEach(p => involvedIds.add(p.user_id));
+    let profiles = {};
+    if (involvedIds.size) {
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds));
+      (data || []).forEach(p => profiles[p.id] = p);
+    }
+
+    // Render active
+    if (active.length) {
+      activeEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">En cours</div>' +
+        active.map(c => renderChallengeCard(c, allParticipants.filter(p => p.challenge_id === c.id), profiles, uid)).join('');
+    } else {
+      activeEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Aucun défi en cours.<br>Crée un défi ou utilise un template rapide !</div>';
+    }
+
+    // Render finished
+    if (finished.length) {
+      finishedEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin:16px 0 8px;">Terminés</div>' +
+        finished.map(c => renderChallengeCard(c, allParticipants.filter(p => p.challenge_id === c.id), profiles, uid)).join('');
+    } else {
+      finishedEl.innerHTML = '';
+    }
+  } catch (e) {
+    console.error('renderChallengesTab error:', e);
+    activeEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:12px;">Erreur de chargement des défis</div>';
   }
-
-  // Completed
-  if (completed.length) {
-    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin:14px 0 8px;">Terminés</div>';
-    completed.forEach(c => {
-      const t = CHALLENGE_TYPES[c.type] || CHALLENGE_TYPES.volume;
-      html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">' +
-        t.icon + ' ' + t.label + ' — <strong>' + (c.finalScore || 0) + '</strong> ' + t.unit + '</div>';
-    });
-  }
-
-  if (!active.length && !completed.length) {
-    html += '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Aucun défi en cours.<br>Crée un défi pour te challenger !</div>';
-  }
-
-  el.innerHTML = html;
 }
 
-function getChallengeProgress(challenge) {
-  const start = new Date(challenge.start_date).getTime();
-  const recentLogs = db.logs.filter(l => l.timestamp >= start);
-  switch (challenge.type) {
-    case 'volume': return Math.round(recentLogs.reduce((s, l) => s + (l.volume || 0), 0));
-    case 'pr': {
-      let count = 0;
-      const seen = {};
-      recentLogs.forEach(l => l.exercises.forEach(e => {
-        const key = e.name;
-        if (!seen[key]) seen[key] = 0;
-        if ((e.maxRM || 0) > seen[key]) { count++; seen[key] = e.maxRM; }
-      }));
-      return count;
-    }
-    case 'compliance': {
-      const routine = getRoutine();
-      const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
-      const weeks = Math.max(1, (Date.now() - start) / (7 * 86400000));
-      return Math.round((recentLogs.length / (planned * weeks)) * 100);
-    }
-    case 'streak': return db.questStreak || 0;
-    default: return 0;
+function renderChallengeCard(challenge, participants, profiles, uid) {
+  const t = CHALLENGE_TYPES[challenge.type] || CHALLENGE_TYPES.custom;
+  const isFinished = new Date(challenge.end_date) <= new Date();
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.end_date) - Date.now()) / 86400000));
+  const creator = profiles[challenge.creator_id] || { username: '?' };
+  const isParticipant = participants.some(p => p.user_id === uid);
+
+  // Sort participants by value desc
+  const sorted = [...participants].sort((a, b) => (b.current_value || 0) - (a.current_value || 0));
+
+  let html = '<div class="card" style="margin-bottom:12px;border:1px solid ' + (isFinished ? 'var(--border)' : 'rgba(10,132,255,0.3)') + ';">';
+  // Header
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  html += '<div style="font-weight:700;font-size:14px;">' + t.icon + ' ' + (challenge.title || t.label) + '</div>';
+  html += '<span style="font-size:10px;padding:3px 8px;border-radius:10px;background:' + (isFinished ? 'rgba(255,255,255,0.05)' : 'rgba(10,132,255,0.1)') + ';color:' + (isFinished ? 'var(--sub)' : 'var(--blue)') + ';">' + (isFinished ? 'Terminé' : daysLeft + 'j restants') + '</span>';
+  html += '</div>';
+  html += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">par ' + creator.username + (challenge.target_exercise ? ' · ' + challenge.target_exercise : '') + '</div>';
+  if (challenge.description) html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' + challenge.description + '</div>';
+
+  // Participants + progress
+  if (sorted.length) {
+    sorted.forEach((p, i) => {
+      const prof = profiles[p.user_id] || { username: '?' };
+      const val = p.current_value || 0;
+      const pct = challenge.target_value ? Math.min(100, (val / challenge.target_value) * 100) : 0;
+      const isMe = p.user_id === uid;
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;' + (isMe ? 'background:rgba(10,132,255,0.05);padding:4px 6px;border-radius:8px;' : '') + '">';
+      html += '<span style="font-size:11px;font-weight:700;width:18px;color:' + (i === 0 && !isFinished ? 'var(--green)' : 'var(--sub)') + ';">' + (i + 1) + '.</span>';
+      html += '<span style="font-size:12px;font-weight:' + (isMe ? '700' : '500') + ';flex:1;">' + prof.username + '</span>';
+      html += '<span style="font-size:12px;font-weight:700;color:var(--blue);">' + Math.round(val) + (t.unit ? ' ' + t.unit : '') + '</span>';
+      if (challenge.target_value) {
+        html += '<div style="width:60px;height:4px;background:var(--border);border-radius:2px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + pct + '%;"></div></div>';
+      }
+      html += '</div>';
+    });
+  } else {
+    html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px;">Aucun participant</div>';
   }
+
+  // Actions
+  if (!isFinished) {
+    html += '<div style="display:flex;gap:8px;margin-top:10px;">';
+    if (!isParticipant) {
+      html += '<button class="btn" style="font-size:12px;padding:8px 16px;" onclick="joinChallenge(\'' + challenge.id + '\')">Rejoindre</button>';
+    } else {
+      html += '<button class="btn" style="font-size:12px;padding:8px 16px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + challenge.id + '\')">📝 Mettre à jour</button>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 function showCreateChallengeModal() {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.id = 'challengeModal';
-  const typeBtns = Object.entries(CHALLENGE_TYPES).map(([k, v]) =>
-    '<button class="ob-mode-btn" style="padding:10px;font-size:12px;" onclick="document.querySelectorAll(\'#challengeModal .ob-mode-btn\').forEach(b=>b.classList.remove(\'selected\'));this.classList.add(\'selected\');this.dataset.type=\'' + k + '\';" data-type="' + k + '">' + v.icon + ' ' + v.label + '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + v.desc + '</div></button>'
-  ).join('');
-  overlay.innerHTML = '<div class="modal-box" style="max-width:320px;padding:20px;">' +
-    '<div style="font-size:16px;font-weight:700;margin-bottom:14px;">Créer un défi</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' + typeBtns + '</div>' +
-    '<select id="challengeDuration" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin-bottom:12px;">' +
-    '<option value="7">1 semaine</option><option value="30">1 mois</option></select>' +
-    '<div class="modal-actions">' +
-    '<button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="document.getElementById(\'challengeModal\').remove()">Annuler</button>' +
-    '<button class="modal-confirm" style="background:var(--blue);color:white;" onclick="createChallenge()">Créer</button></div></div>';
-  document.body.appendChild(overlay);
+  // Remove existing modal if any
+  const existing = document.getElementById('challengeModalSheet');
+  if (existing) existing.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'challengeModalSheet';
+  sheet.className = 'go-bottom-sheet';
+  sheet.style.display = '';
+  sheet.innerHTML =
+    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'challengeModalSheet\').remove()"></div>' +
+    '<div class="go-bottom-sheet-content" style="max-height:80vh;overflow-y:auto;">' +
+      '<div class="go-bottom-sheet-handle"></div>' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Créer un défi</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Titre</div>' +
+        '<input type="text" id="chalTitle" placeholder="Mon défi..." maxlength="60" style="margin-bottom:0;">' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Type</div>' +
+        '<select id="chalType" style="margin-bottom:0;">' +
+          '<option value="volume">📊 Volume (tonnage)</option>' +
+          '<option value="reps">💪 Reps</option>' +
+          '<option value="weight">🏋️ Charge max (e1RM)</option>' +
+          '<option value="frequency">🔥 Nb séances</option>' +
+        '</select>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Exercice ciblé (optionnel)</div>' +
+        '<input type="text" id="chalExercise" placeholder="Ex: Bench Press" maxlength="50" style="margin-bottom:0;">' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Objectif</div>' +
+        '<input type="number" id="chalTarget" placeholder="Ex: 100" style="margin-bottom:0;">' +
+      '</div>' +
+      '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Durée</div>' +
+        '<select id="chalDuration" style="margin-bottom:0;">' +
+          '<option value="3">3 jours</option>' +
+          '<option value="7" selected>1 semaine</option>' +
+          '<option value="14">2 semaines</option>' +
+          '<option value="30">1 mois</option>' +
+        '</select>' +
+      '</div>' +
+      '<button class="btn" style="background:linear-gradient(135deg,var(--orange,#ff9500),var(--red,#ff3b30));border:none;font-size:14px;" onclick="createChallenge()">Lancer 🚀</button>' +
+    '</div>';
+  document.body.appendChild(sheet);
 }
 
-function createChallenge() {
-  const selected = document.querySelector('#challengeModal .ob-mode-btn.selected');
-  if (!selected) { showToast('Choisis un type de défi'); return; }
-  const type = selected.dataset.type;
-  const dur = parseInt(document.getElementById('challengeDuration').value) || 7;
-  const start = new Date(); start.setHours(0,0,0,0);
-  const end = new Date(start); end.setDate(end.getDate() + dur);
-  if (!db.challenges) db.challenges = [];
-  db.challenges.push({
-    id: Math.random().toString(36).substr(2,9),
-    type,
-    start_date: start.toISOString(),
-    end_date: end.toISOString(),
-    status: 'active'
-  });
-  saveDB();
-  document.getElementById('challengeModal').remove();
-  showToast('🏆 Défi créé !');
-  renderChallengesTab();
+async function createChallenge(templateData) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) { showToast('Connexion requise'); return; }
+
+  let title, type, exercise, target, duration;
+  if (templateData) {
+    title = templateData.label;
+    type = templateData.type;
+    exercise = templateData.exercise || null;
+    target = templateData.target || null;
+    duration = templateData.duration || 7;
+  } else {
+    title = (document.getElementById('chalTitle').value || '').trim();
+    type = document.getElementById('chalType').value;
+    exercise = (document.getElementById('chalExercise').value || '').trim() || null;
+    target = parseFloat(document.getElementById('chalTarget').value) || null;
+    duration = parseInt(document.getElementById('chalDuration').value) || 7;
+    if (!title) { showToast('Donne un titre au défi'); return; }
+  }
+
+  const end = new Date();
+  end.setDate(end.getDate() + duration);
+
+  try {
+    const { data, error } = await supaClient.from('social_challenges').insert({
+      creator_id: uid,
+      title: title,
+      type: type,
+      target_value: target,
+      target_exercise: exercise,
+      end_date: end.toISOString()
+    }).select('id').single();
+
+    if (error) throw error;
+
+    // Auto-join as participant
+    await supaClient.from('challenge_participants').insert({
+      challenge_id: data.id,
+      user_id: uid,
+      current_value: 0
+    });
+
+    const sheet = document.getElementById('challengeModalSheet');
+    if (sheet) sheet.remove();
+
+    showToast('🔥 Défi créé !');
+    renderChallengesTab();
+  } catch (e) {
+    console.error('createChallenge error:', e);
+    showToast('Erreur lors de la création du défi');
+  }
+}
+
+async function createChallengeFromTemplate(index) {
+  const t = CHALLENGE_TEMPLATES[index];
+  if (!t) return;
+  await createChallenge({ label: t.label, type: t.type, exercise: t.exercise, target: t.target, duration: t.duration });
+}
+
+async function joinChallenge(challengeId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    await supaClient.from('challenge_participants').insert({
+      challenge_id: challengeId,
+      user_id: uid,
+      current_value: 0
+    });
+    showToast('Tu as rejoint le défi !');
+    renderChallengesTab();
+  } catch (e) {
+    console.error('joinChallenge error:', e);
+    showToast('Erreur');
+  }
+}
+
+function showUpdateChallengeProgress(challengeId) {
+  const existing = document.getElementById('chalUpdateSheet');
+  if (existing) existing.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'chalUpdateSheet';
+  sheet.className = 'go-bottom-sheet';
+  sheet.style.display = '';
+  sheet.innerHTML =
+    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'chalUpdateSheet\').remove()"></div>' +
+    '<div class="go-bottom-sheet-content">' +
+      '<div class="go-bottom-sheet-handle"></div>' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Mettre à jour ta progression</div>' +
+      '<input type="number" id="chalUpdateValue" placeholder="Nouvelle valeur" style="margin-bottom:12px;text-align:center;font-size:18px;">' +
+      '<button class="btn" onclick="updateChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
+    '</div>';
+  document.body.appendChild(sheet);
+}
+
+async function updateChallengeProgress(challengeId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  const val = parseFloat(document.getElementById('chalUpdateValue').value);
+  if (isNaN(val)) { showToast('Entre une valeur'); return; }
+  try {
+    await supaClient.from('challenge_participants').update({
+      current_value: val
+    }).eq('challenge_id', challengeId).eq('user_id', uid);
+
+    const sheet = document.getElementById('chalUpdateSheet');
+    if (sheet) sheet.remove();
+    showToast('Progression mise à jour !');
+    renderChallengesTab();
+  } catch (e) {
+    console.error('updateChallengeProgress error:', e);
+    showToast('Erreur');
+  }
 }
 
 // ============================================================

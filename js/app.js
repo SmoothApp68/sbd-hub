@@ -7576,6 +7576,9 @@ function _goDoStartWorkout(withProgram) {
   goStartSessionTimer();
   goAutoSave();
   renderGoTab();
+
+  // Social: set training status
+  try { setTrainingStatus(true, activeWorkout.title); } catch(e) {}
 }
 
 // ── Restore Draft ──
@@ -7663,6 +7666,9 @@ function _goCreateGroupSession(type) {
   goStartSessionTimer();
   goAutoSave();
   renderGoTab();
+
+  // Social: set training status
+  try { setTrainingStatus(true, activeWorkout.title); } catch(e) {}
 }
 
 // GO TAB — Active View Rendering
@@ -8767,6 +8773,9 @@ function goFinishWorkout() {
 
   showToast('✅ Séance sauvegardée');
   renderGoTab();
+
+  // Social: clear training status
+  try { setTrainingStatus(false); } catch(e) {}
 }
 
 function goConfirmDiscard() {
@@ -8788,5 +8797,8 @@ function goDiscardWorkout() {
   _goSessionPaused = false;
   showToast('Séance annulée');
   renderGoTab();
+
+  // Social: clear training status
+  try { setTrainingStatus(false); } catch(e) {}
 }
 

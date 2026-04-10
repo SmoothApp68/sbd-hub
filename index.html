@@ -71,7 +71,6 @@
     .bl-weight { width:40px; text-align:center; color:var(--sub); font-size:10px; }
     .bl-contribution { width:40px; text-align:right; font-weight:700; color:var(--blue); font-size:11px; }
     .breakdown-total { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); font-size:12px; font-weight:800; color:var(--text); text-align:right; }
-    .breakdown-delta { font-size:11px; color:var(--green); text-align:right; margin-top:2px; }
     .breakdown-toggle { font-size:11px; color:var(--blue); cursor:pointer; margin-top:8px; text-align:center; padding:6px; border-radius:8px; background:rgba(10,132,255,0.06); font-weight:600; transition:background 0.2s; user-select:none; }
     .breakdown-toggle:active { background:rgba(10,132,255,0.15); }
     /* ── Group Class ── */
@@ -97,12 +96,6 @@
     .go-assist-input { display:flex; align-items:center; gap:6px; padding:4px 12px; font-size:11px; color:var(--sub); background:rgba(255,214,10,0.08); border-radius:8px; margin:4px 8px 8px; flex-wrap:wrap; }
     .go-assist-input select { background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:4px 8px; font-size:11px; }
     .exo-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; }
-    .ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .ai-avatar { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-    .ai-header-text h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
-    .ai-header-text p { margin: 2px 0 0; font-size: 12px; color: var(--sub); }
-    .ai-response-area { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; padding: 18px; min-height: 80px; position: relative; overflow: hidden; }
-    .ai-response-area.empty { display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 13px; min-height: 100px; }
     .ai-response-content { font-size: 13px; line-height: 1.65; color: var(--text); }
     .ai-response-content strong { color: var(--blue); }
     .ai-response-content .ai-section { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
@@ -121,7 +114,6 @@
     .ai-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes aiPulse { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.1); } }
     .ai-timestamp { font-size: 10px; color: var(--sub); text-align: right; margin-top: 10px; }
-    .ai-import-card { background: linear-gradient(135deg, rgba(10,132,255,0.08) 0%, rgba(191,90,242,0.08) 100%); border: 1px solid rgba(10,132,255,0.25); }
     .report-card { border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); position: relative; overflow: hidden; }
     .report-card.debrief { background: linear-gradient(135deg, rgba(50,215,75,0.06) 0%, rgba(10,132,255,0.06) 100%); border-color: rgba(50,215,75,0.2); }
     .report-card.weekly { background: linear-gradient(135deg, rgba(191,90,242,0.06) 0%, rgba(255,159,10,0.06) 100%); border-color: rgba(191,90,242,0.2); }
@@ -136,16 +128,6 @@
     .report-card-body .ai-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .report-toggle { background: none; border: none; color: var(--blue); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 0; }
     .report-new-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); display: inline-block; animation: aiPulse 2s infinite; }
-
-    /* ── ROUTINE EDITOR ── */
-    .routine-day-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .routine-day-label { width: 36px; font-size: 12px; font-weight: 700; color: var(--sub); flex-shrink: 0; }
-    .routine-day-input { flex: 1; margin-bottom: 0; padding: 10px 12px; font-size: 13px; }
-    .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-    .template-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; text-align: left; transition: all 0.2s; }
-    .template-btn:hover { border-color: var(--blue); }
-    .template-btn .tpl-name { font-size: 12px; font-weight: 700; color: var(--text); }
-    .template-btn .tpl-desc { font-size: 10px; color: var(--sub); margin-top: 2px; }
 
     /* ── ONBOARDING ── */
     #onboarding-overlay {
@@ -240,9 +222,6 @@
     .ob-day-pick .dp-short { font-size: 12px; font-weight: 800; color: var(--text); }
     .ob-day-pick .dp-full { font-size: 9px; color: var(--sub); margin-top: 3px; }
     .ob-program-card { background: var(--surface); border-radius: 16px; overflow: hidden; margin-bottom: 20px; border: 1px solid var(--border); }
-    .ob-program-header { background: linear-gradient(135deg, rgba(10,132,255,0.15), rgba(191,90,242,0.15)); padding: 14px 16px; border-bottom: 1px solid var(--border); }
-    .ob-program-header h3 { margin: 0; font-size: 15px; font-weight: 800; }
-    .ob-program-header p { margin: 3px 0 0; font-size: 11px; color: var(--sub); }
     .ob-day-card { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .ob-day-card:last-child { border-bottom: none; }
     .ob-day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -348,8 +327,6 @@
     .lifts-filter-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
     .lifts-filter-chip.active{background:var(--blue);color:white;border-color:var(--blue);}
     /* Dashboard accordion badges */
-    .dash-acc-badge{background:var(--blue);color:white;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:8px;vertical-align:middle;}
-    .dash-acc-badge.green{background:var(--green);color:#000;}
     /* ── Stats sous-onglets ── */
     .stats-sub-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none;}
     .stats-sub-nav::-webkit-scrollbar{display:none;}
@@ -424,7 +401,6 @@
     .prog-day-section-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--surface);cursor:pointer;}
     .prog-day-section-name{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;}
     .prog-day-section-count{font-size:11px;color:var(--sub);background:var(--border);padding:2px 8px;border-radius:10px;}
-    .prog-day-section-toggle{font-size:11px;color:var(--blue);font-weight:600;cursor:pointer;padding:4px 8px;}
     .prog-exo-list{padding:8px 12px;}
     .prog-exo-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
     .prog-exo-item:last-child{border-bottom:none;}
@@ -437,24 +413,11 @@
     .prog-day-label-input{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--sub);font-size:11px;padding:2px 4px;width:120px;margin-left:4px;}
     .prog-day-label-input:focus{outline:none;border-color:var(--blue);}
     /* ── Exercices Clés / Performance ── */
-    .keylift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .keylift-box { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 14px; padding: 14px 12px; position: relative; }
-    .keylift-box.pr { border-color: var(--green); }
-    .keylift-name { font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .keylift-val { font-size: 22px; font-weight: 800; color: var(--blue); display: flex; align-items: baseline; gap: 3px; }
-    .keylift-val span { font-size: 12px; color: var(--sub); font-weight: 400; }
-    .keylift-progress { margin-top: 8px; }
-    .keylift-progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-    .keylift-progress-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
-    .keylift-target { font-size: 10px; color: var(--sub); margin-top: 4px; display: flex; justify-content: space-between; }
-    .keylift-pr-badge { position: absolute; top: -7px; right: 10px; background: var(--green); color: #000; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 8px; }
-    .keylift-empty { text-align: center; padding: 20px; color: var(--sub); font-size: 13px; }
     .keylift-editor-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; background: var(--surface); border-radius: 12px; padding: 10px 12px; }
     .keylift-editor-row input { margin: 0; padding: 8px 10px; font-size: 13px; flex: 1; }
     .keylift-editor-row input.tgt-input { width: 80px; flex: 0 0 80px; text-align: center; }
     .keylift-editor-del { background: none; border: none; color: var(--red); opacity: 0.5; cursor: pointer; font-size: 18px; padding: 0 4px; flex-shrink: 0; }
     .keylift-editor-del:hover { opacity: 1; }
-    .keylift-chart { height: 80px; margin-top: 12px; }
 
     /* ── Carte exercice (.ec) ── */
     .ec { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 10px; overflow: hidden; }
@@ -686,26 +649,6 @@
     .lvl-stat-val { font-size: 18px; font-weight: 800; }
     .lvl-stat-lbl { font-size: 9px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
 
-    /* ── Strength card (.str-*) ── */
-    .str-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
-    .str-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-    .str-name { font-size: 14px; font-weight: 700; }
-    .str-right { text-align: right; }
-    .str-e1rm { font-size: 16px; font-weight: 800; color: var(--blue); }
-    .str-e1rm span { font-size: 11px; font-weight: 400; color: var(--sub); }
-    .str-bw { font-size: 10px; color: var(--sub); margin-top: 1px; }
-    .str-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .str-badge { padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; }
-    .str-top { font-size: 10px; color: var(--sub); }
-    .str-bar-wrap { position: relative; height: 16px; border-radius: 8px; overflow: visible; border: 1px solid var(--border); background: var(--surface); }
-    .str-bar-segs { position: absolute; inset: 0; display: flex; border-radius: 8px; overflow: hidden; }
-    .str-bar-seg { height: 100%; }
-    .str-bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 8px; opacity: 0.5; }
-    .str-bar-needle { position: absolute; top: -3px; width: 4px; height: 22px; background: white; border-radius: 2px; transform: translateX(-2px); box-shadow: 0 0 8px rgba(255,255,255,0.4); }
-    .str-bar-legend { display: flex; justify-content: space-between; margin-top: 5px; font-size: 8px; }
-    .str-legend-item { display: flex; align-items: center; gap: 3px; }
-    .str-legend-dot { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
-
     /* ── Badges (.bdg-*) ── */
     .bdg-overview { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; text-align: center; }
     .bdg-total-val { font-size: 32px; font-weight: 800; color: var(--purple); }
@@ -766,9 +709,6 @@
     .hm-legend-cell { width: 10px; height: 10px; border-radius: 2px; }
 
     /* ── Weekly Challenges (.wc-*) ── */
-    .wc-wrap { background: linear-gradient(135deg, rgba(255,159,10,0.04) 0%, rgba(255,159,10,0.02) 100%); border-color: rgba(255,159,10,0.2); }
-    .wc-item { background: #1C1C1E; border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-    .wc-item:last-child { margin-bottom: 0; }
     .wc-status { font-size: 16px; flex-shrink: 0; }
     .wc-info { flex: 1; min-width: 0; }
     .wc-label { font-size: 13px; font-weight: 700; }
@@ -1092,7 +1032,6 @@
     .feed-empty-icon{font-size:48px;margin-bottom:12px;}
     .feed-empty-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;}
     .feed-empty-sub{font-size:13px;line-height:1.5;margin-bottom:20px;}
-    .feed-pinned-section{margin-bottom:16px;}
     .feed-pinned-header{font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
     .feed-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;transition:all 0.2s;}
     .feed-card.pinned{border-color:rgba(255,159,10,0.3);background:linear-gradient(135deg,rgba(255,159,10,0.05) 0%,var(--card) 100%);}
@@ -1167,7 +1106,6 @@
     .friends-ac-item:hover{background:var(--surface);}
     .friends-ac-avatar{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0;}
     .friends-ac-name{font-size:14px;font-weight:600;color:var(--text);}
-    .friends-section-title{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin:16px 0 8px;}
     .friends-list{margin-bottom:16px;}
     .friends-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
     .friends-item:last-child{border-bottom:none;}
@@ -2020,6 +1958,9 @@
       </div>
     </div>
 
+    <!-- Storage gauge -->
+    <div id="storageGauge"></div>
+
     <!-- Accordéon Correction Records -->
     <div class="acc-card">
       <div class="acc-header" onclick="toggleAcc('acc-records')">
@@ -2251,6 +2192,7 @@
     <button class="tab-btn" data-tab="tab-profil"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
   </nav>
 <script src="js/engine.js"></script>
+<script src="js/exercises.js"></script>
 <script src="js/supabase.js"></script>
 <script src="js/import.js"></script>
 <script src="js/app.js"></script>

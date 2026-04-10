@@ -1088,29 +1088,37 @@ function renderFeedCard(item, profiles, uid) {
   const profile = profiles[item.user_id] || { username: 'Utilisateur supprimé' };
   const initial = avatarInitial(profile.username);
   const isMe = item.user_id === uid;
-  const typeLabels = { session: 'Séance', pr: 'Nouveau PR', goal: 'Objectif' };
+  const typeLabels = { session: 'Séance', pr: 'Nouveau PR', goal: 'Objectif', achievement: 'Badge' };
+  const typeIcons = { session: '🏋️', pr: '🏆', goal: '🎯', achievement: '⭐' };
   const d = item.data || {};
 
   let body = '';
   let detail = '';
   if (item.type === 'session') {
-    body = '<strong>' + profile.username + '</strong> a terminé une séance';
-    if (d.title) body += ' : ' + d.title;
-    if (d.duration) body += ' · ' + formatTime(d.duration);
-    if (d.volume) body += ' · ' + Math.round(d.volume) + 'kg';
+    body = '🏋️ <strong>' + profile.username + '</strong> a terminé';
+    if (d.title) body += ' <em>' + d.title + '</em>';
+    const stats = [];
+    if (d.exercise_count) stats.push(d.exercise_count + ' exos');
+    if (d.volume) stats.push(Math.round(d.volume) + 'kg de tonnage');
+    if (d.duration) stats.push(formatTime(d.duration));
+    if (stats.length) body += ' · ' + stats.join(' · ');
+    if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + d.top_set + '</span>';
     if (d.exercises && d.exercises.length) {
       detail = d.exercises.map(e =>
         '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>'
       ).join('');
     }
   } else if (item.type === 'pr') {
-    body = '<strong>' + profile.username + '</strong> a battu son PR ' +
-      (d.exercise || '') + ' : <strong>' + (d.value || 0) + 'kg</strong>' +
-      (d.delta ? ' (+' + d.delta + 'kg)' : '');
+    body = '🏆 <strong>' + profile.username + '</strong> nouveau PR !';
+    body += ' <em>' + (d.exercise || '') + '</em> <strong style="color:var(--green);">' + (d.value || 0) + 'kg</strong>';
+    if (d.delta && d.delta > 0) body += ' <span style="color:var(--green);">(+' + d.delta + 'kg)</span>';
+    if (d.previous) body += '<br><span style="color:var(--sub);font-size:12px;">Ancien : ' + d.previous + 'kg</span>';
   } else if (item.type === 'goal') {
-    body = '<strong>' + profile.username + '</strong> — Objectif atteint ! ' +
+    body = '🎯 <strong>' + profile.username + '</strong> — Objectif atteint ! ' +
       (d.exercise || '') + ' ' + (d.value || 0) + 'kg' +
       (d.weeks ? ' (en ' + d.weeks + ' semaines)' : '');
+  } else if (item.type === 'achievement') {
+    body = '⭐ <strong>' + profile.username + '</strong> a débloqué <em>' + (d.badge || d.title || '') + '</em>';
   }
 
   return '<div class="feed-card' + (item.pinned ? ' pinned' : '') + '" id="feed-' + item.id + '">' +
@@ -1315,40 +1323,72 @@ function loadMoreFeed() {
   renderFeed();
 }
 
+// ── Generic feed posting helper ──
+async function postToFeed(type, data, options) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  try {
+    // Dedup: check if a post with same type and dedup key exists
+    if (options && options.dedupKey) {
+      const { data: existing } = await supaClient.from('activity_feed')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('type', type)
+        .contains('data', options.dedupKey)
+        .limit(1)
+        .maybeSingle();
+      if (existing) return; // Already posted
+    }
+    await supaClient.from('activity_feed').insert({
+      user_id: uid,
+      type: type,
+      pinned: (options && options.pinned) || false,
+      data: data
+    });
+  } catch (e) {
+    console.error('postToFeed error:', e);
+  }
+}
+
 // ── Auto-publish activity events ──
 async function publishSessionActivity(logEntry) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
-  try {
-    await supaClient.from('activity_feed').insert({
-      user_id: uid,
-      type: 'session',
-      data: {
-        title: logEntry.title || '',
-        duration: logEntry.duration || 0,
-        volume: logEntry.volume || 0,
-        exercises: (logEntry.exercises || []).map(e => ({ name: e.name, sets: e.sets }))
-      }
-    });
-  } catch (e) {
-    console.error('publishSessionActivity error:', e);
-  }
+
+  // Build top set string (best e1RM set)
+  let topSet = '';
+  let bestE1RM = 0;
+  (logEntry.exercises || []).forEach(e => {
+    if (e.maxRM && e.maxRM > bestE1RM) {
+      bestE1RM = e.maxRM;
+      topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg';
+    }
+  });
+
+  const sessionDate = logEntry.shortDate || logEntry.date || '';
+
+  await postToFeed('session', {
+    title: logEntry.title || '',
+    duration: logEntry.duration || 0,
+    volume: logEntry.volume || 0,
+    exercise_count: (logEntry.exercises || []).length,
+    top_set: topSet,
+    date: sessionDate,
+    exercises: (logEntry.exercises || []).map(e => ({ name: e.name, sets: e.sets }))
+  }, { dedupKey: { date: sessionDate } });
 }
 
 async function publishPRActivity(exerciseName, newValue, oldValue) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
   try {
-    await supaClient.from('activity_feed').insert({
-      user_id: uid,
-      type: 'pr',
-      pinned: true,
-      data: {
-        exercise: exerciseName,
-        value: newValue,
-        delta: oldValue ? Math.round(newValue - oldValue) : null
-      }
-    });
+    await postToFeed('pr', {
+      exercise: exerciseName,
+      value: newValue,
+      previous: oldValue || null,
+      delta: oldValue ? Math.round(newValue - oldValue) : null,
+      bodyweight: db.user.bw || null
+    }, { pinned: true });
     // Check if any friend had this PR and notify them
     const friendIds = await getAcceptedFriendIds();
     if (friendIds.length) {
@@ -1375,17 +1415,7 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
 }
 
 async function publishGoalActivity(exerciseName, value, weeks) {
-  const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient || !db.social.onboardingCompleted) return;
-  try {
-    await supaClient.from('activity_feed').insert({
-      user_id: uid,
-      type: 'goal',
-      data: { exercise: exerciseName, value: value, weeks: weeks }
-    });
-  } catch (e) {
-    console.error('publishGoalActivity error:', e);
-  }
+  await postToFeed('goal', { exercise: exerciseName, value: value, weeks: weeks });
 }
 
 // ============================================================

@@ -6881,6 +6881,56 @@ function getRestSeconds(exerciseCategory, goal) {
   return (table[goal] || table.maintien)[exerciseCategory] || 90;
 }
 
+// ── Échauffements intelligents par exercice ─────────────────
+// Sources : Ripped Body, BarBend (Ben Pollack), Skill Based Fitness
+function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isFirstCompound, cat) {
+  if (!workWeight || workWeight <= 0) return [];
+  if (!cat) cat = 'isolation';
+
+  // Isolation → pas d'échauffement (muscles déjà chauds après compounds)
+  if (cat === 'isolation') return [];
+
+  // Premier compound de la séance → échauffement complet
+  if (isFirstCompound) {
+    if (workReps <= 5) {
+      // Force : 5 montantes → bar, 50%, 65%, 80%, 90%
+      return [
+        { isWarmup: true, weight: round05(workWeight * 0.40), reps: 8 },
+        { isWarmup: true, weight: round05(workWeight * 0.55), reps: 5 },
+        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 },
+        { isWarmup: true, weight: round05(workWeight * 0.85), reps: 2 },
+        { isWarmup: true, weight: round05(workWeight * 0.92), reps: 1 }
+      ];
+    } else if (workReps <= 10) {
+      // Hypertrophie : 3 montantes
+      return [
+        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 8 },
+        { isWarmup: true, weight: round05(workWeight * 0.65), reps: 5 },
+        { isWarmup: true, weight: round05(workWeight * 0.80), reps: 3 }
+      ];
+    } else {
+      // Endurance : 2 montantes
+      return [
+        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 10 },
+        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 5 }
+      ];
+    }
+  }
+
+  // Compound suivant mais premier pour ce groupe musculaire → 2 montantes
+  if (isFirstForMuscleGroup) {
+    return [
+      { isWarmup: true, weight: round05(workWeight * 0.50), reps: 5 },
+      { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 }
+    ];
+  }
+
+  // Compound suivant, même groupe déjà échauffé → 1 montante
+  return [
+    { isWarmup: true, weight: round05(workWeight * 0.60), reps: 5 }
+  ];
+}
+
 // ── Deload automatique ──────────────────────────────────────
 function shouldDeload() {
   const reasons = [];

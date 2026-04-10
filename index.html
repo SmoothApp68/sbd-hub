@@ -2636,7 +2636,7 @@ async function loadGMUsers() {
     if (!users) { document.getElementById('gmUsersList').innerHTML = '<div style="color:#7878A8;">Aucun utilisateur</div>'; return; }
     let html = '';
     for (const u of users) {
-      const lastSeen = u.last_login ? timeAgo(new Date(u.last_login)) : 'jamais';
+      const lastSeen = u.last_login ? timeAgo(u.last_login) : 'jamais';
       html += '<div class="gm-user-card">' +
         '<div class="gm-user-info">' +
           '<div class="gm-user-email">' + (u.username || u.id.slice(0,8)) + '</div>' +
@@ -2899,15 +2899,6 @@ function showTierPromotion(tier) {
 
 // Check on load (after a delay to let auth settle)
 setTimeout(() => { checkTierPromotion(); checkAnnouncements(); }, 3000);
-
-// Utility: time ago
-function timeAgo(date) {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 60) return 'à l\'instant';
-  if (s < 3600) return Math.floor(s/60) + 'min';
-  if (s < 86400) return Math.floor(s/3600) + 'h';
-  return Math.floor(s/86400) + 'j';
-}
 
 // ═══════════════════════════════════════════
 // TIER SECTION RENDERING (Settings)

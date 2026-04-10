@@ -606,7 +606,6 @@ function recalcBestPR() {
 }
 function setPeriodButtons(id, period) { const c = document.getElementById(id); if (c) c.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period)); }
 function getLogsInRange(days) { const lim = Date.now() - days * 86400000; return db.logs.filter(l => l.timestamp >= lim && l.timestamp <= Date.now()); }
-function timeAgo(ts) { const d = Date.now()-ts; if (d < 3600000) return 'il y a '+Math.max(1,Math.round(d/60000))+'min'; if (d < 86400000) return 'il y a '+Math.round(d/3600000)+'h'; return 'il y a '+Math.round(d/86400000)+'j'; }
 function daysLeft(expiresAt) { return Math.max(0, Math.ceil((expiresAt - Date.now()) / 86400000)); }
 
 // ============================================================

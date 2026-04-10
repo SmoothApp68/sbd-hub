@@ -339,18 +339,20 @@ async function getMyUserIdAsync() {
   } catch { return null; }
 }
 
-function timeAgo(dateStr) {
-  if (!dateStr) return 'récemment';
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  if (isNaN(then)) return 'récemment';
-  const diff = Math.floor((now - then) / 1000);
+function timeAgo(input) {
+  if (!input) return 'récemment';
+  var ms;
+  if (typeof input === 'number') { ms = input; }
+  else if (input instanceof Date) { ms = input.getTime(); }
+  else { ms = new Date(input).getTime(); }
+  if (isNaN(ms)) return 'récemment';
+  var diff = Math.floor((Date.now() - ms) / 1000);
   if (diff < 0) return 'récemment';
   if (diff < 60) return 'à l\'instant';
   if (diff < 3600) return Math.floor(diff / 60) + 'min';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';
   if (diff < 604800) return Math.floor(diff / 86400) + 'j';
-  return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+  return new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
 function avatarInitial(username) {

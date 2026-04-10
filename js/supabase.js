@@ -340,9 +340,12 @@ async function getMyUserIdAsync() {
 }
 
 function timeAgo(dateStr) {
+  if (!dateStr) return 'récemment';
   const now = Date.now();
   const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return 'récemment';
   const diff = Math.floor((now - then) / 1000);
+  if (diff < 0) return 'récemment';
   if (diff < 60) return 'à l\'instant';
   if (diff < 3600) return Math.floor(diff / 60) + 'min';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';

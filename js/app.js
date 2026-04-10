@@ -8607,6 +8607,35 @@ function _goNormalize(str) {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");
 }
 
+// Pre-computed search index for EXO_DATABASE
+var _exoSearchIndex = null;
+
+function buildExoSearchIndex() {
+  _exoSearchIndex = [];
+  var keys = Object.keys(EXO_DATABASE);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var e = EXO_DATABASE[k];
+    var searchText = _goNormalize(e.name);
+    if (e.nameAlt) {
+      for (var j = 0; j < e.nameAlt.length; j++) { searchText += ' ' + _goNormalize(e.nameAlt[j]); }
+    }
+    var muscleStr = '';
+    if (e.primaryMuscles) {
+      for (var j = 0; j < e.primaryMuscles.length; j++) { muscleStr += ' ' + _goNormalize(e.primaryMuscles[j]); }
+    }
+    _exoSearchIndex.push({
+      id: k,
+      data: e,
+      searchText: searchText,
+      muscleSearchText: muscleStr,
+      equipment: e.equipment,
+      difficulty: e.difficulty || 2,
+      primaryMuscles: e.primaryMuscles || []
+    });
+  }
+}
+
 function goRenderSearchResults(query, filters) {
   // Support legacy string equipFilter or new filters object
   var equipFilter = typeof filters === 'string' ? filters : (filters ? filters.equip : '');
@@ -8618,46 +8647,44 @@ function goRenderSearchResults(query, filters) {
   var q = _goNormalize(query.trim());
   var allE1RMs = getAllBestE1RMs();
   var results = [];
+  var targetMuscles = (muscleFilter && _goMuscleMap[muscleFilter]) ? _goMuscleMap[muscleFilter] : null;
 
-  // Search EXO_DATABASE with multi-filters
-  var keys = Object.keys(EXO_DATABASE);
-  keys.forEach(function(k) {
-    var e = EXO_DATABASE[k];
-    if (equipFilter && e.equipment !== equipFilter) return;
+  // Build index on first use
+  if (!_exoSearchIndex) buildExoSearchIndex();
+
+  // Search using pre-computed index
+  for (var i = 0; i < _exoSearchIndex.length; i++) {
+    var entry = _exoSearchIndex[i];
+    if (equipFilter && entry.equipment !== equipFilter) continue;
     // Muscle filter
-    if (muscleFilter && _goMuscleMap[muscleFilter]) {
-      var targetMuscles = _goMuscleMap[muscleFilter];
-      var hasMuscle = (e.primaryMuscles||[]).some(function(m) { return targetMuscles.indexOf(m) >= 0; });
-      if (!hasMuscle) return;
+    if (targetMuscles) {
+      var hasMuscle = false;
+      for (var j = 0; j < entry.primaryMuscles.length; j++) {
+        if (targetMuscles.indexOf(entry.primaryMuscles[j]) >= 0) { hasMuscle = true; break; }
+      }
+      if (!hasMuscle) continue;
     }
     // Difficulty filter
     if (diffFilter) {
-      var d = e.difficulty || 2;
-      if (diffFilter === '1-2' && d > 2) return;
-      if (diffFilter === '3' && d !== 3) return;
-      if (diffFilter === '4-5' && d < 4) return;
+      var d = entry.difficulty;
+      if (diffFilter === '1-2' && d > 2) continue;
+      if (diffFilter === '3' && d !== 3) continue;
+      if (diffFilter === '4-5' && d < 4) continue;
     }
+    // Text search on pre-normalized text
     if (q) {
-      var nameN = _goNormalize(e.name);
-      var match = nameN.indexOf(q) >= 0;
-      if (!match && e.nameAlt) {
-        for (var i = 0; i < e.nameAlt.length; i++) {
-          if (_goNormalize(e.nameAlt[i]).indexOf(q) >= 0) { match = true; break; }
-        }
-      }
+      var match = entry.searchText.indexOf(q) >= 0;
       if (!match) {
         var qWords = q.split(/\s+/);
-        match = qWords.every(function(w) { return nameN.indexOf(w) >= 0; });
+        match = qWords.every(function(w) { return entry.searchText.indexOf(w) >= 0; });
       }
-      // Also search in muscle names
       if (!match) {
-        var muscleStr = _goNormalize((e.primaryMuscles||[]).join(' '));
-        match = q.split(/\s+/).every(function(w) { return muscleStr.indexOf(w) >= 0; });
+        match = q.split(/\s+/).every(function(w) { return entry.muscleSearchText.indexOf(w) >= 0; });
       }
-      if (!match) return;
+      if (!match) continue;
     }
-    results.push(e);
-  });
+    results.push(entry.data);
+  }
 
   // Search custom exercises
   (db.customExercises || []).forEach(function(e) {
@@ -8930,6 +8957,7 @@ function goWizardCreate() {
   if (!db.customExercises) db.customExercises = [];
   db.customExercises.push(exo);
   _matchCacheInvalidate();
+  _exoSearchIndex = null;
   saveDB();
 
   // Close wizard

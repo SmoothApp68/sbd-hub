@@ -228,8 +228,6 @@ function getTodayReadiness() {
   return (db.readiness || []).find(r => r.date === today) || null;
 }
 
-let _pendingWorkoutWithProgram = null;
-
 function showReadinessModal(onComplete) {
   if (hasTodayReadiness()) { if (onComplete) onComplete(); return; }
   _readinessOnComplete = onComplete || null;
@@ -5110,8 +5108,6 @@ function _checkTrainingReminder() {
 // ============================================================
 // ONGLET CORPS
 // ============================================================
-let chartBodyWeight = null;
-
 function calcIPFGL(lift, bw) {
   const a=1236.25115, b=1449.21864, c=0.01644, d=2.12345;
   const denom = a - b * Math.exp(-c * Math.pow(bw, d));

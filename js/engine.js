@@ -811,13 +811,9 @@ function _testMatchExoName() {
     const result = matchExoName(t.a, t.b);
     const ok = result === t.expected;
     if (ok) passed++; else failed++;
-    console.log(
-      (ok ? '✅' : '❌') +
-      ' matchExoName("' + t.a + '", "' + t.b + '") → ' + result +
-      (ok ? '' : ' (expected ' + t.expected + ')')
-    );
+    // test result tracked silently
   });
-  console.log('\n' + passed + '/' + tests.length + ' passed' + (failed ? ', ' + failed + ' FAILED' : ' — all good!'));
+  // silent: passed/failed tracked in return value
   return { passed, failed, total: tests.length };
 }
 

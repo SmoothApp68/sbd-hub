@@ -3007,7 +3007,7 @@ function compressOldLogs() {
 
   if (modified) {
     saveDBNow();
-    console.log('Old logs compressed (6+ months)');
+    // old logs compressed (6+ months)
   }
 }
 

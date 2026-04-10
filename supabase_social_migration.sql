@@ -15,7 +15,7 @@ CREATE TYPE notification_type AS ENUM ('friend_accepted', 'reaction', 'comment',
 -- profiles
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username TEXT UNIQUE NOT NULL,
+  username TEXT UNIQUE,
   username_changed_at TIMESTAMPTZ,
   bio TEXT DEFAULT '' CHECK (char_length(bio) <= 200),
   friend_code TEXT UNIQUE,
@@ -28,13 +28,22 @@ CREATE TABLE IF NOT EXISTS profiles (
   onboarding_completed BOOLEAN DEFAULT FALSE,
   deleted_at TIMESTAMPTZ,
   anonymized BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_profiles_friend_code ON profiles(friend_code) WHERE friend_code IS NOT NULL;
 
 CREATE INDEX idx_profiles_username ON profiles(username);
 CREATE INDEX idx_profiles_username_trgm ON profiles USING gin(username gin_trgm_ops);
+
+-- ── UPGRADE: if profiles table already exists, add missing columns ──
+-- Run these manually if the table was created before this migration:
+-- ALTER TABLE profiles ALTER COLUMN username DROP NOT NULL;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS friend_code TEXT UNIQUE;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_migrated BOOLEAN DEFAULT FALSE;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+-- CREATE INDEX IF NOT EXISTS idx_profiles_friend_code ON profiles(friend_code) WHERE friend_code IS NOT NULL;
 
 -- Enable pg_trgm for fuzzy/partial username search
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

@@ -63,6 +63,11 @@ if (supaClient) {
     if (event === 'PASSWORD_RECOVERY') {
       showSetNewPasswordModal();
     }
+    // On sign-in or token refresh, ensure profile exists in Supabase
+    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user?.email) {
+      cloudSyncEnabled = true;
+      ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
+    }
   });
 }
 
@@ -206,6 +211,7 @@ async function authSubmit() {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
         await syncToCloud(true);
+        await ensureProfile();
         showToast('Compte créé ! Bienvenue');
       }
     } catch(e) { showToast(translateSupaError(e.message)); }
@@ -217,6 +223,7 @@ async function authSubmit() {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
         await syncToCloud(true);
+        await ensureProfile();
         showToast('Connecté !');
         checkPasswordMigration(data.user);
       }
@@ -376,17 +383,18 @@ async function initSocialTab() {
   const uid = await getMyUserIdAsync();
   if (!uid) return;
 
-  // Ensure friend code exists
-  ensureFriendCode().then(code => {
-    const el = document.getElementById('myFriendCode');
-    if (el) el.textContent = code || '---';
-  });
-
   // Check if social onboarding needed
   if (!db.social.onboardingCompleted) {
     showSocialOnboarding();
     return;
   }
+
+  // Ensure profile + friend_code exist in Supabase (creates/updates if needed)
+  await ensureProfile();
+
+  // Display friend code
+  const fcEl = document.getElementById('myFriendCode');
+  if (fcEl) fcEl.textContent = db.friendCode || '---';
 
   // Load the active sub-tab
   const activeSub = document.querySelector('.social-sub-content.active');
@@ -511,41 +519,93 @@ async function addFriendByCode() {
 
 async function ensureProfile() {
   const uid = await getMyUserIdAsync();
-  if (!uid || !db.social.username) return null;
+  if (!uid || !supaClient) return null;
 
   try {
-    const { data } = await supaClient.from('profiles').select('id, friend_code').eq('id', uid).maybeSingle();
-    if (data) {
-      db.social.profileId = uid;
-      // Sync friend_code if present
-      if (data.friend_code && !db.friendCode) {
-        db.friendCode = data.friend_code;
-        saveDB();
-      }
-      return uid;
+    // 1. Read existing profile from Supabase
+    const { data: existing, error: readErr } = await supaClient
+      .from('profiles').select('*').eq('id', uid).maybeSingle();
+    if (readErr) {
+      console.error('ensureProfile READ error:', readErr);
+      showToast('Erreur lecture profil : ' + readErr.message);
+      return null;
     }
-    // Generate friend code for new profile
-    const friendCode = generateFriendCode();
-    // Create profile
-    const { error } = await supaClient.from('profiles').insert({
+
+    // 2. Determine username: local > base > fallback
+    let username = db.social.username
+      || (existing && existing.username)
+      || null;
+    if (!username) {
+      try {
+        const { data: authData } = await supaClient.auth.getUser();
+        username = authData?.user?.email?.split('@')[0] || null;
+      } catch (_) {}
+      if (!username) {
+        username = 'user' + Math.random().toString(36).substring(2, 6);
+      }
+      db.social.username = username;
+      saveDB();
+    }
+
+    // 3. Determine friend_code: local > base > generate
+    let friendCode = db.friendCode
+      || (existing && existing.friend_code)
+      || generateFriendCode();
+
+    // 4. Upsert — create or update
+    const { error: upsertErr } = await supaClient.from('profiles').upsert({
       id: uid,
-      username: db.social.username,
-      bio: db.social.bio || '',
+      username: username,
+      bio: db.social.bio || (existing && existing.bio) || '',
       friend_code: friendCode,
-      visibility_bio: db.social.visibility.bio,
-      visibility_prs: db.social.visibility.prs,
-      visibility_programme: db.social.visibility.programme,
-      visibility_seances: db.social.visibility.seances,
-      visibility_stats: db.social.visibility.stats,
-      onboarding_completed: true
-    });
-    if (error) throw error;
+      visibility_bio: db.social.visibility?.bio || (existing && existing.visibility_bio) || 'private',
+      visibility_prs: db.social.visibility?.prs || (existing && existing.visibility_prs) || 'private',
+      visibility_programme: db.social.visibility?.programme || (existing && existing.visibility_programme) || 'private',
+      visibility_seances: db.social.visibility?.seances || (existing && existing.visibility_seances) || 'private',
+      visibility_stats: db.social.visibility?.stats || (existing && existing.visibility_stats) || 'private',
+      onboarding_completed: db.social.onboardingCompleted || (existing && existing.onboarding_completed) || false
+    }, { onConflict: 'id' });
+
+    if (upsertErr) {
+      console.error('ensureProfile UPSERT error:', upsertErr);
+      // Username conflict — retry with a random suffix
+      if (upsertErr.message && upsertErr.message.includes('username')) {
+        const retryUsername = username + Math.floor(Math.random() * 999);
+        console.warn('ensureProfile: username conflict, retrying with', retryUsername);
+        const { error: retryErr } = await supaClient.from('profiles').upsert({
+          id: uid,
+          username: retryUsername,
+          bio: db.social.bio || (existing && existing.bio) || '',
+          friend_code: friendCode,
+          visibility_bio: db.social.visibility?.bio || 'private',
+          visibility_prs: db.social.visibility?.prs || 'private',
+          visibility_programme: db.social.visibility?.programme || 'private',
+          visibility_seances: db.social.visibility?.seances || 'private',
+          visibility_stats: db.social.visibility?.stats || 'private',
+          onboarding_completed: db.social.onboardingCompleted || false
+        }, { onConflict: 'id' });
+        if (retryErr) {
+          console.error('ensureProfile RETRY error:', retryErr);
+          showToast('Erreur création profil : ' + retryErr.message);
+          return null;
+        }
+        username = retryUsername;
+      } else {
+        showToast('Erreur création profil : ' + upsertErr.message);
+        return null;
+      }
+    }
+
+    // 5. Sync back to local state
     db.social.profileId = uid;
+    db.social.username = username;
     db.friendCode = friendCode;
     saveDB();
+
     return uid;
   } catch (e) {
-    console.error('ensureProfile error:', e);
+    console.error('ensureProfile EXCEPTION:', e);
+    showToast('Erreur profil : ' + (e.message || e));
     return null;
   }
 }
@@ -1788,11 +1848,19 @@ async function showProfileOverlay(userId) {
   overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Chargement...</div>';
 
   try {
-    const { data: profile } = await supaClient.from('profiles')
+    const { data: profile, error: profileErr } = await supaClient.from('profiles')
       .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
       .eq('id', userId)
-      .single();
-    if (!profile) { overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Profil introuvable</div>'; return; }
+      .maybeSingle();
+    if (profileErr) {
+      console.error('showProfileOverlay query error:', profileErr);
+      overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--red);">Erreur de chargement du profil</div>';
+      return;
+    }
+    if (!profile) {
+      overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--sub);">Ce profil n\'est pas encore configuré.<br><span style="font-size:12px;">L\'utilisateur n\'a pas encore complété son inscription sociale.</span></div>';
+      return;
+    }
 
     const isMe = userId === uid;
     // Check friendship

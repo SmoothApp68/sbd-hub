@@ -1862,7 +1862,7 @@ function copySobInviteCode() {
 
 async function sobFinish() {
   db.social.onboardingCompleted = true;
-  saveDB();
+  saveDBNow();
 
   // Ensure profile is created in Supabase
   await ensureProfile();
@@ -1966,7 +1966,7 @@ async function executeAccountDeletion(mode) {
       onboardingCompleted: false,
       usernameChangedAt: null
     };
-    saveDB();
+    saveDBNow();
     showToast('Compte social supprimé');
     initSocialTab();
   } catch (e) {

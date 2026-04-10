@@ -144,17 +144,43 @@ function getRoutine() {
   return DEFAULT_ROUTINE;
 }
 
-let _saveDBTimer = null;
+var _saveDBTimer = null;
+var _saveDBDirty = false;
+
 function saveDB() {
   clearCaches();
-  // Debounce actual localStorage write to avoid blocking main thread on rapid calls
-  if (_saveDBTimer) clearTimeout(_saveDBTimer);
-  _saveDBTimer = setTimeout(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch(e) { console.warn('saveDB error:', e); }
+  _saveDBDirty = true;
+  if (_saveDBTimer) return; // already scheduled
+  _saveDBTimer = setTimeout(function() {
     _saveDBTimer = null;
-  }, 100);
+    _flushDB();
+  }, 2000);
   debouncedCloudSync();
 }
+
+function saveDBNow() {
+  clearCaches();
+  if (_saveDBTimer) { clearTimeout(_saveDBTimer); _saveDBTimer = null; }
+  _saveDBDirty = true;
+  _flushDB();
+  debouncedCloudSync();
+}
+
+function _flushDB() {
+  if (!_saveDBDirty) return;
+  _saveDBDirty = false;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  } catch(e) {
+    console.error('saveDB error:', e);
+  }
+}
+
+// Flush before leaving/hiding the page
+window.addEventListener('beforeunload', _flushDB);
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden') _flushDB();
+});
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
 
@@ -4338,7 +4364,7 @@ function updateTargets() {
   db.user.targets={bench:b,squat:s,deadlift:d};
   saveDB(); renderDash();
 }
-function fullReset() { showModal('⚠️ Toutes les données seront effacées.','Effacer','var(--red)',()=>{db=defaultDB();saveDB();refreshUI();showToast('✓ Réinitialisé');}); }
+function fullReset() { showModal('⚠️ Toutes les données seront effacées.','Effacer','var(--red)',()=>{db=defaultDB();saveDBNow();refreshUI();showToast('✓ Réinitialisé');}); }
 
 // ============================================================
 // MIGRATION & CLEANUP
@@ -4695,7 +4721,7 @@ async function importCSV() {
     db.logs.push(session);imported++;
     if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
-  db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDB();
+  db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
   if(prSummary)showToast('🏆 PRs : '+prSummary);
@@ -5797,7 +5823,7 @@ function deleteSessionFromList(logId) {
   showModal('Supprimer cette séance ?', 'Supprimer', 'var(--red)', () => {
     db.logs = db.logs.filter(l => l.id !== logId);
     db.reports = db.reports.filter(r => !(r.type==='debrief' && r.sessionId===logId));
-    saveDB(); renderSeancesTab(); showToast('✓ Séance supprimée');
+    saveDBNow(); renderSeancesTab(); showToast('✓ Séance supprimée');
   });
 }
 
@@ -6874,7 +6900,7 @@ function generateWeeklyReport() {
     expires_at: Date.now() + 14 * 86400000,
     read: false
   });
-  saveDB();
+  saveDBNow();
 }
 
 function renderCoachReports() {
@@ -9073,7 +9099,7 @@ function goFinishWorkout() {
 
   // Add to db.logs
   db.logs.push(session);
-  saveDB();
+  saveDBNow();
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}

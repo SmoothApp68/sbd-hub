@@ -6,7 +6,7 @@
 // REPORTS
 // ============================================================
 function purgeExpiredReports() { const now = Date.now(); const before = db.reports.length; db.reports = db.reports.filter(r => r.expires_at > now); if (db.reports.length !== before) saveDB(); }
-function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDB(); updateCoachBadge(); renderReportsTimeline(); }
+function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDBNow(); updateCoachBadge(); renderReportsTimeline(); }
 function markReportsRead() { let changed = false; db.reports.forEach(r => { if (!r.read) { r.read = true; changed = true; } }); if (changed) saveDB(); updateCoachBadge(); }
 function updateCoachBadge() { const unread = db.reports.filter(r => !r.read && r.expires_at > Date.now()).length; const btn = document.querySelector('.tab-btn[data-tab="tab-ai"]'); const existing = btn.querySelector('.tab-badge'); if (unread > 0 && !existing) { const dot = document.createElement('span'); dot.className = 'tab-badge'; btn.appendChild(dot); } else if (unread === 0 && existing) existing.remove(); }
 function shouldGenerateWeekly() { const today = new Date(); if (today.getDay() !== 6) return false; const existing = db.reports.find(r => r.type === 'weekly'); if (existing) { const created = new Date(existing.created_at); if (created.toDateString() === today.toDateString()) return false; } return getLogsInRange(7).length > 0; }
@@ -550,7 +550,7 @@ function doFinalizeSession(session) {
 
   db.logs.unshift(session);
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);
-  saveDB();
+  saveDBNow();
   document.getElementById('hevyPaste').value='';
   showImportSummary(session);
   showToast('✓ Séance importée');
@@ -744,7 +744,7 @@ function showImportSummary(session) {
 }
 
 function deleteLog(logId) {
-  showModal('Supprimer cette séance ?','Supprimer','var(--red)',()=>{db.logs=db.logs.filter(l=>l.id!==logId);db.reports=db.reports.filter(r=>!(r.type==='debrief'&&r.sessionId===logId));saveDB();document.getElementById('importSummary').style.display='none';document.getElementById('importDetails').innerHTML='';document.getElementById('hevyPaste').value='';document.getElementById('aiImportAnalysis').style.display='none';refreshUI();showToast('✓ Séance supprimée');});
+  showModal('Supprimer cette séance ?','Supprimer','var(--red)',()=>{db.logs=db.logs.filter(l=>l.id!==logId);db.reports=db.reports.filter(r=>!(r.type==='debrief'&&r.sessionId===logId));saveDBNow();document.getElementById('importSummary').style.display='none';document.getElementById('importDetails').innerHTML='';document.getElementById('hevyPaste').value='';document.getElementById('aiImportAnalysis').style.display='none';refreshUI();showToast('✓ Séance supprimée');});
 }
 
 

@@ -1218,23 +1218,67 @@ function generateAlgoWeeklyReport() {
     html += '</div>';
   }
 
+  // ── Adhérence au plan ──
+  const level = db.user.level || 'intermediaire';
+  const blocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][weekNum] : null;
+  if (db.weeklyPlan?.days) {
+    const plannedTrainingDays = db.weeklyPlan.days.filter(d => !d.rest);
+    const doneDays = new Set(logs7.map(l => l.day));
+    const completed = plannedTrainingDays.filter(d => doneDays.has(d.day));
+    const missed = plannedTrainingDays.filter(d => !doneDays.has(d.day));
+    const extra = logs7.filter(l => !plannedTrainingDays.find(d => d.day === l.day));
+
+    html += '<div class="ai-section"><div class="ai-section-title">📋 Adhérence au programme</div>';
+    const adherence = plannedTrainingDays.length > 0 ? Math.round((completed.length / plannedTrainingDays.length) * 100) : 0;
+    const adherenceColor = adherence >= 80 ? 'green' : adherence >= 50 ? 'orange' : 'red';
+    html += `<strong>${completed.length}/${plannedTrainingDays.length}</strong> séances planifiées réalisées — <span class="ai-highlight ${adherenceColor}">${adherence}%</span>`;
+    if (missed.length) html += `<br>Manquées : ${missed.map(d => d.day).join(', ')}`;
+    if (extra.length) html += `<br>Bonus : ${extra.map(l => l.day).join(', ')} (hors plan)`;
+    html += '</div>';
+  }
+
+  // ── Tendance readiness ──
+  const recentReadiness = (db.readinessHistory || []).slice(-5);
+  if (recentReadiness.length >= 3) {
+    const trend = recentReadiness[recentReadiness.length - 1].score - recentReadiness[0].score;
+    if (trend < -15) {
+      html += '<div class="ai-section"><div class="ai-section-title">😴 READINESS</div>';
+      html += '<span class="ai-highlight red">Readiness en baisse — fatigue accumulée ? Surveille ton sommeil et ta nutrition.</span>';
+      html += '</div>';
+    }
+  }
+
   // Coaching semaine prochaine
   html += '<div class="ai-section"><div class="ai-section-title">🚀 Semaine prochaine</div>';
   const encouragements = [];
 
-  if (nextWeek) {
+  // Suggestion basée sur BLOC_PARAMS
+  const nextBlocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][nextWeek] : null;
+  if (nextBlocP && nextBlocP.label) {
+    encouragements.push(`Bloc ${nextWeek} — <strong>${nextBlocP.label}</strong>`);
+    if (nextBlocP.label.includes('Deload')) encouragements.push('Semaine de récupération — réduis les charges et le volume. Ton corps consolide les gains.');
+    else if (nextBlocP.label.includes('Accumulation')) encouragements.push('Retour au volume — plus de séries, charges modérées. Technique et volume.');
+    else if (nextBlocP.label.includes('Peak') || nextBlocP.label.includes('Réalisation')) encouragements.push('Semaine intense — charges lourdes, peu de reps. Dors bien et mange suffisamment.');
+    else encouragements.push('Intensification — charges qui montent, même volume. Qualité des reps.');
+  } else if (nextWeek) {
     const weekNames = {1:'Base (volume modéré, pose les fondations)', 2:'Accumulation (monte progressivement)', 3:'Intensification (charges lourdes, technique)', 4:'Peak (c\'est le moment de tout donner !)'};
     encouragements.push(`Semaine ${nextWeek} — ${weekNames[nextWeek]||''}`);
   }
 
-  if (weekPRs.length >= 3) encouragements.push('Excellente dynamique cette semaine ! Continue sur cette lancée, tu es en pleine progression.');
-  else if (weekPRs.length > 0) encouragements.push('De beaux records cette semaine. La régularité paie, continue comme ça.');
-  else if (nbSessions >= 3) encouragements.push('Bonne fréquence d\'entraînement. Les résultats viendront avec la constance.');
-  else encouragements.push('Chaque séance compte. Essaie de garder au moins 3 séances par semaine pour progresser.');
+  if (weekPRs.length >= 3) encouragements.push('Excellente dynamique ! Continue sur cette lancée.');
+  else if (weekPRs.length > 0) encouragements.push('De beaux records cette semaine. La régularité paie.');
+  else if (nbSessions >= 3) encouragements.push('Bonne fréquence. Les résultats viendront avec la constance.');
+  else encouragements.push('Chaque séance compte. Vise au moins 3 séances/semaine.');
 
-  if (tonnagePrev7 > 0 && tonnage7 > tonnagePrev7 * 1.15) encouragements.push('Volume en hausse — attention à la fatigue. N\'hésite pas à prendre un jour off si tu te sens claqué.');
-  if (plateaux.length) encouragements.push('Un plateau n\'est pas un échec — c\'est un signal pour adapter. Variantes et deload sont tes meilleurs outils.');
-  if (nbSessions >= 4 && !muscles.some(([mg]) => mg === 'Abdos')) encouragements.push('N\'oublie pas le gainage et les abdos — importants pour la stabilité sur les gros lifts.');
+  // Volume conscious of bloc
+  const isAccu = blocP && blocP.label && blocP.label.includes('Accumulation');
+  const isDelo = blocP && blocP.label && blocP.label.includes('Deload');
+  if (tonnagePrev7 > 0 && tonnage7 > tonnagePrev7 * 1.15) {
+    if (isAccu) encouragements.push('Volume en hausse comme prévu dans le bloc accumulation — continue 💪');
+    else if (isDelo) encouragements.push('⚠️ Volume en hausse pendant une semaine de deload — l\'objectif est de récupérer.');
+    else encouragements.push('Volume en hausse — attention à la fatigue.');
+  }
+  if (plateaux.length) encouragements.push('Un plateau n\'est pas un échec — variantes et deload sont tes meilleurs outils.');
 
   encouragements.forEach(e => { html += `<div style="margin-bottom:4px;">→ ${e}</div>`; });
   html += '</div>';

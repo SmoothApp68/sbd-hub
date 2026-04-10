@@ -6989,6 +6989,30 @@ const BW_RATIOS = {
   isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
 };
 
+// ── Apprentissage progression personnalisée ─────────────────
+// Après 4+ semaines de données, calcule le taux de progression réel
+function getPersonalProgressionRate(exoName) {
+  const pts = [];
+  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  for (const log of desc) {
+    const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+    if (pts.length >= 8) break;
+  }
+  if (pts.length < 4) return null;
+  pts.sort((a,b) => a.x - b.x);
+  const n = pts.length;
+  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+  const kgPerWeek = Math.round(slope * 7 * 10) / 10;
+  const lastE1rm = pts[pts.length - 1].y;
+  if (lastE1rm <= 0) return null;
+  const pctPerWeek = Math.round((kgPerWeek / lastE1rm) * 1000) / 10;
+  return { kgPerWeek, pctPerWeek, lastE1rm, confidence: n >= 6 ? 'high' : 'medium', n };
+}
+
 // ── Catégorie d'exercice (global) ───────────────────────────
 function getExoCategory(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');

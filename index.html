@@ -2682,7 +2682,8 @@ async function publishAnnouncement() {
   if (!text) return;
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('announcements').insert({ message: text, created_by: user.id });
+    const { error } = await supabase.from('announcements').insert({ message: text, created_by: user.id });
+    if (error) throw error;
     document.getElementById('gmAnnouncementText').value = '';
     showToast('✅ Annonce publiée');
     loadGMAnnouncements();
@@ -2690,8 +2691,11 @@ async function publishAnnouncement() {
 }
 
 async function toggleAnnouncement(id, active) {
-  await supabase.from('announcements').update({ active }).eq('id', id);
-  loadGMAnnouncements();
+  try {
+    const { error } = await supabase.from('announcements').update({ active }).eq('id', id);
+    if (error) throw error;
+    loadGMAnnouncements();
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function loadGMFlags() {
@@ -2718,14 +2722,20 @@ async function loadGMFlags() {
 }
 
 async function toggleFlag(name, enabled, el) {
-  await supabase.from('feature_flags').update({ enabled }).eq('name', name);
-  if (el) { el.classList.toggle('on'); el.classList.toggle('off'); }
-  showToast('✅ ' + name + ' → ' + (enabled?'ON':'OFF'));
+  try {
+    const { error } = await supabase.from('feature_flags').update({ enabled }).eq('name', name);
+    if (error) throw error;
+    if (el) { el.classList.toggle('on'); el.classList.toggle('off'); }
+    showToast('✅ ' + name + ' → ' + (enabled?'ON':'OFF'));
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function updateFlagTier(name, minTier) {
-  await supabase.from('feature_flags').update({ min_tier: minTier }).eq('name', name);
-  showToast('✅ ' + name + ' → tier min: ' + minTier);
+  try {
+    const { error } = await supabase.from('feature_flags').update({ min_tier: minTier }).eq('name', name);
+    if (error) throw error;
+    showToast('✅ ' + name + ' → tier min: ' + minTier);
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 // Feature flag check utility

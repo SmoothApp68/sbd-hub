@@ -2877,12 +2877,12 @@ function showUpdateChallengeProgress(challengeId) {
       '<div class="go-bottom-sheet-handle"></div>' +
       '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Mettre à jour ta progression</div>' +
       '<input type="number" id="chalUpdateValue" placeholder="Nouvelle valeur" style="margin-bottom:12px;text-align:center;font-size:18px;">' +
-      '<button class="btn" onclick="updateChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
+      '<button class="btn" onclick="updateSocialChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
     '</div>';
   document.body.appendChild(sheet);
 }
 
-async function updateChallengeProgress(challengeId) {
+async function updateSocialChallengeProgress(challengeId) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
   const val = parseFloat(document.getElementById('chalUpdateValue').value);
@@ -2897,7 +2897,7 @@ async function updateChallengeProgress(challengeId) {
     showToast('Progression mise à jour !');
     renderChallengesTab();
   } catch (e) {
-    console.error('updateChallengeProgress error:', e);
+    console.error('updateSocialChallengeProgress error:', e);
     showToast('Erreur');
   }
 }

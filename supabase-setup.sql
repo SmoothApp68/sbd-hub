@@ -1,18 +1,20 @@
 -- ═══════════════════════════════════════════════════════════════
 -- TrainHub — Chantier 3 : God Mode (Panel Admin)
 -- À exécuter dans Supabase SQL Editor
+-- Table utilisateurs = "profiles" (pas "users")
 -- ═══════════════════════════════════════════════════════════════
 
--- 1. Ajouter les colonnes admin et tier à la table users
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'member' CHECK (tier IN ('founder', 'early_adopter', 'member'));
-ALTER TABLE users ADD COLUMN IF NOT EXISTS tier_awarded_at TIMESTAMP;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT false;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
+-- 1. Ajouter les colonnes admin et tier à la table profiles
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'member' CHECK (tier IN ('founder', 'early_adopter', 'member'));
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tier_awarded_at TIMESTAMP;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT false;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
 
--- 2. Mettre l'admin en place
-UPDATE users SET is_admin = true, tier = 'founder', tier_awarded_at = NOW()
-WHERE email = 'aurelien.cofypro@gmail.com';
+-- 2. Mettre l'admin en place (par username)
+UPDATE profiles SET is_admin = true, tier = 'founder', tier_awarded_at = NOW()
+WHERE username = 'aurel_br';
 
 -- 3. Table des annonces
 CREATE TABLE IF NOT EXISTS announcements (
@@ -20,7 +22,7 @@ CREATE TABLE IF NOT EXISTS announcements (
   message TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   active BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES users(id)
+  created_by UUID REFERENCES profiles(id)
 );
 
 -- 4. Table des feature flags
@@ -43,10 +45,10 @@ ON CONFLICT (name) DO NOTHING;
 
 -- 6. RLS Policies
 
--- Admin peut modifier le tier d'un autre user
+-- Admin peut modifier le tier d'un autre profil
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_update_tier' AND tablename = 'users') THEN
-    EXECUTE 'CREATE POLICY admin_update_tier ON users FOR UPDATE USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true))';
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_update_tier' AND tablename = 'profiles') THEN
+    EXECUTE 'CREATE POLICY admin_update_tier ON profiles FOR UPDATE USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true))';
   END IF;
 END $$;
 
@@ -55,7 +57,7 @@ ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_manage_announcements' AND tablename = 'announcements') THEN
-    EXECUTE 'CREATE POLICY admin_manage_announcements ON announcements FOR ALL USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true))';
+    EXECUTE 'CREATE POLICY admin_manage_announcements ON announcements FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true))';
   END IF;
 END $$;
 
@@ -71,7 +73,7 @@ ALTER TABLE feature_flags ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admin_manage_flags' AND tablename = 'feature_flags') THEN
-    EXECUTE 'CREATE POLICY admin_manage_flags ON feature_flags FOR ALL USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND is_admin = true))';
+    EXECUTE 'CREATE POLICY admin_manage_flags ON feature_flags FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true))';
   END IF;
 END $$;
 

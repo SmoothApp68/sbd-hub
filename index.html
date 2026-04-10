@@ -2576,7 +2576,7 @@ async function openGodMode() {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { showToast('⛔ Non connecté'); return; }
-    const { data: profile } = await supabase.from('users').select('is_admin').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
     if (!profile || !profile.is_admin) { showToast('⛔ Accès refusé'); return; }
     document.getElementById('godModePanel').style.display = 'block';
     document.getElementById('mainTabBar').style.display = 'none';
@@ -2601,11 +2601,11 @@ function showGMSection(id, btn) {
 async function loadGodModeData() {
   try {
     // Stats
-    const { count: totalUsers } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    const { count: totalSessions } = await supabase.from('training_sessions').select('*', { count: 'exact', head: true });
+    const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+    const { count: totalSessions } = await supabase.from('sbd_profiles').select('*', { count: 'exact', head: true });
     const oneWeekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-    const { count: activeUsers } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_login', oneWeekAgo);
-    const { count: specialUsers } = await supabase.from('users').select('*', { count: 'exact', head: true }).in('tier', ['founder', 'early_adopter']);
+    const { count: activeUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('last_login', oneWeekAgo);
+    const { count: specialUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).in('tier', ['founder', 'early_adopter']);
 
     document.getElementById('gmTotalUsers').textContent = totalUsers || 0;
     document.getElementById('gmTotalSessions').textContent = totalSessions || 0;
@@ -2621,16 +2621,15 @@ async function loadGodModeData() {
 
 async function loadGMUsers() {
   try {
-    const { data: users } = await supabase.from('users').select('id, email, username, created_at, last_login, tier').order('created_at', { ascending: false });
+    const { data: users } = await supabase.from('profiles').select('id, username, friend_code, last_login, tier').order('id');
     if (!users) { document.getElementById('gmUsersList').innerHTML = '<div style="color:#7878A8;">Aucun utilisateur</div>'; return; }
     let html = '';
     for (const u of users) {
-      const date = u.created_at ? new Date(u.created_at).toLocaleDateString('fr') : '?';
       const lastSeen = u.last_login ? timeAgo(new Date(u.last_login)) : 'jamais';
       html += '<div class="gm-user-card">' +
         '<div class="gm-user-info">' +
-          '<div class="gm-user-email">' + (u.username || u.email || u.id.slice(0,8)) + '</div>' +
-          '<div class="gm-user-meta">Inscrit ' + date + ' · Vu ' + lastSeen + '</div>' +
+          '<div class="gm-user-email">' + (u.username || u.id.slice(0,8)) + '</div>' +
+          '<div class="gm-user-meta">Vu ' + lastSeen + (u.friend_code ? ' · Code: ' + u.friend_code : '') + '</div>' +
         '</div>' +
         '<select class="gm-tier-select" onchange="updateUserTier(\'' + u.id + '\', this.value)">' +
           '<option value="member"' + (u.tier==='member'?' selected':'') + '>Member</option>' +
@@ -2645,7 +2644,7 @@ async function loadGMUsers() {
 
 async function updateUserTier(userId, newTier) {
   try {
-    const { error } = await supabase.from('users').update({ tier: newTier, tier_awarded_at: new Date().toISOString() }).eq('id', userId);
+    const { error } = await supabase.from('profiles').update({ tier: newTier, tier_awarded_at: new Date().toISOString() }).eq('id', userId);
     if (error) throw error;
     showToast('✅ Tier → ' + newTier);
   } catch(e) { showToast('❌ Erreur: ' + e.message); }
@@ -2725,7 +2724,7 @@ async function hasFeature(featureName) {
     if (!flag || !flag.enabled) return false;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
-    const { data: profile } = await supabase.from('users').select('tier').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('tier').eq('id', user.id).single();
     const tierRank = { founder: 3, early_adopter: 2, member: 1 };
     return tierRank[profile?.tier || 'member'] >= tierRank[flag.min_tier];
   } catch(e) { return false; }
@@ -2829,7 +2828,7 @@ async function getCurrentUserTier() {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return 'member';
-    const { data } = await supabase.from('users').select('tier').eq('id', user.id).single();
+    const { data } = await supabase.from('profiles').select('tier').eq('id', user.id).single();
     return data?.tier || 'member';
   } catch(e) { return 'member'; }
 }
@@ -2849,7 +2848,7 @@ async function checkTierPromotion() {
     if (typeof supabase === 'undefined' || !supabase) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data: profile } = await supabase.from('users').select('tier').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('tier').eq('id', user.id).single();
     if (!profile) return;
     const lastKnownTier = localStorage.getItem('lastKnownTier');
     const tierRank = { founder: 3, early_adopter: 2, member: 1 };
@@ -2957,12 +2956,12 @@ async function fetchAndStoreTier() {
     if (typeof supabase === 'undefined' || !supabase) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase.from('users').select('tier').eq('id', user.id).single();
+    const { data } = await supabase.from('profiles').select('tier').eq('id', user.id).single();
     if (data && data.tier && typeof db !== 'undefined') {
       db.user.tier = data.tier;
     }
     // Update last_login
-    await supabase.from('users').update({ last_login: new Date().toISOString() }).eq('id', user.id);
+    await supabase.from('profiles').update({ last_login: new Date().toISOString() }).eq('id', user.id);
   } catch(e) {}
 }
 setTimeout(fetchAndStoreTier, 2000);

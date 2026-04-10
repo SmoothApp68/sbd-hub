@@ -7819,6 +7819,21 @@ function goGetExoTrackingType(exo) {
   return t || 'weight';
 }
 
+// ── Effective weight for BW exercises ──
+function calcEffectiveWeight(exoName, addedWeight, assistWeight, exoId) {
+  var bw = db.user.bw || 0;
+  if (bw <= 0) return addedWeight || 0;
+  var exoData = exoId ? EXO_DATABASE[exoId] : null;
+  if (!exoData) {
+    var keys = Object.keys(EXO_DATABASE);
+    for (var i = 0; i < keys.length; i++) {
+      if (matchExoName(EXO_DATABASE[keys[i]].name, exoName)) { exoData = EXO_DATABASE[keys[i]]; break; }
+    }
+  }
+  if (!exoData || !exoData.bwFactor) return addedWeight || 0;
+  return Math.round((bw * exoData.bwFactor + (addedWeight || 0) - (assistWeight || 0)) * 10) / 10;
+}
+
 // ── Get default rest seconds ──
 function goGetDefaultRest(exoName, exoId) {
   if (exoId && EXO_DATABASE[exoId]) return EXO_DATABASE[exoId].defaultRest;
@@ -8148,6 +8163,26 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   // Rest badge
   h += '<div class="go-rest-badge" onclick="goEditRest(' + exoIdx + ')">⏱ Repos: ' + goFormatRestBadge(exo.restSeconds || 90) + '</div>';
 
+  // BW info & assistance selector
+  var _bwExoData = exo.exoId ? EXO_DATABASE[exo.exoId] : null;
+  if (_bwExoData && _bwExoData.isAssisted) {
+    h += '<div class="go-assist-input">';
+    h += '<span>🟡 Assistance :</span>';
+    h += '<select onchange="activeWorkout.exercises[' + exoIdx + '].assistWeight=parseInt(this.value);goAutoSave();renderGoActiveView();">';
+    h += '<option value="0">Aucune</option>';
+    [10,20,30,40].forEach(function(v) {
+      h += '<option value="' + v + '"' + (exo.assistWeight === v ? ' selected' : '') + '>~' + v + 'kg</option>';
+    });
+    h += '</select>';
+    if (db.user.bw > 0 && exo.assistWeight > 0) {
+      h += '<span style="color:var(--green);font-size:11px;margin-left:4px;">→ ~' + Math.max(0, Math.round(db.user.bw * (_bwExoData.bwFactor||1) - exo.assistWeight)) + 'kg eff.</span>';
+    }
+    h += '</div>';
+  } else if (_bwExoData && _bwExoData.bwFactor && db.user.bw > 0) {
+    var _bwComp = Math.round(db.user.bw * _bwExoData.bwFactor);
+    h += '<div style="font-size:10px;color:var(--sub);padding:2px 12px;">💡 Charge effective : ' + _bwComp + 'kg (' + Math.round(_bwExoData.bwFactor * 100) + '% de ' + db.user.bw + 'kg)</div>';
+  }
+
   // Sets table
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
@@ -8473,40 +8508,53 @@ function goShowSetTypeSheet(exoIdx, setIdx) {
 // ============================================================
 // GO TAB — Exercise Search Overlay
 // ============================================================
+var _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
+var _goMuscleMap = {
+  'Pecs': ['Pecs','Pecs (haut)','Pecs (bas)'],
+  'Dos': ['Grand dorsal','Haut du dos','Trapèzes','Lombaires'],
+  'Épaules': ['Épaules','Épaules (antérieur)','Épaules (latéral)','Épaules (postérieur)'],
+  'Jambes': ['Quadriceps','Ischio-jambiers','Fessiers','Mollets','Adducteurs','Abducteurs'],
+  'Bras': ['Biceps','Triceps','Avant-bras'],
+  'Abdos': ['Abdos (frontal)','Obliques'],
+  'Cardio': ['Cardio']
+};
+
 function goOpenSearch() {
+  _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
   var overlay = document.createElement('div');
   overlay.className = 'go-search-overlay';
   overlay.id = 'goSearchOverlay';
-
-  var equipMap = { 'Tout': '', 'Barre': 'barbell', 'Haltères': 'dumbbell', 'Machine': 'machine', 'Câble': 'cable', 'Corps': 'bodyweight', 'Autre': 'other' };
-  var equipLabels = Object.keys(equipMap);
 
   var h = '<div class="go-search-header">';
   h += '<button class="go-search-back" onclick="goCloseSearch()">← Retour</button>';
   h += '<input class="go-search-input" id="goSearchInput" type="text" placeholder="🔍 Rechercher un exercice..." autofocus>';
   h += '</div>';
-  h += '<div class="go-search-filters" id="goSearchFilters">';
-  equipLabels.forEach(function(lbl) {
-    var cls = lbl === 'Tout' ? ' active' : '';
-    h += '<span class="go-search-chip' + cls + '" data-equip="' + equipMap[lbl] + '" onclick="goFilterEquip(this)">' + lbl + '</span>';
+  // Muscle filter
+  h += '<div class="go-filter-section"><div class="go-filter-label">Muscle</div><div class="go-search-filters">';
+  ['Tout','Pecs','Dos','Épaules','Jambes','Bras','Abdos','Cardio'].forEach(function(m) {
+    h += '<span class="go-search-chip' + (m === 'Tout' ? ' active' : '') + '" data-filter="muscle" data-val="' + (m === 'Tout' ? '' : m) + '" onclick="goSetFilter(this)">' + m + '</span>';
   });
-  h += '</div>';
+  h += '</div></div>';
+  // Equipment filter
+  h += '<div class="go-filter-section"><div class="go-filter-label">Matériel</div><div class="go-search-filters">';
+  [['Tout',''],['Barre','barbell'],['Haltères','dumbbell'],['Machine','machine'],['Câble','cable'],['Corps','bodyweight'],['Autre','other']].forEach(function(m) {
+    h += '<span class="go-search-chip' + (m[0] === 'Tout' ? ' active' : '') + '" data-filter="equip" data-val="' + m[1] + '" onclick="goSetFilter(this)">' + m[0] + '</span>';
+  });
+  h += '</div></div>';
+  // Difficulty filter
+  h += '<div class="go-filter-section"><div class="go-filter-label">Difficulté</div><div class="go-search-filters">';
+  [['Tout',''],['★ Facile','1-2'],['★★★ Moyen','3'],['★★★★ Dur','4-5']].forEach(function(m) {
+    h += '<span class="go-search-chip' + (m[0] === 'Tout' ? ' active' : '') + '" data-filter="diff" data-val="' + m[1] + '" onclick="goSetFilter(this)">' + m[0] + '</span>';
+  });
+  h += '</div></div>';
   h += '<div class="go-search-results" id="goSearchResults"></div>';
   overlay.innerHTML = h;
   document.body.appendChild(overlay);
-
-  // Show recent exercises by default
-  goRenderSearchResults('', '');
-
-  // Debounced search
+  goRenderSearchResults('', _goSearchFilters);
   document.getElementById('goSearchInput').addEventListener('input', function() {
     var q = this.value;
     if (_goSearchDebounce) clearTimeout(_goSearchDebounce);
-    _goSearchDebounce = setTimeout(function() {
-      var activeChip = document.querySelector('#goSearchFilters .go-search-chip.active');
-      var equip = activeChip ? activeChip.getAttribute('data-equip') : '';
-      goRenderSearchResults(q, equip);
-    }, 200);
+    _goSearchDebounce = setTimeout(function() { goRenderSearchResults(q, _goSearchFilters); }, 200);
   });
 }
 
@@ -8516,30 +8564,53 @@ function goCloseSearch() {
   window._goReplaceIdx = undefined;
 }
 
-function goFilterEquip(chip) {
-  document.querySelectorAll('#goSearchFilters .go-search-chip').forEach(function(c) { c.classList.remove('active'); });
+function goSetFilter(chip) {
+  var filterType = chip.getAttribute('data-filter');
+  var val = chip.getAttribute('data-val');
+  _goSearchFilters[filterType] = val;
+  chip.parentElement.querySelectorAll('.go-search-chip').forEach(function(c) { c.classList.remove('active'); });
   chip.classList.add('active');
-  var equip = chip.getAttribute('data-equip');
-  var q = document.getElementById('goSearchInput').value;
-  goRenderSearchResults(q, equip);
+  var q = document.getElementById('goSearchInput') ? document.getElementById('goSearchInput').value : '';
+  goRenderSearchResults(q, _goSearchFilters);
 }
+
+// Keep backward compat
+function goFilterEquip(chip) { goSetFilter(chip); }
 
 function _goNormalize(str) {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");
 }
 
-function goRenderSearchResults(query, equipFilter) {
+function goRenderSearchResults(query, filters) {
+  // Support legacy string equipFilter or new filters object
+  var equipFilter = typeof filters === 'string' ? filters : (filters ? filters.equip : '');
+  var muscleFilter = (filters && typeof filters === 'object') ? filters.muscle : '';
+  var diffFilter = (filters && typeof filters === 'object') ? filters.diff : '';
+  var typeFilter = (filters && typeof filters === 'object') ? filters.type : '';
   var container = document.getElementById('goSearchResults');
   if (!container) return;
   var q = _goNormalize(query.trim());
   var allE1RMs = getAllBestE1RMs();
   var results = [];
 
-  // Search EXO_DATABASE
+  // Search EXO_DATABASE with multi-filters
   var keys = Object.keys(EXO_DATABASE);
   keys.forEach(function(k) {
     var e = EXO_DATABASE[k];
     if (equipFilter && e.equipment !== equipFilter) return;
+    // Muscle filter
+    if (muscleFilter && _goMuscleMap[muscleFilter]) {
+      var targetMuscles = _goMuscleMap[muscleFilter];
+      var hasMuscle = (e.primaryMuscles||[]).some(function(m) { return targetMuscles.indexOf(m) >= 0; });
+      if (!hasMuscle) return;
+    }
+    // Difficulty filter
+    if (diffFilter) {
+      var d = e.difficulty || 2;
+      if (diffFilter === '1-2' && d > 2) return;
+      if (diffFilter === '3' && d !== 3) return;
+      if (diffFilter === '4-5' && d < 4) return;
+    }
     if (q) {
       var nameN = _goNormalize(e.name);
       var match = nameN.indexOf(q) >= 0;
@@ -8548,10 +8619,14 @@ function goRenderSearchResults(query, equipFilter) {
           if (_goNormalize(e.nameAlt[i]).indexOf(q) >= 0) { match = true; break; }
         }
       }
-      // Also try matching individual words
       if (!match) {
         var qWords = q.split(/\s+/);
         match = qWords.every(function(w) { return nameN.indexOf(w) >= 0; });
+      }
+      // Also search in muscle names
+      if (!match) {
+        var muscleStr = _goNormalize((e.primaryMuscles||[]).join(' '));
+        match = q.split(/\s+/).every(function(w) { return muscleStr.indexOf(w) >= 0; });
       }
       if (!match) return;
     }
@@ -8570,8 +8645,20 @@ function goRenderSearchResults(query, equipFilter) {
 
   var h = '';
 
+  // Sort: exercises with history first, then by difficulty
+  results.sort(function(a, b) {
+    var aE1 = allE1RMs[a.name] ? 1 : 0;
+    var bE1 = allE1RMs[b.name] ? 1 : 0;
+    if (bE1 !== aE1) return bE1 - aE1;
+    return (a.difficulty || 2) - (b.difficulty || 2);
+  });
+
+  // Counter
+  var hasFilters = equipFilter || muscleFilter || diffFilter || q;
+  if (hasFilters) h += '<div style="font-size:11px;color:var(--sub);padding:4px 16px;">' + results.length + ' exercice' + (results.length > 1 ? 's' : '') + ' trouvé' + (results.length > 1 ? 's' : '') + '</div>';
+
   // If no query, show recent exercises first
-  if (!q && !equipFilter) {
+  if (!q && !equipFilter && !muscleFilter && !diffFilter) {
     var recents = _goGetRecentExercises(5);
     if (recents.length) {
       h += '<div class="go-search-section">Récents</div>';
@@ -8597,7 +8684,9 @@ function goRenderSearchResults(query, equipFilter) {
     var ms = _ecMuscleStyle(e.name);
     var equipLabels = { barbell: 'Barre', dumbbell: 'Haltères', machine: 'Machine', cable: 'Câble', bodyweight: 'Corps', other: 'Autre' };
     var catLabels = { compound: 'Composé', isolation: 'Isolation', cardio: 'Cardio', stretch: 'Étirement' };
-    var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + ' · ' + (catLabels[e.category] || '');
+    var diffStars = '';
+    if (e.difficulty) { for (var ds = 1; ds <= e.difficulty; ds++) diffStars += '★'; }
+    var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + (diffStars ? ' · ' + diffStars : '');
     var e1rm = allE1RMs[e.name] ? allE1RMs[e.name].e1rm : 0;
     h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + e.name.replace(/'/g, "\\'") + '\',\'' + (e.id || '') + '\')">';
     h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
@@ -8929,15 +9018,23 @@ function convertWorkoutToSession(workout) {
 
   workout.exercises.forEach(function(exo) {
     var exercise = createExercise(exo.name);
+    var _bwData = exo.exoId ? EXO_DATABASE[exo.exoId] : null;
+    var _hasBW = _bwData && _bwData.bwFactor && db.user.bw > 0;
+    var _assist = exo.assistWeight || 0;
     var completedSets = exo.sets.filter(function(s) { return s.completed; });
     completedSets.forEach(function(s) {
+      var w = s.weight || 0;
+      // For BW exercises, store effective weight (body weight × factor + added - assist)
+      if (_hasBW) {
+        w = Math.round(db.user.bw * _bwData.bwFactor + (s.weight || 0) - _assist);
+      }
       exercise.series.push({
-        weight: s.weight || 0,
+        weight: w,
         reps: s.reps || (s.duration || 0),
         date: workout.startTime
       });
       exercise.allSets.push({
-        weight: s.weight || 0,
+        weight: w,
         reps: s.reps || (s.duration || 0),
         setType: s.type === 'warmup' ? 'warmup' : s.type === 'failure' ? 'failure' : s.type === 'drop' ? 'drop' : 'normal',
         rpe: s.rpe || null

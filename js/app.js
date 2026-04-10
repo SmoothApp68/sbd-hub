@@ -1732,7 +1732,45 @@ function getAllBadges() {
   b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
   b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
 
+  // ── Wellness theme for bien_etre mode ──
+  if (getBadgeTheme() === 'wellness') {
+    var wellnessNames = {
+      's1':   { name:'Premier Pas',              desc:'1 séance — le voyage commence par un pas' },
+      's10':  { name:'Habitude en Construction',  desc:'10 séances — tu construis une routine' },
+      's25':  { name:'Routine Installée',         desc:'25 séances — c\'est devenu naturel' },
+      's50':  { name:'Pratiquant Régulier',       desc:'50 séances — la constance paie' },
+      's75':  { name:'Équilibre Trouvé',          desc:'75 séances — corps et esprit en harmonie' },
+      's100': { name:'Centurion du Bien-être',    desc:'100 séances — un siècle de mouvements' },
+      's200': { name:'Maître de la Constance',    desc:'200 séances — force intérieure' },
+      's300': { name:'Pilier de Régularité',      desc:'300 séances — rien ne t\'arrête' },
+      's365': { name:'Un An de Bien-être',        desc:'365 séances — une année complète de dévouement' },
+      's500': { name:'Sage du Mouvement',         desc:'500 séances — la discipline est devenue sagesse' },
+      'vs1':  { name:'Première Tonne',            desc:'1t en une séance — bien joué !' },
+      'vs3':  { name:'Effort Soutenu',            desc:'3t — tu mets du cœur à l\'ouvrage' },
+      'vs5':  { name:'Endurance Remarquable',     desc:'5t — ton corps te remercie' },
+      'vt10':   { name:'Apprenti du Mouvement',   desc:'10t cumulées — tu poses les bases' },
+      'vt50':   { name:'Artisan du Corps',         desc:'50t — le travail porte ses fruits' },
+      'vt100':  { name:'Sculpteur de Forme',       desc:'100t — ton engagement est visible' },
+      'dur60':  { name:'Première Heure',           desc:'1h — une belle séance complète' },
+      'dur90':  { name:'Session Prolongée',        desc:'1h30 — tu prends soin de toi' },
+      'dur120': { name:'Marathonien du Studio',    desc:'2h — engagement et persévérance' },
+    };
+    b.forEach(function(badge) {
+      if (wellnessNames[badge.id]) {
+        badge.name = wellnessNames[badge.id].name;
+        badge.desc = wellnessNames[badge.id].desc;
+        badge.ref = 'Bien-être';
+      }
+    });
+  }
+
   return b;
+}
+
+function getBadgeTheme() {
+  var mode = db.user.trainingMode || 'powerlifting';
+  if (mode === 'bien_etre') return 'wellness';
+  return 'warrior';
 }
 
 function calcTotalXP() {

@@ -1219,7 +1219,7 @@ function renderFeedCard(item, profiles, uid) {
     '<div class="feed-card-header">' +
       '<div class="feed-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
       '<div class="feed-user-info">' +
-        '<div class="feed-username" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + profile.username + '</div>' +
+        '<div class="feed-username" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + profile.username + (typeof renderTierBadge==='function' && profile.tier ? ' '+renderTierBadge(profile.tier) : '') + '</div>' +
         '<div class="feed-time">' + timeAgo(item.created_at) + '</div>' +
       '</div>' +
       '<span class="feed-type-badge ' + item.type + '">' + (typeLabels[item.type] || '') + '</span>' +

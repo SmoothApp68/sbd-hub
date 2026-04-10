@@ -2162,6 +2162,19 @@
       </div>
     </div>
 
+    <!-- Tier & Thèmes -->
+    <div class="acc-card" id="acc-tier-card">
+      <div class="acc-header" onclick="toggleAcc('acc-tier')">
+        <div class="acc-left"><div class="acc-ico" style="background:rgba(200,133,10,0.1);">⭐</div><span>Statut & Thèmes</span></div><span class="acc-chevron" id="chev-acc-tier">▾</span>
+      </div>
+      <div class="acc-body" id="acc-tier">
+        <div id="tierWelcomeSection"></div>
+        <div id="tierBadgesSection" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">Thème d'accent</div>
+        <div id="themeSelector"></div>
+      </div>
+    </div>
+
     <!-- Accordéon Danger -->
     <div class="acc-card" style="border-color:rgba(255,69,58,0.3);">
       <div class="acc-header" onclick="toggleAcc('acc-danger')">
@@ -2875,6 +2888,84 @@ function timeAgo(date) {
   if (s < 86400) return Math.floor(s/3600) + 'h';
   return Math.floor(s/86400) + 'j';
 }
+
+// ═══════════════════════════════════════════
+// TIER SECTION RENDERING (Settings)
+// ═══════════════════════════════════════════
+
+function renderTierSection() {
+  const tier = (typeof db !== 'undefined' && db.user) ? db.user.tier : null;
+  const welcomeEl = document.getElementById('tierWelcomeSection');
+  const badgesEl = document.getElementById('tierBadgesSection');
+  const themeEl = document.getElementById('themeSelector');
+
+  // Welcome message
+  if (welcomeEl) {
+    const msg = getWelcomeMessage(tier);
+    if (msg) {
+      const cls = tier === 'founder' ? 'founder' : 'early-adopter';
+      welcomeEl.innerHTML = '<div class="tier-welcome-card ' + cls + '" style="margin-bottom:14px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+          '<span style="font-size:20px;">' + (tier==='founder'?'🏆':'⭐') + '</span>' +
+          renderTierBadge(tier) +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text,#F0F0FF);line-height:1.6;">' + msg + '</div>' +
+      '</div>';
+    } else {
+      welcomeEl.innerHTML = '';
+    }
+  }
+
+  // Achievement badges
+  if (badgesEl && typeof db !== 'undefined') {
+    const userData = {
+      totalSessions: db.logs ? db.logs.length : 0,
+      currentStreak: db.user.streak || 0,
+      totalPRs: Object.values(db.bestPR || {}).filter(v => v > 0).length
+    };
+    const badges = getAchievementBadges(userData);
+    if (badges.length > 0) {
+      badgesEl.innerHTML = '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">Badges</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:4px;">' + renderAchievementBadges(badges) + '</div>';
+    } else {
+      badgesEl.innerHTML = '';
+    }
+  }
+
+  // Theme selector
+  if (themeEl) {
+    const currentTheme = localStorage.getItem('selectedTheme') || 'default';
+    const userTier = tier || 'member';
+    const tierRank = { founder: 3, early_adopter: 2, member: 1 };
+    let html = '';
+    Object.entries(APP_THEMES).forEach(([key, t]) => {
+      const locked = tierRank[userTier] < tierRank[t.minTier];
+      const active = key === currentTheme;
+      html += '<div class="theme-option' + (active?' active':'') + (locked?' locked':'') + '" onclick="' + (locked ? '' : 'applyThemeWithCheck(\'' + key + '\')') + '">' +
+        '<div class="theme-dot" style="background:' + t.accent + ';"></div>' +
+        '<div><div class="theme-name">' + t.name + '</div>' +
+        (locked ? '<div class="theme-lock">🔒 Réservé aux ' + (t.minTier==='founder'?'Founders':'Early Adopters') + '</div>' : '') +
+        '</div></div>';
+    });
+    themeEl.innerHTML = html;
+  }
+}
+
+// Fetch and store tier from Supabase on login
+async function fetchAndStoreTier() {
+  try {
+    if (typeof supabase === 'undefined' || !supabase) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('users').select('tier').eq('id', user.id).single();
+    if (data && data.tier && typeof db !== 'undefined') {
+      db.user.tier = data.tier;
+    }
+    // Update last_login
+    await supabase.from('users').update({ last_login: new Date().toISOString() }).eq('id', user.id);
+  } catch(e) {}
+}
+setTimeout(fetchAndStoreTier, 2000);
 </script>
 </body>
 </html>

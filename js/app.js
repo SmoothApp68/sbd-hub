@@ -3146,7 +3146,10 @@ function renderDash() {
   const routine = getRoutine();
   document.getElementById('routineDisplay').textContent = routine[selectedDay] || '—';
   const greet = document.getElementById('dashGreeting');
-  if (greet && db.user.name) greet.textContent = 'Salut ' + db.user.name + ' 👋';
+  if (greet && db.user.name) {
+    var _tierBadge = (typeof renderTierBadge === 'function' && db.user.tier) ? ' ' + renderTierBadge(db.user.tier) : '';
+    greet.innerHTML = 'Salut ' + db.user.name + ' 👋' + _tierBadge;
+  }
 
   // Carte de bienvenue : visible seulement si aucune séance importée
   const welcomeCard = document.getElementById('welcomeCard');
@@ -6450,6 +6453,7 @@ function fillSettingsFields() {
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
   renderSettingsProfile();
   if (typeof renderStorageGauge === 'function') renderStorageGauge();
+  if (typeof renderTierSection === 'function') renderTierSection();
   // Mark lazy accordions as dirty so they render on open
   _accDirty.records = true;
   _accDirty.keylifts = true;

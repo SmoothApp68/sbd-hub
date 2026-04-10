@@ -1590,7 +1590,15 @@ function showProfilSub(id, btn) {
 }
 
 var _lastTabIndex = 0;
-function showTab(tabId) {
+var _scrollPositions = {};
+var _skipPushState = false;
+
+function showTab(tabId, opts) {
+  opts = opts || {};
+  // Save scroll position of current tab before switching
+  if (_currentTab) {
+    _scrollPositions[_currentTab] = window.scrollY;
+  }
   // Destroy charts of the previous tab to free memory
   if (_currentTab && _currentTab !== tabId) _destroyTabCharts(_currentTab);
   // Determine slide direction
@@ -1617,8 +1625,47 @@ function showTab(tabId) {
     else renderCorpsTab();
   }
   if (tabId==='tab-social') { initSocialTab(); }
+
+  // Restore scroll position for the new tab
+  requestAnimationFrame(function() { window.scrollTo(0, _scrollPositions[tabId] || 0); });
+
+  // Persist active tab
+  try { localStorage.setItem('activeTab', tabId); } catch(e) {}
+
+  // History API — push state for back button navigation
+  if (!_skipPushState && !opts.noPush) {
+    history.pushState({ tab: tabId }, '', '#' + tabId);
+  }
+
+  // Haptic feedback
+  if (navigator.vibrate) try { navigator.vibrate(10); } catch(e) {}
 }
+
+// Back button (popstate) handler
+window.addEventListener('popstate', function(e) {
+  if (e.state && e.state.tab) {
+    _skipPushState = true;
+    showTab(e.state.tab);
+    _skipPushState = false;
+  }
+});
+
+// Tab bar click handler
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
+
+// On load: restore tab from hash or localStorage
+(function _restoreTab() {
+  var hash = window.location.hash.replace('#', '');
+  if (hash === 'admin') return; // handled elsewhere
+  var saved = null;
+  try { saved = localStorage.getItem('activeTab'); } catch(e) {}
+  var validTabs = ['tab-dash','tab-seances','tab-stats','tab-social','tab-profil','tab-ai','tab-game'];
+  var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
+  _skipPushState = true;
+  showTab(target);
+  _skipPushState = false;
+  history.replaceState({ tab: target }, '', '#' + target);
+})();
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
 
 // ============================================================

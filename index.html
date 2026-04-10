@@ -47,8 +47,10 @@
       /* Legacy aliases for compatibility */
       --bg:#0C0C18; --card:rgba(255,255,255,0.05); --blue:#0A84FF; --green:#32D74B; --red:#FF453A; --text:#F0F0FF; --sub:#7878A8; --border:rgba(255,255,255,0.08); --orange:#FF9F0A; --purple:#BF5AF2; --teal:#64D2FF; --surface:rgba(255,255,255,0.03); --surface-border:rgba(255,255,255,0.06); --gold:#C8850A; --gold-subtle:rgba(200,133,10,0.15); --gold-border:rgba(200,133,10,0.3); --parchment:#1e1c1a;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; touch-action: manipulation; }
+    html, body { overscroll-behavior-y: contain; }
     body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; background: var(--bg-primary); background-image: var(--bg-screen); min-height: 100vh; color: var(--text-primary); margin: 0; padding: 15px 15px 100px; -webkit-font-smoothing: antialiased; max-width: 500px; margin-left: auto; margin-right: auto; }
+    button, .tab-btn, .card, label, .badge-founder, .badge-early-adopter, .stats-sub-pill, .period-btn, .day-btn { -webkit-user-select: none; user-select: none; }
     .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: var(--bg-tab-bar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--border-card); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
     .tab-btn { flex: 1; border: none; background: transparent; color: #3E3E5E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: color 0.2s; position: relative; }
     .tab-btn.active { color: var(--accent); }
@@ -2469,12 +2471,24 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Splash Screen dismiss
+// Splash Screen dismiss — only on true first load, not multitask return
+var _appInitialized = false;
 window.addEventListener('load', () => {
-  setTimeout(() => {
-    const splash = document.getElementById('splashScreen');
-    if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 400); }
-  }, 1000);
+  if (!_appInitialized) {
+    _appInitialized = true;
+    setTimeout(() => {
+      const splash = document.getElementById('splashScreen');
+      if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 400); }
+    }, 1000);
+  }
+});
+
+// Sync data when returning from background
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && navigator.onLine) {
+    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    if (queue.length > 0 && typeof syncOfflineQueue === 'function') syncOfflineQueue(queue);
+  }
 });
 
 // Install Banner (Android - beforeinstallprompt)

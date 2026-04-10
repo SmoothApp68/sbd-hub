@@ -2287,130 +2287,351 @@ async function executeAccountDeletion(mode) {
 }
 
 // ============================================================
-// SOCIAL CHALLENGES (DÉFIS)
+// SOCIAL CHALLENGES (DÉFIS ENTRE AMIS)
 // ============================================================
 const CHALLENGE_TYPES = {
-  volume:     { label: 'Volume', icon: '💪', desc: 'Tonnage total sur la période', unit: 'kg' },
-  pr:         { label: 'Records', icon: '🏆', desc: 'Nombre de PR battus', unit: 'PRs' },
-  compliance: { label: 'Assiduité', icon: '📅', desc: "% d'adhérence au programme", unit: '%' },
-  streak:     { label: 'Streak', icon: '🔥', desc: "Jours consécutifs d'entraînement", unit: 'j' }
+  volume:    { label: 'Volume', icon: '📊', desc: 'Tonnage total sur la période', unit: 'kg' },
+  reps:      { label: 'Reps', icon: '💪', desc: 'Nombre total de reps', unit: 'reps' },
+  weight:    { label: 'Charge max', icon: '🏋️', desc: 'Meilleur e1RM', unit: 'kg' },
+  frequency: { label: 'Nb séances', icon: '🔥', desc: 'Nombre de séances', unit: 'séances' },
+  custom:    { label: 'Perso', icon: '📝', desc: 'Objectif personnalisé', unit: '' }
 };
 
-function renderChallengesTab() {
-  const el = document.getElementById('challengesContent');
-  if (!el) return;
+const CHALLENGE_TEMPLATES = [
+  { icon: '💪', label: '100 pompes en 7j', type: 'reps', target: 100, duration: 7, exercise: 'Pompes' },
+  { icon: '🏋️', label: 'Max Bench cette semaine', type: 'weight', target: null, duration: 7, exercise: 'Développé couché' },
+  { icon: '📊', label: 'Plus gros tonnage de la semaine', type: 'volume', target: null, duration: 7, exercise: null },
+  { icon: '🔥', label: '5 séances cette semaine', type: 'frequency', target: 5, duration: 7, exercise: null },
+  { icon: '🦵', label: 'PR Squat ce mois', type: 'weight', target: null, duration: 30, exercise: 'Squat' }
+];
+
+async function renderChallengesTab() {
+  const templatesEl = document.getElementById('challengeTemplates');
+  const activeEl = document.getElementById('challengesActiveList');
+  const finishedEl = document.getElementById('challengesFinishedList');
+  if (!templatesEl || !activeEl || !finishedEl) return;
 
   if (!supaClient || !cloudSyncEnabled) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">☁️ Connexion cloud requise pour les défis sociaux</div>';
+    activeEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">☁️ Connexion cloud requise pour les défis sociaux</div>';
+    templatesEl.innerHTML = '';
+    finishedEl.innerHTML = '';
     return;
   }
 
-  // Local challenges (works without specific Supabase table)
-  const challenges = db.challenges || [];
-  const active = challenges.filter(c => c.status === 'active');
-  const completed = challenges.filter(c => c.status === 'completed').slice(0, 5);
+  // Render quick templates
+  templatesEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Défis rapides</div>' +
+    '<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;">' +
+    CHALLENGE_TEMPLATES.map((t, i) =>
+      '<button onclick="createChallengeFromTemplate(' + i + ')" style="flex-shrink:0;padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">' +
+      t.icon + ' ' + t.label + '</button>'
+    ).join('') + '</div>';
 
-  let html = '<h2>🏆 Défis</h2>';
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
 
-  // Create challenge button
-  html += '<button onclick="showCreateChallengeModal()" style="width:100%;padding:10px;background:var(--blue);border:none;color:white;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Créer un défi</button>';
+  try {
+    // Load challenges where user is participant or creator
+    const { data: participations } = await supaClient.from('challenge_participants')
+      .select('challenge_id')
+      .eq('user_id', uid);
+    const myChIds = (participations || []).map(p => p.challenge_id);
 
-  // Active challenges
-  if (active.length) {
-    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">En cours</div>';
-    active.forEach(c => {
-      const t = CHALLENGE_TYPES[c.type] || CHALLENGE_TYPES.volume;
-      const progress = getChallengeProgress(c);
-      const daysLeft = Math.max(0, Math.ceil((new Date(c.end_date) - Date.now()) / 86400000));
-      html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><span style="font-size:16px;">' + t.icon + '</span> <span style="font-weight:700;font-size:13px;">' + t.label + '</span></div>' +
-        '<span style="font-size:10px;color:var(--sub);">' + daysLeft + 'j restants</span></div>' +
-        '<div style="margin-top:8px;font-size:20px;font-weight:800;color:var(--blue);">' + progress + ' <span style="font-size:11px;color:var(--sub);">' + t.unit + '</span></div>' +
-        '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + Math.min(100, (daysLeft > 0 ? 100 - (daysLeft / 7) * 100 : 100)) + '%;"></div></div></div>';
-    });
+    // Also load challenges created by friends (that user can join)
+    const friendIds = await getAcceptedFriendIds();
+    const allCreatorIds = [uid, ...friendIds];
+
+    let allChallenges = [];
+    if (myChIds.length) {
+      const { data } = await supaClient.from('social_challenges')
+        .select('*')
+        .in('id', myChIds)
+        .order('created_at', { ascending: false });
+      if (data) allChallenges = data;
+    }
+    // Also get friend-created challenges not yet joined
+    if (friendIds.length) {
+      const { data } = await supaClient.from('social_challenges')
+        .select('*')
+        .in('creator_id', friendIds)
+        .order('created_at', { ascending: false });
+      if (data) {
+        data.forEach(c => {
+          if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
+        });
+      }
+    }
+    // Also get own created challenges
+    const { data: ownChallenges } = await supaClient.from('social_challenges')
+      .select('*')
+      .eq('creator_id', uid)
+      .order('created_at', { ascending: false });
+    if (ownChallenges) {
+      ownChallenges.forEach(c => {
+        if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
+      });
+    }
+
+    const now = new Date();
+    const active = allChallenges.filter(c => new Date(c.end_date) > now);
+    const finished = allChallenges.filter(c => new Date(c.end_date) <= now).slice(0, 10);
+
+    // Load all participants for these challenges
+    const allChIds = allChallenges.map(c => c.id);
+    let allParticipants = [];
+    if (allChIds.length) {
+      const { data } = await supaClient.from('challenge_participants')
+        .select('*')
+        .in('challenge_id', allChIds);
+      allParticipants = data || [];
+    }
+
+    // Load profiles for all involved users
+    const involvedIds = new Set();
+    allChallenges.forEach(c => involvedIds.add(c.creator_id));
+    allParticipants.forEach(p => involvedIds.add(p.user_id));
+    let profiles = {};
+    if (involvedIds.size) {
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds));
+      (data || []).forEach(p => profiles[p.id] = p);
+    }
+
+    // Render active
+    if (active.length) {
+      activeEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">En cours</div>' +
+        active.map(c => renderChallengeCard(c, allParticipants.filter(p => p.challenge_id === c.id), profiles, uid)).join('');
+    } else {
+      activeEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Aucun défi en cours.<br>Crée un défi ou utilise un template rapide !</div>';
+    }
+
+    // Render finished
+    if (finished.length) {
+      finishedEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin:16px 0 8px;">Terminés</div>' +
+        finished.map(c => renderChallengeCard(c, allParticipants.filter(p => p.challenge_id === c.id), profiles, uid)).join('');
+    } else {
+      finishedEl.innerHTML = '';
+    }
+  } catch (e) {
+    console.error('renderChallengesTab error:', e);
+    activeEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:12px;">Erreur de chargement des défis</div>';
   }
-
-  // Completed
-  if (completed.length) {
-    html += '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;margin:14px 0 8px;">Terminés</div>';
-    completed.forEach(c => {
-      const t = CHALLENGE_TYPES[c.type] || CHALLENGE_TYPES.volume;
-      html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">' +
-        t.icon + ' ' + t.label + ' — <strong>' + (c.finalScore || 0) + '</strong> ' + t.unit + '</div>';
-    });
-  }
-
-  if (!active.length && !completed.length) {
-    html += '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Aucun défi en cours.<br>Crée un défi pour te challenger !</div>';
-  }
-
-  el.innerHTML = html;
 }
 
-function getChallengeProgress(challenge) {
-  const start = new Date(challenge.start_date).getTime();
-  const recentLogs = db.logs.filter(l => l.timestamp >= start);
-  switch (challenge.type) {
-    case 'volume': return Math.round(recentLogs.reduce((s, l) => s + (l.volume || 0), 0));
-    case 'pr': {
-      let count = 0;
-      const seen = {};
-      recentLogs.forEach(l => l.exercises.forEach(e => {
-        const key = e.name;
-        if (!seen[key]) seen[key] = 0;
-        if ((e.maxRM || 0) > seen[key]) { count++; seen[key] = e.maxRM; }
-      }));
-      return count;
-    }
-    case 'compliance': {
-      const routine = getRoutine();
-      const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
-      const weeks = Math.max(1, (Date.now() - start) / (7 * 86400000));
-      return Math.round((recentLogs.length / (planned * weeks)) * 100);
-    }
-    case 'streak': return db.questStreak || 0;
-    default: return 0;
+function renderChallengeCard(challenge, participants, profiles, uid) {
+  const t = CHALLENGE_TYPES[challenge.type] || CHALLENGE_TYPES.custom;
+  const isFinished = new Date(challenge.end_date) <= new Date();
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.end_date) - Date.now()) / 86400000));
+  const creator = profiles[challenge.creator_id] || { username: '?' };
+  const isParticipant = participants.some(p => p.user_id === uid);
+
+  // Sort participants by value desc
+  const sorted = [...participants].sort((a, b) => (b.current_value || 0) - (a.current_value || 0));
+
+  let html = '<div class="card" style="margin-bottom:12px;border:1px solid ' + (isFinished ? 'var(--border)' : 'rgba(10,132,255,0.3)') + ';">';
+  // Header
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  html += '<div style="font-weight:700;font-size:14px;">' + t.icon + ' ' + (challenge.title || t.label) + '</div>';
+  html += '<span style="font-size:10px;padding:3px 8px;border-radius:10px;background:' + (isFinished ? 'rgba(255,255,255,0.05)' : 'rgba(10,132,255,0.1)') + ';color:' + (isFinished ? 'var(--sub)' : 'var(--blue)') + ';">' + (isFinished ? 'Terminé' : daysLeft + 'j restants') + '</span>';
+  html += '</div>';
+  html += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">par ' + creator.username + (challenge.target_exercise ? ' · ' + challenge.target_exercise : '') + '</div>';
+  if (challenge.description) html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' + challenge.description + '</div>';
+
+  // Participants + progress
+  if (sorted.length) {
+    sorted.forEach((p, i) => {
+      const prof = profiles[p.user_id] || { username: '?' };
+      const val = p.current_value || 0;
+      const pct = challenge.target_value ? Math.min(100, (val / challenge.target_value) * 100) : 0;
+      const isMe = p.user_id === uid;
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;' + (isMe ? 'background:rgba(10,132,255,0.05);padding:4px 6px;border-radius:8px;' : '') + '">';
+      html += '<span style="font-size:11px;font-weight:700;width:18px;color:' + (i === 0 && !isFinished ? 'var(--green)' : 'var(--sub)') + ';">' + (i + 1) + '.</span>';
+      html += '<span style="font-size:12px;font-weight:' + (isMe ? '700' : '500') + ';flex:1;">' + prof.username + '</span>';
+      html += '<span style="font-size:12px;font-weight:700;color:var(--blue);">' + Math.round(val) + (t.unit ? ' ' + t.unit : '') + '</span>';
+      if (challenge.target_value) {
+        html += '<div style="width:60px;height:4px;background:var(--border);border-radius:2px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + pct + '%;"></div></div>';
+      }
+      html += '</div>';
+    });
+  } else {
+    html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px;">Aucun participant</div>';
   }
+
+  // Actions
+  if (!isFinished) {
+    html += '<div style="display:flex;gap:8px;margin-top:10px;">';
+    if (!isParticipant) {
+      html += '<button class="btn" style="font-size:12px;padding:8px 16px;" onclick="joinChallenge(\'' + challenge.id + '\')">Rejoindre</button>';
+    } else {
+      html += '<button class="btn" style="font-size:12px;padding:8px 16px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + challenge.id + '\')">📝 Mettre à jour</button>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 function showCreateChallengeModal() {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.id = 'challengeModal';
-  const typeBtns = Object.entries(CHALLENGE_TYPES).map(([k, v]) =>
-    '<button class="ob-mode-btn" style="padding:10px;font-size:12px;" onclick="document.querySelectorAll(\'#challengeModal .ob-mode-btn\').forEach(b=>b.classList.remove(\'selected\'));this.classList.add(\'selected\');this.dataset.type=\'' + k + '\';" data-type="' + k + '">' + v.icon + ' ' + v.label + '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + v.desc + '</div></button>'
-  ).join('');
-  overlay.innerHTML = '<div class="modal-box" style="max-width:320px;padding:20px;">' +
-    '<div style="font-size:16px;font-weight:700;margin-bottom:14px;">Créer un défi</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' + typeBtns + '</div>' +
-    '<select id="challengeDuration" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin-bottom:12px;">' +
-    '<option value="7">1 semaine</option><option value="30">1 mois</option></select>' +
-    '<div class="modal-actions">' +
-    '<button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="document.getElementById(\'challengeModal\').remove()">Annuler</button>' +
-    '<button class="modal-confirm" style="background:var(--blue);color:white;" onclick="createChallenge()">Créer</button></div></div>';
-  document.body.appendChild(overlay);
+  // Remove existing modal if any
+  const existing = document.getElementById('challengeModalSheet');
+  if (existing) existing.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'challengeModalSheet';
+  sheet.className = 'go-bottom-sheet';
+  sheet.style.display = '';
+  sheet.innerHTML =
+    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'challengeModalSheet\').remove()"></div>' +
+    '<div class="go-bottom-sheet-content" style="max-height:80vh;overflow-y:auto;">' +
+      '<div class="go-bottom-sheet-handle"></div>' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Créer un défi</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Titre</div>' +
+        '<input type="text" id="chalTitle" placeholder="Mon défi..." maxlength="60" style="margin-bottom:0;">' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Type</div>' +
+        '<select id="chalType" style="margin-bottom:0;">' +
+          '<option value="volume">📊 Volume (tonnage)</option>' +
+          '<option value="reps">💪 Reps</option>' +
+          '<option value="weight">🏋️ Charge max (e1RM)</option>' +
+          '<option value="frequency">🔥 Nb séances</option>' +
+        '</select>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Exercice ciblé (optionnel)</div>' +
+        '<input type="text" id="chalExercise" placeholder="Ex: Bench Press" maxlength="50" style="margin-bottom:0;">' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Objectif</div>' +
+        '<input type="number" id="chalTarget" placeholder="Ex: 100" style="margin-bottom:0;">' +
+      '</div>' +
+      '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Durée</div>' +
+        '<select id="chalDuration" style="margin-bottom:0;">' +
+          '<option value="3">3 jours</option>' +
+          '<option value="7" selected>1 semaine</option>' +
+          '<option value="14">2 semaines</option>' +
+          '<option value="30">1 mois</option>' +
+        '</select>' +
+      '</div>' +
+      '<button class="btn" style="background:linear-gradient(135deg,var(--orange,#ff9500),var(--red,#ff3b30));border:none;font-size:14px;" onclick="createChallenge()">Lancer 🚀</button>' +
+    '</div>';
+  document.body.appendChild(sheet);
 }
 
-function createChallenge() {
-  const selected = document.querySelector('#challengeModal .ob-mode-btn.selected');
-  if (!selected) { showToast('Choisis un type de défi'); return; }
-  const type = selected.dataset.type;
-  const dur = parseInt(document.getElementById('challengeDuration').value) || 7;
-  const start = new Date(); start.setHours(0,0,0,0);
-  const end = new Date(start); end.setDate(end.getDate() + dur);
-  if (!db.challenges) db.challenges = [];
-  db.challenges.push({
-    id: Math.random().toString(36).substr(2,9),
-    type,
-    start_date: start.toISOString(),
-    end_date: end.toISOString(),
-    status: 'active'
-  });
-  saveDB();
-  document.getElementById('challengeModal').remove();
-  showToast('🏆 Défi créé !');
-  renderChallengesTab();
+async function createChallenge(templateData) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) { showToast('Connexion requise'); return; }
+
+  let title, type, exercise, target, duration;
+  if (templateData) {
+    title = templateData.label;
+    type = templateData.type;
+    exercise = templateData.exercise || null;
+    target = templateData.target || null;
+    duration = templateData.duration || 7;
+  } else {
+    title = (document.getElementById('chalTitle').value || '').trim();
+    type = document.getElementById('chalType').value;
+    exercise = (document.getElementById('chalExercise').value || '').trim() || null;
+    target = parseFloat(document.getElementById('chalTarget').value) || null;
+    duration = parseInt(document.getElementById('chalDuration').value) || 7;
+    if (!title) { showToast('Donne un titre au défi'); return; }
+  }
+
+  const end = new Date();
+  end.setDate(end.getDate() + duration);
+
+  try {
+    const { data, error } = await supaClient.from('social_challenges').insert({
+      creator_id: uid,
+      title: title,
+      type: type,
+      target_value: target,
+      target_exercise: exercise,
+      end_date: end.toISOString()
+    }).select('id').single();
+
+    if (error) throw error;
+
+    // Auto-join as participant
+    await supaClient.from('challenge_participants').insert({
+      challenge_id: data.id,
+      user_id: uid,
+      current_value: 0
+    });
+
+    const sheet = document.getElementById('challengeModalSheet');
+    if (sheet) sheet.remove();
+
+    showToast('🔥 Défi créé !');
+    renderChallengesTab();
+  } catch (e) {
+    console.error('createChallenge error:', e);
+    showToast('Erreur lors de la création du défi');
+  }
+}
+
+async function createChallengeFromTemplate(index) {
+  const t = CHALLENGE_TEMPLATES[index];
+  if (!t) return;
+  await createChallenge({ label: t.label, type: t.type, exercise: t.exercise, target: t.target, duration: t.duration });
+}
+
+async function joinChallenge(challengeId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    await supaClient.from('challenge_participants').insert({
+      challenge_id: challengeId,
+      user_id: uid,
+      current_value: 0
+    });
+    showToast('Tu as rejoint le défi !');
+    renderChallengesTab();
+  } catch (e) {
+    console.error('joinChallenge error:', e);
+    showToast('Erreur');
+  }
+}
+
+function showUpdateChallengeProgress(challengeId) {
+  const existing = document.getElementById('chalUpdateSheet');
+  if (existing) existing.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'chalUpdateSheet';
+  sheet.className = 'go-bottom-sheet';
+  sheet.style.display = '';
+  sheet.innerHTML =
+    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'chalUpdateSheet\').remove()"></div>' +
+    '<div class="go-bottom-sheet-content">' +
+      '<div class="go-bottom-sheet-handle"></div>' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Mettre à jour ta progression</div>' +
+      '<input type="number" id="chalUpdateValue" placeholder="Nouvelle valeur" style="margin-bottom:12px;text-align:center;font-size:18px;">' +
+      '<button class="btn" onclick="updateChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
+    '</div>';
+  document.body.appendChild(sheet);
+}
+
+async function updateChallengeProgress(challengeId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  const val = parseFloat(document.getElementById('chalUpdateValue').value);
+  if (isNaN(val)) { showToast('Entre une valeur'); return; }
+  try {
+    await supaClient.from('challenge_participants').update({
+      current_value: val
+    }).eq('challenge_id', challengeId).eq('user_id', uid);
+
+    const sheet = document.getElementById('chalUpdateSheet');
+    if (sheet) sheet.remove();
+    showToast('Progression mise à jour !');
+    renderChallengesTab();
+  } catch (e) {
+    console.error('updateChallengeProgress error:', e);
+    showToast('Erreur');
+  }
 }
 
 // ============================================================

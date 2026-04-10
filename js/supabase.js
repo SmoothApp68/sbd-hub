@@ -339,18 +339,20 @@ async function getMyUserIdAsync() {
   } catch { return null; }
 }
 
-function timeAgo(dateStr) {
-  if (!dateStr) return 'récemment';
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  if (isNaN(then)) return 'récemment';
-  const diff = Math.floor((now - then) / 1000);
+function timeAgo(input) {
+  if (!input) return 'récemment';
+  var ms;
+  if (typeof input === 'number') { ms = input; }
+  else if (input instanceof Date) { ms = input.getTime(); }
+  else { ms = new Date(input).getTime(); }
+  if (isNaN(ms)) return 'récemment';
+  var diff = Math.floor((Date.now() - ms) / 1000);
   if (diff < 0) return 'récemment';
   if (diff < 60) return 'à l\'instant';
   if (diff < 3600) return Math.floor(diff / 60) + 'min';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';
   if (diff < 604800) return Math.floor(diff / 86400) + 'j';
-  return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+  return new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
 function avatarInitial(username) {
@@ -2875,12 +2877,12 @@ function showUpdateChallengeProgress(challengeId) {
       '<div class="go-bottom-sheet-handle"></div>' +
       '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Mettre à jour ta progression</div>' +
       '<input type="number" id="chalUpdateValue" placeholder="Nouvelle valeur" style="margin-bottom:12px;text-align:center;font-size:18px;">' +
-      '<button class="btn" onclick="updateChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
+      '<button class="btn" onclick="updateSocialChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
     '</div>';
   document.body.appendChild(sheet);
 }
 
-async function updateChallengeProgress(challengeId) {
+async function updateSocialChallengeProgress(challengeId) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
   const val = parseFloat(document.getElementById('chalUpdateValue').value);
@@ -2895,7 +2897,7 @@ async function updateChallengeProgress(challengeId) {
     showToast('Progression mise à jour !');
     renderChallengesTab();
   } catch (e) {
-    console.error('updateChallengeProgress error:', e);
+    console.error('updateSocialChallengeProgress error:', e);
     showToast('Erreur');
   }
 }
@@ -3007,7 +3009,7 @@ function compressOldLogs() {
 
   if (modified) {
     saveDBNow();
-    console.log('Old logs compressed (6+ months)');
+    // old logs compressed (6+ months)
   }
 }
 

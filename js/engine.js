@@ -788,40 +788,6 @@ function _matchExoNameCore(h, p, norm) {
   return false;
 }
 
-// Test suite for matchExoName — callable from browser console
-function _testMatchExoName() {
-  const tests = [
-    { a: 'Développé Couché (Barre)', b: 'Développé Couché', expected: true },
-    { a: 'Développé Couché (Barre)', b: 'Développé Couché Incliné', expected: false },
-    { a: 'Développé Couché Incliné (Haltères)', b: 'Développé Couché Incliné', expected: true },
-    { a: 'Squat (Barre)', b: 'Squat', expected: true },
-    { a: 'Squat (Barre)', b: 'Squat Bulgare', expected: false },
-    { a: 'Soulevé de Terre', b: 'Deadlift', expected: true },
-    { a: 'Rowing Barre', b: 'Rowing T-Bar', expected: false },
-    { a: 'Curl Biceps (Barre)', b: 'Curl Biceps', expected: true },
-    { a: 'Shrugs', b: 'Shrugs (Haltères)', expected: true },
-    // Cross-language via EXO_SYNONYMS
-    { a: 'Développé Couché (Barre)', b: 'Bench Press', expected: true },
-    { a: 'Bench Press (Barbell)', b: 'Développé Couché', expected: true },
-    // Développé Couché ≠ Développé Militaire (different exercises)
-    { a: 'Développé Couché (Barre)', b: 'Développé Militaire', expected: false },
-  ];
-  let passed = 0, failed = 0;
-  tests.forEach(t => {
-    const result = matchExoName(t.a, t.b);
-    const ok = result === t.expected;
-    if (ok) passed++; else failed++;
-    console.log(
-      (ok ? '✅' : '❌') +
-      ' matchExoName("' + t.a + '", "' + t.b + '") → ' + result +
-      (ok ? '' : ' (expected ' + t.expected + ')')
-    );
-  });
-  console.log('\n' + passed + '/' + tests.length + ' passed' + (failed ? ', ' + failed + ' FAILED' : ' — all good!'));
-  return { passed, failed, total: tests.length };
-}
-
-
 function calcIPFGLTotal(bench, squat, deadlift, bw) {
   if (!bw || bw <= 0) return 0;
   const total = (bench||0) + (squat||0) + (deadlift||0);

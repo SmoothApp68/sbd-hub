@@ -52,7 +52,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; background: var(--bg-primary); background-image: var(--bg-screen); min-height: 100vh; color: var(--text-primary); margin: 0; padding: 15px 15px 100px; -webkit-font-smoothing: antialiased; max-width: 500px; margin-left: auto; margin-right: auto; }
     button, .tab-btn, .card, label, .badge-founder, .badge-early-adopter, .stats-sub-pill, .period-btn, .day-btn { -webkit-user-select: none; user-select: none; }
     .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: var(--bg-tab-bar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--border-card); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
-    .tab-btn { flex: 1; border: none; background: transparent; color: #3E3E5E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: color 0.2s; position: relative; }
+    .tab-btn { flex: 1; border: none; background: transparent; color: #5E5E8E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: color 0.2s; position: relative; }
     .tab-btn.active { color: var(--accent); }
     .tab-btn svg { width: 22px; height: 22px; fill: currentColor; }
     .tab-badge { position: absolute; top: 8px; right: 50%; transform: translateX(16px); width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
@@ -1257,9 +1257,6 @@
 
     /* ── Badge Founder ── */
     .badge-founder { background: var(--founder-gradient); color: var(--founder-text); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 8px; display: inline-block; animation: founderGlow 3s ease-in-out infinite; }
-
-    /* ── Progress bars animated ── */
-    .bar-fill-animated { animation: fillBar 0.8s ease-out both; }
 
     /* ── Pull to refresh indicator ── */
     .ptr-indicator { position: fixed; top: 0; left: 50%; transform: translateX(-50%); background: var(--bg-card); border: 0.5px solid var(--bg-card-border); border-radius: 0 0 14px 14px; padding: 8px 20px; font-size: 12px; color: var(--text-secondary); z-index: 9000; opacity: 0; transition: opacity 0.3s, transform 0.3s; }
@@ -2639,7 +2636,7 @@ async function loadGMUsers() {
     if (!users) { document.getElementById('gmUsersList').innerHTML = '<div style="color:#7878A8;">Aucun utilisateur</div>'; return; }
     let html = '';
     for (const u of users) {
-      const lastSeen = u.last_login ? timeAgo(new Date(u.last_login)) : 'jamais';
+      const lastSeen = u.last_login ? timeAgo(u.last_login) : 'jamais';
       html += '<div class="gm-user-card">' +
         '<div class="gm-user-info">' +
           '<div class="gm-user-email">' + (u.username || u.id.slice(0,8)) + '</div>' +
@@ -2685,7 +2682,8 @@ async function publishAnnouncement() {
   if (!text) return;
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('announcements').insert({ message: text, created_by: user.id });
+    const { error } = await supabase.from('announcements').insert({ message: text, created_by: user.id });
+    if (error) throw error;
     document.getElementById('gmAnnouncementText').value = '';
     showToast('✅ Annonce publiée');
     loadGMAnnouncements();
@@ -2693,8 +2691,11 @@ async function publishAnnouncement() {
 }
 
 async function toggleAnnouncement(id, active) {
-  await supabase.from('announcements').update({ active }).eq('id', id);
-  loadGMAnnouncements();
+  try {
+    const { error } = await supabase.from('announcements').update({ active }).eq('id', id);
+    if (error) throw error;
+    loadGMAnnouncements();
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function loadGMFlags() {
@@ -2721,14 +2722,20 @@ async function loadGMFlags() {
 }
 
 async function toggleFlag(name, enabled, el) {
-  await supabase.from('feature_flags').update({ enabled }).eq('name', name);
-  if (el) { el.classList.toggle('on'); el.classList.toggle('off'); }
-  showToast('✅ ' + name + ' → ' + (enabled?'ON':'OFF'));
+  try {
+    const { error } = await supabase.from('feature_flags').update({ enabled }).eq('name', name);
+    if (error) throw error;
+    if (el) { el.classList.toggle('on'); el.classList.toggle('off'); }
+    showToast('✅ ' + name + ' → ' + (enabled?'ON':'OFF'));
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function updateFlagTier(name, minTier) {
-  await supabase.from('feature_flags').update({ min_tier: minTier }).eq('name', name);
-  showToast('✅ ' + name + ' → tier min: ' + minTier);
+  try {
+    const { error } = await supabase.from('feature_flags').update({ min_tier: minTier }).eq('name', name);
+    if (error) throw error;
+    showToast('✅ ' + name + ' → tier min: ' + minTier);
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 // Feature flag check utility
@@ -2892,15 +2899,6 @@ function showTierPromotion(tier) {
 
 // Check on load (after a delay to let auth settle)
 setTimeout(() => { checkTierPromotion(); checkAnnouncements(); }, 3000);
-
-// Utility: time ago
-function timeAgo(date) {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 60) return 'à l\'instant';
-  if (s < 3600) return Math.floor(s/60) + 'min';
-  if (s < 86400) return Math.floor(s/3600) + 'h';
-  return Math.floor(s/86400) + 'j';
-}
 
 // ═══════════════════════════════════════════
 // TIER SECTION RENDERING (Settings)

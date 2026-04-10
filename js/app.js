@@ -998,17 +998,76 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
 
   const Bg = B[g1] || B.maintien;
 
-  const sequences = {
-    force:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.legs,Bg.push,Bg.pull],4:[Bg.legs,Bg.push,Bg.pull,Bg.sbd],5:[Bg.legs,Bg.push,Bg.pull,Bg.sbd,Bg.mobility],6:[Bg.legs,Bg.push,Bg.pull,Bg.sbd,Bg.faibles,Bg.mobility] },
-    masse:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.push,Bg.pull,Bg.legs],4:[Bg.upper,Bg.lower,Bg.push,Bg.pull],5:[Bg.push,Bg.pull,Bg.legs,Bg.upper,Bg.lower],6:[Bg.push,Bg.pull,Bg.legs,Bg.push,Bg.pull,Bg.legs] },
-    seche:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.cardio],3:[Bg.full_a,Bg.cardio,Bg.full_a],4:[Bg.push,Bg.pull,Bg.legs,Bg.cardio],5:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_a],6:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_a,Bg.cardio] },
-    recompo:  { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.push,Bg.pull,Bg.legs],4:[Bg.full_a,Bg.full_b,Bg.cardio,Bg.full_a],5:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_b],6:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_b,Bg.cardio] },
-    maintien: { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.full_b,Bg.full_c],4:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio],5:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.mobility],6:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.mobility,Bg.full_a] },
-    reprise:  { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.cardio,Bg.full_b],4:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility],5:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility,Bg.full_a],6:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility,Bg.full_a,Bg.cardio] },
-    bien_etre:{ 1:[Bg.full_a],2:[Bg.full_a,Bg.mobility],3:[Bg.full_a,Bg.mobility,Bg.full_b],4:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.mobility],5:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.stretching,Bg.cardio],6:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.stretching,Bg.cardio,Bg.mobility] }
+  // ── Split intelligent basé sur fréquence, objectif et niveau ──
+  // Chaque muscle entraîné 2×/sem minimum (pas de bro-split)
+  // Sources : NSCA, Stronger by Science, meta-analyses 2024-2025
+  function getSplitForFrequency(f, goal, lvl) {
+    const isPL = goal === 'force' || goal === 'recompo';
+    if (f <= 2) return 'full_body';
+    if (f === 3) return lvl === 'debutant' ? 'full_body' : 'upper_lower_alt';
+    if (f === 4) return isPL ? 'powerlifting_4' : 'upper_lower';
+    if (f === 5) return isPL ? 'powerlifting_5' : 'ppl_ul';
+    if (f >= 6) return isPL ? 'powerlifting_6' : 'ppl_x2';
+    return 'upper_lower';
+  }
+
+  // Powerlifting-specific blocks (SBD chaque lift 2×/sem)
+  const plBlocks = {
+    squat_acc:  { label:'Squat + Accessoires', exos: filtSafe(filtLevel(['squat','leg_press','rdl','leg_curl','mollet']), mat) },
+    bench_acc:  { label:'Bench + Accessoires', exos: filtSafe(filtLevel(['bench','incline_bench','ecarte','tri_cable','elev_lat']), mat) },
+    dead_acc:   { label:'Deadlift + Accessoires', exos: filtSafe(filtLevel(['deadlift','row_barre','lat_pull','face_pull','curl_barre']), mat) },
+    bench2_sq:  { label:'Bench 2 + Squat léger', exos: filtSafe(filtLevel(['bench_halt','ohp','squat','elev_lat','tri_cable']), mat) },
+    squat2:     { label:'Squat 2', exos: filtSafe(filtLevel(['squat','leg_press','hip_thrust','leg_curl','mollet']), mat) },
+    bench2:     { label:'Bench 2', exos: filtSafe(filtLevel(['bench_halt','incline_bench','dips_pec','tri_cable','elev_lat']), mat) },
+    dead2_acc:  { label:'Deadlift 2 + Accessoires', exos: filtSafe(filtLevel(['deadlift','row_halt','traction','face_pull','curl_halt']), mat) },
+    accessoires:{ label:'Accessoires', exos: filtSafe(filtLevel(['elev_lat','face_pull','curl_barre','tri_cable','crunch','mollet']), mat) },
   };
 
-  const seq = (sequences[g1]||sequences.maintien)[Math.min(freq,6)] || [Bg.full_a];
+  // Map split → séquence de blocs
+  function getSplitSequence(splitType, f) {
+    switch (splitType) {
+      case 'full_body':
+        if (f === 1) return [Bg.full_a];
+        if (f === 2) return [Bg.full_a, Bg.full_b];
+        return [Bg.full_a, Bg.full_b, Bg.full_a || Bg.full_c]; // 3j FB
+      case 'upper_lower_alt':
+        // 3j : U/L/U puis semaine suivante L/U/L (on fait U/L/U pour la génération)
+        return [Bg.upper || Bg.push, Bg.lower || Bg.legs, Bg.upper || Bg.pull];
+      case 'upper_lower':
+        // 4j : U/L/U/L
+        return [Bg.upper || Bg.push, Bg.lower || Bg.legs, Bg.upper || Bg.pull, Bg.lower || Bg.legs];
+      case 'ppl_ul':
+        // 5j : PPL + U/L
+        return [Bg.push, Bg.pull, Bg.legs, Bg.upper || Bg.push, Bg.lower || Bg.legs];
+      case 'ppl_x2':
+        // 6j : PPL × 2
+        return [Bg.push, Bg.pull, Bg.legs, Bg.push, Bg.pull, Bg.legs];
+      case 'powerlifting_4':
+        return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.bench2_sq];
+      case 'powerlifting_5':
+        return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.squat2, plBlocks.bench2];
+      case 'powerlifting_6':
+        return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.squat2, plBlocks.bench2, plBlocks.dead2_acc];
+      default:
+        return [Bg.full_a];
+    }
+  }
+
+  // Bien-être et modes spéciaux gardent leur logique dédiée
+  const specialSequences = {
+    bien_etre:{ 1:[Bg.full_a],2:[Bg.full_a,Bg.mobility],3:[Bg.full_a,Bg.mobility,Bg.full_b],4:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.mobility],5:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.stretching,Bg.cardio],6:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.stretching,Bg.cardio,Bg.mobility] },
+    seche:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.cardio],3:[Bg.full_a,Bg.cardio,Bg.full_a],4:[Bg.push,Bg.pull,Bg.legs,Bg.cardio],5:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_a],6:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_a,Bg.cardio] },
+    reprise:  { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.cardio,Bg.full_b],4:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility],5:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility,Bg.full_a],6:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility,Bg.full_a,Bg.cardio] },
+    maintien: { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.full_b,Bg.full_c],4:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio],5:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.mobility],6:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.mobility,Bg.full_a] },
+  };
+
+  let seq;
+  if (specialSequences[g1]) {
+    seq = specialSequences[g1][Math.min(freq, 6)] || [Bg.full_a];
+  } else {
+    const splitType = getSplitForFrequency(Math.min(freq, 6), g1, level);
+    seq = getSplitSequence(splitType, Math.min(freq, 6));
+  }
   const plan = [];
   const allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 

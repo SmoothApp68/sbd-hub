@@ -8929,6 +8929,7 @@ function goWizardCreate() {
 
   if (!db.customExercises) db.customExercises = [];
   db.customExercises.push(exo);
+  _matchCacheInvalidate();
   saveDB();
 
   // Close wizard

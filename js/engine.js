@@ -650,7 +650,34 @@ function getEquipmentType(name) {
 // (e.g., 120kg barbell bench ≠ 120kg dumbbell press)
 const DUMBBELL_TO_BARBELL_FACTOR = 0.57;
 
+var _matchCache = {};
+var _matchCacheSize = 0;
+var _MATCH_CACHE_MAX = 2000;
+
+function _matchCacheInvalidate() {
+  _matchCache = {};
+  _matchCacheSize = 0;
+}
+
+function _matchCacheStore(key, result, reverseKey) {
+  if (_matchCacheSize >= _MATCH_CACHE_MAX) {
+    _matchCache = {};
+    _matchCacheSize = 0;
+  }
+  _matchCache[key] = result;
+  _matchCacheSize++;
+  if (reverseKey && !(reverseKey in _matchCache)) {
+    _matchCache[reverseKey] = result;
+    _matchCacheSize++;
+  }
+}
+
 function matchExoName(hevyName, progName) {
+  if (!hevyName || !progName) return false;
+
+  var cacheKey = hevyName + '|||' + progName;
+  if (cacheKey in _matchCache) return _matchCache[cacheKey];
+
   const norm = s => s.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[()[\]]/g, ' ')
@@ -660,6 +687,13 @@ function matchExoName(hevyName, progName) {
   const h = norm(hevyName);
   const p = norm(progName);
 
+  var reverseKey = progName + '|||' + hevyName;
+  var result = _matchExoNameCore(h, p, norm);
+  _matchCacheStore(cacheKey, result, reverseKey);
+  return result;
+}
+
+function _matchExoNameCore(h, p, norm) {
   if (h === p) return true;
 
   // Mots significatifs (>=3 lettres)
@@ -707,16 +741,13 @@ function matchExoName(hevyName, progName) {
     const nameWords = wordsOf(name);
     const refWords = wordsOf(ref);
     if (!refWords.length) return false;
-    // All ref words must appear as whole words in name
     const refInName = refWords.every(rw => nameWords.some(nw => wMatch(nw, rw)));
     if (!refInName) return false;
-    // Extra words in name must not be differentiators
     const extra = nameWords.filter(nw => !refWords.some(rw => wMatch(nw, rw)));
     return extra.every(w => !isDiff(w));
   };
 
   // Vérifier les synonymes — si h et p appartiennent au même groupe → match
-  // Only check name-contains-synonym (not reverse) to avoid false positives
   for (const group of EXO_SYNONYMS) {
     const normGroup = group.map(norm);
     const hInGroup = normGroup.some(s => softWordMatch(h, s));
@@ -745,7 +776,6 @@ function matchExoName(hevyName, progName) {
   }
 
   // Exercice à 1 mot significatif : tolérer les variations pluriel/singulier
-  // MAIS vérifier que les mots extra ne sont pas des différenciateurs
   const shorter = pWords.length <= hWords.length ? pWords : hWords;
   if (shorter.length === 1) {
     const w = shorter[0];

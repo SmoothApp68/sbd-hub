@@ -136,6 +136,20 @@ let db = (() => {
 
 let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 
+// Chart memory management — destroy charts of inactive tabs
+var _currentTab = 'tab-dash';
+function _destroyTabCharts(tabId) {
+  if (tabId === 'tab-dash') {
+    if (chartPerf && typeof chartPerf.destroy === 'function') { chartPerf.destroy(); chartPerf = null; }
+    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
+    if (chartSBD && typeof chartSBD.destroy === 'function') { chartSBD.destroy(); chartSBD = null; }
+    if (chartVolume && typeof chartVolume.destroy === 'function') { chartVolume.destroy(); chartVolume = null; }
+  }
+  if (tabId === 'tab-stats') {
+    if (chartMuscleEvol && typeof chartMuscleEvol.destroy === 'function') { chartMuscleEvol.destroy(); chartMuscleEvol = null; }
+  }
+}
+
 // Routine active (user ou fallback)
 function getRoutine() {
   if (db.routine) return db.routine;
@@ -1477,6 +1491,9 @@ function showProfilSub(id, btn) {
 }
 
 function showTab(tabId) {
+  // Destroy charts of the previous tab to free memory
+  if (_currentTab && _currentTab !== tabId) _destroyTabCharts(_currentTab);
+  _currentTab = tabId;
   document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');

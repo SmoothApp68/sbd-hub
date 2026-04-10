@@ -6939,6 +6939,99 @@ function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isF
   ];
 }
 
+// ── Estimation durée séance scientifique ────────────────────
+function estimateSessionDuration(exercises, goal) {
+  if (!exercises || !exercises.length) return { minutes: 0, details: [] };
+  let totalSec = 300; // 5min échauffement général
+  const details = [];
+
+  exercises.forEach((exo, idx) => {
+    const sets = exo.sets || [];
+    if (!sets.length && !exo.noData) return;
+    const cat = getExoCategory(exo.name);
+    const warmupSets = sets.filter(s => s.isWarmup);
+    const workSets = sets.filter(s => !s.isWarmup && !s.isBackoff);
+    const backoffSets = sets.filter(s => s.isBackoff);
+    const allWork = [...workSets, ...backoffSets];
+
+    // Temps d'exécution par série (sec/rep selon type)
+    const avgReps = allWork.length ? allWork.reduce((s,st) => s + (st.reps || 0), 0) / allWork.length : 8;
+    const secPerRep = avgReps <= 5 ? 4.5 : avgReps <= 12 ? 3.5 : 3;
+    const repTimeSec = avgReps * secPerRep;
+
+    // Repos entre séries
+    const restSec = exo.restSeconds || 90;
+
+    // Temps total pour cet exercice
+    let exoTime = 0;
+    // Échauffement spécifique premier compound
+    if (warmupSets.length >= 3 && idx === 0) exoTime += 300; // ~5min premier compound
+    warmupSets.forEach(() => { exoTime += repTimeSec + 60; }); // repos court entre warmups
+    allWork.forEach((s, si) => {
+      exoTime += repTimeSec;
+      if (si < allWork.length - 1) exoTime += restSec;
+    });
+    // Transition entre exercices
+    exoTime += cat === 'isolation' ? 60 : 90;
+
+    totalSec += exoTime;
+    details.push({ name: exo.name, minutes: Math.round(exoTime / 60) });
+  });
+
+  const minutes = Math.round(totalSec / 60);
+  return { minutes, details };
+}
+
+// Adapter la séance si elle dépasse la durée configurée
+function adaptSessionForDuration(exercises, targetMinutes, goal) {
+  if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
+  const est = estimateSessionDuration(exercises, goal);
+  if (est.minutes <= targetMinutes) return { exercises, adaptations: [] };
+
+  const adaptations = [];
+  let adapted = JSON.parse(JSON.stringify(exercises));
+
+  // 1. Supersets sur isolations (gain ~30%)
+  const isoExos = adapted.filter(e => getExoCategory(e.name) === 'isolation');
+  if (isoExos.length >= 2) {
+    for (let i = 0; i < isoExos.length - 1; i += 2) {
+      isoExos[i].superset = isoExos[i + 1].name;
+      isoExos[i].restSeconds = Math.round((isoExos[i].restSeconds || 60) * 0.5);
+    }
+    adaptations.push('Supersets sur isolations');
+    const est2 = estimateSessionDuration(adapted, goal);
+    if (est2.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+  }
+
+  // 2. Réduire séries isolations (max -1, jamais <2)
+  adapted.forEach(e => {
+    if (getExoCategory(e.name) !== 'isolation') return;
+    const work = e.sets.filter(s => !s.isWarmup);
+    if (work.length > 2) {
+      const idx = e.sets.findIndex(s => !s.isWarmup);
+      if (idx >= 0) e.sets.splice(idx, 1);
+    }
+  });
+  adaptations.push('Séries isolations réduites');
+  const est3 = estimateSessionDuration(adapted, goal);
+  if (est3.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+
+  // 3. Réduire repos de 15% max
+  adapted.forEach(e => { e.restSeconds = Math.round((e.restSeconds || 90) * 0.85); });
+  adaptations.push('Repos réduits (-15%)');
+  const est4 = estimateSessionDuration(adapted, goal);
+  if (est4.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+
+  // 4. Dernier recours : retirer une isolation
+  const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
+  if (lastIso >= 0) {
+    adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
+    adapted.splice(lastIso, 1);
+  }
+
+  return { exercises: adapted, adaptations };
+}
+
 // ── Périodisation par blocs selon le niveau ─────────────────
 // Sources : BodySpec, Barbell Medicine, NSCA
 const BLOC_PARAMS = {

@@ -8239,6 +8239,8 @@ function goToggleSetComplete(exoIdx, setIdx) {
     // Start rest timer
     var restSec = activeWorkout.exercises[exoIdx].restSeconds || 90;
     goStartRestTimer(restSec, exoIdx);
+    // Auto-régulation RPE
+    goCheckAutoRegulation(exoIdx, setIdx);
   }
   goAutoSave();
   goUpdateCounters();
@@ -8255,6 +8257,86 @@ function goToggleSetComplete(exoIdx, setIdx) {
       }
     }, 100);
   }
+}
+
+// ── Auto-régulation intra-séance basée sur le RPE ──────────
+function goCheckAutoRegulation(exoIdx, setIdx) {
+  if (!activeWorkout || !db.weeklyPlan) return;
+  var exo = activeWorkout.exercises[exoIdx];
+  var set = exo.sets[setIdx];
+  if (!set || !set.completed || !set.rpe) return;
+
+  // Trouver le RPE cible depuis le plan
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var planDay = db.weeklyPlan.days ? db.weeklyPlan.days.find(function(d) { return d.day === todayDay && !d.rest; }) : null;
+  if (!planDay) return;
+  var planExo = (planDay.exercises || []).find(function(e) { return matchExoName(e.name, exo.name); });
+  if (!planExo) return;
+  var planWorkSets = (planExo.sets || []).filter(function(s) { return !s.isWarmup && !s.isBackoff; });
+  var targetRPE = planWorkSets.length ? planWorkSets[0].rpe : null;
+  if (!targetRPE) return;
+
+  var rpeActual = parseFloat(set.rpe);
+  var rpeDiff = rpeActual - targetRPE;
+  var currentWeight = set.weight || 0;
+  if (currentWeight <= 0) return;
+
+  // Ajustement plus agressif si readiness < 70
+  var readinessLow = activeWorkout.readiness && activeWorkout.readiness.score < 70;
+  var suggestion = null;
+
+  if (rpeDiff >= 1.5) {
+    var factor = readinessLow ? 0.90 : 0.93;
+    suggestion = { type:'reduce', message:'RPE ' + rpeActual + ' vs cible ' + targetRPE + ' — trop dur',
+      action:'Baisser à ' + round05(currentWeight * factor) + 'kg', newWeight: round05(currentWeight * factor) };
+  } else if (rpeDiff >= 1) {
+    suggestion = { type:'reduce', message:'RPE ' + rpeActual + ' vs cible ' + targetRPE + ' — un peu dur',
+      action:'Essaie ' + round05(currentWeight * 0.95) + 'kg', newWeight: round05(currentWeight * 0.95) };
+  } else if (rpeDiff <= -1.5) {
+    suggestion = { type:'increase', message:'RPE ' + rpeActual + ' vs cible ' + targetRPE + ' — tu peux monter',
+      action:'Essaie ' + round05(currentWeight * 1.05) + 'kg', newWeight: round05(currentWeight * 1.05) };
+  } else if (rpeDiff <= -1) {
+    suggestion = { type:'increase', message:'RPE ' + rpeActual + ' — marge disponible',
+      action:'Tu pourrais monter à ' + round05(currentWeight * 1.025) + 'kg', newWeight: round05(currentWeight * 1.025) };
+  }
+
+  if (suggestion) goShowAutoRegSuggestion(exoIdx, setIdx, suggestion);
+}
+
+function goShowAutoRegSuggestion(exoIdx, setIdx, suggestion) {
+  // Retirer toute suggestion précédente
+  var prev = document.getElementById('go-autoreg-banner');
+  if (prev) prev.remove();
+
+  var bgColor = suggestion.type === 'reduce' ? 'rgba(255,159,10,0.08)' : 'rgba(10,132,255,0.08)';
+  var borderColor = suggestion.type === 'reduce' ? 'var(--orange)' : 'var(--blue)';
+  var icon = suggestion.type === 'reduce' ? '📉' : '📈';
+
+  var banner = document.createElement('div');
+  banner.id = 'go-autoreg-banner';
+  banner.style.cssText = 'background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:10px;padding:10px 12px;margin:8px 0;font-size:12px;';
+  banner.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">' + icon + ' ' + suggestion.message + '</div>' +
+    '<div style="color:var(--sub);margin-bottom:6px;">' + suggestion.action + '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="goApplyAutoReg(' + exoIdx + ',' + suggestion.newWeight + ')" style="flex:1;padding:6px;background:' + borderColor + ';border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Oui</button>' +
+    '<button onclick="document.getElementById(\'go-autoreg-banner\').remove()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Non</button></div>';
+
+  // Insérer après l'exercice courant
+  var exoCard = document.querySelectorAll('.go-exo-card')[exoIdx];
+  if (exoCard) exoCard.parentNode.insertBefore(banner, exoCard.nextSibling);
+}
+
+function goApplyAutoReg(exoIdx, newWeight) {
+  var exo = activeWorkout.exercises[exoIdx];
+  // Appliquer le nouveau poids aux séries non complétées
+  exo.sets.forEach(function(s) {
+    if (!s.completed) s.weight = newWeight;
+  });
+  var banner = document.getElementById('go-autoreg-banner');
+  if (banner) banner.remove();
+  goAutoSave();
+  goRequestRender();
+  showToast('✅ Charge ajustée à ' + newWeight + 'kg');
 }
 
 function goAddSet(exoIdx) {

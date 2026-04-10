@@ -7917,7 +7917,7 @@ function renderGoTab() {
   if (activeWorkout) {
     document.getElementById('goIdleView').style.display = 'none';
     document.getElementById('goActiveView').style.display = 'block';
-    renderGoActiveView();
+    goRequestRender();
   } else {
     document.getElementById('goIdleView').style.display = 'block';
     document.getElementById('goActiveView').style.display = 'none';
@@ -8043,7 +8043,7 @@ function goTogglePause() {
     _goSessionPaused = true;
     showToast('Séance en pause');
   }
-  renderGoActiveView();
+  goRequestRender();
 }
 
 // ============================================================
@@ -8092,6 +8092,16 @@ function _goCreateGroupSession(type) {
 
 // GO TAB — Active View Rendering
 // ============================================================
+var _goRenderPending = false;
+function goRequestRender() {
+  if (_goRenderPending) return;
+  _goRenderPending = true;
+  requestAnimationFrame(function() {
+    _goRenderPending = false;
+    renderGoActiveView();
+  });
+}
+
 function renderGoActiveView() {
   if (!activeWorkout) return;
   var elapsed = Math.floor((Date.now() - activeWorkout.startTime) / 1000);
@@ -8161,7 +8171,7 @@ function renderGoActiveView() {
 
   // ── Muscle Distribution toggle ──
   h += '<div style="text-align:center;margin-bottom:10px;">';
-  h += '<button class="go-btn-sec" style="width:auto;display:inline-flex;padding:8px 16px;font-size:12px;" onclick="_goMusclesExpanded=!_goMusclesExpanded;renderGoActiveView();">';
+  h += '<button class="go-btn-sec" style="width:auto;display:inline-flex;padding:8px 16px;font-size:12px;" onclick="_goMusclesExpanded=!_goMusclesExpanded;goRequestRender();">';
   h += '💪 Répartition musculaire ' + (_goMusclesExpanded ? '▲' : '▼') + '</button></div>';
   if (_goMusclesExpanded) {
     h += renderGoMuscleDistribution();
@@ -8211,7 +8221,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   if (_bwExoData && _bwExoData.isAssisted) {
     h += '<div class="go-assist-input">';
     h += '<span>🟡 Assistance :</span>';
-    h += '<select onchange="activeWorkout.exercises[' + exoIdx + '].assistWeight=parseInt(this.value);goAutoSave();renderGoActiveView();">';
+    h += '<select onchange="activeWorkout.exercises[' + exoIdx + '].assistWeight=parseInt(this.value);goAutoSave();goRequestRender();">';
     h += '<option value="0">Aucune</option>';
     [10,20,30,40].forEach(function(v) {
       h += '<option value="' + v + '"' + (exo.assistWeight === v ? ' selected' : '') + '>~' + v + 'kg</option>';
@@ -8321,7 +8331,7 @@ function goToggleSetComplete(exoIdx, setIdx) {
   }
   goAutoSave();
   goUpdateCounters();
-  renderGoActiveView();
+  goRequestRender();
   // Scroll to next incomplete set
   if (set.completed) {
     setTimeout(function() {
@@ -8358,14 +8368,14 @@ function goAddSet(exoIdx) {
   }
   exo.sets.push(newSet);
   goAutoSave();
-  renderGoActiveView();
+  goRequestRender();
 }
 
 function goRemoveSet(exoIdx, setIdx) {
   activeWorkout.exercises[exoIdx].sets.splice(setIdx, 1);
   goAutoSave();
   goUpdateCounters();
-  renderGoActiveView();
+  goRequestRender();
 }
 
 function goUpdateSetValue(exoIdx, setIdx, field, value) {
@@ -8400,10 +8410,10 @@ function goStartRestTimer(seconds, exoIndex) {
     if (activeWorkout.restTimer.remaining <= 0) {
       try { if (navigator.vibrate) navigator.vibrate(200); } catch(e) {}
       goSkipRest();
-      renderGoActiveView();
+      goRequestRender();
     }
   }, 1000);
-  renderGoActiveView();
+  goRequestRender();
 }
 
 function goAdjustRest(delta) {
@@ -8421,13 +8431,13 @@ function goSkipRest() {
 function goEditRest(exoIdx) {
   var exo = activeWorkout.exercises[exoIdx];
   var items = [
-    { icon: '⏱', label: '1 min', action: function() { exo.restSeconds = 60; renderGoActiveView(); } },
-    { icon: '⏱', label: '1 min 30s', action: function() { exo.restSeconds = 90; renderGoActiveView(); } },
-    { icon: '⏱', label: '2 min', action: function() { exo.restSeconds = 120; renderGoActiveView(); } },
-    { icon: '⏱', label: '2 min 30s', action: function() { exo.restSeconds = 150; renderGoActiveView(); } },
-    { icon: '⏱', label: '3 min', action: function() { exo.restSeconds = 180; renderGoActiveView(); } },
-    { icon: '⏱', label: '4 min', action: function() { exo.restSeconds = 240; renderGoActiveView(); } },
-    { icon: '⏱', label: '5 min', action: function() { exo.restSeconds = 300; renderGoActiveView(); } }
+    { icon: '⏱', label: '1 min', action: function() { exo.restSeconds = 60; goRequestRender(); } },
+    { icon: '⏱', label: '1 min 30s', action: function() { exo.restSeconds = 90; goRequestRender(); } },
+    { icon: '⏱', label: '2 min', action: function() { exo.restSeconds = 120; goRequestRender(); } },
+    { icon: '⏱', label: '2 min 30s', action: function() { exo.restSeconds = 150; goRequestRender(); } },
+    { icon: '⏱', label: '3 min', action: function() { exo.restSeconds = 180; goRequestRender(); } },
+    { icon: '⏱', label: '4 min', action: function() { exo.restSeconds = 240; goRequestRender(); } },
+    { icon: '⏱', label: '5 min', action: function() { exo.restSeconds = 300; goRequestRender(); } }
   ];
   goShowBottomSheet('Temps de repos', items);
 }
@@ -8518,16 +8528,16 @@ function goShowExoMenu(exoIdx) {
   goShowBottomSheet(activeWorkout.exercises[exoIdx].name, [
     { icon: '🔄', label: 'Remplacer l\'exercice', action: function() { goReplaceExercise(exoIdx); } },
     { icon: '↕️', label: 'Déplacer vers le haut', action: function() {
-      if (exoIdx > 0) { var tmp = activeWorkout.exercises[exoIdx]; activeWorkout.exercises[exoIdx] = activeWorkout.exercises[exoIdx-1]; activeWorkout.exercises[exoIdx-1] = tmp; renderGoActiveView(); }
+      if (exoIdx > 0) { var tmp = activeWorkout.exercises[exoIdx]; activeWorkout.exercises[exoIdx] = activeWorkout.exercises[exoIdx-1]; activeWorkout.exercises[exoIdx-1] = tmp; goRequestRender(); }
     }},
     { icon: '↕️', label: 'Déplacer vers le bas', action: function() {
-      if (exoIdx < activeWorkout.exercises.length - 1) { var tmp = activeWorkout.exercises[exoIdx]; activeWorkout.exercises[exoIdx] = activeWorkout.exercises[exoIdx+1]; activeWorkout.exercises[exoIdx+1] = tmp; renderGoActiveView(); }
+      if (exoIdx < activeWorkout.exercises.length - 1) { var tmp = activeWorkout.exercises[exoIdx]; activeWorkout.exercises[exoIdx] = activeWorkout.exercises[exoIdx+1]; activeWorkout.exercises[exoIdx+1] = tmp; goRequestRender(); }
     }},
     { icon: '✕', label: 'Retirer l\'exercice', danger: true, action: function() {
       activeWorkout.exercises.splice(exoIdx, 1);
       goAutoSave();
       goUpdateCounters();
-      renderGoActiveView();
+      goRequestRender();
     }}
   ]);
 }
@@ -8540,10 +8550,10 @@ function goReplaceExercise(exoIdx) {
 
 function goShowSetTypeSheet(exoIdx, setIdx) {
   goShowBottomSheet('Type de série', [
-    { icon: 'W', label: 'Série d\'Échauffement', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'warmup'; renderGoActiveView(); } },
-    { icon: '#', label: 'Série Normale', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'normal'; renderGoActiveView(); } },
-    { icon: 'F', label: 'Série Ratée', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'failure'; renderGoActiveView(); } },
-    { icon: 'D', label: 'Série Drop', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'drop'; renderGoActiveView(); } },
+    { icon: 'W', label: 'Série d\'Échauffement', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'warmup'; goRequestRender(); } },
+    { icon: '#', label: 'Série Normale', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'normal'; goRequestRender(); } },
+    { icon: 'F', label: 'Série Ratée', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'failure'; goRequestRender(); } },
+    { icon: 'D', label: 'Série Drop', action: function() { activeWorkout.exercises[exoIdx].sets[setIdx].type = 'drop'; goRequestRender(); } },
     { icon: '✕', label: 'Retirer la série', danger: true, action: function() { goRemoveSet(exoIdx, setIdx); } }
   ]);
 }
@@ -8816,7 +8826,7 @@ function goSelectSearchResult(name, exoId) {
     }
   }
   goAutoSave();
-  renderGoActiveView();
+  goRequestRender();
 }
 
 // ============================================================
@@ -8991,7 +9001,7 @@ function goWizardCreate() {
       notes: ''
     });
     goAutoSave();
-    renderGoActiveView();
+    goRequestRender();
   }
 
   showToast('Exercice "' + exo.name + '" créé');

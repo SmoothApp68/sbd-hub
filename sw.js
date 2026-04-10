@@ -23,3 +23,14 @@ self.addEventListener('fetch', event => {
   // On laisse passer toutes les requêtes normalement
   return;
 });
+
+// Push notifications
+self.addEventListener('push', function(event) {
+  var data = event.data ? event.data.json() : { title: 'Training Hub', body: 'Notification' };
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      vibrate: [100, 50, 100]
+    })
+  );
+});

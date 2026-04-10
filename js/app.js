@@ -3,6 +3,79 @@
 // ============================================================
 
 // ============================================================
+// UI Adaptative — t() et shouldShow()
+// ============================================================
+function t(key, value, opts) {
+  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
+  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
+  if (detail === 'simple') level = 'debutant';
+  else if (detail === 'expert') level = 'competiteur';
+
+  var isBeginner = (detail === 'auto') ? (level === 'debutant' || mode === 'bien_etre') : (detail === 'simple');
+  var isAdvanced = (detail === 'auto') ? (level === 'avance' || level === 'competiteur') : (detail === 'expert');
+
+  if (key === 'rpe') {
+    if (isBeginner) {
+      if (value <= 5) return 'Très facile 😌';
+      if (value <= 6) return 'Effort léger 😌';
+      if (value <= 7) return 'Effort modéré 😊';
+      if (value <= 8) return 'Effort soutenu 💪';
+      if (value <= 9) return 'Effort intense 🔥';
+      return 'Maximum 🔥🔥';
+    }
+    if (isAdvanced) return 'RPE ' + value;
+    return 'RPE ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
+  }
+  if (key === 'sets_reps') {
+    var s = value, r = opts;
+    if (isBeginner) return s + ' séries de ' + r + ' répétitions';
+    return s + '×' + r;
+  }
+  if (key === 'deload') {
+    if (isBeginner) return 'Semaine de récupération 🧘';
+    return 'Semaine de deload';
+  }
+  if (key === 'mesocycle') {
+    if (isBeginner) return 'Cycle de ' + (value || 4) + ' semaines';
+    return 'Mésocycle';
+  }
+  if (key === 'progressive_overload') {
+    if (isBeginner) return 'On augmente un peu chaque semaine';
+    return 'Surcharge progressive';
+  }
+  if (key === 'compliance') {
+    if (isBeginner) return value + ' séances sur ' + (opts || '?') + ' prévues 👏';
+    return 'Compliance : ' + Math.round(value) + '%';
+  }
+  return String(value);
+}
+
+function shouldShow(feature) {
+  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
+  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
+  if (detail === 'simple') level = 'debutant';
+  else if (detail === 'expert') level = 'competiteur';
+
+  var rules = {
+    dots_wilks:      ['avance', 'competiteur'],
+    e1rm_detail:     ['intermediaire', 'avance', 'competiteur'],
+    rpe_number:      ['intermediaire', 'avance', 'competiteur'],
+    sbd_total:       ['intermediaire', 'avance', 'competiteur'],
+    mev_mav_mrv:     ['avance', 'competiteur'],
+    strength_ratios: ['intermediaire', 'avance', 'competiteur'],
+    volume_numbers:  ['intermediaire', 'avance', 'competiteur'],
+    ipf_score:       ['avance', 'competiteur'],
+    mesocycle_label: ['avance', 'competiteur'],
+    tonnage_detail:  ['intermediaire', 'avance', 'competiteur'],
+  };
+  var allowed = rules[feature];
+  if (!allowed) return true;
+  return allowed.indexOf(level) >= 0;
+}
+
+// ============================================================
 // DB
 // ============================================================
 const defaultDB = () => ({
@@ -886,18 +959,32 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
       full_a:  { label:'Full Body Doux A', exos: filtSafe(['pompe','rowing_inv','planche','mollet','crunch'], mat) },
       full_b:  { label:'Full Body Doux B', exos: filtSafe(['leg_press','ohp_halt','lat_pull','crunch','planche'], mat) },
       cardio:  { label:'Cardio léger', exos: filtSafe(['cardio_liss','planche'], mat) },
+    },
+    bien_etre: {
+      full_a:  { label:'Full Body Doux', exos: filtSafe(filtLevel(['pompe','rowing_inv','planche','pilates_bridge','crunch']), mat) },
+      full_b:  { label:'Full Body Équilibré', exos: filtSafe(filtLevel(['leg_press','ohp_halt','lat_pull','pilates_rollup','planche']), mat) },
+      mobility:{ label:'Mobilité & Récupération', exos: filtSafe(['yoga_downdog','mobility_hip_flexor','mobility_thoracic','pilates_cat_cow','mobility_hamstring','yoga_child_pose','mobility_world_greatest'], mat) },
+      pilates: { label:'Pilates — Core & Stabilité', exos: filtSafe(['pilates_hundred','pilates_rollup','pilates_bridge','pilates_swimming','pilates_teaser','pilates_mermaid','pilates_side_kick'], mat) },
+      stretching:{ label:'Étirements Complets', exos: filtSafe(['mobility_hip_flexor','mobility_hamstring','mobility_pec_stretch','mobility_90_90','yoga_pigeon','yoga_downdog','mobility_shoulder_dislocate'], mat) },
+      cardio:  { label:'Cardio Doux', exos: filtSafe(['cardio_liss','planche'], mat) },
     }
   };
+  // Add shared mobility/pilates/stretching blocs to all goals
+  var _sharedMobility = { label:'Mobilité & Récupération', exos: filtSafe(['yoga_downdog','mobility_hip_flexor','mobility_thoracic','pilates_cat_cow','mobility_hamstring','yoga_child_pose','mobility_world_greatest'], mat) };
+  var _sharedPilates = { label:'Pilates — Core & Stabilité', exos: filtSafe(['pilates_hundred','pilates_rollup','pilates_bridge','pilates_swimming','pilates_teaser','pilates_mermaid','pilates_side_kick'], mat) };
+  var _sharedStretching = { label:'Étirements Complets', exos: filtSafe(['mobility_hip_flexor','mobility_hamstring','mobility_pec_stretch','mobility_90_90','yoga_pigeon','yoga_downdog','mobility_shoulder_dislocate'], mat) };
+  for (var _bk in B) { if (!B[_bk].mobility) B[_bk].mobility = _sharedMobility; if (!B[_bk].pilates) B[_bk].pilates = _sharedPilates; if (!B[_bk].stretching) B[_bk].stretching = _sharedStretching; }
 
   const Bg = B[g1] || B.maintien;
 
   const sequences = {
-    force:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.legs,Bg.push,Bg.pull],4:[Bg.legs,Bg.push,Bg.pull,Bg.sbd],5:[Bg.legs,Bg.push,Bg.pull,Bg.sbd,Bg.faibles],6:[Bg.legs,Bg.push,Bg.pull,Bg.sbd,Bg.faibles,Bg.full_a] },
+    force:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.legs,Bg.push,Bg.pull],4:[Bg.legs,Bg.push,Bg.pull,Bg.sbd],5:[Bg.legs,Bg.push,Bg.pull,Bg.sbd,Bg.mobility],6:[Bg.legs,Bg.push,Bg.pull,Bg.sbd,Bg.faibles,Bg.mobility] },
     masse:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.push,Bg.pull,Bg.legs],4:[Bg.upper,Bg.lower,Bg.push,Bg.pull],5:[Bg.push,Bg.pull,Bg.legs,Bg.upper,Bg.lower],6:[Bg.push,Bg.pull,Bg.legs,Bg.push,Bg.pull,Bg.legs] },
     seche:    { 1:[Bg.full_a],2:[Bg.full_a,Bg.cardio],3:[Bg.full_a,Bg.cardio,Bg.full_a],4:[Bg.push,Bg.pull,Bg.legs,Bg.cardio],5:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_a],6:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_a,Bg.cardio] },
     recompo:  { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.push,Bg.pull,Bg.legs],4:[Bg.full_a,Bg.full_b,Bg.cardio,Bg.full_a],5:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_b],6:[Bg.push,Bg.pull,Bg.legs,Bg.cardio,Bg.full_b,Bg.cardio] },
-    maintien: { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.full_b,Bg.full_c],4:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio],5:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.full_a],6:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.full_a,Bg.full_b] },
-    reprise:  { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.cardio,Bg.full_b],4:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.cardio],5:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.cardio,Bg.full_a],6:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.cardio,Bg.full_a,Bg.cardio] }
+    maintien: { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.full_b,Bg.full_c],4:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio],5:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.mobility],6:[Bg.full_a,Bg.full_b,Bg.full_c,Bg.cardio,Bg.mobility,Bg.full_a] },
+    reprise:  { 1:[Bg.full_a],2:[Bg.full_a,Bg.full_b],3:[Bg.full_a,Bg.cardio,Bg.full_b],4:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility],5:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility,Bg.full_a],6:[Bg.full_a,Bg.cardio,Bg.full_b,Bg.mobility,Bg.full_a,Bg.cardio] },
+    bien_etre:{ 1:[Bg.full_a],2:[Bg.full_a,Bg.mobility],3:[Bg.full_a,Bg.mobility,Bg.full_b],4:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.mobility],5:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.stretching,Bg.cardio],6:[Bg.full_a,Bg.pilates,Bg.full_b,Bg.stretching,Bg.cardio,Bg.mobility] }
   };
 
   const seq = (sequences[g1]||sequences.maintien)[Math.min(freq,6)] || [Bg.full_a];
@@ -1349,6 +1436,7 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
+  if (id === 'seances-coach') renderCoachTab();
 }
 
 function showProfilSub(id, btn) {
@@ -1644,7 +1732,45 @@ function getAllBadges() {
   b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
   b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
 
+  // ── Wellness theme for bien_etre mode ──
+  if (getBadgeTheme() === 'wellness') {
+    var wellnessNames = {
+      's1':   { name:'Premier Pas',              desc:'1 séance — le voyage commence par un pas' },
+      's10':  { name:'Habitude en Construction',  desc:'10 séances — tu construis une routine' },
+      's25':  { name:'Routine Installée',         desc:'25 séances — c\'est devenu naturel' },
+      's50':  { name:'Pratiquant Régulier',       desc:'50 séances — la constance paie' },
+      's75':  { name:'Équilibre Trouvé',          desc:'75 séances — corps et esprit en harmonie' },
+      's100': { name:'Centurion du Bien-être',    desc:'100 séances — un siècle de mouvements' },
+      's200': { name:'Maître de la Constance',    desc:'200 séances — force intérieure' },
+      's300': { name:'Pilier de Régularité',      desc:'300 séances — rien ne t\'arrête' },
+      's365': { name:'Un An de Bien-être',        desc:'365 séances — une année complète de dévouement' },
+      's500': { name:'Sage du Mouvement',         desc:'500 séances — la discipline est devenue sagesse' },
+      'vs1':  { name:'Première Tonne',            desc:'1t en une séance — bien joué !' },
+      'vs3':  { name:'Effort Soutenu',            desc:'3t — tu mets du cœur à l\'ouvrage' },
+      'vs5':  { name:'Endurance Remarquable',     desc:'5t — ton corps te remercie' },
+      'vt10':   { name:'Apprenti du Mouvement',   desc:'10t cumulées — tu poses les bases' },
+      'vt50':   { name:'Artisan du Corps',         desc:'50t — le travail porte ses fruits' },
+      'vt100':  { name:'Sculpteur de Forme',       desc:'100t — ton engagement est visible' },
+      'dur60':  { name:'Première Heure',           desc:'1h — une belle séance complète' },
+      'dur90':  { name:'Session Prolongée',        desc:'1h30 — tu prends soin de toi' },
+      'dur120': { name:'Marathonien du Studio',    desc:'2h — engagement et persévérance' },
+    };
+    b.forEach(function(badge) {
+      if (wellnessNames[badge.id]) {
+        badge.name = wellnessNames[badge.id].name;
+        badge.desc = wellnessNames[badge.id].desc;
+        badge.ref = 'Bien-être';
+      }
+    });
+  }
+
   return b;
+}
+
+function getBadgeTheme() {
+  var mode = db.user.trainingMode || 'powerlifting';
+  if (mode === 'bien_etre') return 'wellness';
+  return 'warrior';
 }
 
 function calcTotalXP() {
@@ -3198,7 +3324,8 @@ function renderDotsWilks() {
     });
   });
   if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
-  card.style.display = '';
+  card.style.display = shouldShow('dots_wilks') ? '' : 'none';
+  if (!shouldShow('dots_wilks')) return;
   const total = squat + bench + deadlift;
   const gender = db.user.gender === 'F' ? 'F' : 'M';
   const dots = computeDOTS(total, bw, gender);
@@ -4781,7 +4908,42 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     // Check password migration for existing magic-link users
     checkPasswordMigration(user);
   });
+  // Local notifications init
+  try { initNotifications(); } catch(e) {}
 })();
+
+// ============================================================
+// NOTIFICATIONS LOCALES
+// ============================================================
+function initNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if (Notification.permission === 'granted') {
+    _checkTrainingReminder();
+    return;
+  }
+  if (db.logs.length < 3) return;
+  Notification.requestPermission().then(function(perm) {
+    if (perm === 'granted') _checkTrainingReminder();
+  });
+}
+
+function sendLocalNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body: body }); } catch(e) {}
+}
+
+function _checkTrainingReminder() {
+  var now = new Date();
+  if (now.getHours() < 17) return;
+  var today = getTodayStr();
+  var alreadyTrained = db.logs.some(function(l) { return l.shortDate === today || (l.timestamp && new Date(l.timestamp).toISOString().slice(0,10) === today); });
+  if (alreadyTrained) return;
+  if (!isTodayTrainingDay()) return;
+  var routine = getRoutine();
+  var todayDay = DAYS_FULL[now.getDay()];
+  var label = routine[todayDay] || 'entraînement';
+  sendLocalNotification('💪 C\'est jour d\'entraînement', todayDay + ' — ' + label);
+}
 
 // ============================================================
 // ONGLET CORPS
@@ -4896,9 +5058,14 @@ function renderVolumeLandmarks() {
     const sets = Math.round((vol[key] || 0) * 10) / 10;
     const pct = Math.min(100, (sets / lm.MRV) * 100);
     let color = 'var(--sub)'; let status = '< MEV';
-    if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
-    else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
-    else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
+    if (shouldShow('mev_mav_mrv')) {
+      if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
+      else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
+      else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
+    } else {
+      if (sets >= lm.MEV) { color = 'var(--green)'; status = '✅ Volume suffisant'; }
+      else { color = 'var(--orange)'; status = '⚠️ Volume insuffisant'; }
+    }
     var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
     html += '<div style="margin-bottom:8px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
@@ -6190,6 +6357,10 @@ function renderSettingsProfile() {
   const modeEl = document.getElementById('settingsTrainingMode');
   if (modeEl) modeEl.value = db.user.trainingMode || 'powerlifting';
 
+  // Niveau de détail UI
+  const uiDetailEl = document.getElementById('settingsUIDetail');
+  if (uiDetailEl) uiDetailEl.value = db.user.uiDetail || 'auto';
+
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
   if (goalsEl) {
@@ -6516,6 +6687,171 @@ function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
   if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
+}
+
+// ============================================================
+// COACH TAB — Briefing, Post-Session, Weekly Report
+// ============================================================
+function renderCoachTab() {
+  renderCoachBriefing();
+  if (new Date().getDay() === 1) generateWeeklyReport();
+  renderCoachReports();
+}
+
+function renderCoachBriefing() {
+  var el = document.getElementById('coachBriefing');
+  if (!el) return;
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var label = routine[todayDay] || '';
+  var isRest = !label || /repos|😴/i.test(label);
+
+  if (isRest) {
+    el.innerHTML = '<div class="coach-card"><div class="coach-card-title">😴 Jour de repos</div>' +
+      '<div class="coach-card-body" style="font-size:12px;color:var(--sub);">Pas de séance prévue. Profite pour récupérer, t\'hydrater et bien dormir.</div></div>';
+    return;
+  }
+
+  var exos = getProgExosForDay(todayDay);
+  var readiness = getTodayReadiness();
+
+  var h = '<div class="coach-card">';
+  h += '<div class="coach-card-title">📋 Séance du jour — ' + todayDay + '</div>';
+  h += '<div class="coach-card-subtitle">' + label + '</div>';
+
+  if (exos.length) {
+    h += '<div class="coach-exo-list">';
+    exos.forEach(function(name) {
+      var ms = _ecMuscleStyle(name);
+      var shortName = name.replace(/\s*\(.*\)/, '').trim();
+      var trendHtml = '';
+      var pts = [];
+      var desc = getSortedLogs();
+      for (var i = 0; i < desc.length && pts.length < 4; i++) {
+        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, name) && e.maxRM > 0; });
+        if (found) pts.push(found.maxRM);
+      }
+      if (pts.length >= 2) {
+        var d = pts[0] - pts[1];
+        if (d > 0) trendHtml = ' <span style="color:var(--green);font-size:10px;">↑+' + d + 'kg</span>';
+        else if (d < 0) trendHtml = ' <span style="color:var(--red);font-size:10px;">↓' + d + 'kg</span>';
+        else trendHtml = ' <span style="color:var(--sub);font-size:10px;">→ stable</span>';
+      }
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">';
+      h += '<span style="font-size:14px;">' + ms.icon + '</span>';
+      h += '<span style="font-size:12px;color:var(--text);">' + shortName + trendHtml + '</span></div>';
+    });
+    h += '</div>';
+  }
+
+  if (readiness) {
+    var advice = '';
+    if (readiness.score >= 80) advice = '💪 Tu es en pleine forme. Pousse tes limites aujourd\'hui.';
+    else if (readiness.score >= 60) advice = '👍 Bonne forme. Séance normale, reste concentré.';
+    else if (readiness.score >= 40) advice = '⚠️ Forme moyenne. Réduis un peu le volume, écoute ton corps.';
+    else advice = '🛑 Fatigue détectée. Séance allégée recommandée ou repos actif.';
+    h += '<div class="coach-advice">' + advice + '</div>';
+  } else {
+    h += '<div class="coach-advice" style="color:var(--sub);">Remplis ton readiness dans le GO pour un conseil personnalisé.</div>';
+  }
+
+  var tips = [
+    'Pense à serrer les omoplates sur tous les mouvements de tirage.',
+    'Hydrate-toi entre chaque série — 200ml par série lourde.',
+    'Contrôle l\'excentrique (descente) : c\'est là que le muscle travaille le plus.',
+    'Si un exercice te fait mal (pas courbature, DOULEUR), remplace-le.',
+    'Les 2 dernières reps comptent plus que les 8 premières.',
+    'Respire : inspire en descente, expire en poussée.',
+    'Écris tes poids dans l\'app pour suivre ta progression.'
+  ];
+  var tipIdx = new Date().getDate() % tips.length;
+  h += '<div class="coach-tip">💡 ' + tips[tipIdx] + '</div>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function generateWeeklyReport() {
+  var weekKey = _getWeekKey();
+  if ((db.reports||[]).some(function(r) { return r.type === 'weekly' && r.weekKey === weekKey; })) return;
+
+  var prevWeekStart = new Date(weekKey).getTime() - 7 * 86400000;
+  var prevWeekEnd = new Date(weekKey).getTime();
+  var weekLogs = db.logs.filter(function(l) { return l.timestamp >= prevWeekStart && l.timestamp < prevWeekEnd; });
+  if (weekLogs.length === 0) return;
+
+  var totalVol = weekLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0);
+  var totalSets = 0;
+  weekLogs.forEach(function(l) { l.exercises.forEach(function(e) { totalSets += (e.sets || 0); }); });
+  var planned = getTrainingDaysCount();
+  var compliance = Math.min(100, Math.round((weekLogs.length / Math.max(1, planned)) * 100));
+
+  var h = '<div class="ai-section-title">📊 BILAN SEMAINE</div>';
+  h += '<strong>' + weekLogs.length + '</strong> séances sur ' + planned + ' prévues (' + compliance + '% compliance)<br>';
+  h += 'Volume total : <span class="ai-highlight blue">' + (totalVol / 1000).toFixed(1) + 't</span> · ' + totalSets + ' séries<br>';
+
+  var trends = [];
+  ['squat', 'bench', 'deadlift'].forEach(function(type) {
+    var mom = calcMomentum(type);
+    if (mom !== null) trends.push(type.charAt(0).toUpperCase() + type.slice(1) + ' : ' + (mom > 0 ? '+' : '') + mom + 'kg/sem');
+  });
+  if (trends.length) {
+    h += '<div class="ai-section-title">📈 TENDANCES</div>';
+    h += trends.join('<br>') + '<br>';
+  }
+
+  var weekReadiness = (db.readiness || []).filter(function(r) {
+    var ts = new Date(r.date).getTime();
+    return ts >= prevWeekStart && ts < prevWeekEnd;
+  });
+  if (weekReadiness.length) {
+    var avgR = Math.round(weekReadiness.reduce(function(s, r) { return s + r.score; }, 0) / weekReadiness.length);
+    h += '<div class="ai-section-title">😴 READINESS MOYENNE</div>';
+    h += avgR + '/100 ' + (avgR >= 70 ? '✅' : avgR >= 40 ? '⚠️' : '🔴') + '<br>';
+  }
+
+  h += '<div class="ai-section-title">💡 RECOMMANDATION</div>';
+  if (compliance < 60) h += 'Essaie de maintenir au moins ' + Math.ceil(planned * 0.75) + ' séances cette semaine.';
+  else if (compliance >= 100 && weekReadiness.length && weekReadiness[weekReadiness.length - 1].score < 50) h += 'Tu t\'es bien entraîné mais ta readiness baisse. Pense à récupérer.';
+  else h += 'Continue comme ça. Régularité = progression.';
+
+  if (!db.reports) db.reports = [];
+  db.reports.push({
+    id: generateId(),
+    type: 'weekly',
+    weekKey: weekKey,
+    html: '<div class="ai-response-content">' + h + '</div>',
+    created_at: Date.now(),
+    expires_at: Date.now() + 14 * 86400000,
+    read: false
+  });
+  saveDB();
+}
+
+function renderCoachReports() {
+  var el = document.getElementById('coachPostSession');
+  if (!el) return;
+  var reports = (db.reports || [])
+    .filter(function(r) { return (r.type === 'debrief' || r.type === 'weekly') && r.expires_at > Date.now(); })
+    .sort(function(a, b) { return b.created_at - a.created_at; })
+    .slice(0, 10);
+
+  if (!reports.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Termine une séance dans le GO pour voir l\'analyse ici.</div>';
+    return;
+  }
+
+  el.innerHTML = reports.map(function(r) {
+    var typeLabel = r.type === 'debrief' ? '🏋️ Débrief' : '📊 Bilan Hebdo';
+    var dl = daysLeft(r.expires_at);
+    return '<div class="coach-report-card">' +
+      '<div class="coach-report-header">' +
+      '<span class="coach-report-type">' + (r.read ? '' : '🔴 ') + typeLabel + '</span>' +
+      '<span class="coach-report-date">' + timeAgo(r.created_at) + ' · ' + dl + 'j restants</span></div>' +
+      '<div class="coach-report-body">' + (r.html || '') + '</div></div>';
+  }).join('');
+
+  reports.forEach(function(r) { r.read = true; });
+  saveDB();
 }
 
 
@@ -7094,7 +7430,7 @@ function renderWpExercise(exo) {
     } else if (type === 'weight' && s0.weight > 0) {
       summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
     }
-    if (s0.rpe && type !== 'time') summary += ' · RPE ' + s0.rpe;
+    if (s0.rpe && type !== 'time') summary += ' · ' + t('rpe', s0.rpe);
   }
 
   // Sets content
@@ -7108,7 +7444,7 @@ function renderWpExercise(exo) {
     const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
     let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
-    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
     setsHtml = '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:6px 10px;margin:4px 12px 8px;border-radius:6px;font-size:11px;color:var(--orange);">📐 Charges estimées — à ajuster après ta première séance</div>' +
       '<div class="wpe-sets">' + hdr + rows + '</div>';
 
@@ -7125,7 +7461,7 @@ function renderWpExercise(exo) {
     const hasWeight = wrkSets.some(s => s.weight !== null && s.weight > 0);
     if (hasWeight) {
       const hdr = '<div class="wpe-set-hdr"><span></span><span>Lest</span><span>Reps</span><span>RPE</span></div>';
-      const rows = wrkSets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + (s.reps === 'max' ? 'max' : s.reps) + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+      const rows = wrkSets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + (s.reps === 'max' ? 'max' : s.reps) + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
       setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
     } else {
       const target = wrkSets[0]?.reps ?? 'max';
@@ -7142,7 +7478,7 @@ function renderWpExercise(exo) {
     const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
     let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
-    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
     setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
   }
 
@@ -7263,6 +7599,44 @@ swimming:{id:'swimming',name:'Natation',nameAlt:['Swimming','Nage'],equipment:'o
 jump_rope:{id:'jump_rope',name:'Corde à Sauter',nameAlt:['Jump Rope','Sauts corde'],equipment:'other',category:'cardio',trackingType:'cardio',primaryMuscles:['Cardio','Mollets'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:300,instructions:'1. Corde ajustée à sa taille\n2. Poignets souples, coudes au corps\n3. Petits sauts sur la pointe des pieds\n4. Garder le regard droit devant\n5. Rythme régulier'},
 assault_bike:{id:'assault_bike',name:'Assault Bike',nameAlt:['Air Bike','Vélo assault'],equipment:'machine',category:'cardio',trackingType:'cardio',primaryMuscles:['Cardio'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:300,instructions:'1. Assis sur le vélo, pieds sur les pédales\n2. Mains sur les poignées mobiles\n3. Pédaler et pousser/tirer avec les bras\n4. Résistance augmente avec la vitesse\n5. Idéal pour le HIIT'},
 stairmaster:{id:'stairmaster',name:'Stairmaster',nameAlt:['Stepper','Escalier'],equipment:'machine',category:'cardio',trackingType:'cardio',primaryMuscles:['Cardio','Quadriceps'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:300,instructions:'1. Monter sur la machine\n2. Saisir les poignées légèrement\n3. Monter les marches à rythme régulier\n4. Ne pas s\'appuyer sur les bras\n5. Ajuster la vitesse selon l\'objectif'},
+// ── PILATES ──
+pilates_hundred:{id:'pilates_hundred',name:'The Hundred',nameAlt:['Cent','Pilates Hundred'],equipment:'bodyweight',category:'isolation',trackingType:'time',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Obliques'],tertiaryMuscles:[],defaultRest:30,instructions:'1. Allongé, jambes en table ou tendues à 45°\n2. Décoller tête et épaules du sol\n3. Bras le long du corps, paumes vers le bas\n4. Battre les bras de haut en bas (5 temps inspire, 5 temps expire)\n5. 100 battements total'},
+pilates_rollup:{id:'pilates_rollup',name:'Roll-Up Pilates',nameAlt:['Pilates Roll Up','Enroulé vertébral'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Lombaires'],tertiaryMuscles:[],defaultRest:30,instructions:'1. Allongé, bras au-dessus de la tête\n2. Inspirer, décoller les bras puis la tête\n3. Enrouler le buste vertèbre par vertèbre\n4. Aller toucher les orteils\n5. Redescendre lentement en déroulant'},
+pilates_leg_circle:{id:'pilates_leg_circle',name:'Cercles de Jambe',nameAlt:['Leg Circles','Single Leg Circle'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Fessiers'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Allongé, une jambe tendue vers le plafond\n2. Dessiner des cercles avec la jambe levée\n3. 5 cercles dans un sens, 5 dans l\'autre\n4. Garder le bassin stable'},
+pilates_rolling:{id:'pilates_rolling',name:'Rolling Like a Ball',nameAlt:['Boule Pilates'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Lombaires'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Assis, genoux pliés vers la poitrine\n2. Mains sur les tibias, menton vers la poitrine\n3. Rouler en arrière jusqu\'aux omoplates\n4. Revenir en position assise équilibrée'},
+pilates_single_leg_stretch:{id:'pilates_single_leg_stretch',name:'Single Leg Stretch',nameAlt:['Étirement jambe simple'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:20,instructions:'1. Allongé, tête et épaules décollées\n2. Un genou vers la poitrine, l\'autre jambe tendue à 45°\n3. Alterner les jambes en rythme'},
+pilates_double_leg_stretch:{id:'pilates_double_leg_stretch',name:'Double Leg Stretch',nameAlt:['Étirement double jambe'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Épaules'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Allongé, genoux à la poitrine, tête décollée\n2. Inspirer : tendre bras et jambes vers l\'extérieur\n3. Expirer : ramener bras et genoux'},
+pilates_spine_stretch:{id:'pilates_spine_stretch',name:'Spine Stretch Forward',nameAlt:['Étirement colonne'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Lombaires'],secondaryMuscles:['Ischio-jambiers'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Assis, jambes écartées devant, pieds flex\n2. Bras devant à hauteur d\'épaules\n3. Expirer en enroulant vers l\'avant\n4. Revenir en empilant les vertèbres'},
+pilates_saw:{id:'pilates_saw',name:'The Saw (Pilates)',nameAlt:['Scie Pilates'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Obliques'],secondaryMuscles:['Ischio-jambiers'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Assis, jambes écartées, bras en croix\n2. Tourner le buste vers la gauche\n3. Main droite vers le pied gauche en sciant\n4. Alterner les côtés'},
+pilates_swan:{id:'pilates_swan',name:'Swan Dive',nameAlt:['Plongée du cygne'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Lombaires'],secondaryMuscles:['Fessiers'],tertiaryMuscles:[],defaultRest:30,instructions:'1. Allongé sur le ventre, mains sous les épaules\n2. Pousser pour lever le buste\n3. Extension de la colonne\n4. Redescendre en contrôlant'},
+pilates_teaser:{id:'pilates_teaser',name:'Teaser',nameAlt:['Pilates Teaser','V-sit Pilates'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:30,instructions:'1. Allongé, bras au-dessus de la tête\n2. Monter simultanément bras et jambes\n3. Former un V avec le corps\n4. Redescendre lentement'},
+pilates_swimming:{id:'pilates_swimming',name:'Swimming (Pilates)',nameAlt:['Nage Pilates'],equipment:'bodyweight',category:'isolation',trackingType:'time',primaryMuscles:['Lombaires'],secondaryMuscles:['Fessiers','Épaules'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Allongé sur le ventre, bras devant\n2. Décoller bras et jambes du sol\n3. Battre bras et jambes en alternance\n4. Garder le regard vers le sol'},
+pilates_bridge:{id:'pilates_bridge',name:'Pont Pilates',nameAlt:['Pilates Bridge','Shoulder Bridge'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Fessiers'],secondaryMuscles:['Lombaires','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:30,instructions:'1. Allongé, genoux pliés, pieds au sol\n2. Monter le bassin vertèbre par vertèbre\n3. Serrer les fessiers en haut\n4. Redescendre en déroulant la colonne'},
+pilates_cat_cow:{id:'pilates_cat_cow',name:'Cat-Cow',nameAlt:['Chat-Vache','Dos rond dos creux'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Lombaires'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:20,instructions:'1. À quatre pattes, mains sous les épaules\n2. Inspirer : creuser le dos (vache)\n3. Expirer : arrondir le dos (chat)\n4. Mouvement fluide avec la respiration'},
+pilates_mermaid:{id:'pilates_mermaid',name:'Mermaid Stretch',nameAlt:['Sirène Pilates','Étirement sirène'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Obliques'],secondaryMuscles:['Épaules'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Assis en Z (jambes pliées sur le côté)\n2. Bras droit au-dessus de la tête\n3. Incliner le buste vers la gauche\n4. Revenir et alterner'},
+pilates_side_kick:{id:'pilates_side_kick',name:'Side Kick Series',nameAlt:['Battements latéraux'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Fessiers'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:20,instructions:'1. Allongé sur le côté, tête sur le bras\n2. Lever la jambe du dessus\n3. Balancer devant/derrière en contrôlant\n4. Garder le bassin stable'},
+// ── YOGA & MOBILITÉ ──
+yoga_downdog:{id:'yoga_downdog',name:'Chien Tête en Bas',nameAlt:['Downward Dog','Adho Mukha Svanasana'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Ischio-jambiers'],secondaryMuscles:['Épaules','Mollets'],tertiaryMuscles:[],defaultRest:15,instructions:'1. À quatre pattes, pousser les fesses vers le plafond\n2. Jambes et bras tendus, former un V inversé\n3. Talons vers le sol\n4. Tenir en respirant profondément'},
+yoga_warrior1:{id:'yoga_warrior1',name:'Guerrier I',nameAlt:['Warrior I','Virabhadrasana I'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Quadriceps'],secondaryMuscles:['Épaules','Fessiers'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Grand pas en avant, genou avant à 90°\n2. Bras levés au-dessus de la tête\n3. Hanches face à l\'avant\n4. Regard vers les mains'},
+yoga_warrior2:{id:'yoga_warrior2',name:'Guerrier II',nameAlt:['Warrior II','Virabhadrasana II'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Grand pas latéral, genou avant à 90°\n2. Bras étendus à l\'horizontale\n3. Regard au-dessus de la main avant'},
+yoga_pigeon:{id:'yoga_pigeon',name:'Pigeon',nameAlt:['Pigeon Pose','Eka Pada Rajakapotasana'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Fessiers'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:15,instructions:'1. Depuis le chien tête en bas, amener un genou devant\n2. Tibia avant croisé devant les hanches\n3. Se pencher vers l\'avant\n4. Tenir 30-60s par côté'},
+yoga_child_pose:{id:'yoga_child_pose',name:'Posture de l\'Enfant',nameAlt:['Child Pose','Balasana'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Lombaires'],secondaryMuscles:['Épaules'],tertiaryMuscles:[],defaultRest:15,instructions:'1. À genoux, fesses sur les talons\n2. Pencher le buste en avant, front au sol\n3. Bras étendus devant\n4. Respirer profondément'},
+yoga_cobra:{id:'yoga_cobra',name:'Cobra',nameAlt:['Cobra Pose','Bhujangasana'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Lombaires'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Allongé sur le ventre, mains sous les épaules\n2. Pousser doucement pour lever la poitrine\n3. Garder les coudes légèrement fléchis'},
+yoga_tree:{id:'yoga_tree',name:'Arbre',nameAlt:['Tree Pose','Vrikshasana'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Quadriceps'],secondaryMuscles:['Abdos (frontal)','Mollets'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Debout sur une jambe\n2. Pied opposé sur la cuisse intérieure\n3. Mains jointes devant la poitrine\n4. Tenir 30s chaque côté'},
+yoga_triangle:{id:'yoga_triangle',name:'Triangle',nameAlt:['Triangle Pose','Trikonasana'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Obliques'],secondaryMuscles:['Ischio-jambiers'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Grand écart latéral, bras en croix\n2. Incliner le buste vers un pied\n3. Main basse sur le tibia\n4. Bras supérieur vers le plafond'},
+mobility_hip_flexor:{id:'mobility_hip_flexor',name:'Étirement Fléchisseurs de Hanche',nameAlt:['Hip Flexor Stretch','Fente basse'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Un genou au sol, l\'autre pied devant à 90°\n2. Pousser les hanches vers l\'avant\n3. 30-45s chaque côté'},
+mobility_hamstring:{id:'mobility_hamstring',name:'Étirement Ischio-Jambiers',nameAlt:['Hamstring Stretch'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Ischio-jambiers'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:15,instructions:'1. Debout, un pied sur un support bas\n2. Jambe tendue, pointe du pied vers soi\n3. Pencher le buste vers la jambe\n4. 30s chaque côté'},
+mobility_pec_stretch:{id:'mobility_pec_stretch',name:'Étirement Pectoraux',nameAlt:['Pec Stretch','Doorway Stretch'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Pecs'],secondaryMuscles:['Épaules'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Bras sur un montant de porte, coude à 90°\n2. Avancer un pied pour créer l\'étirement\n3. 30s chaque côté'},
+mobility_thoracic:{id:'mobility_thoracic',name:'Rotation Thoracique',nameAlt:['Thoracic Rotation','Bretzel'],equipment:'bodyweight',category:'stretch',trackingType:'reps',primaryMuscles:['Lombaires'],secondaryMuscles:['Obliques'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Allongé sur le côté, genou du dessus à 90° devant\n2. Ouvrir le bras vers l\'arrière en tournant le buste\n3. 5-8× chaque côté'},
+mobility_shoulder_dislocate:{id:'mobility_shoulder_dislocate',name:'Dislocation d\'Épaule (Bâton)',nameAlt:['Shoulder Dislocate','Pass-through'],equipment:'other',category:'stretch',trackingType:'reps',primaryMuscles:['Épaules'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Debout, bâton ou élastique en mains, prise large\n2. Passer le bâton au-dessus de la tête vers l\'arrière\n3. Revenir par le même chemin'},
+mobility_90_90:{id:'mobility_90_90',name:'Position 90/90',nameAlt:['90/90 Hip Stretch'],equipment:'bodyweight',category:'stretch',trackingType:'time',primaryMuscles:['Fessiers'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:15,instructions:'1. Assis, jambe avant pliée à 90° devant\n2. Jambe arrière pliée à 90° sur le côté\n3. Pencher vers la jambe avant\n4. 30-45s chaque côté'},
+mobility_world_greatest:{id:'mobility_world_greatest',name:'World\'s Greatest Stretch',nameAlt:['WGS','Le meilleur étirement du monde'],equipment:'bodyweight',category:'stretch',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Ischio-jambiers','Lombaires','Épaules'],tertiaryMuscles:[],defaultRest:15,instructions:'1. Position fente avant\n2. Main intérieure au sol à côté du pied\n3. Rotation du buste, bras vers le plafond\n4. 3-5 reps chaque côté'},
+// ── FONCTIONNEL ──
+kettlebell_swing:{id:'kettlebell_swing',name:'Kettlebell Swing',nameAlt:['KB Swing','Balancement kettlebell'],equipment:'other',category:'compound',trackingType:'weight',primaryMuscles:['Fessiers'],secondaryMuscles:['Ischio-jambiers','Lombaires'],tertiaryMuscles:['Épaules'],defaultRest:90,instructions:'1. Debout, pieds largeur d\'épaules, KB au sol\n2. Hinge des hanches, saisir le KB\n3. Extension explosive des hanches\n4. Le KB monte à hauteur d\'épaules par l\'élan'},
+turkish_getup:{id:'turkish_getup',name:'Turkish Get-Up',nameAlt:['TGU','Relevé turc'],equipment:'other',category:'compound',trackingType:'weight',primaryMuscles:['Épaules'],secondaryMuscles:['Abdos (frontal)','Fessiers'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Allongé, KB/haltère bras tendu vers le plafond\n2. Se lever étape par étape en gardant le bras tendu\n3. Se mettre debout\n4. Redescendre dans l\'ordre inverse'},
+farmers_walk:{id:'farmers_walk',name:'Farmer\'s Walk',nameAlt:['Marche du fermier'],equipment:'dumbbell',category:'compound',trackingType:'time',primaryMuscles:['Avant-bras'],secondaryMuscles:['Trapèzes','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Un haltère lourd dans chaque main\n2. Se tenir droit, épaules basses\n3. Marcher à pas réguliers\n4. Garder le gainage'},
+battle_ropes:{id:'battle_ropes',name:'Battle Ropes',nameAlt:['Cordes ondulatoires'],equipment:'other',category:'cardio',trackingType:'time',primaryMuscles:['Épaules'],secondaryMuscles:['Abdos (frontal)','Avant-bras'],tertiaryMuscles:[],defaultRest:60,instructions:'1. Debout, pieds larges, légèrement fléchi\n2. Une corde dans chaque main\n3. Faire des vagues alternées ou simultanées\n4. 20-40 secondes par round'},
+box_jump:{id:'box_jump',name:'Box Jump',nameAlt:['Saut sur boîte'],equipment:'other',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers','Mollets'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Face à la box, pieds largeur d\'épaules\n2. Fléchir et balancer les bras en arrière\n3. Sauter en poussant fort\n4. Atterrir les deux pieds sur la box'},
 };
 // Nombre total d'exercices
 // console.log('EXO_DATABASE:', Object.keys(EXO_DATABASE).length, 'exercices');
@@ -7378,6 +7752,7 @@ function renderGoIdleView() {
     '<div class="go-idle-sub">' + todayDay + (sessionName ? ' · ' + sessionName : '') + '</div>' +
     '<button class="go-btn-main" onclick="goStartWorkout(true)">▶ Lancer la séance</button>' +
     '<button class="go-btn-sec" onclick="goStartWorkout(false)">📝 Séance vide</button>' +
+    '<button class="go-btn-sec" onclick="goStartGroupClass()">🧘 Cours collectif</button>' +
     (hasDraft ? '<button class="go-btn-sec" onclick="goRestoreDraft()">📂 Reprendre brouillon</button>' : '') +
     '</div>';
   document.getElementById('goIdleView').innerHTML = h;
@@ -7487,11 +7862,71 @@ function goTogglePause() {
 }
 
 // ============================================================
+// ── Cours Collectif ──
+var _GROUP_ICONS = {Yoga:'🧘',Pilates:'🤸',Natation:'🏊',Cycling:'🚴',Boxing:'🥊',Running:'🏃',Danse:'💃'};
+
+function goStartGroupClass() {
+  goShowBottomSheet('Type de cours', [
+    { icon:'🧘', label:'Yoga', action: function() { _goCreateGroupSession('Yoga'); } },
+    { icon:'🤸', label:'Pilates', action: function() { _goCreateGroupSession('Pilates'); } },
+    { icon:'🏊', label:'Natation', action: function() { _goCreateGroupSession('Natation'); } },
+    { icon:'🚴', label:'Cycling', action: function() { _goCreateGroupSession('Cycling'); } },
+    { icon:'🥊', label:'Boxing / Combat', action: function() { _goCreateGroupSession('Boxing'); } },
+    { icon:'🏃', label:'Running club', action: function() { _goCreateGroupSession('Running'); } },
+    { icon:'💃', label:'Danse', action: function() { _goCreateGroupSession('Danse'); } },
+    { icon:'📝', label:'Autre (personnalisé)', action: function() {
+      var name = prompt('Nom du cours :');
+      if (name) _goCreateGroupSession(name);
+    }}
+  ]);
+}
+
+function _goCreateGroupSession(type) {
+  activeWorkout = {
+    id: generateId(),
+    title: type,
+    startTime: Date.now(),
+    isGroupClass: true,
+    groupType: type,
+    exercises: [{
+      exoId: null,
+      name: type,
+      sets: [{ weight: 0, reps: 0, type: 'normal', completed: false, duration: 0, distance: 0 }],
+      restSeconds: 0,
+      notes: ''
+    }],
+    restTimer: { running: false, remaining: 0, total: 0, exoIndex: -1 }
+  };
+  _goSessionPaused = false;
+  goStartAutoSave();
+  goRequestWakeLock();
+  goStartSessionTimer();
+  goAutoSave();
+  renderGoTab();
+}
+
 // GO TAB — Active View Rendering
 // ============================================================
 function renderGoActiveView() {
   if (!activeWorkout) return;
   var elapsed = Math.floor((Date.now() - activeWorkout.startTime) / 1000);
+
+  // ── Group Class: simplified view ──
+  if (activeWorkout.isGroupClass) {
+    var gIcon = _GROUP_ICONS[activeWorkout.groupType] || '🏋️';
+    var gh = '<div class="go-group-class">';
+    gh += '<div class="go-group-icon">' + gIcon + '</div>';
+    gh += '<div class="go-group-title">' + activeWorkout.title + '</div>';
+    gh += '<div class="go-group-timer" id="goTimerDisplay">' + goFormatTime(elapsed) + '</div>';
+    gh += '<textarea class="go-group-notes" placeholder="Notes sur le cours..." onchange="activeWorkout.exercises[0].notes=this.value;">' + (activeWorkout.exercises[0].notes || '') + '</textarea>';
+    gh += '<div style="display:flex;gap:12px;margin-top:20px;">';
+    gh += '<button class="go-btn-sec" style="flex:1;" onclick="goTogglePause()">' + (_goSessionPaused ? '▶ Reprendre' : '⏸ Pause') + '</button>';
+    gh += '<button class="go-finish-btn" style="flex:2;background:var(--green);color:#000;" onclick="goConfirmFinish()">✓ Terminer</button>';
+    gh += '</div></div>';
+    document.getElementById('goActiveView').innerHTML = gh;
+    return;
+  }
+
   var allE1RMs = getAllBestE1RMs();
 
   // Compute counters
@@ -8309,6 +8744,21 @@ function convertWorkoutToSession(workout) {
   var session = createSession(workout.title, workout.startTime);
   session.duration = Math.round((Date.now() - workout.startTime) / 1000);
 
+  // Group class: single cardio-like exercise with duration
+  if (workout.isGroupClass) {
+    session.isGroupClass = true;
+    session.groupType = workout.groupType;
+    var gExo = createExercise(workout.title);
+    gExo.isCardio = true;
+    gExo.exoType = 'cardio';
+    gExo.maxTime = session.duration;
+    gExo.cardioDate = workout.startTime;
+    gExo.sets = 1;
+    gExo.notes = workout.exercises[0] ? workout.exercises[0].notes : '';
+    session.exercises.push(gExo);
+    return finalizeSessionFromSeries(session);
+  }
+
   workout.exercises.forEach(function(exo) {
     var exercise = createExercise(exo.name);
     var completedSets = exo.sets.filter(function(s) { return s.completed; });
@@ -8373,6 +8823,7 @@ function goFinishWorkout() {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {
         const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
         publishPRActivity(name, db.bestPR[type], oldPRs[type]);
+        sendLocalNotification('🏆 Nouveau record !', name + ' : ' + db.bestPR[type] + 'kg (ancien: ' + oldPRs[type] + 'kg)');
       }
     });
     updateLeaderboardSnapshot();
@@ -8387,6 +8838,12 @@ function goFinishWorkout() {
 
   activeWorkout = null;
   _goSessionPaused = false;
+
+  // Notification
+  var _nSets = 0, _nTonnage = 0;
+  (session.exercises||[]).forEach(function(e) { _nSets += (e.sets||0); });
+  _nTonnage = session.volume || 0;
+  sendLocalNotification('✅ Séance terminée', 'Bravo ! ' + _nSets + ' séries, ' + (_nTonnage >= 1000 ? (_nTonnage/1000).toFixed(1) + 't' : _nTonnage + 'kg') + ' de volume');
 
   showToast('✅ Séance sauvegardée');
   renderGoTab();

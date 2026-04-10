@@ -6838,6 +6838,49 @@ const BW_RATIOS = {
   isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
 };
 
+// ── Helpers séries / reps / repos par catégorie et objectif ──
+// Sources : NSCA, PubMed (de Salles 2009), Stronger by Science, Pelland/Zourdos 2025
+function mapTrainingModeToGoal(mode) {
+  const map = { powerlifting:'force', force_athletique:'force', bodybuilding:'masse', bien_etre:'bien_etre' };
+  return map[mode] || 'force';
+}
+
+function getWorkSets(exerciseCategory, goal) {
+  const table = {
+    force:    { big: 5, compound: 4, isolation: 3 },
+    masse:    { big: 4, compound: 4, isolation: 3 },
+    recompo:  { big: 4, compound: 3, isolation: 3 },
+    seche:    { big: 3, compound: 3, isolation: 2 },
+    maintien: { big: 3, compound: 3, isolation: 2 },
+    bien_etre:{ big: 3, compound: 3, isolation: 2 }
+  };
+  return (table[goal] || table.maintien)[exerciseCategory] || 3;
+}
+
+function getRepRange(exerciseCategory, goal) {
+  const table = {
+    force:    { big: {reps:5, rpe:8},  compound: {reps:6, rpe:8},  isolation: {reps:10, rpe:8} },
+    masse:    { big: {reps:8, rpe:8},  compound: {reps:10, rpe:8}, isolation: {reps:12, rpe:9} },
+    recompo:  { big: {reps:6, rpe:8},  compound: {reps:8, rpe:8},  isolation: {reps:10, rpe:8} },
+    seche:    { big: {reps:8, rpe:7},  compound: {reps:10, rpe:8}, isolation: {reps:15, rpe:8} },
+    maintien: { big: {reps:6, rpe:7},  compound: {reps:8, rpe:7},  isolation: {reps:12, rpe:7} },
+    bien_etre:{ big: {reps:10,rpe:7},  compound: {reps:12, rpe:7}, isolation: {reps:15, rpe:7} }
+  };
+  return (table[goal] || table.maintien)[exerciseCategory] || {reps:10, rpe:8};
+}
+
+function getRestSeconds(exerciseCategory, goal) {
+  const table = {
+    force:    { big: 240, compound: 180, isolation: 120 },
+    masse:    { big: 150, compound: 120, isolation: 75 },
+    recompo:  { big: 180, compound: 150, isolation: 90 },
+    seche:    { big: 120, compound: 90,  isolation: 60 },
+    maintien: { big: 150, compound: 120, isolation: 90 },
+    bien_etre:{ big: 120, compound: 90,  isolation: 60 }
+  };
+  return (table[goal] || table.maintien)[exerciseCategory] || 90;
+}
+
 // ── Deload automatique ──────────────────────────────────────
 function shouldDeload() {
   const reasons = [];

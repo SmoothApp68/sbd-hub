@@ -351,7 +351,7 @@ function timeAgo(dateStr) {
 }
 
 function avatarInitial(username) {
-  return (username || '?').charAt(0).toUpperCase();
+  return (username || 'U').charAt(0).toUpperCase();
 }
 
 function generateInviteCodeString() {
@@ -442,8 +442,14 @@ async function ensureFriendCode() {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
 
-  // If we already have it locally
-  if (db.friendCode) return db.friendCode;
+  // If we already have it locally, verify it exists in DB too
+  if (db.friendCode) {
+    try {
+      const { data } = await supaClient.from('profiles').select('friend_code').eq('id', uid).maybeSingle();
+      if (data && data.friend_code) return data.friend_code;
+      // Local has it but DB doesn't — write it below
+    } catch (_) {}
+  }
 
   try {
     // Check if profile already has a friend_code in Supabase
@@ -455,7 +461,7 @@ async function ensureFriendCode() {
     }
 
     // Generate a new unique code
-    let code = generateFriendCode();
+    let code = db.friendCode || generateFriendCode();
     let attempts = 0;
     while (attempts < 10) {
       const { data: existing } = await supaClient.from('profiles').select('id').eq('friend_code', code).maybeSingle();
@@ -464,19 +470,29 @@ async function ensureFriendCode() {
       attempts++;
     }
 
-    // Save to Supabase
+    // Save to Supabase via upsert
     const { error } = await supaClient.from('profiles').upsert({
       id: uid,
-      friend_code: code,
-      updated_at: new Date().toISOString()
+      friend_code: code
     }, { onConflict: 'id' });
-    if (error) throw error;
+    if (error) {
+      console.error('ensureFriendCode UPSERT error:', error);
+      showToast('Erreur code ami : ' + error.message);
+      return null;
+    }
+
+    // Verify write
+    const { data: verify } = await supaClient.from('profiles').select('friend_code').eq('id', uid).maybeSingle();
+    if (!verify || !verify.friend_code) {
+      console.error('ensureFriendCode: wrote code but cannot read it back (RLS?)');
+    }
 
     db.friendCode = code;
     saveDB();
     return code;
   } catch (e) {
     console.error('ensureFriendCode error:', e);
+    showToast('Erreur code ami');
     return null;
   }
 }
@@ -552,8 +568,9 @@ async function ensureProfile() {
       || (existing && existing.friend_code)
       || generateFriendCode();
 
-    // 4. Upsert — create or update
-    const { error: upsertErr } = await supaClient.from('profiles').upsert({
+    // 4. Build upsert payload — never overwrite a DB value with a weaker local value
+    const onboardingDone = db.social.onboardingCompleted || (existing && existing.onboarding_completed) || false;
+    const profilePayload = {
       id: uid,
       username: username,
       bio: db.social.bio || (existing && existing.bio) || '',
@@ -563,8 +580,13 @@ async function ensureProfile() {
       visibility_programme: db.social.visibility?.programme || (existing && existing.visibility_programme) || 'private',
       visibility_seances: db.social.visibility?.seances || (existing && existing.visibility_seances) || 'private',
       visibility_stats: db.social.visibility?.stats || (existing && existing.visibility_stats) || 'private',
-      onboarding_completed: db.social.onboardingCompleted || (existing && existing.onboarding_completed) || false
-    }, { onConflict: 'id' });
+      onboarding_completed: onboardingDone
+    };
+
+    // 5. Upsert — create or update
+    const { error: upsertErr } = await supaClient.from('profiles').upsert(
+      profilePayload, { onConflict: 'id' }
+    );
 
     if (upsertErr) {
       console.error('ensureProfile UPSERT error:', upsertErr);
@@ -572,18 +594,10 @@ async function ensureProfile() {
       if (upsertErr.message && upsertErr.message.includes('username')) {
         const retryUsername = username + Math.floor(Math.random() * 999);
         console.warn('ensureProfile: username conflict, retrying with', retryUsername);
-        const { error: retryErr } = await supaClient.from('profiles').upsert({
-          id: uid,
-          username: retryUsername,
-          bio: db.social.bio || (existing && existing.bio) || '',
-          friend_code: friendCode,
-          visibility_bio: db.social.visibility?.bio || 'private',
-          visibility_prs: db.social.visibility?.prs || 'private',
-          visibility_programme: db.social.visibility?.programme || 'private',
-          visibility_seances: db.social.visibility?.seances || 'private',
-          visibility_stats: db.social.visibility?.stats || 'private',
-          onboarding_completed: db.social.onboardingCompleted || false
-        }, { onConflict: 'id' });
+        profilePayload.username = retryUsername;
+        const { error: retryErr } = await supaClient.from('profiles').upsert(
+          profilePayload, { onConflict: 'id' }
+        );
         if (retryErr) {
           console.error('ensureProfile RETRY error:', retryErr);
           showToast('Erreur création profil : ' + retryErr.message);
@@ -594,6 +608,11 @@ async function ensureProfile() {
         showToast('Erreur création profil : ' + upsertErr.message);
         return null;
       }
+    }
+
+    // Sync onboarding flag back if DB had it true
+    if (onboardingDone && !db.social.onboardingCompleted) {
+      db.social.onboardingCompleted = true;
     }
 
     // 5. Sync back to local state
@@ -1243,7 +1262,7 @@ async function loadAndRenderComments(activityId) {
   } catch {}
 
   const commentsHtml = comments.map(c => {
-    const p = profiles[c.user_id] || { username: '?' };
+    const p = profiles[c.user_id] || { username: 'Utilisateur' };
     const canDelete = c.user_id === uid || activityAuthorId === uid;
     return '<div class="feed-comment">' +
       '<div class="feed-comment-avatar">' + avatarInitial(p.username) + '</div>' +
@@ -1461,7 +1480,7 @@ async function renderLeaderboard() {
 
     // Sort by value descending
     const ranking = Object.entries(bestByUser)
-      .map(([userId, value]) => ({ userId, value, username: (profiles[userId] || { username: '?' }).username }))
+      .map(([userId, value]) => ({ userId, value, username: (profiles[userId] || { username: 'Utilisateur' }).username }))
       .sort((a, b) => b.value - a.value);
 
     // Render podium (top 3)
@@ -1585,7 +1604,7 @@ async function renderFriendsTab() {
   if (pending.length) {
     pendingSection.style.display = '';
     pendingList.innerHTML = pending.map(f => {
-      const p = profiles[f.requester_id] || { username: '?' };
+      const p = profiles[f.requester_id] || { username: 'Utilisateur' };
       return '<div class="friends-item">' +
         '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + avatarInitial(p.username) + '</div>' +
         '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + p.username + '</div><div class="friends-item-status">Demande reçue</div></div>' +
@@ -1605,7 +1624,7 @@ async function renderFriendsTab() {
   if (accepted.length) {
     friendsList.innerHTML = accepted.map(f => {
       const friendId = f.requester_id === uid ? f.target_id : f.requester_id;
-      const p = profiles[friendId] || { username: '?' };
+      const p = profiles[friendId] || { username: 'Utilisateur' };
       return '<div class="friends-item">' +
         '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')">' + avatarInitial(p.username) + '</div>' +
         '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div></div>' +
@@ -1626,7 +1645,7 @@ async function renderFriendsTab() {
   if (blocked.length) {
     blockedSection.style.display = '';
     blockedList.innerHTML = blocked.map(f => {
-      const p = profiles[f.target_id] || { username: '?' };
+      const p = profiles[f.target_id] || { username: 'Utilisateur' };
       return '<div class="friends-item">' +
         '<div class="friends-item-avatar">' + avatarInitial(p.username) + '</div>' +
         '<div class="friends-item-info"><div class="friends-item-name">' + p.username + '</div><div class="friends-item-status">Bloqué</div></div>' +
@@ -1694,10 +1713,10 @@ async function renderNotifications() {
     const ic = icons[n.type] || { icon: '🔔', css: '' };
     const d = n.data || {};
     let text = '';
-    if (n.type === 'friend_accepted') text = '<strong>' + (d.username || '?') + '</strong> a accepté ta demande d\'ami';
-    else if (n.type === 'reaction') text = '<strong>' + (d.username || '?') + '</strong> a réagi ' + (d.emoji || '') + ' à ton post';
-    else if (n.type === 'comment') text = '<strong>' + (d.username || '?') + '</strong> a commenté : "' + (d.text || '') + '"';
-    else if (n.type === 'pr_beaten') text = '<strong>' + (d.username || '?') + '</strong> a battu ton PR ' + (d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
+    if (n.type === 'friend_accepted') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a accepté ta demande d\'ami';
+    else if (n.type === 'reaction') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a réagi ' + (d.emoji || '') + ' à ton post';
+    else if (n.type === 'comment') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a commenté : "' + (d.text || '') + '"';
+    else if (n.type === 'pr_beaten') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a battu ton PR ' + (d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
 
     return '<div class="notif-item' + (!n.read ? ' unread' : '') + '">' +
       '<div class="notif-icon ' + ic.css + '">' + ic.icon + '</div>' +
@@ -1753,18 +1772,29 @@ async function diagnoseSocial() {
     }
   } catch (e) { fail('Auth — ' + e.message); }
 
-  // 2. Profiles table & friend_code column
+  // 2. Profiles table & critical columns
   try {
     const uid = await getMyUserIdAsync();
     if (!uid) { fail('Impossible de récupérer ton identifiant'); }
     else {
-      const { data, error } = await supaClient.from('profiles').select('id, username, friend_code').eq('id', uid).maybeSingle();
-      if (error) { fail('Table profiles inaccessible — ' + error.message); }
-      else if (!data) { fail('Aucun profil trouvé pour ton compte (table profiles vide ou RLS bloque)'); }
-      else {
-        ok('Profil trouvé : ' + (data.username || '(pas de pseudo)'));
+      const { data, error } = await supaClient.from('profiles')
+        .select('id, username, friend_code, bio, visibility_bio, onboarding_completed')
+        .eq('id', uid).maybeSingle();
+      if (error) {
+        fail('Table profiles inaccessible — ' + error.message);
+        if (error.message && error.message.includes('column')) {
+          fail('Une colonne est probablement manquante dans la table profiles. Vérifie que friend_code, bio et visibility_bio existent.');
+        }
+      } else if (!data) {
+        fail('Aucun profil trouvé pour ton compte (table profiles vide ou RLS bloque)');
+      } else {
+        ok('Colonnes profiles OK (id, username, friend_code, bio, visibility_bio)');
+        if (data.username) { ok('Username en base : ' + data.username); }
+        else { fail('Username absent en base — le profil est incomplet'); }
         if (data.friend_code) { ok('Code ami en base : ' + data.friend_code); }
-        else { fail('Colonne friend_code absente ou vide — la colonne existe-t-elle dans Supabase ?'); }
+        else { fail('friend_code absent ou vide en base'); }
+        if (data.onboarding_completed) { ok('Onboarding complété en base'); }
+        else { fail('Onboarding non complété en base — le profil peut être partiel'); }
       }
     }
   } catch (e) { fail('Profiles — ' + e.message); }

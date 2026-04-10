@@ -1363,6 +1363,7 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
+  if (id === 'seances-coach') renderCoachTab();
 }
 
 function showProfilSub(id, btn) {
@@ -6530,6 +6531,171 @@ function renderCoachAlgoAI() {
   const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
   if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
   el.innerHTML = generateCoachAlgoMessage();
+}
+
+// ============================================================
+// COACH TAB — Briefing, Post-Session, Weekly Report
+// ============================================================
+function renderCoachTab() {
+  renderCoachBriefing();
+  if (new Date().getDay() === 1) generateWeeklyReport();
+  renderCoachReports();
+}
+
+function renderCoachBriefing() {
+  var el = document.getElementById('coachBriefing');
+  if (!el) return;
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var label = routine[todayDay] || '';
+  var isRest = !label || /repos|😴/i.test(label);
+
+  if (isRest) {
+    el.innerHTML = '<div class="coach-card"><div class="coach-card-title">😴 Jour de repos</div>' +
+      '<div class="coach-card-body" style="font-size:12px;color:var(--sub);">Pas de séance prévue. Profite pour récupérer, t\'hydrater et bien dormir.</div></div>';
+    return;
+  }
+
+  var exos = getProgExosForDay(todayDay);
+  var readiness = getTodayReadiness();
+
+  var h = '<div class="coach-card">';
+  h += '<div class="coach-card-title">📋 Séance du jour — ' + todayDay + '</div>';
+  h += '<div class="coach-card-subtitle">' + label + '</div>';
+
+  if (exos.length) {
+    h += '<div class="coach-exo-list">';
+    exos.forEach(function(name) {
+      var ms = _ecMuscleStyle(name);
+      var shortName = name.replace(/\s*\(.*\)/, '').trim();
+      var trendHtml = '';
+      var pts = [];
+      var desc = getSortedLogs();
+      for (var i = 0; i < desc.length && pts.length < 4; i++) {
+        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, name) && e.maxRM > 0; });
+        if (found) pts.push(found.maxRM);
+      }
+      if (pts.length >= 2) {
+        var d = pts[0] - pts[1];
+        if (d > 0) trendHtml = ' <span style="color:var(--green);font-size:10px;">↑+' + d + 'kg</span>';
+        else if (d < 0) trendHtml = ' <span style="color:var(--red);font-size:10px;">↓' + d + 'kg</span>';
+        else trendHtml = ' <span style="color:var(--sub);font-size:10px;">→ stable</span>';
+      }
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">';
+      h += '<span style="font-size:14px;">' + ms.icon + '</span>';
+      h += '<span style="font-size:12px;color:var(--text);">' + shortName + trendHtml + '</span></div>';
+    });
+    h += '</div>';
+  }
+
+  if (readiness) {
+    var advice = '';
+    if (readiness.score >= 80) advice = '💪 Tu es en pleine forme. Pousse tes limites aujourd\'hui.';
+    else if (readiness.score >= 60) advice = '👍 Bonne forme. Séance normale, reste concentré.';
+    else if (readiness.score >= 40) advice = '⚠️ Forme moyenne. Réduis un peu le volume, écoute ton corps.';
+    else advice = '🛑 Fatigue détectée. Séance allégée recommandée ou repos actif.';
+    h += '<div class="coach-advice">' + advice + '</div>';
+  } else {
+    h += '<div class="coach-advice" style="color:var(--sub);">Remplis ton readiness dans le GO pour un conseil personnalisé.</div>';
+  }
+
+  var tips = [
+    'Pense à serrer les omoplates sur tous les mouvements de tirage.',
+    'Hydrate-toi entre chaque série — 200ml par série lourde.',
+    'Contrôle l\'excentrique (descente) : c\'est là que le muscle travaille le plus.',
+    'Si un exercice te fait mal (pas courbature, DOULEUR), remplace-le.',
+    'Les 2 dernières reps comptent plus que les 8 premières.',
+    'Respire : inspire en descente, expire en poussée.',
+    'Écris tes poids dans l\'app pour suivre ta progression.'
+  ];
+  var tipIdx = new Date().getDate() % tips.length;
+  h += '<div class="coach-tip">💡 ' + tips[tipIdx] + '</div>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function generateWeeklyReport() {
+  var weekKey = _getWeekKey();
+  if ((db.reports||[]).some(function(r) { return r.type === 'weekly' && r.weekKey === weekKey; })) return;
+
+  var prevWeekStart = new Date(weekKey).getTime() - 7 * 86400000;
+  var prevWeekEnd = new Date(weekKey).getTime();
+  var weekLogs = db.logs.filter(function(l) { return l.timestamp >= prevWeekStart && l.timestamp < prevWeekEnd; });
+  if (weekLogs.length === 0) return;
+
+  var totalVol = weekLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0);
+  var totalSets = 0;
+  weekLogs.forEach(function(l) { l.exercises.forEach(function(e) { totalSets += (e.sets || 0); }); });
+  var planned = getTrainingDaysCount();
+  var compliance = Math.min(100, Math.round((weekLogs.length / Math.max(1, planned)) * 100));
+
+  var h = '<div class="ai-section-title">📊 BILAN SEMAINE</div>';
+  h += '<strong>' + weekLogs.length + '</strong> séances sur ' + planned + ' prévues (' + compliance + '% compliance)<br>';
+  h += 'Volume total : <span class="ai-highlight blue">' + (totalVol / 1000).toFixed(1) + 't</span> · ' + totalSets + ' séries<br>';
+
+  var trends = [];
+  ['squat', 'bench', 'deadlift'].forEach(function(type) {
+    var mom = calcMomentum(type);
+    if (mom !== null) trends.push(type.charAt(0).toUpperCase() + type.slice(1) + ' : ' + (mom > 0 ? '+' : '') + mom + 'kg/sem');
+  });
+  if (trends.length) {
+    h += '<div class="ai-section-title">📈 TENDANCES</div>';
+    h += trends.join('<br>') + '<br>';
+  }
+
+  var weekReadiness = (db.readiness || []).filter(function(r) {
+    var ts = new Date(r.date).getTime();
+    return ts >= prevWeekStart && ts < prevWeekEnd;
+  });
+  if (weekReadiness.length) {
+    var avgR = Math.round(weekReadiness.reduce(function(s, r) { return s + r.score; }, 0) / weekReadiness.length);
+    h += '<div class="ai-section-title">😴 READINESS MOYENNE</div>';
+    h += avgR + '/100 ' + (avgR >= 70 ? '✅' : avgR >= 40 ? '⚠️' : '🔴') + '<br>';
+  }
+
+  h += '<div class="ai-section-title">💡 RECOMMANDATION</div>';
+  if (compliance < 60) h += 'Essaie de maintenir au moins ' + Math.ceil(planned * 0.75) + ' séances cette semaine.';
+  else if (compliance >= 100 && weekReadiness.length && weekReadiness[weekReadiness.length - 1].score < 50) h += 'Tu t\'es bien entraîné mais ta readiness baisse. Pense à récupérer.';
+  else h += 'Continue comme ça. Régularité = progression.';
+
+  if (!db.reports) db.reports = [];
+  db.reports.push({
+    id: generateId(),
+    type: 'weekly',
+    weekKey: weekKey,
+    html: '<div class="ai-response-content">' + h + '</div>',
+    created_at: Date.now(),
+    expires_at: Date.now() + 14 * 86400000,
+    read: false
+  });
+  saveDB();
+}
+
+function renderCoachReports() {
+  var el = document.getElementById('coachPostSession');
+  if (!el) return;
+  var reports = (db.reports || [])
+    .filter(function(r) { return (r.type === 'debrief' || r.type === 'weekly') && r.expires_at > Date.now(); })
+    .sort(function(a, b) { return b.created_at - a.created_at; })
+    .slice(0, 10);
+
+  if (!reports.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Termine une séance dans le GO pour voir l\'analyse ici.</div>';
+    return;
+  }
+
+  el.innerHTML = reports.map(function(r) {
+    var typeLabel = r.type === 'debrief' ? '🏋️ Débrief' : '📊 Bilan Hebdo';
+    var dl = daysLeft(r.expires_at);
+    return '<div class="coach-report-card">' +
+      '<div class="coach-report-header">' +
+      '<span class="coach-report-type">' + (r.read ? '' : '🔴 ') + typeLabel + '</span>' +
+      '<span class="coach-report-date">' + timeAgo(r.created_at) + ' · ' + dl + 'j restants</span></div>' +
+      '<div class="coach-report-body">' + (r.html || '') + '</div></div>';
+  }).join('');
+
+  reports.forEach(function(r) { r.read = true; });
+  saveDB();
 }
 
 

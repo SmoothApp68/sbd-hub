@@ -5397,13 +5397,28 @@ function renderCardioStats() {
 // SCORE DE FORME (EWMA ATL/CTL + composantes + Momentum)
 // ============================================================
 function calcFormScore() {
-  // Composante 1 — Régularité (25pts)
+  // Composante 1 — Régularité (25pts) — utiliser le plan si disponible
   const sessions7 = getLogsInRange(7).length;
-  const routine = getRoutine();
-  const plannedDays = Math.max(3, Object.values(routine).filter(v => v && !v.includes('Repos') && !v.includes('😴')).length);
+  let plannedDays = 3;
+  if (db.weeklyPlan?.days) {
+    plannedDays = db.weeklyPlan.days.filter(d => !d.rest).length || 3;
+  } else {
+    const routine = getRoutine();
+    plannedDays = Math.max(3, Object.values(routine).filter(v => v && !v.includes('Repos') && !v.includes('😴')).length);
+  }
   const c1 = Math.min(25, Math.round((sessions7 / plannedDays) * 25));
 
   // Composante 2 — Ratio charge aiguë/chronique ATL/CTL (25pts) — EWMA
+  // Seuils ajustés au bloc en cours
+  const _fLevel = db.user.level || 'intermediaire';
+  const _fWeek = db.weeklyPlan?.week || null;
+  const _fBlocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[_fLevel]) ? BLOC_PARAMS[_fLevel][_fWeek] : null;
+  let acwrIdeal = { low: 0.8, high: 1.3 };
+  if (_fBlocP && _fBlocP.label) {
+    if (_fBlocP.label.includes('Accumulation')) acwrIdeal = { low: 1.0, high: 1.5 };
+    else if (_fBlocP.label.includes('Deload')) acwrIdeal = { low: 0.4, high: 0.8 };
+    else if (_fBlocP.label.includes('Peak') || _fBlocP.label.includes('Réalisation')) acwrIdeal = { low: 0.9, high: 1.2 };
+  }
   let atl = 0, ctl = 0, c2 = 0;
   const allLogs = [...db.logs].sort((a,b) => a.timestamp - b.timestamp);
   // Count distinct training days in history
@@ -5439,9 +5454,9 @@ function calcFormScore() {
     ctl = Math.round(ewmaChronic * 10) / 10;
     if (ctl > 0) {
       const r = atl / ctl;
-      if (r >= 0.8 && r <= 1.3) c2 = 25;
-      else if (r >= 0.5 && r < 0.8) c2 = Math.round(((r - 0.5) / 0.3) * 18) + 4;
-      else if (r > 1.3 && r <= 1.8) c2 = Math.round(((1.8 - r) / 0.5) * 20);
+      if (r >= acwrIdeal.low && r <= acwrIdeal.high) c2 = 25;
+      else if (r >= acwrIdeal.low - 0.3 && r < acwrIdeal.low) c2 = Math.round(((r - (acwrIdeal.low - 0.3)) / 0.3) * 18) + 4;
+      else if (r > acwrIdeal.high && r <= acwrIdeal.high + 0.5) c2 = Math.round(((acwrIdeal.high + 0.5 - r) / 0.5) * 20);
       else c2 = 5;
     } else if (atl > 0) c2 = 15;
   } else {
@@ -5452,9 +5467,9 @@ function calcFormScore() {
     ctl = setsInRange(28) / 4;
     if (ctl > 0) {
       const r = atl / ctl;
-      if (r >= 0.8 && r <= 1.3) c2 = 25;
-      else if (r >= 0.5 && r < 0.8) c2 = Math.round(((r - 0.5) / 0.3) * 18) + 4;
-      else if (r > 1.3 && r <= 1.8) c2 = Math.round(((1.8 - r) / 0.5) * 20);
+      if (r >= acwrIdeal.low && r <= acwrIdeal.high) c2 = 25;
+      else if (r >= acwrIdeal.low - 0.3 && r < acwrIdeal.low) c2 = Math.round(((r - (acwrIdeal.low - 0.3)) / 0.3) * 18) + 4;
+      else if (r > acwrIdeal.high && r <= acwrIdeal.high + 0.5) c2 = Math.round(((acwrIdeal.high + 0.5 - r) / 0.5) * 20);
       else c2 = 5;
     } else if (atl > 0) c2 = 15;
   }

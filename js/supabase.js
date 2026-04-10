@@ -729,6 +729,22 @@ async function updateBio(newBio) {
 }
 
 // ============================================================
+// SOCIAL MODULE — TRAINING STATUS (live)
+// ============================================================
+async function setTrainingStatus(active, sessionTitle) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    await supaClient.from('profiles').update({
+      training_status: active ? (sessionTitle || 'Séance') : null,
+      training_since: active ? new Date().toISOString() : null
+    }).eq('id', uid);
+  } catch (e) {
+    console.error('setTrainingStatus error:', e);
+  }
+}
+
+// ============================================================
 // SOCIAL MODULE — FRIEND SYSTEM
 // ============================================================
 async function searchUsers(query) {
@@ -1065,16 +1081,35 @@ async function renderFeed() {
     return;
   }
 
+  // Training banner — friends currently training
+  let trainingBanner = '';
+  try {
+    const friendIds = await getAcceptedFriendIds();
+    if (friendIds.length) {
+      const { data: trainingFriends } = await supaClient.from('profiles')
+        .select('username, training_status, training_since')
+        .in('id', friendIds)
+        .not('training_status', 'is', null);
+      if (trainingFriends && trainingFriends.length) {
+        trainingBanner = '<div style="background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;">' +
+          trainingFriends.map(f => {
+            const mins = Math.floor((Date.now() - new Date(f.training_since).getTime()) / 60000);
+            return '<div style="font-size:12px;color:var(--green);padding:2px 0;">🟢 <strong>' + f.username + '</strong> s\'entraîne — ' + f.training_status + ' · depuis ' + mins + 'min</div>';
+          }).join('') + '</div>';
+      }
+    }
+  } catch (e) {}
+
   // Separate pinned (today's PRs)
   const today = new Date().toDateString();
   const pinned = _feedItems.filter(i => i.pinned && new Date(i.created_at).toDateString() === today);
   const regular = _feedItems.filter(i => !pinned.includes(i));
 
   if (pinned.length) {
-    pinnedSection.innerHTML = '<div class="feed-pinned-header">🔥 PRs du jour</div>' +
+    pinnedSection.innerHTML = trainingBanner + '<div class="feed-pinned-header">🔥 PRs du jour</div>' +
       pinned.map(i => renderFeedCard(i, profiles, uid)).join('');
   } else {
-    pinnedSection.innerHTML = '';
+    pinnedSection.innerHTML = trainingBanner;
   }
 
   feedContent.innerHTML = regular.map(i => renderFeedCard(i, profiles, uid)).join('');
@@ -1697,7 +1732,7 @@ async function renderFriendsTab() {
   let profiles = {};
   if (allUserIds.size) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(allUserIds));
+      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -1734,10 +1769,20 @@ async function renderFriendsTab() {
       const p = profiles[friendId] || { username: 'Utilisateur' };
       const daysSince = f.created_at ? Math.floor((Date.now() - new Date(f.created_at).getTime()) / 86400000) : 0;
       const sinceText = daysSince <= 0 ? 'Ami depuis aujourd\'hui' : 'Ami depuis ' + daysSince + 'j';
+      const isTraining = p.training_status && p.training_since;
+      let statusHtml = '';
+      if (isTraining) {
+        const minsSince = Math.floor((Date.now() - new Date(p.training_since).getTime()) / 60000);
+        statusHtml = '<div style="color:var(--green);font-size:11px;font-weight:600;">🟢 S\'entraîne — ' + p.training_status + ' · depuis ' + minsSince + 'min</div>';
+      } else {
+        statusHtml = '<div class="friends-item-status" style="color:var(--sub);font-size:11px;">' + sinceText + '</div>';
+      }
       return '<div class="friends-item">' +
-        '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')">' + avatarInitial(p.username) + '</div>' +
+        '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')" style="position:relative;">' + avatarInitial(p.username) +
+        (isTraining ? '<span style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--card);animation:pulse 2s infinite;"></span>' : '') +
+        '</div>' +
         '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div>' +
-        '<div class="friends-item-status" style="color:var(--sub);font-size:11px;">' + sinceText + '</div></div>' +
+        statusHtml + '</div>' +
         '<div class="friends-item-actions">' +
           '<button class="friends-item-btn remove" onclick="removeFriend(\'' + f.id + '\')">Retirer</button>' +
           '<button class="friends-item-btn block" onclick="blockUser(\'' + friendId + '\')">Bloquer</button>' +

@@ -2097,6 +2097,10 @@ async function showProfileOverlay(userId) {
       }
       html += '<button class="btn" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);font-size:13px;width:auto;padding:10px 16px;" onclick="blockUser(\'' + userId + '\')">Bloquer</button>';
       html += '</div>';
+      // Compare button (only for accepted friends)
+      if (isFriend) {
+        html += '<div style="margin-bottom:16px;"><button class="btn" style="background:linear-gradient(135deg,rgba(255,149,0,0.15),rgba(255,59,48,0.15));border:1px solid rgba(255,149,0,0.3);color:var(--orange,#ff9500);font-size:13px;font-weight:700;" onclick="showComparisonView(\'' + userId + '\')">⚔️ Comparer</button></div>';
+      }
     }
 
     // PRs section
@@ -2146,6 +2150,147 @@ async function showProfileOverlay(userId) {
 
 function closeProfileOverlay() {
   document.getElementById('profileOverlay').style.display = 'none';
+}
+
+// ============================================================
+// SOCIAL MODULE — COMPARISON VIEW (⚔️)
+// ============================================================
+async function showComparisonView(friendId) {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  const overlay = document.getElementById('profileOverlay');
+  overlay.style.display = '';
+  overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Chargement comparaison...</div>';
+
+  try {
+    // Load friend profile
+    const { data: friendProfile } = await supaClient.from('profiles')
+      .select('id, username, visibility_prs, visibility_stats')
+      .eq('id', friendId)
+      .maybeSingle();
+    if (!friendProfile) { overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--sub);">Profil introuvable</div>'; return; }
+
+    const canSeePrs = friendProfile.visibility_prs === 'public' || friendProfile.visibility_prs === 'friends';
+    const canSeeStats = friendProfile.visibility_stats === 'public' || friendProfile.visibility_stats === 'friends';
+
+    // Load friend's leaderboard snapshots
+    let friendPRs = {};
+    if (canSeePrs) {
+      const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
+        .select('exercise_name, value')
+        .eq('user_id', friendId)
+        .order('value', { ascending: false });
+      if (snapshots) {
+        snapshots.forEach(s => {
+          if (!friendPRs[s.exercise_name] || s.value > friendPRs[s.exercise_name]) friendPRs[s.exercise_name] = s.value;
+        });
+      }
+    }
+
+    // Load friend's session stats
+    let friendSessionsPerWeek = 0;
+    let friendAvgVolume = 0;
+    if (canSeeStats) {
+      const { data: activities } = await supaClient.from('activity_feed')
+        .select('data, created_at')
+        .eq('user_id', friendId)
+        .eq('type', 'session')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (activities && activities.length) {
+        const weeks = Math.max(1, (Date.now() - new Date(activities[activities.length - 1].created_at).getTime()) / (7 * 86400000));
+        friendSessionsPerWeek = Math.round((activities.length / weeks) * 10) / 10;
+        const totalVol = activities.reduce((s, a) => s + ((a.data && a.data.volume) || 0), 0);
+        friendAvgVolume = activities.length ? Math.round(totalVol / activities.length) : 0;
+      }
+    }
+
+    // My data
+    const myUsername = db.social.username || 'Moi';
+    const myPRs = {};
+    // SBD
+    if (db.bestPR.squat > 0) myPRs['Squat'] = db.bestPR.squat;
+    if (db.bestPR.bench > 0) myPRs['Développé couché'] = db.bestPR.bench;
+    if (db.bestPR.deadlift > 0) myPRs['Soulevé de terre'] = db.bestPR.deadlift;
+    // Key lifts
+    (db.keyLifts || []).forEach(kl => {
+      if (myPRs[kl.name]) return;
+      let best = 0;
+      db.logs.forEach(log => { log.exercises.forEach(e => { if (e.name === kl.name && e.maxRM > best) best = e.maxRM; }); });
+      if (best > 0) myPRs[kl.name] = best;
+    });
+
+    // My session stats (last 30 sessions)
+    const recentLogs = db.logs.slice(0, 30);
+    let mySessionsPerWeek = 0;
+    let myAvgVolume = 0;
+    if (recentLogs.length) {
+      const weeks = Math.max(1, (Date.now() - recentLogs[recentLogs.length - 1].timestamp) / (7 * 86400000));
+      mySessionsPerWeek = Math.round((recentLogs.length / weeks) * 10) / 10;
+      myAvgVolume = Math.round(recentLogs.reduce((s, l) => s + (l.volume || 0), 0) / recentLogs.length);
+    }
+
+    // Total SBD
+    const myTotal = (myPRs['Squat'] || 0) + (myPRs['Développé couché'] || 0) + (myPRs['Soulevé de terre'] || 0);
+    const friendTotal = (friendPRs['Squat'] || 0) + (friendPRs['Développé couché'] || 0) + (friendPRs['Soulevé de terre'] || 0);
+
+    // Build comparison HTML
+    let html = '<button class="profile-back" onclick="showProfileOverlay(\'' + friendId + '\')">← Retour au profil</button>';
+    html += '<div style="text-align:center;padding:16px 0 12px;"><div style="font-size:20px;font-weight:800;">⚔️ Comparaison</div>';
+    html += '<div style="display:flex;justify-content:center;align-items:center;gap:20px;margin-top:12px;">';
+    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(myUsername) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + myUsername + '</div></div>';
+    html += '<div style="font-size:18px;font-weight:800;color:var(--sub);">VS</div>';
+    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(friendProfile.username) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + friendProfile.username + '</div></div>';
+    html += '</div></div>';
+
+    function compRow(label, myVal, friendVal, unit) {
+      const myNum = typeof myVal === 'number' ? myVal : 0;
+      const fNum = typeof friendVal === 'number' ? friendVal : 0;
+      const maxVal = Math.max(myNum, fNum, 1);
+      const myPct = (myNum / maxVal) * 100;
+      const fPct = (fNum / maxVal) * 100;
+      const myColor = myNum > fNum ? 'var(--green)' : myNum === fNum ? 'var(--blue)' : 'var(--sub)';
+      const fColor = fNum > myNum ? 'var(--green)' : fNum === myNum ? 'var(--blue)' : 'var(--sub)';
+      const myDisplay = myVal === '🔒' ? '🔒' : Math.round(myNum) + (unit || '');
+      const fDisplay = friendVal === '🔒' ? '🔒' : Math.round(fNum) + (unit || '');
+
+      return '<div style="margin-bottom:12px;">' +
+        '<div style="text-align:center;font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">' + label + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<div style="width:60px;text-align:right;font-size:13px;font-weight:700;color:' + myColor + ';">' + myDisplay + '</div>' +
+          '<div style="flex:1;display:flex;gap:2px;align-items:center;">' +
+            '<div style="flex:1;height:8px;border-radius:4px;background:var(--border);overflow:hidden;direction:rtl;"><div style="height:100%;border-radius:4px;background:' + myColor + ';width:' + myPct + '%;"></div></div>' +
+            '<div style="flex:1;height:8px;border-radius:4px;background:var(--border);overflow:hidden;"><div style="height:100%;border-radius:4px;background:' + fColor + ';width:' + fPct + '%;"></div></div>' +
+          '</div>' +
+          '<div style="width:60px;text-align:left;font-size:13px;font-weight:700;color:' + fColor + ';">' + fDisplay + '</div>' +
+        '</div></div>';
+    }
+
+    html += '<div class="card" style="margin-top:12px;">';
+
+    // SBD exercises
+    const sbdExos = ['Squat', 'Développé couché', 'Soulevé de terre'];
+    sbdExos.forEach(exo => {
+      const myVal = myPRs[exo] || 0;
+      const fVal = canSeePrs ? (friendPRs[exo] || 0) : '🔒';
+      html += compRow(exo, myVal, fVal, 'kg');
+    });
+
+    // Total SBD
+    html += compRow('Total SBD', myTotal, canSeePrs ? friendTotal : '🔒', 'kg');
+
+    // Session stats
+    html += '<div style="border-top:1px solid var(--border);margin:8px 0;"></div>';
+    html += compRow('Séances / semaine', mySessionsPerWeek, canSeeStats ? friendSessionsPerWeek : '🔒', '');
+    html += compRow('Tonnage moyen / séance', myAvgVolume, canSeeStats ? friendAvgVolume : '🔒', 'kg');
+
+    html += '</div>';
+
+    overlay.innerHTML = html;
+  } catch (e) {
+    console.error('showComparisonView error:', e);
+    overlay.innerHTML = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button><div style="text-align:center;padding:40px;color:var(--red);">Erreur de chargement</div>';
+  }
 }
 
 // ============================================================

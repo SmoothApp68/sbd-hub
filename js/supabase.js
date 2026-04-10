@@ -2101,3 +2101,157 @@ function createChallenge() {
   showToast('🏆 Défi créé !');
   renderChallengesTab();
 }
+
+// ============================================================
+// SUPABASE PAUSE DETECTION & SAFE WRAPPER
+// ============================================================
+var _supabasePaused = false;
+
+async function checkSupabaseHealth() {
+  if (!supaClient) return false;
+  try {
+    var { data, error } = await supaClient.from('sbd_profiles').select('user_id').limit(1).maybeSingle();
+    if (error) {
+      if (error.message && (
+        error.message.indexOf('project is paused') >= 0 ||
+        error.message.indexOf('ECONNREFUSED') >= 0 ||
+        error.message.indexOf('fetch failed') >= 0 ||
+        error.code === 'PGRST301'
+      )) {
+        if (!_supabasePaused) {
+          _supabasePaused = true;
+          showToast('Cloud indisponible — mode hors-ligne');
+          console.warn('Supabase paused, switching to offline mode');
+        }
+        return false;
+      }
+    }
+    if (_supabasePaused) {
+      _supabasePaused = false;
+      showToast('Cloud reconnecté');
+      try { syncToCloud(true); } catch(e) {}
+    }
+    return true;
+  } catch(e) {
+    _supabasePaused = true;
+    return false;
+  }
+}
+
+async function safeSupabaseCall(fn) {
+  if (_supabasePaused) return null;
+  try {
+    return await fn();
+  } catch(e) {
+    if (e.message && (e.message.indexOf('fetch') >= 0 || e.message.indexOf('network') >= 0)) {
+      _supabasePaused = true;
+      showToast('Connexion cloud perdue — données sauvegardées localement');
+    }
+    return null;
+  }
+}
+
+// Periodically check if Supabase comes back online
+setInterval(function() {
+  if (_supabasePaused) checkSupabaseHealth();
+}, 5 * 60 * 1000);
+
+// Keep-alive: update last_active to prevent project pause
+async function keepAlive() {
+  if (!supaClient || !cloudSyncEnabled) return;
+  await safeSupabaseCall(async function() {
+    var { data: { user } } = await supaClient.auth.getUser();
+    if (user) {
+      await supaClient.from('sbd_profiles')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+    }
+  });
+}
+
+// ============================================================
+// OLD LOG COMPRESSION
+// ============================================================
+function compressOldLogs() {
+  var sixMonthsAgo = Date.now() - 180 * 86400000;
+  var modified = false;
+
+  (db.logs || []).forEach(function(log) {
+    if (log.timestamp > sixMonthsAgo) return;
+    if (log._compressed) return;
+
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo.allSets || exo.allSets.length <= 1) return;
+
+      var bestSet = { weight: 0, reps: 0 };
+      var totalVol = 0;
+      var setCount = 0;
+
+      exo.allSets.forEach(function(s) {
+        if (s.setType === 'warmup') return;
+        setCount++;
+        totalVol += (s.weight || 0) * (s.reps || 0);
+        if ((s.weight || 0) > bestSet.weight ||
+            ((s.weight || 0) === bestSet.weight && (s.reps || 0) > bestSet.reps)) {
+          bestSet = { weight: s.weight || 0, reps: s.reps || 0 };
+        }
+      });
+
+      exo._originalSetCount = exo.allSets.length;
+      exo.allSets = [bestSet];
+      exo.sets = setCount;
+      exo._compressedVolume = totalVol;
+    });
+
+    log._compressed = true;
+    modified = true;
+  });
+
+  if (modified) {
+    saveDBNow();
+    console.log('Old logs compressed (6+ months)');
+  }
+}
+
+// ============================================================
+// STORAGE GAUGE (Réglages)
+// ============================================================
+function renderStorageGauge() {
+  var el = document.getElementById('storageGauge');
+  if (!el) return;
+
+  var localSize = 0;
+  try {
+    for (var key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        localSize += (localStorage[key].length || 0) * 2;
+      }
+    }
+  } catch(e) {}
+  var localMB = (localSize / 1024 / 1024).toFixed(2);
+
+  var logCount = (db.logs || []).length;
+  var supaEstMB = (logCount * 0.002).toFixed(2);
+  var supaPercent = Math.round((supaEstMB / 500) * 100);
+
+  var barColor = supaPercent > 80 ? 'var(--red)' : supaPercent > 50 ? 'var(--orange)' : 'var(--green)';
+  var h = '<div style="margin-top:12px;padding:12px;background:var(--surface);border-radius:12px;border:1px solid var(--border);">';
+  h += '<div style="font-size:12px;font-weight:700;margin-bottom:8px;">Stockage</div>';
+  h += '<div style="font-size:11px;color:var(--sub);">Local : ' + localMB + ' MB</div>';
+  if (cloudSyncEnabled) {
+    h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">Cloud : ~' + supaEstMB + ' MB / 500 MB (' + supaPercent + '%)</div>';
+    h += '<div style="background:var(--surface);border-radius:4px;height:6px;margin-top:6px;overflow:hidden;border:1px solid var(--border);">';
+    h += '<div style="background:' + barColor + ';height:100%;width:' + Math.min(100, supaPercent) + '%;border-radius:4px;"></div>';
+    h += '</div>';
+    if (supaPercent > 70) {
+      h += '<div style="font-size:10px;color:var(--orange);margin-top:4px;">Les logs de +6 mois sont compresses automatiquement.</div>';
+    }
+  }
+  h += '<div style="margin-top:6px;font-size:11px;color:var(--sub);">' + logCount + ' seances';
+  var reportCount = (db.reports || []).length;
+  if (reportCount > 0) h += ' · ' + reportCount + ' reports';
+  h += '</div>';
+  h += '</div>';
+
+  el.innerHTML = h;
+}

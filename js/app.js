@@ -4824,6 +4824,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
+  // Compress logs older than 6 months to save storage
+  if (typeof compressOldLogs === 'function') compressOldLogs();
 
   const today=DAYS_FULL[new Date().getDay()];
   selectedDay=today;
@@ -4877,6 +4879,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     }
     // Check password migration for existing magic-link users
     checkPasswordMigration(user);
+    // Keep-alive ping to prevent Supabase project pause
+    if (typeof keepAlive === 'function') keepAlive();
   });
   // Local notifications init
   try { initNotifications(); } catch(e) {}
@@ -6215,6 +6219,7 @@ function fillSettingsFields() {
   const tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
   renderSettingsProfile();
+  if (typeof renderStorageGauge === 'function') renderStorageGauge();
   // Mark lazy accordions as dirty so they render on open
   _accDirty.records = true;
   _accDirty.keylifts = true;

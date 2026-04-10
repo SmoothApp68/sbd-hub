@@ -1589,15 +1589,21 @@ function showProfilSub(id, btn) {
   if (id === 'tab-settings') fillSettingsFields();
 }
 
+var _lastTabIndex = 0;
 function showTab(tabId) {
   // Destroy charts of the previous tab to free memory
   if (_currentTab && _currentTab !== tabId) _destroyTabCharts(_currentTab);
+  // Determine slide direction
+  var newBtn = document.querySelector('.tab-btn[data-tab="'+tabId+'"]');
+  var newIndex = newBtn ? parseInt(newBtn.dataset.index||'0') : 0;
+  var slideClass = newIndex > _lastTabIndex ? 'slide-in-right' : 'slide-in-left';
+  _lastTabIndex = newIndex;
   _currentTab = tabId;
-  document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.content-section').forEach(el => { el.classList.remove('active','slide-in-right','slide-in-left'); });
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById(tabId).classList.add('active');
-  const tabBtn = document.querySelector('.tab-btn[data-tab="'+tabId+'"]');
-  if (tabBtn) tabBtn.classList.add('active');
+  var target = document.getElementById(tabId);
+  if (target) { target.classList.add('active', slideClass); }
+  if (newBtn) newBtn.classList.add('active');
   if (tabId==='tab-dash') renderDash();
   if (tabId==='tab-seances') {
     if (activeSeancesSub === 'seances-go') renderGoTab();
@@ -4800,7 +4806,7 @@ async function importCSV() {
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
-  if(prSummary)showToast('🏆 PRs : '+prSummary);
+  if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){showPRCelebration(_n,_bestPR[0][1],0);},500);}}
   // Vérifier les records suspects après import CSV
   const suspectCount = Object.values(getSuspiciousRecordsSummary()).length;
   if (suspectCount > 0) {
@@ -9284,14 +9290,16 @@ function goFinishWorkout() {
   // Social: publish session activity
   try { publishSessionActivity(session); } catch(e) {}
 
-  // Social: detect new PRs and publish
+  // Social: detect new PRs and publish + celebration
   try {
     recalcBestPR();
+    var _prCelebrated = false;
     SBD_TYPES.forEach(type => {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {
         const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
         publishPRActivity(name, db.bestPR[type], oldPRs[type]);
         sendLocalNotification('🏆 Nouveau record !', name + ' : ' + db.bestPR[type] + 'kg (ancien: ' + oldPRs[type] + 'kg)');
+        if (!_prCelebrated) { showPRCelebration(name, db.bestPR[type], oldPRs[type]); _prCelebrated = true; }
       }
     });
     updateLeaderboardSnapshot();
@@ -9343,4 +9351,61 @@ function goDiscardWorkout() {
   // Social: clear training status
   try { setTrainingStatus(false); } catch(e) {}
 }
+
+// ============================================================
+// PR CELEBRATION OVERLAY
+// ============================================================
+function showPRCelebration(liftName, newValue, oldValue) {
+  var overlay = document.createElement('div');
+  overlay.className = 'pr-celebration-overlay';
+  overlay.innerHTML = '<div class="pr-celebration-box">' +
+    '<div class="pr-celebration-trophy">🏆</div>' +
+    '<div class="pr-celebration-title">Nouveau record !</div>' +
+    '<div class="pr-celebration-detail">' + liftName + ' : ' + Math.round(oldValue) + 'kg → <strong style="color:var(--success)">' + Math.round(newValue) + 'kg</strong></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function() { dismissPRCelebration(overlay); });
+  setTimeout(function() { dismissPRCelebration(overlay); }, 3000);
+}
+function dismissPRCelebration(overlay) {
+  if (!overlay || overlay._dismissed) return;
+  overlay._dismissed = true;
+  var box = overlay.querySelector('.pr-celebration-box');
+  if (box) box.classList.add('fade-out');
+  setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 500);
+}
+
+// ============================================================
+// PULL-TO-REFRESH (mobile)
+// ============================================================
+(function() {
+  var startY = 0, pulling = false, indicator = null;
+  function getIndicator() {
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'ptr-indicator';
+      indicator.textContent = 'Rafraîchissement...';
+      document.body.appendChild(indicator);
+    }
+    return indicator;
+  }
+  document.addEventListener('touchstart', function(e) {
+    if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e) {
+    if (!pulling) return;
+    var diff = e.touches[0].clientY - startY;
+    if (diff > 60) { getIndicator().classList.add('visible'); }
+  }, { passive: true });
+  document.addEventListener('touchend', function() {
+    if (!pulling) return;
+    pulling = false;
+    var ind = getIndicator();
+    if (ind.classList.contains('visible')) {
+      ind.classList.remove('visible');
+      if (typeof refreshUI === 'function') refreshUI();
+      if (typeof syncSupabase === 'function') syncSupabase();
+    }
+  }, { passive: true });
+})();
 

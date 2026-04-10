@@ -1,7 +1,7 @@
-// Service Worker minimal — SBD Elite Tracker
+// Service Worker minimal — TrainHub
 // Pas de cache agressif, juste le nécessaire pour l'installation PWA
 
-const CACHE_NAME = 'sbd-elite-v2';
+const CACHE_NAME = 'trainhub-v1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -26,7 +26,7 @@ self.addEventListener('fetch', event => {
 
 // Push notifications
 self.addEventListener('push', function(event) {
-  var data = event.data ? event.data.json() : { title: 'Training Hub', body: 'Notification' };
+  var data = event.data ? event.data.json() : { title: 'TrainHub', body: 'Notification' };
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,

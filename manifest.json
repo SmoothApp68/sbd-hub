@@ -1,11 +1,11 @@
 {
-  "name": "SBD Elite Tracker",
-  "short_name": "SBD Elite",
-  "description": "Tracker de force SBD — powerlifting & recomposition corporelle",
+  "name": "TrainHub",
+  "short_name": "TrainHub",
+  "description": "Suivi d'entraînement multi-disciplines — musculation, calisthenics, yoga, pilates",
   "start_url": "/sbd-hub/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0C0C18",
+  "theme_color": "#0C0C18",
   "orientation": "portrait",
   "icons": [
     {

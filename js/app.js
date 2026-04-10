@@ -3163,11 +3163,10 @@ function renderDash() {
 function renderReadinessSparkline() {
   const el = document.getElementById('readinessSparkline');
   if (!el) return;
-  const cutoff = Date.now() - 28 * 86400000;
+  const cutoff = Date.now() - 14 * 86400000;
   const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
   if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
   const vals = recent.map(r => r.score);
-  const labels = recent.map(r => r.date.slice(5));
   const W = 280, H = 60, pad = 6;
   const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
   const pts = vals.map((v, i) => ({
@@ -3178,13 +3177,28 @@ function renderReadinessSparkline() {
   const last = pts[pts.length - 1];
   const lastScore = vals[vals.length - 1];
   const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
-  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:4px;">READINESS</div>' +
+  // Moyenne et tendance
+  const avg = Math.round(vals.reduce((s,v) => s+v, 0) / vals.length);
+  const trend = vals.length >= 3 ? vals[vals.length-1] - vals[0] : 0;
+  const trendArrow = trend > 10 ? '↗' : trend < -10 ? '↘' : '→';
+  const trendColor = trend > 10 ? 'var(--green)' : trend < -10 ? 'var(--red)' : 'var(--sub)';
+  // Dernier détail
+  const lastR = recent[recent.length - 1];
+  const detailParts = [];
+  if (lastR.sleep) detailParts.push('😴 ' + lastR.sleep + '/10');
+  if (lastR.energy) detailParts.push('⚡ ' + lastR.energy + '/10');
+  if (lastR.motivation) detailParts.push('🧠 ' + lastR.motivation + '/10');
+
+  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--sub);">READINESS</span>' +
+    '<span style="font-size:11px;color:var(--sub);">Moy: ' + avg + '% <span style="color:' + trendColor + ';">' + trendArrow + '</span></span></div>' +
     '<div style="display:flex;align-items:center;gap:8px;">' +
     '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
     '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
     '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
     '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
-    '</svg></div>';
+    '</svg></div>' +
+    (detailParts.length ? '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + detailParts.join(' · ') + '</div>' : '');
 }
 
 // ── Heatmap de récupération musculaire ──────────────────────

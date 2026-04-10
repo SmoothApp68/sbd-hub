@@ -1441,7 +1441,6 @@ async function renderLeaderboard() {
   }
   emptyEl.style.display = 'none';
 
-  // Get all snapshots for these users
   try {
     const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
       .select('user_id, exercise_name, value')
@@ -1455,18 +1454,20 @@ async function renderLeaderboard() {
       return;
     }
 
-    // Get common exercises
-    const exercisesByUser = {};
-    snapshots.forEach(s => {
-      if (!exercisesByUser[s.user_id]) exercisesByUser[s.user_id] = new Set();
-      exercisesByUser[s.user_id].add(s.exercise_name);
-    });
+    // Collect all exercises + add "Total SBD" option
     const allExercises = new Set();
     snapshots.forEach(s => allExercises.add(s.exercise_name));
+    const SBD_NAMES = ['Squat', 'Développé couché', 'Soulevé de terre'];
+    const hasSBD = SBD_NAMES.some(n => allExercises.has(n));
 
-    // Populate filter
+    // Build sorted exercise list with priority order
+    const priorityExercises = [];
+    if (hasSBD) priorityExercises.push('Total SBD');
+    SBD_NAMES.forEach(n => { if (allExercises.has(n)) priorityExercises.push(n); });
+    const otherExercises = Array.from(allExercises).filter(n => !SBD_NAMES.includes(n)).sort();
+
     const currentFilter = filterSelect.value;
-    filterSelect.innerHTML = Array.from(allExercises).sort().map(ex =>
+    filterSelect.innerHTML = priorityExercises.concat(otherExercises).map(ex =>
       '<option value="' + ex + '"' + (ex === currentFilter ? ' selected' : '') + '>' + ex + '</option>'
     ).join('');
     if (!currentFilter && filterSelect.options.length) filterSelect.value = filterSelect.options[0].value;
@@ -1474,11 +1475,27 @@ async function renderLeaderboard() {
     const selectedExercise = filterSelect.value;
     if (!selectedExercise) return;
 
-    // Get best values per user for this exercise
+    // Calculate best values per user
     const bestByUser = {};
-    snapshots.filter(s => s.exercise_name === selectedExercise).forEach(s => {
-      if (!bestByUser[s.user_id] || s.value > bestByUser[s.user_id]) bestByUser[s.user_id] = s.value;
-    });
+    if (selectedExercise === 'Total SBD') {
+      // Sum best SBD for each user
+      const userSBD = {};
+      allIds.forEach(id => { userSBD[id] = { squat: 0, bench: 0, deadlift: 0 }; });
+      snapshots.forEach(s => {
+        if (!userSBD[s.user_id]) return;
+        if (s.exercise_name === 'Squat') userSBD[s.user_id].squat = Math.max(userSBD[s.user_id].squat, s.value);
+        else if (s.exercise_name === 'Développé couché') userSBD[s.user_id].bench = Math.max(userSBD[s.user_id].bench, s.value);
+        else if (s.exercise_name === 'Soulevé de terre') userSBD[s.user_id].deadlift = Math.max(userSBD[s.user_id].deadlift, s.value);
+      });
+      Object.entries(userSBD).forEach(([userId, vals]) => {
+        const total = vals.squat + vals.bench + vals.deadlift;
+        if (total > 0) bestByUser[userId] = total;
+      });
+    } else {
+      snapshots.filter(s => s.exercise_name === selectedExercise).forEach(s => {
+        if (!bestByUser[s.user_id] || s.value > bestByUser[s.user_id]) bestByUser[s.user_id] = s.value;
+      });
+    }
 
     // Get profiles
     const profileIds = Object.keys(bestByUser);
@@ -1499,7 +1516,7 @@ async function renderLeaderboard() {
       const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : [top3[0]];
       const medals = top3.length >= 3 ? ['🥈', '🥇', '🥉'] : top3.length === 2 ? ['🥈', '🥇'] : ['🥇'];
       podiumEl.innerHTML = podiumOrder.map((entry, i) =>
-        '<div class="lb-podium-item">' +
+        '<div class="lb-podium-item' + (entry.userId === uid ? ' me' : '') + '">' +
           '<div class="lb-podium-rank">' + medals[i] + '</div>' +
           '<div class="lb-podium-avatar" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + avatarInitial(entry.username) + '</div>' +
           '<div class="lb-podium-name">' + entry.username + '</div>' +
@@ -1525,6 +1542,9 @@ async function renderLeaderboard() {
     tableEl.innerHTML = '<div class="lb-empty">Erreur de chargement</div>';
   }
 }
+
+// Alias for clarity — called after import
+var updateLeaderboardAfterImport = updateLeaderboardSnapshot;
 
 async function updateLeaderboardSnapshot() {
   const uid = await getMyUserIdAsync();

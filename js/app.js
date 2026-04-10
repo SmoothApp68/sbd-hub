@@ -470,25 +470,6 @@ function renderGlossaryPage() {
   el.innerHTML = html;
 }
 
-function renderScoreBreakdown(breakdown) {
-  var html = '<div class="breakdown">';
-  for (var i = 0; i < breakdown.lines.length; i++) {
-    var line = breakdown.lines[i];
-    html += '<div class="breakdown-line">' +
-      '<span class="bl-label">' + line.label + '</span>' +
-      '<span class="bl-value">' + Math.round(line.value) + '/100</span>' +
-      '<span class="bl-weight">× ' + line.weight + '</span>' +
-      '<span class="bl-contribution">= ' + line.contribution + '</span>' +
-      '</div>';
-  }
-  html += '<div class="breakdown-total">Total : ' + breakdown.total + '/100</div>';
-  if (breakdown.delta !== undefined && breakdown.delta !== 0) {
-    html += '<div class="breakdown-delta">' + (breakdown.delta > 0 ? '↑' : '↓') + ' ' + Math.abs(breakdown.delta) + ' vs semaine dernière</div>';
-  }
-  html += '</div>';
-  return html;
-}
-
 // ── EXPORT / IMPORT JSON ─────────────────────────────────────
 function exportData() {
   const json = JSON.stringify(db, null, 2);
@@ -2000,13 +1981,6 @@ var TITLE_POOL = [
 var _titleRarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
 
 // ── Helpers ──
-function _getRoutineDays() {
-  if (!db.routine) return 4;
-  var days = 0;
-  for (var k in db.routine) { if (db.routine[k] && db.routine[k] !== 'Repos') days++; }
-  return days > 0 ? days : 4;
-}
-
 function _hashWeekKey(key) {
   var h = 0;
   for (var i = 0; i < key.length; i++) h += key.charCodeAt(i);
@@ -2464,23 +2438,6 @@ function calcXPBreakdown() {
     if (sq) xpDefis += sq.xp;
   });
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
-}
-
-function _calcExoXP(exoName) {
-  var xp = 0;
-  var sorted = getSortedLogs().slice().reverse();
-  var best = 0;
-  sorted.forEach(function(log) {
-    var found = false;
-    (log.exercises||[]).forEach(function(e) {
-      if (e.name === exoName) {
-        found = true;
-        if (e.maxRM > 0 && e.maxRM > best) { xp += 50; best = e.maxRM; }
-      }
-    });
-    if (found) xp += 8;
-  });
-  return xp;
 }
 
 function renderGamificationTab() {
@@ -3125,13 +3082,6 @@ function renderMuscleHeatmap() {
     if (level < 85) return '#FF9F0A';
     return '#FF453A';
   }
-  function fLabel(level) {
-    if (level < 30) return 'Frais';
-    if (level < 60) return 'Récupération';
-    if (level < 85) return 'Fatigué';
-    return 'Surentraîné';
-  }
-
   // Simplified body SVG (front view) with muscle zones
   const muscles = [
     { key:'shoulders', label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
@@ -4186,12 +4136,6 @@ function toggleExo(id) {
 // ============================================================
 // CHARTS
 // ============================================================
-function renderSBDChart() {
-  const ctx=document.getElementById('chartSBD');if(!ctx)return;if(chartSBD)chartSBD.destroy();
-  const lastPRDates={};SBD_TYPES.forEach(type=>{for(const log of db.logs){for(const exo of log.exercises){if(getSBDType(exo.name)===type&&exo.maxRM===db.bestPR[type]){lastPRDates[type]=log.date.split(' à')[0];return;}}}});
-  chartSBD=new Chart(ctx,{type:'bar',data:{labels:['Bench','Squat','Dead'],datasets:[{label:'1RM Actuel',data:SBD_TYPES.map(t=>db.bestPR[t]),backgroundColor:['#0A84FF','#32D74B','#FF9F0A'],borderRadius:8,barThickness:35},{label:'1RM Visé',data:SBD_TYPES.map(t=>db.user.targets[t]),backgroundColor:['rgba(10,132,255,0.3)','rgba(50,215,75,0.3)','rgba(255,159,10,0.3)'],borderColor:['#0A84FF','#32D74B','#FF9F0A'],borderWidth:2,borderDash:[5,5],barThickness:35}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#F5F5F7',font:{size:11}}},tooltip:{callbacks:{afterLabel(c){const t=SBD_TYPES[c.dataIndex];return c.datasetIndex===0?'Depuis: '+(lastPRDates[t]||'N/A'):'Reste: '+(db.user.targets[t]-db.bestPR[t])+'kg';}}}},scales:{y:{grid:{color:'#2C2C2E',drawBorder:false},ticks:{color:'#86868B'}},x:{grid:{display:false},ticks:{color:'#F5F5F7',font:{weight:'bold'}}}}}});
-}
-
 function renderVolumeChart(period) {
   period = period || 'week';
   setPeriodButtons('volumeButtons', period);
@@ -4336,16 +4280,6 @@ function renderReports(period) {
   document.getElementById('reportDisplay').innerHTML='<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div><div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div><div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div><div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>';
 }
 
-function renderTopLifts() {
-  const bl={};
-  db.logs.forEach(log=>{log.exercises.forEach(exo=>{if(SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase()))return;const exoType=getExoType(exo.name);if(exoType!=='weight'&&exoType!=='reps')return;if(!exo.maxRM||exo.maxRM<=0)return;if(!bl[exo.name]||exo.maxRM>bl[exo.name].maxRM)bl[exo.name]={name:exo.name,maxRM:exo.maxRM,date:exo.maxRMDate?formatDate(exo.maxRMDate):'N/A',muscle:getMuscleGroup(exo.name)};});});
-  const byMuscle={};Object.values(bl).forEach(lift=>{if(!byMuscle[lift.muscle])byMuscle[lift.muscle]=[];byMuscle[lift.muscle].push(lift);});
-  const finalLifts=[];Object.entries(byMuscle).forEach(([muscle,lifts])=>{lifts.sort((a,b)=>b.maxRM-a.maxRM);finalLifts.push(...lifts.slice(0,2).map(l=>({...l,muscle})));});
-  finalLifts.sort((a,b)=>b.maxRM-a.maxRM);
-  const sorted=finalLifts.slice(0,15);const medals=['🥇','🥈','🥉'];
-  document.getElementById('topExosList').innerHTML=sorted.length===0?'<p style="color:var(--sub);font-size:13px;text-align:center;">Aucun lift</p>':sorted.map((l,i)=>'<div class="stat-row"><span style="font-size:14px;">'+(medals[i]||'💪')+' '+l.name+'<span style="font-size:10px;color:var(--sub);margin-left:6px;">'+l.muscle+'</span></span><div style="text-align:right;"><div style="color:var(--blue);font-weight:bold;font-size:14px;">'+l.maxRM+'kg</div><div style="font-size:10px;color:var(--sub);">'+l.date+'</div></div></div>').join('');
-}
-
 // ============================================================
 // SETTINGS
 // ============================================================
@@ -4373,13 +4307,6 @@ function saveProfileSettings() {
   saveDB();
   renderDash();
   showToast('✓ Profil sauvegardé');
-}
-function updateTargets() {
-  const b=parseFloat(document.getElementById('tgtBench').value)||db.user.targets.bench;
-  const s=parseFloat(document.getElementById('tgtSquat').value)||db.user.targets.squat;
-  const d=parseFloat(document.getElementById('tgtDead').value)||db.user.targets.deadlift;
-  db.user.targets={bench:b,squat:s,deadlift:d};
-  saveDB(); renderDash();
 }
 function fullReset() { showModal('⚠️ Toutes les données seront effacées.','Effacer','var(--red)',()=>{db=defaultDB();saveDBNow();refreshUI();showToast('✓ Réinitialisé');}); }
 
@@ -6248,75 +6175,6 @@ function calcLiftWeight(input, e1rm, uid) {
   out.textContent = '~' + w + 'kg';
 }
 
-function renderDashReports() {
-  purgeExpiredReports();
-  const reports = db.reports.filter(r => r.expires_at > Date.now()).sort((a, b) => b.created_at - a.created_at);
-  const card = document.getElementById('acc-dash-reports-card');
-  const badge = document.getElementById('dashReportsBadge');
-  if (!card) return;
-  if (!reports.length) { card.style.display = 'none'; return; }
-  card.style.display = '';
-  const unread = reports.filter(r => !r.read).length;
-  if (badge) { badge.textContent = unread; badge.style.display = unread ? '' : 'none'; }
-  const container = document.getElementById('acc-dash-reports');
-  if (!container) return;
-  container.innerHTML = '<div style="padding-top:4px;">' +
-    reports.map(r => {
-      const typeLabel = r.type === 'debrief' ? '🏋️ Débrief Séance' : '📊 Bilan Hebdo';
-      const dl = daysLeft(r.expires_at);
-      const unreadDot = r.read ? '' : '<span class="report-new-dot"></span>';
-      return '<div class="report-card ' + r.type + '" style="margin-bottom:8px;">' +
-        '<div class="report-card-header"><div class="report-card-type">' + unreadDot + ' ' + typeLabel + '</div>' +
-        '<div style="text-align:right;"><div class="report-card-date">' + timeAgo(r.created_at) + '</div>' +
-        '<div class="report-card-expiry">⏳ ' + dl + 'j restants</div></div></div>' +
-        '<div class="report-card-body" id="dr-body-' + r.id + '" style="display:none;"><div class="ai-response-content">' + r.html + '</div></div>' +
-        '<button class="report-toggle" onclick="toggleDashReport(\'' + r.id + '\')">Voir ▾</button>' +
-        '</div>';
-    }).join('') + '</div>';
-}
-
-function toggleDashReport(id) {
-  const body = document.getElementById('dr-body-' + id);
-  if (!body) return;
-  const btn = body.parentElement.querySelector('.report-toggle');
-  const isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  if (btn) btn.textContent = isOpen ? 'Voir ▾' : 'Masquer ▴';
-}
-
-function renderDashWeeklyPlan() {
-  const card = document.getElementById('acc-dash-weekly-card');
-  const badge = document.getElementById('dashWeeklyBadge');
-  const container = document.getElementById('acc-dash-weekly');
-  if (!card || !container) return;
-  const plan = db.weeklyPlan;
-  if (!plan || !plan.days || !plan.days.length) { card.style.display = 'none'; return; }
-  card.style.display = '';
-  if (badge) badge.style.display = '';
-  const todayName = DAYS_FULL[new Date().getDay()];
-  const orderedDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  container.innerHTML = '<div style="padding-top:4px;">' +
-    orderedDays.map(day => {
-      const d = plan.days.find(p => p.day === day);
-      if (!d) return '';
-      const isToday = day === todayName;
-      const isRest = d.rest;
-      const dayColor = isRest ? 'var(--sub)' : isToday ? 'var(--blue)' : 'var(--text)';
-      const exoPreview = !isRest && d.exercises && d.exercises.length
-        ? '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' +
-          d.exercises.slice(0, 3).map(e => e.name).join(' · ') +
-          (d.exercises.length > 3 ? ' +' + (d.exercises.length - 3) : '') + '</div>'
-        : '';
-      return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);">' +
-        '<div><span style="font-size:13px;font-weight:' + (isToday ? '800' : '600') + ';color:' + dayColor + ';">' + (isToday ? '▶ ' : '') + day.substring(0, 3) + '</span>' +
-        exoPreview + '</div>' +
-        '<span style="font-size:11px;color:' + (isRest ? 'var(--sub)' : 'var(--green)') + ';">' + (isRest ? '😴 Repos' : '💪 ' + (d.exercises || []).length + ' exos') + '</span>' +
-        '</div>';
-    }).join('') +
-    '<button onclick="showTab(\'tab-ai\')" style="margin-top:12px;width:100%;background:transparent;border:1px solid var(--border);color:var(--sub);border-radius:10px;padding:10px;font-size:12px;cursor:pointer;">Voir le programme complet →</button>' +
-    '</div>';
-}
-
 function updateNutriTargets() {
   const kcal = parseFloat(document.getElementById('inputKcalBase').value);
   const bw   = parseFloat(document.getElementById('inputBWBase').value);
@@ -6673,53 +6531,6 @@ function deleteRecord(exoName, isSBD, sbdType) {
     renderRecordsCorrectionList();
     refreshUI();
     showToast('✓ Record supprimé pour ' + exoName);
-  });
-}
-
-// ============================================================
-// SBD CHART VIEWS
-// ============================================================
-function setSBDView(view) {
-  window._sbdView = view;
-  document.querySelectorAll('[data-sbd]').forEach(b => b.classList.toggle('active', b.dataset.sbd === view));
-  if (view === 'bar') renderSBDBar(); else renderSBDLine();
-}
-function renderSBDBar() {
-  const ctx = document.getElementById('chartSBD'); if (!ctx) return;
-  if (chartSBD) chartSBD.destroy();
-  chartSBD = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: ['Bench','Squat','Dead'], datasets: [
-      { label:'1RM Actuel', data: SBD_TYPES.map(t=>db.bestPR[t]), backgroundColor:['#0A84FF','#32D74B','#FF9F0A'], borderRadius:8, barThickness:35 },
-      { label:'1RM Visé', data: SBD_TYPES.map(t=>db.user.targets[t]), backgroundColor:['rgba(10,132,255,0.3)','rgba(50,215,75,0.3)','rgba(255,159,10,0.3)'], borderColor:['#0A84FF','#32D74B','#FF9F0A'], borderWidth:2, borderDash:[5,5], barThickness:35 }
-    ]},
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:true, labels:{ color:'#F5F5F7', font:{size:11} } }, tooltip:{ callbacks:{ afterLabel(c){ const t=SBD_TYPES[c.dataIndex]; return c.datasetIndex===0?'':' Reste: '+(db.user.targets[t]-db.bestPR[t])+'kg'; } } } }, scales:{ y:{ grid:{color:'#2C2C2E'}, ticks:{color:'#86868B'} }, x:{ grid:{display:false}, ticks:{color:'#F5F5F7',font:{weight:'bold'}} } } }
-  });
-}
-function renderSBDLine() {
-  const ctx = document.getElementById('chartSBD'); if (!ctx) return;
-  if (chartSBD) chartSBD.destroy();
-  const colors = { bench:'#0A84FF', squat:'#32D74B', deadlift:'#FF9F0A' };
-  const typeData = {};
-  SBD_TYPES.forEach(type => {
-    typeData[type] = []; let max = 0;
-    [...db.logs].sort((a,b) => a.timestamp-b.timestamp).forEach(log => {
-      log.exercises.forEach(exo => { if (getSBDType(exo.name)===type && exo.maxRM>0 && exo.maxRM>max) { max=exo.maxRM; typeData[type].push({x: log.shortDate||formatDate(log.timestamp), y:max}); } });
-    });
-  });
-  const allDates = new Set(); SBD_TYPES.forEach(type => typeData[type].forEach(p => allDates.add(p.x)));
-  const sortedDates = [...allDates].sort((a,b) => { const pa=a.split('/'),pb=b.split('/'); return new Date(+pa[2],+pa[1]-1,+pa[0])-new Date(+pb[2],+pb[1]-1,+pb[0]); });
-  const datasets = SBD_TYPES.filter(type => typeData[type].length>0).map(type => ({
-    label: type[0].toUpperCase()+type.slice(1), data: typeData[type], borderColor:colors[type], backgroundColor:'transparent',
-    borderWidth:3, pointRadius:3, pointBackgroundColor:colors[type], pointBorderColor:'transparent', pointHoverRadius:5, tension:0.4, fill:false
-  }));
-  if (!datasets.length) { renderSBDBar(); return; }
-  chartSBD = new Chart(ctx, {
-    type:'line', data:{ labels:sortedDates, datasets },
-    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
-      plugins:{ legend:{display:true,labels:{color:'#F5F5F7',font:{size:11},boxWidth:12}} },
-      scales:{ x:{type:'category',grid:{color:'#2C2C2E'},ticks:{color:'#86868B',font:{size:10},maxRotation:0,callback:function(val,i){const lbl=this.getLabelForValue(val);return i%Math.max(1,Math.floor(sortedDates.length/8))===0?lbl.substring(0,5):''}}}, y:{grid:{color:'#2C2C2E'},ticks:{color:'#86868B',callback:v=>v+'kg'}} }
-    }
   });
 }
 
@@ -7808,8 +7619,6 @@ sprint:{id:'sprint',name:'Sprint',nameAlt:['Course sprint'],equipment:'bodyweigh
 incline_walk:{id:'incline_walk',name:'Marche Inclinée (Tapis)',nameAlt:['Incline Treadmill Walk','12-3-30'],equipment:'machine',category:'cardio',trackingType:'cardio',primaryMuscles:['Fessiers'],secondaryMuscles:['Quadriceps','Mollets'],tertiaryMuscles:[],defaultRest:0,difficulty:1,instructions:'1. Tapis roulant, pente 10-15%\n2. Vitesse 4-6 km/h\n3. Marcher sans se tenir aux barres\n4. 20-45 minutes'},
 ski_erg:{id:'ski_erg',name:'Ski Erg',nameAlt:['SkiErg'],equipment:'machine',category:'cardio',trackingType:'cardio',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Épaules','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:90,difficulty:2,instructions:'1. Debout, saisir les poignées\n2. Tirer vers le bas en pliant les genoux\n3. Engager le dos et les abdos\n4. Rythme régulier'},
 };
-// Nombre total d'exercices
-// console.log('EXO_DATABASE:', Object.keys(EXO_DATABASE).length, 'exercices');
 
 // ============================================================
 // GO TAB — État, timers, auto-save, wake lock
@@ -7860,21 +7669,6 @@ function goGetExoTrackingType(exo) {
   var t = getExoType(exo.name);
   if (t === 'cardio_stairs') return 'cardio';
   return t || 'weight';
-}
-
-// ── Effective weight for BW exercises ──
-function calcEffectiveWeight(exoName, addedWeight, assistWeight, exoId) {
-  var bw = db.user.bw || 0;
-  if (bw <= 0) return addedWeight || 0;
-  var exoData = exoId ? EXO_DATABASE[exoId] : null;
-  if (!exoData) {
-    var keys = Object.keys(EXO_DATABASE);
-    for (var i = 0; i < keys.length; i++) {
-      if (matchExoName(EXO_DATABASE[keys[i]].name, exoName)) { exoData = EXO_DATABASE[keys[i]]; break; }
-    }
-  }
-  if (!exoData || !exoData.bwFactor) return addedWeight || 0;
-  return Math.round((bw * exoData.bwFactor + (addedWeight || 0) - (assistWeight || 0)) * 10) / 10;
 }
 
 // ── Get default rest seconds ──
@@ -8627,8 +8421,6 @@ function goSetFilter(chip) {
   goRenderSearchResults(q, _goSearchFilters);
 }
 
-// Keep backward compat
-function goFilterEquip(chip) { goSetFilter(chip); }
 
 function _goNormalize(str) {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");

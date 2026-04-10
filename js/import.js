@@ -813,27 +813,62 @@ function generateAlgoSessionDebrief(session) {
     exoComparisons.push(comp);
   });
 
-  // ── Program compliance ──
+  // ── Program compliance détaillée ──
   let compliance = null;
+  let complianceScore = 0;
   const sessionDay = session.day || DAYS_FULL[new Date(session.timestamp).getDay()];
+  const blocLabel = db.weeklyPlan?.blocLabel || '';
+  const isDeloadBloc = blocLabel.toLowerCase().includes('deload');
+  const isAccumulationBloc = blocLabel.toLowerCase().includes('accumulation');
+
+  // Readiness adjustment for weight comparison
+  const readinessAdj = session.readiness && typeof getReadinessLoadAdjustment === 'function'
+    ? getReadinessLoadAdjustment(session.readiness.score) : 1;
+
   if (db.weeklyPlan && db.weeklyPlan.days) {
     const planDay = db.weeklyPlan.days.find(d => d.day === sessionDay && !d.rest);
     if (planDay && planDay.exercises && planDay.exercises.length > 0) {
-      const planned = planDay.exercises.filter(e => e.type === 'weight' && !e.noData);
-      let matched = 0, weightOk = 0, weightTotal = 0;
+      const planned = planDay.exercises.filter(e => !e.noData);
+      const details = [];
+      const missed = [];
+      const extras = [];
+      let nbWeightOk = 0, nbRepsOk = 0, nbSetsOk = 0;
+
       planned.forEach(pe => {
         const sessMatch = session.exercises.find(se => matchExoName(se.name, pe.name));
-        if (sessMatch) {
-          matched++;
-          const planWeight = pe.sets && pe.sets.length ? pe.sets.filter(s => !s.isWarmup)[0]?.weight || 0 : 0;
-          const sessWeight = sessMatch.series && sessMatch.series.length ? Math.max(...sessMatch.series.map(s => s.weight || 0)) : 0;
-          if (planWeight > 0 && sessWeight > 0) {
-            weightTotal++;
-            if (Math.abs(sessWeight - planWeight) <= 2.5) weightOk++;
-          }
-        }
+        if (!sessMatch) { missed.push(pe.name); return; }
+
+        const plannedWorkSets = (pe.sets || []).filter(s => !s.isWarmup && !s.isBackoff);
+        const sessWorkSets = (sessMatch.series || sessMatch.allSets || []).filter(s => s.setType !== 'warmup');
+
+        const plannedWeight = plannedWorkSets[0]?.weight || 0;
+        const adjustedTarget = plannedWeight > 0 ? round05(plannedWeight * readinessAdj) : 0;
+        const sessMaxWeight = sessWorkSets.length ? Math.max(...sessWorkSets.map(s => s.weight || 0)) : 0;
+        const plannedReps = plannedWorkSets[0]?.reps || 0;
+        const plannedNbSets = plannedWorkSets.length;
+        const sessNbSets = sessWorkSets.length;
+
+        const weightOk = adjustedTarget <= 0 || (sessMaxWeight > 0 && Math.abs(sessMaxWeight - adjustedTarget) <= adjustedTarget * 0.05);
+        const repsOk = plannedReps <= 0 || sessWorkSets.every(s => Math.abs((s.reps || 0) - plannedReps) <= 1);
+        const setsOk = Math.abs(sessNbSets - plannedNbSets) <= 1;
+
+        if (weightOk) nbWeightOk++;
+        if (repsOk) nbRepsOk++;
+        if (setsOk) nbSetsOk++;
+        details.push({ name: pe.name, weightOk, repsOk, setsOk, plannedWeight: adjustedTarget, sessMaxWeight, plannedReps, plannedNbSets, sessNbSets });
       });
-      compliance = { total: planned.length, matched, weightOk, weightTotal, title: planDay.title };
+
+      session.exercises.forEach(se => {
+        if (!planned.find(p => matchExoName(se.name, p.name))) extras.push(se.name);
+      });
+
+      const nbExercises = details.length;
+      complianceScore = nbExercises > 0 ? Math.round(((nbWeightOk + nbRepsOk + nbSetsOk) / (nbExercises * 3)) * 100) : 0;
+      compliance = {
+        total: planned.length, matched: details.length, details, missed, extras,
+        weightOk: nbWeightOk, repsOk: nbRepsOk, setsOk: nbSetsOk,
+        complianceScore, title: planDay.title
+      };
     }
   }
   // Fallback: check routine text
@@ -845,7 +880,7 @@ function generateAlgoSessionDebrief(session) {
         const exoName = (EXO_DB[exoId] || {}).name || exoId;
         if (session.exercises.some(se => matchExoName(se.name, exoName))) matched++;
       });
-      compliance = { total: planDay.exos.length, matched, weightOk: 0, weightTotal: 0, title: planDay.label };
+      compliance = { total: planDay.exos.length, matched, weightOk: 0, complianceScore: 0, title: planDay.label };
     }
   }
 
@@ -857,11 +892,28 @@ function generateAlgoSessionDebrief(session) {
   if (nbSets >= 20) score += 5;
   const logs7 = getLogsInRange(7).filter(l => l.id !== session.id);
   const avgVol7 = logs7.length ? logs7.reduce((s,l) => s+l.volume, 0) / logs7.length : 0;
+  // Volume comparison — contextualisé au bloc
   if (avgVol7 > 0) {
     const ratio = totalVol / avgVol7;
-    if (ratio >= 0.8 && ratio <= 1.3) score += 10;
-    else if (ratio > 1.3) score += 5;
+    if (isDeloadBloc) {
+      // En deload, volume bas = bon
+      if (ratio <= 0.7) score += 10;
+      else if (ratio <= 1.0) score += 5;
+    } else if (isAccumulationBloc) {
+      // En accumulation, volume haut = normal
+      if (ratio >= 0.8 && ratio <= 1.5) score += 10;
+      else if (ratio > 1.5) score += 5;
+    } else {
+      if (ratio >= 0.8 && ratio <= 1.3) score += 10;
+      else if (ratio > 1.3) score += 5;
+    }
   } else if (totalVol > 0) { score += 10; }
+  // Compliance bonus
+  if (compliance && complianceScore >= 95 && !(compliance.missed||[]).length) {
+    score = Math.max(score, 90); // Exécution parfaite = min 90
+  } else if (compliance && complianceScore >= 80) {
+    score = Math.max(score, 80);
+  }
   if (compliance) {
     const pct = compliance.total > 0 ? compliance.matched / compliance.total : 0;
     score += Math.round(pct * 15);
@@ -886,15 +938,49 @@ function generateAlgoSessionDebrief(session) {
   html += `<div style="text-align:center;min-width:50px;"><div style="font-size:22px;font-weight:800;color:var(--${scoreColor});">${score}</div><div style="font-size:9px;color:var(--sub);text-transform:uppercase;">Score</div></div>`;
   html += `</div></div>`;
 
-  // Conformité programme
+  // Readiness pré-séance
+  if (session.readiness) {
+    const rs = session.readiness;
+    const rsColor = rs.score >= 70 ? 'green' : rs.score >= 50 ? 'orange' : 'red';
+    html += `<div class="ai-section"><div class="ai-section-title">😴 Readiness pré-séance</div>`;
+    html += `Score : <span class="ai-highlight ${rsColor}">${rs.score}%</span>`;
+    if (rs.score < 70) html += '<br>Charges ajustées automatiquement — bonne décision de s\'adapter.';
+    html += '</div>';
+  }
+
+  // Compliance parfaite → message positif
+  if (compliance && complianceScore >= 95 && !(compliance.missed||[]).length) {
+    html += '<div class="ai-section" style="background:rgba(50,215,75,0.06);border-radius:10px;padding:12px;text-align:center;">';
+    html += '<div style="font-size:24px;margin-bottom:6px;">🎯</div>';
+    html += '<div style="font-size:14px;font-weight:700;color:var(--green);">Exécution parfaite</div>';
+    html += '<div style="font-size:12px;color:var(--sub);margin-top:4px;">Tu as suivi le plan à la lettre. Continue comme ça.</div>';
+    html += '</div>';
+  } else if (compliance && complianceScore >= 80) {
+    html += '<div class="ai-section" style="background:rgba(10,132,255,0.06);border-radius:10px;padding:8px 12px;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--blue);">👍 Très bonne séance</div>';
+    html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">Quelques ajustements mineurs par rapport au plan.</div>';
+    html += '</div>';
+  }
+
+  // Conformité programme détaillée
   if (compliance) {
-    const pct = compliance.total > 0 ? Math.round(compliance.matched / compliance.total * 100) : 0;
+    const pct = compliance.complianceScore || (compliance.total > 0 ? Math.round(compliance.matched / compliance.total * 100) : 0);
     const pctColor = pct >= 80 ? 'green' : pct >= 50 ? 'orange' : 'red';
     html += `<div class="ai-section"><div class="ai-section-title">📋 Conformité programme</div>`;
     html += `<div style="margin-bottom:4px;">Programme du jour : <strong>${compliance.title}</strong></div>`;
-    html += `<div>Exercices suivis : <span class="ai-highlight ${pctColor}">${compliance.matched}/${compliance.total} (${pct}%)</span></div>`;
-    if (compliance.weightTotal > 0) {
-      html += `<div>Charges conformes (±2.5kg) : <span class="ai-highlight ${compliance.weightOk === compliance.weightTotal ? 'green' : 'orange'}">${compliance.weightOk}/${compliance.weightTotal}</span></div>`;
+    html += `<div>Compliance globale : <span class="ai-highlight ${pctColor}">${pct}%</span></div>`;
+    if (compliance.details && compliance.details.length) {
+      html += `<div style="margin-top:4px;font-size:11px;">`;
+      html += `Charges : ${compliance.weightOk||0}/${compliance.details.length} ✓ · `;
+      html += `Reps : ${compliance.repsOk||0}/${compliance.details.length} ✓ · `;
+      html += `Séries : ${compliance.setsOk||0}/${compliance.details.length} ✓`;
+      html += `</div>`;
+    }
+    if (compliance.missed && compliance.missed.length) {
+      html += `<div style="margin-top:4px;font-size:11px;color:var(--orange);">Manqués : ${compliance.missed.join(', ')}</div>`;
+    }
+    if (compliance.extras && compliance.extras.length) {
+      html += `<div style="margin-top:4px;font-size:11px;color:var(--blue);">Bonus : ${compliance.extras.join(', ')}</div>`;
     }
     html += '</div>';
   }
@@ -953,13 +1039,19 @@ function generateAlgoSessionDebrief(session) {
     html += '</div>';
   }
 
-  // Coaching contextuel enrichi
+  // Coaching contextuel enrichi — conscient du bloc
   const tips = [];
   if (avgVol7 > 0) {
     const ratio = totalVol / avgVol7;
-    if (ratio > 1.3) tips.push('⚡ Volume élevé (+' + Math.round((ratio-1)*100) + '% vs ta moyenne). Assure-toi de bien récupérer (sommeil, protéines, hydratation).');
-    else if (ratio < 0.6) tips.push('🧘 Volume léger — parfait pour un deload ou une récupération active.');
-    else tips.push('✅ Volume dans ta zone habituelle — bonne régularité.');
+    if (ratio > 1.3) {
+      if (isAccumulationBloc) tips.push('📈 Volume en hausse comme prévu dans le bloc accumulation — bien joué 💪');
+      else tips.push('⚡ Volume élevé (+' + Math.round((ratio-1)*100) + '% vs ta moyenne). Assure-toi de bien récupérer.');
+    } else if (ratio < 0.6) {
+      if (isDeloadBloc) tips.push('✅ Volume allégé — parfait pour le deload, ton corps récupère.');
+      else tips.push('🧘 Volume léger — parfait pour un deload ou une récupération active.');
+    } else {
+      tips.push('✅ Volume dans ta zone habituelle — bonne régularité.');
+    }
   }
   if (prs.length >= 2) tips.push('🎯 Plusieurs PRs en une séance — tu es clairement en forme ! Profite de cette dynamique.');
   else if (prs.length === 0 && exos.length > 3) tips.push('📊 Pas de record aujourd\'hui, mais la constance est ta meilleure arme. Les PRs viendront.');
@@ -1126,23 +1218,67 @@ function generateAlgoWeeklyReport() {
     html += '</div>';
   }
 
+  // ── Adhérence au plan ──
+  const level = db.user.level || 'intermediaire';
+  const blocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][weekNum] : null;
+  if (db.weeklyPlan?.days) {
+    const plannedTrainingDays = db.weeklyPlan.days.filter(d => !d.rest);
+    const doneDays = new Set(logs7.map(l => l.day));
+    const completed = plannedTrainingDays.filter(d => doneDays.has(d.day));
+    const missed = plannedTrainingDays.filter(d => !doneDays.has(d.day));
+    const extra = logs7.filter(l => !plannedTrainingDays.find(d => d.day === l.day));
+
+    html += '<div class="ai-section"><div class="ai-section-title">📋 Adhérence au programme</div>';
+    const adherence = plannedTrainingDays.length > 0 ? Math.round((completed.length / plannedTrainingDays.length) * 100) : 0;
+    const adherenceColor = adherence >= 80 ? 'green' : adherence >= 50 ? 'orange' : 'red';
+    html += `<strong>${completed.length}/${plannedTrainingDays.length}</strong> séances planifiées réalisées — <span class="ai-highlight ${adherenceColor}">${adherence}%</span>`;
+    if (missed.length) html += `<br>Manquées : ${missed.map(d => d.day).join(', ')}`;
+    if (extra.length) html += `<br>Bonus : ${extra.map(l => l.day).join(', ')} (hors plan)`;
+    html += '</div>';
+  }
+
+  // ── Tendance readiness ──
+  const recentReadiness = (db.readinessHistory || []).slice(-5);
+  if (recentReadiness.length >= 3) {
+    const trend = recentReadiness[recentReadiness.length - 1].score - recentReadiness[0].score;
+    if (trend < -15) {
+      html += '<div class="ai-section"><div class="ai-section-title">😴 READINESS</div>';
+      html += '<span class="ai-highlight red">Readiness en baisse — fatigue accumulée ? Surveille ton sommeil et ta nutrition.</span>';
+      html += '</div>';
+    }
+  }
+
   // Coaching semaine prochaine
   html += '<div class="ai-section"><div class="ai-section-title">🚀 Semaine prochaine</div>';
   const encouragements = [];
 
-  if (nextWeek) {
+  // Suggestion basée sur BLOC_PARAMS
+  const nextBlocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][nextWeek] : null;
+  if (nextBlocP && nextBlocP.label) {
+    encouragements.push(`Bloc ${nextWeek} — <strong>${nextBlocP.label}</strong>`);
+    if (nextBlocP.label.includes('Deload')) encouragements.push('Semaine de récupération — réduis les charges et le volume. Ton corps consolide les gains.');
+    else if (nextBlocP.label.includes('Accumulation')) encouragements.push('Retour au volume — plus de séries, charges modérées. Technique et volume.');
+    else if (nextBlocP.label.includes('Peak') || nextBlocP.label.includes('Réalisation')) encouragements.push('Semaine intense — charges lourdes, peu de reps. Dors bien et mange suffisamment.');
+    else encouragements.push('Intensification — charges qui montent, même volume. Qualité des reps.');
+  } else if (nextWeek) {
     const weekNames = {1:'Base (volume modéré, pose les fondations)', 2:'Accumulation (monte progressivement)', 3:'Intensification (charges lourdes, technique)', 4:'Peak (c\'est le moment de tout donner !)'};
     encouragements.push(`Semaine ${nextWeek} — ${weekNames[nextWeek]||''}`);
   }
 
-  if (weekPRs.length >= 3) encouragements.push('Excellente dynamique cette semaine ! Continue sur cette lancée, tu es en pleine progression.');
-  else if (weekPRs.length > 0) encouragements.push('De beaux records cette semaine. La régularité paie, continue comme ça.');
-  else if (nbSessions >= 3) encouragements.push('Bonne fréquence d\'entraînement. Les résultats viendront avec la constance.');
-  else encouragements.push('Chaque séance compte. Essaie de garder au moins 3 séances par semaine pour progresser.');
+  if (weekPRs.length >= 3) encouragements.push('Excellente dynamique ! Continue sur cette lancée.');
+  else if (weekPRs.length > 0) encouragements.push('De beaux records cette semaine. La régularité paie.');
+  else if (nbSessions >= 3) encouragements.push('Bonne fréquence. Les résultats viendront avec la constance.');
+  else encouragements.push('Chaque séance compte. Vise au moins 3 séances/semaine.');
 
-  if (tonnagePrev7 > 0 && tonnage7 > tonnagePrev7 * 1.15) encouragements.push('Volume en hausse — attention à la fatigue. N\'hésite pas à prendre un jour off si tu te sens claqué.');
-  if (plateaux.length) encouragements.push('Un plateau n\'est pas un échec — c\'est un signal pour adapter. Variantes et deload sont tes meilleurs outils.');
-  if (nbSessions >= 4 && !muscles.some(([mg]) => mg === 'Abdos')) encouragements.push('N\'oublie pas le gainage et les abdos — importants pour la stabilité sur les gros lifts.');
+  // Volume conscious of bloc
+  const isAccu = blocP && blocP.label && blocP.label.includes('Accumulation');
+  const isDelo = blocP && blocP.label && blocP.label.includes('Deload');
+  if (tonnagePrev7 > 0 && tonnage7 > tonnagePrev7 * 1.15) {
+    if (isAccu) encouragements.push('Volume en hausse comme prévu dans le bloc accumulation — continue 💪');
+    else if (isDelo) encouragements.push('⚠️ Volume en hausse pendant une semaine de deload — l\'objectif est de récupérer.');
+    else encouragements.push('Volume en hausse — attention à la fatigue.');
+  }
+  if (plateaux.length) encouragements.push('Un plateau n\'est pas un échec — variantes et deload sont tes meilleurs outils.');
 
   encouragements.forEach(e => { html += `<div style="margin-bottom:4px;">→ ${e}</div>`; });
   html += '</div>';

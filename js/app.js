@@ -239,22 +239,62 @@ function showReadinessModal(onComplete) {
   overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:20px;">
     <div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Comment te sens-tu ?</div>
     <div class="readiness-sliders">
-      <div class="readiness-row"><span>😴 Sommeil</span><input type="range" min="1" max="5" value="3" id="rd-sleep"><span id="rd-sleep-val">3</span></div>
-      <div class="readiness-row"><span>⚡ Énergie</span><input type="range" min="1" max="5" value="3" id="rd-energy"><span id="rd-energy-val">3</span></div>
-      <div class="readiness-row"><span>💪 Courbatures</span><input type="range" min="1" max="5" value="3" id="rd-soreness"><span id="rd-soreness-val">3</span></div>
-      <div class="readiness-row"><span>🧠 Stress</span><input type="range" min="1" max="5" value="3" id="rd-stress"><span id="rd-stress-val">3</span></div>
+      <div class="readiness-row"><span>😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val">5</span></div>
+      <div class="readiness-row"><span>⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val">5</span></div>
+      <div class="readiness-row"><span>🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val">5</span></div>
+      <div class="readiness-row"><span>🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val">5</span></div>
     </div>
-    <div style="font-size:10px;color:var(--sub);text-align:center;margin:8px 0;">1 = mauvais · 5 = excellent</div>
+    <div style="font-size:10px;color:var(--sub);text-align:center;margin:4px 0;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
+    <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:8px 0;color:var(--blue);">Score : —</div>
+    <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:8px;"></div>
     <div class="modal-actions">
       <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="skipReadiness()">Passer</button>
       <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
-  ['sleep','energy','soreness','stress'].forEach(k => {
+  ['sleep','energy','motivation','soreness'].forEach(k => {
     const slider = document.getElementById('rd-'+k);
-    slider.oninput = () => document.getElementById('rd-'+k+'-val').textContent = slider.value;
+    slider.oninput = () => {
+      document.getElementById('rd-'+k+'-val').textContent = slider.value;
+      updateReadinessPreview();
+    };
   });
+  updateReadinessPreview();
+}
+
+function updateReadinessPreview() {
+  const sleep = parseInt(document.getElementById('rd-sleep')?.value || 5);
+  const energy = parseInt(document.getElementById('rd-energy')?.value || 5);
+  const motivation = parseInt(document.getElementById('rd-motivation')?.value || 5);
+  const soreness = parseInt(document.getElementById('rd-soreness')?.value || 5);
+  const score = calculateReadiness(sleep, energy, motivation, soreness);
+  const adj = getReadinessLoadAdjustment(score);
+  const pctStr = adj >= 1 ? '+' + Math.round((adj - 1) * 100) + '%' : Math.round((adj - 1) * 100) + '%';
+  const el = document.getElementById('rd-score-preview');
+  const adjEl = document.getElementById('rd-adj-preview');
+  if (el) el.textContent = 'Score readiness : ' + score + '%';
+  if (el) el.style.color = score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--blue)' : 'var(--orange)';
+  if (adjEl) adjEl.textContent = adj === 1 ? 'Charges inchangées' : 'Charges ajustées : ' + pctStr;
+}
+
+// Calcul readiness pondéré (Helms 2018, Zourdos 2016)
+function calculateReadiness(sleep, energy, motivation, soreness) {
+  const sorenessInverted = 11 - soreness;
+  return Math.min(100, Math.max(0, Math.round(
+    (sleep * 0.35 + energy * 0.25 + motivation * 0.15 + sorenessInverted * 0.25) * 10
+  )));
+}
+
+// Ajustement charge selon readiness (Tuchscherer RPE system, Helms 2018)
+function getReadinessLoadAdjustment(readinessScore) {
+  if (readinessScore >= 90) return 1.03;
+  if (readinessScore >= 80) return 1.00;
+  if (readinessScore >= 70) return 0.97;
+  if (readinessScore >= 60) return 0.93;
+  if (readinessScore >= 50) return 0.90;
+  if (readinessScore >= 40) return 0.85;
+  return 0.80;
 }
 
 let _readinessOnComplete = null;
@@ -268,14 +308,25 @@ function skipReadiness() {
 function submitReadiness() {
   const sleep = parseInt(document.getElementById('rd-sleep').value);
   const energy = parseInt(document.getElementById('rd-energy').value);
+  const motivation = parseInt(document.getElementById('rd-motivation')?.value || document.getElementById('rd-stress')?.value || 5);
   const soreness = parseInt(document.getElementById('rd-soreness').value);
-  const stress = parseInt(document.getElementById('rd-stress').value);
-  const score = Math.round(((sleep + energy + soreness + stress) / 20) * 100);
-  db.readiness.push({ date: getTodayStr(), sleep, energy, soreness, stress, score });
+  const score = calculateReadiness(sleep, energy, motivation, soreness);
+  const adj = getReadinessLoadAdjustment(score);
+  // Stocker dans db.readiness (rétrocompat)
+  db.readiness.push({ date: getTodayStr(), sleep, energy, motivation, soreness, score });
+  // Stocker dans l'historique readiness (90 jours)
+  if (!db.readinessHistory) db.readinessHistory = [];
+  db.readinessHistory.push({ ts: Date.now(), sleep, energy, motivation, soreness, score });
+  db.readinessHistory = db.readinessHistory.slice(-90);
   saveDB();
+  // Stocker dans la séance active si elle existe
+  if (activeWorkout) {
+    activeWorkout.readiness = { sleep, energy, motivation, soreness, score, loadAdjustment: adj };
+  }
   const modal = document.getElementById('readinessModal');
   if (modal) modal.remove();
-  showToast('✅ Readiness : ' + score + '/100');
+  const adjMsg = adj === 1 ? '' : (adj > 1 ? ' (+' + Math.round((adj-1)*100) + '% charges)' : ' (' + Math.round((adj-1)*100) + '% charges)');
+  showToast('✅ Readiness : ' + score + '/100' + adjMsg);
   if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
 }
 

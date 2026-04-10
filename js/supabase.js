@@ -340,9 +340,12 @@ async function getMyUserIdAsync() {
 }
 
 function timeAgo(dateStr) {
+  if (!dateStr) return 'récemment';
   const now = Date.now();
   const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return 'récemment';
   const diff = Math.floor((now - then) / 1000);
+  if (diff < 0) return 'récemment';
   if (diff < 60) return 'à l\'instant';
   if (diff < 3600) return Math.floor(diff / 60) + 'min';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';
@@ -1119,6 +1122,55 @@ async function renderFeed() {
   _feedItems.forEach(i => loadAndRenderReactions(i.id));
 }
 
+function renderFeedSessionDetail(exercises) {
+  if (!exercises || !exercises.length) return '<div style="color:var(--sub);font-size:12px;padding:8px;">Pas de détail disponible</div>';
+
+  return '<div style="background:var(--surface);border-radius:10px;padding:10px;margin-top:4px;">' + exercises.map(function(exo) {
+    var sets = exo.allSets || [];
+    if (!sets.length) {
+      // Fallback for exercises without allSets
+      return '<div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">' + exo.name + '</div>' +
+        '<div style="font-size:11px;color:var(--sub);">' + (exo.sets || 0) + ' séries</div></div>';
+    }
+    var workSets = sets.filter(function(s) { return s.type !== 'warmup'; });
+    var tonnage = sets.reduce(function(sum, s) { return sum + ((s.weight || 0) * (s.reps || 0)); }, 0);
+
+    var html = '<div style="margin-bottom:12px;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">' + exo.name + '</div>';
+
+    // Table header
+    html += '<div style="display:grid;grid-template-columns:32px 1fr 1fr 58px;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0;font-weight:600;">';
+    html += '<span>Série</span><span>Poids</span><span>Reps</span><span>Type</span></div>';
+
+    // Rows
+    sets.forEach(function(s, i) {
+      var isWarmup = s.type === 'warmup';
+      var isDrop = s.type === 'drop';
+      var isFailure = s.type === 'failure';
+      var rowColor = isWarmup ? 'color:var(--sub);' : isDrop ? 'color:var(--orange,#ff9500);' : isFailure ? 'color:var(--red);' : '';
+      var typeLabel = isWarmup ? 'Échauff.' : isDrop ? 'Drop' : isFailure ? 'Échec' : 'Work';
+      var typeBg = isWarmup ? 'rgba(134,134,139,0.1)' : isDrop ? 'rgba(255,159,10,0.12)' : isFailure ? 'rgba(255,69,58,0.12)' : 'rgba(10,132,255,0.08)';
+
+      html += '<div style="display:grid;grid-template-columns:32px 1fr 1fr 58px;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.04);' + rowColor + '">';
+      html += '<span style="font-weight:600;font-size:11px;">' + (i + 1) + '</span>';
+      html += '<span style="font-weight:700;">' + (s.weight || 0) + 'kg</span>';
+      html += '<span>' + (s.reps || 0) + '</span>';
+      html += '<span style="font-size:10px;background:' + typeBg + ';padding:2px 6px;border-radius:4px;text-align:center;font-weight:600;">' + typeLabel + '</span>';
+      html += '</div>';
+    });
+
+    // Footer
+    html += '<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:var(--sub);padding:6px 0;margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);">';
+    html += '<span style="color:var(--purple,#bf5af2);font-weight:600;">' + workSets.length + ' séries</span>';
+    if (exo.maxRM) html += '<span>e1RM : <strong style="color:var(--blue);">' + Math.round(exo.maxRM) + 'kg</strong></span>';
+    if (tonnage > 0) html += '<span>Tonnage : <strong>' + tonnage + 'kg</strong></span>';
+    html += '</div>';
+
+    html += '</div>';
+    return html;
+  }).join('') + '</div>';
+}
+
 function renderFeedCard(item, profiles, uid) {
   const profile = profiles[item.user_id] || { username: 'Utilisateur supprimé' };
   const initial = avatarInitial(profile.username);
@@ -1139,9 +1191,16 @@ function renderFeedCard(item, profiles, uid) {
     if (stats.length) body += ' · ' + stats.join(' · ');
     if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + d.top_set + '</span>';
     if (d.exercises && d.exercises.length) {
-      detail = d.exercises.map(e =>
-        '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>'
-      ).join('');
+      // Check if enriched data exists (allSets present on at least one exercise)
+      const hasEnrichedData = d.exercises.some(e => e.allSets && e.allSets.length);
+      if (hasEnrichedData) {
+        detail = renderFeedSessionDetail(d.exercises);
+      } else {
+        // Fallback: basic display for old posts
+        detail = d.exercises.map(e =>
+          '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>'
+        ).join('');
+      }
     }
   } else if (item.type === 'pr') {
     body = '🏆 <strong>' + profile.username + '</strong> nouveau PR !';
@@ -1402,14 +1461,31 @@ async function publishSessionActivity(logEntry) {
 
   const sessionDate = logEntry.shortDate || logEntry.date || '';
 
+  // Build enriched exercises with full sets detail
+  const enrichedExercises = (logEntry.exercises || []).map(e => {
+    const setsData = (e.allSets && e.allSets.length) ? e.allSets.map(s => ({
+      weight: s.weight || 0,
+      reps: s.reps || 0,
+      type: s.setType === 'warmup' ? 'warmup' : s.setType === 'drop' ? 'drop' : s.setType === 'failure' || s.setType === 'abandon' ? 'failure' : 'work'
+    })) : null;
+    const totalVolume = setsData ? setsData.reduce((sum, s) => sum + (s.weight * s.reps), 0) : 0;
+    return {
+      name: e.name,
+      sets: e.sets || (setsData ? setsData.length : 0),
+      allSets: setsData,
+      maxRM: e.maxRM || null,
+      totalVolume: totalVolume
+    };
+  });
+
   await postToFeed('session', {
     title: logEntry.title || '',
     duration: logEntry.duration || 0,
     volume: logEntry.volume || 0,
-    exercise_count: (logEntry.exercises || []).length,
+    exercise_count: enrichedExercises.length,
     top_set: topSet,
     date: sessionDate,
-    exercises: (logEntry.exercises || []).map(e => ({ name: e.name, sets: e.sets }))
+    exercises: enrichedExercises
   }, { dedupKey: { date: sessionDate } });
 }
 

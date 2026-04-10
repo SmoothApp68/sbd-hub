@@ -3,6 +3,79 @@
 // ============================================================
 
 // ============================================================
+// UI Adaptative — t() et shouldShow()
+// ============================================================
+function t(key, value, opts) {
+  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
+  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
+  if (detail === 'simple') level = 'debutant';
+  else if (detail === 'expert') level = 'competiteur';
+
+  var isBeginner = (detail === 'auto') ? (level === 'debutant' || mode === 'bien_etre') : (detail === 'simple');
+  var isAdvanced = (detail === 'auto') ? (level === 'avance' || level === 'competiteur') : (detail === 'expert');
+
+  if (key === 'rpe') {
+    if (isBeginner) {
+      if (value <= 5) return 'Très facile 😌';
+      if (value <= 6) return 'Effort léger 😌';
+      if (value <= 7) return 'Effort modéré 😊';
+      if (value <= 8) return 'Effort soutenu 💪';
+      if (value <= 9) return 'Effort intense 🔥';
+      return 'Maximum 🔥🔥';
+    }
+    if (isAdvanced) return 'RPE ' + value;
+    return 'RPE ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
+  }
+  if (key === 'sets_reps') {
+    var s = value, r = opts;
+    if (isBeginner) return s + ' séries de ' + r + ' répétitions';
+    return s + '×' + r;
+  }
+  if (key === 'deload') {
+    if (isBeginner) return 'Semaine de récupération 🧘';
+    return 'Semaine de deload';
+  }
+  if (key === 'mesocycle') {
+    if (isBeginner) return 'Cycle de ' + (value || 4) + ' semaines';
+    return 'Mésocycle';
+  }
+  if (key === 'progressive_overload') {
+    if (isBeginner) return 'On augmente un peu chaque semaine';
+    return 'Surcharge progressive';
+  }
+  if (key === 'compliance') {
+    if (isBeginner) return value + ' séances sur ' + (opts || '?') + ' prévues 👏';
+    return 'Compliance : ' + Math.round(value) + '%';
+  }
+  return String(value);
+}
+
+function shouldShow(feature) {
+  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
+  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
+  if (detail === 'simple') level = 'debutant';
+  else if (detail === 'expert') level = 'competiteur';
+
+  var rules = {
+    dots_wilks:      ['avance', 'competiteur'],
+    e1rm_detail:     ['intermediaire', 'avance', 'competiteur'],
+    rpe_number:      ['intermediaire', 'avance', 'competiteur'],
+    sbd_total:       ['intermediaire', 'avance', 'competiteur'],
+    mev_mav_mrv:     ['avance', 'competiteur'],
+    strength_ratios: ['intermediaire', 'avance', 'competiteur'],
+    volume_numbers:  ['intermediaire', 'avance', 'competiteur'],
+    ipf_score:       ['avance', 'competiteur'],
+    mesocycle_label: ['avance', 'competiteur'],
+    tonnage_detail:  ['intermediaire', 'avance', 'competiteur'],
+  };
+  var allowed = rules[feature];
+  if (!allowed) return true;
+  return allowed.indexOf(level) >= 0;
+}
+
+// ============================================================
 // DB
 // ============================================================
 const defaultDB = () => ({
@@ -3213,7 +3286,8 @@ function renderDotsWilks() {
     });
   });
   if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
-  card.style.display = '';
+  card.style.display = shouldShow('dots_wilks') ? '' : 'none';
+  if (!shouldShow('dots_wilks')) return;
   const total = squat + bench + deadlift;
   const gender = db.user.gender === 'F' ? 'F' : 'M';
   const dots = computeDOTS(total, bw, gender);
@@ -4911,9 +4985,14 @@ function renderVolumeLandmarks() {
     const sets = Math.round((vol[key] || 0) * 10) / 10;
     const pct = Math.min(100, (sets / lm.MRV) * 100);
     let color = 'var(--sub)'; let status = '< MEV';
-    if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
-    else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
-    else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
+    if (shouldShow('mev_mav_mrv')) {
+      if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
+      else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
+      else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
+    } else {
+      if (sets >= lm.MEV) { color = 'var(--green)'; status = '✅ Volume suffisant'; }
+      else { color = 'var(--orange)'; status = '⚠️ Volume insuffisant'; }
+    }
     var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
     html += '<div style="margin-bottom:8px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
@@ -6205,6 +6284,10 @@ function renderSettingsProfile() {
   const modeEl = document.getElementById('settingsTrainingMode');
   if (modeEl) modeEl.value = db.user.trainingMode || 'powerlifting';
 
+  // Niveau de détail UI
+  const uiDetailEl = document.getElementById('settingsUIDetail');
+  if (uiDetailEl) uiDetailEl.value = db.user.uiDetail || 'auto';
+
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
   if (goalsEl) {
@@ -7274,7 +7357,7 @@ function renderWpExercise(exo) {
     } else if (type === 'weight' && s0.weight > 0) {
       summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
     }
-    if (s0.rpe && type !== 'time') summary += ' · RPE ' + s0.rpe;
+    if (s0.rpe && type !== 'time') summary += ' · ' + t('rpe', s0.rpe);
   }
 
   // Sets content
@@ -7288,7 +7371,7 @@ function renderWpExercise(exo) {
     const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
     let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
-    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
     setsHtml = '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:6px 10px;margin:4px 12px 8px;border-radius:6px;font-size:11px;color:var(--orange);">📐 Charges estimées — à ajuster après ta première séance</div>' +
       '<div class="wpe-sets">' + hdr + rows + '</div>';
 
@@ -7305,7 +7388,7 @@ function renderWpExercise(exo) {
     const hasWeight = wrkSets.some(s => s.weight !== null && s.weight > 0);
     if (hasWeight) {
       const hdr = '<div class="wpe-set-hdr"><span></span><span>Lest</span><span>Reps</span><span>RPE</span></div>';
-      const rows = wrkSets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + (s.reps === 'max' ? 'max' : s.reps) + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+      const rows = wrkSets.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + (s.reps === 'max' ? 'max' : s.reps) + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
       setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
     } else {
       const target = wrkSets[0]?.reps ?? 'max';
@@ -7322,7 +7405,7 @@ function renderWpExercise(exo) {
     const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
     let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
-    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
     setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
   }
 

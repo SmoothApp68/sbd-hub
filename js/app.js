@@ -5050,6 +5050,48 @@ function calcIPFGL(lift, bw) {
 }
 
 
+// ── Récupération musculaire ──────────────────────────────────
+function getMuscleRecoveryStatus() {
+  const RECOVERY_HOURS = {
+    'Jambes':72,'Quadriceps':72,'Ischio-jambiers':72,'Fessiers':72,
+    'Dos':72,'Grand dorsal':72,'Haut du dos':72,
+    'Pecs':48,'Pecs (haut)':48,'Pecs (bas)':48,
+    'Épaules':48,'Épaules (latéral)':48,'Épaules (antérieur)':48,'Épaules (postérieur)':48,
+    'Biceps':48,'Triceps':48,'Bras':48,
+    'Abdos (frontal)':24,'Obliques':24,'Mollets':24,'Avant-bras':24,'Trapèzes':48,'Lombaires':72
+  };
+  const now = Date.now();
+  const status = {};
+  const recentLogs = db.logs.filter(l => l.timestamp > now - 7*86400000).sort((a,b) => b.timestamp - a.timestamp);
+  const muscleLastTrained = {};
+  const muscleLastVolume = {};
+
+  recentLogs.forEach(log => {
+    log.exercises.forEach(exo => {
+      const muscle = getMuscleGroup(exo.name);
+      const parent = getMuscleGroupParent(muscle);
+      [muscle, parent].forEach(m => {
+        if (!muscleLastTrained[m]) {
+          muscleLastTrained[m] = log.timestamp;
+          muscleLastVolume[m] = exo.sets || 0;
+        }
+      });
+    });
+  });
+
+  Object.keys(RECOVERY_HOURS).forEach(muscle => {
+    const lastTs = muscleLastTrained[muscle];
+    if (!lastTs) { status[muscle] = { hoursSince:999, recoveryPct:100, isRecovered:true }; return; }
+    const hoursSince = (now - lastTs) / 3600000;
+    const baseRec = RECOVERY_HOURS[muscle] || 48;
+    const vol = muscleLastVolume[muscle] || 0;
+    const volMult = vol > 10 ? 1.3 : vol > 6 ? 1.1 : 1.0;
+    const recoveryPct = Math.min(100, Math.round((hoursSince / (baseRec * volMult)) * 100));
+    status[muscle] = { hoursSince: Math.round(hoursSince), recoveryPct, isRecovered: recoveryPct >= 85 };
+  });
+  return status;
+}
+
 function generateCoachAlgoMessage() {
   const bw=db.user.bw,bench=db.bestPR.bench,squat=db.bestPR.squat,dead=db.bestPR.deadlift;
   const logs7=getLogsInRange(7),tonnage7=logs7.reduce((s,l)=>s+l.volume,0);
@@ -5061,6 +5103,41 @@ function generateCoachAlgoMessage() {
   const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);
   const momB=calcMomentum('bench'),momS=calcMomentum('squat'),momD=calcMomentum('deadlift');
   let sections=[];
+
+  // ── Bloc en cours ──
+  const currentBloc = db.weeklyPlan?.week || null;
+  const level = db.user.level || 'intermediaire';
+  const blocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][currentBloc] : null;
+  if (currentBloc && blocP) {
+    let blocHtml = '<div class="ai-section-title">📅 BLOC EN COURS</div>';
+    blocHtml += `Semaine ${currentBloc} — <span class="ai-highlight blue">${blocP.label || 'Progression linéaire'}</span><br>`;
+    blocHtml += `RPE cible : ${blocP.rpe} · Charge : ${Math.round(blocP.loadMultiplier * 100)}% e1RM`;
+    sections.push(`<div class="ai-section">${blocHtml}</div>`);
+  }
+
+  // ── Récupération musculaire ──
+  const recovery = getMuscleRecoveryStatus();
+  const fatigued = Object.entries(recovery).filter(([m,r]) => !r.isRecovered && r.hoursSince < 168)
+    .sort((a,b) => a[1].recoveryPct - b[1].recoveryPct);
+  if (fatigued.length) {
+    let recHtml = '<div class="ai-section-title">💤 RÉCUPÉRATION</div>';
+    fatigued.slice(0,6).forEach(([muscle, r]) => {
+      const color = r.recoveryPct < 50 ? 'red' : 'orange';
+      recHtml += `<span class="ai-highlight ${color}">${muscle} ${r.recoveryPct}%</span> `;
+    });
+    // Warning si demain tape un muscle fatigué
+    const tomorrow = DAYS_FULL[(new Date().getDay() + 1) % 7];
+    const tomorrowExos = getProgExosForDay(tomorrow);
+    if (tomorrowExos.length) {
+      const conflicting = [...new Set(tomorrowExos.map(e => getMuscleGroupParent(getMuscleGroup(e))))].filter(m => {
+        const r = recovery[m]; return r && !r.isRecovered;
+      });
+      if (conflicting.length) {
+        recHtml += `<br><span style="color:var(--orange);">⚠️ Demain (${tomorrow}) : ${conflicting.join(', ')} pas encore récupéré(s)</span>`;
+      }
+    }
+    sections.push(`<div class="ai-section">${recHtml}</div>`);
+  }
   // Force section: adapt to mode
   if (modeFeature('showSBDCards')) {
     let analyseForce=`<div class="ai-section-title">📊 FORCE</div>`;

@@ -7430,6 +7430,7 @@ function renderGoIdleView() {
     '<div class="go-idle-sub">' + todayDay + (sessionName ? ' · ' + sessionName : '') + '</div>' +
     '<button class="go-btn-main" onclick="goStartWorkout(true)">▶ Lancer la séance</button>' +
     '<button class="go-btn-sec" onclick="goStartWorkout(false)">📝 Séance vide</button>' +
+    '<button class="go-btn-sec" onclick="goStartGroupClass()">🧘 Cours collectif</button>' +
     (hasDraft ? '<button class="go-btn-sec" onclick="goRestoreDraft()">📂 Reprendre brouillon</button>' : '') +
     '</div>';
   document.getElementById('goIdleView').innerHTML = h;
@@ -7539,11 +7540,71 @@ function goTogglePause() {
 }
 
 // ============================================================
+// ── Cours Collectif ──
+var _GROUP_ICONS = {Yoga:'🧘',Pilates:'🤸',Natation:'🏊',Cycling:'🚴',Boxing:'🥊',Running:'🏃',Danse:'💃'};
+
+function goStartGroupClass() {
+  goShowBottomSheet('Type de cours', [
+    { icon:'🧘', label:'Yoga', action: function() { _goCreateGroupSession('Yoga'); } },
+    { icon:'🤸', label:'Pilates', action: function() { _goCreateGroupSession('Pilates'); } },
+    { icon:'🏊', label:'Natation', action: function() { _goCreateGroupSession('Natation'); } },
+    { icon:'🚴', label:'Cycling', action: function() { _goCreateGroupSession('Cycling'); } },
+    { icon:'🥊', label:'Boxing / Combat', action: function() { _goCreateGroupSession('Boxing'); } },
+    { icon:'🏃', label:'Running club', action: function() { _goCreateGroupSession('Running'); } },
+    { icon:'💃', label:'Danse', action: function() { _goCreateGroupSession('Danse'); } },
+    { icon:'📝', label:'Autre (personnalisé)', action: function() {
+      var name = prompt('Nom du cours :');
+      if (name) _goCreateGroupSession(name);
+    }}
+  ]);
+}
+
+function _goCreateGroupSession(type) {
+  activeWorkout = {
+    id: generateId(),
+    title: type,
+    startTime: Date.now(),
+    isGroupClass: true,
+    groupType: type,
+    exercises: [{
+      exoId: null,
+      name: type,
+      sets: [{ weight: 0, reps: 0, type: 'normal', completed: false, duration: 0, distance: 0 }],
+      restSeconds: 0,
+      notes: ''
+    }],
+    restTimer: { running: false, remaining: 0, total: 0, exoIndex: -1 }
+  };
+  _goSessionPaused = false;
+  goStartAutoSave();
+  goRequestWakeLock();
+  goStartSessionTimer();
+  goAutoSave();
+  renderGoTab();
+}
+
 // GO TAB — Active View Rendering
 // ============================================================
 function renderGoActiveView() {
   if (!activeWorkout) return;
   var elapsed = Math.floor((Date.now() - activeWorkout.startTime) / 1000);
+
+  // ── Group Class: simplified view ──
+  if (activeWorkout.isGroupClass) {
+    var gIcon = _GROUP_ICONS[activeWorkout.groupType] || '🏋️';
+    var gh = '<div class="go-group-class">';
+    gh += '<div class="go-group-icon">' + gIcon + '</div>';
+    gh += '<div class="go-group-title">' + activeWorkout.title + '</div>';
+    gh += '<div class="go-group-timer" id="goTimerDisplay">' + goFormatTime(elapsed) + '</div>';
+    gh += '<textarea class="go-group-notes" placeholder="Notes sur le cours..." onchange="activeWorkout.exercises[0].notes=this.value;">' + (activeWorkout.exercises[0].notes || '') + '</textarea>';
+    gh += '<div style="display:flex;gap:12px;margin-top:20px;">';
+    gh += '<button class="go-btn-sec" style="flex:1;" onclick="goTogglePause()">' + (_goSessionPaused ? '▶ Reprendre' : '⏸ Pause') + '</button>';
+    gh += '<button class="go-finish-btn" style="flex:2;background:var(--green);color:#000;" onclick="goConfirmFinish()">✓ Terminer</button>';
+    gh += '</div></div>';
+    document.getElementById('goActiveView').innerHTML = gh;
+    return;
+  }
+
   var allE1RMs = getAllBestE1RMs();
 
   // Compute counters
@@ -8360,6 +8421,21 @@ function renderGoMuscleDistribution() {
 function convertWorkoutToSession(workout) {
   var session = createSession(workout.title, workout.startTime);
   session.duration = Math.round((Date.now() - workout.startTime) / 1000);
+
+  // Group class: single cardio-like exercise with duration
+  if (workout.isGroupClass) {
+    session.isGroupClass = true;
+    session.groupType = workout.groupType;
+    var gExo = createExercise(workout.title);
+    gExo.isCardio = true;
+    gExo.exoType = 'cardio';
+    gExo.maxTime = session.duration;
+    gExo.cardioDate = workout.startTime;
+    gExo.sets = 1;
+    gExo.notes = workout.exercises[0] ? workout.exercises[0].notes : '';
+    session.exercises.push(gExo);
+    return finalizeSessionFromSeries(session);
+  }
 
   workout.exercises.forEach(function(exo) {
     var exercise = createExercise(exo.name);

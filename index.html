@@ -2072,13 +2072,6 @@
         </div>
       </div>
 
-      <!-- Search -->
-      <div class="friends-search">
-        <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
-        <span class="friends-search-icon">🔍</span>
-        <div class="friends-autocomplete" id="friendAutocomplete"></div>
-      </div>
-
       <!-- Friend Code -->
       <div class="card" style="margin-bottom:16px;text-align:center;border:1px solid rgba(10,132,255,0.25);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);">
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code ami</div>
@@ -2094,16 +2087,12 @@
           <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
           <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
         </div>
-      </div>
-
-
-      <!-- Notifications -->
-      <div class="card" id="notifSection">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <h2>Notifications</h2>
-          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
+        <!-- Search -->
+        <div class="friends-search" style="margin-top:10px;">
+          <input type="text" id="friendSearchInput" placeholder="Ou rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
+          <span class="friends-search-icon">🔍</span>
+          <div class="friends-autocomplete" id="friendAutocomplete"></div>
         </div>
-        <div id="notifList" class="notif-list"></div>
       </div>
 
       <!-- Pending Requests -->
@@ -2113,9 +2102,18 @@
       </div>
 
       <!-- Friends List -->
-      <div class="card">
-        <h2>Mes amis</h2>
+      <div class="card" id="friendsListCard">
+        <h2 id="friendsListTitle">Mes amis</h2>
         <div id="friendsList" class="friends-list"></div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="card" id="notifSection">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h2>Notifications</h2>
+          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
+        </div>
+        <div id="notifList" class="notif-list"></div>
       </div>
 
       <!-- Blocked Users -->

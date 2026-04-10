@@ -960,27 +960,7 @@ async function unblockUser(friendshipId) {
   }
 }
 
-// ── Invite Codes ──
-async function loadMyInviteCode() {
-  const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient) return null;
-  try {
-    const { data } = await supaClient.from('invite_codes')
-      .select('code')
-      .eq('user_id', uid)
-      .is('used_by', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) return data.code;
-    // Create one
-    return await createNewInviteCode();
-  } catch (e) {
-    console.error('loadMyInviteCode error:', e);
-    return null;
-  }
-}
-
+// ── Invite Codes (legacy — kept for onboarding compat) ──
 async function createNewInviteCode() {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
@@ -1696,13 +1676,18 @@ async function renderFriendsTab() {
   // Accepted friends
   const accepted = friends.filter(f => f.status === 'accepted');
   const friendsList = document.getElementById('friendsList');
+  const friendsListTitle = document.getElementById('friendsListTitle');
+  if (friendsListTitle) friendsListTitle.textContent = 'Mes amis (' + accepted.length + ')';
   if (accepted.length) {
     friendsList.innerHTML = accepted.map(f => {
       const friendId = f.requester_id === uid ? f.target_id : f.requester_id;
       const p = profiles[friendId] || { username: 'Utilisateur' };
+      const daysSince = f.created_at ? Math.floor((Date.now() - new Date(f.created_at).getTime()) / 86400000) : 0;
+      const sinceText = daysSince <= 0 ? 'Ami depuis aujourd\'hui' : 'Ami depuis ' + daysSince + 'j';
       return '<div class="friends-item">' +
         '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')">' + avatarInitial(p.username) + '</div>' +
-        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div></div>' +
+        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div>' +
+        '<div class="friends-item-status" style="color:var(--sub);font-size:11px;">' + sinceText + '</div></div>' +
         '<div class="friends-item-actions">' +
           '<button class="friends-item-btn remove" onclick="removeFriend(\'' + f.id + '\')">Retirer</button>' +
           '<button class="friends-item-btn block" onclick="blockUser(\'' + friendId + '\')">Bloquer</button>' +

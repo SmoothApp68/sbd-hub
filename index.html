@@ -2055,6 +2055,23 @@
 
     <!-- Friends Sub-tab -->
     <div id="social-friends" class="social-sub-content">
+      <!-- Mon Profil Social (accordéon) -->
+      <div class="corps-acc" id="socialProfileCard">
+        <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-social-profile')">
+          <div class="corps-acc-left">
+            <div class="corps-acc-ico" style="background:rgba(10,132,255,0.1);">👤</div>
+            <div>
+              <div class="corps-acc-info">Mon Profil</div>
+              <div class="corps-acc-sub">Pseudo, bio, vie privée</div>
+            </div>
+          </div>
+          <span class="corps-acc-chev" id="chev-ca-social-profile">▾</span>
+        </div>
+        <div class="corps-acc-body" id="ca-social-profile">
+          <div class="corps-acc-inner" id="socialProfileContent"></div>
+        </div>
+      </div>
+
       <!-- Search -->
       <div class="friends-search">
         <input type="text" id="friendSearchInput" placeholder="Rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">

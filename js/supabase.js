@@ -1570,6 +1570,81 @@ async function updateLeaderboardSnapshot() {
 }
 
 // ============================================================
+// SOCIAL MODULE — PROFILE CARD IN FRIENDS TAB
+// ============================================================
+function renderSocialProfileCard() {
+  const container = document.getElementById('socialProfileContent');
+  if (!container) return;
+
+  const username = db.social.username || '';
+  const bio = db.social.bio || '';
+  const vis = db.social.visibility || {};
+  const initial = avatarInitial(username);
+
+  const visOptions = function(field) {
+    const val = vis[field] || 'private';
+    return '<select class="sob-visibility-select" onchange="updateProfileVisibility(\'' + field + '\', this.value)">' +
+      '<option value="private"' + (val === 'private' ? ' selected' : '') + '>🔒 Privé</option>' +
+      '<option value="friends"' + (val === 'friends' ? ' selected' : '') + '>👥 Amis</option>' +
+      '<option value="public"' + (val === 'public' ? ' selected' : '') + '>🌍 Public</option>' +
+    '</select>';
+  };
+
+  let html = '';
+  // Avatar + pseudo + bio (lecture)
+  html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">';
+  html += '<div style="width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">' + initial + '</div>';
+  html += '<div><div style="font-weight:700;font-size:15px;color:var(--text);">' + (username || '—') + '</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' + (bio || 'Aucune bio') + '</div></div>';
+  html += '</div>';
+
+  // Edit pseudo
+  html += '<div style="margin-bottom:12px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Pseudo</div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<input type="text" id="socialEditUsername" value="' + (username || '').replace(/"/g, '&quot;') + '" placeholder="Ton pseudo" maxlength="20" style="margin-bottom:0;flex:1;">';
+  html += '<button class="btn" style="width:auto;padding:8px 14px;font-size:16px;flex-shrink:0;" onclick="saveSocialUsername()">💾</button>';
+  html += '</div></div>';
+
+  // Edit bio
+  html += '<div style="margin-bottom:14px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Bio</div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<textarea id="socialEditBio" placeholder="Powerlifter depuis 2020..." maxlength="200" rows="2" style="resize:none;margin-bottom:0;flex:1;">' + (bio || '').replace(/</g, '&lt;') + '</textarea>';
+  html += '<button class="btn" style="width:auto;padding:8px 14px;font-size:16px;flex-shrink:0;align-self:flex-end;" onclick="saveSocialBio()">💾</button>';
+  html += '</div></div>';
+
+  // Visibility settings
+  html += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Visibilité</div>';
+  var fields = [
+    { key: 'bio', label: 'Bio' },
+    { key: 'prs', label: 'PRs / Exercices clés' },
+    { key: 'programme', label: 'Programme' },
+    { key: 'seances', label: 'Séances détaillées' },
+    { key: 'stats', label: 'Stats' }
+  ];
+  fields.forEach(function(f) {
+    html += '<div class="sob-visibility-row"><span class="sob-visibility-label">' + f.label + '</span>' + visOptions(f.key) + '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+async function saveSocialUsername() {
+  const input = document.getElementById('socialEditUsername');
+  const newName = (input.value || '').trim();
+  if (!newName || newName.length < 2) { showToast('Pseudo trop court (min. 2 car.)'); return; }
+  const ok = await updateUsername(newName);
+  if (ok) renderSocialProfileCard();
+}
+
+async function saveSocialBio() {
+  const textarea = document.getElementById('socialEditBio');
+  await updateBio((textarea.value || '').trim());
+  renderSocialProfileCard();
+}
+
+// ============================================================
 // SOCIAL MODULE — RENDER FRIENDS TAB
 // ============================================================
 async function renderFriendsTab() {
@@ -1669,6 +1744,9 @@ async function renderFriendsTab() {
   } else {
     badgeEl.style.display = 'none';
   }
+
+  // Render profile card
+  renderSocialProfileCard();
 }
 
 // ============================================================

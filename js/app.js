@@ -150,9 +150,17 @@ function _destroyTabCharts(tabId) {
   }
 }
 
-// Routine active (user ou fallback)
+// Routine active : perso (db.routine) > généré (db.generatedProgram) > template > rien
 function getRoutine() {
-  if (db.routine) return db.routine;
+  // Priorité 1 : routine personnalisée (modifiée dans Réglages > Mon Programme)
+  if (db.routine && Object.keys(db.routine).length > 0) return db.routine;
+  // Priorité 2 : routine générée à l'onboarding
+  if (db.generatedProgram && db.generatedProgram.length > 0) {
+    const r = {};
+    db.generatedProgram.forEach(d => { r[d.day] = d.isRest ? '😴 Repos' : (d.label || d.day); });
+    return r;
+  }
+  // Priorité 3 : template par défaut selon le mode
   const style = modeFeature('programStyle');
   if (style && ROUTINE_TEMPLATES[style]) return ROUTINE_TEMPLATES[style].routine;
   return DEFAULT_ROUTINE;
@@ -7499,6 +7507,9 @@ function renderWeeklyPlanUI() {
   }
   genBtn.style.display = 'none'; regenBtn.style.display = 'block';
   if (select) select.value = String(plan.week || 1);
+  // Masquer le sélecteur de bloc pour les débutants (progression linéaire)
+  const blocControls = document.querySelector('.wp-bloc-controls');
+  if (blocControls) blocControls.style.display = (db.user.level === 'debutant') ? 'none' : 'flex';
   const genDate = plan.generated_at ? new Date(plan.generated_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) : '';
   meta.textContent = genDate ? 'Généré le ' + genDate : '';
   const todayName = DAYS_FULL[new Date().getDay()];
@@ -7519,12 +7530,20 @@ function renderWeeklyPlanUI() {
   if (!sel || sel.rest) {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
+    // Durée estimée du jour
+    const dayDuration = estimateSessionDuration(sel.exercises || [], plan.goalKey || 'force');
+    const durationHtml = dayDuration.minutes > 0
+      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration.minutes}min estimé</div>`
+      : '';
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
+  // Bloc badge avec label (intermédiaire+)
+  const blocLabel = plan.blocLabel ? ` — ${plan.blocLabel}` : '';
+  const blocBadge = `<div class="wp-bloc-badge">Semaine ${plan.week||1}${blocLabel}</div>`;
   const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
-  content.innerHTML = `<div class="wp-bloc-badge">Semaine ${plan.week||1}</div>${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
+  content.innerHTML = `${blocBadge}${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
 }
 
 function wpApplyDay(day) {
@@ -7578,22 +7597,24 @@ function renderWpExercise(exo) {
     else if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|leg\s*press|presse|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) typeTag = 'Composé';
   }
 
-  // Summary
-  const wrkSetsAll = sets.filter(s => !s.isWarmup);
+  // Summary — work sets only (exclude back-off)
+  const wrkSetsOnly = sets.filter(s => !s.isWarmup && !s.isBackoff);
+  const backoffSetsAll = sets.filter(s => s.isBackoff);
   let summary = '';
-  if (wrkSetsAll.length > 0 && type !== 'cardio' && type !== 'cardio_stairs' && !exo.noData) {
-    const s0 = wrkSetsAll[0];
+  if (wrkSetsOnly.length > 0 && type !== 'cardio' && type !== 'cardio_stairs' && !exo.noData) {
+    const s0 = wrkSetsOnly[0];
     if (type === 'time') {
       const sec = s0.durationSec || 0;
-      summary = wrkSetsAll.length + '×' + (sec >= 60 ? Math.floor(sec/60) + 'min' + (sec%60 ? sec%60+'s' : '') : sec + 's');
+      summary = wrkSetsOnly.length + '×' + (sec >= 60 ? Math.floor(sec/60) + 'min' + (sec%60 ? sec%60+'s' : '') : sec + 's');
     } else if (type === 'reps' && s0.weight > 0) {
-      summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
+      summary = wrkSetsOnly.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
     } else if (type === 'reps') {
-      summary = wrkSetsAll.length + '×' + (s0.reps === 'max' ? 'max' : s0.reps);
+      summary = wrkSetsOnly.length + '×' + (s0.reps === 'max' ? 'max' : s0.reps);
     } else if (type === 'weight' && s0.weight > 0) {
-      summary = wrkSetsAll.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
+      summary = wrkSetsOnly.length + '×' + s0.reps + ' @ ' + s0.weight + 'kg';
     }
-    if (s0.rpe && type !== 'time') summary += ' · ' + t('rpe', s0.rpe);
+    if (s0.rpe && type !== 'time') summary += ' · RPE ' + s0.rpe;
+    if (backoffSetsAll.length) summary += ' + ' + backoffSetsAll.length + ' back-off';
   }
 
   // Sets content
@@ -7638,10 +7659,14 @@ function renderWpExercise(exo) {
     setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
 
   } else {
-    const wup = sets.filter(s => s.isWarmup), wrk = sets.filter(s => !s.isWarmup);
+    const wup = sets.filter(s => s.isWarmup);
+    const wrk = sets.filter(s => !s.isWarmup && !s.isBackoff);
+    const bo  = sets.filter(s => s.isBackoff);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
     let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
-    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? t('rpe', s.rpe) : '—') + '</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    // Back-off sets en teal
+    rows += bo.map((s, i) => '<div class="wpe-set-row" style="opacity:0.8;"><span class="wpe-set-num" style="color:var(--teal);">BO' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--teal);">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe" style="color:var(--teal);">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
     setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
   }
 

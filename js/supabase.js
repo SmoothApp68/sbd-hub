@@ -503,25 +503,10 @@ async function addFriendByCode() {
   const friend = await lookupFriendByCode(code);
   if (!friend) { showToast('Code ami introuvable'); return; }
 
-  // Check if already friends
-  if (db.friends && db.friends.includes(friend.id)) {
-    showToast('Déjà dans ta liste d\'amis');
-    return;
-  }
-
-  // Send friend request via existing system
+  // Send friend request via Supabase (sendFriendRequest handles toasts & re-render)
   await sendFriendRequest(friend.id);
 
-  // Add to local friends list
-  if (!db.friends) db.friends = [];
-  if (!db.friends.includes(friend.id)) {
-    db.friends.push(friend.id);
-    saveDB();
-  }
-
   input.value = '';
-  showToast('Demande envoyée à ' + (friend.username || 'cet utilisateur') + ' !');
-  renderFriendsTab();
 }
 
 async function ensureProfile() {
@@ -779,6 +764,18 @@ async function sendFriendRequest(targetId) {
       status: 'pending'
     });
     if (error) throw error;
+    // Verify the row is actually readable (RLS SELECT could block it)
+    const { data: verify, error: verifyErr } = await supaClient.from('friendships')
+      .select('id')
+      .eq('requester_id', uid)
+      .eq('target_id', targetId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (verifyErr || !verify) {
+      console.error('sendFriendRequest: insert OK but SELECT failed — RLS issue?', verifyErr);
+      showToast('Demande envoyée mais vérification impossible. Vérifie dans quelques instants.');
+      return;
+    }
     showToast('Demande envoyée !');
     renderFriendsTab();
   } catch (e) {
@@ -1674,6 +1671,109 @@ async function updateSocialBadge() {
       badge.classList.remove('visible');
     }
   }
+}
+
+// ============================================================
+// SOCIAL MODULE — DIAGNOSTIC
+// ============================================================
+async function diagnoseSocial() {
+  const results = [];
+  const ok = (msg) => results.push({ ok: true, msg });
+  const fail = (msg) => results.push({ ok: false, msg });
+
+  // 1. Auth check
+  try {
+    if (!supaClient) { fail('Client Supabase non initialisé'); }
+    else {
+      const { data } = await supaClient.auth.getUser();
+      if (data?.user) {
+        const u = data.user;
+        ok('Connecté : ' + (u.email || 'anonyme') + ' (id: ' + u.id.substring(0, 8) + '…)');
+      } else { fail('Aucun utilisateur connecté'); }
+    }
+  } catch (e) { fail('Auth — ' + e.message); }
+
+  // 2. Profiles table & friend_code column
+  try {
+    const uid = await getMyUserIdAsync();
+    if (!uid) { fail('Impossible de récupérer ton identifiant'); }
+    else {
+      const { data, error } = await supaClient.from('profiles').select('id, username, friend_code').eq('id', uid).maybeSingle();
+      if (error) { fail('Table profiles inaccessible — ' + error.message); }
+      else if (!data) { fail('Aucun profil trouvé pour ton compte (table profiles vide ou RLS bloque)'); }
+      else {
+        ok('Profil trouvé : ' + (data.username || '(pas de pseudo)'));
+        if (data.friend_code) { ok('Code ami en base : ' + data.friend_code); }
+        else { fail('Colonne friend_code absente ou vide — la colonne existe-t-elle dans Supabase ?'); }
+      }
+    }
+  } catch (e) { fail('Profiles — ' + e.message); }
+
+  // 3. Friendships table accessible
+  try {
+    const uid = await getMyUserIdAsync();
+    const { data, error } = await supaClient.from('friendships')
+      .select('id, requester_id, target_id, status')
+      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid)
+      .limit(50);
+    if (error) { fail('Table friendships inaccessible — ' + error.message); }
+    else {
+      const pending = (data || []).filter(f => f.status === 'pending');
+      const accepted = (data || []).filter(f => f.status === 'accepted');
+      ok('Friendships accessibles : ' + (data || []).length + ' total (' + pending.length + ' en attente, ' + accepted.length + ' acceptées)');
+
+      // 3b. Pending requests where I am the TARGET (incoming)
+      const incoming = pending.filter(f => f.target_id === uid);
+      const outgoing = pending.filter(f => f.requester_id === uid);
+      if (incoming.length) { ok(incoming.length + ' demande(s) reçue(s) en attente (tu devrais les voir dans l\'onglet Amis)'); }
+      else { ok('Aucune demande reçue en attente'); }
+      if (outgoing.length) { ok(outgoing.length + ' demande(s) envoyée(s) en attente'); }
+    }
+  } catch (e) { fail('Friendships — ' + e.message); }
+
+  // 4. Check that a friend can see the pending request (cross-user visibility)
+  try {
+    const uid = await getMyUserIdAsync();
+    const { data, error } = await supaClient.from('friendships')
+      .select('id')
+      .eq('status', 'pending')
+      .limit(1);
+    if (error) { fail('Lecture des demandes pending échouée (RLS SELECT ?) — ' + error.message); }
+    else { ok('Lecture RLS des friendships OK'); }
+  } catch (e) { fail('RLS friendships — ' + e.message); }
+
+  // 5. Local state check
+  if (db.friendCode) { ok('Code ami local (db.friendCode) : ' + db.friendCode); }
+  else { fail('Pas de code ami en local (db.friendCode absent)'); }
+
+  if (db.social && db.social.onboardingCompleted) { ok('Onboarding social complété'); }
+  else { fail('Onboarding social non complété — le module social peut être bloqué'); }
+
+  // Build readable output
+  console.group('🔧 Diagnostic Social');
+  results.forEach(r => console[r.ok ? 'log' : 'warn']((r.ok ? '✅' : '❌') + ' ' + r.msg));
+  console.groupEnd();
+
+  // Show modal in app
+  const modalHtml =
+    '<div class="modal-overlay" id="diagSocialOverlay" onclick="if(event.target===this)this.remove()" style="z-index:99999;">' +
+      '<div class="modal-box" style="max-width:400px;text-align:left;max-height:80vh;overflow-y:auto;">' +
+        '<div style="font-size:22px;text-align:center;margin-bottom:8px;">🔧</div>' +
+        '<p style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center;">Diagnostic Social</p>' +
+        results.map(r =>
+          '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;font-size:13px;line-height:1.4;">' +
+            '<span style="flex-shrink:0;">' + (r.ok ? '✅' : '❌') + '</span>' +
+            '<span style="color:' + (r.ok ? 'var(--green)' : 'var(--red)') + ';">' + r.msg + '</span>' +
+          '</div>'
+        ).join('') +
+        '<button class="btn" style="margin-top:16px;" onclick="document.getElementById(\'diagSocialOverlay\').remove()">Fermer</button>' +
+      '</div>' +
+    '</div>';
+  const existing = document.getElementById('diagSocialOverlay');
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  return results;
 }
 
 // ============================================================

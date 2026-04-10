@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   username TEXT UNIQUE NOT NULL,
   username_changed_at TIMESTAMPTZ,
   bio TEXT DEFAULT '' CHECK (char_length(bio) <= 200),
+  friend_code TEXT UNIQUE,
+  password_migrated BOOLEAN DEFAULT FALSE,
   visibility_bio visibility_level DEFAULT 'private',
   visibility_prs visibility_level DEFAULT 'private',
   visibility_programme visibility_level DEFAULT 'private',
@@ -28,6 +30,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   anonymized BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_profiles_friend_code ON profiles(friend_code) WHERE friend_code IS NOT NULL;
 
 CREATE INDEX idx_profiles_username ON profiles(username);
 CREATE INDEX idx_profiles_username_trgm ON profiles USING gin(username gin_trgm_ops);

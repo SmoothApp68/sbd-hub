@@ -4908,7 +4908,42 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     // Check password migration for existing magic-link users
     checkPasswordMigration(user);
   });
+  // Local notifications init
+  try { initNotifications(); } catch(e) {}
 })();
+
+// ============================================================
+// NOTIFICATIONS LOCALES
+// ============================================================
+function initNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if (Notification.permission === 'granted') {
+    _checkTrainingReminder();
+    return;
+  }
+  if (db.logs.length < 3) return;
+  Notification.requestPermission().then(function(perm) {
+    if (perm === 'granted') _checkTrainingReminder();
+  });
+}
+
+function sendLocalNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body: body }); } catch(e) {}
+}
+
+function _checkTrainingReminder() {
+  var now = new Date();
+  if (now.getHours() < 17) return;
+  var today = getTodayStr();
+  var alreadyTrained = db.logs.some(function(l) { return l.shortDate === today || (l.timestamp && new Date(l.timestamp).toISOString().slice(0,10) === today); });
+  if (alreadyTrained) return;
+  if (!isTodayTrainingDay()) return;
+  var routine = getRoutine();
+  var todayDay = DAYS_FULL[now.getDay()];
+  var label = routine[todayDay] || 'entraînement';
+  sendLocalNotification('💪 C\'est jour d\'entraînement', todayDay + ' — ' + label);
+}
 
 // ============================================================
 // ONGLET CORPS
@@ -8788,6 +8823,7 @@ function goFinishWorkout() {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {
         const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
         publishPRActivity(name, db.bestPR[type], oldPRs[type]);
+        sendLocalNotification('🏆 Nouveau record !', name + ' : ' + db.bestPR[type] + 'kg (ancien: ' + oldPRs[type] + 'kg)');
       }
     });
     updateLeaderboardSnapshot();
@@ -8802,6 +8838,12 @@ function goFinishWorkout() {
 
   activeWorkout = null;
   _goSessionPaused = false;
+
+  // Notification
+  var _nSets = 0, _nTonnage = 0;
+  (session.exercises||[]).forEach(function(e) { _nSets += (e.sets||0); });
+  _nTonnage = session.volume || 0;
+  sendLocalNotification('✅ Séance terminée', 'Bravo ! ' + _nSets + ' séries, ' + (_nTonnage >= 1000 ? (_nTonnage/1000).toFixed(1) + 't' : _nTonnage + 'kg') + ' de volume');
 
   showToast('✅ Séance sauvegardée');
   renderGoTab();

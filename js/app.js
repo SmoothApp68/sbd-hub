@@ -6694,8 +6694,58 @@ function renderCoachAlgoAI() {
 // ============================================================
 function renderCoachTab() {
   renderCoachBriefing();
+  renderProgressionSuggestions();
   if (new Date().getDay() === 1) generateWeeklyReport();
   renderCoachReports();
+}
+
+function checkProgressionSuggestions() {
+  var suggestions = [];
+  var recentLogs = getLogsInRange(21);
+  var exoSessions = {};
+  recentLogs.forEach(function(log) {
+    log.exercises.forEach(function(e) {
+      if (!exoSessions[e.name]) exoSessions[e.name] = [];
+      exoSessions[e.name].push({ maxReps: Math.max.apply(null, (e.series||[]).map(function(s){return s.reps||0;}).concat([0])) });
+    });
+  });
+  Object.keys(exoSessions).forEach(function(name) {
+    var sessions = exoSessions[name];
+    if (sessions.length < 3) return;
+    var exoData = null;
+    var keys = Object.keys(EXO_DATABASE);
+    for (var i = 0; i < keys.length; i++) {
+      if (matchExoName(EXO_DATABASE[keys[i]].name, name)) { exoData = EXO_DATABASE[keys[i]]; break; }
+    }
+    if (!exoData || !exoData.progressions) return;
+    var currentIdx = exoData.progressions.indexOf(exoData.id);
+    if (currentIdx < 0 || currentIdx >= exoData.progressions.length - 1) return;
+    var easyCount = sessions.filter(function(s) { return s.maxReps >= 15; }).length;
+    if (easyCount >= 3) {
+      var nextExo = EXO_DATABASE[exoData.progressions[currentIdx + 1]];
+      if (nextExo) suggestions.push({ from: exoData.name, to: nextExo.name, reason: 'Tu fais 15+ reps régulièrement — prêt pour la suite !' });
+    }
+  });
+  return suggestions;
+}
+
+function renderProgressionSuggestions() {
+  var el = document.getElementById('coachBriefing');
+  if (!el) return;
+  var suggestions = checkProgressionSuggestions();
+  if (!suggestions.length) return;
+  var h = '<div class="coach-card">';
+  h += '<div class="coach-card-title">📈 Progressions suggérées</div>';
+  suggestions.forEach(function(s) {
+    h += '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">';
+    h += '<span style="color:var(--text);font-weight:600;">' + s.from + '</span>';
+    h += ' <span style="color:var(--blue);">→</span> ';
+    h += '<span style="color:var(--green);font-weight:600;">' + s.to + '</span>';
+    h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + s.reason + '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  el.innerHTML += h;
 }
 
 function renderCoachBriefing() {
@@ -7505,10 +7555,10 @@ decline_bench:{id:'decline_bench',name:'Développé Décliné (Barre)',nameAlt:[
 dumbbell_fly:{id:'dumbbell_fly',name:'Écarté Haltères',nameAlt:['Dumbbell Fly','Écarté couché'],equipment:'dumbbell',category:'isolation',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Allongé sur le banc, bras tendus au-dessus de la poitrine\n2. Légère flexion des coudes maintenue tout le long\n3. Ouvrir les bras en arc de cercle\n4. Descendre jusqu\'à sentir l\'étirement des pecs\n5. Remonter en serrant les pecs'},
 cable_fly:{id:'cable_fly',name:'Écarté Poulie',nameAlt:['Cable Fly','Cable Crossover','Vis-à-vis'],equipment:'cable',category:'isolation',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Debout entre les poulies, un pas en avant\n2. Bras ouverts, légère flexion des coudes\n3. Ramener les mains devant la poitrine en arc\n4. Serrer les pecs en fin de mouvement\n5. Revenir lentement en position de départ'},
 machine_fly:{id:'machine_fly',name:'Écarté Machine (Pec Deck)',nameAlt:['Pec Deck','Machine Fly','Butterfly'],equipment:'machine',category:'isolation',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Assis sur la machine, dos bien calé\n2. Coudes à hauteur des épaules sur les supports\n3. Rapprocher les bras devant la poitrine\n4. Serrer les pecs 1-2s en fin de mouvement\n5. Revenir lentement en contrôlant'},
-push_up:{id:'push_up',name:'Pompes',nameAlt:['Push-ups','Push up'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Position planche, mains largeur d\'épaules\n2. Corps gainé de la tête aux pieds\n3. Descendre en pliant les coudes\n4. Poitrine frôle le sol\n5. Pousser pour remonter'},
-diamond_push_up:{id:'diamond_push_up',name:'Pompes Diamant',nameAlt:['Diamond Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Triceps'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Position pompe, mains rapprochées formant un diamant\n2. Pouces et index se touchent\n3. Descendre en gardant les coudes près du corps\n4. Remonter en poussant fort\n5. Garder le corps gainé'},
+push_up:{id:'push_up',name:'Pompes',nameAlt:['Push-ups','Push up'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:90,bwFactor:0.64,difficulty:2,progressions:['push_up','push_up_clap','archer_push_up','pseudo_planche_pushup','one_arm_push_up'],instructions:'1. Position planche, mains largeur d\'épaules\n2. Corps gainé de la tête aux pieds\n3. Descendre en pliant les coudes\n4. Poitrine frôle le sol\n5. Pousser pour remonter'},
+diamond_push_up:{id:'diamond_push_up',name:'Pompes Diamant',nameAlt:['Diamond Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Triceps'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:90,bwFactor:0.64,difficulty:3,instructions:'1. Position pompe, mains rapprochées formant un diamant\n2. Pouces et index se touchent\n3. Descendre en gardant les coudes près du corps\n4. Remonter en poussant fort\n5. Garder le corps gainé'},
 feet_elevated_push_up:{id:'feet_elevated_push_up',name:'Pompes Pieds Surélevés',nameAlt:['Decline Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs (haut)'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Pieds sur un banc ou support surélevé\n2. Mains au sol, largeur d\'épaules\n3. Corps en ligne droite\n4. Descendre en contrôlant\n5. Pousser pour remonter'},
-dips_chest:{id:'dips_chest',name:'Dips (Pecs)',nameAlt:['Chest Dips','Dips pectoraux'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs (bas)'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Barres parallèles, bras tendus\n2. Pencher le buste légèrement en avant\n3. Descendre en pliant les coudes\n4. Aller jusqu\'à 90° ou plus si mobilité le permet\n5. Remonter en poussant'},
+dips_chest:{id:'dips_chest',name:'Dips (Pecs)',nameAlt:['Chest Dips','Dips pectoraux'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs (bas)'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.95,difficulty:3,progressions:['dips_triceps','dips_chest','weighted_dips','ring_dips'],instructions:'1. Barres parallèles, bras tendus\n2. Pencher le buste légèrement en avant\n3. Descendre en pliant les coudes\n4. Aller jusqu\'à 90° ou plus si mobilité le permet\n5. Remonter en poussant'},
 cable_crossover:{id:'cable_crossover',name:'Cable Crossover',nameAlt:['Croisement poulie','Cross-over'],equipment:'cable',category:'isolation',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Poulies en position haute\n2. Un pas en avant, buste penché\n3. Tirer les câbles vers le bas et l\'avant\n4. Croiser les mains devant le bassin\n5. Remonter lentement'},
 chest_press_machine:{id:'chest_press_machine',name:'Chest Press Machine',nameAlt:['Presse pectorale','Machine pecs'],equipment:'machine',category:'compound',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Assis, dos bien calé contre le dossier\n2. Poignées à hauteur de poitrine\n3. Pousser les poignées vers l\'avant\n4. Tendre les bras sans verrouiller\n5. Revenir lentement'},
 // ── DOS ──
@@ -7516,15 +7566,15 @@ barbell_row:{id:'barbell_row',name:'Rowing Barre',nameAlt:['Barbell Row','Bent-o
 dumbbell_row:{id:'dumbbell_row',name:'Rowing Haltère 1 Bras',nameAlt:['Dumbbell Row','One-arm Row'],equipment:'dumbbell',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Haut du dos','Biceps'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Un genou et une main sur le banc\n2. Haltère dans l\'autre main, bras tendu\n3. Tirer l\'haltère vers la hanche\n4. Serrer l\'omoplate en haut\n5. Redescendre en contrôlant'},
 tbar_row:{id:'tbar_row',name:'Rowing T-Bar',nameAlt:['T-Bar Row'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Haut du dos','Biceps'],tertiaryMuscles:[],defaultRest:150,instructions:'1. Debout au-dessus de la barre en T\n2. Prise serrée, buste penché\n3. Tirer vers la poitrine\n4. Serrer les omoplates\n5. Redescendre lentement'},
 cable_row:{id:'cable_row',name:'Tirage Horizontal Câble',nameAlt:['Cable Row','Seated Cable Row'],equipment:'cable',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Haut du dos','Biceps'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Assis, pieds sur les supports, câble en mains\n2. Dos droit, poitrine sortie\n3. Tirer la poignée vers le nombril\n4. Serrer les omoplates 1-2s\n5. Relâcher lentement en tendant les bras'},
-pull_up_pronation:{id:'pull_up_pronation',name:'Tractions Pronation',nameAlt:['Pull-ups','Tractions'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps','Haut du dos'],tertiaryMuscles:['Avant-bras'],defaultRest:150,instructions:'1. Barre fixe, prise pronation large\n2. Partir bras tendus\n3. Tirer en amenant le menton au-dessus de la barre\n4. Descendre lentement\n5. Éviter le balancement'},
-pull_up_supination:{id:'pull_up_supination',name:'Tractions Supination (Chin-up)',nameAlt:['Chin-ups','Tractions supination'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal','Biceps'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:150,instructions:'1. Barre fixe, prise supination (paumes vers soi)\n2. Prise largeur d\'épaules\n3. Tirer en amenant le menton au-dessus\n4. Serrer les biceps et le dos en haut\n5. Redescendre en contrôlant'},
+pull_up_pronation:{id:'pull_up_pronation',name:'Tractions Pronation',nameAlt:['Pull-ups','Tractions'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps','Haut du dos'],tertiaryMuscles:['Avant-bras'],defaultRest:150,bwFactor:1.00,difficulty:3,progressions:['inverted_row','pull_up_band','pull_up_negative','pull_up_supination','pull_up_pronation','weighted_pull_up','typewriter_pullup','muscle_up'],instructions:'1. Barre fixe, prise pronation large\n2. Partir bras tendus\n3. Tirer en amenant le menton au-dessus de la barre\n4. Descendre lentement\n5. Éviter le balancement'},
+pull_up_supination:{id:'pull_up_supination',name:'Tractions Supination (Chin-up)',nameAlt:['Chin-ups','Tractions supination'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal','Biceps'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:3,progressions:['inverted_row','pull_up_band','pull_up_negative','pull_up_supination','pull_up_pronation','weighted_pull_up','typewriter_pullup','muscle_up'],instructions:'1. Barre fixe, prise supination (paumes vers soi)\n2. Prise largeur d\'épaules\n3. Tirer en amenant le menton au-dessus\n4. Serrer les biceps et le dos en haut\n5. Redescendre en contrôlant'},
 pull_up_neutral:{id:'pull_up_neutral',name:'Tractions Prise Neutre',nameAlt:['Neutral Grip Pull-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps','Haut du dos'],tertiaryMuscles:[],defaultRest:150,instructions:'1. Poignées parallèles, paumes face à face\n2. Bras tendus en position basse\n3. Tirer jusqu\'au menton au-dessus des mains\n4. Contrôler la descente\n5. Amplitude complète'},
 lat_pulldown_wide:{id:'lat_pulldown_wide',name:'Tirage Vertical Prise Large',nameAlt:['Lat Pulldown','Tirage poulie haute'],equipment:'cable',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps','Haut du dos'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Assis, cuisses calées sous les supports\n2. Prise large pronation sur la barre\n3. Tirer la barre vers le haut de la poitrine\n4. Serrer les omoplates en bas\n5. Remonter lentement en contrôlant'},
 lat_pulldown_close:{id:'lat_pulldown_close',name:'Tirage Vertical Prise Serrée',nameAlt:['Close Grip Pulldown'],equipment:'cable',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Poignée en V ou prise serrée\n2. Assis, dos droit\n3. Tirer vers le sternum\n4. Coudes près du corps\n5. Remonter en contrôlant l\'étirement'},
 lat_pulldown_neutral:{id:'lat_pulldown_neutral',name:'Tirage Vertical Prise Neutre',nameAlt:['Neutral Grip Pulldown'],equipment:'cable',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Poignée à prises parallèles\n2. Tirer vers la poitrine\n3. Garder le buste légèrement incliné\n4. Serrer le dos en bas du mouvement\n5. Contrôler la remontée'},
 seated_row_machine:{id:'seated_row_machine',name:'Tirage Horizontal Machine',nameAlt:['Seated Row Machine'],equipment:'machine',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Assis, poitrine contre le support\n2. Saisir les poignées\n3. Tirer vers soi en serrant les omoplates\n4. Tenir 1s en contraction\n5. Relâcher lentement'},
 face_pull:{id:'face_pull',name:'Face Pull',nameAlt:['Tirage visage'],equipment:'cable',category:'isolation',trackingType:'weight',primaryMuscles:['Épaules (postérieur)'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Poulie haute avec corde\n2. Tirer vers le visage, coudes hauts\n3. Écarter les mains en fin de mouvement\n4. Rotation externe des épaules\n5. Revenir lentement'},
-inverted_row:{id:'inverted_row',name:'Rowing Inversé',nameAlt:['Inverted Row','Australian Pull-up'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Haut du dos'],secondaryMuscles:['Grand dorsal','Biceps'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Sous une barre basse, corps en planche\n2. Prise pronation ou supination\n3. Tirer la poitrine vers la barre\n4. Serrer les omoplates\n5. Redescendre en contrôlant'},
+inverted_row:{id:'inverted_row',name:'Rowing Inversé',nameAlt:['Inverted Row','Australian Pull-up'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Haut du dos'],secondaryMuscles:['Grand dorsal','Biceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.60,difficulty:2,progressions:['inverted_row','pull_up_band','pull_up_negative','pull_up_supination','pull_up_pronation','weighted_pull_up'],instructions:'1. Sous une barre basse, corps en planche\n2. Prise pronation ou supination\n3. Tirer la poitrine vers la barre\n4. Serrer les omoplates\n5. Redescendre en contrôlant'},
 pullover_cable:{id:'pullover_cable',name:'Pullover (Câble)',nameAlt:['Cable Pullover','Pullover poulie'],equipment:'cable',category:'isolation',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Debout face à la poulie haute\n2. Bras tendus, saisir la barre ou corde\n3. Tirer vers les cuisses en gardant les bras tendus\n4. Contracter les dorsaux en bas\n5. Remonter lentement'},
 // ── JAMBES ──
 squat_barbell:{id:'squat_barbell',name:'Squat Barre',nameAlt:['Back Squat','Squat arrière'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers','Lombaires'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:180,instructions:'1. Barre sur les trapèzes, pieds largeur d\'épaules\n2. Descendre en poussant les hanches en arrière\n3. Cuisses au moins parallèles au sol\n4. Pousser sur les talons pour remonter\n5. Garder le dos droit et la poitrine haute'},
@@ -7573,7 +7623,7 @@ cable_curl:{id:'cable_curl',name:'Curl Câble',nameAlt:['Cable Curl'],equipment:
 tricep_pushdown:{id:'tricep_pushdown',name:'Extension Triceps Poulie Haute',nameAlt:['Tricep Pushdown','Pushdown'],equipment:'cable',category:'isolation',trackingType:'weight',primaryMuscles:['Triceps'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Debout face à la poulie haute\n2. Barre ou corde, coudes au corps\n3. Tendre les bras vers le bas\n4. Contracter les triceps\n5. Remonter lentement sans bouger les coudes'},
 skull_crusher:{id:'skull_crusher',name:'Skull Crusher',nameAlt:['Barre front','Lying Tricep Extension'],equipment:'barbell',category:'isolation',trackingType:'weight',primaryMuscles:['Triceps'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Allongé, barre tenue bras tendus au-dessus\n2. Plier les coudes, descendre la barre vers le front\n3. Coudes fixes, seuls les avant-bras bougent\n4. Remonter en tendant les bras\n5. Contrôler le mouvement'},
 tricep_kickback:{id:'tricep_kickback',name:'Kickback Triceps',nameAlt:['Tricep Kickback'],equipment:'dumbbell',category:'isolation',trackingType:'weight',primaryMuscles:['Triceps'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Penché en avant, bras le long du corps\n2. Coude à 90°, haltère en main\n3. Tendre le bras vers l\'arrière\n4. Contracter le triceps\n5. Revenir à 90° lentement'},
-dips_triceps:{id:'dips_triceps',name:'Dips Triceps',nameAlt:['Tricep Dips','Dips banc'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Triceps'],secondaryMuscles:['Pecs (bas)','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Barres parallèles, buste droit (vertical)\n2. Descendre en pliant les coudes vers l\'arrière\n3. Coudes près du corps\n4. Descendre à 90°\n5. Pousser pour remonter'},
+dips_triceps:{id:'dips_triceps',name:'Dips Triceps',nameAlt:['Tricep Dips','Dips banc'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Triceps'],secondaryMuscles:['Pecs (bas)','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.95,difficulty:2,progressions:['dips_triceps','dips_chest','weighted_dips','ring_dips'],instructions:'1. Barres parallèles, buste droit (vertical)\n2. Descendre en pliant les coudes vers l\'arrière\n3. Coudes près du corps\n4. Descendre à 90°\n5. Pousser pour remonter'},
 french_press:{id:'french_press',name:'French Press',nameAlt:['Overhead Tricep Extension'],equipment:'barbell',category:'isolation',trackingType:'weight',primaryMuscles:['Triceps'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:90,instructions:'1. Assis ou debout, barre au-dessus de la tête\n2. Plier les coudes, descendre derrière la tête\n3. Coudes fixes vers le plafond\n4. Remonter en tendant les bras\n5. Contrôler le mouvement'},
 jm_press:{id:'jm_press',name:'JM Press',nameAlt:[],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Triceps'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:120,instructions:'1. Allongé, barre au-dessus comme un bench\n2. Descendre la barre vers le menton/nez\n3. Coudes vers l\'avant (pas sur les côtés)\n4. Mélange de skull crusher et bench\n5. Pousser vers le haut'},
 close_grip_bench:{id:'close_grip_bench',name:'Développé Couché Prise Serrée',nameAlt:['Close Grip Bench Press','CGBP'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Triceps'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:150,instructions:'1. Allongé, prise serrée (mains largeur d\'épaules)\n2. Descendre la barre sur le sternum\n3. Coudes près du corps\n4. Pousser vers le haut\n5. Focus sur les triceps'},
@@ -7637,6 +7687,83 @@ turkish_getup:{id:'turkish_getup',name:'Turkish Get-Up',nameAlt:['TGU','Relevé 
 farmers_walk:{id:'farmers_walk',name:'Farmer\'s Walk',nameAlt:['Marche du fermier'],equipment:'dumbbell',category:'compound',trackingType:'time',primaryMuscles:['Avant-bras'],secondaryMuscles:['Trapèzes','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Un haltère lourd dans chaque main\n2. Se tenir droit, épaules basses\n3. Marcher à pas réguliers\n4. Garder le gainage'},
 battle_ropes:{id:'battle_ropes',name:'Battle Ropes',nameAlt:['Cordes ondulatoires'],equipment:'other',category:'cardio',trackingType:'time',primaryMuscles:['Épaules'],secondaryMuscles:['Abdos (frontal)','Avant-bras'],tertiaryMuscles:[],defaultRest:60,instructions:'1. Debout, pieds larges, légèrement fléchi\n2. Une corde dans chaque main\n3. Faire des vagues alternées ou simultanées\n4. 20-40 secondes par round'},
 box_jump:{id:'box_jump',name:'Box Jump',nameAlt:['Saut sur boîte'],equipment:'other',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers','Mollets'],tertiaryMuscles:[],defaultRest:90,instructions:'1. Face à la box, pieds largeur d\'épaules\n2. Fléchir et balancer les bras en arrière\n3. Sauter en poussant fort\n4. Atterrir les deux pieds sur la box'},
+// ── STREET WORKOUT / CALISTHENICS ──
+muscle_up:{id:'muscle_up',name:'Muscle-Up (Barre)',nameAlt:['Bar Muscle-Up','Muscle Up'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal','Pecs'],secondaryMuscles:['Triceps','Biceps'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:180,bwFactor:1.00,difficulty:5,instructions:'1. Suspendu bras tendus, prise pronation\n2. Tirer explosif en amenant les hanches vers la barre\n3. Basculer les poignets au-dessus (transition)\n4. Pousser pour tendre les bras\n5. Redescendre en contrôlant'},
+muscle_up_rings:{id:'muscle_up_rings',name:'Muscle-Up (Anneaux)',nameAlt:['Ring Muscle-Up'],equipment:'other',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal','Pecs'],secondaryMuscles:['Triceps','Biceps'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:180,bwFactor:1.00,difficulty:5,instructions:'1. Suspendu aux anneaux, faux grip\n2. Tirer fort en ramenant les anneaux vers les hanches\n3. Transition fluide au-dessus des anneaux\n4. Pousser bras tendus\n5. Redescendre lentement'},
+traction_explosive:{id:'traction_explosive',name:'Tractions Explosives',nameAlt:['Explosive Pull-ups','Clap Pull-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:4,instructions:'1. Suspendu, prise pronation\n2. Tirer de manière explosive\n3. Lâcher la barre en haut\n4. Rattraper la barre en redescendant'},
+weighted_pull_up:{id:'weighted_pull_up',name:'Tractions Lestées',nameAlt:['Weighted Pull-ups','Tractions avec poids'],equipment:'bodyweight',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps','Haut du dos'],tertiaryMuscles:[],defaultRest:180,bwFactor:1.00,difficulty:4,tips:'Commence avec +5kg et monte de 2.5kg quand tu fais 5×5 propres.',alternatives:['pull_up_pronation'],instructions:'1. Ceinture de lest avec poids\n2. Prise pronation, bras tendus\n3. Tirer menton au-dessus de la barre\n4. Contrôler la descente 2-3s'},
+pull_up_band:{id:'pull_up_band',name:'Tractions Élastiques',nameAlt:['Band Pull-ups','Assisted Pull-ups','Tractions assistées'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,isAssisted:true,difficulty:2,tips:'Choisis un élastique qui te permet 8-12 reps propres. Diminue l\'épaisseur au fil des semaines.',alternatives:['lat_pull'],instructions:'1. Accrocher l\'élastique à la barre\n2. Un pied ou genou dans la boucle\n3. Tirer menton au-dessus de la barre\n4. Descendre lentement 3s'},
+pull_up_negative:{id:'pull_up_negative',name:'Tractions Négatives',nameAlt:['Negative Pull-ups','Eccentric Pull-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,difficulty:2,tips:'Monte en sautant, puis descends le plus lentement possible (5-8s).',alternatives:['pull_up_band'],instructions:'1. Monte au-dessus de la barre (saut ou banc)\n2. Menton au-dessus, prise pronation\n3. Descendre TRÈS lentement 5-8s\n4. Résister à la gravité sur toute l\'amplitude'},
+weighted_push_up:{id:'weighted_push_up',name:'Pompes Lestées',nameAlt:['Weighted Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.64,difficulty:3,instructions:'1. Position pompe classique\n2. Gilet lesté ou disque sur le haut du dos\n3. Descendre en contrôlant\n4. Poitrine frôle le sol\n5. Pousser pour remonter'},
+weighted_dips:{id:'weighted_dips',name:'Dips Lestés',nameAlt:['Weighted Dips'],equipment:'bodyweight',category:'compound',trackingType:'weight',primaryMuscles:['Pecs (bas)','Triceps'],secondaryMuscles:['Épaules (antérieur)'],tertiaryMuscles:[],defaultRest:180,bwFactor:0.95,difficulty:4,instructions:'1. Ceinture de lest avec poids\n2. Barres parallèles, bras tendus\n3. Descendre coudes à 90°+\n4. Pousser pour remonter'},
+archer_push_up:{id:'archer_push_up',name:'Pompes Archer',nameAlt:['Archer Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:120,bwFactor:0.70,difficulty:4,instructions:'1. Position pompe très large\n2. Descendre en pliant un seul bras\n3. L\'autre bras reste tendu\n4. Alterner les côtés'},
+one_arm_push_up:{id:'one_arm_push_up',name:'Pompes une Main',nameAlt:['One-Arm Push-up'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:150,bwFactor:0.76,difficulty:5,instructions:'1. Position pompe, pieds écartés\n2. Une main au sol, l\'autre dans le dos\n3. Descendre en contrôlant\n4. Garder le corps droit'},
+pike_push_up:{id:'pike_push_up',name:'Pompes Pike',nameAlt:['Pike Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.70,difficulty:3,instructions:'1. Position pompe, pieds avancés\n2. Corps en V inversé\n3. Plier les coudes, tête vers le sol\n4. Pousser pour remonter'},
+pike_push_up_elevated:{id:'pike_push_up_elevated',name:'Pompes Pike Surélevées',nameAlt:['Elevated Pike Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.78,difficulty:4,instructions:'1. Pieds sur un banc\n2. Corps en V inversé prononcé\n3. Plier les coudes, tête vers le sol\n4. Plus d\'amplitude qu\'au sol'},
+handstand_push_up_wall:{id:'handstand_push_up_wall',name:'Handstand Push-Up (Mur)',nameAlt:['Wall HSPU'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules'],secondaryMuscles:['Triceps'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:180,bwFactor:0.95,difficulty:4,instructions:'1. Appui renversé contre le mur\n2. Mains largeur d\'épaules\n3. Plier les coudes, tête vers le sol\n4. Pousser bras tendus'},
+handstand_push_up_free:{id:'handstand_push_up_free',name:'Handstand Push-Up (Libre)',nameAlt:['Freestanding HSPU'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules'],secondaryMuscles:['Triceps','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:180,bwFactor:1.00,difficulty:5,instructions:'1. Appui renversé sans mur\n2. Trouver l\'équilibre\n3. Plier les coudes lentement\n4. Pousser et corriger l\'équilibre'},
+push_up_clap:{id:'push_up_clap',name:'Pompes Claquées',nameAlt:['Clap Push-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.64,difficulty:3,instructions:'1. Position pompe classique\n2. Descendre\n3. Pousser de manière explosive\n4. Clap les mains en l\'air'},
+hindu_push_up:{id:'hindu_push_up',name:'Pompes Hindu',nameAlt:['Hindu Push-ups','Dive Bomber'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules','Pecs'],secondaryMuscles:['Triceps','Lombaires'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.68,difficulty:3,instructions:'1. Position chien tête en bas (V inversé)\n2. Plonger en avant en rasant le sol\n3. Remonter en cobra\n4. Revenir en V inversé'},
+pseudo_planche_pushup:{id:'pseudo_planche_pushup',name:'Pseudo Planche Push-Up',nameAlt:['Pseudo Planche'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules (antérieur)','Pecs'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.72,difficulty:4,instructions:'1. Position pompe, mains tournées vers l\'extérieur\n2. Épaules avancées au-delà des mains\n3. Descendre en gardant les épaules en avant\n4. Corps gainé'},
+typewriter_pullup:{id:'typewriter_pullup',name:'Tractions Typewriter',nameAlt:['Typewriter Pull-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:4,instructions:'1. Prise large, monter menton au-dessus\n2. Se déplacer latéralement vers une main\n3. Revenir au centre puis l\'autre côté\n4. Redescendre = 1 rep'},
+commando_pullup:{id:'commando_pullup',name:'Tractions Commando',nameAlt:['Commando Pull-ups'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Biceps','Obliques'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:3,instructions:'1. Sous la barre, une main devant l\'autre\n2. Tirer la tête d\'un côté\n3. Alterner les côtés'},
+// ── SKILLS & ISOMÉTRIQUES ──
+front_lever:{id:'front_lever',name:'Front Lever',nameAlt:['Front Lever Hold'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:['Biceps'],defaultRest:180,bwFactor:1.00,difficulty:5,instructions:'1. Suspendu, bras tendus\n2. Monter le corps à l\'horizontale face vers le haut\n3. Corps droit de la tête aux pieds\n4. Maintenir'},
+front_lever_tuck:{id:'front_lever_tuck',name:'Front Lever Tuck',nameAlt:['Tuck Front Lever'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:3,tips:'Première étape vers le front lever. Quand tu tiens 20s, passe aux jambes semi-tendues.',instructions:'1. Suspendu à la barre\n2. Genoux repliés vers la poitrine\n3. Basculer, dos à l\'horizontale\n4. Bras tendus, maintenir'},
+back_lever:{id:'back_lever',name:'Back Lever',nameAlt:['Back Lever Hold'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Épaules'],secondaryMuscles:['Lombaires','Pecs'],tertiaryMuscles:[],defaultRest:180,bwFactor:1.00,difficulty:5,instructions:'1. Suspendu, passer les jambes entre les bras\n2. Descendre le corps à l\'horizontale face vers le bas\n3. Corps droit et gainé\n4. Maintenir'},
+planche_tuck:{id:'planche_tuck',name:'Planche Tuck',nameAlt:['Tuck Planche'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Épaules (antérieur)'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:4,tips:'Épaules bien avancées au-delà des mains. Quand tu tiens 15s, commence à tendre les jambes.',instructions:'1. En appui sur les mains\n2. Épaules avancées\n3. Genoux repliés, pieds décollés\n4. Maintenir'},
+human_flag:{id:'human_flag',name:'Human Flag',nameAlt:['Drapeau Humain'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Obliques'],secondaryMuscles:['Épaules','Grand dorsal'],tertiaryMuscles:[],defaultRest:180,bwFactor:1.00,difficulty:5,instructions:'1. Saisir un poteau vertical, mains écartées\n2. Main haute tire, main basse pousse\n3. Lever le corps à l\'horizontale\n4. Maintenir'},
+l_sit_bar:{id:'l_sit_bar',name:'L-Sit (Barres Parallèles)',nameAlt:['L-Sit Parallettes'],equipment:'bodyweight',category:'isolation',trackingType:'time',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Quadriceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,difficulty:3,instructions:'1. En appui sur les barres, bras tendus\n2. Lever les jambes tendues à l\'horizontale\n3. Former un L\n4. Maintenir'},
+v_sit:{id:'v_sit',name:'V-Sit',nameAlt:['V-Sit Hold'],equipment:'bodyweight',category:'isolation',trackingType:'time',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Quadriceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,difficulty:5,instructions:'1. En appui sur les mains\n2. Lever les jambes au-dessus de 90°\n3. Pointes plus hautes que la tête\n4. Maintenir'},
+handstand_wall:{id:'handstand_wall',name:'Handstand (Mur)',nameAlt:['Wall Handstand','Appui renversé mur'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Épaules'],secondaryMuscles:['Abdos (frontal)','Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.95,difficulty:2,tips:'Commence dos au mur, puis face au mur. Objectif : 60 secondes.',instructions:'1. Mains au sol à 20cm du mur\n2. Monter les pieds le long du mur\n3. Corps droit, bras tendus\n4. Maintenir'},
+handstand_free:{id:'handstand_free',name:'Handstand (Libre)',nameAlt:['Freestanding Handstand','ATR libre'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Épaules'],secondaryMuscles:['Abdos (frontal)','Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,difficulty:4,instructions:'1. Mains au sol, doigts écartés\n2. Lancer les jambes vers le haut\n3. Trouver l\'équilibre\n4. Corriger avec les doigts'},
+dragon_flag:{id:'dragon_flag',name:'Dragon Flag',nameAlt:['Bruce Lee Dragon Flag'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Obliques','Lombaires'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.85,difficulty:4,instructions:'1. Allongé sur un banc, mains agrippées derrière la tête\n2. Lever le corps en un bloc rigide\n3. Descendre lentement corps droit\n4. Ne pas plier les hanches'},
+skin_the_cat:{id:'skin_the_cat',name:'Skin the Cat',nameAlt:['German Hang Rotation'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Épaules'],secondaryMuscles:['Grand dorsal','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:150,bwFactor:1.00,difficulty:3,instructions:'1. Suspendu à la barre ou anneaux\n2. Lever les jambes et passer sous la barre\n3. Rotation complète en arrière\n4. Revenir par le même chemin'},
+// ── JAMBES CALISTHENICS ──
+pistol_squat:{id:'pistol_squat',name:'Pistol Squat',nameAlt:['Squat une jambe','One Leg Squat'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:120,bwFactor:1.00,difficulty:4,tips:'Commence avec une chaise derrière toi. La mobilité de cheville est souvent le facteur limitant.',instructions:'1. Debout sur une jambe, l\'autre tendue devant\n2. Descendre en squat complet\n3. Remonter sans aide\n4. Garder le talon au sol'},
+squat_bodyweight:{id:'squat_bodyweight',name:'Squat Poids de Corps',nameAlt:['Bodyweight Squat','Air Squat'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:60,bwFactor:1.00,difficulty:1,instructions:'1. Debout, pieds largeur d\'épaules\n2. Descendre cuisses parallèles\n3. Dos droit, regard devant\n4. Remonter en poussant sur les talons'},
+cossack_squat:{id:'cossack_squat',name:'Squat Cossack',nameAlt:['Cossack Squat'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Adducteurs','Fessiers'],tertiaryMuscles:[],defaultRest:90,bwFactor:1.00,difficulty:3,instructions:'1. Debout, pieds très écartés\n2. Descendre sur une jambe latéralement\n3. L\'autre jambe reste tendue\n4. Alterner les côtés'},
+nordic_curl:{id:'nordic_curl',name:'Nordic Curl',nameAlt:['Nordic Hamstring Curl'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Ischio-jambiers'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,difficulty:4,tips:'Commence par la descente seule (négatif). Utilise les mains pour remonter au début.',instructions:'1. À genoux, pieds bloqués\n2. Se pencher en avant LENTEMENT corps droit\n3. Résister le plus longtemps\n4. Se rattraper avec les mains'},
+burpees:{id:'burpees',name:'Burpees',nameAlt:['Burpee'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Pecs','Épaules','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:60,bwFactor:1.00,difficulty:2,instructions:'1. Debout, descendre mains au sol\n2. Lancer les pieds en arrière\n3. Faire une pompe\n4. Ramener les pieds, sauter'},
+squat_jump:{id:'squat_jump',name:'Squat Jump',nameAlt:['Jump Squat','Squat sauté'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers','Mollets'],tertiaryMuscles:[],defaultRest:90,bwFactor:1.00,difficulty:2,instructions:'1. Position squat\n2. Descendre\n3. Sauter de manière explosive\n4. Atterrir en douceur'},
+lunge_jump:{id:'lunge_jump',name:'Fentes Sautées',nameAlt:['Jump Lunges'],equipment:'bodyweight',category:'compound',trackingType:'reps',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers'],tertiaryMuscles:['Mollets'],defaultRest:90,bwFactor:1.00,difficulty:3,instructions:'1. Position fente\n2. Sauter en l\'air\n3. Changer de jambe en l\'air\n4. Enchaîner en rythme'},
+// ── ANNEAUX DE GYMNASTIQUE ──
+ring_dips:{id:'ring_dips',name:'Dips Anneaux',nameAlt:['Ring Dips'],equipment:'other',category:'compound',trackingType:'reps',primaryMuscles:['Pecs','Triceps'],secondaryMuscles:['Épaules (antérieur)'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:150,bwFactor:0.95,difficulty:4,instructions:'1. En appui bras tendus sur les anneaux\n2. Tourner les anneaux vers l\'extérieur (RTO)\n3. Descendre en contrôlant\n4. Remonter bras tendus'},
+ring_push_up:{id:'ring_push_up',name:'Pompes Anneaux',nameAlt:['Ring Push-ups'],equipment:'other',category:'compound',trackingType:'reps',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.64,difficulty:3,instructions:'1. Anneaux bas, position pompe\n2. Descendre en contrôlant\n3. L\'instabilité force le core\n4. Remonter en stabilisant'},
+ring_rows:{id:'ring_rows',name:'Rowing Anneaux',nameAlt:['Ring Rows'],equipment:'other',category:'compound',trackingType:'reps',primaryMuscles:['Haut du dos'],secondaryMuscles:['Biceps'],tertiaryMuscles:[],defaultRest:90,bwFactor:0.60,difficulty:2,instructions:'1. Anneaux à hauteur de poitrine\n2. Se suspendre en dessous, corps droit\n3. Tirer anneaux vers la poitrine\n4. Redescendre lentement'},
+ring_support_hold:{id:'ring_support_hold',name:'Ring Support Hold',nameAlt:['Support Anneaux'],equipment:'other',category:'compound',trackingType:'time',primaryMuscles:['Épaules'],secondaryMuscles:['Abdos (frontal)','Triceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:0.95,difficulty:3,instructions:'1. Se hisser en appui sur les anneaux\n2. Bras tendus, épaules basses\n3. Tourner les mains vers l\'extérieur\n4. Maintenir stable'},
+ring_l_sit:{id:'ring_l_sit',name:'L-Sit Anneaux',nameAlt:['Ring L-Sit'],equipment:'other',category:'isolation',trackingType:'time',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Quadriceps'],tertiaryMuscles:[],defaultRest:120,bwFactor:1.00,difficulty:4,instructions:'1. En appui sur les anneaux, bras tendus\n2. Lever les jambes tendues à l\'horizontale\n3. Maintenir les anneaux stables\n4. Corps en L strict'},
+ring_face_pull:{id:'ring_face_pull',name:'Face Pull Anneaux',nameAlt:['Ring Face Pull'],equipment:'other',category:'isolation',trackingType:'reps',primaryMuscles:['Épaules (postérieur)'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:60,bwFactor:0.50,difficulty:2,instructions:'1. Anneaux à hauteur de visage\n2. Se pencher en arrière, bras tendus\n3. Tirer vers le visage, coudes hauts\n4. Contrôler le retour'},
+// ── MUSCULATION MANQUANTE ──
+floor_press_barbell:{id:'floor_press_barbell',name:'Floor Press (Barre)',nameAlt:['Développé couché au sol'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:120,difficulty:3,instructions:'1. Allongé au sol, barre au rack\n2. Descendre jusqu\'à ce que les coudes touchent le sol\n3. Pause 1 seconde\n4. Pousser pour remonter'},
+spoto_press:{id:'spoto_press',name:'Spoto Press',nameAlt:['Pause Bench'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps'],tertiaryMuscles:[],defaultRest:150,difficulty:4,instructions:'1. Bench press classique\n2. Descendre à 2-3cm au-dessus de la poitrine\n3. Pause 2-3 secondes SANS toucher\n4. Pousser pour remonter'},
+pullover_dumbbell:{id:'pullover_dumbbell',name:'Pullover Haltère',nameAlt:['Dumbbell Pullover'],equipment:'dumbbell',category:'compound',trackingType:'weight',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Pecs'],tertiaryMuscles:[],defaultRest:90,difficulty:2,instructions:'1. Allongé en travers d\'un banc\n2. Haltère tenu à deux mains au-dessus\n3. Descendre en arc derrière la tête\n4. Remonter en arc'},
+pendlay_row:{id:'pendlay_row',name:'Pendlay Row',nameAlt:['Rowing Pendlay','Strict Barbell Row'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Haut du dos'],secondaryMuscles:['Grand dorsal','Biceps'],tertiaryMuscles:[],defaultRest:120,difficulty:3,instructions:'1. Barre au sol, position deadlift\n2. Dos parallèle au sol\n3. Tirer la barre vers les pecs\n4. Reposer la barre au SOL à chaque rep'},
+seal_row:{id:'seal_row',name:'Seal Row',nameAlt:['Rowing allongé','Chest Supported Row'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Haut du dos'],secondaryMuscles:['Grand dorsal','Biceps'],tertiaryMuscles:[],defaultRest:90,difficulty:2,instructions:'1. Allongé face contre terre sur un banc surélevé\n2. Barre ou haltères sous le banc\n3. Tirer en serrant les omoplates\n4. Redescendre lentement'},
+trap_bar_deadlift:{id:'trap_bar_deadlift',name:'Trap Bar Deadlift',nameAlt:['Hex Bar Deadlift','SDT barre hexagonale'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Quadriceps','Fessiers'],secondaryMuscles:['Ischio-jambiers','Lombaires','Trapèzes'],tertiaryMuscles:[],defaultRest:180,difficulty:2,tips:'Plus facile techniquement que le deadlift conventionnel. Excellente alternative pour les douleurs lombaires.',instructions:'1. À l\'intérieur de la barre hexagonale\n2. Dos droit, pousser le sol avec les pieds\n3. Se lever dos neutre\n4. Reposer en contrôlant'},
+good_morning:{id:'good_morning',name:'Good Morning',nameAlt:['Bonjour Barre'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Ischio-jambiers'],secondaryMuscles:['Lombaires','Fessiers'],tertiaryMuscles:[],defaultRest:120,difficulty:3,instructions:'1. Barre sur les trapèzes\n2. Genoux légèrement fléchis\n3. Pencher le buste en poussant les fesses en arrière\n4. Remonter en contractant les fessiers'},
+hyperextension:{id:'hyperextension',name:'Hyperextension',nameAlt:['Back Extension','Extension lombaire'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Lombaires'],secondaryMuscles:['Fessiers'],tertiaryMuscles:[],defaultRest:60,difficulty:1,instructions:'1. Banc à 45° ou GHD, hanches sur le support\n2. Descendre le buste vers le sol\n3. Remonter jusqu\'à l\'alignement\n4. Contrôler le mouvement'},
+reverse_hyper:{id:'reverse_hyper',name:'Reverse Hyperextension',nameAlt:['Reverse Hyper'],equipment:'machine',category:'isolation',trackingType:'reps',primaryMuscles:['Fessiers'],secondaryMuscles:['Lombaires','Ischio-jambiers'],tertiaryMuscles:[],defaultRest:60,difficulty:2,instructions:'1. Allongé sur le ventre, bassin au bord\n2. Lever les jambes à l\'horizontale\n3. Serrer les fessiers\n4. Redescendre lentement'},
+landmine_press:{id:'landmine_press',name:'Landmine Press',nameAlt:['Presse Landmine'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Épaules (antérieur)'],secondaryMuscles:['Pecs (haut)','Triceps'],tertiaryMuscles:[],defaultRest:90,difficulty:2,instructions:'1. Barre dans un coin ou support landmine\n2. Pousser en arc vers le haut\n3. Excellent pour épaules sensibles\n4. Redescendre en contrôlant'},
+z_press:{id:'z_press',name:'Z Press',nameAlt:['Seated Floor Press','OHP assis au sol'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Épaules'],secondaryMuscles:['Triceps'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:120,difficulty:3,instructions:'1. Assis au SOL, jambes tendues\n2. Pousser la barre au-dessus de la tête\n3. Pas de dossier = core travaille dur\n4. Excellent pour la stabilité'},
+spider_curl:{id:'spider_curl',name:'Spider Curl',nameAlt:['Curl araignée'],equipment:'dumbbell',category:'isolation',trackingType:'weight',primaryMuscles:['Biceps'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:60,difficulty:2,instructions:'1. Penché sur un banc incliné, poitrine contre le dossier\n2. Bras pendants, haltères en main\n3. Curl en contractant les biceps\n4. Redescendre lentement'},
+pallof_press:{id:'pallof_press',name:'Pallof Press',nameAlt:['Anti-Rotation Press'],equipment:'cable',category:'isolation',trackingType:'reps',primaryMuscles:['Obliques'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:60,difficulty:2,instructions:'1. Câble à hauteur de poitrine, perpendiculaire\n2. Tenir la poignée contre la poitrine\n3. Tendre les bras devant soi\n4. Résister à la rotation'},
+dead_bug:{id:'dead_bug',name:'Dead Bug',nameAlt:['Scarabée mort'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Obliques'],tertiaryMuscles:[],defaultRest:45,difficulty:1,instructions:'1. Allongé, bras tendus vers le plafond\n2. Genoux à 90° au-dessus des hanches\n3. Baisser un bras et la jambe opposée\n4. Garder le bas du dos au sol\n5. Alterner'},
+hollow_body_hold:{id:'hollow_body_hold',name:'Hollow Body Hold',nameAlt:['Corps creux','Hollow Hold'],equipment:'bodyweight',category:'isolation',trackingType:'time',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:60,bwFactor:1.00,difficulty:2,instructions:'1. Allongé sur le dos\n2. Lever bras et jambes à 15cm du sol\n3. Bas du dos collé au sol\n4. Forme de banane, maintenir'},
+toes_to_bar:{id:'toes_to_bar',name:'Toes to Bar',nameAlt:['T2B','Orteils à la barre'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Obliques'],tertiaryMuscles:[],defaultRest:90,bwFactor:1.00,difficulty:3,instructions:'1. Suspendu à la barre\n2. Lever les jambes tendues\n3. Toucher la barre avec les orteils\n4. Redescendre en contrôlant'},
+windshield_wiper:{id:'windshield_wiper',name:'Windshield Wiper',nameAlt:['Essuie-glace'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Obliques'],secondaryMuscles:['Abdos (frontal)'],tertiaryMuscles:[],defaultRest:90,bwFactor:1.00,difficulty:4,instructions:'1. Suspendu ou allongé, jambes à 90°\n2. Basculer les jambes à gauche\n3. Revenir au centre, puis à droite\n4. Mouvement lent et contrôlé'},
+mountain_climber:{id:'mountain_climber',name:'Mountain Climbers',nameAlt:['Grimpeur'],equipment:'bodyweight',category:'compound',trackingType:'time',primaryMuscles:['Abdos (frontal)'],secondaryMuscles:['Quadriceps','Épaules'],tertiaryMuscles:[],defaultRest:45,difficulty:1,instructions:'1. Position pompe\n2. Ramener un genou vers la poitrine\n3. Alterner rapidement les jambes\n4. Garder le dos plat'},
+sled_push:{id:'sled_push',name:'Sled Push',nameAlt:['Poussée traîneau'],equipment:'other',category:'compound',trackingType:'time',primaryMuscles:['Quadriceps'],secondaryMuscles:['Fessiers','Mollets'],tertiaryMuscles:[],defaultRest:120,difficulty:2,instructions:'1. Mains sur les poignées du traîneau\n2. Corps penché en avant\n3. Pousser pas courts et rapides\n4. Dos droit'},
+// ── RÉHABILITATION / CORRECTIF ──
+band_pull_apart:{id:'band_pull_apart',name:'Band Pull-Apart',nameAlt:['Écartement élastique'],equipment:'other',category:'isolation',trackingType:'reps',primaryMuscles:['Épaules (postérieur)'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:30,difficulty:1,instructions:'1. Élastique tenu bras tendus devant\n2. Écarter les mains\n3. Serrer les omoplates\n4. Revenir lentement. 15-25 reps'},
+external_rotation_cable:{id:'external_rotation_cable',name:'Rotation Externe (Câble)',nameAlt:['Cable External Rotation'],equipment:'cable',category:'isolation',trackingType:'weight',primaryMuscles:['Épaules (postérieur)'],secondaryMuscles:[],tertiaryMuscles:[],defaultRest:45,difficulty:1,instructions:'1. Câble à hauteur de coude\n2. Coude collé au flanc\n3. Tourner l\'avant-bras vers l\'extérieur\n4. Mouvement lent et contrôlé'},
+clamshell:{id:'clamshell',name:'Clamshell',nameAlt:['Ouverture en coquillage'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Fessiers'],secondaryMuscles:['Abducteurs'],tertiaryMuscles:[],defaultRest:30,difficulty:1,instructions:'1. Allongé sur le côté, genoux pliés à 45°\n2. Pieds joints\n3. Ouvrir le genou du dessus\n4. 15-20 reps chaque côté'},
+bird_dog:{id:'bird_dog',name:'Bird Dog',nameAlt:['Chien-Oiseau'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Lombaires'],secondaryMuscles:['Abdos (frontal)','Fessiers'],tertiaryMuscles:[],defaultRest:30,difficulty:1,instructions:'1. À quatre pattes\n2. Tendre un bras devant et la jambe opposée\n3. Maintenir 2 secondes\n4. Alterner les côtés'},
+wall_slide:{id:'wall_slide',name:'Wall Slide',nameAlt:['Wall Angel'],equipment:'bodyweight',category:'isolation',trackingType:'reps',primaryMuscles:['Épaules (postérieur)'],secondaryMuscles:['Haut du dos'],tertiaryMuscles:[],defaultRest:30,difficulty:1,instructions:'1. Dos plaqué contre le mur\n2. Bras en W contre le mur\n3. Glisser les bras vers le haut en Y\n4. Garder le contact avec le mur'},
+// ── CARDIO ÉTENDU ──
+sprint:{id:'sprint',name:'Sprint',nameAlt:['Course sprint'],equipment:'bodyweight',category:'cardio',trackingType:'cardio',primaryMuscles:['Quadriceps'],secondaryMuscles:['Ischio-jambiers','Mollets','Fessiers'],tertiaryMuscles:[],defaultRest:120,difficulty:2,instructions:'1. Sprint maximal sur 50-100m\n2. Décélérer progressivement\n3. Récupérer en marchant'},
+incline_walk:{id:'incline_walk',name:'Marche Inclinée (Tapis)',nameAlt:['Incline Treadmill Walk','12-3-30'],equipment:'machine',category:'cardio',trackingType:'cardio',primaryMuscles:['Fessiers'],secondaryMuscles:['Quadriceps','Mollets'],tertiaryMuscles:[],defaultRest:0,difficulty:1,instructions:'1. Tapis roulant, pente 10-15%\n2. Vitesse 4-6 km/h\n3. Marcher sans se tenir aux barres\n4. 20-45 minutes'},
+ski_erg:{id:'ski_erg',name:'Ski Erg',nameAlt:['SkiErg'],equipment:'machine',category:'cardio',trackingType:'cardio',primaryMuscles:['Grand dorsal'],secondaryMuscles:['Épaules','Abdos (frontal)'],tertiaryMuscles:[],defaultRest:90,difficulty:2,instructions:'1. Debout, saisir les poignées\n2. Tirer vers le bas en pliant les genoux\n3. Engager le dos et les abdos\n4. Rythme régulier'},
 };
 // Nombre total d'exercices
 // console.log('EXO_DATABASE:', Object.keys(EXO_DATABASE).length, 'exercices');
@@ -7690,6 +7817,21 @@ function goGetExoTrackingType(exo) {
   var t = getExoType(exo.name);
   if (t === 'cardio_stairs') return 'cardio';
   return t || 'weight';
+}
+
+// ── Effective weight for BW exercises ──
+function calcEffectiveWeight(exoName, addedWeight, assistWeight, exoId) {
+  var bw = db.user.bw || 0;
+  if (bw <= 0) return addedWeight || 0;
+  var exoData = exoId ? EXO_DATABASE[exoId] : null;
+  if (!exoData) {
+    var keys = Object.keys(EXO_DATABASE);
+    for (var i = 0; i < keys.length; i++) {
+      if (matchExoName(EXO_DATABASE[keys[i]].name, exoName)) { exoData = EXO_DATABASE[keys[i]]; break; }
+    }
+  }
+  if (!exoData || !exoData.bwFactor) return addedWeight || 0;
+  return Math.round((bw * exoData.bwFactor + (addedWeight || 0) - (assistWeight || 0)) * 10) / 10;
 }
 
 // ── Get default rest seconds ──
@@ -8021,6 +8163,26 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   // Rest badge
   h += '<div class="go-rest-badge" onclick="goEditRest(' + exoIdx + ')">⏱ Repos: ' + goFormatRestBadge(exo.restSeconds || 90) + '</div>';
 
+  // BW info & assistance selector
+  var _bwExoData = exo.exoId ? EXO_DATABASE[exo.exoId] : null;
+  if (_bwExoData && _bwExoData.isAssisted) {
+    h += '<div class="go-assist-input">';
+    h += '<span>🟡 Assistance :</span>';
+    h += '<select onchange="activeWorkout.exercises[' + exoIdx + '].assistWeight=parseInt(this.value);goAutoSave();renderGoActiveView();">';
+    h += '<option value="0">Aucune</option>';
+    [10,20,30,40].forEach(function(v) {
+      h += '<option value="' + v + '"' + (exo.assistWeight === v ? ' selected' : '') + '>~' + v + 'kg</option>';
+    });
+    h += '</select>';
+    if (db.user.bw > 0 && exo.assistWeight > 0) {
+      h += '<span style="color:var(--green);font-size:11px;margin-left:4px;">→ ~' + Math.max(0, Math.round(db.user.bw * (_bwExoData.bwFactor||1) - exo.assistWeight)) + 'kg eff.</span>';
+    }
+    h += '</div>';
+  } else if (_bwExoData && _bwExoData.bwFactor && db.user.bw > 0) {
+    var _bwComp = Math.round(db.user.bw * _bwExoData.bwFactor);
+    h += '<div style="font-size:10px;color:var(--sub);padding:2px 12px;">💡 Charge effective : ' + _bwComp + 'kg (' + Math.round(_bwExoData.bwFactor * 100) + '% de ' + db.user.bw + 'kg)</div>';
+  }
+
   // Sets table
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
@@ -8239,13 +8401,44 @@ function goShowInstructions(exoIdx) {
     }
   }
   if (!data || !data.instructions) { showToast('Pas d\'instructions disponibles'); return; }
+  var body = '<div style="font-size:13px;color:var(--text);line-height:1.8;white-space:pre-line;padding:0 4px;">' + data.instructions + '</div>';
+  // Difficulty
+  if (data.difficulty) {
+    var stars = '';
+    for (var d = 1; d <= 5; d++) stars += d <= data.difficulty ? '★' : '☆';
+    var diffLabels = ['','Très facile','Facile','Moyen','Difficile','Expert'];
+    body += '<div style="margin-top:10px;font-size:12px;color:var(--sub);">Difficulté : <span style="color:var(--orange);">' + stars + '</span> ' + (diffLabels[data.difficulty]||'') + '</div>';
+  }
+  // Tips
+  if (data.tips) {
+    body += '<div style="background:rgba(255,159,10,0.1);border-radius:10px;padding:10px 12px;margin-top:12px;">';
+    body += '<div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;">💡 Conseil</div>';
+    body += '<div style="font-size:12px;color:var(--text);line-height:1.5;">' + data.tips + '</div></div>';
+  }
+  // Progression chain
+  if (data.progressions && data.progressions.length > 1) {
+    var currentIdx = data.progressions.indexOf(data.id);
+    body += '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">';
+    body += '<div style="font-size:11px;font-weight:700;color:var(--purple);margin-bottom:6px;">📈 Chaîne de progression</div>';
+    body += '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">';
+    data.progressions.forEach(function(progId, idx) {
+      var progExo = EXO_DATABASE[progId];
+      var progName = progExo ? progExo.name.replace(/\s*\(.*\)/, '').split(' ').slice(0,3).join(' ') : progId;
+      var isCurrent = idx === currentIdx;
+      var isPast = idx < currentIdx;
+      var style = isCurrent ? 'background:var(--blue);color:white;font-weight:700;' : isPast ? 'background:rgba(50,215,75,0.15);color:var(--green);' : 'background:var(--surface);color:var(--sub);';
+      body += '<span style="padding:3px 8px;border-radius:6px;font-size:10px;' + style + '">' + (isPast ? '✓ ' : '') + progName + '</span>';
+      if (idx < data.progressions.length - 1) body += '<span style="color:var(--sub);font-size:10px;">→</span>';
+    });
+    body += '</div></div>';
+  }
   var overlay = document.createElement('div');
   overlay.className = 'go-bottom-sheet';
   overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = '<div class="go-sheet-box">' +
     '<div class="go-sheet-handle"></div>' +
     '<div class="go-sheet-title">📖 ' + exo.name + '</div>' +
-    '<div style="font-size:13px;color:var(--text);line-height:1.8;white-space:pre-line;padding:0 4px;">' + data.instructions + '</div>' +
+    body +
     '<button class="go-btn-sec" style="margin-top:16px;" onclick="this.closest(\'.go-bottom-sheet\').remove()">Fermer</button>' +
     '</div>';
   document.body.appendChild(overlay);
@@ -8315,40 +8508,53 @@ function goShowSetTypeSheet(exoIdx, setIdx) {
 // ============================================================
 // GO TAB — Exercise Search Overlay
 // ============================================================
+var _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
+var _goMuscleMap = {
+  'Pecs': ['Pecs','Pecs (haut)','Pecs (bas)'],
+  'Dos': ['Grand dorsal','Haut du dos','Trapèzes','Lombaires'],
+  'Épaules': ['Épaules','Épaules (antérieur)','Épaules (latéral)','Épaules (postérieur)'],
+  'Jambes': ['Quadriceps','Ischio-jambiers','Fessiers','Mollets','Adducteurs','Abducteurs'],
+  'Bras': ['Biceps','Triceps','Avant-bras'],
+  'Abdos': ['Abdos (frontal)','Obliques'],
+  'Cardio': ['Cardio']
+};
+
 function goOpenSearch() {
+  _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
   var overlay = document.createElement('div');
   overlay.className = 'go-search-overlay';
   overlay.id = 'goSearchOverlay';
-
-  var equipMap = { 'Tout': '', 'Barre': 'barbell', 'Haltères': 'dumbbell', 'Machine': 'machine', 'Câble': 'cable', 'Corps': 'bodyweight', 'Autre': 'other' };
-  var equipLabels = Object.keys(equipMap);
 
   var h = '<div class="go-search-header">';
   h += '<button class="go-search-back" onclick="goCloseSearch()">← Retour</button>';
   h += '<input class="go-search-input" id="goSearchInput" type="text" placeholder="🔍 Rechercher un exercice..." autofocus>';
   h += '</div>';
-  h += '<div class="go-search-filters" id="goSearchFilters">';
-  equipLabels.forEach(function(lbl) {
-    var cls = lbl === 'Tout' ? ' active' : '';
-    h += '<span class="go-search-chip' + cls + '" data-equip="' + equipMap[lbl] + '" onclick="goFilterEquip(this)">' + lbl + '</span>';
+  // Muscle filter
+  h += '<div class="go-filter-section"><div class="go-filter-label">Muscle</div><div class="go-search-filters">';
+  ['Tout','Pecs','Dos','Épaules','Jambes','Bras','Abdos','Cardio'].forEach(function(m) {
+    h += '<span class="go-search-chip' + (m === 'Tout' ? ' active' : '') + '" data-filter="muscle" data-val="' + (m === 'Tout' ? '' : m) + '" onclick="goSetFilter(this)">' + m + '</span>';
   });
-  h += '</div>';
+  h += '</div></div>';
+  // Equipment filter
+  h += '<div class="go-filter-section"><div class="go-filter-label">Matériel</div><div class="go-search-filters">';
+  [['Tout',''],['Barre','barbell'],['Haltères','dumbbell'],['Machine','machine'],['Câble','cable'],['Corps','bodyweight'],['Autre','other']].forEach(function(m) {
+    h += '<span class="go-search-chip' + (m[0] === 'Tout' ? ' active' : '') + '" data-filter="equip" data-val="' + m[1] + '" onclick="goSetFilter(this)">' + m[0] + '</span>';
+  });
+  h += '</div></div>';
+  // Difficulty filter
+  h += '<div class="go-filter-section"><div class="go-filter-label">Difficulté</div><div class="go-search-filters">';
+  [['Tout',''],['★ Facile','1-2'],['★★★ Moyen','3'],['★★★★ Dur','4-5']].forEach(function(m) {
+    h += '<span class="go-search-chip' + (m[0] === 'Tout' ? ' active' : '') + '" data-filter="diff" data-val="' + m[1] + '" onclick="goSetFilter(this)">' + m[0] + '</span>';
+  });
+  h += '</div></div>';
   h += '<div class="go-search-results" id="goSearchResults"></div>';
   overlay.innerHTML = h;
   document.body.appendChild(overlay);
-
-  // Show recent exercises by default
-  goRenderSearchResults('', '');
-
-  // Debounced search
+  goRenderSearchResults('', _goSearchFilters);
   document.getElementById('goSearchInput').addEventListener('input', function() {
     var q = this.value;
     if (_goSearchDebounce) clearTimeout(_goSearchDebounce);
-    _goSearchDebounce = setTimeout(function() {
-      var activeChip = document.querySelector('#goSearchFilters .go-search-chip.active');
-      var equip = activeChip ? activeChip.getAttribute('data-equip') : '';
-      goRenderSearchResults(q, equip);
-    }, 200);
+    _goSearchDebounce = setTimeout(function() { goRenderSearchResults(q, _goSearchFilters); }, 200);
   });
 }
 
@@ -8358,30 +8564,53 @@ function goCloseSearch() {
   window._goReplaceIdx = undefined;
 }
 
-function goFilterEquip(chip) {
-  document.querySelectorAll('#goSearchFilters .go-search-chip').forEach(function(c) { c.classList.remove('active'); });
+function goSetFilter(chip) {
+  var filterType = chip.getAttribute('data-filter');
+  var val = chip.getAttribute('data-val');
+  _goSearchFilters[filterType] = val;
+  chip.parentElement.querySelectorAll('.go-search-chip').forEach(function(c) { c.classList.remove('active'); });
   chip.classList.add('active');
-  var equip = chip.getAttribute('data-equip');
-  var q = document.getElementById('goSearchInput').value;
-  goRenderSearchResults(q, equip);
+  var q = document.getElementById('goSearchInput') ? document.getElementById('goSearchInput').value : '';
+  goRenderSearchResults(q, _goSearchFilters);
 }
+
+// Keep backward compat
+function goFilterEquip(chip) { goSetFilter(chip); }
 
 function _goNormalize(str) {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");
 }
 
-function goRenderSearchResults(query, equipFilter) {
+function goRenderSearchResults(query, filters) {
+  // Support legacy string equipFilter or new filters object
+  var equipFilter = typeof filters === 'string' ? filters : (filters ? filters.equip : '');
+  var muscleFilter = (filters && typeof filters === 'object') ? filters.muscle : '';
+  var diffFilter = (filters && typeof filters === 'object') ? filters.diff : '';
+  var typeFilter = (filters && typeof filters === 'object') ? filters.type : '';
   var container = document.getElementById('goSearchResults');
   if (!container) return;
   var q = _goNormalize(query.trim());
   var allE1RMs = getAllBestE1RMs();
   var results = [];
 
-  // Search EXO_DATABASE
+  // Search EXO_DATABASE with multi-filters
   var keys = Object.keys(EXO_DATABASE);
   keys.forEach(function(k) {
     var e = EXO_DATABASE[k];
     if (equipFilter && e.equipment !== equipFilter) return;
+    // Muscle filter
+    if (muscleFilter && _goMuscleMap[muscleFilter]) {
+      var targetMuscles = _goMuscleMap[muscleFilter];
+      var hasMuscle = (e.primaryMuscles||[]).some(function(m) { return targetMuscles.indexOf(m) >= 0; });
+      if (!hasMuscle) return;
+    }
+    // Difficulty filter
+    if (diffFilter) {
+      var d = e.difficulty || 2;
+      if (diffFilter === '1-2' && d > 2) return;
+      if (diffFilter === '3' && d !== 3) return;
+      if (diffFilter === '4-5' && d < 4) return;
+    }
     if (q) {
       var nameN = _goNormalize(e.name);
       var match = nameN.indexOf(q) >= 0;
@@ -8390,10 +8619,14 @@ function goRenderSearchResults(query, equipFilter) {
           if (_goNormalize(e.nameAlt[i]).indexOf(q) >= 0) { match = true; break; }
         }
       }
-      // Also try matching individual words
       if (!match) {
         var qWords = q.split(/\s+/);
         match = qWords.every(function(w) { return nameN.indexOf(w) >= 0; });
+      }
+      // Also search in muscle names
+      if (!match) {
+        var muscleStr = _goNormalize((e.primaryMuscles||[]).join(' '));
+        match = q.split(/\s+/).every(function(w) { return muscleStr.indexOf(w) >= 0; });
       }
       if (!match) return;
     }
@@ -8412,8 +8645,20 @@ function goRenderSearchResults(query, equipFilter) {
 
   var h = '';
 
+  // Sort: exercises with history first, then by difficulty
+  results.sort(function(a, b) {
+    var aE1 = allE1RMs[a.name] ? 1 : 0;
+    var bE1 = allE1RMs[b.name] ? 1 : 0;
+    if (bE1 !== aE1) return bE1 - aE1;
+    return (a.difficulty || 2) - (b.difficulty || 2);
+  });
+
+  // Counter
+  var hasFilters = equipFilter || muscleFilter || diffFilter || q;
+  if (hasFilters) h += '<div style="font-size:11px;color:var(--sub);padding:4px 16px;">' + results.length + ' exercice' + (results.length > 1 ? 's' : '') + ' trouvé' + (results.length > 1 ? 's' : '') + '</div>';
+
   // If no query, show recent exercises first
-  if (!q && !equipFilter) {
+  if (!q && !equipFilter && !muscleFilter && !diffFilter) {
     var recents = _goGetRecentExercises(5);
     if (recents.length) {
       h += '<div class="go-search-section">Récents</div>';
@@ -8439,7 +8684,9 @@ function goRenderSearchResults(query, equipFilter) {
     var ms = _ecMuscleStyle(e.name);
     var equipLabels = { barbell: 'Barre', dumbbell: 'Haltères', machine: 'Machine', cable: 'Câble', bodyweight: 'Corps', other: 'Autre' };
     var catLabels = { compound: 'Composé', isolation: 'Isolation', cardio: 'Cardio', stretch: 'Étirement' };
-    var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + ' · ' + (catLabels[e.category] || '');
+    var diffStars = '';
+    if (e.difficulty) { for (var ds = 1; ds <= e.difficulty; ds++) diffStars += '★'; }
+    var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + (diffStars ? ' · ' + diffStars : '');
     var e1rm = allE1RMs[e.name] ? allE1RMs[e.name].e1rm : 0;
     h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + e.name.replace(/'/g, "\\'") + '\',\'' + (e.id || '') + '\')">';
     h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
@@ -8487,6 +8734,16 @@ function goSelectSearchResult(name, exoId) {
       restSeconds: goGetDefaultRest(name, exoId),
       notes: ''
     });
+    // Difficulty warning for beginners
+    var _exoData = exoId ? EXO_DATABASE[exoId] : null;
+    if (_exoData && _exoData.difficulty >= 4 && (db.user.level || 'intermediaire') === 'debutant') {
+      var alts = (_exoData.alternatives || []).map(function(altId) { var a = EXO_DATABASE[altId]; return a ? a.name : null; }).filter(Boolean);
+      var msg = '⚠️ ' + _exoData.name + ' est un exercice avancé (difficulté ' + _exoData.difficulty + '/5).';
+      if (_exoData.tips) msg += '\n\n💡 ' + _exoData.tips;
+      if (alts.length) msg += '\n\nAlternatives : ' + alts.join(', ');
+      msg += '\n\nContinuer quand même ?';
+      if (!confirm(msg)) { activeWorkout.exercises.pop(); return; }
+    }
   }
   goAutoSave();
   renderGoActiveView();
@@ -8761,15 +9018,23 @@ function convertWorkoutToSession(workout) {
 
   workout.exercises.forEach(function(exo) {
     var exercise = createExercise(exo.name);
+    var _bwData = exo.exoId ? EXO_DATABASE[exo.exoId] : null;
+    var _hasBW = _bwData && _bwData.bwFactor && db.user.bw > 0;
+    var _assist = exo.assistWeight || 0;
     var completedSets = exo.sets.filter(function(s) { return s.completed; });
     completedSets.forEach(function(s) {
+      var w = s.weight || 0;
+      // For BW exercises, store effective weight (body weight × factor + added - assist)
+      if (_hasBW) {
+        w = Math.round(db.user.bw * _bwData.bwFactor + (s.weight || 0) - _assist);
+      }
       exercise.series.push({
-        weight: s.weight || 0,
+        weight: w,
         reps: s.reps || (s.duration || 0),
         date: workout.startTime
       });
       exercise.allSets.push({
-        weight: s.weight || 0,
+        weight: w,
         reps: s.reps || (s.duration || 0),
         setType: s.type === 'warmup' ? 'warmup' : s.type === 'failure' ? 'failure' : s.type === 'drop' ? 'drop' : 'normal',
         rpe: s.rpe || null

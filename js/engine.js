@@ -608,7 +608,7 @@ const EXO_SYNONYMS = [
   ['curl marteau', 'hammer curl', 'curl marteau halteres'],
   ['extension triceps', 'triceps extension', 'extension poulie', 'pushdown triceps'],
   ['skull crusher', 'barre front', 'barre au front', 'lying triceps extension'],
-  ['dips', 'dip', 'dips leste', 'dips poids de corps'],
+  ['dips', 'dip', 'dips poids de corps'],
   // Jambes
   ['leg curl', 'curl jambes', 'leg curl couche', 'leg curl assis'],
   ['leg extension', 'extension jambes', 'extension quadriceps'],
@@ -667,14 +667,31 @@ function matchExoName(hevyName, progName) {
 
   // Mots qui distinguent formellement une variante d'exercice
   // Includes NFD-normalized French forms (incliné→incline, décliné→decline, etc.)
-  const DIFF = new Set([
+  const _DIFF_ROOTS = [
     'incline','inclinee','decline','declinee','sumo',
     'bulgare','bulgarian','inverse','inversee',
     'nuque','pause','spoto','deficit','board',
     'hack','goblet','sissy','front','zercher','split',
     'roumain','romanian',
-    'lateral','laterale','frontal','frontale'
-  ]);
+    'lateral','laterale','frontal','frontale',
+    'elastique','band','banded','assisted','assiste',
+    'leste','weighted',
+    'negatif','negative',
+    'explosif','explosive','clap','claquee',
+    'archer',
+    'une','one','single',
+    'anneaux','rings','ring',
+    'pike',
+    'hindu',
+    'pseudo',
+    'typewriter',
+    'commando',
+    'diamond','diamant',
+    'sureleve','elevated'
+  ];
+  // Build DIFF set with plural/feminine forms (±1 char) auto-included
+  const DIFF = new Set(_DIFF_ROOTS);
+  const isDiff = w => { if (DIFF.has(w)) return true; for (let i = 0; i < _DIFF_ROOTS.length; i++) { const r = _DIFF_ROOTS[i]; if (Math.abs(w.length - r.length) <= 2 && (w.startsWith(r) || r.startsWith(w))) return true; } return false; };
 
   // Word-level matching: check that all words of ref appear as whole words in name
   const wordsOf = s => s.split(' ').filter(sig);
@@ -695,7 +712,7 @@ function matchExoName(hevyName, progName) {
     if (!refInName) return false;
     // Extra words in name must not be differentiators
     const extra = nameWords.filter(nw => !refWords.some(rw => wMatch(nw, rw)));
-    return extra.every(w => !DIFF.has(w));
+    return extra.every(w => !isDiff(w));
   };
 
   // Vérifier les synonymes — si h et p appartiennent au même groupe → match
@@ -720,11 +737,11 @@ function matchExoName(hevyName, progName) {
   // Unidirectionnelle tolérée seulement si les mots "extra" ne sont pas des différenciateurs
   if (pInH && !hInP) {
     const extraH = hWords.filter(w => !pWords.some(pw => wMatch(w, pw)));
-    if (extraH.length > 0 && extraH.every(w => !DIFF.has(w))) return true;
+    if (extraH.length > 0 && extraH.every(w => !isDiff(w))) return true;
   }
   if (hInP && !pInH) {
     const extraP = pWords.filter(w => !hWords.some(hw => wMatch(w, hw)));
-    if (extraP.length > 0 && extraP.every(w => !DIFF.has(w))) return true;
+    if (extraP.length > 0 && extraP.every(w => !isDiff(w))) return true;
   }
 
   // Exercice à 1 mot significatif : tolérer les variations pluriel/singulier
@@ -735,7 +752,7 @@ function matchExoName(hevyName, progName) {
     const other = shorter === pWords ? hWords : pWords;
     if (!other.some(hw => wMatch(w, hw))) return false;
     const extra = other.filter(hw => !wMatch(w, hw));
-    return extra.every(ew => !DIFF.has(ew));
+    return extra.every(ew => !isDiff(ew));
   }
 
   return false;

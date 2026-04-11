@@ -9386,15 +9386,17 @@ function renderGoActiveView() {
   if (activeWorkout.restTimer && activeWorkout.restTimer.running) {
     var rt = activeWorkout.restTimer;
     var exoNameRest = rt.exoIndex >= 0 && rt.exoIndex < activeWorkout.exercises.length ? activeWorkout.exercises[rt.exoIndex].name : '';
+    var pct = rt.total > 0 ? Math.max(0, Math.round((1 - rt.remaining / rt.total) * 100)) : 0;
     h += '<div class="go-rest-timer">';
-    h += '<div class="go-rest-timer-title">⏱ Timer repos</div>';
+    h += '<div class="go-rest-timer-title">⏱ Repos</div>';
     h += '<div class="go-rest-timer-exo">' + exoNameRest + '</div>';
     h += '<div class="go-rest-timer-count" id="goRestDisplay">' + goFormatTime(rt.remaining) + '</div>';
-    h += '<div class="go-rest-timer-rec">Repos recommandé : ' + goFormatRestBadge(rt.total) + '</div>';
+    // Barre de progression
+    h += '<div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin:8px 0 10px;overflow:hidden;">';
+    h += '<div id="goRestProgress" style="height:100%;width:' + pct + '%;background:var(--green);border-radius:2px;transition:width 1s linear;"></div>';
+    h += '</div>';
     h += '<div class="go-rest-timer-btns">';
     h += '<button onclick="goAdjustRest(-15)">-15s</button>';
-    h += '<button onclick="goAdjustRest(-30)">-30s</button>';
-    h += '<button onclick="goAdjustRest(30)">+30s</button>';
     h += '<button onclick="goAdjustRest(15)">+15s</button>';
     h += '<button class="skip" onclick="goSkipRest()">Passer</button>';
     h += '</div></div>';
@@ -9734,6 +9736,12 @@ function goStartRestTimer(seconds, exoIndex) {
     activeWorkout.restTimer.remaining--;
     var el = document.getElementById('goRestDisplay');
     if (el) el.textContent = goFormatTime(Math.max(0, activeWorkout.restTimer.remaining));
+    // Mise à jour de la barre de progression
+    var progEl = document.getElementById('goRestProgress');
+    if (progEl && activeWorkout.restTimer.total > 0) {
+      var pct = Math.max(0, Math.round((1 - activeWorkout.restTimer.remaining / activeWorkout.restTimer.total) * 100));
+      progEl.style.width = pct + '%';
+    }
     if (activeWorkout.restTimer.remaining <= 0) {
       try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
       // Notification sonore

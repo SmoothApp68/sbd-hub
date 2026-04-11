@@ -2289,7 +2289,7 @@
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-social" class="content-section">
     <div class="social-sub-tabs">
-      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Feed</button>
+      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Social</button>
       <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
       <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
       <button class="social-sub-tab" data-sub="social-challenges" onclick="showSocialSub('social-challenges',this)">Défis</button>
@@ -2398,10 +2398,6 @@
         <div id="blockedList" class="friends-list"></div>
       </div>
 
-      <!-- Diagnostic button (discreet) -->
-      <div style="text-align:center;margin-top:24px;margin-bottom:8px;">
-        <button onclick="diagnoseSocial()" style="background:none;border:1px solid var(--border);color:var(--sub);font-size:11px;padding:6px 14px;border-radius:8px;cursor:pointer;">🔧 Diagnostique Social</button>
-      </div>
     </div>
   </div>
 
@@ -2526,7 +2522,7 @@
     <button class="tab-btn active" data-tab="tab-dash" data-index="0"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Home</button>
     <button class="tab-btn" data-tab="tab-seances" data-index="1"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 5.57 2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 2.14-2.14 1.43-1.43-1.43-1.43L22 14.86z"/></svg> Log</button>
     <button class="tab-btn" data-tab="tab-stats" data-index="2"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg> Stats</button>
-    <button class="tab-btn" data-tab="tab-social" data-index="3"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Feed</button>
+    <button class="tab-btn" data-tab="tab-social" data-index="3"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Social</button>
     <button class="tab-btn" data-tab="tab-profil" data-index="4"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
   </nav>
 <script src="js/engine.js"></script>
@@ -2915,11 +2911,20 @@ function applyTheme(themeName) {
 async function applyThemeWithCheck(themeName) {
   const theme = APP_THEMES[themeName];
   if (!theme) return;
-  const tierRank = { founder: 3, early_adopter: 2, member: 1 };
-  const userTier = await getCurrentUserTier();
-  if (tierRank[userTier] < tierRank[theme.minTier]) {
-    showToast('🔒 Thème réservé aux ' + (theme.minTier === 'founder' ? 'Founders' : 'Early Adopters'));
-    return;
+  // Check local flags first, then fallback to Supabase tier
+  if (themeName === 'gold' && !db.isFounder) {
+    const userTier = await getCurrentUserTier();
+    if (userTier !== 'founder') {
+      showToast('🔒 Thème réservé aux Founders');
+      return;
+    }
+  }
+  if (themeName === 'silver' && !db.isEarlyAdopter && !db.isFounder) {
+    const userTier = await getCurrentUserTier();
+    if (userTier !== 'founder' && userTier !== 'early_adopter') {
+      showToast('🔒 Thème réservé aux Early Adopters');
+      return;
+    }
   }
   applyTheme(themeName);
   showToast('✅ Thème ' + theme.name + ' appliqué');
@@ -3023,14 +3028,16 @@ function renderTierSection() {
     }
   }
 
-  // Theme selector
+  // Theme selector — use local flags (db.isFounder, db.isEarlyAdopter) for unlock
   if (themeEl) {
     const currentTheme = localStorage.getItem('selectedTheme') || 'default';
-    const userTier = tier || 'member';
-    const tierRank = { founder: 3, early_adopter: 2, member: 1 };
+    const isFounder = db.isFounder === true;
+    const isEA = db.isEarlyAdopter === true;
     let html = '';
     Object.entries(APP_THEMES).forEach(([key, t]) => {
-      const locked = tierRank[userTier] < tierRank[t.minTier];
+      let locked = false;
+      if (key === 'gold') locked = !isFounder;
+      else if (key === 'silver') locked = !isFounder && !isEA;
       const active = key === currentTheme;
       html += '<div class="theme-option' + (active?' active':'') + (locked?' locked':'') + '" onclick="' + (locked ? '' : 'applyThemeWithCheck(\'' + key + '\')') + '">' +
         '<div class="theme-dot" style="background:' + t.accent + ';"></div>' +
@@ -3051,6 +3058,10 @@ async function fetchAndStoreTier() {
     const { data } = await supabase.from('profiles').select('tier').eq('id', user.id).single();
     if (data && data.tier && typeof db !== 'undefined') {
       db.user.tier = data.tier;
+      // Sync local flags from tier
+      if (data.tier === 'founder') { db.isFounder = true; db.isEarlyAdopter = true; }
+      else if (data.tier === 'early_adopter') { db.isEarlyAdopter = true; }
+      saveDB();
     }
     // Update last_login
     await supabase.from('profiles').update({ last_login: new Date().toISOString() }).eq('id', user.id);

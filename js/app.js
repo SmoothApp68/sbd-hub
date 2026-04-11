@@ -7129,6 +7129,86 @@ function fillSettingsFields() {
   _accDirty.prog = true;
 }
 
+// ── Tier & Thèmes — rendu de la section statut ──
+function renderTierBadge(tier) {
+  if (tier === 'founder') return '<span class="badge-founder" style="background:var(--founder-gradient);color:var(--founder-text);padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;">FOUNDER</span>';
+  if (tier === 'early_adopter') return '<span style="background:rgba(199,199,204,0.2);color:#C7C7CC;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;">EARLY ADOPTER</span>';
+  return '';
+}
+
+function renderTierSection() {
+  // Déterminer le tier actuel
+  var tier = 'member';
+  if (db.isFounder || db.godMode) tier = 'founder';
+  else if (db.isEarlyAdopter) tier = 'early_adopter';
+  else if (db.user && db.user.tier) tier = db.user.tier;
+
+  var isFounder = tier === 'founder';
+  var isEA = tier === 'early_adopter' || isFounder;
+
+  // Section bienvenue
+  var welcomeEl = document.getElementById('tierWelcomeSection');
+  if (welcomeEl) {
+    var wh = '';
+    if (isFounder) {
+      wh = '<div style="text-align:center;padding:12px;background:linear-gradient(135deg,rgba(200,133,10,0.1),rgba(232,184,48,0.05));border-radius:12px;margin-bottom:12px;">';
+      wh += '<div style="font-size:28px;margin-bottom:4px;">👑</div>';
+      wh += '<div style="font-size:14px;font-weight:700;color:#E8B830;">Founder</div>';
+      wh += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">Accès complet à tous les thèmes et fonctionnalités exclusives.</div>';
+      wh += '</div>';
+    } else if (isEA) {
+      wh = '<div style="text-align:center;padding:12px;background:rgba(199,199,204,0.05);border-radius:12px;margin-bottom:12px;">';
+      wh += '<div style="font-size:28px;margin-bottom:4px;">⭐</div>';
+      wh += '<div style="font-size:14px;font-weight:700;color:#C7C7CC;">Early Adopter</div>';
+      wh += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">Merci de faire partie des premiers !</div>';
+      wh += '</div>';
+    } else {
+      wh = '<div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;margin-bottom:12px;">';
+      wh += '<div style="font-size:14px;color:var(--sub);">Membre</div>';
+      wh += '</div>';
+    }
+    welcomeEl.innerHTML = wh;
+  }
+
+  // Section badges tier
+  var badgesEl = document.getElementById('tierBadgesSection');
+  if (badgesEl) {
+    var bh = '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    bh += '<div style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;' + (isFounder ? 'background:var(--founder-gradient);color:var(--founder-text);' : 'background:rgba(255,255,255,0.05);color:var(--sub);opacity:0.4;') + '">Founder</div>';
+    bh += '<div style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;' + (isEA ? 'background:rgba(199,199,204,0.15);color:#C7C7CC;' : 'background:rgba(255,255,255,0.05);color:var(--sub);opacity:0.4;') + '">Early Adopter</div>';
+    bh += '</div>';
+    badgesEl.innerHTML = bh;
+  }
+
+  // Section thèmes
+  var themeEl = document.getElementById('themeSelector');
+  if (themeEl) {
+    var saved = localStorage.getItem('selectedTheme') || 'default';
+    var themes = [
+      { id: 'default', name: 'Bleu iOS', color: '#0A84FF', locked: false },
+      { id: 'silver', name: 'Silver', color: '#C7C7CC', locked: !isEA },
+      { id: 'gold', name: 'Gold', color: '#E8B830', locked: !isFounder }
+    ];
+    var th = '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    themes.forEach(function(t) {
+      var isActive = saved === t.id;
+      var clickable = !t.locked;
+      var style = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;cursor:' + (clickable ? 'pointer' : 'default') + ';';
+      style += 'background:' + (isActive ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)') + ';';
+      style += 'border:1px solid ' + (isActive ? t.color : 'rgba(255,255,255,0.06)') + ';';
+      style += t.locked ? 'opacity:0.35;' : '';
+      var onclick = clickable ? 'applyThemeWithCheck(\'' + t.id + '\');setTimeout(renderTierSection,200);' : '';
+      th += '<div style="' + style + '" onclick="' + onclick + '">';
+      th += '<div style="width:20px;height:20px;border-radius:50%;background:' + t.color + ';flex-shrink:0;"></div>';
+      th += '<div><div style="font-size:12px;font-weight:600;color:var(--text);">' + t.name + '</div>';
+      if (t.locked) th += '<div style="font-size:10px;color:var(--sub);">🔒 ' + (t.id === 'gold' ? 'Founder' : 'Early Adopter') + '</div>';
+      th += '</div></div>';
+    });
+    th += '</div>';
+    themeEl.innerHTML = th;
+  }
+}
+
 // ── Settings Profile Editor ──────────────────────────────────
 // Debounced save for rapid toggle interactions (avoids clearCaches + JSON.stringify on each click)
 let _saveSettingsTimer = null;

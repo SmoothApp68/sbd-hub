@@ -5146,8 +5146,11 @@ function renderProgramBuilder() {
   var container = document.getElementById('programBuilderContent');
   if (!container) return;
 
-  // Si un programme existe déjà, afficher la vue programme
-  if (db.generatedProgram && db.generatedProgram.length > 0 && !_pbState) {
+  // Si un programme existe déjà (généré OU manuel OU routine), afficher la vue programme
+  var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
+                   (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
+                   (db.routine && Object.keys(db.routine).length > 0);
+  if (hasProgram && !_pbState) {
     renderProgramBuilderView(container);
     return;
   }
@@ -5375,10 +5378,18 @@ function pbSaveManualProgram() {
     }
   });
   db.routine = routine;
-  // Also save the exercises for each day
+  // Aussi sauvegarder les exercices de chaque jour
   db.manualProgram = { dayNames: s.dayNames, dayExercises: s.dayExercises };
+  // Aussi sauvegarder dans routineExos pour que le bouton GO fonctionne
+  if (!db.routineExos) db.routineExos = {};
+  s.dayNames.forEach(function(dayName, i) {
+    if (i < allDays.length) {
+      db.routineExos[allDays[i]] = s.dayExercises[dayName] || [];
+    }
+  });
   _pbState = null;
-  saveDB();
+  saveDBNow();
+  console.log('Programme manuel sauvegardé:', { routine: db.routine, manualProgram: db.manualProgram, routineExos: db.routineExos });
   showToast('Programme sauvegardé !');
   renderProgramBuilder();
 }
@@ -5414,8 +5425,19 @@ function pbGenerateProgram() {
     showToast('Erreur lors de la génération');
   }
 
+  // Aussi sauvegarder les exercices par jour dans routineExos pour le bouton GO
+  if (db.generatedProgram) {
+    if (!db.routineExos) db.routineExos = {};
+    db.generatedProgram.forEach(function(d) {
+      if (!d.isRest && d.exercises) {
+        db.routineExos[d.day] = d.exercises.map(function(e) { return e.name || e; });
+      }
+    });
+  }
+
   _pbState = null;
-  saveDB();
+  saveDBNow();
+  console.log('Programme généré sauvegardé:', { routine: db.routine, generatedProgram: db.generatedProgram, routineExos: db.routineExos });
   showToast('Programme généré !');
   renderProgramBuilder();
 }
@@ -5427,7 +5449,7 @@ function renderProgramBuilderView(container) {
 
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
   h += '<div style="font-size:18px;font-weight:700;">Mon Programme</div>';
-  h += '<button onclick="_pbState=null;renderProgramBuilder();" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;">Modifier</button>';
+  h += '<button onclick="pbEditExisting();" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;">Modifier</button>';
   h += '</div>';
 
   // Afficher chaque jour
@@ -5459,12 +5481,36 @@ function renderProgramBuilderView(container) {
   container.innerHTML = h;
 }
 
+function pbEditExisting() {
+  // Entrer en mode édition manuelle à partir du programme existant
+  var routine = getRoutine();
+  var allDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  var dayNames = [];
+  var dayExercises = {};
+  allDays.forEach(function(day) {
+    var label = routine[day];
+    if (label && !/repos|😴/i.test(label)) {
+      dayNames.push(label);
+      // Récupérer les exercices existants
+      var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
+      if (!exos.length && db.generatedProgram) {
+        var gp = db.generatedProgram.find(function(p) { return p.day === day && !p.isRest; });
+        if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
+      }
+      dayExercises[label] = exos;
+    }
+  });
+  _pbState = { mode: 'manual', step: 3, days: dayNames.length || 4, split: 'custom', dayNames: dayNames, dayExercises: dayExercises };
+  renderProgramBuilder();
+}
+
 function pbResetProgram() {
-  if (!confirm('Réinitialiser le programme ?')) return;
+  if (!confirm('Réinitialiser le programme ? Tu pourras en créer un nouveau.')) return;
   db.generatedProgram = null;
   db.routine = null;
   db.manualProgram = null;
-  saveDB();
+  db.routineExos = null;
+  saveDBNow();
   _pbState = null;
   renderProgramBuilder();
 }

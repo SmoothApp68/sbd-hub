@@ -289,13 +289,139 @@ function processHevy() {
   const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
   if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
   const shortDate = formatDate(sessionTimestamp);
-  // Normaliser le dateKey pour la déduplication : utiliser le shortDate (dd/mm/yyyy)
   const dateKey = shortDate;
-  const doImport = () => {
-    executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine);
+
+  // Aperçu visuel avant import
+  const preview = parseHevyPreview(text, sessionTitle, sessionDate, sessionTimestamp);
+  const isDuplicate = db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey);
+
+  showHevyPreview(preview, isDuplicate, function() {
+    if (isDuplicate) {
+      db.logs = db.logs.filter(l => (l.shortDate || formatDate(l.timestamp)) !== dateKey);
+    }
+    executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+  });
+}
+
+// Aperçu de l'import Hevy — parse les exercices pour affichage
+function parseHevyPreview(text, title, dateStr, timestamp) {
+  const lines = text.split('\n');
+  var exercises = [];
+  var currentExo = null;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    if (line.startsWith('@') || line.startsWith('http')) continue;
+    if (line.toLowerCase().startsWith('le ') && line.includes('202')) continue;
+
+    // Détection de série : "Série X:" ou "Set X:"
+    var setMatch = line.match(/^s[ée]rie\s+(\d+)\s*:\s*(.+)/i);
+    if (setMatch && currentExo) {
+      var setData = setMatch[2];
+      var weight = 0, reps = 0, isWarmup = false, rpe = null, isCardio = false, distance = 0, duration = 0;
+
+      // Échauffement
+      if (/\[.chauffement\]/i.test(setData)) isWarmup = true;
+      // RPE
+      var rpeMatch = setData.match(/@\s*([\d.]+)\s*rpe/i);
+      if (rpeMatch) rpe = parseFloat(rpeMatch[1]);
+      // Poids x reps
+      var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
+      if (wxr) { weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]); }
+      // Cardio : km - temps
+      var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(\d+)min?\s*(\d+)?s?/i);
+      if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = parseInt(cardioMatch[2]) * 60 + (parseInt(cardioMatch[3]) || 0); }
+
+      currentExo.sets.push({ weight, reps, isWarmup, rpe, isCardio, distance, duration });
+      continue;
+    }
+
+    // Si la ligne n'est pas une série et n'est pas la première ligne (titre), c'est un nom d'exercice
+    if (i > 0 && !setMatch && line.length > 2 && !line.match(/^\d/) && line !== title) {
+      currentExo = { name: line, sets: [], matched: null };
+      // Fuzzy match avec la base d'exercices
+      if (typeof EXO_DATABASE !== 'undefined') {
+        var bestMatch = null, bestScore = 0;
+        var nameNorm = line.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        for (var key in EXO_DATABASE) {
+          var e = EXO_DATABASE[key];
+          var eNorm = e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (eNorm === nameNorm) { bestMatch = e.name; bestScore = 100; break; }
+          if (eNorm.indexOf(nameNorm) >= 0 || nameNorm.indexOf(eNorm) >= 0) {
+            if (80 > bestScore) { bestMatch = e.name; bestScore = 80; }
+          }
+          if (e.nameAlt) {
+            for (var ai = 0; ai < e.nameAlt.length; ai++) {
+              var altNorm = e.nameAlt[ai].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              if (altNorm === nameNorm || nameNorm === altNorm) { bestMatch = e.name; bestScore = 100; break; }
+              if (altNorm.indexOf(nameNorm) >= 0 || nameNorm.indexOf(altNorm) >= 0) {
+                if (70 > bestScore) { bestMatch = e.name; bestScore = 70; }
+              }
+            }
+          }
+        }
+        if (bestScore >= 70) currentExo.matched = bestMatch;
+      }
+      exercises.push(currentExo);
+    }
+  }
+
+  return { title: title, date: dateStr, timestamp: timestamp, exercises: exercises };
+}
+
+function showHevyPreview(preview, isDuplicate, onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'hevyPreviewOverlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '<div class="modal-box" style="max-width:380px;text-align:left;max-height:80vh;overflow-y:auto;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:4px;">📥 Aperçu de l\'import</div>';
+  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">' + (preview.title || 'Séance') + ' · ' + preview.date + '</div>';
+
+  if (isDuplicate) {
+    h += '<div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--orange);">';
+    h += '⚠️ Une séance existe déjà à cette date. L\'import remplacera la séance existante.</div>';
+  }
+
+  h += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Exercices détectés (' + preview.exercises.length + ')</div>';
+
+  preview.exercises.forEach(function(exo) {
+    var totalSets = exo.sets.length;
+    var totalVol = 0;
+    exo.sets.forEach(function(s) { if (s.weight && s.reps) totalVol += s.weight * s.reps; });
+    var matchIcon = exo.matched ? '<span style="color:var(--green);">✓</span>' : '<span style="color:var(--orange);">?</span>';
+
+    h += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+    h += '<div style="font-size:13px;font-weight:600;">' + matchIcon + ' ' + exo.name + '</div>';
+    h += '<div style="font-size:11px;color:var(--sub);">' + totalSets + ' série' + (totalSets > 1 ? 's' : '') + '</div>';
+    h += '</div>';
+    if (exo.matched && exo.matched !== exo.name) {
+      h += '<div style="font-size:10px;color:var(--green);margin-top:2px;">→ ' + exo.matched + '</div>';
+    }
+    // Résumé des séries
+    var setsPreview = exo.sets.map(function(s) {
+      if (s.isCardio) return s.distance + 'km';
+      if (s.weight && s.reps) return s.weight + '×' + s.reps + (s.isWarmup ? ' (W)' : '');
+      return '';
+    }).filter(Boolean).join(', ');
+    if (setsPreview) h += '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + setsPreview + '</div>';
+    h += '</div>';
+  });
+
+  h += '<div class="modal-actions" style="margin-top:16px;">';
+  h += '<button onclick="document.getElementById(\'hevyPreviewOverlay\').remove();" style="background:var(--surface);color:var(--text);">Annuler</button>';
+  h += '<button id="hevyConfirmBtn" style="background:var(--accent);color:white;">Importer</button>';
+  h += '</div></div>';
+
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+  document.getElementById('hevyConfirmBtn').onclick = function() {
+    overlay.remove();
+    onConfirm();
   };
-  if (db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey)) { showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => { db.logs = db.logs.filter(l => (l.shortDate || formatDate(l.timestamp)) !== dateKey); doImport(); }); return; }
-  doImport();
 }
 
 

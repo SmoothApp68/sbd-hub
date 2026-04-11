@@ -1629,7 +1629,7 @@ function showTab(tabId, opts) {
     else renderSeancesTab();
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
-  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderWeeklyPlanUI(); renderCoachAlgoAI(); renderDeloadBanner(); }
+  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderCoachAlgoAI(); }
   if (tabId==='tab-game') { renderGamificationTab(); }
   if (tabId==='tab-profil') {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
@@ -6841,8 +6841,15 @@ let _activeCoachSub = 'coach-today';
 function renderCoachTab() {
   if (new Date().getDay() === 1) generateWeeklyReport();
   updateCoachHistoBadge();
-  if (_activeCoachSub === 'coach-today') renderCoachToday();
-  else renderCoachHistory();
+  const wpSec = document.getElementById('weeklyPlanSection');
+  if (_activeCoachSub === 'coach-today') {
+    renderCoachToday();
+    if (wpSec) wpSec.style.display = '';
+    renderWeeklyPlanUI();
+  } else {
+    if (wpSec) wpSec.style.display = 'none';
+    renderCoachHistory();
+  }
 }
 
 function showCoachSub(id, btn) {
@@ -6852,8 +6859,17 @@ function showCoachSub(id, btn) {
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'coach-today') renderCoachToday();
-  else { renderCoachHistory(); markReportsRead(); updateCoachHistoBadge(); }
+  const wpSec = document.getElementById('weeklyPlanSection');
+  if (id === 'coach-today') {
+    renderCoachToday();
+    if (wpSec) wpSec.style.display = '';
+    renderWeeklyPlanUI();
+  } else {
+    if (wpSec) wpSec.style.display = 'none';
+    renderCoachHistory();
+    markReportsRead();
+    updateCoachHistoBadge();
+  }
 }
 
 function updateCoachHistoBadge() {
@@ -7959,8 +7975,9 @@ function renderWeeklyPlanUI() {
   const meta = document.getElementById('wpMeta');
   const content = document.getElementById('wpContent');
   const select = document.getElementById('wpBlocSelect');
+  if (!genBtn || !content) return; // Elements not in DOM yet
   if (!plan) {
-    genBtn.style.display = 'flex'; regenBtn.style.display = 'none'; meta.textContent = '';
+    genBtn.style.display = 'flex'; if (regenBtn) regenBtn.style.display = 'none'; if (meta) meta.textContent = '';
     content.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div>';
     return;
   }

@@ -1800,6 +1800,30 @@
         </button>
       </div>
       <div id="coach-today" class="coach-sub-section active"></div>
+      <!-- Weekly Plan controls (moved from tab-ai) -->
+      <div class="wp-card" id="weeklyPlanSection" style="display:none;">
+        <div class="wp-header" onclick="toggleWpBody()" style="cursor:pointer;">
+          <div style="font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">🏋️ Programme Semaine</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div id="wpMeta" style="font-size:11px;color:var(--sub);"></div>
+            <span id="wpChevron" style="font-size:12px;color:var(--sub);transition:transform 0.3s;">▾</span>
+          </div>
+        </div>
+        <div id="wpBody">
+          <div class="wp-bloc-controls">
+            <select class="wp-bloc-select" id="wpBlocSelect">
+              <option value="1">Bloc — Semaine 1 (Post-deload)</option>
+              <option value="2">Bloc — Semaine 2</option>
+              <option value="3">Bloc — Semaine 3</option>
+              <option value="4">Bloc — Semaine 4 (Peak)</option>
+            </select>
+            <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
+          </div>
+          <div id="deloadBanner"></div>
+          <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
+          <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
+        </div>
+      </div>
       <div id="coach-history" class="coach-sub-section"></div>
     </div>
   </div>
@@ -1814,31 +1838,6 @@
     </div>
 
     <div id="aiReportsTimeline"></div>
-
-    <!-- Weekly Plan — collapsible -->
-    <div class="wp-card" id="weeklyPlanSection">
-      <div class="wp-header" onclick="toggleWpBody()" style="cursor:pointer;">
-        <div style="font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">🏋️ Programme Semaine</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div id="wpMeta" style="font-size:11px;color:var(--sub);"></div>
-          <span id="wpChevron" style="font-size:12px;color:var(--sub);transition:transform 0.3s;">▾</span>
-        </div>
-      </div>
-      <div id="wpBody">
-        <div class="wp-bloc-controls">
-          <select class="wp-bloc-select" id="wpBlocSelect">
-            <option value="1">Bloc — Semaine 1 (Post-deload)</option>
-            <option value="2">Bloc — Semaine 2</option>
-            <option value="3">Bloc — Semaine 3</option>
-            <option value="4">Bloc — Semaine 4 (Peak)</option>
-          </select>
-          <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
-        </div>
-        <div id="deloadBanner"></div>
-        <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
-        <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
-      </div>
-    </div>
 
   </div>
   <div id="tab-stats" class="content-section">

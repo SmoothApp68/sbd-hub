@@ -1,21 +1,9 @@
 const { test, expect } = require('@playwright/test');
-
-async function dismissLogin(page) {
-  try {
-    const offlineBtn = page.locator('#loginOfflineBtn');
-    await offlineBtn.waitFor({ state: 'visible', timeout: 5000 });
-    await offlineBtn.click();
-    await offlineBtn.waitFor({ state: 'hidden', timeout: 5000 });
-  } catch {
-    // Login screen not shown
-  }
-}
+const { setupPage } = require('./helpers');
 
 test.describe('Profile Tab', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await dismissLogin(page);
-    await page.waitForSelector('#mainTabBar', { timeout: 15000 });
+    await setupPage(page);
     await page.locator('button[data-tab="tab-profil"]').click();
     await expect(page.locator('#tab-profil')).toHaveClass(/active/);
   });
@@ -48,11 +36,9 @@ test.describe('Profile Tab', () => {
   });
 
   test('Réglages > "Statut & Thèmes" accordion exists', async ({ page }) => {
-    // Navigate to settings
     const settingsPill = page.locator('#tab-profil .stats-sub-pill', { hasText: 'Réglages' });
     await settingsPill.click();
 
-    // Find the "Statut & Thèmes" accordion
     const tierAccordion = page.getByText('Statut & Thèmes');
     await expect(tierAccordion).toBeVisible();
   });
@@ -61,13 +47,10 @@ test.describe('Profile Tab', () => {
     const settingsPill = page.locator('#tab-profil .stats-sub-pill', { hasText: 'Réglages' });
     await settingsPill.click();
 
-    // Click the accordion header
     const accHeader = page.locator('.acc-header', { has: page.getByText('Statut & Thèmes') });
     await accHeader.click();
 
-    // The accordion body should now be visible
     const accBody = page.locator('#acc-tier');
-    // Wait for the max-height transition to complete
     await page.waitForTimeout(500);
     const maxHeight = await accBody.evaluate(el => el.style.maxHeight);
     expect(maxHeight).not.toBe('0px');

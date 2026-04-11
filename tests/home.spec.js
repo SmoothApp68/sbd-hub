@@ -1,21 +1,9 @@
 const { test, expect } = require('@playwright/test');
-
-async function dismissLogin(page) {
-  try {
-    const offlineBtn = page.locator('#loginOfflineBtn');
-    await offlineBtn.waitFor({ state: 'visible', timeout: 5000 });
-    await offlineBtn.click();
-    await offlineBtn.waitFor({ state: 'hidden', timeout: 5000 });
-  } catch {
-    // Login screen not shown
-  }
-}
+const { setupPage } = require('./helpers');
 
 test.describe('Home Page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await dismissLogin(page);
-    await page.waitForSelector('#mainTabBar', { timeout: 15000 });
+    await setupPage(page);
     // Ensure we are on the Maison tab
     await page.locator('button[data-tab="tab-dash"]').click();
   });

@@ -9294,6 +9294,53 @@ function _goNormalize(str) {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['']/g, "'");
 }
 
+// Fuzzy matching — tolérance aux fautes de frappe
+function _fuzzyMatch(needle, haystack) {
+  if (!needle || !haystack) return 0;
+  if (haystack.indexOf(needle) >= 0) return 100; // Exact substring = score max
+  // Score par distance de Levenshtein partielle (mots)
+  var needleWords = needle.split(/\s+/);
+  var haystackWords = haystack.split(/\s+/);
+  var totalScore = 0;
+  var matched = 0;
+  for (var i = 0; i < needleWords.length; i++) {
+    var nw = needleWords[i];
+    if (nw.length < 2) continue;
+    var bestWordScore = 0;
+    for (var j = 0; j < haystackWords.length; j++) {
+      var hw = haystackWords[j];
+      // Exact word prefix match
+      if (hw.indexOf(nw) === 0) { bestWordScore = Math.max(bestWordScore, 90); continue; }
+      // Substring match
+      if (hw.indexOf(nw) >= 0) { bestWordScore = Math.max(bestWordScore, 80); continue; }
+      // Fuzzy: Levenshtein distance tolerance (max 2 edits for words >= 4 chars)
+      if (nw.length >= 4) {
+        var dist = _levenshtein(nw, hw.substring(0, Math.max(nw.length + 2, hw.length)));
+        var maxDist = nw.length <= 5 ? 1 : 2;
+        if (dist <= maxDist) { bestWordScore = Math.max(bestWordScore, 70 - dist * 10); }
+      }
+    }
+    if (bestWordScore > 0) { totalScore += bestWordScore; matched++; }
+  }
+  if (needleWords.length === 0) return 0;
+  return matched === needleWords.length ? Math.round(totalScore / needleWords.length) : (matched > 0 ? Math.round(totalScore / needleWords.length * 0.5) : 0);
+}
+
+function _levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  var matrix = [];
+  for (var i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (var j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (var i = 1; i <= b.length; i++) {
+    for (var j = 1; j <= a.length; j++) {
+      var cost = a[j - 1] === b[i - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
 // Pre-computed search index for EXO_DATABASE
 var _exoSearchIndex = null;
 
@@ -9358,19 +9405,30 @@ function goRenderSearchResults(query, filters) {
       if (diffFilter === '3' && d !== 3) continue;
       if (diffFilter === '4-5' && d < 4) continue;
     }
-    // Text search on pre-normalized text
+    // Text search — fuzzy matching
     if (q) {
-      var match = entry.searchText.indexOf(q) >= 0;
-      if (!match) {
+      // 1. Exact substring match (original logic)
+      var exactMatch = entry.searchText.indexOf(q) >= 0;
+      if (!exactMatch) {
         var qWords = q.split(/\s+/);
-        match = qWords.every(function(w) { return entry.searchText.indexOf(w) >= 0; });
+        exactMatch = qWords.every(function(w) { return entry.searchText.indexOf(w) >= 0; });
       }
-      if (!match) {
-        match = q.split(/\s+/).every(function(w) { return entry.muscleSearchText.indexOf(w) >= 0; });
+      if (!exactMatch) {
+        exactMatch = q.split(/\s+/).every(function(w) { return entry.muscleSearchText.indexOf(w) >= 0; });
       }
-      if (!match) continue;
+      // 2. Fuzzy match si pas de match exact
+      var fuzzyScore = 0;
+      if (!exactMatch) {
+        fuzzyScore = _fuzzyMatch(q, entry.searchText);
+        if (fuzzyScore < 50) fuzzyScore = Math.max(fuzzyScore, _fuzzyMatch(q, entry.muscleSearchText));
+        if (fuzzyScore < 50) continue;
+      }
+      entry._searchScore = exactMatch ? 100 : fuzzyScore;
+    } else {
+      entry._searchScore = 50;
     }
     results.push(entry.data);
+    entry.data._searchScore = entry._searchScore;
   }
 
   // Search custom exercises
@@ -9385,8 +9443,11 @@ function goRenderSearchResults(query, filters) {
 
   var h = '';
 
-  // Sort: exercises with history first, then by difficulty
+  // Sort: search score first, then history, then difficulty
   results.sort(function(a, b) {
+    var aScore = a._searchScore || 50;
+    var bScore = b._searchScore || 50;
+    if (bScore !== aScore) return bScore - aScore;
     var aE1 = allE1RMs[a.name] ? 1 : 0;
     var bE1 = allE1RMs[b.name] ? 1 : 0;
     if (bE1 !== aE1) return bE1 - aE1;

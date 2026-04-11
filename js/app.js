@@ -11126,8 +11126,16 @@ function goRenderSearchResults(query, filters) {
       recents.forEach(function(name) {
         var ms = _ecMuscleStyle(name);
         var e1rm = allE1RMs[name] ? allE1RMs[name].e1rm : 0;
-        h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + name.replace(/'/g, "\\'") + '\',null)">';
-        h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+        // Chercher l'id pour l'image
+        var _rExoId = null;
+        for (var _rk in EXO_DATABASE) { if (EXO_DATABASE[_rk].name === name) { _rExoId = _rk; break; } }
+        var _rImgUrl = _rExoId ? getExoImageUrl(_rExoId, 0) : null;
+        h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + name.replace(/'/g, "\\'") + '\',\'' + (_rExoId || '') + '\')">';
+        if (_rImgUrl) {
+          h += '<div class="go-search-item-icon" style="padding:0;"><img src="' + _rImgUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentNode.style.background=\'' + ms.bg + '\';this.parentNode.innerHTML=\'' + ms.icon + '\';"></div>';
+        } else {
+          h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+        }
         h += '<div class="go-search-item-info"><div class="go-search-item-name">' + name + '</div>';
         h += '<div class="go-search-item-sub">Récent</div></div>';
         if (e1rm > 0) h += '<div class="go-search-item-e1rm">' + Math.round(e1rm) + 'kg</div>';

@@ -1,4 +1,5 @@
-const CACHE_NAME = 'trainhub-v4';
+const CACHE_NAME = 'trainhub-v5';
+const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
   '/sbd-hub/index.html',
@@ -22,7 +23,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
-      Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
+      Promise.all(names.filter((n) => n !== CACHE_NAME && n !== IMAGE_CACHE_NAME).map((n) => caches.delete(n)))
     )
   );
   self.clients.claim();
@@ -31,6 +32,22 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Never cache Supabase requests
   if (event.request.url.includes('supabase.co')) return;
+
+  // Exercise images → cache séparé avec stratégie cache-first
+  if (event.request.url.includes('raw.githubusercontent.com') && event.request.url.includes('/exercises/')) {
+    event.respondWith(
+      caches.open(IMAGE_CACHE_NAME).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return fetch(event.request).then((response) => {
+            if (response.ok) cache.put(event.request, response.clone());
+            return response;
+          }).catch(() => new Response('', { status: 404 }));
+        })
+      )
+    );
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)

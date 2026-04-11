@@ -1383,6 +1383,7 @@ function renderFeedCard(item, profiles, uid) {
         '</div>' +
       '</div>' +
       '<button class="feed-action-btn" onclick="toggleComments(\'' + item.id + '\')">💬 Commenter</button>' +
+      (item.type === 'session' && d.exercises && d.exercises.length && !isMe ? '<button class="feed-action-btn" onclick="copyRoutineFromFeed(\'' + item.id + '\')">📋 Copier</button>' : '') +
     '</div>' +
     '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
   '</div>';
@@ -1391,6 +1392,30 @@ function renderFeedCard(item, profiles, uid) {
 function toggleFeedDetail(activityId) {
   const el = document.getElementById('feed-detail-' + activityId);
   if (el) el.classList.toggle('open');
+}
+
+// Copier la routine d'un ami depuis le feed
+function copyRoutineFromFeed(activityId) {
+  var feedItem = window._feedItems ? window._feedItems.find(function(i) { return i.id === activityId; }) : null;
+  if (!feedItem || !feedItem.data || !feedItem.data.exercises) {
+    showToast('Impossible de copier cette routine');
+    return;
+  }
+  var exercises = feedItem.data.exercises;
+  var title = feedItem.data.title || 'Routine copiée';
+  if (!confirm('Copier "' + title + '" (' + exercises.length + ' exercices) dans tes routines ?')) return;
+
+  // Sauvegarder comme routine personnalisée
+  if (!db.savedRoutines) db.savedRoutines = [];
+  db.savedRoutines.push({
+    id: generateId(),
+    title: title,
+    exercises: exercises.map(function(e) { return { name: e.name, sets: e.sets || 0 }; }),
+    copiedFrom: feedItem.user_id,
+    copiedAt: Date.now()
+  });
+  saveDB();
+  showToast('✅ Routine "' + title + '" copiée !');
 }
 
 function toggleEmojiPicker(activityId) {

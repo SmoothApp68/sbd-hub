@@ -289,13 +289,139 @@ function processHevy() {
   const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
   if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
   const shortDate = formatDate(sessionTimestamp);
-  // Normaliser le dateKey pour la déduplication : utiliser le shortDate (dd/mm/yyyy)
   const dateKey = shortDate;
-  const doImport = () => {
-    executeImport(lines,sessionDate,sessionTimestamp,sessionTitle,sessionType,shortDate,firstLine);
+
+  // Aperçu visuel avant import
+  const preview = parseHevyPreview(text, sessionTitle, sessionDate, sessionTimestamp);
+  const isDuplicate = db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey);
+
+  showHevyPreview(preview, isDuplicate, function() {
+    if (isDuplicate) {
+      db.logs = db.logs.filter(l => (l.shortDate || formatDate(l.timestamp)) !== dateKey);
+    }
+    executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+  });
+}
+
+// Aperçu de l'import Hevy — parse les exercices pour affichage
+function parseHevyPreview(text, title, dateStr, timestamp) {
+  const lines = text.split('\n');
+  var exercises = [];
+  var currentExo = null;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    if (line.startsWith('@') || line.startsWith('http')) continue;
+    if (line.toLowerCase().startsWith('le ') && line.includes('202')) continue;
+
+    // Détection de série : "Série X:" ou "Set X:"
+    var setMatch = line.match(/^s[ée]rie\s+(\d+)\s*:\s*(.+)/i);
+    if (setMatch && currentExo) {
+      var setData = setMatch[2];
+      var weight = 0, reps = 0, isWarmup = false, rpe = null, isCardio = false, distance = 0, duration = 0;
+
+      // Échauffement
+      if (/\[.chauffement\]/i.test(setData)) isWarmup = true;
+      // RPE
+      var rpeMatch = setData.match(/@\s*([\d.]+)\s*rpe/i);
+      if (rpeMatch) rpe = parseFloat(rpeMatch[1]);
+      // Poids x reps
+      var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
+      if (wxr) { weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]); }
+      // Cardio : km - temps
+      var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(\d+)min?\s*(\d+)?s?/i);
+      if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = parseInt(cardioMatch[2]) * 60 + (parseInt(cardioMatch[3]) || 0); }
+
+      currentExo.sets.push({ weight, reps, isWarmup, rpe, isCardio, distance, duration });
+      continue;
+    }
+
+    // Si la ligne n'est pas une série et n'est pas la première ligne (titre), c'est un nom d'exercice
+    if (i > 0 && !setMatch && line.length > 2 && !line.match(/^\d/) && line !== title) {
+      currentExo = { name: line, sets: [], matched: null };
+      // Fuzzy match avec la base d'exercices
+      if (typeof EXO_DATABASE !== 'undefined') {
+        var bestMatch = null, bestScore = 0;
+        var nameNorm = line.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        for (var key in EXO_DATABASE) {
+          var e = EXO_DATABASE[key];
+          var eNorm = e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (eNorm === nameNorm) { bestMatch = e.name; bestScore = 100; break; }
+          if (eNorm.indexOf(nameNorm) >= 0 || nameNorm.indexOf(eNorm) >= 0) {
+            if (80 > bestScore) { bestMatch = e.name; bestScore = 80; }
+          }
+          if (e.nameAlt) {
+            for (var ai = 0; ai < e.nameAlt.length; ai++) {
+              var altNorm = e.nameAlt[ai].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              if (altNorm === nameNorm || nameNorm === altNorm) { bestMatch = e.name; bestScore = 100; break; }
+              if (altNorm.indexOf(nameNorm) >= 0 || nameNorm.indexOf(altNorm) >= 0) {
+                if (70 > bestScore) { bestMatch = e.name; bestScore = 70; }
+              }
+            }
+          }
+        }
+        if (bestScore >= 70) currentExo.matched = bestMatch;
+      }
+      exercises.push(currentExo);
+    }
+  }
+
+  return { title: title, date: dateStr, timestamp: timestamp, exercises: exercises };
+}
+
+function showHevyPreview(preview, isDuplicate, onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'hevyPreviewOverlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '<div class="modal-box" style="max-width:380px;text-align:left;max-height:80vh;overflow-y:auto;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:4px;">📥 Aperçu de l\'import</div>';
+  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">' + (preview.title || 'Séance') + ' · ' + preview.date + '</div>';
+
+  if (isDuplicate) {
+    h += '<div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--orange);">';
+    h += '⚠️ Une séance existe déjà à cette date. L\'import remplacera la séance existante.</div>';
+  }
+
+  h += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Exercices détectés (' + preview.exercises.length + ')</div>';
+
+  preview.exercises.forEach(function(exo) {
+    var totalSets = exo.sets.length;
+    var totalVol = 0;
+    exo.sets.forEach(function(s) { if (s.weight && s.reps) totalVol += s.weight * s.reps; });
+    var matchIcon = exo.matched ? '<span style="color:var(--green);">✓</span>' : '<span style="color:var(--orange);">?</span>';
+
+    h += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+    h += '<div style="font-size:13px;font-weight:600;">' + matchIcon + ' ' + exo.name + '</div>';
+    h += '<div style="font-size:11px;color:var(--sub);">' + totalSets + ' série' + (totalSets > 1 ? 's' : '') + '</div>';
+    h += '</div>';
+    if (exo.matched && exo.matched !== exo.name) {
+      h += '<div style="font-size:10px;color:var(--green);margin-top:2px;">→ ' + exo.matched + '</div>';
+    }
+    // Résumé des séries
+    var setsPreview = exo.sets.map(function(s) {
+      if (s.isCardio) return s.distance + 'km';
+      if (s.weight && s.reps) return s.weight + '×' + s.reps + (s.isWarmup ? ' (W)' : '');
+      return '';
+    }).filter(Boolean).join(', ');
+    if (setsPreview) h += '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + setsPreview + '</div>';
+    h += '</div>';
+  });
+
+  h += '<div class="modal-actions" style="margin-top:16px;">';
+  h += '<button onclick="document.getElementById(\'hevyPreviewOverlay\').remove();" style="background:var(--surface);color:var(--text);">Annuler</button>';
+  h += '<button id="hevyConfirmBtn" style="background:var(--accent);color:white;">Importer</button>';
+  h += '</div></div>';
+
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+  document.getElementById('hevyConfirmBtn').onclick = function() {
+    overlay.remove();
+    onConfirm();
   };
-  if (db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey)) { showModal('Une séance du '+dateKey+' existe déjà. Continuer ?', 'Confirmer', 'var(--blue)', () => { db.logs = db.logs.filter(l => (l.shortDate || formatDate(l.timestamp)) !== dateKey); doImport(); }); return; }
-  doImport();
 }
 
 
@@ -556,6 +682,7 @@ function doFinalizeSession(session) {
   showToast('✓ Séance importée');
   saveAlgoDebrief(session);
   checkAndGenerateWeeklyReport();
+  if (typeof checkAndGenerateMonthlyReport === 'function') checkAndGenerateMonthlyReport();
   refreshUI();
 
   // Social: publish session + PRs
@@ -1366,4 +1493,97 @@ function updateCalcCalories() {
   const f=parseFloat(document.getElementById('inputFat').value)||0;
   const calc=Math.round(p*4+c*4+f*9);
   if (calc>0) document.getElementById('inputKcal').placeholder=calc+' (calculé)';
+}
+
+// ============================================================
+// RAPPORT MENSUEL — Résumé du mois
+// ============================================================
+function generateMonthlyReport() {
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  var monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).getTime();
+  var monthName = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  var logs = (db.logs || []).filter(function(l) { return l.timestamp >= monthStart && l.timestamp <= monthEnd; });
+  if (logs.length === 0) return null;
+
+  var totalSessions = logs.length;
+  var totalVolume = logs.reduce(function(sum, l) { return sum + (l.volume || 0); }, 0);
+  var totalDuration = logs.reduce(function(sum, l) { return sum + (l.duration || 0); }, 0);
+
+  // Exercice le plus fait
+  var exoCounts = {};
+  logs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      exoCounts[e.name] = (exoCounts[e.name] || 0) + 1;
+    });
+  });
+  var topExo = Object.keys(exoCounts).sort(function(a, b) { return exoCounts[b] - exoCounts[a]; })[0] || 'N/A';
+
+  // PRs ce mois-ci
+  var prs = 0;
+  logs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      if (e.maxRM > 0) prs++;
+    });
+  });
+
+  // Distribution musculaire
+  var muscles = {};
+  logs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      var mg = e.muscleGroup || 'Autre';
+      muscles[mg] = (muscles[mg] || 0) + (e.sets || 0);
+    });
+  });
+  var muscleList = Object.keys(muscles).sort(function(a, b) { return muscles[b] - muscles[a]; });
+
+  // Streak
+  var streak = typeof calcStreak === 'function' ? calcStreak() : 0;
+
+  var html = '<div style="text-align:center;margin-bottom:12px;">';
+  html += '<div style="font-size:20px;font-weight:700;">📊 Bilan ' + monthName + '</div>';
+  html += '</div>';
+  html += '<div class="report-grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">';
+  html += '<div class="report-box"><div class="report-val">' + totalSessions + '</div><div class="report-label">Séances</div></div>';
+  html += '<div class="report-box"><div class="report-val">' + (totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : totalVolume + 'kg') + '</div><div class="report-label">Volume total</div></div>';
+  html += '<div class="report-box"><div class="report-val">' + streak + '</div><div class="report-label">Streak (sem.)</div></div>';
+  html += '<div class="report-box"><div class="report-val">' + prs + '</div><div class="report-label">PRs</div></div>';
+  html += '</div>';
+  html += '<div style="font-size:13px;color:var(--text);line-height:1.7;">';
+  html += '<div>🏆 Exercice favori : <strong>' + topExo + '</strong> (' + (exoCounts[topExo] || 0) + ' séances)</div>';
+  if (muscleList.length > 0) {
+    html += '<div style="margin-top:6px;">💪 Muscles : ';
+    muscleList.slice(0, 4).forEach(function(m) {
+      html += '<span style="background:rgba(59,130,246,0.1);padding:2px 8px;border-radius:6px;margin:2px;font-size:11px;">' + m + ' (' + muscles[m] + ')</span>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  return html;
+}
+
+function checkAndGenerateMonthlyReport() {
+  var now = new Date();
+  // Générer le rapport le dernier jour du mois ou le premier du mois suivant
+  if (now.getDate() !== 1 && now.getDate() !== new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) return;
+
+  var existing = db.reports.find(function(r) { return r.type === 'monthly' && r.expires_at > Date.now(); });
+  if (existing) return;
+
+  var html = generateMonthlyReport();
+  if (!html) return;
+
+  var monthlyReport = {
+    id: generateId(),
+    type: 'monthly',
+    html: html,
+    created_at: Date.now(),
+    expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 jours
+    read: false
+  };
+  db.reports.push(monthlyReport);
+  saveDBNow();
+  if (typeof renderReportsTimeline === 'function') renderReportsTimeline();
 }

@@ -10064,12 +10064,42 @@ function openSessionPhotoPicker(sessionId) {
   if (!session.photos) session.photos = [];
   if (session.photos.length >= 4) { showToast('Maximum 4 photos par séance'); return; }
 
+  var remaining = 4 - session.photos.length;
+
+  // Modal avec 2 options : caméra ou galerie
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'photoPickerOverlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '<div class="modal-box" style="max-width:300px;">';
+  h += '<p style="margin:0 0 14px;font-size:15px;font-weight:700;text-align:center;">Ajouter une photo</p>';
+  h += '<button onclick="_pickPhoto(\'' + sessionId + '\',true)" class="btn" style="margin-bottom:8px;">📷 Prendre une photo</button>';
+  h += '<button onclick="_pickPhoto(\'' + sessionId + '\',false)" class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text);margin-bottom:8px;">🖼️ Choisir dans la galerie</button>';
+  h += '<button onclick="document.getElementById(\'photoPickerOverlay\').remove();" class="btn" style="background:transparent;color:var(--sub);font-size:13px;">Annuler</button>';
+  h += '</div>';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _pickPhoto(sessionId, useCamera) {
+  var overlay = document.getElementById('photoPickerOverlay');
+  if (overlay) overlay.remove();
+
+  var session = db.logs.find(function(l) { return l.id === sessionId; });
+  if (!session) return;
+  var remaining = 4 - (session.photos || []).length;
+
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.multiple = true;
+  if (useCamera) {
+    input.capture = 'environment';
+  } else {
+    input.multiple = true;
+  }
   input.onchange = function() {
-    var files = Array.from(input.files).slice(0, 4 - session.photos.length);
+    var files = Array.from(input.files).slice(0, remaining);
     if (!files.length) return;
     processSessionPhotos(sessionId, files);
   };

@@ -5623,6 +5623,7 @@ function calcFormScore() {
 
   // Bonus Momentum (+5 pts max, capped at 100 total)
   let momentum = 0;
+  const routine = getRoutine();
   const routineDays = Object.entries(routine).filter(([, v]) => v && !v.includes('Repos') && !v.includes('😴')).map(([d]) => d);
   if (routineDays.length > 0) {
     const orderedDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];

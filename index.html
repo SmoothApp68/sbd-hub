@@ -1015,11 +1015,11 @@
     /* Exercise card */
     .go-exo-card{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;margin-bottom:14px;overflow:hidden;position:relative;}
     .go-exo-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
-    .exo-thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.04);cursor:pointer;position:relative;}
+    .exo-thumb{width:68px;height:68px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#1a1a1f;cursor:pointer;position:relative;border:2px solid rgba(255,255,255,0.06);}
     .exo-thumb img{width:100%;height:100%;object-fit:cover;}
-    .exo-thumb-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;}
-    .exo-demo-overlay{position:fixed;inset:0;z-index:30000;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
-    .exo-demo-anim{position:relative;width:280px;height:280px;border-radius:16px;overflow:hidden;margin-bottom:16px;}
+    .exo-thumb-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;background:#1a1a1f;}
+    .exo-demo-overlay{position:fixed;inset:0;z-index:30000;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+    .exo-demo-anim{position:relative;width:300px;height:300px;border-radius:16px;overflow:hidden;margin-bottom:16px;background:#1a1a2e;}
     .exo-demo-anim img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#1a1a2e;}
     .exo-demo-anim img:nth-child(2){animation:exoDemoAlt 2s infinite;}
     @keyframes exoDemoAlt{0%,45%{opacity:0;}50%,95%{opacity:1;}100%{opacity:0;}}
@@ -1086,7 +1086,7 @@
     .go-search-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;}
     .go-search-item:hover{border-color:var(--blue);}
     .go-search-item:active{transform:scale(0.98);}
-    .go-search-item-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .go-search-item-icon{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:#1a1a1f;overflow:hidden;}
     .go-search-item-info{flex:1;min-width:0;}
     .go-search-item-name{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .go-search-item-sub{font-size:11px;color:var(--sub);margin-top:2px;}

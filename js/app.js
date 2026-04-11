@@ -3305,29 +3305,67 @@ function renderWeeklySummary() {
   var weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - dayOfWeek);
   weekStart.setHours(0, 0, 0, 0);
+  var weekStartTs = weekStart.getTime();
+  var nowTs = now.getTime();
 
   var sessions = 0, totalDuration = 0, totalVolume = 0;
   (db.logs || []).forEach(function(log) {
-    var d = new Date(log.date);
-    if (d >= weekStart && d <= now) {
+    // Utiliser timestamp (fiable) au lieu de log.date (string FR non parsable)
+    var ts = log.timestamp;
+    if (!ts) return;
+    if (ts >= weekStartTs && ts <= nowTs) {
       sessions++;
+      // Duration est en secondes
       if (log.duration) totalDuration += log.duration;
-      // Calculer le volume de la séance
-      (log.exercises || []).forEach(function(exo) {
-        (exo.sets || []).forEach(function(s) {
-          if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+      // Volume : utiliser log.volume (pré-calculé) ou recalculer
+      if (log.volume) {
+        totalVolume += log.volume;
+      } else {
+        (log.exercises || []).forEach(function(exo) {
+          (exo.series || exo.allSets || []).forEach(function(s) {
+            if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+          });
         });
-      });
+      }
     }
   });
 
   var el;
   el = document.getElementById('weekSessions');
   if (el) el.textContent = sessions;
+
+  // Duration : convertir secondes → affichage lisible
   el = document.getElementById('weekDuration');
-  if (el) el.textContent = totalDuration >= 60 ? Math.floor(totalDuration / 60) + 'h' + (totalDuration % 60 > 0 ? (totalDuration % 60 < 10 ? '0' : '') + (totalDuration % 60) : '') : totalDuration + 'min';
+  if (el) {
+    var durMin = Math.round(totalDuration / 60);
+    if (durMin >= 60) {
+      var h = Math.floor(durMin / 60);
+      var m = durMin % 60;
+      el.textContent = h + 'h' + (m > 0 ? (m < 10 ? '0' : '') + m : '');
+    } else {
+      el.textContent = durMin + 'min';
+    }
+  }
+
   el = document.getElementById('weekVolume');
-  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : totalVolume + 'kg';
+  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : Math.round(totalVolume) + 'kg';
+
+  // Message si aucune séance
+  var card = document.getElementById('weeklySummaryCard');
+  if (card && sessions === 0) {
+    var msgEl = card.querySelector('.weekly-empty-msg');
+    if (!msgEl) {
+      msgEl = document.createElement('div');
+      msgEl.className = 'weekly-empty-msg';
+      msgEl.style.cssText = 'text-align:center;padding:8px 0;font-size:12px;color:var(--sub);';
+      msgEl.textContent = 'Aucune séance cette semaine — c\'est le moment de s\'y mettre !';
+      card.appendChild(msgEl);
+    }
+    msgEl.style.display = sessions === 0 ? '' : 'none';
+  } else if (card) {
+    var exist = card.querySelector('.weekly-empty-msg');
+    if (exist) exist.style.display = 'none';
+  }
 }
 
 // ============================================================

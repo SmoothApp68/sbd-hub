@@ -6239,7 +6239,10 @@ function renderSeancesTab() {
       '</div>' +
       '<div class="sc-body" id="' + sessId + '">' +
         exoCards +
-        '<div class="sc-delete"><button class="sc-delete-btn" onclick="deleteSessionFromList(\'' + session.id + '\')">Supprimer</button></div>' +
+        '<div class="sc-session-actions" style="display:flex;gap:8px;padding:8px 0;">' +
+          '<button class="sc-delete-btn" style="flex:1;background:rgba(10,132,255,0.1);color:var(--blue);border:1px solid rgba(10,132,255,0.2);" onclick="editSessionName(db.logs.indexOf(db.logs.find(function(l){return l.id===\'' + session.id + '\'})))">✏️ Renommer</button>' +
+          '<button class="sc-delete-btn" onclick="deleteSessionFromList(\'' + session.id + '\')">Supprimer</button>' +
+        '</div>' +
       '</div></div>';
   }).join('');
 }
@@ -8717,7 +8720,7 @@ function renderGoActiveView() {
   // ── Header sticky ──
   h += '<div class="go-header">';
   h += '<div class="go-header-top">';
-  h += '<div><div class="go-header-label">SÉANCE EN COURS</div>';
+  h += '<div><div class="go-header-label" onclick="goEditTitle()" style="cursor:pointer;display:flex;align-items:center;gap:4px;">' + (activeWorkout.title || 'SÉANCE EN COURS') + ' <span style="font-size:10px;opacity:0.5;">✏️</span></div>';
   h += '<div class="go-header-timer" id="goTimerDisplay">' + goFormatTime(elapsed) + '</div></div>';
   h += '<div class="go-header-btns">';
   h += '<button class="go-header-btn" onclick="goTogglePause()">' + (_goSessionPaused ? '▶' : '⏸') + '</button>';
@@ -8743,8 +8746,10 @@ function renderGoActiveView() {
     h += '<div class="go-rest-timer-count" id="goRestDisplay">' + goFormatTime(rt.remaining) + '</div>';
     h += '<div class="go-rest-timer-rec">Repos recommandé : ' + goFormatRestBadge(rt.total) + '</div>';
     h += '<div class="go-rest-timer-btns">';
+    h += '<button onclick="goAdjustRest(-15)">-15s</button>';
     h += '<button onclick="goAdjustRest(-30)">-30s</button>';
     h += '<button onclick="goAdjustRest(30)">+30s</button>';
+    h += '<button onclick="goAdjustRest(15)">+15s</button>';
     h += '<button class="skip" onclick="goSkipRest()">Passer</button>';
     h += '</div></div>';
   }
@@ -8780,7 +8785,16 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   var prev = goGetPreviousSets(exo.name);
   var prevSeries = prev ? prev.series : [];
 
-  var h = '<div class="go-exo-card">';
+  // Superset visual indicator
+  var isSuperset = goIsPartOfSuperset(exoIdx);
+  var supersetStyle = isSuperset ? 'border-left:3px solid ' + goGetSupersetColor(exoIdx) + ';' : '';
+  var h = '<div class="go-exo-card" style="' + supersetStyle + '">';
+  // Superset link button
+  if (exoIdx < activeWorkout.exercises.length - 1) {
+    var isLinked = exo.supersetWith === exoIdx + 1;
+    h += '<div style="position:absolute;right:8px;top:8px;z-index:2;">';
+    h += '<button onclick="goToggleSuperset(' + exoIdx + ')" style="background:' + (isLinked ? 'var(--accent)' : 'var(--surface)') + ';border:1px solid ' + (isLinked ? 'var(--accent)' : 'var(--border)') + ';color:' + (isLinked ? '#fff' : 'var(--sub)') + ';padding:3px 8px;border-radius:6px;font-size:9px;cursor:pointer;">' + (isLinked ? '🔗 Superset' : '🔗') + '</button></div>';
+  }
   // Header
   h += '<div class="go-exo-header">';
   h += '<div class="go-exo-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
@@ -8820,7 +8834,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
-  if (tt === 'weight') { h += '<th>KG</th><th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
+  if (tt === 'weight') { h += '<th>KG <span onclick="goShowPlateCalc(' + exoIdx + ',0)" style="cursor:pointer;font-size:10px;">🔢</span></th><th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'reps') { h += '<th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'time') { h += '<th>DURÉE</th>'; }
   else if (tt === 'cardio') { h += '<th>KM</th><th>TEMPS</th>'; }
@@ -8905,9 +8919,14 @@ function goToggleSetComplete(exoIdx, setIdx) {
   var set = activeWorkout.exercises[exoIdx].sets[setIdx];
   set.completed = !set.completed;
   if (set.completed) {
-    // Start rest timer
-    var restSec = activeWorkout.exercises[exoIdx].restSeconds || 90;
-    goStartRestTimer(restSec, exoIdx);
+    // Supersets : ne lancer le timer qu'après le DERNIER exo du superset
+    var exo = activeWorkout.exercises[exoIdx];
+    var isInSuperset = goIsPartOfSuperset(exoIdx);
+    var isLastInChain = !exo.supersetWith; // pas de lien vers le suivant = dernier de la chaîne
+    if (!isInSuperset || isLastInChain) {
+      var restSec = activeWorkout.exercises[exoIdx].restSeconds || 90;
+      goStartRestTimer(restSec, exoIdx);
+    }
     // Auto-régulation RPE
     goCheckAutoRegulation(exoIdx, setIdx);
   }
@@ -9070,7 +9089,19 @@ function goStartRestTimer(seconds, exoIndex) {
     var el = document.getElementById('goRestDisplay');
     if (el) el.textContent = goFormatTime(Math.max(0, activeWorkout.restTimer.remaining));
     if (activeWorkout.restTimer.remaining <= 0) {
-      try { if (navigator.vibrate) navigator.vibrate(200); } catch(e) {}
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
+      // Notification sonore
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.value = 0.3;
+        osc.start();
+        setTimeout(function() { osc.stop(); ctx.close(); }, 300);
+      } catch(e) {}
       goSkipRest();
       goRequestRender();
     }
@@ -9088,6 +9119,179 @@ function goAdjustRest(delta) {
 function goSkipRest() {
   if (_goRestTimerId) { clearInterval(_goRestTimerId); _goRestTimerId = null; }
   if (activeWorkout) activeWorkout.restTimer = { running: false, remaining: 0, total: 0, exoIndex: -1 };
+}
+
+// ── Modifier le titre de la séance ──
+function goEditTitle() {
+  if (!activeWorkout) return;
+  var newTitle = prompt('Nom de la séance :', activeWorkout.title || 'Séance');
+  if (newTitle !== null && newTitle.trim()) {
+    activeWorkout.title = newTitle.trim();
+    goAutoSave();
+    goRequestRender();
+  }
+}
+
+// ── Modifier le nom d'une séance passée ──
+function editSessionName(logIndex) {
+  if (logIndex < 0 || logIndex >= db.logs.length) return;
+  var session = db.logs[logIndex];
+  var newName = prompt('Nouveau nom de la séance :', session.title || session.name || 'Séance');
+  if (newName !== null && newName.trim()) {
+    session.title = newName.trim();
+    if (session.name) session.name = newName.trim();
+    saveDB();
+    showToast('Nom modifié');
+    renderSeancesTab();
+  }
+}
+
+// ── Supersets / Bisets / Trisets ──
+function goToggleSuperset(exoIdx) {
+  if (!activeWorkout || exoIdx >= activeWorkout.exercises.length - 1) return;
+  var exo = activeWorkout.exercises[exoIdx];
+  // Toggle : si déjà lié → défaire, sinon → lier
+  if (exo.supersetWith === exoIdx + 1) {
+    delete exo.supersetWith;
+  } else {
+    exo.supersetWith = exoIdx + 1;
+  }
+  goAutoSave();
+  goRequestRender();
+}
+
+function goIsPartOfSuperset(exoIdx) {
+  if (!activeWorkout) return false;
+  // Est lié à l'exercice suivant ?
+  var exo = activeWorkout.exercises[exoIdx];
+  if (exo && exo.supersetWith !== undefined) return true;
+  // Est la cible d'un lien ?
+  for (var i = 0; i < activeWorkout.exercises.length; i++) {
+    if (activeWorkout.exercises[i].supersetWith === exoIdx) return true;
+  }
+  return false;
+}
+
+function goGetSupersetColor(exoIdx) {
+  // Trouver le premier exercice de la chaîne
+  var colors = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#ec4899'];
+  var chainStart = exoIdx;
+  for (var i = 0; i < exoIdx; i++) {
+    if (activeWorkout.exercises[i].supersetWith === exoIdx ||
+        (activeWorkout.exercises[i].supersetWith !== undefined && _isInSameChain(i, exoIdx))) {
+      chainStart = i;
+      break;
+    }
+  }
+  return colors[chainStart % colors.length];
+}
+
+function _isInSameChain(startIdx, targetIdx) {
+  var visited = {};
+  var current = startIdx;
+  while (current !== undefined && !visited[current]) {
+    visited[current] = true;
+    if (current === targetIdx) return true;
+    current = activeWorkout.exercises[current] ? activeWorkout.exercises[current].supersetWith : undefined;
+  }
+  return false;
+}
+
+// ── Calculateur de plateaux ──
+function goShowPlateCalc(exoIdx, setIdx) {
+  var totalWeight = 0;
+  if (activeWorkout && exoIdx >= 0) {
+    var set = activeWorkout.exercises[exoIdx].sets[setIdx];
+    if (set) totalWeight = set.weight || 0;
+  }
+  var barWeight = db.plateCalcBar || 20;
+  var availablePlates = db.plateCalcPlates || [25, 20, 15, 10, 5, 2.5, 1.25, 0.5];
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'plateCalcOverlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '<div class="modal-box" style="max-width:320px;text-align:left;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;text-align:center;">🔢 Calculateur de plateaux</div>';
+  h += '<div style="margin-bottom:12px;">';
+  h += '<label style="font-size:11px;color:var(--sub);text-transform:uppercase;">Poids total (kg)</label>';
+  h += '<input type="number" id="plateCalcWeight" value="' + totalWeight + '" step="0.5" style="font-size:20px;text-align:center;" oninput="updatePlateCalc()">';
+  h += '</div>';
+  h += '<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">';
+  h += '<label style="font-size:11px;color:var(--sub);white-space:nowrap;">Barre :</label>';
+  h += '<select id="plateCalcBarSelect" onchange="updatePlateCalc()" style="flex:1;margin:0;padding:8px;">';
+  h += '<option value="20"' + (barWeight === 20 ? ' selected' : '') + '>Olympique (20kg)</option>';
+  h += '<option value="15"' + (barWeight === 15 ? ' selected' : '') + '>Femme (15kg)</option>';
+  h += '<option value="10"' + (barWeight === 10 ? ' selected' : '') + '>EZ (10kg)</option>';
+  h += '<option value="7"' + (barWeight === 7 ? ' selected' : '') + '>EZ court (7kg)</option>';
+  h += '</select></div>';
+  h += '<div id="plateCalcResult" style="min-height:60px;"></div>';
+  h += '<div class="modal-actions"><button onclick="document.getElementById(\'plateCalcOverlay\').remove()" style="background:var(--surface);color:var(--text);">Fermer</button></div>';
+  h += '</div>';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+  updatePlateCalc();
+}
+
+function updatePlateCalc() {
+  var weightInput = document.getElementById('plateCalcWeight');
+  var barSelect = document.getElementById('plateCalcBarSelect');
+  var result = document.getElementById('plateCalcResult');
+  if (!weightInput || !result) return;
+
+  var total = parseFloat(weightInput.value) || 0;
+  var bar = parseFloat(barSelect ? barSelect.value : 20);
+  var availablePlates = [25, 20, 15, 10, 5, 2.5, 1.25, 0.5];
+
+  if (total <= bar) {
+    result.innerHTML = '<div style="text-align:center;color:var(--sub);font-size:13px;padding:10px;">Barre seule (' + bar + 'kg)</div>';
+    return;
+  }
+
+  var perSide = (total - bar) / 2;
+  var plates = [];
+  var remaining = perSide;
+  availablePlates.forEach(function(p) {
+    while (remaining >= p - 0.001) {
+      plates.push(p);
+      remaining -= p;
+    }
+  });
+
+  if (Math.abs(remaining) > 0.01) {
+    result.innerHTML = '<div style="text-align:center;color:var(--red);font-size:13px;padding:10px;">Impossible avec les disques disponibles</div>';
+    return;
+  }
+
+  var h = '<div style="text-align:center;margin-bottom:8px;font-size:12px;color:var(--sub);">Chaque côté : <strong style="color:var(--text);">' + perSide + 'kg</strong></div>';
+  h += '<div style="display:flex;justify-content:center;align-items:center;gap:3px;margin-bottom:8px;">';
+  // Visual representation
+  h += '<div style="width:6px;height:40px;background:var(--sub);border-radius:2px;"></div>'; // bar
+  plates.forEach(function(p) {
+    var height = Math.max(25, Math.min(50, p * 2));
+    var colors = { 25: '#ef4444', 20: '#3b82f6', 15: '#f59e0b', 10: '#22c55e', 5: '#f0f0ff', 2.5: '#a855f7', 1.25: '#64748b', 0.5: '#94a3b8' };
+    h += '<div style="width:' + (p >= 10 ? 14 : 10) + 'px;height:' + height + 'px;background:' + (colors[p] || '#666') + ';border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#000;font-weight:700;">' + p + '</div>';
+  });
+  h += '<div style="width:80px;height:6px;background:var(--sub);border-radius:2px;"></div>'; // bar middle
+  // Mirror
+  plates.slice().reverse().forEach(function(p) {
+    var height = Math.max(25, Math.min(50, p * 2));
+    var colors = { 25: '#ef4444', 20: '#3b82f6', 15: '#f59e0b', 10: '#22c55e', 5: '#f0f0ff', 2.5: '#a855f7', 1.25: '#64748b', 0.5: '#94a3b8' };
+    h += '<div style="width:' + (p >= 10 ? 14 : 10) + 'px;height:' + height + 'px;background:' + (colors[p] || '#666') + ';border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#000;font-weight:700;">' + p + '</div>';
+  });
+  h += '<div style="width:6px;height:40px;background:var(--sub);border-radius:2px;"></div>';
+  h += '</div>';
+  // List
+  var plateCounts = {};
+  plates.forEach(function(p) { plateCounts[p] = (plateCounts[p] || 0) + 1; });
+  h += '<div style="font-size:12px;color:var(--text);text-align:center;">';
+  Object.keys(plateCounts).sort(function(a, b) { return b - a; }).forEach(function(p) {
+    h += '<span style="margin:0 6px;">' + plateCounts[p] + '× ' + p + 'kg</span>';
+  });
+  h += '</div>';
+
+  result.innerHTML = h;
 }
 
 function goEditRest(exoIdx) {

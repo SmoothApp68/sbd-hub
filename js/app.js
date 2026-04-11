@@ -1586,6 +1586,7 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
+  if (id === 'seances-programme') renderProgramBuilder();
   if (id === 'seances-coach') renderCoachTab();
 }
 
@@ -5101,6 +5102,338 @@ function getSuspiciousRecordsSummary() {
 }
 
 // ============================================================
+// ============================================================
+// PROGRAMME BUILDER — Guided + Manual paths
+// ============================================================
+var _pbState = null;
+
+function renderProgramBuilder() {
+  var container = document.getElementById('programBuilderContent');
+  if (!container) return;
+
+  // Si un programme existe déjà, afficher la vue programme
+  if (db.generatedProgram && db.generatedProgram.length > 0 && !_pbState) {
+    renderProgramBuilderView(container);
+    return;
+  }
+
+  // Si le builder est en cours, afficher l'étape courante
+  if (_pbState) {
+    renderProgramBuilderStep(container);
+    return;
+  }
+
+  // Écran de choix initial
+  var h = '<div style="text-align:center;padding:20px 0;">';
+  h += '<div style="font-size:48px;margin-bottom:16px;">📅</div>';
+  h += '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Comment tu veux créer ton programme ?</div>';
+  h += '<div style="font-size:13px;color:var(--sub);margin-bottom:24px;line-height:1.6;">Choisis ta méthode préférée. Tu pourras tout modifier après.</div>';
+
+  // Option 1 : Guidé
+  h += '<div class="card" style="text-align:left;cursor:pointer;border:1px solid rgba(10,132,255,0.3);margin-bottom:12px;" onclick="pbStartGuided()">';
+  h += '<div style="display:flex;align-items:center;gap:12px;">';
+  h += '<div style="font-size:32px;">🤖</div>';
+  h += '<div><div style="font-size:15px;font-weight:700;">L\'appli me guide</div>';
+  h += '<div style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.5;">Réponds à quelques questions et on te propose un programme adapté. Tu pourras tout modifier après.</div></div>';
+  h += '</div></div>';
+
+  // Option 2 : Manuel
+  h += '<div class="card" style="text-align:left;cursor:pointer;border:1px solid rgba(255,159,10,0.3);" onclick="pbStartManual()">';
+  h += '<div style="display:flex;align-items:center;gap:12px;">';
+  h += '<div style="font-size:32px;">🛠️</div>';
+  h += '<div><div style="font-size:15px;font-weight:700;">Je construis moi-même</div>';
+  h += '<div style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.5;">Choisis ton split, tes exercices, et organise tout comme tu veux. On te donnera des suggestions en chemin.</div></div>';
+  h += '</div></div>';
+
+  h += '</div>';
+  container.innerHTML = h;
+}
+
+function pbStartGuided() {
+  _pbState = { mode: 'guided', step: 1, days: 4, goal: 'hypertrophie', equipment: ['barbell','dumbbell','machine','cable'], duration: 60, level: db.user.level || 'intermediaire' };
+  renderProgramBuilder();
+}
+
+function pbStartManual() {
+  _pbState = { mode: 'manual', step: 1, days: 4, split: 'ppl', dayNames: [], dayExercises: {} };
+  renderProgramBuilder();
+}
+
+function renderProgramBuilderStep(container) {
+  var s = _pbState;
+  var h = '';
+
+  if (s.mode === 'guided') {
+    var totalSteps = 5;
+    // Progress bar
+    h += '<div style="display:flex;gap:4px;margin-bottom:20px;">';
+    for (var i = 1; i <= totalSteps; i++) {
+      h += '<div style="flex:1;height:4px;border-radius:2px;background:' + (i <= s.step ? 'var(--accent)' : 'rgba(255,255,255,0.1)') + ';"></div>';
+    }
+    h += '</div>';
+
+    if (s.step === 1) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Combien de jours par semaine ?</div>';
+      h += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
+      for (var d = 2; d <= 6; d++) {
+        h += '<button onclick="_pbState.days=' + d + ';_pbState.step=2;renderProgramBuilder();" class="day-btn' + (s.days === d ? ' active' : '') + '" style="width:50px;height:50px;font-size:18px;font-weight:700;">' + d + '</button>';
+      }
+      h += '</div>';
+    } else if (s.step === 2) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel objectif principal ?</div>';
+      var goals = [
+        { id: 'force', label: 'Force', desc: 'Devenir plus fort sur les mouvements de base', icon: '🏋️' },
+        { id: 'hypertrophie', label: 'Hypertrophie', desc: 'Prendre du volume musculaire', icon: '💪' },
+        { id: 'mixte', label: 'Mixte', desc: 'Force + volume, le meilleur des deux', icon: '⚡' },
+        { id: 'remise_en_forme', label: 'Remise en forme', desc: 'Retrouver la forme et la santé', icon: '🌱' }
+      ];
+      goals.forEach(function(g) {
+        var sel = s.goal === g.id ? 'border-color:var(--accent);background:rgba(10,132,255,0.08);' : '';
+        h += '<div class="card" style="cursor:pointer;' + sel + '" onclick="_pbState.goal=\'' + g.id + '\';_pbState.step=3;renderProgramBuilder();">';
+        h += '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">' + g.icon + '</span>';
+        h += '<div><div style="font-weight:700;">' + g.label + '</div><div style="font-size:12px;color:var(--sub);">' + g.desc + '</div></div></div></div>';
+      });
+    } else if (s.step === 3) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel équipement as-tu ?</div>';
+      var equips = [
+        { id: 'barbell', label: 'Barre + rack', icon: '🏋️' },
+        { id: 'dumbbell', label: 'Haltères', icon: '💪' },
+        { id: 'machine', label: 'Machines', icon: '⚙️' },
+        { id: 'cable', label: 'Câbles', icon: '🔗' },
+        { id: 'bodyweight', label: 'Poids de corps', icon: '🤸' }
+      ];
+      h += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      equips.forEach(function(eq) {
+        var sel = s.equipment.indexOf(eq.id) >= 0;
+        h += '<button onclick="pbToggleEquip(\'' + eq.id + '\')" class="day-btn' + (sel ? ' active' : '') + '" style="padding:10px 14px;font-size:13px;">' + eq.icon + ' ' + eq.label + '</button>';
+      });
+      h += '</div>';
+      h += '<button class="btn" style="margin-top:20px;" onclick="_pbState.step=4;renderProgramBuilder();">Continuer →</button>';
+    } else if (s.step === 4) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Combien de temps par séance ?</div>';
+      var durations = [30, 45, 60, 75, 90];
+      h += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
+      durations.forEach(function(d) {
+        h += '<button onclick="_pbState.duration=' + d + ';_pbState.step=5;renderProgramBuilder();" class="day-btn' + (s.duration === d ? ' active' : '') + '" style="padding:10px 16px;font-size:13px;">' + d + 'min</button>';
+      });
+      h += '</div>';
+    } else if (s.step === 5) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Niveau d\'expérience ?</div>';
+      var levels = [
+        { id: 'debutant', label: 'Débutant', desc: 'Moins de 6 mois', icon: '🌱' },
+        { id: 'intermediaire', label: 'Intermédiaire', desc: '6 mois à 2 ans', icon: '📈' },
+        { id: 'avance', label: 'Avancé', desc: '2+ ans', icon: '🔥' }
+      ];
+      levels.forEach(function(l) {
+        var sel = s.level === l.id ? 'border-color:var(--accent);background:rgba(10,132,255,0.08);' : '';
+        h += '<div class="card" style="cursor:pointer;' + sel + '" onclick="_pbState.level=\'' + l.id + '\';pbGenerateProgram();">';
+        h += '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">' + l.icon + '</span>';
+        h += '<div><div style="font-weight:700;">' + l.label + '</div><div style="font-size:12px;color:var(--sub);">' + l.desc + '</div></div></div></div>';
+      });
+    }
+
+    // Back button
+    if (s.step > 1) {
+      h += '<button onclick="_pbState.step--;renderProgramBuilder();" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:10px;margin-top:10px;">← Retour</button>';
+    } else {
+      h += '<button onclick="_pbState=null;renderProgramBuilder();" style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;padding:10px;margin-top:10px;">← Annuler</button>';
+    }
+  }
+
+  if (s.mode === 'manual') {
+    if (s.step === 1) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Combien de jours ?</div>';
+      h += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
+      for (var d = 2; d <= 6; d++) {
+        h += '<button onclick="_pbState.days=' + d + ';_pbState.step=2;renderProgramBuilder();" class="day-btn' + (s.days === d ? ' active' : '') + '" style="width:50px;height:50px;font-size:18px;font-weight:700;">' + d + '</button>';
+      }
+      h += '</div>';
+      h += '<button onclick="_pbState=null;renderProgramBuilder();" style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;padding:10px;margin-top:10px;">← Annuler</button>';
+    } else if (s.step === 2) {
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel split ?</div>';
+      var splits = [
+        { id: 'ppl', label: 'PPL (Push/Pull/Legs)', desc: 'Classique pour 3-6 jours' },
+        { id: 'upper_lower', label: 'Upper / Lower', desc: 'Idéal pour 4 jours' },
+        { id: 'full_body', label: 'Full Body', desc: 'Parfait pour 2-3 jours' },
+        { id: 'bro_split', label: 'Bro Split', desc: '1 muscle par jour, 5-6 jours' },
+        { id: 'custom', label: 'Custom', desc: 'Nomme chaque jour toi-même' }
+      ];
+      splits.forEach(function(sp) {
+        var sel = s.split === sp.id ? 'border-color:var(--accent);background:rgba(10,132,255,0.08);' : '';
+        h += '<div class="card" style="cursor:pointer;' + sel + '" onclick="_pbState.split=\'' + sp.id + '\';pbSetupDays();renderProgramBuilder();">';
+        h += '<div><div style="font-weight:700;">' + sp.label + '</div><div style="font-size:12px;color:var(--sub);">' + sp.desc + '</div></div></div>';
+      });
+      h += '<button onclick="_pbState.step=1;renderProgramBuilder();" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:10px;">← Retour</button>';
+    } else if (s.step === 3) {
+      // Build each day
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Organise tes jours</div>';
+      for (var i = 0; i < s.dayNames.length; i++) {
+        var dayName = s.dayNames[i];
+        var exos = s.dayExercises[dayName] || [];
+        h += '<div class="card" style="margin-bottom:10px;">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        h += '<div style="font-weight:700;font-size:14px;">' + dayName + '</div>';
+        h += '<span style="font-size:11px;color:var(--sub);">' + exos.length + ' exo' + (exos.length > 1 ? 's' : '') + '</span>';
+        h += '</div>';
+        exos.forEach(function(exoName, ei) {
+          h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;">';
+          h += '<span>' + exoName + '</span>';
+          h += '<button onclick="pbRemoveExo(\'' + dayName.replace(/'/g, "\\'") + '\',' + ei + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;">✕</button>';
+          h += '</div>';
+        });
+        h += '<button onclick="pbAddExoToDay(\'' + dayName.replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;padding:6px 0;">+ Ajouter un exercice</button>';
+        h += '</div>';
+      }
+      h += '<button class="btn" style="margin-top:10px;" onclick="pbSaveManualProgram()">💾 Sauvegarder le programme</button>';
+      h += '<button onclick="_pbState.step=2;renderProgramBuilder();" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:10px;display:block;margin-top:8px;">← Retour</button>';
+    }
+  }
+
+  container.innerHTML = h;
+}
+
+function pbToggleEquip(eqId) {
+  var idx = _pbState.equipment.indexOf(eqId);
+  if (idx >= 0) _pbState.equipment.splice(idx, 1);
+  else _pbState.equipment.push(eqId);
+  renderProgramBuilder();
+}
+
+function pbSetupDays() {
+  var s = _pbState;
+  var dayTemplates = {
+    ppl: function(n) { var base = ['Push', 'Pull', 'Legs']; var r = []; for (var i = 0; i < n; i++) r.push(base[i % 3]); return r; },
+    upper_lower: function(n) { var base = ['Upper', 'Lower']; var r = []; for (var i = 0; i < n; i++) r.push(base[i % 2]); return r; },
+    full_body: function(n) { var r = []; for (var i = 0; i < n; i++) r.push('Full Body ' + String.fromCharCode(65 + i)); return r; },
+    bro_split: function(n) { var base = ['Pecs', 'Dos', 'Épaules', 'Bras', 'Jambes', 'Accessoires']; return base.slice(0, n); },
+    custom: function(n) { var r = []; for (var i = 0; i < n; i++) r.push('Jour ' + (i + 1)); return r; }
+  };
+  s.dayNames = (dayTemplates[s.split] || dayTemplates.custom)(s.days);
+  s.dayExercises = {};
+  s.dayNames.forEach(function(d) { s.dayExercises[d] = []; });
+  s.step = 3;
+}
+
+function pbAddExoToDay(dayName) {
+  var exoName = prompt('Nom de l\'exercice :');
+  if (exoName && exoName.trim()) {
+    if (!_pbState.dayExercises[dayName]) _pbState.dayExercises[dayName] = [];
+    _pbState.dayExercises[dayName].push(exoName.trim());
+    renderProgramBuilder();
+  }
+}
+
+function pbRemoveExo(dayName, idx) {
+  if (_pbState.dayExercises[dayName]) {
+    _pbState.dayExercises[dayName].splice(idx, 1);
+    renderProgramBuilder();
+  }
+}
+
+function pbSaveManualProgram() {
+  var s = _pbState;
+  var routine = {};
+  var allDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  s.dayNames.forEach(function(dayName, i) {
+    if (i < allDays.length) {
+      routine[allDays[i]] = dayName;
+    }
+  });
+  db.routine = routine;
+  // Also save the exercises for each day
+  db.manualProgram = { dayNames: s.dayNames, dayExercises: s.dayExercises };
+  _pbState = null;
+  saveDB();
+  showToast('Programme sauvegardé !');
+  renderProgramBuilder();
+}
+
+function pbGenerateProgram() {
+  var s = _pbState;
+  // Utiliser le générateur existant
+  var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'force', remise_en_forme: 'bien_etre' };
+  var goals = [{ id: goalMap[s.goal] || 'force' }];
+  var mat = s.equipment;
+
+  // Sauvegarder les paramètres dans le profil
+  db.user.level = s.level;
+  db.user.trainingFreq = s.days;
+  db.user.trainingDuration = s.duration;
+  db.user.trainingGoal = s.goal;
+  db.user.equipment = s.equipment;
+
+  // Appeler le générateur existant si disponible
+  try {
+    // Simuler les variables globales d'onboarding
+    window.obSelectedDays = { 2: ['Lundi', 'Jeudi'], 3: ['Lundi', 'Mercredi', 'Vendredi'], 4: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'], 5: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'], 6: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] }[s.days] || ['Lundi', 'Mercredi', 'Vendredi'];
+    var result = generateProgram(goals, s.days, mat, s.duration, [], [], null, null, s.level);
+    if (result && result.length > 0) {
+      db.generatedProgram = result;
+      // Also create routine map
+      var routine = {};
+      result.forEach(function(d) { routine[d.day] = d.isRest ? '😴 Repos' : (d.label || d.day); });
+      db.routine = routine;
+    }
+  } catch(e) {
+    console.error('Program generation error:', e);
+    showToast('Erreur lors de la génération');
+  }
+
+  _pbState = null;
+  saveDB();
+  showToast('Programme généré !');
+  renderProgramBuilder();
+}
+
+function renderProgramBuilderView(container) {
+  var program = db.generatedProgram || [];
+  var routine = getRoutine();
+  var h = '';
+
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
+  h += '<div style="font-size:18px;font-weight:700;">Mon Programme</div>';
+  h += '<button onclick="_pbState=null;renderProgramBuilder();" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;">Modifier</button>';
+  h += '</div>';
+
+  // Afficher chaque jour
+  var allDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  allDays.forEach(function(day) {
+    var label = routine[day] || '😴 Repos';
+    var isRest = label.indexOf('Repos') >= 0;
+    var dayProgram = program.find(function(p) { return p.day === day; });
+
+    h += '<div class="card" style="' + (isRest ? 'opacity:0.5;' : '') + '">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    h += '<div style="font-weight:700;font-size:14px;">' + day + '</div>';
+    h += '<div style="font-size:12px;color:var(--accent);">' + label + '</div>';
+    h += '</div>';
+
+    if (dayProgram && dayProgram.exercises && !isRest) {
+      dayProgram.exercises.forEach(function(exo) {
+        var exoName = exo.name || exo;
+        h += '<div style="font-size:12px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
+      });
+    }
+    h += '</div>';
+  });
+
+  h += '<div style="display:flex;gap:8px;margin-top:10px;">';
+  h += '<button class="btn" style="flex:1;background:var(--red);font-size:13px;" onclick="pbResetProgram()">Réinitialiser</button>';
+  h += '</div>';
+
+  container.innerHTML = h;
+}
+
+function pbResetProgram() {
+  if (!confirm('Réinitialiser le programme ?')) return;
+  db.generatedProgram = null;
+  db.routine = null;
+  db.manualProgram = null;
+  saveDB();
+  _pbState = null;
+  renderProgramBuilder();
+}
+
 // PROGRAMME VIEWER + SWAP EXERCICE
 // ============================================================
 function renderProgramViewer() {

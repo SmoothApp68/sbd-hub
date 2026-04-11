@@ -1795,6 +1795,7 @@
     <div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showSeancesSub('seances-list',this)">📋 Séances</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-go',this)">🏋️ GO</button>
+      <button class="stats-sub-pill" onclick="showSeancesSub('seances-programme',this)">📅 Programme</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-coach',this)">🦍 Coach</button>
     </div>
     <div id="seances-list" class="seances-sub-section active">
@@ -1809,6 +1810,9 @@
         </div>
         <div id="weekSessionsContainer"></div>
       </div>
+    </div>
+    <div id="seances-programme" class="seances-sub-section">
+      <div id="programBuilderContent"></div>
     </div>
     <div id="seances-go" class="seances-sub-section">
       <div id="goIdleView"></div>

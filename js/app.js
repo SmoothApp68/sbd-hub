@@ -5175,6 +5175,13 @@ function parseHevyCSV(text) {
         session.exercises.push(exo);
     }
 
+    // Estimer la durée si non fournie (~2 min par série, incluant repos)
+    if (!session.duration) {
+      var totalSets = 0;
+      session.exercises.forEach(function(ex) { totalSets += (ex.allSets || ex.series || []).length; });
+      if (totalSets > 0) session.duration = totalSets * 120; // 2 min/série en secondes
+    }
+
     if (session.exercises.length > 0) sessions.push(session);
   }
 
@@ -5231,6 +5238,12 @@ function buildSessionFromCSV(dateRaw, seanceName, rows) {
       else{const w=s.poids,r=s.reps;exo.allSets.push({weight:w||0,reps:r||0,setType:'normal',rpe:null});if(w>0&&r>0){exo._rawSets.push({weight:w,reps:r});session.volume+=w*r;const rKey=String(r);if(!exo.repRecords[rKey]||w>exo.repRecords[rKey])exo.repRecords[rKey]=w;const ex=exo.series.find(x=>x.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=ts;}}else exo.series.push({weight:w,reps:r,date:ts});const rm=calcE1RM(w,r);if(rm>exo.maxRM){exo.maxRM=rm;exo.maxRMDate=ts;}}}
     }
     if(exo.maxRM>0||exo.isCardio||exo.maxTime>0||exo.maxReps>0||exo.sets>0)session.exercises.push(exo);
+  }
+  // Estimer la durée (~2 min par série)
+  if (!session.duration) {
+    var totalSets = 0;
+    session.exercises.forEach(function(ex) { totalSets += (ex.allSets || ex.series || []).length; });
+    if (totalSets > 0) session.duration = totalSets * 120;
   }
   return session.exercises.length>0?session:null;
 }
@@ -5803,6 +5816,17 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   updateCoachBadge();
   // Migration : generatedProgram
   if (!db.generatedProgram) db.generatedProgram = null;
+
+  // Migration : estimer la durée des séances importées sans duration
+  var _durMigrated = false;
+  (db.logs || []).forEach(function(log) {
+    if (!log.duration || log.duration === 0) {
+      var totalSets = 0;
+      (log.exercises || []).forEach(function(ex) { totalSets += (ex.allSets || ex.series || []).length; });
+      if (totalSets > 0) { log.duration = totalSets * 120; _durMigrated = true; }
+    }
+  });
+  if (_durMigrated) saveDB();
   renderProgramViewer();
 
   // ONBOARDING — afficher si pas encore fait

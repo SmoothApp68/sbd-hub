@@ -6835,11 +6835,333 @@ function renderCoachAlgoAI() {
 // ============================================================
 // COACH TAB — Briefing, Post-Session, Weekly Report
 // ============================================================
+let _coachSelectedDay = null;
+let _activeCoachSub = 'coach-today';
+
 function renderCoachTab() {
-  renderCoachBriefing();
-  renderProgressionSuggestions();
   if (new Date().getDay() === 1) generateWeeklyReport();
-  renderCoachReports();
+  updateCoachHistoBadge();
+  if (_activeCoachSub === 'coach-today') renderCoachToday();
+  else renderCoachHistory();
+}
+
+function showCoachSub(id, btn) {
+  _activeCoachSub = id;
+  document.querySelectorAll('#seances-coach .coach-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#seances-coach .coach-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'coach-today') renderCoachToday();
+  else { renderCoachHistory(); markReportsRead(); updateCoachHistoBadge(); }
+}
+
+function updateCoachHistoBadge() {
+  const badge = document.getElementById('coachHistoBadge');
+  if (!badge) return;
+  const unread = (db.reports || []).filter(r => !r.read && r.expires_at > Date.now()).length;
+  if (unread > 0) { badge.textContent = unread; badge.style.display = 'inline-flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+function renderCoachToday() {
+  const el = document.getElementById('coach-today');
+  if (!el) return;
+  const now = new Date();
+  const todayDay = DAYS_FULL[now.getDay()];
+  if (!_coachSelectedDay) _coachSelectedDay = todayDay;
+
+  const routine = getRoutine();
+  const orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  const weekStart = _getWeekStart(now);
+
+  // Count sessions done this week
+  const weekLogs = (db.logs || []).filter(l => l.timestamp >= weekStart);
+  const donedays = {};
+  weekLogs.forEach(l => {
+    const d = DAYS_FULL[new Date(l.timestamp).getDay()];
+    donedays[d] = (donedays[d] || 0) + (l.volume || 0);
+  });
+
+  // Count planned sessions this week
+  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !/repos|😴|natation|🏊/i.test(lab); }).length;
+  const doneCount = Object.keys(donedays).length;
+
+  let h = '';
+  // Header
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--text);">Programme semaine</div>';
+  h += '<div style="font-size:12px;color:var(--sub);font-weight:600;">' + doneCount + '/' + plannedCount + ' séances</div>';
+  h += '</div>';
+
+  // Week band
+  h += '<div class="coach-week-band">';
+  orderedDays.forEach(day => {
+    const label = routine[day] || '';
+    const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+    const isToday = day === todayDay;
+    const isDone = !!donedays[day];
+    const isActive = day === _coachSelectedDay;
+    let cls = 'coach-day-pill';
+    if (isRest) cls += ' rest';
+    else if (isDone) cls += ' done';
+    else if (isToday) cls += ' today';
+    if (isActive) cls += ' active';
+    const onclick = isRest ? '' : ' onclick="coachSelectDay(\'' + day + '\')"';
+    let sub = '';
+    if (isDone) sub = '✓';
+    else if (isToday) sub = 'auj.';
+    h += '<div class="' + cls + '"' + onclick + '><span class="cdp-label">' + day.substring(0, 3) + '</span>';
+    if (sub) h += '<span class="cdp-sub">' + sub + '</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Detail for selected day
+  h += renderCoachDayDetail(_coachSelectedDay, routine, donedays, weekStart);
+
+  // Progression suggestions
+  var suggestions = checkProgressionSuggestions();
+  if (suggestions && suggestions.length) {
+    h += '<div class="coach-card" style="border-left:3px solid var(--purple);margin-top:12px;">';
+    h += '<div class="coach-card-title">📈 Progressions suggérées <span style="background:var(--purple);color:white;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + suggestions.length + '</span></div>';
+    suggestions.forEach(function(s) {
+      h += '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">';
+      h += '<span style="color:var(--text);font-weight:600;">' + s.from + '</span>';
+      h += ' <span style="color:var(--blue);">→</span> ';
+      h += '<span style="color:var(--green);font-weight:600;">' + s.to + '</span>';
+      h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + s.reason + '</div></div>';
+    });
+    h += '</div>';
+  }
+
+  // Last debrief (condensed)
+  var lastReport = (db.reports || [])
+    .filter(r => r.expires_at > Date.now())
+    .sort((a, b) => b.created_at - a.created_at)[0];
+  if (lastReport) {
+    var typeIcon = lastReport.type === 'debrief' ? '🏋️' : '📊';
+    var relTime = typeof timeAgo === 'function' ? timeAgo(lastReport.created_at) : '';
+    h += '<div class="coach-card" style="margin-top:12px;padding:10px 14px;">';
+    h += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;">';
+    h += '<span>' + typeIcon + '</span>';
+    h += '<span style="font-weight:600;color:var(--text);">Dernier rapport</span>';
+    h += '<span style="color:var(--sub);margin-left:auto;font-size:11px;">' + relTime + '</span>';
+    h += '</div></div>';
+  }
+
+  el.innerHTML = h;
+}
+
+function coachSelectDay(day) {
+  _coachSelectedDay = day;
+  renderCoachToday();
+}
+
+function renderCoachDayDetail(day, routine, donedays, weekStart) {
+  const label = routine[day] || '';
+  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+
+  if (isRest) {
+    const isSwim = /natation|🏊/i.test(label);
+    return '<div class="coach-rest-day">' + (isSwim ? '🏊 Natation — récupération active' : '😴 Repos complet') + '</div>';
+  }
+
+  // Check if day is already done (use actual log data)
+  const dayDone = !!donedays[day];
+  let exercises = [];
+  let usePlanSets = false;
+
+  // PRIORITY 1: routine manuelle for exercise list
+  const progExos = getProgExosForDay(day);
+
+  // PRIORITY 2: weeklyPlan for detailed sets
+  const plan = db.weeklyPlan;
+  let planDay = null;
+  if (plan && plan.days) {
+    planDay = plan.days.find(d => d.day === day && !d.rest);
+  }
+
+  // If day is done, use actual log data
+  if (dayDone) {
+    const weekLogs = (db.logs || []).filter(l => l.timestamp >= weekStart);
+    const dayLog = weekLogs.find(l => DAYS_FULL[new Date(l.timestamp).getDay()] === day);
+    if (dayLog && dayLog.exercises) {
+      exercises = dayLog.exercises.map(e => ({
+        name: e.name,
+        sets: (e.series || e.allSets || []).map((s, idx) => ({
+          label: (s.isWarmup || s.type === 'warmup') ? '🔥 Chauffe ' + (idx + 1) : 'Série ' + (idx + 1),
+          weight: s.weight || 0,
+          reps: s.reps || 0,
+          rpe: s.rpe || null,
+          rest: s.rest || null,
+          isWarmup: s.isWarmup || s.type === 'warmup',
+          isPR: s.isPR || false
+        })),
+        actual: true
+      }));
+    }
+  } else if (planDay && planDay.exercises && planDay.exercises.length) {
+    // Use weeklyPlan sets
+    exercises = planDay.exercises.map(pe => {
+      const matched = progExos.find(n => matchExoName(n, pe.name));
+      return {
+        name: pe.name,
+        sets: (pe.sets || []).map((s, idx) => {
+          const isW = s.isWarmup || false;
+          const isB = s.isBackoff || false;
+          const lbl = isW ? '🔥 Chauffe ' + (idx + 1) : (isB ? 'Back-off ' + (idx + 1) : 'Série ' + (idx + 1));
+          return { label: lbl, weight: s.weight || 0, reps: s.reps || 0, rpe: s.rpe || null, rest: pe.restSeconds || null, isWarmup: isW, isPR: false };
+        }),
+        actual: false
+      };
+    });
+    // Add any routine exercises not in plan
+    progExos.forEach(name => {
+      if (!exercises.find(e => matchExoName(e.name, name))) {
+        const prev = goGetPreviousSets(name);
+        exercises.push({ name: name, sets: _buildSetsFromHistory(prev), actual: false });
+      }
+    });
+  } else {
+    // Fallback: use routine + history
+    exercises = progExos.map(name => {
+      const prev = goGetPreviousSets(name);
+      return { name: name, sets: _buildSetsFromHistory(prev), actual: false };
+    });
+  }
+
+  if (!exercises.length) {
+    return '<div class="coach-rest-day" style="font-size:12px;">Aucun exercice configuré pour ' + day + '</div>';
+  }
+
+  let h = '<div style="margin-top:4px;">';
+  exercises.forEach((exo, idx) => {
+    const ms = _ecMuscleStyle(exo.name);
+    const shortName = exo.name.replace(/\s*\(.*\)/, '').trim();
+
+    // Summary: sets x reps @ weight
+    let summary = '';
+    const workSets = (exo.sets || []).filter(s => !s.isWarmup);
+    if (workSets.length > 0) {
+      const w = workSets[0].weight;
+      const r = workSets[0].reps;
+      summary = workSets.length + '×' + r + (w ? ' @ ' + w + 'kg' : '');
+    }
+
+    // Trend vs last session
+    let trendHtml = '';
+    if (!exo.actual) {
+      var pts = [];
+      var desc = getSortedLogs();
+      for (var i = 0; i < desc.length && pts.length < 4; i++) {
+        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, exo.name) && e.maxRM > 0; });
+        if (found) pts.push(found.maxRM);
+      }
+      if (pts.length >= 2) {
+        var d = pts[0] - pts[1];
+        if (d > 0) trendHtml = '<span class="cec-trend" style="color:var(--green);">↑+' + d + 'kg</span>';
+        else if (d < 0) trendHtml = '<span class="cec-trend" style="color:var(--red);">↓' + d + 'kg</span>';
+        else trendHtml = '<span class="cec-trend" style="color:var(--sub);">→</span>';
+      }
+    }
+
+    const hasDetails = exo.sets && exo.sets.length > 0;
+    h += '<div class="coach-exo-card" id="coachExo' + idx + '">';
+    h += '<div class="coach-exo-card-header" onclick="toggleCoachExo(' + idx + ')">';
+    h += '<span class="cec-icon">' + ms.icon + '</span>';
+    h += '<span class="cec-name">' + shortName + '</span>';
+    h += trendHtml;
+    h += '<span class="cec-summary">' + summary + '</span>';
+    if (hasDetails) h += '<span class="cec-chevron">▾</span>';
+    h += '</div>';
+
+    if (hasDetails) {
+      h += '<div class="coach-exo-card-body">';
+      h += '<table class="coach-sets-table"><thead><tr><th>Label</th><th>Kg</th><th>Reps</th><th>Repos</th><th>RPE</th></tr></thead><tbody>';
+      exo.sets.forEach(s => {
+        let rowCls = s.isWarmup ? ' class="warmup"' : (s.isPR ? ' class="pr"' : '');
+        let rpeHtml = '';
+        if (s.rpe) {
+          let rpeCls = s.rpe <= 8 ? 'rpe-green' : (s.rpe < 9.5 ? 'rpe-orange' : 'rpe-red');
+          rpeHtml = '<span class="rpe-badge ' + rpeCls + '">' + s.rpe + '</span>';
+        }
+        let restHtml = s.rest ? '<span style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;font-size:10px;">' + fmtRest(s.rest) + '</span>' : '';
+        let prefix = s.isWarmup ? '🔥 ' : (s.isPR ? '🏆 ' : '');
+        h += '<tr' + rowCls + '><td>' + prefix + s.label + '</td><td>' + (s.weight || '—') + '</td><td>' + (s.reps || '—') + '</td><td>' + restHtml + '</td><td>' + rpeHtml + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function _buildSetsFromHistory(prev) {
+  if (!prev || !prev.series || !prev.series.length) return [];
+  return prev.series.map((s, idx) => ({
+    label: 'Série ' + (idx + 1),
+    weight: s.weight || 0,
+    reps: s.reps || 0,
+    rpe: s.rpe || null,
+    rest: null,
+    isWarmup: s.isWarmup || s.type === 'warmup' || false,
+    isPR: false
+  }));
+}
+
+function toggleCoachExo(idx) {
+  const card = document.getElementById('coachExo' + idx);
+  if (card) card.classList.toggle('open');
+}
+
+function _getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1; // Monday is start of week
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - diff);
+  return d.getTime();
+}
+
+function renderCoachHistory() {
+  const el = document.getElementById('coach-history');
+  if (!el) return;
+  const reports = (db.reports || [])
+    .filter(r => r.expires_at > Date.now())
+    .sort((a, b) => b.created_at - a.created_at);
+
+  if (!reports.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--sub);font-size:13px;">Aucun rapport disponible.<br>Termine une séance dans le GO pour voir les analyses ici.</div>';
+    return;
+  }
+
+  let h = '';
+  reports.forEach((r, idx) => {
+    const typeIcon = r.type === 'debrief' ? '🏋️' : '📊';
+    const typeLabel = r.type === 'debrief' ? 'Débrief Séance' : 'Bilan Hebdo';
+    const relTime = typeof timeAgo === 'function' ? timeAgo(r.created_at) : '';
+    const dl = typeof daysLeft === 'function' ? daysLeft(r.expires_at) : '';
+    const unreadDot = !r.read ? '🔴 ' : '';
+
+    h += '<div class="coach-history-card" id="coachHist' + idx + '">';
+    h += '<div class="coach-history-header" onclick="toggleCoachHist(' + idx + ')">';
+    h += '<span class="ch-icon">' + typeIcon + '</span>';
+    h += '<span class="ch-title">' + unreadDot + typeLabel + '</span>';
+    h += '<span class="ch-meta">' + relTime + (dl ? ' · ' + dl + 'j' : '') + '</span>';
+    h += '<span class="ch-chevron">▾</span>';
+    h += '</div>';
+    h += '<div class="coach-history-body">' + (r.html || '') + '</div>';
+    h += '</div>';
+  });
+
+  el.innerHTML = h;
+}
+
+function toggleCoachHist(idx) {
+  const card = document.getElementById('coachHist' + idx);
+  if (card) card.classList.toggle('open');
 }
 
 function checkProgressionSuggestions() {
@@ -6873,94 +7195,12 @@ function checkProgressionSuggestions() {
 }
 
 function renderProgressionSuggestions() {
-  var el = document.getElementById('coachBriefing');
-  if (!el) return;
-  var suggestions = checkProgressionSuggestions();
-  if (!suggestions.length) return;
-  var h = '<div class="coach-card">';
-  h += '<div class="coach-card-title">📈 Progressions suggérées</div>';
-  suggestions.forEach(function(s) {
-    h += '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">';
-    h += '<span style="color:var(--text);font-weight:600;">' + s.from + '</span>';
-    h += ' <span style="color:var(--blue);">→</span> ';
-    h += '<span style="color:var(--green);font-weight:600;">' + s.to + '</span>';
-    h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + s.reason + '</div>';
-    h += '</div>';
-  });
-  h += '</div>';
-  el.innerHTML += h;
+  // Legacy — now inline in renderCoachToday()
 }
 
 function renderCoachBriefing() {
-  var el = document.getElementById('coachBriefing');
-  if (!el) return;
-  var todayDay = DAYS_FULL[new Date().getDay()];
-  var routine = getRoutine();
-  var label = routine[todayDay] || '';
-  var isRest = !label || /repos|😴/i.test(label);
-
-  if (isRest) {
-    el.innerHTML = '<div class="coach-card"><div class="coach-card-title">😴 Jour de repos</div>' +
-      '<div class="coach-card-body" style="font-size:12px;color:var(--sub);">Pas de séance prévue. Profite pour récupérer, t\'hydrater et bien dormir.</div></div>';
-    return;
-  }
-
-  var exos = getProgExosForDay(todayDay);
-  var readiness = getTodayReadiness();
-
-  var h = '<div class="coach-card">';
-  h += '<div class="coach-card-title">📋 Séance du jour — ' + todayDay + '</div>';
-  h += '<div class="coach-card-subtitle">' + label + '</div>';
-
-  if (exos.length) {
-    h += '<div class="coach-exo-list">';
-    exos.forEach(function(name) {
-      var ms = _ecMuscleStyle(name);
-      var shortName = name.replace(/\s*\(.*\)/, '').trim();
-      var trendHtml = '';
-      var pts = [];
-      var desc = getSortedLogs();
-      for (var i = 0; i < desc.length && pts.length < 4; i++) {
-        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, name) && e.maxRM > 0; });
-        if (found) pts.push(found.maxRM);
-      }
-      if (pts.length >= 2) {
-        var d = pts[0] - pts[1];
-        if (d > 0) trendHtml = ' <span style="color:var(--green);font-size:10px;">↑+' + d + 'kg</span>';
-        else if (d < 0) trendHtml = ' <span style="color:var(--red);font-size:10px;">↓' + d + 'kg</span>';
-        else trendHtml = ' <span style="color:var(--sub);font-size:10px;">→ stable</span>';
-      }
-      h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">';
-      h += '<span style="font-size:14px;">' + ms.icon + '</span>';
-      h += '<span style="font-size:12px;color:var(--text);">' + shortName + trendHtml + '</span></div>';
-    });
-    h += '</div>';
-  }
-
-  if (readiness) {
-    var advice = '';
-    if (readiness.score >= 80) advice = '💪 Tu es en pleine forme. Pousse tes limites aujourd\'hui.';
-    else if (readiness.score >= 60) advice = '👍 Bonne forme. Séance normale, reste concentré.';
-    else if (readiness.score >= 40) advice = '⚠️ Forme moyenne. Réduis un peu le volume, écoute ton corps.';
-    else advice = '🛑 Fatigue détectée. Séance allégée recommandée ou repos actif.';
-    h += '<div class="coach-advice">' + advice + '</div>';
-  } else {
-    h += '<div class="coach-advice" style="color:var(--sub);">Remplis ton readiness dans le GO pour un conseil personnalisé.</div>';
-  }
-
-  var tips = [
-    'Pense à serrer les omoplates sur tous les mouvements de tirage.',
-    'Hydrate-toi entre chaque série — 200ml par série lourde.',
-    'Contrôle l\'excentrique (descente) : c\'est là que le muscle travaille le plus.',
-    'Si un exercice te fait mal (pas courbature, DOULEUR), remplace-le.',
-    'Les 2 dernières reps comptent plus que les 8 premières.',
-    'Respire : inspire en descente, expire en poussée.',
-    'Écris tes poids dans l\'app pour suivre ta progression.'
-  ];
-  var tipIdx = new Date().getDate() % tips.length;
-  h += '<div class="coach-tip">💡 ' + tips[tipIdx] + '</div>';
-  h += '</div>';
-  el.innerHTML = h;
+  // Legacy — now handled by renderCoachToday()
+  renderCoachToday();
 }
 
 function generateWeeklyReport() {
@@ -7021,30 +7261,8 @@ function generateWeeklyReport() {
 }
 
 function renderCoachReports() {
-  var el = document.getElementById('coachPostSession');
-  if (!el) return;
-  var reports = (db.reports || [])
-    .filter(function(r) { return (r.type === 'debrief' || r.type === 'weekly') && r.expires_at > Date.now(); })
-    .sort(function(a, b) { return b.created_at - a.created_at; })
-    .slice(0, 10);
-
-  if (!reports.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Termine une séance dans le GO pour voir l\'analyse ici.</div>';
-    return;
-  }
-
-  el.innerHTML = reports.map(function(r) {
-    var typeLabel = r.type === 'debrief' ? '🏋️ Débrief' : '📊 Bilan Hebdo';
-    var dl = daysLeft(r.expires_at);
-    return '<div class="coach-report-card">' +
-      '<div class="coach-report-header">' +
-      '<span class="coach-report-type">' + (r.read ? '' : '🔴 ') + typeLabel + '</span>' +
-      '<span class="coach-report-date">' + timeAgo(r.created_at) + ' · ' + dl + 'j restants</span></div>' +
-      '<div class="coach-report-body">' + (r.html || '') + '</div></div>';
-  }).join('');
-
-  reports.forEach(function(r) { r.read = true; });
-  saveDB();
+  // Legacy — now handled by renderCoachHistory()
+  renderCoachHistory();
 }
 
 

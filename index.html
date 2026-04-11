@@ -149,6 +149,53 @@
     .coach-report-header { display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px; }
     .coach-report-type { font-weight:700; }
     .coach-report-date { color:var(--sub); }
+    /* ── Coach sub-sections ── */
+    .coach-sub-nav { display:flex; gap:8px; margin-bottom:14px; }
+    .coach-sub-section { display:none; }
+    .coach-sub-section.active { display:block; }
+    .coach-badge-count { display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:white;font-size:10px;font-weight:700;margin-left:4px; }
+    /* Week band */
+    .coach-week-band { display:flex; gap:4px; margin-bottom:12px; overflow-x:auto; padding:2px 0; }
+    .coach-day-pill { flex:1;min-width:40px;padding:8px 4px;border-radius:10px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;position:relative; }
+    .coach-day-pill.today { border-color:var(--blue);color:var(--blue); }
+    .coach-day-pill.done { border-color:var(--green);color:var(--green);background:rgba(50,215,75,0.08); }
+    .coach-day-pill.rest { opacity:0.45; cursor:default; }
+    .coach-day-pill.active { background:var(--blue);color:white;border-color:var(--blue); }
+    .coach-day-pill .cdp-label { font-size:10px;display:block; }
+    .coach-day-pill .cdp-sub { font-size:8px;display:block;margin-top:2px;opacity:0.7; }
+    /* Exercise accordion cards */
+    .coach-exo-card { background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;transition:border-color 0.2s; }
+    .coach-exo-card-header { display:flex;align-items:center;gap:8px;padding:12px;cursor:pointer; }
+    .coach-exo-card-header .cec-icon { font-size:16px;flex-shrink:0; }
+    .coach-exo-card-header .cec-name { flex:1;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .coach-exo-card-header .cec-summary { font-size:11px;color:var(--sub);white-space:nowrap;margin-right:4px; }
+    .coach-exo-card-header .cec-trend { font-size:10px;margin-right:4px; }
+    .coach-exo-card-header .cec-chevron { font-size:11px;color:var(--sub);transition:transform 0.2s; }
+    .coach-exo-card-body { display:none;padding:0 12px 12px;border-top:1px solid var(--border); }
+    .coach-exo-card.open .coach-exo-card-body { display:block; }
+    .coach-exo-card.open .cec-chevron { transform:rotate(180deg); }
+    /* Series table */
+    .coach-sets-table { width:100%;font-size:11px;border-collapse:collapse;margin-top:8px; }
+    .coach-sets-table th { text-align:left;color:var(--sub);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--border); }
+    .coach-sets-table td { padding:4px 6px;color:var(--text); }
+    .coach-sets-table tr.warmup td { font-style:italic;color:var(--sub); }
+    .coach-sets-table tr.pr td { color:var(--green);font-weight:600; }
+    .coach-sets-table .rpe-badge { display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700; }
+    .coach-sets-table .rpe-green { background:rgba(50,215,75,0.15);color:var(--green); }
+    .coach-sets-table .rpe-orange { background:rgba(255,159,10,0.15);color:var(--orange); }
+    .coach-sets-table .rpe-red { background:rgba(255,69,58,0.15);color:var(--red); }
+    .coach-rest-day { text-align:center;padding:40px 20px;color:var(--sub);font-size:14px; }
+    /* History accordion */
+    .coach-history-card { background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden; }
+    .coach-history-header { display:flex;align-items:center;gap:8px;padding:12px;cursor:pointer; }
+    .coach-history-header .ch-icon { font-size:14px; }
+    .coach-history-header .ch-title { flex:1;font-size:13px;font-weight:600;color:var(--text); }
+    .coach-history-header .ch-meta { font-size:11px;color:var(--sub); }
+    .coach-history-header .ch-chevron { font-size:11px;color:var(--sub);transition:transform 0.2s; }
+    .coach-history-body { display:none;padding:0 12px 12px;border-top:1px solid var(--border); }
+    .coach-history-card.open .coach-history-body { display:block; }
+    .coach-history-card.open .ch-chevron { transform:rotate(180deg); }
+    .coach-history-summary { font-size:11px;color:var(--sub);padding:4px 12px; }
     /* ── Search multi-filters ── */
     .go-filter-section { padding:0 12px; margin-bottom:4px; }
     .go-filter-label { font-size:10px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
@@ -1332,6 +1379,34 @@
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
 
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0C0C18;background-image:linear-gradient(170deg, #111128 0%, #0C0C18 40%);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+    <div style="text-align:center;width:100%;max-width:340px;">
+      <div style="font-size:48px;margin-bottom:12px;">🦍</div>
+      <div style="font-size:24px;font-weight:700;color:#F0F0FF;margin-bottom:4px;">SBD Elite Tracker</div>
+      <div style="font-size:13px;color:#7878A8;margin-bottom:32px;">Connecte-toi pour synchroniser tes données</div>
+
+      <div id="loginModeTabs" style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
+        <button id="loginModeLoginBtn" class="auth-mode-btn active" onclick="loginSwitchMode('login')" style="flex:1;padding:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:#0A84FF;color:white;">Connexion</button>
+        <button id="loginModeSignupBtn" class="auth-mode-btn" onclick="loginSwitchMode('signup')" style="flex:1;padding:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.03);color:#7878A8;">Inscription</button>
+      </div>
+
+      <input type="email" id="loginEmail" placeholder="Email" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#F0F0FF;font-size:14px;margin-bottom:10px;outline:none;">
+      <input type="password" id="loginPassword" placeholder="Mot de passe (min. 8 car.)" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#F0F0FF;font-size:14px;margin-bottom:10px;outline:none;" minlength="8">
+      <input type="password" id="loginPasswordConfirm" placeholder="Confirmer le mot de passe" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#F0F0FF;font-size:14px;margin-bottom:10px;outline:none;display:none;">
+
+      <button id="loginSubmitBtn" onclick="loginSubmit()" style="width:100%;padding:14px;background:#0A84FF;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;transition:opacity 0.2s;">Se connecter</button>
+
+      <button id="loginForgotBtn" onclick="loginForgotPwd()" style="background:none;border:none;color:#0A84FF;font-size:12px;cursor:pointer;padding:8px;margin-bottom:20px;">Mot de passe oublié ?</button>
+
+      <div id="loginError" style="display:none;background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);border-radius:10px;padding:10px;margin-bottom:16px;font-size:12px;color:#FF453A;text-align:center;"></div>
+
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;margin-top:8px;">
+        <button id="loginOfflineBtn" onclick="loginOffline()" style="width:100%;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#7878A8;font-size:13px;font-weight:600;cursor:pointer;">Continuer hors-ligne</button>
+      </div>
+    </div>
+  </div>
+
   <!-- OFFLINE BANNER -->
   <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;padding:8px 16px;background:rgba(255,159,10,0.15);border-bottom:1px solid rgba(255,159,10,0.3);text-align:center;font-size:12px;font-weight:600;color:#FF9F0A;z-index:9999;">📡 Hors-ligne</div>
 
@@ -1718,8 +1793,38 @@
       <div id="goActiveView" style="display:none;"></div>
     </div>
     <div id="seances-coach" class="seances-sub-section">
-      <div id="coachBriefing"></div>
-      <div id="coachPostSession"></div>
+      <div class="coach-sub-nav">
+        <button class="stats-sub-pill active" onclick="showCoachSub('coach-today',this)">Aujourd'hui</button>
+        <button class="stats-sub-pill" onclick="showCoachSub('coach-history',this)">
+          Historique <span id="coachHistoBadge" class="coach-badge-count" style="display:none;"></span>
+        </button>
+      </div>
+      <div id="coach-today" class="coach-sub-section active"></div>
+      <!-- Weekly Plan controls (moved from tab-ai) -->
+      <div class="wp-card" id="weeklyPlanSection" style="display:none;">
+        <div class="wp-header" onclick="toggleWpBody()" style="cursor:pointer;">
+          <div style="font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">🏋️ Programme Semaine</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div id="wpMeta" style="font-size:11px;color:var(--sub);"></div>
+            <span id="wpChevron" style="font-size:12px;color:var(--sub);transition:transform 0.3s;">▾</span>
+          </div>
+        </div>
+        <div id="wpBody">
+          <div class="wp-bloc-controls">
+            <select class="wp-bloc-select" id="wpBlocSelect">
+              <option value="1">Bloc — Semaine 1 (Post-deload)</option>
+              <option value="2">Bloc — Semaine 2</option>
+              <option value="3">Bloc — Semaine 3</option>
+              <option value="4">Bloc — Semaine 4 (Peak)</option>
+            </select>
+            <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
+          </div>
+          <div id="deloadBanner"></div>
+          <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
+          <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
+        </div>
+      </div>
+      <div id="coach-history" class="coach-sub-section"></div>
     </div>
   </div>
   <div id="tab-ai" class="content-section">
@@ -1733,31 +1838,6 @@
     </div>
 
     <div id="aiReportsTimeline"></div>
-
-    <!-- Weekly Plan — collapsible -->
-    <div class="wp-card" id="weeklyPlanSection">
-      <div class="wp-header" onclick="toggleWpBody()" style="cursor:pointer;">
-        <div style="font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">🏋️ Programme Semaine</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div id="wpMeta" style="font-size:11px;color:var(--sub);"></div>
-          <span id="wpChevron" style="font-size:12px;color:var(--sub);transition:transform 0.3s;">▾</span>
-        </div>
-      </div>
-      <div id="wpBody">
-        <div class="wp-bloc-controls">
-          <select class="wp-bloc-select" id="wpBlocSelect">
-            <option value="1">Bloc — Semaine 1 (Post-deload)</option>
-            <option value="2">Bloc — Semaine 2</option>
-            <option value="3">Bloc — Semaine 3</option>
-            <option value="4">Bloc — Semaine 4 (Peak)</option>
-          </select>
-          <button class="wp-regen-btn" onclick="regenerateWeeklyPlan()" id="wpRegenBtn" style="display:none;">↺ Regén.</button>
-        </div>
-        <div id="deloadBanner"></div>
-        <button class="wp-generate-btn" onclick="generateWeeklyPlan()" id="wpGenerateBtn">✦ Générer le programme de la semaine</button>
-        <div id="wpContent"><div style="text-align:center;padding:20px 0;color:var(--sub);font-size:13px;">Aucun programme généré.<br>Appuie sur le bouton pour créer ta semaine 🦍</div></div>
-      </div>
-    </div>
 
   </div>
   <div id="tab-stats" class="content-section">

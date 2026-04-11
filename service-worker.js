@@ -1,10 +1,15 @@
-const CACHE_NAME = 'trainhub-v3';
+const CACHE_NAME = 'trainhub-v4';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
   '/sbd-hub/index.html',
   '/sbd-hub/manifest.json',
   '/sbd-hub/icons/icon-192.png',
-  '/sbd-hub/icons/icon-512.png'
+  '/sbd-hub/icons/icon-512.png',
+  '/sbd-hub/js/app.js',
+  '/sbd-hub/js/engine.js',
+  '/sbd-hub/js/exercises.js',
+  '/sbd-hub/js/import.js',
+  '/sbd-hub/js/supabase.js'
 ];
 
 self.addEventListener('install', (event) => {

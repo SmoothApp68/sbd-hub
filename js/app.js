@@ -555,6 +555,41 @@ function exportData() {
   showToast('✓ Sauvegarde téléchargée !');
 }
 
+// Export CSV — format tableur simple
+function exportDataCSV() {
+  var rows = [['Date', 'Jour', 'Titre', 'Exercice', 'Série', 'Poids (kg)', 'Reps', 'RPE', 'Type', 'Volume (kg)']];
+  (db.logs || []).forEach(function(session) {
+    var date = session.shortDate || session.date || '';
+    var day = session.day || '';
+    var title = (session.title || 'Séance').replace(/"/g, '""');
+    (session.exercises || []).forEach(function(exo) {
+      var exoName = (exo.name || '').replace(/"/g, '""');
+      var sets = exo.allSets || exo.series || [];
+      sets.forEach(function(s, si) {
+        var w = s.weight || 0;
+        var r = s.reps || 0;
+        var rpe = s.rpe || '';
+        var type = s.setType || 'normal';
+        var vol = w * r;
+        rows.push([date, day, '"' + title + '"', '"' + exoName + '"', si + 1, w, r, rpe, type, vol]);
+      });
+      if (sets.length === 0) {
+        rows.push([date, day, '"' + title + '"', '"' + exoName + '"', '', '', '', '', '', '']);
+      }
+    });
+  });
+
+  var csv = rows.map(function(r) { return r.join(';'); }).join('\n');
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'training-hub-export-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ Export CSV téléchargé !');
+}
+
 let _restoreData = null;
 function previewRestore(input) {
   const file = input.files[0];

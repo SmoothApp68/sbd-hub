@@ -3287,13 +3287,13 @@ function renderDash() {
     }
   }
 
+  renderTodayProgram();
+  renderSBDTotal();
+  renderWeeklySummary();
+  renderRecentPRs();
+  // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
   renderPerfCard();
   renderDayExercises(selectedDay);
-  renderReadinessSparkline();
-  renderDotsWilks();
-  renderFormScoreDash();
-  renderWeeklySummary();
-  renderMuscleHeatmap2D();
 }
 
 // ============================================================
@@ -3369,7 +3369,119 @@ function renderWeeklySummary() {
 }
 
 // ============================================================
-// Heatmap muscles 2D — vue avant/arrière
+// Programme du jour — carte d'accueil
+// ============================================================
+function renderTodayProgram() {
+  var el = document.getElementById('todayProgramContent');
+  if (!el) return;
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var label = routine[todayDay] || '';
+  var isRest = !label || /repos|😴/i.test(label);
+
+  var h = '';
+  if (isRest) {
+    h += '<div style="text-align:center;padding:8px 0;">';
+    h += '<div style="font-size:28px;margin-bottom:4px;">😴</div>';
+    h += '<div style="font-size:15px;font-weight:600;color:var(--sub);">Jour de repos</div>';
+    h += '</div>';
+    // Changer le bouton
+    var btn = document.getElementById('startTodayWorkoutBtn');
+    if (btn) { btn.textContent = 'Séance libre 🏋️'; }
+  } else {
+    h += '<div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;">' + label + '</div>';
+    // Afficher les exercices du jour
+    var exos = (db.routineExos && db.routineExos[todayDay]) ? db.routineExos[todayDay] : [];
+    if (!exos.length && db.generatedProgram) {
+      var gp = db.generatedProgram.find(function(p) { return p.day === todayDay && !p.isRest; });
+      if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
+    }
+    if (exos.length > 0) {
+      exos.forEach(function(name) {
+        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + name + '</div>';
+      });
+    } else {
+      h += '<div style="font-size:13px;color:var(--sub);">' + todayDay + '</div>';
+    }
+  }
+  el.innerHTML = h;
+}
+
+// ============================================================
+// Total SBD estimé — carte compacte
+// ============================================================
+function renderSBDTotal() {
+  var el = document.getElementById('sbdTotalDisplay');
+  if (!el) return;
+  var s = db.bestPR.squat || 0;
+  var b = db.bestPR.bench || 0;
+  var d = db.bestPR.deadlift || 0;
+  var total = s + b + d;
+  var h = '';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-squat);"><div style="font-size:10px;color:var(--sub);">Squat</div><div class="rm-val" style="color:var(--color-squat);">' + (s > 0 ? s : '—') + '</div></div>';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-bench);"><div style="font-size:10px;color:var(--sub);">Bench</div><div class="rm-val" style="color:var(--color-bench);">' + (b > 0 ? b : '—') + '</div></div>';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-deadlift);"><div style="font-size:10px;color:var(--sub);">Deadlift</div><div class="rm-val" style="color:var(--color-deadlift);">' + (d > 0 ? d : '—') + '</div></div>';
+  el.innerHTML = h;
+  // Total sous la grille
+  var card = document.getElementById('sbdTotalCard');
+  if (card) {
+    var totalEl = card.querySelector('.sbd-total-line');
+    if (!totalEl) {
+      totalEl = document.createElement('div');
+      totalEl.className = 'sbd-total-line';
+      totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
+      card.appendChild(totalEl);
+    }
+    totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
+  }
+}
+
+// ============================================================
+// PRs récents — 3 derniers records
+// ============================================================
+function renderRecentPRs() {
+  var el = document.getElementById('recentPRsContent');
+  if (!el) return;
+  // Chercher les PRs les plus récents dans les logs
+  var prs = [];
+  for (var i = db.logs.length - 1; i >= 0 && prs.length < 5; i--) {
+    var log = db.logs[i];
+    (log.exercises || []).forEach(function(exo) {
+      if (exo.maxRM > 0 && prs.length < 3) {
+        // Vérifier si c'est vraiment un PR (meilleur de l'historique pour cet exo)
+        var isBest = true;
+        for (var j = 0; j < db.logs.length; j++) {
+          if (j === i) continue;
+          var otherLog = db.logs[j];
+          (otherLog.exercises || []).forEach(function(otherExo) {
+            if (otherExo.name === exo.name && otherExo.maxRM >= exo.maxRM && otherLog.timestamp < log.timestamp) {
+              isBest = false;
+            }
+          });
+        }
+        if (isBest && !prs.some(function(p) { return p.name === exo.name; })) {
+          prs.push({ name: exo.name, value: Math.round(exo.maxRM), date: log.shortDate || log.date });
+        }
+      }
+    });
+  }
+  if (prs.length === 0) {
+    el.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--sub);padding:8px 0;">Aucun PR enregistré pour le moment</div>';
+    return;
+  }
+  var h = '';
+  prs.forEach(function(pr) {
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">';
+    h += '<div style="font-size:13px;font-weight:600;color:var(--text);">' + pr.name + '</div>';
+    h += '<div style="text-align:right;"><span style="font-size:15px;font-weight:700;color:var(--accent);">' + pr.value + 'kg</span>';
+    h += '<span style="font-size:10px;color:var(--sub);margin-left:6px;">' + pr.date + '</span></div>';
+    h += '</div>';
+  });
+  el.innerHTML = h;
+}
+
+// ============================================================
+// Heatmap muscles 2D — vue avant/arrière (gardé pour usage pendant séance)
 // ============================================================
 function renderMuscleHeatmap2D() {
   var container = document.getElementById('muscleHeatmap2D');

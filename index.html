@@ -1749,47 +1749,54 @@
       <div style="font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:20px;">
         Importe tes séances depuis Hevy pour débloquer<br>tes statistiques, records et suivi de progression.
       </div>
-      <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:14px;margin-bottom:20px;text-align:left;">
-        <div style="font-size:12px;color:var(--sub);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Comment importer depuis Hevy</div>
-        <div style="font-size:13px;color:var(--text);line-height:1.7;">
-          1. Ouvre Hevy → ton profil<br>
-          2. "Exporter les données" → copie le texte<br>
-          3. Réglages → 📥 Importer des Séances → colle
-        </div>
-      </div>
       <button class="btn" onclick="showTab('tab-profil'); showProfilSub('tab-settings', document.querySelector('#tab-profil .stats-sub-pill[onclick*=tab-settings]')); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
-        📥 Aller à l'import
+        📥 Importer des séances
       </button>
     </div>
-    <!-- Résumé de la semaine -->
-    <div class="card" id="weeklySummaryCard">
-      <h2>Résumé de la semaine</h2>
-      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px;">
+
+    <!-- 1. Programme du jour + bouton lancer -->
+    <div class="card" id="todayProgramCard" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;">Aujourd'hui</h2>
+        <span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span>
+      </div>
+      <div id="todayProgramContent" style="margin-bottom:14px;"></div>
+      <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="background:linear-gradient(135deg,var(--accent),#6366f1);font-size:15px;padding:16px;border-radius:12px;">
+        Lancer la séance 💪
+      </button>
+    </div>
+
+    <!-- 2. Total SBD estimé -->
+    <div class="card" id="sbdTotalCard" style="padding:20px;">
+      <h2 style="margin:0 0 12px;">Total SBD estimé</h2>
+      <div class="sbd-grid" id="sbdTotalDisplay"></div>
+    </div>
+
+    <!-- 3. Résumé de la semaine -->
+    <div class="card" id="weeklySummaryCard" style="padding:20px;">
+      <h2 style="margin:0 0 10px;">Cette semaine</h2>
+      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;">
         <div class="report-box"><div class="report-val" id="weekSessions">0</div><div class="report-label">Séances</div></div>
-        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée totale</div></div>
-        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume total</div></div>
+        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée</div></div>
+        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume</div></div>
       </div>
     </div>
 
-    <!-- Bouton Lancer la séance du jour -->
-    <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="margin-bottom:15px;background:linear-gradient(135deg,var(--accent),#6366f1);font-size:16px;padding:18px;border-radius:14px;">
-      🏋️ Lancer la séance du jour
-    </button>
-
-    <div class="card" id="perfCard"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div id="perfDisplay"></div></div>
-
-    <!-- Heatmap muscles 2D -->
-    <div class="card" id="muscleHeatmapCard">
-      <h2>Muscles travaillés cette semaine</h2>
-      <div id="muscleHeatmap2D" style="display:flex;justify-content:center;gap:10px;margin-top:12px;"></div>
+    <!-- 4. PRs récents -->
+    <div class="card" id="recentPRsCard" style="padding:20px;">
+      <h2 style="margin:0 0 10px;">PRs récents</h2>
+      <div id="recentPRsContent"></div>
     </div>
 
-    <div class="card" id="readinessCard" style="padding:14px 16px;"><div id="readinessSparkline"></div></div>
-    <div class="card" id="dotsWilksCard" style="display:none;padding:14px 16px;"><div id="dotsWilksContent"></div></div>
-    <div class="card" id="formScoreCard" style="padding:14px 16px;"><div id="formScoreContent"></div></div>
-    <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
-    <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
-    <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
+    <!-- Hidden containers still needed by existing render functions -->
+    <div id="perfCard" style="display:none;"><div id="perfDisplay"></div></div>
+    <div id="readinessCard" style="display:none;"><div id="readinessSparkline"></div></div>
+    <div id="dotsWilksCard" style="display:none;"><div id="dotsWilksContent"></div></div>
+    <div id="formScoreCard" style="display:none;"><div id="formScoreContent"></div></div>
+    <div style="display:none;" id="dayButtonsContainer"></div>
+    <div style="display:none;" id="routineDisplay"></div>
+    <div id="programViewerCard" style="display:none;"><div id="programViewer" class="prog-viewer"></div></div>
+    <div style="display:none;" id="trainingLogs"></div>
   </div>
   <div id="tab-seances" class="content-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">

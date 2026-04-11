@@ -2219,6 +2219,7 @@
           <input type="password" id="inputPassword" placeholder="Mot de passe (min. 8 car.)" style="margin-bottom:8px;" minlength="8">
           <input type="password" id="inputPasswordConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:8px;display:none;">
           <button class="btn" style="background:var(--purple);" id="authSubmitBtn" onclick="authSubmit()">Se connecter</button>
+          <button onclick="sendMagicLink()" style="width:100%;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">📧 Se connecter avec un lien magique</button>
           <button id="forgotPasswordBtn" onclick="forgotPassword()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;width:100%;text-align:center;padding:8px;margin-top:4px;">Mot de passe oublié ?</button>
         </div>
         <div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;margin:8px 0;"></div>

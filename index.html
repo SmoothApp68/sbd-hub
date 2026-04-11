@@ -1761,7 +1761,29 @@
         📥 Aller à l'import
       </button>
     </div>
+    <!-- Résumé de la semaine -->
+    <div class="card" id="weeklySummaryCard">
+      <h2>Résumé de la semaine</h2>
+      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px;">
+        <div class="report-box"><div class="report-val" id="weekSessions">0</div><div class="report-label">Séances</div></div>
+        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée totale</div></div>
+        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume total</div></div>
+      </div>
+    </div>
+
+    <!-- Bouton Lancer la séance du jour -->
+    <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="margin-bottom:15px;background:linear-gradient(135deg,var(--accent),#6366f1);font-size:16px;padding:18px;border-radius:14px;">
+      🏋️ Lancer la séance du jour
+    </button>
+
     <div class="card" id="perfCard"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div id="perfDisplay"></div></div>
+
+    <!-- Heatmap muscles 2D -->
+    <div class="card" id="muscleHeatmapCard">
+      <h2>Muscles travaillés cette semaine</h2>
+      <div id="muscleHeatmap2D" style="display:flex;justify-content:center;gap:10px;margin-top:12px;"></div>
+    </div>
+
     <div class="card" id="readinessCard" style="padding:14px 16px;"><div id="readinessSparkline"></div></div>
     <div class="card" id="dotsWilksCard" style="display:none;padding:14px 16px;"><div id="dotsWilksContent"></div></div>
     <div class="card" id="formScoreCard" style="padding:14px 16px;"><div id="formScoreContent"></div></div>
@@ -1901,6 +1923,9 @@
   <div id="tab-profil" class="content-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showProfilSub('tab-corps',this)">⚖️ Corps</button>
+      <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-stats',this)">📊 Stats</button>
+      <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-badges',this)">🏆 Badges</button>
+      <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-friends',this)">👥 Amis</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-settings',this)">⚙️ Réglages</button>
     </div>
     <div id="tab-corps" class="profil-sub-section active">
@@ -2268,6 +2293,28 @@
     </div>
 
   </div><!-- /tab-settings -->
+
+  <!-- Stats sub-section (moved from main tab-stats) -->
+  <div id="tab-profil-stats" class="profil-sub-section">
+    <div class="stats-sub-nav" style="margin-bottom:14px;">
+      <button class="stats-sub-pill active" onclick="showStatsSub('stats-volume',this)">📊 Volume</button>
+      <button class="stats-sub-pill" onclick="showStatsSub('stats-muscles',this)">💪 Muscles</button>
+      <button class="stats-sub-pill" onclick="showStatsSub('stats-records',this)">🏆 Records</button>
+      <button class="stats-sub-pill" onclick="showStatsSub('stats-cardio',this)">🏃 Cardio</button>
+    </div>
+    <div id="profil-stats-content"></div>
+  </div>
+
+  <!-- Badges sub-section -->
+  <div id="tab-profil-badges" class="profil-sub-section">
+    <div id="profil-badges-content"></div>
+  </div>
+
+  <!-- Friends sub-section -->
+  <div id="tab-profil-friends" class="profil-sub-section">
+    <div id="profil-friends-content"></div>
+  </div>
+
   </div><!-- /tab-profil -->
 
   <div id="tab-game" class="content-section">
@@ -2519,11 +2566,10 @@
   </div>
 
   <nav class="tab-bar" id="mainTabBar">
-    <button class="tab-btn active" data-tab="tab-dash" data-index="0"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Home</button>
-    <button class="tab-btn" data-tab="tab-seances" data-index="1"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 5.57 2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 2.14-2.14 1.43-1.43-1.43-1.43L22 14.86z"/></svg> Log</button>
-    <button class="tab-btn" data-tab="tab-stats" data-index="2"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg> Stats</button>
-    <button class="tab-btn" data-tab="tab-social" data-index="3"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Social</button>
-    <button class="tab-btn" data-tab="tab-profil" data-index="4"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
+    <button class="tab-btn active" data-tab="tab-dash" data-index="0"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Maison</button>
+    <button class="tab-btn" data-tab="tab-social" data-index="1"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Feed</button>
+    <button class="tab-btn" data-tab="tab-seances" data-index="2"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 5.57 2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 2.14-2.14 1.43-1.43-1.43-1.43L22 14.86z"/></svg> Training</button>
+    <button class="tab-btn" data-tab="tab-profil" data-index="3"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
   </nav>
 <script src="js/engine.js"></script>
 <script src="js/exercises.js"></script>

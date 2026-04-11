@@ -1598,6 +1598,37 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
+  // Afficher les stats dans le profil (réutilise le contenu de tab-stats)
+  if (id === 'tab-profil-stats') {
+    var container = document.getElementById('profil-stats-content');
+    var statsEl = document.getElementById('tab-stats');
+    if (container && statsEl) {
+      // Déplacer le contenu de tab-stats dans le conteneur du profil
+      while (container.firstChild) container.removeChild(container.firstChild);
+      Array.from(statsEl.children).forEach(function(child) { container.appendChild(child); });
+    }
+    showStatsSub(activeStatsSub, document.querySelector('#tab-profil-stats .stats-sub-pill.active'));
+  }
+  // Afficher les badges dans le profil (réutilise le contenu de tab-game)
+  if (id === 'tab-profil-badges') {
+    var badgesContainer = document.getElementById('profil-badges-content');
+    var gameEl = document.getElementById('tab-game');
+    if (badgesContainer && gameEl) {
+      while (badgesContainer.firstChild) badgesContainer.removeChild(badgesContainer.firstChild);
+      Array.from(gameEl.children).forEach(function(child) { badgesContainer.appendChild(child); });
+    }
+    if (typeof renderGamificationTab === 'function') renderGamificationTab();
+  }
+  // Afficher les amis dans le profil (réutilise le contenu social-friends)
+  if (id === 'tab-profil-friends') {
+    var friendsContainer = document.getElementById('profil-friends-content');
+    var socialFriends = document.getElementById('social-friends');
+    if (friendsContainer && socialFriends) {
+      while (friendsContainer.firstChild) friendsContainer.removeChild(friendsContainer.firstChild);
+      Array.from(socialFriends.children).forEach(function(child) { friendsContainer.appendChild(child); });
+    }
+    if (typeof initSocialTab === 'function') initSocialTab();
+  }
 }
 
 var _lastTabIndex = 0;
@@ -1635,7 +1666,7 @@ function showTab(tabId, opts) {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
     else renderCorpsTab();
   }
-  if (tabId==='tab-social') { initSocialTab(); }
+  if (tabId==='tab-social') { initSocialTab(); if (typeof showSocialSub === 'function') showSocialSub('social-feed', document.querySelector('.social-sub-tab[data-sub="social-feed"]')); }
 
   // Restore scroll position for the new tab
   requestAnimationFrame(function() { window.scrollTo(0, _scrollPositions[tabId] || 0); });
@@ -1670,7 +1701,7 @@ document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.
   if (hash === 'admin') return; // handled elsewhere
   var saved = null;
   try { saved = localStorage.getItem('activeTab'); } catch(e) {}
-  var validTabs = ['tab-dash','tab-seances','tab-stats','tab-social','tab-profil','tab-ai','tab-game'];
+  var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
   var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
   _skipPushState = true;
   showTab(target);
@@ -2698,7 +2729,7 @@ function renderGamificationTab() {
       '<div class="lvl-stats">' +
         '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-seances\')"><div class="lvl-stat-val">' + db.logs.length + '</div><div class="lvl-stat-lbl">Séances</div></div>' +
         '<div class="lvl-stat lvl-stat-click" onclick="document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})"><div class="lvl-stat-val">' + streak + '🔥</div><div class="lvl-stat-lbl">Série sem.</div></div>' +
-        '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-stats\')"><div class="lvl-stat-val">' + totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
+        '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\')"><div class="lvl-stat-val">' + totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
       '</div>' +
     '</div>';
 
@@ -2708,9 +2739,9 @@ function renderGamificationTab() {
     var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, 1);
     var bars = [
       {label:'Séances', val:bd.seances, color:'var(--blue)', click:'showTab(\'tab-seances\')'},
-      {label:'Records', val:bd.records, color:'var(--green)', click:'showTab(\'tab-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)'},
+      {label:'Records', val:bd.records, color:'var(--green)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)'},
       {label:'Régularité', val:bd.regularite, color:'var(--orange)', click:'document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
-      {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
+      {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
       {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'}
     ];
     var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
@@ -2916,7 +2947,7 @@ function renderGamificationTab() {
         var ratios = null;
         for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
 
-        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
+        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
         pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
         if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
         pagesHtml += '</div>';
@@ -3225,6 +3256,175 @@ function renderDash() {
   renderReadinessSparkline();
   renderDotsWilks();
   renderFormScoreDash();
+  renderWeeklySummary();
+  renderMuscleHeatmap2D();
+}
+
+// ============================================================
+// Résumé hebdomadaire — nombre de séances, durée, volume
+// ============================================================
+function renderWeeklySummary() {
+  var now = new Date();
+  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // Lundi = 0
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+
+  var sessions = 0, totalDuration = 0, totalVolume = 0;
+  (db.logs || []).forEach(function(log) {
+    var d = new Date(log.date);
+    if (d >= weekStart && d <= now) {
+      sessions++;
+      if (log.duration) totalDuration += log.duration;
+      // Calculer le volume de la séance
+      (log.exercises || []).forEach(function(exo) {
+        (exo.sets || []).forEach(function(s) {
+          if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+        });
+      });
+    }
+  });
+
+  var el;
+  el = document.getElementById('weekSessions');
+  if (el) el.textContent = sessions;
+  el = document.getElementById('weekDuration');
+  if (el) el.textContent = totalDuration >= 60 ? Math.floor(totalDuration / 60) + 'h' + (totalDuration % 60 > 0 ? (totalDuration % 60 < 10 ? '0' : '') + (totalDuration % 60) : '') : totalDuration + 'min';
+  el = document.getElementById('weekVolume');
+  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : totalVolume + 'kg';
+}
+
+// ============================================================
+// Heatmap muscles 2D — vue avant/arrière
+// ============================================================
+function renderMuscleHeatmap2D() {
+  var container = document.getElementById('muscleHeatmap2D');
+  if (!container) return;
+
+  // Calculer les séries par muscle cette semaine
+  var now = new Date();
+  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+
+  var muscleSets = {};
+  (db.logs || []).forEach(function(log) {
+    var d = new Date(log.date);
+    if (d >= weekStart && d <= now) {
+      (log.exercises || []).forEach(function(exo) {
+        var setsCount = (exo.sets || []).length;
+        // Chercher l'exercice dans la base pour obtenir les muscles
+        var exoData = null;
+        if (typeof EXO_DATABASE !== 'undefined') {
+          for (var key in EXO_DATABASE) {
+            var e = EXO_DATABASE[key];
+            if (e.name === exo.name || (e.nameAlt && e.nameAlt.indexOf(exo.name) >= 0)) {
+              exoData = e;
+              break;
+            }
+          }
+        }
+        if (exoData) {
+          (exoData.primaryMuscles || []).forEach(function(m) {
+            var mNorm = _normalizeMuscle(m);
+            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + setsCount;
+          });
+          (exoData.secondaryMuscles || []).forEach(function(m) {
+            var mNorm = _normalizeMuscle(m);
+            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + Math.ceil(setsCount * 0.5);
+          });
+        }
+      });
+    }
+  });
+
+  var maxSets = 0;
+  for (var k in muscleSets) if (muscleSets[k] > maxSets) maxSets = muscleSets[k];
+  if (maxSets === 0) maxSets = 1;
+
+  // Mapper les muscles normalisés aux parties du corps SVG
+  var muscleMapping = {
+    front: {
+      'pecs': { path: 'M55,60 Q75,55 95,60 L95,80 Q75,85 55,80 Z', label: 'Pecs' },
+      'epaules': { path: 'M45,50 Q50,45 55,50 L55,65 Q50,65 45,60 Z M95,50 Q100,45 105,50 L105,65 Q100,65 95,60 Z', label: 'Épaules' },
+      'biceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Biceps' },
+      'abdos': { path: 'M60,82 Q75,80 90,82 L90,115 Q75,118 60,115 Z', label: 'Abdos' },
+      'quadriceps': { path: 'M55,120 Q65,118 75,120 L72,160 Q63,162 55,160 Z M75,120 Q85,118 95,120 L95,160 Q87,162 78,160 Z', label: 'Quadriceps' },
+    },
+    back: {
+      'dos': { path: 'M55,55 Q75,50 95,55 L95,85 Q75,90 55,85 Z', label: 'Dos' },
+      'trapezes': { path: 'M60,40 Q75,38 90,40 L88,55 Q75,52 62,55 Z', label: 'Trapèzes' },
+      'triceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Triceps' },
+      'lombaires': { path: 'M62,87 Q75,85 88,87 L88,105 Q75,108 62,105 Z', label: 'Lombaires' },
+      'fessiers': { path: 'M55,108 Q75,105 95,108 L95,125 Q75,128 55,125 Z', label: 'Fessiers' },
+      'ischiojambiers': { path: 'M55,128 Q65,125 75,128 L72,165 Q63,167 55,165 Z M75,128 Q85,125 95,128 L95,165 Q87,167 78,165 Z', label: 'Ischio' },
+      'mollets': { path: 'M58,168 Q65,165 72,168 L70,190 Q65,192 60,190 Z M78,168 Q85,165 92,168 L90,190 Q85,192 80,190 Z', label: 'Mollets' },
+    }
+  };
+
+  function getColor(intensity) {
+    if (intensity <= 0) return 'rgba(255,255,255,0.04)';
+    if (intensity < 0.25) return 'rgba(59,130,246,0.2)';
+    if (intensity < 0.5) return 'rgba(59,130,246,0.4)';
+    if (intensity < 0.75) return 'rgba(59,130,246,0.65)';
+    return 'rgba(59,130,246,0.9)';
+  }
+
+  function renderSide(side, muscles) {
+    var paths = '';
+    for (var muscleKey in muscles) {
+      var m = muscles[muscleKey];
+      var intensity = (muscleSets[muscleKey] || 0) / maxSets;
+      var color = getColor(intensity);
+      var setsNum = muscleSets[muscleKey] || 0;
+      paths += '<path d="' + m.path + '" fill="' + color + '" stroke="rgba(255,255,255,0.1)" stroke-width="0.5">' +
+               '<title>' + m.label + ': ' + setsNum + ' séries</title></path>';
+    }
+    // Silhouette
+    var silhouette = '<path d="M75,8 Q80,8 82,12 Q84,16 82,20 Q80,24 78,26 L80,28 Q88,30 92,35 L105,45 Q110,48 108,55 L110,60 Q112,65 110,70 L112,85 Q112,95 110,95 L105,95 Q102,95 105,65 L95,50 Q90,45 90,55 L95,120 Q98,125 95,130 L95,165 Q96,170 95,175 L95,190 Q95,198 90,200 L82,200 Q78,198 78,195 L78,170 Q78,165 75,163 Q72,165 72,170 L72,195 Q72,198 68,200 L60,200 Q55,198 55,190 L55,175 Q54,170 55,165 L55,130 Q52,125 55,120 L60,55 Q60,45 55,50 L45,65 Q48,95 45,95 L40,95 Q38,95 38,85 L40,70 Q38,65 40,60 L42,55 Q40,48 45,45 L58,35 Q62,30 70,28 L72,26 Q70,24 68,20 Q66,16 68,12 Q70,8 75,8 Z" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
+    return '<div style="text-align:center;"><div style="font-size:10px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + side + '</div>' +
+           '<svg viewBox="30 0 90 210" width="130" height="220" style="overflow:visible;">' + silhouette + paths + '</svg></div>';
+  }
+
+  container.innerHTML = renderSide('Avant', muscleMapping.front) + renderSide('Arrière', muscleMapping.back);
+
+  // Légende sous la heatmap
+  var legendHtml = '<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:10px;color:var(--sub);">';
+  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.2);"></span> Peu</span>';
+  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.5);"></span> Moyen</span>';
+  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.9);"></span> Beaucoup</span>';
+  legendHtml += '</div>';
+  container.innerHTML += legendHtml;
+}
+
+function _normalizeMuscle(name) {
+  var n = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (n.indexOf('pec') >= 0 || n.indexOf('chest') >= 0) return 'pecs';
+  if (n.indexOf('epaule') >= 0 || n.indexOf('deltoid') >= 0 || n.indexOf('shoulder') >= 0) return 'epaules';
+  if (n.indexOf('bicep') >= 0) return 'biceps';
+  if (n.indexOf('tricep') >= 0) return 'triceps';
+  if (n.indexOf('abdo') >= 0 || n.indexOf('core') >= 0) return 'abdos';
+  if (n.indexOf('quad') >= 0) return 'quadriceps';
+  if (n.indexOf('ischio') >= 0 || n.indexOf('hamstring') >= 0) return 'ischiojambiers';
+  if (n.indexOf('fessier') >= 0 || n.indexOf('glute') >= 0) return 'fessiers';
+  if (n.indexOf('mollet') >= 0 || n.indexOf('calf') >= 0 || n.indexOf('calves') >= 0) return 'mollets';
+  if (n.indexOf('dorsal') >= 0 || n.indexOf('dos') >= 0 || n.indexOf('lat') >= 0 || n.indexOf('back') >= 0) return 'dos';
+  if (n.indexOf('trapez') >= 0 || n.indexOf('haut du dos') >= 0) return 'trapezes';
+  if (n.indexOf('lombaire') >= 0 || n.indexOf('lower back') >= 0) return 'lombaires';
+  if (n.indexOf('avant-bras') >= 0 || n.indexOf('forearm') >= 0) return 'biceps'; // regroupé
+  return n;
+}
+
+// ============================================================
+// Lancer la séance du jour
+// ============================================================
+function startTodayWorkout() {
+  showTab('tab-seances');
+  // Aller directement au sous-onglet GO
+  var goBtn = document.querySelector('.stats-sub-pill[onclick*="seances-go"]') ||
+              document.querySelectorAll('#tab-seances .stats-sub-nav .stats-sub-pill')[1];
+  if (typeof showSeancesSub === 'function') showSeancesSub('seances-go', goBtn);
 }
 
 function renderReadinessSparkline() {

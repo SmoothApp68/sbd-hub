@@ -1013,7 +1013,7 @@
     .go-counter-val{font-size:16px;font-weight:800;color:white;}
     .go-counter-lbl{font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;}
     /* Exercise card */
-    .go-exo-card{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;margin-bottom:14px;overflow:hidden;}
+    .go-exo-card{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;margin-bottom:14px;overflow:hidden;position:relative;}
     .go-exo-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
     .go-exo-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
     .go-exo-info{flex:1;min-width:0;}
@@ -1757,7 +1757,7 @@
           3. Réglages → 📥 Importer des Séances → colle
         </div>
       </div>
-      <button class="btn" onclick="showTab('tab-profil'); showProfilSub('tab-settings', document.querySelector('#tab-profil .stats-sub-pill:last-child')); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
+      <button class="btn" onclick="showTab('tab-profil'); showProfilSub('tab-settings', document.querySelector('#tab-profil .stats-sub-pill[onclick*=tab-settings]')); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
         📥 Aller à l'import
       </button>
     </div>
@@ -2341,10 +2341,9 @@
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-social" class="content-section">
     <div class="social-sub-tabs">
-      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">Social</button>
-      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">Leaderboard</button>
-      <button class="social-sub-tab" data-sub="social-friends" onclick="showSocialSub('social-friends',this)">Amis <span class="social-badge" id="socialFriendsBadge" style="display:none;"></span></button>
-      <button class="social-sub-tab" data-sub="social-challenges" onclick="showSocialSub('social-challenges',this)">Défis</button>
+      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">📰 Feed</button>
+      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">🏆 Classement</button>
+      <button class="social-sub-tab" data-sub="social-challenges" onclick="showSocialSub('social-challenges',this)">🔥 Défis</button>
     </div>
 
     <!-- Challenges Sub-tab -->

@@ -9443,9 +9443,17 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '<div style="position:absolute;right:8px;top:8px;z-index:2;">';
     h += '<button onclick="goToggleSuperset(' + exoIdx + ')" style="background:' + (isLinked ? 'var(--accent)' : 'var(--surface)') + ';border:1px solid ' + (isLinked ? 'var(--accent)' : 'var(--border)') + ';color:' + (isLinked ? '#fff' : 'var(--sub)') + ';padding:3px 8px;border-radius:6px;font-size:9px;cursor:pointer;">' + (isLinked ? '🔗 Superset' : '🔗') + '</button></div>';
   }
-  // Header
+  // Header avec miniature exercice
+  var _imgUrl = exo.exoId ? getExoImageUrl(exo.exoId, 0) : null;
   h += '<div class="go-exo-header">';
-  h += '<div class="go-exo-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+  if (_imgUrl) {
+    h += '<div class="exo-thumb" onclick="showExoDemo(\'' + (exo.exoId || '') + '\',\'' + exo.name.replace(/'/g, "\\'") + '\')">';
+    h += '<img src="' + _imgUrl + '" loading="lazy" alt="" onerror="this.parentNode.innerHTML=\'<div class=exo-thumb-placeholder>' + getExoPlaceholderIcon(exo.name) + '</div>\'">';
+    h += '</div>';
+  } else {
+    h += '<div class="exo-thumb" onclick="showExoDemo(\'\',\'' + exo.name.replace(/'/g, "\\'") + '\')">';
+    h += '<div class="exo-thumb-placeholder">' + getExoPlaceholderIcon(exo.name) + '</div></div>';
+  }
   h += '<div class="go-exo-info"><div class="go-exo-name">' + exo.name + '</div>';
   if (e1rm > 0) h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg ' + renderGlossaryTip('e1rm') + '</div>';
   h += '</div>';
@@ -10701,6 +10709,61 @@ function goEditRest(exoIdx) {
   goShowBottomSheet('Temps de repos', items);
 }
 
+// ── Démonstration exercice (plein écran, animation alternée) ──
+function showExoDemo(exoId, exoName) {
+  var data = exoId ? EXO_DATABASE[exoId] : null;
+  // Chercher par nom si pas trouvé par id
+  if (!data && exoName) {
+    for (var k in EXO_DATABASE) {
+      if (EXO_DATABASE[k].name === exoName) { data = EXO_DATABASE[k]; exoId = k; break; }
+    }
+  }
+
+  var img0 = exoId ? getExoImageUrl(exoId, 0) : null;
+  var img1 = exoId ? getExoImageUrl(exoId, 1) : null;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'exo-demo-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '';
+  // Animation alternée des 2 images
+  if (img0 && img1) {
+    h += '<div class="exo-demo-anim">';
+    h += '<img src="' + img0 + '" alt="Position départ">';
+    h += '<img src="' + img1 + '" alt="Position fin">';
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:80px;margin-bottom:16px;">' + getExoPlaceholderIcon(exoName) + '</div>';
+  }
+
+  // Nom
+  h += '<div style="font-size:18px;font-weight:700;color:white;text-align:center;margin-bottom:8px;">' + (exoName || 'Exercice') + '</div>';
+
+  // Muscles
+  if (data) {
+    var muscles = '';
+    if (data.primaryMuscles && data.primaryMuscles.length) {
+      muscles += '<span style="color:var(--accent);font-weight:600;">' + data.primaryMuscles.join(', ') + '</span>';
+    }
+    if (data.secondaryMuscles && data.secondaryMuscles.length) {
+      muscles += ' <span style="color:var(--sub);">· ' + data.secondaryMuscles.join(', ') + '</span>';
+    }
+    if (muscles) h += '<div style="font-size:12px;text-align:center;margin-bottom:12px;">' + muscles + '</div>';
+
+    // Instructions
+    if (data.instructions) {
+      h += '<div style="max-width:340px;font-size:12px;color:rgba(255,255,255,0.7);line-height:1.7;text-align:left;white-space:pre-line;max-height:150px;overflow-y:auto;padding:10px;background:rgba(255,255,255,0.05);border-radius:10px;">' + data.instructions + '</div>';
+    }
+  }
+
+  // Bouton fermer
+  h += '<button onclick="this.closest(\'.exo-demo-overlay\').remove()" style="margin-top:16px;padding:12px 32px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:14px;font-weight:600;cursor:pointer;">Fermer</button>';
+
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
 function goShowInstructions(exoIdx) {
   var exo = activeWorkout.exercises[exoIdx];
   var data = exo.exoId ? EXO_DATABASE[exo.exoId] : null;
@@ -11086,8 +11149,13 @@ function goRenderSearchResults(query, filters) {
     if (e.difficulty) { for (var ds = 1; ds <= e.difficulty; ds++) diffStars += '★'; }
     var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + (diffStars ? ' · ' + diffStars : '');
     var e1rm = allE1RMs[e.name] ? allE1RMs[e.name].e1rm : 0;
+    var _sImgUrl = e.id ? getExoImageUrl(e.id, 0) : null;
     h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + e.name.replace(/'/g, "\\'") + '\',\'' + (e.id || '') + '\')">';
-    h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+    if (_sImgUrl) {
+      h += '<div class="go-search-item-icon" style="padding:0;overflow:hidden;border-radius:10px;"><img src="' + _sImgUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.background=\'' + ms.bg + '\';this.parentNode.innerHTML=\'' + ms.icon + '\';"></div>';
+    } else {
+      h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+    }
     h += '<div class="go-search-item-info"><div class="go-search-item-name">' + e.name + '</div>';
     h += '<div class="go-search-item-sub">' + sub + '</div></div>';
     if (e1rm > 0) h += '<div class="go-search-item-e1rm">' + Math.round(e1rm) + 'kg</div>';

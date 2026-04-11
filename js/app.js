@@ -8290,6 +8290,12 @@ function _goDoStartWorkout(withProgram) {
   };
   if (withProgram) {
     var dayExos = getProgExosForDay(todayDay);
+    // Check if weeklyPlan has data for today
+    var planDay = null;
+    if (db.weeklyPlan && db.weeklyPlan.days) {
+      planDay = db.weeklyPlan.days.find(function(d) { return d.day === todayDay && !d.rest; });
+    }
+
     dayExos.forEach(function(exoRef) {
       var found = null;
       // Try to find in EXO_DATABASE by id or name match
@@ -8307,15 +8313,58 @@ function _goDoStartWorkout(withProgram) {
       var name = found ? found.name : exoRef;
       var exoId = found ? found.id : null;
       var initSets = [];
-      // Pre-add one empty set per exercise from program
-      var prevData = goGetPreviousSets(name);
-      var firstPrev = prevData && prevData.series.length > 0 ? prevData.series[0] : null;
-      initSets.push({ weight: firstPrev ? (firstPrev.weight || 0) : 0, reps: firstPrev ? (firstPrev.reps || 0) : 0, type: 'normal', completed: false, rpe: null, duration: 0, distance: 0 });
+      var restSec = goGetDefaultRest(name, exoId);
+
+      // Try to get sets from weeklyPlan first
+      var planExo = null;
+      if (planDay && planDay.exercises) {
+        planExo = planDay.exercises.find(function(pe) { return matchExoName(pe.name, name); });
+      }
+
+      if (planExo && planExo.sets && planExo.sets.length) {
+        // Pre-fill ALL sets from weeklyPlan
+        planExo.sets.forEach(function(ps) {
+          var setType = 'normal';
+          if (ps.isWarmup) setType = 'warmup';
+          else if (ps.isBackoff) setType = 'backoff';
+          initSets.push({
+            weight: ps.weight || 0,
+            reps: ps.reps || 0,
+            type: setType,
+            completed: false,
+            rpe: ps.rpe || null,
+            duration: 0,
+            distance: 0
+          });
+        });
+        if (planExo.restSeconds) restSec = planExo.restSeconds;
+      } else {
+        // Fallback: pre-fill from history (all previous sets, not just one)
+        var prevData = goGetPreviousSets(name);
+        if (prevData && prevData.series && prevData.series.length > 0) {
+          prevData.series.forEach(function(s) {
+            var setType = (s.isWarmup || s.type === 'warmup') ? 'warmup' : ((s.isBackoff || s.type === 'backoff') ? 'backoff' : 'normal');
+            initSets.push({
+              weight: s.weight || 0,
+              reps: s.reps || 0,
+              type: setType,
+              completed: false,
+              rpe: s.rpe || null,
+              duration: s.duration || 0,
+              distance: s.distance || 0
+            });
+          });
+        } else {
+          // No history — single empty set
+          initSets.push({ weight: 0, reps: 0, type: 'normal', completed: false, rpe: null, duration: 0, distance: 0 });
+        }
+      }
+
       activeWorkout.exercises.push({
         exoId: exoId,
         name: name,
         sets: initSets,
-        restSeconds: goGetDefaultRest(name, exoId),
+        restSeconds: restSec,
         notes: ''
       });
     });

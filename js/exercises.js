@@ -1,5 +1,136 @@
 // EXO_DATABASE — Base d'exercices complète pour l'onglet GO
 // ============================================================
+
+// ── Mapping exercice → dossier image dans free-exercise-db ──
+// URL : https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/{imageId}/0.jpg
+const EXO_IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+const EXO_IMAGE_MAP = {
+  // PECS
+  bench_press_barbell: 'Barbell_Bench_Press',
+  bench_press_dumbbell: 'Dumbbell_Bench_Press',
+  incline_bench_barbell: 'Barbell_Incline_Bench_Press',
+  incline_bench_dumbbell: 'Dumbbell_Incline_Bench_Press',
+  decline_bench: 'Decline_Barbell_Bench_Press',
+  dumbbell_fly: 'Dumbbell_Flyes',
+  cable_fly: 'Cable_Crossover',
+  machine_fly: 'Butterfly',
+  push_up: 'Pushups',
+  dips_chest: 'Dips_-_Chest_Version',
+  cable_crossover: 'Cable_Crossover',
+  chest_press_machine: 'Machine_Bench_Press',
+  // DOS
+  barbell_row: 'Bent_Over_Barbell_Row',
+  dumbbell_row: 'One-Arm_Dumbbell_Row',
+  tbar_row: 'Lying_T-Bar_Row',
+  cable_row: 'Seated_Cable_Rows',
+  pull_up_pronation: 'Pullups',
+  pull_up_supination: 'Chin-Up',
+  lat_pulldown_wide: 'Wide-Grip_Lat_Pulldown',
+  lat_pulldown_close: 'Close-Grip_Front_Lat_Pulldown',
+  seated_row_machine: 'Seated_Cable_Rows',
+  face_pull: 'Face_Pull',
+  inverted_row: 'Inverted_Row',
+  pullover_cable: 'Straight-Arm_Dumbbell_Pullover',
+  pullover_dumbbell: 'Straight-Arm_Dumbbell_Pullover',
+  // JAMBES
+  squat_barbell: 'Barbell_Full_Squat',
+  front_squat: 'Front_Barbell_Squat',
+  goblet_squat: 'Goblet_Squat',
+  bulgarian_split_squat: 'Dumbbell_Lunges',
+  hack_squat: 'Hack_Squat',
+  deadlift_conventional: 'Barbell_Deadlift',
+  deadlift_sumo: 'Sumo_Deadlift',
+  rdl_barbell: 'Romanian_Deadlift_With_Dumbbells',
+  leg_press: 'Leg_Press',
+  leg_extension: 'Leg_Extensions',
+  leg_curl_seated: 'Seated_Leg_Curl',
+  leg_curl_lying: 'Lying_Leg_Curls',
+  hip_thrust_barbell: 'Barbell_Hip_Thrust',
+  glute_bridge: 'Barbell_Glute_Bridge',
+  hip_abduction: 'Thigh_Abductor',
+  hip_adduction: 'Thigh_Adductor',
+  walking_lunge: 'Dumbbell_Lunges',
+  forward_lunge: 'Dumbbell_Lunges',
+  calf_raise_standing: 'Standing_Calf_Raises',
+  calf_raise_seated: 'Seated_Calf_Raise',
+  // ÉPAULES
+  ohp_barbell: 'Standing_Military_Press',
+  ohp_dumbbell: 'Dumbbell_Shoulder_Press',
+  arnold_press: 'Arnold_Dumbbell_Press',
+  lateral_raise: 'Side_Lateral_Raise',
+  lateral_raise_cable: 'Cable_Lateral_Raise',
+  front_raise: 'Front_Dumbbell_Raise',
+  reverse_fly: 'Seated_Bent-Over_Rear_Delt_Raise',
+  upright_row: 'Upright_Barbell_Row',
+  shrugs_barbell: 'Barbell_Shrug',
+  shrugs_dumbbell: 'Dumbbell_Shrug',
+  // BRAS
+  barbell_curl: 'Barbell_Curl',
+  dumbbell_curl: 'Dumbbell_Bicep_Curl',
+  hammer_curl: 'Hammer_Curls',
+  concentration_curl: 'Concentration_Curls',
+  incline_curl: 'Incline_Dumbbell_Curl',
+  preacher_curl: 'Preacher_Curl',
+  cable_curl: 'Cable_Curl',
+  ez_curl: 'Barbell_Curl',
+  skull_crusher: 'Lying_Triceps_Press',
+  tricep_kickback: 'Tricep_Dumbbell_Kickback',
+  tricep_pushdown: 'Triceps_Pushdown',
+  tricep_rope_pushdown: 'Triceps_Pushdown_-_Rope_Attachment',
+  dips_triceps: 'Dips_-_Triceps_Version',
+  overhead_tricep_extension: 'Standing_Overhead_Barbell_Triceps_Extension',
+  // ABDOS
+  crunch: 'Crunches',
+  plank: 'Plank',
+  russian_twist: 'Russian_Twist',
+  leg_raise: 'Hanging_Leg_Raise',
+  cable_crunch: 'Cable_Crunch',
+  ab_wheel: 'Ab_Roller',
+  // CARDIO
+  treadmill: 'Jogging-Treadmill',
+  rowing_machine: 'Rowing,_Pair_(Ergometer)',
+  cycling: 'Bicycling,_Stationary',
+  // FONCTIONNEL
+  clean_and_press: 'Clean_and_Press',
+  kettlebell_swing: 'Kettlebell_Sumo_Deadlift_High_Pull',
+  // CALISTHENICS
+  muscle_up: 'Muscle_Up',
+  handstand_push_up: 'Handstand_Push-Ups',
+  // COMPLÉMENTS
+  good_morning: 'Good_Morning',
+  hyperextension: 'Hyperextensions_(Back_Extensions)',
+  trap_bar_deadlift: 'Barbell_Deadlift',
+  landmine_press: 'Landmine_180',
+  pendlay_row: 'Bent_Over_Barbell_Row',
+};
+
+/**
+ * Retourne l'URL miniature (0.jpg) d'un exercice.
+ * @param {string} exoId — id dans EXO_DATABASE
+ * @returns {string|null} — URL ou null si pas d'image
+ */
+function getExoImageUrl(exoId, frame) {
+  var imageId = EXO_IMAGE_MAP[exoId];
+  if (!imageId) return null;
+  return EXO_IMAGE_BASE + imageId + '/' + (frame || 0) + '.jpg';
+}
+
+/**
+ * Retourne une icône placeholder par groupe musculaire.
+ */
+function getExoPlaceholderIcon(exoName) {
+  var n = (exoName || '').toLowerCase();
+  if (/pec|chest|bench|couché|pomp/i.test(n)) return '🫁';
+  if (/dos|row|lat|pull|traction|tirage/i.test(n)) return '🔙';
+  if (/jambe|squat|leg|fente|lunge|press|curl.*assis|curl.*couch/i.test(n)) return '🦵';
+  if (/épaule|shoulder|deltoid|milit|lateral|élévation/i.test(n)) return '🤷';
+  if (/bicep|curl|bras/i.test(n)) return '💪';
+  if (/tricep|ext.*bras|skull|kickback|dips/i.test(n)) return '💪';
+  if (/abdo|plank|crunch|gainage/i.test(n)) return '🎯';
+  if (/cardio|course|vélo|tapis|row.*machine|natation/i.test(n)) return '🏃';
+  return '🏋️';
+}
+
 const EXO_DATABASE = {
 // ── PECS ──
 bench_press_barbell:{id:'bench_press_barbell',name:'Développé Couché (Barre)',nameAlt:['Bench Press','Bench barre','DC barre'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:180,instructions:'1. Allongé sur le banc, pieds au sol, fessiers et omoplates plaqués\n2. Prise légèrement plus large que les épaules\n3. Descendre la barre au sternum en contrôlant (2-3s)\n4. Pousser vers le haut en expirant\n5. Verrouiller les coudes sans hyperextension'},

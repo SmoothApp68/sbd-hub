@@ -2721,8 +2721,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Login screen gorilla
     const gorilla = document.getElementById('loginGorilla');
     if (gorilla) gorilla.addEventListener('click', _gmHandleTap);
-    // Dashboard title
-    const titleEl = document.querySelector('#tab-dash .header-card h2') || document.querySelector('#perfCard h2');
+    // Dashboard title — carte "Aujourd'hui" dans todayProgramCard
+    const titleEl = document.querySelector('#todayProgramCard h2');
     if (titleEl) {
       titleEl.style.cursor = 'default';
       titleEl.addEventListener('click', _gmHandleTap);

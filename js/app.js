@@ -135,6 +135,20 @@ let db = (() => {
 })();
 
 let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
+let chartPerf = null;
+let perfChartMode = 'bars';
+let activeStatsSub = 'stats-volume';
+let currentWeekOffset = 0;
+let sparklineCharts = {};
+let currentMuscleView = 'bars';
+let chartMuscleEvol = null;
+let liftsMuscleFilter = 'Tout';
+let activeWorkout = null;
+let _goSessionTimerId = null;
+let _goRestTimerId = null;
+let _goAutoSaveId = null;
+let _goWakeLock = null;
+let _goSessionPaused = false;
 
 // Chart memory management — destroy charts of inactive tabs
 var _currentTab = 'tab-dash';
@@ -3531,8 +3545,6 @@ function renderDotsWilks() {
 }
 
 // ── Rubrique Performance configurable ────────────────────────
-let chartPerf = null;
-let perfChartMode = 'bars';
 function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
 
 // Incrément objectif selon le groupe musculaire de l'exercice
@@ -5037,7 +5049,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   cloudSignIn().then(async user => {
     if (!user) return;
     if (db.logs.length === 0) {
-      syncFromCloud();
+      await syncFromCloud();
       return;
     }
     if (!db.lastSync) {
@@ -5047,12 +5059,13 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     try {
       const {data:{user:u}} = await supaClient.auth.getUser();
       if (!u) { syncToCloud(true); return; }
-      const {data} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
+      const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
+      if (error) throw error;
       if (data && data.updated_at) {
         const cloudTs = new Date(data.updated_at).getTime();
         if (cloudTs > db.lastSync + 5000) {
           showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
-          syncFromCloud();
+          await syncFromCloud();
         } else {
           syncToCloud(true);
         }
@@ -5261,7 +5274,6 @@ function generateCoachAlgoMessage() {
 // ============================================================
 // STATS SOUS-ONGLETS
 // ============================================================
-let activeStatsSub = 'stats-volume';
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
@@ -5897,9 +5909,6 @@ function renderBodyWeightChart(entries) {
 // ============================================================
 // ONGLET SÉANCES — vue semaine ←→
 // ============================================================
-let currentWeekOffset = 0;
-let sparklineCharts = {};
-
 function getWeekStart(ts) {
   const d = new Date(ts); d.setHours(12,0,0,0);
   const day = d.getDay(); const diff = day===0 ? -6 : 1-day;
@@ -6158,9 +6167,6 @@ function renderRadarImproved(period) {
 // ============================================================
 // STATS — VOLUME MUSCULAIRE avec évolution 4 semaines
 // ============================================================
-let currentMuscleView = 'bars';
-let chartMuscleEvol = null;
-
 function setMuscleView(v) {
   currentMuscleView = v;
   document.getElementById('muscleViewBarsBtn').classList.toggle('active', v==='bars');
@@ -6238,8 +6244,6 @@ function toggleEvolFilter(btn, muscle) {
 // ============================================================
 // STATS — MEILLEURS LIFTS refaits
 // ============================================================
-let liftsMuscleFilter = 'Tout';
-
 function renderLifts() {
   const liftMap = {};
   const limit180 = Date.now() - 180*86400000;
@@ -7916,12 +7920,7 @@ function renderWpExercise(exo) {
 // EXO_DATABASE is loaded from js/exercises.js
 // GO TAB — État, timers, auto-save, wake lock
 // ============================================================
-let activeWorkout = null;
-let _goSessionTimerId = null;
-let _goRestTimerId = null;
-let _goAutoSaveId = null;
-let _goWakeLock = null;
-let _goSessionPaused = false;
+// (activeWorkout, _goSession*, _goWakeLock moved to top of file to avoid TDZ)
 let _goSessionPausedAt = 0;
 let _goSearchDebounce = null;
 let _goMusclesExpanded = false;

@@ -682,6 +682,7 @@ function doFinalizeSession(session) {
   showToast('✓ Séance importée');
   saveAlgoDebrief(session);
   checkAndGenerateWeeklyReport();
+  if (typeof checkAndGenerateMonthlyReport === 'function') checkAndGenerateMonthlyReport();
   refreshUI();
 
   // Social: publish session + PRs
@@ -1492,4 +1493,97 @@ function updateCalcCalories() {
   const f=parseFloat(document.getElementById('inputFat').value)||0;
   const calc=Math.round(p*4+c*4+f*9);
   if (calc>0) document.getElementById('inputKcal').placeholder=calc+' (calculé)';
+}
+
+// ============================================================
+// RAPPORT MENSUEL — Résumé du mois
+// ============================================================
+function generateMonthlyReport() {
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  var monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).getTime();
+  var monthName = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  var logs = (db.logs || []).filter(function(l) { return l.timestamp >= monthStart && l.timestamp <= monthEnd; });
+  if (logs.length === 0) return null;
+
+  var totalSessions = logs.length;
+  var totalVolume = logs.reduce(function(sum, l) { return sum + (l.volume || 0); }, 0);
+  var totalDuration = logs.reduce(function(sum, l) { return sum + (l.duration || 0); }, 0);
+
+  // Exercice le plus fait
+  var exoCounts = {};
+  logs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      exoCounts[e.name] = (exoCounts[e.name] || 0) + 1;
+    });
+  });
+  var topExo = Object.keys(exoCounts).sort(function(a, b) { return exoCounts[b] - exoCounts[a]; })[0] || 'N/A';
+
+  // PRs ce mois-ci
+  var prs = 0;
+  logs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      if (e.maxRM > 0) prs++;
+    });
+  });
+
+  // Distribution musculaire
+  var muscles = {};
+  logs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      var mg = e.muscleGroup || 'Autre';
+      muscles[mg] = (muscles[mg] || 0) + (e.sets || 0);
+    });
+  });
+  var muscleList = Object.keys(muscles).sort(function(a, b) { return muscles[b] - muscles[a]; });
+
+  // Streak
+  var streak = typeof calcStreak === 'function' ? calcStreak() : 0;
+
+  var html = '<div style="text-align:center;margin-bottom:12px;">';
+  html += '<div style="font-size:20px;font-weight:700;">📊 Bilan ' + monthName + '</div>';
+  html += '</div>';
+  html += '<div class="report-grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">';
+  html += '<div class="report-box"><div class="report-val">' + totalSessions + '</div><div class="report-label">Séances</div></div>';
+  html += '<div class="report-box"><div class="report-val">' + (totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : totalVolume + 'kg') + '</div><div class="report-label">Volume total</div></div>';
+  html += '<div class="report-box"><div class="report-val">' + streak + '</div><div class="report-label">Streak (sem.)</div></div>';
+  html += '<div class="report-box"><div class="report-val">' + prs + '</div><div class="report-label">PRs</div></div>';
+  html += '</div>';
+  html += '<div style="font-size:13px;color:var(--text);line-height:1.7;">';
+  html += '<div>🏆 Exercice favori : <strong>' + topExo + '</strong> (' + (exoCounts[topExo] || 0) + ' séances)</div>';
+  if (muscleList.length > 0) {
+    html += '<div style="margin-top:6px;">💪 Muscles : ';
+    muscleList.slice(0, 4).forEach(function(m) {
+      html += '<span style="background:rgba(59,130,246,0.1);padding:2px 8px;border-radius:6px;margin:2px;font-size:11px;">' + m + ' (' + muscles[m] + ')</span>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  return html;
+}
+
+function checkAndGenerateMonthlyReport() {
+  var now = new Date();
+  // Générer le rapport le dernier jour du mois ou le premier du mois suivant
+  if (now.getDate() !== 1 && now.getDate() !== new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) return;
+
+  var existing = db.reports.find(function(r) { return r.type === 'monthly' && r.expires_at > Date.now(); });
+  if (existing) return;
+
+  var html = generateMonthlyReport();
+  if (!html) return;
+
+  var monthlyReport = {
+    id: generateId(),
+    type: 'monthly',
+    html: html,
+    created_at: Date.now(),
+    expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 jours
+    read: false
+  };
+  db.reports.push(monthlyReport);
+  saveDBNow();
+  if (typeof renderReportsTimeline === 'function') renderReportsTimeline();
 }

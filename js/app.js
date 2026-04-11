@@ -5046,39 +5046,42 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     showOnboarding();
   }
 
-  cloudSignIn().then(async user => {
-    if (!user) return;
-    if (db.logs.length === 0) {
-      await syncFromCloud();
-      return;
-    }
-    if (!db.lastSync) {
-      syncToCloud(true);
-      return;
-    }
-    try {
-      const {data:{user:u}} = await supaClient.auth.getUser();
-      if (!u) { syncToCloud(true); return; }
-      const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
-      if (error) throw error;
-      if (data && data.updated_at) {
-        const cloudTs = new Date(data.updated_at).getTime();
-        if (cloudTs > db.lastSync + 5000) {
-          showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
-          await syncFromCloud();
+  // Auth gate: show login screen if not authenticated
+  checkAuthGate().then(() => {
+    cloudSignIn().then(async user => {
+      if (!user) return;
+      if (db.logs.length === 0) {
+        await syncFromCloud();
+        return;
+      }
+      if (!db.lastSync) {
+        syncToCloud(true);
+        return;
+      }
+      try {
+        const {data:{user:u}} = await supaClient.auth.getUser();
+        if (!u) { syncToCloud(true); return; }
+        const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
+        if (error) throw error;
+        if (data && data.updated_at) {
+          const cloudTs = new Date(data.updated_at).getTime();
+          if (cloudTs > db.lastSync + 5000) {
+            showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
+            await syncFromCloud();
+          } else {
+            syncToCloud(true);
+          }
         } else {
           syncToCloud(true);
         }
-      } else {
+      } catch(e) {
         syncToCloud(true);
       }
-    } catch(e) {
-      syncToCloud(true);
-    }
-    // Check password migration for existing magic-link users
-    checkPasswordMigration(user);
-    // Keep-alive ping to prevent Supabase project pause
-    if (typeof keepAlive === 'function') keepAlive();
+      // Check password migration for existing magic-link users
+      checkPasswordMigration(user);
+      // Keep-alive ping to prevent Supabase project pause
+      if (typeof keepAlive === 'function') keepAlive();
+    });
   });
   // Local notifications init
   try { initNotifications(); } catch(e) {}

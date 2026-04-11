@@ -281,6 +281,153 @@ async function forgotPassword() {
   } catch(e) { showToast(translateSupaError(e.message)); }
 }
 
+// ============================================================
+// LOGIN SCREEN — gate app behind auth
+// ============================================================
+let _loginMode = 'login';
+
+function loginSwitchMode(mode) {
+  _loginMode = mode;
+  const loginBtn = document.getElementById('loginModeLoginBtn');
+  const signupBtn = document.getElementById('loginModeSignupBtn');
+  const confirmField = document.getElementById('loginPasswordConfirm');
+  const submitBtn = document.getElementById('loginSubmitBtn');
+  const forgotBtn = document.getElementById('loginForgotBtn');
+  if (mode === 'login') {
+    loginBtn.style.background = '#0A84FF'; loginBtn.style.color = 'white';
+    signupBtn.style.background = 'rgba(255,255,255,0.03)'; signupBtn.style.color = '#7878A8';
+    confirmField.style.display = 'none';
+    submitBtn.textContent = 'Se connecter';
+    forgotBtn.style.display = '';
+  } else {
+    signupBtn.style.background = '#0A84FF'; signupBtn.style.color = 'white';
+    loginBtn.style.background = 'rgba(255,255,255,0.03)'; loginBtn.style.color = '#7878A8';
+    confirmField.style.display = '';
+    submitBtn.textContent = 'Créer un compte';
+    forgotBtn.style.display = 'none';
+  }
+  hideLoginError();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+function hideLoginError() {
+  const el = document.getElementById('loginError');
+  if (el) el.style.display = 'none';
+}
+
+async function loginSubmit() {
+  hideLoginError();
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  const password = document.getElementById('loginPassword').value || '';
+  if (!email || !email.includes('@')) { showLoginError('Entre un email valide'); return; }
+  if (!password || password.length < 8) { showLoginError('Le mot de passe doit faire au moins 8 caractères'); return; }
+
+  const btn = document.getElementById('loginSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Connexion...';
+
+  if (_loginMode === 'signup') {
+    const confirm = (document.getElementById('loginPasswordConfirm').value || '');
+    if (password !== confirm) { showLoginError('Les mots de passe ne correspondent pas'); btn.disabled = false; btn.textContent = 'Créer un compte'; return; }
+    try {
+      const { data, error } = await supaClient.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.user) {
+        db.passwordMigrated = true;
+        saveDB();
+        cloudSyncEnabled = true;
+        updateCloudUI(data.user);
+        await syncToCloud(true);
+        await ensureProfile();
+        hideLoginScreen();
+        showToast('Compte créé ! Bienvenue');
+      }
+    } catch(e) {
+      showLoginError(translateSupaError(e.message));
+      btn.disabled = false; btn.textContent = 'Créer un compte';
+    }
+  } else {
+    try {
+      const { data, error } = await supaClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (data.user) {
+        cloudSyncEnabled = true;
+        updateCloudUI(data.user);
+        // Sync from cloud if remote is newer
+        try {
+          const {data: prof} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', data.user.id).maybeSingle();
+          if (prof && prof.data) {
+            db = prof.data;
+            if (!db.reports) db.reports = [];
+            db.lastSync = prof.updated_at ? new Date(prof.updated_at).getTime() : Date.now();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+            refreshUI();
+          } else {
+            await syncToCloud(true);
+          }
+        } catch(se) { await syncToCloud(true); }
+        await ensureProfile();
+        hideLoginScreen();
+        showToast('Connecté !');
+      }
+    } catch(e) {
+      showLoginError(translateSupaError(e.message));
+      btn.disabled = false; btn.textContent = 'Se connecter';
+    }
+  }
+}
+
+async function loginForgotPwd() {
+  const email = (document.getElementById('loginEmail').value || '').trim();
+  if (!email || !email.includes('@')) { showLoginError('Entre d\'abord ton email'); return; }
+  try {
+    const { error } = await supaClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if (error) throw error;
+    showLoginError('');
+    const el = document.getElementById('loginError');
+    if (el) { el.textContent = 'Email de réinitialisation envoy�� !'; el.style.display = 'block'; el.style.color = 'var(--green)'; el.style.borderColor = 'rgba(50,215,75,0.3)'; el.style.background = 'rgba(50,215,75,0.1)'; }
+  } catch(e) { showLoginError(translateSupaError(e.message)); }
+}
+
+function loginOffline() {
+  hideLoginScreen();
+  // Show offline indicator
+  const banner = document.getElementById('offlineBanner');
+  if (banner) { banner.textContent = '📡 Mode hors-ligne'; banner.style.display = 'block'; }
+}
+
+function showLoginScreen() {
+  const el = document.getElementById('loginScreen');
+  if (el) el.style.display = 'flex';
+}
+
+function hideLoginScreen() {
+  const el = document.getElementById('loginScreen');
+  if (el) { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; }, 300); }
+}
+
+// Called during app init — checks session and shows login if needed
+async function checkAuthGate() {
+  if (!supaClient) { return; } // No supabase, skip gate
+  try {
+    const { data: { session } } = await supaClient.auth.getSession();
+    if (session && session.user && session.user.email) {
+      // User is authenticated with email — proceed normally
+      cloudSyncEnabled = true;
+      return;
+    }
+    // No session or anonymous — show login screen
+    showLoginScreen();
+  } catch(e) {
+    // Network error — let user continue offline
+    console.warn('Auth gate check failed:', e);
+  }
+}
+
 // ── Password migration check (handles anonymous vs email users) ──
 async function checkPasswordMigration(user) {
   if (!user) return;

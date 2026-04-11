@@ -1332,6 +1332,34 @@
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
 
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0C0C18;background-image:linear-gradient(170deg, #111128 0%, #0C0C18 40%);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+    <div style="text-align:center;width:100%;max-width:340px;">
+      <div style="font-size:48px;margin-bottom:12px;">🦍</div>
+      <div style="font-size:24px;font-weight:700;color:#F0F0FF;margin-bottom:4px;">SBD Elite Tracker</div>
+      <div style="font-size:13px;color:#7878A8;margin-bottom:32px;">Connecte-toi pour synchroniser tes données</div>
+
+      <div id="loginModeTabs" style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
+        <button id="loginModeLoginBtn" class="auth-mode-btn active" onclick="loginSwitchMode('login')" style="flex:1;padding:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:#0A84FF;color:white;">Connexion</button>
+        <button id="loginModeSignupBtn" class="auth-mode-btn" onclick="loginSwitchMode('signup')" style="flex:1;padding:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.03);color:#7878A8;">Inscription</button>
+      </div>
+
+      <input type="email" id="loginEmail" placeholder="Email" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#F0F0FF;font-size:14px;margin-bottom:10px;outline:none;">
+      <input type="password" id="loginPassword" placeholder="Mot de passe (min. 8 car.)" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#F0F0FF;font-size:14px;margin-bottom:10px;outline:none;" minlength="8">
+      <input type="password" id="loginPasswordConfirm" placeholder="Confirmer le mot de passe" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#F0F0FF;font-size:14px;margin-bottom:10px;outline:none;display:none;">
+
+      <button id="loginSubmitBtn" onclick="loginSubmit()" style="width:100%;padding:14px;background:#0A84FF;color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;transition:opacity 0.2s;">Se connecter</button>
+
+      <button id="loginForgotBtn" onclick="loginForgotPwd()" style="background:none;border:none;color:#0A84FF;font-size:12px;cursor:pointer;padding:8px;margin-bottom:20px;">Mot de passe oublié ?</button>
+
+      <div id="loginError" style="display:none;background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);border-radius:10px;padding:10px;margin-bottom:16px;font-size:12px;color:#FF453A;text-align:center;"></div>
+
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;margin-top:8px;">
+        <button id="loginOfflineBtn" onclick="loginOffline()" style="width:100%;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#7878A8;font-size:13px;font-weight:600;cursor:pointer;">Continuer hors-ligne</button>
+      </div>
+    </div>
+  </div>
+
   <!-- OFFLINE BANNER -->
   <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;padding:8px 16px;background:rgba(255,159,10,0.15);border-bottom:1px solid rgba(255,159,10,0.3);text-align:center;font-size:12px;font-weight:600;color:#FF9F0A;z-index:9999;">📡 Hors-ligne</div>
 

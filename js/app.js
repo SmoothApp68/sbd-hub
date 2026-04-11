@@ -11614,6 +11614,7 @@ function goFinishWorkout() {
 
   showToast('✅ Séance sauvegardée');
   renderGoTab();
+  refreshUI();
 
   // Social: clear training status
   try { setTrainingStatus(false); } catch(e) {}

@@ -639,7 +639,7 @@ function importData() {
   );
 }
 function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
-function showModal(msg, cText, cColor, onConfirm, onCancel) { const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">Annuler</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
+function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
 function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
 function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
@@ -6606,7 +6606,9 @@ function renderSeancesTab() {
       '<div class="sc-right"><div class="sc-vol">' + volStr + '<span>t</span></div></div>' +
       '</div>' +
       '<div class="sc-body" id="' + sessId + '">' +
+        (session.notes ? '<div style="font-size:12px;color:var(--sub);font-style:italic;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">📝 ' + session.notes + '</div>' : '') +
         exoCards +
+        renderSessionPhotos(session.id, session.photos || [], false) +
         '<div class="sc-session-actions" style="display:flex;gap:8px;padding:8px 0;">' +
           '<button class="sc-delete-btn" style="flex:1;background:rgba(10,132,255,0.1);color:var(--blue);border:1px solid rgba(10,132,255,0.2);" onclick="openSessionEditor(\'' + session.id + '\')">✏️ Modifier</button>' +
           '<button class="sc-delete-btn" onclick="deleteSessionFromList(\'' + session.id + '\')">Supprimer</button>' +
@@ -9501,6 +9503,402 @@ function goEditTitle() {
 }
 
 // ============================================================
+// PHOTOS DE SÉANCE — Compression, Recadrage, Upload
+// ============================================================
+// Architecture : tout l'upload passe par uploadSessionPhoto()
+// Pour migrer vers Cloudinary plus tard, il suffit de modifier
+// cette seule fonction.
+
+/**
+ * Compresse et redimensionne une image.
+ * @param {File|Blob} file — fichier image source
+ * @param {Object} opts
+ *   opts.maxWidth  — largeur max (default 800)
+ *   opts.quality   — qualité JPEG 0-1 (default 0.75)
+ *   opts.crop      — null | {x,y,w,h} (coordonnées sur l'image source)
+ * @returns {Promise<Blob>} — blob JPEG compressé
+ */
+function compressImage(file, opts) {
+  opts = opts || {};
+  var maxWidth  = opts.maxWidth  || 800;
+  var quality   = opts.quality   || 0.75;
+  var crop      = opts.crop      || null;
+
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onerror = reject;
+      img.onload = function() {
+        // Zone source (crop ou image entière)
+        var sx = 0, sy = 0, sw = img.width, sh = img.height;
+        if (crop) {
+          sx = crop.x; sy = crop.y; sw = crop.w; sh = crop.h;
+        }
+
+        // Dimensions de sortie (max maxWidth tout en gardant le ratio)
+        var ratio = sw / sh;
+        var outW = Math.min(sw, maxWidth);
+        var outH = Math.round(outW / ratio);
+        if (outH > maxWidth) { outH = maxWidth; outW = Math.round(outH * ratio); }
+
+        var canvas = document.createElement('canvas');
+        canvas.width = outW;
+        canvas.height = outH;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+
+        canvas.toBlob(function(blob) {
+          if (blob) resolve(blob);
+          else reject(new Error('Compression failed'));
+        }, 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Crop centré automatique selon un ratio donné.
+ * Retourne les coordonnées {x, y, w, h} pour compressImage.
+ * @param {number} imgW — largeur originale
+ * @param {number} imgH — hauteur originale
+ * @param {number} ratioW — ratio largeur (ex: 1)
+ * @param {number} ratioH — ratio hauteur (ex: 1)
+ */
+function autoCropCenter(imgW, imgH, ratioW, ratioH) {
+  var targetRatio = ratioW / ratioH;
+  var currentRatio = imgW / imgH;
+  var x, y, w, h;
+  if (currentRatio > targetRatio) {
+    // Image trop large → crop sur les côtés
+    h = imgH;
+    w = Math.round(imgH * targetRatio);
+    x = Math.round((imgW - w) / 2);
+    y = 0;
+  } else {
+    // Image trop haute → crop en haut/bas
+    w = imgW;
+    h = Math.round(imgW / targetRatio);
+    x = 0;
+    y = Math.round((imgH - h) / 2);
+  }
+  return { x: x, y: y, w: w, h: h };
+}
+
+/**
+ * Upload une photo de séance vers Supabase Storage.
+ * ── POINT UNIQUE D'UPLOAD ──
+ * Pour migrer vers Cloudinary : modifier uniquement cette fonction.
+ * @param {Blob} blob — image compressée
+ * @param {string} sessionId — id de la séance
+ * @param {number} index — numéro de la photo (0-3)
+ * @returns {Promise<string|null>} — URL publique ou null
+ */
+async function uploadSessionPhoto(blob, sessionId, index) {
+  if (typeof supabase === 'undefined' || !supabase) return null;
+  try {
+    var user = (await supabase.auth.getUser()).data.user;
+    if (!user) return null;
+
+    var path = user.id + '/' + sessionId + '/' + index + '.jpg';
+    var { data, error } = await supabase.storage
+      .from('session-photos')
+      .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+
+    if (error) { console.warn('Photo upload error:', error); return null; }
+
+    var { data: urlData } = supabase.storage
+      .from('session-photos')
+      .getPublicUrl(path);
+
+    return urlData ? urlData.publicUrl : null;
+  } catch(e) {
+    console.warn('uploadSessionPhoto error:', e);
+    return null;
+  }
+}
+
+/**
+ * Supprime une photo de séance de Supabase Storage.
+ * @param {string} sessionId
+ * @param {number} index
+ */
+async function deleteSessionPhoto(sessionId, index) {
+  if (typeof supabase === 'undefined' || !supabase) return;
+  try {
+    var user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    var path = user.id + '/' + sessionId + '/' + index + '.jpg';
+    await supabase.storage.from('session-photos').remove([path]);
+  } catch(e) {}
+}
+
+// ── État du crop interactif ──
+var _cropState = null;
+
+/**
+ * Ouvre l'outil de recadrage pour une image.
+ * @param {File} file — fichier source
+ * @param {Function} onDone — callback(blob) appelé avec le blob final
+ */
+function openCropTool(file, onDone) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      _cropState = {
+        img: img,
+        file: file,
+        imgW: img.width,
+        imgH: img.height,
+        ratio: '1:1',    // défaut
+        onDone: onDone
+      };
+      renderCropOverlay();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderCropOverlay() {
+  var cs = _cropState;
+  if (!cs) return;
+
+  var old = document.getElementById('cropOverlay');
+  if (old) old.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'cropOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:30000;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:15px;';
+
+  // Calculer les dimensions d'affichage (fit dans l'écran)
+  var maxW = Math.min(window.innerWidth - 30, 400);
+  var maxH = window.innerHeight - 200;
+  var scale = Math.min(maxW / cs.imgW, maxH / cs.imgH, 1);
+  var dispW = Math.round(cs.imgW * scale);
+  var dispH = Math.round(cs.imgH * scale);
+
+  // Zone de crop auto-centrée selon le ratio choisi
+  var rParts = cs.ratio.split(':');
+  var rW = parseInt(rParts[0]);
+  var rH = parseInt(rParts[1]);
+  var cropBox = autoCropCenter(dispW, dispH, rW, rH);
+
+  var h = '';
+  // Header
+  h += '<div style="color:white;font-size:16px;font-weight:700;margin-bottom:12px;">Recadrer la photo</div>';
+
+  // Ratio buttons
+  h += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+  var ratios = [
+    { val: 'none', label: 'Original' },
+    { val: '1:1', label: 'Carré 1:1' },
+    { val: '4:3', label: 'Paysage 4:3' }
+  ];
+  ratios.forEach(function(r) {
+    var sel = cs.ratio === r.val;
+    h += '<button onclick="_cropState.ratio=\'' + r.val + '\';renderCropOverlay();" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ' + (sel ? 'var(--accent)' : 'rgba(255,255,255,0.2)') + ';background:' + (sel ? 'var(--accent)' : 'rgba(255,255,255,0.1)') + ';color:white;">' + r.label + '</button>';
+  });
+  h += '</div>';
+
+  // Image preview with crop overlay
+  h += '<div style="position:relative;width:' + dispW + 'px;height:' + dispH + 'px;margin-bottom:16px;">';
+  h += '<img src="' + cs.img.src + '" style="width:100%;height:100%;object-fit:contain;border-radius:8px;">';
+
+  if (cs.ratio !== 'none') {
+    // Zones sombres en dehors du crop
+    // Haut
+    if (cropBox.y > 0) h += '<div style="position:absolute;top:0;left:0;width:100%;height:' + cropBox.y + 'px;background:rgba(0,0,0,0.6);"></div>';
+    // Bas
+    var bottomH = dispH - cropBox.y - cropBox.h;
+    if (bottomH > 0) h += '<div style="position:absolute;bottom:0;left:0;width:100%;height:' + bottomH + 'px;background:rgba(0,0,0,0.6);"></div>';
+    // Gauche
+    if (cropBox.x > 0) h += '<div style="position:absolute;top:' + cropBox.y + 'px;left:0;width:' + cropBox.x + 'px;height:' + cropBox.h + 'px;background:rgba(0,0,0,0.6);"></div>';
+    // Droite
+    var rightW = dispW - cropBox.x - cropBox.w;
+    if (rightW > 0) h += '<div style="position:absolute;top:' + cropBox.y + 'px;right:0;width:' + rightW + 'px;height:' + cropBox.h + 'px;background:rgba(0,0,0,0.6);"></div>';
+    // Bordure du crop
+    h += '<div style="position:absolute;top:' + cropBox.y + 'px;left:' + cropBox.x + 'px;width:' + cropBox.w + 'px;height:' + cropBox.h + 'px;border:2px solid var(--accent);border-radius:4px;pointer-events:none;"></div>';
+  }
+  h += '</div>';
+
+  // Taille estimée
+  h += '<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:12px;">Original : ' + cs.imgW + '×' + cs.imgH + ' — Sortie : 800px max, JPEG 75%</div>';
+
+  // Buttons
+  h += '<div style="display:flex;gap:10px;">';
+  h += '<button onclick="closeCropTool()" style="padding:12px 24px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:14px;font-weight:600;cursor:pointer;">Annuler</button>';
+  h += '<button onclick="applyCrop()" style="padding:12px 24px;border-radius:10px;border:none;background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;">Valider</button>';
+  h += '</div>';
+
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function closeCropTool() {
+  _cropState = null;
+  var el = document.getElementById('cropOverlay');
+  if (el) el.remove();
+}
+
+function applyCrop() {
+  var cs = _cropState;
+  if (!cs) return;
+
+  var cropOpts = null;
+  if (cs.ratio !== 'none') {
+    var rParts = cs.ratio.split(':');
+    cropOpts = autoCropCenter(cs.imgW, cs.imgH, parseInt(rParts[0]), parseInt(rParts[1]));
+  }
+
+  compressImage(cs.file, { maxWidth: 800, quality: 0.75, crop: cropOpts })
+    .then(function(blob) {
+      var cb = cs.onDone;
+      closeCropTool();
+      if (cb) cb(blob);
+    })
+    .catch(function(err) {
+      console.error('Crop/compress error:', err);
+      showToast('Erreur de compression');
+      closeCropTool();
+    });
+}
+
+// ── UI pour ajouter des photos à une séance ──
+
+/**
+ * Ouvre le sélecteur de photos pour une séance.
+ * @param {string} sessionId — id de la séance dans db.logs
+ */
+function openSessionPhotoPicker(sessionId) {
+  var session = db.logs.find(function(l) { return l.id === sessionId; });
+  if (!session) return;
+  if (!session.photos) session.photos = [];
+  if (session.photos.length >= 4) { showToast('Maximum 4 photos par séance'); return; }
+
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = true;
+  input.onchange = function() {
+    var files = Array.from(input.files).slice(0, 4 - session.photos.length);
+    if (!files.length) return;
+    processSessionPhotos(sessionId, files);
+  };
+  input.click();
+}
+
+async function processSessionPhotos(sessionId, files) {
+  var session = db.logs.find(function(l) { return l.id === sessionId; });
+  if (!session) return;
+  if (!session.photos) session.photos = [];
+
+  // Traiter chaque fichier via le crop tool (séquentiellement)
+  var idx = 0;
+  function processNext() {
+    if (idx >= files.length) return;
+    var file = files[idx];
+    idx++;
+
+    openCropTool(file, async function(blob) {
+      showToast('📤 Upload en cours...');
+      var photoIndex = session.photos.length;
+      var url = await uploadSessionPhoto(blob, sessionId, photoIndex);
+
+      if (url) {
+        session.photos.push({
+          url: url,
+          index: photoIndex,
+          addedAt: Date.now(),
+          size: blob.size
+        });
+        saveDB();
+        showToast('✅ Photo ajoutée (' + Math.round(blob.size / 1024) + ' Ko)');
+      } else {
+        // Stocker en base64 en fallback si pas de Supabase
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          session.photos.push({
+            dataUrl: e.target.result,
+            index: photoIndex,
+            addedAt: Date.now(),
+            size: blob.size
+          });
+          saveDB();
+          showToast('✅ Photo sauvegardée localement (' + Math.round(blob.size / 1024) + ' Ko)');
+        };
+        reader.readAsDataURL(blob);
+      }
+
+      // Mettre à jour l'éditeur si ouvert
+      if (_editSession && _editSessionId === sessionId) {
+        _editSession.photos = session.photos;
+        renderSessionEditor();
+      }
+      // Photo suivante
+      processNext();
+    });
+  }
+  processNext();
+}
+
+function removeSessionPhoto(sessionId, photoIdx) {
+  if (!confirm('Supprimer cette photo ?')) return;
+  var session = db.logs.find(function(l) { return l.id === sessionId; });
+  if (!session || !session.photos) return;
+
+  var photo = session.photos[photoIdx];
+  if (photo && !photo.dataUrl) {
+    // Supprimer du storage
+    deleteSessionPhoto(sessionId, photo.index);
+  }
+  session.photos.splice(photoIdx, 1);
+  saveDB();
+  showToast('Photo supprimée');
+
+  if (_editSession && _editSessionId === sessionId) {
+    _editSession.photos = session.photos;
+    renderSessionEditor();
+  }
+}
+
+/**
+ * Rendu des photos d'une séance (pour l'éditeur et l'historique).
+ * @param {string} sessionId
+ * @param {Array} photos
+ * @param {boolean} editable — afficher les boutons supprimer
+ */
+function renderSessionPhotos(sessionId, photos, editable) {
+  if (!photos || photos.length === 0) {
+    if (!editable) return '';
+    return '<div style="text-align:center;padding:8px 0;">' +
+      '<button onclick="openSessionPhotoPicker(\'' + sessionId + '\')" style="background:none;border:1px dashed rgba(255,255,255,0.15);color:var(--sub);padding:16px;border-radius:10px;cursor:pointer;font-size:12px;width:100%;">📷 Ajouter des photos (max 4)</button></div>';
+  }
+
+  var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;">';
+  photos.forEach(function(photo, pi) {
+    var src = photo.url || photo.dataUrl || '';
+    h += '<div style="position:relative;width:calc(50% - 4px);aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--surface);">';
+    h += '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
+    if (editable) {
+      h += '<button onclick="removeSessionPhoto(\'' + sessionId + '\',' + pi + ')" style="position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.7);border:none;color:white;cursor:pointer;font-size:11px;">✕</button>';
+    }
+    h += '</div>';
+  });
+
+  if (editable && photos.length < 4) {
+    h += '<div style="width:calc(50% - 4px);aspect-ratio:1;border-radius:10px;border:1px dashed rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);" onclick="openSessionPhotoPicker(\'' + sessionId + '\')">';
+    h += '<span style="font-size:24px;">+</span></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+// ============================================================
 // ÉDITEUR DE SÉANCE PASSÉE — plein écran
 // ============================================================
 var _editSession = null;   // copie de travail
@@ -9559,6 +9957,12 @@ function renderSessionEditor() {
   h += '<div class="card">';
   h += '<label style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Notes</label>';
   h += '<textarea id="seNotes" rows="2" style="margin-top:4px;resize:vertical;" placeholder="Notes de séance...">' + (s.notes || '') + '</textarea>';
+  h += '</div>';
+
+  // ── Photos ──
+  h += '<div class="card">';
+  h += '<label style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Photos</label>';
+  h += renderSessionPhotos(_editSessionId, s.photos || [], true);
   h += '</div>';
 
   // ── Exercices ──
@@ -10799,6 +11203,17 @@ function goFinishWorkout() {
 
   // Social: clear training status
   try { setTrainingStatus(false); } catch(e) {}
+
+  // Proposer d'ajouter des photos après la séance
+  setTimeout(function() {
+    showModal(
+      '📷 Ajouter des photos ?<br><span style="font-size:12px;color:var(--sub);">Tu peux ajouter 1 à 4 photos à cette séance.</span>',
+      'Ajouter des photos',
+      'var(--accent)',
+      function() { openSessionPhotoPicker(session.id); },
+      'Plus tard'
+    );
+  }, 1500);
 }
 
 function goConfirmDiscard() {

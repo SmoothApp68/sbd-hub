@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v2';
+const CACHE_NAME = 'trainhub-v3';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
   '/sbd-hub/index.html',

@@ -1015,6 +1015,14 @@
     /* Exercise card */
     .go-exo-card{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;margin-bottom:14px;overflow:hidden;position:relative;}
     .go-exo-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
+    .exo-thumb{width:68px;height:68px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#1a1a1f;cursor:pointer;position:relative;border:2px solid rgba(255,255,255,0.06);}
+    .exo-thumb img{width:100%;height:100%;object-fit:cover;}
+    .exo-thumb-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;background:#1a1a1f;}
+    .exo-demo-overlay{position:fixed;inset:0;z-index:30000;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+    .exo-demo-anim{position:relative;width:300px;height:300px;border-radius:16px;overflow:hidden;margin-bottom:16px;background:#1a1a2e;}
+    .exo-demo-anim img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#1a1a2e;}
+    .exo-demo-anim img:nth-child(2){animation:exoDemoAlt 2s infinite;}
+    @keyframes exoDemoAlt{0%,45%{opacity:0;}50%,95%{opacity:1;}100%{opacity:0;}}
     .go-exo-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
     .go-exo-info{flex:1;min-width:0;}
     .go-exo-name{font-size:15px;font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1048,7 +1056,7 @@
     .go-exo-footer button:hover{border-color:var(--blue);color:var(--blue);}
     .go-last-time{font-size:11px;color:var(--sub);padding:6px 16px 10px;display:flex;align-items:center;gap:4px;}
     /* Rest timer */
-    .go-rest-timer{background:rgba(50,215,75,0.04);border:1px solid rgba(50,215,75,0.2);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center;}
+    .go-rest-timer{background:rgba(50,215,75,0.06);border:1px solid rgba(50,215,75,0.25);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center;position:sticky;top:110px;z-index:49;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
     .go-rest-timer-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:6px;}
     .go-rest-timer-exo{font-size:11px;color:var(--sub);margin-bottom:8px;}
     .go-rest-timer-count{font-size:42px;font-weight:800;color:var(--text);line-height:1;margin-bottom:4px;}
@@ -1078,7 +1086,7 @@
     .go-search-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;}
     .go-search-item:hover{border-color:var(--blue);}
     .go-search-item:active{transform:scale(0.98);}
-    .go-search-item-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .go-search-item-icon{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:#1a1a1f;overflow:hidden;}
     .go-search-item-info{flex:1;min-width:0;}
     .go-search-item-name{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .go-search-item-sub{font-size:11px;color:var(--sub);margin-top:2px;}
@@ -1749,47 +1757,54 @@
       <div style="font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:20px;">
         Importe tes séances depuis Hevy pour débloquer<br>tes statistiques, records et suivi de progression.
       </div>
-      <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:14px;margin-bottom:20px;text-align:left;">
-        <div style="font-size:12px;color:var(--sub);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Comment importer depuis Hevy</div>
-        <div style="font-size:13px;color:var(--text);line-height:1.7;">
-          1. Ouvre Hevy → ton profil<br>
-          2. "Exporter les données" → copie le texte<br>
-          3. Réglages → 📥 Importer des Séances → colle
-        </div>
-      </div>
       <button class="btn" onclick="showTab('tab-profil'); showProfilSub('tab-settings', document.querySelector('#tab-profil .stats-sub-pill[onclick*=tab-settings]')); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
-        📥 Aller à l'import
+        📥 Importer des séances
       </button>
     </div>
-    <!-- Résumé de la semaine -->
-    <div class="card" id="weeklySummaryCard">
-      <h2>Résumé de la semaine</h2>
-      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px;">
+
+    <!-- 1. Programme du jour + bouton lancer -->
+    <div class="card" id="todayProgramCard" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;">Aujourd'hui</h2>
+        <span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span>
+      </div>
+      <div id="todayProgramContent" style="margin-bottom:14px;"></div>
+      <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="background:linear-gradient(135deg,var(--accent),#6366f1);font-size:15px;padding:16px;border-radius:12px;">
+        Lancer la séance 💪
+      </button>
+    </div>
+
+    <!-- 2. Total SBD estimé -->
+    <div class="card" id="sbdTotalCard" style="padding:20px;">
+      <h2 style="margin:0 0 12px;">Total SBD estimé</h2>
+      <div class="sbd-grid" id="sbdTotalDisplay"></div>
+    </div>
+
+    <!-- 3. Résumé de la semaine -->
+    <div class="card" id="weeklySummaryCard" style="padding:20px;">
+      <h2 style="margin:0 0 10px;">Cette semaine</h2>
+      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;">
         <div class="report-box"><div class="report-val" id="weekSessions">0</div><div class="report-label">Séances</div></div>
-        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée totale</div></div>
-        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume total</div></div>
+        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée</div></div>
+        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume</div></div>
       </div>
     </div>
 
-    <!-- Bouton Lancer la séance du jour -->
-    <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="margin-bottom:15px;background:linear-gradient(135deg,var(--accent),#6366f1);font-size:16px;padding:18px;border-radius:14px;">
-      🏋️ Lancer la séance du jour
-    </button>
-
-    <div class="card" id="perfCard"><div class="header-card"><h2>Performance</h2><span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span></div><div id="perfDisplay"></div></div>
-
-    <!-- Heatmap muscles 2D -->
-    <div class="card" id="muscleHeatmapCard">
-      <h2>Muscles travaillés cette semaine</h2>
-      <div id="muscleHeatmap2D" style="display:flex;justify-content:center;gap:10px;margin-top:12px;"></div>
+    <!-- 4. PRs récents -->
+    <div class="card" id="recentPRsCard" style="padding:20px;">
+      <h2 style="margin:0 0 10px;">PRs récents</h2>
+      <div id="recentPRsContent"></div>
     </div>
 
-    <div class="card" id="readinessCard" style="padding:14px 16px;"><div id="readinessSparkline"></div></div>
-    <div class="card" id="dotsWilksCard" style="display:none;padding:14px 16px;"><div id="dotsWilksContent"></div></div>
-    <div class="card" id="formScoreCard" style="padding:14px 16px;"><div id="formScoreContent"></div></div>
-    <div class="card"><h2>Programme du jour</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;" id="dayButtonsContainer"><button class="day-btn" data-day="Lundi">Lun</button><button class="day-btn" data-day="Mardi">Mar</button><button class="day-btn" data-day="Mercredi">Mer</button><button class="day-btn" data-day="Jeudi">Jeu</button><button class="day-btn" data-day="Vendredi">Ven</button><button class="day-btn" data-day="Samedi">Sam</button><button class="day-btn" data-day="Dimanche">Dim</button></div><div style="text-align:center;padding:10px 0;color:var(--blue);font-weight:600;font-size:18px;" id="routineDisplay"></div></div>
-    <div class="card" id="programViewerCard" style="display:none;"><h2>📅 Mon Programme Complet</h2><div id="programViewer" class="prog-viewer"></div></div>
-    <div class="card"><h2>📋 Meilleurs Résultats</h2><div id="trainingLogs"></div></div>
+    <!-- Hidden containers still needed by existing render functions -->
+    <div id="perfCard" style="display:none;"><div id="perfDisplay"></div></div>
+    <div id="readinessCard" style="display:none;"><div id="readinessSparkline"></div></div>
+    <div id="dotsWilksCard" style="display:none;"><div id="dotsWilksContent"></div></div>
+    <div id="formScoreCard" style="display:none;"><div id="formScoreContent"></div></div>
+    <div style="display:none;" id="dayButtonsContainer"></div>
+    <div style="display:none;" id="routineDisplay"></div>
+    <div id="programViewerCard" style="display:none;"><div id="programViewer" class="prog-viewer"></div></div>
+    <div style="display:none;" id="trainingLogs"></div>
   </div>
   <div id="tab-seances" class="content-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">
@@ -2219,6 +2234,7 @@
           <input type="password" id="inputPassword" placeholder="Mot de passe (min. 8 car.)" style="margin-bottom:8px;" minlength="8">
           <input type="password" id="inputPasswordConfirm" placeholder="Confirmer le mot de passe" style="margin-bottom:8px;display:none;">
           <button class="btn" style="background:var(--purple);" id="authSubmitBtn" onclick="authSubmit()">Se connecter</button>
+          <button onclick="sendMagicLink()" style="width:100%;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">📧 Se connecter avec un lien magique</button>
           <button id="forgotPasswordBtn" onclick="forgotPassword()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;width:100%;text-align:center;padding:8px;margin-top:4px;">Mot de passe oublié ?</button>
         </div>
         <div id="syncIndicator" style="text-align:center;font-size:11px;color:var(--green);min-height:16px;margin:8px 0;"></div>

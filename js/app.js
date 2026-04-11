@@ -3287,13 +3287,13 @@ function renderDash() {
     }
   }
 
+  renderTodayProgram();
+  renderSBDTotal();
+  renderWeeklySummary();
+  renderRecentPRs();
+  // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
   renderPerfCard();
   renderDayExercises(selectedDay);
-  renderReadinessSparkline();
-  renderDotsWilks();
-  renderFormScoreDash();
-  renderWeeklySummary();
-  renderMuscleHeatmap2D();
 }
 
 // ============================================================
@@ -3305,33 +3305,183 @@ function renderWeeklySummary() {
   var weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - dayOfWeek);
   weekStart.setHours(0, 0, 0, 0);
+  var weekStartTs = weekStart.getTime();
+  var nowTs = now.getTime();
 
   var sessions = 0, totalDuration = 0, totalVolume = 0;
   (db.logs || []).forEach(function(log) {
-    var d = new Date(log.date);
-    if (d >= weekStart && d <= now) {
+    // Utiliser timestamp (fiable) au lieu de log.date (string FR non parsable)
+    var ts = log.timestamp;
+    if (!ts) return;
+    if (ts >= weekStartTs && ts <= nowTs) {
       sessions++;
+      // Duration est en secondes
       if (log.duration) totalDuration += log.duration;
-      // Calculer le volume de la séance
-      (log.exercises || []).forEach(function(exo) {
-        (exo.sets || []).forEach(function(s) {
-          if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+      // Volume : utiliser log.volume (pré-calculé) ou recalculer
+      if (log.volume) {
+        totalVolume += log.volume;
+      } else {
+        (log.exercises || []).forEach(function(exo) {
+          (exo.series || exo.allSets || []).forEach(function(s) {
+            if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+          });
         });
-      });
+      }
     }
   });
 
   var el;
   el = document.getElementById('weekSessions');
   if (el) el.textContent = sessions;
+
+  // Duration : convertir secondes → affichage lisible
   el = document.getElementById('weekDuration');
-  if (el) el.textContent = totalDuration >= 60 ? Math.floor(totalDuration / 60) + 'h' + (totalDuration % 60 > 0 ? (totalDuration % 60 < 10 ? '0' : '') + (totalDuration % 60) : '') : totalDuration + 'min';
+  if (el) {
+    var durMin = Math.round(totalDuration / 60);
+    if (durMin >= 60) {
+      var h = Math.floor(durMin / 60);
+      var m = durMin % 60;
+      el.textContent = h + 'h' + (m > 0 ? (m < 10 ? '0' : '') + m : '');
+    } else {
+      el.textContent = durMin + 'min';
+    }
+  }
+
   el = document.getElementById('weekVolume');
-  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : totalVolume + 'kg';
+  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : Math.round(totalVolume) + 'kg';
+
+  // Message si aucune séance
+  var card = document.getElementById('weeklySummaryCard');
+  if (card && sessions === 0) {
+    var msgEl = card.querySelector('.weekly-empty-msg');
+    if (!msgEl) {
+      msgEl = document.createElement('div');
+      msgEl.className = 'weekly-empty-msg';
+      msgEl.style.cssText = 'text-align:center;padding:8px 0;font-size:12px;color:var(--sub);';
+      msgEl.textContent = 'Aucune séance cette semaine — c\'est le moment de s\'y mettre !';
+      card.appendChild(msgEl);
+    }
+    msgEl.style.display = sessions === 0 ? '' : 'none';
+  } else if (card) {
+    var exist = card.querySelector('.weekly-empty-msg');
+    if (exist) exist.style.display = 'none';
+  }
 }
 
 // ============================================================
-// Heatmap muscles 2D — vue avant/arrière
+// Programme du jour — carte d'accueil
+// ============================================================
+function renderTodayProgram() {
+  var el = document.getElementById('todayProgramContent');
+  if (!el) return;
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var label = routine[todayDay] || '';
+  var isRest = !label || /repos|😴/i.test(label);
+
+  var h = '';
+  if (isRest) {
+    h += '<div style="text-align:center;padding:8px 0;">';
+    h += '<div style="font-size:28px;margin-bottom:4px;">😴</div>';
+    h += '<div style="font-size:15px;font-weight:600;color:var(--sub);">Jour de repos</div>';
+    h += '</div>';
+    // Changer le bouton
+    var btn = document.getElementById('startTodayWorkoutBtn');
+    if (btn) { btn.textContent = 'Séance libre 🏋️'; }
+  } else {
+    h += '<div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;">' + label + '</div>';
+    // Afficher les exercices du jour
+    var exos = (db.routineExos && db.routineExos[todayDay]) ? db.routineExos[todayDay] : [];
+    if (!exos.length && db.generatedProgram) {
+      var gp = db.generatedProgram.find(function(p) { return p.day === todayDay && !p.isRest; });
+      if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
+    }
+    if (exos.length > 0) {
+      exos.forEach(function(name) {
+        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + name + '</div>';
+      });
+    } else {
+      h += '<div style="font-size:13px;color:var(--sub);">' + todayDay + '</div>';
+    }
+  }
+  el.innerHTML = h;
+}
+
+// ============================================================
+// Total SBD estimé — carte compacte
+// ============================================================
+function renderSBDTotal() {
+  var el = document.getElementById('sbdTotalDisplay');
+  if (!el) return;
+  var s = db.bestPR.squat || 0;
+  var b = db.bestPR.bench || 0;
+  var d = db.bestPR.deadlift || 0;
+  var total = s + b + d;
+  var h = '';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-squat);"><div style="font-size:10px;color:var(--sub);">Squat</div><div class="rm-val" style="color:var(--color-squat);">' + (s > 0 ? s : '—') + '</div></div>';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-bench);"><div style="font-size:10px;color:var(--sub);">Bench</div><div class="rm-val" style="color:var(--color-bench);">' + (b > 0 ? b : '—') + '</div></div>';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-deadlift);"><div style="font-size:10px;color:var(--sub);">Deadlift</div><div class="rm-val" style="color:var(--color-deadlift);">' + (d > 0 ? d : '—') + '</div></div>';
+  el.innerHTML = h;
+  // Total sous la grille
+  var card = document.getElementById('sbdTotalCard');
+  if (card) {
+    var totalEl = card.querySelector('.sbd-total-line');
+    if (!totalEl) {
+      totalEl = document.createElement('div');
+      totalEl.className = 'sbd-total-line';
+      totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
+      card.appendChild(totalEl);
+    }
+    totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
+  }
+}
+
+// ============================================================
+// PRs récents — 3 derniers records
+// ============================================================
+function renderRecentPRs() {
+  var el = document.getElementById('recentPRsContent');
+  if (!el) return;
+  // Chercher les PRs les plus récents dans les logs
+  var prs = [];
+  for (var i = db.logs.length - 1; i >= 0 && prs.length < 5; i--) {
+    var log = db.logs[i];
+    (log.exercises || []).forEach(function(exo) {
+      if (exo.maxRM > 0 && prs.length < 3) {
+        // Vérifier si c'est vraiment un PR (meilleur de l'historique pour cet exo)
+        var isBest = true;
+        for (var j = 0; j < db.logs.length; j++) {
+          if (j === i) continue;
+          var otherLog = db.logs[j];
+          (otherLog.exercises || []).forEach(function(otherExo) {
+            if (otherExo.name === exo.name && otherExo.maxRM >= exo.maxRM && otherLog.timestamp < log.timestamp) {
+              isBest = false;
+            }
+          });
+        }
+        if (isBest && !prs.some(function(p) { return p.name === exo.name; })) {
+          prs.push({ name: exo.name, value: Math.round(exo.maxRM), date: log.shortDate || log.date });
+        }
+      }
+    });
+  }
+  if (prs.length === 0) {
+    el.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--sub);padding:8px 0;">Aucun PR enregistré pour le moment</div>';
+    return;
+  }
+  var h = '';
+  prs.forEach(function(pr) {
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">';
+    h += '<div style="font-size:13px;font-weight:600;color:var(--text);">' + pr.name + '</div>';
+    h += '<div style="text-align:right;"><span style="font-size:15px;font-weight:700;color:var(--accent);">' + pr.value + 'kg</span>';
+    h += '<span style="font-size:10px;color:var(--sub);margin-left:6px;">' + pr.date + '</span></div>';
+    h += '</div>';
+  });
+  el.innerHTML = h;
+}
+
+// ============================================================
+// Heatmap muscles 2D — vue avant/arrière (gardé pour usage pendant séance)
 // ============================================================
 function renderMuscleHeatmap2D() {
   var container = document.getElementById('muscleHeatmap2D');
@@ -5146,8 +5296,11 @@ function renderProgramBuilder() {
   var container = document.getElementById('programBuilderContent');
   if (!container) return;
 
-  // Si un programme existe déjà, afficher la vue programme
-  if (db.generatedProgram && db.generatedProgram.length > 0 && !_pbState) {
+  // Si un programme existe déjà (généré OU manuel OU routine), afficher la vue programme
+  var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
+                   (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
+                   (db.routine && Object.keys(db.routine).length > 0);
+  if (hasProgram && !_pbState) {
     renderProgramBuilderView(container);
     return;
   }
@@ -5375,10 +5528,18 @@ function pbSaveManualProgram() {
     }
   });
   db.routine = routine;
-  // Also save the exercises for each day
+  // Aussi sauvegarder les exercices de chaque jour
   db.manualProgram = { dayNames: s.dayNames, dayExercises: s.dayExercises };
+  // Aussi sauvegarder dans routineExos pour que le bouton GO fonctionne
+  if (!db.routineExos) db.routineExos = {};
+  s.dayNames.forEach(function(dayName, i) {
+    if (i < allDays.length) {
+      db.routineExos[allDays[i]] = s.dayExercises[dayName] || [];
+    }
+  });
   _pbState = null;
-  saveDB();
+  saveDBNow();
+  console.log('Programme manuel sauvegardé:', { routine: db.routine, manualProgram: db.manualProgram, routineExos: db.routineExos });
   showToast('Programme sauvegardé !');
   renderProgramBuilder();
 }
@@ -5414,8 +5575,19 @@ function pbGenerateProgram() {
     showToast('Erreur lors de la génération');
   }
 
+  // Aussi sauvegarder les exercices par jour dans routineExos pour le bouton GO
+  if (db.generatedProgram) {
+    if (!db.routineExos) db.routineExos = {};
+    db.generatedProgram.forEach(function(d) {
+      if (!d.isRest && d.exercises) {
+        db.routineExos[d.day] = d.exercises.map(function(e) { return e.name || e; });
+      }
+    });
+  }
+
   _pbState = null;
-  saveDB();
+  saveDBNow();
+  console.log('Programme généré sauvegardé:', { routine: db.routine, generatedProgram: db.generatedProgram, routineExos: db.routineExos });
   showToast('Programme généré !');
   renderProgramBuilder();
 }
@@ -5427,7 +5599,7 @@ function renderProgramBuilderView(container) {
 
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
   h += '<div style="font-size:18px;font-weight:700;">Mon Programme</div>';
-  h += '<button onclick="_pbState=null;renderProgramBuilder();" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;">Modifier</button>';
+  h += '<button onclick="pbEditExisting();" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;">Modifier</button>';
   h += '</div>';
 
   // Afficher chaque jour
@@ -5459,12 +5631,36 @@ function renderProgramBuilderView(container) {
   container.innerHTML = h;
 }
 
+function pbEditExisting() {
+  // Entrer en mode édition manuelle à partir du programme existant
+  var routine = getRoutine();
+  var allDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  var dayNames = [];
+  var dayExercises = {};
+  allDays.forEach(function(day) {
+    var label = routine[day];
+    if (label && !/repos|😴/i.test(label)) {
+      dayNames.push(label);
+      // Récupérer les exercices existants
+      var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
+      if (!exos.length && db.generatedProgram) {
+        var gp = db.generatedProgram.find(function(p) { return p.day === day && !p.isRest; });
+        if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
+      }
+      dayExercises[label] = exos;
+    }
+  });
+  _pbState = { mode: 'manual', step: 3, days: dayNames.length || 4, split: 'custom', dayNames: dayNames, dayExercises: dayExercises };
+  renderProgramBuilder();
+}
+
 function pbResetProgram() {
-  if (!confirm('Réinitialiser le programme ?')) return;
+  if (!confirm('Réinitialiser le programme ? Tu pourras en créer un nouveau.')) return;
   db.generatedProgram = null;
   db.routine = null;
   db.manualProgram = null;
-  saveDB();
+  db.routineExos = null;
+  saveDBNow();
   _pbState = null;
   renderProgramBuilder();
 }
@@ -7081,6 +7277,86 @@ function fillSettingsFields() {
   _accDirty.records = true;
   _accDirty.keylifts = true;
   _accDirty.prog = true;
+}
+
+// ── Tier & Thèmes — rendu de la section statut ──
+function renderTierBadge(tier) {
+  if (tier === 'founder') return '<span class="badge-founder" style="background:var(--founder-gradient);color:var(--founder-text);padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;">FOUNDER</span>';
+  if (tier === 'early_adopter') return '<span style="background:rgba(199,199,204,0.2);color:#C7C7CC;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;">EARLY ADOPTER</span>';
+  return '';
+}
+
+function renderTierSection() {
+  // Déterminer le tier actuel
+  var tier = 'member';
+  if (db.isFounder || db.godMode) tier = 'founder';
+  else if (db.isEarlyAdopter) tier = 'early_adopter';
+  else if (db.user && db.user.tier) tier = db.user.tier;
+
+  var isFounder = tier === 'founder';
+  var isEA = tier === 'early_adopter' || isFounder;
+
+  // Section bienvenue
+  var welcomeEl = document.getElementById('tierWelcomeSection');
+  if (welcomeEl) {
+    var wh = '';
+    if (isFounder) {
+      wh = '<div style="text-align:center;padding:12px;background:linear-gradient(135deg,rgba(200,133,10,0.1),rgba(232,184,48,0.05));border-radius:12px;margin-bottom:12px;">';
+      wh += '<div style="font-size:28px;margin-bottom:4px;">👑</div>';
+      wh += '<div style="font-size:14px;font-weight:700;color:#E8B830;">Founder</div>';
+      wh += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">Accès complet à tous les thèmes et fonctionnalités exclusives.</div>';
+      wh += '</div>';
+    } else if (isEA) {
+      wh = '<div style="text-align:center;padding:12px;background:rgba(199,199,204,0.05);border-radius:12px;margin-bottom:12px;">';
+      wh += '<div style="font-size:28px;margin-bottom:4px;">⭐</div>';
+      wh += '<div style="font-size:14px;font-weight:700;color:#C7C7CC;">Early Adopter</div>';
+      wh += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">Merci de faire partie des premiers !</div>';
+      wh += '</div>';
+    } else {
+      wh = '<div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;margin-bottom:12px;">';
+      wh += '<div style="font-size:14px;color:var(--sub);">Membre</div>';
+      wh += '</div>';
+    }
+    welcomeEl.innerHTML = wh;
+  }
+
+  // Section badges tier
+  var badgesEl = document.getElementById('tierBadgesSection');
+  if (badgesEl) {
+    var bh = '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    bh += '<div style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;' + (isFounder ? 'background:var(--founder-gradient);color:var(--founder-text);' : 'background:rgba(255,255,255,0.05);color:var(--sub);opacity:0.4;') + '">Founder</div>';
+    bh += '<div style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;' + (isEA ? 'background:rgba(199,199,204,0.15);color:#C7C7CC;' : 'background:rgba(255,255,255,0.05);color:var(--sub);opacity:0.4;') + '">Early Adopter</div>';
+    bh += '</div>';
+    badgesEl.innerHTML = bh;
+  }
+
+  // Section thèmes
+  var themeEl = document.getElementById('themeSelector');
+  if (themeEl) {
+    var saved = localStorage.getItem('selectedTheme') || 'default';
+    var themes = [
+      { id: 'default', name: 'Bleu iOS', color: '#0A84FF', locked: false },
+      { id: 'silver', name: 'Silver', color: '#C7C7CC', locked: !isEA },
+      { id: 'gold', name: 'Gold', color: '#E8B830', locked: !isFounder }
+    ];
+    var th = '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    themes.forEach(function(t) {
+      var isActive = saved === t.id;
+      var clickable = !t.locked;
+      var style = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;cursor:' + (clickable ? 'pointer' : 'default') + ';';
+      style += 'background:' + (isActive ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)') + ';';
+      style += 'border:1px solid ' + (isActive ? t.color : 'rgba(255,255,255,0.06)') + ';';
+      style += t.locked ? 'opacity:0.35;' : '';
+      var onclick = clickable ? 'applyThemeWithCheck(\'' + t.id + '\');setTimeout(renderTierSection,200);' : '';
+      th += '<div style="' + style + '" onclick="' + onclick + '">';
+      th += '<div style="width:20px;height:20px;border-radius:50%;background:' + t.color + ';flex-shrink:0;"></div>';
+      th += '<div><div style="font-size:12px;font-weight:600;color:var(--text);">' + t.name + '</div>';
+      if (t.locked) th += '<div style="font-size:10px;color:var(--sub);">🔒 ' + (t.id === 'gold' ? 'Founder' : 'Early Adopter') + '</div>';
+      th += '</div></div>';
+    });
+    th += '</div>';
+    themeEl.innerHTML = th;
+  }
 }
 
 // ── Settings Profile Editor ──────────────────────────────────
@@ -9110,15 +9386,17 @@ function renderGoActiveView() {
   if (activeWorkout.restTimer && activeWorkout.restTimer.running) {
     var rt = activeWorkout.restTimer;
     var exoNameRest = rt.exoIndex >= 0 && rt.exoIndex < activeWorkout.exercises.length ? activeWorkout.exercises[rt.exoIndex].name : '';
+    var pct = rt.total > 0 ? Math.max(0, Math.round((1 - rt.remaining / rt.total) * 100)) : 0;
     h += '<div class="go-rest-timer">';
-    h += '<div class="go-rest-timer-title">⏱ Timer repos</div>';
+    h += '<div class="go-rest-timer-title">⏱ Repos</div>';
     h += '<div class="go-rest-timer-exo">' + exoNameRest + '</div>';
     h += '<div class="go-rest-timer-count" id="goRestDisplay">' + goFormatTime(rt.remaining) + '</div>';
-    h += '<div class="go-rest-timer-rec">Repos recommandé : ' + goFormatRestBadge(rt.total) + '</div>';
+    // Barre de progression
+    h += '<div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin:8px 0 10px;overflow:hidden;">';
+    h += '<div id="goRestProgress" style="height:100%;width:' + pct + '%;background:var(--green);border-radius:2px;transition:width 1s linear;"></div>';
+    h += '</div>';
     h += '<div class="go-rest-timer-btns">';
     h += '<button onclick="goAdjustRest(-15)">-15s</button>';
-    h += '<button onclick="goAdjustRest(-30)">-30s</button>';
-    h += '<button onclick="goAdjustRest(30)">+30s</button>';
     h += '<button onclick="goAdjustRest(15)">+15s</button>';
     h += '<button class="skip" onclick="goSkipRest()">Passer</button>';
     h += '</div></div>';
@@ -9165,9 +9443,17 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '<div style="position:absolute;right:8px;top:8px;z-index:2;">';
     h += '<button onclick="goToggleSuperset(' + exoIdx + ')" style="background:' + (isLinked ? 'var(--accent)' : 'var(--surface)') + ';border:1px solid ' + (isLinked ? 'var(--accent)' : 'var(--border)') + ';color:' + (isLinked ? '#fff' : 'var(--sub)') + ';padding:3px 8px;border-radius:6px;font-size:9px;cursor:pointer;">' + (isLinked ? '🔗 Superset' : '🔗') + '</button></div>';
   }
-  // Header
+  // Header avec miniature exercice
+  var _imgUrl = exo.exoId ? getExoImageUrl(exo.exoId, 0) : null;
   h += '<div class="go-exo-header">';
-  h += '<div class="go-exo-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+  if (_imgUrl) {
+    h += '<div class="exo-thumb" onclick="showExoDemo(\'' + (exo.exoId || '') + '\',\'' + exo.name.replace(/'/g, "\\'") + '\')">';
+    h += '<img src="' + _imgUrl + '" loading="lazy" alt="" onerror="this.parentNode.innerHTML=\'<div class=exo-thumb-placeholder>' + getExoPlaceholderIcon(exo.name) + '</div>\'">';
+    h += '</div>';
+  } else {
+    h += '<div class="exo-thumb" onclick="showExoDemo(\'\',\'' + exo.name.replace(/'/g, "\\'") + '\')">';
+    h += '<div class="exo-thumb-placeholder">' + getExoPlaceholderIcon(exo.name) + '</div></div>';
+  }
   h += '<div class="go-exo-info"><div class="go-exo-name">' + exo.name + '</div>';
   if (e1rm > 0) h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg ' + renderGlossaryTip('e1rm') + '</div>';
   h += '</div>';
@@ -9458,6 +9744,12 @@ function goStartRestTimer(seconds, exoIndex) {
     activeWorkout.restTimer.remaining--;
     var el = document.getElementById('goRestDisplay');
     if (el) el.textContent = goFormatTime(Math.max(0, activeWorkout.restTimer.remaining));
+    // Mise à jour de la barre de progression
+    var progEl = document.getElementById('goRestProgress');
+    if (progEl && activeWorkout.restTimer.total > 0) {
+      var pct = Math.max(0, Math.round((1 - activeWorkout.restTimer.remaining / activeWorkout.restTimer.total) * 100));
+      progEl.style.width = pct + '%';
+    }
     if (activeWorkout.restTimer.remaining <= 0) {
       try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
       // Notification sonore
@@ -9780,12 +10072,42 @@ function openSessionPhotoPicker(sessionId) {
   if (!session.photos) session.photos = [];
   if (session.photos.length >= 4) { showToast('Maximum 4 photos par séance'); return; }
 
+  var remaining = 4 - session.photos.length;
+
+  // Modal avec 2 options : caméra ou galerie
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'photoPickerOverlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '<div class="modal-box" style="max-width:300px;">';
+  h += '<p style="margin:0 0 14px;font-size:15px;font-weight:700;text-align:center;">Ajouter une photo</p>';
+  h += '<button onclick="_pickPhoto(\'' + sessionId + '\',true)" class="btn" style="margin-bottom:8px;">📷 Prendre une photo</button>';
+  h += '<button onclick="_pickPhoto(\'' + sessionId + '\',false)" class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text);margin-bottom:8px;">🖼️ Choisir dans la galerie</button>';
+  h += '<button onclick="document.getElementById(\'photoPickerOverlay\').remove();" class="btn" style="background:transparent;color:var(--sub);font-size:13px;">Annuler</button>';
+  h += '</div>';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _pickPhoto(sessionId, useCamera) {
+  var overlay = document.getElementById('photoPickerOverlay');
+  if (overlay) overlay.remove();
+
+  var session = db.logs.find(function(l) { return l.id === sessionId; });
+  if (!session) return;
+  var remaining = 4 - (session.photos || []).length;
+
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.multiple = true;
+  if (useCamera) {
+    input.capture = 'environment';
+  } else {
+    input.multiple = true;
+  }
   input.onchange = function() {
-    var files = Array.from(input.files).slice(0, 4 - session.photos.length);
+    var files = Array.from(input.files).slice(0, remaining);
     if (!files.length) return;
     processSessionPhotos(sessionId, files);
   };
@@ -10387,6 +10709,61 @@ function goEditRest(exoIdx) {
   goShowBottomSheet('Temps de repos', items);
 }
 
+// ── Démonstration exercice (plein écran, animation alternée) ──
+function showExoDemo(exoId, exoName) {
+  var data = exoId ? EXO_DATABASE[exoId] : null;
+  // Chercher par nom si pas trouvé par id
+  if (!data && exoName) {
+    for (var k in EXO_DATABASE) {
+      if (EXO_DATABASE[k].name === exoName) { data = EXO_DATABASE[k]; exoId = k; break; }
+    }
+  }
+
+  var img0 = exoId ? getExoImageUrl(exoId, 0) : null;
+  var img1 = exoId ? getExoImageUrl(exoId, 1) : null;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'exo-demo-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+  var h = '';
+  // Animation alternée des 2 images
+  if (img0 && img1) {
+    h += '<div class="exo-demo-anim">';
+    h += '<img src="' + img0 + '" alt="Position départ">';
+    h += '<img src="' + img1 + '" alt="Position fin">';
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:80px;margin-bottom:16px;">' + getExoPlaceholderIcon(exoName) + '</div>';
+  }
+
+  // Nom
+  h += '<div style="font-size:18px;font-weight:700;color:white;text-align:center;margin-bottom:8px;">' + (exoName || 'Exercice') + '</div>';
+
+  // Muscles
+  if (data) {
+    var muscles = '';
+    if (data.primaryMuscles && data.primaryMuscles.length) {
+      muscles += '<span style="color:var(--accent);font-weight:600;">' + data.primaryMuscles.join(', ') + '</span>';
+    }
+    if (data.secondaryMuscles && data.secondaryMuscles.length) {
+      muscles += ' <span style="color:var(--sub);">· ' + data.secondaryMuscles.join(', ') + '</span>';
+    }
+    if (muscles) h += '<div style="font-size:12px;text-align:center;margin-bottom:12px;">' + muscles + '</div>';
+
+    // Instructions
+    if (data.instructions) {
+      h += '<div style="max-width:340px;font-size:12px;color:rgba(255,255,255,0.7);line-height:1.7;text-align:left;white-space:pre-line;max-height:150px;overflow-y:auto;padding:10px;background:rgba(255,255,255,0.05);border-radius:10px;">' + data.instructions + '</div>';
+    }
+  }
+
+  // Bouton fermer
+  h += '<button onclick="this.closest(\'.exo-demo-overlay\').remove()" style="margin-top:16px;padding:12px 32px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:14px;font-weight:600;cursor:pointer;">Fermer</button>';
+
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
 function goShowInstructions(exoIdx) {
   var exo = activeWorkout.exercises[exoIdx];
   var data = exo.exoId ? EXO_DATABASE[exo.exoId] : null;
@@ -10749,8 +11126,16 @@ function goRenderSearchResults(query, filters) {
       recents.forEach(function(name) {
         var ms = _ecMuscleStyle(name);
         var e1rm = allE1RMs[name] ? allE1RMs[name].e1rm : 0;
-        h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + name.replace(/'/g, "\\'") + '\',null)">';
-        h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+        // Chercher l'id pour l'image
+        var _rExoId = null;
+        for (var _rk in EXO_DATABASE) { if (EXO_DATABASE[_rk].name === name) { _rExoId = _rk; break; } }
+        var _rImgUrl = _rExoId ? getExoImageUrl(_rExoId, 0) : null;
+        h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + name.replace(/'/g, "\\'") + '\',\'' + (_rExoId || '') + '\')">';
+        if (_rImgUrl) {
+          h += '<div class="go-search-item-icon" style="padding:0;"><img src="' + _rImgUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentNode.style.background=\'' + ms.bg + '\';this.parentNode.innerHTML=\'' + ms.icon + '\';"></div>';
+        } else {
+          h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+        }
         h += '<div class="go-search-item-info"><div class="go-search-item-name">' + name + '</div>';
         h += '<div class="go-search-item-sub">Récent</div></div>';
         if (e1rm > 0) h += '<div class="go-search-item-e1rm">' + Math.round(e1rm) + 'kg</div>';
@@ -10772,8 +11157,13 @@ function goRenderSearchResults(query, filters) {
     if (e.difficulty) { for (var ds = 1; ds <= e.difficulty; ds++) diffStars += '★'; }
     var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + (diffStars ? ' · ' + diffStars : '');
     var e1rm = allE1RMs[e.name] ? allE1RMs[e.name].e1rm : 0;
+    var _sImgUrl = e.id ? getExoImageUrl(e.id, 0) : null;
     h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + e.name.replace(/'/g, "\\'") + '\',\'' + (e.id || '') + '\')">';
-    h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+    if (_sImgUrl) {
+      h += '<div class="go-search-item-icon" style="padding:0;overflow:hidden;border-radius:10px;"><img src="' + _sImgUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.background=\'' + ms.bg + '\';this.parentNode.innerHTML=\'' + ms.icon + '\';"></div>';
+    } else {
+      h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+    }
     h += '<div class="go-search-item-info"><div class="go-search-item-name">' + e.name + '</div>';
     h += '<div class="go-search-item-sub">' + sub + '</div></div>';
     if (e1rm > 0) h += '<div class="go-search-item-e1rm">' + Math.round(e1rm) + 'kg</div>';

@@ -218,7 +218,24 @@ async function authSubmit() {
   } else {
     try {
       const { data, error } = await supaClient.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        // Message clair si le mdp est incorrect — peut-être un user magic link
+        if (error.message && error.message.includes('Invalid login')) {
+          showModal(
+            '<div style="text-align:center;">' +
+              '<div style="font-size:28px;margin-bottom:8px;">🔐</div>' +
+              '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">Email ou mot de passe incorrect</div>' +
+              '<div style="font-size:12px;color:var(--sub);line-height:1.6;">Tu t\'es peut-être inscrit avec un <strong>lien magique</strong> (sans mot de passe).<br><br>Essaie de te connecter avec un lien magique, ou réinitialise ton mot de passe.</div>' +
+            '</div>',
+            'Envoyer un lien magique',
+            'var(--accent)',
+            function() { sendMagicLink(email); },
+            'Fermer'
+          );
+          return;
+        }
+        throw error;
+      }
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
@@ -278,6 +295,21 @@ async function forgotPassword() {
     });
     if (error) throw error;
     showToast('Email de réinitialisation envoyé !');
+  } catch(e) { showToast(translateSupaError(e.message)); }
+}
+
+async function sendMagicLink(email) {
+  if (!email) {
+    email = document.getElementById('inputEmail').value.trim();
+  }
+  if (!email || !email.includes('@')) { showToast('Entre d\'abord ton email'); return; }
+  try {
+    const { error } = await supaClient.auth.signInWithOtp({
+      email: email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) throw error;
+    showToast('Lien magique envoyé ! Vérifie ta boîte mail.');
   } catch(e) { showToast(translateSupaError(e.message)); }
 }
 

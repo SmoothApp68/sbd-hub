@@ -6601,14 +6601,14 @@ function renderSeancesTab() {
       '<div class="sc-head" onclick="toggleSession(\'' + sessId + '\')">' +
       '<div class="sc-day-badge" style="background:rgba(191,90,242,0.12);color:var(--purple);">' +
         '<span class="d-name">' + dayShort + '</span><span class="d-num">' + dayNum + '</span></div>' +
-      '<div class="sc-info"><div class="sc-title">' + (session.title || 'Séance') + '</div>' +
+      '<div class="sc-info"><div class="sc-title">' + (session.title || 'Séance') + (session.edited ? ' <span style="font-size:9px;color:var(--sub);font-style:italic;">(modifié)</span>' : '') + '</div>' +
         '<div class="sc-meta">' + metaHtml + '</div></div>' +
       '<div class="sc-right"><div class="sc-vol">' + volStr + '<span>t</span></div></div>' +
       '</div>' +
       '<div class="sc-body" id="' + sessId + '">' +
         exoCards +
         '<div class="sc-session-actions" style="display:flex;gap:8px;padding:8px 0;">' +
-          '<button class="sc-delete-btn" style="flex:1;background:rgba(10,132,255,0.1);color:var(--blue);border:1px solid rgba(10,132,255,0.2);" onclick="editSessionName(db.logs.indexOf(db.logs.find(function(l){return l.id===\'' + session.id + '\'})))">✏️ Renommer</button>' +
+          '<button class="sc-delete-btn" style="flex:1;background:rgba(10,132,255,0.1);color:var(--blue);border:1px solid rgba(10,132,255,0.2);" onclick="openSessionEditor(\'' + session.id + '\')">✏️ Modifier</button>' +
           '<button class="sc-delete-btn" onclick="deleteSessionFromList(\'' + session.id + '\')">Supprimer</button>' +
         '</div>' +
       '</div></div>';
@@ -9500,18 +9500,325 @@ function goEditTitle() {
   }
 }
 
-// ── Modifier le nom d'une séance passée ──
-function editSessionName(logIndex) {
-  if (logIndex < 0 || logIndex >= db.logs.length) return;
-  var session = db.logs[logIndex];
-  var newName = prompt('Nouveau nom de la séance :', session.title || session.name || 'Séance');
-  if (newName !== null && newName.trim()) {
-    session.title = newName.trim();
-    if (session.name) session.name = newName.trim();
-    saveDB();
-    showToast('Nom modifié');
-    renderSeancesTab();
+// ============================================================
+// ÉDITEUR DE SÉANCE PASSÉE — plein écran
+// ============================================================
+var _editSession = null;   // copie de travail
+var _editSessionId = null; // id dans db.logs
+
+function openSessionEditor(sessionId) {
+  var session = db.logs.find(function(l) { return l.id === sessionId; });
+  if (!session) { showToast('Séance introuvable'); return; }
+
+  _editSessionId = sessionId;
+  // Copie profonde pour pouvoir annuler
+  _editSession = JSON.parse(JSON.stringify(session));
+
+  renderSessionEditor();
+}
+
+function renderSessionEditor() {
+  var s = _editSession;
+  if (!s) return;
+
+  // Supprimer l'overlay précédent s'il existe
+  var old = document.getElementById('sessionEditorOverlay');
+  if (old) old.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'sessionEditorOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;background:var(--bg-primary);overflow-y:auto;padding:15px 15px 120px;';
+
+  var dt = new Date(s.timestamp);
+  var dateVal = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  var timeVal = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+
+  var h = '';
+  // ── Header ──
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
+  h += '<button onclick="closeSessionEditor()" style="background:none;border:none;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;">← Annuler</button>';
+  h += '<div style="font-size:16px;font-weight:700;color:var(--text);">Modifier la séance</div>';
+  h += '<button onclick="saveSessionEdits()" style="background:var(--accent);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Enregistrer</button>';
+  h += '</div>';
+
+  // ── Titre ──
+  h += '<div class="card">';
+  h += '<label style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Titre</label>';
+  h += '<input type="text" id="seTitle" value="' + (s.title || '').replace(/"/g, '&quot;') + '" style="font-size:16px;font-weight:600;margin-top:4px;">';
+  h += '</div>';
+
+  // ── Date & Heure ──
+  h += '<div class="card">';
+  h += '<label style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Date & Heure</label>';
+  h += '<div style="display:flex;gap:8px;margin-top:4px;">';
+  h += '<input type="date" id="seDate" value="' + dateVal + '" style="flex:1;margin:0;">';
+  h += '<input type="time" id="seTime" value="' + timeVal + '" style="width:120px;margin:0;">';
+  h += '</div></div>';
+
+  // ── Notes de séance ──
+  h += '<div class="card">';
+  h += '<label style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Notes</label>';
+  h += '<textarea id="seNotes" rows="2" style="margin-top:4px;resize:vertical;" placeholder="Notes de séance...">' + (s.notes || '') + '</textarea>';
+  h += '</div>';
+
+  // ── Exercices ──
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px;">';
+  h += '<div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.5px;">' + s.exercises.length + ' Exercice' + (s.exercises.length > 1 ? 's' : '') + '</div>';
+  h += '<button onclick="seAddExercise()" style="background:var(--accent);border:none;color:white;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Ajouter</button>';
+  h += '</div>';
+
+  s.exercises.forEach(function(exo, ei) {
+    var sets = exo.allSets || exo.series || [];
+    h += '<div class="card" style="padding:12px;">';
+
+    // Exo header : nom + actions
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    h += '<input type="text" value="' + (exo.name || '').replace(/"/g, '&quot;') + '" onchange="_editSession.exercises[' + ei + '].name=this.value;" style="flex:1;margin:0;font-weight:700;font-size:14px;padding:8px 10px;">';
+    h += '<div style="display:flex;gap:4px;margin-left:6px;flex-shrink:0;">';
+    // Boutons monter/descendre/supprimer
+    if (ei > 0) h += '<button onclick="seMoveExo(' + ei + ',-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:11px;">↑</button>';
+    if (ei < s.exercises.length - 1) h += '<button onclick="seMoveExo(' + ei + ',1)" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:11px;">↓</button>';
+    h += '<button onclick="seRemoveExo(' + ei + ')" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.2);color:var(--red);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:11px;">✕</button>';
+    h += '</div></div>';
+
+    // Table des séries
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    h += '<thead><tr style="color:var(--sub);font-size:10px;text-transform:uppercase;">';
+    h += '<th style="text-align:left;padding:4px;width:40px;">Série</th>';
+    h += '<th style="text-align:center;padding:4px;">Poids</th>';
+    h += '<th style="text-align:center;padding:4px;">Reps</th>';
+    h += '<th style="text-align:center;padding:4px;width:50px;">RPE</th>';
+    h += '<th style="text-align:center;padding:4px;width:60px;">Type</th>';
+    h += '<th style="width:28px;"></th>';
+    h += '</tr></thead><tbody>';
+
+    sets.forEach(function(set, si) {
+      h += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">';
+      h += '<td style="padding:4px;color:var(--sub);font-weight:600;">' + (si + 1) + '</td>';
+      h += '<td style="padding:4px;"><input type="number" step="0.5" value="' + (set.weight || '') + '" onchange="seUpdateSet(' + ei + ',' + si + ',\'weight\',this.value)" style="width:100%;margin:0;padding:6px;font-size:13px;text-align:center;"></td>';
+      h += '<td style="padding:4px;"><input type="number" value="' + (set.reps || '') + '" onchange="seUpdateSet(' + ei + ',' + si + ',\'reps\',this.value)" style="width:100%;margin:0;padding:6px;font-size:13px;text-align:center;"></td>';
+      h += '<td style="padding:4px;"><input type="number" step="0.5" value="' + (set.rpe || '') + '" onchange="seUpdateSet(' + ei + ',' + si + ',\'rpe\',this.value)" style="width:100%;margin:0;padding:6px;font-size:13px;text-align:center;" placeholder="—"></td>';
+
+      var typeOpts = '<option value="normal"' + (set.setType === 'normal' || !set.setType ? ' selected' : '') + '>Normal</option>';
+      typeOpts += '<option value="warmup"' + (set.setType === 'warmup' ? ' selected' : '') + '>Échauff.</option>';
+      typeOpts += '<option value="drop"' + (set.setType === 'drop' ? ' selected' : '') + '>Drop</option>';
+      typeOpts += '<option value="failure"' + (set.setType === 'failure' ? ' selected' : '') + '>Échec</option>';
+      h += '<td style="padding:4px;"><select onchange="seUpdateSet(' + ei + ',' + si + ',\'setType\',this.value)" style="width:100%;margin:0;padding:4px;font-size:11px;">' + typeOpts + '</select></td>';
+
+      h += '<td style="padding:4px;text-align:center;"><button onclick="seRemoveSet(' + ei + ',' + si + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;">✕</button></td>';
+      h += '</tr>';
+    });
+
+    h += '</tbody></table>';
+    h += '<button onclick="seAddSet(' + ei + ')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;padding:6px 0;margin-top:4px;">+ Série</button>';
+    h += '</div>';
+  });
+
+  // ── Zone de danger ──
+  h += '<div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,69,58,0.2);">';
+  h += '<button onclick="seDeleteSession()" style="width:100%;padding:14px;background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">🗑️ Supprimer cette séance</button>';
+  h += '</div>';
+
+  overlay.innerHTML = '<div style="max-width:500px;margin:0 auto;">' + h + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function closeSessionEditor() {
+  _editSession = null;
+  _editSessionId = null;
+  var overlay = document.getElementById('sessionEditorOverlay');
+  if (overlay) overlay.remove();
+}
+
+function seUpdateSet(exoIdx, setIdx, field, value) {
+  var sets = _editSession.exercises[exoIdx].allSets || _editSession.exercises[exoIdx].series || [];
+  if (!sets[setIdx]) return;
+  if (field === 'weight' || field === 'reps' || field === 'rpe') {
+    sets[setIdx][field] = value === '' ? null : parseFloat(value);
+  } else {
+    sets[setIdx][field] = value;
   }
+}
+
+function seAddSet(exoIdx) {
+  var exo = _editSession.exercises[exoIdx];
+  var sets = exo.allSets || exo.series;
+  // Copier la dernière série comme base
+  var lastSet = sets.length > 0 ? JSON.parse(JSON.stringify(sets[sets.length - 1])) : { weight: 0, reps: 0, setType: 'normal', rpe: null };
+  lastSet.setType = 'normal';
+  sets.push(lastSet);
+  // Aussi mettre à jour series si c'est le tableau utilisé
+  if (!exo.allSets && exo.series) {
+    exo.series.push({ weight: lastSet.weight || 0, reps: lastSet.reps || 0, date: _editSession.timestamp });
+  }
+  renderSessionEditor();
+}
+
+function seRemoveSet(exoIdx, setIdx) {
+  var exo = _editSession.exercises[exoIdx];
+  if (exo.allSets) exo.allSets.splice(setIdx, 1);
+  if (exo.series) exo.series.splice(setIdx, 1);
+  renderSessionEditor();
+}
+
+function seMoveExo(exoIdx, direction) {
+  var target = exoIdx + direction;
+  if (target < 0 || target >= _editSession.exercises.length) return;
+  var exos = _editSession.exercises;
+  var temp = exos[exoIdx];
+  exos[exoIdx] = exos[target];
+  exos[target] = temp;
+  renderSessionEditor();
+}
+
+function seRemoveExo(exoIdx) {
+  if (!confirm('Supprimer cet exercice ?')) return;
+  _editSession.exercises.splice(exoIdx, 1);
+  renderSessionEditor();
+}
+
+function seAddExercise() {
+  var name = prompt('Nom de l\'exercice :');
+  if (!name || !name.trim()) return;
+  var newExo = {
+    name: name.trim(),
+    exoType: 'weight',
+    sets: 0, maxRM: 0, maxReps: 0, maxTime: 0,
+    totalReps: 0, distance: 0,
+    repRecords: {},
+    series: [{ weight: 0, reps: 0, date: _editSession.timestamp }],
+    allSets: [{ weight: 0, reps: 0, setType: 'normal', rpe: null }],
+    isCardio: false, isReps: false, isTime: false
+  };
+  _editSession.exercises.push(newExo);
+  renderSessionEditor();
+}
+
+function seDeleteSession() {
+  if (!confirm('Supprimer définitivement cette séance ?\nCette action est irréversible.')) return;
+  db.logs = db.logs.filter(function(l) { return l.id !== _editSessionId; });
+  saveDBNow();
+  recalcBestPR();
+  closeSessionEditor();
+  renderSeancesTab();
+  showToast('✓ Séance supprimée');
+}
+
+function saveSessionEdits() {
+  if (!_editSession || !_editSessionId) return;
+
+  // Lire les champs du formulaire
+  var titleEl = document.getElementById('seTitle');
+  var dateEl = document.getElementById('seDate');
+  var timeEl = document.getElementById('seTime');
+  var notesEl = document.getElementById('seNotes');
+
+  if (titleEl) _editSession.title = titleEl.value.trim() || 'Séance';
+  if (_editSession.name) _editSession.name = _editSession.title;
+  if (notesEl) _editSession.notes = notesEl.value.trim();
+
+  // Mettre à jour date/heure
+  if (dateEl && timeEl) {
+    var parts = dateEl.value.split('-');
+    var timeParts = timeEl.value.split(':');
+    if (parts.length === 3) {
+      var newDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
+                             parseInt(timeParts[0] || 12), parseInt(timeParts[1] || 0), 0);
+      _editSession.timestamp = newDate.getTime();
+      _editSession.date = newDate.toLocaleDateString('fr-FR');
+      _editSession.shortDate = String(newDate.getDate()).padStart(2, '0') + '/' + String(newDate.getMonth() + 1).padStart(2, '0');
+      _editSession.day = DAYS_FULL[newDate.getDay()];
+    }
+  }
+
+  // Recalculer le volume et les stats pour chaque exercice
+  var totalVolume = 0;
+  _editSession.exercises.forEach(function(exo) {
+    var sets = exo.allSets || [];
+    exo.sets = 0;
+    exo.maxRM = 0;
+    exo.repRecords = {};
+    exo.series = [];
+    var ts = _editSession.timestamp;
+    sets.forEach(function(s) {
+      var w = s.weight || 0;
+      var r = s.reps || 0;
+      var st = s.setType || 'normal';
+      var isWork = st !== 'warmup';
+
+      exo.series.push({ weight: w, reps: r, date: ts });
+
+      if (isWork) {
+        exo.sets++;
+        if (w > 0 && r > 0) {
+          totalVolume += w * r;
+          var rm = calcE1RM(w, r);
+          if (rm > exo.maxRM) { exo.maxRM = rm; exo.maxRMDate = ts; }
+          var rKey = String(r);
+          if (!exo.repRecords[rKey] || w > exo.repRecords[rKey]) exo.repRecords[rKey] = w;
+        }
+      }
+    });
+  });
+  _editSession.volume = totalVolume;
+  _editSession.edited = true;
+  _editSession.editedAt = Date.now();
+
+  // Remplacer dans db.logs
+  var idx = db.logs.findIndex(function(l) { return l.id === _editSessionId; });
+  if (idx >= 0) {
+    db.logs[idx] = _editSession;
+  }
+
+  saveDBNow();
+  recalcBestPR();
+
+  // Mettre à jour le feed social si possible
+  try {
+    if (typeof updateSessionActivity === 'function') {
+      updateSessionActivity(_editSession);
+    }
+  } catch(e) {}
+
+  closeSessionEditor();
+  renderSeancesTab();
+  showToast('✅ Séance modifiée');
+}
+
+// Mettre à jour un post social après modification
+async function updateSessionActivity(session) {
+  if (typeof supabase === 'undefined' || !supabase) return;
+  try {
+    var { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    // Trouver l'activité correspondante (même date + type session)
+    var { data: activities } = await supabase
+      .from('activities')
+      .select('id, data')
+      .eq('user_id', user.id)
+      .eq('type', 'session')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!activities) return;
+    var match = activities.find(function(a) {
+      return a.data && a.data.title === session.title &&
+             Math.abs((a.data.timestamp || 0) - session.timestamp) < 86400000;
+    });
+    if (!match) return;
+
+    // Mettre à jour les données
+    var newData = Object.assign({}, match.data, {
+      title: session.title,
+      volume: session.volume,
+      exercise_count: session.exercises.length,
+      exercises: session.exercises.map(function(e) {
+        return { name: e.name, sets: e.sets, maxRM: e.maxRM, allSets: e.allSets || e.series || [] };
+      }),
+      edited: true
+    });
+    await supabase.from('activities').update({ data: newData }).eq('id', match.id);
+  } catch(e) { console.warn('updateSessionActivity error:', e); }
 }
 
 // ── Supersets / Bisets / Trisets ──

@@ -1339,6 +1339,7 @@ function renderFeedCard(item, profiles, uid) {
     if (d.duration) stats.push(formatTime(d.duration));
     if (stats.length) body += ' · ' + stats.join(' · ');
     if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + d.top_set + '</span>';
+    if (d.edited) body += ' <span style="font-size:10px;color:var(--sub);font-style:italic;">(modifié)</span>';
     if (d.exercises && d.exercises.length) {
       // Check if enriched data exists (allSets present on at least one exercise)
       const hasEnrichedData = d.exercises.some(e => e.allSets && e.allSets.length);

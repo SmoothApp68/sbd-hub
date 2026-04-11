@@ -1340,6 +1340,15 @@ function renderFeedCard(item, profiles, uid) {
     if (stats.length) body += ' · ' + stats.join(' · ');
     if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + d.top_set + '</span>';
     if (d.edited) body += ' <span style="font-size:10px;color:var(--sub);font-style:italic;">(modifié)</span>';
+    // Photos de séance
+    if (d.photos && d.photos.length) {
+      body += '<div style="display:flex;gap:4px;margin-top:8px;overflow-x:auto;">';
+      d.photos.forEach(function(p) {
+        var src = p.url || p.dataUrl || '';
+        if (src) body += '<img src="' + src + '" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy">';
+      });
+      body += '</div>';
+    }
     if (d.exercises && d.exercises.length) {
       // Check if enriched data exists (allSets present on at least one exercise)
       const hasEnrichedData = d.exercises.some(e => e.allSets && e.allSets.length);
@@ -1653,6 +1662,9 @@ async function publishSessionActivity(logEntry) {
     };
   });
 
+  // Photos (URLs seulement, pas les dataUrl qui seraient trop lourdes)
+  var photoUrls = (logEntry.photos || []).filter(function(p) { return p.url; }).map(function(p) { return { url: p.url }; });
+
   await postToFeed('session', {
     title: logEntry.title || '',
     duration: logEntry.duration || 0,
@@ -1660,7 +1672,8 @@ async function publishSessionActivity(logEntry) {
     exercise_count: enrichedExercises.length,
     top_set: topSet,
     date: sessionDate,
-    exercises: enrichedExercises
+    exercises: enrichedExercises,
+    photos: photoUrls.length > 0 ? photoUrls : undefined
   }, { dedupKey: { date: sessionDate } });
 }
 

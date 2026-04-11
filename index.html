@@ -1382,7 +1382,7 @@
   <!-- LOGIN SCREEN -->
   <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0C0C18;background-image:linear-gradient(170deg, #111128 0%, #0C0C18 40%);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
     <div style="text-align:center;width:100%;max-width:340px;">
-      <div style="font-size:48px;margin-bottom:12px;">🦍</div>
+      <div id="loginGorilla" style="font-size:48px;margin-bottom:12px;cursor:default;-webkit-user-select:none;user-select:none;">🦍</div>
       <div style="font-size:24px;font-weight:700;color:#F0F0FF;margin-bottom:4px;">SBD Elite Tracker</div>
       <div style="font-size:13px;color:#7878A8;margin-bottom:32px;">Connecte-toi pour synchroniser tes données</div>
 
@@ -2486,8 +2486,8 @@
     <!-- Stats Admin -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
       <div class="gm-stat-box"><div class="gm-stat-val" id="gmTotalUsers">—</div><div class="gm-stat-label">Utilisateurs</div></div>
-      <div class="gm-stat-box"><div class="gm-stat-val" id="gmTotalSessions">—</div><div class="gm-stat-label">Séances</div></div>
       <div class="gm-stat-box"><div class="gm-stat-val" id="gmActiveUsers">—</div><div class="gm-stat-label">Actifs (7j)</div></div>
+      <div class="gm-stat-box"><div class="gm-stat-val" id="gmNewUsers">—</div><div class="gm-stat-label">Nouveaux (30j)</div></div>
       <div class="gm-stat-box"><div class="gm-stat-val" id="gmSpecialUsers">—</div><div class="gm-stat-label">Founders/EA</div></div>
     </div>
 
@@ -2634,41 +2634,72 @@ async function syncOfflineQueue(queue) {
 // GOD MODE — Admin Panel
 // ═══════════════════════════════════════════
 
-let _gmPressTimer = null;
+const ADMIN_EMAIL = 'aurelien.cofypro@gmail.com';
+let _gmTapCount = 0;
+let _gmTapTimer = null;
 
-// Long press on app title to open God Mode
+function _gmHandleTap() {
+  _gmTapCount++;
+  clearTimeout(_gmTapTimer);
+  _gmTapTimer = setTimeout(() => { _gmTapCount = 0; }, 2500);
+  if (_gmTapCount >= 7) {
+    _gmTapCount = 0;
+    clearTimeout(_gmTapTimer);
+    _tryActivateGodMode();
+  }
+}
+
+// 7-tap activation on login gorilla + dashboard title
 document.addEventListener('DOMContentLoaded', () => {
-  // Try to find a title-like element in the dashboard header
   setTimeout(() => {
+    // Login screen gorilla
+    const gorilla = document.getElementById('loginGorilla');
+    if (gorilla) gorilla.addEventListener('click', _gmHandleTap);
+    // Dashboard title
     const titleEl = document.querySelector('#tab-dash .header-card h2') || document.querySelector('#perfCard h2');
     if (titleEl) {
-      titleEl.addEventListener('touchstart', () => { _gmPressTimer = setTimeout(openGodMode, 3000); });
-      titleEl.addEventListener('touchend', () => clearTimeout(_gmPressTimer));
-      titleEl.addEventListener('mousedown', () => { _gmPressTimer = setTimeout(openGodMode, 3000); });
-      titleEl.addEventListener('mouseup', () => clearTimeout(_gmPressTimer));
-      titleEl.addEventListener('mouseleave', () => clearTimeout(_gmPressTimer));
+      titleEl.style.cursor = 'default';
+      titleEl.addEventListener('click', _gmHandleTap);
     }
   }, 2000);
 
-  // Hash-based access
-  if (window.location.hash === '#admin') openGodMode();
+  // Hash-based access (kept for convenience)
+  if (window.location.hash === '#admin') _tryActivateGodMode();
 });
 
 window.addEventListener('hashchange', () => {
-  if (window.location.hash === '#admin') openGodMode();
+  if (window.location.hash === '#admin') _tryActivateGodMode();
 });
 
-async function openGodMode() {
-  if (typeof supabase === 'undefined' || !supabase) { showToast('⛔ Supabase non initialisé'); return; }
+async function _tryActivateGodMode() {
+  if (typeof supabase === 'undefined' || !supabase) return;
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { showToast('⛔ Non connecté'); return; }
+    if (!user || !user.email) return; // No feedback for non-admin
+    if (user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) return; // Silent fail
+    // Check is_admin in Supabase (server-side verification)
     const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
-    if (!profile || !profile.is_admin) { showToast('⛔ Accès refusé'); return; }
-    document.getElementById('godModePanel').style.display = 'block';
-    document.getElementById('mainTabBar').style.display = 'none';
-    loadGodModeData();
-  } catch(e) { showToast('⛔ Erreur: ' + e.message); }
+    if (!profile || !profile.is_admin) return;
+    // Activate God Mode
+    db.godMode = true;
+    db.isFounder = true;
+    db.isEarlyAdopter = true;
+    saveDB();
+    showToast('🦍 God Mode activé');
+    // Sync founder status to Supabase
+    try {
+      await supabase.from('profiles').update({ tier: 'founder', tier_awarded_at: new Date().toISOString() }).eq('id', user.id);
+    } catch(e) {}
+    // Show admin panel
+    openGodMode();
+  } catch(e) {}
+}
+
+function openGodMode() {
+  if (!db.godMode) return;
+  document.getElementById('godModePanel').style.display = 'block';
+  document.getElementById('mainTabBar').style.display = 'none';
+  loadGodModeData();
 }
 
 function closeGodMode() {
@@ -2689,14 +2720,15 @@ async function loadGodModeData() {
   try {
     // Stats
     const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-    const { count: totalSessions } = await supabase.from('sbd_profiles').select('*', { count: 'exact', head: true });
     const oneWeekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+    const oneMonthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
     const { count: activeUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('last_login', oneWeekAgo);
+    const { count: newUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', oneMonthAgo);
     const { count: specialUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).in('tier', ['founder', 'early_adopter']);
 
     document.getElementById('gmTotalUsers').textContent = totalUsers || 0;
-    document.getElementById('gmTotalSessions').textContent = totalSessions || 0;
     document.getElementById('gmActiveUsers').textContent = activeUsers || 0;
+    document.getElementById('gmNewUsers').textContent = newUsers || 0;
     document.getElementById('gmSpecialUsers').textContent = specialUsers || 0;
 
     // Load users list
@@ -2708,18 +2740,20 @@ async function loadGodModeData() {
 
 async function loadGMUsers() {
   try {
-    const { data: users } = await supabase.from('profiles').select('id, username, friend_code, last_login, tier').order('id');
+    const { data: users } = await supabase.from('profiles').select('id, username, friend_code, last_login, tier, created_at').order('created_at', { ascending: false });
     if (!users) { document.getElementById('gmUsersList').innerHTML = '<div style="color:#7878A8;">Aucun utilisateur</div>'; return; }
-    let html = '';
+    let html = '<div style="font-size:11px;color:#7878A8;margin-bottom:8px;">' + users.length + ' utilisateurs</div>';
     for (const u of users) {
       const lastSeen = u.last_login ? timeAgo(u.last_login) : 'jamais';
+      const created = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—';
+      const tierBadge = u.tier === 'founder' ? ' 🥇' : (u.tier === 'early_adopter' ? ' 🥈' : '');
       html += '<div class="gm-user-card">' +
         '<div class="gm-user-info">' +
-          '<div class="gm-user-email">' + (u.username || u.id.slice(0,8)) + '</div>' +
-          '<div class="gm-user-meta">Vu ' + lastSeen + (u.friend_code ? ' · Code: ' + u.friend_code : '') + '</div>' +
+          '<div class="gm-user-email">' + (u.username || u.id.slice(0,8)) + tierBadge + '</div>' +
+          '<div class="gm-user-meta">Inscrit ' + created + ' · Vu ' + lastSeen + '</div>' +
         '</div>' +
         '<select class="gm-tier-select" onchange="updateUserTier(\'' + u.id + '\', this.value)">' +
-          '<option value="member"' + (u.tier==='member'?' selected':'') + '>Member</option>' +
+          '<option value="member"' + (u.tier==='member'||!u.tier?' selected':'') + '>Member</option>' +
           '<option value="early_adopter"' + (u.tier==='early_adopter'?' selected':'') + '>Early Adopter</option>' +
           '<option value="founder"' + (u.tier==='founder'?' selected':'') + '>Founder</option>' +
         '</select>' +

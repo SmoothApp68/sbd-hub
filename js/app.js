@@ -4169,7 +4169,9 @@ function renderDaySelector() {
 }
 
 function renderDayExercises(day) {
-  const c = document.getElementById('trainingLogs');
+  selectedDay = day; // s'assurer que selectedDay est mis à jour
+  const c = document.getElementById('dayExercisesContainer') || document.getElementById('trainingLogs');
+  if (!c) return;
   const progNames = getProgExosForDay(day);
 
   // ── Repos ────────────────────────────────────────────────────
@@ -4184,6 +4186,7 @@ function renderDayExercises(day) {
       '<div style="font-size:14px;font-weight:600;color:var(--text);">Repos complet</div>' +
       '<div style="font-size:12px;margin-top:4px;">Récupération & adaptation</div>' +
       '</div>';
+    if (typeof renderDaySelector === 'function') renderDaySelector();
     return;
   }
 
@@ -5975,7 +5978,7 @@ function showStatsSub(id, btn) {
   activeStatsSub = id;
   // Deactivate all stats sub-sections in both tab-stats and tab-profil-stats
   document.querySelectorAll('#tab-stats .stats-sub-section, #tab-profil-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.stats-sub-pill').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-stats .stats-sub-pill').forEach(el => el.classList.remove('active'));
   // Activate in tab-stats
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
@@ -5983,7 +5986,7 @@ function showStatsSub(id, btn) {
   const profilSec = document.getElementById('profil-' + id);
   if (profilSec) profilSec.classList.add('active');
   if (btn) btn.classList.add('active');
-  else { document.querySelectorAll('.stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
+  else { document.querySelectorAll('#tab-stats .stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
   if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
   if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
@@ -6499,6 +6502,11 @@ function toggleCorpsAcc(id) {
   body.classList.toggle('open');
   const chev = document.getElementById('chev-' + id);
   if (chev) chev.classList.toggle('open', body.classList.contains('open'));
+
+  // Rendu lazy du profil social à l'ouverture de l'accordéon
+  if (id === 'ca-social-profile' && body.classList.contains('open')) {
+    if (typeof renderSocialProfileCard === 'function') renderSocialProfileCard();
+  }
 }
 
 function renderCorpsTab() {
@@ -7223,6 +7231,10 @@ function renderTierBadge(tier) {
   return '';
 }
 
+function isCreator() {
+  return db.user.name === 'Aurélien' || db.user.isCreator === true;
+}
+
 function renderTierSection() {
   // Déterminer le tier actuel
   var tier = 'member';
@@ -7230,7 +7242,7 @@ function renderTierSection() {
   else if (db.isEarlyAdopter) tier = 'early_adopter';
   else if (db.user && db.user.tier) tier = db.user.tier;
 
-  var isFounder = tier === 'founder';
+  var isFounder = tier === 'founder' || isCreator();
   var isEA = tier === 'early_adopter' || isFounder;
 
   // Section bienvenue
@@ -11535,6 +11547,10 @@ function goFinishWorkout() {
     var _sesWeekStart = getWeekStart(_sesTs);
     var _weekDiff = Math.round((_sesWeekStart - _thisWeekStart) / (7 * 86400000));
     currentWeekOffset = _weekDiff;
+    // Forcer le re-render si l'onglet séances est visible
+    if (activeSeancesSub === 'seances-list') {
+      renderSeancesTab();
+    }
   } catch(e) {}
 
   // Force render all key views — refreshUI() only renders the active sub-tab

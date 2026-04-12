@@ -569,7 +569,7 @@ function showSocialSub(subId, btn) {
 
 async function initSocialTab() {
   if (!supaClient || !cloudSyncEnabled) {
-    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
+    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">🔒</div><div class="feed-empty-title">Accès réservé aux membres</div><div class="feed-empty-sub">Crée un compte gratuit pour accéder au module social.</div><button class="btn" style="max-width:200px;margin:16px auto 0;" onclick="showLoginScreen()">Se connecter</button></div>';
     return;
   }
   const uid = await getMyUserIdAsync();

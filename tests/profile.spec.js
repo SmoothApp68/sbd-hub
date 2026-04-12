@@ -19,11 +19,11 @@ test.describe('Profile Tab', () => {
   });
 
   test('clicking each sub-tab shows content', async ({ page }) => {
+    // Note: "Amis" redirects to Social tab, so we test it separately
     const subTabSelectors = [
       { text: 'Corps', id: 'tab-corps' },
       { text: 'Stats', id: 'tab-profil-stats' },
       { text: 'Badges', id: 'tab-profil-badges' },
-      { text: 'Amis', id: 'tab-profil-friends' },
       { text: 'Réglages', id: 'tab-settings' },
     ];
 
@@ -33,6 +33,11 @@ test.describe('Profile Tab', () => {
       const section = page.locator(`#${sub.id}`);
       await expect(section).toHaveClass(/active/, { timeout: 3000 });
     }
+
+    // Amis redirects to the Social > Friends tab
+    const amisPill = page.locator('#tab-profil .stats-sub-pill', { hasText: 'Amis' });
+    await amisPill.click();
+    await expect(page.locator('#tab-social')).toHaveClass(/active/, { timeout: 3000 });
   });
 
   test('Réglages > "Statut & Thèmes" accordion exists', async ({ page }) => {

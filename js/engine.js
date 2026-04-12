@@ -229,6 +229,8 @@ function clearCaches() {
   _cache.sbdType.clear(); _cache.exoDay.clear();
   _cache._sortedLogs = null;
   _cache._version++;
+  // Mark settings accordions as dirty so they re-render on next open
+  if (typeof _accDirty !== 'undefined') { _accDirty.records = true; _accDirty.keylifts = true; _accDirty.prog = true; }
 }
 function getSortedLogs() {
   if (!_cache._sortedLogs) _cache._sortedLogs = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);

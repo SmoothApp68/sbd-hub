@@ -1634,36 +1634,28 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
-  // Afficher les stats dans le profil (réutilise le contenu de tab-stats)
+  // Afficher les stats dans le profil — copier le HTML sans déplacer les nœuds
   if (id === 'tab-profil-stats') {
     var container = document.getElementById('profil-stats-content');
     var statsEl = document.getElementById('tab-stats');
     if (container && statsEl) {
-      // Déplacer le contenu de tab-stats dans le conteneur du profil
-      while (container.firstChild) container.removeChild(container.firstChild);
-      Array.from(statsEl.children).forEach(function(child) { container.appendChild(child); });
+      container.innerHTML = statsEl.innerHTML;
     }
     showStatsSub(activeStatsSub, document.querySelector('#tab-profil-stats .stats-sub-pill.active'));
   }
-  // Afficher les badges dans le profil (réutilise le contenu de tab-game)
+  // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
+    if (typeof renderGamificationTab === 'function') renderGamificationTab();
     var badgesContainer = document.getElementById('profil-badges-content');
     var gameEl = document.getElementById('tab-game');
     if (badgesContainer && gameEl) {
-      while (badgesContainer.firstChild) badgesContainer.removeChild(badgesContainer.firstChild);
-      Array.from(gameEl.children).forEach(function(child) { badgesContainer.appendChild(child); });
+      badgesContainer.innerHTML = gameEl.innerHTML;
     }
-    if (typeof renderGamificationTab === 'function') renderGamificationTab();
   }
-  // Afficher les amis dans le profil (réutilise le contenu social-friends)
+  // Afficher les amis dans le profil — naviguer vers Feed > Friends
   if (id === 'tab-profil-friends') {
-    var friendsContainer = document.getElementById('profil-friends-content');
-    var socialFriends = document.getElementById('social-friends');
-    if (friendsContainer && socialFriends) {
-      while (friendsContainer.firstChild) friendsContainer.removeChild(friendsContainer.firstChild);
-      Array.from(socialFriends.children).forEach(function(child) { friendsContainer.appendChild(child); });
-    }
-    if (typeof initSocialTab === 'function') initSocialTab();
+    showTab('tab-social');
+    if (typeof showSocialSub === 'function') showSocialSub('social-friends');
   }
 }
 
@@ -11614,7 +11606,10 @@ function goFinishWorkout() {
 
   showToast('✅ Séance sauvegardée');
   renderGoTab();
-  refreshUI();
+  // Force render all key views — refreshUI() only renders the active sub-tab
+  // which is still 'seances-go' at this point
+  renderSeancesTab();
+  renderDash();
 
   // Social: clear training status
   try { setTrainingStatus(false); } catch(e) {}

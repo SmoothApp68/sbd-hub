@@ -77,6 +77,7 @@ function createSession(title, ts) {
     shortDate:  String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'),
     day:        DAYS_FULL[d.getDay()],
     title:      title || 'Séance',
+    type:       '',       // ex: 'GO', 'Import', etc.
     volume:     0,        // kg×reps — calculé par finalizeSessionFromSeries()
     duration:   0,        // secondes — à remplir par le journal (timer)
     exercises:  []
@@ -93,6 +94,7 @@ function createExercise(name) {
   return {
     name,
     exoType,
+    muscleGroup: getMuscleGroup(name),
     sets:        0,
     maxRM:       0,   maxRMDate:    null,
     maxReps:     0,   maxRepsDate:  null,

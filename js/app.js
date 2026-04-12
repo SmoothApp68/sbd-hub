@@ -5985,8 +5985,8 @@ function showStatsSub(id, btn) {
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
   else { document.querySelectorAll('#tab-stats .stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
-  if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
-  if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
+  if (id === 'stats-volume') { renderReports('week'); requestAnimationFrame(() => renderVolumeChart('week')); }
+  if (id === 'stats-muscles') { renderRadarImproved('week'); requestAnimationFrame(() => renderMuscleChart('week')); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
   if (id === 'stats-cardio') { renderCardioStats(); }
 }

@@ -1666,11 +1666,6 @@ function showProfilSub(id, btn) {
       badgesContainer.innerHTML = gameEl.innerHTML;
     }
   }
-  // Afficher les amis dans le profil — naviguer vers Feed > Friends
-  if (id === 'tab-profil-friends') {
-    showTab('tab-social');
-    if (typeof showSocialSub === 'function') showSocialSub('social-friends');
-  }
 }
 
 var _lastTabIndex = 0;

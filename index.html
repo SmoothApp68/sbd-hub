@@ -1936,7 +1936,7 @@
       </div>
     </div>
     <div id="stats-cardio" class="stats-sub-section">
-      <div class="card"><h2>🏃 Cardio</h2><div id="cardioStatsContent"><div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Chargement...</div></div></div>
+      <div class="card"><h2>🏃 Cardio</h2><div id="cardioStatsContent"><div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Aucune session cardio détectée.</div></div></div>
     </div>
   </div>
   <div id="tab-profil" class="content-section">
@@ -1954,7 +1954,7 @@
         <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(50,215,75,0.1);">⚡</div><div><div class="corps-acc-info">Score de Forme <span onclick="event.stopPropagation();document.getElementById('formeScoreTooltip').style.display=document.getElementById('formeScoreTooltip').style.display==='block'?'none':'block';" style="cursor:pointer;font-size:13px;color:var(--sub);vertical-align:middle;margin-left:4px;">&#9432;</span></div><div class="corps-acc-sub" id="formeScoreTag"></div></div></div>
         <span class="corps-acc-chev" id="chev-ca-forme">▾</span>
       </div>
-      <div class="corps-acc-body open" id="ca-forme"><div class="corps-acc-inner" id="formeScoreContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Chargement...</div></div>
+      <div class="corps-acc-body open" id="ca-forme"><div class="corps-acc-inner" id="formeScoreContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">—</div></div>
         <div id="formeScoreTooltip" style="display:none;padding:12px 16px;background:var(--surface);border-radius:10px;margin:8px 12px;font-size:11px;line-height:1.7;color:var(--sub);border:1px solid rgba(255,255,255,0.08);">
           <strong style="color:var(--text);font-size:12px;">Composantes du score :</strong><br>
           <span style="color:var(--green);">Régularité</span> (25pts) — Séances réalisées vs jours planifiés<br>
@@ -1972,7 +1972,7 @@
         <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(191,90,242,0.1);">🔋</div><div class="corps-acc-info">Charge d'Entraînement</div></div>
         <span class="corps-acc-chev" id="chev-ca-load">▾</span>
       </div>
-      <div class="corps-acc-body" id="ca-load"><div class="corps-acc-inner" id="trainingLoadContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Chargement...</div></div></div>
+      <div class="corps-acc-body" id="ca-load"><div class="corps-acc-inner" id="trainingLoadContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">—</div></div></div>
     </div>
 
     <!-- 2b. Heatmap de récupération musculaire -->
@@ -2315,7 +2315,7 @@
 
   </div><!-- /tab-settings -->
 
-  <!-- Stats sub-section (moved from main tab-stats) -->
+  <!-- Stats sub-section (rendered from tab-stats) -->
   <div id="tab-profil-stats" class="profil-sub-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showStatsSub('stats-volume',this)">📊 Volume</button>
@@ -2323,7 +2323,10 @@
       <button class="stats-sub-pill" onclick="showStatsSub('stats-records',this)">🏆 Records</button>
       <button class="stats-sub-pill" onclick="showStatsSub('stats-cardio',this)">🏃 Cardio</button>
     </div>
-    <div id="profil-stats-content"></div>
+    <div id="profil-stats-volume" class="stats-sub-section active"></div>
+    <div id="profil-stats-muscles" class="stats-sub-section"></div>
+    <div id="profil-stats-records" class="stats-sub-section"></div>
+    <div id="profil-stats-cardio" class="stats-sub-section"></div>
   </div>
 
   <!-- Badges sub-section -->

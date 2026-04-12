@@ -1634,14 +1634,18 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
-  // Afficher les stats dans le profil — copier le HTML sans déplacer les nœuds
+  // Afficher les stats dans le profil — copier le contenu de chaque sous-section
   if (id === 'tab-profil-stats') {
-    var container = document.getElementById('profil-stats-content');
-    var statsEl = document.getElementById('tab-stats');
-    if (container && statsEl) {
-      container.innerHTML = statsEl.innerHTML;
-    }
-    showStatsSub(activeStatsSub, document.querySelector('#tab-profil-stats .stats-sub-pill.active'));
+    ['volume', 'muscles', 'records', 'cardio'].forEach(function(sub) {
+      var src = document.getElementById('stats-' + sub);
+      var dst = document.getElementById('profil-stats-' + sub);
+      if (src && dst) dst.innerHTML = src.innerHTML;
+    });
+    // Sync active state from pills
+    var activeSub = activeStatsSub || 'stats-volume';
+    document.querySelectorAll('#tab-profil-stats .stats-sub-section').forEach(function(el) { el.classList.remove('active'); });
+    var target = document.getElementById('profil-' + activeSub);
+    if (target) target.classList.add('active');
   }
   // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
@@ -5968,7 +5972,8 @@ function generateCoachAlgoMessage() {
   // ── Bloc en cours ──
   const currentBloc = db.weeklyPlan?.week || null;
   const level = db.user.level || 'intermediaire';
-  const blocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][currentBloc] : null;
+  var blocP = null;
+  try { blocP = BLOC_PARAMS && BLOC_PARAMS[level] ? BLOC_PARAMS[level][currentBloc] : null; } catch(e) {}
   if (currentBloc && blocP) {
     let blocHtml = '<div class="ai-section-title">📅 BLOC EN COURS</div>';
     blocHtml += `Semaine ${currentBloc} — <span class="ai-highlight blue">${blocP.label || 'Progression linéaire'}</span><br>`;
@@ -6060,16 +6065,23 @@ function generateCoachAlgoMessage() {
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
-  document.querySelectorAll('.stats-sub-section').forEach(el => el.classList.remove('active'));
+  // Deactivate all stats sub-sections in both tab-stats and tab-profil-stats
+  document.querySelectorAll('#tab-stats .stats-sub-section, #tab-profil-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.stats-sub-pill').forEach(el => el.classList.remove('active'));
+  // Activate in tab-stats
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
+  // Also activate mirror in profil-stats
+  const profilSec = document.getElementById('profil-' + id);
+  if (profilSec) profilSec.classList.add('active');
   if (btn) btn.classList.add('active');
-  else { const pill = document.querySelector('.stats-sub-pill[onclick*="' + id + '"]'); if (pill) pill.classList.add('active'); }
+  else { document.querySelectorAll('.stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
   if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
   if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
   if (id === 'stats-cardio') { renderCardioStats(); }
+  // Copy fresh content to profil mirror
+  if (sec && profilSec) profilSec.innerHTML = sec.innerHTML;
 }
 
 // ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────
@@ -6272,7 +6284,8 @@ function calcFormScore() {
   // Seuils ajustés au bloc en cours
   const _fLevel = db.user.level || 'intermediaire';
   const _fWeek = db.weeklyPlan?.week || null;
-  const _fBlocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[_fLevel]) ? BLOC_PARAMS[_fLevel][_fWeek] : null;
+  var _fBlocP = null;
+  try { _fBlocP = BLOC_PARAMS && BLOC_PARAMS[_fLevel] ? BLOC_PARAMS[_fLevel][_fWeek] : null; } catch(e) {}
   let acwrIdeal = { low: 0.8, high: 1.3 };
   if (_fBlocP && _fBlocP.label) {
     if (_fBlocP.label.includes('Accumulation')) acwrIdeal = { low: 1.0, high: 1.5 };
@@ -6653,14 +6666,14 @@ function renderCorpsTab() {
       const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);pEl.innerHTML=plateaux.map(p=>`<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`).join('');
     } else { pEl.innerHTML = ''; }
   }
-  const cEl=document.getElementById('coachAlgoContent');if(cEl)cEl.innerHTML=generateCoachAlgoMessage();
-  // Nouvelles sections
-  renderFormeScore();
-  renderTrainingLoad();
-  renderWeightTrend();
-  renderMacroHistory();
-  renderBodyWeightChart(bwHistory);
-  renderMuscleHeatmap();
+  try { const cEl=document.getElementById('coachAlgoContent');if(cEl)cEl.innerHTML=generateCoachAlgoMessage(); } catch(e) { console.warn('Coach algo render failed:', e); }
+  // Nouvelles sections — each wrapped in try/catch so one failure doesn't block others
+  try { renderFormeScore(); } catch(e) { const _e=document.getElementById('formeScoreContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
+  try { renderTrainingLoad(); } catch(e) { const _e=document.getElementById('trainingLoadContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
+  try { renderWeightTrend(); } catch(e) {}
+  try { renderMacroHistory(); } catch(e) {}
+  try { renderBodyWeightChart(bwHistory); } catch(e) {}
+  try { renderMuscleHeatmap(); } catch(e) { const _e=document.getElementById('muscleHeatmapContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
 }
 function renderBodyWeightChart(entries) {
   const el = document.getElementById('chartBodyWeight');
@@ -7260,7 +7273,7 @@ function updateNutriTargets() {
 // ACCORDÉON RÉGLAGES
 // ============================================================
 // Lazy-render flags for heavy accordion content
-const _accDirty = { records: true, keylifts: true, prog: true };
+var _accDirty = { records: true, keylifts: true, prog: true };
 
 function toggleAcc(id) {
   const body = document.getElementById(id);
@@ -7700,8 +7713,8 @@ function renderCoachAlgoAI() {
 // ============================================================
 // COACH TAB — Briefing, Post-Session, Weekly Report
 // ============================================================
-let _coachSelectedDay = null;
-let _activeCoachSub = 'coach-today';
+var _coachSelectedDay = null;
+var _activeCoachSub = 'coach-today';
 
 function renderCoachTab() {
   if (new Date().getDay() === 1) generateWeeklyReport();

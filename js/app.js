@@ -5968,7 +5968,8 @@ function generateCoachAlgoMessage() {
   // ── Bloc en cours ──
   const currentBloc = db.weeklyPlan?.week || null;
   const level = db.user.level || 'intermediaire';
-  const blocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[level]) ? BLOC_PARAMS[level][currentBloc] : null;
+  var blocP = null;
+  try { blocP = BLOC_PARAMS && BLOC_PARAMS[level] ? BLOC_PARAMS[level][currentBloc] : null; } catch(e) {}
   if (currentBloc && blocP) {
     let blocHtml = '<div class="ai-section-title">📅 BLOC EN COURS</div>';
     blocHtml += `Semaine ${currentBloc} — <span class="ai-highlight blue">${blocP.label || 'Progression linéaire'}</span><br>`;
@@ -6272,7 +6273,8 @@ function calcFormScore() {
   // Seuils ajustés au bloc en cours
   const _fLevel = db.user.level || 'intermediaire';
   const _fWeek = db.weeklyPlan?.week || null;
-  const _fBlocP = (typeof BLOC_PARAMS !== 'undefined' && BLOC_PARAMS[_fLevel]) ? BLOC_PARAMS[_fLevel][_fWeek] : null;
+  var _fBlocP = null;
+  try { _fBlocP = BLOC_PARAMS && BLOC_PARAMS[_fLevel] ? BLOC_PARAMS[_fLevel][_fWeek] : null; } catch(e) {}
   let acwrIdeal = { low: 0.8, high: 1.3 };
   if (_fBlocP && _fBlocP.label) {
     if (_fBlocP.label.includes('Accumulation')) acwrIdeal = { low: 1.0, high: 1.5 };
@@ -6653,14 +6655,14 @@ function renderCorpsTab() {
       const plateaux=['bench','squat','deadlift'].map(t=>detectPlateau(t)).filter(Boolean);pEl.innerHTML=plateaux.map(p=>`<div class="plateau-alert">📉 ${p.type.toUpperCase()} plateau — adapte la variation</div>`).join('');
     } else { pEl.innerHTML = ''; }
   }
-  const cEl=document.getElementById('coachAlgoContent');if(cEl)cEl.innerHTML=generateCoachAlgoMessage();
-  // Nouvelles sections
-  renderFormeScore();
-  renderTrainingLoad();
-  renderWeightTrend();
-  renderMacroHistory();
-  renderBodyWeightChart(bwHistory);
-  renderMuscleHeatmap();
+  try { const cEl=document.getElementById('coachAlgoContent');if(cEl)cEl.innerHTML=generateCoachAlgoMessage(); } catch(e) { console.warn('Coach algo render failed:', e); }
+  // Nouvelles sections — each wrapped in try/catch so one failure doesn't block others
+  try { renderFormeScore(); } catch(e) { const _e=document.getElementById('formeScoreContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
+  try { renderTrainingLoad(); } catch(e) { const _e=document.getElementById('trainingLoadContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
+  try { renderWeightTrend(); } catch(e) {}
+  try { renderMacroHistory(); } catch(e) {}
+  try { renderBodyWeightChart(bwHistory); } catch(e) {}
+  try { renderMuscleHeatmap(); } catch(e) { const _e=document.getElementById('muscleHeatmapContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
 }
 function renderBodyWeightChart(entries) {
   const el = document.getElementById('chartBodyWeight');

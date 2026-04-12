@@ -4633,6 +4633,7 @@ function renderVolumeChart(period) {
   // 'week' = 10 dernières séances, 'month' = 30 dernières séances
   const limit = period === 'week' ? 10 : 30;
   const vl = [...db.logs].sort((a,b) => a.timestamp-b.timestamp).filter(l => l.volume > 0).slice(-limit);
+  console.log('renderVolumeChart', period, 'vl.length=', vl.length, 'db.logs.length=', db.logs.length);
   chartVolume = new Chart(cv, {type:'line', data:{labels:vl.map(l=>(l.shortDate||l.date||'').substring(0,5)), datasets:[{data:vl.map(l=>l.volume), borderColor:'#BF5AF2', backgroundColor:'rgba(191,90,242,0.1)', borderWidth:3, fill:true, tension:0.4, pointBackgroundColor:'#BF5AF2', pointRadius:3}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{title:items=>{const log=vl[items[0].dataIndex];return(log.title||'')+(log.shortDate?' · '+log.shortDate:'');}, label:c=>' '+(c.raw/1000).toFixed(2)+'t'}}}, scales:{y:{display:false}, x:{grid:{display:false}, ticks:{color:'#86868B', font:{size:10}, maxRotation:30}}}}});
 }
 

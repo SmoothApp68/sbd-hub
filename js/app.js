@@ -104,6 +104,23 @@ const defaultDB = () => ({
 });
 let db = (() => {
   try {
+    // Migration automatique : chercher dans les clés connues
+    const FALLBACK_KEYS = ['SBD_HUB_V28', 'SBD_HUB_V27', 'SBD_HUB_V26', 'SBD_HUB'];
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      for (const k of FALLBACK_KEYS) {
+        const old = localStorage.getItem(k);
+        if (old) {
+          try {
+            const parsed = JSON.parse(old);
+            if (parsed.logs && parsed.user) {
+              localStorage.setItem(STORAGE_KEY, old);
+              console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+    }
     const s = localStorage.getItem(STORAGE_KEY);
     if (!s) return defaultDB();
     const p = JSON.parse(s);

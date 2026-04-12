@@ -2315,7 +2315,7 @@
 
   </div><!-- /tab-settings -->
 
-  <!-- Stats sub-section (moved from main tab-stats) -->
+  <!-- Stats sub-section (rendered from tab-stats) -->
   <div id="tab-profil-stats" class="profil-sub-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showStatsSub('stats-volume',this)">📊 Volume</button>
@@ -2323,7 +2323,10 @@
       <button class="stats-sub-pill" onclick="showStatsSub('stats-records',this)">🏆 Records</button>
       <button class="stats-sub-pill" onclick="showStatsSub('stats-cardio',this)">🏃 Cardio</button>
     </div>
-    <div id="profil-stats-content"></div>
+    <div id="profil-stats-volume" class="stats-sub-section active"></div>
+    <div id="profil-stats-muscles" class="stats-sub-section"></div>
+    <div id="profil-stats-records" class="stats-sub-section"></div>
+    <div id="profil-stats-cardio" class="stats-sub-section"></div>
   </div>
 
   <!-- Badges sub-section -->

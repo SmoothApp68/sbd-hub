@@ -1634,14 +1634,18 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
-  // Afficher les stats dans le profil — copier le HTML sans déplacer les nœuds
+  // Afficher les stats dans le profil — copier le contenu de chaque sous-section
   if (id === 'tab-profil-stats') {
-    var container = document.getElementById('profil-stats-content');
-    var statsEl = document.getElementById('tab-stats');
-    if (container && statsEl) {
-      container.innerHTML = statsEl.innerHTML;
-    }
-    showStatsSub(activeStatsSub, document.querySelector('#tab-profil-stats .stats-sub-pill.active'));
+    ['volume', 'muscles', 'records', 'cardio'].forEach(function(sub) {
+      var src = document.getElementById('stats-' + sub);
+      var dst = document.getElementById('profil-stats-' + sub);
+      if (src && dst) dst.innerHTML = src.innerHTML;
+    });
+    // Sync active state from pills
+    var activeSub = activeStatsSub || 'stats-volume';
+    document.querySelectorAll('#tab-profil-stats .stats-sub-section').forEach(function(el) { el.classList.remove('active'); });
+    var target = document.getElementById('profil-' + activeSub);
+    if (target) target.classList.add('active');
   }
   // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
@@ -6061,16 +6065,23 @@ function generateCoachAlgoMessage() {
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
-  document.querySelectorAll('.stats-sub-section').forEach(el => el.classList.remove('active'));
+  // Deactivate all stats sub-sections in both tab-stats and tab-profil-stats
+  document.querySelectorAll('#tab-stats .stats-sub-section, #tab-profil-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.stats-sub-pill').forEach(el => el.classList.remove('active'));
+  // Activate in tab-stats
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
+  // Also activate mirror in profil-stats
+  const profilSec = document.getElementById('profil-' + id);
+  if (profilSec) profilSec.classList.add('active');
   if (btn) btn.classList.add('active');
-  else { const pill = document.querySelector('.stats-sub-pill[onclick*="' + id + '"]'); if (pill) pill.classList.add('active'); }
+  else { document.querySelectorAll('.stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
   if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
   if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
   if (id === 'stats-cardio') { renderCardioStats(); }
+  // Copy fresh content to profil mirror
+  if (sec && profilSec) profilSec.innerHTML = sec.innerHTML;
 }
 
 // ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────

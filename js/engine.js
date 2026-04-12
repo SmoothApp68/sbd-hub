@@ -31,8 +31,8 @@ const VOLUME_LANDMARKS = {
 
 // Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
 const MUSCLE_TO_VL_KEY = {
-  'Pecs': 'chest', 'Pecs (haut)': 'chest',
-  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back',
+  'Pecs': 'chest', 'Pecs (haut)': 'chest', 'Pecs (bas)': 'chest',
+  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back', 'Grand dorsal': 'back', 'Haut du dos': 'back', 'Lombaires': 'back',
   'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
   'Quadriceps': 'quads', 'Quads': 'quads',
   'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',

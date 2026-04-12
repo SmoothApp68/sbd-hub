@@ -156,6 +156,7 @@ function _destroyTabCharts(tabId) {
   if (tabId === 'tab-dash') {
     if (chartPerf && typeof chartPerf.destroy === 'function') { chartPerf.destroy(); chartPerf = null; }
     if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
+    if (window._chartPerfLine && typeof window._chartPerfLine.destroy === 'function') { window._chartPerfLine.destroy(); window._chartPerfLine = null; }
     if (chartSBD && typeof chartSBD.destroy === 'function') { chartSBD.destroy(); chartSBD = null; }
     if (chartVolume && typeof chartVolume.destroy === 'function') { chartVolume.destroy(); chartVolume = null; }
   }
@@ -3289,6 +3290,7 @@ function renderDash() {
   renderRecentPRs();
   // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
   renderPerfCard();
+  renderDaySelector();
   renderDayExercises(selectedDay);
 }
 
@@ -3956,257 +3958,136 @@ function renderPerfCard() {
     return;
   }
 
-  const keyLifts = db.keyLifts || [];
+  // ── Récupérer les key lifts configurés (ou SBD par défaut) ──
+  var keyLifts = (db.keyLifts && db.keyLifts.length)
+    ? db.keyLifts.map(function(kl) { return kl.name; }).filter(Boolean).slice(0, 5)
+    : ['Développé Couché (Barre)', 'Squat (Barre)', 'Soulevé de Terre (Barre)'];
 
-  if (!keyLifts.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;">' +
-      '<div style="font-size:28px;margin-bottom:10px;">🎯</div>' +
-      '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Aucun exercice clé configuré</div>' +
-      '<div style="font-size:12px;color:var(--sub);line-height:1.6;">Choisis les mouvements que tu veux suivre<br>dans Réglages → 🎯 Exercices Clés</div>' +
-      '</div>';
+  // ── 1RM estimé actuel par exercice clé ──
+  var barLabels = [];
+  var barData = [];
+  var barColors = [];
+  var LIFT_COLORS = ['#0A84FF','#32D74B','#FF453A','#FF9F0A','#BF5AF2'];
+  keyLifts.forEach(function(name, i) {
+    var best = 0;
+    db.logs.forEach(function(log) {
+      log.exercises.forEach(function(exo) {
+        if (matchExoName(exo.name, name) && (exo.maxRM || 0) > best) best = exo.maxRM;
+      });
+    });
+    if (best > 0) {
+      barLabels.push(name.replace(/\(Barre\)/,'').replace(/\(Haltères\)/,'Halt.').trim().split(' ').slice(0,2).join(' '));
+      barData.push(Math.round(best));
+      barColors.push(LIFT_COLORS[i % LIFT_COLORS.length]);
+    }
+  });
+
+  // ── Progression historique du 1er key lift (courbe) ──
+  var lineData = [];
+  var lineLabels = [];
+  if (keyLifts.length > 0) {
+    var mainLift = keyLifts[0];
+    var pts = [];
+    db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; }).forEach(function(log) {
+      log.exercises.forEach(function(exo) {
+        if (matchExoName(exo.name, mainLift) && (exo.maxRM || 0) > 0) {
+          pts.push({ ts: log.timestamp, val: Math.round(exo.maxRM) });
+        }
+      });
+    });
+    // Garder max par session, 8 derniers points
+    var seen = {};
+    pts.forEach(function(p) {
+      var key = new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'});
+      if (!seen[key] || p.val > seen[key].val) seen[key] = p;
+    });
+    var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-8);
+    sorted.forEach(function(p) {
+      lineLabels.push(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
+      lineData.push(p.val);
+    });
+  }
+
+  // ── Rendu HTML + canvas ──
+  if (!barData.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>';
     return;
   }
 
-  // Construire records par exercice clé : real1RM, e1RM, historique progression
-  const records = {}; // { name: { real1rm, e1rm, date, history:[{ts,rm}] } }
-  keyLifts.forEach(kl => { records[kl.name] = { real1rm: 0, e1rm: 0, date: null, history: [] }; });
+  el.innerHTML =
+    '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Performance — 1RM estimé</div>' +
+    '<canvas id="chartPerfDash" style="width:100%;max-height:180px;"></canvas>' +
+    (lineData.length >= 2
+      ? '<div style="font-size:10px;color:var(--sub);margin-top:10px;text-transform:uppercase;letter-spacing:0.8px;">Progression — ' + keyLifts[0].replace(/\(Barre\)/,'').trim().split(' ').slice(0,2).join(' ') + '</div>' +
+        '<canvas id="chartPerfLine" style="width:100%;max-height:120px;margin-top:6px;"></canvas>'
+      : '');
 
-  // Pre-build a map of exercise names to key lift names for O(1) lookup
-  // instead of calling matchExoName for each keyLift × each exercise
-  const _exoToKeyLift = new Map(); // hevyName → kl.name
-  function _resolveKeyLift(exoName) {
-    if (_exoToKeyLift.has(exoName)) return _exoToKeyLift.get(exoName);
-    for (const kl of keyLifts) {
-      if (matchExoName(exoName, kl.name)) { _exoToKeyLift.set(exoName, kl.name); return kl.name; }
-    }
-    _exoToKeyLift.set(exoName, null);
-    return null;
-  }
+  // Détruire anciens charts si existants
+  if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
+  if (window._chartPerfLine) { try { window._chartPerfLine.destroy(); } catch(e) {} window._chartPerfLine = null; }
 
-  // Parcourir tout l'historique chronologiquement pour la courbe (use cached sorted)
-  const _chronoLogs = getSortedLogs().slice().reverse();
-  _chronoLogs.forEach(log => {
-    log.exercises.forEach(exo => {
-      const klName = _resolveKeyLift(exo.name);
-      if (!klName) return;
-      const rec = records[klName];
-      if ((exo.maxRM || 0) > rec.e1rm) {
-        rec.e1rm = exo.maxRM || 0;
-        rec.date = log.shortDate || formatDate(log.timestamp);
+  // Bar chart
+  requestAnimationFrame(function() {
+    var ctxBar = document.getElementById('chartPerfDash');
+    if (!ctxBar) return;
+    chartPerf = new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels: barLabels,
+        datasets: [{
+          data: barData,
+          backgroundColor: barColors.map(function(c){ return c + '99'; }),
+          borderColor: barColors,
+          borderWidth: 2,
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg'; } }
+        }},
+        scales: {
+          x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
+          y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' },
+            beginAtZero: false }
+        }
       }
-      const real = parseFloat((exo.repRecords || {})['1'] || 0);
-      if (real > rec.real1rm) rec.real1rm = real;
-      if ((exo.maxRM || 0) > 0) rec.history.push({ ts: log.timestamp, rm: exo.maxRM, date: log.shortDate || formatDate(log.timestamp) });
     });
-  });
 
-  // Auto-incrément objectif si e1RM (Epley) dépasse l'objectif actuel
-  // On utilise e1RM et non real1rm : le 1RM réel est rare, l'e1RM est la mesure standard
-  let changed = false;
-  keyLifts.forEach(kl => {
-    const rec = records[kl.name];
-    const inc = getPerfIncrement(kl.name);
-    if (rec.e1rm > 0 && kl.target > 0 && rec.e1rm >= kl.target) {
-      while (kl.target <= rec.e1rm) kl.target += inc;
-      changed = true;
-      showToast('🎯 ' + kl.name.split(' ')[0] + ' → nouvel objectif ' + kl.target + 'kg !');
-    }
-  });
-  if (changed) saveDB();
-
-  // ── Boîtes rm-box ─────────────────────────────────────────
-  const cols = keyLifts.length <= 3 ? 'repeat(' + keyLifts.length + ',1fr)' : 'repeat(3,1fr)';
-  const PALETTE = ['#0A84FF','#32D74B','#FF9F0A','#FF453A','#BF5AF2','#64D2FF'];
-
-  const boxesHtml = keyLifts.map((kl, i) => {
-    const rec = records[kl.name];
-    const e1rm = rec.e1rm;
-    const real = rec.real1rm;
-    const target = kl.target || 0;
-    const bw = db.user.bw > 0 && e1rm > 0 ? '×' + (e1rm / db.user.bw).toFixed(2) + ' bw' : null;
-    const isPR = !!(newPRs && newPRs[kl.name]);
-    const shortName = kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0, 2).join(' ');
-    const color = PALETTE[i % PALETTE.length];
-
-    return '<div class="rm-box">' +
-      (isPR ? '<div class="pr-badge">🔥 PR!</div>' : '') +
-      '<div style="font-size:10px;color:var(--sub);">' + shortName.toUpperCase() + '</div>' +
-      '<div class="rm-val" style="color:' + color + '">' + (e1rm || 0) + '<span style="font-size:12px;color:var(--sub);font-weight:normal;">kg e1RM ' + renderGlossaryTip('e1rm') + '</span></div>' +
-      (real > 0 ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">✓ ' + real + 'kg réel</div>' : '') +
-      (target > 0 ? '<div class="rm-target">Visé : ' + target + 'kg</div>' : '<div class="rm-target" style="color:var(--border);">—</div>') +
-      (bw ? '<div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600;">' + bw + '</div>' : '') +
-      '</div>';
-  }).join('');
-
-  // ── Trend rows : progression récente par exercice ──────────
-  // Montre la tendance inter-séances (kg/sem) + dernier vs avant-dernier
-  const trendRows = keyLifts.map((kl, i) => {
-    const color = PALETTE[i % PALETTE.length];
-    const hist = [...records[kl.name].history].sort((a,b) => a.ts - b.ts);
-
-    let trendHtml = '';
-    if (hist.length >= 2) {
-      // Régression linéaire sur les points disponibles (max 8)
-      const pts = hist.slice(-8);
-      const n = pts.length;
-      const sumX = pts.reduce((s,p,i) => s+i, 0);
-      const sumY = pts.reduce((s,p) => s+p.rm, 0);
-      const sumXY = pts.reduce((s,p,i) => s+i*p.rm, 0);
-      const sumX2 = pts.reduce((s,p,i) => s+i*i, 0);
-      const denom = n*sumX2 - sumX*sumX;
-      const kgPerSess = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
-
-      const last = pts[pts.length-1].rm;
-      const prev = pts[pts.length-2].rm;
-      const delta = last - prev;
-      const deltaStr = delta > 0 ? '+' + delta : String(delta);
-      const deltaColor = delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--sub)';
-      const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
-
-      // Tendance globale
-      const trendKg = Math.round(kgPerSess * 10) / 10;
-      let trendLabel = '';
-      if (Math.abs(trendKg) < 0.2 && hist.length >= 3) trendLabel = '<span style="color:var(--orange);font-size:10px;">● plateau</span>';
-      else if (trendKg > 0) trendLabel = '<span style="color:var(--green);font-size:10px;">↑ +' + Math.abs(trendKg) + 'kg/séance</span>';
-      else trendLabel = '<span style="color:var(--red);font-size:10px;">↓ ' + trendKg + 'kg/séance</span>';
-
-      trendHtml =
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
-        '<span style="color:' + deltaColor + ';font-size:12px;font-weight:700;">' + arrow + ' ' + deltaStr + 'kg vs préc.</span>' +
-        trendLabel +
-        '</div>';
-    } else if (hist.length === 1) {
-      trendHtml = '<div style="color:var(--sub);font-size:11px;margin-top:6px;">1 séance enregistrée</div>';
-    } else {
-      trendHtml = '<div style="color:var(--sub);font-size:11px;margin-top:6px;">Aucune donnée</div>';
-    }
-
-    // Mini sparkline SVG (petite, dans la ligne de tendance)
-    let sparkSvg = '';
-    if (hist.length > 2) {
-      const pts = hist.slice(-12);
-      let runMax = 0;
-      const vals = pts.map(p => { if (p.rm > runMax) runMax = p.rm; return runMax; });
-      const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
-      const W = 80, H = 24, pad = 2;
-      const svgPts = vals.map((v, j) =>
-        (pad + (j / (vals.length-1)) * (W-2*pad)).toFixed(1) + ',' +
-        (H - pad - ((v-minV)/range) * (H-2*pad)).toFixed(1)
-      );
-      sparkSvg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:80px;height:24px;flex-shrink:0;">' +
-        '<polyline points="' + svgPts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" opacity="0.8"/>' +
-        '<circle cx="' + svgPts[svgPts.length-1].split(',')[0] + '" cy="' + svgPts[svgPts.length-1].split(',')[1] + '" r="2.5" fill="' + color + '"/>' +
-        '</svg>';
-    }
-
-    const target = kl.target || 0;
-    const e1rm = records[kl.name].e1rm;
-    const pct = target > 0 && e1rm > 0 ? Math.min(100, Math.round(e1rm / target * 100)) : null;
-    const progressBar = pct !== null
-      ? '<div style="height:3px;background:var(--border);border-radius:2px;margin-top:8px;"><div style="height:3px;background:' + color + ';border-radius:2px;width:' + pct + '%;transition:width 0.5s;"></div></div>' +
-        '<div style="font-size:10px;color:var(--sub);margin-top:3px;text-align:right;">' + pct + '% de l\'objectif</div>'
-      : '';
-    // PR Prediction
-    let predHtml = '';
-    if (target > 0 && e1rm > 0 && e1rm < target) {
-      const pred = predictPR(kl.name, target);
-      if (pred.reachable && pred.weeks > 0) {
-        var predDetail = '<div class="pred-detail" style="display:none;font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;background:rgba(100,210,255,0.06);border-radius:6px;padding:6px 8px;">' +
-          '• e1RM actuel : ' + pred.currentE1RM + 'kg ' + renderGlossaryTip('e1rm') + '<br>' +
-          '• Progression : +' + pred.weeklyGain + ' kg/semaine (sur ' + pred.dataPoints + ' séances)<br>' +
-          '• Écart : ' + pred.gap + 'kg à combler<br>' +
-          '• Temps : ' + pred.gap + ' ÷ ' + pred.weeklyGain + ' ≈ ' + pred.weeks + ' semaines<br>' +
-          '• Confiance : ' + pred.confidence + '% ' + (pred.confidence < 30 ? '(progression irrégulière)' : pred.confidence < 60 ? '(progression modérée)' : '(progression régulière)') +
-          '</div>';
-        predHtml = '<div style="font-size:10px;color:var(--teal);margin-top:4px;">📈 +' + pred.weeklyGain + ' kg/sem → ' + target + 'kg vers ' + pred.date + ' (confiance ' + pred.confidence + '%) ' +
-          '<span class="glossary-tip" onclick="event.stopPropagation();var d=this.parentElement.querySelector(\'.pred-detail\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">ℹ️</span>' +
-          predDetail + '</div>';
-      } else if (!pred.reachable) {
-        predHtml = '<div style="font-size:10px;color:var(--orange);margin-top:4px;">📉 ' + pred.reason + '</div>';
-      }
-    }
-
-    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-      '<div style="width:3px;height:36px;background:' + color + ';border-radius:2px;flex-shrink:0;"></div>' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + kl.name.replace(/\s*\(.*\)/, '').trim() + '</div>' +
-        trendHtml +
-        progressBar +
-        predHtml +
-      '</div>' +
-      sparkSvg +
-    '</div>';
-  }).join('');
-
-  // ── Toggle barres / courbe ────────────────────────────────
-  const toggleHtml =
-    '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
-    '<button class="period-btn' + (perfChartMode==='bars'?' active':'') + '" onclick="setPerfMode(\'bars\')" style="font-size:11px;">📊 Barres</button>' +
-    '<button class="period-btn' + (perfChartMode==='curve'?' active':'') + '" onclick="setPerfMode(\'curve\')" style="font-size:11px;">📈 Progression</button>' +
-    '</div>';
-
-  if (perfChartMode === 'bars') {
-    // ── Mode barres : bar chart e1RM / réel / objectif ─────
-    const labels   = keyLifts.map(kl => kl.name.replace(/\s*\(.*\)/, '').trim().split(' ').slice(0,2).join(' '));
-    const real1rms = keyLifts.map(kl => records[kl.name].real1rm);
-    const e1rms    = keyLifts.map(kl => records[kl.name].e1rm);
-    const targets  = keyLifts.map(kl => kl.target || 0);
-    const bgMain   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length]);
-    const bgE1rm   = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '99');
-    const bgTarget = keyLifts.map((_, i) => PALETTE[i % PALETTE.length] + '33');
-
-    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
-
-    el.innerHTML =
-      toggleHtml +
-      '<div class="sbd-grid" style="grid-template-columns:' + cols + ';margin-bottom:16px;">' + boxesHtml + '</div>' +
-      '<div style="height:200px;"><canvas id="chartPerf"></canvas></div>';
-
-    const cvBar = document.getElementById('chartPerf');
-    if (cvBar) {
-      if (chartPerf && typeof chartPerf.destroy === 'function') chartPerf.destroy();
-      chartPerf = new Chart(cvBar, {
-        type: 'bar',
+    // Line chart (progression)
+    if (lineData.length >= 2) {
+      var ctxLine = document.getElementById('chartPerfLine');
+      if (!ctxLine) return;
+      window._chartPerfLine = new Chart(ctxLine, {
+        type: 'line',
         data: {
-          labels,
-          datasets: [
-            { label: '1RM Réel',     data: real1rms, backgroundColor: bgMain,   borderRadius: 6, barThickness: 22 },
-            { label: 'e1RM (Epley)', data: e1rms,    backgroundColor: bgE1rm,   borderRadius: 6, barThickness: 22 },
-            { label: 'Objectif',     data: targets,  backgroundColor: bgTarget, borderRadius: 6, barThickness: 22, borderColor: bgMain, borderWidth: 2 }
-          ]
+          labels: lineLabels,
+          datasets: [{
+            data: lineData,
+            borderColor: barColors[0] || '#0A84FF',
+            backgroundColor: (barColors[0] || '#0A84FF') + '22',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: barColors[0] || '#0A84FF',
+            fill: true,
+            tension: 0.35
+          }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#F5F5F7', font: { size: 10 }, boxWidth: 10 } },
-            tooltip: { callbacks: { afterLabel: c => {
-              if (c.datasetIndex === 2) {
-                const rm = e1rms[c.dataIndex];
-                return targets[c.dataIndex] > 0 && rm > 0 ? 'Reste : ' + (targets[c.dataIndex] - rm) + 'kg' : '';
-              }
-              return '';
-            }}}
-          },
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg e1RM'; } }
+          }},
           scales: {
-            y: { grid: { color: '#2C2C2E' }, ticks: { color: '#86868B' } },
-            x: { grid: { display: false }, ticks: { color: '#F5F5F7', font: { weight: 'bold' } } }
+            x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' },
+              beginAtZero: false }
           }
         }
       });
     }
-
-  } else {
-    // ── Mode courbe : trend rows + sparklines SVG ──────────
-    if (chartPerf && typeof chartPerf.destroy === 'function') { chartPerf.destroy(); chartPerf = null; }
-    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
-
-    el.innerHTML =
-      toggleHtml +
-      '<div class="sbd-grid" style="grid-template-columns:' + cols + ';margin-bottom:16px;">' + boxesHtml + '</div>' +
-      (trendRows
-        ? '<div style="background:var(--surface);border-radius:12px;padding:4px 12px;">' + trendRows + '</div>'
-        : '');
-  }
+  });
 }
 
 // ── Réglages : éditeur exercices clés ────────────────────────
@@ -4258,6 +4139,33 @@ function saveKeyLifts() {
   saveDB();
   showToast('✓ Exercices clés sauvegardés !');
   renderPerfCard();
+}
+
+function renderDaySelector() {
+  var el = document.getElementById('dashDaySelector');
+  if (!el) return;
+  var todayIdx = new Date().getDay(); // 0=dim
+  var DAYS_SHORT = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var DAYS_FULL_LOCAL = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var html = '<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;">';
+  for (var i = 1; i <= 7; i++) { // Lun=1 à Dim=7 (puis Dim=0)
+    var idx = i % 7; // 1,2,3,4,5,6,0
+    var fullName = DAYS_FULL_LOCAL[idx];
+    var isToday = (idx === todayIdx);
+    var isSelected = (fullName === selectedDay);
+    var bg = isSelected ? 'var(--blue)' : isToday ? 'rgba(10,132,255,0.15)' : 'var(--surface)';
+    var color = isSelected ? '#fff' : isToday ? 'var(--blue)' : 'var(--sub)';
+    var border = isSelected ? 'var(--blue)' : isToday ? 'rgba(10,132,255,0.4)' : 'var(--border)';
+    var weight = (isSelected || isToday) ? '700' : '500';
+    html += '<button onclick="selectedDay=\'' + fullName + '\';renderDaySelector();renderDayExercises(\'' + fullName + '\');" ' +
+      'style="flex-shrink:0;min-width:44px;padding:8px 10px;border-radius:12px;border:1px solid ' + border + ';' +
+      'background:' + bg + ';color:' + color + ';font-size:12px;font-weight:' + weight + ';cursor:pointer;transition:all 0.2s;">' +
+      DAYS_SHORT[idx] +
+      (isToday ? '<div style="font-size:8px;margin-top:1px;opacity:0.8;">auj.</div>' : '') +
+      '</button>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function renderDayExercises(day) {
@@ -11619,6 +11527,16 @@ function goFinishWorkout() {
 
   showToast('✅ Séance sauvegardée');
   renderGoTab();
+
+  // Naviguer vers la semaine de la séance dans Training
+  try {
+    var _sesTs = session.timestamp;
+    var _thisWeekStart = getWeekStart(Date.now());
+    var _sesWeekStart = getWeekStart(_sesTs);
+    var _weekDiff = Math.round((_sesWeekStart - _thisWeekStart) / (7 * 86400000));
+    currentWeekOffset = _weekDiff;
+  } catch(e) {}
+
   // Force render all key views — refreshUI() only renders the active sub-tab
   // which is still 'seances-go' at this point
   renderSeancesTab();

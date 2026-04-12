@@ -3289,7 +3289,6 @@ function renderDash() {
   }
 
   renderTodayProgram();
-  renderSBDTotal();
   renderWeeklySummary();
   renderRecentPRs();
   // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
@@ -3969,6 +3968,7 @@ function renderPerfCard() {
 
   // ── Bloc SBD (mode powerlifting/force_athletique uniquement) ──
   var sbdHtml = '';
+  var dotsWilksHtml = '';
   if (modeFeature('showSBDCards')) {
     var _squat = 0, _bench = 0, _deadlift = 0;
     db.logs.forEach(function(log) {
@@ -3983,13 +3983,12 @@ function renderPerfCard() {
       var _total = _squat + _bench + _deadlift;
       var _bw = db.user.bw;
       var _gender = db.user.gender === 'F' ? 'F' : 'M';
-      var _dotsWilksHtml = '';
       if (_bw > 0 && _squat && _bench && _deadlift && shouldShow('dots_wilks')) {
         var _dots  = computeDOTS(_total, _bw, _gender);
         var _wilks = computeWilks(_total, _bw, _gender);
         var _cat   = _dots < 250 ? 'Débutant' : _dots < 350 ? 'Intermédiaire' : _dots < 450 ? 'Avancé' : _dots < 550 ? 'Expert' : 'Élite';
-        _dotsWilksHtml =
-          '<div style="display:flex;gap:16px;padding-top:10px;margin-top:10px;border-top:1px solid var(--border);">' +
+        dotsWilksHtml =
+          '<div style="display:flex;gap:16px;padding-top:12px;margin-top:12px;border-top:1px solid var(--border);">' +
           '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div>' +
           '<div style="font-size:18px;font-weight:800;color:var(--blue);">' + _dots + '</div></div>' +
           '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div>' +
@@ -4012,8 +4011,7 @@ function renderPerfCard() {
         '</div>' +
         '<div style="text-align:center;font-size:13px;color:var(--sub);margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">' +
           'Total SBD : <strong style="color:var(--text);font-size:15px;">' + _total + ' kg</strong>' +
-        '</div>' +
-        _dotsWilksHtml;
+        '</div>';
     }
   }
 
@@ -4036,45 +4034,61 @@ function renderPerfCard() {
     }
   });
 
-  // ── Progression historique du 1er key lift (courbe) ──
-  var lineData = [];
-  var lineLabels = [];
-  if (keyLifts.length > 0) {
-    var mainLift = keyLifts[0];
+  // ── Progression historique de TOUS les key lifts (courbes multiples) ──
+  var sortedLogs = db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+  var lineDatasets = [];
+  var lineLabelsSet = new Set();
+  keyLifts.forEach(function(liftName, i) {
     var pts = [];
-    db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; }).forEach(function(log) {
+    sortedLogs.forEach(function(log) {
       log.exercises.forEach(function(exo) {
-        if (matchExoName(exo.name, mainLift) && (exo.maxRM || 0) > 0) {
+        if (matchExoName(exo.name, liftName) && (exo.maxRM || 0) > 0) {
           pts.push({ ts: log.timestamp, val: Math.round(exo.maxRM) });
         }
       });
     });
-    // Garder max par session, 8 derniers points
     var seen = {};
     pts.forEach(function(p) {
       var key = new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'});
       if (!seen[key] || p.val > seen[key].val) seen[key] = p;
     });
     var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-8);
-    sorted.forEach(function(p) {
-      lineLabels.push(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
-      lineData.push(p.val);
-    });
-  }
+    if (sorted.length >= 2) {
+      sorted.forEach(function(p) {
+        lineLabelsSet.add(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
+      });
+      var color = LIFT_COLORS[i % LIFT_COLORS.length];
+      lineDatasets.push({
+        label: liftName.replace(/\(Barre\)/,'').replace(/\(Haltères\)/,'Halt.').trim().split(' ').slice(0,2).join(' '),
+        data: sorted.map(function(p){ return p.val; }),
+        labels: sorted.map(function(p){ return new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}); }),
+        borderColor: color,
+        backgroundColor: color + '22',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: color,
+        fill: false,
+        tension: 0.35
+      });
+    }
+  });
+  // Construire les labels unifiés pour l'axe X (union de toutes les dates triées)
+  var lineLabels = Array.from(lineLabelsSet);
 
   // ── Rendu HTML + canvas ──
   if (!barData.length) {
-    el.innerHTML = sbdHtml + '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>';
+    el.innerHTML = sbdHtml + '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>' + dotsWilksHtml;
     return;
   }
 
   el.innerHTML = sbdHtml +
     '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Performance — 1RM estimé</div>' +
     '<canvas id="chartPerfDash" style="width:100%;max-height:180px;"></canvas>' +
-    (lineData.length >= 2
-      ? '<div style="font-size:10px;color:var(--sub);margin-top:10px;text-transform:uppercase;letter-spacing:0.8px;">Progression — ' + keyLifts[0].replace(/\(Barre\)/,'').trim().split(' ').slice(0,2).join(' ') + '</div>' +
-        '<canvas id="chartPerfLine" style="width:100%;max-height:120px;margin-top:6px;"></canvas>'
-      : '');
+    (lineDatasets.length > 0
+      ? '<div style="font-size:10px;color:var(--sub);margin-top:10px;text-transform:uppercase;letter-spacing:0.8px;">Progression</div>' +
+        '<canvas id="chartPerfLine" style="width:100%;max-height:140px;margin-top:6px;"></canvas>'
+      : '') +
+    dotsWilksHtml;
 
   // Détruire anciens charts si existants
   if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
@@ -4109,29 +4123,24 @@ function renderPerfCard() {
       }
     });
 
-    // Line chart (progression)
-    if (lineData.length >= 2) {
+    // Line chart (progression multi-exercices)
+    if (lineDatasets.length > 0) {
       var ctxLine = document.getElementById('chartPerfLine');
       if (!ctxLine) return;
+      // Chaque dataset a ses propres labels — utiliser les labels du dataset le plus long
+      var longestLabels = lineDatasets.reduce(function(a,b){ return a.labels.length >= b.labels.length ? a : b; }).labels;
+      var chartDs = lineDatasets.map(function(ds) {
+        return { label: ds.label, data: ds.data, borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
+          borderWidth: ds.borderWidth, pointRadius: ds.pointRadius, pointBackgroundColor: ds.pointBackgroundColor,
+          fill: ds.fill, tension: ds.tension };
+      });
       window._chartPerfLine = new Chart(ctxLine, {
         type: 'line',
-        data: {
-          labels: lineLabels,
-          datasets: [{
-            data: lineData,
-            borderColor: barColors[0] || '#0A84FF',
-            backgroundColor: (barColors[0] || '#0A84FF') + '22',
-            borderWidth: 2,
-            pointRadius: 4,
-            pointBackgroundColor: barColors[0] || '#0A84FF',
-            fill: true,
-            tension: 0.35
-          }]
-        },
+        data: { labels: longestLabels, datasets: chartDs },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: {
-            callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg e1RM'; } }
+          plugins: { legend: { display: lineDatasets.length > 1, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 12 } }, tooltip: {
+            callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' kg'; } }
           }},
           scales: {
             x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },

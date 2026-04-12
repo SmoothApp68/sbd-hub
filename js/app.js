@@ -7273,7 +7273,7 @@ function updateNutriTargets() {
 // ACCORDÉON RÉGLAGES
 // ============================================================
 // Lazy-render flags for heavy accordion content
-const _accDirty = { records: true, keylifts: true, prog: true };
+var _accDirty = { records: true, keylifts: true, prog: true };
 
 function toggleAcc(id) {
   const body = document.getElementById(id);
@@ -7713,8 +7713,8 @@ function renderCoachAlgoAI() {
 // ============================================================
 // COACH TAB — Briefing, Post-Session, Weekly Report
 // ============================================================
-let _coachSelectedDay = null;
-let _activeCoachSub = 'coach-today';
+var _coachSelectedDay = null;
+var _activeCoachSub = 'coach-today';
 
 function renderCoachTab() {
   if (new Date().getDay() === 1) generateWeeklyReport();

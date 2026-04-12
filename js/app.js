@@ -1635,18 +1635,10 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
-  // Afficher les stats dans le profil — copier le contenu de chaque sous-section
+  // Stats dans le profil — rediriger vers le vrai onglet Stats
   if (id === 'tab-profil-stats') {
-    ['volume', 'muscles', 'records', 'cardio'].forEach(function(sub) {
-      var src = document.getElementById('stats-' + sub);
-      var dst = document.getElementById('profil-stats-' + sub);
-      if (src && dst) dst.innerHTML = src.innerHTML;
-    });
-    // Sync active state from pills
-    var activeSub = activeStatsSub || 'stats-volume';
-    document.querySelectorAll('#tab-profil-stats .stats-sub-section').forEach(function(el) { el.classList.remove('active'); });
-    var target = document.getElementById('profil-' + activeSub);
-    if (target) target.classList.add('active');
+    showTab('tab-stats');
+    return;
   }
   // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
@@ -5977,8 +5969,8 @@ function generateCoachAlgoMessage() {
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
-  // Deactivate all stats sub-sections in both tab-stats and tab-profil-stats
-  document.querySelectorAll('#tab-stats .stats-sub-section, #tab-profil-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
+  // Deactivate all stats sub-sections
+  document.querySelectorAll('#tab-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('#tab-stats .stats-sub-pill').forEach(el => el.classList.remove('active'));
   // Activate in tab-stats
   const sec = document.getElementById(id);

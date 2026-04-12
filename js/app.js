@@ -3967,6 +3967,56 @@ function renderPerfCard() {
     ? db.keyLifts.map(function(kl) { return kl.name; }).filter(Boolean).slice(0, 5)
     : ['Développé Couché (Barre)', 'Squat (Barre)', 'Soulevé de Terre (Barre)'];
 
+  // ── Bloc SBD (mode powerlifting/force_athletique uniquement) ──
+  var sbdHtml = '';
+  if (modeFeature('showSBDCards')) {
+    var _squat = 0, _bench = 0, _deadlift = 0;
+    db.logs.forEach(function(log) {
+      log.exercises.forEach(function(exo) {
+        var type = getSBDType(exo.name);
+        if (type === 'squat'    && (exo.maxRM||0) > _squat)    _squat    = exo.maxRM;
+        if (type === 'bench'    && (exo.maxRM||0) > _bench)    _bench    = exo.maxRM;
+        if (type === 'deadlift' && (exo.maxRM||0) > _deadlift) _deadlift = exo.maxRM;
+      });
+    });
+    if (_squat || _bench || _deadlift) {
+      var _total = _squat + _bench + _deadlift;
+      var _bw = db.user.bw;
+      var _gender = db.user.gender === 'F' ? 'F' : 'M';
+      var _dotsWilksHtml = '';
+      if (_bw > 0 && _squat && _bench && _deadlift && shouldShow('dots_wilks')) {
+        var _dots  = computeDOTS(_total, _bw, _gender);
+        var _wilks = computeWilks(_total, _bw, _gender);
+        var _cat   = _dots < 250 ? 'Débutant' : _dots < 350 ? 'Intermédiaire' : _dots < 450 ? 'Avancé' : _dots < 550 ? 'Expert' : 'Élite';
+        _dotsWilksHtml =
+          '<div style="display:flex;gap:16px;padding-top:10px;margin-top:10px;border-top:1px solid var(--border);">' +
+          '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div>' +
+          '<div style="font-size:18px;font-weight:800;color:var(--blue);">' + _dots + '</div></div>' +
+          '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div>' +
+          '<div style="font-size:18px;font-weight:800;color:var(--green);">' + _wilks + '</div></div>' +
+          '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div>' +
+          '<div style="font-size:13px;font-weight:700;color:var(--orange);margin-top:3px;">' + _cat + '</div></div>' +
+          '</div>';
+      }
+      sbdHtml =
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
+        '<div style="background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;">' +
+          '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">Squat</div>' +
+          '<div style="font-size:22px;font-weight:800;color:var(--red);">' + (_squat||'—') + '</div></div>' +
+        '<div style="background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;">' +
+          '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">Bench</div>' +
+          '<div style="font-size:22px;font-weight:800;color:var(--blue);">' + (_bench||'—') + '</div></div>' +
+        '<div style="background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;">' +
+          '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">Deadlift</div>' +
+          '<div style="font-size:22px;font-weight:800;color:var(--orange);">' + (_deadlift||'—') + '</div></div>' +
+        '</div>' +
+        '<div style="text-align:center;font-size:13px;color:var(--sub);margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">' +
+          'Total SBD : <strong style="color:var(--text);font-size:15px;">' + _total + ' kg</strong>' +
+        '</div>' +
+        _dotsWilksHtml;
+    }
+  }
+
   // ── 1RM estimé actuel par exercice clé ──
   var barLabels = [];
   var barData = [];
@@ -4014,11 +4064,11 @@ function renderPerfCard() {
 
   // ── Rendu HTML + canvas ──
   if (!barData.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>';
+    el.innerHTML = sbdHtml + '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>';
     return;
   }
 
-  el.innerHTML =
+  el.innerHTML = sbdHtml +
     '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Performance — 1RM estimé</div>' +
     '<canvas id="chartPerfDash" style="width:100%;max-height:180px;"></canvas>' +
     (lineData.length >= 2

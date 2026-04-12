@@ -1239,7 +1239,21 @@ async function renderFeed() {
     pinnedSection.innerHTML = '';
   }
 
-  const items = await loadFeedItems(_feedPage);
+  var _feedTimeout = setTimeout(function() {
+    if (feedContent && feedContent.textContent.trim() === 'Chargement...') {
+      feedContent.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">📡</div><div class="feed-empty-title">Connexion lente</div><div class="feed-empty-sub">Impossible de charger le feed. Vérifie ta connexion.</div></div>';
+    }
+  }, 8000);
+
+  var items;
+  try {
+    items = await loadFeedItems(_feedPage);
+  } catch(e) {
+    clearTimeout(_feedTimeout);
+    feedContent.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur de chargement</div><div class="feed-empty-sub">Impossible de charger le feed.</div></div>';
+    return;
+  }
+  clearTimeout(_feedTimeout);
   _feedItems = _feedItems.concat(items);
 
   // Get unique user IDs

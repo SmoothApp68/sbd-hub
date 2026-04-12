@@ -5982,17 +5982,12 @@ function showStatsSub(id, btn) {
   // Activate in tab-stats
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
-  // Also activate mirror in profil-stats
-  const profilSec = document.getElementById('profil-' + id);
-  if (profilSec) profilSec.classList.add('active');
   if (btn) btn.classList.add('active');
   else { document.querySelectorAll('#tab-stats .stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
   if (id === 'stats-volume') { renderReports('week'); renderVolumeChart('week'); }
   if (id === 'stats-muscles') { renderRadarImproved('week'); renderMuscleChart('week'); renderVolumeLandmarks(); renderStrengthRatios(); }
   if (id === 'stats-records') { renderLifts(); }
   if (id === 'stats-cardio') { renderCardioStats(); }
-  // Copy fresh content to profil mirror
-  if (sec && profilSec) profilSec.innerHTML = sec.innerHTML;
 }
 
 // ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────

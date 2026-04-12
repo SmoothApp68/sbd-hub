@@ -47,14 +47,18 @@ test.describe('No Console Errors', () => {
       await page.waitForTimeout(500);
     }
 
-    // Navigate to profile sub-tabs
+    // Navigate to profile sub-tabs (Amis redirects to Social, so re-navigate after)
     await page.locator('button[data-tab="tab-profil"]').click();
-    const profileSubTabs = ['Corps', 'Stats', 'Badges', 'Amis', 'Réglages'];
+    const profileSubTabs = ['Corps', 'Stats', 'Badges', 'Réglages'];
     for (const subTab of profileSubTabs) {
       const pill = page.locator('#tab-profil .stats-sub-pill', { hasText: subTab });
       await pill.click();
       await page.waitForTimeout(500);
     }
+    // Test Amis separately (it redirects to Social tab)
+    await page.locator('button[data-tab="tab-profil"]').click();
+    await page.locator('#tab-profil .stats-sub-pill', { hasText: 'Amis' }).click();
+    await page.waitForTimeout(500);
 
     if (errors.length > 0) {
       const errorReport = errors.map((e, i) => `Error ${i + 1}: ${e.message}`).join('\n');

@@ -189,7 +189,11 @@ async function authSubmit() {
     const confirm = document.getElementById('inputPasswordConfirm').value;
     if (password !== confirm) { showToast('Les mots de passe ne correspondent pas'); return; }
     try {
-      const { data, error } = await supaClient.auth.signUp({ email, password });
+      const { data, error } = await supaClient.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: 'https://smoothapp68.github.io/sbd-hub/' }
+      });
       if (error) {
         // If email already exists (magic link user), offer password reset
         if (error.message && (error.message.includes('User already registered') || error.message.includes('already been registered'))) {
@@ -364,7 +368,11 @@ async function loginSubmit() {
     const confirm = (document.getElementById('loginPasswordConfirm').value || '');
     if (password !== confirm) { showLoginError('Les mots de passe ne correspondent pas'); btn.disabled = false; btn.textContent = 'Créer un compte'; return; }
     try {
-      const { data, error } = await supaClient.auth.signUp({ email, password });
+      const { data, error } = await supaClient.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: 'https://smoothapp68.github.io/sbd-hub/' }
+      });
       if (error) throw error;
       if (data.user) {
         db.passwordMigrated = true;

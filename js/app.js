@@ -6611,7 +6611,7 @@ function renderBodyWeightChart(entries) {
 // ONGLET SÉANCES — vue semaine ←→
 // ============================================================
 function getWeekStart(ts) {
-  const d = new Date(ts); d.setHours(12,0,0,0);
+  const d = new Date(ts); d.setHours(0,0,0,0);
   const day = d.getDay(); const diff = day===0 ? -6 : 1-day;
   d.setDate(d.getDate()+diff); return d.getTime();
 }

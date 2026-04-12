@@ -1803,7 +1803,13 @@
     <div id="dayExercisesContainer"></div>
 
     <!-- Hidden containers still needed by existing render functions -->
-    <div id="perfCard" style="display:none;"><div id="perfDisplay"></div></div>
+    <div class="card" id="perfCard">
+      <div class="header-card">
+        <h2>Performance</h2>
+        <span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span>
+      </div>
+      <div id="perfDisplay"></div>
+    </div>
     <div id="readinessCard" style="display:none;"><div id="readinessSparkline"></div></div>
     <div id="dotsWilksCard" style="display:none;"><div id="dotsWilksContent"></div></div>
     <div id="formScoreCard" style="display:none;"><div id="formScoreContent"></div></div>

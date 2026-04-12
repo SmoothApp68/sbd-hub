@@ -11555,7 +11555,9 @@ function goFinishWorkout() {
 
   // Force render all key views — refreshUI() only renders the active sub-tab
   // which is still 'seances-go' at this point
-  renderSeancesTab();
+  if (activeSeancesSub !== 'seances-list') {
+    renderSeancesTab();
+  }
   renderDash();
 
   // Social: clear training status

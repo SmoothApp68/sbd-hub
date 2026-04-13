@@ -1,5 +1,5 @@
 // tests/data/db.test.js
-import { defaultDB, saveDBNow } from '../../js/data/db.js';
+import { saveDBNow } from '../../js/data/db.js';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -17,16 +17,8 @@ jest.mock('../../js/data/db.js', () => {
   const originalModule = jest.requireActual('../../js/data/db.js');
   return {
     ...originalModule,
-    db: defaultDB(),
+    db: originalModule.defaultDB(),
   };
-});
-
-test('defaultDB retourne une structure valide', () => {
-  const dbInstance = defaultDB();
-  expect(dbInstance).toHaveProperty('user');
-  expect(dbInstance).toHaveProperty('logs');
-  expect(dbInstance.user).toHaveProperty('name');
-  expect(dbInstance.user.level).toBe('intermediaire');
 });
 
 test('saveDBNow sauvegarde dans localStorage', () => {

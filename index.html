@@ -89,18 +89,6 @@
 </head>
 <body>
   <div id="app"></div>
-  <script type="module">
-    import { STORAGE_KEY } from './js/constants.js';
-    import { showToast } from './js/utils.js';
-    
-    // Chargement dynamique de app.js (module principal)
-    import('./js/app.js').then(module => {
-      window.app = module;
-      showToast('Application chargée avec succès !');
-    }).catch(err => {
-      console.error('Erreur de chargement :', err);
-      document.body.innerHTML = '<div style="color:red;padding:20px;">Erreur de chargement de l\'application. Voir la console.</div>';
-    });
-  </script>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>

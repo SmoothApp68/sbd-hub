@@ -2,26 +2,24 @@
 // app.js — DB, UI, rendering, navigation, init
 // ============================================================
 
-import { 
-  _getWeekStart, 
-  generateId, 
-  formatDate, 
+import {
+  _getWeekStart,
+  generateId,
+  formatDate,
   formatTime,
-  timeAgo, 
-  showToast, 
-  showModal, 
-  getTodayStr, 
+  timeAgo,
+  showToast,
+  showModal,
+  getTodayStr,
   calcE1RM,
   t,
   shouldShow,
   clearCaches,
-  saveDB 
+  saveDB,
+  saveDBNow
 } from './utils.js';
 
 import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';
-
-// Les fonctions t() et shouldShow() ont été déplacées dans utils.js
-// On ne les déclare plus ici pour éviter les erreurs de doublons.
 
 // ============================================================
 // DB
@@ -68,6 +66,7 @@ window.db = db;
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   showToast('Application chargée avec succès !');
+  initApp();
 });
 
 // Sauvegarde automatique de la base de données

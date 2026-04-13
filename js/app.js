@@ -2,78 +2,23 @@
 // app.js — DB, UI, rendering, navigation, init
 // ============================================================
 
-// ============================================================
-// UI Adaptative — t() et shouldShow()
-// ============================================================
-function t(key, value, opts) {
-  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
-  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
-  if (detail === 'simple') level = 'debutant';
-  else if (detail === 'expert') level = 'competiteur';
+import { 
+  _getWeekStart, 
+  generateId, 
+  formatDate, 
+  timeAgo, 
+  showToast, 
+  showModal, 
+  getTodayStr, 
+  calcE1RM,
+  t,
+  shouldShow 
+} from './utils.js';
 
-  var isBeginner = (detail === 'auto') ? (level === 'debutant' || mode === 'bien_etre') : (detail === 'simple');
-  var isAdvanced = (detail === 'auto') ? (level === 'avance' || level === 'competiteur') : (detail === 'expert');
+import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';
 
-  if (key === 'rpe') {
-    if (isBeginner) {
-      if (value <= 5) return 'Très facile 😌';
-      if (value <= 6) return 'Effort léger 😌';
-      if (value <= 7) return 'Effort modéré 😊';
-      if (value <= 8) return 'Effort soutenu 💪';
-      if (value <= 9) return 'Effort intense 🔥';
-      return 'Maximum 🔥🔥';
-    }
-    if (isAdvanced) return 'RPE ' + value;
-    return 'RPE ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
-  }
-  if (key === 'sets_reps') {
-    var s = value, r = opts;
-    if (isBeginner) return s + ' séries de ' + r + ' répétitions';
-    return s + '×' + r;
-  }
-  if (key === 'deload') {
-    if (isBeginner) return 'Semaine de récupération 🧘';
-    return 'Semaine de deload';
-  }
-  if (key === 'mesocycle') {
-    if (isBeginner) return 'Cycle de ' + (value || 4) + ' semaines';
-    return 'Mésocycle';
-  }
-  if (key === 'progressive_overload') {
-    if (isBeginner) return 'On augmente un peu chaque semaine';
-    return 'Surcharge progressive';
-  }
-  if (key === 'compliance') {
-    if (isBeginner) return value + ' séances sur ' + (opts || '?') + ' prévues 👏';
-    return 'Compliance : ' + Math.round(value) + '%';
-  }
-  return String(value);
-}
-
-function shouldShow(feature) {
-  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
-  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
-  if (detail === 'simple') level = 'debutant';
-  else if (detail === 'expert') level = 'competiteur';
-
-  var rules = {
-    dots_wilks:      ['avance', 'competiteur'],
-    e1rm_detail:     ['intermediaire', 'avance', 'competiteur'],
-    rpe_number:      ['intermediaire', 'avance', 'competiteur'],
-    sbd_total:       ['intermediaire', 'avance', 'competiteur'],
-    mev_mav_mrv:     ['avance', 'competiteur'],
-    strength_ratios: ['intermediaire', 'avance', 'competiteur'],
-    volume_numbers:  ['intermediaire', 'avance', 'competiteur'],
-    ipf_score:       ['avance', 'competiteur'],
-    mesocycle_label: ['avance', 'competiteur'],
-    tonnage_detail:  ['intermediaire', 'avance', 'competiteur'],
-  };
-  var allowed = rules[feature];
-  if (!allowed) return true;
-  return allowed.indexOf(level) >= 0;
-}
+// Les fonctions t() et shouldShow() ont été déplacées dans utils.js
+// On ne les déclare plus ici pour éviter les erreurs de doublons.
 
 // ============================================================
 // DB
@@ -201,47 +146,15 @@ function getRoutine() {
 var _saveDBTimer = null;
 var _saveDBDirty = false;
 
-function saveDB() {
-  clearCaches();
-  _saveDBDirty = true;
-  if (_saveDBTimer) return; // already scheduled
-  _saveDBTimer = setTimeout(function() {
-    _saveDBTimer = null;
-    _flushDB();
-  }, 2000);
-  debouncedCloudSync();
-}
-
-function saveDBNow() {
-  clearCaches();
-  if (_saveDBTimer) { clearTimeout(_saveDBTimer); _saveDBTimer = null; }
-  _saveDBDirty = true;
-  _flushDB();
-  debouncedCloudSync();
-}
-
-function _flushDB() {
-  if (!_saveDBDirty) return;
-  _saveDBDirty = false;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  } catch(e) {
-    console.error('saveDB error:', e);
-  }
-}
-
 // Flush before leaving/hiding the page
 window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
-function generateId() { return Math.random().toString(36).substr(2, 9); }
 
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
-
-function getTodayStr() { return new Date().toISOString().slice(0, 10); }
 
 function hasTodayReadiness() {
   const today = getTodayStr();

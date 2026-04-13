@@ -98,16 +98,11 @@
     }
   </script>
   <!-- Load all scripts in order (classic, not module) -->
-  <!-- Load constants and utilities first (depended on by everything) -->
-  <script src="./js/constants.js"></script>
-  <script src="./js/utils.js"></script>
-  <!-- Load data and logic modules -->
   <script src="./js/exercises.js"></script>
   <script src="./js/engine.js"></script>
-  <!-- Load cloud sync and parsing -->
+  <script src="./js/utils.js"></script>
   <script src="./js/supabase.js"></script>
   <script src="./js/import.js"></script>
-  <!-- Load main app last (depends on everything above) -->
   <script src="./js/app.js"></script>
 </body>
 </html>

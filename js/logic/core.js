@@ -1,6 +1,4 @@
 // js/logic/core.js
-import { db } from '../data/db.js';
-import { ROUTINE_TEMPLATES, DEFAULT_ROUTINE, DAYS_FULL } from '../constants.js';
 
 /**
  * Retourne la routine active (personnalisée > générée > template).

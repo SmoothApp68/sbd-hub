@@ -2,7 +2,6 @@
 // utils.js — Fonctions utilitaires partagées pour sbd-hub
 // ============================================================
 
-import { STORAGE_KEY } from './constants.js';
 
 // --- GESTION DES CACHES ---
 const _cache = {

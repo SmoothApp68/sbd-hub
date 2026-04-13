@@ -8,7 +8,13 @@
 const SUPABASE_URL = 'https://swwygywahfdenyzotrce.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
 let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
-try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
+try {
+  if (typeof supabase !== 'undefined' && supabase) {
+    supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } else {
+    console.warn('Supabase library not loaded');
+  }
+} catch(e) { console.warn('Supabase init failed:', e); }
 
 // ============================================================
 // ANTHROPIC PROXY HELPER

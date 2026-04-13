@@ -65,8 +65,27 @@ window.db = db;
 // INITIALISATION
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  showToast('Application chargée avec succès !');
-  initApp();
+  const container = document.getElementById('app');
+  
+  // On crée le squelette HTML de base
+  container.innerHTML = `
+    <div style="padding: 20px;">
+      <h1 id="dashGreeting" style="margin-bottom: 5px;">Chargement...</h1>
+      <div id="routineDisplay" style="background: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-top: 10px;">
+        Chargement de la séance...
+      </div>
+      <div id="mainContent" style="margin-top: 20px;"></div>
+    </div>
+  `;
+
+  showToast('Application chargée !');
+
+  // On lance le rendu de tes données
+  if (typeof renderDash === 'function') {
+    renderDash();
+  } else {
+    console.error("Fonction renderDash introuvable !");
+  }
 });
 
 // Sauvegarde automatique de la base de données

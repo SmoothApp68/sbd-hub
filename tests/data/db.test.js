@@ -37,6 +37,3 @@ test('saveDB sauvegarde dans localStorage', () => {
   saveDBNow();
   expect(localStorageMock.getItem('SBD_HUB')).not.toBeNull();
 });
-
-// Note : Ces tests supposent que le module db.js est adapté pour les tests (ex: mock de db).
-// En pratique, il faudra peut-être ajuster l'import/export pour les tests.

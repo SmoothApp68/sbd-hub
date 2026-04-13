@@ -1,26 +1,8 @@
 // ============================================================
 // app.js — DB, UI, rendering, navigation, init
 // ============================================================
-
-import {
-  _getWeekStart,
-  generateId,
-  formatDate,
-  formatTime,
-  timeAgo,
-  showToast,
-  showModal,
-  getTodayStr,
-  calcE1RM,
-  t,
-  shouldShow,
-  clearCaches,
-  saveDB,
-  saveDBNow,
-  _flushDB
-} from './utils.js';
-
-import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';
+// NOTE: Loaded as classic script (not module), all dependencies
+// from utils.js, constants.js, etc. are available globally.
 
 // ============================================================
 // DB

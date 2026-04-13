@@ -498,8 +498,6 @@ function importData() {
     }
   );
 }
-function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
-function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
   db.logs.forEach(log => {
@@ -1440,13 +1438,6 @@ function updateProgCounter(day) {
     const nameEl = document.querySelector(`#prog-section-${day} .prog-day-section-name`);
     if (nameEl) { const badge = document.createElement('span'); badge.className = 'prog-day-section-count'; badge.textContent = count + ' exo' + (count > 1 ? 's' : ''); nameEl.parentElement.insertBefore(badge, nameEl.nextSibling); }
   }
-}
-
-export function saveDB() {
-  clearCaches();
-  window._saveDBDirty = true;
-  if (_saveDBTimer) return;
-  _saveDBTimer = setTimeout(_flushDB, 2000);
 }
 
 // ============================================================

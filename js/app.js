@@ -6,6 +6,7 @@ import {
   _getWeekStart, 
   generateId, 
   formatDate, 
+  formatTime,
   timeAgo, 
   showToast, 
   showModal, 
@@ -13,8 +14,8 @@ import {
   calcE1RM,
   t,
   shouldShow,
-  clearCaches, 
-  saveDB       
+  clearCaches,
+  saveDB 
 } from './utils.js';
 
 import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';
@@ -571,10 +572,7 @@ function importData() {
     }
   );
 }
-function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
 function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
-function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
 function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };

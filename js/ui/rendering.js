@@ -4,7 +4,7 @@ import { TOAST_DURATION } from '../constants.js';
 /**
  * Affiche un toast (notification temporaire).
  */
-export function showToast(msg) {
+function showToast(msg) {
   const toast = document.createElement('div');
   toast.className = 'toast';
   toast.textContent = msg;
@@ -15,7 +15,7 @@ export function showToast(msg) {
 /**
  * Affiche une modale de confirmation.
  */
-export function showModal(msg, confirmText, confirmColor, onConfirm, onCancelOrText) {
+function showModal(msg, confirmText, confirmColor, onConfirm, onCancelOrText) {
   var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler';
   var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null;
   const overlay = document.createElement('div');
@@ -43,14 +43,14 @@ export function showModal(msg, confirmText, confirmColor, onConfirm, onCancelOrT
 /**
  * Génère un bouton d'aide pour le glossaire.
  */
-export function renderGlossaryTip(key) {
+function renderGlossaryTip(key) {
   return '<span class="glossary-tip" onclick="event.stopPropagation();showGlossaryModal(\"' + key + '\")">ℹ️</span>';
 }
 
 /**
  * Affiche la modale du glossaire.
  */
-export function showGlossaryModal(key) {
+function showGlossaryModal(key) {
   var g = GLOSSARY[key];
   if (!g) return;
   var existing = document.getElementById('glossaryModal');
@@ -73,7 +73,7 @@ export function showGlossaryModal(key) {
 /**
  * Rend la page complète du glossaire.
  */
-export function renderGlossaryPage() {
+function renderGlossaryPage() {
   var el = document.getElementById('glossaryPageContent');
   if (!el) return;
   var html = '';

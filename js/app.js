@@ -5506,7 +5506,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 
   // Pré-remplir settings
   if(db.user.name){const ni=document.getElementById('inputName');if(ni)ni.value=db.user.name;}
-  document.getElementById('inputBW').value=db.user.bw||'';
+  const bwEl=document.getElementById('inputBW');if(bwEl)bwEl.value=db.user.bw||'';
   const tB=document.getElementById('tgtBench'),tS=document.getElementById('tgtSquat'),tD=document.getElementById('tgtDead');
   if(tB)tB.value=db.user.targets.bench;if(tS)tS.value=db.user.targets.squat;if(tD)tD.value=db.user.targets.deadlift;
 

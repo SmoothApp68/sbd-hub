@@ -12,7 +12,15 @@ const localStorageMock = (() => {
 })();
 global.localStorage = localStorageMock;
 
-// Test pour defaultDB
+// Mock de la variable db utilisée dans db.js
+jest.mock('../../js/data/db.js', () => {
+  const originalModule = jest.requireActual('../../js/data/db.js');
+  return {
+    ...originalModule,
+    db: defaultDB(),
+  };
+});
+
 test('defaultDB retourne une structure valide', () => {
   const dbInstance = defaultDB();
   expect(dbInstance).toHaveProperty('user');

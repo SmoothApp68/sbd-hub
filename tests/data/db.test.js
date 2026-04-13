@@ -1,28 +1,34 @@
-// tests/data/db.test.js
-import { defaultDB, saveDBNow } from '../../js/data/db.js';
+import { STORAGE_KEY } from '../../js/constants.js';
+import { saveDBNow, loadDB, db } from '../../js/data/db.js';
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store = {};
-  return {
-    getItem: (key) => store[key] || null,
-    setItem: (key, value) => { store[key] = value.toString(); },
-    clear: () => { store = {}; }
-  };
-})();
-global.localStorage = localStorageMock;
+// Création d'un mock propre que Jest peut suivre
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  clear: jest.fn(),
+  removeItem: jest.fn()
+};
 
-// Import de la variable db et mock de ses dépendances
-jest.mock('../../js/data/db.js', () => {
-  const originalModule = jest.requireActual('../../js/data/db.js');
-  return {
-    ...originalModule,
-    db: originalModule.defaultDB(),
-  };
+// On l'attache proprement à l'objet global
+Object.defineProperty(global, 'localStorage', {
+  value: localStorageMock,
+  writable: true
 });
 
-test('saveDBNow sauvegarde dans localStorage', () => {
-  localStorageMock.clear();
-  saveDBNow();
-  expect(localStorageMock.getItem('SBD_HUB')).not.toBeNull();
+describe('Base de Données SBD Hub', () => {
+  beforeEach(() => {
+    jest.clearAllMocks(); // On nettoie les compteurs entre chaque test
+  });
+
+  test('saveDBNow sauvegarde les données dans localStorage', () => {
+    loadDB(); 
+    db.user.name = "Test User"; 
+    saveDBNow();
+
+    // On vérifie sur notre objet localStorageMock directement
+    expect(localStorageMock.setItem).toHaveBeenCalledWith(
+      STORAGE_KEY, 
+      expect.stringContaining("Test User")
+    );
+  });
 });

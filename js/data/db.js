@@ -106,20 +106,33 @@ export function saveDB() {
 }
 
 export function saveDBNow() {
-  if (_saveDBTimer) { clearTimeout(_saveDBTimer); _saveDBTimer = null; }
+  if (_saveDBTimer) { 
+    clearTimeout(_saveDBTimer); 
+    _saveDBTimer = null; 
+  }
   _saveDBDirty = true;
+  
+  // AJOUTE CETTE LIGNE : On synchronise le cache interne avec la variable db
+  _dbCache = db; 
+  
   _flushDB();
 }
 
+// js/data/db.js
 function _flushDB() {
-  if (!_saveDBDirty) return;
-  _saveDBDirty = false;
+  // On retire la condition "if (!_saveDBDirty) return;" 
+  // car saveDBNow est justement là pour forcer la main.
+  if (!_dbCache) return; 
+
+  _saveDBDirty = false; // On reset le flag
   try {
-    // Décodage avant sauvegarde (si chiffré)
     const dbCopy = JSON.parse(JSON.stringify(_dbCache));
-    if (dbCopy.friendCode) dbCopy.friendCode = atob(dbCopy.friendCode);
-    if (dbCopy.user?.password) dbCopy.user.password = atob(dbCopy.user.password);
     
+    // Sécurité pour atob
+    if (dbCopy.friendCode) {
+      try { dbCopy.friendCode = atob(dbCopy.friendCode); } catch(e) {}
+    }
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dbCopy));
   } catch(e) {
     console.error('saveDB error:', e);

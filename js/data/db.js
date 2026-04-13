@@ -10,7 +10,7 @@ let _dbCache = null;
 /**
  * Structure par défaut de la DB.
  */
-export function defaultDB() {
+function defaultDB() {
   return {
     user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null },
     routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0, keyLifts: [],
@@ -53,7 +53,7 @@ function decrypt(data) {
 /**
  * Charge la DB depuis localStorage (avec cache et chiffrement).
  */
-export function loadDB() {
+function loadDB() {
   if (_dbCache) return _dbCache;
   try {
     const FALLBACK_KEYS = ['SBD_HUB_V28', 'SBD_HUB_V27', 'SBD_HUB_V26', 'SBD_HUB'];
@@ -94,13 +94,13 @@ export function loadDB() {
  */
 let _saveDBTimer = null;
 let _saveDBDirty = false;
-export function saveDB() {
+function saveDB() {
   _saveDBDirty = true;
   if (_saveDBTimer) return;
   _saveDBTimer = setTimeout(_flushDB, 2000);
 }
 
-export function saveDBNow() {
+function saveDBNow() {
   if (_saveDBTimer) { 
     clearTimeout(_saveDBTimer); 
     _saveDBTimer = null; 
@@ -145,4 +145,4 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Export de la DB
-export let db = loadDB();
+let db = loadDB();

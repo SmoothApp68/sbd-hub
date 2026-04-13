@@ -3,17 +3,17 @@
 // ============================================================
 
 // Clé de stockage local
-export const STORAGE_KEY = 'SBD_HUB_V29';
+const STORAGE_KEY = 'SBD_HUB_V29';
 
 // Jours de la semaine
-export const DAYS_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-export const DAYS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const DAYS_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const DAYS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
 // Types d'exercices SBD
-export const SBD_TYPES = ['bench', 'squat', 'deadlift'];
+const SBD_TYPES = ['bench', 'squat', 'deadlift'];
 
 // Configuration du radar musculaire
-export const RADAR_CONFIG = [
+const RADAR_CONFIG = [
   { label: 'Dos', key: 'Dos', color: '#FF9F0A' },
   { label: 'Torse', key: 'Pecs', color: '#0A84FF' },
   { label: 'Tronc', key: 'Abdos', color: '#FF453A' },
@@ -23,13 +23,13 @@ export const RADAR_CONFIG = [
 ];
 
 // Mots-clés pour les variantes d'exercices
-export const VARIANT_KEYWORDS = ['pause', 'spoto', 'deficit', 'board'];
+const VARIANT_KEYWORDS = ['pause', 'spoto', 'deficit', 'board'];
 
 // Temps de vie des rapports (7 jours)
-export const REPORT_TTL_MS = 7 * 86400000;
+const REPORT_TTL_MS = 7 * 86400000;
 
 // Repères de volume (sets/semaine par groupe musculaire)
-export const VOLUME_LANDMARKS = {
+const VOLUME_LANDMARKS = {
   chest:      { MEV: 8,  MAV: 14, MRV: 20 },
   back:       { MEV: 8,  MAV: 16, MRV: 23 },
   shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
@@ -45,7 +45,7 @@ export const VOLUME_LANDMARKS = {
 };
 
 // Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
-export const MUSCLE_TO_VL_KEY = {
+const MUSCLE_TO_VL_KEY = {
   'Pecs': 'chest', 'Pecs (haut)': 'chest', 'Pecs (bas)': 'chest',
   'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back', 'Grand dorsal': 'back', 'Haut du dos': 'back', 'Lombaires': 'back',
   'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
@@ -63,7 +63,7 @@ export const MUSCLE_TO_VL_KEY = {
 };
 
 // Routine par défaut (fallback si pas de profil)
-export const DEFAULT_ROUTINE = {
+const DEFAULT_ROUTINE = {
   Lundi:    '🦵 Squat & Jambes',
   Mardi:    '💪 Bench & Push',
   Mercredi: '🏊 Récupération / Cardio',
@@ -74,4 +74,4 @@ export const DEFAULT_ROUTINE = {
 };
 
 // Liste noire des noms de séance à ignorer
-export const SESSION_NAME_BLACKLIST = /^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
+const SESSION_NAME_BLACKLIST = /^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;

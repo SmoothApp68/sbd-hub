@@ -5,7 +5,7 @@
 import { STORAGE_KEY } from './constants.js';
 
 // --- GESTION DES CACHES ---
-export const _cache = {
+const _cache = {
   exoType: new Map(),
   muscleGroup: new Map(),
   muscleContribs: new Map(),
@@ -18,7 +18,7 @@ export const _cache = {
 /**
  * Nettoie les caches et marque la DB comme modifiée.
  */
-export function clearCaches() {
+function clearCaches() {
   if (_cache) {
     if (_cache.exoType) _cache.exoType.clear();
     if (_cache.muscleGroup) _cache.muscleGroup.clear();
@@ -39,7 +39,7 @@ export function clearCaches() {
 /**
  * Calcule le timestamp du début de la semaine (Lundi).
  */
-export function _getWeekStart(date) {
+function _getWeekStart(date) {
   const d = new Date(date);
   const day = d.getDay();
   const diff = (day === 0 ? 6 : day - 1);
@@ -47,14 +47,14 @@ export function _getWeekStart(date) {
   d.setDate(d.getDate() - diff);
   return d.getTime();}
 
-export function generateId() {
+function generateId() {
   return Math.random().toString(36).substr(2, 9);
 }
 
 /**
  * Formate une date en JJ/MM.
  */
-export function formatDate(timestamp) {
+function formatDate(timestamp) {
   if (!timestamp) return '';
   const d = new Date(timestamp);
   return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
@@ -63,14 +63,14 @@ export function formatDate(timestamp) {
 /**
  * Formate les secondes en format lisible (ex: 1m30s)
  */
-export function formatTime(sec) {
+function formatTime(sec) {
   if (!sec || sec <= 0) return '0s';
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   if (h > 0) return h + 'h' + String(m).padStart(2, '0') + 'm' + String(s).padStart(2, '0') + 's';
   return m > 0 ? m + 'm' + s + 's' : s + 's';
 }
 
-export function timeAgo(input) {
+function timeAgo(input) {
   if (!input) return 'récemment';
   let ms = (typeof input === 'number') ? input : new Date(input).getTime();
   if (isNaN(ms)) return 'récemment';
@@ -81,7 +81,7 @@ export function timeAgo(input) {
   return new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
-export function showToast(msg) {
+function showToast(msg) {
   const t = document.createElement('div');
   t.className = 'toast-notification';
   t.textContent = msg;
@@ -93,7 +93,7 @@ export function showToast(msg) {
   }, 2500);
 }
 
-export function showModal(msg, confirmText, confirmColor, onConfirm, onCancelOrText) {
+function showModal(msg, confirmText, confirmColor, onConfirm, onCancelOrText) {
   let cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler';
   const o = document.createElement('div');
   o.className = 'modal-overlay';
@@ -110,7 +110,7 @@ export function showModal(msg, confirmText, confirmColor, onConfirm, onCancelOrT
 }
 
 // --- SAUVEGARDE ---
-export function _flushDB() {
+function _flushDB() {
   if (!window._saveDBDirty || !window.db) return;
   window._saveDBDirty = false;
   try {
@@ -120,7 +120,7 @@ export function _flushDB() {
   }
 }
 
-export function saveDB() {
+function saveDB() {
   clearCaches();
   window._saveDBDirty = true;
   if (window._saveDBTimer) return;
@@ -130,7 +130,7 @@ export function saveDB() {
   }, 2000);
 }
 
-export function saveDBNow() {
+function saveDBNow() {
   clearCaches();
   if (window._saveDBTimer) { clearTimeout(window._saveDBTimer); window._saveDBTimer = null; }
   window._saveDBDirty = true;
@@ -141,18 +141,18 @@ export function saveDBNow() {
 window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushDB(); });
 
-export function getTodayStr() {
+function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function calcE1RM(weight, reps) {
+function calcE1RM(weight, reps) {
   if (!weight || reps <= 0) return weight || 0;
   if (reps === 1) return weight;
   return Math.round(weight * (1 + reps / 30) * 10) / 10;
 }
 
 // --- TRADUCTION & LOGIQUE UI ---
-export function t(key, value, opts) {
+function t(key, value, opts) {
   const db = window.db;
   if (!db) return String(value);
   let level = db.user.level || 'intermediaire';
@@ -171,7 +171,7 @@ export function t(key, value, opts) {
   return String(value);
 }
 
-export function shouldShow(feature) {
+function shouldShow(feature) {
   const db = window.db;
   if (!db) return true;
   const level = db.user.level || 'intermediaire';

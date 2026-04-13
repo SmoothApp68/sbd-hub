@@ -47,7 +47,7 @@ const defaultDB = () => ({
     onboardingCompleted: false,
     usernameChangedAt: null
   }
-};
+}
 
 let db = (() => {
   try {

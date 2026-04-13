@@ -2,78 +2,25 @@
 // app.js — DB, UI, rendering, navigation, init
 // ============================================================
 
-// ============================================================
-// UI Adaptative — t() et shouldShow()
-// ============================================================
-function t(key, value, opts) {
-  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
-  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
-  if (detail === 'simple') level = 'debutant';
-  else if (detail === 'expert') level = 'competiteur';
+import {
+  _getWeekStart,
+  generateId,
+  formatDate,
+  formatTime,
+  timeAgo,
+  showToast,
+  showModal,
+  getTodayStr,
+  calcE1RM,
+  t,
+  shouldShow,
+  clearCaches,
+  saveDB,
+  saveDBNow,
+  _flushDB
+} from './utils.js';
 
-  var isBeginner = (detail === 'auto') ? (level === 'debutant' || mode === 'bien_etre') : (detail === 'simple');
-  var isAdvanced = (detail === 'auto') ? (level === 'avance' || level === 'competiteur') : (detail === 'expert');
-
-  if (key === 'rpe') {
-    if (isBeginner) {
-      if (value <= 5) return 'Très facile 😌';
-      if (value <= 6) return 'Effort léger 😌';
-      if (value <= 7) return 'Effort modéré 😊';
-      if (value <= 8) return 'Effort soutenu 💪';
-      if (value <= 9) return 'Effort intense 🔥';
-      return 'Maximum 🔥🔥';
-    }
-    if (isAdvanced) return 'RPE ' + value;
-    return 'RPE ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
-  }
-  if (key === 'sets_reps') {
-    var s = value, r = opts;
-    if (isBeginner) return s + ' séries de ' + r + ' répétitions';
-    return s + '×' + r;
-  }
-  if (key === 'deload') {
-    if (isBeginner) return 'Semaine de récupération 🧘';
-    return 'Semaine de deload';
-  }
-  if (key === 'mesocycle') {
-    if (isBeginner) return 'Cycle de ' + (value || 4) + ' semaines';
-    return 'Mésocycle';
-  }
-  if (key === 'progressive_overload') {
-    if (isBeginner) return 'On augmente un peu chaque semaine';
-    return 'Surcharge progressive';
-  }
-  if (key === 'compliance') {
-    if (isBeginner) return value + ' séances sur ' + (opts || '?') + ' prévues 👏';
-    return 'Compliance : ' + Math.round(value) + '%';
-  }
-  return String(value);
-}
-
-function shouldShow(feature) {
-  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
-  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
-  if (detail === 'simple') level = 'debutant';
-  else if (detail === 'expert') level = 'competiteur';
-
-  var rules = {
-    dots_wilks:      ['avance', 'competiteur'],
-    e1rm_detail:     ['intermediaire', 'avance', 'competiteur'],
-    rpe_number:      ['intermediaire', 'avance', 'competiteur'],
-    sbd_total:       ['intermediaire', 'avance', 'competiteur'],
-    mev_mav_mrv:     ['avance', 'competiteur'],
-    strength_ratios: ['intermediaire', 'avance', 'competiteur'],
-    volume_numbers:  ['intermediaire', 'avance', 'competiteur'],
-    ipf_score:       ['avance', 'competiteur'],
-    mesocycle_label: ['avance', 'competiteur'],
-    tonnage_detail:  ['intermediaire', 'avance', 'competiteur'],
-  };
-  var allowed = rules[feature];
-  if (!allowed) return true;
-  return allowed.indexOf(level) >= 0;
-}
+import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';
 
 // ============================================================
 // DB
@@ -102,133 +49,51 @@ const defaultDB = () => ({
     usernameChangedAt: null
   }
 });
+
 let db = (() => {
   try {
-    // Migration automatique : chercher dans les clés connues
-    const FALLBACK_KEYS = ['SBD_HUB_V28', 'SBD_HUB_V27', 'SBD_HUB_V26', 'SBD_HUB'];
-    if (!localStorage.getItem(STORAGE_KEY)) {
-      for (const k of FALLBACK_KEYS) {
-        const old = localStorage.getItem(k);
-        if (old) {
-          try {
-            const parsed = JSON.parse(old);
-            if (parsed.logs && parsed.user) {
-              localStorage.setItem(STORAGE_KEY, old);
-              console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
-              break;
-            }
-          } catch(e) {}
-        }
-      }
-    }
     const s = localStorage.getItem(STORAGE_KEY);
     if (!s) return defaultDB();
     const p = JSON.parse(s);
     if (!p.logs || !p.user) return defaultDB();
-    if (!p.reports) p.reports = [];
-    if (!p.routine) p.routine = null;
-    if (!p.body) p.body = [];
-    if (!p.keyLifts) p.keyLifts = [];
-    if (p.user.name === undefined) p.user.name = '';
-    if (p.user.onboarded === undefined) p.user.onboarded = true;
-    if (!p.user.gender) p.user.gender = 'unspecified';
-    if (p.user.trainingMode === undefined) p.user.trainingMode = 'powerlifting';
-    if (!p.monthlyChallenges) p.monthlyChallenges = null;
-    if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
-    if (!p.questHistory) p.questHistory = [];
-    if (p.questStreak === undefined) p.questStreak = 0;
-    if (!p.seenBadges) p.seenBadges = [];
-    if (!p.unlockedTitles) p.unlockedTitles = [];
-    if (p.activeTitle === undefined) p.activeTitle = null;
-    if (!p.social) p.social = { profileId: null, username: '', bio: '', visibility: { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' }, onboardingCompleted: false, usernameChangedAt: null };
-    if (!p.social.visibility) p.social.visibility = { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' };
-    if (p.passwordMigrated === undefined) p.passwordMigrated = false;
-    if (!p.friendCode) p.friendCode = null;
-    if (!p.friends) p.friends = [];
-    if (!p.readiness) p.readiness = [];
-    if (!p.challenges) p.challenges = [];
     return p;
   } catch { return defaultDB(); }
 })();
 
-let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
-let chartPerf = null;
-let perfChartMode = 'bars';
-let activeStatsSub = 'stats-volume';
-let currentWeekOffset = 0;
-let sparklineCharts = {};
-let currentMuscleView = 'bars';
-let chartMuscleEvol = null;
-let liftsMuscleFilter = 'Tout';
-let activeWorkout = null;
-let _goSessionTimerId = null;
-let _goRestTimerId = null;
-let _goAutoSaveId = null;
-let _goWakeLock = null;
-let _goSessionPaused = false;
+window.db = db;
 
-// Chart memory management — destroy charts of inactive tabs
-var _currentTab = 'tab-dash';
-function _destroyTabCharts(tabId) {
-  if (tabId === 'tab-dash') {
-    if (chartPerf && typeof chartPerf.destroy === 'function') { chartPerf.destroy(); chartPerf = null; }
-    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
-    if (window._chartPerfLine && typeof window._chartPerfLine.destroy === 'function') { window._chartPerfLine.destroy(); window._chartPerfLine = null; }
-    if (chartSBD && typeof chartSBD.destroy === 'function') { chartSBD.destroy(); chartSBD = null; }
-    if (chartVolume && typeof chartVolume.destroy === 'function') { chartVolume.destroy(); chartVolume = null; }
+// ============================================================
+// INITIALISATION
+// ============================================================
+let selectedDay = new Date().toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase();
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('app');
+  
+  // On crée le squelette HTML de base
+  container.innerHTML = `
+    <div style="padding: 20px;">
+      <h1 id="dashGreeting" style="margin-bottom: 5px;">Chargement...</h1>
+      <div id="routineDisplay" style="background: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-top: 10px;">
+        Chargement de la séance...
+      </div>
+      <div id="mainContent" style="margin-top: 20px;"></div>
+    </div>
+  `;
+
+  showToast('Application chargée !');
+
+  // On lance le rendu de tes données
+  if (typeof renderDash === 'function') {
+    renderDash();
+  } else {
+    console.error("Fonction renderDash introuvable !");
   }
-  if (tabId === 'tab-stats') {
-    if (chartMuscleEvol && typeof chartMuscleEvol.destroy === 'function') { chartMuscleEvol.destroy(); chartMuscleEvol = null; }
-  }
-}
+});
 
-// Routine active : perso (db.routine) > généré (db.generatedProgram) > template > rien
-function getRoutine() {
-  // Priorité 1 : routine personnalisée (modifiée dans Réglages > Mon Programme)
-  if (db.routine && Object.keys(db.routine).length > 0) return db.routine;
-  // Priorité 2 : routine générée à l'onboarding
-  if (db.generatedProgram && db.generatedProgram.length > 0) {
-    const r = {};
-    db.generatedProgram.forEach(d => { r[d.day] = d.isRest ? '😴 Repos' : (d.label || d.day); });
-    return r;
-  }
-  // Priorité 3 : template par défaut selon le mode
-  const style = modeFeature('programStyle');
-  if (style && ROUTINE_TEMPLATES[style]) return ROUTINE_TEMPLATES[style].routine;
-  return DEFAULT_ROUTINE;
-}
-
-var _saveDBTimer = null;
-var _saveDBDirty = false;
-
-function saveDB() {
-  clearCaches();
-  _saveDBDirty = true;
-  if (_saveDBTimer) return; // already scheduled
-  _saveDBTimer = setTimeout(function() {
-    _saveDBTimer = null;
-    _flushDB();
-  }, 2000);
-  debouncedCloudSync();
-}
-
-function saveDBNow() {
-  clearCaches();
-  if (_saveDBTimer) { clearTimeout(_saveDBTimer); _saveDBTimer = null; }
-  _saveDBDirty = true;
-  _flushDB();
-  debouncedCloudSync();
-}
-
-function _flushDB() {
-  if (!_saveDBDirty) return;
-  _saveDBDirty = false;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  } catch(e) {
-    console.error('saveDB error:', e);
-  }
-}
+// Sauvegarde automatique de la base de données
+window.addEventListener('beforeunload', () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+});
 
 // Flush before leaving/hiding the page
 window.addEventListener('beforeunload', _flushDB);
@@ -236,12 +101,9 @@ document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
-function generateId() { return Math.random().toString(36).substr(2, 9); }
 
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
-
-function getTodayStr() { return new Date().toISOString().slice(0, 10); }
 
 function hasTodayReadiness() {
   const today = getTodayStr();
@@ -656,11 +518,13 @@ function importData() {
     }
   );
 }
-function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
-function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
-function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
-function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
+function getSBDType(exName) {
+  const n = (exName || '').toLowerCase();
+  if (n.includes('squat')) return 'squat';
+  if (n.includes('bench') || n.includes('dc ') || n.includes('développé couché')) return 'bench';
+  if (n.includes('deadlift') || n.includes('soulevé de terre')) return 'deadlift';
+  return null;
+}
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
   db.logs.forEach(log => {
@@ -1603,152 +1467,21 @@ function updateProgCounter(day) {
   }
 }
 
-function updateProgSectionStyle(day) { /* réactivité label — rien à faire */ }
-
-function saveRoutine() {
-  // Lire les labels depuis les inputs
-  DAYS_FULL.forEach(day => {
-    const inp = document.getElementById('rdInput_' + day);
-    if (inp) editingRoutine[day] = inp.value.trim();
-    // Récupérer aussi depuis les prog-day-label-input
-    const labelInp = document.querySelector(`#prog-section-${day} .prog-day-label-input`);
-    if (labelInp) editingRoutine[day] = labelInp.value.trim();
-  });
-  db.routine = JSON.parse(JSON.stringify(editingRoutine));
-  // Sauvegarder les listes d'exercices (format tableau)
-  if (!db.routineExos) db.routineExos = {};
-  DAYS_FULL.forEach(day => { db.routineExos[day] = editingExos[day] || []; });
-  saveDB();
-  showToast('✓ Programme sauvegardé !');
-  renderDash();
+// ============================================================
+// FONCTIONS DE BASE
+// ============================================================
+export function getRoutine() {
+  if (db.routine && Object.keys(db.routine).length > 0) return db.routine;
+  if (db.generatedProgram && db.generatedProgram.length > 0) {
+    const r = {};
+    db.generatedProgram.forEach(d => { r[d.day] = d.isRest ? '😴 Repos' : (d.label || d.day); });
+    return r;
+  }
+  return DEFAULT_ROUTINE;
 }
-
 
 // ============================================================
-// TAB NAVIGATION
-// ============================================================
-let activeSeancesSub = 'seances-list';
-let activeProfilSub = 'tab-corps';
-
-function showSeancesSub(id, btn) {
-  activeSeancesSub = id;
-  document.querySelectorAll('.seances-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(el => el.classList.remove('active'));
-  const sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'seances-list') renderSeancesTab();
-  if (id === 'seances-go') renderGoTab();
-  if (id === 'seances-programme') renderProgramBuilder();
-  if (id === 'seances-coach') renderCoachTab();
-}
-
-function showProfilSub(id, btn) {
-  activeProfilSub = id;
-  document.querySelectorAll('.profil-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('#tab-profil > .stats-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
-  const sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'tab-corps') renderCorpsTab();
-  if (id === 'tab-settings') fillSettingsFields();
-  // Stats dans le profil — rediriger vers le vrai onglet Stats
-  if (id === 'tab-profil-stats') {
-    showTab('tab-stats');
-    return;
-  }
-  // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
-  if (id === 'tab-profil-badges') {
-    if (typeof renderGamificationTab === 'function') renderGamificationTab();
-    var badgesContainer = document.getElementById('profil-badges-content');
-    var gameEl = document.getElementById('tab-game');
-    if (badgesContainer && gameEl) {
-      badgesContainer.innerHTML = gameEl.innerHTML;
-    }
-  }
-}
-
-var _lastTabIndex = 0;
-var _scrollPositions = {};
-var _skipPushState = false;
-
-function showTab(tabId, opts) {
-  opts = opts || {};
-  // Save scroll position of current tab before switching
-  if (_currentTab) {
-    _scrollPositions[_currentTab] = window.scrollY;
-  }
-  // Destroy charts of the previous tab to free memory
-  if (_currentTab && _currentTab !== tabId) _destroyTabCharts(_currentTab);
-  // Determine slide direction
-  var newBtn = document.querySelector('.tab-btn[data-tab="'+tabId+'"]');
-  var newIndex = newBtn ? parseInt(newBtn.dataset.index||'0') : 0;
-  var slideClass = newIndex > _lastTabIndex ? 'slide-in-right' : 'slide-in-left';
-  _lastTabIndex = newIndex;
-  _currentTab = tabId;
-  document.querySelectorAll('.content-section').forEach(el => { el.classList.remove('active','slide-in-right','slide-in-left'); });
-  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  var target = document.getElementById(tabId);
-  if (target) { target.classList.add('active', slideClass); }
-  if (newBtn) newBtn.classList.add('active');
-  if (tabId==='tab-dash') renderDash();
-  if (tabId==='tab-seances') {
-    if (activeSeancesSub === 'seances-go') renderGoTab();
-    else renderSeancesTab();
-  }
-  if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
-  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderCoachAlgoAI(); }
-  if (tabId==='tab-game') { renderGamificationTab(); }
-  if (tabId==='tab-profil') {
-    if (activeProfilSub === 'tab-settings') fillSettingsFields();
-    else renderCorpsTab();
-  }
-  if (tabId==='tab-social') { initSocialTab(); if (typeof showSocialSub === 'function') showSocialSub('social-feed', document.querySelector('.social-sub-tab[data-sub="social-feed"]')); }
-
-  // Restore scroll position for the new tab
-  requestAnimationFrame(function() { window.scrollTo(0, _scrollPositions[tabId] || 0); });
-
-  // Persist active tab
-  try { localStorage.setItem('activeTab', tabId); } catch(e) {}
-
-  // History API — push state for back button navigation
-  if (!_skipPushState && !opts.noPush) {
-    history.pushState({ tab: tabId }, '', '#' + tabId);
-  }
-
-  // Haptic feedback
-  if (navigator.vibrate) try { navigator.vibrate(10); } catch(e) {}
-}
-
-// Back button (popstate) handler
-window.addEventListener('popstate', function(e) {
-  if (e.state && e.state.tab) {
-    _skipPushState = true;
-    showTab(e.state.tab);
-    _skipPushState = false;
-  }
-});
-
-// Tab bar click handler
-document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
-
-// On load: restore tab from hash or localStorage
-(function _restoreTab() {
-  var hash = window.location.hash.replace('#', '');
-  if (hash === 'admin') return; // handled elsewhere
-  var saved = null;
-  try { saved = localStorage.getItem('activeTab'); } catch(e) {}
-  var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
-  var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
-  _skipPushState = true;
-  showTab(target);
-  _skipPushState = false;
-  history.replaceState({ tab: target }, '', '#' + target);
-})();
-document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
-
-// ============================================================
-// GAMIFICATION — XP, NIVEAUX, BADGES
+// EXPORT
 // ============================================================
 const XP_LEVELS = [
   { level:1,  name:'Âme errante',             xp:0,       icon:'👻' },
@@ -2153,11 +1886,6 @@ function _getWeekKey() {
   var d = new Date(); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
   var mon = new Date(d.setDate(diff)); mon.setHours(0,0,0,0);
   return mon.toISOString().slice(0,10);
-}
-
-function _getWeekStart(date) {
-  var d = new Date(date); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff); d.setHours(0,0,0,0); return d;
 }
 
 function _getLogsThisWeek() {
@@ -7987,15 +7715,6 @@ function _buildSetsFromHistory(prev) {
 function toggleCoachExo(idx) {
   const card = document.getElementById('coachExo' + idx);
   if (card) card.classList.toggle('open');
-}
-
-function _getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Monday is start of week
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - diff);
-  return d.getTime();
 }
 
 function renderCoachHistory() {

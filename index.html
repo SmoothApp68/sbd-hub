@@ -97,11 +97,11 @@
       window.supabase = supabase;
     }
   </script>
-  <!-- Load historical scripts (non-module) BEFORE app.js module -->
+  <!-- Load all scripts in order (classic, not module) -->
   <script src="./js/exercises.js"></script>
   <script src="./js/engine.js"></script>
   <script src="./js/supabase.js"></script>
   <script src="./js/import.js"></script>
-  <script type="module" src="./js/app.js"></script>
+  <script src="./js/app.js"></script>
 </body>
 </html>

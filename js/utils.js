@@ -3,37 +3,7 @@
 // ============================================================
 
 
-// --- GESTION DES CACHES ---
-const _cache = {
-  exoType: new Map(),
-  muscleGroup: new Map(),
-  muscleContribs: new Map(),
-  sbdType: new Map(),
-  exoDay: new Map(),
-  _sortedLogs: null,
-  _version: 0
-};
-
-/**
- * Nettoie les caches et marque la DB comme modifiée.
- */
-function clearCaches() {
-  if (_cache) {
-    if (_cache.exoType) _cache.exoType.clear();
-    if (_cache.muscleGroup) _cache.muscleGroup.clear();
-    if (_cache.muscleContribs) _cache.muscleContribs.clear();
-    if (_cache.sbdType) _cache.sbdType.clear();
-    if (_cache.exoDay) _cache.exoDay.clear();
-    _cache._sortedLogs = null;
-    _cache._version = (_cache._version || 0) + 1;
-
-    if (typeof window._accDirty !== 'undefined') {
-      window._accDirty.records = true;
-      window._accDirty.keylifts = true;
-      window._accDirty.prog = true;
-    }
-  }
-}
+// _cache and clearCaches are defined in engine.js (loaded first)
 
 /**
  * Calcule le timestamp du début de la semaine (Lundi).

@@ -32,24 +32,71 @@
       padding: 0;
       line-height: 1.5;
     }
-    /* ... (le reste du CSS existant) ... */
+    .toast-notification {
+      visibility: hidden;
+      min-width: 120px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 12px 16px;
+      position: fixed;
+      z-index: 1000;
+      left: 50%;
+      bottom: 30px;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+    }
+    .toast-notification.show {
+      visibility: visible;
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: #1C1C23;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 90%;
+      width: 350px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+    }
+    .modal-actions button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  
-  <!-- Chargement des modules ES6 avec type="module" -->
   <script type="module">
-    import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE, SESSION_NAME_BLACKLIST } from './js/constants.js';
-    import {
-      generateId, timeAgo, showToast, showModal, clearCaches, saveDB, saveDBNow, _flushDB,
-      formatDate, getTodayStr, calcE1RM, t, shouldShow
-    } from './js/utils.js';
+    import { STORAGE_KEY } from './js/constants.js';
+    import { showToast } from './js/utils.js';
     
     // Chargement dynamique de app.js (module principal)
     import('./js/app.js').then(module => {
       window.app = module;
-      console.log('Application chargée avec succès !');
+      showToast('Application chargée avec succès !');
     }).catch(err => {
       console.error('Erreur de chargement :', err);
       document.body.innerHTML = '<div style="color:red;padding:20px;">Erreur de chargement de l\'application. Voir la console.</div>';

@@ -5,6 +5,7 @@
 import { STORAGE_KEY } from './constants.js';
 
 // --- GESTION DES CACHES ---
+// On exporte l'objet cache pour qu'il soit accessible par les fonctions de calcul
 export const _cache = {
   exoType: new Map(),
   muscleGroup: new Map(),
@@ -25,6 +26,8 @@ export function clearCaches() {
     if (_cache.muscleContribs) _cache.muscleContribs.clear();
     if (_cache.sbdType) _cache.sbdType.clear();
     if (_cache.exoDay) _cache.exoDay.clear();
+    
+    window._exoNameCache = null;
     _cache._sortedLogs = null;
     _cache._version = (_cache._version || 0) + 1;
 
@@ -45,7 +48,8 @@ export function _getWeekStart(date) {
   const diff = (day === 0 ? 6 : day - 1);
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - diff);
-  return d.getTime();}
+  return d.getTime();
+}
 
 export function generateId() {
   return Math.random().toString(36).substr(2, 9);
@@ -83,7 +87,7 @@ export function timeAgo(input) {
 
 export function showToast(msg) {
   const t = document.createElement('div');
-  t.className = 'toast-notification';
+  t.className = 'toast-notification'; // Utilise la classe CSS de ton app
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.classList.add('show'), 100);
@@ -181,4 +185,32 @@ export function shouldShow(feature) {
   };
   const allowed = rules[feature];
   return !allowed || allowed.includes(level);
+}
+
+/**
+ * Nettoie les caches et marque la DB comme modifiée.
+ */
+/**
+ * Nettoie les caches et marque la DB comme modifiée.
+ */
+export function clearCaches() {
+  // On vérifie si les variables de cache existent globalement
+  if (typeof _cache !== 'undefined' && _cache !== null) {
+    if (_cache.exoType) _cache.exoType.clear();
+    if (_cache.muscleGroup) _cache.muscleGroup.clear();
+    if (_cache.muscleContribs) _cache.muscleContribs.clear();
+    if (_cache.sbdType) _cache.sbdType.clear();
+    if (_cache.exoDay) _cache.exoDay.clear();
+    
+    window._exoNameCache = null;
+    _cache._sortedLogs = null;
+    _cache._version = (_cache._version || 0) + 1;
+
+    // Marque les records comme "sales" pour forcer le recalcul
+    if (typeof _accDirty !== 'undefined') {
+      _accDirty.records = true;
+      _accDirty.keylifts = true;
+      _accDirty.prog = true;
+    }
+  }
 }

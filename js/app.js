@@ -1452,7 +1452,7 @@ function updateProgCounter(day) {
 // ============================================================
 // FONCTIONS DE BASE
 // ============================================================
-export function getRoutine() {
+function getRoutine() {
   if (db.routine && Object.keys(db.routine).length > 0) return db.routine;
   if (db.generatedProgram && db.generatedProgram.length > 0) {
     const r = {};

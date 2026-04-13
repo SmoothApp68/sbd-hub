@@ -66,4 +66,5 @@ window.db = db;
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   showToast('Application chargée avec succès !');
+  initApp();
 });

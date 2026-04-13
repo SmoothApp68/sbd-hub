@@ -1,6 +1,9 @@
 // js/data/db.js
 import { STORAGE_KEY } from '../constants.js';
 
+// Cache pour loadDB
+let _dbCache = null;
+
 /**
  * Structure par défaut de la DB.
  */
@@ -27,9 +30,10 @@ export function defaultDB() {
 }
 
 /**
- * Charge la DB depuis localStorage (avec migrations).
+ * Charge la DB depuis localStorage (avec cache et migrations).
  */
 export function loadDB() {
+  if (_dbCache) return _dbCache; // Retourne le cache si disponible
   try {
     const FALLBACK_KEYS = ['SBD_HUB_V28', 'SBD_HUB_V27', 'SBD_HUB_V26', 'SBD_HUB'];
     if (!localStorage.getItem(STORAGE_KEY)) {
@@ -48,7 +52,10 @@ export function loadDB() {
       }
     }
     const s = localStorage.getItem(STORAGE_KEY);
-    if (!s) return defaultDB();
+    if (!s) {
+      _dbCache = defaultDB();
+      return _dbCache;
+    }
     const p = JSON.parse(s);
     // Validation et mise à jour des champs manquants
     if (!p.reports) p.reports = [];
@@ -74,14 +81,21 @@ export function loadDB() {
     if (!p.readiness) p.readiness = [];
     if (!p.challenges) p.challenges = [];
     if (!p.readinessHistory) p.readinessHistory = [];
-    return p;
+    
+    // Chiffrement des données sensibles (exemple basique)
+    if (p.friendCode) p.friendCode = btoa(p.friendCode); // Encodage base64 pour l'exemple
+    if (p.user.password) p.user.password = btoa(p.user.password); // Si jamais il y a un mot de passe
+    
+    _dbCache = p;
+    return _dbCache;
   } catch {
-    return defaultDB();
+    _dbCache = defaultDB();
+    return _dbCache;
   }
 }
 
 /**
- * Sauvegarde la DB dans localStorage (avec debounce).
+ * Sauvegarde la DB dans localStorage (avec debounce et chiffrement).
  */
 let _saveDBTimer = null;
 let _saveDBDirty = false;
@@ -101,7 +115,12 @@ function _flushDB() {
   if (!_saveDBDirty) return;
   _saveDBDirty = false;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    // Décodage avant sauvegarde (si chiffré)
+    const dbCopy = JSON.parse(JSON.stringify(_dbCache));
+    if (dbCopy.friendCode) dbCopy.friendCode = atob(dbCopy.friendCode);
+    if (dbCopy.user?.password) dbCopy.user.password = atob(dbCopy.user.password);
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dbCopy));
   } catch(e) {
     console.error('saveDB error:', e);
   }

@@ -175,3 +175,24 @@ export function shouldShow(feature) {
   const allowed = rules[feature];
   return !allowed || allowed.indexOf(level) >= 0;
 }
+
+/**
+ * Nettoie les caches et marque la DB comme modifiée.
+ */
+export function clearCaches() {
+  if (typeof _cache !== 'undefined') {
+    _cache.exoType.clear();
+    _cache.muscleGroup.clear();
+    _cache.muscleContribs.clear();
+    _cache.sbdType.clear();
+    _cache.exoDay.clear();
+    _exoNameCache = null;
+    _cache._sortedLogs = null;
+    _cache._version++;
+    if (typeof _accDirty !== 'undefined') {
+      _accDirty.records = true;
+      _accDirty.keylifts = true;
+      _accDirty.prog = true;
+    }
+  }
+}

@@ -16,7 +16,8 @@ import {
   shouldShow,
   clearCaches,
   saveDB,
-  saveDBNow
+  saveDBNow,
+  _flushDB
 } from './utils.js';
 
 import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';
@@ -64,6 +65,7 @@ window.db = db;
 // ============================================================
 // INITIALISATION
 // ============================================================
+let selectedDay = new Date().toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase();
 document.addEventListener('DOMContentLoaded', () => {
   const container = document.getElementById('app');
   

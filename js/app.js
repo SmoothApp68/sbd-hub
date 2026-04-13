@@ -1471,12 +1471,6 @@ export function getRoutine() {
   return DEFAULT_ROUTINE;
 }
 
-export function calcE1RM(weight, reps) {
-  if (!weight || reps <= 0) return weight || 0;
-  if (reps === 1) return weight;
-  return Math.round(weight * (1 + reps / 30) * 10) / 10;
-}
-
 // ============================================================
 // EXPORT
 // ============================================================

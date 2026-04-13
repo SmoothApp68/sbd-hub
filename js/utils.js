@@ -179,16 +179,23 @@ export function shouldShow(feature) {
 /**
  * Nettoie les caches et marque la DB comme modifiée.
  */
+/**
+ * Nettoie les caches et marque la DB comme modifiée.
+ */
 export function clearCaches() {
-  if (typeof _cache !== 'undefined') {
-    _cache.exoType.clear();
-    _cache.muscleGroup.clear();
-    _cache.muscleContribs.clear();
-    _cache.sbdType.clear();
-    _cache.exoDay.clear();
-    _exoNameCache = null;
+  // On vérifie si les variables de cache existent globalement
+  if (typeof _cache !== 'undefined' && _cache !== null) {
+    if (_cache.exoType) _cache.exoType.clear();
+    if (_cache.muscleGroup) _cache.muscleGroup.clear();
+    if (_cache.muscleContribs) _cache.muscleContribs.clear();
+    if (_cache.sbdType) _cache.sbdType.clear();
+    if (_cache.exoDay) _cache.exoDay.clear();
+    
+    window._exoNameCache = null;
     _cache._sortedLogs = null;
-    _cache._version++;
+    _cache._version = (_cache._version || 0) + 1;
+
+    // Marque les records comme "sales" pour forcer le recalcul
     if (typeof _accDirty !== 'undefined') {
       _accDirty.records = true;
       _accDirty.keylifts = true;

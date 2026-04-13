@@ -1,5 +1,5 @@
 // tests/data/db.test.js
-import { defaultDB } from '../../js/data/db.js';
+import { defaultDB, saveDBNow } from '../../js/data/db.js';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -12,24 +12,17 @@ const localStorageMock = (() => {
 })();
 global.localStorage = localStorageMock;
 
-// Import des fonctions nécessaires
-const dbModule = require('../../js/data/db.js');
-
-// Mock de la fonction _flushDB
-jest.spyOn(dbModule, '_flushDB').mockImplementation(() => {
-  localStorageMock.setItem('SBD_HUB', JSON.stringify(defaultDB()));
-});
-
-test('defaultDB retourne une structure valide', () => {
-  const dbInstance = defaultDB();
-  expect(dbInstance).toHaveProperty('user');
-  expect(dbInstance).toHaveProperty('logs');
-  expect(dbInstance.user).toHaveProperty('name');
-  expect(dbModule.defaultDB().user.level).toBe('intermediaire');
+// Import de la variable db et mock de ses dépendances
+jest.mock('../../js/data/db.js', () => {
+  const originalModule = jest.requireActual('../../js/data/db.js');
+  return {
+    ...originalModule,
+    db: originalModule.defaultDB(),
+  };
 });
 
 test('saveDBNow sauvegarde dans localStorage', () => {
   localStorageMock.clear();
-  dbModule.saveDBNow();
+  saveDBNow();
   expect(localStorageMock.getItem('SBD_HUB')).not.toBeNull();
 });

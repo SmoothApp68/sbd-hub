@@ -2155,15 +2155,6 @@ function _getWeekKey() {
   return mon.toISOString().slice(0,10);
 }
 
-function _getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = (day === 0 ? 6 : day - 1);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - diff);
-  return d.getTime(); 
-} // <--- Vérifie bien que cette ligne existe !
-
 function _getLogsThisWeek() {
   var wk = _getWeekKey();
   var start = new Date(wk).getTime();

@@ -47,7 +47,7 @@ const defaultDB = () => ({
     onboardingCompleted: false,
     usernameChangedAt: null
   }
-}
+});
 
 let db = (() => {
   try {
@@ -67,38 +67,3 @@ window.db = db;
 document.addEventListener('DOMContentLoaded', () => {
   showToast('Application chargée avec succès !');
 });
-
-// Sauvegarde automatique de la base de données
-window.addEventListener('beforeunload', _flushDB);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') _flushDB();
-});
-
-let _saveDBTimer = null;
-window._saveDBDirty = false;
-
-function _flushDB() {
-  if (!window._saveDBDirty) return;
-  window._saveDBDirty = false;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  } catch(e) {
-    console.error('saveDB error:', e);
-  }
-}
-
-export function saveDBNow() {
-  clearCaches();
-  if (_saveDBTimer) { clearTimeout(_saveDBTimer); _saveDBTimer = null; }
-  window._saveDBDirty = true;
-  _flushDB();
-}
-
-export function saveDB() {
-  clearCaches();
-  window._saveDBDirty = true;
-  if (_saveDBTimer) return;
-  _saveDBTimer = setTimeout(_flushDB, 2000);
-}
-
-export { db };

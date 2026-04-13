@@ -12,7 +12,9 @@ import {
   getTodayStr, 
   calcE1RM,
   t,
-  shouldShow 
+  shouldShow,
+  clearCaches, 
+  saveDB       
 } from './utils.js';
 
 import { STORAGE_KEY, DAYS_FULL, DEFAULT_ROUTINE } from './constants.js';

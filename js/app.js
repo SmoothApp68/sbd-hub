@@ -45,6 +45,14 @@ let db = (() => {
 window.db = db;
 
 // ============================================================
+// REGEX CONSTANTS (compiled once, reused everywhere)
+// ============================================================
+const REGEX_REST_PATTERN = /repos|😴/i;
+const REGEX_REST_CARDIO_PATTERN = /repos|😴|natation|🏊/i;
+const REGEX_COMPOUND_LIFTS = /squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press/i;
+const REGEX_COMPOUND_LIFTS_EXTENDED = /squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/i;
+
+// ============================================================
 // INITIALISATION
 // ============================================================
 let selectedDay = DAYS_FULL[new Date().getDay()];
@@ -252,7 +260,7 @@ function isTodayTrainingDay() {
   const routine = getRoutine();
   const todayName = DAYS_FULL[new Date().getDay()];
   const label = routine[todayName] || '';
-  return label && !/repos|😴/i.test(label);
+  return label && !REGEX_REST_PATTERN.test(label);
 }
 
 function getTodayReadiness() {
@@ -3275,7 +3283,7 @@ function renderTodayProgram() {
   var todayDay = DAYS_FULL[new Date().getDay()];
   var routine = getRoutine();
   var label = routine[todayDay] || '';
-  var isRest = !label || /repos|😴/i.test(label);
+  var isRest = !label || REGEX_REST_PATTERN.test(label);
 
   var h = '';
   if (isRest) {
@@ -5520,7 +5528,7 @@ function pbEditExisting() {
   var dayExercises = {};
   allDays.forEach(function(day) {
     var label = routine[day];
-    if (label && !/repos|😴/i.test(label)) {
+    if (label && !REGEX_REST_PATTERN.test(label)) {
       dayNames.push(label);
       // Récupérer les exercices existants
       var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
@@ -7653,7 +7661,7 @@ function renderCoachToday() {
   });
 
   // Count planned sessions this week
-  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !/repos|😴|natation|🏊/i.test(lab); }).length;
+  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !REGEX_REST_CARDIO_PATTERN.test(lab); }).length;
   const doneCount = Object.keys(donedays).length;
 
   let h = '';
@@ -7667,7 +7675,7 @@ function renderCoachToday() {
   h += '<div class="coach-week-band">';
   orderedDays.forEach(day => {
     const label = routine[day] || '';
-    const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+    const isRest = !label || REGEX_REST_CARDIO_PATTERN.test(label);
     const isToday = day === todayDay;
     const isDone = !!donedays[day];
     const isActive = day === _coachSelectedDay;
@@ -7729,7 +7737,7 @@ function coachSelectDay(day) {
 
 function renderCoachDayDetail(day, routine, donedays, weekStart) {
   const label = routine[day] || '';
-  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+  const isRest = !label || REGEX_REST_CARDIO_PATTERN.test(label);
 
   if (isRest) {
     const isSwim = /natation|🏊/i.test(label);
@@ -8545,7 +8553,7 @@ function generateWeeklyPlan() {
 
   DAYS_FULL.forEach(day => {
     const label  = routine[day] || '';
-    const isRest = !label || /repos|😴/i.test(label);
+    const isRest = !label || REGEX_REST_PATTERN.test(label);
     const exercises = [];
     const warmedUpMuscles = new Set();
     let isFirstCompound = true;

@@ -2014,8 +2014,18 @@ function getNextXPLevel(xp) {
   return null;
 }
 
+// ── Memoized e1RM cache ──────────────────────────────────────
+var _bestE1RMsCache = null;
+var _bestE1RMsCacheKey = null;
+
 function getAllBestE1RMs() {
   // Returns { exoName: { e1rm, date } } for all exercises across all logs
+  // Memoized: only recalculate if logs changed
+  const cacheKey = db.logs.length + '|' + (db.logs[0]?.timestamp || 0);
+  if (_bestE1RMsCache && _bestE1RMsCacheKey === cacheKey) {
+    return _bestE1RMsCache;
+  }
+
   const best = {};
   db.logs.forEach(log => {
     (log.exercises||[]).forEach(exo => {
@@ -2025,6 +2035,8 @@ function getAllBestE1RMs() {
       }
     });
   });
+  _bestE1RMsCache = best;
+  _bestE1RMsCacheKey = cacheKey;
   return best;
 }
 
@@ -8945,16 +8957,35 @@ function goGetDefaultRest(exoName, exoId) {
 }
 
 // ── Get previous sets for an exercise from db.logs ──
-function goGetPreviousSets(exoName) {
+// ── Cache for previous sets (GO session) ──────────────────
+var _goPrevSetsCacheKey = null;
+var _goPrevSetsCache = {};
+
+function _buildPrevSetsCache() {
+  // Build cache once per session
+  const cacheKey = db.logs.length + '|' + (db.logs[db.logs.length-1]?.timestamp || 0);
+  if (_goPrevSetsCacheKey === cacheKey) return;
+
+  _goPrevSetsCache = {};
   for (var i = db.logs.length - 1; i >= 0; i--) {
     var ses = db.logs[i];
     for (var j = 0; j < (ses.exercises || []).length; j++) {
-      if (matchExoName(ses.exercises[j].name, exoName)) {
-        return { series: ses.exercises[j].series || ses.exercises[j].allSets || [], date: ses.shortDate || ses.date || '' };
+      var exo = ses.exercises[j];
+      // Cache only the most recent occurrence of each exercise
+      if (!_goPrevSetsCache[exo.name]) {
+        _goPrevSetsCache[exo.name] = {
+          series: exo.series || exo.allSets || [],
+          date: ses.shortDate || ses.date || ''
+        };
       }
     }
   }
-  return null;
+  _goPrevSetsCacheKey = cacheKey;
+}
+
+function goGetPreviousSets(exoName) {
+  _buildPrevSetsCache();
+  return _goPrevSetsCache[exoName] || null;
 }
 
 // ── Get last time summary for an exercise ──

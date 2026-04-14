@@ -55,6 +55,8 @@ var currentWeekOffset = 0;
 // ── Navigation state ────────────────────────────────────────
 let activeSeancesSub = 'seances-list';
 let activeProfilSub = 'tab-corps';
+let _seancesTabActive = false;
+let _seancesTabSyncInterval = null;
 
 function showSeancesSub(id, btn) {
   activeSeancesSub = id;
@@ -65,6 +67,8 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
   if (id === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
+  if (id === 'seances-programme') { if (typeof renderProgramBuilderView === 'function') renderProgramBuilderView(document.getElementById('programBuilderContent')); }
+  if (id === 'seances-coach') { if (typeof renderCoachTab === 'function') renderCoachTab(); }
 }
 
 function showProfilSub(id, btn) {
@@ -98,6 +102,23 @@ function showProfilSub(id, btn) {
   }
 }
 
+// ── Periodic cloud sync for seances tab (fallback when Realtime unavailable) ──
+function startSeancesTabSync() {
+  if (_seancesTabSyncInterval) clearInterval(_seancesTabSyncInterval);
+  _seancesTabSyncInterval = setInterval(function() {
+    if (typeof syncFromCloudIfNewer === 'function') {
+      syncFromCloudIfNewer();
+    }
+  }, 60000); // Check every 60 seconds as fallback
+}
+
+function stopSeancesTabSync() {
+  if (_seancesTabSyncInterval) {
+    clearInterval(_seancesTabSyncInterval);
+    _seancesTabSyncInterval = null;
+  }
+}
+
 function showTab(tabId) {
   document.querySelectorAll('.content-section').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
@@ -107,8 +128,11 @@ function showTab(tabId) {
   if (tabBtn) tabBtn.classList.add('active');
   if (tabId === 'tab-dash') { renderDash(); if (typeof renderProgramViewer === 'function') renderProgramViewer(); }
   if (tabId === 'tab-seances') {
+    startSeancesTabSync();
     if (activeSeancesSub === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
     else { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
+  } else {
+    stopSeancesTabSync();
   }
   if (tabId === 'tab-stats') { if (typeof showStatsSub === 'function') showStatsSub(typeof activeStatsSub !== 'undefined' ? activeStatsSub : 'stats-volume'); }
   if (tabId === 'tab-ai') { if (typeof renderReportsTimeline === 'function') renderReportsTimeline(); if (typeof renderCoachAlgoAI === 'function') renderCoachAlgoAI(); }
@@ -5658,6 +5682,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       } catch(e) {
         syncToCloud(true);
       }
+      // Start Realtime subscription for instant sync
+      if (typeof startRealtimeSubscription === 'function') startRealtimeSubscription();
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause

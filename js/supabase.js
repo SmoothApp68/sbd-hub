@@ -7,7 +7,7 @@
 // ============================================================
 const SUPABASE_URL = 'https://swwygywahfdenyzotrce.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
-let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
+let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null, _realtimeSubscription = null;
 try {
   if (typeof supabase !== 'undefined' && supabase) {
     supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -135,6 +135,38 @@ async function submitNewPassword() {
 async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
 async function syncFromCloudIfNewer() { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data && data.updated_at) { const cloudTs = new Date(data.updated_at).getTime(); if (cloudTs > (db.lastSync || 0) + 5000) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = cloudTs; localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (typeof renderSeancesTab === 'function') renderSeancesTab(); } } } catch(e) { console.error('Cloud sync check:', e); } }
+// ── Realtime subscription pour sync instantanée ──────────────
+async function startRealtimeSubscription() {
+  if (!supaClient || !cloudSyncEnabled || _realtimeSubscription) return;
+  try {
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return;
+    _realtimeSubscription = supaClient
+      .channel('public:sbd_profiles')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'sbd_profiles',
+        filter: 'user_id=eq.' + user.id
+      }, function(payload) {
+        if (payload.new && payload.new.data) {
+          db = payload.new.data;
+          if (!db.reports) db.reports = [];
+          db.lastSync = payload.new.updated_at ? new Date(payload.new.updated_at).getTime() : Date.now();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+          if (typeof renderSeancesTab === 'function') renderSeancesTab();
+        }
+      })
+      .subscribe();
+  } catch(e) { console.error('Realtime subscription:', e); }
+}
+function stopRealtimeSubscription() {
+  if (!_realtimeSubscription) return;
+  try {
+    _realtimeSubscription.unsubscribe();
+    _realtimeSubscription = null;
+  } catch(e) { console.error('Realtime unsubscribe:', e); }
+}
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
 function updateSyncStatus(s) {
   const el = document.getElementById('syncIndicator');

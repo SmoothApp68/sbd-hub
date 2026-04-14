@@ -100,14 +100,14 @@ function showProfilSub(id, btn) {
   }
 }
 
-// ── Periodic cloud sync for seances tab ──────────────────────
+// ── Periodic cloud sync for seances tab (fallback when Realtime unavailable) ──
 function startSeancesTabSync() {
   if (_seancesTabSyncInterval) clearInterval(_seancesTabSyncInterval);
   _seancesTabSyncInterval = setInterval(function() {
     if (typeof syncFromCloudIfNewer === 'function') {
       syncFromCloudIfNewer();
     }
-  }, 30000); // Check every 30 seconds
+  }, 60000); // Check every 60 seconds as fallback
 }
 
 function stopSeancesTabSync() {
@@ -5680,6 +5680,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       } catch(e) {
         syncToCloud(true);
       }
+      // Start Realtime subscription for instant sync
+      if (typeof startRealtimeSubscription === 'function') startRealtimeSubscription();
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause

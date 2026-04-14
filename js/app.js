@@ -47,28 +47,101 @@ window.db = db;
 // ============================================================
 // INITIALISATION
 // ============================================================
-let selectedDay = new Date().toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase();
-document.addEventListener('DOMContentLoaded', () => {
-  const container = document.getElementById('app');
-  
-  // On crée le squelette HTML de base
-  container.innerHTML = `
-    <div style="padding: 20px;">
-      <h1 id="dashGreeting" style="margin-bottom: 5px;">Chargement...</h1>
-      <div id="routineDisplay" style="background: var(--surface); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-top: 10px;">
-        Chargement de la séance...
-      </div>
-      <div id="mainContent" style="margin-top: 20px;"></div>
-    </div>
-  `;
+let selectedDay = DAYS_FULL[new Date().getDay()];
+var chartSBD = null, chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
+var activeWorkout = null, _goAutoSaveId = null, _goWakeLock = null;
+var currentWeekOffset = 0;
 
+// ── Navigation state ────────────────────────────────────────
+let activeSeancesSub = 'seances-list';
+let activeProfilSub = 'tab-corps';
+
+function showSeancesSub(id, btn) {
+  activeSeancesSub = id;
+  document.querySelectorAll('.seances-sub-section').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
+  var sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'seances-list') { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
+  if (id === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
+}
+
+function showProfilSub(id, btn) {
+  activeProfilSub = id;
+  document.querySelectorAll('.profil-sub-section').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('#tab-profil > .stats-sub-nav .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
+  var sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'tab-corps') { if (typeof renderCorpsTab === 'function') renderCorpsTab(); }
+  if (id === 'tab-settings') { if (typeof fillSettingsFields === 'function') fillSettingsFields(); }
+}
+
+function showTab(tabId) {
+  document.querySelectorAll('.content-section').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
+  var tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('active');
+  var tabBtn = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+  if (tabBtn) tabBtn.classList.add('active');
+  if (tabId === 'tab-dash') { renderDash(); if (typeof renderProgramViewer === 'function') renderProgramViewer(); }
+  if (tabId === 'tab-seances') {
+    if (activeSeancesSub === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
+    else { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
+  }
+  if (tabId === 'tab-stats') { if (typeof showStatsSub === 'function') showStatsSub(typeof activeStatsSub !== 'undefined' ? activeStatsSub : 'stats-volume'); }
+  if (tabId === 'tab-ai') { if (typeof renderReportsTimeline === 'function') renderReportsTimeline(); if (typeof renderCoachAlgoAI === 'function') renderCoachAlgoAI(); }
+  if (tabId === 'tab-game') { if (typeof renderGamificationTab === 'function') renderGamificationTab(); }
+  if (tabId === 'tab-profil') {
+    if (activeProfilSub === 'tab-settings') { if (typeof fillSettingsFields === 'function') fillSettingsFields(); }
+    else { if (typeof renderCorpsTab === 'function') renderCorpsTab(); }
+  }
+  if (tabId === 'tab-social') { if (typeof initSocialTab === 'function') initSocialTab(); }
+}
+
+// ── DOMContentLoaded — initialise l'application ─────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // HTML structure is in index.html, just init the rendering
   showToast('Application chargée !');
 
-  // On lance le rendu de tes données
+  // Tab bar navigation
+  var tabBar = document.querySelector('.tab-bar');
+  if (tabBar) {
+    tabBar.addEventListener('click', function(e) {
+      var b = e.target.closest('.tab-btn');
+      if (b && b.dataset.tab) showTab(b.dataset.tab);
+    });
+  }
+
+  // Day buttons navigation
+  var dayContainer = document.getElementById('dayButtonsContainer');
+  if (dayContainer) {
+    dayContainer.addEventListener('click', function(e) {
+      var b = e.target.closest('.day-btn');
+      if (!b) return;
+      selectedDay = b.dataset.day;
+      document.querySelectorAll('.day-btn').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      var rd = document.getElementById('routineDisplay');
+      if (rd) rd.textContent = getRoutine()[selectedDay] || '—';
+      if (typeof renderDayExercises === 'function') renderDayExercises(selectedDay);
+    });
+  }
+
+  // Render dashboard
   if (typeof renderDash === 'function') {
     renderDash();
-  } else {
-    console.error("Fonction renderDash introuvable !");
+  }
+  if (typeof renderProgramViewer === 'function') {
+    renderProgramViewer();
+  }
+
+  // Onboarding check
+  if (typeof db !== 'undefined' && !db.user.onboarded) {
+    if (typeof showOnboarding === 'function') {
+      showOnboarding();
+    }
   }
 });
 
@@ -1449,6 +1522,21 @@ function updateProgCounter(day) {
     const nameEl = document.querySelector(`#prog-section-${day} .prog-day-section-name`);
     if (nameEl) { const badge = document.createElement('span'); badge.className = 'prog-day-section-count'; badge.textContent = count + ' exo' + (count > 1 ? 's' : ''); nameEl.parentElement.insertBefore(badge, nameEl.nextSibling); }
   }
+}
+
+function saveRoutine() {
+  DAYS_FULL.forEach(function(day) {
+    var inp = document.getElementById('rdInput_' + day);
+    if (inp) editingRoutine[day] = inp.value.trim();
+    var labelInp = document.querySelector('#prog-section-' + day + ' .prog-day-label-input');
+    if (labelInp) editingRoutine[day] = labelInp.value.trim();
+  });
+  db.routine = JSON.parse(JSON.stringify(editingRoutine));
+  if (!db.routineExos) db.routineExos = {};
+  DAYS_FULL.forEach(function(day) { db.routineExos[day] = editingExos[day] || []; });
+  saveDB();
+  showToast('Programme sauvegardé !');
+  renderDash();
 }
 
 // ============================================================
@@ -3002,6 +3090,7 @@ function renderDash() {
   }
 
   renderTodayProgram();
+  renderSBDTotal();
   renderWeeklySummary();
   renderRecentPRs();
   // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)

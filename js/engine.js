@@ -5,47 +5,10 @@
 // ============================================================
 // CONSTANTS & CONFIG
 // ============================================================
-const STORAGE_KEY='SBD_HUB_V29';
-const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-const SBD_TYPES=['bench','squat','deadlift'];
-const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
-const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
-const REPORT_TTL_MS=7*86400000;
+// STORAGE_KEY, DAYS_FULL, DAYS_SHORT, SBD_TYPES, RADAR_CONFIG,
+// VARIANT_KEYWORDS, REPORT_TTL_MS are defined in constants.js
 
-// ── Volume Landmarks (sets/semaine par groupe musculaire) ────
-const VOLUME_LANDMARKS = {
-  chest:      { MEV: 8,  MAV: 14, MRV: 20 },
-  back:       { MEV: 8,  MAV: 16, MRV: 23 },
-  shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
-  quads:      { MEV: 6,  MAV: 14, MRV: 20 },
-  hamstrings: { MEV: 4,  MAV: 10, MRV: 16 },
-  glutes:     { MEV: 4,  MAV: 10, MRV: 16 },
-  biceps:     { MEV: 4,  MAV: 10, MRV: 18 },
-  triceps:    { MEV: 4,  MAV: 10, MRV: 16 },
-  calves:     { MEV: 6,  MAV: 10, MRV: 16 },
-  abs:        { MEV: 0,  MAV: 10, MRV: 18 },
-  traps:      { MEV: 0,  MAV: 8,  MRV: 14 },
-  forearms:   { MEV: 0,  MAV: 6,  MRV: 12 },
-};
-
-// Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
-const MUSCLE_TO_VL_KEY = {
-  'Pecs': 'chest', 'Pecs (haut)': 'chest', 'Pecs (bas)': 'chest',
-  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back', 'Grand dorsal': 'back', 'Haut du dos': 'back', 'Lombaires': 'back',
-  'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
-  'Quadriceps': 'quads', 'Quads': 'quads',
-  'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',
-  'Fessiers': 'glutes', 'Glutes': 'glutes',
-  'Biceps': 'biceps',
-  'Triceps': 'triceps',
-  'Mollets': 'calves',
-  'Abdos': 'abs', 'Abdos (frontal)': 'abs', 'Core': 'abs', 'Obliques': 'abs',
-  'Trapèzes': 'traps', 'Traps': 'traps',
-  'Avant-bras': 'forearms',
-  'Jambes': 'quads', // fallback
-  'Bras': 'biceps',  // fallback
-};
+// VOLUME_LANDMARKS and MUSCLE_TO_VL_KEY are defined in constants.js
 
 // ── TRAINING MODES ──────────────────────────────────────────
 const TRAINING_MODES = {
@@ -207,11 +170,7 @@ const ROUTINE_TEMPLATES = {
   }
 };
 
-// DEFAULT routine (fallback si pas de profil)
-const DEFAULT_ROUTINE = ROUTINE_TEMPLATES.sbd.routine;
-
-// ── SESSION NAME BLACKLIST ──────────────────────────────────
-const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
+// DEFAULT_ROUTINE and SESSION_NAME_BLACKLIST are defined in constants.js
 
 // ============================================================
 // PERFORMANCE — MEMOIZATION CACHES

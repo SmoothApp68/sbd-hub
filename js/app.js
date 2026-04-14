@@ -76,6 +76,26 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'tab-corps') { if (typeof renderCorpsTab === 'function') renderCorpsTab(); }
   if (id === 'tab-settings') { if (typeof fillSettingsFields === 'function') fillSettingsFields(); }
+  // Stats: move tab-stats content into profil-stats-content
+  if (id === 'tab-profil-stats') {
+    var container = document.getElementById('profil-stats-content');
+    var statsEl = document.getElementById('tab-stats');
+    if (container && statsEl) {
+      while (container.firstChild) container.removeChild(container.firstChild);
+      Array.from(statsEl.children).forEach(function(child) { container.appendChild(child); });
+    }
+    if (typeof showStatsSub === 'function') showStatsSub(typeof activeStatsSub !== 'undefined' ? activeStatsSub : 'stats-volume', document.querySelector('#tab-profil-stats .stats-sub-pill.active'));
+  }
+  // Badges: move tab-game content into profil-badges-content
+  if (id === 'tab-profil-badges') {
+    var badgesContainer = document.getElementById('profil-badges-content');
+    var gameEl = document.getElementById('tab-game');
+    if (badgesContainer && gameEl) {
+      while (badgesContainer.firstChild) badgesContainer.removeChild(badgesContainer.firstChild);
+      Array.from(gameEl.children).forEach(function(child) { badgesContainer.appendChild(child); });
+    }
+    if (typeof renderGamificationTab === 'function') renderGamificationTab();
+  }
 }
 
 function showTab(tabId) {
@@ -5842,18 +5862,15 @@ function generateCoachAlgoMessage() {
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
-  // Deactivate all stats sub-sections
-  document.querySelectorAll('#tab-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('#tab-stats .stats-sub-pill').forEach(el => el.classList.remove('active'));
-  // Activate in tab-stats
-  const sec = document.getElementById(id);
+  document.querySelectorAll('.stats-sub-section').forEach(function(el) { el.classList.remove('active'); });
+  var sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
-  else { document.querySelectorAll('#tab-stats .stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
-  if (id === 'stats-volume') { renderReports('week'); requestAnimationFrame(() => renderVolumeChart('week')); }
-  if (id === 'stats-muscles') { renderRadarImproved('week'); requestAnimationFrame(() => renderMuscleChart('week')); renderVolumeLandmarks(); renderStrengthRatios(); }
-  if (id === 'stats-records') { renderLifts(); }
-  if (id === 'stats-cardio') { renderCardioStats(); }
+  else { var pill = document.querySelector('.stats-sub-pill[onclick*="' + id + '"]'); if (pill) pill.classList.add('active'); }
+  if (id === 'stats-volume') { if (typeof renderReports === 'function') renderReports('week'); if (typeof renderVolumeChart === 'function') requestAnimationFrame(function() { renderVolumeChart('week'); }); }
+  if (id === 'stats-muscles') { if (typeof renderRadarImproved === 'function') renderRadarImproved('week'); if (typeof renderMuscleChart === 'function') requestAnimationFrame(function() { renderMuscleChart('week'); }); if (typeof renderVolumeLandmarks === 'function') renderVolumeLandmarks(); if (typeof renderStrengthRatios === 'function') renderStrengthRatios(); }
+  if (id === 'stats-records') { if (typeof renderLifts === 'function') renderLifts(); }
+  if (id === 'stats-cardio') { if (typeof renderCardioStats === 'function') renderCardioStats(); }
 }
 
 // ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────

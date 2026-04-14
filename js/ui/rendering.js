@@ -1,5 +1,4 @@
 // js/ui/rendering.js
-import { TOAST_DURATION } from '../constants.js';
 
 /**
  * Affiche un toast (notification temporaire).

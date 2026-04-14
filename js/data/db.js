@@ -1,5 +1,4 @@
 // js/data/db.js
-import { STORAGE_KEY } from '../constants.js';
 
 // Clé de chiffrement (à NE PAS partager)
 const SECRET_KEY = "xeUG4aTbR900oIYb29miGbuP38chsO"; // Remplace par une vraie clé aléatoire de 32 caractères

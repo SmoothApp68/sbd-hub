@@ -627,7 +627,9 @@ let obCompDate    = null;
 let obCompType    = 'powerlifting';
 
 function showOnboarding() {
-  document.getElementById('onboarding-overlay').style.display = 'flex';
+  const obOverlay = document.getElementById('onboarding-overlay');
+  if (!obOverlay) return;
+  obOverlay.style.display = 'flex';
   renderObGoals();
   obStepHistory = [];
   gotoObStep('1');
@@ -2980,7 +2982,8 @@ function refreshUI() {
 
 function renderDash() {
   const routine = getRoutine();
-  document.getElementById('routineDisplay').textContent = routine[selectedDay] || '—';
+  const routineEl = document.getElementById('routineDisplay');
+  if (routineEl) routineEl.textContent = routine[selectedDay] || '—';
   const greet = document.getElementById('dashGreeting');
   if (greet && db.user.name) {
     var _tierBadge = (typeof renderTierBadge === 'function' && db.user.tier) ? ' ' + renderTierBadge(db.user.tier) : '';

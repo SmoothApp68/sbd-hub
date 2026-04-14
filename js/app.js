@@ -67,6 +67,8 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
   if (id === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
+  if (id === 'seances-programme') { if (typeof renderProgramBuilderView === 'function') renderProgramBuilderView(document.getElementById('programBuilderContent')); }
+  if (id === 'seances-coach') { if (typeof renderCoachTab === 'function') renderCoachTab(); }
 }
 
 function showProfilSub(id, btn) {

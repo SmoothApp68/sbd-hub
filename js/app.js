@@ -45,6 +45,14 @@ let db = (() => {
 window.db = db;
 
 // ============================================================
+// REGEX CONSTANTS (compiled once, reused everywhere)
+// ============================================================
+const REGEX_REST_PATTERN = /repos|😴/i;
+const REGEX_REST_CARDIO_PATTERN = /repos|😴|natation|🏊/i;
+const REGEX_COMPOUND_LIFTS = /squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press/i;
+const REGEX_COMPOUND_LIFTS_EXTENDED = /squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/i;
+
+// ============================================================
 // INITIALISATION
 // ============================================================
 let selectedDay = DAYS_FULL[new Date().getDay()];
@@ -252,7 +260,7 @@ function isTodayTrainingDay() {
   const routine = getRoutine();
   const todayName = DAYS_FULL[new Date().getDay()];
   const label = routine[todayName] || '';
-  return label && !/repos|😴/i.test(label);
+  return label && !REGEX_REST_PATTERN.test(label);
 }
 
 function getTodayReadiness() {
@@ -2014,8 +2022,18 @@ function getNextXPLevel(xp) {
   return null;
 }
 
+// ── Memoized e1RM cache ──────────────────────────────────────
+var _bestE1RMsCache = null;
+var _bestE1RMsCacheKey = null;
+
 function getAllBestE1RMs() {
   // Returns { exoName: { e1rm, date } } for all exercises across all logs
+  // Memoized: only recalculate if logs changed
+  const cacheKey = db.logs.length + '|' + (db.logs[0]?.timestamp || 0);
+  if (_bestE1RMsCache && _bestE1RMsCacheKey === cacheKey) {
+    return _bestE1RMsCache;
+  }
+
   const best = {};
   db.logs.forEach(log => {
     (log.exercises||[]).forEach(exo => {
@@ -2025,6 +2043,8 @@ function getAllBestE1RMs() {
       }
     });
   });
+  _bestE1RMsCache = best;
+  _bestE1RMsCacheKey = cacheKey;
   return best;
 }
 
@@ -3263,7 +3283,7 @@ function renderTodayProgram() {
   var todayDay = DAYS_FULL[new Date().getDay()];
   var routine = getRoutine();
   var label = routine[todayDay] || '';
-  var isRest = !label || /repos|😴/i.test(label);
+  var isRest = !label || REGEX_REST_PATTERN.test(label);
 
   var h = '';
   if (isRest) {
@@ -5508,7 +5528,7 @@ function pbEditExisting() {
   var dayExercises = {};
   allDays.forEach(function(day) {
     var label = routine[day];
-    if (label && !/repos|😴/i.test(label)) {
+    if (label && !REGEX_REST_PATTERN.test(label)) {
       dayNames.push(label);
       // Récupérer les exercices existants
       var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
@@ -7641,7 +7661,7 @@ function renderCoachToday() {
   });
 
   // Count planned sessions this week
-  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !/repos|😴|natation|🏊/i.test(lab); }).length;
+  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !REGEX_REST_CARDIO_PATTERN.test(lab); }).length;
   const doneCount = Object.keys(donedays).length;
 
   let h = '';
@@ -7655,7 +7675,7 @@ function renderCoachToday() {
   h += '<div class="coach-week-band">';
   orderedDays.forEach(day => {
     const label = routine[day] || '';
-    const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+    const isRest = !label || REGEX_REST_CARDIO_PATTERN.test(label);
     const isToday = day === todayDay;
     const isDone = !!donedays[day];
     const isActive = day === _coachSelectedDay;
@@ -7717,7 +7737,7 @@ function coachSelectDay(day) {
 
 function renderCoachDayDetail(day, routine, donedays, weekStart) {
   const label = routine[day] || '';
-  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+  const isRest = !label || REGEX_REST_CARDIO_PATTERN.test(label);
 
   if (isRest) {
     const isSwim = /natation|🏊/i.test(label);
@@ -8533,7 +8553,7 @@ function generateWeeklyPlan() {
 
   DAYS_FULL.forEach(day => {
     const label  = routine[day] || '';
-    const isRest = !label || /repos|😴/i.test(label);
+    const isRest = !label || REGEX_REST_PATTERN.test(label);
     const exercises = [];
     const warmedUpMuscles = new Set();
     let isFirstCompound = true;
@@ -8945,16 +8965,35 @@ function goGetDefaultRest(exoName, exoId) {
 }
 
 // ── Get previous sets for an exercise from db.logs ──
-function goGetPreviousSets(exoName) {
+// ── Cache for previous sets (GO session) ──────────────────
+var _goPrevSetsCacheKey = null;
+var _goPrevSetsCache = {};
+
+function _buildPrevSetsCache() {
+  // Build cache once per session
+  const cacheKey = db.logs.length + '|' + (db.logs[db.logs.length-1]?.timestamp || 0);
+  if (_goPrevSetsCacheKey === cacheKey) return;
+
+  _goPrevSetsCache = {};
   for (var i = db.logs.length - 1; i >= 0; i--) {
     var ses = db.logs[i];
     for (var j = 0; j < (ses.exercises || []).length; j++) {
-      if (matchExoName(ses.exercises[j].name, exoName)) {
-        return { series: ses.exercises[j].series || ses.exercises[j].allSets || [], date: ses.shortDate || ses.date || '' };
+      var exo = ses.exercises[j];
+      // Cache only the most recent occurrence of each exercise
+      if (!_goPrevSetsCache[exo.name]) {
+        _goPrevSetsCache[exo.name] = {
+          series: exo.series || exo.allSets || [],
+          date: ses.shortDate || ses.date || ''
+        };
       }
     }
   }
-  return null;
+  _goPrevSetsCacheKey = cacheKey;
+}
+
+function goGetPreviousSets(exoName) {
+  _buildPrevSetsCache();
+  return _goPrevSetsCache[exoName] || null;
 }
 
 // ── Get last time summary for an exercise ──

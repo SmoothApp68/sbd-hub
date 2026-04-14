@@ -119,6 +119,45 @@ function stopSeancesTabSync() {
   }
 }
 
+function showSocialSub(id, btn) {
+  document.querySelectorAll('.social-sub-content').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.social-sub-tab').forEach(function(el) { el.classList.remove('active'); });
+  var sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'social-feed') { if (typeof renderFeed === 'function') renderFeed(); }
+  if (id === 'social-leaderboard') { if (typeof renderLeaderboard === 'function') renderLeaderboard(); }
+  if (id === 'social-challenges') { if (typeof renderChallenges === 'function') renderChallenges(); }
+}
+
+// ── Stubs pour handlers PWA/annonces ──────────────────────────
+function dismissAnnouncement() {
+  var overlay = document.getElementById('announcementOverlay');
+  if (overlay) overlay.remove();
+}
+
+function dismissInstallBanner() {
+  var banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+function doInstall() {
+  if (typeof deferredPrompt !== 'undefined' && deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt = null;
+  }
+}
+
+function publishAnnouncement() {
+  console.warn('publishAnnouncement: Feature not yet implemented');
+  showToast('Annonce non implémentée');
+}
+
+function toggleAnnouncement(id, active) {
+  console.warn('toggleAnnouncement: Feature not yet implemented', id, active);
+  showToast('Toggle annonce non implémenté');
+}
+
 function showTab(tabId) {
   document.querySelectorAll('.content-section').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });

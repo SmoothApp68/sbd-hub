@@ -65,6 +65,8 @@ let activeSeancesSub = 'seances-list';
 let activeProfilSub = 'tab-corps';
 let _seancesTabActive = false;
 let _seancesTabSyncInterval = null;
+let activeStatsSub = 'stats-volume';
+let liftsMuscleFilter = 'Tout';
 
 function showSeancesSub(id, btn) {
   activeSeancesSub = id;

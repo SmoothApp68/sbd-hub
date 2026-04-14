@@ -55,6 +55,8 @@ var currentWeekOffset = 0;
 // ── Navigation state ────────────────────────────────────────
 let activeSeancesSub = 'seances-list';
 let activeProfilSub = 'tab-corps';
+let _seancesTabActive = false;
+let _seancesTabSyncInterval = null;
 
 function showSeancesSub(id, btn) {
   activeSeancesSub = id;
@@ -98,6 +100,23 @@ function showProfilSub(id, btn) {
   }
 }
 
+// ── Periodic cloud sync for seances tab ──────────────────────
+function startSeancesTabSync() {
+  if (_seancesTabSyncInterval) clearInterval(_seancesTabSyncInterval);
+  _seancesTabSyncInterval = setInterval(function() {
+    if (typeof syncFromCloudIfNewer === 'function') {
+      syncFromCloudIfNewer();
+    }
+  }, 30000); // Check every 30 seconds
+}
+
+function stopSeancesTabSync() {
+  if (_seancesTabSyncInterval) {
+    clearInterval(_seancesTabSyncInterval);
+    _seancesTabSyncInterval = null;
+  }
+}
+
 function showTab(tabId) {
   document.querySelectorAll('.content-section').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
@@ -107,8 +126,11 @@ function showTab(tabId) {
   if (tabBtn) tabBtn.classList.add('active');
   if (tabId === 'tab-dash') { renderDash(); if (typeof renderProgramViewer === 'function') renderProgramViewer(); }
   if (tabId === 'tab-seances') {
+    startSeancesTabSync();
     if (activeSeancesSub === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
     else { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
+  } else {
+    stopSeancesTabSync();
   }
   if (tabId === 'tab-stats') { if (typeof showStatsSub === 'function') showStatsSub(typeof activeStatsSub !== 'undefined' ? activeStatsSub : 'stats-volume'); }
   if (tabId === 'tab-ai') { if (typeof renderReportsTimeline === 'function') renderReportsTimeline(); if (typeof renderCoachAlgoAI === 'function') renderCoachAlgoAI(); }

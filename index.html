@@ -101,9 +101,9 @@
     .report-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
     .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .stat-row:last-child { border-bottom: none; }
-    .day-btn { background: var(--bg-card); color: var(--text-secondary); border: 0.5px solid var(--bg-card-border); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .day-btn:hover { border-color: var(--accent); }
-    .day-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .day-btn { background: var(--surface); color: var(--text); border: 2px solid var(--border); padding: 8px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .day-btn:hover { border-color: var(--blue); }
+    .day-btn.active { border-color: var(--blue); background: rgba(10, 132, 255, 0.15); color: var(--blue); }
     .period-btn { background: var(--bg-card); color: var(--text-secondary); border: 0.5px solid var(--bg-card-border); padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .period-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--success); color: #000; padding: 12px 20px; border-radius: 14px; font-weight: 600; font-size: 13px; z-index: 999; animation: toastSlide 0.3s ease; }
@@ -1760,7 +1760,17 @@
         <h2 style="margin:0;">Aujourd'hui</h2>
         <span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span>
       </div>
+      <div id="dayButtonsContainer" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;">
+        <button class="day-btn" data-day="Lundi">Lun</button>
+        <button class="day-btn" data-day="Mardi">Mar</button>
+        <button class="day-btn" data-day="Mercredi">Mer</button>
+        <button class="day-btn" data-day="Jeudi">Jeu</button>
+        <button class="day-btn" data-day="Vendredi">Ven</button>
+        <button class="day-btn" data-day="Samedi">Sam</button>
+        <button class="day-btn" data-day="Dimanche">Dim</button>
+      </div>
       <div id="todayProgramContent" style="margin-bottom:14px;"></div>
+      <div id="dayExercisesContainer" style="margin-bottom:14px;"></div>
       <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="background:linear-gradient(135deg,var(--accent),#6366f1);font-size:15px;padding:16px;border-radius:12px;">
         Lancer la séance 💪
       </button>
@@ -1793,7 +1803,6 @@
     <div id="readinessCard" style="display:none;"><div id="readinessSparkline"></div></div>
     <div id="dotsWilksCard" style="display:none;"><div id="dotsWilksContent"></div></div>
     <div id="formScoreCard" style="display:none;"><div id="formScoreContent"></div></div>
-    <div style="display:none;" id="dayButtonsContainer"></div>
     <div style="display:none;" id="routineDisplay"></div>
     <div id="programViewerCard" style="display:none;"><div id="programViewer" class="prog-viewer"></div></div>
     <div style="display:none;" id="trainingLogs"></div>

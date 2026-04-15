@@ -740,6 +740,7 @@ async function ensureProfile() {
     }
 
     // 2. Determine username: local > base > fallback
+    if (!db.social) db.social = {};
     let username = db.social.username
       || (existing && existing.username)
       || null;

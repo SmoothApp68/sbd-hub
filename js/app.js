@@ -151,7 +151,8 @@ let db = (() => {
   } catch { return defaultDB(); }
 })();
 
-let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
+let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
+var sbdChartMode = 'bars';
 let chartPerf = null;
 let perfChartMode = 'bars';
 let activeStatsSub = 'stats-volume';
@@ -3410,31 +3411,181 @@ function renderTodayProgram() {
 }
 
 // ============================================================
-// Total SBD estimé — carte compacte
+// Total SBD estimé — barres + progression
 // ============================================================
+function toggleSBDChart(mode) {
+  sbdChartMode = mode;
+  renderSBDTotal();
+}
+
 function renderSBDTotal() {
   var el = document.getElementById('sbdTotalDisplay');
   if (!el) return;
-  var s = db.bestPR.squat || 0;
-  var b = db.bestPR.bench || 0;
-  var d = db.bestPR.deadlift || 0;
-  var total = s + b + d;
-  var h = '';
-  h += '<div class="rm-box" style="border-left:3px solid var(--color-squat);"><div style="font-size:10px;color:var(--sub);">Squat</div><div class="rm-val" style="color:var(--color-squat);">' + (s > 0 ? s : '—') + '</div></div>';
-  h += '<div class="rm-box" style="border-left:3px solid var(--color-bench);"><div style="font-size:10px;color:var(--sub);">Bench</div><div class="rm-val" style="color:var(--color-bench);">' + (b > 0 ? b : '—') + '</div></div>';
-  h += '<div class="rm-box" style="border-left:3px solid var(--color-deadlift);"><div style="font-size:10px;color:var(--sub);">Deadlift</div><div class="rm-val" style="color:var(--color-deadlift);">' + (d > 0 ? d : '—') + '</div></div>';
-  el.innerHTML = h;
-  // Total sous la grille
   var card = document.getElementById('sbdTotalCard');
-  if (card) {
-    var totalEl = card.querySelector('.sbd-total-line');
-    if (!totalEl) {
-      totalEl = document.createElement('div');
-      totalEl.className = 'sbd-total-line';
-      totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
-      card.appendChild(totalEl);
+
+  if (chartSBD) { try { chartSBD.destroy(); } catch(e) {} chartSBD = null; }
+  chartSBDs.forEach(function(c) { try { c.destroy(); } catch(e) {} });
+  chartSBDs = [];
+
+  var realBench = db.bestPR.bench || 0;
+  var realSquat = db.bestPR.squat || 0;
+  var realDead  = db.bestPR.deadlift || 0;
+
+  var estBench = 0, estSquat = 0, estDead = 0;
+  db.logs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var type = getSBDType(exo.name);
+      if (!type) return;
+      var rm = exo.maxRM || 0;
+      if (!rm && exo.repRecords) {
+        Object.entries(exo.repRecords).forEach(function(kv) {
+          var e = calcE1RM(kv[1], parseInt(kv[0]));
+          if (e > rm) rm = Math.round(e);
+        });
+      }
+      if (type === 'bench'    && rm > estBench) estBench = rm;
+      if (type === 'squat'    && rm > estSquat) estSquat = rm;
+      if (type === 'deadlift' && rm > estDead)  estDead  = rm;
+    });
+  });
+
+  var tgt = db.user.targets || {};
+  var tgtBench = tgt.bench || 0, tgtSquat = tgt.squat || 0, tgtDead = tgt.deadlift || 0;
+
+  var toggleHtml =
+    '<div style="display:flex;gap:6px;margin-bottom:12px;">' +
+    '<button onclick="toggleSBDChart(\'bars\')" class="period-btn' + (sbdChartMode === 'bars' ? ' active' : '') + '">📊 Barres</button>' +
+    '<button onclick="toggleSBDChart(\'line\')" class="period-btn' + (sbdChartMode === 'line' ? ' active' : '') + '">📈 Progression</button>' +
+    '</div>';
+
+  if (sbdChartMode === 'bars') {
+    if (!realBench && !realSquat && !realDead && !estBench && !estSquat && !estDead) {
+      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Importe des séances pour voir tes performances</div>';
+      if (card) { var tl = card.querySelector('.sbd-total-line'); if (tl) tl.innerHTML = ''; }
+      return;
     }
-    totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
+    var total = realBench + realSquat + realDead;
+    if (card) {
+      var totalEl = card.querySelector('.sbd-total-line');
+      if (!totalEl) { totalEl = document.createElement('div'); totalEl.className = 'sbd-total-line'; totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);'; card.appendChild(totalEl); }
+      totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
+    }
+    var sbdPairs = [
+      { label: 'Bench',    real: realBench, est: estBench, tgt: tgtBench, color: '#0A84FF' },
+      { label: 'Squat',    real: realSquat, est: estSquat, tgt: tgtSquat, color: '#FF453A' },
+      { label: 'Deadlift', real: realDead,  est: estDead,  tgt: tgtDead,  color: '#FF9F0A' }
+    ];
+    var miniHtml = '<div style="display:flex;gap:6px;height:120px;overflow:hidden;">';
+    sbdPairs.forEach(function(p) { miniHtml += '<div style="flex:1;min-width:0;position:relative;"><canvas id="chartSBD_' + p.label + '"></canvas></div>'; });
+    miniHtml += '</div>';
+    miniHtml += '<div style="display:flex;justify-content:center;gap:14px;margin-top:6px;">' +
+      '<span style="font-size:10px;color:var(--sub);">&#9646; Réel</span>' +
+      '<span style="font-size:10px;color:var(--sub);opacity:0.6;">&#9646; Estimé</span>' +
+      '<span style="font-size:10px;color:var(--sub);opacity:0.3;">&#9646; Objectif</span></div>';
+    el.innerHTML = toggleHtml + miniHtml;
+    requestAnimationFrame(function() {
+      sbdPairs.forEach(function(p) {
+        var ctx = document.getElementById('chartSBD_' + p.label);
+        if (!ctx) return;
+        var vals = [p.real, p.est, p.tgt].filter(function(v) { return v > 0; });
+        var maxVal = vals.length ? Math.max.apply(null, vals) : 100;
+        var minVal = vals.length ? Math.min.apply(null, vals) : 0;
+        chartSBDs.push(new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Réel', 'Est.', 'Obj.'],
+            datasets: [{ label: p.label, data: [p.real || null, p.est || null, p.tgt || null],
+              backgroundColor: [p.color, p.color + '66', p.color + '22'],
+              borderColor: [p.color, p.color + '99', p.color + '55'],
+              borderWidth: 1, borderRadius: 4 }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'center', padding: { top: 0, bottom: 2 } },
+              tooltip: { callbacks: { label: function(c) { return (c.parsed.y || '—') + ' kg'; }, title: function() { return p.label; } } }
+            },
+            scales: {
+              x: { display: false },
+              y: { display: false, beginAtZero: false, min: Math.floor(minVal * 0.85), suggestedMax: Math.ceil(maxVal * 1.1) }
+            }
+          }
+        }));
+      });
+    });
+
+  } else {
+    var sbdDef = [
+      { type: 'bench',    label: 'Bench',    color: '#0A84FF' },
+      { type: 'squat',    label: 'Squat',    color: '#FF453A' },
+      { type: 'deadlift', label: 'Deadlift', color: '#FF9F0A' }
+    ];
+    var sortedLogs = db.logs.slice().sort(function(a, b) { return a.timestamp - b.timestamp; });
+    var datasets = [];
+    sbdDef.forEach(function(def) {
+      var seen = {};
+      sortedLogs.forEach(function(log) {
+        (log.exercises || []).forEach(function(exo) {
+          if (getSBDType(exo.name) !== def.type) return;
+          var rm = exo.maxRM || 0;
+          if (!rm && exo.repRecords) {
+            Object.entries(exo.repRecords).forEach(function(kv) {
+              var e = calcE1RM(kv[1], parseInt(kv[0]));
+              if (e > rm) rm = Math.round(e);
+            });
+          }
+          if (!(rm > 0)) return;
+          var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+          if (!seen[lbl] || rm > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(rm) };
+        });
+      });
+      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; }).slice(-20);
+      if (pts.length < 2) return;
+      datasets.push({
+        label: def.label,
+        _xlabels: pts.map(function(p) { return new Date(p.ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }),
+        data: pts.map(function(p) { return p.val; }),
+        borderColor: def.color, backgroundColor: def.color + '22',
+        borderWidth: 2, pointRadius: 3, pointBackgroundColor: def.color,
+        fill: false, tension: 0.35
+      });
+    });
+    if (!datasets.length) {
+      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Importe des séances pour voir ta progression</div>';
+      if (card) { var tl2 = card.querySelector('.sbd-total-line'); if (tl2) tl2.innerHTML = ''; }
+      return;
+    }
+    el.innerHTML = toggleHtml + '<div style="position:relative;height:180px;"><canvas id="chartSBDCanvas"></canvas></div>';
+    if (card) { var tl3 = card.querySelector('.sbd-total-line'); if (tl3) tl3.innerHTML = ''; }
+    requestAnimationFrame(function() {
+      var ctx = document.getElementById('chartSBDCanvas');
+      if (!ctx) return;
+      var longestLabels = datasets.reduce(function(a, b) { return a._xlabels.length >= b._xlabels.length ? a : b; })._xlabels;
+      chartSBD = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: longestLabels,
+          datasets: datasets.map(function(ds) {
+            return { label: ds.label, data: ds.data, borderColor: ds.borderColor,
+              backgroundColor: ds.backgroundColor, borderWidth: ds.borderWidth,
+              pointRadius: ds.pointRadius, pointBackgroundColor: ds.pointBackgroundColor,
+              fill: ds.fill, tension: ds.tension };
+          })
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
+            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' kg'; } } }
+          },
+          scales: {
+            x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
+          }
+        }
+      });
+    });
   }
 }
 

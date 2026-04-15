@@ -3438,8 +3438,16 @@ function renderSBDTotal() {
       var seen = {}, runMax = 0;
       sortedLogs.forEach(function(log) {
         log.exercises.forEach(function(exo) {
-          if (getSBDType(exo.name) !== def.type || !(exo.maxRM > 0)) return;
-          if (exo.maxRM > runMax) runMax = exo.maxRM;
+          if (getSBDType(exo.name) !== def.type) return;
+          var rm = exo.maxRM || 0;
+          if (!rm && exo.repRecords) {
+            Object.entries(exo.repRecords).forEach(function(kv) {
+              var e = calcE1RM(kv[1], parseInt(kv[0]));
+              if (e > rm) rm = Math.round(e);
+            });
+          }
+          if (!(rm > 0)) return;
+          if (rm > runMax) runMax = rm;
           var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
           if (!seen[lbl]) seen[lbl] = { ts: log.timestamp, val: Math.round(runMax) };
           else seen[lbl].val = Math.round(runMax);

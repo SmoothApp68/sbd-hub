@@ -3174,6 +3174,7 @@ function renderDash() {
     }
   }
 
+  renderSBDTotal();
   renderWeeklySummary();
   renderRecentPRs();
   // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)

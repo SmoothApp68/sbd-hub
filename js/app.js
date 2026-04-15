@@ -3386,11 +3386,16 @@ function renderSBDTotal() {
       { label: 'Squat',    real: realSquat, est: estSquat, tgt: tgtSquat, color: '#FF453A' },
       { label: 'Deadlift', real: realDead,  est: estDead,  tgt: tgtDead,  color: '#FF9F0A' }
     ];
-    var miniHtml = '<div style="display:flex;gap:8px;height:140px;">';
+    var miniHtml = '<div style="display:flex;gap:6px;height:120px;">';
     sbdPairs.forEach(function(p) {
       miniHtml += '<div style="flex:1;position:relative;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
     });
     miniHtml += '</div>';
+    miniHtml += '<div style="display:flex;justify-content:center;gap:14px;margin-top:6px;">' +
+      '<span style="font-size:10px;color:var(--sub);">&#9646; Réel</span>' +
+      '<span style="font-size:10px;color:var(--sub);opacity:0.6;">&#9646; Estimé</span>' +
+      '<span style="font-size:10px;color:var(--sub);opacity:0.3;">&#9646; Objectif</span>' +
+      '</div>';
     el.innerHTML = toggleHtml + miniHtml;
 
     requestAnimationFrame(function() {
@@ -3416,12 +3421,12 @@ function renderSBDTotal() {
             responsive: true, maintainAspectRatio: false,
             plugins: {
               legend: { display: false },
-              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'center', padding: { bottom: 0 } },
-              tooltip: { callbacks: { label: function(c) { return (c.parsed.y || '—') + ' kg'; } } }
+              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'center', padding: { top: 0, bottom: 2 } },
+              tooltip: { callbacks: { label: function(c) { return (c.parsed.y || '—') + ' kg'; }, title: function() { return p.label; } } }
             },
             scales: {
-              x: { ticks: { color: '#86868B', font: { size: 9 } }, grid: { display: false } },
-              y: { ticks: { color: '#86868B', font: { size: 9 }, maxTicksLimit: 3 }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false, min: Math.floor(minVal * 0.9), suggestedMax: Math.ceil(maxVal * 1.1) }
+              x: { display: false },
+              y: { display: false, beginAtZero: false, min: Math.floor(minVal * 0.85), suggestedMax: Math.ceil(maxVal * 1.1) }
             }
           }
         }));

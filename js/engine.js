@@ -507,25 +507,6 @@ function getSBDType(name) {
 }
 
 // ============================================================
-// EXERCISE DAY MAP
-// ============================================================
-// getExerciseDay — déduit depuis l'historique importé de l'utilisateur
-// Retourne le jour où un exercice apparaît le plus souvent (source: db.logs)
-function getExerciseDay(name) {
-  const dayCounts = {};
-  db.logs.forEach(log => {
-    if (!log.day) return;
-    if (log.exercises.some(e => e.name === name)) {
-      dayCounts[log.day] = (dayCounts[log.day] || 0) + 1;
-    }
-  });
-  if (!Object.keys(dayCounts).length) return null;
-  return Object.entries(dayCounts).sort((a,b) => b[1]-a[1])[0][0];
-}
-
-
-
-// ============================================================
 // DATE PARSING
 // ============================================================
 function parseHevyDate(dateStr) {

@@ -160,13 +160,6 @@ async function startRealtimeSubscription() {
       .subscribe();
   } catch(e) { console.error('Realtime subscription:', e); }
 }
-function stopRealtimeSubscription() {
-  if (!_realtimeSubscription) return;
-  try {
-    _realtimeSubscription.unsubscribe();
-    _realtimeSubscription = null;
-  } catch(e) { console.error('Realtime unsubscribe:', e); }
-}
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
 function updateSyncStatus(s) {
   const el = document.getElementById('syncIndicator');
@@ -548,14 +541,6 @@ let _leaderboardCache = [];
 let _socialSearchTimeout = null;
 
 const COMMON_EMOJIS = ['💪','🔥','👏','🎉','❤️','😤','🏆','⚡','👊','💯','🙌','😂','🤯','💀','🫡','👑'];
-
-function getMyUserId() {
-  if (!supaClient) return null;
-  try {
-    const session = supaClient.auth.getSession();
-    return session?.data?.session?.user?.id || null;
-  } catch { return null; }
-}
 
 async function getMyUserIdAsync() {
   if (!supaClient) return null;
@@ -1806,10 +1791,6 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
   }
 }
 
-async function publishGoalActivity(exerciseName, value, weeks) {
-  await postToFeed('goal', { exercise: exerciseName, value: value, weeks: weeks });
-}
-
 // ============================================================
 // SOCIAL MODULE — LEADERBOARD
 // ============================================================
@@ -2265,120 +2246,6 @@ async function updateSocialBadge() {
       badge.classList.remove('visible');
     }
   }
-}
-
-// ============================================================
-// SOCIAL MODULE — DIAGNOSTIC
-// ============================================================
-async function diagnoseSocial() {
-  const results = [];
-  const ok = (msg) => results.push({ ok: true, msg });
-  const fail = (msg) => results.push({ ok: false, msg });
-
-  // 1. Auth check
-  try {
-    if (!supaClient) { fail('Client Supabase non initialisé'); }
-    else {
-      const { data } = await supaClient.auth.getUser();
-      if (data?.user) {
-        const u = data.user;
-        ok('Connecté : ' + (u.email || 'anonyme') + ' (id: ' + u.id.substring(0, 8) + '…)');
-      } else { fail('Aucun utilisateur connecté'); }
-    }
-  } catch (e) { fail('Auth — ' + e.message); }
-
-  // 2. Profiles table & critical columns
-  try {
-    const uid = await getMyUserIdAsync();
-    if (!uid) { fail('Impossible de récupérer ton identifiant'); }
-    else {
-      const { data, error } = await supaClient.from('profiles')
-        .select('id, username, friend_code, bio, visibility_bio, onboarding_completed')
-        .eq('id', uid).maybeSingle();
-      if (error) {
-        fail('Table profiles inaccessible — ' + error.message);
-        if (error.message && error.message.includes('column')) {
-          fail('Une colonne est probablement manquante dans la table profiles. Vérifie que friend_code, bio et visibility_bio existent.');
-        }
-      } else if (!data) {
-        fail('Aucun profil trouvé pour ton compte (table profiles vide ou RLS bloque)');
-      } else {
-        ok('Colonnes profiles OK (id, username, friend_code, bio, visibility_bio)');
-        if (data.username) { ok('Username en base : ' + data.username); }
-        else { fail('Username absent en base — le profil est incomplet'); }
-        if (data.friend_code) { ok('Code ami en base : ' + data.friend_code); }
-        else { fail('friend_code absent ou vide en base'); }
-        if (data.onboarding_completed) { ok('Onboarding complété en base'); }
-        else { fail('Onboarding non complété en base — le profil peut être partiel'); }
-      }
-    }
-  } catch (e) { fail('Profiles — ' + e.message); }
-
-  // 3. Friendships table accessible
-  try {
-    const uid = await getMyUserIdAsync();
-    const { data, error } = await supaClient.from('friendships')
-      .select('id, requester_id, target_id, status')
-      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid)
-      .limit(50);
-    if (error) { fail('Table friendships inaccessible — ' + error.message); }
-    else {
-      const pending = (data || []).filter(f => f.status === 'pending');
-      const accepted = (data || []).filter(f => f.status === 'accepted');
-      ok('Friendships accessibles : ' + (data || []).length + ' total (' + pending.length + ' en attente, ' + accepted.length + ' acceptées)');
-
-      // 3b. Pending requests where I am the TARGET (incoming)
-      const incoming = pending.filter(f => f.target_id === uid);
-      const outgoing = pending.filter(f => f.requester_id === uid);
-      if (incoming.length) { ok(incoming.length + ' demande(s) reçue(s) en attente (tu devrais les voir dans l\'onglet Amis)'); }
-      else { ok('Aucune demande reçue en attente'); }
-      if (outgoing.length) { ok(outgoing.length + ' demande(s) envoyée(s) en attente'); }
-    }
-  } catch (e) { fail('Friendships — ' + e.message); }
-
-  // 4. Check that a friend can see the pending request (cross-user visibility)
-  try {
-    const uid = await getMyUserIdAsync();
-    const { data, error } = await supaClient.from('friendships')
-      .select('id')
-      .eq('status', 'pending')
-      .limit(1);
-    if (error) { fail('Lecture des demandes pending échouée (RLS SELECT ?) — ' + error.message); }
-    else { ok('Lecture RLS des friendships OK'); }
-  } catch (e) { fail('RLS friendships — ' + e.message); }
-
-  // 5. Local state check
-  if (db.friendCode) { ok('Code ami local (db.friendCode) : ' + db.friendCode); }
-  else { fail('Pas de code ami en local (db.friendCode absent)'); }
-
-  if (db.social && db.social.onboardingCompleted) { ok('Onboarding social complété'); }
-  else { fail('Onboarding social non complété — le module social peut être bloqué'); }
-
-  // Build readable output
-  console.group('🔧 Diagnostic Social');
-  results.forEach(r => console[r.ok ? 'log' : 'warn']((r.ok ? '✅' : '❌') + ' ' + r.msg));
-  console.groupEnd();
-
-  // Show modal in app
-  const modalHtml =
-    '<div class="modal-overlay" id="diagSocialOverlay" onclick="if(event.target===this)this.remove()" style="z-index:99999;">' +
-      '<div class="modal-box" style="max-width:400px;text-align:left;max-height:80vh;overflow-y:auto;">' +
-        '<div style="font-size:22px;text-align:center;margin-bottom:8px;">🔧</div>' +
-        '<p style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center;">Diagnostic Social</p>' +
-        results.map(r =>
-          '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;font-size:13px;line-height:1.4;">' +
-            '<span style="flex-shrink:0;">' + (r.ok ? '✅' : '❌') + '</span>' +
-            '<span style="color:' + (r.ok ? 'var(--green)' : 'var(--red)') + ';">' + r.msg + '</span>' +
-          '</div>'
-        ).join('') +
-        '<button class="btn" style="margin-top:16px;" onclick="document.getElementById(\'diagSocialOverlay\').remove()">Fermer</button>' +
-      '</div>' +
-    '</div>';
-  const existing = document.getElementById('diagSocialOverlay');
-  if (existing) existing.remove();
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-  return results;
 }
 
 // ============================================================

@@ -237,8 +237,6 @@ window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
-function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
-
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
 
@@ -3378,128 +3376,6 @@ function renderRecentPRs() {
 }
 
 // ============================================================
-// Heatmap muscles 2D — vue avant/arrière (gardé pour usage pendant séance)
-// ============================================================
-function renderMuscleHeatmap2D() {
-  var container = document.getElementById('muscleHeatmap2D');
-  if (!container) return;
-
-  // Calculer les séries par muscle cette semaine
-  var now = new Date();
-  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - dayOfWeek);
-  weekStart.setHours(0, 0, 0, 0);
-
-  var muscleSets = {};
-  (db.logs || []).forEach(function(log) {
-    var d = new Date(log.date);
-    if (d >= weekStart && d <= now) {
-      (log.exercises || []).forEach(function(exo) {
-        var setsCount = (exo.sets || []).length;
-        // Chercher l'exercice dans la base pour obtenir les muscles
-        var exoData = null;
-        if (typeof EXO_DATABASE !== 'undefined') {
-          for (var key in EXO_DATABASE) {
-            var e = EXO_DATABASE[key];
-            if (e.name === exo.name || (e.nameAlt && e.nameAlt.indexOf(exo.name) >= 0)) {
-              exoData = e;
-              break;
-            }
-          }
-        }
-        if (exoData) {
-          (exoData.primaryMuscles || []).forEach(function(m) {
-            var mNorm = _normalizeMuscle(m);
-            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + setsCount;
-          });
-          (exoData.secondaryMuscles || []).forEach(function(m) {
-            var mNorm = _normalizeMuscle(m);
-            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + Math.ceil(setsCount * 0.5);
-          });
-        }
-      });
-    }
-  });
-
-  var maxSets = 0;
-  for (var k in muscleSets) if (muscleSets[k] > maxSets) maxSets = muscleSets[k];
-  if (maxSets === 0) maxSets = 1;
-
-  // Mapper les muscles normalisés aux parties du corps SVG
-  var muscleMapping = {
-    front: {
-      'pecs': { path: 'M55,60 Q75,55 95,60 L95,80 Q75,85 55,80 Z', label: 'Pecs' },
-      'epaules': { path: 'M45,50 Q50,45 55,50 L55,65 Q50,65 45,60 Z M95,50 Q100,45 105,50 L105,65 Q100,65 95,60 Z', label: 'Épaules' },
-      'biceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Biceps' },
-      'abdos': { path: 'M60,82 Q75,80 90,82 L90,115 Q75,118 60,115 Z', label: 'Abdos' },
-      'quadriceps': { path: 'M55,120 Q65,118 75,120 L72,160 Q63,162 55,160 Z M75,120 Q85,118 95,120 L95,160 Q87,162 78,160 Z', label: 'Quadriceps' },
-    },
-    back: {
-      'dos': { path: 'M55,55 Q75,50 95,55 L95,85 Q75,90 55,85 Z', label: 'Dos' },
-      'trapezes': { path: 'M60,40 Q75,38 90,40 L88,55 Q75,52 62,55 Z', label: 'Trapèzes' },
-      'triceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Triceps' },
-      'lombaires': { path: 'M62,87 Q75,85 88,87 L88,105 Q75,108 62,105 Z', label: 'Lombaires' },
-      'fessiers': { path: 'M55,108 Q75,105 95,108 L95,125 Q75,128 55,125 Z', label: 'Fessiers' },
-      'ischiojambiers': { path: 'M55,128 Q65,125 75,128 L72,165 Q63,167 55,165 Z M75,128 Q85,125 95,128 L95,165 Q87,167 78,165 Z', label: 'Ischio' },
-      'mollets': { path: 'M58,168 Q65,165 72,168 L70,190 Q65,192 60,190 Z M78,168 Q85,165 92,168 L90,190 Q85,192 80,190 Z', label: 'Mollets' },
-    }
-  };
-
-  function getColor(intensity) {
-    if (intensity <= 0) return 'rgba(255,255,255,0.04)';
-    if (intensity < 0.25) return 'rgba(59,130,246,0.2)';
-    if (intensity < 0.5) return 'rgba(59,130,246,0.4)';
-    if (intensity < 0.75) return 'rgba(59,130,246,0.65)';
-    return 'rgba(59,130,246,0.9)';
-  }
-
-  function renderSide(side, muscles) {
-    var paths = '';
-    for (var muscleKey in muscles) {
-      var m = muscles[muscleKey];
-      var intensity = (muscleSets[muscleKey] || 0) / maxSets;
-      var color = getColor(intensity);
-      var setsNum = muscleSets[muscleKey] || 0;
-      paths += '<path d="' + m.path + '" fill="' + color + '" stroke="rgba(255,255,255,0.1)" stroke-width="0.5">' +
-               '<title>' + m.label + ': ' + setsNum + ' séries</title></path>';
-    }
-    // Silhouette
-    var silhouette = '<path d="M75,8 Q80,8 82,12 Q84,16 82,20 Q80,24 78,26 L80,28 Q88,30 92,35 L105,45 Q110,48 108,55 L110,60 Q112,65 110,70 L112,85 Q112,95 110,95 L105,95 Q102,95 105,65 L95,50 Q90,45 90,55 L95,120 Q98,125 95,130 L95,165 Q96,170 95,175 L95,190 Q95,198 90,200 L82,200 Q78,198 78,195 L78,170 Q78,165 75,163 Q72,165 72,170 L72,195 Q72,198 68,200 L60,200 Q55,198 55,190 L55,175 Q54,170 55,165 L55,130 Q52,125 55,120 L60,55 Q60,45 55,50 L45,65 Q48,95 45,95 L40,95 Q38,95 38,85 L40,70 Q38,65 40,60 L42,55 Q40,48 45,45 L58,35 Q62,30 70,28 L72,26 Q70,24 68,20 Q66,16 68,12 Q70,8 75,8 Z" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
-    return '<div style="text-align:center;"><div style="font-size:10px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + side + '</div>' +
-           '<svg viewBox="30 0 90 210" width="130" height="220" style="overflow:visible;">' + silhouette + paths + '</svg></div>';
-  }
-
-  container.innerHTML = renderSide('Avant', muscleMapping.front) + renderSide('Arrière', muscleMapping.back);
-
-  // Légende sous la heatmap
-  var legendHtml = '<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:10px;color:var(--sub);">';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.2);"></span> Peu</span>';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.5);"></span> Moyen</span>';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.9);"></span> Beaucoup</span>';
-  legendHtml += '</div>';
-  container.innerHTML += legendHtml;
-}
-
-function _normalizeMuscle(name) {
-  var n = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (n.indexOf('pec') >= 0 || n.indexOf('chest') >= 0) return 'pecs';
-  if (n.indexOf('epaule') >= 0 || n.indexOf('deltoid') >= 0 || n.indexOf('shoulder') >= 0) return 'epaules';
-  if (n.indexOf('bicep') >= 0) return 'biceps';
-  if (n.indexOf('tricep') >= 0) return 'triceps';
-  if (n.indexOf('abdo') >= 0 || n.indexOf('core') >= 0) return 'abdos';
-  if (n.indexOf('quad') >= 0) return 'quadriceps';
-  if (n.indexOf('ischio') >= 0 || n.indexOf('hamstring') >= 0) return 'ischiojambiers';
-  if (n.indexOf('fessier') >= 0 || n.indexOf('glute') >= 0) return 'fessiers';
-  if (n.indexOf('mollet') >= 0 || n.indexOf('calf') >= 0 || n.indexOf('calves') >= 0) return 'mollets';
-  if (n.indexOf('dorsal') >= 0 || n.indexOf('dos') >= 0 || n.indexOf('lat') >= 0 || n.indexOf('back') >= 0) return 'dos';
-  if (n.indexOf('trapez') >= 0 || n.indexOf('haut du dos') >= 0) return 'trapezes';
-  if (n.indexOf('lombaire') >= 0 || n.indexOf('lower back') >= 0) return 'lombaires';
-  if (n.indexOf('avant-bras') >= 0 || n.indexOf('forearm') >= 0) return 'biceps'; // regroupé
-  return n;
-}
-
-// ============================================================
 // Lancer la séance du jour
 // ============================================================
 function startTodayWorkout() {
@@ -3508,47 +3384,6 @@ function startTodayWorkout() {
   var goBtn = document.querySelector('.stats-sub-pill[onclick*="seances-go"]') ||
               document.querySelectorAll('#tab-seances .stats-sub-nav .stats-sub-pill')[1];
   if (typeof showSeancesSub === 'function') showSeancesSub('seances-go', goBtn);
-}
-
-function renderReadinessSparkline() {
-  const el = document.getElementById('readinessSparkline');
-  if (!el) return;
-  const cutoff = Date.now() - 14 * 86400000;
-  const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
-  if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
-  const vals = recent.map(r => r.score);
-  const W = 280, H = 60, pad = 6;
-  const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
-  const pts = vals.map((v, i) => ({
-    x: pad + (i / (vals.length - 1)) * (W - pad * 2),
-    y: pad + (1 - (v - minV) / range) * (H - pad * 2)
-  }));
-  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-  const last = pts[pts.length - 1];
-  const lastScore = vals[vals.length - 1];
-  const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
-  // Moyenne et tendance
-  const avg = Math.round(vals.reduce((s,v) => s+v, 0) / vals.length);
-  const trend = vals.length >= 3 ? vals[vals.length-1] - vals[0] : 0;
-  const trendArrow = trend > 10 ? '↗' : trend < -10 ? '↘' : '→';
-  const trendColor = trend > 10 ? 'var(--green)' : trend < -10 ? 'var(--red)' : 'var(--sub)';
-  // Dernier détail
-  const lastR = recent[recent.length - 1];
-  const detailParts = [];
-  if (lastR.sleep) detailParts.push('😴 ' + lastR.sleep + '/10');
-  if (lastR.energy) detailParts.push('⚡ ' + lastR.energy + '/10');
-  if (lastR.motivation) detailParts.push('🧠 ' + lastR.motivation + '/10');
-
-  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-    '<span style="font-size:11px;font-weight:700;color:var(--sub);">READINESS</span>' +
-    '<span style="font-size:11px;color:var(--sub);">Moy: ' + avg + '% <span style="color:' + trendColor + ';">' + trendArrow + '</span></span></div>' +
-    '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
-    '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
-    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
-    '</svg></div>' +
-    (detailParts.length ? '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + detailParts.join(' · ') + '</div>' : '');
 }
 
 // ── Heatmap de récupération musculaire ──────────────────────
@@ -3659,183 +3494,6 @@ function showMuscleFatigueTooltip(key) {
 }
 
 // ── Score de forme composite (Dashboard) ────────────────────
-function computeFormScoreComposite() {
-  const components = {};
-  // 1. Readiness moyenne 7j (20%)
-  const recent = (db.readiness || []).filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000);
-  components.readiness = recent.length > 0 ? recent.reduce((s, r) => s + r.score, 0) / recent.length : 50;
-  // 2. Compliance 7j (25%)
-  const routine = getRoutine();
-  const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
-  const logsWeek = (db.logs || []).filter(l => (Date.now() - (l.timestamp || 0)) < 7 * 86400000).length;
-  components.compliance = Math.min(100, (logsWeek / planned) * 100);
-  // 3. Tendance force (20%)
-  const mainLifts = ['squat', 'bench', 'deadlift'];
-  let trendScore = 0, trendCount = 0;
-  mainLifts.forEach(name => {
-    const pts = [];
-    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-    for (const log of desc) {
-      const exo = log.exercises.find(e => getSBDType(e.name) === name && e.maxRM > 0);
-      if (exo) { pts.push(exo.maxRM); if (pts.length >= 4) break; }
-    }
-    if (pts.length >= 2) {
-      trendCount++;
-      trendScore += pts[0] >= pts[pts.length - 1] ? 1 : -1;
-    }
-  });
-  components.trend = trendCount > 0 ? 50 + (trendScore / trendCount) * 25 : 50;
-  // 4. Fatigue inverse (15%)
-  const fatigue = computeMuscleFatigue(db.logs || []);
-  const fatVals = Object.values(fatigue);
-  const avgFat = fatVals.length > 0 ? fatVals.reduce((s,v) => s+v, 0) / fatVals.length : 50;
-  components.recovery = 100 - avgFat;
-  // 5. Nutrition (10%)
-  const nutriDays = (db.body || []).filter(e => (Date.now() - (e.ts||0)) < 7 * 86400000 && (e.kcal > 0 || e.prot > 0));
-  components.nutrition = nutriDays.length > 0 ? Math.min(100, (nutriDays.length / 7) * 100) : 30;
-  // 6. Sommeil (10%)
-  components.sleep = recent.length > 0 ? (recent.reduce((s, r) => s + r.sleep, 0) / recent.length) * 20 : 50;
-  // Final
-  const score = Math.round(
-    components.readiness * 0.20 + components.compliance * 0.25 +
-    components.trend * 0.20 + components.recovery * 0.15 +
-    components.nutrition * 0.10 + components.sleep * 0.10
-  );
-  return { score: Math.max(0, Math.min(100, score)), components };
-}
-
-function renderFormScoreDash() {
-  const el = document.getElementById('formScoreContent');
-  if (!el) return;
-  const { score, components } = computeFormScoreComposite();
-  const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
-  const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
-  const COMP_WEIGHTS = { readiness:'20%', compliance:'25%', trend:'20%', recovery:'15%', nutrition:'10%', sleep:'10%' };
-  const barsHtml = Object.entries(components).map(([k,v]) =>
-    '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
-    '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
-    '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;">' +
-    '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
-    '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
-  ).join('');
-  // Detailed breakdown (expandable)
-  const breakdownHtml = Object.entries(components).map(([k,v]) => {
-    const w = COMP_WEIGHTS[k] || '?';
-    const wNum = parseFloat(w) / 100;
-    return '<div class="breakdown-line">' +
-      '<span class="bl-label">' + (COMP_LABELS[k]||k) + '</span>' +
-      '<span class="bl-value">' + Math.round(v) + '/100</span>' +
-      '<span class="bl-weight">× ' + w + '</span>' +
-      '<span class="bl-contribution">= ' + (v * wNum).toFixed(1) + '</span></div>';
-  }).join('');
-  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
-    '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-    '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
-    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme ' + renderGlossaryTip('form_score') + '</div>' +
-    '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
-    (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
-    '</div></div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>' +
-    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail du calcul\':\'📐 Masquer le détail\';">📐 Voir le détail du calcul</div>' +
-    '<div class="breakdown" style="display:none;">' + breakdownHtml +
-    '<div class="breakdown-total">Total : ' + score + '/100</div></div>';
-}
-
-// ── Prédiction de PR ────────────────────────────────────────
-function predictPR(exerciseName, targetWeight) {
-  // Use inline trend calculation (same as renderPerfCard's logic)
-  const pts = [];
-  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-  for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exerciseName || matchExoName(e.name, exerciseName));
-    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-    if (pts.length >= 6) break;
-  }
-  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données' };
-  pts.sort((a,b) => a.x - b.x);
-  const n = pts.length;
-  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-  const denom = n*sumX2 - sumX*sumX;
-  const slope = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
-  const kgPerWeek = slope * 7;
-
-  // R² calculation
-  const meanY = sumY / n;
-  const ssTot = pts.reduce((s,p) => s + Math.pow(p.y - meanY, 2), 0);
-  const ssRes = pts.reduce((s,p) => { const pred = (slope * p.x) + ((sumY - slope * sumX) / n); return s + Math.pow(p.y - pred, 2); }, 0);
-  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
-
-  const currentE1RM = pts[pts.length - 1].y;
-  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée' };
-  if (currentE1RM >= targetWeight) return { reachable: true, reason: 'Objectif déjà atteint !', weeks: 0 };
-  const gap = targetWeight - currentE1RM;
-  const weeks = Math.ceil(gap / kgPerWeek);
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() + weeks * 7);
-  return {
-    reachable: true, weeks, date: targetDate.toLocaleDateString('fr-FR'),
-    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2),
-    currentE1RM: Math.round(currentE1RM), gap: Math.round(gap), dataPoints: n
-  };
-}
-
-// ── DOTS / Wilks dans le Dashboard ──────────────────────────
-function renderDotsWilks() {
-  const card = document.getElementById('dotsWilksCard');
-  const el = document.getElementById('dotsWilksContent');
-  if (!card || !el) return;
-  const bw = db.user.bw;
-  if (!bw || bw <= 0) { card.style.display = 'none'; return; }
-  // Get best e1RM for SBD
-  let squat = 0, bench = 0, deadlift = 0;
-  db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
-      const type = getSBDType(exo.name);
-      if (type === 'squat' && (exo.maxRM||0) > squat) squat = exo.maxRM;
-      if (type === 'bench' && (exo.maxRM||0) > bench) bench = exo.maxRM;
-      if (type === 'deadlift' && (exo.maxRM||0) > deadlift) deadlift = exo.maxRM;
-    });
-  });
-  if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
-  card.style.display = shouldShow('dots_wilks') ? '' : 'none';
-  if (!shouldShow('dots_wilks')) return;
-  const total = squat + bench + deadlift;
-  const gender = db.user.gender === 'F' ? 'F' : 'M';
-  const dots = computeDOTS(total, bw, gender);
-  const wilks = computeWilks(total, bw, gender);
-  const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
-  var dotsBreakdown = '<div class="breakdown" style="display:none;margin-top:8px;">' +
-    '<div class="breakdown-line"><span class="bl-label">Squat (e1RM)</span><span class="bl-value">' + squat + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Bench (e1RM)</span><span class="bl-value">' + bench + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Deadlift (e1RM)</span><span class="bl-value">' + deadlift + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Total</span><span class="bl-value" style="font-weight:700;">' + total + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Poids de corps</span><span class="bl-value">' + bw + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Genre</span><span class="bl-value">' + (gender === 'F' ? 'Femme' : 'Homme') + '</span></div>' +
-    '<div class="breakdown-total">DOTS = ' + dots + ' · Wilks = ' + wilks + '</div></div>';
-  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
-    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
-    '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
-    '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
-    '<div style="display:flex;gap:16px;margin-top:8px;">' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
-    '</div>' +
-    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail\':\'📐 Masquer le détail\';">📐 Voir le détail</div>' +
-    dotsBreakdown;
-}
-
-// ── Rubrique Performance configurable ────────────────────────
-function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
-
-// Incrément objectif selon le groupe musculaire de l'exercice
-function getPerfIncrement(exoName) {
-  const mg = getMuscleGroupParent(getMuscleGroup(exoName));
-  return (mg === 'Jambes') ? 5 : 2.5;
-}
-
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
@@ -7953,15 +7611,6 @@ function checkProgressionSuggestions() {
   return suggestions;
 }
 
-function renderProgressionSuggestions() {
-  // Legacy — now inline in renderCoachToday()
-}
-
-function renderCoachBriefing() {
-  // Legacy — now handled by renderCoachToday()
-  renderCoachToday();
-}
-
 function generateWeeklyReport() {
   var weekKey = _getWeekKey();
   if ((db.reports||[]).some(function(r) { return r.type === 'weekly' && r.weekKey === weekKey; })) return;
@@ -8019,12 +7668,6 @@ function generateWeeklyReport() {
   saveDBNow();
 }
 
-function renderCoachReports() {
-  // Legacy — now handled by renderCoachHistory()
-  renderCoachHistory();
-}
-
-
 // ============================================================
 // WEEKLY PLAN — génération locale (sans IA)
 // ============================================================
@@ -8042,28 +7685,6 @@ const BW_RATIOS = {
 
 // ── Apprentissage progression personnalisée ─────────────────
 // Après 4+ semaines de données, calcule le taux de progression réel
-function getPersonalProgressionRate(exoName) {
-  const pts = [];
-  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-  for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
-    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-    if (pts.length >= 8) break;
-  }
-  if (pts.length < 4) return null;
-  pts.sort((a,b) => a.x - b.x);
-  const n = pts.length;
-  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-  const kgPerWeek = Math.round(slope * 7 * 10) / 10;
-  const lastE1rm = pts[pts.length - 1].y;
-  if (lastE1rm <= 0) return null;
-  const pctPerWeek = Math.round((kgPerWeek / lastE1rm) * 1000) / 10;
-  return { kgPerWeek, pctPerWeek, lastE1rm, confidence: n >= 6 ? 'high' : 'medium', n };
-}
-
 // ── Catégorie d'exercice (global) ───────────────────────────
 function getExoCategory(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -8209,55 +7830,6 @@ function estimateSessionDuration(exercises, goal) {
 }
 
 // Adapter la séance si elle dépasse la durée configurée
-function adaptSessionForDuration(exercises, targetMinutes, goal) {
-  if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
-  const est = estimateSessionDuration(exercises, goal);
-  if (est.minutes <= targetMinutes) return { exercises, adaptations: [] };
-
-  const adaptations = [];
-  let adapted = JSON.parse(JSON.stringify(exercises));
-
-  // 1. Supersets sur isolations (gain ~30%)
-  const isoExos = adapted.filter(e => getExoCategory(e.name) === 'isolation');
-  if (isoExos.length >= 2) {
-    for (let i = 0; i < isoExos.length - 1; i += 2) {
-      isoExos[i].superset = isoExos[i + 1].name;
-      isoExos[i].restSeconds = Math.round((isoExos[i].restSeconds || 60) * 0.5);
-    }
-    adaptations.push('Supersets sur isolations');
-    const est2 = estimateSessionDuration(adapted, goal);
-    if (est2.minutes <= targetMinutes) return { exercises: adapted, adaptations };
-  }
-
-  // 2. Réduire séries isolations (max -1, jamais <2)
-  adapted.forEach(e => {
-    if (getExoCategory(e.name) !== 'isolation') return;
-    const work = e.sets.filter(s => !s.isWarmup);
-    if (work.length > 2) {
-      const idx = e.sets.findIndex(s => !s.isWarmup);
-      if (idx >= 0) e.sets.splice(idx, 1);
-    }
-  });
-  adaptations.push('Séries isolations réduites');
-  const est3 = estimateSessionDuration(adapted, goal);
-  if (est3.minutes <= targetMinutes) return { exercises: adapted, adaptations };
-
-  // 3. Réduire repos de 15% max
-  adapted.forEach(e => { e.restSeconds = Math.round((e.restSeconds || 90) * 0.85); });
-  adaptations.push('Repos réduits (-15%)');
-  const est4 = estimateSessionDuration(adapted, goal);
-  if (est4.minutes <= targetMinutes) return { exercises: adapted, adaptations };
-
-  // 4. Dernier recours : retirer une isolation
-  const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
-  if (lastIso >= 0) {
-    adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
-    adapted.splice(lastIso, 1);
-  }
-
-  return { exercises: adapted, adaptations };
-}
-
 // ── Périodisation par blocs selon le niveau ─────────────────
 // Sources : BodySpec, Barbell Medicine, NSCA
 const BLOC_PARAMS = {
@@ -8288,57 +7860,6 @@ const BLOC_PARAMS = {
 };
 
 // ── Deload automatique ──────────────────────────────────────
-function shouldDeload() {
-  const reasons = [];
-  // 1. Fin de mésocycle (semaine 4 complétée)
-  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
-    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
-    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
-  }
-  // 2. Readiness basse chronique
-  const last3 = (db.readiness || []).slice(-3);
-  if (last3.length === 3 && last3.every(r => r.score < 40)) {
-    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
-  }
-  // 3. Plateau multiple
-  const bigLifts = ['squat', 'bench', 'deadlift'];
-  const plateaus = bigLifts.filter(l => detectPlateau(l));
-  if (plateaus.length >= 2) {
-    reasons.push('Plateau sur ' + plateaus.join(' et '));
-  }
-  return { needed: reasons.length > 0, reasons };
-}
-
-let _deloadDismissed = false;
-function renderDeloadBanner() {
-  const el = document.getElementById('deloadBanner');
-  if (!el) return;
-  if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
-  const { needed, reasons } = shouldDeload();
-  if (!needed) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée ' + renderGlossaryTip('deload') + '</div>' +
-    '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
-    '<div style="display:flex;gap:8px;">' +
-    '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
-    '<button onclick="dismissDeload()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Ignorer</button>' +
-    '</div></div>';
-}
-
-function acceptDeload() {
-  db._deloadAccepted = true;
-  saveDB();
-  showToast('🔄 Deload activé — charges et volume réduits');
-  const el = document.getElementById('deloadBanner');
-  if (el) el.innerHTML = '';
-}
-
-function dismissDeload() {
-  _deloadDismissed = true;
-  const el = document.getElementById('deloadBanner');
-  if (el) el.innerHTML = '';
-}
-
 function isDeloadWeek() {
   return !!db._deloadAccepted;
 }

@@ -9,7 +9,6 @@ function purgeExpiredReports() { const now = Date.now(); const before = db.repor
 function upsertReport(type, html, sessionId) { purgeExpiredReports(); db.reports = db.reports.filter(r => { if (type==='debrief' && r.type==='debrief' && r.sessionId===sessionId) return false; if (type==='weekly' && r.type==='weekly') return false; return true; }); const now = Date.now(); db.reports.push({ id: generateId(), type, html, created_at: now, expires_at: now+REPORT_TTL_MS, sessionId: sessionId||null, read: false }); saveDBNow(); updateCoachBadge(); renderReportsTimeline(); }
 function markReportsRead() { let changed = false; db.reports.forEach(r => { if (!r.read) { r.read = true; changed = true; } }); if (changed) saveDB(); updateCoachBadge(); }
 function updateCoachBadge() { const unread = db.reports.filter(r => !r.read && r.expires_at > Date.now()).length; const btn = document.querySelector('.tab-btn[data-tab="tab-ai"]'); if (!btn) return; const existing = btn.querySelector('.tab-badge'); if (unread > 0 && !existing) { const dot = document.createElement('span'); dot.className = 'tab-badge'; btn.appendChild(dot); } else if (unread === 0 && existing) existing.remove(); }
-function shouldGenerateWeekly() { const today = new Date(); if (today.getDay() !== 6) return false; const existing = db.reports.find(r => r.type === 'weekly'); if (existing) { const created = new Date(existing.created_at); if (created.toDateString() === today.toDateString()) return false; } return getLogsInRange(7).length > 0; }
 let reportsTimelineOpen = true;
 function toggleReportsTimeline() {
   reportsTimelineOpen = !reportsTimelineOpen;
@@ -227,58 +226,6 @@ muscleGroup :
 - Abdos : planche, gainage, crunch, relevé de genoux, russian twist
 - Cardio : tapis roulant, vélo, natation, rameur, escalier
 - Autre : tout le reste`;
-
-async function extractWithAI(rawText) {
-  if (!cloudSyncEnabled) return null;
-  try {
-    const d = await callAnthropicProxy({ model: 'claude-haiku-4-5-20251001', max_tokens: 2000, system: AI_EXTRACT_SYSTEM, messages: [{ role: 'user', content: rawText }] });
-    if (d.error) { console.warn('AI extract error:', d.error); return null; }
-    const raw = d.content.map(b => b.text || '').join('').trim();
-    return JSON.parse(raw);
-  } catch (e) { console.warn('AI extract failed:', e); return null; }
-}
-
-function buildSessionFromAI(parsed, rawText) {
-  const lines = rawText.split('\n');
-  const firstLine = lines[0].trim();
-  let sessionTimestamp = Date.now();
-  let sessionDate = new Date().toLocaleDateString('fr-FR');
-  if (parsed.date) {
-    sessionTimestamp = parseHevyDate(parsed.date);
-    sessionDate = parsed.date;
-  } else {
-    const dateLine = lines.find(l => l.toLowerCase().startsWith('le ') && l.includes('202'));
-    if (dateLine) { sessionDate = dateLine.trim(); sessionTimestamp = parseHevyDate(sessionDate); }
-  }
-  const session = { date: sessionDate, shortDate: formatDate(sessionTimestamp), timestamp: sessionTimestamp, volume: 0, exercises: [], id: generateId(), title: parsed.title || firstLine.split('-')[0].trim(), type: parsed.type || '', day: DAYS_FULL[new Date(sessionTimestamp).getDay()] };
-  (parsed.exercises || []).forEach(exo => {
-    const exoType = exo.exoType || 'weight';
-    const isCardio = exoType === 'cardio', isTime = exoType === 'time', isReps = exoType === 'reps';
-    const obj = { name: exo.name, muscleGroup: exo.muscleGroup || getMuscleGroup(exo.name), exoType, isCardio, isTime, isReps, maxRM: 0, maxReps: 0, totalReps: 0, maxTime: 0, distance: 0, sets: 0, repRecords: {}, series: [], allSets: [], _rawSets: [] };
-    (exo.sets || []).forEach(s => {
-      const isW      = s.isWarmup || s.setType === 'warmup';
-      const isAbandon= s.setType === 'abandon';
-      const isDrop   = s.setType === 'drop';
-      const countForRecord = !isW && !isAbandon && !isDrop;
-      if (countForRecord) obj.sets++;
-      const _aiSetType = isW ? 'warmup' : isAbandon ? 'failure' : isDrop ? 'drop' : 'normal';
-      if (exoType === 'weight') {
-        const w = s.weight||0, r = s.reps||0;
-        obj.allSets.push({ weight: w, reps: r, setType: _aiSetType, rpe: s.rpe || null });
-        if (countForRecord && w>0 && r>0) obj._rawSets.push({weight:w, reps:r});
-        if (w>0&&r>0) { session.volume+=w*r; if(countForRecord){const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;const ex=obj.series.find(x=>x.reps===r);if(ex){if(w>ex.weight)ex.weight=w;}else obj.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}}}
-      } else if (exoType==='reps') {
-        if(countForRecord){const r=s.reps||0,w=s.weight||0;obj.totalReps+=r;if(r>obj.maxReps){obj.maxReps=r;obj.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*r;const rm=calcE1RM(w,r);if(rm>obj.maxRM){obj.maxRM=rm;obj.maxRMDate=sessionTimestamp;}const rKey=String(r);if(!obj.repRecords[rKey]||w>obj.repRecords[rKey])obj.repRecords[rKey]=w;}}
-      } else if (exoType==='time') {
-        if(countForRecord){const t=s.duration||0;if(t>obj.maxTime){obj.maxTime=t;obj.maxTimeDate=sessionTimestamp;}session.volume+=t/10;}
-      } else if (exoType==='cardio') {
-        const d=s.distance||0,t=s.duration||0;if(d>obj.distance)obj.distance=d;if(t>obj.maxTime){obj.maxTime=t;obj.cardioDate=sessionTimestamp;}
-      }
-    });
-    session.exercises.push(obj);
-  });
-  return session;
-}
 
 function processHevy() {
   const text = document.getElementById('hevyPaste').value;

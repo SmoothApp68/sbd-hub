@@ -10969,7 +10969,7 @@ function goConfirmFinish() {
   );
 }
 
-function goFinishWorkout() {
+async function goFinishWorkout() {
   if (!activeWorkout) return;
   var session = convertWorkoutToSession(activeWorkout);
 

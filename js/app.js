@@ -3204,13 +3204,8 @@ function renderDaySection() {
 // Résumé hebdomadaire — nombre de séances, durée, volume
 // ============================================================
 function renderWeeklySummary() {
-  var now = new Date();
-  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // Lundi = 0
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - dayOfWeek);
-  weekStart.setHours(0, 0, 0, 0);
-  var weekStartTs = weekStart.getTime();
-  var nowTs = now.getTime();
+  var weekStartTs = Date.now() - 7 * 86400000;
+  var nowTs = Date.now();
 
   var sessions = 0, totalDuration = 0, totalVolume = 0;
   (db.logs || []).forEach(function(log) {

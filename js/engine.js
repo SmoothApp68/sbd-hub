@@ -5,10 +5,47 @@
 // ============================================================
 // CONSTANTS & CONFIG
 // ============================================================
-// STORAGE_KEY, DAYS_FULL, DAYS_SHORT, SBD_TYPES, RADAR_CONFIG,
-// VARIANT_KEYWORDS, REPORT_TTL_MS are defined in constants.js
+const STORAGE_KEY='SBD_HUB_V29';
+const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const SBD_TYPES=['bench','squat','deadlift'];
+const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
+const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
+const REPORT_TTL_MS=7*86400000;
 
-// VOLUME_LANDMARKS and MUSCLE_TO_VL_KEY are defined in constants.js
+// ── Volume Landmarks (sets/semaine par groupe musculaire) ────
+const VOLUME_LANDMARKS = {
+  chest:      { MEV: 8,  MAV: 14, MRV: 20 },
+  back:       { MEV: 8,  MAV: 16, MRV: 23 },
+  shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
+  quads:      { MEV: 6,  MAV: 14, MRV: 20 },
+  hamstrings: { MEV: 4,  MAV: 10, MRV: 16 },
+  glutes:     { MEV: 4,  MAV: 10, MRV: 16 },
+  biceps:     { MEV: 4,  MAV: 10, MRV: 18 },
+  triceps:    { MEV: 4,  MAV: 10, MRV: 16 },
+  calves:     { MEV: 6,  MAV: 10, MRV: 16 },
+  abs:        { MEV: 0,  MAV: 10, MRV: 18 },
+  traps:      { MEV: 0,  MAV: 8,  MRV: 14 },
+  forearms:   { MEV: 0,  MAV: 6,  MRV: 12 },
+};
+
+// Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
+const MUSCLE_TO_VL_KEY = {
+  'Pecs': 'chest', 'Pecs (haut)': 'chest', 'Pecs (bas)': 'chest',
+  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back', 'Grand dorsal': 'back', 'Haut du dos': 'back', 'Lombaires': 'back',
+  'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
+  'Quadriceps': 'quads', 'Quads': 'quads',
+  'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',
+  'Fessiers': 'glutes', 'Glutes': 'glutes',
+  'Biceps': 'biceps',
+  'Triceps': 'triceps',
+  'Mollets': 'calves',
+  'Abdos': 'abs', 'Abdos (frontal)': 'abs', 'Core': 'abs', 'Obliques': 'abs',
+  'Trapèzes': 'traps', 'Traps': 'traps',
+  'Avant-bras': 'forearms',
+  'Jambes': 'quads', // fallback
+  'Bras': 'biceps',  // fallback
+};
 
 // ── TRAINING MODES ──────────────────────────────────────────
 const TRAINING_MODES = {
@@ -170,7 +207,11 @@ const ROUTINE_TEMPLATES = {
   }
 };
 
-// DEFAULT_ROUTINE and SESSION_NAME_BLACKLIST are defined in constants.js
+// DEFAULT routine (fallback si pas de profil)
+const DEFAULT_ROUTINE = ROUTINE_TEMPLATES.sbd.routine;
+
+// ── SESSION NAME BLACKLIST ──────────────────────────────────
+const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
 
 // ============================================================
 // PERFORMANCE — MEMOIZATION CACHES
@@ -507,6 +548,25 @@ function getSBDType(name) {
 }
 
 // ============================================================
+// EXERCISE DAY MAP
+// ============================================================
+// getExerciseDay — déduit depuis l'historique importé de l'utilisateur
+// Retourne le jour où un exercice apparaît le plus souvent (source: db.logs)
+function getExerciseDay(name) {
+  const dayCounts = {};
+  db.logs.forEach(log => {
+    if (!log.day) return;
+    if (log.exercises.some(e => e.name === name)) {
+      dayCounts[log.day] = (dayCounts[log.day] || 0) + 1;
+    }
+  });
+  if (!Object.keys(dayCounts).length) return null;
+  return Object.entries(dayCounts).sort((a,b) => b[1]-a[1])[0][0];
+}
+
+
+
+// ============================================================
 // DATE PARSING
 // ============================================================
 function parseHevyDate(dateStr) {
@@ -780,11 +840,11 @@ function calcIPFGLTotal(bench, squat, deadlift, bw) {
 }
 function calcTDEE(bw, tonnage7d) {
   if (!bw || bw <= 0) return 0;
-  const bmr = 88.362 + 13.397 * bw + 4.799 * BMR_DEFAULT_HEIGHT_CM - 5.677 * BMR_DEFAULT_AGE_YEARS;
-  let actFactor = TDEE_ACTIVITY_FACTORS.DEFAULT;
-  if (tonnage7d > TDEE_VOLUME_THRESHOLDS.HIGH) actFactor = TDEE_ACTIVITY_FACTORS.HIGH;
-  else if (tonnage7d > TDEE_VOLUME_THRESHOLDS.MID) actFactor = TDEE_ACTIVITY_FACTORS.MID_HIGH;
-  else if (tonnage7d < TDEE_VOLUME_THRESHOLDS.LOW) actFactor = TDEE_ACTIVITY_FACTORS.LOW;
+  const bmr = 88.362 + 13.397 * bw + 4.799 * 182 - 5.677 * 25;
+  let actFactor = 1.55;
+  if (tonnage7d > 40000) actFactor = 1.60;
+  else if (tonnage7d > 20000) actFactor = 1.57;
+  else if (tonnage7d < 3000) actFactor = 1.40;
   return Math.round(bmr * actFactor);
 }
 function calcCalorieCible(bw) {
@@ -794,8 +854,8 @@ function calcCalorieCible(bw) {
   return Math.round(kcalBase * (bw / bwBase));
 }
 function calcMacrosCibles(kcalCible, bw) {
-  const prot = Math.round(bw * MACRO_PROTEIN_PER_KG);
-  const fat  = Math.round(bw * MACRO_FAT_PER_KG);
+  const prot = Math.round(bw * 1.95);
+  const fat  = Math.round(bw * 0.73);
   const carb = Math.max(0, Math.round((kcalCible - prot*4 - fat*9) / 4));
   return { prot, carb, fat, kcal: kcalCible };
 }
@@ -837,10 +897,10 @@ function analyzePlateauCauses(exoName) {
         break;
       }
     }
-    if (history.length >= PLATEAU_MAX_HISTORY) break;
+    if (history.length >= 6) break;
   }
-  if (history.length < PLATEAU_MIN_SESSIONS) return null;
-  const recent = history.slice(0, PLATEAU_MIN_SESSIONS + 1);
+  if (history.length < 3) return null;
+  const recent = history.slice(0, 4);
   if (recent.length >= 3 && recent[0].rm > recent[recent.length - 1].rm) return null; // progressing
 
   const causes = [];
@@ -1103,8 +1163,8 @@ function computeMuscleFatigue(logs) {
     var log = logs[li];
     var ts = log.timestamp || new Date(log.date).getTime();
     var hoursAgo = (now - ts) / 3600000;
-    if (hoursAgo > FATIGUE_MAX_WINDOW_HOURS) continue;
-    var decayFactor = Math.exp(-hoursAgo / FATIGUE_DECAY_HOURS);
+    if (hoursAgo > 168) continue; // 7 jours max
+    var decayFactor = Math.exp(-hoursAgo / 48);
     for (var ei = 0; ei < (log.exercises || []).length; ei++) {
       var exo = log.exercises[ei];
       var contributions = getMuscleContributions(exo.name);

@@ -3386,9 +3386,9 @@ function renderSBDTotal() {
       { label: 'Squat',    real: realSquat, est: estSquat, tgt: tgtSquat, color: '#FF453A' },
       { label: 'Deadlift', real: realDead,  est: estDead,  tgt: tgtDead,  color: '#FF9F0A' }
     ];
-    var miniHtml = '<div style="display:flex;flex-direction:column;gap:10px;">';
+    var miniHtml = '<div style="display:flex;gap:8px;height:140px;">';
     sbdPairs.forEach(function(p) {
-      miniHtml += '<div style="position:relative;height:72px;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
+      miniHtml += '<div style="flex:1;position:relative;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
     });
     miniHtml += '</div>';
     el.innerHTML = toggleHtml + miniHtml;
@@ -3399,10 +3399,11 @@ function renderSBDTotal() {
         if (!ctx) return;
         var vals = [p.real, p.est, p.tgt].filter(function(v) { return v > 0; });
         var maxVal = vals.length ? Math.max.apply(null, vals) : 100;
+        var minVal = vals.length ? Math.min.apply(null, vals) : 0;
         chartSBDs.push(new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: ['1RM Réel', 'e1RM Estimé', 'Objectif'],
+            labels: ['Réel', 'Est.', 'Obj.'],
             datasets: [{
               label: p.label,
               data: [p.real || null, p.est || null, p.tgt || null],
@@ -3415,12 +3416,12 @@ function renderSBDTotal() {
             responsive: true, maintainAspectRatio: false,
             plugins: {
               legend: { display: false },
-              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'start', padding: { bottom: 2 } },
+              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'center', padding: { bottom: 0 } },
               tooltip: { callbacks: { label: function(c) { return (c.parsed.y || '—') + ' kg'; } } }
             },
             scales: {
-              x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
-              y: { ticks: { color: '#86868B', font: { size: 9 }, maxTicksLimit: 3 }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false, suggestedMax: Math.ceil(maxVal * 1.15) }
+              x: { ticks: { color: '#86868B', font: { size: 9 } }, grid: { display: false } },
+              y: { ticks: { color: '#86868B', font: { size: 9 }, maxTicksLimit: 3 }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false, min: Math.floor(minVal * 0.9), suggestedMax: Math.ceil(maxVal * 1.1) }
             }
           }
         }));

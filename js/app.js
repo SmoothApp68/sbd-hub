@@ -3368,7 +3368,7 @@ function renderSBDTotal() {
     }
 
     var total = realBench + realSquat + realDead;
-    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:200px;"></canvas>';
+    el.innerHTML = toggleHtml + '<div style="position:relative;height:200px;"><canvas id="chartSBDCanvas"></canvas></div>';
     if (card) {
       var totalEl = card.querySelector('.sbd-total-line');
       if (!totalEl) {
@@ -3463,7 +3463,7 @@ function renderSBDTotal() {
       return;
     }
 
-    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:180px;"></canvas>';
+    el.innerHTML = toggleHtml + '<div style="position:relative;height:180px;"><canvas id="chartSBDCanvas"></canvas></div>';
     if (card) { var tl3 = card.querySelector('.sbd-total-line'); if (tl3) tl3.innerHTML = ''; }
 
     requestAnimationFrame(function() {

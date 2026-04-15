@@ -1754,12 +1754,17 @@
       </button>
     </div>
 
-    <!-- 1. Programme du jour + bouton lancer -->
+    <!-- Greeting -->
+    <div id="dashGreeting" style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px;padding:0 4px;"></div>
+
+    <!-- 1. Total SBD Estimé -->
+    <div class="card" id="sbdTotalCard" style="padding:20px;">
+      <h2 style="margin:0 0 12px;">Total SBD estimé</h2>
+      <div id="sbdTotalDisplay"></div>
+    </div>
+
+    <!-- 2. Sélecteur de jour + Programme + Exercices -->
     <div class="card" id="todayProgramCard" style="padding:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h2 style="margin:0;">Aujourd'hui</h2>
-        <span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span>
-      </div>
       <div id="dayButtonsContainer" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;justify-content:center;">
         <button class="day-btn" data-day="Lundi">Lun</button>
         <button class="day-btn" data-day="Mardi">Mar</button>
@@ -1774,28 +1779,6 @@
       <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="background:linear-gradient(135deg,var(--accent),#6366f1);font-size:15px;padding:16px;border-radius:12px;">
         Lancer la séance 💪
       </button>
-    </div>
-
-    <!-- 2. Total SBD estimé -->
-    <div class="card" id="sbdTotalCard" style="padding:20px;">
-      <h2 style="margin:0 0 12px;">Total SBD estimé</h2>
-      <div class="sbd-grid" id="sbdTotalDisplay"></div>
-    </div>
-
-    <!-- 3. Résumé de la semaine -->
-    <div class="card" id="weeklySummaryCard" style="padding:20px;">
-      <h2 style="margin:0 0 10px;">Cette semaine</h2>
-      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;">
-        <div class="report-box"><div class="report-val" id="weekSessions">0</div><div class="report-label">Séances</div></div>
-        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée</div></div>
-        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume</div></div>
-      </div>
-    </div>
-
-    <!-- 4. PRs récents -->
-    <div class="card" id="recentPRsCard" style="padding:20px;">
-      <h2 style="margin:0 0 10px;">PRs récents</h2>
-      <div id="recentPRsContent"></div>
     </div>
 
     <!-- Hidden containers still needed by existing render functions -->

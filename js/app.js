@@ -56,7 +56,7 @@ const REGEX_COMPOUND_LIFTS_EXTENDED = /squat|deadlift|souleve|bench\s*(press|bar
 // INITIALISATION
 // ============================================================
 let selectedDay = DAYS_FULL[new Date().getDay()];
-var chartSBD = null, chartSBDs = [], chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
+var chartSBD = null, chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
 var activeWorkout = null, _goAutoSaveId = null, _goWakeLock = null;
 var currentWeekOffset = 0;
@@ -3319,10 +3319,8 @@ function renderSBDTotal() {
   if (!el) return;
   var card = document.getElementById('sbdTotalCard');
 
-  // Destroy existing SBD chart(s)
+  // Destroy existing SBD chart
   if (chartSBD) { try { chartSBD.destroy(); } catch(e) {} chartSBD = null; }
-  chartSBDs.forEach(function(c) { try { c.destroy(); } catch(e) {} });
-  chartSBDs = [];
 
   // ── Données 1RM Réel (meilleurs PRs all-time) ──
   var realBench = db.bestPR.bench || 0;
@@ -3370,6 +3368,7 @@ function renderSBDTotal() {
     }
 
     var total = realBench + realSquat + realDead;
+    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:200px;"></canvas>';
     if (card) {
       var totalEl = card.querySelector('.sbd-total-line');
       if (!totalEl) {
@@ -3381,85 +3380,72 @@ function renderSBDTotal() {
       totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
     }
 
-    var sbdPairs = [
-      { label: 'Bench',    real: realBench, est: estBench, tgt: tgtBench, color: '#0A84FF' },
-      { label: 'Squat',    real: realSquat, est: estSquat, tgt: tgtSquat, color: '#FF453A' },
-      { label: 'Deadlift', real: realDead,  est: estDead,  tgt: tgtDead,  color: '#FF9F0A' }
-    ];
-    var miniHtml = '<div style="display:flex;gap:6px;height:120px;overflow:hidden;">';
-    sbdPairs.forEach(function(p) {
-      miniHtml += '<div style="flex:1;min-width:0;position:relative;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
-    });
-    miniHtml += '</div>';
-    miniHtml += '<div style="display:flex;justify-content:center;gap:14px;margin-top:6px;">' +
-      '<span style="font-size:10px;color:var(--sub);">&#9646; Réel</span>' +
-      '<span style="font-size:10px;color:var(--sub);opacity:0.6;">&#9646; Estimé</span>' +
-      '<span style="font-size:10px;color:var(--sub);opacity:0.3;">&#9646; Objectif</span>' +
-      '</div>';
-    el.innerHTML = toggleHtml + miniHtml;
-
     requestAnimationFrame(function() {
-      sbdPairs.forEach(function(p) {
-        var ctx = document.getElementById('chartSBD_' + p.label);
-        if (!ctx) return;
-        var vals = [p.real, p.est, p.tgt].filter(function(v) { return v > 0; });
-        var maxVal = vals.length ? Math.max.apply(null, vals) : 100;
-        var minVal = vals.length ? Math.min.apply(null, vals) : 0;
-        chartSBDs.push(new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: ['Réel', 'Est.', 'Obj.'],
-            datasets: [{
-              label: p.label,
-              data: [p.real || null, p.est || null, p.tgt || null],
-              backgroundColor: [p.color, p.color + '66', p.color + '22'],
-              borderColor: [p.color, p.color + '99', p.color + '55'],
-              borderWidth: 1, borderRadius: 4
-            }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'center', padding: { top: 0, bottom: 2 } },
-              tooltip: { callbacks: { label: function(c) { return (c.parsed.y || '—') + ' kg'; }, title: function() { return p.label; } } }
+      var ctx = document.getElementById('chartSBDCanvas');
+      if (!ctx) return;
+      chartSBD = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Bench', 'Squat', 'Deadlift'],
+          datasets: [
+            {
+              label: '1RM Réel',
+              data: [realBench || null, realSquat || null, realDead || null],
+              backgroundColor: ['rgba(10,132,255,1)', 'rgba(255,69,58,1)', 'rgba(255,159,10,1)'],
+              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
+              borderWidth: 2, borderRadius: 6
             },
-            scales: {
-              x: { display: false },
-              y: { display: false, beginAtZero: false, min: Math.floor(minVal * 0.85), suggestedMax: Math.ceil(maxVal * 1.1) }
+            {
+              label: 'e1RM Estimé',
+              data: [estBench || null, estSquat || null, estDead || null],
+              backgroundColor: ['rgba(10,132,255,0.4)', 'rgba(255,69,58,0.4)', 'rgba(255,159,10,0.4)'],
+              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
+              borderWidth: 1, borderRadius: 6
+            },
+            {
+              label: 'Objectif',
+              data: [tgtBench || null, tgtSquat || null, tgtDead || null],
+              backgroundColor: ['rgba(10,132,255,0.1)', 'rgba(255,69,58,0.1)', 'rgba(255,159,10,0.1)'],
+              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
+              borderWidth: 2, borderRadius: 6
             }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
+            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + (ctx.parsed.y || '—') + ' kg'; } } }
+          },
+          scales: {
+            x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
+            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
           }
-        }));
+        }
       });
     });
 
   } else {
-    // ── Mode Progression (toutes les données, 20 points max par lift) ──
+    // ── Mode Progression (90 jours) ──
+    var cutoff = Date.now() - 90 * 86400000;
     var sbdDef = [
       { type: 'bench',    label: 'Bench',    color: '#0A84FF' },
       { type: 'squat',    label: 'Squat',    color: '#FF453A' },
       { type: 'deadlift', label: 'Deadlift', color: '#FF9F0A' }
     ];
-    var sortedLogs = db.logs.slice().sort(function(a, b) { return a.timestamp - b.timestamp; });
+    var sortedLogs = db.logs.filter(function(l) { return l.timestamp >= cutoff; })
+                            .sort(function(a, b) { return a.timestamp - b.timestamp; });
     var datasets = [];
     sbdDef.forEach(function(def) {
       var seen = {};
       sortedLogs.forEach(function(log) {
         log.exercises.forEach(function(exo) {
-          if (getSBDType(exo.name) !== def.type) return;
-          var rm = exo.maxRM || 0;
-          if (!rm && exo.repRecords) {
-            Object.entries(exo.repRecords).forEach(function(kv) {
-              var e = calcE1RM(kv[1], parseInt(kv[0]));
-              if (e > rm) rm = Math.round(e);
-            });
-          }
-          if (!(rm > 0)) return;
+          if (getSBDType(exo.name) !== def.type || !(exo.maxRM > 0)) return;
           var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-          if (!seen[lbl] || rm > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(rm) };
+          if (!seen[lbl] || exo.maxRM > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(exo.maxRM) };
         });
       });
-      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; }).slice(-20);
+      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; });
       if (pts.length < 2) return;
       datasets.push({
         label: def.label,
@@ -3472,12 +3458,12 @@ function renderSBDTotal() {
     });
 
     if (!datasets.length) {
-      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Importe des séances pour voir ta progression</div>';
+      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Aucune donnée SBD sur 90 jours</div>';
       if (card) { var tl2 = card.querySelector('.sbd-total-line'); if (tl2) tl2.innerHTML = ''; }
       return;
     }
 
-    el.innerHTML = toggleHtml + '<div style="position:relative;height:180px;"><canvas id="chartSBDCanvas"></canvas></div>';
+    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:180px;"></canvas>';
     if (card) { var tl3 = card.querySelector('.sbd-total-line'); if (tl3) tl3.innerHTML = ''; }
 
     requestAnimationFrame(function() {

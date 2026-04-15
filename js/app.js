@@ -57,6 +57,7 @@ const REGEX_COMPOUND_LIFTS_EXTENDED = /squat|deadlift|souleve|bench\s*(press|bar
 // ============================================================
 let selectedDay = DAYS_FULL[new Date().getDay()];
 var chartSBD = null, chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
+var sbdChartMode = 'bars';
 var activeWorkout = null, _goAutoSaveId = null, _goWakeLock = null;
 var currentWeekOffset = 0;
 
@@ -3313,29 +3314,191 @@ function renderTodayProgram() {
 // ============================================================
 // Total SBD estimé — carte compacte
 // ============================================================
+function toggleSBDChart(mode) {
+  sbdChartMode = mode;
+  renderSBDTotal();
+}
+
 function renderSBDTotal() {
   var el = document.getElementById('sbdTotalDisplay');
   if (!el) return;
-  var s = db.bestPR.squat || 0;
-  var b = db.bestPR.bench || 0;
-  var d = db.bestPR.deadlift || 0;
-  var total = s + b + d;
-  var h = '';
-  h += '<div class="rm-box" style="border-left:3px solid var(--color-squat);"><div style="font-size:10px;color:var(--sub);">Squat</div><div class="rm-val" style="color:var(--color-squat);">' + (s > 0 ? s : '—') + '</div></div>';
-  h += '<div class="rm-box" style="border-left:3px solid var(--color-bench);"><div style="font-size:10px;color:var(--sub);">Bench</div><div class="rm-val" style="color:var(--color-bench);">' + (b > 0 ? b : '—') + '</div></div>';
-  h += '<div class="rm-box" style="border-left:3px solid var(--color-deadlift);"><div style="font-size:10px;color:var(--sub);">Deadlift</div><div class="rm-val" style="color:var(--color-deadlift);">' + (d > 0 ? d : '—') + '</div></div>';
-  el.innerHTML = h;
-  // Total sous la grille
   var card = document.getElementById('sbdTotalCard');
-  if (card) {
-    var totalEl = card.querySelector('.sbd-total-line');
-    if (!totalEl) {
-      totalEl = document.createElement('div');
-      totalEl.className = 'sbd-total-line';
-      totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
-      card.appendChild(totalEl);
+
+  // Destroy existing SBD chart
+  if (chartSBD) { try { chartSBD.destroy(); } catch(e) {} chartSBD = null; }
+
+  // ── Données 1RM Réel (meilleurs PRs all-time) ──
+  var realBench = db.bestPR.bench || 0;
+  var realSquat = db.bestPR.squat || 0;
+  var realDead  = db.bestPR.deadlift || 0;
+
+  // ── Données e1RM Estimé (meilleur maxRM par type dans les logs) ──
+  var estBench = 0, estSquat = 0, estDead = 0;
+  db.logs.forEach(function(log) {
+    log.exercises.forEach(function(exo) {
+      var type = getSBDType(exo.name);
+      if (!type) return;
+      var rm = exo.maxRM || 0;
+      if (!rm && exo.repRecords) {
+        Object.entries(exo.repRecords).forEach(function(kv) {
+          var e = calcE1RM(kv[1], parseInt(kv[0]));
+          if (e > rm) rm = Math.round(e);
+        });
+      }
+      if (type === 'bench'    && rm > estBench) estBench = rm;
+      if (type === 'squat'    && rm > estSquat) estSquat = rm;
+      if (type === 'deadlift' && rm > estDead)  estDead  = rm;
+    });
+  });
+
+  // ── Données Objectif ──
+  var tgt = db.user.targets || {};
+  var tgtBench = tgt.bench    || 0;
+  var tgtSquat = tgt.squat    || 0;
+  var tgtDead  = tgt.deadlift || 0;
+
+  // ── Toggle ──
+  var toggleHtml =
+    '<div style="display:flex;gap:6px;margin-bottom:12px;">' +
+    '<button onclick="toggleSBDChart(\'bars\')" class="period-btn' + (sbdChartMode === 'bars' ? ' active' : '') + '">📊 Barres</button>' +
+    '<button onclick="toggleSBDChart(\'line\')" class="period-btn' + (sbdChartMode === 'line' ? ' active' : '') + '">📈 Progression</button>' +
+    '</div>';
+
+  if (sbdChartMode === 'bars') {
+    // ── Mode Barres ──
+    if (!realBench && !realSquat && !realDead && !estBench && !estSquat && !estDead) {
+      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Importe des séances pour voir tes performances</div>';
+      if (card) { var tl = card.querySelector('.sbd-total-line'); if (tl) tl.innerHTML = ''; }
+      return;
     }
-    totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
+
+    var total = realBench + realSquat + realDead;
+    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:200px;"></canvas>';
+    if (card) {
+      var totalEl = card.querySelector('.sbd-total-line');
+      if (!totalEl) {
+        totalEl = document.createElement('div');
+        totalEl.className = 'sbd-total-line';
+        totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
+        card.appendChild(totalEl);
+      }
+      totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
+    }
+
+    requestAnimationFrame(function() {
+      var ctx = document.getElementById('chartSBDCanvas');
+      if (!ctx) return;
+      chartSBD = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Bench', 'Squat', 'Deadlift'],
+          datasets: [
+            {
+              label: '1RM Réel',
+              data: [realBench || null, realSquat || null, realDead || null],
+              backgroundColor: ['rgba(10,132,255,1)', 'rgba(255,69,58,1)', 'rgba(255,159,10,1)'],
+              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
+              borderWidth: 2, borderRadius: 6
+            },
+            {
+              label: 'e1RM Estimé',
+              data: [estBench || null, estSquat || null, estDead || null],
+              backgroundColor: ['rgba(10,132,255,0.4)', 'rgba(255,69,58,0.4)', 'rgba(255,159,10,0.4)'],
+              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
+              borderWidth: 1, borderRadius: 6
+            },
+            {
+              label: 'Objectif',
+              data: [tgtBench || null, tgtSquat || null, tgtDead || null],
+              backgroundColor: ['rgba(10,132,255,0.1)', 'rgba(255,69,58,0.1)', 'rgba(255,159,10,0.1)'],
+              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
+              borderWidth: 2, borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
+            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + (ctx.parsed.y || '—') + ' kg'; } } }
+          },
+          scales: {
+            x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
+            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
+          }
+        }
+      });
+    });
+
+  } else {
+    // ── Mode Progression (90 jours) ──
+    var cutoff = Date.now() - 90 * 86400000;
+    var sbdDef = [
+      { type: 'bench',    label: 'Bench',    color: '#0A84FF' },
+      { type: 'squat',    label: 'Squat',    color: '#FF453A' },
+      { type: 'deadlift', label: 'Deadlift', color: '#FF9F0A' }
+    ];
+    var sortedLogs = db.logs.filter(function(l) { return l.timestamp >= cutoff; })
+                            .sort(function(a, b) { return a.timestamp - b.timestamp; });
+    var datasets = [];
+    sbdDef.forEach(function(def) {
+      var seen = {};
+      sortedLogs.forEach(function(log) {
+        log.exercises.forEach(function(exo) {
+          if (getSBDType(exo.name) !== def.type || !(exo.maxRM > 0)) return;
+          var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+          if (!seen[lbl] || exo.maxRM > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(exo.maxRM) };
+        });
+      });
+      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; });
+      if (pts.length < 2) return;
+      datasets.push({
+        label: def.label,
+        _xlabels: pts.map(function(p) { return new Date(p.ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }),
+        data: pts.map(function(p) { return p.val; }),
+        borderColor: def.color, backgroundColor: def.color + '22',
+        borderWidth: 2, pointRadius: 3, pointBackgroundColor: def.color,
+        fill: false, tension: 0.35
+      });
+    });
+
+    if (!datasets.length) {
+      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Aucune donnée SBD sur 90 jours</div>';
+      if (card) { var tl2 = card.querySelector('.sbd-total-line'); if (tl2) tl2.innerHTML = ''; }
+      return;
+    }
+
+    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:180px;"></canvas>';
+    if (card) { var tl3 = card.querySelector('.sbd-total-line'); if (tl3) tl3.innerHTML = ''; }
+
+    requestAnimationFrame(function() {
+      var ctx = document.getElementById('chartSBDCanvas');
+      if (!ctx) return;
+      var longestLabels = datasets.reduce(function(a, b) { return a._xlabels.length >= b._xlabels.length ? a : b; })._xlabels;
+      chartSBD = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: longestLabels,
+          datasets: datasets.map(function(ds) {
+            return { label: ds.label, data: ds.data, borderColor: ds.borderColor,
+              backgroundColor: ds.backgroundColor, borderWidth: ds.borderWidth,
+              pointRadius: ds.pointRadius, pointBackgroundColor: ds.pointBackgroundColor,
+              fill: ds.fill, tension: ds.tension };
+          })
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
+            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' kg'; } } }
+          },
+          scales: {
+            x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
+          }
+        }
+      });
+    });
   }
 }
 
@@ -3345,29 +3508,22 @@ function renderSBDTotal() {
 function renderRecentPRs() {
   var el = document.getElementById('recentPRsContent');
   if (!el) return;
-  // Chercher les PRs les plus récents dans les logs
-  var prs = [];
-  for (var i = db.logs.length - 1; i >= 0 && prs.length < 5; i--) {
-    var log = db.logs[i];
+  // Collecter le meilleur all-time maxRM par exercice + la date à laquelle ce PR a été établi
+  var bestByExo = {};
+  db.logs.forEach(function(log) {
     (log.exercises || []).forEach(function(exo) {
-      if (exo.maxRM > 0 && prs.length < 3) {
-        // Vérifier si c'est vraiment un PR (meilleur de l'historique pour cet exo)
-        var isBest = true;
-        for (var j = 0; j < db.logs.length; j++) {
-          if (j === i) continue;
-          var otherLog = db.logs[j];
-          (otherLog.exercises || []).forEach(function(otherExo) {
-            if (otherExo.name === exo.name && otherExo.maxRM >= exo.maxRM && otherLog.timestamp < log.timestamp) {
-              isBest = false;
-            }
-          });
-        }
-        if (isBest && !prs.some(function(p) { return p.name === exo.name; })) {
-          prs.push({ name: exo.name, value: Math.round(exo.maxRM), date: log.shortDate || log.date });
-        }
+      if (!(exo.maxRM > 0)) return;
+      var prev = bestByExo[exo.name];
+      if (!prev || exo.maxRM > prev.maxRM || (exo.maxRM === prev.maxRM && log.timestamp > prev.ts)) {
+        bestByExo[exo.name] = { maxRM: exo.maxRM, ts: exo.maxRMDate || log.timestamp, date: log.shortDate || log.date };
       }
     });
-  }
+  });
+  // Trier par date décroissante et garder les 5 plus récents
+  var prs = Object.entries(bestByExo)
+    .map(function(kv) { return { name: kv[0], value: Math.round(kv[1].maxRM), date: kv[1].date, ts: kv[1].ts }; })
+    .sort(function(a, b) { return b.ts - a.ts; })
+    .slice(0, 5);
   if (prs.length === 0) {
     el.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--sub);padding:8px 0;">Aucun PR enregistré pour le moment</div>';
     return;
@@ -3944,7 +4100,9 @@ function renderDayExercises(day) {
       '</div></div>';
     return;
   }
-  let html = entries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
+  // Trier par date décroissante (PR le plus récent en premier)
+  const sortedEntries = entries.sort((a, b) => (b[1].maxRMDate || 0) - (a[1].maxRMDate || 0));
+  let html = sortedEntries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
   c.innerHTML = html;
   _initSparkTooltips(c);
 }

@@ -9947,7 +9947,7 @@ async function updateSessionActivity(session) {
     if (!user) return;
     // Trouver l'activité correspondante (même date + type session)
     var { data: activities } = await supabase
-      .from('activities')
+      .from('activity_feed')
       .select('id, data')
       .eq('user_id', user.id)
       .eq('type', 'session')
@@ -9971,7 +9971,7 @@ async function updateSessionActivity(session) {
       }),
       edited: true
     });
-    await supabase.from('activities').update({ data: newData }).eq('id', match.id);
+    await supabase.from('activity_feed').update({ data: newData }).eq('id', match.id);
   } catch(e) { console.warn('updateSessionActivity error:', e); }
 }
 

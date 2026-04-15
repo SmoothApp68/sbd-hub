@@ -750,6 +750,7 @@ async function addFriendByCode() {
 }
 
 async function ensureProfile() {
+  if (!window.db || !window.db.social) return null;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
 

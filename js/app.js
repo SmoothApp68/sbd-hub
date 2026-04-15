@@ -129,16 +129,7 @@ function stopSeancesTabSync() {
   }
 }
 
-function showSocialSub(id, btn) {
-  document.querySelectorAll('.social-sub-content').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('.social-sub-tab').forEach(function(el) { el.classList.remove('active'); });
-  var sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'social-feed') { if (typeof renderFeed === 'function') renderFeed(); }
-  if (id === 'social-leaderboard') { if (typeof renderLeaderboard === 'function') renderLeaderboard(); }
-  if (id === 'social-challenges') { if (typeof renderChallenges === 'function') renderChallenges(); }
-}
+// showSocialSub is defined in supabase.js (correct version with renderFriendsTab + renderChallengesTab)
 
 // ── Stubs pour handlers PWA/annonces ──────────────────────────
 function dismissAnnouncement() {
@@ -248,8 +239,6 @@ window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
-function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
-
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
 
@@ -322,7 +311,7 @@ function updateReadinessPreview() {
 function calculateReadiness(sleep, energy, motivation, soreness) {
   const sorenessInverted = 11 - soreness;
   return Math.min(100, Math.max(0, Math.round(
-    (sleep * 0.35 + energy * 0.25 + motivation * 0.15 + sorenessInverted * 0.25) * 10
+    (sleep * READINESS_WEIGHTS.SLEEP + energy * READINESS_WEIGHTS.ENERGY + motivation * READINESS_WEIGHTS.MOTIVATION + sorenessInverted * READINESS_WEIGHTS.SORENESS) * 10
   )));
 }
 
@@ -665,13 +654,6 @@ function importData() {
       showToast('✓ Données restaurées !');
     }
   );
-}
-function getSBDType(exName) {
-  const n = (exName || '').toLowerCase();
-  if (n.includes('squat')) return 'squat';
-  if (n.includes('bench') || n.includes('dc ') || n.includes('développé couché')) return 'bench';
-  if (n.includes('deadlift') || n.includes('soulevé de terre')) return 'deadlift';
-  return null;
 }
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
@@ -2595,6 +2577,280 @@ function calcXPBreakdown() {
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
 }
 
+function renderGamStrengthCards(bw) {
+  var strContainer = document.getElementById('gamStrengthContent');
+  if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
+  var bestE1RMs = getAllBestE1RMs();
+  var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
+  var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+
+  var allExos = [];
+  for (var eName in bestE1RMs) {
+    var data = bestE1RMs[eName];
+    var sl = getStrengthLevel(eName, data.e1rm, bw);
+    var sesCount = 0, prCount = 0, runBest = 0;
+    getSortedLogs().slice().reverse().forEach(function(log) {
+      var found = false;
+      (log.exercises||[]).forEach(function(e) {
+        if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
+      });
+      if (found) sesCount++;
+    });
+    var exoXP = prCount * 50 + sesCount * 8;
+    allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
+  }
+  allExos.sort(function(a,b) {
+    var aIdx = a.sl ? a.sl.levelIdx : -1;
+    var bIdx = b.sl ? b.sl.levelIdx : -1;
+    if (bIdx !== aIdx) return bIdx - aIdx;
+    return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
+  });
+
+  if (!allExos.length) {
+    strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
+    return;
+  }
+
+  var perPage = 6;
+  var totalPages = Math.ceil(allExos.length / perPage);
+  var pagesHtml = '';
+  for (var pg = 0; pg < totalPages; pg++) {
+    pagesHtml += '<div class="sg-page">';
+    var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
+    for (var ei = start; ei < end; ei++) {
+      var item = allExos[ei];
+      var hasSL = !!item.sl;
+      var isDim = item.sesCount <= 2 && !hasSL;
+      var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      var ratios = null;
+      for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
+
+      pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
+      pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
+      if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
+      pagesHtml += '</div>';
+      pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
+
+      if (ratios && hasSL) {
+        var maxR = ratios[ratios.length-1] * 1.2;
+        var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
+        var gaugeHtml = '';
+        for (var gi = 0; gi < 5; gi++) {
+          var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
+          gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
+        }
+        pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
+        pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
+      }
+
+      pagesHtml += '<div class="sg-footer">';
+      if (isDim) {
+        pagesHtml += '<span>Pas assez de données</span>';
+      } else if (hasSL) {
+        var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
+        if (nextLvl && ratios) {
+          var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
+          pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
+        } else {
+          pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
+        }
+      } else {
+        pagesHtml += '<span></span>';
+      }
+      pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
+      pagesHtml += '</div></div>';
+    }
+    pagesHtml += '</div>';
+  }
+
+  var dotsHtml = '';
+  for (var di = 0; di < totalPages; di++) {
+    dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
+  }
+
+  strContainer.innerHTML =
+    '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
+      '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
+      '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
+      '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
+    '</div>';
+
+  var pagesEl = document.getElementById('sgPages');
+  var dotsEl = document.getElementById('sgDots');
+  var labelEl = strContainer.querySelector('.mc-title-right');
+  if (pagesEl && dotsEl) {
+    pagesEl.addEventListener('scroll', function() {
+      var pageW = pagesEl.offsetWidth;
+      var idx = Math.round(pagesEl.scrollLeft / pageW);
+      dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
+      if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
+    });
+    dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
+      dot.addEventListener('click', function() {
+        var pg = parseInt(dot.getAttribute('data-page'));
+        pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
+      });
+    });
+  }
+}
+
+function renderGamBadges() {
+  var allBadges = getAllBadges();
+  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
+  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+  var seenBadgesSet = db.seenBadges || [];
+
+  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
+  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
+  var totalCount = normalBadges.length;
+  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
+
+  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
+  var rarityBreakdown = '';
+  rarityOrder.forEach(function(r) {
+    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
+    if (!rBadges.length) return;
+    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
+    var rc = rarityColor[r];
+    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
+  });
+
+  document.getElementById('gamBadgesOverview').innerHTML =
+    '<div class="bdg-overview">' +
+      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
+      '<div class="bdg-total-lbl">Badges débloqués</div>' +
+      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
+      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
+    '</div>';
+
+  var sections = [
+    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
+    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
+    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
+    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
+    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
+    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
+    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
+    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
+    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
+    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
+    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
+    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
+    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
+    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
+    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
+  ];
+
+  var badgeMap = {};
+  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
+
+  var chipsHtml = '<div class="bc-scroll">';
+  var sqCompleted = (db.secretQuestsCompleted || []).length;
+  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var icon = sec.title.split(' ')[0];
+    var name = sec.title.replace(/^[^\s]+\s*/, '');
+    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
+  });
+  chipsHtml += '</div>';
+
+  var secHtml = chipsHtml;
+
+  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
+  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
+  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
+  SECRET_QUESTS.forEach(function(sq) {
+    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
+    if (isCompleted) {
+      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
+      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
+      secHtml += '<div class="secret-label">SECRÈTE</div>';
+      secHtml += '<div class="bdg-icon">🔮</div>';
+      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
+      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
+      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
+      secHtml += '</div>';
+    } else {
+      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
+      secHtml += '<div class="bdg-icon">🔒</div>';
+      secHtml += '<div class="bdg-name">???</div>';
+      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
+      secHtml += '</div>';
+    }
+  });
+  secHtml += '</div></div></div>';
+
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var isOpen = si === 0 ? ' open' : '';
+
+    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
+    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
+    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
+    secHtml += '</div>';
+    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
+    secHtml += '<div class="bdg-grid">';
+
+    sectionBadges.forEach(function(badge) {
+      var isUnlocked = badge.ck();
+      var rc = rarityColor[badge.r] || '#86868B';
+      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
+
+      if (badge.impossible) {
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        secHtml += '</div>';
+      } else if (isUnlocked) {
+        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
+        if (badge.r === 'mythic') themeClass = ' mythic-v2';
+        if (badge.r === 'divine') themeClass = ' divine-v2';
+        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
+        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        secHtml += '</div>';
+      } else {
+        var prog = calcBadgeProgress(badge);
+        var progPct = prog ? prog.pct : 0;
+        var closeToUnlock = progPct > 50;
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
+        secHtml += '<div class="bdg-icon">🔒</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">???</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        if (prog && prog.pct > 0) {
+          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
+          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
+        }
+        secHtml += '</div>';
+      }
+    });
+
+    secHtml += '</div></div></div>';
+  });
+
+  document.getElementById('gamBadgesSections').innerHTML = secHtml;
+}
+
 function renderGamificationTab() {
   var bw = db.user.bw || 80;
   var totalXP = calcTotalXP();
@@ -2841,127 +3097,11 @@ function renderGamificationTab() {
   })();
 
   // ── 6. Strength cards (grille paginée + clickable) ──
-  (function() {
-    var strContainer = document.getElementById('gamStrengthContent');
-    if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
-    var bestE1RMs = getAllBestE1RMs();
-    var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
-    var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
-
-    var allExos = [];
-    for (var eName in bestE1RMs) {
-      var data = bestE1RMs[eName];
-      var sl = getStrengthLevel(eName, data.e1rm, bw);
-      var sesCount = 0, prCount = 0, runBest = 0;
-      getSortedLogs().slice().reverse().forEach(function(log) {
-        var found = false;
-        (log.exercises||[]).forEach(function(e) {
-          if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
-        });
-        if (found) sesCount++;
-      });
-      var exoXP = prCount * 50 + sesCount * 8;
-      allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
-    }
-    allExos.sort(function(a,b) {
-      var aIdx = a.sl ? a.sl.levelIdx : -1;
-      var bIdx = b.sl ? b.sl.levelIdx : -1;
-      if (bIdx !== aIdx) return bIdx - aIdx;
-      return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
-    });
-
-    if (!allExos.length) {
-      strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
-      return;
-    }
-
-    var perPage = 6;
-    var totalPages = Math.ceil(allExos.length / perPage);
-    var pagesHtml = '';
-    for (var pg = 0; pg < totalPages; pg++) {
-      pagesHtml += '<div class="sg-page">';
-      var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
-      for (var ei = start; ei < end; ei++) {
-        var item = allExos[ei];
-        var hasSL = !!item.sl;
-        var isDim = item.sesCount <= 2 && !hasSL;
-        var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        var ratios = null;
-        for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
-
-        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
-        pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
-        if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
-        pagesHtml += '</div>';
-        pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
-
-        if (ratios && hasSL) {
-          var maxR = ratios[ratios.length-1] * 1.2;
-          var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
-          var gaugeHtml = '';
-          for (var gi = 0; gi < 5; gi++) {
-            var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
-            gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
-          }
-          pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
-          pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
-        }
-
-        pagesHtml += '<div class="sg-footer">';
-        if (isDim) {
-          pagesHtml += '<span>Pas assez de données</span>';
-        } else if (hasSL) {
-          var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
-          if (nextLvl && ratios) {
-            var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
-            pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
-          } else {
-            pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
-          }
-        } else {
-          pagesHtml += '<span></span>';
-        }
-        pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
-        pagesHtml += '</div></div>';
-      }
-      pagesHtml += '</div>';
-    }
-
-    var dotsHtml = '';
-    for (var di = 0; di < totalPages; di++) {
-      dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
-    }
-
-    strContainer.innerHTML =
-      '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
-        '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
-        '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
-        '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
-      '</div>';
-
-    var pagesEl = document.getElementById('sgPages');
-    var dotsEl = document.getElementById('sgDots');
-    var labelEl = strContainer.querySelector('.mc-title-right');
-    if (pagesEl && dotsEl) {
-      pagesEl.addEventListener('scroll', function() {
-        var pageW = pagesEl.offsetWidth;
-        var idx = Math.round(pagesEl.scrollLeft / pageW);
-        dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
-        if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
-      });
-      dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
-        dot.addEventListener('click', function() {
-          var pg = parseInt(dot.getAttribute('data-page'));
-          pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
-        });
-      });
-    }
-  })();
+  renderGamStrengthCards(bw);
 
   // Separator
   document.getElementById('gamStrengthContent').insertAdjacentHTML('beforeend', '<div class="gam-separator">✦ ─── ✦ ─── ✦</div>');
 
-  // ── 7. Heatmap de régularité (52 semaines, clickable) ──
   (function() {
     var now = Date.now();
     var weekMs = 7 * 86400000;
@@ -2988,167 +3128,8 @@ function renderGamificationTab() {
   // Separator
   document.getElementById('gamHeatmap').insertAdjacentHTML('beforeend', '<div class="gam-separator">⟡ ── ⟡</div>');
 
-  // ── 8. Badges (overview + chips + secret quests section + accordions + progress) ──
-  var allBadges = getAllBadges();
-  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
-  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
-  var seenBadgesSet = db.seenBadges || [];
-
-  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
-  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
-  var totalCount = normalBadges.length;
-  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
-
-  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
-  var rarityBreakdown = '';
-  rarityOrder.forEach(function(r) {
-    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
-    if (!rBadges.length) return;
-    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
-    var rc = rarityColor[r];
-    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
-  });
-
-  document.getElementById('gamBadgesOverview').innerHTML =
-    '<div class="bdg-overview">' +
-      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
-      '<div class="bdg-total-lbl">Badges débloqués</div>' +
-      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
-      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
-    '</div>';
-
-  // Badge sections
-  var sections = [
-    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
-    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
-    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
-    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
-    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
-    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
-    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
-    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
-    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
-    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
-    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
-    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
-    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
-    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
-    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
-  ];
-
-  var badgeMap = {};
-  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
-
-  // Chips nav
-  var chipsHtml = '<div class="bc-scroll">';
-  // Add secret quests chip
-  var sqCompleted = (db.secretQuestsCompleted || []).length;
-  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
-  sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
-    if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
-    var icon = sec.title.split(' ')[0];
-    var name = sec.title.replace(/^[^\s]+\s*/, '');
-    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
-  });
-  chipsHtml += '</div>';
-
-  // Build sections
-  var secHtml = chipsHtml;
-
-  // Secret quests section
-  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
-  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
-  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
-  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
-  SECRET_QUESTS.forEach(function(sq) {
-    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
-    if (isCompleted) {
-      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
-      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
-      secHtml += '<div class="secret-label">SECRÈTE</div>';
-      secHtml += '<div class="bdg-icon">🔮</div>';
-      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
-      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
-      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
-      secHtml += '</div>';
-    } else {
-      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
-      secHtml += '<div class="bdg-icon">🔒</div>';
-      secHtml += '<div class="bdg-name">???</div>';
-      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
-      secHtml += '</div>';
-    }
-  });
-  secHtml += '</div></div></div>';
-
-  // Regular badge sections
-  sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
-    if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
-    var isOpen = si === 0 ? ' open' : '';
-
-    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
-    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
-    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
-    secHtml += '</div>';
-    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
-    secHtml += '<div class="bdg-grid">';
-
-    sectionBadges.forEach(function(badge) {
-      var isUnlocked = badge.ck();
-      var rc = rarityColor[badge.r] || '#86868B';
-      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
-
-      if (badge.impossible) {
-        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
-        secHtml += '<div class="bdg-rarity-bar"></div>';
-        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
-        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
-        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
-        secHtml += '</div>';
-      } else if (isUnlocked) {
-        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
-        if (badge.r === 'mythic') themeClass = ' mythic-v2';
-        if (badge.r === 'divine') themeClass = ' divine-v2';
-        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
-        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
-        secHtml += '<div class="bdg-rarity-bar"></div>';
-        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
-        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
-        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
-        secHtml += '</div>';
-      } else {
-        var prog = calcBadgeProgress(badge);
-        var progPct = prog ? prog.pct : 0;
-        var closeToUnlock = progPct > 50;
-        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
-        secHtml += '<div class="bdg-icon">🔒</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div class="bdg-desc">???</div>';
-        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
-        if (prog && prog.pct > 0) {
-          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
-          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
-        }
-        secHtml += '</div>';
-      }
-    });
-
-    secHtml += '</div></div></div>';
-  });
-
-  document.getElementById('gamBadgesSections').innerHTML = secHtml;
+  // ── 8. Badges ──
+  renderGamBadges();
 }
 
 
@@ -3389,128 +3370,6 @@ function renderRecentPRs() {
 }
 
 // ============================================================
-// Heatmap muscles 2D — vue avant/arrière (gardé pour usage pendant séance)
-// ============================================================
-function renderMuscleHeatmap2D() {
-  var container = document.getElementById('muscleHeatmap2D');
-  if (!container) return;
-
-  // Calculer les séries par muscle cette semaine
-  var now = new Date();
-  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - dayOfWeek);
-  weekStart.setHours(0, 0, 0, 0);
-
-  var muscleSets = {};
-  (db.logs || []).forEach(function(log) {
-    var d = new Date(log.date);
-    if (d >= weekStart && d <= now) {
-      (log.exercises || []).forEach(function(exo) {
-        var setsCount = (exo.sets || []).length;
-        // Chercher l'exercice dans la base pour obtenir les muscles
-        var exoData = null;
-        if (typeof EXO_DATABASE !== 'undefined') {
-          for (var key in EXO_DATABASE) {
-            var e = EXO_DATABASE[key];
-            if (e.name === exo.name || (e.nameAlt && e.nameAlt.indexOf(exo.name) >= 0)) {
-              exoData = e;
-              break;
-            }
-          }
-        }
-        if (exoData) {
-          (exoData.primaryMuscles || []).forEach(function(m) {
-            var mNorm = _normalizeMuscle(m);
-            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + setsCount;
-          });
-          (exoData.secondaryMuscles || []).forEach(function(m) {
-            var mNorm = _normalizeMuscle(m);
-            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + Math.ceil(setsCount * 0.5);
-          });
-        }
-      });
-    }
-  });
-
-  var maxSets = 0;
-  for (var k in muscleSets) if (muscleSets[k] > maxSets) maxSets = muscleSets[k];
-  if (maxSets === 0) maxSets = 1;
-
-  // Mapper les muscles normalisés aux parties du corps SVG
-  var muscleMapping = {
-    front: {
-      'pecs': { path: 'M55,60 Q75,55 95,60 L95,80 Q75,85 55,80 Z', label: 'Pecs' },
-      'epaules': { path: 'M45,50 Q50,45 55,50 L55,65 Q50,65 45,60 Z M95,50 Q100,45 105,50 L105,65 Q100,65 95,60 Z', label: 'Épaules' },
-      'biceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Biceps' },
-      'abdos': { path: 'M60,82 Q75,80 90,82 L90,115 Q75,118 60,115 Z', label: 'Abdos' },
-      'quadriceps': { path: 'M55,120 Q65,118 75,120 L72,160 Q63,162 55,160 Z M75,120 Q85,118 95,120 L95,160 Q87,162 78,160 Z', label: 'Quadriceps' },
-    },
-    back: {
-      'dos': { path: 'M55,55 Q75,50 95,55 L95,85 Q75,90 55,85 Z', label: 'Dos' },
-      'trapezes': { path: 'M60,40 Q75,38 90,40 L88,55 Q75,52 62,55 Z', label: 'Trapèzes' },
-      'triceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Triceps' },
-      'lombaires': { path: 'M62,87 Q75,85 88,87 L88,105 Q75,108 62,105 Z', label: 'Lombaires' },
-      'fessiers': { path: 'M55,108 Q75,105 95,108 L95,125 Q75,128 55,125 Z', label: 'Fessiers' },
-      'ischiojambiers': { path: 'M55,128 Q65,125 75,128 L72,165 Q63,167 55,165 Z M75,128 Q85,125 95,128 L95,165 Q87,167 78,165 Z', label: 'Ischio' },
-      'mollets': { path: 'M58,168 Q65,165 72,168 L70,190 Q65,192 60,190 Z M78,168 Q85,165 92,168 L90,190 Q85,192 80,190 Z', label: 'Mollets' },
-    }
-  };
-
-  function getColor(intensity) {
-    if (intensity <= 0) return 'rgba(255,255,255,0.04)';
-    if (intensity < 0.25) return 'rgba(59,130,246,0.2)';
-    if (intensity < 0.5) return 'rgba(59,130,246,0.4)';
-    if (intensity < 0.75) return 'rgba(59,130,246,0.65)';
-    return 'rgba(59,130,246,0.9)';
-  }
-
-  function renderSide(side, muscles) {
-    var paths = '';
-    for (var muscleKey in muscles) {
-      var m = muscles[muscleKey];
-      var intensity = (muscleSets[muscleKey] || 0) / maxSets;
-      var color = getColor(intensity);
-      var setsNum = muscleSets[muscleKey] || 0;
-      paths += '<path d="' + m.path + '" fill="' + color + '" stroke="rgba(255,255,255,0.1)" stroke-width="0.5">' +
-               '<title>' + m.label + ': ' + setsNum + ' séries</title></path>';
-    }
-    // Silhouette
-    var silhouette = '<path d="M75,8 Q80,8 82,12 Q84,16 82,20 Q80,24 78,26 L80,28 Q88,30 92,35 L105,45 Q110,48 108,55 L110,60 Q112,65 110,70 L112,85 Q112,95 110,95 L105,95 Q102,95 105,65 L95,50 Q90,45 90,55 L95,120 Q98,125 95,130 L95,165 Q96,170 95,175 L95,190 Q95,198 90,200 L82,200 Q78,198 78,195 L78,170 Q78,165 75,163 Q72,165 72,170 L72,195 Q72,198 68,200 L60,200 Q55,198 55,190 L55,175 Q54,170 55,165 L55,130 Q52,125 55,120 L60,55 Q60,45 55,50 L45,65 Q48,95 45,95 L40,95 Q38,95 38,85 L40,70 Q38,65 40,60 L42,55 Q40,48 45,45 L58,35 Q62,30 70,28 L72,26 Q70,24 68,20 Q66,16 68,12 Q70,8 75,8 Z" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
-    return '<div style="text-align:center;"><div style="font-size:10px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + side + '</div>' +
-           '<svg viewBox="30 0 90 210" width="130" height="220" style="overflow:visible;">' + silhouette + paths + '</svg></div>';
-  }
-
-  container.innerHTML = renderSide('Avant', muscleMapping.front) + renderSide('Arrière', muscleMapping.back);
-
-  // Légende sous la heatmap
-  var legendHtml = '<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:10px;color:var(--sub);">';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.2);"></span> Peu</span>';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.5);"></span> Moyen</span>';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.9);"></span> Beaucoup</span>';
-  legendHtml += '</div>';
-  container.innerHTML += legendHtml;
-}
-
-function _normalizeMuscle(name) {
-  var n = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (n.indexOf('pec') >= 0 || n.indexOf('chest') >= 0) return 'pecs';
-  if (n.indexOf('epaule') >= 0 || n.indexOf('deltoid') >= 0 || n.indexOf('shoulder') >= 0) return 'epaules';
-  if (n.indexOf('bicep') >= 0) return 'biceps';
-  if (n.indexOf('tricep') >= 0) return 'triceps';
-  if (n.indexOf('abdo') >= 0 || n.indexOf('core') >= 0) return 'abdos';
-  if (n.indexOf('quad') >= 0) return 'quadriceps';
-  if (n.indexOf('ischio') >= 0 || n.indexOf('hamstring') >= 0) return 'ischiojambiers';
-  if (n.indexOf('fessier') >= 0 || n.indexOf('glute') >= 0) return 'fessiers';
-  if (n.indexOf('mollet') >= 0 || n.indexOf('calf') >= 0 || n.indexOf('calves') >= 0) return 'mollets';
-  if (n.indexOf('dorsal') >= 0 || n.indexOf('dos') >= 0 || n.indexOf('lat') >= 0 || n.indexOf('back') >= 0) return 'dos';
-  if (n.indexOf('trapez') >= 0 || n.indexOf('haut du dos') >= 0) return 'trapezes';
-  if (n.indexOf('lombaire') >= 0 || n.indexOf('lower back') >= 0) return 'lombaires';
-  if (n.indexOf('avant-bras') >= 0 || n.indexOf('forearm') >= 0) return 'biceps'; // regroupé
-  return n;
-}
-
-// ============================================================
 // Lancer la séance du jour
 // ============================================================
 function startTodayWorkout() {
@@ -3519,47 +3378,6 @@ function startTodayWorkout() {
   var goBtn = document.querySelector('.stats-sub-pill[onclick*="seances-go"]') ||
               document.querySelectorAll('#tab-seances .stats-sub-nav .stats-sub-pill')[1];
   if (typeof showSeancesSub === 'function') showSeancesSub('seances-go', goBtn);
-}
-
-function renderReadinessSparkline() {
-  const el = document.getElementById('readinessSparkline');
-  if (!el) return;
-  const cutoff = Date.now() - 14 * 86400000;
-  const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
-  if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
-  const vals = recent.map(r => r.score);
-  const W = 280, H = 60, pad = 6;
-  const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
-  const pts = vals.map((v, i) => ({
-    x: pad + (i / (vals.length - 1)) * (W - pad * 2),
-    y: pad + (1 - (v - minV) / range) * (H - pad * 2)
-  }));
-  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-  const last = pts[pts.length - 1];
-  const lastScore = vals[vals.length - 1];
-  const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
-  // Moyenne et tendance
-  const avg = Math.round(vals.reduce((s,v) => s+v, 0) / vals.length);
-  const trend = vals.length >= 3 ? vals[vals.length-1] - vals[0] : 0;
-  const trendArrow = trend > 10 ? '↗' : trend < -10 ? '↘' : '→';
-  const trendColor = trend > 10 ? 'var(--green)' : trend < -10 ? 'var(--red)' : 'var(--sub)';
-  // Dernier détail
-  const lastR = recent[recent.length - 1];
-  const detailParts = [];
-  if (lastR.sleep) detailParts.push('😴 ' + lastR.sleep + '/10');
-  if (lastR.energy) detailParts.push('⚡ ' + lastR.energy + '/10');
-  if (lastR.motivation) detailParts.push('🧠 ' + lastR.motivation + '/10');
-
-  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-    '<span style="font-size:11px;font-weight:700;color:var(--sub);">READINESS</span>' +
-    '<span style="font-size:11px;color:var(--sub);">Moy: ' + avg + '% <span style="color:' + trendColor + ';">' + trendArrow + '</span></span></div>' +
-    '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
-    '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
-    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
-    '</svg></div>' +
-    (detailParts.length ? '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + detailParts.join(' · ') + '</div>' : '');
 }
 
 // ── Heatmap de récupération musculaire ──────────────────────
@@ -3670,183 +3488,6 @@ function showMuscleFatigueTooltip(key) {
 }
 
 // ── Score de forme composite (Dashboard) ────────────────────
-function computeFormScoreComposite() {
-  const components = {};
-  // 1. Readiness moyenne 7j (20%)
-  const recent = (db.readiness || []).filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000);
-  components.readiness = recent.length > 0 ? recent.reduce((s, r) => s + r.score, 0) / recent.length : 50;
-  // 2. Compliance 7j (25%)
-  const routine = getRoutine();
-  const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
-  const logsWeek = (db.logs || []).filter(l => (Date.now() - (l.timestamp || 0)) < 7 * 86400000).length;
-  components.compliance = Math.min(100, (logsWeek / planned) * 100);
-  // 3. Tendance force (20%)
-  const mainLifts = ['squat', 'bench', 'deadlift'];
-  let trendScore = 0, trendCount = 0;
-  mainLifts.forEach(name => {
-    const pts = [];
-    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-    for (const log of desc) {
-      const exo = log.exercises.find(e => getSBDType(e.name) === name && e.maxRM > 0);
-      if (exo) { pts.push(exo.maxRM); if (pts.length >= 4) break; }
-    }
-    if (pts.length >= 2) {
-      trendCount++;
-      trendScore += pts[0] >= pts[pts.length - 1] ? 1 : -1;
-    }
-  });
-  components.trend = trendCount > 0 ? 50 + (trendScore / trendCount) * 25 : 50;
-  // 4. Fatigue inverse (15%)
-  const fatigue = computeMuscleFatigue(db.logs || []);
-  const fatVals = Object.values(fatigue);
-  const avgFat = fatVals.length > 0 ? fatVals.reduce((s,v) => s+v, 0) / fatVals.length : 50;
-  components.recovery = 100 - avgFat;
-  // 5. Nutrition (10%)
-  const nutriDays = (db.body || []).filter(e => (Date.now() - (e.ts||0)) < 7 * 86400000 && (e.kcal > 0 || e.prot > 0));
-  components.nutrition = nutriDays.length > 0 ? Math.min(100, (nutriDays.length / 7) * 100) : 30;
-  // 6. Sommeil (10%)
-  components.sleep = recent.length > 0 ? (recent.reduce((s, r) => s + r.sleep, 0) / recent.length) * 20 : 50;
-  // Final
-  const score = Math.round(
-    components.readiness * 0.20 + components.compliance * 0.25 +
-    components.trend * 0.20 + components.recovery * 0.15 +
-    components.nutrition * 0.10 + components.sleep * 0.10
-  );
-  return { score: Math.max(0, Math.min(100, score)), components };
-}
-
-function renderFormScoreDash() {
-  const el = document.getElementById('formScoreContent');
-  if (!el) return;
-  const { score, components } = computeFormScoreComposite();
-  const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
-  const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
-  const COMP_WEIGHTS = { readiness:'20%', compliance:'25%', trend:'20%', recovery:'15%', nutrition:'10%', sleep:'10%' };
-  const barsHtml = Object.entries(components).map(([k,v]) =>
-    '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
-    '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
-    '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;">' +
-    '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
-    '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
-  ).join('');
-  // Detailed breakdown (expandable)
-  const breakdownHtml = Object.entries(components).map(([k,v]) => {
-    const w = COMP_WEIGHTS[k] || '?';
-    const wNum = parseFloat(w) / 100;
-    return '<div class="breakdown-line">' +
-      '<span class="bl-label">' + (COMP_LABELS[k]||k) + '</span>' +
-      '<span class="bl-value">' + Math.round(v) + '/100</span>' +
-      '<span class="bl-weight">× ' + w + '</span>' +
-      '<span class="bl-contribution">= ' + (v * wNum).toFixed(1) + '</span></div>';
-  }).join('');
-  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
-    '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-    '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
-    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme ' + renderGlossaryTip('form_score') + '</div>' +
-    '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
-    (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
-    '</div></div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>' +
-    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail du calcul\':\'📐 Masquer le détail\';">📐 Voir le détail du calcul</div>' +
-    '<div class="breakdown" style="display:none;">' + breakdownHtml +
-    '<div class="breakdown-total">Total : ' + score + '/100</div></div>';
-}
-
-// ── Prédiction de PR ────────────────────────────────────────
-function predictPR(exerciseName, targetWeight) {
-  // Use inline trend calculation (same as renderPerfCard's logic)
-  const pts = [];
-  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-  for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exerciseName || matchExoName(e.name, exerciseName));
-    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-    if (pts.length >= 6) break;
-  }
-  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données' };
-  pts.sort((a,b) => a.x - b.x);
-  const n = pts.length;
-  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-  const denom = n*sumX2 - sumX*sumX;
-  const slope = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
-  const kgPerWeek = slope * 7;
-
-  // R² calculation
-  const meanY = sumY / n;
-  const ssTot = pts.reduce((s,p) => s + Math.pow(p.y - meanY, 2), 0);
-  const ssRes = pts.reduce((s,p) => { const pred = (slope * p.x) + ((sumY - slope * sumX) / n); return s + Math.pow(p.y - pred, 2); }, 0);
-  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
-
-  const currentE1RM = pts[pts.length - 1].y;
-  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée' };
-  if (currentE1RM >= targetWeight) return { reachable: true, reason: 'Objectif déjà atteint !', weeks: 0 };
-  const gap = targetWeight - currentE1RM;
-  const weeks = Math.ceil(gap / kgPerWeek);
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() + weeks * 7);
-  return {
-    reachable: true, weeks, date: targetDate.toLocaleDateString('fr-FR'),
-    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2),
-    currentE1RM: Math.round(currentE1RM), gap: Math.round(gap), dataPoints: n
-  };
-}
-
-// ── DOTS / Wilks dans le Dashboard ──────────────────────────
-function renderDotsWilks() {
-  const card = document.getElementById('dotsWilksCard');
-  const el = document.getElementById('dotsWilksContent');
-  if (!card || !el) return;
-  const bw = db.user.bw;
-  if (!bw || bw <= 0) { card.style.display = 'none'; return; }
-  // Get best e1RM for SBD
-  let squat = 0, bench = 0, deadlift = 0;
-  db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
-      const type = getSBDType(exo.name);
-      if (type === 'squat' && (exo.maxRM||0) > squat) squat = exo.maxRM;
-      if (type === 'bench' && (exo.maxRM||0) > bench) bench = exo.maxRM;
-      if (type === 'deadlift' && (exo.maxRM||0) > deadlift) deadlift = exo.maxRM;
-    });
-  });
-  if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
-  card.style.display = shouldShow('dots_wilks') ? '' : 'none';
-  if (!shouldShow('dots_wilks')) return;
-  const total = squat + bench + deadlift;
-  const gender = db.user.gender === 'F' ? 'F' : 'M';
-  const dots = computeDOTS(total, bw, gender);
-  const wilks = computeWilks(total, bw, gender);
-  const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
-  var dotsBreakdown = '<div class="breakdown" style="display:none;margin-top:8px;">' +
-    '<div class="breakdown-line"><span class="bl-label">Squat (e1RM)</span><span class="bl-value">' + squat + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Bench (e1RM)</span><span class="bl-value">' + bench + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Deadlift (e1RM)</span><span class="bl-value">' + deadlift + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Total</span><span class="bl-value" style="font-weight:700;">' + total + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Poids de corps</span><span class="bl-value">' + bw + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Genre</span><span class="bl-value">' + (gender === 'F' ? 'Femme' : 'Homme') + '</span></div>' +
-    '<div class="breakdown-total">DOTS = ' + dots + ' · Wilks = ' + wilks + '</div></div>';
-  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
-    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
-    '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
-    '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
-    '<div style="display:flex;gap:16px;margin-top:8px;">' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
-    '</div>' +
-    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail\':\'📐 Masquer le détail\';">📐 Voir le détail</div>' +
-    dotsBreakdown;
-}
-
-// ── Rubrique Performance configurable ────────────────────────
-function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
-
-// Incrément objectif selon le groupe musculaire de l'exercice
-function getPerfIncrement(exoName) {
-  const mg = getMuscleGroupParent(getMuscleGroup(exoName));
-  return (mg === 'Jambes') ? 5 : 2.5;
-}
-
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
@@ -4411,7 +4052,7 @@ function buildRMTable(e1rm, repRecords, exoName) {
   const coachTips = [];
   const hdr = '<div class="rm-row" style="border-top:none;font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;"><span class="rm-lbl">Reps</span><span class="rm-theo">Théo.</span><span class="rm-real">Réel</span></div>';
   const rows = TARGET_REPS.map(r => {
-    const theo = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+    const theo = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
     const realW = (repRecords && repRecords[String(r)]) ? repRecords[String(r)] : null;
     const label = r === 1 ? '1 rep' : r + ' reps';
     let realHtml, cls;
@@ -4438,7 +4079,7 @@ function calcDashRM(input, e1rm, uid) {
   const out = document.getElementById(uid);
   if (!out) return;
   if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+  const w = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
   out.textContent = '~' + w + 'kg (théorique)';
 }
 
@@ -7058,7 +6699,7 @@ function renderLifts() {
     }
 
     const rmCells = TARGET_REPS.map(r => {
-      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (1.0278 - 0.0278 * r)) * 2) / 2;
+      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
       const realKg = lift.repRecords[String(r)] || null;
       const label = r === 1 ? '1RM' : r + ' reps';
       let realHtml = '', cls = 'miss';
@@ -7137,7 +6778,7 @@ function calcLiftWeight(input, e1rm, uid) {
   const out = document.getElementById(uid);
   if (!out) return;
   if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+  const w = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
   out.textContent = '~' + w + 'kg';
 }
 
@@ -7554,7 +7195,7 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
           const reps = parseInt(rKey);
           const w = exo.repRecords[rKey];
           if (calcE1RM(w, reps) > val * 1.05) {
-            exo.repRecords[rKey] = Math.round(val * (1.0278 - 0.0278 * reps) * 10) / 10;
+            exo.repRecords[rKey] = Math.round(val * (EPLEY_INTERCEPT - EPLEY_SLOPE * reps) * 10) / 10;
           }
         });
       }
@@ -7964,15 +7605,6 @@ function checkProgressionSuggestions() {
   return suggestions;
 }
 
-function renderProgressionSuggestions() {
-  // Legacy — now inline in renderCoachToday()
-}
-
-function renderCoachBriefing() {
-  // Legacy — now handled by renderCoachToday()
-  renderCoachToday();
-}
-
 function generateWeeklyReport() {
   var weekKey = _getWeekKey();
   if ((db.reports||[]).some(function(r) { return r.type === 'weekly' && r.weekKey === weekKey; })) return;
@@ -8030,12 +7662,6 @@ function generateWeeklyReport() {
   saveDBNow();
 }
 
-function renderCoachReports() {
-  // Legacy — now handled by renderCoachHistory()
-  renderCoachHistory();
-}
-
-
 // ============================================================
 // WEEKLY PLAN — génération locale (sans IA)
 // ============================================================
@@ -8053,28 +7679,6 @@ const BW_RATIOS = {
 
 // ── Apprentissage progression personnalisée ─────────────────
 // Après 4+ semaines de données, calcule le taux de progression réel
-function getPersonalProgressionRate(exoName) {
-  const pts = [];
-  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-  for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
-    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-    if (pts.length >= 8) break;
-  }
-  if (pts.length < 4) return null;
-  pts.sort((a,b) => a.x - b.x);
-  const n = pts.length;
-  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-  const kgPerWeek = Math.round(slope * 7 * 10) / 10;
-  const lastE1rm = pts[pts.length - 1].y;
-  if (lastE1rm <= 0) return null;
-  const pctPerWeek = Math.round((kgPerWeek / lastE1rm) * 1000) / 10;
-  return { kgPerWeek, pctPerWeek, lastE1rm, confidence: n >= 6 ? 'high' : 'medium', n };
-}
-
 // ── Catégorie d'exercice (global) ───────────────────────────
 function getExoCategory(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -8220,55 +7824,6 @@ function estimateSessionDuration(exercises, goal) {
 }
 
 // Adapter la séance si elle dépasse la durée configurée
-function adaptSessionForDuration(exercises, targetMinutes, goal) {
-  if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
-  const est = estimateSessionDuration(exercises, goal);
-  if (est.minutes <= targetMinutes) return { exercises, adaptations: [] };
-
-  const adaptations = [];
-  let adapted = JSON.parse(JSON.stringify(exercises));
-
-  // 1. Supersets sur isolations (gain ~30%)
-  const isoExos = adapted.filter(e => getExoCategory(e.name) === 'isolation');
-  if (isoExos.length >= 2) {
-    for (let i = 0; i < isoExos.length - 1; i += 2) {
-      isoExos[i].superset = isoExos[i + 1].name;
-      isoExos[i].restSeconds = Math.round((isoExos[i].restSeconds || 60) * 0.5);
-    }
-    adaptations.push('Supersets sur isolations');
-    const est2 = estimateSessionDuration(adapted, goal);
-    if (est2.minutes <= targetMinutes) return { exercises: adapted, adaptations };
-  }
-
-  // 2. Réduire séries isolations (max -1, jamais <2)
-  adapted.forEach(e => {
-    if (getExoCategory(e.name) !== 'isolation') return;
-    const work = e.sets.filter(s => !s.isWarmup);
-    if (work.length > 2) {
-      const idx = e.sets.findIndex(s => !s.isWarmup);
-      if (idx >= 0) e.sets.splice(idx, 1);
-    }
-  });
-  adaptations.push('Séries isolations réduites');
-  const est3 = estimateSessionDuration(adapted, goal);
-  if (est3.minutes <= targetMinutes) return { exercises: adapted, adaptations };
-
-  // 3. Réduire repos de 15% max
-  adapted.forEach(e => { e.restSeconds = Math.round((e.restSeconds || 90) * 0.85); });
-  adaptations.push('Repos réduits (-15%)');
-  const est4 = estimateSessionDuration(adapted, goal);
-  if (est4.minutes <= targetMinutes) return { exercises: adapted, adaptations };
-
-  // 4. Dernier recours : retirer une isolation
-  const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
-  if (lastIso >= 0) {
-    adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
-    adapted.splice(lastIso, 1);
-  }
-
-  return { exercises: adapted, adaptations };
-}
-
 // ── Périodisation par blocs selon le niveau ─────────────────
 // Sources : BodySpec, Barbell Medicine, NSCA
 const BLOC_PARAMS = {
@@ -8299,57 +7854,6 @@ const BLOC_PARAMS = {
 };
 
 // ── Deload automatique ──────────────────────────────────────
-function shouldDeload() {
-  const reasons = [];
-  // 1. Fin de mésocycle (semaine 4 complétée)
-  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
-    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
-    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
-  }
-  // 2. Readiness basse chronique
-  const last3 = (db.readiness || []).slice(-3);
-  if (last3.length === 3 && last3.every(r => r.score < 40)) {
-    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
-  }
-  // 3. Plateau multiple
-  const bigLifts = ['squat', 'bench', 'deadlift'];
-  const plateaus = bigLifts.filter(l => detectPlateau(l));
-  if (plateaus.length >= 2) {
-    reasons.push('Plateau sur ' + plateaus.join(' et '));
-  }
-  return { needed: reasons.length > 0, reasons };
-}
-
-let _deloadDismissed = false;
-function renderDeloadBanner() {
-  const el = document.getElementById('deloadBanner');
-  if (!el) return;
-  if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
-  const { needed, reasons } = shouldDeload();
-  if (!needed) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée ' + renderGlossaryTip('deload') + '</div>' +
-    '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
-    '<div style="display:flex;gap:8px;">' +
-    '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
-    '<button onclick="dismissDeload()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Ignorer</button>' +
-    '</div></div>';
-}
-
-function acceptDeload() {
-  db._deloadAccepted = true;
-  saveDB();
-  showToast('🔄 Deload activé — charges et volume réduits');
-  const el = document.getElementById('deloadBanner');
-  if (el) el.innerHTML = '';
-}
-
-function dismissDeload() {
-  _deloadDismissed = true;
-  const el = document.getElementById('deloadBanner');
-  if (el) el.innerHTML = '';
-}
-
 function isDeloadWeek() {
   return !!db._deloadAccepted;
 }
@@ -8484,7 +7988,7 @@ function generateWeeklyPlan() {
     if (bestE1rm <= 0) return null;
 
     // Charge cible = Epley(e1RM → tReps) × LOAD_PCT de la semaine
-    const epleyTarget = bestE1rm * (1.0278 - 0.0278 * tReps);
+    const epleyTarget = bestE1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * tReps);
     const workWeight  = round05(epleyTarget * LOAD_PCT + adj);
     return workWeight > 0 ? workWeight : null;
   }
@@ -8650,7 +8154,7 @@ function generateWeeklyPlan() {
             const lvl = db.user.level || 'intermediaire';
             const bwRatio = (BW_RATIOS[cat] || BW_RATIOS.compound)[lvl] || 0.5;
             const estimatedE1RM = bw * bwRatio;
-            const epleyEst = estimatedE1RM * (1.0278 - 0.0278 * targetReps);
+            const epleyEst = estimatedE1RM * (EPLEY_INTERCEPT - EPLEY_SLOPE * targetReps);
             const estWork = round05(epleyEst * LOAD_PCT);
             if (estWork > 0) {
               const warmups = getWarmupSets(exoName, estWork, targetReps, isFirstForMuscle, isFirstCompound && cat !== 'isolation', cat);

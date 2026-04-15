@@ -39,17 +39,6 @@ function formatTime(sec) {
   return m > 0 ? m + 'm' + s + 's' : s + 's';
 }
 
-function timeAgo(input) {
-  if (!input) return 'récemment';
-  let ms = (typeof input === 'number') ? input : new Date(input).getTime();
-  if (isNaN(ms)) return 'récemment';
-  let diff = Math.floor((Date.now() - ms) / 1000);
-  if (diff < 60) return 'à l\'instant';
-  if (diff < 3600) return Math.floor(diff / 60) + 'min';
-  if (diff < 84400) return Math.floor(diff / 3600) + 'h';
-  return new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-}
-
 function showToast(msg) {
   const t = document.createElement('div');
   t.className = 'toast-notification';

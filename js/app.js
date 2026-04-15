@@ -3269,16 +3269,145 @@ function refreshUI() {
   else { renderDash(); renderProgramViewer(); }
 }
 
-function renderDash() {
-  const routine = getRoutine();
-  document.getElementById('routineDisplay').textContent = routine[selectedDay] || '—';
-  const greet = document.getElementById('dashGreeting');
-  if (greet && db.user.name) {
-    var _tierBadge = (typeof renderTierBadge === 'function' && db.user.tier) ? ' ' + renderTierBadge(db.user.tier) : '';
-    greet.innerHTML = 'Salut ' + db.user.name + ' 👋' + _tierBadge;
-  }
+// ── Carte "Cette semaine" (nouvelle homepage) ────────────────
+function renderWeekCard() {
+  const el = document.getElementById('dashWeekContent');
+  if (!el) return;
 
-  // Carte de bienvenue : visible seulement si aucune séance importée
+  const name = db.user.name || '';
+  const now = new Date();
+  const todayIdx = now.getDay(); // 0=dim
+  const todayName = DAYS_FULL[todayIdx];
+  const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Streak
+  const streak = db.questStreak || 0;
+
+  // Score de forme (0-100)
+  let formScore = null;
+  try {
+    const fs = computeFormScoreComposite();
+    if (fs && typeof fs.score === 'number') formScore = fs.score;
+    else if (typeof fs === 'number') formScore = fs;
+  } catch(e) {}
+  const scoreColor = formScore === null ? 'var(--sub)' : formScore >= 70 ? 'var(--green)' : formScore >= 40 ? 'var(--orange)' : 'var(--red)';
+
+  // Métriques semaine
+  const logsWeek = getLogsInRange(7);
+  const seancesCount = logsWeek.length;
+  const totalDuration = logsWeek.reduce((s, l) => s + (l.duration || 0), 0);
+  const totalVolume = logsWeek.reduce((s, l) => s + (l.volume || 0), 0);
+  const durationStr = totalDuration > 0
+    ? (totalDuration >= 3600 ? Math.floor(totalDuration/3600) + 'h' + (Math.floor((totalDuration%3600)/60) > 0 ? String(Math.floor((totalDuration%3600)/60)).padStart(2,'0') : '') : Math.floor(totalDuration/60) + 'min')
+    : '—';
+  const volumeStr = totalVolume > 0 ? (totalVolume >= 1000 ? Math.round(totalVolume/100)/10 + 't' : Math.round(totalVolume) + 'kg') : '—';
+
+  // Programme du jour
+  const routine = getRoutine();
+  const todayLabel = routine[todayName] || '';
+  const isRestDay = /repos|😴/i.test(todayLabel);
+
+  // État de chaque jour (fait / repos / futur)
+  const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const weekDaysFull = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  // Map timestamp → séance pour la semaine
+  const weekStart = getWeekStart(Date.now());
+  const seanceDays = new Set(
+    db.logs
+      .filter(l => l.timestamp >= weekStart)
+      .map(l => new Date(l.timestamp).getDay()) // 0=dim
+  );
+  // Convertir en index Lun=0..Dim=6
+  const toMonIdx = d => d === 0 ? 6 : d - 1;
+  const todayMonIdx = toMonIdx(todayIdx);
+
+  const daysHtml = weekDays.map((lbl, i) => {
+    const fullDay = weekDaysFull[i];
+    const jsDay = i === 6 ? 0 : i + 1; // Lun=1..Dim=0
+    const isDone = seanceDays.has(jsDay);
+    const isToday = i === todayMonIdx;
+    const isRest = /repos|😴/i.test(routine[fullDay] || '');
+
+    let cls, dotContent;
+    if (isToday) {
+      cls = 'background:rgba(10,132,255,0.1);border:0.5px solid rgba(10,132,255,0.4);';
+      dotContent = '<div style="width:18px;height:18px;border-radius:50%;background:#0a84ff;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;">●</div>';
+    } else if (isDone) {
+      cls = 'background:rgba(50,215,75,0.08);border:0.5px solid rgba(50,215,75,0.3);';
+      dotContent = '<div style="width:18px;height:18px;border-radius:50%;background:#32D74B;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#000;">✓</div>';
+    } else {
+      cls = 'background:var(--surface);border:0.5px solid var(--border);';
+      dotContent = '<div style="width:18px;height:18px;border-radius:50%;background:var(--border);margin:0 auto;"></div>';
+    }
+
+    return '<div style="flex:1;border-radius:8px;padding:6px 2px;text-align:center;' + cls + '">' +
+      '<div style="font-size:7px;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">' + lbl + '</div>' +
+      dotContent +
+      '</div>';
+  }).join('');
+
+  // Aujourd'hui card
+  const todayHtml = !isRestDay && todayLabel
+    ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;">' +
+        '<div style="width:32px;height:32px;background:rgba(10,132,255,0.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🏋️</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">Aujourd\'hui</div>' +
+          '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + todayLabel + '</div>' +
+        '</div>' +
+        '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>' +
+      '</div>'
+    : '<div style="text-align:center;padding:8px;color:var(--sub);font-size:12px;">😴 Repos complet</div>';
+
+  el.innerHTML =
+    // Header : nom + date + pills
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">' +
+      '<div>' +
+        '<div style="font-size:16px;font-weight:800;">Salut ' + (name || 'Athlète') + ' 👋</div>' +
+        '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + dateStr.charAt(0).toUpperCase() + dateStr.slice(1) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">' +
+        (streak > 0
+          ? '<div style="display:flex;align-items:center;gap:4px;background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.3);border-radius:20px;padding:4px 9px;">' +
+              '<span style="font-size:12px;">🔥</span>' +
+              '<span style="font-size:13px;font-weight:800;color:#ff9f0a;">' + streak + '</span>' +
+              '<span style="font-size:8px;color:rgba(255,159,10,0.6);">jours</span>' +
+            '</div>'
+          : '') +
+        (formScore !== null
+          ? '<div style="display:flex;align-items:center;gap:5px;background:rgba(50,215,75,0.05);border:0.5px solid rgba(50,215,75,0.2);border-radius:20px;padding:4px 9px;">' +
+              '<div style="width:6px;height:6px;border-radius:50%;background:' + scoreColor + ';flex-shrink:0;"></div>' +
+              '<span style="font-size:9px;color:var(--sub);">Forme</span>' +
+              '<span style="font-size:11px;font-weight:800;color:' + scoreColor + ';">' + formScore + '</span>' +
+            '</div>'
+          : '') +
+      '</div>' +
+    '</div>' +
+
+    // Jours de la semaine
+    '<div style="display:flex;gap:4px;margin-bottom:12px;">' + daysHtml + '</div>' +
+
+    // Métriques
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;">' +
+      '<div style="background:var(--surface);border-radius:10px;padding:9px 6px;text-align:center;border:0.5px solid var(--border);">' +
+        '<div style="font-size:17px;font-weight:800;color:var(--green);">' + seancesCount + '</div>' +
+        '<div style="font-size:8px;color:var(--sub);margin-top:2px;text-transform:uppercase;">Séances</div>' +
+      '</div>' +
+      '<div style="background:var(--surface);border-radius:10px;padding:9px 6px;text-align:center;border:0.5px solid var(--border);">' +
+        '<div style="font-size:17px;font-weight:800;color:var(--blue);">' + durationStr + '</div>' +
+        '<div style="font-size:8px;color:var(--sub);margin-top:2px;text-transform:uppercase;">Durée</div>' +
+      '</div>' +
+      '<div style="background:var(--surface);border-radius:10px;padding:9px 6px;text-align:center;border:0.5px solid var(--border);">' +
+        '<div style="font-size:17px;font-weight:800;color:var(--orange);">' + volumeStr + '</div>' +
+        '<div style="font-size:8px;color:var(--sub);margin-top:2px;text-transform:uppercase;">Volume</div>' +
+      '</div>' +
+    '</div>' +
+
+    // Aujourd'hui + GO
+    todayHtml;
+}
+
+function renderDash() {
+  // Carte bienvenue
   const welcomeCard = document.getElementById('welcomeCard');
   if (welcomeCard) {
     const noData = !db.logs || db.logs.length === 0;
@@ -3289,14 +3418,8 @@ function renderDash() {
     }
   }
 
-  renderTodayProgram();
-  renderSBDTotal();
-  renderWeeklySummary();
-  renderRecentPRs();
-  // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
+  renderWeekCard();
   renderPerfCard();
-  renderDaySelector();
-  renderDayExercises(selectedDay);
 }
 
 // ============================================================

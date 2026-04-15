@@ -75,3 +75,34 @@ const DEFAULT_ROUTINE = {
 
 // Liste noire des noms de séance à ignorer
 const SESSION_NAME_BLACKLIST = /^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
+
+// ============================================================
+// DOMAIN CONSTANTS — extracted from inline magic numbers
+// ============================================================
+
+// Epley formula (inverse: weight = e1RM × (EPLEY_INTERCEPT − EPLEY_SLOPE × reps))
+const EPLEY_INTERCEPT = 1.0278;
+const EPLEY_SLOPE = 0.0278;
+
+// BMR Mifflin-St Jeor defaults (when user hasn't set profile values)
+const BMR_DEFAULT_HEIGHT_CM = 182;
+const BMR_DEFAULT_AGE_YEARS = 25;
+
+// TDEE activity factors based on weekly tonnage (kg)
+const TDEE_VOLUME_THRESHOLDS = { HIGH: 40000, MID: 20000, LOW: 3000 };
+const TDEE_ACTIVITY_FACTORS = { HIGH: 1.60, MID_HIGH: 1.57, DEFAULT: 1.55, LOW: 1.40 };
+
+// Macronutrient targets per kg bodyweight
+const MACRO_PROTEIN_PER_KG = 1.95;
+const MACRO_FAT_PER_KG = 0.73;
+
+// Readiness scoring weights (Helms 2018, Zourdos 2016)
+const READINESS_WEIGHTS = { SLEEP: 0.35, ENERGY: 0.25, MOTIVATION: 0.15, SORENESS: 0.25 };
+
+// Muscle fatigue decay parameters
+const FATIGUE_DECAY_HOURS = 48;
+const FATIGUE_MAX_WINDOW_HOURS = 168;
+
+// Plateau detection
+const PLATEAU_MIN_SESSIONS = 3;
+const PLATEAU_MAX_HISTORY = 6;

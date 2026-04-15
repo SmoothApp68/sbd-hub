@@ -780,11 +780,11 @@ function calcIPFGLTotal(bench, squat, deadlift, bw) {
 }
 function calcTDEE(bw, tonnage7d) {
   if (!bw || bw <= 0) return 0;
-  const bmr = 88.362 + 13.397 * bw + 4.799 * 182 - 5.677 * 25;
-  let actFactor = 1.55;
-  if (tonnage7d > 40000) actFactor = 1.60;
-  else if (tonnage7d > 20000) actFactor = 1.57;
-  else if (tonnage7d < 3000) actFactor = 1.40;
+  const bmr = 88.362 + 13.397 * bw + 4.799 * BMR_DEFAULT_HEIGHT_CM - 5.677 * BMR_DEFAULT_AGE_YEARS;
+  let actFactor = TDEE_ACTIVITY_FACTORS.DEFAULT;
+  if (tonnage7d > TDEE_VOLUME_THRESHOLDS.HIGH) actFactor = TDEE_ACTIVITY_FACTORS.HIGH;
+  else if (tonnage7d > TDEE_VOLUME_THRESHOLDS.MID) actFactor = TDEE_ACTIVITY_FACTORS.MID_HIGH;
+  else if (tonnage7d < TDEE_VOLUME_THRESHOLDS.LOW) actFactor = TDEE_ACTIVITY_FACTORS.LOW;
   return Math.round(bmr * actFactor);
 }
 function calcCalorieCible(bw) {
@@ -794,8 +794,8 @@ function calcCalorieCible(bw) {
   return Math.round(kcalBase * (bw / bwBase));
 }
 function calcMacrosCibles(kcalCible, bw) {
-  const prot = Math.round(bw * 1.95);
-  const fat  = Math.round(bw * 0.73);
+  const prot = Math.round(bw * MACRO_PROTEIN_PER_KG);
+  const fat  = Math.round(bw * MACRO_FAT_PER_KG);
   const carb = Math.max(0, Math.round((kcalCible - prot*4 - fat*9) / 4));
   return { prot, carb, fat, kcal: kcalCible };
 }
@@ -837,10 +837,10 @@ function analyzePlateauCauses(exoName) {
         break;
       }
     }
-    if (history.length >= 6) break;
+    if (history.length >= PLATEAU_MAX_HISTORY) break;
   }
-  if (history.length < 3) return null;
-  const recent = history.slice(0, 4);
+  if (history.length < PLATEAU_MIN_SESSIONS) return null;
+  const recent = history.slice(0, PLATEAU_MIN_SESSIONS + 1);
   if (recent.length >= 3 && recent[0].rm > recent[recent.length - 1].rm) return null; // progressing
 
   const causes = [];
@@ -1103,8 +1103,8 @@ function computeMuscleFatigue(logs) {
     var log = logs[li];
     var ts = log.timestamp || new Date(log.date).getTime();
     var hoursAgo = (now - ts) / 3600000;
-    if (hoursAgo > 168) continue; // 7 jours max
-    var decayFactor = Math.exp(-hoursAgo / 48);
+    if (hoursAgo > FATIGUE_MAX_WINDOW_HOURS) continue;
+    var decayFactor = Math.exp(-hoursAgo / FATIGUE_DECAY_HOURS);
     for (var ei = 0; ei < (log.exercises || []).length; ei++) {
       var exo = log.exercises[ei];
       var contributions = getMuscleContributions(exo.name);

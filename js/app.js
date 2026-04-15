@@ -309,7 +309,7 @@ function updateReadinessPreview() {
 function calculateReadiness(sleep, energy, motivation, soreness) {
   const sorenessInverted = 11 - soreness;
   return Math.min(100, Math.max(0, Math.round(
-    (sleep * 0.35 + energy * 0.25 + motivation * 0.15 + sorenessInverted * 0.25) * 10
+    (sleep * READINESS_WEIGHTS.SLEEP + energy * READINESS_WEIGHTS.ENERGY + motivation * READINESS_WEIGHTS.MOTIVATION + sorenessInverted * READINESS_WEIGHTS.SORENESS) * 10
   )));
 }
 
@@ -2575,6 +2575,280 @@ function calcXPBreakdown() {
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
 }
 
+function renderGamStrengthCards(bw) {
+  var strContainer = document.getElementById('gamStrengthContent');
+  if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
+  var bestE1RMs = getAllBestE1RMs();
+  var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
+  var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+
+  var allExos = [];
+  for (var eName in bestE1RMs) {
+    var data = bestE1RMs[eName];
+    var sl = getStrengthLevel(eName, data.e1rm, bw);
+    var sesCount = 0, prCount = 0, runBest = 0;
+    getSortedLogs().slice().reverse().forEach(function(log) {
+      var found = false;
+      (log.exercises||[]).forEach(function(e) {
+        if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
+      });
+      if (found) sesCount++;
+    });
+    var exoXP = prCount * 50 + sesCount * 8;
+    allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
+  }
+  allExos.sort(function(a,b) {
+    var aIdx = a.sl ? a.sl.levelIdx : -1;
+    var bIdx = b.sl ? b.sl.levelIdx : -1;
+    if (bIdx !== aIdx) return bIdx - aIdx;
+    return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
+  });
+
+  if (!allExos.length) {
+    strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
+    return;
+  }
+
+  var perPage = 6;
+  var totalPages = Math.ceil(allExos.length / perPage);
+  var pagesHtml = '';
+  for (var pg = 0; pg < totalPages; pg++) {
+    pagesHtml += '<div class="sg-page">';
+    var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
+    for (var ei = start; ei < end; ei++) {
+      var item = allExos[ei];
+      var hasSL = !!item.sl;
+      var isDim = item.sesCount <= 2 && !hasSL;
+      var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      var ratios = null;
+      for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
+
+      pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
+      pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
+      if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
+      pagesHtml += '</div>';
+      pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
+
+      if (ratios && hasSL) {
+        var maxR = ratios[ratios.length-1] * 1.2;
+        var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
+        var gaugeHtml = '';
+        for (var gi = 0; gi < 5; gi++) {
+          var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
+          gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
+        }
+        pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
+        pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
+      }
+
+      pagesHtml += '<div class="sg-footer">';
+      if (isDim) {
+        pagesHtml += '<span>Pas assez de données</span>';
+      } else if (hasSL) {
+        var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
+        if (nextLvl && ratios) {
+          var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
+          pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
+        } else {
+          pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
+        }
+      } else {
+        pagesHtml += '<span></span>';
+      }
+      pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
+      pagesHtml += '</div></div>';
+    }
+    pagesHtml += '</div>';
+  }
+
+  var dotsHtml = '';
+  for (var di = 0; di < totalPages; di++) {
+    dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
+  }
+
+  strContainer.innerHTML =
+    '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
+      '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
+      '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
+      '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
+    '</div>';
+
+  var pagesEl = document.getElementById('sgPages');
+  var dotsEl = document.getElementById('sgDots');
+  var labelEl = strContainer.querySelector('.mc-title-right');
+  if (pagesEl && dotsEl) {
+    pagesEl.addEventListener('scroll', function() {
+      var pageW = pagesEl.offsetWidth;
+      var idx = Math.round(pagesEl.scrollLeft / pageW);
+      dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
+      if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
+    });
+    dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
+      dot.addEventListener('click', function() {
+        var pg = parseInt(dot.getAttribute('data-page'));
+        pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
+      });
+    });
+  }
+}
+
+function renderGamBadges() {
+  var allBadges = getAllBadges();
+  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
+  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+  var seenBadgesSet = db.seenBadges || [];
+
+  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
+  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
+  var totalCount = normalBadges.length;
+  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
+
+  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
+  var rarityBreakdown = '';
+  rarityOrder.forEach(function(r) {
+    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
+    if (!rBadges.length) return;
+    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
+    var rc = rarityColor[r];
+    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
+  });
+
+  document.getElementById('gamBadgesOverview').innerHTML =
+    '<div class="bdg-overview">' +
+      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
+      '<div class="bdg-total-lbl">Badges débloqués</div>' +
+      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
+      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
+    '</div>';
+
+  var sections = [
+    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
+    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
+    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
+    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
+    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
+    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
+    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
+    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
+    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
+    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
+    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
+    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
+    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
+    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
+    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
+  ];
+
+  var badgeMap = {};
+  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
+
+  var chipsHtml = '<div class="bc-scroll">';
+  var sqCompleted = (db.secretQuestsCompleted || []).length;
+  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var icon = sec.title.split(' ')[0];
+    var name = sec.title.replace(/^[^\s]+\s*/, '');
+    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
+  });
+  chipsHtml += '</div>';
+
+  var secHtml = chipsHtml;
+
+  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
+  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
+  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
+  SECRET_QUESTS.forEach(function(sq) {
+    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
+    if (isCompleted) {
+      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
+      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
+      secHtml += '<div class="secret-label">SECRÈTE</div>';
+      secHtml += '<div class="bdg-icon">🔮</div>';
+      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
+      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
+      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
+      secHtml += '</div>';
+    } else {
+      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
+      secHtml += '<div class="bdg-icon">🔒</div>';
+      secHtml += '<div class="bdg-name">???</div>';
+      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
+      secHtml += '</div>';
+    }
+  });
+  secHtml += '</div></div></div>';
+
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var isOpen = si === 0 ? ' open' : '';
+
+    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
+    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
+    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
+    secHtml += '</div>';
+    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
+    secHtml += '<div class="bdg-grid">';
+
+    sectionBadges.forEach(function(badge) {
+      var isUnlocked = badge.ck();
+      var rc = rarityColor[badge.r] || '#86868B';
+      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
+
+      if (badge.impossible) {
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        secHtml += '</div>';
+      } else if (isUnlocked) {
+        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
+        if (badge.r === 'mythic') themeClass = ' mythic-v2';
+        if (badge.r === 'divine') themeClass = ' divine-v2';
+        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
+        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        secHtml += '</div>';
+      } else {
+        var prog = calcBadgeProgress(badge);
+        var progPct = prog ? prog.pct : 0;
+        var closeToUnlock = progPct > 50;
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
+        secHtml += '<div class="bdg-icon">🔒</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">???</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        if (prog && prog.pct > 0) {
+          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
+          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
+        }
+        secHtml += '</div>';
+      }
+    });
+
+    secHtml += '</div></div></div>';
+  });
+
+  document.getElementById('gamBadgesSections').innerHTML = secHtml;
+}
+
 function renderGamificationTab() {
   var bw = db.user.bw || 80;
   var totalXP = calcTotalXP();
@@ -2821,127 +3095,11 @@ function renderGamificationTab() {
   })();
 
   // ── 6. Strength cards (grille paginée + clickable) ──
-  (function() {
-    var strContainer = document.getElementById('gamStrengthContent');
-    if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
-    var bestE1RMs = getAllBestE1RMs();
-    var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
-    var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
-
-    var allExos = [];
-    for (var eName in bestE1RMs) {
-      var data = bestE1RMs[eName];
-      var sl = getStrengthLevel(eName, data.e1rm, bw);
-      var sesCount = 0, prCount = 0, runBest = 0;
-      getSortedLogs().slice().reverse().forEach(function(log) {
-        var found = false;
-        (log.exercises||[]).forEach(function(e) {
-          if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
-        });
-        if (found) sesCount++;
-      });
-      var exoXP = prCount * 50 + sesCount * 8;
-      allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
-    }
-    allExos.sort(function(a,b) {
-      var aIdx = a.sl ? a.sl.levelIdx : -1;
-      var bIdx = b.sl ? b.sl.levelIdx : -1;
-      if (bIdx !== aIdx) return bIdx - aIdx;
-      return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
-    });
-
-    if (!allExos.length) {
-      strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
-      return;
-    }
-
-    var perPage = 6;
-    var totalPages = Math.ceil(allExos.length / perPage);
-    var pagesHtml = '';
-    for (var pg = 0; pg < totalPages; pg++) {
-      pagesHtml += '<div class="sg-page">';
-      var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
-      for (var ei = start; ei < end; ei++) {
-        var item = allExos[ei];
-        var hasSL = !!item.sl;
-        var isDim = item.sesCount <= 2 && !hasSL;
-        var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        var ratios = null;
-        for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
-
-        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
-        pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
-        if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
-        pagesHtml += '</div>';
-        pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
-
-        if (ratios && hasSL) {
-          var maxR = ratios[ratios.length-1] * 1.2;
-          var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
-          var gaugeHtml = '';
-          for (var gi = 0; gi < 5; gi++) {
-            var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
-            gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
-          }
-          pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
-          pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
-        }
-
-        pagesHtml += '<div class="sg-footer">';
-        if (isDim) {
-          pagesHtml += '<span>Pas assez de données</span>';
-        } else if (hasSL) {
-          var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
-          if (nextLvl && ratios) {
-            var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
-            pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
-          } else {
-            pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
-          }
-        } else {
-          pagesHtml += '<span></span>';
-        }
-        pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
-        pagesHtml += '</div></div>';
-      }
-      pagesHtml += '</div>';
-    }
-
-    var dotsHtml = '';
-    for (var di = 0; di < totalPages; di++) {
-      dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
-    }
-
-    strContainer.innerHTML =
-      '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
-        '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
-        '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
-        '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
-      '</div>';
-
-    var pagesEl = document.getElementById('sgPages');
-    var dotsEl = document.getElementById('sgDots');
-    var labelEl = strContainer.querySelector('.mc-title-right');
-    if (pagesEl && dotsEl) {
-      pagesEl.addEventListener('scroll', function() {
-        var pageW = pagesEl.offsetWidth;
-        var idx = Math.round(pagesEl.scrollLeft / pageW);
-        dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
-        if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
-      });
-      dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
-        dot.addEventListener('click', function() {
-          var pg = parseInt(dot.getAttribute('data-page'));
-          pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
-        });
-      });
-    }
-  })();
+  renderGamStrengthCards(bw);
 
   // Separator
   document.getElementById('gamStrengthContent').insertAdjacentHTML('beforeend', '<div class="gam-separator">✦ ─── ✦ ─── ✦</div>');
 
-  // ── 7. Heatmap de régularité (52 semaines, clickable) ──
   (function() {
     var now = Date.now();
     var weekMs = 7 * 86400000;
@@ -2968,167 +3126,8 @@ function renderGamificationTab() {
   // Separator
   document.getElementById('gamHeatmap').insertAdjacentHTML('beforeend', '<div class="gam-separator">⟡ ── ⟡</div>');
 
-  // ── 8. Badges (overview + chips + secret quests section + accordions + progress) ──
-  var allBadges = getAllBadges();
-  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
-  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
-  var seenBadgesSet = db.seenBadges || [];
-
-  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
-  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
-  var totalCount = normalBadges.length;
-  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
-
-  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
-  var rarityBreakdown = '';
-  rarityOrder.forEach(function(r) {
-    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
-    if (!rBadges.length) return;
-    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
-    var rc = rarityColor[r];
-    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
-  });
-
-  document.getElementById('gamBadgesOverview').innerHTML =
-    '<div class="bdg-overview">' +
-      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
-      '<div class="bdg-total-lbl">Badges débloqués</div>' +
-      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
-      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
-    '</div>';
-
-  // Badge sections
-  var sections = [
-    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
-    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
-    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
-    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
-    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
-    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
-    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
-    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
-    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
-    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
-    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
-    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
-    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
-    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
-    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
-  ];
-
-  var badgeMap = {};
-  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
-
-  // Chips nav
-  var chipsHtml = '<div class="bc-scroll">';
-  // Add secret quests chip
-  var sqCompleted = (db.secretQuestsCompleted || []).length;
-  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
-  sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
-    if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
-    var icon = sec.title.split(' ')[0];
-    var name = sec.title.replace(/^[^\s]+\s*/, '');
-    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
-  });
-  chipsHtml += '</div>';
-
-  // Build sections
-  var secHtml = chipsHtml;
-
-  // Secret quests section
-  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
-  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
-  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
-  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
-  SECRET_QUESTS.forEach(function(sq) {
-    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
-    if (isCompleted) {
-      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
-      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
-      secHtml += '<div class="secret-label">SECRÈTE</div>';
-      secHtml += '<div class="bdg-icon">🔮</div>';
-      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
-      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
-      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
-      secHtml += '</div>';
-    } else {
-      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
-      secHtml += '<div class="bdg-icon">🔒</div>';
-      secHtml += '<div class="bdg-name">???</div>';
-      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
-      secHtml += '</div>';
-    }
-  });
-  secHtml += '</div></div></div>';
-
-  // Regular badge sections
-  sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
-    if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
-    var isOpen = si === 0 ? ' open' : '';
-
-    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
-    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
-    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
-    secHtml += '</div>';
-    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
-    secHtml += '<div class="bdg-grid">';
-
-    sectionBadges.forEach(function(badge) {
-      var isUnlocked = badge.ck();
-      var rc = rarityColor[badge.r] || '#86868B';
-      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
-
-      if (badge.impossible) {
-        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
-        secHtml += '<div class="bdg-rarity-bar"></div>';
-        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
-        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
-        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
-        secHtml += '</div>';
-      } else if (isUnlocked) {
-        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
-        if (badge.r === 'mythic') themeClass = ' mythic-v2';
-        if (badge.r === 'divine') themeClass = ' divine-v2';
-        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
-        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
-        secHtml += '<div class="bdg-rarity-bar"></div>';
-        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
-        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
-        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
-        secHtml += '</div>';
-      } else {
-        var prog = calcBadgeProgress(badge);
-        var progPct = prog ? prog.pct : 0;
-        var closeToUnlock = progPct > 50;
-        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
-        secHtml += '<div class="bdg-icon">🔒</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div class="bdg-desc">???</div>';
-        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
-        if (prog && prog.pct > 0) {
-          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
-          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
-        }
-        secHtml += '</div>';
-      }
-    });
-
-    secHtml += '</div></div></div>';
-  });
-
-  document.getElementById('gamBadgesSections').innerHTML = secHtml;
+  // ── 8. Badges ──
+  renderGamBadges();
 }
 
 
@@ -4051,7 +4050,7 @@ function buildRMTable(e1rm, repRecords, exoName) {
   const coachTips = [];
   const hdr = '<div class="rm-row" style="border-top:none;font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;"><span class="rm-lbl">Reps</span><span class="rm-theo">Théo.</span><span class="rm-real">Réel</span></div>';
   const rows = TARGET_REPS.map(r => {
-    const theo = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+    const theo = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
     const realW = (repRecords && repRecords[String(r)]) ? repRecords[String(r)] : null;
     const label = r === 1 ? '1 rep' : r + ' reps';
     let realHtml, cls;
@@ -4078,7 +4077,7 @@ function calcDashRM(input, e1rm, uid) {
   const out = document.getElementById(uid);
   if (!out) return;
   if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+  const w = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
   out.textContent = '~' + w + 'kg (théorique)';
 }
 
@@ -6698,7 +6697,7 @@ function renderLifts() {
     }
 
     const rmCells = TARGET_REPS.map(r => {
-      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (1.0278 - 0.0278 * r)) * 2) / 2;
+      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
       const realKg = lift.repRecords[String(r)] || null;
       const label = r === 1 ? '1RM' : r + ' reps';
       let realHtml = '', cls = 'miss';
@@ -6777,7 +6776,7 @@ function calcLiftWeight(input, e1rm, uid) {
   const out = document.getElementById(uid);
   if (!out) return;
   if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
+  const w = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
   out.textContent = '~' + w + 'kg';
 }
 
@@ -7194,7 +7193,7 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
           const reps = parseInt(rKey);
           const w = exo.repRecords[rKey];
           if (calcE1RM(w, reps) > val * 1.05) {
-            exo.repRecords[rKey] = Math.round(val * (1.0278 - 0.0278 * reps) * 10) / 10;
+            exo.repRecords[rKey] = Math.round(val * (EPLEY_INTERCEPT - EPLEY_SLOPE * reps) * 10) / 10;
           }
         });
       }
@@ -7987,7 +7986,7 @@ function generateWeeklyPlan() {
     if (bestE1rm <= 0) return null;
 
     // Charge cible = Epley(e1RM → tReps) × LOAD_PCT de la semaine
-    const epleyTarget = bestE1rm * (1.0278 - 0.0278 * tReps);
+    const epleyTarget = bestE1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * tReps);
     const workWeight  = round05(epleyTarget * LOAD_PCT + adj);
     return workWeight > 0 ? workWeight : null;
   }
@@ -8153,7 +8152,7 @@ function generateWeeklyPlan() {
             const lvl = db.user.level || 'intermediaire';
             const bwRatio = (BW_RATIOS[cat] || BW_RATIOS.compound)[lvl] || 0.5;
             const estimatedE1RM = bw * bwRatio;
-            const epleyEst = estimatedE1RM * (1.0278 - 0.0278 * targetReps);
+            const epleyEst = estimatedE1RM * (EPLEY_INTERCEPT - EPLEY_SLOPE * targetReps);
             const estWork = round05(epleyEst * LOAD_PCT);
             if (estWork > 0) {
               const warmups = getWarmupSets(exoName, estWork, targetReps, isFirstForMuscle, isFirstCompound && cat !== 'isolation', cat);

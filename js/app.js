@@ -4781,6 +4781,7 @@ async function importCSV() {
     if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
+  await syncToCloud(true);
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
   if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){showPRCelebration(_n,_bestPR[0][1],0);},500);}}
@@ -9947,7 +9948,7 @@ async function updateSessionActivity(session) {
     if (!user) return;
     // Trouver l'activité correspondante (même date + type session)
     var { data: activities } = await supabase
-      .from('activities')
+      .from('activity_feed')
       .select('id, data')
       .eq('user_id', user.id)
       .eq('type', 'session')
@@ -9971,7 +9972,7 @@ async function updateSessionActivity(session) {
       }),
       edited: true
     });
-    await supabase.from('activities').update({ data: newData }).eq('id', match.id);
+    await supabase.from('activity_feed').update({ data: newData }).eq('id', match.id);
   } catch(e) { console.warn('updateSessionActivity error:', e); }
 }
 
@@ -10978,7 +10979,7 @@ function goFinishWorkout() {
   // Add to db.logs
   db.logs.push(session);
   saveDBNow();
-  syncToCloud();
+  await syncToCloud(true);
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}

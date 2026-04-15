@@ -207,9 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
       selectedDay = b.dataset.day;
       document.querySelectorAll('.day-btn').forEach(function(x) { x.classList.remove('active'); });
       b.classList.add('active');
-      var rd = document.getElementById('routineDisplay');
-      if (rd) rd.textContent = getRoutine()[selectedDay] || '—';
-      if (typeof renderDayExercises === 'function') renderDayExercises(selectedDay);
+      if (typeof renderDaySection === 'function') renderDaySection();
     });
   }
 
@@ -3175,13 +3173,29 @@ function renderDash() {
     }
   }
 
-  renderTodayProgram();
   renderSBDTotal();
   renderWeeklySummary();
   renderRecentPRs();
   // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
   renderPerfCard();
   renderDaySelector();
+  initDaySelector();
+  renderDaySection();
+}
+
+function initDaySelector() {
+  const buttons = document.querySelectorAll('.day-btn');
+  buttons.forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-day') === selectedDay);
+  });
+}
+
+function renderDaySection() {
+  const routineDisplay = document.getElementById('routineDisplay');
+  if (routineDisplay) {
+    routineDisplay.textContent = getRoutine()[selectedDay] || '—';
+  }
+  renderTodayProgram();
   renderDayExercises(selectedDay);
 }
 
@@ -3263,7 +3277,7 @@ function renderWeeklySummary() {
 function renderTodayProgram() {
   var el = document.getElementById('todayProgramContent');
   if (!el) return;
-  var todayDay = DAYS_FULL[new Date().getDay()];
+  var todayDay = selectedDay;
   var routine = getRoutine();
   var label = routine[todayDay] || '';
   var isRest = !label || REGEX_REST_PATTERN.test(label);

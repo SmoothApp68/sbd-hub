@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v9';
+const CACHE_NAME = 'trainhub-v10';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -45,6 +45,15 @@ self.addEventListener('fetch', (event) => {
           }).catch(() => new Response('', { status: 404 }));
         })
       )
+    );
+    return;
+  }
+
+  // Fichiers JS : toujours réseau, fallback cache si offline
+  if (event.request.url.includes('/js/')) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' })
+        .catch(() => caches.match(event.request))
     );
     return;
   }

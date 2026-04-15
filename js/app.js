@@ -3437,12 +3437,14 @@ function renderSBDTotal() {
                             .sort(function(a, b) { return a.timestamp - b.timestamp; });
     var datasets = [];
     sbdDef.forEach(function(def) {
-      var seen = {};
+      var seen = {}, runMax = 0;
       sortedLogs.forEach(function(log) {
         log.exercises.forEach(function(exo) {
           if (getSBDType(exo.name) !== def.type || !(exo.maxRM > 0)) return;
+          if (exo.maxRM > runMax) runMax = exo.maxRM;
           var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-          if (!seen[lbl] || exo.maxRM > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(exo.maxRM) };
+          if (!seen[lbl]) seen[lbl] = { ts: log.timestamp, val: Math.round(runMax) };
+          else seen[lbl].val = Math.round(runMax);
         });
       });
       var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; });

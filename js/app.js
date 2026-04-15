@@ -56,7 +56,7 @@ const REGEX_COMPOUND_LIFTS_EXTENDED = /squat|deadlift|souleve|bench\s*(press|bar
 // INITIALISATION
 // ============================================================
 let selectedDay = DAYS_FULL[new Date().getDay()];
-var chartSBD = null, chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
+var chartSBD = null, chartSBDs = [], chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
 var activeWorkout = null, _goAutoSaveId = null, _goWakeLock = null;
 var currentWeekOffset = 0;
@@ -3319,8 +3319,10 @@ function renderSBDTotal() {
   if (!el) return;
   var card = document.getElementById('sbdTotalCard');
 
-  // Destroy existing SBD chart
+  // Destroy existing SBD chart(s)
   if (chartSBD) { try { chartSBD.destroy(); } catch(e) {} chartSBD = null; }
+  chartSBDs.forEach(function(c) { try { c.destroy(); } catch(e) {} });
+  chartSBDs = [];
 
   // ── Données 1RM Réel (meilleurs PRs all-time) ──
   var realBench = db.bestPR.bench || 0;
@@ -3368,7 +3370,6 @@ function renderSBDTotal() {
     }
 
     var total = realBench + realSquat + realDead;
-    el.innerHTML = toggleHtml + '<div style="position:relative;height:200px;"><canvas id="chartSBDCanvas"></canvas></div>';
     if (card) {
       var totalEl = card.querySelector('.sbd-total-line');
       if (!totalEl) {
@@ -3380,48 +3381,49 @@ function renderSBDTotal() {
       totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
     }
 
+    var sbdPairs = [
+      { label: 'Bench',    real: realBench, est: estBench, tgt: tgtBench, color: '#0A84FF' },
+      { label: 'Squat',    real: realSquat, est: estSquat, tgt: tgtSquat, color: '#FF453A' },
+      { label: 'Deadlift', real: realDead,  est: estDead,  tgt: tgtDead,  color: '#FF9F0A' }
+    ];
+    var miniHtml = '<div style="display:flex;flex-direction:column;gap:10px;">';
+    sbdPairs.forEach(function(p) {
+      miniHtml += '<div style="position:relative;height:72px;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
+    });
+    miniHtml += '</div>';
+    el.innerHTML = toggleHtml + miniHtml;
+
     requestAnimationFrame(function() {
-      var ctx = document.getElementById('chartSBDCanvas');
-      if (!ctx) return;
-      chartSBD = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Bench', 'Squat', 'Deadlift'],
-          datasets: [
-            {
-              label: '1RM Réel',
-              data: [realBench || null, realSquat || null, realDead || null],
-              backgroundColor: ['rgba(10,132,255,1)', 'rgba(255,69,58,1)', 'rgba(255,159,10,1)'],
-              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
-              borderWidth: 2, borderRadius: 6
-            },
-            {
-              label: 'e1RM Estimé',
-              data: [estBench || null, estSquat || null, estDead || null],
-              backgroundColor: ['rgba(10,132,255,0.4)', 'rgba(255,69,58,0.4)', 'rgba(255,159,10,0.4)'],
-              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
-              borderWidth: 1, borderRadius: 6
-            },
-            {
-              label: 'Objectif',
-              data: [tgtBench || null, tgtSquat || null, tgtDead || null],
-              backgroundColor: ['rgba(10,132,255,0.1)', 'rgba(255,69,58,0.1)', 'rgba(255,159,10,0.1)'],
-              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
-              borderWidth: 2, borderRadius: 6
-            }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
-            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + (ctx.parsed.y || '—') + ' kg'; } } }
+      sbdPairs.forEach(function(p) {
+        var ctx = document.getElementById('chartSBD_' + p.label);
+        if (!ctx) return;
+        var vals = [p.real, p.est, p.tgt].filter(function(v) { return v > 0; });
+        var maxVal = vals.length ? Math.max.apply(null, vals) : 100;
+        chartSBDs.push(new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['1RM Réel', 'e1RM Estimé', 'Objectif'],
+            datasets: [{
+              label: p.label,
+              data: [p.real || null, p.est || null, p.tgt || null],
+              backgroundColor: [p.color, p.color + '66', p.color + '22'],
+              borderColor: [p.color, p.color + '99', p.color + '55'],
+              borderWidth: 1, borderRadius: 4
+            }]
           },
-          scales: {
-            x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
-            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              title: { display: true, text: p.label, color: p.color, font: { size: 11, weight: '600' }, align: 'start', padding: { bottom: 2 } },
+              tooltip: { callbacks: { label: function(c) { return (c.parsed.y || '—') + ' kg'; } } }
+            },
+            scales: {
+              x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
+              y: { ticks: { color: '#86868B', font: { size: 9 }, maxTicksLimit: 3 }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false, suggestedMax: Math.ceil(maxVal * 1.15) }
+            }
           }
-        }
+        }));
       });
     });
 
@@ -3435,7 +3437,7 @@ function renderSBDTotal() {
     var sortedLogs = db.logs.slice().sort(function(a, b) { return a.timestamp - b.timestamp; });
     var datasets = [];
     sbdDef.forEach(function(def) {
-      var seen = {}, runMax = 0;
+      var seen = {};
       sortedLogs.forEach(function(log) {
         log.exercises.forEach(function(exo) {
           if (getSBDType(exo.name) !== def.type) return;
@@ -3447,10 +3449,8 @@ function renderSBDTotal() {
             });
           }
           if (!(rm > 0)) return;
-          if (rm > runMax) runMax = rm;
           var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-          if (!seen[lbl]) seen[lbl] = { ts: log.timestamp, val: Math.round(runMax) };
-          else seen[lbl].val = Math.round(runMax);
+          if (!seen[lbl] || rm > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(rm) };
         });
       });
       var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; }).slice(-20);

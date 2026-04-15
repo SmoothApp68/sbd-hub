@@ -7,14 +7,8 @@
 // ============================================================
 const SUPABASE_URL = 'https://swwygywahfdenyzotrce.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
-let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null, _realtimeSubscription = null;
-try {
-  if (typeof supabase !== 'undefined' && supabase) {
-    supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  } else {
-    console.warn('Supabase library not loaded');
-  }
-} catch(e) { console.warn('Supabase init failed:', e); }
+let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
+try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
 
 // ============================================================
 // ANTHROPIC PROXY HELPER
@@ -134,32 +128,6 @@ async function submitNewPassword() {
 
 async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
-async function syncFromCloudIfNewer() { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data && data.updated_at) { const cloudTs = new Date(data.updated_at).getTime(); if (cloudTs > (db.lastSync || 0) + 5000) { db = data.data; if (!db.reports) db.reports = []; db.lastSync = cloudTs; localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (typeof renderSeancesTab === 'function') renderSeancesTab(); } } } catch(e) { console.error('Cloud sync check:', e); } }
-// ── Realtime subscription pour sync instantanée ──────────────
-async function startRealtimeSubscription() {
-  if (!supaClient || !cloudSyncEnabled || _realtimeSubscription) return;
-  try {
-    const {data:{user}} = await supaClient.auth.getUser();
-    if (!user) return;
-    _realtimeSubscription = supaClient
-      .channel('public:sbd_profiles')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'sbd_profiles',
-        filter: 'user_id=eq.' + user.id
-      }, function(payload) {
-        if (payload.new && payload.new.data) {
-          db = payload.new.data;
-          if (!db.reports) db.reports = [];
-          db.lastSync = payload.new.updated_at ? new Date(payload.new.updated_at).getTime() : Date.now();
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-          if (typeof renderSeancesTab === 'function') renderSeancesTab();
-        }
-      })
-      .subscribe();
-  } catch(e) { console.error('Realtime subscription:', e); }
-}
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
 function updateSyncStatus(s) {
   const el = document.getElementById('syncIndicator');
@@ -542,6 +510,14 @@ let _socialSearchTimeout = null;
 
 const COMMON_EMOJIS = ['💪','🔥','👏','🎉','❤️','😤','🏆','⚡','👊','💯','🙌','😂','🤯','💀','🫡','👑'];
 
+function getMyUserId() {
+  if (!supaClient) return null;
+  try {
+    const session = supaClient.auth.getSession();
+    return session?.data?.session?.user?.id || null;
+  } catch { return null; }
+}
+
 async function getMyUserIdAsync() {
   if (!supaClient) return null;
   try {
@@ -593,7 +569,7 @@ function showSocialSub(subId, btn) {
 
 async function initSocialTab() {
   if (!supaClient || !cloudSyncEnabled) {
-    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">🔒</div><div class="feed-empty-title">Accès réservé aux membres</div><div class="feed-empty-sub">Crée un compte gratuit pour accéder au module social.</div><button class="btn" style="max-width:200px;margin:16px auto 0;" onclick="showLoginScreen()">Se connecter</button></div>';
+    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
     return;
   }
   const uid = await getMyUserIdAsync();
@@ -750,7 +726,6 @@ async function addFriendByCode() {
 }
 
 async function ensureProfile() {
-  if (!window.db || !window.db.social) return null;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
 
@@ -1019,8 +994,7 @@ async function loadFriends() {
   try {
     const { data, error } = await supaClient.from('friendships')
       .select('id, requester_id, target_id, status, created_at')
-      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid)
-      .limit(500);
+      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid);
     if (error) throw error;
     _friendsCache = data || [];
     return _friendsCache;
@@ -1045,8 +1019,7 @@ async function getFriendProfiles(friendIds) {
     const { data, error } = await supaClient.from('profiles')
       .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
       .in('id', friendIds)
-      .is('deleted_at', null)
-      .limit(500);
+      .is('deleted_at', null);
     if (error) throw error;
     return data || [];
   } catch (e) {
@@ -1244,8 +1217,7 @@ async function loadReactionsForActivity(activityId) {
   try {
     const { data } = await supaClient.from('reactions')
       .select('id, user_id, emoji, created_at')
-      .eq('activity_id', activityId)
-      .limit(500);
+      .eq('activity_id', activityId);
     return data || [];
   } catch { return []; }
 }
@@ -1256,8 +1228,7 @@ async function loadCommentsForActivity(activityId) {
     const { data } = await supaClient.from('comments')
       .select('id, user_id, text, created_at')
       .eq('activity_id', activityId)
-      .order('created_at', { ascending: true })
-      .limit(200);
+      .order('created_at', { ascending: true });
     return data || [];
   } catch { return []; }
 }
@@ -1298,7 +1269,7 @@ async function renderFeed() {
   let profiles = {};
   if (userIds.length) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds).limit(500);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -1324,8 +1295,7 @@ async function renderFeed() {
       const { data: trainingFriends } = await supaClient.from('profiles')
         .select('username, training_status, training_since')
         .in('id', friendIds)
-        .not('training_status', 'is', null)
-        .limit(500);
+        .not('training_status', 'is', null);
       if (trainingFriends && trainingFriends.length) {
         trainingBanner = '<div style="background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;">' +
           trainingFriends.map(f => {
@@ -1599,7 +1569,7 @@ async function loadAndRenderComments(activityId) {
   let profiles = {};
   if (userIds.length) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds).limit(500);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -1779,8 +1749,7 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
         .select('user_id, value')
         .in('user_id', friendIds)
         .eq('exercise_name', exerciseName)
-        .order('value', { ascending: false })
-        .limit(500);
+        .order('value', { ascending: false });
       if (snapshots) {
         for (const s of snapshots) {
           if (newValue > s.value) {
@@ -1796,6 +1765,10 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
   } catch (e) {
     console.error('publishPRActivity error:', e);
   }
+}
+
+async function publishGoalActivity(exerciseName, value, weeks) {
+  await postToFeed('goal', { exercise: exerciseName, value: value, weeks: weeks });
 }
 
 // ============================================================
@@ -1825,8 +1798,7 @@ async function renderLeaderboard() {
     const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
       .select('user_id, exercise_name, value')
       .in('user_id', allIds)
-      .order('value', { ascending: false })
-      .limit(1000);
+      .order('value', { ascending: false });
 
     if (!snapshots || !snapshots.length) {
       podiumEl.innerHTML = '';
@@ -1882,7 +1854,7 @@ async function renderLeaderboard() {
     const profileIds = Object.keys(bestByUser);
     let profiles = {};
     if (profileIds.length) {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', profileIds).limit(500);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', profileIds);
       (data || []).forEach(p => profiles[p.id] = p);
     }
 
@@ -1966,17 +1938,17 @@ async function updateLeaderboardSnapshot() {
     }
   });
 
-  if (prData.length === 0) return;
-  try {
-    const rows = prData.map(pr => ({
-      user_id: uid,
-      exercise_name: pr.exercise_name,
-      value: pr.value,
-      snapshot_week: weekStr
-    }));
-    await supaClient.from('leaderboard_snapshots').upsert(rows, { onConflict: 'user_id,exercise_name,snapshot_week', ignoreDuplicates: false });
-  } catch (e) {
-    console.error('updateLeaderboardSnapshot error:', e);
+  for (const pr of prData) {
+    try {
+      await supaClient.from('leaderboard_snapshots').upsert({
+        user_id: uid,
+        exercise_name: pr.exercise_name,
+        value: pr.value,
+        snapshot_week: weekStr
+      }, { onConflict: 'user_id,exercise_name,snapshot_week', ignoreDuplicates: false });
+    } catch (e) {
+      console.error('updateLeaderboardSnapshot error:', e);
+    }
   }
 }
 
@@ -2078,7 +2050,7 @@ async function renderFriendsTab() {
   let profiles = {};
   if (allUserIds.size) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds)).limit(500);
+      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -2257,6 +2229,120 @@ async function updateSocialBadge() {
 }
 
 // ============================================================
+// SOCIAL MODULE — DIAGNOSTIC
+// ============================================================
+async function diagnoseSocial() {
+  const results = [];
+  const ok = (msg) => results.push({ ok: true, msg });
+  const fail = (msg) => results.push({ ok: false, msg });
+
+  // 1. Auth check
+  try {
+    if (!supaClient) { fail('Client Supabase non initialisé'); }
+    else {
+      const { data } = await supaClient.auth.getUser();
+      if (data?.user) {
+        const u = data.user;
+        ok('Connecté : ' + (u.email || 'anonyme') + ' (id: ' + u.id.substring(0, 8) + '…)');
+      } else { fail('Aucun utilisateur connecté'); }
+    }
+  } catch (e) { fail('Auth — ' + e.message); }
+
+  // 2. Profiles table & critical columns
+  try {
+    const uid = await getMyUserIdAsync();
+    if (!uid) { fail('Impossible de récupérer ton identifiant'); }
+    else {
+      const { data, error } = await supaClient.from('profiles')
+        .select('id, username, friend_code, bio, visibility_bio, onboarding_completed')
+        .eq('id', uid).maybeSingle();
+      if (error) {
+        fail('Table profiles inaccessible — ' + error.message);
+        if (error.message && error.message.includes('column')) {
+          fail('Une colonne est probablement manquante dans la table profiles. Vérifie que friend_code, bio et visibility_bio existent.');
+        }
+      } else if (!data) {
+        fail('Aucun profil trouvé pour ton compte (table profiles vide ou RLS bloque)');
+      } else {
+        ok('Colonnes profiles OK (id, username, friend_code, bio, visibility_bio)');
+        if (data.username) { ok('Username en base : ' + data.username); }
+        else { fail('Username absent en base — le profil est incomplet'); }
+        if (data.friend_code) { ok('Code ami en base : ' + data.friend_code); }
+        else { fail('friend_code absent ou vide en base'); }
+        if (data.onboarding_completed) { ok('Onboarding complété en base'); }
+        else { fail('Onboarding non complété en base — le profil peut être partiel'); }
+      }
+    }
+  } catch (e) { fail('Profiles — ' + e.message); }
+
+  // 3. Friendships table accessible
+  try {
+    const uid = await getMyUserIdAsync();
+    const { data, error } = await supaClient.from('friendships')
+      .select('id, requester_id, target_id, status')
+      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid)
+      .limit(50);
+    if (error) { fail('Table friendships inaccessible — ' + error.message); }
+    else {
+      const pending = (data || []).filter(f => f.status === 'pending');
+      const accepted = (data || []).filter(f => f.status === 'accepted');
+      ok('Friendships accessibles : ' + (data || []).length + ' total (' + pending.length + ' en attente, ' + accepted.length + ' acceptées)');
+
+      // 3b. Pending requests where I am the TARGET (incoming)
+      const incoming = pending.filter(f => f.target_id === uid);
+      const outgoing = pending.filter(f => f.requester_id === uid);
+      if (incoming.length) { ok(incoming.length + ' demande(s) reçue(s) en attente (tu devrais les voir dans l\'onglet Amis)'); }
+      else { ok('Aucune demande reçue en attente'); }
+      if (outgoing.length) { ok(outgoing.length + ' demande(s) envoyée(s) en attente'); }
+    }
+  } catch (e) { fail('Friendships — ' + e.message); }
+
+  // 4. Check that a friend can see the pending request (cross-user visibility)
+  try {
+    const uid = await getMyUserIdAsync();
+    const { data, error } = await supaClient.from('friendships')
+      .select('id')
+      .eq('status', 'pending')
+      .limit(1);
+    if (error) { fail('Lecture des demandes pending échouée (RLS SELECT ?) — ' + error.message); }
+    else { ok('Lecture RLS des friendships OK'); }
+  } catch (e) { fail('RLS friendships — ' + e.message); }
+
+  // 5. Local state check
+  if (db.friendCode) { ok('Code ami local (db.friendCode) : ' + db.friendCode); }
+  else { fail('Pas de code ami en local (db.friendCode absent)'); }
+
+  if (db.social && db.social.onboardingCompleted) { ok('Onboarding social complété'); }
+  else { fail('Onboarding social non complété — le module social peut être bloqué'); }
+
+  // Build readable output
+  console.group('🔧 Diagnostic Social');
+  results.forEach(r => console[r.ok ? 'log' : 'warn']((r.ok ? '✅' : '❌') + ' ' + r.msg));
+  console.groupEnd();
+
+  // Show modal in app
+  const modalHtml =
+    '<div class="modal-overlay" id="diagSocialOverlay" onclick="if(event.target===this)this.remove()" style="z-index:99999;">' +
+      '<div class="modal-box" style="max-width:400px;text-align:left;max-height:80vh;overflow-y:auto;">' +
+        '<div style="font-size:22px;text-align:center;margin-bottom:8px;">🔧</div>' +
+        '<p style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center;">Diagnostic Social</p>' +
+        results.map(r =>
+          '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;font-size:13px;line-height:1.4;">' +
+            '<span style="flex-shrink:0;">' + (r.ok ? '✅' : '❌') + '</span>' +
+            '<span style="color:' + (r.ok ? 'var(--green)' : 'var(--red)') + ';">' + r.msg + '</span>' +
+          '</div>'
+        ).join('') +
+        '<button class="btn" style="margin-top:16px;" onclick="document.getElementById(\'diagSocialOverlay\').remove()">Fermer</button>' +
+      '</div>' +
+    '</div>';
+  const existing = document.getElementById('diagSocialOverlay');
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  return results;
+}
+
+// ============================================================
 // SOCIAL MODULE — PROFILE OVERLAY
 // ============================================================
 async function showProfileOverlay(userId) {
@@ -2342,8 +2428,7 @@ async function showProfileOverlay(userId) {
       const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
         .select('exercise_name, value')
         .eq('user_id', userId)
-        .order('value', { ascending: false })
-        .limit(100);
+        .order('value', { ascending: false });
       if (snapshots && snapshots.length) {
         const best = {};
         snapshots.forEach(s => { if (!best[s.exercise_name] || s.value > best[s.exercise_name]) best[s.exercise_name] = s.value; });
@@ -2412,8 +2497,7 @@ async function showComparisonView(friendId) {
       const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
         .select('exercise_name, value')
         .eq('user_id', friendId)
-        .order('value', { ascending: false })
-        .limit(100);
+        .order('value', { ascending: false });
       if (snapshots) {
         snapshots.forEach(s => {
           if (!friendPRs[s.exercise_name] || s.value > friendPRs[s.exercise_name]) friendPRs[s.exercise_name] = s.value;
@@ -2769,8 +2853,7 @@ async function renderChallengesTab() {
       const { data } = await supaClient.from('social_challenges')
         .select('*')
         .in('id', myChIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: false });
       if (data) allChallenges = data;
     }
     // Also get friend-created challenges not yet joined
@@ -2778,8 +2861,7 @@ async function renderChallengesTab() {
       const { data } = await supaClient.from('social_challenges')
         .select('*')
         .in('creator_id', friendIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: false });
       if (data) {
         data.forEach(c => {
           if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
@@ -2790,8 +2872,7 @@ async function renderChallengesTab() {
     const { data: ownChallenges } = await supaClient.from('social_challenges')
       .select('*')
       .eq('creator_id', uid)
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .order('created_at', { ascending: false });
     if (ownChallenges) {
       ownChallenges.forEach(c => {
         if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
@@ -2808,8 +2889,7 @@ async function renderChallengesTab() {
     if (allChIds.length) {
       const { data } = await supaClient.from('challenge_participants')
         .select('*')
-        .in('challenge_id', allChIds)
-        .limit(1000);
+        .in('challenge_id', allChIds);
       allParticipants = data || [];
     }
 
@@ -2819,7 +2899,7 @@ async function renderChallengesTab() {
     allParticipants.forEach(p => involvedIds.add(p.user_id));
     let profiles = {};
     if (involvedIds.size) {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds)).limit(500);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds));
       (data || []).forEach(p => profiles[p.id] = p);
     }
 

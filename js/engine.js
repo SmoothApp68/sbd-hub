@@ -5,10 +5,47 @@
 // ============================================================
 // CONSTANTS & CONFIG
 // ============================================================
-// STORAGE_KEY, DAYS_FULL, DAYS_SHORT, SBD_TYPES, RADAR_CONFIG,
-// VARIANT_KEYWORDS, REPORT_TTL_MS are defined in constants.js
+const STORAGE_KEY='SBD_HUB_V29';
+const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const SBD_TYPES=['bench','squat','deadlift'];
+const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
+const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
+const REPORT_TTL_MS=7*86400000;
 
-// VOLUME_LANDMARKS and MUSCLE_TO_VL_KEY are defined in constants.js
+// ── Volume Landmarks (sets/semaine par groupe musculaire) ────
+const VOLUME_LANDMARKS = {
+  chest:      { MEV: 8,  MAV: 14, MRV: 20 },
+  back:       { MEV: 8,  MAV: 16, MRV: 23 },
+  shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
+  quads:      { MEV: 6,  MAV: 14, MRV: 20 },
+  hamstrings: { MEV: 4,  MAV: 10, MRV: 16 },
+  glutes:     { MEV: 4,  MAV: 10, MRV: 16 },
+  biceps:     { MEV: 4,  MAV: 10, MRV: 18 },
+  triceps:    { MEV: 4,  MAV: 10, MRV: 16 },
+  calves:     { MEV: 6,  MAV: 10, MRV: 16 },
+  abs:        { MEV: 0,  MAV: 10, MRV: 18 },
+  traps:      { MEV: 0,  MAV: 8,  MRV: 14 },
+  forearms:   { MEV: 0,  MAV: 6,  MRV: 12 },
+};
+
+// Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
+const MUSCLE_TO_VL_KEY = {
+  'Pecs': 'chest', 'Pecs (haut)': 'chest',
+  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back',
+  'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
+  'Quadriceps': 'quads', 'Quads': 'quads',
+  'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',
+  'Fessiers': 'glutes', 'Glutes': 'glutes',
+  'Biceps': 'biceps',
+  'Triceps': 'triceps',
+  'Mollets': 'calves',
+  'Abdos': 'abs', 'Abdos (frontal)': 'abs', 'Core': 'abs', 'Obliques': 'abs',
+  'Trapèzes': 'traps', 'Traps': 'traps',
+  'Avant-bras': 'forearms',
+  'Jambes': 'quads', // fallback
+  'Bras': 'biceps',  // fallback
+};
 
 // ── TRAINING MODES ──────────────────────────────────────────
 const TRAINING_MODES = {
@@ -170,7 +207,11 @@ const ROUTINE_TEMPLATES = {
   }
 };
 
-// DEFAULT_ROUTINE and SESSION_NAME_BLACKLIST are defined in constants.js
+// DEFAULT routine (fallback si pas de profil)
+const DEFAULT_ROUTINE = ROUTINE_TEMPLATES.sbd.routine;
+
+// ── SESSION NAME BLACKLIST ──────────────────────────────────
+const SESSION_NAME_BLACKLIST=/^(dos$|dos\s|bonsoir|cul$|biceps$|épaules$|avant-bras$|devenue|push$|pull$|leg\s*day|jambes$|dos\s*&|dos\s*et\s|dos\s*wtf|dos\s*faa|dos\s*en\s*spe|dos\s*🔥|dos\s*avec)/i;
 
 // ============================================================
 // PERFORMANCE — MEMOIZATION CACHES
@@ -178,16 +219,14 @@ const ROUTINE_TEMPLATES = {
 const _cache = {
   exoType: new Map(),
   muscleGroup: new Map(),
-  muscleContribs: new Map(),
   sbdType: new Map(),
   exoDay: new Map(),
   _version: 0,
   _sortedLogs: null
 };
 function clearCaches() {
-  _cache.exoType.clear(); _cache.muscleGroup.clear(); _cache.muscleContribs.clear();
+  _cache.exoType.clear(); _cache.muscleGroup.clear();
   _cache.sbdType.clear(); _cache.exoDay.clear();
-  _exoNameCache = null;
   _cache._sortedLogs = null;
   _cache._version++;
   // Mark settings accordions as dirty so they re-render on next open
@@ -350,144 +389,104 @@ function getMuscleGroupParent(subGroup) {
   return map[subGroup] || subGroup;
 }
 
-// Cache nom→exercice pour lookup O(1) dans EXO_DATABASE
-let _exoNameCache = null;
-function _buildExoNameCache() {
-  if (_exoNameCache) return _exoNameCache;
-  _exoNameCache = new Map();
-  const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'").trim();
-  for (const exo of Object.values(EXO_DATABASE)) {
-    if (!exo || !exo.name) continue;
-    _exoNameCache.set(norm(exo.name), exo);
-    (exo.nameAlt || []).forEach(alt => {
-      if (alt) _exoNameCache.set(norm(alt), exo);
-    });
-  }
-  return _exoNameCache;
-}
-
 // Retourne les contributions musculaires multi-coefficients d'un exercice
 function getMuscleContributions(name) {
-  // Cache résultat
-  if (_cache.muscleContribs.has(name)) return _cache.muscleContribs.get(name);
-
-  var result = null;
-
-  // 1. Lookup EXO_DATABASE via cache nom (O(1))
-  try {
-    var norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'").trim();
-    var exo = _buildExoNameCache().get(norm);
-    if (exo && ((exo.primaryMuscles && exo.primaryMuscles.length) ||
-                (exo.secondaryMuscles && exo.secondaryMuscles.length))) {
-      result = [];
-      (exo.primaryMuscles || []).forEach(function(m) { result.push({ muscle: m, coeff: 1 }); });
-      (exo.secondaryMuscles || []).forEach(function(m) { result.push({ muscle: m, coeff: 0.5 }); });
-      (exo.tertiaryMuscles || []).forEach(function(m) { result.push({ muscle: m, coeff: 0.25 }); });
-    }
-  } catch(e) { result = null; }
-
-  // 2. Fallback : regex existantes
-  if (!result) {
-    const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'");
-    // Squat (Barre)
-    if (/\bsquat\b/.test(n) && !/hack|split|sissy|goblet|zercher/.test(n))
-      result = [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5},{muscle:'Lombaires',coeff:0.5},{muscle:'Abdos (frontal)',coeff:0.25}];
-    // Bench Press
-    else if (/bench\s*press|developpe\s*couche/.test(n) && !/incline|decline|close\s*grip/.test(n))
-      result = [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.5}];
-    // Deadlift / Soulevé de terre (conventional)
-    else if ((/deadlift|souleve\s*de\s*terre/.test(n)) && !/romanian|rdl|deficit|sumo/.test(n))
-      result = [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:1},{muscle:'Grand dorsal',coeff:0.5},{muscle:'Trapèzes',coeff:0.5},{muscle:'Fessiers',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
-    // Romanian Deadlift / RDL
-    else if (/romanian|rdl\b/.test(n))
-      result = [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:0.5},{muscle:'Fessiers',coeff:0.5},{muscle:'Grand dorsal',coeff:0.25}];
-    // Développé militaire / OHP
-    else if (/developpe\s*militaire|overhead\s*press|ohp\b|press\s*militaire/.test(n))
-      result = [{muscle:'Épaules (antérieur)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Pecs (haut)',coeff:0.25},{muscle:'Abdos (frontal)',coeff:0.25}];
-    // Développé incliné
-    else if (/incline\s*(bench|press|dumbbell)|developpe\s*incline/.test(n))
-      result = [{muscle:'Pecs (haut)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.5}];
-    // Développé couché haltères
-    else if (/developpe\s*couche\s*haltere|dumbbell\s*(bench|press)/.test(n))
-      result = [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
-    // Tractions / Pull-up
-    else if (/traction|pull.?up|chin.?up/.test(n))
-      result = [{muscle:'Grand dorsal',coeff:1},{muscle:'Biceps',coeff:0.5},{muscle:'Haut du dos',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
-    // Rowing barre
-    else if (/rowing\s*(barre|barbell)|barbell\s*row|bent.over\s*row|t.bar\s*row|yates\s*row/.test(n))
-      result = [{muscle:'Grand dorsal',coeff:1},{muscle:'Haut du dos',coeff:0.5},{muscle:'Biceps',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
-    // Rowing haltère 1 bras
-    else if (/rowing\s*(haltere|dumbbell|1\s*bras)|dumbbell\s*row|one.arm\s*row/.test(n))
-      result = [{muscle:'Grand dorsal',coeff:1},{muscle:'Haut du dos',coeff:0.5},{muscle:'Biceps',coeff:0.25}];
-    // Lat Pulldown
-    else if (/lat\s*(pulldown|machine|poulie)|pull\s*down|tirage\s*vertical/.test(n))
-      result = [{muscle:'Grand dorsal',coeff:1},{muscle:'Biceps',coeff:0.5},{muscle:'Haut du dos',coeff:0.25}];
-    // Hip Thrust
-    else if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge/.test(n))
-      result = [{muscle:'Fessiers',coeff:1},{muscle:'Ischio-jambiers',coeff:0.5},{muscle:'Lombaires',coeff:0.25}];
-    // Dips
-    else if (/\bdips?\b/.test(n))
-      result = [{muscle:'Pecs (bas)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
-    // Curl biceps
-    else if (/curl\s*(biceps?|barre|haltere|concentre|cable|poulie|marteau|hammer|preacher|scott|araignee|incline|1\s*bras|inversee?)?/.test(n) && !/leg\s*curl|jambe|poignet|wrist/.test(n) && /curl/.test(n))
-      result = [{muscle:'Biceps',coeff:1},{muscle:'Avant-bras',coeff:0.25}];
-    // Extension triceps / Skull crusher
-    else if (/extension\s*triceps|skull\s*crusher|barre\s*front|french\s*press|pushdown|push\s*down|kick.?back/.test(n))
-      result = [{muscle:'Triceps',coeff:1},{muscle:'Épaules (postérieur)',coeff:0.25}];
-    // Élévation latérale
-    else if (/elevation\s*laterale|lateral\s*raise/.test(n))
-      result = [{muscle:'Épaules (latéral)',coeff:1}];
-    // Face pull
-    else if (/face\s*pull/.test(n))
-      result = [{muscle:'Épaules (postérieur)',coeff:1},{muscle:'Haut du dos',coeff:0.5}];
-    // Leg press
-    else if (/leg\s*press|presse\s*(a\s*cuisses?|cuisse|jambe)/.test(n))
-      result = [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5}];
-    // Leg curl
-    else if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n))
-      result = [{muscle:'Ischio-jambiers',coeff:1}];
-    // Leg extension
-    else if (/leg\s*extension|extension\s*(des\s*)?(jambes?|quadriceps?)/.test(n))
-      result = [{muscle:'Quadriceps',coeff:1}];
-    // Écarté / Fly
-    else if (/ecarte|fly\b|chest\s*fly|cable\s*crossover/.test(n))
-      result = [{muscle:'Pecs',coeff:1}];
-    // Crunch
-    else if (/crunch/.test(n) && !/oblique/.test(n))
-      result = [{muscle:'Abdos (frontal)',coeff:1}];
-    // Russian twist / rotation
-    else if (/russian\s*twist|rotation\s*(tronc|buste)/.test(n))
-      result = [{muscle:'Obliques',coeff:1},{muscle:'Abdos (frontal)',coeff:0.25}];
-    // Planche / Gainage
-    else if (/planche|plank|gainage/.test(n))
-      result = [{muscle:'Abdos (frontal)',coeff:1},{muscle:'Obliques',coeff:0.5},{muscle:'Lombaires',coeff:0.25}];
-    // Good morning
-    else if (/good\s*morning/.test(n))
-      result = [{muscle:'Lombaires',coeff:1},{muscle:'Ischio-jambiers',coeff:0.5},{muscle:'Fessiers',coeff:0.25}];
-    // Hyperextension
-    else if (/hyperextension|extension\s*du\s*dos|extension\s*lombaire/.test(n))
-      result = [{muscle:'Lombaires',coeff:1},{muscle:'Fessiers',coeff:0.5}];
-    // Shrugs
-    else if (/shrugs?\b|hausse.?epaule/.test(n))
-      result = [{muscle:'Trapèzes',coeff:1},{muscle:'Haut du dos',coeff:0.25}];
-    // Mollets
-    else if (/mollet|calf/.test(n))
-      result = [{muscle:'Mollets',coeff:1}];
-    // Fentes / Lunges
-    else if (/fente|lunge/.test(n))
-      result = [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5},{muscle:'Ischio-jambiers',coeff:0.25}];
-    // Pompes / Push-ups
-    else if (/pompe|push.?up/.test(n))
-      result = [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
-    // Sumo deadlift
-    else if (/sumo/.test(n))
-      result = [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:1},{muscle:'Grand dorsal',coeff:0.5},{muscle:'Fessiers',coeff:0.5}];
-    // Fallback : muscle principal avec coeff 1
-    else result = [{ muscle: getMuscleGroup(name), coeff: 1 }];
-  }
-
-  _cache.muscleContribs.set(name, result);
-  return result;
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/['']/g,"'");
+  // Squat (Barre)
+  if (/\bsquat\b/.test(n) && !/hack|split|sissy|goblet|zercher/.test(n))
+    return [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5},{muscle:'Lombaires',coeff:0.5},{muscle:'Abdos (frontal)',coeff:0.25}];
+  // Bench Press
+  if (/bench\s*press|developpe\s*couche/.test(n) && !/incline|decline|close\s*grip/.test(n))
+    return [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.5}];
+  // Deadlift / Soulevé de terre (conventional)
+  if ((/deadlift|souleve\s*de\s*terre/.test(n)) && !/romanian|rdl|deficit|sumo/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:1},{muscle:'Grand dorsal',coeff:0.5},{muscle:'Trapèzes',coeff:0.5},{muscle:'Fessiers',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
+  // Romanian Deadlift / RDL
+  if (/romanian|rdl\b/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:0.5},{muscle:'Fessiers',coeff:0.5},{muscle:'Grand dorsal',coeff:0.25}];
+  // Développé militaire / OHP
+  if (/developpe\s*militaire|overhead\s*press|ohp\b|press\s*militaire/.test(n))
+    return [{muscle:'Épaules (antérieur)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Pecs (haut)',coeff:0.25},{muscle:'Abdos (frontal)',coeff:0.25}];
+  // Développé incliné
+  if (/incline\s*(bench|press|dumbbell)|developpe\s*incline/.test(n))
+    return [{muscle:'Pecs (haut)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.5}];
+  // Développé couché haltères
+  if (/developpe\s*couche\s*haltere|dumbbell\s*(bench|press)/.test(n))
+    return [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
+  // Tractions / Pull-up
+  if (/traction|pull.?up|chin.?up/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Biceps',coeff:0.5},{muscle:'Haut du dos',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
+  // Rowing barre
+  if (/rowing\s*(barre|barbell)|barbell\s*row|bent.over\s*row|t.bar\s*row|yates\s*row/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Haut du dos',coeff:0.5},{muscle:'Biceps',coeff:0.5},{muscle:'Avant-bras',coeff:0.25}];
+  // Rowing haltère 1 bras
+  if (/rowing\s*(haltere|dumbbell|1\s*bras)|dumbbell\s*row|one.arm\s*row/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Haut du dos',coeff:0.5},{muscle:'Biceps',coeff:0.25}];
+  // Lat Pulldown
+  if (/lat\s*(pulldown|machine|poulie)|pull\s*down|tirage\s*vertical/.test(n))
+    return [{muscle:'Grand dorsal',coeff:1},{muscle:'Biceps',coeff:0.5},{muscle:'Haut du dos',coeff:0.25}];
+  // Hip Thrust
+  if (/hip\s*thrust|poussee\s*de\s*hanche|pont\s*fessier|glute\s*bridge/.test(n))
+    return [{muscle:'Fessiers',coeff:1},{muscle:'Ischio-jambiers',coeff:0.5},{muscle:'Lombaires',coeff:0.25}];
+  // Dips
+  if (/\bdips?\b/.test(n))
+    return [{muscle:'Pecs (bas)',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
+  // Curl biceps
+  if (/curl\s*(biceps?|barre|haltere|concentre|cable|poulie|marteau|hammer|preacher|scott|araignee|incline|1\s*bras|inversee?)?/.test(n) && !/leg\s*curl|jambe|poignet|wrist/.test(n) && /curl/.test(n))
+    return [{muscle:'Biceps',coeff:1},{muscle:'Avant-bras',coeff:0.25}];
+  // Extension triceps / Skull crusher
+  if (/extension\s*triceps|skull\s*crusher|barre\s*front|french\s*press|pushdown|push\s*down|kick.?back/.test(n))
+    return [{muscle:'Triceps',coeff:1},{muscle:'Épaules (postérieur)',coeff:0.25}];
+  // Élévation latérale
+  if (/elevation\s*laterale|lateral\s*raise/.test(n))
+    return [{muscle:'Épaules (latéral)',coeff:1}];
+  // Face pull
+  if (/face\s*pull/.test(n))
+    return [{muscle:'Épaules (postérieur)',coeff:1},{muscle:'Haut du dos',coeff:0.5}];
+  // Leg press
+  if (/leg\s*press|presse\s*(a\s*cuisses?|cuisse|jambe)/.test(n))
+    return [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5}];
+  // Leg curl
+  if (/leg\s*curl|curl\s*(des\s*)?jambes?|flexion\s*(des\s*)?genoux|ischio/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1}];
+  // Leg extension
+  if (/leg\s*extension|extension\s*(des\s*)?(jambes?|quadriceps?)/.test(n))
+    return [{muscle:'Quadriceps',coeff:1}];
+  // Écarté / Fly
+  if (/ecarte|fly\b|chest\s*fly|cable\s*crossover/.test(n))
+    return [{muscle:'Pecs',coeff:1}];
+  // Crunch
+  if (/crunch/.test(n) && !/oblique/.test(n))
+    return [{muscle:'Abdos (frontal)',coeff:1}];
+  // Russian twist / rotation
+  if (/russian\s*twist|rotation\s*(tronc|buste)/.test(n))
+    return [{muscle:'Obliques',coeff:1},{muscle:'Abdos (frontal)',coeff:0.25}];
+  // Planche / Gainage
+  if (/planche|plank|gainage/.test(n))
+    return [{muscle:'Abdos (frontal)',coeff:1},{muscle:'Obliques',coeff:0.5},{muscle:'Lombaires',coeff:0.25}];
+  // Good morning
+  if (/good\s*morning/.test(n))
+    return [{muscle:'Lombaires',coeff:1},{muscle:'Ischio-jambiers',coeff:0.5},{muscle:'Fessiers',coeff:0.25}];
+  // Hyperextension
+  if (/hyperextension|extension\s*du\s*dos|extension\s*lombaire/.test(n))
+    return [{muscle:'Lombaires',coeff:1},{muscle:'Fessiers',coeff:0.5}];
+  // Shrugs
+  if (/shrugs?\b|hausse.?epaule/.test(n))
+    return [{muscle:'Trapèzes',coeff:1},{muscle:'Haut du dos',coeff:0.25}];
+  // Mollets
+  if (/mollet|calf/.test(n))
+    return [{muscle:'Mollets',coeff:1}];
+  // Fentes / Lunges
+  if (/fente|lunge/.test(n))
+    return [{muscle:'Quadriceps',coeff:1},{muscle:'Fessiers',coeff:0.5},{muscle:'Ischio-jambiers',coeff:0.25}];
+  // Pompes / Push-ups
+  if (/pompe|push.?up/.test(n))
+    return [{muscle:'Pecs',coeff:1},{muscle:'Triceps',coeff:0.5},{muscle:'Épaules (antérieur)',coeff:0.25}];
+  // Sumo deadlift
+  if (/sumo/.test(n))
+    return [{muscle:'Ischio-jambiers',coeff:1},{muscle:'Lombaires',coeff:1},{muscle:'Grand dorsal',coeff:0.5},{muscle:'Fessiers',coeff:0.5}];
+  // Fallback : muscle principal avec coeff 1
+  return [{ muscle: getMuscleGroup(name), coeff: 1 }];
 }
 
 // ============================================================
@@ -496,15 +495,34 @@ function getMuscleContributions(name) {
 function _getSBDTypeRaw(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
-  if (n.includes('barre') && (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('decline')))) return 'bench';
-  if (n.includes('barre') && n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split') && !n.includes('sumo')) return 'squat';
-  if ((n.includes('deadlift') || (n.includes('souleve') && n.includes('terre') && n.includes('barre'))) && !n.includes('sumo')) return 'deadlift';
+  if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
+  if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split')) return 'squat';
+  if (n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) return 'deadlift';
   return null;
 }
 function getSBDType(name) {
   if (_cache.sbdType.has(name)) return _cache.sbdType.get(name);
   const r = _getSBDTypeRaw(name); _cache.sbdType.set(name, r); return r;
 }
+
+// ============================================================
+// EXERCISE DAY MAP
+// ============================================================
+// getExerciseDay — déduit depuis l'historique importé de l'utilisateur
+// Retourne le jour où un exercice apparaît le plus souvent (source: db.logs)
+function getExerciseDay(name) {
+  const dayCounts = {};
+  db.logs.forEach(log => {
+    if (!log.day) return;
+    if (log.exercises.some(e => e.name === name)) {
+      dayCounts[log.day] = (dayCounts[log.day] || 0) + 1;
+    }
+  });
+  if (!Object.keys(dayCounts).length) return null;
+  return Object.entries(dayCounts).sort((a,b) => b[1]-a[1])[0][0];
+}
+
+
 
 // ============================================================
 // DATE PARSING
@@ -780,11 +798,11 @@ function calcIPFGLTotal(bench, squat, deadlift, bw) {
 }
 function calcTDEE(bw, tonnage7d) {
   if (!bw || bw <= 0) return 0;
-  const bmr = 88.362 + 13.397 * bw + 4.799 * BMR_DEFAULT_HEIGHT_CM - 5.677 * BMR_DEFAULT_AGE_YEARS;
-  let actFactor = TDEE_ACTIVITY_FACTORS.DEFAULT;
-  if (tonnage7d > TDEE_VOLUME_THRESHOLDS.HIGH) actFactor = TDEE_ACTIVITY_FACTORS.HIGH;
-  else if (tonnage7d > TDEE_VOLUME_THRESHOLDS.MID) actFactor = TDEE_ACTIVITY_FACTORS.MID_HIGH;
-  else if (tonnage7d < TDEE_VOLUME_THRESHOLDS.LOW) actFactor = TDEE_ACTIVITY_FACTORS.LOW;
+  const bmr = 88.362 + 13.397 * bw + 4.799 * 182 - 5.677 * 25;
+  let actFactor = 1.55;
+  if (tonnage7d > 40000) actFactor = 1.60;
+  else if (tonnage7d > 20000) actFactor = 1.57;
+  else if (tonnage7d < 3000) actFactor = 1.40;
   return Math.round(bmr * actFactor);
 }
 function calcCalorieCible(bw) {
@@ -794,8 +812,8 @@ function calcCalorieCible(bw) {
   return Math.round(kcalBase * (bw / bwBase));
 }
 function calcMacrosCibles(kcalCible, bw) {
-  const prot = Math.round(bw * MACRO_PROTEIN_PER_KG);
-  const fat  = Math.round(bw * MACRO_FAT_PER_KG);
+  const prot = Math.round(bw * 1.95);
+  const fat  = Math.round(bw * 0.73);
   const carb = Math.max(0, Math.round((kcalCible - prot*4 - fat*9) / 4));
   return { prot, carb, fat, kcal: kcalCible };
 }
@@ -837,10 +855,10 @@ function analyzePlateauCauses(exoName) {
         break;
       }
     }
-    if (history.length >= PLATEAU_MAX_HISTORY) break;
+    if (history.length >= 6) break;
   }
-  if (history.length < PLATEAU_MIN_SESSIONS) return null;
-  const recent = history.slice(0, PLATEAU_MIN_SESSIONS + 1);
+  if (history.length < 3) return null;
+  const recent = history.slice(0, 4);
   if (recent.length >= 3 && recent[0].rm > recent[recent.length - 1].rm) return null; // progressing
 
   const causes = [];
@@ -1103,8 +1121,8 @@ function computeMuscleFatigue(logs) {
     var log = logs[li];
     var ts = log.timestamp || new Date(log.date).getTime();
     var hoursAgo = (now - ts) / 3600000;
-    if (hoursAgo > FATIGUE_MAX_WINDOW_HOURS) continue;
-    var decayFactor = Math.exp(-hoursAgo / FATIGUE_DECAY_HOURS);
+    if (hoursAgo > 168) continue; // 7 jours max
+    var decayFactor = Math.exp(-hoursAgo / 48);
     for (var ei = 0; ei < (log.exercises || []).length; ei++) {
       var exo = log.exercises[ei];
       var contributions = getMuscleContributions(exo.name);

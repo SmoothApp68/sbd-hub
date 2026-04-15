@@ -1,8 +1,79 @@
 // ============================================================
 // app.js — DB, UI, rendering, navigation, init
 // ============================================================
-// NOTE: Loaded as classic script (not module), all dependencies
-// from utils.js, constants.js, etc. are available globally.
+
+// ============================================================
+// UI Adaptative — t() et shouldShow()
+// ============================================================
+function t(key, value, opts) {
+  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
+  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
+  if (detail === 'simple') level = 'debutant';
+  else if (detail === 'expert') level = 'competiteur';
+
+  var isBeginner = (detail === 'auto') ? (level === 'debutant' || mode === 'bien_etre') : (detail === 'simple');
+  var isAdvanced = (detail === 'auto') ? (level === 'avance' || level === 'competiteur') : (detail === 'expert');
+
+  if (key === 'rpe') {
+    if (isBeginner) {
+      if (value <= 5) return 'Très facile 😌';
+      if (value <= 6) return 'Effort léger 😌';
+      if (value <= 7) return 'Effort modéré 😊';
+      if (value <= 8) return 'Effort soutenu 💪';
+      if (value <= 9) return 'Effort intense 🔥';
+      return 'Maximum 🔥🔥';
+    }
+    if (isAdvanced) return 'RPE ' + value;
+    return 'RPE ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
+  }
+  if (key === 'sets_reps') {
+    var s = value, r = opts;
+    if (isBeginner) return s + ' séries de ' + r + ' répétitions';
+    return s + '×' + r;
+  }
+  if (key === 'deload') {
+    if (isBeginner) return 'Semaine de récupération 🧘';
+    return 'Semaine de deload';
+  }
+  if (key === 'mesocycle') {
+    if (isBeginner) return 'Cycle de ' + (value || 4) + ' semaines';
+    return 'Mésocycle';
+  }
+  if (key === 'progressive_overload') {
+    if (isBeginner) return 'On augmente un peu chaque semaine';
+    return 'Surcharge progressive';
+  }
+  if (key === 'compliance') {
+    if (isBeginner) return value + ' séances sur ' + (opts || '?') + ' prévues 👏';
+    return 'Compliance : ' + Math.round(value) + '%';
+  }
+  return String(value);
+}
+
+function shouldShow(feature) {
+  var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
+  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
+  if (detail === 'simple') level = 'debutant';
+  else if (detail === 'expert') level = 'competiteur';
+
+  var rules = {
+    dots_wilks:      ['avance', 'competiteur'],
+    e1rm_detail:     ['intermediaire', 'avance', 'competiteur'],
+    rpe_number:      ['intermediaire', 'avance', 'competiteur'],
+    sbd_total:       ['intermediaire', 'avance', 'competiteur'],
+    mev_mav_mrv:     ['avance', 'competiteur'],
+    strength_ratios: ['intermediaire', 'avance', 'competiteur'],
+    volume_numbers:  ['intermediaire', 'avance', 'competiteur'],
+    ipf_score:       ['avance', 'competiteur'],
+    mesocycle_label: ['avance', 'competiteur'],
+    tonnage_detail:  ['intermediaire', 'avance', 'competiteur'],
+  };
+  var allowed = rules[feature];
+  if (!allowed) return true;
+  return allowed.indexOf(level) >= 0;
+}
 
 // ============================================================
 // DB
@@ -31,215 +102,146 @@ const defaultDB = () => ({
     usernameChangedAt: null
   }
 });
-
 let db = (() => {
   try {
+    // Migration automatique : chercher dans les clés connues
+    const FALLBACK_KEYS = ['SBD_HUB_V28', 'SBD_HUB_V27', 'SBD_HUB_V26', 'SBD_HUB'];
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      for (const k of FALLBACK_KEYS) {
+        const old = localStorage.getItem(k);
+        if (old) {
+          try {
+            const parsed = JSON.parse(old);
+            if (parsed.logs && parsed.user) {
+              localStorage.setItem(STORAGE_KEY, old);
+              console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+    }
     const s = localStorage.getItem(STORAGE_KEY);
     if (!s) return defaultDB();
     const p = JSON.parse(s);
     if (!p.logs || !p.user) return defaultDB();
+    if (!p.reports) p.reports = [];
+    if (!p.routine) p.routine = null;
+    if (!p.body) p.body = [];
+    if (!p.keyLifts) p.keyLifts = [];
+    if (p.user.name === undefined) p.user.name = '';
+    if (p.user.onboarded === undefined) p.user.onboarded = true;
+    if (!p.user.gender) p.user.gender = 'unspecified';
+    if (p.user.trainingMode === undefined) p.user.trainingMode = 'powerlifting';
+    if (!p.monthlyChallenges) p.monthlyChallenges = null;
+    if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
+    if (!p.questHistory) p.questHistory = [];
+    if (p.questStreak === undefined) p.questStreak = 0;
+    if (!p.seenBadges) p.seenBadges = [];
+    if (!p.unlockedTitles) p.unlockedTitles = [];
+    if (p.activeTitle === undefined) p.activeTitle = null;
+    if (!p.social) p.social = { profileId: null, username: '', bio: '', visibility: { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' }, onboardingCompleted: false, usernameChangedAt: null };
+    if (!p.social.visibility) p.social.visibility = { bio: 'private', prs: 'private', programme: 'private', seances: 'private', stats: 'private' };
+    if (p.passwordMigrated === undefined) p.passwordMigrated = false;
+    if (!p.friendCode) p.friendCode = null;
+    if (!p.friends) p.friends = [];
+    if (!p.readiness) p.readiness = [];
+    if (!p.challenges) p.challenges = [];
     return p;
   } catch { return defaultDB(); }
 })();
 
-window.db = db;
-
-// ============================================================
-// REGEX CONSTANTS (compiled once, reused everywhere)
-// ============================================================
-const REGEX_REST_PATTERN = /repos|😴/i;
-const REGEX_REST_CARDIO_PATTERN = /repos|😴|natation|🏊/i;
-const REGEX_COMPOUND_LIFTS = /squat|bench|deadlift|souleve|developpe|overhead|ohp|rowing|row\b|press/i;
-const REGEX_COMPOUND_LIFTS_EXTENDED = /squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/i;
-
-// ============================================================
-// INITIALISATION
-// ============================================================
-let selectedDay = DAYS_FULL[new Date().getDay()];
-var chartSBD = null, chartVolume = null, chartPerf = null, newPRs = { bench: false, squat: false, deadlift: false };
-var sbdChartMode = 'bars';
-var activeWorkout = null, _goAutoSaveId = null, _goWakeLock = null;
-var currentWeekOffset = 0;
-
-// ── Navigation state ────────────────────────────────────────
-let activeSeancesSub = 'seances-list';
-let activeProfilSub = 'tab-corps';
-let _seancesTabActive = false;
-let _seancesTabSyncInterval = null;
+let selectedDay = 'Lundi', chartSBD = null, chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
+let chartPerf = null;
+let perfChartMode = 'bars';
 let activeStatsSub = 'stats-volume';
+let currentWeekOffset = 0;
+let sparklineCharts = {};
+let currentMuscleView = 'bars';
+let chartMuscleEvol = null;
 let liftsMuscleFilter = 'Tout';
+let activeWorkout = null;
+let _goSessionTimerId = null;
+let _goRestTimerId = null;
+let _goAutoSaveId = null;
+let _goWakeLock = null;
+let _goSessionPaused = false;
 
-function showSeancesSub(id, btn) {
-  activeSeancesSub = id;
-  document.querySelectorAll('.seances-sub-section').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
-  var sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'seances-list') { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
-  if (id === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
-  if (id === 'seances-programme') { if (typeof renderProgramBuilderView === 'function') renderProgramBuilderView(document.getElementById('programBuilderContent')); }
-  if (id === 'seances-coach') { if (typeof renderCoachTab === 'function') renderCoachTab(); }
-}
-
-function showProfilSub(id, btn) {
-  activeProfilSub = id;
-  document.querySelectorAll('.profil-sub-section').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('#tab-profil > .stats-sub-nav .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
-  var sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'tab-corps') { if (typeof renderCorpsTab === 'function') renderCorpsTab(); }
-  if (id === 'tab-settings') { if (typeof fillSettingsFields === 'function') fillSettingsFields(); }
-  // Stats: move tab-stats content into profil-stats-content
-  if (id === 'tab-profil-stats') {
-    var container = document.getElementById('profil-stats-content');
-    var statsEl = document.getElementById('tab-stats');
-    if (container && statsEl) {
-      while (container.firstChild) container.removeChild(container.firstChild);
-      Array.from(statsEl.children).forEach(function(child) { container.appendChild(child); });
-    }
-    if (typeof showStatsSub === 'function') showStatsSub(typeof activeStatsSub !== 'undefined' ? activeStatsSub : 'stats-volume', document.querySelector('#tab-profil-stats .stats-sub-pill.active'));
+// Chart memory management — destroy charts of inactive tabs
+var _currentTab = 'tab-dash';
+function _destroyTabCharts(tabId) {
+  if (tabId === 'tab-dash') {
+    if (chartPerf && typeof chartPerf.destroy === 'function') { chartPerf.destroy(); chartPerf = null; }
+    if (window.chartPerfLine && typeof window.chartPerfLine.destroy === 'function') { window.chartPerfLine.destroy(); window.chartPerfLine = null; }
+    if (window._chartPerfLine && typeof window._chartPerfLine.destroy === 'function') { window._chartPerfLine.destroy(); window._chartPerfLine = null; }
+    if (chartSBD && typeof chartSBD.destroy === 'function') { chartSBD.destroy(); chartSBD = null; }
+    if (chartVolume && typeof chartVolume.destroy === 'function') { chartVolume.destroy(); chartVolume = null; }
   }
-  // Badges: move tab-game content into profil-badges-content
-  if (id === 'tab-profil-badges') {
-    var badgesContainer = document.getElementById('profil-badges-content');
-    var gameEl = document.getElementById('tab-game');
-    if (badgesContainer && gameEl) {
-      while (badgesContainer.firstChild) badgesContainer.removeChild(badgesContainer.firstChild);
-      Array.from(gameEl.children).forEach(function(child) { badgesContainer.appendChild(child); });
-    }
-    if (typeof renderGamificationTab === 'function') renderGamificationTab();
+  if (tabId === 'tab-stats') {
+    if (chartMuscleEvol && typeof chartMuscleEvol.destroy === 'function') { chartMuscleEvol.destroy(); chartMuscleEvol = null; }
   }
 }
 
-// ── Periodic cloud sync for seances tab (fallback when Realtime unavailable) ──
-function startSeancesTabSync() {
-  if (_seancesTabSyncInterval) clearInterval(_seancesTabSyncInterval);
-  _seancesTabSyncInterval = setInterval(function() {
-    if (typeof syncFromCloudIfNewer === 'function') {
-      syncFromCloudIfNewer();
-    }
-  }, 60000); // Check every 60 seconds as fallback
+// Routine active : perso (db.routine) > généré (db.generatedProgram) > template > rien
+function getRoutine() {
+  // Priorité 1 : routine personnalisée (modifiée dans Réglages > Mon Programme)
+  if (db.routine && Object.keys(db.routine).length > 0) return db.routine;
+  // Priorité 2 : routine générée à l'onboarding
+  if (db.generatedProgram && db.generatedProgram.length > 0) {
+    const r = {};
+    db.generatedProgram.forEach(d => { r[d.day] = d.isRest ? '😴 Repos' : (d.label || d.day); });
+    return r;
+  }
+  // Priorité 3 : template par défaut selon le mode
+  const style = modeFeature('programStyle');
+  if (style && ROUTINE_TEMPLATES[style]) return ROUTINE_TEMPLATES[style].routine;
+  return DEFAULT_ROUTINE;
 }
 
-function stopSeancesTabSync() {
-  if (_seancesTabSyncInterval) {
-    clearInterval(_seancesTabSyncInterval);
-    _seancesTabSyncInterval = null;
-  }
+var _saveDBTimer = null;
+var _saveDBDirty = false;
+
+function saveDB() {
+  clearCaches();
+  _saveDBDirty = true;
+  if (_saveDBTimer) return; // already scheduled
+  _saveDBTimer = setTimeout(function() {
+    _saveDBTimer = null;
+    _flushDB();
+  }, 2000);
+  debouncedCloudSync();
 }
 
-// showSocialSub is defined in supabase.js (correct version with renderFriendsTab + renderChallengesTab)
-
-// ── Stubs pour handlers PWA/annonces ──────────────────────────
-function dismissAnnouncement() {
-  var overlay = document.getElementById('announcementOverlay');
-  if (overlay) overlay.remove();
+function saveDBNow() {
+  clearCaches();
+  if (_saveDBTimer) { clearTimeout(_saveDBTimer); _saveDBTimer = null; }
+  _saveDBDirty = true;
+  _flushDB();
+  debouncedCloudSync();
 }
 
-function dismissInstallBanner() {
-  var banner = document.getElementById('installBanner');
-  if (banner) banner.style.display = 'none';
-}
-
-function doInstall() {
-  if (typeof deferredPrompt !== 'undefined' && deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt = null;
+function _flushDB() {
+  if (!_saveDBDirty) return;
+  _saveDBDirty = false;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  } catch(e) {
+    console.error('saveDB error:', e);
   }
 }
-
-function publishAnnouncement() {
-  console.warn('publishAnnouncement: Feature not yet implemented');
-  showToast('Annonce non implémentée');
-}
-
-function toggleAnnouncement(id, active) {
-  console.warn('toggleAnnouncement: Feature not yet implemented', id, active);
-  showToast('Toggle annonce non implémenté');
-}
-
-function showTab(tabId) {
-  document.querySelectorAll('.content-section').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
-  var tab = document.getElementById(tabId);
-  if (tab) tab.classList.add('active');
-  var tabBtn = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
-  if (tabBtn) tabBtn.classList.add('active');
-  if (tabId === 'tab-dash') { renderDash(); if (typeof renderProgramViewer === 'function') renderProgramViewer(); }
-  if (tabId === 'tab-seances') {
-    startSeancesTabSync();
-    if (activeSeancesSub === 'seances-go') { if (typeof renderGoTab === 'function') renderGoTab(); }
-    else { if (typeof renderSeancesTab === 'function') renderSeancesTab(); }
-  } else {
-    stopSeancesTabSync();
-  }
-  if (tabId === 'tab-stats') { if (typeof showStatsSub === 'function') showStatsSub(typeof activeStatsSub !== 'undefined' ? activeStatsSub : 'stats-volume'); }
-  if (tabId === 'tab-ai') { if (typeof renderReportsTimeline === 'function') renderReportsTimeline(); if (typeof renderCoachAlgoAI === 'function') renderCoachAlgoAI(); }
-  if (tabId === 'tab-game') { if (typeof renderGamificationTab === 'function') renderGamificationTab(); }
-  if (tabId === 'tab-profil') {
-    if (activeProfilSub === 'tab-settings') { if (typeof fillSettingsFields === 'function') fillSettingsFields(); }
-    else { if (typeof renderCorpsTab === 'function') renderCorpsTab(); }
-  }
-  if (tabId === 'tab-social') { if (typeof initSocialTab === 'function') initSocialTab(); }
-}
-
-// ── DOMContentLoaded — initialise l'application ─────────────
-document.addEventListener('DOMContentLoaded', function() {
-  // HTML structure is in index.html, just init the rendering
-  showToast('Application chargée !');
-
-  // Tab bar navigation
-  var tabBar = document.querySelector('.tab-bar');
-  if (tabBar) {
-    tabBar.addEventListener('click', function(e) {
-      var b = e.target.closest('.tab-btn');
-      if (b && b.dataset.tab) showTab(b.dataset.tab);
-    });
-  }
-
-  // Day buttons navigation
-  var dayContainer = document.getElementById('dayButtonsContainer');
-  if (dayContainer) {
-    dayContainer.addEventListener('click', function(e) {
-      var b = e.target.closest('.day-btn');
-      if (!b) return;
-      selectedDay = b.dataset.day;
-      document.querySelectorAll('.day-btn').forEach(function(x) { x.classList.remove('active'); });
-      b.classList.add('active');
-      if (typeof renderDaySection === 'function') renderDaySection();
-    });
-  }
-
-  // Render dashboard
-  if (typeof renderDash === 'function') {
-    renderDash();
-  }
-  if (typeof renderProgramViewer === 'function') {
-    renderProgramViewer();
-  }
-
-  // Onboarding check
-  if (typeof db !== 'undefined' && !db.user.onboarded) {
-    if (typeof showOnboarding === 'function') {
-      showOnboarding();
-    }
-  }
-});
-
-// Sauvegarde automatique de la base de données
-window.addEventListener('beforeunload', () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-});
 
 // Flush before leaving/hiding the page
 window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
+function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
+function generateId() { return Math.random().toString(36).substr(2, 9); }
+
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
+
+function getTodayStr() { return new Date().toISOString().slice(0, 10); }
 
 function hasTodayReadiness() {
   const today = getTodayStr();
@@ -250,7 +252,7 @@ function isTodayTrainingDay() {
   const routine = getRoutine();
   const todayName = DAYS_FULL[new Date().getDay()];
   const label = routine[todayName] || '';
-  return label && !REGEX_REST_PATTERN.test(label);
+  return label && !/repos|😴/i.test(label);
 }
 
 function getTodayReadiness() {
@@ -310,7 +312,7 @@ function updateReadinessPreview() {
 function calculateReadiness(sleep, energy, motivation, soreness) {
   const sorenessInverted = 11 - soreness;
   return Math.min(100, Math.max(0, Math.round(
-    (sleep * READINESS_WEIGHTS.SLEEP + energy * READINESS_WEIGHTS.ENERGY + motivation * READINESS_WEIGHTS.MOTIVATION + sorenessInverted * READINESS_WEIGHTS.SORENESS) * 10
+    (sleep * 0.35 + energy * 0.25 + motivation * 0.15 + sorenessInverted * 0.25) * 10
   )));
 }
 
@@ -654,6 +656,11 @@ function importData() {
     }
   );
 }
+function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
+function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
+function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
   db.logs.forEach(log => {
@@ -774,9 +781,7 @@ let obCompDate    = null;
 let obCompType    = 'powerlifting';
 
 function showOnboarding() {
-  const obOverlay = document.getElementById('onboarding-overlay');
-  if (!obOverlay) return;
-  obOverlay.style.display = 'flex';
+  document.getElementById('onboarding-overlay').style.display = 'flex';
   renderObGoals();
   obStepHistory = [];
   gotoObStep('1');
@@ -1598,36 +1603,152 @@ function updateProgCounter(day) {
   }
 }
 
+function updateProgSectionStyle(day) { /* réactivité label — rien à faire */ }
+
 function saveRoutine() {
-  DAYS_FULL.forEach(function(day) {
-    var inp = document.getElementById('rdInput_' + day);
+  // Lire les labels depuis les inputs
+  DAYS_FULL.forEach(day => {
+    const inp = document.getElementById('rdInput_' + day);
     if (inp) editingRoutine[day] = inp.value.trim();
-    var labelInp = document.querySelector('#prog-section-' + day + ' .prog-day-label-input');
+    // Récupérer aussi depuis les prog-day-label-input
+    const labelInp = document.querySelector(`#prog-section-${day} .prog-day-label-input`);
     if (labelInp) editingRoutine[day] = labelInp.value.trim();
   });
   db.routine = JSON.parse(JSON.stringify(editingRoutine));
+  // Sauvegarder les listes d'exercices (format tableau)
   if (!db.routineExos) db.routineExos = {};
-  DAYS_FULL.forEach(function(day) { db.routineExos[day] = editingExos[day] || []; });
+  DAYS_FULL.forEach(day => { db.routineExos[day] = editingExos[day] || []; });
   saveDB();
-  showToast('Programme sauvegardé !');
+  showToast('✓ Programme sauvegardé !');
   renderDash();
 }
 
-// ============================================================
-// FONCTIONS DE BASE
-// ============================================================
-function getRoutine() {
-  if (db.routine && Object.keys(db.routine).length > 0) return db.routine;
-  if (db.generatedProgram && db.generatedProgram.length > 0) {
-    const r = {};
-    db.generatedProgram.forEach(d => { r[d.day] = d.isRest ? '😴 Repos' : (d.label || d.day); });
-    return r;
-  }
-  return DEFAULT_ROUTINE;
-}
 
 // ============================================================
-// EXPORT
+// TAB NAVIGATION
+// ============================================================
+let activeSeancesSub = 'seances-list';
+let activeProfilSub = 'tab-corps';
+
+function showSeancesSub(id, btn) {
+  activeSeancesSub = id;
+  document.querySelectorAll('.seances-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'seances-list') renderSeancesTab();
+  if (id === 'seances-go') renderGoTab();
+  if (id === 'seances-programme') renderProgramBuilder();
+  if (id === 'seances-coach') renderCoachTab();
+}
+
+function showProfilSub(id, btn) {
+  activeProfilSub = id;
+  document.querySelectorAll('.profil-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-profil > .stats-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'tab-corps') renderCorpsTab();
+  if (id === 'tab-settings') fillSettingsFields();
+  // Stats dans le profil — rediriger vers le vrai onglet Stats
+  if (id === 'tab-profil-stats') {
+    showTab('tab-stats');
+    return;
+  }
+  // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
+  if (id === 'tab-profil-badges') {
+    if (typeof renderGamificationTab === 'function') renderGamificationTab();
+    var badgesContainer = document.getElementById('profil-badges-content');
+    var gameEl = document.getElementById('tab-game');
+    if (badgesContainer && gameEl) {
+      badgesContainer.innerHTML = gameEl.innerHTML;
+    }
+  }
+}
+
+var _lastTabIndex = 0;
+var _scrollPositions = {};
+var _skipPushState = false;
+
+function showTab(tabId, opts) {
+  opts = opts || {};
+  // Save scroll position of current tab before switching
+  if (_currentTab) {
+    _scrollPositions[_currentTab] = window.scrollY;
+  }
+  // Destroy charts of the previous tab to free memory
+  if (_currentTab && _currentTab !== tabId) _destroyTabCharts(_currentTab);
+  // Determine slide direction
+  var newBtn = document.querySelector('.tab-btn[data-tab="'+tabId+'"]');
+  var newIndex = newBtn ? parseInt(newBtn.dataset.index||'0') : 0;
+  var slideClass = newIndex > _lastTabIndex ? 'slide-in-right' : 'slide-in-left';
+  _lastTabIndex = newIndex;
+  _currentTab = tabId;
+  document.querySelectorAll('.content-section').forEach(el => { el.classList.remove('active','slide-in-right','slide-in-left'); });
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  var target = document.getElementById(tabId);
+  if (target) { target.classList.add('active', slideClass); }
+  if (newBtn) newBtn.classList.add('active');
+  if (tabId==='tab-dash') renderDash();
+  if (tabId==='tab-seances') {
+    if (activeSeancesSub === 'seances-go') renderGoTab();
+    else renderSeancesTab();
+  }
+  if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
+  if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderCoachAlgoAI(); }
+  if (tabId==='tab-game') { renderGamificationTab(); }
+  if (tabId==='tab-profil') {
+    if (activeProfilSub === 'tab-settings') fillSettingsFields();
+    else renderCorpsTab();
+  }
+  if (tabId==='tab-social') { initSocialTab(); if (typeof showSocialSub === 'function') showSocialSub('social-feed', document.querySelector('.social-sub-tab[data-sub="social-feed"]')); }
+
+  // Restore scroll position for the new tab
+  requestAnimationFrame(function() { window.scrollTo(0, _scrollPositions[tabId] || 0); });
+
+  // Persist active tab
+  try { localStorage.setItem('activeTab', tabId); } catch(e) {}
+
+  // History API — push state for back button navigation
+  if (!_skipPushState && !opts.noPush) {
+    history.pushState({ tab: tabId }, '', '#' + tabId);
+  }
+
+  // Haptic feedback
+  if (navigator.vibrate) try { navigator.vibrate(10); } catch(e) {}
+}
+
+// Back button (popstate) handler
+window.addEventListener('popstate', function(e) {
+  if (e.state && e.state.tab) {
+    _skipPushState = true;
+    showTab(e.state.tab);
+    _skipPushState = false;
+  }
+});
+
+// Tab bar click handler
+document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
+
+// On load: restore tab from hash or localStorage
+(function _restoreTab() {
+  var hash = window.location.hash.replace('#', '');
+  if (hash === 'admin') return; // handled elsewhere
+  var saved = null;
+  try { saved = localStorage.getItem('activeTab'); } catch(e) {}
+  var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
+  var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
+  _skipPushState = true;
+  showTab(target);
+  _skipPushState = false;
+  history.replaceState({ tab: target }, '', '#' + target);
+})();
+document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
+
+// ============================================================
+// GAMIFICATION — XP, NIVEAUX, BADGES
 // ============================================================
 const XP_LEVELS = [
   { level:1,  name:'Âme errante',             xp:0,       icon:'👻' },
@@ -2005,18 +2126,8 @@ function getNextXPLevel(xp) {
   return null;
 }
 
-// ── Memoized e1RM cache ──────────────────────────────────────
-var _bestE1RMsCache = null;
-var _bestE1RMsCacheKey = null;
-
 function getAllBestE1RMs() {
   // Returns { exoName: { e1rm, date } } for all exercises across all logs
-  // Memoized: only recalculate if logs changed
-  const cacheKey = db.logs.length + '|' + (db.logs[0]?.timestamp || 0);
-  if (_bestE1RMsCache && _bestE1RMsCacheKey === cacheKey) {
-    return _bestE1RMsCache;
-  }
-
   const best = {};
   db.logs.forEach(log => {
     (log.exercises||[]).forEach(exo => {
@@ -2026,8 +2137,6 @@ function getAllBestE1RMs() {
       }
     });
   });
-  _bestE1RMsCache = best;
-  _bestE1RMsCacheKey = cacheKey;
   return best;
 }
 
@@ -2044,6 +2153,11 @@ function _getWeekKey() {
   var d = new Date(); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
   var mon = new Date(d.setDate(diff)); mon.setHours(0,0,0,0);
   return mon.toISOString().slice(0,10);
+}
+
+function _getWeekStart(date) {
+  var d = new Date(date); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff); d.setHours(0,0,0,0); return d;
 }
 
 function _getLogsThisWeek() {
@@ -2576,280 +2690,6 @@ function calcXPBreakdown() {
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
 }
 
-function renderGamStrengthCards(bw) {
-  var strContainer = document.getElementById('gamStrengthContent');
-  if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
-  var bestE1RMs = getAllBestE1RMs();
-  var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
-  var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
-
-  var allExos = [];
-  for (var eName in bestE1RMs) {
-    var data = bestE1RMs[eName];
-    var sl = getStrengthLevel(eName, data.e1rm, bw);
-    var sesCount = 0, prCount = 0, runBest = 0;
-    getSortedLogs().slice().reverse().forEach(function(log) {
-      var found = false;
-      (log.exercises||[]).forEach(function(e) {
-        if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
-      });
-      if (found) sesCount++;
-    });
-    var exoXP = prCount * 50 + sesCount * 8;
-    allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
-  }
-  allExos.sort(function(a,b) {
-    var aIdx = a.sl ? a.sl.levelIdx : -1;
-    var bIdx = b.sl ? b.sl.levelIdx : -1;
-    if (bIdx !== aIdx) return bIdx - aIdx;
-    return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
-  });
-
-  if (!allExos.length) {
-    strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
-    return;
-  }
-
-  var perPage = 6;
-  var totalPages = Math.ceil(allExos.length / perPage);
-  var pagesHtml = '';
-  for (var pg = 0; pg < totalPages; pg++) {
-    pagesHtml += '<div class="sg-page">';
-    var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
-    for (var ei = start; ei < end; ei++) {
-      var item = allExos[ei];
-      var hasSL = !!item.sl;
-      var isDim = item.sesCount <= 2 && !hasSL;
-      var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      var ratios = null;
-      for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
-
-      pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
-      pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
-      if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
-      pagesHtml += '</div>';
-      pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
-
-      if (ratios && hasSL) {
-        var maxR = ratios[ratios.length-1] * 1.2;
-        var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
-        var gaugeHtml = '';
-        for (var gi = 0; gi < 5; gi++) {
-          var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
-          gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
-        }
-        pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
-        pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
-      }
-
-      pagesHtml += '<div class="sg-footer">';
-      if (isDim) {
-        pagesHtml += '<span>Pas assez de données</span>';
-      } else if (hasSL) {
-        var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
-        if (nextLvl && ratios) {
-          var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
-          pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
-        } else {
-          pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
-        }
-      } else {
-        pagesHtml += '<span></span>';
-      }
-      pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
-      pagesHtml += '</div></div>';
-    }
-    pagesHtml += '</div>';
-  }
-
-  var dotsHtml = '';
-  for (var di = 0; di < totalPages; di++) {
-    dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
-  }
-
-  strContainer.innerHTML =
-    '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
-      '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
-      '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
-      '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
-    '</div>';
-
-  var pagesEl = document.getElementById('sgPages');
-  var dotsEl = document.getElementById('sgDots');
-  var labelEl = strContainer.querySelector('.mc-title-right');
-  if (pagesEl && dotsEl) {
-    pagesEl.addEventListener('scroll', function() {
-      var pageW = pagesEl.offsetWidth;
-      var idx = Math.round(pagesEl.scrollLeft / pageW);
-      dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
-      if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
-    });
-    dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
-      dot.addEventListener('click', function() {
-        var pg = parseInt(dot.getAttribute('data-page'));
-        pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
-      });
-    });
-  }
-}
-
-function renderGamBadges() {
-  var allBadges = getAllBadges();
-  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
-  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
-  var seenBadgesSet = db.seenBadges || [];
-
-  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
-  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
-  var totalCount = normalBadges.length;
-  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
-
-  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
-  var rarityBreakdown = '';
-  rarityOrder.forEach(function(r) {
-    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
-    if (!rBadges.length) return;
-    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
-    var rc = rarityColor[r];
-    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
-  });
-
-  document.getElementById('gamBadgesOverview').innerHTML =
-    '<div class="bdg-overview">' +
-      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
-      '<div class="bdg-total-lbl">Badges débloqués</div>' +
-      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
-      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
-    '</div>';
-
-  var sections = [
-    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
-    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
-    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
-    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
-    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
-    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
-    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
-    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
-    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
-    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
-    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
-    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
-    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
-    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
-    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
-  ];
-
-  var badgeMap = {};
-  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
-
-  var chipsHtml = '<div class="bc-scroll">';
-  var sqCompleted = (db.secretQuestsCompleted || []).length;
-  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
-  sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
-    if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
-    var icon = sec.title.split(' ')[0];
-    var name = sec.title.replace(/^[^\s]+\s*/, '');
-    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
-  });
-  chipsHtml += '</div>';
-
-  var secHtml = chipsHtml;
-
-  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
-  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
-  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
-  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
-  SECRET_QUESTS.forEach(function(sq) {
-    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
-    if (isCompleted) {
-      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
-      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
-      secHtml += '<div class="secret-label">SECRÈTE</div>';
-      secHtml += '<div class="bdg-icon">🔮</div>';
-      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
-      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
-      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
-      secHtml += '</div>';
-    } else {
-      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
-      secHtml += '<div class="bdg-icon">🔒</div>';
-      secHtml += '<div class="bdg-name">???</div>';
-      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
-      secHtml += '</div>';
-    }
-  });
-  secHtml += '</div></div></div>';
-
-  sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
-    if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
-    var isOpen = si === 0 ? ' open' : '';
-
-    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
-    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
-    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
-    secHtml += '</div>';
-    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
-    secHtml += '<div class="bdg-grid">';
-
-    sectionBadges.forEach(function(badge) {
-      var isUnlocked = badge.ck();
-      var rc = rarityColor[badge.r] || '#86868B';
-      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
-
-      if (badge.impossible) {
-        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
-        secHtml += '<div class="bdg-rarity-bar"></div>';
-        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
-        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
-        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
-        secHtml += '</div>';
-      } else if (isUnlocked) {
-        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
-        if (badge.r === 'mythic') themeClass = ' mythic-v2';
-        if (badge.r === 'divine') themeClass = ' divine-v2';
-        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
-        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
-        secHtml += '<div class="bdg-rarity-bar"></div>';
-        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
-        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
-        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
-        secHtml += '</div>';
-      } else {
-        var prog = calcBadgeProgress(badge);
-        var progPct = prog ? prog.pct : 0;
-        var closeToUnlock = progPct > 50;
-        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
-        secHtml += '<div class="bdg-icon">🔒</div>';
-        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
-        secHtml += '<div class="bdg-desc">???</div>';
-        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
-        if (prog && prog.pct > 0) {
-          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
-          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
-        }
-        secHtml += '</div>';
-      }
-    });
-
-    secHtml += '</div></div></div>';
-  });
-
-  document.getElementById('gamBadgesSections').innerHTML = secHtml;
-}
-
 function renderGamificationTab() {
   var bw = db.user.bw || 80;
   var totalXP = calcTotalXP();
@@ -3096,11 +2936,127 @@ function renderGamificationTab() {
   })();
 
   // ── 6. Strength cards (grille paginée + clickable) ──
-  renderGamStrengthCards(bw);
+  (function() {
+    var strContainer = document.getElementById('gamStrengthContent');
+    if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
+    var bestE1RMs = getAllBestE1RMs();
+    var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
+    var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+
+    var allExos = [];
+    for (var eName in bestE1RMs) {
+      var data = bestE1RMs[eName];
+      var sl = getStrengthLevel(eName, data.e1rm, bw);
+      var sesCount = 0, prCount = 0, runBest = 0;
+      getSortedLogs().slice().reverse().forEach(function(log) {
+        var found = false;
+        (log.exercises||[]).forEach(function(e) {
+          if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
+        });
+        if (found) sesCount++;
+      });
+      var exoXP = prCount * 50 + sesCount * 8;
+      allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
+    }
+    allExos.sort(function(a,b) {
+      var aIdx = a.sl ? a.sl.levelIdx : -1;
+      var bIdx = b.sl ? b.sl.levelIdx : -1;
+      if (bIdx !== aIdx) return bIdx - aIdx;
+      return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
+    });
+
+    if (!allExos.length) {
+      strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
+      return;
+    }
+
+    var perPage = 6;
+    var totalPages = Math.ceil(allExos.length / perPage);
+    var pagesHtml = '';
+    for (var pg = 0; pg < totalPages; pg++) {
+      pagesHtml += '<div class="sg-page">';
+      var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
+      for (var ei = start; ei < end; ei++) {
+        var item = allExos[ei];
+        var hasSL = !!item.sl;
+        var isDim = item.sesCount <= 2 && !hasSL;
+        var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        var ratios = null;
+        for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
+
+        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
+        pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
+        if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
+        pagesHtml += '</div>';
+        pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
+
+        if (ratios && hasSL) {
+          var maxR = ratios[ratios.length-1] * 1.2;
+          var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
+          var gaugeHtml = '';
+          for (var gi = 0; gi < 5; gi++) {
+            var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
+            gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
+          }
+          pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
+          pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
+        }
+
+        pagesHtml += '<div class="sg-footer">';
+        if (isDim) {
+          pagesHtml += '<span>Pas assez de données</span>';
+        } else if (hasSL) {
+          var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
+          if (nextLvl && ratios) {
+            var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
+            pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
+          } else {
+            pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
+          }
+        } else {
+          pagesHtml += '<span></span>';
+        }
+        pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
+        pagesHtml += '</div></div>';
+      }
+      pagesHtml += '</div>';
+    }
+
+    var dotsHtml = '';
+    for (var di = 0; di < totalPages; di++) {
+      dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
+    }
+
+    strContainer.innerHTML =
+      '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
+        '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
+        '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
+        '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
+      '</div>';
+
+    var pagesEl = document.getElementById('sgPages');
+    var dotsEl = document.getElementById('sgDots');
+    var labelEl = strContainer.querySelector('.mc-title-right');
+    if (pagesEl && dotsEl) {
+      pagesEl.addEventListener('scroll', function() {
+        var pageW = pagesEl.offsetWidth;
+        var idx = Math.round(pagesEl.scrollLeft / pageW);
+        dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
+        if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
+      });
+      dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
+        dot.addEventListener('click', function() {
+          var pg = parseInt(dot.getAttribute('data-page'));
+          pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
+        });
+      });
+    }
+  })();
 
   // Separator
   document.getElementById('gamStrengthContent').insertAdjacentHTML('beforeend', '<div class="gam-separator">✦ ─── ✦ ─── ✦</div>');
 
+  // ── 7. Heatmap de régularité (52 semaines, clickable) ──
   (function() {
     var now = Date.now();
     var weekMs = 7 * 86400000;
@@ -3127,8 +3083,167 @@ function renderGamificationTab() {
   // Separator
   document.getElementById('gamHeatmap').insertAdjacentHTML('beforeend', '<div class="gam-separator">⟡ ── ⟡</div>');
 
-  // ── 8. Badges ──
-  renderGamBadges();
+  // ── 8. Badges (overview + chips + secret quests section + accordions + progress) ──
+  var allBadges = getAllBadges();
+  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
+  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+  var seenBadgesSet = db.seenBadges || [];
+
+  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
+  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
+  var totalCount = normalBadges.length;
+  var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
+
+  var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
+  var rarityBreakdown = '';
+  rarityOrder.forEach(function(r) {
+    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
+    if (!rBadges.length) return;
+    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
+    var rc = rarityColor[r];
+    rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
+  });
+
+  document.getElementById('gamBadgesOverview').innerHTML =
+    '<div class="bdg-overview">' +
+      '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
+      '<div class="bdg-total-lbl">Badges débloqués</div>' +
+      '<div class="bdg-total-bar-bg"><div class="bdg-total-bar" style="width:' + overviewPct + '%;"></div></div>' +
+      '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
+    '</div>';
+
+  // Badge sections
+  var sections = [
+    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
+    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
+    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
+    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
+    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
+    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
+    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
+    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
+    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
+    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
+    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
+    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
+    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
+    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
+    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
+  ];
+
+  var badgeMap = {};
+  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
+
+  // Chips nav
+  var chipsHtml = '<div class="bc-scroll">';
+  // Add secret quests chip
+  var sqCompleted = (db.secretQuestsCompleted || []).length;
+  chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var icon = sec.title.split(' ')[0];
+    var name = sec.title.replace(/^[^\s]+\s*/, '');
+    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
+  });
+  chipsHtml += '</div>';
+
+  // Build sections
+  var secHtml = chipsHtml;
+
+  // Secret quests section
+  secHtml += '<div class="bdg-section" id="bdgSecSecret">';
+  secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+  secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
+  secHtml += '<span class="bdg-sec-chev">▾</span></div>';
+  secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
+  SECRET_QUESTS.forEach(function(sq) {
+    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
+    if (isCompleted) {
+      secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
+      secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
+      secHtml += '<div class="secret-label">SECRÈTE</div>';
+      secHtml += '<div class="bdg-icon">🔮</div>';
+      secHtml += '<div class="bdg-name">' + sq.name + '</div>';
+      secHtml += '<div class="bdg-desc">' + sq.msg + '</div>';
+      secHtml += '<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:4px;">+' + sq.xp + ' XP</div>';
+      secHtml += '</div>';
+    } else {
+      secHtml += '<div class="bdg locked" style="opacity:0.35;">';
+      secHtml += '<div class="bdg-icon">🔒</div>';
+      secHtml += '<div class="bdg-name">???</div>';
+      secHtml += '<div class="bdg-desc">Quête secrète non révélée</div>';
+      secHtml += '</div>';
+    }
+  });
+  secHtml += '</div></div></div>';
+
+  // Regular badge sections
+  sections.forEach(function(sec, si) {
+    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    if (!sectionBadges.length) return;
+    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
+    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var isOpen = si === 0 ? ' open' : '';
+
+    secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
+    secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
+    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
+    secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
+    secHtml += '</div>';
+    secHtml += '<div class="bdg-sec-body' + isOpen + '">';
+    secHtml += '<div class="bdg-grid">';
+
+    sectionBadges.forEach(function(badge) {
+      var isUnlocked = badge.ck();
+      var rc = rarityColor[badge.r] || '#86868B';
+      var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
+
+      if (badge.impossible) {
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div style="font-size:8px;font-weight:700;color:#ff453a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">IMPOSSIBLE</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        secHtml += '</div>';
+      } else if (isUnlocked) {
+        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
+        if (badge.r === 'mythic') themeClass = ' mythic-v2';
+        if (badge.r === 'divine') themeClass = ' divine-v2';
+        secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
+        if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
+        secHtml += '<div class="bdg-rarity-bar"></div>';
+        secHtml += '<div class="bdg-rarity-lbl" style="color:' + rc + ';">' + (rarityLabel[badge.r]||'') + '</div>';
+        secHtml += '<div class="bdg-icon">' + badge.icon + '</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div style="font-size:9px;color:var(--purple);font-style:italic;margin-bottom:3px;">' + badge.ref + '</div>';
+        secHtml += '<div class="bdg-desc">' + badge.desc + '</div>';
+        secHtml += '</div>';
+      } else {
+        var prog = calcBadgeProgress(badge);
+        var progPct = prog ? prog.pct : 0;
+        var closeToUnlock = progPct > 50;
+        secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:' + (closeToUnlock?'0.55':'0.35') + ';' + (closeToUnlock?'border:1px solid '+rc+'33;':'') + '">';
+        secHtml += '<div class="bdg-icon">🔒</div>';
+        secHtml += '<div class="bdg-name">' + badge.name + '</div>';
+        secHtml += '<div class="bdg-desc">???</div>';
+        if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
+        if (prog && prog.pct > 0) {
+          secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
+          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
+        }
+        secHtml += '</div>';
+      }
+    });
+
+    secHtml += '</div></div></div>';
+  });
+
+  document.getElementById('gamBadgesSections').innerHTML = secHtml;
 }
 
 
@@ -3155,8 +3270,7 @@ function refreshUI() {
 
 function renderDash() {
   const routine = getRoutine();
-  const routineEl = document.getElementById('routineDisplay');
-  if (routineEl) routineEl.textContent = routine[selectedDay] || '—';
+  document.getElementById('routineDisplay').textContent = routine[selectedDay] || '—';
   const greet = document.getElementById('dashGreeting');
   if (greet && db.user.name) {
     var _tierBadge = (typeof renderTierBadge === 'function' && db.user.tier) ? ' ' + renderTierBadge(db.user.tier) : '';
@@ -3174,29 +3288,13 @@ function renderDash() {
     }
   }
 
+  renderTodayProgram();
   renderSBDTotal();
   renderWeeklySummary();
   renderRecentPRs();
   // Anciennes fonctions (conteneurs cachés, gardés pour compatibilité)
   renderPerfCard();
   renderDaySelector();
-  initDaySelector();
-  renderDaySection();
-}
-
-function initDaySelector() {
-  const buttons = document.querySelectorAll('.day-btn');
-  buttons.forEach(function(btn) {
-    btn.classList.toggle('active', btn.getAttribute('data-day') === selectedDay);
-  });
-}
-
-function renderDaySection() {
-  const routineDisplay = document.getElementById('routineDisplay');
-  if (routineDisplay) {
-    routineDisplay.textContent = getRoutine()[selectedDay] || '—';
-  }
-  renderTodayProgram();
   renderDayExercises(selectedDay);
 }
 
@@ -3204,8 +3302,13 @@ function renderDaySection() {
 // Résumé hebdomadaire — nombre de séances, durée, volume
 // ============================================================
 function renderWeeklySummary() {
-  var weekStartTs = Date.now() - 7 * 86400000;
-  var nowTs = Date.now();
+  var now = new Date();
+  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // Lundi = 0
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+  var weekStartTs = weekStart.getTime();
+  var nowTs = now.getTime();
 
   var sessions = 0, totalDuration = 0, totalVolume = 0;
   (db.logs || []).forEach(function(log) {
@@ -3273,10 +3376,10 @@ function renderWeeklySummary() {
 function renderTodayProgram() {
   var el = document.getElementById('todayProgramContent');
   if (!el) return;
-  var todayDay = selectedDay;
+  var todayDay = DAYS_FULL[new Date().getDay()];
   var routine = getRoutine();
   var label = routine[todayDay] || '';
-  var isRest = !label || REGEX_REST_PATTERN.test(label);
+  var isRest = !label || /repos|😴/i.test(label);
 
   var h = '';
   if (isRest) {
@@ -3309,191 +3412,29 @@ function renderTodayProgram() {
 // ============================================================
 // Total SBD estimé — carte compacte
 // ============================================================
-function toggleSBDChart(mode) {
-  sbdChartMode = mode;
-  renderSBDTotal();
-}
-
 function renderSBDTotal() {
   var el = document.getElementById('sbdTotalDisplay');
   if (!el) return;
+  var s = db.bestPR.squat || 0;
+  var b = db.bestPR.bench || 0;
+  var d = db.bestPR.deadlift || 0;
+  var total = s + b + d;
+  var h = '';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-squat);"><div style="font-size:10px;color:var(--sub);">Squat</div><div class="rm-val" style="color:var(--color-squat);">' + (s > 0 ? s : '—') + '</div></div>';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-bench);"><div style="font-size:10px;color:var(--sub);">Bench</div><div class="rm-val" style="color:var(--color-bench);">' + (b > 0 ? b : '—') + '</div></div>';
+  h += '<div class="rm-box" style="border-left:3px solid var(--color-deadlift);"><div style="font-size:10px;color:var(--sub);">Deadlift</div><div class="rm-val" style="color:var(--color-deadlift);">' + (d > 0 ? d : '—') + '</div></div>';
+  el.innerHTML = h;
+  // Total sous la grille
   var card = document.getElementById('sbdTotalCard');
-
-  // Destroy existing SBD chart
-  if (chartSBD) { try { chartSBD.destroy(); } catch(e) {} chartSBD = null; }
-
-  // ── Données 1RM Réel (meilleurs PRs all-time) ──
-  var realBench = db.bestPR.bench || 0;
-  var realSquat = db.bestPR.squat || 0;
-  var realDead  = db.bestPR.deadlift || 0;
-
-  // ── Données e1RM Estimé (meilleur maxRM par type dans les logs) ──
-  var estBench = 0, estSquat = 0, estDead = 0;
-  db.logs.forEach(function(log) {
-    log.exercises.forEach(function(exo) {
-      var type = getSBDType(exo.name);
-      if (!type) return;
-      var rm = exo.maxRM || 0;
-      if (!rm && exo.repRecords) {
-        Object.entries(exo.repRecords).forEach(function(kv) {
-          var e = calcE1RM(kv[1], parseInt(kv[0]));
-          if (e > rm) rm = Math.round(e);
-        });
-      }
-      if (type === 'bench'    && rm > estBench) estBench = rm;
-      if (type === 'squat'    && rm > estSquat) estSquat = rm;
-      if (type === 'deadlift' && rm > estDead)  estDead  = rm;
-    });
-  });
-
-  // ── Données Objectif ──
-  var tgt = db.user.targets || {};
-  var tgtBench = tgt.bench    || 0;
-  var tgtSquat = tgt.squat    || 0;
-  var tgtDead  = tgt.deadlift || 0;
-
-  // ── Toggle ──
-  var toggleHtml =
-    '<div style="display:flex;gap:6px;margin-bottom:12px;">' +
-    '<button onclick="toggleSBDChart(\'bars\')" class="period-btn' + (sbdChartMode === 'bars' ? ' active' : '') + '">📊 Barres</button>' +
-    '<button onclick="toggleSBDChart(\'line\')" class="period-btn' + (sbdChartMode === 'line' ? ' active' : '') + '">📈 Progression</button>' +
-    '</div>';
-
-  if (sbdChartMode === 'bars') {
-    // ── Mode Barres ──
-    if (!realBench && !realSquat && !realDead && !estBench && !estSquat && !estDead) {
-      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Importe des séances pour voir tes performances</div>';
-      if (card) { var tl = card.querySelector('.sbd-total-line'); if (tl) tl.innerHTML = ''; }
-      return;
+  if (card) {
+    var totalEl = card.querySelector('.sbd-total-line');
+    if (!totalEl) {
+      totalEl = document.createElement('div');
+      totalEl.className = 'sbd-total-line';
+      totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
+      card.appendChild(totalEl);
     }
-
-    var total = realBench + realSquat + realDead;
-    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:200px;"></canvas>';
-    if (card) {
-      var totalEl = card.querySelector('.sbd-total-line');
-      if (!totalEl) {
-        totalEl = document.createElement('div');
-        totalEl.className = 'sbd-total-line';
-        totalEl.style.cssText = 'text-align:center;margin-top:10px;font-size:13px;color:var(--sub);';
-        card.appendChild(totalEl);
-      }
-      totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
-    }
-
-    requestAnimationFrame(function() {
-      var ctx = document.getElementById('chartSBDCanvas');
-      if (!ctx) return;
-      chartSBD = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Bench', 'Squat', 'Deadlift'],
-          datasets: [
-            {
-              label: '1RM Réel',
-              data: [realBench || null, realSquat || null, realDead || null],
-              backgroundColor: ['rgba(10,132,255,1)', 'rgba(255,69,58,1)', 'rgba(255,159,10,1)'],
-              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
-              borderWidth: 2, borderRadius: 6
-            },
-            {
-              label: 'e1RM Estimé',
-              data: [estBench || null, estSquat || null, estDead || null],
-              backgroundColor: ['rgba(10,132,255,0.4)', 'rgba(255,69,58,0.4)', 'rgba(255,159,10,0.4)'],
-              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
-              borderWidth: 1, borderRadius: 6
-            },
-            {
-              label: 'Objectif',
-              data: [tgtBench || null, tgtSquat || null, tgtDead || null],
-              backgroundColor: ['rgba(10,132,255,0.1)', 'rgba(255,69,58,0.1)', 'rgba(255,159,10,0.1)'],
-              borderColor: ['#0A84FF', '#FF453A', '#FF9F0A'],
-              borderWidth: 2, borderRadius: 6
-            }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
-            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + (ctx.parsed.y || '—') + ' kg'; } } }
-          },
-          scales: {
-            x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
-            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
-          }
-        }
-      });
-    });
-
-  } else {
-    // ── Mode Progression (90 jours) ──
-    var cutoff = Date.now() - 90 * 86400000;
-    var sbdDef = [
-      { type: 'bench',    label: 'Bench',    color: '#0A84FF' },
-      { type: 'squat',    label: 'Squat',    color: '#FF453A' },
-      { type: 'deadlift', label: 'Deadlift', color: '#FF9F0A' }
-    ];
-    var sortedLogs = db.logs.filter(function(l) { return l.timestamp >= cutoff; })
-                            .sort(function(a, b) { return a.timestamp - b.timestamp; });
-    var datasets = [];
-    sbdDef.forEach(function(def) {
-      var seen = {};
-      sortedLogs.forEach(function(log) {
-        log.exercises.forEach(function(exo) {
-          if (getSBDType(exo.name) !== def.type || !(exo.maxRM > 0)) return;
-          var lbl = new Date(log.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-          if (!seen[lbl] || exo.maxRM > seen[lbl].val) seen[lbl] = { ts: log.timestamp, val: Math.round(exo.maxRM) };
-        });
-      });
-      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; });
-      if (pts.length < 2) return;
-      datasets.push({
-        label: def.label,
-        _xlabels: pts.map(function(p) { return new Date(p.ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }); }),
-        data: pts.map(function(p) { return p.val; }),
-        borderColor: def.color, backgroundColor: def.color + '22',
-        borderWidth: 2, pointRadius: 3, pointBackgroundColor: def.color,
-        fill: false, tension: 0.35
-      });
-    });
-
-    if (!datasets.length) {
-      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Aucune donnée SBD sur 90 jours</div>';
-      if (card) { var tl2 = card.querySelector('.sbd-total-line'); if (tl2) tl2.innerHTML = ''; }
-      return;
-    }
-
-    el.innerHTML = toggleHtml + '<canvas id="chartSBDCanvas" style="width:100%;max-height:180px;"></canvas>';
-    if (card) { var tl3 = card.querySelector('.sbd-total-line'); if (tl3) tl3.innerHTML = ''; }
-
-    requestAnimationFrame(function() {
-      var ctx = document.getElementById('chartSBDCanvas');
-      if (!ctx) return;
-      var longestLabels = datasets.reduce(function(a, b) { return a._xlabels.length >= b._xlabels.length ? a : b; })._xlabels;
-      chartSBD = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: longestLabels,
-          datasets: datasets.map(function(ds) {
-            return { label: ds.label, data: ds.data, borderColor: ds.borderColor,
-              backgroundColor: ds.backgroundColor, borderWidth: ds.borderWidth,
-              pointRadius: ds.pointRadius, pointBackgroundColor: ds.pointBackgroundColor,
-              fill: ds.fill, tension: ds.tension };
-          })
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 10 } },
-            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' kg'; } } }
-          },
-          scales: {
-            x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
-            y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
-          }
-        }
-      });
-    });
+    totalEl.innerHTML = total > 0 ? 'Total : <strong style="color:var(--text);font-size:18px;">' + total + 'kg</strong>' : '';
   }
 }
 
@@ -3503,22 +3444,29 @@ function renderSBDTotal() {
 function renderRecentPRs() {
   var el = document.getElementById('recentPRsContent');
   if (!el) return;
-  // Collecter le meilleur all-time maxRM par exercice + la date à laquelle ce PR a été établi
-  var bestByExo = {};
-  db.logs.forEach(function(log) {
+  // Chercher les PRs les plus récents dans les logs
+  var prs = [];
+  for (var i = db.logs.length - 1; i >= 0 && prs.length < 5; i--) {
+    var log = db.logs[i];
     (log.exercises || []).forEach(function(exo) {
-      if (!(exo.maxRM > 0)) return;
-      var prev = bestByExo[exo.name];
-      if (!prev || exo.maxRM > prev.maxRM || (exo.maxRM === prev.maxRM && log.timestamp > prev.ts)) {
-        bestByExo[exo.name] = { maxRM: exo.maxRM, ts: exo.maxRMDate || log.timestamp, date: log.shortDate || log.date };
+      if (exo.maxRM > 0 && prs.length < 3) {
+        // Vérifier si c'est vraiment un PR (meilleur de l'historique pour cet exo)
+        var isBest = true;
+        for (var j = 0; j < db.logs.length; j++) {
+          if (j === i) continue;
+          var otherLog = db.logs[j];
+          (otherLog.exercises || []).forEach(function(otherExo) {
+            if (otherExo.name === exo.name && otherExo.maxRM >= exo.maxRM && otherLog.timestamp < log.timestamp) {
+              isBest = false;
+            }
+          });
+        }
+        if (isBest && !prs.some(function(p) { return p.name === exo.name; })) {
+          prs.push({ name: exo.name, value: Math.round(exo.maxRM), date: log.shortDate || log.date });
+        }
       }
     });
-  });
-  // Trier par date décroissante et garder les 5 plus récents
-  var prs = Object.entries(bestByExo)
-    .map(function(kv) { return { name: kv[0], value: Math.round(kv[1].maxRM), date: kv[1].date, ts: kv[1].ts }; })
-    .sort(function(a, b) { return b.ts - a.ts; })
-    .slice(0, 5);
+  }
   if (prs.length === 0) {
     el.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--sub);padding:8px 0;">Aucun PR enregistré pour le moment</div>';
     return;
@@ -3535,6 +3483,128 @@ function renderRecentPRs() {
 }
 
 // ============================================================
+// Heatmap muscles 2D — vue avant/arrière (gardé pour usage pendant séance)
+// ============================================================
+function renderMuscleHeatmap2D() {
+  var container = document.getElementById('muscleHeatmap2D');
+  if (!container) return;
+
+  // Calculer les séries par muscle cette semaine
+  var now = new Date();
+  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+
+  var muscleSets = {};
+  (db.logs || []).forEach(function(log) {
+    var d = new Date(log.date);
+    if (d >= weekStart && d <= now) {
+      (log.exercises || []).forEach(function(exo) {
+        var setsCount = (exo.sets || []).length;
+        // Chercher l'exercice dans la base pour obtenir les muscles
+        var exoData = null;
+        if (typeof EXO_DATABASE !== 'undefined') {
+          for (var key in EXO_DATABASE) {
+            var e = EXO_DATABASE[key];
+            if (e.name === exo.name || (e.nameAlt && e.nameAlt.indexOf(exo.name) >= 0)) {
+              exoData = e;
+              break;
+            }
+          }
+        }
+        if (exoData) {
+          (exoData.primaryMuscles || []).forEach(function(m) {
+            var mNorm = _normalizeMuscle(m);
+            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + setsCount;
+          });
+          (exoData.secondaryMuscles || []).forEach(function(m) {
+            var mNorm = _normalizeMuscle(m);
+            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + Math.ceil(setsCount * 0.5);
+          });
+        }
+      });
+    }
+  });
+
+  var maxSets = 0;
+  for (var k in muscleSets) if (muscleSets[k] > maxSets) maxSets = muscleSets[k];
+  if (maxSets === 0) maxSets = 1;
+
+  // Mapper les muscles normalisés aux parties du corps SVG
+  var muscleMapping = {
+    front: {
+      'pecs': { path: 'M55,60 Q75,55 95,60 L95,80 Q75,85 55,80 Z', label: 'Pecs' },
+      'epaules': { path: 'M45,50 Q50,45 55,50 L55,65 Q50,65 45,60 Z M95,50 Q100,45 105,50 L105,65 Q100,65 95,60 Z', label: 'Épaules' },
+      'biceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Biceps' },
+      'abdos': { path: 'M60,82 Q75,80 90,82 L90,115 Q75,118 60,115 Z', label: 'Abdos' },
+      'quadriceps': { path: 'M55,120 Q65,118 75,120 L72,160 Q63,162 55,160 Z M75,120 Q85,118 95,120 L95,160 Q87,162 78,160 Z', label: 'Quadriceps' },
+    },
+    back: {
+      'dos': { path: 'M55,55 Q75,50 95,55 L95,85 Q75,90 55,85 Z', label: 'Dos' },
+      'trapezes': { path: 'M60,40 Q75,38 90,40 L88,55 Q75,52 62,55 Z', label: 'Trapèzes' },
+      'triceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Triceps' },
+      'lombaires': { path: 'M62,87 Q75,85 88,87 L88,105 Q75,108 62,105 Z', label: 'Lombaires' },
+      'fessiers': { path: 'M55,108 Q75,105 95,108 L95,125 Q75,128 55,125 Z', label: 'Fessiers' },
+      'ischiojambiers': { path: 'M55,128 Q65,125 75,128 L72,165 Q63,167 55,165 Z M75,128 Q85,125 95,128 L95,165 Q87,167 78,165 Z', label: 'Ischio' },
+      'mollets': { path: 'M58,168 Q65,165 72,168 L70,190 Q65,192 60,190 Z M78,168 Q85,165 92,168 L90,190 Q85,192 80,190 Z', label: 'Mollets' },
+    }
+  };
+
+  function getColor(intensity) {
+    if (intensity <= 0) return 'rgba(255,255,255,0.04)';
+    if (intensity < 0.25) return 'rgba(59,130,246,0.2)';
+    if (intensity < 0.5) return 'rgba(59,130,246,0.4)';
+    if (intensity < 0.75) return 'rgba(59,130,246,0.65)';
+    return 'rgba(59,130,246,0.9)';
+  }
+
+  function renderSide(side, muscles) {
+    var paths = '';
+    for (var muscleKey in muscles) {
+      var m = muscles[muscleKey];
+      var intensity = (muscleSets[muscleKey] || 0) / maxSets;
+      var color = getColor(intensity);
+      var setsNum = muscleSets[muscleKey] || 0;
+      paths += '<path d="' + m.path + '" fill="' + color + '" stroke="rgba(255,255,255,0.1)" stroke-width="0.5">' +
+               '<title>' + m.label + ': ' + setsNum + ' séries</title></path>';
+    }
+    // Silhouette
+    var silhouette = '<path d="M75,8 Q80,8 82,12 Q84,16 82,20 Q80,24 78,26 L80,28 Q88,30 92,35 L105,45 Q110,48 108,55 L110,60 Q112,65 110,70 L112,85 Q112,95 110,95 L105,95 Q102,95 105,65 L95,50 Q90,45 90,55 L95,120 Q98,125 95,130 L95,165 Q96,170 95,175 L95,190 Q95,198 90,200 L82,200 Q78,198 78,195 L78,170 Q78,165 75,163 Q72,165 72,170 L72,195 Q72,198 68,200 L60,200 Q55,198 55,190 L55,175 Q54,170 55,165 L55,130 Q52,125 55,120 L60,55 Q60,45 55,50 L45,65 Q48,95 45,95 L40,95 Q38,95 38,85 L40,70 Q38,65 40,60 L42,55 Q40,48 45,45 L58,35 Q62,30 70,28 L72,26 Q70,24 68,20 Q66,16 68,12 Q70,8 75,8 Z" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
+    return '<div style="text-align:center;"><div style="font-size:10px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + side + '</div>' +
+           '<svg viewBox="30 0 90 210" width="130" height="220" style="overflow:visible;">' + silhouette + paths + '</svg></div>';
+  }
+
+  container.innerHTML = renderSide('Avant', muscleMapping.front) + renderSide('Arrière', muscleMapping.back);
+
+  // Légende sous la heatmap
+  var legendHtml = '<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:10px;color:var(--sub);">';
+  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.2);"></span> Peu</span>';
+  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.5);"></span> Moyen</span>';
+  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.9);"></span> Beaucoup</span>';
+  legendHtml += '</div>';
+  container.innerHTML += legendHtml;
+}
+
+function _normalizeMuscle(name) {
+  var n = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (n.indexOf('pec') >= 0 || n.indexOf('chest') >= 0) return 'pecs';
+  if (n.indexOf('epaule') >= 0 || n.indexOf('deltoid') >= 0 || n.indexOf('shoulder') >= 0) return 'epaules';
+  if (n.indexOf('bicep') >= 0) return 'biceps';
+  if (n.indexOf('tricep') >= 0) return 'triceps';
+  if (n.indexOf('abdo') >= 0 || n.indexOf('core') >= 0) return 'abdos';
+  if (n.indexOf('quad') >= 0) return 'quadriceps';
+  if (n.indexOf('ischio') >= 0 || n.indexOf('hamstring') >= 0) return 'ischiojambiers';
+  if (n.indexOf('fessier') >= 0 || n.indexOf('glute') >= 0) return 'fessiers';
+  if (n.indexOf('mollet') >= 0 || n.indexOf('calf') >= 0 || n.indexOf('calves') >= 0) return 'mollets';
+  if (n.indexOf('dorsal') >= 0 || n.indexOf('dos') >= 0 || n.indexOf('lat') >= 0 || n.indexOf('back') >= 0) return 'dos';
+  if (n.indexOf('trapez') >= 0 || n.indexOf('haut du dos') >= 0) return 'trapezes';
+  if (n.indexOf('lombaire') >= 0 || n.indexOf('lower back') >= 0) return 'lombaires';
+  if (n.indexOf('avant-bras') >= 0 || n.indexOf('forearm') >= 0) return 'biceps'; // regroupé
+  return n;
+}
+
+// ============================================================
 // Lancer la séance du jour
 // ============================================================
 function startTodayWorkout() {
@@ -3543,6 +3613,47 @@ function startTodayWorkout() {
   var goBtn = document.querySelector('.stats-sub-pill[onclick*="seances-go"]') ||
               document.querySelectorAll('#tab-seances .stats-sub-nav .stats-sub-pill')[1];
   if (typeof showSeancesSub === 'function') showSeancesSub('seances-go', goBtn);
+}
+
+function renderReadinessSparkline() {
+  const el = document.getElementById('readinessSparkline');
+  if (!el) return;
+  const cutoff = Date.now() - 14 * 86400000;
+  const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
+  if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
+  const vals = recent.map(r => r.score);
+  const W = 280, H = 60, pad = 6;
+  const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
+  const pts = vals.map((v, i) => ({
+    x: pad + (i / (vals.length - 1)) * (W - pad * 2),
+    y: pad + (1 - (v - minV) / range) * (H - pad * 2)
+  }));
+  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  const lastScore = vals[vals.length - 1];
+  const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
+  // Moyenne et tendance
+  const avg = Math.round(vals.reduce((s,v) => s+v, 0) / vals.length);
+  const trend = vals.length >= 3 ? vals[vals.length-1] - vals[0] : 0;
+  const trendArrow = trend > 10 ? '↗' : trend < -10 ? '↘' : '→';
+  const trendColor = trend > 10 ? 'var(--green)' : trend < -10 ? 'var(--red)' : 'var(--sub)';
+  // Dernier détail
+  const lastR = recent[recent.length - 1];
+  const detailParts = [];
+  if (lastR.sleep) detailParts.push('😴 ' + lastR.sleep + '/10');
+  if (lastR.energy) detailParts.push('⚡ ' + lastR.energy + '/10');
+  if (lastR.motivation) detailParts.push('🧠 ' + lastR.motivation + '/10');
+
+  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--sub);">READINESS</span>' +
+    '<span style="font-size:11px;color:var(--sub);">Moy: ' + avg + '% <span style="color:' + trendColor + ';">' + trendArrow + '</span></span></div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
+    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
+    '</svg></div>' +
+    (detailParts.length ? '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + detailParts.join(' · ') + '</div>' : '');
 }
 
 // ── Heatmap de récupération musculaire ──────────────────────
@@ -3653,6 +3764,183 @@ function showMuscleFatigueTooltip(key) {
 }
 
 // ── Score de forme composite (Dashboard) ────────────────────
+function computeFormScoreComposite() {
+  const components = {};
+  // 1. Readiness moyenne 7j (20%)
+  const recent = (db.readiness || []).filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000);
+  components.readiness = recent.length > 0 ? recent.reduce((s, r) => s + r.score, 0) / recent.length : 50;
+  // 2. Compliance 7j (25%)
+  const routine = getRoutine();
+  const planned = Math.max(1, Object.values(routine).filter(v => v && !/repos|😴/i.test(v)).length);
+  const logsWeek = (db.logs || []).filter(l => (Date.now() - (l.timestamp || 0)) < 7 * 86400000).length;
+  components.compliance = Math.min(100, (logsWeek / planned) * 100);
+  // 3. Tendance force (20%)
+  const mainLifts = ['squat', 'bench', 'deadlift'];
+  let trendScore = 0, trendCount = 0;
+  mainLifts.forEach(name => {
+    const pts = [];
+    const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+    for (const log of desc) {
+      const exo = log.exercises.find(e => getSBDType(e.name) === name && e.maxRM > 0);
+      if (exo) { pts.push(exo.maxRM); if (pts.length >= 4) break; }
+    }
+    if (pts.length >= 2) {
+      trendCount++;
+      trendScore += pts[0] >= pts[pts.length - 1] ? 1 : -1;
+    }
+  });
+  components.trend = trendCount > 0 ? 50 + (trendScore / trendCount) * 25 : 50;
+  // 4. Fatigue inverse (15%)
+  const fatigue = computeMuscleFatigue(db.logs || []);
+  const fatVals = Object.values(fatigue);
+  const avgFat = fatVals.length > 0 ? fatVals.reduce((s,v) => s+v, 0) / fatVals.length : 50;
+  components.recovery = 100 - avgFat;
+  // 5. Nutrition (10%)
+  const nutriDays = (db.body || []).filter(e => (Date.now() - (e.ts||0)) < 7 * 86400000 && (e.kcal > 0 || e.prot > 0));
+  components.nutrition = nutriDays.length > 0 ? Math.min(100, (nutriDays.length / 7) * 100) : 30;
+  // 6. Sommeil (10%)
+  components.sleep = recent.length > 0 ? (recent.reduce((s, r) => s + r.sleep, 0) / recent.length) * 20 : 50;
+  // Final
+  const score = Math.round(
+    components.readiness * 0.20 + components.compliance * 0.25 +
+    components.trend * 0.20 + components.recovery * 0.15 +
+    components.nutrition * 0.10 + components.sleep * 0.10
+  );
+  return { score: Math.max(0, Math.min(100, score)), components };
+}
+
+function renderFormScoreDash() {
+  const el = document.getElementById('formScoreContent');
+  if (!el) return;
+  const { score, components } = computeFormScoreComposite();
+  const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
+  const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
+  const COMP_WEIGHTS = { readiness:'20%', compliance:'25%', trend:'20%', recovery:'15%', nutrition:'10%', sleep:'10%' };
+  const barsHtml = Object.entries(components).map(([k,v]) =>
+    '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
+    '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
+    '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;">' +
+    '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
+    '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
+  ).join('');
+  // Detailed breakdown (expandable)
+  const breakdownHtml = Object.entries(components).map(([k,v]) => {
+    const w = COMP_WEIGHTS[k] || '?';
+    const wNum = parseFloat(w) / 100;
+    return '<div class="breakdown-line">' +
+      '<span class="bl-label">' + (COMP_LABELS[k]||k) + '</span>' +
+      '<span class="bl-value">' + Math.round(v) + '/100</span>' +
+      '<span class="bl-weight">× ' + w + '</span>' +
+      '<span class="bl-contribution">= ' + (v * wNum).toFixed(1) + '</span></div>';
+  }).join('');
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
+    '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+    '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme ' + renderGlossaryTip('form_score') + '</div>' +
+    '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
+    (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
+    '</div></div></div>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>' +
+    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail du calcul\':\'📐 Masquer le détail\';">📐 Voir le détail du calcul</div>' +
+    '<div class="breakdown" style="display:none;">' + breakdownHtml +
+    '<div class="breakdown-total">Total : ' + score + '/100</div></div>';
+}
+
+// ── Prédiction de PR ────────────────────────────────────────
+function predictPR(exerciseName, targetWeight) {
+  // Use inline trend calculation (same as renderPerfCard's logic)
+  const pts = [];
+  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  for (const log of desc) {
+    const exo = log.exercises.find(e => e.name === exerciseName || matchExoName(e.name, exerciseName));
+    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+    if (pts.length >= 6) break;
+  }
+  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données' };
+  pts.sort((a,b) => a.x - b.x);
+  const n = pts.length;
+  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+  const denom = n*sumX2 - sumX*sumX;
+  const slope = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
+  const kgPerWeek = slope * 7;
+
+  // R² calculation
+  const meanY = sumY / n;
+  const ssTot = pts.reduce((s,p) => s + Math.pow(p.y - meanY, 2), 0);
+  const ssRes = pts.reduce((s,p) => { const pred = (slope * p.x) + ((sumY - slope * sumX) / n); return s + Math.pow(p.y - pred, 2); }, 0);
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+
+  const currentE1RM = pts[pts.length - 1].y;
+  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée' };
+  if (currentE1RM >= targetWeight) return { reachable: true, reason: 'Objectif déjà atteint !', weeks: 0 };
+  const gap = targetWeight - currentE1RM;
+  const weeks = Math.ceil(gap / kgPerWeek);
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + weeks * 7);
+  return {
+    reachable: true, weeks, date: targetDate.toLocaleDateString('fr-FR'),
+    confidence: Math.round(r2 * 100), weeklyGain: kgPerWeek.toFixed(2),
+    currentE1RM: Math.round(currentE1RM), gap: Math.round(gap), dataPoints: n
+  };
+}
+
+// ── DOTS / Wilks dans le Dashboard ──────────────────────────
+function renderDotsWilks() {
+  const card = document.getElementById('dotsWilksCard');
+  const el = document.getElementById('dotsWilksContent');
+  if (!card || !el) return;
+  const bw = db.user.bw;
+  if (!bw || bw <= 0) { card.style.display = 'none'; return; }
+  // Get best e1RM for SBD
+  let squat = 0, bench = 0, deadlift = 0;
+  db.logs.forEach(log => {
+    log.exercises.forEach(exo => {
+      const type = getSBDType(exo.name);
+      if (type === 'squat' && (exo.maxRM||0) > squat) squat = exo.maxRM;
+      if (type === 'bench' && (exo.maxRM||0) > bench) bench = exo.maxRM;
+      if (type === 'deadlift' && (exo.maxRM||0) > deadlift) deadlift = exo.maxRM;
+    });
+  });
+  if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
+  card.style.display = shouldShow('dots_wilks') ? '' : 'none';
+  if (!shouldShow('dots_wilks')) return;
+  const total = squat + bench + deadlift;
+  const gender = db.user.gender === 'F' ? 'F' : 'M';
+  const dots = computeDOTS(total, bw, gender);
+  const wilks = computeWilks(total, bw, gender);
+  const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
+  var dotsBreakdown = '<div class="breakdown" style="display:none;margin-top:8px;">' +
+    '<div class="breakdown-line"><span class="bl-label">Squat (e1RM)</span><span class="bl-value">' + squat + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Bench (e1RM)</span><span class="bl-value">' + bench + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Deadlift (e1RM)</span><span class="bl-value">' + deadlift + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Total</span><span class="bl-value" style="font-weight:700;">' + total + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Poids de corps</span><span class="bl-value">' + bw + 'kg</span></div>' +
+    '<div class="breakdown-line"><span class="bl-label">Genre</span><span class="bl-value">' + (gender === 'F' ? 'Femme' : 'Homme') + '</span></div>' +
+    '<div class="breakdown-total">DOTS = ' + dots + ' · Wilks = ' + wilks + '</div></div>';
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
+    '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
+    '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
+    '<div style="display:flex;gap:16px;margin-top:8px;">' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
+    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
+    '</div>' +
+    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail\':\'📐 Masquer le détail\';">📐 Voir le détail</div>' +
+    dotsBreakdown;
+}
+
+// ── Rubrique Performance configurable ────────────────────────
+function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
+
+// Incrément objectif selon le groupe musculaire de l'exercice
+function getPerfIncrement(exoName) {
+  const mg = getMuscleGroupParent(getMuscleGroup(exoName));
+  return (mg === 'Jambes') ? 5 : 2.5;
+}
+
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
@@ -3679,55 +3967,6 @@ function renderPerfCard() {
     ? db.keyLifts.map(function(kl) { return kl.name; }).filter(Boolean).slice(0, 5)
     : ['Développé Couché (Barre)', 'Squat (Barre)', 'Soulevé de Terre (Barre)'];
 
-  // ── Bloc SBD (mode powerlifting/force_athletique uniquement) ──
-  var sbdHtml = '';
-  var dotsWilksHtml = '';
-  if (modeFeature('showSBDCards')) {
-    var _squat = 0, _bench = 0, _deadlift = 0;
-    db.logs.forEach(function(log) {
-      log.exercises.forEach(function(exo) {
-        var type = getSBDType(exo.name);
-        if (type === 'squat'    && (exo.maxRM||0) > _squat)    _squat    = exo.maxRM;
-        if (type === 'bench'    && (exo.maxRM||0) > _bench)    _bench    = exo.maxRM;
-        if (type === 'deadlift' && (exo.maxRM||0) > _deadlift) _deadlift = exo.maxRM;
-      });
-    });
-    if (_squat || _bench || _deadlift) {
-      var _total = _squat + _bench + _deadlift;
-      var _bw = db.user.bw;
-      var _gender = db.user.gender === 'F' ? 'F' : 'M';
-      if (_bw > 0 && _squat && _bench && _deadlift && shouldShow('dots_wilks')) {
-        var _dots  = computeDOTS(_total, _bw, _gender);
-        var _wilks = computeWilks(_total, _bw, _gender);
-        var _cat   = _dots < 250 ? 'Débutant' : _dots < 350 ? 'Intermédiaire' : _dots < 450 ? 'Avancé' : _dots < 550 ? 'Expert' : 'Élite';
-        dotsWilksHtml =
-          '<div style="display:flex;gap:16px;padding-top:12px;margin-top:12px;border-top:1px solid var(--border);">' +
-          '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div>' +
-          '<div style="font-size:18px;font-weight:800;color:var(--blue);">' + _dots + '</div></div>' +
-          '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div>' +
-          '<div style="font-size:18px;font-weight:800;color:var(--green);">' + _wilks + '</div></div>' +
-          '<div style="flex:1;text-align:center;"><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div>' +
-          '<div style="font-size:13px;font-weight:700;color:var(--orange);margin-top:3px;">' + _cat + '</div></div>' +
-          '</div>';
-      }
-      sbdHtml =
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
-        '<div style="background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;">' +
-          '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">Squat</div>' +
-          '<div style="font-size:22px;font-weight:800;color:var(--red);">' + (_squat||'—') + '</div></div>' +
-        '<div style="background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;">' +
-          '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">Bench</div>' +
-          '<div style="font-size:22px;font-weight:800;color:var(--blue);">' + (_bench||'—') + '</div></div>' +
-        '<div style="background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;">' +
-          '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:3px;">Deadlift</div>' +
-          '<div style="font-size:22px;font-weight:800;color:var(--orange);">' + (_deadlift||'—') + '</div></div>' +
-        '</div>' +
-        '<div style="text-align:center;font-size:13px;color:var(--sub);margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">' +
-          'Total SBD : <strong style="color:var(--text);font-size:15px;">' + _total + ' kg</strong>' +
-        '</div>';
-    }
-  }
-
   // ── 1RM estimé actuel par exercice clé ──
   var barLabels = [];
   var barData = [];
@@ -3747,61 +3986,45 @@ function renderPerfCard() {
     }
   });
 
-  // ── Progression historique de TOUS les key lifts (courbes multiples) ──
-  var sortedLogs = db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
-  var lineDatasets = [];
-  var lineLabelsSet = new Set();
-  keyLifts.forEach(function(liftName, i) {
+  // ── Progression historique du 1er key lift (courbe) ──
+  var lineData = [];
+  var lineLabels = [];
+  if (keyLifts.length > 0) {
+    var mainLift = keyLifts[0];
     var pts = [];
-    sortedLogs.forEach(function(log) {
+    db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; }).forEach(function(log) {
       log.exercises.forEach(function(exo) {
-        if (matchExoName(exo.name, liftName) && (exo.maxRM || 0) > 0) {
+        if (matchExoName(exo.name, mainLift) && (exo.maxRM || 0) > 0) {
           pts.push({ ts: log.timestamp, val: Math.round(exo.maxRM) });
         }
       });
     });
+    // Garder max par session, 8 derniers points
     var seen = {};
     pts.forEach(function(p) {
       var key = new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'});
       if (!seen[key] || p.val > seen[key].val) seen[key] = p;
     });
     var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-8);
-    if (sorted.length >= 2) {
-      sorted.forEach(function(p) {
-        lineLabelsSet.add(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
-      });
-      var color = LIFT_COLORS[i % LIFT_COLORS.length];
-      lineDatasets.push({
-        label: liftName.replace(/\(Barre\)/,'').replace(/\(Haltères\)/,'Halt.').trim().split(' ').slice(0,2).join(' '),
-        data: sorted.map(function(p){ return p.val; }),
-        labels: sorted.map(function(p){ return new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}); }),
-        borderColor: color,
-        backgroundColor: color + '22',
-        borderWidth: 2,
-        pointRadius: 3,
-        pointBackgroundColor: color,
-        fill: false,
-        tension: 0.35
-      });
-    }
-  });
-  // Construire les labels unifiés pour l'axe X (union de toutes les dates triées)
-  var lineLabels = Array.from(lineLabelsSet);
+    sorted.forEach(function(p) {
+      lineLabels.push(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
+      lineData.push(p.val);
+    });
+  }
 
   // ── Rendu HTML + canvas ──
   if (!barData.length) {
-    el.innerHTML = sbdHtml + '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>' + dotsWilksHtml;
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>';
     return;
   }
 
-  el.innerHTML = sbdHtml +
+  el.innerHTML =
     '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Performance — 1RM estimé</div>' +
     '<canvas id="chartPerfDash" style="width:100%;max-height:180px;"></canvas>' +
-    (lineDatasets.length > 0
-      ? '<div style="font-size:10px;color:var(--sub);margin-top:10px;text-transform:uppercase;letter-spacing:0.8px;">Progression</div>' +
-        '<canvas id="chartPerfLine" style="width:100%;max-height:140px;margin-top:6px;"></canvas>'
-      : '') +
-    dotsWilksHtml;
+    (lineData.length >= 2
+      ? '<div style="font-size:10px;color:var(--sub);margin-top:10px;text-transform:uppercase;letter-spacing:0.8px;">Progression — ' + keyLifts[0].replace(/\(Barre\)/,'').trim().split(' ').slice(0,2).join(' ') + '</div>' +
+        '<canvas id="chartPerfLine" style="width:100%;max-height:120px;margin-top:6px;"></canvas>'
+      : '');
 
   // Détruire anciens charts si existants
   if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
@@ -3836,24 +4059,29 @@ function renderPerfCard() {
       }
     });
 
-    // Line chart (progression multi-exercices)
-    if (lineDatasets.length > 0) {
+    // Line chart (progression)
+    if (lineData.length >= 2) {
       var ctxLine = document.getElementById('chartPerfLine');
       if (!ctxLine) return;
-      // Chaque dataset a ses propres labels — utiliser les labels du dataset le plus long
-      var longestLabels = lineDatasets.reduce(function(a,b){ return a.labels.length >= b.labels.length ? a : b; }).labels;
-      var chartDs = lineDatasets.map(function(ds) {
-        return { label: ds.label, data: ds.data, borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
-          borderWidth: ds.borderWidth, pointRadius: ds.pointRadius, pointBackgroundColor: ds.pointBackgroundColor,
-          fill: ds.fill, tension: ds.tension };
-      });
       window._chartPerfLine = new Chart(ctxLine, {
         type: 'line',
-        data: { labels: longestLabels, datasets: chartDs },
+        data: {
+          labels: lineLabels,
+          datasets: [{
+            data: lineData,
+            borderColor: barColors[0] || '#0A84FF',
+            backgroundColor: (barColors[0] || '#0A84FF') + '22',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: barColors[0] || '#0A84FF',
+            fill: true,
+            tension: 0.35
+          }]
+        },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: lineDatasets.length > 1, labels: { color: '#86868B', font: { size: 10 }, boxWidth: 12 } }, tooltip: {
-            callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' kg'; } }
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg e1RM'; } }
           }},
           scales: {
             x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
@@ -4095,9 +4323,7 @@ function renderDayExercises(day) {
       '</div></div>';
     return;
   }
-  // Trier par date décroissante (PR le plus récent en premier)
-  const sortedEntries = entries.sort((a, b) => (b[1].maxRMDate || 0) - (a[1].maxRMDate || 0));
-  let html = sortedEntries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
+  let html = entries.map(([n,e], idx) => formatExoDropdown(n, e, 'day-' + idx)).join('');
   c.innerHTML = html;
   _initSparkTooltips(c);
 }
@@ -4219,7 +4445,7 @@ function buildRMTable(e1rm, repRecords, exoName) {
   const coachTips = [];
   const hdr = '<div class="rm-row" style="border-top:none;font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;"><span class="rm-lbl">Reps</span><span class="rm-theo">Théo.</span><span class="rm-real">Réel</span></div>';
   const rows = TARGET_REPS.map(r => {
-    const theo = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
+    const theo = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
     const realW = (repRecords && repRecords[String(r)]) ? repRecords[String(r)] : null;
     const label = r === 1 ? '1 rep' : r + ' reps';
     let realHtml, cls;
@@ -4246,7 +4472,7 @@ function calcDashRM(input, e1rm, uid) {
   const out = document.getElementById(uid);
   if (!out) return;
   if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
+  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
   out.textContent = '~' + w + 'kg (théorique)';
 }
 
@@ -4948,7 +5174,6 @@ async function importCSV() {
     if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
-  await syncToCloud(true);
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
   if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){showPRCelebration(_n,_bestPR[0][1],0);},500);}}
@@ -5339,7 +5564,7 @@ function pbEditExisting() {
   var dayExercises = {};
   allDays.forEach(function(day) {
     var label = routine[day];
-    if (label && !REGEX_REST_PATTERN.test(label)) {
+    if (label && !/repos|😴/i.test(label)) {
       dayNames.push(label);
       // Récupérer les exercices existants
       var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
@@ -5494,7 +5719,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 
   // Pré-remplir settings
   if(db.user.name){const ni=document.getElementById('inputName');if(ni)ni.value=db.user.name;}
-  const bwEl=document.getElementById('inputBW');if(bwEl)bwEl.value=db.user.bw||'';
+  document.getElementById('inputBW').value=db.user.bw||'';
   const tB=document.getElementById('tgtBench'),tS=document.getElementById('tgtSquat'),tD=document.getElementById('tgtDead');
   if(tB)tB.value=db.user.targets.bench;if(tS)tS.value=db.user.targets.squat;if(tD)tD.value=db.user.targets.deadlift;
 
@@ -5552,8 +5777,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       } catch(e) {
         syncToCloud(true);
       }
-      // Start Realtime subscription for instant sync
-      if (typeof startRealtimeSubscription === 'function') startRealtimeSubscription();
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause
@@ -5758,15 +5981,18 @@ function generateCoachAlgoMessage() {
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
-  document.querySelectorAll('.stats-sub-section').forEach(function(el) { el.classList.remove('active'); });
-  var sec = document.getElementById(id);
+  // Deactivate all stats sub-sections
+  document.querySelectorAll('#tab-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-stats .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  // Activate in tab-stats
+  const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
-  else { var pill = document.querySelector('.stats-sub-pill[onclick*="' + id + '"]'); if (pill) pill.classList.add('active'); }
-  if (id === 'stats-volume') { if (typeof renderReports === 'function') renderReports('week'); if (typeof renderVolumeChart === 'function') requestAnimationFrame(function() { renderVolumeChart('week'); }); }
-  if (id === 'stats-muscles') { if (typeof renderRadarImproved === 'function') renderRadarImproved('week'); if (typeof renderMuscleChart === 'function') requestAnimationFrame(function() { renderMuscleChart('week'); }); if (typeof renderVolumeLandmarks === 'function') renderVolumeLandmarks(); if (typeof renderStrengthRatios === 'function') renderStrengthRatios(); }
-  if (id === 'stats-records') { if (typeof renderLifts === 'function') renderLifts(); }
-  if (id === 'stats-cardio') { if (typeof renderCardioStats === 'function') renderCardioStats(); }
+  else { document.querySelectorAll('#tab-stats .stats-sub-pill[onclick*="' + id + '"]').forEach(function(pill) { pill.classList.add('active'); }); }
+  if (id === 'stats-volume') { renderReports('week'); requestAnimationFrame(() => renderVolumeChart('week')); }
+  if (id === 'stats-muscles') { renderRadarImproved('week'); requestAnimationFrame(() => renderMuscleChart('week')); renderVolumeLandmarks(); renderStrengthRatios(); }
+  if (id === 'stats-records') { renderLifts(); }
+  if (id === 'stats-cardio') { renderCardioStats(); }
 }
 
 // ── Volume Landmarks — jauges MEV/MAV/MRV ──────────────────
@@ -6867,7 +7093,7 @@ function renderLifts() {
     }
 
     const rmCells = TARGET_REPS.map(r => {
-      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
+      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (1.0278 - 0.0278 * r)) * 2) / 2;
       const realKg = lift.repRecords[String(r)] || null;
       const label = r === 1 ? '1RM' : r + ' reps';
       let realHtml = '', cls = 'miss';
@@ -6946,7 +7172,7 @@ function calcLiftWeight(input, e1rm, uid) {
   const out = document.getElementById(uid);
   if (!out) return;
   if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * r)) * 2) / 2;
+  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
   out.textContent = '~' + w + 'kg';
 }
 
@@ -7363,7 +7589,7 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
           const reps = parseInt(rKey);
           const w = exo.repRecords[rKey];
           if (calcE1RM(w, reps) > val * 1.05) {
-            exo.repRecords[rKey] = Math.round(val * (EPLEY_INTERCEPT - EPLEY_SLOPE * reps) * 10) / 10;
+            exo.repRecords[rKey] = Math.round(val * (1.0278 - 0.0278 * reps) * 10) / 10;
           }
         });
       }
@@ -7472,7 +7698,7 @@ function renderCoachToday() {
   });
 
   // Count planned sessions this week
-  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !REGEX_REST_CARDIO_PATTERN.test(lab); }).length;
+  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !/repos|😴|natation|🏊/i.test(lab); }).length;
   const doneCount = Object.keys(donedays).length;
 
   let h = '';
@@ -7486,7 +7712,7 @@ function renderCoachToday() {
   h += '<div class="coach-week-band">';
   orderedDays.forEach(day => {
     const label = routine[day] || '';
-    const isRest = !label || REGEX_REST_CARDIO_PATTERN.test(label);
+    const isRest = !label || /repos|😴|natation|🏊/i.test(label);
     const isToday = day === todayDay;
     const isDone = !!donedays[day];
     const isActive = day === _coachSelectedDay;
@@ -7548,7 +7774,7 @@ function coachSelectDay(day) {
 
 function renderCoachDayDetail(day, routine, donedays, weekStart) {
   const label = routine[day] || '';
-  const isRest = !label || REGEX_REST_CARDIO_PATTERN.test(label);
+  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
 
   if (isRest) {
     const isSwim = /natation|🏊/i.test(label);
@@ -7704,6 +7930,15 @@ function toggleCoachExo(idx) {
   if (card) card.classList.toggle('open');
 }
 
+function _getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1; // Monday is start of week
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - diff);
+  return d.getTime();
+}
+
 function renderCoachHistory() {
   const el = document.getElementById('coach-history');
   if (!el) return;
@@ -7773,6 +8008,15 @@ function checkProgressionSuggestions() {
   return suggestions;
 }
 
+function renderProgressionSuggestions() {
+  // Legacy — now inline in renderCoachToday()
+}
+
+function renderCoachBriefing() {
+  // Legacy — now handled by renderCoachToday()
+  renderCoachToday();
+}
+
 function generateWeeklyReport() {
   var weekKey = _getWeekKey();
   if ((db.reports||[]).some(function(r) { return r.type === 'weekly' && r.weekKey === weekKey; })) return;
@@ -7830,6 +8074,12 @@ function generateWeeklyReport() {
   saveDBNow();
 }
 
+function renderCoachReports() {
+  // Legacy — now handled by renderCoachHistory()
+  renderCoachHistory();
+}
+
+
 // ============================================================
 // WEEKLY PLAN — génération locale (sans IA)
 // ============================================================
@@ -7847,6 +8097,28 @@ const BW_RATIOS = {
 
 // ── Apprentissage progression personnalisée ─────────────────
 // Après 4+ semaines de données, calcule le taux de progression réel
+function getPersonalProgressionRate(exoName) {
+  const pts = [];
+  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  for (const log of desc) {
+    const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
+    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
+    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
+    if (pts.length >= 8) break;
+  }
+  if (pts.length < 4) return null;
+  pts.sort((a,b) => a.x - b.x);
+  const n = pts.length;
+  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
+  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
+  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+  const kgPerWeek = Math.round(slope * 7 * 10) / 10;
+  const lastE1rm = pts[pts.length - 1].y;
+  if (lastE1rm <= 0) return null;
+  const pctPerWeek = Math.round((kgPerWeek / lastE1rm) * 1000) / 10;
+  return { kgPerWeek, pctPerWeek, lastE1rm, confidence: n >= 6 ? 'high' : 'medium', n };
+}
+
 // ── Catégorie d'exercice (global) ───────────────────────────
 function getExoCategory(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -7992,6 +8264,55 @@ function estimateSessionDuration(exercises, goal) {
 }
 
 // Adapter la séance si elle dépasse la durée configurée
+function adaptSessionForDuration(exercises, targetMinutes, goal) {
+  if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
+  const est = estimateSessionDuration(exercises, goal);
+  if (est.minutes <= targetMinutes) return { exercises, adaptations: [] };
+
+  const adaptations = [];
+  let adapted = JSON.parse(JSON.stringify(exercises));
+
+  // 1. Supersets sur isolations (gain ~30%)
+  const isoExos = adapted.filter(e => getExoCategory(e.name) === 'isolation');
+  if (isoExos.length >= 2) {
+    for (let i = 0; i < isoExos.length - 1; i += 2) {
+      isoExos[i].superset = isoExos[i + 1].name;
+      isoExos[i].restSeconds = Math.round((isoExos[i].restSeconds || 60) * 0.5);
+    }
+    adaptations.push('Supersets sur isolations');
+    const est2 = estimateSessionDuration(adapted, goal);
+    if (est2.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+  }
+
+  // 2. Réduire séries isolations (max -1, jamais <2)
+  adapted.forEach(e => {
+    if (getExoCategory(e.name) !== 'isolation') return;
+    const work = e.sets.filter(s => !s.isWarmup);
+    if (work.length > 2) {
+      const idx = e.sets.findIndex(s => !s.isWarmup);
+      if (idx >= 0) e.sets.splice(idx, 1);
+    }
+  });
+  adaptations.push('Séries isolations réduites');
+  const est3 = estimateSessionDuration(adapted, goal);
+  if (est3.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+
+  // 3. Réduire repos de 15% max
+  adapted.forEach(e => { e.restSeconds = Math.round((e.restSeconds || 90) * 0.85); });
+  adaptations.push('Repos réduits (-15%)');
+  const est4 = estimateSessionDuration(adapted, goal);
+  if (est4.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+
+  // 4. Dernier recours : retirer une isolation
+  const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
+  if (lastIso >= 0) {
+    adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
+    adapted.splice(lastIso, 1);
+  }
+
+  return { exercises: adapted, adaptations };
+}
+
 // ── Périodisation par blocs selon le niveau ─────────────────
 // Sources : BodySpec, Barbell Medicine, NSCA
 const BLOC_PARAMS = {
@@ -8022,6 +8343,57 @@ const BLOC_PARAMS = {
 };
 
 // ── Deload automatique ──────────────────────────────────────
+function shouldDeload() {
+  const reasons = [];
+  // 1. Fin de mésocycle (semaine 4 complétée)
+  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
+    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
+    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
+  }
+  // 2. Readiness basse chronique
+  const last3 = (db.readiness || []).slice(-3);
+  if (last3.length === 3 && last3.every(r => r.score < 40)) {
+    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
+  }
+  // 3. Plateau multiple
+  const bigLifts = ['squat', 'bench', 'deadlift'];
+  const plateaus = bigLifts.filter(l => detectPlateau(l));
+  if (plateaus.length >= 2) {
+    reasons.push('Plateau sur ' + plateaus.join(' et '));
+  }
+  return { needed: reasons.length > 0, reasons };
+}
+
+let _deloadDismissed = false;
+function renderDeloadBanner() {
+  const el = document.getElementById('deloadBanner');
+  if (!el) return;
+  if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
+  const { needed, reasons } = shouldDeload();
+  if (!needed) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée ' + renderGlossaryTip('deload') + '</div>' +
+    '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
+    '<button onclick="dismissDeload()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Ignorer</button>' +
+    '</div></div>';
+}
+
+function acceptDeload() {
+  db._deloadAccepted = true;
+  saveDB();
+  showToast('🔄 Deload activé — charges et volume réduits');
+  const el = document.getElementById('deloadBanner');
+  if (el) el.innerHTML = '';
+}
+
+function dismissDeload() {
+  _deloadDismissed = true;
+  const el = document.getElementById('deloadBanner');
+  if (el) el.innerHTML = '';
+}
+
 function isDeloadWeek() {
   return !!db._deloadAccepted;
 }
@@ -8156,7 +8528,7 @@ function generateWeeklyPlan() {
     if (bestE1rm <= 0) return null;
 
     // Charge cible = Epley(e1RM → tReps) × LOAD_PCT de la semaine
-    const epleyTarget = bestE1rm * (EPLEY_INTERCEPT - EPLEY_SLOPE * tReps);
+    const epleyTarget = bestE1rm * (1.0278 - 0.0278 * tReps);
     const workWeight  = round05(epleyTarget * LOAD_PCT + adj);
     return workWeight > 0 ? workWeight : null;
   }
@@ -8227,7 +8599,7 @@ function generateWeeklyPlan() {
 
   DAYS_FULL.forEach(day => {
     const label  = routine[day] || '';
-    const isRest = !label || REGEX_REST_PATTERN.test(label);
+    const isRest = !label || /repos|😴/i.test(label);
     const exercises = [];
     const warmedUpMuscles = new Set();
     let isFirstCompound = true;
@@ -8322,7 +8694,7 @@ function generateWeeklyPlan() {
             const lvl = db.user.level || 'intermediaire';
             const bwRatio = (BW_RATIOS[cat] || BW_RATIOS.compound)[lvl] || 0.5;
             const estimatedE1RM = bw * bwRatio;
-            const epleyEst = estimatedE1RM * (EPLEY_INTERCEPT - EPLEY_SLOPE * targetReps);
+            const epleyEst = estimatedE1RM * (1.0278 - 0.0278 * targetReps);
             const estWork = round05(epleyEst * LOAD_PCT);
             if (estWork > 0) {
               const warmups = getWarmupSets(exoName, estWork, targetReps, isFirstForMuscle, isFirstCompound && cat !== 'isolation', cat);
@@ -8639,35 +9011,16 @@ function goGetDefaultRest(exoName, exoId) {
 }
 
 // ── Get previous sets for an exercise from db.logs ──
-// ── Cache for previous sets (GO session) ──────────────────
-var _goPrevSetsCacheKey = null;
-var _goPrevSetsCache = {};
-
-function _buildPrevSetsCache() {
-  // Build cache once per session
-  const cacheKey = db.logs.length + '|' + (db.logs[db.logs.length-1]?.timestamp || 0);
-  if (_goPrevSetsCacheKey === cacheKey) return;
-
-  _goPrevSetsCache = {};
+function goGetPreviousSets(exoName) {
   for (var i = db.logs.length - 1; i >= 0; i--) {
     var ses = db.logs[i];
     for (var j = 0; j < (ses.exercises || []).length; j++) {
-      var exo = ses.exercises[j];
-      // Cache only the most recent occurrence of each exercise
-      if (!_goPrevSetsCache[exo.name]) {
-        _goPrevSetsCache[exo.name] = {
-          series: exo.series || exo.allSets || [],
-          date: ses.shortDate || ses.date || ''
-        };
+      if (matchExoName(ses.exercises[j].name, exoName)) {
+        return { series: ses.exercises[j].series || ses.exercises[j].allSets || [], date: ses.shortDate || ses.date || '' };
       }
     }
   }
-  _goPrevSetsCacheKey = cacheKey;
-}
-
-function goGetPreviousSets(exoName) {
-  _buildPrevSetsCache();
-  return _goPrevSetsCache[exoName] || null;
+  return null;
 }
 
 // ── Get last time summary for an exercise ──
@@ -10115,7 +10468,7 @@ async function updateSessionActivity(session) {
     if (!user) return;
     // Trouver l'activité correspondante (même date + type session)
     var { data: activities } = await supabase
-      .from('activity_feed')
+      .from('activities')
       .select('id, data')
       .eq('user_id', user.id)
       .eq('type', 'session')
@@ -10139,7 +10492,7 @@ async function updateSessionActivity(session) {
       }),
       edited: true
     });
-    await supabase.from('activity_feed').update({ data: newData }).eq('id', match.id);
+    await supabase.from('activities').update({ data: newData }).eq('id', match.id);
   } catch(e) { console.warn('updateSessionActivity error:', e); }
 }
 
@@ -11136,7 +11489,7 @@ function goConfirmFinish() {
   );
 }
 
-async function goFinishWorkout() {
+function goFinishWorkout() {
   if (!activeWorkout) return;
   var session = convertWorkoutToSession(activeWorkout);
 
@@ -11146,7 +11499,6 @@ async function goFinishWorkout() {
   // Add to db.logs
   db.logs.push(session);
   saveDBNow();
-  await syncToCloud(true);
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}

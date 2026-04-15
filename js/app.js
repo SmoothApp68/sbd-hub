@@ -3386,9 +3386,9 @@ function renderSBDTotal() {
       { label: 'Squat',    real: realSquat, est: estSquat, tgt: tgtSquat, color: '#FF453A' },
       { label: 'Deadlift', real: realDead,  est: estDead,  tgt: tgtDead,  color: '#FF9F0A' }
     ];
-    var miniHtml = '<div style="display:flex;gap:6px;height:120px;">';
+    var miniHtml = '<div style="display:flex;gap:6px;height:120px;overflow:hidden;">';
     sbdPairs.forEach(function(p) {
-      miniHtml += '<div style="flex:1;position:relative;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
+      miniHtml += '<div style="flex:1;min-width:0;position:relative;"><canvas id="chartSBD_' + p.label + '"></canvas></div>';
     });
     miniHtml += '</div>';
     miniHtml += '<div style="display:flex;justify-content:center;gap:14px;margin-top:6px;">' +

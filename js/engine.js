@@ -496,9 +496,9 @@ function getMuscleContributions(name) {
 function _getSBDTypeRaw(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
-  if (n.includes('barre') && (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('decline')))) return 'bench';
-  if (n.includes('barre') && n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split') && !n.includes('sumo')) return 'squat';
-  if ((n.includes('deadlift') || (n.includes('souleve') && n.includes('terre') && n.includes('barre'))) && !n.includes('sumo')) return 'deadlift';
+  if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('decline'))) return 'bench';
+  if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split')) return 'squat';
+  if (n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) return 'deadlift';
   return null;
 }
 function getSBDType(name) {

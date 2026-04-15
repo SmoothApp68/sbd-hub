@@ -11472,6 +11472,7 @@ function goFinishWorkout() {
   // Add to db.logs
   db.logs.push(session);
   saveDBNow();
+  syncToCloud();
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}

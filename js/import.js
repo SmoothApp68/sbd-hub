@@ -679,6 +679,7 @@ function doFinalizeSession(session) {
   db.logs.unshift(session);
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);
   saveDBNow();
+  syncToCloud();
   document.getElementById('hevyPaste').value='';
   showImportSummary(session);
   showToast('✓ Séance importée');

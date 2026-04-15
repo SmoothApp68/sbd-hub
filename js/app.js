@@ -127,16 +127,7 @@ function stopSeancesTabSync() {
   }
 }
 
-function showSocialSub(id, btn) {
-  document.querySelectorAll('.social-sub-content').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('.social-sub-tab').forEach(function(el) { el.classList.remove('active'); });
-  var sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'social-feed') { if (typeof renderFeed === 'function') renderFeed(); }
-  if (id === 'social-leaderboard') { if (typeof renderLeaderboard === 'function') renderLeaderboard(); }
-  if (id === 'social-challenges') { if (typeof renderChallenges === 'function') renderChallenges(); }
-}
+// showSocialSub is defined in supabase.js (correct version with renderFriendsTab + renderChallengesTab)
 
 // ── Stubs pour handlers PWA/annonces ──────────────────────────
 function dismissAnnouncement() {

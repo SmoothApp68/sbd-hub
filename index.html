@@ -1750,67 +1750,42 @@
   <!-- APP PRINCIPALE -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-dash" class="content-section active">
-    <!-- Carte de bienvenue — visible seulement sans données -->
-    <div class="card" id="welcomeCard" style="display:none;text-align:center;padding:28px 20px;">
-      <div style="font-size:44px;margin-bottom:12px;">👋</div>
-      <div id="welcomeTitle" style="font-size:20px;font-weight:700;margin-bottom:8px;">Tout est prêt !</div>
-      <div style="font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:20px;">
-        Importe tes séances depuis Hevy pour débloquer<br>tes statistiques, records et suivi de progression.
-      </div>
-      <button class="btn" onclick="showTab('tab-profil'); showProfilSub('tab-settings', document.querySelector('#tab-profil .stats-sub-pill[onclick*=tab-settings]')); setTimeout(()=>{ const el=document.getElementById('acc-import'); if(el&&el.style.maxHeight==='0px'||el.style.maxHeight==='') toggleAcc('acc-import'); },300);">
-        📥 Importer des séances
-      </button>
+    <!-- Carte bienvenue (visible si aucune séance) -->
+    <div id="welcomeCard" class="card" style="display:none;text-align:center;padding:24px 16px;">
+      <div id="welcomeTitle" style="font-size:18px;font-weight:700;margin-bottom:8px;">Tout est prêt !</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:16px;">Importe tes séances depuis Hevy pour débloquer tes statistiques.</p>
+      <button class="btn" onclick="showTab('tab-profil');showProfilSub('tab-settings')">📥 Importer des séances</button>
     </div>
 
-    <!-- 1. Programme du jour + bouton lancer -->
-    <div class="card" id="todayProgramCard" style="padding:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h2 style="margin:0;">Aujourd'hui</h2>
-        <span id="dashGreeting" style="font-size:13px;color:var(--sub);"></span>
-      </div>
-      <div id="todayProgramContent" style="margin-bottom:14px;"></div>
-      <button class="btn" id="startTodayWorkoutBtn" onclick="startTodayWorkout()" style="background:linear-gradient(135deg,var(--accent),#6366f1);font-size:15px;padding:16px;border-radius:12px;">
-        Lancer la séance 💪
-      </button>
+    <!-- Carte Cette semaine -->
+    <div class="card" id="dashWeekCard" style="padding:14px 16px;">
+      <div id="dashWeekContent"></div>
     </div>
 
-    <!-- 2. Total SBD estimé -->
-    <div class="card" id="sbdTotalCard" style="padding:20px;">
-      <h2 style="margin:0 0 12px;">Total SBD estimé</h2>
-      <div class="sbd-grid" id="sbdTotalDisplay"></div>
+    <!-- Carte Performance -->
+    <div class="card" id="perfCard" style="padding:14px 16px;">
+      <div class="perf-card-title" style="font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Performance</div>
+      <div id="perfDisplay"></div>
     </div>
 
-    <!-- 3. Résumé de la semaine -->
-    <div class="card" id="weeklySummaryCard" style="padding:20px;">
-      <h2 style="margin:0 0 10px;">Cette semaine</h2>
-      <div class="report-grid" style="grid-template-columns:1fr 1fr 1fr;">
-        <div class="report-box"><div class="report-val" id="weekSessions">0</div><div class="report-label">Séances</div></div>
-        <div class="report-box"><div class="report-val" id="weekDuration">0min</div><div class="report-label">Durée</div></div>
-        <div class="report-box"><div class="report-val" id="weekVolume">0kg</div><div class="report-label">Volume</div></div>
-      </div>
+    <!-- IDs conservés pour compatibilité avec les fonctions existantes -->
+    <div style="display:none;">
+      <div id="routineDisplay"></div>
+      <div id="dashGreeting"></div>
+      <div id="readinessSparkline"></div>
+      <div id="dotsWilksContent"></div>
+      <div id="formScoreContent"></div>
+      <div id="programViewer" class="prog-viewer"></div>
+      <div id="trainingLogs"></div>
+      <div id="dayButtonsContainer"></div>
+      <div id="dayExercisesContainer"></div>
+      <div id="sbdTotalDisplay"></div>
+      <div id="todayProgramContent"></div>
+      <div id="acc-dash-reports-card"></div>
+      <div id="acc-dash-weekly-card"></div>
+      <div id="acc-dash-reports"></div>
+      <div id="acc-dash-weekly"></div>
     </div>
-
-    <!-- 4. PRs récents -->
-    <div class="card" id="recentPRsCard" style="padding:20px;">
-      <h2 style="margin:0 0 10px;">PRs récents</h2>
-      <div id="recentPRsContent"></div>
-    </div>
-
-    <!-- Day selector (horizontal pills Lun→Dim) -->
-    <div id="dashDaySelector" style="margin-bottom:12px;"></div>
-
-    <!-- Day exercises content (visible) -->
-    <div id="dayExercisesContainer"></div>
-
-    <!-- Hidden containers still needed by existing render functions -->
-    <div id="perfCard" style="display:none;"><div id="perfDisplay"></div></div>
-    <div id="readinessCard" style="display:none;"><div id="readinessSparkline"></div></div>
-    <div id="dotsWilksCard" style="display:none;"><div id="dotsWilksContent"></div></div>
-    <div id="formScoreCard" style="display:none;"><div id="formScoreContent"></div></div>
-    <div style="display:none;" id="dayButtonsContainer"></div>
-    <div style="display:none;" id="routineDisplay"></div>
-    <div id="programViewerCard" style="display:none;"><div id="programViewer" class="prog-viewer"></div></div>
-    <div style="display:none;" id="trainingLogs"></div>
   </div>
   <div id="tab-seances" class="content-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">

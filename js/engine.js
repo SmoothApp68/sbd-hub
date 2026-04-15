@@ -494,10 +494,11 @@ function getMuscleContributions(name) {
 // SBD DETECTION
 // ============================================================
 function _getSBDTypeRaw(name) {
-  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ').trim();
-  if (n === 'squat barre') return 'squat';
-  if (n === 'developpe couche barre') return 'bench';
-  if (n === 'souleve de terre barre') return 'deadlift';
+  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[()]/g,' ');
+  if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
+  if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
+  if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split') && !n.includes('sumo')) return 'squat';
+  if ((n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) && !n.includes('sumo')) return 'deadlift';
   return null;
 }
 function getSBDType(name) {

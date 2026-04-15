@@ -3426,15 +3426,13 @@ function renderSBDTotal() {
     });
 
   } else {
-    // ── Mode Progression (90 jours) ──
-    var cutoff = Date.now() - 90 * 86400000;
+    // ── Mode Progression (toutes les données, 20 points max par lift) ──
     var sbdDef = [
       { type: 'bench',    label: 'Bench',    color: '#0A84FF' },
       { type: 'squat',    label: 'Squat',    color: '#FF453A' },
       { type: 'deadlift', label: 'Deadlift', color: '#FF9F0A' }
     ];
-    var sortedLogs = db.logs.filter(function(l) { return l.timestamp >= cutoff; })
-                            .sort(function(a, b) { return a.timestamp - b.timestamp; });
+    var sortedLogs = db.logs.slice().sort(function(a, b) { return a.timestamp - b.timestamp; });
     var datasets = [];
     sbdDef.forEach(function(def) {
       var seen = {}, runMax = 0;
@@ -3447,7 +3445,7 @@ function renderSBDTotal() {
           else seen[lbl].val = Math.round(runMax);
         });
       });
-      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; });
+      var pts = Object.values(seen).sort(function(a, b) { return a.ts - b.ts; }).slice(-20);
       if (pts.length < 2) return;
       datasets.push({
         label: def.label,
@@ -3460,7 +3458,7 @@ function renderSBDTotal() {
     });
 
     if (!datasets.length) {
-      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Aucune donnée SBD sur 90 jours</div>';
+      el.innerHTML = toggleHtml + '<div style="text-align:center;font-size:12px;color:var(--sub);padding:16px 0;">Importe des séances pour voir ta progression</div>';
       if (card) { var tl2 = card.querySelector('.sbd-total-line'); if (tl2) tl2.innerHTML = ''; }
       return;
     }

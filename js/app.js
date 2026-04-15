@@ -3311,10 +3311,10 @@ function renderWeekCard() {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   const weekDaysFull = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   // Map timestamp → séance pour la semaine
-  const weekStart = getWeekStart(0);
+  const weekStart = getWeekStart(Date.now());
   const seanceDays = new Set(
     db.logs
-      .filter(l => l.timestamp >= weekStart.getTime())
+      .filter(l => l.timestamp >= weekStart)
       .map(l => new Date(l.timestamp).getDay()) // 0=dim
   );
   // Convertir en index Lun=0..Dim=6

@@ -1018,7 +1018,8 @@ async function loadFriends() {
   try {
     const { data, error } = await supaClient.from('friendships')
       .select('id, requester_id, target_id, status, created_at')
-      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid);
+      .or('requester_id.eq.' + uid + ',target_id.eq.' + uid)
+      .limit(500);
     if (error) throw error;
     _friendsCache = data || [];
     return _friendsCache;
@@ -1043,7 +1044,8 @@ async function getFriendProfiles(friendIds) {
     const { data, error } = await supaClient.from('profiles')
       .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
       .in('id', friendIds)
-      .is('deleted_at', null);
+      .is('deleted_at', null)
+      .limit(500);
     if (error) throw error;
     return data || [];
   } catch (e) {
@@ -1241,7 +1243,8 @@ async function loadReactionsForActivity(activityId) {
   try {
     const { data } = await supaClient.from('reactions')
       .select('id, user_id, emoji, created_at')
-      .eq('activity_id', activityId);
+      .eq('activity_id', activityId)
+      .limit(500);
     return data || [];
   } catch { return []; }
 }
@@ -1252,7 +1255,8 @@ async function loadCommentsForActivity(activityId) {
     const { data } = await supaClient.from('comments')
       .select('id, user_id, text, created_at')
       .eq('activity_id', activityId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(200);
     return data || [];
   } catch { return []; }
 }
@@ -1293,7 +1297,7 @@ async function renderFeed() {
   let profiles = {};
   if (userIds.length) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds).limit(500);
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -1319,7 +1323,8 @@ async function renderFeed() {
       const { data: trainingFriends } = await supaClient.from('profiles')
         .select('username, training_status, training_since')
         .in('id', friendIds)
-        .not('training_status', 'is', null);
+        .not('training_status', 'is', null)
+        .limit(500);
       if (trainingFriends && trainingFriends.length) {
         trainingBanner = '<div style="background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;">' +
           trainingFriends.map(f => {
@@ -1593,7 +1598,7 @@ async function loadAndRenderComments(activityId) {
   let profiles = {};
   if (userIds.length) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds).limit(500);
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -1773,7 +1778,8 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
         .select('user_id, value')
         .in('user_id', friendIds)
         .eq('exercise_name', exerciseName)
-        .order('value', { ascending: false });
+        .order('value', { ascending: false })
+        .limit(500);
       if (snapshots) {
         for (const s of snapshots) {
           if (newValue > s.value) {
@@ -1818,7 +1824,8 @@ async function renderLeaderboard() {
     const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
       .select('user_id, exercise_name, value')
       .in('user_id', allIds)
-      .order('value', { ascending: false });
+      .order('value', { ascending: false })
+      .limit(1000);
 
     if (!snapshots || !snapshots.length) {
       podiumEl.innerHTML = '';
@@ -1874,7 +1881,7 @@ async function renderLeaderboard() {
     const profileIds = Object.keys(bestByUser);
     let profiles = {};
     if (profileIds.length) {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', profileIds);
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', profileIds).limit(500);
       (data || []).forEach(p => profiles[p.id] = p);
     }
 
@@ -1958,17 +1965,17 @@ async function updateLeaderboardSnapshot() {
     }
   });
 
-  for (const pr of prData) {
-    try {
-      await supaClient.from('leaderboard_snapshots').upsert({
-        user_id: uid,
-        exercise_name: pr.exercise_name,
-        value: pr.value,
-        snapshot_week: weekStr
-      }, { onConflict: 'user_id,exercise_name,snapshot_week', ignoreDuplicates: false });
-    } catch (e) {
-      console.error('updateLeaderboardSnapshot error:', e);
-    }
+  if (prData.length === 0) return;
+  try {
+    const rows = prData.map(pr => ({
+      user_id: uid,
+      exercise_name: pr.exercise_name,
+      value: pr.value,
+      snapshot_week: weekStr
+    }));
+    await supaClient.from('leaderboard_snapshots').upsert(rows, { onConflict: 'user_id,exercise_name,snapshot_week', ignoreDuplicates: false });
+  } catch (e) {
+    console.error('updateLeaderboardSnapshot error:', e);
   }
 }
 
@@ -2070,7 +2077,7 @@ async function renderFriendsTab() {
   let profiles = {};
   if (allUserIds.size) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
+      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds)).limit(500);
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -2334,7 +2341,8 @@ async function showProfileOverlay(userId) {
       const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
         .select('exercise_name, value')
         .eq('user_id', userId)
-        .order('value', { ascending: false });
+        .order('value', { ascending: false })
+        .limit(100);
       if (snapshots && snapshots.length) {
         const best = {};
         snapshots.forEach(s => { if (!best[s.exercise_name] || s.value > best[s.exercise_name]) best[s.exercise_name] = s.value; });
@@ -2403,7 +2411,8 @@ async function showComparisonView(friendId) {
       const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
         .select('exercise_name, value')
         .eq('user_id', friendId)
-        .order('value', { ascending: false });
+        .order('value', { ascending: false })
+        .limit(100);
       if (snapshots) {
         snapshots.forEach(s => {
           if (!friendPRs[s.exercise_name] || s.value > friendPRs[s.exercise_name]) friendPRs[s.exercise_name] = s.value;
@@ -2759,7 +2768,8 @@ async function renderChallengesTab() {
       const { data } = await supaClient.from('social_challenges')
         .select('*')
         .in('id', myChIds)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
       if (data) allChallenges = data;
     }
     // Also get friend-created challenges not yet joined
@@ -2767,7 +2777,8 @@ async function renderChallengesTab() {
       const { data } = await supaClient.from('social_challenges')
         .select('*')
         .in('creator_id', friendIds)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
       if (data) {
         data.forEach(c => {
           if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
@@ -2778,7 +2789,8 @@ async function renderChallengesTab() {
     const { data: ownChallenges } = await supaClient.from('social_challenges')
       .select('*')
       .eq('creator_id', uid)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
     if (ownChallenges) {
       ownChallenges.forEach(c => {
         if (!allChallenges.find(x => x.id === c.id)) allChallenges.push(c);
@@ -2795,7 +2807,8 @@ async function renderChallengesTab() {
     if (allChIds.length) {
       const { data } = await supaClient.from('challenge_participants')
         .select('*')
-        .in('challenge_id', allChIds);
+        .in('challenge_id', allChIds)
+        .limit(1000);
       allParticipants = data || [];
     }
 
@@ -2805,7 +2818,7 @@ async function renderChallengesTab() {
     allParticipants.forEach(p => involvedIds.add(p.user_id));
     let profiles = {};
     if (involvedIds.size) {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds));
+      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds)).limit(500);
       (data || []).forEach(p => profiles[p.id] = p);
     }
 

@@ -653,13 +653,6 @@ function importData() {
     }
   );
 }
-function getSBDType(exName) {
-  const n = (exName || '').toLowerCase();
-  if (n.includes('squat')) return 'squat';
-  if (n.includes('bench') || n.includes('dc ') || n.includes('développé couché')) return 'bench';
-  if (n.includes('deadlift') || n.includes('soulevé de terre')) return 'deadlift';
-  return null;
-}
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
   db.logs.forEach(log => {

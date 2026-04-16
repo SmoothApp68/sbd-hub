@@ -133,6 +133,14 @@ let db = (() => {
     if (p.user.onboarded === undefined) p.user.onboarded = true;
     if (!p.user.gender) p.user.gender = 'unspecified';
     if (p.user.trainingMode === undefined) p.user.trainingMode = 'powerlifting';
+    // Migration one-shot : Aurélien → powerbuilding (supprimer après déploiement semaine 1)
+    if (!p._migPBMode && p.user.trainingMode === 'powerlifting') {
+      var _n = (p.user.name || '').toLowerCase();
+      if (_n.indexOf('aurél') >= 0 || _n.indexOf('aurel') >= 0) {
+        p.user.trainingMode = 'powerbuilding';
+        p._migPBMode = true;
+      }
+    }
     if (!p.monthlyChallenges) p.monthlyChallenges = null;
     if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
     if (!p.questHistory) p.questHistory = [];

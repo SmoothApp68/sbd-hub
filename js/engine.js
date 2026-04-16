@@ -89,6 +89,26 @@ const TRAINING_MODES = {
       badgeTheme: 'volume'
     }
   },
+  powerbuilding: {
+    id: 'powerbuilding',
+    label: 'Powerbuilding',
+    icon: '⚡',
+    desc: 'Force SBD + hypertrophie — le meilleur des deux mondes',
+    features: {
+      show1RM: true,
+      showIPF: true,
+      showSBDCards: true,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: false,
+      showWeeklyPlan: true,
+      showBWRatio: true,
+      defaultKeyLifts: ['Bench Press (Barre)', 'Squat (Barre)', 'Soulevé de Terre'],
+      primaryMetrics: ['total_sbd', 'volume_total', 'e1rm_progress', 'muscle_balance'],
+      programStyle: 'powerbuilding',
+      badgeTheme: 'strength'
+    }
+  },
   powerlifting: {
     id: 'powerlifting',
     label: 'Powerlifting (SBD)',

@@ -1209,9 +1209,91 @@ async function createNewInviteCode() {
 }
 
 function copyFriendCode() {
-  const code = document.getElementById('myFriendCode').textContent;
+  var el = document.getElementById('myFriendCode');
+  var code = el ? el.textContent.trim() : (db.friendCode || '');
   if (!code || code === '---') return;
-  navigator.clipboard.writeText(code).then(() => showToast('Code ami copié !')).catch(() => showToast('Erreur copie'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(function() { showToast('Code ' + code + ' copié ! 👥'); }).catch(function() { _fallbackCopy(code); });
+  } else {
+    _fallbackCopy(code);
+  }
+}
+
+function _fallbackCopy(text) {
+  var el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  showToast('Code copié ! 👥');
+}
+
+async function shareActivity(activityId, title) {
+  var url = location.origin + location.pathname;
+  var shareData = { title: title || 'TrainHub', text: 'Regarde cette séance sur TrainHub !', url: url };
+  if (navigator.share) {
+    try { await navigator.share(shareData); } catch (e) {
+      if (e.name !== 'AbortError') { _fallbackCopy(url); showToast('Lien copié ! 📋'); }
+    }
+  } else {
+    _fallbackCopy(url);
+    showToast('Lien copié ! 📋');
+  }
+}
+
+function openDefiModal(activityId, targetUsername) {
+  var existing = document.getElementById('modal-defi');
+  if (existing) existing.remove();
+  var modal = document.createElement('div');
+  modal.id = 'modal-defi';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML =
+    '<div style="background:#16162A;border:1px solid rgba(255,255,255,0.09);border-radius:22px 22px 0 0;padding:0 0 40px;width:100%;max-width:390px">' +
+      '<div style="width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:12px auto 16px"></div>' +
+      '<div style="font-size:17px;font-weight:800;padding:0 18px 16px;border-bottom:1px solid rgba(255,255,255,0.08)">🏆 Lancer un défi</div>' +
+      '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+        '<div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Type</div>' +
+        '<select id="defi-type" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:11px 13px;color:#fff;font-size:15px;font-family:inherit;outline:none">' +
+          '<option value="volume">Volume total (kg)</option><option value="frequency">Nombre de séances</option><option value="weight">Record sur un exercice</option>' +
+        '</select></div>' +
+      '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+        '<div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Objectif</div>' +
+        '<input id="defi-target" type="number" placeholder="Ex: 50000" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:11px 13px;color:#fff;font-size:15px;font-family:inherit;outline:none"></div>' +
+      '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+        '<div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Durée (jours)</div>' +
+        '<input id="defi-duration" type="number" value="7" min="1" max="30" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:11px 13px;color:#fff;font-size:15px;font-family:inherit;outline:none"></div>' +
+      '<div style="display:flex;gap:10px;padding:16px 18px 0">' +
+        '<button onclick="document.getElementById(\'modal-defi\').remove()" style="flex:1;padding:13px;border-radius:10px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.09);color:rgba(255,255,255,0.6);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">Annuler</button>' +
+        '<button onclick="createDefiFromModal()" style="flex:1;padding:13px;border-radius:10px;background:#0A84FF;border:none;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">Créer 🏆</button>' +
+      '</div></div>';
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+async function createDefiFromModal() {
+  var uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) { showToast('Connecte-toi'); return; }
+  var type = document.getElementById('defi-type');
+  var target = document.getElementById('defi-target');
+  var duration = document.getElementById('defi-duration');
+  var typeVal = type ? type.value : 'volume';
+  var targetVal = parseFloat(target ? target.value : 0);
+  var days = parseInt(duration ? duration.value : 7) || 7;
+  if (!targetVal || isNaN(targetVal)) { showToast('Ajoute un objectif'); return; }
+  var endDate = new Date();
+  endDate.setDate(endDate.getDate() + days);
+  var ins = await supaClient.from('social_challenges').insert({
+    creator_id: uid, title: 'Défi ' + typeVal + ' — ' + days + 'j',
+    type: typeVal, target_value: targetVal, end_date: endDate.toISOString()
+  });
+  var modal = document.getElementById('modal-defi');
+  if (modal) modal.remove();
+  if (ins.error) { console.error('Defi error:', ins.error); showToast('Erreur ❌'); return; }
+  showToast('Défi créé ! 🏆');
+  if (typeof renderFeedChallengesV2 === 'function') renderFeedChallengesV2();
+  if (typeof renderChallengesTab === 'function') renderChallengesTab();
 }
 
 
@@ -2989,7 +3071,7 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
   if (!isFinished) {
     html += '<div style="display:flex;gap:8px;margin-top:10px;">';
     if (!isParticipant) {
-      html += '<button class="btn" style="font-size:12px;padding:8px 16px;" onclick="joinChallenge(\'' + challenge.id + '\')">Rejoindre</button>';
+      html += '<button class="btn" style="font-size:12px;padding:8px 16px;" onclick="joinChallenge(\'' + challenge.id + '\',this)">Rejoindre</button>';
     } else {
       html += '<button class="btn" style="font-size:12px;padding:8px 16px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + challenge.id + '\')">📝 Mettre à jour</button>';
     }
@@ -3108,17 +3190,27 @@ async function createChallengeFromTemplate(index) {
   await createChallenge({ label: t.label, type: t.type, exercise: t.exercise, target: t.target, duration: t.duration });
 }
 
-async function joinChallenge(challengeId) {
+async function joinChallenge(challengeId, btnEl) {
   const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient) return;
+  if (!uid || !supaClient) { showToast('Connecte-toi pour rejoindre'); return; }
   try {
-    await supaClient.from('challenge_participants').insert({
-      challenge_id: challengeId,
-      user_id: uid,
-      current_value: 0
-    });
-    showToast('Tu as rejoint le défi !');
-    renderChallengesTab();
+    // Check if already joined
+    var existing = await supaClient.from('challenge_participants').select('id').eq('challenge_id', challengeId).eq('user_id', uid).maybeSingle();
+    if (existing.data) {
+      // Leave
+      await supaClient.from('challenge_participants').delete().eq('id', existing.data.id);
+      if (btnEl) { btnEl.textContent = 'Rejoindre'; btnEl.classList.remove('joined'); }
+      showToast('Challenge quitté');
+    } else {
+      // Join
+      var ins = await supaClient.from('challenge_participants').insert({ challenge_id: challengeId, user_id: uid, current_value: 0 });
+      if (ins.error) { console.error('Join error:', ins.error); showToast('Erreur ❌'); return; }
+      if (btnEl) { btnEl.textContent = 'Rejoint ✓'; btnEl.classList.add('joined'); }
+      showToast('Challenge rejoint 🏆');
+    }
+    // Refresh challenges in both V1 and V2
+    if (typeof renderChallengesTab === 'function') renderChallengesTab();
+    if (typeof renderFeedChallengesV2 === 'function') renderFeedChallengesV2();
   } catch (e) {
     console.error('joinChallenge error:', e);
     showToast('Erreur');
@@ -3407,10 +3499,12 @@ function fv2RenderCard(item, profile, uid) {
     '</div>';
 
   // Actions
+  var titleEsc = (d.title || 'Séance').replace(/'/g, "\\'");
   var actionsHtml = '<div class="fv2-actions">' +
-    '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="toggleFv2Like(\'' + item.id + '\')">🤍 <span id="fv2-like-count-' + item.id + '">0</span></button>' +
-    '<button class="fv2-action" onclick="toggleComments(\'' + item.id + '\')">💬 0</button>' +
-    '<button class="fv2-action" onclick="toggleFeedDetail(\'' + item.id + '\')">↗️</button>' +
+    '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="toggleFv2Like(\'' + item.id + '\',this)">🤍 0</button>' +
+    '<button class="fv2-action" id="fv2-comment-btn-' + item.id + '" onclick="toggleComments(\'' + item.id + '\')">💬 0</button>' +
+    '<button class="fv2-action" onclick="openDefiModal(\'' + item.id + '\',\'' + (profile.username || '').replace(/'/g, "\\'") + '\')">🏆 Défi</button>' +
+    '<button class="fv2-action" onclick="shareActivity(\'' + item.id + '\',\'' + titleEsc + '\')">↗️</button>' +
     '</div>';
 
   var initial = avatarInitial(profile.username);
@@ -3505,23 +3599,27 @@ function loadMoreFeedAmis() { _feedAmisPage++; renderFeedAmis(); }
 async function loadFv2LikeCount(activityId, uid) {
   if (!supaClient) return;
   try {
+    // Like count
     var resp = await supaClient.from('reactions').select('id, user_id, emoji').eq('activity_id', activityId);
     var reactions = resp.data || [];
     var count = reactions.length;
     var liked = reactions.some(function(r) { return r.user_id === uid; });
-    var countEl = document.getElementById('fv2-like-count-' + activityId);
     var btnEl = document.getElementById('fv2-like-' + activityId);
-    if (countEl) countEl.textContent = count;
     if (btnEl) {
       btnEl.className = 'fv2-action' + (liked ? ' liked' : '');
-      btnEl.innerHTML = (liked ? '❤️' : '🤍') + ' <span id="fv2-like-count-' + activityId + '">' + count + '</span>';
+      btnEl.innerHTML = (liked ? '❤️' : '🤍') + ' ' + count;
     }
+    // Comment count
+    var cResp = await supaClient.from('comments').select('id', { count: 'exact', head: true }).eq('activity_id', activityId);
+    var cCount = cResp.count || 0;
+    var cBtn = document.getElementById('fv2-comment-btn-' + activityId);
+    if (cBtn) cBtn.innerHTML = '💬 ' + cCount;
   } catch (e) {}
 }
 
-async function toggleFv2Like(activityId) {
+async function toggleFv2Like(activityId, btnEl) {
   var uid = await getMyUserIdAsync();
-  if (!uid || !supaClient) return;
+  if (!uid || !supaClient) { showToast('Connecte-toi pour réagir'); return; }
   try {
     var resp = await supaClient.from('reactions').select('id').eq('activity_id', activityId).eq('user_id', uid).eq('emoji', '❤️').maybeSingle();
     if (resp.data) {
@@ -3529,7 +3627,15 @@ async function toggleFv2Like(activityId) {
     } else {
       await supaClient.from('reactions').insert({ activity_id: activityId, user_id: uid, emoji: '❤️' });
     }
-    loadFv2LikeCount(activityId, uid);
+    // Recount
+    var allResp = await supaClient.from('reactions').select('id, user_id').eq('activity_id', activityId);
+    var all = allResp.data || [];
+    var count = all.length;
+    var liked = all.some(function(r) { return r.user_id === uid; });
+    if (btnEl) {
+      btnEl.innerHTML = (liked ? '❤️' : '🤍') + ' ' + count;
+      btnEl.className = 'fv2-action' + (liked ? ' liked' : '');
+    }
   } catch (e) { console.error('toggleFv2Like error:', e); }
 }
 
@@ -3694,7 +3800,7 @@ async function renderFeedChallengesV2() {
         } else {
           h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">';
           h += '<span style="font-size:11px;color:var(--sub);">Créé par ' + ((profiles[c.creator_id] || {}).username || '?') + '</span>';
-          h += '<button class="btn" style="font-size:12px;padding:8px 16px;width:auto;" onclick="joinChallenge(\'' + c.id + '\')">Rejoindre</button>';
+          h += '<button class="btn" style="font-size:12px;padding:8px 16px;width:auto;" onclick="joinChallenge(\'' + c.id + '\',this)">Rejoindre</button>';
           h += '</div>';
         }
         h += '</div>';

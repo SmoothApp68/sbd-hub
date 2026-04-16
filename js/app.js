@@ -155,6 +155,7 @@ let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, 
 var sbdChartMode = 'bars';
 let chartPerf = null;
 let perfChartMode = 'bars';
+let perfSelectedLift = null; // nom de l'exercice sélectionné en mode Progression
 let activeStatsSub = 'stats-volume';
 let currentWeekOffset = 0;
 let sparklineCharts = {};
@@ -4208,6 +4209,13 @@ function renderDotsWilks() {
 
 // ── Rubrique Performance configurable ────────────────────────
 function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
+function selectPerfLift(name) {
+  perfSelectedLift = name;
+  if (perfChartMode !== 'curve') {
+    perfChartMode = 'curve';
+  }
+  renderPerfCard();
+}
 
 // Incrément objectif selon le groupe musculaire de l'exercice
 function getPerfIncrement(exoName) {
@@ -4242,10 +4250,8 @@ function renderPerfCard() {
     : ['Développé Couché (Barre)', 'Squat (Barre)', 'Soulevé de Terre (Barre)'];
 
   // ── 1RM estimé actuel par exercice clé ──
-  var barLabels = [];
-  var barData = [];
-  var barColors = [];
   var LIFT_COLORS = ['#0A84FF','#32D74B','#FF453A','#FF9F0A','#BF5AF2'];
+  var klData = []; // { name, shortLabel, e1rm, color }
   keyLifts.forEach(function(name, i) {
     var best = 0;
     db.logs.forEach(function(log) {
@@ -4254,117 +4260,157 @@ function renderPerfCard() {
       });
     });
     if (best > 0) {
-      barLabels.push(name.replace(/\(Barre\)/,'').replace(/\(Haltères\)/,'Halt.').trim().split(' ').slice(0,2).join(' '));
-      barData.push(Math.round(best));
-      barColors.push(LIFT_COLORS[i % LIFT_COLORS.length]);
+      klData.push({
+        name: name,
+        shortLabel: name.replace(/\(Barre\)/,'').replace(/\(Haltères\)/,'Halt.').trim().split(' ').slice(0,2).join(' '),
+        e1rm: Math.round(best),
+        color: LIFT_COLORS[i % LIFT_COLORS.length]
+      });
     }
   });
 
-  // ── Progression historique du 1er key lift (courbe) ──
-  var lineData = [];
-  var lineLabels = [];
-  if (keyLifts.length > 0) {
-    var mainLift = keyLifts[0];
-    var pts = [];
-    db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; }).forEach(function(log) {
-      log.exercises.forEach(function(exo) {
-        if (matchExoName(exo.name, mainLift) && (exo.maxRM || 0) > 0) {
-          pts.push({ ts: log.timestamp, val: Math.round(exo.maxRM) });
-        }
-      });
-    });
-    // Garder max par session, 8 derniers points
-    var seen = {};
-    pts.forEach(function(p) {
-      var key = new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'});
-      if (!seen[key] || p.val > seen[key].val) seen[key] = p;
-    });
-    var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-8);
-    sorted.forEach(function(p) {
-      lineLabels.push(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
-      lineData.push(p.val);
-    });
-  }
-
-  // ── Rendu HTML + canvas ──
-  if (!barData.length) {
+  if (!klData.length) {
     el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour voir ta progression</div>';
     return;
   }
 
-  el.innerHTML =
-    '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Performance — 1RM estimé</div>' +
-    '<canvas id="chartPerfDash" style="width:100%;max-height:180px;"></canvas>' +
-    (lineData.length >= 2
-      ? '<div style="font-size:10px;color:var(--sub);margin-top:10px;text-transform:uppercase;letter-spacing:0.8px;">Progression — ' + keyLifts[0].replace(/\(Barre\)/,'').trim().split(' ').slice(0,2).join(' ') + '</div>' +
-        '<canvas id="chartPerfLine" style="width:100%;max-height:120px;margin-top:6px;"></canvas>'
-      : '');
+  // ── Toggle Barres / Progression ──
+  var toggleHtml =
+    '<div style="display:flex;gap:6px;margin-bottom:10px;">' +
+      '<button onclick="setPerfMode(\'bars\')" style="flex:1;padding:6px 0;border-radius:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;border:none;cursor:pointer;' +
+        (perfChartMode === 'bars' ? 'background:var(--accent);color:#fff;' : 'background:var(--surface);color:var(--sub);border:0.5px solid var(--border);') +
+      '">Barres</button>' +
+      '<button onclick="setPerfMode(\'curve\')" style="flex:1;padding:6px 0;border-radius:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;border:none;cursor:pointer;' +
+        (perfChartMode === 'curve' ? 'background:var(--accent);color:#fff;' : 'background:var(--surface);color:var(--sub);border:0.5px solid var(--border);') +
+      '">Progression</button>' +
+    '</div>';
+
+  // ── Boîtes rm-box avec e1RM + ratio bw ──
+  var userBw = db.user.bw || 0;
+  var selectedLift = perfSelectedLift || klData[0].name;
+  var boxesHtml = '<div class="sbd-grid" style="grid-template-columns:repeat(' + Math.min(klData.length, 3) + ',1fr);gap:6px;margin-bottom:10px;">';
+  klData.forEach(function(kl) {
+    var isSelected = (kl.name === selectedLift);
+    var borderStyle = (perfChartMode === 'curve' && isSelected) ? '1.5px solid ' + kl.color : '1px solid var(--border)';
+    var bwRatio = (userBw > 0) ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">×' + (kl.e1rm / userBw).toFixed(2) + ' bw</div>' : '';
+    boxesHtml += '<div class="rm-box" style="cursor:pointer;border:' + borderStyle + ';" onclick="selectPerfLift(\'' + kl.name.replace(/'/g, "\\'") + '\')">' +
+      '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:2px;">' + kl.shortLabel + '</div>' +
+      '<div class="rm-val" style="color:' + kl.color + ';">' + kl.e1rm + '<span style="font-size:11px;color:var(--sub);"> kg</span></div>' +
+      bwRatio +
+    '</div>';
+  });
+  boxesHtml += '</div>';
 
   // Détruire anciens charts si existants
   if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
   if (window._chartPerfLine) { try { window._chartPerfLine.destroy(); } catch(e) {} window._chartPerfLine = null; }
 
-  // Bar chart
-  requestAnimationFrame(function() {
-    var ctxBar = document.getElementById('chartPerfDash');
-    if (!ctxBar) return;
-    chartPerf = new Chart(ctxBar, {
-      type: 'bar',
-      data: {
-        labels: barLabels,
-        datasets: [{
-          data: barData,
-          backgroundColor: barColors.map(function(c){ return c + '99'; }),
-          borderColor: barColors,
-          borderWidth: 2,
-          borderRadius: 8,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: {
-          callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg'; } }
-        }},
-        scales: {
-          x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
-          y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' },
-            beginAtZero: false }
-        }
-      }
-    });
+  // ── MODE BARRES ──
+  if (perfChartMode === 'bars') {
+    var barLabels = klData.map(function(kl) { return kl.shortLabel; });
+    var barDataArr = klData.map(function(kl) { return kl.e1rm; });
+    var barColors = klData.map(function(kl) { return kl.color; });
 
-    // Line chart (progression)
-    if (lineData.length >= 2) {
-      var ctxLine = document.getElementById('chartPerfLine');
-      if (!ctxLine) return;
-      window._chartPerfLine = new Chart(ctxLine, {
-        type: 'line',
+    el.innerHTML = toggleHtml + boxesHtml +
+      '<div style="height:200px;"><canvas id="chartPerfDash"></canvas></div>';
+
+    requestAnimationFrame(function() {
+      var ctxBar = document.getElementById('chartPerfDash');
+      if (!ctxBar) return;
+      chartPerf = new Chart(ctxBar, {
+        type: 'bar',
         data: {
-          labels: lineLabels,
+          labels: barLabels,
           datasets: [{
-            data: lineData,
-            borderColor: barColors[0] || '#0A84FF',
-            backgroundColor: (barColors[0] || '#0A84FF') + '22',
+            data: barDataArr,
+            backgroundColor: barColors.map(function(c){ return c + '99'; }),
+            borderColor: barColors,
             borderWidth: 2,
-            pointRadius: 4,
-            pointBackgroundColor: barColors[0] || '#0A84FF',
-            fill: true,
-            tension: 0.35
+            borderRadius: 8,
           }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: {
-            callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg e1RM'; } }
+            callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg'; } }
           }},
           scales: {
-            x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
+            x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
             y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' },
-              beginAtZero: false }
+              beginAtZero: true }
           }
         }
       });
-    }
+    });
+    return;
+  }
+
+  // ── MODE PROGRESSION (courbe individuelle) ──
+  var curveLift = selectedLift;
+  var curveColor = LIFT_COLORS[0];
+  klData.forEach(function(kl) { if (kl.name === curveLift) curveColor = kl.color; });
+
+  var pts = [];
+  db.logs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; }).forEach(function(log) {
+    log.exercises.forEach(function(exo) {
+      if (matchExoName(exo.name, curveLift) && (exo.maxRM || 0) > 0) {
+        pts.push({ ts: log.timestamp, val: Math.round(exo.maxRM) });
+      }
+    });
+  });
+  // Garder max par session, 8 derniers points
+  var seen = {};
+  pts.forEach(function(p) {
+    var key = new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'});
+    if (!seen[key] || p.val > seen[key].val) seen[key] = p;
+  });
+  var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-8);
+  var lineLabels = [];
+  var lineData = [];
+  sorted.forEach(function(p) {
+    lineLabels.push(new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'}));
+    lineData.push(p.val);
+  });
+
+  if (lineData.length < 2) {
+    el.innerHTML = toggleHtml + boxesHtml +
+      '<div style="text-align:center;padding:16px;color:var(--sub);font-size:12px;">Pas assez de données pour la courbe de progression</div>';
+    return;
+  }
+
+  el.innerHTML = toggleHtml + boxesHtml +
+    '<div style="height:200px;"><canvas id="chartPerfLine"></canvas></div>';
+
+  requestAnimationFrame(function() {
+    var ctxLine = document.getElementById('chartPerfLine');
+    if (!ctxLine) return;
+    window._chartPerfLine = new Chart(ctxLine, {
+      type: 'line',
+      data: {
+        labels: lineLabels,
+        datasets: [{
+          data: lineData,
+          borderColor: curveColor,
+          backgroundColor: curveColor + '22',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: curveColor,
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg e1RM'; } }
+        }},
+        scales: {
+          x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: '#86868B', font: { size: 10 }, callback: function(v) { return v + ' kg'; } }, grid: { color: 'rgba(255,255,255,0.05)' },
+            beginAtZero: false }
+        }
+      }
+    });
   });
 }
 

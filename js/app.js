@@ -3329,12 +3329,11 @@ function renderWeekCard() {
   const streak = weekStreak.current;
   const streakRecord = weekStreak.record;
 
-  // Score de forme (0-100)
+  // Score de forme (0-100) — même calcul que Profil > Corps
   let formScore = null;
   try {
-    const fs = computeFormScoreComposite();
-    if (fs && typeof fs.score === 'number') formScore = fs.score;
-    else if (typeof fs === 'number') formScore = fs;
+    const fs = calcFormScore();
+    if (fs && typeof fs.total === 'number') formScore = fs.total;
   } catch(e) {}
   const scoreColor = formScore === null ? 'var(--sub)' : formScore >= 70 ? 'var(--green)' : formScore >= 40 ? 'var(--orange)' : 'var(--red)';
 
@@ -4315,9 +4314,11 @@ function renderPerfCard() {
       log.exercises.forEach(function(exo) {
         if (matchExoName(exo.name, name)) {
           if ((exo.maxRM || 0) > bestE1rm) bestE1rm = exo.maxRM;
-          (exo.sets || []).forEach(function(s) {
-            if (s.reps === 1 && (s.weight || 0) > bestReal) bestReal = s.weight;
-          });
+          if (Array.isArray(exo.sets)) {
+            exo.sets.forEach(function(s) {
+              if (s.reps === 1 && (s.weight || 0) > bestReal) bestReal = s.weight;
+            });
+          }
         }
       });
     });

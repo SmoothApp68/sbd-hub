@@ -8280,9 +8280,17 @@ function deleteRecord(exoName, isSBD, sbdType) {
 // COACH ALGO — render dans tab-ai
 // ============================================================
 function renderCoachAlgoAI() {
-  const el = document.getElementById('coachAlgoContentAI'); if (!el) return;
-  if (db.logs.length === 0) { el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>'; return; }
-  el.innerHTML = generateCoachAlgoMessage();
+  var el = document.getElementById('coachAlgoContentAI');
+  if (!el) return;
+  if (!db.logs || db.logs.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:12px 0;color:var(--sub);font-size:13px;line-height:1.7;">Aucune séance importée.<br><span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>';
+    return;
+  }
+  if (typeof coachGetFullAnalysis === 'function') {
+    el.innerHTML = coachGetFullAnalysis();
+  } else {
+    el.innerHTML = generateCoachAlgoMessage();
+  }
 }
 
 // ============================================================

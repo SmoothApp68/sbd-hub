@@ -1641,7 +1641,7 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
-  if (id === 'seances-programme') renderProgramBuilder();
+  if (id === 'seances-programme') { renderProgrammeV2(); renderProgramBuilder(); }
   if (id === 'seances-coach') renderCoachTab();
 }
 
@@ -1705,7 +1705,7 @@ function showTab(tabId, opts) {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
     else renderCorpsTab();
   }
-  if (tabId==='tab-social') { initSocialTab(); if (typeof showSocialSub === 'function') showSocialSub('social-feed', document.querySelector('.social-sub-tab[data-sub="social-feed"]')); }
+  if (tabId==='tab-social') { initSocialTab(); }
 
   // Restore scroll position for the new tab
   requestAnimationFrame(function() { window.scrollTo(0, _scrollPositions[tabId] || 0); });
@@ -2096,20 +2096,58 @@ function calcTotalXP() {
 }
 
 function calcStreak() {
+  // Weekly calendar streak: ISO weeks (Mon-Sun) with ≥1 session
   if (!db.logs.length) return 0;
-  const now = Date.now();
-  const weekMs = 7 * 86400000;
-  // Build Set of week indices that have sessions — single pass O(n)
-  const weeksWithSessions = new Set();
-  db.logs.forEach(l => {
-    const weekIdx = Math.floor((now - l.timestamp) / weekMs);
-    if (weekIdx >= 0 && weekIdx < 530) weeksWithSessions.add(weekIdx);
-  });
-  let streak = 0;
-  for (let w = 0; w < 530; w++) {
-    if (weeksWithSessions.has(w)) streak++;
-    else if (w > 0) break;
+
+  function getISOWeekMonday(ts) {
+    var d = new Date(ts);
+    var day = d.getDay(); // 0=dim, 1=lun
+    var diff = (day === 0 ? -6 : 1 - day);
+    var monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().slice(0, 10);
   }
+
+  var now = Date.now();
+  var currentWeek = getISOWeekMonday(now);
+
+  // Collect all weeks that have at least 1 session
+  var weeksWithSession = new Set();
+  db.logs.forEach(function(log) {
+    var ts = log.timestamp || new Date(log.date).getTime();
+    if (ts) weeksWithSession.add(getISOWeekMonday(ts));
+  });
+
+  // Count consecutive weeks going backward from current week
+  function countFromWeek(startWeek) {
+    var streak = 0;
+    var checkWeek = startWeek;
+    while (weeksWithSession.has(checkWeek)) {
+      streak++;
+      var d = new Date(checkWeek);
+      d.setDate(d.getDate() - 7);
+      checkWeek = d.toISOString().slice(0, 10);
+    }
+    return streak;
+  }
+
+  var streak = countFromWeek(currentWeek);
+
+  // If current week has no session yet, check from last week (don't break streak)
+  if (!weeksWithSession.has(currentWeek)) {
+    var lastWeek = new Date(currentWeek);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    var lastWeekKey = lastWeek.toISOString().slice(0, 10);
+    if (weeksWithSession.has(lastWeekKey)) {
+      streak = countFromWeek(lastWeekKey);
+    }
+  }
+
+  // Store in db for cloud sync
+  if (!db.weeklyStreak || db.weeklyStreak !== streak) db.weeklyStreak = streak;
+  if (!db.weeklyStreakRecord || streak > db.weeklyStreakRecord) db.weeklyStreakRecord = streak;
+
   return streak;
 }
 
@@ -3282,35 +3320,61 @@ function getWeekKey(ts) {
 function computeWeekStreak() {
   if (!db.logs || !db.logs.length) return { current: 0, record: 0 };
 
-  const weekSet = new Set(db.logs.map(l => getWeekKey(l.timestamp)));
-  const weeks = [...weekSet].sort().reverse();
-
-  const thisWeek = getWeekKey(Date.now());
-  const lastWeek = getWeekKey(Date.now() - 7 * 86400000);
-
-  let current = 0;
-  if (weeks[0] === thisWeek || weeks[0] === lastWeek) {
-    current = 1;
-    for (let i = 1; i < weeks.length; i++) {
-      const prev = new Date(weeks[i-1]);
-      const curr = new Date(weeks[i]);
-      const diffWeeks = Math.round((prev - curr) / (7 * 86400000));
-      if (diffWeeks === 1) current++;
-      else break;
-    }
+  function getISOMonday(ts) {
+    var d = new Date(ts);
+    var day = d.getDay();
+    var diff = (day === 0 ? -6 : 1 - day);
+    var monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().slice(0, 10);
   }
 
-  const sorted = [...weekSet].sort();
-  let maxStreak = 1, cur = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i-1]);
-    const curr = new Date(sorted[i]);
-    const diffWeeks = Math.round((curr - prev) / (7 * 86400000));
+  var weeksWithSession = new Set(db.logs.map(function(l) {
+    return getISOMonday(l.timestamp || new Date(l.date).getTime());
+  }));
+
+  var currentWeek = getISOMonday(Date.now());
+
+  // Count consecutive weeks backward
+  function countFrom(startWeek) {
+    var s = 0, check = startWeek;
+    while (weeksWithSession.has(check)) {
+      s++;
+      var d = new Date(check);
+      d.setDate(d.getDate() - 7);
+      check = d.toISOString().slice(0, 10);
+    }
+    return s;
+  }
+
+  var current = countFrom(currentWeek);
+  if (!weeksWithSession.has(currentWeek)) {
+    var lw = new Date(currentWeek);
+    lw.setDate(lw.getDate() - 7);
+    var lwKey = lw.toISOString().slice(0, 10);
+    if (weeksWithSession.has(lwKey)) current = countFrom(lwKey);
+  }
+
+  // Compute all-time record
+  var sorted = Array.from(weeksWithSession).sort();
+  var maxStreak = sorted.length ? 1 : 0;
+  var cur = 1;
+  for (var i = 1; i < sorted.length; i++) {
+    var prev = new Date(sorted[i - 1]);
+    var curr = new Date(sorted[i]);
+    var diffWeeks = Math.round((curr - prev) / (7 * 86400000));
     if (diffWeeks === 1) { cur++; if (cur > maxStreak) maxStreak = cur; }
     else cur = 1;
   }
 
-  return { current, record: Math.max(maxStreak, current) };
+  var record = Math.max(maxStreak, current, db.weeklyStreakRecord || 0);
+
+  // Persist
+  db.weeklyStreak = current;
+  if (record > (db.weeklyStreakRecord || 0)) db.weeklyStreakRecord = record;
+
+  return { current: current, record: record };
 }
 
 // ── Carte "Cette semaine" (nouvelle homepage) ────────────────
@@ -5611,6 +5675,191 @@ function getSuspiciousRecordsSummary() {
 
 // ============================================================
 // ============================================================
+// ============================================================
+// PROGRAMME V2 — Mode Lecture + Édition (drag & drop)
+// ============================================================
+var _pgmEditMode = false;
+var _pgmOriginalDays = null;
+
+function renderProgrammeV2() {
+  var container = document.getElementById('programmeV2Content');
+  if (!container) return;
+
+  var wp = db.weeklyPlan;
+  if (!wp || !wp.days || !wp.days.length) {
+    container.innerHTML = '';
+    return;
+  }
+
+  var now = new Date();
+  var todayIdx = (now.getDay() + 6) % 7; // 0=Lundi, 6=Dimanche
+  var dayLabels = ['L', 'M', 'Me', 'J', 'V', 'Sa', 'Di'];
+
+  // Determine which days are done this week
+  var weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - todayIdx);
+  weekStart.setHours(0, 0, 0, 0);
+  var doneDays = new Set();
+  if (db.logs) {
+    db.logs.forEach(function(log) {
+      var d = new Date(log.timestamp || log.date);
+      if (d >= weekStart && d <= now) {
+        var dIdx = (d.getDay() + 6) % 7;
+        doneDays.add(dIdx);
+      }
+    });
+  }
+
+  var h = '';
+
+  // Header
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+  h += '<div style="font-size:16px;font-weight:800;color:var(--text);">📅 Programme Semaine' + (wp.week ? ' ' + wp.week : '') + '</div>';
+  if (!_pgmEditMode) {
+    h += '<button onclick="startPgmEdit()" style="background:var(--surface);border:1px solid var(--border);color:var(--blue);padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">Modifier le planning</button>';
+  }
+  h += '</div>';
+
+  // Edit mode bar
+  if (_pgmEditMode) {
+    h += '<div class="pgm-edit-bar">';
+    h += '<button onclick="savePgmEdit()" style="background:var(--green);border:none;color:#000;font-weight:700;">✓ Enregistrer</button>';
+    h += '<button onclick="cancelPgmEdit()" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);">Annuler</button>';
+    h += '<button onclick="resetPgmEdit()" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);">↺ Réinitialiser</button>';
+    h += '</div>';
+    h += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;text-align:center;">Glisse-dépose les jours pour réorganiser ta semaine</div>';
+  }
+
+  // Day cards
+  h += '<div class="pgm-days" id="pgmDaysContainer">';
+  wp.days.forEach(function(day, idx) {
+    var isDone = doneDays.has(idx);
+    var isToday = idx === todayIdx;
+    var isRest = day.rest;
+    var stateClass = isRest ? 'rest' : isDone ? 'done' : isToday ? 'today' : '';
+    var badgeClass = isRest ? 'rest-badge' : isDone ? 'done' : isToday ? 'today' : 'upcoming';
+    var statusClass = isRest ? 'rest-status' : isDone ? 'done' : isToday ? 'today' : 'upcoming';
+    var statusText = isRest ? '— Repos' : isDone ? '✓ Fait' : isToday ? '← Aujourd\'hui' : 'À venir';
+    var exos = day.exercises || [];
+    var exoCount = exos.length;
+    var estDuration = exoCount * 8; // ~8min per exercise estimate
+
+    h += '<div class="pgm-day ' + stateClass + '" data-day-idx="' + idx + '"' +
+      (_pgmEditMode ? ' draggable="true" ondragstart="pgmDragStart(event,' + idx + ')" ondragend="pgmDragEnd(event)" ondragover="pgmDragOver(event)" ondragleave="pgmDragLeave(event)" ondrop="pgmDrop(event,' + idx + ')"' : '') + '>';
+    h += '<div class="pgm-day-header">';
+    h += '<div class="pgm-day-badge ' + badgeClass + '">' + dayLabels[idx] + '</div>';
+    h += '<div class="pgm-day-info">';
+    h += '<div class="pgm-day-title">' + (day.title || (isRest ? '😴 Repos' : 'Séance')) + '</div>';
+    if (!isRest) h += '<div class="pgm-day-sub">' + exoCount + ' exercice' + (exoCount > 1 ? 's' : '') + (estDuration > 0 ? ' · ~' + estDuration + 'min' : '') + '</div>';
+    h += '</div>';
+    h += '<div class="pgm-day-status ' + statusClass + '">' + statusText + '</div>';
+    h += '</div>';
+
+    // Today: show first 3 exercises + GO button
+    if (isToday && !isRest && !_pgmEditMode && exos.length > 0) {
+      h += '<div class="pgm-today-exos">';
+      exos.slice(0, 3).forEach(function(exo) {
+        var detail = '';
+        if (exo.weight && exo.sets && exo.reps) {
+          detail = exo.weight + 'kg · ' + exo.sets + '×' + exo.reps;
+        } else if (exo.sets && exo.reps) {
+          detail = exo.sets + '×' + exo.reps;
+        } else if (exo.sets) {
+          detail = exo.sets + ' séries';
+        }
+        h += '<div class="pgm-today-exo"><span class="pgm-today-exo-name">' + (exo.name || exo.exercise || '') + '</span><span class="pgm-today-exo-detail">' + detail + '</span></div>';
+      });
+      if (exos.length > 3) h += '<div style="font-size:11px;color:var(--sub);padding:2px 0;">+' + (exos.length - 3) + ' exercices</div>';
+      h += '<button class="pgm-go-btn" onclick="showSeancesSub(\'seances-go\',document.querySelector(\'.stats-sub-pill:nth-child(2)\'))">GO 💪</button>';
+      h += '</div>';
+    }
+
+    h += '</div>';
+  });
+  h += '</div>';
+
+  container.innerHTML = h;
+}
+
+function startPgmEdit() {
+  _pgmEditMode = true;
+  _pgmOriginalDays = JSON.parse(JSON.stringify(db.weeklyPlan.days));
+  renderProgrammeV2();
+}
+
+function cancelPgmEdit() {
+  if (_pgmOriginalDays) db.weeklyPlan.days = _pgmOriginalDays;
+  _pgmEditMode = false;
+  _pgmOriginalDays = null;
+  renderProgrammeV2();
+}
+
+async function savePgmEdit() {
+  _pgmEditMode = false;
+  _pgmOriginalDays = null;
+  saveDB();
+  renderProgrammeV2();
+  if (typeof syncToCloud === 'function') syncToCloud(true);
+  showToast('✓ Planning sauvegardé');
+}
+
+function resetPgmEdit() {
+  if (!db.weeklyPlan) return;
+  if (db.weeklyPlan.original) {
+    db.weeklyPlan.days = JSON.parse(JSON.stringify(db.weeklyPlan.original));
+    renderProgrammeV2();
+    showToast('Planning réinitialisé');
+  } else {
+    showToast('Pas de plan original disponible');
+  }
+}
+
+// Drag & Drop handlers
+function pgmDragStart(e, idx) {
+  e.dataTransfer.setData('text/plain', idx.toString());
+  e.target.classList.add('dragging');
+}
+
+function pgmDragEnd(e) {
+  e.target.classList.remove('dragging');
+}
+
+function pgmDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function pgmDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function pgmDrop(e, toIdx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+  if (isNaN(fromIdx) || fromIdx === toIdx) return;
+  pgmSwapDays(fromIdx, toIdx);
+}
+
+function pgmSwapDays(a, b) {
+  var days = db.weeklyPlan.days;
+  if (!days || !days[a] || !days[b]) return;
+  // Swap content, keep day label
+  var tmpTitle = days[a].title;
+  var tmpExos = days[a].exercises;
+  var tmpRest = days[a].rest;
+  var tmpNote = days[a].coachNote;
+  days[a].title = days[b].title;
+  days[a].exercises = days[b].exercises;
+  days[a].rest = days[b].rest;
+  days[a].coachNote = days[b].coachNote;
+  days[b].title = tmpTitle;
+  days[b].exercises = tmpExos;
+  days[b].rest = tmpRest;
+  days[b].coachNote = tmpNote;
+  renderProgrammeV2();
+}
+
 // PROGRAMME BUILDER — Guided + Manual paths
 // ============================================================
 var _pbState = null;

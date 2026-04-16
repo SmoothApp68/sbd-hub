@@ -191,27 +191,3 @@ function coachGetFullAnalysis() {
 
   return '<div class="ai-response-content">' + sections.map(function(s) { return '<div class="ai-section">'+s+'</div>'; }).join('') + '</div><div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
 }
-
-// ── HOOK : surcharge renderCoachAlgoAI si elle existe ──
-// Appelé après le chargement de app.js pour enrichir le coach
-function coachInitEnhanced() {
-  // Si coachGetFullAnalysis est disponible, on l'utilise en priorité
-  var originalRender = typeof renderCoachAlgoAI === 'function' ? renderCoachAlgoAI : null;
-  window.renderCoachAlgoAI = function() {
-    var el = document.getElementById('coachAlgoContentAI');
-    if (!el) return;
-    if (!window.db || !window.db.logs || window.db.logs.length === 0) {
-      if (originalRender) originalRender();
-      return;
-    }
-    el.innerHTML = coachGetFullAnalysis();
-  };
-}
-
-// S'initialise après le DOM (app.js appelle DOMContentLoaded)
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', function() {
-    // Délai pour laisser app.js se charger en premier
-    setTimeout(coachInitEnhanced, 100);
-  });
-}

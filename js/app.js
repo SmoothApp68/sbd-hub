@@ -3270,6 +3270,49 @@ function refreshUI() {
   else { renderDash(); renderProgramViewer(); }
 }
 
+// ── Streak de semaines consécutives (pour homepage) ──────────
+function getWeekKey(ts) {
+  const d = new Date(ts);
+  const day = d.getDay() || 7; // 1=lun, 7=dim
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - (day - 1));
+  return monday.toISOString().slice(0, 10);
+}
+
+function computeWeekStreak() {
+  if (!db.logs || !db.logs.length) return { current: 0, record: 0 };
+
+  const weekSet = new Set(db.logs.map(l => getWeekKey(l.timestamp)));
+  const weeks = [...weekSet].sort().reverse();
+
+  const thisWeek = getWeekKey(Date.now());
+  const lastWeek = getWeekKey(Date.now() - 7 * 86400000);
+
+  let current = 0;
+  if (weeks[0] === thisWeek || weeks[0] === lastWeek) {
+    current = 1;
+    for (let i = 1; i < weeks.length; i++) {
+      const prev = new Date(weeks[i-1]);
+      const curr = new Date(weeks[i]);
+      const diffWeeks = Math.round((prev - curr) / (7 * 86400000));
+      if (diffWeeks === 1) current++;
+      else break;
+    }
+  }
+
+  const sorted = [...weekSet].sort();
+  let maxStreak = 1, cur = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i-1]);
+    const curr = new Date(sorted[i]);
+    const diffWeeks = Math.round((curr - prev) / (7 * 86400000));
+    if (diffWeeks === 1) { cur++; if (cur > maxStreak) maxStreak = cur; }
+    else cur = 1;
+  }
+
+  return { current, record: Math.max(maxStreak, current) };
+}
+
 // ── Carte "Cette semaine" (nouvelle homepage) ────────────────
 function renderWeekCard() {
   const el = document.getElementById('dashWeekContent');
@@ -3281,8 +3324,10 @@ function renderWeekCard() {
   const todayName = DAYS_FULL[todayIdx];
   const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Streak
-  const streak = db.questStreak || 0;
+  // Streak de semaines consécutives
+  const weekStreak = computeWeekStreak();
+  const streak = weekStreak.current;
+  const streakRecord = weekStreak.record;
 
   // Score de forme (0-100)
   let formScore = null;
@@ -3349,13 +3394,13 @@ function renderWeekCard() {
 
   // Aujourd'hui card
   const todayHtml = !isRestDay && todayLabel
-    ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;">' +
+    ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;overflow:hidden;">' +
         '<div style="width:32px;height:32px;background:rgba(10,132,255,0.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🏋️</div>' +
-        '<div style="flex:1;">' +
+        '<div style="flex:1;min-width:0;">' +
           '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">Aujourd\'hui</div>' +
           '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + todayLabel + '</div>' +
         '</div>' +
-        '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>' +
+        '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>' +
       '</div>'
     : '<div style="text-align:center;padding:8px;color:var(--sub);font-size:12px;">😴 Repos complet</div>';
 
@@ -3367,13 +3412,6 @@ function renderWeekCard() {
         '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + dateStr.charAt(0).toUpperCase() + dateStr.slice(1) + '</div>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">' +
-        (streak > 0
-          ? '<div style="display:flex;align-items:center;gap:4px;background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.3);border-radius:20px;padding:4px 9px;">' +
-              '<span style="font-size:12px;">🔥</span>' +
-              '<span style="font-size:13px;font-weight:800;color:#ff9f0a;">' + streak + '</span>' +
-              '<span style="font-size:8px;color:rgba(255,159,10,0.6);">jours</span>' +
-            '</div>'
-          : '') +
         (formScore !== null
           ? '<div style="display:flex;align-items:center;gap:5px;background:rgba(50,215,75,0.05);border:0.5px solid rgba(50,215,75,0.2);border-radius:20px;padding:4px 9px;">' +
               '<div style="width:6px;height:6px;border-radius:50%;background:' + scoreColor + ';flex-shrink:0;"></div>' +
@@ -3403,6 +3441,22 @@ function renderWeekCard() {
       '</div>' +
     '</div>' +
 
+    // Streak semaines
+    (streak > 0
+      ? '<div style="display:flex;align-items:center;gap:6px;background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.3);border-radius:12px;padding:6px 12px;margin-bottom:12px;">' +
+          '<span style="font-size:16px;">🔥</span>' +
+          '<div>' +
+            '<div style="display:flex;align-items:baseline;gap:4px;">' +
+              '<span style="font-size:18px;font-weight:900;color:#ff9f0a;">' + streak + '</span>' +
+              '<span style="font-size:9px;color:rgba(255,159,10,0.6);">sem. consécutives</span>' +
+            '</div>' +
+            (streakRecord > streak
+              ? '<div style="font-size:9px;color:#555;">Record : ' + streakRecord + ' sem.</div>'
+              : '<div style="font-size:9px;color:#32d74b;">🏆 Record en cours !</div>') +
+          '</div>' +
+        '</div>'
+      : '') +
+
     // Aujourd'hui + GO
     todayHtml;
 }
@@ -3419,8 +3473,10 @@ function renderDash() {
     }
   }
 
-  renderWeekCard();
-  renderPerfCard();
+  requestAnimationFrame(function() {
+    renderWeekCard();
+    renderPerfCard();
+  });
 }
 
 // ============================================================

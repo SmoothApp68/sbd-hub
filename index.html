@@ -1212,6 +1212,117 @@
     .lb-row.me{background:rgba(10,132,255,0.06);border-radius:10px;padding:10px 8px;margin:0 -8px;}
     .lb-empty{text-align:center;padding:30px;color:var(--sub);font-size:13px;}
 
+    /* ── Feed V2 Sub-tabs (pills scrollables) ── */
+    .feed-pills{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+    .feed-pills::-webkit-scrollbar{display:none;}
+    .feed-pill{flex-shrink:0;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
+    .feed-pill.active{background:var(--accent);color:white;border-color:var(--accent);}
+    .feed-sub-content{display:none;animation:fadeIn 0.3s ease;}
+    .feed-sub-content.active{display:block;}
+    /* ── Feed V2 Post Card ── */
+    .fv2-card{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;padding:16px;margin-bottom:12px;animation:slideUp 0.4s ease-out both;}
+    .fv2-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .fv2-avatar{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0;cursor:pointer;}
+    .fv2-user-info{flex:1;min-width:0;}
+    .fv2-username{font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;}
+    .fv2-badge-founder{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#C8850A,#E8B830);color:#3A2800;padding:1px 6px;border-radius:6px;}
+    .fv2-badge-member{display:inline-flex;align-items:center;font-size:10px;font-weight:600;color:var(--sub);padding:1px 6px;border-radius:6px;background:rgba(255,255,255,0.05);}
+    .fv2-subtitle{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .fv2-menu{background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background 0.2s;}
+    .fv2-menu:hover{background:var(--surface);}
+    .fv2-topset{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+    .fv2-topset-left{font-size:12px;color:var(--text);}
+    .fv2-topset-left strong{color:var(--blue);}
+    .fv2-topset-right{font-size:13px;font-weight:700;color:var(--orange);text-align:right;}
+    .fv2-topset-label{font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;}
+    .fv2-exos{margin-bottom:10px;}
+    .fv2-exo-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;}
+    .fv2-exo-name{color:var(--text);display:flex;align-items:center;gap:4px;}
+    .fv2-exo-detail{color:var(--sub);font-weight:600;white-space:nowrap;}
+    .fv2-exo-more{font-size:11px;color:var(--sub);padding:4px 0;font-style:italic;}
+    .fv2-stats{display:flex;gap:16px;font-size:12px;color:var(--sub);padding:8px 0;margin-bottom:6px;}
+    .fv2-stats span{display:flex;align-items:center;gap:4px;}
+    .fv2-stats strong{color:var(--text);font-weight:700;}
+    .fv2-actions{display:flex;align-items:center;gap:4px;padding-top:8px;border-top:1px solid var(--border);}
+    .fv2-action{background:none;border:none;color:var(--sub);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:8px;transition:all 0.2s;font-weight:500;}
+    .fv2-action:hover{background:var(--surface);color:var(--text);}
+    .fv2-action.liked{color:var(--red);}
+    .fv2-invite-card{background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);border:1px solid rgba(10,132,255,0.2);border-radius:14px;padding:16px;text-align:center;margin-top:20px;}
+    .fv2-invite-code{font-family:monospace;font-size:24px;font-weight:800;letter-spacing:3px;color:var(--blue);margin:8px 0;}
+    /* ── Challenge V2 Cards ── */
+    .ch2-card{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;padding:16px;margin-bottom:12px;}
+    .ch2-card.active-joined{border-color:rgba(50,215,75,0.3);}
+    .ch2-card.open-card{border-color:rgba(10,132,255,0.3);}
+    .ch2-card.finished{opacity:0.7;}
+    .ch2-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+    .ch2-status{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;}
+    .ch2-status.active{color:var(--green);}
+    .ch2-status.open{color:var(--blue);}
+    .ch2-status.done{color:var(--sub);}
+    .ch2-time{font-size:11px;color:var(--sub);font-weight:600;}
+    .ch2-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
+    .ch2-meta{font-size:11px;color:var(--sub);margin-bottom:10px;}
+    .ch2-progress{margin:10px 0;}
+    .ch2-bar-bg{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0;}
+    .ch2-bar-fill{height:100%;border-radius:3px;transition:width 0.4s ease;}
+    .ch2-podium-row{font-size:12px;color:var(--sub);margin-top:6px;}
+    .ch2-create{border:2px dashed var(--border);background:transparent;border-radius:14px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:12px;}
+    .ch2-create:hover{border-color:var(--blue);background:rgba(10,132,255,0.04);}
+    /* ── Leaderboard V2 ── */
+    .lb2-period-pills{display:flex;gap:6px;margin-bottom:12px;}
+    .lb2-category-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:16px;scrollbar-width:none;}
+    .lb2-category-pills::-webkit-scrollbar{display:none;}
+    .lb2-podium{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin-bottom:20px;padding:20px 0 10px;}
+    .lb2-podium-bar{display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .lb2-podium-bar .bar{border-radius:8px 8px 0 0;width:60px;transition:height 0.4s ease;}
+    .lb2-podium-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;}
+    .lb2-podium-name{font-size:11px;font-weight:600;color:var(--text);max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
+    .lb2-podium-score{font-size:13px;font-weight:800;color:var(--blue);}
+    .lb2-podium-medal{font-size:18px;}
+    .lb2-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+    .lb2-row:last-child{border-bottom:none;}
+    .lb2-row.me{background:rgba(10,132,255,0.06);border-radius:10px;padding:10px 8px;margin:0 -8px;}
+    .lb2-rank{width:28px;font-size:14px;font-weight:700;color:var(--sub);text-align:center;}
+    .lb2-row-avatar{width:32px;height:32px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0;}
+    .lb2-row-info{flex:1;min-width:0;}
+    .lb2-row-name{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lb2-row-stats{font-size:10px;color:var(--sub);}
+    .lb2-row-score{font-size:14px;font-weight:700;color:var(--blue);}
+    .lb2-row-delta{font-size:10px;font-weight:600;margin-left:4px;}
+    .lb2-row-delta.up{color:var(--green);}
+    .lb2-row-delta.down{color:var(--red);}
+    /* ── Programme V2 (mode lecture + édition) ── */
+    .pgm-days{display:flex;flex-direction:column;gap:10px;}
+    .pgm-day{background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:14px;padding:14px 16px;transition:all 0.2s;}
+    .pgm-day.today{border-color:var(--accent);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,var(--card) 100%);}
+    .pgm-day.done{border-color:rgba(50,215,75,0.25);}
+    .pgm-day.rest{opacity:0.5;}
+    .pgm-day-header{display:flex;align-items:center;gap:10px;}
+    .pgm-day-badge{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
+    .pgm-day-badge.done{background:rgba(50,215,75,0.15);color:var(--green);}
+    .pgm-day-badge.today{background:rgba(10,132,255,0.15);color:var(--accent);}
+    .pgm-day-badge.upcoming{background:rgba(255,255,255,0.05);color:var(--sub);}
+    .pgm-day-badge.rest-badge{background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.2);}
+    .pgm-day-info{flex:1;min-width:0;}
+    .pgm-day-title{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .pgm-day-sub{font-size:11px;color:var(--sub);margin-top:2px;}
+    .pgm-day-status{font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+    .pgm-day-status.done{color:var(--green);}
+    .pgm-day-status.today{color:var(--accent);}
+    .pgm-day-status.upcoming{color:var(--sub);}
+    .pgm-day-status.rest-status{color:rgba(255,255,255,0.2);}
+    .pgm-today-exos{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);}
+    .pgm-today-exo{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;}
+    .pgm-today-exo-name{color:var(--text);}
+    .pgm-today-exo-detail{color:var(--sub);font-weight:600;}
+    .pgm-go-btn{margin-top:10px;width:100%;padding:12px;background:var(--accent);border:none;color:white;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:transform 0.15s;}
+    .pgm-go-btn:active{transform:scale(0.97);}
+    /* Programme edit mode */
+    .pgm-edit-bar{display:flex;gap:8px;margin-bottom:14px;}
+    .pgm-edit-bar button{flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+    .pgm-day.dragging{opacity:0.5;transform:scale(0.97);}
+    .pgm-day.drag-over{border-color:var(--accent);border-width:2px;background:rgba(10,132,255,0.08);}
+
     /* Friends */
     .friends-search{position:relative;margin-bottom:16px;}
     .friends-search input{margin-bottom:0;padding-right:40px;}
@@ -1808,6 +1919,7 @@
       </div>
     </div>
     <div id="seances-programme" class="seances-sub-section">
+      <div id="programmeV2Content"></div>
       <div id="programBuilderContent"></div>
     </div>
     <div id="seances-go" class="seances-sub-section">
@@ -2325,115 +2437,93 @@
   <!-- COMMUNAUTÉ -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-social" class="content-section">
-    <div class="social-sub-tabs">
-      <button class="social-sub-tab active" data-sub="social-feed" onclick="showSocialSub('social-feed',this)">📰 Feed</button>
-      <button class="social-sub-tab" data-sub="social-leaderboard" onclick="showSocialSub('social-leaderboard',this)">🏆 Classement</button>
-      <button class="social-sub-tab" data-sub="social-challenges" onclick="showSocialSub('social-challenges',this)">🔥 Défis</button>
+    <!-- Feed V2 — 4 pill sub-tabs -->
+    <div class="feed-pills" id="feedPills">
+      <button class="feed-pill active" data-feed="feed-amis" onclick="showFeedSub('feed-amis',this)">Amis</button>
+      <button class="feed-pill" data-feed="feed-communaute" onclick="showFeedSub('feed-communaute',this)">Communaut&eacute;</button>
+      <button class="feed-pill" data-feed="feed-challenges" onclick="showFeedSub('feed-challenges',this)">Challenges</button>
+      <button class="feed-pill" data-feed="feed-classement" onclick="showFeedSub('feed-classement',this)">Classement</button>
     </div>
 
-    <!-- Challenges Sub-tab -->
-    <div id="social-challenges" class="social-sub-content">
-      <div id="challengesCreateBtn" style="margin-bottom:16px;">
-        <button class="btn" onclick="showCreateChallengeModal()" style="background:linear-gradient(135deg,var(--orange,#ff9500),var(--red,#ff3b30));border:none;">🔥 Créer un défi</button>
+    <!-- Sub: Amis -->
+    <div id="feed-amis" class="feed-sub-content active">
+      <div id="feedAmisContent"><div style="text-align:center;padding:30px;color:var(--sub);">Chargement...</div></div>
+      <div id="feedAmisLoadMore" style="display:none;">
+        <button class="feed-load-more" onclick="loadMoreFeedAmis()">Voir plus</button>
       </div>
-      <div id="challengeTemplates"></div>
-      <div id="challengesActiveList"></div>
-      <div id="challengesFinishedList"></div>
+      <div id="feedAmisInvite"></div>
     </div>
 
-    <!-- Feed Sub-tab -->
-    <div id="social-feed" class="social-sub-content active">
+    <!-- Sub: Communaute -->
+    <div id="feed-communaute" class="feed-sub-content">
+      <div id="feedCommunauteContent"><div style="text-align:center;padding:30px;color:var(--sub);">Chargement...</div></div>
+      <div id="feedCommunauteLoadMore" style="display:none;">
+        <button class="feed-load-more" onclick="loadMoreFeedCommunaute()">Voir plus</button>
+      </div>
+    </div>
+
+    <!-- Sub: Challenges -->
+    <div id="feed-challenges" class="feed-sub-content">
+      <div id="feedChallengesContent"></div>
+    </div>
+
+    <!-- Sub: Classement -->
+    <div id="feed-classement" class="feed-sub-content">
+      <div id="feedClassementContent"></div>
+    </div>
+
+    <!-- Legacy containers for backward compatibility (hidden) -->
+    <div style="display:none;">
+      <div id="social-feed" class="social-sub-content"></div>
       <div id="feedPinnedSection"></div>
       <div id="feedContent"></div>
-      <div id="feedLoadMore" style="display:none;">
-        <button class="feed-load-more" onclick="loadMoreFeed()">Voir plus</button>
-      </div>
-    </div>
-
-    <!-- Leaderboard Sub-tab -->
-    <div id="social-leaderboard" class="social-sub-content">
-      <div class="card">
-        <h2>Classement</h2>
-        <div class="lb-filter">
-          <select id="lbExerciseFilter" onchange="renderLeaderboard()">
-            <option value="">Chargement...</option>
-          </select>
+      <div id="feedLoadMore"><button class="feed-load-more" onclick="loadMoreFeed()">Voir plus</button></div>
+      <div id="social-leaderboard" class="social-sub-content">
+        <div class="card"><h2>Classement</h2>
+          <div class="lb-filter"><select id="lbExerciseFilter" onchange="renderLeaderboard()"><option value="">Chargement...</option></select></div>
+          <div id="lbPodium" class="lb-podium"></div>
+          <div id="lbTable" class="lb-table"></div>
+          <div id="lbEmpty" class="lb-empty" style="display:none;"></div>
         </div>
-        <div id="lbPodium" class="lb-podium"></div>
-        <div id="lbTable" class="lb-table"></div>
-        <div id="lbEmpty" class="lb-empty" style="display:none;">Ajoute des amis pour voir le classement !</div>
       </div>
-    </div>
-
-    <!-- Friends Sub-tab -->
-    <div id="social-friends" class="social-sub-content">
-      <!-- Mon Profil Social (accordéon) -->
-      <div class="corps-acc" id="socialProfileCard">
-        <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-social-profile')">
-          <div class="corps-acc-left">
-            <div class="corps-acc-ico" style="background:rgba(10,132,255,0.1);">👤</div>
-            <div>
-              <div class="corps-acc-info">Mon Profil</div>
-              <div class="corps-acc-sub">Pseudo, bio, vie privée</div>
-            </div>
+      <div id="social-challenges" class="social-sub-content">
+        <div id="challengesCreateBtn"></div>
+        <div id="challengeTemplates"></div>
+        <div id="challengesActiveList"></div>
+        <div id="challengesFinishedList"></div>
+      </div>
+      <div id="social-friends" class="social-sub-content">
+        <div class="corps-acc" id="socialProfileCard">
+          <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-social-profile')">
+            <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(10,132,255,0.1);">&#x1F464;</div>
+              <div><div class="corps-acc-info">Mon Profil</div><div class="corps-acc-sub">Pseudo, bio, vie priv&eacute;e</div></div>
+            </div><span class="corps-acc-chev" id="chev-ca-social-profile">&#x25BE;</span>
           </div>
-          <span class="corps-acc-chev" id="chev-ca-social-profile">▾</span>
+          <div class="corps-acc-body" id="ca-social-profile"><div class="corps-acc-inner" id="socialProfileContent"></div></div>
         </div>
-        <div class="corps-acc-body" id="ca-social-profile">
-          <div class="corps-acc-inner" id="socialProfileContent"></div>
+        <div class="card" style="margin-bottom:16px;text-align:center;border:1px solid rgba(10,132,255,0.25);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);">
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code ami</div>
+          <div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Partage ce code permanent pour que tes amis t'ajoutent</div>
+          <div id="myFriendCode" style="font-family:monospace;font-size:28px;font-weight:800;letter-spacing:4px;color:var(--blue);padding:12px 0;user-select:all;">---</div>
+          <button class="btn" style="width:auto;padding:10px 24px;font-size:13px;margin:0 auto;" onclick="copyFriendCode()">&#x1F4CB; Copier</button>
         </div>
-      </div>
-
-      <!-- Friend Code -->
-      <div class="card" style="margin-bottom:16px;text-align:center;border:1px solid rgba(10,132,255,0.25);background:linear-gradient(135deg,rgba(10,132,255,0.06) 0%,rgba(191,90,242,0.06) 100%);">
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Ton code ami</div>
-        <div style="font-size:11px;color:var(--sub);margin-bottom:10px;">Partage ce code permanent pour que tes amis t'ajoutent</div>
-        <div id="myFriendCode" style="font-family:monospace;font-size:28px;font-weight:800;letter-spacing:4px;color:var(--blue);padding:12px 0;user-select:all;">---</div>
-        <button class="btn" style="width:auto;padding:10px 24px;font-size:13px;margin:0 auto;" onclick="copyFriendCode()">📋 Copier</button>
-      </div>
-
-      <!-- Add friend by code -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Ajouter un ami par code</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
-          <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Ajouter un ami par code</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="friendCodeInput" placeholder="Ex: A3K9PZ" style="margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-family:monospace;text-align:center;font-size:16px;" maxlength="6">
+            <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;flex-shrink:0;" onclick="addFriendByCode()">Ajouter</button>
+          </div>
+          <div class="friends-search" style="margin-top:10px;">
+            <input type="text" id="friendSearchInput" placeholder="Ou rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
+            <span class="friends-search-icon">&#x1F50D;</span>
+            <div class="friends-autocomplete" id="friendAutocomplete"></div>
+          </div>
         </div>
-        <!-- Search -->
-        <div class="friends-search" style="margin-top:10px;">
-          <input type="text" id="friendSearchInput" placeholder="Ou rechercher un pseudo..." oninput="onFriendSearchInput(this.value)" autocomplete="off">
-          <span class="friends-search-icon">🔍</span>
-          <div class="friends-autocomplete" id="friendAutocomplete"></div>
-        </div>
+        <div class="card" id="pendingRequestsSection" style="display:none;"><h2>Demandes en attente</h2><div id="pendingRequestsList" class="friends-list"></div></div>
+        <div class="card" id="friendsListCard"><h2 id="friendsListTitle">Mes amis</h2><div id="friendsList" class="friends-list"></div></div>
+        <div class="card" id="notifSection"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h2>Notifications</h2><button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button></div><div id="notifList" class="notif-list"></div></div>
+        <div class="card" id="blockedSection" style="display:none;"><h2>Bloqu&eacute;s</h2><div id="blockedList" class="friends-list"></div></div>
       </div>
-
-      <!-- Pending Requests -->
-      <div class="card" id="pendingRequestsSection" style="display:none;">
-        <h2>Demandes en attente</h2>
-        <div id="pendingRequestsList" class="friends-list"></div>
-      </div>
-
-      <!-- Friends List -->
-      <div class="card" id="friendsListCard">
-        <h2 id="friendsListTitle">Mes amis</h2>
-        <div id="friendsList" class="friends-list"></div>
-      </div>
-
-      <!-- Notifications -->
-      <div class="card" id="notifSection">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <h2>Notifications</h2>
-          <button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button>
-        </div>
-        <div id="notifList" class="notif-list"></div>
-      </div>
-
-      <!-- Blocked Users -->
-      <div class="card" id="blockedSection" style="display:none;">
-        <h2>Bloqués</h2>
-        <div id="blockedList" class="friends-list"></div>
-      </div>
-
     </div>
   </div>
 

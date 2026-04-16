@@ -508,6 +508,14 @@ let _notifCache = [];
 let _leaderboardCache = [];
 let _socialSearchTimeout = null;
 
+// Feed V2 state
+let _feedAmisPage = 0;
+let _feedAmisItems = [];
+let _feedCommunautePage = 0;
+let _feedCommunauteItems = [];
+let _lb2Period = 'week';
+let _lb2Category = 'volume';
+
 const COMMON_EMOJIS = ['💪','🔥','👏','🎉','❤️','😤','🏆','⚡','👊','💯','🙌','😂','🤯','💀','🫡','👑'];
 
 function getMyUserId() {
@@ -558,7 +566,8 @@ function generateInviteCodeString() {
 function showSocialSub(subId, btn) {
   document.querySelectorAll('.social-sub-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.social-sub-tab').forEach(el => el.classList.remove('active'));
-  document.getElementById(subId).classList.add('active');
+  var el = document.getElementById(subId);
+  if (el) el.classList.add('active');
   if (btn) btn.classList.add('active');
   else document.querySelector('.social-sub-tab[data-sub="'+subId+'"]')?.classList.add('active');
   if (subId === 'social-feed') renderFeed();
@@ -567,12 +576,26 @@ function showSocialSub(subId, btn) {
   if (subId === 'social-challenges') renderChallengesTab();
 }
 
+// Feed V2 — sub-tab switcher
+function showFeedSub(subId, btn) {
+  document.querySelectorAll('.feed-sub-content').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.feed-pill').forEach(function(el) { el.classList.remove('active'); });
+  var target = document.getElementById(subId);
+  if (target) target.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (subId === 'feed-amis') renderFeedAmis();
+  if (subId === 'feed-communaute') renderFeedCommunaute();
+  if (subId === 'feed-challenges') renderFeedChallengesV2();
+  if (subId === 'feed-classement') renderFeedClassementV2();
+}
+
 async function initSocialTab() {
   if (!supaClient || !cloudSyncEnabled) {
-    document.getElementById('social-feed').innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
+    var amis = document.getElementById('feedAmisContent');
+    if (amis) amis.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
     return;
   }
-  const uid = await getMyUserIdAsync();
+  var uid = await getMyUserIdAsync();
   if (!uid) return;
 
   // Check if social onboarding needed
@@ -585,15 +608,13 @@ async function initSocialTab() {
   await ensureProfile();
 
   // Display friend code
-  const fcEl = document.getElementById('myFriendCode');
+  var fcEl = document.getElementById('myFriendCode');
   if (fcEl) fcEl.textContent = db.friendCode || '---';
 
-  // Load the active sub-tab
-  const activeSub = document.querySelector('.social-sub-content.active');
-  const subId = activeSub ? activeSub.id : 'social-feed';
-  if (subId === 'social-feed') renderFeed();
-  else if (subId === 'social-leaderboard') renderLeaderboard();
-  else if (subId === 'social-friends') renderFriendsTab();
+  // Load the active feed sub-tab
+  var activeFeedSub = document.querySelector('.feed-sub-content.active');
+  var feedSubId = activeFeedSub ? activeFeedSub.id : 'feed-amis';
+  showFeedSub(feedSubId);
 
   // Update notification badge
   updateSocialBadge();
@@ -3295,4 +3316,551 @@ function renderStorageGauge() {
   h += '</div>';
 
   el.innerHTML = h;
+}
+
+// ============================================================
+// FEED V2 — AMIS
+// ============================================================
+function fv2TimeAgo(input) {
+  if (!input) return '';
+  var diff = Math.floor((Date.now() - new Date(input).getTime()) / 1000);
+  if (diff < 60) return "à l'instant";
+  if (diff < 3600) return 'il y a ' + Math.floor(diff / 60) + 'min';
+  if (diff < 86400) return 'il y a ' + Math.floor(diff / 3600) + 'h';
+  if (diff < 604800) return 'il y a ' + Math.floor(diff / 86400) + 'j';
+  return new Date(input).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+
+function fv2DurationStr(sec) {
+  if (!sec || sec <= 0) return '—';
+  var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h > 0) return h + 'h ' + (m > 0 ? m + 'min' : '');
+  return m + 'min';
+}
+
+function fv2TierBadge(tier) {
+  if (tier === 'founder') return '<span class="fv2-badge-founder">⭐ Founder</span>';
+  if (tier === 'early_adopter' || tier === 'member') return '<span class="fv2-badge-member">Membre</span>';
+  return '';
+}
+
+function fv2RenderCard(item, profile, uid) {
+  var d = item.data || {};
+  var exercises = d.exercises || [];
+  var workExos = exercises.map(function(exo) {
+    var sets = (exo.allSets || exo.series || []).filter(function(s) { return s.type !== 'warmup'; });
+    return { name: exo.name, sets: sets, allSets: exo.allSets || exo.series || [], isCardio: exo.isCardio || exo.isTime, maxRM: exo.maxRM || 0, reps: exo.reps, weight: exo.weight, setsCount: sets.length || exo.sets || 0 };
+  });
+
+  // Top set (highest maxRM, excluding cardio)
+  var topSet = null;
+  var topVolume = 0;
+  workExos.forEach(function(e) {
+    if (!e.isCardio && e.maxRM > 0 && e.maxRM > (topSet ? topSet.maxRM : 0)) topSet = e;
+  });
+
+  // Total volume
+  var totalVol = d.volume || 0;
+  if (!totalVol) {
+    workExos.forEach(function(e) {
+      e.allSets.forEach(function(s) { totalVol += (s.weight || 0) * (s.reps || 0); });
+    });
+  }
+  var volStr = totalVol >= 1000 ? Math.round(totalVol).toLocaleString('fr-FR') + ' kg' : totalVol + ' kg';
+
+  // Top set display
+  var topSetHtml = '';
+  if (topSet) {
+    var bestSet = null;
+    topSet.allSets.forEach(function(s) { if (s.weight > 0 && s.reps > 0 && (!bestSet || s.weight > bestSet.weight)) bestSet = s; });
+    topSetHtml = '<div class="fv2-topset">' +
+      '<div class="fv2-topset-left"><div class="fv2-topset-label">🏋️ Meilleur set</div><strong>' + topSet.name + '</strong> · ' + (bestSet ? bestSet.weight + 'kg × ' + bestSet.reps : '') + '</div>' +
+      '<div class="fv2-topset-right"><div class="fv2-topset-label">Volume total</div>' + volStr + '</div></div>';
+  }
+
+  // Exercise list (max 4)
+  var exoHtml = '<div class="fv2-exos">';
+  var maxShow = Math.min(4, workExos.length);
+  for (var i = 0; i < maxShow; i++) {
+    var e = workExos[i];
+    var detail = '';
+    if (e.isCardio) {
+      detail = fv2DurationStr(d.duration || 0);
+    } else {
+      var bestW = 0, bestR = 0;
+      e.allSets.forEach(function(s) { if (s.weight > bestW) { bestW = s.weight; bestR = s.reps; } });
+      detail = bestW > 0 ? bestW + 'kg · ' + e.setsCount + '×' + bestR : e.setsCount + ' séries';
+    }
+    exoHtml += '<div class="fv2-exo-row"><span class="fv2-exo-name">• ' + e.name + '</span><span class="fv2-exo-detail">' + detail + '</span></div>';
+  }
+  if (workExos.length > 4) {
+    var extra = workExos.slice(4).map(function(e) { return e.name; }).join(', ');
+    exoHtml += '<div class="fv2-exo-more">+' + (workExos.length - 4) + ' exercices · ' + extra + '</div>';
+  }
+  exoHtml += '</div>';
+
+  // Stats bar
+  var statsHtml = '<div class="fv2-stats">' +
+    '<span>🏋️ <strong>' + volStr + '</strong></span>' +
+    '<span>⏱ <strong>' + fv2DurationStr(d.duration || 0) + '</strong></span>' +
+    '<span>📋 <strong>' + exercises.length + ' exos</strong></span>' +
+    '</div>';
+
+  // Actions
+  var actionsHtml = '<div class="fv2-actions">' +
+    '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="toggleFv2Like(\'' + item.id + '\')">🤍 <span id="fv2-like-count-' + item.id + '">0</span></button>' +
+    '<button class="fv2-action" onclick="toggleComments(\'' + item.id + '\')">💬 0</button>' +
+    '<button class="fv2-action" onclick="toggleFeedDetail(\'' + item.id + '\')">↗️</button>' +
+    '</div>';
+
+  var initial = avatarInitial(profile.username);
+
+  return '<div class="fv2-card" id="fv2-' + item.id + '">' +
+    '<div class="fv2-header">' +
+      '<div class="fv2-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
+      '<div class="fv2-user-info">' +
+        '<div class="fv2-username">' + (profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
+        '<div class="fv2-subtitle">' + (d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
+      '</div>' +
+      '<button class="fv2-menu">···</button>' +
+    '</div>' +
+    topSetHtml +
+    exoHtml +
+    statsHtml +
+    actionsHtml +
+    '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
+    '</div>';
+}
+
+async function renderFeedAmis() {
+  var uid = await getMyUserIdAsync();
+  if (!uid) return;
+  var container = document.getElementById('feedAmisContent');
+  var loadMoreEl = document.getElementById('feedAmisLoadMore');
+  var inviteEl = document.getElementById('feedAmisInvite');
+  if (!container) return;
+
+  if (_feedAmisPage === 0) {
+    _feedAmisItems = [];
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);">Chargement...</div>';
+  }
+
+  try {
+    // Load feed items from friends + self
+    var friendIds = await getAcceptedFriendIds();
+    var allIds = [uid].concat(friendIds);
+    var from = _feedAmisPage * FEED_PAGE_SIZE;
+    var to = from + FEED_PAGE_SIZE - 1;
+
+    var resp = await supaClient.from('activity_feed')
+      .select('id, user_id, type, data, pinned, created_at')
+      .in('user_id', allIds)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    var items = resp.data || [];
+    _feedAmisItems = _feedAmisItems.concat(items);
+
+    // Load profiles with tier
+    var userIds = [];
+    var seen = {};
+    _feedAmisItems.forEach(function(i) { if (!seen[i.user_id]) { seen[i.user_id] = true; userIds.push(i.user_id); } });
+    var profiles = {};
+    if (userIds.length) {
+      var pResp = await supaClient.from('profiles').select('id, username, tier').in('id', userIds);
+      (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
+    }
+
+    if (!_feedAmisItems.length) {
+      container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">🤝</div>' +
+        '<div class="feed-empty-title">' + (friendIds.length ? 'Rien de nouveau' : 'Invite tes amis !') + '</div>' +
+        '<div class="feed-empty-sub">' + (friendIds.length ? 'Tes amis n\'ont pas encore posté.' : 'Partage ton code pour retrouver tes partenaires.') + '</div></div>';
+    } else {
+      container.innerHTML = _feedAmisItems.map(function(item) {
+        var prof = profiles[item.user_id] || { username: 'Utilisateur' };
+        if (item.type === 'session') return fv2RenderCard(item, prof, uid);
+        return renderFeedCard(item, profiles, uid);
+      }).join('');
+      // Load like counts
+      _feedAmisItems.forEach(function(i) { loadFv2LikeCount(i.id, uid); });
+    }
+
+    if (loadMoreEl) loadMoreEl.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';
+
+    // Friend code invitation card
+    if (inviteEl) {
+      inviteEl.innerHTML = '<div class="fv2-invite-card">' +
+        '<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">Code ami</div>' +
+        '<div class="fv2-invite-code">' + (db.friendCode || '---') + '</div>' +
+        '<button class="btn" style="width:auto;padding:8px 20px;font-size:12px;margin:0 auto;" onclick="copyFriendCode()">Partager</button>' +
+        '</div>';
+    }
+  } catch (e) {
+    console.error('renderFeedAmis error:', e);
+    container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div><div class="feed-empty-sub">Impossible de charger le feed.</div></div>';
+  }
+}
+
+function loadMoreFeedAmis() { _feedAmisPage++; renderFeedAmis(); }
+
+async function loadFv2LikeCount(activityId, uid) {
+  if (!supaClient) return;
+  try {
+    var resp = await supaClient.from('reactions').select('id, user_id, emoji').eq('activity_id', activityId);
+    var reactions = resp.data || [];
+    var count = reactions.length;
+    var liked = reactions.some(function(r) { return r.user_id === uid; });
+    var countEl = document.getElementById('fv2-like-count-' + activityId);
+    var btnEl = document.getElementById('fv2-like-' + activityId);
+    if (countEl) countEl.textContent = count;
+    if (btnEl) {
+      btnEl.className = 'fv2-action' + (liked ? ' liked' : '');
+      btnEl.innerHTML = (liked ? '❤️' : '🤍') + ' <span id="fv2-like-count-' + activityId + '">' + count + '</span>';
+    }
+  } catch (e) {}
+}
+
+async function toggleFv2Like(activityId) {
+  var uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  try {
+    var resp = await supaClient.from('reactions').select('id').eq('activity_id', activityId).eq('user_id', uid).eq('emoji', '❤️').maybeSingle();
+    if (resp.data) {
+      await supaClient.from('reactions').delete().eq('id', resp.data.id);
+    } else {
+      await supaClient.from('reactions').insert({ activity_id: activityId, user_id: uid, emoji: '❤️' });
+    }
+    loadFv2LikeCount(activityId, uid);
+  } catch (e) { console.error('toggleFv2Like error:', e); }
+}
+
+// ============================================================
+// FEED V2 — COMMUNAUTÉ
+// ============================================================
+async function renderFeedCommunaute() {
+  var uid = await getMyUserIdAsync();
+  if (!uid) return;
+  var container = document.getElementById('feedCommunauteContent');
+  var loadMoreEl = document.getElementById('feedCommunauteLoadMore');
+  if (!container) return;
+
+  if (_feedCommunautePage === 0) {
+    _feedCommunauteItems = [];
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);">Chargement...</div>';
+  }
+
+  try {
+    var from = _feedCommunautePage * FEED_PAGE_SIZE;
+    var to = from + FEED_PAGE_SIZE - 1;
+    var resp = await supaClient.from('activity_feed')
+      .select('id, user_id, type, data, pinned, created_at')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    var items = resp.data || [];
+    _feedCommunauteItems = _feedCommunauteItems.concat(items);
+
+    var userIds = [];
+    var seen = {};
+    _feedCommunauteItems.forEach(function(i) { if (!seen[i.user_id]) { seen[i.user_id] = true; userIds.push(i.user_id); } });
+    var profiles = {};
+    if (userIds.length) {
+      var pResp = await supaClient.from('profiles').select('id, username, tier, training_status').in('id', userIds);
+      (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
+    }
+
+    if (!_feedCommunauteItems.length) {
+      container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">🌍</div>' +
+        '<div class="feed-empty-title">La communauté démarre</div>' +
+        '<div class="feed-empty-sub">Invite tes amis pour animer le feed !</div>' +
+        '<div class="fv2-invite-card" style="margin-top:16px;">' +
+          '<div style="font-size:12px;color:var(--sub);">Code ami</div>' +
+          '<div class="fv2-invite-code">' + (db.friendCode || '---') + '</div>' +
+          '<button class="btn" style="width:auto;padding:8px 20px;font-size:12px;margin:0 auto;" onclick="copyFriendCode()">Inviter</button>' +
+        '</div></div>';
+    } else {
+      container.innerHTML = _feedCommunauteItems.map(function(item) {
+        var prof = profiles[item.user_id] || { username: 'Utilisateur' };
+        if (item.type === 'session') return fv2RenderCard(item, prof, uid);
+        return renderFeedCard(item, profiles, uid);
+      }).join('');
+      _feedCommunauteItems.forEach(function(i) { loadFv2LikeCount(i.id, uid); });
+    }
+
+    if (loadMoreEl) loadMoreEl.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';
+  } catch (e) {
+    console.error('renderFeedCommunaute error:', e);
+    container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
+  }
+}
+
+function loadMoreFeedCommunaute() { _feedCommunautePage++; renderFeedCommunaute(); }
+
+// ============================================================
+// FEED V2 — CHALLENGES
+// ============================================================
+async function renderFeedChallengesV2() {
+  var container = document.getElementById('feedChallengesContent');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);">Chargement...</div>';
+
+  if (!supaClient || !cloudSyncEnabled) {
+    container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div></div>';
+    return;
+  }
+
+  var uid = await getMyUserIdAsync();
+  if (!uid) return;
+
+  try {
+    // Load all challenges
+    var friendIds = await getAcceptedFriendIds();
+    var allCreatorIds = [uid].concat(friendIds);
+    var allChallenges = [];
+
+    // My participations
+    var partResp = await supaClient.from('challenge_participants').select('challenge_id').eq('user_id', uid);
+    var myChIds = (partResp.data || []).map(function(p) { return p.challenge_id; });
+
+    if (myChIds.length) {
+      var r1 = await supaClient.from('social_challenges').select('*').in('id', myChIds).order('created_at', { ascending: false });
+      if (r1.data) allChallenges = r1.data;
+    }
+    // Friend-created
+    if (friendIds.length) {
+      var r2 = await supaClient.from('social_challenges').select('*').in('creator_id', friendIds).order('created_at', { ascending: false });
+      if (r2.data) r2.data.forEach(function(c) { if (!allChallenges.find(function(x) { return x.id === c.id; })) allChallenges.push(c); });
+    }
+    // Own created
+    var r3 = await supaClient.from('social_challenges').select('*').eq('creator_id', uid).order('created_at', { ascending: false });
+    if (r3.data) r3.data.forEach(function(c) { if (!allChallenges.find(function(x) { return x.id === c.id; })) allChallenges.push(c); });
+
+    // Load participants
+    var allChIds = allChallenges.map(function(c) { return c.id; });
+    var allParticipants = [];
+    if (allChIds.length) {
+      var r4 = await supaClient.from('challenge_participants').select('*').in('challenge_id', allChIds);
+      allParticipants = r4.data || [];
+    }
+
+    // Load profiles
+    var involvedIds = {};
+    allChallenges.forEach(function(c) { involvedIds[c.creator_id] = true; });
+    allParticipants.forEach(function(p) { involvedIds[p.user_id] = true; });
+    var profiles = {};
+    var idArr = Object.keys(involvedIds);
+    if (idArr.length) {
+      var r5 = await supaClient.from('profiles').select('id, username, tier').in('id', idArr);
+      (r5.data || []).forEach(function(p) { profiles[p.id] = p; });
+    }
+
+    var now = new Date();
+    var active = allChallenges.filter(function(c) { return new Date(c.end_date) > now; });
+    var finished = allChallenges.filter(function(c) { return new Date(c.end_date) <= now; }).slice(0, 5);
+
+    var h = '';
+
+    // Create button
+    h += '<div class="ch2-create" onclick="showCreateChallengeModal()"><div style="font-size:28px;margin-bottom:6px;">➕</div><div style="font-size:13px;font-weight:600;color:var(--sub);">Créer un challenge</div></div>';
+
+    // Active challenges
+    if (active.length) {
+      h += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">En cours</div>';
+      active.forEach(function(c) {
+        var parts = allParticipants.filter(function(p) { return p.challenge_id === c.id; });
+        var isJoined = parts.some(function(p) { return p.user_id === uid; });
+        var daysLeft = Math.max(0, Math.ceil((new Date(c.end_date) - now) / 86400000));
+        var sorted = parts.slice().sort(function(a, b) { return (b.current_value || 0) - (a.current_value || 0); });
+        var myPart = parts.find(function(p) { return p.user_id === uid; });
+        var myRank = sorted.findIndex(function(p) { return p.user_id === uid; }) + 1;
+
+        h += '<div class="ch2-card ' + (isJoined ? 'active-joined' : 'open-card') + '">';
+        h += '<div class="ch2-header"><div class="ch2-status ' + (isJoined ? 'active' : 'open') + '">' +
+          (isJoined ? '🟢 ACTIF · REJOINT ✓' : '🔵 OUVERT · INSCRIPTIONS') + '</div>' +
+          '<div class="ch2-time">' + daysLeft + 'j restants</div></div>';
+        h += '<div class="ch2-title">' + (c.title || 'Challenge') + '</div>';
+        h += '<div class="ch2-meta">' + parts.length + ' participant' + (parts.length > 1 ? 's' : '') + '</div>';
+
+        if (isJoined && myPart) {
+          var pct = c.target_value ? Math.min(100, Math.round((myPart.current_value || 0) / c.target_value * 100)) : 0;
+          h += '<div class="ch2-progress">';
+          h += '<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="font-weight:700;">Ma position : #' + myRank + '</span><span style="color:var(--blue);font-weight:700;">' + Math.round(myPart.current_value || 0) + ' / ' + (c.target_value || '∞') + '</span><span style="color:var(--green);font-weight:700;">' + pct + '% ↑</span></div>';
+          h += '<div class="ch2-bar-bg"><div class="ch2-bar-fill" style="width:' + pct + '%;background:var(--green);"></div></div>';
+          if (sorted.length >= 2) {
+            h += '<div class="ch2-podium-row">Podium : 🥇 ' + ((profiles[sorted[0].user_id] || {}).username || '?');
+            if (sorted[1]) h += ' · 🥈 ' + ((profiles[sorted[1].user_id] || {}).username || '?');
+            h += '</div>';
+          }
+          h += '</div>';
+          h += '<button class="btn" style="font-size:12px;padding:8px 16px;margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + c.id + '\')">📝 Mettre à jour</button>';
+        } else {
+          h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">';
+          h += '<span style="font-size:11px;color:var(--sub);">Créé par ' + ((profiles[c.creator_id] || {}).username || '?') + '</span>';
+          h += '<button class="btn" style="font-size:12px;padding:8px 16px;width:auto;" onclick="joinChallenge(\'' + c.id + '\')">Rejoindre</button>';
+          h += '</div>';
+        }
+        h += '</div>';
+      });
+    }
+
+    // Finished
+    if (finished.length) {
+      h += '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin:16px 0 8px;">Terminés</div>';
+      finished.forEach(function(c) {
+        var parts = allParticipants.filter(function(p) { return p.challenge_id === c.id; });
+        var sorted = parts.slice().sort(function(a, b) { return (b.current_value || 0) - (a.current_value || 0); });
+        var myRank = sorted.findIndex(function(p) { return p.user_id === uid; }) + 1;
+        var medals = ['🥇','🥈','🥉'];
+
+        h += '<div class="ch2-card finished">';
+        h += '<div class="ch2-header"><div class="ch2-status done">⚪ TERMINÉ</div>' +
+          (myRank > 0 ? '<div class="ch2-time">' + (medals[myRank - 1] || '#' + myRank) + ' ta place</div>' : '') + '</div>';
+        h += '<div class="ch2-title">' + (c.title || 'Challenge') + '</div>';
+        if (sorted.length) {
+          h += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">';
+          sorted.slice(0, 3).forEach(function(p, i) {
+            h += (medals[i] || (i + 1) + '.') + ' ' + ((profiles[p.user_id] || {}).username || '?') + ' · ' + Math.round(p.current_value || 0) + '  ';
+          });
+          h += '</div>';
+        }
+        h += '</div>';
+      });
+    }
+
+    if (!active.length && !finished.length) {
+      h += '<div class="feed-empty" style="padding-top:10px;"><div class="feed-empty-icon">🏆</div><div class="feed-empty-title">Aucun challenge</div><div class="feed-empty-sub">Crée le premier challenge !</div></div>';
+    }
+
+    container.innerHTML = h;
+  } catch (e) {
+    console.error('renderFeedChallengesV2 error:', e);
+    container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
+  }
+}
+
+// ============================================================
+// FEED V2 — CLASSEMENT
+// ============================================================
+function setLb2Period(p) { _lb2Period = p; renderFeedClassementV2(); }
+function setLb2Category(c) { _lb2Category = c; renderFeedClassementV2(); }
+
+async function renderFeedClassementV2() {
+  var container = document.getElementById('feedClassementContent');
+  if (!container) return;
+
+  var uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) {
+    container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div></div>';
+    return;
+  }
+
+  var periodPills = '<div class="lb2-period-pills">' +
+    ['week','month','all'].map(function(p) {
+      var labels = { week: 'Cette semaine', month: 'Ce mois', all: 'All time' };
+      return '<button class="feed-pill' + (_lb2Period === p ? ' active' : '') + '" onclick="setLb2Period(\'' + p + '\')">' + labels[p] + '</button>';
+    }).join('') + '</div>';
+
+  var catPills = '<div class="lb2-category-pills">' +
+    [{ id: 'volume', label: 'Volume 🏋️' }, { id: 'sessions', label: 'Séances 📅' }, { id: 'streak', label: 'Streak 🔥' }, { id: 'sbd', label: 'SBD ⚡️' }].map(function(c) {
+      return '<button class="feed-pill' + (_lb2Category === c.id ? ' active' : '') + '" onclick="setLb2Category(\'' + c.id + '\')">' + c.label + '</button>';
+    }).join('') + '</div>';
+
+  container.innerHTML = periodPills + catPills + '<div id="lb2Body"><div style="text-align:center;padding:20px;color:var(--sub);">Chargement...</div></div>';
+
+  try {
+    var friendIds = await getAcceptedFriendIds();
+    var allIds = [uid].concat(friendIds);
+
+    var profiles = {};
+    if (allIds.length) {
+      var pResp = await supaClient.from('profiles').select('id, username, tier').in('id', allIds);
+      (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
+    }
+
+    var ranking = [];
+
+    if (_lb2Category === 'sbd') {
+      var snapResp = await supaClient.from('leaderboard_snapshots').select('user_id, exercise_name, value').in('user_id', allIds);
+      var snaps = snapResp.data || [];
+      var userSBD = {};
+      allIds.forEach(function(id) { userSBD[id] = { s: 0, b: 0, d: 0 }; });
+      snaps.forEach(function(s) {
+        if (!userSBD[s.user_id]) return;
+        if (s.exercise_name === 'Squat') userSBD[s.user_id].s = Math.max(userSBD[s.user_id].s, s.value);
+        else if (s.exercise_name === 'Développé couché') userSBD[s.user_id].b = Math.max(userSBD[s.user_id].b, s.value);
+        else if (s.exercise_name === 'Soulevé de terre') userSBD[s.user_id].d = Math.max(userSBD[s.user_id].d, s.value);
+      });
+      ranking = Object.keys(userSBD).map(function(id) {
+        var t = userSBD[id].s + userSBD[id].b + userSBD[id].d;
+        return { userId: id, score: t, username: (profiles[id] || {}).username || '?' };
+      }).filter(function(r) { return r.score > 0; });
+    } else if (_lb2Category === 'volume') {
+      var snapResp2 = await supaClient.from('leaderboard_snapshots').select('user_id, exercise_name, value').in('user_id', allIds);
+      var volByUser = {};
+      (snapResp2.data || []).forEach(function(s) {
+        if (!volByUser[s.user_id]) volByUser[s.user_id] = 0;
+        volByUser[s.user_id] += s.value;
+      });
+      ranking = Object.keys(volByUser).map(function(id) {
+        return { userId: id, score: Math.round(volByUser[id]), username: (profiles[id] || {}).username || '?' };
+      });
+    } else if (_lb2Category === 'streak') {
+      var localStreak = typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0;
+      ranking = [{ userId: uid, score: localStreak, username: (profiles[uid] || {}).username || 'Moi' }];
+    } else {
+      // sessions — use snapshot count as proxy
+      var snapResp3 = await supaClient.from('leaderboard_snapshots').select('user_id, exercise_name').in('user_id', allIds);
+      var sessByUser = {};
+      (snapResp3.data || []).forEach(function(s) {
+        if (!sessByUser[s.user_id]) sessByUser[s.user_id] = new Set();
+        sessByUser[s.user_id].add(s.exercise_name);
+      });
+      ranking = Object.keys(sessByUser).map(function(id) {
+        return { userId: id, score: sessByUser[id].size, username: (profiles[id] || {}).username || '?' };
+      });
+    }
+
+    ranking.sort(function(a, b) { return b.score - a.score; });
+
+    var body = document.getElementById('lb2Body');
+    if (!body) return;
+
+    if (!ranking.length) {
+      body.innerHTML = '<div class="feed-empty" style="padding-top:10px;"><div class="feed-empty-icon">📊</div><div class="feed-empty-title">Pas de données</div><div class="feed-empty-sub">Ajoute des amis pour voir le classement !</div></div>';
+      return;
+    }
+
+    var h = '';
+    // Podium
+    var top3 = ranking.slice(0, 3);
+    if (top3.length >= 2) {
+      var podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : [top3[1], top3[0]];
+      var barHeights = top3.length >= 3 ? [70, 100, 50] : [70, 100];
+      var medals = top3.length >= 3 ? ['🥈', '🥇', '🥉'] : ['🥈', '🥇'];
+      var barColors = ['rgba(192,192,192,0.3)', 'rgba(255,214,10,0.3)', 'rgba(205,127,50,0.3)'];
+      h += '<div class="lb2-podium">';
+      podiumOrder.forEach(function(entry, i) {
+        h += '<div class="lb2-podium-bar">' +
+          '<div class="lb2-podium-medal">' + medals[i] + '</div>' +
+          '<div class="lb2-podium-avatar" style="' + (entry.userId === uid ? 'border:2px solid var(--accent);' : '') + '">' + avatarInitial(entry.username) + '</div>' +
+          '<div class="lb2-podium-name">' + entry.username + '</div>' +
+          '<div class="lb2-podium-score">' + entry.score + '</div>' +
+          '<div class="bar" style="height:' + barHeights[i] + 'px;background:' + barColors[i] + ';"></div></div>';
+      });
+      h += '</div>';
+    }
+
+    // Full list
+    ranking.forEach(function(entry, i) {
+      h += '<div class="lb2-row' + (entry.userId === uid ? ' me' : '') + '">' +
+        '<div class="lb2-rank">' + (i + 1) + '</div>' +
+        '<div class="lb2-row-avatar">' + avatarInitial(entry.username) + '</div>' +
+        '<div class="lb2-row-info"><div class="lb2-row-name">' + entry.username + '</div></div>' +
+        '<div class="lb2-row-score">' + entry.score + '</div></div>';
+    });
+
+    body.innerHTML = h;
+  } catch (e) {
+    console.error('renderFeedClassementV2 error:', e);
+    var b = document.getElementById('lb2Body');
+    if (b) b.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
+  }
 }

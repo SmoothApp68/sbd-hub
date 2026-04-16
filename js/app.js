@@ -4249,21 +4249,34 @@ function renderPerfCard() {
     ? db.keyLifts.map(function(kl) { return kl.name; }).filter(Boolean).slice(0, 5)
     : ['Développé Couché (Barre)', 'Squat (Barre)', 'Soulevé de Terre (Barre)'];
 
-  // ── 1RM estimé actuel par exercice clé ──
+  // ── Données par exercice clé : e1RM, 1RM réel, objectif ──
   var LIFT_COLORS = ['#0A84FF','#32D74B','#FF453A','#FF9F0A','#BF5AF2'];
-  var klData = []; // { name, shortLabel, e1rm, color }
+  var klData = [];
   keyLifts.forEach(function(name, i) {
-    var best = 0;
+    var bestE1rm = 0;
+    var bestReal = 0;
     db.logs.forEach(function(log) {
       log.exercises.forEach(function(exo) {
-        if (matchExoName(exo.name, name) && (exo.maxRM || 0) > best) best = exo.maxRM;
+        if (matchExoName(exo.name, name)) {
+          if ((exo.maxRM || 0) > bestE1rm) bestE1rm = exo.maxRM;
+          (exo.sets || []).forEach(function(s) {
+            if (s.reps === 1 && (s.weight || 0) > bestReal) bestReal = s.weight;
+          });
+        }
       });
     });
-    if (best > 0) {
+    var target = 0;
+    if (db.keyLifts && db.keyLifts.length) {
+      var klEntry = db.keyLifts.find(function(kl) { return kl.name === name; });
+      if (klEntry && klEntry.target > 0) target = klEntry.target;
+    }
+    if (bestE1rm > 0 || bestReal > 0) {
       klData.push({
         name: name,
         shortLabel: name.replace(/\(Barre\)/,'').replace(/\(Haltères\)/,'Halt.').trim().split(' ').slice(0,2).join(' '),
-        e1rm: Math.round(best),
+        e1rm: Math.round(bestE1rm),
+        real1rm: Math.round(bestReal),
+        target: Math.round(target),
         color: LIFT_COLORS[i % LIFT_COLORS.length]
       });
     }
@@ -4285,18 +4298,20 @@ function renderPerfCard() {
       '">Progression</button>' +
     '</div>';
 
-  // ── Boîtes rm-box avec e1RM + ratio bw ──
+  // ── Boîtes rm-box : e1RM, 1RM réel, objectif, ratio bw ──
   var userBw = db.user.bw || 0;
   var selectedLift = perfSelectedLift || klData[0].name;
   var boxesHtml = '<div class="sbd-grid" style="grid-template-columns:repeat(' + Math.min(klData.length, 3) + ',1fr);gap:6px;margin-bottom:10px;">';
   klData.forEach(function(kl) {
     var isSelected = (kl.name === selectedLift);
-    var borderStyle = (perfChartMode === 'curve' && isSelected) ? '1.5px solid ' + kl.color : '1px solid var(--border)';
+    var borderStyle = (perfChartMode === 'curve' && isSelected) ? '1.5px solid ' + kl.color : '0.5px solid var(--border)';
     var bwRatio = (userBw > 0) ? '<div style="font-size:11px;color:var(--green);margin-top:2px;">×' + (kl.e1rm / userBw).toFixed(2) + ' bw</div>' : '';
+    var realLine = kl.real1rm > 0 ? '<div style="font-size:9px;color:var(--sub);margin-top:1px;">1RM: ' + kl.real1rm + ' kg</div>' : '';
+    var targetLine = kl.target > 0 ? '<div style="font-size:9px;color:var(--orange);margin-top:1px;">Obj: ' + kl.target + ' kg</div>' : '';
     boxesHtml += '<div class="rm-box" style="cursor:pointer;border:' + borderStyle + ';" onclick="selectPerfLift(\'' + kl.name.replace(/'/g, "\\'") + '\')">' +
       '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;margin-bottom:2px;">' + kl.shortLabel + '</div>' +
       '<div class="rm-val" style="color:' + kl.color + ';">' + kl.e1rm + '<span style="font-size:11px;color:var(--sub);"> kg</span></div>' +
-      bwRatio +
+      realLine + targetLine + bwRatio +
     '</div>';
   });
   boxesHtml += '</div>';
@@ -4305,11 +4320,15 @@ function renderPerfCard() {
   if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
   if (window._chartPerfLine) { try { window._chartPerfLine.destroy(); } catch(e) {} window._chartPerfLine = null; }
 
-  // ── MODE BARRES ──
+  // ── MODE BARRES : 3 datasets groupés ──
   if (perfChartMode === 'bars') {
     var barLabels = klData.map(function(kl) { return kl.shortLabel; });
-    var barDataArr = klData.map(function(kl) { return kl.e1rm; });
-    var barColors = klData.map(function(kl) { return kl.color; });
+    var real1rms = klData.map(function(kl) { return kl.real1rm > 0 ? kl.real1rm : null; });
+    var e1rms = klData.map(function(kl) { return kl.e1rm > 0 ? kl.e1rm : null; });
+    var targets = klData.map(function(kl) { return kl.target > 0 ? kl.target : null; });
+    var bgMain = klData.map(function(kl) { return kl.color; });
+    var bgE1rm = klData.map(function(kl) { return kl.color + '99'; });
+    var bgTarget = klData.map(function(kl) { return kl.color + '33'; });
 
     el.innerHTML = toggleHtml + boxesHtml +
       '<div style="height:200px;"><canvas id="chartPerfDash"></canvas></div>';
@@ -4321,19 +4340,18 @@ function renderPerfCard() {
         type: 'bar',
         data: {
           labels: barLabels,
-          datasets: [{
-            data: barDataArr,
-            backgroundColor: barColors.map(function(c){ return c + '99'; }),
-            borderColor: barColors,
-            borderWidth: 2,
-            borderRadius: 8,
-          }]
+          datasets: [
+            { label: '1RM Réel', data: real1rms, backgroundColor: bgMain, borderRadius: 6, barThickness: 18 },
+            { label: 'e1RM (Epley)', data: e1rms, backgroundColor: bgE1rm, borderRadius: 6, barThickness: 18 },
+            { label: 'Objectif', data: targets, backgroundColor: bgTarget, borderRadius: 6, barThickness: 18, borderColor: bgMain, borderWidth: 1.5 }
+          ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: {
-            callbacks: { label: function(ctx) { return ctx.parsed.y + ' kg'; } }
-          }},
+          plugins: {
+            legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10, color: '#86868B' } },
+            tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' kg'; } } }
+          },
           scales: {
             x: { ticks: { color: '#86868B', font: { size: 11 } }, grid: { display: false } },
             y: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' },
@@ -4364,7 +4382,7 @@ function renderPerfCard() {
     var key = new Date(p.ts).toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit'});
     if (!seen[key] || p.val > seen[key].val) seen[key] = p;
   });
-  var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-8);
+  var sorted = Object.values(seen).sort(function(a,b){ return a.ts - b.ts; }).slice(-6);
   var lineLabels = [];
   var lineData = [];
   sorted.forEach(function(p) {
@@ -4377,6 +4395,9 @@ function renderPerfCard() {
       '<div style="text-align:center;padding:16px;color:var(--sub);font-size:12px;">Pas assez de données pour la courbe de progression</div>';
     return;
   }
+
+  var minVal = Math.min.apply(null, lineData);
+  var sugMin = Math.floor(minVal * 0.9);
 
   el.innerHTML = toggleHtml + boxesHtml +
     '<div style="height:200px;"><canvas id="chartPerfLine"></canvas></div>';
@@ -4391,12 +4412,12 @@ function renderPerfCard() {
         datasets: [{
           data: lineData,
           borderColor: curveColor,
-          backgroundColor: curveColor + '22',
+          backgroundColor: curveColor + '18',
           borderWidth: 2,
-          pointRadius: 4,
+          pointRadius: 3,
           pointBackgroundColor: curveColor,
           fill: true,
-          tension: 0.35
+          tension: 0.3
         }]
       },
       options: {
@@ -4407,7 +4428,7 @@ function renderPerfCard() {
         scales: {
           x: { ticks: { color: '#86868B', font: { size: 10 } }, grid: { display: false } },
           y: { ticks: { color: '#86868B', font: { size: 10 }, callback: function(v) { return v + ' kg'; } }, grid: { color: 'rgba(255,255,255,0.05)' },
-            beginAtZero: false }
+            beginAtZero: false, suggestedMin: sugMin }
         }
       }
     });

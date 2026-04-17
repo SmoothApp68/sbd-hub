@@ -6160,7 +6160,7 @@ function pbGenerateProgram() {
     if (!db.routineExos) db.routineExos = {};
     db.generatedProgram.forEach(function(d) {
       if (!d.isRest && d.exercises) {
-        db.routineExos[d.day] = d.exercises.map(function(e) { return e.name || e; });
+        db.routineExos[d.day] = d.exercises.map(function(e) { return typeof e === 'string' ? e : (e && e.name) || 'Exercice'; });
       }
     });
   }
@@ -6197,7 +6197,7 @@ function renderProgramBuilderView(container) {
 
     if (dayProgram && dayProgram.exercises && !isRest) {
       dayProgram.exercises.forEach(function(exo) {
-        var exoName = exo.name || exo;
+        var exoName = typeof exo === 'string' ? exo : (exo && exo.name) || 'Exercice';
         h += '<div style="font-size:12px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
       });
     }
@@ -6225,7 +6225,7 @@ function pbEditExisting() {
       var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
       if (!exos.length && db.generatedProgram) {
         var gp = db.generatedProgram.find(function(p) { return p.day === day && !p.isRest; });
-        if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
+        if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return typeof e === 'string' ? e : (e && e.name) || 'Exercice'; });
       }
       dayExercises[label] = exos;
     }

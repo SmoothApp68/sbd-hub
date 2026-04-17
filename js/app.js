@@ -9817,9 +9817,13 @@ function wpIsIsolation(name) {
 // ── NORMALISATION NOM EXERCICE ───────────────────────────────
 function wpNormalizeName(name) {
   if (!name) return '';
-  return name.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[()[\]]/g, '')
+  return name
+    .toLowerCase()
+    .replace(/[àáâãäå]/g, 'a').replace(/[èéêë]/g, 'e')
+    .replace(/[ìíîï]/g, 'i').replace(/[òóôõö]/g, 'o')
+    .replace(/[ùúûü]/g, 'u').replace(/[ç]/g, 'c').replace(/[ñ]/g, 'n')
+    .replace(/[()[\]]/g, ' ')
+    .replace(/[-–—]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -9836,15 +9840,15 @@ var WP_SYNONYMS = {
     'Souleve De Terre avec pause','Deadlift','Romanian Deadlift (Barre)'
   ],
   'Romanian Deadlift': [
-    'Souleve de Terre Roumain (Barre)','Souleve de Terre Jambes Tendues',
-    'Romanian Deadlift (Barre)','RDL'
+    'Souleve de Terre Roumain (Barre)','Souleve de Terre Roumain',
+    'Souleve de Terre Jambes Tendues','Romanian Deadlift (Barre)','RDL'
   ],
   'Squat Pause': ['Squat avec pause (barre)'],
   'Spoto Bench': ['Spoto Bench'],
   'Presse a cuisses': [
     'Presse a Cuisses','Presse a Cuisses Horizontal',
     'Presse a Cuisses (pieds Bas)','Presse a Cuisses Une Jambe',
-    'Presse au Sol (Haltere)','Leg Press'
+    'Presse au Sol (Haltere)','Hack Squat (Machine)','Leg Press'
   ],
   'Leg Extension': ['Extension Jambes','Extensions Une Jambe','Leg Extension'],
   'Leg Curl allonge': [
@@ -9970,11 +9974,15 @@ function wpFindBestMatch(targetName, logs) {
     }
   }
 
-  // Niveau 2 : synonymes
-  var synonyms = WP_SYNONYMS[normalTarget] || [];
+  // Niveau 2 : synonymes (lookup par clé normalisée + reverse lookup)
+  var synonyms = [];
   Object.keys(WP_SYNONYMS).forEach(function(key) {
-    if (key === normalTarget) return;
-    if (WP_SYNONYMS[key].some(function(s) { return wpNormalizeName(s) === normalTarget; })) {
+    var normalKey = wpNormalizeName(key);
+    if (normalKey === normalTarget) {
+      // Clé correspond → ajouter tous ses synonymes
+      synonyms = synonyms.concat(WP_SYNONYMS[key]);
+    } else if (WP_SYNONYMS[key].some(function(s) { return wpNormalizeName(s) === normalTarget; })) {
+      // Reverse lookup → la cible est un synonyme de cette clé
       synonyms = synonyms.concat(WP_SYNONYMS[key]).concat([key]);
     }
   });
@@ -10003,6 +10011,51 @@ function wpFindBestMatch(targetName, logs) {
   return null;
 }
 
+// Fallback PR/BW pour exercices jamais faits
+function wpEstimateWeight(exoName) {
+  var bw = parseFloat(db.user && db.user.bw) || 80;
+  var pr = db.bestPR || {};
+  var ESTIMATES = {
+    'Spoto Bench':              { base: 'bench',    ratio: 0.80 },
+    'Souleve de Terre Pause':   { base: 'deadlift', ratio: 0.75 },
+    'Squat Pause':              { base: 'squat',    ratio: 0.80 },
+    'Ab Wheel':                 { base: 'bw',       ratio: 0    },
+    'Gainage planche':          { base: 'bw',       ratio: 0    },
+    'Presse a cuisses':         { base: 'bw',       ratio: 2.50 },
+    'Leg Extension':            { base: 'bw',       ratio: 0.55 },
+    'Leg Curl allonge':         { base: 'bw',       ratio: 0.45 },
+    'Elevations laterales':     { base: 'bw',       ratio: 0.12 },
+    'Shrugs':                   { base: 'bw',       ratio: 0.90 },
+    'Ecarte machine':           { base: 'bench',    ratio: 0.65 },
+    'Oiseau machine':           { base: 'bw',       ratio: 0.45 },
+    'Tirage poitrine poulie':   { base: 'bw',       ratio: 0.60 },
+    'Romanian Deadlift':        { base: 'deadlift', ratio: 0.65 },
+    'Rowing poulie assis':      { base: 'deadlift', ratio: 0.50 },
+    'Developpe incline halteres': { base: 'bench',  ratio: 0.55 },
+    'Extension triceps':        { base: 'bw',       ratio: 0.25 },
+    'Curl barre':               { base: 'bw',       ratio: 0.22 },
+    'Face pull':                { base: 'bw',       ratio: 0.18 },
+    'Hip Thrust':               { base: 'bw',       ratio: 1.20 },
+    'Adduction':                { base: 'bw',       ratio: 1.00 },
+    'Abduction':                { base: 'bw',       ratio: 0.90 },
+    'Mollets Machine':          { base: 'bw',       ratio: 1.40 }
+  };
+  var normalExo = wpNormalizeName(exoName);
+  var est = null;
+  Object.keys(ESTIMATES).forEach(function(key) {
+    var nk = wpNormalizeName(key);
+    if (normalExo === nk || normalExo.includes(nk.split(' ')[0])) est = ESTIMATES[key];
+  });
+  if (!est) return wpRound25(bw * 0.40);
+  if (est.ratio === 0) return null;
+  var baseVal = est.base === 'bw' ? bw
+    : est.base === 'bench'    ? (pr.bench    || bw * 1.0)
+    : est.base === 'squat'    ? (pr.squat    || bw * 1.3)
+    : est.base === 'deadlift' ? (pr.deadlift || bw * 1.6)
+    : bw;
+  return wpRound25(baseVal * est.ratio);
+}
+
 function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
@@ -10020,6 +10073,10 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
       return { weight: wpRound25(lastSet.weight + 2), reps: targetRepMin, progressed: true };
     }
     return { weight: lastSet.weight, reps: targetRepMax, progressed: false };
+  }
+  var estimated = wpEstimateWeight(exoName, null);
+  if (estimated) {
+    return { weight: estimated, reps: targetRepMin, progressed: false, isEstimate: true };
   }
   return null;
 }
@@ -10381,10 +10438,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       exercises.push({ name: acc.name, type: 'reps', restSeconds: acc.rest || 120, bodyweightBase: bw,
         sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || 8, weight: null, isWarmup: false, useBodyweight: true }; }) });
     } else {
-      exercises.push({ name: acc.name, type: 'weight', restSeconds: restVal,
+      var exoObj = { name: acc.name, type: 'weight', restSeconds: restVal,
         sets: Array.from({ length: sc }, function() {
           return { reps: dpResult ? dpResult.reps : repsVal, rpe: phase === 'deload' ? 6 : (acc.rpe || 7.5), weight: dpResult ? dpResult.weight : null, isWarmup: false };
-        }) });
+        }) };
+      if (dpResult && dpResult.isEstimate) exoObj.coachNote = '💡 Charge estimée (1ère fois) — ajuste selon ta sensation.';
+      exercises.push(exoObj);
     }
   });
 

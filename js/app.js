@@ -1758,6 +1758,13 @@ window.addEventListener('popstate', function(e) {
 // Tab bar click handler
 document.querySelector('.tab-bar').addEventListener('click', e => { const b = e.target.closest('.tab-btn'); if (b) showTab(b.dataset.tab); });
 
+// Close session-card dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.sc-dropdown') && !e.target.closest('.sc-menu-btn')) {
+    if (typeof closeAllScMenus === 'function') closeAllScMenus();
+  }
+});
+
 // On load: restore tab from hash or localStorage
 (function _restoreTab() {
   var hash = window.location.hash.replace('#', '');
@@ -7323,110 +7330,203 @@ function renderSeancesTab() {
   document.getElementById('nextWeekBtn').style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
   document.getElementById('nextWeekBtn').disabled = currentWeekOffset >= 0;
 
-  const weekLogs = db.logs.filter(l => l.timestamp >= targetWeekStart && l.timestamp <= targetWeekEnd)
+  const sessions = db.logs.filter(l => l.timestamp >= targetWeekStart && l.timestamp <= targetWeekEnd)
     .sort((a,b) => a.timestamp - b.timestamp);
 
   const container = document.getElementById('weekSessionsContainer');
 
-  if (!weekLogs.length) {
-    container.innerHTML = '<div class="week-empty">😴 Aucune séance cette semaine</div>';
-    return;
-  }
+  // Stats semaine
+  var totalDur = sessions.reduce(function(s,l){ return s+(l.duration||0); }, 0);
+  var totalVol = sessions.reduce(function(s,l){ return s+(l.volume||0); }, 0);
+  var durMin = Math.round(totalDur/60);
+  var durStr = durMin>=60 ? Math.floor(durMin/60)+'h'+(durMin%60>0?(durMin%60<10?'0':'')+(durMin%60):'') : durMin+'min';
+  var volStr2 = totalVol>=1000 ? (totalVol/1000).toFixed(1)+'t' : totalVol+'kg';
 
-  const SET_TYPE_LABELS = { warmup:'Échauf.', drop:'Drop', failure:'Échec', superset:'SS', normal:'' };
+  var statsHtml = '<div class="wk-stats-bar">'+
+    '<div class="wk-stats-item"><div class="wk-stats-val" style="color:var(--accent);">'+sessions.length+'</div><div class="wk-stats-lbl">Séances</div></div>'+
+    '<div class="wk-stats-item"><div class="wk-stats-val" style="color:var(--purple);">'+volStr2+'</div><div class="wk-stats-lbl">Volume</div></div>'+
+    '<div class="wk-stats-item"><div class="wk-stats-val" style="color:var(--orange);">'+durStr+'</div><div class="wk-stats-lbl">Durée</div></div>'+
+  '</div>';
 
-  container.innerHTML = weekLogs.map((session, si) => {
-    const dt = new Date(session.timestamp);
-    const dayShort = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][dt.getDay()];
-    const dayNum = dt.getDate();
-    const nbExos = session.exercises.length;
-    const volStr = session.volume > 0 ? (session.volume / 1000).toFixed(2) : '0';
-
-    // Meta chips
-    const metaParts = [];
-    if (session.type) metaParts.push(session.type);
-    metaParts.push(nbExos + ' exo' + (nbExos > 1 ? 's' : ''));
-    const metaHtml = metaParts.map((p, i) => (i > 0 ? '<span class="sc-meta-dot"></span>' : '') + '<span>' + p + '</span>').join('');
-
-    // Exercise rows
-    const exoCards = session.exercises.map((exo, ei) => {
-      const ms = _ecMuscleStyle(exo.name);
-      const exoType = exo.exoType || getExoType(exo.name);
-      let bestStr = '—';
-      if (exoType === 'cardio' || exoType === 'cardio_stairs') {
-        const p = [];
-        if (exo.distance) p.push(exo.distance.toFixed(1) + 'km');
-        if (exo.maxTime) p.push(formatTime(exo.maxTime));
-        bestStr = p.join(' · ') || 'Cardio';
-      } else if (exoType === 'time') {
-        bestStr = (exo.maxTime && exo.maxTime > 1) ? Math.floor(exo.maxTime / 60) + ':' + String(exo.maxTime % 60).padStart(2, '0') : '—';
-      } else if (exoType === 'reps') {
-        bestStr = exo.maxReps ? exo.maxReps + ' reps' : (exo.maxRM > 0 ? exo.maxRM + 'kg' : '—');
-      } else {
-        bestStr = exo.maxRM > 0 ? exo.maxRM + 'kg' : '—';
-      }
-
-      const exoId = 'sc-exo-' + si + '-' + ei;
-
-      // Build sets detail from allSets
-      const sets = (exo.allSets && exo.allSets.length > 0) ? exo.allSets : (exo.series || []);
-      let setsHtml = '';
-      if (sets.length > 0) {
-        const setHdr = '<div class="sc-set-hdr"><span>Set</span><span>Poids</span><span>Reps</span><span>Type</span></div>';
-        // Find the best e1RM set for PR marking
-        let bestE1RM = 0;
-        sets.forEach(s => { if ((s.weight || 0) > 0 && (s.reps || 0) > 0) { const e = calcE1RM(s.weight, s.reps); if (e > bestE1RM) bestE1RM = e; } });
-
-        const setRows = sets.map((s, setIdx) => {
-          const st = s.setType || 'normal';
-          const w = s.weight || 0;
-          const r = s.reps || 0;
-          const isPRSet = w > 0 && r > 0 && calcE1RM(w, r) === bestE1RM && bestE1RM > 0 && st === 'normal';
-          const rowCls = isPRSet ? 'pr-set' : st;
-          const tagText = isPRSet ? 'PR' : (SET_TYPE_LABELS[st] || '');
-          const tagHtml = tagText ? '<span class="sc-set-tag">' + tagText + '</span>' : '';
-          return '<div class="sc-set-row ' + rowCls + '">' +
-            '<span class="sc-set-num">' + (setIdx + 1) + '</span>' +
-            '<span class="sc-set-w">' + (w > 0 ? w + 'kg' : '—') + '</span>' +
-            '<span class="sc-set-r">' + (r > 0 ? r : '—') + '</span>' +
-            tagHtml + '</div>';
-        }).join('');
-
-        // Footer with volume
-        const exoVol = sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0);
-        const footHtml = exoVol > 0 ? '<div class="sc-exo-footer"><span class="sc-exo-vol">' + (exoVol / 1000).toFixed(2) + 't vol.</span><span>' + sets.length + ' séries</span></div>' : '';
-
-        setsHtml = '<div class="sc-exo-detail" id="' + exoId + '"><div class="sc-sets">' + setHdr + setRows + '</div>' + footHtml + '</div>';
-      }
-
-      return '<div class="sc-exo">' +
-        '<div class="sc-exo-head" onclick="toggleScExo(\'' + exoId + '\')">' +
-        '<div class="sc-exo-ico" style="background:' + ms.bg + ';">' + ms.icon + '</div>' +
-        '<span class="sc-exo-name">' + exo.name + '</span>' +
-        '<span class="sc-exo-best">' + bestStr + '</span>' +
-        '<span class="sc-exo-chev" id="chev-' + exoId + '">▾</span>' +
-        '</div>' + setsHtml + '</div>';
+  // Générer les cards (sans jours de repos)
+  var cardsHtml = sessions.length === 0
+    ? '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;">Aucune séance cette semaine</div>'
+    : sessions.map(function(session, si) {
+      return renderSessionCard2(session, si);
     }).join('');
 
-    const sessId = 'sess-' + si;
-    return '<div class="sc">' +
-      '<div class="sc-head" onclick="toggleSession(\'' + sessId + '\')">' +
-      '<div class="sc-day-badge" style="background:rgba(191,90,242,0.12);color:var(--purple);">' +
-        '<span class="d-name">' + dayShort + '</span><span class="d-num">' + dayNum + '</span></div>' +
-      '<div class="sc-info"><div class="sc-title">' + (session.title || 'Séance') + (session.edited ? ' <span style="font-size:9px;color:var(--sub);font-style:italic;">(modifié)</span>' : '') + '</div>' +
-        '<div class="sc-meta">' + metaHtml + '</div></div>' +
-      '<div class="sc-right"><div class="sc-vol">' + volStr + '<span>t</span></div></div>' +
-      '</div>' +
-      '<div class="sc-body" id="' + sessId + '">' +
-        (session.notes ? '<div style="font-size:12px;color:var(--sub);font-style:italic;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">📝 ' + session.notes + '</div>' : '') +
-        exoCards +
-        renderSessionPhotos(session.id, session.photos || [], false) +
-        '<div class="sc-session-actions" style="display:flex;gap:8px;padding:8px 0;">' +
-          '<button class="sc-delete-btn" style="flex:1;background:rgba(10,132,255,0.1);color:var(--blue);border:1px solid rgba(10,132,255,0.2);" onclick="openSessionEditor(\'' + session.id + '\')">✏️ Modifier</button>' +
-          '<button class="sc-delete-btn" onclick="deleteSessionFromList(\'' + session.id + '\')">Supprimer</button>' +
-        '</div>' +
-      '</div></div>';
+  container.innerHTML = statsHtml + '<div id="sc-cards-wrap">' + cardsHtml + '</div>';
+}
+
+function renderSessionCard2(session, si) {
+  var ts = session.timestamp || 0;
+  var d = new Date(ts);
+  var dayShort = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()];
+  var dayNum = d.getDate();
+  var monthShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][d.getMonth()];
+  var dayLabel = dayShort+' '+dayNum+' '+monthShort;
+
+  // Couleur selon type de séance (SBD ou autre)
+  var title = session.title || 'Séance';
+  var titleLow = title.toLowerCase();
+  var accentColor = 'var(--purple)';
+  var borderColor = 'rgba(191,90,242,.2)';
+  var bgColor = 'rgba(191,90,242,.04)';
+  var topbarBg = 'linear-gradient(90deg,var(--purple),var(--teal))';
+  if (/squat|jambe|quad|leg/i.test(titleLow)) {
+    accentColor='var(--squat)'; borderColor='rgba(255,69,58,.2)'; bgColor='rgba(255,69,58,.04)';
+    topbarBg='linear-gradient(90deg,var(--squat),var(--orange))';
+  } else if (/bench|pecto|push|poitrine|développé/i.test(titleLow)) {
+    accentColor='var(--bench)'; borderColor='rgba(10,132,255,.2)'; bgColor='rgba(10,132,255,.04)';
+    topbarBg='linear-gradient(90deg,var(--bench),var(--teal))';
+  } else if (/dead|soulevé|deadlift|pull|dos/i.test(titleLow)) {
+    accentColor='var(--deadlift)'; borderColor='rgba(255,159,10,.2)'; bgColor='rgba(255,159,10,.04)';
+    topbarBg='linear-gradient(90deg,var(--deadlift),var(--orange))';
+  }
+
+  var vol = session.volume || 0;
+  var volDisplay = vol >= 1000 ? (vol/1000).toFixed(1)+'t' : vol+'kg';
+  var dur = session.duration ? Math.round(session.duration/60)+'min' : '';
+  var exoCount = (session.exercises||[]).length;
+  var metaStr = [dur, exoCount+' exercice'+(exoCount>1?'s':'')].filter(Boolean).join(' · ');
+
+  // Badge PR
+  var hasPR = (session.exercises||[]).some(function(e){ return e.isPR || e.maxRM > 0; });
+  var prBadge = hasPR ? '<span class="sc-pr-badge" style="background:rgba(50,215,75,.1);color:var(--green);border:1px solid rgba(50,215,75,.18);">🏆 PR</span>' : '';
+
+  // Tags muscles
+  var muscles = {};
+  (session.exercises||[]).forEach(function(e){
+    var mg = typeof getMuscleGroup==='function' ? getMuscleGroup(e.name) : '';
+    if (mg && mg!=='Autre' && mg!=='Cardio') muscles[mg]=true;
+  });
+  var tagsHtml = Object.keys(muscles).slice(0,3).map(function(mg){
+    return '<span class="sc-tag" style="color:var(--sub);border-color:var(--border);">'+mg+'</span>';
   }).join('');
+
+  // Détail complet (sets par exercice)
+  var detailHtml = renderSessionDetail2(session);
+
+  var uid = 'sc2-'+si+'-'+ts;
+
+  return '<div class="sc" style="background:'+bgColor+';border-color:'+borderColor+';" id="wrap-'+uid+'">'+
+    '<div class="sc-topbar" style="background:'+topbarBg+';"></div>'+
+    '<div class="sc-body-wrap" onclick="togSc2(\''+uid+'\')">'+
+      '<div class="sc-row1">'+
+        '<div class="sc-day-label" style="color:'+accentColor+';">'+dayLabel+prBadge+'</div>'+
+        '<div class="sc-vol-block"><div class="sc-vol-num" style="color:var(--purple);">'+volDisplay+'</div><div class="sc-vol-unit">volume</div></div>'+
+      '</div>'+
+      '<div class="sc-title">'+title+'</div>'+
+      '<div class="sc-meta-line">'+metaStr+'</div>'+
+      (tagsHtml ? '<div class="sc-tags">'+tagsHtml+'</div>' : '')+
+      '<div class="sc-footer">'+
+        '<div style="flex:1;font-size:10px;color:var(--sub);">Appuie pour voir le détail</div>'+
+        '<button class="sc-menu-btn" onclick="event.stopPropagation();togScMenu(\'menu-'+uid+'\')">···</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="sc-dropdown" id="menu-'+uid+'">'+
+      '<div class="sc-dd-item" onclick="copySessionToGo(\''+session.id+'\');closeAllScMenus()"><span class="sc-dd-ico">↩</span>Copier dans GO</div>'+
+      '<div class="sc-dd-item" onclick="shareSessionToFeed(\''+session.id+'\');closeAllScMenus()"><span class="sc-dd-ico">📤</span>Partager à un gym bro</div>'+
+      '<div class="sc-dd-sep"></div>'+
+      '<div class="sc-dd-item" onclick="openSessionEditor(\''+session.id+'\');closeAllScMenus()"><span class="sc-dd-ico">✏️</span>Renommer</div>'+
+      '<div class="sc-dd-item sc-dd-danger" onclick="deleteSessionFromList(\''+session.id+'\');closeAllScMenus()"><span class="sc-dd-ico">🗑️</span>Supprimer</div>'+
+    '</div>'+
+    '<div class="sc-detail" id="det-'+uid+'">'+detailHtml+'</div>'+
+  '</div>';
+}
+
+function renderSessionDetail2(session) {
+  var exos = session.exercises || [];
+  if (!exos.length) return '<div class="sc-detail-inner"><div style="padding:12px 14px;font-size:12px;color:var(--sub);">Aucun exercice</div></div>';
+
+  var exoBlocks = exos.map(function(exo) {
+    var ms = typeof getMuscleStyle==='function' ? getMuscleStyle(exo.name)
+      : (typeof _ecMuscleStyle==='function' ? _ecMuscleStyle(exo.name) : {bg:'rgba(120,120,168,.1)',icon:'💪'});
+    var best = exo.maxRM > 0 ? exo.maxRM+'kg × '+(((exo.allSets||[]).filter(function(s){return s.weight===exo.maxRM;})[0]||{}).reps||'?')+' reps' : '';
+    var bestColor = exo.isPR ? 'color:var(--green)' : 'color:var(--sub)';
+
+    var sets = exo.allSets || exo.series || [];
+    var setsHtml = '';
+    if (sets.length > 0) {
+      var rows = sets.map(function(s, i) {
+        var w = s.weight || 0;
+        var r = s.reps || 0;
+        var rest = s.restSeconds ? Math.round(s.restSeconds/60)+'min' : (s.rest || '—');
+        var isWarmup = s.setType==='warmup' || s.isWarmup;
+        var isPR = s.setType==='pr' || s.isPR;
+        var rowCls = isWarmup ? 'sc-wu' : isPR ? 'sc-pr' : 'sc-wk';
+        var typeLabel = isWarmup ? 'Échauff.' : isPR ? '🏆 PR' : 'Travail';
+        return '<tr class="'+rowCls+'">'+
+          '<td class="sc-set-n">'+(i+1)+'</td>'+
+          '<td class="sc-set-type"><span>'+typeLabel+'</span></td>'+
+          '<td class="sc-set-load">'+(w>0?w+'kg':'—')+'</td>'+
+          '<td class="sc-set-reps">'+(r>0?'×'+r:'—')+'</td>'+
+          '<td class="sc-set-rest">'+rest+'</td>'+
+        '</tr>';
+      }).join('');
+      setsHtml = '<table class="sc-sets-table">'+
+        '<tr><th>S</th><th>Type</th><th>Charge</th><th>Reps</th><th>Repos</th></tr>'+
+        rows+'</table>';
+    }
+
+    return '<div class="sc-exo-block">'+
+      '<div class="sc-exo-head2">'+
+        '<div class="sc-exo-ico2" style="background:'+ms.bg+'">'+ms.icon+'</div>'+
+        '<span class="sc-exo-name2">'+exo.name+'</span>'+
+        '<span class="sc-exo-best2" style="'+bestColor+'">'+best+'</span>'+
+      '</div>'+
+      setsHtml+
+    '</div>';
+  }).join('');
+
+  return '<div class="sc-detail-inner">'+
+    '<div class="sc-detail-lbl">Détail · '+exos.length+' exercice'+(exos.length>1?'s':'')+'</div>'+
+    exoBlocks+
+    '<div class="sc-actions">'+
+      '<button class="sc-action-btn" style="color:var(--accent);border-color:rgba(10,132,255,.2);background:rgba(10,132,255,.08);" onclick="copySessionToGo(\''+session.id+'\')">↩ Copier dans GO</button>'+
+      '<button class="sc-action-btn" style="color:var(--sub);border-color:var(--border);background:var(--surface);" onclick="openSessionEditor(\''+session.id+'\')">✏️ Modifier</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function togSc2(uid) {
+  var det = document.getElementById('det-'+uid);
+  if (!det) return;
+  var was = det.classList.contains('open');
+  document.querySelectorAll('.sc-detail.open').forEach(function(d){ d.classList.remove('open'); });
+  if (!was) det.classList.add('open');
+  closeAllScMenus();
+}
+
+function togScMenu(id) {
+  var m = document.getElementById(id);
+  if (!m) return;
+  var was = m.classList.contains('open');
+  closeAllScMenus();
+  if (!was) m.classList.add('open');
+}
+
+function closeAllScMenus() {
+  document.querySelectorAll('.sc-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+}
+
+function copySessionToGo(sessionId) {
+  var session = db.logs.find(function(l){ return l.id===sessionId; });
+  if (!session) { showToast('Séance introuvable'); return; }
+  db._copiedSession = session;
+  showToast('✅ Séance copiée — ouvre GO pour la lancer');
+  showSeancesSub('seances-go', document.querySelector('[onclick*="seances-go"]'));
+}
+
+function shareSessionToFeed(sessionId) {
+  var session = db.logs.find(function(l){ return l.id===sessionId; });
+  if (!session) return;
+  if (typeof publishSessionActivity==='function') {
+    publishSessionActivity(session);
+    showToast('📤 Partagé dans le feed !');
+  } else {
+    showToast('Social non disponible');
+  }
 }
 
 function toggleSession(id) {

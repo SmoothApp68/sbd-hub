@@ -1489,6 +1489,19 @@ function obFinish() {
   refreshUI();
   renderProgramViewer();
   showToast('Bienvenue ' + (db.user.name||'') + ' ! 🚀');
+  // Enchaîner l'onboarding social si user connecté et pas encore de pseudo
+  setTimeout(async function() {
+    var isLoggedIn = false;
+    try {
+      if (typeof supaClient !== 'undefined' && supaClient) {
+        var session = await supaClient.auth.getSession();
+        isLoggedIn = !!(session && session.data && session.data.session);
+      }
+    } catch(e) {}
+    if (isLoggedIn && (!db.social || !db.social.onboardingCompleted)) {
+      if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
+    }
+  }, 500);
 }
 
 // ============================================================

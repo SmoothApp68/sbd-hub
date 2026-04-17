@@ -9675,356 +9675,534 @@ function isDeloadWeek() {
   return !!db._deloadAccepted;
 }
 
-function generateWeeklyPlan() {
-  const btn = document.getElementById('wpGenerateBtn');
-  btn.disabled = true; btn.textContent = 'Calcul en cours...';
-  const weekNum = parseInt(document.getElementById('wpBlocSelect').value);
-  const wi = weekNum - 1; // 0-based index
+// ============================================================
+// GENERATE WEEKLY PLAN — Algo v2 : APRE + Autoregulation + Multi-profil
+// ============================================================
+async function generateWeeklyPlan() {
+  var btn = document.getElementById('wpGenerateBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
 
-  // Pre-sort once for all computeExoTrend calls
-  const _logsByDesc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
+  var params   = db.user.programParams || {};
+  var mode     = db.user.trainingMode || 'powerbuilding';
+  var level    = db.user.level || 'intermediaire';
+  var freq     = params.freq || 3;
+  var duration = params.duration || 60;
+  var goals    = params.goals || ['force'];
+  var injuries = params.injuries || [];
+  var cardio   = params.cardio || 'aucun';
+  var mat      = params.mat || 'salle';
+  var gender   = db.user.gender || 'male';
+  var bw       = parseFloat(db.user.bw) || 80;
+  var pr       = db.bestPR || { bench: 0, squat: 0, deadlift: 0 };
+  var routine  = getRoutine();
 
-  // ── Niveau & objectif ────────────────────────────────────────
-  const LEVEL = db.user.level || 'intermediaire';
-  const goalKey = mapTrainingModeToGoal(db.user.trainingMode || 'powerlifting');
-  const blocParams = (BLOC_PARAMS[LEVEL] || BLOC_PARAMS.intermediaire)[weekNum] || BLOC_PARAMS.intermediaire[1];
-  const LOAD_PCT = blocParams.loadMultiplier;
+  var fatigueScore = typeof computeFatigueScore === 'function' ? computeFatigueScore(db.logs) : 30;
+  var deloadCheck  = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : { needed: false };
+  var isDeload     = deloadCheck.needed;
 
-  // ── Tendance réelle par exercice (régression linéaire) ───────
-  // Utilise les 6 sessions les plus RÉCENTES (pas les plus anciennes)
-  function computeExoTrend(exoName) {
-    const pts = [];
-    // Trier décroissant (récent en premier), collecter les 6 dernières occurrences
-    const desc = _logsByDesc;
-    for (const log of desc) {
-      const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
-      if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-      pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-      if (pts.length >= 6) break;
-    }
-    if (pts.length < 2) return { kgPerWeek: 0, lastE1rm: pts[0]?.y || 0, n: pts.length };
-    // Re-trier croissant pour la régression (x croissant = temps croissant)
-    pts.sort((a,b) => a.x - b.x);
-    const n = pts.length;
-    const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-    const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-    const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-    return { kgPerWeek: Math.round(slope*7*10)/10, lastE1rm: pts[pts.length-1].y, n };
+  var weeksSinceDeload = _wpWeeksSinceDeload();
+  var phase;
+  if (isDeload) phase = 'deload';
+  else if (weeksSinceDeload <= 1) phase = 'intro';
+  else if (weeksSinceDeload <= 3) phase = 'accumulation';
+  else if (weeksSinceDeload <= 5) phase = 'intensification';
+  else phase = 'peak';
+
+  var useSupersets = duration < 60 || goals.includes('seche');
+  var maxExosPerSession = duration <= 45 ? 5 : duration <= 60 ? 7 : duration <= 90 ? 9 : 12;
+
+  var progressions = _wpComputeProgressions();
+
+  var plan;
+  if (mode === 'powerlifting') {
+    plan = _wpGeneratePowerlifting(params, pr, phase, progressions, injuries, useSupersets, maxExosPerSession);
+  } else if (mode === 'powerbuilding') {
+    plan = _wpGeneratePowerbuilding(params, pr, phase, progressions, goals, injuries, useSupersets, maxExosPerSession, cardio);
+  } else if (mode === 'musculation' || mode === 'bodybuilding') {
+    plan = _wpGenerateMusculation(params, pr, phase, progressions, goals, injuries, useSupersets, maxExosPerSession, cardio, mat, gender, bw);
+  } else {
+    plan = _wpGenerateBienEtre(params, goals, injuries, cardio, maxExosPerSession);
   }
 
-  // ── Fréquence hebdomadaire d'un exercice ─────────────────────
-  // Compte le nombre de jours dans db.routineExos où cet exercice apparaît.
-  function getExoFreqPerWeek(exoName) {
-    let freq = 0;
-    DAYS_FULL.forEach(day => {
-      const dayExos = getProgExosForDay(day);
-      if (dayExos.some(e => e === exoName || matchExoName(e, exoName))) freq++;
-    });
-    return freq || 1; // minimum 1 (évite la division par zéro)
-  }
-
-  // ── Agréger meilleurs records tous jours confondus ──────────
-  const allBest = {};
-  db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
-      if (!allBest[exo.name]) allBest[exo.name] = { maxRM:0, maxRMDate:null, maxReps:0, maxTime:0, distance:0, repRecords:{}, _ts:0 };
-      const r = allBest[exo.name];
-      if ((exo.maxRM||0) > r.maxRM) { r.maxRM = exo.maxRM; r.maxRMDate = exo.maxRMDate || log.timestamp; }
-      if ((exo.maxReps ||0) > r.maxReps)  r.maxReps  = exo.maxReps;
-      if ((exo.maxTime ||0) > r.maxTime)  r.maxTime  = exo.maxTime;
-      if ((exo.distance||0) > r.distance) r.distance = exo.distance;
-      Object.entries(exo.repRecords||{}).forEach(([k,v]) => { if (!r.repRecords[k]||v>r.repRecords[k]) r.repRecords[k]=v; });
-      if ((log.timestamp||0) > r._ts) r._ts = log.timestamp;
-    });
-  });
-
-  // Cache: programme name → list of matching Hevy names (for resolveRecentRecord)
-  const _progNameToHevyNames = {};
-
-  // Résoudre un nom de programme → record dans allBest
-  // En cas d'ambiguïté, préférer le plus récemment enregistré
-  function resolveRecord(exoName) {
-    if (allBest[exoName]) return allBest[exoName];
-    const matches = Object.keys(allBest).filter(k => matchExoName(k, exoName) || matchExoName(exoName, k));
-    if (!matches.length) return null;
-    matches.sort((a,b) => (allBest[b]._ts||0) - (allBest[a]._ts||0));
-    return allBest[matches[0]];
-  }
-
-  // ── Record RÉCENT (90 derniers jours) ───────────────────────
-  // Pour la programmation, ce qui compte c'est ce que tu fais MAINTENANT,
-  // pas ton PR de l'année dernière. Fallback sur all-time si rien de récent.
-  function resolveRecentRecord(exoName) {
-    const cutoff = Date.now() - 90 * 86400000;
-    const recent = { maxRM: 0, maxReps: 0, maxTime: 0, distance: 0, repRecords: {} };
-    // Find matching Hevy names once (cached)
-    if (!_progNameToHevyNames[exoName]) {
-      _progNameToHevyNames[exoName] = Object.keys(allBest).filter(k =>
-        k === exoName || matchExoName(k, exoName) || matchExoName(exoName, k)
-      );
-    }
-    const hevyNames = new Set([exoName, ..._progNameToHevyNames[exoName]]);
-
-    db.logs
-      .filter(l => l.timestamp >= cutoff)
-      .forEach(log => {
-        const exo = log.exercises.find(e => hevyNames.has(e.name));
-        if (!exo) return;
-        if ((exo.maxRM||0) > recent.maxRM) recent.maxRM = exo.maxRM;
-        if ((exo.maxReps||0) > recent.maxReps) recent.maxReps = exo.maxReps;
-        if ((exo.maxTime||0) > recent.maxTime) recent.maxTime = exo.maxTime;
-        if ((exo.distance||0) > recent.distance) recent.distance = exo.distance;
-        Object.entries(exo.repRecords||{}).forEach(([k,v]) => {
-          if (!recent.repRecords[k] || v > recent.repRecords[k]) recent.repRecords[k] = v;
-        });
-      });
-    const hasData = recent.maxRM > 0 || Object.keys(recent.repRecords).length > 0 || recent.maxReps > 0 || recent.maxTime > 0;
-    return hasData ? recent : resolveRecord(exoName); // fallback all-time si rien de récent
-  }
-
-  // ── Calculer le poids de travail cible ──────────────────────
-  // Toujours calculé depuis le meilleur e1RM estimé × LOAD_PCT de la semaine.
-  // Garantit une progression monotone S1→S4 quel que soit le repRecord disponible.
-  function computeWorkWeight(hist, tReps, cat, exoName) {
-    const trend = exoName ? computeExoTrend(exoName) : { kgPerWeek:0, n:0 };
-
-    // Ajustement tendance : progression forte → +kg ; régression → −kg
-    let adj = 0;
-    if (trend.n >= 3) {
-      if (trend.kgPerWeek > 1.5)       adj = round05(Math.min(trend.kgPerWeek * 0.4, 5));
-      else if (trend.kgPerWeek < -0.5) adj = round05(Math.max(trend.kgPerWeek * 0.5, -5));
-    }
-
-    // Meilleur e1RM depuis tous les repRecords disponibles
-    const allRecs = Object.entries(hist?.repRecords||{})
-      .map(([r,w]) => [parseInt(r), parseFloat(w)]).filter(([,w]) => w > 0);
-    const bestE1rm = Math.max(
-      hist?.maxRM || 0,
-      ...(allRecs.length ? allRecs.map(([r,w]) => calcE1RM(w, r)) : [0])
-    );
-    if (bestE1rm <= 0) return null;
-
-    // Charge cible = Epley(e1RM → tReps) × LOAD_PCT de la semaine
-    const epleyTarget = bestE1rm * (1.0278 - 0.0278 * tReps);
-    const workWeight  = round05(epleyTarget * LOAD_PCT + adj);
-    return workWeight > 0 ? workWeight : null;
-  }
-
-  // ── Note coach dynamique par jour ───────────────────────────
-  // Utilise detectPlateau() + calcMomentum() + computeExoTrend()
-  // Priorité : plateau SBD > tendance principale > note générique semaine
-  // ── Notes coach par semaine ──────────────────────────────────
-  const WEEK_NOTES = [
-    'Semaine de base — pose les fondations, pas d\'ego sur la barre.',
-    blocParams.label ? blocParams.label + ' — technique avant tout.' : 'Accumulation — monte progressivement.',
-    blocParams.label ? blocParams.label + ' — charges lourdes, récupère bien.' : 'Intensification — charges lourdes.',
-    blocParams.label === 'Deload' ? 'Deload — récupération active, on recharge les batteries.'
-      : (LEVEL === 'avance' || LEVEL === 'competiteur' ? 'Peak — RPE max autorisé, tout sur la table.' : 'Peak — séances courtes et intenses.'),
-  ];
-
-  function buildDayCoachNote(dayExoNames) {
-    if (!dayExoNames || !dayExoNames.length) return WEEK_NOTES[wi];
-
-    // 1. Vérifier plateaux SBD pour les lifts présents ce jour
-    for (const sbdType of ['squat', 'bench', 'deadlift']) {
-      if (!dayExoNames.some(n => getSBDType(n) === sbdType)) continue;
-      const plat = detectPlateau(sbdType, 3);
-      if (plat) {
-        const nm = sbdType === 'bench' ? 'Bench' : sbdType === 'squat' ? 'Squat' : 'Dead';
-        return nm + ' en plateau — essaie une variante ou décharge légèrement.';
-      }
-      // Momentum fort → note positive
-      const mom = calcMomentum(sbdType);
-      if (mom !== null && mom > 1.5) {
-        const nm = sbdType === 'bench' ? 'Bench' : sbdType === 'squat' ? 'Squat' : 'Dead';
-        return nm + ' en feu (+' + mom + 'kg/sem) — reste sur cette lancée.';
-      }
-    }
-
-    // 2. Tendance sur le premier exercice composé non-SBD du jour
-    for (const exoName of dayExoNames.slice(0, 4)) {
-      if (getSBDType(exoName)) continue;
-      const cat = getExoCategory(exoName);
-      if (cat === 'isolation') continue;
-      const tr = computeExoTrend(exoName);
-      if (tr.n < 3) continue;
-      const short = exoName.split(' ').slice(0,2).join(' ');
-      if (tr.kgPerWeek > 1.5) return short + ' progresse (+' + tr.kgPerWeek + 'kg/sem) — continue.';
-      if (tr.kgPerWeek < -1)  return short + ' en recul — priorité technique, pas la charge.';
-    }
-
-    // 3. Note générique de la semaine
-    return WEEK_NOTES[wi];
-  }
-
-  // ── Programme actif : perso > généré > rien ──────────────────
-  const routine = getRoutine();
-  if (!routine || Object.keys(routine).length === 0) {
-    btn.disabled = false; btn.innerHTML = '✦ Générer le programme de la semaine';
-    showToast('Configure ton programme dans Réglages > Mon Programme');
-    return;
-  }
-
-  const plan = {
-    week: weekNum,
-    generated_at: new Date().toISOString(),
-    blocLabel: blocParams.label || '',
-    goalKey: goalKey,
-    level: LEVEL,
-    days: []
-  };
-
-  DAYS_FULL.forEach(day => {
-    const label  = routine[day] || '';
-    const isRest = !label || /repos|😴/i.test(label);
-    const exercises = [];
-    const warmedUpMuscles = new Set();
-    let isFirstCompound = true;
-
-    let exoNames = [];
-    if (!isRest) {
-      // Priorité 1 : exercices configurés dans Réglages (db.routineExos)
-      exoNames = getProgExosForDay(day);
-      // Priorité 2 : session la plus récente du même jour
-      if (!exoNames.length) {
-        const recent = [...db.logs]
-          .filter(l => l.day === day && l.exercises.length > 0)
-          .sort((a,b) => b.timestamp - a.timestamp)[0];
-        if (recent) exoNames = recent.exercises.filter(e => !e.isCardio).slice(0,8).map(e => e.name);
-      }
-
-      exoNames.forEach(exoName => {
-        const exoType = getExoType(exoName);
-        const hist    = resolveRecentRecord(exoName);
-        const cat     = getExoCategory(exoName);
-        const muscle  = getMuscleGroup(exoName);
-        const parentMuscle = getMuscleGroupParent(muscle);
-        const isFirstForMuscle = !warmedUpMuscles.has(parentMuscle);
-
-        // Reps/sets/rest depuis les helpers scientifiques + multiplicateur du bloc
-        const baseRepRange = getRepRange(cat, goalKey);
-        const baseReps     = baseRepRange.reps;
-        const targetReps   = Math.max(1, Math.round(baseReps * blocParams.repsMultiplier));
-        const targetRpe    = blocParams.rpe;
-        const baseSets     = getWorkSets(cat, goalKey);
-        const rest         = (exoType === 'cardio' || exoType === 'cardio_stairs' || exoType === 'time') ? 0 : getRestSeconds(cat, goalKey);
-
-        // Fréquence hebdo → ajuster volume par séance
-        const freq = (exoType === 'weight' || exoType === 'reps') ? getExoFreqPerWeek(exoName) : 1;
-        const nSets = Math.max(2, baseSets + (freq >= 3 ? -1 : freq === 1 ? +1 : 0));
-
-        if (exoType === 'time') {
-          const recSec  = hist?.maxTime || 30;
-          const progSec = Math.round(recSec * (1 + wi * 0.08));
-          exercises.push({ name:exoName, type:'time', restSeconds:0,
-            sets: Array.from({length:3}, () => ({ isWarmup:false, durationSec:progSec })) });
-
-        } else if (exoType === 'reps') {
-          const weightedRecs = Object.entries(hist?.repRecords||{})
-            .map(([r,w]) => [parseInt(r), w]).filter(([,w]) => w > 0)
-            .sort((a,b) => a[0] - b[0]);
-          if (weightedRecs.length > 0) {
-            const workW = computeWorkWeight(hist, targetReps, cat, exoName);
-            const warmups = getWarmupSets(exoName, workW, targetReps, isFirstForMuscle, isFirstCompound && cat !== 'isolation', cat);
-            exercises.push({ name:exoName, type:'reps', restSeconds:rest,
-              sets: [...warmups, ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:workW, reps:targetReps, rpe:targetRpe }))] });
-          } else {
-            const recMax = Math.min(hist?.maxReps || 0, 25);
-            const bwFactors = [0.75, 0.80, 0.85, 0.90];
-            const target = recMax > 0 ? Math.max(3, Math.round(recMax * bwFactors[wi])) : 'max';
-            exercises.push({ name:exoName, type:'reps', restSeconds:rest,
-              sets: Array.from({length:nSets}, () => ({ isWarmup:false, weight:null, reps:target, rpe:targetRpe })) });
-          }
-
-        } else if (exoType === 'cardio' || exoType === 'cardio_stairs') {
-          const recMin = hist?.maxTime ? Math.round(hist.maxTime/60) : 20;
-          exercises.push({ name:exoName, type:'cardio', restSeconds:0,
-            sets: [{ isWarmup:false, durationMin:recMin, distance:hist?.distance||null }] });
-
-        } else {
-          // ── Poids — séries de travail + échauffements intelligents + back-off ──
-          let workWeight = computeWorkWeight(hist, targetReps, cat, exoName);
-          const eqType = getEquipmentType(exoName);
-          if (workWeight && eqType === 'dumbbell' && workWeight > 60) {
-            workWeight = round05(workWeight * DUMBBELL_TO_BARBELL_FACTOR);
-          }
-
-          if (workWeight && workWeight > 0) {
-            // Échauffements intelligents basés sur le contexte
-            const warmups = getWarmupSets(exoName, workWeight, targetReps, isFirstForMuscle, isFirstCompound && cat !== 'isolation', cat);
-            // Séries de travail
-            const workSets = Array.from({length:nSets}, () => ({ isWarmup:false, weight:workWeight, reps:targetReps, rpe:targetRpe }));
-            // Back-off sets (avancés+ sur compounds SBD uniquement)
-            const backoffSets = [];
-            if (blocParams.backoffSets > 0 && cat === 'big') {
-              const boWeight = round05(workWeight * 0.90);
-              const boReps = Math.round(targetReps * 1.2);
-              for (let i = 0; i < blocParams.backoffSets; i++) {
-                backoffSets.push({ isWarmup:false, isBackoff:true, weight:boWeight, reps:boReps, rpe:Math.max(5, targetRpe - 1) });
-              }
-            }
-            exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[...warmups, ...workSets, ...backoffSets] });
-
-          } else {
-            // Estimation depuis le poids de corps
-            const bw = db.user.bw || 70;
-            const lvl = db.user.level || 'intermediaire';
-            const bwRatio = (BW_RATIOS[cat] || BW_RATIOS.compound)[lvl] || 0.5;
-            const estimatedE1RM = bw * bwRatio;
-            const epleyEst = estimatedE1RM * (1.0278 - 0.0278 * targetReps);
-            const estWork = round05(epleyEst * LOAD_PCT);
-            if (estWork > 0) {
-              const warmups = getWarmupSets(exoName, estWork, targetReps, isFirstForMuscle, isFirstCompound && cat !== 'isolation', cat);
-              exercises.push({ name:exoName, type:'weight', restSeconds:rest, estimated:true, sets:[
-                ...warmups,
-                ...Array.from({length:nSets}, () => ({ isWarmup:false, weight:estWork, reps:targetReps, rpe:targetRpe }))
-              ]});
-            } else {
-              exercises.push({ name:exoName, type:'weight', restSeconds:rest, sets:[], noData:true });
-            }
-          }
-        }
-
-        // Mettre à jour le tracking des groupes échauffés
-        if (cat !== 'isolation') isFirstCompound = false;
-        warmedUpMuscles.add(parentMuscle);
-      });
-    }
-
-    plan.days.push({ day, title: label || day, rest: isRest, coachNote: isRest ? '' : buildDayCoachNote(exoNames), exercises });
-  });
-
-  // Appliquer deload si activé (en plus du bloc deload naturel)
-  if (isDeloadWeek()) {
+  if (isDeload && mode !== 'bien_etre') {
     plan.isDeload = true;
-    plan.days.forEach(d => {
+    plan.deloadReason = deloadCheck.reason;
+    plan.days.forEach(function(d) {
       if (d.rest) return;
-      d.exercises.forEach(exo => {
-        if (!exo.sets) return;
-        const work = exo.sets.filter(s => !s.isWarmup && !s.isBackoff);
-        const keep = Math.ceil(work.length / 2);
-        const toRemove = work.length - keep;
-        for (let r = 0; r < toRemove; r++) {
-          const idx = exo.sets.findIndex(s => !s.isWarmup && !s.isBackoff);
-          if (idx >= 0) exo.sets.splice(idx, 1);
-        }
-        // Retirer tous les back-off sets en deload
-        exo.sets = exo.sets.filter(s => !s.isBackoff);
-        exo.sets.forEach(s => {
-          if (s.weight) s.weight = round05(s.weight * 0.6);
-          if (s.rpe) s.rpe = Math.min(s.rpe, 6);
+      d.title = '🔄 ' + d.title + ' (Deload)';
+      d.coachNote = 'Deload — ' + (deloadCheck.reason || 'récupération') + '. Charges -40%, volume -50%, RPE max 6.';
+      d.exercises.forEach(function(exo) {
+        var workIdx = 0;
+        exo.sets = exo.sets.filter(function(s) {
+          if (s.isWarmup) return true;
+          workIdx++;
+          return workIdx <= 3;
+        }).map(function(s) {
+          if (s.isWarmup) return s;
+          return Object.assign({}, s, { weight: s.weight ? _round25(s.weight * 0.6) : null, rpe: Math.min(s.rpe || 6, 6), isDeload: true });
         });
       });
     });
   }
+
+  plan.week         = _wpDetectWeekNumber();
+  plan.phase        = phase;
+  plan.mode         = mode;
+  plan.generated_at = new Date().toISOString();
+  plan.fatigueScore = fatigueScore;
+  plan.usedSupersets = useSupersets;
 
   db.weeklyPlan = plan;
+
+  if (!db.routine) db.routine = {};
+  plan.days.forEach(function(d) {
+    db.routine[d.day] = d.rest ? '😴 Repos Complet' : (d.title || d.day);
+  });
+
   saveDB();
-  btn.disabled = false;
-  btn.innerHTML = '✦ Générer le programme de la semaine';
-  showToast(isDeloadWeek() ? '🔄 Programme deload généré !' : '✅ Programme calculé !');
+  if (typeof syncToCloud === 'function') syncToCloud();
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '✦ Générer le programme de la semaine'; }
+  showToast(isDeload ? '🔄 Semaine deload générée — récupération !' : '✅ Programme calculé !');
   renderWeeklyPlanUI();
+  if (typeof renderProgramBuilderView === 'function') {
+    renderProgramBuilderView(document.getElementById('programBuilderContent'));
+  }
 }
+
+function _round25(x) { return Math.round(x / 2.5) * 2.5; }
+
+function _wpWeeksSinceDeload() {
+  if (!db.weeklyPlan) return 0;
+  var plans = db.weeklyPlanHistory || [];
+  for (var i = plans.length - 1; i >= 0; i--) {
+    if (plans[i].isDeload) {
+      return Math.round((Date.now() - new Date(plans[i].generated_at).getTime()) / (7 * 86400000));
+    }
+  }
+  return Math.min(8, Math.round((db.logs || []).length / 3));
+}
+
+function _wpDetectWeekNumber() {
+  var history = db.weeklyPlanHistory || [];
+  var lastDeloadIdx = -1;
+  for (var i = 0; i < history.length; i++) { if (history[i].isDeload) lastDeloadIdx = i; }
+  return history.length - lastDeloadIdx;
+}
+
+function _wpComputeProgressions() {
+  var result = {};
+  var lifts = {
+    'Squat': 'squat', 'Bench': 'bench', 'Bench Press': 'bench',
+    'Soulevé de Terre': 'deadlift', 'Deadlift': 'deadlift',
+    'Développé couché': 'bench', 'Squat (Barre)': 'squat'
+  };
+  var liftHistory = {};
+  (db.logs || []).slice(-20).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var key = Object.keys(lifts).find(function(k) {
+        return exo.name && exo.name.toLowerCase().includes(k.toLowerCase());
+      });
+      if (!key) return;
+      var type = lifts[key];
+      if (!liftHistory[type]) liftHistory[type] = [];
+      var workSets = (exo.allSets || exo.series || []).filter(function(s) { return !s.isWarmup && s.weight > 0; });
+      if (!workSets.length) return;
+      var maxWork = workSets.reduce(function(m, s) { return s.weight > m.weight ? s : m; }, workSets[0]);
+      liftHistory[type].push({
+        date: log.timestamp, weight: maxWork.weight, reps: maxWork.reps, rpe: maxWork.rpe || 7,
+        e1rm: typeof calcE1RM === 'function' ? calcE1RM(maxWork.weight, maxWork.reps) : maxWork.weight
+      });
+    });
+  });
+
+  ['bench', 'squat', 'deadlift'].forEach(function(type) {
+    var hist = (liftHistory[type] || []).slice(-4);
+    if (!hist.length) {
+      result[type] = { lastWeight: db.bestPR[type] || 0, nextWeight: db.bestPR[type] || 0, lastRpe: 7, trend: 'stable' };
+      return;
+    }
+    var last = hist[hist.length - 1];
+    var prev = hist.length > 1 ? hist[hist.length - 2] : null;
+    var nextWeight = last.weight;
+    if (last.rpe <= 6)      nextWeight = _round25(last.weight + 5);
+    else if (last.rpe <= 7) nextWeight = _round25(last.weight + 2.5);
+    else if (last.rpe >= 9) nextWeight = _round25(last.weight - 2.5);
+    var trend = prev
+      ? (last.e1rm > prev.e1rm * 1.01 ? 'up' : last.e1rm < prev.e1rm * 0.99 ? 'down' : 'stable')
+      : 'stable';
+    result[type] = { lastWeight: last.weight, nextWeight: nextWeight, lastRpe: last.rpe, lastReps: last.reps, e1rm: last.e1rm, trend: trend };
+  });
+  return result;
+}
+
+function _wpBuildWarmups(workWeight, reps) {
+  if (!workWeight || workWeight <= 40) return [];
+  var warmups = [];
+  var pcts = reps <= 3 ? [0.4, 0.55, 0.7, 0.82, 0.9] : [0.4, 0.55, 0.7, 0.8];
+  pcts.forEach(function(p) {
+    var w = _round25(workWeight * p);
+    if (w >= 20) warmups.push({ weight: w, reps: reps <= 3 ? Math.min(6, reps + 3) : 5, isWarmup: true });
+  });
+  return warmups;
+}
+
+function _wpCoachNote(exoName, prog, phase) {
+  if (!prog) return '';
+  var notes = [];
+  if (prog.trend === 'up') notes.push(exoName + ' en progression — continue.');
+  if (prog.trend === 'down') notes.push(exoName + ' en recul — priorité technique.');
+  if (prog.lastRpe >= 9) notes.push('RPE 9+ la semaine passée — charges légèrement réduites.');
+  if (prog.lastRpe <= 6) notes.push('RPE ≤ 6 — charges augmentées cette semaine.');
+  if (phase === 'peak') notes.push('Phase peak — gros singles, récupération maximale.');
+  return notes.slice(0, 2).join(' ');
+}
+
+var INJURY_EXCLUSIONS = {
+  'epaules':  ['Développé militaire', 'Élévations latérales', 'Oiseau machine', 'Tirage visage'],
+  'nuque':    ['Tirage nuque', 'Shrugs'],
+  'poignets': ['Curl poignet', 'Extension poignet', 'Curl marteau', 'Dips'],
+  'genoux':   ['Fentes', 'Squat complet', 'Leg Extension'],
+  'dos':      ['Soulevé de Terre', 'Good Morning', 'Hyperextensions'],
+  'hanches':  ['Hip Thrust', 'Fentes'],
+  'coudes':   ['Skull Crusher', 'Extension triceps', 'Curl barre']
+};
+
+function _wpFilterInjuries(exos, injuries) {
+  if (!injuries || !injuries.length) return exos;
+  var excluded = injuries.reduce(function(acc, zone) {
+    return acc.concat(INJURY_EXCLUSIONS[zone] || []);
+  }, []);
+  return exos.filter(function(e) {
+    var name = typeof e === 'string' ? e : (e.name || '');
+    return !excluded.some(function(ex) { return name.toLowerCase().includes(ex.toLowerCase()); });
+  });
+}
+
+function _wpApplySupersets(exercises, useSupersets) {
+  if (!useSupersets) return exercises;
+  var result = [];
+  var i = 0;
+  while (i < exercises.length) {
+    var exo = exercises[i];
+    var isCompound = /squat|bench|deadlift|développé|soulevé|press|rowing|tractions/i.test(exo.name || '');
+    if (!isCompound && i + 1 < exercises.length) {
+      var next = exercises[i + 1];
+      var nextIsCompound = /squat|bench|deadlift|développé|soulevé|press|rowing|tractions/i.test(next.name || '');
+      if (!nextIsCompound) {
+        exo.superset = true; exo.supersetWith = next.name; exo.supersetRestSeconds = 60;
+        result.push(exo);
+        next.isSecondInSuperset = true; next.restSeconds = 0;
+        result.push(next);
+        i += 2; continue;
+      }
+    }
+    result.push(exo); i++;
+  }
+  return result;
+}
+
+function _wpWorkSets(weight, reps, count, rpe) {
+  return Array.from({ length: count }, function() {
+    return { weight: weight, reps: reps, rpe: rpe, isWarmup: false };
+  });
+}
+
+function _wpCardioExo(minutes) {
+  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0,
+    sets: [{ durationMin: minutes, distance: Math.round(minutes * 0.12 * 10) / 10, isWarmup: false }] };
+}
+
+function _wpBuildRecoveryDay(day, label, cardio) {
+  var exos = [];
+  if (cardio === 'integre' || cardio === 'dedie') exos.push(_wpCardioExo(20));
+  exos.push({ name: 'Natation', type: 'cardio', sets: [{ durationMin: 30, isWarmup: false }] });
+  return { day: day, rest: false, title: label, coachNote: 'Récupération active — intensité basse.', exercises: exos };
+}
+
+function _wpGetAccessories(mainLift, goals, injuries, mat, accentPct, accReps, count) {
+  var ACCESSORIES = {
+    squat:    [{ name:'Presse à cuisses',restSeconds:180 },{ name:'Leg Extension',restSeconds:90 },{ name:'Leg Curl couché',restSeconds:90 },{ name:'Hip Thrust',restSeconds:120 },{ name:'Adduction',restSeconds:90 },{ name:'Mollets',restSeconds:60 },{ name:'Gainage planche',restSeconds:60 }],
+    bench:    [{ name:'Développé incliné',restSeconds:150 },{ name:'Écarté machine',restSeconds:90 },{ name:'Extension triceps',restSeconds:90 },{ name:'Élévations latérales',restSeconds:60 },{ name:'Oiseau machine',restSeconds:60 },{ name:'Tractions',restSeconds:120 },{ name:'Face pull',restSeconds:60 }],
+    deadlift: [{ name:'Romanian Deadlift',restSeconds:180 },{ name:'Hip Thrust',restSeconds:120 },{ name:'Leg Curl couché',restSeconds:90 },{ name:'Adduction',restSeconds:90 },{ name:'Rowing haltères',restSeconds:120 },{ name:'Gainage planche',restSeconds:60 },{ name:'Élévations latérales',restSeconds:60 }]
+  };
+  var pool = (ACCESSORIES[mainLift] || []).filter(function(a) {
+    return !injuries.some(function(inj) {
+      return (INJURY_EXCLUSIONS[inj] || []).some(function(ex) { return a.name.toLowerCase().includes(ex.toLowerCase()); });
+    });
+  });
+  var repsArr = (accReps || '10-12').split('-').map(Number);
+  var repsLow = repsArr[0] || 10; var repsHigh = repsArr[1] || 12;
+  var sets = accentPct >= 70 ? 3 : 4;
+  return pool.slice(0, count).map(function(a) {
+    return { name: a.name, type: 'weight', restSeconds: a.restSeconds,
+      sets: Array.from({ length: sets }, function() { return { reps: Math.round((repsLow + repsHigh) / 2), rpe: 8, isWarmup: false }; }) };
+  });
+}
+
+function _wpGeneratePowerbuilding(params, pr, phase, prog, goals, injuries, useSupersets, maxExos, cardio) {
+  var selectedDays = params.selectedDays || ['Lundi','Mardi','Jeudi','Vendredi','Samedi'];
+  var routine = getRoutine();
+  var accentPct = db.user.pbAccent || 65;
+
+  var phaseParams = {
+    intro:          { rpe: 7,   mainReps: 5, backoffPct: 0.80, accReps: '12-15' },
+    accumulation:   { rpe: 8,   mainReps: 4, backoffPct: 0.82, accReps: '10-12' },
+    intensification:{ rpe: 8.5, mainReps: 3, backoffPct: 0.85, accReps: '8-10'  },
+    peak:           { rpe: 9,   mainReps: 1, backoffPct: 0.90, accReps: '6-8'   },
+    deload:         { rpe: 6,   mainReps: 5, backoffPct: 0.70, accReps: '15-20' }
+  };
+  var pp = phaseParams[phase] || phaseParams.accumulation;
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var days = allDays.map(function(day) {
+    var isTraining = selectedDays.indexOf(day) >= 0;
+    var label = routine[day] || '';
+    var isRest = !isTraining || !label || /repos/i.test(label);
+    if (isRest) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
+
+    var dayLabel = label.toLowerCase();
+    var mainLift, liftProg, liftName;
+    if (/squat|jambe|quad|leg/i.test(dayLabel)) {
+      mainLift = 'squat'; liftProg = prog.squat; liftName = 'Squat (Barre)';
+    } else if (/bench|poitrine|pecto|push/i.test(dayLabel)) {
+      mainLift = 'bench'; liftProg = prog.bench; liftName = 'Développé couché';
+    } else if (/dead|soulevé|pull|dos/i.test(dayLabel)) {
+      mainLift = 'deadlift'; liftProg = prog.deadlift; liftName = 'Soulevé de Terre';
+    } else if (/récup|cardio|natation/i.test(dayLabel)) {
+      return _wpBuildRecoveryDay(day, label, cardio);
+    } else {
+      mainLift = 'bench'; liftProg = prog.bench; liftName = 'Développé couché';
+    }
+
+    var workWeight = liftProg && liftProg.nextWeight ? liftProg.nextWeight : _round25((pr[mainLift] || 100) * 0.80);
+    var warmups = _wpBuildWarmups(workWeight, pp.mainReps);
+    var workSets = [{ weight: workWeight, reps: pp.mainReps, rpe: pp.rpe, isWarmup: false, isTopSet: true }];
+    var backoffWeight = _round25(workWeight * pp.backoffPct);
+    var backoffCount = phase === 'peak' ? 2 : 3;
+    for (var b = 0; b < backoffCount; b++) {
+      workSets.push({ weight: backoffWeight, reps: pp.mainReps + 1, rpe: pp.rpe - 1, isWarmup: false, isBackoff: true });
+    }
+
+    var mainExo = { name: liftName, type: 'weight', sets: warmups.concat(workSets),
+      restSeconds: phase === 'peak' ? 300 : 240, coachNote: _wpCoachNote(liftName, liftProg, phase) };
+
+    var accessories = _wpGetAccessories(mainLift, goals, injuries, mat, accentPct, pp.accReps, maxExos - 2);
+    var allExos = [mainExo].concat(accessories);
+    if (useSupersets) allExos = _wpApplySupersets(allExos, true);
+    allExos = _wpFilterInjuries(allExos, injuries);
+    if (cardio === 'integre') allExos.push(_wpCardioExo(15));
+
+    return { day: day, rest: false, title: label, coachNote: _wpCoachNote(liftName, liftProg, phase), exercises: allExos.slice(0, maxExos) };
+  });
+  return { days: days };
+}
+
+function _wpGeneratePowerlifting(params, pr, phase, prog, injuries, useSupersets, maxExos) {
+  var selectedDays = params.selectedDays || ['Lundi','Mercredi','Vendredi'];
+  var routine = getRoutine();
+  var compDate = params.compDate || params.competitionDate || null;
+
+  if (compDate) {
+    var weeksOut = Math.ceil((new Date(compDate) - Date.now()) / (7 * 86400000));
+    if (weeksOut > 8) phase = 'accumulation';
+    else if (weeksOut > 4) phase = 'intensification';
+    else if (weeksOut > 1) phase = 'peak';
+    else phase = 'deload';
+  }
+
+  var phaseParams = {
+    intro:          { pct: 0.70, reps: 5, sets: 5, label: 'Post-deload — reprendre les sensations' },
+    accumulation:   { pct: 0.77, reps: 4, sets: 4, label: 'Accumulation — volume + charge' },
+    intensification:{ pct: 0.85, reps: 3, sets: 3, label: 'Intensification — charges lourdes' },
+    peak:           { pct: 0.92, reps: 1, sets: 2, label: 'Peak — tentatives maximales' },
+    deload:         { pct: 0.55, reps: 5, sets: 3, label: 'Deload — récupération complète' }
+  };
+  var pp = phaseParams[phase] || phaseParams.accumulation;
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var days = allDays.map(function(day) {
+    var isTraining = selectedDays.indexOf(day) >= 0;
+    var label = routine[day] || '';
+    var isRest = !isTraining || !label || /repos/i.test(label);
+    if (isRest) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
+
+    var dayLabel = label.toLowerCase();
+    var exercises = [];
+
+    if (/squat|jambe/i.test(dayLabel)) {
+      var sqW = prog.squat && prog.squat.nextWeight ? prog.squat.nextWeight : _round25((pr.squat || 100) * pp.pct);
+      exercises.push({ name: 'Squat (Barre)', type: 'weight', restSeconds: 300, sets: _wpBuildWarmups(sqW, pp.reps).concat(_wpWorkSets(sqW, pp.reps, pp.sets, 8.5)) });
+      exercises.push({ name: 'Squat Pause', type: 'weight', restSeconds: 240, sets: _wpWorkSets(_round25(sqW * 0.82), pp.reps + 1, 3, 7.5) });
+    } else if (/bench|poitrine|push/i.test(dayLabel)) {
+      var beW = prog.bench && prog.bench.nextWeight ? prog.bench.nextWeight : _round25((pr.bench || 80) * pp.pct);
+      exercises.push({ name: 'Développé couché', type: 'weight', restSeconds: 240, sets: _wpBuildWarmups(beW, pp.reps).concat(_wpWorkSets(beW, pp.reps, pp.sets, 8.5)) });
+      if (!injuries.includes('epaules')) {
+        exercises.push({ name: 'Développé militaire', type: 'weight', restSeconds: 180, sets: _wpWorkSets(_round25(beW * 0.55), pp.reps + 2, 3, 7.5) });
+      }
+      exercises.push({ name: 'Dips', type: 'reps', restSeconds: 120, sets: [{ reps:8,rpe:7,isWarmup:false },{ reps:8,rpe:7,isWarmup:false },{ reps:8,rpe:7,isWarmup:false }] });
+    } else if (/dead|soulevé|pull/i.test(dayLabel)) {
+      var deW = prog.deadlift && prog.deadlift.nextWeight ? prog.deadlift.nextWeight : _round25((pr.deadlift || 120) * pp.pct);
+      exercises.push({ name: 'Soulevé de Terre', type: 'weight', restSeconds: 300, sets: _wpBuildWarmups(deW, pp.reps).concat(_wpWorkSets(deW, pp.reps, pp.sets, 8.5)) });
+      exercises.push({ name: 'Romanian Deadlift', type: 'weight', restSeconds: 180, sets: _wpWorkSets(_round25(deW * 0.65), pp.reps + 2, 3, 7.5) });
+      exercises.push({ name: 'Hip Thrust', type: 'weight', restSeconds: 120, sets: _wpWorkSets(_round25(deW * 0.50), 10, 3, 7.5) });
+    }
+
+    exercises = _wpFilterInjuries(exercises, injuries);
+    var compNote = compDate ? ' · Compét. dans ' + Math.ceil((new Date(compDate) - Date.now()) / (7 * 86400000)) + ' sem.' : '';
+    return { day: day, rest: false, title: label, coachNote: pp.label + compNote, exercises: exercises.slice(0, maxExos) };
+  });
+  return { days: days, cyclePhase: phase, phasePct: Math.round(pp.pct * 100) };
+}
+
+function _wpGenerateMusculation(params, pr, phase, prog, goals, injuries, useSupersets, maxExos, cardio, mat, gender, bw) {
+  var selectedDays = params.selectedDays || ['Lundi','Mardi','Jeudi','Vendredi'];
+  var freq = selectedDays.length;
+  var isCutting = goals.includes('seche');
+  var isBulking  = goals.includes('masse');
+  var repRange   = isCutting ? '12-20' : isBulking ? '6-10' : '8-12';
+  var rpeTarget  = isCutting ? 8 : 7.5;
+  var setsPerExo = isCutting ? 3 : 4;
+
+  var EXERCISES = {
+    'Développé couché':   { muscle:'Pectoraux', mat:['salle','barbell'] },
+    'Développé haltères': { muscle:'Pectoraux', mat:['salle','halteres'] },
+    'Développé incliné':  { muscle:'Pectoraux', mat:['salle','halteres'] },
+    'Écarté machine':     { muscle:'Pectoraux', mat:['salle'] },
+    'Développé militaire':{ muscle:'Épaules',   mat:['salle'], exclude: injuries.includes('epaules') },
+    'Élévations latérales':{ muscle:'Épaules',  mat:['salle','halteres'] },
+    'Oiseau machine':     { muscle:'Épaules',   mat:['salle'], exclude: injuries.includes('epaules') },
+    'Dips':               { muscle:'Triceps',   mat:['salle'], exclude: injuries.includes('coudes') || injuries.includes('poignets') },
+    'Extension triceps':  { muscle:'Triceps',   mat:['salle','halteres'] },
+    'Tractions':          { muscle:'Dos',       mat:['salle'] },
+    'Rowing barre':       { muscle:'Dos',       mat:['salle'], exclude: injuries.includes('dos') },
+    'Rowing haltères':    { muscle:'Dos',       mat:['salle','halteres'] },
+    'Tirage poitrine':    { muscle:'Dos',       mat:['salle'] },
+    'Face pull':          { muscle:'Dos',       mat:['salle'] },
+    'Curl barre':         { muscle:'Biceps',    mat:['salle'], exclude: injuries.includes('poignets') },
+    'Curl haltères':      { muscle:'Biceps',    mat:['salle','halteres'] },
+    'Curl marteau':       { muscle:'Biceps',    mat:['salle','halteres'], exclude: injuries.includes('poignets') },
+    'Squat':              { muscle:'Quadriceps',mat:['salle'], exclude: injuries.includes('genoux') || injuries.includes('dos') },
+    'Presse à cuisses':   { muscle:'Quadriceps',mat:['salle'] },
+    'Leg Extension':      { muscle:'Quadriceps',mat:['salle'], exclude: injuries.includes('genoux') },
+    'Fentes':             { muscle:'Quadriceps',mat:['salle','halteres'], exclude: injuries.includes('genoux') },
+    'Romanian Deadlift':  { muscle:'Ischio',    mat:['salle','halteres'], exclude: injuries.includes('dos') },
+    'Leg Curl couché':    { muscle:'Ischio',    mat:['salle'] },
+    'Hip Thrust':         { muscle:'Fessiers',  mat:['salle'] },
+    'Adduction':          { muscle:'Fessiers',  mat:['salle'] },
+    'Glute Kickback':     { muscle:'Fessiers',  mat:['salle'] },
+    'Gainage planche':    { muscle:'Abdominaux',mat:['salle','halteres','maison'] },
+    'Ab Wheel':           { muscle:'Abdominaux',mat:['salle'] }
+  };
+
+  function _matOk(n) {
+    var e = EXERCISES[n]; if (!e || !e.mat) return true;
+    if (mat === 'salle') return true;
+    return e.mat.includes(mat);
+  }
+  function _buildMuscleSets(n, repRng, sets) {
+    var rpeVal = rpeTarget;
+    var repsArr = repRng.split('-').map(Number);
+    var repsLow = repsArr[0] || 8; var repsHigh = repsArr[1] || 12;
+    return Array.from({ length: sets }, function(_, i) {
+      return { reps: i === 0 ? repsHigh : repsLow, rpe: rpeVal, isWarmup: false };
+    });
+  }
+
+  var SPLIT_TEMPLATES = {
+    6: {
+      'Lundi':   { title:'💪 Push A — Pec/Épaules/Triceps', exos:['Développé couché','Développé incliné','Élévations latérales','Extension triceps','Dips'] },
+      'Mardi':   { title:'🔵 Pull A — Dos/Biceps',          exos:['Tractions','Rowing barre','Tirage poitrine','Curl barre','Face pull'] },
+      'Mercredi':{ title:'🦵 Legs A — Quad/Fessiers',       exos:['Squat','Presse à cuisses','Fentes','Hip Thrust','Adduction'] },
+      'Jeudi':   { title:'💪 Push B — Épaules/Pec incliné', exos:['Développé militaire','Développé incliné','Écarté machine','Élévations latérales','Extension triceps'] },
+      'Vendredi':{ title:'🔵 Pull B — Dos épais/Ischio',    exos:['Rowing haltères','Romanian Deadlift','Leg Curl couché','Curl marteau','Face pull'] },
+      'Samedi':  { title:'🦵 Legs B — Ischio/Fessiers',     exos:['Romanian Deadlift','Leg Curl couché','Hip Thrust','Adduction','Gainage planche'] },
+      'Dimanche':{ rest: true }
+    },
+    4: {
+      'Lundi':   { title:'💪 Upper A', exos:['Développé couché','Rowing barre','Développé militaire','Tractions','Curl haltères','Extension triceps'] },
+      'Mardi':   { title:'🦵 Lower A', exos:['Squat','Romanian Deadlift','Presse à cuisses','Leg Curl couché','Hip Thrust','Gainage planche'] },
+      'Mercredi':{ rest: true },
+      'Jeudi':   { title:'💪 Upper B', exos:['Développé incliné','Rowing haltères','Élévations latérales','Tirage poitrine','Curl barre','Dips'] },
+      'Vendredi':{ title:'🦵 Lower B', exos:['Fentes','Romanian Deadlift','Leg Extension','Leg Curl couché','Hip Thrust','Adduction'] },
+      'Samedi':  { rest: true }, 'Dimanche': { rest: true }
+    },
+    3: {
+      'Lundi':   { title:'🏋️ Full Body A', exos:['Squat','Développé couché','Rowing barre','Élévations latérales','Curl haltères','Gainage planche'] },
+      'Mercredi':{ title:'🏋️ Full Body B', exos:['Romanian Deadlift','Développé incliné','Tractions','Hip Thrust','Extension triceps','Ab Wheel'] },
+      'Vendredi':{ title:'🏋️ Full Body C', exos:['Presse à cuisses','Développé militaire','Rowing haltères','Leg Curl couché','Curl barre','Gainage planche'] },
+      'Mardi':{ rest:true },'Jeudi':{ rest:true },'Samedi':{ rest:true },'Dimanche':{ rest:true }
+    },
+    2: {
+      'Lundi':   { title:'🏋️ Full Body A', exos:['Squat','Développé couché','Rowing barre','Hip Thrust','Curl haltères','Gainage planche'] },
+      'Jeudi':   { title:'🏋️ Full Body B', exos:['Presse à cuisses','Développé incliné','Romanian Deadlift','Élévations latérales','Extension triceps','Ab Wheel'] },
+      'Mardi':{ rest:true },'Mercredi':{ rest:true },'Vendredi':{ rest:true },'Samedi':{ rest:true },'Dimanche':{ rest:true }
+    }
+  };
+
+  var templateFreq = [2,3,4,6].reduce(function(prev, curr) {
+    return Math.abs(curr - freq) < Math.abs(prev - freq) ? curr : prev;
+  });
+  var template = SPLIT_TEMPLATES[templateFreq];
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var days = allDays.map(function(day) {
+    var tpl = template[day];
+    if (!tpl || tpl.rest) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
+
+    var exoNames = (tpl.exos || []).filter(function(n) {
+      var e = EXERCISES[n]; if (!e) return true;
+      if (e.exclude) return false;
+      return _matOk(n);
+    });
+
+    if (gender === 'female') {
+      ['Hip Thrust','Adduction','Romanian Deadlift','Leg Curl couché','Glute Kickback'].forEach(function(le) {
+        if (exoNames.indexOf(le) === -1 && _matOk(le) && !(EXERCISES[le] || {}).exclude) exoNames.push(le);
+      });
+    }
+
+    exoNames = exoNames.slice(0, maxExos);
+    var exercises = exoNames.map(function(n) {
+      return { name: n, type: 'weight', restSeconds: useSupersets ? 60 : 120, sets: _buildMuscleSets(n, repRange, setsPerExo) };
+    });
+
+    if (useSupersets) exercises = _wpApplySupersets(exercises, true);
+    if (cardio === 'integre') exercises.push(_wpCardioExo(15));
+    if (cardio === 'dedie')   exercises.push(_wpCardioExo(25));
+
+    var note = isCutting ? 'Sèche — RPE 8, repos courts, focus métabolique.' :
+               isBulking  ? 'Prise de masse — RPE 7-8, charges lourdes, manger suffisamment.' :
+               'Recompo — RPE 8, progression régulière.';
+    return { day: day, rest: false, title: tpl.title, coachNote: note, exercises: exercises };
+  });
+  return { days: days };
+}
+
+function _wpGenerateBienEtre(params, goals, injuries, cardio, maxExos) {
+  var selectedDays = params.selectedDays || ['Lundi','Mercredi','Vendredi'];
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var ACTIVITIES = [
+    { name:'Marche rapide',     type:'cardio', sets:[{ durationMin:30, distance:3, isWarmup:false }] },
+    { name:'Yoga & Mobilité',   type:'time',   sets:[{ durationSec:2400, isWarmup:false },{ durationSec:2400, isWarmup:false }] },
+    { name:'Natation',          type:'cardio', sets:[{ durationMin:40, distance:1, isWarmup:false }] },
+    { name:'Gainage planche',   type:'time',   sets:[{ durationSec:60, isWarmup:false },{ durationSec:60, isWarmup:false },{ durationSec:60, isWarmup:false }] },
+    { name:'Vélo doux',         type:'cardio', sets:[{ durationMin:35, isWarmup:false }] },
+    { name:'Renfo léger complet',type:'weight',sets:[{ weight:null,reps:15,rpe:5,isWarmup:false },{ weight:null,reps:15,rpe:5,isWarmup:false }] },
+    { name:'Stretching',        type:'time',   sets:[{ durationSec:1800, isWarmup:false }] }
+  ];
+  var actIdx = 0;
+  var days = allDays.map(function(day) {
+    var isTraining = selectedDays.indexOf(day) >= 0;
+    if (!isTraining) return { day: day, rest: true, title: '😴 Repos', exercises: [] };
+    var act = ACTIVITIES[actIdx % ACTIVITIES.length]; actIdx++;
+    return { day: day, rest: false, title: '🌿 ' + act.name,
+      coachNote: 'Régularité > intensité. L\'objectif c\'est d\'y aller, pas de souffrir.',
+      exercises: [Object.assign({}, act)] };
+  });
+  return { days: days };
+}
+
 
 function regenerateWeeklyPlan() {
   showModal('Régénérer le programme ?', 'Régénérer', 'var(--blue)', () => {

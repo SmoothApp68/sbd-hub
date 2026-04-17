@@ -9858,7 +9858,7 @@ function _wpCoachNote(exoName, prog, phase) {
   return notes.slice(0, 2).join(' ');
 }
 
-var INJURY_EXCLUSIONS = {
+var _WP_INJURY_EXCLUSIONS = {
   'epaules':  ['Développé militaire', 'Élévations latérales', 'Oiseau machine', 'Tirage visage'],
   'nuque':    ['Tirage nuque', 'Shrugs'],
   'poignets': ['Curl poignet', 'Extension poignet', 'Curl marteau', 'Dips'],
@@ -9871,7 +9871,7 @@ var INJURY_EXCLUSIONS = {
 function _wpFilterInjuries(exos, injuries) {
   if (!injuries || !injuries.length) return exos;
   var excluded = injuries.reduce(function(acc, zone) {
-    return acc.concat(INJURY_EXCLUSIONS[zone] || []);
+    return acc.concat(_WP_INJURY_EXCLUSIONS[zone] || []);
   }, []);
   return exos.filter(function(e) {
     var name = typeof e === 'string' ? e : (e.name || '');
@@ -9928,7 +9928,7 @@ function _wpGetAccessories(mainLift, goals, injuries, mat, accentPct, accReps, c
   };
   var pool = (ACCESSORIES[mainLift] || []).filter(function(a) {
     return !injuries.some(function(inj) {
-      return (INJURY_EXCLUSIONS[inj] || []).some(function(ex) { return a.name.toLowerCase().includes(ex.toLowerCase()); });
+      return (_WP_INJURY_EXCLUSIONS[inj] || []).some(function(ex) { return a.name.toLowerCase().includes(ex.toLowerCase()); });
     });
   });
   var repsArr = (accReps || '10-12').split('-').map(Number);

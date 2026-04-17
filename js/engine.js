@@ -69,6 +69,26 @@ const TRAINING_MODES = {
       badgeTheme: 'wellness'
     }
   },
+  musculation: {
+    id: 'musculation',
+    label: 'Musculation',
+    icon: '💪',
+    desc: 'Hypertrophie, volume, esthétique — tous niveaux',
+    features: {
+      show1RM: true,
+      showIPF: false,
+      showSBDCards: false,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: false,
+      showWeeklyPlan: true,
+      showBWRatio: false,
+      defaultKeyLifts: ['Développé Couché (Haltères)', 'Squat Barre', 'Rowing Barre', 'Développé Militaire'],
+      primaryMetrics: ['volume_total', 'muscle_balance', 'body_weight', 'tonnage_week'],
+      programStyle: 'musculation',
+      badgeTheme: 'volume'
+    }
+  },
   bodybuilding: {
     id: 'bodybuilding',
     label: 'Bodybuilding',

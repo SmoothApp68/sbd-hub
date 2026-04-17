@@ -133,6 +133,9 @@ let db = (() => {
     if (p.user.onboarded === undefined) p.user.onboarded = true;
     if (!p.user.gender) p.user.gender = 'unspecified';
     if (p.user.trainingMode === undefined) p.user.trainingMode = 'powerlifting';
+    // Migrations modes : bodybuilding → musculation, force_athletique → powerlifting
+    if (p.user.trainingMode === 'bodybuilding') p.user.trainingMode = 'musculation';
+    if (p.user.trainingMode === 'force_athletique') p.user.trainingMode = 'powerlifting';
     // Migration one-shot : Aurélien → powerbuilding (supprimer après déploiement semaine 1)
     if (!p._migPBMode && p.user.trainingMode === 'powerlifting') {
       var _n = (p.user.name || '').toLowerCase();
@@ -8793,7 +8796,7 @@ function getExoCategory(name) {
 // ── Helpers séries / reps / repos par catégorie et objectif ──
 // Sources : NSCA, PubMed (de Salles 2009), Stronger by Science, Pelland/Zourdos 2025
 function mapTrainingModeToGoal(mode) {
-  const map = { powerlifting:'force', force_athletique:'force', bodybuilding:'masse', bien_etre:'bien_etre' };
+  const map = { powerlifting:'force', force_athletique:'force', powerbuilding:'force', bodybuilding:'masse', musculation:'masse', bien_etre:'bien_etre' };
   return map[mode] || 'force';
 }
 

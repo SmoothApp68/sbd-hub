@@ -1601,10 +1601,10 @@
         <div class="ob-title">Ton objectif principal</div>
         <div class="ob-sub">Choisis le mode qui correspond le mieux<br>à ta pratique actuelle.</div>
         <div class="ob-mode-grid" id="ob-mode-grid">
-          <div class="ob-mode-btn" onclick="selectTrainingMode('bien_etre')"><div class="ob-mode-icon">🧘</div><div class="ob-mode-name">Bien-être & Santé</div><div class="ob-mode-desc">Forme générale, mobilité, cardio</div></div>
-          <div class="ob-mode-btn" onclick="selectTrainingMode('bodybuilding')"><div class="ob-mode-icon">💪</div><div class="ob-mode-name">Bodybuilding</div><div class="ob-mode-desc">Hypertrophie, volume, esthétique</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('musculation')"><div class="ob-mode-icon">💪</div><div class="ob-mode-name">Musculation</div><div class="ob-mode-desc">Hypertrophie, volume, esthétique</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('powerbuilding')"><div class="ob-mode-icon">⚡</div><div class="ob-mode-name">Powerbuilding</div><div class="ob-mode-desc">Force SBD + hypertrophie</div></div>
           <div class="ob-mode-btn" onclick="selectTrainingMode('powerlifting')"><div class="ob-mode-icon">🏋️</div><div class="ob-mode-name">Powerlifting (SBD)</div><div class="ob-mode-desc">Squat, Bench, Deadlift — force max</div></div>
-          <div class="ob-mode-btn" onclick="selectTrainingMode('force_athletique')"><div class="ob-mode-icon">🏆</div><div class="ob-mode-name">Force Athlétique</div><div class="ob-mode-desc">Périodisation, peaking, compétition</div></div>
+          <div class="ob-mode-btn" onclick="selectTrainingMode('bien_etre')"><div class="ob-mode-icon">🧘</div><div class="ob-mode-name">Bien-être & Santé</div><div class="ob-mode-desc">Forme générale, mobilité, cardio</div></div>
         </div>
         <button class="btn" onclick="obNext('1b')" id="ob-mode-continue" disabled>Continuer →</button>
       </div>
@@ -2197,10 +2197,10 @@
         <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Mode d'entraînement</div>
           <select id="settingsTrainingMode" onchange="updateProfileField('trainingMode', this.value)" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
-            <option value="bien_etre">🧘 Bien-être & Santé</option>
-            <option value="bodybuilding">💪 Bodybuilding</option>
+            <option value="musculation">💪 Musculation</option>
+            <option value="powerbuilding">⚡ Powerbuilding</option>
             <option value="powerlifting">🏋️ Powerlifting (SBD)</option>
-            <option value="force_athletique">🏆 Force Athlétique / Compétition</option>
+            <option value="bien_etre">🧘 Bien-être & Santé</option>
           </select>
         </div>
 

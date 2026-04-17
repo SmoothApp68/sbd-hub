@@ -6196,42 +6196,330 @@ function pbGenerateProgram() {
 }
 
 function renderProgramBuilderView(container) {
+  if (!container) return;
+  var mode = (db.user && db.user.trainingMode) || 'powerlifting';
+
+  // Header commun avec bouton Modifier
+  var headerHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'+
+    '<div style="font-size:18px;font-weight:700;">📅 Programme</div>'+
+    '<button onclick="pbEditExisting()" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">Modifier le planning</button>'+
+  '</div>';
+
+  var modeHtml = '';
+  if (mode === 'powerbuilding') {
+    modeHtml = renderProgramPowerbuilding();
+  } else if (mode === 'musculation' || mode === 'bodybuilding') {
+    modeHtml = renderProgramMusculation();
+  } else if (mode === 'bien_etre' || mode === 'bien-etre') {
+    modeHtml = renderProgramBienEtre();
+  } else {
+    modeHtml = renderProgramPowerlifting();
+  }
+
+  var footerHtml = '<div style="display:flex;gap:8px;margin-top:10px;">'+
+    '<button class="btn" style="flex:1;background:var(--red);font-size:13px;" onclick="pbResetProgram()">Réinitialiser</button>'+
+  '</div>';
+
+  container.innerHTML = headerHtml + modeHtml + footerHtml;
+
+  if (mode === 'powerbuilding') setTimeout(pbSliderInit, 50);
+}
+
+// ── PROGRAMME — MODE POWERBUILDING ──
+function renderProgramPowerbuilding() {
+  var accentPct = (db.user && db.user.pbAccent) || 65;
+  var sliderHtml = '<div class="card" style="margin-bottom:10px;">'+
+    '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Équilibre du cycle</div>'+
+    '<div class="pb-slider-labels"><span style="color:var(--accent);">⚡ Force</span>'+
+    '<span id="pb-pct-lbl" style="color:var(--sub);font-size:10px;">'+accentPct+'% force</span>'+
+    '<span style="color:var(--purple);">💪 Volume</span></div>'+
+    '<div class="pb-slider-track" id="pb-track">'+
+      '<div class="pb-slider-fill" id="pb-fill" style="width:'+accentPct+'%;"></div>'+
+      '<div class="pb-slider-thumb" id="pb-thumb" style="left:calc('+accentPct+'% - 11px);"></div>'+
+    '</div>'+
+    '<div id="pb-reco" style="font-size:10px;color:var(--sub);padding:8px 10px;background:rgba(10,132,255,.05);border:1px solid rgba(10,132,255,.12);border-radius:9px;line-height:1.5;">'+
+      pbGetRecoText(accentPct)+
+    '</div>'+
+  '</div>';
+
+  return sliderHtml + renderProgDaysList();
+}
+
+function pbGetRecoText(pct) {
+  if (pct >= 70) return '<strong>Accent Force ('+pct+'%) :</strong> composé en 3-4 reps @ 85-90% 1RM, back-off sets × 3 @ 80%, accessoires en 8-12 reps.';
+  if (pct >= 45) return '<strong>Équilibre ('+pct+'%) :</strong> composé en 4-6 reps @ 78-83%, accessoires en 10-15 reps. Zone optimale powerbuilding.';
+  return '<strong>Accent Volume ('+pct+'%) :</strong> composé en 6-8 reps @ 72-75%, accessoires en 15-20 reps. Phase d\'accumulation.';
+}
+
+function pbSliderInit() {
+  var track = document.getElementById('pb-track');
+  var fill = document.getElementById('pb-fill');
+  var thumb = document.getElementById('pb-thumb');
+  var lbl = document.getElementById('pb-pct-lbl');
+  var reco = document.getElementById('pb-reco');
+  if (!track || !fill || !thumb) return;
+  var dragging = false;
+
+  function setVal(pct) {
+    pct = Math.max(10, Math.min(90, pct));
+    fill.style.width = pct+'%';
+    thumb.style.left = 'calc('+pct+'% - 11px)';
+    if (lbl) lbl.textContent = Math.round(pct)+'% force';
+    if (reco) reco.innerHTML = pbGetRecoText(Math.round(pct));
+    if (!db.user) db.user = {};
+    db.user.pbAccent = Math.round(pct);
+    if (typeof saveDB === 'function') saveDB();
+  }
+
+  track.addEventListener('click', function(e) {
+    var r = track.getBoundingClientRect();
+    setVal(((e.clientX-r.left)/r.width)*100);
+  });
+  thumb.addEventListener('mousedown', function(){ dragging=true; });
+  thumb.addEventListener('touchstart', function(){ dragging=true; }, {passive:true});
+  document.addEventListener('mouseup', function(){ dragging=false; });
+  document.addEventListener('touchend', function(){ dragging=false; });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var r = track.getBoundingClientRect();
+    setVal(((e.clientX-r.left)/r.width)*100);
+  });
+  document.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    var r = track.getBoundingClientRect();
+    setVal(((e.touches[0].clientX-r.left)/r.width)*100);
+  }, {passive:true});
+}
+
+// ── PROGRAMME — MODE MUSCULATION ──
+function renderProgramMusculation() {
+  var mode = (db.user && db.user.trainingMode) || 'musculation';
+  var freq = (db.user && db.user.programParams && db.user.programParams.frequency) || 4;
+
+  var recSplit = typeof recommendSplit === 'function' ? recommendSplit(mode, freq) : null;
+  var allSplits = typeof getAllSplitsForMode === 'function' ? getAllSplitsForMode(mode) : {};
+
+  var splitChips = Object.keys(allSplits).map(function(days) {
+    var s = allSplits[days];
+    var isRec = recSplit && s.split === recSplit.split;
+    var isCur = db.user && db.user.selectedSplit === s.split;
+    var cls = isCur ? ' active' : '';
+    return '<button class="prog-split-chip'+cls+'" onclick="progSelectSplit(\''+s.split+'\','+days+')">'+
+      (isRec ? '⭐ ' : '')+s.label+
+    '</button>';
+  }).join('');
+
+  var splitBar = splitChips ? '<div class="prog-split-bar">'+splitChips+'</div>' : '';
+  return splitBar + renderProgDaysList();
+}
+
+// ── PROGRAMME — MODE POWERLIFTING ──
+function renderProgramPowerlifting() {
+  var currentWeek = (db.user && db.user.programParams && db.user.programParams.currentWeek) || 6;
+  var hasCompet = !!(db.user && db.user.programParams && db.user.programParams.competitionDate);
+
+  var gridCells = '';
+  for (var w = 1; w <= 12; w++) {
+    var isCur = w === currentWeek;
+    var isDone = w < currentWeek;
+    var inComp = w >= 11;
+    var bg = isDone ? 'rgba(50,215,75,.15)' : isCur ? 'var(--accent)' : inComp ? 'rgba(191,90,242,.15)' : 'rgba(255,69,58,.12)';
+    var color = isDone ? 'var(--green)' : isCur ? '#fff' : inComp ? 'var(--purple)' : 'rgba(255,69,58,.8)';
+    var label = (w===5||w===10) ? 'D' : (w===4||w===9) ? 'P' : String(w);
+    gridCells += '<div class="prog-pl-cell'+(isCur?' current selected':isDone?' done':'')+'" '+
+      'style="background:'+bg+';color:'+color+';" onclick="progPLSelectWeek('+w+')">'+label+'</div>';
+  }
+  var gridHtml = '<div class="card" style="margin-bottom:10px;">'+
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);margin-bottom:8px;">'+
+      '12 semaines · <span id="pl-sel-lbl">Semaine '+currentWeek+'</span>'+
+    '</div>'+
+    '<div class="prog-pl-grid" style="grid-template-columns:repeat(12,1fr);">'+gridCells+'</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'+
+      '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--sub);"><div style="width:8px;height:8px;border-radius:2px;background:rgba(50,215,75,.4);"></div>Terminée</div>'+
+      '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--sub);"><div style="width:8px;height:8px;border-radius:2px;background:var(--accent);"></div>Cette sem.</div>'+
+      '<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--sub);">P = Peak · D = Deload</div>'+
+    '</div>'+
+  '</div>';
+
+  var competDate = (db.user && db.user.programParams && db.user.programParams.competitionDate) || '';
+  var competHtml = '<div class="card" style="margin-bottom:10px;">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(hasCompet?'10':'0')+'px;">'+
+      '<div style="font-size:13px;font-weight:700;">🏆 Compétition / Test max</div>'+
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'+
+        '<input type="checkbox" id="pl-has-compet" '+(hasCompet?'checked':'')+' onchange="progToggleCompet(this.checked)" style="width:16px;height:16px;">'+
+        '<span style="font-size:12px;color:var(--sub);">Activer</span>'+
+      '</label>'+
+    '</div>'+
+    (hasCompet ? '<input type="date" id="pl-compet-date" value="'+competDate+'" onchange="progSetCompetDate(this.value)" style="width:100%;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;">' : '')+
+  '</div>';
+
+  return gridHtml + competHtml + renderProgDaysList();
+}
+
+// ── PROGRAMME — MODE BIEN-ÊTRE ──
+function renderProgramBienEtre() {
+  var streak = 0;
+  var intention = (db.user && db.user.weekIntention) || 'Clique sur ✏️ pour définir ton intention de la semaine';
+  var heroHtml = '<div class="be-prog-hero">'+
+    '<div class="be-prog-ico">🌿</div>'+
+    '<div class="be-prog-title">Intention de la semaine <span onclick="beEditIntention()" style="font-size:14px;cursor:pointer;opacity:.5;">✏️</span></div>'+
+    '<div class="be-prog-sub">'+intention+'</div>'+
+    '<div class="be-prog-stats">'+
+      '<div class="be-prog-stat"><div class="be-prog-stat-val" style="color:var(--green);">🔥 '+streak+'</div><div class="be-prog-stat-lbl">Jours actifs</div></div>'+
+      '<div class="be-prog-stat"><div class="be-prog-stat-val" style="color:var(--teal);">4</div><div class="be-prog-stat-lbl">Objectif sem.</div></div>'+
+    '</div>'+
+  '</div>';
+
+  return heroHtml + renderProgBienEtreDays();
+}
+
+// ── PLANNING JOURS MODIFIABLE ──
+function renderProgDaysList() {
   var program = db.generatedProgram || [];
   var routine = getRoutine();
-  var h = '';
+  var today = DAYS_FULL[new Date().getDay()];
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
-  h += '<div style="font-size:18px;font-weight:700;">Mon Programme</div>';
-  h += '<button onclick="pbEditExisting();" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;">Modifier</button>';
-  h += '</div>';
+  var rowsHtml = allDays.map(function(day) {
+    var label = routine[day] || '';
+    var isRest = !label || /repos/i.test(label);
+    var isToday = day === today;
+    var dayProgram = program.find(function(p){ return p.day===day && !p.isRest; });
+    var exos = dayProgram && dayProgram.exercises ? dayProgram.exercises.map(function(e){
+      return typeof e==='string'?e:(e&&e.name)||'Exercice';
+    }) : [];
+    var dayShort = day.substring(0,3);
 
-  // Afficher chaque jour
-  var allDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  allDays.forEach(function(day) {
-    var label = routine[day] || '😴 Repos';
-    var isRest = label.indexOf('Repos') >= 0;
-    var dayProgram = program.find(function(p) { return p.day === day; });
-
-    h += '<div class="card" style="' + (isRest ? 'opacity:0.5;' : '') + '">';
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-    h += '<div style="font-weight:700;font-size:14px;">' + day + '</div>';
-    h += '<div style="font-size:12px;color:var(--accent);">' + label + '</div>';
-    h += '</div>';
-
-    if (dayProgram && dayProgram.exercises && !isRest) {
-      dayProgram.exercises.forEach(function(exo) {
-        var exoName = typeof exo === 'string' ? exo : (exo && exo.name) || 'Exercice';
-        h += '<div style="font-size:12px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
-      });
+    if (isRest) {
+      return '<div class="prog-day-row rest">'+
+        '<span class="prog-drag-handle" style="opacity:.1;">⠿</span>'+
+        '<div class="prog-day-label'+(isToday?' today':'')+'">'+(isToday?'<span style="color:var(--accent);">'+dayShort+'</span>':dayShort)+'</div>'+
+        '<div class="prog-day-content"><div class="prog-day-name" style="color:var(--sub);">Repos</div></div>'+
+        '<div class="prog-day-actions"><div class="prog-action-btn" style="color:var(--green);font-size:10px;" onclick="progAddDay(\''+day+'\')">+</div></div>'+
+      '</div>';
     }
-    h += '</div>';
-  });
 
-  h += '<div style="display:flex;gap:8px;margin-top:10px;">';
-  h += '<button class="btn" style="flex:1;background:var(--red);font-size:13px;" onclick="pbResetProgram()">Réinitialiser</button>';
-  h += '</div>';
+    var exoStr = exos.slice(0,3).join(' · ')+(exos.length>3?' +'+(exos.length-3):'');
+    return '<div class="prog-day-row'+(isToday?' today':'')+'">'+
+      '<span class="prog-drag-handle">⠿</span>'+
+      '<div class="prog-day-label'+(isToday?' today':'')+'">'+dayShort+'</div>'+
+      '<div class="prog-day-content" onclick="progShowDayDetail(\''+day+'\')" style="cursor:pointer;">'+
+        '<div class="prog-day-name">'+(label||day)+'</div>'+
+        (exoStr?'<div class="prog-day-exos">'+exoStr+'</div>':'')+
+      '</div>'+
+      '<div class="prog-day-actions">'+
+        '<div class="prog-action-btn" onclick="progEditDay(\''+day+'\')">✏️</div>'+
+        '<div class="prog-action-btn danger" onclick="progRemoveDay(\''+day+'\')">×</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
 
-  container.innerHTML = h;
+  return '<div class="prog-planning">'+
+    '<div class="prog-planning-head">'+
+      '<div class="prog-planning-title">Semaine type</div>'+
+      '<span class="prog-planning-add" onclick="pbEditExisting()">+ Modifier</span>'+
+    '</div>'+
+    rowsHtml+
+  '</div>';
+}
+
+// ── PLANNING BIEN-ÊTRE ──
+function renderProgBienEtreDays() {
+  var today = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var ACTIVITIES = [
+    {key:'cardio',ico:'🏃',label:'Cardio',color:'var(--green)',borderColor:'rgba(50,215,75,.2)'},
+    {key:'yoga',ico:'🧘',label:'Yoga',color:'var(--teal)',borderColor:'rgba(100,210,255,.2)'},
+    {key:'renfo',ico:'💪',label:'Renfo',color:'var(--purple)',borderColor:'rgba(191,90,242,.2)'},
+    {key:'velo',ico:'🚴',label:'Cardio',color:'var(--green)',borderColor:'rgba(50,215,75,.2)'}
+  ];
+
+  var rowsHtml = allDays.map(function(day) {
+    var label = routine[day] || '';
+    var isRest = !label || /repos/i.test(label);
+    var isToday = day === today;
+    var dayShort = day.substring(0,3);
+    var lowLabel = label.toLowerCase();
+    var act = ACTIVITIES.find(function(a){ return lowLabel.indexOf(a.key)>=0 || lowLabel.indexOf(a.label.toLowerCase())>=0; }) || null;
+
+    if (isRest) {
+      return '<div class="be-prog-act-row rest">'+
+        '<span class="prog-drag-handle" style="opacity:.1;">⠿</span>'+
+        '<div class="prog-day-label">'+dayShort+'</div>'+
+        '<div class="be-prog-act-ico" style="background:rgba(255,255,255,.03);">😴</div>'+
+        '<div class="be-prog-act-info"><div class="be-prog-act-name" style="color:var(--sub);">Repos</div></div>'+
+        '<div class="be-prog-act-edit" style="color:var(--green);">+</div>'+
+      '</div>';
+    }
+
+    return '<div class="be-prog-act-row'+(isToday?' today':'')+'">'+
+      '<span class="prog-drag-handle">⠿</span>'+
+      '<div class="prog-day-label'+(isToday?' today':'')+'">'+dayShort+'</div>'+
+      '<div class="be-prog-act-ico" style="background:rgba(100,210,255,.1);">'+(act?act.ico:'🌿')+'</div>'+
+      '<div class="be-prog-act-info">'+
+        '<div class="be-prog-act-name">'+label+'</div>'+
+        '<div class="be-prog-act-meta">'+(isToday?'Aujourd\'hui · ':'')+'45 min</div>'+
+      '</div>'+
+      (act?'<div class="be-prog-act-tag" style="color:'+act.color+';border-color:'+act.borderColor+';">'+act.label+'</div>':'')+
+      '<div class="be-prog-act-check" style="color:'+(isToday?'var(--accent)':'var(--sub)')+';">'+(isToday?'→':'·')+'</div>'+
+      '<div class="be-prog-act-edit">✏️</div>'+
+    '</div>';
+  }).join('');
+
+  return '<div class="prog-planning"><div class="prog-planning-head">'+
+    '<div class="prog-planning-title">Cette semaine</div>'+
+    '<span class="prog-planning-add" onclick="pbEditExisting()">+ Modifier</span>'+
+  '</div>'+rowsHtml+'</div>';
+}
+
+// ── HELPERS INTERACTIVITÉ ──
+function progSelectSplit(splitId, days) {
+  document.querySelectorAll('.prog-split-chip').forEach(function(b){ b.classList.remove('active'); });
+  if (typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('active');
+  if (!db.user) db.user = {};
+  db.user.selectedSplit = splitId;
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof showToast === 'function') showToast('Split mis à jour : '+splitId);
+}
+
+function progPLSelectWeek(w) {
+  document.querySelectorAll('.prog-pl-cell').forEach(function(c,i){ c.classList.toggle('selected',i===w-1); });
+  var lbl = document.getElementById('pl-sel-lbl');
+  if (lbl) lbl.textContent = 'Semaine '+w;
+}
+
+function progToggleCompet(checked) {
+  if (!db.user) db.user = {};
+  if (!db.user.programParams) db.user.programParams = {};
+  if (!checked) { db.user.programParams.competitionDate = null; }
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof renderProgramBuilderView === 'function') {
+    renderProgramBuilderView(document.getElementById('programBuilderContent'));
+  }
+}
+
+function progSetCompetDate(date) {
+  if (!db.user) db.user = {};
+  if (!db.user.programParams) db.user.programParams = {};
+  db.user.programParams.competitionDate = date;
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof showToast === 'function') showToast('Date de compétition enregistrée');
+}
+
+function progEditDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
+function progRemoveDay(day) { if (typeof showToast==='function') showToast('Modifie le planning pour supprimer ce jour'); }
+function progAddDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
+function progShowDayDetail(day) { if (typeof showToast==='function') showToast('Séance : '+day); }
+function beEditIntention() {
+  var val = prompt('Intention de la semaine :', (db.user && db.user.weekIntention) || '');
+  if (val !== null) {
+    if (!db.user) db.user = {};
+    db.user.weekIntention = val;
+    if (typeof saveDB==='function') saveDB();
+    renderProgramBuilderView(document.getElementById('programBuilderContent'));
+  }
 }
 
 function pbEditExisting() {

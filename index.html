@@ -1619,6 +1619,154 @@
       background:linear-gradient(135deg,var(--accent),#6366f1);
       border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer; }
 
+    /* ── PROGRAMME TAB — nouvelle UI ── */
+    .prog-mode-header { background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:14px;margin-bottom:10px; }
+    .prog-mode-top { display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px; }
+    .prog-mode-name { font-size:16px;font-weight:800;margin-bottom:3px; }
+    .prog-mode-sub { font-size:10px;color:var(--sub); }
+    .prog-mode-pct { font-size:28px;font-weight:900;line-height:1;text-align:right; }
+    .prog-mode-pct-lbl { font-size:9px;color:var(--sub);margin-top:1px;text-align:right; }
+    .prog-macro-bar { height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-bottom:10px; }
+    .prog-macro-fill { height:100%;border-radius:3px; }
+    .prog-blocs-row { display:flex;gap:6px; }
+    .prog-bloc { flex:1;border-radius:10px;padding:8px;text-align:center;cursor:pointer;transition:all .2s; }
+    .prog-bloc-tag { font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px; }
+    .prog-bloc-name { font-size:10px;font-weight:700;margin-bottom:1px; }
+    .prog-bloc-sub { font-size:9px;opacity:.55; }
+
+    /* Curseur accent PB */
+    .pb-slider-track { height:8px;background:rgba(255,255,255,.08);border-radius:4px;
+      position:relative;cursor:pointer;margin:6px 0 10px; }
+    .pb-slider-fill { height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--purple)); }
+    .pb-slider-thumb { width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;
+      top:50%;transform:translateY(-50%);box-shadow:0 2px 10px rgba(0,0,0,.5);cursor:grab; }
+    .pb-slider-thumb:active { cursor:grabbing; }
+    .pb-slider-labels { display:flex;justify-content:space-between;font-size:10px;font-weight:700;margin-bottom:4px; }
+
+    /* Planning semaine modifiable */
+    .prog-planning { background:var(--card);border:1px solid var(--border);border-radius:16px;
+      overflow:hidden;margin-bottom:10px; }
+    .prog-planning-head { padding:12px 14px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between; }
+    .prog-planning-title { font-size:14px;font-weight:800; }
+    .prog-planning-add { font-size:11px;color:var(--accent);font-weight:600;cursor:pointer;
+      padding:5px 10px;border-radius:8px;background:rgba(10,132,255,.08);border:1px solid rgba(10,132,255,.15); }
+
+    .prog-day-row { display:flex;align-items:center;gap:10px;padding:11px 14px;
+      border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative; }
+    .prog-day-row:last-child { border-bottom:none; }
+    .prog-day-row:active { background:rgba(255,255,255,.02); }
+    .prog-day-row.rest { opacity:.4;cursor:default; }
+    .prog-day-row.today { background:rgba(10,132,255,.04); }
+    .prog-drag-handle { color:rgba(255,255,255,.2);font-size:14px;cursor:grab;
+      flex-shrink:0;user-select:none;padding:0 3px; }
+    .prog-drag-handle:active { color:rgba(255,255,255,.5);cursor:grabbing; }
+    .prog-day-label { width:30px;font-size:11px;font-weight:700;color:var(--sub);flex-shrink:0; }
+    .prog-day-label.today { color:var(--accent); }
+    .prog-day-content { flex:1;min-width:0; }
+    .prog-day-name { font-size:13px;font-weight:700;margin-bottom:2px; }
+    .prog-day-exos { font-size:10px;color:var(--sub); }
+    .prog-day-muscles { display:flex;gap:4px;margin-top:4px;flex-wrap:wrap; }
+    .prog-muscle-tag { font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;border:1px solid; }
+    .prog-day-actions { display:flex;gap:5px;flex-shrink:0; }
+    .prog-action-btn { width:26px;height:26px;border-radius:7px;background:var(--surface);
+      border:1px solid var(--border);color:var(--sub);font-size:11px;display:flex;
+      align-items:center;justify-content:center;cursor:pointer;transition:all .15s; }
+    .prog-action-btn:active { background:rgba(255,255,255,.1); }
+    .prog-action-btn.danger { color:var(--red); }
+
+    /* Semaine sélectionnée — détail */
+    .prog-week-detail { background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden; }
+    .prog-week-head { padding:12px 14px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between; }
+    .prog-week-title { font-size:14px;font-weight:800; }
+    .prog-week-sub { font-size:10px;color:var(--sub);margin-top:1px; }
+    .prog-week-badge { font-size:9px;font-weight:700;padding:4px 9px;border-radius:6px; }
+
+    /* Jours strip */
+    .prog-days-strip { display:flex;border-bottom:1px solid var(--border); }
+    .prog-day-pill { flex:1;padding:8px 2px;text-align:center;cursor:pointer;
+      border-right:1px solid var(--border);transition:background .15s; }
+    .prog-day-pill:last-child { border-right:none; }
+    .prog-day-pill.rest { opacity:.28;cursor:default; }
+    .prog-day-pill.active { background:rgba(10,132,255,.08); }
+    .prog-day-pill-lbl { font-size:7px;text-transform:uppercase;letter-spacing:.3px;
+      color:var(--sub);margin-bottom:3px; }
+    .prog-day-pill-ico { font-size:13px;margin-bottom:2px; }
+    .prog-day-pill-type { font-size:7px;font-weight:700; }
+
+    /* Zones Force / Hypertrophie */
+    .prog-zone { border-radius:12px;padding:10px 12px;margin-bottom:8px; }
+    .prog-zone-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:8px; }
+    .prog-zone-label { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+      display:flex;align-items:center;gap:5px; }
+    .prog-zone-dot { width:5px;height:5px;border-radius:50%; }
+    .prog-zone-add { font-size:11px;color:var(--sub);cursor:pointer;opacity:.5; }
+    .prog-zone-add:hover { opacity:1; }
+    .prog-exo-row { display:flex;align-items:center;gap:8px;padding:7px 0;
+      border-bottom:1px solid rgba(255,255,255,.04); }
+    .prog-exo-row:last-child { border-bottom:none; }
+    .prog-exo-ico { width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
+      justify-content:center;font-size:12px;flex-shrink:0; }
+    .prog-exo-name { font-size:12px;font-weight:700;flex:1; }
+    .prog-exo-scheme { font-size:9px;color:var(--sub); }
+    .prog-exo-load { font-size:13px;font-weight:800;text-align:right;flex-shrink:0; }
+    .prog-exo-load-sub { font-size:9px;color:var(--sub);text-align:right; }
+    .prog-exo-actions { display:flex;gap:4px;margin-left:4px; }
+    .prog-exo-action { width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);color:var(--sub);font-size:10px;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6; }
+
+    /* Grille PL 12 semaines */
+    .prog-pl-grid { display:grid;gap:4px;margin-bottom:10px; }
+    .prog-pl-cell { aspect-ratio:1;border-radius:5px;cursor:pointer;display:flex;
+      align-items:center;justify-content:center;font-size:8px;font-weight:800;
+      transition:all .15s;border:1.5px solid transparent; }
+    .prog-pl-cell:active { transform:scale(.88); }
+    .prog-pl-cell.done { background:rgba(50,215,75,.15);color:var(--green); }
+    .prog-pl-cell.current { background:var(--accent);color:#fff; }
+    .prog-pl-cell.selected { box-shadow:0 0 0 2px var(--accent); }
+
+    /* Split selector */
+    .prog-split-bar { display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px; }
+    .prog-split-bar::-webkit-scrollbar { display:none; }
+    .prog-split-chip { flex-shrink:0;padding:6px 12px;border-radius:20px;background:var(--surface);
+      border:1px solid var(--border);color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;
+      transition:all .2s; }
+    .prog-split-chip.active { background:rgba(191,90,242,.15);border-color:rgba(191,90,242,.35);color:var(--purple); }
+
+    /* Bien-être */
+    .be-prog-hero { background:linear-gradient(135deg,rgba(100,210,255,.07),rgba(50,215,75,.04));
+      border:1px solid rgba(100,210,255,.15);border-radius:16px;padding:16px;margin-bottom:10px;text-align:center; }
+    .be-prog-ico { font-size:38px;margin-bottom:8px; }
+    .be-prog-title { font-size:17px;font-weight:800;margin-bottom:4px; }
+    .be-prog-sub { font-size:11px;color:var(--sub);line-height:1.6;margin-bottom:12px; }
+    .be-prog-quote { font-size:11px;color:rgba(100,210,255,.65);font-style:italic;
+      padding:8px 12px;background:rgba(100,210,255,.05);border-radius:8px;margin-bottom:12px; }
+    .be-prog-stats { display:flex;gap:8px;justify-content:center; }
+    .be-prog-stat { background:rgba(255,255,255,.04);border:1px solid var(--border);
+      border-radius:10px;padding:8px 14px;text-align:center; }
+    .be-prog-stat-val { font-size:18px;font-weight:800; }
+    .be-prog-stat-lbl { font-size:8px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-top:1px; }
+
+    /* Activité bien-être */
+    .be-prog-act-row { display:flex;align-items:center;gap:10px;padding:11px 14px;
+      border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s; }
+    .be-prog-act-row:last-child { border-bottom:none; }
+    .be-prog-act-row.rest { opacity:.38;cursor:default; }
+    .be-prog-act-row.today { background:rgba(100,210,255,.04); }
+    .be-prog-act-ico { width:34px;height:34px;border-radius:10px;display:flex;
+      align-items:center;justify-content:center;font-size:17px;flex-shrink:0; }
+    .be-prog-act-info { flex:1; }
+    .be-prog-act-name { font-size:13px;font-weight:700;margin-bottom:1px; }
+    .be-prog-act-meta { font-size:10px;color:var(--sub); }
+    .be-prog-act-tag { font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;border:1px solid;flex-shrink:0; }
+    .be-prog-act-check { font-size:15px;flex-shrink:0; }
+    .be-prog-act-edit { width:26px;height:26px;border-radius:7px;background:var(--surface);
+      border:1px solid var(--border);color:var(--sub);font-size:11px;display:flex;
+      align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;opacity:.5; }
+
     /* Msg perso */
     .go-msg-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
       z-index:600;align-items:flex-end;justify-content:center; }

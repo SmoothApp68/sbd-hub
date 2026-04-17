@@ -9676,6 +9676,8 @@ var WP_SESSION_TEMPLATES = {
     accessories: [
       { name: 'Presse à cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180 },
       { name: 'Leg Extension',      reps: '12',   rpe: 7,   sets: 4, rest: 90  },
+      { name: 'Adduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60  },
+      { name: 'Abduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60  },
       { name: 'Mollets (Machine)',   reps: '12',   rpe: 8,   sets: 4, rest: 60, isoTension: true },
       { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60, type: 'time' }
     ]
@@ -9699,8 +9701,6 @@ var WP_SESSION_TEMPLATES = {
     accessories: [
       { name: 'Romanian Deadlift',  reps: '6-8',  rpe: 8.5, sets: 4, rest: 180 },
       { name: 'Leg Curl allongé',   reps: '12',   rpe: 7,   sets: 4, rest: 90  },
-      { name: 'Adduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60  },
-      { name: 'Abduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60  },
       { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60, type: 'time' }
     ]
   },
@@ -9801,6 +9801,7 @@ var ISOLATION_EXOS = ['Leg Curl', 'Élévations latérales', 'Curl', 'Extension 
 
 // Addendum B: flag niveau débutant (module-level, set par generateWeeklyPlan)
 var isBeginnerMode = false;
+var rpeCapReprise = null; // Correction 7: cap RPE pour avancé en reprise
 
 // ── FONCTIONS UTILITAIRES ────────────────────────────────────
 
@@ -10061,10 +10062,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   var last = history[0];
   var prog = WP_PROGRESSION[bodyPart] || WP_PROGRESSION.upper;
   var logsCount = (db.logs || []).length;
+  var isCuttingW = ((db.user && db.user.programParams && db.user.programParams.goals) || []).includes('seche');
   var baseWeight;
 
-  if (logsCount < 24) {
+  if (isBeginnerMode) {
     baseWeight = last.rpe < 9 ? last.weight + prog.increase : last.weight;
+  } else if (isCuttingW) {
+    // Correction 6: sèche → progression par reps, charge seulement si RPE < 7
+    baseWeight = last.rpe < 7 ? last.weight + prog.increase : last.weight;
   } else {
     if (last.rpe < 8)         baseWeight = last.weight + prog.increase;
     else if (last.rpe <= 8.5) baseWeight = last.weight;
@@ -10073,6 +10078,11 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     if (history.length >= 2 && history[1].rpe <= 7 && last.rpe >= 9) {
       baseWeight = last.weight;
     }
+  }
+
+  // Correction 7: RPE cap reprise (Jordan)
+  if (rpeCapReprise !== null && last.rpe >= rpeCapReprise) {
+    baseWeight = last.weight;
   }
 
   return wpRound25(baseWeight);
@@ -10328,11 +10338,17 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
     var warmups = wpBuildWarmups(weight, reps);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
-    exercises.push({
+    var mainExoObj = {
       name: tpl.mainLift === 'squat' ? 'Squat (Barre)' : tpl.mainLift === 'bench' ? 'Développé couché' : 'Soulevé de Terre',
       type: 'weight', restSeconds: bodyPart === 'lower' ? 300 : 240, isPrimary: true,
       sets: warmups.concat(wpBuildMainSets(weight, reps, setsCount, rpe))
-    });
+    };
+    // Correction 2: Peak → 5min repos obligatoire + note vitesse de barre
+    if (phase === 'peak') {
+      mainExoObj.restSeconds = 300;
+      mainExoObj.coachNote = '⚠️ Repos 5min minimum entre les séries. Ne cherche pas l\'échec — cherche la vitesse de barre. Récupération nerveuse prioritaire.';
+    }
+    exercises.push(mainExoObj);
   }
 
   if (tpl.mainLift === 'squat_pause') {
@@ -10372,42 +10388,52 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     }
   });
 
-  // Addendum E: Fatigue axiale Squat → Deadlift
+  // Correction 3: Buffer 48h Squat → Deadlift
   var dayCoachNote = wpCoachNote(tpl.mainLift, phase, null, null);
   if (dayKey === 'deadlift') {
-    var yesterday = Date.now() - 86400000;
-    var squatYesterday = (db.logs || []).some(function(log) {
-      if (log.timestamp < yesterday - 3600000 || log.timestamp > Date.now()) return false;
-      return (log.exercises || []).some(function(e) { return e.name && /squat/i.test(e.name) && !e.name.toLowerCase().includes('pause'); });
-    });
-    if (squatYesterday) {
-      var lastSL = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0];
-      var squatRpe = 8;
-      if (lastSL) {
-        var sqExo = (lastSL.exercises || []).find(function(e) { return e.name && /squat/i.test(e.name); });
-        if (sqExo) {
-          var sqWS = (sqExo.allSets || []).filter(function(s) { return !s.isWarmup; });
-          if (sqWS.length) squatRpe = sqWS[sqWS.length - 1].rpe || 8;
-        }
+    var fortyEightHAgo = Date.now() - 48 * 3600000;
+    var axialWarning = false;
+    var squatRpe48 = 0;
+    var sortedRecent = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+    for (var li = 0; li < Math.min(sortedRecent.length, 5); li++) {
+      var rLog = sortedRecent[li];
+      if (rLog.timestamp < fortyEightHAgo) break;
+      var sqEx = (rLog.exercises || []).find(function(e) { return e.name && /squat/i.test(e.name) && !/pause/i.test(e.name); });
+      if (sqEx) {
+        var sqWS48 = (sqEx.allSets || sqEx.series || []).filter(function(s) { return !s.isWarmup; });
+        if (sqWS48.length) { squatRpe48 = sqWS48[sqWS48.length - 1].rpe || 8; axialWarning = true; }
+        break;
       }
+    }
+
+    if (axialWarning && squatRpe48 > 9) {
+      // RPE > 9 dans les 48h → remplacer Deadlift par Back Extension lestée
+      exercises = exercises.filter(function(e) { return !/soulevé|deadlift/i.test(e.name || ''); });
+      exercises.unshift({
+        name: 'Extension Dos (Hyperextension Lestée)', type: 'weight', restSeconds: 180, isPrimary: true,
+        coachNote: '⚠️ Fatigue axiale (Squat RPE ' + squatRpe48 + ' il y a < 48h). Deadlift remplacé. Retour la semaine prochaine.',
+        sets: wpBuildWarmups(60, 8).concat([
+          { weight: 60, reps: 8, rpe: 7, isWarmup: false },
+          { weight: 60, reps: 8, rpe: 7, isWarmup: false },
+          { weight: 60, reps: 8, rpe: 7, isWarmup: false }
+        ])
+      });
+      dayCoachNote = '🔴 Charge axiale remplacée — Squat RPE > 9 il y a moins de 48h.';
+    } else if (axialWarning) {
+      // RPE ≤ 9 : garder Deadlift mais réduire volume + cap RPE 7.5
       exercises.forEach(function(exo) {
         if (!/soulevé|deadlift/i.test(exo.name || '')) return;
         var workArr = (exo.sets || []).filter(function(s) { return !s.isWarmup; });
         if (workArr.length > 1) {
           exo.sets = (exo.sets || []).filter(function(s, idx, arr) {
             if (s.isWarmup) return true;
-            var wi = arr.slice(0, idx).filter(function(x) { return !x.isWarmup; }).length;
-            return wi < workArr.length - 1;
+            return arr.slice(0, idx).filter(function(x) { return !x.isWarmup; }).length < workArr.length - 1;
           });
         }
-        exo.sets = (exo.sets || []).map(function(s) {
-          if (s.isWarmup) return s;
-          return Object.assign({}, s, { rpe: Math.min(s.rpe || 8, 7.5) });
-        });
-        exo.coachNote = 'Volume réduit : fatigue axiale Squat détectée hier.';
-        if (squatRpe > 9) { exo.coachNote += ' RPE Squat > 9 → Semi-Sumo recommandé.'; exo.suggestedVariant = 'Soulevé de Terre Semi-Sumo'; }
+        exo.sets = (exo.sets || []).map(function(s) { return s.isWarmup ? s : Object.assign({}, s, { rpe: Math.min(s.rpe || 8, 7.5) }); });
+        exo.coachNote = 'Volume réduit : Squat détecté il y a < 48h.';
       });
-      dayCoachNote = (dayCoachNote || '') + ' ⚠️ Squat hier — volume Dead réduit.';
+      dayCoachNote = (dayCoachNote || '') + ' ⚠️ Squat < 48h — volume Dead réduit, RPE cap 7.5.';
     }
   }
 
@@ -10457,20 +10483,44 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   }
   exoNames = exoNames.slice(0, maxExos);
 
+  // Correction 4: Volume cap selon durée
+  var sessionDuration = params.duration || 60;
+  var maxTotalSets = sessionDuration <= 45 ? 18 : sessionDuration <= 60 ? 24 : sessionDuration <= 90 ? 32 : 40;
+  var totalSetsUsed = 0;
+
+  // Correction 5: Grip neutre pour blessures poignets
+  var mustUseNeutralGrip = (injuries || []).includes('poignets');
+
   var exercises = exoNames.map(function(name) {
+    if (totalSetsUsed >= maxTotalSets) return null;
+
+    // Correction 5: substitutions grip neutre
+    if (mustUseNeutralGrip) {
+      if (/curl biceps|curl barre/i.test(name)) name = 'Curl marteau';
+    }
+
     var isCompound = /squat|développé|rowing|tractions|deadlift|soulevé|presse/i.test(name);
     var rpe = isCompound ? (rpeTarget + 0.5) : rpeTarget;
     var reps = isCompound ? repRange[0] : repRange[1];
     var rest = isCompound ? 150 : 90;
     if (isCutting) rest += 30;
+    var thisSets = Math.min(setsCount, maxTotalSets - totalSetsUsed);
+    totalSetsUsed += thisSets;
     var dpResult = wpIsIsolation(name) ? wpDoubleProgressionWeight(name, repRange[0], repRange[1]) : null;
-    return {
+    var exoObj = {
       name: name, type: 'weight', restSeconds: phase === 'deload' ? Math.ceil(rest / 2) : rest,
-      sets: Array.from({ length: setsCount }, function() {
+      sets: Array.from({ length: thisSets }, function() {
         return { reps: dpResult ? dpResult.reps : reps, rpe: phase === 'deload' ? 6 : rpe, weight: dpResult ? dpResult.weight : null, isWarmup: false };
       })
     };
-  });
+    if (mustUseNeutralGrip && /arnold/i.test(name)) {
+      exoObj.gripNote = 'Prise neutre impérative — paumes face à face, zéro rotation.';
+    }
+    if (mustUseNeutralGrip && /curl marteau/i.test(name)) {
+      exoObj.gripNote = 'Prise marteau — position anatomique pour poignets sensibles.';
+    }
+    return exoObj;
+  }).filter(Boolean);
 
   if (useSupersets) exercises = wpApplySupersets(exercises);
   var note = isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
@@ -10493,9 +10543,27 @@ function generateWeeklyPlan() {
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     var selectedDays = params.selectedDays || allDays.slice(0, freq);
 
-    // Addendum B: Détection niveau réel
+    // Addendum B + Correction 7: Détection niveau réel
     var logsCount = (db.logs || []).length;
-    isBeginnerMode = logsCount < 24;
+    rpeCapReprise = null;
+
+    // Correction 7: Avancé en reprise (Jordan) — poids > 1.2× PC sur Squat/Deadlift
+    var isAdvancedReprise = false;
+    if (logsCount < 24) {
+      var bwCheck = parseFloat(db.user && db.user.bw) || 80;
+      var threshold = bwCheck * 1.2;
+      var recentLogsCheck = (db.logs || []).slice(-10);
+      recentLogsCheck.forEach(function(log) {
+        (log.exercises || []).forEach(function(exo) {
+          if (!/squat|deadlift|souleve/i.test(exo.name || '')) return;
+          var wSets = (exo.allSets || exo.series || []).filter(function(s) { return !s.isWarmup && s.weight > 0; });
+          if (wSets.some(function(s) { return s.weight > threshold; })) isAdvancedReprise = true;
+        });
+      });
+    }
+    if (isAdvancedReprise) rpeCapReprise = 8;
+
+    isBeginnerMode = logsCount < 24 && !isAdvancedReprise;
     if (isBeginnerMode) {
       var recentLogs = (db.logs || []).slice(-6);
       var highRpeCount = 0;

@@ -10273,6 +10273,30 @@ function wpAdjustForMissedSessions(plan, missed) {
   return plan;
 }
 
+function wpBuildWarmups(workWeight, workReps) {
+  if (!workWeight || workWeight < 40) return [];
+  var pcts = workReps <= 3
+    ? [0.40, 0.55, 0.70, 0.82, 0.90]
+    : [0.40, 0.55, 0.70, 0.80];
+  return pcts.map(function(p) {
+    var w = wpRound25(workWeight * p);
+    return w >= 20 ? { weight: w, reps: Math.min(workReps + 3, 8), isWarmup: true } : null;
+  }).filter(Boolean);
+}
+
+function wpFilterInjuries(exoList, injuries) {
+  if (!injuries || !injuries.length) return exoList;
+  var excluded = injuries.reduce(function(acc, zone) {
+    return acc.concat(WP_INJURY_EXCLUSIONS[zone] || []);
+  }, []);
+  return exoList.filter(function(e) {
+    var name = typeof e === 'string' ? e : (e.name || '');
+    return !excluded.some(function(ex) {
+      return name.toLowerCase().includes(ex.toLowerCase());
+    });
+  });
+}
+
 // ── GÉNÉRATION PAR MODE ─────────────────────────────────────
 
 function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {

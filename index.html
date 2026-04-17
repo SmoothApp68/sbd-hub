@@ -1767,6 +1767,51 @@
       border:1px solid var(--border);color:var(--sub);font-size:11px;display:flex;
       align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;opacity:.5; }
 
+    /* ── COACH TAB — nouvelle UI ── */
+    .coach-gauges { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px; }
+    .coach-gauge { background:var(--card);border:1px solid var(--border);border-radius:14px;
+      padding:12px 8px;text-align:center; }
+    .coach-gauge-val { font-size:26px;font-weight:900;line-height:1;margin-bottom:4px; }
+    .coach-gauge-bar { height:4px;background:rgba(255,255,255,.06);border-radius:2px;
+      overflow:hidden;margin:6px 0 4px; }
+    .coach-gauge-fill { height:100%;border-radius:2px;transition:width .4s ease; }
+    .coach-gauge-lbl { font-size:8px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px; }
+
+    .coach-recos { background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:14px;margin-bottom:10px; }
+    .coach-reco-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+      color:var(--sub);margin-bottom:10px; }
+    .coach-reco-item { display:flex;gap:9px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04); }
+    .coach-reco-item:last-child { border-bottom:none; }
+    .coach-reco-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px; }
+    .coach-reco-text { font-size:12px;color:var(--sub);line-height:1.55;flex:1; }
+    .coach-reco-text strong { color:var(--text); }
+
+    .coach-muscles { background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:14px;margin-bottom:10px; }
+    .coach-muscle-row { margin-bottom:7px; }
+    .coach-muscle-row:last-child { margin-bottom:0; }
+    .coach-muscle-top { display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px; }
+    .coach-muscle-name { font-weight:600; }
+    .coach-muscle-sets { font-weight:700; }
+    .coach-muscle-bar { height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden; }
+    .coach-muscle-fill { height:100%;border-radius:2px;transition:width .4s ease; }
+
+    .coach-sbd { background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:14px;margin-bottom:10px; }
+    .coach-sbd-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px; }
+    .coach-sbd-item { background:rgba(255,255,255,.04);border-radius:10px;padding:9px;text-align:center; }
+    .coach-sbd-label { font-size:8px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px; }
+    .coach-sbd-pr { font-size:18px;font-weight:900; }
+    .coach-sbd-trend { font-size:10px;font-weight:600;margin-top:2px; }
+
+    .coach-deload { background:rgba(255,159,10,.07);border:1px solid rgba(255,159,10,.2);
+      border-radius:14px;padding:12px 14px;margin-bottom:10px;
+      display:flex;align-items:center;gap:12px; }
+    .coach-deload-ico { font-size:22px;flex-shrink:0; }
+    .coach-deload-text { flex:1;font-size:12px;color:var(--sub);line-height:1.5; }
+    .coach-deload-text strong { color:var(--orange); }
+
     /* Msg perso */
     .go-msg-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
       z-index:600;align-items:flex-end;justify-content:center; }

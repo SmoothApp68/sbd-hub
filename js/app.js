@@ -8746,92 +8746,157 @@ function updateCoachHistoBadge() {
 }
 
 function renderCoachToday() {
-  const el = document.getElementById('coach-today');
+  var el = document.getElementById('coach-today');
   if (!el) return;
-  const now = new Date();
-  const todayDay = DAYS_FULL[now.getDay()];
-  if (!_coachSelectedDay) _coachSelectedDay = todayDay;
 
-  const routine = getRoutine();
-  const orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-  const weekStart = _getWeekStart(now);
+  if (!db.logs || db.logs.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;line-height:1.7;">'+
+      'Importe des séances pour activer le Coach.<br>'+
+      '<span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>';
+    return;
+  }
 
-  // Count sessions done this week
-  const weekLogs = (db.logs || []).filter(l => l.timestamp >= weekStart);
-  const donedays = {};
-  weekLogs.forEach(l => {
-    const d = DAYS_FULL[new Date(l.timestamp).getDay()];
-    donedays[d] = (donedays[d] || 0) + (l.volume || 0);
-  });
+  el.innerHTML = renderCoachTodayHTML();
+}
 
-  // Count planned sessions this week
-  const plannedCount = orderedDays.filter(d => { const lab = routine[d] || ''; return lab && !/repos|😴|natation|🏊/i.test(lab); }).length;
-  const doneCount = Object.keys(donedays).length;
+function renderCoachTodayHTML() {
+  var mode = (db.user && db.user.trainingMode) || 'powerlifting';
+  var pr = db.bestPR || {};
+  var html = '';
 
-  let h = '';
-  // Header
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
-  h += '<div style="font-size:14px;font-weight:700;color:var(--text);">Programme semaine</div>';
-  h += '<div style="font-size:12px;color:var(--sub);font-weight:600;">' + doneCount + '/' + plannedCount + ' séances</div>';
-  h += '</div>';
+  // ── 1. JAUGES ──
+  var fatigueScore = typeof computeFatigueScore === 'function' ? computeFatigueScore(db.logs) : 50;
+  var formScore = Math.max(0, Math.min(100, 100 - fatigueScore));
 
-  // Week band
-  h += '<div class="coach-week-band">';
-  orderedDays.forEach(day => {
-    const label = routine[day] || '';
-    const isRest = !label || /repos|😴|natation|🏊/i.test(label);
-    const isToday = day === todayDay;
-    const isDone = !!donedays[day];
-    const isActive = day === _coachSelectedDay;
-    let cls = 'coach-day-pill';
-    if (isRest) cls += ' rest';
-    else if (isDone) cls += ' done';
-    else if (isToday) cls += ' today';
-    if (isActive) cls += ' active';
-    const onclick = isRest ? '' : ' onclick="coachSelectDay(\'' + day + '\')"';
-    let sub = '';
-    if (isDone) sub = '✓';
-    else if (isToday) sub = 'auj.';
-    h += '<div class="' + cls + '"' + onclick + '><span class="cdp-label">' + day.substring(0, 3) + '</span>';
-    if (sub) h += '<span class="cdp-sub">' + sub + '</span>';
-    h += '</div>';
-  });
-  h += '</div>';
+  var lastSession = db.logs && db.logs.length ? db.logs[db.logs.length-1] : null;
+  var hoursAgo = lastSession ? Math.round((Date.now()-lastSession.timestamp)/3600000) : 72;
+  var recovScore = Math.min(100, Math.round((hoursAgo/48)*100));
 
-  // Detail for selected day
-  h += renderCoachDayDetail(_coachSelectedDay, routine, donedays, weekStart);
+  var volReport = typeof coachAnalyzeWeeklyVolume === 'function' ? coachAnalyzeWeeklyVolume() : null;
+  var volOptimal = volReport ? volReport.optimal.length : 0;
+  var volTotal = volReport ? (volReport.optimal.length + volReport.under.length + volReport.high.length + volReport.over.length) : 0;
+  var volScore = volTotal > 0 ? Math.round((volOptimal/volTotal)*100) : 50;
 
-  // Progression suggestions
-  var suggestions = checkProgressionSuggestions();
-  if (suggestions && suggestions.length) {
-    h += '<div class="coach-card" style="border-left:3px solid var(--purple);margin-top:12px;">';
-    h += '<div class="coach-card-title">📈 Progressions suggérées <span style="background:var(--purple);color:white;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;">' + suggestions.length + '</span></div>';
-    suggestions.forEach(function(s) {
-      h += '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">';
-      h += '<span style="color:var(--text);font-weight:600;">' + s.from + '</span>';
-      h += ' <span style="color:var(--blue);">→</span> ';
-      h += '<span style="color:var(--green);font-weight:600;">' + s.to + '</span>';
-      h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + s.reason + '</div></div>';
+  var gaugeColor = function(s) { return s>=70?'var(--green)':s>=40?'var(--orange)':'var(--red)'; };
+
+  html += '<div class="coach-gauges">';
+  html += '<div class="coach-gauge">'+
+    '<div class="coach-gauge-val" style="color:'+gaugeColor(formScore)+';">'+formScore+'</div>'+
+    '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+formScore+'%;background:'+gaugeColor(formScore)+';"></div></div>'+
+    '<div class="coach-gauge-lbl">Forme</div></div>';
+  html += '<div class="coach-gauge">'+
+    '<div class="coach-gauge-val" style="color:'+gaugeColor(recovScore)+';">'+recovScore+'</div>'+
+    '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+recovScore+'%;background:'+gaugeColor(recovScore)+';"></div></div>'+
+    '<div class="coach-gauge-lbl">Récup.</div></div>';
+  html += '<div class="coach-gauge">'+
+    '<div class="coach-gauge-val" style="color:'+gaugeColor(volScore)+';">'+volScore+'</div>'+
+    '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+volScore+'%;background:'+gaugeColor(volScore)+';"></div></div>'+
+    '<div class="coach-gauge-lbl">Volume</div></div>';
+  html += '</div>';
+
+  // ── 2. ALERTE DELOAD ──
+  var deload = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : {needed:false};
+  if (deload && deload.needed) {
+    html += '<div class="coach-deload">'+
+      '<div class="coach-deload-ico">⚠️</div>'+
+      '<div class="coach-deload-text"><strong>Deload recommandé</strong><br>'+(deload.reason||'')+'</div>'+
+    '</div>';
+  }
+
+  // ── 3. RECOMMANDATIONS ──
+  var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
+  var routine = typeof getRoutine === 'function' ? getRoutine() : {};
+  var todayPlan = routine[today] || 'Repos';
+  var recos = [];
+
+  recos.push({ dot: 'var(--green)', text: '<strong>Aujourd\'hui ('+today+') :</strong> '+todayPlan });
+
+  if (volReport && volReport.under && volReport.under.length > 0) {
+    recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
+      volReport.under.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
+      ' — cible MEV : '+volReport.under.map(function(e){
+        var lm = typeof VOLUME_LANDMARKS!=='undefined' ? VOLUME_LANDMARKS[e.muscle] : null;
+        return lm ? lm.mev+' sets' : '?';
+      }).join(', ')
     });
-    h += '</div>';
+  }
+  if (volReport && volReport.over && volReport.over.length > 0) {
+    recos.push({ dot: 'var(--red)', text: '<strong>Survolume :</strong> '+
+      volReport.over.map(function(e){ return e.muscle; }).join(', ')+' au-dessus du MRV — réduis ou planifie un deload'
+    });
   }
 
-  // Last debrief (condensed)
-  var lastReport = (db.reports || [])
-    .filter(r => r.expires_at > Date.now())
-    .sort((a, b) => b.created_at - a.created_at)[0];
-  if (lastReport) {
-    var typeIcon = lastReport.type === 'debrief' ? '🏋️' : '📊';
-    var relTime = typeof timeAgo === 'function' ? timeAgo(lastReport.created_at) : '';
-    h += '<div class="coach-card" style="margin-top:12px;padding:10px 14px;">';
-    h += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;">';
-    h += '<span>' + typeIcon + '</span>';
-    h += '<span style="font-weight:600;color:var(--text);">Dernier rapport</span>';
-    h += '<span style="color:var(--sub);margin-left:auto;font-size:11px;">' + relTime + '</span>';
-    h += '</div></div>';
+  var balance = typeof analyzeMuscleBalance === 'function' ? analyzeMuscleBalance(db.logs, 14) : null;
+  if (balance && balance.recommendations) {
+    balance.recommendations.forEach(function(r) {
+      if (r.type === 'warning') recos.push({ dot: 'var(--orange)', text: r.msg });
+    });
   }
 
-  el.innerHTML = h;
+  var targets = (db.user && db.user.targets) || {};
+  ['bench','squat','deadlift'].forEach(function(t) {
+    if (pr[t] && targets[t] && pr[t] < targets[t]) {
+      var gap = targets[t] - pr[t];
+      var label = t==='bench'?'Bench':t==='squat'?'Squat':'Deadlift';
+      recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)' });
+    }
+  });
+
+  html += '<div class="coach-recos"><div class="coach-reco-title">🦍 Recommandations</div>';
+  if (recos.length === 0) {
+    html += '<div class="coach-reco-text">Tout est optimal — continue comme ça !</div>';
+  } else {
+    html += recos.map(function(r) {
+      return '<div class="coach-reco-item">'+
+        '<div class="coach-reco-dot" style="background:'+r.dot+';"></div>'+
+        '<div class="coach-reco-text">'+r.text+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  html += '</div>';
+
+  // ── 4. VOLUME PAR MUSCLE ──
+  if (volReport) {
+    var allMuscles = (volReport.optimal||[]).concat(volReport.under||[]).concat(volReport.high||[]).concat(volReport.over||[]);
+    if (allMuscles.length > 0) {
+      html += '<div class="coach-muscles"><div class="coach-reco-title">💪 Volume / semaine</div>';
+      allMuscles.forEach(function(e) {
+        var lm = typeof VOLUME_LANDMARKS!=='undefined' ? VOLUME_LANDMARKS[e.muscle] : null;
+        if (!lm) return;
+        var fillPct = Math.min(100, Math.round((e.sets/lm.mrv)*100));
+        var barColor = (e.status && e.status.color) || 'var(--sub)';
+        html += '<div class="coach-muscle-row">'+
+          '<div class="coach-muscle-top">'+
+            '<span class="coach-muscle-name">'+e.muscle+'</span>'+
+            '<span class="coach-muscle-sets" style="color:'+barColor+';">'+e.sets+' sets</span>'+
+          '</div>'+
+          '<div class="coach-muscle-bar"><div class="coach-muscle-fill" style="width:'+fillPct+'%;background:'+barColor+';"></div></div>'+
+        '</div>';
+      });
+      html += '</div>';
+    }
+  }
+
+  // ── 5. PROGRESSION SBD ──
+  html += '<div class="coach-sbd"><div class="coach-reco-title">📈 Tendance SBD</div><div class="coach-sbd-grid">';
+  var SBD_COLORS = {bench:'var(--blue)',squat:'var(--red)',deadlift:'var(--orange)'};
+  ['bench','squat','deadlift'].forEach(function(type) {
+    var prVal = pr[type] || 0;
+    var mom = typeof calcMomentum === 'function' ? calcMomentum(type) : 0;
+    var label = type==='bench'?'Bench':type==='squat'?'Squat':'Dead.';
+    var color = SBD_COLORS[type];
+    var trend = mom>0?'↑ +'+mom+'kg':mom<0?'↓ '+mom+'kg':'→ stable';
+    var trendColor = mom>0?'var(--green)':mom<0?'var(--red)':'var(--sub)';
+    html += '<div class="coach-sbd-item">'+
+      '<div class="coach-sbd-label" style="color:'+color+';">'+label+'</div>'+
+      '<div class="coach-sbd-pr" style="color:'+color+';">'+prVal+'<span style="font-size:11px;font-weight:400;">kg</span></div>'+
+      '<div class="coach-sbd-trend" style="color:'+trendColor+';">'+trend+'</div>'+
+    '</div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
+  return html;
 }
 
 function coachSelectDay(day) {

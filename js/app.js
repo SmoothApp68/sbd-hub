@@ -10286,14 +10286,44 @@ function buildGoIdleHtml() {
   // Hero séance du jour
   var heroHtml = '';
   if (!isRestDay) {
+    // Source : weeklyPlan.days prioritaire
+    var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
+    var wpToday = wpDays.find(function(d) { return d.day === today && !d.rest; });
+    var todayExercises = wpToday ? (wpToday.exercises || []) : [];
+
+    // Fallback : routineExos (noms seulement)
     var todayExos = (db.routineExos && db.routineExos[today]) || [];
-    var exosHtml = todayExos.slice(0,4).map(function(name) {
-      return '<div class="go-plan-exo">'+
-        '<div class="go-plan-exo-ico">🏋️</div>'+
-        '<span class="go-plan-exo-name">'+(typeof name==='string'?name:(name&&name.name)||'Exercice')+'</span>'+
-      '</div>';
-    }).join('');
-    if (todayExos.length > 4) exosHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);padding:4px 0;">+ '+(todayExos.length-4)+' exercice(s)…</div>';
+
+    var exosHtml = '';
+    if (todayExercises.length > 0) {
+      exosHtml = todayExercises.map(function(e) {
+        if (!e || !e.name) return '';
+        var workSets = (e.sets || []).filter(function(s) { return !s.isWarmup; });
+        var firstWork = workSets[0];
+        var loadStr = '';
+        if (firstWork) {
+          if (e.type === 'cardio') loadStr = (firstWork.durationMin || '?') + 'min';
+          else if (e.type === 'time') loadStr = Math.round((firstWork.durationSec || 0)/60) + 'min';
+          else if (firstWork.weight) loadStr = workSets.length + '×' + firstWork.reps + ' @ ' + firstWork.weight + 'kg';
+          else loadStr = workSets.length + '×' + firstWork.reps;
+        }
+        return '<div class="go-plan-exo">' +
+          '<div class="go-plan-exo-ico">🏋️</div>' +
+          '<span class="go-plan-exo-name">' + e.name + '</span>' +
+          '<span class="go-plan-exo-load">' + loadStr + '</span>' +
+        '</div>';
+      }).join('');
+    } else if (todayExos.length > 0) {
+      exosHtml = todayExos.map(function(name) {
+        return '<div class="go-plan-exo">' +
+          '<div class="go-plan-exo-ico">🏋️</div>' +
+          '<span class="go-plan-exo-name">' + (typeof name==='string'?name:(name&&name.name)||'Exercice') + '</span>' +
+        '</div>';
+      }).join('');
+    }
+
+    var exoCount = todayExercises.length || todayExos.length;
+    var coachNote = wpToday && wpToday.coachNote ? wpToday.coachNote : '';
 
     heroHtml = '<div class="go-hero">'+
       '<div class="go-hero-top">'+
@@ -10301,8 +10331,16 @@ function buildGoIdleHtml() {
         '<span class="go-hero-date">'+today+'</span>'+
       '</div>'+
       '<div class="go-hero-title">'+todayLabel+'</div>'+
-      '<div class="go-hero-sub">'+(todayExos.length||'?')+' exercices prévus</div>'+
-      (exosHtml ? '<div class="go-plan-toggle" onclick="goTogglePlan()"><span class="go-plan-lbl">Voir le plan</span><span class="go-plan-chev" id="go-plan-chev">▾</span></div><div class="go-plan-body" id="go-plan-body">'+exosHtml+'</div>' : '')+
+      '<div class="go-hero-sub">' + exoCount + ' exercices prévus' +
+        (coachNote ? '<br><span style="color:var(--orange);font-size:10px;">💡 ' + coachNote + '</span>' : '') +
+      '</div>' +
+      (exosHtml ?
+        '<div class="go-plan-toggle" onclick="goTogglePlan()">' +
+          '<span class="go-plan-lbl">Voir le plan détaillé</span>' +
+          '<span class="go-plan-chev" id="go-plan-chev">▾</span>' +
+        '</div>' +
+        '<div class="go-plan-body" id="go-plan-body">' + exosHtml + '</div>'
+      : '') +
       '<button class="go-launch" onclick="openReadinessQuiz(\'today\')">Lancer la séance du jour 💪</button>'+
     '</div>';
   } else {

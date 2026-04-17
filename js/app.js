@@ -9813,90 +9813,189 @@ function wpIsIsolation(name) {
   });
 }
 
-// ── MATCHING UNIVERSEL D'EXERCICES ───────────────────────────
-var WP_SYNONYMS = {
-  'Squat':               ['Squat (Barre)','Squat (Machine)','Squat (Haltère)','Hack Squat (Machine)','Belt Squat (Machine)','Squat Avant','Squat avec pause (barre)','Squat (Poids du Corps)','Back Squat','Squat Barre','Sumo Squat (Kettlebell)','Squat'],
-  'Soulevé de Terre':    ['Soulevé de Terre (Barre)','Soulevé De Terre avec pause','Soulevé de Terre Sumo','Soulevé de Terre Jambes Tendues','Deadlift','Romanian Deadlift (Barre)'],
-  'Romanian Deadlift':   ['Soulevé de Terre Roumain (Barre)','Soulevé Roumain','Romanian Deadlift (Barre)','RDL'],
-  'Presse à cuisses':    ['Presse à Cuisses','Presse à Cuisses Horizontal','Presse à Cuisses (pieds Bas)','Presse à Cuisses Une Jambe','Leg Press'],
-  'Leg Extension':       ['Extension Jambes','Extension Jambes (Machine)','Extensions Une Jambe','Leg Extension'],
-  'Leg Curl allongé':    ['Leg Curl Allongé (Machine)','Leg Curl Assis','Leg Curl Couché','Leg Curl (Machine)'],
-  'Hip Thrust':          ['Hip Thrust (Machine)','Poussée de hanches (machine)','Relevé de Bassin (Barre)','Hip trust machine','Single Leg Hip Thrust (Dumbbell)'],
-  'Adduction':           ['Adduction Hanche','Adduction Machine'],
-  'Abduction':           ['Abduction Hanche','Abduction Machine'],
-  'Fentes':              ['Split Squat Bulgare','Fentes (Haltères)','Step Up Haltère','Fentes'],
-  'Mollets (Machine)':   ['Extension Mollets Debout (Machine)','Extension Mollets Assis','Mollets','Mollets (Machine)'],
-  'Développé couché':    ['Développé Couché (Barre)','Développé Couché (Haltère)','Développé Couché (Machine Smith)','Bench Press','Chest Press (Machine)','Chest Press Convergent (Machine)','Presse au Sol (Haltère)','Développé Couché Décliné (Barre)','Développé Couché Décliné (Haltère)','Développé Couché Décliné (Machine)','Développé Couché Incliné (Barre)','Développé Couché Incliné (Haltère)','Développé Couché Incliné (Machine Smith)','Bench'],
-  'Développé incliné haltères': ['Développé Couché Incliné (Haltère)','Développé Couché Incliné (Barre)','Développé Couché Incliné (Machine Smith)'],
-  'Développé militaire': ['Développé Militaire (Barre)','Développé Militaire (Haltère)','Développé Arnold (Haltère)','Développé Militaire Debout (Barre)','Développé Militaire Assis (Barre)','Développé Militaire (Machine Smith)','Presse Épaules Assis (Machine)','OHP','Military Press'],
-  'Tractions':           ['Tractions','Tractions (Élastique)','Tractions Supination','Tractions Pronation','Tractions (Lesté)','Tractions Élastiques','Pull-up'],
-  'Dips':                ['Dips Triceps','Dips Torse','Dips Banc','Machine Dips Assis','Dips Torse (Assisté)','Dips Triceps (Assisté)'],
-  'Rowing haltères':     ['Rowing Haltère','Rowing Inversé','Rowing Penché (Barre)'],
-  'Rowing poulie assis': ['Rowing Poulie Assis','Rowing Assis (Machine)','Rowing Poulie Assis - Prise Large','Seated Cable Row - V Grip (Cable)','Tirage assis à la poulie - prise en V (poulie)','Iso-Lateral Low Row','Rowing Debout (Barre)','Tirage Horizontal Câble','Tirage un bras','Tirage Machine Convergente'],
-  'Écarté machine':      ['Écarté (Machine)','Écarté (Haltère)','Écartés Poulie Basse','Écartés Poulie','Butterfly (Pec Deck)','Écarté Incliné (Haltère)','Écartés à la poulie assis','Pull-Over'],
-  'Oiseau machine':      ['Oiseau (Machine)','Oiseau (Haltère)','Oiseau Penché (Haltère)','Oiseau (Poulie)','Oiseau Un Bras (Poulie)'],
-  'Élévations latérales':['Élévation Latérale (Haltère)','Élévation Latérale (Poulie)','Elevation Latérale Complète','Élévation Disque Frontale','Élévation Frontale (Haltère)','Élévation Frontale (Barre)','Élévation Frontale (Poulie)','Élévation Y','Single Arm Lateral Raise (Cable)','Élévation latérale à un bras (câble)'],
-  'Tirage poitrine poulie':['Tirage Poitrine (Poulie)','Tirage Poitrine (Machine)','Tirage Poitrine Bras Tendus (Poulie)','Tirage Poitrine - Prise Serrée (Poulie)','Tirage Poitrine Un Bras','Tirage bras tendu','Tirage Machine Convergente'],
-  'Face pull':           ['Tirage vers Visage','Tirage Visage','Face Pull','Tirage assis à la poulie - prise en V (poulie)'],
-  'Extension triceps':   ['Extension Triceps Poulie Haute','Extension Triceps (Haltère)','Extension Triceps Corde','Extension Triceps (Poulie)','Extension Triceps (Barre)','Skullcrusher (Haltère)','Skullcrusher (Barre)','Overhead Triceps Extension (Cable)','Extension des triceps au-dessus de la tête (câble)','Extension Triceps Un Bras (Haltère)'],
-  'Curl barre':          ['Curl Biceps (Barre)','Curl Biceps (Barre EZ)','Curl Biceps (Poulie)','Curl Pupitre (Barre)','Curl Pupitre (Machine)','Curl Pupitre (Haltère)','Curl Biceps (Haltère)','Curl Incliné Assis (Haltère)'],
-  'Curl haltères':       ['Curl Biceps (Haltère)','Curl Incliné Assis (Haltère)','Curl Marteau (Haltère)','Curl Marteau Oblique'],
-  'Curl marteau':        ['Curl Marteau (Haltère)','Curl Marteau Oblique'],
-  'Shrugs':              ['Shrug (Haltère)','Shrug (Poulie)'],
-  'Gainage planche':     ['Planche','Planche Latérale','Planche Inversée','Gainage','Gainage Tape Épaule','L-Sit Hold'],
-  'Ab Wheel':            ['Relevé de Genoux','Relevé de Jambes Allongé','Relevé de Genoux Suspendu','Relevé de Jambes Suspendu','Relevé de Jambe Barres Parallèles','V Up','Abdominaux Talons','Abdos Ciseaux','Crunch Vélo','Crunchs Vélo Jambes Surélevées','Rotation Russe (Lesté)','Battements de Jambes sur Banc'],
-  'Tapis roulant':       ['Tapis Roulant','Course à pieds','Escaliers','Randonnée','Corde à Sauter'],
-  'Natation':            ['Natation','Rameur'],
-  'Vélo doux':           ['Vélo Machine','Cyclisme'],
-  'Spoto Bench':         ['Spoto Bench'],
-  'Squat Pause':         ['Squat avec pause (barre)'],
-  'Kickbacks fessiers':  ['Kickbacks Fessier (Machine)','Kickbacks Poulie','Rear Kick (Machine)','Kick back câble'],
-  'Extension dos':       ['Extension Dos (Hyperextension Lestée)','Extension Dos (Hyperextension)','Extension Dos (Machine)','Flexion Buste Avant (Barre)'],
-  'Pompes':              ['Pompes','Pompes Claquées','Pompes Diamant','Pompes - Prisé Serrée']
-};
-
+// ── NORMALISATION NOM EXERCICE ───────────────────────────────
 function wpNormalizeName(name) {
   if (!name) return '';
   return name.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/[()[\]]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+// ── TABLE DE SYNONYMES COMPLÈTE ──────────────────────────────
+var WP_SYNONYMS = {
+  'Squat': [
+    'Squat (Barre)','Squat (Machine)','Squat (Haltere)','Squat (Poids du Corps)',
+    'Hack Squat (Machine)','Belt Squat (Machine)','Squat Avant',
+    'Squat avec pause (barre)','Sumo Squat (Kettlebell)','Squat'
+  ],
+  'Souleve de Terre': [
+    'Souleve de Terre (Barre)','Souleve de Terre Sumo',
+    'Souleve De Terre avec pause','Deadlift','Romanian Deadlift (Barre)'
+  ],
+  'Romanian Deadlift': [
+    'Souleve de Terre Roumain (Barre)','Souleve de Terre Jambes Tendues',
+    'Romanian Deadlift (Barre)','RDL'
+  ],
+  'Squat Pause': ['Squat avec pause (barre)'],
+  'Spoto Bench': ['Spoto Bench'],
+  'Presse a cuisses': [
+    'Presse a Cuisses','Presse a Cuisses Horizontal',
+    'Presse a Cuisses (pieds Bas)','Presse a Cuisses Une Jambe',
+    'Presse au Sol (Haltere)','Leg Press'
+  ],
+  'Leg Extension': ['Extension Jambes','Extensions Une Jambe','Leg Extension'],
+  'Leg Curl allonge': [
+    'Leg Curl Allonge (Machine)','Leg Curl Assis','Leg Curl Couche','Leg Curl (Machine)'
+  ],
+  'Hip Thrust': [
+    'Hip Thrust (Machine)','Poussee de hanches (machine)',
+    'Releve de Bassin (Barre)','Hip trust machine',
+    'Single Leg Hip Thrust (Dumbbell)'
+  ],
+  'Adduction': ['Adduction Hanche','Adduction Machine'],
+  'Abduction': ['Abduction Hanche','Abduction Machine'],
+  'Fentes': ['Split Squat Bulgare','Fentes (Halteres)','Step Up Haltere','Fentes'],
+  'Mollets (Machine)': [
+    'Extension Mollets Debout (Machine)','Extension Mollets Assis','Mollets','Mollets (Machine)'
+  ],
+  'Kickbacks fessiers': [
+    'Kickbacks Fessier (Machine)','Kickbacks Poulie','Rear Kick (Machine)','Kick back cable'
+  ],
+  'Extension dos': [
+    'Extension Dos (Hyperextension Lestee)','Extension Dos (Hyperextension)',
+    'Extension Dos (Machine)','Flexion Buste Avant (Barre)'
+  ],
+  'Developpe couche': [
+    'Developpe Couche (Barre)','Developpe Couche (Haltere)',
+    'Developpe Couche (Machine Smith)','Developpe Couche Decline (Barre)',
+    'Developpe Couche Decline (Haltere)','Developpe Couche Decline (Machine)',
+    'Bench Press','Bench','Chest Press (Machine)','Chest Press Convergent (Machine)',
+    'Presse au Sol (Haltere)'
+  ],
+  'Developpe incline halteres': [
+    'Developpe Couche Incline (Haltere)','Developpe Couche Incline (Barre)',
+    'Developpe Couche Incline (Machine Smith)'
+  ],
+  'Developpe militaire': [
+    'Developpe Militaire (Barre)','Developpe Militaire (Haltere)',
+    'Developpe Arnold (Haltere)','Developpe Militaire Debout (Barre)',
+    'Developpe Militaire Assis (Barre)','Developpe Militaire (Machine Smith)',
+    'Presse Epaules Assis (Machine)','OHP','Military Press'
+  ],
+  'Dips': [
+    'Dips Triceps','Dips Torse','Dips Banc','Machine Dips Assis',
+    'Dips Torse (Assiste)','Dips Triceps (Assiste)'
+  ],
+  'Pompes': ['Pompes','Pompes Claquees','Pompes Diamant','Pompes - Prise Serree'],
+  'Tractions': [
+    'Tractions','Tractions (Elastique)','Tractions Supination','Tractions Pronation',
+    'Tractions (Leste)','Tractions Elastiques','Pull-up'
+  ],
+  'Rowing halteres': ['Rowing Haltere','Rowing Inverse','Rowing Penche (Barre)'],
+  'Rowing poulie assis': [
+    'Rowing Poulie Assis','Rowing Assis (Machine)','Rowing Poulie Assis - Prise Large',
+    'Seated Cable Row - V Grip (Cable)',
+    'Tirage assis a la poulie - prise en V (poulie)',
+    'Iso-Lateral Low Row','Rowing Debout (Barre)',
+    'Tirage Horizontal Cable','Tirage un bras','Tirage Machine Convergente'
+  ],
+  'Tirage poitrine poulie': [
+    'Tirage Poitrine (Poulie)','Tirage Poitrine (Machine)',
+    'Tirage Poitrine Bras Tendus (Poulie)',
+    'Tirage Poitrine - Prise Serree (Poulie)',
+    'Tirage Poitrine Un Bras','Tirage bras tendu'
+  ],
+  'Ecarte machine': [
+    'Ecarte (Machine)','Ecarte (Haltere)','Ecarte Incline (Haltere)',
+    'Ecartes Poulie Basse','Ecartes Poulie','Butterfly (Pec Deck)',
+    'Ecartes a la poulie assis','Pull-Over'
+  ],
+  'Oiseau machine': [
+    'Oiseau (Machine)','Oiseau (Haltere)','Oiseau Penche (Haltere)',
+    'Oiseau (Poulie)','Oiseau Un Bras (Poulie)'
+  ],
+  'Elevations laterales': [
+    'Elevation Laterale (Haltere)','Elevation Laterale (Poulie)',
+    'Elevation Laterale Complete','Elevation Disque Frontale',
+    'Elevation Frontale (Haltere)','Elevation Frontale (Barre)',
+    'Elevation Frontale (Poulie)','Elevation Y',
+    'Single Arm Lateral Raise (Cable)','Elevation laterale a un bras (cable)'
+  ],
+  'Face pull': ['Tirage vers Visage','Face Pull'],
+  'Extension triceps': [
+    'Extension Triceps Poulie Haute','Extension Triceps (Haltere)',
+    'Extension Triceps Corde','Extension Triceps (Poulie)',
+    'Extension Triceps (Barre)','Skullcrusher (Haltere)','Skullcrusher (Barre)',
+    'Overhead Triceps Extension (Cable)',
+    'Extension des triceps au-dessus de la tete (cable)',
+    'Extension Triceps Un Bras (Haltere)'
+  ],
+  'Curl barre': [
+    'Curl Biceps (Barre)','Curl Biceps (Barre EZ)','Curl Biceps (Poulie)',
+    'Curl Pupitre (Barre)','Curl Pupitre (Machine)','Curl Pupitre (Haltere)',
+    'Curl Incline Assis (Haltere)','Curl Biceps (Haltere)'
+  ],
+  'Curl halteres': ['Curl Biceps (Haltere)','Curl Incline Assis (Haltere)'],
+  'Curl marteau': ['Curl Marteau (Haltere)','Curl Marteau Oblique'],
+  'Shrugs': ['Shrug (Haltere)','Shrug (Poulie)'],
+  'Gainage planche': [
+    'Planche','Planche Laterale','Planche Inversee','Gainage',
+    'Gainage Tape Epaule','L-Sit Hold','Poirier'
+  ],
+  'Ab Wheel': [
+    'Releve de Genoux','Releve de Jambes Allonge','Releve de Genoux Suspendu',
+    'Releve de Jambes Suspendu','Releve de Jambe Barres Paralleles',
+    'V Up','Abdominaux Talons','Abdos Ciseaux','Crunch Velo',
+    'Crunchs Velo Jambes Sureleve','Rotation Russe (Leste)',
+    'Battements de Jambes sur Banc','Flexion Laterale'
+  ],
+  'Tapis roulant': ['Tapis Roulant','Course a pieds','Escaliers','Randonnee','Corde a Sauter','Burpee'],
+  'Natation': ['Natation','Rameur'],
+  'Velo doux': ['Velo Machine','Cyclisme'],
+  'Marche inclinees tapis': ['Tapis Roulant']
+};
+
+// Trouve le vrai nom dans db.logs — 3 niveaux de fallback
 function wpFindBestMatch(targetName, logs) {
   var normalTarget = wpNormalizeName(targetName);
-  // 1. Correspondance exacte
+
+  // Niveau 1 : exact normalisé
   for (var i = 0; i < logs.length; i++) {
     var exos = logs[i].exercises || [];
     for (var j = 0; j < exos.length; j++) {
       if (wpNormalizeName(exos[j].name) === normalTarget) return exos[j].name;
     }
   }
-  // 2. Via table de synonymes
-  var synonymList = (WP_SYNONYMS[targetName] || []).slice();
+
+  // Niveau 2 : synonymes
+  var synonyms = WP_SYNONYMS[normalTarget] || [];
   Object.keys(WP_SYNONYMS).forEach(function(key) {
-    if (WP_SYNONYMS[key].indexOf(targetName) >= 0) {
-      synonymList = synonymList.concat(WP_SYNONYMS[key]);
-      synonymList.push(key);
+    if (key === normalTarget) return;
+    if (WP_SYNONYMS[key].some(function(s) { return wpNormalizeName(s) === normalTarget; })) {
+      synonyms = synonyms.concat(WP_SYNONYMS[key]).concat([key]);
     }
   });
-  for (var s = 0; s < synonymList.length; s++) {
-    var normalSyn = wpNormalizeName(synonymList[s]);
-    for (var i = 0; i < logs.length; i++) {
-      var exos = logs[i].exercises || [];
-      for (var j = 0; j < exos.length; j++) {
-        if (wpNormalizeName(exos[j].name) === normalSyn) return exos[j].name;
-      }
-    }
-  }
-  // 3. Matching partiel
+  var normalSynonyms = synonyms.map(wpNormalizeName);
   for (var i = 0; i < logs.length; i++) {
     var exos = logs[i].exercises || [];
     for (var j = 0; j < exos.length; j++) {
-      var normalLog = wpNormalizeName(exos[j].name);
-      if (normalLog.includes(normalTarget) || normalTarget.includes(normalLog.split(' ')[0])) {
-        return exos[j].name;
+      if (normalSynonyms.indexOf(wpNormalizeName(exos[j].name)) >= 0) return exos[j].name;
+    }
+  }
+
+  // Niveau 3 : premier mot significatif
+  var STOP = ['barre','haltere','machine','poulie','cable','assis','debout','leste','assiste'];
+  var targetWords = normalTarget.split(' ').filter(function(w) {
+    return w.length > 3 && STOP.indexOf(w) === -1;
+  });
+  if (targetWords.length > 0) {
+    var firstWord = targetWords[0];
+    for (var i = 0; i < logs.length; i++) {
+      var exos = logs[i].exercises || [];
+      for (var j = 0; j < exos.length; j++) {
+        if (wpNormalizeName(exos[j].name).includes(firstWord)) return exos[j].name;
       }
     }
   }
@@ -9907,7 +10006,7 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
   if (!realName) return null;
-  for (var i = 0; i < logs.length && i < 15; i++) {
+  for (var i = 0; i < Math.min(logs.length, 15); i++) {
     var log = logs[i];
     var exo = (log.exercises || []).find(function(e) {
       return wpNormalizeName(e.name) === wpNormalizeName(realName);
@@ -9924,38 +10023,12 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
   return null;
 }
 
-function wpFilterInjuries(exoList, injuries) {
-  if (!injuries || !injuries.length) return exoList;
-  var excluded = injuries.reduce(function(acc, zone) {
-    return acc.concat(WP_INJURY_EXCLUSIONS[zone] || []);
-  }, []);
-  return exoList.filter(function(e) {
-    var name = typeof e === 'string' ? e : (e.name || '');
-    return !excluded.some(function(ex) {
-      return name.toLowerCase().includes(ex.toLowerCase());
-    });
-  });
-}
-
-function wpBuildWarmups(workWeight, workReps) {
-  if (!workWeight || workWeight < 40) return [];
-  var pcts = workReps <= 3
-    ? [0.40, 0.55, 0.70, 0.82, 0.90]
-    : [0.40, 0.55, 0.70, 0.80];
-  return pcts.map(function(p) {
-    var w = wpRound25(workWeight * p);
-    return w >= 20 ? { weight: w, reps: Math.min(workReps + 3, 8), isWarmup: true } : null;
-  }).filter(Boolean);
-}
-
 function wpComputeWorkWeight(liftType, bodyPart) {
   var pr = db.bestPR || {};
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var targetNames = {
-    squat:       'Squat',
-    bench:       'Développé couché',
-    deadlift:    'Soulevé de Terre',
-    squat_pause: 'Squat Pause'
+    squat: 'Squat', bench: 'Développé couché',
+    deadlift: 'Soulevé de Terre', squat_pause: 'Squat Pause'
   };
   var targetName = targetNames[liftType] || liftType;
   var realName = wpFindBestMatch(targetName, logs);
@@ -9977,7 +10050,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     });
     if (!workSets.length) continue;
     var maxSet = workSets.reduce(function(m, s) { return s.weight > m.weight ? s : m; }, workSets[0]);
-    history.push({ weight: maxSet.weight, reps: maxSet.reps, rpe: maxSet.rpe || 7.5, date: log.timestamp });
+    history.push({ weight: maxSet.weight, reps: maxSet.reps, rpe: maxSet.rpe || 7.5 });
   }
 
   if (!history.length) {
@@ -9987,33 +10060,18 @@ function wpComputeWorkWeight(liftType, bodyPart) {
 
   var last = history[0];
   var prog = WP_PROGRESSION[bodyPart] || WP_PROGRESSION.upper;
+  var logsCount = (db.logs || []).length;
   var baseWeight;
 
-  // Addendum B: Mode linéaire débutant vs APRE
-  if (isBeginnerMode) {
+  if (logsCount < 24) {
     baseWeight = last.rpe < 9 ? last.weight + prog.increase : last.weight;
   } else {
-    if (last.rpe < 8)        { baseWeight = last.weight + prog.increase; }
-    else if (last.rpe <= 8.5){ baseWeight = last.weight; }
-    else if (last.rpe < 9.5) { baseWeight = last.weight; }
-    else                     { baseWeight = wpRound25(last.weight * 0.90); }
+    if (last.rpe < 8)         baseWeight = last.weight + prog.increase;
+    else if (last.rpe <= 8.5) baseWeight = last.weight;
+    else if (last.rpe < 9.5)  baseWeight = last.weight;
+    else                      baseWeight = wpRound25(last.weight * 0.90);
     if (history.length >= 2 && history[1].rpe <= 7 && last.rpe >= 9) {
       baseWeight = last.weight;
-    }
-  }
-
-  // Addendum G: Détection RPE sous-estimé
-  if (history.length >= 2 && typeof calcE1RM === 'function') {
-    var curr = history[0];
-    var prev = history[1];
-    var currE1rm = calcE1RM(curr.weight, curr.reps);
-    var prevE1rm = calcE1RM(prev.weight, prev.reps);
-    if (currE1rm > prevE1rm * 1.10 && curr.rpe <= prev.rpe) {
-      console.warn('wpComputeWorkWeight: RPE probable sous-estimé sur ' + liftType);
-      if (db.weeklyPlan) {
-        db.weeklyPlan._rpeAlerts = db.weeklyPlan._rpeAlerts || [];
-        db.weeklyPlan._rpeAlerts.push(liftType + ': e1RM +' + Math.round((currE1rm/prevE1rm-1)*100) + '% mais RPE stable → sous-estimation probable');
-      }
     }
   }
 

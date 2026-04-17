@@ -12322,3 +12322,47 @@ function dismissPRCelebration(overlay) {
   }, { passive: true });
 })();
 
+// ============================================================
+// SIGN OUT
+// ============================================================
+async function appSignOut() {
+  showModal(
+    'Se déconnecter ?',
+    'Confirmer',
+    'var(--red)',
+    async function() {
+      if (typeof supabase !== 'undefined' && supabase) {
+        try { await supabase.auth.signOut(); } catch(e) {}
+      }
+      if (typeof supaClient !== 'undefined' && supaClient) {
+        try { await supaClient.auth.signOut(); } catch(e) {}
+      }
+      // Effacer la session (garder les données d'entraînement)
+      db.user.email = '';
+      db.user.supabaseId = '';
+      if (db.social) db.social.onboardingCompleted = false;
+      saveDBNow();
+      setTimeout(function() { window.location.reload(); }, 300);
+    },
+    'Annuler'
+  );
+}
+
+// ============================================================
+// POST-LOGIN SYNC
+// ============================================================
+async function postLoginSync() {
+  try {
+    if (typeof syncFromCloud === 'function') await syncFromCloud();
+    else if (typeof loadFromCloud === 'function') await loadFromCloud();
+    if (typeof ensureProfile === 'function') await ensureProfile();
+    if (!db.social || !db.social.onboardingCompleted) {
+      setTimeout(function() {
+        if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
+      }, 800);
+    }
+  } catch(e) {
+    console.error('postLoginSync error:', e);
+  }
+}
+

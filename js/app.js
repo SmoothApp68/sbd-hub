@@ -9699,9 +9699,11 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Romanian Deadlift',  reps: '6-8',  rpe: 8.5, sets: 4, rest: 180 },
-      { name: 'Leg Curl allongé',   reps: '12',   rpe: 7,   sets: 4, rest: 90  },
-      { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60, type: 'time' }
+      { name: 'Hip Thrust',           reps: '6-8',  rpe: 8.5, sets: 4, rest: 180 },
+      { name: 'Leg Curl allongé',     reps: '12',   rpe: 7,   sets: 4, rest: 90  },
+      { name: 'Mollets (Machine)',     reps: '12',   rpe: 8,   sets: 4, rest: 60  },
+      { name: 'Élévations latérales', reps: '15',   rpe: 7.5, sets: 3, rest: 60  },
+      { name: 'Gainage planche',      reps: '90s',  rpe: 7,   sets: 3, rest: 60, type: 'time' }
     ]
   },
   weakpoints: {
@@ -9844,6 +9846,7 @@ var WP_SYNONYMS = {
     'Souleve de Terre Jambes Tendues','Romanian Deadlift (Barre)','RDL'
   ],
   'Squat Pause': ['Squat avec pause (barre)'],
+  'Souleve de Terre Pause': ['Souleve De Terre avec pause', 'Souleve de Terre avec pause'],
   'Spoto Bench': ['Spoto Bench'],
   'Presse a cuisses': [
     'Presse a Cuisses','Presse a Cuisses Horizontal',
@@ -10938,10 +10941,10 @@ function renderWpExercise(exo) {
     const wrk = sets.filter(s => !s.isWarmup && !s.isBackoff);
     const bo  = sets.filter(s => s.isBackoff);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
-    let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
-    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
+    rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
     // Back-off sets en teal
-    rows += bo.map((s, i) => '<div class="wpe-set-row" style="opacity:0.8;"><span class="wpe-set-num" style="color:var(--teal);">BO' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--teal);">' + s.weight + 'kg</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe" style="color:var(--teal);">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    rows += bo.map((s, i) => '<div class="wpe-set-row" style="opacity:0.8;"><span class="wpe-set-num" style="color:var(--teal);">BO' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--teal);">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe" style="color:var(--teal);">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
     setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
   }
 

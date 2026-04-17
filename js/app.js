@@ -6227,6 +6227,72 @@ function renderProgramBuilderView(container) {
   container.innerHTML = headerHtml + modeHtml + footerHtml;
 
   if (mode === 'powerbuilding') setTimeout(pbSliderInit, 50);
+  setTimeout(function() {
+    if (typeof initProgDragDrop === 'function') initProgDragDrop();
+  }, 100);
+}
+
+function initProgDragDrop() {
+  var rows = document.querySelectorAll('.prog-day-row[draggable="true"]');
+  var dragSrc = null;
+
+  rows.forEach(function(row) {
+    row.addEventListener('dragstart', function(e) {
+      dragSrc = this;
+      this.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.day);
+    });
+    row.addEventListener('dragend', function() {
+      this.style.opacity = '1';
+      document.querySelectorAll('.prog-day-row').forEach(function(r) {
+        r.classList.remove('drag-over');
+      });
+    });
+    row.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.prog-day-row').forEach(function(r) { r.classList.remove('drag-over'); });
+      this.classList.add('drag-over');
+      return false;
+    });
+    row.addEventListener('drop', function(e) {
+      e.stopPropagation();
+      if (dragSrc !== this) {
+        var srcDay = e.dataTransfer.getData('text/plain');
+        var dstDay = this.dataset.day;
+        progSwapDays(srcDay, dstDay);
+      }
+      return false;
+    });
+  });
+}
+
+function progSwapDays(srcDay, dstDay) {
+  if (!srcDay || !dstDay || srcDay === dstDay) return;
+  var routine = typeof getRoutine === 'function' ? getRoutine() : (db.routine || {});
+
+  // Swap dans routine
+  var tmp = routine[srcDay];
+  routine[srcDay] = routine[dstDay];
+  routine[dstDay] = tmp;
+  db.routine = routine;
+
+  // Swap dans weeklyPlan.days
+  if (db.weeklyPlan && db.weeklyPlan.days) {
+    var srcWp = db.weeklyPlan.days.find(function(d){ return d.day === srcDay; });
+    var dstWp = db.weeklyPlan.days.find(function(d){ return d.day === dstDay; });
+    if (srcWp && dstWp) {
+      var tmpExos = srcWp.exercises; var tmpTitle = srcWp.title; var tmpNote = srcWp.coachNote; var tmpRest = srcWp.rest;
+      srcWp.exercises = dstWp.exercises; srcWp.title = dstWp.title; srcWp.coachNote = dstWp.coachNote; srcWp.rest = dstWp.rest;
+      dstWp.exercises = tmpExos; dstWp.title = tmpTitle; dstWp.coachNote = tmpNote; dstWp.rest = tmpRest;
+    }
+  }
+
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof syncToCloud === 'function') syncToCloud(true);
+  renderProgramBuilderView(document.getElementById('programBuilderContent'));
+  showToast('✅ ' + srcDay + ' ↔ ' + dstDay);
 }
 
 // ── PROGRAMME — MODE POWERBUILDING ──

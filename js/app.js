@@ -10069,13 +10069,19 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
       return wpNormalizeName(e.name) === wpNormalizeName(realName);
     });
     if (!exo) continue;
-    var workSets = (exo.allSets || exo.series || []).filter(function(s) { return !s.isWarmup && s.weight > 0; });
+    var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+      var isWarm = s.isWarmup === true || s.setType === 'warmup';
+      return !isWarm && parseFloat(s.weight) > 0;
+    });
     if (!workSets.length) continue;
     var lastSet = workSets[workSets.length - 1];
-    if (lastSet.reps >= targetRepMax && (lastSet.rpe || 8) <= 8) {
-      return { weight: wpRound25(lastSet.weight + 2), reps: targetRepMin, progressed: true };
+    var lastWeight = parseFloat(lastSet.weight) || 0;
+    var lastReps = parseInt(lastSet.reps) || 0;
+    var lastRpe = parseFloat(lastSet.rpe) || 8;
+    if (lastReps >= targetRepMax && lastRpe <= 8) {
+      return { weight: wpRound25(lastWeight + 2), reps: targetRepMin, progressed: true };
     }
-    return { weight: lastSet.weight, reps: targetRepMax, progressed: false };
+    return { weight: lastWeight, reps: targetRepMax, progressed: false };
   }
   var estimated = wpEstimateWeight(exoName, null);
   if (estimated) {
@@ -10107,11 +10113,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     });
     if (!exo) continue;
     var workSets = (exo.allSets || exo.series || []).filter(function(s) {
-      return !s.isWarmup && s.weight > 0 && s.reps > 0;
+      var isWarm = s.isWarmup === true || s.setType === 'warmup';
+      return !isWarm && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
     });
     if (!workSets.length) continue;
-    var maxSet = workSets.reduce(function(m, s) { return s.weight > m.weight ? s : m; }, workSets[0]);
-    history.push({ weight: maxSet.weight, reps: maxSet.reps, rpe: maxSet.rpe || 7.5 });
+    var maxSet = workSets.reduce(function(m, s) {
+      return parseFloat(s.weight) > parseFloat(m.weight) ? s : m;
+    }, workSets[0]);
+    history.push({ weight: parseFloat(maxSet.weight) || 0, reps: parseInt(maxSet.reps) || 0, rpe: parseFloat(maxSet.rpe) || 7.5 });
   }
 
   if (!history.length) {
@@ -10164,10 +10173,15 @@ function wpDetectPlateau(liftType) {
       return names.some(function(n) { return e.name && e.name.toLowerCase().includes(n.toLowerCase()); });
     });
     if (!exo) continue;
-    var workSets = (exo.allSets || exo.series || []).filter(function(s) { return !s.isWarmup && s.weight > 0; });
+    var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+      var isWarm = s.isWarmup === true || s.setType === 'warmup';
+      return !isWarm && parseFloat(s.weight) > 0;
+    });
     if (!workSets.length) continue;
-    var best = workSets.reduce(function(m, s) { return s.weight > m.weight ? s : m; }, workSets[0]);
-    history.push({ weight: best.weight, rpe: best.rpe || 7.5 });
+    var best = workSets.reduce(function(m, s) {
+      return parseFloat(s.weight) > parseFloat(m.weight) ? s : m;
+    }, workSets[0]);
+    history.push({ weight: parseFloat(best.weight) || 0, rpe: parseFloat(best.rpe) || 7.5 });
   }
   if (history.length < 3) return null;
   var stagnant = history[0].weight === history[1].weight && history[0].weight === history[2].weight;
@@ -10462,8 +10476,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       if (rLog.timestamp < fortyEightHAgo) break;
       var sqEx = (rLog.exercises || []).find(function(e) { return e.name && /squat/i.test(e.name) && !/pause/i.test(e.name); });
       if (sqEx) {
-        var sqWS48 = (sqEx.allSets || sqEx.series || []).filter(function(s) { return !s.isWarmup; });
-        if (sqWS48.length) { squatRpe48 = sqWS48[sqWS48.length - 1].rpe || 8; axialWarning = true; }
+        var sqWS48 = (sqEx.allSets || sqEx.series || []).filter(function(s) { return !(s.isWarmup === true || s.setType === 'warmup'); });
+        if (sqWS48.length) { squatRpe48 = parseFloat(sqWS48[sqWS48.length - 1].rpe) || 8; axialWarning = true; }
         break;
       }
     }
@@ -10485,11 +10499,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       // RPE ≤ 9 : garder Deadlift mais réduire volume + cap RPE 7.5
       exercises.forEach(function(exo) {
         if (!/soulevé|deadlift/i.test(exo.name || '')) return;
-        var workArr = (exo.sets || []).filter(function(s) { return !s.isWarmup; });
+        var workArr = (exo.sets || []).filter(function(s) { return !(s.isWarmup === true || s.setType === 'warmup'); });
         if (workArr.length > 1) {
           exo.sets = (exo.sets || []).filter(function(s, idx, arr) {
-            if (s.isWarmup) return true;
-            return arr.slice(0, idx).filter(function(x) { return !x.isWarmup; }).length < workArr.length - 1;
+            if (s.isWarmup === true || s.setType === 'warmup') return true;
+            return arr.slice(0, idx).filter(function(x) { return !(x.isWarmup === true || x.setType === 'warmup'); }).length < workArr.length - 1;
           });
         }
         exo.sets = (exo.sets || []).map(function(s) { return s.isWarmup ? s : Object.assign({}, s, { rpe: Math.min(s.rpe || 8, 7.5) }); });
@@ -10618,8 +10632,11 @@ function generateWeeklyPlan() {
       recentLogsCheck.forEach(function(log) {
         (log.exercises || []).forEach(function(exo) {
           if (!/squat|deadlift|souleve/i.test(exo.name || '')) return;
-          var wSets = (exo.allSets || exo.series || []).filter(function(s) { return !s.isWarmup && s.weight > 0; });
-          if (wSets.some(function(s) { return s.weight > threshold; })) isAdvancedReprise = true;
+          var wSets = (exo.allSets || exo.series || []).filter(function(s) {
+            var isWarm = s.isWarmup === true || s.setType === 'warmup';
+            return !isWarm && parseFloat(s.weight) > 0;
+          });
+          if (wSets.some(function(s) { return parseFloat(s.weight) > threshold; })) isAdvancedReprise = true;
         });
       });
     }
@@ -10631,8 +10648,8 @@ function generateWeeklyPlan() {
       var highRpeCount = 0;
       recentLogs.forEach(function(log) {
         (log.exercises || []).forEach(function(exo) {
-          var ws = (exo.allSets || exo.series || []).filter(function(s) { return !s.isWarmup; });
-          if (ws.length && ws[ws.length - 1].rpe >= 9.5) highRpeCount++;
+          var ws = (exo.allSets || exo.series || []).filter(function(s) { return !(s.isWarmup === true || s.setType === 'warmup'); });
+          if (ws.length && parseFloat(ws[ws.length - 1].rpe) >= 9.5) highRpeCount++;
         });
       });
       if (highRpeCount >= 2) { isBeginnerMode = false; showToast('📈 Niveau intermédiaire atteint — progression APRE activée'); }

@@ -9829,20 +9829,210 @@ function renderGoTab() {
 
 // ── Idle View ──
 function renderGoIdleView() {
-  var todayDay = DAYS_FULL[new Date().getDay()];
+  var el = document.getElementById('goIdleView');
+  if (!el) return;
+  el.innerHTML = buildGoIdleHtml();
+}
+
+function buildGoIdleHtml() {
+  var today = DAYS_FULL[new Date().getDay()];
   var routine = getRoutine();
-  var sessionName = (routine && routine[todayDay]) ? routine[todayDay] : '';
+  var todayLabel = routine[today] || '';
+  var isRestDay = !todayLabel || /repos/i.test(todayLabel);
   var hasDraft = !!localStorage.getItem('SBD_ACTIVE_WORKOUT');
-  var h = '<div class="go-idle-wrap">' +
-    '<div class="go-idle-icon">🏋️</div>' +
-    '<div class="go-idle-title">Prêt à t\'entraîner ?</div>' +
-    '<div class="go-idle-sub">' + todayDay + (sessionName ? ' · ' + sessionName : '') + '</div>' +
-    '<button class="go-btn-main" onclick="goStartWorkout(true)">▶ Lancer la séance</button>' +
-    '<button class="go-btn-sec" onclick="goStartWorkout(false)">📝 Séance vide</button>' +
-    '<button class="go-btn-sec" onclick="goStartGroupClass()">🧘 Cours collectif</button>' +
-    (hasDraft ? '<button class="go-btn-sec" onclick="goRestoreDraft()">📂 Reprendre brouillon</button>' : '') +
+
+  // Dernier debrief (séance la plus récente)
+  var lastSession = db.logs && db.logs.length ? db.logs[db.logs.length-1] : null;
+  var hasDebrief = lastSession && (Date.now() - lastSession.timestamp < 86400000*2);
+
+  // Toggle Récap / Débrief
+  var toggleHtml = '<div class="go-toggle">'+
+    '<div class="go-toggle-btn active" id="go-t-recap" onclick="goSwitchView(\'recap\')">📋 Récap séance</div>'+
+    '<div class="go-toggle-btn" id="go-t-debrief" onclick="goSwitchView(\'debrief\')">'+(hasDebrief?'✅ Débrief':'📊 Débrief')+'</div>'+
+  '</div>';
+
+  // Hero séance du jour
+  var heroHtml = '';
+  if (!isRestDay) {
+    var todayExos = (db.routineExos && db.routineExos[today]) || [];
+    var exosHtml = todayExos.slice(0,4).map(function(name) {
+      return '<div class="go-plan-exo">'+
+        '<div class="go-plan-exo-ico">🏋️</div>'+
+        '<span class="go-plan-exo-name">'+(typeof name==='string'?name:(name&&name.name)||'Exercice')+'</span>'+
+      '</div>';
+    }).join('');
+    if (todayExos.length > 4) exosHtml += '<div style="font-size:11px;color:rgba(255,255,255,.35);padding:4px 0;">+ '+(todayExos.length-4)+' exercice(s)…</div>';
+
+    heroHtml = '<div class="go-hero">'+
+      '<div class="go-hero-top">'+
+        '<span class="go-badge">Aujourd\'hui</span>'+
+        '<span class="go-hero-date">'+today+'</span>'+
+      '</div>'+
+      '<div class="go-hero-title">'+todayLabel+'</div>'+
+      '<div class="go-hero-sub">'+(todayExos.length||'?')+' exercices prévus</div>'+
+      (exosHtml ? '<div class="go-plan-toggle" onclick="goTogglePlan()"><span class="go-plan-lbl">Voir le plan</span><span class="go-plan-chev" id="go-plan-chev">▾</span></div><div class="go-plan-body" id="go-plan-body">'+exosHtml+'</div>' : '')+
+      '<button class="go-launch" onclick="openReadinessQuiz(\'today\')">Lancer la séance du jour 💪</button>'+
     '</div>';
-  document.getElementById('goIdleView').innerHTML = h;
+  } else {
+    heroHtml = '<div class="go-hero" style="text-align:center;">'+
+      '<div style="font-size:36px;margin-bottom:8px;">😴</div>'+
+      '<div class="go-hero-title">Jour de repos</div>'+
+      '<div class="go-hero-sub">Récupération — profite bien !</div>'+
+    '</div>';
+  }
+
+  // Débrief de la dernière séance
+  var debriefHtml = '';
+  if (lastSession) {
+    var vol = lastSession.volume||0;
+    var volStr = vol>=1000?(vol/1000).toFixed(1)+'t':vol+'kg';
+    var dur = lastSession.duration ? Math.round(lastSession.duration/60)+'min' : '—';
+    var exoCount = (lastSession.exercises||[]).length;
+    debriefHtml = '<div class="go-debrief" id="go-debrief-section" style="display:none;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'+
+        '<span class="go-badge" style="background:var(--green);">Dernière séance</span>'+
+        '<span style="font-size:10px;color:rgba(255,255,255,.4);">'+((lastSession.title||'Séance'))+'</span>'+
+      '</div>'+
+      '<div class="go-debrief-grid">'+
+        '<div class="go-debrief-item"><div class="go-debrief-val" style="color:var(--accent);">'+exoCount+'</div><div class="go-debrief-lbl">Exercices</div></div>'+
+        '<div class="go-debrief-item"><div class="go-debrief-val" style="color:var(--purple);">'+volStr+'</div><div class="go-debrief-lbl">Volume</div></div>'+
+        '<div class="go-debrief-item"><div class="go-debrief-val" style="color:var(--orange);">'+dur+'</div><div class="go-debrief-lbl">Durée</div></div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  // Options alternatives
+  var altsHtml = '<div class="go-or">— ou —</div>'+
+    '<div class="go-alts">'+
+      '<div class="go-alt" onclick="goStartWorkout(false)">'+
+        '<div class="go-alt-ico">📋</div>'+
+        '<div class="go-alt-title">Séance vide</div>'+
+        '<div class="go-alt-sub">Choisis tes exercices librement</div>'+
+      '</div>'+
+      '<div class="go-alt" onclick="goStartGroupClass()">'+
+        '<div class="go-alt-ico">🎵</div>'+
+        '<div class="go-alt-title">Cours collectif</div>'+
+        '<div class="go-alt-sub">Yoga, CrossFit, HIIT…</div>'+
+      '</div>'+
+    '</div>';
+
+  var draftHtml = hasDraft ? '<button class="go-btn-sec" style="margin-top:10px;" onclick="goRestoreDraft()">📂 Reprendre brouillon</button>' : '';
+
+  return toggleHtml + '<div id="go-recap-view">' + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+}
+
+function goSwitchView(view) {
+  var recap = document.getElementById('go-recap-view');
+  var debrief = document.getElementById('go-debrief-section');
+  var t1 = document.getElementById('go-t-recap');
+  var t2 = document.getElementById('go-t-debrief');
+  if (!recap) return;
+  if (view==='recap') {
+    recap.style.display=''; if(debrief)debrief.style.display='none';
+    if(t1)t1.classList.add('active'); if(t2)t2.classList.remove('active');
+  } else {
+    recap.style.display='none'; if(debrief)debrief.style.display='';
+    if(t2)t2.classList.add('active'); if(t1)t1.classList.remove('active');
+  }
+}
+
+function goTogglePlan() {
+  var body = document.getElementById('go-plan-body');
+  var chev = document.getElementById('go-plan-chev');
+  if (!body) return;
+  body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', body.classList.contains('open'));
+}
+
+// ── READINESS QUIZ ──
+var _quizAnswers = {};
+var _quizWorkoutType = 'today';
+
+function openReadinessQuiz(workoutType) {
+  _quizAnswers = {};
+  _quizWorkoutType = workoutType || 'today';
+  document.querySelectorAll('.quiz-step').forEach(function(s){ s.classList.remove('active'); });
+  var first = document.getElementById('qs1');
+  if (first) first.classList.add('active');
+  [1,2,3].forEach(function(i){ var d=document.getElementById('qd'+i); if(d)d.classList.toggle('active',i===1); });
+  document.querySelectorAll('.quiz-opt').forEach(function(o){ o.classList.remove('selected'); });
+  document.querySelectorAll('.quiz-next').forEach(function(b){ b.classList.remove('ready'); });
+  var ov = document.getElementById('quiz-overlay');
+  if (ov) ov.classList.add('open');
+}
+
+function quizSelect(el, q, val) {
+  var row = el.closest('.quiz-opts');
+  row.querySelectorAll('.quiz-opt').forEach(function(o){ o.classList.remove('selected'); });
+  el.classList.add('selected');
+  _quizAnswers[q] = val;
+  var qNum = q.replace('q','');
+  var btn = document.getElementById('qn'+qNum);
+  if (btn) btn.classList.add('ready');
+}
+
+function quizNext(n) {
+  document.querySelectorAll('.quiz-step').forEach(function(s){ s.classList.remove('active'); });
+  var step = document.getElementById('qs'+n);
+  if (step) step.classList.add('active');
+  [1,2,3].forEach(function(i){ var d=document.getElementById('qd'+i); if(d)d.classList.toggle('active',i<=n); });
+}
+
+function quizShowResult() {
+  var score = Math.round(
+    ((_quizAnswers.q1||3)/5)*35 +
+    ((_quizAnswers.q2||3)/5)*35 +
+    ((_quizAnswers.q3||3)/5)*30
+  );
+  document.querySelectorAll('.quiz-step').forEach(function(s){ s.classList.remove('active'); });
+  var step = document.getElementById('qs4');
+  if (step) step.classList.add('active');
+  [1,2,3,4].forEach(function(i){ var d=document.getElementById('qd'+i); if(d)d.classList.toggle('active',i<=4); });
+
+  var numEl = document.getElementById('quiz-score-num');
+  var ringEl = document.getElementById('quiz-ring-fill');
+  var titleEl = document.getElementById('quiz-result-title');
+  var subEl = document.getElementById('quiz-result-sub');
+  if (numEl) numEl.textContent = score;
+  if (ringEl) {
+    var color = score>=75?'var(--green)':score>=50?'var(--orange)':'var(--red)';
+    ringEl.style.stroke = color;
+    ringEl.style.strokeDashoffset = Math.round(201 - (score/100)*201);
+    if (numEl) numEl.style.color = color;
+  }
+  if (score >= 75) {
+    if(titleEl) titleEl.textContent = 'Prêt à y aller 💪';
+    if(subEl) subEl.textContent = 'Bonne forme générale. Charge normale, séance complète.';
+  } else if (score >= 50) {
+    if(titleEl) titleEl.textContent = 'Forme correcte 🙂';
+    if(subEl) subEl.textContent = 'Légèrement fatigué. Réduis les charges de 5% et écoute ton corps.';
+  } else {
+    if(titleEl) titleEl.textContent = 'Fatigue élevée 😴';
+    if(subEl) subEl.textContent = 'Prends soin de toi. Séance légère ou repos — ça fait partie de la progression.';
+  }
+}
+
+function quizLaunch() {
+  var ov = document.getElementById('quiz-overlay');
+  if (ov) ov.classList.remove('open');
+  var name = (db.user && db.user.name) ? db.user.name : 'champion';
+  var today = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var todayLabel = routine[today] || 'la séance';
+  var msgTitle = document.getElementById('go-msg-title');
+  var msgBody = document.getElementById('go-msg-body');
+  if (msgTitle) msgTitle.textContent = 'C\'est parti, ' + name + ' !';
+  if (msgBody) msgBody.innerHTML = todayLabel + '<br>Concentre-toi, exécute proprement.';
+  var msg = document.getElementById('go-msg-overlay');
+  if (msg) msg.classList.add('open');
+}
+
+function goLaunchActual() {
+  if (typeof _goDoStartWorkout === 'function') {
+    _goDoStartWorkout(true);
+  } else if (typeof goStartWorkout === 'function') {
+    goStartWorkout(true);
+  }
 }
 
 // ── Start Workout ──

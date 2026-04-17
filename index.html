@@ -1524,6 +1524,114 @@
     .tier-promo-box { border-radius:20px; padding:40px 30px; text-align:center; max-width:320px; width:90%; animation:prCelebrate 0.4s ease-out both; }
     .tier-promo-box.founder { background:rgba(200,133,10,0.12); border:1px solid rgba(200,133,10,0.3); }
     .tier-promo-box.early-adopter { background:rgba(142,142,147,0.12); border:1px solid rgba(142,142,147,0.3); }
+
+    /* ── GO IDLE VIEW ── */
+    .go-toggle { display:flex;background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;padding:3px;margin-bottom:12px; }
+    .go-toggle-btn { flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;
+      color:var(--sub);cursor:pointer;text-align:center;transition:all .2s; }
+    .go-toggle-btn.active { background:var(--card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3); }
+
+    .go-hero { background:linear-gradient(135deg,rgba(10,132,255,.13),rgba(99,102,241,.09));
+      border:1px solid rgba(10,132,255,.22);border-radius:18px;padding:16px;margin-bottom:12px; }
+    .go-hero-top { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px; }
+    .go-badge { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+      background:var(--accent);color:#fff;padding:3px 8px;border-radius:5px; }
+    .go-hero-date { font-size:10px;color:rgba(255,255,255,.4); }
+    .go-hero-title { font-size:17px;font-weight:800;margin-bottom:3px; }
+    .go-hero-sub { font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px; }
+
+    .go-plan-toggle { display:flex;align-items:center;justify-content:space-between;
+      cursor:pointer;margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,.04);
+      border-radius:9px; }
+    .go-plan-lbl { font-size:11px;font-weight:700;color:rgba(255,255,255,.55);
+      text-transform:uppercase;letter-spacing:.5px; }
+    .go-plan-chev { font-size:11px;color:rgba(255,255,255,.35);transition:transform .25s; }
+    .go-plan-chev.open { transform:rotate(180deg); }
+    .go-plan-body { max-height:0;overflow:hidden;transition:max-height .3s ease; }
+    .go-plan-body.open { max-height:500px; }
+    .go-plan-exo { display:flex;align-items:center;gap:8px;padding:6px 0;
+      border-bottom:1px solid rgba(255,255,255,.05); }
+    .go-plan-exo:last-child { border-bottom:none;margin-bottom:4px; }
+    .go-plan-exo-ico { width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.08);
+      display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0; }
+    .go-plan-exo-name { flex:1;font-size:12px;font-weight:600; }
+    .go-plan-exo-load { font-size:11px;color:rgba(255,255,255,.4); }
+    .go-sets-mini { padding-left:34px;margin-bottom:4px; }
+    .go-set-mini { display:flex;gap:0;font-size:11px;padding:2px 0;color:rgba(255,255,255,.4); }
+    .go-set-n { width:22px;font-weight:600; }
+    .go-set-l { flex:1;color:rgba(255,255,255,.6);font-weight:600; }
+    .go-set-r { color:rgba(255,255,255,.38); }
+    .go-set-note { margin-left:6px;font-size:9px;color:var(--orange); }
+    .go-launch { display:block;width:100%;padding:14px;
+      background:linear-gradient(135deg,var(--accent),#6366f1);
+      border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;
+      margin-top:12px; }
+    .go-or { text-align:center;font-size:11px;color:var(--sub);margin:10px 0; }
+    .go-alts { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+    .go-alt { display:flex;flex-direction:column;align-items:center;gap:7px;
+      background:var(--card);border:1px solid var(--border);border-radius:14px;
+      padding:14px 10px;cursor:pointer;text-align:center;transition:border-color .15s; }
+    .go-alt:active { border-color:rgba(255,255,255,.18); }
+    .go-alt-ico { font-size:26px; }
+    .go-alt-title { font-size:13px;font-weight:700; }
+    .go-alt-sub { font-size:10px;color:var(--sub);line-height:1.4; }
+
+    /* Débrief */
+    .go-debrief { background:linear-gradient(135deg,rgba(50,215,75,.08),rgba(10,132,255,.06));
+      border:1px solid rgba(50,215,75,.18);border-radius:18px;padding:16px;margin-bottom:12px; }
+    .go-debrief-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0; }
+    .go-debrief-item { background:rgba(255,255,255,.04);border-radius:10px;padding:9px;text-align:center; }
+    .go-debrief-val { font-size:18px;font-weight:800; }
+    .go-debrief-lbl { font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-top:2px; }
+
+    /* Readiness quiz */
+    .quiz-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+      z-index:500;align-items:flex-end;justify-content:center; }
+    .quiz-overlay.open { display:flex;animation:fadeIn .2s ease; }
+    .quiz-box { background:#13132a;border:1px solid rgba(255,255,255,.1);
+      border-radius:24px 24px 0 0;padding:22px 18px 38px;width:100%;max-width:430px;
+      animation:slideUp .25s ease; }
+    @keyframes slideUp { from{transform:translateY(60px)}to{transform:translateY(0)} }
+    .quiz-progress { display:flex;gap:5px;justify-content:center;margin-bottom:16px; }
+    .quiz-dot { width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15); }
+    .quiz-dot.active { background:var(--accent); }
+    .quiz-step { display:none; }
+    .quiz-step.active { display:block; }
+    .quiz-title { font-size:18px;font-weight:800;margin-bottom:4px;text-align:center; }
+    .quiz-sub { font-size:12px;color:var(--sub);text-align:center;margin-bottom:18px;line-height:1.5; }
+    .quiz-opts { display:flex;justify-content:space-between;gap:6px;margin-bottom:8px; }
+    .quiz-opt { flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
+      background:var(--card);border:1.5px solid var(--border);border-radius:12px;
+      padding:11px 4px;cursor:pointer;transition:all .15s;font-size:10px;font-weight:600;color:var(--sub); }
+    .quiz-opt-ico { font-size:20px; }
+    .quiz-opt.selected { border-color:var(--accent);background:rgba(10,132,255,.12);color:var(--text); }
+    .quiz-next { display:block;width:100%;padding:13px;background:var(--accent);border:none;
+      border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;
+      margin-top:14px;opacity:.35;transition:opacity .2s; }
+    .quiz-next.ready { opacity:1; }
+    .quiz-result { text-align:center; }
+    .quiz-score-ring { position:relative;width:80px;height:80px;margin:0 auto 12px; }
+    .quiz-score-ring svg { transform:rotate(-90deg); }
+    .quiz-score-num { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      font-size:22px;font-weight:900; }
+    .quiz-go-btn { display:block;width:100%;padding:14px;
+      background:linear-gradient(135deg,var(--accent),#6366f1);
+      border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer; }
+
+    /* Msg perso */
+    .go-msg-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
+      z-index:600;align-items:flex-end;justify-content:center; }
+    .go-msg-overlay.open { display:flex;animation:fadeIn .2s ease; }
+    .go-msg-box { background:#13132a;border:1px solid rgba(255,255,255,.1);
+      border-radius:24px 24px 0 0;padding:26px 22px 40px;width:100%;max-width:430px;
+      text-align:center;animation:slideUp .25s ease; }
+    .go-msg-emoji { font-size:46px;margin-bottom:10px; }
+    .go-msg-title { font-size:21px;font-weight:900;margin-bottom:5px; }
+    .go-msg-body { font-size:13px;color:var(--sub);margin-bottom:22px;line-height:1.65; }
+    .go-msg-cta { display:block;width:100%;padding:14px;
+      background:linear-gradient(135deg,var(--accent),#6366f1);
+      border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer; }
   </style>
 </head>
 <body>
@@ -3274,5 +3382,75 @@ async function fetchAndStoreTier() {
 }
 setTimeout(fetchAndStoreTier, 2000);
 </script>
+
+<!-- READINESS QUIZ -->
+<div class="quiz-overlay" id="quiz-overlay">
+  <div class="quiz-box">
+    <div class="quiz-progress">
+      <div class="quiz-dot active" id="qd1"></div>
+      <div class="quiz-dot" id="qd2"></div>
+      <div class="quiz-dot" id="qd3"></div>
+    </div>
+    <div class="quiz-step active" id="qs1">
+      <div class="quiz-title">Comment tu as dormi ?</div>
+      <div class="quiz-sub">La qualité du sommeil impacte directement ta performance.</div>
+      <div class="quiz-opts">
+        <div class="quiz-opt" onclick="quizSelect(this,'q1',1)"><div class="quiz-opt-ico">😫</div>Très mal</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q1',2)"><div class="quiz-opt-ico">😴</div>Mal</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q1',3)"><div class="quiz-opt-ico">😐</div>Moyen</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q1',4)"><div class="quiz-opt-ico">😊</div>Bien</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q1',5)"><div class="quiz-opt-ico">🤩</div>Super</div>
+      </div>
+      <button class="quiz-next" id="qn1" onclick="quizNext(2)">Continuer →</button>
+    </div>
+    <div class="quiz-step" id="qs2">
+      <div class="quiz-title">Fatigue musculaire ?</div>
+      <div class="quiz-sub">Comment se sentent tes muscles depuis la dernière séance ?</div>
+      <div class="quiz-opts">
+        <div class="quiz-opt" onclick="quizSelect(this,'q2',1)"><div class="quiz-opt-ico">🔥</div>Courbatures</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q2',2)"><div class="quiz-opt-ico">😓</div>Fatigués</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q2',3)"><div class="quiz-opt-ico">😐</div>Neutre</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q2',4)"><div class="quiz-opt-ico">💪</div>Frais</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q2',5)"><div class="quiz-opt-ico">⚡</div>En forme</div>
+      </div>
+      <button class="quiz-next" id="qn2" onclick="quizNext(3)">Continuer →</button>
+    </div>
+    <div class="quiz-step" id="qs3">
+      <div class="quiz-title">Motivation du jour ?</div>
+      <div class="quiz-sub">Sois honnête — ça aide à adapter la séance.</div>
+      <div class="quiz-opts">
+        <div class="quiz-opt" onclick="quizSelect(this,'q3',1)"><div class="quiz-opt-ico">😑</div>Nulle</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q3',2)"><div class="quiz-opt-ico">😕</div>Faible</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q3',3)"><div class="quiz-opt-ico">🙂</div>OK</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q3',4)"><div class="quiz-opt-ico">😤</div>Motivé</div>
+        <div class="quiz-opt" onclick="quizSelect(this,'q3',5)"><div class="quiz-opt-ico">🦁</div>À fond</div>
+      </div>
+      <button class="quiz-next" id="qn3" onclick="quizShowResult()">Voir mon état →</button>
+    </div>
+    <div class="quiz-step quiz-result" id="qs4">
+      <div class="quiz-score-ring">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="6"/>
+          <circle id="quiz-ring-fill" cx="40" cy="40" r="32" fill="none" stroke="var(--green)" stroke-width="6" stroke-dasharray="201" stroke-dashoffset="50" stroke-linecap="round"/>
+        </svg>
+        <div class="quiz-score-num" id="quiz-score-num">75</div>
+      </div>
+      <div id="quiz-result-title" style="font-size:18px;font-weight:800;margin-bottom:4px;text-align:center;"></div>
+      <div id="quiz-result-sub" style="font-size:12px;color:var(--sub);margin-bottom:20px;text-align:center;line-height:1.5;"></div>
+      <button class="quiz-go-btn" onclick="quizLaunch()">C'est parti — Lancer la séance</button>
+    </div>
+  </div>
+</div>
+
+<!-- MESSAGE PERSO -->
+<div class="go-msg-overlay" id="go-msg-overlay">
+  <div class="go-msg-box">
+    <div class="go-msg-emoji">🔥</div>
+    <div class="go-msg-title" id="go-msg-title"></div>
+    <div class="go-msg-body" id="go-msg-body"></div>
+    <button class="go-msg-cta" onclick="document.getElementById('go-msg-overlay').classList.remove('open');goLaunchActual()">Allons-y 💪</button>
+  </div>
+</div>
+
 </body>
 </html>

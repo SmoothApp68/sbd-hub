@@ -246,6 +246,7 @@ async function authSubmit() {
         await syncToCloud(true);
         await ensureProfile();
         showToast('Connecté !');
+        if (typeof postLoginSync === 'function') postLoginSync();
         checkPasswordMigration(data.user);
       }
     } catch(e) { showToast(translateSupaError(e.message)); }
@@ -411,6 +412,7 @@ async function loginSubmit() {
         await ensureProfile();
         hideLoginScreen();
         showToast('Connecté !');
+        if (typeof postLoginSync === 'function') postLoginSync();
       }
     } catch(e) {
       showLoginError(translateSupaError(e.message));

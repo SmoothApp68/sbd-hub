@@ -1665,7 +1665,11 @@ function showSeancesSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'seances-list') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
-  if (id === 'seances-programme') { renderProgrammeV2(); renderProgramBuilder(); }
+  if (id === 'seances-programme') {
+    var oldPgm = document.getElementById('programmeV2Content');
+    if (oldPgm) oldPgm.innerHTML = '';
+    renderProgramBuilder();
+  }
   if (id === 'seances-coach') renderCoachTab();
 }
 
@@ -6375,51 +6379,65 @@ function renderProgramBienEtre() {
 
 // ── PLANNING JOURS MODIFIABLE ──
 function renderProgDaysList() {
-  var program = db.generatedProgram || [];
-  var routine = getRoutine();
-  var today = DAYS_FULL[new Date().getDay()];
+  // Source : weeklyPlan (données enrichies) prioritaire sur generatedProgram
+  var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
+  var routine = typeof getRoutine === 'function' ? getRoutine() : {};
+  var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
   var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
   var rowsHtml = allDays.map(function(day) {
     var label = routine[day] || '';
     var isRest = !label || /repos/i.test(label);
     var isToday = day === today;
-    var dayProgram = program.find(function(p){ return p.day===day && !p.isRest; });
-    var exos = dayProgram && dayProgram.exercises ? dayProgram.exercises.map(function(e){
-      return typeof e==='string'?e:(e&&e.name)||'Exercice';
-    }) : [];
     var dayShort = day.substring(0,3);
 
+    // Chercher dans weeklyPlan.days
+    var wpDay = wpDays.find(function(d) { return d.day === day; });
+    var exos = [];
+    if (wpDay && wpDay.exercises && wpDay.exercises.length) {
+      exos = wpDay.exercises.map(function(e) {
+        return typeof e === 'string' ? e : (e && e.name) || 'Exercice';
+      });
+    }
+
     if (isRest) {
-      return '<div class="prog-day-row rest">'+
-        '<span class="prog-drag-handle" style="opacity:.1;">⠿</span>'+
-        '<div class="prog-day-label'+(isToday?' today':'')+'">'+(isToday?'<span style="color:var(--accent);">'+dayShort+'</span>':dayShort)+'</div>'+
-        '<div class="prog-day-content"><div class="prog-day-name" style="color:var(--sub);">Repos</div></div>'+
-        '<div class="prog-day-actions"><div class="prog-action-btn" style="color:var(--green);font-size:10px;" onclick="progAddDay(\''+day+'\')">+</div></div>'+
+      return '<div class="prog-day-row rest">' +
+        '<span class="prog-drag-handle" style="opacity:.1;">⠿</span>' +
+        '<div class="prog-day-label' + (isToday ? ' today' : '') + '">' + dayShort + '</div>' +
+        '<div class="prog-day-content"><div class="prog-day-name" style="color:var(--sub);">Repos</div></div>' +
+        '<div class="prog-day-actions"><div class="prog-action-btn" style="color:var(--green);font-size:10px;" onclick="pbEditExisting()">+</div></div>' +
       '</div>';
     }
 
-    var exoStr = exos.slice(0,3).join(' · ')+(exos.length>3?' +'+(exos.length-3):'');
-    return '<div class="prog-day-row'+(isToday?' today':'')+'">'+
-      '<span class="prog-drag-handle">⠿</span>'+
-      '<div class="prog-day-label'+(isToday?' today':'')+'">'+dayShort+'</div>'+
-      '<div class="prog-day-content" onclick="progShowDayDetail(\''+day+'\')" style="cursor:pointer;">'+
-        '<div class="prog-day-name">'+(label||day)+'</div>'+
-        (exoStr?'<div class="prog-day-exos">'+exoStr+'</div>':'')+
-      '</div>'+
-      '<div class="prog-day-actions">'+
-        '<div class="prog-action-btn" onclick="progEditDay(\''+day+'\')">✏️</div>'+
-        '<div class="prog-action-btn danger" onclick="progRemoveDay(\''+day+'\')">×</div>'+
-      '</div>'+
+    var title = (wpDay && wpDay.title) ? wpDay.title : label;
+    var exoStr = exos.slice(0,3).join(' · ') + (exos.length > 3 ? ' +' + (exos.length - 3) : '');
+    var coachNote = (wpDay && wpDay.coachNote) ? wpDay.coachNote : '';
+    var setsCount = (wpDay && wpDay.exercises) ? wpDay.exercises.reduce(function(s, e) {
+      return s + ((e.sets && e.sets.filter(function(ss) { return !ss.isWarmup; }).length) || 0);
+    }, 0) : 0;
+    var metaStr = exos.length + ' exo' + (exos.length > 1 ? 's' : '') + (setsCount > 0 ? ' · ' + setsCount + ' séries' : '');
+
+    return '<div class="prog-day-row' + (isToday ? ' today' : '') + '" draggable="true" data-day="' + day + '">' +
+      '<span class="prog-drag-handle">⠿</span>' +
+      '<div class="prog-day-label' + (isToday ? ' today' : '') + '">' + dayShort + '</div>' +
+      '<div class="prog-day-content" onclick="progShowDayDetail(\'' + day + '\')" style="cursor:pointer;">' +
+        '<div class="prog-day-name">' + title + '</div>' +
+        (exoStr ? '<div class="prog-day-exos">' + exoStr + '</div>' : '') +
+        (coachNote ? '<div style="font-size:9px;color:var(--orange);margin-top:3px;">💡 ' + coachNote + '</div>' : '') +
+      '</div>' +
+      '<div class="prog-day-actions">' +
+        '<div class="prog-action-btn" onclick="event.stopPropagation();progEditDay(\'' + day + '\')">✏️</div>' +
+        '<div class="prog-action-btn danger" onclick="event.stopPropagation();progConfirmRemoveDay(\'' + day + '\')">×</div>' +
+      '</div>' +
     '</div>';
   }).join('');
 
-  return '<div class="prog-planning">'+
-    '<div class="prog-planning-head">'+
-      '<div class="prog-planning-title">Semaine type</div>'+
-      '<span class="prog-planning-add" onclick="pbEditExisting()">+ Modifier</span>'+
-    '</div>'+
-    rowsHtml+
+  return '<div class="prog-planning">' +
+    '<div class="prog-planning-head">' +
+      '<div class="prog-planning-title">Semaine type</div>' +
+      '<span class="prog-planning-add" onclick="pbEditExisting()">+ Modifier</span>' +
+    '</div>' +
+    rowsHtml +
   '</div>';
 }
 
@@ -6511,7 +6529,68 @@ function progSetCompetDate(date) {
 function progEditDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
 function progRemoveDay(day) { if (typeof showToast==='function') showToast('Modifie le planning pour supprimer ce jour'); }
 function progAddDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
-function progShowDayDetail(day) { if (typeof showToast==='function') showToast('Séance : '+day); }
+function progShowDayDetail(day) {
+  var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
+  var wpDay = wpDays.find(function(d) { return d.day === day; });
+  if (!wpDay || !wpDay.exercises || !wpDay.exercises.length) {
+    showToast('Aucun détail disponible pour ' + day);
+    return;
+  }
+
+  var exosHtml = wpDay.exercises.map(function(e) {
+    if (!e || !e.name) return '';
+    var workSets = (e.sets || []).filter(function(s) { return !s.isWarmup; });
+    var warmSets = (e.sets || []).filter(function(s) { return s.isWarmup; });
+    var firstWork = workSets[0];
+    var loadStr = '';
+    if (firstWork) {
+      if (e.type === 'cardio') {
+        loadStr = (firstWork.durationMin || '?') + 'min';
+      } else if (e.type === 'time') {
+        loadStr = Math.round((firstWork.durationSec || 0) / 60) + 'min';
+      } else if (firstWork.weight) {
+        loadStr = workSets.length + '×' + firstWork.reps + ' @ ' + firstWork.weight + 'kg';
+      } else {
+        loadStr = workSets.length + '×' + firstWork.reps;
+      }
+    }
+    var warmStr = warmSets.length > 0 ? ' · ' + warmSets.length + ' échauff.' : '';
+
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04);">' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13px;font-weight:700;">' + e.name + '</div>' +
+        '<div style="font-size:10px;color:var(--sub);">' + loadStr + warmStr +
+          (e.restSeconds ? ' · repos ' + Math.round(e.restSeconds/60) + 'min' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  var html = '<div style="padding:4px 0;">' +
+    '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">' + (wpDay.title || day) + '</div>' +
+    (wpDay.coachNote ? '<div style="font-size:11px;color:var(--orange);margin-bottom:12px;">💡 ' + wpDay.coachNote + '</div>' : '') +
+    exosHtml +
+  '</div>';
+
+  showModal(html, 'GO 💪', 'var(--accent)', function() {
+    if (typeof startTodayWorkout === 'function') startTodayWorkout();
+  });
+}
+
+function progConfirmRemoveDay(day) {
+  showModal('Supprimer ' + day + ' du programme ?', 'Supprimer', 'var(--red)', function() {
+    if (db.weeklyPlan && db.weeklyPlan.days) {
+      db.weeklyPlan.days = db.weeklyPlan.days.map(function(d) {
+        if (d.day === day) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
+        return d;
+      });
+      if (typeof saveDB === 'function') saveDB();
+      if (typeof syncToCloud === 'function') syncToCloud(true);
+      renderProgramBuilderView(document.getElementById('programBuilderContent'));
+      showToast('Jour supprimé');
+    }
+  });
+}
 function beEditIntention() {
   var val = prompt('Intention de la semaine :', (db.user && db.user.weekIntention) || '');
   if (val !== null) {

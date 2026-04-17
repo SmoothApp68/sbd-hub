@@ -6300,9 +6300,9 @@ function renderProgramPowerbuilding() {
   var accentPct = (db.user && db.user.pbAccent) || 65;
   var sliderHtml = '<div class="card" style="margin-bottom:10px;">'+
     '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Équilibre du cycle</div>'+
-    '<div class="pb-slider-labels"><span style="color:var(--accent);">⚡ Force</span>'+
+    '<div class="pb-slider-labels"><span style="color:var(--purple);">💪 Volume</span>'+
     '<span id="pb-pct-lbl" style="color:var(--sub);font-size:10px;">'+accentPct+'% force</span>'+
-    '<span style="color:var(--purple);">💪 Volume</span></div>'+
+    '<span style="color:var(--accent);">⚡ Force</span></div>'+
     '<div class="pb-slider-track" id="pb-track">'+
       '<div class="pb-slider-fill" id="pb-fill" style="width:'+accentPct+'%;"></div>'+
       '<div class="pb-slider-thumb" id="pb-thumb" style="left:calc('+accentPct+'% - 11px);"></div>'+

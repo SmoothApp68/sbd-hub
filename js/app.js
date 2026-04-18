@@ -1555,7 +1555,7 @@ function renderExoEditor() {
             ? `<div style="color:var(--sub);font-size:12px;padding:6px 0;text-align:center;opacity:0.6;">Aucun exercice — ajouter ci-dessous</div>`
             : exos.map((e, i) => `
               <div class="prog-exo-item" id="prog-exo-${day}-${i}">
-                <span class="prog-exo-item-name">${e}</span>
+                <span class="prog-exo-item-name">${typeof e === 'string' ? e : (e && e.name) || 'Exercice'}</span>
                 <button class="prog-exo-del" onclick="removeProgExo('${day}', ${i})" title="Supprimer">✕</button>
               </div>`).join('')
           }
@@ -1594,7 +1594,7 @@ function addProgExo(day) {
   if (listEl) {
     listEl.innerHTML = editingExos[day].map((e, i) => `
       <div class="prog-exo-item" id="prog-exo-${day}-${i}">
-        <span class="prog-exo-item-name">${e}</span>
+        <span class="prog-exo-item-name">${typeof e === 'string' ? e : (e && e.name) || 'Exercice'}</span>
         <button class="prog-exo-del" onclick="removeProgExo('${day}', ${i})" title="Supprimer">✕</button>
       </div>`).join('');
   }
@@ -1612,7 +1612,7 @@ function removeProgExo(day, idx) {
       ? `<div style="color:var(--sub);font-size:12px;padding:6px 0;text-align:center;opacity:0.6;">Aucun exercice — ajouter ci-dessous</div>`
       : editingExos[day].map((e, i) => `
           <div class="prog-exo-item" id="prog-exo-${day}-${i}">
-            <span class="prog-exo-item-name">${e}</span>
+            <span class="prog-exo-item-name">${typeof e === 'string' ? e : (e && e.name) || 'Exercice'}</span>
             <button class="prog-exo-del" onclick="removeProgExo('${day}', ${i})" title="Supprimer">✕</button>
           </div>`).join('');
   }
@@ -3679,7 +3679,8 @@ function renderTodayProgram() {
     }
     if (exos.length > 0) {
       exos.forEach(function(name) {
-        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + name + '</div>';
+        var exoName = typeof name === 'string' ? name : (name && name.name) || 'Exercice';
+        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
       });
     } else {
       h += '<div style="font-size:13px;color:var(--sub);">' + todayDay + '</div>';
@@ -6071,8 +6072,9 @@ function renderProgramBuilderStep(container) {
         h += '<span style="font-size:11px;color:var(--sub);">' + exos.length + ' exo' + (exos.length > 1 ? 's' : '') + '</span>';
         h += '</div>';
         exos.forEach(function(exoName, ei) {
+          var exoLabel = typeof exoName === 'string' ? exoName : (exoName && exoName.name) || 'Exercice';
           h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;">';
-          h += '<span>' + exoName + '</span>';
+          h += '<span>' + exoLabel + '</span>';
           h += '<button onclick="pbRemoveExo(\'' + dayName.replace(/'/g, "\\'") + '\',' + ei + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;">✕</button>';
           h += '</div>';
         });
@@ -11124,7 +11126,7 @@ function wpApplyDay(day) {
   const dayData = plan.days.find(d => d.day === day && !d.rest);
   if (!dayData || !dayData.exercises || !dayData.exercises.length) return;
   if (!db.routineExos) db.routineExos = {};
-  db.routineExos[day] = dayData.exercises.map(e => e.name);
+  db.routineExos[day] = dayData.exercises;
   saveDB();
   showToast('✓ Programme du ' + day + ' mis à jour');
 }
@@ -11136,7 +11138,7 @@ function wpApplyAll() {
     if (!db.routineExos) db.routineExos = {};
     plan.days.forEach(d => {
       if (d.rest || !d.exercises || !d.exercises.length) return;
-      db.routineExos[d.day] = d.exercises.map(e => e.name);
+      db.routineExos[d.day] = d.exercises;
     });
     saveDB();
     showToast('✓ Programme complet mis à jour');

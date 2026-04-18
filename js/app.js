@@ -10523,15 +10523,17 @@ function wpNeedsAcclimationWarmup(exoName, previousExoNames, workWeight) {
   if (!previousExoNames || !previousExoNames.length) return false;
   var prevMetas = previousExoNames.map(wpGetExoMeta).filter(Boolean);
   if (!prevMetas.length) return false;
-  var isFreeWeight = meta.equipment === 'barbell' || meta.equipment === 'dumbbell';
-  var isWeightedGuided = isFreeWeight || meta.equipment === 'cable';
-  if (!isWeightedGuided) return false;
-  // Rule 2: instability shift (machine/cable → free weight only)
-  if (isFreeWeight) {
-    var prevEquips = prevMetas.map(function(m) { return m.equipment; });
-    if (prevEquips.some(function(eq) { return eq === 'machine' || eq === 'cable'; })) return true;
-  }
-  // Rule 1: muscle group change
+  // Règle 2 : shift d'instabilité (machine → câble OU machine/câble → poids libre)
+  var instabilityRank = { machine: 0, cable: 1, barbell: 2, dumbbell: 3, bodyweight: 2, unknown: 0 };
+  var currRank = instabilityRank[meta.equipment] || 0;
+  var isUnstableShift = meta.equipment === 'barbell' || meta.equipment === 'dumbbell' || meta.equipment === 'cable';
+  if (!isUnstableShift) return false;
+  var prevEquips = prevMetas.map(function(m) { return m.equipment; });
+  var maxPrevRank = Math.max.apply(null, prevEquips.map(function(eq) {
+    return instabilityRank[eq] || 0;
+  }));
+  if (currRank > maxPrevRank) return true;
+  // Règle 1 : changement de groupe musculaire
   var prevGroups = prevMetas.map(function(m) { return m.muscleGroup; });
   if (!prevGroups.includes(meta.muscleGroup)) return true;
   return false;

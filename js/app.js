@@ -10487,11 +10487,32 @@ var WP_EXO_META = {
 function wpGetExoMeta(name) {
   if (!name) return null;
   var n = wpNormalizeName(name);
-  if (WP_EXO_META[n]) return WP_EXO_META[n];
+
+  // Niveau 1 : égalité stricte normalisée
   var keys = Object.keys(WP_EXO_META);
   for (var i = 0; i < keys.length; i++) {
-    if (n.includes(keys[i]) || keys[i].includes(n)) return WP_EXO_META[keys[i]];
+    if (wpNormalizeName(keys[i]) === n) return WP_EXO_META[keys[i]];
   }
+
+  // Niveau 2 : frontière de mot (évite 'curl' → 'leg curl')
+  for (var i = 0; i < keys.length; i++) {
+    var keyNorm = wpNormalizeName(keys[i]);
+    try {
+      if (new RegExp('\\b' + keyNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(n)) {
+        return WP_EXO_META[keys[i]];
+      }
+    } catch(e) { /* ignore regex errors */ }
+  }
+
+  // Niveau 3 : fallback sur le premier mot significatif de la clé
+  for (var i = 0; i < keys.length; i++) {
+    var keyNorm = wpNormalizeName(keys[i]);
+    var firstWord = keyNorm.split(' ')[0];
+    if (firstWord.length > 3 && (n.startsWith(firstWord + ' ') || n === firstWord)) {
+      return WP_EXO_META[keys[i]];
+    }
+  }
+
   return null;
 }
 

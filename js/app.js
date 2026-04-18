@@ -10440,11 +10440,15 @@ var WP_EXO_META = {
   'hip thrust':                { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'glute'    },
   'rowing barre':              { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'back'     },
   'rowing haltere':            { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'back'     },
+  'rowing poulie assis':       { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'rowing poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage vertical':           { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage isole':              { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tractions':                 { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'back'     },
   'extension dos':             { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'back'     },
+  'spoto bench':               { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
+  'souleve de terre pause':    { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
   'developpe couche':          { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
   'developpe incline halteres':{ mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'chest'    },
   'developpe incline':         { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
@@ -10621,7 +10625,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   var remaining = maxExos - exercises.length;
   var placedExoNames = exercises.map(function(e) { return e.name || ''; });
   accessories.slice(0, remaining).forEach(function(acc) {
-    var accOrder = placedExoNames.length + 1;
+    var accOrder = acc.isPrimary ? 1 : (placedExoNames.length + 1);
     // ── Rotation plateau isolation ──────────────────────────
     var plat = wpDetectIsolationPlateau(acc.name);
     if (plat && plat.plateauWeeks >= 3) {

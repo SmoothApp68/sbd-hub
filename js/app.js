@@ -9845,7 +9845,7 @@ var WP_SYNONYMS = {
     'Souleve de Terre Roumain (Barre)','Souleve de Terre Roumain',
     'Souleve de Terre Jambes Tendues','Romanian Deadlift (Barre)','RDL'
   ],
-  'Squat Pause': ['Squat avec pause (barre)'],
+  'Squat Pause': ['Squat avec pause (barre)', 'Squat Pause'],
   'Souleve de Terre Pause': ['Souleve De Terre avec pause', 'Souleve de Terre avec pause'],
   'Spoto Bench': ['Spoto Bench'],
   'Presse a cuisses': [
@@ -10011,6 +10011,26 @@ function wpFindBestMatch(targetName, logs) {
       }
     }
   }
+
+  // Niveau 4 : mot principal au début ou après un espace (boundary plus strict)
+  // STOP étendu : allonge / couche / incline aussi ignorés
+  var STOP4 = ['machine','barre','haltere','poulie','cable','assis','debout','leste','assiste','allonge','couche','incline'];
+  var targetWords4 = normalTarget.split(' ').filter(function(w) {
+    return w.length > 3 && STOP4.indexOf(w) < 0;
+  });
+  if (targetWords4.length > 0) {
+    var mainWord = targetWords4[0];
+    for (var i = 0; i < logs.length; i++) {
+      var exos = logs[i].exercises || [];
+      for (var j = 0; j < exos.length; j++) {
+        var normalLog = wpNormalizeName(exos[j].name);
+        if (normalLog.startsWith(mainWord) || normalLog.includes(' ' + mainWord)) {
+          return exos[j].name;
+        }
+      }
+    }
+  }
+
   return null;
 }
 

@@ -10096,11 +10096,17 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
       return !isWarm && parseFloat(s.weight) > 0;
     });
     if (!workSets.length) continue;
-    var lastSet = workSets[workSets.length - 1];
+    var lastSet    = workSets[workSets.length - 1];
     var lastWeight = parseFloat(lastSet.weight) || 0;
-    var lastReps = parseInt(lastSet.reps) || 0;
-    var lastRpe = parseFloat(lastSet.rpe) || 8;
-    if (lastReps >= targetRepMax && lastRpe <= 8) {
+    var lastRpe    = parseFloat(lastSet.rpe)    || 8;
+    var completedSets = workSets.filter(function(s) { return parseInt(s.reps) > 0; });
+    if (!completedSets.length) {
+      return { weight: lastWeight, reps: targetRepMax, progressed: false };
+    }
+    var allSetsComplete = completedSets.every(function(s) {
+      return parseInt(s.reps) >= targetRepMax;
+    });
+    if (allSetsComplete && lastRpe <= 8) {
       return { weight: wpRound25(lastWeight + 2), reps: targetRepMin, progressed: true };
     }
     return { weight: lastWeight, reps: targetRepMax, progressed: false };

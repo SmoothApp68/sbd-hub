@@ -10458,12 +10458,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   var remaining = maxExos - exercises.length;
   accessories.slice(0, remaining).forEach(function(acc) {
     var repsArr = String(acc.reps || '10').split('-').map(Number);
-    var repsVal = repsArr[repsArr.length - 1];
+    var repsLow  = repsArr[0] || 10;
+    var repsHigh = repsArr[repsArr.length - 1] || 12;
+    var repsVal  = repsHigh;
     var sc = phase === 'deload' ? Math.ceil((acc.sets || 3) / 2) : (acc.sets || 3);
     if (isCutting) sc = Math.max(2, Math.floor(sc * 0.7));
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;
-    var dpResult = wpIsIsolation(acc.name) ? wpDoubleProgressionWeight(acc.name, repsArr[0] || repsVal, repsArr[repsArr.length - 1] || repsVal) : null;
+    var dpResult = wpDoubleProgressionWeight(acc.name, repsLow, repsHigh);
 
     if (acc.type === 'time') {
       exercises.push({ name: acc.name, type: 'time', restSeconds: acc.rest || 60,
@@ -10602,7 +10604,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     if (isCutting) rest += 30;
     var thisSets = Math.min(setsCount, maxTotalSets - totalSetsUsed);
     totalSetsUsed += thisSets;
-    var dpResult = wpIsIsolation(name) ? wpDoubleProgressionWeight(name, repRange[0], repRange[1]) : null;
+    var dpResult = wpDoubleProgressionWeight(name, repRange[0], repRange[1]);
     var exoObj = {
       name: name, type: 'weight', restSeconds: phase === 'deload' ? Math.ceil(rest / 2) : rest,
       sets: Array.from({ length: thisSets }, function() {

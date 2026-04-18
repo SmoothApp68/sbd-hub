@@ -10422,8 +10422,92 @@ function wpAdjustForMissedSessions(plan, missed) {
   return plan;
 }
 
-function wpBuildWarmups(workWeight, workReps) {
+var WP_EXO_META = {
+  'squat barre':               { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'quad'     },
+  'squat pause':               { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'quad'     },
+  'hack squat':                { mechanic: 'compound',  equipment: 'machine',    muscleGroup: 'quad'     },
+  'presse a cuisses':          { mechanic: 'compound',  equipment: 'machine',    muscleGroup: 'quad'     },
+  'leg press':                 { mechanic: 'compound',  equipment: 'machine',    muscleGroup: 'quad'     },
+  'extension jambes':          { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'quad'     },
+  'leg extension':             { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'quad'     },
+  'fente halteres':            { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'quad'     },
+  'fente barre':               { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'quad'     },
+  'souleve de terre':          { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
+  'romanian deadlift':         { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
+  'souleve de terre roumain':  { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
+  'leg curl':                  { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'hams'     },
+  'good morning':              { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
+  'hip thrust':                { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'glute'    },
+  'rowing barre':              { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'back'     },
+  'rowing haltere':            { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'back'     },
+  'tirage poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'tirage vertical':           { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'tirage isole':              { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'tractions':                 { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'back'     },
+  'extension dos':             { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'back'     },
+  'developpe couche':          { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
+  'developpe incline halteres':{ mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'chest'    },
+  'developpe incline':         { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
+  'ecarte poulie':             { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'chest'    },
+  'ecarte halteres':           { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'chest'    },
+  'dips':                      { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'chest'    },
+  'developpe militaire':       { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'shoulder' },
+  'developpe halteres':        { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'shoulder' },
+  'elevations laterales':      { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'shoulder' },
+  'elevations poulie':         { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'shoulder' },
+  'oiseau':                    { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'shoulder' },
+  'curl barre':                { mechanic: 'isolation', equipment: 'barbell',    muscleGroup: 'biceps'   },
+  'curl haltere':              { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'biceps'   },
+  'curl marteau':              { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'biceps'   },
+  'curl poulie':               { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'biceps'   },
+  'extension triceps barre':   { mechanic: 'isolation', equipment: 'barbell',    muscleGroup: 'triceps'  },
+  'triceps corde':             { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'triceps'  },
+  'triceps poulie':            { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'triceps'  },
+  'skullcrusher':              { mechanic: 'isolation', equipment: 'barbell',    muscleGroup: 'triceps'  },
+  'gainage':                   { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'core'     },
+  'crunch':                    { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'core'     },
+  'releve de jambes':          { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'core'     },
+  'mollets presse':            { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'calves'   },
+  'mollets debout':            { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'calves'   },
+  'mollets halteres':          { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'calves'   }
+};
+
+function wpGetExoMeta(name) {
+  if (!name) return null;
+  var n = wpNormalizeName(name);
+  if (WP_EXO_META[n]) return WP_EXO_META[n];
+  var keys = Object.keys(WP_EXO_META);
+  for (var i = 0; i < keys.length; i++) {
+    if (n.includes(keys[i]) || keys[i].includes(n)) return WP_EXO_META[keys[i]];
+  }
+  return null;
+}
+
+function wpNeedsAcclimationWarmup(exoName, previousExoNames, workWeight) {
+  var meta = wpGetExoMeta(exoName);
+  if (!meta || meta.mechanic === 'isolation') return false;
+  if (meta.equipment === 'machine' && workWeight > 100) return true;
+  if (!previousExoNames || !previousExoNames.length) return false;
+  var prevMetas = previousExoNames.map(wpGetExoMeta).filter(Boolean);
+  if (!prevMetas.length) return false;
+  var isFreeWeight = meta.equipment === 'barbell' || meta.equipment === 'dumbbell';
+  if (!isFreeWeight) return false;
+  var prevEquips = prevMetas.map(function(m) { return m.equipment; });
+  if (prevEquips.some(function(eq) { return eq === 'machine' || eq === 'cable'; })) return true;
+  var prevGroups = prevMetas.map(function(m) { return m.muscleGroup; });
+  if (!prevGroups.includes(meta.muscleGroup)) return true;
+  return false;
+}
+
+function wpBuildWarmups(workWeight, workReps, liftType, exerciseOrder, previousExoNames) {
   if (!workWeight || workWeight < 40) return [];
+  if ((exerciseOrder || 1) > 1) {
+    var needsFeeler = wpNeedsAcclimationWarmup(liftType, previousExoNames || [], workWeight);
+    if (!needsFeeler) return [];
+    var feelerWeight = wpRound25(workWeight * 0.75);
+    if (feelerWeight >= workWeight * 0.95) return [];
+    return [{ weight: feelerWeight, reps: Math.min(4, workReps || 4), isWarmup: true, restSeconds: 90 }];
+  }
   var steps, repsPattern, restsPattern;
   if (workReps <= 3) {
     steps        = [0.40, 0.55, 0.70, 0.82, 0.90];
@@ -10492,10 +10576,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     var setsCount = wpSetsForPhase(phase);
     var rpe = wpRpeForPhase(phase);
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
-    var warmups = wpBuildWarmups(weight, reps);
+    var mainName = tpl.mainLift === 'squat' ? 'Squat (Barre)' : tpl.mainLift === 'bench' ? 'Développé couché' : 'Soulevé de Terre';
+    var warmups = wpBuildWarmups(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     var mainExoObj = {
-      name: tpl.mainLift === 'squat' ? 'Squat (Barre)' : tpl.mainLift === 'bench' ? 'Développé couché' : 'Soulevé de Terre',
+      name: mainName,
       type: 'weight', restSeconds: bodyPart === 'lower' ? 300 : 240, isPrimary: true,
       sets: warmups.concat(wpBuildMainSets(weight, reps, setsCount, rpe))
     };
@@ -10516,7 +10601,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     var pauseWeight = wpRound25(sqW * 0.85);
     exercises.push({
       name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: true,
-      sets: wpBuildWarmups(pauseWeight, 3).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
+      sets: wpBuildWarmups(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
     });
   }
 
@@ -10534,7 +10619,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     }
   }
   var remaining = maxExos - exercises.length;
+  var placedExoNames = exercises.map(function(e) { return e.name || ''; });
   accessories.slice(0, remaining).forEach(function(acc) {
+    var accOrder = placedExoNames.length + 1;
     // ── Rotation plateau isolation ──────────────────────────
     var plat = wpDetectIsolationPlateau(acc.name);
     if (plat && plat.plateauWeeks >= 3) {
@@ -10565,13 +10652,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       exercises.push({ name: acc.name, type: 'reps', restSeconds: acc.rest || 120, bodyweightBase: bw,
         sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || 8, weight: null, isWarmup: false, useBodyweight: true }; }) });
     } else {
+      var accWeight = dpResult ? (parseFloat(dpResult.weight) || 0) : 0;
+      var accWarmups = wpBuildWarmups(accWeight, repsVal, acc.name, accOrder, placedExoNames);
       var exoObj = { name: acc.name, type: 'weight', restSeconds: restVal,
-        sets: Array.from({ length: sc }, function() {
+        sets: accWarmups.concat(Array.from({ length: sc }, function() {
           return { reps: dpResult ? dpResult.reps : repsVal, rpe: phase === 'deload' ? 6 : (acc.rpe || 7.5), weight: dpResult ? dpResult.weight : null, isWarmup: false };
-        }) };
+        })) };
       if (dpResult && dpResult.isEstimate) exoObj.coachNote = '💡 Charge estimée (1ère fois) — ajuste selon ta sensation.';
       exercises.push(exoObj);
     }
+    placedExoNames.push(acc.name);
   });
 
   // Correction 3: Buffer 48h Squat → Deadlift
@@ -10604,7 +10694,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       exercises.unshift({
         name: 'Extension Dos (Hyperextension Lestée)', type: 'weight', restSeconds: 180, isPrimary: true,
         coachNote: '⚠️ Fatigue axiale (Squat RPE ' + squatRpe48 + ' il y a < 48h). Deadlift remplacé. Retour la semaine prochaine.',
-        sets: wpBuildWarmups(60, 8).concat([
+        sets: wpBuildWarmups(60, 8, 'Extension Dos', 1, []).concat([
           { weight: 60, reps: 8, rpe: 7, isWarmup: false },
           { weight: 60, reps: 8, rpe: 7, isWarmup: false },
           { weight: 60, reps: 8, rpe: 7, isWarmup: false }

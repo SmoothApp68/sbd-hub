@@ -9676,12 +9676,12 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'squat',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Presse à cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180 },
-      { name: 'Leg Extension',      reps: '12',   rpe: 7,   sets: 4, rest: 90  },
-      { name: 'Adduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60  },
-      { name: 'Abduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60  },
-      { name: 'Mollets (Machine)',   reps: '12',   rpe: 8,   sets: 4, rest: 60, isoTension: true },
-      { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60, type: 'time' }
+      { name: 'Presse à cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Leg Extension',      reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Adduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 2 },
+      { name: 'Abduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 2 },
+      { name: 'Mollets (Machine)',   reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 3, isoTension: true },
+      { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 1, type: 'time' }
     ]
   },
   bench: {
@@ -9689,11 +9689,11 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'bench',
     bodyPart: 'upper',
     accessories: [
-      { name: 'Rowing poulie assis',       reps: '6',    rpe: 8.5, sets: 4, rest: 180 },
-      { name: 'Développé incliné haltères',reps: '6-8',  rpe: 8.5, sets: 3, rest: 150 },
-      { name: 'Tractions',                 reps: '6',    rpe: 8,   sets: 4, rest: 150, type: 'reps', useBodyweight: true },
-      { name: 'Écarté machine',            reps: '12',   rpe: 7,   sets: 4, rest: 90  },
-      { name: 'Oiseau machine',            reps: '12',   rpe: 7,   sets: 3, rest: 60  }
+      { name: 'Rowing poulie assis',       reps: '6',    rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Développé incliné haltères',reps: '6-8',  rpe: 8.5, sets: 3, rest: 150, priority: 1 },
+      { name: 'Tractions',                 reps: '6',    rpe: 8,   sets: 4, rest: 150, priority: 1, type: 'reps', useBodyweight: true },
+      { name: 'Écarté machine',            reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Oiseau machine',            reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 1 }
     ]
   },
   deadlift: {
@@ -9701,11 +9701,11 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Hip Thrust',           reps: '6-8',  rpe: 8.5, sets: 4, rest: 180 },
-      { name: 'Leg Curl allongé',     reps: '12',   rpe: 7,   sets: 4, rest: 90  },
-      { name: 'Mollets (Machine)',     reps: '12',   rpe: 8,   sets: 4, rest: 60  },
-      { name: 'Élévations latérales', reps: '15',   rpe: 7.5, sets: 3, rest: 60  },
-      { name: 'Gainage planche',      reps: '90s',  rpe: 7,   sets: 3, rest: 60, type: 'time' }
+      { name: 'Hip Thrust',           reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Leg Curl allongé',     reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Mollets (Machine)',     reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 2 },
+      { name: 'Élévations latérales', reps: '15',   rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Gainage planche',      reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 1, type: 'time' }
     ]
   },
   weakpoints: {
@@ -10637,7 +10637,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   }
   var remaining = maxExos - exercises.length;
   var placedExoNames = exercises.map(function(e) { return e.name || ''; });
-  accessories.slice(0, remaining).forEach(function(acc) {
+  // Trier par priorité avant de couper — évite de supprimer les exercices cruciaux (Gemini)
+  var sortedAccessories = accessories.slice().sort(function(a, b) {
+    return (a.priority || 2) - (b.priority || 2);
+  });
+  sortedAccessories.slice(0, remaining).map(function(acc) {
+    var cappedSets = duration <= 45
+      ? Math.max(2, Math.min(acc.sets || 3, 3))
+      : (acc.sets || 3);
+    return Object.assign({}, acc, { sets: cappedSets });
+  }).forEach(function(acc) {
     var accOrder = acc.isPrimary ? 1 : (placedExoNames.length + 1);
     // ── Rotation plateau isolation ──────────────────────────
     var plat = wpDetectIsolationPlateau(acc.name);

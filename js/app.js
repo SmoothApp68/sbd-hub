@@ -10277,7 +10277,13 @@ function wpDetectPhase() {
       break;
     }
   }
-  if (weeksSince === 0) weeksSince = Math.min(6, Math.round((db.logs || []).length / 4));
+  if (weeksSince === 0) {
+    // Fallback : rotation sur 4 semaines selon la fréquence réelle
+    // Évite le blocage en Peak permanent (ex: 497 logs → 124 semaines → toujours peak)
+    var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
+    var totalWeeks = Math.round((db.logs || []).length / Math.max(1, freq));
+    weeksSince = (totalWeeks % 4) + 1; // Cycle 1→2→3→4→1→2→3→4...
+  }
   // Bloc post-deload (Gemini) : S1 intro → S2 accum → S3 intensif → S4+ peak
   if (weeksSince === 1) return 'intro';
   if (weeksSince === 2) return 'accumulation';
@@ -10686,6 +10692,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     var repsHigh = repsArr[repsArr.length - 1] || 12;
     var repsVal  = repsHigh;
     var sc = phase === 'deload' ? Math.ceil((acc.sets || 3) / 2) : (acc.sets || 3);
+    // Tapering Peak : -1 série sur les accessoires pour préserver la fraîcheur nerveuse
+    if (phase === 'peak' && !acc.isPrimary && acc.type !== 'time' && acc.type !== 'cardio') {
+      sc = Math.max(1, sc - 1);
+    }
     if (isCutting) sc = Math.max(2, Math.floor(sc * 0.7));
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;

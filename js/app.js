@@ -10110,6 +10110,19 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
   return null;
 }
 
+// ── FORMULE BRZYCKI AJUSTÉE RPE ─────────────────────────────
+function wpCalcE1RM(weight, reps, rpe) {
+  weight = parseFloat(weight) || 0;
+  reps   = parseInt(reps)    || 1;
+  rpe    = parseFloat(rpe)   || 8;
+  if (weight <= 0) return 0;
+  if (reps <= 0)   return weight;
+  rpe = Math.max(6, Math.min(10, rpe));
+  var divisor = 1.0278 - 0.0278 * (reps + (10 - rpe));
+  if (divisor <= 0) return weight * 1.5;
+  return Math.round((weight / divisor) * 10) / 10;
+}
+
 function wpComputeWorkWeight(liftType, bodyPart) {
   var pr = db.bestPR || {};
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
@@ -10140,7 +10153,12 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     var maxSet = workSets.reduce(function(m, s) {
       return parseFloat(s.weight) > parseFloat(m.weight) ? s : m;
     }, workSets[0]);
-    history.push({ weight: parseFloat(maxSet.weight) || 0, reps: parseInt(maxSet.reps) || 0, rpe: parseFloat(maxSet.rpe) || 7.5 });
+    history.push({
+      weight: parseFloat(maxSet.weight) || 0,
+      reps:   parseInt(maxSet.reps)     || 0,
+      rpe:    parseFloat(maxSet.rpe)    || 7.5,
+      e1rm:   wpCalcE1RM(maxSet.weight, maxSet.reps, maxSet.rpe)
+    });
   }
 
   if (!history.length) {
@@ -10172,6 +10190,31 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   // Correction 7: RPE cap reprise (Jordan)
   if (rpeCapReprise !== null && last.rpe >= rpeCapReprise) {
     baseWeight = last.weight;
+  }
+
+  // e1RM growth : si e1RM a progressé avec RPE stable → charge sous-estimée (RPE menteur)
+  if (history.length >= 2) {
+    var e1rmGrowth = (history[0].e1rm || 0) - (history[1].e1rm || 0);
+    if (e1rmGrowth > 5 && history[0].rpe <= history[1].rpe) {
+      baseWeight = wpRound25(last.weight + prog.increase * 1.5);
+    }
+  }
+
+  // Bloc post-deload (Gemini) : multiplicateurs e1RM sur 4 semaines
+  var PHASE_MULT = { intro: 0.90, accumulation: 0.95, intensification: 1.00, peak: 1.05, deload: 0.60 };
+  var currentPhase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse().find(function(p) { return p.isDeload; });
+  var weeksSinceDeload2 = lastDeloadPlan
+    ? Math.round((Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000))
+    : 99;
+  if (weeksSinceDeload2 <= 4) {
+    var mult = PHASE_MULT[currentPhase] || 1.0;
+    var preDeloadE1rm = Math.max.apply(null, history.map(function(h) { return h.e1rm || 0; }));
+    if (preDeloadE1rm > 0 && mult !== 1.0) {
+      var wReps = wpRepsForPhase(currentPhase);
+      var d = 1.0278 - 0.0278 * wReps;
+      if (d > 0) baseWeight = wpRound25(preDeloadE1rm * mult * d);
+    }
   }
 
   return wpRound25(baseWeight);
@@ -10218,18 +10261,20 @@ function wpDetectPlateau(liftType) {
 function wpDetectPhase() {
   var deloadCheck = typeof shouldDeload === 'function' ? shouldDeload(db.logs, db.user.trainingMode) : { needed: false };
   if (deloadCheck.needed) return 'deload';
-  var weeksSinceDeload = 0;
+  var weeksSince = 0;
   var plans = db.weeklyPlanHistory || [];
   for (var i = plans.length - 1; i >= 0; i--) {
     if (plans[i].isDeload) {
-      weeksSinceDeload = Math.round((Date.now() - new Date(plans[i].generated_at).getTime()) / (7 * 86400000));
+      weeksSince = Math.round((Date.now() - new Date(plans[i].generated_at).getTime()) / (7 * 86400000));
       break;
     }
   }
-  if (weeksSinceDeload === 0) weeksSinceDeload = Math.min(6, Math.round((db.logs || []).length / 4));
-  if (weeksSinceDeload >= 4) return 'peak';
-  if (weeksSinceDeload >= 2) return 'intensification';
-  if (weeksSinceDeload >= 1) return 'accumulation';
+  if (weeksSince === 0) weeksSince = Math.min(6, Math.round((db.logs || []).length / 4));
+  // Bloc post-deload (Gemini) : S1 intro → S2 accum → S3 intensif → S4+ peak
+  if (weeksSince === 1) return 'intro';
+  if (weeksSince === 2) return 'accumulation';
+  if (weeksSince === 3) return 'intensification';
+  if (weeksSince >= 4)  return 'peak';
   return 'intro';
 }
 
@@ -10442,6 +10487,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       mainExoObj.restSeconds = 300;
       mainExoObj.coachNote = '⚠️ Repos 5min minimum entre les séries. Ne cherche pas l\'échec — cherche la vitesse de barre. Récupération nerveuse prioritaire.';
     }
+    // Alerte "en forme aujourd'hui" (Gemini Option B UX)
+    if (phase === 'intensification' || phase === 'peak') {
+      mainExoObj.coachNote = (mainExoObj.coachNote || '') + ' 💡 Si les paliers d\'échauffement semblent légers (RPE < 7), tente +5kg sur le Top Set.';
+    }
     exercises.push(mainExoObj);
   }
 
@@ -10455,8 +10504,30 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   }
 
   var accessories = wpFilterInjuries(tpl.accessories || [], injuries);
+  // Rééquilibrage Squat/Bench (Gemini)
+  if (dayKey === 'squat') {
+    var imbalance = wpDetectSquatBenchImbalance();
+    if (imbalance && imbalance.imbalance) {
+      accessories = accessories.map(function(a) {
+        if (/presse|leg.ext|extension.jambe/i.test(a.name)) {
+          return Object.assign({}, a, { sets: (a.sets || 3) + 1 });
+        }
+        return a;
+      });
+    }
+  }
   var remaining = maxExos - exercises.length;
   accessories.slice(0, remaining).forEach(function(acc) {
+    // ── Rotation plateau isolation ──────────────────────────
+    var plat = wpDetectIsolationPlateau(acc.name);
+    if (plat && plat.plateauWeeks >= 3) {
+      var vi = WP_ISOLATION_VARIANTS[acc.name];
+      if (vi) acc = Object.assign({}, acc, { name: vi.variant, reps: vi.repRange[0] + '-' + vi.repRange[1], plateauNote: '🔄 Variante auto — ' + plat.plateauWeeks + ' sem. plateau' });
+    } else if (plat && plat.plateauWeeks >= 1) {
+      var hiR = parseInt(String(acc.reps).split('-').pop() || '12') + 3;
+      var loR = parseInt(String(acc.reps).split('-')[0] || '10') + 3;
+      acc = Object.assign({}, acc, { reps: loR + '-' + hiR, plateauNote: '📈 Rep range +3 — plateau sem. ' + plat.plateauWeeks });
+    }
     var repsArr = String(acc.reps || '10').split('-').map(Number);
     var repsLow  = repsArr[0] || 10;
     var repsHigh = repsArr[repsArr.length - 1] || 12;
@@ -10488,6 +10559,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
 
   // Correction 3: Buffer 48h Squat → Deadlift
   var dayCoachNote = wpCoachNote(tpl.mainLift, phase, null, null);
+  if (dayKey === 'squat') {
+    var _imb = wpDetectSquatBenchImbalance();
+    if (_imb && _imb.imbalance) {
+      dayCoachNote = (dayCoachNote || '') + ' 📊 Déséquilibre Squat/Bench (' + _imb.recommendation + ') — +1 série sur les accessoires Quad.';
+    }
+  }
   if (dayKey === 'deadlift') {
     var fortyEightHAgo = Date.now() - 48 * 3600000;
     var axialWarning = false;
@@ -10597,6 +10674,12 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
       if (/curl biceps|curl barre/i.test(name)) name = 'Curl marteau';
     }
 
+    // Rotation plateau isolation
+    var _plat = wpDetectIsolationPlateau(name);
+    if (_plat && _plat.plateauWeeks >= 3) {
+      var _vi = WP_ISOLATION_VARIANTS[name];
+      if (_vi) name = _vi.variant;
+    }
     var isCompound = /squat|développé|rowing|tractions|deadlift|soulevé|presse/i.test(name);
     var rpe = isCompound ? (rpeTarget + 0.5) : rpeTarget;
     var reps = isCompound ? repRange[0] : repRange[1];
@@ -10624,6 +10707,62 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   var note = isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
              isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.';
   return { rest: false, title: tpl.title, coachNote: note, exercises: exercises };
+}
+
+// ── DÉTECTION PLATEAU ISOLATION ─────────────────────────────
+function wpDetectIsolationPlateau(exoName) {
+  var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  var realName = wpFindBestMatch(exoName, logs);
+  if (!realName) return null;
+  var hist = [];
+  for (var i = 0; i < logs.length && hist.length < 6; i++) {
+    var exo = (logs[i].exercises || []).find(function(e) {
+      return wpNormalizeName(e.name) === wpNormalizeName(realName);
+    });
+    if (!exo) continue;
+    var ws = (exo.allSets || exo.series || []).filter(function(s) {
+      return !(s.isWarmup === true || s.setType === 'warmup') && parseFloat(s.weight) > 0;
+    });
+    if (!ws.length) continue;
+    var ls = ws[ws.length - 1];
+    hist.push({ weight: parseFloat(ls.weight), reps: parseInt(ls.reps), rpe: parseFloat(ls.rpe) || 8 });
+  }
+  if (hist.length < 3) return null;
+  var stagnant = hist[0].weight === hist[1].weight && hist[1].weight === hist[2].weight;
+  if (!stagnant) return null;
+  var weeks = 1;
+  for (var j = 3; j < hist.length; j++) {
+    if (hist[j].weight === hist[0].weight) weeks++; else break;
+  }
+  return { plateauWeeks: weeks, currentWeight: hist[0].weight };
+}
+
+// Table de rotation des variantes isolation (Gemini)
+var WP_ISOLATION_VARIANTS = {
+  'Leg Curl allongé':     { repRange: [15, 20], variant: 'Leg Curl Assis' },
+  'Leg Curl Assis':       { repRange: [8,  12], variant: 'Leg Curl allongé' },
+  'Élévations latérales': { repRange: [15, 20], variant: 'Elevation Laterale (Poulie)' },
+  'Extension triceps':    { repRange: [15, 20], variant: 'Extension Triceps Corde' },
+  'Curl barre':           { repRange: [15, 20], variant: 'Curl marteau' },
+  'Écarté machine':       { repRange: [15, 20], variant: 'Ecartes Poulie Basse' }
+};
+
+// ── DÉTECTION DÉSÉQUILIBRE SQUAT/BENCH ──────────────────────
+function wpDetectSquatBenchImbalance() {
+  var pr = db.bestPR || {};
+  var benchE1rm = parseFloat(pr.bench) || 0;
+  var squatE1rm = parseFloat(pr.squat) || 0;
+  if (benchE1rm <= 0 || squatE1rm <= 0) return null;
+  var ratio = squatE1rm / benchE1rm;
+  if (ratio < 1.20) {
+    return {
+      imbalance: true,
+      ratio: Math.round(ratio * 100) / 100,
+      deficit: Math.round((1.20 - ratio) * benchE1rm),
+      recommendation: 'Squat ' + Math.round(ratio * 100) + '% du Bench (cible: 120-125%)'
+    };
+  }
+  return { imbalance: false, ratio: ratio };
 }
 
 // ── FONCTION PRINCIPALE ──────────────────────────────────────

@@ -10495,9 +10495,14 @@ function wpNeedsAcclimationWarmup(exoName, previousExoNames, workWeight) {
   var prevMetas = previousExoNames.map(wpGetExoMeta).filter(Boolean);
   if (!prevMetas.length) return false;
   var isFreeWeight = meta.equipment === 'barbell' || meta.equipment === 'dumbbell';
-  if (!isFreeWeight) return false;
-  var prevEquips = prevMetas.map(function(m) { return m.equipment; });
-  if (prevEquips.some(function(eq) { return eq === 'machine' || eq === 'cable'; })) return true;
+  var isWeightedGuided = isFreeWeight || meta.equipment === 'cable';
+  if (!isWeightedGuided) return false;
+  // Rule 2: instability shift (machine/cable → free weight only)
+  if (isFreeWeight) {
+    var prevEquips = prevMetas.map(function(m) { return m.equipment; });
+    if (prevEquips.some(function(eq) { return eq === 'machine' || eq === 'cable'; })) return true;
+  }
+  // Rule 1: muscle group change
   var prevGroups = prevMetas.map(function(m) { return m.muscleGroup; });
   if (!prevGroups.includes(meta.muscleGroup)) return true;
   return false;

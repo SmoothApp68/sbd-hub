@@ -10424,13 +10424,30 @@ function wpAdjustForMissedSessions(plan, missed) {
 
 function wpBuildWarmups(workWeight, workReps) {
   if (!workWeight || workWeight < 40) return [];
-  var pcts = workReps <= 3
-    ? [0.40, 0.55, 0.70, 0.82, 0.90]
-    : [0.40, 0.55, 0.70, 0.80];
-  return pcts.map(function(p) {
-    var w = wpRound25(workWeight * p);
-    return w >= 20 ? { weight: w, reps: Math.min(workReps + 3, 8), isWarmup: true } : null;
-  }).filter(Boolean);
+  var steps, repsPattern, restsPattern;
+  if (workReps <= 3) {
+    steps        = [0.40, 0.55, 0.70, 0.82, 0.90];
+    repsPattern  = [8,    5,    3,    2,    1   ];
+    restsPattern = [60,   90,   120,  120,  150 ];
+  } else {
+    steps        = [0.40, 0.55, 0.70, 0.80];
+    repsPattern  = [8,    5,    3,    2   ];
+    restsPattern = [60,   90,   90,   120 ];
+  }
+  var warmups = [];
+  for (var i = 0; i < steps.length; i++) {
+    var w = Math.round((workWeight * steps[i]) / 2.5) * 2.5;
+    if (w < 20) continue;
+    if (w >= workWeight * 0.95) continue;
+    if (warmups.length > 0 && warmups[warmups.length - 1].weight === w) continue;
+    // Paliers 1-2 (i < 2) : reps libres pour chauffer le muscle
+    // Paliers 3-5 (i >= 2) : reps ≤ workReps (spécificité power, Gemini)
+    var rawReps   = repsPattern[i];
+    var finalReps = i >= 2 ? Math.min(rawReps, workReps) : rawReps;
+    finalReps = Math.max(1, finalReps);
+    warmups.push({ weight: w, reps: finalReps, isWarmup: true, restSeconds: restsPattern[i] || 90 });
+  }
+  return warmups;
 }
 
 function wpFilterInjuries(exoList, injuries) {

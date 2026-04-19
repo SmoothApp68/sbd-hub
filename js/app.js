@@ -6881,14 +6881,12 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   // Migration : generatedProgram
   if (!db.generatedProgram) db.generatedProgram = null;
 
-  // Migration : estimer la durée des séances importées sans duration
+  // Migration : re-estimer la durée des séances sans source GO réelle
   var _durMigrated = false;
   (db.logs || []).forEach(function(log) {
-    if (!log.duration || log.duration === 0) {
-      var totalSets = 0;
-      (log.exercises || []).forEach(function(ex) { totalSets += (ex.allSets || ex.series || []).length; });
-      if (totalSets > 0) { log.duration = totalSets * 120; _durMigrated = true; }
-    }
+    if (log.durationSource === 'go') return;
+    var estimated = estimateSessionDuration(log.exercises || []) * 60; // en secondes
+    if (estimated > 0) { log.duration = estimated; log.durationSource = 'estimated'; _durMigrated = true; }
   });
   if (_durMigrated) saveDB();
   renderProgramViewer();
@@ -14060,6 +14058,7 @@ function renderGoMuscleDistribution() {
 function convertWorkoutToSession(workout) {
   var session = createSession(workout.title, workout.startTime);
   session.duration = Math.round((Date.now() - workout.startTime) / 1000);
+  session.durationSource = 'go';
 
   // Group class: single cardio-like exercise with duration
   if (workout.isGroupClass) {

@@ -10595,6 +10595,21 @@ function wpFilterInjuries(exoList, injuries) {
 
 // ── GÉNÉRATION PAR MODE ─────────────────────────────────────
 
+function wpDeriveTitle(exercises) {
+  var NAMES = { quad:'Jambes', hams:'Ischios', glute:'Fessiers', chest:'Pecs', back:'Dos', shoulder:'Épaules', biceps:'Biceps', triceps:'Triceps', core:'Gainage', calves:'Mollets' };
+  var ICONS = { quad:'🦵', hams:'🦵', glute:'🍑', chest:'💪', back:'🔵', shoulder:'🎯', biceps:'💪', triceps:'💪', core:'🧘', calves:'🦿' };
+  var counts = {};
+  (exercises || []).forEach(function(e) {
+    var meta = wpGetExoMeta(e && e.name);
+    if (!meta || !meta.muscleGroup) return;
+    counts[meta.muscleGroup] = (counts[meta.muscleGroup] || 0) + 1;
+  });
+  var groups = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+  if (!groups.length) return null;
+  var top = groups.slice(0, 2);
+  return (ICONS[top[0]] || '🏋️') + ' ' + top.map(function(g) { return NAMES[g] || g; }).join(' — ');
+}
+
 function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   var tpl = WP_SESSION_TEMPLATES[dayKey];
   if (!tpl) return null;
@@ -10782,7 +10797,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
     exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
   }
-  return { rest: false, title: tpl.title, coachNote: dayCoachNote, exercises: exercises };
+  var derivedTitle = wpDeriveTitle(exercises) || tpl.title;
+  return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises };
 }
 
 function wpGenerateMuscuDay(tplKey, params, phase) {
@@ -11159,11 +11175,13 @@ function renderWeeklyPlanUI() {
       : '';
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
+    const displayTitle = (db.planDayTitles && db.planDayTitles[wpSelectedDay]) || sel.title || wpSelectedDay;
+    const renameBtn = `<button onclick="wpRenameDay('${wpSelectedDay}')" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:13px;padding:2px 6px;opacity:0.6;" title="Renommer">✏️</button>`;
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title" style="display:flex;align-items:center;gap:6px;">${displayTitle}${renameBtn}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   // Bloc badge avec label (intermédiaire+)
   var streak = typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0;
-  var streakLabel = streak > 0 ? streak + ' semaines 🔥' : 'Semaine ' + (plan.week || 1);
+  var streakLabel = streak > 1 ? streak + ' semaines 🔥' : streak === 1 ? '1 semaine 🔥' : 'Semaine ' + (plan.week || 1);
   var blocLabel = plan.blocLabel ? ' — ' + plan.blocLabel : '';
   var blocBadge = '<div class="wp-bloc-badge">' + streakLabel + blocLabel + '</div>';
   const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
@@ -11194,6 +11212,20 @@ function wpApplyAll() {
     showToast('✓ Programme complet mis à jour');
     refreshUI();
   });
+}
+
+function wpRenameDay(day) {
+  var current = (db.planDayTitles && db.planDayTitles[day]) || '';
+  var val = prompt('Nom de la séance du ' + day + ' :', current);
+  if (val === null) return; // annulé
+  if (!db.planDayTitles) db.planDayTitles = {};
+  if (val.trim()) {
+    db.planDayTitles[day] = val.trim();
+  } else {
+    delete db.planDayTitles[day]; // reset au titre généré
+  }
+  saveDB();
+  renderWeeklyPlanUI();
 }
 
 function fmtRest(sec) {

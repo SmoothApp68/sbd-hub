@@ -9672,7 +9672,7 @@ var WP_PROGRESSION = {
 
 var WP_SESSION_TEMPLATES = {
   squat: {
-    title: '🦵 Squat & Jambes',
+    title: '🦵 Jambes',
     mainLift: 'squat',
     bodyPart: 'lower',
     accessories: [
@@ -9685,7 +9685,7 @@ var WP_SESSION_TEMPLATES = {
     ]
   },
   bench: {
-    title: '💪 Bench & Push',
+    title: '💪 Pecs — Dos',
     mainLift: 'bench',
     bodyPart: 'upper',
     accessories: [
@@ -9697,7 +9697,7 @@ var WP_SESSION_TEMPLATES = {
     ]
   },
   deadlift: {
-    title: '🔙 Deadlift & Pull',
+    title: '🏋️ Ischios — Fessiers',
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
@@ -9709,7 +9709,7 @@ var WP_SESSION_TEMPLATES = {
     ]
   },
   weakpoints: {
-    title: '🎯 Points Faibles',
+    title: '🎯 Épaules — Bras',
     mainLift: null,
     bodyPart: 'upper',
     accessories: [
@@ -9725,7 +9725,7 @@ var WP_SESSION_TEMPLATES = {
     ]
   },
   technique: {
-    title: '⚡ SBD Technique',
+    title: '⚡ S B Day',
     mainLift: 'squat_pause',
     bodyPart: 'lower',
     accessories: [
@@ -9735,7 +9735,7 @@ var WP_SESSION_TEMPLATES = {
     ]
   },
   recovery: {
-    title: '🏊 Récupération / Cardio',
+    title: '🏊 Cardio',
     mainLift: null,
     bodyPart: 'recovery',
     accessories: [
@@ -11064,7 +11064,7 @@ function generateWeeklyPlan() {
 
     // ── SAUVEGARDER ─────────────────────────────────────────
     var plan = {
-      days: days, week: (db.weeklyPlanHistory || []).length + 1,
+      days: days, week: (db.weeklyPlanHistory || []).length + 1, weekStreak: (typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0),
       phase: phase, mode: mode, isDeload: phase === 'deload', generated_at: new Date().toISOString()
     };
 
@@ -11162,8 +11162,10 @@ function renderWeeklyPlanUI() {
     sessionHtml = `<div class="wp-session"><div class="wp-session-title">${sel.title || wpSelectedDay}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   // Bloc badge avec label (intermédiaire+)
-  const blocLabel = plan.blocLabel ? ` — ${plan.blocLabel}` : '';
-  const blocBadge = `<div class="wp-bloc-badge">Semaine ${plan.week||1}${blocLabel}</div>`;
+  var streak = typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0;
+  var streakLabel = streak > 0 ? streak + ' semaines 🔥' : 'Semaine ' + (plan.week || 1);
+  var blocLabel = plan.blocLabel ? ' — ' + plan.blocLabel : '';
+  var blocBadge = '<div class="wp-bloc-badge">' + streakLabel + blocLabel + '</div>';
   const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;
   content.innerHTML = `${blocBadge}${applyAllBtn}<div class="wp-days">${pillsHtml}</div>${sessionHtml}`;
 }

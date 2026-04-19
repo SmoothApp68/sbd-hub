@@ -9539,53 +9539,39 @@ function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isF
 }
 
 // ── Estimation durée séance scientifique ────────────────────
-function estimateSessionDuration(exercises, goal) {
-  if (!exercises || !exercises.length) return { minutes: 0, details: [] };
-  let totalSec = 300; // 5min échauffement général
-  const details = [];
+function estimateSessionDuration(exercises) {
+  if (!exercises || !exercises.length) return 0;
+  let totalSec = 600; // 10min : échauffement articulaire + rangement final
 
-  exercises.forEach((exo, idx) => {
-    const sets = exo.sets || [];
-    if (!sets.length && !exo.noData) return;
-    const cat = getExoCategory(exo.name);
-    const warmupSets = sets.filter(s => s.isWarmup);
-    const workSets = sets.filter(s => !s.isWarmup && !s.isBackoff);
-    const backoffSets = sets.filter(s => s.isBackoff);
-    const allWork = [...workSets, ...backoffSets];
+  exercises.forEach(function(exo) {
+    var meta = wpGetExoMeta(exo.name) || {};
+    var isHeavy = meta.mechanic === 'compound';
 
-    // Temps d'exécution par série (sec/rep selon type)
-    const avgReps = allWork.length ? allWork.reduce((s,st) => s + (st.reps || 0), 0) / allWork.length : 8;
-    const secPerRep = avgReps <= 5 ? 4.5 : avgReps <= 12 ? 3.5 : 3;
-    const repTimeSec = avgReps * secPerRep;
+    // Transition + installation (rack vs machine)
+    totalSec += isHeavy ? 120 : 60;
 
-    // Repos entre séries
-    const restSec = exo.restSeconds || 90;
+    var allSets = exo.allSets || [];
+    allSets.forEach(function(set) {
+      // TUT
+      var repSpeed = (set.reps || 0) <= 5 ? 4.5 : 3.5;
+      totalSec += (set.reps || 0) * repSpeed;
 
-    // Temps total pour cet exercice
-    let exoTime = 0;
-    // Échauffement spécifique premier compound
-    if (warmupSets.length >= 3 && idx === 0) exoTime += 300; // ~5min premier compound
-    warmupSets.forEach(() => { exoTime += repTimeSec + 60; }); // repos court entre warmups
-    allWork.forEach((s, si) => {
-      exoTime += repTimeSec;
-      if (si < allWork.length - 1) exoTime += restSec;
+      // Repos réel + manipulation des poids
+      var rest = set.restSeconds || (isHeavy ? 180 : 90);
+      var logistics = (isHeavy || (set.weight || 0) > 100) ? 45 : 15;
+      totalSec += rest + logistics;
     });
-    // Transition entre exercices
-    exoTime += cat === 'isolation' ? 60 : 90;
-
-    totalSec += exoTime;
-    details.push({ name: exo.name, minutes: Math.round(exoTime / 60) });
   });
 
-  const minutes = Math.round(totalSec / 60);
-  return { minutes, details };
+  // Facteur de fatigue : 10% plus lent en fin de séance
+  return Math.round((totalSec * 1.10) / 60);
 }
 
 // Adapter la séance si elle dépasse la durée configurée
 function adaptSessionForDuration(exercises, targetMinutes, goal) {
   if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
-  const est = estimateSessionDuration(exercises, goal);
-  if (est.minutes <= targetMinutes) return { exercises, adaptations: [] };
+  const est = estimateSessionDuration(exercises);
+  if (est <= targetMinutes) return { exercises, adaptations: [] };
 
   const adaptations = [];
   let adapted = JSON.parse(JSON.stringify(exercises));
@@ -9598,8 +9584,8 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
       isoExos[i].restSeconds = Math.round((isoExos[i].restSeconds || 60) * 0.5);
     }
     adaptations.push('Supersets sur isolations');
-    const est2 = estimateSessionDuration(adapted, goal);
-    if (est2.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+    const est2 = estimateSessionDuration(adapted);
+    if (est2 <= targetMinutes) return { exercises: adapted, adaptations };
   }
 
   // 2. Réduire séries isolations (max -1, jamais <2)
@@ -9612,14 +9598,14 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
     }
   });
   adaptations.push('Séries isolations réduites');
-  const est3 = estimateSessionDuration(adapted, goal);
-  if (est3.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+  const est3 = estimateSessionDuration(adapted);
+  if (est3 <= targetMinutes) return { exercises: adapted, adaptations };
 
   // 3. Réduire repos de 15% max
   adapted.forEach(e => { e.restSeconds = Math.round((e.restSeconds || 90) * 0.85); });
   adaptations.push('Repos réduits (-15%)');
-  const est4 = estimateSessionDuration(adapted, goal);
-  if (est4.minutes <= targetMinutes) return { exercises: adapted, adaptations };
+  const est4 = estimateSessionDuration(adapted);
+  if (est4 <= targetMinutes) return { exercises: adapted, adaptations };
 
   // 4. Dernier recours : retirer une isolation
   const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
@@ -11208,9 +11194,9 @@ function renderWeeklyPlanUI() {
     sessionHtml = `<div class="wp-rest-day">😴 ${wpSelectedDay === 'Dimanche' ? 'Repos complet' : 'Repos / Récupération'}</div>`;
   } else {
     // Durée estimée du jour
-    const dayDuration = estimateSessionDuration(sel.exercises || [], plan.goalKey || 'force');
-    const durationHtml = dayDuration.minutes > 0
-      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration.minutes}min estimé</div>`
+    const dayDuration = estimateSessionDuration(sel.exercises || []);
+    const durationHtml = dayDuration > 0
+      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration}min estimé</div>`
       : '';
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';

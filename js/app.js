@@ -3412,6 +3412,45 @@ function computeWeekStreak() {
   return { current: current, record: record };
 }
 
+function wpGetStreak() {
+  function isoMonday(ts) {
+    var d = new Date(ts);
+    var diff = (d.getDay() === 0 ? -6 : 1 - d.getDay());
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  }
+  var thisWeek = isoMonday(Date.now());
+  var prevWeek = (function() { var d = new Date(thisWeek); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })();
+  var hasThisWeek = (db.logs || []).some(function(l) {
+    return isoMonday(l.timestamp || new Date(l.date).getTime()) === thisWeek;
+  });
+
+  if (!db.wpStreak) {
+    var cws = typeof computeWeekStreak === 'function' ? computeWeekStreak() : { current: 0, record: 0 };
+    var seed = Math.max(cws.current, cws.record, db.weeklyStreakRecord || 0);
+    db.wpStreak = { count: seed, week: hasThisWeek ? thisWeek : prevWeek };
+    saveDB();
+    return seed;
+  }
+
+  if (db.wpStreak.week === thisWeek) return db.wpStreak.count;
+
+  if (hasThisWeek) {
+    if (db.wpStreak.week === prevWeek) {
+      db.wpStreak = { count: db.wpStreak.count + 1, week: thisWeek };
+    } else if (db.wpStreak.week < prevWeek) {
+      var fresh = typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 1;
+      db.wpStreak = { count: fresh, week: thisWeek };
+    } else {
+      db.wpStreak = { count: db.wpStreak.count, week: thisWeek };
+    }
+    saveDB();
+  }
+
+  return db.wpStreak.count;
+}
+
 // ── Carte "Cette semaine" (nouvelle homepage) ────────────────
 function renderWeekCard() {
   const el = document.getElementById('dashWeekContent');
@@ -11180,7 +11219,7 @@ function renderWeeklyPlanUI() {
     sessionHtml = `<div class="wp-session"><div class="wp-session-title" style="display:flex;align-items:center;gap:6px;">${displayTitle}${renameBtn}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   // Bloc badge avec label (intermédiaire+)
-  var streak = typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0;
+  var streak = typeof wpGetStreak === 'function' ? wpGetStreak() : 0;
   var streakLabel = streak > 1 ? streak + ' semaines 🔥' : streak === 1 ? '1 semaine 🔥' : 'Semaine ' + (plan.week || 1);
   var blocLabel = plan.blocLabel ? ' — ' + plan.blocLabel : '';
   var blocBadge = '<div class="wp-bloc-badge">' + streakLabel + blocLabel + '</div>';

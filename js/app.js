@@ -286,6 +286,15 @@ if (!db.gamification._migratedFreezeV4) {
   db.gamification.freezeProtectedWeeks = [];
   db.gamification._migratedFreezeV4 = true;
 }
+// One-time migration _migratedMuscleTargetsV2 : recalibration des
+// targets tonnage/fréquence musculaires. Force un recalcul (bypass
+// throttle 7j) une fois db.logs disponible.
+if (!db.gamification._migratedMuscleTargetsV2) {
+  db.gamification._migratedMuscleTargetsV2 = true;
+  setTimeout(function() {
+    if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
+  }, 1500);
+}
 db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
@@ -3159,25 +3168,25 @@ function renderMuscleList() {
 // ── Muscle Rank Computation (volume + frequency over 4 weeks) ──
 
 const MUSCLE_TONNAGE_TARGETS = {
-  chest_upper: 4000, chest_lower: 4000,
-  lats: 6000, rhomboids: 3000, erectors: 5000,
-  quads: 8000, hamstrings: 4000,
-  glutes_major: 5000, glutes_med: 2000, adductors: 2000,
-  shoulders_front: 2500, shoulders_side: 1500, shoulders_rear: 1500,
-  traps: 3000, triceps: 3000, biceps: 2500, forearms: 1500,
-  abs: 2000, obliques: 1500,
-  calves_gastro: 2500, calves_soleus: 1500,
-  hip_flexors: 1000, serratus: 800
+  chest_upper: 12000, chest_lower: 14000,
+  lats: 18000, rhomboids: 10000, erectors: 15000,
+  quads: 25000, hamstrings: 14000,
+  glutes_major: 16000, glutes_med: 8000, adductors: 8000,
+  shoulders_front: 8000, shoulders_side: 5000, shoulders_rear: 5000,
+  traps: 10000, triceps: 10000, biceps: 8000, forearms: 5000,
+  abs: 4000, obliques: 3000,
+  calves_gastro: 10000, calves_soleus: 6000,
+  hip_flexors: 3000, serratus: 2000
 };
 
 const MUSCLE_FREQ_TARGETS = {
-  chest_upper: 8, chest_lower: 8, lats: 10, rhomboids: 8,
-  erectors: 8, quads: 8, hamstrings: 8, glutes_major: 8,
-  glutes_med: 6, adductors: 6, shoulders_front: 6,
-  shoulders_side: 6, shoulders_rear: 6, traps: 6,
-  triceps: 8, biceps: 8, forearms: 4, abs: 8,
-  obliques: 6, calves_gastro: 6, calves_soleus: 6,
-  hip_flexors: 4, serratus: 4
+  chest_upper: 12, chest_lower: 12, lats: 14, rhomboids: 12,
+  erectors: 12, quads: 12, hamstrings: 12, glutes_major: 12,
+  glutes_med: 10, adductors: 10, shoulders_front: 10,
+  shoulders_side: 10, shoulders_rear: 10, traps: 10,
+  triceps: 12, biceps: 12, forearms: 8, abs: 12,
+  obliques: 10, calves_gastro: 10, calves_soleus: 10,
+  hip_flexors: 8, serratus: 6
 };
 
 const EXERCISE_MUSCLE_MAP = [
@@ -13442,6 +13451,19 @@ function goToggleSetComplete(exoIdx, setIdx) {
     }
     // Auto-régulation RPE
     goCheckAutoRegulation(exoIdx, setIdx);
+    // PR Type A — e1RM en cours de saisie
+    try {
+      var _w = set.weight || 0, _r = set.reps || 0;
+      if (_w > 0 && _r > 0 && typeof calcE1RM === 'function' && typeof getAllBestE1RMs === 'function') {
+        var _e1rm = calcE1RM(_w, _r);
+        var _best = getAllBestE1RMs();
+        var _prev = (_best[exo.name] && _best[exo.name].e1rm) || 0;
+        if (_e1rm > _prev && _prev > 0) {
+          if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
+          if (typeof showPRToast === 'function') showPRToast(exo.name, _e1rm);
+        }
+      }
+    } catch(e) {}
   }
   goAutoSave();
   goUpdateCounters();
@@ -15404,6 +15426,9 @@ function goFinishWorkout() {
 
   // Track old PRs for PR detection
   const oldPRs = { bench: db.bestPR.bench, squat: db.bestPR.squat, deadlift: db.bestPR.deadlift };
+  // Snapshot des meilleurs e1RM par exo AVANT d'ajouter la séance (pour overlay PR Type B)
+  var _previousBestE1RMs = {};
+  try { _previousBestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {}; } catch(e) {}
 
   // Add to db.logs
   db.logs.push(session);
@@ -15420,14 +15445,34 @@ function goFinishWorkout() {
     recalcBestPR();
     if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
     if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
-    var _prCelebrated = false;
     SBD_TYPES.forEach(type => {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {
         const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
         publishPRActivity(name, db.bestPR[type], oldPRs[type]);
         sendLocalNotification('🏆 Nouveau record !', name + ' : ' + db.bestPR[type] + 'kg (ancien: ' + oldPRs[type] + 'kg)');
-        if (!_prCelebrated) { showPRCelebration(name, db.bestPR[type], oldPRs[type]); _prCelebrated = true; }
       }
+    });
+    // Overlay PR Type B — un seul par séance, sur le premier SBD exo qui bat le précédent e1RM
+    var _prCelebrated = false;
+    (session.exercises || []).forEach(function(_exo) {
+      if (_prCelebrated) return;
+      var _sbd = typeof getSBDType === 'function' ? getSBDType(_exo.name) : null;
+      if (!_sbd) return;
+      var _prev = (_previousBestE1RMs[_exo.name] && _previousBestE1RMs[_exo.name].e1rm) || 0;
+      if (!(_exo.maxRM > _prev && _prev > 0)) return;
+      // Anti-doublon : même (exo, poids arrondi) dans les 24h
+      db.gamification = db.gamification || {};
+      db.gamification.lastPRCelebrated = db.gamification.lastPRCelebrated || {};
+      var _key = _exo.name + '_' + Math.round(_exo.maxRM);
+      if (db.gamification.lastPRCelebrated[_key]
+          && Date.now() - db.gamification.lastPRCelebrated[_key] < 86400000) return;
+      db.gamification.lastPRCelebrated[_key] = Date.now();
+      var _newTierName = null;
+      if (db.gamification.liftRanks && db.gamification.liftRanks[_sbd]) {
+        _newTierName = db.gamification.liftRanks[_sbd].tier;
+      }
+      if (typeof showPROverlay === 'function') showPROverlay(_exo.name, Math.round(_exo.maxRM), _newTierName);
+      _prCelebrated = true;
     });
     updateLeaderboardSnapshot();
   } catch(e) {}
@@ -15532,6 +15577,110 @@ function dismissPRCelebration(overlay) {
   if (box) box.classList.add('fade-out');
   setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 500);
 }
+
+// ============================================================
+// PR CELEBRATION — Toast (Type A) + Overlay (Type B) + Partage
+// ============================================================
+function showPRToast(exoName, e1rm) {
+  var existing = document.getElementById('prToastA');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  var t = document.createElement('div');
+  t.id = 'prToastA';
+  t.innerHTML = '⚡ Nouveau PR — ' + exoName + ' · ' + Math.round(e1rm) + ' kg e1RM';
+  t.style.cssText = [
+    'position:fixed', 'top:16px', 'left:50%',
+    'transform:translateX(-50%)',
+    'background:linear-gradient(135deg,rgba(191,90,242,0.95),rgba(255,55,95,0.95))',
+    'color:white', 'font-size:13px', 'font-weight:700',
+    'padding:10px 18px', 'border-radius:20px',
+    'z-index:9999', 'white-space:nowrap',
+    'box-shadow:0 4px 20px rgba(191,90,242,0.4)',
+    'animation:slideDownFade 2.5s ease forwards'
+  ].join(';');
+  document.body.appendChild(t);
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 2600);
+}
+
+function showPROverlay(liftName, weightKg, newTier) {
+  var existing = document.getElementById('prOverlayB');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+  var tierHtml = newTier
+    ? '<div style="font-size:14px;color:#FFD700;margin-top:8px;">🏆 Nouveau rang : ' + newTier + '</div>'
+    : '';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'prOverlayB';
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:10000',
+    'background:rgba(8,4,18,0.96)',
+    'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center',
+    'text-align:center', 'padding:32px'
+  ].join(';');
+
+  overlay.innerHTML =
+    '<div style="font-size:48px;margin-bottom:16px;animation:prPulse 0.6s ease infinite alternate">⚡</div>' +
+    '<div style="font-size:13px;letter-spacing:4px;color:rgba(255,255,255,0.5);text-transform:uppercase;margin-bottom:8px">Record Personnel</div>' +
+    '<div style="font-size:28px;font-weight:800;color:white;margin-bottom:4px">' + liftName + '</div>' +
+    '<div style="font-size:56px;font-weight:900;background:linear-gradient(135deg,#BF5AF2,#FF375F);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px">' + weightKg + ' kg</div>' +
+    tierHtml +
+    '<div style="margin-top:32px;display:flex;gap:12px">' +
+      '<button onclick="sharePRImage(\'' + liftName.replace(/'/g, "\\'") + '\',' + weightKg + ')" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);border-radius:14px;padding:12px 20px;font-size:14px;font-weight:600">📤 Partager</button>' +
+      '<button onclick="document.getElementById(\'prOverlayB\').remove()" style="background:linear-gradient(135deg,#BF5AF2,#FF375F);color:white;border:none;border-radius:14px;padding:12px 24px;font-size:14px;font-weight:600">Continuer →</button>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+function sharePRImage(liftName, weightKg) {
+  var canvas = document.createElement('canvas');
+  canvas.width = 800; canvas.height = 400;
+  var ctx = canvas.getContext('2d');
+
+  var grad = ctx.createLinearGradient(0, 0, 800, 400);
+  grad.addColorStop(0, '#0D0816');
+  grad.addColorStop(1, '#1A0A2E');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 800, 400);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '600 18px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('RECORD PERSONNEL', 400, 120);
+
+  ctx.fillStyle = 'white';
+  ctx.font = '800 52px system-ui';
+  ctx.fillText(liftName, 400, 200);
+
+  ctx.fillStyle = '#BF5AF2';
+  ctx.font = '900 80px system-ui';
+  ctx.fillText(weightKg + ' kg', 400, 300);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '500 16px system-ui';
+  ctx.fillText('SBD Hub', 400, 360);
+
+  canvas.toBlob(function(blob) {
+    var file = new File([blob], 'pr-' + liftName + '.png', { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        title: 'PR ' + liftName + ' — ' + weightKg + 'kg',
+        text: 'Nouveau record sur SBD Hub ! 💪'
+      }).catch(function() {});
+    } else {
+      var a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'pr-' + liftName + '.png';
+      a.click();
+    }
+  });
+}
+
+window.showPRToast = showPRToast;
+window.showPROverlay = showPROverlay;
+window.sharePRImage = sharePRImage;
 
 // ============================================================
 // PULL-TO-REFRESH (mobile)

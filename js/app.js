@@ -7201,8 +7201,9 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 (function init() {
   if(!db.reports)db.reports=[];
   if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
-  // Class quiz trigger — only after onboarding to avoid modal stacking
-  if (db.user && db.user.onboarded && db.gamification && !db.gamification.playerClass) {
+  // Class quiz trigger — runs for any user without a playerClass
+  db.gamification = db.gamification || {};
+  if (!db.gamification.playerClass) {
     setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
   }
   let ns=false;

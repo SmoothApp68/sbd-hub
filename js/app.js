@@ -2726,7 +2726,7 @@ function calcAndStoreLiftRanks() {
 
   db.gamification.liftRanks = map;
   if (typeof saveDB === 'function') saveDB();
-  if (typeof syncToCloud === 'function') syncToCloud();
+  if (typeof syncToCloud === 'function') syncToCloud(true);
 }
 
 // ── Secret Quests ──
@@ -7440,7 +7440,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   });
 
   recalcBestPR();
-  if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
@@ -7489,12 +7488,16 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         return;
       }
       if (!db.lastSync) {
+        if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         syncToCloud(true);
         return;
       }
       try {
         const {data:{user:u}} = await supaClient.auth.getUser();
-        if (!u) { syncToCloud(true); return; }
+        if (!u) {
+          if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+          syncToCloud(true); return;
+        }
         const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
         if (error) throw error;
         if (data && data.updated_at) {
@@ -7505,12 +7508,15 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
           } else {
+            if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
             syncToCloud(true);
           }
         } else {
+          if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
           syncToCloud(true);
         }
       } catch(e) {
+        if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         syncToCloud(true);
       }
       // Check password migration for existing magic-link users

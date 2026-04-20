@@ -251,6 +251,13 @@ document.addEventListener('visibilitychange', function() {
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
 
+// ── GAMIFICATION — defensive init ───────────────────────────
+db.gamification = db.gamification || {};
+db.gamification.streakFreezes = db.gamification.streakFreezes ?? 1;
+db.gamification.lastFreezeGrantedMonth = db.gamification.lastFreezeGrantedMonth ?? -1;
+db.gamification.freezesUsedAt = db.gamification.freezesUsedAt ?? [];
+db.gamification.freezeActiveThisWeek = db.gamification.freezeActiveThisWeek ?? false;
+
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
 
@@ -2134,6 +2141,8 @@ function calcStreak() {
   // Weekly calendar streak: ISO weeks (Mon-Sun) with ≥1 session
   if (!db.logs.length) return 0;
 
+  db.gamification = db.gamification || {};
+
   function getISOWeekMonday(ts) {
     var d = new Date(ts);
     var day = d.getDay(); // 0=dim, 1=lun
@@ -2154,12 +2163,35 @@ function calcStreak() {
     if (ts) weeksWithSession.add(getISOWeekMonday(ts));
   });
 
-  // Count consecutive weeks going backward from current week
+  // Freeze already consumed this calendar week? Prevent double-consumption across repeated calls.
+  var usedAt = db.gamification.freezesUsedAt || [];
+  var freezeUsedThisWeek = usedAt.some(function(ts) { return getISOWeekMonday(ts) === currentWeek; });
+  var freezeConsumedThisCall = false;
+
+  // Count consecutive weeks backward; optionally consume ONE freeze to bridge a missing week.
   function countFromWeek(startWeek) {
     var streak = 0;
     var checkWeek = startWeek;
-    while (weeksWithSession.has(checkWeek)) {
-      streak++;
+    while (true) {
+      var hasSession = weeksWithSession.has(checkWeek);
+      var protectedByManual = (checkWeek === currentWeek && db.gamification.freezeActiveThisWeek === true);
+      if (hasSession || protectedByManual) {
+        streak++;
+      } else if (!freezeConsumedThisCall && !freezeUsedThisWeek
+                 && (db.gamification.streakFreezes || 0) > 0
+                 && streak >= 4) {
+        // Consume one freeze to bridge this missing week
+        streak++;
+        freezeConsumedThisCall = true;
+        db.gamification.streakFreezes = Math.max(0, (db.gamification.streakFreezes || 0) - 1);
+        db.gamification.freezesUsedAt = db.gamification.freezesUsedAt || [];
+        db.gamification.freezesUsedAt.push(Date.now());
+        db.gamification.freezeActiveThisWeek = false;
+        if (typeof syncToCloud === 'function') syncToCloud();
+        if (typeof showToast === 'function') showToast('❄️ Freeze utilisé — streak protégé');
+      } else {
+        break;
+      }
       var d = new Date(checkWeek);
       d.setDate(d.getDate() - 7);
       checkWeek = d.toISOString().slice(0, 10);
@@ -2170,7 +2202,7 @@ function calcStreak() {
   var streak = countFromWeek(currentWeek);
 
   // If current week has no session yet, check from last week (don't break streak)
-  if (!weeksWithSession.has(currentWeek)) {
+  if (!weeksWithSession.has(currentWeek) && db.gamification.freezeActiveThisWeek !== true) {
     var lastWeek = new Date(currentWeek);
     lastWeek.setDate(lastWeek.getDate() - 7);
     var lastWeekKey = lastWeek.toISOString().slice(0, 10);
@@ -2184,6 +2216,40 @@ function calcStreak() {
   if (!db.weeklyStreakRecord || streak > db.weeklyStreakRecord) db.weeklyStreakRecord = streak;
 
   return streak;
+}
+
+// ── STREAK FREEZES ──────────────────────────────────────────
+function grantMonthlyFreeze() {
+  db.gamification = db.gamification || {};
+  db.gamification.streakFreezes = db.gamification.streakFreezes ?? 1;
+  db.gamification.lastFreezeGrantedMonth = db.gamification.lastFreezeGrantedMonth ?? -1;
+  var currentMonth = new Date().getMonth();
+  if (currentMonth !== db.gamification.lastFreezeGrantedMonth
+      && db.gamification.streakFreezes < 2) {
+    db.gamification.streakFreezes += 1;
+    db.gamification.lastFreezeGrantedMonth = currentMonth;
+    if (typeof syncToCloud === 'function') syncToCloud();
+  }
+}
+
+function activateFreezeManual() {
+  db.gamification = db.gamification || {};
+  if ((db.gamification.streakFreezes || 0) > 0 && db.gamification.freezeActiveThisWeek === false) {
+    db.gamification.freezeActiveThisWeek = true;
+    db.gamification.streakFreezes -= 1;
+    db.gamification.freezesUsedAt = db.gamification.freezesUsedAt || [];
+    db.gamification.freezesUsedAt.push(Date.now());
+    if (typeof syncToCloud === 'function') syncToCloud();
+    if (typeof showToast === 'function') showToast('❄️ Semaine protégée');
+    if (typeof renderGamificationTab === 'function') renderGamificationTab();
+  } else {
+    if (typeof showToast === 'function') showToast('Aucun freeze disponible');
+  }
+}
+
+function getStreakFreezes() {
+  db.gamification = db.gamification || {};
+  return db.gamification.streakFreezes || 0;
 }
 
 function getXPLevel(xp) {
@@ -3147,10 +3213,19 @@ function renderGamificationTab() {
       var weekOffset = -(w);
       cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=-' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
     }
+    db.gamification = db.gamification || {};
+    var freezeCount = db.gamification.streakFreezes || 0;
+    var freezeActive = db.gamification.freezeActiveThisWeek === true;
+    var freezeTooltip = freezeCount + ' freeze(s) disponible(s) · Se régénère le 1er du mois';
+    var freezeBadge = '<span class="hm-freeze' + (freezeCount === 0 ? ' dim' : '') + '" title="' + freezeTooltip + '" onclick="showToast(\'' + freezeTooltip.replace(/'/g, "\\'") + '\')" style="cursor:pointer;margin-left:6px;' + (freezeCount === 0 ? 'opacity:0.35;filter:grayscale(1);' : '') + '">❄️ ×' + freezeCount + '</span>';
+    var freezeBtn = (freezeCount > 0 && !freezeActive)
+      ? '<button class="hm-freeze-btn" onclick="activateFreezeManual()" style="margin-top:8px;padding:6px 12px;background:rgba(110,180,255,0.15);border:1px solid rgba(110,180,255,0.4);color:var(--blue);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">❄️ Protéger cette semaine</button>'
+      : (freezeActive ? '<div style="margin-top:8px;font-size:11px;color:var(--blue);text-align:center;">❄️ Semaine protégée</div>' : '');
     document.getElementById('gamHeatmap').innerHTML =
       '<div class="mc">' +
-        '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + streak + ' semaines</span></div>' +
+        '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + streak + ' semaines' + freezeBadge + '</span></div>' +
         '<div class="hm-grid">' + cells + '</div>' +
+        freezeBtn +
         '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.20);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.40);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.60);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
       '</div>';
   })();
@@ -6843,6 +6918,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 // ============================================================
 (function init() {
   if(!db.reports)db.reports=[];
+  if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
   let ns=false;
   db.logs.forEach(l=>{if(!l.id){l.id=generateId();ns=true;}});
 
@@ -6902,6 +6978,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       if (!user) return;
       if (db.logs.length === 0) {
         await syncFromCloud();
+        if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         return;
       }
       if (!db.lastSync) {
@@ -6918,6 +6995,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
           if (cloudTs > db.lastSync + 5000) {
             showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
             await syncFromCloud();
+            if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
           } else {
             syncToCloud(true);
           }

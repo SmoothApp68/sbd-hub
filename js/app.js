@@ -3349,10 +3349,12 @@ function getMuscleVolumeAndFreq(logs4weeks) {
 function calcAndStoreMuscleRanks(force) {
   try {
     db.gamification = db.gamification || {};
-    // Throttle: skip if computed < 7 days ago, unless forced
-    if (force !== true && db.gamification.muscleRanks && db.gamification.muscleRanks._computedAt) {
-      var ageMs = Date.now() - db.gamification.muscleRanks._computedAt;
-      if (ageMs < 7 * 24 * 60 * 60 * 1000) return;
+    // Throttle 7j : protège les renders de tab (calcAndStoreMuscleRanks()),
+    // mais pas le boot ni goFinishWorkout (qui appellent avec force=true).
+    if (!force && db.gamification.muscleRanks &&
+        db.gamification.muscleRanks._computedAt &&
+        Date.now() - db.gamification.muscleRanks._computedAt < 7 * 24 * 3600 * 1000) {
+      return;
     }
 
     var now = Date.now();
@@ -8205,33 +8207,17 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   checkAuthGate().then(() => {
     cloudSignIn().then(async user => {
       if (!user) return;
-      // Helper : calcAndStoreMuscleRanks avec force=true si une migration
-      // de recalibration des seuils est pending (V2 ou V3).
-      function _calcMuscleRanksWithMigration() {
-        if (typeof calcAndStoreMuscleRanks !== 'function') return;
-        var needsForce = false;
-        if (!db.gamification._migratedMuscleTargetsV2) {
-          db.gamification._migratedMuscleTargetsV2 = true;
-          needsForce = true;
-        }
-        if (!db.gamification._migratedMuscleTargetsV3) {
-          db.gamification._migratedMuscleTargetsV3 = true;
-          needsForce = true;
-        }
-        if (needsForce) calcAndStoreMuscleRanks(true);
-        else calcAndStoreMuscleRanks();
-      }
       if (db.logs.length === 0) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-        _calcMuscleRanksWithMigration();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         setTimeout(_restoreLastTabFromCloud, 0);
         return;
       }
       if (!db.lastSync) {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-        _calcMuscleRanksWithMigration();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
         return;
       }
@@ -8239,7 +8225,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         const {data:{user:u}} = await supaClient.auth.getUser();
         if (!u) {
           if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-          _calcMuscleRanksWithMigration();
+          if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
           syncToCloud(true); return;
         }
         const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
@@ -8251,21 +8237,21 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             await syncFromCloud();
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-            _calcMuscleRanksWithMigration();
+            if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
             setTimeout(_restoreLastTabFromCloud, 0);
           } else {
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-            _calcMuscleRanksWithMigration();
+            if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
             syncToCloud(true);
           }
         } else {
           if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-          _calcMuscleRanksWithMigration();
+          if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
           syncToCloud(true);
         }
       } catch(e) {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
-        _calcMuscleRanksWithMigration();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
       }
       // Check password migration for existing magic-link users

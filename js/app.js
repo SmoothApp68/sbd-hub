@@ -10875,6 +10875,7 @@ function estimateSessionDuration(exercises) {
   let totalSec = 600; // 10min : échauffement articulaire + rangement final
 
   exercises.forEach(function(exo) {
+    if (!exo || !exo.name) return; // guard anti-null
     var meta = wpGetExoMeta(exo.name) || {};
     var isHeavy = meta.mechanic === 'compound';
 
@@ -11848,6 +11849,10 @@ var WP_EXO_META = {
 
 function wpGetExoMeta(name) {
   if (!name) return null;
+  // WP_EXO_META est déclaré plus bas dans le fichier (var hoisted mais
+  // assigné ligne ~11795) — si appel pendant l'init IIFE, la valeur
+  // est encore undefined.
+  if (typeof WP_EXO_META === 'undefined' || !WP_EXO_META) return null;
   var n = wpNormalizeName(name);
 
   // Niveau 1 : égalité stricte normalisée

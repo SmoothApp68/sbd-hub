@@ -258,6 +258,17 @@ db.gamification.streakFreezes = db.gamification.streakFreezes ?? 1;
 db.gamification.lastFreezeGrantedMonth = db.gamification.lastFreezeGrantedMonth ?? -1;
 db.gamification.freezesUsedAt = db.gamification.freezesUsedAt ?? [];
 db.gamification.freezeActiveThisWeek = db.gamification.freezeActiveThisWeek ?? false;
+db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks ?? [];
+
+// One-time migration : l'ancien calcStreak consommait un freeze par appel
+// pour le MÊME trou (pas de suivi des semaines protégées). Les freezes ont
+// pu être gaspillés. Reset propre pour laisser calcStreak re-bridger avec
+// la nouvelle logique (freezeProtectedWeeks).
+if (!db.gamification._migratedFreezeV2) {
+  db.gamification.streakFreezes = 2;
+  db.gamification.freezesUsedAt = [];
+  db.gamification._migratedFreezeV2 = true;
+}
 db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
@@ -2322,9 +2333,9 @@ function calcStreak() {
     else droppedLogs++;
   });
 
-  // Freeze already consumed this calendar week? Prevent double-consumption across repeated calls.
-  var usedAt = db.gamification.freezesUsedAt || [];
-  var freezeUsedThisWeek = usedAt.some(function(ts) { return getISOWeekMonday(ts) === currentWeek; });
+  // Weeks already protected by a freeze consumed in previous calls.
+  // A bridged week stays bridged — pas de re-consommation à chaque render.
+  var protectedSet = new Set(db.gamification.freezeProtectedWeeks || []);
   var freezeConsumedThisCall = false;
 
   // DEBUG — enable via window.DEBUG_STREAK = true in console
@@ -2333,39 +2344,45 @@ function calcStreak() {
     console.log('[calcStreak] logs=' + db.logs.length + ' dropped=' + droppedLogs +
       ' weeksInSet=' + weeksWithSession.size + ' currentWeek=' + currentWeek +
       ' freezes=' + (db.gamification.streakFreezes || 0) +
-      ' freezeUsedThisWeek=' + freezeUsedThisWeek +
+      ' protectedWeeks=' + protectedSet.size +
       ' freezeActiveThisWeek=' + (db.gamification.freezeActiveThisWeek === true));
     var sortedWeeks = Array.from(weeksWithSession).sort().reverse();
     console.log('[calcStreak] first 5 weeks:', sortedWeeks.slice(0, 5));
     console.log('[calcStreak] last 5 weeks:', sortedWeeks.slice(-5));
   }
 
-  // Count consecutive weeks backward from startWeek; optionally consume ONE freeze
-  // to bridge a single missing week (requires streak >= 4 before the gap).
+  // Count consecutive weeks backward from startWeek.
+  // Une semaine manquante est comptée comme présente si :
+  //  - elle est dans le set protégé (freeze déjà utilisé lors d'un appel précédent) → gratuit
+  //  - ou si on peut consommer 1 freeze frais dans cet appel (max 1 par appel, streak >= 4)
   function countFromWeek(startWeek) {
     var streak = 0;
     var checkWeek = startWeek;
     while (true) {
       var hasSession = weeksWithSession.has(checkWeek);
-      if (hasSession) {
+      var alreadyProtected = protectedSet.has(checkWeek);
+      if (hasSession || alreadyProtected) {
         streak++;
-      } else if (!freezeConsumedThisCall && !freezeUsedThisWeek
+      } else if (!freezeConsumedThisCall
                  && (db.gamification.streakFreezes || 0) > 0
                  && streak >= 4) {
-        // Consume one freeze to bridge this missing week
+        // Consume one freeze to bridge this missing week, and REMEMBER this week
         streak++;
         freezeConsumedThisCall = true;
         db.gamification.streakFreezes = Math.max(0, (db.gamification.streakFreezes || 0) - 1);
+        db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks || [];
+        if (db.gamification.freezeProtectedWeeks.indexOf(checkWeek) < 0) {
+          db.gamification.freezeProtectedWeeks.push(checkWeek);
+        }
+        protectedSet.add(checkWeek);
         db.gamification.freezesUsedAt = db.gamification.freezesUsedAt || [];
         db.gamification.freezesUsedAt.push(Date.now());
-        db.gamification.freezeActiveThisWeek = false;
         if (typeof syncToCloud === 'function') syncToCloud();
         if (typeof showToast === 'function') showToast('❄️ Freeze utilisé — streak protégé');
         if (DEBUG) console.log('[calcStreak] freeze consumed at week=' + checkWeek + ' streak=' + streak);
       } else {
         if (DEBUG) console.log('[calcStreak] BREAK at week=' + checkWeek + ' streak=' + streak +
-          ' reason=' + (freezeConsumedThisCall ? 'freeze-already-consumed' :
-                        freezeUsedThisWeek ? 'freeze-used-this-calendar-week' :
+          ' reason=' + (freezeConsumedThisCall ? 'freeze-already-consumed-this-call' :
                         (db.gamification.streakFreezes || 0) === 0 ? 'no-freezes-left' :
                         streak < 4 ? 'streak<4' : 'unknown'));
         break;
@@ -2420,6 +2437,20 @@ function activateFreezeManual() {
     db.gamification.streakFreezes -= 1;
     db.gamification.freezesUsedAt = db.gamification.freezesUsedAt || [];
     db.gamification.freezesUsedAt.push(Date.now());
+    // Remember that the current week is now protected (idempotent across renders)
+    db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks || [];
+    (function() {
+      var d = new Date();
+      var day = d.getDay();
+      var diff = (day === 0 ? -6 : 1 - day);
+      var mon = new Date(d);
+      mon.setDate(d.getDate() + diff);
+      mon.setHours(0, 0, 0, 0);
+      var wk = mon.toISOString().slice(0, 10);
+      if (db.gamification.freezeProtectedWeeks.indexOf(wk) < 0) {
+        db.gamification.freezeProtectedWeeks.push(wk);
+      }
+    })();
     if (typeof syncToCloud === 'function') syncToCloud();
     if (typeof showToast === 'function') showToast('❄️ Semaine protégée');
     if (typeof renderGamificationTab === 'function') renderGamificationTab();

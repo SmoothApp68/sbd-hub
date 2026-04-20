@@ -8,7 +8,7 @@
 // MEV = Minimum Effective Volume (sets/semaine min pour progrès)
 // MAV = Maximum Adaptive Volume (zone optimale)
 // MRV = Maximum Recoverable Volume (au-delà → surentraînement)
-var VOLUME_LANDMARKS = {
+var VOLUME_LANDMARKS_FR = {
   'Pectoraux':     { mev: 8,  mav: 16, mrv: 22 },
   'Dos':           { mev: 10, mav: 20, mrv: 26 },
   'Épaules':       { mev: 6,  mav: 14, mrv: 20 },
@@ -169,7 +169,7 @@ function shouldDeload(logs, mode) {
 
 // ── VOLUME STATUS PAR MUSCLE ──
 function getVolumeStatus(muscle, setsPerWeek) {
-  var lm = VOLUME_LANDMARKS[muscle];
+  var lm = VOLUME_LANDMARKS_FR[muscle];
   if (!lm) return { status: 'unknown', label: '—', color: 'var(--sub)' };
   if (setsPerWeek < lm.mev) return { status: 'under', label: 'Sous MEV ('+lm.mev+' sets min)', color: 'var(--red)' };
   if (setsPerWeek <= lm.mav) return { status: 'optimal', label: 'Zone optimale (MAV)', color: 'var(--green)' };

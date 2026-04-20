@@ -1782,6 +1782,8 @@ document.addEventListener('click', function(e) {
 });
 
 // On load: restore tab from hash or localStorage
+// Deferred via setTimeout(0) so all top-level const/var declarations (SECRET_QUESTS,
+// PLAYER_CLASSES, SBD_TIERS, etc.) finish evaluating before renderGamificationTab fires.
 (function _restoreTab() {
   var hash = window.location.hash.replace('#', '');
   if (hash === 'admin') return; // handled elsewhere
@@ -1789,10 +1791,12 @@ document.addEventListener('click', function(e) {
   try { saved = localStorage.getItem('activeTab'); } catch(e) {}
   var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
   var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
-  _skipPushState = true;
-  showTab(target);
-  _skipPushState = false;
-  history.replaceState({ tab: target }, '', '#' + target);
+  setTimeout(function() {
+    _skipPushState = true;
+    try { showTab(target); } catch(e) { console.error('restoreTab showTab error:', e); }
+    _skipPushState = false;
+    try { history.replaceState({ tab: target }, '', '#' + target); } catch(e) {}
+  }, 0);
 })();
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
 
@@ -9596,7 +9600,7 @@ function renderCoachTodayHTML() {
     recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
       volReport.under.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
       ' — cible MEV : '+volReport.under.map(function(e){
-        var lm = typeof VOLUME_LANDMARKS!=='undefined' ? VOLUME_LANDMARKS[e.muscle] : null;
+        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
         return lm ? lm.mev+' sets' : '?';
       }).join(', ')
     });
@@ -9642,7 +9646,7 @@ function renderCoachTodayHTML() {
     if (allMuscles.length > 0) {
       html += '<div class="coach-muscles"><div class="coach-reco-title">💪 Volume / semaine</div>';
       allMuscles.forEach(function(e) {
-        var lm = typeof VOLUME_LANDMARKS!=='undefined' ? VOLUME_LANDMARKS[e.muscle] : null;
+        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
         if (!lm) return;
         var fillPct = Math.min(100, Math.round((e.sets/lm.mrv)*100));
         var barColor = (e.status && e.status.color) || 'var(--sub)';

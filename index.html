@@ -3150,6 +3150,13 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker.js')
       .then((reg) => console.log('SW enregistré:', reg.scope))
       .catch((err) => console.log('SW erreur:', err));
+    // Auto-reload dès qu'un nouveau SW prend le contrôle
+    var _swReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (_swReloading) return;
+      _swReloading = true;
+      window.location.reload();
+    });
   });
 }
 

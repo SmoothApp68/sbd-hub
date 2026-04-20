@@ -262,6 +262,7 @@ db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
 db.gamification.liftRanks = db.gamification.liftRanks || null;
+db.gamification.muscleRanks = db.gamification.muscleRanks || null;
 db.gamification.lastTab = db.gamification.lastTab || {
   main: 'tab-dash',
   jeux: 'jeux-profil-joueur',
@@ -3071,6 +3072,246 @@ function renderMuscleList() {
     '</div>';
   }).join('');
   host.innerHTML = html;
+}
+
+// ── Muscle Rank Computation (volume + frequency over 4 weeks) ──
+
+const MUSCLE_TONNAGE_TARGETS = {
+  chest_upper: 4000, chest_lower: 4000,
+  lats: 6000, rhomboids: 3000, erectors: 5000,
+  quads: 8000, hamstrings: 4000,
+  glutes_major: 5000, glutes_med: 2000, adductors: 2000,
+  shoulders_front: 2500, shoulders_side: 1500, shoulders_rear: 1500,
+  traps: 3000, triceps: 3000, biceps: 2500, forearms: 1500,
+  abs: 2000, obliques: 1500,
+  calves_gastro: 2500, calves_soleus: 1500,
+  hip_flexors: 1000, serratus: 800
+};
+
+const MUSCLE_FREQ_TARGETS = {
+  chest_upper: 8, chest_lower: 8, lats: 10, rhomboids: 8,
+  erectors: 8, quads: 8, hamstrings: 8, glutes_major: 8,
+  glutes_med: 6, adductors: 6, shoulders_front: 6,
+  shoulders_side: 6, shoulders_rear: 6, traps: 6,
+  triceps: 8, biceps: 8, forearms: 4, abs: 8,
+  obliques: 6, calves_gastro: 6, calves_soleus: 6,
+  hip_flexors: 4, serratus: 4
+};
+
+const EXERCISE_MUSCLE_MAP = [
+  // Pectoraux
+  { match: ['développé couché (barre)', 'bench press', 'spoto'],
+    muscles: { chest_lower:0.45, chest_upper:0.20, triceps:0.20, shoulders_front:0.15 } },
+  { match: ['développé couché incliné', 'incline'],
+    muscles: { chest_upper:0.50, chest_lower:0.15, triceps:0.20, shoulders_front:0.15 } },
+  { match: ['écarté', 'fly', 'pec deck'],
+    muscles: { chest_lower:0.55, chest_upper:0.30, shoulders_front:0.15 } },
+
+  // Dos
+  { match: ['tirage poitrine', 'lat pulldown', 'traction'],
+    muscles: { lats:0.60, rhomboids:0.20, biceps:0.15, traps:0.05 } },
+  { match: ['tirage poitrine bras tendus', 'straight arm'],
+    muscles: { lats:0.70, serratus:0.20, triceps:0.10 } },
+  { match: ['rowing poulie', 'rowing barre', 'rowing haltère', 'rowing assis'],
+    muscles: { rhomboids:0.35, lats:0.30, traps:0.20, biceps:0.15 } },
+  { match: ['tirage vers visage', 'face pull'],
+    muscles: { shoulders_rear:0.45, traps:0.30, rhomboids:0.25 } },
+  { match: ['oiseau', 'rear delt', 'poulie basse arrière'],
+    muscles: { shoulders_rear:0.60, rhomboids:0.25, traps:0.15 } },
+  { match: ['shrug'],
+    muscles: { traps:0.85, forearms:0.15 } },
+
+  // Épaules
+  { match: ['développé militaire', 'overhead press', 'ohp', 'développé épaules'],
+    muscles: { shoulders_front:0.50, shoulders_side:0.25, triceps:0.25 } },
+  { match: ['élévation latérale', 'lateral raise'],
+    muscles: { shoulders_side:0.75, shoulders_front:0.15, traps:0.10 } },
+  { match: ['élévation frontale', 'front raise'],
+    muscles: { shoulders_front:0.80, chest_upper:0.20 } },
+
+  // Bras
+  { match: ['curl biceps', 'curl barre', 'curl haltère', 'curl marteau', 'curl ez'],
+    muscles: { biceps:0.75, forearms:0.25 } },
+  { match: ['curl poignets', 'wrist curl'],
+    muscles: { forearms:0.95, biceps:0.05 } },
+  { match: ['extension triceps', 'pushdown', 'triceps corde', 'triceps poulie'],
+    muscles: { triceps:0.90, forearms:0.10 } },
+  { match: ['dips'],
+    muscles: { triceps:0.45, chest_lower:0.35, shoulders_front:0.20 } },
+
+  // Quadriceps
+  { match: ['squat (barre)', 'squat avec pause', 'back squat'],
+    muscles: { quads:0.45, glutes_major:0.30, erectors:0.15, hamstrings:0.10 } },
+  { match: ['presse à cuisses', 'leg press'],
+    muscles: { quads:0.55, glutes_major:0.30, hamstrings:0.15 } },
+  { match: ['hack squat'],
+    muscles: { quads:0.65, glutes_major:0.25, hamstrings:0.10 } },
+  { match: ['extension jambes', 'leg extension'],
+    muscles: { quads:0.95, hip_flexors:0.05 } },
+  { match: ['fente', 'lunges'],
+    muscles: { quads:0.40, glutes_major:0.35, hamstrings:0.15, glutes_med:0.10 } },
+
+  // Ischio / Fessiers
+  { match: ['soulevé de terre (barre)', 'soulevé de terre avec pause', 'deadlift'],
+    muscles: { erectors:0.25, glutes_major:0.25, hamstrings:0.25, lats:0.15, traps:0.10 } },
+  { match: ['leg curl', 'curl jambes'],
+    muscles: { hamstrings:0.85, glutes_major:0.15 } },
+  { match: ['poussée de hanches', 'hip thrust', 'hip extension'],
+    muscles: { glutes_major:0.65, hamstrings:0.20, glutes_med:0.15 } },
+  { match: ['good morning', 'rdl', 'roumain'],
+    muscles: { hamstrings:0.40, glutes_major:0.30, erectors:0.30 } },
+
+  // Adducteurs / Abducteurs
+  { match: ['adduction hanche', 'adducteur'],
+    muscles: { adductors:0.90, glutes_med:0.10 } },
+  { match: ['abduction hanche', 'abducteur'],
+    muscles: { glutes_med:0.85, adductors:0.15 } },
+
+  // Mollets
+  { match: ['extension mollets debout', 'mollets debout', 'standing calf'],
+    muscles: { calves_gastro:0.75, calves_soleus:0.25 } },
+  { match: ['extension mollets assis', 'mollets assis', 'seated calf'],
+    muscles: { calves_soleus:0.75, calves_gastro:0.25 } },
+
+  // Core
+  { match: ['planche', 'plank'],
+    muscles: { abs:0.50, obliques:0.25, erectors:0.25 } },
+  { match: ['crunch', 'ab'],
+    muscles: { abs:0.85, obliques:0.15 } },
+  { match: ['rotation', 'woodchop', 'torsion'],
+    muscles: { obliques:0.80, abs:0.20 } },
+  { match: ['gainage'],
+    muscles: { abs:0.55, obliques:0.25, erectors:0.20 } }
+];
+
+function getMuscleVolumeAndFreq(logs4weeks) {
+  var result = {};
+  Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(k) {
+    result[k] = { tonnage: 0, sessions: 0 };
+  });
+
+  logs4weeks.forEach(function(log) {
+    var musclesThisSession = {};
+
+    (log.exercises || []).forEach(function(exo) {
+      var exoNameLower = (exo.name || '').toLowerCase();
+
+      // Find matching exercise pattern (first hit wins)
+      var mapping = null;
+      for (var i = 0; i < EXERCISE_MUSCLE_MAP.length; i++) {
+        var m = EXERCISE_MUSCLE_MAP[i];
+        for (var j = 0; j < m.match.length; j++) {
+          if (exoNameLower.indexOf(m.match[j].toLowerCase()) >= 0) {
+            mapping = m;
+            break;
+          }
+        }
+        if (mapping) break;
+      }
+      if (!mapping) return;
+
+      // Compute exo volume — normal sets only, exclude warmups
+      var exoVolume = 0;
+      if (exo.exoType === 'weight' && exo.allSets) {
+        exo.allSets.forEach(function(s) {
+          if (s.setType !== 'warmup') {
+            exoVolume += (s.weight || 0) * (s.reps || 0);
+          }
+        });
+      } else if (exo.exoType === 'weight' && exo.series) {
+        // Fallback for legacy logs without allSets
+        exo.series.forEach(function(s) {
+          if (s.setType !== 'warmup') {
+            exoVolume += (s.weight || 0) * (s.reps || 0);
+          }
+        });
+      } else if (exo.exoType === 'time' || exo.isTime) {
+        var nbSets = exo.sets || 0;
+        exoVolume = nbSets * 100;
+      }
+
+      Object.keys(mapping.muscles).forEach(function(muscleKey) {
+        if (!result[muscleKey]) return;
+        result[muscleKey].tonnage += exoVolume * mapping.muscles[muscleKey];
+        musclesThisSession[muscleKey] = true;
+      });
+    });
+
+    Object.keys(musclesThisSession).forEach(function(k) {
+      if (result[k]) result[k].sessions += 1;
+    });
+  });
+
+  return result;
+}
+
+function calcAndStoreMuscleRanks(force) {
+  try {
+    db.gamification = db.gamification || {};
+    // Throttle: skip if computed < 7 days ago, unless forced
+    if (force !== true && db.gamification.muscleRanks && db.gamification.muscleRanks._computedAt) {
+      var ageMs = Date.now() - db.gamification.muscleRanks._computedAt;
+      if (ageMs < 7 * 24 * 60 * 60 * 1000) return;
+    }
+
+    var now = Date.now();
+    var cutoff = now - 28 * 24 * 60 * 60 * 1000;
+    var logs4w = (db.logs || []).filter(function(l) {
+      return (l.timestamp || 0) >= cutoff;
+    });
+
+    var volumeFreq = getMuscleVolumeAndFreq(logs4w);
+    var MUSCLE_TIER_THRESHOLDS = [
+      { name:'Atrophié',   index:0, color:'#555566' },
+      { name:'Développé',  index:1, color:'#7A8C6E' },
+      { name:'Sculpté',    index:2, color:'#C8A24C' },
+      { name:'Puissant',   index:3, color:'#78D8D0' },
+      { name:'Massif',     index:4, color:'#6EB4FF' },
+      { name:'Titanesque', index:5, color:'#BF5AF2' }
+    ];
+    var ranks = {};
+
+    Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(key) {
+      var data = volumeFreq[key] || { tonnage: 0, sessions: 0 };
+      var targetT = MUSCLE_TONNAGE_TARGETS[key];
+      var targetF = MUSCLE_FREQ_TARGETS[key] || 4;
+
+      var sV = Math.min(100, Math.round(
+        100 * Math.log1p(data.tonnage) / Math.log1p(targetT)
+      ));
+      var sF = Math.min(100, Math.round(
+        100 * data.sessions / targetF
+      ));
+      var score = Math.round(sV * 0.7 + sF * 0.3);
+
+      var tierIdx = 0;
+      if (score >= 85) tierIdx = 5;
+      else if (score >= 68) tierIdx = 4;
+      else if (score >= 51) tierIdx = 3;
+      else if (score >= 34) tierIdx = 2;
+      else if (score >= 17) tierIdx = 1;
+
+      var tier = MUSCLE_TIER_THRESHOLDS[tierIdx];
+      ranks[key] = {
+        tier: tier.name,
+        index: tier.index,
+        color: tier.color,
+        score: score,
+        updatedAt: now
+      };
+    });
+
+    ranks._computedAt = now;
+    db.gamification.muscleRanks = ranks;
+
+    if (typeof saveDB === 'function') saveDB();
+    if (typeof syncToCloud === 'function') syncToCloud(true);
+
+    if (typeof renderMuscleColors === 'function') renderMuscleColors();
+    if (typeof renderMuscleList === 'function') renderMuscleList();
+  } catch(e) {
+    console.error('calcAndStoreMuscleRanks error:', e);
+  }
 }
 
 // ── Secret Quests ──
@@ -7791,6 +8032,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 
   recalcBestPR();
   if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+  if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
@@ -7836,11 +8078,13 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
         setTimeout(_restoreLastTabFromCloud, 0);
         return;
       }
       if (!db.lastSync) {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
         syncToCloud(true);
         return;
       }
@@ -7848,6 +8092,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         const {data:{user:u}} = await supaClient.auth.getUser();
         if (!u) {
           if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+          if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
           syncToCloud(true); return;
         }
         const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
@@ -7859,17 +8104,21 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             await syncFromCloud();
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+            if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
             setTimeout(_restoreLastTabFromCloud, 0);
           } else {
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+            if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
             syncToCloud(true);
           }
         } else {
           if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+          if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
           syncToCloud(true);
         }
       } catch(e) {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
         syncToCloud(true);
       }
       // Check password migration for existing magic-link users
@@ -15089,6 +15338,7 @@ function goFinishWorkout() {
   try {
     recalcBestPR();
     if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+    if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
     var _prCelebrated = false;
     SBD_TYPES.forEach(type => {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {

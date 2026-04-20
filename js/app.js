@@ -2325,14 +2325,14 @@ function calcStreak() {
   var freezeUsedThisWeek = usedAt.some(function(ts) { return getISOWeekMonday(ts) === currentWeek; });
   var freezeConsumedThisCall = false;
 
-  // Count consecutive weeks backward; optionally consume ONE freeze to bridge a missing week.
+  // Count consecutive weeks backward from startWeek; optionally consume ONE freeze
+  // to bridge a single missing week (requires streak >= 4 before the gap).
   function countFromWeek(startWeek) {
     var streak = 0;
     var checkWeek = startWeek;
     while (true) {
       var hasSession = weeksWithSession.has(checkWeek);
-      var protectedByManual = (checkWeek === currentWeek && db.gamification.freezeActiveThisWeek === true);
-      if (hasSession || protectedByManual) {
+      if (hasSession) {
         streak++;
       } else if (!freezeConsumedThisCall && !freezeUsedThisWeek
                  && (db.gamification.streakFreezes || 0) > 0
@@ -2356,19 +2356,20 @@ function calcStreak() {
     return streak;
   }
 
-  var streak = countFromWeek(currentWeek);
+  // Start from the LAST COMPLETED week (the one before currentWeek).
+  // The current week is unfinished — its absence must never break the streak.
+  var lastWeekDate = new Date(currentWeek);
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+  var lastWeekKey = lastWeekDate.toISOString().slice(0, 10);
+  var streak = countFromWeek(lastWeekKey);
 
-  // If current week has no session yet, check from last week (don't break streak)
-  if (!weeksWithSession.has(currentWeek) && db.gamification.freezeActiveThisWeek !== true) {
-    var lastWeek = new Date(currentWeek);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    var lastWeekKey = lastWeek.toISOString().slice(0, 10);
-    if (weeksWithSession.has(lastWeekKey)) {
-      streak = countFromWeek(lastWeekKey);
-    }
+  // Add +1 if the current (unfinished) week already has a session,
+  // or if it's manually protected by a freeze.
+  if (weeksWithSession.has(currentWeek) || db.gamification.freezeActiveThisWeek === true) {
+    streak += 1;
   }
 
-  // Store in db for cloud sync
+  // Store in db for cloud sync (never overwrite a higher record)
   if (!db.weeklyStreak || db.weeklyStreak !== streak) db.weeklyStreak = streak;
   if (!db.weeklyStreakRecord || streak > db.weeklyStreakRecord) db.weeklyStreakRecord = streak;
 

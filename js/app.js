@@ -3159,15 +3159,34 @@ function renderMuscleList() {
 // ── Muscle Rank Computation (volume + frequency over 4 weeks) ──
 
 const MUSCLE_TONNAGE_TARGETS = {
-  chest_upper: 12000, chest_lower: 14000,
-  lats: 18000, rhomboids: 10000, erectors: 15000,
-  quads: 25000, hamstrings: 14000,
-  glutes_major: 16000, glutes_med: 8000, adductors: 8000,
-  shoulders_front: 8000, shoulders_side: 5000, shoulders_rear: 5000,
-  traps: 10000, triceps: 10000, biceps: 8000, forearms: 5000,
-  abs: 4000, obliques: 3000,
-  calves_gastro: 10000, calves_soleus: 6000,
-  hip_flexors: 3000, serratus: 2000
+  quads:          { atrophie:2000,  developpe:6000,  sculpte:14000, puissant:24000, massif:38000, titanesque:55000 },
+  glutes_major:   { atrophie:1500,  developpe:5000,  sculpte:11000, puissant:18000, massif:28000, titanesque:40000 },
+  hamstrings:     { atrophie:1000,  developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 },
+  erectors:       { atrophie:1000,  developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 },
+  lats:           { atrophie:1500,  developpe:5000,  sculpte:10000, puissant:18000, massif:28000, titanesque:40000 },
+  chest_lower:    { atrophie:1200,  developpe:4000,  sculpte:9000,  puissant:16000, massif:25000, titanesque:36000 },
+  chest_upper:    { atrophie:800,   developpe:3000,  sculpte:7000,  puissant:12000, massif:19000, titanesque:28000 },
+  adductors:      { atrophie:1000,  developpe:3500,  sculpte:8000,  puissant:13000, massif:20000, titanesque:30000 },
+  glutes_med:     { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  rhomboids:      { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  traps:          { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  triceps:        { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  shoulders_rear: { atrophie:400,   developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
+  shoulders_side: { atrophie:300,   developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
+  shoulders_front:{ atrophie:400,   developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
+  biceps:         { atrophie:300,   developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
+  calves_gastro:  { atrophie:800,   developpe:2800,  sculpte:6500,  puissant:11000, massif:17000, titanesque:25000 },
+  calves_soleus:  { atrophie:400,   developpe:1400,  sculpte:3500,  puissant:6000,  massif:9500,  titanesque:14000 },
+  forearms:       { atrophie:200,   developpe:700,   sculpte:1800,  puissant:3200,  massif:5000,  titanesque:7500  },
+  abs:            { atrophie:200,   developpe:600,   sculpte:1500,  puissant:2800,  massif:4500,  titanesque:6500  },
+  obliques:       { atrophie:150,   developpe:500,   sculpte:1200,  puissant:2200,  massif:3500,  titanesque:5000  },
+  hip_flexors:    { atrophie:100,   developpe:350,   sculpte:900,   puissant:1700,  massif:2700,  titanesque:4000  },
+  serratus:       { atrophie:50,    developpe:200,   sculpte:500,   puissant:1000,  massif:1600,  titanesque:2400  }
+};
+
+const GENDER_VOLUME_COEFFICIENT = {
+  male:   1.0,
+  female: 0.65
 };
 
 const MUSCLE_FREQ_TARGETS = {
@@ -3353,32 +3372,63 @@ function calcAndStoreMuscleRanks(force) {
     ];
     var ranks = {};
 
+    // Coefficient genre (seuils calibrés pour un homme de référence)
+    var _gender = (db.user && db.user.gender === 'female') ? 'female' : 'male';
+    var genderCoeff = GENDER_VOLUME_COEFFICIENT[_gender];
+
     Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(key) {
       var data = volumeFreq[key] || { tonnage: 0, sessions: 0 };
-      var targetT = MUSCLE_TONNAGE_TARGETS[key];
-      var targetF = MUSCLE_FREQ_TARGETS[key] || 4;
+      var raw = MUSCLE_TONNAGE_TARGETS[key];
+      var thresholds = {
+        atrophie:   raw.atrophie   * genderCoeff,
+        developpe:  raw.developpe  * genderCoeff,
+        sculpte:    raw.sculpte    * genderCoeff,
+        puissant:   raw.puissant   * genderCoeff,
+        massif:     raw.massif     * genderCoeff,
+        titanesque: raw.titanesque * genderCoeff
+      };
 
-      var sV = Math.min(100, Math.round(
-        100 * Math.log1p(data.tonnage) / Math.log1p(targetT)
+      var tonnage = data.tonnage;
+      var tierIndex = 0;
+      var scoreInTier = 0;
+
+      if (tonnage >= thresholds.titanesque) {
+        tierIndex = 5; scoreInTier = 100;
+      } else if (tonnage >= thresholds.massif) {
+        tierIndex = 4;
+        scoreInTier = Math.round((tonnage - thresholds.massif) /
+          (thresholds.titanesque - thresholds.massif) * 100);
+      } else if (tonnage >= thresholds.puissant) {
+        tierIndex = 3;
+        scoreInTier = Math.round((tonnage - thresholds.puissant) /
+          (thresholds.massif - thresholds.puissant) * 100);
+      } else if (tonnage >= thresholds.sculpte) {
+        tierIndex = 2;
+        scoreInTier = Math.round((tonnage - thresholds.sculpte) /
+          (thresholds.puissant - thresholds.sculpte) * 100);
+      } else if (tonnage >= thresholds.developpe) {
+        tierIndex = 1;
+        scoreInTier = Math.round((tonnage - thresholds.developpe) /
+          (thresholds.sculpte - thresholds.developpe) * 100);
+      } else {
+        tierIndex = 0;
+        scoreInTier = thresholds.atrophie > 0 ?
+          Math.round(tonnage / thresholds.atrophie * 100) : 0;
+      }
+
+      // Score final : 80% volume + 20% fréquence
+      var freqScore = Math.min(100, Math.round(
+        data.sessions / (MUSCLE_FREQ_TARGETS[key] || 4) * 100
       ));
-      var sF = Math.min(100, Math.round(
-        100 * data.sessions / targetF
-      ));
-      var score = Math.round(sV * 0.7 + sF * 0.3);
+      var finalScore = Math.round(scoreInTier * 0.8 + freqScore * 0.2);
 
-      var tierIdx = 0;
-      if (score >= 85) tierIdx = 5;
-      else if (score >= 68) tierIdx = 4;
-      else if (score >= 51) tierIdx = 3;
-      else if (score >= 34) tierIdx = 2;
-      else if (score >= 17) tierIdx = 1;
-
-      var tier = MUSCLE_TIER_THRESHOLDS[tierIdx];
+      var tier = MUSCLE_TIER_THRESHOLDS[tierIndex];
       ranks[key] = {
         tier: tier.name,
         index: tier.index,
         color: tier.color,
-        score: score,
+        score: finalScore,
+        tonnage: Math.round(tonnage),
         updatedAt: now
       };
     });
@@ -8155,15 +8205,21 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   checkAuthGate().then(() => {
     cloudSignIn().then(async user => {
       if (!user) return;
-      // Helper : calcAndStoreMuscleRanks avec force=true si migration V2 non encore appliquée
+      // Helper : calcAndStoreMuscleRanks avec force=true si une migration
+      // de recalibration des seuils est pending (V2 ou V3).
       function _calcMuscleRanksWithMigration() {
         if (typeof calcAndStoreMuscleRanks !== 'function') return;
+        var needsForce = false;
         if (!db.gamification._migratedMuscleTargetsV2) {
           db.gamification._migratedMuscleTargetsV2 = true;
-          calcAndStoreMuscleRanks(true);
-        } else {
-          calcAndStoreMuscleRanks();
+          needsForce = true;
         }
+        if (!db.gamification._migratedMuscleTargetsV3) {
+          db.gamification._migratedMuscleTargetsV3 = true;
+          needsForce = true;
+        }
+        if (needsForce) calcAndStoreMuscleRanks(true);
+        else calcAndStoreMuscleRanks();
       }
       if (db.logs.length === 0) {
         await syncFromCloud();

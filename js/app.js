@@ -262,6 +262,22 @@ db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
 db.gamification.liftRanks = db.gamification.liftRanks || null;
+db.gamification.lastTab = db.gamification.lastTab || {
+  main: 'tab-dash',
+  jeux: 'jeux-profil-joueur',
+  seances: 'seances-historique',
+  social: 'feed-amis',
+  profil: 'tab-corps'
+};
+
+// Update lastTab state + persist to localStorage + debounced cloud sync
+function _updateLastTab(key, value) {
+  if (!db.gamification) db.gamification = {};
+  if (!db.gamification.lastTab) db.gamification.lastTab = {};
+  db.gamification.lastTab[key] = value;
+  try { localStorage.setItem('sbd_lastTab', JSON.stringify(db.gamification.lastTab)); } catch(e) {}
+  if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
+}
 
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
@@ -1665,7 +1681,7 @@ function saveRoutine() {
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-let activeSeancesSub = 'seances-list';
+let activeSeancesSub = 'seances-historique';
 let activeProfilSub = 'tab-corps';
 
 function showSeancesSub(id, btn) {
@@ -1674,8 +1690,16 @@ function showSeancesSub(id, btn) {
   document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(el => el.classList.remove('active'));
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'seances-list') renderSeancesTab();
+  if (btn && btn.classList) {
+    btn.classList.add('active');
+  } else {
+    // Fallback: retrouver la pill via son onclick
+    document.querySelectorAll('#tab-seances > .stats-sub-nav .stats-sub-pill').forEach(function(p) {
+      var oc = p.getAttribute('onclick') || '';
+      if (oc.indexOf("'" + id + "'") >= 0) p.classList.add('active');
+    });
+  }
+  if (id === 'seances-historique') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
   if (id === 'seances-programme') {
     var oldPgm = document.getElementById('programmeV2Content');
@@ -1683,7 +1707,31 @@ function showSeancesSub(id, btn) {
     renderProgramBuilder();
   }
   if (id === 'seances-coach') renderCoachTab();
+  _updateLastTab('seances', id);
 }
+// Explicit global export (safety for inline onclick handlers)
+if (typeof window !== 'undefined') window.showSeancesSub = showSeancesSub;
+
+// Delegated click listener fallback on tab-seances sub-nav
+(function() {
+  function _attachSeancesNav() {
+    var nav = document.querySelector('#tab-seances > .stats-sub-nav');
+    if (!nav || nav._seancesDelegated) return;
+    nav._seancesDelegated = true;
+    nav.addEventListener('click', function(e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.stats-sub-pill') : null;
+      if (!btn) return;
+      var oc = btn.getAttribute('onclick') || '';
+      var m = oc.match(/showSeancesSub\(['"]([^'"]+)['"]/);
+      if (m && m[1]) showSeancesSub(m[1], btn);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _attachSeancesNav);
+  } else {
+    _attachSeancesNav();
+  }
+})();
 
 function showJeuxSub(id, btn) {
   document.querySelectorAll('#tab-game .jeux-sub-section').forEach(function(el) { el.classList.remove('active'); });
@@ -1701,6 +1749,7 @@ function showJeuxSub(id, btn) {
     });
   }
   try { localStorage.setItem('activeJeuxSub', id); } catch(e) {}
+  if (typeof _updateLastTab === 'function') _updateLastTab('jeux', id);
 }
 // Explicit global export (safety for inline onclick handlers)
 if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
@@ -1734,6 +1783,7 @@ function showProfilSub(id, btn) {
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
+  if (typeof _updateLastTab === 'function') _updateLastTab('profil', id);
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
   // Stats dans le profil — rediriger vers le vrai onglet Stats
@@ -1775,6 +1825,7 @@ function showTab(tabId, opts) {
   var target = document.getElementById(tabId);
   if (target) { target.classList.add('active', slideClass); }
   if (newBtn) newBtn.classList.add('active');
+  if (typeof _updateLastTab === 'function') _updateLastTab('main', tabId);
   if (tabId==='tab-dash') renderDash();
   if (tabId==='tab-seances') {
     if (activeSeancesSub === 'seances-go') renderGoTab();
@@ -1838,17 +1889,62 @@ document.addEventListener('click', function(e) {
 (function _restoreTab() {
   var hash = window.location.hash.replace('#', '');
   if (hash === 'admin') return; // handled elsewhere
-  var saved = null;
-  try { saved = localStorage.getItem('activeTab'); } catch(e) {}
+
+  // Read lastTab from localStorage first (synchronous, always available at boot)
+  var lt = null;
+  try {
+    var stored = localStorage.getItem('sbd_lastTab');
+    if (stored) lt = JSON.parse(stored);
+  } catch(e) {}
+  if (!lt && db.gamification && db.gamification.lastTab) lt = db.gamification.lastTab;
+
+  var legacySaved = null;
+  try { legacySaved = localStorage.getItem('activeTab'); } catch(e) {}
+
   var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
-  var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
+  var fromLastTab = (lt && validTabs.indexOf(lt.main) >= 0) ? lt.main : null;
+  var target = validTabs.indexOf(hash) >= 0
+    ? hash
+    : (fromLastTab || (validTabs.indexOf(legacySaved) >= 0 ? legacySaved : 'tab-dash'));
+
   setTimeout(function() {
     _skipPushState = true;
     try { showTab(target); } catch(e) { console.error('restoreTab showTab error:', e); }
     _skipPushState = false;
     try { history.replaceState({ tab: target }, '', '#' + target); } catch(e) {}
+    // Restore sub-tab for the current main
+    if (lt) _applyLastTabSub(target, lt);
   }, 0);
 })();
+
+// Apply sub-tab restoration for the current main tab
+function _applyLastTabSub(mainId, lt) {
+  if (!lt) return;
+  if (mainId === 'tab-game' && lt.jeux && typeof showJeuxSub === 'function') {
+    try { showJeuxSub(lt.jeux); } catch(e) {}
+  } else if (mainId === 'tab-seances' && lt.seances && typeof showSeancesSub === 'function') {
+    try { showSeancesSub(lt.seances); } catch(e) {}
+  } else if (mainId === 'tab-social' && lt.social && typeof showFeedSub === 'function') {
+    try { showFeedSub(lt.social); } catch(e) {}
+  } else if (mainId === 'tab-profil' && lt.profil && typeof showProfilSub === 'function') {
+    try { showProfilSub(lt.profil); } catch(e) {}
+  }
+}
+
+// Post-syncFromCloud: reapply lastTab if cloud carries a fresher state.
+// Only triggers if user hasn't manually navigated away from the initially
+// restored tab since boot (_currentTab === initial restored target).
+function _restoreLastTabFromCloud() {
+  try {
+    if (!db.gamification || !db.gamification.lastTab) return;
+    var lt = db.gamification.lastTab;
+    var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
+    if (lt.main && validTabs.indexOf(lt.main) >= 0 && lt.main !== _currentTab) {
+      if (typeof showTab === 'function') showTab(lt.main);
+    }
+    _applyLastTabSub(lt.main || _currentTab, lt);
+  } catch(e) { console.error('restoreLastTabFromCloud:', e); }
+}
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
 
 // ============================================================
@@ -7545,6 +7641,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        setTimeout(_restoreLastTabFromCloud, 0);
         return;
       }
       if (!db.lastSync) {
@@ -7567,6 +7664,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             await syncFromCloud();
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+            setTimeout(_restoreLastTabFromCloud, 0);
           } else {
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
             syncToCloud(true);
@@ -14835,14 +14933,14 @@ function goFinishWorkout() {
     var _weekDiff = Math.round((_sesWeekStart - _thisWeekStart) / (7 * 86400000));
     currentWeekOffset = _weekDiff;
     // Forcer le re-render si l'onglet séances est visible
-    if (activeSeancesSub === 'seances-list') {
+    if (activeSeancesSub === 'seances-historique') {
       renderSeancesTab();
     }
   } catch(e) {}
 
   // Force render all key views — refreshUI() only renders the active sub-tab
   // which is still 'seances-go' at this point
-  if (activeSeancesSub !== 'seances-list') {
+  if (activeSeancesSub !== 'seances-historique') {
     renderSeancesTab();
   }
   renderDash();

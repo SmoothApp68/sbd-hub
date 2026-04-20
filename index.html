@@ -1012,6 +1012,22 @@
     .hm-cell-click { cursor: pointer; transition: transform 0.1s; }
     .hm-cell-click:active { transform: scale(1.15); }
 
+    /* ── Rangs SBD ── */
+    .sbd-ranks-card { cursor: pointer; }
+    .sbd-rank-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:13px; }
+    .sbd-rank-row:last-child { margin-bottom:0; }
+    .sbd-rank-icon { font-size:16px; flex:0 0 auto; }
+    .sbd-rank-name { font-weight:600; color:var(--text); flex:0 0 42px; }
+    .sbd-rank-val { color:var(--sub); font-size:11px; flex:0 0 auto; }
+    .sbd-rank-bar-bg { flex:1; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; }
+    .sbd-rank-bar { height:4px; border-radius:2px; transition:width 0.4s ease; }
+    .sbd-rank-tier { font-size:11px; font-weight:700; min-width:70px; text-align:right; }
+    .sbd-rank-detail-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; margin-bottom:10px; backdrop-filter:blur(10px); }
+    .sbd-rank-detail-tier { font-size:18px; font-weight:800; letter-spacing:0.4px; }
+    .sbd-rank-detail-e1rm { font-size:24px; font-weight:800; color:var(--text); margin:6px 0 2px; }
+    .sbd-rank-detail-pct { font-size:11px; color:var(--sub); }
+    .sbd-rank-detail-next { font-size:11px; color:var(--sub); margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); }
+
     /* ── Strength card clickable ── */
     .sg-card-click { cursor: pointer; transition: transform 0.15s; }
     .sg-card-click:active { transform: scale(0.97); }
@@ -2217,6 +2233,12 @@
       <div id="perfDisplay"></div>
     </div>
 
+    <!-- Carte Rangs SBD -->
+    <div class="card sbd-ranks-card" id="sbdRanksCard" style="padding:14px 16px;display:none;cursor:pointer;" onclick="showTab('tab-game')">
+      <div class="sbd-ranks-title" style="font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">⚔️ Rangs SBD</div>
+      <div id="sbdRanksHome"></div>
+    </div>
+
     <!-- IDs conservés pour compatibilité avec les fonctions existantes -->
     <div style="display:none;">
       <div id="routineDisplay"></div>
@@ -2770,6 +2792,7 @@
     <div id="gamXPSources"></div>
     <div id="gamChallenges"></div>
     <div id="gamMonthlyChallenges"></div>
+    <div id="gamSBDRanks"></div>
     <div id="gamRecentBadges"></div>
     <div id="gamNextBadges"></div>
     <div id="gamStrengthContent"></div>

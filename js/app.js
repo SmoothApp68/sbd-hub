@@ -261,6 +261,7 @@ db.gamification.freezeActiveThisWeek = db.gamification.freezeActiveThisWeek ?? f
 db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
+db.gamification.liftRanks = db.gamification.liftRanks || null;
 
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
@@ -2610,6 +2611,124 @@ function showClassQuiz() {
   renderQ();
 }
 
+// ── SBD Lift Ranks (Dofus tiers) ──
+const SBD_TIERS = [
+  { name: 'Apprenti',   color: '#8B7355', min: 0  },
+  { name: 'Aventurier', color: '#9EB0C0', min: 20 },
+  { name: 'Guerrier',   color: '#C8A24C', min: 40 },
+  { name: 'Champion',   color: '#78D8D0', min: 60 },
+  { name: 'Héros',      color: '#6EB4FF', min: 75 },
+  { name: 'Légende',    color: '#BF5AF2', min: 90 }
+];
+
+const STRENGTH_LEVEL_STANDARDS = {
+  bench: {
+    male:   [0.35, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, 2.25],
+    female: [0.20, 0.30, 0.45, 0.60, 0.80, 1.00, 1.20, 1.40, 1.60]
+  },
+  squat: {
+    male:   [0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50],
+    female: [0.35, 0.50, 0.70, 0.90, 1.10, 1.30, 1.55, 1.80, 2.00]
+  },
+  deadlift: {
+    male:   [0.60, 0.85, 1.10, 1.35, 1.60, 1.90, 2.20, 2.50, 2.75],
+    female: [0.40, 0.60, 0.80, 1.00, 1.25, 1.50, 1.75, 2.00, 2.20]
+  }
+};
+
+const STRENGTH_PERCENTILE_POINTS = [5, 10, 20, 35, 50, 65, 80, 90, 95];
+
+function calcLiftPercentile(liftType, e1rm, bw, gender) {
+  if (!e1rm || !bw || bw <= 0) return 0;
+  var ratio = e1rm / bw;
+  var g = (gender === 'female') ? 'female' : 'male';
+  var stds = STRENGTH_LEVEL_STANDARDS[liftType] && STRENGTH_LEVEL_STANDARDS[liftType][g];
+  if (!stds) return 0;
+  if (ratio <= stds[0]) return 0;
+  if (ratio >= stds[8]) return 99;
+  for (var i = 0; i < 8; i++) {
+    if (ratio <= stds[i + 1]) {
+      var t = (ratio - stds[i]) / (stds[i + 1] - stds[i]);
+      return Math.round(
+        STRENGTH_PERCENTILE_POINTS[i] +
+        t * (STRENGTH_PERCENTILE_POINTS[i + 1] - STRENGTH_PERCENTILE_POINTS[i])
+      );
+    }
+  }
+  return 95;
+}
+
+function percentileToSBDTier(pct) {
+  var tier = SBD_TIERS[0];
+  for (var i = 0; i < SBD_TIERS.length; i++) {
+    if (pct >= SBD_TIERS[i].min) tier = SBD_TIERS[i];
+  }
+  return tier;
+}
+
+// Kg e1RM required to reach the next tier (based on its min percentile → ratio threshold)
+function _kgToReachTier(liftType, nextTierMinPct, bw, gender) {
+  if (!bw || bw <= 0) return null;
+  var g = (gender === 'female') ? 'female' : 'male';
+  var stds = STRENGTH_LEVEL_STANDARDS[liftType] && STRENGTH_LEVEL_STANDARDS[liftType][g];
+  if (!stds) return null;
+  // Find percentile points bracket around nextTierMinPct and interpolate back to ratio
+  for (var i = 0; i < STRENGTH_PERCENTILE_POINTS.length - 1; i++) {
+    var p0 = STRENGTH_PERCENTILE_POINTS[i], p1 = STRENGTH_PERCENTILE_POINTS[i + 1];
+    if (nextTierMinPct <= p0) return Math.round(stds[i] * bw);
+    if (nextTierMinPct <= p1) {
+      var t = (nextTierMinPct - p0) / (p1 - p0);
+      var ratio = stds[i] + t * (stds[i + 1] - stds[i]);
+      return Math.round(ratio * bw);
+    }
+  }
+  return Math.round(stds[stds.length - 1] * bw);
+}
+
+function calcAndStoreLiftRanks() {
+  db.gamification = db.gamification || {};
+  var bw = db.user && db.user.bw ? db.user.bw : 0;
+  var gender = db.user && db.user.gender ? db.user.gender : 'male';
+  var now = Date.now();
+  var map = { squat: null, bench: null, deadlift: null };
+
+  // Collect best e1RM per SBD type across all logs (uses existing getSBDType)
+  var bestByType = { squat: 0, bench: 0, deadlift: 0 };
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo || !exo.name || !exo.maxRM || exo.maxRM <= 0) return;
+      var type = (typeof getSBDType === 'function') ? getSBDType(exo.name) : null;
+      if (!type) return;
+      if (exo.maxRM > bestByType[type]) bestByType[type] = exo.maxRM;
+    });
+  });
+
+  // Fallback to db.bestPR (which already stores e1RM via maxRM) if logs path missed
+  if (db.bestPR) {
+    ['squat','bench','deadlift'].forEach(function(t) {
+      if ((db.bestPR[t] || 0) > bestByType[t]) bestByType[t] = db.bestPR[t];
+    });
+  }
+
+  ['squat','bench','deadlift'].forEach(function(liftType) {
+    var e1rm = bestByType[liftType];
+    if (!e1rm || !bw) { map[liftType] = null; return; }
+    var pct = calcLiftPercentile(liftType, e1rm, bw, gender);
+    var tier = percentileToSBDTier(pct);
+    map[liftType] = {
+      tier: tier.name,
+      color: tier.color,
+      percentile: pct,
+      e1rm: e1rm,
+      updatedAt: now
+    };
+  });
+
+  db.gamification.liftRanks = map;
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof syncToCloud === 'function') syncToCloud();
+}
+
 // ── Secret Quests ──
 var SECRET_QUESTS = [
   { id:'sq_triple', condition:function(){ var wl=_getLogsThisWeek(); var pb=_getPrevBest(); var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.maxRM>0&&e.maxRM>(pb[e.name]||0))prs++;}); }); return prs>=3; }, name:'Triplé d\'or', msg:'🔥 3 records en une semaine — tu es en feu !', xp:300 },
@@ -3293,6 +3412,59 @@ function renderGamificationTab() {
 
   // ── 3c. Secret quests section (in badges, rendered later) ──
 
+  // ── 3d. Mes Rangs SBD ──
+  (function() {
+    var host = document.getElementById('gamSBDRanks');
+    if (!host) return;
+    if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) {
+      host.innerHTML = ''; return;
+    }
+    db.gamification = db.gamification || {};
+    var lr = db.gamification.liftRanks;
+    if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) { host.innerHTML = ''; return; }
+    var bw = (db.user && db.user.bw) ? db.user.bw : 0;
+    var gender = (db.user && db.user.gender) ? db.user.gender : 'male';
+    var lifts = [
+      { key:'squat',    icon:'🦵', label:'Squat' },
+      { key:'bench',    icon:'🫸', label:'Développé couché' },
+      { key:'deadlift', icon:'💀', label:'Soulevé de terre' }
+    ];
+    var sHtml = '<div class="mc-title" style="margin-bottom:12px;"><span>⚔️ Mes Rangs SBD</span></div>';
+    lifts.forEach(function(l) {
+      var r = lr[l.key];
+      if (!r) return;
+      var idx = -1;
+      for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
+      var nextTier = (idx < SBD_TIERS.length - 1) ? SBD_TIERS[idx + 1] : null;
+      var topPct = Math.max(1, 100 - r.percentile);
+      var nextLine = '';
+      if (nextTier && bw > 0) {
+        var kgNeeded = _kgToReachTier(l.key, nextTier.min, bw, gender);
+        if (kgNeeded && kgNeeded > r.e1rm) {
+          var diff = kgNeeded - r.e1rm;
+          nextLine = '<div class="sbd-rank-detail-next">Il te faut <strong style="color:' + nextTier.color + ';">+' + diff + ' kg</strong> de e1RM pour atteindre <strong style="color:' + nextTier.color + ';">' + nextTier.name + '</strong></div>';
+        }
+      } else if (!nextTier) {
+        nextLine = '<div class="sbd-rank-detail-next">🏆 Tier maximum atteint — Légende vivante.</div>';
+      }
+      sHtml += '<div class="sbd-rank-detail-card">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+          '<div>' +
+            '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;">' + l.icon + ' ' + l.label + '</div>' +
+            '<div class="sbd-rank-detail-tier" style="color:' + r.color + ';">' + r.tier + '</div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div class="sbd-rank-detail-e1rm">' + r.e1rm + ' kg</div>' +
+            '<div class="sbd-rank-detail-pct">Top ' + topPct + '% mondial</div>' +
+          '</div>' +
+        '</div>' +
+        nextLine +
+      '</div>';
+    });
+    sHtml += '<div class="gam-separator">⟡ ── ⟡</div>';
+    host.innerHTML = '<div class="mc">' + sHtml + '</div>';
+  })();
+
   // ── 4. Récemment débloqués ──
   (function() {
     var allBadges = getAllBadges();
@@ -3970,7 +4142,53 @@ function renderDash() {
   requestAnimationFrame(function() {
     renderWeekCard();
     renderPerfCard();
+    if (typeof renderSBDRanksHome === 'function') renderSBDRanksHome();
   });
+}
+
+function renderSBDRanksHome() {
+  var card = document.getElementById('sbdRanksCard');
+  var host = document.getElementById('sbdRanksHome');
+  if (!card || !host) return;
+  if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) {
+    card.style.display = 'none'; return;
+  }
+  card.style.display = '';
+  db.gamification = db.gamification || {};
+  var lr = db.gamification.liftRanks;
+  if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Enregistre une séance SBD pour voir ton rang</div>';
+    return;
+  }
+  var lifts = [
+    { key:'squat',    icon:'🦵', label:'SQ' },
+    { key:'bench',    icon:'🫸', label:'BP' },
+    { key:'deadlift', icon:'💀', label:'DL' }
+  ];
+  var html = '';
+  lifts.forEach(function(l) {
+    var r = lr[l.key];
+    if (!r) return;
+    // Progression inside the current tier towards the next
+    var idx = -1;
+    for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
+    var nextMin = idx < SBD_TIERS.length - 1 ? SBD_TIERS[idx + 1].min : 100;
+    var curMin = SBD_TIERS[idx] ? SBD_TIERS[idx].min : 0;
+    var span = Math.max(1, nextMin - curMin);
+    var pctInTier = Math.max(0, Math.min(100, Math.round((r.percentile - curMin) / span * 100)));
+    html += '<div class="sbd-rank-row">' +
+      '<span class="sbd-rank-icon">' + l.icon + '</span>' +
+      '<span class="sbd-rank-name">' + l.label + '</span>' +
+      '<span class="sbd-rank-val">' + r.e1rm + ' kg</span>' +
+      '<div class="sbd-rank-bar-bg"><div class="sbd-rank-bar" style="width:' + pctInTier + '%;background:' + r.color + ';"></div></div>' +
+      '<span class="sbd-rank-tier" style="color:' + r.color + ';">' + r.tier + '</span>' +
+    '</div>';
+  });
+  if (!html) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Enregistre une séance SBD pour voir ton rang</div>';
+    return;
+  }
+  host.innerHTML = html;
 }
 
 // ============================================================
@@ -7222,6 +7440,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   });
 
   recalcBestPR();
+  if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
@@ -7266,6 +7485,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       if (db.logs.length === 0) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
+        if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         return;
       }
       if (!db.lastSync) {
@@ -7283,6 +7503,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
             await syncFromCloud();
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
+            if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
           } else {
             syncToCloud(true);
           }
@@ -14508,6 +14729,7 @@ function goFinishWorkout() {
   // Social: detect new PRs and publish + celebration
   try {
     recalcBestPR();
+    if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
     var _prCelebrated = false;
     SBD_TYPES.forEach(type => {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {

@@ -257,6 +257,9 @@ db.gamification.streakFreezes = db.gamification.streakFreezes ?? 1;
 db.gamification.lastFreezeGrantedMonth = db.gamification.lastFreezeGrantedMonth ?? -1;
 db.gamification.freezesUsedAt = db.gamification.freezesUsedAt ?? [];
 db.gamification.freezeActiveThisWeek = db.gamification.freezeActiveThisWeek ?? false;
+db.gamification.playerClass = db.gamification.playerClass ?? null;
+db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
+db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
 
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
@@ -2341,6 +2344,271 @@ var MONTHLY_QUEST_POOL = [
   { id:'m_consistency', name:'Métronome', descFn:function(t){return 'Entraîne-toi au moins '+t+' jours chaque semaine pendant 4 semaines';}, targetFn:function(){ return getTrainingDaysCount(); }, xp:500 }
 ];
 
+// ── Player Classes (Dofus) ──
+const PLAYER_CLASSES = [
+  { id:'iop',      icon:'⚔️',  name:'Iop',      desc:'Force brute. Tu vis pour les charges lourdes, rien d\'autre.' },
+  { id:'sacrieur', icon:'🩸',  name:'Sacrieur', desc:'Tu sacrifies tout pour la pompe. Le volume est ta religion.' },
+  { id:'pandawa',  icon:'🍶',  name:'Pandawa',  desc:'Patient et équilibré. Tu joues sur le long terme.' },
+  { id:'osamodas', icon:'🐉',  name:'Osamodas', desc:'Instinctif. Tu écoutes ton corps et varies sans cesse.' },
+  { id:'xelor',    icon:'⏳',  name:'Xelor',    desc:'Tout est planifié. La périodisation, c\'est ton art.' },
+  { id:'feca',     icon:'🛡️', name:'Feca',     desc:'Technique et prévention. Ton temple, tu le protèges.' },
+  { id:'ecaflip',  icon:'🎲',  name:'Ecaflip',  desc:'Irrégulier mais enthousiaste. Tu y vas quand tu peux.' },
+  { id:'enutrof',  icon:'💰',  name:'Enutrof',  desc:'Vétéran. Des années de fer, des progressions en béton.' }
+];
+
+// ── Quiz Questions (7) ──
+const QUIZ_QUESTIONS = [
+  {
+    type: 'choice',
+    text: "Ton objectif principal à la salle ?",
+    options: [
+      { text: "Soulever le plus lourd possible",   scores: { iop:3, xelor:1 } },
+      { text: "Construire un physique esthétique",  scores: { sacrieur:3, osamodas:1 } },
+      { text: "Rester en forme et en santé",        scores: { pandawa:3, feca:1 } },
+      { text: "Performer en compétition",           scores: { xelor:3, iop:1 } },
+      { text: "Reprendre après une pause",          scores: { ecaflip:3, pandawa:1 } },
+      { text: "Continuer sur la durée",             scores: { enutrof:3 } }
+    ]
+  },
+  {
+    type: 'slider',
+    text: "Ton ratio idéal ?",
+    labelLeft: "⚡ Force pure",
+    labelRight: "💪 Volume pur",
+    scoreFn: function(v) {
+      if (v <= 2)  return { iop:2 };
+      if (v <= 4)  return { xelor:1, iop:1 };
+      if (v === 5) return { osamodas:2, feca:1 };
+      if (v <= 7)  return { sacrieur:1, osamodas:1 };
+      return { sacrieur:2 };
+    }
+  },
+  {
+    type: 'choice',
+    text: "Ta séance idéale ?",
+    options: [
+      { text: "Peu de séries, charges lourdes",         scores: { iop:2, xelor:1 } },
+      { text: "Beaucoup de séries, pompe maximale",     scores: { sacrieur:2 } },
+      { text: "Régulière, technique, sans blessure",    scores: { feca:2, pandawa:1 } },
+      { text: "Variée, jamais la même chose",           scores: { osamodas:2 } },
+      { text: "Courte et efficace",                     scores: { enutrof:2, ecaflip:1 } }
+    ]
+  },
+  {
+    type: 'choice',
+    text: "Une semaine sans salle, c'est ?",
+    options: [
+      { text: "Insupportable, je dois compenser",  scores: { iop:2, sacrieur:1 } },
+      { text: "Normal, le corps récupère",          scores: { pandawa:3 } },
+      { text: "Je fais autre chose (cardio…)",      scores: { osamodas:2 } },
+      { text: "J'avais planifié ce repos",          scores: { xelor:2, enutrof:1 } },
+      { text: "Ça arrive souvent chez moi",         scores: { ecaflip:2 } }
+    ]
+  },
+  {
+    type: 'slider',
+    text: "Comment tu organises ton entraînement ?",
+    labelLeft: "🎲 Total improvisation",
+    labelRight: "📋 Tout planifié",
+    scoreFn: function(v) {
+      if (v <= 2)  return { ecaflip:2, osamodas:1 };
+      if (v <= 5)  return { osamodas:1, feca:1 };
+      if (v <= 8)  return { xelor:1, enutrof:1 };
+      return { xelor:2 };
+    }
+  },
+  {
+    type: 'choice',
+    text: "Ton rapport aux blessures ?",
+    options: [
+      { text: "Je pousse jusqu'à la limite",         scores: { iop:2, sacrieur:1 } },
+      { text: "Je fais très attention à ma technique", scores: { feca:3 } },
+      { text: "J'écoute mon corps au jour le jour",  scores: { osamodas:2, pandawa:1 } },
+      { text: "J'ai déjà été blessé, ça change tout", scores: { feca:2, enutrof:1 } },
+      { text: "Je ne me suis jamais vraiment blessé", scores: { ecaflip:1, iop:1 } }
+    ]
+  },
+  {
+    type: 'choice',
+    text: "Si tu étais un personnage Dofus ?",
+    options: [
+      { text: "⚔️  Un guerrier qui fonce dans le tas",          scores: { iop:3 } },
+      { text: "🩸  Un titan du volume qui encaisse tout",        scores: { sacrieur:3 } },
+      { text: "🍶  Un moine patient et serein",                  scores: { pandawa:3 } },
+      { text: "🐉  Un dresseur qui s'adapte à tout",             scores: { osamodas:3 } },
+      { text: "⏳  Un maître du temps et de la stratégie",       scores: { xelor:3 } },
+      { text: "🛡️  Un gardien qui protège son temple",           scores: { feca:3 } },
+      { text: "🎲  Un joueur qui tente sa chance",               scores: { ecaflip:3 } },
+      { text: "💰  Un chasseur de trésors au long cours",        scores: { enutrof:3 } }
+    ]
+  }
+];
+
+function computeQuizResult(answers) {
+  var scores = {};
+  PLAYER_CLASSES.forEach(function(c) { scores[c.id] = 0; });
+  QUIZ_QUESTIONS.forEach(function(q, i) {
+    var a = answers[i];
+    if (a == null) return;
+    var delta = null;
+    if (q.type === 'choice') {
+      var opt = q.options[a];
+      if (opt && opt.scores) delta = opt.scores;
+    } else if (q.type === 'slider' && typeof q.scoreFn === 'function') {
+      delta = q.scoreFn(a);
+    }
+    if (delta) {
+      Object.keys(delta).forEach(function(k) { scores[k] = (scores[k] || 0) + delta[k]; });
+    }
+  });
+  // Tiebreak priority: Xelor > Enutrof > Feca > Osamodas > Iop = Sacrieur = Pandawa = Ecaflip
+  var priority = ['xelor','enutrof','feca','osamodas','iop','sacrieur','pandawa','ecaflip'];
+  var best = priority[0], bestScore = -1, bestPrio = priority.length;
+  priority.forEach(function(c, idx) {
+    var s = scores[c] || 0;
+    if (s > bestScore || (s === bestScore && idx < bestPrio)) {
+      best = c; bestScore = s; bestPrio = idx;
+    }
+  });
+  return best;
+}
+
+function showClassQuiz() {
+  // Prevent stacking
+  var existing = document.getElementById('classQuizOverlay');
+  if (existing) existing.remove();
+
+  var answers = new Array(QUIZ_QUESTIONS.length).fill(null);
+  var currentQ = 0;
+
+  var overlay = document.createElement('div');
+  overlay.id = 'classQuizOverlay';
+  overlay.innerHTML =
+    '<style>' +
+      '#classQuizOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}' +
+      '#classQuizOverlay .cq-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;max-width:380px;width:100%;color:#fff;animation:cqFade 0.4s ease;}' +
+      '#classQuizOverlay .cq-progress{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;text-align:center;}' +
+      '#classQuizOverlay .cq-progress-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:20px;}' +
+      '#classQuizOverlay .cq-progress-fill{height:100%;background:var(--purple);transition:width 0.35s ease;}' +
+      '#classQuizOverlay .cq-question{font-size:18px;font-weight:700;margin-bottom:18px;line-height:1.4;text-align:center;}' +
+      '#classQuizOverlay .cq-options{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}' +
+      '#classQuizOverlay .cq-option{background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 16px;width:100%;text-align:left;color:#fff;font-size:14px;cursor:pointer;transition:all 0.2s;font-family:inherit;}' +
+      '#classQuizOverlay .cq-option:hover{background:rgba(255,255,255,0.04);}' +
+      '#classQuizOverlay .cq-option.selected{border-color:var(--purple);background:rgba(191,90,242,0.15);}' +
+      '#classQuizOverlay .cq-slider-wrap{margin-bottom:20px;}' +
+      '#classQuizOverlay .cq-slider-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:10px;}' +
+      '#classQuizOverlay .cq-slider{width:100%;accent-color:var(--purple);}' +
+      '#classQuizOverlay .cq-slider-val{text-align:center;font-size:13px;color:var(--purple);font-weight:700;margin-top:8px;}' +
+      '#classQuizOverlay .cq-next{background:var(--purple);color:#fff;border:none;border-radius:12px;padding:14px;width:100%;font-size:15px;font-weight:700;cursor:pointer;transition:opacity 0.2s;font-family:inherit;}' +
+      '#classQuizOverlay .cq-next:disabled{opacity:0.3;cursor:not-allowed;}' +
+      '#classQuizOverlay .cq-reveal{text-align:center;padding:20px 0;}' +
+      '#classQuizOverlay .cq-reveal-icon{font-size:72px;display:inline-block;animation:cqPulse 1s ease infinite;}' +
+      '#classQuizOverlay .cq-reveal-small{font-size:13px;color:var(--sub);margin-top:14px;letter-spacing:0.8px;}' +
+      '#classQuizOverlay .cq-reveal-lead{font-size:14px;color:var(--sub);margin-bottom:6px;}' +
+      '#classQuizOverlay .cq-reveal-name{font-size:2rem;font-weight:800;color:var(--purple);margin:8px 0;}' +
+      '#classQuizOverlay .cq-reveal-desc{font-size:13px;color:var(--sub);line-height:1.6;margin:12px 0 22px;}' +
+      '@keyframes cqFade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}' +
+      '@keyframes cqPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}' +
+    '</style>' +
+    '<div class="cq-card" id="cqCard"></div>';
+  document.body.appendChild(overlay);
+
+  function renderQ() {
+    var q = QUIZ_QUESTIONS[currentQ];
+    var total = QUIZ_QUESTIONS.length;
+    var pct = Math.round(((currentQ + 1) / total) * 100);
+    var isLast = currentQ === total - 1;
+    var card = document.getElementById('cqCard');
+
+    var body = '';
+    body += '<div class="cq-progress">Question ' + (currentQ + 1) + ' / ' + total + '</div>';
+    body += '<div class="cq-progress-bar"><div class="cq-progress-fill" style="width:' + pct + '%;"></div></div>';
+    body += '<div class="cq-question">' + q.text + '</div>';
+
+    if (q.type === 'choice') {
+      body += '<div class="cq-options">';
+      q.options.forEach(function(opt, i) {
+        var sel = answers[currentQ] === i ? ' selected' : '';
+        body += '<button class="cq-option' + sel + '" data-idx="' + i + '">' + opt.text + '</button>';
+      });
+      body += '</div>';
+    } else if (q.type === 'slider') {
+      var val = answers[currentQ] == null ? 5 : answers[currentQ];
+      body += '<div class="cq-slider-wrap">';
+      body += '<div class="cq-slider-labels"><span>' + q.labelLeft + '</span><span>' + q.labelRight + '</span></div>';
+      body += '<input type="range" min="0" max="10" step="1" value="' + val + '" class="cq-slider" id="cqSlider">';
+      body += '<div class="cq-slider-val" id="cqSliderVal">' + val + ' / 10</div>';
+      body += '</div>';
+    }
+
+    body += '<button class="cq-next" id="cqNextBtn"' + (answers[currentQ] == null ? ' disabled' : '') + '>' + (isLast ? 'Voir mon résultat' : 'Suivant →') + '</button>';
+    card.innerHTML = body;
+
+    if (q.type === 'choice') {
+      card.querySelectorAll('.cq-option').forEach(function(btn) {
+        btn.onclick = function() {
+          answers[currentQ] = parseInt(btn.getAttribute('data-idx'));
+          card.querySelectorAll('.cq-option').forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          document.getElementById('cqNextBtn').disabled = false;
+        };
+      });
+    } else if (q.type === 'slider') {
+      var slider = document.getElementById('cqSlider');
+      var valEl = document.getElementById('cqSliderVal');
+      if (answers[currentQ] == null) answers[currentQ] = parseInt(slider.value);
+      document.getElementById('cqNextBtn').disabled = false;
+      slider.oninput = function() {
+        var v = parseInt(slider.value);
+        answers[currentQ] = v;
+        valEl.textContent = v + ' / 10';
+      };
+    }
+
+    document.getElementById('cqNextBtn').onclick = function() {
+      if (answers[currentQ] == null) return;
+      if (isLast) revealResult();
+      else { currentQ++; renderQ(); }
+    };
+  }
+
+  function revealResult() {
+    var classSlug = computeQuizResult(answers);
+    var cls = PLAYER_CLASSES.find(function(c) { return c.id === classSlug; }) || PLAYER_CLASSES[0];
+    var card = document.getElementById('cqCard');
+
+    card.innerHTML =
+      '<div class="cq-reveal">' +
+        '<div class="cq-reveal-icon">' + cls.icon + '</div>' +
+        '<div class="cq-reveal-small">Analyse en cours…</div>' +
+      '</div>';
+
+    setTimeout(function() {
+      card.innerHTML =
+        '<div class="cq-reveal">' +
+          '<div class="cq-reveal-lead">Tu es un(e)…</div>' +
+          '<div style="height:14px;"></div>' +
+          '<div class="cq-reveal-icon" style="animation:none;">' + cls.icon + '</div>' +
+          '<div class="cq-reveal-name">' + cls.name + '</div>' +
+          '<div class="cq-reveal-desc">' + cls.desc + '</div>' +
+          '<button class="cq-next" id="cqDoneBtn">Commencer l\'aventure</button>' +
+        '</div>';
+      document.getElementById('cqDoneBtn').onclick = function() {
+        db.gamification = db.gamification || {};
+        db.gamification.playerClass = classSlug;
+        db.gamification.quizAnswers = answers;
+        db.gamification.quizCompletedAt = Date.now();
+        saveDB();
+        if (typeof syncToCloud === 'function') syncToCloud();
+        overlay.remove();
+        if (typeof renderGamificationTab === 'function') renderGamificationTab();
+      };
+    }, 1200);
+  }
+
+  renderQ();
+}
+
 // ── Secret Quests ──
 var SECRET_QUESTS = [
   { id:'sq_triple', condition:function(){ var wl=_getLogsThisWeek(); var pb=_getPrevBest(); var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.maxRM>0&&e.maxRM>(pb[e.name]||0))prs++;}); }); return prs>=3; }, name:'Triplé d\'or', msg:'🔥 3 records en une semaine — tu es en feu !', xp:300 },
@@ -2887,6 +3155,18 @@ function renderGamificationTab() {
     activeTitleText = '<div class="lvl-title" style="color:var(--sub);" onclick="showTitleModal()">Choisir un titre ▾</div>';
   }
 
+  // Player class line
+  var classLine = '';
+  (function() {
+    var pc = (db.gamification && db.gamification.playerClass) ? db.gamification.playerClass : null;
+    if (!pc || typeof PLAYER_CLASSES === 'undefined') return;
+    var cls = PLAYER_CLASSES.find(function(c) { return c.id === pc; });
+    if (!cls) return;
+    classLine = '<div class="lvl-class" style="font-size:12px;color:var(--sub);margin-top:2px;">' +
+      cls.icon + ' <strong style="color:var(--text);font-weight:600;">' + cls.name + '</strong> · Niveau ' + currLevel.level +
+      '</div>';
+  })();
+
   levelCard.innerHTML =
     '<div class="lvl-card lvl-card-v2">' +
       '<div class="lvl-bg"></div>' +
@@ -2896,6 +3176,7 @@ function renderGamificationTab() {
         '<div class="lvl-info">' +
           '<div class="lvl-num">Niveau ' + currLevel.level + ' · ' + totalXP.toLocaleString() + ' XP</div>' +
           '<div class="lvl-name">' + currLevel.name + '</div>' +
+          classLine +
           activeTitleText +
         '</div>' +
       '</div>' +
@@ -6919,6 +7200,10 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 (function init() {
   if(!db.reports)db.reports=[];
   if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
+  // Class quiz trigger — only after onboarding to avoid modal stacking
+  if (db.user && db.user.onboarded && db.gamification && !db.gamification.playerClass) {
+    setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
+  }
   let ns=false;
   db.logs.forEach(l=>{if(!l.id){l.id=generateId();ns=true;}});
 

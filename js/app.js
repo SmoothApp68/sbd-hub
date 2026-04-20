@@ -3364,12 +3364,6 @@ function calcAndStoreMuscleRanks(force) {
     });
 
     var volumeFreq = getMuscleVolumeAndFreq(logs4w);
-    console.log('MUSCLE DEBUG', JSON.stringify(
-      Object.keys(volumeFreq).reduce(function(acc, k) {
-        acc[k] = Math.round(volumeFreq[k].tonnage);
-        return acc;
-      }, {})
-    ));
     var MUSCLE_TIER_THRESHOLDS = [
       { name:'Atrophié',   index:0, color:'#555566' },
       { name:'Développé',  index:1, color:'#7A8C6E' },

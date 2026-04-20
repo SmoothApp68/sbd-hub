@@ -237,6 +237,7 @@ function _flushDB() {
   if (!_saveDBDirty) return;
   _saveDBDirty = false;
   try {
+    if (!db.gamification) db.gamification = {};
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch(e) {
     console.error('saveDB error:', e);

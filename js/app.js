@@ -1690,9 +1690,42 @@ function showJeuxSub(id, btn) {
   document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
   var sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
+  if (btn && btn.classList) {
+    btn.classList.add('active');
+  } else {
+    // Fallback: find the pill whose onclick references this id
+    var pills = document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill');
+    pills.forEach(function(p) {
+      var oc = p.getAttribute('onclick') || '';
+      if (oc.indexOf("'" + id + "'") >= 0) p.classList.add('active');
+    });
+  }
   try { localStorage.setItem('activeJeuxSub', id); } catch(e) {}
 }
+// Explicit global export (safety for inline onclick handlers)
+if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
+
+// Delegated click listener fallback — ensures pills respond even if inline
+// onclick attributes are stripped or blocked by CSP / extensions.
+(function() {
+  function _attachJeuxNav() {
+    var nav = document.querySelector('#tab-game > .stats-sub-nav');
+    if (!nav || nav._jeuxDelegated) return;
+    nav._jeuxDelegated = true;
+    nav.addEventListener('click', function(e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.stats-sub-pill') : null;
+      if (!btn) return;
+      var oc = btn.getAttribute('onclick') || '';
+      var m = oc.match(/showJeuxSub\(['"]([^'"]+)['"]/);
+      if (m && m[1]) showJeuxSub(m[1], btn);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _attachJeuxNav);
+  } else {
+    _attachJeuxNav();
+  }
+})();
 
 function showProfilSub(id, btn) {
   activeProfilSub = id;

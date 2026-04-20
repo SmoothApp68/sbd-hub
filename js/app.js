@@ -278,6 +278,14 @@ if (!db.gamification._migratedFreezeV3) {
   db.gamification.freezeProtectedWeeks = [];
   db.gamification._migratedFreezeV3 = true;
 }
+// One-time migration V4 : les freezes ne sont plus rétroactifs avant 2026.
+// On vide les semaines protégées (potentiellement pré-2026) et on restaure 2 freezes.
+if (!db.gamification._migratedFreezeV4) {
+  db.gamification.streakFreezes = 2;
+  db.gamification.freezesUsedAt = [];
+  db.gamification.freezeProtectedWeeks = [];
+  db.gamification._migratedFreezeV4 = true;
+}
 db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
@@ -2391,6 +2399,9 @@ function calcStreak() {
       var alreadyProtected = protectedSet.has(checkWeek);
       if (hasSession || alreadyProtected) {
         streak++;
+      } else if (checkWeek < '2026-W01') {
+        if (DEBUG) console.log('[calcStreak] BREAK (pre-2026) at week=' + checkWeek + ' streak=' + streak);
+        break;
       } else if (!freezeConsumedThisCall
                  && (db.gamification.streakFreezes || 0) > 0
                  && streak >= 4) {
@@ -4653,10 +4664,9 @@ function renderWeekCard() {
   const todayName = DAYS_FULL[todayIdx];
   const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Streak de semaines consécutives
-  const weekStreak = computeWeekStreak();
-  const streak = weekStreak.current;
-  const streakRecord = weekStreak.record;
+  // Streak de semaines consécutives — source unique via calcStreak()
+  const streak = calcStreak();
+  const streakRecord = Math.max(streak, db.weeklyStreakRecord || 0);
 
   // Score de forme (0-100) — même calcul que Profil > Corps
   let formScore = null;

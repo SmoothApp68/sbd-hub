@@ -260,14 +260,23 @@ db.gamification.freezesUsedAt = db.gamification.freezesUsedAt ?? [];
 db.gamification.freezeActiveThisWeek = db.gamification.freezeActiveThisWeek ?? false;
 db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks ?? [];
 
-// One-time migration : l'ancien calcStreak consommait un freeze par appel
-// pour le MÊME trou (pas de suivi des semaines protégées). Les freezes ont
-// pu être gaspillés. Reset propre pour laisser calcStreak re-bridger avec
-// la nouvelle logique (freezeProtectedWeeks).
+// One-time migration V2 : l'ancien calcStreak consommait un freeze par appel
+// pour le MÊME trou (pas de suivi des semaines protégées). Reset propre.
 if (!db.gamification._migratedFreezeV2) {
   db.gamification.streakFreezes = 2;
   db.gamification.freezesUsedAt = [];
   db.gamification._migratedFreezeV2 = true;
+}
+
+// One-time migration V3 : les clés stockées avant étaient des dates "YYYY-MM-DD"
+// (Monday UTC), décalées d'un jour selon timezone/DST. Nouvelles clés ISO
+// "YYYY-Www" cohérentes en UTC. On vide freezeProtectedWeeks (stale) et on
+// restaure 2 freezes pour laisser calcStreak re-bridger sur les vrais trous.
+if (!db.gamification._migratedFreezeV3) {
+  db.gamification.streakFreezes = 2;
+  db.gamification.freezesUsedAt = [];
+  db.gamification.freezeProtectedWeeks = [];
+  db.gamification._migratedFreezeV3 = true;
 }
 db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
@@ -2305,36 +2314,58 @@ function calcTotalXP() {
   return xp;
 }
 
+// ── ISO 8601 week helpers (UTC-only, no DST/TZ drift) ──
+function getISOWeekKey(ts) {
+  var d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  // Shift to Thursday of the same ISO week (pure UTC), per ISO 8601.
+  // getUTCDay() returns 0=Sun..6=Sat; treat Sun as 7 to align Mon=1.
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  var year = d.getUTCFullYear();
+  var jan1 = new Date(Date.UTC(year, 0, 1));
+  var week = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+  return year + '-W' + String(week).padStart(2, '0');
+}
+
+function _mondayFromISOWeekKey(key) {
+  var m = /^(\d{4})-W(\d+)$/.exec(key || '');
+  if (!m) return null;
+  var year = parseInt(m[1], 10);
+  var week = parseInt(m[2], 10);
+  // Jan 4 is always in ISO week 1. Find that week's Monday (UTC).
+  var jan4 = new Date(Date.UTC(year, 0, 4));
+  var jan4Day = jan4.getUTCDay() || 7; // 1..7
+  var mondayW1 = new Date(jan4.getTime() - (jan4Day - 1) * 86400000);
+  return new Date(mondayW1.getTime() + (week - 1) * 7 * 86400000);
+}
+
+function _prevISOWeekKey(key) {
+  var monday = _mondayFromISOWeekKey(key);
+  if (!monday) return null;
+  return getISOWeekKey(new Date(monday.getTime() - 7 * 86400000));
+}
+
 function calcStreak() {
-  // Weekly calendar streak: ISO weeks (Mon-Sun) with ≥1 session
+  // Weekly calendar streak: ISO 8601 weeks (Mon-Sun, UTC) with ≥1 session
   if (!db.logs.length) return 0;
 
   db.gamification = db.gamification || {};
 
-  function getISOWeekMonday(ts) {
-    var d = new Date(ts);
-    var day = d.getDay(); // 0=dim, 1=lun
-    var diff = (day === 0 ? -6 : 1 - day);
-    var monday = new Date(d);
-    monday.setDate(d.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().slice(0, 10);
-  }
-
   var now = Date.now();
-  var currentWeek = getISOWeekMonday(now);
+  var currentWeek = getISOWeekKey(now);
 
-  // Collect all weeks that have at least 1 session
+  // Collect all weeks that have at least 1 session (ISO week keys, UTC-based)
   var weeksWithSession = new Set();
   var droppedLogs = 0;
   db.logs.forEach(function(log) {
     var ts = log.timestamp || new Date(log.date).getTime();
-    if (ts && !isNaN(ts)) weeksWithSession.add(getISOWeekMonday(ts));
+    if (!ts || isNaN(ts)) { droppedLogs++; return; }
+    var wk = getISOWeekKey(ts);
+    if (wk) weeksWithSession.add(wk);
     else droppedLogs++;
   });
 
   // Weeks already protected by a freeze consumed in previous calls.
-  // A bridged week stays bridged — pas de re-consommation à chaque render.
   var protectedSet = new Set(db.gamification.freezeProtectedWeeks || []);
   var freezeConsumedThisCall = false;
 
@@ -2352,13 +2383,10 @@ function calcStreak() {
   }
 
   // Count consecutive weeks backward from startWeek.
-  // Une semaine manquante est comptée comme présente si :
-  //  - elle est dans le set protégé (freeze déjà utilisé lors d'un appel précédent) → gratuit
-  //  - ou si on peut consommer 1 freeze frais dans cet appel (max 1 par appel, streak >= 4)
   function countFromWeek(startWeek) {
     var streak = 0;
     var checkWeek = startWeek;
-    while (true) {
+    while (checkWeek) {
       var hasSession = weeksWithSession.has(checkWeek);
       var alreadyProtected = protectedSet.has(checkWeek);
       if (hasSession || alreadyProtected) {
@@ -2366,7 +2394,6 @@ function calcStreak() {
       } else if (!freezeConsumedThisCall
                  && (db.gamification.streakFreezes || 0) > 0
                  && streak >= 4) {
-        // Consume one freeze to bridge this missing week, and REMEMBER this week
         streak++;
         freezeConsumedThisCall = true;
         db.gamification.streakFreezes = Math.max(0, (db.gamification.streakFreezes || 0) - 1);
@@ -2387,18 +2414,13 @@ function calcStreak() {
                         streak < 4 ? 'streak<4' : 'unknown'));
         break;
       }
-      var d = new Date(checkWeek);
-      d.setDate(d.getDate() - 7);
-      checkWeek = d.toISOString().slice(0, 10);
+      checkWeek = _prevISOWeekKey(checkWeek);
     }
     return streak;
   }
 
-  // Start from the LAST COMPLETED week (the one before currentWeek).
-  // The current week is unfinished — its absence must never break the streak.
-  var lastWeekDate = new Date(currentWeek);
-  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
-  var lastWeekKey = lastWeekDate.toISOString().slice(0, 10);
+  // Start from the LAST COMPLETED week (ignore the unfinished current week).
+  var lastWeekKey = _prevISOWeekKey(currentWeek);
   var streak = countFromWeek(lastWeekKey);
 
   // Add +1 if the current (unfinished) week already has a session,
@@ -2440,14 +2462,8 @@ function activateFreezeManual() {
     // Remember that the current week is now protected (idempotent across renders)
     db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks || [];
     (function() {
-      var d = new Date();
-      var day = d.getDay();
-      var diff = (day === 0 ? -6 : 1 - day);
-      var mon = new Date(d);
-      mon.setDate(d.getDate() + diff);
-      mon.setHours(0, 0, 0, 0);
-      var wk = mon.toISOString().slice(0, 10);
-      if (db.gamification.freezeProtectedWeeks.indexOf(wk) < 0) {
+      var wk = (typeof getISOWeekKey === 'function') ? getISOWeekKey(Date.now()) : null;
+      if (wk && db.gamification.freezeProtectedWeeks.indexOf(wk) < 0) {
         db.gamification.freezeProtectedWeeks.push(wk);
       }
     })();

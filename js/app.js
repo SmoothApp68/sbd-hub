@@ -2441,8 +2441,8 @@ function calcStreak() {
   }
 
   // Store in db for cloud sync (never overwrite a higher record)
-  if (!db.weeklyStreak || db.weeklyStreak !== streak) db.weeklyStreak = streak;
-  if (!db.weeklyStreakRecord || streak > db.weeklyStreakRecord) db.weeklyStreakRecord = streak;
+  db.weeklyStreak = streak;
+  if (streak > (db.weeklyStreakRecord || 0)) db.weeklyStreakRecord = streak;
 
   if (DEBUG) console.log('[calcStreak] FINAL streak=' + streak);
 
@@ -4666,7 +4666,7 @@ function renderWeekCard() {
 
   // Streak de semaines consécutives — source unique via calcStreak()
   const streak = calcStreak();
-  const streakRecord = Math.max(streak, db.weeklyStreakRecord || 0);
+  const streakRecord = db.weeklyStreakRecord || 0;
 
   // Score de forme (0-100) — même calcul que Profil > Corps
   let formScore = null;
@@ -4790,7 +4790,7 @@ function renderWeekCard() {
             '</div>' +
             (streakRecord > streak
               ? '<div style="font-size:9px;color:#555;">Record : ' + streakRecord + ' sem.</div>'
-              : '<div style="font-size:9px;color:#32d74b;">🏆 Record en cours !</div>') +
+              : '') +
           '</div>' +
         '</div>'
       : '') +

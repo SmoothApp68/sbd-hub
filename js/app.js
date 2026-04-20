@@ -2686,47 +2686,51 @@ function _kgToReachTier(liftType, nextTierMinPct, bw, gender) {
 }
 
 function calcAndStoreLiftRanks() {
-  db.gamification = db.gamification || {};
-  var bw = db.user && db.user.bw ? db.user.bw : 0;
-  var gender = db.user && db.user.gender ? db.user.gender : 'male';
-  var now = Date.now();
-  var map = { squat: null, bench: null, deadlift: null };
+  try {
+    db.gamification = db.gamification || {};
+    var bw = db.user && db.user.bw ? db.user.bw : 0;
+    var gender = db.user && db.user.gender ? db.user.gender : 'male';
+    var now = Date.now();
+    var map = { squat: null, bench: null, deadlift: null };
 
-  // Collect best e1RM per SBD type across all logs (uses existing getSBDType)
-  var bestByType = { squat: 0, bench: 0, deadlift: 0 };
-  (db.logs || []).forEach(function(log) {
-    (log.exercises || []).forEach(function(exo) {
-      if (!exo || !exo.name || !exo.maxRM || exo.maxRM <= 0) return;
-      var type = (typeof getSBDType === 'function') ? getSBDType(exo.name) : null;
-      if (!type) return;
-      if (exo.maxRM > bestByType[type]) bestByType[type] = exo.maxRM;
+    // Collect best e1RM per SBD type across all logs (uses existing getSBDType)
+    var bestByType = { squat: 0, bench: 0, deadlift: 0 };
+    (db.logs || []).forEach(function(log) {
+      (log.exercises || []).forEach(function(exo) {
+        if (!exo || !exo.name || !exo.maxRM || exo.maxRM <= 0) return;
+        var type = (typeof getSBDType === 'function') ? getSBDType(exo.name) : null;
+        if (!type) return;
+        if (exo.maxRM > bestByType[type]) bestByType[type] = exo.maxRM;
+      });
     });
-  });
 
-  // Fallback to db.bestPR (which already stores e1RM via maxRM) if logs path missed
-  if (db.bestPR) {
-    ['squat','bench','deadlift'].forEach(function(t) {
-      if ((db.bestPR[t] || 0) > bestByType[t]) bestByType[t] = db.bestPR[t];
+    // Fallback to db.bestPR (which already stores e1RM via maxRM) if logs path missed
+    if (db.bestPR) {
+      ['squat','bench','deadlift'].forEach(function(t) {
+        if ((db.bestPR[t] || 0) > bestByType[t]) bestByType[t] = db.bestPR[t];
+      });
+    }
+
+    ['squat','bench','deadlift'].forEach(function(liftType) {
+      var e1rm = bestByType[liftType];
+      if (!e1rm || !bw) { map[liftType] = null; return; }
+      var pct = calcLiftPercentile(liftType, e1rm, bw, gender);
+      var tier = percentileToSBDTier(pct);
+      map[liftType] = {
+        tier: tier.name,
+        color: tier.color,
+        percentile: pct,
+        e1rm: e1rm,
+        updatedAt: now
+      };
     });
+
+    db.gamification.liftRanks = map;
+    if (typeof saveDB === 'function') saveDB();
+    if (typeof syncToCloud === 'function') syncToCloud(true);
+  } catch(e) {
+    console.error('calcAndStoreLiftRanks error:', e);
   }
-
-  ['squat','bench','deadlift'].forEach(function(liftType) {
-    var e1rm = bestByType[liftType];
-    if (!e1rm || !bw) { map[liftType] = null; return; }
-    var pct = calcLiftPercentile(liftType, e1rm, bw, gender);
-    var tier = percentileToSBDTier(pct);
-    map[liftType] = {
-      tier: tier.name,
-      color: tier.color,
-      percentile: pct,
-      e1rm: e1rm,
-      updatedAt: now
-    };
-  });
-
-  db.gamification.liftRanks = map;
-  if (typeof saveDB === 'function') saveDB();
-  if (typeof syncToCloud === 'function') syncToCloud(true);
 }
 
 // ── Secret Quests ──
@@ -7440,6 +7444,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   });
 
   recalcBestPR();
+  if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();

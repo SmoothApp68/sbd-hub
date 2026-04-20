@@ -1685,6 +1685,15 @@ function showSeancesSub(id, btn) {
   if (id === 'seances-coach') renderCoachTab();
 }
 
+function showJeuxSub(id, btn) {
+  document.querySelectorAll('#tab-game .jeux-sub-section').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
+  var sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+  try { localStorage.setItem('activeJeuxSub', id); } catch(e) {}
+}
+
 function showProfilSub(id, btn) {
   activeProfilSub = id;
   document.querySelectorAll('.profil-sub-section').forEach(el => el.classList.remove('active'));
@@ -1740,7 +1749,16 @@ function showTab(tabId, opts) {
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderCoachAlgoAI(); }
-  if (tabId==='tab-game') { renderGamificationTab(); }
+  if (tabId==='tab-game') {
+    renderGamificationTab();
+    // Restore last active sub-tab (default: jeux-profil-joueur)
+    var savedJeuxSub = null;
+    try { savedJeuxSub = localStorage.getItem('activeJeuxSub'); } catch(e) {}
+    var validSubs = ['jeux-profil-joueur','jeux-rangs','jeux-badges'];
+    if (validSubs.indexOf(savedJeuxSub) < 0) savedJeuxSub = 'jeux-profil-joueur';
+    var targetBtn = document.querySelector('#tab-game > .stats-sub-nav .stats-sub-pill[onclick*="'+savedJeuxSub+'"]');
+    if (typeof showJeuxSub === 'function') showJeuxSub(savedJeuxSub, targetBtn);
+  }
   if (tabId==='tab-profil') {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
     else renderCorpsTab();

@@ -64,6 +64,8 @@
     .seances-sub-section.active { display: block; }
     .profil-sub-section { display: none; }
     .profil-sub-section.active { display: block; }
+    .jeux-sub-section { display: none; }
+    .jeux-sub-section.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-30px); } }
@@ -2396,7 +2398,6 @@
     <div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showProfilSub('tab-corps',this)">⚖️ Corps</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-stats',this)">📊 Stats</button>
-      <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-badges',this)">🏆 Badges</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-settings',this)">⚙️ Réglages</button>
     </div>
     <div id="tab-corps" class="profil-sub-section active">
@@ -2788,17 +2789,31 @@
   </div><!-- /tab-profil -->
 
   <div id="tab-game" class="content-section">
-    <div id="gamLevelCard"></div>
-    <div id="gamXPSources"></div>
-    <div id="gamChallenges"></div>
-    <div id="gamMonthlyChallenges"></div>
-    <div id="gamSBDRanks"></div>
-    <div id="gamRecentBadges"></div>
-    <div id="gamNextBadges"></div>
-    <div id="gamStrengthContent"></div>
-    <div id="gamHeatmap"></div>
-    <div id="gamBadgesOverview"></div>
-    <div id="gamBadgesSections"></div>
+    <div class="stats-sub-nav" style="margin-bottom:14px;">
+      <button class="stats-sub-pill active" onclick="showJeuxSub('jeux-profil-joueur',this)">👤 Profil joueur</button>
+      <button class="stats-sub-pill" onclick="showJeuxSub('jeux-rangs',this)">⚔️ Rangs</button>
+      <button class="stats-sub-pill" onclick="showJeuxSub('jeux-badges',this)">🏆 Badges</button>
+    </div>
+
+    <div id="jeux-profil-joueur" class="jeux-sub-section active">
+      <div id="gamLevelCard"></div>
+      <div id="gamXPSources"></div>
+      <div id="gamChallenges"></div>
+      <div id="gamMonthlyChallenges"></div>
+      <div id="gamHeatmap"></div>
+    </div>
+
+    <div id="jeux-rangs" class="jeux-sub-section">
+      <div id="gamSBDRanks"></div>
+      <div id="gamStrengthContent"></div>
+    </div>
+
+    <div id="jeux-badges" class="jeux-sub-section">
+      <div id="gamRecentBadges"></div>
+      <div id="gamNextBadges"></div>
+      <div id="gamBadgesOverview"></div>
+      <div id="gamBadgesSections"></div>
+    </div>
   </div>
 
 

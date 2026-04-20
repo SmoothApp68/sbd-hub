@@ -2315,15 +2315,30 @@ function calcStreak() {
 
   // Collect all weeks that have at least 1 session
   var weeksWithSession = new Set();
+  var droppedLogs = 0;
   db.logs.forEach(function(log) {
     var ts = log.timestamp || new Date(log.date).getTime();
-    if (ts) weeksWithSession.add(getISOWeekMonday(ts));
+    if (ts && !isNaN(ts)) weeksWithSession.add(getISOWeekMonday(ts));
+    else droppedLogs++;
   });
 
   // Freeze already consumed this calendar week? Prevent double-consumption across repeated calls.
   var usedAt = db.gamification.freezesUsedAt || [];
   var freezeUsedThisWeek = usedAt.some(function(ts) { return getISOWeekMonday(ts) === currentWeek; });
   var freezeConsumedThisCall = false;
+
+  // DEBUG — enable via window.DEBUG_STREAK = true in console
+  var DEBUG = (typeof window !== 'undefined' && window.DEBUG_STREAK === true);
+  if (DEBUG) {
+    console.log('[calcStreak] logs=' + db.logs.length + ' dropped=' + droppedLogs +
+      ' weeksInSet=' + weeksWithSession.size + ' currentWeek=' + currentWeek +
+      ' freezes=' + (db.gamification.streakFreezes || 0) +
+      ' freezeUsedThisWeek=' + freezeUsedThisWeek +
+      ' freezeActiveThisWeek=' + (db.gamification.freezeActiveThisWeek === true));
+    var sortedWeeks = Array.from(weeksWithSession).sort().reverse();
+    console.log('[calcStreak] first 5 weeks:', sortedWeeks.slice(0, 5));
+    console.log('[calcStreak] last 5 weeks:', sortedWeeks.slice(-5));
+  }
 
   // Count consecutive weeks backward from startWeek; optionally consume ONE freeze
   // to bridge a single missing week (requires streak >= 4 before the gap).
@@ -2346,7 +2361,13 @@ function calcStreak() {
         db.gamification.freezeActiveThisWeek = false;
         if (typeof syncToCloud === 'function') syncToCloud();
         if (typeof showToast === 'function') showToast('❄️ Freeze utilisé — streak protégé');
+        if (DEBUG) console.log('[calcStreak] freeze consumed at week=' + checkWeek + ' streak=' + streak);
       } else {
+        if (DEBUG) console.log('[calcStreak] BREAK at week=' + checkWeek + ' streak=' + streak +
+          ' reason=' + (freezeConsumedThisCall ? 'freeze-already-consumed' :
+                        freezeUsedThisWeek ? 'freeze-used-this-calendar-week' :
+                        (db.gamification.streakFreezes || 0) === 0 ? 'no-freezes-left' :
+                        streak < 4 ? 'streak<4' : 'unknown'));
         break;
       }
       var d = new Date(checkWeek);
@@ -2372,6 +2393,8 @@ function calcStreak() {
   // Store in db for cloud sync (never overwrite a higher record)
   if (!db.weeklyStreak || db.weeklyStreak !== streak) db.weeklyStreak = streak;
   if (!db.weeklyStreakRecord || streak > db.weeklyStreakRecord) db.weeklyStreakRecord = streak;
+
+  if (DEBUG) console.log('[calcStreak] FINAL streak=' + streak);
 
   return streak;
 }

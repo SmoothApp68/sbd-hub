@@ -2884,6 +2884,195 @@ function calcAndStoreLiftRanks() {
   }
 }
 
+// ── Muscle Tiers (anatomy figure) ──
+const MUSCLE_TIERS = [
+  { name: 'Atrophié',   color: 'rgba(85,85,102,0.6)',    min: 0  },
+  { name: 'Développé',  color: 'rgba(122,140,110,0.7)',  min: 17 },
+  { name: 'Sculpté',    color: 'rgba(200,162,76,0.75)',  min: 34 },
+  { name: 'Puissant',   color: 'rgba(120,216,208,0.75)', min: 51 },
+  { name: 'Massif',     color: 'rgba(110,180,255,0.75)', min: 68 },
+  { name: 'Titanesque', color: 'rgba(191,90,242,0.8)',   min: 85 }
+];
+
+const MUSCLE_NAMES_FR = {
+  chest_upper: 'Pectoraux hauts',
+  chest_lower: 'Pectoraux bas',
+  lats: 'Grands dorsaux',
+  rhomboids: 'Rhomboïdes',
+  erectors: 'Érecteurs spinaux',
+  quads: 'Quadriceps',
+  hamstrings: 'Ischio-jambiers',
+  glutes_major: 'Grand fessier',
+  glutes_med: 'Moyen fessier',
+  adductors: 'Adducteurs',
+  shoulders_front: 'Deltoïdes antérieurs',
+  shoulders_side: 'Deltoïdes latéraux',
+  shoulders_rear: 'Deltoïdes postérieurs',
+  traps: 'Trapèzes',
+  triceps: 'Triceps',
+  biceps: 'Biceps',
+  forearms: 'Avant-bras',
+  abs: 'Abdominaux',
+  obliques: 'Obliques',
+  calves_gastro: 'Mollets',
+  calves_soleus: 'Soléaire',
+  hip_flexors: 'Fléchisseurs de hanche',
+  serratus: 'Dentelé antérieur'
+};
+
+function _muscleTierFor(muscleKey) {
+  db.gamification = db.gamification || {};
+  var ranks = db.gamification.muscleRanks || null;
+  var entry = ranks ? ranks[muscleKey] : null;
+  if (!entry || typeof entry !== 'object') {
+    return { name: MUSCLE_TIERS[0].name, color: MUSCLE_TIERS[0].color, score: 0, index: 0 };
+  }
+  var score = (typeof entry.score === 'number') ? entry.score : 0;
+  var tier = MUSCLE_TIERS[0], idx = 0;
+  for (var i = 0; i < MUSCLE_TIERS.length; i++) {
+    if (score >= MUSCLE_TIERS[i].min) { tier = MUSCLE_TIERS[i]; idx = i; }
+  }
+  return { name: entry.tier || tier.name, color: tier.color, score: score, index: idx };
+}
+
+// Apply colors to every muscle zone in both SVGs based on muscleRanks.
+function renderMuscleColors() {
+  document.querySelectorAll('.muscle-zone').forEach(function(el) {
+    var key = el.getAttribute('data-muscle');
+    if (!key) return;
+    var t = _muscleTierFor(key);
+    // Keep 'none' fill for stroke-only zones (serratus)
+    var currentFill = el.getAttribute('fill');
+    if (currentFill === 'none') {
+      el.style.stroke = t.color;
+      el.style.strokeWidth = '2';
+    } else {
+      el.style.fill = t.color;
+    }
+  });
+}
+
+function svgToggleView(view) {
+  var front = document.getElementById('anatomyFront');
+  var back = document.getElementById('anatomyBack');
+  var btnF = document.getElementById('anatBtnFront');
+  var btnB = document.getElementById('anatBtnBack');
+  var showBack = (view === 'back');
+  if (front) front.style.display = showBack ? 'none' : 'block';
+  if (back) back.style.display = showBack ? 'block' : 'none';
+  if (btnF) btnF.classList.toggle('active', !showBack);
+  if (btnB) btnB.classList.toggle('active', showBack);
+  // Close any open popover on view switch
+  _closeMusclePop();
+}
+if (typeof window !== 'undefined') window.svgToggleView = svgToggleView;
+
+function _closeMusclePop() {
+  var pop = document.getElementById('musclePop');
+  if (pop) pop.style.display = 'none';
+  document.querySelectorAll('.muscle-zone.selected').forEach(function(el) { el.classList.remove('selected'); });
+  document.querySelectorAll('.muscle-row.selected').forEach(function(el) { el.classList.remove('selected'); });
+}
+
+function selectMuscle(muscleKey) {
+  var t = _muscleTierFor(muscleKey);
+  var name = MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+  var score = t.score;
+
+  // Highlight all zones with same data-muscle (paired L/R)
+  document.querySelectorAll('.muscle-zone.selected').forEach(function(el) { el.classList.remove('selected'); });
+  var zones = document.querySelectorAll('.muscle-zone[data-muscle="' + muscleKey + '"]');
+  zones.forEach(function(el) { el.classList.add('selected'); });
+
+  // Next tier info
+  var nextTier = (t.index < MUSCLE_TIERS.length - 1) ? MUSCLE_TIERS[t.index + 1] : null;
+  var hint = '';
+  if (nextTier) {
+    var pts = Math.max(1, nextTier.min - score);
+    hint = 'Il te faut +' + pts + ' pts pour atteindre <strong style="color:' + nextTier.color + ';">' + nextTier.name + '</strong>';
+  } else {
+    hint = '🏆 Tier maximum atteint.';
+  }
+  var curMin = MUSCLE_TIERS[t.index] ? MUSCLE_TIERS[t.index].min : 0;
+  var nextMin = nextTier ? nextTier.min : 100;
+  var span = Math.max(1, nextMin - curMin);
+  var pctInTier = Math.max(0, Math.min(100, Math.round((score - curMin) / span * 100)));
+
+  // Populate popover
+  var pop = document.getElementById('musclePop');
+  if (pop) {
+    document.getElementById('musclePopName').textContent = name;
+    document.getElementById('musclePopTier').innerHTML = '<span style="color:' + t.color + ';">' + t.name + '</span> · <span style="color:var(--sub);">' + score + '/100</span>';
+    document.getElementById('musclePopBar').innerHTML =
+      '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
+        '<div style="height:5px;width:' + pctInTier + '%;background:' + t.color + ';border-radius:3px;transition:width 0.3s;"></div>' +
+      '</div>';
+    document.getElementById('musclePopHint').innerHTML = hint;
+
+    // Position popover near the first zone (viewport coords)
+    var anchor = zones[0];
+    if (anchor && anchor.getBoundingClientRect) {
+      var r = anchor.getBoundingClientRect();
+      var popW = 240, popH = 120;
+      var left = r.left + r.width / 2 - popW / 2;
+      var top = r.bottom + 8;
+      if (left + popW > window.innerWidth - 10) left = window.innerWidth - popW - 10;
+      if (left < 10) left = 10;
+      if (top + popH > window.innerHeight - 10) top = r.top - popH - 8;
+      pop.style.left = Math.max(10, left) + 'px';
+      pop.style.top = Math.max(10, top) + 'px';
+    }
+    pop.style.display = 'block';
+  }
+
+  // Highlight + scroll list row
+  document.querySelectorAll('.muscle-row.selected').forEach(function(el) { el.classList.remove('selected'); });
+  var row = document.getElementById('muscle-row-' + muscleKey);
+  if (row) {
+    row.classList.add('selected');
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+if (typeof window !== 'undefined') window.selectMuscle = selectMuscle;
+
+// Close popover on outside tap
+(function() {
+  function _onOutside(e) {
+    if (!e.target || !e.target.closest) return;
+    if (e.target.closest('#musclePop')) return;
+    if (e.target.closest('.muscle-zone')) return;
+    if (e.target.closest('.muscle-row')) return;
+    _closeMusclePop();
+  }
+  document.addEventListener('click', _onOutside);
+})();
+
+function renderMuscleList() {
+  var host = document.getElementById('muscleList');
+  if (!host) return;
+  var keys = Object.keys(MUSCLE_NAMES_FR);
+  var rows = keys.map(function(k) {
+    var t = _muscleTierFor(k);
+    return { key: k, name: MUSCLE_NAMES_FR[k], tier: t.name, color: t.color, score: t.score, index: t.index };
+  });
+  rows.sort(function(a, b) {
+    if (b.index !== a.index) return b.index - a.index;
+    if (b.score !== a.score) return b.score - a.score;
+    return a.name.localeCompare(b.name);
+  });
+  var html = rows.map(function(r) {
+    var barPct = Math.max(0, Math.min(100, r.score));
+    return '<div class="muscle-row" id="muscle-row-' + r.key + '" onclick="selectMuscle(\'' + r.key + '\')">' +
+      '<span class="muscle-row-dot" style="background:' + r.color + ';"></span>' +
+      '<span class="muscle-row-name">' + r.name + '</span>' +
+      '<span class="muscle-row-tier" style="color:' + r.color + ';">' + r.tier + '</span>' +
+      '<span class="muscle-row-bar-bg"><span class="muscle-row-bar" style="width:' + barPct + '%;background:' + r.color + ';"></span></span>' +
+      '<span class="muscle-row-score">' + r.score + '</span>' +
+    '</div>';
+  }).join('');
+  host.innerHTML = html;
+}
+
 // ── Secret Quests ──
 var SECRET_QUESTS = [
   { id:'sq_triple', condition:function(){ var wl=_getLogsThisWeek(); var pb=_getPrevBest(); var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.maxRM>0&&e.maxRM>(pb[e.name]||0))prs++;}); }); return prs>=3; }, name:'Triplé d\'or', msg:'🔥 3 records en une semaine — tu es en feu !', xp:300 },
@@ -3380,6 +3569,12 @@ function renderGamificationTab() {
   var currLevel = getXPLevel(totalXP);
   var nextLevel = getNextXPLevel(totalXP);
   var streak = calcStreak();
+
+  // ── Muscle anatomy figure (Rangs sub-tab) ──
+  try {
+    if (typeof renderMuscleColors === 'function') renderMuscleColors();
+    if (typeof renderMuscleList === 'function') renderMuscleList();
+  } catch(e) { console.error('muscle anatomy render:', e); }
 
   // ── Check titles & secret quests ──
   checkTitles();

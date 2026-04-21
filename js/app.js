@@ -10279,7 +10279,9 @@ function renderCoachTodayHTML() {
   var fatigueScore = typeof computeFatigueScore === 'function' ? computeFatigueScore(db.logs) : 50;
   var formScore = Math.max(0, Math.min(100, 100 - fatigueScore));
 
-  var lastSession = db.logs && db.logs.length ? db.logs[db.logs.length-1] : null;
+  var lastSession = (db.logs && db.logs.length)
+    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0]
+    : null;
   var hoursAgo = lastSession ? Math.round((Date.now()-lastSession.timestamp)/3600000) : 72;
   var recovScore = Math.min(100, Math.round((hoursAgo/48)*100));
 
@@ -10876,14 +10878,15 @@ function estimateSessionDuration(exercises) {
     // Transition + installation (rack vs machine)
     totalSec += isHeavy ? 120 : 60;
 
-    var allSets = exo.allSets || [];
+    // Coach weeklyPlan stocke les séries dans exo.sets (pas allSets) — fallback pour couvrir les deux formats.
+    var allSets = exo.allSets || exo.sets || [];
     allSets.forEach(function(set) {
       // TUT
       var repSpeed = (set.reps || 0) <= 5 ? 4.5 : 3.5;
       totalSec += (set.reps || 0) * repSpeed;
 
       // Repos réel + manipulation des poids
-      var rest = set.restSeconds || (isHeavy ? 180 : 90);
+      var rest = set.restSeconds || exo.restSeconds || (isHeavy ? 180 : 90);
       var logistics = (isHeavy || (set.weight || 0) > 100) ? 45 : 15;
       totalSec += rest + logistics;
     });
@@ -12799,8 +12802,10 @@ function buildGoIdleHtml() {
   var isRestDay = !todayLabel || /repos/i.test(todayLabel);
   var hasDraft = !!localStorage.getItem('SBD_ACTIVE_WORKOUT');
 
-  // Dernier debrief (séance la plus récente)
-  var lastSession = db.logs && db.logs.length ? db.logs[db.logs.length-1] : null;
+  // Dernier debrief (séance la plus récente — tri par timestamp, pas par ordre d'insertion)
+  var lastSession = (db.logs && db.logs.length)
+    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0]
+    : null;
   var hasDebrief = lastSession && (Date.now() - lastSession.timestamp < 86400000*2);
 
   // Toggle Récap / Débrief

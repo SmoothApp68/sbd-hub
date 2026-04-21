@@ -3529,7 +3529,11 @@ function fv2RenderCard(item, profile, uid) {
     '</div>';
 }
 
+var _feedAmisInflight = false;
 async function renderFeedAmis() {
+  if (_feedAmisInflight) return;
+  _feedAmisInflight = true;
+  try {
   var uid = await getMyUserIdAsync();
   if (!uid) return;
   var container = document.getElementById('feedAmisContent');
@@ -3595,6 +3599,9 @@ async function renderFeedAmis() {
     console.error('renderFeedAmis error:', e);
     container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div><div class="feed-empty-sub">Impossible de charger le feed.</div></div>';
   }
+  } finally {
+    _feedAmisInflight = false;
+  }
 }
 
 function loadMoreFeedAmis() { _feedAmisPage++; renderFeedAmis(); }
@@ -3645,7 +3652,11 @@ async function toggleFv2Like(activityId, btnEl) {
 // ============================================================
 // FEED V2 — COMMUNAUTÉ
 // ============================================================
+var _feedCommunauteInflight = false;
 async function renderFeedCommunaute() {
+  if (_feedCommunauteInflight) return;
+  _feedCommunauteInflight = true;
+  try {
   var uid = await getMyUserIdAsync();
   if (!uid) return;
   var container = document.getElementById('feedCommunauteContent');
@@ -3699,6 +3710,9 @@ async function renderFeedCommunaute() {
     console.error('renderFeedCommunaute error:', e);
     container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
   }
+  } finally {
+    _feedCommunauteInflight = false;
+  }
 }
 
 function loadMoreFeedCommunaute() { _feedCommunautePage++; renderFeedCommunaute(); }
@@ -3706,7 +3720,11 @@ function loadMoreFeedCommunaute() { _feedCommunautePage++; renderFeedCommunaute(
 // ============================================================
 // FEED V2 — CHALLENGES
 // ============================================================
+var _feedChallengesV2Inflight = false;
 async function renderFeedChallengesV2() {
+  if (_feedChallengesV2Inflight) return;
+  _feedChallengesV2Inflight = true;
+  try {
   var container = document.getElementById('feedChallengesContent');
   if (!container) return;
   container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);">Chargement...</div>';
@@ -3843,6 +3861,9 @@ async function renderFeedChallengesV2() {
     console.error('renderFeedChallengesV2 error:', e);
     container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
   }
+  } finally {
+    _feedChallengesV2Inflight = false;
+  }
 }
 
 // ============================================================
@@ -3851,7 +3872,11 @@ async function renderFeedChallengesV2() {
 function setLb2Period(p) { _lb2Period = p; renderFeedClassementV2(); }
 function setLb2Category(c) { _lb2Category = c; renderFeedClassementV2(); }
 
+var _feedClassementV2Inflight = false;
 async function renderFeedClassementV2() {
+  if (_feedClassementV2Inflight) return;
+  _feedClassementV2Inflight = true;
+  try {
   var container = document.getElementById('feedClassementContent');
   if (!container) return;
 
@@ -3971,5 +3996,8 @@ async function renderFeedClassementV2() {
     console.error('renderFeedClassementV2 error:', e);
     var b = document.getElementById('lb2Body');
     if (b) b.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
+  }
+  } finally {
+    _feedClassementV2Inflight = false;
   }
 }

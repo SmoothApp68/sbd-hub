@@ -10878,18 +10878,32 @@ function estimateSessionDuration(exercises) {
     // Transition + installation (rack vs machine)
     totalSec += isHeavy ? 120 : 60;
 
-    // Coach weeklyPlan stocke les séries dans exo.sets (pas allSets) — fallback pour couvrir les deux formats.
-    var allSets = exo.allSets || exo.sets || [];
-    allSets.forEach(function(set) {
-      // TUT
-      var repSpeed = (set.reps || 0) <= 5 ? 4.5 : 3.5;
-      totalSec += (set.reps || 0) * repSpeed;
+    // Coach weeklyPlan peut stocker exo.sets comme entier (ex: 4) — détecter et traiter séparément.
+    var setsData = exo.allSets;
+    if (!setsData || !setsData.length) {
+      var setsCount = typeof exo.sets === 'number'
+        ? exo.sets
+        : (Array.isArray(exo.sets) ? exo.sets.length : 3);
+      var repsVal = exo.reps
+        ? (parseInt(String(exo.reps).split('-')[1] || exo.reps) || 10)
+        : 10;
+      var restVal = exo.restSeconds || (isHeavy ? 180 : 90);
+      for (var i = 0; i < setsCount; i++) {
+        totalSec += repsVal * (repsVal <= 5 ? 4.5 : 3.5);
+        totalSec += restVal + (isHeavy ? 45 : 15);
+      }
+    } else {
+      setsData.forEach(function(set) {
+        // TUT
+        var repSpeed = (set.reps || 0) <= 5 ? 4.5 : 3.5;
+        totalSec += (set.reps || 0) * repSpeed;
 
-      // Repos réel + manipulation des poids
-      var rest = set.restSeconds || exo.restSeconds || (isHeavy ? 180 : 90);
-      var logistics = (isHeavy || (set.weight || 0) > 100) ? 45 : 15;
-      totalSec += rest + logistics;
-    });
+        // Repos réel + manipulation des poids
+        var rest = set.restSeconds || exo.restSeconds || (isHeavy ? 180 : 90);
+        var logistics = (isHeavy || (set.weight || 0) > 100) ? 45 : 15;
+        totalSec += rest + logistics;
+      });
+    }
   });
 
   // Facteur de fatigue : 10% plus lent en fin de séance
@@ -12802,10 +12816,12 @@ function buildGoIdleHtml() {
   var isRestDay = !todayLabel || /repos/i.test(todayLabel);
   var hasDraft = !!localStorage.getItem('SBD_ACTIVE_WORKOUT');
 
-  // Dernier debrief (séance la plus récente — tri par timestamp, pas par ordre d'insertion)
-  var lastSession = (db.logs && db.logs.length)
-    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0]
-    : null;
+  // Débrief : afficher la séance PRÉCÉDENTE (pas la séance qui vient d'être terminée).
+  // Après goFinishWorkout(), previousLogs[0] = séance qui vient de finir → on prend [1].
+  var previousLogs = (db.logs && db.logs.length)
+    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })
+    : [];
+  var lastSession = previousLogs[1] || previousLogs[0] || null;
   var hasDebrief = lastSession && (Date.now() - lastSession.timestamp < 86400000*2);
 
   // Toggle Récap / Débrief

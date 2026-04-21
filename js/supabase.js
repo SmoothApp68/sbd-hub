@@ -592,44 +592,35 @@ function showFeedSub(subId, btn) {
   if (typeof _updateLastTab === 'function') _updateLastTab('social', subId);
 }
 
-// Guard contre les appels concurrents (showTab + refreshUI post-sync peuvent
-// déclencher initSocialTab en parallèle, provoquant des re-rendus en boucle).
-var _initSocialInflight = false;
 async function initSocialTab() {
-  if (_initSocialInflight) return;
-  _initSocialInflight = true;
-  try {
-    if (!supaClient || !cloudSyncEnabled) {
-      var amis = document.getElementById('feedAmisContent');
-      if (amis) amis.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
-      return;
-    }
-    var uid = await getMyUserIdAsync();
-    if (!uid) return;
-
-    // Check if social onboarding needed
-    if (!db.social.onboardingCompleted) {
-      showSocialOnboarding();
-      return;
-    }
-
-    // Ensure profile + friend_code exist in Supabase (creates/updates if needed)
-    await ensureProfile();
-
-    // Display friend code
-    var fcEl = document.getElementById('myFriendCode');
-    if (fcEl) fcEl.textContent = db.friendCode || '---';
-
-    // Load the active feed sub-tab
-    var activeFeedSub = document.querySelector('.feed-sub-content.active');
-    var feedSubId = activeFeedSub ? activeFeedSub.id : 'feed-amis';
-    showFeedSub(feedSubId);
-
-    // Update notification badge
-    updateSocialBadge();
-  } finally {
-    _initSocialInflight = false;
+  if (!supaClient || !cloudSyncEnabled) {
+    var amis = document.getElementById('feedAmisContent');
+    if (amis) amis.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div></div>';
+    return;
   }
+  var uid = await getMyUserIdAsync();
+  if (!uid) return;
+
+  // Check if social onboarding needed
+  if (!db.social.onboardingCompleted) {
+    showSocialOnboarding();
+    return;
+  }
+
+  // Ensure profile + friend_code exist in Supabase (creates/updates if needed)
+  await ensureProfile();
+
+  // Display friend code
+  var fcEl = document.getElementById('myFriendCode');
+  if (fcEl) fcEl.textContent = db.friendCode || '---';
+
+  // Load the active feed sub-tab
+  var activeFeedSub = document.querySelector('.feed-sub-content.active');
+  var feedSubId = activeFeedSub ? activeFeedSub.id : 'feed-amis';
+  showFeedSub(feedSubId);
+
+  // Update notification badge
+  updateSocialBadge();
 }
 
 // ============================================================

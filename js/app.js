@@ -11987,7 +11987,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   if (!tpl) return null;
   var bodyPart = tpl.bodyPart;
   var injuries = params.injuries || [];
-  var duration = params.duration || 90;
+  var duration = (db.user && db.user.trainingDuration) || params.duration || 90;
   var goals = params.goals || [];
   var isCutting = goals.includes('seche');
 
@@ -12178,7 +12178,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   if (!tpl) return null;
   var injuries = params.injuries || [];
   var goals = params.goals || [];
-  var duration = params.duration || 60;
+  var duration = (db.user && db.user.trainingDuration) || params.duration || 60;
   var mat = params.mat || 'salle';
   var gender = db.user.gender || 'male';
   var isCutting = goals.includes('seche');
@@ -12213,7 +12213,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   exoNames = exoNames.slice(0, maxExos);
 
   // Correction 4: Volume cap selon durée
-  var sessionDuration = params.duration || 60;
+  var sessionDuration = duration; // déjà résolu avec trainingDuration ci-dessus
   var maxTotalSets = sessionDuration <= 45 ? 18 : sessionDuration <= 60 ? 24 : sessionDuration <= 90 ? 32 : 40;
   var totalSetsUsed = 0;
 
@@ -12542,8 +12542,10 @@ function renderWeeklyPlanUI() {
   } else {
     // Durée estimée du jour
     const dayDuration = estimateSessionDuration(sel.exercises || []);
+    var _targetDur = (db.user && db.user.trainingDuration) || (db.user && db.user.programParams && db.user.programParams.duration) || 60;
+    var _durWarn = dayDuration > _targetDur + 15 ? ` <span style="color:var(--orange);">⚠️ objectif : ${_targetDur}min</span>` : '';
     const durationHtml = dayDuration > 0
-      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration}min estimé</div>`
+      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration}min estimé${_durWarn}</div>`
       : '';
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
@@ -12816,12 +12818,11 @@ function buildGoIdleHtml() {
   var isRestDay = !todayLabel || /repos/i.test(todayLabel);
   var hasDraft = !!localStorage.getItem('SBD_ACTIVE_WORKOUT');
 
-  // Débrief : afficher la séance PRÉCÉDENTE (pas la séance qui vient d'être terminée).
-  // Après goFinishWorkout(), previousLogs[0] = séance qui vient de finir → on prend [1].
+  // Dernière séance (tri timestamp DESC — [0] = la plus récente)
   var previousLogs = (db.logs && db.logs.length)
     ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })
     : [];
-  var lastSession = previousLogs[1] || previousLogs[0] || null;
+  var lastSession = previousLogs[0] || null;
   var hasDebrief = lastSession && (Date.now() - lastSession.timestamp < 86400000*2);
 
   // Toggle Récap / Débrief

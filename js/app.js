@@ -3072,22 +3072,30 @@ var _bodySvgCache = {};
 // pointer-events:none au-dessus du SVG principal.
 var BODY_CUSTOM_ZONES = {
   front: [
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="18" cy="62" rx="5" ry="8"' },
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="82" cy="62" rx="5" ry="8"' },
-    { muscle: 'chest_upper',    shape: 'path',    attrs: 'd="M33,55 Q50,52 67,55 L67,65 Q50,67 33,65 Z"' },
-    { muscle: 'chest_lower',    shape: 'path',    attrs: 'd="M33,65 Q50,67 67,65 L67,75 Q50,77 33,75 Z"' },
-    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="37" cy="168" rx="4" ry="5"' },
-    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="63" cy="168" rx="4" ry="5"' },
-    { muscle: 'serratus',       shape: 'path',    attrs: 'd="M30,70 L28,75 L31,78 L29,82"', strokeOnly: true },
-    { muscle: 'serratus',       shape: 'path',    attrs: 'd="M70,70 L72,75 L69,78 L71,82"', strokeOnly: true },
-    { muscle: 'hip_flexors',    shape: 'path',    attrs: 'd="M42,100 Q50,98 58,100 L57,108 Q50,110 43,108 Z"' }
+    // shoulders_side : extérieur des front-deltoids (xmin=20, xmax=79.6, ymid≈45)
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="15" cy="45" rx="4" ry="7"' },
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="85" cy="45" rx="4" ry="7"' },
+    // chest_upper/lower : remplacent le polygon chest masqué (bbox x 30-71, y 42-58, milieu y=50)
+    { muscle: 'chest_upper', shape: 'path', attrs: 'd="M30,42 Q50,39 71,42 L70,50 Q50,52 30,50 Z"' },
+    { muscle: 'chest_lower', shape: 'path', attrs: 'd="M30,50 Q50,52 70,50 L71,58 Q50,60 30,58 Z"' },
+    // calves_soleus : tiers inférieur des calves (ymin=153, ymax=195 → tiers inf ≈ y=182)
+    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="28" cy="182" rx="3" ry="4"' },
+    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="72" cy="182" rx="3" ry="4"' },
+    // serratus : dents dentelées latérales (entre bord chest x≈30/71 et obliques, y 63-77)
+    { muscle: 'serratus', shape: 'path', attrs: 'd="M27,63 L25,68 L28,72 L26,77"', strokeOnly: true },
+    { muscle: 'serratus', shape: 'path', attrs: 'd="M73,63 L75,68 L72,72 L74,77"', strokeOnly: true },
+    // hip_flexors : entre abs (ymax≈108) et quadriceps (ymin≈95)
+    { muscle: 'hip_flexors', shape: 'path', attrs: 'd="M44,101 Q50,99 56,101 L56,108 Q50,110 44,108 Z"' }
   ],
   back: [
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="18" cy="62" rx="5" ry="8"' },
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="82" cy="62" rx="5" ry="8"' },
-    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="37" cy="168" rx="4" ry="5"' },
-    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="63" cy="168" rx="4" ry="5"' },
-    { muscle: 'neck',           shape: 'ellipse', attrs: 'cx="50" cy="42" rx="6" ry="5"' }
+    // shoulders_side : extérieur des back-deltoids (xmin=17.4, xmax=82.6, ymid≈45)
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="12" cy="45" rx="4" ry="7"' },
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="88" cy="45" rx="4" ry="7"' },
+    // calves_soleus : tiers inférieur calves arrière (ymin≈160, ymax≈200 → tiers inf ≈ y=187)
+    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="31" cy="187" rx="3" ry="4"' },
+    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="69" cy="187" rx="3" ry="4"' },
+    // neck : entre tête (ymax=20) et trapèzes (ymin=21.7) — vue arrière seulement (front a slug neck)
+    { muscle: 'neck', shape: 'ellipse', attrs: 'cx="50" cy="23" rx="6" ry="4"' }
   ]
 };
 
@@ -3161,9 +3169,11 @@ function renderBodyFigure(side) {
 
     // Masquer le polygone 'chest' original en vue avant : il est
     // remplacé par les zones custom chest_upper + chest_lower.
+    // pointer-events:none pour que les clics passent aux zones custom.
     if (side === 'front') {
       svg.querySelectorAll('.chest, [class*="chest"]').forEach(function(el) {
         el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
       });
     }
 

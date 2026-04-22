@@ -3510,20 +3510,54 @@ const EXERCISE_MUSCLE_MAP = [
 function findExoInDatabase(exoName) {
   if (!exoName) return null;
   if (typeof EXO_DATABASE === 'undefined' || !EXO_DATABASE) return null;
-  var n = exoName.toLowerCase().trim();
+
+  function normalize(s) {
+    return s
+      .toLowerCase()
+      .trim()
+      .replace(/[()]/g, ' ')
+      .replace(/[''´`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/s\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  var n = normalize(exoName);
   var keys = Object.keys(EXO_DATABASE);
-  // Exact match
+
   for (var i = 0; i < keys.length; i++) {
     var e = EXO_DATABASE[keys[i]];
-    if (e && e.name && e.name.toLowerCase().trim() === n) return e;
+    if (e && e.name && normalize(e.name) === n) return e;
   }
-  // Partial match
+
+  for (var i = 0; i < keys.length; i++) {
+    var e = EXO_DATABASE[keys[i]];
+    if (e && e.nameAlt && normalize(e.nameAlt) === n) return e;
+  }
+
   for (var i = 0; i < keys.length; i++) {
     var e = EXO_DATABASE[keys[i]];
     if (!e || !e.name) continue;
-    var d = e.name.toLowerCase().trim();
+    var d = normalize(e.name);
     if (n.indexOf(d) >= 0 || d.indexOf(n) >= 0) return e;
   }
+
+  var nWords = n.split(' ').filter(function(w){ return w.length >= 3; });
+  var bestMatch = null, bestScore = 0;
+  for (var i = 0; i < keys.length; i++) {
+    var e = EXO_DATABASE[keys[i]];
+    if (!e || !e.name) continue;
+    var dWords = normalize(e.name).split(' ').filter(function(w){ return w.length >= 3; });
+    var common = nWords.filter(function(w){ return dWords.indexOf(w) >= 0; });
+    if (common.length >= 2 && common.length > bestScore) {
+      bestScore = common.length;
+      bestMatch = e;
+    }
+  }
+  if (bestMatch) return bestMatch;
+
   return null;
 }
 

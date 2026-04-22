@@ -2978,29 +2978,30 @@ const MUSCLE_TIERS = [
 ];
 
 const MUSCLE_NAMES_FR = {
-  chest_upper: 'Pectoraux hauts',
-  chest_lower: 'Pectoraux bas',
-  lats: 'Grands dorsaux',
-  rhomboids: 'Rhomboïdes',
-  erectors: 'Érecteurs spinaux',
-  quads: 'Quadriceps',
-  hamstrings: 'Ischio-jambiers',
-  glutes_major: 'Grand fessier',
-  glutes_med: 'Moyen fessier',
-  adductors: 'Adducteurs',
+  neck:            'Cou',
+  chest_upper:     'Pectoraux hauts',
+  chest_lower:     'Pectoraux bas',
   shoulders_front: 'Deltoïdes antérieurs',
-  shoulders_side: 'Deltoïdes latéraux',
-  shoulders_rear: 'Deltoïdes postérieurs',
-  traps: 'Trapèzes',
-  triceps: 'Triceps',
-  biceps: 'Biceps',
-  forearms: 'Avant-bras',
-  abs: 'Abdominaux',
-  obliques: 'Obliques',
-  calves_gastro: 'Mollets',
-  calves_soleus: 'Soléaire',
-  hip_flexors: 'Fléchisseurs de hanche',
-  serratus: 'Dentelé antérieur'
+  shoulders_side:  'Deltoïdes latéraux',
+  shoulders_rear:  'Deltoïdes postérieurs',
+  biceps:          'Biceps',
+  triceps:         'Triceps',
+  forearms:        'Avant-bras',
+  abs:             'Abdominaux',
+  obliques:        'Obliques',
+  serratus:        'Dentelé antérieur',
+  hip_flexors:     'Fléchisseurs de hanche',
+  quadriceps:      'Quadriceps',
+  adductors:       'Adducteurs',
+  abductors:       'Abducteurs',
+  calves_gastro:   'Mollets',
+  calves_soleus:   'Soléaire',
+  trapezius:       'Trapèzes',
+  lats:            'Grands dorsaux',
+  rhomboids:       'Rhomboïdes',
+  erectors:        'Érecteurs du rachis',
+  glutes_major:    'Grand fessier',
+  hamstrings:      'Ischio-jambiers',
 };
 
 // ── Body Highlighter SVG figure ──
@@ -3113,16 +3114,55 @@ function renderBodyFigure(side) {
         el.style.cursor = 'pointer';
         el.style.transition = 'filter 0.15s';
         el.dataset.slug = slug;
-        el.addEventListener('mouseenter', function() {
-          this.style.filter = 'brightness(1.25)';
+      });
+    });
+
+    // Event handlers : popover tap/hover
+    svg.querySelectorAll('[data-slug]').forEach(function(el) {
+      var slug = el.dataset.slug;
+      var keys = BODY_MUSCLE_MAP[slug] || [slug];
+      var primaryKey = keys[0];
+
+      // Mobile : tap
+      el.addEventListener('click', function(e) {
+        showMusclePopover(primaryKey, e);
+        // Highlight
+        svg.querySelectorAll('[data-slug]').forEach(function(p) {
+          p.style.opacity = '0.35';
         });
-        el.addEventListener('mouseleave', function() {
-          this.style.filter = '';
-        });
-        el.addEventListener('click', function() {
-          var keys = muscleMap[this.dataset.slug] || [];
-          if (keys.length) selectMuscle(keys[0]);
-        });
+        el.style.opacity = '1';
+        el.style.filter = 'brightness(1.3)';
+        // Auto-hide après 3s
+        clearTimeout(window._musclePopTimeout);
+        window._musclePopTimeout = setTimeout(function() {
+          hideMusclePopover();
+          svg.querySelectorAll('[data-slug]').forEach(function(p) {
+            p.style.opacity = '';
+            p.style.filter = '';
+          });
+        }, 3000);
+        e.stopPropagation();
+      });
+
+      // Desktop : hover
+      el.addEventListener('mouseenter', function(e) {
+        showMusclePopover(primaryKey, e);
+      });
+      el.addEventListener('mousemove', function(e) {
+        showMusclePopover(primaryKey, e);
+      });
+      el.addEventListener('mouseleave', function() {
+        hideMusclePopover();
+      });
+    });
+
+    // Clic en dehors → fermer
+    document.addEventListener('click', function() {
+      hideMusclePopover();
+      var svg = document.querySelector('#body-figure-container svg');
+      if (svg) svg.querySelectorAll('[data-slug]').forEach(function(p) {
+        p.style.opacity = '';
+        p.style.filter = '';
       });
     });
 
@@ -3313,6 +3353,50 @@ if (typeof window !== 'undefined') window.selectMuscle = selectMuscle;
   }
   document.addEventListener('click', _onOutside);
 })();
+
+function showMusclePopover(muscleKey, event) {
+  var pop = document.getElementById('muscle-popover');
+  if (!pop) return;
+
+  var ranks = db.gamification && db.gamification.muscleRanks;
+  var rank = ranks && ranks[muscleKey];
+  var name = MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+
+  document.getElementById('muscle-pop-name').textContent = name;
+
+  var tierEl = document.getElementById('muscle-pop-tier');
+  if (rank && rank.tier) {
+    tierEl.textContent = '● ' + rank.tier;
+    tierEl.style.color = rank.color || '#BF5AF2';
+  } else {
+    tierEl.textContent = '● Atrophié';
+    tierEl.style.color = '#555566';
+  }
+
+  var statsEl = document.getElementById('muscle-pop-stats');
+  if (rank) {
+    var tonnage = rank.tonnage ? (rank.tonnage >= 1000
+      ? Math.round(rank.tonnage/100)/10 + ' t'
+      : rank.tonnage + ' kg') : '0 kg';
+    statsEl.textContent = tonnage + '  ·  score ' + (rank.score || 0);
+  } else {
+    statsEl.textContent = 'Aucune donnée';
+  }
+
+  // Positionnement intelligent (éviter débordement écran)
+  var x = event.clientX + 12;
+  var y = event.clientY - 20;
+  if (x + 240 > window.innerWidth) x = event.clientX - 252;
+  if (y + 100 > window.innerHeight) y = event.clientY - 110;
+  pop.style.left = x + 'px';
+  pop.style.top = y + 'px';
+  pop.style.display = 'block';
+}
+
+function hideMusclePopover() {
+  var pop = document.getElementById('muscle-popover');
+  if (pop) pop.style.display = 'none';
+}
 
 function renderMuscleList() {
   var host = document.getElementById('muscleList');

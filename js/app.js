@@ -3023,6 +3023,20 @@ const BODY_MUSCLE_MAP = {
   'hamstring':  ['hamstrings'],
 };
 
+const BODY_MUSCLE_MAP_BACK = {
+  'neck':       ['neck'],
+  'trapezius':  ['trapezius'],
+  'deltoids':   ['shoulders_rear', 'shoulders_side'],
+  'upper-back': ['lats', 'rhomboids'],
+  'triceps':    ['triceps'],
+  'lower-back': ['erectors'],
+  'forearm':    ['forearms'],
+  'gluteal':    ['glutes_major'],
+  'adductors':  ['adductors'],
+  'hamstring':  ['hamstrings'],
+  'calves':     ['calves_gastro', 'calves_soleus'],
+};
+
 const MUSCLE_TIER_COLORS = {
   'Atrophié':   'rgba(85,85,102,0.7)',
   'Développé':  'rgba(122,140,110,0.75)',
@@ -3039,8 +3053,8 @@ function getMuscleColor(muscleKey) {
     || 'rgba(255,255,255,0.08)';
 }
 
-function getMuscleColorForSlug(slug) {
-  var keys = BODY_MUSCLE_MAP[slug];
+function getMuscleColorForSlug(slug, map) {
+  var keys = (map || BODY_MUSCLE_MAP)[slug];
   if (!keys || !keys.length) return 'rgba(255,255,255,0.08)';
   var colors = keys.map(getMuscleColor);
   // Prendre la couleur du tier le plus bas
@@ -3087,12 +3101,13 @@ function renderBodyFigure(side) {
     svg.style.position = 'relative';
 
     // Colorier les zones musculaires
-    Object.keys(BODY_MUSCLE_MAP).forEach(function(slug) {
+    var muscleMap = side === 'back' ? BODY_MUSCLE_MAP_BACK : BODY_MUSCLE_MAP;
+    Object.keys(muscleMap).forEach(function(slug) {
       var els = svg.querySelectorAll(
         '#' + slug + ', .' + slug +
         ', [id*="' + slug + '"], [class*="' + slug + '"]'
       );
-      var color = getMuscleColorForSlug(slug);
+      var color = getMuscleColorForSlug(slug, muscleMap);
       els.forEach(function(el) {
         el.style.fill = color;
         el.style.cursor = 'pointer';
@@ -3105,7 +3120,7 @@ function renderBodyFigure(side) {
           this.style.filter = '';
         });
         el.addEventListener('click', function() {
-          var keys = BODY_MUSCLE_MAP[this.dataset.slug] || [];
+          var keys = muscleMap[this.dataset.slug] || [];
           if (keys.length) selectMuscle(keys[0]);
         });
       });

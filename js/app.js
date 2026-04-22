@@ -3005,24 +3005,28 @@ const MUSCLE_NAMES_FR = {
 
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
-  'chest':          ['chest_upper', 'chest_lower'],
-  'front-deltoids': ['shoulders_front'],
-  'biceps':         ['biceps'],
-  'triceps':        ['triceps'],
-  'forearm':        ['forearms'],
-  'abs':            ['abs'],
-  'obliques':       ['obliques'],
-  'adductor':       ['adductors'],
-  'quadriceps':     ['quadriceps'],
-  'calves':         ['calves_gastro'],
-  'abductors':      ['abductors'],
-  'trapezius':      ['trapezius'],
-  'upper-back':     ['lats', 'rhomboids'],
-  'lower-back':     ['erectors'],
-  'back-deltoids':  ['shoulders_rear'],
-  'gluteal':        ['glutes_major'],
-  'hamstring':      ['hamstrings'],
-  'neck':           ['neck']
+  'biceps':          ['biceps'],
+  'triceps':         ['triceps'],
+  'forearm':         ['forearms'],
+  'abs':             ['abs'],
+  'obliques':        ['obliques'],
+  'adductor':        ['adductors'],
+  'quadriceps':      ['quadriceps'],
+  'abductors':       ['abductors'],
+  'trapezius':       ['trapezius'],
+  'lower-back':      ['erectors'],
+  'gluteal':         ['glutes_major'],
+  'hamstring':       ['hamstrings'],
+  'neck':            ['neck'],
+  'chest_upper':     ['chest_upper'],
+  'chest_lower':     ['chest_lower'],
+  'shoulders_front': ['shoulders_front'],
+  'shoulders_side':  ['shoulders_side'],
+  'shoulders_rear':  ['shoulders_rear'],
+  'calves_gastro':   ['calves_gastro'],
+  'calves_soleus':   ['calves_soleus'],
+  'lats':            ['lats'],
+  'rhomboids':       ['rhomboids'],
 };
 
 const MUSCLE_TIER_COLORS = {
@@ -3065,60 +3069,6 @@ function getMuscleColorForSlug(slug) {
 var currentBodySide = 'front';
 var currentBodyGender = 'male';
 var _bodySvgCache = {};
-
-// Zones anatomiques custom superposées au SVG body-highlighter.
-// Chaque entrée est un fragment SVG (polygon / ellipse / path) avec
-// data-muscle="<canonical_key>". Rendus dans un <svg> overlay
-// pointer-events:none au-dessus du SVG principal.
-var BODY_CUSTOM_ZONES = {
-  front: [
-    // shoulders_side : extérieur des front-deltoids (xmin=20, xmax=79.6, ymid≈45)
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="15" cy="45" rx="4" ry="7"' },
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="85" cy="45" rx="4" ry="7"' },
-    // chest_upper/lower : remplacent le polygon chest masqué (bbox x 30-71, y 42-58, milieu y=50)
-    { muscle: 'chest_upper', shape: 'path', attrs: 'd="M30,42 Q50,39 71,42 L70,50 Q50,52 30,50 Z"' },
-    { muscle: 'chest_lower', shape: 'path', attrs: 'd="M30,50 Q50,52 70,50 L71,58 Q50,60 30,58 Z"' },
-    // calves_soleus : tiers inférieur des calves (ymin=153, ymax=195 → tiers inf ≈ y=182)
-    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="28" cy="182" rx="3" ry="4"' },
-    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="72" cy="182" rx="3" ry="4"' },
-    // serratus : dents dentelées latérales (entre bord chest x≈30/71 et obliques, y 63-77)
-    { muscle: 'serratus', shape: 'path', attrs: 'd="M27,63 L25,68 L28,72 L26,77"', strokeOnly: true },
-    { muscle: 'serratus', shape: 'path', attrs: 'd="M73,63 L75,68 L72,72 L74,77"', strokeOnly: true },
-    // hip_flexors : entre abs (ymax≈108) et quadriceps (ymin≈95)
-    { muscle: 'hip_flexors', shape: 'path', attrs: 'd="M44,101 Q50,99 56,101 L56,108 Q50,110 44,108 Z"' }
-  ],
-  back: [
-    // shoulders_side : extérieur des back-deltoids (xmin=17.4, xmax=82.6, ymid≈45)
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="12" cy="45" rx="4" ry="7"' },
-    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="88" cy="45" rx="4" ry="7"' },
-    // calves_soleus : tiers inférieur calves arrière (ymin≈160, ymax≈200 → tiers inf ≈ y=187)
-    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="31" cy="187" rx="3" ry="4"' },
-    { muscle: 'calves_soleus', shape: 'ellipse', attrs: 'cx="69" cy="187" rx="3" ry="4"' },
-    // neck : entre tête (ymax=20) et trapèzes (ymin=21.7) — vue arrière seulement (front a slug neck)
-    { muscle: 'neck', shape: 'ellipse', attrs: 'cx="50" cy="23" rx="6" ry="4"' }
-  ]
-};
-
-function _buildCustomZonesSvg(side) {
-  var zones = BODY_CUSTOM_ZONES[side] || [];
-  var pieces = zones.map(function(z) {
-    var color = getMuscleColor(z.muscle);
-    var common = ' data-muscle="' + z.muscle + '" style="cursor:pointer;pointer-events:all;transition:filter 0.15s;"';
-    if (z.strokeOnly) {
-      return '<' + z.shape + ' ' + z.attrs +
-        ' fill="none" stroke="' + color + '" stroke-width="1"' +
-        common + '/>';
-    }
-    return '<' + z.shape + ' ' + z.attrs +
-      ' fill="' + color + '" opacity="0.85"' +
-      ' stroke="rgba(0,0,0,0.3)" stroke-width="0.5"' +
-      common + '/>';
-  }).join('');
-  return '<svg class="body-overlay" xmlns="http://www.w3.org/2000/svg" ' +
-    'viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet" ' +
-    'style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">' +
-    pieces + '</svg>';
-}
 
 function renderBodyFigure(side) {
   var container = document.getElementById('body-figure-container');
@@ -3167,16 +3117,6 @@ function renderBodyFigure(side) {
       });
     });
 
-    // Masquer le polygone 'chest' original en vue avant : il est
-    // remplacé par les zones custom chest_upper + chest_lower.
-    // pointer-events:none pour que les clics passent aux zones custom.
-    if (side === 'front') {
-      svg.querySelectorAll('.chest, [class*="chest"]').forEach(function(el) {
-        el.style.opacity = '0';
-        el.style.pointerEvents = 'none';
-      });
-    }
-
     // Zones non-musculaires (head, knees, soleus, silhouette) : fond sombre
     var allShapes = svg.querySelectorAll('path, polygon, ellipse, circle');
     allShapes.forEach(function(p) {
@@ -3188,24 +3128,6 @@ function renderBodyFigure(side) {
         p.setAttribute('stroke-width', '0.4');
       }
     });
-
-    // Overlay zones custom
-    container.insertAdjacentHTML('beforeend', _buildCustomZonesSvg(side));
-    var overlay = container.querySelector('svg.body-overlay');
-    if (overlay) {
-      overlay.querySelectorAll('[data-muscle]').forEach(function(el) {
-        el.addEventListener('mouseenter', function() {
-          this.style.filter = 'brightness(1.25)';
-        });
-        el.addEventListener('mouseleave', function() {
-          this.style.filter = '';
-        });
-        el.addEventListener('click', function() {
-          var m = this.getAttribute('data-muscle');
-          if (m) selectMuscle(m);
-        });
-      });
-    }
   };
 
   if (_bodySvgCache[cacheKey]) {

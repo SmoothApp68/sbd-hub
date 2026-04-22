@@ -3319,44 +3319,81 @@ function renderMuscleList() {
 // ── Muscle Rank Computation (volume + frequency over 4 weeks) ──
 
 const MUSCLE_TONNAGE_TARGETS = {
-  quads:          { atrophie:2000,  developpe:6000,  sculpte:14000, puissant:24000, massif:38000, titanesque:55000 },
-  glutes_major:   { atrophie:1500,  developpe:5000,  sculpte:11000, puissant:18000, massif:28000, titanesque:40000 },
-  hamstrings:     { atrophie:1000,  developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 },
-  erectors:       { atrophie:1000,  developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 },
-  lats:           { atrophie:1500,  developpe:5000,  sculpte:10000, puissant:18000, massif:28000, titanesque:40000 },
-  chest_lower:    { atrophie:1200,  developpe:4000,  sculpte:9000,  puissant:16000, massif:25000, titanesque:36000 },
-  chest_upper:    { atrophie:800,   developpe:3000,  sculpte:7000,  puissant:12000, massif:19000, titanesque:28000 },
-  adductors:      { atrophie:1000,  developpe:3500,  sculpte:8000,  puissant:13000, massif:20000, titanesque:30000 },
-  glutes_med:     { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
-  rhomboids:      { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
-  traps:          { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
-  triceps:        { atrophie:600,   developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
-  shoulders_rear: { atrophie:400,   developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
-  shoulders_side: { atrophie:300,   developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
-  shoulders_front:{ atrophie:400,   developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
-  biceps:         { atrophie:300,   developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
-  calves_gastro:  { atrophie:800,   developpe:2800,  sculpte:6500,  puissant:11000, massif:17000, titanesque:25000 },
-  calves_soleus:  { atrophie:400,   developpe:1400,  sculpte:3500,  puissant:6000,  massif:9500,  titanesque:14000 },
-  forearms:       { atrophie:200,   developpe:700,   sculpte:1800,  puissant:3200,  massif:5000,  titanesque:7500  },
-  abs:            { atrophie:200,   developpe:600,   sculpte:1500,  puissant:2800,  massif:4500,  titanesque:6500  },
-  obliques:       { atrophie:150,   developpe:500,   sculpte:1200,  puissant:2200,  massif:3500,  titanesque:5000  },
-  hip_flexors:    { atrophie:100,   developpe:350,   sculpte:900,   puissant:1700,  massif:2700,  titanesque:4000  },
-  serratus:       { atrophie:50,    developpe:200,   sculpte:500,   puissant:1000,  massif:1600,  titanesque:2400  }
-};
-
-const GENDER_VOLUME_COEFFICIENT = {
-  male:   1.0,
-  female: 0.65
+  neck:            { atrophie:200,  developpe:600,   sculpte:1500,  puissant:2800,  massif:4500,  titanesque:6500  },
+  chest_upper:     { atrophie:800,  developpe:3000,  sculpte:7000,  puissant:12000, massif:19000, titanesque:28000 },
+  chest_lower:     { atrophie:1200, developpe:4000,  sculpte:9000,  puissant:16000, massif:25000, titanesque:36000 },
+  shoulders_front: { atrophie:400,  developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
+  shoulders_side:  { atrophie:300,  developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
+  shoulders_rear:  { atrophie:400,  developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
+  biceps:          { atrophie:300,  developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
+  triceps:         { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  forearms:        { atrophie:200,  developpe:700,   sculpte:1800,  puissant:3200,  massif:5000,  titanesque:7500  },
+  abs:             { atrophie:200,  developpe:600,   sculpte:1500,  puissant:2800,  massif:4500,  titanesque:6500  },
+  obliques:        { atrophie:150,  developpe:500,   sculpte:1200,  puissant:2200,  massif:3500,  titanesque:5000  },
+  serratus:        { atrophie:50,   developpe:200,   sculpte:500,   puissant:1000,  massif:1600,  titanesque:2400  },
+  hip_flexors:     { atrophie:100,  developpe:350,   sculpte:900,   puissant:1700,  massif:2700,  titanesque:4000  },
+  quadriceps:      { atrophie:2000, developpe:6000,  sculpte:14000, puissant:24000, massif:38000, titanesque:55000 },
+  adductors:       { atrophie:1000, developpe:3500,  sculpte:8000,  puissant:13000, massif:20000, titanesque:30000 },
+  abductors:       { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  calves_gastro:   { atrophie:800,  developpe:2800,  sculpte:6500,  puissant:11000, massif:17000, titanesque:25000 },
+  calves_soleus:   { atrophie:400,  developpe:1400,  sculpte:3500,  puissant:6000,  massif:9500,  titanesque:14000 },
+  trapezius:       { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  lats:            { atrophie:1500, developpe:5000,  sculpte:10000, puissant:18000, massif:28000, titanesque:40000 },
+  rhomboids:       { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  erectors:        { atrophie:1000, developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 },
+  glutes_major:    { atrophie:1500, developpe:5000,  sculpte:11000, puissant:18000, massif:28000, titanesque:40000 },
+  hamstrings:      { atrophie:1000, developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 }
 };
 
 const MUSCLE_FREQ_TARGETS = {
-  chest_upper: 12, chest_lower: 12, lats: 14, rhomboids: 12,
-  erectors: 12, quads: 12, hamstrings: 12, glutes_major: 12,
-  glutes_med: 10, adductors: 10, shoulders_front: 10,
-  shoulders_side: 10, shoulders_rear: 10, traps: 10,
-  triceps: 12, biceps: 12, forearms: 8, abs: 12,
-  obliques: 10, calves_gastro: 10, calves_soleus: 10,
-  hip_flexors: 8, serratus: 6
+  neck: 4,
+  chest_upper: 12, chest_lower: 12,
+  shoulders_front: 10, shoulders_side: 10, shoulders_rear: 10,
+  biceps: 12, triceps: 12, forearms: 8,
+  abs: 12, obliques: 10, serratus: 4, hip_flexors: 8,
+  quadriceps: 12, adductors: 10, abductors: 10,
+  calves_gastro: 10, calves_soleus: 10,
+  trapezius: 10, lats: 14, rhomboids: 12,
+  erectors: 12, glutes_major: 12, hamstrings: 12
+};
+
+const GENDER_MUSCLE_COEFF = {
+  male: {
+    neck: 1.0, chest_upper: 1.0, chest_lower: 1.0,
+    shoulders_front: 1.0, shoulders_side: 1.0, shoulders_rear: 1.0,
+    biceps: 1.0, triceps: 1.0, forearms: 1.0,
+    abs: 1.0, obliques: 1.0, serratus: 1.0, hip_flexors: 1.0,
+    quadriceps: 1.0, adductors: 1.0, abductors: 1.0,
+    calves_gastro: 1.0, calves_soleus: 1.0,
+    trapezius: 1.0, lats: 1.0, rhomboids: 1.0,
+    erectors: 1.0, glutes_major: 1.0, hamstrings: 1.0
+  },
+  female: {
+    neck:            0.60,
+    chest_upper:     0.48,
+    chest_lower:     0.48,
+    shoulders_front: 0.55,
+    shoulders_side:  0.55,
+    shoulders_rear:  0.58,
+    biceps:          0.58,
+    triceps:         0.55,
+    forearms:        0.52,
+    serratus:        0.60,
+    abs:             0.68,
+    obliques:        0.65,
+    erectors:        0.65,
+    quadriceps:      0.78,
+    hamstrings:      0.72,
+    adductors:       0.80,
+    abductors:       0.82,
+    hip_flexors:     0.72,
+    glutes_major:    0.88,
+    calves_gastro:   0.65,
+    calves_soleus:   0.65,
+    trapezius:       0.62,
+    lats:            0.60,
+    rhomboids:       0.60
+  }
 };
 
 const EXERCISE_MUSCLE_MAP = [
@@ -3445,11 +3482,6 @@ const EXERCISE_MUSCLE_MAP = [
     muscles: { abs:0.55, obliques:0.25, erectors:0.20 } }
 ];
 
-// Canonical (EXO_DATABASE.muscles) → MUSCLE_TONNAGE_TARGETS key
-var MUSCLE_KEY_ALIAS = {
-  quadriceps: 'quads',
-  trapezius:  'traps'
-};
 
 function findExoInDatabase(exoName) {
   if (!exoName) return null;
@@ -3491,7 +3523,7 @@ function getMuscleVolumeAndFreq(logs4weeks) {
         coeffMap = {};
         var addPlan = function(arr, coeff) {
           (arr || []).forEach(function(k) {
-            var mapped = MUSCLE_KEY_ALIAS[k] || k;
+            var mapped = k;
             if (coeffMap[mapped] == null || coeffMap[mapped] < coeff) {
               coeffMap[mapped] = coeff;
             }
@@ -3582,20 +3614,21 @@ function calcAndStoreMuscleRanks(force) {
     ];
     var ranks = {};
 
-    // Coefficient genre (seuils calibrés pour un homme de référence)
-    var _gender = (db.user && db.user.gender === 'female') ? 'female' : 'male';
-    var genderCoeff = GENDER_VOLUME_COEFFICIENT[_gender];
+    // Coefficient genre par muscle (seuils calibrés pour un homme de référence)
+    var gender = (db.user && db.user.gender === 'female') ? 'female' : 'male';
+    var genderCoeffs = GENDER_MUSCLE_COEFF[gender] || GENDER_MUSCLE_COEFF['male'];
 
     Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(key) {
       var data = volumeFreq[key] || { tonnage: 0, sessions: 0 };
       var raw = MUSCLE_TONNAGE_TARGETS[key];
+      var muscleCoeff = genderCoeffs[key] || 0.65;
       var thresholds = {
-        atrophie:   raw.atrophie   * genderCoeff,
-        developpe:  raw.developpe  * genderCoeff,
-        sculpte:    raw.sculpte    * genderCoeff,
-        puissant:   raw.puissant   * genderCoeff,
-        massif:     raw.massif     * genderCoeff,
-        titanesque: raw.titanesque * genderCoeff
+        atrophie:   raw.atrophie   * muscleCoeff,
+        developpe:  raw.developpe  * muscleCoeff,
+        sculpte:    raw.sculpte    * muscleCoeff,
+        puissant:   raw.puissant   * muscleCoeff,
+        massif:     raw.massif     * muscleCoeff,
+        titanesque: raw.titanesque * muscleCoeff
       };
 
       var tonnage = data.tonnage;
@@ -8423,6 +8456,10 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
+        if (!db.gamification._migratedMuscle25Keys) {
+          db.gamification._migratedMuscle25Keys = true;
+          calcAndStoreMuscleRanks(true);
+        }
         setTimeout(_restoreLastTabFromCloud, 0);
         return;
       }
@@ -8449,6 +8486,10 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
             if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
+            if (!db.gamification._migratedMuscle25Keys) {
+              db.gamification._migratedMuscle25Keys = true;
+              calcAndStoreMuscleRanks(true);
+            }
             setTimeout(_restoreLastTabFromCloud, 0);
           } else {
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();

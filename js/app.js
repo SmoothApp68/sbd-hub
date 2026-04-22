@@ -3004,6 +3004,60 @@ const MUSCLE_NAMES_FR = {
   hamstrings:      'Ischio-jambiers',
 };
 
+const MUSCLE_ILLUSTRATIONS = {
+  chest_upper:     '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M8,14 Q20,8 30,10 Q30,22 22,26 Q10,24 8,14Z" fill="rgba(255,255,255,0.85)"/><path d="M52,14 Q40,8 30,10 Q30,22 38,26 Q50,24 52,14Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  chest_lower:     '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M8,22 Q20,20 30,22 Q30,32 22,34 Q10,32 8,22Z" fill="rgba(255,255,255,0.85)"/><path d="M52,22 Q40,20 30,22 Q30,32 38,34 Q50,32 52,22Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  shoulders_front: '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="12" cy="18" rx="9" ry="11" fill="rgba(255,255,255,0.85)"/><ellipse cx="48" cy="18" rx="9" ry="11" fill="rgba(255,255,255,0.6)"/></svg>',
+  shoulders_side:  '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="6" cy="20" rx="6" ry="10" fill="rgba(255,255,255,0.85)"/><ellipse cx="54" cy="20" rx="6" ry="10" fill="rgba(255,255,255,0.6)"/></svg>',
+  shoulders_rear:  '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="12" cy="22" rx="8" ry="10" fill="rgba(255,255,255,0.85)"/><ellipse cx="48" cy="22" rx="8" ry="10" fill="rgba(255,255,255,0.6)"/></svg>',
+  biceps:          '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="14" cy="18" rx="6" ry="12" fill="rgba(255,255,255,0.85)"/><ellipse cx="46" cy="18" rx="6" ry="12" fill="rgba(255,255,255,0.6)"/></svg>',
+  triceps:         '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M8,14 Q14,10 14,30 L8,30Z" fill="rgba(255,255,255,0.85)"/><path d="M52,14 Q46,10 46,30 L52,30Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  forearms:        '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><rect x="6" y="10" width="10" height="22" rx="4" fill="rgba(255,255,255,0.85)"/><rect x="44" y="10" width="10" height="22" rx="4" fill="rgba(255,255,255,0.6)"/></svg>',
+  abs:             '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><rect x="24" y="6" width="6" height="7" rx="2" fill="rgba(255,255,255,0.9)"/><rect x="30" y="6" width="6" height="7" rx="2" fill="rgba(255,255,255,0.7)"/><rect x="24" y="15" width="6" height="7" rx="2" fill="rgba(255,255,255,0.85)"/><rect x="30" y="15" width="6" height="7" rx="2" fill="rgba(255,255,255,0.65)"/><rect x="24" y="24" width="6" height="7" rx="2" fill="rgba(255,255,255,0.7)"/><rect x="30" y="24" width="6" height="7" rx="2" fill="rgba(255,255,255,0.5)"/></svg>',
+  obliques:        '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M8,10 Q16,14 18,32 L8,32Z" fill="rgba(255,255,255,0.85)"/><path d="M52,10 Q44,14 42,32 L52,32Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  trapezius:       '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M10,8 Q30,6 50,8 Q46,22 30,26 Q14,22 10,8Z" fill="rgba(255,255,255,0.85)"/></svg>',
+  lats:            '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M8,8 Q16,12 20,32 L10,34Z" fill="rgba(255,255,255,0.85)"/><path d="M52,8 Q44,12 40,32 L50,34Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  rhomboids:       '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M20,8 Q30,6 40,8 L36,28 Q30,30 24,28Z" fill="rgba(255,255,255,0.85)"/></svg>',
+  erectors:        '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><rect x="24" y="6" width="5" height="28" rx="2" fill="rgba(255,255,255,0.85)"/><rect x="31" y="6" width="5" height="28" rx="2" fill="rgba(255,255,255,0.6)"/></svg>',
+  glutes_major:    '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="18" cy="22" rx="12" ry="13" fill="rgba(255,255,255,0.85)"/><ellipse cx="42" cy="22" rx="12" ry="13" fill="rgba(255,255,255,0.6)"/></svg>',
+  hamstrings:      '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M10,8 Q16,10 16,34 Q12,36 8,34 Q6,20 10,8Z" fill="rgba(255,255,255,0.85)"/><path d="M50,8 Q44,10 44,34 Q48,36 52,34 Q54,20 50,8Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  quadriceps:      '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M8,8 Q16,6 18,34 Q12,36 8,32Z" fill="rgba(255,255,255,0.85)"/><path d="M52,8 Q44,6 42,34 Q48,36 52,32Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  adductors:       '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M22,6 Q28,8 28,34 Q24,36 20,34 Q18,20 22,6Z" fill="rgba(255,255,255,0.85)"/><path d="M38,6 Q32,8 32,34 Q36,36 40,34 Q42,20 38,6Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  abductors:       '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M6,10 Q12,8 14,34 Q8,36 6,30Z" fill="rgba(255,255,255,0.85)"/><path d="M54,10 Q48,8 46,34 Q52,36 54,30Z" fill="rgba(255,255,255,0.6)"/></svg>',
+  calves_gastro:   '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="16" cy="18" rx="7" ry="14" fill="rgba(255,255,255,0.85)"/><ellipse cx="44" cy="18" rx="7" ry="14" fill="rgba(255,255,255,0.6)"/></svg>',
+  calves_soleus:   '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><ellipse cx="16" cy="26" rx="5" ry="10" fill="rgba(255,255,255,0.85)"/><ellipse cx="44" cy="26" rx="5" ry="10" fill="rgba(255,255,255,0.6)"/></svg>',
+  neck:            '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><rect x="24" y="4" width="12" height="28" rx="5" fill="rgba(255,255,255,0.85)"/></svg>',
+  serratus:        '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M10,12 L14,16 L10,20 L14,24 L10,28" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.5" stroke-linecap="round"/><path d="M50,12 L46,16 L50,20 L46,24 L50,28" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  hip_flexors:     '<svg viewBox="0 0 60 40" fill="none"><ellipse cx="30" cy="20" rx="28" ry="16" fill="#1a1528" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/><path d="M20,6 Q30,4 40,6 L38,20 Q30,22 22,20Z" fill="rgba(255,255,255,0.85)"/></svg>',
+};
+
+const MUSCLE_DESC = {
+  chest_upper:     'Partie haute du grand pectoral — développé incliné, fly haut',
+  chest_lower:     'Partie basse du grand pectoral — développé couché, dips',
+  shoulders_front: 'Deltoïde antérieur — développé, élévations frontales',
+  shoulders_side:  'Deltoïde latéral — élévations latérales, largeur épaules',
+  shoulders_rear:  'Deltoïde postérieur — oiseau, tirage visage',
+  biceps:          'Fléchisseur du coude — curls, tractions supination',
+  triceps:         'Extenseur du coude — dips, extensions, développé',
+  forearms:        'Fléchisseurs/extenseurs du poignet — prise, curls poignet',
+  abs:             'Rectus abdominis — gainage, relevés de jambes',
+  obliques:        'Obliques internes/externes — rotation, gainage latéral',
+  trapezius:       'Stabilisateur de la scapula — shrugs, tirage',
+  lats:            'Grand dorsal — tractions, tirages poitrine',
+  rhomboids:       'Rétracteurs de la scapula — rowing, oiseau',
+  erectors:        'Érecteurs du rachis — soulevé de terre, hyperextension',
+  glutes_major:    'Grand fessier — hip thrust, squat, fentes',
+  hamstrings:      'Ischio-jambiers — leg curl, RDL, sprint',
+  quadriceps:      '4 chefs du quadriceps — squat, presse, leg extension',
+  adductors:       'Adducteurs — adduction hanche, sumo squat',
+  abductors:       'Abducteurs — abduction hanche, fentes latérales',
+  calves_gastro:   'Gastrocnémien — mollets debout, sprint, sauts',
+  calves_soleus:   'Soléaire — mollets assis, endurance posturale',
+  neck:            'Muscles du cou — stabilisation, wrestling',
+  serratus:        'Dentelé antérieur — stabilisation scapulaire, planche',
+  hip_flexors:     'Psoas/iliaque — genou monté, sprint, fentes',
+};
+
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
   'chest':      ['chest_upper', 'chest_lower'],
@@ -3359,37 +3413,65 @@ if (typeof window !== 'undefined') window.selectMuscle = selectMuscle;
 function showMusclePopover(muscleKey, event) {
   var pop = document.getElementById('muscle-popover');
   if (!pop) return;
-
   var ranks = db.gamification && db.gamification.muscleRanks;
   var rank = ranks && ranks[muscleKey];
   var name = MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+  var tierColors = {
+    'Atrophié':'#555566','Développé':'#7A8C6E',
+    'Sculpté':'#C8A24C','Puissant':'#78D8D0',
+    'Massif':'#6EB4FF','Titanesque':'#BF5AF2'
+  };
 
+  // Illustration
+  var illusEl = document.getElementById('muscle-pop-illus');
+  if (illusEl) {
+    var illus = MUSCLE_ILLUSTRATIONS[muscleKey];
+    if (illus) {
+      // Coloriser le SVG avec la couleur du tier
+      var color = rank ? (rank.color || '#555566') : '#555566';
+      illus = illus.replace(/rgba\(255,255,255,0\.85\)/g,
+        color.replace(')', ',0.9)').replace('rgb','rgba'));
+      illus = illus.replace(/rgba\(255,255,255,0\.[0-9]+\)/g,
+        color.replace(')', ',0.5)').replace('rgb','rgba'));
+      illusEl.innerHTML = illus;
+    }
+  }
+
+  // Nom + tier
   document.getElementById('muscle-pop-name').textContent = name;
-
   var tierEl = document.getElementById('muscle-pop-tier');
-  if (rank && rank.tier) {
-    tierEl.textContent = '● ' + rank.tier;
-    tierEl.style.color = rank.color || '#BF5AF2';
-  } else {
-    tierEl.textContent = '● Atrophié';
-    tierEl.style.color = '#555566';
+  var tier = rank ? rank.tier : 'Atrophié';
+  var color = rank ? (rank.color || '#555566') : '#555566';
+  tierEl.textContent = '● ' + tier;
+  tierEl.style.color = color;
+
+  // Barre de score
+  var score = rank ? (rank.score || 0) : 0;
+  var barFill = document.getElementById('muscle-pop-bar-fill');
+  if (barFill) {
+    barFill.style.width = Math.min(score, 100) + '%';
+    barFill.style.background = color;
   }
 
-  var statsEl = document.getElementById('muscle-pop-stats');
-  if (rank) {
-    var tonnage = rank.tonnage ? (rank.tonnage >= 1000
-      ? Math.round(rank.tonnage/100)/10 + ' t'
-      : rank.tonnage + ' kg') : '0 kg';
-    statsEl.textContent = tonnage + '  ·  score ' + (rank.score || 0);
-  } else {
-    statsEl.textContent = 'Aucune donnée';
-  }
+  // Stats
+  var tonnage = rank && rank.tonnage
+    ? (rank.tonnage >= 1000
+      ? (Math.round(rank.tonnage/100)/10) + ' t'
+      : rank.tonnage + ' kg')
+    : '0 kg';
+  document.getElementById('muscle-pop-stats').textContent =
+    tonnage + '  ·  score ' + score + '/100';
 
-  // Positionnement intelligent (éviter débordement écran)
-  var x = event.clientX + 12;
-  var y = event.clientY - 20;
-  if (x + 240 > window.innerWidth) x = event.clientX - 252;
-  if (y + 100 > window.innerHeight) y = event.clientY - 110;
+  // Description
+  var descEl = document.getElementById('muscle-pop-desc');
+  if (descEl) descEl.textContent = MUSCLE_DESC[muscleKey] || '';
+
+  // Position
+  var x = event.clientX + 14;
+  var y = event.clientY - 30;
+  if (x + 250 > window.innerWidth) x = event.clientX - 254;
+  if (y + 180 > window.innerHeight) y = event.clientY - 190;
+  if (y < 10) y = 10;
   pop.style.left = x + 'px';
   pop.style.top = y + 'px';
   pop.style.display = 'block';
@@ -3424,14 +3506,40 @@ function renderMuscleList() {
   if (!el) return;
   var ranks = db.gamification && db.gamification.muscleRanks || {};
 
-  var html = '';
+  var MUSCLE_GROUPS = [
+    { label:'Haut du corps', muscles:[
+      'chest_upper','chest_lower','shoulders_front',
+      'shoulders_side','shoulders_rear','biceps','triceps',
+      'forearms','neck'
+    ]},
+    { label:'Core', muscles:[
+      'abs','obliques','serratus','hip_flexors','erectors'
+    ]},
+    { label:'Dos', muscles:[
+      'trapezius','lats','rhomboids'
+    ]},
+    { label:'Bas du corps', muscles:[
+      'quadriceps','hamstrings','glutes_major',
+      'adductors','abductors','calves_gastro','calves_soleus'
+    ]},
+  ];
+
+  var html = '<div style="font-family:system-ui;">';
+
   MUSCLE_GROUPS.forEach(function(group) {
-    html += '<div style="margin-bottom:12px;">';
-    html += '<div style="font-size:10px;font-weight:700;'
-      + 'color:rgba(255,255,255,0.35);letter-spacing:0.1em;'
-      + 'text-transform:uppercase;margin-bottom:6px;'
-      + 'padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.06);">'
-      + group.label + '</div>';
+    html += '<div style="margin-bottom:16px;">';
+
+    // En-tête groupe style anatomique
+    html += '<div style="'
+      + 'display:flex;align-items:center;gap:8px;'
+      + 'margin-bottom:8px;">'
+      + '<div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>'
+      + '<span style="font-size:9px;font-weight:700;'
+      + 'color:rgba(255,255,255,0.25);letter-spacing:0.12em;'
+      + 'text-transform:uppercase;white-space:nowrap;">'
+      + group.label + '</span>'
+      + '<div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>'
+      + '</div>';
 
     group.muscles.forEach(function(key) {
       var rank = ranks[key] || {};
@@ -3440,43 +3548,50 @@ function renderMuscleList() {
       var score = rank.score || 0;
       var tonnage = rank.tonnage || 0;
       var name = MUSCLE_NAMES_FR[key] || key;
-
-      // Barre de score (10 segments)
-      var filled = Math.round(score / 10);
-      var bar = '';
-      for (var i = 0; i < 10; i++) {
-        bar += '<span style="display:inline-block;width:7px;height:4px;'
-          + 'border-radius:1px;margin-right:1px;background:'
-          + (i < filled ? color : 'rgba(255,255,255,0.08)') + ';"></span>';
-      }
-
-      // Tonnage formaté
       var t = tonnage >= 1000
         ? (Math.round(tonnage/100)/10) + 't'
-        : tonnage + 'kg';
+        : (tonnage > 0 ? tonnage + 'kg' : '—');
 
-      html += '<div style="display:flex;align-items:center;'
-        + 'padding:5px 0;gap:8px;cursor:pointer;'
-        + 'border-radius:6px;" '
-        + 'onclick="showMusclePopover(\'' + key + '\',event)">'
-        // Pastille
-        + '<span style="width:8px;height:8px;border-radius:50%;'
-        + 'flex-shrink:0;background:' + color + ';"></span>'
-        // Nom
-        + '<span style="flex:1;font-size:12px;color:rgba(255,255,255,0.85);'
-        + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-        + name + '</span>'
-        // Barre
-        + '<span style="flex-shrink:0;">' + bar + '</span>'
+      html += '<div onclick="showMusclePopover(\'' + key
+        + '\',event)" style="'
+        + 'display:grid;grid-template-columns:8px 1fr auto auto;'
+        + 'align-items:center;gap:8px;'
+        + 'padding:6px 4px;cursor:pointer;border-radius:6px;'
+        + 'transition:background 0.15s;"'
+        + ' onmouseenter="this.style.background=\'rgba(255,255,255,0.04)\'"'
+        + ' onmouseleave="this.style.background=\'transparent\'">'
+
+        // Pastille tier
+        + '<div style="width:8px;height:8px;border-radius:50%;'
+        + 'background:' + color + ';flex-shrink:0;"></div>'
+
+        // Nom + barre inline
+        + '<div style="min-width:0;">'
+        + '<div style="font-size:12px;color:rgba(255,255,255,0.85);'
+        + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'
+        + 'margin-bottom:3px;">' + name + '</div>'
+        + '<div style="height:2px;border-radius:1px;'
+        + 'background:rgba(255,255,255,0.06);overflow:hidden;">'
+        + '<div style="height:100%;width:' + Math.min(score,100) + '%;'
+        + 'background:' + color + ';border-radius:1px;"></div>'
+        + '</div></div>'
+
         // Tonnage
-        + '<span style="font-size:10px;color:rgba(255,255,255,0.35);'
-        + 'min-width:32px;text-align:right;">' + t + '</span>'
+        + '<span style="font-size:10px;color:rgba(255,255,255,0.3);'
+        + 'white-space:nowrap;">' + t + '</span>'
+
+        // Tier badge
+        + '<span style="font-size:9px;font-weight:600;'
+        + 'color:' + color + ';white-space:nowrap;'
+        + 'min-width:60px;text-align:right;">' + tier + '</span>'
+
         + '</div>';
     });
 
     html += '</div>';
   });
 
+  html += '</div>';
   el.innerHTML = html;
 }
 

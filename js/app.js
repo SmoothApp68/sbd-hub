@@ -3767,6 +3767,7 @@ function findExoInDatabase(exoName) {
   if (typeof EXO_DATABASE === 'undefined' || !EXO_DATABASE) return null;
 
   function normalize(s) {
+    if (!s || typeof s !== 'string') return '';
     return s
       .toLowerCase()
       .trim()

@@ -3977,7 +3977,7 @@ function calcAndStoreMuscleRanks(force) {
       var freqScore = Math.min(100, Math.round(
         data.sessions / (MUSCLE_FREQ_TARGETS[key] || 4) * 100
       ));
-      var finalScore = Math.round(scoreInTier * 0.8 + freqScore * 0.2);
+      var finalScore = Math.min(100, Math.round(scoreInTier * 0.8 + freqScore * 0.2));
 
       var tier = MUSCLE_TIER_THRESHOLDS[tierIndex];
       ranks[key] = {

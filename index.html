@@ -64,6 +64,26 @@
     .seances-sub-section.active { display: block; }
     .profil-sub-section { display: none; }
     .profil-sub-section.active { display: block; }
+    .jeux-sub-section { display: none; }
+    .jeux-sub-section.active { display: block; }
+    /* ── Anatomy (muscle ranks) ── */
+    .anat-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:14px; margin-bottom:14px; }
+    .anat-toggle { display:flex; gap:8px; justify-content:center; margin-bottom:10px; }
+    .anat-figure-wrap { position:relative; display:flex; justify-content:center; min-height:340px; }
+    .anat-figure-wrap svg { width:100%; max-width:220px; height:auto; display:block; }
+    .muscle-zone { fill:rgba(255,255,255,0.08); stroke:rgba(255,255,255,0.15); stroke-width:0.8; cursor:pointer; transition:fill 0.3s, stroke 0.15s, stroke-width 0.15s; }
+    .muscle-zone:hover { stroke:rgba(255,255,255,0.35); stroke-width:1.2; }
+    .muscle-zone.selected { stroke:#ffffff; stroke-width:2; }
+    .muscle-list { margin-top:14px; display:flex; flex-direction:column; gap:4px; }
+    .muscle-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; background:rgba(255,255,255,0.02); transition:background 0.2s; font-size:12px; }
+    .muscle-row:hover { background:rgba(255,255,255,0.05); }
+    .muscle-row.selected { background:rgba(191,90,242,0.12); }
+    .muscle-row-dot { width:10px; height:10px; border-radius:50%; flex:0 0 10px; }
+    .muscle-row-name { flex:1; color:var(--text); font-weight:600; }
+    .muscle-row-tier { font-size:10px; font-weight:700; min-width:66px; text-align:right; }
+    .muscle-row-bar-bg { width:48px; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+    .muscle-row-bar { height:4px; border-radius:2px; transition:width 0.3s; }
+    .muscle-row-score { font-size:10px; color:var(--sub); min-width:28px; text-align:right; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-30px); } }
@@ -74,6 +94,16 @@
     @keyframes fillBar { from { width: 0%; } }
     @keyframes prCelebrate { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
     @keyframes prCelebrateOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+    @keyframes slideDownFade {
+      0%   { opacity:0; transform:translateX(-50%) translateY(-20px); }
+      15%  { opacity:1; transform:translateX(-50%) translateY(0); }
+      75%  { opacity:1; transform:translateX(-50%) translateY(0); }
+      100% { opacity:0; transform:translateX(-50%) translateY(-10px); }
+    }
+    @keyframes prPulse {
+      from { transform: scale(1);   opacity: 0.8; }
+      to   { transform: scale(1.2); opacity: 1;   }
+    }
     .card { background: var(--bg-card); padding: 16px; border-radius: 14px; margin-bottom: 15px; border: 0.5px solid var(--bg-card-border); animation: slideUp 0.5s ease-out both; will-change: transform; }
     .card:nth-child(1) { animation-delay: 0.05s; }
     .card:nth-child(2) { animation-delay: 0.1s; }
@@ -599,7 +629,7 @@
     /* Détail dépliable */
     .sc-detail { max-height: 0; overflow: hidden; transition: max-height .35s cubic-bezier(.4,0,.2,1);
       position: relative; z-index: 1; }
-    .sc-detail.open { max-height: 800px; }
+    .sc-detail.open { max-height: 5000px; }
     .sc-detail-inner { background: rgba(0,0,0,.22); border-top: 1px solid rgba(255,255,255,.05); }
     .sc-detail-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
       color: var(--sub); padding: 10px 14px 6px; border-bottom: 1px solid rgba(255,255,255,.04); }
@@ -1011,6 +1041,22 @@
     /* ── Heatmap clickable cells ── */
     .hm-cell-click { cursor: pointer; transition: transform 0.1s; }
     .hm-cell-click:active { transform: scale(1.15); }
+
+    /* ── Rangs SBD ── */
+    .sbd-ranks-card { cursor: pointer; }
+    .sbd-rank-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:13px; }
+    .sbd-rank-row:last-child { margin-bottom:0; }
+    .sbd-rank-icon { font-size:16px; flex:0 0 auto; }
+    .sbd-rank-name { font-weight:600; color:var(--text); flex:0 0 42px; }
+    .sbd-rank-val { color:var(--sub); font-size:11px; flex:0 0 auto; }
+    .sbd-rank-bar-bg { flex:1; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; }
+    .sbd-rank-bar { height:4px; border-radius:2px; transition:width 0.4s ease; }
+    .sbd-rank-tier { font-size:11px; font-weight:700; min-width:70px; text-align:right; }
+    .sbd-rank-detail-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:14px; margin-bottom:10px; backdrop-filter:blur(10px); }
+    .sbd-rank-detail-tier { font-size:18px; font-weight:800; letter-spacing:0.4px; }
+    .sbd-rank-detail-e1rm { font-size:24px; font-weight:800; color:var(--text); margin:6px 0 2px; }
+    .sbd-rank-detail-pct { font-size:11px; color:var(--sub); }
+    .sbd-rank-detail-next { font-size:11px; color:var(--sub); margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); }
 
     /* ── Strength card clickable ── */
     .sg-card-click { cursor: pointer; transition: transform 0.15s; }
@@ -2217,6 +2263,12 @@
       <div id="perfDisplay"></div>
     </div>
 
+    <!-- Carte Rangs SBD -->
+    <div class="card sbd-ranks-card" id="sbdRanksCard" style="padding:14px 16px;display:none;cursor:pointer;" onclick="showTab('tab-game')">
+      <div class="sbd-ranks-title" style="font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">⚔️ Rangs SBD</div>
+      <div id="sbdRanksHome"></div>
+    </div>
+
     <!-- IDs conservés pour compatibilité avec les fonctions existantes -->
     <div style="display:none;">
       <div id="routineDisplay"></div>
@@ -2238,12 +2290,12 @@
   </div>
   <div id="tab-seances" class="content-section">
     <div class="stats-sub-nav" style="margin-bottom:14px;">
-      <button class="stats-sub-pill active" onclick="showSeancesSub('seances-list',this)">📋 Séances</button>
+      <button class="stats-sub-pill active" onclick="showSeancesSub('seances-historique',this)">📋 Séances</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-go',this)">🏋️ GO</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-programme',this)">📅 Programme</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-coach',this)">🦍 Coach</button>
     </div>
-    <div id="seances-list" class="seances-sub-section active">
+    <div id="seances-historique" class="seances-sub-section active">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <button id="prevWeekBtn" onclick="navigateWeek(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;cursor:pointer;font-size:18px;font-weight:700;transition:all 0.2s;">←</button>
@@ -2374,7 +2426,6 @@
     <div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showProfilSub('tab-corps',this)">⚖️ Corps</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-stats',this)">📊 Stats</button>
-      <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-badges',this)">🏆 Badges</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-settings',this)">⚙️ Réglages</button>
     </div>
     <div id="tab-corps" class="profil-sub-section active">
@@ -2592,6 +2643,7 @@
           <input type="number" id="inputBWBase" placeholder="Poids départ (ex: 98)" onchange="updateNutriTargets()" style="flex:1;margin:0;">
         </div>
         <button class="btn" style="margin-top:16px;width:100%;" onclick="saveProfileSettings()">💾 Sauvegarder le profil</button>
+        <button class="btn" style="margin-top:8px;width:100%;background:rgba(191,90,242,0.12);border:1px solid rgba(191,90,242,0.4);color:var(--purple);" onclick="showClassQuiz()">🎲 Changer de classe</button>
       </div>
     </div>
 
@@ -2765,16 +2817,41 @@
   </div><!-- /tab-profil -->
 
   <div id="tab-game" class="content-section">
-    <div id="gamLevelCard"></div>
-    <div id="gamXPSources"></div>
-    <div id="gamChallenges"></div>
-    <div id="gamMonthlyChallenges"></div>
-    <div id="gamRecentBadges"></div>
-    <div id="gamNextBadges"></div>
-    <div id="gamStrengthContent"></div>
-    <div id="gamHeatmap"></div>
-    <div id="gamBadgesOverview"></div>
-    <div id="gamBadgesSections"></div>
+    <div class="stats-sub-nav" style="margin-bottom:14px;">
+      <button class="stats-sub-pill active" onclick="showJeuxSub('jeux-profil-joueur',this)">👤 Profil joueur</button>
+      <button class="stats-sub-pill" onclick="showJeuxSub('jeux-rangs',this)">⚔️ Rangs</button>
+      <button class="stats-sub-pill" onclick="showJeuxSub('jeux-badges',this)">🏆 Badges</button>
+    </div>
+
+    <div id="jeux-profil-joueur" class="jeux-sub-section active">
+      <div id="gamLevelCard"></div>
+      <div id="gamXPSources"></div>
+      <div id="gamChallenges"></div>
+      <div id="gamMonthlyChallenges"></div>
+      <div id="gamHeatmap"></div>
+    </div>
+
+    <div id="jeux-rangs" class="jeux-sub-section">
+      <div class="anat-card" id="anatomyCard">
+        <div class="mc-title" style="margin-bottom:10px;"><span>💪 Muscles</span></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;">
+          <button id="btn-body-front" onclick="switchBodyView('front')" style="background:#BF5AF2;color:white;border:none;border-radius:8px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;">Vue avant</button>
+          <button id="btn-body-back" onclick="switchBodyView('back')" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;">Vue arrière</button>
+          <button id="btn-body-gender" onclick="switchBodyGender()" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 16px;font-size:14px;font-weight:600;cursor:pointer;">♂</button>
+        </div>
+        <div id="body-figure-container" style="position:relative;max-width:220px;margin:0 auto;min-height:300px;"></div>
+        <div class="muscle-list" id="muscleList"></div>
+      </div>
+      <div id="gamSBDRanks"></div>
+      <div id="gamStrengthContent"></div>
+    </div>
+
+    <div id="jeux-badges" class="jeux-sub-section">
+      <div id="gamRecentBadges"></div>
+      <div id="gamNextBadges"></div>
+      <div id="gamBadgesOverview"></div>
+      <div id="gamBadgesSections"></div>
+    </div>
   </div>
 
 
@@ -2991,10 +3068,19 @@
 
   <nav class="tab-bar" id="mainTabBar">
     <button class="tab-btn active" data-tab="tab-dash" data-index="0"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Maison</button>
-    <button class="tab-btn" data-tab="tab-social" data-index="1"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Feed</button>
-    <button class="tab-btn" data-tab="tab-seances" data-index="2"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 5.57 2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 2.14-2.14 1.43-1.43-1.43-1.43L22 14.86z"/></svg> Training</button>
-    <button class="tab-btn" data-tab="tab-profil" data-index="3"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
+    <button class="tab-btn" data-tab="tab-social" data-index="1"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg><span class="tab-badge-num" id="socialTabBadge"></span> Social</button>
+    <button class="tab-btn" data-tab="tab-seances" data-index="2"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 5.57 2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 2.14-2.14 1.43-1.43-1.43-1.43L22 14.86z"/></svg> Séances</button>
+    <button class="tab-btn" data-tab="tab-game" data-index="3"><span style="font-size:20px;line-height:22px;height:22px;display:inline-block;">⚔️</span> Jeux</button>
+    <button class="tab-btn" data-tab="tab-profil" data-index="4"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 0 0 10A5 5 0 0 0 12 2zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm9 11v-1a7 7 0 0 0-14 0v1h2v-1a5 5 0 0 1 10 0v1h2z"/></svg> Profil</button>
   </nav>
+<!-- Muscle popover (anatomy figure) -->
+<div id="musclePop" style="position:fixed;z-index:999;background:rgba(13,8,22,0.95);border:1px solid rgba(191,90,242,0.3);border-radius:14px;padding:14px 16px;min-width:200px;max-width:260px;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:none;backdrop-filter:blur(10px);">
+  <div id="musclePopName" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;"></div>
+  <div id="musclePopTier" style="font-size:12px;font-weight:700;margin-bottom:8px;"></div>
+  <div id="musclePopBar"></div>
+  <div id="musclePopHint" style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.4;"></div>
+</div>
+
 <script src="js/engine.js"></script>
 <script src="js/exercises.js"></script>
 <script src="js/supabase.js"></script>
@@ -3013,6 +3099,13 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker.js')
       .then((reg) => console.log('SW enregistré:', reg.scope))
       .catch((err) => console.log('SW erreur:', err));
+    // Auto-reload dès qu'un nouveau SW prend le contrôle
+    var _swReloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (_swReloading) return;
+      _swReloading = true;
+      window.location.reload();
+    });
   });
 }
 

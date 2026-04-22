@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet">
+  <polygon class="head" data-slug="head" points="50.6128 0 46.1191 0.85106383 41.217 5.53191489 40.8085 12.7659574 45.3021 20 55.5149 20 58.783 13.6170213 59.1915 4.68085106 55.5149 1.27659574" />
+  <polygon class="trapezius" data-slug="trapezius" points="45.2128 21.7021277 47.8936 21.7021277 47.5106 38.2978723 47.8936 64.6808511 39.4681 53.1914894 36.7872 40.8510638 32.9574 36.5957447 40.234 33.1914894 44.4468 27.2340426" />
+  <polygon class="trapezius" data-slug="trapezius" points="52.1064 21.7021277 55.1702 21.7021277 55.9362 27.2340426 59.766 32.7659574 67.0426 36.5957447 63.2128 40.4255319 60.5319 53.1914894 52.1064 64.6808511 52.8723 38.2978723" />
+  <polygon class="shoulders_rear" data-slug="shoulders_rear" points="28.9127 38.4113 27.0319 39.1489 22.3298 44.2553 23.0532 53.6170 28.1170 49.3617 28.9127 48.4255" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="shoulders_side" data-slug="shoulders_side" points="32.4574 37.0213 28.9127 38.4113 28.9127 48.4255 30.6489 46.3830" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="shoulders_rear" data-slug="shoulders_rear" points="71.3224 38.4406 74.0532 39.5745 77.6702 44.6809 76.9468 53.6170 71.3224 49.0678" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="shoulders_side" data-slug="shoulders_side" points="67.9043 37.0213 71.3224 38.4406 71.3224 49.0678 71.1596 48.9362 68.9894 45.1064" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="lats" data-slug="lats" points="33.3362 38.7234 30.7149 48.9362 31.0894 55.3191 35.9574 75.3191 36.6128 75.0789 36.6128 46.2917 35.5830 41.2766" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="rhomboids" data-slug="rhomboids" points="36.6128 75.0789 47.5660 71.0638 47.5660 66.3830 38.2043 54.0426 36.6128 46.2917" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="lats" data-slug="lats" points="66.6638 38.7234 69.2851 49.3617 68.9106 56.1702 64.0426 75.3191 63.3872 75.0789 63.3872 46.7173 64.4170 41.7021" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="rhomboids" data-slug="rhomboids" points="63.3872 75.0789 52.4340 71.0638 52.4340 66.3830 61.7957 54.4681 63.3872 46.7173" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="triceps" data-slug="triceps" points="29.1277 49.787234 21.0851 55.7446809 18.0213 72.3404255 19.9362 81.7021277 24.5319 63.8297872 29.1277 55.7446809" />
+  <polygon class="triceps" data-slug="triceps" points="71.2553 50.212766 78.9149 55.7446809 82.3617 73.1914894 80.0638 82.1276596 75.0851 62.9787234 70.8723 55.7446809" />
+  <polygon class="triceps" data-slug="triceps" points="29.1277 58.2978723 29.1277 68.5106383 25.6809 75.3191489 22.234 77.4468085 25.2979 65.5319149" />
+  <polygon class="triceps" data-slug="triceps" points="70.4894 58.2978723 74.3191 64.6808511 77.383 77.4468085 73.9362 75.3191489 70.4894 68.9361702" />
+  <polygon class="lower-back" data-slug="lower-back" points="48.0809 72.7659574 37.2638 77.0212766 37.9617 83.4042553 49.4766 102.12766 47.383 82.9787234" />
+  <polygon class="lower-back" data-slug="lower-back" points="51.9191 72.7659574 62.7362 77.0212766 62.0383 83.4042553 50.5234 102.12766 52.617 83.8297872" />
+  <polygon class="forearm" data-slug="forearm" points="83.4723 75.7446809 87.7787 83.4042553 89.7362 94.0425532 96 106.382979 92.4766 104.255319 85.0383 89.3617021 81.5149 83.8297872" />
+  <polygon class="forearm" data-slug="forearm" points="16.5277 75.7446809 12.2213 83.8297872 10.2638 93.6170213 4 106.382979 7.5234 104.255319 15.3532 88.5106383 18.4851 82.9787234" />
+  <polygon class="forearm" data-slug="forearm" points="78.7745 79.5744681 75.2511 77.8723404 76.817 84.6808511 87.7787 103.829787 89.7362 108.93617 90.9106 104.680851" />
+  <polygon class="forearm" data-slug="forearm" points="21.2255 79.5744681 24.3574 77.8723404 23.183 84.2553191 12.6128 102.978723 10.2638 108.510638 8.6979 104.680851" />
+  <polygon class="gluteal" data-slug="gluteal" points="43.617 99.5744681 26.2553 108.510638 25.7447 118.723404 27.7872 125.957447 46.6809 121.276596 49.234 114.893617" />
+  <polygon class="gluteal" data-slug="gluteal" points="56.383 99.1489362 51.2766 114.468085 52.8085 120.851064 71.7021 125.957447 73.7447 119.148936 73.234 108.510638" />
+  <polygon class="adductor" data-slug="adductor" points="47.7021 122.978723 43.617 122.978723 39.5319 125.531915 44.1277 144.255319 48.2128 135.744681 48.7234 129.361702" />
+  <polygon class="adductor" data-slug="adductor" points="52.2979 122.553191 56.8936 123.404255 60.9787 125.957447 55.8723 144.255319 52.2979 136.170213 51.2766 129.361702" />
+  <polygon class="hamstring" data-slug="hamstring" points="25.7766 122.12766 28.2234 129.361702 34.5851 125.957447 33.117 135.319149 32.1383 150.212766 26.266 158.297872 25.7766 146.808511 24.3085 141.276596 23.8191 131.489362" />
+  <polygon class="hamstring" data-slug="hamstring" points="74.7128 121.702128 72.266 128.93617 65.9043 125.957447 67.8617 136.595745 68.8404 150.212766 74.2234 158.297872 74.7128 147.659574 76.1809 142.12766 77.1596 131.914894" />
+  <polygon class="hamstring" data-slug="hamstring" points="37.0319 125.531915 43.3936 145.957447 38.9894 166.808511 34.0957 152.765957 35.0745 135.319149" />
+  <polygon class="hamstring" data-slug="hamstring" points="63.4574 125.531915 65.4149 136.170213 66.3936 153.191489 61.5 166.808511 57.0957 146.382979" />
+  <polygon class="knees" data-slug="knees" points="34.1574 153.191489 30.6851 159.148936 33.2894 166.382979 37.1957 162.553191" />
+  <polygon class="knees" data-slug="knees" points="66.7106 153.617021 63.2383 162.978723 67.1447 166.382979 69.7489 159.148936" />
+  <polygon class="calves_gastro" data-slug="calves_gastro" points="31.4255 160.4255 30.6596 167.2340 27.2128 179.5745 26.9435 184.2128 31.4416 184.2128 31.8085 180.0000 33.7234 171.0638 33.7234 166.8085" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="calves_soleus" data-slug="calves_soleus" points="26.9435 184.2128 26.4468 192.7660 27.9787 197.0213 30.6596 193.1915 31.4416 184.2128" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="calves_gastro" data-slug="calves_gastro" points="38.7021 165.1064 36.7872 167.6596 34.8723 171.9149 32.9574 180.4255 32.4667 187.7872 39.9014 187.7872 40.2340 168.9362" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="calves_soleus" data-slug="calves_soleus" points="32.4667 187.7872 32.1915 191.9149 35.6383 200.0000 39.8511 190.6383 39.9014 187.7872" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="calves_gastro" data-slug="calves_gastro" points="61.6809 165.1064 60.1489 168.5106 60.4778 187.5106 68.0278 187.5106 67.0426 179.5745 65.1277 170.2128" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="calves_soleus" data-slug="calves_soleus" points="60.4778 187.5106 60.5319 190.6383 64.7447 199.5745 68.5745 191.9149 68.0278 187.5106" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="calves_gastro" data-slug="calves_gastro" points="68.5745 160.4255 70.1064 168.5106 73.1702 179.1489 73.4395 183.9362 69.0503 183.9362 68.5745 179.5745 66.2766 168.0851" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+<polygon class="calves_soleus" data-slug="calves_soleus" points="73.4395 183.9362 73.9362 192.7660 72.0213 196.5957 70.1064 193.6170 69.0503 183.9362" fill="none" stroke="none" stroke-width="0" style="cursor:pointer"/>
+  <polygon class="left-soleus" data-slug="left-soleus" points="30.6596 195.744681 32.1915 195.744681 35.2553 201.702128 32.5745 220 30.6596 213.617021 29.1277 198.297872" />
+  <polygon class="right-soleus" data-slug="right-soleus" points="67.8085 195.744681 69.7234 195.744681 71.2553 198.297872 69.7234 213.191489 68.1915 219.574468 65.5106 202.12766" />
+</svg>

@@ -676,6 +676,16 @@ function doFinalizeSession(session) {
 
   const oldPRsImport = { bench: db.bestPR.bench, squat: db.bestPR.squat, deadlift: db.bestPR.deadlift };
 
+  // Durée : Hevy ne fournit pas de timer réel → estimation via modèle physiologique
+  if ((session.duration == null || session.duration === 0)
+      && typeof estimateSessionDuration === 'function') {
+    var _estMin = estimateSessionDuration(session.exercises || []);
+    if (_estMin > 0) {
+      session.duration = _estMin * 60; // secondes
+      session.durationSource = 'estimated';
+    }
+  }
+
   db.logs.unshift(session);
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);
   saveDBNow();

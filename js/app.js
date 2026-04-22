@@ -237,6 +237,7 @@ function _flushDB() {
   if (!_saveDBDirty) return;
   _saveDBDirty = false;
   try {
+    if (!db.gamification) db.gamification = {};
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch(e) {
     console.error('saveDB error:', e);
@@ -250,6 +251,62 @@ document.addEventListener('visibilitychange', function() {
 });
 function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
 function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+// ── GAMIFICATION — defensive init ───────────────────────────
+db.gamification = db.gamification || {};
+db.gamification.streakFreezes = db.gamification.streakFreezes ?? 1;
+db.gamification.lastFreezeGrantedMonth = db.gamification.lastFreezeGrantedMonth ?? -1;
+db.gamification.freezesUsedAt = db.gamification.freezesUsedAt ?? [];
+db.gamification.freezeActiveThisWeek = db.gamification.freezeActiveThisWeek ?? false;
+db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks ?? [];
+
+// One-time migration V2 : l'ancien calcStreak consommait un freeze par appel
+// pour le MÊME trou (pas de suivi des semaines protégées). Reset propre.
+if (!db.gamification._migratedFreezeV2) {
+  db.gamification.streakFreezes = 2;
+  db.gamification.freezesUsedAt = [];
+  db.gamification._migratedFreezeV2 = true;
+}
+
+// One-time migration V3 : les clés stockées avant étaient des dates "YYYY-MM-DD"
+// (Monday UTC), décalées d'un jour selon timezone/DST. Nouvelles clés ISO
+// "YYYY-Www" cohérentes en UTC. On vide freezeProtectedWeeks (stale) et on
+// restaure 2 freezes pour laisser calcStreak re-bridger sur les vrais trous.
+if (!db.gamification._migratedFreezeV3) {
+  db.gamification.streakFreezes = 2;
+  db.gamification.freezesUsedAt = [];
+  db.gamification.freezeProtectedWeeks = [];
+  db.gamification._migratedFreezeV3 = true;
+}
+// One-time migration V4 : les freezes ne sont plus rétroactifs avant 2026.
+// On vide les semaines protégées (potentiellement pré-2026) et on restaure 2 freezes.
+if (!db.gamification._migratedFreezeV4) {
+  db.gamification.streakFreezes = 2;
+  db.gamification.freezesUsedAt = [];
+  db.gamification.freezeProtectedWeeks = [];
+  db.gamification._migratedFreezeV4 = true;
+}
+db.gamification.playerClass = db.gamification.playerClass ?? null;
+db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
+db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;
+db.gamification.liftRanks = db.gamification.liftRanks || null;
+db.gamification.muscleRanks = db.gamification.muscleRanks || null;
+db.gamification.lastTab = db.gamification.lastTab || {
+  main: 'tab-dash',
+  jeux: 'jeux-profil-joueur',
+  seances: 'seances-historique',
+  social: 'feed-amis',
+  profil: 'tab-corps'
+};
+
+// Update lastTab state + persist to localStorage + debounced cloud sync
+function _updateLastTab(key, value) {
+  if (!db.gamification) db.gamification = {};
+  if (!db.gamification.lastTab) db.gamification.lastTab = {};
+  db.gamification.lastTab[key] = value;
+  try { localStorage.setItem('sbd_lastTab', JSON.stringify(db.gamification.lastTab)); } catch(e) {}
+  if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
+}
 
 // ── READINESS PRÉ-SÉANCE ────────────────────────────────────
 db.readiness = db.readiness || [];
@@ -1653,7 +1710,7 @@ function saveRoutine() {
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-let activeSeancesSub = 'seances-list';
+let activeSeancesSub = 'seances-historique';
 let activeProfilSub = 'tab-corps';
 
 function showSeancesSub(id, btn) {
@@ -1662,8 +1719,16 @@ function showSeancesSub(id, btn) {
   document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(el => el.classList.remove('active'));
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'seances-list') renderSeancesTab();
+  if (btn && btn.classList) {
+    btn.classList.add('active');
+  } else {
+    // Fallback: retrouver la pill via son onclick
+    document.querySelectorAll('#tab-seances > .stats-sub-nav .stats-sub-pill').forEach(function(p) {
+      var oc = p.getAttribute('onclick') || '';
+      if (oc.indexOf("'" + id + "'") >= 0) p.classList.add('active');
+    });
+  }
+  if (id === 'seances-historique') renderSeancesTab();
   if (id === 'seances-go') renderGoTab();
   if (id === 'seances-programme') {
     var oldPgm = document.getElementById('programmeV2Content');
@@ -1671,7 +1736,74 @@ function showSeancesSub(id, btn) {
     renderProgramBuilder();
   }
   if (id === 'seances-coach') renderCoachTab();
+  _updateLastTab('seances', id);
 }
+// Explicit global export (safety for inline onclick handlers)
+if (typeof window !== 'undefined') window.showSeancesSub = showSeancesSub;
+
+// Delegated click listener fallback on tab-seances sub-nav
+(function() {
+  function _attachSeancesNav() {
+    var nav = document.querySelector('#tab-seances > .stats-sub-nav');
+    if (!nav || nav._seancesDelegated) return;
+    nav._seancesDelegated = true;
+    nav.addEventListener('click', function(e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.stats-sub-pill') : null;
+      if (!btn) return;
+      var oc = btn.getAttribute('onclick') || '';
+      var m = oc.match(/showSeancesSub\(['"]([^'"]+)['"]/);
+      if (m && m[1]) showSeancesSub(m[1], btn);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _attachSeancesNav);
+  } else {
+    _attachSeancesNav();
+  }
+})();
+
+function showJeuxSub(id, btn) {
+  document.querySelectorAll('#tab-game .jeux-sub-section').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
+  var sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (btn && btn.classList) {
+    btn.classList.add('active');
+  } else {
+    // Fallback: find the pill whose onclick references this id
+    var pills = document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill');
+    pills.forEach(function(p) {
+      var oc = p.getAttribute('onclick') || '';
+      if (oc.indexOf("'" + id + "'") >= 0) p.classList.add('active');
+    });
+  }
+  try { localStorage.setItem('activeJeuxSub', id); } catch(e) {}
+  if (typeof _updateLastTab === 'function') _updateLastTab('jeux', id);
+}
+// Explicit global export (safety for inline onclick handlers)
+if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
+
+// Delegated click listener fallback — ensures pills respond even if inline
+// onclick attributes are stripped or blocked by CSP / extensions.
+(function() {
+  function _attachJeuxNav() {
+    var nav = document.querySelector('#tab-game > .stats-sub-nav');
+    if (!nav || nav._jeuxDelegated) return;
+    nav._jeuxDelegated = true;
+    nav.addEventListener('click', function(e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.stats-sub-pill') : null;
+      if (!btn) return;
+      var oc = btn.getAttribute('onclick') || '';
+      var m = oc.match(/showJeuxSub\(['"]([^'"]+)['"]/);
+      if (m && m[1]) showJeuxSub(m[1], btn);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _attachJeuxNav);
+  } else {
+    _attachJeuxNav();
+  }
+})();
 
 function showProfilSub(id, btn) {
   activeProfilSub = id;
@@ -1680,6 +1812,7 @@ function showProfilSub(id, btn) {
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
+  if (typeof _updateLastTab === 'function') _updateLastTab('profil', id);
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
   // Stats dans le profil — rediriger vers le vrai onglet Stats
@@ -1721,6 +1854,7 @@ function showTab(tabId, opts) {
   var target = document.getElementById(tabId);
   if (target) { target.classList.add('active', slideClass); }
   if (newBtn) newBtn.classList.add('active');
+  if (typeof _updateLastTab === 'function') _updateLastTab('main', tabId);
   if (tabId==='tab-dash') renderDash();
   if (tabId==='tab-seances') {
     if (activeSeancesSub === 'seances-go') renderGoTab();
@@ -1728,7 +1862,16 @@ function showTab(tabId, opts) {
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderCoachAlgoAI(); }
-  if (tabId==='tab-game') { renderGamificationTab(); }
+  if (tabId==='tab-game') {
+    renderGamificationTab();
+    // Restore last active sub-tab (default: jeux-profil-joueur)
+    var savedJeuxSub = null;
+    try { savedJeuxSub = localStorage.getItem('activeJeuxSub'); } catch(e) {}
+    var validSubs = ['jeux-profil-joueur','jeux-rangs','jeux-badges'];
+    if (validSubs.indexOf(savedJeuxSub) < 0) savedJeuxSub = 'jeux-profil-joueur';
+    var targetBtn = document.querySelector('#tab-game > .stats-sub-nav .stats-sub-pill[onclick*="'+savedJeuxSub+'"]');
+    if (typeof showJeuxSub === 'function') showJeuxSub(savedJeuxSub, targetBtn);
+  }
   if (tabId==='tab-profil') {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
     else renderCorpsTab();
@@ -1770,18 +1913,67 @@ document.addEventListener('click', function(e) {
 });
 
 // On load: restore tab from hash or localStorage
+// Deferred via setTimeout(0) so all top-level const/var declarations (SECRET_QUESTS,
+// PLAYER_CLASSES, SBD_TIERS, etc.) finish evaluating before renderGamificationTab fires.
 (function _restoreTab() {
   var hash = window.location.hash.replace('#', '');
   if (hash === 'admin') return; // handled elsewhere
-  var saved = null;
-  try { saved = localStorage.getItem('activeTab'); } catch(e) {}
+
+  // Read lastTab from localStorage first (synchronous, always available at boot)
+  var lt = null;
+  try {
+    var stored = localStorage.getItem('sbd_lastTab');
+    if (stored) lt = JSON.parse(stored);
+  } catch(e) {}
+  if (!lt && db.gamification && db.gamification.lastTab) lt = db.gamification.lastTab;
+
+  var legacySaved = null;
+  try { legacySaved = localStorage.getItem('activeTab'); } catch(e) {}
+
   var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
-  var target = validTabs.indexOf(hash) >= 0 ? hash : (validTabs.indexOf(saved) >= 0 ? saved : 'tab-dash');
-  _skipPushState = true;
-  showTab(target);
-  _skipPushState = false;
-  history.replaceState({ tab: target }, '', '#' + target);
+  var fromLastTab = (lt && validTabs.indexOf(lt.main) >= 0) ? lt.main : null;
+  var target = validTabs.indexOf(hash) >= 0
+    ? hash
+    : (fromLastTab || (validTabs.indexOf(legacySaved) >= 0 ? legacySaved : 'tab-dash'));
+
+  setTimeout(function() {
+    _skipPushState = true;
+    try { showTab(target); } catch(e) { console.error('restoreTab showTab error:', e); }
+    _skipPushState = false;
+    try { history.replaceState({ tab: target }, '', '#' + target); } catch(e) {}
+    // Restore sub-tab for the current main
+    if (lt) _applyLastTabSub(target, lt);
+  }, 0);
 })();
+
+// Apply sub-tab restoration for the current main tab
+function _applyLastTabSub(mainId, lt) {
+  if (!lt) return;
+  if (mainId === 'tab-game' && lt.jeux && typeof showJeuxSub === 'function') {
+    try { showJeuxSub(lt.jeux); } catch(e) {}
+  } else if (mainId === 'tab-seances' && lt.seances && typeof showSeancesSub === 'function') {
+    try { showSeancesSub(lt.seances); } catch(e) {}
+  } else if (mainId === 'tab-social' && lt.social && typeof showFeedSub === 'function') {
+    try { showFeedSub(lt.social); } catch(e) {}
+  } else if (mainId === 'tab-profil' && lt.profil && typeof showProfilSub === 'function') {
+    try { showProfilSub(lt.profil); } catch(e) {}
+  }
+}
+
+// Post-syncFromCloud: reapply lastTab if cloud carries a fresher state.
+// Only triggers if user hasn't manually navigated away from the initially
+// restored tab since boot (_currentTab === initial restored target).
+function _restoreLastTabFromCloud() {
+  try {
+    if (!db.gamification || !db.gamification.lastTab) return;
+    var lt = db.gamification.lastTab;
+    var validTabs = ['tab-dash','tab-social','tab-seances','tab-profil','tab-stats','tab-ai','tab-game'];
+    if (lt.main && validTabs.indexOf(lt.main) >= 0 && lt.main !== _currentTab) {
+      if (typeof showTab === 'function') showTab(lt.main);
+    }
+    _applyLastTabSub(lt.main || _currentTab, lt);
+  } catch(e) { console.error('restoreLastTabFromCloud:', e); }
+}
 document.getElementById('dayButtonsContainer').addEventListener('click', e => { const b = e.target.closest('.day-btn'); if (!b) return; selectedDay = b.dataset.day; document.querySelectorAll('.day-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); document.getElementById('routineDisplay').textContent = getRoutine()[selectedDay] || '—'; renderDayExercises(selectedDay); });
 
 // ============================================================
@@ -2130,60 +2322,173 @@ function calcTotalXP() {
   return xp;
 }
 
+// ── ISO 8601 week helpers (UTC-only, no DST/TZ drift) ──
+function getISOWeekKey(ts) {
+  var d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  // Shift to Thursday of the same ISO week (pure UTC), per ISO 8601.
+  // getUTCDay() returns 0=Sun..6=Sat; treat Sun as 7 to align Mon=1.
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  var year = d.getUTCFullYear();
+  var jan1 = new Date(Date.UTC(year, 0, 1));
+  var week = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+  return year + '-W' + String(week).padStart(2, '0');
+}
+
+function _mondayFromISOWeekKey(key) {
+  var m = /^(\d{4})-W(\d+)$/.exec(key || '');
+  if (!m) return null;
+  var year = parseInt(m[1], 10);
+  var week = parseInt(m[2], 10);
+  // Jan 4 is always in ISO week 1. Find that week's Monday (UTC).
+  var jan4 = new Date(Date.UTC(year, 0, 4));
+  var jan4Day = jan4.getUTCDay() || 7; // 1..7
+  var mondayW1 = new Date(jan4.getTime() - (jan4Day - 1) * 86400000);
+  return new Date(mondayW1.getTime() + (week - 1) * 7 * 86400000);
+}
+
+function _prevISOWeekKey(key) {
+  var monday = _mondayFromISOWeekKey(key);
+  if (!monday) return null;
+  return getISOWeekKey(new Date(monday.getTime() - 7 * 86400000));
+}
+
 function calcStreak() {
-  // Weekly calendar streak: ISO weeks (Mon-Sun) with ≥1 session
+  // Weekly calendar streak: ISO 8601 weeks (Mon-Sun, UTC) with ≥1 session
   if (!db.logs.length) return 0;
 
-  function getISOWeekMonday(ts) {
-    var d = new Date(ts);
-    var day = d.getDay(); // 0=dim, 1=lun
-    var diff = (day === 0 ? -6 : 1 - day);
-    var monday = new Date(d);
-    monday.setDate(d.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().slice(0, 10);
-  }
+  db.gamification = db.gamification || {};
 
   var now = Date.now();
-  var currentWeek = getISOWeekMonday(now);
+  var currentWeek = getISOWeekKey(now);
 
-  // Collect all weeks that have at least 1 session
+  // Collect all weeks that have at least 1 session (ISO week keys, UTC-based)
   var weeksWithSession = new Set();
+  var droppedLogs = 0;
   db.logs.forEach(function(log) {
     var ts = log.timestamp || new Date(log.date).getTime();
-    if (ts) weeksWithSession.add(getISOWeekMonday(ts));
+    if (!ts || isNaN(ts)) { droppedLogs++; return; }
+    var wk = getISOWeekKey(ts);
+    if (wk) weeksWithSession.add(wk);
+    else droppedLogs++;
   });
 
-  // Count consecutive weeks going backward from current week
+  // Weeks already protected by a freeze consumed in previous calls.
+  var protectedSet = new Set(db.gamification.freezeProtectedWeeks || []);
+  var freezeConsumedThisCall = false;
+
+  // DEBUG — enable via window.DEBUG_STREAK = true in console
+  var DEBUG = (typeof window !== 'undefined' && window.DEBUG_STREAK === true);
+  if (DEBUG) {
+    console.log('[calcStreak] logs=' + db.logs.length + ' dropped=' + droppedLogs +
+      ' weeksInSet=' + weeksWithSession.size + ' currentWeek=' + currentWeek +
+      ' freezes=' + (db.gamification.streakFreezes || 0) +
+      ' protectedWeeks=' + protectedSet.size +
+      ' freezeActiveThisWeek=' + (db.gamification.freezeActiveThisWeek === true));
+    var sortedWeeks = Array.from(weeksWithSession).sort().reverse();
+    console.log('[calcStreak] first 5 weeks:', sortedWeeks.slice(0, 5));
+    console.log('[calcStreak] last 5 weeks:', sortedWeeks.slice(-5));
+  }
+
+  // Count consecutive weeks backward from startWeek.
   function countFromWeek(startWeek) {
     var streak = 0;
     var checkWeek = startWeek;
-    while (weeksWithSession.has(checkWeek)) {
-      streak++;
-      var d = new Date(checkWeek);
-      d.setDate(d.getDate() - 7);
-      checkWeek = d.toISOString().slice(0, 10);
+    while (checkWeek) {
+      var hasSession = weeksWithSession.has(checkWeek);
+      var alreadyProtected = protectedSet.has(checkWeek);
+      if (hasSession || alreadyProtected) {
+        streak++;
+      } else if (checkWeek < '2026-W01') {
+        if (DEBUG) console.log('[calcStreak] BREAK (pre-2026) at week=' + checkWeek + ' streak=' + streak);
+        break;
+      } else if (!freezeConsumedThisCall
+                 && (db.gamification.streakFreezes || 0) > 0
+                 && streak >= 4) {
+        streak++;
+        freezeConsumedThisCall = true;
+        db.gamification.streakFreezes = Math.max(0, (db.gamification.streakFreezes || 0) - 1);
+        db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks || [];
+        if (db.gamification.freezeProtectedWeeks.indexOf(checkWeek) < 0) {
+          db.gamification.freezeProtectedWeeks.push(checkWeek);
+        }
+        protectedSet.add(checkWeek);
+        db.gamification.freezesUsedAt = db.gamification.freezesUsedAt || [];
+        db.gamification.freezesUsedAt.push(Date.now());
+        if (typeof syncToCloud === 'function') syncToCloud();
+        if (typeof showToast === 'function') showToast('❄️ Freeze utilisé — streak protégé');
+        if (DEBUG) console.log('[calcStreak] freeze consumed at week=' + checkWeek + ' streak=' + streak);
+      } else {
+        if (DEBUG) console.log('[calcStreak] BREAK at week=' + checkWeek + ' streak=' + streak +
+          ' reason=' + (freezeConsumedThisCall ? 'freeze-already-consumed-this-call' :
+                        (db.gamification.streakFreezes || 0) === 0 ? 'no-freezes-left' :
+                        streak < 4 ? 'streak<4' : 'unknown'));
+        break;
+      }
+      checkWeek = _prevISOWeekKey(checkWeek);
     }
     return streak;
   }
 
-  var streak = countFromWeek(currentWeek);
+  // Start from the LAST COMPLETED week (ignore the unfinished current week).
+  var lastWeekKey = _prevISOWeekKey(currentWeek);
+  var streak = countFromWeek(lastWeekKey);
 
-  // If current week has no session yet, check from last week (don't break streak)
-  if (!weeksWithSession.has(currentWeek)) {
-    var lastWeek = new Date(currentWeek);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    var lastWeekKey = lastWeek.toISOString().slice(0, 10);
-    if (weeksWithSession.has(lastWeekKey)) {
-      streak = countFromWeek(lastWeekKey);
-    }
+  // Add +1 if the current (unfinished) week already has a session,
+  // or if it's manually protected by a freeze.
+  if (weeksWithSession.has(currentWeek) || db.gamification.freezeActiveThisWeek === true) {
+    streak += 1;
   }
 
-  // Store in db for cloud sync
-  if (!db.weeklyStreak || db.weeklyStreak !== streak) db.weeklyStreak = streak;
-  if (!db.weeklyStreakRecord || streak > db.weeklyStreakRecord) db.weeklyStreakRecord = streak;
+  // Store in db for cloud sync (never overwrite a higher record)
+  db.weeklyStreak = streak;
+  if (streak > (db.weeklyStreakRecord || 0)) db.weeklyStreakRecord = streak;
+
+  if (DEBUG) console.log('[calcStreak] FINAL streak=' + streak);
 
   return streak;
+}
+
+// ── STREAK FREEZES ──────────────────────────────────────────
+function grantMonthlyFreeze() {
+  db.gamification = db.gamification || {};
+  db.gamification.streakFreezes = db.gamification.streakFreezes ?? 1;
+  db.gamification.lastFreezeGrantedMonth = db.gamification.lastFreezeGrantedMonth ?? -1;
+  var currentMonth = new Date().getMonth();
+  if (currentMonth !== db.gamification.lastFreezeGrantedMonth
+      && db.gamification.streakFreezes < 2) {
+    db.gamification.streakFreezes += 1;
+    db.gamification.lastFreezeGrantedMonth = currentMonth;
+    if (typeof syncToCloud === 'function') syncToCloud();
+  }
+}
+
+function activateFreezeManual() {
+  db.gamification = db.gamification || {};
+  if ((db.gamification.streakFreezes || 0) > 0 && db.gamification.freezeActiveThisWeek === false) {
+    db.gamification.freezeActiveThisWeek = true;
+    db.gamification.streakFreezes -= 1;
+    db.gamification.freezesUsedAt = db.gamification.freezesUsedAt || [];
+    db.gamification.freezesUsedAt.push(Date.now());
+    // Remember that the current week is now protected (idempotent across renders)
+    db.gamification.freezeProtectedWeeks = db.gamification.freezeProtectedWeeks || [];
+    (function() {
+      var wk = (typeof getISOWeekKey === 'function') ? getISOWeekKey(Date.now()) : null;
+      if (wk && db.gamification.freezeProtectedWeeks.indexOf(wk) < 0) {
+        db.gamification.freezeProtectedWeeks.push(wk);
+      }
+    })();
+    if (typeof syncToCloud === 'function') syncToCloud();
+    if (typeof showToast === 'function') showToast('❄️ Semaine protégée');
+    if (typeof renderGamificationTab === 'function') renderGamificationTab();
+  } else {
+    if (typeof showToast === 'function') showToast('Aucun freeze disponible');
+  }
+}
+
+function getStreakFreezes() {
+  db.gamification = db.gamification || {};
+  return db.gamification.streakFreezes || 0;
 }
 
 function getXPLevel(xp) {
@@ -2274,6 +2579,1130 @@ var MONTHLY_QUEST_POOL = [
   { id:'m_heavy_month', name:'Mois de force', desc:'15 séries à +90% e1RM ce mois', targetFn:function(){return 15;}, xp:400 },
   { id:'m_consistency', name:'Métronome', descFn:function(t){return 'Entraîne-toi au moins '+t+' jours chaque semaine pendant 4 semaines';}, targetFn:function(){ return getTrainingDaysCount(); }, xp:500 }
 ];
+
+// ── Player Classes (Dofus) ──
+const PLAYER_CLASSES = [
+  { id:'iop',      icon:'⚔️',  name:'Iop',      desc:'Force brute. Tu vis pour les charges lourdes, rien d\'autre.' },
+  { id:'sacrieur', icon:'🩸',  name:'Sacrieur', desc:'Tu sacrifies tout pour la pompe. Le volume est ta religion.' },
+  { id:'pandawa',  icon:'🍶',  name:'Pandawa',  desc:'Patient et équilibré. Tu joues sur le long terme.' },
+  { id:'osamodas', icon:'🐉',  name:'Osamodas', desc:'Instinctif. Tu écoutes ton corps et varies sans cesse.' },
+  { id:'xelor',    icon:'⏳',  name:'Xelor',    desc:'Tout est planifié. La périodisation, c\'est ton art.' },
+  { id:'feca',     icon:'🛡️', name:'Feca',     desc:'Technique et prévention. Ton temple, tu le protèges.' },
+  { id:'ecaflip',  icon:'🎲',  name:'Ecaflip',  desc:'Irrégulier mais enthousiaste. Tu y vas quand tu peux.' },
+  { id:'enutrof',  icon:'💰',  name:'Enutrof',  desc:'Vétéran. Des années de fer, des progressions en béton.' }
+];
+
+// ── Quiz Questions (7) ──
+const QUIZ_QUESTIONS = [
+  {
+    type: 'choice',
+    text: "Ton objectif principal à la salle ?",
+    options: [
+      { text: "Soulever le plus lourd possible",   scores: { iop:3, xelor:1 } },
+      { text: "Construire un physique esthétique",  scores: { sacrieur:3, osamodas:1 } },
+      { text: "Rester en forme et en santé",        scores: { pandawa:3, feca:1 } },
+      { text: "Performer en compétition",           scores: { xelor:3, iop:1 } },
+      { text: "Reprendre après une pause",          scores: { ecaflip:3, pandawa:1 } },
+      { text: "Continuer sur la durée",             scores: { enutrof:3 } }
+    ]
+  },
+  {
+    type: 'slider',
+    text: "Ton ratio idéal ?",
+    labelLeft: "⚡ Force pure",
+    labelRight: "💪 Volume pur",
+    scoreFn: function(v) {
+      if (v <= 2)  return { iop:2 };
+      if (v <= 4)  return { xelor:1, iop:1 };
+      if (v === 5) return { osamodas:2, feca:1 };
+      if (v <= 7)  return { sacrieur:1, osamodas:1 };
+      return { sacrieur:2 };
+    }
+  },
+  {
+    type: 'choice',
+    text: "Ta séance idéale ?",
+    options: [
+      { text: "Peu de séries, charges lourdes",         scores: { iop:2, xelor:1 } },
+      { text: "Beaucoup de séries, pompe maximale",     scores: { sacrieur:2 } },
+      { text: "Régulière, technique, sans blessure",    scores: { feca:2, pandawa:1 } },
+      { text: "Variée, jamais la même chose",           scores: { osamodas:2 } },
+      { text: "Courte et efficace",                     scores: { enutrof:2, ecaflip:1 } }
+    ]
+  },
+  {
+    type: 'choice',
+    text: "Une semaine sans salle, c'est ?",
+    options: [
+      { text: "Insupportable, je dois compenser",  scores: { iop:2, sacrieur:1 } },
+      { text: "Normal, le corps récupère",          scores: { pandawa:3 } },
+      { text: "Je fais autre chose (cardio…)",      scores: { osamodas:2 } },
+      { text: "J'avais planifié ce repos",          scores: { xelor:2, enutrof:1 } },
+      { text: "Ça arrive souvent chez moi",         scores: { ecaflip:2 } }
+    ]
+  },
+  {
+    type: 'slider',
+    text: "Comment tu organises ton entraînement ?",
+    labelLeft: "🎲 Total improvisation",
+    labelRight: "📋 Tout planifié",
+    scoreFn: function(v) {
+      if (v <= 2)  return { ecaflip:2, osamodas:1 };
+      if (v <= 5)  return { osamodas:1, feca:1 };
+      if (v <= 8)  return { xelor:1, enutrof:1 };
+      return { xelor:2 };
+    }
+  },
+  {
+    type: 'choice',
+    text: "Ton rapport aux blessures ?",
+    options: [
+      { text: "Je pousse jusqu'à la limite",         scores: { iop:2, sacrieur:1 } },
+      { text: "Je fais très attention à ma technique", scores: { feca:3 } },
+      { text: "J'écoute mon corps au jour le jour",  scores: { osamodas:2, pandawa:1 } },
+      { text: "J'ai déjà été blessé, ça change tout", scores: { feca:2, enutrof:1 } },
+      { text: "Je ne me suis jamais vraiment blessé", scores: { ecaflip:1, iop:1 } }
+    ]
+  },
+  {
+    type: 'choice',
+    text: "Si tu étais un personnage Dofus ?",
+    options: [
+      { text: "⚔️  Un guerrier qui fonce dans le tas",          scores: { iop:3 } },
+      { text: "🩸  Un titan du volume qui encaisse tout",        scores: { sacrieur:3 } },
+      { text: "🍶  Un moine patient et serein",                  scores: { pandawa:3 } },
+      { text: "🐉  Un dresseur qui s'adapte à tout",             scores: { osamodas:3 } },
+      { text: "⏳  Un maître du temps et de la stratégie",       scores: { xelor:3 } },
+      { text: "🛡️  Un gardien qui protège son temple",           scores: { feca:3 } },
+      { text: "🎲  Un joueur qui tente sa chance",               scores: { ecaflip:3 } },
+      { text: "💰  Un chasseur de trésors au long cours",        scores: { enutrof:3 } }
+    ]
+  }
+];
+
+function computeQuizResult(answers) {
+  var scores = {};
+  PLAYER_CLASSES.forEach(function(c) { scores[c.id] = 0; });
+  QUIZ_QUESTIONS.forEach(function(q, i) {
+    var a = answers[i];
+    if (a == null) return;
+    var delta = null;
+    if (q.type === 'choice') {
+      var opt = q.options[a];
+      if (opt && opt.scores) delta = opt.scores;
+    } else if (q.type === 'slider' && typeof q.scoreFn === 'function') {
+      delta = q.scoreFn(a);
+    }
+    if (delta) {
+      Object.keys(delta).forEach(function(k) { scores[k] = (scores[k] || 0) + delta[k]; });
+    }
+  });
+  // Tiebreak priority: Xelor > Enutrof > Feca > Osamodas > Iop = Sacrieur = Pandawa = Ecaflip
+  var priority = ['xelor','enutrof','feca','osamodas','iop','sacrieur','pandawa','ecaflip'];
+  var best = priority[0], bestScore = -1, bestPrio = priority.length;
+  priority.forEach(function(c, idx) {
+    var s = scores[c] || 0;
+    if (s > bestScore || (s === bestScore && idx < bestPrio)) {
+      best = c; bestScore = s; bestPrio = idx;
+    }
+  });
+  return best;
+}
+
+function showClassQuiz() {
+  // Prevent stacking
+  var existing = document.getElementById('classQuizOverlay');
+  if (existing) existing.remove();
+
+  var answers = new Array(QUIZ_QUESTIONS.length).fill(null);
+  var currentQ = 0;
+
+  var overlay = document.createElement('div');
+  overlay.id = 'classQuizOverlay';
+  overlay.innerHTML =
+    '<style>' +
+      '#classQuizOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}' +
+      '#classQuizOverlay .cq-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;max-width:380px;width:100%;color:#fff;animation:cqFade 0.4s ease;}' +
+      '#classQuizOverlay .cq-progress{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;text-align:center;}' +
+      '#classQuizOverlay .cq-progress-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:20px;}' +
+      '#classQuizOverlay .cq-progress-fill{height:100%;background:var(--purple);transition:width 0.35s ease;}' +
+      '#classQuizOverlay .cq-question{font-size:18px;font-weight:700;margin-bottom:18px;line-height:1.4;text-align:center;}' +
+      '#classQuizOverlay .cq-options{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}' +
+      '#classQuizOverlay .cq-option{background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 16px;width:100%;text-align:left;color:#fff;font-size:14px;cursor:pointer;transition:all 0.2s;font-family:inherit;}' +
+      '#classQuizOverlay .cq-option:hover{background:rgba(255,255,255,0.04);}' +
+      '#classQuizOverlay .cq-option.selected{border-color:var(--purple);background:rgba(191,90,242,0.15);}' +
+      '#classQuizOverlay .cq-slider-wrap{margin-bottom:20px;}' +
+      '#classQuizOverlay .cq-slider-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:10px;}' +
+      '#classQuizOverlay .cq-slider{width:100%;accent-color:var(--purple);}' +
+      '#classQuizOverlay .cq-slider-val{text-align:center;font-size:13px;color:var(--purple);font-weight:700;margin-top:8px;}' +
+      '#classQuizOverlay .cq-next{background:var(--purple);color:#fff;border:none;border-radius:12px;padding:14px;width:100%;font-size:15px;font-weight:700;cursor:pointer;transition:opacity 0.2s;font-family:inherit;}' +
+      '#classQuizOverlay .cq-next:disabled{opacity:0.3;cursor:not-allowed;}' +
+      '#classQuizOverlay .cq-reveal{text-align:center;padding:20px 0;}' +
+      '#classQuizOverlay .cq-reveal-icon{font-size:72px;display:inline-block;animation:cqPulse 1s ease infinite;}' +
+      '#classQuizOverlay .cq-reveal-small{font-size:13px;color:var(--sub);margin-top:14px;letter-spacing:0.8px;}' +
+      '#classQuizOverlay .cq-reveal-lead{font-size:14px;color:var(--sub);margin-bottom:6px;}' +
+      '#classQuizOverlay .cq-reveal-name{font-size:2rem;font-weight:800;color:var(--purple);margin:8px 0;}' +
+      '#classQuizOverlay .cq-reveal-desc{font-size:13px;color:var(--sub);line-height:1.6;margin:12px 0 22px;}' +
+      '@keyframes cqFade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}' +
+      '@keyframes cqPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}' +
+    '</style>' +
+    '<div class="cq-card" id="cqCard"></div>';
+  document.body.appendChild(overlay);
+
+  function renderQ() {
+    var q = QUIZ_QUESTIONS[currentQ];
+    var total = QUIZ_QUESTIONS.length;
+    var pct = Math.round(((currentQ + 1) / total) * 100);
+    var isLast = currentQ === total - 1;
+    var card = document.getElementById('cqCard');
+
+    var body = '';
+    body += '<div class="cq-progress">Question ' + (currentQ + 1) + ' / ' + total + '</div>';
+    body += '<div class="cq-progress-bar"><div class="cq-progress-fill" style="width:' + pct + '%;"></div></div>';
+    body += '<div class="cq-question">' + q.text + '</div>';
+
+    if (q.type === 'choice') {
+      body += '<div class="cq-options">';
+      q.options.forEach(function(opt, i) {
+        var sel = answers[currentQ] === i ? ' selected' : '';
+        body += '<button class="cq-option' + sel + '" data-idx="' + i + '">' + opt.text + '</button>';
+      });
+      body += '</div>';
+    } else if (q.type === 'slider') {
+      var val = answers[currentQ] == null ? 5 : answers[currentQ];
+      body += '<div class="cq-slider-wrap">';
+      body += '<div class="cq-slider-labels"><span>' + q.labelLeft + '</span><span>' + q.labelRight + '</span></div>';
+      body += '<input type="range" min="0" max="10" step="1" value="' + val + '" class="cq-slider" id="cqSlider">';
+      body += '<div class="cq-slider-val" id="cqSliderVal">' + val + ' / 10</div>';
+      body += '</div>';
+    }
+
+    body += '<button class="cq-next" id="cqNextBtn"' + (answers[currentQ] == null ? ' disabled' : '') + '>' + (isLast ? 'Voir mon résultat' : 'Suivant →') + '</button>';
+    card.innerHTML = body;
+
+    if (q.type === 'choice') {
+      card.querySelectorAll('.cq-option').forEach(function(btn) {
+        btn.onclick = function() {
+          answers[currentQ] = parseInt(btn.getAttribute('data-idx'));
+          card.querySelectorAll('.cq-option').forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          document.getElementById('cqNextBtn').disabled = false;
+        };
+      });
+    } else if (q.type === 'slider') {
+      var slider = document.getElementById('cqSlider');
+      var valEl = document.getElementById('cqSliderVal');
+      if (answers[currentQ] == null) answers[currentQ] = parseInt(slider.value);
+      document.getElementById('cqNextBtn').disabled = false;
+      slider.oninput = function() {
+        var v = parseInt(slider.value);
+        answers[currentQ] = v;
+        valEl.textContent = v + ' / 10';
+      };
+    }
+
+    document.getElementById('cqNextBtn').onclick = function() {
+      if (answers[currentQ] == null) return;
+      if (isLast) revealResult();
+      else { currentQ++; renderQ(); }
+    };
+  }
+
+  function revealResult() {
+    var classSlug = computeQuizResult(answers);
+    var cls = PLAYER_CLASSES.find(function(c) { return c.id === classSlug; }) || PLAYER_CLASSES[0];
+    var card = document.getElementById('cqCard');
+
+    card.innerHTML =
+      '<div class="cq-reveal">' +
+        '<div class="cq-reveal-icon">' + cls.icon + '</div>' +
+        '<div class="cq-reveal-small">Analyse en cours…</div>' +
+      '</div>';
+
+    setTimeout(function() {
+      card.innerHTML =
+        '<div class="cq-reveal">' +
+          '<div class="cq-reveal-lead">Tu es un(e)…</div>' +
+          '<div style="height:14px;"></div>' +
+          '<div class="cq-reveal-icon" style="animation:none;">' + cls.icon + '</div>' +
+          '<div class="cq-reveal-name">' + cls.name + '</div>' +
+          '<div class="cq-reveal-desc">' + cls.desc + '</div>' +
+          '<button class="cq-next" id="cqDoneBtn">Commencer l\'aventure</button>' +
+        '</div>';
+      document.getElementById('cqDoneBtn').onclick = function() {
+        db.gamification = db.gamification || {};
+        db.gamification.playerClass = classSlug;
+        db.gamification.quizAnswers = answers;
+        db.gamification.quizCompletedAt = Date.now();
+        saveDB();
+        if (typeof syncToCloud === 'function') syncToCloud();
+        overlay.remove();
+        if (typeof renderGamificationTab === 'function') renderGamificationTab();
+      };
+    }, 1200);
+  }
+
+  renderQ();
+}
+
+// ── SBD Lift Ranks (Dofus tiers) ──
+const SBD_TIERS = [
+  { name: 'Apprenti',   color: '#8B7355', min: 0  },
+  { name: 'Aventurier', color: '#9EB0C0', min: 20 },
+  { name: 'Guerrier',   color: '#C8A24C', min: 40 },
+  { name: 'Champion',   color: '#78D8D0', min: 60 },
+  { name: 'Héros',      color: '#6EB4FF', min: 75 },
+  { name: 'Légende',    color: '#BF5AF2', min: 90 }
+];
+
+const STRENGTH_LEVEL_STANDARDS = {
+  bench: {
+    male:   [0.35, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, 2.25],
+    female: [0.20, 0.30, 0.45, 0.60, 0.80, 1.00, 1.20, 1.40, 1.60]
+  },
+  squat: {
+    male:   [0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50],
+    female: [0.35, 0.50, 0.70, 0.90, 1.10, 1.30, 1.55, 1.80, 2.00]
+  },
+  deadlift: {
+    male:   [0.60, 0.85, 1.10, 1.35, 1.60, 1.90, 2.20, 2.50, 2.75],
+    female: [0.40, 0.60, 0.80, 1.00, 1.25, 1.50, 1.75, 2.00, 2.20]
+  }
+};
+
+const STRENGTH_PERCENTILE_POINTS = [5, 10, 20, 35, 50, 65, 80, 90, 95];
+
+function calcLiftPercentile(liftType, e1rm, bw, gender) {
+  if (!e1rm || !bw || bw <= 0) return 0;
+  var ratio = e1rm / bw;
+  var g = (gender === 'female') ? 'female' : 'male';
+  var stds = STRENGTH_LEVEL_STANDARDS[liftType] && STRENGTH_LEVEL_STANDARDS[liftType][g];
+  if (!stds) return 0;
+  if (ratio <= stds[0]) return 0;
+  if (ratio >= stds[8]) return 99;
+  for (var i = 0; i < 8; i++) {
+    if (ratio <= stds[i + 1]) {
+      var t = (ratio - stds[i]) / (stds[i + 1] - stds[i]);
+      return Math.round(
+        STRENGTH_PERCENTILE_POINTS[i] +
+        t * (STRENGTH_PERCENTILE_POINTS[i + 1] - STRENGTH_PERCENTILE_POINTS[i])
+      );
+    }
+  }
+  return 95;
+}
+
+function percentileToSBDTier(pct) {
+  var tier = SBD_TIERS[0];
+  for (var i = 0; i < SBD_TIERS.length; i++) {
+    if (pct >= SBD_TIERS[i].min) tier = SBD_TIERS[i];
+  }
+  return tier;
+}
+
+// Kg e1RM required to reach the next tier (based on its min percentile → ratio threshold)
+function _kgToReachTier(liftType, nextTierMinPct, bw, gender) {
+  if (!bw || bw <= 0) return null;
+  var g = (gender === 'female') ? 'female' : 'male';
+  var stds = STRENGTH_LEVEL_STANDARDS[liftType] && STRENGTH_LEVEL_STANDARDS[liftType][g];
+  if (!stds) return null;
+  // Find percentile points bracket around nextTierMinPct and interpolate back to ratio
+  for (var i = 0; i < STRENGTH_PERCENTILE_POINTS.length - 1; i++) {
+    var p0 = STRENGTH_PERCENTILE_POINTS[i], p1 = STRENGTH_PERCENTILE_POINTS[i + 1];
+    if (nextTierMinPct <= p0) return Math.round(stds[i] * bw);
+    if (nextTierMinPct <= p1) {
+      var t = (nextTierMinPct - p0) / (p1 - p0);
+      var ratio = stds[i] + t * (stds[i + 1] - stds[i]);
+      return Math.round(ratio * bw);
+    }
+  }
+  return Math.round(stds[stds.length - 1] * bw);
+}
+
+function calcAndStoreLiftRanks() {
+  try {
+    db.gamification = db.gamification || {};
+    var bw = db.user && db.user.bw ? db.user.bw : 0;
+    var gender = db.user && db.user.gender ? db.user.gender : 'male';
+    var now = Date.now();
+    var map = { squat: null, bench: null, deadlift: null };
+
+    // Collect best e1RM per SBD type across all logs (uses existing getSBDType)
+    var bestByType = { squat: 0, bench: 0, deadlift: 0 };
+    (db.logs || []).forEach(function(log) {
+      (log.exercises || []).forEach(function(exo) {
+        if (!exo || !exo.name || !exo.maxRM || exo.maxRM <= 0) return;
+        var type = (typeof getSBDType === 'function') ? getSBDType(exo.name) : null;
+        if (!type) return;
+        if (exo.maxRM > bestByType[type]) bestByType[type] = exo.maxRM;
+      });
+    });
+
+    // Fallback to db.bestPR (which already stores e1RM via maxRM) if logs path missed
+    if (db.bestPR) {
+      ['squat','bench','deadlift'].forEach(function(t) {
+        if ((db.bestPR[t] || 0) > bestByType[t]) bestByType[t] = db.bestPR[t];
+      });
+    }
+
+    ['squat','bench','deadlift'].forEach(function(liftType) {
+      var e1rm = bestByType[liftType];
+      if (!e1rm || !bw) { map[liftType] = null; return; }
+      var pct = calcLiftPercentile(liftType, e1rm, bw, gender);
+      var tier = percentileToSBDTier(pct);
+      map[liftType] = {
+        tier: tier.name,
+        color: tier.color,
+        percentile: pct,
+        e1rm: e1rm,
+        updatedAt: now
+      };
+    });
+
+    db.gamification.liftRanks = map;
+    if (typeof saveDB === 'function') saveDB();
+    if (typeof syncToCloud === 'function') syncToCloud(true);
+  } catch(e) {
+    console.error('calcAndStoreLiftRanks error:', e);
+  }
+}
+
+// ── Muscle Tiers (anatomy figure) ──
+const MUSCLE_TIERS = [
+  { name: 'Atrophié',   color: 'rgba(85,85,102,0.6)',    min: 0  },
+  { name: 'Développé',  color: 'rgba(122,140,110,0.7)',  min: 17 },
+  { name: 'Sculpté',    color: 'rgba(200,162,76,0.75)',  min: 34 },
+  { name: 'Puissant',   color: 'rgba(120,216,208,0.75)', min: 51 },
+  { name: 'Massif',     color: 'rgba(110,180,255,0.75)', min: 68 },
+  { name: 'Titanesque', color: 'rgba(191,90,242,0.8)',   min: 85 }
+];
+
+const MUSCLE_NAMES_FR = {
+  chest_upper: 'Pectoraux hauts',
+  chest_lower: 'Pectoraux bas',
+  lats: 'Grands dorsaux',
+  rhomboids: 'Rhomboïdes',
+  erectors: 'Érecteurs spinaux',
+  quads: 'Quadriceps',
+  hamstrings: 'Ischio-jambiers',
+  glutes_major: 'Grand fessier',
+  glutes_med: 'Moyen fessier',
+  adductors: 'Adducteurs',
+  shoulders_front: 'Deltoïdes antérieurs',
+  shoulders_side: 'Deltoïdes latéraux',
+  shoulders_rear: 'Deltoïdes postérieurs',
+  traps: 'Trapèzes',
+  triceps: 'Triceps',
+  biceps: 'Biceps',
+  forearms: 'Avant-bras',
+  abs: 'Abdominaux',
+  obliques: 'Obliques',
+  calves_gastro: 'Mollets',
+  calves_soleus: 'Soléaire',
+  hip_flexors: 'Fléchisseurs de hanche',
+  serratus: 'Dentelé antérieur'
+};
+
+// ── Body Highlighter SVG figure ──
+const BODY_MUSCLE_MAP = {
+  'biceps':          ['biceps'],
+  'triceps':         ['triceps'],
+  'forearm':         ['forearms'],
+  'abs':             ['abs'],
+  'obliques':        ['obliques'],
+  'adductor':        ['adductors'],
+  'quadriceps':      ['quadriceps'],
+  'abductors':       ['abductors'],
+  'trapezius':       ['trapezius'],
+  'lower-back':      ['erectors'],
+  'gluteal':         ['glutes_major'],
+  'hamstring':       ['hamstrings'],
+  'neck':            ['neck'],
+  'chest_upper':     ['chest_upper'],
+  'chest_lower':     ['chest_lower'],
+  'shoulders_front': ['shoulders_front'],
+  'shoulders_side':  ['shoulders_side'],
+  'shoulders_rear':  ['shoulders_rear'],
+  'calves_gastro':   ['calves_gastro'],
+  'calves_soleus':   ['calves_soleus'],
+  'lats':            ['lats'],
+  'rhomboids':       ['rhomboids'],
+};
+
+const MUSCLE_TIER_COLORS = {
+  'Atrophié':   'rgba(85,85,102,0.7)',
+  'Développé':  'rgba(122,140,110,0.75)',
+  'Sculpté':    'rgba(200,162,76,0.8)',
+  'Puissant':   'rgba(120,216,208,0.8)',
+  'Massif':     'rgba(110,180,255,0.8)',
+  'Titanesque': 'rgba(191,90,242,0.85)'
+};
+
+function getMuscleColor(muscleKey) {
+  var ranks = db.gamification && db.gamification.muscleRanks;
+  if (!ranks || !ranks[muscleKey]) return 'rgba(255,255,255,0.08)';
+  return MUSCLE_TIER_COLORS[ranks[muscleKey].tier]
+    || 'rgba(255,255,255,0.08)';
+}
+
+function getMuscleColorForSlug(slug) {
+  var keys = BODY_MUSCLE_MAP[slug];
+  if (!keys || !keys.length) return 'rgba(255,255,255,0.08)';
+  var colors = keys.map(getMuscleColor);
+  // Prendre la couleur du tier le plus bas
+  var tierOrder = ['Atrophié','Développé','Sculpté',
+                   'Puissant','Massif','Titanesque'];
+  var ranks = db.gamification && db.gamification.muscleRanks;
+  if (!ranks) return colors[0];
+  var minIdx = 99;
+  keys.forEach(function(k) {
+    if (ranks[k]) {
+      var idx = tierOrder.indexOf(ranks[k].tier);
+      if (idx >= 0 && idx < minIdx) minIdx = idx;
+    }
+  });
+  if (minIdx === 99) return colors[0];
+  return MUSCLE_TIER_COLORS[tierOrder[minIdx]]
+    || 'rgba(255,255,255,0.08)';
+}
+
+var currentBodySide = 'front';
+var currentBodyGender = 'male';
+var _bodySvgCache = {};
+
+function renderBodyFigure(side) {
+  var container = document.getElementById('body-figure-container');
+  if (!container) return;
+  currentBodySide = side;
+
+  var svgPath = 'assets/body-' + side +
+    (currentBodyGender === 'female' ? '-female' : '') + '.svg';
+  var cacheKey = side + '_' + currentBodyGender;
+
+  var apply = function(svgText) {
+    container.innerHTML = svgText;
+    var svg = container.querySelector('svg');
+    if (!svg) return;
+
+    svg.style.width = '100%';
+    svg.style.maxWidth = '220px';
+    svg.style.height = 'auto';
+    svg.style.display = 'block';
+    svg.style.margin = '0 auto';
+    svg.style.background = 'transparent';
+    svg.style.position = 'relative';
+
+    // Colorier les zones musculaires
+    Object.keys(BODY_MUSCLE_MAP).forEach(function(slug) {
+      var els = svg.querySelectorAll(
+        '#' + slug + ', .' + slug +
+        ', [id*="' + slug + '"], [class*="' + slug + '"]'
+      );
+      var color = getMuscleColorForSlug(slug);
+      els.forEach(function(el) {
+        el.style.fill = color;
+        el.style.cursor = 'pointer';
+        el.style.transition = 'filter 0.15s';
+        el.dataset.slug = slug;
+        el.addEventListener('mouseenter', function() {
+          this.style.filter = 'brightness(1.25)';
+        });
+        el.addEventListener('mouseleave', function() {
+          this.style.filter = '';
+        });
+        el.addEventListener('click', function() {
+          var keys = BODY_MUSCLE_MAP[this.dataset.slug] || [];
+          if (keys.length) selectMuscle(keys[0]);
+        });
+      });
+    });
+
+    // Zones non-musculaires (head, knees, soleus, silhouette) : fond sombre
+    var allShapes = svg.querySelectorAll('path, polygon, ellipse, circle');
+    allShapes.forEach(function(p) {
+      if (p.dataset.slug) return;
+      var fill = p.getAttribute('fill') || '';
+      if (fill !== 'none') {
+        p.setAttribute('fill', '#1a1528');
+        p.setAttribute('stroke', 'rgba(255,255,255,0.12)');
+        p.setAttribute('stroke-width', '0.4');
+      }
+    });
+  };
+
+  if (_bodySvgCache[cacheKey]) {
+    apply(_bodySvgCache[cacheKey]);
+    return;
+  }
+  fetch(svgPath)
+    .then(function(r) { return r.text(); })
+    .then(function(svgText) {
+      _bodySvgCache[cacheKey] = svgText;
+      apply(svgText);
+    })
+    .catch(function() {
+      container.innerHTML =
+        '<div style="color:rgba(255,255,255,0.3);text-align:center;padding:20px;">Figure non disponible</div>';
+    });
+}
+if (typeof window !== 'undefined') window.renderBodyFigure = renderBodyFigure;
+
+function switchBodyView(side) {
+  ['front','back'].forEach(function(s) {
+    var btn = document.getElementById('btn-body-' + s);
+    if (!btn) return;
+    if (s === side) {
+      btn.style.background = '#BF5AF2';
+      btn.style.color = 'white';
+      btn.style.border = 'none';
+    } else {
+      btn.style.background = 'rgba(255,255,255,0.08)';
+      btn.style.color = 'rgba(255,255,255,0.6)';
+      btn.style.border = '1px solid rgba(255,255,255,0.15)';
+    }
+  });
+  renderBodyFigure(side);
+}
+if (typeof window !== 'undefined') window.switchBodyView = switchBodyView;
+
+function switchBodyGender() {
+  currentBodyGender = currentBodyGender === 'male' ? 'female' : 'male';
+  var btn = document.getElementById('btn-body-gender');
+  if (btn) btn.textContent = currentBodyGender === 'male' ? '♂' : '♀';
+  _bodySvgCache = {};
+  renderBodyFigure(currentBodySide || 'front');
+}
+if (typeof window !== 'undefined') window.switchBodyGender = switchBodyGender;
+
+function _muscleTierFor(muscleKey) {
+  db.gamification = db.gamification || {};
+  var ranks = db.gamification.muscleRanks || null;
+  var entry = ranks ? ranks[muscleKey] : null;
+  if (!entry || typeof entry !== 'object') {
+    return { name: MUSCLE_TIERS[0].name, color: MUSCLE_TIERS[0].color, score: 0, index: 0 };
+  }
+  var score = (typeof entry.score === 'number') ? entry.score : 0;
+  var tier = MUSCLE_TIERS[0], idx = 0;
+  for (var i = 0; i < MUSCLE_TIERS.length; i++) {
+    if (score >= MUSCLE_TIERS[i].min) { tier = MUSCLE_TIERS[i]; idx = i; }
+  }
+  return { name: entry.tier || tier.name, color: tier.color, score: score, index: idx };
+}
+
+// Apply colors to every muscle zone in both SVGs based on muscleRanks.
+function renderMuscleColors() {
+  document.querySelectorAll('.muscle-zone').forEach(function(el) {
+    var key = el.getAttribute('data-muscle');
+    if (!key) return;
+    var t = _muscleTierFor(key);
+    // Keep 'none' fill for stroke-only zones (serratus)
+    var currentFill = el.getAttribute('fill');
+    if (currentFill === 'none') {
+      el.style.stroke = t.color;
+      el.style.strokeWidth = '2';
+    } else {
+      el.style.fill = t.color;
+    }
+  });
+  if (typeof renderBodyFigure === 'function' &&
+      document.getElementById('body-figure-container')) {
+    renderBodyFigure(typeof currentBodySide !== 'undefined' ? currentBodySide : 'front');
+  }
+}
+
+function svgToggleView(view) {
+  var front = document.getElementById('anatomyFront');
+  var back = document.getElementById('anatomyBack');
+  var btnF = document.getElementById('anatBtnFront');
+  var btnB = document.getElementById('anatBtnBack');
+  var showBack = (view === 'back');
+  if (front) front.style.display = showBack ? 'none' : 'block';
+  if (back) back.style.display = showBack ? 'block' : 'none';
+  if (btnF) btnF.classList.toggle('active', !showBack);
+  if (btnB) btnB.classList.toggle('active', showBack);
+  // Close any open popover on view switch
+  _closeMusclePop();
+}
+if (typeof window !== 'undefined') window.svgToggleView = svgToggleView;
+
+function _closeMusclePop() {
+  var pop = document.getElementById('musclePop');
+  if (pop) pop.style.display = 'none';
+  document.querySelectorAll('.muscle-zone.selected').forEach(function(el) { el.classList.remove('selected'); });
+  document.querySelectorAll('.muscle-row.selected').forEach(function(el) { el.classList.remove('selected'); });
+}
+
+function selectMuscle(muscleKey) {
+  var t = _muscleTierFor(muscleKey);
+  var name = MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+  var score = t.score;
+
+  // Highlight all zones with same data-muscle (paired L/R)
+  document.querySelectorAll('.muscle-zone.selected').forEach(function(el) { el.classList.remove('selected'); });
+  var zones = document.querySelectorAll('.muscle-zone[data-muscle="' + muscleKey + '"]');
+  zones.forEach(function(el) { el.classList.add('selected'); });
+
+  // Next tier info
+  var nextTier = (t.index < MUSCLE_TIERS.length - 1) ? MUSCLE_TIERS[t.index + 1] : null;
+  var hint = '';
+  if (nextTier) {
+    var pts = Math.max(1, nextTier.min - score);
+    hint = 'Il te faut +' + pts + ' pts pour atteindre <strong style="color:' + nextTier.color + ';">' + nextTier.name + '</strong>';
+  } else {
+    hint = '🏆 Tier maximum atteint.';
+  }
+  var curMin = MUSCLE_TIERS[t.index] ? MUSCLE_TIERS[t.index].min : 0;
+  var nextMin = nextTier ? nextTier.min : 100;
+  var span = Math.max(1, nextMin - curMin);
+  var pctInTier = Math.max(0, Math.min(100, Math.round((score - curMin) / span * 100)));
+
+  // Populate popover
+  var pop = document.getElementById('musclePop');
+  if (pop) {
+    document.getElementById('musclePopName').textContent = name;
+    document.getElementById('musclePopTier').innerHTML = '<span style="color:' + t.color + ';">' + t.name + '</span> · <span style="color:var(--sub);">' + score + '/100</span>';
+    document.getElementById('musclePopBar').innerHTML =
+      '<div style="height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
+        '<div style="height:5px;width:' + pctInTier + '%;background:' + t.color + ';border-radius:3px;transition:width 0.3s;"></div>' +
+      '</div>';
+    document.getElementById('musclePopHint').innerHTML = hint;
+
+    // Position popover near the first zone (viewport coords)
+    var anchor = zones[0];
+    if (anchor && anchor.getBoundingClientRect) {
+      var r = anchor.getBoundingClientRect();
+      var popW = 240, popH = 120;
+      var left = r.left + r.width / 2 - popW / 2;
+      var top = r.bottom + 8;
+      if (left + popW > window.innerWidth - 10) left = window.innerWidth - popW - 10;
+      if (left < 10) left = 10;
+      if (top + popH > window.innerHeight - 10) top = r.top - popH - 8;
+      pop.style.left = Math.max(10, left) + 'px';
+      pop.style.top = Math.max(10, top) + 'px';
+    }
+    pop.style.display = 'block';
+  }
+
+  // Highlight + scroll list row
+  document.querySelectorAll('.muscle-row.selected').forEach(function(el) { el.classList.remove('selected'); });
+  var row = document.getElementById('muscle-row-' + muscleKey);
+  if (row) {
+    row.classList.add('selected');
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+if (typeof window !== 'undefined') window.selectMuscle = selectMuscle;
+
+// Close popover on outside tap
+(function() {
+  function _onOutside(e) {
+    if (!e.target || !e.target.closest) return;
+    if (e.target.closest('#musclePop')) return;
+    if (e.target.closest('.muscle-zone')) return;
+    if (e.target.closest('.muscle-row')) return;
+    _closeMusclePop();
+  }
+  document.addEventListener('click', _onOutside);
+})();
+
+function renderMuscleList() {
+  var host = document.getElementById('muscleList');
+  if (!host) return;
+  var keys = Object.keys(MUSCLE_NAMES_FR);
+  var rows = keys.map(function(k) {
+    var t = _muscleTierFor(k);
+    return { key: k, name: MUSCLE_NAMES_FR[k], tier: t.name, color: t.color, score: t.score, index: t.index };
+  });
+  rows.sort(function(a, b) {
+    if (b.index !== a.index) return b.index - a.index;
+    if (b.score !== a.score) return b.score - a.score;
+    return a.name.localeCompare(b.name);
+  });
+  var html = rows.map(function(r) {
+    var barPct = Math.max(0, Math.min(100, r.score));
+    return '<div class="muscle-row" id="muscle-row-' + r.key + '" onclick="selectMuscle(\'' + r.key + '\')">' +
+      '<span class="muscle-row-dot" style="background:' + r.color + ';"></span>' +
+      '<span class="muscle-row-name">' + r.name + '</span>' +
+      '<span class="muscle-row-tier" style="color:' + r.color + ';">' + r.tier + '</span>' +
+      '<span class="muscle-row-bar-bg"><span class="muscle-row-bar" style="width:' + barPct + '%;background:' + r.color + ';"></span></span>' +
+      '<span class="muscle-row-score">' + r.score + '</span>' +
+    '</div>';
+  }).join('');
+  host.innerHTML = html;
+}
+
+// ── Muscle Rank Computation (volume + frequency over 4 weeks) ──
+
+const MUSCLE_TONNAGE_TARGETS = {
+  neck:            { atrophie:200,  developpe:600,   sculpte:1500,  puissant:2800,  massif:4500,  titanesque:6500  },
+  chest_upper:     { atrophie:800,  developpe:3000,  sculpte:7000,  puissant:12000, massif:19000, titanesque:28000 },
+  chest_lower:     { atrophie:1200, developpe:4000,  sculpte:9000,  puissant:16000, massif:25000, titanesque:36000 },
+  shoulders_front: { atrophie:400,  developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
+  shoulders_side:  { atrophie:300,  developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
+  shoulders_rear:  { atrophie:400,  developpe:1400,  sculpte:3500,  puissant:6500,  massif:10000, titanesque:15000 },
+  biceps:          { atrophie:300,  developpe:1000,  sculpte:2500,  puissant:4500,  massif:7000,  titanesque:10000 },
+  triceps:         { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  forearms:        { atrophie:200,  developpe:700,   sculpte:1800,  puissant:3200,  massif:5000,  titanesque:7500  },
+  abs:             { atrophie:200,  developpe:600,   sculpte:1500,  puissant:2800,  massif:4500,  titanesque:6500  },
+  obliques:        { atrophie:150,  developpe:500,   sculpte:1200,  puissant:2200,  massif:3500,  titanesque:5000  },
+  serratus:        { atrophie:50,   developpe:200,   sculpte:500,   puissant:1000,  massif:1600,  titanesque:2400  },
+  hip_flexors:     { atrophie:100,  developpe:350,   sculpte:900,   puissant:1700,  massif:2700,  titanesque:4000  },
+  quadriceps:      { atrophie:2000, developpe:6000,  sculpte:14000, puissant:24000, massif:38000, titanesque:55000 },
+  adductors:       { atrophie:1000, developpe:3500,  sculpte:8000,  puissant:13000, massif:20000, titanesque:30000 },
+  abductors:       { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  calves_gastro:   { atrophie:800,  developpe:2800,  sculpte:6500,  puissant:11000, massif:17000, titanesque:25000 },
+  calves_soleus:   { atrophie:400,  developpe:1400,  sculpte:3500,  puissant:6000,  massif:9500,  titanesque:14000 },
+  trapezius:       { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  lats:            { atrophie:1500, developpe:5000,  sculpte:10000, puissant:18000, massif:28000, titanesque:40000 },
+  rhomboids:       { atrophie:600,  developpe:2000,  sculpte:5000,  puissant:9000,  massif:14000, titanesque:20000 },
+  erectors:        { atrophie:1000, developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 },
+  glutes_major:    { atrophie:1500, developpe:5000,  sculpte:11000, puissant:18000, massif:28000, titanesque:40000 },
+  hamstrings:      { atrophie:1000, developpe:3500,  sculpte:8000,  puissant:14000, massif:22000, titanesque:32000 }
+};
+
+const MUSCLE_FREQ_TARGETS = {
+  neck: 4,
+  chest_upper: 12, chest_lower: 12,
+  shoulders_front: 10, shoulders_side: 10, shoulders_rear: 10,
+  biceps: 12, triceps: 12, forearms: 8,
+  abs: 12, obliques: 10, serratus: 4, hip_flexors: 8,
+  quadriceps: 12, adductors: 10, abductors: 10,
+  calves_gastro: 10, calves_soleus: 10,
+  trapezius: 10, lats: 14, rhomboids: 12,
+  erectors: 12, glutes_major: 12, hamstrings: 12
+};
+
+const GENDER_MUSCLE_COEFF = {
+  male: {
+    neck: 1.0, chest_upper: 1.0, chest_lower: 1.0,
+    shoulders_front: 1.0, shoulders_side: 1.0, shoulders_rear: 1.0,
+    biceps: 1.0, triceps: 1.0, forearms: 1.0,
+    abs: 1.0, obliques: 1.0, serratus: 1.0, hip_flexors: 1.0,
+    quadriceps: 1.0, adductors: 1.0, abductors: 1.0,
+    calves_gastro: 1.0, calves_soleus: 1.0,
+    trapezius: 1.0, lats: 1.0, rhomboids: 1.0,
+    erectors: 1.0, glutes_major: 1.0, hamstrings: 1.0
+  },
+  female: {
+    neck:            0.60,
+    chest_upper:     0.48,
+    chest_lower:     0.48,
+    shoulders_front: 0.55,
+    shoulders_side:  0.55,
+    shoulders_rear:  0.58,
+    biceps:          0.58,
+    triceps:         0.55,
+    forearms:        0.52,
+    serratus:        0.60,
+    abs:             0.68,
+    obliques:        0.65,
+    erectors:        0.65,
+    quadriceps:      0.78,
+    hamstrings:      0.72,
+    adductors:       0.80,
+    abductors:       0.82,
+    hip_flexors:     0.72,
+    glutes_major:    0.88,
+    calves_gastro:   0.65,
+    calves_soleus:   0.65,
+    trapezius:       0.62,
+    lats:            0.60,
+    rhomboids:       0.60
+  }
+};
+
+const EXERCISE_MUSCLE_MAP = [
+  // Pectoraux
+  { match: ['développé couché (barre)', 'bench press', 'spoto'],
+    muscles: { chest_lower:0.45, chest_upper:0.20, triceps:0.20, shoulders_front:0.15 } },
+  { match: ['développé couché incliné', 'incline'],
+    muscles: { chest_upper:0.50, chest_lower:0.15, triceps:0.20, shoulders_front:0.15 } },
+  { match: ['écarté', 'fly', 'pec deck'],
+    muscles: { chest_lower:0.55, chest_upper:0.30, shoulders_front:0.15 } },
+
+  // Dos
+  { match: ['tirage poitrine', 'lat pulldown', 'traction'],
+    muscles: { lats:0.60, rhomboids:0.20, biceps:0.15, traps:0.05 } },
+  { match: ['tirage poitrine bras tendus', 'straight arm'],
+    muscles: { lats:0.70, serratus:0.20, triceps:0.10 } },
+  { match: ['rowing poulie', 'rowing barre', 'rowing haltère', 'rowing assis'],
+    muscles: { rhomboids:0.35, lats:0.30, traps:0.20, biceps:0.15 } },
+  { match: ['tirage vers visage', 'face pull'],
+    muscles: { shoulders_rear:0.45, traps:0.30, rhomboids:0.25 } },
+  { match: ['oiseau', 'rear delt', 'poulie basse arrière'],
+    muscles: { shoulders_rear:0.60, rhomboids:0.25, traps:0.15 } },
+  { match: ['shrug'],
+    muscles: { traps:0.85, forearms:0.15 } },
+
+  // Épaules
+  { match: ['développé militaire', 'overhead press', 'ohp', 'développé épaules'],
+    muscles: { shoulders_front:0.50, shoulders_side:0.25, triceps:0.25 } },
+  { match: ['élévation latérale', 'lateral raise'],
+    muscles: { shoulders_side:0.75, shoulders_front:0.15, traps:0.10 } },
+  { match: ['élévation frontale', 'front raise'],
+    muscles: { shoulders_front:0.80, chest_upper:0.20 } },
+
+  // Bras
+  { match: ['curl biceps', 'curl barre', 'curl haltère', 'curl marteau', 'curl ez'],
+    muscles: { biceps:0.75, forearms:0.25 } },
+  { match: ['curl poignets', 'wrist curl'],
+    muscles: { forearms:0.95, biceps:0.05 } },
+  { match: ['extension triceps', 'pushdown', 'triceps corde', 'triceps poulie'],
+    muscles: { triceps:0.90, forearms:0.10 } },
+  { match: ['dips'],
+    muscles: { triceps:0.45, chest_lower:0.35, shoulders_front:0.20 } },
+
+  // Quadriceps
+  { match: ['squat (barre)', 'squat avec pause', 'back squat'],
+    muscles: { quads:0.45, glutes_major:0.30, erectors:0.15, hamstrings:0.10 } },
+  { match: ['presse à cuisses', 'leg press'],
+    muscles: { quads:0.55, glutes_major:0.30, hamstrings:0.15 } },
+  { match: ['hack squat'],
+    muscles: { quads:0.65, glutes_major:0.25, hamstrings:0.10 } },
+  { match: ['extension jambes', 'leg extension'],
+    muscles: { quads:0.95, hip_flexors:0.05 } },
+  { match: ['fente', 'lunges'],
+    muscles: { quads:0.40, glutes_major:0.35, hamstrings:0.15, glutes_med:0.10 } },
+
+  // Ischio / Fessiers
+  { match: ['soulevé de terre (barre)', 'soulevé de terre avec pause', 'deadlift'],
+    muscles: { erectors:0.25, glutes_major:0.25, hamstrings:0.25, lats:0.15, traps:0.10 } },
+  { match: ['leg curl', 'curl jambes'],
+    muscles: { hamstrings:0.85, glutes_major:0.15 } },
+  { match: ['poussée de hanches', 'hip thrust', 'hip extension'],
+    muscles: { glutes_major:0.65, hamstrings:0.20, glutes_med:0.15 } },
+  { match: ['good morning', 'rdl', 'roumain'],
+    muscles: { hamstrings:0.40, glutes_major:0.30, erectors:0.30 } },
+
+  // Adducteurs / Abducteurs
+  { match: ['adduction hanche', 'adducteur'],
+    muscles: { adductors:0.90, glutes_med:0.10 } },
+  { match: ['abduction hanche', 'abducteur'],
+    muscles: { glutes_med:0.85, adductors:0.15 } },
+
+  // Mollets
+  { match: ['extension mollets debout', 'mollets debout', 'standing calf'],
+    muscles: { calves_gastro:0.75, calves_soleus:0.25 } },
+  { match: ['extension mollets assis', 'mollets assis', 'seated calf'],
+    muscles: { calves_soleus:0.75, calves_gastro:0.25 } },
+
+  // Core
+  { match: ['planche', 'plank'],
+    muscles: { abs:0.50, obliques:0.25, erectors:0.25 } },
+  { match: ['crunch', 'ab'],
+    muscles: { abs:0.85, obliques:0.15 } },
+  { match: ['rotation', 'woodchop', 'torsion'],
+    muscles: { obliques:0.80, abs:0.20 } },
+  { match: ['gainage'],
+    muscles: { abs:0.55, obliques:0.25, erectors:0.20 } }
+];
+
+
+function findExoInDatabase(exoName) {
+  if (!exoName) return null;
+  if (typeof EXO_DATABASE === 'undefined' || !EXO_DATABASE) return null;
+  var n = exoName.toLowerCase().trim();
+  var keys = Object.keys(EXO_DATABASE);
+  // Exact match
+  for (var i = 0; i < keys.length; i++) {
+    var e = EXO_DATABASE[keys[i]];
+    if (e && e.name && e.name.toLowerCase().trim() === n) return e;
+  }
+  // Partial match
+  for (var i = 0; i < keys.length; i++) {
+    var e = EXO_DATABASE[keys[i]];
+    if (!e || !e.name) continue;
+    var d = e.name.toLowerCase().trim();
+    if (n.indexOf(d) >= 0 || d.indexOf(n) >= 0) return e;
+  }
+  return null;
+}
+
+function getMuscleVolumeAndFreq(logs4weeks) {
+  var result = {};
+  Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(k) {
+    result[k] = { tonnage: 0, sessions: 0 };
+  });
+
+  logs4weeks.forEach(function(log) {
+    var musclesThisSession = {};
+
+    (log.exercises || []).forEach(function(exo) {
+      var exoNameLower = (exo.name || '').toLowerCase();
+
+      // 1) Try EXO_DATABASE primary/secondary/tertiary
+      var coeffMap = null;
+      var dbEntry = findExoInDatabase(exo.name);
+      if (dbEntry && dbEntry.muscles &&
+          dbEntry.muscles.primary && dbEntry.muscles.primary.length > 0) {
+        coeffMap = {};
+        var addPlan = function(arr, coeff) {
+          (arr || []).forEach(function(k) {
+            var mapped = k;
+            if (coeffMap[mapped] == null || coeffMap[mapped] < coeff) {
+              coeffMap[mapped] = coeff;
+            }
+          });
+        };
+        addPlan(dbEntry.muscles.primary,   1.0);
+        addPlan(dbEntry.muscles.secondary, 0.4);
+        addPlan(dbEntry.muscles.tertiary,  0.15);
+      }
+
+      // 2) Fallback on legacy EXERCISE_MUSCLE_MAP
+      if (!coeffMap) {
+        var mapping = null;
+        for (var i = 0; i < EXERCISE_MUSCLE_MAP.length; i++) {
+          var m = EXERCISE_MUSCLE_MAP[i];
+          for (var j = 0; j < m.match.length; j++) {
+            if (exoNameLower.indexOf(m.match[j].toLowerCase()) >= 0) {
+              mapping = m;
+              break;
+            }
+          }
+          if (mapping) break;
+        }
+        if (!mapping) return;
+        coeffMap = mapping.muscles;
+      }
+
+      // Compute exo volume — normal sets only, exclude warmups
+      var exoVolume = 0;
+      if (exo.exoType === 'weight' && exo.allSets) {
+        exo.allSets.forEach(function(s) {
+          if (s.setType !== 'warmup') {
+            exoVolume += (s.weight || 0) * (s.reps || 0);
+          }
+        });
+      } else if (exo.exoType === 'weight' && exo.series) {
+        // Fallback for legacy logs without allSets
+        exo.series.forEach(function(s) {
+          if (s.setType !== 'warmup') {
+            exoVolume += (s.weight || 0) * (s.reps || 0);
+          }
+        });
+      } else if (exo.exoType === 'time' || exo.isTime) {
+        var nbSets = exo.sets || 0;
+        exoVolume = nbSets * 100;
+      }
+
+      Object.keys(coeffMap).forEach(function(muscleKey) {
+        if (!result[muscleKey]) return;
+        result[muscleKey].tonnage += exoVolume * coeffMap[muscleKey];
+        musclesThisSession[muscleKey] = true;
+      });
+    });
+
+    Object.keys(musclesThisSession).forEach(function(k) {
+      if (result[k]) result[k].sessions += 1;
+    });
+  });
+
+  return result;
+}
+
+function calcAndStoreMuscleRanks(force) {
+  try {
+    db.gamification = db.gamification || {};
+    // Throttle 7j : protège les renders de tab (calcAndStoreMuscleRanks()),
+    // mais pas le boot ni goFinishWorkout (qui appellent avec force=true).
+    if (!force && db.gamification.muscleRanks &&
+        db.gamification.muscleRanks._computedAt &&
+        Date.now() - db.gamification.muscleRanks._computedAt < 7 * 24 * 3600 * 1000) {
+      return;
+    }
+
+    var now = Date.now();
+    var cutoff = now - 28 * 24 * 60 * 60 * 1000;
+    var logs4w = (db.logs || []).filter(function(l) {
+      return (l.timestamp || 0) >= cutoff;
+    });
+
+    var volumeFreq = getMuscleVolumeAndFreq(logs4w);
+    var MUSCLE_TIER_THRESHOLDS = [
+      { name:'Atrophié',   index:0, color:'#555566' },
+      { name:'Développé',  index:1, color:'#7A8C6E' },
+      { name:'Sculpté',    index:2, color:'#C8A24C' },
+      { name:'Puissant',   index:3, color:'#78D8D0' },
+      { name:'Massif',     index:4, color:'#6EB4FF' },
+      { name:'Titanesque', index:5, color:'#BF5AF2' }
+    ];
+    var ranks = {};
+
+    // Coefficient genre par muscle (seuils calibrés pour un homme de référence)
+    var gender = (db.user && db.user.gender === 'female') ? 'female' : 'male';
+    var genderCoeffs = GENDER_MUSCLE_COEFF[gender] || GENDER_MUSCLE_COEFF['male'];
+
+    Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(key) {
+      var data = volumeFreq[key] || { tonnage: 0, sessions: 0 };
+      var raw = MUSCLE_TONNAGE_TARGETS[key];
+      var muscleCoeff = genderCoeffs[key] || 0.65;
+      var thresholds = {
+        atrophie:   raw.atrophie   * muscleCoeff,
+        developpe:  raw.developpe  * muscleCoeff,
+        sculpte:    raw.sculpte    * muscleCoeff,
+        puissant:   raw.puissant   * muscleCoeff,
+        massif:     raw.massif     * muscleCoeff,
+        titanesque: raw.titanesque * muscleCoeff
+      };
+
+      var tonnage = data.tonnage;
+      var tierIndex = 0;
+      var scoreInTier = 0;
+
+      if (tonnage >= thresholds.titanesque) {
+        tierIndex = 5; scoreInTier = 100;
+      } else if (tonnage >= thresholds.massif) {
+        tierIndex = 4;
+        scoreInTier = Math.round((tonnage - thresholds.massif) /
+          (thresholds.titanesque - thresholds.massif) * 100);
+      } else if (tonnage >= thresholds.puissant) {
+        tierIndex = 3;
+        scoreInTier = Math.round((tonnage - thresholds.puissant) /
+          (thresholds.massif - thresholds.puissant) * 100);
+      } else if (tonnage >= thresholds.sculpte) {
+        tierIndex = 2;
+        scoreInTier = Math.round((tonnage - thresholds.sculpte) /
+          (thresholds.puissant - thresholds.sculpte) * 100);
+      } else if (tonnage >= thresholds.developpe) {
+        tierIndex = 1;
+        scoreInTier = Math.round((tonnage - thresholds.developpe) /
+          (thresholds.sculpte - thresholds.developpe) * 100);
+      } else {
+        tierIndex = 0;
+        scoreInTier = thresholds.atrophie > 0 ?
+          Math.round(tonnage / thresholds.atrophie * 100) : 0;
+      }
+
+      // Score final : 80% volume + 20% fréquence
+      var freqScore = Math.min(100, Math.round(
+        data.sessions / (MUSCLE_FREQ_TARGETS[key] || 4) * 100
+      ));
+      var finalScore = Math.round(scoreInTier * 0.8 + freqScore * 0.2);
+
+      var tier = MUSCLE_TIER_THRESHOLDS[tierIndex];
+      ranks[key] = {
+        tier: tier.name,
+        index: tier.index,
+        color: tier.color,
+        score: finalScore,
+        tonnage: Math.round(tonnage),
+        updatedAt: now
+      };
+    });
+
+    ranks._computedAt = now;
+    db.gamification.muscleRanks = ranks;
+
+    if (typeof saveDB === 'function') saveDB();
+    if (typeof syncToCloud === 'function') syncToCloud(true);
+
+    if (typeof renderMuscleColors === 'function') renderMuscleColors();
+    if (typeof renderMuscleList === 'function') renderMuscleList();
+  } catch(e) {
+    console.error('calcAndStoreMuscleRanks error:', e);
+  }
+}
 
 // ── Secret Quests ──
 var SECRET_QUESTS = [
@@ -2772,6 +4201,15 @@ function renderGamificationTab() {
   var nextLevel = getNextXPLevel(totalXP);
   var streak = calcStreak();
 
+  // ── Muscle anatomy figure (Rangs sub-tab) ──
+  try {
+    if (typeof renderBodyFigure === 'function') {
+      renderBodyFigure(typeof currentBodySide !== 'undefined' ? currentBodySide : 'front');
+    }
+    if (typeof renderMuscleColors === 'function') renderMuscleColors();
+    if (typeof renderMuscleList === 'function') renderMuscleList();
+  } catch(e) { console.error('muscle anatomy render:', e); }
+
   // ── Check titles & secret quests ──
   checkTitles();
   checkSecretQuests();
@@ -2821,6 +4259,18 @@ function renderGamificationTab() {
     activeTitleText = '<div class="lvl-title" style="color:var(--sub);" onclick="showTitleModal()">Choisir un titre ▾</div>';
   }
 
+  // Player class line
+  var classLine = '';
+  (function() {
+    var pc = (db.gamification && db.gamification.playerClass) ? db.gamification.playerClass : null;
+    if (!pc || typeof PLAYER_CLASSES === 'undefined') return;
+    var cls = PLAYER_CLASSES.find(function(c) { return c.id === pc; });
+    if (!cls) return;
+    classLine = '<div class="lvl-class" style="font-size:12px;color:var(--sub);margin-top:2px;">' +
+      cls.icon + ' <strong style="color:var(--text);font-weight:600;">' + cls.name + '</strong> · Niveau ' + currLevel.level +
+      '</div>';
+  })();
+
   levelCard.innerHTML =
     '<div class="lvl-card lvl-card-v2">' +
       '<div class="lvl-bg"></div>' +
@@ -2830,6 +4280,7 @@ function renderGamificationTab() {
         '<div class="lvl-info">' +
           '<div class="lvl-num">Niveau ' + currLevel.level + ' · ' + totalXP.toLocaleString() + ' XP</div>' +
           '<div class="lvl-name">' + currLevel.name + '</div>' +
+          classLine +
           activeTitleText +
         '</div>' +
       '</div>' +
@@ -2944,6 +4395,59 @@ function renderGamificationTab() {
   })();
 
   // ── 3c. Secret quests section (in badges, rendered later) ──
+
+  // ── 3d. Mes Rangs SBD ──
+  (function() {
+    var host = document.getElementById('gamSBDRanks');
+    if (!host) return;
+    if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) {
+      host.innerHTML = ''; return;
+    }
+    db.gamification = db.gamification || {};
+    var lr = db.gamification.liftRanks;
+    if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) { host.innerHTML = ''; return; }
+    var bw = (db.user && db.user.bw) ? db.user.bw : 0;
+    var gender = (db.user && db.user.gender) ? db.user.gender : 'male';
+    var lifts = [
+      { key:'squat',    icon:'🦵', label:'Squat' },
+      { key:'bench',    icon:'🫸', label:'Développé couché' },
+      { key:'deadlift', icon:'💀', label:'Soulevé de terre' }
+    ];
+    var sHtml = '<div class="mc-title" style="margin-bottom:12px;"><span>⚔️ Mes Rangs SBD</span></div>';
+    lifts.forEach(function(l) {
+      var r = lr[l.key];
+      if (!r) return;
+      var idx = -1;
+      for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
+      var nextTier = (idx < SBD_TIERS.length - 1) ? SBD_TIERS[idx + 1] : null;
+      var topPct = Math.max(1, 100 - r.percentile);
+      var nextLine = '';
+      if (nextTier && bw > 0) {
+        var kgNeeded = _kgToReachTier(l.key, nextTier.min, bw, gender);
+        if (kgNeeded && kgNeeded > r.e1rm) {
+          var diff = kgNeeded - r.e1rm;
+          nextLine = '<div class="sbd-rank-detail-next">Il te faut <strong style="color:' + nextTier.color + ';">+' + diff + ' kg</strong> de e1RM pour atteindre <strong style="color:' + nextTier.color + ';">' + nextTier.name + '</strong></div>';
+        }
+      } else if (!nextTier) {
+        nextLine = '<div class="sbd-rank-detail-next">🏆 Tier maximum atteint — Légende vivante.</div>';
+      }
+      sHtml += '<div class="sbd-rank-detail-card">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+          '<div>' +
+            '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;">' + l.icon + ' ' + l.label + '</div>' +
+            '<div class="sbd-rank-detail-tier" style="color:' + r.color + ';">' + r.tier + '</div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div class="sbd-rank-detail-e1rm">' + r.e1rm + ' kg</div>' +
+            '<div class="sbd-rank-detail-pct">Top ' + topPct + '% mondial</div>' +
+          '</div>' +
+        '</div>' +
+        nextLine +
+      '</div>';
+    });
+    sHtml += '<div class="gam-separator">⟡ ── ⟡</div>';
+    host.innerHTML = '<div class="mc">' + sHtml + '</div>';
+  })();
 
   // ── 4. Récemment débloqués ──
   (function() {
@@ -3147,10 +4651,19 @@ function renderGamificationTab() {
       var weekOffset = -(w);
       cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=-' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
     }
+    db.gamification = db.gamification || {};
+    var freezeCount = db.gamification.streakFreezes || 0;
+    var freezeActive = db.gamification.freezeActiveThisWeek === true;
+    var freezeTooltip = freezeCount + ' freeze(s) disponible(s) · Se régénère le 1er du mois';
+    var freezeBadge = '<span class="hm-freeze' + (freezeCount === 0 ? ' dim' : '') + '" title="' + freezeTooltip + '" onclick="showToast(\'' + freezeTooltip.replace(/'/g, "\\'") + '\')" style="cursor:pointer;margin-left:6px;' + (freezeCount === 0 ? 'opacity:0.35;filter:grayscale(1);' : '') + '">❄️ ×' + freezeCount + '</span>';
+    var freezeBtn = (freezeCount > 0 && !freezeActive)
+      ? '<button class="hm-freeze-btn" onclick="activateFreezeManual()" style="margin-top:8px;padding:6px 12px;background:rgba(110,180,255,0.15);border:1px solid rgba(110,180,255,0.4);color:var(--blue);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">❄️ Protéger cette semaine</button>'
+      : (freezeActive ? '<div style="margin-top:8px;font-size:11px;color:var(--blue);text-align:center;">❄️ Semaine protégée</div>' : '');
     document.getElementById('gamHeatmap').innerHTML =
       '<div class="mc">' +
-        '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + streak + ' semaines</span></div>' +
+        '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + streak + ' semaines' + freezeBadge + '</span></div>' +
         '<div class="hm-grid">' + cells + '</div>' +
+        freezeBtn +
         '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.20);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.40);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.60);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
       '</div>';
   })();
@@ -3462,10 +4975,9 @@ function renderWeekCard() {
   const todayName = DAYS_FULL[todayIdx];
   const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Streak de semaines consécutives
-  const weekStreak = computeWeekStreak();
-  const streak = weekStreak.current;
-  const streakRecord = weekStreak.record;
+  // Streak de semaines consécutives — source unique via calcStreak()
+  const streak = calcStreak();
+  const streakRecord = db.weeklyStreakRecord || 0;
 
   // Score de forme (0-100) — même calcul que Profil > Corps
   let formScore = null;
@@ -3589,7 +5101,7 @@ function renderWeekCard() {
             '</div>' +
             (streakRecord > streak
               ? '<div style="font-size:9px;color:#555;">Record : ' + streakRecord + ' sem.</div>'
-              : '<div style="font-size:9px;color:#32d74b;">🏆 Record en cours !</div>') +
+              : '') +
           '</div>' +
         '</div>'
       : '') +
@@ -3613,7 +5125,53 @@ function renderDash() {
   requestAnimationFrame(function() {
     renderWeekCard();
     renderPerfCard();
+    if (typeof renderSBDRanksHome === 'function') renderSBDRanksHome();
   });
+}
+
+function renderSBDRanksHome() {
+  var card = document.getElementById('sbdRanksCard');
+  var host = document.getElementById('sbdRanksHome');
+  if (!card || !host) return;
+  if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) {
+    card.style.display = 'none'; return;
+  }
+  card.style.display = '';
+  db.gamification = db.gamification || {};
+  var lr = db.gamification.liftRanks;
+  if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Enregistre une séance SBD pour voir ton rang</div>';
+    return;
+  }
+  var lifts = [
+    { key:'squat',    icon:'🦵', label:'SQ' },
+    { key:'bench',    icon:'🫸', label:'BP' },
+    { key:'deadlift', icon:'💀', label:'DL' }
+  ];
+  var html = '';
+  lifts.forEach(function(l) {
+    var r = lr[l.key];
+    if (!r) return;
+    // Progression inside the current tier towards the next
+    var idx = -1;
+    for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
+    var nextMin = idx < SBD_TIERS.length - 1 ? SBD_TIERS[idx + 1].min : 100;
+    var curMin = SBD_TIERS[idx] ? SBD_TIERS[idx].min : 0;
+    var span = Math.max(1, nextMin - curMin);
+    var pctInTier = Math.max(0, Math.min(100, Math.round((r.percentile - curMin) / span * 100)));
+    html += '<div class="sbd-rank-row">' +
+      '<span class="sbd-rank-icon">' + l.icon + '</span>' +
+      '<span class="sbd-rank-name">' + l.label + '</span>' +
+      '<span class="sbd-rank-val">' + r.e1rm + ' kg</span>' +
+      '<div class="sbd-rank-bar-bg"><div class="sbd-rank-bar" style="width:' + pctInTier + '%;background:' + r.color + ';"></div></div>' +
+      '<span class="sbd-rank-tier" style="color:' + r.color + ';">' + r.tier + '</span>' +
+    '</div>';
+  });
+  if (!html) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Enregistre une séance SBD pour voir ton rang</div>';
+    return;
+  }
+  host.innerHTML = html;
 }
 
 // ============================================================
@@ -6843,6 +8401,12 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 // ============================================================
 (function init() {
   if(!db.reports)db.reports=[];
+  if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
+  // Class quiz trigger — runs for any user without a playerClass
+  db.gamification = db.gamification || {};
+  if (!db.gamification.playerClass) {
+    setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
+  }
   let ns=false;
   db.logs.forEach(l=>{if(!l.id){l.id=generateId();ns=true;}});
 
@@ -6859,6 +8423,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   });
 
   recalcBestPR();
+  if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+  if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks();
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
@@ -6902,15 +8468,25 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
       if (!user) return;
       if (db.logs.length === 0) {
         await syncFromCloud();
+        if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
+        if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
+        setTimeout(_restoreLastTabFromCloud, 0);
         return;
       }
       if (!db.lastSync) {
+        if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
         return;
       }
       try {
         const {data:{user:u}} = await supaClient.auth.getUser();
-        if (!u) { syncToCloud(true); return; }
+        if (!u) {
+          if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+          if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
+          syncToCloud(true); return;
+        }
         const {data, error} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', u.id).maybeSingle();
         if (error) throw error;
         if (data && data.updated_at) {
@@ -6918,13 +8494,23 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
           if (cloudTs > db.lastSync + 5000) {
             showToast('☁️ Données plus récentes sur le cloud — synchronisation…');
             await syncFromCloud();
+            if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
+            if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+            if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
+            setTimeout(_restoreLastTabFromCloud, 0);
           } else {
+            if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+            if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
             syncToCloud(true);
           }
         } else {
+          if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+          if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
           syncToCloud(true);
         }
       } catch(e) {
+        if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+        if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
       }
       // Check password migration for existing magic-link users
@@ -8952,7 +10538,9 @@ function renderCoachTodayHTML() {
   var fatigueScore = typeof computeFatigueScore === 'function' ? computeFatigueScore(db.logs) : 50;
   var formScore = Math.max(0, Math.min(100, 100 - fatigueScore));
 
-  var lastSession = db.logs && db.logs.length ? db.logs[db.logs.length-1] : null;
+  var lastSession = (db.logs && db.logs.length)
+    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0]
+    : null;
   var hoursAgo = lastSession ? Math.round((Date.now()-lastSession.timestamp)/3600000) : 72;
   var recovScore = Math.min(100, Math.round((hoursAgo/48)*100));
 
@@ -8999,7 +10587,7 @@ function renderCoachTodayHTML() {
     recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
       volReport.under.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
       ' — cible MEV : '+volReport.under.map(function(e){
-        var lm = typeof VOLUME_LANDMARKS!=='undefined' ? VOLUME_LANDMARKS[e.muscle] : null;
+        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
         return lm ? lm.mev+' sets' : '?';
       }).join(', ')
     });
@@ -9045,7 +10633,7 @@ function renderCoachTodayHTML() {
     if (allMuscles.length > 0) {
       html += '<div class="coach-muscles"><div class="coach-reco-title">💪 Volume / semaine</div>';
       allMuscles.forEach(function(e) {
-        var lm = typeof VOLUME_LANDMARKS!=='undefined' ? VOLUME_LANDMARKS[e.muscle] : null;
+        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
         if (!lm) return;
         var fillPct = Math.min(100, Math.round((e.sets/lm.mrv)*100));
         var barColor = (e.status && e.status.color) || 'var(--sub)';
@@ -9542,23 +11130,39 @@ function estimateSessionDuration(exercises) {
   let totalSec = 600; // 10min : échauffement articulaire + rangement final
 
   exercises.forEach(function(exo) {
+    if (!exo || !exo.name) return; // guard anti-null
     var meta = wpGetExoMeta(exo.name) || {};
     var isHeavy = meta.mechanic === 'compound';
 
     // Transition + installation (rack vs machine)
     totalSec += isHeavy ? 120 : 60;
 
-    var allSets = exo.allSets || [];
-    allSets.forEach(function(set) {
-      // TUT
-      var repSpeed = (set.reps || 0) <= 5 ? 4.5 : 3.5;
-      totalSec += (set.reps || 0) * repSpeed;
+    // Coach weeklyPlan peut stocker exo.sets comme entier (ex: 4) — détecter et traiter séparément.
+    var setsData = exo.allSets;
+    if (!setsData || !setsData.length) {
+      var setsCount = typeof exo.sets === 'number'
+        ? exo.sets
+        : (Array.isArray(exo.sets) ? exo.sets.length : 3);
+      var repsVal = exo.reps
+        ? (parseInt(String(exo.reps).split('-')[1] || exo.reps) || 10)
+        : 10;
+      var restVal = exo.restSeconds || (isHeavy ? 180 : 90);
+      for (var i = 0; i < setsCount; i++) {
+        totalSec += repsVal * (repsVal <= 5 ? 4.5 : 3.5);
+        totalSec += restVal + (isHeavy ? 45 : 15);
+      }
+    } else {
+      setsData.forEach(function(set) {
+        // TUT
+        var repSpeed = (set.reps || 0) <= 5 ? 4.5 : 3.5;
+        totalSec += (set.reps || 0) * repSpeed;
 
-      // Repos réel + manipulation des poids
-      var rest = set.restSeconds || (isHeavy ? 180 : 90);
-      var logistics = (isHeavy || (set.weight || 0) > 100) ? 45 : 15;
-      totalSec += rest + logistics;
-    });
+        // Repos réel + manipulation des poids
+        var rest = set.restSeconds || exo.restSeconds || (isHeavy ? 180 : 90);
+        var logistics = (isHeavy || (set.weight || 0) > 100) ? 45 : 15;
+        totalSec += rest + logistics;
+      });
+    }
   });
 
   // Facteur de fatigue : 10% plus lent en fin de séance
@@ -10515,6 +12119,10 @@ var WP_EXO_META = {
 
 function wpGetExoMeta(name) {
   if (!name) return null;
+  // WP_EXO_META est déclaré plus bas dans le fichier (var hoisted mais
+  // assigné ligne ~11795) — si appel pendant l'init IIFE, la valeur
+  // est encore undefined.
+  if (typeof WP_EXO_META === 'undefined' || !WP_EXO_META) return null;
   var n = wpNormalizeName(name);
 
   // Niveau 1 : égalité stricte normalisée
@@ -10638,7 +12246,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   if (!tpl) return null;
   var bodyPart = tpl.bodyPart;
   var injuries = params.injuries || [];
-  var duration = params.duration || 90;
+  var duration = (db.user && db.user.trainingDuration) || params.duration || 90;
   var goals = params.goals || [];
   var isCutting = goals.includes('seche');
 
@@ -10829,7 +12437,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   if (!tpl) return null;
   var injuries = params.injuries || [];
   var goals = params.goals || [];
-  var duration = params.duration || 60;
+  var duration = (db.user && db.user.trainingDuration) || params.duration || 60;
   var mat = params.mat || 'salle';
   var gender = db.user.gender || 'male';
   var isCutting = goals.includes('seche');
@@ -10864,7 +12472,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   exoNames = exoNames.slice(0, maxExos);
 
   // Correction 4: Volume cap selon durée
-  var sessionDuration = params.duration || 60;
+  var sessionDuration = duration; // déjà résolu avec trainingDuration ci-dessus
   var maxTotalSets = sessionDuration <= 45 ? 18 : sessionDuration <= 60 ? 24 : sessionDuration <= 90 ? 32 : 40;
   var totalSetsUsed = 0;
 
@@ -11193,8 +12801,10 @@ function renderWeeklyPlanUI() {
   } else {
     // Durée estimée du jour
     const dayDuration = estimateSessionDuration(sel.exercises || []);
+    var _targetDur = (db.user && db.user.trainingDuration) || (db.user && db.user.programParams && db.user.programParams.duration) || 60;
+    var _durWarn = dayDuration > _targetDur + 15 ? ` <span style="color:var(--orange);">⚠️ objectif : ${_targetDur}min</span>` : '';
     const durationHtml = dayDuration > 0
-      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration}min estimé</div>`
+      ? `<div style="font-size:11px;color:var(--sub);margin-top:6px;">⏱️ ~${dayDuration}min estimé${_durWarn}</div>`
       : '';
     const applyDayBtn = `<button onclick="wpApplyDay('${wpSelectedDay}')" style="margin-top:10px;padding:6px 14px;background:var(--green);border:none;color:#000;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Appliquer ce jour au programme</button>`;
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
@@ -11467,8 +13077,11 @@ function buildGoIdleHtml() {
   var isRestDay = !todayLabel || /repos/i.test(todayLabel);
   var hasDraft = !!localStorage.getItem('SBD_ACTIVE_WORKOUT');
 
-  // Dernier debrief (séance la plus récente)
-  var lastSession = db.logs && db.logs.length ? db.logs[db.logs.length-1] : null;
+  // Dernière séance (tri timestamp DESC — [0] = la plus récente)
+  var previousLogs = (db.logs && db.logs.length)
+    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })
+    : [];
+  var lastSession = previousLogs[0] || null;
   var hasDebrief = lastSession && (Date.now() - lastSession.timestamp < 86400000*2);
 
   // Toggle Récap / Débrief
@@ -12167,6 +13780,19 @@ function goToggleSetComplete(exoIdx, setIdx) {
     }
     // Auto-régulation RPE
     goCheckAutoRegulation(exoIdx, setIdx);
+    // PR Type A — e1RM en cours de saisie
+    try {
+      var _w = set.weight || 0, _r = set.reps || 0;
+      if (_w > 0 && _r > 0 && typeof calcE1RM === 'function' && typeof getAllBestE1RMs === 'function') {
+        var _e1rm = calcE1RM(_w, _r);
+        var _best = getAllBestE1RMs();
+        var _prev = (_best[exo.name] && _best[exo.name].e1rm) || 0;
+        if (_e1rm > _prev && _prev > 0) {
+          if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
+          if (typeof showPRToast === 'function') showPRToast(exo.name, _e1rm);
+        }
+      }
+    } catch(e) {}
   }
   goAutoSave();
   goUpdateCounters();
@@ -14129,6 +15755,9 @@ function goFinishWorkout() {
 
   // Track old PRs for PR detection
   const oldPRs = { bench: db.bestPR.bench, squat: db.bestPR.squat, deadlift: db.bestPR.deadlift };
+  // Snapshot des meilleurs e1RM par exo AVANT d'ajouter la séance (pour overlay PR Type B)
+  var _previousBestE1RMs = {};
+  try { _previousBestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {}; } catch(e) {}
 
   // Add to db.logs
   db.logs.push(session);
@@ -14143,14 +15772,36 @@ function goFinishWorkout() {
   // Social: detect new PRs and publish + celebration
   try {
     recalcBestPR();
-    var _prCelebrated = false;
+    if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
+    if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
     SBD_TYPES.forEach(type => {
       if (db.bestPR[type] > oldPRs[type] && oldPRs[type] > 0) {
         const name = type === 'bench' ? 'Développé couché' : type === 'squat' ? 'Squat' : 'Soulevé de terre';
         publishPRActivity(name, db.bestPR[type], oldPRs[type]);
         sendLocalNotification('🏆 Nouveau record !', name + ' : ' + db.bestPR[type] + 'kg (ancien: ' + oldPRs[type] + 'kg)');
-        if (!_prCelebrated) { showPRCelebration(name, db.bestPR[type], oldPRs[type]); _prCelebrated = true; }
       }
+    });
+    // Overlay PR Type B — un seul par séance, sur le premier SBD exo qui bat le précédent e1RM
+    var _prCelebrated = false;
+    (session.exercises || []).forEach(function(_exo) {
+      if (_prCelebrated) return;
+      var _sbd = typeof getSBDType === 'function' ? getSBDType(_exo.name) : null;
+      if (!_sbd) return;
+      var _prev = (_previousBestE1RMs[_exo.name] && _previousBestE1RMs[_exo.name].e1rm) || 0;
+      if (!(_exo.maxRM > _prev && _prev > 0)) return;
+      // Anti-doublon : même (exo, poids arrondi) dans les 24h
+      db.gamification = db.gamification || {};
+      db.gamification.lastPRCelebrated = db.gamification.lastPRCelebrated || {};
+      var _key = _exo.name + '_' + Math.round(_exo.maxRM);
+      if (db.gamification.lastPRCelebrated[_key]
+          && Date.now() - db.gamification.lastPRCelebrated[_key] < 86400000) return;
+      db.gamification.lastPRCelebrated[_key] = Date.now();
+      var _newTierName = null;
+      if (db.gamification.liftRanks && db.gamification.liftRanks[_sbd]) {
+        _newTierName = db.gamification.liftRanks[_sbd].tier;
+      }
+      if (typeof showPROverlay === 'function') showPROverlay(_exo.name, Math.round(_exo.maxRM), _newTierName);
+      _prCelebrated = true;
     });
     updateLeaderboardSnapshot();
   } catch(e) {}
@@ -14182,14 +15833,14 @@ function goFinishWorkout() {
     var _weekDiff = Math.round((_sesWeekStart - _thisWeekStart) / (7 * 86400000));
     currentWeekOffset = _weekDiff;
     // Forcer le re-render si l'onglet séances est visible
-    if (activeSeancesSub === 'seances-list') {
+    if (activeSeancesSub === 'seances-historique') {
       renderSeancesTab();
     }
   } catch(e) {}
 
   // Force render all key views — refreshUI() only renders the active sub-tab
   // which is still 'seances-go' at this point
-  if (activeSeancesSub !== 'seances-list') {
+  if (activeSeancesSub !== 'seances-historique') {
     renderSeancesTab();
   }
   renderDash();
@@ -14255,6 +15906,110 @@ function dismissPRCelebration(overlay) {
   if (box) box.classList.add('fade-out');
   setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 500);
 }
+
+// ============================================================
+// PR CELEBRATION — Toast (Type A) + Overlay (Type B) + Partage
+// ============================================================
+function showPRToast(exoName, e1rm) {
+  var existing = document.getElementById('prToastA');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  var t = document.createElement('div');
+  t.id = 'prToastA';
+  t.innerHTML = '⚡ Nouveau PR — ' + exoName + ' · ' + Math.round(e1rm) + ' kg e1RM';
+  t.style.cssText = [
+    'position:fixed', 'top:16px', 'left:50%',
+    'transform:translateX(-50%)',
+    'background:linear-gradient(135deg,rgba(191,90,242,0.95),rgba(255,55,95,0.95))',
+    'color:white', 'font-size:13px', 'font-weight:700',
+    'padding:10px 18px', 'border-radius:20px',
+    'z-index:9999', 'white-space:nowrap',
+    'box-shadow:0 4px 20px rgba(191,90,242,0.4)',
+    'animation:slideDownFade 2.5s ease forwards'
+  ].join(';');
+  document.body.appendChild(t);
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 2600);
+}
+
+function showPROverlay(liftName, weightKg, newTier) {
+  var existing = document.getElementById('prOverlayB');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+  var tierHtml = newTier
+    ? '<div style="font-size:14px;color:#FFD700;margin-top:8px;">🏆 Nouveau rang : ' + newTier + '</div>'
+    : '';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'prOverlayB';
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:10000',
+    'background:rgba(8,4,18,0.96)',
+    'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center',
+    'text-align:center', 'padding:32px'
+  ].join(';');
+
+  overlay.innerHTML =
+    '<div style="font-size:48px;margin-bottom:16px;animation:prPulse 0.6s ease infinite alternate">⚡</div>' +
+    '<div style="font-size:13px;letter-spacing:4px;color:rgba(255,255,255,0.5);text-transform:uppercase;margin-bottom:8px">Record Personnel</div>' +
+    '<div style="font-size:28px;font-weight:800;color:white;margin-bottom:4px">' + liftName + '</div>' +
+    '<div style="font-size:56px;font-weight:900;background:linear-gradient(135deg,#BF5AF2,#FF375F);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px">' + weightKg + ' kg</div>' +
+    tierHtml +
+    '<div style="margin-top:32px;display:flex;gap:12px">' +
+      '<button onclick="sharePRImage(\'' + liftName.replace(/'/g, "\\'") + '\',' + weightKg + ')" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);border-radius:14px;padding:12px 20px;font-size:14px;font-weight:600">📤 Partager</button>' +
+      '<button onclick="document.getElementById(\'prOverlayB\').remove()" style="background:linear-gradient(135deg,#BF5AF2,#FF375F);color:white;border:none;border-radius:14px;padding:12px 24px;font-size:14px;font-weight:600">Continuer →</button>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+function sharePRImage(liftName, weightKg) {
+  var canvas = document.createElement('canvas');
+  canvas.width = 800; canvas.height = 400;
+  var ctx = canvas.getContext('2d');
+
+  var grad = ctx.createLinearGradient(0, 0, 800, 400);
+  grad.addColorStop(0, '#0D0816');
+  grad.addColorStop(1, '#1A0A2E');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 800, 400);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '600 18px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('RECORD PERSONNEL', 400, 120);
+
+  ctx.fillStyle = 'white';
+  ctx.font = '800 52px system-ui';
+  ctx.fillText(liftName, 400, 200);
+
+  ctx.fillStyle = '#BF5AF2';
+  ctx.font = '900 80px system-ui';
+  ctx.fillText(weightKg + ' kg', 400, 300);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '500 16px system-ui';
+  ctx.fillText('SBD Hub', 400, 360);
+
+  canvas.toBlob(function(blob) {
+    var file = new File([blob], 'pr-' + liftName + '.png', { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        title: 'PR ' + liftName + ' — ' + weightKg + 'kg',
+        text: 'Nouveau record sur SBD Hub ! 💪'
+      }).catch(function() {});
+    } else {
+      var a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'pr-' + liftName + '.png';
+      a.click();
+    }
+  });
+}
+
+window.showPRToast = showPRToast;
+window.showPROverlay = showPROverlay;
+window.sharePRImage = sharePRImage;
 
 // ============================================================
 // PULL-TO-REFRESH (mobile)

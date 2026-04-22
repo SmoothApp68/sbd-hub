@@ -126,8 +126,8 @@ async function submitNewPassword() {
   }
 }
 
-async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; const payload = { user_id: user.id, data: db, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
-async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; if (!db.logs) db.logs = []; if (!db.user) db.user = {}; if (!db.user.targets) db.user.targets = { bench: 100, squat: 120, deadlift: 140 }; if (!db.social) db.social = {}; if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 }; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
+async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (!db.reports) db.reports = []; if (!db.logs) db.logs = []; if (!db.user) db.user = {}; if (!db.user.targets) db.user.targets = { bench: 100, squat: 120, deadlift: 140 }; if (!db.social) db.social = {}; if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 }; if (!db.gamification) db.gamification = {}; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; }
 function updateSyncStatus(s) {
   const el = document.getElementById('syncIndicator');
@@ -589,6 +589,7 @@ function showFeedSub(subId, btn) {
   if (subId === 'feed-communaute') renderFeedCommunaute();
   if (subId === 'feed-challenges') renderFeedChallengesV2();
   if (subId === 'feed-classement') renderFeedClassementV2();
+  if (typeof _updateLastTab === 'function') _updateLastTab('social', subId);
 }
 
 async function initSocialTab() {
@@ -3528,7 +3529,11 @@ function fv2RenderCard(item, profile, uid) {
     '</div>';
 }
 
+var _feedAmisInflight = false;
 async function renderFeedAmis() {
+  if (_feedAmisInflight) return;
+  _feedAmisInflight = true;
+  try {
   var uid = await getMyUserIdAsync();
   if (!uid) return;
   var container = document.getElementById('feedAmisContent');
@@ -3594,6 +3599,9 @@ async function renderFeedAmis() {
     console.error('renderFeedAmis error:', e);
     container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div><div class="feed-empty-sub">Impossible de charger le feed.</div></div>';
   }
+  } finally {
+    _feedAmisInflight = false;
+  }
 }
 
 function loadMoreFeedAmis() { _feedAmisPage++; renderFeedAmis(); }
@@ -3644,7 +3652,11 @@ async function toggleFv2Like(activityId, btnEl) {
 // ============================================================
 // FEED V2 — COMMUNAUTÉ
 // ============================================================
+var _feedCommunauteInflight = false;
 async function renderFeedCommunaute() {
+  if (_feedCommunauteInflight) return;
+  _feedCommunauteInflight = true;
+  try {
   var uid = await getMyUserIdAsync();
   if (!uid) return;
   var container = document.getElementById('feedCommunauteContent');
@@ -3698,6 +3710,9 @@ async function renderFeedCommunaute() {
     console.error('renderFeedCommunaute error:', e);
     container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
   }
+  } finally {
+    _feedCommunauteInflight = false;
+  }
 }
 
 function loadMoreFeedCommunaute() { _feedCommunautePage++; renderFeedCommunaute(); }
@@ -3705,7 +3720,11 @@ function loadMoreFeedCommunaute() { _feedCommunautePage++; renderFeedCommunaute(
 // ============================================================
 // FEED V2 — CHALLENGES
 // ============================================================
+var _feedChallengesV2Inflight = false;
 async function renderFeedChallengesV2() {
+  if (_feedChallengesV2Inflight) return;
+  _feedChallengesV2Inflight = true;
+  try {
   var container = document.getElementById('feedChallengesContent');
   if (!container) return;
   container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);">Chargement...</div>';
@@ -3842,6 +3861,9 @@ async function renderFeedChallengesV2() {
     console.error('renderFeedChallengesV2 error:', e);
     container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
   }
+  } finally {
+    _feedChallengesV2Inflight = false;
+  }
 }
 
 // ============================================================
@@ -3850,7 +3872,11 @@ async function renderFeedChallengesV2() {
 function setLb2Period(p) { _lb2Period = p; renderFeedClassementV2(); }
 function setLb2Category(c) { _lb2Category = c; renderFeedClassementV2(); }
 
+var _feedClassementV2Inflight = false;
 async function renderFeedClassementV2() {
+  if (_feedClassementV2Inflight) return;
+  _feedClassementV2Inflight = true;
+  try {
   var container = document.getElementById('feedClassementContent');
   if (!container) return;
 
@@ -3970,5 +3996,8 @@ async function renderFeedClassementV2() {
     console.error('renderFeedClassementV2 error:', e);
     var b = document.getElementById('lb2Body');
     if (b) b.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">😕</div><div class="feed-empty-title">Erreur</div></div>';
+  }
+  } finally {
+    _feedClassementV2Inflight = false;
   }
 }

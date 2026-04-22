@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v46';
+const CACHE_NAME = 'trainhub-v47';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -12,7 +12,9 @@ const ASSETS_TO_CACHE = [
   '/sbd-hub/js/import.js',
   '/sbd-hub/js/supabase.js',
   '/sbd-hub/assets/body-front.svg',
-  '/sbd-hub/assets/body-back.svg'
+  '/sbd-hub/assets/body-back.svg',
+  '/sbd-hub/assets/body-front-female.svg',
+  '/sbd-hub/assets/body-back-female.svg'
 ];
 
 self.addEventListener('install', (event) => {

@@ -3063,16 +3063,63 @@ function getMuscleColorForSlug(slug) {
 }
 
 var currentBodySide = 'front';
+var currentBodyGender = 'male';
 var _bodySvgCache = {};
+
+// Zones anatomiques custom superposées au SVG body-highlighter.
+// Chaque entrée est un fragment SVG (polygon / ellipse / path) avec
+// data-muscle="<canonical_key>". Rendus dans un <svg> overlay
+// pointer-events:none au-dessus du SVG principal.
+var BODY_CUSTOM_ZONES = {
+  front: [
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="18" cy="62" rx="5" ry="8"' },
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="82" cy="62" rx="5" ry="8"' },
+    { muscle: 'chest_upper',    shape: 'path',    attrs: 'd="M33,55 Q50,52 67,55 L67,65 Q50,67 33,65 Z"' },
+    { muscle: 'chest_lower',    shape: 'path',    attrs: 'd="M33,65 Q50,67 67,65 L67,75 Q50,77 33,75 Z"' },
+    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="37" cy="168" rx="4" ry="5"' },
+    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="63" cy="168" rx="4" ry="5"' },
+    { muscle: 'serratus',       shape: 'path',    attrs: 'd="M30,70 L28,75 L31,78 L29,82"', strokeOnly: true },
+    { muscle: 'serratus',       shape: 'path',    attrs: 'd="M70,70 L72,75 L69,78 L71,82"', strokeOnly: true },
+    { muscle: 'hip_flexors',    shape: 'path',    attrs: 'd="M42,100 Q50,98 58,100 L57,108 Q50,110 43,108 Z"' }
+  ],
+  back: [
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="18" cy="62" rx="5" ry="8"' },
+    { muscle: 'shoulders_side', shape: 'ellipse', attrs: 'cx="82" cy="62" rx="5" ry="8"' },
+    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="37" cy="168" rx="4" ry="5"' },
+    { muscle: 'calves_soleus',  shape: 'ellipse', attrs: 'cx="63" cy="168" rx="4" ry="5"' },
+    { muscle: 'neck',           shape: 'ellipse', attrs: 'cx="50" cy="42" rx="6" ry="5"' }
+  ]
+};
+
+function _buildCustomZonesSvg(side) {
+  var zones = BODY_CUSTOM_ZONES[side] || [];
+  var pieces = zones.map(function(z) {
+    var color = getMuscleColor(z.muscle);
+    var common = ' data-muscle="' + z.muscle + '" style="cursor:pointer;pointer-events:all;transition:filter 0.15s;"';
+    if (z.strokeOnly) {
+      return '<' + z.shape + ' ' + z.attrs +
+        ' fill="none" stroke="' + color + '" stroke-width="1"' +
+        common + '/>';
+    }
+    return '<' + z.shape + ' ' + z.attrs +
+      ' fill="' + color + '" opacity="0.85"' +
+      ' stroke="rgba(0,0,0,0.3)" stroke-width="0.5"' +
+      common + '/>';
+  }).join('');
+  return '<svg class="body-overlay" xmlns="http://www.w3.org/2000/svg" ' +
+    'viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet" ' +
+    'style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">' +
+    pieces + '</svg>';
+}
 
 function renderBodyFigure(side) {
   var container = document.getElementById('body-figure-container');
   if (!container) return;
   currentBodySide = side;
 
-  var svgPath = side === 'front'
-    ? 'assets/body-front.svg'
-    : 'assets/body-back.svg';
+  var svgPath = 'assets/body-' + side +
+    (currentBodyGender === 'female' ? '-female' : '') + '.svg';
+  var cacheKey = side + '_' + currentBodyGender;
 
   var apply = function(svgText) {
     container.innerHTML = svgText;
@@ -3085,6 +3132,7 @@ function renderBodyFigure(side) {
     svg.style.display = 'block';
     svg.style.margin = '0 auto';
     svg.style.background = 'transparent';
+    svg.style.position = 'relative';
 
     // Colorier les zones musculaires
     Object.keys(BODY_MUSCLE_MAP).forEach(function(slug) {
@@ -3111,6 +3159,14 @@ function renderBodyFigure(side) {
       });
     });
 
+    // Masquer le polygone 'chest' original en vue avant : il est
+    // remplacé par les zones custom chest_upper + chest_lower.
+    if (side === 'front') {
+      svg.querySelectorAll('.chest, [class*="chest"]').forEach(function(el) {
+        el.style.opacity = '0';
+      });
+    }
+
     // Zones non-musculaires (head, knees, soleus, silhouette) : fond sombre
     var allShapes = svg.querySelectorAll('path, polygon, ellipse, circle');
     allShapes.forEach(function(p) {
@@ -3122,16 +3178,34 @@ function renderBodyFigure(side) {
         p.setAttribute('stroke-width', '0.4');
       }
     });
+
+    // Overlay zones custom
+    container.insertAdjacentHTML('beforeend', _buildCustomZonesSvg(side));
+    var overlay = container.querySelector('svg.body-overlay');
+    if (overlay) {
+      overlay.querySelectorAll('[data-muscle]').forEach(function(el) {
+        el.addEventListener('mouseenter', function() {
+          this.style.filter = 'brightness(1.25)';
+        });
+        el.addEventListener('mouseleave', function() {
+          this.style.filter = '';
+        });
+        el.addEventListener('click', function() {
+          var m = this.getAttribute('data-muscle');
+          if (m) selectMuscle(m);
+        });
+      });
+    }
   };
 
-  if (_bodySvgCache[side]) {
-    apply(_bodySvgCache[side]);
+  if (_bodySvgCache[cacheKey]) {
+    apply(_bodySvgCache[cacheKey]);
     return;
   }
   fetch(svgPath)
     .then(function(r) { return r.text(); })
     .then(function(svgText) {
-      _bodySvgCache[side] = svgText;
+      _bodySvgCache[cacheKey] = svgText;
       apply(svgText);
     })
     .catch(function() {
@@ -3158,6 +3232,15 @@ function switchBodyView(side) {
   renderBodyFigure(side);
 }
 if (typeof window !== 'undefined') window.switchBodyView = switchBodyView;
+
+function switchBodyGender() {
+  currentBodyGender = currentBodyGender === 'male' ? 'female' : 'male';
+  var btn = document.getElementById('btn-body-gender');
+  if (btn) btn.textContent = currentBodyGender === 'male' ? '♂' : '♀';
+  _bodySvgCache = {};
+  renderBodyFigure(currentBodySide || 'front');
+}
+if (typeof window !== 'undefined') window.switchBodyGender = switchBodyGender;
 
 function _muscleTierFor(muscleKey) {
   db.gamification = db.gamification || {};

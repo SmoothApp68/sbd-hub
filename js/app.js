@@ -8456,10 +8456,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
-        if (!db.gamification._migratedMuscle25Keys) {
-          db.gamification._migratedMuscle25Keys = true;
-          calcAndStoreMuscleRanks(true);
-        }
         setTimeout(_restoreLastTabFromCloud, 0);
         return;
       }
@@ -8486,10 +8482,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
             if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
             if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
-            if (!db.gamification._migratedMuscle25Keys) {
-              db.gamification._migratedMuscle25Keys = true;
-              calcAndStoreMuscleRanks(true);
-            }
             setTimeout(_restoreLastTabFromCloud, 0);
           } else {
             if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();

@@ -3285,6 +3285,33 @@ const EXERCISE_MUSCLE_MAP = [
     muscles: { abs:0.55, obliques:0.25, erectors:0.20 } }
 ];
 
+// Canonical (EXO_DATABASE.muscles) → MUSCLE_TONNAGE_TARGETS key
+var MUSCLE_KEY_ALIAS = {
+  quadriceps: 'quads',
+  trapezius:  'traps',
+  abductors:  'glutes_med'
+};
+
+function findExoInDatabase(exoName) {
+  if (!exoName) return null;
+  if (typeof EXO_DATABASE === 'undefined' || !EXO_DATABASE) return null;
+  var n = exoName.toLowerCase().trim();
+  var keys = Object.keys(EXO_DATABASE);
+  // Exact match
+  for (var i = 0; i < keys.length; i++) {
+    var e = EXO_DATABASE[keys[i]];
+    if (e && e.name && e.name.toLowerCase().trim() === n) return e;
+  }
+  // Partial match
+  for (var i = 0; i < keys.length; i++) {
+    var e = EXO_DATABASE[keys[i]];
+    if (!e || !e.name) continue;
+    var d = e.name.toLowerCase().trim();
+    if (n.indexOf(d) >= 0 || d.indexOf(n) >= 0) return e;
+  }
+  return null;
+}
+
 function getMuscleVolumeAndFreq(logs4weeks) {
   var result = {};
   Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(k) {
@@ -3297,19 +3324,41 @@ function getMuscleVolumeAndFreq(logs4weeks) {
     (log.exercises || []).forEach(function(exo) {
       var exoNameLower = (exo.name || '').toLowerCase();
 
-      // Find matching exercise pattern (first hit wins)
-      var mapping = null;
-      for (var i = 0; i < EXERCISE_MUSCLE_MAP.length; i++) {
-        var m = EXERCISE_MUSCLE_MAP[i];
-        for (var j = 0; j < m.match.length; j++) {
-          if (exoNameLower.indexOf(m.match[j].toLowerCase()) >= 0) {
-            mapping = m;
-            break;
-          }
-        }
-        if (mapping) break;
+      // 1) Try EXO_DATABASE primary/secondary/tertiary
+      var coeffMap = null;
+      var dbEntry = findExoInDatabase(exo.name);
+      if (dbEntry && dbEntry.muscles &&
+          dbEntry.muscles.primary && dbEntry.muscles.primary.length > 0) {
+        coeffMap = {};
+        var addPlan = function(arr, coeff) {
+          (arr || []).forEach(function(k) {
+            var mapped = MUSCLE_KEY_ALIAS[k] || k;
+            if (coeffMap[mapped] == null || coeffMap[mapped] < coeff) {
+              coeffMap[mapped] = coeff;
+            }
+          });
+        };
+        addPlan(dbEntry.muscles.primary,   1.0);
+        addPlan(dbEntry.muscles.secondary, 0.4);
+        addPlan(dbEntry.muscles.tertiary,  0.15);
       }
-      if (!mapping) return;
+
+      // 2) Fallback on legacy EXERCISE_MUSCLE_MAP
+      if (!coeffMap) {
+        var mapping = null;
+        for (var i = 0; i < EXERCISE_MUSCLE_MAP.length; i++) {
+          var m = EXERCISE_MUSCLE_MAP[i];
+          for (var j = 0; j < m.match.length; j++) {
+            if (exoNameLower.indexOf(m.match[j].toLowerCase()) >= 0) {
+              mapping = m;
+              break;
+            }
+          }
+          if (mapping) break;
+        }
+        if (!mapping) return;
+        coeffMap = mapping.muscles;
+      }
 
       // Compute exo volume — normal sets only, exclude warmups
       var exoVolume = 0;
@@ -3331,9 +3380,9 @@ function getMuscleVolumeAndFreq(logs4weeks) {
         exoVolume = nbSets * 100;
       }
 
-      Object.keys(mapping.muscles).forEach(function(muscleKey) {
+      Object.keys(coeffMap).forEach(function(muscleKey) {
         if (!result[muscleKey]) return;
-        result[muscleKey].tonnage += exoVolume * mapping.muscles[muscleKey];
+        result[muscleKey].tonnage += exoVolume * coeffMap[muscleKey];
         musclesThisSession[muscleKey] = true;
       });
     });

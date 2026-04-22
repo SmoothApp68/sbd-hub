@@ -3003,6 +3003,162 @@ const MUSCLE_NAMES_FR = {
   serratus: 'Dentelé antérieur'
 };
 
+// ── Body Highlighter SVG figure ──
+const BODY_MUSCLE_MAP = {
+  'chest':          ['chest_upper', 'chest_lower'],
+  'front-deltoids': ['shoulders_front'],
+  'biceps':         ['biceps'],
+  'triceps':        ['triceps'],
+  'forearm':        ['forearms'],
+  'abs':            ['abs'],
+  'obliques':       ['obliques'],
+  'adductor':       ['adductors'],
+  'quadriceps':     ['quadriceps'],
+  'calves':         ['calves_gastro'],
+  'abductors':      ['abductors'],
+  'trapezius':      ['trapezius'],
+  'upper-back':     ['lats', 'rhomboids'],
+  'lower-back':     ['erectors'],
+  'back-deltoids':  ['shoulders_rear'],
+  'gluteal':        ['glutes_major'],
+  'hamstring':      ['hamstrings'],
+  'neck':           ['neck']
+};
+
+const MUSCLE_TIER_COLORS = {
+  'Atrophié':   'rgba(85,85,102,0.7)',
+  'Développé':  'rgba(122,140,110,0.75)',
+  'Sculpté':    'rgba(200,162,76,0.8)',
+  'Puissant':   'rgba(120,216,208,0.8)',
+  'Massif':     'rgba(110,180,255,0.8)',
+  'Titanesque': 'rgba(191,90,242,0.85)'
+};
+
+function getMuscleColor(muscleKey) {
+  var ranks = db.gamification && db.gamification.muscleRanks;
+  if (!ranks || !ranks[muscleKey]) return 'rgba(255,255,255,0.08)';
+  return MUSCLE_TIER_COLORS[ranks[muscleKey].tier]
+    || 'rgba(255,255,255,0.08)';
+}
+
+function getMuscleColorForSlug(slug) {
+  var keys = BODY_MUSCLE_MAP[slug];
+  if (!keys || !keys.length) return 'rgba(255,255,255,0.08)';
+  var colors = keys.map(getMuscleColor);
+  // Prendre la couleur du tier le plus bas
+  var tierOrder = ['Atrophié','Développé','Sculpté',
+                   'Puissant','Massif','Titanesque'];
+  var ranks = db.gamification && db.gamification.muscleRanks;
+  if (!ranks) return colors[0];
+  var minIdx = 99;
+  keys.forEach(function(k) {
+    if (ranks[k]) {
+      var idx = tierOrder.indexOf(ranks[k].tier);
+      if (idx >= 0 && idx < minIdx) minIdx = idx;
+    }
+  });
+  if (minIdx === 99) return colors[0];
+  return MUSCLE_TIER_COLORS[tierOrder[minIdx]]
+    || 'rgba(255,255,255,0.08)';
+}
+
+var currentBodySide = 'front';
+var _bodySvgCache = {};
+
+function renderBodyFigure(side) {
+  var container = document.getElementById('body-figure-container');
+  if (!container) return;
+  currentBodySide = side;
+
+  var svgPath = side === 'front'
+    ? 'assets/body-front.svg'
+    : 'assets/body-back.svg';
+
+  var apply = function(svgText) {
+    container.innerHTML = svgText;
+    var svg = container.querySelector('svg');
+    if (!svg) return;
+
+    svg.style.width = '100%';
+    svg.style.maxWidth = '220px';
+    svg.style.height = 'auto';
+    svg.style.display = 'block';
+    svg.style.margin = '0 auto';
+    svg.style.background = 'transparent';
+
+    // Colorier les zones musculaires
+    Object.keys(BODY_MUSCLE_MAP).forEach(function(slug) {
+      var els = svg.querySelectorAll(
+        '#' + slug + ', .' + slug +
+        ', [id*="' + slug + '"], [class*="' + slug + '"]'
+      );
+      var color = getMuscleColorForSlug(slug);
+      els.forEach(function(el) {
+        el.style.fill = color;
+        el.style.cursor = 'pointer';
+        el.style.transition = 'filter 0.15s';
+        el.dataset.slug = slug;
+        el.addEventListener('mouseenter', function() {
+          this.style.filter = 'brightness(1.25)';
+        });
+        el.addEventListener('mouseleave', function() {
+          this.style.filter = '';
+        });
+        el.addEventListener('click', function() {
+          var keys = BODY_MUSCLE_MAP[this.dataset.slug] || [];
+          if (keys.length) selectMuscle(keys[0]);
+        });
+      });
+    });
+
+    // Zones non-musculaires (head, knees, soleus, silhouette) : fond sombre
+    var allShapes = svg.querySelectorAll('path, polygon, ellipse, circle');
+    allShapes.forEach(function(p) {
+      if (p.dataset.slug) return;
+      var fill = p.getAttribute('fill') || '';
+      if (fill !== 'none') {
+        p.setAttribute('fill', '#1a1528');
+        p.setAttribute('stroke', 'rgba(255,255,255,0.12)');
+        p.setAttribute('stroke-width', '0.4');
+      }
+    });
+  };
+
+  if (_bodySvgCache[side]) {
+    apply(_bodySvgCache[side]);
+    return;
+  }
+  fetch(svgPath)
+    .then(function(r) { return r.text(); })
+    .then(function(svgText) {
+      _bodySvgCache[side] = svgText;
+      apply(svgText);
+    })
+    .catch(function() {
+      container.innerHTML =
+        '<div style="color:rgba(255,255,255,0.3);text-align:center;padding:20px;">Figure non disponible</div>';
+    });
+}
+if (typeof window !== 'undefined') window.renderBodyFigure = renderBodyFigure;
+
+function switchBodyView(side) {
+  ['front','back'].forEach(function(s) {
+    var btn = document.getElementById('btn-body-' + s);
+    if (!btn) return;
+    if (s === side) {
+      btn.style.background = '#BF5AF2';
+      btn.style.color = 'white';
+      btn.style.border = 'none';
+    } else {
+      btn.style.background = 'rgba(255,255,255,0.08)';
+      btn.style.color = 'rgba(255,255,255,0.6)';
+      btn.style.border = '1px solid rgba(255,255,255,0.15)';
+    }
+  });
+  renderBodyFigure(side);
+}
+if (typeof window !== 'undefined') window.switchBodyView = switchBodyView;
+
 function _muscleTierFor(muscleKey) {
   db.gamification = db.gamification || {};
   var ranks = db.gamification.muscleRanks || null;
@@ -3033,6 +3189,10 @@ function renderMuscleColors() {
       el.style.fill = t.color;
     }
   });
+  if (typeof renderBodyFigure === 'function' &&
+      document.getElementById('body-figure-container')) {
+    renderBodyFigure(typeof currentBodySide !== 'undefined' ? currentBodySide : 'front');
+  }
 }
 
 function svgToggleView(view) {
@@ -3995,6 +4155,9 @@ function renderGamificationTab() {
 
   // ── Muscle anatomy figure (Rangs sub-tab) ──
   try {
+    if (typeof renderBodyFigure === 'function') {
+      renderBodyFigure(typeof currentBodySide !== 'undefined' ? currentBodySide : 'front');
+    }
     if (typeof renderMuscleColors === 'function') renderMuscleColors();
     if (typeof renderMuscleList === 'function') renderMuscleList();
   } catch(e) { console.error('muscle anatomy render:', e); }

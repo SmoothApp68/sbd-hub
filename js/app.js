@@ -3288,8 +3288,7 @@ const EXERCISE_MUSCLE_MAP = [
 // Canonical (EXO_DATABASE.muscles) → MUSCLE_TONNAGE_TARGETS key
 var MUSCLE_KEY_ALIAS = {
   quadriceps: 'quads',
-  trapezius:  'traps',
-  abductors:  'glutes_med'
+  trapezius:  'traps'
 };
 
 function findExoInDatabase(exoName) {

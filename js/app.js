@@ -3177,6 +3177,8 @@ function renderBodyFigure(side) {
         p.setAttribute('stroke-width', '0.4');
       }
     });
+
+    if (typeof renderMuscleList === 'function') renderMuscleList();
   };
 
   if (_bodySvgCache[cacheKey]) {
@@ -3398,30 +3400,84 @@ function hideMusclePopover() {
   if (pop) pop.style.display = 'none';
 }
 
+const MUSCLE_GROUPS = [
+  { label: 'Haut du corps', muscles: [
+    'chest_upper','chest_lower',
+    'shoulders_front','shoulders_side','shoulders_rear',
+    'biceps','triceps','forearms','neck'
+  ]},
+  { label: 'Core', muscles: [
+    'abs','obliques','serratus','hip_flexors','erectors'
+  ]},
+  { label: 'Dos', muscles: [
+    'trapezius','lats','rhomboids'
+  ]},
+  { label: 'Bas du corps', muscles: [
+    'quadriceps','hamstrings','glutes_major',
+    'adductors','abductors',
+    'calves_gastro','calves_soleus'
+  ]},
+];
+
 function renderMuscleList() {
-  var host = document.getElementById('muscleList');
-  if (!host) return;
-  var keys = Object.keys(MUSCLE_NAMES_FR);
-  var rows = keys.map(function(k) {
-    var t = _muscleTierFor(k);
-    return { key: k, name: MUSCLE_NAMES_FR[k], tier: t.name, color: t.color, score: t.score, index: t.index };
+  var el = document.getElementById('muscle-list');
+  if (!el) return;
+  var ranks = db.gamification && db.gamification.muscleRanks || {};
+
+  var html = '';
+  MUSCLE_GROUPS.forEach(function(group) {
+    html += '<div style="margin-bottom:12px;">';
+    html += '<div style="font-size:10px;font-weight:700;'
+      + 'color:rgba(255,255,255,0.35);letter-spacing:0.1em;'
+      + 'text-transform:uppercase;margin-bottom:6px;'
+      + 'padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+      + group.label + '</div>';
+
+    group.muscles.forEach(function(key) {
+      var rank = ranks[key] || {};
+      var tier = rank.tier || 'Atrophié';
+      var color = rank.color || '#555566';
+      var score = rank.score || 0;
+      var tonnage = rank.tonnage || 0;
+      var name = MUSCLE_NAMES_FR[key] || key;
+
+      // Barre de score (10 segments)
+      var filled = Math.round(score / 10);
+      var bar = '';
+      for (var i = 0; i < 10; i++) {
+        bar += '<span style="display:inline-block;width:7px;height:4px;'
+          + 'border-radius:1px;margin-right:1px;background:'
+          + (i < filled ? color : 'rgba(255,255,255,0.08)') + ';"></span>';
+      }
+
+      // Tonnage formaté
+      var t = tonnage >= 1000
+        ? (Math.round(tonnage/100)/10) + 't'
+        : tonnage + 'kg';
+
+      html += '<div style="display:flex;align-items:center;'
+        + 'padding:5px 0;gap:8px;cursor:pointer;'
+        + 'border-radius:6px;" '
+        + 'onclick="showMusclePopover(\'' + key + '\',event)">'
+        // Pastille
+        + '<span style="width:8px;height:8px;border-radius:50%;'
+        + 'flex-shrink:0;background:' + color + ';"></span>'
+        // Nom
+        + '<span style="flex:1;font-size:12px;color:rgba(255,255,255,0.85);'
+        + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+        + name + '</span>'
+        // Barre
+        + '<span style="flex-shrink:0;">' + bar + '</span>'
+        // Tonnage
+        + '<span style="font-size:10px;color:rgba(255,255,255,0.35);'
+        + 'min-width:32px;text-align:right;">' + t + '</span>'
+        + '</div>';
+    });
+
+    html += '</div>';
   });
-  rows.sort(function(a, b) {
-    if (b.index !== a.index) return b.index - a.index;
-    if (b.score !== a.score) return b.score - a.score;
-    return a.name.localeCompare(b.name);
-  });
-  var html = rows.map(function(r) {
-    var barPct = Math.max(0, Math.min(100, r.score));
-    return '<div class="muscle-row" id="muscle-row-' + r.key + '" onclick="selectMuscle(\'' + r.key + '\')">' +
-      '<span class="muscle-row-dot" style="background:' + r.color + ';"></span>' +
-      '<span class="muscle-row-name">' + r.name + '</span>' +
-      '<span class="muscle-row-tier" style="color:' + r.color + ';">' + r.tier + '</span>' +
-      '<span class="muscle-row-bar-bg"><span class="muscle-row-bar" style="width:' + barPct + '%;background:' + r.color + ';"></span></span>' +
-      '<span class="muscle-row-score">' + r.score + '</span>' +
-    '</div>';
-  }).join('');
-  host.innerHTML = html;
+
+  el.innerHTML = html;
 }
 
 // ── Muscle Rank Computation (volume + frequency over 4 weeks) ──

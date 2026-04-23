@@ -878,44 +878,62 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
       continue;
     }
     if (!currExo) continue;
-    if (l.startsWith('série')&&l.includes('kg x')&&!currExo.isCardio&&!currExo.isReps) {
-      const m=l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);
-        const isW      = line.includes('[Échauffement]')||line.includes('[échauffement]');
-        // Abandon = poussé à l'échec volontaire ; Drop = série descendante immédiate
-        // Ces séries ne comptent PAS pour les records (elles ne reflètent pas une vraie performance)
-        const isAbandon= /\[abandon\]/i.test(line);
-        const isDrop   = /\[drop(\s*set)?\]/i.test(line);
-        const countForRecord = !isW && !isAbandon && !isDrop;
-        const _setType = isW ? 'warmup' : isAbandon ? 'failure' : isDrop ? 'drop' : 'normal';
-        const _rpeMatch = line.match(/@\s*([\d.]+)\s*rpe/i) || line.match(/RPE\s*:?\s*(\d+\.?\d*)/i);
-        currExo.allSets.push({ weight: w, reps: r, setType: _setType, rpe: _rpeMatch ? parseFloat(_rpeMatch[1]) : null });
-        if(countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
-        session.volume+=w*r;
-        if(countForRecord){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}
-        else if(isW){/* warmup : volume comptabilisé mais pas les records */}
+    // Try to match as "Série N: data" and dispatch via shared parser
+    const serieM = line.trim().match(/^s[ée]rie\s+\d+\s*:\s*(.+)/i);
+    if (serieM) {
+      const s = parseHevySetLine(serieM[1]);
+      const countForRecord = s.setType === 'normal';
+      if (currExo.isCardio && s.isPaliers) {
+        // Stairs / paliers
+        currExo.allSets.push({reps:s.reps, durSec:s.duration||null, isPaliers:true, setType:s.setType, rpe:s.rpe});
+        currExo.sets++;
+        if (s.reps > (currExo.maxReps||0)) { currExo.maxReps=s.reps; currExo.maxRepsDate=sessionTimestamp; }
+        currExo.totalReps = (currExo.totalReps||0) + s.reps;
+        if (s.duration > 0 && s.duration > (currExo.maxTime||0)) { currExo.maxTime=s.duration; currExo.cardioDate=sessionTimestamp; }
+      } else if (currExo.isCardio) {
+        // Cardio km/time
+        currExo.allSets.push({distKm:s.distKm||null, durSec:s.duration||null, setType:s.setType, rpe:s.rpe});
+        currExo.sets++;
+        if (s.distKm > (currExo.distance||0)) currExo.distance = s.distKm;
+        if (s.duration > 0) {
+          if (s.distKm > 0) { const kmh=s.distKm/(s.duration/3600); const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0; if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=s.duration;currExo.cardioDate=sessionTimestamp;} }
+          else if (s.duration > (currExo.maxTime||0)) { currExo.maxTime=s.duration; currExo.cardioDate=sessionTimestamp; }
         }
-    } else if (currExo.isReps&&l.startsWith('série')) {
-      const repMatch=l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i)||l.match(/x\s*(\d+)/i)||l.match(/(\d+)\s*reps?\b/i);
-      const kgMatch=l.match(/(\d+\.?\d*)\s*kg/i);
-      if(repMatch){const reps=parseInt(repMatch[1]);const w=kgMatch?parseFloat(kgMatch[1]):0;currExo.sets++;currExo.totalReps+=reps;if(reps>currExo.maxReps){currExo.maxReps=reps;currExo.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*reps;const rm=calcE1RM(w,reps);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}const rKey=String(reps);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;}}else{currExo.sets++;}
-    } else if (l.startsWith('série')&&l.includes('km')&&currExo.isCardio) {
-      parseCardioLine(l,currExo,sessionTimestamp);
-    } else if (l.startsWith('série')&&l.includes('paliers')&&currExo.isCardio) {
-      const pm=l.match(/(\d+)\s*paliers?/i);
-      if(pm){const count=parseInt(pm[1]);const phm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const pmm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const pms=l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i);let pDur=null;if(phm)pDur=parseInt(phm[1])*3600+parseInt(phm[2])*60;else if(pmm)pDur=parseInt(pmm[1])*60+parseInt(pmm[2]);else if(pms)pDur=parseInt(pms[1])*60+(pms[2]?parseInt(pms[2]):0);currExo.sets++;if(count>(currExo.maxReps||0)){currExo.maxReps=count;currExo.maxRepsDate=sessionTimestamp;}currExo.totalReps=(currExo.totalReps||0)+count;if(!currExo.allSets)currExo.allSets=[];currExo.allSets.push({reps:count,durSec:pDur,isPaliers:true,setType:'normal',rpe:null});}
-    } else if (l.startsWith('série')&&(l.includes('min')||l.includes('sec')||/\d+s\b/.test(l))&&(currExo.isTime||currExo.exoType==='time')) {
-      parsePlankLine(l,currExo,session,sessionTimestamp);
-    } else if (l.startsWith('série')&&l.includes('sec')&&!currExo.isCardio&&!currExo.maxRM) {
-      const sm=l.match(/(\d+)\s*sec/i);if(sm){currExo.isTime=true;const t=parseInt(sm[1]);if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=sessionTimestamp;}currExo.sets++;session.volume+=t/10;}
-    } else if (l.includes('1rm est:')&&!currExo.isCardio) {
-      const m2=l.match(/(\d+)\s*kg/i);
-      if(m2){
-        const rm=parseInt(m2[1]);
-        // Stocker pour confirmation ultérieure au lieu d'appliquer directement
-        if(!session._pending1RM) session._pending1RM=[];
-        session._pending1RM.push({exoName:currExo.name, rm, exoRef:currExo});
+      } else if (currExo.isTime || s.isTime) {
+        // Time-only exercise (planche, gainage…)
+        if (s.duration > 0) {
+          currExo.allSets.push({durSec:s.duration, setType:s.setType, rpe:s.rpe});
+          currExo.isTime = true; currExo.sets++;
+          if (s.duration > (currExo.maxTime||0)) { currExo.maxTime=s.duration; currExo.maxTimeDate=sessionTimestamp; }
+          session.volume += s.duration / 10;
+        }
+      } else if (currExo.isReps) {
+        // Reps-type exercise (bodyweight or weighted)
+        currExo.allSets.push({reps:s.reps, weight:s.weight, setType:s.setType, rpe:s.rpe});
+        currExo.sets++;
+        if (s.reps > 0) { currExo.totalReps=(currExo.totalReps||0)+s.reps; if(s.reps>(currExo.maxReps||0)){currExo.maxReps=s.reps;currExo.maxRepsDate=sessionTimestamp;} }
+        if (s.weight > 0) { session.volume+=s.weight*s.reps; const rm=calcE1RM(s.weight,s.reps); if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;} const rKey=String(s.reps); if(!currExo.repRecords[rKey]||s.weight>currExo.repRecords[rKey])currExo.repRecords[rKey]=s.weight; }
+      } else {
+        // Standard weight exercise
+        const w=s.weight, r=s.reps;
+        if (w > 0 || r > 0) {
+          currExo.allSets.push({weight:w, reps:r, setType:s.setType, rpe:s.rpe});
+          if (countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
+          session.volume += w * r;
+          if (countForRecord) {
+            currExo.sets++;
+            const rKey=String(r); if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;
+            const ex=currExo.series.find(sx=>sx.reps===r); if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});
+            const rm=calcE1RM(w,r); if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}
+          }
+        }
       }
+      continue;
+    }
+    // Non-série compressed data
+    if (l.includes('1rm est:')&&!currExo.isCardio) {
+      const m2=l.match(/(\d+)\s*kg/i);
+      if(m2){const rm=parseInt(m2[1]);if(!session._pending1RM)session._pending1RM=[];session._pending1RM.push({exoName:currExo.name,rm,exoRef:currExo});}
     } else if (/\d+x/.test(l)&&!currExo.isCardio) {
       const mx=l.match(/\d+x/g);if(mx)currExo.sets=parseInt(mx[mx.length-1]);
     }

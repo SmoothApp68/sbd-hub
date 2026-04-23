@@ -3580,25 +3580,6 @@ function onMuscleGroupClick(groupKey, event) {
   showMusclePopover({ keys: group.keys, name: group.name }, event);
 }
 
-const MUSCLE_GROUPS = [
-  { label: 'Haut du corps', muscles: [
-    'chest_upper','chest_lower',
-    'shoulders_front','shoulders_side','shoulders_rear',
-    'biceps','triceps','forearms','neck'
-  ]},
-  { label: 'Core', muscles: [
-    'abs','obliques','serratus','hip_flexors','erectors'
-  ]},
-  { label: 'Dos', muscles: [
-    'trapezius','lats','rhomboids'
-  ]},
-  { label: 'Bas du corps', muscles: [
-    'quadriceps','hamstrings','glutes_major',
-    'adductors','abductors',
-    'calves_gastro','calves_soleus'
-  ]},
-];
-
 function toggleSubkeys(btn, event) {
   event.stopPropagation();
   var panel = btn.closest
@@ -3796,33 +3777,33 @@ function renderMuscleList() {
 // ── Muscle Rank Computation (volume + frequency over 4 weeks) ──
 
 const MUSCLE_TONNAGE_TARGETS = {
-  pectoraux:       { developpe:8000,  sculpte:22000, puissant:40000,  massif:65000,  titanesque:95000  },
-  epaules:         { developpe:9000,  sculpte:25000, puissant:45000,  massif:70000,  titanesque:105000 },
-  biceps:          { developpe:3500,  sculpte:10000, puissant:20000,  massif:35000,  titanesque:55000  },
-  triceps:         { developpe:5000,  sculpte:15000, puissant:30000,  massif:50000,  titanesque:75000  },
-  forearms:        { developpe:2500,  sculpte:8000,  puissant:15000,  massif:25000,  titanesque:40000  },
-  neck:            { developpe:500,   sculpte:1500,  puissant:3500,   massif:6000,   titanesque:12000  },
-  abdominaux:      { developpe:4000,  sculpte:12000, puissant:25000,  massif:45000,  titanesque:75000  },
-  obliques:        { developpe:500,   sculpte:2000,  puissant:6000,   massif:12000,  titanesque:22000  },
-  serratus:        { developpe:800,   sculpte:2500,  puissant:5500,   massif:9000,   titanesque:15000  },
-  bas_du_dos:      { developpe:10000, sculpte:30000, puissant:60000,  massif:100000, titanesque:160000 },
-  trapezes:        { developpe:8000,  sculpte:22000, puissant:45000,  massif:80000,  titanesque:130000 },
-  grand_dorsal:    { developpe:9000,  sculpte:25000, puissant:50000,  massif:85000,  titanesque:125000 },
-  haut_du_dos:     { developpe:7000,  sculpte:20000, puissant:40000,  massif:70000,  titanesque:110000 },
-  fessiers:        { developpe:12000, sculpte:35000, puissant:75000,  massif:130000, titanesque:210000 },
-  abducteurs:      { developpe:2500,  sculpte:7500,  puissant:15000,  massif:30000,  titanesque:55000  },
-  adducteurs:      { developpe:4000,  sculpte:12000, puissant:25000,  massif:50000,  titanesque:90000  },
-  quadriceps:      { developpe:15000, sculpte:40000, puissant:85000,  massif:150000, titanesque:250000 },
-  ischio_jambiers: { developpe:9000,  sculpte:25000, puissant:55000,  massif:100000, titanesque:170000 },
-  mollets:         { developpe:6000,  sculpte:18000, puissant:35000,  massif:65000,  titanesque:110000 },
-  chest_upper:     { developpe:3000,  sculpte:8000,  puissant:16000,  massif:28000,  titanesque:45000  },
-  chest_lower:     { developpe:6000,  sculpte:16000, puissant:32000,  massif:55000,  titanesque:85000  },
-  shoulders_front: { developpe:5000,  sculpte:14000, puissant:26000,  massif:42000,  titanesque:65000  },
-  shoulders_side:  { developpe:3000,  sculpte:8000,  puissant:16000,  massif:28000,  titanesque:45000  },
-  shoulders_rear:  { developpe:2500,  sculpte:7000,  puissant:14000,  massif:24000,  titanesque:38000  },
-  calves_gastro:   { developpe:4000,  sculpte:12000, puissant:22000,  massif:40000,  titanesque:70000  },
-  calves_soleus:   { developpe:3000,  sculpte:9000,  puissant:18000,  massif:32000,  titanesque:55000  },
-  hip_flexors:     { developpe:1500,  sculpte:4500,  puissant:9000,   massif:18000,  titanesque:32000  },
+  pectoraux:       { developpe:4440,  sculpte:12220, puissant:22220, massif:36110,  titanesque:52770  },
+  epaules:         { developpe:5000,  sculpte:13880, puissant:25000, massif:38880,  titanesque:58330  },
+  biceps:          { developpe:1940,  sculpte:5550,  puissant:11110, massif:19440,  titanesque:30550  },
+  triceps:         { developpe:2770,  sculpte:8330,  puissant:16660, massif:27770,  titanesque:41660  },
+  forearms:        { developpe:1380,  sculpte:4440,  puissant:8330,  massif:13880,  titanesque:22220  },
+  neck:            { developpe:270,   sculpte:830,   puissant:1940,  massif:3330,   titanesque:6660   },
+  abdominaux:      { developpe:2220,  sculpte:6660,  puissant:13880, massif:25000,  titanesque:41660  },
+  obliques:        { developpe:1110,  sculpte:3330,  puissant:6660,  massif:12220,  titanesque:19440  },
+  serratus:        { developpe:440,   sculpte:1380,  puissant:3050,  massif:5000,   titanesque:8330   },
+  bas_du_dos:      { developpe:5550,  sculpte:16660, puissant:33330, massif:55550,  titanesque:88880  },
+  trapezes:        { developpe:4440,  sculpte:12220, puissant:25000, massif:44440,  titanesque:72220  },
+  grand_dorsal:    { developpe:5000,  sculpte:13880, puissant:27770, massif:47220,  titanesque:69440  },
+  haut_du_dos:     { developpe:3880,  sculpte:11110, puissant:22220, massif:38880,  titanesque:61110  },
+  fessiers:        { developpe:6660,  sculpte:19440, puissant:41660, massif:72220,  titanesque:116660 },
+  abducteurs:      { developpe:1380,  sculpte:4160,  puissant:8330,  massif:16660,  titanesque:30550  },
+  adducteurs:      { developpe:2220,  sculpte:6660,  puissant:13880, massif:27770,  titanesque:50000  },
+  quadriceps:      { developpe:8330,  sculpte:22220, puissant:47220, massif:83330,  titanesque:138880 },
+  ischio_jambiers: { developpe:5000,  sculpte:13880, puissant:30550, massif:55550,  titanesque:94440  },
+  mollets:         { developpe:3330,  sculpte:10000, puissant:19440, massif:36110,  titanesque:61110  },
+  chest_upper:     { developpe:1660,  sculpte:4440,  puissant:8880,  massif:15550,  titanesque:25000  },
+  chest_lower:     { developpe:3330,  sculpte:8880,  puissant:17770, massif:30550,  titanesque:47220  },
+  shoulders_front: { developpe:2770,  sculpte:7770,  puissant:14440, massif:23330,  titanesque:36110  },
+  shoulders_side:  { developpe:1660,  sculpte:4440,  puissant:8880,  massif:15550,  titanesque:25000  },
+  shoulders_rear:  { developpe:1380,  sculpte:3880,  puissant:7770,  massif:13330,  titanesque:21110  },
+  calves_gastro:   { developpe:2220,  sculpte:6660,  puissant:12220, massif:22220,  titanesque:38880  },
+  calves_soleus:   { developpe:1660,  sculpte:5000,  puissant:10000, massif:17770,  titanesque:30550  },
+  hip_flexors:     { developpe:830,   sculpte:2500,  puissant:5000,  massif:10000,  titanesque:17770  },
 };
 
 const GENDER_MUSCLE_FACTORS = {
@@ -4167,6 +4148,84 @@ const MUSCLE_PARENT_MAP = {
   forearms:        'forearms',
 };
 
+const BODYWEIGHT_FACTORS = {
+  'planche':              { type:'iso', factor:0.015 },
+  'gainage':              { type:'iso', factor:0.015 },
+  'planche laterale':     { type:'iso', factor:0.015 },
+  'planche inversee':     { type:'iso', factor:0.020 },
+  'l-sit hold':           { type:'iso', factor:0.050 },
+  'l sit hold':           { type:'iso', factor:0.050 },
+  'poirier':              { type:'iso', factor:0.040 },
+  'gainage tape epaule':  { type:'iso', factor:0.015 },
+
+  'tractions':            { type:'bw',  factor:0.95 },
+  'tractions supination': { type:'bw',  factor:0.95 },
+  'pompes':               { type:'bw',  factor:0.66 },
+  'pompes prise serree':  { type:'bw',  factor:0.66 },
+  'pompes claquees':      { type:'bw',  factor:0.66 },
+  'dips torse':           { type:'bw',  factor:0.85 },
+  'dips banc':            { type:'bw',  factor:0.85 },
+  'dips triceps':         { type:'bw',  factor:0.85 },
+  'squat poids du corps': { type:'bw',  factor:0.60 },
+  'burpee':               { type:'bw',  factor:0.80 },
+
+  'velo machine':         { type:'cardio', factor:0.25 },
+  'escaliers':            { type:'cardio', factor:0.80 },
+  'randonnee':            { type:'cardio_dist', factor:10 },
+  'course a pieds':       { type:'cardio', factor:0.40 },
+  'natation':             { type:'cardio', factor:0.30 },
+
+  'yoga':                 { type:'mobility', factor:0.10 },
+  'pilates':              { type:'mobility', factor:0.10 },
+};
+
+const BODYWEIGHT_FALLBACK = {
+  A: 1,
+  B: 3,
+  C: 5,
+};
+
+function _normalizeExoNameForBW(s) {
+  return (s || '').toLowerCase()
+    .replace(/[éèêë]/g,'e')
+    .replace(/[àâä]/g,'a')
+    .replace(/[ùûü]/g,'u')
+    .replace(/[îï]/g,'i')
+    .replace(/[ôö]/g,'o')
+    .replace(/[()]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+
+function _computeSetTonnage(s, bw, bwConfig) {
+  var base = (s.weight || 0) * (s.reps || 0);
+  if (base > 0) return base;
+
+  var est = 0;
+  if (bwConfig) {
+    if (bwConfig.type === 'iso') {
+      var dur = s.duration || s.time || 45;
+      est = dur * bw * bwConfig.factor;
+    } else if (bwConfig.type === 'bw') {
+      var reps = s.reps || 10;
+      est = reps * bw * bwConfig.factor;
+    } else if (bwConfig.type === 'cardio') {
+      var durMin = (s.duration || s.time || 30) / 60;
+      est = durMin * bw * bwConfig.factor;
+      s._isCardio = true;
+    } else if (bwConfig.type === 'cardio_dist') {
+      var dist = s.distance || 5;
+      est = dist * bw * bwConfig.factor;
+      s._isCardio = true;
+    } else if (bwConfig.type === 'mobility') {
+      var durMin2 = (s.duration || s.time || 30) / 60;
+      est = durMin2 * bw * bwConfig.factor;
+    }
+  } else if (!s.weight || s.weight === 0) {
+    est = bw * BODYWEIGHT_FALLBACK.B;
+  }
+  return est;
+}
+
 function getMuscleVolumeAndFreq(logs4weeks) {
   var result = {};
   Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(k) {
@@ -4223,17 +4282,21 @@ function getMuscleVolumeAndFreq(logs4weeks) {
 
       // Compute exo volume — normal sets only, exclude warmups
       var exoVolume = 0;
+      var bw = (db.user && (db.user.bodyWeight || db.user.weight)) || 80;
+      var exoNameNorm = _normalizeExoNameForBW(exo.name || '');
+      var bwConfig = BODYWEIGHT_FACTORS[exoNameNorm];
+
       if (exo.exoType === 'weight' && exo.allSets) {
         exo.allSets.forEach(function(s) {
           if (s.setType !== 'warmup') {
-            exoVolume += (s.weight || 0) * (s.reps || 0);
+            exoVolume += _computeSetTonnage(s, bw, bwConfig);
           }
         });
       } else if (exo.exoType === 'weight' && exo.series) {
         // Fallback for legacy logs without allSets
         exo.series.forEach(function(s) {
           if (s.setType !== 'warmup') {
-            exoVolume += (s.weight || 0) * (s.reps || 0);
+            exoVolume += _computeSetTonnage(s, bw, bwConfig);
           }
         });
       } else if (exo.exoType === 'time' || exo.isTime) {

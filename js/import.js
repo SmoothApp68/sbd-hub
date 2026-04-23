@@ -942,24 +942,6 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
   finalizeSession(session, lines.join('\n'));
 }
 
-function parseCardioLine(l, currExo, ts) {
-  const km=l.match(/(\d+[.,]\d*|\d+)\s*km/);
-  const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const ms=l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i);const colon=l.match(/(\d+):(\d+):?(\d+)?/);
-  let totalSec=null;
-  if(hm)totalSec=parseInt(hm[1])*3600+parseInt(hm[2])*60;else if(mm)totalSec=parseInt(mm[1])*60+parseInt(mm[2]);else if(colon&&colon[3])totalSec=parseInt(colon[1])*3600+parseInt(colon[2])*60+parseInt(colon[3]);else if(colon)totalSec=parseInt(colon[1])*60+parseInt(colon[2]);else if(ms)totalSec=parseInt(ms[1])*60+(ms[2]?parseInt(ms[2]):0);
-  let _setDist=null;
-  if(km){const d=parseFloat(km[1].replace(',','.'));_setDist=d;if(d>(currExo.distance||0))currExo.distance=d;if(totalSec){const kmh=d/(totalSec/3600);const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0;if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}}else if(totalSec){if(totalSec>(currExo.maxTime||0)){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}
-  if(!currExo.allSets)currExo.allSets=[];
-  currExo.allSets.push({distKm:_setDist,durSec:totalSec,setType:'normal',rpe:null});
-  if(!currExo.sets)currExo.sets=1;else currExo.sets++;
-}
-
-function parsePlankLine(l, currExo, session, ts) {
-  const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const mOnly=l.match(/(\d+)\s*m(?:in)?(?!\d)/i);const sOnly=l.match(/(\d+)\s*s(?:ec)?(?!\d)/i);
-  let t=0;
-  if(hm)t=parseInt(hm[1])*3600+parseInt(hm[2])*60;else if(mm)t=parseInt(mm[1])*60+parseInt(mm[2]);else if(mOnly)t=parseInt(mOnly[1])*60+(sOnly?parseInt(sOnly[1]):0);else if(sOnly)t=parseInt(sOnly[1]);
-  if(t>0){currExo.isTime=true;if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=ts;}currExo.sets=(currExo.sets||0)+1;session.volume+=t/10;}
-}
 
 function showImportSummary(session) {
   document.getElementById('importSummary').style.display='block';

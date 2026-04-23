@@ -2922,7 +2922,7 @@ function _kgToReachTier(liftType, nextTierMinPct, bw, gender) {
 function calcAndStoreLiftRanks() {
   try {
     db.gamification = db.gamification || {};
-    var bw = db.user && db.user.bw ? db.user.bw : 0;
+    var bw = getUserBW();
     var gender = db.user && db.user.gender ? db.user.gender : 'male';
     var now = Date.now();
     var map = { squat: null, bench: null, deadlift: null };
@@ -4242,6 +4242,18 @@ const BODYWEIGHT_FALLBACK = {
 const BW_DEFAULT_REPS = 10;       // reps moyennes (tractions, pompes, dips…)
 const BW_DEFAULT_ISO_SECS = 45;   // durée isométrique type (planche, gainage)
 const BW_DEFAULT_CARDIO_MIN = 20; // durée cardio sans données (min)
+const BW_FALLBACK_KG = 80;        // poids de corps par défaut quand l'utilisateur n'a rien saisi
+
+// Source unique de vérité du poids de corps pour les niveaux de force.
+// Priorité : db.user.bw > bodyWeight > weight > currentWeight > BW_FALLBACK_KG.
+function getUserBW() {
+  return (db.user && (
+    db.user.bw ||
+    db.user.bodyWeight ||
+    db.user.weight ||
+    db.user.currentWeight
+  )) || BW_FALLBACK_KG;
+}
 
 function _normalizeExoNameForBW(s) {
   return (s || '').toLowerCase()
@@ -4591,7 +4603,7 @@ var SECRET_QUESTS = [
   { id:'sq_club400', condition:function(){ return (db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0)>=400; }, name:'Club des 400', msg:'🏋️ Bienvenue dans le club des 400kg total !', xp:500 },
   { id:'sq_early', condition:function(){ return db.logs.some(function(l){ var h=new Date(l.timestamp).getHours(); return h<7; }); }, name:'Lève-tôt', msg:'🌅 Séance avant 7h — la discipline !', xp:100 },
   { id:'sq_nutrition7', condition:function(){ if(!db.body||!db.body.length)return false; var sorted=db.body.slice().sort(function(a,b){return new Date(a.date)-new Date(b.date);}); var streak=0,maxStreak=0; for(var i=0;i<sorted.length;i++){ if(sorted[i].kcal&&sorted[i].kcal>0){streak++;if(streak>maxStreak)maxStreak=streak;}else{streak=0;} } return maxStreak>=7; }, name:'Nutrition parfaite', msg:'🥗 7 jours de macros impeccables !', xp:200 },
-  { id:'sq_breakthrough', condition:function(){ var best=getAllBestE1RMs(); var bw=db.user.bw||80; for(var name in best){ var sl=getStrengthLevel(name,best[name].e1rm,bw); if(sl&&sl.levelIdx>=3)return true; } return false; }, name:'Percée', msg:'📈 Tu as franchi un cap de force !', xp:250 }
+  { id:'sq_breakthrough', condition:function(){ var best=getAllBestE1RMs(); var bw=getUserBW(); for(var name in best){ var sl=getStrengthLevel(name,best[name].e1rm,bw); if(sl&&sl.levelIdx>=3)return true; } return false; }, name:'Percée', msg:'📈 Tu as franchi un cap de force !', xp:250 }
 ];
 
 // ── Title Pool ──
@@ -4605,7 +4617,7 @@ var TITLE_POOL = [
   { id:'t_streak10', condition:function(){return calcStreak()>=10;}, title:'L\'Inarrêtable', rarity:'epic', condText:'Série ≥ 10 semaines' },
   { id:'t_hunter', condition:function(){ var wl=_getLogsThisWeek(); var pb=_getPrevBest(); var prs=0; wl.forEach(function(l){(l.exercises||[]).forEach(function(e){if(e.maxRM>0&&e.maxRM>(pb[e.name]||0))prs++;}); }); return prs>=3; }, title:'Chasseur de records', rarity:'rare', condText:'3 PRs en 1 semaine' },
   { id:'t_centurion', condition:function(){return db.logs.length>=100;}, title:'Centurion du fer', rarity:'legendary', condText:'100 séances' },
-  { id:'t_elite', condition:function(){ var best=getAllBestE1RMs(); var bw=db.user.bw||80; for(var n in best){ var sl=getStrengthLevel(n,best[n].e1rm,bw); if(sl&&sl.levelIdx>=4)return true; } return false; }, title:'Forgeron d\'élite', rarity:'mythic', condText:'Niveau Élite sur 1 exercice' },
+  { id:'t_elite', condition:function(){ var best=getAllBestE1RMs(); var bw=getUserBW(); for(var n in best){ var sl=getStrengthLevel(n,best[n].e1rm,bw); if(sl&&sl.levelIdx>=4)return true; } return false; }, title:'Forgeron d\'élite', rarity:'mythic', condText:'Niveau Élite sur 1 exercice' },
   { id:'t_quester', condition:function(){return db.questStreak>=8;}, title:'Quêteur infatigable', rarity:'mythic', condText:'Toutes quêtes hebdo 8 sem d\'affilée' },
   { id:'t_legend', condition:function(){return db.logs.length>=200&&(db.bestPR.bench||0)+(db.bestPR.squat||0)+(db.bestPR.deadlift||0)>=500;}, title:'Légende vivante', rarity:'divine', condText:'200 séances + Total > 500kg' }
 ];
@@ -4777,7 +4789,7 @@ function updateMonthlyChallengeProgress() {
     } else if (c.type === 'm_streak') {
       c.current = calcStreak();
     } else if (c.type === 'm_strength') {
-      var best = getAllBestE1RMs(); var bw = db.user.bw || 80; var found = 0;
+      var best = getAllBestE1RMs(); var bw = getUserBW(); var found = 0;
       for (var n in best) { var sl = getStrengthLevel(n, best[n].e1rm, bw); if (sl && sl.levelIdx >= 2) found++; }
       c.current = found > 0 ? 1 : 0;
     } else if (c.type === 'm_muscle_balance') {
@@ -5073,7 +5085,7 @@ function calcXPBreakdown() {
 }
 
 function renderGamificationTab() {
-  var bw = db.user.bw || 80;
+  var bw = getUserBW();
   var totalXP = calcTotalXP();
   var currLevel = getXPLevel(totalXP);
   var nextLevel = getNextXPLevel(totalXP);
@@ -5284,7 +5296,7 @@ function renderGamificationTab() {
     db.gamification = db.gamification || {};
     var lr = db.gamification.liftRanks;
     if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) { host.innerHTML = ''; return; }
-    var bw = (db.user && db.user.bw) ? db.user.bw : 0;
+    var bw = getUserBW();
     var gender = (db.user && db.user.gender) ? db.user.gender : 'male';
     var lifts = [
       { key:'squat',    icon:'🦵', label:'Squat' },
@@ -5404,6 +5416,7 @@ function renderGamificationTab() {
     for (var eName in bestE1RMs) {
       var data = bestE1RMs[eName];
       var sl = getStrengthLevel(eName, data.e1rm, bw);
+      if (!sl || sl.levelIdx < 0) continue;
       var sesCount = 0, prCount = 0, runBest = 0;
       getSortedLogs().slice().reverse().forEach(function(log) {
         var found = false;
@@ -6796,7 +6809,7 @@ function renderDotsWilks() {
   const card = document.getElementById('dotsWilksCard');
   const el = document.getElementById('dotsWilksContent');
   if (!card || !el) return;
-  const bw = db.user.bw;
+  const bw = getUserBW();
   if (!bw || bw <= 0) { card.style.display = 'none'; return; }
   // Get best e1RM for SBD
   let squat = 0, bench = 0, deadlift = 0;

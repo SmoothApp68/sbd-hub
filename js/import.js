@@ -321,7 +321,7 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
     var setMatch = line.match(/^s[ée]rie\s+(\d+)\s*:\s*(.+)/i);
     if (setMatch && currentExo) {
       var setData = setMatch[2];
-      var weight = 0, reps = 0, isWarmup = false, isAbandon = false, isDrop = false, setType = 'normal', rpe = null, isCardio = false, distance = 0, duration = 0;
+      var weight = 0, reps = 0, isWarmup = false, isAbandon = false, isDrop = false, setType = 'normal', rpe = null, isCardio = false, distance = 0, duration = 0, isPaliers = false;
 
       // Set type flags
       if (/\[.chauffement\]/i.test(setData)) { isWarmup = true; setType = 'warmup'; }
@@ -333,9 +333,15 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
       // Poids x reps
       var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
       if (wxr) { weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]); }
-      // Paliers (escaliers) — store count as reps
+      // Paliers (escaliers) — store count as reps + parse duration from same line
       var paliersMatch = setData.match(/(\d+)\s*paliers?/i);
-      if (paliersMatch) { reps = parseInt(paliersMatch[1]); }
+      if (paliersMatch) {
+        reps = parseInt(paliersMatch[1]); isPaliers = true;
+        var pmMin = setData.match(/(\d+)\s*min\s*(?:(\d+)\s*s(?:ec)?)?/i);
+        var pmSec = !pmMin && setData.match(/(\d+)\s*s(?:ec)?/i);
+        if (pmMin) { duration = parseInt(pmMin[1]) * 60 + (parseInt(pmMin[2]) || 0); }
+        else if (pmSec) { duration = parseInt(pmSec[1]); }
+      }
       // Cardio : km - temps (with optional hours)
       var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(?:(\d+)h\s*)?(\d+)min?\s*(\d+)?s?/i);
       if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = (parseInt(cardioMatch[2]) || 0) * 3600 + parseInt(cardioMatch[3]) * 60 + (parseInt(cardioMatch[4]) || 0); }
@@ -347,7 +353,7 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
         else if (secM) { duration = parseInt(secM[1]); }
       }
 
-      currentExo.sets.push({ weight, reps, isWarmup, isAbandon, isDrop, setType, rpe, isCardio, distance, duration });
+      currentExo.sets.push({ weight, reps, isWarmup, isAbandon, isDrop, setType, rpe, isCardio, distance, duration, isPaliers });
       continue;
     }
 
@@ -417,6 +423,7 @@ function showHevyPreview(preview, isDuplicate, onConfirm) {
     }
     // Résumé des séries
     var setsPreview = exo.sets.map(function(s) {
+      if (s.isPaliers) { var m=Math.floor((s.duration||0)/60),sc=(s.duration||0)%60; var t=s.duration?(m>0?(sc>0?m+'min '+sc+'s':m+'min'):sc+'s'):''; return s.reps+' paliers'+(t?' - '+t:''); }
       if (s.isCardio) { var p=[]; if(s.distance)p.push(s.distance+'km'); if(s.duration){var m=Math.floor(s.duration/60),sc=s.duration%60;p.push(m>0?(sc>0?m+'min '+sc+'s':m+'min'):sc+'s');} return p.join(' - '); }
       if (!s.weight && s.duration > 0) { var m=Math.floor(s.duration/60),sc=s.duration%60; return m>0?(sc>0?m+'min '+sc+'s':m+'min'):sc+'s'; }
       if (s.weight && s.reps) return s.weight + '×' + s.reps + (s.isWarmup ? ' (W)' : '');

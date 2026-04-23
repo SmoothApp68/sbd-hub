@@ -4052,31 +4052,69 @@ function findExoInDatabase(exoName) {
   }
   if (bestMatch) return bestMatch;
 
+  // Synonymes d'exercices : variantes FR/EN → clés EXO_DATABASE.
+  // IMPORTANT : les clés ci-dessous doivent être normalisées selon `normalize()` :
+  //   - minuscules, accents retirés, espaces collapsés
+  //   - 's' final de chaque mot retiré (via /s\b/g) → ex. "dips" devient "dip"
+  // Utilisés en fallback quand aucun match direct name/nameAlt n'est trouvé.
   const EXO_NAME_SYNONYMS = {
+    // Tirage poulie / lat pulldown
     'tirage poitrine poulie':        'lat_pulldown_wide',
-    'tirage poitrine bras tendus':   'lat_pulldown_wide',
-    'tirage poitrine un bras':       'edb_one_arm_lat_pulldown',
+    'tirage poitrine bra tendu':     'lat_pulldown_wide',
+    'tirage poitrine un bra':        'edb_one_arm_lat_pulldown',
+    'tirage vertical':               'lat_pulldown_wide',
+    'lat pulldown':                  'lat_pulldown_wide',
+    // Rowing / rows
     'tirage machine convergente':    'cable_row',
-    'rowing assis machine':          'cable_row',
-    'rowing poulie assis':           'cable_row',
-    'rowing poulie assis prise large':'lat_pulldown_wide',
+    'rowing assi machine':           'cable_row',
+    'rowing poulie assi':            'cable_row',
+    'rowing poulie assi prise large':'lat_pulldown_wide',
     'rowing haltere':                'dumbbell_row',
     'rowing inverse':                'barbell_row',
+    'seated row':                    'cable_row',
+    'bent over row':                 'barbell_row',
+    // Développé couché / bench press
     'chest press machine':           'bench_press_barbell',
     'chest press convergent machine':'bench_press_barbell',
-    'presse epaules assis machine':  'overhead_press',
-    'extension dos machine':         'back_extension',
-    'leg curl assis':                'leg_curl',
-    'hip thrust machine':            'hip_thrust',
-    'poussee de hanches machine':    'hip_thrust',
+    'bench press':                   'bench_press_barbell',
+    // Développé épaules / overhead press
+    'presse epaule assi machine':    'ohp_barbell',
+    'overhead press':                'ohp_barbell',
+    'military press':                'ohp_barbell',
+    'shoulder press':                'ohp_dumbbell',
+    // Dos lombaires
+    'extension do machine':          'hyperextension',
+    'back extension':                'hyperextension',
+    // Leg curl / hamstrings
+    'leg curl assi':                 'leg_curl_seated',
+    'leg curl':                      'leg_curl_seated',
+    'leg curl couche':               'leg_curl_lying',
+    // Hip thrust
+    'hip thrust machine':            'hip_thrust_barbell',
+    'hip thrust':                    'hip_thrust_barbell',
+    'poussee de hanche machine':     'hip_thrust_barbell',
+    // Squats
     'hack squat machine':            'hack_squat',
     'belt squat machine':            'hack_squat',
-    'machine dips assis':            'dips',
-    'curl pupitre machine':          'barbell_curl',
-    'curl pupitre haltere':          'barbell_curl',
+    // Dips
+    'machine dip assi':              'dips_triceps',
+    'dip':                           'dips_triceps',
+    // Biceps curl
+    'curl pupitre machine':          'curl_barbell',
+    'curl pupitre haltere':          'curl_barbell',
+    'barbell curl':                  'curl_barbell',
+    'dumbbell curl':                 'curl_dumbbell',
+    // Trapèzes
     'shrug haltere':                 'shrugs_dumbbell',
     'shrug poulie':                  'edb_cable_shrugs',
+    'shrug':                         'shrugs_dumbbell',
+    // Adducteurs
     'adduction hanche':              'hip_adduction',
+    'hip adduction':                 'hip_adduction',
+    'hip abduction':                 'hip_abduction',
+    // Deadlift
+    'deadlift':                      'deadlift_conventional',
+    'souleve de terre':              'deadlift_conventional',
   };
 
   var nClean = n.replace(/[()]/g,' ')
@@ -4119,6 +4157,12 @@ const MUSCLE_KEY_BRIDGE = {
   hamstrings:      'ischio_jambiers',
   calves_gastro:   'calves_gastro',
   calves_soleus:   'calves_soleus',
+  // Self-mappings : clés déjà utilisées directement dans EXO_DATABASE
+  // (évite le fallback implicite "|| k" et rend le bridge exhaustif)
+  epaules:         'epaules',
+  bas_du_dos:      'bas_du_dos',
+  fessiers:        'fessiers',
+  ischio_jambiers: 'ischio_jambiers',
 };
 
 const MUSCLE_PARENT_MAP = {
@@ -4193,6 +4237,12 @@ const BODYWEIGHT_FALLBACK = {
   C: 5,
 };
 
+// Valeurs par défaut pour exercices poids de corps sans données saisies.
+// Utilisées uniquement en fallback quand l'utilisateur n'a pas entré reps/durée.
+const BW_DEFAULT_REPS = 10;       // reps moyennes (tractions, pompes, dips…)
+const BW_DEFAULT_ISO_SECS = 45;   // durée isométrique type (planche, gainage)
+const BW_DEFAULT_CARDIO_MIN = 20; // durée cardio sans données (min)
+
 function _normalizeExoNameForBW(s) {
   return (s || '').toLowerCase()
     .replace(/[éèêë]/g,'e')
@@ -4232,10 +4282,10 @@ function _computeSetTonnage(s, bw, bwConfig, exoName) {
   var est = 0;
   if (bwConfig) {
     if (bwConfig.type === 'iso') {
-      var dur = s.duration || s.time || 45;
+      var dur = s.duration || s.time || BW_DEFAULT_ISO_SECS;
       est = dur * bw * bwConfig.factor;
     } else if (bwConfig.type === 'bw') {
-      var reps = s.reps || 10;
+      var reps = s.reps || BW_DEFAULT_REPS;
       est = reps * bw * bwConfig.factor;
     } else if (bwConfig.type === 'cardio') {
       var durMin = (s.duration || s.time || 30) / 60;
@@ -4336,12 +4386,12 @@ function getMuscleVolumeAndFreq(logs4weeks) {
         var nbSetsFb = exo.sets || 3;
         var dbEntryFb = findExoInDatabase(exo.name);
         if (dbEntryFb && dbEntryFb.bwRatio) {
-          exoVolume = nbSetsFb * 10 * bw * dbEntryFb.bwRatio;
+          exoVolume = nbSetsFb * BW_DEFAULT_REPS * bw * dbEntryFb.bwRatio;
         } else if (bwConfig) {
           if (bwConfig.type === 'iso') {
-            exoVolume = nbSetsFb * 45 * bw * bwConfig.factor;
+            exoVolume = nbSetsFb * BW_DEFAULT_ISO_SECS * bw * bwConfig.factor;
           } else if (bwConfig.type === 'bw') {
-            exoVolume = nbSetsFb * 10 * bw * bwConfig.factor;
+            exoVolume = nbSetsFb * BW_DEFAULT_REPS * bw * bwConfig.factor;
           } else if (bwConfig.type === 'cardio') {
             exoVolume = 0;
           }

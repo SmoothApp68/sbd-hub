@@ -306,6 +306,69 @@ function processHevy() {
   });
 }
 
+// Shared Hevy set-line parser — receives the portion AFTER "Série N: " (case-preserved).
+// Returns a normalized object consumed by both parseHevyPreview() and executeImport().
+function parseHevySetLine(setData) {
+  var weight=0, reps=0, duration=0, distKm=0, rpe=null;
+  var setType='normal', isCardio=false, isPaliers=false, isTime=false;
+
+  // 1. setType — applies to ALL exercise types
+  if (/\[.chauffement\]/i.test(setData)) setType='warmup';
+  else if (/\[abandon\]/i.test(setData)) setType='failure';
+  else if (/\[drop(\s*set)?\]/i.test(setData)) setType='drop';
+
+  // 2. RPE — applies to ALL exercise types
+  var rpeM = setData.match(/@\s*([\d.]+)\s*rpe/i) || setData.match(/RPE\s*:?\s*([\d.]+)/i);
+  if (rpeM) rpe = parseFloat(rpeM[1]);
+
+  // Duration helper: hours → min(+sec) → sec-only
+  function parseDur(str) {
+    var h = str.match(/(\d+)\s*h\s*(?:(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s(?:ec)?)?)?/i);
+    if (h) return parseInt(h[1])*3600 + (parseInt(h[2])||0)*60 + (parseInt(h[3])||0);
+    var m = str.match(/(\d+)\s*m(?:in)?\s*(?:(\d+)\s*s(?:ec)?)?/i);
+    if (m) return parseInt(m[1])*60 + (parseInt(m[2])||0);
+    var s = str.match(/(\d+)\s*s(?:ec)?(?!\w)/i);
+    if (s) return parseInt(s[1]);
+    return 0;
+  }
+
+  // 3. Paliers (stairs)
+  var palM = setData.match(/(\d+)\s*paliers?/i);
+  if (palM) {
+    reps = parseInt(palM[1]); isPaliers = true;
+    duration = parseDur(setData);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 4. Cardio (km present)
+  var kmM = setData.match(/([\d.,]+)\s*km/i);
+  if (kmM) {
+    isCardio = true; distKm = parseFloat(kmM[1].replace(',','.'));
+    duration = parseDur(setData);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 5. Weight × reps
+  var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
+  if (wxr) {
+    weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 6. Reps-only (bodyweight / reps-type exercises)
+  var repM = setData.match(/(\d+)\s*r[eé]p/i) || setData.match(/x\s*(\d+)/i);
+  if (repM) {
+    reps = parseInt(repM[1]);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 7. Time-only (planche, gainage…)
+  var t = parseDur(setData);
+  if (t > 0) { duration = t; isTime = true; }
+
+  return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+}
+
 // Aperçu de l'import Hevy — parse les exercices pour affichage
 function parseHevyPreview(text, title, dateStr, timestamp) {
   const lines = text.split('\n');

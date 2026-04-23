@@ -384,40 +384,13 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
     // Détection de série : "Série X:" ou "Set X:"
     var setMatch = line.match(/^s[ée]rie\s+(\d+)\s*:\s*(.+)/i);
     if (setMatch && currentExo) {
-      var setData = setMatch[2];
-      var weight = 0, reps = 0, isWarmup = false, isAbandon = false, isDrop = false, setType = 'normal', rpe = null, isCardio = false, distance = 0, duration = 0, isPaliers = false;
-
-      // Set type flags
-      if (/\[.chauffement\]/i.test(setData)) { isWarmup = true; setType = 'warmup'; }
-      if (/\[abandon\]/i.test(setData)) { isAbandon = true; setType = 'failure'; }
-      if (/\[drop(\s*set)?\]/i.test(setData)) { isDrop = true; setType = 'drop'; }
-      // RPE
-      var rpeMatch = setData.match(/@\s*([\d.]+)\s*rpe/i);
-      if (rpeMatch) rpe = parseFloat(rpeMatch[1]);
-      // Poids x reps
-      var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
-      if (wxr) { weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]); }
-      // Paliers (escaliers) — store count as reps + parse duration from same line
-      var paliersMatch = setData.match(/(\d+)\s*paliers?/i);
-      if (paliersMatch) {
-        reps = parseInt(paliersMatch[1]); isPaliers = true;
-        var pmMin = setData.match(/(\d+)\s*min\s*(?:(\d+)\s*s(?:ec)?)?/i);
-        var pmSec = !pmMin && setData.match(/(\d+)\s*s(?:ec)?/i);
-        if (pmMin) { duration = parseInt(pmMin[1]) * 60 + (parseInt(pmMin[2]) || 0); }
-        else if (pmSec) { duration = parseInt(pmSec[1]); }
-      }
-      // Cardio : km - temps (with optional hours)
-      var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(?:(\d+)h\s*)?(\d+)min?\s*(\d+)?s?/i);
-      if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = (parseInt(cardioMatch[2]) || 0) * 3600 + parseInt(cardioMatch[3]) * 60 + (parseInt(cardioMatch[4]) || 0); }
-      // Durée seule pour exercices chronométrés (planche, gainage…)
-      if (!isCardio && !weight && !reps) {
-        var minM = setData.match(/(\d+)\s*min\s*(?:(\d+)\s*s(?:ec)?)?/i);
-        var secM = !minM && setData.match(/^(\d+)\s*s(?:ec)?/i);
-        if (minM) { duration = parseInt(minM[1]) * 60 + (parseInt(minM[2]) || 0); }
-        else if (secM) { duration = parseInt(secM[1]); }
-      }
-
-      currentExo.sets.push({ weight, reps, isWarmup, isAbandon, isDrop, setType, rpe, isCardio, distance, duration, isPaliers });
+      var s = parseHevySetLine(setMatch[2]);
+      currentExo.sets.push({
+        weight: s.weight, reps: s.reps,
+        isWarmup: s.setType === 'warmup', isAbandon: s.setType === 'failure', isDrop: s.setType === 'drop',
+        setType: s.setType, rpe: s.rpe,
+        isCardio: s.isCardio, distance: s.distKm, duration: s.duration, isPaliers: s.isPaliers
+      });
       continue;
     }
 

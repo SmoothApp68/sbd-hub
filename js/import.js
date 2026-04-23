@@ -339,6 +339,13 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
       // Cardio : km - temps (with optional hours)
       var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(?:(\d+)h\s*)?(\d+)min?\s*(\d+)?s?/i);
       if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = (parseInt(cardioMatch[2]) || 0) * 3600 + parseInt(cardioMatch[3]) * 60 + (parseInt(cardioMatch[4]) || 0); }
+      // Durée seule pour exercices chronométrés (planche, gainage…)
+      if (!isCardio && !weight && !reps) {
+        var minM = setData.match(/(\d+)\s*min\s*(?:(\d+)\s*s(?:ec)?)?/i);
+        var secM = !minM && setData.match(/^(\d+)\s*s(?:ec)?/i);
+        if (minM) { duration = parseInt(minM[1]) * 60 + (parseInt(minM[2]) || 0); }
+        else if (secM) { duration = parseInt(secM[1]); }
+      }
 
       currentExo.sets.push({ weight, reps, isWarmup, isAbandon, isDrop, setType, rpe, isCardio, distance, duration });
       continue;
@@ -411,6 +418,7 @@ function showHevyPreview(preview, isDuplicate, onConfirm) {
     // Résumé des séries
     var setsPreview = exo.sets.map(function(s) {
       if (s.isCardio) return s.distance + 'km';
+      if (!s.weight && s.duration > 0) { var m=Math.floor(s.duration/60),sc=s.duration%60; return m>0?(sc>0?m+'min '+sc+'s':m+'min'):sc+'s'; }
       if (s.weight && s.reps) return s.weight + '×' + s.reps + (s.isWarmup ? ' (W)' : '');
       return '';
     }).filter(Boolean).join(', ');

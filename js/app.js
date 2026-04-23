@@ -4196,9 +4196,16 @@ function _normalizeExoNameForBW(s) {
     .replace(/\s+/g,' ').trim();
 }
 
-function _computeSetTonnage(s, bw, bwConfig) {
+function _computeSetTonnage(s, bw, bwConfig, exoName) {
   var base = (s.weight || 0) * (s.reps || 0);
   if (base > 0) return base;
+
+  if (s.weight === 0 && s.reps > 0 && exoName) {
+    var dbEntry = findExoInDatabase(exoName);
+    if (dbEntry && dbEntry.bwRatio) {
+      return s.reps * bw * dbEntry.bwRatio;
+    }
+  }
 
   var est = 0;
   if (bwConfig) {
@@ -4289,14 +4296,14 @@ function getMuscleVolumeAndFreq(logs4weeks) {
       if (exo.exoType === 'weight' && exo.allSets) {
         exo.allSets.forEach(function(s) {
           if (s.setType !== 'warmup') {
-            exoVolume += _computeSetTonnage(s, bw, bwConfig);
+            exoVolume += _computeSetTonnage(s, bw, bwConfig, exo.name);
           }
         });
       } else if (exo.exoType === 'weight' && exo.series) {
         // Fallback for legacy logs without allSets
         exo.series.forEach(function(s) {
           if (s.setType !== 'warmup') {
-            exoVolume += _computeSetTonnage(s, bw, bwConfig);
+            exoVolume += _computeSetTonnage(s, bw, bwConfig, exo.name);
           }
         });
       } else if (exo.exoType === 'time' || exo.isTime) {

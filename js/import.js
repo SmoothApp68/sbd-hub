@@ -350,17 +350,17 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
       // Fuzzy match avec la base d'exercices
       if (typeof EXO_DATABASE !== 'undefined') {
         var bestMatch = null, bestScore = 0;
-        var nameNorm = line.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        var nameNorm = line.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
         for (var key in EXO_DATABASE) {
           var e = EXO_DATABASE[key];
-          var eNorm = e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          var eNorm = e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
           if (eNorm === nameNorm) { bestMatch = e.name; bestScore = 100; break; }
           if (eNorm.indexOf(nameNorm) >= 0 || nameNorm.indexOf(eNorm) >= 0) {
             if (80 > bestScore) { bestMatch = e.name; bestScore = 80; }
           }
           if (e.nameAlt) {
             for (var ai = 0; ai < e.nameAlt.length; ai++) {
-              var altNorm = e.nameAlt[ai].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              var altNorm = e.nameAlt[ai].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
               if (altNorm === nameNorm || nameNorm === altNorm) { bestMatch = e.name; bestScore = 100; break; }
               if (altNorm.indexOf(nameNorm) >= 0 || nameNorm.indexOf(altNorm) >= 0) {
                 if (70 > bestScore) { bestMatch = e.name; bestScore = 70; }

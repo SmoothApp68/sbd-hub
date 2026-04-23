@@ -5220,7 +5220,7 @@ function renderGamificationTab() {
       {label:'Régularité', val:bd.regularite, color:'var(--orange)', click:'document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
       {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
       {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
-      {label:'Corps', val:bd.corps, color:'#BF5AF2', click:'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')'}
+      {label:'Corps', val:bd.corps, color:'#FF6B9D', click:'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')'}
     ];
     var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
       '<div class="xs-counters">' +
@@ -5465,7 +5465,7 @@ function renderGamificationTab() {
       return;
     }
 
-    var perPage = 6;
+    var perPage = 3;
     var totalPages = Math.ceil(allExos.length / perPage);
     var pagesHtml = '';
     for (var pg = 0; pg < totalPages; pg++) {

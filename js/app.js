@@ -4307,13 +4307,13 @@ function getMuscleVolumeAndFreq(logs4weeks) {
       var exoNameNorm = _normalizeExoNameForBW(exo.name || '');
       var bwConfig = BODYWEIGHT_FACTORS[exoNameNorm];
 
-      if (exo.exoType === 'weight' && exo.allSets) {
+      if (exo.exoType === 'weight' && exo.allSets && exo.allSets.length > 0) {
         exo.allSets.forEach(function(s) {
           if (s.setType !== 'warmup') {
             exoVolume += _computeSetTonnage(s, bw, bwConfig, exo.name);
           }
         });
-      } else if (exo.exoType === 'weight' && exo.series) {
+      } else if (exo.exoType === 'weight' && exo.series && exo.series.length > 0) {
         // Fallback for legacy logs without allSets
         exo.series.forEach(function(s) {
           if (s.setType !== 'warmup') {
@@ -4323,6 +4323,23 @@ function getMuscleVolumeAndFreq(logs4weeks) {
       } else if (exo.exoType === 'time' || exo.isTime) {
         var nbSets = exo.sets || 0;
         exoVolume = nbSets * 100;
+      } else {
+        // Fallback allSets vide — utilise bwRatio si disponible
+        var nbSetsFb = exo.sets || 3;
+        var dbEntryFb = findExoInDatabase(exo.name);
+        if (dbEntryFb && dbEntryFb.bwRatio) {
+          exoVolume = nbSetsFb * 10 * bw * dbEntryFb.bwRatio;
+        } else if (bwConfig) {
+          if (bwConfig.type === 'iso') {
+            exoVolume = nbSetsFb * 45 * bw * bwConfig.factor;
+          } else if (bwConfig.type === 'bw') {
+            exoVolume = nbSetsFb * 10 * bw * bwConfig.factor;
+          } else if (bwConfig.type === 'cardio') {
+            exoVolume = 0;
+          }
+        } else {
+          exoVolume = nbSetsFb * bw * 3;
+        }
       }
 
       Object.keys(coeffMap).forEach(function(muscleKey) {

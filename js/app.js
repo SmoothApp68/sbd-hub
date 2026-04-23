@@ -12643,7 +12643,7 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
     if (!workSets.length) continue;
     var lastSet    = workSets[workSets.length - 1];
     var lastWeight = parseFloat(lastSet.weight) || 0;
-    var lastRpe    = parseFloat(lastSet.rpe)    || 8;
+    var lastRpe    = parseFloat(lastSet.rpe)    || null;
     var completedSets = workSets.filter(function(s) { return parseInt(s.reps) > 0; });
     if (!completedSets.length) {
       return { weight: lastWeight, reps: targetRepMax, progressed: false };
@@ -12667,9 +12667,10 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
 function wpCalcE1RM(weight, reps, rpe) {
   weight = parseFloat(weight) || 0;
   reps   = parseInt(reps)    || 1;
-  rpe    = parseFloat(rpe)   || 8;
+  rpe    = parseFloat(rpe)   || null;
   if (weight <= 0) return 0;
   if (reps <= 0)   return weight;
+  if (!rpe) { var d0 = 1.0278 - 0.0278 * reps; return d0 <= 0 ? weight * 1.5 : Math.round((weight / d0) * 10) / 10; }
   rpe = Math.max(6, Math.min(10, rpe));
   var divisor = 1.0278 - 0.0278 * (reps + (10 - rpe));
   if (divisor <= 0) return weight * 1.5;
@@ -13273,7 +13274,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     } else if (acc.type === 'reps' && acc.useBodyweight) {
       var bw = getUserBW();
       exercises.push({ name: acc.name, type: 'reps', restSeconds: acc.rest || 120, bodyweightBase: bw,
-        sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || 8, weight: null, isWarmup: false, useBodyweight: true }; }) });
+        sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || null, weight: null, isWarmup: false, useBodyweight: true }; }) });
     } else {
       var accWeight = dpResult ? (parseFloat(dpResult.weight) || 0) : 0;
       var accWarmups = wpBuildWarmups(accWeight, repsVal, acc.name, accOrder, placedExoNames);
@@ -13306,7 +13307,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       var sqEx = (rLog.exercises || []).find(function(e) { return e.name && /squat/i.test(e.name) && !/pause/i.test(e.name); });
       if (sqEx) {
         var sqWS48 = (sqEx.allSets || sqEx.series || []).filter(function(s) { return !(s.isWarmup === true || s.setType === 'warmup'); });
-        if (sqWS48.length) { squatRpe48 = parseFloat(sqWS48[sqWS48.length - 1].rpe) || 8; axialWarning = true; }
+        if (sqWS48.length) { squatRpe48 = parseFloat(sqWS48[sqWS48.length - 1].rpe) || null; axialWarning = true; }
         break;
       }
     }
@@ -13335,7 +13336,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
             return arr.slice(0, idx).filter(function(x) { return !(x.isWarmup === true || x.setType === 'warmup'); }).length < workArr.length - 1;
           });
         }
-        exo.sets = (exo.sets || []).map(function(s) { return s.isWarmup ? s : Object.assign({}, s, { rpe: Math.min(s.rpe || 8, 7.5) }); });
+        exo.sets = (exo.sets || []).map(function(s) { return s.isWarmup ? s : Object.assign({}, s, { rpe: s.rpe ? Math.min(s.rpe, 7.5) : null }); });
         exo.coachNote = 'Volume réduit : Squat détecté il y a < 48h.';
       });
       dayCoachNote = (dayCoachNote || '') + ' ⚠️ Squat < 48h — volume Dead réduit, RPE cap 7.5.';
@@ -13456,7 +13457,7 @@ function wpDetectIsolationPlateau(exoName) {
     });
     if (!ws.length) continue;
     var ls = ws[ws.length - 1];
-    hist.push({ weight: parseFloat(ls.weight), reps: parseInt(ls.reps), rpe: parseFloat(ls.rpe) || 8 });
+    hist.push({ weight: parseFloat(ls.weight), reps: parseInt(ls.reps), rpe: parseFloat(ls.rpe) || null });
   }
   if (hist.length < 3) return null;
   var stagnant = hist[0].weight === hist[1].weight && hist[1].weight === hist[2].weight;

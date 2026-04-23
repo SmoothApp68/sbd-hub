@@ -2319,6 +2319,9 @@ function calcTotalXP() {
     var sq = SECRET_QUESTS.find(function(s) { return s.id === sqId; });
     if (sq) xp += sq.xp;
   });
+  // Muscle XP
+  var muscleXP = (db.gamification && db.gamification.muscleXP) || 0;
+  xp += muscleXP;
   return xp;
 }
 
@@ -5101,7 +5104,8 @@ function calcXPBreakdown() {
     var sq = SECRET_QUESTS.find(function(s) { return s.id === sqId; });
     if (sq) xpDefis += sq.xp;
   });
-  return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis };
+  var xpCorps = (db.gamification && db.gamification.muscleXP) || 0;
+  return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis, corps: xpCorps };
 }
 
 function renderGamificationTab() {
@@ -5209,13 +5213,14 @@ function renderGamificationTab() {
   // ── 2. Sources d'XP (clickable) ──
   (function() {
     var bd = calcXPBreakdown();
-    var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, 1);
+    var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, bd.corps, 1);
     var bars = [
       {label:'Séances', val:bd.seances, color:'var(--blue)', click:'showTab(\'tab-seances\')'},
       {label:'Records', val:bd.records, color:'var(--green)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)'},
       {label:'Régularité', val:bd.regularite, color:'var(--orange)', click:'document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
       {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
-      {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'}
+      {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
+      {label:'Corps', val:bd.corps, color:'#BF5AF2', click:'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')'}
     ];
     var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
       '<div class="xs-counters">' +

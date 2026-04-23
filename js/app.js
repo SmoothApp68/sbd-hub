@@ -7900,7 +7900,7 @@ function previewCSV(input) {
     const text=e.target.result;const result=parseCSVData(text);
     if(!result){document.getElementById('csvPreview').style.display='block';document.getElementById('csvPreview').innerHTML='<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';document.getElementById('csvImportBtn').disabled=true;return;}
     csvParsedData=result;const preview=document.getElementById('csvPreview');preview.style.display='block';
-    const existingDates=new Set(db.logs.map(l=>l.shortDate));const newSessions=result.sessions.filter(s=>!existingDates.has(s.shortDate));
+    const existingKeys=new Set(db.logs.map(l=>(l.shortDate||'')+'||'+(l.title||'')));const newSessions=result.sessions.filter(s=>!existingKeys.has((s.shortDate||'')+'||'+(s.title||'')));
     preview.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;"><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--purple);">'+result.sessions.length+'</div><div>Séances</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--green);">'+newSessions.length+'</div><div>Nouvelles</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--blue);">'+result.totalRows+'</div><div>Séries</div></div></div><div style="font-size:11px;color:var(--sub);">Période : '+result.dateMin+' → '+result.dateMax+'</div>'+(newSessions.length<result.sessions.length?'<div style="font-size:11px;color:var(--orange);margin-top:4px;">⚠️ '+(result.sessions.length-newSessions.length)+' séance(s) déjà importée(s) — ignorées.</div>':'');
     document.getElementById('csvImportBtn').disabled=newSessions.length===0;
     if(newSessions.length===0)document.getElementById('csvImportBtn').textContent='Tout est déjà importé';
@@ -8175,7 +8175,7 @@ async function importCSV() {
   if(!csvParsedData)return;
   const btn=document.getElementById('csvImportBtn');btn.disabled=true;btn.textContent='Import en cours...';
   const progress=document.getElementById('csvProgress');const bar=document.getElementById('csvProgressBar');const txt=document.getElementById('csvProgressText');progress.style.display='block';
-  const existingDates=new Set(db.logs.map(l=>l.shortDate));const newSessions=csvParsedData.sessions.filter(s=>!existingDates.has(s.shortDate));
+  const existingKeys=new Set(db.logs.map(l=>(l.shortDate||'')+'||'+(l.title||'')));const newSessions=csvParsedData.sessions.filter(s=>!existingKeys.has((s.shortDate||'')+'||'+(s.title||'')));
   let imported=0,prs={bench:0,squat:0,deadlift:0};
   for(const session of newSessions){
     // Nettoyer les _rawSets temporaires avant de sauvegarder (allSets est conservé)

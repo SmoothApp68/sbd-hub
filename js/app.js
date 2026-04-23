@@ -3110,9 +3110,9 @@ function renderBodyFigure(side) {
   if (!container) return;
   currentBodySide = side;
 
-  var svgPath = 'assets/body-' + side +
-    (currentBodyGender === 'female' ? '-female' : '') + '.svg';
-  var cacheKey = side + '_' + currentBodyGender;
+  var isFemale = currentBodyGender === 'female' || (db && db.user && db.user.gender === 'female');
+  var svgPath = 'assets/body-' + side + (isFemale ? '-female' : '') + '.svg';
+  var cacheKey = side + '_' + (isFemale ? 'female' : 'male');
 
   var apply = function(svgText) {
     container.innerHTML = svgText;
@@ -3637,22 +3637,22 @@ function renderMuscleList() {
       { key:'neck',     name:'Cou',        subkeys:[] },
     ]},
     { label:'Core', muscles:[
-      { key:'abdominaux', name:'Abdominaux',        subkeys:[] },
-      { key:'obliques',   name:'Obliques',          subkeys:[] },
-      { key:'serratus',   name:'Dentelé antérieur', subkeys:[] },
+      { key:'abdominaux',  name:'Abdominaux',             subkeys:[] },
+      { key:'obliques',    name:'Obliques',               subkeys:[] },
+      { key:'serratus',    name:'Dentelé antérieur',      subkeys:[] },
+      { key:'hip_flexors', name:'Fléchisseurs de hanche', subkeys:[] },
     ]},
     { label:'Dos', muscles:[
-      { key:'trapezes',     name:'Trapèzes',    subkeys:[] },
-      { key:'grand_dorsal', name:'Grand dorsal',
-        subkeys:[{key:'haut_du_dos',name:'Rhomboïdes'}] },
-      { key:'bas_du_dos',   name:'Bas du dos',  subkeys:[] },
+      { key:'trapezes',     name:'Trapèzes',     subkeys:[] },
+      { key:'grand_dorsal', name:'Grand dorsal', subkeys:[] },
+      { key:'haut_du_dos',  name:'Haut du dos',  subkeys:[] },
+      { key:'bas_du_dos',   name:'Bas du dos',   subkeys:[] },
     ]},
     { label:'Bas du corps', muscles:[
       { key:'fessiers',        name:'Fessiers',        subkeys:[] },
       { key:'abducteurs',      name:'Abducteurs',      subkeys:[] },
       { key:'adducteurs',      name:'Adducteurs',      subkeys:[] },
-      { key:'quadriceps',      name:'Quadriceps',
-        subkeys:[{key:'hip_flexors',name:'Fléchisseurs de hanche'}] },
+      { key:'quadriceps',      name:'Quadriceps',      subkeys:[] },
       { key:'ischio_jambiers', name:'Ischio-jambiers', subkeys:[] },
       { key:'mollets',         name:'Mollets',
         subkeys:[{key:'calves_gastro',name:'Gastrocnémien'},

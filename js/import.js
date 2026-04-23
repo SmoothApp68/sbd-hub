@@ -865,7 +865,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     if (l.startsWith('"')) continue;
     if (/^\d+\/\d+\/\d+/.test(l)||(l.includes('"')&&(/\d+\/\d+\/\d+/.test(l)||l.includes('sec')||l.includes('iso')))) continue;
     if (l.startsWith('@')) continue;
-    const isSerieData = l.startsWith('série')&&(l.includes('kg x')||l.includes('km')||l.includes('paliers')||l.includes('sec')||l.includes('min')||l.includes('répétitions')||l.includes('repetitions')||l.includes('reps')||/\d+s\b/.test(l));
+    const isSerieData = /^s[eé]rie\s/.test(l)&&(l.includes('kg x')||l.includes('km')||l.includes('paliers')||l.includes('sec')||l.includes('min')||l.includes('répétitions')||l.includes('repetitions')||l.includes('reps')||/\d+s\b/.test(l));
     const isCompressedData = /^\d+x/.test(l)||/^\d+[.,]\d+km/.test(l)||l.includes('1rm est:');
     if (!isSerieData&&!isCompressedData) {
       if (currExo&&(currExo.maxRM>0||currExo.isCardio||currExo.isTime||currExo.isReps||currExo.sets>0)) session.exercises.push(currExo);

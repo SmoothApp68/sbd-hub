@@ -10424,7 +10424,14 @@ function renderSessionDetail2(session) {
     var sets = exo.allSets || exo.series || [];
     var setsHtml = '';
     if (sets.length > 0) {
-      var fmtDur2 = function(sec) { if (!sec) return '—'; var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60); return h > 0 ? h+'h'+String(m).padStart(2,'0') : m+'min'; };
+      var fmtDur2 = function(sec) {
+        if (!sec || sec <= 0) return '—';
+        var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+        if (h > 0) return h+'h'+String(m).padStart(2,'0');
+        if (m > 0 && s > 0) return m+'min '+s+'s';
+        if (m > 0) return m+'min';
+        return s+'s';
+      };
       var rows = sets.map(function(s, i) {
         var rest = s.restSeconds ? Math.round(s.restSeconds/60)+'min' : (s.rest || '—');
         var isWarmup = s.setType==='warmup' || s.isWarmup;
@@ -10436,10 +10443,13 @@ function renderSessionDetail2(session) {
           typeLabel = 'Cardio';
           loadCell = fmtDur2(s.durSec);
           repsCell = s.reps ? s.reps+' pal.' : '—';
-        } else if (s.distKm != null || s.durSec != null) {
+        } else if (s.distKm) {
           typeLabel = 'Cardio';
-          loadCell = s.distKm ? s.distKm+'km' : '—';
+          loadCell = s.distKm+'km';
           repsCell = fmtDur2(s.durSec);
+        } else if (s.durSec) {
+          loadCell = fmtDur2(s.durSec);
+          repsCell = '—';
         } else {
           var w = s.weight || 0;
           var r = s.reps || 0;

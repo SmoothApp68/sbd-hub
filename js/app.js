@@ -2988,6 +2988,10 @@ const MUSCLE_NAMES_FR = {
   adducteurs:'Adducteurs', quadriceps:'Quadriceps',
   ischio_jambiers:'Ischio-jambiers', mollets:'Mollets',
   obliques:'Obliques', solaire:'Soléaire',
+  serratus:'Dentelé antérieur',
+  chest_upper:'Pectoraux hauts', chest_lower:'Pectoraux bas',
+  shoulders_front:'Deltoïde antérieur', shoulders_side:'Deltoïde latéral', shoulders_rear:'Deltoïde postérieur',
+  calves_gastro:'Gastrocnémien', calves_soleus:'Soléaire',
 };
 
 const MUSCLE_ILLUSTRATIONS = {
@@ -3595,6 +3599,24 @@ const MUSCLE_GROUPS = [
   ]},
 ];
 
+function toggleSubkeys(btn, event) {
+  event.stopPropagation();
+  var panel = btn.closest
+    ? btn.closest('[data-muscle-row]').querySelector('.subkeys-panel')
+    : null;
+  if (!panel) {
+    var row = btn.parentElement;
+    while (row && !row.getAttribute('data-muscle-row')) {
+      row = row.parentElement;
+    }
+    if (row) panel = row.querySelector('.subkeys-panel');
+  }
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? 'voir +' : 'voir -';
+}
+
 function renderMuscleList() {
   var el = document.getElementById('muscle-list');
   if (!el) return;
@@ -3602,32 +3624,39 @@ function renderMuscleList() {
 
   var MUSCLE_GROUPS = [
     { label:'Haut du corps', muscles:[
-      {key:'pectoraux',    name:'Pectoraux'},
-      {key:'epaules',      name:'Épaules'},
-      {key:'biceps',       name:'Biceps'},
-      {key:'triceps',      name:'Triceps'},
-      {key:'forearms',     name:'Avant-bras'},
-      {key:'neck',         name:'Cou'},
+      { key:'pectoraux', name:'Pectoraux',
+        subkeys:[{key:'chest_upper',name:'Pectoraux hauts'},
+                 {key:'chest_lower',name:'Pectoraux bas'}] },
+      { key:'epaules', name:'Épaules',
+        subkeys:[{key:'shoulders_front',name:'Deltoïde antérieur'},
+                 {key:'shoulders_side', name:'Deltoïde latéral'},
+                 {key:'shoulders_rear', name:'Deltoïde postérieur'}] },
+      { key:'biceps',   name:'Biceps',     subkeys:[] },
+      { key:'triceps',  name:'Triceps',    subkeys:[] },
+      { key:'forearms', name:'Avant-bras', subkeys:[] },
+      { key:'neck',     name:'Cou',        subkeys:[] },
     ]},
     { label:'Core', muscles:[
-      {key:'abdominaux',   name:'Abdominaux'},
-      {key:'obliques',     name:'Obliques'},
-      {key:'hip_flexors',  name:'Fléchisseurs de hanche'},
-      {key:'bas_du_dos',   name:'Bas du dos'},
+      { key:'abdominaux', name:'Abdominaux',        subkeys:[] },
+      { key:'obliques',   name:'Obliques',          subkeys:[] },
+      { key:'serratus',   name:'Dentelé antérieur', subkeys:[] },
     ]},
     { label:'Dos', muscles:[
-      {key:'trapezes',     name:'Trapèzes'},
-      {key:'grand_dorsal', name:'Grand dorsal'},
-      {key:'haut_du_dos',  name:'Haut du dos'},
+      { key:'trapezes',     name:'Trapèzes',    subkeys:[] },
+      { key:'grand_dorsal', name:'Grand dorsal',
+        subkeys:[{key:'haut_du_dos',name:'Rhomboïdes'}] },
+      { key:'bas_du_dos',   name:'Bas du dos',  subkeys:[] },
     ]},
     { label:'Bas du corps', muscles:[
-      {key:'fessiers',        name:'Fessiers'},
-      {key:'abducteurs',      name:'Abducteurs'},
-      {key:'adducteurs',      name:'Adducteurs'},
-      {key:'quadriceps',      name:'Quadriceps'},
-      {key:'ischio_jambiers', name:'Ischio-jambiers'},
-      {key:'mollets',         name:'Mollets'},
-      {key:'solaire',         name:'Soléaire'},
+      { key:'fessiers',        name:'Fessiers',        subkeys:[] },
+      { key:'abducteurs',      name:'Abducteurs',      subkeys:[] },
+      { key:'adducteurs',      name:'Adducteurs',      subkeys:[] },
+      { key:'quadriceps',      name:'Quadriceps',
+        subkeys:[{key:'hip_flexors',name:'Fléchisseurs de hanche'}] },
+      { key:'ischio_jambiers', name:'Ischio-jambiers', subkeys:[] },
+      { key:'mollets',         name:'Mollets',
+        subkeys:[{key:'calves_gastro',name:'Gastrocnémien'},
+                 {key:'calves_soleus',name:'Soléaire'}] },
     ]},
   ];
 
@@ -3655,6 +3684,7 @@ function renderMuscleList() {
 
       var key = entry.key;
       var name = entry.name;
+      var hasSubkeys = entry.subkeys && entry.subkeys.length > 0;
       var rank = ranks[key] || {};
       var tier = rank.tier || 'Atrophié';
       var color = rank.color || '#555566';
@@ -3663,6 +3693,8 @@ function renderMuscleList() {
       var t = tonnage >= 1000
         ? (Math.round(tonnage/100)/10) + 't'
         : (tonnage > 0 ? tonnage + 'kg' : '—');
+
+      html += '<div data-muscle-row="' + key + '">';
 
       html += '<div onclick="highlightMuscleOnFigure(\'' + key + '\',event)" style="'
         + 'display:grid;grid-template-columns:8px 1fr auto auto auto;'
@@ -3690,12 +3722,62 @@ function renderMuscleList() {
 
         + '<span style="font-size:9px;font-weight:600;'
         + 'color:' + color + ';white-space:nowrap;'
-        + 'min-width:60px;text-align:right;">' + tier + '</span>'
+        + 'min-width:60px;text-align:right;">' + tier + '</span>';
 
-        + '<span style="font-size:9px;color:rgba(255,255,255,0.2);'
-        + 'margin-left:4px;">↗</span>'
+      if (hasSubkeys) {
+        html += '<span class="voir-plus-btn" onclick="toggleSubkeys(this,event)" '
+          + 'style="font-size:9px;color:rgba(255,255,255,0.3);'
+          + 'cursor:pointer;margin-left:6px;user-select:none;">voir +</span>';
+      } else {
+        html += '<span style="font-size:9px;color:rgba(255,255,255,0.2);'
+          + 'margin-left:4px;">↗</span>';
+      }
 
-        + '</div>';
+      html += '</div>';
+
+      if (hasSubkeys) {
+        html += '<div class="subkeys-panel" style="display:none;'
+          + 'padding:4px 0 4px 16px;'
+          + 'border-left:2px solid rgba(255,255,255,0.06);'
+          + 'margin:0 0 4px 8px;">';
+
+        entry.subkeys.forEach(function(sub) {
+          var srank = ranks[sub.key] || {};
+          var stier = srank.tier || 'Atrophié';
+          var scolor = srank.color || '#555566';
+          var sscore = srank.score || 0;
+          var stonnage = srank.tonnage || 0;
+          var st = stonnage >= 1000
+            ? (Math.round(stonnage/100)/10) + 't'
+            : (stonnage > 0 ? stonnage + 'kg' : '—');
+
+          html += '<div style="'
+            + 'display:grid;grid-template-columns:8px 1fr auto auto;'
+            + 'align-items:center;gap:8px;'
+            + 'padding:4px 4px;border-radius:4px;">'
+
+            + '<div style="width:6px;height:6px;border-radius:50%;'
+            + 'background:' + scolor + ';flex-shrink:0;"></div>'
+
+            + '<div style="min-width:0;">'
+            + '<div style="font-size:11px;color:rgba(255,255,255,0.6);'
+            + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+            + sub.name + '</div></div>'
+
+            + '<span style="font-size:9px;color:rgba(255,255,255,0.25);'
+            + 'white-space:nowrap;">' + st + '</span>'
+
+            + '<span style="font-size:8px;font-weight:600;'
+            + 'color:' + scolor + ';white-space:nowrap;'
+            + 'min-width:50px;text-align:right;">' + stier + '</span>'
+
+            + '</div>';
+        });
+
+        html += '</div>';
+      }
+
+      html += '</div>';
     });
 
     html += '</div>';
@@ -3728,6 +3810,14 @@ const MUSCLE_TONNAGE_TARGETS = {
   mollets:         { developpe:3000,  sculpte:9000,  puissant:18000, massif:35000,  titanesque:70000  },
   obliques:        { developpe:1500,  sculpte:4500,  puissant:9000,  massif:18000,  titanesque:35000  },
   solaire:         { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
+  serratus:        { developpe:500,   sculpte:1500,  puissant:3000,  massif:6000,   titanesque:12000  },
+  chest_upper:     { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
+  chest_lower:     { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
+  shoulders_front: { developpe:1000,  sculpte:3000,  puissant:6000,  massif:12000,  titanesque:25000  },
+  shoulders_side:  { developpe:500,   sculpte:1500,  puissant:3000,  massif:6000,   titanesque:12000  },
+  shoulders_rear:  { developpe:500,   sculpte:1500,  puissant:3000,  massif:6000,   titanesque:12000  },
+  calves_gastro:   { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
+  calves_soleus:   { developpe:1000,  sculpte:3000,  puissant:6000,  massif:12000,  titanesque:25000  },
 };
 
 const MUSCLE_FREQ_TARGETS = {
@@ -3960,18 +4050,18 @@ function findExoInDatabase(exoName) {
 }
 
 const MUSCLE_KEY_BRIDGE = {
-  chest_upper:     'pectoraux',
-  chest_lower:     'pectoraux',
-  shoulders_front: 'epaules',
-  shoulders_side:  'epaules',
-  shoulders_rear:  'epaules',
+  chest_upper:     'chest_upper',
+  chest_lower:     'chest_lower',
+  shoulders_front: 'shoulders_front',
+  shoulders_side:  'shoulders_side',
+  shoulders_rear:  'shoulders_rear',
   biceps:          'biceps',
   triceps:         'triceps',
   forearms:        'forearms',
   neck:            'neck',
   abs:             'abdominaux',
   obliques:        'obliques',
-  serratus:        'abdominaux',
+  serratus:        'serratus',
   hip_flexors:     'hip_flexors',
   erectors:        'bas_du_dos',
   trapezius:       'trapezes',
@@ -3982,8 +4072,8 @@ const MUSCLE_KEY_BRIDGE = {
   adductors:       'adducteurs',
   quadriceps:      'quadriceps',
   hamstrings:      'ischio_jambiers',
-  calves_gastro:   'mollets',
-  calves_soleus:   'solaire',
+  calves_gastro:   'calves_gastro',
+  calves_soleus:   'calves_soleus',
 };
 
 function getMuscleVolumeAndFreq(logs4weeks) {

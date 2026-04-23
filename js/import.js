@@ -417,7 +417,7 @@ function showHevyPreview(preview, isDuplicate, onConfirm) {
     }
     // Résumé des séries
     var setsPreview = exo.sets.map(function(s) {
-      if (s.isCardio) return s.distance + 'km';
+      if (s.isCardio) { var p=[]; if(s.distance)p.push(s.distance+'km'); if(s.duration){var m=Math.floor(s.duration/60),sc=s.duration%60;p.push(m>0?(sc>0?m+'min '+sc+'s':m+'min'):sc+'s');} return p.join(' - '); }
       if (!s.weight && s.duration > 0) { var m=Math.floor(s.duration/60),sc=s.duration%60; return m>0?(sc>0?m+'min '+sc+'s':m+'min'):sc+'s'; }
       if (s.weight && s.reps) return s.weight + '×' + s.reps + (s.isWarmup ? ' (W)' : '');
       return '';

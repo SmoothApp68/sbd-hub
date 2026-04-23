@@ -4207,6 +4207,20 @@ function _computeSetTonnage(s, bw, bwConfig, exoName) {
     }
   }
 
+  var _dbForType = exoName ? findExoInDatabase(exoName) : null;
+  var _exoType = _dbForType && _dbForType.trackingType;
+  if (_exoType === 'cardio_stairs') {
+    var floors = s.floors || 0;
+    var durMinFloors = s.duration || 0;
+    return (floors * bw * 0.5) + (durMinFloors * bw * 0.8);
+  }
+
+  if (s.elevation > 0) {
+    var distElev = s.distance || 0;
+    var elev = s.elevation || 0;
+    return (distElev * bw * 4) + (elev * bw * 0.05);
+  }
+
   var est = 0;
   if (bwConfig) {
     if (bwConfig.type === 'iso') {
@@ -13777,7 +13791,7 @@ function goFormatRestBadge(sec) {
 function goGetExoTrackingType(exo) {
   if (exo.exoId && EXO_DATABASE[exo.exoId]) return EXO_DATABASE[exo.exoId].trackingType;
   var t = getExoType(exo.name);
-  if (t === 'cardio_stairs') return 'cardio';
+  if (t === 'cardio_stairs') return 'cardio_stairs';
   return t || 'weight';
 }
 
@@ -14448,13 +14462,16 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   }
 
   // Sets table
+  var _exoNameNorm = (exo.name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  var isOutdoorCardio = tt === 'cardio' && /randonnee|hiking|trek|\bvelo\b|bike|cycling/.test(_exoNameNorm);
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
   if (tt === 'weight') { h += '<th>KG <span onclick="goShowPlateCalc(' + exoIdx + ',0)" style="cursor:pointer;font-size:10px;">🔢</span></th><th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'reps') { h += '<th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'time') { h += '<th>DURÉE</th>'; }
-  else if (tt === 'cardio') { h += '<th>KM</th><th>TEMPS</th>'; }
+  else if (tt === 'cardio') { h += '<th>KM</th><th>TEMPS</th>' + (isOutdoorCardio ? '<th>D+</th>' : ''); }
+  else if (tt === 'cardio_stairs') { h += '<th>ÉTAGES</th><th>DURÉE</th>'; }
   h += '<th style="width:36px;">✓</th></tr></thead><tbody>';
 
   exo.sets.forEach(function(set, setIdx) {
@@ -14501,6 +14518,12 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.duration || '') + '" placeholder="sec" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'duration\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     } else if (tt === 'cardio') {
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.distance || '') + '" placeholder="km" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'distance\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.duration || '') + '" placeholder="min" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'duration\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      if (isOutdoorCardio) {
+        h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.elevation || '') + '" placeholder="m D+" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'elevation\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      }
+    } else if (tt === 'cardio_stairs') {
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.floors || '') + '" placeholder="étages" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'floors\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.duration || '') + '" placeholder="min" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'duration\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     }
 

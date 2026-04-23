@@ -2987,6 +2987,7 @@ const MUSCLE_NAMES_FR = {
   fessiers:'Fessiers', abducteurs:'Abducteurs',
   adducteurs:'Adducteurs', quadriceps:'Quadriceps',
   ischio_jambiers:'Ischio-jambiers', mollets:'Mollets',
+  obliques:'Obliques', solaire:'Soléaire',
 };
 
 const MUSCLE_ILLUSTRATIONS = {
@@ -3610,6 +3611,7 @@ function renderMuscleList() {
     ]},
     { label:'Core', muscles:[
       {key:'abdominaux',   name:'Abdominaux'},
+      {key:'obliques',     name:'Obliques'},
       {key:'hip_flexors',  name:'Fléchisseurs de hanche'},
       {key:'bas_du_dos',   name:'Bas du dos'},
     ]},
@@ -3625,6 +3627,7 @@ function renderMuscleList() {
       {key:'quadriceps',      name:'Quadriceps'},
       {key:'ischio_jambiers', name:'Ischio-jambiers'},
       {key:'mollets',         name:'Mollets'},
+      {key:'solaire',         name:'Soléaire'},
     ]},
   ];
 
@@ -3723,6 +3726,8 @@ const MUSCLE_TONNAGE_TARGETS = {
   quadriceps:      { developpe:5000,  sculpte:15000, puissant:30000, massif:60000,  titanesque:100000 },
   ischio_jambiers: { developpe:3000,  sculpte:9000,  puissant:18000, massif:35000,  titanesque:70000  },
   mollets:         { developpe:3000,  sculpte:9000,  puissant:18000, massif:35000,  titanesque:70000  },
+  obliques:        { developpe:1500,  sculpte:4500,  puissant:9000,  massif:18000,  titanesque:35000  },
+  solaire:         { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
 };
 
 const MUSCLE_FREQ_TARGETS = {
@@ -3918,6 +3923,33 @@ function findExoInDatabase(exoName) {
   return null;
 }
 
+const MUSCLE_KEY_BRIDGE = {
+  chest_upper:     'pectoraux',
+  chest_lower:     'pectoraux',
+  shoulders_front: 'epaules',
+  shoulders_side:  'epaules',
+  shoulders_rear:  'epaules',
+  biceps:          'biceps',
+  triceps:         'triceps',
+  forearms:        'forearms',
+  neck:            'neck',
+  abs:             'abdominaux',
+  obliques:        'obliques',
+  serratus:        'abdominaux',
+  hip_flexors:     'hip_flexors',
+  erectors:        'bas_du_dos',
+  trapezius:       'trapezes',
+  lats:            'grand_dorsal',
+  rhomboids:       'haut_du_dos',
+  glutes_major:    'fessiers',
+  abductors:       'abducteurs',
+  adductors:       'adducteurs',
+  quadriceps:      'quadriceps',
+  hamstrings:      'ischio_jambiers',
+  calves_gastro:   'mollets',
+  calves_soleus:   'solaire',
+};
+
 function getMuscleVolumeAndFreq(logs4weeks) {
   var result = {};
   Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(k) {
@@ -3938,7 +3970,7 @@ function getMuscleVolumeAndFreq(logs4weeks) {
         coeffMap = {};
         var addPlan = function(arr, coeff) {
           (arr || []).forEach(function(k) {
-            var mapped = k;
+            var mapped = MUSCLE_KEY_BRIDGE[k] || k;
             if (coeffMap[mapped] == null || coeffMap[mapped] < coeff) {
               coeffMap[mapped] = coeff;
             }

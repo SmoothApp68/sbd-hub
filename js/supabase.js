@@ -404,6 +404,7 @@ async function loginSubmit() {
             if (!db.reports) db.reports = [];
             db.lastSync = prof.updated_at ? new Date(prof.updated_at).getTime() : Date.now();
             localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+            await syncToCloud(true); // push migrated fields back to cloud
             refreshUI();
           } else {
             await syncToCloud(true);

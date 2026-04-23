@@ -3061,7 +3061,7 @@ const MUSCLE_DESC = {
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
   'chest':      ['chest_upper', 'chest_lower'],
-  'obliques':   ['obliques'],
+  'obliques':   ['obliques', 'serratus'],
   'abs':        ['abs'],
   'biceps':     ['biceps'],
   'triceps':    ['triceps'],
@@ -3069,10 +3069,10 @@ const BODY_MUSCLE_MAP = {
   'trapezius':  ['trapezius'],
   'deltoids':   ['shoulders_front', 'shoulders_side'],
   'adductors':  ['adductors'],
-  'quadriceps': ['quadriceps', 'abductors'],
+  'quadriceps': ['quadriceps'],
+  'tibialis':   ['hip_flexors'],
   'calves':     ['calves_gastro', 'calves_soleus'],
   'forearm':    ['forearms'],
-  'tibialis':   ['quadriceps'],
 };
 
 const BODY_MUSCLE_MAP_BACK = {
@@ -3083,7 +3083,7 @@ const BODY_MUSCLE_MAP_BACK = {
   'triceps':    ['triceps'],
   'lower-back': ['erectors'],
   'forearm':    ['forearms'],
-  'gluteal':    ['glutes_major'],
+  'gluteal':    ['glutes_major', 'abductors'],
   'adductors':  ['adductors'],
   'hamstring':  ['hamstrings'],
   'calves':     ['calves_gastro', 'calves_soleus'],
@@ -3475,6 +3475,7 @@ function showMusclePopover(muscleKey, event) {
 }
 
 function highlightMuscleOnFigure(muscleKey, event) {
+  var NO_SVG_SLUG = [];
   var targetSlugFront = null;
   var targetSlugBack = null;
 
@@ -3495,8 +3496,10 @@ function highlightMuscleOnFigure(muscleKey, event) {
   }
 
   // Préférer back si muscle principalement dorsal
-  var BACK_PREFERRED = ['shoulders_rear','lats','rhomboids',
-    'erectors','glutes_major','hamstrings'];
+  var BACK_PREFERRED = [
+    'shoulders_rear', 'lats', 'rhomboids', 'erectors',
+    'glutes_major', 'hamstrings', 'abductors'
+  ];
   var targetSide, targetSlug;
   if (BACK_PREFERRED.indexOf(muscleKey) >= 0 && targetSlugBack) {
     targetSide = 'back';

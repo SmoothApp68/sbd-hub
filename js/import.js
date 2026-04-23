@@ -306,6 +306,69 @@ function processHevy() {
   });
 }
 
+// Shared Hevy set-line parser — receives the portion AFTER "Série N: " (case-preserved).
+// Returns a normalized object consumed by both parseHevyPreview() and executeImport().
+function parseHevySetLine(setData) {
+  var weight=0, reps=0, duration=0, distKm=0, rpe=null;
+  var setType='normal', isCardio=false, isPaliers=false, isTime=false;
+
+  // 1. setType — applies to ALL exercise types
+  if (/\[.chauffement\]/i.test(setData)) setType='warmup';
+  else if (/\[abandon\]/i.test(setData)) setType='failure';
+  else if (/\[drop(\s*set)?\]/i.test(setData)) setType='drop';
+
+  // 2. RPE — applies to ALL exercise types
+  var rpeM = setData.match(/@\s*([\d.]+)\s*rpe/i) || setData.match(/RPE\s*:?\s*([\d.]+)/i);
+  if (rpeM) rpe = parseFloat(rpeM[1]);
+
+  // Duration helper: hours → min(+sec) → sec-only
+  function parseDur(str) {
+    var h = str.match(/(\d+)\s*h\s*(?:(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s(?:ec)?)?)?/i);
+    if (h) return parseInt(h[1])*3600 + (parseInt(h[2])||0)*60 + (parseInt(h[3])||0);
+    var m = str.match(/(\d+)\s*m(?:in)?\s*(?:(\d+)\s*s(?:ec)?)?/i);
+    if (m) return parseInt(m[1])*60 + (parseInt(m[2])||0);
+    var s = str.match(/(\d+)\s*s(?:ec)?(?!\w)/i);
+    if (s) return parseInt(s[1]);
+    return 0;
+  }
+
+  // 3. Paliers (stairs)
+  var palM = setData.match(/(\d+)\s*paliers?/i);
+  if (palM) {
+    reps = parseInt(palM[1]); isPaliers = true;
+    duration = parseDur(setData);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 4. Cardio (km present)
+  var kmM = setData.match(/([\d.,]+)\s*km/i);
+  if (kmM) {
+    isCardio = true; distKm = parseFloat(kmM[1].replace(',','.'));
+    duration = parseDur(setData);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 5. Weight × reps
+  var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
+  if (wxr) {
+    weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 6. Reps-only (bodyweight / reps-type exercises)
+  var repM = setData.match(/(\d+)\s*r[eé]p/i) || setData.match(/x\s*(\d+)/i);
+  if (repM) {
+    reps = parseInt(repM[1]);
+    return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+  }
+
+  // 7. Time-only (planche, gainage…)
+  var t = parseDur(setData);
+  if (t > 0) { duration = t; isTime = true; }
+
+  return { weight, reps, duration, distKm, rpe, setType, isCardio, isPaliers, isTime };
+}
+
 // Aperçu de l'import Hevy — parse les exercices pour affichage
 function parseHevyPreview(text, title, dateStr, timestamp) {
   const lines = text.split('\n');
@@ -321,40 +384,13 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
     // Détection de série : "Série X:" ou "Set X:"
     var setMatch = line.match(/^s[ée]rie\s+(\d+)\s*:\s*(.+)/i);
     if (setMatch && currentExo) {
-      var setData = setMatch[2];
-      var weight = 0, reps = 0, isWarmup = false, isAbandon = false, isDrop = false, setType = 'normal', rpe = null, isCardio = false, distance = 0, duration = 0, isPaliers = false;
-
-      // Set type flags
-      if (/\[.chauffement\]/i.test(setData)) { isWarmup = true; setType = 'warmup'; }
-      if (/\[abandon\]/i.test(setData)) { isAbandon = true; setType = 'failure'; }
-      if (/\[drop(\s*set)?\]/i.test(setData)) { isDrop = true; setType = 'drop'; }
-      // RPE
-      var rpeMatch = setData.match(/@\s*([\d.]+)\s*rpe/i);
-      if (rpeMatch) rpe = parseFloat(rpeMatch[1]);
-      // Poids x reps
-      var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
-      if (wxr) { weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]); }
-      // Paliers (escaliers) — store count as reps + parse duration from same line
-      var paliersMatch = setData.match(/(\d+)\s*paliers?/i);
-      if (paliersMatch) {
-        reps = parseInt(paliersMatch[1]); isPaliers = true;
-        var pmMin = setData.match(/(\d+)\s*min\s*(?:(\d+)\s*s(?:ec)?)?/i);
-        var pmSec = !pmMin && setData.match(/(\d+)\s*s(?:ec)?/i);
-        if (pmMin) { duration = parseInt(pmMin[1]) * 60 + (parseInt(pmMin[2]) || 0); }
-        else if (pmSec) { duration = parseInt(pmSec[1]); }
-      }
-      // Cardio : km - temps (with optional hours)
-      var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(?:(\d+)h\s*)?(\d+)min?\s*(\d+)?s?/i);
-      if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = (parseInt(cardioMatch[2]) || 0) * 3600 + parseInt(cardioMatch[3]) * 60 + (parseInt(cardioMatch[4]) || 0); }
-      // Durée seule pour exercices chronométrés (planche, gainage…)
-      if (!isCardio && !weight && !reps) {
-        var minM = setData.match(/(\d+)\s*min\s*(?:(\d+)\s*s(?:ec)?)?/i);
-        var secM = !minM && setData.match(/^(\d+)\s*s(?:ec)?/i);
-        if (minM) { duration = parseInt(minM[1]) * 60 + (parseInt(minM[2]) || 0); }
-        else if (secM) { duration = parseInt(secM[1]); }
-      }
-
-      currentExo.sets.push({ weight, reps, isWarmup, isAbandon, isDrop, setType, rpe, isCardio, distance, duration, isPaliers });
+      var s = parseHevySetLine(setMatch[2]);
+      currentExo.sets.push({
+        weight: s.weight, reps: s.reps,
+        isWarmup: s.setType === 'warmup', isAbandon: s.setType === 'failure', isDrop: s.setType === 'drop',
+        setType: s.setType, rpe: s.rpe,
+        isCardio: s.isCardio, distance: s.distKm, duration: s.duration, isPaliers: s.isPaliers
+      });
       continue;
     }
 
@@ -829,7 +865,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     if (l.startsWith('"')) continue;
     if (/^\d+\/\d+\/\d+/.test(l)||(l.includes('"')&&(/\d+\/\d+\/\d+/.test(l)||l.includes('sec')||l.includes('iso')))) continue;
     if (l.startsWith('@')) continue;
-    const isSerieData = l.startsWith('série')&&(l.includes('kg x')||l.includes('km')||l.includes('paliers')||l.includes('sec')||l.includes('min')||l.includes('répétitions')||l.includes('repetitions')||l.includes('reps')||/\d+s\b/.test(l));
+    const isSerieData = /^s[eé]rie\s/.test(l)&&(l.includes('kg x')||l.includes('km')||l.includes('paliers')||l.includes('sec')||l.includes('min')||l.includes('répétitions')||l.includes('repetitions')||l.includes('reps')||/\d+s\b/.test(l));
     const isCompressedData = /^\d+x/.test(l)||/^\d+[.,]\d+km/.test(l)||l.includes('1rm est:');
     if (!isSerieData&&!isCompressedData) {
       if (currExo&&(currExo.maxRM>0||currExo.isCardio||currExo.isTime||currExo.isReps||currExo.sets>0)) session.exercises.push(currExo);
@@ -842,44 +878,62 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
       continue;
     }
     if (!currExo) continue;
-    if (l.startsWith('série')&&l.includes('kg x')&&!currExo.isCardio&&!currExo.isReps) {
-      const m=l.match(/(\d+\.?\d*)\s*kg\s*x\s*(\d+)/i);
-      if(m){const w=parseFloat(m[1]),r=parseInt(m[2]);
-        const isW      = line.includes('[Échauffement]')||line.includes('[échauffement]');
-        // Abandon = poussé à l'échec volontaire ; Drop = série descendante immédiate
-        // Ces séries ne comptent PAS pour les records (elles ne reflètent pas une vraie performance)
-        const isAbandon= /\[abandon\]/i.test(line);
-        const isDrop   = /\[drop(\s*set)?\]/i.test(line);
-        const countForRecord = !isW && !isAbandon && !isDrop;
-        const _setType = isW ? 'warmup' : isAbandon ? 'failure' : isDrop ? 'drop' : 'normal';
-        const _rpeMatch = line.match(/@\s*([\d.]+)\s*rpe/i) || line.match(/RPE\s*:?\s*(\d+\.?\d*)/i);
-        currExo.allSets.push({ weight: w, reps: r, setType: _setType, rpe: _rpeMatch ? parseFloat(_rpeMatch[1]) : null });
-        if(countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
-        session.volume+=w*r;
-        if(countForRecord){currExo.sets++;const rKey=String(r);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;const ex=currExo.series.find(s=>s.reps===r);if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});const rm=calcE1RM(w,r);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}}
-        else if(isW){/* warmup : volume comptabilisé mais pas les records */}
+    // Try to match as "Série N: data" and dispatch via shared parser
+    const serieM = line.trim().match(/^s[ée]rie\s+\d+\s*:\s*(.+)/i);
+    if (serieM) {
+      const s = parseHevySetLine(serieM[1]);
+      const countForRecord = s.setType === 'normal';
+      if (currExo.isCardio && s.isPaliers) {
+        // Stairs / paliers
+        currExo.allSets.push({reps:s.reps, durSec:s.duration||null, isPaliers:true, setType:s.setType, rpe:s.rpe});
+        currExo.sets++;
+        if (s.reps > (currExo.maxReps||0)) { currExo.maxReps=s.reps; currExo.maxRepsDate=sessionTimestamp; }
+        currExo.totalReps = (currExo.totalReps||0) + s.reps;
+        if (s.duration > 0 && s.duration > (currExo.maxTime||0)) { currExo.maxTime=s.duration; currExo.cardioDate=sessionTimestamp; }
+      } else if (currExo.isCardio) {
+        // Cardio km/time
+        currExo.allSets.push({distKm:s.distKm||null, durSec:s.duration||null, setType:s.setType, rpe:s.rpe});
+        currExo.sets++;
+        if (s.distKm > (currExo.distance||0)) currExo.distance = s.distKm;
+        if (s.duration > 0) {
+          if (s.distKm > 0) { const kmh=s.distKm/(s.duration/3600); const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0; if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=s.duration;currExo.cardioDate=sessionTimestamp;} }
+          else if (s.duration > (currExo.maxTime||0)) { currExo.maxTime=s.duration; currExo.cardioDate=sessionTimestamp; }
         }
-    } else if (currExo.isReps&&l.startsWith('série')) {
-      const repMatch=l.match(/(\d+)\s*r[eé]p[eé]?t?i?t?i?o?n?s?/i)||l.match(/x\s*(\d+)/i)||l.match(/(\d+)\s*reps?\b/i);
-      const kgMatch=l.match(/(\d+\.?\d*)\s*kg/i);
-      if(repMatch){const reps=parseInt(repMatch[1]);const w=kgMatch?parseFloat(kgMatch[1]):0;currExo.sets++;currExo.totalReps+=reps;if(reps>currExo.maxReps){currExo.maxReps=reps;currExo.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*reps;const rm=calcE1RM(w,reps);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}const rKey=String(reps);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;}}else{currExo.sets++;}
-    } else if (l.startsWith('série')&&l.includes('km')&&currExo.isCardio) {
-      parseCardioLine(l,currExo,sessionTimestamp);
-    } else if (l.startsWith('série')&&l.includes('paliers')&&currExo.isCardio) {
-      const pm=l.match(/(\d+)\s*paliers?/i);
-      if(pm){const count=parseInt(pm[1]);currExo.sets++;if(count>(currExo.maxReps||0)){currExo.maxReps=count;currExo.maxRepsDate=sessionTimestamp;}currExo.totalReps=(currExo.totalReps||0)+count;}
-    } else if (l.startsWith('série')&&(l.includes('min')||l.includes('sec')||/\d+s\b/.test(l))&&(currExo.isTime||currExo.exoType==='time')) {
-      parsePlankLine(l,currExo,session,sessionTimestamp);
-    } else if (l.startsWith('série')&&l.includes('sec')&&!currExo.isCardio&&!currExo.maxRM) {
-      const sm=l.match(/(\d+)\s*sec/i);if(sm){currExo.isTime=true;const t=parseInt(sm[1]);if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=sessionTimestamp;}currExo.sets++;session.volume+=t/10;}
-    } else if (l.includes('1rm est:')&&!currExo.isCardio) {
-      const m2=l.match(/(\d+)\s*kg/i);
-      if(m2){
-        const rm=parseInt(m2[1]);
-        // Stocker pour confirmation ultérieure au lieu d'appliquer directement
-        if(!session._pending1RM) session._pending1RM=[];
-        session._pending1RM.push({exoName:currExo.name, rm, exoRef:currExo});
+      } else if (currExo.isTime || s.isTime) {
+        // Time-only exercise (planche, gainage…)
+        if (s.duration > 0) {
+          currExo.allSets.push({durSec:s.duration, setType:s.setType, rpe:s.rpe});
+          currExo.isTime = true; currExo.sets++;
+          if (s.duration > (currExo.maxTime||0)) { currExo.maxTime=s.duration; currExo.maxTimeDate=sessionTimestamp; }
+          session.volume += s.duration / 10;
+        }
+      } else if (currExo.isReps) {
+        // Reps-type exercise (bodyweight or weighted)
+        currExo.allSets.push({reps:s.reps, weight:s.weight, setType:s.setType, rpe:s.rpe});
+        currExo.sets++;
+        if (s.reps > 0) { currExo.totalReps=(currExo.totalReps||0)+s.reps; if(s.reps>(currExo.maxReps||0)){currExo.maxReps=s.reps;currExo.maxRepsDate=sessionTimestamp;} }
+        if (s.weight > 0) { session.volume+=s.weight*s.reps; const rm=calcE1RM(s.weight,s.reps); if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;} const rKey=String(s.reps); if(!currExo.repRecords[rKey]||s.weight>currExo.repRecords[rKey])currExo.repRecords[rKey]=s.weight; }
+      } else {
+        // Standard weight exercise
+        const w=s.weight, r=s.reps;
+        if (w > 0 || r > 0) {
+          currExo.allSets.push({weight:w, reps:r, setType:s.setType, rpe:s.rpe});
+          if (countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
+          session.volume += w * r;
+          if (countForRecord) {
+            currExo.sets++;
+            const rKey=String(r); if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;
+            const ex=currExo.series.find(sx=>sx.reps===r); if(ex){if(w>ex.weight){ex.weight=w;ex.date=sessionTimestamp;}}else currExo.series.push({weight:w,reps:r,date:sessionTimestamp});
+            const rm=calcE1RM(w,r); if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}
+          }
+        }
       }
+      continue;
+    }
+    // Non-série compressed data
+    if (l.includes('1rm est:')&&!currExo.isCardio) {
+      const m2=l.match(/(\d+)\s*kg/i);
+      if(m2){const rm=parseInt(m2[1]);if(!session._pending1RM)session._pending1RM=[];session._pending1RM.push({exoName:currExo.name,rm,exoRef:currExo});}
     } else if (/\d+x/.test(l)&&!currExo.isCardio) {
       const mx=l.match(/\d+x/g);if(mx)currExo.sets=parseInt(mx[mx.length-1]);
     }
@@ -888,21 +942,6 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
   finalizeSession(session, lines.join('\n'));
 }
 
-function parseCardioLine(l, currExo, ts) {
-  const km=l.match(/(\d+[.,]\d*|\d+)\s*km/);
-  const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const ms=l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i);const colon=l.match(/(\d+):(\d+):?(\d+)?/);
-  let totalSec=null;
-  if(hm)totalSec=parseInt(hm[1])*3600+parseInt(hm[2])*60;else if(mm)totalSec=parseInt(mm[1])*60+parseInt(mm[2]);else if(colon&&colon[3])totalSec=parseInt(colon[1])*3600+parseInt(colon[2])*60+parseInt(colon[3]);else if(colon)totalSec=parseInt(colon[1])*60+parseInt(colon[2]);else if(ms)totalSec=parseInt(ms[1])*60+(ms[2]?parseInt(ms[2]):0);
-  if(km){const d=parseFloat(km[1].replace(',','.'));if(d>(currExo.distance||0))currExo.distance=d;if(totalSec){const kmh=d/(totalSec/3600);const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0;if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}}else if(totalSec){if(totalSec>(currExo.maxTime||0)){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}
-  if(!currExo.sets)currExo.sets=1;else currExo.sets++;
-}
-
-function parsePlankLine(l, currExo, session, ts) {
-  const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const mOnly=l.match(/(\d+)\s*m(?:in)?(?!\d)/i);const sOnly=l.match(/(\d+)\s*s(?:ec)?(?!\d)/i);
-  let t=0;
-  if(hm)t=parseInt(hm[1])*3600+parseInt(hm[2])*60;else if(mm)t=parseInt(mm[1])*60+parseInt(mm[2]);else if(mOnly)t=parseInt(mOnly[1])*60+(sOnly?parseInt(sOnly[1]):0);else if(sOnly)t=parseInt(sOnly[1]);
-  if(t>0){currExo.isTime=true;if(t>(currExo.maxTime||0)){currExo.maxTime=t;currExo.maxTimeDate=ts;}currExo.sets=(currExo.sets||0)+1;session.volume+=t/10;}
-}
 
 function showImportSummary(session) {
   document.getElementById('importSummary').style.display='block';

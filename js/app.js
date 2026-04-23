@@ -10424,19 +10424,43 @@ function renderSessionDetail2(session) {
     var sets = exo.allSets || exo.series || [];
     var setsHtml = '';
     if (sets.length > 0) {
+      var fmtDur2 = function(sec) {
+        if (!sec || sec <= 0) return '—';
+        var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+        if (h > 0) return h+'h'+String(m).padStart(2,'0');
+        if (m > 0 && s > 0) return m+'min '+s+'s';
+        if (m > 0) return m+'min';
+        return s+'s';
+      };
       var rows = sets.map(function(s, i) {
-        var w = s.weight || 0;
-        var r = s.reps || 0;
         var rest = s.restSeconds ? Math.round(s.restSeconds/60)+'min' : (s.rest || '—');
         var isWarmup = s.setType==='warmup' || s.isWarmup;
         var isPR = s.setType==='pr' || s.isPR;
         var rowCls = isWarmup ? 'sc-wu' : isPR ? 'sc-pr' : 'sc-wk';
         var typeLabel = isWarmup ? 'Échauff.' : isPR ? '🏆 PR' : 'Travail';
+        var loadCell, repsCell;
+        if (s.isPaliers) {
+          typeLabel = 'Cardio';
+          loadCell = fmtDur2(s.durSec);
+          repsCell = s.reps ? s.reps+' pal.' : '—';
+        } else if (s.distKm) {
+          typeLabel = 'Cardio';
+          loadCell = s.distKm+'km';
+          repsCell = fmtDur2(s.durSec);
+        } else if (s.durSec) {
+          loadCell = fmtDur2(s.durSec);
+          repsCell = '—';
+        } else {
+          var w = s.weight || 0;
+          var r = s.reps || 0;
+          loadCell = w > 0 ? w+'kg' : '—';
+          repsCell = r > 0 ? '×'+r : '—';
+        }
         return '<tr class="'+rowCls+'">'+
           '<td class="sc-set-n">'+(i+1)+'</td>'+
           '<td class="sc-set-type"><span>'+typeLabel+'</span></td>'+
-          '<td class="sc-set-load">'+(w>0?w+'kg':'—')+'</td>'+
-          '<td class="sc-set-reps">'+(r>0?'×'+r:'—')+'</td>'+
+          '<td class="sc-set-load">'+loadCell+'</td>'+
+          '<td class="sc-set-reps">'+repsCell+'</td>'+
           '<td class="sc-set-rest">'+rest+'</td>'+
         '</tr>';
       }).join('');

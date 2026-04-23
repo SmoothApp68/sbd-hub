@@ -867,7 +867,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
       parseCardioLine(l,currExo,sessionTimestamp);
     } else if (l.startsWith('série')&&l.includes('paliers')&&currExo.isCardio) {
       const pm=l.match(/(\d+)\s*paliers?/i);
-      if(pm){const count=parseInt(pm[1]);currExo.sets++;if(count>(currExo.maxReps||0)){currExo.maxReps=count;currExo.maxRepsDate=sessionTimestamp;}currExo.totalReps=(currExo.totalReps||0)+count;}
+      if(pm){const count=parseInt(pm[1]);const phm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const pmm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const pms=l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i);let pDur=null;if(phm)pDur=parseInt(phm[1])*3600+parseInt(phm[2])*60;else if(pmm)pDur=parseInt(pmm[1])*60+parseInt(pmm[2]);else if(pms)pDur=parseInt(pms[1])*60+(pms[2]?parseInt(pms[2]):0);currExo.sets++;if(count>(currExo.maxReps||0)){currExo.maxReps=count;currExo.maxRepsDate=sessionTimestamp;}currExo.totalReps=(currExo.totalReps||0)+count;if(!currExo.allSets)currExo.allSets=[];currExo.allSets.push({reps:count,durSec:pDur,isPaliers:true,setType:'normal',rpe:null});}
     } else if (l.startsWith('série')&&(l.includes('min')||l.includes('sec')||/\d+s\b/.test(l))&&(currExo.isTime||currExo.exoType==='time')) {
       parsePlankLine(l,currExo,session,sessionTimestamp);
     } else if (l.startsWith('série')&&l.includes('sec')&&!currExo.isCardio&&!currExo.maxRM) {
@@ -893,7 +893,10 @@ function parseCardioLine(l, currExo, ts) {
   const hm=l.match(/(\d+)\s*h\s*(\d+)\s*m/i);const mm=l.match(/(\d+)\s*m(?:in)?\s*(\d+)\s*s/i);const ms=l.match(/(\d+)\s*m(?:in)?(?:\s*(\d+)\s*s)?/i);const colon=l.match(/(\d+):(\d+):?(\d+)?/);
   let totalSec=null;
   if(hm)totalSec=parseInt(hm[1])*3600+parseInt(hm[2])*60;else if(mm)totalSec=parseInt(mm[1])*60+parseInt(mm[2]);else if(colon&&colon[3])totalSec=parseInt(colon[1])*3600+parseInt(colon[2])*60+parseInt(colon[3]);else if(colon)totalSec=parseInt(colon[1])*60+parseInt(colon[2]);else if(ms)totalSec=parseInt(ms[1])*60+(ms[2]?parseInt(ms[2]):0);
-  if(km){const d=parseFloat(km[1].replace(',','.'));if(d>(currExo.distance||0))currExo.distance=d;if(totalSec){const kmh=d/(totalSec/3600);const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0;if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}}else if(totalSec){if(totalSec>(currExo.maxTime||0)){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}
+  let _setDist=null;
+  if(km){const d=parseFloat(km[1].replace(',','.'));_setDist=d;if(d>(currExo.distance||0))currExo.distance=d;if(totalSec){const kmh=d/(totalSec/3600);const curKmh=currExo.distance&&currExo.maxTime?currExo.distance/(currExo.maxTime/3600):0;if(kmh>curKmh||!currExo.maxTime){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}}else if(totalSec){if(totalSec>(currExo.maxTime||0)){currExo.maxTime=totalSec;currExo.cardioDate=ts;}}
+  if(!currExo.allSets)currExo.allSets=[];
+  currExo.allSets.push({distKm:_setDist,durSec:totalSec,setType:'normal',rpe:null});
   if(!currExo.sets)currExo.sets=1;else currExo.sets++;
 }
 

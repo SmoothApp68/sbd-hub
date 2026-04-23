@@ -3651,29 +3651,18 @@ function renderMuscleList() {
     group.muscles.forEach(function(entry) {
       window._MUSCLE_GROUP_INDEX[entry.key] = entry;
 
-      // Agrégation : tonnage somme, tier min, score moyen
-      var sumT = 0, sumS = 0, cnt = 0;
-      var minIdx = 99, minR = null;
-      entry.keys.forEach(function(k) {
-        var r = ranks[k];
-        if (r) {
-          sumT += (r.tonnage || 0);
-          sumS += (r.score || 0);
-          cnt++;
-          var idx = tierOrder.indexOf(r.tier);
-          if (idx >= 0 && idx < minIdx) { minIdx = idx; minR = r; }
-        }
-      });
-      var tier = minR ? minR.tier : 'Atrophié';
-      var color = minR ? (minR.color || '#555566') : '#555566';
-      var score = cnt ? Math.round(sumS / cnt) : 0;
-      var tonnage = sumT;
+      var key = entry.key;
       var name = entry.name;
+      var rank = ranks[key] || {};
+      var tier = rank.tier || 'Atrophié';
+      var color = rank.color || '#555566';
+      var score = rank.score || 0;
+      var tonnage = rank.tonnage || 0;
       var t = tonnage >= 1000
         ? (Math.round(tonnage/100)/10) + 't'
         : (tonnage > 0 ? tonnage + 'kg' : '—');
 
-      html += '<div onclick="onMuscleGroupClick(\'' + entry.key + '\',event)" style="'
+      html += '<div onclick="highlightMuscleOnFigure(\'' + key + '\',event)" style="'
         + 'display:grid;grid-template-columns:8px 1fr auto auto auto;'
         + 'align-items:center;gap:8px;'
         + 'padding:6px 4px;cursor:pointer;border-radius:6px;'

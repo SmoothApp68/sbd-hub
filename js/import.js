@@ -295,11 +295,12 @@ function processHevy() {
 
   // Aperçu visuel avant import
   const preview = parseHevyPreview(text, sessionTitle, sessionDate, sessionTimestamp);
-  const isDuplicate = db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey);
+  const isDuplicate = db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey && (l.title || '') === (sessionTitle || ''));
+  const isSameDayDifferentTitle = !isDuplicate && db.logs.some(l => (l.shortDate || formatDate(l.timestamp)) === dateKey);
 
-  showHevyPreview(preview, isDuplicate, function() {
+  showHevyPreview(preview, isDuplicate, isSameDayDifferentTitle, function() {
     if (isDuplicate) {
-      db.logs = db.logs.filter(l => (l.shortDate || formatDate(l.timestamp)) !== dateKey);
+      db.logs = db.logs.filter(l => !((l.shortDate || formatDate(l.timestamp)) === dateKey && (l.title || '') === (sessionTitle || '')));
     }
     executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
   });
@@ -390,7 +391,7 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
   return { title: title, date: dateStr, timestamp: timestamp, exercises: exercises };
 }
 
-function showHevyPreview(preview, isDuplicate, onConfirm) {
+function showHevyPreview(preview, isDuplicate, isSameDayDifferentTitle, onConfirm) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'hevyPreviewOverlay';
@@ -403,6 +404,9 @@ function showHevyPreview(preview, isDuplicate, onConfirm) {
   if (isDuplicate) {
     h += '<div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--orange);">';
     h += '⚠️ Une séance existe déjà à cette date. L\'import remplacera la séance existante.</div>';
+  } else if (isSameDayDifferentTitle) {
+    h += '<div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--orange);">';
+    h += '⚠️ Une autre séance existe déjà ce jour — elle sera conservée.</div>';
   }
 
   h += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Exercices détectés (' + preview.exercises.length + ')</div>';

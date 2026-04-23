@@ -3033,31 +3033,30 @@ const MUSCLE_DESC = {
 
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
-  'chest':      ['pectoraux'],
-  'obliques':   ['abdominaux'],
-  'abs':        ['abdominaux'],
-  'biceps':     ['biceps'],
-  'triceps':    ['triceps'],
-  'neck':       ['neck'],
-  'deltoids':   ['epaules'],
-  'adductors':  ['adducteurs'],
-  'quadriceps': ['quadriceps'],
-  'calves':     ['mollets'],
-  'forearm':    ['forearms'],
+  'pectoraux':   ['pectoraux'],
+  'abdominaux':  ['abdominaux'],
+  'biceps':      ['biceps'],
+  'triceps':     ['triceps'],
+  'forearms':    ['forearms'],
+  'neck':        ['neck'],
+  'epaules':     ['epaules'],
+  'adducteurs':  ['adducteurs'],
+  'quadriceps':  ['quadriceps'],
+  'mollets':     ['mollets'],
 };
 
 const BODY_MUSCLE_MAP_BACK = {
-  'neck':       ['neck'],
-  'trapezius':  ['trapezes'],
-  'deltoids':   ['epaules'],
-  'upper-back': ['grand_dorsal','haut_du_dos'],
-  'triceps':    ['triceps'],
-  'lower-back': ['bas_du_dos'],
-  'forearm':    ['forearms'],
-  'gluteal':    ['fessiers','abducteurs'],
-  'adductors':  ['adducteurs'],
-  'hamstring':  ['ischio_jambiers'],
-  'calves':     ['mollets'],
+  'neck':            ['neck'],
+  'trapezes':        ['trapezes'],
+  'epaules':         ['epaules'],
+  'grand_dorsal':    ['grand_dorsal'],
+  'triceps':         ['triceps'],
+  'bas_du_dos':      ['bas_du_dos'],
+  'forearms':        ['forearms'],
+  'fessiers':        ['fessiers'],
+  'adducteurs':      ['adducteurs'],
+  'ischio_jambiers': ['ischio_jambiers'],
+  'mollets':         ['mollets'],
 };
 
 const MUSCLE_TIER_COLORS = {

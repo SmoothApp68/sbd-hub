@@ -4076,6 +4076,33 @@ const MUSCLE_KEY_BRIDGE = {
   calves_soleus:   'calves_soleus',
 };
 
+const MUSCLE_PARENT_MAP = {
+  chest_upper:     'pectoraux',
+  chest_lower:     'pectoraux',
+  shoulders_front: 'epaules',
+  shoulders_side:  'epaules',
+  shoulders_rear:  'epaules',
+  calves_gastro:   'mollets',
+  calves_soleus:   'mollets',
+  haut_du_dos:     'grand_dorsal',
+  hip_flexors:     'quadriceps',
+  abs:             'abdominaux',
+  obliques:        'obliques',
+  serratus:        'serratus',
+  lats:            'grand_dorsal',
+  rhomboids:       'haut_du_dos',
+  erectors:        'bas_du_dos',
+  trapezius:       'trapezes',
+  glutes_major:    'fessiers',
+  abductors:       'abducteurs',
+  adductors:       'adducteurs',
+  hamstrings:      'ischio_jambiers',
+  neck:            'neck',
+  biceps:          'biceps',
+  triceps:         'triceps',
+  forearms:        'forearms',
+};
+
 function getMuscleVolumeAndFreq(logs4weeks) {
   var result = {};
   Object.keys(MUSCLE_TONNAGE_TARGETS).forEach(function(k) {
@@ -4096,9 +4123,15 @@ function getMuscleVolumeAndFreq(logs4weeks) {
         coeffMap = {};
         var addPlan = function(arr, coeff) {
           (arr || []).forEach(function(k) {
-            var mapped = MUSCLE_KEY_BRIDGE[k] || k;
-            if (coeffMap[mapped] == null || coeffMap[mapped] < coeff) {
-              coeffMap[mapped] = coeff;
+            var granular = MUSCLE_KEY_BRIDGE[k] || k;
+            if (coeffMap[granular] == null || coeffMap[granular] < coeff) {
+              coeffMap[granular] = coeff;
+            }
+            var parent = MUSCLE_PARENT_MAP[k] || MUSCLE_PARENT_MAP[granular];
+            if (parent && parent !== granular) {
+              if (coeffMap[parent] == null || coeffMap[parent] < coeff) {
+                coeffMap[parent] = coeff;
+              }
             }
           });
         };

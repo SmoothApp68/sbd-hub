@@ -3920,6 +3920,42 @@ function findExoInDatabase(exoName) {
   }
   if (bestMatch) return bestMatch;
 
+  const EXO_NAME_SYNONYMS = {
+    'tirage poitrine poulie':        'lat_pulldown_wide',
+    'tirage poitrine bras tendus':   'lat_pulldown_wide',
+    'tirage poitrine un bras':       'edb_one_arm_lat_pulldown',
+    'tirage machine convergente':    'cable_row',
+    'rowing assis machine':          'cable_row',
+    'rowing poulie assis':           'cable_row',
+    'rowing poulie assis prise large':'lat_pulldown_wide',
+    'rowing haltere':                'dumbbell_row',
+    'rowing inverse':                'barbell_row',
+    'chest press machine':           'bench_press_barbell',
+    'chest press convergent machine':'bench_press_barbell',
+    'presse epaules assis machine':  'overhead_press',
+    'extension dos machine':         'back_extension',
+    'leg curl assis':                'leg_curl',
+    'hip thrust machine':            'hip_thrust',
+    'poussee de hanches machine':    'hip_thrust',
+    'hack squat machine':            'hack_squat',
+    'belt squat machine':            'hack_squat',
+    'machine dips assis':            'dips',
+    'curl pupitre machine':          'barbell_curl',
+    'curl pupitre haltere':          'barbell_curl',
+  };
+
+  var nClean = n.replace(/[()]/g,' ')
+                .replace(/[éèêë]/g,'e')
+                .replace(/[àâä]/g,'a')
+                .replace(/[ùûü]/g,'u')
+                .replace(/[îï]/g,'i')
+                .replace(/[ôö]/g,'o')
+                .replace(/\s+/g,' ').trim();
+  if (EXO_NAME_SYNONYMS[nClean]) {
+    var target = EXO_DATABASE[EXO_NAME_SYNONYMS[nClean]];
+    if (target) return target;
+  }
+
   return null;
 }
 

@@ -3406,12 +3406,42 @@ if (typeof window !== 'undefined') window.selectMuscle = selectMuscle;
   document.addEventListener('click', _onOutside);
 })();
 
-function showMusclePopover(muscleKey, event) {
+function showMusclePopover(muscleKeyOrGroup, event) {
   var pop = document.getElementById('muscle-popover');
   if (!pop) return;
   var ranks = db.gamification && db.gamification.muscleRanks;
-  var rank = ranks && ranks[muscleKey];
-  var name = MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+
+  var muscleKey, name, rank;
+  var isGroup = muscleKeyOrGroup
+    && typeof muscleKeyOrGroup === 'object'
+    && Array.isArray(muscleKeyOrGroup.keys);
+
+  if (isGroup) {
+    var keysArr = muscleKeyOrGroup.keys;
+    muscleKey = keysArr[0];
+    name = muscleKeyOrGroup.name || MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+    var _tierOrder = ['Atrophié','Développé','Sculpté','Puissant','Massif','Titanesque'];
+    var sumT = 0, sumS = 0, cnt = 0;
+    var minIdx = 99, minR = null;
+    keysArr.forEach(function(k) {
+      var r = ranks && ranks[k];
+      if (r) {
+        sumT += (r.tonnage || 0);
+        sumS += (r.score || 0);
+        cnt++;
+        var idx = _tierOrder.indexOf(r.tier);
+        if (idx >= 0 && idx < minIdx) { minIdx = idx; minR = r; }
+      }
+    });
+    rank = minR ? {
+      tier: minR.tier, color: minR.color,
+      tonnage: sumT, score: cnt ? Math.round(sumS/cnt) : 0
+    } : null;
+  } else {
+    muscleKey = muscleKeyOrGroup;
+    rank = ranks && ranks[muscleKey];
+    name = MUSCLE_NAMES_FR[muscleKey] || muscleKey;
+  }
   var tierColors = {
     'Atrophié':'#555566','Développé':'#7A8C6E',
     'Sculpté':'#C8A24C','Puissant':'#78D8D0',
@@ -3565,6 +3595,14 @@ function hideMusclePopover() {
   if (pop) pop.style.display = 'none';
 }
 
+function onMuscleGroupClick(groupKey, event) {
+  var index = window._MUSCLE_GROUP_INDEX || {};
+  var group = index[groupKey];
+  if (!group) return;
+  highlightMuscleOnFigure(group.keys[0], null);
+  showMusclePopover({ keys: group.keys, name: group.name }, event);
+}
+
 const MUSCLE_GROUPS = [
   { label: 'Haut du corps', muscles: [
     'chest_upper','chest_lower',
@@ -3590,29 +3628,42 @@ function renderMuscleList() {
   var ranks = db.gamification && db.gamification.muscleRanks || {};
 
   var MUSCLE_GROUPS = [
-    { label:'Haut du corps', muscles:[
-      'chest_upper','chest_lower','shoulders_front',
-      'shoulders_side','shoulders_rear','biceps','triceps',
-      'forearms','neck'
+    { label: 'Haut du corps', muscles: [
+      { key: 'pectoraux',    keys: ['chest_upper','chest_lower'],                        name: 'Pectoraux' },
+      { key: 'epaules',      keys: ['shoulders_front','shoulders_side','shoulders_rear'], name: 'Épaules' },
+      { key: 'biceps',       keys: ['biceps'],                                           name: 'Biceps' },
+      { key: 'triceps',      keys: ['triceps'],                                          name: 'Triceps' },
+      { key: 'forearms',     keys: ['forearms'],                                         name: 'Avant-bras' },
+      { key: 'neck',         keys: ['neck'],                                             name: 'Cou' },
     ]},
-    { label:'Core', muscles:[
-      'abs','obliques','serratus','hip_flexors','erectors'
+    { label: 'Core', muscles: [
+      { key: 'abs_core',     keys: ['abs','obliques','serratus'],                        name: 'Abdominaux' },
+      { key: 'hip_flexors',  keys: ['hip_flexors'],                                      name: 'Fléchisseurs de hanche' },
+      { key: 'erectors',     keys: ['erectors'],                                         name: 'Bas du dos' },
     ]},
-    { label:'Dos', muscles:[
-      'trapezius','lats','rhomboids'
+    { label: 'Dos', muscles: [
+      { key: 'trapezius',    keys: ['trapezius'],                                        name: 'Trapèzes' },
+      { key: 'lats',         keys: ['lats'],                                             name: 'Grand dorsal' },
+      { key: 'rhomboids',    keys: ['rhomboids'],                                        name: 'Haut du dos' },
     ]},
-    { label:'Bas du corps', muscles:[
-      'quadriceps','hamstrings','glutes_major',
-      'adductors','abductors','calves_gastro','calves_soleus'
+    { label: 'Bas du corps', muscles: [
+      { key: 'glutes',       keys: ['glutes_major'],                                     name: 'Fessiers' },
+      { key: 'abductors',    keys: ['abductors'],                                        name: 'Abducteurs' },
+      { key: 'adductors',    keys: ['adductors'],                                        name: 'Adducteurs' },
+      { key: 'quadriceps',   keys: ['quadriceps'],                                       name: 'Quadriceps' },
+      { key: 'hamstrings',   keys: ['hamstrings'],                                       name: 'Ischio-jambiers' },
+      { key: 'calves',       keys: ['calves_gastro','calves_soleus'],                    name: 'Mollets' },
     ]},
   ];
+
+  var tierOrder = ['Atrophié','Développé','Sculpté','Puissant','Massif','Titanesque'];
+  window._MUSCLE_GROUP_INDEX = window._MUSCLE_GROUP_INDEX || {};
 
   var html = '<div style="font-family:system-ui;">';
 
   MUSCLE_GROUPS.forEach(function(group) {
     html += '<div style="margin-bottom:16px;">';
 
-    // En-tête groupe style anatomique
     html += '<div style="'
       + 'display:flex;align-items:center;gap:8px;'
       + 'margin-bottom:8px;">'
@@ -3624,31 +3675,42 @@ function renderMuscleList() {
       + '<div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>'
       + '</div>';
 
-    group.muscles.forEach(function(key) {
-      var rank = ranks[key] || {};
-      var tier = rank.tier || 'Atrophié';
-      var color = rank.color || '#555566';
-      var score = rank.score || 0;
-      var tonnage = rank.tonnage || 0;
-      var name = MUSCLE_NAMES_FR[key] || key;
+    group.muscles.forEach(function(entry) {
+      window._MUSCLE_GROUP_INDEX[entry.key] = entry;
+
+      // Agrégation : tonnage somme, tier min, score moyen
+      var sumT = 0, sumS = 0, cnt = 0;
+      var minIdx = 99, minR = null;
+      entry.keys.forEach(function(k) {
+        var r = ranks[k];
+        if (r) {
+          sumT += (r.tonnage || 0);
+          sumS += (r.score || 0);
+          cnt++;
+          var idx = tierOrder.indexOf(r.tier);
+          if (idx >= 0 && idx < minIdx) { minIdx = idx; minR = r; }
+        }
+      });
+      var tier = minR ? minR.tier : 'Atrophié';
+      var color = minR ? (minR.color || '#555566') : '#555566';
+      var score = cnt ? Math.round(sumS / cnt) : 0;
+      var tonnage = sumT;
+      var name = entry.name;
       var t = tonnage >= 1000
         ? (Math.round(tonnage/100)/10) + 't'
         : (tonnage > 0 ? tonnage + 'kg' : '—');
 
-      html += '<div onclick="highlightMuscleOnFigure(\'' + key
-        + '\',event)" style="'
-        + 'display:grid;grid-template-columns:8px 1fr auto auto;'
+      html += '<div onclick="onMuscleGroupClick(\'' + entry.key + '\',event)" style="'
+        + 'display:grid;grid-template-columns:8px 1fr auto auto auto;'
         + 'align-items:center;gap:8px;'
         + 'padding:6px 4px;cursor:pointer;border-radius:6px;'
         + 'transition:background 0.15s;"'
         + ' onmouseenter="this.style.background=\'rgba(255,255,255,0.04)\'"'
         + ' onmouseleave="this.style.background=\'transparent\'">'
 
-        // Pastille tier
         + '<div style="width:8px;height:8px;border-radius:50%;'
         + 'background:' + color + ';flex-shrink:0;"></div>'
 
-        // Nom + barre inline
         + '<div style="min-width:0;">'
         + '<div style="font-size:12px;color:rgba(255,255,255,0.85);'
         + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'
@@ -3659,11 +3721,9 @@ function renderMuscleList() {
         + 'background:' + color + ';border-radius:1px;"></div>'
         + '</div></div>'
 
-        // Tonnage
         + '<span style="font-size:10px;color:rgba(255,255,255,0.3);'
         + 'white-space:nowrap;">' + t + '</span>'
 
-        // Tier badge
         + '<span style="font-size:9px;font-weight:600;'
         + 'color:' + color + ';white-space:nowrap;'
         + 'min-width:60px;text-align:right;">' + tier + '</span>'

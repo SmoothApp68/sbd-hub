@@ -3061,7 +3061,8 @@ const MUSCLE_DESC = {
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
   'chest':      ['chest_upper', 'chest_lower'],
-  'obliques':   ['obliques', 'serratus'],
+  'serratus':   ['serratus'],
+  'obliques':   ['obliques'],
   'abs':        ['abs'],
   'biceps':     ['biceps'],
   'triceps':    ['triceps'],
@@ -3076,17 +3077,20 @@ const BODY_MUSCLE_MAP = {
 };
 
 const BODY_MUSCLE_MAP_BACK = {
-  'neck':       ['neck'],
-  'trapezius':  ['trapezius'],
-  'deltoids':   ['shoulders_rear', 'shoulders_side'],
-  'upper-back': ['lats', 'rhomboids'],
-  'triceps':    ['triceps'],
-  'lower-back': ['erectors'],
-  'forearm':    ['forearms'],
-  'gluteal':    ['glutes_major', 'abductors'],
-  'adductors':  ['adductors'],
-  'hamstring':  ['hamstrings'],
-  'calves':     ['calves_gastro', 'calves_soleus'],
+  'neck':          ['neck'],
+  'trapezius':     ['trapezius'],
+  'deltoids':      ['shoulders_rear', 'shoulders_side'],
+  'lats':          ['lats'],
+  'rhomboids':     ['rhomboids'],
+  'triceps':       ['triceps'],
+  'erectors':      ['erectors'],
+  'forearm':       ['forearms'],
+  'glutes_major':  ['glutes_major'],
+  'abductors':     ['abductors'],
+  'adductors':     ['adductors'],
+  'hamstring':     ['hamstrings'],
+  'calves_gastro': ['calves_gastro'],
+  'calves_soleus': ['calves_soleus'],
 };
 
 const MUSCLE_TIER_COLORS = {
@@ -3497,8 +3501,9 @@ function highlightMuscleOnFigure(muscleKey, event) {
 
   // Préférer back si muscle principalement dorsal
   var BACK_PREFERRED = [
-    'shoulders_rear', 'lats', 'rhomboids', 'erectors',
-    'glutes_major', 'hamstrings', 'abductors'
+    'shoulders_rear','lats','rhomboids','erectors',
+    'glutes_major','hamstrings','abductors',
+    'calves_gastro','calves_soleus'
   ];
   var targetSide, targetSlug;
   if (BACK_PREFERRED.indexOf(muscleKey) >= 0 && targetSlugBack) {

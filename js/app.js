@@ -3033,32 +3033,31 @@ const MUSCLE_DESC = {
 
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
-  'chest':          ['pectoraux'],
-  'obliques':       ['abdominaux'],
-  'abs':            ['abdominaux'],
-  'biceps':         ['biceps'],
-  'triceps':        ['triceps'],
-  'neck':           ['neck'],
-  'front-deltoids': ['epaules'],
-  'abductors':      ['abducteurs'],
-  'quadriceps':     ['quadriceps'],
-  'calves':         ['mollets'],
-  'forearm':        ['forearms'],
+  'chest':      ['pectoraux'],
+  'obliques':   ['abdominaux'],
+  'abs':        ['abdominaux'],
+  'biceps':     ['biceps'],
+  'triceps':    ['triceps'],
+  'neck':       ['neck'],
+  'deltoids':   ['epaules'],
+  'adductors':  ['adducteurs'],
+  'quadriceps': ['quadriceps'],
+  'calves':     ['mollets'],
+  'forearm':    ['forearms'],
 };
 
 const BODY_MUSCLE_MAP_BACK = {
-  'trapezius':     ['trapezes'],
-  'back-deltoids': ['epaules'],
-  'upper-back':    ['grand_dorsal','haut_du_dos'],
-  'lower-back':    ['bas_du_dos'],
-  'forearm':       ['forearms'],
-  'gluteal':       ['fessiers','abducteurs'],
-  'adductor':      ['adducteurs'],
-  'hamstring':     ['ischio_jambiers'],
-  'calves':        ['mollets'],
-  'left-soleus':   ['mollets'],
-  'right-soleus':  ['mollets'],
-  'triceps':       ['triceps'],
+  'neck':       ['neck'],
+  'trapezius':  ['trapezes'],
+  'deltoids':   ['epaules'],
+  'upper-back': ['grand_dorsal','haut_du_dos'],
+  'triceps':    ['triceps'],
+  'lower-back': ['bas_du_dos'],
+  'forearm':    ['forearms'],
+  'gluteal':    ['fessiers','abducteurs'],
+  'adductors':  ['adducteurs'],
+  'hamstring':  ['ischio_jambiers'],
+  'calves':     ['mollets'],
 };
 
 const MUSCLE_TIER_COLORS = {
@@ -3500,7 +3499,8 @@ function highlightMuscleOnFigure(muscleKey, event) {
   // Préférer back si muscle principalement dorsal
   var BACK_PREFERRED = [
     'epaules','grand_dorsal','haut_du_dos','bas_du_dos',
-    'trapezes','fessiers','ischio_jambiers','abducteurs'
+    'trapezes','fessiers','ischio_jambiers','abducteurs',
+    'mollets'
   ];
   var targetSide, targetSlug;
   if (BACK_PREFERRED.indexOf(muscleKey) >= 0 && targetSlugBack) {

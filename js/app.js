@@ -2506,14 +2506,34 @@ function getNextXPLevel(xp) {
   return null;
 }
 
+// Exercices où le poids de corps contribue à la charge totale (e1RM doit
+// inclure bw + lest). Sinon les tractions/dips/pompes à poids de corps seul
+// donnent e1RM=0 (calcE1RM(0, reps) = 0) et n'apparaissent jamais en Niveaux.
+function isBodyweightExo(name) {
+  var n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return /traction|pull.?up|chin.?up|dips|pompe|push.?up/.test(n);
+}
+
 function getAllBestE1RMs() {
   // Returns { exoName: { e1rm, date } } for all exercises across all logs
   const best = {};
+  const bw = getUserBW();
   db.logs.forEach(log => {
     (log.exercises||[]).forEach(exo => {
-      if (!exo.maxRM || exo.maxRM <= 0) return;
-      if (!best[exo.name] || exo.maxRM > best[exo.name].e1rm) {
-        best[exo.name] = { e1rm: exo.maxRM, date: log.shortDate || log.date || '' };
+      var e1rm = exo.maxRM || 0;
+      if (isBodyweightExo(exo.name)) {
+        var sets = exo.allSets || exo.series || [];
+        sets.forEach(function(s) {
+          var r = s.reps || 0;
+          if (r <= 0) return;
+          var effW = (s.weight || 0) + bw;
+          var rm = calcE1RM(effW, r);
+          if (rm > e1rm) e1rm = rm;
+        });
+      }
+      if (e1rm <= 0) return;
+      if (!best[exo.name] || e1rm > best[exo.name].e1rm) {
+        best[exo.name] = { e1rm: e1rm, date: log.shortDate || log.date || '' };
       }
     });
   });
@@ -4970,7 +4990,7 @@ function calcBadgeProgress(badge) {
   var id = badge.id;
   var logs = db.logs;
   var B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
-  var bw = db.user.bw||80;
+  var bw = getUserBW();
 
   // Pre-compute stats
   var totalVol = 0, maxSessVol = 0, totalSets = 0, totalDur = 0, maxSessDur = 0;
@@ -5416,7 +5436,7 @@ function renderGamificationTab() {
     for (var eName in bestE1RMs) {
       var data = bestE1RMs[eName];
       var sl = getStrengthLevel(eName, data.e1rm, bw);
-      if (!sl || sl.levelIdx < 0) continue;
+      if (!sl || sl.levelIdx === undefined) continue;
       var sesCount = 0, prCount = 0, runBest = 0;
       getSortedLogs().slice().reverse().forEach(function(log) {
         var found = false;
@@ -9501,7 +9521,7 @@ function getMuscleRecoveryStatus() {
 }
 
 function generateCoachAlgoMessage() {
-  const bw=db.user.bw,bench=db.bestPR.bench,squat=db.bestPR.squat,dead=db.bestPR.deadlift;
+  const bw=getUserBW(),bench=db.bestPR.bench,squat=db.bestPR.squat,dead=db.bestPR.deadlift;
   const logs7=getLogsInRange(7),tonnage7=logs7.reduce((s,l)=>s+l.volume,0);
   const ipf=calcIPFGLTotal(bench,squat,dead,bw);
   const tdee=calcTDEE(bw,tonnage7);
@@ -9941,7 +9961,7 @@ function calcFormScore() {
   const c4_tracking = Math.min(12.5, Math.round((nutriDays.length / 7) * 12.5 * 10) / 10);
   let c4_adherence = 0;
   if (nutriDays.length > 0) {
-    const bw = db.user.bw || 80;
+    const bw = getUserBW();
     const tdee = db.user.tdee || calcCalorieCible(bw);
     const protTarget = db.user.protTarget || Math.round(bw * 1.95);
     let adherentDays = 0;
@@ -10066,7 +10086,7 @@ function renderMacroHistory() {
   }
   const hasData = entries.some(e => e.kcal > 0);
   if (!hasData) { el.innerHTML = ''; return; }
-  const macros = calcMacrosCibles(calcCalorieCible(db.user.bw), db.user.bw);
+  const macros = calcMacrosCibles(calcCalorieCible(getUserBW()), getUserBW());
   const maxKcal = Math.max(...entries.map(e => e.kcal), macros.prot*4+macros.carb*4+macros.fat*9, 1);
   el.innerHTML =
     '<div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin:14px 0 4px;">Macros 7 jours</div>' +
@@ -10137,7 +10157,7 @@ function toggleCorpsAcc(id) {
 }
 
 function renderCorpsTab() {
-  const bw=db.user.bw;
+  const bw=getUserBW();
   const bench=db.bestPR.bench,squat=db.bestPR.squat,dead=db.bestPR.deadlift;
   const logs7=getLogsInRange(7),tonnage7=logs7.reduce((s,l)=>s+l.volume,0);
   const ipf=calcIPFGLTotal(bench,squat,dead,bw);
@@ -12556,7 +12576,7 @@ function wpFindBestMatch(targetName, logs) {
 
 // Fallback PR/BW pour exercices jamais faits
 function wpEstimateWeight(exoName) {
-  var bw = parseFloat(db.user && db.user.bw) || 80;
+  var bw = getUserBW();
   var pr = db.bestPR || {};
   var ESTIMATES = {
     'Spoto Bench':              { base: 'bench',    ratio: 0.80 },
@@ -13244,7 +13264,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     } else if (acc.type === 'cardio') {
       exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, sets: [{ durationMin: 45, isWarmup: false }] });
     } else if (acc.type === 'reps' && acc.useBodyweight) {
-      var bw = parseFloat(db.user.bw) || 80;
+      var bw = getUserBW();
       exercises.push({ name: acc.name, type: 'reps', restSeconds: acc.rest || 120, bodyweightBase: bw,
         sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || 8, weight: null, isWarmup: false, useBodyweight: true }; }) });
     } else {
@@ -13491,7 +13511,7 @@ function generateWeeklyPlan() {
     // Correction 7: Avancé en reprise (Jordan) — poids > 1.2× PC sur Squat/Deadlift
     var isAdvancedReprise = false;
     if (logsCount < 24) {
-      var bwCheck = parseFloat(db.user && db.user.bw) || 80;
+      var bwCheck = getUserBW();
       var threshold = bwCheck * 1.2;
       var recentLogsCheck = (db.logs || []).slice(-10);
       recentLogsCheck.forEach(function(log) {

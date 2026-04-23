@@ -3477,6 +3477,78 @@ function showMusclePopover(muscleKey, event) {
   pop.style.display = 'block';
 }
 
+function highlightMuscleOnFigure(muscleKey, event) {
+  // 1. Trouver quelle vue contient ce muscle
+  var inFront = Object.keys(BODY_MUSCLE_MAP)
+    .some(function(slug) {
+      return BODY_MUSCLE_MAP[slug].indexOf(muscleKey) >= 0;
+    });
+  var targetSide = inFront ? 'front' : 'back';
+
+  // 2. Switcher vers la bonne vue si nécessaire
+  if (window.currentBodySide !== targetSide) {
+    var btn = document.querySelector(
+      '[onclick*="switchBodyView(\'' + targetSide + '\')"]'
+    );
+    if (btn) btn.click();
+    else if (typeof switchBodyView === 'function') {
+      switchBodyView(targetSide);
+    }
+  }
+
+  // 3. Scroller vers la figure
+  var container = document.getElementById('body-figure-container')
+    || document.querySelector('.body-figure-container');
+  if (container) {
+    container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // 4. Après rendu (délai switch de vue), highlighter
+  setTimeout(function() {
+    var svg = document.querySelector(
+      '#body-figure-container svg, .body-figure-container svg'
+    );
+    if (!svg) return;
+
+    var map = targetSide === 'front'
+      ? BODY_MUSCLE_MAP : BODY_MUSCLE_MAP_BACK;
+
+    var targetSlug = null;
+    Object.keys(map).forEach(function(slug) {
+      if (map[slug].indexOf(muscleKey) >= 0) targetSlug = slug;
+    });
+    if (!targetSlug) return;
+
+    svg.querySelectorAll('[data-slug]').forEach(function(el) {
+      el.style.opacity = '0.15';
+      el.style.filter = '';
+      el.style.transition = 'opacity 0.3s, filter 0.3s';
+    });
+
+    var rank = db.gamification && db.gamification.muscleRanks
+      && db.gamification.muscleRanks[muscleKey];
+    var glowColor = rank ? rank.color : '#BF5AF2';
+    svg.querySelectorAll('[data-slug="' + targetSlug + '"]')
+      .forEach(function(el) {
+        el.style.opacity = '1';
+        el.style.filter = 'brightness(1.5) drop-shadow(0 0 6px '
+          + glowColor + ')';
+      });
+
+    clearTimeout(window._muscleHighlightTimeout);
+    window._muscleHighlightTimeout = setTimeout(function() {
+      svg.querySelectorAll('[data-slug]').forEach(function(el) {
+        el.style.opacity = '';
+        el.style.filter = '';
+      });
+    }, 3000);
+
+  }, targetSide !== window.currentBodySide ? 450 : 50);
+
+  // 5. Afficher le popover
+  if (event) showMusclePopover(muscleKey, event);
+}
+
 function hideMusclePopover() {
   var pop = document.getElementById('muscle-popover');
   if (pop) pop.style.display = 'none';
@@ -3552,7 +3624,7 @@ function renderMuscleList() {
         ? (Math.round(tonnage/100)/10) + 't'
         : (tonnage > 0 ? tonnage + 'kg' : '—');
 
-      html += '<div onclick="showMusclePopover(\'' + key
+      html += '<div onclick="highlightMuscleOnFigure(\'' + key
         + '\',event)" style="'
         + 'display:grid;grid-template-columns:8px 1fr auto auto;'
         + 'align-items:center;gap:8px;'
@@ -3584,6 +3656,9 @@ function renderMuscleList() {
         + '<span style="font-size:9px;font-weight:600;'
         + 'color:' + color + ';white-space:nowrap;'
         + 'min-width:60px;text-align:right;">' + tier + '</span>'
+
+        + '<span style="font-size:9px;color:rgba(255,255,255,0.2);'
+        + 'margin-left:4px;">↗</span>'
 
         + '</div>';
     });

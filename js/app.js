@@ -2987,7 +2987,7 @@ const MUSCLE_NAMES_FR = {
   fessiers:'Fessiers', abducteurs:'Abducteurs',
   adducteurs:'Adducteurs', quadriceps:'Quadriceps',
   ischio_jambiers:'Ischio-jambiers', mollets:'Mollets',
-  obliques:'Obliques', solaire:'Soléaire',
+  obliques:'Obliques',
   serratus:'Dentelé antérieur',
   chest_upper:'Pectoraux hauts', chest_lower:'Pectoraux bas',
   shoulders_front:'Deltoïde antérieur', shoulders_side:'Deltoïde latéral', shoulders_rear:'Deltoïde postérieur',
@@ -4148,6 +4148,14 @@ const MUSCLE_PARENT_MAP = {
   forearms:        'forearms',
 };
 
+const MUSCLE_GROUP_CHILDREN = {
+  pectoraux:    ['chest_upper', 'chest_lower'],
+  epaules:      ['shoulders_front', 'shoulders_side', 'shoulders_rear'],
+  grand_dorsal: ['haut_du_dos'],
+  quadriceps:   ['hip_flexors'],
+  mollets:      ['calves_gastro', 'calves_soleus'],
+};
+
 const BODYWEIGHT_FACTORS = {
   'planche':              { type:'iso', factor:0.015 },
   'gainage':              { type:'iso', factor:0.015 },
@@ -4445,6 +4453,29 @@ function calcAndStoreMuscleRanks(force) {
         tonnage: Math.round(tonnage),
         updatedAt: now
       };
+    });
+
+    var _tierOrderFix = ['Atrophié','Développé','Sculpté','Puissant','Massif','Titanesque'];
+    var _tierColorsFix = {
+      'Atrophié':'#555566','Développé':'#7A8C6E',
+      'Sculpté':'#C8A24C','Puissant':'#78D8D0',
+      'Massif':'#6EB4FF','Titanesque':'#BF5AF2'
+    };
+    Object.keys(MUSCLE_GROUP_CHILDREN).forEach(function(parent) {
+      var children = MUSCLE_GROUP_CHILDREN[parent];
+      if (!ranks[parent]) return;
+      var maxTierIdx = _tierOrderFix.indexOf(ranks[parent].tier);
+      children.forEach(function(child) {
+        if (!ranks[child]) return;
+        var childIdx = _tierOrderFix.indexOf(ranks[child].tier);
+        if (childIdx > maxTierIdx) maxTierIdx = childIdx;
+      });
+      var parentIdx = _tierOrderFix.indexOf(ranks[parent].tier);
+      if (maxTierIdx > parentIdx) {
+        ranks[parent].tier = _tierOrderFix[maxTierIdx];
+        ranks[parent].color = _tierColorsFix[_tierOrderFix[maxTierIdx]];
+        ranks[parent].index = maxTierIdx;
+      }
     });
 
     var totalMuscleXP = 0;

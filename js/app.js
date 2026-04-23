@@ -3808,7 +3808,7 @@ const MUSCLE_TONNAGE_TARGETS = {
   quadriceps:      { developpe:5000,  sculpte:15000, puissant:30000, massif:60000,  titanesque:100000 },
   ischio_jambiers: { developpe:3000,  sculpte:9000,  puissant:18000, massif:35000,  titanesque:70000  },
   mollets:         { developpe:3000,  sculpte:9000,  puissant:18000, massif:35000,  titanesque:70000  },
-  obliques:        { developpe:1500,  sculpte:4500,  puissant:9000,  massif:18000,  titanesque:35000  },
+  obliques:        { developpe:300,   sculpte:800,   puissant:2000,  massif:5000,   titanesque:10000  },
   solaire:         { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
   serratus:        { developpe:500,   sculpte:1500,  puissant:3000,  massif:6000,   titanesque:12000  },
   chest_upper:     { developpe:2000,  sculpte:6000,  puissant:12000, massif:25000,  titanesque:50000  },
@@ -4032,6 +4032,8 @@ function findExoInDatabase(exoName) {
     'machine dips assis':            'dips',
     'curl pupitre machine':          'barbell_curl',
     'curl pupitre haltere':          'barbell_curl',
+    'shrug haltere':                 'shrugs_dumbbell',
+    'shrug poulie':                  'edb_cable_shrugs',
   };
 
   var nClean = n.replace(/[()]/g,' ')

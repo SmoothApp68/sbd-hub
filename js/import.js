@@ -1599,3 +1599,46 @@ function checkAndGenerateMonthlyReport() {
   saveDBNow();
   if (typeof renderReportsTimeline === 'function') renderReportsTimeline();
 }
+
+function migrateExerciseNames() {
+  // Guard: only run once per db
+  if (db.migrationV1 === true) return;
+
+  // Build lookup: normalized nameAlt/name → canonical name
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const lookup = new Map();
+  for (const exo of Object.values(EXO_DATABASE)) {
+    if (!exo || !exo.name) continue;
+    lookup.set(norm(exo.name), exo.name);
+    (exo.nameAlt || []).forEach(alt => {
+      if (alt && !lookup.has(norm(alt))) lookup.set(norm(alt), exo.name);
+    });
+  }
+
+  let renamed = 0;
+  const log = [];
+
+  (db.logs || []).forEach(session => {
+    (session.exercises || []).forEach(exo => {
+      if (!exo.name) return;
+      const key = norm(exo.name);
+      const canonical = lookup.get(key);
+      // Only rename on EXACT match (score 100) — never fuzzy
+      if (canonical && canonical !== exo.name) {
+        log.push(exo.name + ' → ' + canonical);
+        exo.name = canonical;
+        renamed++;
+      }
+    });
+  });
+
+  db.migrationV1 = true;
+
+  if (renamed > 0) {
+    console.log('[migrateExerciseNames] ' + renamed + ' exercises renamed:', log);
+    saveDB(); // triggers debouncedCloudSync → syncToCloud
+  } else {
+    // Mark migration done even if nothing to rename
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch(e) {}
+  }
+}

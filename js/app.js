@@ -9378,6 +9378,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     showOnboarding();
   }
 
+  if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
+
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
     cloudSignIn().then(async user => {

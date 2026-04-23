@@ -314,33 +314,38 @@ function parseHevyPreview(text, title, dateStr, timestamp) {
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
     if (!line) continue;
-    if (line.startsWith('@') || line.startsWith('http')) continue;
+    if (line.startsWith('@') || line.startsWith('http') || line.toLowerCase().includes('hevyapp')) continue;
     if (line.toLowerCase().startsWith('le ') && line.includes('202')) continue;
 
     // Détection de série : "Série X:" ou "Set X:"
     var setMatch = line.match(/^s[ée]rie\s+(\d+)\s*:\s*(.+)/i);
     if (setMatch && currentExo) {
       var setData = setMatch[2];
-      var weight = 0, reps = 0, isWarmup = false, rpe = null, isCardio = false, distance = 0, duration = 0;
+      var weight = 0, reps = 0, isWarmup = false, isAbandon = false, isDrop = false, setType = 'normal', rpe = null, isCardio = false, distance = 0, duration = 0;
 
-      // Échauffement
-      if (/\[.chauffement\]/i.test(setData)) isWarmup = true;
+      // Set type flags
+      if (/\[.chauffement\]/i.test(setData)) { isWarmup = true; setType = 'warmup'; }
+      if (/\[abandon\]/i.test(setData)) { isAbandon = true; setType = 'failure'; }
+      if (/\[drop(\s*set)?\]/i.test(setData)) { isDrop = true; setType = 'drop'; }
       // RPE
       var rpeMatch = setData.match(/@\s*([\d.]+)\s*rpe/i);
       if (rpeMatch) rpe = parseFloat(rpeMatch[1]);
       // Poids x reps
       var wxr = setData.match(/([\d.]+)\s*kg\s*[x×]\s*(\d+)/i);
       if (wxr) { weight = parseFloat(wxr[1]); reps = parseInt(wxr[2]); }
-      // Cardio : km - temps
-      var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(\d+)min?\s*(\d+)?s?/i);
-      if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = parseInt(cardioMatch[2]) * 60 + (parseInt(cardioMatch[3]) || 0); }
+      // Paliers (escaliers) — store count as reps
+      var paliersMatch = setData.match(/(\d+)\s*paliers?/i);
+      if (paliersMatch) { reps = parseInt(paliersMatch[1]); }
+      // Cardio : km - temps (with optional hours)
+      var cardioMatch = setData.match(/([\d.]+)\s*km\s*-\s*(?:(\d+)h\s*)?(\d+)min?\s*(\d+)?s?/i);
+      if (cardioMatch) { isCardio = true; distance = parseFloat(cardioMatch[1]); duration = (parseInt(cardioMatch[2]) || 0) * 3600 + parseInt(cardioMatch[3]) * 60 + (parseInt(cardioMatch[4]) || 0); }
 
-      currentExo.sets.push({ weight, reps, isWarmup, rpe, isCardio, distance, duration });
+      currentExo.sets.push({ weight, reps, isWarmup, isAbandon, isDrop, setType, rpe, isCardio, distance, duration });
       continue;
     }
 
     // Si la ligne n'est pas une série et n'est pas la première ligne (titre), c'est un nom d'exercice
-    if (i > 0 && !setMatch && line.length > 2 && !line.match(/^\d/) && line !== title) {
+    if (i > 0 && !setMatch && line.length > 2 && !line.match(/^\d/) && line !== title && !line.startsWith('"')) {
       currentExo = { name: line, sets: [], matched: null };
       // Fuzzy match avec la base d'exercices
       if (typeof EXO_DATABASE !== 'undefined') {
@@ -802,9 +807,10 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
   for (const line of lines) {
     const l = line.trim().toLowerCase();
     if (!l||l.includes('hevy')||(l.startsWith('le ')&&l.includes('202'))||l.includes('http')||line.trim()===firstLine) continue;
+    if (l.startsWith('"')) continue;
     if (/^\d+\/\d+\/\d+/.test(l)||(l.includes('"')&&(/\d+\/\d+\/\d+/.test(l)||l.includes('sec')||l.includes('iso')))) continue;
     if (l.startsWith('@')) continue;
-    const isSerieData = l.startsWith('série')&&(l.includes('kg x')||l.includes('km')||l.includes('sec')||l.includes('min')||l.includes('répétitions')||l.includes('repetitions')||l.includes('reps')||/\d+s\b/.test(l));
+    const isSerieData = l.startsWith('série')&&(l.includes('kg x')||l.includes('km')||l.includes('paliers')||l.includes('sec')||l.includes('min')||l.includes('répétitions')||l.includes('repetitions')||l.includes('reps')||/\d+s\b/.test(l));
     const isCompressedData = /^\d+x/.test(l)||/^\d+[.,]\d+km/.test(l)||l.includes('1rm est:');
     if (!isSerieData&&!isCompressedData) {
       if (currExo&&(currExo.maxRM>0||currExo.isCardio||currExo.isTime||currExo.isReps||currExo.sets>0)) session.exercises.push(currExo);
@@ -827,7 +833,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
         const isDrop   = /\[drop(\s*set)?\]/i.test(line);
         const countForRecord = !isW && !isAbandon && !isDrop;
         const _setType = isW ? 'warmup' : isAbandon ? 'failure' : isDrop ? 'drop' : 'normal';
-        const _rpeMatch = line.match(/RPE\s*:?\s*(\d+\.?\d*)/i);
+        const _rpeMatch = line.match(/@\s*([\d.]+)\s*rpe/i) || line.match(/RPE\s*:?\s*(\d+\.?\d*)/i);
         currExo.allSets.push({ weight: w, reps: r, setType: _setType, rpe: _rpeMatch ? parseFloat(_rpeMatch[1]) : null });
         if(countForRecord && w>0 && r>0) currExo._rawSets.push({weight:w, reps:r});
         session.volume+=w*r;
@@ -840,6 +846,9 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
       if(repMatch){const reps=parseInt(repMatch[1]);const w=kgMatch?parseFloat(kgMatch[1]):0;currExo.sets++;currExo.totalReps+=reps;if(reps>currExo.maxReps){currExo.maxReps=reps;currExo.maxRepsDate=sessionTimestamp;}if(w>0){session.volume+=w*reps;const rm=calcE1RM(w,reps);if(rm>currExo.maxRM){currExo.maxRM=rm;currExo.maxRMDate=sessionTimestamp;}const rKey=String(reps);if(!currExo.repRecords[rKey]||w>currExo.repRecords[rKey])currExo.repRecords[rKey]=w;}}else{currExo.sets++;}
     } else if (l.startsWith('série')&&l.includes('km')&&currExo.isCardio) {
       parseCardioLine(l,currExo,sessionTimestamp);
+    } else if (l.startsWith('série')&&l.includes('paliers')&&currExo.isCardio) {
+      const pm=l.match(/(\d+)\s*paliers?/i);
+      if(pm){const count=parseInt(pm[1]);currExo.sets++;if(count>(currExo.maxReps||0)){currExo.maxReps=count;currExo.maxRepsDate=sessionTimestamp;}currExo.totalReps=(currExo.totalReps||0)+count;}
     } else if (l.startsWith('série')&&(l.includes('min')||l.includes('sec')||/\d+s\b/.test(l))&&(currExo.isTime||currExo.exoType==='time')) {
       parsePlankLine(l,currExo,session,sessionTimestamp);
     } else if (l.startsWith('série')&&l.includes('sec')&&!currExo.isCardio&&!currExo.maxRM) {

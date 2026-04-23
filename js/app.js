@@ -3069,13 +3069,10 @@ const BODY_MUSCLE_MAP = {
   'trapezius':  ['trapezius'],
   'deltoids':   ['shoulders_front', 'shoulders_side'],
   'adductors':  ['adductors'],
-  'quadriceps': ['quadriceps'],
+  'quadriceps': ['quadriceps', 'abductors'],
   'calves':     ['calves_gastro', 'calves_soleus'],
   'forearm':    ['forearms'],
-  'upper-back': ['lats', 'rhomboids'],
-  'lower-back': ['erectors'],
-  'gluteal':    ['glutes_major'],
-  'hamstring':  ['hamstrings'],
+  'tibialis':   ['quadriceps'],
 };
 
 const BODY_MUSCLE_MAP_BACK = {
@@ -3478,46 +3475,61 @@ function showMusclePopover(muscleKey, event) {
 }
 
 function highlightMuscleOnFigure(muscleKey, event) {
-  // 1. Trouver quelle vue contient ce muscle
-  var inFront = Object.keys(BODY_MUSCLE_MAP)
-    .some(function(slug) {
-      return BODY_MUSCLE_MAP[slug].indexOf(muscleKey) >= 0;
-    });
-  var targetSide = inFront ? 'front' : 'back';
+  var targetSlugFront = null;
+  var targetSlugBack = null;
 
-  // 2. Switcher vers la bonne vue si nécessaire
-  if (window.currentBodySide !== targetSide) {
-    var btn = document.querySelector(
-      '[onclick*="switchBodyView(\'' + targetSide + '\')"]'
-    );
-    if (btn) btn.click();
-    else if (typeof switchBodyView === 'function') {
-      switchBodyView(targetSide);
-    }
+  Object.keys(BODY_MUSCLE_MAP).forEach(function(slug) {
+    if (BODY_MUSCLE_MAP[slug].indexOf(muscleKey) >= 0)
+      targetSlugFront = slug;
+  });
+  Object.keys(BODY_MUSCLE_MAP_BACK).forEach(function(slug) {
+    if (BODY_MUSCLE_MAP_BACK[slug].indexOf(muscleKey) >= 0)
+      targetSlugBack = slug;
+  });
+
+  // Muscles sans slug SVG (serratus, hip_flexors)
+  // → juste popover, pas de highlight
+  if (!targetSlugFront && !targetSlugBack) {
+    if (event) showMusclePopover(muscleKey, event);
+    return;
   }
 
-  // 3. Scroller vers la figure
+  // Préférer back si muscle principalement dorsal
+  var BACK_PREFERRED = ['shoulders_rear','lats','rhomboids',
+    'erectors','glutes_major','hamstrings'];
+  var targetSide, targetSlug;
+  if (BACK_PREFERRED.indexOf(muscleKey) >= 0 && targetSlugBack) {
+    targetSide = 'back';
+    targetSlug = targetSlugBack;
+  } else if (targetSlugFront) {
+    targetSide = 'front';
+    targetSlug = targetSlugFront;
+  } else {
+    targetSide = 'back';
+    targetSlug = targetSlugBack;
+  }
+
+  var needSwitch = window.currentBodySide !== targetSide;
+  if (needSwitch && typeof switchBodyView === 'function') {
+    switchBodyView(targetSide);
+  }
+
   var container = document.getElementById('body-figure-container')
     || document.querySelector('.body-figure-container');
   if (container) {
-    container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    container.scrollIntoView({ behavior:'smooth', block:'center' });
   }
 
-  // 4. Après rendu (délai switch de vue), highlighter
   setTimeout(function() {
     var svg = document.querySelector(
       '#body-figure-container svg, .body-figure-container svg'
     );
     if (!svg) return;
 
-    var map = targetSide === 'front'
-      ? BODY_MUSCLE_MAP : BODY_MUSCLE_MAP_BACK;
-
-    var targetSlug = null;
-    Object.keys(map).forEach(function(slug) {
-      if (map[slug].indexOf(muscleKey) >= 0) targetSlug = slug;
-    });
-    if (!targetSlug) return;
+    var rank = db.gamification
+      && db.gamification.muscleRanks
+      && db.gamification.muscleRanks[muscleKey];
+    var glowColor = rank ? (rank.color || '#BF5AF2') : '#BF5AF2';
 
     svg.querySelectorAll('[data-slug]').forEach(function(el) {
       el.style.opacity = '0.15';
@@ -3525,13 +3537,10 @@ function highlightMuscleOnFigure(muscleKey, event) {
       el.style.transition = 'opacity 0.3s, filter 0.3s';
     });
 
-    var rank = db.gamification && db.gamification.muscleRanks
-      && db.gamification.muscleRanks[muscleKey];
-    var glowColor = rank ? rank.color : '#BF5AF2';
     svg.querySelectorAll('[data-slug="' + targetSlug + '"]')
       .forEach(function(el) {
         el.style.opacity = '1';
-        el.style.filter = 'brightness(1.5) drop-shadow(0 0 6px '
+        el.style.filter = 'brightness(1.5) drop-shadow(0 0 8px '
           + glowColor + ')';
       });
 
@@ -3540,12 +3549,12 @@ function highlightMuscleOnFigure(muscleKey, event) {
       svg.querySelectorAll('[data-slug]').forEach(function(el) {
         el.style.opacity = '';
         el.style.filter = '';
+        el.style.transition = '';
       });
     }, 3000);
 
-  }, targetSide !== window.currentBodySide ? 450 : 50);
+  }, needSwitch ? 450 : 50);
 
-  // 5. Afficher le popover
   if (event) showMusclePopover(muscleKey, event);
 }
 

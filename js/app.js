@@ -3045,32 +3045,32 @@ const MUSCLE_DESC = {
 
 // ── Body Highlighter SVG figure ──
 const BODY_MUSCLE_MAP = {
-  'chest':          ['chest_upper','chest_lower'],
-  'obliques':       ['obliques','serratus'],
-  'abs':            ['abs'],
+  'chest':          ['pectoraux'],
+  'obliques':       ['abdominaux'],
+  'abs':            ['abdominaux'],
   'biceps':         ['biceps'],
   'triceps':        ['triceps'],
   'neck':           ['neck'],
-  'front-deltoids': ['shoulders_front','shoulders_side'],
-  'abductors':      ['abductors'],
+  'front-deltoids': ['epaules'],
+  'abductors':      ['abducteurs'],
   'quadriceps':     ['quadriceps'],
-  'calves':         ['calves_gastro','calves_soleus'],
+  'calves':         ['mollets'],
   'forearm':        ['forearms'],
 };
 
 const BODY_MUSCLE_MAP_BACK = {
-  'trapezius':    ['trapezius'],
-  'back-deltoids':['shoulders_rear','shoulders_side'],
-  'upper-back':   ['lats','rhomboids'],
-  'lower-back':   ['erectors'],
-  'forearm':      ['forearms'],
-  'gluteal':      ['glutes_major','abductors'],
-  'adductor':     ['adductors'],
-  'hamstring':    ['hamstrings'],
-  'calves':       ['calves_gastro'],
-  'left-soleus':  ['calves_soleus'],
-  'right-soleus': ['calves_soleus'],
-  'triceps':      ['triceps'],
+  'trapezius':     ['trapezes'],
+  'back-deltoids': ['epaules'],
+  'upper-back':    ['grand_dorsal','haut_du_dos'],
+  'lower-back':    ['bas_du_dos'],
+  'forearm':       ['forearms'],
+  'gluteal':       ['fessiers','abducteurs'],
+  'adductor':      ['adducteurs'],
+  'hamstring':     ['ischio_jambiers'],
+  'calves':        ['mollets'],
+  'left-soleus':   ['mollets'],
+  'right-soleus':  ['mollets'],
+  'triceps':       ['triceps'],
 };
 
 const MUSCLE_TIER_COLORS = {
@@ -3511,8 +3511,8 @@ function highlightMuscleOnFigure(muscleKey, event) {
 
   // Préférer back si muscle principalement dorsal
   var BACK_PREFERRED = [
-    'shoulders_rear','lats','rhomboids','erectors',
-    'glutes_major','hamstrings','abductors','calves_soleus'
+    'epaules','grand_dorsal','haut_du_dos','bas_du_dos',
+    'trapezes','fessiers','ischio_jambiers','abducteurs'
   ];
   var targetSide, targetSlug;
   if (BACK_PREFERRED.indexOf(muscleKey) >= 0 && targetSlugBack) {
@@ -3613,31 +3613,31 @@ function renderMuscleList() {
   var ranks = db.gamification && db.gamification.muscleRanks || {};
 
   var MUSCLE_GROUPS = [
-    { label: 'Haut du corps', muscles: [
-      { key: 'pectoraux',    keys: ['chest_upper','chest_lower'],                        name: 'Pectoraux' },
-      { key: 'epaules',      keys: ['shoulders_front','shoulders_side','shoulders_rear'], name: 'Épaules' },
-      { key: 'biceps',       keys: ['biceps'],                                           name: 'Biceps' },
-      { key: 'triceps',      keys: ['triceps'],                                          name: 'Triceps' },
-      { key: 'forearms',     keys: ['forearms'],                                         name: 'Avant-bras' },
-      { key: 'neck',         keys: ['neck'],                                             name: 'Cou' },
+    { label:'Haut du corps', muscles:[
+      {key:'pectoraux',    name:'Pectoraux'},
+      {key:'epaules',      name:'Épaules'},
+      {key:'biceps',       name:'Biceps'},
+      {key:'triceps',      name:'Triceps'},
+      {key:'forearms',     name:'Avant-bras'},
+      {key:'neck',         name:'Cou'},
     ]},
-    { label: 'Core', muscles: [
-      { key: 'abs_core',     keys: ['abs','obliques','serratus'],                        name: 'Abdominaux' },
-      { key: 'hip_flexors',  keys: ['hip_flexors'],                                      name: 'Fléchisseurs de hanche' },
-      { key: 'erectors',     keys: ['erectors'],                                         name: 'Bas du dos' },
+    { label:'Core', muscles:[
+      {key:'abdominaux',   name:'Abdominaux'},
+      {key:'hip_flexors',  name:'Fléchisseurs de hanche'},
+      {key:'bas_du_dos',   name:'Bas du dos'},
     ]},
-    { label: 'Dos', muscles: [
-      { key: 'trapezius',    keys: ['trapezius'],                                        name: 'Trapèzes' },
-      { key: 'lats',         keys: ['lats'],                                             name: 'Grand dorsal' },
-      { key: 'rhomboids',    keys: ['rhomboids'],                                        name: 'Haut du dos' },
+    { label:'Dos', muscles:[
+      {key:'trapezes',     name:'Trapèzes'},
+      {key:'grand_dorsal', name:'Grand dorsal'},
+      {key:'haut_du_dos',  name:'Haut du dos'},
     ]},
-    { label: 'Bas du corps', muscles: [
-      { key: 'glutes',       keys: ['glutes_major'],                                     name: 'Fessiers' },
-      { key: 'abductors',    keys: ['abductors'],                                        name: 'Abducteurs' },
-      { key: 'adductors',    keys: ['adductors'],                                        name: 'Adducteurs' },
-      { key: 'quadriceps',   keys: ['quadriceps'],                                       name: 'Quadriceps' },
-      { key: 'hamstrings',   keys: ['hamstrings'],                                       name: 'Ischio-jambiers' },
-      { key: 'calves',       keys: ['calves_gastro','calves_soleus'],                    name: 'Mollets' },
+    { label:'Bas du corps', muscles:[
+      {key:'fessiers',        name:'Fessiers'},
+      {key:'abducteurs',      name:'Abducteurs'},
+      {key:'adducteurs',      name:'Adducteurs'},
+      {key:'quadriceps',      name:'Quadriceps'},
+      {key:'ischio_jambiers', name:'Ischio-jambiers'},
+      {key:'mollets',         name:'Mollets'},
     ]},
   ];
 

@@ -3,5 +3,18 @@
     "allow": [
       "Bash(git push *)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -q '^git commit' && git push origin HEAD:main 2>&1 || true"
+          }
+        ]
+      }
+    ]
   }
 }

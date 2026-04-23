@@ -4034,6 +4034,7 @@ function findExoInDatabase(exoName) {
     'curl pupitre haltere':          'barbell_curl',
     'shrug haltere':                 'shrugs_dumbbell',
     'shrug poulie':                  'edb_cable_shrugs',
+    'adduction hanche':              'hip_adduction',
   };
 
   var nClean = n.replace(/[()]/g,' ')

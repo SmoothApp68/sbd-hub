@@ -177,6 +177,7 @@ let activeWorkout = null;
 let _goSessionTimerId = null;
 let _goRestTimerId = null;
 let _goPipInterval = null;
+let _goPipVisibilityHandler = null;
 let _goAutoSaveId = null;
 let _goWakeLock = null;
 let _goSessionPaused = false;
@@ -14253,6 +14254,15 @@ function quizShowResult() {
     if(titleEl) titleEl.textContent = 'Fatigue élevée 😴';
     if(subEl) subEl.textContent = 'Prends soin de toi. Séance légère ou repos — ça fait partie de la progression.';
   }
+  var startBtn = document.querySelector('#qs4 .quiz-go-btn');
+  if (startBtn) {
+    startBtn.textContent = 'Commencer la séance 💪';
+    startBtn.onclick = function() {
+      var ov = document.getElementById('quiz-overlay');
+      if (ov) ov.classList.remove('open');
+      _goDoStartWorkout(true);
+    };
+  }
 }
 
 function quizLaunch() {
@@ -14385,6 +14395,13 @@ function _goDoStartWorkout(withProgram) {
   goStartSessionTimer();
   goAutoSave();
   renderGoTab();
+
+  // PiP: auto-trigger when tab goes to background
+  if (_goPipVisibilityHandler) document.removeEventListener('visibilitychange', _goPipVisibilityHandler);
+  _goPipVisibilityHandler = function() {
+    if (document.hidden && activeWorkout && !document.pictureInPictureElement) goStartPiP();
+  };
+  document.addEventListener('visibilitychange', _goPipVisibilityHandler);
 
   // Social: set training status
   try { setTrainingStatus(true, activeWorkout.title); } catch(e) {}
@@ -16859,6 +16876,8 @@ function goFinishWorkout() {
   goStopSessionTimer();
   goSkipRest();
   goReleaseWakeLock();
+  if (_goPipVisibilityHandler) { document.removeEventListener('visibilitychange', _goPipVisibilityHandler); _goPipVisibilityHandler = null; }
+  if (document.pictureInPictureElement) { try { document.exitPictureInPicture(); } catch(e) {} }
 
   activeWorkout = null;
   _goSessionPaused = false;
@@ -16922,6 +16941,8 @@ function goDiscardWorkout() {
   goStopSessionTimer();
   goSkipRest();
   goReleaseWakeLock();
+  if (_goPipVisibilityHandler) { document.removeEventListener('visibilitychange', _goPipVisibilityHandler); _goPipVisibilityHandler = null; }
+  if (document.pictureInPictureElement) { try { document.exitPictureInPicture(); } catch(e) {} }
   activeWorkout = null;
   _goSessionPaused = false;
   showToast('Séance annulée');

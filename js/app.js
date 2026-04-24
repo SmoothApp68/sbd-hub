@@ -177,6 +177,7 @@ let activeWorkout = null;
 let _goSessionTimerId = null;
 let _goRestTimerId = null;
 let _goPipInterval = null;
+let _goPipVisibilityHandler = null;
 let _goAutoSaveId = null;
 let _goWakeLock = null;
 let _goSessionPaused = false;
@@ -14395,6 +14396,13 @@ function _goDoStartWorkout(withProgram) {
   goAutoSave();
   renderGoTab();
 
+  // PiP: auto-trigger when tab goes to background
+  if (_goPipVisibilityHandler) document.removeEventListener('visibilitychange', _goPipVisibilityHandler);
+  _goPipVisibilityHandler = function() {
+    if (document.hidden && activeWorkout && !document.pictureInPictureElement) goStartPiP();
+  };
+  document.addEventListener('visibilitychange', _goPipVisibilityHandler);
+
   // Social: set training status
   try { setTrainingStatus(true, activeWorkout.title); } catch(e) {}
 }
@@ -16868,6 +16876,8 @@ function goFinishWorkout() {
   goStopSessionTimer();
   goSkipRest();
   goReleaseWakeLock();
+  if (_goPipVisibilityHandler) { document.removeEventListener('visibilitychange', _goPipVisibilityHandler); _goPipVisibilityHandler = null; }
+  if (document.pictureInPictureElement) { try { document.exitPictureInPicture(); } catch(e) {} }
 
   activeWorkout = null;
   _goSessionPaused = false;
@@ -16931,6 +16941,8 @@ function goDiscardWorkout() {
   goStopSessionTimer();
   goSkipRest();
   goReleaseWakeLock();
+  if (_goPipVisibilityHandler) { document.removeEventListener('visibilitychange', _goPipVisibilityHandler); _goPipVisibilityHandler = null; }
+  if (document.pictureInPictureElement) { try { document.exitPictureInPicture(); } catch(e) {} }
   activeWorkout = null;
   _goSessionPaused = false;
   showToast('Séance annulée');

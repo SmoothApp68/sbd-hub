@@ -2857,6 +2857,7 @@ function showClassQuiz() {
         db.gamification.playerClass = classSlug;
         db.gamification.quizAnswers = answers;
         db.gamification.quizCompletedAt = Date.now();
+        db.user.quizDone = true;
         saveDB();
         if (typeof syncToCloud === 'function') syncToCloud();
         overlay.remove();
@@ -9318,11 +9319,6 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 (function init() {
   if(!db.reports)db.reports=[];
   if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
-  // Class quiz trigger — runs for any user without a playerClass
-  db.gamification = db.gamification || {};
-  if (!db.gamification.playerClass) {
-    setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
-  }
   let ns=false;
   db.logs.forEach(l=>{if(!l.id){l.id=generateId();ns=true;}});
 
@@ -9373,15 +9369,18 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   if (_durMigrated) saveDB();
   renderProgramViewer();
 
-  // ONBOARDING — afficher si pas encore fait
-  if(!db.user.onboarded){
-    showOnboarding();
-  }
-
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
+    // Helper: show onboarding then quiz after cloud data is loaded
+    function _showFirstRunUI() {
+      if (!db.user.onboarded) showOnboarding();
+      db.gamification = db.gamification || {};
+      if (!db.user.quizDone) {
+        setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
+      }
+    }
     cloudSignIn().then(async user => {
       if (!user) return;
       if (db.logs.length === 0) {
@@ -9390,6 +9389,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         setTimeout(_restoreLastTabFromCloud, 0);
+        _showFirstRunUI();
         return;
       }
       if (!db.lastSync) {
@@ -9431,6 +9431,8 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
       }
+      // Onboarding + quiz after all sync paths resolve
+      _showFirstRunUI();
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause

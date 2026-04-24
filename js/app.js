@@ -14203,9 +14203,14 @@ function quizSelect(el, q, val) {
   row.querySelectorAll('.quiz-opt').forEach(function(o){ o.classList.remove('selected'); });
   el.classList.add('selected');
   _quizAnswers[q] = val;
-  var qNum = q.replace('q','');
+  var qNum = parseInt(q.replace('q',''));
   var btn = document.getElementById('qn'+qNum);
   if (btn) btn.classList.add('ready');
+  // Auto-advance after brief delay so the selection highlight is visible
+  setTimeout(function() {
+    if (qNum < 3) quizNext(qNum + 1);
+    else quizShowResult();
+  }, 320);
 }
 
 function quizNext(n) {

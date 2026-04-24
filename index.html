@@ -3763,5 +3763,31 @@ setTimeout(fetchAndStoreTier, 2000);
   <div id="muscle-pop-desc" style="color:rgba(255,255,255,0.35);font-size:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;"></div>
 </div>
 
+<button id="bugReportBtn" onclick="showBugReport()"
+  style="position:fixed;bottom:80px;right:16px;z-index:9000;
+  width:44px;height:44px;border-radius:50%;border:none;
+  background:rgba(255,69,58,0.15);color:var(--red,#ff3b30);
+  font-size:20px;cursor:pointer;backdrop-filter:blur(8px);
+  box-shadow:0 2px 12px rgba(0,0,0,0.3);
+  display:flex;align-items:center;justify-content:center;"
+  title="Reporter un bug">🐛</button>
+
+<div id="bugReportModal" style="display:none;position:fixed;inset:0;
+  z-index:9001;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+  overflow-y:auto;">
+  <div style="background:var(--card,#1c1c2e);border-radius:20px 20px 0 0;
+    margin-top:10vh;padding:24px;max-width:480px;margin-left:auto;
+    margin-right:auto;min-height:90vh;">
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:20px;">
+      <h2 style="margin:0;font-size:18px;">🐛 Reporter un bug</h2>
+      <button onclick="closeBugReport()"
+        style="background:none;border:none;color:var(--sub);
+        font-size:22px;cursor:pointer;">×</button>
+    </div>
+    <div id="bugReportForm"></div>
+  </div>
+</div>
+
 </body>
 </html>

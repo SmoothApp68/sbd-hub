@@ -10324,17 +10324,30 @@ function renderSeancesTab() {
     '<div class="wk-stats-item"><div class="wk-stats-val" style="color:var(--orange);">'+durStr+'</div><div class="wk-stats-lbl">Durée</div></div>'+
   '</div>';
 
+  // Precompute best e1RM before each session (chronological pass over all logs)
+  var _allSorted = db.logs.slice().sort(function(a,b){ return a.timestamp-b.timestamp; });
+  var _runBest = {};
+  var _prevBestByTs = {};
+  _allSorted.forEach(function(log) {
+    if (log.timestamp >= targetWeekStart && log.timestamp <= targetWeekEnd) {
+      _prevBestByTs[log.timestamp] = Object.assign({}, _runBest);
+    }
+    (log.exercises||[]).forEach(function(e) {
+      if ((e.maxRM||0) > (_runBest[e.name]||0)) _runBest[e.name] = e.maxRM;
+    });
+  });
+
   // Générer les cards (sans jours de repos)
   var cardsHtml = sessions.length === 0
     ? '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;">Aucune séance cette semaine</div>'
     : sessions.map(function(session, si) {
-      return renderSessionCard2(session, si);
+      return renderSessionCard2(session, si, _prevBestByTs[session.timestamp]||{});
     }).join('');
 
   container.innerHTML = statsHtml + '<div id="sc-cards-wrap">' + cardsHtml + '</div>';
 }
 
-function renderSessionCard2(session, si) {
+function renderSessionCard2(session, si, prevBestRM) {
   var ts = session.timestamp || 0;
   var d = new Date(ts);
   var dayShort = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][d.getDay()];
@@ -10366,8 +10379,9 @@ function renderSessionCard2(session, si) {
   var exoCount = (session.exercises||[]).length;
   var metaStr = [dur, exoCount+' exercice'+(exoCount>1?'s':'')].filter(Boolean).join(' · ');
 
-  // Badge PR
-  var hasPR = (session.exercises||[]).some(function(e){ return e.isPR || e.maxRM > 0; });
+  // Badge PR — only show if at least one exercise beat its previous all-time e1RM
+  var _pb = prevBestRM || {};
+  var hasPR = (session.exercises||[]).some(function(e){ return (e.maxRM||0) > 0 && (e.maxRM||0) > (_pb[e.name]||0); });
   var prBadge = hasPR ? '<span class="sc-pr-badge" style="background:rgba(50,215,75,.1);color:var(--green);border:1px solid rgba(50,215,75,.18);">🏆 PR</span>' : '';
 
   // Tags muscles

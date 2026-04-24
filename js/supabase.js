@@ -458,12 +458,14 @@ async function checkAuthGate() {
   if (!supaClient) { return; } // No supabase, skip gate
   try {
     const { data: { session } } = await supaClient.auth.getSession();
-    if (session && session.user && session.user.email) {
-      // User is authenticated with email — proceed normally
+    if (session && session.user) {
+      // Session exists (email or otherwise) — hide any stale login screen and proceed.
+      // checkPasswordMigration will handle anonymous sessions downstream.
       cloudSyncEnabled = true;
+      hideLoginScreen();
       return;
     }
-    // No session or anonymous — show login screen
+    // No session — voluntary logout or full cache clear → show login
     showLoginScreen();
   } catch(e) {
     // Network error — let user continue offline
@@ -475,11 +477,12 @@ async function checkAuthGate() {
 async function checkPasswordMigration(user) {
   if (!user) return;
 
-  // Anonymous user (no email) — sign out silently, show normal login
+  // Anonymous user (no email) — sign out silently, show login screen
   if (!user.email) {
     await supaClient.auth.signOut();
     cloudSyncEnabled = false;
     updateCloudUI(null);
+    showLoginScreen(); // checkAuthGate now passes anonymous sessions; show login here
     // Do NOT touch db or localStorage — data stays intact
     return;
   }

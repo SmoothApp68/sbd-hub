@@ -9373,8 +9373,9 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
-    // Helper: show onboarding then quiz after cloud data is loaded
-    function _showFirstRunUI() {
+    // Helper: show onboarding then quiz — only for authenticated email users
+    function _showFirstRunUI(user) {
+      if (!user || !user.email) return; // skip for anonymous / no-auth
       if (!db.user.onboarded) showOnboarding();
       db.gamification = db.gamification || {};
       if (!db.user.quizDone) {
@@ -9389,7 +9390,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         setTimeout(_restoreLastTabFromCloud, 0);
-        _showFirstRunUI();
+        _showFirstRunUI(user);
         return;
       }
       if (!db.lastSync) {
@@ -9432,7 +9433,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
         syncToCloud(true);
       }
       // Onboarding + quiz after all sync paths resolve
-      _showFirstRunUI();
+      _showFirstRunUI(user);
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause

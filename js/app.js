@@ -14253,6 +14253,15 @@ function quizShowResult() {
     if(titleEl) titleEl.textContent = 'Fatigue élevée 😴';
     if(subEl) subEl.textContent = 'Prends soin de toi. Séance légère ou repos — ça fait partie de la progression.';
   }
+  var startBtn = document.querySelector('#qs4 .quiz-go-btn');
+  if (startBtn) {
+    startBtn.textContent = 'Commencer la séance 💪';
+    startBtn.onclick = function() {
+      var ov = document.getElementById('quiz-overlay');
+      if (ov) ov.classList.remove('open');
+      _goDoStartWorkout(true);
+    };
+  }
 }
 
 function quizLaunch() {

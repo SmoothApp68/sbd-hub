@@ -2873,6 +2873,7 @@
       <button class="feed-pill" data-feed="feed-communaute" onclick="showFeedSub('feed-communaute',this)">Communaut&eacute;</button>
       <button class="feed-pill" data-feed="feed-challenges" onclick="showFeedSub('feed-challenges',this)">Challenges</button>
       <button class="feed-pill" data-feed="feed-classement" onclick="showFeedSub('feed-classement',this)">Classement</button>
+      <button class="feed-pill" data-feed="social-friends" onclick="showFeedSub('social-friends',this)">👤 Profil</button>
     </div>
 
     <!-- Sub: Amis -->
@@ -2922,7 +2923,8 @@
         <div id="challengesActiveList"></div>
         <div id="challengesFinishedList"></div>
       </div>
-      <div id="social-friends" class="social-sub-content">
+    </div>
+    <div id="social-friends" class="feed-sub-content">
         <div class="corps-acc" id="socialProfileCard">
           <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-social-profile')">
             <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(10,132,255,0.1);">&#x1F464;</div>
@@ -2953,7 +2955,6 @@
         <div class="card" id="friendsListCard"><h2 id="friendsListTitle">Mes amis</h2><div id="friendsList" class="friends-list"></div></div>
         <div class="card" id="notifSection"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h2>Notifications</h2><button style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;" onclick="markAllNotifsRead()">Tout lire</button></div><div id="notifList" class="notif-list"></div></div>
         <div class="card" id="blockedSection" style="display:none;"><h2>Bloqu&eacute;s</h2><div id="blockedList" class="friends-list"></div></div>
-      </div>
     </div>
   </div>
 

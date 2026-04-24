@@ -1394,15 +1394,19 @@ async function renderFeed() {
   // Get unique user IDs
   const userIds = [...new Set(_feedItems.map(i => i.user_id))];
   let profiles = {};
-  if (userIds.length) {
-    try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
-      (data || []).forEach(p => profiles[p.id] = p);
-    } catch {}
-  }
+  const [, friendIds] = await Promise.all([
+    (async () => {
+      if (userIds.length) {
+        try {
+          const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+          (data || []).forEach(p => profiles[p.id] = p);
+        } catch {}
+      }
+    })(),
+    getAcceptedFriendIds()
+  ]);
 
   if (!_feedItems.length) {
-    const friendIds = await getAcceptedFriendIds();
     feedContent.innerHTML = '<div class="feed-empty">' +
       '<div class="feed-empty-icon">🤝</div>' +
       '<div class="feed-empty-title">' + (friendIds.length ? 'Rien de nouveau' : 'Invite tes amis !') + '</div>' +
@@ -1417,7 +1421,6 @@ async function renderFeed() {
   // Training banner — friends currently training
   let trainingBanner = '';
   try {
-    const friendIds = await getAcceptedFriendIds();
     if (friendIds.length) {
       const { data: trainingFriends } = await supaClient.from('profiles')
         .select('username, training_status, training_since')
@@ -2161,13 +2164,13 @@ async function renderFriendsTab() {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
 
-  // Load friend code
-  const friendCode = await ensureFriendCode();
+  // Parallelize independent fetches
+  const [friendCode, friends] = await Promise.all([
+    ensureFriendCode(),
+    loadFriends()
+  ]);
   const fcEl = document.getElementById('myFriendCode');
   if (fcEl) fcEl.textContent = friendCode || '---';
-
-  // Load friendships
-  const friends = await loadFriends();
 
   // Get all user IDs from friendships
   const allUserIds = new Set();
@@ -2175,12 +2178,17 @@ async function renderFriendsTab() {
   allUserIds.delete(uid);
 
   let profiles = {};
-  if (allUserIds.size) {
-    try {
-      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
-      (data || []).forEach(p => profiles[p.id] = p);
-    } catch {}
-  }
+  await Promise.all([
+    (async () => {
+      if (allUserIds.size) {
+        try {
+          const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
+          (data || []).forEach(p => profiles[p.id] = p);
+        } catch {}
+      }
+    })(),
+    renderNotifications()
+  ]);
 
   // Pending requests (where I'm the target)
   const pending = friends.filter(f => f.status === 'pending' && f.target_id === uid);
@@ -2257,9 +2265,6 @@ async function renderFriendsTab() {
   } else {
     blockedSection.style.display = 'none';
   }
-
-  // Notifications
-  await renderNotifications();
 
   // Update friend badge
   const badgeEl = document.getElementById('socialFriendsBadge');

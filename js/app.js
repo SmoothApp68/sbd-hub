@@ -7936,8 +7936,8 @@ function parseCSVRow(line, sep) {
 // Format : "29 mars 2026, 14:50" ou "1 juil. 2025, 16:02"
 function parseHevyCSVDate(raw) {
   const MOIS = {
-    'janvier':1,'fevrier':2,'février':2,'fevr':2,'févr':2,
-    'mars':3,'avril':4,'mai':5,'juin':6,
+    'janvier':1,'janv':1,'fevrier':2,'février':2,'fevr':2,'févr':2,
+    'mars':3,'avril':4,'avr':4,'mai':5,'juin':6,
     'juillet':7,'juil':7,'aout':8,'août':8,
     'septembre':9,'sept':9,'octobre':10,'oct':10,
     'novembre':11,'nov':11,'decembre':12,'décembre':12,'dec':12,'déc':12

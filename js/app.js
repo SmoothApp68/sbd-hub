@@ -176,6 +176,7 @@ let liftsMuscleFilter = 'Tout';
 let activeWorkout = null;
 let _goSessionTimerId = null;
 let _goRestTimerId = null;
+let _goPipInterval = null;
 let _goAutoSaveId = null;
 let _goWakeLock = null;
 let _goSessionPaused = false;
@@ -14529,6 +14530,7 @@ function renderGoActiveView() {
   h += '<div><div class="go-header-label" onclick="goEditTitle()" style="cursor:pointer;display:flex;align-items:center;gap:4px;">' + (activeWorkout.title || 'SÉANCE EN COURS') + ' <span style="font-size:10px;opacity:0.5;">✏️</span></div>';
   h += '<div class="go-header-timer" id="goTimerDisplay">' + goFormatTime(elapsed) + '</div></div>';
   h += '<div class="go-header-btns">';
+  h += '<button class="go-header-btn" title="Picture-in-Picture" onclick="goStartPiP()">⏱</button>';
   h += '<button class="go-header-btn" onclick="goTogglePause()">' + (_goSessionPaused ? '▶' : '⏸') + '</button>';
   h += '<button class="go-header-btn danger" onclick="goConfirmDiscard()">✕</button>';
   h += '<button class="go-header-btn" style="background:rgba(50,215,75,0.7);" onclick="goConfirmFinish()">✓</button>';
@@ -14963,6 +14965,77 @@ function goAdjustRest(delta) {
 function goSkipRest() {
   if (_goRestTimerId) { clearInterval(_goRestTimerId); _goRestTimerId = null; }
   if (activeWorkout) activeWorkout.restTimer = { running: false, remaining: 0, total: 0, exoIndex: -1 };
+}
+
+// ── Picture-in-Picture timer ──
+function goStartPiP() {
+  if (!document.pictureInPictureEnabled) {
+    showToast('PiP non supporté sur ce navigateur');
+    return;
+  }
+  // Toggle off if already active
+  if (document.pictureInPictureElement) {
+    document.exitPictureInPicture();
+    return;
+  }
+
+  var canvas = document.createElement('canvas');
+  canvas.width = 320; canvas.height = 180;
+  var ctx = canvas.getContext('2d');
+
+  if (!canvas.captureStream) {
+    showToast('PiP non supporté sur ce navigateur');
+    return;
+  }
+
+  function drawPip() {
+    ctx.fillStyle = '#0C0C18';
+    ctx.fillRect(0, 0, 320, 180);
+    var text, color, label;
+    if (activeWorkout && activeWorkout.restTimer && activeWorkout.restTimer.running) {
+      text = goFormatTime(Math.max(0, activeWorkout.restTimer.remaining));
+      color = '#32d74b'; label = '⏱ REPOS';
+    } else if (activeWorkout) {
+      var secs = _goSessionPaused
+        ? Math.floor((_goSessionPausedAt - activeWorkout.startTime) / 1000)
+        : Math.floor((Date.now() - activeWorkout.startTime) / 1000);
+      text = goFormatTime(secs);
+      color = '#ffffff'; label = 'SÉANCE';
+    } else { return; }
+    ctx.font = '500 16px system-ui,sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(label, 160, 52);
+    ctx.font = 'bold 72px system-ui,sans-serif';
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 160, 112);
+  }
+
+  drawPip();
+
+  var video = document.createElement('video');
+  video.muted = true;
+  video.srcObject = canvas.captureStream(1);
+
+  video.addEventListener('leavepictureinpicture', function() {
+    if (_goPipInterval) { clearInterval(_goPipInterval); _goPipInterval = null; }
+  });
+
+  video.play().then(function() {
+    return video.requestPictureInPicture();
+  }).then(function() {
+    _goPipInterval = setInterval(function() {
+      if (!activeWorkout) {
+        clearInterval(_goPipInterval); _goPipInterval = null;
+        if (document.pictureInPictureElement === video) document.exitPictureInPicture();
+        return;
+      }
+      drawPip();
+    }, 1000);
+  }).catch(function() {
+    showToast('PiP non supporté sur ce navigateur');
+  });
 }
 
 // ── Modifier le titre de la séance ──

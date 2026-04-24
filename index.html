@@ -2725,6 +2725,12 @@
         <div id="lastSyncDisplay" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
         <button class="btn" style="background:var(--purple);margin-bottom:8px;" onclick="syncFromCloud()">☁️ Charger depuis le cloud</button>
         <button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);font-size:12px;" onclick="cloudLogout()">Déconnexion cloud</button>
+        <div id="changePasswordSection" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Changer mon mot de passe</div>
+          <input type="password" id="newPassword" placeholder="Nouveau mot de passe (min. 8 car.)" style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;">
+          <input type="password" id="newPasswordConfirm" placeholder="Confirmer le mot de passe" style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;">
+          <button class="btn" style="background:var(--blue);" onclick="changePassword()">Changer le mot de passe</button>
+        </div>
       </div>
     </div>
 

@@ -4021,3 +4021,136 @@ async function renderFeedClassementV2() {
     _feedClassementV2Inflight = false;
   }
 }
+
+// ============================================================
+// BUG REPORT — guided questionnaire
+// ============================================================
+const BUG_CATEGORIES = [
+  {id:'import', label:'📥 Import de séances'},
+  {id:'go', label:'🏋️ Séance en cours (GO)'},
+  {id:'stats', label:'📊 Stats / Graphiques'},
+  {id:'programme', label:'📋 Programme'},
+  {id:'social', label:'🤝 Social / Amis'},
+  {id:'sync', label:'☁️ Synchronisation cloud'},
+  {id:'affichage', label:'🎨 Affichage / Interface'},
+  {id:'autre', label:'❓ Autre'},
+];
+
+const BUG_SEVERITIES = [
+  {id:'bloquant', label:'🔴 Bloquant — je ne peux plus utiliser l\'app'},
+  {id:'genant', label:'🟠 Gênant — ça perturbe mon utilisation'},
+  {id:'mineur', label:'🟡 Mineur — petit problème cosmétique'},
+];
+
+let _bugStep = 0;
+let _bugData = {};
+
+function showBugReport() {
+  _bugStep = 0;
+  _bugData = {
+    current_tab: document.querySelector('.tab-btn.active')?.dataset?.tab || 'unknown',
+    device_info: {
+      ua: navigator.userAgent,
+      screen: screen.width + 'x' + screen.height,
+      lang: navigator.language,
+    },
+    app_version: 'v96',
+  };
+  document.getElementById('bugReportModal').style.display = '';
+  renderBugStep();
+}
+
+function closeBugReport() {
+  document.getElementById('bugReportModal').style.display = 'none';
+}
+
+function renderBugStep() {
+  const el = document.getElementById('bugReportForm');
+  const btnStyle = 'width:100%;text-align:left;padding:14px 16px;' +
+    'background:var(--surface,#2a2a3e);border:1px solid var(--border,#3a3a5c);' +
+    'border-radius:12px;color:var(--text);font-size:14px;cursor:pointer;margin-bottom:8px;display:block;';
+
+  if (_bugStep === 0) {
+    el.innerHTML = '<p style="color:var(--sub);font-size:14px;margin-bottom:16px;">Quelle partie de l\'app est concernée ?</p>' +
+      BUG_CATEGORIES.map(c =>
+        '<button onclick="bugSelectCategory(\'' + c.id + '\')" style="' + btnStyle + '">' + c.label + '</button>'
+      ).join('');
+  } else if (_bugStep === 1) {
+    el.innerHTML = '<p style="color:var(--sub);font-size:14px;margin-bottom:16px;">Quel est l\'impact du bug ?</p>' +
+      BUG_SEVERITIES.map(s =>
+        '<button onclick="bugSelectSeverity(\'' + s.id + '\')" style="' + btnStyle + '">' + s.label + '</button>'
+      ).join('');
+  } else if (_bugStep === 2) {
+    const taStyle = 'width:100%;background:var(--surface);border:1px solid var(--border);' +
+      'border-radius:10px;padding:10px;color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;';
+    el.innerHTML =
+      '<div style="margin-bottom:12px;">' +
+        '<label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px;">Comment reproduire le bug ?</label>' +
+        '<textarea id="bugSteps" placeholder="Ex: 1. Aller dans GO 2. Ajouter un exercice 3. ..." style="' + taStyle + '" rows="3"></textarea>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px;">Ce qui devrait se passer</label>' +
+        '<textarea id="bugExpected" placeholder="Ex: La séance devrait se sauvegarder..." style="' + taStyle + '" rows="2"></textarea>' +
+      '</div>' +
+      '<div style="margin-bottom:20px;">' +
+        '<label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px;">Ce qui se passe réellement</label>' +
+        '<textarea id="bugActual" placeholder="Ex: L\'app plante / rien ne se passe..." style="' + taStyle + '" rows="2"></textarea>' +
+      '</div>' +
+      '<button onclick="submitBugReport()" style="width:100%;padding:14px;background:var(--red,#ff3b30);' +
+      'color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;">Envoyer 🐛</button>';
+  } else if (_bugStep === 3) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
+      '<div style="font-size:48px;margin-bottom:16px;">✅</div>' +
+      '<h3 style="margin-bottom:8px;">Merci !</h3>' +
+      '<p style="color:var(--sub);font-size:14px;">Ton rapport a été envoyé.</p>' +
+      '<button onclick="closeBugReport()" style="margin-top:24px;padding:12px 32px;' +
+      'background:var(--surface);border:1px solid var(--border);border-radius:12px;' +
+      'color:var(--text);font-size:14px;cursor:pointer;">Fermer</button>' +
+      '</div>';
+  }
+}
+
+function bugSelectCategory(cat) {
+  _bugData.category = cat;
+  _bugStep = 1;
+  renderBugStep();
+}
+
+function bugSelectSeverity(sev) {
+  _bugData.severity = sev;
+  _bugStep = 2;
+  renderBugStep();
+}
+
+async function submitBugReport() {
+  _bugData.steps = document.getElementById('bugSteps')?.value || '';
+  _bugData.expected = document.getElementById('bugExpected')?.value || '';
+  _bugData.actual = document.getElementById('bugActual')?.value || '';
+
+  try {
+    const { data: { session } } = await supaClient.auth.getSession();
+    if (session) {
+      _bugData.user_id = session.user.id;
+      _bugData.user_email = session.user.email || null;
+    }
+  } catch(e) {}
+
+  try {
+    await supaClient.from('bug_reports').insert([{
+      user_id: _bugData.user_id || null,
+      user_email: _bugData.user_email || null,
+      category: _bugData.category,
+      severity: _bugData.severity,
+      current_tab: _bugData.current_tab,
+      steps: _bugData.steps,
+      expected: _bugData.expected,
+      actual: _bugData.actual,
+      device_info: _bugData.device_info,
+      app_version: _bugData.app_version,
+    }]);
+    _bugStep = 3;
+    renderBugStep();
+  } catch(e) {
+    showToast('Erreur lors de l\'envoi — ' + e.message);
+  }
+}

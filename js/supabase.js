@@ -608,6 +608,7 @@ function showFeedSub(subId, btn) {
   if (subId === 'feed-communaute') renderFeedCommunaute();
   if (subId === 'feed-challenges') renderFeedChallengesV2();
   if (subId === 'feed-classement') renderFeedClassementV2();
+  if (subId === 'social-friends') renderFriendsTab();
   if (typeof _updateLastTab === 'function') _updateLastTab('social', subId);
 }
 

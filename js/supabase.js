@@ -530,6 +530,7 @@ let _leaderboardCache = [];
 let _socialSearchTimeout = null;
 let _socialPrefetched = false;
 let _socialCacheTs = {};
+let _feedPostsCache = {};
 function _socialCacheValid(key) {
   return _socialCacheTs[key] && (Date.now() - _socialCacheTs[key] < 30000);
 }
@@ -1536,6 +1537,7 @@ function renderFeedSessionDetail(exercises) {
 }
 
 function renderFeedCard(item, profiles, uid) {
+  _feedPostsCache[item.id] = item;
   const profile = profiles[item.user_id] || { username: 'Utilisateur supprimé' };
   const initial = avatarInitial(profile.username);
   const isMe = item.user_id === uid;
@@ -1608,10 +1610,32 @@ function renderFeedCard(item, profiles, uid) {
         '</div>' +
       '</div>' +
       '<button class="feed-action-btn" onclick="toggleComments(\'' + item.id + '\')">💬 Commenter</button>' +
+      (item.type === 'session' && d.exercises && d.exercises.length ? '<button class="feed-action-btn" onclick="showFeedSessionModal(\'' + item.id + '\')">📋 Voir la séance</button>' : '') +
       (item.type === 'session' && d.exercises && d.exercises.length && !isMe ? '<button class="feed-action-btn" onclick="copyRoutineFromFeed(\'' + item.id + '\')">📋 Copier</button>' : '') +
     '</div>' +
     '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
   '</div>';
+}
+
+function showFeedSessionModal(postId) {
+  const post = _feedPostsCache[postId];
+  if (!post) return;
+
+  let overlay = document.getElementById('feedSessionOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'feedSessionOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9002;background:var(--bg,#0c0c18);overflow-y:auto;';
+    overlay.innerHTML =
+      '<button onclick="document.getElementById(\'feedSessionOverlay\').style.display=\'none\'" ' +
+      'style="position:sticky;top:16px;left:16px;z-index:1;background:var(--surface);' +
+      'border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;">←</button>' +
+      '<div id="feedSessionContent"></div>';
+    document.body.appendChild(overlay);
+  }
+
+  overlay.style.display = '';
+  document.getElementById('feedSessionContent').innerHTML = renderSessionDetail2(post.data);
 }
 
 function toggleFeedDetail(activityId) {

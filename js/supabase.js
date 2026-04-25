@@ -1959,10 +1959,6 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
   }
 }
 
-async function publishGoalActivity(exerciseName, value, weeks) {
-  await postToFeed('goal', { exercise: exerciseName, value: value, weeks: weeks });
-}
-
 // ============================================================
 // SOCIAL MODULE — LEADERBOARD
 // ============================================================

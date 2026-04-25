@@ -528,6 +528,11 @@ let _friendsCache = [];
 let _notifCache = [];
 let _leaderboardCache = [];
 let _socialSearchTimeout = null;
+let _socialPrefetched = false;
+let _socialCacheTs = {};
+function _socialCacheValid(key) {
+  return _socialCacheTs[key] && (Date.now() - _socialCacheTs[key] < 30000);
+}
 
 // Feed V2 state
 let _feedAmisPage = 0;
@@ -584,6 +589,28 @@ function generateInviteCodeString() {
   return code;
 }
 
+function prefetchSocialData() {
+  if (_socialPrefetched || !supaClient) return;
+  _socialPrefetched = true;
+  Promise.all([
+    loadFriends(),
+    renderNotifications(),
+    getAcceptedFriendIds().then(ids => {
+      if (ids.length > 0) {
+        supaClient.from('activity_feed')
+          .select('*, profiles(username, avatar_url)')
+          .in('user_id', [getMyUserId(), ...ids])
+          .order('created_at', { ascending: false })
+          .limit(20);
+      }
+    }),
+    supaClient.from('leaderboard_snapshots')
+      .select('*')
+      .order('value', { ascending: false })
+      .limit(100),
+  ]).catch(() => { _socialPrefetched = false; });
+}
+
 function showSocialSub(subId, btn) {
   document.querySelectorAll('.social-sub-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.social-sub-tab').forEach(el => el.classList.remove('active'));
@@ -634,9 +661,10 @@ async function initSocialTab() {
   var fcEl = document.getElementById('myFriendCode');
   if (fcEl) fcEl.textContent = db.friendCode || '---';
 
-  // Load the active feed sub-tab
+  // Load the active feed sub-tab — default to Amis on first open
   var activeFeedSub = document.querySelector('.feed-sub-content.active');
-  var feedSubId = activeFeedSub ? activeFeedSub.id : 'feed-amis';
+  var feedSubId = activeFeedSub ? activeFeedSub.id : 'social-friends';
+  prefetchSocialData();
   showFeedSub(feedSubId);
 
   // Update notification badge
@@ -1361,6 +1389,7 @@ async function loadCommentsForActivity(activityId) {
 }
 
 async function renderFeed() {
+  if (_socialCacheValid('feed')) return;
   const uid = await getMyUserIdAsync();
   if (!uid) return;
 
@@ -1453,6 +1482,7 @@ async function renderFeed() {
 
   // Load reactions for all visible items
   _feedItems.forEach(i => loadAndRenderReactions(i.id));
+  _socialCacheTs.feed = Date.now();
 }
 
 function renderFeedSessionDetail(exercises) {
@@ -1905,6 +1935,7 @@ async function publishGoalActivity(exerciseName, value, weeks) {
 // SOCIAL MODULE — LEADERBOARD
 // ============================================================
 async function renderLeaderboard() {
+  if (_socialCacheValid('leaderboard')) return;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
 
@@ -2018,6 +2049,7 @@ async function renderLeaderboard() {
         '<div class="lb-row-val">' + Math.round(entry.value) + 'kg</div>' +
       '</div>'
     ).join('');
+    _socialCacheTs.leaderboard = Date.now();
 
   } catch (e) {
     console.error('renderLeaderboard error:', e);
@@ -2161,6 +2193,7 @@ async function saveSocialBio() {
 // SOCIAL MODULE — RENDER FRIENDS TAB
 // ============================================================
 async function renderFriendsTab() {
+  if (_socialCacheValid('friends')) return;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
 
@@ -2277,6 +2310,7 @@ async function renderFriendsTab() {
 
   // Render profile card
   renderSocialProfileCard();
+  _socialCacheTs.friends = Date.now();
 }
 
 // ============================================================

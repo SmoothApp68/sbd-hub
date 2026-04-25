@@ -668,26 +668,6 @@ const EXO_SYNONYMS = [
   ['velo elliptique', 'elliptique', 'elliptical'],
   ['rameur', 'rowing machine', 'concept 2', 'concept2'],
 ];
-
-// ── Equipment detection (barbell vs dumbbell) ────────────────
-// Retourne 'barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', ou null
-function getEquipmentType(name) {
-  const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  // Explicit markers
-  if (/\bbarre\b|barbell|barre\s*(ez|olympique|droite)/.test(n)) return 'barbell';
-  if (/haltere|dumbbell|haltères/.test(n)) return 'dumbbell';
-  if (/cable|poulie|vis\s*a\s*vis/.test(n)) return 'cable';
-  if (/machine|smith|presse|press\s*machine|guided/.test(n)) return 'machine';
-  if (/poids\s*de\s*corps|bodyweight|body\s*weight|\bpdec?\b/.test(n)) return 'bodyweight';
-  // Implicit from exercise name
-  if (/bench\s*press$|developpe\s*couche$|squat$|back\s*squat|deadlift$|souleve\s*de\s*terre$|overhead\s*press$|developpe\s*militaire$|rowing\s*barre|barbell\s*row|t.bar/.test(n)) return 'barbell';
-  if (/curl\s*marteau|hammer|goblet|lateral\s*raise|elevation\s*laterale|ecarte/.test(n)) return 'dumbbell';
-  if (/lat\s*pulldown|tirage\s*(vertical|horizontal|poulie)|pulldown|push\s*down|face\s*pull|cable\s*crossover/.test(n)) return 'cable';
-  if (/hack\s*squat|leg\s*press|presse|leg\s*curl|leg\s*extension|smith/.test(n)) return 'machine';
-  if (/traction|pull.?up|chin.?up|pompe|push.?up|dips?|gainage|planche|plank/.test(n)) return 'bodyweight';
-  return null;
-}
-
 // Factor to convert barbell-equivalent weight for dumbbell exercises
 // (e.g., 120kg barbell bench ≠ 120kg dumbbell press)
 const DUMBBELL_TO_BARBELL_FACTOR = 0.57;

@@ -2469,11 +2469,6 @@ function activateFreezeManual() {
   }
 }
 
-function getStreakFreezes() {
-  db.gamification = db.gamification || {};
-  return db.gamification.streakFreezes || 0;
-}
-
 function getXPLevel(xp) {
   let lvl = XP_LEVELS[0];
   for (const l of XP_LEVELS) {
@@ -3569,14 +3564,6 @@ function highlightMuscleOnFigure(muscleKey, event) {
 function hideMusclePopover() {
   var pop = document.getElementById('muscle-popover');
   if (pop) pop.style.display = 'none';
-}
-
-function onMuscleGroupClick(groupKey, event) {
-  var index = window._MUSCLE_GROUP_INDEX || {};
-  var group = index[groupKey];
-  if (!group) return;
-  highlightMuscleOnFigure(group.keys[0], null);
-  showMusclePopover({ keys: group.keys, name: group.name }, event);
 }
 
 function toggleSubkeys(btn, event) {
@@ -5746,15 +5733,6 @@ function refreshUI() {
   else if (tabId === 'tab-social') { initSocialTab(); }
   else if (tabId === 'tab-game') { renderGamificationTab(); }
   else { renderDash(); renderProgramViewer(); }
-}
-
-// ── Streak de semaines consécutives (pour homepage) ──────────
-function getWeekKey(ts) {
-  const d = new Date(ts);
-  const day = d.getDay() || 7; // 1=lun, 7=dim
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - (day - 1));
-  return monday.toISOString().slice(0, 10);
 }
 
 function computeWeekStreak() {
@@ -8755,8 +8733,6 @@ function progSetCompetDate(date) {
 }
 
 function progEditDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
-function progRemoveDay(day) { if (typeof showToast==='function') showToast('Modifie le planning pour supprimer ce jour'); }
-function progAddDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
 function progShowDayDetail(day) {
   var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
   var wpDay = wpDays.find(function(d) { return d.day === day; });
@@ -11595,129 +11571,12 @@ const BW_RATIOS = {
   isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
 };
 
-// ── Apprentissage progression personnalisée ─────────────────
-// Après 4+ semaines de données, calcule le taux de progression réel
-function getPersonalProgressionRate(exoName) {
-  const pts = [];
-  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-  for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
-    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-    if (pts.length >= 8) break;
-  }
-  if (pts.length < 4) return null;
-  pts.sort((a,b) => a.x - b.x);
-  const n = pts.length;
-  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-  const kgPerWeek = Math.round(slope * 7 * 10) / 10;
-  const lastE1rm = pts[pts.length - 1].y;
-  if (lastE1rm <= 0) return null;
-  const pctPerWeek = Math.round((kgPerWeek / lastE1rm) * 1000) / 10;
-  return { kgPerWeek, pctPerWeek, lastE1rm, confidence: n >= 6 ? 'high' : 'medium', n };
-}
-
 // ── Catégorie d'exercice (global) ───────────────────────────
 function getExoCategory(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) return 'big';
   if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) return 'compound';
   return 'isolation';
-}
-
-// ── Helpers séries / reps / repos par catégorie et objectif ──
-// Sources : NSCA, PubMed (de Salles 2009), Stronger by Science, Pelland/Zourdos 2025
-function mapTrainingModeToGoal(mode) {
-  const map = { powerlifting:'force', force_athletique:'force', powerbuilding:'force', bodybuilding:'masse', musculation:'masse', bien_etre:'bien_etre' };
-  return map[mode] || 'force';
-}
-
-function getWorkSets(exerciseCategory, goal) {
-  const table = {
-    force:    { big: 5, compound: 4, isolation: 3 },
-    masse:    { big: 4, compound: 4, isolation: 3 },
-    recompo:  { big: 4, compound: 3, isolation: 3 },
-    seche:    { big: 3, compound: 3, isolation: 2 },
-    maintien: { big: 3, compound: 3, isolation: 2 },
-    bien_etre:{ big: 3, compound: 3, isolation: 2 }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || 3;
-}
-
-function getRepRange(exerciseCategory, goal) {
-  const table = {
-    force:    { big: {reps:5, rpe:8},  compound: {reps:6, rpe:8},  isolation: {reps:10, rpe:8} },
-    masse:    { big: {reps:8, rpe:8},  compound: {reps:10, rpe:8}, isolation: {reps:12, rpe:9} },
-    recompo:  { big: {reps:6, rpe:8},  compound: {reps:8, rpe:8},  isolation: {reps:10, rpe:8} },
-    seche:    { big: {reps:8, rpe:7},  compound: {reps:10, rpe:8}, isolation: {reps:15, rpe:8} },
-    maintien: { big: {reps:6, rpe:7},  compound: {reps:8, rpe:7},  isolation: {reps:12, rpe:7} },
-    bien_etre:{ big: {reps:10,rpe:7},  compound: {reps:12, rpe:7}, isolation: {reps:15, rpe:7} }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || {reps:10, rpe:8};
-}
-
-function getRestSeconds(exerciseCategory, goal) {
-  const table = {
-    force:    { big: 240, compound: 180, isolation: 120 },
-    masse:    { big: 150, compound: 120, isolation: 75 },
-    recompo:  { big: 180, compound: 150, isolation: 90 },
-    seche:    { big: 120, compound: 90,  isolation: 60 },
-    maintien: { big: 150, compound: 120, isolation: 90 },
-    bien_etre:{ big: 120, compound: 90,  isolation: 60 }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || 90;
-}
-
-// ── Échauffements intelligents par exercice ─────────────────
-// Sources : Ripped Body, BarBend (Ben Pollack), Skill Based Fitness
-function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isFirstCompound, cat) {
-  if (!workWeight || workWeight <= 0) return [];
-  if (!cat) cat = 'isolation';
-
-  // Isolation → pas d'échauffement (muscles déjà chauds après compounds)
-  if (cat === 'isolation') return [];
-
-  // Premier compound de la séance → échauffement complet
-  if (isFirstCompound) {
-    if (workReps <= 5) {
-      // Force : 5 montantes → bar, 50%, 65%, 80%, 90%
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.40), reps: 8 },
-        { isWarmup: true, weight: round05(workWeight * 0.55), reps: 5 },
-        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 },
-        { isWarmup: true, weight: round05(workWeight * 0.85), reps: 2 },
-        { isWarmup: true, weight: round05(workWeight * 0.92), reps: 1 }
-      ];
-    } else if (workReps <= 10) {
-      // Hypertrophie : 3 montantes
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 8 },
-        { isWarmup: true, weight: round05(workWeight * 0.65), reps: 5 },
-        { isWarmup: true, weight: round05(workWeight * 0.80), reps: 3 }
-      ];
-    } else {
-      // Endurance : 2 montantes
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 10 },
-        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 5 }
-      ];
-    }
-  }
-
-  // Compound suivant mais premier pour ce groupe musculaire → 2 montantes
-  if (isFirstForMuscleGroup) {
-    return [
-      { isWarmup: true, weight: round05(workWeight * 0.50), reps: 5 },
-      { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 }
-    ];
-  }
-
-  // Compound suivant, même groupe déjà échauffé → 1 montante
-  return [
-    { isWarmup: true, weight: round05(workWeight * 0.60), reps: 5 }
-  ];
 }
 
 // ── Estimation durée séance scientifique ────────────────────
@@ -11763,56 +11622,6 @@ function estimateSessionDuration(exercises) {
 
   // Facteur de fatigue : 10% plus lent en fin de séance
   return Math.round((totalSec * 1.10) / 60);
-}
-
-// Adapter la séance si elle dépasse la durée configurée
-function adaptSessionForDuration(exercises, targetMinutes, goal) {
-  if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
-  const est = estimateSessionDuration(exercises);
-  if (est <= targetMinutes) return { exercises, adaptations: [] };
-
-  const adaptations = [];
-  let adapted = JSON.parse(JSON.stringify(exercises));
-
-  // 1. Supersets sur isolations (gain ~30%)
-  const isoExos = adapted.filter(e => getExoCategory(e.name) === 'isolation');
-  if (isoExos.length >= 2) {
-    for (let i = 0; i < isoExos.length - 1; i += 2) {
-      isoExos[i].superset = isoExos[i + 1].name;
-      isoExos[i].restSeconds = Math.round((isoExos[i].restSeconds || 60) * 0.5);
-    }
-    adaptations.push('Supersets sur isolations');
-    const est2 = estimateSessionDuration(adapted);
-    if (est2 <= targetMinutes) return { exercises: adapted, adaptations };
-  }
-
-  // 2. Réduire séries isolations (max -1, jamais <2)
-  adapted.forEach(e => {
-    if (getExoCategory(e.name) !== 'isolation') return;
-    const work = e.sets.filter(s => !s.isWarmup);
-    if (work.length > 2) {
-      const idx = e.sets.findIndex(s => !s.isWarmup);
-      if (idx >= 0) e.sets.splice(idx, 1);
-    }
-  });
-  adaptations.push('Séries isolations réduites');
-  const est3 = estimateSessionDuration(adapted);
-  if (est3 <= targetMinutes) return { exercises: adapted, adaptations };
-
-  // 3. Réduire repos de 15% max
-  adapted.forEach(e => { e.restSeconds = Math.round((e.restSeconds || 90) * 0.85); });
-  adaptations.push('Repos réduits (-15%)');
-  const est4 = estimateSessionDuration(adapted);
-  if (est4 <= targetMinutes) return { exercises: adapted, adaptations };
-
-  // 4. Dernier recours : retirer une isolation
-  const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
-  if (lastIso >= 0) {
-    adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
-    adapted.splice(lastIso, 1);
-  }
-
-  return { exercises: adapted, adaptations };
 }
 
 let _deloadDismissed = false;

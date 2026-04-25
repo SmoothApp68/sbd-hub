@@ -1781,6 +1781,7 @@ function showJeuxSub(id, btn) {
   }
   try { localStorage.setItem('activeJeuxSub', id); } catch(e) {}
   if (typeof _updateLastTab === 'function') _updateLastTab('jeux', id);
+  if (id === 'jeux-badges' && typeof renderMuscleBadges === 'function') renderMuscleBadges();
 }
 // Explicit global export (safety for inline onclick handlers)
 if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
@@ -4441,6 +4442,10 @@ function getMuscleVolumeAndFreq(logs4weeks) {
   });
 
   return result;
+}
+
+function computeMuscleTonnage() {
+  return getMuscleVolumeAndFreq(db.logs || []);
 }
 
 function calcAndStoreMuscleRanks(force) {

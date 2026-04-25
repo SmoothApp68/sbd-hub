@@ -5951,15 +5951,39 @@ function renderWeekCard() {
       '</div>';
   }).join('');
 
-  // Aujourd'hui card
+  // Aujourd'hui card — exercises from weeklyPlan
+  let todayExosHtml = '';
+  if (!isRestDay && todayLabel && db.weeklyPlan && db.weeklyPlan.days) {
+    const todayDay = db.weeklyPlan.days[todayMonIdx];
+    const exos = (todayDay && !todayDay.rest) ? (todayDay.exercises || todayDay.exos || []) : [];
+    if (exos.length > 0) {
+      todayExosHtml = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(10,132,255,0.15);">';
+      exos.forEach(function(exo) {
+        let detail = '';
+        if (exo.weight && exo.sets && exo.reps) detail = exo.weight + 'kg · ' + exo.sets + '×' + exo.reps;
+        else if (exo.sets && exo.reps) detail = exo.sets + '×' + exo.reps;
+        else if (exo.sets) detail = exo.sets + ' séries';
+        todayExosHtml +=
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;">' +
+            '<span style="color:var(--text);">' + (exo.name || exo.exercise || '') + '</span>' +
+            (detail ? '<span style="color:var(--sub);font-weight:600;">' + detail + '</span>' : '') +
+          '</div>';
+      });
+      todayExosHtml += '</div>';
+    }
+  }
+
   const todayHtml = !isRestDay && todayLabel
-    ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;overflow:hidden;">' +
-        '<div style="width:32px;height:32px;background:rgba(10,132,255,0.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🏋️</div>' +
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">Aujourd\'hui</div>' +
-          '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + todayLabel + '</div>' +
+    ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;overflow:hidden;">' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<div style="width:32px;height:32px;background:rgba(10,132,255,0.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🏋️</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">Aujourd\'hui</div>' +
+            '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + todayLabel + '</div>' +
+          '</div>' +
+          '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>' +
         '</div>' +
-        '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>' +
+        todayExosHtml +
       '</div>'
     : '<div style="text-align:center;padding:8px;color:var(--sub);font-size:12px;">😴 Repos complet</div>';
 

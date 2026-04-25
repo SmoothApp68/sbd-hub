@@ -1702,7 +1702,6 @@ function migrateExerciseNames() {
   db.migrationV1 = true;
 
   if (renamed > 0) {
-    console.log('[migrateExerciseNames] ' + renamed + ' exercises renamed:', log);
     saveDB(); // triggers debouncedCloudSync → syncToCloud
   } else {
     // Mark migration done even if nothing to rename

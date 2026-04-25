@@ -114,7 +114,6 @@ let db = (() => {
             const parsed = JSON.parse(old);
             if (parsed.logs && parsed.user) {
               localStorage.setItem(STORAGE_KEY, old);
-              console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
               break;
             }
           } catch(e) {}
@@ -2382,19 +2381,6 @@ function calcStreak() {
   var protectedSet = new Set(db.gamification.freezeProtectedWeeks || []);
   var freezeConsumedThisCall = false;
 
-  // DEBUG — enable via window.DEBUG_STREAK = true in console
-  var DEBUG = (typeof window !== 'undefined' && window.DEBUG_STREAK === true);
-  if (DEBUG) {
-    console.log('[calcStreak] logs=' + db.logs.length + ' dropped=' + droppedLogs +
-      ' weeksInSet=' + weeksWithSession.size + ' currentWeek=' + currentWeek +
-      ' freezes=' + (db.gamification.streakFreezes || 0) +
-      ' protectedWeeks=' + protectedSet.size +
-      ' freezeActiveThisWeek=' + (db.gamification.freezeActiveThisWeek === true));
-    var sortedWeeks = Array.from(weeksWithSession).sort().reverse();
-    console.log('[calcStreak] first 5 weeks:', sortedWeeks.slice(0, 5));
-    console.log('[calcStreak] last 5 weeks:', sortedWeeks.slice(-5));
-  }
-
   // Count consecutive weeks backward from startWeek.
   function countFromWeek(startWeek) {
     var streak = 0;
@@ -2405,7 +2391,6 @@ function calcStreak() {
       if (hasSession || alreadyProtected) {
         streak++;
       } else if (checkWeek < '2026-W01') {
-        if (DEBUG) console.log('[calcStreak] BREAK (pre-2026) at week=' + checkWeek + ' streak=' + streak);
         break;
       } else if (!freezeConsumedThisCall
                  && (db.gamification.streakFreezes || 0) > 0
@@ -2422,12 +2407,7 @@ function calcStreak() {
         db.gamification.freezesUsedAt.push(Date.now());
         if (typeof syncToCloud === 'function') syncToCloud();
         if (typeof showToast === 'function') showToast('❄️ Freeze utilisé — streak protégé');
-        if (DEBUG) console.log('[calcStreak] freeze consumed at week=' + checkWeek + ' streak=' + streak);
       } else {
-        if (DEBUG) console.log('[calcStreak] BREAK at week=' + checkWeek + ' streak=' + streak +
-          ' reason=' + (freezeConsumedThisCall ? 'freeze-already-consumed-this-call' :
-                        (db.gamification.streakFreezes || 0) === 0 ? 'no-freezes-left' :
-                        streak < 4 ? 'streak<4' : 'unknown'));
         break;
       }
       checkWeek = _prevISOWeekKey(checkWeek);
@@ -2448,8 +2428,6 @@ function calcStreak() {
   // Store in db for cloud sync (never overwrite a higher record)
   db.weeklyStreak = streak;
   if (streak > (db.weeklyStreakRecord || 0)) db.weeklyStreakRecord = streak;
-
-  if (DEBUG) console.log('[calcStreak] FINAL streak=' + streak);
 
   return streak;
 }
@@ -7651,7 +7629,6 @@ function renderVolumeChart(period) {
   // 'week' = 10 dernières séances, 'month' = 30 dernières séances
   const limit = period === 'week' ? 10 : 30;
   const vl = [...db.logs].sort((a,b) => a.timestamp-b.timestamp).filter(l => l.volume > 0).slice(-limit);
-  console.log('renderVolumeChart', period, 'vl.length=', vl.length, 'db.logs.length=', db.logs.length);
   chartVolume = new Chart(cv, {type:'line', data:{labels:vl.map(l=>(l.shortDate||l.date||'').substring(0,5)), datasets:[{data:vl.map(l=>l.volume), borderColor:'#BF5AF2', backgroundColor:'rgba(191,90,242,0.1)', borderWidth:3, fill:true, tension:0.4, pointBackgroundColor:'#BF5AF2', pointRadius:3}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{title:items=>{const log=vl[items[0].dataIndex];return(log.title||'')+(log.shortDate?' · '+log.shortDate:'');}, label:c=>' '+(c.raw/1000).toFixed(2)+'t'}}}, scales:{y:{display:false}, x:{grid:{display:false}, ticks:{color:'#86868B', font:{size:10}, maxRotation:30}}}}});
 }
 
@@ -8664,7 +8641,6 @@ function pbSaveManualProgram() {
   });
   _pbState = null;
   saveDBNow();
-  console.log('Programme manuel sauvegardé:', { routine: db.routine, manualProgram: db.manualProgram, routineExos: db.routineExos });
   showToast('Programme sauvegardé !');
   renderProgramBuilder();
 }
@@ -8712,7 +8688,6 @@ function pbGenerateProgram() {
 
   _pbState = null;
   saveDBNow();
-  console.log('Programme généré sauvegardé:', { routine: db.routine, generatedProgram: db.generatedProgram, routineExos: db.routineExos });
   showToast('Programme généré !');
   renderProgramBuilder();
 }

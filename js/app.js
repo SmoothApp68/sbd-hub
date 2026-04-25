@@ -7795,9 +7795,11 @@ function toggleMgCard(id) {
 
 function renderReports(period) {
   period=period||'week';setPeriodButtons('reportButtons',period);
+  const el=document.getElementById('reportDisplay');if(!el)return;
+  if(!db.logs.length){el.innerHTML='<div style="text-align:center;padding:16px 0;color:var(--sub);font-size:13px;">Aucune séance enregistrée.<br><button onclick="showTab(\'tab-profil\');showProfilSub(\'tab-settings\');setTimeout(function(){toggleAcc(\'acc-import\');},200);" style="margin-top:12px;background:var(--purple);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Importer des séances →</button></div>';return;}
   const rl=getLogsInRange(period==='week'?7:30);
   let tv=0,ts=0;rl.forEach(l=>{tv+=l.volume;l.exercises.forEach(e=>ts+=e.sets);});
-  document.getElementById('reportDisplay').innerHTML='<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div><div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div><div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div><div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>';
+  el.innerHTML='<div class="report-box"><div class="report-val">'+rl.length+'</div><div class="report-label">Séances</div></div><div class="report-box"><div class="report-val">'+ts+'</div><div class="report-label">Séries</div></div><div class="report-box"><div class="report-val">'+(tv/1000).toFixed(1)+'t</div><div class="report-label">Volume</div></div><div class="report-box"><div class="report-val">'+(rl.length>0?Math.round(ts/rl.length):0)+'</div><div class="report-label">Séries/Séance</div></div>';
 }
 
 // ============================================================
@@ -10355,7 +10357,7 @@ function renderSeancesTab() {
 
   // Générer les cards (sans jours de repos)
   var cardsHtml = sessions.length === 0
-    ? '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;">Aucune séance cette semaine</div>'
+    ? '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;">Aucune séance cette semaine<br><button onclick="showSeancesSub(\'seances-go\',document.querySelector(\'#tab-seances .stats-sub-pill[onclick*=seances-go]\'))" style="margin-top:14px;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Démarrer une séance GO 💪</button></div>'
     : sessions.map(function(session, si) {
       return renderSessionCard2(session, si, _prevBestByTs[session.timestamp]||{});
     }).join('');

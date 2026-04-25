@@ -5239,12 +5239,7 @@ function renderGamificationTab() {
       {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
       {label:'Corps', val:bd.corps, color:'#FF6B9D', click:'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')'}
     ];
-    var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>' +
-      '<div class="xs-counters">' +
-        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--blue);">' + bd.seances.toLocaleString() + '</div><div class="xs-counter-lbl">Séances</div></div>' +
-        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--green);">' + bd.records.toLocaleString() + '</div><div class="xs-counter-lbl">Records</div></div>' +
-        '<div class="xs-counter"><div class="xs-counter-val" style="color:var(--orange);">' + bd.regularite.toLocaleString() + '</div><div class="xs-counter-lbl">Régularité</div></div>' +
-      '</div>';
+    var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>';
     bars.forEach(function(br) {
       var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
       html += '<div class="xs-bar-row xs-bar-row-click" onclick="' + br.click + '"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';

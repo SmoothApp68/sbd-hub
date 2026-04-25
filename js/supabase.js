@@ -1376,7 +1376,7 @@ async function loadCommentsForActivity(activityId) {
 }
 
 async function renderFeed() {
-  if (_socialCacheValid('feed')) return;
+  if (_socialCacheValid('feed') && document.getElementById('feedContent')?.children.length > 0) return;
   const uid = await getMyUserIdAsync();
   if (!uid) return;
 
@@ -1948,7 +1948,7 @@ async function publishPRActivity(exerciseName, newValue, oldValue) {
 // SOCIAL MODULE — LEADERBOARD
 // ============================================================
 async function renderLeaderboard() {
-  if (_socialCacheValid('leaderboard')) return;
+  if (_socialCacheValid('leaderboard') && document.getElementById('lbTable')?.children.length > 0) return;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
 
@@ -2207,7 +2207,7 @@ async function saveSocialBio() {
 // SOCIAL MODULE — RENDER FRIENDS TAB
 // ============================================================
 async function renderFriendsTab() {
-  if (_socialCacheValid('friends')) return;
+  if (_socialCacheValid('friends') && document.getElementById('friendsList')?.children.length > 0) return;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
 

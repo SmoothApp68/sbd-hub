@@ -845,6 +845,7 @@ async function ensureProfile() {
       visibility_programme: db.social.visibility?.programme || (existing && existing.visibility_programme) || 'private',
       visibility_seances: db.social.visibility?.seances || (existing && existing.visibility_seances) || 'private',
       visibility_stats: db.social.visibility?.stats || (existing && existing.visibility_stats) || 'private',
+      visibility_feed: db.social.visibility?.feed || (existing && existing.visibility_feed) || 'private',
       onboarding_completed: onboardingDone
     };
 
@@ -2173,7 +2174,8 @@ function renderSocialProfileCard() {
     { key: 'prs', label: 'PRs / Exercices clés' },
     { key: 'programme', label: 'Programme' },
     { key: 'seances', label: 'Séances détaillées' },
-    { key: 'stats', label: 'Stats' }
+    { key: 'stats', label: 'Stats' },
+    { key: 'feed', label: 'Activité publique' }
   ];
   fields.forEach(function(f) {
     html += '<div class="sob-visibility-row"><span class="sob-visibility-label">' + f.label + '</span>' + visOptions(f.key) + '</div>';

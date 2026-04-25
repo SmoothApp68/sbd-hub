@@ -1824,6 +1824,7 @@ function showProfilSub(id, btn) {
   }
   // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
+    if (typeof renderMuscleBadges === 'function') renderMuscleBadges();
     if (typeof renderGamificationTab === 'function') renderGamificationTab();
     var badgesContainer = document.getElementById('profil-badges-content');
     var gameEl = document.getElementById('tab-game');
@@ -4441,6 +4442,10 @@ function getMuscleVolumeAndFreq(logs4weeks) {
   });
 
   return result;
+}
+
+function computeMuscleTonnage() {
+  return getMuscleVolumeAndFreq(db.logs || []);
 }
 
 function calcAndStoreMuscleRanks(force) {

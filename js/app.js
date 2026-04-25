@@ -4894,6 +4894,29 @@ function checkTitles() {
   db.unlockedTitles = unlocked;
 }
 
+function showJeuHelp() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  var box = document.createElement('div');
+  box.className = 'modal-box';
+  box.style.maxWidth = '360px';
+  box.style.textAlign = 'left';
+  box.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+      '<div style="font-size:16px;font-weight:800;">Comment fonctionne l\'onglet Jeu ?</div>' +
+      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;color:var(--sub);font-size:22px;cursor:pointer;line-height:1;">×</button>' +
+    '</div>' +
+    '<div style="font-size:13px;line-height:1.7;color:var(--text);">' +
+      '<p style="margin:0 0 10px;"><strong>🏆 XP</strong> — Tu gagnes de l\'XP à chaque séance, PR, série hebdomadaire et objectif atteint.</p>' +
+      '<p style="margin:0 0 10px;"><strong>📈 Niveau</strong> — Ton niveau augmente avec ton XP total. Chaque niveau débloque un nouveau titre.</p>' +
+      '<p style="margin:0 0 10px;"><strong>🎯 Quêtes</strong> — Des défis hebdomadaires pour t\'encourager à varier tes entraînements.</p>' +
+      '<p style="margin:0;"><strong>💪 Rangs</strong> — Tes performances sur Squat, Bench et Deadlift sont comparées à des standards de force.</p>' +
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 function showTitleModal() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';

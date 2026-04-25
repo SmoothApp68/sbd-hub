@@ -6059,54 +6059,9 @@ function renderDash() {
   requestAnimationFrame(function() {
     renderWeekCard();
     renderPerfCard();
-    if (typeof renderSBDRanksHome === 'function') renderSBDRanksHome();
   });
 }
 
-function renderSBDRanksHome() {
-  var card = document.getElementById('sbdRanksCard');
-  var host = document.getElementById('sbdRanksHome');
-  if (!card || !host) return;
-  if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) {
-    card.style.display = 'none'; return;
-  }
-  card.style.display = '';
-  db.gamification = db.gamification || {};
-  var lr = db.gamification.liftRanks;
-  if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) {
-    host.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Enregistre une séance SBD pour voir ton rang</div>';
-    return;
-  }
-  var lifts = [
-    { key:'squat',    icon:'🦵', label:'SQ' },
-    { key:'bench',    icon:'🫸', label:'BP' },
-    { key:'deadlift', icon:'💀', label:'DL' }
-  ];
-  var html = '';
-  lifts.forEach(function(l) {
-    var r = lr[l.key];
-    if (!r) return;
-    // Progression inside the current tier towards the next
-    var idx = -1;
-    for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
-    var nextMin = idx < SBD_TIERS.length - 1 ? SBD_TIERS[idx + 1].min : 100;
-    var curMin = SBD_TIERS[idx] ? SBD_TIERS[idx].min : 0;
-    var span = Math.max(1, nextMin - curMin);
-    var pctInTier = Math.max(0, Math.min(100, Math.round((r.percentile - curMin) / span * 100)));
-    html += '<div class="sbd-rank-row">' +
-      '<span class="sbd-rank-icon">' + l.icon + '</span>' +
-      '<span class="sbd-rank-name">' + l.label + '</span>' +
-      '<span class="sbd-rank-val">' + r.e1rm + ' kg</span>' +
-      '<div class="sbd-rank-bar-bg"><div class="sbd-rank-bar" style="width:' + pctInTier + '%;background:' + r.color + ';"></div></div>' +
-      '<span class="sbd-rank-tier" style="color:' + r.color + ';">' + r.tier + '</span>' +
-    '</div>';
-  });
-  if (!html) {
-    host.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">Enregistre une séance SBD pour voir ton rang</div>';
-    return;
-  }
-  host.innerHTML = html;
-}
 
 // ============================================================
 // Résumé hebdomadaire — nombre de séances, durée, volume

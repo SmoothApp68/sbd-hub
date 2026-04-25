@@ -1026,8 +1026,7 @@
     .hm-cell-click { cursor: pointer; transition: transform 0.1s; }
     .hm-cell-click:active { transform: scale(1.15); }
 
-    /* ── Rangs SBD ── */
-    .sbd-ranks-card { cursor: pointer; }
+    /* ── Rangs SBD (Jeu tab) ── */
     .sbd-rank-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:13px; }
     .sbd-rank-row:last-child { margin-bottom:0; }
     .sbd-rank-icon { font-size:16px; flex:0 0 auto; }
@@ -2209,13 +2208,7 @@
       <div id="perfDisplay"></div>
     </div>
 
-    <!-- Carte Rangs SBD -->
-    <div class="card sbd-ranks-card" id="sbdRanksCard" style="padding:14px 16px;display:none;cursor:pointer;" onclick="showTab('tab-game')">
-      <div class="sbd-ranks-title" style="font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">⚔️ Rangs SBD</div>
-      <div id="sbdRanksHome"></div>
-    </div>
-
-    <!-- IDs conservés pour compatibilité avec les fonctions existantes -->
+<!-- IDs conservés pour compatibilité avec les fonctions existantes -->
     <div style="display:none;">
       <div id="routineDisplay"></div>
 

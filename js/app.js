@@ -12180,28 +12180,6 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   return { exercises: adapted, adaptations };
 }
 
-// ── Deload automatique ──────────────────────────────────────
-function shouldDeload() {
-  const reasons = [];
-  // 1. Fin de mésocycle (semaine 4 complétée)
-  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
-    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
-    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
-  }
-  // 2. Readiness basse chronique
-  const last3 = (db.readiness || []).slice(-3);
-  if (last3.length === 3 && last3.every(r => r.score < 40)) {
-    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
-  }
-  // 3. Plateau multiple
-  const bigLifts = ['squat', 'bench', 'deadlift'];
-  const plateaus = bigLifts.filter(l => detectPlateau(l));
-  if (plateaus.length >= 2) {
-    reasons.push('Plateau sur ' + plateaus.join(' et '));
-  }
-  return { needed: reasons.length > 0, reasons };
-}
-
 let _deloadDismissed = false;
 function renderDeloadBanner() {
   const el = document.getElementById('deloadBanner');

@@ -8206,29 +8206,73 @@ function buildSessionFromCSV(dateRaw, seanceName, rows) {
   return session.exercises.length>0?session:null;
 }
 
-async function importCSV() {
-  if(!csvParsedData)return;
-  const btn=document.getElementById('csvImportBtn');btn.disabled=true;btn.textContent='Import en cours...';
-  const progress=document.getElementById('csvProgress');const bar=document.getElementById('csvProgressBar');const txt=document.getElementById('csvProgressText');progress.style.display='block';
-  const existingKeys=new Set(db.logs.map(l=>(l.shortDate||'')+'||'+(l.title||'')));const newSessions=csvParsedData.sessions.filter(s=>!existingKeys.has((s.shortDate||'')+'||'+(s.title||'')));
+function _showDuplicateImportModal(duplicates, onForce, onCancel) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); onCancel(); } };
+  var box = document.createElement('div');
+  box.className = 'modal-box';
+  box.style.maxWidth = '360px';
+  box.style.textAlign = 'left';
+  var listHtml = duplicates.slice(0, 5).map(function(s) {
+    var d = s.shortDate || (s.timestamp ? new Date(s.timestamp).toLocaleDateString('fr-FR') : '?');
+    return '<li style="margin-bottom:4px;">' + d + ' — ' + (s.title || '?') + '</li>';
+  }).join('');
+  if (duplicates.length > 5) listHtml += '<li style="color:var(--sub);">... et ' + (duplicates.length - 5) + ' autres</li>';
+  box.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+      '<div style="font-size:15px;font-weight:800;">⚠️ Doublons détectés</div>' +
+      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;color:var(--sub);font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>' +
+    '</div>' +
+    '<p style="font-size:13px;color:var(--sub);margin-bottom:10px;">' + duplicates.length + ' séance' + (duplicates.length > 1 ? 's' : '') + ' déjà présente' + (duplicates.length > 1 ? 's' : '') + ' dans ta base :</p>' +
+    '<ul style="font-size:12px;padding-left:18px;margin-bottom:16px;color:var(--text);">' + listHtml + '</ul>' +
+    '<div class="modal-actions">' +
+      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--sub);cursor:pointer;font-size:14px;">Annuler</button>' +
+      '<button id="_forceImportBtn" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--orange);color:#fff;cursor:pointer;font-size:14px;font-weight:700;">Forcer l\'import</button>' +
+    '</div>';
+  box.querySelector('#_forceImportBtn').onclick = function() { overlay.remove(); onForce(); };
+  box.querySelector('.modal-actions button:first-child').onclick = function() { overlay.remove(); onCancel(); };
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+async function _doImportCSV(sessions) {
+  const btn=document.getElementById('csvImportBtn');
+  const progress=document.getElementById('csvProgress');const bar=document.getElementById('csvProgressBar');const txt=document.getElementById('csvProgressText');
+  progress.style.display='block';
   let imported=0,prs={bench:0,squat:0,deadlift:0};
-  for(const session of newSessions){
-    // Nettoyer les _rawSets temporaires avant de sauvegarder (allSets est conservé)
+  for(const session of sessions){
     session.exercises.forEach(exo=>{ delete exo._rawSets; });
     session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM&&exo.maxRM>prs[type])prs[type]=exo.maxRM;});
     db.logs.push(session);imported++;
-    if(imported%10===0||imported===newSessions.length){const pct=Math.round((imported/newSessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+newSessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
+    if(imported%10===0||imported===sessions.length){const pct=Math.round((imported/sessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+sessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
   if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){showPRCelebration(_n,_bestPR[0][1],0);},500);}}
-  // Vérifier les records suspects après import CSV
   const suspectCount = Object.values(getSuspiciousRecordsSummary()).length;
   if (suspectCount > 0) {
     setTimeout(() => showToast('⚠️ ' + suspectCount + ' record' + (suspectCount>1?'s':'') + ' suspect' + (suspectCount>1?'s':'') + ' détecté' + (suspectCount>1?'s':'') + ' — vérifie dans Réglages → Correction des Records'), 1500);
   }
   refreshUI();csvParsedData=null;
+}
+
+async function importCSV() {
+  if(!csvParsedData)return;
+  const btn=document.getElementById('csvImportBtn');btn.disabled=true;btn.textContent='Import en cours...';
+  const existingKeys=new Set(db.logs.map(l=>l.timestamp+'_'+(l.title||'')));
+  const duplicates=csvParsedData.sessions.filter(s=>existingKeys.has(s.timestamp+'_'+(s.title||'')));
+  const newSessions=csvParsedData.sessions.filter(s=>!existingKeys.has(s.timestamp+'_'+(s.title||'')));
+  if(duplicates.length>0){
+    btn.disabled=false;btn.textContent='Importer';
+    _showDuplicateImportModal(duplicates,
+      function(){ btn.disabled=true;btn.textContent='Import en cours...';_doImportCSV(csvParsedData.sessions); },
+      function(){}
+    );
+    return;
+  }
+  await _doImportCSV(newSessions);
 }
 
 function getSuspiciousRecordsSummary() {

@@ -4281,16 +4281,6 @@ function getUserBW() {
   )) || BW_FALLBACK_KG;
 }
 
-function _normalizeExoNameForBW(s) {
-  return (s || '').toLowerCase()
-    .replace(/[éèêë]/g,'e')
-    .replace(/[àâä]/g,'a')
-    .replace(/[ùûü]/g,'u')
-    .replace(/[îï]/g,'i')
-    .replace(/[ôö]/g,'o')
-    .replace(/[()]/g,' ')
-    .replace(/\s+/g,' ').trim();
-}
 
 function _computeSetTonnage(s, bw, bwConfig, exoName) {
   var base = (s.weight || 0) * (s.reps || 0);
@@ -4400,7 +4390,7 @@ function getMuscleVolumeAndFreq(logs4weeks) {
       // Compute exo volume — normal sets only, exclude warmups
       var exoVolume = 0;
       var bw = (db.user && (db.user.bodyWeight || db.user.weight)) || 80;
-      var exoNameNorm = _normalizeExoNameForBW(exo.name || '');
+      var exoNameNorm = wpNormalizeName(exo.name || '');
       var bwConfig = BODYWEIGHT_FACTORS[exoNameNorm];
 
       if (exo.exoType === 'weight' && exo.allSets && exo.allSets.length > 0) {

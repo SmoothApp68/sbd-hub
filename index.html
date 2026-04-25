@@ -68,7 +68,6 @@
     .jeux-sub-section.active { display: block; }
     /* ── Anatomy (muscle ranks) ── */
     .anat-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:14px; margin-bottom:14px; }
-    .anat-toggle { display:flex; gap:8px; justify-content:center; margin-bottom:10px; }
     .anat-figure-wrap { position:relative; display:flex; justify-content:center; min-height:340px; }
     .anat-figure-wrap svg { width:100%; max-width:220px; height:auto; display:block; }
     .muscle-zone { fill:rgba(255,255,255,0.08); stroke:rgba(255,255,255,0.15); stroke-width:0.8; cursor:pointer; transition:fill 0.3s, stroke 0.15s, stroke-width 0.15s; }
@@ -115,7 +114,6 @@
     .sbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
     .rm-box { padding: 12px; border-radius: 10px; background: var(--bg-card); border: 0.5px solid var(--bg-card-border); position: relative; }
     .rm-val { font-size: 22px; font-weight: 500; color: var(--accent); margin: 4px 0; display: flex; align-items: baseline; justify-content: center; gap: 2px; font-variant-numeric: tabular-nums; }
-    .rm-target { font-size: 11px; color: var(--sub); }
     .pr-badge { position: absolute; top: -8px; right: 8px; background: var(--green); color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; animation: popIn 0.4s ease; }
     @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     input, select, textarea { width: 100%; background: var(--bg-input); border: 0.5px solid var(--border-input); color: var(--text-primary); border-radius: 10px; padding: 14px; margin-bottom: 12px; font-size: 16px; transition: border-color 0.2s; }
@@ -170,11 +168,6 @@
     .go-group-notes { width:100%; min-height:60px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px; font-size:13px; color:var(--text); resize:none; margin-bottom:16px; font-family:inherit; }
     /* ── Coach Cards ── */
     .coach-card { background:var(--bg-card); border:0.5px solid var(--bg-card-border); border-radius:14px; padding:16px; margin-bottom:12px; }
-    .coach-card-title { font-size:14px; font-weight:700; margin-bottom:6px; }
-    .coach-card-subtitle { font-size:12px; color:var(--sub); margin-bottom:10px; }
-    .coach-exo-list { margin:8px 0; }
-    .coach-advice { font-size:12px; background:rgba(10,132,255,0.08); border-radius:8px; padding:8px 10px; margin:10px 0; }
-    .coach-tip { font-size:11px; color:var(--sub); margin-top:8px; font-style:italic; }
     .coach-report-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; }
     .coach-report-header { display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px; }
     .coach-report-type { font-weight:700; }
@@ -186,13 +179,6 @@
     .coach-badge-count { display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:white;font-size:10px;font-weight:700;margin-left:4px; }
     /* Week band */
     .coach-week-band { display:flex; gap:4px; margin-bottom:12px; overflow-x:auto; padding:2px 0; }
-    .coach-day-pill { flex:1;min-width:40px;padding:8px 4px;border-radius:10px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;position:relative; }
-    .coach-day-pill.today { border-color:var(--blue);color:var(--blue); }
-    .coach-day-pill.done { border-color:var(--green);color:var(--green);background:rgba(50,215,75,0.08); }
-    .coach-day-pill.rest { opacity:0.45; cursor:default; }
-    .coach-day-pill.active { background:var(--blue);color:white;border-color:var(--blue); }
-    .coach-day-pill .cdp-label { font-size:10px;display:block; }
-    .coach-day-pill .cdp-sub { font-size:8px;display:block;margin-top:2px;opacity:0.7; }
     /* Exercise accordion cards */
     .coach-exo-card { background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden;transition:border-color 0.2s; }
     .coach-exo-card-header { display:flex;align-items:center;gap:8px;padding:12px;cursor:pointer; }
@@ -225,7 +211,6 @@
     .coach-history-body { display:none;padding:0 12px 12px;border-top:1px solid var(--border); }
     .coach-history-card.open .coach-history-body { display:block; }
     .coach-history-card.open .ch-chevron { transform:rotate(180deg); }
-    .coach-history-summary { font-size:11px;color:var(--sub);padding:4px 12px; }
     /* ── Search multi-filters ── */
     .go-filter-section { padding:0 12px; margin-bottom:4px; }
     .go-filter-label { font-size:10px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
@@ -459,7 +444,6 @@
     .coach-algo-card { background: linear-gradient(135deg, rgba(50,215,75,0.06) 0%, rgba(10,132,255,0.06) 100%); border: 1px solid rgba(50,215,75,0.2); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
     .coach-algo-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--green); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
     .plateau-alert { background: rgba(255,159,10,0.1); border: 1px solid rgba(255,159,10,0.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
-    .week-empty{text-align:center;padding:50px 0;color:var(--sub);font-size:14px;}
     /* ── Lifts filter ── */
     .lifts-filter-chip{flex-shrink:0;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:0.5px solid var(--bg-card-border);background:var(--bg-card);color:var(--text-secondary);transition:all 0.2s;white-space:nowrap;}
     .lifts-filter-chip.active{background:var(--accent);color:white;border-color:var(--accent);}
@@ -996,7 +980,7 @@
     .quest-item:last-child { margin-bottom: 0; }
     .quest-item.q-done { background: rgba(50,215,75,0.06); }
     .quest-item.q-active { border: 1px solid rgba(255,159,10,0.3); }
-    .quest-item.q-secret { border: 1px solid var(--gold-border); }
+
     .quest-perfect { background-color: rgba(200,162,76,0.06); border: 1px solid var(--gold-border); border-radius: 12px; padding: 10px 14px; margin-top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--gold); }
     .quest-arc { background: linear-gradient(135deg, rgba(191,90,242,0.03), rgba(10,132,255,0.03)); border: 1px solid rgba(191,90,242,0.3); outline: 1px solid rgba(191,90,242,0.08); outline-offset: 3px; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
     .quest-arc-bar { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
@@ -1030,7 +1014,7 @@
     .new-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); animation:newDot 2s ease infinite; margin-left:4px; vertical-align:middle; }
 
     /* ── Badge rarity enhancements (Dofus/Bleach theme) ── */
-    .bdg.common-v2, .bdg.uncommon-v2 { background: var(--parchment); }
+    .bdg.common-v2 { background: var(--parchment); }
     .bdg.mythic-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
     .bdg.divine-v2 { animation: reiatsuPulse 3s ease-in-out infinite; }
 
@@ -1073,10 +1057,6 @@
       *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
     /* ── Onglet GO — Journal de séance ── */
-    .go-idle-wrap{text-align:center;padding:40px 16px 20px;max-width:400px;margin:0 auto;}
-    .go-idle-icon{font-size:56px;margin-bottom:12px;line-height:1.2;}
-    .go-idle-title{font-size:22px;font-weight:800;margin-bottom:6px;}
-    .go-idle-sub{font-size:14px;color:var(--sub);margin-bottom:24px;line-height:1.5;}
     .go-btn-main{background:linear-gradient(135deg,#0A84FF 0%,#BF5AF2 100%);border:none;color:white;width:100%;padding:18px;border-radius:14px;font-weight:700;cursor:pointer;font-size:16px;display:flex;justify-content:center;align-items:center;gap:10px;transition:transform 0.2s;margin-bottom:10px;}
     .go-btn-main:active{transform:scale(0.98);}
     .go-btn-sec{background:var(--surface);border:1px solid var(--border);color:var(--text);width:100%;padding:14px;border-radius:14px;font-weight:600;cursor:pointer;font-size:14px;display:flex;justify-content:center;align-items:center;gap:8px;transition:all 0.2s;margin-bottom:10px;}
@@ -1106,7 +1086,6 @@
     .exo-demo-anim img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#1a1a2e;}
     .exo-demo-anim img:nth-child(2){animation:exoDemoAlt 2s infinite;}
     @keyframes exoDemoAlt{0%,45%{opacity:0;}50%,95%{opacity:1;}100%{opacity:0;}}
-    .go-exo-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
     .go-exo-info{flex:1;min-width:0;}
     .go-exo-name{font-size:15px;font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .go-exo-e1rm{font-size:11px;color:var(--sub);}
@@ -1143,7 +1122,6 @@
     .go-rest-timer-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:2px;display:flex;align-items:center;justify-content:center;gap:6px;}
     .go-rest-timer-exo{font-size:11px;color:var(--sub);margin-bottom:4px;}
     .go-rest-timer-count{font-size:22px;font-weight:800;color:var(--text);line-height:1;margin-bottom:4px;}
-    .go-rest-timer-rec{font-size:11px;color:var(--sub);margin-bottom:12px;}
     .go-rest-timer-btns{display:flex;gap:8px;justify-content:center;}
     .go-rest-timer-btns button{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;}
     .go-rest-timer-btns button:hover{border-color:var(--blue);}
@@ -1219,7 +1197,7 @@
     .go-muscle-sub-badge.tertiary{background:rgba(134,134,139,0.15);color:var(--sub);}
 
     /* ── SOCIAL MODULE ── */
-    .social-sub-tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--bg-card);border-radius:10px;padding:4px;border:0.5px solid var(--bg-card-border);}
+
     .social-sub-tab{flex:1;border:none;background:transparent;color:var(--sub);padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;position:relative;}
     .social-sub-tab.active{background:var(--blue);color:white;}
     .social-sub-tab .social-badge{position:absolute;top:4px;right:8px;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:white;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;}
@@ -1369,7 +1347,7 @@
     .lb2-row-avatar{width:32px;height:32px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0;}
     .lb2-row-info{flex:1;min-width:0;}
     .lb2-row-name{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .lb2-row-stats{font-size:10px;color:var(--sub);}
+
     .lb2-row-score{font-size:14px;font-weight:700;color:var(--blue);}
     .lb2-row-delta{font-size:10px;font-weight:600;margin-left:4px;}
     .lb2-row-delta.up{color:var(--green);}
@@ -1516,10 +1494,10 @@
     .stats-sub-pill.active { background: var(--accent) !important; border-color: var(--accent) !important; }
 
     /* ── Feed card PR highlight ── */
-    .feed-card.has-pr { border-left: 2px solid var(--success); }
+
 
     /* ── Numeric values ── */
-    .numeric-val { font-variant-numeric: tabular-nums; }
+
 
     /* ── God Mode ── */
     .gm-stat-box { background:rgba(255,69,58,0.06); border:0.5px solid rgba(255,69,58,0.15); border-radius:10px; padding:14px; text-align:center; }
@@ -1603,7 +1581,7 @@
       display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0; }
     .go-plan-exo-name { flex:1;font-size:12px;font-weight:600; }
     .go-plan-exo-load { font-size:11px;color:rgba(255,255,255,.4); }
-    .go-sets-mini { padding-left:34px;margin-bottom:4px; }
+
     .go-set-mini { display:flex;gap:0;font-size:11px;padding:2px 0;color:rgba(255,255,255,.4); }
     .go-set-n { width:22px;font-weight:600; }
     .go-set-l { flex:1;color:rgba(255,255,255,.6);font-weight:600; }
@@ -1667,22 +1645,6 @@
       background:linear-gradient(135deg,var(--accent),#6366f1);
       border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:16px; }
 
-    /* ── PROGRAMME TAB — nouvelle UI ── */
-    .prog-mode-header { background:var(--card);border:1px solid var(--border);border-radius:16px;
-      padding:14px;margin-bottom:10px; }
-    .prog-mode-top { display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px; }
-    .prog-mode-name { font-size:16px;font-weight:800;margin-bottom:3px; }
-    .prog-mode-sub { font-size:10px;color:var(--sub); }
-    .prog-mode-pct { font-size:28px;font-weight:900;line-height:1;text-align:right; }
-    .prog-mode-pct-lbl { font-size:9px;color:var(--sub);margin-top:1px;text-align:right; }
-    .prog-macro-bar { height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-bottom:10px; }
-    .prog-macro-fill { height:100%;border-radius:3px; }
-    .prog-blocs-row { display:flex;gap:6px; }
-    .prog-bloc { flex:1;border-radius:10px;padding:8px;text-align:center;cursor:pointer;transition:all .2s; }
-    .prog-bloc-tag { font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px; }
-    .prog-bloc-name { font-size:10px;font-weight:700;margin-bottom:1px; }
-    .prog-bloc-sub { font-size:9px;opacity:.55; }
-
     /* Curseur accent PB */
     .pb-slider-track { height:8px;background:rgba(255,255,255,.08);border-radius:4px;
       position:relative;cursor:pointer;margin:6px 0 10px; }
@@ -1716,21 +1678,12 @@
     .prog-day-name { font-size:13px;font-weight:700;margin-bottom:2px; }
     .prog-day-exos { font-size:10px;color:var(--sub); }
     .prog-day-muscles { display:flex;gap:4px;margin-top:4px;flex-wrap:wrap; }
-    .prog-muscle-tag { font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;border:1px solid; }
     .prog-day-actions { display:flex;gap:5px;flex-shrink:0; }
     .prog-action-btn { width:26px;height:26px;border-radius:7px;background:var(--surface);
       border:1px solid var(--border);color:var(--sub);font-size:11px;display:flex;
       align-items:center;justify-content:center;cursor:pointer;transition:all .15s; }
     .prog-action-btn:active { background:rgba(255,255,255,.1); }
     .prog-action-btn.danger { color:var(--red); }
-
-    /* Semaine sélectionnée — détail */
-    .prog-week-detail { background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden; }
-    .prog-week-head { padding:12px 14px;border-bottom:1px solid var(--border);
-      display:flex;align-items:center;justify-content:space-between; }
-    .prog-week-title { font-size:14px;font-weight:800; }
-    .prog-week-sub { font-size:10px;color:var(--sub);margin-top:1px; }
-    .prog-week-badge { font-size:9px;font-weight:700;padding:4px 9px;border-radius:6px; }
 
     /* Jours strip */
     .prog-days-strip { display:flex;border-bottom:1px solid var(--border); }
@@ -1744,14 +1697,6 @@
     .prog-day-pill-ico { font-size:13px;margin-bottom:2px; }
     .prog-day-pill-type { font-size:7px;font-weight:700; }
 
-    /* Zones Force / Hypertrophie */
-    .prog-zone { border-radius:12px;padding:10px 12px;margin-bottom:8px; }
-    .prog-zone-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:8px; }
-    .prog-zone-label { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
-      display:flex;align-items:center;gap:5px; }
-    .prog-zone-dot { width:5px;height:5px;border-radius:50%; }
-    .prog-zone-add { font-size:11px;color:var(--sub);cursor:pointer;opacity:.5; }
-    .prog-zone-add:hover { opacity:1; }
     .prog-exo-row { display:flex;align-items:center;gap:8px;padding:7px 0;
       border-bottom:1px solid rgba(255,255,255,.04); }
     .prog-exo-row:last-child { border-bottom:none; }
@@ -1790,8 +1735,7 @@
     .be-prog-ico { font-size:38px;margin-bottom:8px; }
     .be-prog-title { font-size:17px;font-weight:800;margin-bottom:4px; }
     .be-prog-sub { font-size:11px;color:var(--sub);line-height:1.6;margin-bottom:12px; }
-    .be-prog-quote { font-size:11px;color:rgba(100,210,255,.65);font-style:italic;
-      padding:8px 12px;background:rgba(100,210,255,.05);border-radius:8px;margin-bottom:12px; }
+
     .be-prog-stats { display:flex;gap:8px;justify-content:center; }
     .be-prog-stat { background:rgba(255,255,255,.04);border:1px solid var(--border);
       border-radius:10px;padding:8px 14px;text-align:center; }

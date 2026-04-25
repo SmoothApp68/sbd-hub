@@ -10042,7 +10042,11 @@ function renderFormeScore() {
   const el = document.getElementById('formeScoreContent');
   const tag = document.getElementById('formeScoreTag');
   if (!el) return;
-  if (!db.logs.length) { el.innerHTML = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Importe des séances<br>pour calculer le score de forme.</div>'; return; }
+  if (db.logs.length < 3) {
+    if (tag) { tag.textContent = ''; }
+    el.innerHTML = '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;line-height:1.6;">Enregistre 3 séances pour activer<br>ton score de forme</div>';
+    return;
+  }
   const fs = calcFormScore();
   const color = fs.total >= 80 ? 'var(--green)' : fs.total >= 60 ? 'var(--blue)' : fs.total >= 40 ? 'var(--orange)' : 'var(--red)';
   const label = fs.total >= 80 ? 'Optimal' : fs.total >= 60 ? 'Bon' : fs.total >= 40 ? 'Moyen' : 'À améliorer';

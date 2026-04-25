@@ -173,7 +173,10 @@
     .coach-report-type { font-weight:700; }
     .coach-report-date { color:var(--sub); }
     /* ── Coach sub-sections ── */
-    .coach-sub-nav { display:flex; gap:8px; margin-bottom:14px; }
+    .coach-sub-nav { display:flex; gap:8px; margin-bottom:14px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .coach-sub-nav::-webkit-scrollbar { display:none; }
+    .nav-fade-wrap { position:relative; }
+    .nav-fade-wrap::after { content:''; position:absolute; right:0; top:0; bottom:0; width:32px; background:linear-gradient(to right, transparent, #0C0C18); pointer-events:none; z-index:1; }
     .coach-sub-section { display:none; }
     .coach-sub-section.active { display:block; }
     .coach-badge-count { display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:white;font-size:10px;font-weight:700;margin-left:4px; }
@@ -449,9 +452,9 @@
     .lifts-filter-chip.active{background:var(--accent);color:white;border-color:var(--accent);}
     /* Dashboard accordion badges */
     /* ── Stats sous-onglets ── */
-    .stats-sub-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none;}
+    .stats-sub-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
     .stats-sub-nav::-webkit-scrollbar{display:none;}
-    .stats-sub-pill{flex-shrink:0;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:0.5px solid var(--bg-card-border);background:var(--bg-card);color:var(--text-secondary);transition:all 0.2s;white-space:nowrap;}
+    .stats-sub-pill{flex-shrink:0;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:0.5px solid var(--bg-card-border);background:var(--bg-card);color:var(--text-secondary);transition:all 0.2s;white-space:nowrap;}
     .stats-sub-pill.active{background:var(--accent);color:white;border-color:var(--accent);}
     .stats-sub-section{display:none;}
     .stats-sub-section.active{display:block;}
@@ -2228,12 +2231,12 @@
     </div>
   </div>
   <div id="tab-seances" class="content-section">
-    <div class="stats-sub-nav" style="margin-bottom:14px;">
+    <div class="nav-fade-wrap"><div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showSeancesSub('seances-historique',this)">📋 Séances</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-go',this)">🏋️ GO</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-programme',this)">📅 Programme</button>
       <button class="stats-sub-pill" onclick="showSeancesSub('seances-coach',this)">🦍 Coach</button>
-    </div>
+    </div></div>
     <div id="seances-historique" class="seances-sub-section active">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -2256,12 +2259,12 @@
       <div id="goActiveView" style="display:none;"></div>
     </div>
     <div id="seances-coach" class="seances-sub-section">
-      <div class="coach-sub-nav">
+      <div class="nav-fade-wrap"><div class="coach-sub-nav">
         <button class="stats-sub-pill active" onclick="showCoachSub('coach-today',this)">Aujourd'hui</button>
         <button class="stats-sub-pill" onclick="showCoachSub('coach-history',this)">
           Historique <span id="coachHistoBadge" class="coach-badge-count" style="display:none;"></span>
         </button>
-      </div>
+      </div></div>
       <div id="coach-today" class="coach-sub-section active"></div>
       <!-- Weekly Plan controls (moved from tab-ai) -->
       <div class="wp-card" id="weeklyPlanSection" style="display:none;">
@@ -2304,12 +2307,12 @@
 
   </div>
   <div id="tab-stats" class="content-section">
-    <div class="stats-sub-nav">
+    <div class="nav-fade-wrap"><div class="stats-sub-nav">
       <button class="stats-sub-pill active" onclick="showStatsSub('stats-volume',this)">📊 Volume</button>
       <button class="stats-sub-pill" onclick="showStatsSub('stats-muscles',this)">💪 Muscles</button>
       <button class="stats-sub-pill" onclick="showStatsSub('stats-records',this)">🏆 Records</button>
       <button class="stats-sub-pill" onclick="showStatsSub('stats-cardio',this)">🏃 Cardio</button>
-    </div>
+    </div></div>
     <div id="stats-volume" class="stats-sub-section active">
       <div class="card"><h2>Rapports</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="reportButtons"><button class="period-btn active" data-period="week" onclick="renderReports('week')">7 Jours</button><button class="period-btn" data-period="month" onclick="renderReports('month')">30 Jours</button></div><div class="report-grid" id="reportDisplay"></div></div>
       <div class="card"><h2>Tonnage Total</h2><div style="display:flex;justify-content:center;gap:10px;margin:10px 0 15px;" id="volumeButtons"><button class="period-btn active" data-period="week" onclick="renderVolumeChart('week')">10 Séances</button><button class="period-btn" data-period="month" onclick="renderVolumeChart('month')">30 Séances</button></div><div style="height:200px;margin-top:10px;"><canvas id="chartVolume"></canvas></div></div>
@@ -2362,11 +2365,11 @@
     </div>
   </div>
   <div id="tab-profil" class="content-section">
-    <div class="stats-sub-nav" style="margin-bottom:14px;">
+    <div class="nav-fade-wrap"><div class="stats-sub-nav" style="margin-bottom:14px;">
       <button class="stats-sub-pill active" onclick="showProfilSub('tab-corps',this)">⚖️ Corps</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-profil-stats',this)">📊 Stats</button>
       <button class="stats-sub-pill" onclick="showProfilSub('tab-settings',this)">⚙️ Réglages</button>
-    </div>
+    </div></div>
     <div id="tab-corps" class="profil-sub-section active">
     <!-- 1. Score de forme -->
     <div class="corps-acc">
@@ -2762,11 +2765,11 @@
   </div><!-- /tab-profil -->
 
   <div id="tab-game" class="content-section">
-    <div class="stats-sub-nav" style="margin-bottom:14px;">
+    <div class="nav-fade-wrap" id="jeuxSubNavWrap"><div class="stats-sub-nav" style="margin-bottom:14px;" id="jeuxSubNav">
       <button class="stats-sub-pill active" onclick="showJeuxSub('jeux-profil-joueur',this)">👤 Profil joueur</button>
       <button class="stats-sub-pill" onclick="showJeuxSub('jeux-rangs',this)">⚔️ Rangs</button>
       <button class="stats-sub-pill" onclick="showJeuxSub('jeux-badges',this)">🏆 Badges</button>
-    </div>
+    </div></div>
 
     <div id="jeux-profil-joueur" class="jeux-sub-section active">
       <div id="gamLevelCard"></div>

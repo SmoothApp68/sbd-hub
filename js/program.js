@@ -72,17 +72,6 @@ function lombardi1RM(weight, reps) {
   return weight * Math.pow(reps, 0.10);
 }
 
-// Moyenne pondérée des formules (Epley légèrement favorisé pour powerlifting)
-function calcE1RM(weight, reps) {
-  if (!weight || !reps || reps < 1) return 0;
-  if (reps === 1) return weight;
-  if (reps > 12) reps = 12; // au-delà de 12 reps, l'estimation est peu fiable
-  var e = epleyE1RM(weight, reps);
-  var b = brzyckiE1RM(weight, reps);
-  var l = lombardi1RM(weight, reps);
-  return Math.round((e * 0.45 + b * 0.40 + l * 0.15) * 10) / 10;
-}
-
 // Calcule la charge cible depuis un 1RM et un pourcentage, arrondie à 2.5kg
 function calcLoadFromPct(e1rm, pct) {
   if (!e1rm || !pct) return 0;

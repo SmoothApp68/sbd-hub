@@ -103,12 +103,6 @@ function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function calcE1RM(weight, reps) {
-  if (!weight || reps <= 0) return weight || 0;
-  if (reps === 1) return weight;
-  return Math.round(weight * (1 + reps / 30) * 10) / 10;
-}
-
 // --- TRADUCTION & LOGIQUE UI ---
 function t(key, value, opts) {
   const db = window.db;

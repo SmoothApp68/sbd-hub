@@ -4826,7 +4826,7 @@ function updateMonthlyChallengeProgress() {
       var routineDays = getTrainingDaysCount();
       var weekMap = {};
       monthLogs.forEach(function(l) {
-        var ws = _getWeekStart(new Date(l.timestamp)).toISOString().slice(0,10);
+        var ws = new Date(_getWeekStart(new Date(l.timestamp))).toISOString().slice(0,10);
         weekMap[ws] = (weekMap[ws]||0) + 1;
       });
       var completeWeeks = 0;

@@ -5960,9 +5960,19 @@ function renderWeekCard() {
       todayExosHtml = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(10,132,255,0.15);">';
       exos.forEach(function(exo) {
         let detail = '';
-        if (exo.weight && exo.sets && exo.reps) detail = exo.weight + 'kg · ' + exo.sets + '×' + exo.reps;
-        else if (exo.sets && exo.reps) detail = exo.sets + '×' + exo.reps;
-        else if (exo.sets) detail = exo.sets + ' séries';
+        if (Array.isArray(exo.sets) && exo.sets.length > 0) {
+          // Main lifts: sets is an array of {weight, reps, isWarmup} objects
+          const workSets = exo.sets.filter(function(s) { return !s.isWarmup; });
+          const count = workSets.length || exo.sets.length;
+          const first = workSets[0] || exo.sets[0];
+          detail = first.weight
+            ? (count + '×' + first.reps + ' @ ' + first.weight + 'kg')
+            : (count + '×' + first.reps);
+        } else if (typeof exo.sets === 'number' && exo.reps) {
+          detail = exo.sets + '×' + exo.reps;
+        } else if (typeof exo.sets === 'number') {
+          detail = exo.sets + ' séries';
+        }
         todayExosHtml +=
           '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;">' +
             '<span style="color:var(--text);">' + (exo.name || exo.exercise || '') + '</span>' +

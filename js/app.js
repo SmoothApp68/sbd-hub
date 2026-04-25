@@ -5178,15 +5178,16 @@ function renderGamificationTab() {
   var totalVolT = Math.round(db.logs.reduce(function(s,l){return s+(l.volume||0);}, 0) / 1000);
   var todayXP = _calcTodayXP();
 
-  // Active title
+  // Active title — only show chooser when at least one extra title is unlocked
   var activeTitleText = '';
+  var unlockedTitleIds = db.unlockedTitles || [];
   if (db.activeTitle) {
     var at = TITLE_POOL.find(function(t) { return t.id === db.activeTitle; });
     if (at) {
       var atColor = _titleRarityColor[at.rarity] || 'var(--sub)';
       activeTitleText = '<div class="lvl-title" style="color:' + atColor + ';" onclick="showTitleModal()">' + at.title + '</div>';
     }
-  } else {
+  } else if (unlockedTitleIds.length > 1) {
     activeTitleText = '<div class="lvl-title" style="color:var(--sub);" onclick="showTitleModal()">Choisir un titre ▾</div>';
   }
 

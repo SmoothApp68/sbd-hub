@@ -2538,11 +2538,6 @@ function _getWeekKey() {
   return mon.toISOString().slice(0,10);
 }
 
-function _getWeekStart(date) {
-  var d = new Date(date); var day = d.getDay(); var diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff); d.setHours(0,0,0,0); return d;
-}
-
 function _getLogsThisWeek() {
   var wk = _getWeekKey();
   var start = new Date(wk).getTime();
@@ -11768,15 +11763,6 @@ function _buildSetsFromHistory(prev) {
 function toggleCoachExo(idx) {
   const card = document.getElementById('coachExo' + idx);
   if (card) card.classList.toggle('open');
-}
-
-function _getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Monday is start of week
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - diff);
-  return d.getTime();
 }
 
 function renderCoachHistory() {

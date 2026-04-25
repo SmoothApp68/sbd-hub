@@ -5875,6 +5875,13 @@ function wpGetStreak() {
 }
 
 // ── Carte "Cette semaine" (nouvelle homepage) ────────────────
+var _homeDayOffset = 0;
+
+function homeNavDay(delta) {
+  _homeDayOffset = (_homeDayOffset + delta + 7) % 7;
+  renderWeekCard();
+}
+
 function renderWeekCard() {
   const el = document.getElementById('dashWeekContent');
   if (!el) return;
@@ -5951,13 +5958,21 @@ function renderWeekCard() {
       '</div>';
   }).join('');
 
-  // Aujourd'hui card — exercises from weeklyPlan
-  let todayExosHtml = '';
-  if (!isRestDay && todayLabel && db.weeklyPlan && db.weeklyPlan.days) {
-    const todayDay = db.weeklyPlan.days[todayMonIdx];
-    const exos = (todayDay && !todayDay.rest) ? (todayDay.exercises || todayDay.exos || []) : [];
+  // Day to display (offset from today, wraps around the week)
+  const displayMonIdx = (todayMonIdx + _homeDayOffset + 7) % 7;
+  const isDisplayToday = _homeDayOffset === 0;
+  const displayDayName = weekDaysFull[displayMonIdx];
+  const displayLabel = routine[displayDayName] || '';
+  const isDisplayRest = /repos|😴/i.test(displayLabel);
+
+  // Exercise list for the displayed day
+  const arrowBtn = 'background:rgba(255,255,255,0.06);border:none;color:var(--sub);width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+  let exosHtml = '';
+  if (!isDisplayRest && displayLabel && db.weeklyPlan && db.weeklyPlan.days) {
+    const displayDay = db.weeklyPlan.days[displayMonIdx];
+    const exos = (displayDay && !displayDay.rest) ? (displayDay.exercises || displayDay.exos || []) : [];
     if (exos.length > 0) {
-      todayExosHtml = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(10,132,255,0.15);">';
+      exosHtml = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(10,132,255,0.15);">';
       exos.forEach(function(exo) {
         let detail = '';
         if (Array.isArray(exo.sets) && exo.sets.length > 0) {
@@ -5965,37 +5980,53 @@ function renderWeekCard() {
           const workSets = exo.sets.filter(function(s) { return !s.isWarmup; });
           const count = workSets.length || exo.sets.length;
           const first = workSets[0] || exo.sets[0];
-          detail = first.weight
-            ? (count + '×' + first.reps + ' @ ' + first.weight + 'kg')
-            : (count + '×' + first.reps);
+          const w = first.weight;
+          const r = first.reps;
+          if (w && r !== undefined) detail = count + '×' + r + ' @ ' + w + 'kg';
+          else if (r !== undefined) detail = count + '×' + r + ' reps';
+          else detail = count + ' séries';
         } else if (typeof exo.sets === 'number' && exo.reps) {
           detail = exo.sets + '×' + exo.reps;
         } else if (typeof exo.sets === 'number') {
           detail = exo.sets + ' séries';
         }
-        todayExosHtml +=
+        exosHtml +=
           '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;">' +
             '<span style="color:var(--text);">' + (exo.name || exo.exercise || '') + '</span>' +
             (detail ? '<span style="color:var(--sub);font-weight:600;">' + detail + '</span>' : '') +
           '</div>';
       });
-      todayExosHtml += '</div>';
+      exosHtml += '</div>';
     }
   }
 
-  const todayHtml = !isRestDay && todayLabel
+  const dayHeaderLabel = isDisplayToday ? 'Aujourd\'hui' : displayDayName;
+  const todayHtml = !isDisplayRest && displayLabel
     ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;overflow:hidden;">' +
-        '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<button style="' + arrowBtn + '" onclick="homeNavDay(-1)">◀</button>' +
           '<div style="width:32px;height:32px;background:rgba(10,132,255,0.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🏋️</div>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">Aujourd\'hui</div>' +
-            '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + todayLabel + '</div>' +
+            '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">' + dayHeaderLabel + '</div>' +
+            '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + displayLabel + '</div>' +
           '</div>' +
-          '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>' +
+          (isDisplayToday
+            ? '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>'
+            : '') +
+          '<button style="' + arrowBtn + '" onclick="homeNavDay(1)">▶</button>' +
         '</div>' +
-        todayExosHtml +
+        exosHtml +
       '</div>'
-    : '<div style="text-align:center;padding:8px;color:var(--sub);font-size:12px;">😴 Repos complet</div>';
+    : '<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:10px 12px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<button style="' + arrowBtn + '" onclick="homeNavDay(-1)">◀</button>' +
+          '<div style="flex:1;text-align:center;color:var(--sub);font-size:12px;">' +
+            '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">' + dayHeaderLabel + '</div>' +
+            '😴 Repos complet' +
+          '</div>' +
+          '<button style="' + arrowBtn + '" onclick="homeNavDay(1)">▶</button>' +
+        '</div>' +
+      '</div>';
 
   el.innerHTML =
     // Header : nom + date + pills

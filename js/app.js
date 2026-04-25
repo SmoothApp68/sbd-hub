@@ -8261,9 +8261,9 @@ async function _doImportCSV(sessions) {
 async function importCSV() {
   if(!csvParsedData)return;
   const btn=document.getElementById('csvImportBtn');btn.disabled=true;btn.textContent='Import en cours...';
-  const existingKeys=new Set(db.logs.map(l=>l.timestamp+'_'+(l.title||'')));
-  const duplicates=csvParsedData.sessions.filter(s=>existingKeys.has(s.timestamp+'_'+(s.title||'')));
-  const newSessions=csvParsedData.sessions.filter(s=>!existingKeys.has(s.timestamp+'_'+(s.title||'')));
+  const existingTimestamps=new Set(db.logs.map(l=>l.timestamp));
+  const duplicates=csvParsedData.sessions.filter(s=>existingTimestamps.has(s.timestamp));
+  const newSessions=csvParsedData.sessions.filter(s=>!existingTimestamps.has(s.timestamp));
   if(duplicates.length>0){
     btn.disabled=false;btn.textContent='Importer';
     _showDuplicateImportModal(duplicates,

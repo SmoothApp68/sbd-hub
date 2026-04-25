@@ -2765,10 +2765,13 @@
   </div><!-- /tab-profil -->
 
   <div id="tab-game" class="content-section">
-    <div class="stats-sub-nav" style="margin-bottom:14px;">
-      <button class="stats-sub-pill active" onclick="showJeuxSub('jeux-profil-joueur',this)">👤 Profil joueur</button>
-      <button class="stats-sub-pill" onclick="showJeuxSub('jeux-rangs',this)">⚔️ Rangs</button>
-      <button class="stats-sub-pill" onclick="showJeuxSub('jeux-badges',this)">🏆 Badges</button>
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <div class="nav-fade-wrap" style="flex:1;min-width:0;"><div class="stats-sub-nav" style="margin-bottom:14px;">
+        <button class="stats-sub-pill active" onclick="showJeuxSub('jeux-profil-joueur',this)">👤 Profil joueur</button>
+        <button class="stats-sub-pill" onclick="showJeuxSub('jeux-rangs',this)">⚔️ Rangs</button>
+        <button class="stats-sub-pill" onclick="showJeuxSub('jeux-badges',this)">🏆 Badges</button>
+      </div></div>
+      <button onclick="showJeuHelp()" style="flex-shrink:0;background:none;border:1px solid rgba(255,255,255,0.12);color:var(--sub);border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Aide">❓</button>
     </div>
 
     <div id="jeux-profil-joueur" class="jeux-sub-section active">

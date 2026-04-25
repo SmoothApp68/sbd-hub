@@ -1857,11 +1857,18 @@ async function publishSessionActivity(logEntry) {
     }
   });
 
-  const sessionDate = logEntry.shortDate || logEntry.date || '';
+  const sessionDate = (() => {
+    if (logEntry.timestamp) {
+      const d = new Date(logEntry.timestamp);
+      return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    }
+    return logEntry.shortDate || logEntry.date || '';
+  })();
 
   // Build enriched exercises with full sets detail
   const enrichedExercises = (logEntry.exercises || []).map(e => {
-    const setsData = (e.allSets && e.allSets.length) ? e.allSets.map(s => ({
+    const rawSets = (e.allSets && e.allSets.length) ? e.allSets : ((e.series && e.series.length) ? e.series : null);
+    const setsData = rawSets ? rawSets.map(s => ({
       weight: s.weight || 0,
       reps: s.reps || 0,
       type: s.setType === 'warmup' ? 'warmup' : s.setType === 'drop' ? 'drop' : s.setType === 'failure' || s.setType === 'abandon' ? 'failure' : 'work'
@@ -1888,7 +1895,7 @@ async function publishSessionActivity(logEntry) {
     date: sessionDate,
     exercises: enrichedExercises,
     photos: photoUrls.length > 0 ? photoUrls : undefined
-  }, { dedupKey: { date: sessionDate } });
+  }, { dedupKey: { date: sessionDate, title: logEntry.title || '' } });
 }
 
 async function publishPRActivity(exerciseName, newValue, oldValue) {

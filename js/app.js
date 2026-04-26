@@ -10650,7 +10650,7 @@ function deleteSessionFromList(logId) {
 // ============================================================
 function getMuscleGroupRadar(subGroup) {
   const map = {
-    'Quadriceps':'Quads','Ischio-jambiers':'Ischio','Fessiers':'Ischio','Mollets':'Ischio',
+    'Quadriceps':'Quads','Ischio-jambiers':'Ischio','Fessiers':'Fessiers','Mollets':'Ischio',
     'Pecs':'Pecs','Pecs (haut)':'Pecs','Pecs (bas)':'Pecs',
     'Grand dorsal':'Dos','Haut du dos':'Dos','Lombaires':'Dos','Trapèzes':'Dos','Dorsaux':'Dos',
     'Épaules':'Épaules','Épaules (latéral)':'Épaules','Épaules (antérieur)':'Épaules','Épaules (postérieur)':'Épaules',
@@ -10662,9 +10662,9 @@ function getMuscleGroupRadar(subGroup) {
 }
 const MUSCLE_COLORS_RADAR = {
   'Dos':'#FF9F0A','Pecs':'#0A84FF','Abdos':'#FF453A',
-  'Quads':'#32D74B','Ischio':'#30D158','Épaules':'#BF5AF2','Bras':'#64D2FF','Cardio':'#FF6B00'
+  'Quads':'#32D74B','Fessiers':'#34C759','Ischio':'#30D158','Épaules':'#BF5AF2','Bras':'#64D2FF','Cardio':'#FF6B00'
 };
-const RADAR_AXES = ['Dos','Pecs','Abdos','Quads','Ischio','Épaules','Bras','Cardio'];
+const RADAR_AXES = ['Dos','Pecs','Abdos','Quads','Fessiers','Ischio','Épaules','Bras','Cardio'];
 
 function renderRadarImproved(period) {
   period = period || 'week';

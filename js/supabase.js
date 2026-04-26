@@ -1271,32 +1271,42 @@ async function shareActivity(activityId, title) {
 }
 
 function openDefiModal(activityId, targetUsername) {
-  var existing = document.getElementById('modal-defi');
-  if (existing) existing.remove();
-  var modal = document.createElement('div');
-  modal.id = 'modal-defi';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;';
-  modal.innerHTML =
-    '<div style="background:#16162A;border:1px solid rgba(255,255,255,0.09);border-radius:22px 22px 0 0;padding:0 0 40px;width:100%;max-width:390px;max-height:75vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px);">' +
-      '<div style="width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:12px auto 16px"></div>' +
-      '<div style="font-size:17px;font-weight:800;padding:0 18px 16px;border-bottom:1px solid rgba(255,255,255,0.08)">🏆 Lancer un défi</div>' +
-      '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
-        '<div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Type</div>' +
-        '<select id="defi-type" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:11px 13px;color:#fff;font-size:15px;font-family:inherit;outline:none">' +
-          '<option value="volume">Volume total (kg)</option><option value="frequency">Nombre de séances</option><option value="weight">Record sur un exercice</option>' +
-        '</select></div>' +
-      '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
-        '<div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Objectif</div>' +
-        '<input id="defi-target" type="number" placeholder="Ex: 50000" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:11px 13px;color:#fff;font-size:15px;font-family:inherit;outline:none"></div>' +
-      '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
-        '<div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Durée (jours)</div>' +
-        '<input id="defi-duration" type="number" value="7" min="1" max="30" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:11px 13px;color:#fff;font-size:15px;font-family:inherit;outline:none"></div>' +
-      '<div style="display:flex;gap:10px;padding:16px 18px 0">' +
-        '<button onclick="document.getElementById(\'modal-defi\').remove()" style="flex:1;padding:13px;border-radius:10px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.09);color:rgba(255,255,255,0.6);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">Annuler</button>' +
-        '<button onclick="createDefiFromModal()" style="flex:1;padding:13px;border-radius:10px;background:#0A84FF;border:none;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">Créer 🏆</button>' +
-      '</div></div>';
-  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
+  var usernameEsc = escapeHtml(targetUsername || '');
+  var formHtml =
+    '<div style="font-size:14px;margin-bottom:12px;">Lancer un défi à <strong>' + usernameEsc + '</strong></div>' +
+    '<select id="defi-exercise" style="width:100%;padding:8px;margin-bottom:10px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;">' +
+      '<option value="squat">🦵 Squat</option>' +
+      '<option value="bench">💪 Bench Press</option>' +
+      '<option value="deadlift">🏋️ Deadlift</option>' +
+      '<option value="total">🏆 Total SBD</option>' +
+    '</select>' +
+    '<input type="number" id="defi-target" placeholder="Objectif en kg" style="width:100%;padding:8px;margin-bottom:10px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;">' +
+    '<input type="date" id="defi-deadline" style="width:100%;padding:8px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;">';
+
+  showModal(formHtml, 'Envoyer le défi 🏆', 'var(--blue)', function() {
+    var exercise = (document.getElementById('defi-exercise') || {}).value || 'squat';
+    var target = (document.getElementById('defi-target') || {}).value || '';
+    var deadline = (document.getElementById('defi-deadline') || {}).value || '';
+    submitDefi(activityId, targetUsername, exercise, target, deadline);
+  });
+}
+
+async function submitDefi(activityId, targetUsername, exercise, target, deadline) {
+  var uid = _cachedUid || await getMyUserIdAsync();
+  if (!uid || !supaClient) { showToast('Connecte-toi'); return; }
+  var targetVal = parseFloat(target);
+  if (!targetVal || isNaN(targetVal)) { showToast('Ajoute un objectif en kg'); return; }
+  var endDate = deadline ? new Date(deadline) : new Date(Date.now() + 7 * 86400000);
+  try {
+    await supaClient.from('social_challenges').insert({
+      creator_id: uid,
+      title: 'Défi ' + exercise + ' — ' + targetVal + 'kg',
+      type: exercise,
+      target_value: targetVal,
+      end_date: endDate.toISOString()
+    });
+    showToast('Défi envoyé à ' + escapeHtml(targetUsername) + ' 🏆');
+  } catch(e) { console.error('submitDefi error:', e); showToast('Erreur envoi défi'); }
 }
 
 async function createDefiFromModal() {
@@ -1700,13 +1710,21 @@ async function loadAndRenderReactions(activityId) {
 }
 
 async function toggleComments(activityId) {
+  // fv2 cards use fv2-comments-{id}
+  var fv2Section = document.getElementById('fv2-comments-' + activityId);
+  if (fv2Section) {
+    if (fv2Section.style.display !== 'none') { fv2Section.style.display = 'none'; return; }
+    fv2Section.style.display = 'block';
+    fv2Section.innerHTML = '<div style="text-align:center;padding:8px;font-size:12px;color:var(--sub);">Chargement...</div>';
+    await loadFv2Comments(activityId);
+    return;
+  }
+  // Old feed fallback
   const section = document.getElementById('feed-comments-' + activityId);
   if (!section) return;
   const isOpen = section.style.display !== 'none';
   section.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) {
-    await loadAndRenderComments(activityId);
-  }
+  if (!isOpen) await loadAndRenderComments(activityId);
 }
 
 async function loadAndRenderComments(activityId) {
@@ -1795,10 +1813,17 @@ async function deleteComment(commentId, activityId) {
   if (!supaClient) return;
   try {
     await supaClient.from('comments').delete().eq('id', commentId);
-    loadAndRenderComments(activityId);
-  } catch (e) {
-    console.error('deleteComment error:', e);
-  }
+    var fv2Row = document.getElementById('comment-row-' + commentId);
+    if (fv2Row) {
+      fv2Row.remove();
+      var section = document.getElementById('fv2-comments-' + activityId);
+      var remaining = section ? section.querySelectorAll('.fv2-comment-row').length : 0;
+      var btn = document.getElementById('fv2-comment-btn-' + activityId);
+      if (btn) btn.innerHTML = '💬 ' + remaining;
+    } else {
+      loadAndRenderComments(activityId);
+    }
+  } catch(e) { console.error('deleteComment error:', e); }
 }
 
 function loadMoreFeed() {
@@ -3587,16 +3612,51 @@ function fv2TierBadge(tier) {
   return '';
 }
 
+var _popoverOpen = null;
+
 function openFv2Menu(activityId, authorId) {
+  if (_popoverOpen === activityId) { closeFv2Popover(); return; }
+  closeFv2Popover();
+  closeReactionPicker();
+  _popoverOpen = activityId;
+
   var uid = _cachedUid;
   var isMe = uid === authorId;
-  var items = [];
+
+  var menuEl = document.createElement('div');
+  menuEl.className = 'fv2-popover';
+  menuEl.id = 'fv2-popover-' + activityId;
+
   if (isMe) {
-    items.push({ label: '🗑️ Supprimer ce post', danger: true, action: function() { deleteFeedPost(activityId); } });
+    menuEl.innerHTML =
+      '<div class="fv2-popover-item danger" onclick="deleteFeedPost(\'' + activityId + '\');closeFv2Popover();">🗑️ Supprimer</div>';
   } else {
-    items.push({ label: '🚩 Signaler', action: function() { showToast('Signalement envoyé'); } });
+    menuEl.innerHTML =
+      '<div class="fv2-popover-item" onclick="copyRoutineFromFeed(\'' + activityId + '\');closeFv2Popover();">📋 Copier la routine</div>' +
+      '<div class="fv2-popover-item danger" onclick="reportFeedPost(\'' + activityId + '\');closeFv2Popover();">🚩 Signaler</div>';
   }
-  if (typeof goShowBottomSheet === 'function') goShowBottomSheet('Options', items);
+
+  var card = document.getElementById('fv2-' + activityId);
+  var btn = card ? card.querySelector('.fv2-menu') : null;
+  if (!btn) { _popoverOpen = null; return; }
+  btn.parentElement.style.position = 'relative';
+  btn.parentElement.appendChild(menuEl);
+
+  setTimeout(function() {
+    document.addEventListener('click', closeFv2Popover, { once: true });
+  }, 0);
+}
+
+function closeFv2Popover() {
+  if (_popoverOpen) {
+    var el = document.getElementById('fv2-popover-' + _popoverOpen);
+    if (el) el.remove();
+    _popoverOpen = null;
+  }
+}
+
+function reportFeedPost(activityId) {
+  showToast('Signalement envoyé');
 }
 
 async function deleteFeedPost(activityId) {
@@ -3642,7 +3702,7 @@ function fv2RenderCard(item, profile, uid) {
     }
 
     var actionsHtml = '<div class="fv2-actions">' +
-      '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="toggleFv2Like(\'' + item.id + '\',this)">🤍 0</button>' +
+      '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="openReactionPicker(\'' + item.id + '\')">❤️ 0</button>' +
       '<button class="fv2-action" id="fv2-comment-btn-' + item.id + '" onclick="toggleComments(\'' + item.id + '\')">💬 0</button>' +
       '<button class="fv2-action" onclick="openDefiModal(\'' + item.id + '\',\'' + (profile.username || '').replace(/'/g, "\\'") + '\')">🏆 Défi</button>' +
       '<button class="fv2-action" onclick="shareActivity(\'' + item.id + '\',\'' + titleEsc + '\')">↗️</button>' +
@@ -3660,7 +3720,7 @@ function fv2RenderCard(item, profile, uid) {
       lazyExoHtml +
       statsHtml +
       actionsHtml +
-      '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
+      '<div class="fv2-comments-section" id="fv2-comments-' + item.id + '" style="display:none;"></div>' +
       '</div>';
   }
   // === Ancien format : exercises inline (rétrocompat) ===
@@ -3736,7 +3796,7 @@ function fv2RenderCard(item, profile, uid) {
   // Actions
   var titleEsc = (d.title || 'Séance').replace(/'/g, "\\'");
   var actionsHtml = '<div class="fv2-actions">' +
-    '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="toggleFv2Like(\'' + item.id + '\',this)">🤍 0</button>' +
+    '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="openReactionPicker(\'' + item.id + '\')">❤️ 0</button>' +
     '<button class="fv2-action" id="fv2-comment-btn-' + item.id + '" onclick="toggleComments(\'' + item.id + '\')">💬 0</button>' +
     '<button class="fv2-action" onclick="openDefiModal(\'' + item.id + '\',\'' + (profile.username || '').replace(/'/g, "\\'") + '\')">🏆 Défi</button>' +
     '<button class="fv2-action" onclick="shareActivity(\'' + item.id + '\',\'' + titleEsc + '\')">↗️</button>' +
@@ -3757,7 +3817,7 @@ function fv2RenderCard(item, profile, uid) {
     exoHtml +
     statsHtml +
     actionsHtml +
-    '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
+    '<div class="fv2-comments-section" id="fv2-comments-' + item.id + '" style="display:none;"></div>' +
     '</div>';
 }
 
@@ -3861,23 +3921,23 @@ async function loadAllLikeCounts(items, uid) {
   if (!items.length || !supaClient) return;
   var ids = items.map(function(i) { return i.id; });
   try {
-    var likesResp = await supaClient.from('reactions').select('activity_id, user_id').in('activity_id', ids);
+    var likesResp = await supaClient.from('reactions').select('activity_id, user_id, emoji').in('activity_id', ids);
     var commResp = await supaClient.from('comments').select('activity_id').in('activity_id', ids);
     var likeGrouped = {};
     (likesResp.data || []).forEach(function(r) {
-      if (!likeGrouped[r.activity_id]) likeGrouped[r.activity_id] = { count: 0, mine: false };
+      if (!likeGrouped[r.activity_id]) likeGrouped[r.activity_id] = { count: 0, mine: false, mineEmoji: '❤️' };
       likeGrouped[r.activity_id].count++;
-      if (r.user_id === uid) likeGrouped[r.activity_id].mine = true;
+      if (r.user_id === uid) { likeGrouped[r.activity_id].mine = true; likeGrouped[r.activity_id].mineEmoji = r.emoji; }
     });
     var commGrouped = {};
     (commResp.data || []).forEach(function(r) {
       commGrouped[r.activity_id] = (commGrouped[r.activity_id] || 0) + 1;
     });
     ids.forEach(function(id) {
-      var info = likeGrouped[id] || { count: 0, mine: false };
+      var info = likeGrouped[id] || { count: 0, mine: false, mineEmoji: '❤️' };
       var btn = document.getElementById('fv2-like-' + id);
       if (btn) {
-        btn.innerHTML = (info.mine ? '❤️' : '🤍') + ' ' + info.count;
+        btn.innerHTML = (info.mine ? info.mineEmoji : '❤️') + ' ' + info.count;
         btn.className = 'fv2-action' + (info.mine ? ' liked' : '');
       }
       var cCount = commGrouped[id] || 0;
@@ -3885,6 +3945,129 @@ async function loadAllLikeCounts(items, uid) {
       if (cBtn) cBtn.innerHTML = '💬 ' + cCount;
     });
   } catch(e) { console.error('loadAllLikeCounts error:', e); }
+}
+
+// ── Reaction picker ──────────────────────────────────────────
+var _reactionPickerOpen = null;
+
+function openReactionPicker(activityId) {
+  if (_reactionPickerOpen === activityId) { closeReactionPicker(); return; }
+  closeReactionPicker();
+  closeFv2Popover();
+  _reactionPickerOpen = activityId;
+  var btn = document.getElementById('fv2-like-' + activityId);
+  if (!btn) return;
+  var picker = document.createElement('div');
+  picker.className = 'fv2-reaction-picker';
+  picker.id = 'reaction-picker-' + activityId;
+  ['❤️', '💪', '🔥', '🏆'].forEach(function(emoji) {
+    var b = document.createElement('button');
+    b.textContent = emoji;
+    b.onclick = function(e) { e.stopPropagation(); toggleFv2Reaction(activityId, emoji); };
+    picker.appendChild(b);
+  });
+  btn.parentElement.style.position = 'relative';
+  btn.parentElement.insertBefore(picker, btn);
+  setTimeout(function() {
+    document.addEventListener('click', closeReactionPicker, { once: true });
+  }, 0);
+}
+
+function closeReactionPicker() {
+  if (_reactionPickerOpen) {
+    var el = document.getElementById('reaction-picker-' + _reactionPickerOpen);
+    if (el) el.remove();
+    _reactionPickerOpen = null;
+  }
+}
+
+async function toggleFv2Reaction(activityId, emoji) {
+  closeReactionPicker();
+  var uid = _cachedUid || await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  var { data: existing } = await supaClient.from('reactions')
+    .select('id, emoji').eq('activity_id', activityId).eq('user_id', uid).maybeSingle();
+  if (existing) {
+    await supaClient.from('reactions').delete().eq('id', existing.id);
+    if (existing.emoji === emoji) { refreshReactionCount(activityId, uid); return; }
+  }
+  await supaClient.from('reactions').insert({ activity_id: activityId, user_id: uid, emoji: emoji });
+  refreshReactionCount(activityId, uid);
+}
+
+async function refreshReactionCount(activityId, uid) {
+  if (!supaClient) return;
+  var { data } = await supaClient.from('reactions').select('user_id, emoji').eq('activity_id', activityId);
+  var count = (data || []).length;
+  var mine = (data || []).find(function(r) { return r.user_id === uid; });
+  var btn = document.getElementById('fv2-like-' + activityId);
+  if (btn) {
+    btn.innerHTML = (mine ? mine.emoji : '❤️') + ' ' + count;
+    btn.className = 'fv2-action' + (mine ? ' liked' : '');
+  }
+}
+
+// ── Commentaires fv2 ─────────────────────────────────────────
+async function loadFv2Comments(activityId) {
+  var section = document.getElementById('fv2-comments-' + activityId);
+  if (!section) return;
+  var uid = _cachedUid || await getMyUserIdAsync();
+
+  var { data: comments } = await supaClient.from('comments')
+    .select('id, user_id, text, created_at')
+    .eq('activity_id', activityId)
+    .order('created_at', { ascending: true });
+
+  var userIds = [];
+  var seen = {};
+  (comments || []).forEach(function(c) { if (!seen[c.user_id]) { seen[c.user_id] = true; userIds.push(c.user_id); } });
+  var usernameMap = {};
+  if (userIds.length) {
+    var { data: profs } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+    (profs || []).forEach(function(p) { usernameMap[p.id] = p.username; });
+  }
+
+  var commentsHtml = (comments || []).map(function(c) {
+    var isMe = c.user_id === uid;
+    var username = usernameMap[c.user_id] || 'Utilisateur';
+    return '<div class="fv2-comment-row" id="comment-row-' + c.id + '">' +
+      '<div class="fv2-comment-body">' +
+        '<span class="fv2-comment-user">' + escapeHtml(username) + '</span> ' +
+        '<span class="fv2-comment-text">' + escapeHtml(c.text) + '</span>' +
+        '<div class="fv2-comment-time">' + fv2TimeAgo(c.created_at) + '</div>' +
+      '</div>' +
+      (isMe ? '<button class="fv2-comment-delete" onclick="deleteComment(\'' + c.id + '\',\'' + activityId + '\')">×</button>' : '') +
+    '</div>';
+  }).join('') || '<div style="text-align:center;padding:8px;font-size:12px;color:var(--sub);">Pas encore de commentaires</div>';
+
+  section.innerHTML = commentsHtml +
+    '<div class="fv2-comment-input-row">' +
+      '<input type="text" id="comment-input-' + activityId + '" class="fv2-comment-input" placeholder="Ajouter un commentaire..." maxlength="280" ' +
+      'onkeydown="if(event.key===\'Enter\')sendComment(\'' + activityId + '\')">' +
+      '<button class="fv2-comment-send" onclick="sendComment(\'' + activityId + '\')">↑</button>' +
+    '</div>';
+
+  var countBadge = document.getElementById('fv2-comment-btn-' + activityId);
+  if (countBadge) countBadge.innerHTML = '💬 ' + (comments || []).length;
+}
+
+async function sendComment(activityId) {
+  var input = document.getElementById('comment-input-' + activityId);
+  if (!input) return;
+  var text = (input.value || '').trim();
+  if (!text) return;
+  var uid = _cachedUid || await getMyUserIdAsync();
+  if (!uid || !supaClient) return;
+  input.disabled = true;
+  var { error } = await supaClient.from('comments').insert({ activity_id: activityId, user_id: uid, text: text });
+  if (!error) {
+    input.value = '';
+    await loadFv2Comments(activityId);
+  } else {
+    showToast('Erreur envoi commentaire');
+  }
+  input.disabled = false;
+  input.focus();
 }
 
 async function toggleFv2Like(activityId, btnEl) {

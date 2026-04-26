@@ -1800,9 +1800,9 @@ async function toggleComments(activityId) {
   // Old feed fallback
   const section = document.getElementById('feed-comments-' + activityId);
   if (!section) return;
-  const isOpen = section.style.display !== 'none';
-  section.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) await loadAndRenderComments(activityId);
+  const isSectionOpen = section.style.display !== 'none';
+  section.style.display = isSectionOpen ? 'none' : 'block';
+  if (!isSectionOpen) await loadAndRenderComments(activityId);
 }
 
 async function loadAndRenderComments(activityId) {

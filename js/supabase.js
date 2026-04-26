@@ -499,7 +499,7 @@ async function checkPasswordMigration(user) {
   // No blocking modal — users who need a password can use "Mot de passe oublié"
   // or the automatic prompt when signing up with an existing magic link email
 }
-async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); _cachedUid = null; cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
+async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); _cachedUid = null; if (_globalCommentChannel) { supaClient.removeChannel(_globalCommentChannel); _globalCommentChannel = null; } _openCommentPostId = null; cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
 
 async function changePassword() {
   const pwd = document.getElementById('newPassword').value;
@@ -548,6 +548,62 @@ function getMyUserId() {
 }
 
 var _cachedUid = null;
+var _globalCommentChannel = null;
+var _openCommentPostId = null;
+
+function initGlobalCommentChannel() {
+  if (_globalCommentChannel || !supaClient) return;
+  _globalCommentChannel = supaClient
+    .channel('global-comments')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, function(payload) {
+      if (payload.new.activity_id !== _openCommentPostId) return;
+      var section = document.getElementById('fv2-comments-' + payload.new.activity_id);
+      if (!section || section.style.display === 'none') return;
+      appendRealtimeComment(payload.new.activity_id, payload.new);
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, function(payload) {
+      if (!payload.old || payload.old.activity_id !== _openCommentPostId) return;
+      var row = document.getElementById('comment-row-' + payload.old.id);
+      if (row) row.remove();
+      updateCommentCount(payload.old.activity_id);
+    })
+    .subscribe();
+}
+
+async function appendRealtimeComment(activityId, comment) {
+  var section = document.getElementById('fv2-comments-' + activityId);
+  if (!section) return;
+  var uid = _cachedUid || await getMyUserIdAsync();
+  var username = 'Utilisateur';
+  if (supaClient) {
+    var { data: profile } = await supaClient.from('profiles').select('username').eq('id', comment.user_id).maybeSingle();
+    if (profile) username = profile.username;
+  }
+  var isMe = comment.user_id === uid;
+  var row = document.createElement('div');
+  row.className = 'fv2-comment-row';
+  row.id = 'comment-row-' + comment.id;
+  row.innerHTML =
+    '<div class="fv2-comment-body">' +
+      '<span class="fv2-comment-user">' + escapeHtml(username) + '</span> ' +
+      '<span class="fv2-comment-text">' + escapeHtml(comment.text) + '</span>' +
+      '<div class="fv2-comment-time">' + fv2TimeAgo(comment.created_at) + '</div>' +
+    '</div>' +
+    (isMe ? '<button class="fv2-comment-delete" onclick="deleteComment(\'' + comment.id + '\',\'' + activityId + '\')">×</button>' : '');
+  var inputRow = section.querySelector('.fv2-comment-input-row');
+  var emptyMsg = section.querySelector('[style*="Pas encore"]');
+  if (emptyMsg) emptyMsg.remove();
+  if (inputRow) section.insertBefore(row, inputRow);
+  else section.appendChild(row);
+  updateCommentCount(activityId);
+}
+
+function updateCommentCount(activityId) {
+  var section = document.getElementById('fv2-comments-' + activityId);
+  var count = section ? section.querySelectorAll('.fv2-comment-row').length : 0;
+  var btn = document.getElementById('fv2-comment-btn-' + activityId);
+  if (btn) btn.innerHTML = '💬 ' + count;
+}
 
 async function getMyUserIdAsync() {
   if (_cachedUid) return _cachedUid;
@@ -1710,10 +1766,15 @@ async function loadAndRenderReactions(activityId) {
 }
 
 async function toggleComments(activityId) {
-  // fv2 cards use fv2-comments-{id}
   var fv2Section = document.getElementById('fv2-comments-' + activityId);
   if (fv2Section) {
-    if (fv2Section.style.display !== 'none') { fv2Section.style.display = 'none'; return; }
+    var isOpen = fv2Section.style.display !== 'none';
+    // Accordéon : fermer tous les autres
+    document.querySelectorAll('.fv2-comments-section').forEach(function(s) {
+      if (s.id !== 'fv2-comments-' + activityId && s.style.display !== 'none') s.style.display = 'none';
+    });
+    if (isOpen) { fv2Section.style.display = 'none'; _openCommentPostId = null; return; }
+    _openCommentPostId = activityId;
     fv2Section.style.display = 'block';
     fv2Section.innerHTML = '<div style="text-align:center;padding:8px;font-size:12px;color:var(--sub);">Chargement...</div>';
     await loadFv2Comments(activityId);
@@ -3873,8 +3934,8 @@ async function renderFeedAmis() {
         if (item.type === 'session') return fv2RenderCard(item, prof, uid);
         return renderFeedCard(item, profiles, uid);
       }).join('');
-      // Load like counts
       loadAllLikeCounts(_feedAmisItems, uid);
+      initGlobalCommentChannel();
     }
 
     if (loadMoreEl) loadMoreEl.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';
@@ -4138,6 +4199,7 @@ async function renderFeedCommunaute() {
         return renderFeedCard(item, profiles, uid);
       }).join('');
       loadAllLikeCounts(_feedCommunauteItems, uid);
+      initGlobalCommentChannel();
     }
 
     if (loadMoreEl) loadMoreEl.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';

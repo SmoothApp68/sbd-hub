@@ -1766,14 +1766,14 @@ if (typeof window !== 'undefined') window.showSeancesSub = showSeancesSub;
 
 function showJeuxSub(id, btn) {
   document.querySelectorAll('#tab-game .jeux-sub-section').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('#tab-game .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
   var sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn && btn.classList) {
     btn.classList.add('active');
   } else {
     // Fallback: find the pill whose onclick references this id
-    var pills = document.querySelectorAll('#tab-game > .stats-sub-nav .stats-sub-pill');
+    var pills = document.querySelectorAll('#tab-game .stats-sub-pill');
     pills.forEach(function(p) {
       var oc = p.getAttribute('onclick') || '';
       if (oc.indexOf("'" + id + "'") >= 0) p.classList.add('active');
@@ -1810,7 +1810,7 @@ if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
 function showProfilSub(id, btn) {
   activeProfilSub = id;
   document.querySelectorAll('.profil-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('#tab-profil > .stats-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#tab-profil .stats-sub-pill').forEach(el => el.classList.remove('active'));
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
@@ -1876,7 +1876,10 @@ function showTab(tabId, opts) {
   }
   if (tabId==='tab-profil') {
     if (activeProfilSub === 'tab-settings') fillSettingsFields();
-    else renderCorpsTab();
+    else {
+      activeProfilSub = 'tab-corps';
+      showProfilSub('tab-corps');
+    }
   }
   if (tabId==='tab-social') { initSocialTab(); }
 

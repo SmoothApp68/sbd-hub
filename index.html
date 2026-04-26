@@ -1281,7 +1281,8 @@
     /* ── Feed V2 Sub-tabs (pills scrollables) ── */
     .feed-pills{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
     .feed-pills::-webkit-scrollbar{display:none;}
-    .feed-pill{flex-shrink:0;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:0.5px solid var(--border);background:rgba(255,255,255,0.05);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
+    .feed-pill{flex-shrink:0;padding:9px 16px;border-radius:10px !important;font-size:13px;font-weight:600;cursor:pointer;border:0.5px solid var(--border);background:rgba(255,255,255,0.05);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
+    .feed-pills button{border-radius:10px !important;}
     .feed-pill.active{background:var(--accent);color:white;border-color:var(--accent);}
     .feed-sub-content{display:none;animation:fadeIn 0.3s ease;}
     .feed-sub-content.active{display:block;}

@@ -2610,25 +2610,41 @@ function updateNotifBadges(count) {
   }
 }
 
+var _notifPanelCloseListener = null;
+
 async function toggleNotifPanel() {
   var panel = document.getElementById('notif-panel-global');
   if (!panel) return;
   _notifPanelOpen = !_notifPanelOpen;
   panel.style.display = _notifPanelOpen ? 'block' : 'none';
   if (_notifPanelOpen) {
-    await loadNotifList();
-    if (_unreadNotifCount > 0) markAllNotifsRead();
+    try {
+      await loadNotifList();
+      if (_unreadNotifCount > 0) markAllNotifsRead();
+    } catch(e) {
+      console.error('toggleNotifPanel error:', e);
+    }
+    if (_notifPanelCloseListener) document.removeEventListener('click', _notifPanelCloseListener);
+    _notifPanelCloseListener = function(e) {
+      var p = document.getElementById('notif-panel-global');
+      var btn = document.querySelector('.global-notif-btn');
+      if (p && btn && !p.contains(e.target) && !btn.contains(e.target)) {
+        p.style.display = 'none';
+        _notifPanelOpen = false;
+        document.removeEventListener('click', _notifPanelCloseListener);
+        _notifPanelCloseListener = null;
+      }
+    };
     setTimeout(function() {
-      document.addEventListener('click', function _closePanel(e) {
-        var p = document.getElementById('notif-panel-global');
-        var btn = document.querySelector('.global-notif-btn');
-        if (p && btn && !p.contains(e.target) && !btn.contains(e.target)) {
-          p.style.display = 'none';
-          _notifPanelOpen = false;
-          document.removeEventListener('click', _closePanel);
-        }
-      });
+      if (_notifPanelOpen && _notifPanelCloseListener) {
+        document.addEventListener('click', _notifPanelCloseListener);
+      }
     }, 0);
+  } else {
+    if (_notifPanelCloseListener) {
+      document.removeEventListener('click', _notifPanelCloseListener);
+      _notifPanelCloseListener = null;
+    }
   }
 }
 
@@ -3999,10 +4015,15 @@ var _feedAmisInflight = false;
 async function renderFeedAmis() {
   if (_feedAmisInflight) return;
   _feedAmisInflight = true;
+  var container = document.getElementById('feedAmisContent');
   try {
   var uid = await getMyUserIdAsync();
-  if (!uid) return;
-  var container = document.getElementById('feedAmisContent');
+  if (!uid) {
+    if (container && _feedAmisPage === 0) {
+      container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">🔐</div><div class="feed-empty-title">Connexion requise</div></div>';
+    }
+    return;
+  }
   var loadMoreEl = document.getElementById('feedAmisLoadMore');
   var inviteEl = document.getElementById('feedAmisInvite');
   if (!container) return;
@@ -4271,10 +4292,15 @@ var _feedCommunauteInflight = false;
 async function renderFeedCommunaute() {
   if (_feedCommunauteInflight) return;
   _feedCommunauteInflight = true;
+  var container = document.getElementById('feedCommunauteContent');
   try {
   var uid = await getMyUserIdAsync();
-  if (!uid) return;
-  var container = document.getElementById('feedCommunauteContent');
+  if (!uid) {
+    if (container && _feedCommunautePage === 0) {
+      container.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">🔐</div><div class="feed-empty-title">Connexion requise</div></div>';
+    }
+    return;
+  }
   var loadMoreEl = document.getElementById('feedCommunauteLoadMore');
   if (!container) return;
 

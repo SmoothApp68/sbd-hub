@@ -10648,11 +10648,23 @@ function deleteSessionFromList(logId) {
 // ============================================================
 // STATS — RADAR AMÉLIORÉ
 // ============================================================
+function getMuscleGroupRadar(subGroup) {
+  const map = {
+    'Quadriceps':'Quads','Ischio-jambiers':'Ischio','Fessiers':'Ischio','Mollets':'Ischio',
+    'Pecs':'Pecs','Pecs (haut)':'Pecs','Pecs (bas)':'Pecs',
+    'Grand dorsal':'Dos','Haut du dos':'Dos','Lombaires':'Dos','Trapèzes':'Dos','Dorsaux':'Dos',
+    'Épaules':'Épaules','Épaules (latéral)':'Épaules','Épaules (antérieur)':'Épaules','Épaules (postérieur)':'Épaules',
+    'Biceps':'Bras','Triceps':'Bras','Avant-bras':'Bras',
+    'Abdos (frontal)':'Abdos','Obliques':'Abdos','Abdos':'Abdos',
+    'Cardio':'Cardio'
+  };
+  return map[subGroup] || null;
+}
 const MUSCLE_COLORS_RADAR = {
   'Dos':'#FF9F0A','Pecs':'#0A84FF','Abdos':'#FF453A',
-  'Jambes':'#32D74B','Bras':'#64D2FF','Épaules':'#BF5AF2','Cardio':'#FF6B00'
+  'Quads':'#32D74B','Ischio':'#30D158','Épaules':'#BF5AF2','Bras':'#64D2FF','Cardio':'#FF6B00'
 };
-const RADAR_AXES = ['Dos','Pecs','Abdos','Jambes','Bras','Épaules','Cardio'];
+const RADAR_AXES = ['Dos','Pecs','Abdos','Quads','Ischio','Épaules','Bras','Cardio'];
 
 function renderRadarImproved(period) {
   period = period || 'week';
@@ -10666,8 +10678,8 @@ function renderRadarImproved(period) {
   RADAR_AXES.forEach(k => { msSets[k] = 0; msExos[k] = new Set(); });
 
   rl.forEach(l => l.exercises.forEach(e => {
-    const mg = getMuscleGroupParent(getMuscleGroup(e.name));
-    if (msSets.hasOwnProperty(mg)) {
+    const mg = getMuscleGroupRadar(getMuscleGroup(e.name));
+    if (mg && msSets.hasOwnProperty(mg)) {
       msSets[mg] += e.sets;
       msExos[mg].add(e.name);
     }
@@ -10774,7 +10786,7 @@ function renderMuscleEvolChart() {
     { label:'S-1', start:now-2*week, end:now-week },
     { label:'Cette sem.', start:now-week, end:now }
   ];
-  const muscles = ['Jambes','Dos','Pecs','Épaules','Bras','Abdos','Cardio'];
+  const muscles = RADAR_AXES;
   // Single pass: accumulate sets per muscle per week bucket
   const weekBuckets = weeks.map(() => ({})); // array of { muscle: sets }
   muscles.forEach(m => weekBuckets.forEach(b => b[m] = 0));
@@ -10782,8 +10794,8 @@ function renderMuscleEvolChart() {
     for (let wi = 0; wi < weeks.length; wi++) {
       if (l.timestamp >= weeks[wi].start && l.timestamp <= weeks[wi].end) {
         l.exercises.forEach(e => {
-          const mg = getMuscleGroupParent(getMuscleGroup(e.name));
-          if (weekBuckets[wi].hasOwnProperty(mg)) weekBuckets[wi][mg] += e.sets;
+          const mg = getMuscleGroupRadar(getMuscleGroup(e.name));
+          if (mg && weekBuckets[wi].hasOwnProperty(mg)) weekBuckets[wi][mg] += e.sets;
         });
         break; // a log can only be in one week
       }
@@ -10848,7 +10860,7 @@ function renderLifts() {
       const exoType = getExoType(exo.name);
       if (exoType !== 'weight' && exoType !== 'reps') return;
       if (!exo.maxRM || exo.maxRM <= 0) return;
-      const muscle = getMuscleGroup(exo.name);
+      const muscle = getMuscleGroupParent(getMuscleGroup(exo.name));
       const canonKey = Object.keys(liftMap).find(k => matchExoName(exo.name, k)) || exo.name;
       if (!liftMap[canonKey]) liftMap[canonKey] = { name: canonKey, muscle, maxRM: 0, maxRMDate: null, repRecords: {}, history: [] };
       const l = liftMap[canonKey];

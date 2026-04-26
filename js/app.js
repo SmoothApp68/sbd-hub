@@ -10673,13 +10673,13 @@ function getMuscleGroupRadar(subGroup) {
     'Abdos (frontal)':'Abdos','Obliques':'Abdos','Abdos':'Abdos',
     'Cardio':'Cardio'
   };
-  return map[subGroup] || null;
+  return map[subGroup] || 'Autres';
 }
 const MUSCLE_COLORS_RADAR = {
   'Dos':'#FF9F0A','Pecs':'#0A84FF','Abdos':'#FF453A',
-  'Quads':'#32D74B','Fessiers':'#34C759','Ischio':'#30D158','Épaules':'#BF5AF2','Bras':'#64D2FF','Cardio':'#FF6B00'
+  'Quads':'#32D74B','Fessiers':'#34C759','Ischio':'#30D158','Épaules':'#BF5AF2','Bras':'#64D2FF','Cardio':'#FF6B00','Autres':'#8E8E93'
 };
-const RADAR_AXES = ['Dos','Pecs','Abdos','Quads','Fessiers','Ischio','Épaules','Bras','Cardio'];
+const RADAR_AXES = ['Dos','Pecs','Abdos','Quads','Fessiers','Ischio','Épaules','Bras','Cardio','Autres'];
 
 function renderRadarImproved(period) {
   period = period || 'week';
@@ -10875,7 +10875,7 @@ function renderLifts() {
       const exoType = getExoType(exo.name);
       if (exoType !== 'weight' && exoType !== 'reps') return;
       if (!exo.maxRM || exo.maxRM <= 0) return;
-      const muscle = getMuscleGroupParent(getMuscleGroup(exo.name));
+      const muscle = getMuscleGroupRadar(getMuscleGroup(exo.name));
       const canonKey = Object.keys(liftMap).find(k => matchExoName(exo.name, k)) || exo.name;
       if (!liftMap[canonKey]) liftMap[canonKey] = { name: canonKey, muscle, maxRM: 0, maxRMDate: null, repRecords: {}, history: [] };
       const l = liftMap[canonKey];
@@ -10886,11 +10886,25 @@ function renderLifts() {
   });
 
   const lifts = Object.values(liftMap).sort((a,b) => b.maxRM - a.maxRM);
-  const muscles = ['Tout', ...new Set(lifts.map(l => l.muscle))];
+  var availableGroups = new Set(lifts.map(function(l) { return l.muscle; }));
+  var RECORDS_AXES = RADAR_AXES.filter(function(m) { return m !== 'Cardio'; });
 
-  document.getElementById('liftsFilterRow').innerHTML = muscles.map(m =>
-    '<button class="lifts-filter-chip' + (m===liftsMuscleFilter?' active':'') + '" onclick="setLiftsFilter(\'' + m + '\')">' + m + '</button>'
-  ).join('');
+  document.getElementById('liftsFilterRow').innerHTML = ['Tout'].concat(RECORDS_AXES).map(function(m) {
+    var hasData = m === 'Tout' || availableGroups.has(m);
+    var isActive = m === liftsMuscleFilter;
+    var color = MUSCLE_COLORS_RADAR[m];
+    var style = '';
+    if (isActive) {
+      style = 'background:' + (color || 'var(--blue)') + ';color:white;border-color:' + (color || 'var(--blue)') + ';opacity:1;';
+    } else if (!hasData) {
+      style = 'opacity:0.35;cursor:default;';
+      if (color) style += 'border-color:' + color + '40;color:' + color + ';';
+    } else {
+      if (color) style += 'border-color:' + color + '40;';
+    }
+    return '<button class="lifts-filter-chip' + (isActive ? ' active' : '') + '" style="' + style + '" ' +
+      (hasData ? 'onclick="setLiftsFilter(\'' + m + '\')"' : 'disabled') + '>' + m + '</button>';
+  }).join('');
 
   const filtered = liftsMuscleFilter === 'Tout' ? lifts : lifts.filter(l => l.muscle === liftsMuscleFilter);
   const el = document.getElementById('liftsList');
@@ -10932,7 +10946,7 @@ function renderLifts() {
     });
     autresHtml = '<div style="background:rgba(142,142,147,0.08);border:0.5px solid rgba(142,142,147,0.2);border-radius:10px;padding:12px;margin-bottom:14px;">' +
       '<div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">⚠️ Exercices non classifiés</div>' +
-      '<div style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:8px;">Ces exercices n\'ont pas de groupe musculaire reconnu. Ils ne contribuent pas au radar.</div>' +
+      '<div style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:8px;">Ces exercices n\'ont pas de groupe musculaire reconnu dans le modèle.</div>' +
       '<div style="display:flex;flex-direction:column;gap:4px;">' +
       autresDetails.map(function(e) {
         return '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">' +
@@ -11065,6 +11079,7 @@ function renderLifts() {
 }
 
 function setLiftsFilter(muscle) {
+  if (muscle === 'Cardio') return;
   liftsMuscleFilter = muscle;
   renderLifts();
 }

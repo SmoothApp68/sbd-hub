@@ -10910,7 +10910,25 @@ function renderLifts() {
     'background:rgba(205,127,50,0.12);color:#CD7F32;'
   ];
 
-  el.innerHTML = displayLifts.map((lift, idx) => {
+  var autresHtml = '';
+  if (liftsMuscleFilter === 'Autres') {
+    var autresDetails = filtered.map(function(lift) {
+      return { name: lift.name, raw: getMuscleGroup(lift.name) };
+    });
+    autresHtml = '<div style="background:rgba(142,142,147,0.08);border:0.5px solid rgba(142,142,147,0.2);border-radius:10px;padding:12px;margin-bottom:14px;">' +
+      '<div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">⚠️ Exercices non classifiés</div>' +
+      '<div style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:8px;">Ces exercices n\'ont pas de groupe musculaire reconnu. Ils ne contribuent pas au radar.</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px;">' +
+      autresDetails.map(function(e) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">' +
+          '<span style="color:var(--text);">' + e.name + '</span>' +
+          '<span style="color:#8E8E93;font-size:10px;background:rgba(142,142,147,0.1);padding:2px 6px;border-radius:4px;">' + e.raw + '</span>' +
+        '</div>';
+      }).join('') +
+      '</div></div>';
+  }
+
+  el.innerHTML = autresHtml + displayLifts.map((lift, idx) => {
     const color = MUSCLE_COLORS_RADAR[lift.muscle] || '#86868B';
     const bwRatio = db.user.bw > 0 ? (lift.maxRM / db.user.bw).toFixed(2) : null;
     const prDate = lift.maxRMDate ? formatDate(lift.maxRMDate) : '—';

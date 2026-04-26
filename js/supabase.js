@@ -1576,7 +1576,7 @@ function renderFeedCard(item, profiles, uid) {
         '</div>' +
       '</div>' +
       '<button class="feed-action-btn" onclick="toggleComments(\'' + item.id + '\')">💬 Commenter</button>' +
-      (item.type === 'session' && d.exercises && d.exercises.length && !isMe ? '<button class="feed-action-btn" onclick="copyRoutineFromFeed(\'' + item.id + '\')">📋 Copier</button>' : '') +
+      (item.type === 'session' && !isMe ? '<button class="feed-action-btn" onclick="copyRoutineFromFeed(\'' + item.id + '\')">📋 Copier</button>' : '') +
     '</div>' +
     '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
   '</div>';
@@ -1588,17 +1588,35 @@ function toggleFeedDetail(activityId) {
 }
 
 // Copier la routine d'un ami depuis le feed
-function copyRoutineFromFeed(activityId) {
-  var feedItem = window._feedItems ? window._feedItems.find(function(i) { return i.id === activityId; }) : null;
-  if (!feedItem || !feedItem.data || !feedItem.data.exercises) {
-    showToast('Impossible de copier cette routine');
-    return;
+async function copyRoutineFromFeed(activityId) {
+  var feedItem = (window._feedItems || []).concat(window._feedAmisItems || []).concat(window._feedCommunauteItems || [])
+    .find(function(i) { return i.id === activityId; });
+  if (!feedItem) { showToast('Impossible de copier'); return; }
+
+  var d = feedItem.data || {};
+  var exercises = d.exercises;
+
+  // Nouveau format : pas d'exercises inline → fetch depuis sbd_profiles
+  if (!exercises || !exercises.length) {
+    if (!d.session_id || !supaClient) { showToast('Données non disponibles'); return; }
+    try {
+      var { data: profileData } = await supaClient
+        .from('sbd_profiles')
+        .select('data')
+        .eq('user_id', feedItem.user_id)
+        .maybeSingle();
+      if (profileData && profileData.data && profileData.data.logs) {
+        var remoteSession = profileData.data.logs.find(function(l) { return l.id === d.session_id; });
+        if (remoteSession) exercises = remoteSession.exercises;
+      }
+    } catch(e) { console.error('copyRoutineFromFeed fetch error:', e); }
   }
-  var exercises = feedItem.data.exercises;
-  var title = feedItem.data.title || 'Routine copiée';
+
+  if (!exercises || !exercises.length) { showToast('Impossible de copier cette routine'); return; }
+
+  var title = d.title || 'Routine copiée';
   if (!confirm('Copier "' + title + '" (' + exercises.length + ' exercices) dans tes routines ?')) return;
 
-  // Sauvegarder comme routine personnalisée
   if (!db.savedRoutines) db.savedRoutines = [];
   db.savedRoutines.push({
     id: generateId(),
@@ -3550,6 +3568,55 @@ function fv2TierBadge(tier) {
 function fv2RenderCard(item, profile, uid) {
   var d = item.data || {};
   var exercises = d.exercises || [];
+  var hasExercises = exercises.length > 0;
+
+  // === Nouveau format : pas d'exercises inline → lazy load ===
+  if (!hasExercises) {
+    var totalVol = d.volume || 0;
+    var volStr = totalVol >= 1000 ? Math.round(totalVol).toLocaleString('fr-FR') + ' kg' : (totalVol || 0) + ' kg';
+    var initial = avatarInitial(profile.username);
+    var titleEsc = (d.title || 'Séance').replace(/'/g, "\\'");
+    var sessionIdStr = (d.session_id || '').replace(/'/g, "\\'");
+    var ownerIdStr = (item.user_id || '').replace(/'/g, "\\'");
+
+    var statsHtml = '<div class="fv2-stats">' +
+      '<span>🏋️ <strong>' + volStr + '</strong></span>' +
+      '<span>⏱ <strong>' + fv2DurationStr(d.duration || 0) + '</strong></span>' +
+      '<span>📋 <strong>' + (d.exercise_count || 0) + ' exos</strong></span>' +
+      '</div>';
+
+    var lazyExoHtml = '<div id="feed-session-detail-' + item.id + '" class="feed-session-lazy">' +
+      '<button class="feed-load-session-btn" onclick="loadFeedSessionDetail(\'' + item.id + '\',\'' + sessionIdStr + '\',\'' + ownerIdStr + '\')">' +
+      '📋 Voir les exercices</button></div>';
+
+    if (d.top_set) {
+      lazyExoHtml = '<div class="fv2-topset"><div class="fv2-topset-left"><div class="fv2-topset-label">🏋️ Meilleur set</div><strong>' + d.top_set + '</strong></div></div>' + lazyExoHtml;
+    }
+
+    var actionsHtml = '<div class="fv2-actions">' +
+      '<button class="fv2-action" id="fv2-like-' + item.id + '" onclick="toggleFv2Like(\'' + item.id + '\',this)">🤍 0</button>' +
+      '<button class="fv2-action" id="fv2-comment-btn-' + item.id + '" onclick="toggleComments(\'' + item.id + '\')">💬 0</button>' +
+      '<button class="fv2-action" onclick="openDefiModal(\'' + item.id + '\',\'' + (profile.username || '').replace(/'/g, "\\'") + '\')">🏆 Défi</button>' +
+      '<button class="fv2-action" onclick="shareActivity(\'' + item.id + '\',\'' + titleEsc + '\')">↗️</button>' +
+      '</div>';
+
+    return '<div class="fv2-card" id="fv2-' + item.id + '">' +
+      '<div class="fv2-header">' +
+        '<div class="fv2-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
+        '<div class="fv2-user-info">' +
+          '<div class="fv2-username">' + (profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
+          '<div class="fv2-subtitle">' + (d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
+        '</div>' +
+        '<button class="fv2-menu">···</button>' +
+      '</div>' +
+      lazyExoHtml +
+      statsHtml +
+      actionsHtml +
+      '<div class="feed-comments-section" id="feed-comments-' + item.id + '" style="display:none;"></div>' +
+      '</div>';
+  }
+  // === Ancien format : exercises inline (rétrocompat) ===
+
   var workExos = exercises.map(function(exo) {
     var sets = (exo.allSets || exo.series || []).filter(function(s) { return s.type !== 'warmup'; });
     return { name: exo.name, sets: sets, allSets: exo.allSets || exo.series || [], isCardio: exo.isCardio || exo.isTime, maxRM: exo.maxRM || 0, reps: exo.reps, weight: exo.weight, setsCount: sets.length || exo.sets || 0 };

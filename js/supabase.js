@@ -1945,24 +1945,64 @@ async function postToFeed(type, data, options) {
 }
 
 // ── Auto-publish activity events ──
+function getSessionPrimaryGroup(title) {
+  var t = (title || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/squat|quad|jambe/.test(t)) return 'quads';
+  if (/bench|pec|poitrine|developpe couche/.test(t)) return 'pecs';
+  if (/deadlift|souleve|fessier|ischios|rdl|romanian/.test(t)) return 'posterior';
+  if (/epaule|militaire|overhead|shoulder/.test(t)) return 'shoulders';
+  if (/dos|back|tirage|rowing|traction/.test(t)) return 'back';
+  if (/bras|bicep|tricep|curl/.test(t)) return 'arms';
+  return null;
+}
+var GROUP_COMPOUND_KW = {
+  'quads':     ['squat', 'presse', 'hack squat', 'leg press', 'fente', 'lunge'],
+  'pecs':      ['developpe', 'bench', 'dips', 'pompes'],
+  'posterior': ['deadlift', 'souleve', 'rdl', 'romanian', 'hip thrust', 'leg curl'],
+  'shoulders': ['militaire', 'overhead', 'press', 'developpe militaire'],
+  'back':      ['tirage', 'rowing', 'tractions', 'pull', 'souleve'],
+  'arms':      ['curl barre', 'curl haltere', 'dips', 'extension barre']
+};
+var _ALL_COMPOUND_KW = ['squat','deadlift','bench','souleve','press','row','pull',
+  'chin','dip','lunge','fente','rdl','romanian','developpe','tirage','tractions',
+  'militaire','overhead','hip thrust','presse'];
+function _computeTopSet(logEntry) {
+  var exos = logEntry.exercises || [];
+  function _norm(s) {
+    return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+  function _matchKws(name, kws) {
+    var n = _norm(name);
+    return kws && kws.some(function(kw) { return n.includes(kw); });
+  }
+  var sessionGroup = getSessionPrimaryGroup(logEntry.title || '');
+  var groupKws = sessionGroup ? GROUP_COMPOUND_KW[sessionGroup] : null;
+  var topSet = '';
+  // Priority 1: compound matching session primary group
+  if (groupKws) {
+    var p1 = exos.find(function(e) { return !e.isCardio && e.maxRM > 0 && _matchKws(e.name, groupKws); });
+    if (p1) topSet = p1.name + ' ' + Math.round(p1.maxRM) + 'kg';
+  }
+  // Priority 2: any compound
+  if (!topSet) {
+    var p2 = exos.find(function(e) { return !e.isCardio && e.maxRM > 0 && _matchKws(e.name, _ALL_COMPOUND_KW); });
+    if (p2) topSet = p2.name + ' ' + Math.round(p2.maxRM) + 'kg';
+  }
+  // Priority 3: highest e1RM fallback
+  if (!topSet) {
+    var bestE1RM = 0;
+    exos.forEach(function(e) {
+      if (e.maxRM && e.maxRM > bestE1RM) { bestE1RM = e.maxRM; topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg'; }
+    });
+  }
+  return topSet;
+}
+
 async function publishSessionActivity(logEntry) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
 
-  var _COMPOUND_KW = ['squat','deadlift','bench','souleve','press','row','pull','chin','dip','lunge','fente','rdl','romanian','developpe','tirage','tractions'];
-  function _isCompound(name) {
-    var n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    return _COMPOUND_KW.some(function(kw) { return n.includes(kw); });
-  }
-  var exos = logEntry.exercises || [];
-  let topSet = '';
-  var firstCompound = exos.find(function(e) { return !e.isCardio && _isCompound(e.name) && e.maxRM > 0; });
-  if (firstCompound) {
-    topSet = firstCompound.name + ' ' + Math.round(firstCompound.maxRM) + 'kg';
-  } else {
-    var bestE1RM = 0;
-    exos.forEach(function(e) { if (e.maxRM && e.maxRM > bestE1RM) { bestE1RM = e.maxRM; topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg'; } });
-  }
+  var topSet = _computeTopSet(logEntry);
 
   const sessionDate = logEntry.shortDate || logEntry.date || '';
 
@@ -2059,11 +2099,7 @@ async function migrateActivityFeed() {
 
     for (var i = 0; i < recentLogs.length; i++) {
       var log = recentLogs[i];
-      var topSet = '';
-      var bestE1RM = 0;
-      (log.exercises || []).forEach(function(e) {
-        if (e.maxRM && e.maxRM > bestE1RM) { bestE1RM = e.maxRM; topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg'; }
-      });
+      var topSet = _computeTopSet(log);
       var sessionDate = log.shortDate || log.date || '';
       var photoUrls = (log.photos || []).filter(function(p) { return p.url; }).map(function(p) { return { url: p.url }; });
 

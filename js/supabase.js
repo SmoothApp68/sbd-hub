@@ -1273,7 +1273,7 @@ function openDefiModal(activityId, targetUsername) {
   modal.id = 'modal-defi';
   modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;';
   modal.innerHTML =
-    '<div style="background:#16162A;border:1px solid rgba(255,255,255,0.09);border-radius:22px 22px 0 0;padding:0 0 40px;width:100%;max-width:390px">' +
+    '<div style="background:#16162A;border:1px solid rgba(255,255,255,0.09);border-radius:22px 22px 0 0;padding:0 0 40px;width:100%;max-width:390px;max-height:75vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px);">' +
       '<div style="width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:12px auto 16px"></div>' +
       '<div style="font-size:17px;font-weight:800;padding:0 18px 16px;border-bottom:1px solid rgba(255,255,255,0.08)">🏆 Lancer un défi</div>' +
       '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">' +
@@ -1898,11 +1898,24 @@ async function loadFeedSessionDetail(activityId, sessionId, userId) {
       return;
     }
 
-    container.innerHTML = renderFeedSessionDetail(exercises);
+    var sessionIdStr = (sessionId || '').replace(/'/g, "\\'");
+    var ownerIdStr = (userId || '').replace(/'/g, "\\'");
+    container.innerHTML =
+      '<button class="feed-load-session-btn" style="margin-bottom:8px;" onclick="closeFeedSessionDetail(\'' + activityId + '\',\'' + sessionIdStr + '\',\'' + ownerIdStr + '\')">' +
+      '▴ Refermer la séance</button>' +
+      renderFeedSessionDetail(exercises);
   } catch(e) {
     console.error('loadFeedSessionDetail error:', e);
     container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--red);font-size:12px;">Erreur de chargement</div>';
   }
+}
+
+function closeFeedSessionDetail(activityId, sessionId, userId) {
+  var container = document.getElementById('feed-session-detail-' + activityId);
+  if (!container) return;
+  container.innerHTML =
+    '<button class="feed-load-session-btn" onclick="loadFeedSessionDetail(\'' + activityId + '\',\'' + sessionId + '\',\'' + userId + '\')">' +
+    '📋 Voir les exercices</button>';
 }
 
 async function migrateActivityFeed() {
@@ -3565,6 +3578,32 @@ function fv2TierBadge(tier) {
   return '';
 }
 
+async function openFv2Menu(activityId, authorId) {
+  var uid = await getMyUserIdAsync();
+  var isMe = uid === authorId;
+  var items = [];
+  if (isMe) {
+    items.push({ label: '🗑️ Supprimer ce post', danger: true, action: function() { deleteFeedPost(activityId); } });
+  } else {
+    items.push({ label: '🚩 Signaler', action: function() { showToast('Signalement envoyé'); } });
+  }
+  if (typeof goShowBottomSheet === 'function') goShowBottomSheet('Options', items);
+}
+
+async function deleteFeedPost(activityId) {
+  if (!supaClient) return;
+  if (!confirm('Supprimer ce post ?')) return;
+  try {
+    await supaClient.from('activity_feed').delete().eq('id', activityId);
+    var card = document.getElementById('fv2-' + activityId) || document.getElementById('feed-' + activityId);
+    if (card) card.remove();
+    showToast('Post supprimé');
+  } catch(e) {
+    console.error('deleteFeedPost error:', e);
+    showToast('Erreur');
+  }
+}
+
 function fv2RenderCard(item, profile, uid) {
   var d = item.data || {};
   var exercises = d.exercises || [];
@@ -3607,7 +3646,7 @@ function fv2RenderCard(item, profile, uid) {
           '<div class="fv2-username">' + (profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
           '<div class="fv2-subtitle">' + (d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
         '</div>' +
-        '<button class="fv2-menu">···</button>' +
+        '<button class="fv2-menu" onclick="openFv2Menu(\'' + item.id + '\',\'' + item.user_id + '\')">···</button>' +
       '</div>' +
       lazyExoHtml +
       statsHtml +
@@ -3622,12 +3661,21 @@ function fv2RenderCard(item, profile, uid) {
     return { name: exo.name, sets: sets, allSets: exo.allSets || exo.series || [], isCardio: exo.isCardio || exo.isTime, maxRM: exo.maxRM || 0, reps: exo.reps, weight: exo.weight, setsCount: sets.length || exo.sets || 0 };
   });
 
-  // Top set (highest maxRM, excluding cardio)
+  // Top set : priorité premier polyarticulaire, fallback plus lourd e1RM
+  var COMPOUND_KEYWORDS = ['squat', 'deadlift', 'bench', 'souleve', 'press', 'row', 'pull', 'chin', 'dip', 'lunge', 'fente', 'rdl', 'romanian', 'developpe', 'tirage', 'tractions'];
+  function isCompoundExo(name) {
+    var n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return COMPOUND_KEYWORDS.some(function(kw) { return n.includes(kw); });
+  }
   var topSet = null;
-  var topVolume = 0;
-  workExos.forEach(function(e) {
-    if (!e.isCardio && e.maxRM > 0 && e.maxRM > (topSet ? topSet.maxRM : 0)) topSet = e;
-  });
+  for (var ci = 0; ci < workExos.length; ci++) {
+    if (!workExos[ci].isCardio && isCompoundExo(workExos[ci].name)) { topSet = workExos[ci]; break; }
+  }
+  if (!topSet) {
+    workExos.forEach(function(e) {
+      if (!e.isCardio && e.maxRM > 0 && e.maxRM > (topSet ? topSet.maxRM : 0)) topSet = e;
+    });
+  }
 
   // Total volume
   var totalVol = d.volume || 0;
@@ -3694,7 +3742,7 @@ function fv2RenderCard(item, profile, uid) {
         '<div class="fv2-username">' + (profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
         '<div class="fv2-subtitle">' + (d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
       '</div>' +
-      '<button class="fv2-menu">···</button>' +
+      '<button class="fv2-menu" onclick="openFv2Menu(\'' + item.id + '\',\'' + item.user_id + '\')">···</button>' +
     '</div>' +
     topSetHtml +
     exoHtml +

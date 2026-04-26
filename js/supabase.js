@@ -704,8 +704,8 @@ async function initSocialTab() {
     return;
   }
 
-  // Ensure profile + friend_code exist in Supabase (creates/updates if needed)
-  await ensureProfile();
+  // Ensure profile + friend_code exist in Supabase (fire-and-forget, doesn't block feed)
+  ensureProfile().catch(function(e) { console.warn('ensureProfile:', e); });
 
   // Display friend code
   var fcEl = document.getElementById('myFriendCode');
@@ -2404,17 +2404,12 @@ async function renderFriendsTab() {
   allUserIds.delete(uid);
 
   let profiles = {};
-  await Promise.all([
-    (async () => {
-      if (allUserIds.size) {
-        try {
-          const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
-          (data || []).forEach(p => profiles[p.id] = p);
-        } catch {}
-      }
-    })(),
-    renderNotifications()
-  ]);
+  if (allUserIds.size) {
+    try {
+      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
+      (data || []).forEach(p => profiles[p.id] = p);
+    } catch {}
+  }
 
   // Pending requests (where I'm the target)
   const pending = friends.filter(f => f.status === 'pending' && f.target_id === uid);
@@ -2572,10 +2567,8 @@ async function markAllNotifsRead() {
   }
 }
 
-async function updateSocialBadge() {
-  const notifs = _notifCache.length ? _notifCache : await loadNotifications();
-  const unreadCount = notifs.filter(function(n) { return !n.read; }).length;
-  updateNotifBadges(unreadCount);
+function updateSocialBadge() {
+  updateNotifBadges(_unreadNotifCount);
 }
 
 // ============================================================
@@ -2583,13 +2576,16 @@ async function updateSocialBadge() {
 // ============================================================
 
 async function initNotifications() {
+  if (_notifRealtimeChannel) {
+    updateNotifBadges(_unreadNotifCount);
+    return;
+  }
   if (!supaClient) return;
   const uid = await getMyUserIdAsync();
   if (!uid) return;
   const notifs = await loadNotifications();
   const unread = notifs.filter(function(n) { return !n.read; }).length;
   updateNotifBadges(unread);
-  if (_notifRealtimeChannel) return;
   _notifRealtimeChannel = supaClient
     .channel('notif-' + uid)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: 'user_id=eq.' + uid }, function(payload) {
@@ -4003,7 +3999,13 @@ async function renderFeedAmis() {
 
   if (_feedAmisPage === 0) {
     _feedAmisItems = [];
-    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);">Chargement...</div>';
+    container.innerHTML = [1,2,3].map(function() {
+      return '<div class="fv2-card skeleton-card">' +
+        '<div class="skeleton-line" style="width:55%;height:13px;margin-bottom:10px;"></div>' +
+        '<div class="skeleton-line" style="width:88%;height:10px;margin-bottom:6px;"></div>' +
+        '<div class="skeleton-line" style="width:38%;height:10px;"></div>' +
+      '</div>';
+    }).join('');
   }
 
   try {

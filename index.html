@@ -1437,6 +1437,11 @@
     /* Notification bell */
     #notif-bell-btn:active{opacity:0.6;}
 
+    /* Skeleton loader */
+    .skeleton-card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;pointer-events:none;}
+    .skeleton-line{background:linear-gradient(90deg,var(--surface) 25%,var(--border) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:4px;}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
     /* Notifications */
     .notif-list{margin-top:12px;}
     .notif-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start;}

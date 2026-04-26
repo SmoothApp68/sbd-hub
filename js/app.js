@@ -15865,13 +15865,20 @@ function saveSessionEdits() {
 
 // Mettre à jour un post social après modification
 async function updateSessionActivity(session) {
-  if (typeof supabase === 'undefined' || !supabase) return;
+  if (!supaClient) return;
   try {
-    var { data: { user } } = await supabase.auth.getUser();
+    var { data: { user } } = await supaClient.auth.getUser();
     if (!user) return;
-    // Trouver l'activité correspondante (même date + type session)
-    var { data: activities } = await supabase
-      .from('activities')
+
+    // Build top set
+    let topSet = '';
+    let bestE1RM = 0;
+    (session.exercises || []).forEach(e => {
+      if (e.maxRM && e.maxRM > bestE1RM) { bestE1RM = e.maxRM; topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg'; }
+    });
+
+    var { data: activities } = await supaClient
+      .from('activity_feed')
       .select('id, data')
       .eq('user_id', user.id)
       .eq('type', 'session')
@@ -15880,22 +15887,21 @@ async function updateSessionActivity(session) {
 
     if (!activities) return;
     var match = activities.find(function(a) {
-      return a.data && a.data.title === session.title &&
-             Math.abs((a.data.timestamp || 0) - session.timestamp) < 86400000;
+      return a.data && (a.data.session_id === session.id || (a.data.title === session.title && Math.abs((a.data.timestamp || 0) - session.timestamp) < 86400000));
     });
     if (!match) return;
 
-    // Mettre à jour les données
     var newData = Object.assign({}, match.data, {
+      session_id: session.id,
+      owner_id: user.id,
       title: session.title,
       volume: session.volume,
       exercise_count: session.exercises.length,
-      exercises: session.exercises.map(function(e) {
-        return { name: e.name, sets: e.sets, maxRM: e.maxRM, allSets: e.allSets || e.series || [] };
-      }),
+      top_set: topSet,
       edited: true
+      // ❌ pas d'exercises[] — lookup via session_id
     });
-    await supabase.from('activities').update({ data: newData }).eq('id', match.id);
+    await supaClient.from('activity_feed').update({ data: newData }).eq('id', match.id);
   } catch(e) { console.warn('updateSessionActivity error:', e); }
 }
 

@@ -1533,17 +1533,16 @@ function renderFeedCard(item, profiles, uid) {
       });
       body += '</div>';
     }
+    // Pas d'exercises dans data → lazy load au clic
+    detail = '<div id="feed-session-detail-' + item.id + '" class="feed-session-lazy">' +
+      '<button class="feed-load-session-btn" onclick="loadFeedSessionDetail(\'' + item.id + '\',\'' + (d.session_id || '') + '\',\'' + item.user_id + '\')">' +
+      '📋 Voir la séance</button></div>';
+    // Rétrocompat : anciens posts avec exercises[] inline
     if (d.exercises && d.exercises.length) {
-      // Check if enriched data exists (allSets present on at least one exercise)
       const hasEnrichedData = d.exercises.some(e => e.allSets && e.allSets.length);
-      if (hasEnrichedData) {
-        detail = renderFeedSessionDetail(d.exercises);
-      } else {
-        // Fallback: basic display for old posts
-        detail = d.exercises.map(e =>
-          '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>'
-        ).join('');
-      }
+      detail = hasEnrichedData
+        ? renderFeedSessionDetail(d.exercises)
+        : d.exercises.map(e => '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>').join('');
     }
   } else if (item.type === 'pr') {
     body = '🏆 <strong>' + profile.username + '</strong> nouveau PR !';
@@ -1829,36 +1828,120 @@ async function publishSessionActivity(logEntry) {
 
   const sessionDate = logEntry.shortDate || logEntry.date || '';
 
-  // Build enriched exercises with full sets detail
-  const enrichedExercises = (logEntry.exercises || []).map(e => {
-    const setsData = (e.allSets && e.allSets.length) ? e.allSets.map(s => ({
-      weight: s.weight || 0,
-      reps: s.reps || 0,
-      type: s.setType === 'warmup' ? 'warmup' : s.setType === 'drop' ? 'drop' : s.setType === 'failure' || s.setType === 'abandon' ? 'failure' : 'work'
-    })) : null;
-    const totalVolume = setsData ? setsData.reduce((sum, s) => sum + (s.weight * s.reps), 0) : 0;
-    return {
-      name: e.name,
-      sets: e.sets || (setsData ? setsData.length : 0),
-      allSets: setsData,
-      maxRM: e.maxRM || null,
-      totalVolume: totalVolume
-    };
-  });
-
-  // Photos (URLs seulement, pas les dataUrl qui seraient trop lourdes)
+  // Photos (URLs seulement, pas les dataUrl)
   var photoUrls = (logEntry.photos || []).filter(function(p) { return p.url; }).map(function(p) { return { url: p.url }; });
 
   await postToFeed('session', {
+    session_id: logEntry.id,       // référence pour lookup
+    owner_id: uid,                 // pour savoir chez qui fetcher (amis)
     title: logEntry.title || '',
     duration: logEntry.duration || 0,
     volume: logEntry.volume || 0,
-    exercise_count: enrichedExercises.length,
+    exercise_count: (logEntry.exercises || []).length,
     top_set: topSet,
     date: sessionDate,
-    exercises: enrichedExercises,
     photos: photoUrls.length > 0 ? photoUrls : undefined
+    // ❌ plus d'exercises[] ni allSets — lookup via session_id
   }, { dedupKey: { date: sessionDate } });
+}
+
+async function loadFeedSessionDetail(activityId, sessionId, userId) {
+  const container = document.getElementById('feed-session-detail-' + activityId);
+  if (!container) return;
+  const myUid = await getMyUserIdAsync();
+
+  container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--sub);font-size:12px;">Chargement...</div>';
+
+  try {
+    let exercises = null;
+
+    if (userId === myUid) {
+      // C'est mon post → lire db.logs local
+      const localSession = (db.logs || []).find(function(l) { return l.id === sessionId; });
+      if (localSession) exercises = localSession.exercises;
+    }
+
+    if (!exercises && supaClient) {
+      // Ami → fetch sbd_profiles de cet user
+      const { data: profile } = await supaClient
+        .from('sbd_profiles')
+        .select('data')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (profile && profile.data && profile.data.logs) {
+        const remoteSession = profile.data.logs.find(function(l) { return l.id === sessionId; });
+        if (remoteSession) exercises = remoteSession.exercises;
+      }
+    }
+
+    if (!exercises || !exercises.length) {
+      container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--sub);font-size:12px;">Détail non disponible</div>';
+      return;
+    }
+
+    container.innerHTML = renderFeedSessionDetail(exercises);
+  } catch(e) {
+    console.error('loadFeedSessionDetail error:', e);
+    container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--red);font-size:12px;">Erreur de chargement</div>';
+  }
+}
+
+async function migrateActivityFeed() {
+  const uid = await getMyUserIdAsync();
+  if (!uid || !supaClient) { showToast('Non connecté'); return; }
+
+  showToast('🔄 Migration feed en cours...');
+
+  try {
+    // 1. Supprimer TOUS les posts session de cet user
+    await supaClient.from('activity_feed')
+      .delete()
+      .eq('user_id', uid)
+      .eq('type', 'session');
+
+    // 2. Re-poster les 30 séances les plus récentes (format léger)
+    const recentLogs = (db.logs || [])
+      .slice()
+      .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); })
+      .slice(0, 30);
+
+    for (var i = 0; i < recentLogs.length; i++) {
+      var log = recentLogs[i];
+      var topSet = '';
+      var bestE1RM = 0;
+      (log.exercises || []).forEach(function(e) {
+        if (e.maxRM && e.maxRM > bestE1RM) { bestE1RM = e.maxRM; topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg'; }
+      });
+      var sessionDate = log.shortDate || log.date || '';
+      var photoUrls = (log.photos || []).filter(function(p) { return p.url; }).map(function(p) { return { url: p.url }; });
+
+      await supaClient.from('activity_feed').insert({
+        user_id: uid,
+        type: 'session',
+        pinned: false,
+        created_at: new Date(log.timestamp || Date.now()).toISOString(),
+        data: {
+          session_id: log.id,
+          owner_id: uid,
+          title: log.title || '',
+          duration: log.duration || 0,
+          volume: log.volume || 0,
+          exercise_count: (log.exercises || []).length,
+          top_set: topSet,
+          date: sessionDate,
+          photos: photoUrls.length > 0 ? photoUrls : undefined
+        }
+      });
+    }
+
+    showToast('✅ Feed migré — 30 séances re-postées');
+    _feedPage = 0;
+    renderFeed();
+  } catch(e) {
+    console.error('migrateActivityFeed error:', e);
+    showToast('Erreur migration ❌');
+  }
 }
 
 async function publishPRActivity(exerciseName, newValue, oldValue) {

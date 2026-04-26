@@ -1251,6 +1251,9 @@
     .feed-comment-input button{background:var(--blue);border:none;color:white;border-radius:50%;width:36px;height:36px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
     .feed-load-more{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--blue);padding:12px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;}
     .feed-load-more:hover{background:rgba(10,132,255,0.1);}
+    .feed-load-session-btn{width:100%;padding:8px;margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;}
+    .feed-load-session-btn:active{opacity:0.7;}
+    .feed-session-lazy{margin-top:4px;}
 
     /* Leaderboard */
     .lb-filter{margin-bottom:16px;}
@@ -2741,6 +2744,9 @@
         <p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface toutes les données locales.</p>
         <button class="btn" style="background:rgba(255,69,58,0.15);color:var(--red);border:1px solid rgba(255,69,58,0.3);margin-top:12px;" onclick="showAccountDeletionDialog()">🗑️ Supprimer le compte social</button>
         <p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Supprime ou anonymise ton profil social.</p>
+        <button onclick="migrateActivityFeed()" class="btn btn-secondary" style="margin-top:8px;">
+          🔄 Nettoyer le feed (migration)
+        </button>
       </div>
     </div>
 

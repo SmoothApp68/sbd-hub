@@ -4161,7 +4161,7 @@ function openReactionPicker(activityId) {
   var picker = document.createElement('div');
   picker.className = 'fv2-reaction-picker';
   picker.id = 'reaction-picker-' + activityId;
-  ['❤️', '💪', '🔥', '🏆'].forEach(function(emoji) {
+  ['❤️', '💪', '🔥', '🏆', '👑', '💯', '🫡'].forEach(function(emoji) {
     var b = document.createElement('button');
     b.textContent = emoji;
     b.onclick = function(e) { e.stopPropagation(); toggleFv2Reaction(activityId, emoji); };

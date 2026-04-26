@@ -1155,8 +1155,10 @@ function computeWeeklyVolume(logs, weeksBack) {
   for (const log of recentLogs) {
     for (const exo of log.exercises || []) {
       const contributions = getMuscleContributions(exo.name);
-      const workSets = (exo.sets || exo.setCount || 0);
-      const setCount = typeof workSets === 'number' ? workSets : (Array.isArray(workSets) ? workSets.filter(function(s){ return !s.isWarmup; }).length : 0);
+      const detailSets = exo.series || exo.allSets;
+      const setCount = (Array.isArray(detailSets) && detailSets.length > 0)
+        ? detailSets.filter(function(s) { return !s.isWarmup && s.type !== 'warmup'; }).length
+        : (exo.sets || exo.setCount || 0);
       for (var ci = 0; ci < contributions.length; ci++) {
         var mc = contributions[ci];
         var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();

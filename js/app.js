@@ -9738,8 +9738,23 @@ function renderVolumeLandmarks() {
     hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps',
     calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras'
   };
+  const DISPLAY_ORDER = [
+    { vlKey: 'back',       label: 'Dos' },
+    { vlKey: 'chest',      label: 'Pecs' },
+    { vlKey: 'abs',        label: 'Abdos' },
+    { vlKey: 'quads',      label: 'Quads' },
+    { vlKey: 'glutes',     label: 'Fessiers' },
+    { vlKey: 'hamstrings', label: 'Ischio' },
+    { vlKey: 'shoulders',  label: 'Épaules' },
+    { vlKey: 'biceps',     label: 'Biceps' },
+    { vlKey: 'triceps',    label: 'Triceps' },
+    { vlKey: 'calves',     label: 'Mollets' },
+    { vlKey: 'traps',      label: 'Trapèzes' },
+    { vlKey: 'forearms',   label: 'Avant-bras' },
+  ];
   let html = '';
-  for (const [key, lm] of Object.entries(VOLUME_LANDMARKS)) {
+  DISPLAY_ORDER.forEach(function(item) {
+    const key = item.vlKey; const lm = VOLUME_LANDMARKS[key]; if (!lm) return;
     const sets = Math.round((vol[key] || 0) * 10) / 10;
     const pct = Math.min(100, (sets / lm.MRV) * 100);
     let color = 'var(--sub)'; let status = '< MEV';
@@ -9754,7 +9769,7 @@ function renderVolumeLandmarks() {
     var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
     html += '<div style="margin-bottom:8px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
-      '<span style="font-weight:600;">' + (LABELS_FR[key] || key) + '</span>' +
+      '<span style="font-weight:600;">' + item.label + '</span>' +
       '<span style="color:' + color + ';">' + sets + '/' + lm.MRV + ' sets · ' + status + '</span></div>' +
       '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
       '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div>' +
@@ -9762,7 +9777,7 @@ function renderVolumeLandmarks() {
       'MEV: ' + lm.MEV + ' · MAV: ' + lm.MAV + ' · MRV: ' + lm.MRV + ' sets/sem<br>' +
       'Actuel : ' + sets + ' sets → ' + zoneLabel + '</div>' +
       '</div>';
-  }
+  });
   if (html) {
     html += '<div class="breakdown-toggle" onclick="document.querySelectorAll(\'.vol-detail\').forEach(function(d){d.style.display=d.style.display===\'none\'?\'block\':\'none\';});this.textContent=this.textContent.indexOf(\'Voir\')>=0?\'📐 Masquer les zones\':\'📐 Voir les zones MEV/MAV/MRV\';">📐 Voir les zones MEV/MAV/MRV</div>';
   }

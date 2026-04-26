@@ -501,18 +501,26 @@ async function checkPasswordMigration(user) {
 }
 async function cloudLogout() {
   if (!supaClient) return;
-  await supaClient.auth.signOut();
+  try {
+    await supaClient.auth.signOut();
+  } catch(e) { console.warn('signOut error:', e); }
+  cloudSyncEnabled = false;
   _cachedUid = null;
-  if (_globalCommentChannel) { supaClient.removeChannel(_globalCommentChannel); _globalCommentChannel = null; }
-  if (_notifRealtimeChannel) { supaClient.removeChannel(_notifRealtimeChannel); _notifRealtimeChannel = null; }
-  _openCommentPostId = null;
+  if (_notifRealtimeChannel) {
+    try { supaClient.removeChannel(_notifRealtimeChannel); } catch(e) {}
+    _notifRealtimeChannel = null;
+  }
+  if (_globalCommentChannel) {
+    try { supaClient.removeChannel(_globalCommentChannel); } catch(e) {}
+    _globalCommentChannel = null;
+  }
   _notifPanelOpen = false;
-  _unreadNotifCount = 0;
   var panel = document.getElementById('notif-panel-global');
   if (panel) panel.style.display = 'none';
-  cloudSyncEnabled = false;
   updateCloudUI(null);
+  updateNotifBadges(0);
   showToast('Déconnecté du cloud');
+  if (typeof showLoginScreen === 'function') showLoginScreen();
 }
 
 async function changePassword() {

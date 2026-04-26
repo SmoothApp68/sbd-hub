@@ -4013,23 +4013,15 @@ async function loadFv2Comments(activityId) {
   if (!section) return;
   var uid = _cachedUid || await getMyUserIdAsync();
 
-  var { data: comments } = await supaClient.from('comments')
-    .select('id, user_id, text, created_at')
+  var { data: comments } = await supaClient
+    .from('comments')
+    .select('id, user_id, text, created_at, profiles(username)')
     .eq('activity_id', activityId)
     .order('created_at', { ascending: true });
 
-  var userIds = [];
-  var seen = {};
-  (comments || []).forEach(function(c) { if (!seen[c.user_id]) { seen[c.user_id] = true; userIds.push(c.user_id); } });
-  var usernameMap = {};
-  if (userIds.length) {
-    var { data: profs } = await supaClient.from('profiles').select('id, username').in('id', userIds);
-    (profs || []).forEach(function(p) { usernameMap[p.id] = p.username; });
-  }
-
   var commentsHtml = (comments || []).map(function(c) {
     var isMe = c.user_id === uid;
-    var username = usernameMap[c.user_id] || 'Utilisateur';
+    var username = (c.profiles && c.profiles.username) || 'Utilisateur';
     return '<div class="fv2-comment-row" id="comment-row-' + c.id + '">' +
       '<div class="fv2-comment-body">' +
         '<span class="fv2-comment-user">' + escapeHtml(username) + '</span> ' +

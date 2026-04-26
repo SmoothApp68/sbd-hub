@@ -508,7 +508,7 @@ async function cloudLogout() {
   _openCommentPostId = null;
   _notifPanelOpen = false;
   _unreadNotifCount = 0;
-  var panel = document.getElementById('notif-panel');
+  var panel = document.getElementById('notif-panel-global');
   if (panel) panel.style.display = 'none';
   cloudSyncEnabled = false;
   updateCloudUI(null);
@@ -2599,26 +2599,36 @@ async function initNotifications() {
 
 function updateNotifBadges(count) {
   _unreadNotifCount = count;
+  var label = count > 9 ? '9+' : String(count);
+  var display = count > 0 ? 'flex' : 'none';
+  var bellBadge = document.getElementById('notif-bell-badge');
+  if (bellBadge) { bellBadge.style.display = display; bellBadge.textContent = label; }
   var tabBadge = document.getElementById('socialTabBadge');
   if (tabBadge) {
-    if (count > 0) { tabBadge.textContent = count > 99 ? '99+' : count; tabBadge.classList.add('visible'); }
+    if (count > 0) { tabBadge.textContent = label; tabBadge.classList.add('visible'); }
     else { tabBadge.classList.remove('visible'); }
-  }
-  var bellBadge = document.getElementById('notif-bell-badge');
-  if (bellBadge) {
-    if (count > 0) { bellBadge.textContent = count > 99 ? '99+' : count; bellBadge.style.display = 'flex'; }
-    else { bellBadge.style.display = 'none'; }
   }
 }
 
 async function toggleNotifPanel() {
-  var panel = document.getElementById('notif-panel');
+  var panel = document.getElementById('notif-panel-global');
   if (!panel) return;
   _notifPanelOpen = !_notifPanelOpen;
   panel.style.display = _notifPanelOpen ? 'block' : 'none';
   if (_notifPanelOpen) {
     await loadNotifList();
     if (_unreadNotifCount > 0) markAllNotifsRead();
+    setTimeout(function() {
+      document.addEventListener('click', function _closePanel(e) {
+        var p = document.getElementById('notif-panel-global');
+        var btn = document.querySelector('.global-notif-btn');
+        if (p && btn && !p.contains(e.target) && !btn.contains(e.target)) {
+          p.style.display = 'none';
+          _notifPanelOpen = false;
+          document.removeEventListener('click', _closePanel);
+        }
+      });
+    }, 0);
   }
 }
 

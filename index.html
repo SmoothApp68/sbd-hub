@@ -49,7 +49,7 @@
     }
     * { box-sizing: border-box; touch-action: manipulation; }
     html, body { overscroll-behavior-y: contain; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; background: var(--bg-primary); background-image: var(--bg-screen); min-height: 100vh; color: var(--text-primary); margin: 0; padding: 15px 15px 100px; -webkit-font-smoothing: antialiased; max-width: 500px; margin-left: auto; margin-right: auto; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; background: var(--bg-primary); background-image: var(--bg-screen); min-height: 100vh; color: var(--text-primary); margin: 0; padding: 59px 15px 100px; -webkit-font-smoothing: antialiased; max-width: 500px; margin-left: auto; margin-right: auto; }
     button, .tab-btn, .card, label, .badge-founder, .badge-early-adopter, .stats-sub-pill, .period-btn, .day-btn { -webkit-user-select: none; user-select: none; }
     .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 85px; background: var(--bg-tab-bar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--border-card); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
     .tab-btn { flex: 1; border: none; background: transparent; color: #5E5E8E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: color 0.2s; position: relative; }
@@ -1434,8 +1434,11 @@
     .friends-item-btn.unblock{background:var(--surface);color:var(--orange);border:1px solid var(--border);}
     .friends-item-btn.add{background:var(--blue);color:white;}
 
-    /* Notification bell */
-    #notif-bell-btn:active{opacity:0.6;}
+    /* Global top bar */
+    .global-top-bar{position:fixed;top:0;left:0;right:0;height:44px;max-width:500px;margin:0 auto;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;background:var(--bg-tab-bar);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:0.5px solid rgba(255,255,255,0.06);z-index:999;}
+    .global-notif-btn{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);}
+    .global-notif-btn:active{opacity:0.7;}
+    #notif-panel-global{position:fixed;top:44px;left:0;right:0;max-width:500px;margin:0 auto;background:var(--bg-primary);border-bottom:0.5px solid rgba(255,255,255,0.08);max-height:60vh;overflow-y:auto;z-index:998;display:none;}
 
     /* Skeleton loader */
     .skeleton-card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;pointer-events:none;}
@@ -2842,21 +2845,6 @@
   <!-- COMMUNAUTÉ -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-social" class="content-section">
-    <!-- Social header with notification bell -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 2px 0;">
-      <span style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px;">Social</span>
-      <button id="notif-bell-btn" onclick="toggleNotifPanel()" style="position:relative;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 6px;line-height:1;border-radius:10px;" aria-label="Notifications">
-        🔔<span id="notif-bell-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;background:#FF3B30;color:#fff;font-size:10px;font-weight:700;border-radius:8px;align-items:center;justify-content:center;line-height:1;padding:0 3px;pointer-events:none;"></span>
-      </button>
-    </div>
-    <!-- Notification slide-down panel -->
-    <div id="notif-panel" style="display:none;background:var(--surface);border-radius:12px;margin:8px 0 4px;padding:12px 14px;border:0.5px solid var(--border);max-height:60vh;overflow-y:auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:14px;font-weight:700;color:var(--text);">Notifications</span>
-        <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;">Tout lire</button>
-      </div>
-      <div id="notif-list"></div>
-    </div>
     <!-- Feed V2 — 4 pill sub-tabs -->
     <div class="feed-pills" id="feedPills">
       <button class="feed-pill active" data-feed="feed-amis" onclick="showFeedSub('feed-amis',this)">Amis</button>
@@ -3062,6 +3050,23 @@
     <!-- Feature Flags Section -->
     <div id="gm-flags" class="gm-section" style="display:none;">
       <div id="gmFlagsList" style="font-size:13px;color:#7878A8;">Chargement...</div>
+    </div>
+  </div>
+
+  <div class="global-top-bar">
+    <div class="global-notif-btn" onclick="toggleNotifPanel()">
+      <span style="font-size:18px;">🔔</span>
+      <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;background:#FF453A;border-radius:8px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--bg-primary);">0</span>
+    </div>
+  </div>
+
+  <div id="notif-panel-global">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid rgba(255,255,255,0.06);">
+      <span style="font-size:13px;font-weight:600;color:var(--text);">Notifications</span>
+      <button onclick="markAllNotifsRead()" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;">Tout lire</button>
+    </div>
+    <div id="notif-list" style="padding:4px 0;">
+      <div style="text-align:center;padding:20px;font-size:12px;color:var(--sub);">Aucune notification</div>
     </div>
   </div>
 

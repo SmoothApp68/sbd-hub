@@ -499,7 +499,7 @@ async function checkPasswordMigration(user) {
   // No blocking modal — users who need a password can use "Mot de passe oublié"
   // or the automatic prompt when signing up with an existing magic link email
 }
-async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
+async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); _cachedUid = null; cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
 
 async function changePassword() {
   const pwd = document.getElementById('newPassword').value;
@@ -547,11 +547,15 @@ function getMyUserId() {
   } catch { return null; }
 }
 
+var _cachedUid = null;
+
 async function getMyUserIdAsync() {
+  if (_cachedUid) return _cachedUid;
   if (!supaClient) return null;
   try {
     const { data } = await supaClient.auth.getUser();
-    return data?.user?.id || null;
+    _cachedUid = data?.user?.id || null;
+    return _cachedUid;
   } catch { return null; }
 }
 
@@ -1834,15 +1838,20 @@ async function publishSessionActivity(logEntry) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
 
-  // Build top set string (best e1RM set)
+  var _COMPOUND_KW = ['squat','deadlift','bench','souleve','press','row','pull','chin','dip','lunge','fente','rdl','romanian','developpe','tirage','tractions'];
+  function _isCompound(name) {
+    var n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return _COMPOUND_KW.some(function(kw) { return n.includes(kw); });
+  }
+  var exos = logEntry.exercises || [];
   let topSet = '';
-  let bestE1RM = 0;
-  (logEntry.exercises || []).forEach(e => {
-    if (e.maxRM && e.maxRM > bestE1RM) {
-      bestE1RM = e.maxRM;
-      topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg';
-    }
-  });
+  var firstCompound = exos.find(function(e) { return !e.isCardio && _isCompound(e.name) && e.maxRM > 0; });
+  if (firstCompound) {
+    topSet = firstCompound.name + ' ' + Math.round(firstCompound.maxRM) + 'kg';
+  } else {
+    var bestE1RM = 0;
+    exos.forEach(function(e) { if (e.maxRM && e.maxRM > bestE1RM) { bestE1RM = e.maxRM; topSet = e.name + ' ' + Math.round(e.maxRM) + 'kg'; } });
+  }
 
   const sessionDate = logEntry.shortDate || logEntry.date || '';
 
@@ -3578,8 +3587,8 @@ function fv2TierBadge(tier) {
   return '';
 }
 
-async function openFv2Menu(activityId, authorId) {
-  var uid = await getMyUserIdAsync();
+function openFv2Menu(activityId, authorId) {
+  var uid = _cachedUid;
   var isMe = uid === authorId;
   var items = [];
   if (isMe) {
@@ -3805,7 +3814,7 @@ async function renderFeedAmis() {
         return renderFeedCard(item, profiles, uid);
       }).join('');
       // Load like counts
-      _feedAmisItems.forEach(function(i) { loadFv2LikeCount(i.id, uid); });
+      loadAllLikeCounts(_feedAmisItems, uid);
     }
 
     if (loadMoreEl) loadMoreEl.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';
@@ -3832,7 +3841,6 @@ function loadMoreFeedAmis() { _feedAmisPage++; renderFeedAmis(); }
 async function loadFv2LikeCount(activityId, uid) {
   if (!supaClient) return;
   try {
-    // Like count
     var resp = await supaClient.from('reactions').select('id, user_id, emoji').eq('activity_id', activityId);
     var reactions = resp.data || [];
     var count = reactions.length;
@@ -3842,12 +3850,41 @@ async function loadFv2LikeCount(activityId, uid) {
       btnEl.className = 'fv2-action' + (liked ? ' liked' : '');
       btnEl.innerHTML = (liked ? '❤️' : '🤍') + ' ' + count;
     }
-    // Comment count
     var cResp = await supaClient.from('comments').select('id', { count: 'exact', head: true }).eq('activity_id', activityId);
     var cCount = cResp.count || 0;
     var cBtn = document.getElementById('fv2-comment-btn-' + activityId);
     if (cBtn) cBtn.innerHTML = '💬 ' + cCount;
   } catch (e) {}
+}
+
+async function loadAllLikeCounts(items, uid) {
+  if (!items.length || !supaClient) return;
+  var ids = items.map(function(i) { return i.id; });
+  try {
+    var likesResp = await supaClient.from('reactions').select('activity_id, user_id').in('activity_id', ids);
+    var commResp = await supaClient.from('comments').select('activity_id').in('activity_id', ids);
+    var likeGrouped = {};
+    (likesResp.data || []).forEach(function(r) {
+      if (!likeGrouped[r.activity_id]) likeGrouped[r.activity_id] = { count: 0, mine: false };
+      likeGrouped[r.activity_id].count++;
+      if (r.user_id === uid) likeGrouped[r.activity_id].mine = true;
+    });
+    var commGrouped = {};
+    (commResp.data || []).forEach(function(r) {
+      commGrouped[r.activity_id] = (commGrouped[r.activity_id] || 0) + 1;
+    });
+    ids.forEach(function(id) {
+      var info = likeGrouped[id] || { count: 0, mine: false };
+      var btn = document.getElementById('fv2-like-' + id);
+      if (btn) {
+        btn.innerHTML = (info.mine ? '❤️' : '🤍') + ' ' + info.count;
+        btn.className = 'fv2-action' + (info.mine ? ' liked' : '');
+      }
+      var cCount = commGrouped[id] || 0;
+      var cBtn = document.getElementById('fv2-comment-btn-' + id);
+      if (cBtn) cBtn.innerHTML = '💬 ' + cCount;
+    });
+  } catch(e) { console.error('loadAllLikeCounts error:', e); }
 }
 
 async function toggleFv2Like(activityId, btnEl) {
@@ -3925,7 +3962,7 @@ async function renderFeedCommunaute() {
         if (item.type === 'session') return fv2RenderCard(item, prof, uid);
         return renderFeedCard(item, profiles, uid);
       }).join('');
-      _feedCommunauteItems.forEach(function(i) { loadFv2LikeCount(i.id, uid); });
+      loadAllLikeCounts(_feedCommunauteItems, uid);
     }
 
     if (loadMoreEl) loadMoreEl.style.display = items.length >= FEED_PAGE_SIZE ? '' : 'none';

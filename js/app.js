@@ -1817,11 +1817,6 @@ function showProfilSub(id, btn) {
   if (typeof _updateLastTab === 'function') _updateLastTab('profil', id);
   if (id === 'tab-corps') renderCorpsTab();
   if (id === 'tab-settings') fillSettingsFields();
-  // Stats dans le profil — rediriger vers le vrai onglet Stats
-  if (id === 'tab-profil-stats') {
-    showTab('tab-stats');
-    return;
-  }
   // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
     if (typeof renderGamificationTab === 'function') renderGamificationTab();

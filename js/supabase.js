@@ -499,7 +499,21 @@ async function checkPasswordMigration(user) {
   // No blocking modal — users who need a password can use "Mot de passe oublié"
   // or the automatic prompt when signing up with an existing magic link email
 }
-async function cloudLogout() { if (!supaClient) return; await supaClient.auth.signOut(); _cachedUid = null; if (_globalCommentChannel) { supaClient.removeChannel(_globalCommentChannel); _globalCommentChannel = null; } _openCommentPostId = null; cloudSyncEnabled = false; updateCloudUI(null); showToast('Déconnecté du cloud'); }
+async function cloudLogout() {
+  if (!supaClient) return;
+  await supaClient.auth.signOut();
+  _cachedUid = null;
+  if (_globalCommentChannel) { supaClient.removeChannel(_globalCommentChannel); _globalCommentChannel = null; }
+  if (_notifRealtimeChannel) { supaClient.removeChannel(_notifRealtimeChannel); _notifRealtimeChannel = null; }
+  _openCommentPostId = null;
+  _notifPanelOpen = false;
+  _unreadNotifCount = 0;
+  var panel = document.getElementById('notif-panel');
+  if (panel) panel.style.display = 'none';
+  cloudSyncEnabled = false;
+  updateCloudUI(null);
+  showToast('Déconnecté du cloud');
+}
 
 async function changePassword() {
   const pwd = document.getElementById('newPassword').value;
@@ -550,6 +564,9 @@ function getMyUserId() {
 var _cachedUid = null;
 var _globalCommentChannel = null;
 var _openCommentPostId = null;
+var _notifPanelOpen = false;
+var _notifRealtimeChannel = null;
+var _unreadNotifCount = 0;
 
 function initGlobalCommentChannel() {
   if (_globalCommentChannel || !supaClient) return;
@@ -699,8 +716,8 @@ async function initSocialTab() {
   var feedSubId = activeFeedSub ? activeFeedSub.id : 'feed-amis';
   showFeedSub(feedSubId);
 
-  // Update notification badge
-  updateSocialBadge();
+  // Init notification bell + badge
+  initNotifications();
 }
 
 // ============================================================
@@ -2547,9 +2564,9 @@ async function markAllNotifsRead() {
   if (!uid || !supaClient) return;
   try {
     await supaClient.from('notifications').update({ read: true }).eq('user_id', uid).eq('read', false);
-    _notifCache.forEach(n => n.read = true);
+    _notifCache.forEach(function(n) { n.read = true; });
+    updateNotifBadges(0);
     renderNotifications();
-    updateSocialBadge();
   } catch (e) {
     console.error('markAllNotifsRead error:', e);
   }
@@ -2557,16 +2574,106 @@ async function markAllNotifsRead() {
 
 async function updateSocialBadge() {
   const notifs = _notifCache.length ? _notifCache : await loadNotifications();
-  const unreadCount = notifs.filter(n => !n.read).length;
-  const badge = document.getElementById('socialTabBadge');
-  if (badge) {
-    if (unreadCount > 0) {
-      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-      badge.classList.add('visible');
-    } else {
-      badge.classList.remove('visible');
-    }
+  const unreadCount = notifs.filter(function(n) { return !n.read; }).length;
+  updateNotifBadges(unreadCount);
+}
+
+// ============================================================
+// SOCIAL MODULE — NOTIFICATION BELL
+// ============================================================
+
+async function initNotifications() {
+  if (!supaClient) return;
+  const uid = await getMyUserIdAsync();
+  if (!uid) return;
+  const notifs = await loadNotifications();
+  const unread = notifs.filter(function(n) { return !n.read; }).length;
+  updateNotifBadges(unread);
+  if (_notifRealtimeChannel) return;
+  _notifRealtimeChannel = supaClient
+    .channel('notif-' + uid)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: 'user_id=eq.' + uid }, function(payload) {
+      _notifCache.unshift(payload.new);
+      _unreadNotifCount++;
+      updateNotifBadges(_unreadNotifCount);
+      if (_notifPanelOpen) prependNotifItem(payload.new);
+    })
+    .subscribe();
+}
+
+function updateNotifBadges(count) {
+  _unreadNotifCount = count;
+  var tabBadge = document.getElementById('socialTabBadge');
+  if (tabBadge) {
+    if (count > 0) { tabBadge.textContent = count > 99 ? '99+' : count; tabBadge.classList.add('visible'); }
+    else { tabBadge.classList.remove('visible'); }
   }
+  var bellBadge = document.getElementById('notif-bell-badge');
+  if (bellBadge) {
+    if (count > 0) { bellBadge.textContent = count > 99 ? '99+' : count; bellBadge.style.display = 'flex'; }
+    else { bellBadge.style.display = 'none'; }
+  }
+}
+
+async function toggleNotifPanel() {
+  var panel = document.getElementById('notif-panel');
+  if (!panel) return;
+  _notifPanelOpen = !_notifPanelOpen;
+  panel.style.display = _notifPanelOpen ? 'block' : 'none';
+  if (_notifPanelOpen) {
+    await loadNotifList();
+    if (_unreadNotifCount > 0) markAllNotifsRead();
+  }
+}
+
+async function loadNotifList() {
+  var container = document.getElementById('notif-list');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Chargement...</div>';
+  var notifs = await loadNotifications();
+  if (!notifs.length) {
+    container.innerHTML = '<div class="notif-empty">Aucune notification</div>';
+    return;
+  }
+  container.innerHTML = notifs.map(renderNotifItem).join('');
+}
+
+function renderNotifItem(n) {
+  var d = {};
+  try { d = typeof n.data === 'string' ? JSON.parse(n.data) : (n.data || {}); } catch(e) {}
+  var icon = { friend_accepted: '🤝', reaction: d.emoji || '😀', comment: '💬', pr_beaten: '💥', defi: '🏆' }[n.type] || '🔔';
+  var u = '<strong>' + (d.username || 'Quelqu\'un') + '</strong>';
+  var text = 'Nouvelle notification';
+  if (n.type === 'friend_accepted') text = u + ' a accepté ta demande d\'ami';
+  else if (n.type === 'reaction') text = u + ' a réagi ' + (d.emoji || '') + ' à ton post';
+  else if (n.type === 'comment') text = u + ' a commenté : « ' + (d.text || '') + ' »';
+  else if (n.type === 'pr_beaten') text = u + ' a battu ton PR ' + (d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
+  else if (n.type === 'defi') text = u + ' t\'a lancé un défi : ' + (d.exercise || '');
+  var dot = n.read ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);display:inline-block;flex-shrink:0;margin-top:6px;"></span>';
+  var safeData = encodeURIComponent(JSON.stringify(d));
+  return '<div class="notif-item' + (n.read ? '' : ' unread') + '" style="cursor:pointer;" onclick="handleNotifTap(\'' + n.id + '\',\'' + n.type + '\',\'' + safeData + '\')">' +
+    '<span style="font-size:18px;flex-shrink:0;">' + icon + '</span>' +
+    '<div class="notif-body">' + text + '<div class="notif-time">' + timeAgo(n.created_at) + '</div></div>' +
+    dot + '</div>';
+}
+
+function prependNotifItem(n) {
+  var container = document.getElementById('notif-list');
+  if (!container) return;
+  var empty = container.querySelector('.notif-empty');
+  if (empty) container.innerHTML = '';
+  var div = document.createElement('div');
+  div.innerHTML = renderNotifItem(n);
+  container.insertBefore(div.firstElementChild, container.firstChild);
+}
+
+function handleNotifTap(notifId, type, dataStr) {
+  var d = {};
+  try { d = JSON.parse(decodeURIComponent(dataStr)); } catch(e) {}
+  if (type === 'comment' || type === 'reaction') { toggleNotifPanel(); showFeedSub('feed-amis'); }
+  else if (type === 'friend_accepted') { toggleNotifPanel(); showFeedSub('social-friends'); }
+  else if (type === 'defi') { toggleNotifPanel(); showFeedSub('feed-challenges'); }
+  else { toggleNotifPanel(); }
 }
 
 // ============================================================

@@ -1434,6 +1434,9 @@
     .friends-item-btn.unblock{background:var(--surface);color:var(--orange);border:1px solid var(--border);}
     .friends-item-btn.add{background:var(--blue);color:white;}
 
+    /* Notification bell */
+    #notif-bell-btn:active{opacity:0.6;}
+
     /* Notifications */
     .notif-list{margin-top:12px;}
     .notif-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start;}
@@ -2834,6 +2837,21 @@
   <!-- COMMUNAUTÉ -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="tab-social" class="content-section">
+    <!-- Social header with notification bell -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 2px 0;">
+      <span style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px;">Social</span>
+      <button id="notif-bell-btn" onclick="toggleNotifPanel()" style="position:relative;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 6px;line-height:1;border-radius:10px;" aria-label="Notifications">
+        🔔<span id="notif-bell-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;background:#FF3B30;color:#fff;font-size:10px;font-weight:700;border-radius:8px;align-items:center;justify-content:center;line-height:1;padding:0 3px;pointer-events:none;"></span>
+      </button>
+    </div>
+    <!-- Notification slide-down panel -->
+    <div id="notif-panel" style="display:none;background:var(--surface);border-radius:12px;margin:8px 0 4px;padding:12px 14px;border:0.5px solid var(--border);max-height:60vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:14px;font-weight:700;color:var(--text);">Notifications</span>
+        <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;">Tout lire</button>
+      </div>
+      <div id="notif-list"></div>
+    </div>
     <!-- Feed V2 — 4 pill sub-tabs -->
     <div class="feed-pills" id="feedPills">
       <button class="feed-pill active" data-feed="feed-amis" onclick="showFeedSub('feed-amis',this)">Amis</button>

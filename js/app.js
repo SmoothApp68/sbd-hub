@@ -10857,225 +10857,173 @@ function toggleEvolFilter(btn, muscle) {
 // ============================================================
 // STATS — MEILLEURS LIFTS refaits
 // ============================================================
-function renderLifts() {
-  const liftMap = {};
-  const limit180 = Date.now() - 180*86400000;
-  const recentLogs = db.logs.filter(l => l.timestamp >= limit180);
-  const exoCount = {};
-  recentLogs.forEach(log => {
-    const seen = new Set();
-    log.exercises.forEach(e => { if (!seen.has(e.name)) { exoCount[e.name] = (exoCount[e.name]||0)+1; seen.add(e.name); } });
+var LIFT_IMPORTANCE = {
+  'squat': 100, 'bench': 100, 'deadlift': 100,
+  'souleve': 100, 'developpe couche': 100,
+  'developpe': 80, 'presse': 80, 'hack squat': 80, 'rowing': 75,
+  'tirage': 75, 'militaire': 75, 'hip thrust': 75, 'tractions': 75,
+  'dips': 70, 'curl barre': 65, 'extension jambes': 65,
+  'curl': 50, 'extension': 50, 'elevation': 45, 'ecartes': 45,
+  'oiseau': 40, 'shrug': 40, 'planche': 35, 'pompes': 50,
+  'gainage': 30
+};
+function getLiftImportance(name) {
+  var n = (name || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[()]/g, ' ');
+  var best = 35;
+  Object.keys(LIFT_IMPORTANCE).forEach(function(kw) {
+    if (n.includes(kw) && LIFT_IMPORTANCE[kw] > best) best = LIFT_IMPORTANCE[kw];
   });
+  return best;
+}
+function getLiftType(lift) {
+  if (lift.maxRM > 0) return 'weight';
+  if (lift.maxReps > 0) return 'reps';
+  if (lift.maxDuration > 0) return 'time';
+  return 'reps';
+}
+function getLiftPRDisplay(lift) {
+  var type = getLiftType(lift);
+  if (type === 'weight') return { label: lift.maxRM + ' kg', icon: '🏋️' };
+  if (type === 'reps') return { label: lift.maxReps + ' reps', icon: '🔢' };
+  var sec = lift.maxDuration || 0;
+  var label = sec >= 60
+    ? Math.floor(sec / 60) + 'min' + (sec % 60 > 0 ? String(sec % 60).padStart(2, '0') : '')
+    : sec + 's';
+  return { label: label, icon: '⏱' };
+}
 
-  db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
-      if (SESSION_NAME_BLACKLIST.test(exo.name.toLowerCase())) return;
-      if ((exoCount[exo.name]||0) < 3) return;
-      if (VARIANT_KEYWORDS.some(kw => exo.name.toLowerCase().includes(kw))) return;
-      const exoType = getExoType(exo.name);
-      if (exoType !== 'weight' && exoType !== 'reps') return;
-      if (!exo.maxRM || exo.maxRM <= 0) return;
-      const muscle = getMuscleGroupRadar(getMuscleGroup(exo.name));
-      const canonKey = Object.keys(liftMap).find(k => matchExoName(exo.name, k)) || exo.name;
-      if (!liftMap[canonKey]) liftMap[canonKey] = { name: canonKey, muscle, maxRM: 0, maxRMDate: null, repRecords: {}, history: [] };
-      const l = liftMap[canonKey];
-      if (exo.maxRM > l.maxRM) { l.maxRM = exo.maxRM; l.maxRMDate = exo.maxRMDate; }
-      else if (exo.maxRM === l.maxRM && exo.maxRMDate && (!l.maxRMDate || exo.maxRMDate > l.maxRMDate)) { l.maxRMDate = exo.maxRMDate; }
-      if (exo.repRecords) Object.entries(exo.repRecords).forEach(([r,w]) => { if (!l.repRecords[r] || w > l.repRecords[r]) l.repRecords[r] = w; });
+function renderLifts() {
+  var limit365 = Date.now() - 365 * 86400000;
+
+  // 1. Count sessions per exercise over 365d
+  var sessionCount = {};
+  var lastSeen = {};
+  var logs365 = (db.logs || []).filter(function(l) { return (l.timestamp || 0) >= limit365; });
+  logs365.forEach(function(log) {
+    var seen = new Set();
+    (log.exercises || []).forEach(function(e) {
+      if (!seen.has(e.name)) {
+        sessionCount[e.name] = (sessionCount[e.name] || 0) + 1;
+        lastSeen[e.name] = Math.max(lastSeen[e.name] || 0, log.timestamp || 0);
+        seen.add(e.name);
+      }
     });
   });
 
-  const lifts = Object.values(liftMap).sort((a,b) => b.maxRM - a.maxRM);
+  // 2. Build liftMap from all-time logs, only for exercises seen ≥ 2 times on 365d
+  var liftMap = {};
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if ((sessionCount[exo.name] || 0) < 2) return;
+      var canonKey = Object.keys(liftMap).find(function(k) { return matchExoName(exo.name, k); }) || exo.name;
+      if (/adduction/i.test(exo.name) && /abduction/i.test(canonKey)) canonKey = exo.name;
+      if (/abduction/i.test(exo.name) && /adduction/i.test(canonKey)) canonKey = exo.name;
+      if (!liftMap[canonKey]) {
+        liftMap[canonKey] = {
+          name: canonKey,
+          muscle: getMuscleGroupRadar(getMuscleGroup(canonKey)),
+          maxRM: 0, maxReps: 0, maxDuration: 0, maxRMDate: null
+        };
+      }
+      var l = liftMap[canonKey];
+      if ((exo.maxRM || 0) > l.maxRM) { l.maxRM = exo.maxRM; l.maxRMDate = exo.maxRMDate || null; }
+      if ((exo.maxReps || 0) > l.maxReps) l.maxReps = exo.maxReps;
+      (exo.series || exo.allSets || []).forEach(function(s) {
+        if (s.duration && s.duration > (l.maxDuration || 0)) l.maxDuration = s.duration;
+      });
+    });
+  });
+
+  // 3. Score each lift
+  var maxSessions = Math.max.apply(null, Object.keys(sessionCount).map(function(k) { return sessionCount[k] || 0; }).concat([1]));
+  var lifts = Object.values(liftMap).map(function(l) {
+    var sessions = sessionCount[l.name] || 1;
+    var daysSince = lastSeen[l.name] ? Math.round((Date.now() - lastSeen[l.name]) / 86400000) : 365;
+    l.score = (getLiftImportance(l.name) / 100) * 0.40 + (sessions / maxSessions) * 0.35 + Math.max(0, 1 - daysSince / 365) * 0.25;
+    l.sessions = sessions;
+    return l;
+  });
+
+  // 4. Keep only lifts with a PR value
+  lifts = lifts.filter(function(l) { return l.maxRM > 0 || l.maxReps > 0 || l.maxDuration > 0; });
+  lifts.sort(function(a, b) { return b.score - a.score; });
+
+  // 5. Chips — 9 fixed groups (RADAR_AXES without Cardio)
   var availableGroups = new Set(lifts.map(function(l) { return l.muscle; }));
   var RECORDS_AXES = RADAR_AXES.filter(function(m) { return m !== 'Cardio'; });
-
   document.getElementById('liftsFilterRow').innerHTML = ['Tout'].concat(RECORDS_AXES).map(function(m) {
     var hasData = m === 'Tout' || availableGroups.has(m);
     var isActive = m === liftsMuscleFilter;
     var color = MUSCLE_COLORS_RADAR[m];
     var style = '';
     if (isActive) {
-      style = 'background:' + (color || 'var(--blue)') + ';color:white;border-color:' + (color || 'var(--blue)') + ';opacity:1;';
+      style = 'background:' + (color || 'var(--blue)') + ';color:white;border-color:' + (color || 'var(--blue)') + ';';
     } else if (!hasData) {
-      style = 'opacity:0.35;cursor:default;';
-      if (color) style += 'border-color:' + color + '40;color:' + color + ';';
-    } else {
-      if (color) style += 'border-color:' + color + '40;';
+      style = 'opacity:0.35;cursor:default;' + (color ? 'border-color:' + color + '40;color:' + color + ';' : '');
+    } else if (color) {
+      style = 'border-color:' + color + '40;';
     }
     return '<button class="lifts-filter-chip' + (isActive ? ' active' : '') + '" style="' + style + '" ' +
       (hasData ? 'onclick="setLiftsFilter(\'' + m + '\')"' : 'disabled') + '>' + m + '</button>';
   }).join('');
 
-  const filtered = liftsMuscleFilter === 'Tout' ? lifts : lifts.filter(l => l.muscle === liftsMuscleFilter);
-  const el = document.getElementById('liftsList');
-  if (!filtered.length) {
-    const hasLogs = db.logs && db.logs.length > 0;
-    el.innerHTML = '<div style="text-align:center;padding:24px 0;">' +
-      '<div style="font-size:28px;margin-bottom:10px;">' + (hasLogs ? '💪' : '📥') + '</div>' +
-      '<div style="font-size:13px;color:var(--sub);line-height:1.6;">' +
-      (hasLogs ? 'Aucun lift trouvé pour ce filtre.<br>Essaie "Tout".' : 'Importe des séances depuis Hevy<br>dans <strong style="color:var(--text);">Réglages → 📥 Import</strong>') +
-      '</div></div>';
-    return;
-  }
+  // 6. Filter by selected group
+  var filtered = liftsMuscleFilter === 'Tout' ? lifts : lifts.filter(function(l) { return l.muscle === liftsMuscleFilter; });
+  var el = document.getElementById('liftsList');
+  if (!el) return;
 
-  const displayLifts = filtered.slice(0, 10);
-  const sortedLogs = getSortedLogs().slice().reverse();
-  displayLifts.forEach(lift => {
-    let runMax = 0; const pts = [];
-    sortedLogs.forEach(log => {
-      log.exercises.forEach(exo => {
-        if (matchExoName(exo.name, lift.name) && exo.maxRM > 0 && exo.maxRM > runMax) {
-          runMax = exo.maxRM;
-          pts.push({ rm: exo.maxRM, date: log.shortDate||formatDate(log.timestamp), ts: log.timestamp });
-        }
-      });
-    });
-    lift.history = pts;
-  });
-
-  const RANK_STYLES = [
-    'background:rgba(255,215,0,0.15);color:#FFD700;',
-    'background:rgba(192,192,192,0.12);color:#C0C0C0;',
-    'background:rgba(205,127,50,0.12);color:#CD7F32;'
-  ];
-
+  // 7. Encart Autres
   var autresHtml = '';
   if (liftsMuscleFilter === 'Autres') {
-    var autresDetails = filtered.map(function(lift) {
-      return { name: lift.name, raw: getMuscleGroup(lift.name) };
-    });
     autresHtml = '<div style="background:rgba(142,142,147,0.08);border:0.5px solid rgba(142,142,147,0.2);border-radius:10px;padding:12px;margin-bottom:14px;">' +
       '<div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">⚠️ Exercices non classifiés</div>' +
-      '<div style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:8px;">Ces exercices n\'ont pas de groupe musculaire reconnu dans le modèle.</div>' +
+      '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">Ces exercices n\'ont pas de groupe musculaire reconnu.</div>' +
       '<div style="display:flex;flex-direction:column;gap:4px;">' +
-      autresDetails.map(function(e) {
+      filtered.map(function(l) {
         return '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">' +
-          '<span style="color:var(--text);">' + e.name + '</span>' +
-          '<span style="color:#8E8E93;font-size:10px;background:rgba(142,142,147,0.1);padding:2px 6px;border-radius:4px;">' + e.raw + '</span>' +
-        '</div>';
+          '<span style="color:var(--text);">' + l.name + '</span>' +
+          '<span style="color:#8E8E93;font-size:10px;background:rgba(142,142,147,0.1);padding:2px 6px;border-radius:4px;">' + getMuscleGroup(l.name) + '</span>' +
+          '</div>';
       }).join('') +
       '</div></div>';
   }
 
-  el.innerHTML = autresHtml + displayLifts.map((lift, idx) => {
-    const color = MUSCLE_COLORS_RADAR[lift.muscle] || '#86868B';
-    const bwRatio = db.user.bw > 0 ? (lift.maxRM / db.user.bw).toFixed(2) : null;
-    const prDate = lift.maxRMDate ? formatDate(lift.maxRMDate) : '—';
-    const isSBD = !!getSBDType(lift.name);
-    const rankStyle = idx < 3 ? RANK_STYLES[idx] : 'background:var(--surface);color:var(--sub);';
-    const lcId = 'lc-' + idx;
+  if (!filtered.length) {
+    el.innerHTML = autresHtml + '<div style="text-align:center;padding:24px 0;color:var(--sub);font-size:13px;">' +
+      (db.logs && db.logs.length ? 'Aucun lift pour ce groupe' : 'Importe des séances depuis Réglages → 📥 Import') + '</div>';
+    return;
+  }
 
-    // Badges
-    let badgesHtml = '';
-    if (isSBD && modeFeature('showSBDCards')) badgesHtml += '<span class="lc-badge purple">SBD</span>';
-    if (bwRatio && modeFeature('showBWRatio')) badgesHtml += '<span class="lc-badge blue">×' + bwRatio + ' bw</span>';
-    if (lift.history.length > 1) {
-      const gain = lift.history[lift.history.length-1].rm - lift.history[0].rm;
-      badgesHtml += '<span class="lc-badge ' + (gain >= 0 ? 'green' : 'orange') + '">' + (gain >= 0 ? '+' : '') + gain + 'kg total</span>';
+  // 8. Render cards
+  var RANK_STYLES = [
+    'background:rgba(255,215,0,0.15);color:#FFD700;',
+    'background:rgba(192,192,192,0.12);color:#C0C0C0;',
+    'background:rgba(205,127,50,0.12);color:#CD7F32;'
+  ];
+  el.innerHTML = autresHtml + filtered.map(function(lift, idx) {
+    var pr = getLiftPRDisplay(lift);
+    var color = MUSCLE_COLORS_RADAR[lift.muscle] || '#8E8E93';
+    var rankStyle = idx < 3 ? RANK_STYLES[idx] : 'background:var(--surface);color:var(--sub);';
+    var isSBD = !!getSBDType(lift.name);
+    var prDate = lift.maxRMDate ? formatDate(lift.maxRMDate) : '';
+    var badgesHtml = '';
+    if (isSBD) badgesHtml += '<span class="lc-badge purple">SBD</span>';
+    if (lift.maxRM > 0 && db.user && db.user.bw > 0) {
+      badgesHtml += '<span class="lc-badge blue">×' + (lift.maxRM / db.user.bw).toFixed(2) + ' bw</span>';
     }
-
-    // Sparkline SVG with gradient + date tooltips
-    let sparkHtml = '';
-    if (lift.history.length > 1) {
-      const vals = lift.history.map(p => p.rm);
-      const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
-      const W = 280, H = 50, pad = 4, topPad = 16;
-      const points = vals.map((v, i) => ({
-        x: pad + (i / (vals.length - 1)) * (W - pad * 2),
-        y: topPad + pad + (1 - (v - minV) / range) * (H - topPad - pad * 2)
-      }));
-      const line = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-      const area = line + ' L' + points[points.length-1].x.toFixed(1) + ',' + H + ' L' + points[0].x.toFixed(1) + ',' + H + ' Z';
-      const gid = 'lcg' + Math.random().toString(36).substr(2,5);
-      const tipId = 'stip-' + idx;
-      const circles = points.map((p, i) =>
-        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="' + color + '" opacity="' + (i === points.length-1 ? '1' : '0.5') + '"/>' +
-        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="14" fill="transparent" class="spark-hit" ' +
-        'data-tip="' + tipId + '" data-label="' + vals[i] + 'kg · ' + lift.history[i].date + '" data-color="' + color + '"/>'
-      ).join('');
-      sparkHtml = '<div class="lc-spark" style="position:relative;">' +
-        '<div id="' + tipId + '" style="position:absolute;top:0;left:0;right:0;text-align:center;font-size:10px;font-weight:600;color:var(--sub);height:14px;pointer-events:none;opacity:0;transition:opacity 0.15s;"></div>' +
-        '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="touch-action:none;">' +
-        '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.15"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
-        '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
-        '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-        circles +
-        '</svg></div>';
-    }
-
-    // RM grid — reps dynamiques pour garantir au moins un ✓
-    const STANDARD_REPS = [1, 3, 5, 8, 10, 12];
-    const realReps = Object.keys(lift.repRecords).map(Number).filter(r => r > 0).sort((a,b) => a - b);
-    const standardWithReal = STANDARD_REPS.filter(r => lift.repRecords[String(r)]);
-
-    let TARGET_REPS;
-    if (standardWithReal.length >= 1) {
-      TARGET_REPS = STANDARD_REPS;
-    } else if (realReps.length > 0) {
-      const toInclude = realReps.slice(0, 3);
-      const remaining = STANDARD_REPS.filter(r => !toInclude.includes(r));
-      TARGET_REPS = [...toInclude, ...remaining].sort((a,b) => a - b).slice(0, 6);
-    } else {
-      TARGET_REPS = STANDARD_REPS;
-    }
-
-    const rmCells = TARGET_REPS.map(r => {
-      const theo = r === 1 ? lift.maxRM : Math.round((lift.maxRM * (1.0278 - 0.0278 * r)) * 2) / 2;
-      const realKg = lift.repRecords[String(r)] || null;
-      const label = r === 1 ? '1RM' : r + ' reps';
-      let realHtml = '', cls = 'miss';
-      if (realKg) {
-        const gap = theo - realKg;
-        if (gap > 2.5) { cls = 'pot'; realHtml = realKg + 'kg ↑'; }
-        else { cls = 'done'; realHtml = realKg + 'kg ✓'; }
-      } else { realHtml = '—'; }
-      return '<div class="lc-rm-cell">' +
-        '<div class="lc-rm-label">' + label + '</div>' +
-        '<div class="lc-rm-est">' + theo + 'kg</div>' +
-        '<div class="lc-rm-real ' + cls + '">' + realHtml + '</div></div>';
-    }).join('');
-
-    const uid = 'lcc' + Math.random().toString(36).substr(2,5);
-
+    badgesHtml += '<span class="lc-badge" style="background:rgba(142,142,147,0.1);color:var(--sub);">' + lift.sessions + ' séances</span>';
     return '<div class="lc">' +
       '<div class="lc-head">' +
         '<div class="lc-rank" style="' + rankStyle + '">' + (idx + 1) + '</div>' +
         '<div class="lc-info"><div class="lc-name">' + lift.name + '</div>' +
-        '<div class="lc-muscle" style="color:' + color + ';">' + lift.muscle + '</div></div>' +
-        '<div class="lc-right"><div class="lc-e1rm">' + lift.maxRM + '<span>kg</span></div>' +
-        '<div class="lc-date">' + prDate + '</div></div>' +
+        '<div class="lc-badges">' + badgesHtml + '</div></div>' +
+        '<div class="lc-right"><div class="lc-e1rm" style="color:' + color + ';">' + pr.icon + ' ' + pr.label + '</div>' +
+        (prDate ? '<div class="lc-date">' + prDate + '</div>' : '') + '</div>' +
       '</div>' +
-      (badgesHtml ? '<div class="lc-badges">' + badgesHtml + '</div>' : '') +
-      sparkHtml +
-      '<div class="lc-toggle" onclick="toggleLiftCard(\'' + lcId + '\')">Voir détails <span class="chev">▾</span></div>' +
-      '<div class="lc-body" id="' + lcId + '">' +
-        '<div class="lc-rm-grid">' + rmCells + '</div>' +
-        '<div class="lc-calc"><span class="lc-calc-lbl">Calcul rapide</span>' +
-        '<input type="number" min="1" max="30" placeholder="reps" oninput="calcLiftWeight(this,' + lift.maxRM + ',\'' + uid + '\')">' +
-        '<span style="color:var(--sub);">→</span><span class="lc-calc-res" id="' + uid + '">—</span></div>' +
-      '</div></div>';
+    '</div>';
   }).join('');
-
-  // Délégation d'événements pour les tooltips sparkline
-  el.addEventListener('mouseenter', function(e) {
-    var hit = e.target.closest('.spark-hit');
-    if (!hit) return;
-    var tip = document.getElementById(hit.dataset.tip);
-    if (tip) { tip.innerHTML = '<span style="color:' + hit.dataset.color + ';">' + hit.dataset.label + '</span>'; tip.style.opacity = '1'; }
-  }, true);
-  el.addEventListener('mouseleave', function(e) {
-    var hit = e.target.closest('.spark-hit');
-    if (!hit) return;
-    var tip = document.getElementById(hit.dataset.tip);
-    if (tip) tip.style.opacity = '0';
-  }, true);
-  el.addEventListener('touchstart', function(e) {
-    var hit = e.target.closest('.spark-hit');
-    if (!hit) return;
-    e.preventDefault();
-    var tip = document.getElementById(hit.dataset.tip);
-    if (tip) { tip.innerHTML = '<span style="color:' + hit.dataset.color + ';">' + hit.dataset.label + '</span>'; tip.style.opacity = '1'; setTimeout(function() { tip.style.opacity = '0'; }, 2000); }
-  }, {passive: false});
 }
 
 function setLiftsFilter(muscle) {

@@ -1985,3 +1985,113 @@ function checkActiveWashoutNeeded() {
 
   return { needed: false, weeksSince: weeksSince };
 }
+
+// Prehab Génératif — Échauffement dynamique 10min
+
+var PREHAB_ROUTINES = {
+  bench_standard: [
+    { name: 'Band Pull-Apart', sets: 2, reps: 15, rest: 30 },
+    { name: 'Face Pull léger', sets: 2, reps: 15, rest: 30 },
+    { name: 'Mobilisation thoracique', sets: 1, reps: '60s', type: 'time' }
+  ],
+  bench_low_readiness: [
+    { name: 'Mobilisation thoracique', sets: 2, reps: '60s', type: 'time' },
+    { name: 'Activation coiffe rotateurs (bande)', sets: 2, reps: 15, rest: 30 },
+    { name: 'Band Pull-Apart', sets: 3, reps: 15, rest: 30 },
+    { name: 'Face Pull léger', sets: 2, reps: 20, rest: 30 }
+  ],
+  bench_shoulder_injury: [
+    { name: 'Pendule épaule', sets: 2, reps: '30s', type: 'time' },
+    { name: 'Rotation externe bande', sets: 3, reps: 15, rest: 30 },
+    { name: 'Face Pull léger', sets: 3, reps: 20, rest: 30 }
+  ],
+  squat_standard: [
+    { name: 'Hip Circle', sets: 2, reps: 10, rest: 30 },
+    { name: 'Activation fessiers (pont)', sets: 2, reps: 15, rest: 30 },
+    { name: 'Mobilité cheville (mur)', sets: 1, reps: '45s', type: 'time' }
+  ],
+  squat_low_readiness: [
+    { name: 'Hip Circle', sets: 3, reps: 10, rest: 30 },
+    { name: 'Activation fessiers (pont)', sets: 3, reps: 15, rest: 30 },
+    { name: 'Mobilité cheville (mur)', sets: 2, reps: '45s', type: 'time' },
+    { name: 'Squat gobelet poids léger', sets: 2, reps: 10, rest: 45 }
+  ],
+  squat_knee_injury: [
+    { name: 'Terminal Knee Extension', sets: 3, reps: 15, rest: 30 },
+    { name: 'Activation fessiers (pont)', sets: 3, reps: 15, rest: 30 },
+    { name: 'Mobilité cheville (mur)', sets: 2, reps: '45s', type: 'time' }
+  ],
+  deadlift_standard: [
+    { name: 'Hip Hinge bande', sets: 2, reps: 10, rest: 30 },
+    { name: 'Activation ischios (pont)', sets: 2, reps: 12, rest: 30 },
+    { name: 'Cat-Cow mobilisation', sets: 1, reps: '45s', type: 'time' }
+  ],
+  deadlift_low_readiness: [
+    { name: 'McGill Curl-up', sets: 3, reps: 8, rest: 30 },
+    { name: 'Bird Dog', sets: 2, reps: 10, rest: 30 },
+    { name: 'Hip Hinge bande', sets: 3, reps: 10, rest: 30 },
+    { name: 'Cat-Cow mobilisation', sets: 2, reps: '45s', type: 'time' }
+  ],
+  deadlift_back_injury: [
+    { name: 'McGill Curl-up', sets: 3, reps: 8, rest: 30 },
+    { name: 'Bird Dog', sets: 3, reps: 10, rest: 30 },
+    { name: 'Side Plank', sets: 2, reps: '30s', type: 'time' },
+    { name: 'Dead Bug', sets: 2, reps: 10, rest: 30 }
+  ],
+  weakpoints_standard: [
+    { name: 'Mobilisation thoracique', sets: 2, reps: '45s', type: 'time' },
+    { name: 'Band Pull-Apart', sets: 2, reps: 15, rest: 30 }
+  ],
+  recovery_standard: [
+    { name: 'Marche légère 5min', sets: 1, reps: '5min', type: 'time' },
+    { name: 'Mobilité globale', sets: 1, reps: '3min', type: 'time' }
+  ]
+};
+
+function generatePrehabRoutine(dayKey, srsScore, injuries) {
+  injuries = injuries || [];
+  srsScore = srsScore || 70;
+  var isLowReadiness = srsScore < 55;
+
+  var hasKneeInjury = injuries.some(function(i) { return i.active && i.zone === 'genou'; });
+  var hasShoulderInjury = injuries.some(function(i) { return i.active && i.zone === 'epaule'; });
+  var hasBackInjury = injuries.some(function(i) { return i.active && (i.zone === 'dos' || i.zone === 'lombaires'); });
+
+  var routineKey;
+  if (dayKey === 'bench') {
+    routineKey = hasShoulderInjury ? 'bench_shoulder_injury'
+      : isLowReadiness ? 'bench_low_readiness'
+      : 'bench_standard';
+  } else if (dayKey === 'squat') {
+    routineKey = hasKneeInjury ? 'squat_knee_injury'
+      : isLowReadiness ? 'squat_low_readiness'
+      : 'squat_standard';
+  } else if (dayKey === 'deadlift') {
+    routineKey = hasBackInjury ? 'deadlift_back_injury'
+      : isLowReadiness ? 'deadlift_low_readiness'
+      : 'deadlift_standard';
+  } else if (dayKey === 'weakpoints') {
+    routineKey = 'weakpoints_standard';
+  } else if (dayKey === 'recovery') {
+    routineKey = 'recovery_standard';
+  } else {
+    return null;
+  }
+
+  var routine = PREHAB_ROUTINES[routineKey];
+  if (!routine || !routine.length) return null;
+
+  return routine.map(function(exo) {
+    return {
+      name: exo.name,
+      type: exo.type || 'weight',
+      isPrehab: true,
+      restSeconds: exo.rest || 30,
+      sets: Array.from({ length: exo.sets || 2 }, function() {
+        return exo.type === 'time'
+          ? { durationMin: 0, durationSec: 45, isWarmup: true, isPrehab: true }
+          : { reps: exo.reps || 12, weight: null, rpe: 4, isWarmup: true, isPrehab: true };
+      })
+    };
+  });
+}

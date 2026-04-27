@@ -15157,20 +15157,60 @@ function generateWeeklyPlan() {
 
     // ── BIEN-ÊTRE ────────────────────────────────────────────
     } else {
+      // Progression qualitative : durée et intensité augmentent avec l'ancienneté
+      var weeksActive = Math.round((db.logs || []).length / Math.max(1, freq));
+      var baseDuration = 20;
+      var progressiveDuration = Math.min(60, baseDuration + Math.floor(weeksActive / 2) * 5);
+
       var beActivities = [
-        { name: 'Marche rapide', type: 'cardio', duration: 30 },
-        { name: 'Yoga & Mobilité', type: 'time', duration: 45 },
-        { name: 'Natation', type: 'cardio', duration: 40 },
-        { name: 'Renfo léger', type: 'weight', reps: 15, rpe: 5 },
-        { name: 'Vélo doux', type: 'cardio', duration: 35 }
+        {
+          name: 'Marche rapide', type: 'cardio',
+          durationMin: progressiveDuration,
+          label: weeksActive < 4  ? '🚶 Marche ' + progressiveDuration + 'min'
+               : weeksActive < 8  ? '🚶 Marche active ' + progressiveDuration + 'min'
+               : '🚶 Marche inclinée ' + progressiveDuration + 'min'
+        },
+        {
+          name: 'Yoga & Mobilité', type: 'time',
+          durationMin: Math.min(45, 15 + Math.floor(weeksActive / 2) * 3),
+          label: weeksActive < 4
+            ? '🧘 Mobilité 15min (débutant)'
+            : '🧘 Routine mobilité ' + Math.min(45, 15 + Math.floor(weeksActive / 2) * 3) + 'min'
+        },
+        {
+          name: weeksActive < 6 ? 'Natation décontractée' : 'Natation continue',
+          type: 'cardio',
+          durationMin: Math.min(45, 20 + weeksActive * 2),
+          label: '🏊 Natation ' + Math.min(45, 20 + weeksActive * 2) + 'min'
+        },
+        {
+          name: 'Renforcement léger', type: 'weight',
+          reps: 15, rpe: 5,
+          label: '💪 Renfo léger — RPE 5 max'
+        },
+        {
+          name: 'Vélo doux', type: 'cardio',
+          durationMin: progressiveDuration,
+          label: '🚴 Vélo ' + progressiveDuration + 'min'
+        }
       ];
+
       var beIdx = 0;
       days = allDays.map(function(day) {
         if (selectedDays.indexOf(day) < 0) return { day: day, rest: true, title: '😴 Repos', exercises: [] };
         var act = beActivities[beIdx % beActivities.length]; beIdx++;
-        var exo = { name: act.name, type: act.type, restSeconds: 0,
-          sets: [act.type === 'weight' ? { reps: act.reps || 15, rpe: act.rpe || 5, isWarmup: false } : { durationMin: act.duration, isWarmup: false }] };
-        return { day: day, rest: false, title: '🌿 ' + act.name, coachNote: 'Régularité > intensité. L\'objectif c\'est d\'y aller.', exercises: [exo] };
+        return {
+          day: day, rest: false,
+          title: act.label || ('🌿 ' + act.name),
+          coachNote: 'Régularité > intensité. Tout mouvement compte.',
+          isWellbeing: true,
+          exercises: [{
+            name: act.name, type: act.type, restSeconds: 0,
+            sets: act.type === 'weight'
+              ? [{ reps: act.reps || 15, rpe: act.rpe || 5, isWarmup: false }]
+              : [{ durationMin: act.durationMin || 30, isWarmup: false }]
+          }]
+        };
       });
     }
 

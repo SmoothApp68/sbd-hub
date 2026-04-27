@@ -1142,6 +1142,18 @@ function calcCalorieCible(bw) {
 function calcMacrosCibles(kcalCible, bw) {
   var goal = (db.user && db.user.goal) || '';
   var gender = db.user && db.user.gender;
+  var mode = (db.user && db.user.trainingMode) || '';
+
+  // Bien-être : maintenance stricte, protéines modérées
+  if (mode === 'bien_etre') {
+    return {
+      prot: Math.round(bw * 1.6),
+      carb: Math.round((kcalCible * 0.50) / 4),
+      fat:  Math.round((kcalCible * 0.30) / 9),
+      kcal: kcalCible
+    };
+  }
+
   // Protéines : 2.4g/kg en recompo (2.3-2.5), 1.95g/kg sinon
   var protPerKg = goal === 'recompo' ? 2.4 : 1.95;
   var prot = Math.round(bw * protPerKg);
@@ -1808,6 +1820,41 @@ function checkIschioCuadImbalance() {
     };
   }
   return { imbalance: false, ratio: Math.round(ratio * 10) / 10 };
+}
+
+function computeWellbeingMetrics() {
+  var logs = db.logs || [];
+  if (!logs.length) return null;
+
+  // Constance : jours distincts actifs sur 30j
+  var logs30 = typeof getLogsInRange === 'function' ? getLogsInRange(30) : [];
+  var activeDays = {};
+  logs30.forEach(function(log) {
+    activeDays[new Date(log.timestamp).toDateString()] = true;
+  });
+  var streak = Object.keys(activeDays).length;
+
+  // Variété : distribution cardio / force / souplesse
+  var types = { cardio: 0, force: 0, souplesse: 0 };
+  logs30.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var n = exo.name || '';
+      if (/natation|vélo|marche|course|cardio/i.test(n)) types.cardio++;
+      else if (/yoga|mobilité|étirement|souplesse/i.test(n))  types.souplesse++;
+      else types.force++;
+    });
+  });
+  var totalExos = types.cardio + types.force + types.souplesse;
+  var varietyScore = totalExos > 0
+    ? Math.round(100 * (1 - Math.max(types.cardio, types.force, types.souplesse) / totalExos))
+    : 0;
+
+  // Régularité : ratio séances réelles / fréquence cible
+  var seancesPerWeek = logs30.length / 4;
+  var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 3;
+  var srsWellbeing = Math.min(100, Math.round((seancesPerWeek / Math.max(1, freq)) * 100));
+
+  return { streak: streak, varietyScore: varietyScore, srsWellbeing: srsWellbeing, typeBreakdown: types };
 }
 
 var BASIC_SUPPLEMENTS = [

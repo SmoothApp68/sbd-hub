@@ -73,6 +73,45 @@ function coachGetFullAnalysis() {
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var bw = (db.user && db.user.bw) || 0;
 
+  // ── MODE BIEN-ÊTRE : métriques dédiées, retour anticipé ──
+  if (mode === 'bien_etre') {
+    var wm = typeof computeWellbeingMetrics === 'function' ? computeWellbeingMetrics() : null;
+    if (!wm) return '<div style="text-align:center;padding:20px;color:var(--sub);">Commence tes séances pour voir tes métriques.</div>';
+
+    var html = '';
+    html += '<div class="ai-section"><div class="ai-section-title">🌿 Ton parcours bien-être</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">';
+    html += '<div style="text-align:center;background:var(--surface);border-radius:12px;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:var(--orange);">' + wm.streak + '</div>';
+    html += '<div style="font-size:10px;color:var(--sub);">Jours actifs<br>ce mois</div></div>';
+    html += '<div style="text-align:center;background:var(--surface);border-radius:12px;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:var(--purple);">' + wm.varietyScore + '</div>';
+    html += '<div style="font-size:10px;color:var(--sub);">Score<br>variété</div></div>';
+    html += '<div style="text-align:center;background:var(--surface);border-radius:12px;padding:12px;">';
+    html += '<div style="font-size:24px;font-weight:800;color:var(--green);">' + wm.srsWellbeing + '</div>';
+    html += '<div style="font-size:10px;color:var(--sub);">Régularité<br>/100</div></div>';
+    html += '</div>';
+
+    var motivMsg = wm.streak >= 20 ? '🔥 Mois exceptionnel — tu es en mouvement !'
+      : wm.streak >= 12 ? '💪 Belle constance — continue comme ça.'
+      : wm.streak >= 6  ? '🌱 Bonne lancée — la régularité se construit.'
+      : '👋 Commence par 3 séances cette semaine — la constance est tout.';
+    html += '<div style="font-size:13px;color:var(--text);margin-bottom:8px;">' + motivMsg + '</div>';
+
+    if (wm.varietyScore < 30) {
+      var lacking = wm.typeBreakdown.cardio < wm.typeBreakdown.force
+        ? 'du cardio (marche, vélo, natation)'
+        : wm.typeBreakdown.souplesse < wm.typeBreakdown.force
+        ? 'de la souplesse (yoga, mobilité)'
+        : 'de la force légère';
+      html += '<div style="font-size:12px;color:var(--sub);">💡 Ajoute ' + lacking + ' pour un équilibre optimal.</div>';
+    }
+
+    html += '</div>';
+    html += '<div class="ai-timestamp">Coach Bien-être · Mouvement > Performance</div>';
+    return html;
+  }
+
   // ── 1. SCORE DE FORME ──
   var fatigueScore = computeFatigueScore(db.logs);
   var readiness = getLoadFromReadiness(100 - fatigueScore);

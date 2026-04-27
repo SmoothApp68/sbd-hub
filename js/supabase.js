@@ -685,7 +685,7 @@ function showSocialSub(subId, btn) {
 // Feed V2 — sub-tab switcher
 function showFeedSub(subId, btn) {
   document.querySelectorAll('.feed-sub-content').forEach(function(el) { el.classList.remove('active'); });
-  document.querySelectorAll('.feed-pill').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('#feedPills .stats-sub-pill').forEach(function(el) { el.classList.remove('active'); });
   var target = document.getElementById(subId);
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');
@@ -4575,12 +4575,12 @@ async function renderFeedClassementV2() {
   var periodPills = '<div class="lb2-period-pills">' +
     ['week','month','all'].map(function(p) {
       var labels = { week: 'Cette semaine', month: 'Ce mois', all: 'All time' };
-      return '<button class="feed-pill' + (_lb2Period === p ? ' active' : '') + '" onclick="setLb2Period(\'' + p + '\')">' + labels[p] + '</button>';
+      return '<button class="stats-sub-pill' + (_lb2Period === p ? ' active' : '') + '" onclick="setLb2Period(\'' + p + '\')">' + labels[p] + '</button>';
     }).join('') + '</div>';
 
   var catPills = '<div class="lb2-category-pills">' +
     [{ id: 'volume', label: 'Volume 🏋️' }, { id: 'sessions', label: 'Séances 📅' }, { id: 'streak', label: 'Streak 🔥' }, { id: 'sbd', label: 'SBD ⚡️' }].map(function(c) {
-      return '<button class="feed-pill' + (_lb2Category === c.id ? ' active' : '') + '" onclick="setLb2Category(\'' + c.id + '\')">' + c.label + '</button>';
+      return '<button class="stats-sub-pill' + (_lb2Category === c.id ? ' active' : '') + '" onclick="setLb2Category(\'' + c.id + '\')">' + c.label + '</button>';
     }).join('') + '</div>';
 
   container.innerHTML = periodPills + catPills + '<div id="lb2Body"><div style="text-align:center;padding:20px;color:var(--sub);">Chargement...</div></div>';

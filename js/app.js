@@ -12309,20 +12309,17 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   return { exercises: adapted, adaptations };
 }
 
-// ── Deload automatique ──────────────────────────────────────
-function shouldDeload() {
+// ── Deload automatique (banner UI : mésocycle / readiness / plateaus) ──
+function _shouldDeloadLegacy() {
   const reasons = [];
-  // 1. Fin de mésocycle (semaine 4 complétée)
   if (db.weeklyPlan && db.weeklyPlan.week === 4) {
     const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
     if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
   }
-  // 2. Readiness basse chronique
   const last3 = (db.readiness || []).slice(-3);
   if (last3.length === 3 && last3.every(r => r.score < 40)) {
     reasons.push('Readiness < 40 pendant 3 jours consécutifs');
   }
-  // 3. Plateau multiple
   const bigLifts = ['squat', 'bench', 'deadlift'];
   const plateaus = bigLifts.filter(l => detectPlateau(l));
   if (plateaus.length >= 2) {
@@ -12336,7 +12333,7 @@ function renderDeloadBanner() {
   const el = document.getElementById('deloadBanner');
   if (!el) return;
   if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
-  const { needed, reasons } = shouldDeload();
+  const { needed, reasons } = _shouldDeloadLegacy();
   if (!needed) { el.innerHTML = ''; return; }
   el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
     '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée ' + renderGlossaryTip('deload') + '</div>' +

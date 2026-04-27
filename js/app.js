@@ -14847,7 +14847,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
   }
   var derivedTitle = wpDeriveTitle(exercises) || tpl.title;
-  return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises };
+  return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, dupProfile: _dupProfile || null };
 }
 
 function wpGenerateMuscuDay(tplKey, params, phase) {
@@ -16396,13 +16396,43 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
   // JAMAIS sur les warmups
   if (set.isWarmup || set.setType === 'warmup') return null;
 
+  // ── HIÉRARCHIE DUP vs SRS — Live Coaching GO override ──
+  // Précédence : Live Coaching GO > SRS > DUP > Bloc > Programme
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var planDay = db.weeklyPlan.days ? db.weeklyPlan.days.find(function(d) { return d.day === todayDay; }) : null;
+  var dupProfile = planDay && planDay.dupProfile ? planDay.dupProfile : null;
+  if (dupProfile && !planDay._srsOverrideApplied) {
+    var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 70 };
+    var srsScore = srs && typeof srs.score === 'number' ? srs.score : 70;
+
+    // Force + SRS très bas → suggérer conversion Vitesse (message uniquement)
+    if (dupProfile.label === 'Force' && srsScore < 35) {
+      planDay._srsOverrideApplied = true;
+      return {
+        msg: '🔄 Fatigue trop élevée pour une séance Force (SRS ' + srsScore + '/100). ' +
+          'Conversion automatique en Vitesse — charges à 70%, focus barre.',
+        type: 'danger',
+        overrideDupStyle: 'vitesse'
+      };
+    }
+
+    // Vitesse/Volume + SRS bas → maintenir l'intention, couper le volume
+    if (srsScore < 50 && (dupProfile.label === 'Vitesse / Technique' || dupProfile.label === 'Volume / Hypertrophie DUP')) {
+      planDay._srsOverrideApplied = true;
+      return {
+        msg: '⚡ Séance ' + dupProfile.label + ' maintenue — ' +
+          'volume réduit (SRS ' + srsScore + '/100). Focus technique, pas d\'ego.',
+        type: 'warning',
+        volumeReduction: 0.50
+      };
+    }
+  }
+
   var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
   var isPeak = phase === 'peak';
   var isDeload = phase === 'deload';
 
   // Trouver RPE cible depuis le plan
-  var todayDay = DAYS_FULL[new Date().getDay()];
-  var planDay = db.weeklyPlan.days ? db.weeklyPlan.days.find(function(d) { return d.day === todayDay; }) : null;
   var planExo = planDay ? (planDay.exercises || []).find(function(e) {
     return e.name && exo.name && wpNormalizeName(e.name) === wpNormalizeName(exo.name);
   }) : null;
@@ -16452,6 +16482,29 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
 var _liveCoachBannerTimer = null;
 
 function showLiveCoachBanner(msg) {
+  // Hiérarchie DUP/SRS : appliquer la réduction de volume avant l'affichage
+  if (msg && msg.volumeReduction && msg.volumeReduction < 1 && db.weeklyPlan && db.weeklyPlan.days) {
+    var _todayDay = DAYS_FULL[new Date().getDay()];
+    var _todayPlan = db.weeklyPlan.days.find(function(d) { return d.day === _todayDay; });
+    if (_todayPlan && _todayPlan.exercises && !_todayPlan._volumeReductionApplied) {
+      _todayPlan.exercises = _todayPlan.exercises.map(function(exo) {
+        if (exo.isPrimary) return exo;
+        var reduced = JSON.parse(JSON.stringify(exo));
+        var workSets = (reduced.sets || []).filter(function(s) { return !s.isWarmup; });
+        var keepCount = Math.max(2, Math.ceil(workSets.length * msg.volumeReduction));
+        var kept = 0;
+        reduced.sets = (reduced.sets || []).filter(function(s) {
+          if (s.isWarmup) return true;
+          kept++;
+          return kept <= keepCount;
+        });
+        return reduced;
+      });
+      _todayPlan._volumeReductionApplied = true;
+      if (typeof saveDB === 'function') saveDB();
+    }
+  }
+
   var existing = document.getElementById('live-coach-banner');
   if (existing) existing.remove();
   if (_liveCoachBannerTimer) { clearTimeout(_liveCoachBannerTimer); _liveCoachBannerTimer = null; }

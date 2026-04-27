@@ -19,9 +19,9 @@ var BLOCK_DURATION = {
     avance:        { intro:1, accumulation:6, intensification:4, peak:3, deload:1, cycleWeeks:15 }
   },
   musculation: {
-    debutant:      { intro:2, hypertrophie:4, volume:2, recuperation:1, cycleWeeks:9 },
-    intermediaire: { intro:1, hypertrophie:8, volume:2, recuperation:1, cycleWeeks:12 },
-    avance:        { intro:1, hypertrophie:10, volume:3, recuperation:1, cycleWeeks:15 }
+    debutant:      { hypertrophie:6, recuperation:1, cycleWeeks:7 },
+    intermediaire: { power_hypertrophy:3, hypertrophie:5, volume:2, recuperation:1, cycleWeeks:11 },
+    avance:        { power_hypertrophy:3, hypertrophie:6, volume:2, recuperation:1, cycleWeeks:12 }
   },
   bien_etre: {
     debutant:      { fondation:6, progression:4, maintien:4, cycleWeeks:14 },

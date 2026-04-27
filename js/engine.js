@@ -1756,6 +1756,60 @@ function getNutritionStrategyAdvice() {
   return null;
 }
 
+// Volume PR : valide le rep range haut avant d'augmenter la charge (musculation)
+function checkVolumePR(exoName, currentWeight, repMin, repMax) {
+  if (!currentWeight) return null;
+  var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  var history = [];
+  for (var i = 0; i < logs.length && history.length < 3; i++) {
+    var exo = (logs[i].exercises || []).find(function(e) {
+      return e.name && e.name.toLowerCase().includes(exoName.toLowerCase().split(' ')[0]);
+    });
+    if (!exo) continue;
+    var workSets = (exo.allSets || []).filter(function(s) {
+      return !s.isWarmup && Math.abs(parseFloat(s.weight) - currentWeight) < 2.5;
+    });
+    if (!workSets.length) continue;
+    var avgReps = workSets.reduce(function(s, x) { return s + (parseInt(x.reps) || 0); }, 0) / workSets.length;
+    history.push({ avgReps: avgReps, sets: workSets.length });
+  }
+  if (history.length < 2) return { action: 'hold', reason: 'pas assez de données' };
+  var lastAvgReps = history[0].avgReps;
+  if (lastAvgReps >= repMax) {
+    return { action: 'increase', newWeight: currentWeight + 2.5, newReps: repMin,
+      reason: 'repMax atteint (' + Math.round(lastAvgReps) + ' reps) → +2.5kg' };
+  }
+  return { action: 'hold', targetReps: Math.min(repMax, Math.round(lastAvgReps) + 1),
+    reason: 'progresser en reps vers ' + repMax + ' avant d\'augmenter' };
+}
+
+// Déséquilibre Ischios/Quads sur 30 jours — protection LCA, pertinent pour séances Legs
+function checkIschioCuadImbalance() {
+  var logs30 = typeof getLogsInRange === 'function' ? getLogsInRange(30) : [];
+  var quadSets = 0, hamSets = 0;
+  var QUAD_PAT = /squat|presse|leg extension|hack|fentes|step.up/i;
+  var HAM_PAT  = /leg curl|hip thrust|rdl|romanian|good morning|ischio|soulevé de terre roumain/i;
+  logs30.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var sets = (exo.allSets || []).filter(function(s) { return !s.isWarmup; }).length || (exo.sets || 0);
+      if (QUAD_PAT.test(exo.name || '')) quadSets += sets;
+      if (HAM_PAT.test(exo.name || ''))  hamSets  += sets;
+    });
+  });
+  if (quadSets === 0 && hamSets === 0) return null;
+  var ratio = hamSets > 0 ? quadSets / hamSets : 999;
+  if (ratio > 1.5) {
+    return {
+      imbalance: true,
+      ratio: Math.round(ratio * 10) / 10,
+      message: 'Dominance Quads détectée (ratio Q/I : ' + Math.round(ratio * 10) / 10 + '). ' +
+        'Ajoute du Leg Curl et RDL pour protéger le LCA.',
+      inject: ['Leg Curl allongé', 'Soulevé de Terre Roumain (Barre)']
+    };
+  }
+  return { imbalance: false, ratio: Math.round(ratio * 10) / 10 };
+}
+
 var BASIC_SUPPLEMENTS = [
   { name: 'Créatine Monohydrate', dose: '3-5g/j', reason: 'Consensus scientifique total sur la force et la puissance', priority: 1 },
   { name: 'Vitamine D3',          dose: '1000-2000 UI/j', reason: 'Immunité et santé hormonale, surtout automne/hiver', priority: 2 },

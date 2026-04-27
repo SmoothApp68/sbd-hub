@@ -13243,18 +13243,19 @@ var WP_ACCESSORIES_BY_PHASE = {
 
 // Mapper les phases vers le pool d'accessoires (hypertrophie ou force).
 var PHASE_ACCESSORY_MAP = {
-  hypertrophie:    'hypertrophie',
-  accumulation:    'hypertrophie',
-  intro:           'hypertrophie',
-  volume:          'hypertrophie',
-  recuperation:    'hypertrophie',
-  fondation:       'hypertrophie',
-  progression:     'hypertrophie',
-  maintien:        'hypertrophie',
-  force:           'force',
-  intensification: 'force',
-  peak:            'force',
-  deload:          'hypertrophie' // peu d'accessoires de toute façon
+  hypertrophie:      'hypertrophie',
+  accumulation:      'hypertrophie',
+  intro:             'hypertrophie',
+  volume:            'hypertrophie',
+  recuperation:      'hypertrophie',
+  fondation:         'hypertrophie',
+  progression:       'hypertrophie',
+  maintien:          'hypertrophie',
+  force:             'force',
+  intensification:   'force',
+  peak:              'force',
+  power_hypertrophy: 'force',
+  deload:            'hypertrophie'
 };
 
 var WP_SESSION_TEMPLATES = {
@@ -14873,6 +14874,15 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   var setsCount = phase === 'deload' ? 2 : (isCutting ? 3 : 4);
   if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
 
+  // Phase Power-Hypertrophy : basse répétition, haute intensité, recrutement UM
+  var dayCoachNote = null;
+  if (phase === 'power_hypertrophy') {
+    repRange  = [4, 6];
+    rpeTarget = 8.5;
+    setsCount = 4;
+    dayCoachNote = '⚡ Phase Power-Hypertrophy — charges lourdes 4-6 reps pour recruter les unités motrices.';
+  }
+
   var MAT_SUBS = { 'halteres': {
     'Squat': 'Goblet Squat haltère', 'Développé couché': 'Développé haltères',
     'Rowing barre': 'Rowing haltères', 'Curl barre': 'Curl haltères',
@@ -14920,12 +14930,26 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     var thisSets = Math.min(setsCount, maxTotalSets - totalSetsUsed);
     totalSetsUsed += thisSets;
     var dpResult = wpDoubleProgressionWeight(name, repRange[0], repRange[1]);
+
+    // Volume PR : valider repMax avant d'augmenter la charge
+    var vpResult = typeof checkVolumePR === 'function'
+      ? checkVolumePR(name, dpResult ? dpResult.weight : null, repRange[0], repRange[1])
+      : null;
+    if (vpResult && vpResult.action === 'increase') {
+      dpResult = { weight: vpResult.newWeight, reps: vpResult.newReps };
+    } else if (vpResult && vpResult.action === 'hold' && dpResult) {
+      dpResult = Object.assign({}, dpResult, { reps: vpResult.targetReps || dpResult.reps });
+    }
+
     var exoObj = {
       name: name, type: 'weight', restSeconds: phase === 'deload' ? Math.ceil(rest / 2) : rest,
       sets: Array.from({ length: thisSets }, function() {
         return { reps: dpResult ? dpResult.reps : reps, rpe: phase === 'deload' ? 6 : rpe, weight: dpResult ? dpResult.weight : null, isWarmup: false };
       })
     };
+    if (vpResult && vpResult.action === 'increase') {
+      exoObj.coachNote = '📈 Volume PR atteint — ' + vpResult.reason;
+    }
     if (mustUseNeutralGrip && /arnold/i.test(name)) {
       exoObj.gripNote = 'Prise neutre impérative — paumes face à face, zéro rotation.';
     }
@@ -14935,9 +14959,33 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     return exoObj;
   }).filter(Boolean);
 
+  // Déséquilibre Ischios/Quads — injecter Leg Curl / RDL si nécessaire
+  if (/legs|lower/i.test(tplKey || '')) {
+    var ischioProblem = typeof checkIschioCuadImbalance === 'function'
+      ? checkIschioCuadImbalance() : null;
+    if (ischioProblem && ischioProblem.imbalance) {
+      ischioProblem.inject.forEach(function(exoToAdd) {
+        var already = exercises.some(function(e) {
+          return (e.name || '').toLowerCase().includes(exoToAdd.split(' ')[0].toLowerCase());
+        });
+        if (!already && exercises.length < maxExos) {
+          exercises.push({
+            name: exoToAdd, type: 'weight', restSeconds: 90,
+            coachNote: '🔧 Correctif Ischios/Quads — équilibre LCA.',
+            sets: Array.from({ length: 3 }, function() {
+              return { reps: 12, rpe: 7.5, weight: null, isWarmup: false };
+            })
+          });
+        }
+      });
+      dayCoachNote = (dayCoachNote ? dayCoachNote + ' ' : '') + ischioProblem.message;
+    }
+  }
+
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
-  var note = isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
-             isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.';
+  var note = dayCoachNote ||
+    (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
+     isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');
   return { rest: false, title: tpl.title, coachNote: note, exercises: exercises };
 }
 

@@ -36,7 +36,10 @@ function coachAnalyzeWeeklyVolume() {
     (log.exercises || []).forEach(function(exo) {
       var mg = typeof getMuscleGroup === 'function' ? getMuscleGroup(exo.name) : 'Autre';
       if (!mg || mg === 'Autre' || mg === 'Cardio') return;
-      muscleSetMap[mg] = (muscleSetMap[mg] || 0) + (exo.sets || exo.series || 1);
+      var numSets = Array.isArray(exo.sets)
+        ? exo.sets.filter(function(s) { return !s.isWarmup; }).length
+        : (typeof exo.sets === 'number' ? exo.sets : (exo.series || 1));
+      muscleSetMap[mg] = (muscleSetMap[mg] || 0) + numSets;
     });
   });
 

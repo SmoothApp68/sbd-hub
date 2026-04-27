@@ -12095,10 +12095,30 @@ function renderCoachTodayHTML() {
 
   var targets = (db.user && db.user.targets) || {};
   ['bench','squat','deadlift'].forEach(function(t) {
-    if (pr[t] && targets[t] && pr[t] < targets[t]) {
+    var label = t==='bench'?'Bench':t==='squat'?'Squat':'Deadlift';
+    if (!pr[t]) return;
+    if (targets[t] && pr[t] >= targets[t]) {
+      // Goal achieved — offer to update target
+      recos.push({ dot: 'var(--green)', text: '<strong>'+label+' :</strong> Objectif '+targets[t]+'kg atteint ! 🏆 ' +
+        '<button onclick="updateTargetFromCoach(\''+t+'\','+(targets[t]+5)+')" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;">→ '+( targets[t]+5)+'kg</button>'
+      });
+    } else if (targets[t] && pr[t] < targets[t]) {
       var gap = targets[t] - pr[t];
-      var label = t==='bench'?'Bench':t==='squat'?'Squat':'Deadlift';
-      recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)' });
+      var pred = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', targets[t]) : null;
+      var predText = '';
+      if (pred && pred.reachable && pred.weeks > 0) {
+        predText = ' <span style="color:var(--sub);font-size:11px;">• objectif dans ~' + pred.weeks + ' sem. (' + pred.date + ')</span>';
+      } else if (pred && pred.reachable && pred.weeks === 0) {
+        predText = ' <span style="color:var(--green);font-size:11px;">• objectif atteint !</span>';
+      }
+      recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
+    } else if (!targets[t] && pr[t] > 0) {
+      // No target set — proactive PR prediction (+10%/+5kg)
+      var nextMilestone = Math.ceil(pr[t] * 1.05 / 5) * 5;
+      var pred2 = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', nextMilestone) : null;
+      if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
+        recos.push({ dot: 'var(--blue)', text: '<strong>'+label+' :</strong> prochain cap ' + nextMilestone + 'kg dans ~' + pred2.weeks + ' sem. (confiance ' + pred2.confidence + '%)' });
+      }
     }
   });
 
@@ -12157,6 +12177,14 @@ function renderCoachTodayHTML() {
 
   html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
   return html;
+}
+
+function updateTargetFromCoach(type, newTarget) {
+  if (!db.user) db.user = {};
+  if (!db.user.targets) db.user.targets = {};
+  db.user.targets[type] = parseFloat(newTarget) || newTarget;
+  saveDBNow();
+  renderCoachToday();
 }
 
 function coachSelectDay(day) {
@@ -12409,35 +12437,109 @@ function renderCoachBriefing() {
   renderCoachToday();
 }
 
+function upsertReport(type, html, sessionId, weekKey) {
+  if (!db.reports) db.reports = [];
+  if (weekKey) {
+    db.reports = db.reports.filter(function(r) { return !(r.type === type && r.weekKey === weekKey); });
+  }
+  db.reports.push({
+    id: generateId(),
+    type: type,
+    weekKey: weekKey || null,
+    sessionId: sessionId || null,
+    html: '<div class="ai-response-content">' + html + '</div>',
+    created_at: Date.now(),
+    expires_at: Date.now() + 14 * 86400000,
+    read: false
+  });
+  saveDBNow();
+}
+
 function generateWeeklyReport() {
   var weekKey = _getWeekKey();
   if ((db.reports||[]).some(function(r) { return r.type === 'weekly' && r.weekKey === weekKey; })) return;
 
   var prevWeekStart = new Date(weekKey).getTime() - 7 * 86400000;
   var prevWeekEnd = new Date(weekKey).getTime();
-  var weekLogs = db.logs.filter(function(l) { return l.timestamp >= prevWeekStart && l.timestamp < prevWeekEnd; });
+  var weekLogs = (db.logs || []).filter(function(l) { return l.timestamp >= prevWeekStart && l.timestamp < prevWeekEnd; });
   if (weekLogs.length === 0) return;
+
+  var planned = getTrainingDaysCount();
+  var compliance = Math.min(100, Math.round((weekLogs.length / Math.max(1, planned)) * 100));
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
 
   var totalVol = weekLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0);
   var totalSets = 0;
-  weekLogs.forEach(function(l) { l.exercises.forEach(function(e) { totalSets += (e.sets || 0); }); });
-  var planned = getTrainingDaysCount();
-  var compliance = Math.min(100, Math.round((weekLogs.length / Math.max(1, planned)) * 100));
+  weekLogs.forEach(function(l) { (l.exercises || []).forEach(function(e) { totalSets += (e.sets || 0); }); });
 
   var h = '<div class="ai-section-title">📊 BILAN SEMAINE</div>';
   h += '<strong>' + weekLogs.length + '</strong> séances sur ' + planned + ' prévues (' + compliance + '% compliance)<br>';
   h += 'Volume total : <span class="ai-highlight blue">' + (totalVol / 1000).toFixed(1) + 't</span> · ' + totalSets + ' séries<br>';
 
-  var trends = [];
+  // e1RM delta vs prior week (Top Set method)
+  var priorWeekStart = prevWeekStart - 7 * 86400000;
+  var priorLogs = (db.logs || []).filter(function(l) { return l.timestamp >= priorWeekStart && l.timestamp < prevWeekStart; });
+  var e1rmDeltas = [];
   ['squat', 'bench', 'deadlift'].forEach(function(type) {
-    var mom = calcMomentum(type);
-    if (mom !== null) trends.push(type.charAt(0).toUpperCase() + type.slice(1) + ' : ' + (mom > 0 ? '+' : '') + mom + 'kg/sem');
+    var getBestE1RM = function(logs) {
+      var best = 0;
+      logs.forEach(function(log) {
+        (log.exercises || []).forEach(function(exo) {
+          if ((exo.maxRM || 0) > best && typeof matchExoName === 'function' && matchExoName(exo.name, type)) best = exo.maxRM;
+        });
+      });
+      return best;
+    };
+    var curBest = getBestE1RM(weekLogs);
+    var prevBest = getBestE1RM(priorLogs);
+    if (curBest > 0 && prevBest > 0) {
+      var delta = Math.round((curBest - prevBest) * 10) / 10;
+      var lbl = type === 'bench' ? 'Bench' : type === 'squat' ? 'Squat' : 'Deadlift';
+      e1rmDeltas.push(lbl + ' e1RM : ' + curBest + 'kg (' + (delta >= 0 ? '+' : '') + delta + 'kg vs sem. préc.)');
+    }
   });
-  if (trends.length) {
-    h += '<div class="ai-section-title">📈 TENDANCES</div>';
-    h += trends.join('<br>') + '<br>';
+
+  if (e1rmDeltas.length) {
+    h += '<div class="ai-section-title">📈 e1RM CETTE SEMAINE</div>';
+    h += e1rmDeltas.join('<br>') + '<br>';
+  } else {
+    // Fallback: momentum trends
+    var trends = [];
+    ['squat', 'bench', 'deadlift'].forEach(function(type) {
+      var mom = typeof calcMomentum === 'function' ? calcMomentum(type) : null;
+      if (mom !== null) trends.push(type.charAt(0).toUpperCase() + type.slice(1) + ' : ' + (mom > 0 ? '+' : '') + mom + 'kg/sem');
+    });
+    if (trends.length) {
+      h += '<div class="ai-section-title">📈 TENDANCES SBD</div>';
+      h += trends.join('<br>') + '<br>';
+    }
   }
 
+  // Push/Pull volume ratio
+  var ratios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null;
+  if (ratios && ratios.push_pull) {
+    var ppVal = ratios.push_pull.value.toFixed(2);
+    var ppStatus = ratios.push_pull.value >= ratios.push_pull.ideal[0] && ratios.push_pull.value <= ratios.push_pull.ideal[1]
+      ? '✅' : (ratios.push_pull.value < ratios.push_pull.ideal[0] ? '⚠️ trop de pull' : '⚠️ trop de push');
+    h += '<div class="ai-section-title">⚖️ RATIO PUSH/PULL</div>';
+    h += ppVal + ' ' + ppStatus + ' (cible 0.80–1.10)<br>';
+  }
+
+  // SRS score + ACWR
+  var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  if (srs) {
+    h += '<div class="ai-section-title">⚡ CHARGE (SRS / ACWR)</div>';
+    h += 'SRS : <strong>' + srs.score + '/100</strong>';
+    if (srs.label) h += ' — ' + srs.label;
+    if (srs.acwr !== undefined) {
+      var acwrRounded = Math.round(srs.acwr * 100) / 100;
+      var acwrAlert = (srs.acwr < 0.8 || srs.acwr > 1.3) ? ' ⚠️ ACWR hors zone !' : '';
+      h += '<br>ACWR : ' + acwrRounded + acwrAlert;
+    }
+    h += '<br>';
+  }
+
+  // Readiness
   var weekReadiness = (db.readiness || []).filter(function(r) {
     var ts = new Date(r.date).getTime();
     return ts >= prevWeekStart && ts < prevWeekEnd;
@@ -12448,22 +12550,27 @@ function generateWeeklyReport() {
     h += avgR + '/100 ' + (avgR >= 70 ? '✅' : avgR >= 40 ? '⚠️' : '🔴') + '<br>';
   }
 
+  // Compliance-based encouragement (adaptive by phase)
   h += '<div class="ai-section-title">💡 RECOMMANDATION</div>';
-  if (compliance < 60) h += 'Essaie de maintenir au moins ' + Math.ceil(planned * 0.75) + ' séances cette semaine.';
-  else if (compliance >= 100 && weekReadiness.length && weekReadiness[weekReadiness.length - 1].score < 50) h += 'Tu t\'es bien entraîné mais ta readiness baisse. Pense à récupérer.';
-  else h += 'Continue comme ça. Régularité = progression.';
+  var phaseLabels = { hypertrophie: 'hypertrophie', force: 'force', peak: 'peak', deload: 'deload', accumulation: 'accumulation', intensification: 'intensification', intro: 'intro' };
+  var phaseLabel = phaseLabels[phase] || phase;
+  if (compliance < 50) {
+    h += '⚠️ Compliance faible (' + compliance + '%). Vise au moins ' + Math.ceil(planned * 0.75) + ' séances cette semaine — la régularité prime sur l\'intensité.';
+  } else if (compliance < 80) {
+    h += 'Bonne semaine, quelques manques. En phase ' + phaseLabel + ', essaie de ne pas zapper les séances SBD — elles structurent la progression.';
+  } else if (compliance >= 100) {
+    if (weekReadiness.length && weekReadiness[weekReadiness.length - 1].score < 50) {
+      h += '💪 Semaine complète, mais ta readiness chute. En phase ' + phaseLabel + ', la récup compte autant que le volume — planifie un jour off.';
+    } else if (phase === 'peak') {
+      h += '🎯 Semaine complète en ' + phaseLabel + '. Conserve l\'énergie nerveuse — priorité aux levés compétitifs, réduis les accessoires.';
+    } else {
+      h += '🔥 Semaine parfaite ! Continue sur cette lancée — en ' + phaseLabel + ', la régularité est la clé.';
+    }
+  } else {
+    h += 'Continue comme ça. Régularité = progression.';
+  }
 
-  if (!db.reports) db.reports = [];
-  db.reports.push({
-    id: generateId(),
-    type: 'weekly',
-    weekKey: weekKey,
-    html: '<div class="ai-response-content">' + h + '</div>',
-    created_at: Date.now(),
-    expires_at: Date.now() + 14 * 86400000,
-    read: false
-  });
-  saveDBNow();
+  upsertReport('weekly', h, null, weekKey);
 }
 
 function renderCoachReports() {
@@ -13761,6 +13868,56 @@ function wpBuildMainSets(weight, reps, setsCount, rpe) {
   });
 }
 
+function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
+  if (!ratios) return exercises;
+
+  // Rule 1: Row/Bench < 0.90 on bench day → insert Seal Row at position 2
+  if (dayKey === 'bench' && ratios.row_bench && ratios.row_bench.value < 0.90) {
+    var sealRow = {
+      name: 'Seal Row', type: 'weight', restSeconds: 120, isPrimary: false,
+      coachNote: '⚖️ Ratio Row/Bench bas (' + ratios.row_bench.value.toFixed(2) + ') — Seal Row ajouté.',
+      sets: Array.from({ length: 3 }, function() { return { reps: 9, rpe: 8, weight: null, isWarmup: false }; })
+    };
+    exercises.splice(Math.min(2, exercises.length), 0, sealRow);
+  }
+
+  // Rule 2: Bench/Squat > 0.83 (i.e. squat/bench < 1.20) on squat day → replace 2nd accessory with Hack Squat
+  if (dayKey === 'squat' && ratios.bench_squat && ratios.bench_squat.value > (1 / 1.20)) {
+    var accIdx = -1;
+    var accCount = 0;
+    for (var i = 0; i < exercises.length; i++) {
+      if (!exercises[i].isPrimary && !exercises[i].isWarmup) { accCount++; if (accCount === 2) { accIdx = i; break; } }
+    }
+    if (accIdx >= 0) {
+      exercises[accIdx] = {
+        name: 'Hack Squat', type: 'weight', restSeconds: 180, isPrimary: false,
+        coachNote: '⚖️ Ratio Squat/Bench bas — Hack Squat priorité quad.',
+        sets: Array.from({ length: 4 }, function() { return { reps: 8, rpe: 8, weight: null, isWarmup: false }; })
+      };
+    }
+  }
+
+  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat
+  if (dayKey === 'deadlift' && ratios.squat_deadlift && ratios.squat_deadlift.value < 0.80) {
+    exercises.push({
+      name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
+      coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
+      sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+    });
+  }
+
+  // Rule 4: OHP/Bench < 0.60 on weakpoints day → unshift Développé Militaire
+  if (dayKey === 'weakpoints' && ratios.ohp_bench && ratios.ohp_bench.value < 0.60) {
+    exercises.unshift({
+      name: 'Développé Militaire', type: 'weight', restSeconds: 180, isPrimary: true,
+      coachNote: '⚖️ Ratio OHP/Bench bas (' + ratios.ohp_bench.value.toFixed(2) + ') — OHP en priorité.',
+      sets: Array.from({ length: 4 }, function() { return { reps: 6, rpe: 8, weight: null, isWarmup: false }; })
+    });
+  }
+
+  return exercises;
+}
+
 function wpApplySupersets(exercises) {
   var result = [];
   var i = 0;
@@ -14277,6 +14434,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
       dayCoachNote = (dayCoachNote || '') + ' ⚠️ Squat < 48h — volume Dead réduit, RPE cap 7.5.';
     }
   }
+
+  // Imbalance corrections — before supersets
+  var _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null;
+  exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
 
   if (useSupersets) exercises = wpApplySupersets(exercises);
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {

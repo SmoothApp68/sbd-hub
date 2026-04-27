@@ -9095,7 +9095,7 @@ function renderProgramBuilderView(container) {
   var plan = db.weeklyPlan;
   var cb = plan && plan.currentBlock;
   var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
-  var week = (plan && plan.week) || 1;
+  var week = (plan && plan.week) || (typeof wpEstimateCurrentWeek === 'function' ? wpEstimateCurrentWeek() : 1);
 
   var PHASE_LABELS = {
     intro: '🌱 Introduction', accumulation: '📈 Accumulation',
@@ -14050,6 +14050,13 @@ function wpForcePhase() {
   else renderProgramBuilderView(document.getElementById('programBuilderContent'));
 }
 
+function wpEstimateCurrentWeek() {
+  if (db.weeklyPlan && db.weeklyPlan.week && db.weeklyPlan.week > 0) return db.weeklyPlan.week;
+  var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
+  var totalSessions = (db.logs || []).length;
+  return Math.max(1, Math.floor(totalSessions / Math.max(1, freq)) + 1);
+}
+
 function wpDetectPhase() {
   // Priorité 1 : forçage manuel récent (< 7 jours)
   var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
@@ -15469,7 +15476,7 @@ function renderWeeklyPlanUI() {
     return;
   }
   genBtn.style.display = 'none'; regenBtn.style.display = 'block';
-  if (select) select.value = String(plan.week || 1);
+  if (select) select.value = String(plan.week || (typeof wpEstimateCurrentWeek === 'function' ? wpEstimateCurrentWeek() : 1));
   // Masquer le sélecteur de bloc pour les débutants (progression linéaire)
   const blocControls = document.querySelector('.wp-bloc-controls');
   if (blocControls) blocControls.style.display = (db.user.level === 'debutant') ? 'none' : 'flex';
@@ -15508,7 +15515,7 @@ function renderWeeklyPlanUI() {
   }
   // Bloc badge avec label (intermédiaire+)
   var streak = typeof wpGetStreak === 'function' ? wpGetStreak() : 0;
-  var streakLabel = streak > 1 ? streak + ' semaines 🔥' : streak === 1 ? '1 semaine 🔥' : 'Semaine ' + (plan.week || 1);
+  var streakLabel = streak > 1 ? streak + ' semaines 🔥' : streak === 1 ? '1 semaine 🔥' : 'Semaine ' + (plan.week || (typeof wpEstimateCurrentWeek === 'function' ? wpEstimateCurrentWeek() : 1));
   var blocLabel = plan.blocLabel ? ' — ' + plan.blocLabel : '';
   var blocBadge = '<div class="wp-bloc-badge">' + streakLabel + blocLabel + '</div>';
   const applyAllBtn = `<button onclick="wpApplyAll()" style="display:block;width:100%;margin:12px 0 4px;padding:10px;background:var(--blue);border:none;color:white;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;">Appliquer toutes les suggestions au programme</button>`;

@@ -1914,3 +1914,74 @@ function computeDropSets(topSetWeight, topSetRPE, dropPct, dropCount) {
   }
   return sets;
 }
+
+// Proxy VBT — Grind Notation (9G)
+
+function processGrind(set, e1rmForLift) {
+  if (!set.grind) return set;
+  if (!set.rpe) {
+    var pct = (e1rmForLift > 0 && set.weight > 0) ? set.weight / e1rmForLift : 0;
+    set.rpe = pct > 0.80 ? 9 : 9.5;
+  } else {
+    set.rpe = Math.max(set.rpe, 9);
+  }
+  return set;
+}
+
+function getSetRPELabel(set) {
+  if (!set.rpe && !set.grind) return '—';
+  var rpe = set.rpe || '—';
+  return rpe + (set.grind ? 'G' : '');
+}
+
+function countGrindThisSession() {
+  var grindCount = 0;
+  var heavySetsCount = 0;
+  // Read directly from the active workout (not yet in db.logs)
+  if (typeof activeWorkout !== 'undefined' && activeWorkout && activeWorkout.exercises) {
+    activeWorkout.exercises.forEach(function(exo) {
+      if (!/squat|bench|dead|développé|soulevé/i.test(exo.name || '')) return;
+      (exo.sets || []).forEach(function(s) {
+        if (s.type === 'warmup' || s.isWarmup || s.isBackOff || !s.completed) return;
+        heavySetsCount++;
+        if (s.grind) grindCount++;
+      });
+    });
+  }
+  return { grindCount: grindCount, heavySetsCount: heavySetsCount };
+}
+
+function checkActiveWashoutNeeded() {
+  var planHistory = db.weeklyPlanHistory || [];
+
+  var lastEvent = planHistory.slice().reverse().find(function(p) {
+    return p.isWashout || p.isDeload;
+  });
+
+  var refDate = lastEvent
+    ? new Date(lastEvent.generated_at).getTime()
+    : ((db.logs && db.logs.length) ? db.logs[0].timestamp : null);
+
+  if (!refDate) return null;
+
+  var weeksSince = Math.round((Date.now() - refDate) / (7 * 86400000));
+
+  if (weeksSince >= 16) {
+    return {
+      needed: true,
+      weeksSince: weeksSince,
+      msg: '🔧 ' + weeksSince + ' semaines de charges lourdes. ' +
+        'La 1ère semaine du prochain bloc Hypertrophie sera un Active Washout ' +
+        '(charges axiales remplacées par unilatéral + tempo 4s excentrique).',
+      substitutes: {
+        'Squat (Barre)':            'Bulgarian Split Squat',
+        'High Bar Squat':           'Bulgarian Split Squat',
+        'Soulevé de Terre (Barre)': 'RDL Haltères unilatéral',
+        'Paused Squat':             'Step-up tempo 4s'
+      },
+      tempoNote: 'Excentrique 4 secondes — tous les exercices de jambes.'
+    };
+  }
+
+  return { needed: false, weeksSince: weeksSince };
+}

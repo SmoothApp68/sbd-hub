@@ -685,7 +685,7 @@ function exportDataCSV() {
       sets.forEach(function(s, si) {
         var w = s.weight || 0;
         var r = s.reps || 0;
-        var rpe = s.rpe || '';
+        var rpe = typeof getSetRPELabel === 'function' ? getSetRPELabel(s) : (s.rpe || '');
         var type = s.setType || 'normal';
         var vol = w * r;
         rows.push([date, day, '"' + title + '"', '"' + exoName + '"', si + 1, w, r, rpe, type, vol]);
@@ -12567,9 +12567,11 @@ function renderCoachDayDetail(day, routine, donedays, weekStart) {
       exo.sets.forEach(s => {
         let rowCls = s.isWarmup ? ' class="warmup"' : (s.isPR ? ' class="pr"' : '');
         let rpeHtml = '';
-        if (s.rpe) {
-          let rpeCls = s.rpe <= 8 ? 'rpe-green' : (s.rpe < 9.5 ? 'rpe-orange' : 'rpe-red');
-          rpeHtml = '<span class="rpe-badge ' + rpeCls + '">' + s.rpe + '</span>';
+        if (s.rpe || s.grind) {
+          var _rpeLabel = typeof getSetRPELabel === 'function' ? getSetRPELabel(s) : (s.rpe || '—');
+          let rpeCls = (s.rpe || 0) <= 8 ? 'rpe-green' : ((s.rpe || 0) < 9.5 ? 'rpe-orange' : 'rpe-red');
+          if (s.grind) rpeCls = 'rpe-red';
+          rpeHtml = '<span class="rpe-badge ' + rpeCls + '">' + _rpeLabel + '</span>';
         }
         let restHtml = s.rest ? '<span style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;font-size:10px;">' + fmtRest(s.rest) + '</span>' : '';
         let prefix = s.isWarmup ? '🔥 ' : (s.isPR ? '🏆 ' : '');
@@ -13815,6 +13817,25 @@ function wpCalcE1RM(weight, reps, rpe) {
   return Math.round((weight / divisor) * 10) / 10;
 }
 
+function hadGrindLastSession(liftType) {
+  var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  var sessionsChecked = 0;
+  for (var i = 0; i < logs.length && sessionsChecked < 3; i++) {
+    var exo = (logs[i].exercises || []).find(function(e) {
+      return typeof getSBDType === 'function' && getSBDType(e.name) === liftType;
+    });
+    if (!exo) continue;
+    sessionsChecked++;
+    var grindCount = (exo.allSets || []).filter(function(s) {
+      return !s.isWarmup && s.setType !== 'warmup' && !s.isBackOff && s.grind;
+    }).length;
+    var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'force';
+    var threshold = phase === 'peak' ? 1 : 2;
+    if (grindCount >= threshold) return true;
+  }
+  return false;
+}
+
 function wpComputeWorkWeight(liftType, bodyPart) {
   var pr = db.bestPR || {};
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
@@ -13927,6 +13948,11 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     if (e1rmGrowth > 5 && history[0].rpe <= history[1].rpe) {
       baseWeight = wpRound25(last.weight + prog.increase * 1.5);
     }
+  }
+
+  // Grind APRE block : si dernière séance avait des grind >= seuil → stabiliser
+  if (hadGrindLastSession(liftType)) {
+    baseWeight = last.weight;
   }
 
   // Bloc post-deload (Gemini) : multiplicateurs e1RM sur 4 semaines
@@ -15340,6 +15366,26 @@ function generateWeeklyPlan() {
       }
     });
 
+    // ── ACTIVE WASHOUT — 1ère semaine hypertrophie si ≥16 sem. sans event ────
+    var washoutCheck = typeof checkActiveWashoutNeeded === 'function' ? checkActiveWashoutNeeded() : null;
+    var _planIsWashout = false;
+    if (washoutCheck && washoutCheck.needed && phase === 'hypertrophie') {
+      _planIsWashout = true;
+      var _wSubs = washoutCheck.substitutes;
+      days.forEach(function(dayData) {
+        if (!dayData || dayData.rest) return;
+        (dayData.exercises || []).forEach(function(exo) {
+          var sub = _wSubs[exo.name];
+          if (sub) {
+            exo.name = sub;
+            exo.coachNote = '🔧 Active Washout — tempo 4s excentrique. ' + washoutCheck.tempoNote;
+            exo.tempoEcc = 4;
+          }
+        });
+      });
+      showToast('🔧 Active Washout activé — ' + washoutCheck.weeksSince + ' sem. de charges axiales.');
+    }
+
     // ── CONFLITS ACTIVITÉS SECONDAIRES ───────────────────────
     days = days.map(function(dayData) {
       if (!dayData || dayData.rest) return dayData;
@@ -15377,7 +15423,7 @@ function generateWeeklyPlan() {
     if (missed > 0) { plan = wpAdjustForMissedSessions(plan, missed); if (plan.missedNote) showToast('📋 ' + plan.missedNote); }
 
     if (!db.weeklyPlanHistory) db.weeklyPlanHistory = [];
-    db.weeklyPlanHistory.push({ generated_at: plan.generated_at, isDeload: plan.isDeload });
+    db.weeklyPlanHistory.push({ generated_at: plan.generated_at, isDeload: plan.isDeload, isWashout: _planIsWashout });
     if (db.weeklyPlanHistory.length > 12) db.weeklyPlanHistory.shift();
 
     db.weeklyPlan = plan;
@@ -16358,10 +16404,11 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   // Sets table
   var _exoNameNorm = (exo.name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   var isOutdoorCardio = tt === 'cardio' && /randonnee|hiking|trek|\bvelo\b|bike|cycling/.test(_exoNameNorm);
+  var _isPrimarySBD = tt === 'weight' && typeof getSBDType === 'function' && !!getSBDType(exo.name);
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
-  if (tt === 'weight') { h += '<th>KG <span onclick="goShowPlateCalc(' + exoIdx + ',0)" style="cursor:pointer;font-size:10px;">🔢</span></th><th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
+  if (tt === 'weight') { h += '<th>KG <span onclick="goShowPlateCalc(' + exoIdx + ',0)" style="cursor:pointer;font-size:10px;">🔢</span></th><th>RÉPS</th><th style="width:' + (_isPrimarySBD ? '68' : '44') + 'px;">RPE ' + renderGlossaryTip('rpe') + (_isPrimarySBD ? ' <span style="color:var(--sub);font-size:9px;">G</span>' : '') + '</th>'; }
   else if (tt === 'reps') { h += '<th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'time') { h += '<th>DURÉE</th>'; }
   else if (tt === 'cardio') { h += '<th>KM</th><th>TEMPS</th>' + (isOutdoorCardio ? '<th>D+</th>' : ''); }
@@ -16402,7 +16449,18 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
       var rpVal = set.rpe ? set.rpe : '';
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + wVal + '" placeholder="kg" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal + '" placeholder="reps" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      if (_isPrimarySBD) {
+        var _isGrind = set.grind || false;
+        var _gStyle = _isGrind
+          ? 'background:rgba(255,69,58,0.2);border-color:var(--red);color:var(--red);'
+          : 'background:var(--surface);border-color:var(--border);color:var(--sub);';
+        h += '<td style="white-space:nowrap;">' +
+          '<input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:36px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>' +
+          '<button id="grind-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleGrind(' + exoIdx + ',' + setIdx + ')" title="Grind — ralentissement involontaire" style="padding:3px 6px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;margin-left:2px;' + _gStyle + '">' + (_isGrind ? 'G✓' : 'G') + '</button>' +
+          '</td>';
+      } else {
+        h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      }
     } else if (tt === 'reps') {
       var rVal2 = set.reps ? set.reps : '';
       var rpVal2 = set.rpe ? set.rpe : '';
@@ -16495,6 +16553,26 @@ function goToggleSetComplete(exoIdx, setIdx) {
   }
 }
 
+function toggleGrind(exoIdx, setIdx) {
+  if (!activeWorkout) return;
+  var set = activeWorkout.exercises[exoIdx].sets[setIdx];
+  set.grind = !set.grind;
+  if (set.grind) {
+    showGrindTechQuestion(exoIdx, setIdx);
+    var result = typeof goCheckAutoRegulation === 'function' ? goCheckAutoRegulation(exoIdx, setIdx) : null;
+    if (result) showLiveCoachBanner(result);
+  }
+  goAutoSave();
+  goRequestRender();
+}
+
+function showGrindTechQuestion(exoIdx, setIdx) {
+  var answer = confirm('Technique maintenue pendant le grind ?');
+  if (!activeWorkout) return;
+  activeWorkout.exercises[exoIdx].sets[setIdx].grindTech = !answer;
+  goAutoSave();
+}
+
 // ── Auto-régulation intra-séance basée sur le RPE ──────────
 // Pure : retourne { msg, type } ou null. Affichage via showLiveCoachBanner.
 function goCheckAutoRegulation(exoIdx, setIdx) {
@@ -16584,6 +16662,21 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
   // Règle 5 — Deload Check
   if (isDeload && actualRpe > 0 && actualRpe > 7) {
     return { msg: "😌 Deload : RPE " + actualRpe + ", c'est trop. Tu voles de l'énergie à ton prochain bloc. Réduis la charge.", type: "warning" };
+  }
+
+  // Règle 6 — Grind Detection (Proxy VBT)
+  if (typeof countGrindThisSession === 'function') {
+    var grindData = countGrindThisSession();
+    var grindThreshold = phase === 'peak' ? 1 : phase === 'hypertrophie' ? 1 : 2;
+    if (grindData.grindCount >= grindThreshold) {
+      return {
+        msg: '🚨 ' + grindData.grindCount + ' grind(s) détectés en phase ' + phase + '. ' +
+          'Limite technique atteinte — stop les séries lourdes. ' +
+          'Passe aux back-off légers ou arrête la séance.',
+        type: 'danger',
+        blockAPREIncrease: true
+      };
+    }
   }
 
   return null;
@@ -18607,7 +18700,9 @@ function convertWorkoutToSession(workout) {
         weight: w,
         reps: s.reps || (s.duration || 0),
         setType: _sType,
-        rpe: s.rpe || null
+        rpe: s.rpe || null,
+        grind: s.grind || false,
+        grindTech: s.grindTech || false
       });
     });
     if (exercise.series.length > 0) session.exercises.push(exercise);

@@ -186,11 +186,6 @@ let db = (() => {
     if (p.user.reverseDigestActive === undefined) p.user.reverseDigestActive = false;
     if (p.user.supersetPreference === undefined) p.user.supersetPreference = 'auto';
     if (p.user.prehabEnabled === undefined) p.user.prehabEnabled = true;
-    if (p.weeklyPlan && p.weeklyPlan.days) {
-      p.weeklyPlan.days.forEach(function(day) {
-        if (day.exercises) day.exercises = day.exercises.filter(function(e) { return !e.isPrehab; });
-      });
-    }
     return p;
   } catch { return defaultDB(); }
 })();

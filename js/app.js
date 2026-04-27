@@ -185,6 +185,10 @@ let db = (() => {
     if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
     if (p.user.reverseDigestActive === undefined) p.user.reverseDigestActive = false;
     if (p.user.supersetPreference === undefined) p.user.supersetPreference = 'auto';
+    if (p.user.prehabEnabled === undefined) p.user.prehabEnabled = true;
+    // AUDIT: champs collectés mais non utilisés dans engine/coach/program :
+    //   - p.user.secondaryActivities : set en onboarding mais jamais lu pour adapter le programme.
+    //     TODO : soit retirer du formulaire, soit câbler dans wpCheckActivityConflicts.
     return p;
   } catch { return defaultDB(); }
 })();
@@ -1179,6 +1183,8 @@ function obSaveStep5() {
       : 'Tu as sélectionné trop de jours — retire-en ' + (obSelectedDays.length - obFreq);
     return;
   }
+  var _obPrehabCb = document.getElementById('obPrehabToggle');
+  if (_obPrehabCb) db.user.prehabEnabled = !!_obPrehabCb.checked;
   var showSBD = db.user.trainingMode && TRAINING_MODES[db.user.trainingMode] &&
     TRAINING_MODES[db.user.trainingMode].features &&
     TRAINING_MODES[db.user.trainingMode].features.showSBDCards;
@@ -9407,6 +9413,13 @@ function renderProgDaysList() {
     }, 0) : 0;
     var metaStr = exos.length + ' exo' + (exos.length > 1 ? 's' : '') + (setsCount > 0 ? ' · ' + setsCount + ' séries' : '');
 
+    // Prehab compact (rendu uniquement, jamais persisté)
+    var _prehabExosLine = (wpDay && wpDay.prehabKey && db.user.prehabEnabled !== false && typeof generatePrehabRoutine === 'function')
+      ? generatePrehabRoutine(wpDay.prehabKey) : [];
+    var prehabStr = _prehabExosLine.length
+      ? '🔥 Prehab · ' + _prehabExosLine.slice(0, 4).map(function(e) { return e.name; }).join(' · ') + (_prehabExosLine.length > 4 ? ' +' + (_prehabExosLine.length - 4) : '')
+      : '';
+
     // Note motivante contextuelle (différente par jour)
     var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
     var dayDataForNote = wpDay || { title: title, label: label };
@@ -9421,6 +9434,7 @@ function renderProgDaysList() {
       '<div class="prog-day-label' + (isToday ? ' today' : '') + '">' + dayShort + '</div>' +
       '<div class="prog-day-content" onclick="progShowDayDetail(\'' + day + '\')" style="cursor:pointer;">' +
         '<div class="prog-day-name">' + title + '</div>' +
+        (prehabStr ? '<div class="prog-day-exos" style="color:var(--orange);font-size:11px;">' + prehabStr + '</div>' : '') +
         (exoStr ? '<div class="prog-day-exos">' + exoStr + '</div>' : '') +
         noteHtml +
       '</div>' +
@@ -11820,6 +11834,15 @@ function renderSettingsProfile() {
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSupersetPref('${o.id}', this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${o.icon} ${o.l}</button>`;
     }).join('');
   }
+
+  // Prehab toggle
+  var prehabCb = document.getElementById('settingsPrehabToggle');
+  var prehabSlider = document.getElementById('settingsPrehabSlider');
+  var prehabKnob = document.getElementById('settingsPrehabKnob');
+  var prehabOn = db.user.prehabEnabled !== false;
+  if (prehabCb) prehabCb.checked = prehabOn;
+  if (prehabSlider) prehabSlider.style.background = prehabOn ? 'var(--blue)' : 'var(--border)';
+  if (prehabKnob) prehabKnob.style.left = prehabOn ? '23px' : '3px';
 }
 
 function toggleSettingsGoal(goalId, btn) {
@@ -11866,6 +11889,18 @@ function _toggleSingleSelect(containerId, btn, field, value, color) {
   btn.style.background = c === 'var(--blue)' ? 'rgba(10,132,255,0.15)' : 'rgba(255,159,10,0.15)';
   btn.style.color = c;
   _debouncedSaveSettings();
+}
+
+function setPrehabEnabled(enabled) {
+  db.user.prehabEnabled = !!enabled;
+  saveDB();
+  var slider = document.getElementById('settingsPrehabSlider');
+  var knob = document.getElementById('settingsPrehabKnob');
+  if (slider) slider.style.background = enabled ? 'var(--blue)' : 'var(--border)';
+  if (knob) knob.style.left = enabled ? '23px' : '3px';
+  if (typeof showToast === 'function') showToast('Prehab ' + (enabled ? 'activé' : 'désactivé'));
+  if (typeof renderWeeklyPlanUI === 'function') renderWeeklyPlanUI();
+  if (typeof refreshUI === 'function') refreshUI();
 }
 
 function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'freq', f); }
@@ -14987,7 +15022,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
   }
   var derivedTitle = wpDeriveTitle(exercises) || tpl.title;
-  return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, dupProfile: _dupProfile || null };
+
+  // Prehab : ne JAMAIS persister dans exercises — uniquement une clé pour rendu à la volée
+  var _prehabKey = null;
+  if (typeof getPrehabKey === 'function' && db.user.prehabEnabled !== false) {
+    var _srs = (typeof computeSRS === 'function' && computeSRS()) || null;
+    var _srsScore = _srs && typeof _srs.score === 'number' ? _srs.score : 70;
+    _prehabKey = getPrehabKey(dayKey, _srsScore, injuries);
+  }
+
+  return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 
 function wpGenerateMuscuDay(tplKey, params, phase) {
@@ -15513,7 +15557,18 @@ function renderWeeklyPlanUI() {
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
     const displayTitle = (db.planDayTitles && db.planDayTitles[wpSelectedDay]) || sel.title || wpSelectedDay;
     const renameBtn = `<button onclick="wpRenameDay('${wpSelectedDay}')" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:13px;padding:2px 6px;opacity:0.6;" title="Renommer">✏️</button>`;
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title" style="display:flex;align-items:center;gap:6px;">${displayTitle}${renameBtn}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
+    var _prehabExos = (sel.prehabKey && db.user.prehabEnabled !== false && typeof generatePrehabRoutine === 'function')
+      ? generatePrehabRoutine(sel.prehabKey) : [];
+    var _prehabHtml = '';
+    if (_prehabExos.length) {
+      _prehabHtml = '<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,159,10,0.06);border-left:3px solid var(--orange);border-radius:8px;">' +
+        '<div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:6px;">🔥 Prehab — ~10min</div>' +
+        _prehabExos.map(function(exo) {
+          return '<div style="font-size:12px;color:var(--sub);padding:3px 0;">• ' + exo.name + ' — ' + exo.sets + '×' + exo.reps + '</div>';
+        }).join('') +
+        '</div>';
+    }
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title" style="display:flex;align-items:center;gap:6px;">${displayTitle}${renameBtn}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${_prehabHtml}${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   // Bloc badge avec label (intermédiaire+)
   var streak = typeof wpGetStreak === 'function' ? wpGetStreak() : 0;

@@ -1894,7 +1894,7 @@
   <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0C0C18;background-image:linear-gradient(170deg, #111128 0%, #0C0C18 40%);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
     <div style="text-align:center;width:100%;max-width:340px;">
       <div id="loginGorilla" style="font-size:48px;margin-bottom:12px;cursor:default;-webkit-user-select:none;user-select:none;">🦍</div>
-      <div style="font-size:24px;font-weight:700;color:#F0F0FF;margin-bottom:4px;">SBD Elite Tracker</div>
+      <div style="font-size:24px;font-weight:700;color:#F0F0FF;margin-bottom:4px;">TrainHub</div>
       <div style="font-size:13px;color:#7878A8;margin-bottom:32px;">Connecte-toi pour synchroniser tes données</div>
 
       <div id="loginModeTabs" style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
@@ -2104,6 +2104,17 @@
           <div class="ob-dur-btn selected" onclick="selectDur(60)"><div class="dur-num">1<span>h</span></div><div class="dur-label">Standard</div><div class="dur-desc">5–6 exos</div></div>
           <div class="ob-dur-btn" onclick="selectDur(90)"><div class="dur-num">1h30</div><div class="dur-label">Long</div><div class="dur-desc">7–8 exos</div></div>
           <div class="ob-dur-btn" onclick="selectDur(120)"><div class="dur-num">2h<span>+</span></div><div class="dur-label">Complet</div><div class="dur-desc">Full prog</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface);border-radius:12px;margin-top:14px;">
+          <div style="text-align:left;">
+            <div style="font-size:14px;font-weight:600;">Échauffement guidé</div>
+            <div style="font-size:12px;color:var(--sub);">Exercices prehab ~10min avant chaque séance</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+            <input type="checkbox" id="obPrehabToggle" checked onchange="db.user.prehabEnabled=this.checked;" style="opacity:0;width:0;height:0;">
+            <span onclick="var cb=document.getElementById('obPrehabToggle');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));this.style.background=cb.checked?'var(--blue)':'var(--border)';this.nextElementSibling.style.left=cb.checked?'23px':'3px';" style="position:absolute;cursor:pointer;inset:0;background:var(--blue);border-radius:24px;transition:0.3s;"></span>
+            <span style="position:absolute;height:18px;width:18px;left:23px;top:3px;background:#fff;border-radius:50%;transition:0.3s;pointer-events:none;"></span>
+          </label>
         </div>
         <button class="btn" onclick="obSaveStep5()" style="margin-top:4px;">Continuer →</button>
       </div>
@@ -2577,6 +2588,18 @@
         <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Densité de séance</div>
           <div id="settingsSupersets" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface);border-radius:10px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">Échauffement Prehab</div>
+            <div style="font-size:11px;color:var(--sub);">Mobilisation ~10min avant chaque séance</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+            <input type="checkbox" id="settingsPrehabToggle" onchange="setPrehabEnabled(this.checked)" style="opacity:0;width:0;height:0;">
+            <span id="settingsPrehabSlider" onclick="var cb=document.getElementById('settingsPrehabToggle');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));" style="position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:24px;transition:0.3s;"></span>
+            <span id="settingsPrehabKnob" style="position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:0.3s;pointer-events:none;"></span>
+          </label>
         </div>
 
         <div style="margin-top:12px;">

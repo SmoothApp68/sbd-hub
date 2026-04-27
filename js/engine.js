@@ -6,6 +6,7 @@
 // CONSTANTS & CONFIG
 // ============================================================
 const STORAGE_KEY='SBD_HUB_V29';
+const ONBOARDING_VERSION=2;
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 const SBD_TYPES=['bench','squat','deadlift'];
@@ -1984,4 +1985,82 @@ function checkActiveWashoutNeeded() {
   }
 
   return { needed: false, weeksSince: weeksSince };
+}
+
+// ============================================================
+// PREHAB — generative warm-up routines (rendered, not persisted)
+// ============================================================
+var PREHAB_ROUTINES = {
+  bench_standard: [
+    { name: 'Band Pull-Apart', sets: 2, reps: 15 },
+    { name: 'Face Pull léger', sets: 2, reps: 15 },
+    { name: 'Mobilisation thoracique', sets: 1, reps: '60s' }
+  ],
+  bench_low_readiness: [
+    { name: 'Mobilisation thoracique', sets: 2, reps: '60s' },
+    { name: 'Activation coiffe rotateurs', sets: 2, reps: 15 },
+    { name: 'Band Pull-Apart', sets: 3, reps: 15 },
+    { name: 'Face Pull léger', sets: 2, reps: 20 }
+  ],
+  bench_shoulder_injury: [
+    { name: 'Pendule épaule', sets: 2, reps: '30s' },
+    { name: 'Rotation externe bande', sets: 3, reps: 15 },
+    { name: 'Face Pull léger', sets: 3, reps: 20 }
+  ],
+  squat_standard: [
+    { name: 'Hip Circle', sets: 2, reps: 10 },
+    { name: 'Activation fessiers (pont)', sets: 2, reps: 15 },
+    { name: 'Mobilité cheville (mur)', sets: 1, reps: '45s' }
+  ],
+  squat_low_readiness: [
+    { name: 'Hip Circle', sets: 3, reps: 10 },
+    { name: 'Activation fessiers (pont)', sets: 3, reps: 15 },
+    { name: 'Mobilité cheville (mur)', sets: 2, reps: '45s' },
+    { name: 'Gobelet Squat léger', sets: 2, reps: 10 }
+  ],
+  squat_knee_injury: [
+    { name: 'Terminal Knee Extension', sets: 3, reps: 15 },
+    { name: 'Activation fessiers (pont)', sets: 3, reps: 15 },
+    { name: 'Mobilité cheville (mur)', sets: 2, reps: '45s' }
+  ],
+  deadlift_standard: [
+    { name: 'Hip Hinge bande', sets: 2, reps: 10 },
+    { name: 'Activation ischios (pont)', sets: 2, reps: 12 },
+    { name: 'Cat-Cow mobilisation', sets: 1, reps: '45s' }
+  ],
+  deadlift_low_readiness: [
+    { name: 'McGill Curl-up', sets: 3, reps: 8 },
+    { name: 'Bird Dog', sets: 2, reps: 10 },
+    { name: 'Hip Hinge bande', sets: 3, reps: 10 },
+    { name: 'Cat-Cow mobilisation', sets: 2, reps: '45s' }
+  ],
+  deadlift_back_injury: [
+    { name: 'McGill Curl-up', sets: 3, reps: 8 },
+    { name: 'Bird Dog', sets: 3, reps: 10 },
+    { name: 'Side Plank', sets: 2, reps: '30s' },
+    { name: 'Dead Bug', sets: 2, reps: 10 }
+  ],
+  weakpoints_standard: [
+    { name: 'Mobilisation thoracique', sets: 2, reps: '45s' },
+    { name: 'Band Pull-Apart', sets: 2, reps: 15 }
+  ]
+};
+
+function getPrehabKey(dayKey, srsScore, injuries) {
+  injuries = injuries || [];
+  var isLow = (typeof srsScore === 'number') && srsScore < 55;
+  var hasKnee = injuries.some(function(i) { return i && i.active && i.zone === 'genou'; });
+  var hasShoulder = injuries.some(function(i) { return i && i.active && i.zone === 'epaule'; });
+  var hasBack = injuries.some(function(i) { return i && i.active && (i.zone === 'dos' || i.zone === 'lombaires'); });
+  if (dayKey === 'bench')   return hasShoulder ? 'bench_shoulder_injury' : isLow ? 'bench_low_readiness' : 'bench_standard';
+  if (dayKey === 'squat')   return hasKnee     ? 'squat_knee_injury'     : isLow ? 'squat_low_readiness' : 'squat_standard';
+  if (dayKey === 'deadlift')return hasBack     ? 'deadlift_back_injury'  : isLow ? 'deadlift_low_readiness' : 'deadlift_standard';
+  if (dayKey === 'weakpoints') return 'weakpoints_standard';
+  return null;
+}
+
+function generatePrehabRoutine(key) {
+  return (PREHAB_ROUTINES[key] || []).map(function(exo) {
+    return { name: exo.name, sets: exo.sets, reps: exo.reps };
+  });
 }

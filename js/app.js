@@ -15405,6 +15405,7 @@ function generateWeeklyPlan() {
       days.forEach(function(d) {
         if (d.rest) return;
         d.isDeload = true;
+        d.title = (d.title || '').replace(/^(🔄\s*)+/, '');
         if (!d.title.includes('Deload')) d.title = '🔄 ' + d.title;
         d.exercises.forEach(function(exo) {
           exo.sets = (exo.sets || []).map(function(s) {

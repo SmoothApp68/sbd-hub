@@ -1862,3 +1862,55 @@ var BASIC_SUPPLEMENTS = [
   { name: 'Vitamine D3',          dose: '1000-2000 UI/j', reason: 'Immunité et santé hormonale, surtout automne/hiver', priority: 2 },
   { name: 'Whey Protéine',        dose: 'Selon besoins du jour', reason: 'Praticité pour atteindre les apports protéiques', priority: 3 }
 ];
+
+// Back-Off Sets Dynamiques
+function computeBackOffSets(plannedWeight, topSetRPE, targetRPE, backOffCount, bodyPart) {
+  if (!plannedWeight || plannedWeight <= 0) return { sets: [], suggestion: null };
+  var count = backOffCount || 3;
+  var diff = (topSetRPE || targetRPE) - (targetRPE || 8);
+  var backOffWeight, suggestion = null;
+  var extraReps = 0;
+
+  if (diff > 0) {
+    // Overshoot — alléger la charge
+    var reduction = Math.min(0.10 + diff * 0.02, 0.25);
+    backOffWeight = Math.floor((plannedWeight * (1 - reduction)) / 2.5) * 2.5;
+  } else if (diff <= -1.5) {
+    // Big undershoot — charger un peu plus + proposer bonus set
+    backOffWeight = Math.round(plannedWeight * 1.025 / 2.5) * 2.5;
+    suggestion = { type: 'bonus_set', weight: Math.round(plannedWeight * 1.05 / 2.5) * 2.5 };
+  } else if (diff <= -1) {
+    // Small undershoot — même charge + rep supplémentaire
+    backOffWeight = plannedWeight;
+    extraReps = 1;
+    suggestion = { type: 'extra_reps' };
+  } else {
+    // On target
+    backOffWeight = plannedWeight;
+  }
+  backOffWeight = Math.max(20, backOffWeight);
+
+  var lower = (bodyPart === 'lower');
+  var backOffReps = (lower ? 4 : 5) + extraReps;
+  var backOffRpe = Math.max(6, (targetRPE || 8) - 1.5);
+
+  var sets = [];
+  for (var i = 0; i < count; i++) {
+    sets.push({ weight: backOffWeight, reps: backOffReps, rpe: backOffRpe, isWarmup: false, isBackOff: true });
+  }
+  return { sets: sets, suggestion: suggestion };
+}
+
+function computeDropSets(topSetWeight, topSetRPE, dropPct, dropCount) {
+  if (!topSetWeight || topSetWeight <= 0) return [];
+  var pct = dropPct || 0.10;
+  var count = dropCount || 2;
+  if (topSetRPE >= 9.5) count = Math.max(1, count - 1);
+  var dropWeight = Math.round(topSetWeight * (1 - pct) / 2.5) * 2.5;
+  dropWeight = Math.max(20, dropWeight);
+  var sets = [];
+  for (var i = 0; i < count; i++) {
+    sets.push({ weight: dropWeight, reps: 'max', rpe: null, isWarmup: false, isDropSet: true });
+  }
+  return sets;
+}

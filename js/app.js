@@ -12333,7 +12333,101 @@ function renderCoachTodayHTML() {
   html += '</div></div>';
 
   html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
+
+  // ── 6. BACK-OFF SUGGESTION ──
+  var backOffHtml = renderBackOffSuggestion();
+  if (backOffHtml) html += backOffHtml;
+
   return html;
+}
+
+function getSetStyle(set) {
+  if (set.isBackOff || set.isBackoff) return 'background:rgba(255,159,10,0.13);border-left:3px solid var(--orange);border-radius:4px;';
+  if (set.isDropSet) return 'background:rgba(191,90,242,0.13);border-left:3px solid var(--purple,#BF5AF2);border-radius:4px;';
+  if (set.isWarmup) return 'opacity:0.5;';
+  return '';
+}
+
+function getSetLabel(set) {
+  if (set.isBackOff || set.isBackoff) return '🟠 Back-off';
+  if (set.isDropSet) return '🟣 Drop';
+  if (set.isWarmup) return 'Échauff.';
+  return 'Série';
+}
+
+function renderBackOffSuggestion() {
+  if (typeof computeBackOffSets !== 'function') return '';
+  var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
+  var plan = db.weeklyPlan && db.weeklyPlan.days
+    ? db.weeklyPlan.days.find(function(d) { return d.day === today && !d.rest; })
+    : null;
+  if (!plan || !plan.exercises) return '';
+
+  var primaryLift = plan.exercises.find(function(e) { return e.isPrimary; });
+  if (!primaryLift || !primaryLift.sets) return '';
+
+  var workSets = primaryLift.sets.filter(function(s) { return !s.isWarmup && !s.isBackOff && !s.isBackoff && !s.isDropSet; });
+  if (!workSets.length) return '';
+
+  // Look for an actual top set in today's logs
+  var todayLog = null;
+  var todayTs = new Date(); todayTs.setHours(0, 0, 0, 0);
+  (db.logs || []).forEach(function(l) {
+    if (l.timestamp >= todayTs.getTime()) todayLog = l;
+  });
+
+  var topSetRPE = workSets[workSets.length - 1].rpe || 8;
+  var topSetWeight = workSets[workSets.length - 1].weight || 0;
+
+  if (todayLog) {
+    var loggedExo = (todayLog.exercises || []).find(function(e) {
+      return e.name && primaryLift.name && e.name.toLowerCase().includes(primaryLift.name.toLowerCase().split(' ')[0]);
+    });
+    if (loggedExo) {
+      var loggedWork = (loggedExo.allSets || loggedExo.series || []).filter(function(s) {
+        return !s.isWarmup && s.weight > 0;
+      });
+      if (loggedWork.length) {
+        var lastLogged = loggedWork[loggedWork.length - 1];
+        topSetRPE = parseFloat(lastLogged.rpe) || topSetRPE;
+        topSetWeight = parseFloat(lastLogged.weight) || topSetWeight;
+      }
+    }
+  }
+
+  if (!topSetWeight) return '';
+  var targetRPE = workSets[0].rpe || 8;
+  var tpl = plan.exercises[0];
+  var bodyPart = /squat|deadlift|soulevé|hip|fentes|leg/i.test(primaryLift.name || '') ? 'lower' : 'upper';
+  var result = computeBackOffSets(topSetWeight, topSetRPE, targetRPE, 3, bodyPart);
+  if (!result.sets.length) return '';
+
+  var bo = result.sets[0];
+  var suggHtml = '';
+  if (result.suggestion && result.suggestion.type === 'bonus_set') {
+    suggHtml = '<button onclick="acceptBonusSet(' + result.suggestion.weight + ')" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;border:1px solid var(--orange);background:rgba(255,159,10,0.1);color:var(--orange);font-size:12px;font-weight:600;cursor:pointer;">✅ Tenter le Bonus Set — ' + result.suggestion.weight + 'kg</button>';
+  } else if (result.suggestion && result.suggestion.type === 'extra_reps') {
+    suggHtml = '<div style="font-size:11px;color:var(--green);margin-top:4px;">💪 Forme excellente — tente +1 rep sur la 1ère back-off</div>';
+  }
+
+  return '<div style="margin:12px 0;padding:12px;background:rgba(255,159,10,0.08);border-left:3px solid var(--orange);border-radius:8px;">' +
+    '<div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px;">🔻 Back-Off Sets — ' + primaryLift.name + '</div>' +
+    '<div style="font-size:12px;color:var(--text);">' + bo.weight + 'kg × ' + bo.reps + ' reps × 3 séries' +
+      ' <span style="color:var(--sub);">· RPE cible ' + bo.rpe + '</span></div>' +
+    suggHtml +
+  '</div>';
+}
+
+function acceptBonusSet(weight) {
+  var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
+  var plan = db.weeklyPlan && db.weeklyPlan.days
+    ? db.weeklyPlan.days.find(function(d) { return d.day === today && !d.rest; })
+    : null;
+  if (plan) {
+    plan.bonusSetWeight = weight;
+    saveDB();
+  }
+  showToast('✅ Bonus Set (' + weight + 'kg) ajouté au plan — bonne séance !');
 }
 
 function updateTargetFromCoach(type, newTarget) {
@@ -14667,6 +14761,18 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     if (phase === 'intensification' || phase === 'peak') {
       mainExoObj.coachNote = (mainExoObj.coachNote || '') + ' 💡 Si les paliers d\'échauffement semblent légers (RPE < 7), tente +5kg sur le Top Set.';
     }
+    // Back-Off Sets Dynamiques — force / intensification / peak uniquement
+    if (phase === 'force' || phase === 'intensification' || phase === 'peak') {
+      if (typeof computeBackOffSets === 'function' && weight > 0) {
+        var backOffResult = computeBackOffSets(weight, rpe, rpe, 3, bodyPart);
+        if (backOffResult.sets.length) {
+          mainExoObj.sets = mainExoObj.sets.concat(backOffResult.sets);
+          mainExoObj.backOffSuggestion = backOffResult.suggestion || null;
+          mainExoObj.coachNote = (mainExoObj.coachNote || '') +
+            ' | Back-off : ' + backOffResult.sets[0].weight + 'kg × ' + backOffResult.sets[0].reps + ' × 3';
+        }
+      }
+    }
     exercises.push(mainExoObj);
   }
 
@@ -15429,8 +15535,8 @@ function renderWpExercise(exo) {
   }
 
   // Summary — work sets only (exclude back-off)
-  const wrkSetsOnly = sets.filter(s => !s.isWarmup && !s.isBackoff);
-  const backoffSetsAll = sets.filter(s => s.isBackoff);
+  const wrkSetsOnly = sets.filter(s => !s.isWarmup && !s.isBackoff && !s.isBackOff && !s.isDropSet);
+  const backoffSetsAll = sets.filter(s => s.isBackoff || s.isBackOff);
   let summary = '';
   if (wrkSetsOnly.length > 0 && type !== 'cardio' && type !== 'cardio_stairs' && !exo.noData) {
     const s0 = wrkSetsOnly[0];
@@ -15491,13 +15597,16 @@ function renderWpExercise(exo) {
 
   } else {
     const wup = sets.filter(s => s.isWarmup);
-    const wrk = sets.filter(s => !s.isWarmup && !s.isBackoff);
-    const bo  = sets.filter(s => s.isBackoff);
+    const wrk = sets.filter(s => !s.isWarmup && !s.isBackoff && !s.isBackOff && !s.isDropSet);
+    const bo  = sets.filter(s => s.isBackoff || s.isBackOff);
+    const ds  = sets.filter(s => s.isDropSet);
     const hdr = '<div class="wpe-set-hdr"><span></span><span>Charge</span><span>Reps</span><span>RPE</span></div>';
     let rows = wup.map((s, i) => '<div class="wpe-set-row wpe-warmup"><span class="wpe-set-num">E' + (i+1) + '</span><span class="wpe-set-charge">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span>—</span></div>').join('');
     rows += wrk.map((s, i) => '<div class="wpe-set-row"><span class="wpe-set-num">S' + (i+1) + '</span><span class="wpe-set-charge">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
-    // Back-off sets en teal
-    rows += bo.map((s, i) => '<div class="wpe-set-row" style="opacity:0.8;"><span class="wpe-set-num" style="color:var(--teal);">BO' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--teal);">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe" style="color:var(--teal);">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    // Back-off sets en orange
+    rows += bo.map((s, i) => '<div class="wpe-set-row" style="background:rgba(255,159,10,0.08);"><span class="wpe-set-num" style="color:var(--orange);">BO' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--orange);">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + s.reps + '</span><span class="wpe-set-rpe" style="color:var(--orange);">' + (s.rpe ? 'RPE ' + s.rpe : '—') + '</span></div>').join('');
+    // Drop sets en violet
+    rows += ds.map((s, i) => '<div class="wpe-set-row" style="background:rgba(191,90,242,0.08);"><span class="wpe-set-num" style="color:var(--purple,#BF5AF2);">DS' + (i+1) + '</span><span class="wpe-set-charge" style="color:var(--purple,#BF5AF2);">' + (s.weight > 0 ? s.weight + 'kg' : '—') + '</span><span class="wpe-set-reps">' + (s.reps === 'max' ? 'max' : s.reps) + '</span><span>—</span></div>').join('');
     setsHtml = '<div class="wpe-sets">' + hdr + rows + '</div>';
   }
 
@@ -15926,7 +16035,8 @@ function _goDoStartWorkout(withProgram) {
         planExo.sets.forEach(function(ps) {
           var setType = 'normal';
           if (ps.isWarmup) setType = 'warmup';
-          else if (ps.isBackoff) setType = 'backoff';
+          else if (ps.isBackoff || ps.isBackOff) setType = 'backoff';
+          else if (ps.isDropSet) setType = 'dropset';
           initSets.push({
             weight: ps.weight || 0,
             reps: ps.reps || 0,
@@ -17441,7 +17551,7 @@ function saveSessionEdits() {
       var w = s.weight || 0;
       var r = s.reps || 0;
       var st = s.setType || 'normal';
-      var isWork = st !== 'warmup';
+      var isWork = st === 'normal';
 
       exo.series.push({ weight: w, reps: r, date: ts });
 
@@ -18482,15 +18592,21 @@ function convertWorkoutToSession(workout) {
       if (_hasBW) {
         w = Math.round(db.user.bw * _bwData.bwFactor + (s.weight || 0) - _assist);
       }
-      exercise.series.push({
-        weight: w,
-        reps: s.reps || (s.duration || 0),
-        date: workout.startTime
-      });
+      var _sType = s.type === 'warmup' ? 'warmup' : s.type === 'failure' ? 'failure' :
+        s.type === 'drop' || s.type === 'dropset' ? 'dropset' :
+        s.type === 'backoff' ? 'backoff' : 'normal';
+      // Only push to series (used for e1RM/PR) if it's a real work set
+      if (_sType === 'normal') {
+        exercise.series.push({
+          weight: w,
+          reps: s.reps || (s.duration || 0),
+          date: workout.startTime
+        });
+      }
       exercise.allSets.push({
         weight: w,
         reps: s.reps || (s.duration || 0),
-        setType: s.type === 'warmup' ? 'warmup' : s.type === 'failure' ? 'failure' : s.type === 'drop' ? 'drop' : 'normal',
+        setType: _sType,
         rpe: s.rpe || null
       });
     });

@@ -520,6 +520,8 @@ async function cloudLogout() {
   updateCloudUI(null);
   updateNotifBadges(0);
   showToast('Déconnecté du cloud');
+  localStorage.removeItem(STORAGE_KEY);
+  if (typeof defaultDB === 'function') db = defaultDB();
   if (typeof showLoginScreen === 'function') showLoginScreen();
 }
 

@@ -11566,13 +11566,9 @@ var _activeCoachSub = 'coach-today';
 function renderCoachTab() {
   if (new Date().getDay() === 1) generateWeeklyReport();
   updateCoachHistoBadge();
-  const wpSec = document.getElementById('weeklyPlanSection');
   if (_activeCoachSub === 'coach-today') {
     renderCoachToday();
-    if (wpSec) wpSec.style.display = '';
-    renderWeeklyPlanUI();
   } else {
-    if (wpSec) wpSec.style.display = 'none';
     renderCoachHistory();
   }
 }
@@ -11584,13 +11580,8 @@ function showCoachSub(id, btn) {
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
-  const wpSec = document.getElementById('weeklyPlanSection');
-  if (id === 'coach-today') {
-    renderCoachToday();
-    if (wpSec) wpSec.style.display = '';
-    renderWeeklyPlanUI();
-  } else {
-    if (wpSec) wpSec.style.display = 'none';
+  if (id === 'coach-today') renderCoachToday();
+  else {
     renderCoachHistory();
     markReportsRead();
     updateCoachHistoBadge();
@@ -13941,15 +13932,6 @@ function regenerateWeeklyPlan() {
 }
 
 function wpSelectDay(day) { wpSelectedDay = day; renderWeeklyPlanUI(); }
-
-let wpBodyOpen = true;
-function toggleWpBody() {
-  wpBodyOpen = !wpBodyOpen;
-  const body = document.getElementById('wpBody');
-  const chev = document.getElementById('wpChevron');
-  if (body) body.style.display = wpBodyOpen ? '' : 'none';
-  if (chev) chev.style.transform = wpBodyOpen ? '' : 'rotate(-90deg)';
-}
 
 function renderWeeklyPlanUI() {
   const plan = db.weeklyPlan;

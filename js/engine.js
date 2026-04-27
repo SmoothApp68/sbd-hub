@@ -1735,7 +1735,7 @@ function checkNutritionStagnation() {
   var changePerWeek = (changeKg / 14) * 7;
 
   var goals = (db.user && db.user.programParams && db.user.programParams.goals) || [];
-  var goal = goals[0] || 'maintien';
+  var goal = goals[0] || (db.user && db.user.goal) || 'maintien';
 
   if (goal === 'masse' && Math.abs(changeKg) < 0.2) {
     return { adjust: 150, msg: 'Poids stable depuis 2 semaines en prise de masse. On monte les calories de 150kcal.', type: 'increase' };

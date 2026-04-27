@@ -79,7 +79,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, liftLevels: {}, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [] },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [] },
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -164,7 +164,6 @@ let db = (() => {
     // ── New user fields (Recompo / Gender / Injuries / Body / Auto-level) ──
     if (p.user.targetBW === undefined) p.user.targetBW = null;
     if (!p.user.cycleTracking) p.user.cycleTracking = { enabled: false, lastPeriodDate: null, cycleLength: 28 };
-    if (!p.user.liftLevels) p.user.liftLevels = {};
     if (p.user._realLevel === undefined) p.user._realLevel = null;
     if (p.user.tdeeAdjustment === undefined) p.user.tdeeAdjustment = 0;
     // Migrate injuries: legacy [string, ...] → [{zone, level, active, since}, ...]
@@ -180,10 +179,7 @@ let db = (() => {
     if (!Array.isArray(p.weeklyActivities)) p.weeklyActivities = [];
     if (p.user.lpBridgeActive === undefined) p.user.lpBridgeActive = false;
     if (p.user.lpBridgeWeek === undefined) p.user.lpBridgeWeek = 0;
-    if (p.user.cardioPreference === undefined) p.user.cardioPreference = null;
-    if (p.user.nutritionStrategy === undefined) p.user.nutritionStrategy = null;
     if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
-    if (p.user.reverseDigestActive === undefined) p.user.reverseDigestActive = false;
     if (p.user.supersetPreference === undefined) p.user.supersetPreference = 'auto';
     if (p.user.prehabEnabled === undefined) p.user.prehabEnabled = true;
     // AUDIT: champs collectés mais non utilisés dans engine/coach/program :
@@ -7983,7 +7979,6 @@ function renderVolumeChart(period) {
   // 'week' = 10 dernières séances, 'month' = 30 dernières séances
   const limit = period === 'week' ? 10 : 30;
   const vl = [...db.logs].sort((a,b) => a.timestamp-b.timestamp).filter(l => l.volume > 0).slice(-limit);
-  console.log('renderVolumeChart', period, 'vl.length=', vl.length, 'db.logs.length=', db.logs.length);
   chartVolume = new Chart(cv, {type:'line', data:{labels:vl.map(l=>(l.shortDate||l.date||'').substring(0,5)), datasets:[{data:vl.map(l=>l.volume), borderColor:'#BF5AF2', backgroundColor:'rgba(191,90,242,0.1)', borderWidth:3, fill:true, tension:0.4, pointBackgroundColor:'#BF5AF2', pointRadius:3}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{title:items=>{const log=vl[items[0].dataIndex];return(log.title||'')+(log.shortDate?' · '+log.shortDate:'');}, label:c=>' '+(c.raw/1000).toFixed(2)+'t'}}}, scales:{y:{display:false}, x:{grid:{display:false}, ticks:{color:'#86868B', font:{size:10}, maxRotation:30}}}}});
 }
 
@@ -9042,7 +9037,6 @@ function pbSaveManualProgram() {
   });
   _pbState = null;
   saveDBNow();
-  console.log('Programme manuel sauvegardé:', { routine: db.routine, manualProgram: db.manualProgram, routineExos: db.routineExos });
   showToast('Programme sauvegardé !');
   renderProgramBuilder();
 }
@@ -9090,7 +9084,6 @@ function pbGenerateProgram() {
 
   _pbState = null;
   saveDBNow();
-  console.log('Programme généré sauvegardé:', { routine: db.routine, generatedProgram: db.generatedProgram, routineExos: db.routineExos });
   showToast('Programme généré !');
   renderProgramBuilder();
 }
@@ -9295,7 +9288,7 @@ function pbSliderInit() {
 // ── PROGRAMME — MODE MUSCULATION ──
 function renderProgramMusculation() {
   var mode = (db.user && db.user.trainingMode) || 'musculation';
-  var freq = (db.user && db.user.programParams && db.user.programParams.frequency) || 4;
+  var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
 
   var recSplit = typeof recommendSplit === 'function' ? recommendSplit(mode, freq) : null;
   var allSplits = typeof getAllSplitsForMode === 'function' ? getAllSplitsForMode(mode) : {};

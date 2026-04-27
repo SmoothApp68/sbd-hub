@@ -15024,6 +15024,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   }
 
   // Prehab génératif — échauffement dynamique 10min en tête de séance
+  exercises = exercises.filter(function(e) { return !e.isPrehab; });
   if (typeof generatePrehabRoutine === 'function' && !params.skipPrehab && db.user.prehabEnabled !== false) {
     var _srsScore = typeof computeSRS === 'function' ? computeSRS().score : 70;
     var _prehabExos = generatePrehabRoutine(dayKey, _srsScore, injuries);

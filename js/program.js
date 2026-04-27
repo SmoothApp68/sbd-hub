@@ -134,6 +134,7 @@ function computeNextLoad(currentLoad, currentReps, targetRepsLow, targetRepsHigh
 // ── DELOAD DETECTION ──
 // Recommande un deload si : fatigue accumulée élevée OU 4+ semaines sans progrès
 function shouldDeload(logs, mode) {
+  if (mode === 'bien_etre') return { needed: false };
   if (!logs || logs.length < 4) return { needed: false };
   var now = Date.now();
   var fourWeeksAgo = now - 28 * 86400000;
@@ -150,8 +151,9 @@ function shouldDeload(logs, mode) {
   var highFreq = avgSessionsPerWeek > 5;
   var highVol = (totalVolume2Weeks / 2) > 20000;
 
-  // Powerlifting : deload toutes les 4-5 semaines systématiquement
-  var isPL = mode === 'powerlifting' || mode === 'powerbuilding';
+  // Powerlifting / Powerbuilding : deload time-based toutes les 4-5 semaines.
+  // Musculation : pas de deload time-based — uniquement déclenché par fatigue élevée.
+  var isPL = (mode === 'powerlifting' || mode === 'powerbuilding');
   var sessionCount4Weeks = recentLogs.length;
   var timeBasedDeload = isPL && sessionCount4Weeks >= 12; // ~3 séances/sem × 4 sem
 

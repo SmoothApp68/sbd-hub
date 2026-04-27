@@ -8794,31 +8794,81 @@ function pbGenerateProgram() {
 function renderProgramBuilderView(container) {
   if (!container) return;
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
+  var plan = db.weeklyPlan;
+  var cb = plan && plan.currentBlock;
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var week = (plan && plan.week) || 1;
 
-  // Header commun avec bouton Modifier
-  var headerHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'+
-    '<div style="font-size:18px;font-weight:700;">📅 Programme</div>'+
-    '<button onclick="pbEditExisting()" style="background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">Modifier le planning</button>'+
-  '</div>';
+  var PHASE_LABELS = {
+    intro: '🌱 Introduction', accumulation: '📈 Accumulation',
+    intensification: '⚡ Intensification', hypertrophie: '💪 Hypertrophie',
+    force: '🏋️ Force', peak: '🔥 Peak', deload: '🔋 Deload',
+    recuperation: '😌 Récupération', fondation: '🌿 Fondation',
+    maintien: '✅ Maintien', volume: '📊 Volume', progression: '🚀 Progression'
+  };
+
+  var PHASES_BY_MODE = {
+    powerlifting:  ['intro','accumulation','intensification','peak','deload'],
+    powerbuilding: ['hypertrophie','force','peak','deload'],
+    musculation:   ['hypertrophie','volume','maintien','recuperation'],
+    bien_etre:     ['fondation','progression','maintien']
+  };
+
+  var modeKey = mode;
+  if (modeKey === 'bodybuilding') modeKey = 'musculation';
+  if (modeKey === 'bien-etre') modeKey = 'bien_etre';
+  var phases = PHASES_BY_MODE[modeKey] || PHASES_BY_MODE.powerlifting;
+  var isForced = !!(cb && cb.forcedAt && (Date.now() - cb.forcedAt) < 7 * 86400000);
+
+  var phaseSelectHtml =
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
+      '<select id="wpForcePhaseSelect" style="flex:1;padding:9px 12px;' +
+      'background:var(--surface);color:var(--text);border:0.5px solid var(--border);' +
+      'border-radius:10px;font-size:14px;font-weight:600;">' +
+      phases.map(function(p) {
+        return '<option value="' + p + '"' + (p === phase ? ' selected' : '') + '>' +
+          (PHASE_LABELS[p] || p) + '</option>';
+      }).join('') +
+      '</select>' +
+      '<button onclick="wpForcePhase()" style="padding:9px 14px;background:var(--accent);' +
+      'color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">' +
+      'OK</button>' +
+    '</div>' +
+    (isForced ? '<div style="font-size:11px;color:var(--orange);margin-bottom:10px;">' +
+      '⚡ Phase forcée manuellement</div>' : '');
+
+  var headerHtml =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+      '<div>' +
+        '<div style="font-size:18px;font-weight:700;">📅 Programme</div>' +
+        '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' +
+          (PHASE_LABELS[phase] || phase) + ' · S' + week +
+        '</div>' +
+      '</div>' +
+      '<button onclick="pbEditExisting()" style="background:var(--surface);border:0.5px solid ' +
+      'var(--border);color:var(--accent);padding:7px 12px;border-radius:10px;font-size:12px;' +
+      'cursor:pointer;font-weight:600;">Modifier ✏️</button>' +
+    '</div>';
 
   var modeHtml = '';
-  if (mode === 'powerbuilding') {
+  if (modeKey === 'powerbuilding') {
     modeHtml = renderProgramPowerbuilding();
-  } else if (mode === 'musculation' || mode === 'bodybuilding') {
+  } else if (modeKey === 'musculation') {
     modeHtml = renderProgramMusculation();
-  } else if (mode === 'bien_etre' || mode === 'bien-etre') {
+  } else if (modeKey === 'bien_etre') {
     modeHtml = renderProgramBienEtre();
   } else {
     modeHtml = renderProgramPowerlifting();
   }
 
-  var footerHtml = '<div style="display:flex;gap:8px;margin-top:10px;">'+
-    '<button class="btn" style="flex:1;background:var(--red);font-size:13px;" onclick="pbResetProgram()">Réinitialiser</button>'+
-  '</div>';
+  var footerHtml =
+    '<div style="margin-top:16px;">' +
+      '<button class="btn" style="width:100%;background:var(--red);font-size:13px;" ' +
+      'onclick="pbResetProgram()">🗑️ Réinitialiser le programme</button>' +
+    '</div>';
 
-  container.innerHTML = headerHtml + modeHtml + footerHtml;
+  container.innerHTML = headerHtml + phaseSelectHtml + modeHtml + footerHtml;
 
-  if (mode === 'powerbuilding') setTimeout(pbSliderInit, 50);
   setTimeout(function() {
     if (typeof initProgDragDrop === 'function') initProgDragDrop();
   }, 100);
@@ -8889,22 +8939,7 @@ function progSwapDays(srcDay, dstDay) {
 
 // ── PROGRAMME — MODE POWERBUILDING ──
 function renderProgramPowerbuilding() {
-  var accentPct = (db.user && db.user.pbAccent) || 65;
-  var sliderHtml = '<div class="card" style="margin-bottom:10px;">'+
-    '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Équilibre du cycle</div>'+
-    '<div class="pb-slider-labels"><span style="color:var(--purple);">💪 Volume</span>'+
-    '<span id="pb-pct-lbl" style="color:var(--sub);font-size:10px;">'+accentPct+'% force</span>'+
-    '<span style="color:var(--accent);">⚡ Force</span></div>'+
-    '<div class="pb-slider-track" id="pb-track">'+
-      '<div class="pb-slider-fill" id="pb-fill" style="width:'+accentPct+'%;"></div>'+
-      '<div class="pb-slider-thumb" id="pb-thumb" style="left:calc('+accentPct+'% - 11px);"></div>'+
-    '</div>'+
-    '<div id="pb-reco" style="font-size:10px;color:var(--sub);padding:8px 10px;background:rgba(10,132,255,.05);border:1px solid rgba(10,132,255,.12);border-radius:9px;line-height:1.5;">'+
-      pbGetRecoText(accentPct)+
-    '</div>'+
-  '</div>';
-
-  return sliderHtml + renderProgDaysList();
+  return renderProgDaysList();
 }
 
 function pbGetRecoText(pct) {
@@ -9069,11 +9104,19 @@ function renderProgDaysList() {
 
     var title = (wpDay && wpDay.title) ? wpDay.title : label;
     var exoStr = exos.slice(0,3).join(' · ') + (exos.length > 3 ? ' +' + (exos.length - 3) : '');
-    var coachNote = (wpDay && wpDay.coachNote) ? wpDay.coachNote : '';
     var setsCount = (wpDay && wpDay.exercises) ? wpDay.exercises.reduce(function(s, e) {
       return s + ((e.sets && e.sets.filter(function(ss) { return !ss.isWarmup; }).length) || 0);
     }, 0) : 0;
     var metaStr = exos.length + ' exo' + (exos.length > 1 ? 's' : '') + (setsCount > 0 ? ' · ' + setsCount + ' séries' : '');
+
+    // Note motivante contextuelle (différente par jour)
+    var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+    var dayDataForNote = wpDay || { title: title, label: label };
+    var motivNote = typeof wpDayMotivation === 'function' ? wpDayMotivation(dayDataForNote, phase) : '';
+    var noteHtml = motivNote
+      ? '<div style="font-size:11px;color:var(--sub);font-style:italic;margin-top:4px;' +
+        'border-left:2px solid var(--accent);padding-left:8px;">"' + motivNote + '"</div>'
+      : '';
 
     return '<div class="prog-day-row' + (isToday ? ' today' : '') + '" draggable="true" data-day="' + day + '">' +
       '<span class="prog-drag-handle">⠿</span>' +
@@ -9081,7 +9124,7 @@ function renderProgDaysList() {
       '<div class="prog-day-content" onclick="progShowDayDetail(\'' + day + '\')" style="cursor:pointer;">' +
         '<div class="prog-day-name">' + title + '</div>' +
         (exoStr ? '<div class="prog-day-exos">' + exoStr + '</div>' : '') +
-        (coachNote ? '<div style="font-size:9px;color:var(--orange);margin-top:3px;">💡 ' + coachNote + '</div>' : '') +
+        noteHtml +
       '</div>' +
       '<div class="prog-day-actions">' +
         '<div class="prog-action-btn" onclick="event.stopPropagation();progEditDay(\'' + day + '\')">✏️</div>' +
@@ -12941,7 +12984,37 @@ function wpDetectPlateau(liftType) {
   return { liftType: liftType, sessions: history.length, correction: corrections[liftType], action: 'back_off_10pct' };
 }
 
+function wpForcePhase() {
+  var select = document.getElementById('wpForcePhaseSelect');
+  if (!select) return;
+  var phase = select.value;
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  db.weeklyPlan.currentBlock = {
+    phase: phase,
+    week: db.weeklyPlan.week || 1,
+    forcedAt: Date.now(),
+    blockStartDate: Date.now()
+  };
+  if (typeof saveDB === 'function') saveDB();
+  var icons = {
+    intro:'🌱', accumulation:'📈', intensification:'⚡',
+    hypertrophie:'💪', force:'🏋️', peak:'🔥', deload:'🔋',
+    recuperation:'😌', fondation:'🌿', maintien:'✅', volume:'📊',
+    progression:'🚀'
+  };
+  if (typeof showToast === 'function') {
+    showToast((icons[phase] || '') + ' Phase ' + phase + ' activée');
+  }
+  if (typeof generateWeeklyPlan === 'function') generateWeeklyPlan();
+  else renderProgramBuilderView(document.getElementById('programBuilderContent'));
+}
+
 function wpDetectPhase() {
+  // Priorité 1 : forçage manuel récent (< 7 jours)
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (cb && cb.forcedAt && (Date.now() - cb.forcedAt) < 7 * 86400000) {
+    return cb.phase;
+  }
   var deloadCheck = typeof shouldDeload === 'function' ? shouldDeload(db.logs, db.user.trainingMode) : { needed: false };
   if (deloadCheck.needed) return 'deload';
   var weeksSince = 0;
@@ -12965,6 +13038,78 @@ function wpDetectPhase() {
   if (weeksSince === 3) return 'intensification';
   if (weeksSince >= 4)  return 'peak';
   return 'intro';
+}
+
+function wpDayMotivation(dayData, phase) {
+  if (!dayData || dayData.rest) return '';
+  var title = (dayData.title || dayData.label || '').toLowerCase();
+
+  var MOTIVATIONS = {
+    deload: {
+      squat:    "Léger aujourd'hui — le corps reconstruit. Technique parfaite.",
+      bench:    "Séance technique, pas de guerre. Ressens chaque rep.",
+      deadlift: "Légèreté et précision. Le SNC se recharge pour la suite.",
+      cardio:   "Récupération active — le meilleur investissement de ta semaine.",
+      default:  "Aujourd'hui on recharge. Demain on frappe plus fort."
+    },
+    peak: {
+      squat:    "C'est la semaine qui compte. Mobilise tout pour le Squat.",
+      bench:    "Chaque kilo au Bench aujourd'hui valide des mois de travail.",
+      deadlift: "Le Deadlift ne ment pas. Tu es prêt — prouve-le.",
+      cardio:   "Récupère bien. Tu as besoin de toute ton énergie.",
+      default:  "Semaine de pics — gros effort, maximum de focus."
+    },
+    force: {
+      squat:    "Charge lourde, tête froide. Le Squat se respecte.",
+      bench:    "Force brute aujourd'hui. Chaque rep compte.",
+      deadlift: "Le Deadlift forge les champions. Sois là à 100%.",
+      cardio:   "Récupération active — essentielle en bloc force.",
+      default:  "Bloc force : qualité > quantité. Chaque série compte."
+    },
+    hypertrophie: {
+      squat:    "Volume Squat — fatigue les quads, épargne rien.",
+      bench:    "Series longues, tension constante. Le Bench construit ce soir.",
+      deadlift: "Volume ischio-fessiers — le moteur de ta force future.",
+      cardio:   "Cardio doux — garde l'énergie pour les séances de force.",
+      default:  "Phase d'accumulation — pose les bases de ta prochaine force."
+    },
+    accumulation: {
+      squat:    "Construis le volume. Chaque série est un investissement.",
+      bench:    "Densité et régularité. Le Bench se construit dans la durée.",
+      deadlift: "Accumule le tonnage. Ton dos s'adapte semaine après semaine.",
+      cardio:   "Récupération active — le secret des champions.",
+      default:  "Accumulation : fais le travail, les résultats suivent."
+    },
+    intensification: {
+      squat:    "Charges qui montent. Le corps s'adapte sous la pression.",
+      bench:    "Intensification : sorties de zone de confort obligatoires.",
+      deadlift: "Intensification Deadlift — les grands poids forgent la force.",
+      cardio:   "Récupère bien, l'intensification exige beaucoup.",
+      default:  "Phase d'intensification — chaque séance te rapproche du pic."
+    },
+    recuperation: {
+      default:  "Semaine de récupération — écoute ton corps, bouge léger."
+    },
+    fondation: {
+      default:  "Les fondations solides portent les grandes performances."
+    },
+    maintien: {
+      default:  "Maintien : rester en mouvement, rester fort."
+    },
+    intro: {
+      default:  "Premier pas du cycle. Prends tes marques, le reste suivra."
+    }
+  };
+
+  var phaseNotes = MOTIVATIONS[phase] || MOTIVATIONS.accumulation;
+
+  var type = 'default';
+  if (/squat|jambe|quad/i.test(title)) type = 'squat';
+  else if (/bench|push|poitrine|pec/i.test(title)) type = 'bench';
+  else if (/deadlift|dead|pull|dos|fessier|ischio/i.test(title)) type = 'deadlift';
+  else if (/cardio|natation|récup|swim/i.test(title)) type = 'cardio';
+
+  return phaseNotes[type] || phaseNotes.default || '';
 }
 
 function wpRepsForPhase(phase) {

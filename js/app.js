@@ -12866,6 +12866,120 @@ var WP_PROGRESSION = {
   lower: { increase: 5.0, decrease: 10.0 }
 };
 
+// ── SBD VARIANTS PAR PHASE ──────────────────────────────────
+// Choisit l'exercice principal et son rep range selon la phase active.
+var SBD_VARIANTS = {
+  hypertrophie: {
+    squat:    { name: 'High Bar Squat',                    reps: [8,10],  rpe: 7.5 },
+    bench:    { name: 'Larsen Press',                      reps: [10,12], rpe: 8.0 },
+    deadlift: { name: 'Soulevé de Terre Roumain (Barre)',  reps: [8,10],  rpe: 8.0 }
+  },
+  force: {
+    squat:    { name: 'Squat (Barre)',             reps: [3,5],  rpe: 8.5 },
+    bench:    { name: 'Développé Couché (Barre)',  reps: [3,5],  rpe: 8.5 },
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [2,4],  rpe: 8.5 }
+  },
+  peak: {
+    squat:    { name: 'Squat (Barre)',             reps: [1,3],  rpe: 9.0 },
+    bench:    { name: 'Développé Couché (Barre)',  reps: [1,3],  rpe: 9.0 },
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [1,2],  rpe: 9.0 }
+  },
+  deload: {
+    squat:    { name: 'Squat (Barre)',             reps: [5,8],  rpe: 6.0 },
+    bench:    { name: 'Développé Couché (Barre)',  reps: [5,8],  rpe: 6.0 },
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [5,8],  rpe: 6.0 }
+  },
+  accumulation: {
+    squat:    { name: 'Squat (Barre)',             reps: [4,6],  rpe: 8.0 },
+    bench:    { name: 'Développé Couché (Barre)',  reps: [4,6],  rpe: 8.0 },
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [3,5],  rpe: 8.0 }
+  },
+  intensification: {
+    squat:    { name: 'Squat (Barre)',             reps: [3,4],  rpe: 8.5 },
+    bench:    { name: 'Développé Couché (Barre)',  reps: [3,4],  rpe: 8.5 },
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [2,3],  rpe: 8.5 }
+  },
+  // Mappings supplémentaires pour les phases mode-specific
+  intro: {
+    squat:    { name: 'Squat (Barre)',             reps: [5,8],  rpe: 7.0 },
+    bench:    { name: 'Développé Couché (Barre)',  reps: [5,8],  rpe: 7.0 },
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [5,8],  rpe: 7.0 }
+  }
+};
+
+// ── ACCESSOIRES PAR PHASE ───────────────────────────────────
+// Accessoires hypertrophie : volume + isolation, rep ranges élevés.
+// Accessoires force : transfert SBD, stabilité, intensité plus haute.
+var WP_ACCESSORIES_BY_PHASE = {
+  hypertrophie: {
+    squat: [
+      { name: 'Hack Squat',         reps: '8-12', rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Leg Extension',      reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Fentes',             reps: '10-12',rpe: 7,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Adduction',          reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 },
+      { name: 'Mollets (Machine)',  reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+    ],
+    bench: [
+      { name: 'Dips',                reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Écarté Haltères',     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Extension Triceps',   reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+    ],
+    deadlift: [
+      { name: 'Leg Curl allongé',  reps: '12-15',rpe: 7.5, sets: 4, rest: 90,  priority: 1 },
+      { name: 'Hip Thrust',        reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Tirage Vertical',   reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Mollets (Machine)', reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+    ],
+    weakpoints: [
+      { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
+      { name: 'Curl Marteau',         reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 },
+      { name: 'Oiseau Machine',       reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 2 },
+      { name: 'Tirage Visage',        reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 1 },
+      { name: 'Extension Triceps',    reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 }
+    ]
+  },
+  force: {
+    squat: [
+      { name: 'Paused Squat',     reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
+      { name: 'Step-up',          reps: '6-8', rpe: 7.5, sets: 3, rest: 120, priority: 2 },
+      { name: 'Mollets lourds',   reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
+    ],
+    bench: [
+      { name: 'Spoto Press',  reps: '3-5', rpe: 8,   sets: 4, rest: 240, priority: 1 },
+      { name: 'Rowing Barre', reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Face Pull',    reps: '15',  rpe: 7,   sets: 3, rest: 60,  priority: 2 }
+    ],
+    deadlift: [
+      { name: 'Good Morning', reps: '6-8', rpe: 7.5, sets: 3, rest: 180, priority: 1 },
+      { name: 'Rack Pull',    reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
+      { name: 'Gainage Lesté',reps: '60s', rpe: 7,   sets: 3, rest: 90,  priority: 2, type: 'time' }
+    ],
+    weakpoints: [
+      { name: 'OHP (Barre)',       reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Tractions Lestées', reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Shrugs',            reps: '8-10',rpe: 8,   sets: 3, rest: 120, priority: 2 }
+    ]
+  }
+};
+
+// Mapper les phases vers le pool d'accessoires (hypertrophie ou force).
+var PHASE_ACCESSORY_MAP = {
+  hypertrophie:    'hypertrophie',
+  accumulation:    'hypertrophie',
+  intro:           'hypertrophie',
+  volume:          'hypertrophie',
+  recuperation:    'hypertrophie',
+  fondation:       'hypertrophie',
+  progression:     'hypertrophie',
+  maintien:        'hypertrophie',
+  force:           'force',
+  intensification: 'force',
+  peak:            'force',
+  deload:          'hypertrophie' // peu d'accessoires de toute façon
+};
+
 var WP_SESSION_TEMPLATES = {
   squat: {
     title: '🦵 Jambes',
@@ -13994,12 +14108,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   var exercises = [];
 
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
+    // Récupérer la variante SBD selon la phase active
+    var variant = (SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
+      ? SBD_VARIANTS[phase][tpl.mainLift]
+      : SBD_VARIANTS.accumulation[tpl.mainLift];
     var weight = wpComputeWorkWeight(tpl.mainLift, bodyPart);
-    var reps = wpRepsForPhase(phase);
+    var reps = Math.round((variant.reps[0] + variant.reps[1]) / 2);
     var setsCount = wpSetsForPhase(phase);
-    var rpe = wpRpeForPhase(phase);
+    var rpe = variant.rpe;
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
-    var mainName = tpl.mainLift === 'squat' ? 'Squat (Barre)' : tpl.mainLift === 'bench' ? 'Développé couché' : 'Soulevé de Terre';
+    var mainName = variant.name;
     var warmups = wpBuildWarmups(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     var mainExoObj = {
@@ -14028,7 +14146,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     });
   }
 
-  var accessories = wpFilterInjuries(tpl.accessories || [], injuries);
+  // Sélection des accessoires selon la phase (hypertrophie vs force pool)
+  var accessoryPhase = PHASE_ACCESSORY_MAP[phase] || 'hypertrophie';
+  var phaseAccessories = (WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey])
+    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey]
+    : (tpl.accessories || []);
+  var accessories = wpFilterInjuries(phaseAccessories, injuries);
   // Rééquilibrage Squat/Bench (Gemini)
   if (dayKey === 'squat') {
     var imbalance = wpDetectSquatBenchImbalance();
@@ -14324,6 +14447,24 @@ function generateWeeklyPlan() {
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     var selectedDays = params.selectedDays || allDays.slice(0, freq);
 
+    // Détecter 3 jours consécutifs ou plus → alerter sur la fatigue cumulée
+    function hasConsecutiveDays(days) {
+      var orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+      var indices = days.map(function(d) { return orderedDays.indexOf(d); }).sort(function(a,b){ return a-b; });
+      var maxConsec = 1, cur = 1;
+      for (var i = 1; i < indices.length; i++) {
+        if (indices[i] === indices[i-1] + 1) { cur++; maxConsec = Math.max(maxConsec, cur); }
+        else cur = 1;
+      }
+      return maxConsec;
+    }
+    var maxConsec = hasConsecutiveDays(selectedDays);
+    if (maxConsec >= 3) {
+      var splitNote = '⚠️ ' + maxConsec + ' jours consécutifs détectés. ' +
+        'Pour éviter la fatigue cumulée, répartis tes séances avec des jours de repos entre les gros lifts.';
+      showToast(splitNote);
+    }
+
     // Addendum B + Correction 7: Détection niveau réel
     var logsCount = (db.logs || []).length;
     rpeCapReprise = null;
@@ -14417,6 +14558,67 @@ function generateWeeklyPlan() {
         var exo = { name: act.name, type: act.type, restSeconds: 0,
           sets: [act.type === 'weight' ? { reps: act.reps || 15, rpe: act.rpe || 5, isWarmup: false } : { durationMin: act.duration, isWarmup: false }] };
         return { day: day, rest: false, title: '🌿 ' + act.name, coachNote: 'Régularité > intensité. L\'objectif c\'est d\'y aller.', exercises: [exo] };
+      });
+    }
+
+    // ── ADAPTER LA DURÉE DES SÉANCES ─────────────────────────
+    var targetDuration = (db.user && db.user.trainingDuration) || params.duration || 90;
+    days.forEach(function(dayData) {
+      if (!dayData || dayData.rest || !dayData.exercises || !dayData.exercises.length) return;
+      var estimated = typeof estimateSessionDuration === 'function'
+        ? estimateSessionDuration(dayData.exercises)
+        : 0;
+      if (estimated > targetDuration * 1.10) {
+        var adapted = typeof adaptSessionForDuration === 'function'
+          ? adaptSessionForDuration(dayData.exercises, targetDuration, (params.goals || [])[0])
+          : { exercises: dayData.exercises, adaptations: [] };
+        dayData.exercises = adapted.exercises;
+        if (adapted.adaptations && adapted.adaptations.length) {
+          dayData.coachNote = (dayData.coachNote || '') +
+            ' 📋 Séance ajustée pour tenir en ' + targetDuration + 'min : ' +
+            adapted.adaptations.join(', ') + '.';
+        }
+      }
+    });
+
+    // ── CONFLITS ACTIVITÉS SECONDAIRES ───────────────────────
+    // Si une activité fixe la veille sollicite les mêmes muscles que la séance
+    // du lendemain, on réduit les accessoires concernés.
+    if (typeof ACTIVITY_MUSCLES !== 'undefined' && ACTIVITY_MUSCLES) {
+      var activities = (db.user && db.user.activities) || [];
+      activities.forEach(function(act) {
+        if (!act || !act.days || !act.days.length) return;
+        var actMuscles = ACTIVITY_MUSCLES[act.type] || [];
+        if (!actMuscles.length) return;
+        act.days.forEach(function(actDay) {
+          var orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+          var nextIdx = (orderedDays.indexOf(actDay) + 1) % 7;
+          var nextDay = orderedDays[nextIdx];
+          var nextSession = days.find(function(d) { return d.day === nextDay && !d.rest; });
+          if (!nextSession) return;
+          var score = typeof computeActivityScore === 'function' ? computeActivityScore(act) : 0;
+          if (score <= 80) return;
+          nextSession.coachNote = (nextSession.coachNote || '') +
+            ' ⚠️ ' + act.type + ' la veille — accessoires ' +
+            actMuscles.join('/') + ' réduits de 30%.';
+          nextSession.exercises = nextSession.exercises.map(function(exo) {
+            var exoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
+            var exoMuscle = exoMeta ? (exoMeta.muscleGroup || '') : '';
+            var hits = actMuscles.some(function(m) { return exoMuscle && exoMuscle.toLowerCase().indexOf(m.toLowerCase()) >= 0; });
+            if (!hits) return exo;
+            var reduced = JSON.parse(JSON.stringify(exo));
+            var allSets = reduced.sets || [];
+            var workSets = allSets.filter(function(s) { return !s.isWarmup; });
+            var keepCount = Math.ceil(workSets.length * 0.7);
+            var workIdx = 0;
+            reduced.sets = allSets.filter(function(s) {
+              if (s.isWarmup) return true;
+              workIdx++;
+              return workIdx <= keepCount;
+            });
+            return reduced;
+          });
+        });
       });
     }
 

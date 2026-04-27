@@ -52,30 +52,44 @@ var VOLUME_LANDMARKS_FR = {
 // Basé sur meta-analyse : fréquence 2x/semaine par muscle = optimal
 // Sources : Schoenfeld 2016, Ralston 2017
 var SPLIT_RECOMMENDATIONS = {
-  // Powerlifting / Powerbuilding
-  powerlifting: {
-    2: { split: 'SBD_2', label: 'Full SBD × 2', desc: 'Squat+Bench lun, Deadlift+Bench ven', days: ['Lundi', 'Vendredi'] },
-    3: { split: 'SBD_3', label: 'SBD classique × 3', desc: 'Squat lun, Bench mer, Deadlift ven', days: ['Lundi', 'Mercredi', 'Vendredi'] },
-    4: { split: 'SBD_4', label: 'SBD + technique × 4', desc: 'Squat/Dead/Bench + jour technique', days: ['Lundi', 'Mardi', 'Jeudi', 'Samedi'] },
-    5: { split: 'SBD_5', label: 'Haute fréquence × 5', desc: 'Chaque lift 2x/sem, accessoires', days: ['Lundi', 'Mardi', 'Mercredi', 'Vendredi', 'Samedi'] }
-  },
+  // Powerbuilding — SBD + accessoires complets, fréquence ajustable
   powerbuilding: {
-    2: { split: 'FULL_2', label: 'Full Body × 2', desc: 'Composé lourd + accessoires complets × 2', days: ['Lundi', 'Jeudi'] },
-    3: { split: 'FULL_3', label: 'Full Body × 3', desc: 'SBD + accessoires, 3 jours espacés', days: ['Lundi', 'Mercredi', 'Vendredi'] },
-    4: { split: 'UL_4', label: 'Upper/Lower × 4', desc: 'Haut du corps + Bas du corps × 2', days: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'] },
-    5: { split: 'PPL_5', label: 'PPL × 5', desc: 'Push/Pull/Legs + 2 jours force SBD', days: ['Lundi', 'Mardi', 'Mercredi', 'Vendredi', 'Samedi'] }
+    2: { split: 'SBD_FULL_2', label: 'Full Body SBD × 2',
+         desc: 'SBD + accessoires complets 2× par semaine',
+         days: ['Lundi', 'Jeudi'] },
+    3: { split: 'SBD_3', label: 'SBD Split × 3',
+         desc: '1 lift principal par jour (Squat/Bench/Dead)',
+         days: ['Lundi', 'Mercredi', 'Vendredi'] },
+    4: { split: 'SBD_UL_4', label: 'Upper/Lower SBD × 4',
+         desc: 'SBD répartis sur Upper et Lower × 2',
+         days: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'] },
+    5: { split: 'SBD_PPL_5', label: 'SBD + PPL × 5',
+         desc: 'Lifts SBD + Push/Pull/Legs accessoires',
+         days: ['Lundi', 'Mardi', 'Mercredi', 'Vendredi', 'Samedi'] },
+    6: { split: 'SBD_FULL_6', label: 'SBD × 2 + PPL × 4',
+         desc: 'Haute fréquence — SBD 2× + accessoires 4×',
+         days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] }
   },
+  // Powerlifting — focus pur SBD, fréquence haute pour avancés
+  powerlifting: {
+    2: { split: 'SBD_FULL_2', label: 'Full SBD × 2', desc: 'Squat+Bench lun, Deadlift+Bench ven', days: ['Lundi', 'Vendredi'] },
+    3: { split: 'SBD_3',      label: 'SBD Full Body × 3', desc: 'Squat lun, Bench mer, Deadlift ven', days: ['Lundi', 'Mercredi', 'Vendredi'] },
+    4: { split: 'SBD_UL_4',   label: 'Upper/Lower SBD × 4', desc: 'SBD répartis sur Upper et Lower × 2', days: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'] },
+    5: { split: 'SBD_HF_5',   label: 'SBD Haute Fréquence × 5', desc: 'Chaque lift 2×/sem, accessoires', days: ['Lundi', 'Mardi', 'Mercredi', 'Vendredi', 'Samedi'] },
+    6: { split: 'SBD_HF_6',   label: 'SBD × 3 Haute Fréquence', desc: 'Chaque lift 2×/sem en volume très élevé. Avancés seulement.', days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] }
+  },
+  // Musculation — splits classiques hypertrophie
   musculation: {
     2: { split: 'FULL_2', label: 'Full Body × 2', desc: 'Tous les muscles 2× par semaine, efficace et simple', days: ['Lundi', 'Jeudi'] },
     3: { split: 'FULL_3', label: 'Full Body × 3', desc: 'Optimal pour intermédiaires, chaque muscle 3×/sem', days: ['Lundi', 'Mercredi', 'Vendredi'] },
-    4: { split: 'UL_4', label: 'Upper/Lower × 4', desc: 'Haut × 2 + Bas × 2, fréquence optimale', days: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'] },
-    5: { split: 'PPL_5', label: 'PPL + Upper × 5', desc: 'Push/Pull/Legs × 1 + Upper/Lower × 1', days: ['Lundi', 'Mardi', 'Mercredi', 'Vendredi', 'Samedi'] },
-    6: { split: 'PPL_6', label: 'PPL × 2', desc: 'Chaque muscle 2×/sem en volume élevé. Avancés seulement.', days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] }
+    4: { split: 'UL_4',   label: 'Upper/Lower × 4', desc: 'Haut × 2 + Bas × 2, fréquence optimale', days: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'] },
+    5: { split: 'PPL_5',  label: 'PPL + Upper × 5', desc: 'Push/Pull/Legs × 1 + Upper/Lower × 1', days: ['Lundi', 'Mardi', 'Mercredi', 'Vendredi', 'Samedi'] },
+    6: { split: 'PPL_6',  label: 'PPL × 2', desc: 'Chaque muscle 2×/sem en volume élevé. Avancés seulement.', days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] }
   },
   bien_etre: {
-    2: { split: 'BIEN_2', label: '2 activités douces', desc: 'Cardio + Mobilité, 2×/sem', days: ['Lundi', 'Jeudi'] },
+    2: { split: 'BIEN_2', label: '2 activités douces',  desc: 'Cardio + Mobilité, 2×/sem', days: ['Lundi', 'Jeudi'] },
     3: { split: 'BIEN_3', label: '3 activités variées', desc: 'Cardio / Yoga / Renfo léger', days: ['Lundi', 'Mercredi', 'Vendredi'] },
-    4: { split: 'BIEN_4', label: '4 activités', desc: 'Mix cardio, yoga, renfo, repos actif', days: ['Lundi', 'Mardi', 'Jeudi', 'Samedi'] },
+    4: { split: 'BIEN_4', label: '4 activités',         desc: 'Mix cardio, yoga, renfo, repos actif', days: ['Lundi', 'Mardi', 'Jeudi', 'Samedi'] },
     5: { split: 'BIEN_5', label: '5 activités variées', desc: 'Programme quotidien doux, 1 repos', days: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'] }
   }
 };

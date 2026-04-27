@@ -9385,16 +9385,12 @@ function renderProgDaysList() {
 
     // Chercher dans weeklyPlan.days
     var wpDay = wpDays.find(function(d) { return d.day === day; });
-    var prehabNames = [];
-    var mainNames = [];
+    var exos = [];
     if (wpDay && wpDay.exercises && wpDay.exercises.length) {
-      wpDay.exercises.forEach(function(e) {
-        var n = typeof e === 'string' ? e : (e && e.name) || 'Exercice';
-        if (e && e.isPrehab) prehabNames.push(n);
-        else mainNames.push(n);
+      exos = wpDay.exercises.map(function(e) {
+        return typeof e === 'string' ? e : (e && e.name) || 'Exercice';
       });
     }
-    var exos = mainNames; // Backward compat (used below for count)
 
     if (isRest) {
       return '<div class="prog-day-row rest">' +
@@ -9406,14 +9402,11 @@ function renderProgDaysList() {
     }
 
     var title = (wpDay && wpDay.title) ? wpDay.title : label;
-    var exoStr = mainNames.slice(0,3).join(' · ') + (mainNames.length > 3 ? ' +' + (mainNames.length - 3) : '');
-    var prehabStr = prehabNames.length
-      ? '🔥 Prehab · ' + prehabNames.slice(0, 4).join(' · ') + (prehabNames.length > 4 ? ' +' + (prehabNames.length - 4) : '')
-      : '';
-    var setsCount = (wpDay && wpDay.exercises) ? wpDay.exercises.filter(function(e) { return !e.isPrehab; }).reduce(function(s, e) {
+    var exoStr = exos.slice(0,3).join(' · ') + (exos.length > 3 ? ' +' + (exos.length - 3) : '');
+    var setsCount = (wpDay && wpDay.exercises) ? wpDay.exercises.reduce(function(s, e) {
       return s + ((e.sets && e.sets.filter(function(ss) { return !ss.isWarmup; }).length) || 0);
     }, 0) : 0;
-    var metaStr = mainNames.length + ' exo' + (mainNames.length > 1 ? 's' : '') + (setsCount > 0 ? ' · ' + setsCount + ' séries' : '');
+    var metaStr = exos.length + ' exo' + (exos.length > 1 ? 's' : '') + (setsCount > 0 ? ' · ' + setsCount + ' séries' : '');
 
     // Note motivante contextuelle (différente par jour)
     var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
@@ -9429,7 +9422,6 @@ function renderProgDaysList() {
       '<div class="prog-day-label' + (isToday ? ' today' : '') + '">' + dayShort + '</div>' +
       '<div class="prog-day-content" onclick="progShowDayDetail(\'' + day + '\')" style="cursor:pointer;">' +
         '<div class="prog-day-name">' + title + '</div>' +
-        (prehabStr ? '<div class="prog-day-exos" style="color:var(--orange);font-size:11px;">' + prehabStr + '</div>' : '') +
         (exoStr ? '<div class="prog-day-exos">' + exoStr + '</div>' : '') +
         noteHtml +
       '</div>' +
@@ -12185,11 +12177,11 @@ function renderCoachTodayHTML() {
   var todayLabel = todayPlan;
   if (todayPlanData && !todayPlanData.rest && todayPlanData.exercises && todayPlanData.exercises.length) {
     var mainExos = todayPlanData.exercises
-      .filter(function(e) { return e.isPrimary && !e.isPrehab; })
+      .filter(function(e) { return e.isPrimary; })
       .slice(0, 3)
       .map(function(e) { return e.name; });
     if (!mainExos.length) {
-      mainExos = todayPlanData.exercises.filter(function(e) { return !e.isPrehab; }).slice(0, 2).map(function(e) { return e.name; });
+      mainExos = todayPlanData.exercises.slice(0, 2).map(function(e) { return e.name; });
     }
     if (mainExos.length) {
       todayLabel += ' <span style="color:var(--sub);font-size:11px;">(' + mainExos.join(', ') + ')</span>';

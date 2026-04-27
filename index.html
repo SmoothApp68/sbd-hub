@@ -384,6 +384,28 @@
     .ob-import-day-row:last-child { border-bottom: none; }
     .ob-import-day-badge { background: var(--blue); color: white; border-radius: 6px; padding: 2px 8px; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
     .ob-import-day-content { font-size: 12px; color: var(--text); line-height: 1.5; }
+    /* Onboarding V2 — goal grid */
+    .ob-goal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 16px; }
+    .ob-goal-btn { padding: 10px 6px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--sub); cursor: pointer; transition: all 0.2s; }
+    .ob-goal-btn.selected { background: rgba(10,132,255,0.12); border-color: var(--accent); color: var(--text); }
+    /* Onboarding V2 — injury level buttons */
+    .ob-inj-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 16px; }
+    .ob-inj-lvl-btn { padding: 5px 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--sub); cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s; }
+    .ob-inj-lvl-btn.selected { background: rgba(10,132,255,0.15); border-color: var(--accent); color: var(--text); }
+    .ob-inj-lvl-btn.lvl1.selected { background: rgba(255,159,10,0.15); border-color: var(--warning); color: var(--warning); }
+    .ob-inj-lvl-btn.lvl2.selected { background: rgba(255,69,58,0.15); border-color: var(--danger); color: var(--danger); }
+    /* Onboarding V2 — secondary activities */
+    .ob-secondary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 12px 0 16px; }
+    .ob-sec-btn { display: flex; align-items: center; gap: 8px; padding: 12px; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+    .ob-sec-btn.selected { background: rgba(10,132,255,0.1); border-color: var(--accent); }
+    .ob-sec-icon { font-size: 20px; }
+    .ob-sec-name { font-size: 12px; font-weight: 600; color: var(--sub); }
+    .ob-sec-btn.selected .ob-sec-name { color: var(--text); }
+    /* Onboarding V2 — generation animation */
+    .ob-gen-anim { margin: 20px 0; }
+    .ob-gen-bar { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+    .ob-gen-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; width: 0%; transition: width 0.4s ease; }
+    .ob-gen-step-text { font-size: 13px; color: var(--sub); text-align: center; min-height: 20px; }
     /* Programme viewer (post-onboarding) */
     .prog-viewer { }
     .prog-day-card { background: var(--bg-card); border-radius: 14px; margin-bottom: 12px; overflow: hidden; border: 0.5px solid var(--bg-card-border); }
@@ -1932,22 +1954,35 @@
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
-  <!-- ONBOARDING OVERLAY -->
+  <!-- ONBOARDING OVERLAY v2 -->
   <!-- ══════════════════════════════════════════════ -->
   <div id="onboarding-overlay" style="display:none;">
     <div class="ob-wrap">
       <div class="ob-progress" id="ob-progress"></div>
 
-      <!-- Step 1 : Bienvenue + profil -->
+      <!-- Welcome-back (version upgrade) -->
+      <div class="ob-step" id="ob-step-welcome-back">
+        <div class="ob-logo">👋</div>
+        <div class="ob-title">On a mis à jour<br>ton profil</div>
+        <div class="ob-sub">Quelques nouvelles options sont disponibles.<br>2 min pour compléter ton profil.</div>
+        <button class="btn" onclick="gotoObStep('1')">Mettre à jour mon profil →</button>
+        <button class="ob-skip" onclick="obFinishWelcomeBack()">Passer — garder mon profil actuel</button>
+      </div>
+
+      <!-- Étape 1 : Bienvenue + Profil -->
       <div class="ob-step active" id="ob-step-1">
         <div class="ob-logo">🏋️</div>
         <div class="ob-title">Bienvenue sur<br>TrainHub</div>
         <div class="ob-sub">Ton journal d'entraînement personnel.<br>2 minutes pour tout configurer.</div>
-        <div class="ob-label">Ton prénom</div>
         <div class="ob-fields">
+          <div class="ob-label">Ton prénom</div>
           <input type="text" id="ob-name" placeholder="Ex: Alex" maxlength="20">
           <div class="ob-label">Poids de corps (kg)</div>
           <input type="number" id="ob-bw" placeholder="Ex: 85" min="30" max="300">
+          <div class="ob-label">Taille (cm)</div>
+          <input type="number" id="ob-height" placeholder="Ex: 178" min="100" max="250">
+          <div class="ob-label">Âge</div>
+          <input type="number" id="ob-age" placeholder="Ex: 28" min="12" max="100">
           <div class="ob-label">Niveau</div>
           <select id="ob-level">
             <option value="debutant">Débutant (moins de 1 an)</option>
@@ -1956,36 +1991,130 @@
             <option value="competiteur">Compétiteur / Elite</option>
           </select>
           <div class="ob-label">Genre</div>
-          <select id="ob-gender">
+          <select id="ob-gender" onchange="obOnGenderChange(this.value)">
             <option value="unspecified">Ne pas préciser</option>
             <option value="male">Homme</option>
             <option value="female">Femme</option>
           </select>
+          <div id="ob-cycle-block" style="display:none;padding:12px;background:rgba(191,90,242,0.08);border:1px solid rgba(191,90,242,0.25);border-radius:10px;margin-top:6px;">
+            <div class="ob-label" style="color:var(--purple);margin-bottom:8px;">Suivi du cycle (optionnel)</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <input type="checkbox" id="ob-cycle-enabled" onchange="obToggleCycleTracking(this.checked)" style="width:16px;height:16px;accent-color:var(--purple);">
+              <label for="ob-cycle-enabled" style="font-size:13px;color:var(--sub);">Activer le suivi de cycle menstruel</label>
+            </div>
+            <div id="ob-cycle-fields" style="display:none;">
+              <div class="ob-label">Date des dernières règles</div>
+              <input type="date" id="ob-cycle-date" style="margin-bottom:8px;">
+              <div class="ob-label">Durée du cycle (jours)</div>
+              <input type="number" id="ob-cycle-length" value="28" min="21" max="45">
+            </div>
+          </div>
         </div>
-        <button class="btn" onclick="obNext(1)">Continuer →</button>
+        <button class="btn" onclick="obSaveStep1()">Continuer →</button>
       </div>
 
-      <!-- Step 1b : Mode d'entraînement -->
-      <div class="ob-step" id="ob-step-1b">
+      <!-- Étape 2 : Objectif -->
+      <div class="ob-step" id="ob-step-2">
         <div class="ob-logo">🎯</div>
-        <div class="ob-title">Ton objectif principal</div>
-        <div class="ob-sub">Choisis le mode qui correspond le mieux<br>à ta pratique actuelle.</div>
+        <div class="ob-title">Ton objectif</div>
+        <div class="ob-sub">Mode d'entraînement et objectif physique.</div>
         <div class="ob-mode-grid" id="ob-mode-grid">
           <div class="ob-mode-btn" onclick="selectTrainingMode('musculation')"><div class="ob-mode-icon">💪</div><div class="ob-mode-name">Musculation</div><div class="ob-mode-desc">Hypertrophie, volume, esthétique</div></div>
           <div class="ob-mode-btn" onclick="selectTrainingMode('powerbuilding')"><div class="ob-mode-icon">⚡</div><div class="ob-mode-name">Powerbuilding</div><div class="ob-mode-desc">Force SBD + hypertrophie</div></div>
           <div class="ob-mode-btn" onclick="selectTrainingMode('powerlifting')"><div class="ob-mode-icon">🏋️</div><div class="ob-mode-name">Powerlifting (SBD)</div><div class="ob-mode-desc">Squat, Bench, Deadlift — force max</div></div>
           <div class="ob-mode-btn" onclick="selectTrainingMode('bien_etre')"><div class="ob-mode-icon">🧘</div><div class="ob-mode-name">Bien-être & Santé</div><div class="ob-mode-desc">Forme générale, mobilité, cardio</div></div>
         </div>
-        <button class="btn" onclick="obNext('1b')" id="ob-mode-continue" disabled>Continuer →</button>
+        <div class="ob-label" style="margin-top:14px;">Objectif physique</div>
+        <div class="ob-goal-grid" id="ob-goal-grid">
+          <div class="ob-goal-btn selected" onclick="obSelectGoal('masse',this)">💪 Masse</div>
+          <div class="ob-goal-btn" onclick="obSelectGoal('force',this)">🏋️ Force</div>
+          <div class="ob-goal-btn" onclick="obSelectGoal('seche',this)">🔥 Sèche</div>
+          <div class="ob-goal-btn" onclick="obSelectGoal('recompo',this)">⚖️ Recompo</div>
+          <div class="ob-goal-btn" onclick="obSelectGoal('maintien',this)">🎯 Maintien</div>
+          <div class="ob-goal-btn" onclick="obSelectGoal('reprise',this)">🌱 Reprise</div>
+        </div>
+        <button class="btn" onclick="obSaveStep2()" style="margin-top:16px;">Continuer →</button>
       </div>
 
-      <!-- Step 2 : Objectifs SBD (optionnel, visible seulement si mode SBD/force) -->
-      <div class="ob-step" id="ob-step-2">
-        <div class="ob-logo">🎯</div>
+      <!-- Étape 3 : Blessures / zones à ménager -->
+      <div class="ob-step" id="ob-step-3">
+        <div class="ob-logo">🩹</div>
+        <div class="ob-title">Zones à ménager</div>
+        <div class="ob-sub">Blessures ou douleurs ?<br>L'app adaptera les exercices proposés.</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;padding:8px 10px;background:rgba(255,159,10,0.08);border:1px solid rgba(255,159,10,0.2);border-radius:8px;font-size:11px;color:var(--sub);">🟡 <strong style="color:var(--warning);">Gêne</strong> — remplace les exos douloureux</div>
+          <div style="flex:1;padding:8px 10px;background:rgba(255,69,58,0.08);border:1px solid rgba(255,69,58,0.2);border-radius:8px;font-size:11px;color:var(--sub);">🔴 <strong style="color:var(--danger);">Douleur</strong> — exclut la zone du programme</div>
+        </div>
+        <div id="ob-inj-list" class="ob-inj-list"></div>
+        <button class="btn" onclick="obSaveStep3()">Continuer →</button>
+        <button class="ob-skip" onclick="obSaveStep3()">Aucune blessure — continuer →</button>
+      </div>
+
+      <!-- Étape 4 : Activités secondaires -->
+      <div class="ob-step" id="ob-step-4">
+        <div class="ob-logo">🏃</div>
+        <div class="ob-title">Activités secondaires</div>
+        <div class="ob-sub">Pratiques-tu d'autres sports en dehors de la salle ?<br>L'app ajustera le volume de récupération.</div>
+        <div class="ob-secondary-grid" id="ob-secondary-grid">
+          <div class="ob-sec-btn" onclick="obToggleSecondary('running',this)"><div class="ob-sec-icon">🏃</div><div class="ob-sec-name">Course / Running</div></div>
+          <div class="ob-sec-btn" onclick="obToggleSecondary('cycling',this)"><div class="ob-sec-icon">🚴</div><div class="ob-sec-name">Vélo / Cyclisme</div></div>
+          <div class="ob-sec-btn" onclick="obToggleSecondary('swimming',this)"><div class="ob-sec-icon">🏊</div><div class="ob-sec-name">Natation</div></div>
+          <div class="ob-sec-btn" onclick="obToggleSecondary('yoga',this)"><div class="ob-sec-icon">🧘</div><div class="ob-sec-name">Yoga / Mobilité</div></div>
+          <div class="ob-sec-btn" onclick="obToggleSecondary('team_sport',this)"><div class="ob-sec-icon">⚽</div><div class="ob-sec-name">Sport collectif</div></div>
+          <div class="ob-sec-btn" onclick="obToggleSecondary('martial_arts',this)"><div class="ob-sec-icon">🥊</div><div class="ob-sec-name">Arts martiaux</div></div>
+        </div>
+        <button class="btn" onclick="obSaveStep4()">Continuer →</button>
+        <button class="ob-skip" onclick="obSaveStep4()">Aucune activité secondaire →</button>
+      </div>
+
+      <!-- Étape 5 : Programme (fréquence + jours + matériel + durée) -->
+      <div class="ob-step" id="ob-step-5">
+        <div class="ob-logo">📅</div>
+        <div class="ob-title">Ton programme</div>
+        <div class="ob-sub">Configure ta semaine d'entraînement.</div>
+        <div class="ob-label">Fréquence hebdomadaire</div>
+        <div class="ob-freq-grid" id="ob-freq-grid">
+          <div class="ob-freq-btn" onclick="selectFreq(1)"><div class="freq-num">1</div><div class="freq-label">j/sem</div></div>
+          <div class="ob-freq-btn" onclick="selectFreq(2)"><div class="freq-num">2</div><div class="freq-label">j/sem</div></div>
+          <div class="ob-freq-btn selected" onclick="selectFreq(3)"><div class="freq-num">3</div><div class="freq-label">j/sem</div></div>
+          <div class="ob-freq-btn" onclick="selectFreq(4)"><div class="freq-num">4</div><div class="freq-label">j/sem</div></div>
+          <div class="ob-freq-btn" onclick="selectFreq(5)"><div class="freq-num">5</div><div class="freq-label">j/sem</div></div>
+          <div class="ob-freq-btn" onclick="selectFreq(6)"><div class="freq-num">6</div><div class="freq-label">j/sem</div></div>
+        </div>
+        <div class="ob-label">Jours d'entraînement</div>
+        <div class="ob-sub" id="ob-days-sub" style="font-size:12px;text-align:left;margin:4px 0 8px;">Sélectionne <strong id="ob-days-needed">3</strong> jours.</div>
+        <div class="ob-days-grid" id="ob-days-grid"></div>
+        <div id="ob-days-hint" style="font-size:12px;color:var(--orange);text-align:center;min-height:18px;margin-bottom:10px;"></div>
+        <div class="ob-label">Matériel disponible</div>
+        <div class="ob-mat-grid">
+          <div class="ob-mat-btn selected" onclick="selectMat('salle')">
+            <div class="mat-icon">🏋️</div><div class="mat-name">Salle complète</div><div class="mat-desc">Barres, machines, câbles</div>
+          </div>
+          <div class="ob-mat-btn" onclick="selectMat('halteres')">
+            <div class="mat-icon">💪</div><div class="mat-name">Haltères</div><div class="mat-desc">Haltères + banc</div>
+          </div>
+          <div class="ob-mat-btn" onclick="selectMat('maison')">
+            <div class="mat-icon">🏠</div><div class="mat-name">Maison</div><div class="mat-desc">Poids de corps</div>
+          </div>
+        </div>
+        <div class="ob-label" style="margin-top:12px;">Durée de séance</div>
+        <div class="ob-dur-grid" id="ob-dur-grid">
+          <div class="ob-dur-btn" onclick="selectDur(30)"><div class="dur-num">30<span>min</span></div><div class="dur-label">Express</div><div class="dur-desc">3–4 exos</div></div>
+          <div class="ob-dur-btn" onclick="selectDur(45)"><div class="dur-num">45<span>min</span></div><div class="dur-label">Court</div><div class="dur-desc">4–5 exos</div></div>
+          <div class="ob-dur-btn selected" onclick="selectDur(60)"><div class="dur-num">1<span>h</span></div><div class="dur-label">Standard</div><div class="dur-desc">5–6 exos</div></div>
+          <div class="ob-dur-btn" onclick="selectDur(90)"><div class="dur-num">1h30</div><div class="dur-label">Long</div><div class="dur-desc">7–8 exos</div></div>
+          <div class="ob-dur-btn" onclick="selectDur(120)"><div class="dur-num">2h<span>+</span></div><div class="dur-label">Complet</div><div class="dur-desc">Full prog</div></div>
+        </div>
+        <button class="btn" onclick="obSaveStep5()" style="margin-top:4px;">Continuer →</button>
+      </div>
+
+      <!-- Étape 6 : Records SBD (conditionnel — powerlifting/powerbuilding) -->
+      <div class="ob-step" id="ob-step-6">
+        <div class="ob-logo">🏆</div>
         <div class="ob-title">Records de force</div>
-        <div class="ob-sub">Tu fais du Squat, Bench press et Soulevé de terre ?<br>Remplis tes records actuels et objectifs.</div>
+        <div class="ob-sub">Tu fais du Squat, Bench press et Deadlift ?<br>Remplis tes records pour personnaliser le programme.</div>
         <div style="background:rgba(10,132,255,0.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--sub);text-align:center;">
-          🏃 Tu ne fais pas ces exercices ? Clique sur <strong style="color:var(--text);">Passer</strong> — cette étape est 100% optionnelle.
+          🏃 Pas de powerlifting ? Clique sur <strong style="color:var(--text);">Passer</strong> — étape 100% optionnelle.
         </div>
         <div class="ob-label">Records actuels (kg)</div>
         <div class="ob-fields">
@@ -2001,227 +2130,21 @@
             <input type="number" id="ob-dead-tgt"  placeholder="Dead"  min="0" max="700">
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-direction:column;">
-          <button class="btn" onclick="obNext(2)">Continuer →</button>
-          <button class="btn" onclick="obSkip(2)" style="background:var(--surface);color:var(--sub);border:1px solid var(--border);">Passer cette étape</button>
-        </div>
+        <button class="btn" onclick="obSaveStep6()">Continuer →</button>
+        <button class="ob-skip" onclick="obGenerateProgram()">Passer cette étape →</button>
       </div>
 
-      <!-- Step 3 : Choix du chemin programme -->
-      <div class="ob-step" id="ob-step-3">
-        <div class="ob-logo">📅</div>
-        <div class="ob-title">Ton programme</div>
-        <div class="ob-sub">Comment veux-tu configurer<br>ton programme d'entraînement ?</div>
-        <div class="ob-path-grid">
-          <div class="ob-path-btn selected" id="path-btn-generate" onclick="selectPath('generate')">
-            <div class="ob-path-icon">🤖</div>
-            <div class="ob-path-name">Générer sur mesure</div>
-            <div class="ob-path-desc">Je réponds à quelques questions et l'app crée mon programme</div>
-          </div>
-          <div class="ob-path-btn" id="path-btn-import" onclick="selectPath('import')">
-            <div class="ob-path-icon">📋</div>
-            <div class="ob-path-name">Importer le mien</div>
-            <div class="ob-path-desc">J'ai déjà un programme, je le colle directement</div>
-          </div>
-        </div>
-        <button class="btn" onclick="obNext(3)">Continuer →</button>
-        <button class="ob-skip" onclick="obSkip(3)">Passer — configurer plus tard</button>
-      </div>
-
-      <!-- Step 4a : Objectifs fitness (generate path) -->
-      <div class="ob-step" id="ob-step-4a">
-        <div class="ob-logo">🏆</div>
-        <div class="ob-title">Tes objectifs</div>
-        <div class="ob-sub">Glisse pour mettre en ordre de priorité.<br>Ton programme sera adapté en conséquence.</div>
-        <div class="ob-label">Glisse pour ordonner (1 = priorité principale)</div>
-        <div class="ob-priority-list" id="ob-priority-list"></div>
-        <button class="btn" onclick="obNext('4a')">Continuer →</button>
-      </div>
-
-      <!-- Step 4b : Import manuel (import path) -->
-      <div class="ob-step" id="ob-step-4b">
-        <div class="ob-logo">📋</div>
-        <div class="ob-title">Colle ton programme</div>
-        <div class="ob-sub">Décris ton programme semaine par semaine.<br>L'app le structure automatiquement.</div>
-        <div class="ob-label">Ton programme (un jour par ligne)</div>
-        <div class="ob-manual-import">
-          <textarea id="ob-manual-prog" placeholder="Lundi : Squat, Leg press, Fentes, Leg curl&#10;Mardi : Bench press, Développé incliné, Écarté, Dips&#10;Mercredi : Repos&#10;Jeudi : Soulevé de terre, Rowing, Tractions, Curl&#10;Vendredi : Épaules, Triceps, Abdos&#10;Samedi : Repos&#10;Dimanche : Repos" oninput="previewManualImport()"></textarea>
-        </div>
-        <p class="ob-import-hint">Format libre — un jour par ligne avec "Jour : exercices". Tu peux aussi juste écrire le nom de la séance (ex: "Lundi : Push").</p>
-        <div id="ob-import-preview" style="display:none;" class="ob-import-preview"></div>
-        <button class="btn" onclick="obNext('4b')">Continuer →</button>
-        <button class="ob-skip" onclick="obSkip('4b')">Passer — configurer plus tard</button>
-      </div>
-
-      <!-- Step 5 : Fréquence (generate path only) -->
-      <div class="ob-step" id="ob-step-5">
-        <div class="ob-logo">📆</div>
-        <div class="ob-title">Fréquence</div>
-        <div class="ob-sub">Combien de fois par semaine<br>peux-tu aller à la salle ?</div>
-        <div class="ob-freq-grid" id="ob-freq-grid">
-          <div class="ob-freq-btn" onclick="selectFreq(1)"><div class="freq-num">1</div><div class="freq-label">j/sem</div></div>
-          <div class="ob-freq-btn" onclick="selectFreq(2)"><div class="freq-num">2</div><div class="freq-label">j/sem</div></div>
-          <div class="ob-freq-btn selected" onclick="selectFreq(3)"><div class="freq-num">3</div><div class="freq-label">j/sem</div></div>
-          <div class="ob-freq-btn" onclick="selectFreq(4)"><div class="freq-num">4</div><div class="freq-label">j/sem</div></div>
-          <div class="ob-freq-btn" onclick="selectFreq(5)"><div class="freq-num">5</div><div class="freq-label">j/sem</div></div>
-          <div class="ob-freq-btn" onclick="selectFreq(6)"><div class="freq-num">6</div><div class="freq-label">j/sem</div></div>
-        </div>
-        <button class="btn" onclick="obNext(5)">Continuer →</button>
-      </div>
-
-      <!-- Step 5b : Choix des jours précis -->
-      <div class="ob-step" id="ob-step-5b">
-        <div class="ob-logo">🗓️</div>
-        <div class="ob-title">Quels jours ?</div>
-        <div class="ob-sub" id="ob-days-sub">Sélectionne exactement <strong id="ob-days-needed">3</strong> jours.</div>
-        <div class="ob-days-grid" id="ob-days-grid"></div>
-        <div id="ob-days-hint" style="font-size:12px;color:var(--orange);text-align:center;min-height:18px;margin-bottom:12px;"></div>
-        <button class="btn" onclick="obNext('5b')">Continuer →</button>
-      </div>
-
-      <!-- Step 6 : Matériel (generate path only) -->
-      <div class="ob-step" id="ob-step-6">
-        <div class="ob-logo">🏗️</div>
-        <div class="ob-title">Matériel dispo</div>
-        <div class="ob-sub">Quel équipement as-tu à disposition ?</div>
-        <div class="ob-mat-grid">
-          <div class="ob-mat-btn selected" onclick="selectMat('salle')">
-            <div class="mat-icon">🏋️</div>
-            <div class="mat-name">Salle complète</div>
-            <div class="mat-desc">Barres, machines, câbles</div>
-          </div>
-          <div class="ob-mat-btn" onclick="selectMat('halteres')">
-            <div class="mat-icon">💪</div>
-            <div class="mat-name">Haltères</div>
-            <div class="mat-desc">Haltères + banc</div>
-          </div>
-          <div class="ob-mat-btn" onclick="selectMat('maison')">
-            <div class="mat-icon">🏠</div>
-            <div class="mat-name">Maison</div>
-            <div class="mat-desc">Poids de corps uniquement</div>
-          </div>
-        </div>
-        <button class="btn" onclick="obNext(6)">Continuer →</button>
-      </div>
-
-      <!-- Step 6b : Durée de séance -->
-      <div class="ob-step" id="ob-step-6b">
-        <div class="ob-logo">⏱️</div>
-        <div class="ob-title">Durée de séance</div>
-        <div class="ob-sub">Combien de temps as-tu par séance ?<br>Ça détermine le volume de chaque entraînement.</div>
-        <div class="ob-dur-grid" id="ob-dur-grid">
-          <div class="ob-dur-btn" onclick="selectDur(30)">
-            <div class="dur-num">30<span>min</span></div>
-            <div class="dur-label">Express</div>
-            <div class="dur-desc">3–4 exercices ciblés</div>
-          </div>
-          <div class="ob-dur-btn" onclick="selectDur(45)">
-            <div class="dur-num">45<span>min</span></div>
-            <div class="dur-label">Court</div>
-            <div class="dur-desc">4–5 exercices</div>
-          </div>
-          <div class="ob-dur-btn selected" onclick="selectDur(60)">
-            <div class="dur-num">1<span>h</span></div>
-            <div class="dur-label">Standard</div>
-            <div class="dur-desc">5–6 exercices</div>
-          </div>
-          <div class="ob-dur-btn" onclick="selectDur(90)">
-            <div class="dur-num">1h30<span></span></div>
-            <div class="dur-label">Long</div>
-            <div class="dur-desc">7–8 exercices</div>
-          </div>
-          <div class="ob-dur-btn" onclick="selectDur(120)">
-            <div class="dur-num">2h<span>+</span></div>
-            <div class="dur-label">Complet</div>
-            <div class="dur-desc">Programme complet</div>
-          </div>
-        </div>
-        <button class="btn" onclick="obNext('6b')">Continuer →</button>
-      </div>
-
-      <!-- Step 6c : Zones fragiles / blessures -->
-      <div class="ob-step" id="ob-step-6c">
-        <div class="ob-logo">🩹</div>
-        <div class="ob-title">Zones à ménager</div>
-        <div class="ob-sub">Des douleurs ou antécédents de blessures ?<br>L'app adaptera les exercices proposés.</div>
-        <div class="ob-inj-grid" id="ob-inj-grid">
-          <div class="ob-inj-btn" onclick="toggleInjury('epaules')" data-inj="epaules">
-            <div class="inj-icon">🦾</div><div class="inj-name">Épaules</div>
-          </div>
-          <div class="ob-inj-btn" onclick="toggleInjury('genoux')" data-inj="genoux">
-            <div class="inj-icon">🦵</div><div class="inj-name">Genoux</div>
-          </div>
-          <div class="ob-inj-btn" onclick="toggleInjury('dos')" data-inj="dos">
-            <div class="inj-icon">🔙</div><div class="inj-name">Bas du dos</div>
-          </div>
-          <div class="ob-inj-btn" onclick="toggleInjury('poignets')" data-inj="poignets">
-            <div class="inj-icon">🤝</div><div class="inj-name">Poignets</div>
-          </div>
-          <div class="ob-inj-btn" onclick="toggleInjury('nuque')" data-inj="nuque">
-            <div class="inj-icon">🧠</div><div class="inj-name">Nuque / Cervicales</div>
-          </div>
-          <div class="ob-inj-btn" onclick="toggleInjury('hanches')" data-inj="hanches">
-            <div class="inj-icon">🍑</div><div class="inj-name">Hanches</div>
-          </div>
-        </div>
-        <button class="btn" onclick="obNext('6c')">Continuer →</button>
-        <button class="ob-skip" onclick="obNext('6c')">Aucune blessure — continuer →</button>
-      </div>
-
-      <!-- Step 6d : Accès cardio -->
-      <div class="ob-step" id="ob-step-6d">
-        <div class="ob-logo">🏃</div>
-        <div class="ob-title">Cardio</div>
-        <div class="ob-sub">Comment intégrer le cardio<br>dans ton programme ?</div>
-        <div class="ob-cardio-grid" id="ob-cardio-grid">
-          <div class="ob-cardio-btn selected" onclick="selectCardio('integre')" data-cardio="integre">
-            <div class="cardio-icon">🔀</div>
-            <div class="cardio-name">Intégré aux séances</div>
-            <div class="cardio-desc">10–15min à la fin des entraînements</div>
-          </div>
-          <div class="ob-cardio-btn" onclick="selectCardio('dedie')" data-cardio="dedie">
-            <div class="cardio-icon">📅</div>
-            <div class="cardio-name">Jours dédiés</div>
-            <div class="cardio-desc">Jours de repos transformés en cardio léger</div>
-          </div>
-          <div class="ob-cardio-btn" onclick="selectCardio('aucun')" data-cardio="aucun">
-            <div class="cardio-icon">🚫</div>
-            <div class="cardio-name">Pas de cardio</div>
-            <div class="cardio-desc">Musculation pure uniquement</div>
-          </div>
-        </div>
-        <button class="btn" onclick="obNext('6d')">Générer mon programme →</button>
-      </div>
-
-      <!-- Step 6e : Objectif compétition (si compétiteur) -->
-      <div class="ob-step" id="ob-step-6e">
-        <div class="ob-logo">🏆</div>
-        <div class="ob-title">Compétition</div>
-        <div class="ob-sub">As-tu une compétition prévue ?<br>L'app génère un cycle de peak automatiquement.</div>
-        <div class="ob-fields">
-          <div class="ob-label">Date de compétition (optionnel)</div>
-          <input type="date" id="ob-comp-date" style="margin-bottom:12px;">
-          <div class="ob-label">Type de compétition</div>
-          <select id="ob-comp-type">
-            <option value="powerlifting">Powerlifting (SBD)</option>
-            <option value="force">Force athlétique</option>
-            <option value="bodybuilding">Bodybuilding / Physique</option>
-            <option value="crossfit">CrossFit / Functional</option>
-            <option value="autre">Autre</option>
-          </select>
-        </div>
-        <button class="btn" onclick="obNext('6e')">Générer mon programme →</button>
-        <button class="ob-skip" onclick="obNext('6e')">Pas de compétition prévue →</button>
-      </div>
-
-      <!-- Step 7 : Programme généré + preview -->
+      <!-- Étape 7 : Génération + résumé -->
       <div class="ob-step" id="ob-step-7">
-        <div class="ob-logo">✨</div>
-        <div class="ob-title">Ton programme</div>
-        <div class="ob-sub" id="ob-prog-summary"></div>
-        <div id="ob-generated-program"></div>
-        <button class="btn" onclick="obFinish()">C'est parti ! 🚀</button>
-        <button class="ob-skip" onclick="obSkip(7)">Modifier dans Réglages</button>
+        <div class="ob-logo" id="ob7-logo">⚡</div>
+        <div class="ob-title" id="ob7-title">Génération en cours…</div>
+        <div class="ob-sub" id="ob7-sub">On assemble ton programme sur mesure.</div>
+        <div id="ob-gen-anim" class="ob-gen-anim">
+          <div class="ob-gen-bar"><div class="ob-gen-bar-fill" id="ob-gen-bar-fill"></div></div>
+          <div class="ob-gen-step-text" id="ob-gen-step-text">Analyse du profil…</div>
+        </div>
+        <div id="ob-summary" style="display:none;"></div>
+        <button class="btn" id="ob-finish-btn" style="display:none;margin-top:16px;" onclick="obFinish()">C'est parti ! 🚀</button>
       </div>
 
     </div>

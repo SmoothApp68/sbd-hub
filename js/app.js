@@ -79,7 +79,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, liftLevels: {}, _realLevel: null, tdeeAdjustment: 0, injuries: [] },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, liftLevels: {}, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [] },
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -173,6 +173,9 @@ let db = (() => {
       if (typeof inj === 'string') return { zone: inj, level: 1, active: true, since: null };
       return inj;
     });
+    if (p.user.onboardingVersion === undefined) p.user.onboardingVersion = p.user.onboarded ? 1 : 0;
+    if (!Array.isArray(p.user.secondaryActivities)) p.user.secondaryActivities = [];
+    if (!p.user.goal) p.user.goal = 'masse';
     return p;
   } catch { return defaultDB(); }
 })();
@@ -847,9 +850,12 @@ function filtMat(ids, mat) {
   });
 }
 
-// ── ONBOARDING FLOW ──────────────────────────────────────────
-const OB_STEPS_GENERATE = ['1','1b','2','3','4a','5','5b','6','6b','6c','6d','7']; // +6e si force_athletique
-const OB_STEPS_IMPORT   = ['1','1b','2','3','4b','7_import'];
+// ── ONBOARDING FLOW V2 ───────────────────────────────────────
+var OB_STEP_SEQUENCE = ['1','2','3','4','5','6','7'];
+
+function needsOnboarding() {
+  return !db.user.onboarded || !db.user.onboardingVersion || db.user.onboardingVersion < ONBOARDING_VERSION;
+}
 
 let _obSelectedMode = null;
 function selectTrainingMode(modeId) {
@@ -857,7 +863,8 @@ function selectTrainingMode(modeId) {
   db.user.trainingMode = modeId;
   document.querySelectorAll('#ob-mode-grid .ob-mode-btn').forEach(el => el.classList.remove('selected'));
   event.currentTarget.classList.add('selected');
-  document.getElementById('ob-mode-continue').disabled = false;
+  var continueBtn = document.getElementById('ob-mode-continue');
+  if (continueBtn) continueBtn.disabled = false;
 }
 let obStepHistory = [];
 let obSelectedDays = [];
@@ -869,9 +876,32 @@ let obCompType    = 'powerlifting';
 
 function showOnboarding() {
   document.getElementById('onboarding-overlay').style.display = 'flex';
-  renderObGoals();
   obStepHistory = [];
-  gotoObStep('1');
+  obSelectedDays = [];
+  _obSelectedGoal = db.user.goal || 'masse';
+  _obSecondaryActivities = (db.user.secondaryActivities || []).slice();
+
+  if (db.user.onboarded && db.user.onboardingVersion < ONBOARDING_VERSION) {
+    // Existing user — show welcome-back screen first
+    gotoObStep('welcome-back');
+  } else {
+    // Pre-fill existing values for edit session
+    var nameEl = document.getElementById('ob-name');
+    var bwEl   = document.getElementById('ob-bw');
+    var htEl   = document.getElementById('ob-height');
+    var ageEl  = document.getElementById('ob-age');
+    var lvlEl  = document.getElementById('ob-level');
+    var genEl  = document.getElementById('ob-gender');
+    if (nameEl && db.user.name) nameEl.value = db.user.name;
+    if (bwEl   && db.user.bw)   bwEl.value   = db.user.bw;
+    if (htEl   && db.user.height) htEl.value  = db.user.height;
+    if (ageEl  && db.user.age)    ageEl.value  = db.user.age;
+    if (lvlEl  && db.user.level)  lvlEl.value  = db.user.level;
+    if (genEl  && db.user.gender) { genEl.value = db.user.gender; obOnGenderChange(db.user.gender); }
+    gotoObStep('1');
+  }
+  obRenderInjuriesList();
+  renderDayPicker();
 }
 function hideOnboarding() {
   document.getElementById('onboarding-overlay').style.display = 'none';
@@ -879,33 +909,50 @@ function hideOnboarding() {
 
 function gotoObStep(stepId) {
   obStepHistory.push(stepId);
-  document.querySelectorAll('.ob-step').forEach(el => el.classList.remove('active'));
-  const el = document.getElementById('ob-step-'+stepId);
-  if (el) { el.classList.add('active'); el.scrollIntoView({behavior:'smooth',block:'start'}); }
+  document.querySelectorAll('.ob-step').forEach(function(el) { el.classList.remove('active'); });
+  var el = document.getElementById('ob-step-' + stepId);
+  if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   updateObProgress(stepId);
-  window.scrollTo(0,0);
+  window.scrollTo(0, 0);
+  // Step-specific init
+  if (stepId === '2') {
+    var goalGrid = document.getElementById('ob-goal-grid');
+    if (goalGrid) {
+      goalGrid.querySelectorAll('.ob-goal-btn').forEach(function(b) { b.classList.remove('selected'); });
+      var goal = _obSelectedGoal || db.user.goal || 'masse';
+      var map = { masse:0, force:1, seche:2, recompo:3, maintien:4, reprise:5 };
+      var btns = goalGrid.querySelectorAll('.ob-goal-btn');
+      if (map[goal] !== undefined && btns[map[goal]]) btns[map[goal]].classList.add('selected');
+    }
+    // Pre-select training mode
+    if (db.user.trainingMode) {
+      document.querySelectorAll('#ob-mode-grid .ob-mode-btn').forEach(function(el) { el.classList.remove('selected'); });
+      var modeMap = { musculation:0, powerbuilding:1, powerlifting:2, bien_etre:3 };
+      var modeBtns = document.querySelectorAll('#ob-mode-grid .ob-mode-btn');
+      var modeIdx = modeMap[db.user.trainingMode];
+      if (modeIdx !== undefined && modeBtns[modeIdx]) modeBtns[modeIdx].classList.add('selected');
+    }
+  }
+  if (stepId === '4') {
+    // Pre-mark secondary activities
+    document.querySelectorAll('#ob-secondary-grid .ob-sec-btn').forEach(function(btn) { btn.classList.remove('selected'); });
+    _obSecondaryActivities.forEach(function(act) {
+      var btn = document.querySelector('#ob-secondary-grid .ob-sec-btn[onclick*="\'' + act + '\'"]');
+      if (btn) btn.classList.add('selected');
+    });
+  }
 }
 
 function getObSteps() {
-  let steps = obPath === 'import' ? [...OB_STEPS_IMPORT] : [...OB_STEPS_GENERATE];
-  // Remove step 2 (SBD records) if mode doesn't use SBD
-  if (db.user.trainingMode && !TRAINING_MODES[db.user.trainingMode]?.features?.showSBDCards) {
-    steps = steps.filter(s => s !== '2');
-  }
-  // Add 6e only for force_athletique
-  if (db.user.trainingMode === 'force_athletique' && !steps.includes('6e')) {
-    const idx6d = steps.indexOf('6d');
-    if (idx6d !== -1) steps.splice(idx6d + 1, 0, '6e');
-  }
-  return steps;
+  return OB_STEP_SEQUENCE.slice();
 }
 
 function updateObProgress(stepId) {
-  const allSteps = getObSteps();
-  const current = allSteps.indexOf(stepId) + 1;
-  document.getElementById('ob-progress').innerHTML = allSteps.map((_,i) =>
-    '<div class="ob-dot'+(i < current ? ' active' : '')+'"></div>'
-  ).join('');
+  var steps = OB_STEP_SEQUENCE;
+  var current = steps.indexOf(stepId) + 1;
+  document.getElementById('ob-progress').innerHTML = steps.map(function(_, i) {
+    return '<div class="ob-dot' + (i < current ? ' active' : '') + '"></div>';
+  }).join('');
 }
 
 function obNext(step) {
@@ -1001,9 +1048,233 @@ function obNext(step) {
 }
 
 function obSkip(step) {
-  const s = String(step);
+  var s = String(step);
   if (s === '2') gotoObStep('3');
   else if (s === '3' || s === '4b' || s === '7') obFinish();
+}
+
+// ── ONBOARDING V2 — STEP SAVE FUNCTIONS ──────────────────────
+
+function obFinishWelcomeBack() {
+  db.user.onboardingVersion = ONBOARDING_VERSION;
+  saveDB();
+  hideOnboarding();
+  showToast('Profil à jour !');
+}
+
+function obOnGenderChange(val) {
+  var block = document.getElementById('ob-cycle-block');
+  if (block) block.style.display = val === 'female' ? 'block' : 'none';
+}
+
+function obToggleCycleTracking(enabled) {
+  var fields = document.getElementById('ob-cycle-fields');
+  if (fields) fields.style.display = enabled ? 'block' : 'none';
+}
+
+function obSaveStep1() {
+  var name = (document.getElementById('ob-name') || {}).value || '';
+  name = name.trim();
+  if (!name) { showToast('Entre ton prénom 😊'); return; }
+  db.user.name   = name;
+  db.user.bw     = parseFloat(document.getElementById('ob-bw').value) || 0;
+  db.user.height = parseFloat(document.getElementById('ob-height').value) || null;
+  db.user.age    = parseInt(document.getElementById('ob-age').value) || null;
+  db.user.level  = document.getElementById('ob-level').value;
+  db.user.gender = document.getElementById('ob-gender').value || 'unspecified';
+  if (db.user.gender === 'female') {
+    var cycleEnabled = document.getElementById('ob-cycle-enabled').checked;
+    db.user.cycleTracking.enabled = cycleEnabled;
+    if (cycleEnabled) {
+      var dateVal = (document.getElementById('ob-cycle-date') || {}).value || '';
+      if (dateVal) db.user.cycleTracking.lastPeriodDate = dateVal;
+      var lengthVal = parseInt((document.getElementById('ob-cycle-length') || {}).value);
+      if (lengthVal >= 21 && lengthVal <= 45) db.user.cycleTracking.cycleLength = lengthVal;
+    }
+  }
+  saveDB();
+  gotoObStep('2');
+}
+
+var _obSelectedGoal = 'masse';
+
+function obSelectGoal(goal, btn) {
+  _obSelectedGoal = goal;
+  document.querySelectorAll('#ob-goal-grid .ob-goal-btn').forEach(function(b) { b.classList.remove('selected'); });
+  if (btn) btn.classList.add('selected');
+}
+
+function obSaveStep2() {
+  if (!db.user.trainingMode) { showToast('Choisis un mode d\'entraînement'); return; }
+  db.user.goal = _obSelectedGoal;
+  saveDB();
+  gotoObStep('3');
+}
+
+function obRenderInjuriesList() {
+  var container = document.getElementById('ob-inj-list');
+  if (!container) return;
+  var injuries = db.user.injuries || [];
+  var byZone = {};
+  injuries.forEach(function(inj) { if (inj && inj.zone) byZone[inj.zone] = inj; });
+  container.innerHTML = INJURY_ZONES.map(function(z) {
+    var inj = byZone[z.key];
+    var level = (inj && inj.active) ? inj.level : 0;
+    var btns = [
+      '<button class="ob-inj-lvl-btn' + (level===0?' selected':'') + '" onclick="obSetInjuryLevel(\'' + z.key + '\',0,this.parentNode)"><span>Aucune</span></button>',
+      '<button class="ob-inj-lvl-btn lvl1' + (level===1?' selected':'') + '" onclick="obSetInjuryLevel(\'' + z.key + '\',1,this.parentNode)"><span>Gêne</span></button>',
+      '<button class="ob-inj-lvl-btn lvl2' + (level===2?' selected':'') + '" onclick="obSetInjuryLevel(\'' + z.key + '\',2,this.parentNode)"><span>Douleur</span></button>',
+    ].join('');
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">' +
+      '<div style="font-size:13px;font-weight:600;flex:1;">' + z.label + '</div>' +
+      '<div style="display:flex;gap:5px;">' + btns + '</div></div>';
+  }).join('');
+}
+
+function obSetInjuryLevel(zone, level, container) {
+  var btns = container.querySelectorAll('.ob-inj-lvl-btn');
+  btns.forEach(function(b) { b.classList.remove('selected'); });
+  if (btns[level]) btns[level].classList.add('selected');
+  setInjuryLevel(zone, level);
+}
+
+function obSaveStep3() {
+  saveDB();
+  gotoObStep('4');
+}
+
+var _obSecondaryActivities = [];
+
+function obToggleSecondary(act, btn) {
+  var idx = _obSecondaryActivities.indexOf(act);
+  if (idx >= 0) {
+    _obSecondaryActivities.splice(idx, 1);
+    if (btn) btn.classList.remove('selected');
+  } else {
+    _obSecondaryActivities.push(act);
+    if (btn) btn.classList.add('selected');
+  }
+}
+
+function obSaveStep4() {
+  db.user.secondaryActivities = _obSecondaryActivities.slice();
+  saveDB();
+  gotoObStep('5');
+}
+
+function obSaveStep5() {
+  if (obSelectedDays.length !== obFreq) {
+    var hint = document.getElementById('ob-days-hint');
+    if (hint) hint.textContent = obSelectedDays.length < obFreq
+      ? 'Sélectionne encore ' + (obFreq - obSelectedDays.length) + ' jour(s)'
+      : 'Tu as sélectionné trop de jours — retire-en ' + (obSelectedDays.length - obFreq);
+    return;
+  }
+  var showSBD = db.user.trainingMode && TRAINING_MODES[db.user.trainingMode] &&
+    TRAINING_MODES[db.user.trainingMode].features &&
+    TRAINING_MODES[db.user.trainingMode].features.showSBDCards;
+  if (showSBD) {
+    gotoObStep('6');
+  } else {
+    obGenerateProgram();
+  }
+}
+
+function obSaveStep6() {
+  var benchPR = parseFloat(document.getElementById('ob-bench-pr').value) || 0;
+  var squatPR = parseFloat(document.getElementById('ob-squat-pr').value) || 0;
+  var deadPR  = parseFloat(document.getElementById('ob-dead-pr').value)  || 0;
+  if (benchPR > 0) db.bestPR.bench    = benchPR;
+  if (squatPR > 0) db.bestPR.squat    = squatPR;
+  if (deadPR  > 0) db.bestPR.deadlift = deadPR;
+  db.user.targets = {
+    bench:    parseFloat(document.getElementById('ob-bench-tgt').value)  || db.user.targets.bench,
+    squat:    parseFloat(document.getElementById('ob-squat-tgt').value)  || db.user.targets.squat,
+    deadlift: parseFloat(document.getElementById('ob-dead-tgt').value)   || db.user.targets.deadlift,
+  };
+  saveDB();
+  obGenerateProgram();
+}
+
+// Mapping zones → INJURY_EXCLUSIONS keys (used by generateProgram)
+var _OB_ZONE_TO_EXCL = { genou:'genoux', epaule:'epaules', dos:'dos', hanche:'hanches', poignet:'poignets', coude:null, nuque:'nuque' };
+
+function obGenerateProgram() {
+  gotoObStep('7');
+  var logo   = document.getElementById('ob7-logo');
+  var title  = document.getElementById('ob7-title');
+  var sub    = document.getElementById('ob7-sub');
+  var genAnim = document.getElementById('ob-gen-anim');
+  var fill   = document.getElementById('ob-gen-bar-fill');
+  var stepTxt = document.getElementById('ob-gen-step-text');
+  var summary = document.getElementById('ob-summary');
+  var finBtn  = document.getElementById('ob-finish-btn');
+  if (logo)    logo.textContent  = '⚡';
+  if (title)   title.textContent = 'Génération en cours…';
+  if (sub)     sub.textContent   = 'On assemble ton programme sur mesure.';
+  if (genAnim) genAnim.style.display = 'block';
+  if (summary) summary.style.display = 'none';
+  if (finBtn)  finBtn.style.display  = 'none';
+  if (fill)    fill.style.width = '0%';
+
+  var steps = ['Analyse du profil…', 'Calcul du volume…', 'Sélection des exercices…', 'Adaptation aux blessures…', 'Finalisation…'];
+  var totalDur = 1600;
+  var stepDur  = totalDur / steps.length;
+  var i = 0;
+  function animStep() {
+    if (i < steps.length) {
+      if (stepTxt) stepTxt.textContent = steps[i];
+      if (fill)    fill.style.width = ((i + 1) / steps.length * 100) + '%';
+      i++;
+      setTimeout(animStep, stepDur);
+    } else {
+      // Compute injuries from db
+      obInjuries = (db.user.injuries || [])
+        .filter(function(inj) { return inj && inj.active && inj.level >= 1; })
+        .map(function(inj) { return _OB_ZONE_TO_EXCL[inj.zone] || inj.zone; })
+        .filter(Boolean);
+      var goalObj = obGoals.find(function(g) { return g.id === (db.user.goal || 'masse'); }) || obGoals[1];
+      var generated = generateProgram([goalObj], obFreq, obMat, obDuration, obInjuries, obCardio, null, null, db.user.level);
+      db.generatedProgram = generated;
+      db.user.programParams = { goals: [goalObj.id], freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, level: db.user.level };
+      db.routine = {};
+      db.routineExos = db.routineExos || {};
+      generated.forEach(function(d) {
+        db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 ' + d.label : d.label);
+        if (!d.isRest && d.exos && d.exos.length > 0) {
+          db.routineExos[d.day] = d.exos.map(function(id) { return EXO_DB[id] ? EXO_DB[id].name : id; });
+        }
+      });
+      saveDB();
+      // Show result
+      if (genAnim) genAnim.style.display = 'none';
+      if (logo)  logo.textContent  = '✨';
+      if (title) title.textContent = 'Ton programme est prêt !';
+      if (sub)   sub.textContent   = 'Voilà ce qu\'on a préparé pour toi.';
+      renderObSummary(generated);
+      if (summary) summary.style.display = 'block';
+      if (finBtn)  finBtn.style.display  = 'block';
+    }
+  }
+  animStep();
+}
+
+function renderObSummary(generated) {
+  var el = document.getElementById('ob-summary');
+  if (!el) return;
+  var trainingDays = generated.filter(function(d) { return !d.isRest; });
+  var html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:12px;">';
+  html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📋 ' + trainingDays.length + ' séances / semaine · ' + obMat + ' · ' + obDuration + 'min</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+  generated.forEach(function(d) {
+    var icon = d.isRest ? '😴' : '💪';
+    html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;">';
+    html += '<span style="min-width:74px;font-weight:600;color:var(--sub);">' + d.day + '</span>';
+    html += '<span>' + icon + ' ' + (d.isRest ? 'Repos' : d.label) + '</span>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
 }
 
 function selectPath(p) {
@@ -1315,8 +1586,9 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
 
 function selectFreq(f) {
   obFreq = f;
-  obSelectedDays = []; // reset jours à chaque changement de fréquence
-  document.querySelectorAll('.ob-freq-btn').forEach((b, i) => b.classList.toggle('selected', i+1 === f));
+  obSelectedDays = [];
+  document.querySelectorAll('.ob-freq-btn').forEach(function(b, i) { b.classList.toggle('selected', i+1 === f); });
+  if (document.getElementById('ob-days-grid')) renderDayPicker();
 }
 
 function renderDayPicker() {
@@ -1557,6 +1829,8 @@ function autoPopulateKeyLifts() {
 
 function obFinish() {
   db.user.onboarded = true;
+  db.user.onboardingVersion = ONBOARDING_VERSION;
+  if (typeof validateUserLevel === 'function') validateUserLevel();
   autoPopulateKeyLifts();
   saveDB();
   hideOnboarding();
@@ -9510,7 +9784,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
     // Helper: show onboarding then quiz — only for authenticated email users
     function _showFirstRunUI(user) {
       if (!user || !user.email) return; // skip for anonymous / no-auth
-      if (!db.user.onboarded) showOnboarding();
+      if (needsOnboarding()) showOnboarding();
       db.gamification = db.gamification || {};
       if (!db.user.quizDone) {
         setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);

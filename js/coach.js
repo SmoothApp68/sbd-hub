@@ -191,3 +191,86 @@ function coachGetFullAnalysis() {
 
   return '<div class="ai-response-content">' + sections.map(function(s) { return '<div class="ai-section">'+s+'</div>'; }).join('') + '</div><div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
 }
+
+// ── SCORE COACH SRS (Stress / Recovery / State) ──
+// 60% ACWR + 20% readiness subjective + 20% tendance e1RM
+function computeSRS() {
+  var logs = db.logs || [];
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var bestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {};
+
+  function getEffVol(days) {
+    var cutoff = Date.now() - days * 86400000;
+    return logs.filter(function(l) { return l.timestamp >= cutoff; })
+      .reduce(function(sum, log) {
+        return sum + (log.exercises || []).reduce(function(s, exo) {
+          var e1rm = (bestE1RMs[exo.name] && bestE1RMs[exo.name].e1rm) || 0;
+          return s + (exo.allSets || exo.series || []).reduce(function(ss, set) {
+            if (set.isWarmup || set.setType === 'warmup') return ss;
+            var reps = parseFloat(set.reps) || 0;
+            var weight = parseFloat(set.weight) || 0;
+            var rpe = parseFloat(set.rpe) || (typeof estimateRpeFromIntensity === 'function' ? estimateRpeFromIntensity(weight, e1rm) : 8);
+            return ss + (reps * weight * rpe);
+          }, 0);
+        }, 0);
+      }, 0);
+  }
+
+  // 1. ACWR — 60%
+  var acute = getEffVol(7);
+  var chronic = getEffVol(28) / 4 || 1;
+  var acwr = acute / chronic;
+  var acwrScore = (acwr >= 0.8 && acwr <= 1.3)
+    ? 100
+    : Math.max(0, 100 - Math.abs(1.05 - acwr) * 150);
+
+  // 2. Readiness subjective — 20%
+  var recentR = (db.readiness || []).filter(function(r) {
+    return (Date.now() - new Date(r.date).getTime()) < 7 * 86400000;
+  });
+  var subjScore = recentR.length
+    ? recentR.reduce(function(s, r) { return s + r.score; }, 0) / recentR.length
+    : 60;
+
+  // 3. Tendance e1RM 14 jours — 20%
+  var trendScore = 70;
+  var sbd = ['squat','bench','deadlift'];
+  var deltas = [];
+  sbd.forEach(function(type) {
+    var pts = [];
+    var sorted = logs.slice().sort(function(a,b) { return b.timestamp - a.timestamp; });
+    for (var i = 0; i < sorted.length && pts.length < 6; i++) {
+      var exo = (sorted[i].exercises || []).find(function(e) {
+        return typeof getSBDType === 'function' && getSBDType(e.name) === type && e.maxRM > 0;
+      });
+      if (exo) pts.push(exo.maxRM);
+    }
+    if (pts.length >= 2) {
+      deltas.push((pts[0] - pts[pts.length-1]) / pts[pts.length-1] * 100);
+    }
+  });
+  if (deltas.length) {
+    var avgDelta = deltas.reduce(function(s,d){ return s+d; },0) / deltas.length;
+    trendScore = Math.min(100, Math.max(0, 70 + avgDelta * 5));
+  }
+
+  var raw = (acwrScore * 0.6) + (subjScore * 0.2) + (trendScore * 0.2);
+
+  // Peak Mode : la fatigue de peak est attendue, on relève le score
+  if (phase === 'peak') raw = Math.min(100, raw * 1.2);
+
+  var score = Math.round(Math.min(100, Math.max(0, raw)));
+
+  return {
+    score: score,
+    acwr: Math.round(acwr * 100) / 100,
+    acwrScore: Math.round(acwrScore),
+    subjScore: Math.round(subjScore),
+    trendScore: Math.round(trendScore),
+    peakMode: phase === 'peak',
+    label: phase === 'peak' ? '🔥 Fatigue de Peak — normal' :
+           score >= 75 ? '✅ Forme optimale' :
+           score >= 55 ? '🟡 Forme correcte' :
+           score >= 35 ? '🟠 Fatigue modérée' : '🔴 Récupération nécessaire'
+  };
+}

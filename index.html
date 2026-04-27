@@ -93,6 +93,11 @@
     @keyframes fillBar { from { width: 0%; } }
     @keyframes prCelebrate { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
     @keyframes prCelebrateOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+    #live-coach-banner { animation: liveCoachSlide 0.25s ease; }
+    @keyframes liveCoachSlide {
+      from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
     @keyframes slideDownFade {
       0%   { opacity:0; transform:translateX(-50%) translateY(-20px); }
       15%  { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -2522,6 +2527,23 @@
             <option value="avance">Avancé (3+ ans)</option>
             <option value="competiteur">Compétiteur / Elite</option>
           </select>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">
+            Taille (cm) <span style="color:var(--sub);font-weight:400;">— optionnel, pour un TDEE précis</span>
+          </div>
+          <input type="number" id="settingsHeight" placeholder="ex: 180"
+            style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;"
+            onchange="updateProfileField('height', this.value ? parseInt(this.value) : null)">
+        </div>
+        <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">
+            Âge <span style="color:var(--sub);font-weight:400;">— optionnel</span>
+          </div>
+          <input type="number" id="settingsAge" placeholder="ex: 28"
+            style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;"
+            onchange="updateProfileField('age', this.value ? parseInt(this.value) : null)">
         </div>
 
         <div style="margin-top:12px;">

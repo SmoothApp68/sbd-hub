@@ -837,14 +837,49 @@ function calcIPFGLTotal(bench, squat, deadlift, bw) {
   return calcIPFGL(total, bw);
 }
 function calcTDEE(bw, tonnage7d) {
-  if (!bw || bw <= 0) return 0;
-  const bmr = 88.362 + 13.397 * bw + 4.799 * 182 - 5.677 * 25;
-  let actFactor = 1.55;
-  if (tonnage7d > 40000) actFactor = 1.60;
-  else if (tonnage7d > 20000) actFactor = 1.57;
-  else if (tonnage7d < 3000) actFactor = 1.40;
-  return Math.round(bmr * actFactor);
+  if (!bw || bw <= 0) return 2300;
+
+  // Facteur d'activité basé sur la fréquence réelle des 7 derniers jours
+  var sessions7 = typeof getLogsInRange === 'function'
+    ? getLogsInRange(7).length
+    : Math.round((tonnage7d || 0) / 10000); // fallback estimation
+  var activityFactor = sessions7 >= 6 ? 1.85 : sessions7 >= 5 ? 1.7 : sessions7 >= 3 ? 1.55 : 1.3;
+
+  var baseTDEE;
+  var height = db.user && db.user.height;
+  var age = db.user && db.user.age;
+  var gender = db.user && db.user.gender;
+
+  // Mifflin-St Jeor si taille et âge disponibles
+  if (height && age) {
+    var bmr = 10 * bw + 6.25 * height - 5 * age + (gender === 'female' ? -161 : 5);
+    baseTDEE = Math.round(bmr * activityFactor);
+  } else {
+    // Fallback simplifié
+    baseTDEE = Math.round(bw * 33 * activityFactor);
+  }
+
+  // Ajustement selon la phase courante
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var PHASE_KCAL = {
+    hypertrophie: +300, accumulation: +200, intro: +100,
+    force: 0, intensification: 0, maintien: 0,
+    peak: +100, fondation: 0,
+    deload: -200, recuperation: -200
+  };
+  var adjust = PHASE_KCAL[phase] || 0;
+
+  return baseTDEE + adjust;
 }
+function estimateRpeFromIntensity(weight, e1rm) {
+  if (!e1rm || !weight || e1rm <= 0) return 8;
+  var pct = weight / e1rm;
+  if (pct > 0.90) return 9.5;
+  if (pct > 0.80) return 8.5;
+  if (pct > 0.70) return 7.5;
+  return 7.0;
+}
+
 function calcCalorieCible(bw) {
   const kcalBase = db.user.kcalBase || 2300;
   const bwBase   = db.user.bwBase   || 98;

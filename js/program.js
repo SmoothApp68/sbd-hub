@@ -4,6 +4,31 @@
 // Toutes les fonctions sont globales (pas de module)
 // ============================================================
 
+// ── BLOCK_DURATION : durée des blocs par mode × niveau ──
+// Utilisé par wpDetectPhase pour faire évoluer la phase au fil des semaines.
+// Le total cycleWeeks doit correspondre à la somme des durées des blocs hors deload.
+var BLOCK_DURATION = {
+  powerbuilding: {
+    debutant:      { intro:1, hypertrophie:4, force:4, peak:1, deload:1, cycleWeeks:11 },
+    intermediaire: { intro:1, hypertrophie:6, force:4, peak:2, deload:1, cycleWeeks:14 },
+    avance:        { intro:1, hypertrophie:8, force:6, peak:3, deload:1, cycleWeeks:19 }
+  },
+  powerlifting: {
+    debutant:      { intro:2, accumulation:4, intensification:2, peak:1, deload:1, cycleWeeks:10 },
+    intermediaire: { intro:1, accumulation:4, intensification:4, peak:3, deload:1, cycleWeeks:13 },
+    avance:        { intro:1, accumulation:6, intensification:4, peak:3, deload:1, cycleWeeks:15 }
+  },
+  musculation: {
+    debutant:      { intro:2, hypertrophie:4, volume:2, recuperation:1, cycleWeeks:9 },
+    intermediaire: { intro:1, hypertrophie:8, volume:2, recuperation:1, cycleWeeks:12 },
+    avance:        { intro:1, hypertrophie:10, volume:3, recuperation:1, cycleWeeks:15 }
+  },
+  bien_etre: {
+    debutant:      { fondation:6, progression:4, maintien:4, cycleWeeks:14 },
+    intermediaire: { fondation:4, progression:6, maintien:4, cycleWeeks:14 }
+  }
+};
+
 // ── CONSTANTES VOLUME LANDMARKS (Mike Israetel, RP Strength) ──
 // MEV = Minimum Effective Volume (sets/semaine min pour progrès)
 // MAV = Maximum Adaptive Volume (zone optimale)

@@ -79,8 +79,8 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null },
-  routine: null, logs: [], bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null },
+  routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
   monthlyChallenges: null,
@@ -158,6 +158,9 @@ let db = (() => {
     if (!p.friends) p.friends = [];
     if (!p.readiness) p.readiness = [];
     if (!p.challenges) p.challenges = [];
+    if (!p.exercises) p.exercises = {};
+    if (p.user.height === undefined) p.user.height = null;
+    if (p.user.age === undefined) p.user.age = null;
     return p;
   } catch { return defaultDB(); }
 })();
@@ -11132,6 +11135,8 @@ function fillSettingsFields() {
   const bi = document.getElementById('inputBW'); if (bi) bi.value = db.user.bw || '';
   const kEl = document.getElementById('inputKcalBase'); if (kEl) kEl.value = db.user.kcalBase || 2300;
   const bwEl = document.getElementById('inputBWBase'); if (bwEl) bwEl.value = db.user.bwBase || 80;
+  const hEl = document.getElementById('settingsHeight'); if (hEl) hEl.value = db.user.height || '';
+  const aEl = document.getElementById('settingsAge'); if (aEl) aEl.value = db.user.age || '';
   const tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
   renderSettingsProfile();
@@ -11242,6 +11247,8 @@ function updateProfileField(field, value) {
     db.user.programParams.level = value;
   } else if (field === 'trainingMode') {
     db.user.trainingMode = value;
+  } else if (field === 'height' || field === 'age') {
+    db.user[field] = value;
   } else {
     db.user.programParams[field] = value;
   }
@@ -11616,8 +11623,9 @@ function renderCoachTodayHTML() {
   var html = '';
 
   // ── 1. JAUGES ──
-  var fatigueScore = typeof computeFatigueScore === 'function' ? computeFatigueScore(db.logs) : 50;
-  var formScore = Math.max(0, Math.min(100, 100 - fatigueScore));
+  var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 60, label: '' };
+  var formScore = srs.score;
+  var fatigueScore = 100 - srs.score; // rétrocompat
 
   var lastSession = (db.logs && db.logs.length)
     ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0]
@@ -12062,6 +12070,90 @@ function generateWeeklyReport() {
 function renderCoachReports() {
   // Legacy — now handled by renderCoachHistory()
   renderCoachHistory();
+}
+
+// ── Débrief post-séance enrichi ───────────────────────────
+// Sauvegarde un report 'debrief' avec stats + tips contextualisés (phase × RPE × PR).
+function saveAlgoDebrief(session) {
+  if (!session) return;
+
+  // Détection des PR de la séance vs historique antérieur
+  var prs = [];
+  try {
+    var olderLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
+    (session.exercises || []).forEach(function(exo) {
+      if (!(exo.maxRM > 0)) return;
+      var prevBest = 0;
+      olderLogs.forEach(function(ol) {
+        (ol.exercises || []).forEach(function(oe) {
+          if (oe.name === exo.name && oe.maxRM > prevBest) prevBest = oe.maxRM;
+        });
+      });
+      if (exo.maxRM > prevBest && prevBest > 0) {
+        prs.push({ name: exo.name, value: Math.round(exo.maxRM), prev: Math.round(prevBest) });
+      }
+    });
+  } catch(e) {}
+
+  // RPE moyen sur les sets de travail
+  var allRpes = [];
+  (session.exercises || []).forEach(function(exo) {
+    (exo.allSets || exo.series || []).forEach(function(s) {
+      if (!s.isWarmup && s.setType !== 'warmup' && parseFloat(s.rpe) > 0) allRpes.push(parseFloat(s.rpe));
+    });
+  });
+  var avgRpe = allRpes.length ? allRpes.reduce(function(s,r){ return s+r; },0) / allRpes.length : 0;
+
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var isDeloadSession = phase === 'deload' || phase === 'recuperation';
+  var hasPR = prs.length > 0;
+
+  var tips = [];
+
+  // PRs
+  prs.forEach(function(p) {
+    tips.push('🏆 PR ' + p.name + ' : ' + p.value + 'kg (ancien ' + p.prev + 'kg)');
+  });
+
+  // Cas 1 — PR avec RPE moyen élevé
+  if (hasPR && avgRpe > 9) {
+    tips.push('⚡ PR validé, mais RPE moyen ' + avgRpe.toFixed(1) + ' — la marge technique est faible. Priorité à la propreté la semaine prochaine.');
+  }
+
+  // Cas 2 — Deload trop intense
+  if (isDeloadSession && avgRpe > 7 && !hasPR) {
+    tips.push('⚠️ RPE moyen ' + avgRpe.toFixed(1) + ' en ' + (phase === 'deload' ? 'deload' : 'récupération') + '. Tu voles de l\'énergie à ton prochain bloc — réduis les charges.');
+  }
+
+  // Cas 3 — PR en deload (ambivalent)
+  if (isDeloadSession && hasPR) {
+    tips.push('💪 Ta force explose même en récupération (PR !) — mais garde tes cartouches pour l\'intensification qui arrive.');
+  }
+
+  if (!tips.length) return;
+
+  var vol = session.volume || 0;
+  var volStr = vol >= 1000 ? (vol/1000).toFixed(1) + 't' : vol + 'kg';
+  var dur = session.duration ? Math.round(session.duration/60) + 'min' : '—';
+
+  var h = '<div class="ai-section-title">🏋️ ' + (session.title || 'Séance') + '</div>';
+  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' +
+       'Volume ' + volStr + ' · Durée ' + dur +
+       (avgRpe > 0 ? ' · RPE ' + avgRpe.toFixed(1) : '') +
+       ' · Phase ' + phase + '</div>';
+  h += tips.map(function(t) { return '<div style="margin-bottom:6px;">' + t + '</div>'; }).join('');
+
+  if (!db.reports) db.reports = [];
+  db.reports.push({
+    id: generateId(),
+    type: 'debrief',
+    sessionId: session.id,
+    html: '<div class="ai-response-content">' + h + '</div>',
+    created_at: Date.now(),
+    expires_at: Date.now() + 14 * 86400000,
+    read: false
+  });
+  saveDBNow();
 }
 
 
@@ -12515,6 +12607,7 @@ var rpeCapReprise = null; // Correction 7: cap RPE pour avancé en reprise
 // ── FONCTIONS UTILITAIRES ────────────────────────────────────
 
 function wpRound25(v) { return Math.round(v / 2.5) * 2.5; }
+function wpRound125(v) { return Math.round(v / 1.25) * 1.25; }
 function wpRound05(v) { return Math.round(v * 2) / 2; }
 
 function wpIsIsolation(name) {
@@ -12931,6 +13024,18 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
+  // Shadow Weight : conserver le float théorique pour progression fine
+  if (!db.exercises) db.exercises = {};
+  if (!db.exercises[realName]) db.exercises[realName] = {};
+  db.exercises[realName].shadowWeight = baseWeight;
+
+  // Choix de l'arrondi selon le type d'exercice
+  var exoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(realName) : null;
+  var isIsolation = exoMeta && exoMeta.mechanic === 'isolation';
+  var isUpperBody = exoMeta && exoMeta.bodyPart === 'upper';
+  if (isIsolation || (isUpperBody && baseWeight < 120)) {
+    return wpRound125(baseWeight);
+  }
   return wpRound25(baseWeight);
 }
 
@@ -13003,29 +13108,56 @@ function wpDetectPhase() {
   if (cb && cb.forcedAt && (Date.now() - cb.forcedAt) < 7 * 86400000) {
     return cb.phase;
   }
-  var deloadCheck = typeof shouldDeload === 'function' ? shouldDeload(db.logs, db.user.trainingMode) : { needed: false };
+
+  // Priorité 2 : deload automatique si fatigue/volume excessifs
+  var deloadCheck = typeof shouldDeload === 'function'
+    ? shouldDeload(db.logs, db.user && db.user.trainingMode)
+    : { needed: false };
   if (deloadCheck.needed) return 'deload';
-  var weeksSince = 0;
-  var plans = db.weeklyPlanHistory || [];
-  for (var i = plans.length - 1; i >= 0; i--) {
-    if (plans[i].isDeload) {
-      weeksSince = Math.round((Date.now() - new Date(plans[i].generated_at).getTime()) / (7 * 86400000));
-      break;
-    }
+
+  // Durées adaptatives par mode × niveau
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var hasTable = typeof BLOCK_DURATION !== 'undefined' && BLOCK_DURATION;
+  var durations = hasTable && BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level]
+    ? BLOCK_DURATION[mode][level]
+    : (hasTable ? BLOCK_DURATION.powerbuilding.intermediaire : null);
+
+  // Fallback minimal si table indisponible
+  if (!durations) {
+    return 'accumulation';
   }
-  if (weeksSince === 0) {
-    // Fallback : rotation sur 4 semaines selon la fréquence réelle
-    // Évite le blocage en Peak permanent (ex: 497 logs → 124 semaines → toujours peak)
+
+  // Semaines depuis le dernier deload
+  var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse()
+    .find(function(p) { return p.isDeload; });
+  var weeksSince = lastDeloadPlan
+    ? Math.round((Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000))
+    : null;
+
+  // Fallback si pas d'historique : rotation sur le cycle complet
+  if (!weeksSince) {
     var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
     var totalWeeks = Math.round((db.logs || []).length / Math.max(1, freq));
-    weeksSince = (totalWeeks % 4) + 1; // Cycle 1→2→3→4→1→2→3→4...
+    weeksSince = (totalWeeks % (durations.cycleWeeks || 14)) + 1;
   }
-  // Bloc post-deload (Gemini) : S1 intro → S2 accum → S3 intensif → S4+ peak
-  if (weeksSince === 1) return 'intro';
-  if (weeksSince === 2) return 'accumulation';
-  if (weeksSince === 3) return 'intensification';
-  if (weeksSince >= 4)  return 'peak';
-  return 'intro';
+
+  // Navigation dans le cycle
+  var w = weeksSince;
+  var phases = mode === 'powerlifting'
+    ? ['intro','accumulation','intensification','peak']
+    : mode === 'bien_etre'
+    ? ['fondation','progression','maintien']
+    : mode === 'musculation'
+    ? ['intro','hypertrophie','volume','recuperation']
+    : ['intro','hypertrophie','force','peak'];
+
+  for (var i = 0; i < phases.length; i++) {
+    var dur = durations[phases[i]] || 0;
+    if (dur > 0 && w <= dur) return phases[i];
+    w -= dur;
+  }
+  return 'deload';
 }
 
 function wpDayMotivation(dayData, phase) {
@@ -13359,6 +13491,25 @@ function wpNeedsAcclimationWarmup(exoName, previousExoNames, workWeight) {
 
 function wpBuildWarmups(workWeight, workReps, liftType, exerciseOrder, previousExoNames) {
   if (!workWeight || workWeight < 40) return [];
+
+  // Isolation : 3 niveaux de warmups indépendants de la position
+  var _wuMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(liftType) : null;
+  var _isIsolation = _wuMeta && _wuMeta.mechanic === 'isolation';
+  if (_isIsolation) {
+    if (workWeight < 25) return [];
+    if (workWeight > 60) {
+      return [
+        { weight: wpRound25(workWeight * 0.50), reps: 10, isWarmup: true, restSeconds: 60 },
+        { weight: wpRound25(workWeight * 0.70), reps: 6,  isWarmup: true, restSeconds: 60 },
+        { weight: wpRound25(workWeight * 0.85), reps: 3,  isWarmup: true, restSeconds: 60 }
+      ];
+    }
+    return [
+      { weight: wpRound25(workWeight * 0.50), reps: 10, isWarmup: true, restSeconds: 60 },
+      { weight: wpRound25(workWeight * 0.70), reps: 6,  isWarmup: true, restSeconds: 60 }
+    ];
+  }
+
   if ((exerciseOrder || 1) > 1) {
     var needsFeeler = wpNeedsAcclimationWarmup(liftType, previousExoNames || [], workWeight);
     if (!needsFeeler) return [];
@@ -14981,8 +15132,9 @@ function goToggleSetComplete(exoIdx, setIdx) {
       var restSec = activeWorkout.exercises[exoIdx].restSeconds || 90;
       goStartRestTimer(restSec, exoIdx);
     }
-    // Auto-régulation RPE
-    goCheckAutoRegulation(exoIdx, setIdx);
+    // Auto-régulation RPE — bannière fixe via showLiveCoachBanner
+    var coachResult = goCheckAutoRegulation(exoIdx, setIdx);
+    if (coachResult) showLiveCoachBanner(coachResult);
     // PR Type A — e1RM en cours de saisie
     try {
       var _w = set.weight || 0, _r = set.reps || 0;
@@ -15015,47 +15167,112 @@ function goToggleSetComplete(exoIdx, setIdx) {
 }
 
 // ── Auto-régulation intra-séance basée sur le RPE ──────────
+// Pure : retourne { msg, type } ou null. Affichage via showLiveCoachBanner.
 function goCheckAutoRegulation(exoIdx, setIdx) {
-  if (!activeWorkout || !db.weeklyPlan) return;
+  if (!activeWorkout || !db.weeklyPlan) return null;
   var exo = activeWorkout.exercises[exoIdx];
-  var set = exo.sets[setIdx];
-  if (!set || !set.completed || !set.rpe) return;
+  var set = exo && exo.sets[setIdx];
+  if (!set || !set.completed) return null;
 
-  // Trouver le RPE cible depuis le plan
+  // JAMAIS sur les warmups
+  if (set.isWarmup || set.setType === 'warmup') return null;
+
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var isPeak = phase === 'peak';
+  var isDeload = phase === 'deload';
+
+  // Trouver RPE cible depuis le plan
   var todayDay = DAYS_FULL[new Date().getDay()];
-  var planDay = db.weeklyPlan.days ? db.weeklyPlan.days.find(function(d) { return d.day === todayDay && !d.rest; }) : null;
-  if (!planDay) return;
-  var planExo = (planDay.exercises || []).find(function(e) { return matchExoName(e.name, exo.name); });
-  if (!planExo) return;
-  var planWorkSets = (planExo.sets || []).filter(function(s) { return !s.isWarmup && !s.isBackoff; });
-  var targetRPE = planWorkSets.length ? planWorkSets[0].rpe : null;
-  if (!targetRPE) return;
+  var planDay = db.weeklyPlan.days ? db.weeklyPlan.days.find(function(d) { return d.day === todayDay; }) : null;
+  var planExo = planDay ? (planDay.exercises || []).find(function(e) {
+    return e.name && exo.name && wpNormalizeName(e.name) === wpNormalizeName(exo.name);
+  }) : null;
+  var planSets = planExo ? (planExo.sets || []).filter(function(s) { return !s.isWarmup; }) : [];
+  var targetRpe = planSets.length ? (planSets[0].rpe || 8) : 8;
+  var targetWeight = planSets.length ? (planSets[0].weight || 0) : 0;
+  var actualRpe = parseFloat(set.rpe) || 0;
+  var diffRpe = actualRpe - targetRpe;
 
-  var rpeActual = parseFloat(set.rpe);
-  var rpeDiff = rpeActual - targetRPE;
-  var currentWeight = set.weight || 0;
-  if (currentWeight <= 0) return;
-
-  // Ajustement plus agressif si readiness < 70
-  var readinessLow = activeWorkout.readiness && activeWorkout.readiness.score < 70;
-  var suggestion = null;
-
-  if (rpeDiff >= 1.5) {
-    var factor = readinessLow ? 0.90 : 0.93;
-    suggestion = { type:'reduce', message:'RPE ' + rpeActual + ' vs cible ' + targetRPE + ' — trop dur',
-      action:'Baisser à ' + round05(currentWeight * factor) + 'kg', newWeight: round05(currentWeight * factor) };
-  } else if (rpeDiff >= 1) {
-    suggestion = { type:'reduce', message:'RPE ' + rpeActual + ' vs cible ' + targetRPE + ' — un peu dur',
-      action:'Essaie ' + round05(currentWeight * 0.95) + 'kg', newWeight: round05(currentWeight * 0.95) };
-  } else if (rpeDiff <= -1.5) {
-    suggestion = { type:'increase', message:'RPE ' + rpeActual + ' vs cible ' + targetRPE + ' — tu peux monter',
-      action:'Essaie ' + round05(currentWeight * 1.05) + 'kg', newWeight: round05(currentWeight * 1.05) };
-  } else if (rpeDiff <= -1) {
-    suggestion = { type:'increase', message:'RPE ' + rpeActual + ' — marge disponible',
-      action:'Tu pourrais monter à ' + round05(currentWeight * 1.025) + 'kg', newWeight: round05(currentWeight * 1.025) };
+  // Règle 1 — Overshoot RPE
+  if (actualRpe > 0 && diffRpe >= 1.5) {
+    return { msg: "⚠️ RPE " + actualRpe + " au lieu de " + targetRpe + ". Réduis de 5% au prochain set pour sauver ton volume.", type: "warning" };
   }
 
-  if (suggestion) goShowAutoRegSuggestion(exoIdx, setIdx, suggestion);
+  // Règle 2 — Undershoot RPE (pas en peak)
+  if (actualRpe > 0 && diffRpe <= -1.5 && !isPeak) {
+    var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
+    var step = (meta && meta.bodyPart === 'lower') ? '2.5kg' : '1.25kg';
+    return { msg: "🚀 Trop facile (RPE " + actualRpe + "). Ajoute " + step + " au prochain set.", type: "success" };
+  }
+
+  // Règle 3 — Fatigue Drop : 3 sets de travail consécutifs avec RPE > cible + 1
+  var validSets = exo.sets.filter(function(s) {
+    return s.completed && !s.isWarmup && s.setType !== 'warmup' && parseFloat(s.rpe) > 0;
+  });
+  if (validSets.length >= 3) {
+    var last3 = validSets.slice(-3);
+    var isGrinding = last3.every(function(s) { return parseFloat(s.rpe) >= targetRpe + 1; });
+    if (isGrinding) {
+      return { msg: "📉 Fatigue nerveuse détectée. Ton RPE dérive sur 3 sets. Arrête cet exercice — l'objectif est atteint.", type: "danger" };
+    }
+  }
+
+  // Règle 4 — Peak Protection
+  if (isPeak && targetWeight > 0 && set.weight > targetWeight * 1.05) {
+    return { msg: "🛡️ Peak : reste sur le poids prévu (" + targetWeight + "kg). Ne brûle pas ton influx nerveux avant le test.", type: "danger" };
+  }
+
+  // Règle 5 — Deload Check
+  if (isDeload && actualRpe > 0 && actualRpe > 7) {
+    return { msg: "😌 Deload : RPE " + actualRpe + ", c'est trop. Tu voles de l'énergie à ton prochain bloc. Réduis la charge.", type: "warning" };
+  }
+
+  return null;
+}
+
+var _liveCoachBannerTimer = null;
+
+function showLiveCoachBanner(msg) {
+  var existing = document.getElementById('live-coach-banner');
+  if (existing) existing.remove();
+  if (_liveCoachBannerTimer) { clearTimeout(_liveCoachBannerTimer); _liveCoachBannerTimer = null; }
+
+  var COLORS = {
+    warning: { bg: 'rgba(255,159,10,0.15)', border: 'rgba(255,159,10,0.5)', text: '#FF9F0A' },
+    success: { bg: 'rgba(50,215,75,0.15)',  border: 'rgba(50,215,75,0.5)',  text: '#32D74B' },
+    info:    { bg: 'rgba(10,132,255,0.15)', border: 'rgba(10,132,255,0.5)', text: '#0A84FF' },
+    danger:  { bg: 'rgba(255,69,58,0.15)',  border: 'rgba(255,69,58,0.5)',  text: '#FF453A' }
+  };
+  var c = COLORS[msg.type] || COLORS.info;
+
+  var banner = document.createElement('div');
+  banner.id = 'live-coach-banner';
+  banner.style.cssText =
+    'position:fixed;top:54px;left:50%;transform:translateX(-50%);' +
+    'max-width:460px;width:calc(100% - 24px);' +
+    'background:' + c.bg + ';border:1px solid ' + c.border + ';' +
+    'border-radius:12px;padding:10px 14px;' +
+    'font-size:13px;font-weight:600;color:' + c.text + ';' +
+    'z-index:1050;line-height:1.4;' +
+    'display:flex;align-items:flex-start;gap:8px;' +
+    'box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+  var text = document.createElement('span');
+  text.innerHTML = msg.msg;
+  text.style.flex = '1';
+
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '×';
+  closeBtn.style.cssText = 'background:none;border:none;color:' + c.text + ';font-size:20px;cursor:pointer;padding:0;line-height:1;flex-shrink:0;';
+  closeBtn.onclick = function() { banner.remove(); };
+
+  banner.appendChild(text);
+  banner.appendChild(closeBtn);
+  document.body.appendChild(banner);
+
+  _liveCoachBannerTimer = setTimeout(function() {
+    if (banner.parentNode) banner.remove();
+  }, 10000);
 }
 
 function goShowAutoRegSuggestion(exoIdx, setIdx, suggestion) {

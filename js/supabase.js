@@ -60,6 +60,10 @@ async function cloudSignIn() {
 // Listen for auth state changes (handles password recovery callback)
 if (supaClient) {
   supaClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session) {
+      showLoginScreen();
+      return;
+    }
     if (event === 'PASSWORD_RECOVERY') {
       showSetNewPasswordModal();
     }

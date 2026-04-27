@@ -1559,3 +1559,171 @@ function computeWeeklyActivityScore() {
   });
   return score;
 }
+
+// ============================================================
+// BEGINNER LP — Substitutes & Exit Criteria
+// ============================================================
+
+var BEGINNER_SUBSTITUTES = {
+  'Squat (Barre)':            'Goblet Squat',
+  'Soulevé de Terre (Barre)': 'Soulevé de Terre Roumain (Haltères)',
+  'Développé Couché (Barre)': 'Développé Couché (Haltères)'
+};
+
+function checkLPEnd(logs, bw, pr) {
+  var sbdExos = ['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)'];
+  var stagnations = 0;
+
+  sbdExos.forEach(function(exoName) {
+    var history = [];
+    var sortedLogs = (logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+    var keyword = exoName.toLowerCase().split(' ')[0];
+    for (var i = 0; i < sortedLogs.length && history.length < 3; i++) {
+      var exo = (sortedLogs[i].exercises || []).find(function(e) {
+        return e.name && e.name.toLowerCase().indexOf(keyword) >= 0;
+      });
+      if (!exo) continue;
+      var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+        return !s.isWarmup && parseFloat(s.weight) > 0;
+      });
+      if (!workSets.length) continue;
+      var lastSet = workSets[workSets.length - 1];
+      history.push({ repsAchieved: parseFloat(lastSet.reps) || 0, repsTarget: 5 });
+    }
+    if (history.length >= 3 && history.every(function(h) { return h.repsAchieved < h.repsTarget; })) {
+      stagnations++;
+    }
+  });
+
+  if (stagnations >= 2) {
+    return { exit: true, reason: 'stagnation',
+      message: 'Tu as atteint un palier. On passe en double progression pour consolider.' };
+  }
+
+  var squat = (pr && pr.squat) || 0;
+  var bench = (pr && pr.bench) || 0;
+  if (bw > 0 && (squat >= bw * 1.0 || bench >= bw * 0.8)) {
+    return { exit: true, reason: 'performance',
+      message: 'Tes ratios de force montrent que tu es prêt pour une vraie périodisation.' };
+  }
+
+  return { exit: false };
+}
+
+// ============================================================
+// SMART CARDIO — Strategies, Equipment, Injury Alternatives
+// ============================================================
+
+var CARDIO_STRATEGIES = {
+  seche:     { type: 'LISS', desc: 'Marche inclinée 30min',             reason: 'Moins catabolique que le HIIT' },
+  masse:     { type: 'LISS', desc: 'Vélo léger 20-30min',               reason: 'Santé mitochondriale, préserver les gains' },
+  recompo:   { type: 'LISS', desc: 'Marche inclinée ou natation légère', reason: 'Préserver le muscle' },
+  bien_etre: { type: 'MIX',  desc: 'HIIT court + LISS long',            reason: 'Cœur + longévité' },
+  force:     { type: 'LISS', desc: 'Vélo léger 20min × 2/sem',          reason: 'Récupération active' },
+  default:   { type: 'LISS', desc: 'Cardio modéré 30min',               reason: '' }
+};
+
+var CARDIO_BY_EQUIPMENT = {
+  salle:    ['Tapis roulant', 'Vélo stationnaire', 'Elliptique', 'Rameur'],
+  halteres: ['Circuit HIIT 15min', 'Jumping Jacks', 'KB Swings'],
+  maison:   ['Marche rapide extérieur', 'AMRAP 10min sans saut', 'Vélo extérieur']
+};
+
+var CARDIO_INJURY_ALTERNATIVES = {
+  genou:  { banned: ['Course', 'Corde à sauter', 'Burpees'], alt: 'Natation (sans battements) ou Vélo résistance légère' },
+  epaule: { banned: ['Rameur', 'Nage crawl'], alt: 'Vélo stationnaire ou Marche inclinée' },
+  dos:    { banned: ['Rameur'], alt: 'Vélo stationnaire ou Marche' }
+};
+
+function getCardioForProfile(params) {
+  var goal = (params.goals || [])[0] || 'force';
+  var mat = params.mat || 'salle';
+  var injuries = params.injuries || [];
+  var duration = params.cardioDuration || 30;
+
+  var hasKneeInjury = injuries.some(function(i) {
+    return (typeof i === 'string' ? i : (i.zone || '')) === 'genou';
+  });
+  var hasShoulderInjury = injuries.some(function(i) {
+    return (typeof i === 'string' ? i : (i.zone || '')) === 'epaule';
+  });
+
+  var strategy = CARDIO_STRATEGIES[goal] || CARDIO_STRATEGIES.default;
+  var availableCardios = (CARDIO_BY_EQUIPMENT[mat] || CARDIO_BY_EQUIPMENT.salle).slice();
+
+  if (hasKneeInjury) {
+    availableCardios = availableCardios.filter(function(c) { return !/course|corde|burpee/i.test(c); });
+    if (!availableCardios.length) availableCardios = ['Vélo stationnaire'];
+  }
+  if (hasShoulderInjury) {
+    availableCardios = availableCardios.filter(function(c) { return !/rameur|crawl/i.test(c); });
+    if (!availableCardios.length) availableCardios = ['Vélo stationnaire'];
+  }
+
+  var cardioName = availableCardios[0] || 'Tapis roulant';
+
+  return {
+    name: cardioName,
+    type: 'cardio',
+    restSeconds: 0,
+    coachNote: strategy.desc + (strategy.reason ? ' (' + strategy.reason + ')' : ''),
+    sets: [{ durationMin: duration, rpe: strategy.type === 'HIIT' ? 7 : 5, isWarmup: false }]
+  };
+}
+
+// ============================================================
+// NUTRITION LONG TERME
+// ============================================================
+
+function checkNutritionStagnation() {
+  var entries = (db.body || [])
+    .filter(function(e) { return Date.now() - e.ts < 14 * 86400000 && e.weight > 0; })
+    .sort(function(a, b) { return a.ts - b.ts; });
+
+  if (entries.length < 7) return null;
+
+  var first = entries[0].weight;
+  var last = entries[entries.length - 1].weight;
+  var changeKg = last - first;
+  var changePerWeek = (changeKg / 14) * 7;
+
+  var goals = (db.user && db.user.programParams && db.user.programParams.goals) || [];
+  var goal = goals[0] || 'maintien';
+
+  if (goal === 'masse' && Math.abs(changeKg) < 0.2) {
+    return { adjust: 150, msg: 'Poids stable depuis 2 semaines en prise de masse. On monte les calories de 150kcal.', type: 'increase' };
+  }
+  if (goal === 'seche' && changePerWeek > -0.1) {
+    return { adjust: -150, msg: 'Pas de perte de poids depuis 2 semaines. On réduit de 150kcal.', type: 'decrease' };
+  }
+  if (goal === 'recompo') {
+    var bw = (db.user && db.user.bw) || 80;
+    if (changePerWeek < -0.7 / 100 * bw) {
+      return { adjust: 200, msg: 'Perte de poids trop rapide. Risque de perte musculaire. Augmente les calories des jours de repos.', type: 'warning' };
+    }
+  }
+  return null;
+}
+
+function getNutritionStrategyAdvice() {
+  var strategyStart = db.user && db.user.nutritionStrategyStartDate
+    ? new Date(db.user.nutritionStrategyStartDate).getTime() : null;
+  var weeksOnStrategy = strategyStart
+    ? Math.round((Date.now() - strategyStart) / (7 * 86400000)) : 0;
+  var goal = ((db.user && db.user.programParams && db.user.programParams.goals) || [])[0];
+
+  if (goal === 'recompo' && weeksOnStrategy >= 16) {
+    return {
+      suggestion: 'lean_bulk',
+      msg: 'Tu es en recompo depuis ' + weeksOnStrategy + ' semaines. Pour un avancé, passer en "Lean Bulk" (+200-300kcal) peut accélérer la progression force.',
+      weeksOnStrategy: weeksOnStrategy
+    };
+  }
+  return null;
+}
+
+var BASIC_SUPPLEMENTS = [
+  { name: 'Créatine Monohydrate', dose: '3-5g/j', reason: 'Consensus scientifique total sur la force et la puissance', priority: 1 },
+  { name: 'Vitamine D3',          dose: '1000-2000 UI/j', reason: 'Immunité et santé hormonale, surtout automne/hiver', priority: 2 },
+  { name: 'Whey Protéine',        dose: 'Selon besoins du jour', reason: 'Praticité pour atteindre les apports protéiques', priority: 3 }
+];

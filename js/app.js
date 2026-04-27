@@ -178,6 +178,12 @@ let db = (() => {
     if (!p.user.goal) p.user.goal = 'masse';
     if (!Array.isArray(p.user.activities)) p.user.activities = [];
     if (!Array.isArray(p.weeklyActivities)) p.weeklyActivities = [];
+    if (p.user.lpBridgeActive === undefined) p.user.lpBridgeActive = false;
+    if (p.user.lpBridgeWeek === undefined) p.user.lpBridgeWeek = 0;
+    if (p.user.cardioPreference === undefined) p.user.cardioPreference = null;
+    if (p.user.nutritionStrategy === undefined) p.user.nutritionStrategy = null;
+    if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
+    if (p.user.reverseDigestActive === undefined) p.user.reverseDigestActive = false;
     return p;
   } catch { return defaultDB(); }
 })();
@@ -12196,6 +12202,48 @@ function renderCoachTodayHTML() {
     }
   });
 
+  // ── Nutrition stagnation alert ──
+  var nutritionAlert = typeof checkNutritionStagnation === 'function' ? checkNutritionStagnation() : null;
+  if (nutritionAlert) {
+    var lastNutrAdj = db.user._lastNutrAdjustment || 0;
+    if (Date.now() - lastNutrAdj > 14 * 86400000) {
+      recos.push({
+        dot: nutritionAlert.type === 'warning' ? 'var(--red)' : 'var(--orange)',
+        text: '<strong>Nutrition :</strong> ' + nutritionAlert.msg +
+          (nutritionAlert.adjust ? ' <em>(' + (nutritionAlert.adjust > 0 ? '+' : '') + nutritionAlert.adjust + ' kcal)</em>' : '')
+      });
+      if (Math.abs(nutritionAlert.adjust || 0) > 0) {
+        db.user.tdeeAdjustment = (db.user.tdeeAdjustment || 0) + nutritionAlert.adjust;
+        db.user._lastNutrAdjustment = Date.now();
+        saveDB();
+      }
+    }
+  }
+
+  // ── Long-term nutrition strategy advice ──
+  var strategyAdvice = typeof getNutritionStrategyAdvice === 'function' ? getNutritionStrategyAdvice() : null;
+  if (strategyAdvice) {
+    recos.push({ dot: 'var(--purple, #BF5AF2)', text: '💡 ' + strategyAdvice.msg });
+  }
+
+  // ── Suppléments basiques (1x/mois si données nutrition présentes) ──
+  var hasNutritionData = (db.body || []).some(function(e) {
+    return (Date.now() - e.ts) < 7 * 86400000 && e.kcal > 0;
+  });
+  if (hasNutritionData && typeof BASIC_SUPPLEMENTS !== 'undefined' && BASIC_SUPPLEMENTS.length > 0) {
+    var suppsMentionedAt = db.user._suppsMentionedAt || 0;
+    if (Date.now() - suppsMentionedAt > 30 * 86400000) {
+      var topSupp = BASIC_SUPPLEMENTS[0];
+      recos.push({
+        dot: 'var(--sub)',
+        text: '💊 <strong>' + topSupp.name + '</strong> (' + topSupp.dose + ') — ' + topSupp.reason +
+          ' <em style="color:var(--sub);font-size:10px;">(informatif, consulte un professionnel)</em>'
+      });
+      db.user._suppsMentionedAt = Date.now();
+      saveDB();
+    }
+  }
+
   html += '<div class="coach-recos"><div class="coach-reco-title">🦍 Recommandations</div>';
   if (recos.length === 0) {
     html += '<div class="coach-reco-text">Tout est optimal — continue comme ça !</div>';
@@ -13673,8 +13721,45 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   var isCuttingW = ((db.user && db.user.programParams && db.user.programParams.goals) || []).includes('seche');
   var baseWeight;
 
+  // LP exit check
   if (isBeginnerMode) {
+    var lpCheck = typeof checkLPEnd === 'function'
+      ? checkLPEnd(db.logs, getUserBW(), db.bestPR)
+      : { exit: false };
+    if (lpCheck.exit) {
+      if (!db.user.lpBridgeActive) {
+        db.user.lpBridgeActive = true;
+        db.user.lpBridgeWeek = 0;
+        saveDB();
+        showToast('📈 ' + lpCheck.message);
+      }
+      isBeginnerMode = false;
+    }
+  }
+
+  if (isBeginnerMode) {
+    // Standard LP: add weight if last set didn't hit RPE cap
     baseWeight = last.rpe < 9 ? last.weight + prog.increase : last.weight;
+  } else if (db.user && db.user.lpBridgeActive) {
+    // Phase Pont LP → APRE : Double Progression 4 semaines
+    var bridgeWeek = db.user.lpBridgeWeek || 0;
+    if (bridgeWeek >= 4) {
+      db.user.lpBridgeActive = false;
+      db.user.lpBridgeWeek = 0;
+      saveDB();
+      // Graduated into standard APRE
+      if (last.rpe < 8)         baseWeight = last.weight + prog.increase;
+      else if (last.rpe <= 8.5) baseWeight = last.weight;
+      else if (last.rpe < 9.5)  baseWeight = last.weight;
+      else                      baseWeight = wpRound25(last.weight * 0.90);
+    } else {
+      // Double progression: increase charge only when repMax reached
+      if (last.reps >= 12 && last.rpe < 9) {
+        baseWeight = wpRound125(last.weight + (bodyPart === 'lower' ? 2.5 : 1.25));
+      } else {
+        baseWeight = last.weight;
+      }
+    }
   } else if (isCuttingW) {
     // Correction 6: sèche → progression par reps, charge seulement si RPE < 7
     baseWeight = last.rpe < 7 ? last.weight + prog.increase : last.weight;
@@ -14107,16 +14192,22 @@ function wpCoachNote(liftType, phase, weight, history) {
 
 // Addendum H: Cardio adapté blessures
 function wpGetCardioForProfile(injuries, duration, isCutting) {
-  var hasWrist = (injuries || []).includes('poignets');
-  var hasNeck  = (injuries || []).includes('nuque');
-  if (hasWrist || hasNeck) {
-    return {
-      name: 'Marche inclinée (tapis)', type: 'cardio', restSeconds: 0,
-      sets: [{ durationMin: duration || 15, incline: 7, speed: 5.5, isWarmup: false }],
-      coachNote: 'Marche inclinée — 0 tension poignets/nuque. Pente 5-8%, 5-6km/h.'
-    };
+  var goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : ['force']);
+  var mat = (db.user && db.user.programParams && db.user.programParams.mat) || 'salle';
+  var progressiveDuration = typeof getProgressiveCardioDuration === 'function'
+    ? getProgressiveCardioDuration(duration || 30) : (duration || 30);
+  if (typeof getCardioForProfile === 'function') {
+    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: progressiveDuration });
   }
   return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, sets: [{ durationMin: duration || 20, isWarmup: false }] };
+}
+
+function getProgressiveCardioDuration(baseDuration) {
+  var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
+  var logsCount = (db.logs || []).length;
+  var weeksOfTraining = Math.floor(logsCount / Math.max(1, freq));
+  var increase = Math.floor(weeksOfTraining / 2) * 5;
+  return Math.min(baseDuration * 2, baseDuration + increase);
 }
 
 // Addendum F: Pain Tracker
@@ -14422,6 +14513,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     var rpe = variant.rpe;
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
     var mainName = variant.name;
+    // Débutant : remplacer par exercice technique-first
+    if (isBeginnerMode && typeof BEGINNER_SUBSTITUTES !== 'undefined' && BEGINNER_SUBSTITUTES[mainName]) {
+      mainName = BEGINNER_SUBSTITUTES[mainName];
+      reps = 10;
+      rpe = 7;
+    }
     var warmups = wpBuildWarmups(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     var mainExoObj = {

@@ -19029,7 +19029,7 @@ function sharePRImage(liftName, weightKg) {
 
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.font = '500 16px system-ui';
-  ctx.fillText('SBD Hub', 400, 360);
+  ctx.fillText('TrainHub', 400, 360);
 
   canvas.toBlob(function(blob) {
     var file = new File([blob], 'pr-' + liftName + '.png', { type: 'image/png' });
@@ -19037,7 +19037,7 @@ function sharePRImage(liftName, weightKg) {
       navigator.share({
         files: [file],
         title: 'PR ' + liftName + ' — ' + weightKg + 'kg',
-        text: 'Nouveau record sur SBD Hub ! 💪'
+        text: 'Nouveau record sur TrainHub ! 💪'
       }).catch(function() {});
     } else {
       var a = document.createElement('a');

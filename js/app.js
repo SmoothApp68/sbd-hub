@@ -14718,7 +14718,7 @@ function wpDeriveTitle(exercises) {
   var NAMES = { quad:'Jambes', hams:'Ischios', glute:'Fessiers', chest:'Pecs', back:'Dos', shoulder:'Épaules', biceps:'Biceps', triceps:'Triceps', core:'Gainage', calves:'Mollets' };
   var ICONS = { quad:'🦵', hams:'🦵', glute:'🍑', chest:'💪', back:'🔵', shoulder:'🎯', biceps:'💪', triceps:'💪', core:'🧘', calves:'🦿' };
   var counts = {};
-  (exercises || []).forEach(function(e) {
+  (exercises || []).filter(function(e) { return !e.isPrehab; }).forEach(function(e) {
     var meta = wpGetExoMeta(e && e.name);
     if (!meta || !meta.muscleGroup) return;
     counts[meta.muscleGroup] = (counts[meta.muscleGroup] || 0) + 1;
@@ -15452,6 +15452,7 @@ function generateWeeklyPlan() {
       days.forEach(function(d) {
         if (d.rest) return;
         d.isDeload = true;
+        d.title = d.title.replace(/^(🔄\s*)+/, '');
         if (!d.title.includes('Deload')) d.title = '🔄 ' + d.title;
         d.exercises.forEach(function(exo) {
           exo.sets = (exo.sets || []).map(function(s) {

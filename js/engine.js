@@ -13,6 +13,118 @@ const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
 
+// ── INJURY PROFILES ───────────────────────────────────────────
+// Three levels per zone: 1=light discomfort, 2=active injury, 3=post-surgery
+// level1 = swap dangerous lifts for safer variants + add rehab
+// level2 = exclude dangerous lifts entirely + dedicated rehab + cardio alternatives
+// level3 = same as level2 but stricter (handled in caller)
+const INJURY_PROFILES = {
+  genou: {
+    level1: {
+      replace: { 'Squat (Barre)': 'Box Squat', 'Fentes': 'Step-up contrôlé', 'Leg Extension': 'Terminal Knee Extension' },
+      rehab: ['Spanish Squat', 'Terminal Knee Extension'],
+      keep: ['Presse (pieds hauts)']
+    },
+    level2: {
+      exclude: ['Squat', 'Fentes', 'Leg Extension', 'Hack Squat'],
+      rehab: ['Isometric Wall Sit', 'Straight Leg Raise'],
+      cardioAlt: ['Natation', 'Vélo (résistance légère)']
+    }
+  },
+  epaule: {
+    level1: {
+      replace: { 'Développé Militaire': 'Landmine Press', 'Développé Couché': 'Floor Press ou Haltères' },
+      rehab: ['Face Pull', 'External Rotation Cable']
+    },
+    level2: {
+      exclude: ['Développé Militaire', 'Élévations latérales', 'Dips', 'OHP'],
+      rehab: ['Face Pull', 'External Rotation', 'Y-T-W'],
+      keep: ['Rowing horizontal']
+    }
+  },
+  dos: {
+    level1: {
+      replace: { 'Soulevé de Terre (Barre)': 'Romanian Deadlift', 'Good Morning': 'Bird Dog' },
+      rehab: ['McGill Big 3', 'Bird Dog']
+    },
+    level2: {
+      exclude: ['Soulevé de Terre', 'Good Morning', 'Hyperextensions'],
+      rehab: ['Deadbug', 'McGill Curl-up', 'Side Plank']
+    }
+  },
+  hanche: {
+    level1: {
+      replace: { 'Squat (Barre)': 'Box Squat', 'Fentes': 'Reverse Lunge' },
+      rehab: ['Hip Airplane', 'Clamshell']
+    },
+    level2: {
+      exclude: ['Squat profond', 'Fentes profondes', 'Sumo Deadlift'],
+      rehab: ['Glute Bridge', 'Clamshell', 'Hip Airplane']
+    }
+  },
+  poignet: {
+    level1: {
+      replace: { 'Développé Couché': 'Floor Press', 'Curl Barre': 'Curl Haltère neutre' },
+      rehab: ['Wrist Roller léger', 'Wrist Flexion/Extension']
+    },
+    level2: {
+      exclude: ['Développé Couché lourd', 'Front Squat', 'Curl Barre'],
+      rehab: ['Wrist Mobility', 'Forearm stretch']
+    }
+  },
+  coude: {
+    level1: {
+      replace: { 'Curl Barre': 'Curl Haltère neutre', 'Tirage Barre': 'Tirage Poignée Neutre' },
+      rehab: ['Reverse Curl', 'Wrist Extensor Stretch']
+    },
+    level2: {
+      exclude: ['Curl Barre', 'Skull Crusher', 'Dips'],
+      rehab: ['Eccentric Wrist Extension', 'Tyler Twist']
+    }
+  },
+  nuque: {
+    level1: {
+      replace: { 'Squat (Barre)': 'Safety Bar Squat', 'Shrug': 'Shrug Haltère léger' },
+      rehab: ['Chin Tuck', 'Neck Mobility']
+    },
+    level2: {
+      exclude: ['Back Squat lourd', 'Shrug lourd', 'Front Squat'],
+      rehab: ['Chin Tuck', 'Upper Trap Stretch']
+    }
+  }
+};
+
+// Returns true if an exercise is excluded by the user's active level-2+ injuries
+function isExerciseInjured(exoName, injuries) {
+  if (!Array.isArray(injuries)) return false;
+  for (var i = 0; i < injuries.length; i++) {
+    var inj = injuries[i];
+    if (!inj.active || inj.level < 2) continue;
+    var profile = INJURY_PROFILES[inj.zone];
+    if (!profile) continue;
+    var key = inj.level >= 2 ? 'level2' : 'level1';
+    var excludeList = (profile[key] && profile[key].exclude) || [];
+    for (var j = 0; j < excludeList.length; j++) {
+      if (exoName.indexOf(excludeList[j]) >= 0) return true;
+    }
+  }
+  return false;
+}
+
+// Returns the replacement exercise for level-1 injuries, or null
+function getInjurySwap(exoName, injuries) {
+  if (!Array.isArray(injuries)) return null;
+  for (var i = 0; i < injuries.length; i++) {
+    var inj = injuries[i];
+    if (!inj.active || inj.level !== 1) continue;
+    var profile = INJURY_PROFILES[inj.zone];
+    if (!profile || !profile.level1 || !profile.level1.replace) continue;
+    var swap = profile.level1.replace[exoName];
+    if (swap) return swap;
+  }
+  return null;
+}
+
 // ── Volume Landmarks (sets/semaine par groupe musculaire) ────
 const VOLUME_LANDMARKS = {
   chest:      { MEV: 8,  MAV: 14, MRV: 20 },
@@ -869,7 +981,148 @@ function calcTDEE(bw, tonnage7d) {
   };
   var adjust = PHASE_KCAL[phase] || 0;
 
-  return baseTDEE + adjust;
+  // Calibration ajustement (apprentissage automatique via calibrateTDEE)
+  var userAdjust = (db.user && db.user.tdeeAdjustment) || 0;
+
+  return baseTDEE + adjust + userAdjust;
+}
+
+// ── TDEE Cycling pour la recompo ──────────────────────────────
+// +5% jour entraînement, -10% jour repos pour les utilisateurs en recompo
+function getTDEEForDay(baseTDEE, isTrainingDay, goal) {
+  if (!baseTDEE) return 0;
+  if (goal !== 'recompo') return baseTDEE;
+  return isTrainingDay ? Math.round(baseTDEE * 1.05) : Math.round(baseTDEE * 0.90);
+}
+
+// ── Calibration TDEE silencieuse ──────────────────────────────
+// Si poids stable malgré déficit théorique sur 14j → TDEE sous-estimé
+function calibrateTDEE() {
+  var entries = (db.body || []).filter(function(e) {
+    return e && e.ts && (Date.now() - e.ts < 14 * 86400000);
+  });
+  if (entries.length < 5) return; // pas assez de données
+  entries.sort(function(a, b) { return a.ts - b.ts; });
+  var weightChange = entries[entries.length - 1].weight - entries[0].weight;
+  var kgPerWeek = (weightChange / 14) * 7;
+
+  var goal = db.user && db.user.goal;
+  // Stable malgré déficit déclaré → TDEE sous-estimé, on baisse l'objectif kcal
+  if (Math.abs(kgPerWeek) < 0.1 && goal === 'seche') {
+    db.user.tdeeAdjustment = (db.user.tdeeAdjustment || 0) - 100;
+  }
+  // Stable malgré surplus déclaré → TDEE surestimé, on monte l'objectif kcal
+  if (Math.abs(kgPerWeek) < 0.1 && goal === 'masse') {
+    db.user.tdeeAdjustment = (db.user.tdeeAdjustment || 0) + 100;
+  }
+}
+
+// ── Cycle menstruel (optionnel, non invasif) ──────────────────
+function getCyclePhase() {
+  if (!db.user || !db.user.cycleTracking || !db.user.cycleTracking.enabled) return null;
+  var last = db.user.cycleTracking.lastPeriodDate;
+  if (!last) return null;
+  var lastTs = typeof last === 'string' ? new Date(last).getTime() : last;
+  if (!lastTs || isNaN(lastTs)) return null;
+  var len = db.user.cycleTracking.cycleLength || 28;
+  var daysSince = Math.floor((Date.now() - lastTs) / 86400000);
+  var day = ((daysSince % len) + len) % len;
+  return day <= 14 ? 'folliculaire' : 'luteale';
+}
+
+// ── MRV ajusté par genre (+15% femmes) ────────────────────────
+function getMRV(muscle, gender) {
+  var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
+  var base = (VOLUME_LANDMARKS[key] || {}).MRV || 15;
+  return gender === 'female' ? Math.round(base * 1.15) : base;
+}
+
+function getMEV(muscle, gender) {
+  var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
+  var base = (VOLUME_LANDMARKS[key] || {}).MEV || 6;
+  // MEV légèrement plus élevé pour femmes (récupèrent mieux)
+  return gender === 'female' ? Math.round(base * 1.1) : base;
+}
+
+// ── Validation silencieuse du niveau utilisateur ──────────────
+// Compare niveau déclaré vs DOTS réel ; corrige _realLevel si surestimé
+function validateUserLevel() {
+  if (!db.user || !db.bestPR) return;
+  var bw = db.user.bw;
+  if (!bw || bw <= 0) return;
+  var gender = db.user.gender === 'female' ? 'F' : 'M';
+  var total = (db.bestPR.squat || 0) + (db.bestPR.bench || 0) + (db.bestPR.deadlift || 0);
+  if (total === 0) return;
+
+  var dots = computeDOTS(total, bw, gender);
+  var declared = db.user.level;
+  var real = dots < 200 ? 'debutant'
+           : dots < 300 ? 'intermediaire'
+           : dots < 450 ? 'avance'
+           : 'competiteur';
+
+  // Correction silencieuse uniquement si surestimation
+  var rank = { debutant: 0, intermediaire: 1, avance: 2, competiteur: 3 };
+  if (rank[declared] > rank[real]) {
+    db.user._realLevel = real;
+  } else {
+    db.user._realLevel = null; // niveau déclaré OK
+  }
+}
+
+// ── Recompo progress tracker ──────────────────────────────────
+// Croise tendance poids (db.body) et e1RM SBD pour détecter succès/échec
+function checkRecompoProgress() {
+  var entries = (db.body || []).slice(-14).filter(function(e) { return e && e.weight; });
+  if (entries.length < 4) return { neutral: true, msg: 'Pas assez de données — log ton poids 4×/semaine min.' };
+
+  entries.sort(function(a, b) { return (a.ts || 0) - (b.ts || 0); });
+  var first = entries[0].weight;
+  var last = entries[entries.length - 1].weight;
+  var spanDays = Math.max(1, ((entries[entries.length - 1].ts || 0) - (entries[0].ts || 0)) / 86400000);
+  var weightTrend = ((last - first) / spanDays) * 7; // kg/semaine
+
+  // Tendance e1RM SBD (moyenne des 3 lifts sur 14j)
+  var e1rmTrend = 0;
+  if (typeof computeE1RMTrend === 'function') {
+    e1rmTrend = computeE1RMTrend();
+  } else if (db.exercises) {
+    // fallback simple : delta moyen entre PR récent et il y a 14j
+    var lifts = ['Squat', 'Bench Press', 'Deadlift'];
+    var sum = 0, n = 0;
+    lifts.forEach(function(name) {
+      var ex = db.exercises[name];
+      if (!ex || !ex.history || ex.history.length < 2) return;
+      var hist = ex.history.slice(-14);
+      var d = hist[hist.length - 1].e1rm - hist[0].e1rm;
+      sum += d; n++;
+    });
+    e1rmTrend = n > 0 ? sum / n : 0;
+  }
+
+  var bw = db.user && db.user.bw || 0;
+  var pctPerWeek = bw > 0 ? Math.abs(weightTrend) / bw * 100 : 0;
+
+  // Alerte perte trop rapide (>0.7%/sem) + force baisse
+  if (weightTrend < -0.5 && e1rmTrend < 0) {
+    return { alert: true, msg: 'Perte trop rapide + force en baisse. Augmente les calories des jours de repos.' };
+  }
+  if (pctPerWeek > 0.7 && weightTrend < 0) {
+    return { alert: true, msg: 'Perte trop rapide (' + pctPerWeek.toFixed(1) + '%/sem). Ton e1RM risque de chuter. On ralentit ?' };
+  }
+  if (weightTrend <= 0.2 && weightTrend >= -0.2 && e1rmTrend >= 0) {
+    return { success: true, msg: 'Recompo en cours — poids stable, force maintenue.' };
+  }
+  return { neutral: true, msg: 'Tendance : ' + weightTrend.toFixed(2) + ' kg/sem, e1RM ' + (e1rmTrend >= 0 ? '+' : '') + e1rmTrend.toFixed(1) + ' kg/sem.' };
+}
+
+// ── Micro-loading (incrément de charge) ───────────────────────
+// Femmes haut du corps : 0.5kg, bas : 1.25kg vs hommes 1.25/2.5
+function getLoadIncrement(exoName, gender) {
+  var lower = (exoName || '').toLowerCase();
+  var isUpperBody = /bench|développé|press|curl|tirage|row|épaule|shoulder|tricep|bicep|chest/.test(lower);
+  if (gender === 'female') return isUpperBody ? 0.5 : 1.25;
+  return isUpperBody ? 1.25 : 2.5;
 }
 function estimateRpeFromIntensity(weight, e1rm) {
   if (!e1rm || !weight || e1rm <= 0) return 8;
@@ -887,10 +1140,16 @@ function calcCalorieCible(bw) {
   return Math.round(kcalBase * (bw / bwBase));
 }
 function calcMacrosCibles(kcalCible, bw) {
-  const prot = Math.round(bw * 1.95);
-  const fat  = Math.round(bw * 0.73);
-  const carb = Math.max(0, Math.round((kcalCible - prot*4 - fat*9) / 4));
-  return { prot, carb, fat, kcal: kcalCible };
+  var goal = (db.user && db.user.goal) || '';
+  var gender = db.user && db.user.gender;
+  // Protéines : 2.4g/kg en recompo (2.3-2.5), 1.95g/kg sinon
+  var protPerKg = goal === 'recompo' ? 2.4 : 1.95;
+  var prot = Math.round(bw * protPerKg);
+  // Lipides : 1g/kg min pour femmes (santé hormonale), 0.73g/kg sinon
+  var fatPerKg = gender === 'female' ? Math.max(1.0, 0.73) : 0.73;
+  var fat = Math.round(bw * fatPerKg);
+  var carb = Math.max(0, Math.round((kcalCible - prot * 4 - fat * 9) / 4));
+  return { prot: prot, carb: carb, fat: fat, kcal: kcalCible };
 }
 function detectPlateau(type, n=3) {
   const history = [];

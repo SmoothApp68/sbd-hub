@@ -2556,6 +2556,45 @@
         </div>
 
         <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">
+            Objectif poids de corps (kg) <span style="color:var(--sub);font-weight:400;">— optionnel</span>
+          </div>
+          <input type="number" id="settingsTargetBW" placeholder="ex: 80" min="30" max="300"
+            style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;"
+            onchange="updateProfileField('targetBW', this.value ? parseFloat(this.value) : null)">
+        </div>
+
+        <!-- Cycle menstruel — visible uniquement si genre = female -->
+        <div id="settingsCycleBlock" style="display:none;margin-top:12px;padding:12px;background:rgba(255,159,10,0.06);border:1px solid rgba(255,159,10,0.2);border-radius:10px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">
+            <input type="checkbox" id="settingsCycleEnabled" onchange="toggleCycleTracking(this.checked)">
+            🌙 Optimisation hormonale (cycle menstruel)
+          </label>
+          <div id="settingsCycleDetails" style="display:none;margin-top:10px;">
+            <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Date des dernières règles</div>
+            <input type="date" id="settingsCycleLastDate"
+              style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;"
+              onchange="updateCycleField('lastPeriodDate', this.value)">
+            <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-top:10px;margin-bottom:6px;">Durée du cycle (jours)</div>
+            <input type="number" id="settingsCycleLength" min="20" max="40" placeholder="28"
+              style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;"
+              onchange="updateCycleField('cycleLength', parseInt(this.value)||28)">
+            <div style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5;">
+              Folliculaire : intensité max autorisée. Lutéale : tolérance RPE +0.5 (le coach est plus indulgent).
+            </div>
+          </div>
+        </div>
+
+        <!-- Blessures par zone et niveau -->
+        <div style="margin-top:16px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">Zones fragiles / blessures</div>
+          <div id="settingsInjuriesList" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <div style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5;">
+            Niveau 1 : gêne légère (exercices remplacés). Niveau 2 : blessure active (exercices exclus + rééducation). Niveau 3 : post-chirurgie.
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Mode d'entraînement</div>
           <select id="settingsTrainingMode" onchange="updateProfileField('trainingMode', this.value)" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
             <option value="musculation">💪 Musculation</option>

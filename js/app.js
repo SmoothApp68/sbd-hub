@@ -79,7 +79,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, liftLevels: {}, _realLevel: null, tdeeAdjustment: 0, injuries: [] },
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -161,6 +161,18 @@ let db = (() => {
     if (!p.exercises) p.exercises = {};
     if (p.user.height === undefined) p.user.height = null;
     if (p.user.age === undefined) p.user.age = null;
+    // ── New user fields (Recompo / Gender / Injuries / Body / Auto-level) ──
+    if (p.user.targetBW === undefined) p.user.targetBW = null;
+    if (!p.user.cycleTracking) p.user.cycleTracking = { enabled: false, lastPeriodDate: null, cycleLength: 28 };
+    if (!p.user.liftLevels) p.user.liftLevels = {};
+    if (p.user._realLevel === undefined) p.user._realLevel = null;
+    if (p.user.tdeeAdjustment === undefined) p.user.tdeeAdjustment = 0;
+    // Migrate injuries: legacy [string, ...] → [{zone, level, active, since}, ...]
+    if (!Array.isArray(p.user.injuries)) p.user.injuries = [];
+    p.user.injuries = p.user.injuries.map(function(inj) {
+      if (typeof inj === 'string') return { zone: inj, level: 1, active: true, since: null };
+      return inj;
+    });
     return p;
   } catch { return defaultDB(); }
 })();
@@ -11137,6 +11149,24 @@ function fillSettingsFields() {
   const bwEl = document.getElementById('inputBWBase'); if (bwEl) bwEl.value = db.user.bwBase || 80;
   const hEl = document.getElementById('settingsHeight'); if (hEl) hEl.value = db.user.height || '';
   const aEl = document.getElementById('settingsAge'); if (aEl) aEl.value = db.user.age || '';
+  const tBwEl = document.getElementById('settingsTargetBW'); if (tBwEl) tBwEl.value = db.user.targetBW || '';
+
+  // Cycle menstruel
+  var ct = db.user.cycleTracking || { enabled: false, lastPeriodDate: null, cycleLength: 28 };
+  var cBlock = document.getElementById('settingsCycleBlock');
+  if (cBlock) cBlock.style.display = (db.user.gender === 'female') ? 'block' : 'none';
+  var cEnabled = document.getElementById('settingsCycleEnabled');
+  if (cEnabled) cEnabled.checked = !!ct.enabled;
+  var cDetails = document.getElementById('settingsCycleDetails');
+  if (cDetails) cDetails.style.display = ct.enabled ? 'block' : 'none';
+  var cLast = document.getElementById('settingsCycleLastDate');
+  if (cLast) cLast.value = ct.lastPeriodDate || '';
+  var cLen = document.getElementById('settingsCycleLength');
+  if (cLen) cLen.value = ct.cycleLength || 28;
+
+  // Blessures
+  if (typeof renderInjuriesEditor === 'function') renderInjuriesEditor();
+
   const tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
   renderSettingsProfile();
@@ -11247,13 +11277,76 @@ function updateProfileField(field, value) {
     db.user.programParams.level = value;
   } else if (field === 'trainingMode') {
     db.user.trainingMode = value;
-  } else if (field === 'height' || field === 'age') {
+  } else if (field === 'height' || field === 'age' || field === 'targetBW') {
     db.user[field] = value;
   } else {
     db.user.programParams[field] = value;
   }
   _debouncedSaveSettings();
   showToast('✓ Profil mis à jour');
+}
+
+// ── Cycle menstruel handlers ─────────────────────────────────
+function toggleCycleTracking(enabled) {
+  if (!db.user.cycleTracking) db.user.cycleTracking = { enabled: false, lastPeriodDate: null, cycleLength: 28 };
+  db.user.cycleTracking.enabled = !!enabled;
+  var details = document.getElementById('settingsCycleDetails');
+  if (details) details.style.display = enabled ? 'block' : 'none';
+  _debouncedSaveSettings();
+  showToast(enabled ? '🌙 Cycle activé' : '✓ Cycle désactivé');
+}
+
+function updateCycleField(field, value) {
+  if (!db.user.cycleTracking) db.user.cycleTracking = { enabled: false, lastPeriodDate: null, cycleLength: 28 };
+  db.user.cycleTracking[field] = value;
+  _debouncedSaveSettings();
+}
+
+// ── Injuries: zone-by-zone editor ────────────────────────────
+var INJURY_ZONES = [
+  { key: 'genou',    label: '🦵 Genoux' },
+  { key: 'epaule',   label: '🤚 Épaules' },
+  { key: 'dos',      label: '🦴 Dos' },
+  { key: 'hanche',   label: '🦴 Hanches' },
+  { key: 'poignet',  label: '✋ Poignets' },
+  { key: 'coude',    label: '💪 Coudes' },
+  { key: 'nuque',    label: '👤 Nuque' },
+];
+
+function renderInjuriesEditor() {
+  var container = document.getElementById('settingsInjuriesList');
+  if (!container) return;
+  var injuries = db.user.injuries || [];
+  var byZone = {};
+  injuries.forEach(function(inj) { if (inj && inj.zone) byZone[inj.zone] = inj; });
+
+  container.innerHTML = INJURY_ZONES.map(function(z) {
+    var inj = byZone[z.key];
+    var level = inj && inj.active ? inj.level : 0; // 0 = aucune
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">'+
+      '<div style="font-size:13px;font-weight:600;flex-shrink:0;">' + z.label + '</div>'+
+      '<select onchange="setInjuryLevel(\''+z.key+'\', parseInt(this.value))" style="padding:6px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12px;">'+
+        '<option value="0"' + (level===0?' selected':'') + '>Aucune</option>'+
+        '<option value="1"' + (level===1?' selected':'') + '>Niveau 1 — Gêne légère</option>'+
+        '<option value="2"' + (level===2?' selected':'') + '>Niveau 2 — Blessure active</option>'+
+        '<option value="3"' + (level===3?' selected':'') + '>Niveau 3 — Post-chirurgie</option>'+
+      '</select>'+
+    '</div>';
+  }).join('');
+}
+
+function setInjuryLevel(zone, level) {
+  if (!Array.isArray(db.user.injuries)) db.user.injuries = [];
+  var idx = db.user.injuries.findIndex(function(i) { return i && i.zone === zone; });
+  if (level === 0) {
+    if (idx >= 0) db.user.injuries.splice(idx, 1);
+  } else {
+    var entry = { zone: zone, level: level, active: true, since: new Date().toISOString().slice(0,10) };
+    if (idx >= 0) db.user.injuries[idx] = Object.assign({}, db.user.injuries[idx], entry);
+    else db.user.injuries.push(entry);
+  }
+  _debouncedSaveSettings();
+  showToast(level === 0 ? '✓ Zone retirée' : '⚕️ Niveau ' + level + ' enregistré');
 }
 
 function renderSettingsProfile() {
@@ -11375,7 +11468,14 @@ function toggleSettingsGoal(goalId, btn) {
   btn.style.color = active ? 'var(--blue)' : 'var(--sub)';
 }
 
-function setSettingsGender(g) { db.user.gender = g; _debouncedSaveSettings(); showToast('✓ Profil mis à jour'); }
+function setSettingsGender(g) {
+  db.user.gender = g;
+  _debouncedSaveSettings();
+  // Toggle cycle tracking block visibility based on gender
+  var cBlock = document.getElementById('settingsCycleBlock');
+  if (cBlock) cBlock.style.display = (g === 'female') ? 'block' : 'none';
+  showToast('✓ Profil mis à jour');
+}
 
 // Helper to toggle a single-select button group without full re-render
 function _toggleSingleSelect(containerId, btn, field, value, color) {

@@ -185,7 +185,6 @@ let db = (() => {
     if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
     if (p.user.reverseDigestActive === undefined) p.user.reverseDigestActive = false;
     if (p.user.supersetPreference === undefined) p.user.supersetPreference = 'auto';
-    if (p.user.prehabEnabled === undefined) p.user.prehabEnabled = true;
     return p;
   } catch { return defaultDB(); }
 })();
@@ -11821,14 +11820,6 @@ function renderSettingsProfile() {
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSupersetPref('${o.id}', this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${o.icon} ${o.l}</button>`;
     }).join('');
   }
-
-  // Prehab toggle
-  var prehabToggle = document.getElementById('settingsPrehabToggle');
-  if (prehabToggle) {
-    prehabToggle.checked = db.user.prehabEnabled !== false;
-    var slider = document.getElementById('prehabToggleSlider');
-    if (slider) slider.style.background = prehabToggle.checked ? 'var(--blue)' : 'var(--border)';
-  }
 }
 
 function toggleSettingsGoal(goalId, btn) {
@@ -12529,27 +12520,7 @@ function renderCoachDayDetail(day, routine, donedays, weekStart) {
     return '<div class="coach-rest-day" style="font-size:12px;">Aucun exercice configuré pour ' + day + '</div>';
   }
 
-  // Prehab section (from weeklyPlan, not from logged data)
-  var _prehabSection = '';
-  if (!dayDone && planDay && planDay.exercises) {
-    var _phExos = planDay.exercises.filter(function(e) { return e.isPrehab; });
-    if (_phExos.length) {
-      _prehabSection = '<div style="margin-bottom:10px;padding:8px 10px;background:rgba(255,159,10,0.06);border-left:3px solid var(--orange);border-radius:8px;">' +
-        '<div style="font-size:11px;color:var(--orange);font-weight:700;margin-bottom:4px;">🔥 Prehab — ~10min</div>' +
-        _phExos.map(function(exo) {
-          var s0 = exo.sets && exo.sets[0];
-          var desc = s0 && s0.durationSec
-            ? exo.sets.length + '×' + s0.durationSec + 's'
-            : exo.sets && exo.sets.length + '×' + ((s0 && s0.reps) || 12) + ' reps';
-          return '<div style="font-size:11px;color:var(--sub);padding:2px 0;">• ' + exo.name + ' — ' + desc + '</div>';
-        }).join('') +
-        '</div>';
-    }
-  }
-
-  let h = '<div style="margin-top:4px;">' + _prehabSection;
-  // Filter out prehab from main exercise cards
-  exercises = exercises.filter(function(e) { return !e.isPrehab; });
+  let h = '<div style="margin-top:4px;">';
   exercises.forEach((exo, idx) => {
     const ms = _ecMuscleStyle(exo.name);
     const shortName = exo.name.replace(/\s*\(.*\)/, '').trim();
@@ -13089,13 +13060,6 @@ function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isF
 function estimateSessionDuration(exercises) {
   if (!exercises || !exercises.length) return 0;
   let totalSec = 600; // 10min : échauffement articulaire + rangement final
-
-  // Prehab exercises add a flat 10min — not counted per-exercise (they replace the default warmup budget)
-  var hasPrehab = exercises.some(function(e) { return e.isPrehab; });
-  if (hasPrehab) totalSec = 0; // Prehab itself counts as the 10min warmup
-  exercises = exercises.filter(function(e) { return !e.isPrehab; });
-  if (!exercises.length) return hasPrehab ? 10 : 0;
-  totalSec += hasPrehab ? 600 : 0; // Restore 10min for prehab-having sessions
 
   exercises.forEach(function(exo) {
     if (!exo || !exo.name) return; // guard anti-null
@@ -15014,16 +14978,6 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
     exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
   }
-
-  // Prehab génératif — échauffement dynamique 10min en tête de séance
-  if (typeof generatePrehabRoutine === 'function' && !params.skipPrehab && db.user.prehabEnabled !== false) {
-    var _srsScore = typeof computeSRS === 'function' ? computeSRS().score : 70;
-    var _prehabExos = generatePrehabRoutine(dayKey, _srsScore, injuries);
-    if (_prehabExos && _prehabExos.length) {
-      exercises = _prehabExos.concat(exercises);
-    }
-  }
-
   var derivedTitle = wpDeriveTitle(exercises) || tpl.title;
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, dupProfile: _dupProfile || null };
 }
@@ -15550,22 +15504,7 @@ function renderWeeklyPlanUI() {
     const rdBanner = (wpSelectedDay === DAYS_FULL[new Date().getDay()]) ? getReadinessBannerHtml() : '';
     const displayTitle = (db.planDayTitles && db.planDayTitles[wpSelectedDay]) || sel.title || wpSelectedDay;
     const renameBtn = `<button onclick="wpRenameDay('${wpSelectedDay}')" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:13px;padding:2px 6px;opacity:0.6;" title="Renommer">✏️</button>`;
-    var _prehabExosWp = (sel.exercises || []).filter(function(e) { return e.isPrehab; });
-    var _mainExosWp   = (sel.exercises || []).filter(function(e) { return !e.isPrehab; });
-    var _prehabSection = '';
-    if (_prehabExosWp.length) {
-      _prehabSection = '<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,159,10,0.06);border-left:3px solid var(--orange);border-radius:8px;">' +
-        '<div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:6px;">🔥 Prehab — ~10min</div>' +
-        _prehabExosWp.map(function(exo) {
-          var s0 = exo.sets && exo.sets[0];
-          var setDesc = s0 && s0.durationSec
-            ? exo.sets.length + '×' + s0.durationSec + 's'
-            : exo.sets && exo.sets.length + '×' + ((s0 && s0.reps) || 12) + ' reps';
-          return '<div style="font-size:12px;color:var(--sub);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);">• ' + exo.name + ' — ' + setDesc + '</div>';
-        }).join('') +
-        '</div>';
-    }
-    sessionHtml = `<div class="wp-session"><div class="wp-session-title" style="display:flex;align-items:center;gap:6px;">${displayTitle}${renameBtn}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${_prehabSection}${_mainExosWp.map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
+    sessionHtml = `<div class="wp-session"><div class="wp-session-title" style="display:flex;align-items:center;gap:6px;">${displayTitle}${renameBtn}</div>${durationHtml}${rdBanner}${sel.coachNote?`<div class="wp-coach-note">🦍 ${sel.coachNote}</div>`:''}<div style="margin-top:14px;">${(sel.exercises||[]).map(renderWpExercise).join('')}</div>${applyDayBtn}</div>`;
   }
   // Bloc badge avec label (intermédiaire+)
   var streak = typeof wpGetStreak === 'function' ? wpGetStreak() : 0;

@@ -2859,6 +2859,19 @@ async function diagnoseSocial() {
 // ============================================================
 // SOCIAL MODULE — PROFILE OVERLAY
 // ============================================================
+function _detectPhaseFromTitle(title) {
+  if (!title) return null;
+  var t = String(title).toLowerCase();
+  if (/deload|🔄/.test(t)) return 'deload';
+  if (/peak|🎯/.test(t)) return 'peak';
+  if (/hypertroph/.test(t)) return 'hypertrophie';
+  if (/intensification/.test(t)) return 'intensification';
+  if (/accumulation/.test(t)) return 'accumulation';
+  if (/force/.test(t)) return 'force';
+  if (/intro/.test(t)) return 'intro';
+  return null;
+}
+
 async function showProfileOverlay(userId) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return;
@@ -2869,7 +2882,7 @@ async function showProfileOverlay(userId) {
 
   try {
     const { data: profile, error: profileErr } = await supaClient.from('profiles')
-      .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
+      .select('id, username, bio, tier, training_status, training_since, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
       .eq('id', userId)
       .maybeSingle();
     if (profileErr) {
@@ -2908,14 +2921,44 @@ async function showProfileOverlay(userId) {
     let html = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button>';
     html += '<div class="profile-header">';
     html += '<div class="profile-big-avatar">' + avatarInitial(profile.username) + '</div>';
-    html += '<div class="profile-username">' + profile.username + '</div>';
+    html += '<div class="profile-username">' + profile.username + (typeof renderTierBadge === 'function' && profile.tier ? ' ' + renderTierBadge(profile.tier) : '') + '</div>';
+
+    // Live training indicator (training_status est rempli pendant une séance en cours)
+    if (canSeeStats && profile.training_status && profile.training_since) {
+      const minsSince = Math.max(0, Math.round((Date.now() - new Date(profile.training_since).getTime()) / 60000));
+      html += '<div style="margin-top:6px;font-size:12px;color:var(--green);font-weight:600;">🟢 ' + escapeHtml(profile.training_status) + ' · depuis ' + minsSince + 'min</div>';
+    }
+
     if (canSeeBio && profile.bio) html += '<div class="profile-bio">' + escapeHtml(profile.bio) + '</div>';
     else if (!canSeeBio) html += '<div class="profile-bio" style="font-style:italic;color:var(--sub);">Bio privée</div>';
     html += '</div>';
 
+    // Phase actuelle (dérivée du dernier titre de séance)
+    if (canSeeStats) {
+      try {
+        const { data: lastSession } = await supaClient.from('activity_feed')
+          .select('data, created_at')
+          .eq('user_id', userId)
+          .eq('type', 'session')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const phase = lastSession && lastSession.data ? _detectPhaseFromTitle(lastSession.data.title) : null;
+        if (phase) {
+          const phaseColors = {
+            hypertrophie: '#0A84FF', force: '#FF9F0A', peak: '#FF453A', deload: '#32D74B',
+            accumulation: '#5AC8FA', intensification: '#FF9500', intro: '#BF5AF2'
+          };
+          const c = phaseColors[phase] || '#86868B';
+          const phaseLabel = phase.charAt(0).toUpperCase() + phase.slice(1);
+          html += '<div style="display:flex;justify-content:center;margin-bottom:14px;"><span style="background:' + c + '22;border:1px solid ' + c + ';color:' + c + ';padding:5px 14px;border-radius:14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📅 Phase : ' + phaseLabel + '</span></div>';
+        }
+      } catch(e) { /* ignore phase detection errors */ }
+    }
+
     // Action buttons
     if (!isMe) {
-      html += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
+      html += '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
       if (isFriend) {
         html += '<button class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--red);font-size:13px;" onclick="removeFriend(\'' + friendship.id + '\');closeProfileOverlay();">Retirer</button>';
       } else if (isPending) {
@@ -2929,26 +2972,46 @@ async function showProfileOverlay(userId) {
       }
       html += '<button class="btn" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);font-size:13px;width:auto;padding:10px 16px;" onclick="blockUser(\'' + userId + '\')">Bloquer</button>';
       html += '</div>';
-      // Compare button (only for accepted friends)
+      // Compare + Défi (only for accepted friends)
       if (isFriend) {
-        html += '<div style="margin-bottom:16px;"><button class="btn" style="background:linear-gradient(135deg,rgba(255,149,0,0.15),rgba(255,59,48,0.15));border:1px solid rgba(255,149,0,0.3);color:var(--orange,#ff9500);font-size:13px;font-weight:700;" onclick="showComparisonView(\'' + userId + '\')">⚔️ Comparer</button></div>';
+        const usernameEsc = (profile.username || '').replace(/'/g, "\\'");
+        html += '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
+          '<button class="btn" style="background:linear-gradient(135deg,rgba(255,149,0,0.15),rgba(255,59,48,0.15));border:1px solid rgba(255,149,0,0.3);color:var(--orange,#ff9500);font-size:13px;font-weight:700;" onclick="showComparisonView(\'' + userId + '\')">⚔️ Comparer</button>' +
+          '<button class="btn" style="background:linear-gradient(135deg,rgba(0,132,255,0.15),rgba(100,210,255,0.15));border:1px solid rgba(0,132,255,0.3);color:var(--blue);font-size:13px;font-weight:700;" onclick="openDefiModal(null,\'' + usernameEsc + '\')">🏆 Défi</button>' +
+        '</div>';
       }
     }
 
-    // PRs section
+    // PRs section avec tendance e1RM (slope sur 4 semaines)
     html += '<div class="profile-section"><div class="card"><div class="profile-section-title">PRs / Exercices clés</div>';
     if (canSeePrs) {
-      // Show leaderboard snapshots for this user
       const { data: snapshots } = await supaClient.from('leaderboard_snapshots')
-        .select('exercise_name, value')
+        .select('exercise_name, value, snapshot_week')
         .eq('user_id', userId)
-        .order('value', { ascending: false });
+        .order('snapshot_week', { ascending: false });
       if (snapshots && snapshots.length) {
-        const best = {};
-        snapshots.forEach(s => { if (!best[s.exercise_name] || s.value > best[s.exercise_name]) best[s.exercise_name] = s.value; });
-        html += Object.entries(best).map(([name, val]) =>
-          '<div class="stat-row"><span style="font-size:13px;">' + name + '</span><span style="font-weight:700;color:var(--blue);">' + Math.round(val) + 'kg</span></div>'
-        ).join('');
+        const grouped = {};
+        snapshots.forEach(s => {
+          if (!grouped[s.exercise_name]) grouped[s.exercise_name] = [];
+          grouped[s.exercise_name].push(s);
+        });
+        html += Object.entries(grouped).map(([name, snaps]) => {
+          const latest = snaps[0];
+          const latestTs = new Date(latest.snapshot_week).getTime();
+          const fourWksAgoTs = latestTs - 28 * 86400000;
+          const baseline = snaps.find(s => new Date(s.snapshot_week).getTime() <= fourWksAgoTs);
+          let trendIcon = '→';
+          let trendColor = 'var(--sub)';
+          let trendTitle = 'Stable';
+          if (baseline) {
+            const delta = latest.value - baseline.value;
+            if (delta >= 1.25) { trendIcon = '↑'; trendColor = 'var(--green)'; trendTitle = '+' + delta.toFixed(1) + 'kg en 4 sem.'; }
+            else if (delta <= -1.25) { trendIcon = '↓'; trendColor = 'var(--red)'; trendTitle = delta.toFixed(1) + 'kg en 4 sem.'; }
+          }
+          return '<div class="stat-row"><span style="font-size:13px;">' + escapeHtml(name) + '</span>' +
+            '<span><span style="color:' + trendColor + ';margin-right:6px;font-weight:700;" title="' + trendTitle + '">' + trendIcon + '</span>' +
+            '<span style="font-weight:700;color:var(--blue);">' + Math.round(latest.value) + 'kg</span></span></div>';
+        }).join('');
       } else {
         html += '<div style="color:var(--sub);font-size:13px;text-align:center;padding:12px;">Aucun PR enregistré</div>';
       }
@@ -2957,17 +3020,40 @@ async function showProfileOverlay(userId) {
     }
     html += '</div></div>';
 
-    // Stats section
+    // Stats section avec streak
     html += '<div class="profile-section"><div class="card"><div class="profile-section-title">Stats</div>';
     if (canSeeStats) {
       const { data: activities } = await supaClient.from('activity_feed')
-        .select('type, created_at')
+        .select('created_at')
         .eq('user_id', userId)
         .eq('type', 'session')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
       const totalSessions = activities ? activities.length : 0;
       html += '<div class="stat-row"><span>Séances</span><span style="font-weight:700;">' + totalSessions + '</span></div>';
+
+      // Streak : semaines consécutives avec ≥1 session
+      let streak = 0;
+      if (activities && activities.length && typeof getISOWeekKey === 'function') {
+        const weekSet = new Set();
+        activities.forEach(a => {
+          const k = getISOWeekKey(new Date(a.created_at).getTime());
+          if (k) weekSet.add(k);
+        });
+        let cursorTs = Date.now();
+        // Allow one-week grace if this week hasn't seen a session yet
+        const currentWk = getISOWeekKey(cursorTs);
+        if (!weekSet.has(currentWk)) cursorTs -= 7 * 86400000;
+        while (true) {
+          const wk = getISOWeekKey(cursorTs);
+          if (!wk || !weekSet.has(wk)) break;
+          streak++;
+          cursorTs -= 7 * 86400000;
+        }
+      }
+      if (streak > 0) {
+        html += '<div class="stat-row"><span>Streak</span><span style="font-weight:700;color:var(--orange);">🔥 ' + streak + ' semaine' + (streak > 1 ? 's' : '') + '</span></div>';
+      }
     } else {
       html += '<div class="profile-private">🔒 Section privée</div>';
     }

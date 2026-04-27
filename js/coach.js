@@ -4,6 +4,26 @@
 // Dépend de : js/engine.js, js/program.js
 // ============================================================
 
+// ── MUSCLES COUVERTS PAR LE PROGRAMME DE LA SEMAINE ──
+// Évite les fausses alertes "Volume insuffisant" pour des muscles déjà
+// programmés dans des séances à venir (db.weeklyPlan).
+function getMusclesPlannedThisWeek() {
+  var planned = new Set();
+  if (typeof db === 'undefined' || !db || !db.weeklyPlan || !db.weeklyPlan.days) return planned;
+  db.weeklyPlan.days.forEach(function(day) {
+    if (day.rest) return;
+    (day.exercises || []).forEach(function(exo) {
+      var name = exo && exo.name;
+      if (!name) return;
+      var mg = typeof getMuscleGroup === 'function' ? getMuscleGroup(name) : null;
+      if (mg && mg !== 'Autre' && mg !== 'Cardio') planned.add(mg);
+      var parent = mg && typeof getMuscleGroupParent === 'function' ? getMuscleGroupParent(mg) : null;
+      if (parent && parent !== 'Autre' && parent !== 'Cardio') planned.add(parent);
+    });
+  });
+  return planned;
+}
+
 // ── ANALYSE VOLUME PAR MUSCLE (MEV/MAV/MRV) ──
 // Retourne un rapport complet sur le volume hebdomadaire par muscle
 function coachAnalyzeWeeklyVolume() {
@@ -72,14 +92,19 @@ function coachGetFullAnalysis() {
   var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
   var routine = typeof getRoutine === 'function' ? getRoutine() : {};
   var todayPlan = routine[today] || 'Repos';
+  todayPlan = todayPlan.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]+\s*/gu, '').trim();
 
   var recoHtml = '<div class="ai-section-title">🦍 Coach dit</div>';
   var recos = [];
 
-  // Détecter les muscles en sous-volume
+  // Détecter les muscles en sous-volume — filtrés vs programme prévu
   var volReport = coachAnalyzeWeeklyVolume();
+  var plannedMuscles = getMusclesPlannedThisWeek();
   if (volReport && volReport.under.length > 0) {
-    recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> ' + volReport.under.map(function(e) { return e.muscle + ' ('+e.sets+' sets)'; }).join(', ') + ' — ajoute des séries cette semaine.' });
+    var reallyUnder = volReport.under.filter(function(e) { return !plannedMuscles.has(e.muscle); });
+    if (reallyUnder.length > 0) {
+      recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> ' + reallyUnder.map(function(e) { return e.muscle + ' ('+e.sets+' sets)'; }).join(', ') + ' — ajoute des séries cette semaine.' });
+    }
   }
   if (volReport && volReport.over.length > 0) {
     recos.push({ dot: 'var(--red)', text: '<strong>Survolume détecté :</strong> ' + volReport.over.map(function(e) { return e.muscle; }).join(', ') + ' — réduis le volume ou passe en deload.' });
@@ -109,8 +134,24 @@ function coachGetFullAnalysis() {
     recos.push({ dot: 'var(--deadlift)', text: '<strong>Deadlift :</strong> '+pr.deadlift+'kg → objectif '+targets.deadlift+'kg ('+gapDead+'kg restants)' });
   }
 
-  // Séance du jour
-  recos.push({ dot: 'var(--green)', text: '<strong>Aujourd\'hui (' + today + ') :</strong> ' + todayPlan + (readiness.multiplier < 1 ? ' — charges à '+ Math.round(readiness.multiplier*100)+'%' : '') });
+  // Séance du jour — enrichie avec les exercices principaux prévus
+  var todayPlanData = db.weeklyPlan && db.weeklyPlan.days
+    ? db.weeklyPlan.days.find(function(d) { return d.day === today; })
+    : null;
+  var todayLabel = todayPlan;
+  if (todayPlanData && !todayPlanData.rest && todayPlanData.exercises && todayPlanData.exercises.length) {
+    var mainExos = todayPlanData.exercises
+      .filter(function(e) { return e.isPrimary; })
+      .slice(0, 3)
+      .map(function(e) { return e.name; });
+    if (!mainExos.length) {
+      mainExos = todayPlanData.exercises.slice(0, 2).map(function(e) { return e.name; });
+    }
+    if (mainExos.length) {
+      todayLabel += ' <span style="color:var(--sub);font-size:11px;">(' + mainExos.join(', ') + ')</span>';
+    }
+  }
+  recos.push({ dot: 'var(--green)', text: '<strong>Aujourd\'hui (' + today + ') :</strong> ' + todayLabel + (readiness.multiplier < 1 ? ' — charges à '+ Math.round(readiness.multiplier*100)+'%' : '') });
 
   if (recos.length > 0) {
     recos.forEach(function(r) {

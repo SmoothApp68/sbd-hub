@@ -11668,18 +11668,43 @@ function renderCoachTodayHTML() {
   var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
   var routine = typeof getRoutine === 'function' ? getRoutine() : {};
   var todayPlan = routine[today] || 'Repos';
+  // Nettoyer les emojis et préfixes de phase (🔄, 🌱, ⚡, 💪, 🔥…)
+  todayPlan = todayPlan.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]+\s*/gu, '').trim();
   var recos = [];
 
-  recos.push({ dot: 'var(--green)', text: '<strong>Aujourd\'hui ('+today+') :</strong> '+todayPlan });
+  // Enrichir avec les exercices principaux prévus par db.weeklyPlan
+  var todayPlanData = db.weeklyPlan && db.weeklyPlan.days
+    ? db.weeklyPlan.days.find(function(d) { return d.day === today; })
+    : null;
+  var todayLabel = todayPlan;
+  if (todayPlanData && !todayPlanData.rest && todayPlanData.exercises && todayPlanData.exercises.length) {
+    var mainExos = todayPlanData.exercises
+      .filter(function(e) { return e.isPrimary; })
+      .slice(0, 3)
+      .map(function(e) { return e.name; });
+    if (!mainExos.length) {
+      mainExos = todayPlanData.exercises.slice(0, 2).map(function(e) { return e.name; });
+    }
+    if (mainExos.length) {
+      todayLabel += ' <span style="color:var(--sub);font-size:11px;">(' + mainExos.join(', ') + ')</span>';
+    }
+  }
 
+  recos.push({ dot: 'var(--green)', text: '<strong>Aujourd\'hui ('+today+') :</strong> '+todayLabel });
+
+  // Filtrer les alertes "Volume insuffisant" pour les muscles déjà prévus
+  var plannedMuscles = typeof getMusclesPlannedThisWeek === 'function' ? getMusclesPlannedThisWeek() : new Set();
   if (volReport && volReport.under && volReport.under.length > 0) {
-    recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
-      volReport.under.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
-      ' — cible MEV : '+volReport.under.map(function(e){
-        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
-        return lm ? lm.mev+' sets' : '?';
-      }).join(', ')
-    });
+    var reallyUnder = volReport.under.filter(function(e) { return !plannedMuscles.has(e.muscle); });
+    if (reallyUnder.length > 0) {
+      recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
+        reallyUnder.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
+        ' — cible MEV : '+reallyUnder.map(function(e){
+          var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
+          return lm ? lm.mev+' sets' : '?';
+        }).join(', ')
+      });
+    }
   }
   if (volReport && volReport.over && volReport.over.length > 0) {
     recos.push({ dot: 'var(--red)', text: '<strong>Survolume :</strong> '+

@@ -184,6 +184,7 @@ let db = (() => {
     if (p.user.nutritionStrategy === undefined) p.user.nutritionStrategy = null;
     if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
     if (p.user.reverseDigestActive === undefined) p.user.reverseDigestActive = false;
+    if (p.user.supersetPreference === undefined) p.user.supersetPreference = 'auto';
     return p;
   } catch { return defaultDB(); }
 })();
@@ -11804,6 +11805,21 @@ function renderSettingsProfile() {
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSettingsCardio('${o.id}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${o.l}</button>`;
     }).join('');
   }
+
+  // Supersets
+  const ssEl = document.getElementById('settingsSupersets');
+  if (ssEl) {
+    const currentSS = (db.user && db.user.supersetPreference) || 'auto';
+    const ssOpts = [
+      {id:'standard', l:'Standard', icon:'📋'},
+      {id:'auto',     l:'Auto',     icon:'⚡'},
+      {id:'optimised',l:'Optimisée',icon:'🔀'}
+    ];
+    ssEl.innerHTML = ssOpts.map(o => {
+      const active = o.id === currentSS;
+      return `<button class="settings-toggle-btn ${active?'active':''}" onclick="setSupersetPref('${o.id}', this)" style="padding:6px 14px;border-radius:8px;border:1px solid ${active?'var(--blue)':'var(--border)'};background:${active?'rgba(10,132,255,0.15)':'var(--surface)'};color:${active?'var(--blue)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${o.icon} ${o.l}</button>`;
+    }).join('');
+  }
 }
 
 function toggleSettingsGoal(goalId, btn) {
@@ -11856,6 +11872,25 @@ function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'fre
 function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
 function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
 function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }
+
+function setSupersetPref(pref, btn) {
+  db.user.supersetPreference = pref;
+  const container = document.getElementById('settingsSupersets');
+  if (container) {
+    container.querySelectorAll('.settings-toggle-btn').forEach(function(b) {
+      b.classList.remove('active');
+      b.style.borderColor = 'var(--border)';
+      b.style.background = 'var(--surface)';
+      b.style.color = 'var(--sub)';
+    });
+  }
+  btn.classList.add('active');
+  btn.style.borderColor = 'var(--blue)';
+  btn.style.background = 'rgba(10,132,255,0.15)';
+  btn.style.color = 'var(--blue)';
+  _debouncedSaveSettings();
+  showToast('✓ Densité de séance mise à jour');
+}
 
 function toggleSettingsDay(day, btn) {
   if (!db.user.programParams) db.user.programParams = {};
@@ -14150,15 +14185,19 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
   return exercises;
 }
 
-function wpApplySupersets(exercises) {
+var NEVER_SUPERSET = /squat|bench|deadlift|développé couché|soulevé|high bar|larsen|paused squat|rack pull|good morning/i;
+
+function wpApplySupersets(exercises, pref) {
+  var _pref = pref || (db.user && db.user.supersetPreference) || 'auto';
+  if (_pref === 'standard') return exercises;
   var result = [];
   var i = 0;
   while (i < exercises.length) {
     var exo = exercises[i];
-    var isHeavy = exo.isPrimary || /squat|bench|deadlift|développé couché|soulevé|rowing poulie|tractions/i.test(exo.name || '');
+    var isHeavy = exo.isPrimary || NEVER_SUPERSET.test(exo.name || '');
     if (!isHeavy && i + 1 < exercises.length) {
       var next = exercises[i + 1];
-      var nextIsHeavy = next.isPrimary || /squat|bench|deadlift|développé couché|soulevé|rowing poulie|tractions/i.test(next.name || '');
+      var nextIsHeavy = next.isPrimary || NEVER_SUPERSET.test(next.name || '');
       if (!nextIsHeavy) {
         exo.superset = true;
         exo.supersetWith = next.name;
@@ -14498,7 +14537,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     }
   }
 
-  var useSupersets = duration <= 60 || isCutting;
+  var _ssPref = (db.user && db.user.supersetPreference) || 'auto';
+  var isRecompo = goals.includes('recompo');
+  var useSupersets = _ssPref === 'optimised' || (_ssPref === 'auto' && (duration <= 60 || isCutting || isRecompo));
   var maxExos = duration <= 45 ? 5 : duration <= 60 ? 7 : duration <= 90 ? 9 : 12;
   var exercises = [];
 
@@ -14683,7 +14724,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   var _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null;
   exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
 
-  if (useSupersets) exercises = wpApplySupersets(exercises);
+  if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref);
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
     exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
   }
@@ -14706,7 +14747,9 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     if (computeFatigueScore(db.logs) > 75) { phase = 'deload'; showToast('⚠️ Sèche + fatigue élevée → Deload forcé'); }
   }
 
-  var useSupersets = duration <= 60 || isCutting;
+  var _ssPref2 = (db.user && db.user.supersetPreference) || 'auto';
+  var isRecompo2 = goals.includes('recompo');
+  var useSupersets = _ssPref2 === 'optimised' || (_ssPref2 === 'auto' && (duration <= 60 || isCutting || isRecompo2));
   var maxExos = duration <= 45 ? 5 : duration <= 60 ? 7 : 9;
   var repRange = isCutting ? [12, 20] : isBulking ? [6, 10] : [8, 12];
   var rpeTarget = isCutting ? 8 : 7.5;
@@ -14775,7 +14818,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     return exoObj;
   }).filter(Boolean);
 
-  if (useSupersets) exercises = wpApplySupersets(exercises);
+  if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
   var note = isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
              isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.';
   return { rest: false, title: tpl.title, coachNote: note, exercises: exercises };

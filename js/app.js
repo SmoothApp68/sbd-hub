@@ -14095,6 +14095,52 @@ function wpCheckActivityConflicts(dayData, dayName) {
 
   var score = typeof computeActivityScore === 'function' ? computeActivityScore(yesterday) : 0;
   var actMuscles = (typeof ACTIVITY_MUSCLES !== 'undefined' && ACTIVITY_MUSCLES[yesterday.type]) || [];
+  var injuries = (db.user && db.user.injuries) || [];
+
+  // Règle cumul : score ≥ 200 + blessure sur même groupe → récupération active forcée
+  var INJURY_MUSCLE_MAP = {
+    genou:    ['Quadriceps', 'Ischio', 'Fessiers', 'Mollets'],
+    epaule:   ['Épaules', 'Pectoraux', 'Dos', 'Triceps'],
+    dos:      ['Lombaires', 'Dos'],
+    hanches:  ['Fessiers', 'Ischio', 'Adducteurs'],
+    poignets: ['Avant-bras'],
+    coudes:   ['Triceps', 'Biceps'],
+    nuque:    ['Dos', 'Épaules']
+  };
+  var injuryOnSameGroup = injuries.some(function(injury) {
+    if (!injury.active) return false;
+    var injMuscles = INJURY_MUSCLE_MAP[injury.zone] || [];
+    return actMuscles.some(function(m) {
+      return injMuscles.some(function(im) {
+        return m.toLowerCase().includes(im.toLowerCase()) || im.toLowerCase().includes(m.toLowerCase());
+      });
+    });
+  });
+
+  if (score >= 200 && injuryOnSameGroup) {
+    dayData.status = 'RECOVERY_ONLY';
+    dayData.coachNote = (dayData.coachNote || '') +
+      ' 🛑 Cumul détecté : ' + yesterday.type + ' (score ' + score + ') + blessure ' +
+      injuries.filter(function(i) { return i.active; }).map(function(i) { return i.zone; }).join('/') +
+      '. Séance convertie en récupération active (RPE max 5, machines uniquement).';
+    dayData.exercises = (dayData.exercises || []).map(function(exo) {
+      return Object.assign({}, exo, {
+        sets: (exo.sets || []).map(function(s) {
+          return Object.assign({}, s, { rpe: Math.min(s.rpe || 5, 5) });
+        })
+      });
+    });
+    return dayData;
+  }
+
+  // Contre-indications activité × blessure
+  var actConflict = typeof checkActivityInjuryConflict === 'function'
+    ? checkActivityInjuryConflict(yesterday.type, injuries)
+    : null;
+  if (actConflict) {
+    dayData.coachNote = (dayData.coachNote || '') +
+      ' ⚠️ ' + actConflict.alert + ' ' + actConflict.suggestion;
+  }
 
   if (score < 50) return dayData;
 
@@ -14128,21 +14174,6 @@ function wpCheckActivityConflicts(dayData, dayName) {
   } else if (score >= 200) {
     dayData.coachNote = (dayData.coachNote || '') +
       ' 🔴 Activité très intense hier (score ' + score + '). Considère de décaler cette séance de 24h ou de la passer en récupération active.';
-  }
-
-  // Trail/randonnée + genou blessé
-  var injuries = (db.user && db.user.injuries) || [];
-  var hasKneeInjury = injuries.some(function(i) { return i.zone === 'genou' && i.active; });
-  if ((yesterday.type === 'trail' || yesterday.type === 'randonnee') && hasKneeInjury && score > 100) {
-    dayData.coachNote = (dayData.coachNote || '') +
-      ' 🛑 Trail + blessure genou — RPE max 5 sur toute la séance.';
-    dayData.exercises = dayData.exercises.map(function(exo) {
-      return Object.assign({}, exo, {
-        sets: (exo.sets || []).map(function(s) {
-          return Object.assign({}, s, { rpe: Math.min(s.rpe || 6, 5) });
-        })
-      });
-    });
   }
 
   return dayData;
@@ -14785,6 +14816,32 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
 
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref);
+
+  // Recompo + blessure active → supprimer supersets sur membres blessés
+  var activeInjuries = ((db.user && db.user.injuries) || []).filter(function(i) { return i.active; });
+  if (isRecompo && activeInjuries.length > 0) {
+    var INJURY_MOVEMENT_MAP = {
+      epaule:  /développé|bench|press|élévation|dips|ohp|militaire/i,
+      genou:   /squat|presse|leg|fentes|step/i,
+      dos:     /deadlift|soulevé|rowing|tirage|good morning/i,
+      hanches: /hip thrust|fentes|squat/i
+    };
+    exercises = exercises.map(function(exo) {
+      var shouldRemoveSuperset = activeInjuries.some(function(injury) {
+        var pattern = INJURY_MOVEMENT_MAP[injury.zone];
+        return pattern && pattern.test(exo.name || '');
+      });
+      if (shouldRemoveSuperset && exo.superset) {
+        var clean = Object.assign({}, exo);
+        delete clean.superset;
+        delete clean.supersetWith;
+        clean.restSeconds = exo.isPrimary ? 180 : 90;
+        return clean;
+      }
+      return exo;
+    });
+  }
+
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
     exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
   }

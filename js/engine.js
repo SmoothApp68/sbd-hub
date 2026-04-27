@@ -1540,6 +1540,40 @@ function computeActivityScore(activity) {
   return Math.round(score);
 }
 
+function checkActivityInjuryConflict(activityType, injuries) {
+  if (!injuries || !injuries.length) return null;
+  var CONFLICTS = {
+    trail: {
+      zones: ['genou', 'hanches'], level: 1,
+      alert: 'Le dénivelé du trail génère des chocs excentriques importants sur les genoux. Séance jambes décalée de 48h recommandée.',
+      suggestion: 'Remplacer par natation ou vélo résistance légère.'
+    },
+    course: {
+      zones: ['genou'], level: 1,
+      alert: 'La course impacte les genoux. Préfère le vélo ou la natation.',
+      suggestion: 'Vélo stationnaire ou natation (sans battements forts).'
+    },
+    natation: {
+      zones: ['epaule'], level: 2,
+      alert: 'La nage crawl/papillon peut aggraver une blessure épaule.',
+      suggestion: 'Préfère la brasse (moins de rotation épaule).'
+    },
+    randonnee: {
+      zones: ['genou', 'hanches'], level: 1,
+      alert: 'La randonnée avec dénivelé sollicite fortement les genoux.',
+      suggestion: 'Décaler la séance jambes de 24h.'
+    }
+  };
+  var conflict = CONFLICTS[activityType];
+  if (!conflict) return null;
+  var hasConflict = injuries.some(function(injury) {
+    return injury.active
+      && conflict.zones.includes(injury.zone)
+      && (injury.level || 1) >= conflict.level;
+  });
+  return hasConflict ? conflict : null;
+}
+
 function computeWeeklyActivityScore() {
   var score = 0;
   var weekStart = Date.now() - 7 * 86400000;

@@ -13171,6 +13171,19 @@ var SBD_VARIANTS = {
   }
 };
 
+// ── DUP HYBRIDE ─────────────────────────────────────────────
+// Variation quotidienne dans un bloc. Pertinent dès 2x/semaine par lift.
+var DUP_PARAMS = {
+  force:    { sets: [3,5], reps: [3,5],  intensity: [0.80, 0.85], rpe: [8,9],   rest: [180, 300], label: 'Force' },
+  vitesse:  { sets: [5,8], reps: [2,3],  intensity: [0.60, 0.70], rpe: [6,7],   rest: [60,  90],  label: 'Vitesse / Technique' },
+  volume:   { sets: [3,3], reps: [8,10], intensity: [0.65, 0.75], rpe: [7,8],   rest: [120, 120], label: 'Volume / Hypertrophie DUP' }
+};
+
+var DUP_SEQUENCE = {
+  2: ['force', 'volume'],
+  3: ['force', 'vitesse', 'volume']
+};
+
 // ── ACCESSOIRES PAR PHASE ───────────────────────────────────
 // Accessoires hypertrophie : volume + isolation, rep ranges élevés.
 // Accessoires force : transfert SBD, stabilité, intensité plus haute.
@@ -14520,7 +14533,22 @@ function wpDeriveTitle(exercises) {
   return (ICONS[top[0]] || '🏋️') + ' ' + top.map(function(g) { return NAMES[g] || g; }).join(' — ');
 }
 
-function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
+function getDupFrequencyForLift(liftKey, selectedDays, routine) {
+  var LIFT_PATTERNS = {
+    squat:    /squat|jambe|quad/i,
+    bench:    /bench|pec|push|poitrine/i,
+    deadlift: /dead|soulevé|pull|dos/i
+  };
+  var pattern = LIFT_PATTERNS[liftKey];
+  if (!pattern) return 1;
+  var count = 0;
+  (selectedDays || []).forEach(function(day) {
+    if (pattern.test((routine && routine[day]) || '')) count++;
+  });
+  return Math.max(1, count);
+}
+
+function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) {
   var tpl = WP_SESSION_TEMPLATES[dayKey];
   if (!tpl) return null;
   var bodyPart = tpl.bodyPart;
@@ -14543,6 +14571,29 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
   var maxExos = duration <= 45 ? 5 : duration <= 60 ? 7 : duration <= 90 ? 9 : 12;
   var exercises = [];
 
+  // DUP Hybride : profil du lift pour ce jour
+  var _dupProfile = null;
+  var _dupCoachNote = null;
+  var _dupRestSeconds = null;
+  if ((phase === 'force' || phase === 'intensification' || phase === 'accumulation') &&
+      tpl.mainLift && tpl.mainLift !== 'squat_pause' && currentDay && !isBeginnerMode) {
+    var _selectedDays = (params && params.selectedDays) || [];
+    var _dupFreq = getDupFrequencyForLift(tpl.mainLift, _selectedDays, routine);
+    if (_dupFreq >= 2) {
+      var _LIFT_PAT = { squat: /squat|jambe|quad/i, bench: /bench|pec|push|poitrine/i, deadlift: /dead|soulevé|pull|dos/i };
+      var _liftPat = _LIFT_PAT[tpl.mainLift];
+      var _sameLiftDays = _selectedDays.filter(function(d) { return _liftPat && _liftPat.test((routine && routine[d]) || ''); });
+      var _dupIdx = _sameLiftDays.indexOf(currentDay);
+      if (_dupIdx < 0) _dupIdx = 0;
+      var _dupSeq = DUP_SEQUENCE[Math.min(_dupFreq, 3)] || DUP_SEQUENCE[2];
+      _dupProfile = DUP_PARAMS[_dupSeq[_dupIdx % _dupSeq.length]];
+      if (_dupProfile) {
+        _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
+        _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';
+      }
+    }
+  }
+
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
     // Récupérer la variante SBD selon la phase active
     var variant = (SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
@@ -14554,6 +14605,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     var rpe = variant.rpe;
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
     var mainName = variant.name;
+    // DUP : override reps / rpe / setsCount si profil actif
+    if (_dupProfile) {
+      reps = Math.round((_dupProfile.reps[0] + _dupProfile.reps[1]) / 2);
+      rpe = (_dupProfile.rpe[0] + _dupProfile.rpe[1]) / 2;
+      setsCount = Math.round((_dupProfile.sets[0] + _dupProfile.sets[1]) / 2);
+    }
     // Débutant : remplacer par exercice technique-first
     if (isBeginnerMode && typeof BEGINNER_SUBSTITUTES !== 'undefined' && BEGINNER_SUBSTITUTES[mainName]) {
       mainName = BEGINNER_SUBSTITUTES[mainName];
@@ -14564,7 +14621,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     var mainExoObj = {
       name: mainName,
-      type: 'weight', restSeconds: bodyPart === 'lower' ? 300 : 240, isPrimary: true,
+      type: 'weight',
+      restSeconds: _dupProfile ? _dupRestSeconds : (bodyPart === 'lower' ? 300 : 240),
+      isPrimary: true,
       sets: warmups.concat(wpBuildMainSets(weight, reps, setsCount, rpe))
     };
     // Correction 2: Peak → 5min repos obligatoire + note vitesse de barre
@@ -14667,6 +14726,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params) {
 
   // Correction 3: Buffer 48h Squat → Deadlift
   var dayCoachNote = wpCoachNote(tpl.mainLift, phase, null, null);
+  if (_dupCoachNote) dayCoachNote = _dupCoachNote + (dayCoachNote ? ' ' + dayCoachNote : '');
   if (dayKey === 'squat') {
     var _imb = wpDetectSquatBenchImbalance();
     if (_imb && _imb.imbalance) {
@@ -14964,7 +15024,7 @@ function generateWeeklyPlan() {
         else if (/point|faible|technique.*sbd|sbd.*tech/i.test(label)) {
           dayKey = allDays.indexOf(day) % 2 === 0 ? 'weakpoints' : 'technique';
         }
-        var dayData = wpGeneratePowerbuildingDay(dayKey, routine, phase, params);
+        var dayData = wpGeneratePowerbuildingDay(dayKey, routine, phase, params, day);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         return Object.assign({ day: day }, dayData, { title: label || dayData.title });
       });

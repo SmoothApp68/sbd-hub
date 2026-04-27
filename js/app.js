@@ -176,6 +176,8 @@ let db = (() => {
     if (p.user.onboardingVersion === undefined) p.user.onboardingVersion = p.user.onboarded ? 1 : 0;
     if (!Array.isArray(p.user.secondaryActivities)) p.user.secondaryActivities = [];
     if (!p.user.goal) p.user.goal = 'masse';
+    if (!Array.isArray(p.user.activities)) p.user.activities = [];
+    if (!Array.isArray(p.weeklyActivities)) p.weeklyActivities = [];
     return p;
   } catch { return defaultDB(); }
 })();
@@ -11441,6 +11443,9 @@ function fillSettingsFields() {
   // Blessures
   if (typeof renderInjuriesEditor === 'function') renderInjuriesEditor();
 
+  // Activités complémentaires
+  renderSettingsActivities();
+
   const tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
   if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
   renderSettingsProfile();
@@ -11450,6 +11455,75 @@ function fillSettingsFields() {
   _accDirty.records = true;
   _accDirty.keylifts = true;
   _accDirty.prog = true;
+}
+
+// ── Activités complémentaires — réglages ──────────────────────
+var ACTIVITY_TYPES = [
+  { id: 'natation',          label: '🏊 Natation' },
+  { id: 'course',            label: '🏃 Course / Running' },
+  { id: 'trail',             label: '🥾 Trail' },
+  { id: 'randonnee',         label: '🏔️ Randonnée' },
+  { id: 'velo',              label: '🚴 Vélo' },
+  { id: 'yoga',              label: '🧘 Yoga' },
+  { id: 'pilates',           label: '🩺 Pilates' },
+  { id: 'ski',               label: '⛷️ Ski' },
+  { id: 'arts_martiaux',     label: '🥊 Arts Martiaux' },
+  { id: 'sports_collectifs', label: '⚽ Sport Collectif' },
+  { id: 'autre',             label: '🏅 Autre' }
+];
+
+var DAYS_FULL_LIST = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+function renderSettingsActivities() {
+  var el = document.getElementById('settingsActivities');
+  if (!el) return;
+  var acts = (db.user && db.user.activities) || [];
+  if (!acts.length) { el.innerHTML = ''; return; }
+  var intensityLabels = ['', 'Léger', 'Modéré', 'Soutenu', 'Intense', 'Max'];
+  el.innerHTML = acts.map(function(act, idx) {
+    var typeOpts = ACTIVITY_TYPES.map(function(t) {
+      return '<option value="' + t.id + '"' + (act.type === t.id ? ' selected' : '') + '>' + t.label + '</option>';
+    }).join('');
+    var intOpts = [1,2,3,4,5].map(function(i) {
+      return '<option value="' + i + '"' + (act.intensity === i ? ' selected' : '') + '>' + intensityLabels[i] + '</option>';
+    }).join('');
+    var dayOpts = '<option value="">Jour?</option>' + DAYS_FULL_LIST.map(function(d, i) {
+      var sel = act.days && act.days.indexOf(d) >= 0 ? ' selected' : '';
+      return '<option value="' + d + '"' + sel + '>' + (DAYS_SHORT[i + 1] || d.slice(0,3)) + '</option>';
+    }).join('');
+    return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+      '<select onchange="updateActivity(' + idx + ',\'type\',this.value)" style="flex:2;padding:7px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12px;">' + typeOpts + '</select>' +
+      '<select onchange="updateActivity(' + idx + ',\'intensity\',parseInt(this.value))" style="flex:1;padding:7px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12px;">' + intOpts + '</select>' +
+      '<input type="number" value="' + (act.duration || 60) + '" min="10" max="480" onchange="updateActivity(' + idx + ',\'duration\',parseInt(this.value))" style="width:55px;padding:7px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12px;" placeholder="min">' +
+      '<select onchange="updateActivity(' + idx + ',\'day\',this.value)" style="flex:1;padding:7px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12px;">' + dayOpts + '</select>' +
+      '<button onclick="removeActivity(' + idx + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;padding:0;">×</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addSettingsActivity() {
+  if (!db.user.activities) db.user.activities = [];
+  db.user.activities.push({ type: 'natation', intensity: 2, duration: 60, days: [], fixed: false });
+  renderSettingsActivities();
+  saveDB();
+}
+
+function updateActivity(idx, field, value) {
+  if (!db.user.activities || !db.user.activities[idx]) return;
+  if (field === 'day') {
+    db.user.activities[idx].days = value ? [value] : [];
+    db.user.activities[idx].fixed = !!value;
+  } else {
+    db.user.activities[idx][field] = value;
+  }
+  saveDB();
+}
+
+function removeActivity(idx) {
+  if (!db.user.activities) return;
+  db.user.activities.splice(idx, 1);
+  renderSettingsActivities();
+  saveDB();
 }
 
 // ── Tier & Thèmes — rendu de la section statut ──
@@ -13868,6 +13942,79 @@ function wpBuildMainSets(weight, reps, setsCount, rpe) {
   });
 }
 
+function wpCheckActivityConflicts(dayData, dayName) {
+  if (!dayData || dayData.rest) return dayData;
+  var orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var dayIdx = orderedDays.indexOf(dayName);
+  var prevDayName = dayIdx > 0 ? orderedDays[dayIdx - 1] : null;
+
+  var yesterday = null;
+  if (prevDayName) {
+    var weeklyActs = db.weeklyActivities || [];
+    yesterday = weeklyActs.find(function(a) { return a.day === prevDayName; }) || null;
+    if (!yesterday) {
+      var fixedActs = (db.user && db.user.activities) || [];
+      var fixedY = fixedActs.find(function(a) { return a.fixed && a.days && a.days.indexOf(prevDayName) >= 0; });
+      if (fixedY) yesterday = fixedY;
+    }
+  }
+  if (!yesterday) return dayData;
+
+  var score = typeof computeActivityScore === 'function' ? computeActivityScore(yesterday) : 0;
+  var actMuscles = (typeof ACTIVITY_MUSCLES !== 'undefined' && ACTIVITY_MUSCLES[yesterday.type]) || [];
+
+  if (score < 50) return dayData;
+
+  if (score >= 50 && score < 120) {
+    dayData.exercises = dayData.exercises.map(function(exo) {
+      var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
+      var exoMuscle = meta ? (meta.muscleGroup || '') : '';
+      var isAffected = actMuscles.some(function(m) {
+        return m === 'Full Body' || (exoMuscle && exoMuscle.toLowerCase().indexOf(m.toLowerCase()) >= 0);
+      });
+      if (!isAffected || exo.isPrimary) return exo;
+      var reduced = JSON.parse(JSON.stringify(exo));
+      var workSets = (reduced.sets || []).filter(function(s) { return !s.isWarmup; });
+      if (workSets.length > 2) {
+        var lastWorkIdx = -1;
+        for (var i = reduced.sets.length - 1; i >= 0; i--) {
+          if (!reduced.sets[i].isWarmup) { lastWorkIdx = i; break; }
+        }
+        if (lastWorkIdx >= 0) reduced.sets.splice(lastWorkIdx, 1);
+      }
+      return reduced;
+    });
+    dayData.coachNote = (dayData.coachNote || '') +
+      ' 💤 ' + yesterday.type + ' hier (score ' + score + ') — volume accessoires ajusté.';
+  } else if (score >= 120 && score < 200) {
+    dayData.exercises = dayData.exercises.filter(function(exo) {
+      return exo.isPrimary || exo.isPrimary === undefined;
+    });
+    dayData.coachNote = (dayData.coachNote || '') +
+      ' ⚠️ Charge externe élevée hier — accessoires supprimés, focus composés.';
+  } else if (score >= 200) {
+    dayData.coachNote = (dayData.coachNote || '') +
+      ' 🔴 Activité très intense hier (score ' + score + '). Considère de décaler cette séance de 24h ou de la passer en récupération active.';
+  }
+
+  // Trail/randonnée + genou blessé
+  var injuries = (db.user && db.user.injuries) || [];
+  var hasKneeInjury = injuries.some(function(i) { return i.zone === 'genou' && i.active; });
+  if ((yesterday.type === 'trail' || yesterday.type === 'randonnee') && hasKneeInjury && score > 100) {
+    dayData.coachNote = (dayData.coachNote || '') +
+      ' 🛑 Trail + blessure genou — RPE max 5 sur toute la séance.';
+    dayData.exercises = dayData.exercises.map(function(exo) {
+      return Object.assign({}, exo, {
+        sets: (exo.sets || []).map(function(s) {
+          return Object.assign({}, s, { rpe: Math.min(s.rpe || 6, 5) });
+        })
+      });
+    });
+  }
+
+  return dayData;
+}
+
 function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
   if (!ratios) return exercises;
 
@@ -14743,45 +14890,10 @@ function generateWeeklyPlan() {
     });
 
     // ── CONFLITS ACTIVITÉS SECONDAIRES ───────────────────────
-    // Si une activité fixe la veille sollicite les mêmes muscles que la séance
-    // du lendemain, on réduit les accessoires concernés.
-    if (typeof ACTIVITY_MUSCLES !== 'undefined' && ACTIVITY_MUSCLES) {
-      var activities = (db.user && db.user.activities) || [];
-      activities.forEach(function(act) {
-        if (!act || !act.days || !act.days.length) return;
-        var actMuscles = ACTIVITY_MUSCLES[act.type] || [];
-        if (!actMuscles.length) return;
-        act.days.forEach(function(actDay) {
-          var orderedDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-          var nextIdx = (orderedDays.indexOf(actDay) + 1) % 7;
-          var nextDay = orderedDays[nextIdx];
-          var nextSession = days.find(function(d) { return d.day === nextDay && !d.rest; });
-          if (!nextSession) return;
-          var score = typeof computeActivityScore === 'function' ? computeActivityScore(act) : 0;
-          if (score <= 80) return;
-          nextSession.coachNote = (nextSession.coachNote || '') +
-            ' ⚠️ ' + act.type + ' la veille — accessoires ' +
-            actMuscles.join('/') + ' réduits de 30%.';
-          nextSession.exercises = nextSession.exercises.map(function(exo) {
-            var exoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
-            var exoMuscle = exoMeta ? (exoMeta.muscleGroup || '') : '';
-            var hits = actMuscles.some(function(m) { return exoMuscle && exoMuscle.toLowerCase().indexOf(m.toLowerCase()) >= 0; });
-            if (!hits) return exo;
-            var reduced = JSON.parse(JSON.stringify(exo));
-            var allSets = reduced.sets || [];
-            var workSets = allSets.filter(function(s) { return !s.isWarmup; });
-            var keepCount = Math.ceil(workSets.length * 0.7);
-            var workIdx = 0;
-            reduced.sets = allSets.filter(function(s) {
-              if (s.isWarmup) return true;
-              workIdx++;
-              return workIdx <= keepCount;
-            });
-            return reduced;
-          });
-        });
-      });
-    }
+    days = days.map(function(dayData) {
+      if (!dayData || dayData.rest) return dayData;
+      return wpCheckActivityConflicts(dayData, dayData.day);
+    });
 
     // ── DELOAD GLOBAL ────────────────────────────────────────
     if (phase === 'deload') {

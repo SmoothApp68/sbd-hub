@@ -260,9 +260,34 @@ function computeSRS() {
       }, 0);
   }
 
-  // 1. ACWR — 60%
-  var acute = getEffVol(7);
-  var chronic = getEffVol(28) / 4 || 1;
+  // 1. ACWR — 60% (SBD + activités secondaires coefficient 0.7)
+  var acuteSBD = getEffVol(7);
+  var chronicSBD = getEffVol(28) / 4 || 1;
+
+  function getActivityEffVol(days) {
+    var cutoff = Date.now() - days * 86400000;
+    var extScore = 0;
+    var allActs = (db.weeklyActivities || []).filter(function(a) {
+      return a.date && new Date(a.date).getTime() >= cutoff;
+    });
+    allActs.forEach(function(a) {
+      extScore += (typeof computeActivityScore === 'function' ? computeActivityScore(a) : 0) * 0.7;
+    });
+    var fixedActs = (db.user && db.user.activities) || [];
+    fixedActs.forEach(function(a) {
+      if (!a.fixed) return;
+      var occurrences = Math.floor(days / 7) * (a.days ? a.days.length : 1);
+      for (var i = 0; i < occurrences; i++) {
+        extScore += (typeof computeActivityScore === 'function' ? computeActivityScore(a) : 0) * 0.7;
+      }
+    });
+    return extScore;
+  }
+
+  var acuteExt = getActivityEffVol(7);
+  var chronicExt = getActivityEffVol(28) / 4 || 1;
+  var acute = acuteSBD + acuteExt;
+  var chronic = chronicSBD + chronicExt + 1;
   var acwr = acute / chronic;
   var acwrScore = (acwr >= 0.8 && acwr <= 1.3)
     ? 100

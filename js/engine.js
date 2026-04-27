@@ -1490,3 +1490,72 @@ function computeMuscleFatigue(logs) {
   }
   return fatigue;
 }
+
+// ============================================================
+// SECONDARY ACTIVITIES — TRIMP constants
+// ============================================================
+
+var ACTIVITY_MUSCLES = {
+  natation:          ['Épaules', 'Dos', 'Pectoraux', 'Triceps'],
+  course:            ['Quadriceps', 'Ischio', 'Mollets'],
+  trail:             ['Quadriceps', 'Ischio', 'Fessiers', 'Mollets', 'Lombaires'],
+  randonnee:         ['Quadriceps', 'Ischio', 'Fessiers', 'Mollets', 'Lombaires'],
+  velo:              ['Quadriceps', 'Fessiers', 'Mollets'],
+  ski:               ['Quadriceps', 'Fessiers', 'Ischio', 'Adducteurs'],
+  yoga:              ['Abdos', 'Lombaires'],
+  pilates:           ['Abdos', 'Lombaires'],
+  arts_martiaux:     ['Full Body'],
+  sports_collectifs: ['Full Body'],
+  autre:             ['Full Body']
+};
+
+var ACTIVITY_IMPACT_FACTORS = {
+  trail:             1.2,
+  course:            1.2,
+  arts_martiaux:     1.1,
+  velo:              1.0,
+  ski:               1.0,
+  natation:          0.8,
+  yoga:              0.5,
+  pilates:           0.5,
+  sports_collectifs: 0.9,
+  randonnee:         1.1,
+  autre:             0.8
+};
+
+var ACTIVITY_INTENSITY_MULT = { 1: 0.3, 2: 0.6, 3: 1.0, 4: 1.5, 5: 2.0 };
+
+function computeActivityScore(activity) {
+  if (!activity) return 0;
+  var duration = activity.duration || 60;
+  var intensity = activity.intensity || 2;
+  var type = activity.type || 'autre';
+  var elevGain = activity.elevGain || 0;
+  var intensityMult = ACTIVITY_INTENSITY_MULT[intensity] || 0.6;
+  var impactFactor = ACTIVITY_IMPACT_FACTORS[type] || 0.8;
+  var score = duration * intensityMult * impactFactor;
+  if ((type === 'trail' || type === 'randonnee') && elevGain > 0) {
+    score += (elevGain / 100) * 10;
+  }
+  return Math.round(score);
+}
+
+function computeWeeklyActivityScore() {
+  var score = 0;
+  var weekStart = Date.now() - 7 * 86400000;
+  var weeklyActs = (db.weeklyActivities || []).filter(function(a) {
+    return a.date && new Date(a.date).getTime() >= weekStart;
+  });
+  weeklyActs.forEach(function(a) { score += computeActivityScore(a); });
+  var fixedActs = (db.user && db.user.activities) || [];
+  fixedActs.forEach(function(a) {
+    if (!a.fixed || !a.days || !a.days.length) return;
+    a.days.forEach(function(day) {
+      var alreadyCovered = weeklyActs.some(function(w) {
+        return w.type === a.type && w.day === day;
+      });
+      if (!alreadyCovered) score += computeActivityScore(a);
+    });
+  });
+  return score;
+}

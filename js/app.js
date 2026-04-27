@@ -14053,8 +14053,9 @@ function wpForcePhase() {
 function wpEstimateCurrentWeek() {
   if (db.weeklyPlan && db.weeklyPlan.week && db.weeklyPlan.week > 0) return db.weeklyPlan.week;
   var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
-  var totalSessions = (db.logs || []).length;
-  return Math.max(1, Math.floor(totalSessions / Math.max(1, freq)) + 1);
+  var cutoff = Date.now() - 120 * 86400000;
+  var recentLogs = (db.logs || []).filter(function(l) { return l.timestamp >= cutoff; });
+  return Math.max(1, Math.min(16, Math.floor(recentLogs.length / Math.max(1, freq)) + 1));
 }
 
 function wpDetectPhase() {

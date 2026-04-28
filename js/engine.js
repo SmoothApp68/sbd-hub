@@ -2144,3 +2144,50 @@ function applyE1RMDecay(e1rm, weeksAbsent) {
 function applyGhostGains(oldE1rm, mainLiftDelta, transferRatio) {
   return Math.round((oldE1rm + mainLiftDelta * transferRatio) / 2.5) * 2.5;
 }
+
+// ============================================================
+// CUSTOM PROGRAMME — FATIGUE PENALTY
+// ============================================================
+
+var MRV_HARD_SETS_THRESHOLD = 8;
+var MAX_MAIN_LIFTS_PER_SESSION = 3;
+
+// Vérifier si deux exercices partagent le même groupe musculaire principal
+function doExercisesShareMuscleGroup(exoNameA, exoNameB) {
+  var mgA = typeof getMuscleGroup === 'function' ? getMuscleGroup(exoNameA) : null;
+  var mgB = typeof getMuscleGroup === 'function' ? getMuscleGroup(exoNameB) : null;
+  if (!mgA || !mgB) return false;
+  return mgA === mgB;
+}
+
+// Calculer le penalty de fatigue pour un exercice selon sa position
+// dans la séance et les exercices qui le précèdent
+function getFatiguePenalty(exerciseList, targetIndex) {
+  if (!exerciseList || targetIndex <= 0) return 0;
+  var target = exerciseList[targetIndex];
+  var totalPenalty = 0;
+  for (var i = 0; i < targetIndex; i++) {
+    var prev = exerciseList[i];
+    var sameGroup = doExercisesShareMuscleGroup(prev.name || prev.id || '', target.name || target.id || '');
+    var isIsolation = prev.slot === 'isolation';
+    var multiplier = isIsolation ? 0.5 : 1.0;
+    var basePenalty = 0;
+    if (i === 0) basePenalty = sameGroup ? 0.05 : 0.02;
+    else if (i === 1) basePenalty = sameGroup ? 0.10 : 0.05;
+    else basePenalty = 0.15;
+    totalPenalty += basePenalty * multiplier;
+  }
+  return Math.min(totalPenalty, 0.25);
+}
+
+// Compter les Hard Sets (RPE ≥ 8) dans une séance pour alerte MRV
+function countHardSetsInSession(exercises) {
+  var count = 0;
+  (exercises || []).forEach(function(exo) {
+    if (exo.slot === 'isolation') return;
+    (exo.sets || []).forEach(function(s) {
+      if (!s.isWarmup && !s.isBackOff && (s.rpe || 0) >= 8) count++;
+    });
+  });
+  return count;
+}

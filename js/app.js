@@ -79,7 +79,8 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [] },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true },
+  customProgramTemplate: null,
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -182,6 +183,10 @@ let db = (() => {
     if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
     if (p.user.supersetPreference === undefined) p.user.supersetPreference = 'auto';
     if (p.user.prehabEnabled === undefined) p.user.prehabEnabled = true;
+    if (p.customProgramTemplate === undefined) p.customProgramTemplate = null;
+    if (p.user.programMode === undefined) p.user.programMode = 'auto';
+    if (p.user.coachProfile === undefined) p.user.coachProfile = 'full';
+    if (p.user.coachEnabled === undefined) p.user.coachEnabled = true;
     // AUDIT: champs collectés mais non utilisés dans engine/coach/program :
     //   - p.user.secondaryActivities : set en onboarding mais jamais lu pour adapter le programme.
     //     TODO : soit retirer du formulaire, soit câbler dans wpCheckActivityConflicts.

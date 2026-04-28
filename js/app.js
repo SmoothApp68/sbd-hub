@@ -15817,10 +15817,108 @@ function wpDetectSquatBenchImbalance() {
   return { imbalance: false, ratio: ratio };
 }
 
+// ── MODE CUSTOM : calcul des paramètres sur un template figé ──
+function calculateParametersForCustomPlan() {
+  if (!db.customProgramTemplate) return;
+
+  var template = db.customProgramTemplate;
+  var currentBlock = template.blocks[template.currentBlockIndex || 0];
+  if (!currentBlock) return;
+
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var coachProfile = (db.user && db.user.coachProfile) || 'full';
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var days = allDays.map(function(dayName, dayIdx) {
+    var session = (currentBlock.sessions || []).find(function(s) { return s.dayIndex === dayIdx; });
+    if (!session) return { day: dayName, rest: true, title: '😴 Repos', exercises: [] };
+
+    var exercises = (session.exercises || []).map(function(tmplExo, exoIdx) {
+      var isMainLift = tmplExo.slot === 'main_lift';
+      var penalty = typeof getFatiguePenalty === 'function'
+        ? getFatiguePenalty(session.exercises, exoIdx)
+        : 0;
+
+      var baseWeight = typeof wpComputeWorkWeight === 'function'
+        ? wpComputeWorkWeight(tmplExo.name, isMainLift ? 'primary' : 'accessory')
+        : 0;
+
+      if (isMainLift && exoIdx > 0 && penalty > 0) {
+        baseWeight = Math.round(baseWeight * (1 - penalty) / 2.5) * 2.5;
+      }
+
+      var isReduced = (phase === 'peak' || phase === 'deload') && !isMainLift;
+      var setsCount = isReduced ? 1 : wpSetsForPhase(phase, tmplExo.slot);
+      var reps      = isReduced ? 8 : wpRepsForPhase(phase, tmplExo.slot);
+      var rpe       = isReduced ? 6 : wpRpeForPhase(phase, tmplExo.slot);
+      var rest      = isMainLift ? 240 : 90;
+
+      var warmupSets = [];
+      if (isMainLift && typeof wpBuildWarmups === 'function') {
+        warmupSets = wpBuildWarmups(baseWeight, reps, tmplExo.name, exoIdx, []);
+      }
+
+      var workSets = [];
+      for (var i = 0; i < setsCount; i++) {
+        workSets.push({ weight: baseWeight, reps: reps, rpe: rpe, isWarmup: false });
+      }
+
+      var coachNote = tmplExo.customNote || '';
+      if (isMainLift && exoIdx > 0 && penalty > 0 && coachProfile !== 'silent') {
+        coachNote += (coachNote ? ' | ' : '') +
+          '⚡ Pré-fatigue détectée — charge ajustée de -' +
+          Math.round(penalty * 100) + '% pour garantir la technique.';
+      }
+      if (isReduced && coachProfile !== 'silent') {
+        coachNote += (coachNote ? ' | ' : '') +
+          '📋 Volume adapté (' + phase + ') — 1 série de maintien.';
+      }
+
+      return {
+        name: tmplExo.name,
+        slot: tmplExo.slot,
+        isPrimary: isMainLift,
+        type: 'weight',
+        restSeconds: rest,
+        coachNote: coachNote,
+        sets: warmupSets.concat(workSets)
+      };
+    });
+
+    var mainLiftsCount = (session.exercises || []).filter(function(e) { return e.slot === 'main_lift'; }).length;
+    var sessionCoachNote = '';
+    if (coachProfile !== 'silent' && mainLiftsCount > MAX_MAIN_LIFTS_PER_SESSION) {
+      sessionCoachNote = '⚠️ ' + mainLiftsCount + ' lifts principaux — Fatigue Centrale élevée.';
+    }
+
+    return {
+      day: dayName,
+      rest: false,
+      title: session.label || dayName,
+      coachNote: sessionCoachNote,
+      exercises: exercises,
+      isCustom: true
+    };
+  });
+
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  db.weeklyPlan.days = days;
+  db.weeklyPlan.isCustom = true;
+  db.weeklyPlan.generatedAt = Date.now();
+  saveDB();
+}
+
 // ── FONCTION PRINCIPALE ──────────────────────────────────────
 function generateWeeklyPlan() {
   var btn = document.getElementById('wpGenerateBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
+
+  var programMode = (db.user && db.user.programMode) || 'auto';
+  if (programMode === 'custom' && db.customProgramTemplate) {
+    calculateParametersForCustomPlan();
+    if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Recalculer'; }
+    return;
+  }
 
   try {
     var params      = db.user.programParams || {};

@@ -315,6 +315,28 @@ if (!db.gamification._migratedFreezeV4) {
   db.gamification.freezeProtectedWeeks = [];
   db.gamification._migratedFreezeV4 = true;
 }
+
+// One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
+// Replace with the canonical exercise name from the matching weeklyPlan day.
+if (!db._routineFixed) {
+  var stalePattern = /^(🔄\s*)?Jour\s*\d+$/i;
+  var routine = db.routine || {};
+  Object.keys(routine).forEach(function(day) {
+    if (stalePattern.test(routine[day])) {
+      var wpDay = (db.weeklyPlan && db.weeklyPlan.days || [])
+        .find(function(d) { return d.day === day; });
+      var primaryExo = wpDay && (wpDay.exercises || [])
+        .find(function(e) { return e.isPrimary; });
+      if (primaryExo) {
+        routine[day] = primaryExo.name;
+      }
+    }
+  });
+  db.routine = routine;
+  db._routineFixed = true;
+  saveDB();
+}
+
 db.gamification.playerClass = db.gamification.playerClass ?? null;
 db.gamification.quizAnswers = db.gamification.quizAnswers ?? [];
 db.gamification.quizCompletedAt = db.gamification.quizCompletedAt ?? null;

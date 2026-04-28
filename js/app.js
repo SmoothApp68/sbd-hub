@@ -8868,16 +8868,32 @@ function renderProgramBuilder() {
   var container = document.getElementById('programBuilderContent');
   if (!container) return;
 
+  // Custom builder en cours d'édition
+  if (_customBuilderState) {
+    renderCustomBuilder();
+    return;
+  }
+
   // Si un programme existe déjà (généré OU manuel OU routine), afficher la vue programme
   var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
                    (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
                    (db.routine && Object.keys(db.routine).length > 0);
   if (hasProgram && !_pbState) {
     renderProgramBuilderView(container);
+    // En mode custom : bouton "Modifier les exercices" en haut
+    if (db.user.programMode === 'custom') {
+      var editBtn = document.createElement('button');
+      editBtn.innerHTML = '✏️ Modifier les exercices';
+      editBtn.style.cssText = 'width:100%;padding:10px;background:rgba(255,159,10,0.1);'
+        + 'border:1px solid var(--orange);border-radius:10px;color:var(--orange);'
+        + 'font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;';
+      editBtn.onclick = function() { pbStartCustomBuilder(true); };
+      container.insertBefore(editBtn, container.firstChild);
+    }
     return;
   }
 
-  // Si le builder est en cours, afficher l'étape courante
+  // Si le builder guidé/manuel est en cours, afficher l'étape courante
   if (_pbState) {
     renderProgramBuilderStep(container);
     return;
@@ -8897,8 +8913,8 @@ function renderProgramBuilder() {
   h += '<div style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.5;">Réponds à quelques questions et on te propose un programme adapté. Tu pourras tout modifier après.</div></div>';
   h += '</div></div>';
 
-  // Option 2 : Manuel
-  h += '<div class="card" style="text-align:left;cursor:pointer;border:1px solid rgba(255,159,10,0.3);" onclick="pbStartManual()">';
+  // Option 2 : Custom builder
+  h += '<div class="card" style="text-align:left;cursor:pointer;border:1px solid rgba(255,159,10,0.3);" onclick="showCustomBuilderChoice()">';
   h += '<div style="display:flex;align-items:center;gap:12px;">';
   h += '<div style="font-size:32px;">🛠️</div>';
   h += '<div><div style="font-size:15px;font-weight:700;">Je construis moi-même</div>';
@@ -8917,6 +8933,29 @@ function pbStartGuided() {
 function pbStartManual() {
   _pbState = { mode: 'manual', step: 1, days: 4, split: 'ppl', dayNames: [], dayExercises: {} };
   renderProgramBuilder();
+}
+
+function showCustomBuilderChoice() {
+  var hasExisting = db.weeklyPlan && db.weeklyPlan.days &&
+    db.weeklyPlan.days.some(function(d) { return !d.rest; });
+  if (!hasExisting) { pbStartCustomBuilder(false); return; }
+
+  var o = document.createElement('div');
+  o.className = 'modal-overlay';
+  o.innerHTML = '<div class="modal-box">'
+    + '<p style="margin:0 0 16px;font-size:14px;font-weight:700;">Point de départ :</p>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;">'
+    + '<button id="_cbFromExisting" style="padding:12px;background:rgba(10,132,255,0.1);'
+    + 'border:1px solid var(--accent);border-radius:10px;color:var(--accent);'
+    + 'font-size:14px;font-weight:600;cursor:pointer;">📋 Partir de mon programme actuel</button>'
+    + '<button id="_cbBlank" style="padding:12px;background:var(--surface);'
+    + 'border:1px solid var(--border);border-radius:10px;color:var(--text);'
+    + 'font-size:14px;cursor:pointer;">📄 Page blanche</button>'
+    + '</div></div>';
+  document.body.appendChild(o);
+  o.querySelector('#_cbFromExisting').onclick = function() { o.remove(); pbStartCustomBuilder(true); };
+  o.querySelector('#_cbBlank').onclick = function() { o.remove(); pbStartCustomBuilder(false); };
+  o.addEventListener('click', function(e) { if (e.target === o) o.remove(); });
 }
 
 // ── CUSTOM BUILDER — state ───────────────────────────────────
@@ -12333,6 +12372,54 @@ function renderSettingsProfile() {
   if (prehabCb) prehabCb.checked = prehabOn;
   if (prehabSlider) prehabSlider.style.background = prehabOn ? 'var(--blue)' : 'var(--border)';
   if (prehabKnob) prehabKnob.style.left = prehabOn ? '23px' : '3px';
+
+  // Mode programme + Coach Profile
+  var modeEl = document.getElementById('settingsProgramMode');
+  if (modeEl) {
+    var currentMode = db.user.programMode || 'auto';
+    var currentCoachProfile = db.user.coachProfile || 'full';
+    modeEl.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px;">'
+      + ['auto','custom'].map(function(m) {
+        var active = m === currentMode;
+        var labels = { auto: '🤖 Auto', custom: '🛠 Custom' };
+        return '<button onclick="setProgramMode(\'' + m + '\')" '
+          + 'style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;'
+          + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+          + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+          + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + labels[m] + '</button>';
+      }).join('')
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Niveau de coaching</div>'
+      + '<div style="display:flex;gap:6px;">'
+      + ['full','guardrail','silent'].map(function(p) {
+        var active = p === currentCoachProfile;
+        var labels = { full: '🔔 Complet', guardrail: '🛡 Sécurité', silent: '🔇 Silencieux' };
+        return '<button onclick="setCoachProfile(\'' + p + '\')" '
+          + 'style="flex:1;padding:6px 4px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;'
+          + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+          + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+          + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + labels[p] + '</button>';
+      }).join('')
+      + '</div>';
+  }
+}
+
+function setProgramMode(mode) {
+  if (mode === 'auto' && db.user.programMode === 'custom') {
+    if (!confirm('Repasser en mode automatique ? Ton template custom sera conservé mais les exercices seront regénérés par l\'algo.')) return;
+  }
+  db.user.programMode = mode;
+  saveDB();
+  renderSettingsProfile();
+  showToast(mode === 'custom' ? '🛠 Mode Custom activé' : '🤖 Mode Auto activé');
+}
+
+function setCoachProfile(profile) {
+  db.user.coachProfile = profile;
+  saveDB();
+  renderSettingsProfile();
+  var labels = { full: 'Coaching complet activé', guardrail: 'Alertes sécurité uniquement', silent: 'Mode silencieux — juste les chiffres' };
+  showToast(labels[profile] || '');
 }
 
 function toggleSettingsGoal(goalId, btn) {

@@ -8914,6 +8914,185 @@ function pbStartManual() {
   renderProgramBuilder();
 }
 
+// ── CUSTOM BUILDER — state ───────────────────────────────────
+var _customBuilderState = null;
+var _customBuilderDaySelected = null;
+
+function pbStartCustomBuilder(fromExisting) {
+  var now = Date.now();
+  if (fromExisting && db.customProgramTemplate) {
+    _customBuilderState = JSON.parse(JSON.stringify(db.customProgramTemplate));
+  } else if (fromExisting && db.weeklyPlan && db.weeklyPlan.days) {
+    var allDaysFull = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    _customBuilderState = {
+      id: 'template_' + now,
+      name: 'Mon Programme',
+      createdAt: now,
+      updatedAt: now,
+      coachProfile: (db.user && db.user.coachProfile) || 'full',
+      currentBlockIndex: 0,
+      currentBlockStartDate: now,
+      blocks: [{
+        id: 'block_1',
+        name: 'Bloc 1',
+        durationWeeks: 8,
+        deloadAfter: true,
+        sessions: db.weeklyPlan.days
+          .filter(function(d) { return !d.rest; })
+          .map(function(d, i) {
+            var dayIdx = allDaysFull.indexOf(d.day);
+            return {
+              dayIndex: dayIdx >= 0 ? dayIdx : i,
+              label: d.title || d.day,
+              exercises: (d.exercises || [])
+                .filter(function(e) { return !e.isWarmup && !e.isPrehab; })
+                .map(function(e) {
+                  var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(e.name) : null;
+                  var defaultSlot = e.isPrimary ? 'main_lift'
+                    : (meta && meta.mechanic === 'isolation') ? 'isolation' : 'accessory';
+                  return {
+                    id: (e.name || '').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''),
+                    name: e.name,
+                    slot: defaultSlot,
+                    defaultSlot: defaultSlot,
+                    customNote: '',
+                    addedAt: now
+                  };
+                })
+            };
+          })
+      }]
+    };
+  } else {
+    _customBuilderState = {
+      id: 'template_' + now,
+      name: 'Mon Programme',
+      createdAt: now,
+      updatedAt: now,
+      coachProfile: (db.user && db.user.coachProfile) || 'full',
+      currentBlockIndex: 0,
+      currentBlockStartDate: now,
+      blocks: [{ id: 'block_1', name: 'Bloc 1', durationWeeks: 8, deloadAfter: true, sessions: [] }]
+    };
+  }
+  _customBuilderDaySelected = null;
+  renderCustomBuilder();
+}
+
+function renderCustomBuilder() {
+  var container = document.getElementById('programBuilderContent');
+  if (!container) return;
+  if (!_customBuilderState) { renderProgramBuilder(); return; }
+
+  var tmpl = _customBuilderState;
+  var block = tmpl.blocks[tmpl.currentBlockIndex || 0];
+  var allDays = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  var allDaysFull = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var h = '';
+
+  // Header — nom + bouton sauver
+  h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+  h += '<input value="' + escapeHtml(tmpl.name) + '" '
+    + 'oninput="_customBuilderState.name=this.value" '
+    + 'style="flex:1;padding:8px 10px;background:var(--surface);border:1px solid var(--border);'
+    + 'border-radius:10px;color:var(--text);font-size:15px;font-weight:700;">';
+  h += '<button onclick="saveCustomTemplate()" '
+    + 'style="padding:8px 14px;background:var(--accent);border:none;border-radius:10px;'
+    + 'color:#fff;font-weight:700;font-size:13px;cursor:pointer;">💾 Sauver</button>';
+  h += '</div>';
+
+  // Vue semaine — 7 cases
+  h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px;">';
+  allDaysFull.forEach(function(dayFull, idx) {
+    var session = (block.sessions || []).find(function(s) { return s.dayIndex === idx; });
+    var hasSession = !!session;
+    var isSelected = _customBuilderDaySelected === idx;
+    var dayShort = allDays[idx];
+    h += '<div onclick="selectCustomDay(' + idx + ')" style="padding:8px 4px;border-radius:10px;'
+      + 'border:1px solid ' + (isSelected ? 'var(--accent)' : hasSession ? 'rgba(50,215,75,0.4)' : 'var(--border)') + ';'
+      + 'background:' + (isSelected ? 'rgba(10,132,255,0.15)' : hasSession ? 'rgba(50,215,75,0.08)' : 'var(--surface)') + ';'
+      + 'text-align:center;cursor:pointer;">';
+    h += '<div style="font-size:10px;font-weight:600;color:'
+      + (isSelected ? 'var(--accent)' : hasSession ? 'var(--green)' : 'var(--sub)') + ';">'
+      + dayShort + '</div>';
+    h += '<div style="width:6px;height:6px;border-radius:50%;margin:4px auto 0;background:'
+      + (hasSession ? 'var(--green)' : 'transparent') + ';border:1px solid var(--border);"></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Éditeur du jour sélectionné
+  if (_customBuilderDaySelected !== null) {
+    var dayFull = allDaysFull[_customBuilderDaySelected];
+    var session = (block.sessions || []).find(function(s) { return s.dayIndex === _customBuilderDaySelected; });
+
+    h += '<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:12px;">';
+    if (!session) {
+      h += '<div style="text-align:center;padding:20px 0;">';
+      h += '<div style="font-size:13px;color:var(--sub);margin-bottom:12px;">' + escapeHtml(dayFull) + ' — Repos</div>';
+      h += '<button onclick="addCustomSession(' + _customBuilderDaySelected + ')" '
+        + 'style="padding:8px 16px;background:rgba(10,132,255,0.1);border:1px dashed var(--accent);'
+        + 'border-radius:10px;color:var(--accent);font-size:13px;cursor:pointer;">+ Ajouter une séance</button>';
+      h += '</div>';
+    } else {
+      h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
+      h += '<input value="' + escapeHtml(session.label || dayFull) + '" '
+        + 'oninput="updateCustomSessionLabel(' + _customBuilderDaySelected + ',this.value)" '
+        + 'style="flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--border);'
+        + 'border-radius:8px;color:var(--text);font-size:13px;font-weight:700;">';
+      h += '<button onclick="removeCustomSession(' + _customBuilderDaySelected + ')" '
+        + 'style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;">🗑</button>';
+      h += '</div>';
+
+      var exos = session.exercises || [];
+      if (exos.length === 0) {
+        h += '<div style="text-align:center;padding:10px;color:var(--sub);font-size:12px;">Aucun exercice — ajoutes-en depuis la bibliothèque</div>';
+      } else {
+        exos.forEach(function(exo, ei) {
+          var slotColor = exo.slot === 'main_lift' ? 'var(--accent)' : exo.slot === 'isolation' ? 'var(--purple,#bf5af2)' : 'var(--orange)';
+          var slotLabel = exo.slot === 'main_lift' ? 'M' : exo.slot === 'isolation' ? 'I' : 'A';
+          var isMainLiftMisplaced = exo.slot === 'main_lift' && ei > 0;
+          h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">';
+          h += '<span style="width:20px;height:20px;border-radius:50%;background:' + slotColor + '20;'
+            + 'border:1px solid ' + slotColor + ';display:flex;align-items:center;justify-content:center;'
+            + 'font-size:10px;font-weight:700;color:' + slotColor + ';flex-shrink:0;">' + slotLabel + '</span>';
+          h += '<div style="flex:1;font-size:13px;color:var(--text);">' + escapeHtml(exo.name);
+          if (isMainLiftMisplaced) h += ' <span style="font-size:10px;">💡</span>';
+          h += '</div>';
+          h += '<div style="display:flex;gap:2px;">';
+          if (ei > 0) {
+            h += '<button onclick="moveCustomExo(' + _customBuilderDaySelected + ',' + ei + ',-1)" '
+              + 'style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:2px 4px;">↑</button>';
+          }
+          if (ei < exos.length - 1) {
+            h += '<button onclick="moveCustomExo(' + _customBuilderDaySelected + ',' + ei + ',1)" '
+              + 'style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:2px 4px;">↓</button>';
+          }
+          h += '<button onclick="cycleCustomExoSlot(' + _customBuilderDaySelected + ',' + ei + ')" '
+            + 'style="background:none;border:none;color:' + slotColor + ';cursor:pointer;font-size:10px;'
+            + 'padding:2px 6px;border:1px solid ' + slotColor + '40;border-radius:6px;">' + slotLabel + '</button>';
+          h += '<button onclick="removeCustomExo(' + _customBuilderDaySelected + ',' + ei + ')" '
+            + 'style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 4px;">×</button>';
+          h += '</div>';
+          h += '</div>';
+        });
+      }
+      h += '<button onclick="openExoLibrary(' + _customBuilderDaySelected + ')" '
+        + 'style="width:100%;margin-top:10px;padding:8px;background:none;border:1px dashed var(--accent);'
+        + 'border-radius:10px;color:var(--accent);font-size:13px;cursor:pointer;">+ Ajouter un exercice</button>';
+    }
+    h += '</div>';
+  }
+
+  container.innerHTML = h;
+
+  if (_customBuilderDaySelected !== null) {
+    var sess = (block.sessions || []).find(function(s) { return s.dayIndex === _customBuilderDaySelected; });
+    if (sess) renderExoLibrary(_customBuilderDaySelected);
+  }
+}
+
 function renderProgramBuilderStep(container) {
   var s = _pbState;
   var h = '';

@@ -9088,8 +9088,35 @@ function pbGenerateProgram() {
   renderProgramBuilder();
 }
 
+// Detects when db.weeklyPlan.days[].title no longer matches db.routine — happens
+// when routine is updated externally (DB edit, builder save in pre-fix code paths)
+// without a corresponding generateWeeklyPlan() call. Returns true if regen needed.
+function _wpIsStaleVsRoutine() {
+  if (!db.weeklyPlan || !Array.isArray(db.weeklyPlan.days) || !db.weeklyPlan.days.length) return true;
+  var routine = (typeof getRoutine === 'function') ? getRoutine() : (db.routine || {});
+  var days = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  for (var i = 0; i < days.length; i++) {
+    var day = days[i];
+    var routineLabel = (routine[day] || '').trim();
+    var wpDay = db.weeklyPlan.days.find(function(d) { return d.day === day; });
+    if (!wpDay) continue;
+    var wpTitle = (wpDay.title || '').trim();
+    var routineIsRest = !routineLabel || /repos|😴/i.test(routineLabel);
+    if (routineIsRest && !wpDay.rest) return true;
+    if (!routineIsRest && wpDay.rest) return true;
+    if (!routineIsRest && wpTitle && wpTitle.toLowerCase() !== routineLabel.toLowerCase()) return true;
+  }
+  return false;
+}
+
 function renderProgramBuilderView(container) {
   if (!container) return;
+  // If db.routine was updated without regenerating weeklyPlan, the cached
+  // weeklyPlan.days carries stale titles ('Jour 1') and stale exercises (bench
+  // template = DC Barre everywhere). Detect and regen before reading.
+  if (_wpIsStaleVsRoutine() && typeof generateWeeklyPlan === 'function') {
+    try { generateWeeklyPlan(); } catch (e) { /* non-fatal */ }
+  }
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var plan = db.weeklyPlan;
   var cb = plan && plan.currentBlock;
@@ -9399,7 +9426,9 @@ function renderProgDaysList() {
       '</div>';
     }
 
-    var title = (wpDay && wpDay.title) ? wpDay.title : label;
+    // Prefer the current routine label as source of truth — wpDay.title may be
+    // stale if weeklyPlan was generated before the routine was last updated.
+    var title = label || (wpDay && wpDay.title) || '';
     var exoStr = exos.slice(0,3).join(' · ') + (exos.length > 3 ? ' +' + (exos.length - 3) : '');
     var setsCount = (wpDay && wpDay.exercises) ? wpDay.exercises.reduce(function(s, e) {
       return s + ((e.sets && e.sets.filter(function(ss) { return !ss.isWarmup; }).length) || 0);
@@ -15236,6 +15265,30 @@ function generateWeeklyPlan() {
     var phase       = wpDetectPhase();
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     var selectedDays = params.selectedDays || allDays.slice(0, freq);
+
+    // Debug: trace what the generator received and what it derives.
+    if (typeof DEBUG === 'undefined' || DEBUG) {
+      console.log('[generateWeeklyPlan] mode=' + mode + ' freq=' + freq + ' phase=' + phase);
+      console.log('[generateWeeklyPlan] routine=', JSON.parse(JSON.stringify(routine)));
+      console.log('[generateWeeklyPlan] selectedDays=', selectedDays);
+      if (mode === 'powerbuilding' || mode === 'powerlifting') {
+        allDays.forEach(function(day) {
+          var label = routine[day] || '';
+          var isTraining = selectedDays.indexOf(day) >= 0;
+          var dayKey = '—';
+          if (isTraining && label && !/repos/i.test(label)) {
+            if (/squat|jambe|quad|leg/i.test(label)) dayKey = 'squat';
+            else if (/dead|soulevé|pull|dos/i.test(label)) dayKey = 'deadlift';
+            else if (/récup|cardio|natation/i.test(label)) dayKey = 'recovery';
+            else if (/point|faible|technique.*sbd|sbd.*tech/i.test(label)) dayKey = allDays.indexOf(day) % 2 === 0 ? 'weakpoints' : 'technique';
+            else dayKey = 'bench';
+          } else {
+            dayKey = 'rest';
+          }
+          console.log('[generateWeeklyPlan] ' + day + ': label="' + label + '" → dayKey=' + dayKey);
+        });
+      }
+    }
 
     // Détecter 3 jours consécutifs ou plus → alerter sur la fatigue cumulée
     function hasConsecutiveDays(days) {

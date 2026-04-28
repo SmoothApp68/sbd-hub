@@ -8291,6 +8291,39 @@ function parseCSVRow(line, sep) {
   return fields;
 }
 
+// Quote-aware CSV row tokenizer. Unlike text.split('\n'), preserves \n inside
+// quoted fields (Hevy descriptions/notes can contain user-typed line breaks).
+function parseCSVRows(text, sep) {
+  sep = sep || ',';
+  // Strip UTF-8 BOM if present
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i+1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += c;
+    } else {
+      if (c === '"') { inQ = true; }
+      else if (c === sep) { row.push(cur.trim()); cur = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(cur.trim()); cur = '';
+        if (row.some(f => f !== '')) rows.push(row);
+        row = [];
+      } else cur += c;
+    }
+  }
+  if (cur !== '' || row.length) {
+    row.push(cur.trim());
+    if (row.some(f => f !== '')) rows.push(row);
+  }
+  return rows;
+}
+
 // ── Parser de dates françaises Hevy (format CSV) ────────────
 // Format : "29 mars 2026, 14:50" ou "1 juil. 2025, 16:02"
 function parseHevyCSVDate(raw) {
@@ -8313,10 +8346,12 @@ function parseHevyCSVDate(raw) {
 
 // ── Parser CSV natif Hevy ────────────────────────────────────
 function parseHevyCSV(text) {
-  const rawLines = text.split('\n');
-  if (rawLines.length < 2) return null;
+  // parseCSVRows respects quoted multi-line fields (descriptions / exercise_notes
+  // may contain user-typed line breaks that text.split('\n') would shred).
+  const csvRows = parseCSVRows(text, ',');
+  if (csvRows.length < 2) return null;
 
-  const header = parseCSVRow(rawLines[0], ',');
+  const header = csvRows[0];
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   const idx = {};
   header.forEach((h,i) => { idx[norm(h)] = i; });
@@ -8330,6 +8365,7 @@ function parseHevyCSV(text) {
   const iDist   = idx['distance_km'];
   const iDur    = idx['duration_seconds'];
   const iRpe    = idx['rpe'];
+  const iSetIdx = idx['set_index'];
 
   if (iExo === undefined || iWeight === undefined || iStart === undefined) return null;
 
@@ -8337,10 +8373,8 @@ function parseHevyCSV(text) {
   let totalRows = 0;
   let dateMin = '99/99/9999', dateMax = '01/01/1900';
 
-  for (let i = 1; i < rawLines.length; i++) {
-    const line = rawLines[i].trim();
-    if (!line) continue;
-    const cols = parseCSVRow(line, ',');
+  for (let i = 1; i < csvRows.length; i++) {
+    const cols = csvRows[i];
 
     const title  = (cols[iTitle]  || '').trim();
     const start  = (cols[iStart]  || '').trim();
@@ -8351,13 +8385,14 @@ function parseHevyCSV(text) {
     const distKm = parseFloat(cols[iDist])   || 0;
     const durSec = parseFloat(cols[iDur])    || 0;
     const rpe    = parseFloat(cols[iRpe])    || 0;
+    const setIdx = iSetIdx !== undefined ? (parseInt(cols[iSetIdx]) || 0) : i;
 
     if (!exoN || !start) continue;
     totalRows++;
 
     const key = title + '||' + start;
     if (!sessMap.has(key)) sessMap.set(key, { title, start, rows: [] });
-    sessMap.get(key).rows.push({ exoN, setType, wkg, reps, distKm, durSec, rpe });
+    sessMap.get(key).rows.push({ exoN, setType, wkg, reps, distKm, durSec, rpe, setIdx });
   }
 
   const sessions = [];
@@ -8385,6 +8420,11 @@ function parseHevyCSV(text) {
     for (const row of v.rows) {
       if (!exoMap.has(row.exoN)) exoMap.set(row.exoN, []);
       exoMap.get(row.exoN).push(row);
+    }
+
+    // Trier les sets par set_index pour préserver l'ordre Hevy (utile pour l'affichage)
+    for (const sets of exoMap.values()) {
+      sets.sort((a, b) => a.setIdx - b.setIdx);
     }
 
     for (const [exoName, sets] of exoMap) {

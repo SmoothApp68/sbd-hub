@@ -9195,6 +9195,120 @@ function getRecentExercises(n) {
     .slice(0, n);
 }
 
+// ── CUSTOM BUILDER — CRUD ────────────────────────────────────
+
+function selectCustomDay(dayIndex) {
+  _customBuilderDaySelected = (_customBuilderDaySelected === dayIndex) ? null : dayIndex;
+  _libraryFilter = { group: null, search: '' };
+  renderCustomBuilder();
+}
+
+function addCustomSession(dayIndex) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  var dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  block.sessions.push({ dayIndex: dayIndex, label: dayNames[dayIndex], exercises: [] });
+  renderCustomBuilder();
+}
+
+function removeCustomSession(dayIndex) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  block.sessions = block.sessions.filter(function(s) { return s.dayIndex !== dayIndex; });
+  _customBuilderDaySelected = null;
+  renderCustomBuilder();
+}
+
+function updateCustomSessionLabel(dayIndex, label) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  var session = block.sessions.find(function(s) { return s.dayIndex === dayIndex; });
+  if (session) session.label = label;
+}
+
+function addExoToCustomSession(dayIndex, exoName) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  var session = block.sessions.find(function(s) { return s.dayIndex === dayIndex; });
+  if (!session) return;
+
+  if (session.exercises.some(function(e) { return e.name === exoName; })) {
+    showToast('Exercice déjà dans la séance');
+    return;
+  }
+
+  var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
+  var defaultSlot = (meta && meta.mechanic === 'isolation') ? 'isolation'
+    : (meta && meta.isPrimary) ? 'main_lift' : 'accessory';
+  if (session.exercises.length === 0 && defaultSlot !== 'isolation') defaultSlot = 'main_lift';
+
+  session.exercises.push({
+    id: exoName.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''),
+    name: exoName,
+    slot: defaultSlot,
+    defaultSlot: defaultSlot,
+    customNote: '',
+    addedAt: Date.now()
+  });
+  renderCustomBuilder();
+}
+
+function removeCustomExo(dayIndex, exoIndex) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  var session = block.sessions.find(function(s) { return s.dayIndex === dayIndex; });
+  if (session) session.exercises.splice(exoIndex, 1);
+  renderCustomBuilder();
+}
+
+function moveCustomExo(dayIndex, exoIndex, direction) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  var session = block.sessions.find(function(s) { return s.dayIndex === dayIndex; });
+  if (!session) return;
+  var newIdx = exoIndex + direction;
+  if (newIdx < 0 || newIdx >= session.exercises.length) return;
+  var tmp = session.exercises[exoIndex];
+  session.exercises[exoIndex] = session.exercises[newIdx];
+  session.exercises[newIdx] = tmp;
+  renderCustomBuilder();
+}
+
+function cycleCustomExoSlot(dayIndex, exoIndex) {
+  var block = _customBuilderState.blocks[_customBuilderState.currentBlockIndex || 0];
+  var session = block.sessions.find(function(s) { return s.dayIndex === dayIndex; });
+  if (!session) return;
+  var exo = session.exercises[exoIndex];
+  if (!exo) return;
+
+  var slots = ['main_lift', 'accessory', 'isolation'];
+  var nextSlot = slots[(slots.indexOf(exo.slot) + 1) % slots.length];
+
+  if (nextSlot === 'main_lift') {
+    var blacklisted = (typeof SLOT_PROMOTION_BLACKLIST !== 'undefined' ? SLOT_PROMOTION_BLACKLIST : [])
+      .some(function(p) { return exo.name.toLowerCase().indexOf(p.toLowerCase()) >= 0; });
+    if (blacklisted) {
+      showToast('⚠️ ' + exo.name + ' ne peut pas être promu en lift principal');
+      return;
+    }
+  }
+
+  exo.slot = nextSlot;
+  renderCustomBuilder();
+}
+
+function saveCustomTemplate() {
+  if (!_customBuilderState) return;
+  _customBuilderState.updatedAt = Date.now();
+  db.customProgramTemplate = JSON.parse(JSON.stringify(_customBuilderState));
+  db.user.programMode = 'custom';
+  _customBuilderState = null;
+  _customBuilderDaySelected = null;
+  saveDB();
+  if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
+  showToast('✅ Programme sauvegardé !');
+  renderProgramBuilder();
+}
+
+function openExoLibrary(dayIndex) {
+  _customBuilderDaySelected = dayIndex;
+  renderCustomBuilder();
+}
+
 function renderProgramBuilderStep(container) {
   var s = _pbState;
   var h = '';

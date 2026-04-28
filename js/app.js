@@ -1863,9 +1863,17 @@ function autoPopulateKeyLifts() {
 function obFinish() {
   db.user.onboarded = true;
   db.user.onboardingVersion = ONBOARDING_VERSION;
+  // Persist selectedDays into programParams — engine reads from here, not from the closure.
+  if (Array.isArray(obSelectedDays) && obSelectedDays.length) {
+    if (!db.user.programParams) db.user.programParams = {};
+    db.user.programParams.selectedDays = obSelectedDays.slice();
+  }
   if (typeof validateUserLevel === 'function') validateUserLevel();
   autoPopulateKeyLifts();
   saveDB();
+  if (typeof generateWeeklyPlan === 'function') {
+    try { generateWeeklyPlan(); } catch (e) { console.warn('generateWeeklyPlan failed:', e); }
+  }
   hideOnboarding();
   refreshUI();
   renderProgramViewer();
@@ -9072,10 +9080,8 @@ function pbGenerateProgram() {
 
   // Sauvegarder les paramètres dans le profil
   db.user.level = s.level;
-  db.user.trainingFreq = s.days;
-  db.user.trainingDuration = s.duration;
-  db.user.trainingGoal = s.goal;
-  db.user.equipment = s.equipment;
+  if (!db.user.programParams) db.user.programParams = {};
+  db.user.programParams.duration = s.duration;
 
   // Appeler le générateur existant si disponible
   try {
@@ -9106,6 +9112,9 @@ function pbGenerateProgram() {
 
   _pbState = null;
   saveDBNow();
+  if (typeof generateWeeklyPlan === 'function') {
+    try { generateWeeklyPlan(); } catch (e) { console.warn('generateWeeklyPlan failed:', e); }
+  }
   showToast('Programme généré !');
   renderProgramBuilder();
 }
@@ -9687,6 +9696,8 @@ function pbResetProgram() {
   db.routine = null;
   db.manualProgram = null;
   db.routineExos = null;
+  db.weeklyPlan = null;
+  db.user.programParams = {};
   saveDBNow();
   _pbState = null;
   renderProgramBuilder();

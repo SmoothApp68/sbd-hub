@@ -5,9 +5,6 @@
 // Clé de stockage local
 const STORAGE_KEY = 'SBD_HUB_V29';
 
-// Version de l'onboarding (incrémenté à chaque refonte)
-const ONBOARDING_VERSION = 2;
-
 // Jours de la semaine
 const DAYS_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const DAYS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];

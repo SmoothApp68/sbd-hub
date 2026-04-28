@@ -14811,14 +14811,25 @@ function wpDayMotivation(dayData, phase) {
   return phaseNotes[type] || phaseNotes.default || '';
 }
 
-function wpRepsForPhase(phase) {
-  return { intro: 5, accumulation: 5, intensification: 3, peak: 2, deload: 5 }[phase] || 5;
+function wpRepsForPhase(phase, slot) {
+  if (slot === 'isolation') return 15;
+  if (slot === 'accessory') {
+    return { hypertrophie: 10, accumulation: 10, force: 8, intensification: 6,
+             peak: 6, deload: 10, intro: 12, recuperation: 12 }[phase] || 10;
+  }
+  return { hypertrophie: 8, accumulation: 6, force: 4, intensification: 3,
+           peak: 2, deload: 6, intro: 8, recuperation: 8 }[phase] || 5;
 }
-function wpSetsForPhase(phase) {
-  return { intro: 4, accumulation: 4, intensification: 4, peak: 3, deload: 2 }[phase] || 4;
+function wpSetsForPhase(phase, slot) {
+  if (slot === 'isolation') return 3;
+  return { hypertrophie: 4, accumulation: 4, force: 4, intensification: 4,
+           peak: 3, deload: 2, intro: 3, recuperation: 2 }[phase] || 3;
 }
-function wpRpeForPhase(phase) {
-  return { intro: 7, accumulation: 8, intensification: 8.5, peak: 9, deload: 6 }[phase] || 8;
+function wpRpeForPhase(phase, slot) {
+  if (slot === 'isolation') return 7;
+  if (slot === 'accessory') return phase === 'deload' ? 6 : 7.5;
+  return { hypertrophie: 7.5, accumulation: 8, force: 8.5, intensification: 8.5,
+           peak: 9, deload: 6, intro: 7, recuperation: 6 }[phase] || 8;
 }
 
 function wpBuildMainSets(weight, reps, setsCount, rpe) {

@@ -9098,6 +9098,103 @@ function renderCustomBuilder() {
   }
 }
 
+// ── BIBLIOTHÈQUE D'EXERCICES ─────────────────────────────────
+var _libraryFilter = { group: null, search: '' };
+
+function renderExoLibrary(dayIndex) {
+  var container = document.getElementById('programBuilderContent');
+  if (!container) return;
+
+  var libDiv = document.getElementById('exoLibraryPanel');
+  if (!libDiv) {
+    libDiv = document.createElement('div');
+    libDiv.id = 'exoLibraryPanel';
+    container.appendChild(libDiv);
+  }
+
+  var groups = [];
+  var seen = {};
+  Object.keys(WP_EXO_META || {}).forEach(function(name) {
+    var g = WP_EXO_META[name] && WP_EXO_META[name].muscleGroup;
+    if (g && !seen[g]) { seen[g] = true; groups.push(g); }
+  });
+  groups.sort();
+
+  var recentExos = getRecentExercises(5);
+
+  var h = '<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">';
+  h += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;'
+    + 'font-weight:600;margin-bottom:8px;">Bibliothèque</div>';
+
+  h += '<input id="exoLibSearch" placeholder="Rechercher..." value="' + escapeHtml(_libraryFilter.search) + '" '
+    + 'oninput="_libraryFilter.search=this.value;renderExoLibrary(' + dayIndex + ')" '
+    + 'style="width:100%;box-sizing:border-box;padding:8px 10px;background:var(--surface);'
+    + 'border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:8px;">';
+
+  h += '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;">';
+  var allActive = !_libraryFilter.group;
+  h += '<button onclick="_libraryFilter.group=null;renderExoLibrary(' + dayIndex + ')" '
+    + 'style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;'
+    + 'border:1px solid ' + (allActive ? 'var(--accent)' : 'var(--border)') + ';'
+    + 'background:' + (allActive ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+    + 'color:' + (allActive ? 'var(--accent)' : 'var(--sub)') + ';">Tous</button>';
+  groups.forEach(function(g) {
+    var active = _libraryFilter.group === g;
+    h += '<button onclick="_libraryFilter.group=\'' + g + '\';renderExoLibrary(' + dayIndex + ')" '
+      + 'style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;'
+      + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+      + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+      + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + escapeHtml(g) + '</button>';
+  });
+  h += '</div>';
+
+  if (recentExos.length && !_libraryFilter.search && !_libraryFilter.group) {
+    h += '<div style="font-size:10px;color:var(--sub);margin-bottom:6px;">Récents</div>';
+    recentExos.forEach(function(name) { h += renderLibExoRow(name, dayIndex); });
+    h += '<div style="height:8px;"></div>';
+  }
+
+  var search = _libraryFilter.search.toLowerCase();
+  var filtered = Object.keys(WP_EXO_META || {}).filter(function(name) {
+    var meta = WP_EXO_META[name];
+    if (_libraryFilter.group && meta && meta.muscleGroup !== _libraryFilter.group) return false;
+    if (search && name.toLowerCase().indexOf(search) < 0) return false;
+    return true;
+  }).sort();
+
+  h += '<div style="max-height:200px;overflow-y:auto;">';
+  filtered.forEach(function(name) { h += renderLibExoRow(name, dayIndex); });
+  h += '</div></div>';
+
+  libDiv.innerHTML = h;
+}
+
+function renderLibExoRow(exoName, dayIndex) {
+  var meta = WP_EXO_META && WP_EXO_META[exoName];
+  var group = meta ? meta.muscleGroup : '';
+  var safeName = exoName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return '<div style="display:flex;align-items:center;justify-content:space-between;'
+    + 'padding:7px 8px;border-radius:8px;margin-bottom:2px;">'
+    + '<div><div style="font-size:13px;color:var(--text);">' + escapeHtml(exoName) + '</div>'
+    + (group ? '<div style="font-size:10px;color:var(--sub);">' + escapeHtml(group) + '</div>' : '')
+    + '</div>'
+    + '<button onclick="addExoToCustomSession(' + dayIndex + ',\'' + safeName + '\')" '
+    + 'style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;padding:0 4px;">+</button>'
+    + '</div>';
+}
+
+function getRecentExercises(n) {
+  var counts = {};
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (exo.name) counts[exo.name] = (counts[exo.name] || 0) + 1;
+    });
+  });
+  return Object.keys(counts)
+    .sort(function(a, b) { return counts[b] - counts[a]; })
+    .slice(0, n);
+}
+
 function renderProgramBuilderStep(container) {
   var s = _pbState;
   var h = '';

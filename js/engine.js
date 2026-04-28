@@ -2064,3 +2064,83 @@ function generatePrehabRoutine(key) {
     return { name: exo.name, sets: exo.sets, reps: exo.reps };
   });
 }
+
+// ============================================================
+// CUSTOM PROGRAMME — TRANSFER MATRIX & SLOT BLACKLIST
+// ============================================================
+
+var EXERCISE_TRANSFER_MATRIX = {
+  // Famille Squat (parent: 'Squat (Barre)')
+  'Squat (Barre)':          { family: 'squat', ratio: 1.00 },
+  'High Bar Squat':         { family: 'squat', ratio: 0.97 },
+  'Paused Squat':           { family: 'squat', ratio: 0.88 },
+  'Front Squat':            { family: 'squat', ratio: 0.80 },
+  'Bulgarian Split Squat':  { family: 'squat', ratio: 0.65 },
+  'Goblet Squat':           { family: 'squat', ratio: 0.55 },
+  'Hack Squat':             { family: 'squat', ratio: 0.75 },
+
+  // Famille Hinge (parent: 'Soulevé de Terre (Barre)')
+  'Soulevé de Terre (Barre)':         { family: 'hinge', ratio: 1.00 },
+  'Soulevé de Terre Sumo (Barre)':    { family: 'hinge', ratio: 0.95 },
+  'Soulevé de Terre Roumain (Barre)': { family: 'hinge', ratio: 0.80 },
+  'Rack Pull':                         { family: 'hinge', ratio: 1.05 },
+  'Déficit Deadlift':                  { family: 'hinge', ratio: 0.90 },
+  'Good Morning':                      { family: 'hinge', ratio: 0.55 },
+
+  // Famille Bench (parent: 'Développé Couché (Barre)')
+  'Développé Couché (Barre)':          { family: 'bench', ratio: 1.00 },
+  'Spoto Press':                        { family: 'bench', ratio: 0.92 },
+  'Larsen Press':                       { family: 'bench', ratio: 0.90 },
+  'Paused Bench':                       { family: 'bench', ratio: 0.92 },
+  'Close Grip Bench':                   { family: 'bench', ratio: 0.88 },
+  'Développé Incliné (Barre)':          { family: 'bench', ratio: 0.82 },
+  'Développé Couché (Haltères)':        { family: 'bench', ratio: 0.85 },
+
+  // Famille OHP (parent: 'Développé Militaire (Barre)')
+  'Développé Militaire (Barre)':        { family: 'ohp', ratio: 1.00 },
+  'Développé Militaire (Haltères)':     { family: 'ohp', ratio: 0.90 },
+  'Push Press':                          { family: 'ohp', ratio: 1.10 }
+};
+
+var SLOT_PROMOTION_BLACKLIST = [
+  'Curl Biceps', 'Curl Marteau', 'Extension Triceps', 'Leg Extension',
+  'Leg Curl', 'Élévation Latérale', 'Élévation Frontale', 'Fly',
+  'Écarté', 'Face Pull', 'Shrugs', 'Crunch', 'Planche'
+];
+
+// Calculer l'e1RM estimé pour un exercice sans historique
+// via le ratio de transfert depuis un exercice parent connu
+function estimateE1RMFromTransfer(targetExoName, sourceExoName, sourceE1RM) {
+  var target = EXERCISE_TRANSFER_MATRIX[targetExoName];
+  var source = EXERCISE_TRANSFER_MATRIX[sourceExoName];
+  if (!target || !source) return null;
+  if (target.family !== source.family) return null;
+  return Math.round(sourceE1RM * (target.ratio / source.ratio) / 2.5) * 2.5;
+}
+
+// Trouver le meilleur exercice source pour estimer un e1RM
+function findBestTransferSource(targetExoName, allBestE1RMs) {
+  var target = EXERCISE_TRANSFER_MATRIX[targetExoName];
+  if (!target) return null;
+  var best = null, bestE1RM = 0;
+  Object.keys(allBestE1RMs || {}).forEach(function(exoName) {
+    var source = EXERCISE_TRANSFER_MATRIX[exoName];
+    if (!source || source.family !== target.family) return;
+    var e1rm = allBestE1RMs[exoName];
+    if (e1rm > bestE1RM) { bestE1RM = e1rm; best = exoName; }
+  });
+  if (!best) return null;
+  return { exoName: best, e1rm: bestE1RM };
+}
+
+// Decay e1RM après absence : -1 % par semaine, plafonné à -15 %
+function applyE1RMDecay(e1rm, weeksAbsent) {
+  var decay = Math.min(0.15, weeksAbsent * 0.01);
+  return Math.round(e1rm * (1 - decay) / 2.5) * 2.5;
+}
+
+// Ghost Gains : si le lift principal a progressé, répercuter
+// la progression sur un exercice absent via le ratio de transfert
+function applyGhostGains(oldE1rm, mainLiftDelta, transferRatio) {
+  return Math.round((oldE1rm + mainLiftDelta * transferRatio) / 2.5) * 2.5;
+}

@@ -9030,12 +9030,15 @@ function renderCustomBuilder() {
 
   var h = '';
 
-  // Header — nom + bouton sauver
+  // Header — nom + bouton sauver + bouton annuler
   h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
   h += '<input value="' + escapeHtml(tmpl.name) + '" '
     + 'oninput="_customBuilderState.name=this.value" '
     + 'style="flex:1;padding:8px 10px;background:var(--surface);border:1px solid var(--border);'
     + 'border-radius:10px;color:var(--text);font-size:15px;font-weight:700;">';
+  h += '<button onclick="cancelCustomBuilder()" '
+    + 'style="padding:8px 12px;background:none;border:1px solid var(--border);border-radius:10px;'
+    + 'color:var(--sub);font-size:13px;cursor:pointer;">✕</button>';
   h += '<button onclick="saveCustomTemplate()" '
     + 'style="padding:8px 14px;background:var(--accent);border:none;border-radius:10px;'
     + 'color:#fff;font-weight:700;font-size:13px;cursor:pointer;">💾 Sauver</button>';
@@ -9389,6 +9392,14 @@ function cycleCustomExoSlot(dayIndex, exoIndex) {
 
   exo.slot = nextSlot;
   renderCustomBuilder();
+}
+
+function cancelCustomBuilder() {
+  if (!confirm('Quitter sans sauvegarder ? Tes modifications seront perdues.')) return;
+  _customBuilderState = null;
+  _customBuilderDaySelected = null;
+  _libraryFilter = { group: null, search: '' };
+  renderProgramBuilder();
 }
 
 function saveCustomTemplate() {

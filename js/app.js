@@ -81,6 +81,7 @@ function shouldShow(feature) {
 const defaultDB = () => ({
   user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true },
   customProgramTemplate: null,
+  customProgramBackups: [],
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
   keyLifts: [],
   weeklyChallenges: null,
@@ -187,6 +188,7 @@ let db = (() => {
     if (p.user.programMode === undefined) p.user.programMode = 'auto';
     if (p.user.coachProfile === undefined) p.user.coachProfile = 'full';
     if (p.user.coachEnabled === undefined) p.user.coachEnabled = true;
+    if (p.customProgramBackups === undefined) p.customProgramBackups = [];
     // AUDIT: champs collectés mais non utilisés dans engine/coach/program :
     //   - p.user.secondaryActivities : set en onboarding mais jamais lu pour adapter le programme.
     //     TODO : soit retirer du formulaire, soit câbler dans wpCheckActivityConflicts.
@@ -9404,6 +9406,12 @@ function cancelCustomBuilder() {
 
 function saveCustomTemplate() {
   if (!_customBuilderState) return;
+  // Auto-snapshot current template before overwriting (max 5, newest first)
+  if (db.customProgramTemplate) {
+    if (!db.customProgramBackups) db.customProgramBackups = [];
+    db.customProgramBackups.unshift({ savedAt: Date.now(), template: JSON.parse(JSON.stringify(db.customProgramTemplate)) });
+    if (db.customProgramBackups.length > 5) db.customProgramBackups.length = 5;
+  }
   _customBuilderState.updatedAt = Date.now();
   db.customProgramTemplate = JSON.parse(JSON.stringify(_customBuilderState));
   db.user.programMode = 'custom';
@@ -9419,6 +9427,35 @@ function saveCustomTemplate() {
   saveDB();
   if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
   showToast('✅ Programme sauvegardé !');
+  renderProgramBuilder();
+}
+
+function restoreCustomProgramBackup(index) {
+  var backup = db.customProgramBackups && db.customProgramBackups[index];
+  if (!backup) return;
+  var d = new Date(backup.savedAt);
+  var label = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  if (!confirm('Restaurer la version du ' + label + ' ? Le programme actuel sera remplacé.')) return;
+  // Snapshot current before restoring so user can undo
+  if (db.customProgramTemplate) {
+    if (!db.customProgramBackups) db.customProgramBackups = [];
+    db.customProgramBackups.unshift({ savedAt: Date.now(), template: JSON.parse(JSON.stringify(db.customProgramTemplate)) });
+  }
+  db.customProgramTemplate = JSON.parse(JSON.stringify(backup.template));
+  // Remove restored entry and trim to 5
+  db.customProgramBackups.splice(index + 1, 1);
+  if (db.customProgramBackups.length > 5) db.customProgramBackups.length = 5;
+  // Sync db.routine
+  var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
+  if (!db.routine) db.routine = {};
+  ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
+    var s = _block && (_block.sessions || []).find(function(s) { return s.dayIndex === idx; });
+    db.routine[day] = s ? s.label : '😴 Repos';
+  });
+  db.user.programMode = 'custom';
+  saveDB();
+  if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
+  showToast('✅ Programme restauré !');
   renderProgramBuilder();
 }
 
@@ -9770,9 +9807,37 @@ function renderProgramBuilderView(container) {
     modeHtml = renderProgramPowerlifting();
   }
 
+  var backupsHtml = '';
+  var backups = db.customProgramBackups;
+  if (db.user.programMode === 'custom' && backups && backups.length) {
+    backupsHtml += '<div style="margin-top:20px;">';
+    backupsHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--sub);">📦 Versions sauvegardées</div>';
+    backups.forEach(function(bk, i) {
+      var d = new Date(bk.savedAt);
+      var dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      var timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      var block = bk.template && bk.template.blocks && bk.template.blocks[0];
+      var sessionCount = block ? (block.sessions || []).length : 0;
+      backupsHtml +=
+        '<div style="display:flex;justify-content:space-between;align-items:center;' +
+        'padding:9px 12px;background:var(--surface);border:0.5px solid var(--border);' +
+        'border-radius:10px;margin-bottom:6px;">' +
+          '<div>' +
+            '<div style="font-size:13px;font-weight:600;">' + dateStr + ' à ' + timeStr + '</div>' +
+            '<div style="font-size:11px;color:var(--sub);">' + sessionCount + ' séance' + (sessionCount > 1 ? 's' : '') + '</div>' +
+          '</div>' +
+          '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
+          'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
+          'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Restaurer</button>' +
+        '</div>';
+    });
+    backupsHtml += '</div>';
+  }
+
   var footerHtml =
     '<div style="margin-top:16px;">' +
-      '<button class="btn" style="width:100%;background:var(--red);font-size:13px;" ' +
+      backupsHtml +
+      '<button class="btn" style="width:100%;background:var(--red);font-size:13px;margin-top:8px;" ' +
       'onclick="pbResetProgram()">🗑️ Réinitialiser le programme</button>' +
     '</div>';
 
@@ -10252,6 +10317,7 @@ function pbResetProgram() {
   db.routineExos = null;
   db.weeklyPlan = null;
   db.customProgramTemplate = null;
+  db.customProgramBackups = [];
   db.user.programMode = 'auto';
   db.user.programParams = {};
   saveDBNow();

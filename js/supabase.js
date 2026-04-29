@@ -861,6 +861,7 @@ async function addFriendByCode() {
 }
 
 async function ensureProfile() {
+  if (typeof db === 'undefined' || !db) return null;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
 
@@ -870,7 +871,7 @@ async function ensureProfile() {
       .from('profiles').select('*').eq('id', uid).maybeSingle();
     if (readErr) {
       console.error('ensureProfile READ error:', readErr);
-      showToast('Erreur lecture profil : ' + readErr.message);
+      if (typeof showToast === 'function') showToast('Erreur lecture profil : ' + readErr.message);
       return null;
     }
 

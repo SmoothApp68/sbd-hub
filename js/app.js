@@ -12385,11 +12385,11 @@ function renderSettingsProfile() {
   if (prehabKnob) prehabKnob.style.left = prehabOn ? '23px' : '3px';
 
   // Mode programme + Coach Profile
-  var modeEl = document.getElementById('settingsProgramMode');
-  if (modeEl) {
+  var programModeEl = document.getElementById('settingsProgramMode');
+  if (programModeEl) {
     var currentMode = db.user.programMode || 'auto';
     var currentCoachProfile = db.user.coachProfile || 'full';
-    modeEl.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px;">'
+    programModeEl.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px;">'
       + ['auto','custom'].map(function(m) {
         var active = m === currentMode;
         var labels = { auto: '🤖 Auto', custom: '🛠 Custom' };

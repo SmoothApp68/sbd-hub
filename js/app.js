@@ -9329,6 +9329,13 @@ function saveCustomTemplate() {
   _customBuilderState.updatedAt = Date.now();
   db.customProgramTemplate = JSON.parse(JSON.stringify(_customBuilderState));
   db.user.programMode = 'custom';
+  // Sync db.routine so _wpIsStaleVsRoutine and renderProgDaysList read current labels
+  var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
+  if (!db.routine) db.routine = {};
+  ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
+    var s = _block && (_block.sessions || []).find(function(s) { return s.dayIndex === idx; });
+    db.routine[day] = s ? s.label : '😴 Repos';
+  });
   _customBuilderState = null;
   _customBuilderDaySelected = null;
   saveDB();

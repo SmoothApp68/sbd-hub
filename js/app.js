@@ -9138,6 +9138,30 @@ function renderCustomBuilder() {
 
 // ── BIBLIOTHÈQUE D'EXERCICES ─────────────────────────────────
 var _libraryFilter = { group: null, search: '' };
+var _skipNextPlanSnapshot = false;
+
+function updateActiveProgramStats() {
+  if (!db.customProgramBackups || !db.customProgramBackups.length) return;
+  var active = db.customProgramBackups[0];
+  active.sessionCount = (active.sessionCount || 0) + 1;
+  active.lastUsedAt = Date.now();
+}
+
+function _snapshotCurrentProgram() {
+  if (!db.customProgramBackups) db.customProgramBackups = [];
+  var snap = {
+    savedAt: Date.now(),
+    firstUsedAt: Date.now(),
+    lastUsedAt: Date.now(),
+    sessionCount: 0,
+    programMode: (db.user && db.user.programMode) || 'auto',
+    weeklyPlan: db.weeklyPlan ? JSON.parse(JSON.stringify(db.weeklyPlan)) : null,
+    routine: db.routine ? JSON.parse(JSON.stringify(db.routine)) : null,
+    customProgramTemplate: db.customProgramTemplate ? JSON.parse(JSON.stringify(db.customProgramTemplate)) : null
+  };
+  db.customProgramBackups.unshift(snap);
+  if (db.customProgramBackups.length > 15) db.customProgramBackups.pop();
+}
 
 function getHevyOnlyExercises() {
   var inDB = {};
@@ -9406,12 +9430,7 @@ function cancelCustomBuilder() {
 
 function saveCustomTemplate() {
   if (!_customBuilderState) return;
-  // Auto-snapshot current template before overwriting (max 5, newest first)
-  if (db.customProgramTemplate) {
-    if (!db.customProgramBackups) db.customProgramBackups = [];
-    db.customProgramBackups.unshift({ savedAt: Date.now(), template: JSON.parse(JSON.stringify(db.customProgramTemplate)) });
-    if (db.customProgramBackups.length > 5) db.customProgramBackups.length = 5;
-  }
+  if (db.customProgramTemplate || db.weeklyPlan) _snapshotCurrentProgram();
   _customBuilderState.updatedAt = Date.now();
   db.customProgramTemplate = JSON.parse(JSON.stringify(_customBuilderState));
   db.user.programMode = 'custom';
@@ -9434,27 +9453,31 @@ function restoreCustomProgramBackup(index) {
   var backup = db.customProgramBackups && db.customProgramBackups[index];
   if (!backup) return;
   var d = new Date(backup.savedAt);
-  var label = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  var label = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' });
   if (!confirm('Restaurer la version du ' + label + ' ? Le programme actuel sera remplacé.')) return;
-  // Snapshot current before restoring so user can undo
-  if (db.customProgramTemplate) {
-    if (!db.customProgramBackups) db.customProgramBackups = [];
-    db.customProgramBackups.unshift({ savedAt: Date.now(), template: JSON.parse(JSON.stringify(db.customProgramTemplate)) });
+  // Snapshot current before restoring so user can undo; capture whether we did so BEFORE overwriting
+  var didSnapshot = !!(db.weeklyPlan || db.customProgramTemplate);
+  if (didSnapshot) _snapshotCurrentProgram();
+  // Restore all fields from the backup
+  db.user.programMode = backup.programMode || 'auto';
+  db.weeklyPlan = backup.weeklyPlan ? JSON.parse(JSON.stringify(backup.weeklyPlan)) : null;
+  db.routine = backup.routine ? JSON.parse(JSON.stringify(backup.routine)) : null;
+  db.customProgramTemplate = backup.customProgramTemplate ? JSON.parse(JSON.stringify(backup.customProgramTemplate)) : null;
+  // If custom, re-sync routine labels from template
+  if (db.user.programMode === 'custom' && db.customProgramTemplate) {
+    var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
+    if (!db.routine) db.routine = {};
+    ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
+      var s = _block && (_block.sessions || []).find(function(s) { return s.dayIndex === idx; });
+      db.routine[day] = s ? s.label : '😴 Repos';
+    });
+    if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
   }
-  db.customProgramTemplate = JSON.parse(JSON.stringify(backup.template));
-  // Remove restored entry and trim to 5
-  db.customProgramBackups.splice(index + 1, 1);
-  if (db.customProgramBackups.length > 5) db.customProgramBackups.length = 5;
-  // Sync db.routine
-  var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
-  if (!db.routine) db.routine = {};
-  ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
-    var s = _block && (_block.sessions || []).find(function(s) { return s.dayIndex === idx; });
-    db.routine[day] = s ? s.label : '😴 Repos';
-  });
-  db.user.programMode = 'custom';
+  // Remove the restored entry (shifted by 1 if we prepended an undo snapshot)
+  var realIdx = didSnapshot ? index + 1 : index;
+  db.customProgramBackups.splice(realIdx, 1);
+  if (db.customProgramBackups.length > 15) db.customProgramBackups.pop();
   saveDB();
-  if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
   showToast('✅ Programme restauré !');
   renderProgramBuilder();
 }
@@ -9663,6 +9686,8 @@ function pbSaveManualProgram() {
 
 function pbGenerateProgram() {
   var s = _pbState;
+  if (db.weeklyPlan || db.generatedProgram) _snapshotCurrentProgram();
+  _skipNextPlanSnapshot = true;
   // Utiliser le générateur existant
   var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'force', remise_en_forme: 'bien_etre' };
   var goals = [{ id: goalMap[s.goal] || 'force' }];
@@ -9706,6 +9731,7 @@ function pbGenerateProgram() {
   if (typeof generateWeeklyPlan === 'function') {
     try { generateWeeklyPlan(); } catch (e) { console.warn('generateWeeklyPlan failed:', e); }
   }
+  _skipNextPlanSnapshot = false;
   showToast('Programme généré !');
   renderProgramBuilder();
 }
@@ -9809,22 +9835,32 @@ function renderProgramBuilderView(container) {
 
   var backupsHtml = '';
   var backups = db.customProgramBackups;
-  if (db.user.programMode === 'custom' && backups && backups.length) {
+  if (backups && backups.length) {
     backupsHtml += '<div style="margin-top:20px;">';
     backupsHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--sub);">📦 Versions sauvegardées</div>';
     backups.forEach(function(bk, i) {
-      var d = new Date(bk.savedAt);
-      var dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-      var timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      var block = bk.template && bk.template.blocks && bk.template.blocks[0];
-      var sessionCount = block ? (block.sessions || []).length : 0;
+      var fmt = { day: 'numeric', month: 'long' };
+      var firstD = new Date(bk.firstUsedAt || bk.savedAt);
+      var lastD = new Date(bk.lastUsedAt || bk.savedAt);
+      var sc = bk.sessionCount || 0;
+      var usageStr;
+      if (sc === 0) {
+        var savedStr = new Date(bk.savedAt).toLocaleDateString('fr-FR', fmt);
+        usageStr = 'Sauvegardé le ' + savedStr + ' · jamais utilisé';
+      } else {
+        var firstStr = firstD.toLocaleDateString('fr-FR', fmt);
+        var lastStr = lastD.toLocaleDateString('fr-FR', fmt);
+        var sameDay = firstD.toDateString() === lastD.toDateString();
+        usageStr = (sameDay ? firstStr : 'Du ' + firstStr + ' au ' + lastStr) + ' · ' + sc + ' séance' + (sc > 1 ? 's' : '');
+      }
+      var modeLabel = bk.programMode === 'custom' ? '🏗️ Custom' : '⚙️ Auto';
       backupsHtml +=
         '<div style="display:flex;justify-content:space-between;align-items:center;' +
         'padding:9px 12px;background:var(--surface);border:0.5px solid var(--border);' +
         'border-radius:10px;margin-bottom:6px;">' +
           '<div>' +
-            '<div style="font-size:13px;font-weight:600;">' + dateStr + ' à ' + timeStr + '</div>' +
-            '<div style="font-size:11px;color:var(--sub);">' + sessionCount + ' séance' + (sessionCount > 1 ? 's' : '') + '</div>' +
+            '<div style="font-size:12px;font-weight:600;">' + modeLabel + '</div>' +
+            '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + usageStr + '</div>' +
           '</div>' +
           '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
           'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
@@ -16082,6 +16118,8 @@ function generateWeeklyPlan() {
     return;
   }
 
+  if (!_skipNextPlanSnapshot && (db.weeklyPlan || db.generatedProgram)) _snapshotCurrentProgram();
+
   try {
     var params      = db.user.programParams || {};
     var mode        = db.user.trainingMode || 'powerbuilding';
@@ -19677,6 +19715,7 @@ function goFinishWorkout() {
 
   // Add to db.logs
   db.logs.push(session);
+  try { updateActiveProgramStats(); } catch(e) {}
   saveDBNow();
 
   // Generate AI debrief

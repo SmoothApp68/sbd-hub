@@ -8893,7 +8893,6 @@ function renderProgramBuilder() {
     }
     return;
   }
-
   // Si le builder guidé/manuel est en cours, afficher l'étape courante
   if (_pbState) {
     renderProgramBuilderStep(container);
@@ -8931,14 +8930,9 @@ function pbStartGuided() {
   renderProgramBuilder();
 }
 
-function pbStartManual() {
-  _pbState = { mode: 'manual', step: 1, days: 4, split: 'ppl', dayNames: [], dayExercises: {} };
-  renderProgramBuilder();
-}
-
 function showCustomBuilderChoice() {
-  var hasExisting = db.weeklyPlan && db.weeklyPlan.days &&
-    db.weeklyPlan.days.some(function(d) { return !d.rest; });
+  var hasExisting = db.customProgramTemplate ||
+    (db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.some(function(d) { return !d.rest; }));
   if (!hasExisting) { pbStartCustomBuilder(false); return; }
 
   var o = document.createElement('div');
@@ -9045,9 +9039,6 @@ function renderCustomBuilder() {
   h += '<button onclick="saveCustomTemplate()" '
     + 'style="padding:8px 14px;background:var(--accent);border:none;border-radius:10px;'
     + 'color:#fff;font-weight:700;font-size:13px;cursor:pointer;">💾 Sauver</button>';
-  h += '<button onclick="cancelCustomBuilder()" '
-    + 'style="padding:8px 12px;background:none;border:1px solid var(--border);'
-    + 'border-radius:10px;color:var(--sub);font-size:13px;cursor:pointer;">✕ Quitter</button>';
   h += '</div>';
 
   // Vue semaine — 7 cases
@@ -9347,14 +9338,6 @@ function saveCustomTemplate() {
   renderProgramBuilder();
 }
 
-function cancelCustomBuilder() {
-  if (!confirm('Quitter sans enregistrer ? Tes modifications seront perdues.')) return;
-  _customBuilderState = null;
-  _customBuilderDaySelected = null;
-  _libraryFilter = { group: null, search: '' };
-  renderProgramBuilder();
-}
-
 function openExoLibrary(dayIndex) {
   _customBuilderDaySelected = dayIndex;
   renderCustomBuilder();
@@ -9568,6 +9551,7 @@ function pbGenerateProgram() {
   db.user.level = s.level;
   if (!db.user.programParams) db.user.programParams = {};
   db.user.programParams.duration = s.duration;
+  db.user.programParams.selectedDays = window.obSelectedDays;
 
   // Appeler le générateur existant si disponible
   try {
@@ -10154,7 +10138,7 @@ function beEditIntention() {
 }
 
 function pbEditExisting() {
-  // Entrer en mode édition manuelle à partir du programme existant
+  if (db.user.programMode === 'custom') { pbStartCustomBuilder(true); return; }
   var routine = getRoutine();
   var allDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   var dayNames = [];
@@ -10183,6 +10167,8 @@ function pbResetProgram() {
   db.manualProgram = null;
   db.routineExos = null;
   db.weeklyPlan = null;
+  db.customProgramTemplate = null;
+  db.user.programMode = 'auto';
   db.user.programParams = {};
   saveDBNow();
   _pbState = null;
@@ -12424,6 +12410,9 @@ function setProgramMode(mode) {
   saveDB();
   renderSettingsProfile();
   showToast(mode === 'custom' ? '🛠 Mode Custom activé' : '🤖 Mode Auto activé');
+  if (mode === 'custom' && !db.customProgramTemplate) {
+    showCustomBuilderChoice();
+  }
 }
 
 function setCoachProfile(profile) {
@@ -12731,6 +12720,10 @@ function renderCoachToday() {
 }
 
 function renderCoachTodayHTML() {
+  var coachProfile = (db.user && db.user.coachProfile) || 'full';
+  if (coachProfile === 'silent') {
+    return '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Mode silencieux — juste les chiffres.</div>';
+  }
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var pr = db.bestPR || {};
   var html = '';
@@ -12832,74 +12825,74 @@ function renderCoachTodayHTML() {
     });
   }
 
-  var targets = (db.user && db.user.targets) || {};
-  ['bench','squat','deadlift'].forEach(function(t) {
-    var label = t==='bench'?'Bench':t==='squat'?'Squat':'Deadlift';
-    if (!pr[t]) return;
-    if (targets[t] && pr[t] >= targets[t]) {
-      // Goal achieved — offer to update target
-      recos.push({ dot: 'var(--green)', text: '<strong>'+label+' :</strong> Objectif '+targets[t]+'kg atteint ! 🏆 ' +
-        '<button onclick="updateTargetFromCoach(\''+t+'\','+(targets[t]+5)+')" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;">→ '+( targets[t]+5)+'kg</button>'
-      });
-    } else if (targets[t] && pr[t] < targets[t]) {
-      var gap = targets[t] - pr[t];
-      var pred = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', targets[t]) : null;
-      var predText = '';
-      if (pred && pred.reachable && pred.weeks > 0) {
-        predText = ' <span style="color:var(--sub);font-size:11px;">• objectif dans ~' + pred.weeks + ' sem. (' + pred.date + ')</span>';
-      } else if (pred && pred.reachable && pred.weeks === 0) {
-        predText = ' <span style="color:var(--green);font-size:11px;">• objectif atteint !</span>';
+  if (coachProfile === 'full') {
+    var targets = (db.user && db.user.targets) || {};
+    ['bench','squat','deadlift'].forEach(function(t) {
+      var label = t==='bench'?'Bench':t==='squat'?'Squat':'Deadlift';
+      if (!pr[t]) return;
+      if (targets[t] && pr[t] >= targets[t]) {
+        recos.push({ dot: 'var(--green)', text: '<strong>'+label+' :</strong> Objectif '+targets[t]+'kg atteint ! 🏆 ' +
+          '<button onclick="updateTargetFromCoach(\''+t+'\','+(targets[t]+5)+')" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;">→ '+( targets[t]+5)+'kg</button>'
+        });
+      } else if (targets[t] && pr[t] < targets[t]) {
+        var gap = targets[t] - pr[t];
+        var pred = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', targets[t]) : null;
+        var predText = '';
+        if (pred && pred.reachable && pred.weeks > 0) {
+          predText = ' <span style="color:var(--sub);font-size:11px;">• objectif dans ~' + pred.weeks + ' sem. (' + pred.date + ')</span>';
+        } else if (pred && pred.reachable && pred.weeks === 0) {
+          predText = ' <span style="color:var(--green);font-size:11px;">• objectif atteint !</span>';
+        }
+        recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
+      } else if (!targets[t] && pr[t] > 0) {
+        var nextMilestone = Math.ceil(pr[t] * 1.05 / 5) * 5;
+        var pred2 = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', nextMilestone) : null;
+        if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
+          recos.push({ dot: 'var(--blue)', text: '<strong>'+label+' :</strong> prochain cap ' + nextMilestone + 'kg dans ~' + pred2.weeks + ' sem. (confiance ' + pred2.confidence + '%)' });
+        }
       }
-      recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
-    } else if (!targets[t] && pr[t] > 0) {
-      // No target set — proactive PR prediction (+10%/+5kg)
-      var nextMilestone = Math.ceil(pr[t] * 1.05 / 5) * 5;
-      var pred2 = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', nextMilestone) : null;
-      if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
-        recos.push({ dot: 'var(--blue)', text: '<strong>'+label+' :</strong> prochain cap ' + nextMilestone + 'kg dans ~' + pred2.weeks + ' sem. (confiance ' + pred2.confidence + '%)' });
+    });
+
+    // ── Nutrition stagnation alert ──
+    var nutritionAlert = typeof checkNutritionStagnation === 'function' ? checkNutritionStagnation() : null;
+    if (nutritionAlert) {
+      var lastNutrAdj = db.user._lastNutrAdjustment || 0;
+      if (Date.now() - lastNutrAdj > 14 * 86400000) {
+        recos.push({
+          dot: nutritionAlert.type === 'warning' ? 'var(--red)' : 'var(--orange)',
+          text: '<strong>Nutrition :</strong> ' + nutritionAlert.msg +
+            (nutritionAlert.adjust ? ' <em>(' + (nutritionAlert.adjust > 0 ? '+' : '') + nutritionAlert.adjust + ' kcal)</em>' : '')
+        });
+        if (Math.abs(nutritionAlert.adjust || 0) > 0) {
+          db.user.tdeeAdjustment = (db.user.tdeeAdjustment || 0) + nutritionAlert.adjust;
+          db.user._lastNutrAdjustment = Date.now();
+          saveDB();
+        }
       }
     }
-  });
 
-  // ── Nutrition stagnation alert ──
-  var nutritionAlert = typeof checkNutritionStagnation === 'function' ? checkNutritionStagnation() : null;
-  if (nutritionAlert) {
-    var lastNutrAdj = db.user._lastNutrAdjustment || 0;
-    if (Date.now() - lastNutrAdj > 14 * 86400000) {
-      recos.push({
-        dot: nutritionAlert.type === 'warning' ? 'var(--red)' : 'var(--orange)',
-        text: '<strong>Nutrition :</strong> ' + nutritionAlert.msg +
-          (nutritionAlert.adjust ? ' <em>(' + (nutritionAlert.adjust > 0 ? '+' : '') + nutritionAlert.adjust + ' kcal)</em>' : '')
-      });
-      if (Math.abs(nutritionAlert.adjust || 0) > 0) {
-        db.user.tdeeAdjustment = (db.user.tdeeAdjustment || 0) + nutritionAlert.adjust;
-        db.user._lastNutrAdjustment = Date.now();
+    // ── Long-term nutrition strategy advice ──
+    var strategyAdvice = typeof getNutritionStrategyAdvice === 'function' ? getNutritionStrategyAdvice() : null;
+    if (strategyAdvice) {
+      recos.push({ dot: 'var(--purple, #BF5AF2)', text: '💡 ' + strategyAdvice.msg });
+    }
+
+    // ── Suppléments basiques (1x/mois si données nutrition présentes) ──
+    var hasNutritionData = (db.body || []).some(function(e) {
+      return (Date.now() - e.ts) < 7 * 86400000 && e.kcal > 0;
+    });
+    if (hasNutritionData && typeof BASIC_SUPPLEMENTS !== 'undefined' && BASIC_SUPPLEMENTS.length > 0) {
+      var suppsMentionedAt = db.user._suppsMentionedAt || 0;
+      if (Date.now() - suppsMentionedAt > 30 * 86400000) {
+        var topSupp = BASIC_SUPPLEMENTS[0];
+        recos.push({
+          dot: 'var(--sub)',
+          text: '💊 <strong>' + topSupp.name + '</strong> (' + topSupp.dose + ') — ' + topSupp.reason +
+            ' <em style="color:var(--sub);font-size:10px;">(informatif, consulte un professionnel)</em>'
+        });
+        db.user._suppsMentionedAt = Date.now();
         saveDB();
       }
-    }
-  }
-
-  // ── Long-term nutrition strategy advice ──
-  var strategyAdvice = typeof getNutritionStrategyAdvice === 'function' ? getNutritionStrategyAdvice() : null;
-  if (strategyAdvice) {
-    recos.push({ dot: 'var(--purple, #BF5AF2)', text: '💡 ' + strategyAdvice.msg });
-  }
-
-  // ── Suppléments basiques (1x/mois si données nutrition présentes) ──
-  var hasNutritionData = (db.body || []).some(function(e) {
-    return (Date.now() - e.ts) < 7 * 86400000 && e.kcal > 0;
-  });
-  if (hasNutritionData && typeof BASIC_SUPPLEMENTS !== 'undefined' && BASIC_SUPPLEMENTS.length > 0) {
-    var suppsMentionedAt = db.user._suppsMentionedAt || 0;
-    if (Date.now() - suppsMentionedAt > 30 * 86400000) {
-      var topSupp = BASIC_SUPPLEMENTS[0];
-      recos.push({
-        dot: 'var(--sub)',
-        text: '💊 <strong>' + topSupp.name + '</strong> (' + topSupp.dose + ') — ' + topSupp.reason +
-          ' <em style="color:var(--sub);font-size:10px;">(informatif, consulte un professionnel)</em>'
-      });
-      db.user._suppsMentionedAt = Date.now();
-      saveDB();
     }
   }
 
@@ -15915,7 +15908,6 @@ function calculateParametersForCustomPlan() {
 
   if (!db.weeklyPlan) db.weeklyPlan = {};
   db.weeklyPlan.days = days;
-  db.weeklyPlan.isCustom = true;
   db.weeklyPlan.generatedAt = Date.now();
   saveDB();
 }

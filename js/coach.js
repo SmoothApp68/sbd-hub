@@ -68,6 +68,10 @@ function coachGetFullAnalysis() {
   if (!db || !db.logs || db.logs.length === 0) {
     return '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Importe des séances pour activer le Coach Algo.</div>';
   }
+  var coachProfile = (db.user && db.user.coachProfile) || 'full';
+  if (coachProfile === 'silent') {
+    return '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Mode silencieux — juste les chiffres.</div>';
+  }
 
   var sections = [];
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
@@ -160,20 +164,22 @@ function coachGetFullAnalysis() {
     });
   }
 
-  // Progression SBD
+  // Progression SBD — cibles (full uniquement)
   var pr = db.bestPR || {};
-  var targets = (db.user && db.user.targets) || {};
-  if (pr.bench && targets.bench && pr.bench < targets.bench) {
-    var gapBench = targets.bench - pr.bench;
-    recos.push({ dot: 'var(--accent)', text: '<strong>Bench :</strong> '+pr.bench+'kg → objectif '+targets.bench+'kg ('+gapBench+'kg restants)' });
-  }
-  if (pr.squat && targets.squat && pr.squat < targets.squat) {
-    var gapSquat = targets.squat - pr.squat;
-    recos.push({ dot: 'var(--squat)', text: '<strong>Squat :</strong> '+pr.squat+'kg → objectif '+targets.squat+'kg ('+gapSquat+'kg restants)' });
-  }
-  if (pr.deadlift && targets.deadlift && pr.deadlift < targets.deadlift) {
-    var gapDead = targets.deadlift - pr.deadlift;
-    recos.push({ dot: 'var(--deadlift)', text: '<strong>Deadlift :</strong> '+pr.deadlift+'kg → objectif '+targets.deadlift+'kg ('+gapDead+'kg restants)' });
+  if (coachProfile === 'full') {
+    var targets = (db.user && db.user.targets) || {};
+    if (pr.bench && targets.bench && pr.bench < targets.bench) {
+      var gapBench = targets.bench - pr.bench;
+      recos.push({ dot: 'var(--accent)', text: '<strong>Bench :</strong> '+pr.bench+'kg → objectif '+targets.bench+'kg ('+gapBench+'kg restants)' });
+    }
+    if (pr.squat && targets.squat && pr.squat < targets.squat) {
+      var gapSquat = targets.squat - pr.squat;
+      recos.push({ dot: 'var(--squat)', text: '<strong>Squat :</strong> '+pr.squat+'kg → objectif '+targets.squat+'kg ('+gapSquat+'kg restants)' });
+    }
+    if (pr.deadlift && targets.deadlift && pr.deadlift < targets.deadlift) {
+      var gapDead = targets.deadlift - pr.deadlift;
+      recos.push({ dot: 'var(--deadlift)', text: '<strong>Deadlift :</strong> '+pr.deadlift+'kg → objectif '+targets.deadlift+'kg ('+gapDead+'kg restants)' });
+    }
   }
 
   // Séance du jour — enrichie avec les exercices principaux prévus
@@ -253,24 +259,26 @@ function coachGetFullAnalysis() {
     sections.push(platHtml);
   }
 
-  // ── 5. PROGRESSION SBD (tendance) ──
-  var momHtml = '<div class="ai-section-title">📈 Tendance SBD</div>';
-  momHtml += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
-  ['bench', 'squat', 'deadlift'].forEach(function(type) {
-    var prVal = pr[type] || 0;
-    var mom = typeof calcMomentum === 'function' ? calcMomentum(type) : 0;
-    var label = type === 'bench' ? 'Bench' : type === 'squat' ? 'Squat' : 'Dead.';
-    var color = type === 'bench' ? 'var(--bench)' : type === 'squat' ? 'var(--squat)' : 'var(--deadlift)';
-    var trend = mom > 0 ? ('↑ +'+mom) : mom < 0 ? ('↓ '+mom) : '→ stable';
-    var trendColor = mom > 0 ? 'var(--green)' : mom < 0 ? 'var(--red)' : 'var(--sub)';
-    momHtml += '<div style="background:rgba(255,255,255,.04);border-radius:10px;padding:9px;text-align:center;">';
-    momHtml += '<div style="font-size:8px;color:'+color+';text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">'+label+'</div>';
-    momHtml += '<div style="font-size:18px;font-weight:900;color:'+color+';">'+prVal+'<span style="font-size:11px;">kg</span></div>';
-    momHtml += '<div style="font-size:10px;font-weight:600;color:'+trendColor+';margin-top:2px;">'+trend+'</div>';
+  // ── 5. PROGRESSION SBD (tendance) — full uniquement ──
+  if (coachProfile === 'full') {
+    var momHtml = '<div class="ai-section-title">📈 Tendance SBD</div>';
+    momHtml += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+    ['bench', 'squat', 'deadlift'].forEach(function(type) {
+      var prVal = pr[type] || 0;
+      var mom = typeof calcMomentum === 'function' ? calcMomentum(type) : 0;
+      var label = type === 'bench' ? 'Bench' : type === 'squat' ? 'Squat' : 'Dead.';
+      var color = type === 'bench' ? 'var(--bench)' : type === 'squat' ? 'var(--squat)' : 'var(--deadlift)';
+      var trend = mom > 0 ? ('↑ +'+mom) : mom < 0 ? ('↓ '+mom) : '→ stable';
+      var trendColor = mom > 0 ? 'var(--green)' : mom < 0 ? 'var(--red)' : 'var(--sub)';
+      momHtml += '<div style="background:rgba(255,255,255,.04);border-radius:10px;padding:9px;text-align:center;">';
+      momHtml += '<div style="font-size:8px;color:'+color+';text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">'+label+'</div>';
+      momHtml += '<div style="font-size:18px;font-weight:900;color:'+color+';">'+prVal+'<span style="font-size:11px;">kg</span></div>';
+      momHtml += '<div style="font-size:10px;font-weight:600;color:'+trendColor+';margin-top:2px;">'+trend+'</div>';
+      momHtml += '</div>';
+    });
     momHtml += '</div>';
-  });
-  momHtml += '</div>';
-  sections.push(momHtml);
+    sections.push(momHtml);
+  }
 
   return '<div class="ai-response-content">' + sections.map(function(s) { return '<div class="ai-section">'+s+'</div>'; }).join('') + '</div><div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
 }

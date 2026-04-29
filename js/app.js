@@ -9134,6 +9134,27 @@ function renderCustomBuilder() {
 // ── BIBLIOTHÈQUE D'EXERCICES ─────────────────────────────────
 var _libraryFilter = { group: null, search: '' };
 
+function getHevyOnlyExercises() {
+  var inDB = {};
+  Object.keys(EXO_DATABASE || {}).forEach(function(k) {
+    var e = EXO_DATABASE[k];
+    if (e.name) inDB[e.name.toLowerCase()] = true;
+    (e.nameAlt || []).forEach(function(a) { inDB[a.toLowerCase()] = true; });
+  });
+  var seen = {};
+  var result = [];
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var name = exo.name || '';
+      if (name && !seen[name] && !inDB[name.toLowerCase()]) {
+        seen[name] = true;
+        result.push(name);
+      }
+    });
+  });
+  return result.sort();
+}
+
 function renderExoLibrary(dayIndex) {
   var container = document.getElementById('programBuilderContent');
   if (!container) return;
@@ -9144,6 +9165,14 @@ function renderExoLibrary(dayIndex) {
     libDiv.id = 'exoLibraryPanel';
     container.appendChild(libDiv);
   }
+
+  // Build set of all logged exercise names for the "already used" indicator
+  var loggedSet = {};
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (exo.name) loggedSet[exo.name.toLowerCase()] = true;
+    });
+  });
 
   var groups = [];
   var seen = {};
@@ -9192,7 +9221,7 @@ function renderExoLibrary(dayIndex) {
         if (e.name === name || (e.nameAlt || []).indexOf(name) >= 0) { exoEntry = e; break; }
       }
       var grp = exoEntry && exoEntry.primaryMuscles && exoEntry.primaryMuscles[0] || '';
-      h += renderLibExoRow(name, grp, dayIndex);
+      h += renderLibExoRow(name, grp, dayIndex, true); // recent = always logged
     });
     h += '<div style="height:8px;"></div>';
   }
@@ -9210,22 +9239,39 @@ function renderExoLibrary(dayIndex) {
   h += '<div style="max-height:200px;overflow-y:auto;">';
   filtered.forEach(function(id) {
     var exo = EXO_DATABASE[id];
-    h += renderLibExoRow(exo.name, exo.primaryMuscles && exo.primaryMuscles[0] || '', dayIndex);
+    var isLogged = !!loggedSet[exo.name.toLowerCase()];
+    h += renderLibExoRow(exo.name, exo.primaryMuscles && exo.primaryMuscles[0] || '', dayIndex, isLogged);
   });
-  h += '</div></div>';
+  h += '</div>';
 
+  // Hevy-only exercises (in logs but not in EXO_DATABASE) — no group filter since group is unknown
+  if (!_libraryFilter.group) {
+    var hevyOnly = getHevyOnlyExercises();
+    if (search) hevyOnly = hevyOnly.filter(function(n) { return n.toLowerCase().indexOf(search) >= 0; });
+    if (hevyOnly.length) {
+      h += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);">';
+      h += '<div style="font-size:10px;color:var(--sub);margin-bottom:6px;">📋 Mes exercices Hevy</div>';
+      hevyOnly.forEach(function(name) { h += renderLibExoRow(name, '', dayIndex, true); });
+      h += '</div>';
+    }
+  }
+
+  h += '</div>';
   libDiv.innerHTML = h;
 }
 
-function renderLibExoRow(exoName, group, dayIndex) {
+function renderLibExoRow(exoName, group, dayIndex, isLogged) {
   var safeName = exoName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  var dot = isLogged ? '<span style="color:var(--green);font-size:9px;margin-right:4px;flex-shrink:0;">●</span>' : '';
   return '<div style="display:flex;align-items:center;justify-content:space-between;'
     + 'padding:7px 8px;border-radius:8px;margin-bottom:2px;">'
-    + '<div><div style="font-size:13px;color:var(--text);">' + escapeHtml(exoName) + '</div>'
-    + (group ? '<div style="font-size:10px;color:var(--sub);">' + escapeHtml(group) + '</div>' : '')
+    + '<div style="display:flex;flex-direction:column;min-width:0;">'
+    + '<div style="display:flex;align-items:center;font-size:13px;color:var(--text);">'
+    + dot + escapeHtml(exoName) + '</div>'
+    + (group ? '<div style="font-size:10px;color:var(--sub);margin-top:1px;">' + escapeHtml(group) + '</div>' : '')
     + '</div>'
     + '<button onclick="addExoToCustomSession(' + dayIndex + ',\'' + safeName + '\')" '
-    + 'style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;padding:0 4px;">+</button>'
+    + 'style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0;">+</button>'
     + '</div>';
 }
 

@@ -9147,8 +9147,8 @@ function renderExoLibrary(dayIndex) {
 
   var groups = [];
   var seen = {};
-  Object.keys(WP_EXO_META || {}).forEach(function(name) {
-    var g = WP_EXO_META[name] && WP_EXO_META[name].muscleGroup;
+  Object.keys(EXO_DATABASE || {}).forEach(function(id) {
+    var g = EXO_DATABASE[id].primaryMuscles && EXO_DATABASE[id].primaryMuscles[0];
     if (g && !seen[g]) { seen[g] = true; groups.push(g); }
   });
   groups.sort();
@@ -9173,7 +9173,8 @@ function renderExoLibrary(dayIndex) {
     + 'color:' + (allActive ? 'var(--accent)' : 'var(--sub)') + ';">Tous</button>';
   groups.forEach(function(g) {
     var active = _libraryFilter.group === g;
-    h += '<button onclick="_libraryFilter.group=\'' + g + '\';renderExoLibrary(' + dayIndex + ')" '
+    var safeG = g.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    h += '<button onclick="_libraryFilter.group=\'' + safeG + '\';renderExoLibrary(' + dayIndex + ')" '
       + 'style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;'
       + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
       + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
@@ -9183,28 +9184,40 @@ function renderExoLibrary(dayIndex) {
 
   if (recentExos.length && !_libraryFilter.search && !_libraryFilter.group) {
     h += '<div style="font-size:10px;color:var(--sub);margin-bottom:6px;">Récents</div>';
-    recentExos.forEach(function(name) { h += renderLibExoRow(name, dayIndex); });
+    recentExos.forEach(function(name) {
+      var exoEntry = null;
+      var dbKeys = Object.keys(EXO_DATABASE || {});
+      for (var i = 0; i < dbKeys.length; i++) {
+        var e = EXO_DATABASE[dbKeys[i]];
+        if (e.name === name || (e.nameAlt || []).indexOf(name) >= 0) { exoEntry = e; break; }
+      }
+      var grp = exoEntry && exoEntry.primaryMuscles && exoEntry.primaryMuscles[0] || '';
+      h += renderLibExoRow(name, grp, dayIndex);
+    });
     h += '<div style="height:8px;"></div>';
   }
 
   var search = _libraryFilter.search.toLowerCase();
-  var filtered = Object.keys(WP_EXO_META || {}).filter(function(name) {
-    var meta = WP_EXO_META[name];
-    if (_libraryFilter.group && meta && meta.muscleGroup !== _libraryFilter.group) return false;
-    if (search && name.toLowerCase().indexOf(search) < 0) return false;
+  var filtered = Object.keys(EXO_DATABASE || {}).filter(function(id) {
+    var exo = EXO_DATABASE[id];
+    if (_libraryFilter.group && (!exo.primaryMuscles || exo.primaryMuscles[0] !== _libraryFilter.group)) return false;
+    if (search && exo.name.toLowerCase().indexOf(search) < 0) return false;
     return true;
-  }).sort();
+  }).sort(function(a, b) {
+    return (EXO_DATABASE[a].name || '').localeCompare(EXO_DATABASE[b].name || '');
+  });
 
   h += '<div style="max-height:200px;overflow-y:auto;">';
-  filtered.forEach(function(name) { h += renderLibExoRow(name, dayIndex); });
+  filtered.forEach(function(id) {
+    var exo = EXO_DATABASE[id];
+    h += renderLibExoRow(exo.name, exo.primaryMuscles && exo.primaryMuscles[0] || '', dayIndex);
+  });
   h += '</div></div>';
 
   libDiv.innerHTML = h;
 }
 
-function renderLibExoRow(exoName, dayIndex) {
-  var meta = WP_EXO_META && WP_EXO_META[exoName];
-  var group = meta ? meta.muscleGroup : '';
+function renderLibExoRow(exoName, group, dayIndex) {
   var safeName = exoName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   return '<div style="display:flex;align-items:center;justify-content:space-between;'
     + 'padding:7px 8px;border-radius:8px;margin-bottom:2px;">'
@@ -9266,9 +9279,17 @@ function addExoToCustomSession(dayIndex, exoName) {
     return;
   }
 
-  var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
-  var defaultSlot = (meta && meta.mechanic === 'isolation') ? 'isolation'
-    : (meta && meta.isPrimary) ? 'main_lift' : 'accessory';
+  var exoEntry = null;
+  if (typeof EXO_DATABASE !== 'undefined' && EXO_DATABASE) {
+    var _dbKeys = Object.keys(EXO_DATABASE);
+    for (var _di = 0; _di < _dbKeys.length; _di++) {
+      var _de = EXO_DATABASE[_dbKeys[_di]];
+      if (_de.name === exoName || (_de.nameAlt || []).indexOf(exoName) >= 0) { exoEntry = _de; break; }
+    }
+  }
+  var defaultSlot = exoEntry
+    ? (exoEntry.category === 'isolation' ? 'isolation' : 'accessory')
+    : ((typeof wpGetExoMeta === 'function' && wpGetExoMeta(exoName) && wpGetExoMeta(exoName).mechanic === 'isolation') ? 'isolation' : 'accessory');
   if (session.exercises.length === 0 && defaultSlot !== 'isolation') defaultSlot = 'main_lift';
 
   session.exercises.push({

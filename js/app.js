@@ -9039,6 +9039,9 @@ function renderCustomBuilder() {
   h += '<button onclick="saveCustomTemplate()" '
     + 'style="padding:8px 14px;background:var(--accent);border:none;border-radius:10px;'
     + 'color:#fff;font-weight:700;font-size:13px;cursor:pointer;">💾 Sauver</button>';
+  h += '<button onclick="cancelCustomBuilder()" '
+    + 'style="padding:8px 12px;background:none;border:1px solid var(--border);'
+    + 'border-radius:10px;color:var(--sub);font-size:13px;cursor:pointer;">✕ Quitter</button>';
   h += '</div>';
 
   // Vue semaine — 7 cases
@@ -9335,6 +9338,14 @@ function saveCustomTemplate() {
   saveDB();
   if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
   showToast('✅ Programme sauvegardé !');
+  renderProgramBuilder();
+}
+
+function cancelCustomBuilder() {
+  if (!confirm('Quitter sans enregistrer ? Tes modifications seront perdues.')) return;
+  _customBuilderState = null;
+  _customBuilderDaySelected = null;
+  _libraryFilter = { group: null, search: '' };
   renderProgramBuilder();
 }
 

@@ -9083,6 +9083,7 @@ function renderCustomBuilder() {
       h += '<button onclick="removeCustomSession(' + _customBuilderDaySelected + ')" '
         + 'style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;">🗑</button>';
       h += '</div>';
+      h += '<div style="font-size:10px;color:var(--sub);margin-bottom:10px;">💡 Appuie sur le badge pour changer le type d\'exercice</div>';
 
       var exos = session.exercises || [];
       if (exos.length === 0) {
@@ -9090,16 +9091,14 @@ function renderCustomBuilder() {
       } else {
         exos.forEach(function(exo, ei) {
           var slotColor = exo.slot === 'main_lift' ? 'var(--accent)' : exo.slot === 'isolation' ? 'var(--purple,#bf5af2)' : 'var(--orange)';
-          var slotLabel = exo.slot === 'main_lift' ? 'M' : exo.slot === 'isolation' ? 'I' : 'A';
+          var slotLabel = exo.slot === 'main_lift' ? '🏋️ Principal' : exo.slot === 'isolation' ? '🎯 Isolation' : '💪 Accessoire';
           var isMainLiftMisplaced = exo.slot === 'main_lift' && ei > 0;
           h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">';
-          h += '<span style="width:20px;height:20px;border-radius:50%;background:' + slotColor + '20;'
-            + 'border:1px solid ' + slotColor + ';display:flex;align-items:center;justify-content:center;'
-            + 'font-size:10px;font-weight:700;color:' + slotColor + ';flex-shrink:0;">' + slotLabel + '</span>';
+          h += '<span style="width:8px;height:8px;border-radius:50%;background:' + slotColor + ';flex-shrink:0;"></span>';
           h += '<div style="flex:1;font-size:13px;color:var(--text);">' + escapeHtml(exo.name);
           if (isMainLiftMisplaced) h += ' <span style="font-size:10px;">💡</span>';
           h += '</div>';
-          h += '<div style="display:flex;gap:2px;">';
+          h += '<div style="display:flex;gap:2px;align-items:center;">';
           if (ei > 0) {
             h += '<button onclick="moveCustomExo(' + _customBuilderDaySelected + ',' + ei + ',-1)" '
               + 'style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:2px 4px;">↑</button>';
@@ -9109,8 +9108,8 @@ function renderCustomBuilder() {
               + 'style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:14px;padding:2px 4px;">↓</button>';
           }
           h += '<button onclick="cycleCustomExoSlot(' + _customBuilderDaySelected + ',' + ei + ')" '
-            + 'style="background:none;border:none;color:' + slotColor + ';cursor:pointer;font-size:10px;'
-            + 'padding:2px 6px;border:1px solid ' + slotColor + '40;border-radius:6px;">' + slotLabel + '</button>';
+            + 'style="background:none;border:none;color:' + slotColor + ';cursor:pointer;font-size:10px;font-weight:600;'
+            + 'padding:2px 7px;border:1px solid ' + slotColor + '40;border-radius:6px;white-space:nowrap;">' + slotLabel + '</button>';
           h += '<button onclick="removeCustomExo(' + _customBuilderDaySelected + ',' + ei + ')" '
             + 'style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 4px;">×</button>';
           h += '</div>';
@@ -15171,8 +15170,16 @@ var WP_EXO_META = {
   'triceps poulie':            { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'triceps'  },
   'skullcrusher':              { mechanic: 'isolation', equipment: 'barbell',    muscleGroup: 'triceps'  },
   'gainage':                   { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'core'     },
-  'crunch':                    { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'core'     },
-  'releve de jambes':          { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'core'     },
+  'gainage planche':           { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Abdos'    },
+  'gainage lateral':           { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Abdos'    },
+  'crunch':                    { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Abdos'    },
+  'releve de jambes':          { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Abdos'    },
+  'dead bug':                  { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Lombaires'},
+  'bird dog':                  { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Lombaires'},
+  'tape epaule gainage':       { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Abdos'    },
+  'rollout ab wheel':          { mechanic: 'isolation', equipment: 'bodyweight', muscleGroup: 'Abdos'    },
+  'adduction machine':         { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'Adducteurs'},
+  'abduction machine':         { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'Abducteurs'},
   'mollets presse':            { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'calves'   },
   'mollets debout':            { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'calves'   },
   'mollets halteres':          { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'calves'   }

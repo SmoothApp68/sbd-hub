@@ -8877,7 +8877,8 @@ function renderProgramBuilder() {
   // Si un programme existe déjà (généré OU manuel OU routine), afficher la vue programme
   var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
                    (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
-                   (db.routine && Object.keys(db.routine).length > 0);
+                   (db.routine && Object.keys(db.routine).length > 0) ||
+                   (db.user.programMode === 'custom' && db.customProgramTemplate);
   if (hasProgram && !_pbState) {
     renderProgramBuilderView(container);
     // En mode custom : bouton "Modifier les exercices" en haut

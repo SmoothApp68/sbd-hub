@@ -2400,3 +2400,228 @@ function detectAccessoryDropoff() {
   lastRpe /= lastN;
   return prevRpe > 0 ? (lastRpe - prevRpe) / prevRpe : null;
 }
+
+// ============================================================
+// analyzeAthleteProfile() — Diagnostic athlétique (Étape C)
+// Retourne un tableau de sections [{title, alerts:[{severity,title,text}]}]
+// severity : 'danger' | 'warning' | 'good' | 'info'
+// ============================================================
+function analyzeAthleteProfile() {
+  var ratios    = computeStrengthRatiosDetailed();
+  var srs       = typeof computeSRS === 'function' ? computeSRS() : { score: 70, acwr: 1.0 };
+  var volumes   = getVolumeByMuscleGroup();
+  var level     = (db.user && db.user.level) || 'intermediaire';
+  var phase     = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var wellbeing = db.todayWellbeing || null;
+  var sections  = [];
+
+  // ── SECTION 1 : BIOMÉCANIQUE & RATIOS ──────────────────────────────────────
+  var bioAlerts = [];
+  var sb = ratios.squat_bench;
+  if (sb !== null) {
+    var tSB = STRENGTH_RATIO_TARGETS.squat_bench;
+    if (sb < tSB.danger) {
+      bioAlerts.push({ severity: 'danger', title: 'Dominance Poussée Supérieure Critique',
+        text: 'Ratio Squat/Bench : ' + sb.toFixed(2) + ' (cible > ' + tSB.ideal[0] + '). '
+          + 'Tes pectoraux compensent le déficit de tes quadriceps. '
+          + 'Sur un Squat maximal, le risque de Good Morning Squat est élevé.' });
+    } else if (sb < tSB.alert) {
+      bioAlerts.push({ severity: 'warning', title: 'Ratio Squat/Bench à surveiller',
+        text: 'S/B = ' + sb.toFixed(2) + ' (cible ' + tSB.ideal[0] + '–' + tSB.ideal[1] + '). '
+          + 'Prioriser les variantes quadriceps-dominantes (High Bar, Hack Squat, Front Squat).' });
+    } else {
+      bioAlerts.push({ severity: 'good', title: 'Ratio Squat/Bench',
+        text: 'S/B = ' + sb.toFixed(2) + ' ✓ Dans la zone optimale.' });
+    }
+  }
+
+  var sd = ratios.squat_dead;
+  if (sd !== null) {
+    var tSD = STRENGTH_RATIO_TARGETS.squat_dead;
+    if (sd < tSD.danger) {
+      bioAlerts.push({ severity: 'danger', title: 'Alerte Chaîne Antérieure',
+        text: 'Ratio Squat/Dead : ' + sd.toFixed(2) + ' (cible > ' + tSD.ideal[0] + '). '
+          + 'Ta chaîne postérieure compense massivement le déficit des quadriceps. '
+          + 'Risque lombaire documenté sur les charges maximales au Squat.' });
+    } else if (sd < tSD.alert) {
+      bioAlerts.push({ severity: 'warning', title: 'Ratio Squat/Dead',
+        text: 'S/D = ' + sd.toFixed(2) + '. Renforcement quadriceps prioritaire (Leg Press, Hack Squat).' });
+    }
+  }
+
+  var rb = ratios.row_bench;
+  if (rb !== null) {
+    var tRB = STRENGTH_RATIO_TARGETS.row_bench;
+    if (rb >= tRB.ideal[0]) {
+      bioAlerts.push({ severity: 'good', title: 'Symétrie Horizontale',
+        text: 'Row/Bench = ' + rb.toFixed(2) + ' ✓ Épaules structurellement protégées.' });
+    } else if (rb < tRB.danger) {
+      bioAlerts.push({ severity: 'danger', title: 'Déficit Rétraction Scapulaire',
+        text: 'Row/Bench = ' + rb.toFixed(2) + ' (cible > ' + tRB.ideal[0] + '). '
+          + 'Risque d\'instabilité des épaules sur le Bench lourd. '
+          + 'Prioriser Rowing Barre et Seal Row.' });
+    } else {
+      bioAlerts.push({ severity: 'warning', title: 'Ratio Row/Bench',
+        text: 'R/B = ' + rb.toFixed(2) + ' (cible ' + tRB.ideal[0] + '–' + tRB.ideal[1] + '). '
+          + 'Augmenter le volume de tirage horizontal.' });
+    }
+  }
+
+  // Push / Pull ratio (sets sur 30j)
+  var PUSH_KEYS = { 'Pecs': 1, 'Pecs (haut)': 1, 'Pecs (bas)': 1,
+    'Épaules': 1, 'Épaules (antérieur)': 1, 'Épaules (latéral)': 1, 'Triceps': 1 };
+  var PULL_KEYS = { 'Grand dorsal': 1, 'Haut du dos': 1, 'Trapèzes': 1,
+    'Biceps': 1, 'Épaules (postérieur)': 1 };
+  var pushSets = 0, pullSets = 0;
+  var logs30 = typeof getLogsInRange === 'function' ? getLogsInRange(30) : [];
+  logs30.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var mg = typeof getMuscleGroup === 'function' ? getMuscleGroup(exo.name) : null;
+      if (!mg) return;
+      var allSets = exo.allSets || exo.series || [];
+      var n = Array.isArray(allSets)
+        ? allSets.filter(function(s) { return !s.isWarmup; }).length
+        : (typeof exo.sets === 'number' ? exo.sets : 0);
+      if (PUSH_KEYS[mg]) pushSets += n;
+      if (PULL_KEYS[mg]) pullSets += n;
+    });
+  });
+  if (pushSets + pullSets > 0) {
+    var ppRatio = pullSets > 0 ? pushSets / pullSets : null;
+    if (ppRatio !== null) {
+      if (ppRatio > 1.2) {
+        bioAlerts.push({ severity: 'warning', title: 'Dominance Antérieure',
+          text: 'Ratio Push/Pull = ' + ppRatio.toFixed(2) + ' (cible ≤ 1.0). '
+            + 'Risque de posture cyphotique et conflit sous-acromial à terme.' });
+      } else if (ppRatio < 0.8) {
+        bioAlerts.push({ severity: 'info', title: 'Bonne Attention au Dos',
+          text: 'Ratio Push/Pull = ' + ppRatio.toFixed(2) + '. '
+            + 'Assure-toi de maintenir le volume pectoraux (MEV = 8 séries/sem).' });
+      }
+    }
+  }
+
+  if (bioAlerts.length) sections.push({ title: '⚠️ Biomécanique & Ratios', alerts: bioAlerts });
+
+  // ── SECTION 2 : FATIGUE & VOLUME ───────────────────────────────────────────
+  var fatigueAlerts = [];
+  var acwr = srs.acwr || 1.0;
+
+  if (acwr > ACWR_ZONES.orange_high) {
+    fatigueAlerts.push({ severity: 'danger', title: 'Zone Rouge — Risque de Blessure',
+      text: 'ACWR = ' + acwr.toFixed(2) + ' (> 1.50). '
+        + 'Le risque de blessure est statistiquement doublé. '
+        + 'Réduire le volume de 30% cette semaine.' });
+  } else if (acwr > ACWR_ZONES.green_high) {
+    fatigueAlerts.push({ severity: 'warning', title: 'Zone Orange — Charge Élevée',
+      text: 'ACWR = ' + acwr.toFixed(2) + '. Surveille les signaux de fatigue et réduis si RPE augmente.' });
+  }
+
+  // Volume proche MRV par groupe musculaire
+  var TARGET_LABELS = {
+    quads: 'Quadriceps', ischio: 'Ischio-jambiers', pecs: 'Pectoraux',
+    dos: 'Dos', epaules: 'Épaules', biceps: 'Biceps', triceps: 'Triceps', fessiers: 'Fessiers'
+  };
+  Object.keys(MUSCLE_VOLUME_TARGETS).forEach(function(key) {
+    var target = MUSCLE_VOLUME_TARGETS[key];
+    var vol = volumes[key] || 0;
+    var label = TARGET_LABELS[key] || key;
+    if (vol === 0) return;
+    if (vol >= target.MRV) {
+      fatigueAlerts.push({ severity: 'danger', title: 'Volume ' + label + ' au-dessus du MRV',
+        text: vol + ' séries/sem (MRV = ' + target.MRV + '). '
+          + 'Risque de catabolisme et stagnation. Réduire à ' + target.MAV_high + ' séries max.' });
+    } else if (vol >= target.MAV_high) {
+      fatigueAlerts.push({ severity: 'warning', title: 'Volume ' + label + ' élevé',
+        text: vol + ' séries/sem (MAV max = ' + target.MAV_high + ', MRV = ' + target.MRV + '). '
+          + 'Approche de la limite de récupération.' });
+    } else if (vol < target.MEV) {
+      fatigueAlerts.push({ severity: 'info', title: 'Volume ' + label + ' insuffisant',
+        text: vol + ' séries/sem (MEV = ' + target.MEV + '). '
+          + 'En dessous du minimum de stimulation pour l\'adaptation.' });
+    }
+  });
+
+  // Fatigue SNC vs musculaire
+  var grindData = typeof countGrindThisSession === 'function' ? countGrindThisSession() : null;
+  if (acwr > 1.3 && grindData && grindData.grindCount > 2) {
+    fatigueAlerts.push({ severity: 'danger', title: 'Fatigue Systémique (SNC)',
+      text: 'ACWR élevé + ' + grindData.grindCount + ' grind(s) détectés. '
+        + 'Le système nerveux central est en dette. Repos complet recommandé.' });
+  } else if (acwr < 1.2) {
+    var rpeSquat = getAvgRPEForLift('squat', 4);
+    if (rpeSquat !== null && rpeSquat > 8.5) {
+      fatigueAlerts.push({ severity: 'warning', title: 'Fatigue Musculaire Localisée',
+        text: 'ACWR normal (' + acwr.toFixed(2) + ') mais RPE Squat moyen = ' + rpeSquat
+          + ' sur 4 séances. Fatigue périphérique — SNC intact, muscles saturés.' });
+    }
+  }
+
+  if (fatigueAlerts.length) sections.push({ title: '🔋 Fatigue & Volume', alerts: fatigueAlerts });
+
+  // ── SECTION 3 : NUTRITION & PROGRESSION ────────────────────────────────────
+  var nutrAlerts = [];
+  var e1rmTrend = getE1RMTrend('squat', 84); // 12 semaines
+  var wTrend    = getWeightTrend(21);
+
+  if (wTrend !== null && e1rmTrend !== null) {
+    var wStable  = Math.abs(wTrend) < 0.1;
+    var eUp      = e1rmTrend > 0.005;
+    var eDown    = e1rmTrend < -0.005;
+    if (!wStable && wTrend > 0 && eUp) {
+      nutrAlerts.push({ severity: 'good', title: 'Prise de Masse Productive',
+        text: 'Poids ↗ (' + (wTrend > 0 ? '+' : '') + wTrend.toFixed(2)
+          + 'kg/sem) ET force ↗. Prise de masse musculaire en cours.' });
+    } else if (wStable && eUp) {
+      nutrAlerts.push({ severity: 'good', title: 'Recompo Confirmée',
+        text: 'Poids stable ET force en progression. '
+          + 'Recomposition corporelle active — rare et précieuse à ce niveau.' });
+    } else if (!wStable && wTrend > 0 && eDown) {
+      nutrAlerts.push({ severity: 'warning', title: 'Prise de Gras Probable',
+        text: 'Poids ↗ mais force ↘. Le corps stocke sans performer. '
+          + 'Revoir le surplus calorique ou la qualité de récupération.' });
+    } else if (wStable && !eUp && !eDown) {
+      nutrAlerts.push({ severity: 'warning', title: 'Double Stagnation',
+        text: 'Poids stable ET force stable. Équilibre homéostatique atteint. '
+          + 'Un changement de stimulus est nécessaire (calorique ou volume).' });
+    }
+  }
+
+  if (e1rmTrend !== null) {
+    var monthlyRate = e1rmTrend / 3;
+    var rateTarget  = PROGRESSION_RATES[level] || PROGRESSION_RATES.intermediaire;
+    if (monthlyRate < rateTarget.alert) {
+      nutrAlerts.push({ severity: 'warning', title: 'Progression Anormalement Lente',
+        text: 'Progression e1RM Squat : ' + (monthlyRate * 100).toFixed(1) + '%/mois '
+          + '(attendu > ' + (rateTarget.normal * 100).toFixed(1) + '% pour niveau '
+          + level + '). '
+          + (level === 'debutant'
+            ? 'Vérifier technique et alimentation.'
+            : 'Normal si en deload ou recompo strict.') });
+    }
+  }
+
+  if (nutrAlerts.length) sections.push({ title: '🥩 Nutrition & Progression', alerts: nutrAlerts });
+
+  // ── SECTION 4 : BIEN-ÊTRE DU JOUR ──────────────────────────────────────────
+  if (wellbeing) {
+    var wbAlerts = [];
+    if (wellbeing.sleep <= 2) {
+      wbAlerts.push({ severity: 'warning', title: 'Sommeil Insuffisant',
+        text: 'Qualité du sommeil : ' + wellbeing.sleep + '/5. '
+          + 'Sleep Penalty actif : charges réduites de 5% ce jour.' });
+    }
+    if (wellbeing.motivation <= 1 && phase === 'peak') {
+      wbAlerts.push({ severity: 'danger', title: 'Faible Motivation en Phase Peak',
+        text: 'Tentative de PR déconseillée. '
+          + 'Séance technique à 80% recommandée à la place.' });
+    }
+    if (wellbeing.pain && wellbeing.pain !== 'Aucune') {
+      wbAlerts.push({ severity: 'info', title: 'Douleur Signalée : ' + wellbeing.pain,
+        text: 'Adapte les exercices concernés. Si douleur > 4/10, réduis la charge ou substitue.' });
+    }
+    if (wbAlerts.length) sections.push({ title: '🌙 Bien-être du Jour', alerts: wbAlerts });
+  }
+
+  return sections;
+}

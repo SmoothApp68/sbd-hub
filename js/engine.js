@@ -14,6 +14,47 @@ const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
 
+// ── ANALYSE ATHLÈTE — Seuils scientifiques ────────────────────
+// Ratios de force cibles (powerbuilder)
+var STRENGTH_RATIO_TARGETS = {
+  squat_bench: { ideal: [1.25, 1.35], alert: 1.20, danger: 1.10 },
+  squat_dead:  { ideal: [0.85, 0.90], alert: 0.85, danger: 0.78 },
+  bench_dead:  { ideal: [0.65, 0.70], alert: 0.63, danger: 0.58 },
+  ohp_bench:   { ideal: [0.60, 0.65], alert: 0.58, danger: 0.50 },
+  row_bench:   { ideal: [0.90, 1.00], alert: 0.85, danger: 0.78 }
+};
+
+// MRV par groupe musculaire (Dr. Mike Israetel / RP)
+var MUSCLE_VOLUME_TARGETS = {
+  quads:    { MEV: 8,  MAV_low: 12, MAV_high: 18, MRV: 20 },
+  ischio:   { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 },
+  pecs:     { MEV: 8,  MAV_low: 12, MAV_high: 20, MRV: 22 },
+  dos:      { MEV: 10, MAV_low: 14, MAV_high: 22, MRV: 25 },
+  epaules:  { MEV: 6,  MAV_low: 10, MAV_high: 16, MRV: 20 },
+  biceps:   { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
+  triceps:  { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
+  fessiers: { MEV: 4,  MAV_low: 8,  MAV_high: 16, MRV: 20 }
+};
+
+// Zones ACWR
+var ACWR_ZONES = {
+  green_low: 0.80, green_high: 1.30,
+  orange_high: 1.50
+};
+
+// Taux de progression normaux par niveau (e1RM %/mois)
+var PROGRESSION_RATES = {
+  debutant:      { normal: 0.05, alert: 0.01 },
+  intermediaire: { normal: 0.02, alert: 0.005 },
+  avance:        { normal: 0.01, alert: 0.002 }
+};
+
+// Composition corporelle
+var BODY_COMP_RATES = {
+  muscle_gain_monthly_max: 0.005,
+  fat_loss_weekly_max: 0.01
+};
+
 // ── INJURY PROFILES ───────────────────────────────────────────
 // Three levels per zone: 1=light discomfort, 2=active injury, 3=post-surgery
 // level1 = swap dangerous lifts for safer variants + add rehab

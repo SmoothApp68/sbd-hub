@@ -9830,6 +9830,52 @@ function renderProgramIdentityCard() {
   return h;
 }
 
+function previewBackup(index) {
+  var backup = db.customProgramBackups && db.customProgramBackups[index];
+  if (!backup) return;
+  var tmpl = backup.customProgramTemplate;
+  var dayNames = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  var months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  var d = new Date(backup.savedAt);
+  var dateStr = d.getDate() + ' ' + months[d.getMonth()] + ' à ' + d.getHours() + 'h' + String(d.getMinutes()).padStart(2,'0');
+  var title = tmpl ? (tmpl.name || 'Programme Custom') : 'Programme Auto';
+
+  var content = '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">' + escapeHtml(title) + '</div>';
+  content += '<div style="font-size:11px;color:var(--sub);margin-bottom:14px;">Sauvegardé le ' + dateStr + '</div>';
+
+  if (tmpl && tmpl.blocks && tmpl.blocks[0]) {
+    var sessions = (tmpl.blocks[0].sessions || []).slice().sort(function(a,b) { return a.dayIndex - b.dayIndex; });
+    sessions.forEach(function(s) {
+      content += '<div style="margin-bottom:10px;">';
+      content += '<div style="font-size:12px;font-weight:700;color:var(--accent);">' + dayNames[s.dayIndex] + ' · ' + escapeHtml(s.label || '') + '</div>';
+      (s.exercises || []).forEach(function(e) {
+        content += '<div style="font-size:11px;color:var(--sub);padding-left:8px;">· ' + escapeHtml(e.name || '') + '</div>';
+      });
+      content += '</div>';
+    });
+  } else {
+    content += '<div style="font-size:12px;color:var(--sub);">Programme auto — pas de détail disponible.</div>';
+  }
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  var box = document.createElement('div');
+  box.className = 'modal-box';
+  box.style.maxWidth = '360px';
+  box.style.textAlign = 'left';
+  box.style.maxHeight = '70vh';
+  box.style.overflowY = 'auto';
+  box.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+      '<div style="font-size:15px;font-weight:700;">Aperçu du programme</div>' +
+      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;color:var(--sub);font-size:22px;cursor:pointer;line-height:1;">×</button>' +
+    '</div>' +
+    content;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 function deleteCustomProgramBackup(index) {
   if (!db.customProgramBackups || !db.customProgramBackups[index]) return;
   var backup = db.customProgramBackups[index];
@@ -9939,16 +9985,20 @@ function renderProgramBuilderView(container) {
         var sameDay = firstD.toDateString() === lastD.toDateString();
         usageStr = (sameDay ? firstStr : 'Du ' + firstStr + ' au ' + lastStr) + ' · ' + sc + ' séance' + (sc > 1 ? 's' : '');
       }
-      var modeLabel = bk.programMode === 'custom' ? '🏗️ Custom' : '⚙️ Auto';
+      var bkTmpl = bk.customProgramTemplate;
+      var bkName = bkTmpl ? (bkTmpl.name || 'Programme Custom') : 'Programme Auto';
       backupsHtml +=
         '<div style="display:flex;justify-content:space-between;align-items:center;' +
         'padding:9px 12px;background:var(--surface);border:0.5px solid var(--border);' +
         'border-radius:10px;margin-bottom:6px;">' +
           '<div>' +
-            '<div style="font-size:12px;font-weight:600;">' + modeLabel + '</div>' +
+            '<div style="font-size:12px;font-weight:600;">' + escapeHtml(bkName) + '</div>' +
             '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + usageStr + '</div>' +
           '</div>' +
           '<div style="display:flex;gap:6px;">' +
+            '<button onclick="previewBackup(' + i + ')" ' +
+            'style="padding:6px 10px;background:none;border:1px solid var(--border);' +
+            'border-radius:8px;color:var(--sub);font-size:11px;cursor:pointer;">👁</button>' +
             '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
             'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
             'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Restaurer</button>' +
@@ -9968,7 +10018,7 @@ function renderProgramBuilderView(container) {
       'onclick="pbResetProgram()">🗑️ Réinitialiser le programme</button>' +
     '</div>';
 
-  container.innerHTML = renderProgramIdentityCard() + headerHtml + phaseSelectHtml + modeHtml + footerHtml;
+  container.innerHTML = headerHtml + phaseSelectHtml + modeHtml + footerHtml;
 
   setTimeout(function() {
     if (typeof initProgDragDrop === 'function') initProgDragDrop();
@@ -10244,9 +10294,22 @@ function renderProgDaysList() {
     '</div>';
   }).join('');
 
+  var _progMode = (db.user && db.user.programMode) || 'auto';
+  var _tmpl = db.customProgramTemplate;
+  var _progName = _progMode === 'custom' && _tmpl ? (_tmpl.name || 'Programme Custom') : 'Programme Auto';
+  var _updatedAt = db.updatedAt || 0;
+  var _cloudUpdatedAt = db._cloudUpdatedAt || 0;
+  var _isSynced = _updatedAt && _cloudUpdatedAt && Math.abs(_updatedAt - _cloudUpdatedAt) < 5000;
+  var _syncBadge = _isSynced
+    ? '<span style="color:var(--green);font-size:10px;">☁️ Synchronisé</span>'
+    : '<span style="color:var(--orange);font-size:10px;">📱 Local</span>';
+
   return '<div class="prog-planning">' +
-    '<div class="prog-planning-head">' +
-      '<div class="prog-planning-title">Semaine type</div>' +
+    '<div class="prog-planning-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+      '<div>' +
+        '<div style="font-size:15px;font-weight:700;">' + escapeHtml(_progName) + '</div>' +
+        '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + _syncBadge + '</div>' +
+      '</div>' +
       '<span class="prog-planning-add" onclick="pbEditExisting()">+ Modifier</span>' +
     '</div>' +
     rowsHtml +

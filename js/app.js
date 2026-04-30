@@ -189,6 +189,8 @@ let db = (() => {
     if (p.user.coachProfile === undefined) p.user.coachProfile = 'full';
     if (p.user.coachEnabled === undefined) p.user.coachEnabled = true;
     if (p.customProgramBackups === undefined) p.customProgramBackups = [];
+    // Restore last known cloud sync timestamp from localStorage (not Supabase)
+    p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
   } catch { return defaultDB(); }
 })();

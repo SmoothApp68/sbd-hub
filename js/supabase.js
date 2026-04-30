@@ -130,7 +130,7 @@ async function submitNewPassword() {
   }
 }
 
-async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db._cloudUpdatedAt = db.updatedAt || 0; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db._cloudUpdatedAt = db.updatedAt || 0; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() {
   if (!supaClient) return false;
   try {
@@ -142,12 +142,12 @@ async function syncFromCloud() {
       var cloudData = data.data;
       var cloudUpdatedAt = cloudData.updatedAt || (data.updated_at ? new Date(data.updated_at).getTime() : 0);
       var localUpdatedAt = db.updatedAt || 0;
-      if (cloudUpdatedAt <= localUpdatedAt) {
-        // Local is newer or equal — push local to cloud instead
+      if (cloudUpdatedAt > 0 && localUpdatedAt > 0 && (localUpdatedAt - cloudUpdatedAt) > 30000) {
+        // Local is genuinely newer (> 30s difference) — push to cloud
         await syncToCloud(true);
         return true;
       }
-      // Cloud is newer — load it
+      // Cloud is newer or equal — load it
       db = cloudData;
       if (db.weeklyPlan && db.weeklyPlan.days) {
         db.weeklyPlan.days.forEach(function(day) {
@@ -164,6 +164,7 @@ async function syncFromCloud() {
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
       db._cloudUpdatedAt = db.updatedAt || 0;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt));
       refreshUI();
       showToast('Données cloud chargées !');
       return true;

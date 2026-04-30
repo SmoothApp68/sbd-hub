@@ -14956,7 +14956,7 @@ function hadGrindLastSession(liftType) {
       return !s.isWarmup && s.setType !== 'warmup' && !s.isBackOff && s.grind;
     }).length;
     var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'force';
-    var threshold = phase === 'peak' ? 1 : 2;
+    var threshold = phase === 'peak' ? 0 : 2;
     if (grindCount >= threshold) return true;
   }
   return false;
@@ -15103,6 +15103,22 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   var _wbToday = new Date().toISOString().split('T')[0];
   if (_wb && _wb.date === _wbToday && _wb.sleep <= 2) {
     baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
+  }
+
+  // APRE cap par phase — évite les PRs non intentionnels hors peak
+  var APRE_PHASE_CAPS = {
+    intro: 0.80, accumulation: 0.85, hypertrophie: 0.85,
+    force: 0.92, intensification: 0.95,
+    peak: 1.00, deload: 0.75, recuperation: 0.70
+  };
+  var _capPhase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var _phaseCap = APRE_PHASE_CAPS[_capPhase];
+  if (_phaseCap && _phaseCap < 1.0 && history.length > 0) {
+    var _e1rmRef = history[0].e1rm || 0;
+    if (_e1rmRef > 0) {
+      var _maxAllowed = Math.round(_e1rmRef * _phaseCap / 2.5) * 2.5;
+      if (baseWeight > _maxAllowed) baseWeight = _maxAllowed;
+    }
   }
 
   // Shadow Weight : conserver le float théorique pour progression fine
@@ -17762,9 +17778,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
         var _gStyle = _isGrind
           ? 'background:rgba(255,69,58,0.2);border-color:var(--red);color:var(--red);'
           : 'background:var(--surface);border-color:var(--border);color:var(--sub);';
+        var _isAbandoned = set.isAbandoned || false;
+        var _aStyle = _isAbandoned
+          ? 'background:rgba(255,69,58,0.2);border-color:var(--red);color:var(--red);'
+          : 'background:var(--surface);border-color:var(--border);color:var(--sub);';
         h += '<td style="white-space:nowrap;">' +
           '<input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:36px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>' +
           '<button id="grind-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleGrind(' + exoIdx + ',' + setIdx + ')" title="Grind — ralentissement involontaire" style="padding:3px 6px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;margin-left:2px;' + _gStyle + '">' + (_isGrind ? 'G✓' : 'G') + '</button>' +
+          '<button id="abandoned-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleAbandoned(' + exoIdx + ',' + setIdx + ')" title="Série abandonnée — exclue du e1RM" style="padding:3px 6px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;margin-left:2px;' + _aStyle + '">🚫</button>' +
           '</td>';
       } else {
         h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
@@ -17874,6 +17895,21 @@ function toggleGrind(exoIdx, setIdx) {
   goRequestRender();
 }
 
+function toggleAbandoned(exoIdx, setIdx) {
+  if (!activeWorkout || !activeWorkout.exercises[exoIdx]) return;
+  var set = activeWorkout.exercises[exoIdx].sets[setIdx];
+  if (!set) return;
+  set.isAbandoned = !set.isAbandoned;
+  var btn = document.getElementById('abandoned-btn-' + exoIdx + '-' + setIdx);
+  if (btn) {
+    btn.style.background = set.isAbandoned ? 'rgba(255,69,58,0.2)' : 'var(--surface)';
+    btn.style.borderColor = set.isAbandoned ? 'var(--red)' : 'var(--border)';
+    btn.style.color = set.isAbandoned ? 'var(--red)' : 'var(--sub)';
+  }
+  if (set.isAbandoned) showToast('🚫 Série exclue du e1RM');
+  goAutoSave();
+}
+
 function showGrindTechQuestion(exoIdx, setIdx) {
   var answer = confirm('Technique maintenue pendant le grind ?');
   if (!activeWorkout) return;
@@ -17975,7 +18011,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
   // Règle 6 — Grind Detection (Proxy VBT)
   if (typeof countGrindThisSession === 'function') {
     var grindData = countGrindThisSession();
-    var grindThreshold = phase === 'peak' ? 1 : phase === 'hypertrophie' ? 1 : 2;
+    var grindThreshold = phase === 'peak' ? 0 : phase === 'hypertrophie' ? 1 : 2;
     if (grindData.grindCount >= grindThreshold) {
       return {
         msg: '🚨 ' + grindData.grindCount + ' grind(s) détectés en phase ' + phase + '. ' +
@@ -19996,8 +20032,8 @@ function convertWorkoutToSession(workout) {
       var _sType = s.type === 'warmup' ? 'warmup' : s.type === 'failure' ? 'failure' :
         s.type === 'drop' || s.type === 'dropset' ? 'dropset' :
         s.type === 'backoff' ? 'backoff' : 'normal';
-      // Only push to series (used for e1RM/PR) if it's a real work set
-      if (_sType === 'normal') {
+      // Only push to series (used for e1RM/PR) if it's a real work set (not abandoned)
+      if (_sType === 'normal' && !s.isAbandoned) {
         exercise.series.push({
           weight: w,
           reps: s.reps || (s.duration || 0),
@@ -20010,7 +20046,8 @@ function convertWorkoutToSession(workout) {
         setType: _sType,
         rpe: s.rpe || null,
         grind: s.grind || false,
-        grindTech: s.grindTech || false
+        grindTech: s.grindTech || false,
+        isAbandoned: s.isAbandoned || false
       });
     });
     if (exercise.series.length > 0) session.exercises.push(exercise);

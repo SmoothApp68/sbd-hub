@@ -2232,3 +2232,171 @@ function countHardSetsInSession(exercises) {
   });
   return count;
 }
+
+// ============================================================
+// ANALYSE ATHLÈTE — Fonctions de calcul (Étape B)
+// ============================================================
+
+// Meilleur e1RM connu pour un lift (squat/bench/deadlift/ohp/row)
+function getTopE1RMForLift(liftType) {
+  var OHP_RE  = /développé militaire|overhead press|\bohp\b|press militaire|military press/i;
+  var ROW_RE  = /rowing|barbell row|seal row|yates|t.bar|bent.over/i;
+  var best = 0;
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var match = false;
+      if (liftType === 'ohp')  match = OHP_RE.test(exo.name || '');
+      else if (liftType === 'row') match = ROW_RE.test(exo.name || '');
+      else match = typeof getSBDType === 'function' && getSBDType(exo.name) === liftType;
+      if (!match) return;
+      if (exo.maxRM && exo.maxRM > best) best = exo.maxRM;
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup) return;
+        var e = typeof wpCalcE1RM === 'function'
+          ? wpCalcE1RM(parseFloat(s.weight), parseInt(s.reps), parseFloat(s.rpe))
+          : 0;
+        if (e > best) best = e;
+      });
+    });
+  });
+  return best > 0 ? best : null;
+}
+
+// Ratios de force actuels (squat/bench/deadlift/ohp/row)
+function computeStrengthRatiosDetailed() {
+  var e1rms = {
+    squat:     getTopE1RMForLift('squat')    || 0,
+    bench:     getTopE1RMForLift('bench')    || 0,
+    deadlift:  getTopE1RMForLift('deadlift') || 0,
+    ohp:       getTopE1RMForLift('ohp')      || 0,
+    row:       getTopE1RMForLift('row')      || 0
+  };
+  return {
+    squat_bench: e1rms.bench     > 0 ? e1rms.squat    / e1rms.bench    : null,
+    squat_dead:  e1rms.deadlift  > 0 ? e1rms.squat    / e1rms.deadlift : null,
+    bench_dead:  e1rms.deadlift  > 0 ? e1rms.bench    / e1rms.deadlift : null,
+    ohp_bench:   e1rms.bench     > 0 ? e1rms.ohp      / e1rms.bench    : null,
+    row_bench:   e1rms.bench     > 0 ? e1rms.row      / e1rms.bench    : null,
+    raw: e1rms
+  };
+}
+
+// Tendance poids de corps sur N jours → kg/semaine (null si données insuffisantes)
+function getWeightTrend(days) {
+  var entries = (db.body || [])
+    .filter(function(e) { return Date.now() - e.ts < days * 86400000 && e.weight > 0; })
+    .sort(function(a, b) { return a.ts - b.ts; });
+  if (entries.length < 4) return null;
+  var first = entries.slice(0, 3).reduce(function(s, e) { return s + e.weight; }, 0) / 3;
+  var last  = entries.slice(-3).reduce(function(s, e) { return s + e.weight; }, 0) / 3;
+  return (last - first) / days * 7;
+}
+
+// Tendance e1RM sur N jours pour un lift SBD → ratio (null si données insuffisantes)
+function getE1RMTrend(liftType, days) {
+  var cutoff = Date.now() - days * 86400000;
+  var points = [];
+  (db.logs || []).forEach(function(log) {
+    if (log.timestamp < cutoff) return;
+    (log.exercises || []).forEach(function(exo) {
+      if (typeof getSBDType !== 'function' || getSBDType(exo.name) !== liftType) return;
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff || s.isDropSet) return;
+        var w = parseFloat(s.weight), r = parseInt(s.reps);
+        if (!w || !r) return;
+        var e = typeof wpCalcE1RM === 'function'
+          ? wpCalcE1RM(w, r, parseFloat(s.rpe))
+          : 0;
+        if (e > 0) points.push({ ts: log.timestamp, e1rm: e });
+      });
+    });
+  });
+  if (points.length < 3) return null;
+  points.sort(function(a, b) { return a.ts - b.ts; });
+  var first = points.slice(0, 3).reduce(function(s, p) { return s + p.e1rm; }, 0) / 3;
+  var last  = points.slice(-3).reduce(function(s, p) { return s + p.e1rm; }, 0) / 3;
+  return first > 0 ? (last - first) / first : null;
+}
+
+// RPE moyen sur un lift SBD sur les N dernières séances le contenant
+function getAvgRPEForLift(liftType, nSessions) {
+  var total = 0, count = 0, sessions = 0;
+  var sorted = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  for (var i = 0; i < sorted.length && sessions < nSessions; i++) {
+    var found = false;
+    (sorted[i].exercises || []).forEach(function(exo) {
+      if (typeof getSBDType !== 'function' || getSBDType(exo.name) !== liftType) return;
+      found = true;
+      (exo.allSets || []).forEach(function(s) {
+        if (!s.isWarmup && !s.isBackOff && parseFloat(s.rpe) > 0) {
+          total += parseFloat(s.rpe); count++;
+        }
+      });
+    });
+    if (found) sessions++;
+  }
+  return count > 0 ? Math.round(total / count * 10) / 10 : null;
+}
+
+// Volume par groupe musculaire sur 30 jours → keyed par MUSCLE_VOLUME_TARGETS
+function getVolumeByMuscleGroup() {
+  var MG_TO_KEY = {
+    'Quadriceps': 'quads', 'Ischio-jambiers': 'ischio',
+    'Pecs': 'pecs', 'Pecs (haut)': 'pecs', 'Pecs (bas)': 'pecs',
+    'Grand dorsal': 'dos', 'Haut du dos': 'dos', 'Lombaires': 'dos', 'Trapèzes': 'dos',
+    'Épaules': 'epaules', 'Épaules (latéral)': 'epaules',
+    'Épaules (antérieur)': 'epaules', 'Épaules (postérieur)': 'epaules',
+    'Biceps': 'biceps', 'Triceps': 'triceps', 'Fessiers': 'fessiers'
+  };
+  var logs30 = typeof getLogsInRange === 'function' ? getLogsInRange(30) : [];
+  var volumes = {};
+  logs30.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var mg = typeof getMuscleGroup === 'function' ? getMuscleGroup(exo.name) : null;
+      var key = mg ? MG_TO_KEY[mg] : null;
+      if (!key) return;
+      var allSets = exo.allSets || exo.series || [];
+      var sets = Array.isArray(allSets)
+        ? allSets.filter(function(s) { return !s.isWarmup; }).length
+        : (typeof exo.sets === 'number' ? exo.sets : 0);
+      volumes[key] = (volumes[key] || 0) + sets;
+    });
+  });
+  return volumes;
+}
+
+// Détecte une chute de performance des accessoires après un PR sur un lift principal
+// Retourne le ratio d'augmentation de RPE (positif = fatigue), ou null
+function detectAccessoryDropoff() {
+  var sorted = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  if (sorted.length < 4) return null;
+  var last = sorted[0];
+  var hasPR = (last.exercises || []).some(function(exo) {
+    var type = typeof getSBDType === 'function' ? getSBDType(exo.name) : null;
+    if (!type) return false;
+    var best = (db.bestPR || {})[type] || 0;
+    return exo.maxRM > 0 && best > 0 && exo.maxRM >= best * 0.98;
+  });
+  if (!hasPR) return null;
+  var prevRpe = 0, prevN = 0;
+  sorted.slice(1, 4).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (typeof getSBDType === 'function' && getSBDType(exo.name)) return;
+      (exo.allSets || []).forEach(function(s) {
+        if (!s.isWarmup && parseFloat(s.rpe) > 0) { prevRpe += parseFloat(s.rpe); prevN++; }
+      });
+    });
+  });
+  if (prevN === 0) return null;
+  prevRpe /= prevN;
+  var lastRpe = 0, lastN = 0;
+  (last.exercises || []).forEach(function(exo) {
+    if (typeof getSBDType === 'function' && getSBDType(exo.name)) return;
+    (exo.allSets || []).forEach(function(s) {
+      if (!s.isWarmup && parseFloat(s.rpe) > 0) { lastRpe += parseFloat(s.rpe); lastN++; }
+    });
+  });
+  if (lastN === 0) return null;
+  lastRpe /= lastN;
+  return prevRpe > 0 ? (lastRpe - prevRpe) / prevRpe : null;
+}

@@ -162,6 +162,7 @@ async function syncFromCloud() {
       if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
       if (!db.gamification) db.gamification = {};
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+      db._cloudUpdatedAt = cloudData.updatedAt || 0;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
       refreshUI();
       showToast('Données cloud chargées !');

@@ -9758,6 +9758,91 @@ function _wpIsStaleVsRoutine() {
   return false;
 }
 
+function formatRelativeDate(ts) {
+  var now = Date.now();
+  var diff = now - ts;
+  var minutes = Math.floor(diff / 60000);
+  var hours = Math.floor(diff / 3600000);
+  var days = Math.floor(diff / 86400000);
+  if (minutes < 2) return "à l'instant";
+  if (minutes < 60) return 'il y a ' + minutes + 'min';
+  if (hours < 24) return 'il y a ' + hours + 'h';
+  if (days === 1) return 'hier';
+  var d = new Date(ts);
+  var months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  return d.getDate() + ' ' + months[d.getMonth()] + ' à ' + d.getHours() + 'h' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function renderProgramIdentityCard() {
+  var progMode = (db.user && db.user.programMode) || 'auto';
+  var tmpl = db.customProgramTemplate;
+  var updatedAt = db.updatedAt || 0;
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : '';
+  var week = db.weeklyPlan && db.weeklyPlan.week ? db.weeklyPlan.week : '?';
+
+  var progName = progMode === 'custom' && tmpl ? (tmpl.name || 'Programme Custom') : 'Programme Auto';
+  var dateStr = updatedAt ? 'Mis à jour ' + formatRelativeDate(updatedAt) : 'Non synchronisé';
+
+  var trainingDays = progMode === 'custom' && tmpl && tmpl.blocks && tmpl.blocks[0]
+    ? (tmpl.blocks[0].sessions || []).length
+    : (db.weeklyPlan && db.weeklyPlan.days
+        ? db.weeklyPlan.days.filter(function(d) { return !d.rest; }).length
+        : 0);
+
+  var phaseLabel = phase ? (phase.charAt(0).toUpperCase() + phase.slice(1)) : '';
+  var weekLabel = phaseLabel ? phaseLabel + ' · S' + week : 'S' + week;
+
+  var cloudUpdated = db._cloudUpdatedAt || 0;
+  var isSynced = updatedAt && cloudUpdated && Math.abs(updatedAt - cloudUpdated) < 5000;
+  var syncBadge = isSynced
+    ? '<span style="color:var(--green);font-size:10px;">☁️ Synchronisé</span>'
+    : '<span style="color:var(--orange);font-size:10px;">📱 Local</span>';
+
+  var sessionLines = '';
+  if (progMode === 'custom' && tmpl && tmpl.blocks && tmpl.blocks[0]) {
+    var dayNames = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+    var sessions = (tmpl.blocks[0].sessions || []).slice().sort(function(a,b) { return a.dayIndex - b.dayIndex; });
+    sessionLines = sessions.map(function(s) {
+      return '<div style="font-size:11px;color:var(--sub);padding:2px 0;">'
+        + '<span style="color:var(--text);font-weight:600;">' + dayNames[s.dayIndex] + '</span>'
+        + ' · ' + escapeHtml(s.label || '')
+        + '</div>';
+    }).join('');
+  }
+
+  var h = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">';
+  h += '<div>';
+  h += '<div style="font-size:15px;font-weight:700;color:var(--text);">' + escapeHtml(progName) + '</div>';
+  h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + dateStr + ' · ' + syncBadge + '</div>';
+  h += '</div>';
+  h += '<div style="text-align:right;">';
+  h += '<div style="font-size:13px;font-weight:700;color:var(--accent);">' + weekLabel + '</div>';
+  h += '<div style="font-size:11px;color:var(--sub);">' + trainingDays + 'j / semaine</div>';
+  h += '</div>';
+  h += '</div>';
+  if (sessionLines) {
+    h += '<div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;margin-top:4px;">';
+    h += sessionLines;
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function deleteCustomProgramBackup(index) {
+  if (!db.customProgramBackups || !db.customProgramBackups[index]) return;
+  var backup = db.customProgramBackups[index];
+  var months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  var d = new Date(backup.savedAt);
+  var dateStr = d.getDate() + ' ' + months[d.getMonth()];
+  if (!confirm('Supprimer la version du ' + dateStr + ' ? Cette action est irréversible.')) return;
+  db.customProgramBackups.splice(index, 1);
+  saveDB();
+  showToast('Version supprimée');
+  renderProgramBuilder();
+}
+
 function renderProgramBuilderView(container) {
   if (!container) return;
   // If db.routine was updated without regenerating weeklyPlan, the cached
@@ -9863,9 +9948,14 @@ function renderProgramBuilderView(container) {
             '<div style="font-size:12px;font-weight:600;">' + modeLabel + '</div>' +
             '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + usageStr + '</div>' +
           '</div>' +
-          '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
-          'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
-          'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Restaurer</button>' +
+          '<div style="display:flex;gap:6px;">' +
+            '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
+            'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
+            'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Restaurer</button>' +
+            '<button onclick="deleteCustomProgramBackup(' + i + ')" ' +
+            'style="padding:6px 10px;background:none;border:1px solid var(--red);' +
+            'border-radius:8px;color:var(--red);font-size:11px;cursor:pointer;">🗑</button>' +
+          '</div>' +
         '</div>';
     });
     backupsHtml += '</div>';
@@ -9878,7 +9968,7 @@ function renderProgramBuilderView(container) {
       'onclick="pbResetProgram()">🗑️ Réinitialiser le programme</button>' +
     '</div>';
 
-  container.innerHTML = headerHtml + phaseSelectHtml + modeHtml + footerHtml;
+  container.innerHTML = renderProgramIdentityCard() + headerHtml + phaseSelectHtml + modeHtml + footerHtml;
 
   setTimeout(function() {
     if (typeof initProgDragDrop === 'function') initProgDragDrop();

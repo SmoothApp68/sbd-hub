@@ -13111,6 +13111,36 @@ function renderCoachTodayHTML() {
   var pr = db.bestPR || {};
   var html = '';
 
+  // ── 0. BILAN DU MATIN ──
+  html += renderMorningCheckin();
+
+  // ── 0b. DIAGNOSTIC ATHLÉTIQUE ──
+  if (coachProfile !== 'silent') {
+    var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
+    if (diagnosis.length) {
+      var severityColor = { danger: 'var(--red)', warning: 'var(--orange)', good: 'var(--green)', info: 'var(--blue)' };
+      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📊 Diagnostic Athlétique</div>';
+      diagnosis.forEach(function(section) {
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+          + 'letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">' + section.title + '</div>';
+        section.alerts.forEach(function(alert) {
+          var color = severityColor[alert.severity] || 'var(--sub)';
+          html += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;'
+            + 'background:' + color + '18;border-left:3px solid ' + color + ';">';
+          html += '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:3px;">'
+            + alert.title + '</div>';
+          html += '<div style="font-size:11px;color:var(--text);line-height:1.5;">'
+            + alert.text + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+  }
+
   // ── 1. JAUGES ──
   var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 60, label: '' };
   var formScore = srs.score;

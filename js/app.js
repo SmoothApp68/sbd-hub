@@ -189,9 +189,6 @@ let db = (() => {
     if (p.user.coachProfile === undefined) p.user.coachProfile = 'full';
     if (p.user.coachEnabled === undefined) p.user.coachEnabled = true;
     if (p.customProgramBackups === undefined) p.customProgramBackups = [];
-    // AUDIT: champs collectés mais non utilisés dans engine/coach/program :
-    //   - p.user.secondaryActivities : set en onboarding mais jamais lu pour adapter le programme.
-    //     TODO : soit retirer du formulaire, soit câbler dans wpCheckActivityConflicts.
     return p;
   } catch { return defaultDB(); }
 })();
@@ -12362,6 +12359,48 @@ var ACTIVITY_TYPES = [
 
 var DAYS_FULL_LIST = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
+var ACTIVITY_SESSION_LABELS = {
+  natation:          { emoji: '🏊', label: 'Natation',        exoName: 'Natation' },
+  course:            { emoji: '🏃', label: 'Course',          exoName: 'Course à pied' },
+  trail:             { emoji: '🥾', label: 'Trail',           exoName: 'Trail' },
+  randonnee:         { emoji: '🏔️', label: 'Randonnée',      exoName: 'Randonnée' },
+  velo:              { emoji: '🚴', label: 'Vélo',            exoName: 'Vélo' },
+  yoga:              { emoji: '🧘', label: 'Yoga',            exoName: 'Yoga' },
+  pilates:           { emoji: '🩺', label: 'Pilates',         exoName: 'Pilates' },
+  ski:               { emoji: '⛷️', label: 'Ski',             exoName: 'Ski' },
+  arts_martiaux:     { emoji: '🥊', label: 'Arts Martiaux',   exoName: 'Arts Martiaux' },
+  sports_collectifs: { emoji: '⚽', label: 'Sport Collectif', exoName: 'Sport Collectif' },
+  autre:             { emoji: '🏅', label: 'Activité',        exoName: 'Activité physique' }
+};
+
+var ACTIVITY_INTENSITY_LABELS = { 1: 'Léger', 2: 'Modéré', 3: 'Soutenu', 4: 'Intense', 5: 'Maximum' };
+
+function _injectSecondaryActivities(days) {
+  var fixedActivities = (db.user && db.user.activities) || [];
+  fixedActivities.forEach(function(act) {
+    if (!act.fixed || !act.days || !act.days.length) return;
+    var actInfo = ACTIVITY_SESSION_LABELS[act.type] || ACTIVITY_SESSION_LABELS.autre;
+    var intensityLabel = ACTIVITY_INTENSITY_LABELS[act.intensity || 2] || 'Modéré';
+    act.days.forEach(function(dayName) {
+      var existing = days.find(function(d) { return d.day === dayName; });
+      if (!existing || !existing.rest) return; // only fill rest days
+      existing.rest = false;
+      existing.title = actInfo.emoji + ' ' + actInfo.label;
+      existing.isSecondaryActivity = true;
+      existing.coachNote = intensityLabel
+        + ' · ' + (act.duration || 45) + 'min'
+        + (act.elevGain ? ' · D+' + act.elevGain + 'm' : '');
+      existing.exercises = [{
+        name: actInfo.exoName,
+        type: 'cardio',
+        isSecondaryActivity: true,
+        sets: [{ durationMin: act.duration || 45, rpe: act.intensity || 2, isWarmup: false }]
+      }];
+    });
+  });
+  return days;
+}
+
 function renderSettingsActivities() {
   var el = document.getElementById('settingsActivities');
   if (!el) return;
@@ -16254,6 +16293,8 @@ function calculateParametersForCustomPlan() {
     };
   });
 
+  _injectSecondaryActivities(days);
+
   if (!db.weeklyPlan) db.weeklyPlan = {};
   db.weeklyPlan.days = days;
   db.weeklyPlan.generatedAt = Date.now();
@@ -16528,6 +16569,8 @@ function generateWeeklyPlan() {
         });
       });
     }
+
+    _injectSecondaryActivities(days);
 
     // ── SAUVEGARDER ─────────────────────────────────────────
     var plan = {

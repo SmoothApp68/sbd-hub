@@ -15098,6 +15098,13 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
+  // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
+  var _wb = db.todayWellbeing;
+  var _wbToday = new Date().toISOString().split('T')[0];
+  if (_wb && _wb.date === _wbToday && _wb.sleep <= 2) {
+    baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
+  }
+
   // Shadow Weight : conserver le float théorique pour progression fine
   if (!db.exercises) db.exercises = {};
   if (!db.exercises[realName]) db.exercises[realName] = {};

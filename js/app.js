@@ -82,7 +82,7 @@ const defaultDB = () => ({
   user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true },
   customProgramTemplate: null,
   customProgramBackups: [],
-  routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0,
+  routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0, updatedAt: 0,
   keyLifts: [],
   weeklyChallenges: null,
   monthlyChallenges: null,
@@ -274,6 +274,7 @@ function _flushDB() {
   _saveDBDirty = false;
   try {
     if (!db.gamification) db.gamification = {};
+    db.updatedAt = Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch(e) {
     console.error('saveDB error:', e);

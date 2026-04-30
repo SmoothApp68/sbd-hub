@@ -131,7 +131,51 @@ async function submitNewPassword() {
 }
 
 async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
-async function syncFromCloud() { if (!supaClient) return false; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return false; const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle(); if (error) throw error; if (data && data.data) { db = data.data; if (db.weeklyPlan && db.weeklyPlan.days) { db.weeklyPlan.days.forEach(function(day) { if (day.exercises) day.exercises = day.exercises.filter(function(e) { return !e.isPrehab; }); }); } if (!db.reports) db.reports = []; if (!db.logs) db.logs = []; if (!db.user) db.user = {}; if (!db.user.targets) db.user.targets = { bench: 100, squat: 120, deadlift: 140 }; if (!db.social) db.social = {}; if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 }; if (!db.gamification) db.gamification = {}; db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); refreshUI(); showToast('Données cloud chargées !'); return true; } else { showToast('Aucune donnée cloud trouvée'); return false; } } catch(e) { console.error('Cloud pull:', e); showToast('Erreur chargement cloud'); return false; } }
+async function syncFromCloud() {
+  if (!supaClient) return false;
+  try {
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return false;
+    const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle();
+    if (error) throw error;
+    if (data && data.data) {
+      var cloudData = data.data;
+      var cloudUpdatedAt = cloudData.updatedAt || (data.updated_at ? new Date(data.updated_at).getTime() : 0);
+      var localUpdatedAt = db.updatedAt || 0;
+      if (cloudUpdatedAt <= localUpdatedAt) {
+        // Local is newer or equal — push local to cloud instead
+        await syncToCloud(true);
+        return true;
+      }
+      // Cloud is newer — load it
+      db = cloudData;
+      if (db.weeklyPlan && db.weeklyPlan.days) {
+        db.weeklyPlan.days.forEach(function(day) {
+          if (day.exercises) day.exercises = day.exercises.filter(function(e) { return !e.isPrehab; });
+        });
+      }
+      if (!db.reports) db.reports = [];
+      if (!db.logs) db.logs = [];
+      if (!db.user) db.user = {};
+      if (!db.user.targets) db.user.targets = { bench: 100, squat: 120, deadlift: 140 };
+      if (!db.social) db.social = {};
+      if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
+      if (!db.gamification) db.gamification = {};
+      db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      refreshUI();
+      showToast('Données cloud chargées !');
+      return true;
+    } else {
+      showToast('Aucune donnée cloud trouvée');
+      return false;
+    }
+  } catch(e) {
+    console.error('Cloud pull:', e);
+    showToast('Erreur chargement cloud');
+    return false;
+  }
+}
 function updateCloudUI(user, err) { const el = document.getElementById('cloudStatus'); if (!el) return; const emailSection = document.getElementById('emailLoginSection'); if (err) { el.innerHTML = '<span style="color:var(--red);">Erreur: '+err+'</span>'; return; } if (user) { const label = user.email ? user.email : 'Anonyme ('+user.id.substring(0,8)+'...)'; const color = user.email ? 'var(--green)' : 'var(--orange)'; const hint = user.email ? 'Sync entre appareils active' : 'Connecte-toi par email pour sync multi-appareils'; el.innerHTML = '<span style="color:'+color+';">Connecté au cloud</span><span style="font-size:11px;color:var(--text);display:block;margin-top:4px;">'+label+'</span><span style="font-size:10px;color:var(--sub);display:block;margin-top:2px;">'+hint+'</span>'; if (emailSection) emailSection.style.display = user.email ? 'none' : 'block'; const changePwdSection = document.getElementById('changePasswordSection'); if (changePwdSection) changePwdSection.style.display = user.email ? 'block' : 'none'; return; } el.innerHTML = '<span style="color:var(--sub);">Non connecté</span>'; if (emailSection) emailSection.style.display = 'block'; const _cpS = document.getElementById('changePasswordSection'); if (_cpS) _cpS.style.display = 'none'; }
 function updateSyncStatus(s) {
   const el = document.getElementById('syncIndicator');

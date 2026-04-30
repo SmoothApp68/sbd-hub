@@ -321,6 +321,10 @@ if (!db.gamification._migratedFreezeV4) {
   db.gamification._migratedFreezeV4 = true;
 }
 
+// ── WELLBEING — defensive init ───────────────────────────────
+if (db.todayWellbeing === undefined) db.todayWellbeing = null;
+if (!db.wellbeingHistory) db.wellbeingHistory = [];
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -13107,6 +13111,36 @@ function renderCoachTodayHTML() {
   var pr = db.bestPR || {};
   var html = '';
 
+  // ── 0. BILAN DU MATIN ──
+  html += renderMorningCheckin();
+
+  // ── 0b. DIAGNOSTIC ATHLÉTIQUE ──
+  if (coachProfile !== 'silent') {
+    var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
+    if (diagnosis.length) {
+      var severityColor = { danger: 'var(--red)', warning: 'var(--orange)', good: 'var(--green)', info: 'var(--blue)' };
+      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📊 Diagnostic Athlétique</div>';
+      diagnosis.forEach(function(section) {
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+          + 'letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">' + section.title + '</div>';
+        section.alerts.forEach(function(alert) {
+          var color = severityColor[alert.severity] || 'var(--sub)';
+          html += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;'
+            + 'background:' + color + '18;border-left:3px solid ' + color + ';">';
+          html += '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:3px;">'
+            + alert.title + '</div>';
+          html += '<div style="font-size:11px;color:var(--text);line-height:1.5;">'
+            + alert.text + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+  }
+
   // ── 1. JAUGES ──
   var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 60, label: '' };
   var formScore = srs.score;
@@ -14799,6 +14833,102 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
   return null;
 }
 
+// ============================================================
+// BILAN DU MATIN — Morning check-in (Étape D)
+// ============================================================
+
+var _checkinData = {};
+
+function setCheckin(field, value) {
+  _checkinData[field] = value;
+  document.querySelectorAll('[id^="checkin-' + field + '-"]').forEach(function(btn) {
+    btn.style.background = 'var(--surface)';
+    btn.style.borderColor = 'var(--border)';
+  });
+  var btn = document.getElementById('checkin-' + field + '-' + value);
+  if (btn) {
+    btn.style.background = 'rgba(10,132,255,0.2)';
+    btn.style.borderColor = 'var(--accent)';
+  }
+  var saveBtn = document.getElementById('checkin-save-btn');
+  if (saveBtn && _checkinData.sleep && _checkinData.motivation) {
+    saveBtn.style.opacity = '1';
+  }
+}
+
+function saveCheckin() {
+  if (!_checkinData.sleep || !_checkinData.motivation) return;
+  var today = new Date().toISOString().split('T')[0];
+  db.todayWellbeing = {
+    date: today,
+    sleep: _checkinData.sleep,
+    motivation: _checkinData.motivation,
+    pain: _checkinData.pain || null,
+    savedAt: Date.now()
+  };
+  if (!db.wellbeingHistory) db.wellbeingHistory = [];
+  db.wellbeingHistory.unshift(db.todayWellbeing);
+  if (db.wellbeingHistory.length > 90) db.wellbeingHistory.pop();
+  _checkinData = {};
+  saveDB();
+  showToast('✅ Bilan enregistré');
+  renderCoachToday();
+}
+
+function renderMorningCheckin() {
+  var today = new Date().toISOString().split('T')[0];
+  if (db.todayWellbeing && db.todayWellbeing.date === today) return '';
+
+  var h = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+  h += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">☀️ Bilan du matin</div>';
+
+  // Q1 — Sommeil
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Nuit ?</div>';
+  h += '<div style="display:flex;gap:8px;">';
+  ['😫','😞','😐','😊','🤩'].forEach(function(emoji, i) {
+    var val = i + 1;
+    h += '<button onclick="setCheckin(\'sleep\',' + val + ')" id="checkin-sleep-' + val + '" '
+      + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
+      + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
+      + emoji + '</button>';
+  });
+  h += '</div></div>';
+
+  // Q2 — Motivation
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Motivation ?</div>';
+  h += '<div style="display:flex;gap:8px;">';
+  ['💤','😑','💪','🔥','⚡'].forEach(function(emoji, i) {
+    var val = i + 1;
+    h += '<button onclick="setCheckin(\'motivation\',' + val + ')" id="checkin-motivation-' + val + '" '
+      + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
+      + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
+      + emoji + '</button>';
+  });
+  h += '</div></div>';
+
+  // Q3 — Douleurs (optionnel)
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">'
+    + 'Douleurs ? <span style="opacity:0.5">(optionnel)</span></div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+  ['Aucune','Genou','Épaule','Dos','Hanche'].forEach(function(zone) {
+    h += '<button onclick="setCheckin(\'pain\',\'' + zone + '\')" id="checkin-pain-' + zone + '" '
+      + 'style="padding:6px 10px;border-radius:8px;font-size:11px;'
+      + 'border:1px solid var(--border);background:var(--surface);'
+      + 'color:var(--sub);cursor:pointer;">' + zone + '</button>';
+  });
+  h += '</div></div>';
+
+  h += '<button onclick="saveCheckin()" id="checkin-save-btn" '
+    + 'style="width:100%;padding:10px;background:var(--accent);border:none;'
+    + 'border-radius:10px;color:#fff;font-weight:700;font-size:13px;'
+    + 'cursor:pointer;opacity:0.4;">Confirmer</button>';
+  h += '</div>';
+  return h;
+}
+
 // ── FORMULE BRZYCKI AJUSTÉE RPE ─────────────────────────────
 function wpCalcE1RM(weight, reps, rpe) {
   weight = parseFloat(weight) || 0;
@@ -14966,6 +15096,13 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       var d = 1.0278 - 0.0278 * wReps;
       if (d > 0) baseWeight = wpRound25(preDeloadE1rm * mult * d);
     }
+  }
+
+  // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
+  var _wb = db.todayWellbeing;
+  var _wbToday = new Date().toISOString().split('T')[0];
+  if (_wb && _wb.date === _wbToday && _wb.sleep <= 2) {
+    baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
   }
 
   // Shadow Weight : conserver le float théorique pour progression fine

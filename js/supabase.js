@@ -130,7 +130,7 @@ async function submitNewPassword() {
   }
 }
 
-async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }); if (error) throw error; db._cloudUpdatedAt = db.updatedAt || 0; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() {
   if (!supaClient) return false;
   try {
@@ -162,7 +162,7 @@ async function syncFromCloud() {
       if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
       if (!db.gamification) db.gamification = {};
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
-      db._cloudUpdatedAt = cloudData.updatedAt || 0;
+      db._cloudUpdatedAt = db.updatedAt || 0;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
       refreshUI();
       showToast('Données cloud chargées !');

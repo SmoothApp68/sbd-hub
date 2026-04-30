@@ -321,6 +321,10 @@ if (!db.gamification._migratedFreezeV4) {
   db.gamification._migratedFreezeV4 = true;
 }
 
+// ── WELLBEING — defensive init ───────────────────────────────
+if (db.todayWellbeing === undefined) db.todayWellbeing = null;
+if (!db.wellbeingHistory) db.wellbeingHistory = [];
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -14797,6 +14801,102 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
     return { weight: estimated, reps: targetRepMin, progressed: false, isEstimate: true };
   }
   return null;
+}
+
+// ============================================================
+// BILAN DU MATIN — Morning check-in (Étape D)
+// ============================================================
+
+var _checkinData = {};
+
+function setCheckin(field, value) {
+  _checkinData[field] = value;
+  document.querySelectorAll('[id^="checkin-' + field + '-"]').forEach(function(btn) {
+    btn.style.background = 'var(--surface)';
+    btn.style.borderColor = 'var(--border)';
+  });
+  var btn = document.getElementById('checkin-' + field + '-' + value);
+  if (btn) {
+    btn.style.background = 'rgba(10,132,255,0.2)';
+    btn.style.borderColor = 'var(--accent)';
+  }
+  var saveBtn = document.getElementById('checkin-save-btn');
+  if (saveBtn && _checkinData.sleep && _checkinData.motivation) {
+    saveBtn.style.opacity = '1';
+  }
+}
+
+function saveCheckin() {
+  if (!_checkinData.sleep || !_checkinData.motivation) return;
+  var today = new Date().toISOString().split('T')[0];
+  db.todayWellbeing = {
+    date: today,
+    sleep: _checkinData.sleep,
+    motivation: _checkinData.motivation,
+    pain: _checkinData.pain || null,
+    savedAt: Date.now()
+  };
+  if (!db.wellbeingHistory) db.wellbeingHistory = [];
+  db.wellbeingHistory.unshift(db.todayWellbeing);
+  if (db.wellbeingHistory.length > 90) db.wellbeingHistory.pop();
+  _checkinData = {};
+  saveDB();
+  showToast('✅ Bilan enregistré');
+  renderCoachToday();
+}
+
+function renderMorningCheckin() {
+  var today = new Date().toISOString().split('T')[0];
+  if (db.todayWellbeing && db.todayWellbeing.date === today) return '';
+
+  var h = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+  h += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">☀️ Bilan du matin</div>';
+
+  // Q1 — Sommeil
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Nuit ?</div>';
+  h += '<div style="display:flex;gap:8px;">';
+  ['😫','😞','😐','😊','🤩'].forEach(function(emoji, i) {
+    var val = i + 1;
+    h += '<button onclick="setCheckin(\'sleep\',' + val + ')" id="checkin-sleep-' + val + '" '
+      + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
+      + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
+      + emoji + '</button>';
+  });
+  h += '</div></div>';
+
+  // Q2 — Motivation
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Motivation ?</div>';
+  h += '<div style="display:flex;gap:8px;">';
+  ['💤','😑','💪','🔥','⚡'].forEach(function(emoji, i) {
+    var val = i + 1;
+    h += '<button onclick="setCheckin(\'motivation\',' + val + ')" id="checkin-motivation-' + val + '" '
+      + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
+      + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
+      + emoji + '</button>';
+  });
+  h += '</div></div>';
+
+  // Q3 — Douleurs (optionnel)
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">'
+    + 'Douleurs ? <span style="opacity:0.5">(optionnel)</span></div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+  ['Aucune','Genou','Épaule','Dos','Hanche'].forEach(function(zone) {
+    h += '<button onclick="setCheckin(\'pain\',\'' + zone + '\')" id="checkin-pain-' + zone + '" '
+      + 'style="padding:6px 10px;border-radius:8px;font-size:11px;'
+      + 'border:1px solid var(--border);background:var(--surface);'
+      + 'color:var(--sub);cursor:pointer;">' + zone + '</button>';
+  });
+  h += '</div></div>';
+
+  h += '<button onclick="saveCheckin()" id="checkin-save-btn" '
+    + 'style="width:100%;padding:10px;background:var(--accent);border:none;'
+    + 'border-radius:10px;color:#fff;font-weight:700;font-size:13px;'
+    + 'cursor:pointer;opacity:0.4;">Confirmer</button>';
+  h += '</div>';
+  return h;
 }
 
 // ── FORMULE BRZYCKI AJUSTÉE RPE ─────────────────────────────

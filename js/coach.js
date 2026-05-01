@@ -129,7 +129,7 @@ function coachGetFullAnalysis() {
   formHtml += '<div style="flex:2;padding:10px;background:rgba(255,255,255,.03);border-radius:10px;font-size:12px;color:var(--sub);line-height:1.6;">';
   formHtml += readiness.label;
   if (deloadCheck.needed) {
-    formHtml += '<br><span style="color:var(--orange);">⚠️ Deload recommandé — '+deloadCheck.reason+'</span>';
+    formHtml += '<br><span style="color:var(--orange);">⚠️ ' + (typeof getVocab === 'function' ? getVocab('deload') : 'Deload') + ' recommandé — '+deloadCheck.reason+'</span>';
   }
   formHtml += '</div></div>';
   sections.push(formHtml);

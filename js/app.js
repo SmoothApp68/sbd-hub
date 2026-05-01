@@ -24,8 +24,9 @@ function t(key, value, opts) {
       if (value <= 9) return 'Effort intense 🔥';
       return 'Maximum 🔥🔥';
     }
-    if (isAdvanced) return 'RPE ' + value;
-    return 'RPE ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
+    var _rpeLabel = typeof getVocab === 'function' ? getVocab('rpe') : 'RPE';
+    if (isAdvanced) return _rpeLabel + ' ' + value;
+    return _rpeLabel + ' ' + value + ' (' + Math.max(0, 10 - Math.round(value)) + ' reps en réserve)';
   }
   if (key === 'sets_reps') {
     var s = value, r = opts;
@@ -1788,7 +1789,7 @@ function renderObGeneratedProgram(plan) {
     if (w > 12) advice = 'Phase de construction — '+Math.round(w-4)+' semaines de volume, puis 4 semaines de peak.';
     else if (w > 6) advice = 'Phase de force — réduis progressivement le volume, augmente l\'intensité.';
     else if (w > 2) advice = 'Peak — séances courtes, charges lourdes, récupération prioritaire.';
-    else advice = 'Deload — séances légères, aucun nouveau max. Préserve ton énergie.';
+    else advice = (typeof getVocab === 'function' ? getVocab('deload') : 'Deload') + ' — séances légères, aucun nouveau max. Préserve ton énergie.';
     compHtml = '<div class="ob-comp-bloc"><div class="ob-comp-bloc-title">🏆 Compétition dans '+w+' semaine'+(w>1?'s':'')+' — '+new Date(ci.date).toLocaleDateString('fr-FR')+'</div><div class="ob-comp-bloc-body">'+advice+'</div></div>';
   }
 
@@ -12958,11 +12959,12 @@ function renderCoachTodayHTML() {
 
   var gaugeColor = function(s) { return s>=70?'var(--green)':s>=40?'var(--orange)':'var(--red)'; };
 
+  var _srsLabel = typeof getVocab === 'function' ? getVocab('srs') : 'Forme du jour';
   html += '<div class="coach-gauges">';
   html += '<div class="coach-gauge">'+
     '<div class="coach-gauge-val" style="color:'+gaugeColor(formScore)+';">'+formScore+'</div>'+
     '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+formScore+'%;background:'+gaugeColor(formScore)+';"></div></div>'+
-    '<div class="coach-gauge-lbl">Forme</div></div>';
+    '<div class="coach-gauge-lbl">'+_srsLabel+'</div></div>';
   html += '<div class="coach-gauge">'+
     '<div class="coach-gauge-val" style="color:'+gaugeColor(recovScore)+';">'+recovScore+'</div>'+
     '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+recovScore+'%;background:'+gaugeColor(recovScore)+';"></div></div>'+

@@ -14,6 +14,24 @@ const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
 
+// ── Vocabulaire adaptatif selon niveau (TÂCHE 11) ──
+var VOCAB = {
+  e1rm:  { 1: 'Force estimée',    2: 'Max théorique',    3: 'e1RM (Brzycki)' },
+  rpe:   { 1: 'Difficulté',       2: 'Effort perçu',     3: 'RPE / RIR' },
+  peak:  { 1: 'Intensité max',    2: 'Phase de force',   3: 'Peaking / Tapering' },
+  apre:  { 1: 'Poids adaptatif',  2: 'Ajustement auto',  3: 'APRE Protocol' },
+  srs:   { 1: 'Forme du jour',    2: 'Score de forme',   3: 'SRS / ACWR' },
+  deload:{ 1: 'Semaine légère',   2: 'Semaine de récup', 3: 'Deload / Washout' },
+  acwr:  { 1: 'Charge accumulée', 2: 'Ratio de charge',  3: 'ACWR' },
+  mrv:   { 1: 'Volume max',       2: 'Volume maximum',   3: 'MRV (Max Recoverable Volume)' },
+  mev:   { 1: 'Volume mini',      2: 'Volume minimum',   3: 'MEV (Minimum Effective Volume)' }
+};
+
+function getVocab(key) {
+  var level = (typeof db !== 'undefined' && db.user && db.user.vocabLevel) || 2;
+  return (VOCAB[key] && VOCAB[key][level]) || key;
+}
+
 // ── ANALYSE ATHLÈTE — Seuils scientifiques ────────────────────
 // Ratios de force cibles (powerbuilder)
 var STRENGTH_RATIO_TARGETS = {

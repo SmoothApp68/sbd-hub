@@ -118,7 +118,7 @@ let db = (() => {
             const parsed = JSON.parse(old);
             if (parsed.logs && parsed.user) {
               localStorage.setItem(STORAGE_KEY, old);
-              console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
+              if (typeof DEBUG !== 'undefined' && DEBUG) console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
               break;
             }
           } catch(e) {}
@@ -16696,7 +16696,7 @@ function generateWeeklyPlan() {
     var selectedDays = params.selectedDays || allDays.slice(0, freq);
 
     // Debug: trace what the generator received and what it derives.
-    if (typeof DEBUG === 'undefined' || DEBUG) {
+    if (typeof DEBUG !== 'undefined' && DEBUG) {
       console.log('[generateWeeklyPlan] mode=' + mode + ' freq=' + freq + ' phase=' + phase);
       console.log('[generateWeeklyPlan] routine=', JSON.parse(JSON.stringify(routine)));
       console.log('[generateWeeklyPlan] selectedDays=', selectedDays);

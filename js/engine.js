@@ -1076,14 +1076,15 @@ function getCyclePhase() {
 function getMRV(muscle, gender) {
   var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
   var base = (VOLUME_LANDMARKS[key] || {}).MRV || 15;
-  return gender === 'female' ? Math.round(base * 1.15) : base;
+  var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
+  return isFemale ? Math.round(base * 1.15) : base;
 }
 
 function getMEV(muscle, gender) {
   var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
   var base = (VOLUME_LANDMARKS[key] || {}).MEV || 6;
-  // MEV légèrement plus élevé pour femmes (récupèrent mieux)
-  return gender === 'female' ? Math.round(base * 1.1) : base;
+  var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
+  return isFemale ? Math.round(base * 1.1) : base;
 }
 
 // ── Validation silencieuse du niveau utilisateur ──────────────

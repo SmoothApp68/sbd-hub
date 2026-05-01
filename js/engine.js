@@ -1008,6 +1008,14 @@ function calcIPFGLTotal(bench, squat, deadlift, bw) {
   if (total <= 0) return 0;
   return calcIPFGL(total, bw);
 }
+// ── Katch-McArdle (plus précis pour athlètes musclés avec % gras connu) ─────
+function calcTDEEKatchMcArdle(bw, fatPct, activityFactor, weeklySecondaryTRIMP) {
+  var lbm = bw * (1 - (fatPct || 15) / 100);
+  var bmr = 370 + (21.6 * lbm);
+  var cardioKcal = (weeklySecondaryTRIMP || 0) * 0.5;
+  return Math.round(bmr * (activityFactor || 1.6) + cardioKcal);
+}
+
 function calcTDEE(bw, tonnage7d) {
   if (!bw || bw <= 0) return 2300;
 
@@ -1021,9 +1029,18 @@ function calcTDEE(bw, tonnage7d) {
   var height = db.user && db.user.height;
   var age = db.user && db.user.age;
   var gender = db.user && db.user.gender;
+  var fatPct = db.user && db.user.fatPct;
 
-  // Mifflin-St Jeor si taille et âge disponibles
-  if (height && age) {
+  // Katch-McArdle si % gras connu (plus précis pour les athlètes)
+  if (fatPct && fatPct > 0 && fatPct < 50) {
+    var weeklyActivities = db.user && db.user.secondaryActivities;
+    var weeklyTRIMP = 0;
+    if (weeklyActivities && typeof calcActivityTRIMP === 'function') {
+      weeklyActivities.forEach(function(a) { weeklyTRIMP += calcActivityTRIMP(a); });
+    }
+    baseTDEE = calcTDEEKatchMcArdle(bw, fatPct, activityFactor, weeklyTRIMP);
+  } else if (height && age) {
+    // Mifflin-St Jeor si taille et âge disponibles
     var bmr = 10 * bw + 6.25 * height - 5 * age + (gender === 'female' ? -161 : 5);
     baseTDEE = Math.round(bmr * activityFactor);
   } else {

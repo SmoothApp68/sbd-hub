@@ -2731,11 +2731,6 @@ function activateFreezeManual() {
   }
 }
 
-function getStreakFreezes() {
-  db.gamification = db.gamification || {};
-  return db.gamification.streakFreezes || 0;
-}
-
 function getXPLevel(xp) {
   let lvl = XP_LEVELS[0];
   for (const l of XP_LEVELS) {
@@ -13267,45 +13262,6 @@ function toggleCoachHist(idx) {
   if (card) card.classList.toggle('open');
 }
 
-function checkProgressionSuggestions() {
-  var suggestions = [];
-  var recentLogs = getLogsInRange(21);
-  var exoSessions = {};
-  recentLogs.forEach(function(log) {
-    log.exercises.forEach(function(e) {
-      if (!exoSessions[e.name]) exoSessions[e.name] = [];
-      exoSessions[e.name].push({ maxReps: Math.max.apply(null, (e.series||[]).map(function(s){return s.reps||0;}).concat([0])) });
-    });
-  });
-  Object.keys(exoSessions).forEach(function(name) {
-    var sessions = exoSessions[name];
-    if (sessions.length < 3) return;
-    var exoData = null;
-    var keys = Object.keys(EXO_DATABASE);
-    for (var i = 0; i < keys.length; i++) {
-      if (matchExoName(EXO_DATABASE[keys[i]].name, name)) { exoData = EXO_DATABASE[keys[i]]; break; }
-    }
-    if (!exoData || !exoData.progressions) return;
-    var currentIdx = exoData.progressions.indexOf(exoData.id);
-    if (currentIdx < 0 || currentIdx >= exoData.progressions.length - 1) return;
-    var easyCount = sessions.filter(function(s) { return s.maxReps >= 15; }).length;
-    if (easyCount >= 3) {
-      var nextExo = EXO_DATABASE[exoData.progressions[currentIdx + 1]];
-      if (nextExo) suggestions.push({ from: exoData.name, to: nextExo.name, reason: 'Tu fais 15+ reps régulièrement — prêt pour la suite !' });
-    }
-  });
-  return suggestions;
-}
-
-function renderProgressionSuggestions() {
-  // Legacy — now inline in renderCoachToday()
-}
-
-function renderCoachBriefing() {
-  // Legacy — now handled by renderCoachToday()
-  renderCoachToday();
-}
-
 function upsertReport(type, html, sessionId, weekKey) {
   if (!db.reports) db.reports = [];
   if (weekKey) {
@@ -13768,54 +13724,6 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
 }
 
 // ── Deload automatique (banner UI : mésocycle / readiness / plateaus) ──
-function _shouldDeloadLegacy() {
-  const reasons = [];
-  if (db.weeklyPlan && db.weeklyPlan.week === 4) {
-    const planAge = db.weeklyPlan.generated_at ? (Date.now() - new Date(db.weeklyPlan.generated_at).getTime()) / 86400000 : 0;
-    if (planAge >= 5) reasons.push('Fin de mésocycle (4 semaines)');
-  }
-  const last3 = (db.readiness || []).slice(-3);
-  if (last3.length === 3 && last3.every(r => r.score < 40)) {
-    reasons.push('Readiness < 40 pendant 3 jours consécutifs');
-  }
-  const bigLifts = ['squat', 'bench', 'deadlift'];
-  const plateaus = bigLifts.filter(l => detectPlateau(l));
-  if (plateaus.length >= 2) {
-    reasons.push('Plateau sur ' + plateaus.join(' et '));
-  }
-  return { needed: reasons.length > 0, reasons };
-}
-
-let _deloadDismissed = false;
-function renderDeloadBanner() {
-  const el = document.getElementById('deloadBanner');
-  if (!el) return;
-  if (_deloadDismissed || db._deloadAccepted) { el.innerHTML = ''; return; }
-  const { needed, reasons } = _shouldDeloadLegacy();
-  if (!needed) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div style="background:rgba(10,132,255,0.12);border:1px solid var(--blue);border-radius:12px;padding:12px;margin:8px 0;">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px;">🔄 Semaine de deload recommandée ' + renderGlossaryTip('deload') + '</div>' +
-    '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">' + reasons.join(' · ') + '</div>' +
-    '<div style="display:flex;gap:8px;">' +
-    '<button onclick="acceptDeload()" style="flex:1;padding:6px;background:var(--blue);border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Accepter</button>' +
-    '<button onclick="dismissDeload()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Ignorer</button>' +
-    '</div></div>';
-}
-
-function acceptDeload() {
-  db._deloadAccepted = true;
-  saveDB();
-  showToast('🔄 Deload activé — charges et volume réduits');
-  const el = document.getElementById('deloadBanner');
-  if (el) el.innerHTML = '';
-}
-
-function dismissDeload() {
-  _deloadDismissed = true;
-  const el = document.getElementById('deloadBanner');
-  if (el) el.innerHTML = '';
-}
-
 function isDeloadWeek() {
   return !!db._deloadAccepted;
 }
@@ -15168,26 +15076,6 @@ function getProgressiveCardioDuration(baseDuration) {
 }
 
 // Addendum F: Pain Tracker
-function wpCheckPainScore(score) {
-  score = parseInt(score) || 0;
-  if (score <= 2) return { proceed: true, note: '', modifySession: false };
-  if (score <= 5) return {
-    proceed: true,
-    note: '⚠️ Courbatures détectées — échauffement prolongé recommandé (+5min). Les DOMS disparaissent avec la chaleur.',
-    modifySession: false
-  };
-  return {
-    proceed: false,
-    note: '🛑 Douleur articulaire détectée (score ' + score + '/10). Séance de force annulée — mobilité forcée.',
-    modifySession: true, forceMobility: true,
-    mobilitySession: [
-      { name: 'Échauffement articulaire', type: 'time', sets: [{ durationSec: 600, isWarmup: false }] },
-      { name: 'Yoga & Mobilité',          type: 'time', sets: [{ durationSec: 1800, isWarmup: false }] },
-      { name: 'Marche active',            type: 'cardio', sets: [{ durationMin: 20, isWarmup: false }] }
-    ]
-  };
-}
-
 // Addendum D: Séances manquées
 function wpCountMissedSessions() {
   var routine = getRoutine();
@@ -16344,12 +16232,6 @@ function generateWeeklyPlan() {
   }
 }
 
-
-function regenerateWeeklyPlan() {
-  showModal('Régénérer le programme ?', 'Régénérer', 'var(--blue)', () => {
-    db.weeklyPlan = null; saveDB(); renderWeeklyPlanUI(); generateWeeklyPlan();
-  });
-}
 
 function wpSelectDay(day) { wpSelectedDay = day; renderWeeklyPlanUI(); }
 

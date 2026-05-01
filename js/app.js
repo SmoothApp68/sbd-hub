@@ -285,7 +285,25 @@ window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
-function debouncedCloudSync() { if (!cloudSyncEnabled) return; clearTimeout(syncDebounceTimer); syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000); }
+function debouncedCloudSync() {
+  if (!cloudSyncEnabled) return;
+  if (!navigator.onLine) {
+    db.pendingSync = true;
+    _flushDB();
+    return;
+  }
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => { syncToCloud(true); }, 2000);
+}
+
+window.addEventListener('online', function() {
+  if (db.pendingSync && cloudSyncEnabled) {
+    db.pendingSync = false;
+    _flushDB();
+    if (typeof syncToCloud === 'function') syncToCloud(true);
+    if (typeof showToast === 'function') showToast('📶 Connexion rétablie — séance synchronisée');
+  }
+});
 function generateId() { return Math.random().toString(36).substr(2, 9); }
 
 // ── GAMIFICATION — defensive init ───────────────────────────
@@ -20132,6 +20150,9 @@ function goFinishWorkout() {
   db.logs.push(session);
   try { updateActiveProgramStats(); } catch(e) {}
   saveDBNow();
+  if (!navigator.onLine) {
+    showToast('📱 Séance sauvegardée localement — sync au retour du réseau');
+  }
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}
@@ -20452,6 +20473,10 @@ async function postLoginSync() {
   try {
     if (typeof syncFromCloud === 'function') await syncFromCloud();
     else if (typeof loadFromCloud === 'function') await loadFromCloud();
+    if (db.pendingSync && navigator.onLine) {
+      db.pendingSync = false;
+      if (typeof syncToCloud === 'function') syncToCloud(true);
+    }
     if (typeof ensureProfile === 'function') await ensureProfile();
     if (!db.social || !db.social.onboardingCompleted) {
       setTimeout(function() {

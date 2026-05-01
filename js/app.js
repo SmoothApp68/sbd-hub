@@ -1006,115 +1006,12 @@ function gotoObStep(stepId) {
   }
 }
 
-function getObSteps() {
-  return OB_STEP_SEQUENCE.slice();
-}
-
 function updateObProgress(stepId) {
   var steps = OB_STEP_SEQUENCE;
   var current = steps.indexOf(stepId) + 1;
   document.getElementById('ob-progress').innerHTML = steps.map(function(_, i) {
     return '<div class="ob-dot' + (i < current ? ' active' : '') + '"></div>';
   }).join('');
-}
-
-function obNext(step) {
-  const s = String(step);
-  if (s === '1') {
-    const name = document.getElementById('ob-name').value.trim();
-    if (!name) { showToast('Entre ton prénom 😊'); return; }
-    db.user.name  = name;
-    db.user.bw    = parseFloat(document.getElementById('ob-bw').value) || 0;
-    db.user.level = document.getElementById('ob-level').value;
-    db.user.gender = document.getElementById('ob-gender').value || 'unspecified';
-    saveDB();
-    gotoObStep('1b');
-  } else if (s === '1b') {
-    if (!db.user.trainingMode) { showToast('Choisis un objectif'); return; }
-    // Only show SBD records if powerlifting or force_athletique
-    if (modeFeature('showSBDCards')) {
-      const defaults = { debutant:{b:80,s:100,d:120}, intermediaire:{b:100,s:130,d:150}, avance:{b:130,s:160,d:190}, competiteur:{b:150,s:180,d:220} };
-      const d = defaults[db.user.level] || defaults.intermediaire;
-      document.getElementById('ob-bench-tgt').value = d.b;
-      document.getElementById('ob-squat-tgt').value = d.s;
-      document.getElementById('ob-dead-tgt').value  = d.d;
-      gotoObStep('2');
-    } else {
-      gotoObStep('3');
-    }
-  } else if (s === '2') {
-    const benchPR = parseFloat(document.getElementById('ob-bench-pr').value) || 0;
-    const squatPR = parseFloat(document.getElementById('ob-squat-pr').value) || 0;
-    const deadPR  = parseFloat(document.getElementById('ob-dead-pr').value)  || 0;
-    if (benchPR > 0) db.bestPR.bench = benchPR;
-    if (squatPR > 0) db.bestPR.squat = squatPR;
-    if (deadPR  > 0) db.bestPR.deadlift = deadPR;
-    db.user.onboardingPRs = { bench: benchPR, squat: squatPR, deadlift: deadPR };
-    db.user.targets = {
-      bench:    parseFloat(document.getElementById('ob-bench-tgt').value) || db.user.targets.bench,
-      squat:    parseFloat(document.getElementById('ob-squat-tgt').value) || db.user.targets.squat,
-      deadlift: parseFloat(document.getElementById('ob-dead-tgt').value)  || db.user.targets.deadlift
-    };
-    saveDB();
-    gotoObStep('3');
-  } else if (s === '3') {
-    gotoObStep(obPath === 'import' ? '4b' : '4a');
-  } else if (s === '4a') {
-    gotoObStep('5');
-  } else if (s === '4b') {
-    const text = document.getElementById('ob-manual-prog').value.trim();
-    if (!text) { showToast('Colle ton programme d\'abord'); return; }
-    const parsed = parseManualProgram(text);
-    db.routine = parsed;
-    db.routineExos = db.routineExos || {};
-    for (const [day, content] of Object.entries(parsed)) {
-      if (content && content.toLowerCase() !== 'repos' && content.toLowerCase() !== 'off') {
-        db.routineExos[day] = content.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
-      }
-    }
-    saveDB();
-    obFinish();
-  } else if (s === '5') {
-    // Après fréquence → choix des jours
-    renderDayPicker();
-    gotoObStep('5b');
-  } else if (s === '5b') {
-    if (obSelectedDays.length !== obFreq) {
-      document.getElementById('ob-days-hint').textContent =
-        obSelectedDays.length < obFreq
-          ? 'Sélectionne encore ' + (obFreq - obSelectedDays.length) + ' jour(s)'
-          : 'Tu as sélectionné trop de jours — retire-en ' + (obSelectedDays.length - obFreq);
-      return;
-    }
-    gotoObStep('6');
-  } else if (s === '6') {
-    // Mat choisi → durée
-    gotoObStep('6b');
-  } else if (s === '6b') {
-    // Durée → blessures
-    gotoObStep('6c');
-  } else if (s === '6c') {
-    // Blessures → cardio
-    gotoObStep('6d');
-  } else if (s === '6d') {
-    // Cardio → compétition si force_athletique, sinon générer
-    if (db.user.trainingMode === 'force_athletique') {
-      gotoObStep('6e');
-    } else {
-      doGenerateProgram();
-    }
-  } else if (s === '6e') {
-    // Compétition → générer
-    obCompDate = document.getElementById('ob-comp-date').value || null;
-    obCompType = document.getElementById('ob-comp-type').value;
-    doGenerateProgram();
-  }
-}
-
-function obSkip(step) {
-  var s = String(step);
-  if (s === '2') gotoObStep('3');
-  else if (s === '3' || s === '4b' || s === '7') obFinish();
 }
 
 // ── ONBOARDING V2 — STEP SAVE FUNCTIONS ──────────────────────
@@ -1342,12 +1239,6 @@ function renderObSummary(generated) {
   });
   html += '</div></div>';
   el.innerHTML = html;
-}
-
-function selectPath(p) {
-  obPath = p;
-  document.getElementById('path-btn-generate').classList.toggle('selected', p === 'generate');
-  document.getElementById('path-btn-import').classList.toggle('selected', p === 'import');
 }
 
 function selectDur(min) {
@@ -1733,19 +1624,6 @@ function obDrop(e, i) {
 function obDragEnd() {
   document.querySelectorAll('.ob-priority-item').forEach(el => { el.classList.remove('dragging'); el.classList.remove('drag-over'); });
   obDragSrc = null;
-}
-
-// Preview import manuel
-function previewManualImport() {
-  const text = document.getElementById('ob-manual-prog').value.trim();
-  const preview = document.getElementById('ob-import-preview');
-  if (!text) { preview.style.display = 'none'; return; }
-  const parsed = parseManualProgram(text);
-  preview.style.display = 'block';
-  preview.innerHTML = DAYS_FULL.map(day => {
-    const val = parsed[day]; if (!val) return '';
-    return '<div class="ob-import-day-row"><span class="ob-import-day-badge">'+day.substring(0,3)+'</span><span class="ob-import-day-content">'+val+'</span></div>';
-  }).filter(Boolean).join('');
 }
 
 function parseManualProgram(text) {
@@ -6776,154 +6654,6 @@ function renderSBDTotal() {
   }
 }
 
-// ============================================================
-// PRs récents — 3 derniers records
-// ============================================================
-function renderRecentPRs() {
-  var el = document.getElementById('recentPRsContent');
-  if (!el) return;
-  // Chercher les PRs les plus récents dans les logs
-  var prs = [];
-  for (var i = db.logs.length - 1; i >= 0 && prs.length < 5; i--) {
-    var log = db.logs[i];
-    (log.exercises || []).forEach(function(exo) {
-      if (exo.maxRM > 0 && prs.length < 3) {
-        // Vérifier si c'est vraiment un PR (meilleur de l'historique pour cet exo)
-        var isBest = true;
-        for (var j = 0; j < db.logs.length; j++) {
-          if (j === i) continue;
-          var otherLog = db.logs[j];
-          (otherLog.exercises || []).forEach(function(otherExo) {
-            if (otherExo.name === exo.name && otherExo.maxRM >= exo.maxRM && otherLog.timestamp < log.timestamp) {
-              isBest = false;
-            }
-          });
-        }
-        if (isBest && !prs.some(function(p) { return p.name === exo.name; })) {
-          prs.push({ name: exo.name, value: Math.round(exo.maxRM), date: log.shortDate || log.date });
-        }
-      }
-    });
-  }
-  if (prs.length === 0) {
-    el.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--sub);padding:8px 0;">Aucun PR enregistré pour le moment</div>';
-    return;
-  }
-  var h = '';
-  prs.forEach(function(pr) {
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">';
-    h += '<div style="font-size:13px;font-weight:600;color:var(--text);">' + pr.name + '</div>';
-    h += '<div style="text-align:right;"><span style="font-size:15px;font-weight:700;color:var(--accent);">' + pr.value + 'kg</span>';
-    h += '<span style="font-size:10px;color:var(--sub);margin-left:6px;">' + pr.date + '</span></div>';
-    h += '</div>';
-  });
-  el.innerHTML = h;
-}
-
-// ============================================================
-// Heatmap muscles 2D — vue avant/arrière (gardé pour usage pendant séance)
-// ============================================================
-function renderMuscleHeatmap2D() {
-  var container = document.getElementById('muscleHeatmap2D');
-  if (!container) return;
-
-  // Calculer les séries par muscle cette semaine
-  var now = new Date();
-  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - dayOfWeek);
-  weekStart.setHours(0, 0, 0, 0);
-
-  var muscleSets = {};
-  (db.logs || []).forEach(function(log) {
-    var d = new Date(log.date);
-    if (d >= weekStart && d <= now) {
-      (log.exercises || []).forEach(function(exo) {
-        var setsCount = (exo.sets || []).length;
-        // Chercher l'exercice dans la base pour obtenir les muscles
-        var exoData = null;
-        if (typeof EXO_DATABASE !== 'undefined') {
-          for (var key in EXO_DATABASE) {
-            var e = EXO_DATABASE[key];
-            if (e.name === exo.name || (e.nameAlt && e.nameAlt.indexOf(exo.name) >= 0)) {
-              exoData = e;
-              break;
-            }
-          }
-        }
-        if (exoData) {
-          (exoData.primaryMuscles || []).forEach(function(m) {
-            var mNorm = _normalizeMuscle(m);
-            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + setsCount;
-          });
-          (exoData.secondaryMuscles || []).forEach(function(m) {
-            var mNorm = _normalizeMuscle(m);
-            muscleSets[mNorm] = (muscleSets[mNorm] || 0) + Math.ceil(setsCount * 0.5);
-          });
-        }
-      });
-    }
-  });
-
-  var maxSets = 0;
-  for (var k in muscleSets) if (muscleSets[k] > maxSets) maxSets = muscleSets[k];
-  if (maxSets === 0) maxSets = 1;
-
-  // Mapper les muscles normalisés aux parties du corps SVG
-  var muscleMapping = {
-    front: {
-      'pecs': { path: 'M55,60 Q75,55 95,60 L95,80 Q75,85 55,80 Z', label: 'Pecs' },
-      'epaules': { path: 'M45,50 Q50,45 55,50 L55,65 Q50,65 45,60 Z M95,50 Q100,45 105,50 L105,65 Q100,65 95,60 Z', label: 'Épaules' },
-      'biceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Biceps' },
-      'abdos': { path: 'M60,82 Q75,80 90,82 L90,115 Q75,118 60,115 Z', label: 'Abdos' },
-      'quadriceps': { path: 'M55,120 Q65,118 75,120 L72,160 Q63,162 55,160 Z M75,120 Q85,118 95,120 L95,160 Q87,162 78,160 Z', label: 'Quadriceps' },
-    },
-    back: {
-      'dos': { path: 'M55,55 Q75,50 95,55 L95,85 Q75,90 55,85 Z', label: 'Dos' },
-      'trapezes': { path: 'M60,40 Q75,38 90,40 L88,55 Q75,52 62,55 Z', label: 'Trapèzes' },
-      'triceps': { path: 'M40,65 Q42,60 45,65 L45,90 Q42,95 40,90 Z M105,65 Q108,60 110,65 L110,90 Q108,95 105,90 Z', label: 'Triceps' },
-      'lombaires': { path: 'M62,87 Q75,85 88,87 L88,105 Q75,108 62,105 Z', label: 'Lombaires' },
-      'fessiers': { path: 'M55,108 Q75,105 95,108 L95,125 Q75,128 55,125 Z', label: 'Fessiers' },
-      'ischiojambiers': { path: 'M55,128 Q65,125 75,128 L72,165 Q63,167 55,165 Z M75,128 Q85,125 95,128 L95,165 Q87,167 78,165 Z', label: 'Ischio' },
-      'mollets': { path: 'M58,168 Q65,165 72,168 L70,190 Q65,192 60,190 Z M78,168 Q85,165 92,168 L90,190 Q85,192 80,190 Z', label: 'Mollets' },
-    }
-  };
-
-  function getColor(intensity) {
-    if (intensity <= 0) return 'rgba(255,255,255,0.04)';
-    if (intensity < 0.25) return 'rgba(59,130,246,0.2)';
-    if (intensity < 0.5) return 'rgba(59,130,246,0.4)';
-    if (intensity < 0.75) return 'rgba(59,130,246,0.65)';
-    return 'rgba(59,130,246,0.9)';
-  }
-
-  function renderSide(side, muscles) {
-    var paths = '';
-    for (var muscleKey in muscles) {
-      var m = muscles[muscleKey];
-      var intensity = (muscleSets[muscleKey] || 0) / maxSets;
-      var color = getColor(intensity);
-      var setsNum = muscleSets[muscleKey] || 0;
-      paths += '<path d="' + m.path + '" fill="' + color + '" stroke="rgba(255,255,255,0.1)" stroke-width="0.5">' +
-               '<title>' + m.label + ': ' + setsNum + ' séries</title></path>';
-    }
-    // Silhouette
-    var silhouette = '<path d="M75,8 Q80,8 82,12 Q84,16 82,20 Q80,24 78,26 L80,28 Q88,30 92,35 L105,45 Q110,48 108,55 L110,60 Q112,65 110,70 L112,85 Q112,95 110,95 L105,95 Q102,95 105,65 L95,50 Q90,45 90,55 L95,120 Q98,125 95,130 L95,165 Q96,170 95,175 L95,190 Q95,198 90,200 L82,200 Q78,198 78,195 L78,170 Q78,165 75,163 Q72,165 72,170 L72,195 Q72,198 68,200 L60,200 Q55,198 55,190 L55,175 Q54,170 55,165 L55,130 Q52,125 55,120 L60,55 Q60,45 55,50 L45,65 Q48,95 45,95 L40,95 Q38,95 38,85 L40,70 Q38,65 40,60 L42,55 Q40,48 45,45 L58,35 Q62,30 70,28 L72,26 Q70,24 68,20 Q66,16 68,12 Q70,8 75,8 Z" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
-    return '<div style="text-align:center;"><div style="font-size:10px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">' + side + '</div>' +
-           '<svg viewBox="30 0 90 210" width="130" height="220" style="overflow:visible;">' + silhouette + paths + '</svg></div>';
-  }
-
-  container.innerHTML = renderSide('Avant', muscleMapping.front) + renderSide('Arrière', muscleMapping.back);
-
-  // Légende sous la heatmap
-  var legendHtml = '<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:10px;color:var(--sub);">';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.2);"></span> Peu</span>';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.5);"></span> Moyen</span>';
-  legendHtml += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(59,130,246,0.9);"></span> Beaucoup</span>';
-  legendHtml += '</div>';
-  container.innerHTML += legendHtml;
-}
-
 function _normalizeMuscle(name) {
   var n = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (n.indexOf('pec') >= 0 || n.indexOf('chest') >= 0) return 'pecs';
@@ -10125,46 +9855,6 @@ function pbGetRecoText(pct) {
   return '<strong>Accent Volume ('+pct+'%) :</strong> composé en 6-8 reps @ 72-75%, accessoires en 15-20 reps. Phase d\'accumulation.';
 }
 
-function pbSliderInit() {
-  var track = document.getElementById('pb-track');
-  var fill = document.getElementById('pb-fill');
-  var thumb = document.getElementById('pb-thumb');
-  var lbl = document.getElementById('pb-pct-lbl');
-  var reco = document.getElementById('pb-reco');
-  if (!track || !fill || !thumb) return;
-  var dragging = false;
-
-  function setVal(pct) {
-    pct = Math.max(10, Math.min(90, pct));
-    fill.style.width = pct+'%';
-    thumb.style.left = 'calc('+pct+'% - 11px)';
-    if (lbl) lbl.textContent = Math.round(pct)+'% force';
-    if (reco) reco.innerHTML = pbGetRecoText(Math.round(pct));
-    if (!db.user) db.user = {};
-    db.user.pbAccent = Math.round(pct);
-    if (typeof saveDB === 'function') saveDB();
-  }
-
-  track.addEventListener('click', function(e) {
-    var r = track.getBoundingClientRect();
-    setVal(((e.clientX-r.left)/r.width)*100);
-  });
-  thumb.addEventListener('mousedown', function(){ dragging=true; });
-  thumb.addEventListener('touchstart', function(){ dragging=true; }, {passive:true});
-  document.addEventListener('mouseup', function(){ dragging=false; });
-  document.addEventListener('touchend', function(){ dragging=false; });
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    var r = track.getBoundingClientRect();
-    setVal(((e.clientX-r.left)/r.width)*100);
-  });
-  document.addEventListener('touchmove', function(e) {
-    if (!dragging) return;
-    var r = track.getBoundingClientRect();
-    setVal(((e.touches[0].clientX-r.left)/r.width)*100);
-  }, {passive:true});
-}
-
 // ── PROGRAMME — MODE MUSCULATION ──
 function renderProgramMusculation() {
   var mode = (db.user && db.user.trainingMode) || 'musculation';
@@ -10428,8 +10118,6 @@ function progSetCompetDate(date) {
 }
 
 function progEditDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
-function progRemoveDay(day) { if (typeof showToast==='function') showToast('Modifie le planning pour supprimer ce jour'); }
-function progAddDay(day) { if (typeof pbEditExisting==='function') pbEditExisting(); }
 function progShowDayDetail(day) {
   var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
   var wpDay = wpDays.find(function(d) { return d.day === day; });

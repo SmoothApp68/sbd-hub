@@ -18055,8 +18055,17 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '<div class="exo-thumb" onclick="showExoDemo(\'\',\'' + exo.name.replace(/'/g, "\\'") + '\')">';
     h += '<div class="exo-thumb-placeholder">' + getExoPlaceholderIcon(exo.name) + '</div></div>';
   }
+  var _suggestedW = 0;
+  (exo.sets || []).some(function(s) { if (s.type !== 'warmup' && s.weight > 0) { _suggestedW = s.weight; return true; } return false; });
   h += '<div class="go-exo-info"><div class="go-exo-name">' + exo.name + '</div>';
-  if (e1rm > 0) h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg ' + renderGlossaryTip('e1rm') + '</div>';
+  if (e1rm > 0) {
+    h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg ' + renderGlossaryTip('e1rm');
+    if (_suggestedW > 0) {
+      h += ' <button onclick="showWeightExplanation(\'' + exo.name.replace(/'/g, "\\'") + '\',' + _suggestedW + ')" '
+        + 'style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;padding:0 2px;vertical-align:middle;" title="Pourquoi ce poids ?">ℹ️</button>';
+    }
+    h += '</div>';
+  }
   h += '</div>';
   h += '<button class="go-exo-menu" onclick="goShowExoMenu(' + exoIdx + ')">⋮</button>';
   h += '</div>';
@@ -19751,9 +19760,147 @@ function goShowExoMenu(exoIdx) {
 }
 
 function goReplaceExercise(exoIdx) {
-  // Open search, but when selected, replace instead of add
-  window._goReplaceIdx = exoIdx;
-  goOpenSearch();
+  if (!activeWorkout || !activeWorkout.exercises[exoIdx]) return;
+  var exo = activeWorkout.exercises[exoIdx];
+  var currentWeight = 0;
+  (exo.sets || []).forEach(function(s) { if (!s.isWarmup && s.weight > 0 && !currentWeight) currentWeight = s.weight; });
+  showSubstituteMenu(exoIdx, exo.name, currentWeight || 0);
+}
+
+// ── Feature 2: Smart Exercise Substitution ──────────────────────────────────
+
+function getSubstitutes(exoName) {
+  var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
+  var group = meta ? meta.muscleGroup : null;
+  if (!group && typeof EXO_DATABASE !== 'undefined') {
+    Object.keys(EXO_DATABASE).some(function(id) {
+      var e = EXO_DATABASE[id];
+      if (e && e.name === exoName && e.primaryMuscles && e.primaryMuscles.length) {
+        group = e.primaryMuscles[0]; return true;
+      }
+      return false;
+    });
+  }
+
+  var substitutes = [];
+  if (typeof EXO_DATABASE !== 'undefined' && group) {
+    Object.keys(EXO_DATABASE).forEach(function(id) {
+      var exo = EXO_DATABASE[id];
+      if (!exo || !exo.primaryMuscles || !exo.primaryMuscles.length) return;
+      if (exo.name === exoName) return;
+      if (exo.primaryMuscles[0] !== group) return;
+      var ratio = typeof getTransferRatio === 'function'
+        ? getTransferRatio(exoName, exo.name) : null;
+      substitutes.push({ name: exo.name, ratio: ratio || 0.85, category: exo.category || 'accessory' });
+    });
+  }
+
+  return substitutes.sort(function(a, b) { return b.ratio - a.ratio; }).slice(0, 5);
+}
+
+function showSubstituteMenu(exoIdx, exoName, currentWeight) {
+  var subs = getSubstitutes(exoName);
+
+  var html = '<div style="padding:4px 0;">';
+  if (subs.length === 0) {
+    html += '<div style="text-align:center;padding:16px;color:var(--sub);font-size:13px;">Aucun substitut trouvé</div>';
+  } else {
+    html += '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">Charge adaptée automatiquement selon l\'équivalence</div>';
+    subs.forEach(function(sub) {
+      var adaptedWeight = currentWeight > 0 ? Math.round(currentWeight * sub.ratio / 2.5) * 2.5 : 0;
+      var weightLabel = adaptedWeight > 0 ? adaptedWeight + 'kg' : '—';
+      html += '<div onclick="substituteExercise(' + exoIdx + ',\'' + sub.name.replace(/'/g, "\\'") + '\',' + adaptedWeight + ');closeModal()" '
+        + 'style="display:flex;justify-content:space-between;align-items:center;'
+        + 'padding:10px 12px;border-radius:10px;margin-bottom:6px;cursor:pointer;'
+        + 'background:var(--surface);border:1px solid var(--border);">';
+      html += '<div><div style="font-size:13px;font-weight:600;">' + escapeHtml(sub.name) + '</div>'
+        + '<div style="font-size:11px;color:var(--sub);">' + Math.round(sub.ratio * 100) + '% d\'équivalence</div></div>';
+      html += '<div style="font-size:14px;font-weight:700;color:var(--accent);">' + weightLabel + '</div>';
+      html += '</div>';
+    });
+  }
+  html += '<div onclick="window._goReplaceIdx=' + exoIdx + ';closeModal();goOpenSearch()" '
+    + 'style="text-align:center;padding:10px;font-size:12px;color:var(--sub);cursor:pointer;margin-top:4px;">'
+    + '🔍 Recherche manuelle</div>';
+  html += '</div>';
+
+  showInfoModal('Remplacer ' + escapeHtml(exoName), html);
+}
+
+function substituteExercise(exoIdx, newExoName, adaptedWeight) {
+  if (!activeWorkout || !activeWorkout.exercises[exoIdx]) return;
+  var exo = activeWorkout.exercises[exoIdx];
+  exo.originalName = exo.name;
+  exo.name = newExoName;
+  exo.isSubstituted = true;
+  exo.exoId = null;
+  Object.keys(EXO_DATABASE || {}).some(function(id) {
+    if (EXO_DATABASE[id].name === newExoName) { exo.exoId = id; return true; }
+    return false;
+  });
+  (exo.sets || []).forEach(function(s) {
+    if (!s.isWarmup && !s.completed && adaptedWeight > 0) s.weight = adaptedWeight;
+  });
+  goAutoSave();
+  goRequestRender();
+  showToast('✅ Remplacé par ' + newExoName + (adaptedWeight > 0 ? ' @ ' + adaptedWeight + 'kg' : ''));
+}
+
+// ── Feature 1: Weight Explanation ───────────────────────────────────────────
+
+function explainWeight(exoName, suggestedWeight) {
+  var lines = [];
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var e1rm = typeof getTopE1RMForLift === 'function' ? getTopE1RMForLift(exoName) : 0;
+  if (!e1rm) {
+    var allE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {};
+    e1rm = allE1RMs[exoName] ? allE1RMs[exoName].e1rm : 0;
+  }
+  var lastSession = typeof goGetPreviousSets === 'function' ? goGetPreviousSets(exoName) : null;
+  var wellbeing = db.todayWellbeing;
+
+  lines.push('📊 Calcul du poids suggéré');
+  lines.push('');
+
+  if (suggestedWeight > 0 && e1rm > 0) {
+    var pct = Math.round(suggestedWeight / e1rm * 100);
+    lines.push('• e1RM estimé : ' + Math.round(e1rm) + 'kg');
+    lines.push('• Intensité phase ' + phase + ' : ' + pct + '%');
+  } else if (e1rm > 0) {
+    lines.push('• e1RM estimé : ' + Math.round(e1rm) + 'kg');
+  }
+
+  if (lastSession && lastSession.series && lastSession.series.length) {
+    var lastSet = lastSession.series[lastSession.series.length - 1];
+    if (lastSet && lastSet.rpe) {
+      lines.push('• RPE dernière séance : ' + lastSet.rpe);
+      if (lastSet.rpe <= 7) lines.push('  → Charge augmentée (RPE bas)');
+      if (lastSet.rpe >= 9) lines.push('  → Charge maintenue (RPE élevé)');
+    }
+  }
+
+  if (wellbeing) {
+    if (wellbeing.sleep <= 2) lines.push('• Sommeil insuffisant : -5%');
+    if (wellbeing.rhrAlert) lines.push('• FC repos élevée : ' + (wellbeing.rhrAlert.msg || '').split('.')[0]);
+  }
+
+  if (db.user && db.user.weightCut && db.user.weightCut.active) {
+    lines.push('• Weight Cut actif : charges réduites (LPF)');
+  }
+
+  if (typeof getCycleCoeff === 'function') {
+    var cc = getCycleCoeff();
+    if (cc < 1.0) lines.push('• Phase cycle menstruel : -' + Math.round((1 - cc) * 100) + '%');
+  }
+
+  return lines.join('\n');
+}
+
+function showWeightExplanation(exoName, suggestedWeight) {
+  var text = explainWeight(exoName, suggestedWeight);
+  showInfoModal('Pourquoi ' + suggestedWeight + 'kg ?',
+    '<div style="font-family:monospace;font-size:12px;line-height:1.8;white-space:pre-wrap;color:var(--text);">'
+    + escapeHtml(text) + '</div>');
 }
 
 function goShowSetTypeSheet(exoIdx, setIdx) {
@@ -20515,6 +20662,8 @@ function goFinishWorkout() {
   _nTonnage = session.volume || 0;
   sendLocalNotification('✅ Séance terminée', 'Bravo ! ' + _nSets + ' séries, ' + (_nTonnage >= 1000 ? (_nTonnage/1000).toFixed(1) + 't' : _nTonnage + 'kg') + ' de volume');
 
+  checkAndShowPRCelebration(session);
+
   showToast('✅ Séance sauvegardée');
   renderGoTab();
 
@@ -20551,6 +20700,67 @@ function goFinishWorkout() {
       'Plus tard'
     );
   }, 1500);
+}
+
+// ── Feature 3: PR Celebration (Gemini Q4.1) ────────────────────────────────
+
+function checkAndShowPRCelebration(session) {
+  if (!session || !session.exercises) return;
+  var prevLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
+  if (prevLogs.length === 0) return;
+
+  var newPRs = [];
+  (session.exercises || []).forEach(function(exo) {
+    if (!exo.maxRM || exo.isSubstituted) return;
+    var prevBest = 0;
+    prevLogs.forEach(function(ol) {
+      (ol.exercises || []).forEach(function(oe) {
+        if (oe.name === exo.name && (oe.maxRM || 0) > prevBest) prevBest = oe.maxRM || 0;
+      });
+    });
+    if (exo.maxRM > prevBest && prevBest > 0) {
+      newPRs.push({
+        name: exo.name,
+        value: Math.round(exo.maxRM),
+        prev: Math.round(prevBest),
+        gain: Math.round(exo.maxRM - prevBest)
+      });
+    }
+  });
+
+  if (newPRs.length === 0) return;
+  setTimeout(function() { showPRCelebration(newPRs, session.id); }, 600);
+}
+
+function showPRCelebration(prs, sessionId) {
+  var html = '<div style="text-align:center;padding:16px 0;">';
+  html += '<div style="font-size:48px;margin-bottom:8px;">🏆</div>';
+  html += '<div style="font-size:20px;font-weight:800;margin-bottom:4px;">Nouveau Record !</div>';
+  html += '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">Tu viens de repousser tes limites</div>';
+
+  prs.forEach(function(pr) {
+    html += '<div style="background:rgba(50,215,75,0.1);border:1px solid rgba(50,215,75,0.3);'
+      + 'border-radius:14px;padding:14px;margin-bottom:10px;">';
+    html += '<div style="font-size:13px;color:var(--sub);margin-bottom:4px;">' + escapeHtml(pr.name) + '</div>';
+    html += '<div style="font-size:28px;font-weight:800;color:var(--green);">' + pr.value + 'kg</div>';
+    html += '<div style="font-size:12px;color:var(--sub);">Précédent : ' + pr.prev + 'kg · Gain : +' + pr.gain + 'kg</div>';
+    html += '</div>';
+  });
+
+  html += '<div style="display:flex;gap:8px;margin-top:16px;">';
+  html += '<button onclick="closeModal()" '
+    + 'style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);'
+    + 'border-radius:12px;color:var(--text);font-size:13px;cursor:pointer;">Fermer</button>';
+  html += '<button onclick="closeModal();if(typeof shareSessionToFeed===\'function\')shareSessionToFeed(\'' + (sessionId || '') + '\')" '
+    + 'style="flex:1;padding:12px;background:var(--green);border:none;'
+    + 'border-radius:12px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">📤 Partager</button>';
+  html += '</div></div>';
+
+  showModal('', html);
+
+  sendLocalNotification('Nouveau PR 🏆', prs.map(function(p) {
+    return p.name + ' : ' + p.value + 'kg (+' + p.gain + 'kg)';
+  }).join(', '));
 }
 
 function goConfirmDiscard() {

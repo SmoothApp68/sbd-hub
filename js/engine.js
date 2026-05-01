@@ -2672,6 +2672,26 @@ function analyzeAthleteProfile() {
     sections.push({ title: '⌚ Données Garmin', alerts: rhrAlerts });
   }
 
+  // ── Weight Cut alerts (TÂCHE 19 ÉTAPE C) ──
+  if (db.user && db.user.weightCut && db.user.weightCut.active) {
+    var wcAlerts = typeof getWeightCutAlerts === 'function' ? getWeightCutAlerts() : [];
+    var wc19 = db.user.weightCut;
+    var cutWeek = typeof getWeightCutWeek === 'function' ? getWeightCutWeek() : 0;
+    var wcProgress = wc19.startWeight && wc19.currentWeight
+      ? Math.round((wc19.startWeight - wc19.currentWeight) * 10) / 10
+      : 0;
+    var wcTarget = wc19.targetWeight && wc19.startWeight
+      ? Math.round((wc19.startWeight - wc19.targetWeight) * 10) / 10
+      : 0;
+    wcAlerts.unshift({
+      severity: 'info',
+      title: '⚖️ Weight Cut — Semaine ' + cutWeek,
+      text: 'Progression : -' + wcProgress + 'kg / -' + wcTarget + 'kg objectif. '
+        + 'Les charges sont automatiquement ajustées selon ta perte de poids.'
+    });
+    if (wcAlerts.length) sections.push({ title: '⚖️ Weight Cut', alerts: wcAlerts });
+  }
+
   return sections;
 }
 
@@ -2832,4 +2852,107 @@ function shouldShow5RepTest(exoName) {
   return name.includes('squat') || name.includes('bench') || name.includes('développé')
     || name.includes('soulevé') || name.includes('deadlift') || name.includes('presse')
     || name.includes('rowing') || name.includes('pull');
+}
+
+// ── WEIGHT CUT MODULE (TÂCHE 19) ────────────────────────────────────────────
+
+var WEIGHT_CUT_COEFFICIENTS = {
+  squat:    1.0,
+  bench:    1.5,
+  deadlift: 0.5
+};
+
+var WEIGHT_CUT_RATES = {
+  phase1: 0.010,
+  phase2: 0.012,
+  danger: 0.015
+};
+
+function calcWeightCutPenalty(liftType) {
+  if (!db.user || !db.user.weightCut || !db.user.weightCut.active) return 1.0;
+  var wc = db.user.weightCut;
+  if (!wc.startWeight || !wc.currentWeight) return 1.0;
+
+  var lossPct = (wc.startWeight - wc.currentWeight) / wc.startWeight;
+  if (lossPct < 0.02) return 1.0;
+
+  var weeklyLoss = wc.weeklyLogs && wc.weeklyLogs.length > 0
+    ? (wc.weeklyLogs[wc.weeklyLogs.length - 1].loss || 0)
+    : 0;
+  var isWaterCut = weeklyLoss > 0.012;
+  var waterMultiplier = isWaterCut ? 1.5 : 1.0;
+
+  var coeff = WEIGHT_CUT_COEFFICIENTS[liftType] || 1.0;
+  var penalty = lossPct * coeff * waterMultiplier;
+  penalty = Math.min(penalty, 0.20);
+
+  return Math.round((1 - penalty) * 100) / 100;
+}
+
+function getWeightCutWeek() {
+  if (!db.user || !db.user.weightCut || !db.user.weightCut.active) return 0;
+  var wc = db.user.weightCut;
+  if (!wc.startDate) return 0;
+  var days = Math.floor((Date.now() - new Date(wc.startDate).getTime()) / 86400000);
+  return Math.floor(days / 7) + 1;
+}
+
+function detectMuscleLoss() {
+  if (!db.user || !db.user.weightCut || !db.user.weightCut.active) return false;
+  var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75 };
+  if (srs.score < 65) return false;
+  var squatTrend = typeof getE1RMTrend === 'function' ? getE1RMTrend('squat', 14) : null;
+  return squatTrend !== null && squatTrend < -0.05 && srs.score >= 65;
+}
+
+function getWeightCutAlerts() {
+  if (!db.user || !db.user.weightCut || !db.user.weightCut.active) return [];
+  var wc = db.user.weightCut;
+  var alerts = [];
+
+  var weeklyLogs = wc.weeklyLogs || [];
+  if (weeklyLogs.length > 0) {
+    var lastLoss = weeklyLogs[weeklyLogs.length - 1].loss || 0;
+    if (lastLoss > WEIGHT_CUT_RATES.danger) {
+      alerts.push({
+        severity: 'danger',
+        title: '⚠️ Perte trop rapide',
+        text: 'Tu perds ' + Math.round(lastLoss * 100) + '% de ton poids par semaine. '
+          + 'Au-delà de 1.5%, tu risques de perdre du muscle. Ralentis le déficit.'
+      });
+    }
+  }
+
+  if (detectMuscleLoss()) {
+    alerts.push({
+      severity: 'danger',
+      title: '🔴 Perte musculaire suspectée',
+      text: 'Ton SRS est bon mais tes performances baissent. '
+        + 'Signal de fonte musculaire. Augmente les protéines et réduis le déficit.'
+    });
+  }
+
+  if (wc.competitionDate) {
+    var daysToCompet = Math.floor(
+      (new Date(wc.competitionDate) - Date.now()) / 86400000
+    );
+    if (daysToCompet === 2) {
+      alerts.push({
+        severity: 'info',
+        title: '💧 J-2 avant compétition',
+        text: 'Commence la rehydratation progressive. '
+          + 'Les performances reviennent à 90-95% en 24-48h après réhydratation.'
+      });
+    }
+    if (daysToCompet === 1) {
+      alerts.push({
+        severity: 'info',
+        title: '🏆 J-1 : Protocole final',
+        text: 'Dernier cut hydrique si nécessaire. '
+          + 'Rehydratation complète cette nuit. Glucides élevés demain matin.'
+      });
+    }
+  }
+
+  return alerts;
 }

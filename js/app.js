@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -201,6 +201,8 @@ let db = (() => {
     // Notifications J1→J30 (TÂCHE 15)
     if (!p.notificationsSent) p.notificationsSent = [];
     if (p.user.onboardingDate === undefined) p.user.onboardingDate = p.user.onboarded ? null : null;
+    // Weight Cut (TÂCHE 19)
+    if (p.user.weightCut === undefined) p.user.weightCut = null;
     // Smart streak (TÂCHE 13)
     if (p.smartStreak === undefined) p.smartStreak = 0;
     if (p.smartStreakRecord === undefined) p.smartStreakRecord = 0;
@@ -12701,6 +12703,67 @@ function renderSettingsProfile() {
     + '</div>'
     + (_lastRHR ? '<div style="margin-top:10px;font-size:12px;color:var(--sub);">❤️ FC repos : <strong style="color:var(--text);">' + _lastRHR.value + ' bpm</strong></div>' : '')
     + '</div>';
+
+  // ── Weight Cut section (TÂCHE 19 ÉTAPE D) ──
+  var _showWC = (db.user.programParams && (db.user.programParams.goals || []).includes('competition'))
+    || (db.user.weightCut && db.user.weightCut.active);
+  var _wcSection = document.getElementById('settingsWeightCut');
+  if (_showWC) {
+    if (!_wcSection) {
+      _wcSection = document.createElement('div');
+      _wcSection.id = 'settingsWeightCut';
+      _wcSection.style.cssText = 'margin-top:14px;';
+      var _wcParent = document.getElementById('settingsHealthConnect');
+      if (_wcParent && _wcParent.parentNode) _wcParent.parentNode.insertBefore(_wcSection, _wcParent.nextSibling);
+    }
+    var wc = db.user.weightCut || {};
+    var isActive = wc.active || false;
+    var wcHtml = '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">⚖️ Weight Cut</div>';
+    wcHtml += '<div style="background:var(--surface);border-radius:12px;padding:12px;">';
+    wcHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    wcHtml += '<div style="font-size:13px;font-weight:600;">Mode Weight Cut</div>';
+    wcHtml += '<button onclick="toggleWeightCut()" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;'
+      + 'background:' + (isActive ? 'rgba(255,159,10,0.2)' : 'var(--surface)') + ';'
+      + 'border:1px solid ' + (isActive ? 'var(--orange)' : 'var(--border)') + ';'
+      + 'color:' + (isActive ? 'var(--orange)' : 'var(--sub)') + ';">'
+      + (isActive ? '⚡ Actif' : 'Inactif') + '</button>';
+    wcHtml += '</div>';
+    if (isActive) {
+      wcHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">';
+      wcHtml += '<div><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Poids de départ</div>'
+        + '<input type="number" id="wc-start-weight" step="0.1" value="' + (wc.startWeight || db.user.bw || '') + '" '
+        + 'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;box-sizing:border-box;"></div>';
+      wcHtml += '<div><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Objectif (kg)</div>'
+        + '<input type="number" id="wc-target-weight" step="0.1" value="' + (wc.targetWeight || '') + '" '
+        + 'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;box-sizing:border-box;"></div>';
+      wcHtml += '</div>';
+      wcHtml += '<div style="margin-bottom:10px;"><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Poids actuel (kg)</div>'
+        + '<input type="number" id="wc-current-weight" step="0.1" value="' + (wc.currentWeight || db.user.bw || '') + '" '
+        + 'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;box-sizing:border-box;">'
+        + '</div>';
+      wcHtml += '<div style="margin-bottom:12px;"><div style="font-size:11px;color:var(--sub);margin-bottom:4px;">Date de compétition</div>'
+        + '<input type="date" id="wc-competition-date" value="' + (wc.competitionDate || '') + '" '
+        + 'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;box-sizing:border-box;">'
+        + '</div>';
+      if (wc.startWeight && wc.targetWeight && wc.currentWeight) {
+        var _totalToLose = wc.startWeight - wc.targetWeight;
+        var _lost = wc.startWeight - wc.currentWeight;
+        var _pct = _totalToLose > 0 ? Math.min(100, Math.round(_lost / _totalToLose * 100)) : 0;
+        wcHtml += '<div style="margin-bottom:12px;">';
+        wcHtml += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-bottom:4px;">'
+          + '<span>-' + Math.round(_lost * 10) / 10 + 'kg</span>'
+          + '<span>Objectif: -' + Math.round(_totalToLose * 10) / 10 + 'kg</span></div>';
+        wcHtml += '<div style="height:6px;background:var(--border);border-radius:3px;">'
+          + '<div style="height:100%;width:' + _pct + '%;background:var(--orange);border-radius:3px;transition:width 0.3s;"></div>'
+          + '</div></div>';
+      }
+      wcHtml += '<button onclick="saveWeightCutData()" style="width:100%;padding:10px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Enregistrer</button>';
+    }
+    wcHtml += '</div>';
+    _wcSection.innerHTML = wcHtml;
+  } else if (_wcSection) {
+    _wcSection.innerHTML = '';
+  }
 }
 
 // ── Health Connect / Garmin (TÂCHE 17) ──────────────────────
@@ -12846,6 +12909,67 @@ function menstrualResetToday() {
   debouncedCloudSync();
   renderSettingsProfile();
   showToast('🌸 Cycle réinitialisé — J1 aujourd\'hui');
+}
+
+// ── Weight Cut CRUD (TÂCHE 19 ÉTAPE E) ──
+
+function toggleWeightCut() {
+  if (!db.user.weightCut) {
+    db.user.weightCut = {
+      active: false, startWeight: db.user.bw || 80,
+      targetWeight: null, currentWeight: db.user.bw || 80,
+      startDate: null, competitionDate: null, weeklyLogs: []
+    };
+  }
+  db.user.weightCut.active = !db.user.weightCut.active;
+  if (db.user.weightCut.active) {
+    db.user.weightCut.startDate = new Date().toISOString().split('T')[0];
+    db.user.weightCut.startWeight = db.user.bw || 80;
+    db.user.weightCut.currentWeight = db.user.bw || 80;
+    showToast('⚖️ Mode Weight Cut activé');
+  } else {
+    showToast('Weight Cut désactivé');
+  }
+  saveDB();
+  renderSettingsProfile();
+}
+
+function saveWeightCutData() {
+  if (!db.user.weightCut) return;
+  var startWeight = parseFloat((document.getElementById('wc-start-weight') || {}).value);
+  var targetWeight = parseFloat((document.getElementById('wc-target-weight') || {}).value);
+  var currentWeight = parseFloat((document.getElementById('wc-current-weight') || {}).value);
+  var competitionDate = (document.getElementById('wc-competition-date') || {}).value;
+
+  if (!startWeight || !targetWeight || !currentWeight) {
+    showToast('⚠️ Remplis tous les champs');
+    return;
+  }
+  if (targetWeight >= startWeight) {
+    showToast('⚠️ L\'objectif doit être inférieur au poids de départ');
+    return;
+  }
+
+  var prevWeight = db.user.weightCut.currentWeight || startWeight;
+  var weeklyLoss = (prevWeight - currentWeight) / prevWeight;
+
+  db.user.weightCut.startWeight = startWeight;
+  db.user.weightCut.targetWeight = targetWeight;
+  db.user.weightCut.currentWeight = currentWeight;
+  db.user.weightCut.competitionDate = competitionDate || null;
+
+  if (!db.user.weightCut.weeklyLogs) db.user.weightCut.weeklyLogs = [];
+  db.user.weightCut.weeklyLogs.push({
+    date: new Date().toISOString().split('T')[0],
+    weight: currentWeight,
+    loss: weeklyLoss
+  });
+
+  db.user.bw = currentWeight;
+  saveDB();
+  debouncedCloudSync();
+  showToast('✅ Weight Cut mis à jour');
+  renderSettingsProfile();
 }
 
 function setProgramMode(mode) {
@@ -15159,6 +15283,23 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
     }
     baseWeight = Math.max(20, baseWeight);
+  }
+
+  // Weight Cut Leverage Penalty (TÂCHE 19 ÉTAPE B)
+  if (db.user && db.user.weightCut && db.user.weightCut.active) {
+    var _wcLiftType = typeof getSBDType === 'function' ? getSBDType(realName) : null;
+    var _wcPenalty = typeof calcWeightCutPenalty === 'function'
+      ? calcWeightCutPenalty(_wcLiftType) : 1.0;
+    if (_wcPenalty < 1.0) {
+      baseWeight = Math.round(baseWeight * _wcPenalty / 2.5) * 2.5;
+      baseWeight = Math.max(20, baseWeight);
+    }
+  }
+
+  // Combined penalty floor: never drop below 60% of the pre-penalty base
+  if (db.exercises && db.exercises[realName] && db.exercises[realName]._prepenaltyBase) {
+    var _floor = Math.round(db.exercises[realName]._prepenaltyBase * 0.60 / 2.5) * 2.5;
+    if (baseWeight < _floor) baseWeight = _floor;
   }
 
   // APRE cap par phase — évite les PRs non intentionnels hors peak

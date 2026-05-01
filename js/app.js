@@ -193,6 +193,9 @@ let db = (() => {
     // PhysioManager — migration cycle menstruel
     if (p.user.menstrualEnabled === undefined) p.user.menstrualEnabled = false;
     if (p.user.menstrualData === undefined) p.user.menstrualData = null;
+    // Smart streak (TÂCHE 13)
+    if (p.smartStreak === undefined) p.smartStreak = 0;
+    if (p.smartStreakRecord === undefined) p.smartStreakRecord = 0;
     // Onboarding V3 — profile flags
     if (p.user.vocabLevel === undefined) p.user.vocabLevel = 2;
     if (p.user.obProfile === undefined) p.user.obProfile = null;
@@ -2797,6 +2800,56 @@ function calcStreak() {
 
   if (DEBUG) console.log('[calcStreak] FINAL streak=' + streak);
 
+  return streak;
+}
+
+// ── SMART STREAK — TÂCHE 13 ─────────────────────────────────
+// Ne se casse que sur les jours de séance prévus ratés.
+// Les jours de repos planifiés ne brisent pas le streak.
+
+function calcSmartStreak() {
+  var routine = typeof getRoutine === 'function' ? getRoutine() : {};
+  var logs = db.logs || [];
+  // Build set of days that had a session (YYYY-MM-DD)
+  var trainedDays = new Set();
+  logs.forEach(function(log) {
+    var ts = log.timestamp || (log.date ? new Date(log.date).getTime() : 0);
+    if (!ts) return;
+    trainedDays.add(new Date(ts).toISOString().split('T')[0]);
+  });
+
+  var streak = 0;
+  var today = new Date();
+  // Check up to 365 days back
+  for (var i = 0; i < 365; i++) {
+    var d = new Date(today);
+    d.setDate(d.getDate() - i);
+    var dateStr = d.toISOString().split('T')[0];
+    var dayName = DAYS_FULL[d.getDay()]; // getDay() returns 0=Sun
+    var routineLabel = routine[dayName] || '';
+    var isRestDay = !routineLabel || /repos/i.test(routineLabel);
+
+    if (isRestDay) {
+      // Rest day — streak continues, no training required
+      continue;
+    } else {
+      // Training day — check if trained
+      if (i === 0) {
+        // Today — don't break yet (they might still train)
+        if (trainedDays.has(dateStr)) streak++;
+        continue;
+      }
+      if (trainedDays.has(dateStr)) {
+        streak++;
+      } else {
+        // Missed a planned session — streak breaks
+        break;
+      }
+    }
+  }
+
+  db.smartStreak = streak;
+  if (streak > (db.smartStreakRecord || 0)) db.smartStreakRecord = streak;
   return streak;
 }
 
@@ -6988,7 +7041,7 @@ function renderPerfCard() {
   if (db.user.trainingMode === 'bien_etre') {
     const logs7d = getLogsInRange(7);
     const sessionsWeek = logs7d.length;
-    const streak = db.questStreak || 0;
+    const streak = typeof calcSmartStreak === 'function' ? calcSmartStreak() : (db.questStreak || 0);
     const lastBody = (db.body || []).slice(-1)[0];
     const bw = lastBody ? lastBody.bw : (db.user.bw || 0);
     const kcal = lastBody ? (lastBody.kcal || 0) : 0;

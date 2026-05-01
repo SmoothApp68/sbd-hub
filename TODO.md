@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : 9.2/10
-- SW version : v127
+- SW version : v128
 - Objectif : lancement multi-users juillet 2026
 
 ## ✅ Complété
@@ -108,6 +108,18 @@
   - UI Réglages : toggle + saisie poids + barre de progrès + date compétition
   - toggleWeightCut() / saveWeightCutData() CRUD → app.js
   - Supabase migration needed : non (données dans db.user.weightCut via sbd_profiles)
+
+- [x] FEATURE Activités Secondaires : Total Load Management — commit 5ef1632
+  - ACTIVITY_SPEC_COEFFICIENTS (11 types) + RECOVERY_ACTIVITIES + ACTIVITY_TRIMP_THRESHOLDS
+  - calcActivityTRIMP() : TRIMP = durée × RPE × C_spec (trail bonus dénivelé)
+  - getRecoveryBonus() : yoga/pilates hier → +5% Readiness dans SRS
+  - getActivityPenaltyFlags() : volume/shoulder/warning flags selon TRIMP 24h
+  - getDominantTrainingMode() + checkSwimmingInterference() → analyzeAthleteProfile()
+  - wpComputeWorkWeight() : -3% si charge secondaire lourde (≥400 TRIMP)
+  - computeSRS() : recoveryBonus + forceActiveRecovery si ACWR > 1.6 ou TRIMP critique
+  - renderCoachTodayHTML() : carte '⚡ Budget Récupération' (barre empilée muscu/activités)
+  - calcTRIMPFromGarminZones() : mapping zones FC Garmin → TRIMP
+  - SW v128
 
 ### Gemini Q4.1 — Features critiques
 - [x] FEATURE 1 : Transparence algorithmique (ℹ️ Pourquoi ce poids ?) — commit 64b9fe9

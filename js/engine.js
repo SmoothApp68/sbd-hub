@@ -2796,3 +2796,25 @@ function getRestWithCycleAdjust(baseRestSec) {
   if (!phase || !MENSTRUAL_PHASES[phase]) return baseRestSec;
   return Math.round(baseRestSec * MENSTRUAL_PHASES[phase].restMultiplier);
 }
+
+// ── 5-Rep Test calibration (TÂCHE 12) ────────────────────────
+// Pour profils sans PRs (debutant, yoga, senior, reeducation)
+// Sécurité S1 : coefficient 0.85 sur le e1RM calculé
+
+function calcE1RMFrom5RepTest(weight, reps) {
+  if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
+  var e1rm = weight / (1.0278 - (0.0278 * reps));
+  return Math.round(e1rm * 0.85 / 2.5) * 2.5;
+}
+
+function shouldShow5RepTest(exoName) {
+  if (!isColdStart()) return false;
+  var profile = db.user && db.user.obProfile;
+  var skipPRs = db.user && db.user.skipPRs;
+  if (!skipPRs && profile !== 'debutant' && profile !== 'yoga' && profile !== 'senior' && profile !== 'reeducation') return false;
+  // Only show for main compound lifts
+  var name = (exoName || '').toLowerCase();
+  return name.includes('squat') || name.includes('bench') || name.includes('développé')
+    || name.includes('soulevé') || name.includes('deadlift') || name.includes('presse')
+    || name.includes('rowing') || name.includes('pull');
+}

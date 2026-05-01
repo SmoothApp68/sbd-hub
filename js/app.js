@@ -16911,7 +16911,55 @@ function buildGoIdleHtml() {
 
   var draftHtml = hasDraft ? '<button class="go-btn-sec" style="margin-top:10px;" onclick="goRestoreDraft()">📂 Reprendre brouillon</button>' : '';
 
-  return toggleHtml + '<div id="go-recap-view">' + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+  // 5-Rep Test card — cold start + beginner profile (TÂCHE 12)
+  var fiveRepHtml = '';
+  if (typeof isColdStart === 'function' && isColdStart() && db.user && db.user.skipPRs) {
+    var _5repExercises = db.weeklyPlan && db.weeklyPlan.days
+      ? (db.weeklyPlan.days.find(function(d) { return d.day === today && !d.rest; }) || {}).exercises || []
+      : [];
+    var _5repTargets = _5repExercises
+      .filter(function(e) { return typeof shouldShow5RepTest === 'function' && shouldShow5RepTest(e.name); })
+      .map(function(e) { return e.name; })
+      .slice(0, 3);
+    if (_5repTargets.length > 0) {
+      fiveRepHtml = '<div style="background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.25);border-radius:14px;padding:16px;margin-bottom:14px;">';
+      fiveRepHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🎯 Calibration — trouve tes poids de départ</div>';
+      fiveRepHtml += '<div style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:14px;">Pour chaque exercice ci-dessous, prends un poids avec lequel tu peux faire environ 5 reps propres. L\'app calcule automatiquement tes poids d\'entraînement.</div>';
+      _5repTargets.forEach(function(name) {
+        var exId = 'frt-' + name.replace(/\s+/g, '_');
+        fiveRepHtml += '<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:8px;">';
+        fiveRepHtml += '<div style="font-size:12px;font-weight:700;margin-bottom:8px;">' + name + '</div>';
+        fiveRepHtml += '<div style="display:flex;gap:8px;align-items:center;">';
+        fiveRepHtml += '<input type="number" id="' + exId + '-w" placeholder="Poids (kg)" min="5" max="500" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">';
+        fiveRepHtml += '<input type="number" id="' + exId + '-r" placeholder="Reps" min="1" max="20" value="5" style="width:70px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">';
+        fiveRepHtml += '<button onclick="saveFiveRepTest(\'' + name.replace(/'/g, "\\'") + '\',\'' + exId + '\')" style="padding:8px 12px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">OK</button>';
+        fiveRepHtml += '</div></div>';
+      });
+      fiveRepHtml += '</div>';
+    }
+  }
+
+  return toggleHtml + '<div id="go-recap-view">' + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+}
+
+function saveFiveRepTest(exoName, inputIdPrefix) {
+  var wEl = document.getElementById(inputIdPrefix + '-w');
+  var rEl = document.getElementById(inputIdPrefix + '-r');
+  var weight = parseFloat((wEl && wEl.value) || 0);
+  var reps   = parseInt((rEl && rEl.value) || 5);
+  if (weight <= 0) { showToast('Entre le poids utilisé'); return; }
+  if (reps < 1 || reps > 20) { showToast('Entre un nombre de reps entre 1 et 20'); return; }
+  var e1rm = typeof calcE1RMFrom5RepTest === 'function' ? calcE1RMFrom5RepTest(weight, reps) : 0;
+  if (e1rm <= 0) { showToast('Calcul impossible'); return; }
+  if (!db.exercises) db.exercises = {};
+  if (!db.exercises[exoName]) db.exercises[exoName] = {};
+  db.exercises[exoName].shadowWeight = e1rm;
+  db.exercises[exoName].fiveRepCalibrated = true;
+  db.exercises[exoName].fiveRepDate = new Date().toISOString().split('T')[0];
+  saveDB();
+  debouncedCloudSync();
+  showToast('✅ ' + exoName + ' — poids calibré à ' + e1rm + ' kg');
+  renderGoIdleView();
 }
 
 function goSwitchView(view) {

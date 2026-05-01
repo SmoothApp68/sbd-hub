@@ -2692,6 +2692,12 @@ function analyzeAthleteProfile() {
     if (wcAlerts.length) sections.push({ title: '⚖️ Weight Cut', alerts: wcAlerts });
   }
 
+  // ── Swimming interference check ──
+  var swimAlert = typeof checkSwimmingInterference === 'function' ? checkSwimmingInterference() : null;
+  if (swimAlert) {
+    sections.push({ title: '🏊 Natation vs Musculation', alerts: [{ severity: swimAlert.severity, title: '⚠️ Interférence natation', text: swimAlert.msg }] });
+  }
+
   return sections;
 }
 
@@ -2955,4 +2961,197 @@ function getWeightCutAlerts() {
   }
 
   return alerts;
+}
+
+// ── TOTAL LOAD MANAGEMENT — Secondary Activities (Feature: activities) ──────
+
+var ACTIVITY_SPEC_COEFFICIENTS = {
+  natation:          0.8,
+  course:            1.2,
+  trail:             1.4,
+  randonnee:         1.0,
+  velo:              1.0,
+  yoga:              0.5,
+  pilates:           0.5,
+  ski:               1.3,
+  arts_martiaux:     1.6,
+  sports_collectifs: 1.5,
+  autre:             1.0
+};
+
+var RECOVERY_ACTIVITIES = ['yoga', 'pilates'];
+var RECOVERY_RPE_THRESHOLD = 3;
+
+var ACTIVITY_INTERFERENCE_RULES = {
+  natation: {
+    shoulderVolumePenalty: 0.20,
+    intensityThreshold: 6
+  },
+  course: {
+    weeklyTRIMPLimit: 3 * 30 * 6 * 1.2,
+    legVolumePenalty: 0.30
+  },
+  arts_martiaux: {
+    incompatibleWithPhases: ['peak', 'intensification']
+  }
+};
+
+var GARMIN_ZONE_WEIGHTS = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 6 };
+
+var ACTIVITY_TRIMP_THRESHOLDS = {
+  light:    150,
+  moderate: 300,
+  heavy:    400,
+  critical: 600
+};
+
+function calcActivityTRIMP(activity) {
+  if (!activity) return 0;
+  var type = activity.type || 'autre';
+  var duration = activity.duration || 45;
+  var intensity = activity.intensity || 3;
+  var rpe = intensity * 1.6;
+  var cSpec = ACTIVITY_SPEC_COEFFICIENTS[type] || 1.0;
+
+  if (RECOVERY_ACTIVITIES.includes(type) || rpe < RECOVERY_RPE_THRESHOLD) return 0;
+
+  var trailBonus = 1.0;
+  if (type === 'trail' && activity.elevGain) {
+    trailBonus = 1 + (activity.elevGain / 1000);
+  }
+
+  return Math.round(duration * rpe * cSpec * trailBonus);
+}
+
+function getSecondaryTRIMPLast24h() {
+  var activities = (db.user && db.user.activities) || [];
+  var total = 0;
+  var today = new Date().getDay();
+  var yesterday = ((today - 1) + 7) % 7;
+  var dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var yesterdayName = dayNames[yesterday];
+
+  activities.forEach(function(act) {
+    if (!act.fixed) return;
+    if ((act.days || []).includes(yesterdayName)) {
+      total += calcActivityTRIMP(act);
+    }
+  });
+
+  return total;
+}
+
+function getTodaySecondaryActivities() {
+  var today = new Date().getDay();
+  var dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var todayName = dayNames[today];
+  var activities = (db.user && db.user.activities) || [];
+  return activities.filter(function(act) {
+    return act.fixed && (act.days || []).includes(todayName);
+  });
+}
+
+function getRecoveryBonus() {
+  var yesterday = ((new Date().getDay() - 1) + 7) % 7;
+  var dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var yesterdayName = dayNames[yesterday];
+  var activities = (db.user && db.user.activities) || [];
+  var hasRecovery = activities.some(function(act) {
+    return act.fixed
+      && (act.days || []).includes(yesterdayName)
+      && (RECOVERY_ACTIVITIES.includes(act.type) || (act.intensity || 5) <= 2);
+  });
+  return hasRecovery ? 0.05 : 0.0;
+}
+
+function calcTRIMPFromGarminZones(zonesData, activityType) {
+  if (!zonesData) return 0;
+  var cSpec = ACTIVITY_SPEC_COEFFICIENTS[activityType] || 1.0;
+  var total = 0;
+  Object.keys(zonesData).forEach(function(zone) {
+    var minutes = zonesData[zone] || 0;
+    var weight = GARMIN_ZONE_WEIGHTS[parseInt(zone)] || 1;
+    total += minutes * weight;
+  });
+  return Math.round(total * cSpec);
+}
+
+function getActivityPenaltyFlags() {
+  var trimp24h = getSecondaryTRIMPLast24h();
+  var todayActivities = getTodaySecondaryActivities();
+  var flags = [];
+
+  if (trimp24h >= ACTIVITY_TRIMP_THRESHOLDS.heavy) {
+    flags.push({
+      type: 'volume',
+      reduction: 1,
+      removeAccessories: true,
+      reason: 'Activité intense hier (' + trimp24h + ' TRIMP)'
+    });
+  } else if (trimp24h >= ACTIVITY_TRIMP_THRESHOLDS.moderate) {
+    flags.push({
+      type: 'volume',
+      reduction: 0.5,
+      removeAccessories: false,
+      reason: 'Activité modérée hier (' + trimp24h + ' TRIMP)'
+    });
+  }
+
+  todayActivities.forEach(function(act) {
+    var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : '';
+    var rule = ACTIVITY_INTERFERENCE_RULES[act.type];
+    if (rule && rule.incompatibleWithPhases && rule.incompatibleWithPhases.includes(phase)) {
+      flags.push({
+        type: 'warning',
+        reason: (act.type === 'arts_martiaux' ? 'Arts martiaux' : act.type)
+          + ' incompatible avec la phase ' + phase
+          + '. Risque de saturation du SNC avant les tentatives lourdes.'
+      });
+    }
+    if (act.type === 'natation' && rule && (act.intensity || 0) > rule.intensityThreshold) {
+      flags.push({
+        type: 'shoulder',
+        reduction: rule.shoulderVolumePenalty,
+        reason: 'Natation intense → volume accessoires épaules réduit de 20%'
+      });
+    }
+  });
+
+  return { trimp24h: trimp24h, flags: flags };
+}
+
+function getDominantTrainingMode() {
+  var activities = (db.user && db.user.activities) || [];
+  var secondaryTRIMPWeekly = activities.reduce(function(total, act) {
+    if (!act.fixed) return total;
+    var daysPerWeek = (act.days || []).length;
+    return total + calcActivityTRIMP(act) * daysPerWeek;
+  }, 0);
+
+  var muscuSessionsPerWeek = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
+  var muscuTRIMPWeekly = muscuSessionsPerWeek * 300;
+  var secondaryRatio = secondaryTRIMPWeekly / (secondaryTRIMPWeekly + muscuTRIMPWeekly + 1);
+
+  if (secondaryRatio > 0.5) return 'cardio_dominant';
+  if (secondaryRatio > 0.3) return 'balanced';
+  return 'strength_dominant';
+}
+
+function checkSwimmingInterference() {
+  var activities = (db.user && db.user.activities) || [];
+  var swimActivity = activities.find(function(a) { return a.type === 'natation'; });
+  if (!swimActivity) return null;
+
+  var weeklySwimTRIMP = calcActivityTRIMP(swimActivity) * (swimActivity.days || []).length;
+  var weeklyMuscuTRIMP = ((db.user && db.user.programParams && db.user.programParams.freq) || 4) * 300;
+
+  if (weeklySwimTRIMP > weeklyMuscuTRIMP * 0.30) {
+    return {
+      severity: 'warning',
+      msg: 'Ton volume de natation (' + Math.round(weeklySwimTRIMP) + ' TRIMP/sem) '
+        + 'représente plus de 30% de ta charge totale. '
+        + 'Risque d\'interférence avec la progression au Bench Press.'
+    };
+  }
+  return null;
 }

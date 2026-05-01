@@ -384,7 +384,33 @@ function computeSRS() {
   var cycleCoeff = typeof getCycleCoeff === 'function' ? getCycleCoeff() : 1.0;
   raw = raw * cycleCoeff;
 
+  // Recovery Bonus — yoga/pilates/activité légère hier → +5% Readiness
+  var recoveryBonus = typeof getRecoveryBonus === 'function' ? getRecoveryBonus() : 0;
+  if (recoveryBonus > 0) {
+    raw = Math.min(100, raw * (1 + recoveryBonus));
+  }
+
   var score = Math.round(Math.min(100, Math.max(0, raw)));
+
+  // ACWR critical or secondary TRIMP critical → cap score + forceActiveRecovery
+  var activityFlags = typeof getActivityPenaltyFlags === 'function'
+    ? getActivityPenaltyFlags() : { trimp24h: 0, flags: [] };
+  var criticalThreshold = typeof ACTIVITY_TRIMP_THRESHOLDS !== 'undefined'
+    ? ACTIVITY_TRIMP_THRESHOLDS.critical : 600;
+  if (acwr > 1.6 || activityFlags.trimp24h > criticalThreshold) {
+    return {
+      score: Math.min(score, 40),
+      acwr: Math.round(acwr * 100) / 100,
+      acwrScore: Math.round(acwrScore),
+      subjScore: Math.round(subjScore),
+      trendScore: Math.round(trendScore),
+      peakMode: phase === 'peak',
+      cyclePhase: typeof getCurrentMenstrualPhase === 'function' ? getCurrentMenstrualPhase() : null,
+      forceActiveRecovery: true,
+      reason: 'Charge totale critique — séance de récupération recommandée',
+      label: '🔴 Charge critique — récupération active'
+    };
+  }
 
   return {
     score: score,

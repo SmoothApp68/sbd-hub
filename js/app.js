@@ -13340,7 +13340,38 @@ function renderCoachTodayHTML() {
     html += '</div>';
   }
 
-  // ── 0b. DIAGNOSTIC ATHLÉTIQUE ──
+  // ── 0b. BUDGET RÉCUPÉRATION — Total Load Management ──
+  if (typeof getActivityPenaltyFlags === 'function') {
+    var _actData = getActivityPenaltyFlags();
+    if (_actData.trimp24h > 0 || _actData.flags.length > 0) {
+      var _srs = typeof computeSRS === 'function' ? computeSRS() : { score: 60 };
+      var _muscuTRIMP = Math.round(300 * (_srs.score / 100)); // estimation basée sur le SRS
+      var _secTRIMP = _actData.trimp24h;
+      var _totalTRIMP = _muscuTRIMP + _secTRIMP + 1;
+      var _muscuPct = Math.round(_muscuTRIMP / _totalTRIMP * 100);
+      var _secPct = 100 - _muscuPct;
+
+      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">⚡ Budget Récupération</div>';
+      html += '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:8px;">';
+      html += '<div style="width:' + _muscuPct + '%;background:var(--accent);"></div>';
+      html += '<div style="width:' + _secPct + '%;background:var(--orange);"></div>';
+      html += '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:8px;">';
+      html += '<span>💪 Muscu ' + _muscuPct + '%</span>';
+      html += '<span>🏃 Activités ' + _secPct + '% (' + _secTRIMP + ' TRIMP)</span>';
+      html += '</div>';
+      _actData.flags.forEach(function(flag) {
+        var _fc = flag.type === 'warning' ? 'var(--orange)' : 'var(--blue)';
+        html += '<div style="margin-top:6px;padding:8px 10px;border-radius:8px;'
+          + 'background:' + _fc + '18;border-left:3px solid ' + _fc + ';'
+          + 'font-size:11px;color:var(--text);">' + flag.reason + '</div>';
+      });
+      html += '</div>';
+    }
+  }
+
+  // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──
   if (coachProfile !== 'silent') {
     var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
     if (diagnosis.length) {
@@ -15293,6 +15324,19 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     if (_wcPenalty < 1.0) {
       baseWeight = Math.round(baseWeight * _wcPenalty / 2.5) * 2.5;
       baseWeight = Math.max(20, baseWeight);
+    }
+  }
+
+  // Activity Penalty — TRIMP secondaire 24h (Total Load Management)
+  if (typeof getActivityPenaltyFlags === 'function') {
+    var _actPenalties = getActivityPenaltyFlags();
+    var _hasVolPenalty = _actPenalties.flags.some(function(f) { return f.type === 'volume'; });
+    if (_hasVolPenalty) {
+      var _volFlag = _actPenalties.flags.find(function(f) { return f.type === 'volume'; });
+      if (_volFlag && _volFlag.reduction >= 1) {
+        baseWeight = Math.round(baseWeight * 0.97 / 2.5) * 2.5;
+        baseWeight = Math.max(20, baseWeight);
+      }
     }
   }
 

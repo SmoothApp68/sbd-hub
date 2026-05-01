@@ -228,6 +228,10 @@ let chartMuscleEvol = null;
 let liftsMuscleFilter = 'Tout';
 let activeWorkout = null;
 let _goSessionTimerId = null;
+// Bluetooth HR — TÂCHE 18
+var _btDevice = null;
+var _btCharacteristic = null;
+var _currentHR = null;
 let _goRestTimerId = null;
 let _goPipInterval = null;
 let _goPipVisibilityHandler = null;
@@ -17250,6 +17254,17 @@ function buildGoIdleHtml() {
 
   var draftHtml = hasDraft ? '<button class="go-btn-sec" style="margin-top:10px;" onclick="goRestoreDraft()">📂 Reprendre brouillon</button>' : '';
 
+  // BLE heart rate button (TÂCHE 18 ÉTAPE A)
+  var _btConnected = typeof _btDevice !== 'undefined' && _btDevice && _btDevice.gatt && _btDevice.gatt.connected;
+  draftHtml += '<button onclick="toggleBluetoothHR()" style="width:100%;padding:10px;margin-top:8px;border-radius:12px;'
+    + 'border:1px solid ' + (_btConnected ? 'var(--green)' : 'var(--border)') + ';'
+    + 'background:' + (_btConnected ? 'rgba(50,215,75,0.1)' : 'var(--surface)') + ';'
+    + 'color:' + (_btConnected ? 'var(--green)' : 'var(--sub)') + ';'
+    + 'font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">'
+    + (_btConnected
+      ? '💓 FC connectée — ' + (typeof _currentHR !== 'undefined' && _currentHR ? _currentHR + ' bpm' : '...')
+      : '🔵 Connecter cardiofréquencemètre (optionnel)') + '</button>';
+
   // 5-Rep Test card — cold start + beginner profile (TÂCHE 12)
   var fiveRepHtml = '';
   if (typeof isColdStart === 'function' && isColdStart() && db.user && db.user.skipPRs) {
@@ -17347,6 +17362,72 @@ function saveFiveRepTest(exoName, inputIdPrefix) {
   debouncedCloudSync();
   showToast('✅ ' + exoName + ' — poids calibré à ' + e1rm + ' kg');
   renderGoIdleView();
+}
+
+// ── Bluetooth HR — TÂCHE 18 ÉTAPE B ────────────────────────
+
+async function toggleBluetoothHR() {
+  if (_btDevice && _btDevice.gatt && _btDevice.gatt.connected) {
+    _btDevice.gatt.disconnect();
+    _btDevice = null;
+    _currentHR = null;
+    showToast('🔵 Cardio déconnecté');
+    renderGoIdleView();
+    return;
+  }
+
+  if (!navigator.bluetooth) {
+    showToast('⚠️ Bluetooth non disponible (Chrome Android requis)');
+    return;
+  }
+
+  try {
+    showToast('🔍 Recherche d\'un cardiofréquencemètre...');
+    _btDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ services: ['heart_rate'] }],
+      optionalServices: ['heart_rate']
+    });
+
+    var server = await _btDevice.gatt.connect();
+    var service = await server.getPrimaryService('heart_rate');
+    _btCharacteristic = await service.getCharacteristic('heart_rate_measurement');
+
+    await _btCharacteristic.startNotifications();
+    _btCharacteristic.addEventListener('characteristicvaluechanged', function(event) {
+      var value = event.target.value;
+      var flags = value.getUint8(0);
+      _currentHR = (flags & 0x1) ? value.getUint16(1, true) : value.getUint8(1);
+      updateHRDisplay();
+    });
+
+    if (db.user) { db.user.bluetoothEnabled = true; saveDB(); }
+    showToast('💓 Cardio connecté : ' + (_btDevice.name || 'Appareil BLE'));
+    renderGoIdleView();
+  } catch(e) {
+    if (e.name !== 'NotFoundError') {
+      showToast('❌ Connexion échouée : ' + e.message);
+    }
+    _btDevice = null;
+  }
+}
+
+function updateHRDisplay() {
+  var hrEl = document.getElementById('go-hr-display');
+  if (!hrEl || !_currentHR) return;
+
+  var age = (db.user && db.user.age) || 30;
+  var maxHR = 220 - age;
+  var hrPct = Math.round(_currentHR / maxHR * 100);
+  var ready = _currentHR < Math.round(maxHR * 0.65);
+  var color = ready ? 'var(--green)' : (_currentHR > Math.round(maxHR * 0.85) ? 'var(--red)' : 'var(--orange)');
+
+  hrEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
+    + '<div style="font-size:22px;font-weight:800;color:' + color + ';">' + _currentHR + '</div>'
+    + '<div style="font-size:11px;color:var(--sub);">bpm<br>' + hrPct + '% FC max</div>'
+    + (ready
+      ? '<div style="font-size:11px;color:var(--green);font-weight:700;">✓ Prêt</div>'
+      : '<div style="font-size:11px;color:' + color + ';">Récup…</div>')
+    + '</div>';
 }
 
 function goSwitchView(view) {
@@ -17768,7 +17849,13 @@ function renderGoActiveView() {
     h += '<button onclick="goAdjustRest(-15)">-15s</button>';
     h += '<button onclick="goAdjustRest(15)">+15s</button>';
     h += '<button class="skip" onclick="goSkipRest()">Passer</button>';
-    h += '</div></div>';
+    h += '</div>';
+    // FC live (TÂCHE 18 ÉTAPE C)
+    if (typeof _currentHR !== 'undefined' && _currentHR) {
+      h += '<div id="go-hr-display" style="text-align:center;margin-top:10px;'
+        + 'padding:8px;background:rgba(255,255,255,0.04);border-radius:10px;"></div>';
+    }
+    h += '</div>';
   }
 
   // ── Muscle Distribution toggle ──
@@ -17792,6 +17879,10 @@ function renderGoActiveView() {
   h += '<button class="go-btn-sec" style="border-color:rgba(255,69,58,0.3);color:var(--red);" onclick="goConfirmDiscard()">✕ Annuler la séance</button>';
 
   document.getElementById('goActiveView').innerHTML = h;
+  // Update BLE HR display after render (TÂCHE 18)
+  if (typeof _currentHR !== 'undefined' && _currentHR && typeof updateHRDisplay === 'function') {
+    updateHRDisplay();
+  }
 }
 
 // ── Render a single exercise card ──

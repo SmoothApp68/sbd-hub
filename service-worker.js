@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v119';
+const CACHE_NAME = 'trainhub-v120';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -72,6 +72,8 @@ self.addEventListener('push', function(event) {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
+      icon: '/sbd-hub/icons/icon-192.png',
+      badge: '/sbd-hub/icons/icon-192.png',
       vibrate: [100, 50, 100]
     })
   );

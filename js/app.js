@@ -194,6 +194,10 @@ let db = (() => {
     // PhysioManager — migration cycle menstruel
     if (p.user.menstrualEnabled === undefined) p.user.menstrualEnabled = false;
     if (p.user.menstrualData === undefined) p.user.menstrualData = null;
+    // Health Connect / Garmin (TÂCHE 17)
+    if (p.garminConnected === undefined) p.garminConnected = false;
+    if (p.garminLastSync === undefined) p.garminLastSync = null;
+    if (!p.rhrHistory) p.rhrHistory = [];
     // Notifications J1→J30 (TÂCHE 15)
     if (!p.notificationsSent) p.notificationsSent = [];
     if (p.user.onboardingDate === undefined) p.user.onboardingDate = p.user.onboarded ? null : null;
@@ -826,6 +830,8 @@ function importData() {
   );
 }
 function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="this.closest(\'.modal-overlay\').remove()" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; document.body.appendChild(o); }
+function closeModal() { var el = document.querySelector('.modal-overlay'); if (el) el.remove(); }
 function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
 function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
@@ -12663,6 +12669,140 @@ function renderSettingsProfile() {
     _cycleSection.innerHTML = '';
     _cycleSection.style.display = 'none';
   }
+
+  // ── Health Connect / Garmin section (TÂCHE 17 ÉTAPE A) ──
+  var _hcSection = document.getElementById('settingsHealthConnect');
+  if (!_hcSection) {
+    _hcSection = document.createElement('div');
+    _hcSection.id = 'settingsHealthConnect';
+    _hcSection.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+    var _hcParent = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+    if (_hcParent && _hcParent.parentNode) _hcParent.parentNode.appendChild(_hcSection);
+  }
+  var _garminConnected = db.garminConnected || false;
+  var _lastSync = db.garminLastSync
+    ? (typeof formatRelativeDate === 'function' ? formatRelativeDate(db.garminLastSync) : 'Synchronisé')
+    : 'Jamais synchronisé';
+  var _lastRHR = (db.rhrHistory && db.rhrHistory.length > 0) ? db.rhrHistory[0] : null;
+  _hcSection.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">⌚ Données de santé</div>'
+    + '<div style="background:var(--bg);border-radius:10px;padding:12px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div><div style="font-size:13px;font-weight:600;">Health Connect</div>'
+    + '<div style="font-size:11px;color:var(--sub);">' + _lastSync + '</div></div>'
+    + '<button onclick="connectHealthConnect()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;'
+    + 'background:' + (_garminConnected ? 'rgba(50,215,75,0.15)' : 'rgba(10,132,255,0.1)') + ';'
+    + 'border:1px solid ' + (_garminConnected ? 'var(--green)' : 'var(--accent)') + ';'
+    + 'color:' + (_garminConnected ? 'var(--green)' : 'var(--accent)') + ';">'
+    + (_garminConnected ? '✓ Connecté' : 'Connecter') + '</button>'
+    + '</div>'
+    + (_lastRHR ? '<div style="margin-top:10px;font-size:12px;color:var(--sub);">❤️ FC repos : <strong style="color:var(--text);">' + _lastRHR.value + ' bpm</strong></div>' : '')
+    + '</div>';
+}
+
+// ── Health Connect / Garmin (TÂCHE 17) ──────────────────────
+
+async function connectHealthConnect() {
+  var isAndroid = /android/i.test(navigator.userAgent);
+  var isChrome  = /chrome/i.test(navigator.userAgent);
+
+  if (!isAndroid || !isChrome) {
+    showInfoModal('Health Connect',
+      '<div style="text-align:center;padding:8px 0;">'
+      + '<div style="font-size:32px;margin-bottom:10px;">📱</div>'
+      + '<div style="font-size:13px;color:var(--text);margin-bottom:6px;line-height:1.5;">'
+      + 'Health Connect nécessite Chrome sur Android.</div>'
+      + '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">'
+      + 'Tu peux importer tes données via le CSV Garmin Connect.</div>'
+      + '<button onclick="closeModal();showGarminCSVImport()" '
+      + 'style="padding:10px 20px;background:var(--accent);border:none;'
+      + 'border-radius:10px;color:#fff;font-weight:700;cursor:pointer;width:100%;">'
+      + 'Importer CSV Garmin</button>'
+      + '</div>');
+    return;
+  }
+
+  try {
+    if ('health' in navigator) {
+      await syncHealthConnectData();
+    } else {
+      showToast('📱 Health Connect en cours d\'intégration — utilise le CSV Garmin');
+      showGarminCSVImport();
+    }
+  } catch(e) {
+    showToast('⚠️ Impossible de connecter Health Connect');
+    showGarminCSVImport();
+  }
+}
+
+function showGarminCSVImport() {
+  showInfoModal('Importer données Garmin',
+    '<div style="padding:4px 0;">'
+    + '<div style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.6;">'
+    + 'Depuis Garmin Connect :<br>'
+    + '1. Paramètres → Profil → Exporter mes données<br>'
+    + '2. Télécharge le fichier Health Summary<br>'
+    + '3. Importe-le ici</div>'
+    + '<input type="file" id="garmin-csv-input" accept=".csv,.zip" style="display:none" onchange="parseGarminCSV(this.files[0])">'
+    + '<button onclick="document.getElementById(\'garmin-csv-input\').click()" '
+    + 'style="width:100%;padding:10px;background:var(--accent);border:none;'
+    + 'border-radius:10px;color:#fff;font-weight:700;cursor:pointer;margin-bottom:8px;">'
+    + '📂 Sélectionner le fichier CSV</button>'
+    + '</div>');
+}
+
+async function parseGarminCSV(file) {
+  if (!file) return;
+  closeModal();
+  showToast('⏳ Analyse des données Garmin...');
+
+  try {
+    var text = await file.text();
+    var lines = text.split('\n');
+    var rhrData = [];
+
+    lines.forEach(function(line) {
+      var rhrMatch = line.match(/resting[_ ]?heart[_ ]?rate[,;\t]\s*(\d+)/i)
+        || line.match(/fc[_ ]?repos[,;\t]\s*(\d+)/i)
+        || line.match(/(\d+)[,;\t][^,;\t]*resting/i);
+      if (rhrMatch) {
+        var val = parseInt(rhrMatch[1]);
+        if (val >= 30 && val <= 120) rhrData.push({ ts: Date.now(), value: val });
+      }
+    });
+
+    if (rhrData.length > 0) {
+      db.rhrHistory = rhrData.concat(db.rhrHistory || []).slice(0, 30);
+      db.garminConnected = true;
+      db.garminLastSync = Date.now();
+
+      var rhrAlert = analyzeRHR(rhrData[0].value, db.rhrHistory);
+      if (!db.todayWellbeing) db.todayWellbeing = { date: new Date().toISOString().split('T')[0] };
+      db.todayWellbeing.rhr = rhrData[0].value;
+      if (rhrAlert) db.todayWellbeing.rhrAlert = rhrAlert;
+
+      saveDB();
+      debouncedCloudSync();
+      showToast('✅ ' + rhrData.length + ' lecture(s) FC importées depuis Garmin');
+      renderSettingsProfile();
+    } else {
+      showToast('⚠️ Aucune donnée FC repos trouvée dans ce fichier');
+    }
+  } catch(e) {
+    showToast('❌ Erreur lors de l\'import : ' + e.message);
+  }
+}
+
+function analyzeRHR(currentRHR, rhrHistory) {
+  if (!rhrHistory || rhrHistory.length < 5) return null;
+  var recent = rhrHistory.slice(0, 7);
+  var avg = recent.reduce(function(s, e) { return s + e.value; }, 0) / recent.length;
+  var diff = currentRHR - avg;
+
+  if (diff >= 10) return { level: 'danger', diff: Math.round(diff),
+    msg: 'FC repos +' + Math.round(diff) + ' bpm vs moyenne — repos complet recommandé' };
+  if (diff >= 5) return { level: 'warning', diff: Math.round(diff),
+    msg: 'FC repos +' + Math.round(diff) + ' bpm vs moyenne — intensité réduite aujourd\'hui' };
+  return null;
 }
 
 // ── PhysioManager CRUD ──
@@ -15004,6 +15144,17 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   var _wbToday = new Date().toISOString().split('T')[0];
   if (_wb && _wb.date === _wbToday && _wb.sleep <= 2) {
     baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
+  }
+
+  // RHR Penalty — Garmin Health Connect (TÂCHE 17 ÉTAPE D)
+  var _rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  if (_rhrAlert) {
+    if (_rhrAlert.level === 'danger') {
+      baseWeight = Math.round(baseWeight * 0.80 / 2.5) * 2.5;
+    } else if (_rhrAlert.level === 'warning') {
+      baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
+    }
+    baseWeight = Math.max(20, baseWeight);
   }
 
   // APRE cap par phase — évite les PRs non intentionnels hors peak

@@ -2657,6 +2657,21 @@ function analyzeAthleteProfile() {
     if (wbAlerts.length) sections.push({ title: '🌙 Bien-être du Jour', alerts: wbAlerts });
   }
 
+  // ── RHR alert — Garmin Health Connect (TÂCHE 17 ÉTAPE C) ──
+  var rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  if (rhrAlert) {
+    var rhrAlerts = [];
+    rhrAlerts.push({
+      severity: rhrAlert.level === 'danger' ? 'danger' : 'warning',
+      title: '❤️ FC Repos Élevée',
+      text: rhrAlert.msg + '. '
+        + (rhrAlert.level === 'danger'
+          ? 'Envisage une séance de récupération active ou un jour de repos complet.'
+          : 'Les charges sont automatiquement réduites de 5% aujourd\'hui.')
+    });
+    sections.push({ title: '⌚ Données Garmin', alerts: rhrAlerts });
+  }
+
   return sections;
 }
 

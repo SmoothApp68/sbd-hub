@@ -43,10 +43,10 @@
 ## 🔄 En cours / À faire
 
 ### PHASE 1 — Stabilisation
-- [ ] TÂCHE 1 : Supprimer constants.js + utils.js orphelins
-- [ ] TÂCHE 2 : Icônes PWA qualité + séparation any/maskable
-- [ ] TÂCHE 3 : Exercices manquants Custom Builder
-- [ ] TÂCHE 4 : Backup programme v2 (15 versions + dates)
+- [x] TÂCHE 1 : Supprimer constants.js + utils.js orphelins — commit 5dbe918
+- [x] TÂCHE 2 : Icônes PWA qualité + séparation any/maskable — commit eb260f5
+- [x] TÂCHE 3 : Exercices manquants Custom Builder — vérification : tous présents dans EXO_DATABASE (exercises.js), aucun ajout nécessaire
+- [x] TÂCHE 4 : Backup programme v2 (15 versions + dates) — déjà implémenté (15 backups, firstUsedAt/lastUsedAt/sessionCount, UI "Du X au Y · N séances")
 
 ### PHASE 2 — Qualité coaching
 - [ ] TÂCHE 5 : Transfer Matrix auto-apprenante

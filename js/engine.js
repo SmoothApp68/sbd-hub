@@ -2175,6 +2175,21 @@ function findBestTransferSource(targetExoName, allBestE1RMs) {
   return { exoName: best, e1rm: bestE1RM };
 }
 
+// Ratio de transfert entre deux exercices — utilise l'historique réel de l'user si disponible,
+// sinon fallback sur EXERCISE_TRANSFER_MATRIX universel.
+function getTransferRatio(sourceExo, targetExo) {
+  var allE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {};
+  var sourceE1rm = allE1RMs[sourceExo] ? allE1RMs[sourceExo].e1rm : 0;
+  var targetE1rm = allE1RMs[targetExo] ? allE1RMs[targetExo].e1rm : 0;
+  if (sourceE1rm > 0 && targetE1rm > 0) {
+    return targetE1rm / sourceE1rm;
+  }
+  var src = EXERCISE_TRANSFER_MATRIX[sourceExo];
+  var tgt = EXERCISE_TRANSFER_MATRIX[targetExo];
+  if (src && tgt && src.family === tgt.family) return tgt.ratio / src.ratio;
+  return null;
+}
+
 // Decay e1RM après absence : -1 % par semaine, plafonné à -15 %
 function applyE1RMDecay(e1rm, weeksAbsent) {
   var decay = Math.min(0.15, weeksAbsent * 0.01);

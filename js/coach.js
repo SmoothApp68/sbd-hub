@@ -380,6 +380,10 @@ function computeSRS() {
   // Peak Mode : la fatigue de peak est attendue, on relève le score
   if (phase === 'peak') raw = Math.min(100, raw * 1.2);
 
+  // PhysioManager — ajustement cycle menstruel
+  var cycleCoeff = typeof getCycleCoeff === 'function' ? getCycleCoeff() : 1.0;
+  raw = raw * cycleCoeff;
+
   var score = Math.round(Math.min(100, Math.max(0, raw)));
 
   return {
@@ -389,6 +393,7 @@ function computeSRS() {
     subjScore: Math.round(subjScore),
     trendScore: Math.round(trendScore),
     peakMode: phase === 'peak',
+    cyclePhase: typeof getCurrentMenstrualPhase === 'function' ? getCurrentMenstrualPhase() : null,
     label: phase === 'peak' ? '🔥 Fatigue de Peak — normal' :
            score >= 75 ? '✅ Forme optimale' :
            score >= 55 ? '🟡 Forme correcte' :

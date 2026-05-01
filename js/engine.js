@@ -2687,3 +2687,94 @@ function getOnboardingPR(exoName) {
   if (name.includes('soulevé') || name.includes('deadlift') || name.includes('sdt')) return prs.deadlift || 0;
   return 0;
 }
+
+// ============================================================
+// PHYSIOMANAGER — Module cycle menstruel (TÂCHE 7)
+// Toutes les fonctions retournent des valeurs neutres si
+// menstrualEnabled === false ou si l'utilisateur n'est pas F.
+// Ne jamais afficher ces données dans le feed social.
+// ============================================================
+
+var MENSTRUAL_PHASES = {
+  folliculaire_precoce: {
+    days: [1, 2, 3, 4, 5, 6, 7],
+    cycleCoeff: 0.92,
+    mrvCoeff: 0.90,
+    rpeAdjust: +1,
+    restMultiplier: 1.20,
+    injuryAlert: false,
+    label: 'Phase folliculaire précoce'
+  },
+  folliculaire_tardive: {
+    days: [8, 9, 10, 11, 12, 13],
+    cycleCoeff: 1.08,
+    mrvCoeff: 1.10,
+    rpeAdjust: -1,
+    restMultiplier: 0.90,
+    injuryAlert: false,
+    label: 'Phase folliculaire tardive'
+  },
+  ovulatoire: {
+    days: [14, 15, 16],
+    cycleCoeff: 1.10,
+    mrvCoeff: 1.12,
+    rpeAdjust: -1,
+    restMultiplier: 0.85,
+    injuryAlert: true,
+    label: 'Phase ovulatoire'
+  },
+  luteale: {
+    days: [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
+    cycleCoeff: 0.88,
+    mrvCoeff: 0.85,
+    rpeAdjust: +2,
+    restMultiplier: 1.30,
+    injuryAlert: true,
+    label: 'Phase lutéale'
+  }
+};
+
+function getCurrentMenstrualPhase() {
+  if (!db.user || !db.user.menstrualEnabled || !db.user.menstrualData) return null;
+  var data = db.user.menstrualData;
+  if (!data.lastPeriodStart) return null;
+  var cycleLength = data.cycleLength || 28;
+  var start = new Date(data.lastPeriodStart);
+  var today = new Date();
+  var diffDays = Math.floor((today - start) / 86400000);
+  var dayInCycle = (diffDays % cycleLength) + 1;
+  if (dayInCycle < 1) dayInCycle = 1;
+  for (var phase in MENSTRUAL_PHASES) {
+    var p = MENSTRUAL_PHASES[phase];
+    if (p.days.indexOf(dayInCycle) !== -1) return phase;
+  }
+  // Cycle plus long que 28j : phase lutéale étendue
+  return 'luteale';
+}
+
+function getCycleCoeff() {
+  var gender = db.user && db.user.gender;
+  if (!db.user || !db.user.menstrualEnabled) return 1.0;
+  if (gender && gender !== 'F' && gender !== 'female' && gender !== 'femme') return 1.0;
+  var phase = getCurrentMenstrualPhase();
+  if (!phase || !MENSTRUAL_PHASES[phase]) return 1.0;
+  return MENSTRUAL_PHASES[phase].cycleCoeff;
+}
+
+function getMRVWithCycleAdjust(baseMRV) {
+  var gender = db.user && db.user.gender;
+  if (!db.user || !db.user.menstrualEnabled) return baseMRV;
+  if (gender && gender !== 'F' && gender !== 'female' && gender !== 'femme') return baseMRV;
+  var phase = getCurrentMenstrualPhase();
+  if (!phase || !MENSTRUAL_PHASES[phase]) return baseMRV;
+  return Math.round(baseMRV * MENSTRUAL_PHASES[phase].mrvCoeff);
+}
+
+function getRestWithCycleAdjust(baseRestSec) {
+  var gender = db.user && db.user.gender;
+  if (!db.user || !db.user.menstrualEnabled) return baseRestSec;
+  if (gender && gender !== 'F' && gender !== 'female' && gender !== 'femme') return baseRestSec;
+  var phase = getCurrentMenstrualPhase();
+  if (!phase || !MENSTRUAL_PHASES[phase]) return baseRestSec;
+  return Math.round(baseRestSec * MENSTRUAL_PHASES[phase].restMultiplier);
+}

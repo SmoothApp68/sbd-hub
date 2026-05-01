@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : 9.2/10
-- SW version : v121
+- SW version : v122
 - Objectif : lancement multi-users juillet 2026
 
 ## ✅ Complété
@@ -50,25 +50,46 @@
 - [x] TÂCHE 5 : Transfer Matrix auto-apprenante — commit c4703d5
 - [x] TÂCHE 6 : Offline first (GO sans réseau) — commit 1178e6f
 
-### PHASE 3 — Différenciation (EN COURS)
-- [x] TÂCHE 8 (ex-9) : Nettoyage fonctions mortes app.js — 29 fonctions supprimées, 595 lignes (batches 1-3), SW v121 — commits 1e63c2f, 261b82c, db24f5c
+### PHASE 3 — Différenciation
+- [x] TÂCHE 7 : Module cycle menstruel (PhysioManager) — commits a7acb40 + 43f37d5
+  - ÉTAPE A : MENSTRUAL_PHASES + getCycleCoeff/getMRVWithCycleAdjust/getRestWithCycleAdjust → engine.js
+  - ÉTAPE B : cycleCoeff intégré dans computeSRS() → coach.js
+  - ÉTAPE C : wpComputeWorkWeight ajuste la charge selon la phase → app.js
+  - ÉTAPE D : renderCoachTodayHTML affiche carte phase + alerte blessure → app.js
+  - ÉTAPE E : renderSettingsProfile affiche section menstruel (genre F uniquement) → app.js
+  - ÉTAPE F : toggleMenstrualTracking / saveMenstrualData / menstrualResetToday → app.js
+  - ÉTAPE G : migration migrateDB (menstrualEnabled + menstrualData) → app.js
+  - Supabase migration needed : non (données dans db.user, sync via sbd_profiles)
+- [x] TÂCHE 8 : Nettoyage fonctions mortes app.js — 29 fonctions supprimées, 595 lignes — commits 1e63c2f, 261b82c, db24f5c
+
+### PHASE 4 — Lancement
+- [x] TÂCHE 10 : Onboarding 3 questions + ONBOARDING_PROFILES — commit 30c7d29
+  - 3 étapes (Q1 profil, Q2 objectif, Q3 matériel) pour nouveaux utilisateurs
+  - ONBOARDING_VERSION bumped à 3
+  - vocabLevel, skipPRs, skipRPE, obProfile migrés dans db.user
+- [x] TÂCHE 11 : Vocabulaire adaptatif (VOCAB + getVocab) — commit 40fe86d
+  - VOCAB constant dans engine.js (e1rm, rpe, peak, apre, srs, deload, acwr, mrv, mev)
+  - getVocab() utilisé dans formatRPE, coach SRS gauge, messages deload
+- [x] TÂCHE 12 : 5-Rep Test calibration débutants — commit 74a0d56
+  - calcE1RMFrom5RepTest() dans engine.js (Brzycki × 0.85)
+  - Carte calibration dans GO idle si cold start + skipPRs profile
+  - saveFiveRepTest() → stocke dans db.exercises[name].shadowWeight
+- [x] TÂCHE 13 : Streak intelligent (calcSmartStreak) — commit 0ae4e93
+  - Ne se casse que sur jours de séance prévus ratés
+  - Jours de repos ignorés dans le compte
+- [x] TÂCHE 14 : Badges de compétence (5 nouveaux) — commit c853153
+  - precision_rpe, tempo_master, consistency_king, pr_hunter, volume_beast
+  - Section "Compétence" ajoutée dans l'UI badges
+- [ ] TÂCHE 15 : Calendrier notifications J1→J30 — **Supabase migration needed** (voir ci-dessous)
+- [x] TÂCHE 16 : Churn detection + réactivation — commit f396aa1
+  - detectChurn() : médiane intervalle × 2 = seuil absence
+  - Message empathique dans Coach Today selon durée d'absence
 
 ## 🔄 En cours / À faire
 
-### PHASE 3 suite
-- [ ] TÂCHE 7 : Module cycle menstruel (PhysioManager) — architecture validée
-
-### PHASE 4 — Lancement (nouveau)
-- [ ] TÂCHE 10 : Onboarding 3 questions + système de flags profil
-- [ ] TÂCHE 11 : Vocabulaire adaptatif selon niveau
-- [ ] TÂCHE 12 : 5-Rep Test calibration débutants
-- [ ] TÂCHE 13 : Streak intelligent (jours de repos ne cassent pas le streak)
-- [ ] TÂCHE 14 : Badges de compétence
-- [ ] TÂCHE 15 : Calendrier notifications J1→J30
-- [ ] TÂCHE 16 : Churn detection + réactivation
-
 ### PHASE 5 — Post-lancement
-- [ ] TÂCHE 17 : Health Connect / Garmin (attendre validation)
+- [ ] TÂCHE 9 : Health Connect / Garmin (attendre validation)
+- [ ] TÂCHE 17 : Health Connect / Garmin (Supabase Edge Functions)
 - [ ] TÂCHE 18 : Bluetooth FC live GO
 - [ ] TÂCHE 19 : Weight Cut module
 - [ ] TÂCHE 20 : Paywall features Premium
@@ -76,3 +97,5 @@
 ## Migrations Supabase en attente
 (à appliquer par Claude.ai après chaque tâche)
 - TÂCHE 15 (notifications J1→J30) : nécessite table `notification_schedule` en Supabase
+  - Colonnes : user_id, day_number (1-30), scheduled_at, sent_at, title, body, type
+  - RLS : user peut lire ses propres lignes, Edge Function peut écrire

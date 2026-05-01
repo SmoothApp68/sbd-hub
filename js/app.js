@@ -140,14 +140,7 @@ let db = (() => {
     // Migrations modes : bodybuilding → musculation, force_athletique → powerlifting
     if (p.user.trainingMode === 'bodybuilding') p.user.trainingMode = 'musculation';
     if (p.user.trainingMode === 'force_athletique') p.user.trainingMode = 'powerlifting';
-    // Migration one-shot : Aurélien → powerbuilding (supprimer après déploiement semaine 1)
-    if (!p._migPBMode && p.user.trainingMode === 'powerlifting') {
-      var _n = (p.user.name || '').toLowerCase();
-      if (_n.indexOf('aurél') >= 0 || _n.indexOf('aurel') >= 0) {
-        p.user.trainingMode = 'powerbuilding';
-        p._migPBMode = true;
-      }
-    }
+
     if (!p.monthlyChallenges) p.monthlyChallenges = null;
     if (!p.secretQuestsCompleted) p.secretQuestsCompleted = [];
     if (!p.questHistory) p.questHistory = [];
@@ -6756,6 +6749,7 @@ function renderSBDTotal() {
       '<span style="font-size:10px;color:var(--sub);opacity:0.3;">&#9646; Objectif</span></div>';
     el.innerHTML = toggleHtml + miniHtml;
     requestAnimationFrame(function() {
+      if (typeof Chart === 'undefined') return;
       sbdPairs.forEach(function(p) {
         var ctx = document.getElementById('chartSBD_' + p.label);
         if (!ctx) return;
@@ -7192,6 +7186,7 @@ function renderPerfCard() {
   // Détruire anciens charts si existants
   if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
   if (window._chartPerfLine) { try { window._chartPerfLine.destroy(); } catch(e) {} window._chartPerfLine = null; }
+  if (typeof Chart === 'undefined') return;
 
   // ── MODE BARRES : 3 datasets groupés ──
   if (perfChartMode === 'bars') {
@@ -7845,6 +7840,7 @@ function toggleExo(id) {
 // CHARTS
 // ============================================================
 function renderVolumeChart(period) {
+  if (typeof Chart === 'undefined') { const cv = document.getElementById('chartVolume'); if (cv) cv.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
   period = period || 'week';
   setPeriodButtons('volumeButtons', period);
   const cv = document.getElementById('chartVolume'); if (!cv) return; if (chartVolume) chartVolume.destroy();
@@ -11883,6 +11879,7 @@ function setMuscleView(v) {
 
 function renderMuscleEvolChart() {
   const ctx = document.getElementById('chartMuscleEvol'); if (!ctx) return;
+  if (typeof Chart === 'undefined') { ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
   if (chartMuscleEvol) chartMuscleEvol.destroy();
 
   const now = Date.now(); const week = 7*86400000;
@@ -12313,7 +12310,7 @@ function renderTierBadge(tier) {
 }
 
 function isCreator() {
-  return db.user.name === 'Aurélien' || db.user.isCreator === true;
+  return db.user.isCreator === true;
 }
 
 function renderTierSection() {
@@ -13919,15 +13916,6 @@ function _buildSetsFromHistory(prev) {
 function toggleCoachExo(idx) {
   const card = document.getElementById('coachExo' + idx);
   if (card) card.classList.toggle('open');
-}
-
-function _getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Monday is start of week
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - diff);
-  return d.getTime();
 }
 
 function renderCoachHistory() {

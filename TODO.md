@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : 9.2/10
-- SW version : v122
+- SW version : v124
 - Objectif : lancement multi-users juillet 2026
 
 ## ✅ Complété
@@ -85,12 +85,26 @@
   - detectChurn() : médiane intervalle × 2 = seuil absence
   - Message empathique dans Coach Today selon durée d'absence
 
+### PHASE 5 — Post-lancement
+- [x] TÂCHE 15 : Notifications J1→J30 — commit 49562b3
+  - NOTIFICATION_SCHEDULE (6 waypoints), calcWeeklyTonnage(), checkScheduledNotifications()
+  - Appelée depuis postLoginSync() après login, 1 notif max/jour
+  - db.user.onboardingDate défini dans obFinish()
+- [x] TÂCHE 17 : Health Connect / Garmin CSV + RHR analysis — commit d925a42
+  - ÉTAPE A : UI Health Connect dans renderSettingsProfile()
+  - ÉTAPE B : connectHealthConnect(), showGarminCSVImport(), parseGarminCSV(), analyzeRHR()
+  - ÉTAPE C : alerte RHR dans analyzeAthleteProfile() → engine.js
+  - ÉTAPE D : RHR penalty dans wpComputeWorkWeight() (-5% warning, -20% danger)
+  - Supabase migration needed : non (données dans db.rhrHistory via sbd_profiles)
+- [x] TÂCHE 18 : Bluetooth FC live GO — commit 25d4d32
+  - toggleBluetoothHR() : Web Bluetooth API (Chrome Android)
+  - updateHRDisplay() : bpm + % FCmax + indicateur "Prêt"
+  - Widget FC sous le timer de repos pendant la séance
+
 ## 🔄 En cours / À faire
 
-### PHASE 5 — Post-lancement
-- [ ] TÂCHE 9 : Health Connect / Garmin (attendre validation)
-- [ ] TÂCHE 17 : Health Connect / Garmin (Supabase Edge Functions)
-- [ ] TÂCHE 18 : Bluetooth FC live GO
+### PHASE 5 — Reste
+- [ ] TÂCHE 9 : Health Connect API native (Supabase Edge Functions, attendre validation)
 - [ ] TÂCHE 19 : Weight Cut module
 - [ ] TÂCHE 20 : Paywall features Premium
 

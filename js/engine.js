@@ -2435,6 +2435,45 @@ function detectAccessoryDropoff() {
   return prevRpe > 0 ? (lastRpe - prevRpe) / prevRpe : null;
 }
 
+// ── Arbre de décision plateau (Gemini Q4.1 — B4) ──────────────────────────
+// Retourne null si pas de plateau, sinon { type, action, message }
+function classifyStagnation(liftType) {
+  var trend3w = getE1RMTrend(liftType, 21);
+  if (trend3w === null) return null;
+  var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75 };
+  var rpeAvg = getAvgRPEForLift(liftType, 4);
+  var week = (db.weeklyPlan && db.weeklyPlan.week) || 0;
+  var weekInBlock = week % 4 || 4;
+
+  // Sur-atteinte → Emergency deload 3j OFF
+  if (trend3w < -0.02 && rpeAvg !== null && rpeAvg > 9) {
+    return { type: 'sur_atteinte', action: 'emergency_deload',
+      message: '🔴 Sur-atteinte détectée. 3 jours de repos complets recommandés.' };
+  }
+
+  // Fatigue → Deload -30% vol -10% intensité
+  if (srs.score < 65 && trend3w <= 0) {
+    return { type: 'fatigue', action: 'deload',
+      message: '🟠 Fatigue accumulée. Deload : -30% volume, -10% intensité pendant 7j.' };
+  }
+
+  // Consolidation → Attendre fin du bloc
+  if (Math.abs(trend3w) < 0.005 && weekInBlock >= 3) {
+    return { type: 'consolidation', action: 'wait',
+      message: '🟡 Phase de consolidation normale. Attends la fin du bloc.' };
+  }
+
+  // Plateau réel → Changer variante ou rep-range
+  var logs7 = (db.logs || []).filter(function(l) { return l.timestamp > Date.now() - 7 * 86400000; });
+  var compliance = logs7.length > 0 ? Math.min(1, logs7.length / 3) : 0;
+  if (Math.abs(trend3w) < 0.005 && srs.score > 80 && compliance > 0.90) {
+    return { type: 'plateau_reel', action: 'pivot',
+      message: '💡 Plateau réel détecté. Change le rep-range ou la variante principale.' };
+  }
+
+  return null;
+}
+
 // ============================================================
 // analyzeAthleteProfile() — Diagnostic athlétique (Étape C)
 // Retourne un tableau de sections [{title, alerts:[{severity,title,text}]}]
@@ -2696,6 +2735,24 @@ function analyzeAthleteProfile() {
   var swimAlert = typeof checkSwimmingInterference === 'function' ? checkSwimmingInterference() : null;
   if (swimAlert) {
     sections.push({ title: '🏊 Natation vs Musculation', alerts: [{ severity: swimAlert.severity, title: '⚠️ Interférence natation', text: swimAlert.msg }] });
+  }
+
+  // ── SECTION 7 : PROGRESSION SBD — arbre de décision plateau ──
+  var progressionAlerts = [];
+  ['squat', 'bench', 'deadlift'].forEach(function(lift) {
+    var stagnation = classifyStagnation(lift);
+    if (stagnation) {
+      var liftLabel = lift === 'bench' ? 'Bench' : lift === 'squat' ? 'Squat' : 'Deadlift';
+      progressionAlerts.push({
+        severity: stagnation.type === 'sur_atteinte' ? 'danger'
+                : stagnation.type === 'fatigue' ? 'warning' : 'info',
+        title: liftLabel + ' — ' + stagnation.type.replace(/_/g, ' '),
+        text: stagnation.message
+      });
+    }
+  });
+  if (progressionAlerts.length) {
+    sections.push({ title: '📈 Analyse Progression SBD', alerts: progressionAlerts });
   }
 
   return sections;

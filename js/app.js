@@ -327,6 +327,9 @@ if (!db.gamification._migratedFreezeV4) {
 if (db.todayWellbeing === undefined) db.todayWellbeing = null;
 if (!db.wellbeingHistory) db.wellbeingHistory = [];
 
+// ── ONBOARDING PRs — defensive init ─────────────────────────
+if (db.user.onboardingPRs === undefined) db.user.onboardingPRs = null;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -1028,6 +1031,7 @@ function obNext(step) {
     if (benchPR > 0) db.bestPR.bench = benchPR;
     if (squatPR > 0) db.bestPR.squat = squatPR;
     if (deadPR  > 0) db.bestPR.deadlift = deadPR;
+    db.user.onboardingPRs = { bench: benchPR, squat: squatPR, deadlift: deadPR };
     db.user.targets = {
       bench:    parseFloat(document.getElementById('ob-bench-tgt').value) || db.user.targets.bench,
       squat:    parseFloat(document.getElementById('ob-squat-tgt').value) || db.user.targets.squat,
@@ -1231,6 +1235,7 @@ function obSaveStep6() {
   if (benchPR > 0) db.bestPR.bench    = benchPR;
   if (squatPR > 0) db.bestPR.squat    = squatPR;
   if (deadPR  > 0) db.bestPR.deadlift = deadPR;
+  db.user.onboardingPRs = { bench: benchPR, squat: squatPR, deadlift: deadPR };
   db.user.targets = {
     bench:    parseFloat(document.getElementById('ob-bench-tgt').value)  || db.user.targets.bench,
     squat:    parseFloat(document.getElementById('ob-squat-tgt').value)  || db.user.targets.squat,
@@ -13095,6 +13100,10 @@ function renderCoachToday() {
   if (!el) return;
 
   if (!db.logs || db.logs.length === 0) {
+    if (typeof isColdStart === 'function' && isColdStart()) {
+      el.innerHTML = renderCoachTodayHTML();
+      return;
+    }
     el.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;line-height:1.7;">'+
       'Importe des séances pour activer le Coach.<br>'+
       '<span style="font-size:12px;">Réglages → 📥 Importer des Séances</span></div>';
@@ -13109,6 +13118,32 @@ function renderCoachTodayHTML() {
   if (coachProfile === 'silent') {
     return '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Mode silencieux — juste les chiffres.</div>';
   }
+
+  // ── COLD START WELCOME ──
+  if (typeof isColdStart === 'function' && isColdStart()) {
+    var _week = typeof getColdStartWeek === 'function' ? getColdStartWeek() : 1;
+    var _calSq = typeof getCalibrationWeight === 'function' ? getCalibrationWeight('squat', 'lower') : 60;
+    var _calBn = typeof getCalibrationWeight === 'function' ? getCalibrationWeight('bench', 'upper') : 40;
+    var _calDl = typeof getCalibrationWeight === 'function' ? getCalibrationWeight('deadlift', 'lower') : 70;
+    var _csHtml = '';
+    _csHtml += '<div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:14px;">';
+    _csHtml += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">👋 Bienvenue — Semaine ' + _week + ' de calibration</div>';
+    _csHtml += '<div style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:12px;">';
+    _csHtml += 'Pas encore de séances enregistrées. Le Coach te propose des charges de départ calibrées selon ton niveau. ';
+    _csHtml += 'Enregistre tes premières séances pour activer le diagnostic complet.';
+    _csHtml += '</div>';
+    _csHtml += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">';
+    [['Squat', _calSq], ['Bench', _calBn], ['Deadlift', _calDl]].forEach(function(item) {
+      _csHtml += '<div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center;">';
+      _csHtml += '<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">' + item[0] + '</div>';
+      _csHtml += '<div style="font-size:16px;font-weight:700;">' + item[1] + '<span style="font-size:10px;color:var(--sub);"> kg</span></div>';
+      _csHtml += '</div>';
+    });
+    _csHtml += '</div>';
+    _csHtml += '</div>';
+    return _csHtml;
+  }
+
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var pr = db.bestPR || {};
   var html = '';
@@ -14965,6 +15000,13 @@ function hadGrindLastSession(liftType) {
 }
 
 function wpComputeWorkWeight(liftType, bodyPart) {
+  // Cold start: no logs yet — use onboarding PR or calibration weight
+  if (typeof isColdStart === 'function' && isColdStart()) {
+    var _obPR = typeof getOnboardingPR === 'function' ? getOnboardingPR(liftType) : 0;
+    if (_obPR > 0) return wpRound25(_obPR * 0.75);
+    return typeof getCalibrationWeight === 'function' ? getCalibrationWeight(liftType, bodyPart) : 60;
+  }
+
   var pr = db.bestPR || {};
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var targetNames = {

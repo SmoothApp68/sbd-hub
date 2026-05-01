@@ -2625,3 +2625,49 @@ function analyzeAthleteProfile() {
 
   return sections;
 }
+
+// ── COLD START DETECTION ────────────────────────────────────────────────────
+
+function isColdStart() {
+  var logs = db.logs || [];
+  var hasE1RM = db.exercises && Object.keys(db.exercises).length > 0;
+  return logs.length === 0 && !hasE1RM;
+}
+
+function getColdStartWeek() {
+  var obDate = db.user && db.user.onboardingDate;
+  if (!obDate) return 1;
+  var diff = Date.now() - new Date(obDate).getTime();
+  return Math.min(4, Math.floor(diff / (7 * 86400000)) + 1);
+}
+
+// ── CALIBRATION WEIGHTS ─────────────────────────────────────────────────────
+
+var CALIBRATION_WEIGHTS = {
+  squat:    { debutant: 40, intermediaire: 60, avance: 80, competiteur: 100 },
+  bench:    { debutant: 30, intermediaire: 45, avance: 60, competiteur: 80  },
+  deadlift: { debutant: 50, intermediaire: 70, avance: 90, competiteur: 110 },
+  'default': { debutant: 20, intermediaire: 30, avance: 40, competiteur: 50 }
+};
+
+function getCalibrationWeight(exoName, bodyPart) {
+  var level = (db.user && db.user.level) || 'debutant';
+  var name = (exoName || '').toLowerCase();
+  var key;
+  if (name.includes('squat')) key = 'squat';
+  else if (name.includes('bench') || name.includes('développé') || name.includes('couché')) key = 'bench';
+  else if (name.includes('soulevé') || name.includes('deadlift') || name.includes('sdt')) key = 'deadlift';
+  else key = 'default';
+  var table = CALIBRATION_WEIGHTS[key] || CALIBRATION_WEIGHTS['default'];
+  return Math.max(20, table[level] || table.debutant);
+}
+
+function getOnboardingPR(exoName) {
+  var prs = db.user && db.user.onboardingPRs;
+  if (!prs) return 0;
+  var name = (exoName || '').toLowerCase();
+  if (name.includes('squat')) return prs.squat || 0;
+  if (name.includes('bench') || name.includes('développé') || name.includes('couché')) return prs.bench || 0;
+  if (name.includes('soulevé') || name.includes('deadlift') || name.includes('sdt')) return prs.deadlift || 0;
+  return 0;
+}

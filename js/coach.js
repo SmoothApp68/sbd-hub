@@ -286,6 +286,11 @@ function coachGetFullAnalysis() {
 // ── SCORE COACH SRS (Stress / Recovery / State) ──
 // 60% ACWR + 20% readiness subjective + 20% tendance e1RM
 function computeSRS() {
+  // Cold start guard — no training data yet
+  if (typeof isColdStart === 'function' && isColdStart()) {
+    return { score: 75, acwr: 1.0, isColdStart: true, message: 'Semaine de calibration — pas encore de données.' };
+  }
+
   var logs = db.logs || [];
   var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
   var bestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {};

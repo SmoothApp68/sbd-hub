@@ -6,7 +6,7 @@
 // CONSTANTS & CONFIG
 // ============================================================
 const STORAGE_KEY='SBD_HUB_V29';
-const ONBOARDING_VERSION=2;
+const ONBOARDING_VERSION=3;
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 const SBD_TYPES=['bench','squat','deadlift'];

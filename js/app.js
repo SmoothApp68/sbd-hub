@@ -79,7 +79,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null },
   customProgramTemplate: null,
   customProgramBackups: [],
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0, updatedAt: 0,
@@ -192,6 +192,11 @@ let db = (() => {
     // PhysioManager — migration cycle menstruel
     if (p.user.menstrualEnabled === undefined) p.user.menstrualEnabled = false;
     if (p.user.menstrualData === undefined) p.user.menstrualData = null;
+    // Onboarding V3 — profile flags
+    if (p.user.vocabLevel === undefined) p.user.vocabLevel = 2;
+    if (p.user.obProfile === undefined) p.user.obProfile = null;
+    if (p.user.skipPRs === undefined) p.user.skipPRs = false;
+    if (p.user.skipRPE === undefined) p.user.skipRPE = false;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -834,6 +839,16 @@ function daysLeft(expiresAt) { return Math.max(0, Math.ceil((expiresAt - Date.no
 // ============================================================
 // ONBOARDING — STATE
 // ============================================================
+
+var ONBOARDING_PROFILES = {
+  debutant:    { skipPRs: true,  skipRPE: true,  coldStartRPE: 6, rpeMax: 7,  vocab: 1, level: 'debutant',      trainingMode: 'musculation',   goal: 'masse',     message: 'On s\'occupe de tout. Apprends le mouvement, on gère les poids.' },
+  intermediaire:{ skipPRs: false, skipRPE: false, coldStartRPE: 7, rpeMax: 9,  vocab: 2, level: 'intermediaire', trainingMode: 'powerbuilding',  goal: 'masse',     message: 'Optimise tes séances. Ne stagne plus jamais.' },
+  powerlifter: { skipPRs: false, skipRPE: false, coldStartRPE: 8, rpeMax: 10, vocab: 3, level: 'avance',        trainingMode: 'powerlifting',   goal: 'force',     message: 'Précision millimétrée. Domine ton prochain plateau.' },
+  yoga:        { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 7,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Force & Souplesse. Des muscles fonctionnels, sans le volume.' },
+  senior:      { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Santé & Vitalité. Protège ton corps et reste fort longtemps.' },
+  reeducation: { skipPRs: true,  skipRPE: true,  coldStartRPE: 4, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'reprise',   message: 'Reprends le contrôle. Ta guérison est notre priorité.' }
+};
+
 let obPath = 'generate'; // 'generate' | 'import'
 let obFreq = 3;
 let obMat  = 'salle';
@@ -950,8 +965,11 @@ function showOnboarding() {
   if (db.user.onboarded && db.user.onboardingVersion < ONBOARDING_VERSION) {
     // Existing user — show welcome-back screen first
     gotoObStep('welcome-back');
+  } else if (!db.user.onboarded) {
+    // Brand new user — 3-question fast flow
+    gotoObStep('q1');
   } else {
-    // Pre-fill existing values for edit session
+    // Pre-fill existing values for edit session (settings re-open)
     var nameEl = document.getElementById('ob-name');
     var bwEl   = document.getElementById('ob-bw');
     var htEl   = document.getElementById('ob-height');
@@ -1010,7 +1028,10 @@ function gotoObStep(stepId) {
 }
 
 function updateObProgress(stepId) {
-  var steps = OB_STEP_SEQUENCE;
+  var fastSteps = ['q1', 'q2', 'q3'];
+  var fullSteps = OB_STEP_SEQUENCE;
+  var inFastFlow = fastSteps.indexOf(stepId) !== -1;
+  var steps = inFastFlow ? fastSteps : fullSteps;
   var current = steps.indexOf(stepId) + 1;
   document.getElementById('ob-progress').innerHTML = steps.map(function(_, i) {
     return '<div class="ob-dot' + (i < current ? ' active' : '') + '"></div>';
@@ -1024,6 +1045,87 @@ function obFinishWelcomeBack() {
   saveDB();
   hideOnboarding();
   showToast('Profil à jour !');
+}
+
+// ── ONBOARDING V3 — 3-question fast flow ──────────────────────
+
+var _obQ1SelectedProfile = null;
+var _obQ2SelectedGoal = null;
+
+function obQ1SelectProfile(profileId, btn) {
+  _obQ1SelectedProfile = profileId;
+  document.querySelectorAll('#ob-q1-profiles .ob-profile-btn').forEach(function(b) { b.classList.remove('selected'); });
+  if (btn) btn.classList.add('selected');
+  var contBtn = document.getElementById('ob-q1-continue');
+  if (contBtn) contBtn.disabled = false;
+  // Show profile message
+  var msgEl = document.getElementById('ob-q1-msg');
+  if (msgEl && ONBOARDING_PROFILES[profileId]) {
+    msgEl.textContent = ONBOARDING_PROFILES[profileId].message;
+    msgEl.style.display = 'block';
+  }
+}
+
+function obSaveQ1() {
+  var nameEl = document.getElementById('ob-q1-name');
+  var name = (nameEl && nameEl.value || '').trim();
+  if (!name) { showToast('Entre ton prénom 😊'); return; }
+  if (!_obQ1SelectedProfile) { showToast('Choisis ton profil'); return; }
+  var profile = ONBOARDING_PROFILES[_obQ1SelectedProfile];
+  db.user.name          = name;
+  db.user.level         = profile.level;
+  db.user.trainingMode  = profile.trainingMode;
+  db.user.vocabLevel    = profile.vocab;
+  db.user.obProfile     = _obQ1SelectedProfile;
+  db.user.skipPRs       = profile.skipPRs;
+  db.user.skipRPE       = profile.skipRPE;
+  _obSelectedMode       = profile.trainingMode;
+  saveDB();
+  gotoObStep('q2');
+}
+
+function obQ2SelectGoal(goalId, btn) {
+  _obQ2SelectedGoal = goalId;
+  document.querySelectorAll('#ob-q2-goals .ob-goal-btn').forEach(function(b) { b.classList.remove('selected'); });
+  if (btn) btn.classList.add('selected');
+}
+
+function obSaveQ2() {
+  if (!_obQ2SelectedGoal) { showToast('Choisis un objectif'); return; }
+  db.user.goal = _obQ2SelectedGoal;
+  _obSelectedGoal = _obQ2SelectedGoal;
+  saveDB();
+  gotoObStep('q3');
+}
+
+function obQ3SelectMat(matId, btn) {
+  obMat = matId;
+  document.querySelectorAll('#ob-q3-mat .ob-mat-btn').forEach(function(b) { b.classList.remove('selected'); });
+  if (btn) btn.classList.add('selected');
+}
+
+function obSaveQ3() {
+  // Defaults for fields not asked in fast flow
+  db.user.bw            = 0;
+  db.user.height        = null;
+  db.user.age           = null;
+  db.user.gender        = 'unspecified';
+  db.user.secondaryActivities = [];
+  db.user.injuries      = [];
+  db.user.prehabEnabled = true;
+  db.user.cardio        = 'integre';
+  obFreq                = 3;
+  obDuration            = 60;
+  obCardio              = 'integre';
+  // Determine freq from profile
+  var profile = ONBOARDING_PROFILES[_obQ1SelectedProfile || 'debutant'];
+  if (profile && (profile.level === 'avance')) obFreq = 4;
+  // Pick days automatically (Mon/Wed/Fri or Mon/Tue/Thu/Fri)
+  var defaultDays3 = ['Lundi', 'Mercredi', 'Vendredi'];
+  var defaultDays4 = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];
+  obSelectedDays = (obFreq === 4) ? defaultDays4 : defaultDays3;
+  saveDB();
+  obGenerateProgram();
 }
 
 function obOnGenderChange(val) {

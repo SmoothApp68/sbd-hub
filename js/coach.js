@@ -283,8 +283,68 @@ function coachGetFullAnalysis() {
   return '<div class="ai-response-content">' + sections.map(function(s) { return '<div class="ai-section">'+s+'</div>'; }).join('') + '</div><div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
 }
 
+// ── TRIMP FORCE (Foster et al. 2001 adapté powerbuilding) ──────────────────
+// TRIMP = Σ (reps × RPE² × C_slot) par séance
+// C_slot : primaire=1.5, secondaire=1.2, isolation=1.0
+function calcWeeklyTRIMPForce(logs) {
+  var cutoff = Date.now() - 7 * 86400000;
+  var weekLogs = (logs || []).filter(function(l) { return l.timestamp > cutoff; });
+  var total = 0;
+  weekLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var cSlot = exo.isPrimary ? 1.5 : (exo.slot === 'isolation' ? 1.0 : 1.2);
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff) return;
+        var rpe = parseFloat(s.rpe) || 7;
+        var reps = parseInt(s.reps) || 0;
+        total += reps * Math.pow(rpe, 2) * cSlot;
+      });
+    });
+  });
+  return total;
+}
+
+function calcChronicTRIMPForce(logs) {
+  var cutoff = Date.now() - 28 * 86400000;
+  var monthLogs = (logs || []).filter(function(l) { return l.timestamp > cutoff; });
+  var total = 0;
+  monthLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var cSlot = exo.isPrimary ? 1.5 : (exo.slot === 'isolation' ? 1.0 : 1.2);
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff) return;
+        var rpe = parseFloat(s.rpe) || 7;
+        var reps = parseInt(s.reps) || 0;
+        total += reps * Math.pow(rpe, 2) * cSlot;
+      });
+    });
+  });
+  return total / 4;
+}
+
+// ── HRV z-score (normalisé sur 7j) ────────────────────────────────────────
+// z > 1.0  → God Mode (augmenter le score)
+// z < -1.5 → Fatigue nerveuse (réduire le score)
+function calcHRVZScore() {
+  var history = db.rhrHistory || [];
+  var hrvValues = history.slice(0, 7)
+    .filter(function(e) { return e && e.hrv; })
+    .map(function(e) { return e.hrv; });
+  if (hrvValues.length < 3) return null;
+  var todayHRV = hrvValues[0];
+  var mean = hrvValues.reduce(function(a, b) { return a + b; }, 0) / hrvValues.length;
+  var variance = hrvValues.reduce(function(a, b) { return a + Math.pow(b - mean, 2); }, 0) / hrvValues.length;
+  var std = Math.sqrt(variance) || 1;
+  return (todayHRV - mean) / std;
+}
+
 // ── SCORE COACH SRS (Stress / Recovery / State) ──
-// 60% ACWR + 20% readiness subjective + 20% tendance e1RM
+// Avec HRV    : ACWR 40%, HRV 30%, Readiness 15%, Trend 15%
+// Sans HRV    : ACWR 60%, Readiness 20%, Trend 20%
+// Zones ACWR powerbuilding (Foster/Gabbett adapté force) :
+//   0.8–1.2 → progression durable (score 100)
+//   1.2–1.4 → overreach tolérable 1-2 semaines (décroissance linéaire)
+//   > 1.5   → risque blessure ligamentaire
 function computeSRS() {
   // Cold start guard — no training data yet
   if (typeof isColdStart === 'function' && isColdStart()) {
@@ -293,28 +353,10 @@ function computeSRS() {
 
   var logs = db.logs || [];
   var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
-  var bestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {};
 
-  function getEffVol(days) {
-    var cutoff = Date.now() - days * 86400000;
-    return logs.filter(function(l) { return l.timestamp >= cutoff; })
-      .reduce(function(sum, log) {
-        return sum + (log.exercises || []).reduce(function(s, exo) {
-          var e1rm = (bestE1RMs[exo.name] && bestE1RMs[exo.name].e1rm) || 0;
-          return s + (exo.allSets || exo.series || []).reduce(function(ss, set) {
-            if (set.isWarmup || set.setType === 'warmup') return ss;
-            var reps = parseFloat(set.reps) || 0;
-            var weight = parseFloat(set.weight) || 0;
-            var rpe = parseFloat(set.rpe) || (typeof estimateRpeFromIntensity === 'function' ? estimateRpeFromIntensity(weight, e1rm) : 8);
-            return ss + (reps * weight * rpe);
-          }, 0);
-        }, 0);
-      }, 0);
-  }
-
-  // 1. ACWR — 60% (SBD + activités secondaires coefficient 0.7)
-  var acuteSBD = getEffVol(7);
-  var chronicSBD = getEffVol(28) / 4 || 1;
+  // 1. ACWR via TRIMP Force (remplace volume × RPE)
+  var acuteSBD = calcWeeklyTRIMPForce(logs);
+  var chronicSBD = calcChronicTRIMPForce(logs) || 1;
 
   function getActivityEffVol(days) {
     var cutoff = Date.now() - days * 86400000;
@@ -341,19 +383,25 @@ function computeSRS() {
   var acute = acuteSBD + acuteExt;
   var chronic = chronicSBD + chronicExt + 1;
   var acwr = acute / chronic;
-  var acwrScore = (acwr >= 0.8 && acwr <= 1.3)
-    ? 100
-    : Math.max(0, 100 - Math.abs(1.05 - acwr) * 150);
+  // Zones powerbuilding : 0.8-1.2 optimal, 1.2-1.4 overreach tolérable, >1.5 danger
+  var acwrScore;
+  if (acwr >= 0.8 && acwr <= 1.2) {
+    acwrScore = 100;
+  } else if (acwr > 1.2 && acwr <= 1.4) {
+    acwrScore = Math.max(60, 100 - (acwr - 1.2) * 200); // linéaire 100→60
+  } else {
+    acwrScore = Math.max(0, 100 - Math.abs(1.0 - acwr) * 160);
+  }
 
-  // 2. Readiness subjective — 20%
+  // 2. Readiness subjective
   var recentR = (db.readiness || []).filter(function(r) {
-    return (Date.now() - new Date(r.date).getTime()) < 7 * 86400000;
+    return (Date.now() - (r.ts || new Date(r.date).getTime())) < 7 * 86400000;
   });
   var subjScore = recentR.length
     ? recentR.reduce(function(s, r) { return s + r.score; }, 0) / recentR.length
     : 60;
 
-  // 3. Tendance e1RM 14 jours — 20%
+  // 3. Tendance e1RM 14 jours
   var trendScore = 70;
   var sbd = ['squat','bench','deadlift'];
   var deltas = [];
@@ -375,7 +423,17 @@ function computeSRS() {
     trendScore = Math.min(100, Math.max(0, 70 + avgDelta * 5));
   }
 
-  var raw = (acwrScore * 0.6) + (subjScore * 0.2) + (trendScore * 0.2);
+  // 4. HRV z-score (si données disponibles)
+  var hrvZ = calcHRVZScore();
+  var raw;
+  if (hrvZ !== null) {
+    // Avec HRV : ACWR 40%, HRV 30%, Readiness 15%, Trend 15%
+    var hrvScore = Math.min(100, Math.max(0, 70 + hrvZ * 15));
+    raw = (acwrScore * 0.40) + (hrvScore * 0.30) + (subjScore * 0.15) + (trendScore * 0.15);
+  } else {
+    // Sans HRV : ACWR 60%, Readiness 20%, Trend 20%
+    raw = (acwrScore * 0.60) + (subjScore * 0.20) + (trendScore * 0.20);
+  }
 
   // Peak Mode : la fatigue de peak est attendue, on relève le score
   if (phase === 'peak') raw = Math.min(100, raw * 1.2);
@@ -418,6 +476,10 @@ function computeSRS() {
     acwrScore: Math.round(acwrScore),
     subjScore: Math.round(subjScore),
     trendScore: Math.round(trendScore),
+    hrvZ: hrvZ !== null ? Math.round(hrvZ * 100) / 100 : null,
+    hasHRV: hrvZ !== null,
+    acuteTRIMP: Math.round(acuteSBD),
+    chronicTRIMP: Math.round(chronicSBD),
     peakMode: phase === 'peak',
     cyclePhase: typeof getCurrentMenstrualPhase === 'function' ? getCurrentMenstrualPhase() : null,
     label: phase === 'peak' ? '🔥 Fatigue de Peak — normal' :

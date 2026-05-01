@@ -6,13 +6,31 @@
 // CONSTANTS & CONFIG
 // ============================================================
 const STORAGE_KEY='SBD_HUB_V29';
-const ONBOARDING_VERSION=2;
+const ONBOARDING_VERSION=3;
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 const SBD_TYPES=['bench','squat','deadlift'];
 const RADAR_CONFIG=[{label:'Dos',key:'Dos',color:'#FF9F0A'},{label:'Torse',key:'Pecs',color:'#0A84FF'},{label:'Tronc',key:'Abdos',color:'#FF453A'},{label:'Jambes',key:'Jambes',color:'#32D74B'},{label:'Bras',key:'Bras',color:'#64D2FF'},{label:'Épaules',key:'Épaules',color:'#BF5AF2'}];
 const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];
 const REPORT_TTL_MS=7*86400000;
+
+// ── Vocabulaire adaptatif selon niveau (TÂCHE 11) ──
+var VOCAB = {
+  e1rm:  { 1: 'Force estimée',    2: 'Max théorique',    3: 'e1RM (Brzycki)' },
+  rpe:   { 1: 'Difficulté',       2: 'Effort perçu',     3: 'RPE / RIR' },
+  peak:  { 1: 'Intensité max',    2: 'Phase de force',   3: 'Peaking / Tapering' },
+  apre:  { 1: 'Poids adaptatif',  2: 'Ajustement auto',  3: 'APRE Protocol' },
+  srs:   { 1: 'Forme du jour',    2: 'Score de forme',   3: 'SRS / ACWR' },
+  deload:{ 1: 'Semaine légère',   2: 'Semaine de récup', 3: 'Deload / Washout' },
+  acwr:  { 1: 'Charge accumulée', 2: 'Ratio de charge',  3: 'ACWR' },
+  mrv:   { 1: 'Volume max',       2: 'Volume maximum',   3: 'MRV (Max Recoverable Volume)' },
+  mev:   { 1: 'Volume mini',      2: 'Volume minimum',   3: 'MEV (Minimum Effective Volume)' }
+};
+
+function getVocab(key) {
+  var level = (typeof db !== 'undefined' && db.user && db.user.vocabLevel) || 2;
+  return (VOCAB[key] && VOCAB[key][level]) || key;
+}
 
 // ── ANALYSE ATHLÈTE — Seuils scientifiques ────────────────────
 // Ratios de force cibles (powerbuilder)
@@ -2175,6 +2193,21 @@ function findBestTransferSource(targetExoName, allBestE1RMs) {
   return { exoName: best, e1rm: bestE1RM };
 }
 
+// Ratio de transfert entre deux exercices — utilise l'historique réel de l'user si disponible,
+// sinon fallback sur EXERCISE_TRANSFER_MATRIX universel.
+function getTransferRatio(sourceExo, targetExo) {
+  var allE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {};
+  var sourceE1rm = allE1RMs[sourceExo] ? allE1RMs[sourceExo].e1rm : 0;
+  var targetE1rm = allE1RMs[targetExo] ? allE1RMs[targetExo].e1rm : 0;
+  if (sourceE1rm > 0 && targetE1rm > 0) {
+    return targetE1rm / sourceE1rm;
+  }
+  var src = EXERCISE_TRANSFER_MATRIX[sourceExo];
+  var tgt = EXERCISE_TRANSFER_MATRIX[targetExo];
+  if (src && tgt && src.family === tgt.family) return tgt.ratio / src.ratio;
+  return null;
+}
+
 // Decay e1RM après absence : -1 % par semaine, plafonné à -15 %
 function applyE1RMDecay(e1rm, weeksAbsent) {
   var decay = Math.min(0.15, weeksAbsent * 0.01);
@@ -2624,6 +2657,21 @@ function analyzeAthleteProfile() {
     if (wbAlerts.length) sections.push({ title: '🌙 Bien-être du Jour', alerts: wbAlerts });
   }
 
+  // ── RHR alert — Garmin Health Connect (TÂCHE 17 ÉTAPE C) ──
+  var rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  if (rhrAlert) {
+    var rhrAlerts = [];
+    rhrAlerts.push({
+      severity: rhrAlert.level === 'danger' ? 'danger' : 'warning',
+      title: '❤️ FC Repos Élevée',
+      text: rhrAlert.msg + '. '
+        + (rhrAlert.level === 'danger'
+          ? 'Envisage une séance de récupération active ou un jour de repos complet.'
+          : 'Les charges sont automatiquement réduites de 5% aujourd\'hui.')
+    });
+    sections.push({ title: '⌚ Données Garmin', alerts: rhrAlerts });
+  }
+
   return sections;
 }
 
@@ -2671,4 +2719,117 @@ function getOnboardingPR(exoName) {
   if (name.includes('bench') || name.includes('développé') || name.includes('couché')) return prs.bench || 0;
   if (name.includes('soulevé') || name.includes('deadlift') || name.includes('sdt')) return prs.deadlift || 0;
   return 0;
+}
+
+// ============================================================
+// PHYSIOMANAGER — Module cycle menstruel (TÂCHE 7)
+// Toutes les fonctions retournent des valeurs neutres si
+// menstrualEnabled === false ou si l'utilisateur n'est pas F.
+// Ne jamais afficher ces données dans le feed social.
+// ============================================================
+
+var MENSTRUAL_PHASES = {
+  folliculaire_precoce: {
+    days: [1, 2, 3, 4, 5, 6, 7],
+    cycleCoeff: 0.92,
+    mrvCoeff: 0.90,
+    rpeAdjust: +1,
+    restMultiplier: 1.20,
+    injuryAlert: false,
+    label: 'Phase folliculaire précoce'
+  },
+  folliculaire_tardive: {
+    days: [8, 9, 10, 11, 12, 13],
+    cycleCoeff: 1.08,
+    mrvCoeff: 1.10,
+    rpeAdjust: -1,
+    restMultiplier: 0.90,
+    injuryAlert: false,
+    label: 'Phase folliculaire tardive'
+  },
+  ovulatoire: {
+    days: [14, 15, 16],
+    cycleCoeff: 1.10,
+    mrvCoeff: 1.12,
+    rpeAdjust: -1,
+    restMultiplier: 0.85,
+    injuryAlert: true,
+    label: 'Phase ovulatoire'
+  },
+  luteale: {
+    days: [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
+    cycleCoeff: 0.88,
+    mrvCoeff: 0.85,
+    rpeAdjust: +2,
+    restMultiplier: 1.30,
+    injuryAlert: true,
+    label: 'Phase lutéale'
+  }
+};
+
+function getCurrentMenstrualPhase() {
+  if (!db.user || !db.user.menstrualEnabled || !db.user.menstrualData) return null;
+  var data = db.user.menstrualData;
+  if (!data.lastPeriodStart) return null;
+  var cycleLength = data.cycleLength || 28;
+  var start = new Date(data.lastPeriodStart);
+  var today = new Date();
+  var diffDays = Math.floor((today - start) / 86400000);
+  var dayInCycle = (diffDays % cycleLength) + 1;
+  if (dayInCycle < 1) dayInCycle = 1;
+  for (var phase in MENSTRUAL_PHASES) {
+    var p = MENSTRUAL_PHASES[phase];
+    if (p.days.indexOf(dayInCycle) !== -1) return phase;
+  }
+  // Cycle plus long que 28j : phase lutéale étendue
+  return 'luteale';
+}
+
+function getCycleCoeff() {
+  var gender = db.user && db.user.gender;
+  if (!db.user || !db.user.menstrualEnabled) return 1.0;
+  if (gender && gender !== 'F' && gender !== 'female' && gender !== 'femme') return 1.0;
+  var phase = getCurrentMenstrualPhase();
+  if (!phase || !MENSTRUAL_PHASES[phase]) return 1.0;
+  return MENSTRUAL_PHASES[phase].cycleCoeff;
+}
+
+function getMRVWithCycleAdjust(baseMRV) {
+  var gender = db.user && db.user.gender;
+  if (!db.user || !db.user.menstrualEnabled) return baseMRV;
+  if (gender && gender !== 'F' && gender !== 'female' && gender !== 'femme') return baseMRV;
+  var phase = getCurrentMenstrualPhase();
+  if (!phase || !MENSTRUAL_PHASES[phase]) return baseMRV;
+  return Math.round(baseMRV * MENSTRUAL_PHASES[phase].mrvCoeff);
+}
+
+function getRestWithCycleAdjust(baseRestSec) {
+  var gender = db.user && db.user.gender;
+  if (!db.user || !db.user.menstrualEnabled) return baseRestSec;
+  if (gender && gender !== 'F' && gender !== 'female' && gender !== 'femme') return baseRestSec;
+  var phase = getCurrentMenstrualPhase();
+  if (!phase || !MENSTRUAL_PHASES[phase]) return baseRestSec;
+  return Math.round(baseRestSec * MENSTRUAL_PHASES[phase].restMultiplier);
+}
+
+// ── 5-Rep Test calibration (TÂCHE 12) ────────────────────────
+// Pour profils sans PRs (debutant, yoga, senior, reeducation)
+// Sécurité S1 : coefficient 0.85 sur le e1RM calculé
+
+function calcE1RMFrom5RepTest(weight, reps) {
+  if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
+  var e1rm = weight / (1.0278 - (0.0278 * reps));
+  return Math.round(e1rm * 0.85 / 2.5) * 2.5;
+}
+
+function shouldShow5RepTest(exoName) {
+  if (!isColdStart()) return false;
+  var profile = db.user && db.user.obProfile;
+  var skipPRs = db.user && db.user.skipPRs;
+  if (!skipPRs && profile !== 'debutant' && profile !== 'yoga' && profile !== 'senior' && profile !== 'reeducation') return false;
+  // Only show for main compound lifts
+  var name = (exoName || '').toLowerCase();
+  return name.includes('squat') || name.includes('bench') || name.includes('développé')
+    || name.includes('soulevé') || name.includes('deadlift') || name.includes('presse')
+    || name.includes('rowing') || name.includes('pull');
 }

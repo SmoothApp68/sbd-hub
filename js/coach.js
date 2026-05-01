@@ -129,7 +129,7 @@ function coachGetFullAnalysis() {
   formHtml += '<div style="flex:2;padding:10px;background:rgba(255,255,255,.03);border-radius:10px;font-size:12px;color:var(--sub);line-height:1.6;">';
   formHtml += readiness.label;
   if (deloadCheck.needed) {
-    formHtml += '<br><span style="color:var(--orange);">⚠️ Deload recommandé — '+deloadCheck.reason+'</span>';
+    formHtml += '<br><span style="color:var(--orange);">⚠️ ' + (typeof getVocab === 'function' ? getVocab('deload') : 'Deload') + ' recommandé — '+deloadCheck.reason+'</span>';
   }
   formHtml += '</div></div>';
   sections.push(formHtml);
@@ -380,6 +380,10 @@ function computeSRS() {
   // Peak Mode : la fatigue de peak est attendue, on relève le score
   if (phase === 'peak') raw = Math.min(100, raw * 1.2);
 
+  // PhysioManager — ajustement cycle menstruel
+  var cycleCoeff = typeof getCycleCoeff === 'function' ? getCycleCoeff() : 1.0;
+  raw = raw * cycleCoeff;
+
   var score = Math.round(Math.min(100, Math.max(0, raw)));
 
   return {
@@ -389,6 +393,7 @@ function computeSRS() {
     subjScore: Math.round(subjScore),
     trendScore: Math.round(trendScore),
     peakMode: phase === 'peak',
+    cyclePhase: typeof getCurrentMenstrualPhase === 'function' ? getCurrentMenstrualPhase() : null,
     label: phase === 'peak' ? '🔥 Fatigue de Peak — normal' :
            score >= 75 ? '✅ Forme optimale' :
            score >= 55 ? '🟡 Forme correcte' :

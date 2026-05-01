@@ -180,13 +180,11 @@ Message de réactivation empathique selon le contexte (PR raté, etc).
 
 ---
 
-### ✅ PHASE 5 — Post-lancement (EN COURS)
-- [x] TÂCHE 15 : Notifications J1→J30 — commit 49562b3
-- [x] TÂCHE 17 : Health Connect UI + Garmin CSV import + RHR analysis + penalty — commit d925a42
-- [x] TÂCHE 18 : Bluetooth FC live GO — commit 25d4d32
-- [ ] TÂCHE 9 : Health Connect API native (Supabase Edge Functions, attendre validation)
-- [ ] TÂCHE 19 : Weight Cut module (attendre validation Claude.ai)
-- [ ] TÂCHE 20 : Paywall features Premium (attendre validation Claude.ai)
+### PHASE 5 — Post-lancement
+- [ ] TÂCHE 17 : Health Connect / Garmin (Supabase Edge Functions)
+- [ ] TÂCHE 18 : Bluetooth FC live GO
+- [ ] TÂCHE 19 : Weight Cut module
+- [ ] TÂCHE 20 : Paywall features Premium (SRS, APRE, Garmin)
 
 ---
 

@@ -189,6 +189,9 @@ let db = (() => {
     if (p.user.coachProfile === undefined) p.user.coachProfile = 'full';
     if (p.user.coachEnabled === undefined) p.user.coachEnabled = true;
     if (p.customProgramBackups === undefined) p.customProgramBackups = [];
+    // PhysioManager — migration cycle menstruel
+    if (p.user.menstrualEnabled === undefined) p.user.menstrualEnabled = false;
+    if (p.user.menstrualData === undefined) p.user.menstrualData = null;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -12334,6 +12337,89 @@ function renderSettingsProfile() {
       }).join('')
       + '</div>';
   }
+
+  // PhysioManager — section cycle menstruel (uniquement si genre F/female/femme)
+  var _gender = db.user && db.user.gender;
+  var _isFemale = _gender === 'F' || _gender === 'female' || _gender === 'femme';
+  var _cycleSection = document.getElementById('settingsMenstrualSection');
+  if (_isFemale) {
+    if (!_cycleSection) {
+      var _section = document.createElement('div');
+      _section.id = 'settingsMenstrualSection';
+      _section.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+      var _parentEl = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+      if (_parentEl && _parentEl.parentNode) _parentEl.parentNode.appendChild(_section);
+      _cycleSection = _section;
+    }
+    var _menEnabled = db.user.menstrualEnabled === true;
+    var _menData = db.user.menstrualData || {};
+    _cycleSection.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">🌸 Suivi cycle menstruel</div>'
+      + '<div style="font-size:11px;color:var(--sub);margin-bottom:12px;line-height:1.5;">'
+      + 'Ajuste les charges et le repos selon ta phase. Données 100% privées, jamais partagées.</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+      + '<span style="font-size:13px;">Activer le suivi</span>'
+      + '<button onclick="toggleMenstrualTracking()" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;'
+      + 'border:1px solid ' + (_menEnabled ? 'var(--green)' : 'var(--border)') + ';'
+      + 'background:' + (_menEnabled ? 'rgba(52,199,89,0.15)' : 'var(--surface)') + ';'
+      + 'color:' + (_menEnabled ? 'var(--green)' : 'var(--sub)') + ';">'
+      + (_menEnabled ? '✅ Activé' : 'Désactivé') + '</button>'
+      + '</div>'
+      + (_menEnabled ? '<div style="margin-bottom:10px;">'
+        + '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Début des dernières règles</div>'
+        + '<input type="date" id="menstrualStartDate" value="' + (_menData.lastPeriodStart || '') + '"'
+        + ' onchange="saveMenstrualData()" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;">'
+        + '</div>'
+        + '<div style="margin-bottom:10px;">'
+        + '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Durée du cycle (jours)</div>'
+        + '<input type="number" id="menstrualCycleLength" value="' + (_menData.cycleLength || 28) + '" min="21" max="40"'
+        + ' onchange="saveMenstrualData()" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;">'
+        + '</div>'
+        + '<button onclick="menstrualResetToday()" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--sub);font-size:12px;cursor:pointer;">'
+        + '🔄 Réinitialiser (règles aujourd\'hui)</button>'
+        : '');
+  } else if (_cycleSection) {
+    _cycleSection.innerHTML = '';
+    _cycleSection.style.display = 'none';
+  }
+}
+
+// ── PhysioManager CRUD ──
+
+function toggleMenstrualTracking() {
+  if (!db.user) return;
+  db.user.menstrualEnabled = !db.user.menstrualEnabled;
+  if (db.user.menstrualEnabled && !db.user.menstrualData) {
+    db.user.menstrualData = { lastPeriodStart: null, cycleLength: 28 };
+  }
+  saveDB();
+  debouncedCloudSync();
+  renderSettingsProfile();
+  showToast(db.user.menstrualEnabled ? '🌸 Suivi cycle activé' : 'Suivi cycle désactivé');
+}
+
+function saveMenstrualData() {
+  if (!db.user || !db.user.menstrualEnabled) return;
+  var startEl = document.getElementById('menstrualStartDate');
+  var lengthEl = document.getElementById('menstrualCycleLength');
+  if (!db.user.menstrualData) db.user.menstrualData = {};
+  if (startEl && startEl.value) db.user.menstrualData.lastPeriodStart = startEl.value;
+  if (lengthEl && lengthEl.value) {
+    var len = parseInt(lengthEl.value);
+    if (len >= 21 && len <= 40) db.user.menstrualData.cycleLength = len;
+  }
+  saveDB();
+  debouncedCloudSync();
+  showToast('🌸 Données cycle sauvegardées');
+}
+
+function menstrualResetToday() {
+  if (!db.user || !db.user.menstrualEnabled) return;
+  if (!db.user.menstrualData) db.user.menstrualData = {};
+  db.user.menstrualData.lastPeriodStart = new Date().toISOString().split('T')[0];
+  saveDB();
+  debouncedCloudSync();
+  renderSettingsProfile();
+  showToast('🌸 Cycle réinitialisé — J1 aujourd\'hui');
 }
 
 function setProgramMode(mode) {
@@ -12718,6 +12804,36 @@ function renderCoachTodayHTML() {
         });
         html += '</div>';
       });
+      html += '</div>';
+    }
+  }
+
+  // ── 0c. PHYSIOMANAGER — alerte cycle menstruel ──
+  if (db.user && db.user.menstrualEnabled && typeof getCurrentMenstrualPhase === 'function') {
+    var _cyclePhase = getCurrentMenstrualPhase();
+    if (_cyclePhase && typeof MENSTRUAL_PHASES !== 'undefined' && MENSTRUAL_PHASES[_cyclePhase]) {
+      var _phaseData = MENSTRUAL_PHASES[_cyclePhase];
+      var _phaseLabel = _phaseData.label;
+      var _phaseColor = (_cyclePhase === 'luteale' || _cyclePhase === 'folliculaire_precoce')
+        ? 'var(--orange)' : 'var(--green)';
+      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      html += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🌸 ' + _phaseLabel + '</div>';
+      if (_phaseData.injuryAlert) {
+        html += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:8px;'
+          + 'background:var(--orange)18;border-left:3px solid var(--orange);">';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:3px;">⚠️ Risque articulaire élevé</div>';
+        html += '<div style="font-size:11px;color:var(--text);line-height:1.5;">Laxité ligamentaire accrue. Privilégie la technique sur la charge. Évite les charges maximales aujourd\'hui.</div>';
+        html += '</div>';
+      }
+      if (_phaseData.rpeAdjust > 0) {
+        html += '<div style="font-size:11px;color:var(--sub);line-height:1.5;">';
+        html += 'Effort perçu majoré de +' + _phaseData.rpeAdjust + ' — charge réduite automatiquement.';
+        html += '</div>';
+      } else if (_phaseData.rpeAdjust < 0) {
+        html += '<div style="font-size:11px;color:var(--green);line-height:1.5;">';
+        html += 'Phase anabolique — capacité de récupération maximale. Bonne séance pour progresser.';
+        html += '</div>';
+      }
       html += '</div>';
     }
   }
@@ -14611,6 +14727,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     if (_e1rmRef > 0) {
       var _maxAllowed = Math.round(_e1rmRef * _phaseCap / 2.5) * 2.5;
       if (baseWeight > _maxAllowed) baseWeight = _maxAllowed;
+    }
+  }
+
+  // PhysioManager — réduction de charge phase lutéale / folliculaire précoce
+  if (typeof getCycleCoeff === 'function') {
+    var _cycleCoeff = getCycleCoeff();
+    if (_cycleCoeff < 1.0) {
+      baseWeight = Math.round(baseWeight * _cycleCoeff / 2.5) * 2.5;
     }
   }
 

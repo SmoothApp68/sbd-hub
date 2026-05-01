@@ -12981,6 +12981,15 @@ function renderCoachTodayHTML() {
   // ── 0. BILAN DU MATIN ──
   html += renderMorningCheckin();
 
+  // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ──
+  var _churn = typeof detectChurn === 'function' ? detectChurn() : null;
+  if (_churn && _churn.isChurning) {
+    html += '<div style="background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.25);border-radius:14px;padding:16px;margin-bottom:14px;">';
+    html += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">👋 ' + _churn.title + '</div>';
+    html += '<div style="font-size:12px;color:var(--sub);line-height:1.6;">' + _churn.message + '</div>';
+    html += '</div>';
+  }
+
   // ── 0b. DIAGNOSTIC ATHLÉTIQUE ──
   if (coachProfile !== 'silent') {
     var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
@@ -17037,6 +17046,54 @@ function buildGoIdleHtml() {
   }
 
   return toggleHtml + '<div id="go-recap-view">' + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+}
+
+// ── CHURN DETECTION + RÉACTIVATION (TÂCHE 16) ─────────────────
+function detectChurn() {
+  var logs = db.logs || [];
+  if (logs.length < 3) return null; // Pas assez de données
+
+  // Calculer l'intervalle habituel entre séances (médiane des 10 derniers intervalles)
+  var sorted = logs.slice().sort(function(a, b) { return (a.timestamp||0) - (b.timestamp||0); });
+  var intervals = [];
+  for (var i = 1; i < Math.min(sorted.length, 11); i++) {
+    var diff = ((sorted[sorted.length-1-i+1]||{}).timestamp||0) - ((sorted[sorted.length-1-i]||{}).timestamp||0);
+    if (diff > 0) intervals.push(diff);
+  }
+  if (!intervals.length) return null;
+  intervals.sort(function(a, b) { return a - b; });
+  var medianInterval = intervals[Math.floor(intervals.length / 2)];
+  var avgIntervalDays = medianInterval / 86400000;
+
+  // Temps écoulé depuis la dernière séance
+  var lastTs = sorted[sorted.length - 1].timestamp || 0;
+  var daysSinceLast = (Date.now() - lastTs) / 86400000;
+
+  // Churn si absence ≥ 2× l'intervalle habituel (min 7 jours)
+  var threshold = Math.max(7, avgIntervalDays * 2);
+  if (daysSinceLast < threshold) return null;
+
+  var daysSinceRound = Math.round(daysSinceLast);
+  var lastPR = Object.keys(db.bestPR || {}).length ? db.bestPR : null;
+
+  // Message empathique selon le contexte
+  var title, message;
+  if (daysSinceLast >= 30) {
+    title = 'Tu nous as manqué !';
+    message = 'Ça fait ' + daysSinceRound + ' jours. La reprise est parfois difficile — commence par une séance courte, pas besoin d\'être au max. Ton corps retrouvera vite ses repères.';
+  } else if (daysSinceLast >= 14) {
+    title = 'Prêt à reprendre ?';
+    message = daysSinceRound + ' jours sans séance. C\'est tout à fait normal d\'avoir des pauses. Une petite séance aujourd\'hui suffit pour reprendre le rythme.';
+  } else {
+    title = 'De retour !';
+    message = 'Absence de ' + daysSinceRound + ' jours — ton prochain entraînement relance la machine. Réduis légèrement les charges pour commencer.';
+  }
+
+  if (lastPR && lastPR.bench > 0) {
+    message += ' Ton dernier record au bench : ' + lastPR.bench + ' kg — il t\'attend toujours.';
+  }
+
+  return { isChurning: true, daysSince: daysSinceRound, title: title, message: message };
 }
 
 function saveFiveRepTest(exoName, inputIdPrefix) {

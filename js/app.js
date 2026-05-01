@@ -80,7 +80,8 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null },
+  notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
   routine: null, logs: [], exercises: {}, bestPR: { bench: 0, squat: 0, deadlift: 0 }, reports: [], body: [], lastSync: 0, updatedAt: 0,
@@ -193,6 +194,9 @@ let db = (() => {
     // PhysioManager — migration cycle menstruel
     if (p.user.menstrualEnabled === undefined) p.user.menstrualEnabled = false;
     if (p.user.menstrualData === undefined) p.user.menstrualData = null;
+    // Notifications J1→J30 (TÂCHE 15)
+    if (!p.notificationsSent) p.notificationsSent = [];
+    if (p.user.onboardingDate === undefined) p.user.onboardingDate = p.user.onboarded ? null : null;
     // Smart streak (TÂCHE 13)
     if (p.smartStreak === undefined) p.smartStreak = 0;
     if (p.smartStreakRecord === undefined) p.smartStreakRecord = 0;
@@ -1884,6 +1888,7 @@ function autoPopulateKeyLifts() {
 function obFinish() {
   db.user.onboarded = true;
   db.user.onboardingVersion = ONBOARDING_VERSION;
+  if (!db.user.onboardingDate) db.user.onboardingDate = new Date().toISOString().split('T')[0];
   // Persist selectedDays into programParams — engine reads from here, not from the closure.
   if (Array.isArray(obSelectedDays) && obSelectedDays.length) {
     if (!db.user.programParams) db.user.programParams = {};
@@ -10548,6 +10553,83 @@ function _checkTrainingReminder() {
   var todayDay = DAYS_FULL[now.getDay()];
   var label = routine[todayDay] || 'entraînement';
   sendLocalNotification('💪 C\'est jour d\'entraînement', todayDay + ' — ' + label);
+}
+
+// ── NOTIFICATION SCHEDULE J1→J30 (TÂCHE 15) ─────────────────
+
+var NOTIFICATION_SCHEDULE = [
+  { day: 1,  type: 'motivation', trigger: 'evening',
+    title: 'Première séance ✅',
+    body: 'Félicitations ! Ton programme est maintenant calibré sur toi.' },
+  { day: 3,  type: 'reminder', trigger: 'training_time',
+    title: 'C\'est l\'heure 💪',
+    body: 'Prêt à battre ton record ? Ton programme t\'attend.' },
+  { day: 7,  type: 'milestone', trigger: 'morning',
+    title: 'Semaine 1 validée 🎯',
+    body: 'Tu as soulevé {{tonnage}} tonnes cette semaine. Continue !' },
+  { day: 14, type: 'social', trigger: 'friend_activity',
+    title: 'La communauté bouge 🔥',
+    body: 'Des amis ont terminé leur séance. Lance un défi ?' },
+  { day: 21, type: 'algo', trigger: 'high_srs',
+    title: 'Forme optimale détectée ⚡',
+    body: 'Ton SRS est excellent ce matin. Moment idéal pour un record.' },
+  { day: 30, type: 'milestone', trigger: 'morning',
+    title: 'Un mois de TrainHub 🏆',
+    body: 'Regarde ta progression depuis le début. Tu as évolué.' }
+];
+
+function calcWeeklyTonnage() {
+  var weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)); // Lundi
+  weekStart.setHours(0, 0, 0, 0);
+  var total = 0;
+  (db.logs || []).forEach(function(log) {
+    if (!log.timestamp || log.timestamp < weekStart.getTime()) return;
+    (log.exercises || []).forEach(function(exo) {
+      (exo.allSets || exo.series || []).forEach(function(s) {
+        if (!s.isWarmup) total += (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
+      });
+    });
+  });
+  return Math.round(total / 1000 * 10) / 10; // en tonnes
+}
+
+async function checkScheduledNotifications() {
+  if (!db.user || !db.user.onboardingDate) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  var onboardingDate = new Date(db.user.onboardingDate);
+  var daysSince = Math.floor((Date.now() - onboardingDate.getTime()) / 86400000) + 1;
+  if (daysSince < 1 || daysSince > 30) return;
+  var sent = db.notificationsSent || [];
+
+  for (var i = 0; i < NOTIFICATION_SCHEDULE.length; i++) {
+    var notif = NOTIFICATION_SCHEDULE[i];
+    if (notif.day !== daysSince) continue;
+    if (sent.indexOf('day_' + notif.day) >= 0) continue;
+
+    var shouldSend = false;
+    if (notif.trigger === 'morning' || notif.trigger === 'evening'
+        || notif.trigger === 'training_time' || notif.trigger === 'friend_activity') {
+      shouldSend = true;
+    }
+    if (notif.trigger === 'high_srs') {
+      var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75 };
+      shouldSend = srs.score >= 80;
+    }
+    if (!shouldSend) continue;
+
+    var body = notif.body;
+    if (body.includes('{{tonnage}}')) {
+      body = body.replace('{{tonnage}}', calcWeeklyTonnage());
+    }
+
+    sendLocalNotification(notif.title, body);
+
+    if (!db.notificationsSent) db.notificationsSent = [];
+    db.notificationsSent.push('day_' + notif.day);
+    saveDB();
+    break; // Une seule notification par jour
+  }
 }
 
 // ============================================================
@@ -20318,6 +20400,8 @@ async function postLoginSync() {
         if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
       }, 800);
     }
+    // Notifications J1→J30
+    if (typeof checkScheduledNotifications === 'function') checkScheduledNotifications();
   } catch(e) {
     console.error('postLoginSync error:', e);
   }

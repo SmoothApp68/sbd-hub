@@ -2586,6 +2586,49 @@ function getAllBadges() {
   b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
   b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
 
+  // ── Badges de compétence (TÂCHE 14) ──
+  // precision_rpe: RPE logged on majority of sets over last 20 sessions
+  var _rpeLoggedSets = 0, _totalLoggedSets = 0;
+  db.logs.slice(-20).forEach(function(log) {
+    (log.exercises || []).forEach(function(e) {
+      (e.allSets || e.series || []).forEach(function(s) {
+        if (!s.isWarmup) {
+          _totalLoggedSets++;
+          if (s.rpe && parseFloat(s.rpe) > 0) _rpeLoggedSets++;
+        }
+      });
+    });
+  });
+  var _rpePct = _totalLoggedSets > 0 ? _rpeLoggedSets / _totalLoggedSets : 0;
+
+  // consistency_king: 4+ sessions in each of last 4 weeks
+  var _consWeeks = 0;
+  for (var _cw = 0; _cw < 4; _cw++) {
+    var _cwStart = Date.now() - (_cw + 1) * 7 * 86400000;
+    var _cwEnd   = Date.now() - _cw * 7 * 86400000;
+    var _cwCount = db.logs.filter(function(l) { var ts = l.timestamp || 0; return ts >= _cwStart && ts < _cwEnd; }).length;
+    if (_cwCount >= 3) _consWeeks++;
+  }
+
+  // pr_hunter: PRs set in last 30 days
+  var _prCount30 = 0;
+  var _thirtyAgo = Date.now() - 30 * 86400000;
+  db.logs.forEach(function(log) {
+    if ((log.timestamp || 0) < _thirtyAgo) return;
+    (log.exercises || []).forEach(function(e) {
+      if (e.isPR || e.isNewPR) _prCount30++;
+    });
+  });
+
+  // volume_beast: sessions with 10t+ volume (total across all sessions)
+  var _bigSessions = db.logs.filter(function(l) { return (l.volume || 0) >= 10000; }).length;
+
+  b.push({id:'precision_rpe',  r:'uncommon', icon:'🎯', name:'Maître de l\'Effort',    ref:'TrainHub', desc:'RPE renseigné sur 80%+ des séries — ta précision fait la différence', condition:'RPE 80% sets', ck:function(){return _rpePct >= 0.8 && _totalLoggedSets >= 20;}});
+  b.push({id:'tempo_master',   r:'rare',     icon:'⏱️', name:'Maître du Tempo',         ref:'TrainHub', desc:'30 séances avec durée enregistrée — tu maîtrises chaque seconde de ta séance', condition:'30 séances minutées', ck:function(){return db.logs.filter(function(l){return (l.duration||0) > 0;}).length >= 30;}});
+  b.push({id:'consistency_king',r:'epic',    icon:'👑', name:'Consistency King',         ref:'TrainHub', desc:'4 semaines consécutives avec 3+ séances — la régularité est ton superpouvoir', condition:'4 sem × 3+ séances', ck:function(){return _consWeeks >= 4;}});
+  b.push({id:'pr_hunter',      r:'rare',     icon:'🏹', name:'Chasseur de PR',           ref:'TrainHub', desc:'5 PRs en 30 jours — tu attaques les records sans relâche', condition:'5 PRs / 30j', ck:function(){return _prCount30 >= 5;}});
+  b.push({id:'volume_beast',   r:'epic',     icon:'🦣', name:'Volume Beast',             ref:'TrainHub', desc:'10 séances à 10t+ — ton volume écrase tout sur son passage', condition:'10× 10t/séance', ck:function(){return _bigSessions >= 10;}});
+
   // ── Wellness theme for bien_etre mode ──
   if (getBadgeTheme() === 'wellness') {
     var wellnessNames = {
@@ -6031,6 +6074,7 @@ function renderGamificationTab() {
     { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
     { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
     { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
+    { title:'⭐ Compétence', ids: ['precision_rpe','tempo_master','consistency_king','pr_hunter','volume_beast'] },
     { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
   ];
 

@@ -49,8 +49,8 @@
 - [x] TÂCHE 4 : Backup programme v2 (15 versions + dates) — déjà implémenté (15 backups, firstUsedAt/lastUsedAt/sessionCount, UI "Du X au Y · N séances")
 
 ### PHASE 2 — Qualité coaching
-- [ ] TÂCHE 5 : Transfer Matrix auto-apprenante
-- [ ] TÂCHE 6 : Offline first (GO sans réseau)
+- [x] TÂCHE 5 : Transfer Matrix auto-apprenante — commit c4703d5 — getTransferRatio() ajouté dans engine.js (ratio réel user en priorité, fallback EXERCISE_TRANSFER_MATRIX)
+- [x] TÂCHE 6 : Offline first (GO sans réseau) — commit 1178e6f — debouncedCloudSync() gère navigator.onLine, db.pendingSync, window.addEventListener('online') auto-sync, toast "📱 Séance sauvegardée localement" sur session native
 
 ### PHASE 3 — Différenciation
 - [ ] TÂCHE 7 : Health Connect / Garmin (attendre validation)

@@ -3838,14 +3838,6 @@ function hideMusclePopover() {
   if (pop) pop.style.display = 'none';
 }
 
-function onMuscleGroupClick(groupKey, event) {
-  var index = window._MUSCLE_GROUP_INDEX || {};
-  var group = index[groupKey];
-  if (!group) return;
-  highlightMuscleOnFigure(group.keys[0], null);
-  showMusclePopover({ keys: group.keys, name: group.name }, event);
-}
-
 function toggleSubkeys(btn, event) {
   event.stopPropagation();
   var panel = btn.closest
@@ -6683,47 +6675,6 @@ function startTodayWorkout() {
   if (typeof showSeancesSub === 'function') showSeancesSub('seances-go', goBtn);
 }
 
-function renderReadinessSparkline() {
-  const el = document.getElementById('readinessSparkline');
-  if (!el) return;
-  const cutoff = Date.now() - 14 * 86400000;
-  const recent = (db.readiness || []).filter(r => new Date(r.date).getTime() >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
-  if (recent.length < 2) { el.innerHTML = '<div style="font-size:11px;color:var(--sub);text-align:center;padding:8px;">Pas encore de données readiness</div>'; return; }
-  const vals = recent.map(r => r.score);
-  const W = 280, H = 60, pad = 6;
-  const minV = Math.min(...vals), maxV = Math.max(...vals), range = maxV - minV || 1;
-  const pts = vals.map((v, i) => ({
-    x: pad + (i / (vals.length - 1)) * (W - pad * 2),
-    y: pad + (1 - (v - minV) / range) * (H - pad * 2)
-  }));
-  const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-  const last = pts[pts.length - 1];
-  const lastScore = vals[vals.length - 1];
-  const color = lastScore >= 75 ? 'var(--green)' : lastScore >= 40 ? 'var(--orange)' : 'var(--red)';
-  // Moyenne et tendance
-  const avg = Math.round(vals.reduce((s,v) => s+v, 0) / vals.length);
-  const trend = vals.length >= 3 ? vals[vals.length-1] - vals[0] : 0;
-  const trendArrow = trend > 10 ? '↗' : trend < -10 ? '↘' : '→';
-  const trendColor = trend > 10 ? 'var(--green)' : trend < -10 ? 'var(--red)' : 'var(--sub)';
-  // Dernier détail
-  const lastR = recent[recent.length - 1];
-  const detailParts = [];
-  if (lastR.sleep) detailParts.push('😴 ' + lastR.sleep + '/10');
-  if (lastR.energy) detailParts.push('⚡ ' + lastR.energy + '/10');
-  if (lastR.motivation) detailParts.push('🧠 ' + lastR.motivation + '/10');
-
-  el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-    '<span style="font-size:11px;font-weight:700;color:var(--sub);">READINESS</span>' +
-    '<span style="font-size:11px;color:var(--sub);">Moy: ' + avg + '% <span style="color:' + trendColor + ';">' + trendArrow + '</span></span></div>' +
-    '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<span style="font-size:20px;font-weight:800;color:' + color + ';">' + lastScore + '</span>' +
-    '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:60px;flex:1;">' +
-    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="' + color + '"/>' +
-    '</svg></div>' +
-    (detailParts.length ? '<div style="font-size:10px;color:var(--sub);margin-top:2px;">' + detailParts.join(' · ') + '</div>' : '');
-}
-
 // ── Heatmap de récupération musculaire ──────────────────────
 function renderMuscleHeatmap() {
   const el = document.getElementById('muscleHeatmapContent');
@@ -6877,43 +6828,6 @@ function computeFormScoreComposite() {
   return { score: Math.max(0, Math.min(100, score)), components };
 }
 
-function renderFormScoreDash() {
-  const el = document.getElementById('formScoreContent');
-  if (!el) return;
-  const { score, components } = computeFormScoreComposite();
-  const color = score < 40 ? 'var(--red)' : score < 60 ? 'var(--orange)' : score < 75 ? '#FFD60A' : 'var(--green)';
-  const COMP_LABELS = { readiness:'Readiness', compliance:'Assiduité', trend:'Force', recovery:'Récupération', nutrition:'Nutrition', sleep:'Sommeil' };
-  const COMP_WEIGHTS = { readiness:'20%', compliance:'25%', trend:'20%', recovery:'15%', nutrition:'10%', sleep:'10%' };
-  const barsHtml = Object.entries(components).map(([k,v]) =>
-    '<div style="display:flex;align-items:center;gap:6px;font-size:10px;">' +
-    '<span style="width:70px;color:var(--sub);">' + (COMP_LABELS[k]||k) + '</span>' +
-    '<div style="flex:1;height:4px;background:var(--border);border-radius:2px;">' +
-    '<div style="height:4px;width:' + Math.round(v) + '%;background:' + color + ';border-radius:2px;"></div></div>' +
-    '<span style="width:24px;text-align:right;font-weight:600;">' + Math.round(v) + '</span></div>'
-  ).join('');
-  // Detailed breakdown (expandable)
-  const breakdownHtml = Object.entries(components).map(([k,v]) => {
-    const w = COMP_WEIGHTS[k] || '?';
-    const wNum = parseFloat(w) / 100;
-    return '<div class="breakdown-line">' +
-      '<span class="bl-label">' + (COMP_LABELS[k]||k) + '</span>' +
-      '<span class="bl-value">' + Math.round(v) + '/100</span>' +
-      '<span class="bl-weight">× ' + w + '</span>' +
-      '<span class="bl-contribution">= ' + (v * wNum).toFixed(1) + '</span></div>';
-  }).join('');
-  el.innerHTML = '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">' +
-    '<div style="width:56px;height:56px;border-radius:50%;border:3px solid ' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-    '<span style="font-size:22px;font-weight:800;color:' + color + ';">' + score + '</span></div>' +
-    '<div><div style="font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;">Score de forme ' + renderGlossaryTip('form_score') + '</div>' +
-    '<div style="font-size:13px;color:var(--text);margin-top:2px;">' +
-    (score >= 75 ? 'Excellente forme !' : score >= 60 ? 'En bonne voie' : score >= 40 ? 'Peut mieux faire' : 'Attention fatigue') +
-    '</div></div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:4px;">' + barsHtml + '</div>' +
-    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail du calcul\':\'📐 Masquer le détail\';">📐 Voir le détail du calcul</div>' +
-    '<div class="breakdown" style="display:none;">' + breakdownHtml +
-    '<div class="breakdown-total">Total : ' + score + '/100</div></div>';
-}
-
 // ── Prédiction de PR ────────────────────────────────────────
 function predictPR(exerciseName, targetWeight) {
   // Use inline trend calculation (same as renderPerfCard's logic)
@@ -6954,52 +6868,6 @@ function predictPR(exerciseName, targetWeight) {
   };
 }
 
-// ── DOTS / Wilks dans le Dashboard ──────────────────────────
-function renderDotsWilks() {
-  const card = document.getElementById('dotsWilksCard');
-  const el = document.getElementById('dotsWilksContent');
-  if (!card || !el) return;
-  const bw = getUserBW();
-  if (!bw || bw <= 0) { card.style.display = 'none'; return; }
-  // Get best e1RM for SBD
-  let squat = 0, bench = 0, deadlift = 0;
-  db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
-      const type = getSBDType(exo.name);
-      if (type === 'squat' && (exo.maxRM||0) > squat) squat = exo.maxRM;
-      if (type === 'bench' && (exo.maxRM||0) > bench) bench = exo.maxRM;
-      if (type === 'deadlift' && (exo.maxRM||0) > deadlift) deadlift = exo.maxRM;
-    });
-  });
-  if (!squat || !bench || !deadlift) { card.style.display = 'none'; return; }
-  card.style.display = shouldShow('dots_wilks') ? '' : 'none';
-  if (!shouldShow('dots_wilks')) return;
-  const total = squat + bench + deadlift;
-  const gender = db.user.gender === 'F' ? 'F' : 'M';
-  const dots = computeDOTS(total, bw, gender);
-  const wilks = computeWilks(total, bw, gender);
-  const cat = dots < 250 ? 'Débutant' : dots < 350 ? 'Intermédiaire' : dots < 450 ? 'Avancé' : dots < 550 ? 'Élite' : '🏆 Élite+';
-  var dotsBreakdown = '<div class="breakdown" style="display:none;margin-top:8px;">' +
-    '<div class="breakdown-line"><span class="bl-label">Squat (e1RM)</span><span class="bl-value">' + squat + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Bench (e1RM)</span><span class="bl-value">' + bench + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Deadlift (e1RM)</span><span class="bl-value">' + deadlift + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Total</span><span class="bl-value" style="font-weight:700;">' + total + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Poids de corps</span><span class="bl-value">' + bw + 'kg</span></div>' +
-    '<div class="breakdown-line"><span class="bl-label">Genre</span><span class="bl-value">' + (gender === 'F' ? 'Femme' : 'Homme') + '</span></div>' +
-    '<div class="breakdown-total">DOTS = ' + dots + ' · Wilks = ' + wilks + '</div></div>';
-  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--sub);margin-bottom:8px;">TOTAL ESTIMÉ</div>' +
-    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">' +
-    '<span style="font-size:28px;font-weight:800;color:var(--text);">' + total + '<span style="font-size:14px;color:var(--sub);font-weight:500;">kg</span></span>' +
-    '<span style="font-size:12px;color:var(--sub);">S' + squat + ' / B' + bench + ' / D' + deadlift + '</span></div>' +
-    '<div style="display:flex;gap:16px;margin-top:8px;">' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">DOTS ' + renderGlossaryTip('dots') + '</div><div style="font-size:20px;font-weight:800;color:var(--blue);">' + dots + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Wilks ' + renderGlossaryTip('wilks') + '</div><div style="font-size:20px;font-weight:800;color:var(--green);">' + wilks + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--sub);text-transform:uppercase;">Catégorie</div><div style="font-size:14px;font-weight:700;color:var(--orange);margin-top:4px;">' + cat + '</div></div>' +
-    '</div>' +
-    '<div class="breakdown-toggle" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.textContent=d.style.display===\'none\'?\'📐 Voir le détail\':\'📐 Masquer le détail\';">📐 Voir le détail</div>' +
-    dotsBreakdown;
-}
-
 // ── Rubrique Performance configurable ────────────────────────
 function setPerfMode(mode) { perfChartMode = mode; renderPerfCard(); }
 function selectPerfLift(name) {
@@ -7011,11 +6879,6 @@ function selectPerfLift(name) {
 }
 
 // Incrément objectif selon le groupe musculaire de l'exercice
-function getPerfIncrement(exoName) {
-  const mg = getMuscleGroupParent(getMuscleGroup(exoName));
-  return (mg === 'Jambes') ? 5 : 2.5;
-}
-
 function renderPerfCard() {
   const el = document.getElementById('perfDisplay');
   if (!el) return;
@@ -11968,26 +11831,6 @@ function setLiftsFilter(muscle) {
   renderLifts();
 }
 
-function toggleLiftCard(id) {
-  const body = document.getElementById(id);
-  if (!body) return;
-  body.classList.toggle('open');
-  const card = body.closest('.lc');
-  if (card) {
-    const toggle = card.querySelector('.lc-toggle');
-    if (toggle) toggle.classList.toggle('open', body.classList.contains('open'));
-  }
-}
-
-function calcLiftWeight(input, e1rm, uid) {
-  const r = parseInt(input.value);
-  const out = document.getElementById(uid);
-  if (!out) return;
-  if (!r || r < 1 || r > 30) { out.textContent = '—'; return; }
-  const w = r === 1 ? e1rm : Math.round((e1rm * (1.0278 - 0.0278 * r)) * 2) / 2;
-  out.textContent = '~' + w + 'kg';
-}
-
 function updateNutriTargets() {
   const kcal = parseFloat(document.getElementById('inputKcalBase').value);
   const bw   = parseFloat(document.getElementById('inputBWBase').value);
@@ -14268,14 +14111,6 @@ var rpeCapReprise = null; // Correction 7: cap RPE pour avancé en reprise
 
 function wpRound25(v) { return Math.round(v / 2.5) * 2.5; }
 function wpRound125(v) { return Math.round(v / 1.25) * 1.25; }
-function wpRound05(v) { return Math.round(v * 2) / 2; }
-
-function wpIsIsolation(name) {
-  return ISOLATION_EXOS.some(function(iso) {
-    return name && name.toLowerCase().includes(iso.toLowerCase());
-  });
-}
-
 // ── NORMALISATION NOM EXERCICE ───────────────────────────────
 function wpNormalizeName(name) {
   if (!name) return '';

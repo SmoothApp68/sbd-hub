@@ -136,11 +136,55 @@
   - sendLocalNotification() avec détail du PR
   - SW v127
 
+## ✅ SESSION NUIT — Audit Ultra-Complet v128 + Implémentations (mai 2026)
+- SW : v128 → **v129** (6 commits)
+
+### B1 — Bug fixes critiques ✅ — commit 94e5968
+- `_getWeekStart()` dupliqué (app.js l.13924 écrasait l.3017) — cassait m_consistency challenge
+- `isCreator()` vérifie uniquement `db.user.isCreator === true` (supprimé check nom hardcodé)
+- Migration one-shot Aurélien → powerbuilding supprimée
+- Guard `typeof Chart !== 'undefined'` ajouté dans 4 fonctions de rendu graphique
+
+### B2+B3 — TRIMP Force + HRV z-score dans SRS ✅ — commit f1a171d
+- `calcWeeklyTRIMPForce()` : Σ reps×RPE²×C_slot (Foster 2001 adapté powerbuilding)
+- `calcHRVZScore()` : z-score HRV sur 7j depuis rhrHistory[].hrv
+- Pondération dynamique SRS : avec HRV → ACWR 40% + HRV 30% + Read 15% + Trend 15%
+- Zones ACWR powerbuilding : 0.8-1.2 optimal, 1.2-1.4 overreach tolérable, >1.5 danger
+
+### B4 — Arbre de décision plateau ✅ — commit 0face3e
+- `classifyStagnation(liftType)` : 4 branches (sur_atteinte/fatigue/consolidation/plateau_reel)
+- Intégré dans `analyzeAthleteProfile()` section 7 "Analyse Progression SBD" pour SBD
+
+### B5 — TDEE Katch-McArdle ✅ — commit 043a5bd
+- `calcTDEEKatchMcArdle(bw, fatPct, activityFactor, weeklyTRIMP)` dans engine.js
+- Activé si `db.user.fatPct` disponible (priorité sur Mifflin-St Jeor)
+
+### B6 — Guards console.log ✅ — commit a11ab99
+- Migration STORAGE_KEY conditionné derrière DEBUG
+- generateWeeklyPlan : condition DEBUG inversée corrigée (loggait en prod)
+
+### B7 — DB maintenance ✅ — commit 3b98c2a
+- `db.user.fatPct` (null) dans defaultDB() + migration migrateDB()
+- Note : `_realLevel` est write-only (écrit dans validateUserLevel() mais jamais relu)
+  → À connecter lors TÂCHE 20 pour adapter contenu selon niveau réel
+
+### B8 — Guards Premium (audit) ✅
+- TÂCHE 20 non encore implémentée — toutes features accessibles
+- `coachProfile` contrôle verbosité seulement (pas paywall)
+
+### Audit RLS (A4) — NE PAS MODIFIER
+- ✅ Toutes 17 tables ont rowsecurity=true
+- ℹ️ Quelques tables avec roles={public} pour write — sécurité via WITH CHECK
+- ℹ️ SELECT ouverts sur tables sociales (challenges/leaderboard/reactions) — intentionnel
+
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste
 - [ ] TÂCHE 9 : Health Connect API native (Supabase Edge Functions, attendre validation)
 - [ ] TÂCHE 20 : Paywall features Premium
+  - Gate : db.user.tier (free/premium/founder)
+  - Features à gater : SRS dynamique, APRE avancé, analyzeAthleteProfile complet
+  - Exposer db.user.fatPct dans UI Réglages pour Katch-McArdle
 
 ## Migrations Supabase en attente
 (à appliquer par Claude.ai après chaque tâche)

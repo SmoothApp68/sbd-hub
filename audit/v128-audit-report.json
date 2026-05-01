@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-05-01T20:25:28.539Z",
+  "consoleErrors": [
+    {
+      "context": "full-db",
+      "msg": "Failed to load resource: the server responded with a status of 403 ()"
+    },
+    {
+      "context": "full-db",
+      "msg": "Failed to load resource: the server responded with a status of 403 ()"
+    },
+    {
+      "context": "full-db",
+      "msg": "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    },
+    {
+      "context": "full-db",
+      "msg": "Chart is not defined"
+    },
+    {
+      "context": "cold-start",
+      "msg": "Failed to load resource: the server responded with a status of 403 ()"
+    },
+    {
+      "context": "cold-start",
+      "msg": "Failed to load resource: the server responded with a status of 403 ()"
+    },
+    {
+      "context": "cold-start",
+      "msg": "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    }
+  ],
+  "undefinedNaN": [
+    {
+      "context": "reglages",
+      "type": "undefined",
+      "values": [
+        "undefined bpm"
+      ]
+    },
+    {
+      "context": "reglages-scrolled",
+      "type": "undefined",
+      "values": [
+        "undefined bpm"
+      ]
+    }
+  ]
+}

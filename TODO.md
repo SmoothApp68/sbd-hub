@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : 9.2/10
-- SW version : v124
+- SW version : v127
 - Objectif : lancement multi-users juillet 2026
 
 ## ✅ Complété
@@ -80,7 +80,6 @@
 - [x] TÂCHE 14 : Badges de compétence (5 nouveaux) — commit c853153
   - precision_rpe, tempo_master, consistency_king, pr_hunter, volume_beast
   - Section "Compétence" ajoutée dans l'UI badges
-- [ ] TÂCHE 15 : Calendrier notifications J1→J30 — **Supabase migration needed** (voir ci-dessous)
 - [x] TÂCHE 16 : Churn detection + réactivation — commit f396aa1
   - detectChurn() : médiane intervalle × 2 = seuil absence
   - Message empathique dans Coach Today selon durée d'absence
@@ -100,12 +99,35 @@
   - toggleBluetoothHR() : Web Bluetooth API (Chrome Android)
   - updateHRDisplay() : bpm + % FCmax + indicateur "Prêt"
   - Widget FC sous le timer de repos pendant la séance
+- [x] TÂCHE 19 : Weight Cut module — commit 1e128eb
+  - WEIGHT_CUT_COEFFICIENTS : bench×1.5, squat×1.0, deadlift×0.5
+  - calcWeightCutPenalty() : LPF basé sur % perte de poids corporel
+  - getWeightCutWeek(), detectMuscleLoss(), getWeightCutAlerts() → engine.js
+  - Pénalité intégrée dans wpComputeWorkWeight() après RHR, avant APRE cap
+  - Section Weight Cut dans analyzeAthleteProfile() (progrès + alertes)
+  - UI Réglages : toggle + saisie poids + barre de progrès + date compétition
+  - toggleWeightCut() / saveWeightCutData() CRUD → app.js
+  - Supabase migration needed : non (données dans db.user.weightCut via sbd_profiles)
+
+### Gemini Q4.1 — Features critiques
+- [x] FEATURE 1 : Transparence algorithmique (ℹ️ Pourquoi ce poids ?) — commit 64b9fe9
+  - explainWeight() : breakdown phase %, RPE trend, sleep/RHR/WC/cycle penalties
+  - Bouton ℹ️ dans chaque carte exercice GO, à côté de l'e1RM
+- [x] FEATURE 2 : Substitution d'exercice intelligente — commit 64b9fe9
+  - getSubstitutes() : même groupe musculaire, ratio transfer matrix
+  - showSubstituteMenu() : modal avec % équivalence + charge adaptée
+  - substituteExercise() : remplace in-session, flag isSubstituted (e1RM protégé)
+  - goReplaceExercise() → utilise le menu smart (fallback recherche manuelle)
+- [x] FEATURE 3 : Trophées sociaux / Écran célébration PR — commit 64b9fe9
+  - checkAndShowPRCelebration() : détecte nouveaux PRs à la finalisation
+  - showPRCelebration() : écran 🏆 avec gain + bouton partage social
+  - sendLocalNotification() avec détail du PR
+  - SW v127
 
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste
 - [ ] TÂCHE 9 : Health Connect API native (Supabase Edge Functions, attendre validation)
-- [ ] TÂCHE 19 : Weight Cut module
 - [ ] TÂCHE 20 : Paywall features Premium
 
 ## Migrations Supabase en attente

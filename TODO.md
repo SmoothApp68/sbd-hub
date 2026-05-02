@@ -1,10 +1,10 @@
 # TrainHub — TODO (état en temps réel)
 
 ## État général
-- Score Gemini : **9.5/10**
-- SW version : **v137**
+- Score Gemini : **9.6/10** (↑ post-beta-test)
+- SW version : **v138**
 - Objectif : lancement multi-users juillet 2026
-- Dernier audit : `audit/11-v134-complete.md` (2 mai 2026)
+- Dernier audit : `audit/12-beta-tester-simulation.md` (2 mai 2026)
 
 ## ✅ Complété
 
@@ -392,6 +392,15 @@
 - `renderGoExoCard()` : colonne KG/LBS dynamique, display/store conversion via fromDisplayWeight
 - `goUpdateSetValue()` : fromDisplayWeight() appliqué pour le champ weight
 - `defaultDB` + `migrateDB` : `db.user.units = 'kg'`, `medicalConsent`, `medicalConsentDate`
+
+## ✅ SESSION — Beta Tester Simulation v137 → v138 (2 mai 2026)
+- SW : v137 → **v138** (1 fix)
+
+### Bug fix : Waitlist route override par showLoginScreen ✅
+- `supabase.js` : `showLoginScreen()` — guard `window.location.hash === '#waitlist'`
+- Cause : `onAuthStateChange(SIGNED_OUT)` appelait `showLoginScreen()` qui s'affichait par-dessus `#waitlist-page`
+- Audit Playwright : `audit/12-beta-tester-simulation.md`, 50 screenshots, 18 tests ✓
+- Score : 9.5 → **9.6/10**
 
 ## 🔄 En cours / À faire
 

@@ -504,6 +504,9 @@ function loginOffline() {
 }
 
 function showLoginScreen() {
+  // Don't show login screen on waitlist route — checkWaitlistRoute() manages display
+  if (window.location.hash === '#waitlist' ||
+      (window.location.search && window.location.search.includes('waitlist'))) return;
   const el = document.getElementById('loginScreen');
   if (el) el.style.display = 'flex';
 }

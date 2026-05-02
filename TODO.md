@@ -200,6 +200,34 @@
 - `getSmoothedBodyWeight()` : moyenne des `weeklyLogs[].weight` sur 14 jours
 - `calcWeightCutPenalty()` utilise poids lissé (plus de faux positifs rétention hormonale)
 
+## ✅ SESSION — DUP Registres e1RM Séparés v130 → v131 (mai 2026)
+- SW : v130 → **v131** (6 commits)
+
+### DUP ÉTAPE A — Getters/Setters zones + Tethering ✅ — commit 8c35b67
+- `getDUPZone(reps)` : force≤5, hypertrophie 6-12, vitesse≥13
+- `getZoneE1RM(exoName, zone)` : lit zones[zone].e1rm, fallback legacy e1rm
+- `setZoneE1RM(exoName, zone, e1rm)` : initialise zones si absent, met à jour, tethering auto
+- `applyDUPTethering()` : Force/Hypertrophie ne divergent pas >15%
+- `getActiveZoneForPhase()` : map phase→zone (force/intensification/peak→force, autres→hypertrophie)
+
+### DUP ÉTAPE B — Migration one-shot ✅ — commit 281243d
+- `migrateDUPRegisters()` : dérive zones e1rm depuis 30j de logs (Brzycki par zone)
+- Ratios fallback : hypertrophie=0.94×force, vitesse=0.88×force
+- `db._dupMigrated` : flag anti-rejeu, appelé depuis init() après loadDB
+
+### DUP ÉTAPE C+D — wpComputeWorkWeight zone-aware ✅ — commit 284f3f8
+- History filtrée par zone rep-range (force:1-5, hypertrophie:6-12), fallback all-sets
+- `e1rmRef` lit `getZoneE1RM()` pour Hard Cap zone-spécifique
+- `setZoneE1RM()` appelé après history build pour persister le e1rm calculé
+
+### DUP ÉTAPE E — Trend zone-aware ✅ — commit 4d9e306
+- `getE1RMTrendByZone(liftType, days, zone)` : filtre sets par zone avant calcul tendance
+- `classifyStagnation()` utilise zone-trend (phase matchée) avec fallback trend global
+
+### DUP ÉTAPE F — Profil Neuromusculaire ✅ — commit 1bbde0c
+- Section 8 dans `analyzeAthleteProfile()` : ratio Force/Hypertrophie par exercice SBD
+- `>1.15` → profil neurologique (recommande GPP) ; `<1.02` → profil endurance (recommande intensification)
+
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste

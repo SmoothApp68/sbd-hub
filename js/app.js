@@ -13655,6 +13655,42 @@ function renderCoachToday() {
   el.innerHTML = renderCoachTodayHTML();
 }
 
+function getBatteryDisplay(srsScore) {
+  var pct = Math.max(0, Math.min(100, srsScore || 75));
+  var label = pct >= 80 ? 'Pleine charge' : pct >= 60 ? 'Bonne forme'
+    : pct >= 40 ? 'Fatigue modérée' : 'Récupération nécessaire';
+  var color = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--accent)'
+    : pct >= 40 ? 'var(--orange)' : 'var(--red)';
+  return '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<div style="font-size:13px;font-weight:600;">Batterie Nerveuse</div>'
+    + '<div style="font-size:13px;color:' + color + ';font-weight:700;">' + label + '</div>'
+    + '</div>'
+    + '<div style="height:8px;background:var(--border);border-radius:4px;">'
+    + '<div style="height:100%;width:' + pct + '%;background:' + color + ';'
+    + 'border-radius:4px;transition:width 0.5s;"></div>'
+    + '</div>'
+    + '<div style="font-size:10px;color:var(--sub);margin-top:4px;text-align:right;">'
+    + pct + '/100</div>'
+    + '</div>';
+}
+
+function getRegularityMessage() {
+  var logs = db.logs || [];
+  if (!logs.length) return null;
+  var streak = typeof calcStreak === 'function' ? calcStreak() : 0;
+  var totalSessions = logs.length;
+  var now = Date.now();
+  var last30 = logs.filter(function(l) { return (l.timestamp || 0) > now - 30 * 86400000; });
+  if (streak === 7)  return '🔥 7 séances consécutives. La régularité, c\'est la force.';
+  if (streak === 14) return '💎 2 semaines sans faille. Tu construis quelque chose de solide.';
+  if (streak === 30) return '🏆 Un mois complet. Peu de gens arrivent là.';
+  if (totalSessions === 10) return '10 séances dans les pattes. L\'algo commence à vraiment te connaître.';
+  if (totalSessions === 25) return '25 séances. La progression devient prévisible — et ça, c\'est du pouvoir.';
+  if (last30.length >= 12) return '12+ séances ce mois-ci. C\'est de la constance professionnelle.';
+  return null;
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -13683,6 +13719,17 @@ function renderCoachTodayHTML() {
     });
     _csHtml += '</div>';
     _csHtml += '</div>';
+
+    if (_week === 2) {
+      _csHtml += '<div style="background:rgba(10,132,255,0.08);border-radius:12px;'
+        + 'padding:12px 14px;margin-bottom:12px;">';
+      _csHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">⚡ Semaine 2 — La calibration touche à sa fin</div>';
+      _csHtml += '<div style="font-size:12px;color:var(--sub);line-height:1.6;">';
+      _csHtml += 'Les charges semblent légères ? Normal — l\'algo apprend tes leviers. ';
+      _csHtml += 'À partir de la semaine prochaine, les vrais poids arrivent.';
+      _csHtml += '</div></div>';
+    }
+
     return _csHtml;
   }
 
@@ -13741,6 +13788,17 @@ function renderCoachTodayHTML() {
         + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
         + '<div style="font-size:13px;font-weight:700;color:var(--green);">'
         + momentum.message + '</div>'
+        + '</div>';
+    }
+  }
+
+  // ── 0b2b. RÉGULARITÉ ──
+  if (coachProfile !== 'silent') {
+    var _regMsg = getRegularityMessage();
+    if (_regMsg) {
+      html += '<div style="background:rgba(50,215,75,0.08);border-left:3px solid var(--green);'
+        + 'border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:12px;">'
+        + '<div style="font-size:13px;color:var(--text);">' + _regMsg + '</div>'
         + '</div>';
     }
   }
@@ -13831,12 +13889,8 @@ function renderCoachTodayHTML() {
 
   var gaugeColor = function(s) { return s>=70?'var(--green)':s>=40?'var(--orange)':'var(--red)'; };
 
-  var _srsLabel = typeof getVocab === 'function' ? getVocab('srs') : 'Forme du jour';
+  html += getBatteryDisplay(formScore);
   html += '<div class="coach-gauges">';
-  html += '<div class="coach-gauge">'+
-    '<div class="coach-gauge-val" style="color:'+gaugeColor(formScore)+';">'+formScore+'</div>'+
-    '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+formScore+'%;background:'+gaugeColor(formScore)+';"></div></div>'+
-    '<div class="coach-gauge-lbl">'+_srsLabel+'</div></div>';
   html += '<div class="coach-gauge">'+
     '<div class="coach-gauge-val" style="color:'+gaugeColor(recovScore)+';">'+recovScore+'</div>'+
     '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+recovScore+'%;background:'+gaugeColor(recovScore)+';"></div></div>'+
@@ -15774,21 +15828,30 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     return { forceActiveRecovery: true, reason: 'Pénalités cumulées ' + Math.round(_cumulPenalty * 100) + '% < 70%' };
   }
 
+  var _coachNotes = [];
+
   // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
   if (_sleepMult < 1.0 && _stabilized) {
     baseWeight = Math.round(baseWeight * _sleepMult / 2.5) * 2.5;
+    _coachNotes.push('Ton sommeil était court cette nuit — on reste prudents.');
   }
 
   // RHR Penalty — Garmin Health Connect (TÂCHE 17 ÉTAPE D)
   if (_rhrMult < 1.0 && _stabilized) {
     baseWeight = Math.round(baseWeight * _rhrMult / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
+    if (_rhrAlert && _rhrAlert.level === 'danger') {
+      _coachNotes.push('Ton cœur bat vite ce matin — journée de récupération active recommandée.');
+    } else {
+      _coachNotes.push('Ton cœur bat un peu vite — on va être prudents sur le volume.');
+    }
   }
 
   // Weight Cut Leverage Penalty (TÂCHE 19 ÉTAPE B)
   if (_wcPenalty < 1.0) {
     baseWeight = Math.round(baseWeight * _wcPenalty / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
+    _coachNotes.push('En phase de cut — les charges sont ajustées pour préserver la masse musculaire.');
   }
 
   // Activity Penalty — TRIMP secondaire 24h (Total Load Management)
@@ -15834,6 +15897,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     var _cycleCoeff = getCycleCoeff();
     if (_cycleCoeff < 1.0) {
       baseWeight = Math.round(baseWeight * _cycleCoeff / 2.5) * 2.5;
+      _coachNotes.push('Phase de récupération hormonale — les charges sont légèrement adaptées.');
     }
   }
 
@@ -15843,6 +15907,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   if (_mentalPenalty < 1.0 && _stabilized) {
     baseWeight = Math.round(baseWeight * _mentalPenalty / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
+    _coachNotes.push('L\'échec d\'hier fait partie du processus — on reconstruit la confiance.');
   }
 
   // Return-to-Play penalty (désadaptation tendineuse après absence prolongée)
@@ -15851,7 +15916,10 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   if (_absencePenalty.factor < 1.0 && _stabilized) {
     baseWeight = Math.round(baseWeight * _absencePenalty.factor / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
+    _coachNotes.push('Retour après ' + (_absencePenalty.days || '?') + ' jours — on y va progressivement.');
   }
+
+  if (_coachNotes.length > 0) db._pendingCoachNote = _coachNotes[0];
 
   // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence
   if (e1rmRef > 0) {
@@ -17915,6 +17983,7 @@ function buildGoIdleHtml() {
     var exoCount = todayExercises.length || todayExos.length;
     var coachNote = wpToday && wpToday.coachNote ? wpToday.coachNote : '';
 
+    var _pendingNote = db._pendingCoachNote || null;
     heroHtml = '<div class="go-hero">'+
       '<div class="go-hero-top">'+
         '<span class="go-badge">Aujourd\'hui</span>'+
@@ -17931,6 +18000,10 @@ function buildGoIdleHtml() {
         '</div>' +
         '<div class="go-plan-body" id="go-plan-body">' + exosHtml + '</div>'
       : '') +
+      (_pendingNote
+        ? '<div style="font-size:11px;color:var(--sub);font-style:italic;'
+          + 'margin:8px 0 4px;padding:0 4px;">💬 ' + _pendingNote + '</div>'
+        : '') +
       '<button class="go-launch" onclick="openReadinessQuiz(\'today\')">Lancer la séance du jour 💪</button>'+
     '</div>';
   } else {
@@ -17988,6 +18061,16 @@ function buildGoIdleHtml() {
     + (_btConnected
       ? '💓 FC connectée — ' + (typeof _currentHR !== 'undefined' && _currentHR ? _currentHR + ' bpm' : '...')
       : '🔵 Connecter cardiofréquencemètre (optionnel)') + '</button>';
+
+  // Session Express (60 min)
+  var _expressActive = !!db._expressMode;
+  draftHtml += '<button onclick="' + (_expressActive ? 'db._expressMode=false;renderGoIdleView()' : 'activateExpressMode()') + '" '
+    + 'style="width:100%;padding:10px;margin-top:8px;border-radius:12px;'
+    + 'border:1px solid ' + (_expressActive ? 'var(--accent)' : 'var(--border)') + ';'
+    + 'background:' + (_expressActive ? 'rgba(10,132,255,0.1)' : 'var(--surface)') + ';'
+    + 'color:' + (_expressActive ? 'var(--accent)' : 'var(--sub)') + ';'
+    + 'font-size:13px;cursor:pointer;">'
+    + (_expressActive ? '⚡ Mode Express actif — Annuler' : '⚡ Session Express (60 min)') + '</button>';
 
   // ÉTAPE B: Cold Start RPE 5 protocol card for beginner/senior/reeducation
   var coldStartRPE5Html = buildColdStartRPE5Html();
@@ -18311,6 +18394,12 @@ function _goDoStartWorkout(withProgram) {
     var planDay = null;
     if (db.weeklyPlan && db.weeklyPlan.days) {
       planDay = db.weeklyPlan.days.find(function(d) { return d.day === todayDay && !d.rest; });
+    }
+    // Express mode: filter to main lift + 1 accessory
+    if (planDay && planDay.exercises && db._expressMode) {
+      planDay = Object.assign({}, planDay, {
+        exercises: filterExpressSession(planDay.exercises)
+      });
     }
 
     dayExos.forEach(function(exoRef) {
@@ -18861,7 +18950,10 @@ function goToggleSetComplete(exoIdx, setIdx) {
     var isLastInChain = !exo.supersetWith; // pas de lien vers le suivant = dernier de la chaîne
     if (!isInSuperset || isLastInChain) {
       var restSec = activeWorkout.exercises[exoIdx].restSeconds || 90;
-      goStartRestTimer(restSec, exoIdx);
+      var _completedSet = activeWorkout.exercises[exoIdx].sets[setIdx];
+      var _adaptive = getAdaptiveRestTime(_completedSet ? _completedSet.rpe : null, restSec);
+      goStartRestTimer(_adaptive.seconds, exoIdx);
+      if (_adaptive.message && (db.user.coachProfile || 'full') !== 'silent') showToast(_adaptive.message);
     }
     // Auto-régulation RPE — bannière fixe via showLiveCoachBanner
     var coachResult = goCheckAutoRegulation(exoIdx, setIdx);
@@ -19216,6 +19308,39 @@ function goUpdateCounters() {
 }
 
 // ── Rest Timer ──
+function activateExpressMode() {
+  db._expressMode = true;
+  showToast('⚡ Mode Express activé — programme réduit à 60 min');
+  renderGoIdleView();
+}
+
+function filterExpressSession(exercises) {
+  if (!db._expressMode) return exercises;
+  var main = exercises.filter(function(e) { return e.isPrimary; });
+  var accessory = exercises.filter(function(e) {
+    return !e.isPrimary && e.slot === 'accessory';
+  }).slice(0, 1);
+  if (!accessory.length) {
+    accessory = exercises.filter(function(e) { return !e.isPrimary; }).slice(0, 1);
+  }
+  return main.concat(accessory);
+}
+
+function getAdaptiveRestTime(lastRPE, baseRestSeconds) {
+  if (!lastRPE) return { seconds: baseRestSeconds, message: null };
+  var rpe = parseFloat(lastRPE);
+  if (rpe >= 9.5) {
+    return { seconds: Math.max(baseRestSeconds, 300), message: 'Grosse intensité — prends tout ton temps. 💪' };
+  }
+  if (rpe >= 8.5) {
+    return { seconds: baseRestSeconds, message: 'Bonne série. Récupère bien.' };
+  }
+  if (rpe <= 6) {
+    return { seconds: Math.max(90, Math.round(baseRestSeconds * 0.6)), message: 'Tu es frais — on garde le rythme. ⚡' };
+  }
+  return { seconds: baseRestSeconds, message: null };
+}
+
 function goStartRestTimer(seconds, exoIndex) {
   goSkipRest(); // clear any existing
   activeWorkout.restTimer = { running: true, remaining: seconds, total: seconds, exoIndex: exoIndex };
@@ -21372,6 +21497,7 @@ function goFinishWorkout() {
 
   activeWorkout = null;
   _goSessionPaused = false;
+  db._expressMode = false;
 
   // Notification
   var _nSets = 0, _nTonnage = 0;

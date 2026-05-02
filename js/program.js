@@ -111,8 +111,10 @@ function lombardi1RM(weight, reps) {
   return weight * Math.pow(reps, 0.10);
 }
 
-// Moyenne pondérée des formules (Epley légèrement favorisé pour powerlifting)
-function calcE1RM(weight, reps) {
+// Epley+Brzycki+Lombardi weighted average (more accurate for powerlifting, capped at 12 reps).
+// NOTE: app.js defines a simpler Brzycki-only calcE1RM for fast inline use.
+// This precise version is for program planning calculations within this file.
+function _calcE1RMPrecise(weight, reps) {
   if (!weight || !reps || reps < 1) return 0;
   if (reps === 1) return weight;
   if (reps > 12) reps = 12; // au-delà de 12 reps, l'estimation est peu fiable

@@ -9962,13 +9962,18 @@ function deleteCustomProgramBackup(index) {
   renderProgramBuilder();
 }
 
+var _renderProgramBuilderInProgress = false;
 function renderProgramBuilderView(container) {
   if (!container) return;
   // If db.routine was updated without regenerating weeklyPlan, the cached
   // weeklyPlan.days carries stale titles ('Jour 1') and stale exercises (bench
   // template = DC Barre everywhere). Detect and regen before reading.
-  if (_wpIsStaleVsRoutine() && typeof generateWeeklyPlan === 'function') {
+  // Guard against mutual recursion: generateWeeklyPlan() calls back here.
+  if (!_renderProgramBuilderInProgress && _wpIsStaleVsRoutine() && typeof generateWeeklyPlan === 'function') {
+    _renderProgramBuilderInProgress = true;
     try { generateWeeklyPlan(); } catch (e) { /* non-fatal */ }
+    _renderProgramBuilderInProgress = false;
+    return;
   }
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var plan = db.weeklyPlan;

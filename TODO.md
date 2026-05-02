@@ -1,9 +1,10 @@
 # TrainHub — TODO (état en temps réel)
 
 ## État général
-- Score Gemini : 9.2/10
-- SW version : v128
+- Score Gemini : **9.5/10**
+- SW version : **v134**
 - Objectif : lancement multi-users juillet 2026
+- Dernier audit : `audit/11-v134-complete.md` (2 mai 2026)
 
 ## ✅ Complété
 
@@ -250,6 +251,67 @@
 - Strike 0 → +incrément, Strike 1 → retry, Strike 2+ → deload -10%
 - `goFinishWorkout()` : RPE ≥ 9.5 sur dernier work set → `recordLPFailure()` + toast
 
+## ✅ SESSION — RGPD + Sport/Coaching Fixes v132 → v134 (mai 2026)
+- SW : v132 → **v133** → **v134** (9 commits)
+- Score Gemini : 9.2 → **9.5/10**
+- Audit complet : `audit/11-v134-complete.md` (34/34 algo tests, 15 screenshots, 0 bugs critiques)
+
+### PRIORITÉ 1 — Consentement santé Art. 9 RGPD ✅ — commit rgpd-1
+- `showConsentModal()` : overlay explicite santé (FC, HRV, menstruel) avec grant/refuse
+- `grantHealthConsent()` / `revokeHealthConsent()` : maj db.user.consentHealth + date
+- `checkRequiredConsents()` : appelé depuis postLoginSync(), timeout 600ms
+- `renderRGPDSection()` : statut consentement + bouton export + zone danger dans Réglages
+
+### PRIORITÉ 2 — IndexedDB Backup + Session Recovery ✅ — commit rgpd-2
+- `initWorkoutIDB()` : ouvre `sbd-hub-backup` IDB, store `workout`
+- `backupWorkoutToIDB()` : appelé depuis goAutoSave() — snapshot mid-session
+- `restoreWorkoutFromIDB()` + `clearWorkoutIDB()` : restore si backup < 4h, clear après finish
+- `checkWorkoutBackup()` : proposé en modal, appelé depuis postLoginSync() + TOKEN_REFRESHED
+
+### PRIORITÉ 3 — Suppression compte Art. 17 ✅ — commit rgpd-3
+- `requestAccountDeletion()` : double confirmation → RPC `delete_user_complete_data` → signOut
+- Bouton "Zone Danger" dans renderRGPDSection()
+
+### PRIORITÉ 4 — Export données Art. 20 ✅ — commit rgpd-4
+- `exportUserData()` : JSON blob (profil, logs, exercices, body, rhrHistory, weeklyLogs)
+- Téléchargement automatique `trainhub-export-YYYY-MM-DD.json`
+
+### PRIORITÉ 5 — CSP enforcement ✅ — commit rgpd-5
+- `<meta http-equiv="Content-Security-Policy" ...>` dans index.html
+- Correction BUG 2 : `Report-Only` ignoré via meta → changé en enforcement
+- Politiques : default-src 'self', script-src unsafe-inline + cdn.jsdelivr.net, connect-src Supabase
+
+### FIX 1 — Rest Times PCr (engine.js) ✅ — commit fix-rest
+- `getOptimalRestTime(weight, e1rm, slot)` : 300s/240s/180s/90s selon % e1RM
+- Seuils : >90%=5min (PCr complet), >80%=4min, >70%=3min, isolation=90s
+- Intégré dans `wpGeneratePowerbuildingDay()` avec calcul e1RM par zone
+
+### FIX 2 — Volume Spike Detection ✅ — commit fix-rest (engine.js groupé)
+- `detectVolumeSpike()` : +15%/week threshold par groupe musculaire (7j vs 7j précédents)
+- Alertes injectées dans `analyzeAthleteProfile()` section fatigueAlerts
+
+### FIX 3 — Tapering Auto (Jordan/compétiteur) ✅ — commit fix-rest (engine.js groupé)
+- `TAPERING_PROTOCOL` : S3×1.0, S2×0.70 (singles/doubles), S1×0.40 RPE 6-7
+- `getTaperingWeek()` : lit `db.user.weightCut.competitionDate`
+- `getTaperingFlatAdjustment()` : J-7 + SRS<65 → +15% glucides
+- CoachsNote tapering injectée dans wpGeneratePowerbuildingDay()
+
+### FIX 4 — Momentum + Mental Recovery ✅ — commit fix-momentum
+- `detectMomentum()` : 2+ PRs en 7j → 65% proba new PR (carte verte dans Coach Today)
+- `getMentalRecoveryPenalty()` : -3% baseWeight si dernier set isAbandoned ou RPE≥10
+- Pénalité mentale dans wpComputeWorkWeight() après cycle penalty, avant hard cap
+- Carte momentum cachée si mode silencieux
+
+### BUG FIX — Stack overflow generateWeeklyPlan ✅ (audit)
+- Guard `_renderProgramBuilderInProgress` dans renderProgramBuilderView() — rompt récursion mutuelle
+
+### Audit v134 — Résultats ✅
+- Phase A (code) : syntaxe OK, 0 doublon, 0 log non gardé, 0 donnée hardcodée
+- Phase B (visuel) : 15 screenshots 390px — 0 NaN, 0 undefined, 0 erreur JS réelle
+- Phase C (algo) : 34/34 assertions vertes (FIX 1-4, DUP, LP, Activités, RGPD)
+- Findings non-bloquants : F1 program.js SW (déjà présent), F2 _realLevel write-only, F3 fatPct absent UI
+- SW bumped : v132 → v133 (FIX 1-4) → **v134** (audit)
+
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste
@@ -257,7 +319,7 @@
 - [ ] TÂCHE 20 : Paywall features Premium
   - Gate : db.user.tier (free/premium/founder)
   - Features à gater : SRS dynamique, APRE avancé, analyzeAthleteProfile complet
-  - Exposer db.user.fatPct dans UI Réglages pour Katch-McArdle
+  - Exposer db.user.fatPct dans UI Réglages pour Katch-McArdle (F3)
 
 ## Migrations Supabase en attente
 (à appliquer par Claude.ai après chaque tâche)

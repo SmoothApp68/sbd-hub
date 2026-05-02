@@ -3389,3 +3389,79 @@ function getActiveZoneForPhase() {
   };
   return zoneMap[phase] || 'hypertrophie';
 }
+
+// ── LINEAR PROGRESSION (LP) — 3-Strikes System ───────────────────────────────
+
+var LP_CONFIG = {
+  strikesMax: 3,
+  deloadPct: 0.10,
+  dotsSeuil: { M: 250, F: 180 },
+  durationMaxWeeks: 12,
+  increments: { composé_lourd: 2.5, composé_leger: 1.25, isolation: 0.5 }
+};
+
+function isInLP() {
+  if (!db.user || !db.user.lpActive) return false;
+  var bw = db.user.bw || 0;
+  var gender = (db.user.gender || 'M').toUpperCase();
+  var pr = db.bestPR || {};
+  var total = (pr.squat || 0) + (pr.bench || 0) + (pr.deadlift || 0);
+  if (total > 0 && bw > 0) {
+    var dots = computeDOTS(total, bw, gender);
+    var seuil = gender === 'F' ? LP_CONFIG.dotsSeuil.F : LP_CONFIG.dotsSeuil.M;
+    if (dots > seuil) return false;
+  }
+  if (db.user.onboardingDate) {
+    var weeks = (Date.now() - new Date(db.user.onboardingDate).getTime()) / (7 * 86400000);
+    if (weeks > LP_CONFIG.durationMaxWeeks) return false;
+  }
+  return true;
+}
+
+function recordLPFailure(exoName, failWeight) {
+  if (!db.user.lpStrikes) db.user.lpStrikes = {};
+  if (!db.user.lpStrikes[exoName]) {
+    db.user.lpStrikes[exoName] = { count: 0, lastFailWeight: 0, lastFailTs: 0 };
+  }
+  var strikes = db.user.lpStrikes[exoName];
+  strikes.count++;
+  strikes.lastFailWeight = failWeight;
+  strikes.lastFailTs = Date.now();
+  if (typeof saveDB === 'function') saveDB();
+  if (strikes.count >= LP_CONFIG.strikesMax) {
+    db.user.lpActive = false;
+    strikes.count = 0;
+    return { action: 'transition_apre',
+      message: '🎯 LP terminée — passage en mode APRE adaptatif.' };
+  }
+  if (strikes.count === 2) {
+    return { action: 'deload',
+      deloadWeight: Math.round(failWeight * (1 - LP_CONFIG.deloadPct) / 2.5) * 2.5,
+      message: '💪 Deload -10% — on repart sur des bases solides.' };
+  }
+  return { action: 'retry', message: '🔄 Retente le même poids au prochain entraînement.' };
+}
+
+function getLPIncrement(exoName, isCompound) {
+  if (!isCompound) return LP_CONFIG.increments.isolation;
+  var bw = (db.user && db.user.bw) || 80;
+  var gender = (db.user && db.user.gender || 'M').toUpperCase();
+  if (gender === 'F' || bw < 65) return LP_CONFIG.increments.composé_leger;
+  return LP_CONFIG.increments.composé_lourd;
+}
+
+function calcStartWeightFromRPE5Test(weight, reps) {
+  var e1rm = weight / (1.0278 - 0.0278 * reps);
+  return Math.round(e1rm * 0.70 / 2.5) * 2.5;
+}
+
+function getLPBienEtreProgress(exoName) {
+  var profile = db.user && db.user.obProfile;
+  if (!profile) return null;
+  if (['yoga', 'senior', 'reeducation'].indexOf(profile) < 0) return null;
+  var currentReps = (db.exercises && db.exercises[exoName] && db.exercises[exoName].lastReps) || 8;
+  if (currentReps < 12) {
+    return { type: 'reps', targetReps: currentReps + 1, keepWeight: true };
+  }
+  return { type: 'weight', targetReps: 8, increment: 1.25 };
+}

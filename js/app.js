@@ -16774,6 +16774,18 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     _prehabKey = getPrehabKey(dayKey, _srsScore, injuries);
   }
 
+  // FIX 3 — Tapering coachNote
+  var _taperingWeek = typeof getTaperingWeek === 'function' ? getTaperingWeek() : 0;
+  if (_taperingWeek > 0) {
+    var _tapering = typeof TAPERING_PROTOCOL !== 'undefined' ? TAPERING_PROTOCOL['week' + _taperingWeek] : null;
+    if (_tapering) {
+      var _tapNote = '🏆 Tapering S-' + _taperingWeek
+        + (_tapering.note ? ' : ' + _tapering.note : '')
+        + ' (volume ×' + _tapering.volumeMultiplier + ')';
+      dayCoachNote = dayCoachNote ? dayCoachNote + ' ' + _tapNote : _tapNote;
+    }
+  }
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 

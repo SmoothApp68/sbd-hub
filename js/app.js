@@ -15923,7 +15923,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   var last = history[0];
-  var prog = WP_PROGRESSION[bodyPart] || WP_PROGRESSION.upper;
+  var prog = (typeof WP_PROGRESSION !== 'undefined' && WP_PROGRESSION && (WP_PROGRESSION[bodyPart] || WP_PROGRESSION.upper)) || { increment: 2.5, deloadPct: 0.20 };
   var logsCount = (db.logs || []).length;
   var isCuttingW = ((db.user && db.user.programParams && db.user.programParams.goals) || []).includes('seche');
   var baseWeight;
@@ -16916,6 +16916,7 @@ function getDupFrequencyForLift(liftKey, selectedDays, routine) {
 }
 
 function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) {
+  if (typeof WP_SESSION_TEMPLATES === 'undefined' || !WP_SESSION_TEMPLATES) return null;
   var tpl = WP_SESSION_TEMPLATES[dayKey];
   if (!tpl) return null;
   var bodyPart = tpl.bodyPart;
@@ -16963,9 +16964,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
 
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
     // Récupérer la variante SBD selon la phase active
-    var variant = (SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
+    var variant = (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
       ? SBD_VARIANTS[phase][tpl.mainLift]
-      : SBD_VARIANTS.accumulation[tpl.mainLift];
+      : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS.accumulation && SBD_VARIANTS.accumulation[tpl.mainLift]
+          ? SBD_VARIANTS.accumulation[tpl.mainLift] : null);
+    if (!variant) {
+      var _fallbackNames = { squat: 'Squat (Barre)', bench: 'Développé couché (Barre)', deadlift: 'Soulevé de terre (Barre)', squat_pause: 'Squat Pause' };
+      variant = { name: _fallbackNames[tpl.mainLift] || tpl.mainLift, reps: [5, 5], rpe: 7.5 };
+    }
     var weight = wpComputeWorkWeight(tpl.mainLift, bodyPart);
     var reps = Math.round((variant.reps[0] + variant.reps[1]) / 2);
     var setsCount = wpSetsForPhase(phase);
@@ -17040,8 +17046,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   }
 
   // Sélection des accessoires selon la phase (hypertrophie vs force pool)
-  var accessoryPhase = PHASE_ACCESSORY_MAP[phase] || 'hypertrophie';
-  var phaseAccessories = (WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey])
+  var accessoryPhase = (typeof PHASE_ACCESSORY_MAP !== 'undefined' && PHASE_ACCESSORY_MAP && PHASE_ACCESSORY_MAP[phase]) || 'hypertrophie';
+  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey])
     ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey]
     : (tpl.accessories || []);
   var accessories = wpFilterInjuries(phaseAccessories, injuries);
@@ -17073,7 +17079,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     // ── Rotation plateau isolation ──────────────────────────
     var plat = wpDetectIsolationPlateau(acc.name);
     if (plat && plat.plateauWeeks >= 3) {
-      var vi = WP_ISOLATION_VARIANTS[acc.name];
+      var vi = (typeof WP_ISOLATION_VARIANTS !== 'undefined' && WP_ISOLATION_VARIANTS) ? WP_ISOLATION_VARIANTS[acc.name] : null;
       if (vi) acc = Object.assign({}, acc, { name: vi.variant, reps: vi.repRange[0] + '-' + vi.repRange[1], plateauNote: '🔄 Variante auto — ' + plat.plateauWeeks + ' sem. plateau' });
     } else if (plat && plat.plateauWeeks >= 1) {
       var hiR = parseInt(String(acc.reps).split('-').pop() || '12') + 3;

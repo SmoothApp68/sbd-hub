@@ -1,0 +1,99 @@
+{
+  "j1Results": {
+    "coach_j1": {
+      "errors": 4,
+      "warnings": 1,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ],
+      "warnSamples": [
+        "Supabase init failed: ReferenceError: supabase is not defined\n    at http://localhost:35373/js/supabase.js:11:7"
+      ]
+    },
+    "go_idle": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "hasSessionExpress": true,
+      "hasProgInfo": true
+    },
+    "go_active": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "hasWarmup": true,
+      "hasPlateCalc": false,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ]
+    },
+    "programme": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "hasPlan": true,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ]
+    },
+    "settings": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "hasKgLbs": true,
+      "hasRGPD": true,
+      "hasBarWeight": true,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ]
+    },
+    "waitlist": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "waitlistVisible": true,
+      "hasLoginOverlay": false,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ]
+    }
+  },
+  "j30Results": {
+    "coach_j30": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "hasProgress": true,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ]
+    },
+    "stats_j30": {
+      "errors": 3,
+      "hasUndefined": true,
+      "hasNaN": false,
+      "hasCharts": true,
+      "hasPRs": true,
+      "errSamples": [
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+        "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+      ]
+    }
+  },
+  "timestamp": "2026-05-02T15:22:23.409Z"
+}

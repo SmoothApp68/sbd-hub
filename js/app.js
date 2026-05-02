@@ -21529,6 +21529,81 @@ function shouldRecordE1RMAsReference() {
   return true;
 }
 
+var _ACTIVITY_EMOJI = {
+  natation:'🏊', course:'🏃', velo:'🚴', yoga:'🧘',
+  trail:'🥾', arts_martiaux:'🥊', randonnee:'🥾', ski:'⛷️',
+  pilates:'🧘', sports_collectifs:'⚽', marche:'🚶', autre:'🏅'
+};
+
+function buildActivityQuickLogTags() {
+  var template = (db.user && db.user.activityTemplate) || [];
+  if (template.length === 0) return '';
+
+  var today = new Date().getDay();
+  var dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var todayName = dayNames[today];
+  var todayStr = new Date().toISOString().split('T')[0];
+
+  var todayActivities = template.filter(function(a) {
+    return (a.days || []).includes(todayName);
+  });
+  if (todayActivities.length === 0) return '';
+
+  var html = '<div style="margin-top:12px;padding-top:12px;'
+    + 'border-top:1px solid rgba(255,255,255,0.08);">';
+  html += '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">'
+    + 'Cardio aujourd\'hui aussi ?</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+
+  todayActivities.forEach(function(act, i) {
+    var emoji = _ACTIVITY_EMOJI[act.type] || '🏅';
+    var label = act.type.charAt(0).toUpperCase() + act.type.slice(1).replace(/_/g, ' ');
+    // Check if already logged today
+    var alreadyLogged = (db.activityLogs || []).some(function(l) {
+      return l.date === todayStr && l.type === act.type;
+    });
+    var btnStyle = alreadyLogged
+      ? 'background:rgba(50,215,75,0.2);border:1px solid var(--green);color:var(--green);'
+      : 'background:var(--surface);border:1px solid var(--border);color:var(--sub);';
+    html += '<button id="aqtag-' + i + '" onclick="logActivityTag(' + i + ', this)" '
+      + 'style="padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;'
+      + 'transition:all 0.2s;' + btnStyle + '">'
+      + emoji + ' ' + escapeHtml(label) + (alreadyLogged ? ' ✓' : '') + '</button>';
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+function logActivityTag(templateIdx, btn) {
+  var template = (db.user && db.user.activityTemplate) || [];
+  var act = template[templateIdx];
+  if (!act) return;
+
+  var today = new Date().toISOString().split('T')[0];
+  var trimp = typeof calcActivityTRIMP === 'function' ? calcActivityTRIMP(act) : 0;
+
+  if (!db.activityLogs) db.activityLogs = [];
+  var existingIdx = db.activityLogs.findIndex(function(l) {
+    return l.date === today && l.type === act.type;
+  });
+
+  var log = { date: today, type: act.type, duration: act.duration || 45,
+    intensity: act.intensity || 3, trimp: trimp, source: 'manual' };
+
+  if (existingIdx >= 0) {
+    db.activityLogs[existingIdx] = log;
+  } else {
+    db.activityLogs.push(log);
+  }
+  saveDB();
+
+  btn.style.background = 'rgba(50,215,75,0.2)';
+  btn.style.borderColor = 'var(--green)';
+  btn.style.color = 'var(--green)';
+  if (btn.textContent.indexOf('✓') === -1) btn.textContent = btn.textContent + ' ✓';
+}
+
 function showActivityQuickLog() {
   var template = (db.user && db.user.activityTemplate) || [];
   if (template.length === 0) return;
@@ -21710,9 +21785,6 @@ function goFinishWorkout() {
 
   // Award any newly unlocked badges (permanent store)
   try { checkAndAwardBadges(); } catch(e) {}
-
-  // Quick-log secondary activities if scheduled today
-  setTimeout(showActivityQuickLog, 2000);
 
   // Proposer le partage si PR ou tonnage > 2t
   try {
@@ -21968,7 +22040,23 @@ function checkAndShowPRCelebration(session) {
     }
   });
 
-  if (newPRs.length === 0) return;
+  if (newPRs.length === 0) {
+    // No PR but show activity tags if relevant
+    setTimeout(function() {
+      var tags = typeof buildActivityQuickLogTags === 'function' ? buildActivityQuickLogTags() : '';
+      if (!tags) return;
+      var html = '<div style="text-align:center;padding:8px 0 4px;">';
+      html += '<div style="font-size:32px;margin-bottom:6px;">✅</div>';
+      html += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Séance enregistrée</div>';
+      html += tags;
+      html += '<button onclick="closeModal()" style="width:100%;margin-top:14px;padding:11px;'
+        + 'background:var(--surface);border:1px solid var(--border);border-radius:12px;'
+        + 'color:var(--text);font-size:13px;cursor:pointer;">Fermer</button>';
+      html += '</div>';
+      showModal('', html);
+    }, 600);
+    return;
+  }
   setTimeout(function() { showPRCelebration(newPRs, session.id); }, 600);
 }
 
@@ -21986,6 +22074,9 @@ function showPRCelebration(prs, sessionId) {
     html += '<div style="font-size:12px;color:var(--sub);">Précédent : ' + pr.prev + 'kg · Gain : +' + pr.gain + 'kg</div>';
     html += '</div>';
   });
+
+  // One-tap activity tags (non-blocking)
+  html += buildActivityQuickLogTags();
 
   html += '<div style="display:flex;gap:8px;margin-top:16px;">';
   html += '<button onclick="closeModal()" '

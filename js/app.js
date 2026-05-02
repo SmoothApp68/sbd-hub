@@ -15230,6 +15230,11 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     return prVal > 0 ? wpRound25(prVal * 0.75) : 60;
   }
 
+  // ÉTAPE C: determine DUP zone from current training phase
+  var dupZone = typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie';
+  var _zoneRepsMin = dupZone === 'force' ? 1 : (dupZone === 'hypertrophie' ? 6 : 13);
+  var _zoneRepsMax = dupZone === 'force' ? 5 : (dupZone === 'hypertrophie' ? 12 : 99);
+
   var history = [];
   for (var i = 0; i < logs.length && history.length < 4; i++) {
     var log = logs[i];
@@ -15237,10 +15242,16 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       return wpNormalizeName(e.name) === wpNormalizeName(realName);
     });
     if (!exo) continue;
-    var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+    // Filter by zone rep range; fallback to all work sets if no zone data
+    var allWorkSets = (exo.allSets || exo.series || []).filter(function(s) {
       var isWarm = s.isWarmup === true || s.setType === 'warmup';
       return !isWarm && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
     });
+    var zoneSets = allWorkSets.filter(function(s) {
+      var r = parseInt(s.reps);
+      return r >= _zoneRepsMin && r <= _zoneRepsMax;
+    });
+    var workSets = zoneSets.length > 0 ? zoneSets : allWorkSets;
     if (!workSets.length) continue;
     var maxSet = workSets.reduce(function(m, s) {
       return parseFloat(s.weight) > parseFloat(m.weight) ? s : m;
@@ -15251,6 +15262,11 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       rpe:    parseFloat(maxSet.rpe)    || 7.5,
       e1rm:   wpCalcE1RM(maxSet.weight, maxSet.reps, maxSet.rpe)
     });
+  }
+
+  // ÉTAPE D: persist zone e1rm for future getZoneE1RM() reads
+  if (history.length > 0 && history[0].e1rm > 0 && typeof setZoneE1RM === 'function') {
+    setZoneE1RM(realName, dupZone, history[0].e1rm);
   }
 
   if (!history.length) {
@@ -15352,7 +15368,9 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   // FIX 1+5 — Pre-compute penalty multipliers (Kill Switch + stabilization guard)
-  var e1rmRef = (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm)
+  // ÉTAPE C: use zone-specific e1rm for Hard Cap reference
+  var e1rmRef = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
+    || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm)
     || (history.length > 0 ? history[0].e1rm : 0) || 0;
 
   var _wb = db.todayWellbeing;

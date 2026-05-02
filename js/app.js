@@ -2933,7 +2933,40 @@ function getAllBadges() {
     });
   }
 
+  // ── Status badges (re-evaluated each check, can grey out but XP kept) ──
+  b.push({ id: 'consistency_month', r: 'rare', badgeType: 'status',
+    icon: '📅', name: 'Régularité du mois',
+    desc: '12+ séances ce mois — constance professionnelle',
+    condition: '12 séances/mois',
+    ck: function() {
+      var start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
+      return (db.logs||[]).filter(function(l) {
+        return (l.timestamp || 0) > start.getTime();
+      }).length >= 12;
+    }
+  });
+
+  b.push({ id: 'weekly_warrior', r: 'uncommon', badgeType: 'status',
+    icon: '⚔️', name: 'Guerrier de la semaine',
+    desc: '4+ séances cette semaine — intensité maximale',
+    condition: '4 séances/semaine',
+    ck: function() {
+      var weekStart = typeof getWeekStart === 'function' ? getWeekStart(Date.now()) : Date.now() - 7*86400000;
+      return (db.logs||[]).filter(function(l) {
+        return (l.timestamp || 0) > weekStart;
+      }).length >= 4;
+    }
+  });
+
   return b;
+}
+
+function isBadgeActive(badgeId) {
+  var e = db.earnedBadges && db.earnedBadges[badgeId];
+  if (!e) return false;
+  // Achiever badges are always active once earned
+  // Status badges have an explicit active flag
+  return e.active !== false;
 }
 
 function checkAndAwardBadges() {
@@ -2942,10 +2975,26 @@ function checkAndAwardBadges() {
   var newBadges = [];
   allBadges.forEach(function(badge) {
     if (!badge.id || badge.impossible) return;
-    if (db.earnedBadges[badge.id]) return; // already earned — never revoke
+    var type = badge.badgeType || 'achiever';
+    if (type === 'status') {
+      // Status badges: re-evaluate each time, store earned state and active state
+      try {
+        var isActive = typeof badge.ck === 'function' && badge.ck();
+        if (!db.earnedBadges[badge.id] && isActive) {
+          db.earnedBadges[badge.id] = { earnedAt: Date.now(), xp: badge.xp || 0, active: true };
+          newBadges.push(badge);
+        } else if (db.earnedBadges[badge.id]) {
+          // Update active flag but keep earnedAt and xp
+          db.earnedBadges[badge.id].active = !!isActive;
+        }
+      } catch(e) {}
+      return;
+    }
+    // Achiever badges: once earned, never revoked
+    if (db.earnedBadges[badge.id]) return;
     try {
       if (typeof badge.ck === 'function' && badge.ck()) {
-        db.earnedBadges[badge.id] = { earnedAt: Date.now(), xp: badge.xp || 0 };
+        db.earnedBadges[badge.id] = { earnedAt: Date.now(), xp: badge.xp || 0, active: true };
         newBadges.push(badge);
       }
     } catch(e) {}

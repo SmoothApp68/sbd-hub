@@ -2650,35 +2650,82 @@ const BADGE_THRESHOLDS = {
 };
 
 function getAllBadges() {
+  var b = [];
+  var stats = _computeBadgeStats();
+  _buildSessionBadges(b, stats);
+  _buildVolumePerSessionBadges(b, stats);
+  _buildVolumeCumulBadges(b, stats);
+  _buildDurationMaxBadges(b, stats);
+  _buildTotalTimeBadges(b, stats);
+  _buildSetsBadges(b, stats);
+  _buildExoBadges(b, stats);
+  _buildSBDBadges(b, stats);
+  _buildStreakBadges(b, stats);
+  _buildCollectorBadges(b);
+  _buildSkillBadges(b, stats);
+  _applyWellnessTheme(b);
+  _buildStatusBadges(b);
+  return b;
+}
+
+function _computeBadgeStats() {
   const streak = calcStreak();
-  const b = [];
   const B = db.bestPR.bench||0, S = db.bestPR.squat||0, D = db.bestPR.deadlift||0;
   const _gender = (db.user.gender === 'female') ? 'female' : 'male';
   const _bt = BADGE_THRESHOLDS[_gender];
-
-  // ── Stats pré-calculées (single pass) ──
-  let totalVol = 0, maxSessVol = 0, totalSets = 0, ohpRM = 0, maxSessDur = 0, totalDur = 0;
-  const _uniqueExos = new Set();
   const bw = db.user.bw||0;
   const _ohpRe = /overhead|militaire|\bohp\b|press mil/i;
+  let totalVol=0, maxSessVol=0, totalSets=0, ohpRM=0, maxSessDur=0, totalDur=0;
+  const _uniqueExos = new Set();
+  // Skill badge stats
+  let _rpeLoggedSets=0, _totalLoggedSets=0;
+  let _bigSessions=0;
+  const _thirtyAgo = Date.now() - 30*86400000;
+  let _prCount30=0;
   db.logs.forEach(l => {
     totalVol += (l.volume||0);
     if ((l.volume||0) > maxSessVol) maxSessVol = l.volume||0;
+    if ((l.volume||0) >= 10000) _bigSessions++;
     let sessSets = 0;
+    const isRecent30 = (l.timestamp||0) >= _thirtyAgo;
     (l.exercises||[]).forEach(e => {
       sessSets += (e.sets||0);
       _uniqueExos.add(e.name);
       if (_ohpRe.test(e.name) && (e.maxRM||0) > ohpRM) ohpRM = e.maxRM;
+      if (isRecent30 && (e.isPR || e.isNewPR)) _prCount30++;
     });
     totalSets += sessSets;
     const dur = l.duration || (sessSets * 210);
     if (dur > maxSessDur) maxSessDur = dur;
     totalDur += dur;
   });
-  const uniqueExos = _uniqueExos.size;
-  const total       = B+S+D;
+  db.logs.slice(-20).forEach(function(log) {
+    (log.exercises||[]).forEach(function(e) {
+      (e.allSets||e.series||[]).forEach(function(s) {
+        if (!s.isWarmup) {
+          _totalLoggedSets++;
+          if (s.rpe && parseFloat(s.rpe) > 0) _rpeLoggedSets++;
+        }
+      });
+    });
+  });
+  let _consWeeks = 0;
+  for (var _cw=0; _cw<4; _cw++) {
+    var _cwStart = Date.now() - (_cw+1)*7*86400000;
+    var _cwEnd   = Date.now() - _cw*7*86400000;
+    if (db.logs.filter(function(l){var ts=l.timestamp||0;return ts>=_cwStart&&ts<_cwEnd;}).length >= 3) _consWeeks++;
+  }
+  return {
+    streak, B, S, D, _gender, _bt, bw, ohpRM,
+    totalVol, maxSessVol, totalSets, maxSessDur, totalDur,
+    uniqueExos: _uniqueExos.size, total: B+S+D,
+    rpePct: _totalLoggedSets > 0 ? _rpeLoggedSets/_totalLoggedSets : 0,
+    totalLoggedSets: _totalLoggedSets, bigSessions: _bigSessions,
+    prCount30: _prCount30, consWeeks: _consWeeks
+  };
+}
 
-  // ── Séances ──
+function _buildSessionBadges(b, stats) {
   b.push({id:'s1',    r:'common',    icon:'🎯', name:'Première Marque',          desc:'Première séance — bienvenue dans l\'arène. L\'aventure commence ici', condition:'1 séance', ck:()=>db.logs.length>=1});
   b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Initié',                   desc:'10 séances — ton engagement est désormais officiel et reconnu', condition:'10 séances', ck:()=>db.logs.length>=10});
   b.push({id:'s25',   r:'uncommon',  icon:'🏘️', name:'Apprenti Guerrier',        desc:'25 séances — tes premiers pas dans l\'arène sont gravés dans la pierre', condition:'25 séances', ck:()=>db.logs.length>=25});
@@ -2691,104 +2738,106 @@ function getAllBadges() {
   b.push({id:'s500',  r:'legendary', icon:'💀', name:'Légende Vivante',          desc:'500 séances — ton histoire est déjà racontée dans les antres les plus sombres', condition:'500 séances', ck:()=>db.logs.length>=500});
   b.push({id:'s750',  r:'mythic',    icon:'🥚', name:'Gardien des Légendes',     desc:'750 séances — les six artefacts légendaires sont sous ta garde exclusive', condition:'750 séances', ck:()=>db.logs.length>=750});
   b.push({id:'s1000', r:'divine',    icon:'🔥', name:'Immortel',                 desc:'1000 séances — au-delà de tout. Tu transcendes la douleur, l\'espace, le temps', condition:'1000 séances', ck:()=>db.logs.length>=1000});
+}
 
-  // ── Volume par séance (max session) ──
-  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Premier Chargement',       desc:'1t en une séance — les marchands notent ton premier passage', condition:'1t en 1 séance', ck:()=>maxSessVol>=1000});
-  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur d\'Acier',         desc:'3t — même un colosse sobre ne porterait pas plus sans tituber', condition:'3t en 1 séance', ck:()=>maxSessVol>=3000});
-  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Énergie Brute',             desc:'5t — ta puissance commence à dépasser l\'entendement ordinaire', condition:'5t en 1 séance', ck:()=>maxSessVol>=5000});
-  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Maître Forgeron',           desc:'10t en une séance — les forges s\'inclinent devant ton labeur', condition:'10t en 1 séance', ck:()=>maxSessVol>=10000});
-  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Libération Totale',         desc:'20t — tu puises dans des réserves que peu de mortels connaissent', condition:'20t en 1 séance', ck:()=>maxSessVol>=20000});
-  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Marée de Fonte',            desc:'30t — les anciens eux-mêmes ont versé moins de larmes en une journée', condition:'30t en 1 séance', ck:()=>maxSessVol>=30000});
-  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'L\'Ultime Sacrifice',       desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance', condition:'40t en 1 séance', ck:()=>maxSessVol>=40000});
-  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Titan de la Fonte',         desc:'50t en une séance — le Titan Barbare en personne s\'incline', condition:'50t en 1 séance', ck:()=>maxSessVol>=50000});
+function _buildVolumePerSessionBadges(b, stats) {
+  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Premier Chargement',       desc:'1t en une séance — les marchands notent ton premier passage', condition:'1t en 1 séance', ck:()=>stats.maxSessVol>=1000});
+  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur d\'Acier',         desc:'3t — même un colosse sobre ne porterait pas plus sans tituber', condition:'3t en 1 séance', ck:()=>stats.maxSessVol>=3000});
+  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Énergie Brute',             desc:'5t — ta puissance commence à dépasser l\'entendement ordinaire', condition:'5t en 1 séance', ck:()=>stats.maxSessVol>=5000});
+  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Maître Forgeron',           desc:'10t en une séance — les forges s\'inclinent devant ton labeur', condition:'10t en 1 séance', ck:()=>stats.maxSessVol>=10000});
+  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Libération Totale',         desc:'20t — tu puises dans des réserves que peu de mortels connaissent', condition:'20t en 1 séance', ck:()=>stats.maxSessVol>=20000});
+  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Marée de Fonte',            desc:'30t — les anciens eux-mêmes ont versé moins de larmes en une journée', condition:'30t en 1 séance', ck:()=>stats.maxSessVol>=30000});
+  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'L\'Ultime Sacrifice',       desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance', condition:'40t en 1 séance', ck:()=>stats.maxSessVol>=40000});
+  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Titan de la Fonte',         desc:'50t en une séance — le Titan Barbare en personne s\'incline', condition:'50t en 1 séance', ck:()=>stats.maxSessVol>=50000});
   b.push({id:'vs100', r:'divine',    icon:'💀', name:'Mais t\'es malade ?',       desc:'100t en une séance — appelle un médecin, pas un coach', impossible:true, condition:'100t en 1 séance', ck:()=>false});
+}
 
-  // ── Volume cumulatif total ──
-  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',       desc:'10t cumulées — la forge ne fait que commencer', condition:'10t cumulées', ck:()=>totalVol>=10000});
-  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan du Fer',           desc:'50t — tes premiers pas d\'artisan sont validés par la guilde', condition:'50t cumulées', ck:()=>totalVol>=50000});
-  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',              desc:'100t — ta force prend une forme reconnaissable, taillée séance après séance', condition:'100t cumulées', ck:()=>totalVol>=100000});
-  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Guerrier Éprouvé',        desc:'250t — la douleur est devenue ton alliée la plus fidèle', condition:'250t cumulées', ck:()=>totalVol>=250000});
-  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Maîtrise Totale',          desc:'500t — chaque kilo supplémentaire n\'est qu\'un chapitre de plus', condition:'500t cumulées', ck:()=>totalVol>=500000});
-  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur d\'Acier',      desc:'1000t cumulées — assez pour remodeler les continents', condition:'1000t cumulées', ck:()=>totalVol>=1000000});
-  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure dans le Métal',   desc:'2500t — ton nom est gravé dans l\'acier pour l\'éternité', condition:'2500t cumulées', ck:()=>totalVol>=2500000});
-  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien Éternel',         desc:'5000t — les anciens reconnaissent enfin l\'étendue de ton labeur', condition:'5000t cumulées', ck:()=>totalVol>=5000000});
-  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Le Sans-Limite',          desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter', condition:'7500t cumulées', ck:()=>totalVol>=7500000});
-  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Au-delà des Limites',     desc:'10 000t cumulées — tu dépasses le monde connu. Tu ES la légende', condition:'10 000t cumulées', ck:()=>totalVol>=10000000});
+function _buildVolumeCumulBadges(b, stats) {
+  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',       desc:'10t cumulées — la forge ne fait que commencer', condition:'10t cumulées', ck:()=>stats.totalVol>=10000});
+  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan du Fer',           desc:'50t — tes premiers pas d\'artisan sont validés par la guilde', condition:'50t cumulées', ck:()=>stats.totalVol>=50000});
+  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',              desc:'100t — ta force prend une forme reconnaissable, taillée séance après séance', condition:'100t cumulées', ck:()=>stats.totalVol>=100000});
+  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Guerrier Éprouvé',        desc:'250t — la douleur est devenue ton alliée la plus fidèle', condition:'250t cumulées', ck:()=>stats.totalVol>=250000});
+  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Maîtrise Totale',          desc:'500t — chaque kilo supplémentaire n\'est qu\'un chapitre de plus', condition:'500t cumulées', ck:()=>stats.totalVol>=500000});
+  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur d\'Acier',      desc:'1000t cumulées — assez pour remodeler les continents', condition:'1000t cumulées', ck:()=>stats.totalVol>=1000000});
+  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure dans le Métal',   desc:'2500t — ton nom est gravé dans l\'acier pour l\'éternité', condition:'2500t cumulées', ck:()=>stats.totalVol>=2500000});
+  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien Éternel',         desc:'5000t — les anciens reconnaissent enfin l\'étendue de ton labeur', condition:'5000t cumulées', ck:()=>stats.totalVol>=5000000});
+  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Le Sans-Limite',          desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter', condition:'7500t cumulées', ck:()=>stats.totalVol>=7500000});
+  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Au-delà des Limites',     desc:'10 000t cumulées — tu dépasses le monde connu. Tu ES la légende', condition:'10 000t cumulées', ck:()=>stats.totalVol>=10000000});
+}
 
-  // ── Durée de séance (max) ──
-  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',           desc:'1h — le temps d\'une épreuve d\'initiation. Pas mal pour commencer', condition:'1h en 1 séance', ck:()=>maxSessDur>=3600});
-  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Épreuve de Résistance',    desc:'1h30 — l\'endurance se distingue ici de la simple volonté', condition:'1h30 en 1 séance', ck:()=>maxSessDur>=5400});
-  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Épreuve Majeure',           desc:'2h — le temps d\'une grande épreuve avec une équipe d\'élite', condition:'2h en 1 séance', ck:()=>maxSessDur>=7200});
-  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Entraînement des Élites',  desc:'2h30 — seuls les meilleurs tiennent à cette intensité aussi longtemps', condition:'2h30 en 1 séance', ck:()=>maxSessDur>=9000});
-  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',           desc:'3h — même les gardiens du temps sont impressionnés par ta maîtrise', condition:'3h en 1 séance', ck:()=>maxSessDur>=10800});
-  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Méditation Forgeron',       desc:'4h — l\'acier est forgé dans la durée, pas dans la précipitation', condition:'4h en 1 séance', ck:()=>maxSessDur>=14400});
+function _buildDurationMaxBadges(b, stats) {
+  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',           desc:'1h — le temps d\'une épreuve d\'initiation. Pas mal pour commencer', condition:'1h en 1 séance', ck:()=>stats.maxSessDur>=3600});
+  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Épreuve de Résistance',    desc:'1h30 — l\'endurance se distingue ici de la simple volonté', condition:'1h30 en 1 séance', ck:()=>stats.maxSessDur>=5400});
+  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Épreuve Majeure',           desc:'2h — le temps d\'une grande épreuve avec une équipe d\'élite', condition:'2h en 1 séance', ck:()=>stats.maxSessDur>=7200});
+  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Entraînement des Élites',  desc:'2h30 — seuls les meilleurs tiennent à cette intensité aussi longtemps', condition:'2h30 en 1 séance', ck:()=>stats.maxSessDur>=9000});
+  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',           desc:'3h — même les gardiens du temps sont impressionnés par ta maîtrise', condition:'3h en 1 séance', ck:()=>stats.maxSessDur>=10800});
+  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Méditation Forgeron',       desc:'4h — l\'acier est forgé dans la durée, pas dans la précipitation', condition:'4h en 1 séance', ck:()=>stats.maxSessDur>=14400});
   b.push({id:'dur480', r:'divine',    icon:'🛋️', name:'T\'es au chômage ?',       desc:'8h en une séance — c\'est une journée de boulot. Appelle tes proches', impossible:true, condition:'8h en 1 séance', ck:()=>false});
+}
 
-  // ── Temps d\'entraînement cumulatif ──
-  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures d\'Acier',      desc:'50h cumulées — un maître artisan met moins de temps pour une lame légendaire', condition:'50h cumulées', ck:()=>totalDur>=180000});
-  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Cent Heures d\'Acier',    desc:'100h — ta place parmi les sérieux n\'est plus discutable pour personne', condition:'100h cumulées', ck:()=>totalDur>=360000});
-  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maître de l\'Effort',     desc:'250h — ton énergie semble inépuisable et visible à ceux qui t\'entourent', condition:'250h cumulées', ck:()=>totalDur>=900000});
-  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Présence Écrasante',      desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire', condition:'500h cumulées', ck:()=>totalDur>=1800000});
-  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Le Millénaire',            desc:'1000h — mille heures gravées dans l\'histoire', condition:'1000h cumulées', ck:()=>totalDur>=3600000});
-  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Forgeron des Profondeurs', desc:'1500h — même les anciens regardent avec respect ceux qui ont autant forgé', condition:'1500h cumulées', ck:()=>totalDur>=5400000});
-  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu de la Forge',        desc:'2000h — les dieux eux-mêmes n\'ont pas forgé autant dans leur vie', condition:'2000h cumulées', ck:()=>totalDur>=7200000});
+function _buildTotalTimeBadges(b, stats) {
+  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures d\'Acier',      desc:'50h cumulées — un maître artisan met moins de temps pour une lame légendaire', condition:'50h cumulées', ck:()=>stats.totalDur>=180000});
+  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Cent Heures d\'Acier',    desc:'100h — ta place parmi les sérieux n\'est plus discutable pour personne', condition:'100h cumulées', ck:()=>stats.totalDur>=360000});
+  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maître de l\'Effort',     desc:'250h — ton énergie semble inépuisable et visible à ceux qui t\'entourent', condition:'250h cumulées', ck:()=>stats.totalDur>=900000});
+  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Présence Écrasante',      desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire', condition:'500h cumulées', ck:()=>stats.totalDur>=1800000});
+  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Le Millénaire',            desc:'1000h — mille heures gravées dans l\'histoire', condition:'1000h cumulées', ck:()=>stats.totalDur>=3600000});
+  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Forgeron des Profondeurs', desc:'1500h — même les anciens regardent avec respect ceux qui ont autant forgé', condition:'1500h cumulées', ck:()=>stats.totalDur>=5400000});
+  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu de la Forge',        desc:'2000h — les dieux eux-mêmes n\'ont pas forgé autant dans leur vie', condition:'2000h cumulées', ck:()=>stats.totalDur>=7200000});
+}
 
-  // ── Séries totales ──
-  b.push({id:'st100',   r:'common',    icon:'📊', name:'Cent Séries de Forge',     desc:'100 séries — les pairs te remarquent et commencent à compter tes répétitions', condition:'100 séries', ck:()=>totalSets>=100});
-  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier Confirmé',        desc:'500 séries — l\'ordre des guerriers t\'inscrit dans ses rangs officiels', condition:'500 séries', ck:()=>totalSets>=500});
-  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Guerrier Sanglant',        desc:'1000 séries de douleur — ton corps est devenu un véritable temple de pierre', condition:'1000 séries', ck:()=>totalSets>=1000});
-  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Force Libérée',            desc:'2500 séries — ta puissance intérieure se libère enfin et révèle sa vraie nature', condition:'2500 séries', ck:()=>totalSets>=2500});
-  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant Légendaire',    desc:'5000 séries — ton nom est connu et craint dans tous les cercles', condition:'5000 séries', ck:()=>totalSets>=5000});
-  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Dix Mille Coups',          desc:'10 000 séries — les grands maîtres frappaient dix mille fois par jour, des siècles durant', condition:'10 000 séries', ck:()=>totalSets>=10000});
-  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Transcendance',            desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende immortelle', condition:'20 000 séries', ck:()=>totalSets>=20000});
-  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Absolue',            desc:'40 000 séries — au-delà de tout ce qui existe. L\'ultime manifestation de ta volonté', condition:'40 000 séries', ck:()=>totalSets>=40000});
+function _buildSetsBadges(b, stats) {
+  b.push({id:'st100',   r:'common',    icon:'📊', name:'Cent Séries de Forge',     desc:'100 séries — les pairs te remarquent et commencent à compter tes répétitions', condition:'100 séries', ck:()=>stats.totalSets>=100});
+  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier Confirmé',        desc:'500 séries — l\'ordre des guerriers t\'inscrit dans ses rangs officiels', condition:'500 séries', ck:()=>stats.totalSets>=500});
+  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Guerrier Sanglant',        desc:'1000 séries de douleur — ton corps est devenu un véritable temple de pierre', condition:'1000 séries', ck:()=>stats.totalSets>=1000});
+  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Force Libérée',            desc:'2500 séries — ta puissance intérieure se libère enfin et révèle sa vraie nature', condition:'2500 séries', ck:()=>stats.totalSets>=2500});
+  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant Légendaire',    desc:'5000 séries — ton nom est connu et craint dans tous les cercles', condition:'5000 séries', ck:()=>stats.totalSets>=5000});
+  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Dix Mille Coups',          desc:'10 000 séries — les grands maîtres frappaient dix mille fois par jour, des siècles durant', condition:'10 000 séries', ck:()=>stats.totalSets>=10000});
+  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Transcendance',            desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende immortelle', condition:'20 000 séries', ck:()=>stats.totalSets>=20000});
+  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Absolue',            desc:'40 000 séries — au-delà de tout ce qui existe. L\'ultime manifestation de ta volonté', condition:'40 000 séries', ck:()=>stats.totalSets>=40000});
+}
 
-  // ── Exercices uniques maîtrisés ──
-  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet de l\'Initié',       desc:'10 exercices — ton arsenal commence à se remplir sérieusement', condition:'10 exercices', ck:()=>uniqueExos>=10});
-  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent Confirmé',       desc:'25 exercices — force, cardio, mobilité — tu maîtrises chaque dimension', condition:'25 exercices', ck:()=>uniqueExos>=25});
-  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie du Fer',      desc:'50 exercices — l\'arsenal complet du guerrier accompli', condition:'50 exercices', ck:()=>uniqueExos>=50});
-  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit de l\'Effort',       desc:'75 exercices — même les plus grands spécialistes seraient impressionnés', condition:'75 exercices', ck:()=>uniqueExos>=75});
-  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de Toutes les Disciplines', desc:'100 exercices — force brute, endurance, technique — tu incarnes tout à la fois', condition:'100 exercices', ck:()=>uniqueExos>=100});
+function _buildExoBadges(b, stats) {
+  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet de l\'Initié',       desc:'10 exercices — ton arsenal commence à se remplir sérieusement', condition:'10 exercices', ck:()=>stats.uniqueExos>=10});
+  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent Confirmé',       desc:'25 exercices — force, cardio, mobilité — tu maîtrises chaque dimension', condition:'25 exercices', ck:()=>stats.uniqueExos>=25});
+  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie du Fer',      desc:'50 exercices — l\'arsenal complet du guerrier accompli', condition:'50 exercices', ck:()=>stats.uniqueExos>=50});
+  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit de l\'Effort',       desc:'75 exercices — même les plus grands spécialistes seraient impressionnés', condition:'75 exercices', ck:()=>stats.uniqueExos>=75});
+  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de Toutes les Disciplines', desc:'100 exercices — force brute, endurance, technique — tu incarnes tout à la fois', condition:'100 exercices', ck:()=>stats.uniqueExos>=100});
+}
 
-
-  // ── Bench Press (only if SBD mode) ──
-  if (modeFeature('showSBDCards')) {
+function _buildSBDBadges(b, stats) {
+  if (!modeFeature('showSBDCards')) return;
+  const {B, S, D, bw, ohpRM, _bt, _gender} = stats;
   const _benchRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _benchIcons = ['🌱','💪','⚔️','🩸','⚡','🏰','🌀','🪓','🌊','🔥','❄️','👁️','💥'];
   const _benchNames = ["L'Apprenti Forgeron","Cogneur Confirmé","Force Pure","Acier et Sueur","Énergie Libérée","Champion de la Fonte","Aura de Puissance","Le Colosse","Présence de Fer","Fracture des Limites","Gel de l'Hiver","L'Intouchable","Forme Ultime — Pectoraux"];
   const _benchDescs = ["La forge ne fait que commencer. Tes efforts sont notés","Les rangs s'écartent sur ton passage","Force avant tout — la technique viendra plus tard","Ta douleur est ton carburant — sang et acier mêlés","Ta puissance intérieure a enfin révélé sa vraie forme","Même les forces les plus obscures fléchissent devant toi","Ton aura déborde — les plafonds de la salle tremblent","Tu atteins la légende du plus grand des guerriers","Ta présence commence à impressionner tous les cercles","Tout sacrifier pour un record — ta force brise le temps","Ton press glace l'atmosphère — la maîtrise est totale","Il t'a enfin reconnu comme un rival digne et redoutable","Forme finale. Les anciens posent leurs barres pour t'admirer"];
   _bt.bench.forEach((kg,i)=>b.push({id:`bench_${kg}`,r:_benchRarities[i]||'mythic',icon:_benchIcons[i]||'💥',name:_benchNames[i]||('Bench '+kg+'kg'),desc:_benchDescs[i]||('Bench press '+kg+'kg'),condition:'Bench '+kg+'kg',ck:()=>B>=kg}));
 
-  // ── Squat ──
   const _squatRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _squatIcons = ['🦵','🐼','🌲','💧','⚔️','🌀','🌳','🩸','🌊','👻','✨','🔥','🌌'];
   const _squatNames = ["Cavalier des Plaines","Gardien en Transe","Racines Profondes","Flux d'Énergie","Guerrier des Profondeurs","Aura Condensée","Ancré dans la Terre","Transcendance des Jambes","Déferlante Titanesque","Présence Oppressante","Maîtrise Absolue","Flamme Intérieure","Chaos Primordial"];
   const _squatDescs = ["Tes cuisses portent le monde avec fierté et aisance","L'ivresse de l'acier — la sagesse du silence","Tes jambes sont enracinées comme des arbres millénaires","Ton énergie descend dans tes jambes à chaque répétition","Pour l'honneur des profondeurs — les rivaux sont jaloux","Ton aura se condense jusqu'aux genoux à chaque rep","Les anciens sont jaloux de la force de tes cuisses","Tu dépasses la simple force brute — même les dieux t'envient","Là où tu squattes, le sol s'en souvient pour toujours","Ta présence involontaire fait plier les genoux des autres","Tu as transcendé les limites — la forme finale est atteinte","Les 300kg — les anciens saluent cette chaleur dans tes jambes","Au-delà du monde connu — tu existes dans l'Absolu"];
   _bt.squat.forEach((kg,i)=>b.push({id:`squat_${kg}`,r:_squatRarities[i]||'mythic',icon:_squatIcons[i]||'🌌',name:_squatNames[i]||('Squat '+kg+'kg'),desc:_squatDescs[i]||('Squat '+kg+'kg'),condition:'Squat '+kg+'kg',ck:()=>S>=kg}));
 
-  // ── Deadlift ──
   const _deadRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _deadIcons = ['⚒️','🌲','🌑','👁️','🔥','🩸','⚡','🌊','❄️','🌑','🏆','💥','🔥'];
   const _deadNames = ["Forgeron des Plaines","Bûcheron Musclé","Ombre des Profondeurs","Le Regard du Maître","Flamme de l'Acier","Transcendance du Dos","Vitesse et Puissance","Vague de Titan","Gel de l'Hiver","Libération Obscure","Les Trois Cents","L'Ultime du Sol","Forme Primordiale"];
   const _deadDescs = ["Les forges te font confiance pour le premier lingot","Plus solide que les arbres millénaires","Tu tires depuis l'ombre — invisible et dévastateur","Il a senti ta puissance depuis les profondeurs","Ta barre brûle comme une flamme inextinguible","La douleur du dos t'alimente comme rien d'autre ne peut","Tes mains attrapent la barre avec une vitesse foudroyante","Là où tu tires, la terre s'en souvient pour toujours","Ton deadlift glace l'air ambiant — la maîtrise est totale","Ton cri intérieur libère une énergie obscure et dévastatrice","Les anciens s'inclinent ensemble devant ce chiffre légendaire","Tout ou rien — une seule répétition qui change tout","La force primordiale libérée — l'écho de l'Absolu"];
   _bt.deadlift.forEach((kg,i)=>b.push({id:`dead_${kg}`,r:_deadRarities[i]||'mythic',icon:_deadIcons[i]||'🔥',name:_deadNames[i]||('Deadlift '+kg+'kg'),desc:_deadDescs[i]||('Deadlift '+kg+'kg'),condition:'Dead '+kg+'kg',ck:()=>D>=kg}));
 
-  // ── Overhead Press ──
   const _ohpRarities = ['common','uncommon','rare','epic','legendary','mythic'];
   const _ohpIcons = ['💪','🌤️','🛡️','🌊','💫','🔥'];
   const _ohpNames = ["Bras du Guerrier","Épaules de Pierre","Bouclier des Épaules","Maître de la Presse","Titan des Épaules","Forme Céleste — OHP"];
   const _ohpDescs = ["Premier pas sur la voie de la force verticale. L'acier au-dessus ne fait que commencer","60kg au-dessus — un guerrier confirmé te regarderait avec respect","Les épaulières des élites ont été forgées pour des épaules comme les tiennes","La paume tendue vers le ciel — 100kg au-dessus comme un titan","Le colosse légendaire portait ses victoires sur des épaules comme les tiennes","La flamme intérieure libérée vers les cieux — ton press en est l'écho terrestre"];
   _bt.ohp.forEach((kg,i)=>b.push({id:`ohp_${kg}`,r:_ohpRarities[i]||'mythic',icon:_ohpIcons[i]||'🔥',name:_ohpNames[i]||('OHP '+kg+'kg'),desc:_ohpDescs[i]||('OHP '+kg+'kg'),condition:'OHP '+kg+'kg',ck:()=>ohpRM>=kg}));
 
-  // ── Total SBD ──
-  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            desc:'B+S+D ≥ 300kg — les trois piliers accomplis. La légende commence ici', condition:'Total SBD ≥ 300kg', ck:()=>total>=300});
-  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          desc:'B+S+D ≥ 400kg — ta puissance combinée commence à impressionner tous les cercles', condition:'Total SBD ≥ 400kg', ck:()=>total>=400});
-  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total Légendaire',       desc:'B+S+D ≥ 500kg — le guerrier légendaire te tend la main en signe d\'égal à égal', condition:'Total SBD ≥ 500kg', ck:()=>total>=500});
-  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un commandant d\'élite', condition:'Total SBD ≥ 600kg', ck:()=>total>=600});
-  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos Primordial',       desc:'B+S+D ≥ 700kg — même les forces les plus anciennes se taisent devant ta force brute', condition:'Total SBD ≥ 700kg', ck:()=>total>=700});
-  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Force Absolue',          desc:'B+S+D ≥ 800kg — la flamme ultime libérée en signe d\'hommage suprême', condition:'Total SBD ≥ 800kg', ck:()=>total>=800});
+  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            desc:'B+S+D ≥ 300kg — les trois piliers accomplis. La légende commence ici', condition:'Total SBD ≥ 300kg', ck:()=>stats.total>=300});
+  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          desc:'B+S+D ≥ 400kg — ta puissance combinée commence à impressionner tous les cercles', condition:'Total SBD ≥ 400kg', ck:()=>stats.total>=400});
+  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total Légendaire',       desc:'B+S+D ≥ 500kg — le guerrier légendaire te tend la main en signe d\'égal à égal', condition:'Total SBD ≥ 500kg', ck:()=>stats.total>=500});
+  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un commandant d\'élite', condition:'Total SBD ≥ 600kg', ck:()=>stats.total>=600});
+  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos Primordial',       desc:'B+S+D ≥ 700kg — même les forces les plus anciennes se taisent devant ta force brute', condition:'Total SBD ≥ 700kg', ck:()=>stats.total>=700});
+  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Force Absolue',          desc:'B+S+D ≥ 800kg — la flamme ultime libérée en signe d\'hommage suprême', condition:'Total SBD ≥ 800kg', ck:()=>stats.total>=800});
 
-  // ── Poids de Corps ──
   if (bw > 0) {
     const _bwB = _gender === 'female' ? [0.75, 1.0, 1.25] : [1.0, 1.5, 2.0];
     const _bwS = _gender === 'female' ? [1.0, 1.5, 2.0] : [1.5, 2.0, 2.5];
@@ -2803,9 +2852,9 @@ function getAllBadges() {
     b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', desc:`${Math.round(bw*_bwD[1])}kg — ta puissance résonne depuis le sol jusqu'au ciel`, condition:_bwD[1]+'× BW au Dead', ck:()=>D>=bw*_bwD[1]});
     b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', desc:`${Math.round(bw*_bwD[2])}kg — les anciens te saluent depuis leurs flammes éternelles`, condition:_bwD[2]+'× BW au Dead', ck:()=>D>=bw*_bwD[2]});
   }
-  } // end if showSBDCards
+}
 
-  // ── Streak (semaines consécutives) ──
+function _buildStreakBadges(b, stats) {
   const streakData = [
     [4,   'common',    '📅', "Régulier de l'Arène",        "4 semaines parfaites — l'engagement est visible et reconnu"],
     [8,   'common',    '🏠', "Guerrier Modèle",             "Ta guilde compte sur toi chaque semaine — tu n'as jamais déçu"],
@@ -2831,25 +2880,23 @@ function getAllBadges() {
     [494, 'mythic',    '🌠', "Brûlure de l'Âme",           "9 ans et demi — tu brûles tout ce qui te reste pour tenir debout"],
     [520, 'divine',    '🔥', "Flamme Primordiale",          "10 ans — la flamme ultime libérée. Tu ES cette flamme"],
   ];
-  streakData.forEach(([w,r,icon,name,desc])=>b.push({id:`streak_${w}`,r,icon,name,desc,condition:w+' semaines',ck:()=>streak>=w}));
+  streakData.forEach(([w,r,icon,name,desc])=>b.push({id:`streak_${w}`,r,icon,name,desc,condition:w+' semaines',ck:()=>stats.streak>=w}));
+}
 
-  // ── Collectionneur ──
-  // Fix: use a function that counts all non-collector, non-impossible unlocked badges
-  // plus recursively includes collector badges that are themselves unlocked
+function _buildCollectorBadges(b) {
   const _nonColBadges = b.filter(x => !x.impossible);
   const _nonColCount = _nonColBadges.filter(x => x.ck()).length;
   function _colCount(threshold) {
-    // Count non-collector unlocked + collector badges whose threshold is met
     let count = _nonColCount;
-    if (count >= 5) count++;   // col5 unlocked
-    if (count >= 15) count++;  // col15 unlocked
-    if (count >= 30) count++;  // col30 unlocked
-    if (count >= 50) count++;  // col50 unlocked
-    if (count >= 75) count++;  // col75 unlocked
-    if (count >= 100) count++; // col100 unlocked
+    if (count >= 5) count++;
+    if (count >= 15) count++;
+    if (count >= 30) count++;
+    if (count >= 50) count++;
+    if (count >= 75) count++;
+    if (count >= 100) count++;
     return count >= threshold;
   }
-  const totalNormal = _nonColBadges.length + 7; // +7 for the collector badges about to be added
+  const totalNormal = _nonColBadges.length + 7;
   b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      desc:'5 badges — ton inventaire commence à se remplir d\'histoire', condition:'5 badges', ck:()=>_colCount(5)});
   b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur de Gloire', desc:'15 badges — tu accumules les exploits comme un guerrier accompli', condition:'15 badges', ck:()=>_colCount(15)});
   b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    desc:'30 badges — les vitrines ne suffisent plus à tout exposer', condition:'30 badges', ck:()=>_colCount(30)});
@@ -2857,83 +2904,49 @@ function getAllBadges() {
   b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     desc:'75 badges — ta panoplie légendaire fait pâlir tous les marchands', condition:'75 badges', ck:()=>_colCount(75)});
   b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Arsenal Absolu',          desc:'100 badges — chaque badge est une arme supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
   b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   desc:'Tous les badges — tu as tout accompli. Légende absolue de l\'arène', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
+}
 
-  // ── Badges de compétence (TÂCHE 14) ──
-  // precision_rpe: RPE logged on majority of sets over last 20 sessions
-  var _rpeLoggedSets = 0, _totalLoggedSets = 0;
-  db.logs.slice(-20).forEach(function(log) {
-    (log.exercises || []).forEach(function(e) {
-      (e.allSets || e.series || []).forEach(function(s) {
-        if (!s.isWarmup) {
-          _totalLoggedSets++;
-          if (s.rpe && parseFloat(s.rpe) > 0) _rpeLoggedSets++;
-        }
-      });
-    });
-  });
-  var _rpePct = _totalLoggedSets > 0 ? _rpeLoggedSets / _totalLoggedSets : 0;
-
-  // consistency_king: 4+ sessions in each of last 4 weeks
-  var _consWeeks = 0;
-  for (var _cw = 0; _cw < 4; _cw++) {
-    var _cwStart = Date.now() - (_cw + 1) * 7 * 86400000;
-    var _cwEnd   = Date.now() - _cw * 7 * 86400000;
-    var _cwCount = db.logs.filter(function(l) { var ts = l.timestamp || 0; return ts >= _cwStart && ts < _cwEnd; }).length;
-    if (_cwCount >= 3) _consWeeks++;
-  }
-
-  // pr_hunter: PRs set in last 30 days
-  var _prCount30 = 0;
-  var _thirtyAgo = Date.now() - 30 * 86400000;
-  db.logs.forEach(function(log) {
-    if ((log.timestamp || 0) < _thirtyAgo) return;
-    (log.exercises || []).forEach(function(e) {
-      if (e.isPR || e.isNewPR) _prCount30++;
-    });
-  });
-
-  // volume_beast: sessions with 10t+ volume (total across all sessions)
-  var _bigSessions = db.logs.filter(function(l) { return (l.volume || 0) >= 10000; }).length;
-
-  b.push({id:'precision_rpe',  r:'uncommon', icon:'🎯', name:'Maître de l\'Effort',    ref:'TrainHub', desc:'RPE renseigné sur 80%+ des séries — ta précision fait la différence', condition:'RPE 80% sets', ck:function(){return _rpePct >= 0.8 && _totalLoggedSets >= 20;}});
+function _buildSkillBadges(b, stats) {
+  b.push({id:'precision_rpe',  r:'uncommon', icon:'🎯', name:'Maître de l\'Effort',    ref:'TrainHub', desc:'RPE renseigné sur 80%+ des séries — ta précision fait la différence', condition:'RPE 80% sets', ck:function(){return stats.rpePct >= 0.8 && stats.totalLoggedSets >= 20;}});
   b.push({id:'tempo_master',   r:'rare',     icon:'⏱️', name:'Maître du Tempo',         ref:'TrainHub', desc:'30 séances avec durée enregistrée — tu maîtrises chaque seconde de ta séance', condition:'30 séances minutées', ck:function(){return db.logs.filter(function(l){return (l.duration||0) > 0;}).length >= 30;}});
-  b.push({id:'consistency_king',r:'epic',    icon:'👑', name:'Consistency King',         ref:'TrainHub', desc:'4 semaines consécutives avec 3+ séances — la régularité est ton superpouvoir', condition:'4 sem × 3+ séances', ck:function(){return _consWeeks >= 4;}});
-  b.push({id:'pr_hunter',      r:'rare',     icon:'🏹', name:'Chasseur de PR',           ref:'TrainHub', desc:'5 PRs en 30 jours — tu attaques les records sans relâche', condition:'5 PRs / 30j', ck:function(){return _prCount30 >= 5;}});
-  b.push({id:'volume_beast',   r:'epic',     icon:'🦣', name:'Volume Beast',             ref:'TrainHub', desc:'10 séances à 10t+ — ton volume écrase tout sur son passage', condition:'10× 10t/séance', ck:function(){return _bigSessions >= 10;}});
+  b.push({id:'consistency_king',r:'epic',    icon:'👑', name:'Consistency King',         ref:'TrainHub', desc:'4 semaines consécutives avec 3+ séances — la régularité est ton superpouvoir', condition:'4 sem × 3+ séances', ck:function(){return stats.consWeeks >= 4;}});
+  b.push({id:'pr_hunter',      r:'rare',     icon:'🏹', name:'Chasseur de PR',           ref:'TrainHub', desc:'5 PRs en 30 jours — tu attaques les records sans relâche', condition:'5 PRs / 30j', ck:function(){return stats.prCount30 >= 5;}});
+  b.push({id:'volume_beast',   r:'epic',     icon:'🦣', name:'Volume Beast',             ref:'TrainHub', desc:'10 séances à 10t+ — ton volume écrase tout sur son passage', condition:'10× 10t/séance', ck:function(){return stats.bigSessions >= 10;}});
+}
 
-  // ── Wellness theme for bien_etre mode ──
-  if (getBadgeTheme() === 'wellness') {
-    var wellnessNames = {
-      's1':   { name:'Premier Pas',              desc:'1 séance — le voyage commence par un pas' },
-      's10':  { name:'Habitude en Construction',  desc:'10 séances — tu construis une routine' },
-      's25':  { name:'Routine Installée',         desc:'25 séances — c\'est devenu naturel' },
-      's50':  { name:'Pratiquant Régulier',       desc:'50 séances — la constance paie' },
-      's75':  { name:'Équilibre Trouvé',          desc:'75 séances — corps et esprit en harmonie' },
-      's100': { name:'Centurion du Bien-être',    desc:'100 séances — un siècle de mouvements' },
-      's200': { name:'Maître de la Constance',    desc:'200 séances — force intérieure' },
-      's300': { name:'Pilier de Régularité',      desc:'300 séances — rien ne t\'arrête' },
-      's365': { name:'Un An de Bien-être',        desc:'365 séances — une année complète de dévouement' },
-      's500': { name:'Sage du Mouvement',         desc:'500 séances — la discipline est devenue sagesse' },
-      'vs1':  { name:'Première Tonne',            desc:'1t en une séance — bien joué !' },
-      'vs3':  { name:'Effort Soutenu',            desc:'3t — tu mets du cœur à l\'ouvrage' },
-      'vs5':  { name:'Endurance Remarquable',     desc:'5t — ton corps te remercie' },
-      'vt10':   { name:'Apprenti du Mouvement',   desc:'10t cumulées — tu poses les bases' },
-      'vt50':   { name:'Artisan du Corps',         desc:'50t — le travail porte ses fruits' },
-      'vt100':  { name:'Sculpteur de Forme',       desc:'100t — ton engagement est visible' },
-      'dur60':  { name:'Première Heure',           desc:'1h — une belle séance complète' },
-      'dur90':  { name:'Session Prolongée',        desc:'1h30 — tu prends soin de toi' },
-      'dur120': { name:'Marathonien du Studio',    desc:'2h — engagement et persévérance' },
-    };
-    b.forEach(function(badge) {
-      if (wellnessNames[badge.id]) {
-        badge.name = wellnessNames[badge.id].name;
-        badge.desc = wellnessNames[badge.id].desc;
-        badge.ref = 'Bien-être';
-      }
-    });
-  }
+function _applyWellnessTheme(b) {
+  if (getBadgeTheme() !== 'wellness') return;
+  var wellnessNames = {
+    's1':   { name:'Premier Pas',              desc:'1 séance — le voyage commence par un pas' },
+    's10':  { name:'Habitude en Construction',  desc:'10 séances — tu construis une routine' },
+    's25':  { name:'Routine Installée',         desc:'25 séances — c\'est devenu naturel' },
+    's50':  { name:'Pratiquant Régulier',       desc:'50 séances — la constance paie' },
+    's75':  { name:'Équilibre Trouvé',          desc:'75 séances — corps et esprit en harmonie' },
+    's100': { name:'Centurion du Bien-être',    desc:'100 séances — un siècle de mouvements' },
+    's200': { name:'Maître de la Constance',    desc:'200 séances — force intérieure' },
+    's300': { name:'Pilier de Régularité',      desc:'300 séances — rien ne t\'arrête' },
+    's365': { name:'Un An de Bien-être',        desc:'365 séances — une année complète de dévouement' },
+    's500': { name:'Sage du Mouvement',         desc:'500 séances — la discipline est devenue sagesse' },
+    'vs1':  { name:'Première Tonne',            desc:'1t en une séance — bien joué !' },
+    'vs3':  { name:'Effort Soutenu',            desc:'3t — tu mets du cœur à l\'ouvrage' },
+    'vs5':  { name:'Endurance Remarquable',     desc:'5t — ton corps te remercie' },
+    'vt10':   { name:'Apprenti du Mouvement',   desc:'10t cumulées — tu poses les bases' },
+    'vt50':   { name:'Artisan du Corps',         desc:'50t — le travail porte ses fruits' },
+    'vt100':  { name:'Sculpteur de Forme',       desc:'100t — ton engagement est visible' },
+    'dur60':  { name:'Première Heure',           desc:'1h — une belle séance complète' },
+    'dur90':  { name:'Session Prolongée',        desc:'1h30 — tu prends soin de toi' },
+    'dur120': { name:'Marathonien du Studio',    desc:'2h — engagement et persévérance' },
+  };
+  b.forEach(function(badge) {
+    if (wellnessNames[badge.id]) {
+      badge.name = wellnessNames[badge.id].name;
+      badge.desc = wellnessNames[badge.id].desc;
+      badge.ref = 'Bien-être';
+    }
+  });
+}
 
-  // ── Status badges (re-evaluated each check, can grey out but XP kept) ──
+function _buildStatusBadges(b) {
   b.push({ id: 'consistency_month', r: 'rare', badgeType: 'status',
     icon: '📅', name: 'Régularité du mois',
     desc: '12+ séances ce mois — constance professionnelle',
@@ -2945,7 +2958,6 @@ function getAllBadges() {
       }).length >= 12;
     }
   });
-
   b.push({ id: 'weekly_warrior', r: 'uncommon', badgeType: 'status',
     icon: '⚔️', name: 'Guerrier de la semaine',
     desc: '4+ séances cette semaine — intensité maximale',
@@ -2957,13 +2969,10 @@ function getAllBadges() {
       }).length >= 4;
     }
   });
-
-  // ── Badges Status ──
   var _now3 = Date.now();
   var _monthStart3 = new Date(); _monthStart3.setDate(1); _monthStart3.setHours(0,0,0,0);
   var _monthLogs3 = (db.logs||[]).filter(function(l){return (l.timestamp||0)>_monthStart3.getTime();});
   var _weekLogs3 = (db.logs||[]).filter(function(l){return (l.timestamp||0)>_now3-7*86400000;});
-
   b.push({id:'status_consistency',r:'rare',badgeType:'status',icon:'📅',
     name:'Régularité du mois',desc:'12+ séances ce mois-ci',condition:'12 séances/mois',
     ck:function(){return _monthLogs3.length>=12;}});
@@ -2990,8 +2999,6 @@ function getAllBadges() {
         return total+(l.exercises||[]).filter(function(e){return e.isPR||e.newPR;}).length;
       },0)>=3;
     }});
-
-  return b;
 }
 
 function isBadgeActive(badgeId) {

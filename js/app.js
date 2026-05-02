@@ -21380,6 +21380,23 @@ function goFinishWorkout() {
 
   checkAndShowPRCelebration(session);
 
+  // Proposer le partage si PR ou tonnage > 2t
+  try {
+    var _shareCard = typeof generateShareCard === 'function' ? generateShareCard(session) : null;
+    if (_shareCard && (_shareCard.hasPR || _shareCard.tonnage > 2)) {
+      var _lastSession = session;
+      setTimeout(function() {
+        var t = document.createElement('div');
+        t.className = 'toast';
+        t.style.cssText = 'cursor:pointer;text-decoration:underline;';
+        t.textContent = '📸 Partager ta séance';
+        t.onclick = function() { showShareModal(_lastSession); t.remove(); };
+        document.body.appendChild(t);
+        setTimeout(function() { t.remove(); }, 5000);
+      }, 3500);
+    }
+  } catch(e) {}
+
   showToast('✅ Séance sauvegardée');
   renderGoTab();
 
@@ -21419,6 +21436,118 @@ function goFinishWorkout() {
 }
 
 // ── Feature 3: PR Celebration (Gemini Q4.1) ────────────────────────────────
+
+function renderShareCardHTML(cardData) {
+  if (!cardData) return '';
+  var hasPR = cardData.hasPR;
+  var bg = hasPR
+    ? 'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)'
+    : 'linear-gradient(135deg,#0C0C18 0%,#1a1a2e 100%)';
+  var accent = hasPR ? '#FFD700' : '#0A84FF';
+
+  var html = '<div id="share-card" style="'
+    + 'width:340px;min-height:440px;background:' + bg + ';'
+    + 'border-radius:20px;padding:24px;'
+    + 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;'
+    + 'color:#fff;position:relative;overflow:hidden;">';
+
+  if (hasPR) {
+    html += '<div style="position:absolute;top:16px;right:16px;'
+      + 'background:' + accent + ';color:#000;padding:3px 10px;'
+      + 'border-radius:20px;font-size:10px;font-weight:800;letter-spacing:1px;">🏆 PR</div>';
+  }
+
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:18px;">';
+  html += '<div style="font-size:18px;font-weight:900;color:' + accent + ';">TrainHub</div>';
+  html += '<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px;">by SBD</div>';
+  html += '</div>';
+
+  html += '<div style="margin-bottom:16px;">';
+  html += '<div style="font-size:20px;font-weight:800;margin-bottom:3px;">'
+    + escapeHtml(cardData.userName) + '</div>';
+  html += '<div style="font-size:12px;color:rgba(255,255,255,0.45);">' + cardData.date;
+  if (cardData.phase) {
+    html += ' · Phase ' + cardData.phase.charAt(0).toUpperCase() + cardData.phase.slice(1);
+  }
+  html += '</div></div>';
+
+  if (cardData.prs.length > 0) {
+    html += '<div style="margin-bottom:16px;">';
+    cardData.prs.forEach(function(pr) {
+      html += '<div style="background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);'
+        + 'border-radius:10px;padding:10px 12px;margin-bottom:6px;'
+        + 'display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div style="font-size:12px;color:rgba(255,255,255,0.75);">' + escapeHtml(pr.name) + '</div>';
+      html += '<div style="font-size:18px;font-weight:800;color:#FFD700;">' + pr.value + 'kg</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  if (cardData.mainLifts.length > 0) {
+    html += '<div style="margin-bottom:16px;">';
+    cardData.mainLifts.forEach(function(lift) {
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;'
+        + 'padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06);">';
+      html += '<div style="font-size:12px;color:rgba(255,255,255,0.55);">' + escapeHtml(lift.name) + '</div>';
+      html += '<div style="font-size:13px;font-weight:700;">' + lift.weight + 'kg × ' + lift.reps;
+      if (lift.rpe) html += ' <span style="color:rgba(255,255,255,0.35);font-size:10px;">@' + lift.rpe + '</span>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div style="padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);'
+    + 'display:flex;justify-content:space-between;align-items:center;">';
+  html += '<div>';
+  html += '<div style="font-size:10px;color:rgba(255,255,255,0.35);">TONNAGE</div>';
+  html += '<div style="font-size:20px;font-weight:800;color:' + accent + ';">' + cardData.tonnage + 't</div>';
+  html += '</div>';
+  html += '<div style="font-size:9px;color:rgba(255,255,255,0.2);text-align:right;">trainhub.app</div>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+function showShareModal(session) {
+  var cardData = typeof generateShareCard === 'function' ? generateShareCard(session) : null;
+  if (!cardData) return;
+  var o = document.createElement('div');
+  o.className = 'modal-overlay';
+  o.onclick = function(e) { if (e.target === o) o.remove(); };
+  o.innerHTML = '<div class="modal-box" style="max-width:380px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:12px;">📸 Partager ta séance</div>'
+    + renderShareCardHTML(cardData)
+    + '<div style="display:flex;gap:8px;margin-top:14px;">'
+    + '<button onclick="downloadShareCard()" style="flex:1;padding:12px;background:var(--accent);border:none;'
+    + 'border-radius:12px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">📥 Télécharger</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:12px;'
+    + 'background:var(--surface);border:1px solid var(--border);border-radius:12px;'
+    + 'color:var(--text);font-size:13px;cursor:pointer;">Fermer</button>'
+    + '</div></div>';
+  document.body.appendChild(o);
+}
+
+async function downloadShareCard() {
+  var card = document.getElementById('share-card');
+  if (!card) return;
+  try {
+    if (typeof html2canvas === 'undefined') {
+      var script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      document.head.appendChild(script);
+      await new Promise(function(res) { script.onload = res; });
+    }
+    var canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
+    var link = document.createElement('a');
+    link.download = 'trainhub-' + new Date().toISOString().split('T')[0] + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('✅ Carte téléchargée !');
+  } catch(e) {
+    showToast('⚠️ Téléchargement indisponible');
+  }
+}
 
 function checkAndShowPRCelebration(session) {
   if (!session || !session.exercises) return;

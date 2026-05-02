@@ -3151,6 +3151,45 @@ function getWeightCutAlerts() {
 
 // ── TOTAL LOAD MANAGEMENT — Secondary Activities (Feature: activities) ──────
 
+var ACTIVITY_KEY_MAP = {
+  'swimming':     'natation',
+  'running':      'course',
+  'cycling':      'velo',
+  'walking':      'marche',
+  'martial_arts': 'arts_martiaux',
+  'yoga':         'yoga',
+  'pilates':      'pilates',
+  'hiking':       'randonnee',
+  'skiing':       'ski',
+  'team_sports':  'sports_collectifs',
+  'team_sport':   'sports_collectifs',
+  'other':        'autre'
+};
+
+function sanitizeActivity(act) {
+  if (typeof act === 'string') {
+    return {
+      type: ACTIVITY_KEY_MAP[act] || act,
+      intensity: 3,
+      duration: 45,
+      days: [],
+      fixed: true
+    };
+  }
+  if (!act || typeof act !== 'object') return { type: 'autre', intensity: 3, duration: 45, days: [], fixed: true };
+  return {
+    type: ACTIVITY_KEY_MAP[act.type] || act.type || 'autre',
+    intensity: act.intensity || 3,
+    duration: act.duration || 45,
+    days: act.days || [],
+    fixed: act.fixed !== false,
+    elevGain: act.elevGain || null,
+    date: act.date || null,
+    trimp: act.trimp || null,
+    source: act.source || null
+  };
+}
+
 var ACTIVITY_SPEC_COEFFICIENTS = {
   natation:          0.8,
   course:            1.2,
@@ -3171,7 +3210,7 @@ var RECOVERY_RPE_THRESHOLD = 3;
 var ACTIVITY_INTERFERENCE_RULES = {
   natation: {
     shoulderVolumePenalty: 0.20,
-    intensityThreshold: 6
+    intensityThreshold: 3
   },
   course: {
     weeklyTRIMPLimit: 3 * 30 * 6 * 1.2,
@@ -3193,7 +3232,8 @@ var ACTIVITY_TRIMP_THRESHOLDS = {
 
 function calcActivityTRIMP(activity) {
   if (!activity) return 0;
-  var type = activity.type || 'autre';
+  if (typeof activity === 'string') activity = sanitizeActivity(activity);
+  var type = ACTIVITY_KEY_MAP[activity.type] || activity.type || 'autre';
   var duration = activity.duration || 45;
   var intensity = activity.intensity || 3;
   var rpe = intensity * 1.6;
@@ -3210,21 +3250,30 @@ function calcActivityTRIMP(activity) {
 }
 
 function getSecondaryTRIMPLast24h() {
-  var activities = (db.user && db.user.activities) || [];
-  var total = 0;
-  var today = new Date().getDay();
-  var yesterday = ((today - 1) + 7) % 7;
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  // Priority: read from activityLogs (real logged data)
+  var logs = db.activityLogs || [];
+  var fromLogs = logs.filter(function(l) { return l.date === yesterdayStr; });
+  if (fromLogs.length > 0) {
+    return fromLogs.reduce(function(total, l) {
+      return total + (l.trimp || calcActivityTRIMP(l));
+    }, 0);
+  }
+
+  // Fallback: activityTemplate (fixed schedule)
+  var template = (db.user && db.user.activityTemplate) || (db.user && db.user.activities) || [];
+  var todayDay = new Date().getDay();
   var dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-  var yesterdayName = dayNames[yesterday];
+  var yesterdayName = dayNames[((todayDay - 1) + 7) % 7];
 
-  activities.forEach(function(act) {
-    if (!act.fixed) return;
-    if ((act.days || []).includes(yesterdayName)) {
-      total += calcActivityTRIMP(act);
-    }
-  });
-
-  return total;
+  return template.filter(function(act) {
+    return act.fixed !== false && (act.days || []).includes(yesterdayName);
+  }).reduce(function(total, act) {
+    return total + calcActivityTRIMP(act);
+  }, 0);
 }
 
 function getTodaySecondaryActivities() {

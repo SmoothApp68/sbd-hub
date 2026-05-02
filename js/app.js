@@ -174,6 +174,11 @@ let db = (() => {
     if (!p.user.goal) p.user.goal = 'masse';
     if (!Array.isArray(p.user.activities)) p.user.activities = [];
     if (!Array.isArray(p.weeklyActivities)) p.weeklyActivities = [];
+    if (!Array.isArray(p.activityLogs)) p.activityLogs = [];
+    if (!Array.isArray(p.user.activityTemplate)) p.user.activityTemplate = [];
+    if (!p.earnedBadges || typeof p.earnedBadges !== 'object') p.earnedBadges = {};
+    if (!p.gamification) p.gamification = {};
+    if (p.gamification.xpHighWaterMark === undefined) p.gamification.xpHighWaterMark = 0;
     if (p.user.lpBridgeActive === undefined) p.user.lpBridgeActive = false;
     if (p.user.lpBridgeWeek === undefined) p.user.lpBridgeWeek = 0;
     if (p.user.nutritionStrategyStartDate === undefined) p.user.nutritionStrategyStartDate = null;
@@ -2930,6 +2935,33 @@ function getAllBadges() {
   return b;
 }
 
+function checkAndAwardBadges() {
+  if (!db.earnedBadges) db.earnedBadges = {};
+  var allBadges = typeof getAllBadges === 'function' ? getAllBadges() : [];
+  var newBadges = [];
+  allBadges.forEach(function(badge) {
+    if (!badge.id || badge.impossible) return;
+    if (db.earnedBadges[badge.id]) return; // already earned — never revoke
+    try {
+      if (typeof badge.ck === 'function' && badge.ck()) {
+        db.earnedBadges[badge.id] = { earnedAt: Date.now(), xp: badge.xp || 0 };
+        newBadges.push(badge);
+      }
+    } catch(e) {}
+  });
+  if (newBadges.length > 0) {
+    saveDB();
+    newBadges.forEach(function(b) {
+      showToast('🏅 Badge : ' + b.name);
+    });
+  }
+  return newBadges;
+}
+
+function isBadgeEarned(badgeId) {
+  return !!(db.earnedBadges && db.earnedBadges[badgeId]);
+}
+
 function getBadgeTheme() {
   var mode = db.user.trainingMode || 'powerlifting';
   if (mode === 'bien_etre') return 'wellness';
@@ -2982,7 +3014,16 @@ function calcTotalXP() {
   // Muscle XP
   var muscleXP = (db.gamification && db.gamification.muscleXP) || 0;
   xp += muscleXP;
-  return xp;
+
+  // High-water mark: XP can only increase, never drop
+  var hwm = (db.gamification && db.gamification.xpHighWaterMark) || 0;
+  if (xp > hwm) {
+    db.gamification = db.gamification || {};
+    db.gamification.xpHighWaterMark = xp;
+    // Persist without full saveDB() in hot path — will be committed on next saveDB
+    try { localStorage.setItem('SBD_HUB', JSON.stringify(db)); } catch(e) {}
+  }
+  return Math.max(xp, hwm);
 }
 
 // ── ISO 8601 week helpers (UTC-only, no DST/TZ drift) ──
@@ -5836,9 +5877,10 @@ function renderGamificationTab() {
     if (typeof renderMuscleList === 'function') renderMuscleList();
   } catch(e) { console.error('muscle anatomy render:', e); }
 
-  // ── Check titles & secret quests ──
+  // ── Check titles, secret quests, and award new badges ──
   checkTitles();
   checkSecretQuests();
+  try { checkAndAwardBadges(); } catch(e) {}
 
   // ── Clean up previous render artifacts (recap banners, separators) ──
   document.querySelectorAll('#tab-game > .gam-recap, #tab-game > .gam-separator').forEach(function(el) { el.remove(); });
@@ -10706,6 +10748,52 @@ function migrateDUPRegisters() {
   saveDB();
 }
 
+function migrateBadges() {
+  if (db._badgesMigrated) return;
+  if (!db.earnedBadges) db.earnedBadges = {};
+  var allBadges = typeof getAllBadges === 'function' ? getAllBadges() : [];
+  allBadges.forEach(function(badge) {
+    if (!badge.id || badge.impossible) return;
+    if (db.earnedBadges[badge.id]) return; // don't overwrite
+    try {
+      if (typeof badge.ck === 'function' && badge.ck()) {
+        db.earnedBadges[badge.id] = { earnedAt: Date.now(), xp: badge.xp || 0 };
+      }
+    } catch(e) {}
+  });
+  db._badgesMigrated = true;
+  saveDB();
+}
+
+function migrateActivityData() {
+  if (db.user._activityMigrated) return;
+
+  var legacy = db.user.secondaryActivities || [];
+  var existing = db.user.activities || [];
+  var template = [];
+
+  // Merge legacy strings (onboarding) + existing objects (settings)
+  legacy.forEach(function(act) {
+    var sanitized = typeof sanitizeActivity === 'function'
+      ? sanitizeActivity(act)
+      : { type: act, intensity: 3, duration: 45, days: [], fixed: true };
+    var exists = existing.some(function(e) {
+      var normalizedType = (typeof ACTIVITY_KEY_MAP !== 'undefined'
+        ? (ACTIVITY_KEY_MAP[e.type] || e.type) : e.type);
+      return normalizedType === sanitized.type;
+    });
+    if (!exists) template.push(sanitized);
+  });
+
+  existing.forEach(function(act) {
+    template.push(typeof sanitizeActivity === 'function' ? sanitizeActivity(act) : act);
+  });
+
+  db.user.activityTemplate = template;
+  db.user._activityMigrated = true;
+  saveDB();
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -10765,6 +10853,8 @@ function migrateDUPRegisters() {
 
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
+  migrateActivityData();
+  migrateBadges();
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
@@ -13651,6 +13741,35 @@ function renderCoachToday() {
   el.innerHTML = renderCoachTodayHTML();
 }
 
+function getWeeklyExternalLoad() {
+  var cutoff = Date.now() - 7 * 86400000;
+  var logs = db.activityLogs || [];
+  return logs.filter(function(l) {
+    return new Date(l.date).getTime() > cutoff;
+  }).reduce(function(total, l) {
+    return total + (l.trimp || (typeof calcActivityTRIMP === 'function' ? calcActivityTRIMP(l) : 0));
+  }, 0);
+}
+
+function getWeeklyMuscuLoad() {
+  var cutoff = Date.now() - 7 * 86400000;
+  var total = 0;
+  (db.logs || []).filter(function(l) {
+    return (l.timestamp || 0) > cutoff;
+  }).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var cSlot = exo.isPrimary ? 1.5 : (exo.slot === 'isolation' ? 1.0 : 1.2);
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff) return;
+        var rpe = parseFloat(s.rpe) || 7;
+        var reps = parseInt(s.reps) || 0;
+        total += reps * Math.pow(rpe, 2) * cSlot / 15;
+      });
+    });
+  });
+  return Math.round(total);
+}
+
 function getBatteryDisplay(srsScore) {
   var pct = Math.max(0, Math.min(100, srsScore || 75));
   var label = pct >= 80 ? 'Pleine charge' : pct >= 60 ? 'Bonne forme'
@@ -13748,10 +13867,13 @@ function renderCoachTodayHTML() {
   // ── 0b. BUDGET RÉCUPÉRATION — Total Load Management ──
   if (typeof getActivityPenaltyFlags === 'function') {
     var _actData = getActivityPenaltyFlags();
-    if (_actData.trimp24h > 0 || _actData.flags.length > 0) {
-      var _srs = typeof computeSRS === 'function' ? computeSRS() : { score: 60 };
-      var _muscuTRIMP = Math.round(300 * (_srs.score / 100)); // estimation basée sur le SRS
-      var _secTRIMP = _actData.trimp24h;
+    var _weeklyExtLoad = typeof getWeeklyExternalLoad === 'function' ? getWeeklyExternalLoad() : 0;
+    var _weeklyMuscuLoad = typeof getWeeklyMuscuLoad === 'function' ? getWeeklyMuscuLoad() : 0;
+    var _hasLoad = _actData.trimp24h > 0 || _actData.flags.length > 0 || _weeklyExtLoad > 0 || _weeklyMuscuLoad > 0;
+    if (_hasLoad) {
+      var _budgetSRS = typeof computeSRS === 'function' ? computeSRS() : { score: 60 };
+      var _muscuTRIMP = _weeklyMuscuLoad > 0 ? _weeklyMuscuLoad : Math.round(300 * (_budgetSRS.score / 100));
+      var _secTRIMP = _weeklyExtLoad > 0 ? _weeklyExtLoad : _actData.trimp24h;
       var _totalTRIMP = _muscuTRIMP + _secTRIMP + 1;
       var _muscuPct = Math.round(_muscuTRIMP / _totalTRIMP * 100);
       var _secPct = 100 - _muscuPct;
@@ -13763,7 +13885,7 @@ function renderCoachTodayHTML() {
       html += '<div style="width:' + _secPct + '%;background:var(--orange);"></div>';
       html += '</div>';
       html += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:8px;">';
-      html += '<span>💪 Muscu ' + _muscuPct + '%</span>';
+      html += '<span>💪 Muscu ' + _muscuPct + '% (' + _muscuTRIMP + ' TRIMP)</span>';
       html += '<span>🏃 Activités ' + _secPct + '% (' + _secTRIMP + ' TRIMP)</span>';
       html += '</div>';
       _actData.flags.forEach(function(flag) {
@@ -18398,6 +18520,17 @@ function _goDoStartWorkout(withProgram) {
       });
     }
 
+    // removeAccessories flag: heavy secondary activity yesterday → drop non-primary exercises
+    if (planDay && planDay.exercises && !db._expressMode) {
+      var _apf = typeof getActivityPenaltyFlags === 'function' ? getActivityPenaltyFlags() : { flags: [] };
+      var _removeAcc = _apf.flags.some(function(f) { return f.removeAccessories === true; });
+      if (_removeAcc) {
+        planDay = Object.assign({}, planDay, {
+          exercises: planDay.exercises.filter(function(e) { return e.isPrimary; })
+        });
+      }
+    }
+
     dayExos.forEach(function(exoRef) {
       var found = null;
       // Try to find in EXO_DATABASE by id or name match
@@ -21396,6 +21529,78 @@ function shouldRecordE1RMAsReference() {
   return true;
 }
 
+function showActivityQuickLog() {
+  var template = (db.user && db.user.activityTemplate) || [];
+  if (template.length === 0) return;
+
+  var today = new Date().getDay();
+  var dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var todayName = dayNames[today];
+
+  var todayActivities = template.filter(function(a) {
+    return (a.days || []).includes(todayName);
+  });
+  if (todayActivities.length === 0) return;
+
+  var html = '<div style="padding:8px 0;">';
+  html += '<div style="font-size:13px;color:var(--sub);margin-bottom:12px;">As-tu fait ces activités aujourd\'hui ?</div>';
+  todayActivities.forEach(function(act, i) {
+    var trimp = typeof calcActivityTRIMP === 'function' ? calcActivityTRIMP(act) : 0;
+    var label = act.type.charAt(0).toUpperCase() + act.type.slice(1).replace(/_/g, ' ');
+    html += '<div id="aq-item-' + i + '" onclick="logActivityFromQuickLog(' + i + ')" '
+      + 'style="display:flex;justify-content:space-between;align-items:center;'
+      + 'padding:10px 12px;border-radius:10px;margin-bottom:8px;cursor:pointer;'
+      + 'background:var(--surface);border:1px solid var(--border);">';
+    html += '<div>';
+    html += '<div style="font-size:13px;font-weight:600;">' + escapeHtml(label) + '</div>';
+    html += '<div style="font-size:11px;color:var(--sub);">' + (act.duration || 45) + ' min · TRIMP ' + trimp + '</div>';
+    html += '</div>';
+    html += '<div id="aq-check-' + i + '" style="font-size:20px;">⬜</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  showInfoModal('Activités du jour', html);
+}
+
+function logActivityFromQuickLog(templateIdx) {
+  var template = (db.user && db.user.activityTemplate) || [];
+  var act = template[templateIdx];
+  if (!act) return;
+
+  var today = new Date().toISOString().split('T')[0];
+  var trimp = typeof calcActivityTRIMP === 'function' ? calcActivityTRIMP(act) : 0;
+
+  if (!db.activityLogs) db.activityLogs = [];
+
+  var existingIdx = db.activityLogs.findIndex(function(l) {
+    return l.date === today && l.type === act.type;
+  });
+
+  var log = {
+    date: today,
+    type: act.type,
+    duration: act.duration || 45,
+    intensity: act.intensity || 3,
+    trimp: trimp,
+    source: 'manual'
+  };
+
+  if (existingIdx >= 0) {
+    db.activityLogs[existingIdx] = log;
+  } else {
+    db.activityLogs.push(log);
+  }
+  saveDB();
+
+  var checkEl = document.getElementById('aq-check-' + templateIdx);
+  var itemEl = document.getElementById('aq-item-' + templateIdx);
+  if (checkEl) checkEl.textContent = '✅';
+  if (itemEl) itemEl.style.borderColor = 'var(--green)';
+
+  showToast('✅ ' + (log.type.charAt(0).toUpperCase() + log.type.slice(1).replace(/_/g, ' ')) + ' enregistrée');
+}
+
 function goFinishWorkout() {
   if (!activeWorkout) return;
   var session = convertWorkoutToSession(activeWorkout);
@@ -21502,6 +21707,12 @@ function goFinishWorkout() {
   sendLocalNotification('✅ Séance terminée', 'Bravo ! ' + _nSets + ' séries, ' + (_nTonnage >= 1000 ? (_nTonnage/1000).toFixed(1) + 't' : _nTonnage + 'kg') + ' de volume');
 
   checkAndShowPRCelebration(session);
+
+  // Award any newly unlocked badges (permanent store)
+  try { checkAndAwardBadges(); } catch(e) {}
+
+  // Quick-log secondary activities if scheduled today
+  setTimeout(showActivityQuickLog, 2000);
 
   // Proposer le partage si PR ou tonnage > 2t
   try {

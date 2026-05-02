@@ -13669,6 +13669,18 @@ function renderCoachTodayHTML() {
     }
   }
 
+  // ── 0b2. MOMENTUM ──
+  if (coachProfile !== 'silent') {
+    var momentum = typeof detectMomentum === 'function' ? detectMomentum() : null;
+    if (momentum && momentum.active) {
+      html += '<div style="background:rgba(50,215,75,0.1);border:1px solid var(--green);'
+        + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
+        + '<div style="font-size:13px;font-weight:700;color:var(--green);">'
+        + momentum.message + '</div>'
+        + '</div>';
+    }
+  }
+
   // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──
   if (coachProfile !== 'silent') {
     var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
@@ -15736,6 +15748,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     if (_cycleCoeff < 1.0) {
       baseWeight = Math.round(baseWeight * _cycleCoeff / 2.5) * 2.5;
     }
+  }
+
+  // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
+  var _mentalPenalty = typeof getMentalRecoveryPenalty === 'function'
+    ? getMentalRecoveryPenalty() : 1.0;
+  if (_mentalPenalty < 1.0 && _stabilized) {
+    baseWeight = Math.round(baseWeight * _mentalPenalty / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
   }
 
   // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence

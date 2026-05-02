@@ -10714,6 +10714,7 @@ function migrateDUPRegisters() {
 // INIT
 // ============================================================
 (function init() {
+  if (checkWaitlistRoute()) return; // Waitlist landing page — skip app init
   if(!db.reports)db.reports=[];
   if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
   let ns=false;
@@ -21436,6 +21437,67 @@ function goFinishWorkout() {
 }
 
 // ── Feature 3: PR Celebration (Gemini Q4.1) ────────────────────────────────
+
+// ── WAITLIST ──────────────────────────────────────────────────
+function checkWaitlistRoute() {
+  if (window.location.hash === '#waitlist'
+      || (window.location.search && window.location.search.includes('waitlist'))) {
+    var wl = document.getElementById('waitlist-page');
+    var app = document.getElementById('app-shell') || document.querySelector('.app-container');
+    if (wl) wl.style.display = 'block';
+    if (app) app.style.display = 'none';
+    // Also hide top-level sections that may be visible
+    ['tab-dash','tab-seances','tab-stats','tab-social','tab-profil','tab-ai','tab-game',
+     'tab-nav','bottom-nav'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    return true;
+  }
+  return false;
+}
+
+async function submitWaitlist() {
+  var emailEl = document.getElementById('wl-email');
+  var profileEl = document.getElementById('wl-profile');
+  var email = emailEl ? emailEl.value.trim() : '';
+  var profile = profileEl ? profileEl.value : '';
+
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    showToast('⚠️ Email invalide');
+    return;
+  }
+
+  var btn = document.querySelector('[onclick="submitWaitlist()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+
+  try {
+    if (typeof supaClient !== 'undefined' && supaClient) {
+      var res = await supaClient.from('waitlist').insert({
+        email: email, profile: profile || null,
+        created_at: new Date().toISOString()
+      });
+      if (res.error && res.error.code !== '23505') throw res.error;
+    }
+
+    if (emailEl) emailEl.style.display = 'none';
+    if (profileEl) profileEl.style.display = 'none';
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '✅ Tu es sur la liste !<br><span style="font-size:12px;font-weight:400;">'
+        + 'On te contacte en septembre.</span>';
+      btn.style.background = 'var(--green,#32D74B)';
+    }
+    var counter = document.getElementById('wl-count');
+    if (counter) {
+      var cur = parseInt(counter.textContent) || 50;
+      counter.textContent = (cur + 1) + '+';
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Rejoindre la liste d\'attente →'; }
+    showToast('❌ Erreur, réessaie dans un moment');
+  }
+}
 
 function renderShareCardHTML(cardData) {
   if (!cardData) return '';

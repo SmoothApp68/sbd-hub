@@ -3258,3 +3258,74 @@ function checkSwimmingInterference() {
   }
   return null;
 }
+
+// ── DUP REGISTERS — Zone-specific e1RM tracking ──────────────────────────────
+// Option B : sous-objet zones dans db.exercises (rétrocompatibilité garantie)
+// Tethering : Force et Hypertrophie ne peuvent diverger de plus de 15%
+
+function getDUPZone(targetReps) {
+  if (!targetReps || targetReps <= 5) return 'force';
+  if (targetReps <= 12) return 'hypertrophie';
+  return 'vitesse';
+}
+
+function getZoneE1RM(exoName, zone) {
+  var exo = db.exercises && db.exercises[exoName];
+  if (!exo) return 0;
+  if (exo.zones && exo.zones[zone] && exo.zones[zone].e1rm > 0) {
+    return exo.zones[zone].e1rm;
+  }
+  return exo.e1rm || exo.shadowWeight || 0;
+}
+
+function applyDUPTethering(exoName) {
+  var exo = db.exercises && db.exercises[exoName];
+  if (!exo || !exo.zones) return;
+  var z = exo.zones;
+  var forceE1RM = z.force && z.force.e1rm || 0;
+  var hypertE1RM = z.hypertrophie && z.hypertrophie.e1rm || 0;
+  if (!forceE1RM || !hypertE1RM) return;
+  if (forceE1RM > hypertE1RM * 1.15) {
+    z.hypertrophie.e1rm = Math.round(forceE1RM * 0.85 / 2.5) * 2.5;
+  }
+  if (hypertE1RM > forceE1RM) {
+    z.force.e1rm = Math.round(hypertE1RM * 1.02 / 2.5) * 2.5;
+    exo.e1rm = z.force.e1rm;
+  }
+}
+
+function setZoneE1RM(exoName, zone, newE1RM) {
+  if (!exoName || !zone || !(newE1RM > 0)) return;
+  if (!db.exercises) db.exercises = {};
+  if (!db.exercises[exoName]) db.exercises[exoName] = {};
+  var exo = db.exercises[exoName];
+  if (!exo.zones) {
+    var legacyE1RM = exo.e1rm || exo.shadowWeight || newE1RM;
+    exo.zones = {
+      force:        { e1rm: Math.round(legacyE1RM * 1.00 / 2.5) * 2.5, shadowWeight: 0, sessionsCount: 0 },
+      hypertrophie: { e1rm: Math.round(legacyE1RM * 0.94 / 2.5) * 2.5, shadowWeight: 0, sessionsCount: 0 },
+      vitesse:      { e1rm: Math.round(legacyE1RM * 0.88 / 2.5) * 2.5, shadowWeight: 0, sessionsCount: 0 }
+    };
+  }
+  if (!exo.zones[zone]) {
+    exo.zones[zone] = { e1rm: 0, shadowWeight: 0, sessionsCount: 0 };
+  }
+  exo.zones[zone].e1rm = Math.round(newE1RM / 2.5) * 2.5;
+  exo.zones[zone].sessionsCount = (exo.zones[zone].sessionsCount || 0) + 1;
+  exo.e1rm = Math.max(
+    (exo.zones.force && exo.zones.force.e1rm) || 0,
+    (exo.zones.hypertrophie && exo.zones.hypertrophie.e1rm) || 0,
+    (exo.zones.vitesse && exo.zones.vitesse.e1rm) || 0
+  );
+  applyDUPTethering(exoName);
+}
+
+function getActiveZoneForPhase() {
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var zoneMap = {
+    intro: 'hypertrophie', accumulation: 'hypertrophie', hypertrophie: 'hypertrophie',
+    force: 'force', intensification: 'force', peak: 'force',
+    deload: 'hypertrophie', recuperation: 'hypertrophie'
+  };
+  return zoneMap[phase] || 'hypertrophie';
+}

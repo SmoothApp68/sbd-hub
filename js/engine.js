@@ -2369,6 +2369,33 @@ function getE1RMTrend(liftType, days) {
   return first > 0 ? (last - first) / first : null;
 }
 
+// ÉTAPE E: zone-aware e1RM trend — only considers sets in the target zone
+function getE1RMTrendByZone(liftType, days, zone) {
+  var cutoff = Date.now() - days * 86400000;
+  var points = [];
+  (db.logs || []).forEach(function(log) {
+    if (log.timestamp < cutoff) return;
+    (log.exercises || []).forEach(function(exo) {
+      if (typeof getSBDType !== 'function' || getSBDType(exo.name) !== liftType) return;
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff || s.isDropSet || s.isAbandoned) return;
+        var reps = parseInt(s.reps) || 0;
+        var setZone = typeof getDUPZone === 'function' ? getDUPZone(reps) : 'force';
+        if (setZone !== zone) return;
+        var e = typeof wpCalcE1RM === 'function'
+          ? wpCalcE1RM(parseFloat(s.weight), reps, parseFloat(s.rpe))
+          : 0;
+        if (e > 0) points.push({ ts: log.timestamp, e1rm: e });
+      });
+    });
+  });
+  if (points.length < 3) return null;
+  points.sort(function(a, b) { return a.ts - b.ts; });
+  var first = points.slice(0, 3).reduce(function(s, p) { return s + p.e1rm; }, 0) / 3;
+  var last  = points.slice(-3).reduce(function(s, p) { return s + p.e1rm; }, 0) / 3;
+  return first > 0 ? (last - first) / first : null;
+}
+
 // RPE moyen sur un lift SBD sur les N dernières séances le contenant
 function getAvgRPEForLift(liftType, nSessions) {
   var total = 0, count = 0, sessions = 0;
@@ -2455,7 +2482,10 @@ function detectAccessoryDropoff() {
 // ── Arbre de décision plateau (Gemini Q4.1 — B4) ──────────────────────────
 // Retourne null si pas de plateau, sinon { type, action, message }
 function classifyStagnation(liftType) {
-  var trend3w = getE1RMTrend(liftType, 21);
+  // ÉTAPE E: use zone-specific trend, fallback to global trend
+  var activeZone = typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie';
+  var trend3w = getE1RMTrendByZone(liftType, 21, activeZone);
+  if (trend3w === null) trend3w = getE1RMTrend(liftType, 21);
   if (trend3w === null) return null;
   var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75 };
   var rpeAvg = getAvgRPEForLift(liftType, 4);

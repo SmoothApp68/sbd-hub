@@ -3230,6 +3230,17 @@ var ACTIVITY_TRIMP_THRESHOLDS = {
   critical: 600
 };
 
+function getActivityHeavyThreshold() {
+  var bw = (db.user && db.user.bw) || 80;
+  var gender = (db.user && db.user.gender === 'female') ? 'F' : 'M';
+  var total = (db.bestPR && db.bestPR.squat && db.bestPR.bench && db.bestPR.deadlift)
+    ? (db.bestPR.squat + db.bestPR.bench + db.bestPR.deadlift) : 0;
+  var dots = (total > 0 && bw > 0) ? computeDOTS(total, bw, gender) : 0;
+  if (dots >= 400) return 600;
+  if (dots >= 250) return 450;
+  return 300;
+}
+
 function calcActivityTRIMP(activity) {
   if (!activity) return 0;
   if (typeof activity === 'string') activity = sanitizeActivity(activity);
@@ -3641,12 +3652,14 @@ function getActivityPenaltyFlags() {
   var todayActivities = getTodaySecondaryActivities();
   var flags = [];
 
-  if (trimp24h >= ACTIVITY_TRIMP_THRESHOLDS.heavy) {
+  var heavyThreshold = typeof getActivityHeavyThreshold === 'function'
+    ? getActivityHeavyThreshold() : ACTIVITY_TRIMP_THRESHOLDS.heavy;
+  if (trimp24h >= heavyThreshold) {
     flags.push({
       type: 'volume',
       reduction: 1,
       removeAccessories: true,
-      reason: 'Activité intense hier (' + trimp24h + ' TRIMP)'
+      reason: 'Activité intense hier (' + trimp24h + ' TRIMP — seuil ' + heavyThreshold + ')'
     });
   } else if (trimp24h >= ACTIVITY_TRIMP_THRESHOLDS.moderate) {
     flags.push({

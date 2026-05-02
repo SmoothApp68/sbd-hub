@@ -3262,6 +3262,34 @@ function calcTRIMPFromGarminZones(zonesData, activityType) {
   return Math.round(total * cSpec);
 }
 
+// ── Plate Calculator ─────────────────────────────────────────
+function calcPlates(targetWeight, barWeight) {
+  var bar = barWeight
+    || (db.user && db.user.barWeight)
+    || 20;
+  var perSide = Math.round((targetWeight - bar) * 100) / 200; // (target-bar)/2 at 0.01 precision
+  if (perSide <= 0) return [];
+  var available = [25, 20, 15, 10, 5, 2.5, 1.25, 0.5];
+  var result = [];
+  available.forEach(function(p) {
+    while (Math.round(perSide * 100) >= Math.round(p * 100)) {
+      result.push(p);
+      perSide = Math.round((perSide - p) * 100) / 100;
+    }
+  });
+  return result;
+}
+
+function formatPlates(targetWeight, barWeight) {
+  var plates = calcPlates(targetWeight, barWeight);
+  if (!plates.length) return '(barre seule)';
+  var counts = {};
+  plates.forEach(function(p) { counts[p] = (counts[p] || 0) + 1; });
+  return Object.keys(counts).sort(function(a, b) { return b - a; }).map(function(p) {
+    return (counts[p] > 1 ? counts[p] + '×' : '') + p + 'kg';
+  }).join(' + ') + ' (par côté)';
+}
+
 // ── FIX 1 — Temps de repos par intensité (PCr) ──────────────
 var REST_TIME_BY_INTENSITY = {
   above90: 300,
@@ -3388,6 +3416,47 @@ function getMentalRecoveryPenalty() {
   });
 
   return hadFailRep ? 0.97 : 1.0;
+}
+
+// ── FIX 2 — Return-to-Play (désadaptation tendineuse) ────────
+function getAbsencePenalty() {
+  var sortedLogs = (db.logs || []).slice()
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  if (!sortedLogs.length) return { factor: 1.0, days: 0, message: null };
+  var lastTs = sortedLogs[0].timestamp || 0;
+  var daysSince = (Date.now() - lastTs) / 86400000;
+  if (daysSince > 14) {
+    return { factor: 0.82, days: Math.round(daysSince),
+      message: '🔄 Retour après ' + Math.round(daysSince) + ' jours. '
+        + 'Semaine de recalibration : -18% sur les charges. '
+        + 'Les tendons récupèrent plus lentement que les muscles.' };
+  }
+  if (daysSince > 10) {
+    return { factor: 0.85, days: Math.round(daysSince),
+      message: '🔄 Retour après ' + Math.round(daysSince) + ' jours. '
+        + 'Charges réduites de 15% pour la recalibration.' };
+  }
+  if (daysSince > 7) {
+    return { factor: 0.92, days: Math.round(daysSince),
+      message: '🔄 ' + Math.round(daysSince) + ' jours d\'absence. '
+        + 'Charges légèrement réduites (-8%).' };
+  }
+  return { factor: 1.0, days: Math.round(daysSince), message: null };
+}
+
+// ── FIX 5 — RPE Dissonance Detection ─────────────────────────
+function detectRPEDissonance(declaredRPE, actualRestSeconds) {
+  if (!declaredRPE || !actualRestSeconds) return null;
+  if (declaredRPE <= 7 && actualRestSeconds > 240) {
+    return { suspected: true,
+      note: 'RPE probablement sous-estimé (repos de '
+        + Math.round(actualRestSeconds / 60) + 'min pour un RPE ' + declaredRPE + ')' };
+  }
+  if (declaredRPE >= 9 && actualRestSeconds < 120) {
+    return { suspected: true,
+      note: 'RPE probablement surestimé (repos court pour un RPE ' + declaredRPE + ')' };
+  }
+  return { suspected: false };
 }
 
 function getActivityPenaltyFlags() {

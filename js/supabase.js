@@ -134,7 +134,34 @@ async function submitNewPassword() {
   }
 }
 
-async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {data: _upsertRes, error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }).select('updated_at').single(); if (error) throw error; var _pushTs = (_upsertRes && _upsertRes.updated_at) ? new Date(_upsertRes.updated_at).getTime() : Date.now(); db._cloudUpdatedAt = db.updatedAt || 0; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt)); localStorage.setItem('_lastCloudPush', String(_pushTs)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+async function syncLeaderboard() {
+  if (!supaClient) return;
+  try {
+    var authRes = await supaClient.auth.getUser();
+    if (!authRes.data.user) return;
+    var userId = authRes.data.user.id;
+    var metrics = typeof calcLeaderboardMetrics === 'function' ? calcLeaderboardMetrics() : {};
+    var username = (db.user && db.user.name) || 'Athlète';
+    var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
+    var monthKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('monthly') : '';
+    var entries = [
+      {period_type:'weekly', period_key:weekKey, metric:'xp', value:metrics.xp||0},
+      {period_type:'weekly', period_key:weekKey, metric:'volume', value:metrics.volume_week||0},
+      {period_type:'weekly', period_key:weekKey, metric:'sessions', value:metrics.sessions_week||0},
+      {period_type:'monthly', period_key:monthKey, metric:'sessions', value:metrics.sessions_month||0},
+      {period_type:'alltime', period_key:'alltime', metric:'dots', value:metrics.dots||0},
+      {period_type:'alltime', period_key:'alltime', metric:'xp', value:metrics.xp||0},
+      {period_type:'alltime', period_key:'alltime', metric:'streak', value:metrics.streak||0}
+    ].map(function(e) {
+      return Object.assign({}, e, {user_id:userId, username:username, updated_at:new Date().toISOString()});
+    });
+    await supaClient.from('leaderboard_entries').upsert(entries);
+  } catch(e) {
+    console.warn('Leaderboard sync error:', e);
+  }
+}
+
+async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {data: _upsertRes, error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }).select('updated_at').single(); if (error) throw error; var _pushTs = (_upsertRes && _upsertRes.updated_at) ? new Date(_upsertRes.updated_at).getTime() : Date.now(); db._cloudUpdatedAt = db.updatedAt || 0; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt)); localStorage.setItem('_lastCloudPush', String(_pushTs)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); syncLeaderboard(); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
 async function syncFromCloud() {
   if (!supaClient) return false;
   try {

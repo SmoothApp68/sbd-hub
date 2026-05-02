@@ -3875,3 +3875,31 @@ function getLPBienEtreProgress(exoName) {
   }
   return { type: 'weight', targetReps: 8, increment: 1.25 };
 }
+
+function calcLeaderboardMetrics() {
+  var now = Date.now();
+  var weekStart = now - 7 * 86400000;
+  var monthStart = now - 30 * 86400000;
+  var weekLogs = (db.logs || []).filter(function(l) { return (l.timestamp || 0) > weekStart; });
+  var monthLogs = (db.logs || []).filter(function(l) { return (l.timestamp || 0) > monthStart; });
+  return {
+    xp: typeof calcTotalXP === 'function' ? calcTotalXP() : 0,
+    dots: typeof calcDOTS === 'function' ? calcDOTS() : 0,
+    volume_week: weekLogs.reduce(function(s,l) { return s + (l.volume || 0); }, 0),
+    sessions_week: weekLogs.length,
+    sessions_month: monthLogs.length,
+    streak: typeof calcStreak === 'function' ? calcStreak() : 0
+  };
+}
+
+function getLeaderboardPeriodKey(type) {
+  var now = new Date();
+  if (type === 'weekly') {
+    var week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 604800000);
+    return now.getFullYear() + '-W' + String(week).padStart(2, '0');
+  }
+  if (type === 'monthly') {
+    return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  }
+  return 'alltime';
+}

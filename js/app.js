@@ -2958,6 +2958,39 @@ function getAllBadges() {
     }
   });
 
+  // ── Badges Status ──
+  var _now3 = Date.now();
+  var _monthStart3 = new Date(); _monthStart3.setDate(1); _monthStart3.setHours(0,0,0,0);
+  var _monthLogs3 = (db.logs||[]).filter(function(l){return (l.timestamp||0)>_monthStart3.getTime();});
+  var _weekLogs3 = (db.logs||[]).filter(function(l){return (l.timestamp||0)>_now3-7*86400000;});
+
+  b.push({id:'status_consistency',r:'rare',badgeType:'status',icon:'📅',
+    name:'Régularité du mois',desc:'12+ séances ce mois-ci',condition:'12 séances/mois',
+    ck:function(){return _monthLogs3.length>=12;}});
+  b.push({id:'status_warrior',r:'uncommon',badgeType:'status',icon:'⚔️',
+    name:'Guerrier de la semaine',desc:'4+ séances cette semaine',condition:'4 séances/semaine',
+    ck:function(){return _weekLogs3.length>=4;}});
+  b.push({id:'status_volume_king',r:'epic',badgeType:'status',icon:'👑',
+    name:'Roi du Volume',desc:'TRIMP hebdo > 800',condition:'TRIMP hebdo > 800',
+    ck:function(){return _weekLogs3.reduce(function(s,l){return s+(l.trimp||0);},0)>800;}});
+  b.push({id:'status_early_bird',r:'uncommon',badgeType:'status',icon:'🌅',
+    name:'Lève-tôt',desc:'5 séances avant 9h ce mois',condition:'5 séances avant 9h/mois',
+    ck:function(){return _monthLogs3.filter(function(l){return new Date(l.timestamp||0).getHours()<9;}).length>=5;}});
+  b.push({id:'status_comeback',r:'rare',badgeType:'status',icon:'🔄',
+    name:'Le Retour',desc:'Reprise après 10+ jours d\'absence',condition:'Reprise après 10j',
+    ck:function(){
+      var sorted=(db.logs||[]).slice().sort(function(a,b){return (b.timestamp||0)-(a.timestamp||0);});
+      if(sorted.length<2)return false;
+      return ((sorted[0].timestamp||0)-(sorted[1].timestamp||0))>10*86400000;
+    }});
+  b.push({id:'status_pr_month',r:'epic',badgeType:'status',icon:'🏆',
+    name:'Mois de Records',desc:'3+ PRs ce mois-ci',condition:'3 PRs/mois',
+    ck:function(){
+      return _monthLogs3.reduce(function(total,l){
+        return total+(l.exercises||[]).filter(function(e){return e.isPR||e.newPR;}).length;
+      },0)>=3;
+    }});
+
   return b;
 }
 
@@ -5911,14 +5944,163 @@ function calcXPBreakdown() {
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis, corps: xpCorps };
 }
 
+async function _renderLeaderboard() {
+  var el = document.getElementById('gamLeaderboard');
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--sub);">Chargement...</div>';
+  try {
+    if (typeof supaClient === 'undefined' || !supaClient) { el.innerHTML = ''; return; }
+    var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
+    var res = await supaClient.from('leaderboard_entries').select('username,value,user_id')
+      .eq('period_type','weekly').eq('period_key',weekKey).eq('metric','xp')
+      .order('value',{ascending:false}).limit(10);
+    var data = res.data;
+    if (!data || !data.length) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:16px;">🏆 Le classement se remplit au fur et à mesure des séances.</div>';
+      return;
+    }
+    var authRes = await supaClient.auth.getUser();
+    var myId = authRes.data && authRes.data.user ? authRes.data.user.id : null;
+    var html = '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Cette semaine — XP</div>';
+    data.forEach(function(entry, i) {
+      var isMe = entry.user_id === myId;
+      var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;margin-bottom:4px;background:'+(isMe?'rgba(10,132,255,0.1)':'var(--surface)')+';border:1px solid '+(isMe?'var(--accent)':'transparent')+';">';
+      html += '<div style="display:flex;align-items:center;gap:8px;"><div style="font-size:14px;">'+medal+'</div>';
+      html += '<div style="font-size:13px;font-weight:'+(isMe?'700':'400')+';">'+(entry.username||'Athlète').replace(/</g,'&lt;')+(isMe?' (toi)':'')+'</div></div>';
+      html += '<div style="font-size:13px;font-weight:700;color:var(--accent);">'+Math.round(entry.value)+' XP</div></div>';
+    });
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = ''; }
+}
+
+async function sendFriendChallenge(friendUserId, metric, periodDays) {
+  try {
+    if (typeof supaClient === 'undefined' || !supaClient) return;
+    var authRes = await supaClient.auth.getUser();
+    if (!authRes.data.user) return;
+    var endsAt = new Date(Date.now() + periodDays * 86400000).toISOString();
+    var res = await supaClient.from('friend_challenges').insert({
+      challenger_id: authRes.data.user.id, challenged_id: friendUserId,
+      metric: metric, period_days: periodDays, ends_at: endsAt, status: 'pending'
+    });
+    if (res.error) throw res.error;
+    showToast('⚔️ Défi envoyé ! Ton ami a 24h pour accepter.');
+  } catch(e) { showToast('❌ Erreur lors de l\'envoi du défi'); }
+}
+
+async function acceptFriendChallenge(challengeId) {
+  try {
+    await supaClient.from('friend_challenges').update({status:'active'}).eq('id', challengeId);
+    showToast('⚔️ Défi accepté ! Que le meilleur gagne.');
+    renderFriendChallenges();
+  } catch(e) { showToast('❌ Erreur'); }
+}
+
+async function renderFriendChallenges() {
+  var el = document.getElementById('gamChallengesSection');
+  if (!el) return;
+  try {
+    if (typeof supaClient === 'undefined' || !supaClient) { el.innerHTML = ''; return; }
+    var authRes = await supaClient.auth.getUser();
+    var userId = authRes.data && authRes.data.user ? authRes.data.user.id : null;
+    if (!userId) return;
+    var res = await supaClient.from('friend_challenges').select('*')
+      .or('challenger_id.eq.'+userId+',challenged_id.eq.'+userId)
+      .in('status',['pending','active']).order('created_at',{ascending:false}).limit(5);
+    var data = res.data;
+    if (!data || !data.length) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:12px;text-align:center;">⚔️ Pas de défi en cours.<br><span style="color:var(--accent);cursor:pointer;" onclick="showChallengePicker()">Défier un ami</span></div>';
+      return;
+    }
+    var metricLabel = {volume:'Volume total',sessions:'Nombre de séances',squat_e1rm:'e1RM Squat',bench_e1rm:'e1RM Bench',dead_e1rm:'e1RM Deadlift',dots:'Score DOTS'};
+    var html = '';
+    data.forEach(function(ch) {
+      var isChallenger = ch.challenger_id === userId;
+      var label = metricLabel[ch.metric] || ch.metric;
+      var daysLeft = Math.max(0, Math.ceil((new Date(ch.ends_at) - Date.now()) / 86400000));
+      var statusEmoji = ch.status === 'pending' ? '⏳' : '⚔️';
+      html += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">';
+      html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div style="font-size:13px;font-weight:700;">'+statusEmoji+' '+label+'</div><div style="font-size:11px;color:var(--sub);">'+daysLeft+'j restants</div></div>';
+      if (ch.status === 'pending' && !isChallenger) {
+        html += '<button onclick="acceptFriendChallenge(\''+ch.id+'\')" style="width:100%;padding:8px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;">Accepter le défi ⚔️</button>';
+      } else if (ch.status === 'active') {
+        var myVal = isChallenger ? ch.challenger_value : ch.challenged_value;
+        var theirVal = isChallenger ? ch.challenged_value : ch.challenger_value;
+        var winning = (myVal||0) >= (theirVal||0);
+        html += '<div style="display:flex;justify-content:space-between;"><div style="font-size:12px;color:'+(winning?'var(--green)':'var(--red)')+';">Toi : '+Math.round(myVal||0)+'</div><div style="font-size:12px;color:var(--sub);">vs</div><div style="font-size:12px;">Adversaire : '+Math.round(theirVal||0)+'</div></div>';
+      }
+      html += '</div>';
+    });
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = ''; }
+}
+
+function showChallengePicker() {
+  var metrics = [
+    {key:'sessions', label:'📅 Nombre de séances (7j)'},
+    {key:'volume', label:'🏋️ Volume total (7j)'},
+    {key:'squat_e1rm', label:'🦵 e1RM Squat'},
+    {key:'bench_e1rm', label:'💪 e1RM Bench'},
+    {key:'dead_e1rm', label:'⚡ e1RM Deadlift'}
+  ];
+  var html = '<div style="padding:8px 0;"><div style="font-size:13px;color:var(--sub);margin-bottom:12px;">Choisis ce sur quoi tu veux te battre :</div>';
+  metrics.forEach(function(m) {
+    html += '<button onclick="closeModal();selectChallengeMetric(\''+m.key+'\')" style="width:100%;padding:10px;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;text-align:left;cursor:pointer;">'+m.label+'</button>';
+  });
+  html += '</div>';
+  showModal('⚔️ Nouveau Défi', html);
+}
+
 function renderGamificationTab() {
-  var bw = getUserBW();
+  document.querySelectorAll('#tab-game > .gam-recap, #tab-game > .gam-separator').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#tab-game .gam-separator').forEach(function(el) { el.remove(); });
+  checkTitles();
+  checkSecretQuests();
+  try { checkAndAwardBadges(); } catch(e) {}
+  _renderGamMuscleAnatomy();
+  var ctx = _buildGamContext();
+  _renderGamWeeklyRecap(ctx);
+  _renderGamLevelCard(ctx);
+  _renderGamXPSources(ctx);
+  _renderGamChallenges(ctx);
+  _renderGamMonthlyChallenges(ctx);
+  _renderGamSBDRanks(ctx);
+  _renderGamStrengthCards(ctx);
+  _renderGamHeatmap(ctx);
+  _renderGamBadges(ctx);
+  _renderLeaderboard();
+  renderFriendChallenges();
+}
+
+function _buildGamContext() {
   var totalXP = calcTotalXP();
   var currLevel = getXPLevel(totalXP);
   var nextLevel = getNextXPLevel(totalXP);
+  var allBadges = getAllBadges();
   var streak = calcStreak();
+  var bw = getUserBW();
+  var totalVolT = Math.round(db.logs.reduce(function(s,l){return s+(l.volume||0);},0)/1000);
+  var todayXP = _calcTodayXP();
+  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
+  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
+  var seenBadgesSet = db.seenBadges || [];
+  var normalBadges = allBadges.filter(function(b){return !b.impossible;});
+  var xpInLevel = totalXP - currLevel.xp;
+  var xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
+  var pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
+  var nextName = nextLevel ? '→ ' + nextLevel.icon + ' ' + nextLevel.name : 'NIVEAU MAX';
+  return {
+    totalXP:totalXP, currLevel:currLevel, nextLevel:nextLevel,
+    allBadges:allBadges, streak:streak, bw:bw,
+    totalVolT:totalVolT, todayXP:todayXP,
+    rarityLabel:rarityLabel, rarityColor:rarityColor,
+    seenBadgesSet:seenBadgesSet, normalBadges:normalBadges,
+    xpInLevel:xpInLevel, xpToNext:xpToNext, pct:pct, nextName:nextName
+  };
+}
 
-  // ── Muscle anatomy figure (Rangs sub-tab) ──
+function _renderGamMuscleAnatomy() {
   try {
     if (typeof renderBodyFigure === 'function') {
       renderBodyFigure(typeof currentBodySide !== 'undefined' ? currentBodySide : 'front');
@@ -5926,50 +6108,33 @@ function renderGamificationTab() {
     if (typeof renderMuscleColors === 'function') renderMuscleColors();
     if (typeof renderMuscleList === 'function') renderMuscleList();
   } catch(e) { console.error('muscle anatomy render:', e); }
+}
 
-  // ── Check titles, secret quests, and award new badges ──
-  checkTitles();
-  checkSecretQuests();
-  try { checkAndAwardBadges(); } catch(e) {}
+function _renderGamWeeklyRecap(ctx) {
+  var levelCardEl = document.getElementById('gamLevelCard');
+  var today = new Date();
+  var isMonday = today.getDay() === 1;
+  var dismissed = sessionStorage.getItem('gamRecapDismissed');
+  if (isMonday && !dismissed && db.weeklyChallenges && db.weeklyChallenges.challenges) {
+    var ch = db.weeklyChallenges.challenges;
+    var prevDone = ch.filter(function(c){return c.completed;}).length;
+    var prevXP = ch.reduce(function(s,c){return s+(c.completed?c.xpReward:0);},0);
+    var prevSessions = _getLogsThisWeek().length;
+    var isPerfect = prevDone === ch.length && ch.length > 0;
+    var recapHtml = '<div class="gam-recap' + (isPerfect?' shimmer':'') + '" style="' + (isPerfect?'border-color:var(--gold);':'') + '">' +
+      '<div><div class="gam-recap-text">' + (isPerfect?'🔥 Semaine parfaite !':'📊 Semaine dernière') + '</div>' +
+      '<div class="gam-recap-sub">' + prevDone + '/' + ch.length + ' quêtes · +' + prevXP + ' XP · ' + prevSessions + ' séances</div></div>' +
+      '<button class="gam-recap-close" onclick="this.parentElement.remove();sessionStorage.setItem(\'gamRecapDismissed\',\'1\')">✕</button></div>';
+    levelCardEl.insertAdjacentHTML('beforebegin', recapHtml);
+  }
+}
 
-  // ── Clean up previous render artifacts (recap banners, separators) ──
-  document.querySelectorAll('#tab-game > .gam-recap, #tab-game > .gam-separator').forEach(function(el) { el.remove(); });
-  document.querySelectorAll('#tab-game .gam-separator').forEach(function(el) { el.remove(); });
-
-  // ── 0. Weekly recap banner (Monday) ──
-  (function() {
-    var levelCardEl = document.getElementById('gamLevelCard');
-    var today = new Date();
-    var isMonday = today.getDay() === 1;
-    var dismissed = sessionStorage.getItem('gamRecapDismissed');
-    if (isMonday && !dismissed && db.weeklyChallenges && db.weeklyChallenges.challenges) {
-      var ch = db.weeklyChallenges.challenges;
-      var prevDone = ch.filter(function(c) { return c.completed; }).length;
-      var prevXP = ch.reduce(function(s,c) { return s + (c.completed ? c.xpReward : 0); }, 0);
-      var prevSessions = _getLogsThisWeek().length;
-      var isPerfect = prevDone === ch.length && ch.length > 0;
-      var recapHtml = '<div class="gam-recap' + (isPerfect ? ' shimmer' : '') + '" style="' + (isPerfect ? 'border-color:var(--gold);' : '') + '">' +
-        '<div><div class="gam-recap-text">' + (isPerfect ? '🔥 Semaine parfaite !' : '📊 Semaine dernière') + '</div>' +
-        '<div class="gam-recap-sub">' + prevDone + '/' + ch.length + ' quêtes · +' + prevXP + ' XP · ' + prevSessions + ' séances</div></div>' +
-        '<button class="gam-recap-close" onclick="this.parentElement.remove();sessionStorage.setItem(\'gamRecapDismissed\',\'1\')">✕</button></div>';
-      levelCardEl.insertAdjacentHTML('beforebegin', recapHtml);
-    }
-  })();
-
-  // ── 1. Level card (V2 — reiatsu + today XP + clickable stats + title) ──
+function _renderGamLevelCard(ctx) {
   var levelCard = document.getElementById('gamLevelCard');
-  var xpInLevel = totalXP - currLevel.xp;
-  var xpToNext = nextLevel ? nextLevel.xp - currLevel.xp : 1;
-  var pct = nextLevel ? Math.min(100, Math.round(xpInLevel / xpToNext * 100)) : 100;
-  var nextName = nextLevel ? '→ ' + nextLevel.icon + ' ' + nextLevel.name : 'NIVEAU MAX';
-  var totalVolT = Math.round(db.logs.reduce(function(s,l){return s+(l.volume||0);}, 0) / 1000);
-  var todayXP = _calcTodayXP();
-
-  // Active title — only show chooser when at least one extra title is unlocked
   var activeTitleText = '';
   var unlockedTitleIds = db.unlockedTitles || [];
   if (db.activeTitle) {
-    var at = TITLE_POOL.find(function(t) { return t.id === db.activeTitle; });
+    var at = TITLE_POOL.find(function(t){return t.id===db.activeTitle;});
     if (at) {
       var atColor = _titleRarityColor[at.rarity] || 'var(--sub)';
       activeTitleText = '<div class="lvl-title" style="color:' + atColor + ';" onclick="showTitleModal()">' + at.title + '</div>';
@@ -5977,215 +6142,338 @@ function renderGamificationTab() {
   } else if (unlockedTitleIds.length > 1) {
     activeTitleText = '<div class="lvl-title" style="color:var(--sub);" onclick="showTitleModal()">Choisir un titre ▾</div>';
   }
-
-  // Player class line
   var classLine = '';
   (function() {
     var pc = (db.gamification && db.gamification.playerClass) ? db.gamification.playerClass : null;
     if (!pc || typeof PLAYER_CLASSES === 'undefined') return;
-    var cls = PLAYER_CLASSES.find(function(c) { return c.id === pc; });
+    var cls = PLAYER_CLASSES.find(function(c){return c.id===pc;});
     if (!cls) return;
     classLine = '<div class="lvl-class" style="font-size:12px;color:var(--sub);margin-top:2px;">' +
-      cls.icon + ' <strong style="color:var(--text);font-weight:600;">' + cls.name + '</strong> · Niveau ' + currLevel.level +
-      '</div>';
+      cls.icon + ' <strong style="color:var(--text);font-weight:600;">' + cls.name + '</strong> · Niveau ' + ctx.currLevel.level + '</div>';
   })();
-
   levelCard.innerHTML =
     '<div class="lvl-card lvl-card-v2">' +
       '<div class="lvl-bg"></div>' +
-      (todayXP > 0 ? '<div class="lvl-xp-today">Aujourd\'hui : +' + todayXP + ' XP</div>' : '') +
+      (ctx.todayXP > 0 ? '<div class="lvl-xp-today">Aujourd\'hui : +' + ctx.todayXP + ' XP</div>' : '') +
       '<div class="lvl-top">' +
-        '<div class="lvl-icon-wrap">' + currLevel.icon + '<div class="lvl-icon-ring"></div></div>' +
+        '<div class="lvl-icon-wrap">' + ctx.currLevel.icon + '<div class="lvl-icon-ring"></div></div>' +
         '<div class="lvl-info">' +
-          '<div class="lvl-num">Niveau ' + currLevel.level + ' · ' + totalXP.toLocaleString() + ' XP</div>' +
-          '<div class="lvl-name">' + currLevel.name + '</div>' +
-          classLine +
-          activeTitleText +
+          '<div class="lvl-num">Niveau ' + ctx.currLevel.level + ' · ' + ctx.totalXP.toLocaleString() + ' XP</div>' +
+          '<div class="lvl-name">' + ctx.currLevel.name + '</div>' +
+          classLine + activeTitleText +
         '</div>' +
       '</div>' +
       '<div class="lvl-xp-row">' +
-        '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar lvl-xp-bar-v2" style="width:' + pct + '%;"></div></div>' +
-        (pct > 0 && pct < 100 ? '<div class="lvl-xp-particle" style="left:' + pct + '%;"></div>' : '') +
-        '<div class="lvl-xp-text"><span><strong>' + xpInLevel.toLocaleString() + '</strong> / ' + xpToNext.toLocaleString() + ' XP</span><span class="lvl-next">' + nextName + '</span></div>' +
+        '<div class="lvl-xp-bar-bg"><div class="lvl-xp-bar lvl-xp-bar-v2" style="width:' + ctx.pct + '%;"></div></div>' +
+        (ctx.pct > 0 && ctx.pct < 100 ? '<div class="lvl-xp-particle" style="left:' + ctx.pct + '%;"></div>' : '') +
+        '<div class="lvl-xp-text"><span><strong>' + ctx.xpInLevel.toLocaleString() + '</strong> / ' + ctx.xpToNext.toLocaleString() + ' XP</span><span class="lvl-next">' + ctx.nextName + '</span></div>' +
       '</div>' +
       '<div class="lvl-stats">' +
         '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-seances\')"><div class="lvl-stat-val">' + db.logs.length + '</div><div class="lvl-stat-lbl">Séances</div></div>' +
-        '<div class="lvl-stat lvl-stat-click" onclick="document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})"><div class="lvl-stat-val">' + streak + '🔥</div><div class="lvl-stat-lbl">Série sem.</div></div>' +
-        '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\')"><div class="lvl-stat-val">' + totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
+        '<div class="lvl-stat lvl-stat-click" onclick="document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})"><div class="lvl-stat-val">' + ctx.streak + '🔥</div><div class="lvl-stat-lbl">Série sem.</div></div>' +
+        '<div class="lvl-stat lvl-stat-click" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\')"><div class="lvl-stat-val">' + ctx.totalVolT + 't</div><div class="lvl-stat-lbl">Vol. total</div></div>' +
       '</div>' +
     '</div>';
+}
 
-  // ── 2. Sources d'XP (clickable) ──
-  (function() {
-    var bd = calcXPBreakdown();
-    var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, bd.corps, 1);
-    var bars = [
-      {label:'Séances', val:bd.seances, color:'var(--blue)', click:'showTab(\'tab-seances\')'},
-      {label:'Records', val:bd.records, color:'var(--green)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)'},
-      {label:'Régularité', val:bd.regularite, color:'var(--orange)', click:'document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
-      {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
-      {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
-      {label:'Corps', val:bd.corps, color:'#FF6B9D', click:'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')'}
-    ];
-    var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>';
-    bars.forEach(function(br) {
-      var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
-      html += '<div class="xs-bar-row xs-bar-row-click" onclick="' + br.click + '"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';
-    });
-    html += '</div><div class="gam-separator">✦ ─── ✦ ─── ✦</div>';
-    document.getElementById('gamXPSources').innerHTML = html;
-  })();
+function _renderGamXPSources(ctx) {
+  var bd = calcXPBreakdown();
+  var maxXP = Math.max(bd.seances, bd.records, bd.regularite, bd.tonnage, bd.defis, bd.corps, 1);
+  var bars = [
+    {label:'Séances', val:bd.seances, color:'var(--blue)', click:'showTab(\'tab-seances\')'},
+    {label:'Records', val:bd.records, color:'var(--green)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)'},
+    {label:'Régularité', val:bd.regularite, color:'var(--orange)', click:'document.getElementById(\'gamHeatmap\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
+    {label:'Tonnage', val:bd.tonnage, color:'var(--purple)', click:'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-volume\');},100)'},
+    {label:'Défis', val:bd.defis, color:'var(--teal)', click:'document.getElementById(\'gamChallenges\').scrollIntoView({behavior:\'smooth\',block:\'start\'})'},
+    {label:'Corps', val:bd.corps, color:'#FF6B9D', click:'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')'}
+  ];
+  var html = '<div class="mc"><div class="mc-title">📊 Sources d\'XP</div>';
+  bars.forEach(function(br) {
+    var w = maxXP > 0 ? Math.round(br.val/maxXP*100) : 0;
+    html += '<div class="xs-bar-row xs-bar-row-click" onclick="' + br.click + '"><div class="xs-bar-label">' + br.label + '</div><div class="xs-bar-bg"><div class="xs-bar" style="width:' + w + '%;background:' + br.color + ';"></div></div><div class="xs-bar-val">' + br.val.toLocaleString() + ' XP</div></div>';
+  });
+  html += '</div><div class="gam-separator">✦ ─── ✦ ─── ✦</div>';
+  document.getElementById('gamXPSources').innerHTML = html;
+}
 
-  // ── 3. Quêtes hebdomadaires ──
+function _renderGamChallenges(ctx) {
   generateWeeklyChallenges();
   updateChallengeProgress();
-  (function() {
-    var ch = db.weeklyChallenges ? db.weeklyChallenges.challenges : [];
-    var done = ch.filter(function(c){return c.completed;}).length;
-    var qs = db.questStreak || 0;
+  var ch = db.weeklyChallenges ? db.weeklyChallenges.challenges : [];
+  var done = ch.filter(function(c){return c.completed;}).length;
+  var qs = db.questStreak || 0;
+  var flameHtml = '';
+  if (qs > 0) {
+    var flameCount = Math.min(3, qs);
+    var flameClass = qs >= 4 ? 'gold' : (qs <= 1 ? 'dim' : '');
+    for (var fi = 0; fi < flameCount; fi++) flameHtml += '<span class="flame-icon ' + flameClass + '"></span>';
+    var bonusPct = qs >= 4 ? 20 : qs >= 3 ? 15 : qs >= 2 ? 10 : 0;
+    if (bonusPct > 0) flameHtml += '<span class="flame-bonus">Série ×' + qs + ' — bonus +' + bonusPct + '%</span>';
+  }
+  var flameSec = flameHtml ? '<span class="flame-wrap">' + flameHtml + '</span>' : '';
+  var html = '<div class="quest-card"><div class="mc-title"><span>⚡ Quêtes de la semaine ' + flameSec + '</span><span class="mc-title-right">' + done + '/' + ch.length + ' complétées</span></div>';
+  ch.forEach(function(c) {
+    var isDone = c.completed;
+    var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
+    var remaining = Math.max(0, c.target - c.current);
+    var onclick = '';
+    if (c.type === 'assiduite') onclick = 'showTab(\'tab-seances\')';
+    else if (c.type === 'nutrition' || c.onclick === 'nutrition') onclick = 'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')';
+    else if (c.type === 'pesee' || c.onclick === 'pesee') onclick = 'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')';
+    html += '<div class="quest-item ' + (isDone?'q-done':'q-active') + '"' + (onclick?' onclick="'+onclick+'"':'') + '>' +
+      '<div class="wc-status" style="color:' + (isDone?'var(--green)':'var(--orange)') + ';">' + (isDone?'✓':'○') + '</div>' +
+      '<div class="wc-info"><div class="wc-label ' + (isDone?'done':'active') + '">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
+      (isDone ? '' : '<div style="font-size:10px;color:var(--orange);margin-top:2px;">Il t\'en manque ' + remaining + '</div>') +
+      '<div class="wc-bar-bg"><div class="wc-bar ' + (isDone?'done':'active') + '" style="width:' + pctC + '%;"></div></div></div>' +
+      '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
+  });
+  if (!ch.length) html += '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Pas encore de données pour générer des quêtes.</div>';
+  if (done === ch.length && ch.length > 0) {
+    var baseXP = ch.reduce(function(s,c){return s+c.xpReward;},0);
+    var bonusXP = Math.round(baseXP * 0.25);
+    html += '<div class="quest-perfect shimmer">🌟 Quête parfaite ! +' + bonusXP + ' XP bonus</div>';
+  }
+  html += '</div>';
+  document.getElementById('gamChallenges').innerHTML = html;
+}
 
-    // Flame rendering
-    var flameHtml = '';
-    if (qs > 0) {
-      var flameCount = Math.min(3, qs);
-      var flameClass = qs >= 4 ? 'gold' : (qs <= 1 ? 'dim' : '');
-      for (var fi = 0; fi < flameCount; fi++) flameHtml += '<span class="flame-icon ' + flameClass + '"></span>';
-      var bonusPct = qs >= 4 ? 20 : qs >= 3 ? 15 : qs >= 2 ? 10 : 0;
-      if (bonusPct > 0) flameHtml += '<span class="flame-bonus">Série ×' + qs + ' — bonus +' + bonusPct + '%</span>';
-    }
-    var flameSec = flameHtml ? '<span class="flame-wrap">' + flameHtml + '</span>' : '';
-
-    var html = '<div class="quest-card"><div class="mc-title"><span>⚡ Quêtes de la semaine ' + flameSec + '</span><span class="mc-title-right">' + done + '/' + ch.length + ' complétées</span></div>';
-
-    ch.forEach(function(c) {
-      var isDone = c.completed;
-      var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
-      var remaining = Math.max(0, c.target - c.current);
-      var onclick = '';
-      if (c.type === 'assiduite') onclick = 'showTab(\'tab-seances\')';
-      else if (c.type === 'nutrition' || c.onclick === 'nutrition') onclick = 'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')';
-      else if (c.type === 'pesee' || c.onclick === 'pesee') onclick = 'showTab(\'tab-profil\');showProfilSub(\'tab-corps\')';
-
-      html += '<div class="quest-item ' + (isDone ? 'q-done' : 'q-active') + '"' + (onclick ? ' onclick="' + onclick + '"' : '') + '>' +
-        '<div class="wc-status" style="color:' + (isDone ? 'var(--green)' : 'var(--orange)') + ';">' + (isDone ? '✓' : '○') + '</div>' +
-        '<div class="wc-info"><div class="wc-label ' + (isDone ? 'done' : 'active') + '">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
-        (isDone ? '' : '<div style="font-size:10px;color:var(--orange);margin-top:2px;">Il t\'en manque ' + remaining + '</div>') +
-        '<div class="wc-bar-bg"><div class="wc-bar ' + (isDone ? 'done' : 'active') + '" style="width:' + pctC + '%;"></div></div></div>' +
-        '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
-    });
-
-    if (!ch.length) html += '<div style="color:var(--sub);font-size:12px;text-align:center;padding:12px;">Pas encore de données pour générer des quêtes.</div>';
-
-    // Perfect quest bonus
-    if (done === ch.length && ch.length > 0) {
-      var baseXP = ch.reduce(function(s,c){return s+c.xpReward;},0);
-      var bonusXP = Math.round(baseXP * 0.25);
-      html += '<div class="quest-perfect shimmer">🌟 Quête parfaite ! +' + bonusXP + ' XP bonus</div>';
-    }
-    html += '</div>';
-    document.getElementById('gamChallenges').innerHTML = html;
-  })();
-
-  // ── 3b. Quêtes mensuelles — Arcs du mois ──
+function _renderGamMonthlyChallenges(ctx) {
   generateMonthlyChallenges();
   updateMonthlyChallengeProgress();
-  (function() {
-    var mc = db.monthlyChallenges ? db.monthlyChallenges.challenges : [];
-    if (!mc.length) { document.getElementById('gamMonthlyChallenges').innerHTML = ''; return; }
-    var done = mc.filter(function(c){return c.completed;}).length;
-    var daysLeft = _daysLeftInMonth();
-    var html = '<div class="quest-arc"><div class="mc-title"><span>🏔 Arcs du mois</span><span class="mc-title-right">' + done + '/' + mc.length + '</span></div>';
-    mc.forEach(function(c) {
-      var isDone = c.completed;
-      var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
-      html += '<div class="quest-item ' + (isDone ? 'q-done' : '') + '" style="' + (isDone ? 'border:1px solid var(--gold-border);' : '') + '">' +
-        '<div class="wc-status" style="color:' + (isDone ? 'var(--green)' : 'var(--purple)') + ';">' + (isDone ? '✓' : '○') + '</div>' +
-        '<div class="wc-info"><div class="wc-label" style="color:' + (isDone ? 'var(--green)' : 'var(--text)') + ';">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
-        '<div class="quest-arc-bar"><div class="quest-arc-fill" style="width:' + pctC + '%;"></div></div>' +
-        '<div class="quest-remaining">Il reste ' + daysLeft + ' jours</div></div>' +
-        '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
-    });
-    html += '</div><div class="gam-separator">⟡ ── ⟡</div>';
-    document.getElementById('gamMonthlyChallenges').innerHTML = html;
-  })();
+  var mc = db.monthlyChallenges ? db.monthlyChallenges.challenges : [];
+  if (!mc.length) { document.getElementById('gamMonthlyChallenges').innerHTML = ''; return; }
+  var done = mc.filter(function(c){return c.completed;}).length;
+  var daysLeft = _daysLeftInMonth();
+  var html = '<div class="quest-arc"><div class="mc-title"><span>🏔 Arcs du mois</span><span class="mc-title-right">' + done + '/' + mc.length + '</span></div>';
+  mc.forEach(function(c) {
+    var isDone = c.completed;
+    var pctC = c.target > 0 ? Math.min(100, Math.round(c.current/c.target*100)) : 0;
+    html += '<div class="quest-item ' + (isDone?'q-done':'') + '" style="' + (isDone?'border:1px solid var(--gold-border);':'') + '">' +
+      '<div class="wc-status" style="color:' + (isDone?'var(--green)':'var(--purple)') + ';">' + (isDone?'✓':'○') + '</div>' +
+      '<div class="wc-info"><div class="wc-label" style="color:' + (isDone?'var(--green)':'var(--text)') + ';">' + c.label + '</div><div class="wc-desc">' + c.description + '</div>' +
+      '<div class="quest-arc-bar"><div class="quest-arc-fill" style="width:' + pctC + '%;"></div></div>' +
+      '<div class="quest-remaining">Il reste ' + daysLeft + ' jours</div></div>' +
+      '<div class="wc-xp">+' + c.xpReward + ' XP</div></div>';
+  });
+  html += '</div><div class="gam-separator">⟡ ── ⟡</div>';
+  document.getElementById('gamMonthlyChallenges').innerHTML = html;
+}
 
-  // ── 3c. Secret quests section (in badges, rendered later) ──
-
-  // ── 3d. Mes Rangs SBD ──
-  (function() {
-    var host = document.getElementById('gamSBDRanks');
-    if (!host) return;
-    if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) {
-      host.innerHTML = ''; return;
-    }
-    db.gamification = db.gamification || {};
-    var lr = db.gamification.liftRanks;
-    if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) { host.innerHTML = ''; return; }
-    var bw = getUserBW();
-    var gender = (db.user && db.user.gender) ? db.user.gender : 'male';
-    var lifts = [
-      { key:'squat',    icon:'🦵', label:'Squat' },
-      { key:'bench',    icon:'🫸', label:'Développé couché' },
-      { key:'deadlift', icon:'💀', label:'Soulevé de terre' }
-    ];
-    var sHtml = '<div class="mc-title" style="margin-bottom:12px;"><span>⚔️ Mes Rangs SBD</span></div>';
-    lifts.forEach(function(l) {
-      var r = lr[l.key];
-      if (!r) return;
-      var idx = -1;
-      for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
-      var nextTier = (idx < SBD_TIERS.length - 1) ? SBD_TIERS[idx + 1] : null;
-      var topPct = Math.max(1, 100 - r.percentile);
-      var nextLine = '';
-      if (nextTier && bw > 0) {
-        var kgNeeded = _kgToReachTier(l.key, nextTier.min, bw, gender);
-        if (kgNeeded && kgNeeded > r.e1rm) {
-          var diff = kgNeeded - r.e1rm;
-          nextLine = '<div class="sbd-rank-detail-next">Il te faut <strong style="color:' + nextTier.color + ';">+' + diff + ' kg</strong> de e1RM pour atteindre <strong style="color:' + nextTier.color + ';">' + nextTier.name + '</strong></div>';
-        }
-      } else if (!nextTier) {
-        nextLine = '<div class="sbd-rank-detail-next">🏆 Tier maximum atteint — Légende vivante.</div>';
+function _renderGamSBDRanks(ctx) {
+  var host = document.getElementById('gamSBDRanks');
+  if (!host) return;
+  if (typeof modeFeature === 'function' && modeFeature('showSBDCards') === false) { host.innerHTML = ''; return; }
+  db.gamification = db.gamification || {};
+  var lr = db.gamification.liftRanks;
+  if (!lr || (!lr.squat && !lr.bench && !lr.deadlift)) { host.innerHTML = ''; return; }
+  var bw = ctx.bw;
+  var gender = (db.user && db.user.gender) ? db.user.gender : 'male';
+  var lifts = [
+    {key:'squat', icon:'🦵', label:'Squat'},
+    {key:'bench', icon:'🫸', label:'Développé couché'},
+    {key:'deadlift', icon:'💀', label:'Soulevé de terre'}
+  ];
+  var sHtml = '<div class="mc-title" style="margin-bottom:12px;"><span>⚔️ Mes Rangs SBD</span></div>';
+  lifts.forEach(function(l) {
+    var r = lr[l.key];
+    if (!r) return;
+    var idx = -1;
+    for (var i = 0; i < SBD_TIERS.length; i++) { if (r.percentile >= SBD_TIERS[i].min) idx = i; }
+    var nextTier = (idx < SBD_TIERS.length - 1) ? SBD_TIERS[idx+1] : null;
+    var topPct = Math.max(1, 100 - r.percentile);
+    var nextLine = '';
+    if (nextTier && bw > 0) {
+      var kgNeeded = _kgToReachTier(l.key, nextTier.min, bw, gender);
+      if (kgNeeded && kgNeeded > r.e1rm) {
+        var diff = kgNeeded - r.e1rm;
+        nextLine = '<div class="sbd-rank-detail-next">Il te faut <strong style="color:' + nextTier.color + ';">+' + diff + ' kg</strong> de e1RM pour atteindre <strong style="color:' + nextTier.color + ';">' + nextTier.name + '</strong></div>';
       }
-      sHtml += '<div class="sbd-rank-detail-card">' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
-          '<div>' +
-            '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;">' + l.icon + ' ' + l.label + '</div>' +
-            '<div class="sbd-rank-detail-tier" style="color:' + r.color + ';">' + r.tier + '</div>' +
-          '</div>' +
-          '<div style="text-align:right;">' +
-            '<div class="sbd-rank-detail-e1rm">' + r.e1rm + ' kg</div>' +
-            '<div class="sbd-rank-detail-pct">Top ' + topPct + '% mondial</div>' +
-          '</div>' +
+    } else if (!nextTier) {
+      nextLine = '<div class="sbd-rank-detail-next">🏆 Tier maximum atteint — Légende vivante.</div>';
+    }
+    sHtml += '<div class="sbd-rank-detail-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+        '<div>' +
+          '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;">' + l.icon + ' ' + l.label + '</div>' +
+          '<div class="sbd-rank-detail-tier" style="color:' + r.color + ';">' + r.tier + '</div>' +
         '</div>' +
-        nextLine +
-      '</div>';
+        '<div style="text-align:right;">' +
+          '<div class="sbd-rank-detail-e1rm">' + r.e1rm + ' kg</div>' +
+          '<div class="sbd-rank-detail-pct">Top ' + topPct + '% mondial</div>' +
+        '</div>' +
+      '</div>' + nextLine +
+    '</div>';
+  });
+  sHtml += '<div class="gam-separator">⟡ ── ⟡</div>';
+  host.innerHTML = '<div class="mc">' + sHtml + '</div>';
+}
+
+function _renderGamStrengthCards(ctx) {
+  var strContainer = document.getElementById('gamStrengthContent');
+  if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
+  var bestE1RMs = getAllBestE1RMs();
+  var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
+  var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
+  var bw = ctx.bw;
+  var allExos = [];
+  for (var eName in bestE1RMs) {
+    var data = bestE1RMs[eName];
+    var sl = getStrengthLevel(eName, data.e1rm, bw);
+    if (!sl || sl.levelIdx === undefined) continue;
+    var sesCount = 0, prCount = 0, runBest = 0;
+    getSortedLogs().slice().reverse().forEach(function(log) {
+      var found = false;
+      (log.exercises||[]).forEach(function(e) {
+        if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
+      });
+      if (found) sesCount++;
     });
-    sHtml += '<div class="gam-separator">⟡ ── ⟡</div>';
-    host.innerHTML = '<div class="mc">' + sHtml + '</div>';
-  })();
+    var exoXP = prCount * 50 + sesCount * 8;
+    allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
+  }
+  allExos.sort(function(a,b) {
+    var aIdx = a.sl ? a.sl.levelIdx : -1;
+    var bIdx = b.sl ? b.sl.levelIdx : -1;
+    if (bIdx !== aIdx) return bIdx - aIdx;
+    return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
+  });
+  if (!allExos.length) {
+    strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
+    return;
+  }
+  var perPage = 3;
+  var totalPages = Math.ceil(allExos.length / perPage);
+  var pagesHtml = '';
+  for (var pg = 0; pg < totalPages; pg++) {
+    pagesHtml += '<div class="sg-page">';
+    var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
+    for (var ei = start; ei < end; ei++) {
+      var item = allExos[ei];
+      var hasSL = !!item.sl;
+      var isDim = item.sesCount <= 2 && !hasSL;
+      var norm = item.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+      var ratios = null;
+      for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
+      pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
+      pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
+      if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
+      pagesHtml += '</div>';
+      pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL?' · '+item.sl.ratio+'× BW':'') + '</div>';
+      if (ratios && hasSL) {
+        var maxR = ratios[ratios.length-1] * 1.2;
+        var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
+        var gaugeHtml = '';
+        for (var gi = 0; gi < 5; gi++) {
+          var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
+          gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
+        }
+        pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
+        pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
+      }
+      pagesHtml += '<div class="sg-footer">';
+      if (isDim) {
+        pagesHtml += '<span>Pas assez de données</span>';
+      } else if (hasSL) {
+        var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
+        if (nextLvl && ratios) {
+          var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
+          pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
+        } else {
+          pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
+        }
+      } else {
+        pagesHtml += '<span></span>';
+      }
+      pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
+      pagesHtml += '</div></div>';
+    }
+    pagesHtml += '</div>';
+  }
+  var dotsHtml = '';
+  for (var di = 0; di < totalPages; di++) {
+    dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
+  }
+  strContainer.innerHTML =
+    '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
+      '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
+      '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
+      '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
+    '</div>';
+  var pagesEl = document.getElementById('sgPages');
+  var dotsEl = document.getElementById('sgDots');
+  var labelEl = strContainer.querySelector('.mc-title-right');
+  if (pagesEl && dotsEl) {
+    pagesEl.addEventListener('scroll', function() {
+      var pageW = pagesEl.offsetWidth;
+      var idx = Math.round(pagesEl.scrollLeft / pageW);
+      dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i){d.classList.toggle('active',i===idx);});
+      if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
+    });
+    dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
+      dot.addEventListener('click', function() {
+        var pg = parseInt(dot.getAttribute('data-page'));
+        pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
+      });
+    });
+  }
+  strContainer.insertAdjacentHTML('beforeend', '<div class="gam-separator">✦ ─── ✦ ─── ✦</div>');
+}
 
-  // ── 4. Récemment débloqués ──
-  (function() {
-    var allBadges = getAllBadges();
-    var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
-    var unlocked = allBadges.filter(function(b){return !b.impossible && b.ck();});
-    var recent = unlocked.slice(-5).reverse();
+function _renderGamHeatmap(ctx) {
+  var now = Date.now();
+  var weekMs = 7 * 86400000;
+  var weekCounts = new Array(52).fill(0);
+  db.logs.forEach(function(l) {
+    var wIdx = Math.floor((now - l.timestamp) / weekMs);
+    if (wIdx >= 0 && wIdx < 52) weekCounts[wIdx]++;
+  });
+  var cells = '';
+  for (var w = 51; w >= 0; w--) {
+    var c = weekCounts[w];
+    var cls = c === 0 ? '' : c === 1 ? ' l1' : c === 2 ? ' l2' : c === 3 ? ' l3' : ' l4';
+    cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=-' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
+  }
+  db.gamification = db.gamification || {};
+  var freezeCount = db.gamification.streakFreezes || 0;
+  var freezeActive = db.gamification.freezeActiveThisWeek === true;
+  var freezeTooltip = freezeCount + ' freeze(s) disponible(s) · Se régénère le 1er du mois';
+  var freezeBadge = '<span class="hm-freeze' + (freezeCount===0?' dim':'') + '" title="' + freezeTooltip + '" onclick="showToast(\'' + freezeTooltip.replace(/'/g,"\\'") + '\')" style="cursor:pointer;margin-left:6px;' + (freezeCount===0?'opacity:0.35;filter:grayscale(1);':'') + '">❄️ ×' + freezeCount + '</span>';
+  var freezeBtn = (freezeCount > 0 && !freezeActive)
+    ? '<button class="hm-freeze-btn" onclick="activateFreezeManual()" style="margin-top:8px;padding:6px 12px;background:rgba(110,180,255,0.15);border:1px solid rgba(110,180,255,0.4);color:var(--blue);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">❄️ Protéger cette semaine</button>'
+    : (freezeActive ? '<div style="margin-top:8px;font-size:11px;color:var(--blue);text-align:center;">❄️ Semaine protégée</div>' : '');
+  document.getElementById('gamHeatmap').innerHTML =
+    '<div class="mc">' +
+      '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + ctx.streak + ' semaines' + freezeBadge + '</span></div>' +
+      '<div class="hm-grid">' + cells + '</div>' +
+      freezeBtn +
+      '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.20);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.40);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.60);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
+    '</div>';
+  document.getElementById('gamHeatmap').insertAdjacentHTML('beforeend', '<div class="gam-separator">⟡ ── ⟡</div>');
+}
 
-    // Add recently completed secret quests
-    var secretCompleted = db.secretQuestsCompleted || [];
-    var secretBadges = secretCompleted.map(function(sqId) {
-      var sq = SECRET_QUESTS.find(function(s){return s.id===sqId;});
-      return sq ? { icon:'🔮', name:sq.name, ref:'SECRÈTE', r:'legendary', isSecret:true } : null;
-    }).filter(Boolean).slice(-2);
+function _renderGamBadges(ctx) {
+  var allBadges = ctx.allBadges;
+  var rarityColor = ctx.rarityColor;
+  var rarityLabel = ctx.rarityLabel;
+  var seenBadgesSet = ctx.seenBadgesSet;
+  var normalBadges = ctx.normalBadges;
 
-    // Mark all unlocked badges as seen (even if we don't display them)
-    var seenBadges = db.seenBadges || [];
-    var seenChanged = false;
-    unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) { seenBadges.push(b.id); seenChanged = true; } });
-    if (seenChanged) { db.seenBadges = seenBadges; saveDB(); }
-
-    var combined = secretBadges.concat(recent).slice(0, 5);
-    if (!combined.length) { document.getElementById('gamRecentBadges').innerHTML = ''; return; }
+  // ── Récemment débloqués ──
+  var unlocked = allBadges.filter(function(b){return !b.impossible && b.ck();});
+  var recent = unlocked.slice(-5).reverse();
+  var secretCompleted = db.secretQuestsCompleted || [];
+  var secretBadges = secretCompleted.map(function(sqId) {
+    var sq = SECRET_QUESTS.find(function(s){return s.id===sqId;});
+    return sq ? {icon:'🔮', name:sq.name, ref:'SECRÈTE', r:'legendary', isSecret:true} : null;
+  }).filter(Boolean).slice(-2);
+  var seenBadges = db.seenBadges || [];
+  var seenChanged = false;
+  unlocked.forEach(function(b) { if (seenBadges.indexOf(b.id) < 0) { seenBadges.push(b.id); seenChanged = true; } });
+  if (seenChanged) { db.seenBadges = seenBadges; saveDB(); }
+  var combined = secretBadges.concat(recent).slice(0, 5);
+  if (!combined.length) {
+    document.getElementById('gamRecentBadges').innerHTML = '';
+  } else {
     var html = '<div class="mc"><div class="mc-title">🏆 Récemment débloqués</div><div class="ru-scroll">';
     combined.forEach(function(b) {
       var rc = rarityColor[b.r] || '#86868B';
@@ -6200,214 +6488,47 @@ function renderGamificationTab() {
     });
     html += '</div></div>';
     document.getElementById('gamRecentBadges').innerHTML = html;
-  })();
+  }
 
-  // ── 5. Prochains badges ──
-  (function() {
-    var allBadges = getAllBadges();
-    var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
-    var locked = allBadges.filter(function(b){return !b.impossible && !b.ck();});
-    var withProgress = [];
-    locked.forEach(function(b) {
-      var p = calcBadgeProgress(b);
-      if (p && p.pct > 0) withProgress.push({badge:b, progress:p});
-    });
-    withProgress.sort(function(a,b){return b.progress.pct - a.progress.pct;});
-    var top4 = withProgress.slice(0,4);
-    if (!top4.length) { document.getElementById('gamNextBadges').innerHTML = ''; return; }
-    var html = '<div class="mc"><div class="mc-title"><span>🎯 Prochains badges</span><span class="mc-title-right">Les plus proches</span></div>';
+  // ── Prochains badges ──
+  var locked = allBadges.filter(function(b){return !b.impossible && !b.ck();});
+  var withProgress = [];
+  locked.forEach(function(b) {
+    var p = calcBadgeProgress(b);
+    if (p && p.pct > 0) withProgress.push({badge:b, progress:p});
+  });
+  withProgress.sort(function(a,b){return b.progress.pct - a.progress.pct;});
+  var top4 = withProgress.slice(0,4);
+  if (!top4.length) {
+    document.getElementById('gamNextBadges').innerHTML = '';
+  } else {
+    var html2 = '<div class="mc"><div class="mc-title"><span>🎯 Prochains badges</span><span class="mc-title-right">Les plus proches</span></div>';
     top4.forEach(function(item) {
       var b = item.badge, p = item.progress;
       var rc = rarityColor[b.r] || '#86868B';
       var isAlmost = p.pct > 90;
-      html += '<div class="nb-item" style="cursor:pointer;border:1px solid ' + rc + '22;' + (isAlmost ? 'border-color:var(--gold-border);' : '') + '" onclick="scrollToBadgeCategory(\'' + b.id + '\')"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
+      html2 += '<div class="nb-item" style="cursor:pointer;border:1px solid ' + rc + '22;' + (isAlmost?'border-color:var(--gold-border);':'') + '" onclick="scrollToBadgeCategory(\'' + b.id + '\')"><div class="nb-icon" style="border:1px solid ' + rc + '33;">' + b.icon + '</div>' +
         '<div class="nb-info"><div class="nb-name">' + b.name + '</div><div class="nb-desc">' + b.desc + '</div>' +
         '<div class="nb-bar-bg"><div class="nb-bar" style="width:' + p.pct + '%;background:' + rc + ';"></div></div></div>' +
-        '<div class="nb-pct" style="color:' + (isAlmost ? 'var(--orange)' : rc) + ';">' + p.pct + '%' + (isAlmost ? '<div style="font-size:9px;">Presque !</div>' : '') + '</div></div>';
+        '<div class="nb-pct" style="color:' + (isAlmost?'var(--orange)':rc) + ';">' + p.pct + '%' + (isAlmost?'<div style="font-size:9px;">Presque !</div>':'') + '</div></div>';
     });
-    html += '</div>';
-    document.getElementById('gamNextBadges').innerHTML = html;
-  })();
+    html2 += '</div>';
+    document.getElementById('gamNextBadges').innerHTML = html2;
+  }
 
-  // ── 6. Strength cards (grille paginée + clickable) ──
-  (function() {
-    var strContainer = document.getElementById('gamStrengthContent');
-    if (!modeFeature('showStrengthLevel')) { if (strContainer) strContainer.innerHTML = ''; return; }
-    var bestE1RMs = getAllBestE1RMs();
-    var _stds = (db.user.gender === 'female') ? STRENGTH_STANDARDS_FEMALE : STRENGTH_STANDARDS;
-    var segColors = ['#86868B','#0A84FF','#32D74B','#FF9F0A','#BF5AF2'];
-
-    var allExos = [];
-    for (var eName in bestE1RMs) {
-      var data = bestE1RMs[eName];
-      var sl = getStrengthLevel(eName, data.e1rm, bw);
-      if (!sl || sl.levelIdx === undefined) continue;
-      var sesCount = 0, prCount = 0, runBest = 0;
-      getSortedLogs().slice().reverse().forEach(function(log) {
-        var found = false;
-        (log.exercises||[]).forEach(function(e) {
-          if (e.name === eName) { found = true; if (e.maxRM > 0 && e.maxRM > runBest) { prCount++; runBest = e.maxRM; } }
-        });
-        if (found) sesCount++;
-      });
-      var exoXP = prCount * 50 + sesCount * 8;
-      allExos.push({name:eName, e1rm:data.e1rm, sl:sl, sesCount:sesCount, exoXP:exoXP});
-    }
-    allExos.sort(function(a,b) {
-      var aIdx = a.sl ? a.sl.levelIdx : -1;
-      var bIdx = b.sl ? b.sl.levelIdx : -1;
-      if (bIdx !== aIdx) return bIdx - aIdx;
-      return (b.sl?b.sl.ratio:0) - (a.sl?a.sl.ratio:0);
-    });
-
-    if (!allExos.length) {
-      strContainer.innerHTML = '<div class="mc" style="border-color:rgba(255,159,10,0.15);"><div class="mc-title">📊 Niveaux de force</div><div style="color:var(--sub);font-size:12px;text-align:center;padding:20px;">Importe des séances pour voir ton niveau par exercice.</div></div>';
-      return;
-    }
-
-    var perPage = 3;
-    var totalPages = Math.ceil(allExos.length / perPage);
-    var pagesHtml = '';
-    for (var pg = 0; pg < totalPages; pg++) {
-      pagesHtml += '<div class="sg-page">';
-      var start = pg * perPage, end = Math.min(start + perPage, allExos.length);
-      for (var ei = start; ei < end; ei++) {
-        var item = allExos[ei];
-        var hasSL = !!item.sl;
-        var isDim = item.sesCount <= 2 && !hasSL;
-        var norm = item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        var ratios = null;
-        for (var sKey in _stds) { if (_stds[sKey].patterns.some(function(p){return p.test(norm);})) { ratios = _stds[sKey].ratios; break; } }
-
-        pagesHtml += '<div class="sg-card sg-card-click' + (isDim?' dim':'') + '" onclick="showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)">';
-        pagesHtml += '<div class="sg-top"><div class="sg-name">' + item.name + '</div>';
-        if (hasSL) pagesHtml += '<div class="sg-badge" style="background:' + item.sl.color + '22;color:' + item.sl.color + ';">' + item.sl.label.slice(0,3) + '</div>';
-        pagesHtml += '</div>';
-        pagesHtml += '<div class="sg-e1rm">e1RM ' + Math.round(item.e1rm) + 'kg' + (hasSL ? ' · ' + item.sl.ratio + '× BW' : '') + '</div>';
-
-        if (ratios && hasSL) {
-          var maxR = ratios[ratios.length-1] * 1.2;
-          var needlePct = Math.min(98, Math.max(2, (item.sl.ratio / maxR) * 100));
-          var gaugeHtml = '';
-          for (var gi = 0; gi < 5; gi++) {
-            var segOpacity = gi <= item.sl.levelIdx ? '0.5' : '0.25';
-            gaugeHtml += '<div class="sg-gauge-seg" style="width:20%;background:' + segColors[gi] + ';opacity:' + segOpacity + ';"></div>';
-          }
-          pagesHtml += '<div class="sg-gauge" style="position:relative;">' + gaugeHtml + '<div class="sg-gauge-needle" style="left:' + needlePct + '%;"></div></div>';
-          pagesHtml += '<div class="sg-labels"><span>Déb</span><span>Nov</span><span>Int</span><span>Av</span><span>Éli</span></div>';
-        }
-
-        pagesHtml += '<div class="sg-footer">';
-        if (isDim) {
-          pagesHtml += '<span>Pas assez de données</span>';
-        } else if (hasSL) {
-          var nextLvl = item.sl.levelIdx < 4 ? STRENGTH_LABELS[item.sl.levelIdx+1] : null;
-          if (nextLvl && ratios) {
-            var nextKg = Math.ceil(ratios[item.sl.levelIdx+1] * bw);
-            pagesHtml += '<span style="color:var(--sub);">→ ' + nextLvl.label + ' à ' + nextKg + 'kg</span>';
-          } else {
-            pagesHtml += '<span style="color:var(--green);">Niveau max !</span>';
-          }
-        } else {
-          pagesHtml += '<span></span>';
-        }
-        pagesHtml += '<div class="sg-footer-xp">+' + item.exoXP + ' XP</div>';
-        pagesHtml += '</div></div>';
-      }
-      pagesHtml += '</div>';
-    }
-
-    var dotsHtml = '';
-    for (var di = 0; di < totalPages; di++) {
-      dotsHtml += '<div class="sg-dot' + (di===0?' active':'') + '" data-page="' + di + '"></div>';
-    }
-
-    strContainer.innerHTML =
-      '<div class="mc" style="border-color:rgba(255,159,10,0.15);">' +
-        '<div class="mc-title"><span>📊 Niveaux de force</span><span class="mc-title-right">1/' + totalPages + ' →</span></div>' +
-        '<div class="sg-pages" id="sgPages">' + pagesHtml + '</div>' +
-        '<div class="sg-dots" id="sgDots">' + dotsHtml + '</div>' +
-      '</div>';
-
-    var pagesEl = document.getElementById('sgPages');
-    var dotsEl = document.getElementById('sgDots');
-    var labelEl = strContainer.querySelector('.mc-title-right');
-    if (pagesEl && dotsEl) {
-      pagesEl.addEventListener('scroll', function() {
-        var pageW = pagesEl.offsetWidth;
-        var idx = Math.round(pagesEl.scrollLeft / pageW);
-        dotsEl.querySelectorAll('.sg-dot').forEach(function(d,i) { d.classList.toggle('active', i===idx); });
-        if (labelEl) labelEl.textContent = (idx+1) + '/' + totalPages + ' →';
-      });
-      dotsEl.querySelectorAll('.sg-dot').forEach(function(dot) {
-        dot.addEventListener('click', function() {
-          var pg = parseInt(dot.getAttribute('data-page'));
-          pagesEl.scrollTo({left: pg * pagesEl.offsetWidth, behavior:'smooth'});
-        });
-      });
-    }
-  })();
-
-  // Separator
-  document.getElementById('gamStrengthContent').insertAdjacentHTML('beforeend', '<div class="gam-separator">✦ ─── ✦ ─── ✦</div>');
-
-  // ── 7. Heatmap de régularité (52 semaines, clickable) ──
-  (function() {
-    var now = Date.now();
-    var weekMs = 7 * 86400000;
-    var weekCounts = new Array(52).fill(0);
-    db.logs.forEach(function(l) {
-      var wIdx = Math.floor((now - l.timestamp) / weekMs);
-      if (wIdx >= 0 && wIdx < 52) weekCounts[wIdx]++;
-    });
-    var cells = '';
-    for (var w = 51; w >= 0; w--) {
-      var c = weekCounts[w];
-      var cls = c === 0 ? '' : c === 1 ? ' l1' : c === 2 ? ' l2' : c === 3 ? ' l3' : ' l4';
-      var weekOffset = -(w);
-      cells += '<div class="hm-cell hm-cell-click' + cls + '" onclick="currentWeekOffset=-' + w + ';showTab(\'tab-seances\')" title="' + c + ' séance(s)"></div>';
-    }
-    db.gamification = db.gamification || {};
-    var freezeCount = db.gamification.streakFreezes || 0;
-    var freezeActive = db.gamification.freezeActiveThisWeek === true;
-    var freezeTooltip = freezeCount + ' freeze(s) disponible(s) · Se régénère le 1er du mois';
-    var freezeBadge = '<span class="hm-freeze' + (freezeCount === 0 ? ' dim' : '') + '" title="' + freezeTooltip + '" onclick="showToast(\'' + freezeTooltip.replace(/'/g, "\\'") + '\')" style="cursor:pointer;margin-left:6px;' + (freezeCount === 0 ? 'opacity:0.35;filter:grayscale(1);' : '') + '">❄️ ×' + freezeCount + '</span>';
-    var freezeBtn = (freezeCount > 0 && !freezeActive)
-      ? '<button class="hm-freeze-btn" onclick="activateFreezeManual()" style="margin-top:8px;padding:6px 12px;background:rgba(110,180,255,0.15);border:1px solid rgba(110,180,255,0.4);color:var(--blue);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">❄️ Protéger cette semaine</button>'
-      : (freezeActive ? '<div style="margin-top:8px;font-size:11px;color:var(--blue);text-align:center;">❄️ Semaine protégée</div>' : '');
-    document.getElementById('gamHeatmap').innerHTML =
-      '<div class="mc">' +
-        '<div class="mc-title"><span>🔥 Régularité</span><span class="hm-streak">' + streak + ' semaines' + freezeBadge + '</span></div>' +
-        '<div class="hm-grid">' + cells + '</div>' +
-        freezeBtn +
-        '<div class="hm-legend">Moins <div class="hm-legend-cell" style="background:#1C1C1E;"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.20);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.40);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.60);"></div><div class="hm-legend-cell" style="background:rgba(50,215,75,0.85);"></div> Plus</div>' +
-      '</div>';
-  })();
-
-  // Separator
-  document.getElementById('gamHeatmap').insertAdjacentHTML('beforeend', '<div class="gam-separator">⟡ ── ⟡</div>');
-
-  // ── 8. Badges (overview + chips + secret quests section + accordions + progress) ──
-  var allBadges = getAllBadges();
-  var rarityLabel = {common:'Commun',uncommon:'Peu commun',rare:'Rare',epic:'Épique',legendary:'Légendaire',mythic:'Mythique',divine:'Divin'};
-  var rarityColor = {common:'#86868B',uncommon:'#32d74b',rare:'#0a84ff',epic:'#bf5af2',legendary:'#ff9f0a',mythic:'#ff453a',divine:'#bf5af2'};
-  var seenBadgesSet = db.seenBadges || [];
-
-  var normalBadges = allBadges.filter(function(b){ return !b.impossible; });
-  var totalUnlocked = normalBadges.filter(function(b){ return b.ck(); }).length;
+  // ── Overview + chips + sections ──
+  var totalUnlocked = normalBadges.filter(function(b){return b.ck();}).length;
   var totalCount = normalBadges.length;
   var overviewPct = totalCount > 0 ? Math.round(totalUnlocked / totalCount * 100) : 0;
-
   var rarityOrder = ['common','uncommon','rare','epic','legendary','mythic','divine'];
   var rarityBreakdown = '';
   rarityOrder.forEach(function(r) {
-    var rBadges = normalBadges.filter(function(b){ return b.r === r; });
+    var rBadges = normalBadges.filter(function(b){return b.r===r;});
     if (!rBadges.length) return;
-    var rUnlocked = rBadges.filter(function(b){ return b.ck(); }).length;
+    var rUnlocked = rBadges.filter(function(b){return b.ck();}).length;
     var rc = rarityColor[r];
     rarityBreakdown += '<div class="bdg-rarity" style="background:' + rc + '15;color:' + rc + ';">' + (rarityLabel[r]||r) + ' ' + rUnlocked + '/' + rBadges.length + '</div>';
   });
-
   document.getElementById('gamBadgesOverview').innerHTML =
     '<div class="bdg-overview">' +
       '<div class="bdg-total-val">' + totalUnlocked + ' <span>/ ' + totalCount + '</span></div>' +
@@ -6416,56 +6537,47 @@ function renderGamificationTab() {
       '<div class="bdg-rarity-row">' + rarityBreakdown + '</div>' +
     '</div>';
 
-  // Badge sections
   var sections = [
-    { title:'🎯 Séances', ids: ['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000'] },
-    { title:'💪 Volume par Séance', ids: ['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100'] },
-    { title:'📦 Volume Cumulatif', ids: ['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000'] },
-    { title:'⏱️ Durée de Séance', ids: ['dur60','dur90','dur120','dur150','dur180','dur240','dur480'] },
-    { title:'🕐 Temps Total', ids: ['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000'] },
-    { title:'🔢 Séries Totales', ids: ['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000'] },
-    { title:'🧩 Exercices Maîtrisés', ids: ['ex10','ex25','ex50','ex75','ex100'] },
-    { title:'🏋️ Bench Press', ids: allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;}) },
-    { title:'🦵 Squat', ids: allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;}) },
-    { title:'💀 Deadlift', ids: allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;}) },
-    { title:'🔝 Overhead Press', ids: allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;}) },
-    { title:'🔱 Total SBD', ids: allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;}) },
-    { title:'⚖️ Poids de Corps', ids: allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;}) },
-    { title:'📅 Assiduité', ids: allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;}) },
-    { title:'⭐ Compétence', ids: ['precision_rpe','tempo_master','consistency_king','pr_hunter','volume_beast'] },
-    { title:'🏆 Collectionneur', ids: allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;}) },
+    {title:'🎯 Séances', ids:['s1','s10','s25','s50','s75','s100','s200','s300','s365','s500','s750','s1000']},
+    {title:'💪 Volume par Séance', ids:['vs1','vs3','vs5','v10t','vs20','vs30','vs40','vs50','vs100']},
+    {title:'📦 Volume Cumulatif', ids:['vt10','vt50','vt100','vt250','vt500','vt1000','vt2500','vt5000','vt7500','vt10000']},
+    {title:'⏱️ Durée de Séance', ids:['dur60','dur90','dur120','dur150','dur180','dur240','dur480']},
+    {title:'🕐 Temps Total', ids:['tdur50','tdur100','tdur250','tdur500','tdur1000','tdur1500','tdur2000']},
+    {title:'🔢 Séries Totales', ids:['st100','st500','st1000','st2500','st5000','st10000','st20000','st40000']},
+    {title:'🧩 Exercices Maîtrisés', ids:['ex10','ex25','ex50','ex75','ex100']},
+    {title:'🏋️ Bench Press', ids:allBadges.filter(function(b){return b.id.startsWith('bench_');}).map(function(b){return b.id;})},
+    {title:'🦵 Squat', ids:allBadges.filter(function(b){return b.id.startsWith('squat_');}).map(function(b){return b.id;})},
+    {title:'💀 Deadlift', ids:allBadges.filter(function(b){return b.id.startsWith('dead_');}).map(function(b){return b.id;})},
+    {title:'🔝 Overhead Press', ids:allBadges.filter(function(b){return b.id.startsWith('ohp_');}).map(function(b){return b.id;})},
+    {title:'🔱 Total SBD', ids:allBadges.filter(function(b){return b.id.startsWith('total_');}).map(function(b){return b.id;})},
+    {title:'⚖️ Poids de Corps', ids:allBadges.filter(function(b){return b.id.startsWith('bw_');}).map(function(b){return b.id;})},
+    {title:'📅 Assiduité', ids:allBadges.filter(function(b){return b.id.startsWith('streak_');}).map(function(b){return b.id;})},
+    {title:'⭐ Compétence', ids:['precision_rpe','tempo_master','consistency_king','pr_hunter','volume_beast']},
+    {title:'🏆 Collectionneur', ids:allBadges.filter(function(b){return b.id.startsWith('col');}).map(function(b){return b.id;})}
   ];
-
   var badgeMap = {};
-  allBadges.forEach(function(b) { badgeMap[b.id] = b; });
-
-  // Chips nav
-  var chipsHtml = '<div class="bc-scroll">';
-  // Add secret quests chip
+  allBadges.forEach(function(b){badgeMap[b.id]=b;});
   var sqCompleted = (db.secretQuestsCompleted || []).length;
+  var chipsHtml = '<div class="bc-scroll">';
   chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSecSecret\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">🔮 Secrètes <span class="bc-chip-count" style="background:var(--gold-subtle);color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
   sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    var sectionBadges = sec.ids.map(function(id){return badgeMap[id];}).filter(Boolean);
     if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var countable = sectionBadges.filter(function(b){return !b.impossible;});
+    var unl = countable.filter(function(b){return b.ck();}).length;
     var icon = sec.title.split(' ')[0];
-    var name = sec.title.replace(/^[^\s]+\s*/, '');
-    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unlocked + '/' + countable.length + '</span></div>';
+    var name = sec.title.replace(/^[^\s]+\s*/,'');
+    chipsHtml += '<div class="bc-chip" onclick="document.getElementById(\'bdgSec' + si + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + icon + ' ' + name + ' <span class="bc-chip-count" style="background:var(--purple)22;color:var(--purple);">' + unl + '/' + countable.length + '</span></div>';
   });
   chipsHtml += '</div>';
-
-  // Build sections
   var secHtml = chipsHtml;
-
-  // Secret quests section
   secHtml += '<div class="bdg-section" id="bdgSecSecret">';
   secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
   secHtml += '<div class="bdg-sec-title">🔮 Quêtes secrètes <span class="bdg-sec-count" style="color:var(--gold);">' + sqCompleted + '/' + SECRET_QUESTS.length + '</span></div>';
   secHtml += '<span class="bdg-sec-chev">▾</span></div>';
   secHtml += '<div class="bdg-sec-body"><div class="bdg-grid">';
   SECRET_QUESTS.forEach(function(sq) {
-    var isCompleted = (db.secretQuestsCompleted || []).indexOf(sq.id) >= 0;
+    var isCompleted = (db.secretQuestsCompleted||[]).indexOf(sq.id) >= 0;
     if (isCompleted) {
       secHtml += '<div class="bdg legendary" style="border-color:var(--gold-border);">';
       secHtml += '<div class="bdg-rarity-bar" style="background:var(--gold);"></div>';
@@ -6484,28 +6596,23 @@ function renderGamificationTab() {
     }
   });
   secHtml += '</div></div></div>';
-
-  // Regular badge sections
   sections.forEach(function(sec, si) {
-    var sectionBadges = sec.ids.map(function(id){ return badgeMap[id]; }).filter(Boolean);
+    var sectionBadges = sec.ids.map(function(id){return badgeMap[id];}).filter(Boolean);
     if (!sectionBadges.length) return;
-    var countable = sectionBadges.filter(function(b){ return !b.impossible; });
-    var unlocked = countable.filter(function(b){ return b.ck(); }).length;
+    var countable = sectionBadges.filter(function(b){return !b.impossible;});
+    var unl = countable.filter(function(b){return b.ck();}).length;
     var isOpen = si === 0 ? ' open' : '';
-
     secHtml += '<div class="bdg-section" id="bdgSec' + si + '">';
     secHtml += '<div class="bdg-sec-head" onclick="toggleBdgSection(this)">';
-    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unlocked + '/' + countable.length + '</span></div>';
+    secHtml += '<div class="bdg-sec-title">' + sec.title + ' <span class="bdg-sec-count">' + unl + '/' + countable.length + '</span></div>';
     secHtml += '<span class="bdg-sec-chev' + isOpen + '">▾</span>';
     secHtml += '</div>';
     secHtml += '<div class="bdg-sec-body' + isOpen + '">';
     secHtml += '<div class="bdg-grid">';
-
     sectionBadges.forEach(function(badge) {
       var isUnlocked = badge.ck();
       var rc = rarityColor[badge.r] || '#86868B';
       var isNew = isUnlocked && seenBadgesSet.indexOf(badge.id) < 0;
-
       if (badge.impossible) {
         secHtml += '<div class="bdg locked" data-badge-id="' + badge.id + '" style="opacity:0.55;border-style:dashed;">';
         secHtml += '<div class="bdg-rarity-bar"></div>';
@@ -6516,9 +6623,9 @@ function renderGamificationTab() {
         if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
         secHtml += '</div>';
       } else if (isUnlocked) {
-        var themeClass = (badge.r === 'common' || badge.r === 'uncommon') ? ' common-v2' : '';
-        if (badge.r === 'mythic') themeClass = ' mythic-v2';
-        if (badge.r === 'divine') themeClass = ' divine-v2';
+        var themeClass = (badge.r==='common'||badge.r==='uncommon') ? ' common-v2' : '';
+        if (badge.r==='mythic') themeClass = ' mythic-v2';
+        if (badge.r==='divine') themeClass = ' divine-v2';
         secHtml += '<div class="bdg ' + badge.r + themeClass + '" data-badge-id="' + badge.id + '" style="position:relative;">';
         if (isNew) secHtml += '<div class="new-dot" style="position:absolute;top:6px;right:6px;"></div>';
         secHtml += '<div class="bdg-rarity-bar"></div>';
@@ -6539,15 +6646,13 @@ function renderGamificationTab() {
         if (badge.condition) secHtml += '<div class="bdg-condition">' + badge.condition + '</div>';
         if (prog && prog.pct > 0) {
           secHtml += '<div class="bp-wrap"><div class="bp-bar-bg"><div class="bp-bar" style="width:' + prog.pct + '%;background:' + rc + ';"></div></div>';
-          secHtml += '<div class="bp-text">' + (typeof prog.current === 'number' ? Math.round(prog.current).toLocaleString() : prog.current) + '/' + (typeof prog.target === 'number' ? Math.round(prog.target).toLocaleString() : prog.target) + ' (' + prog.pct + '%)</div></div>';
+          secHtml += '<div class="bp-text">' + (typeof prog.current==='number'?Math.round(prog.current).toLocaleString():prog.current) + '/' + (typeof prog.target==='number'?Math.round(prog.target).toLocaleString():prog.target) + ' (' + prog.pct + '%)</div></div>';
         }
         secHtml += '</div>';
       }
     });
-
     secHtml += '</div></div></div>';
   });
-
   document.getElementById('gamBadgesSections').innerHTML = secHtml;
 }
 

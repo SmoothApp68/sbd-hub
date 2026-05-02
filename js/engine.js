@@ -3262,7 +3262,58 @@ function calcTRIMPFromGarminZones(zonesData, activityType) {
   return Math.round(total * cSpec);
 }
 
-// ── FEATURE 1 — Warm-up Generator ────────────────────────────
+// ── FEATURE 1 — Share Card Generator ─────────────────────────
+function generateShareCard(session) {
+  if (!session) return null;
+  var user = db.user || {};
+  var prs = [];
+  var totalTonnage = 0;
+  var mainLifts = [];
+
+  (session.exercises || []).forEach(function(exo) {
+    (exo.allSets || exo.series || []).forEach(function(s) {
+      if (!s.isWarmup) {
+        totalTonnage += (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
+      }
+    });
+    if (exo.newPR || exo.isPR) {
+      prs.push({ name: exo.name, value: Math.round(exo.maxRM || 0) });
+    }
+    if (exo.isPrimary) {
+      var bestSet = (exo.allSets || exo.series || []).filter(function(s) {
+        return !s.isWarmup && parseFloat(s.weight) > 0;
+      }).sort(function(a, b) {
+        return (parseFloat(b.weight) || 0) - (parseFloat(a.weight) || 0);
+      })[0];
+      if (bestSet) {
+        mainLifts.push({
+          name: exo.name,
+          weight: parseFloat(bestSet.weight) || 0,
+          reps: parseInt(bestSet.reps) || 0,
+          rpe: parseFloat(bestSet.rpe) || 0
+        });
+      }
+    }
+  });
+
+  var date = new Date(session.timestamp || Date.now());
+  var dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : '';
+
+  return {
+    userName: user.name || 'Athlète',
+    date: dateStr,
+    phase: phase,
+    prs: prs,
+    mainLifts: mainLifts,
+    tonnage: Math.round(totalTonnage / 100) / 10,
+    hasPR: prs.length > 0,
+    srsScore: db.todayWellbeing
+      ? Math.round((db.todayWellbeing.sleep + db.todayWellbeing.readiness) / 2 * 20) : null
+  };
+}
+
+// ── Warm-up Generator ─────────────────────────────────────────
 var WARMUP_PROTOCOL_HEAVY = [
   { pctOfWork: 0,    reps: 12, rest: 60,  label: 'Barre à vide' },
   { pctOfWork: 0.50, reps: 5,  rest: 90,  label: '50%' },

@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20 },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -214,6 +214,10 @@ let db = (() => {
     if (p.user.consentHealthDate === undefined) p.user.consentHealthDate = null;
     // Plate calculator bar weight
     if (p.user.barWeight === undefined) p.user.barWeight = 20;
+    // Units + medical consent
+    if (p.user.units === undefined) p.user.units = 'kg';
+    if (p.user.medicalConsent === undefined) p.user.medicalConsent = false;
+    if (p.user.medicalConsentDate === undefined) p.user.medicalConsentDate = null;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -1581,6 +1585,8 @@ function obGenerateProgram() {
       renderObSummary(generated);
       if (summary) summary.style.display = 'block';
       if (finBtn)  finBtn.style.display  = 'block';
+      var _medWrap = document.getElementById('ob-medical-consent-wrap');
+      if (_medWrap) _medWrap.style.display = 'block';
     }
   }
   animStep();
@@ -2136,6 +2142,15 @@ function autoPopulateKeyLifts() {
 }
 
 function obFinish() {
+  var _medEl = document.getElementById('ob-medical-consent');
+  if (_medEl && !_medEl.checked) {
+    showToast('⚠️ Veuillez confirmer votre aptitude médicale pour continuer');
+    return;
+  }
+  if (_medEl) {
+    db.user.medicalConsent = true;
+    db.user.medicalConsentDate = new Date().toISOString();
+  }
   db.user.onboarded = true;
   db.user.onboardingVersion = ONBOARDING_VERSION;
   if (!db.user.onboardingDate) db.user.onboardingDate = new Date().toISOString().split('T')[0];
@@ -13076,8 +13091,20 @@ function renderSettingsProfile() {
     if (_barParent && _barParent.parentNode) _barParent.parentNode.appendChild(_barSection);
   }
   var _bw = db.user.barWeight || 20;
-  var _barHtml = '<div style="font-size:13px;font-weight:700;margin-bottom:12px;">🏋️ Poids de la barre</div>';
-  _barHtml += '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Utilisé pour le calculateur de galettes</div>';
+  var _curUnit = db.user.units || 'kg';
+  var _barHtml = '<div style="font-size:13px;font-weight:700;margin-bottom:12px;">🏋️ Équipement & Unités</div>';
+  _barHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+  _barHtml += '<div style="font-size:12px;color:var(--sub);">Unités de poids</div>';
+  _barHtml += '<div style="display:flex;gap:4px;">';
+  ['kg', 'lbs'].forEach(function(u) {
+    var active = _curUnit === u;
+    _barHtml += '<button onclick="setWeightUnit(\'' + u + '\')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;'
+      + 'background:' + (active ? 'var(--accent)' : 'var(--surface)') + ';'
+      + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+      + 'color:' + (active ? '#fff' : 'var(--sub)') + ';">' + u + '</button>';
+  });
+  _barHtml += '</div></div>';
+  _barHtml += '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Poids de la barre (pour le calculateur de galettes)</div>';
   _barHtml += '<select id="settings-bar-weight" onchange="saveBarWeight(this.value)" '
     + 'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);'
     + 'background:var(--bg);color:var(--text);font-size:13px;">';
@@ -13727,6 +13754,7 @@ function renderCoachTodayHTML() {
   }
 
   // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──
+  var _SEVERITY_ICONS = { danger: '🚨', warning: '⚠️', good: '✅', info: 'ℹ️' };
   if (coachProfile !== 'silent') {
     var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
     if (diagnosis.length) {
@@ -13739,10 +13767,11 @@ function renderCoachTodayHTML() {
           + 'letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">' + section.title + '</div>';
         section.alerts.forEach(function(alert) {
           var color = severityColor[alert.severity] || 'var(--sub)';
+          var _icon = _SEVERITY_ICONS[alert.severity] || 'ℹ️';
           html += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;'
             + 'background:' + color + '18;border-left:3px solid ' + color + ';">';
           html += '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:3px;">'
-            + alert.title + '</div>';
+            + _icon + ' ' + alert.title + '</div>';
           html += '<div style="font-size:11px;color:var(--text);line-height:1.5;">'
             + alert.text + '</div>';
           html += '</div>';
@@ -16670,6 +16699,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
         }
       }
     }
+    // Attach warmup protocol for display in GO (not logged — separate from sets array)
+    var _liftTypeWU = typeof getSBDType === 'function' ? getSBDType(mainName) : null;
+    if (_liftTypeWU && typeof generateWarmupSets === 'function') {
+      mainExoObj.warmupSets = generateWarmupSets(
+        weight, _mainE1rmForRest, _liftTypeWU, new Date().getHours() < 10);
+    }
     exercises.push(mainExoObj);
   }
 
@@ -18650,14 +18685,53 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '<div style="font-size:10px;color:var(--sub);padding:2px 12px;">💡 Charge effective : ' + _bwComp + 'kg (' + Math.round(_bwExoData.bwFactor * 100) + '% de ' + db.user.bw + 'kg)</div>';
   }
 
+  // ── Warm-up block (activation drills + palier checklist) ──
+  var _liftTypeGO = typeof getSBDType === 'function' ? getSBDType(exo.name) : null;
+  if (exo.isPrimary && _liftTypeGO && typeof WARMUP_ACTIVATION !== 'undefined'
+      && WARMUP_ACTIVATION[_liftTypeGO]) {
+    h += '<div style="background:rgba(255,255,255,0.03);border-radius:10px;'
+      + 'padding:10px 12px;margin:8px 8px 4px;">';
+    h += '<div style="font-size:11px;color:var(--sub);font-weight:600;'
+      + 'margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px;">🔥 Activation</div>';
+    WARMUP_ACTIVATION[_liftTypeGO].forEach(function(drill) {
+      h += '<div style="font-size:11px;color:var(--sub);padding:2px 0;">• ' + drill + '</div>';
+    });
+    h += '</div>';
+  }
+  if (exo.warmupSets && exo.warmupSets.length > 0) {
+    h += '<div style="padding:8px 12px;">';
+    h += '<div style="font-size:11px;color:var(--sub);font-weight:600;'
+      + 'margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px;">Échauffement</div>';
+    exo.warmupSets.forEach(function(ws, i) {
+      var isDoneWU = exo.warmupCompleted && exo.warmupCompleted[i];
+      h += '<div onclick="toggleWarmupSet(' + exoIdx + ',' + i + ')" '
+        + 'style="display:flex;align-items:center;gap:8px;padding:5px 0;'
+        + 'opacity:' + (isDoneWU ? '0.4' : '0.75') + ';cursor:pointer;">';
+      h += '<div style="width:18px;height:18px;border-radius:4px;flex-shrink:0;'
+        + 'border:1px solid var(--border);background:'
+        + (isDoneWU ? 'var(--accent)' : 'transparent') + ';'
+        + 'display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;">'
+        + (isDoneWU ? '✓' : '') + '</div>';
+      h += '<div style="font-size:12px;color:var(--sub);">';
+      h += ws.label;
+      if (ws.weight > 0) h += ' — ' + ws.weight + 'kg';
+      else if (ws.note) h += ' — ' + ws.note;
+      if (ws.reps > 0) h += ' × ' + ws.reps;
+      h += ' · ' + Math.round(ws.rest / 60) + 'min repos';
+      h += '</div></div>';
+    });
+    h += '</div>';
+  }
+
   // Sets table
   var _exoNameNorm = (exo.name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   var isOutdoorCardio = tt === 'cardio' && /randonnee|hiking|trek|\bvelo\b|bike|cycling/.test(_exoNameNorm);
   var _isPrimarySBD = tt === 'weight' && typeof getSBDType === 'function' && !!getSBDType(exo.name);
+  var _unitLabel = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
   h += '<div style="padding:0 8px;overflow-x:auto;">';
   h += '<table class="go-sets-table"><thead><tr>';
   h += '<th style="width:36px;">SÉRIE</th><th>PRÉCÉDENT</th>';
-  if (tt === 'weight') { h += '<th>KG <span onclick="goShowPlateCalc(' + exoIdx + ',0)" style="cursor:pointer;font-size:10px;">🔢</span></th><th>RÉPS</th><th style="width:' + (_isPrimarySBD ? '68' : '44') + 'px;">RPE ' + renderGlossaryTip('rpe') + (_isPrimarySBD ? ' <span style="color:var(--sub);font-size:9px;">G</span>' : '') + '</th>'; }
+  if (tt === 'weight') { h += '<th>' + _unitLabel.toUpperCase() + ' <span onclick="goShowPlateCalc(' + exoIdx + ',0)" style="cursor:pointer;font-size:10px;">🔢</span></th><th>RÉPS</th><th style="width:' + (_isPrimarySBD ? '68' : '44') + 'px;">RPE ' + renderGlossaryTip('rpe') + (_isPrimarySBD ? ' <span style="color:var(--sub);font-size:9px;">G</span>' : '') + '</th>'; }
   else if (tt === 'reps') { h += '<th>RÉPS</th><th style="width:44px;">RPE ' + renderGlossaryTip('rpe') + '</th>'; }
   else if (tt === 'time') { h += '<th>DURÉE</th>'; }
   else if (tt === 'cardio') { h += '<th>KM</th><th>TEMPS</th>' + (isOutdoorCardio ? '<th>D+</th>' : ''); }
@@ -18693,11 +18767,12 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
 
     // Inputs based on tracking type
     if (tt === 'weight') {
-      var wVal = set.weight ? set.weight : '';
+      var _disp = typeof toDisplayWeight === 'function';
+      var wVal = set.weight ? (_disp ? toDisplayWeight(set.weight) : set.weight) : '';
       var rVal = set.reps ? set.reps : '';
       var rpVal = set.rpe ? set.rpe : '';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + wVal + '" placeholder="kg" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
-      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal + '" placeholder="reps" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + wVal + '" placeholder="' + _unitLabel + '" aria-label="Poids en ' + _unitLabel + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+      h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal + '" placeholder="reps" aria-label="Nombre de répétitions" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
       if (_isPrimarySBD) {
         var _isGrind = set.grind || false;
         var _gStyle = _isGrind
@@ -18733,8 +18808,11 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + (set.duration || '') + '" placeholder="min" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'duration\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
     }
 
-    // Check button
-    h += '<td><button class="go-check-btn' + (isDone ? ' done' : '') + '" onclick="goToggleSetComplete(' + exoIdx + ',' + setIdx + ')">' + (isDone ? '✓' : '') + '</button></td>';
+    // Check button (48×48px for accessibility)
+    h += '<td><button class="go-check-btn' + (isDone ? ' done' : '') + '" '
+      + 'aria-label="' + (isDone ? 'Série validée' : 'Valider la série') + '" '
+      + 'onclick="goToggleSetComplete(' + exoIdx + ',' + setIdx + ')">'
+      + (isDone ? '✓' : '') + '</button></td>';
     h += '</tr>';
   });
 
@@ -18761,6 +18839,15 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
 // ============================================================
 // GO TAB — Set operations, rest timer, counters
 // ============================================================
+function toggleWarmupSet(exoIdx, wsIdx) {
+  if (!activeWorkout || !activeWorkout.exercises[exoIdx]) return;
+  var exo = activeWorkout.exercises[exoIdx];
+  if (!exo.warmupCompleted) exo.warmupCompleted = {};
+  exo.warmupCompleted[wsIdx] = !exo.warmupCompleted[wsIdx];
+  goAutoSave();
+  goRequestRender();
+}
+
 function goToggleSetComplete(exoIdx, setIdx) {
   var set = activeWorkout.exercises[exoIdx].sets[setIdx];
   set.completed = !set.completed;
@@ -19106,7 +19193,9 @@ function goRemoveSet(exoIdx, setIdx) {
 }
 
 function goUpdateSetValue(exoIdx, setIdx, field, value) {
-  var v = parseFloat(value) || 0;
+  var v = field === 'weight' && typeof fromDisplayWeight === 'function'
+    ? fromDisplayWeight(value)
+    : (parseFloat(value) || 0);
   activeWorkout.exercises[exoIdx].sets[setIdx][field] = v;
   goAutoSave();
 }
@@ -20073,6 +20162,13 @@ function saveBarWeight(val) {
   db.user.barWeight = parseFloat(val) || 20;
   saveDB();
   showToast('Poids de barre mis à jour : ' + db.user.barWeight + 'kg');
+}
+
+function setWeightUnit(unit) {
+  db.user.units = (unit === 'lbs') ? 'lbs' : 'kg';
+  saveDB();
+  showToast('Unités : ' + db.user.units);
+  renderSettingsProfile();
 }
 
 // ── Calculateur de plateaux ──

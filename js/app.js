@@ -177,6 +177,7 @@ let db = (() => {
     if (!Array.isArray(p.activityLogs)) p.activityLogs = [];
     if (!Array.isArray(p.user.activityTemplate)) p.user.activityTemplate = [];
     if (!p.earnedBadges || typeof p.earnedBadges !== 'object') p.earnedBadges = {};
+    if (p._ghostLogAnswered === undefined) p._ghostLogAnswered = null;
     if (!p.gamification) p.gamification = {};
     if (p.gamification.xpHighWaterMark === undefined) p.gamification.xpHighWaterMark = 0;
     if (p.user.lpBridgeActive === undefined) p.user.lpBridgeActive = false;
@@ -13806,6 +13807,53 @@ function getRegularityMessage() {
   return null;
 }
 
+function getMissingActivityLogs() {
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = yesterday.toISOString().split('T')[0];
+  var yesterdayName = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][yesterday.getDay()];
+
+  var template = (db.user && db.user.activityTemplate) || [];
+  var logs = db.activityLogs || [];
+
+  return template.filter(function(act) {
+    if (!(act.days || []).includes(yesterdayName)) return false;
+    return !logs.some(function(l) { return l.date === yesterdayStr && l.type === act.type; });
+  });
+}
+
+function confirmGhostLog(actType, done) {
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  if (done) {
+    var template = (db.user && db.user.activityTemplate) || [];
+    var act = template.find(function(a) { return a.type === actType; });
+    if (act) {
+      if (!db.activityLogs) db.activityLogs = [];
+      var existingIdx = db.activityLogs.findIndex(function(l) {
+        return l.date === yesterdayStr && l.type === actType;
+      });
+      var log = {
+        date: yesterdayStr, type: actType,
+        duration: act.duration || 45, intensity: act.intensity || 3,
+        trimp: typeof calcActivityTRIMP === 'function' ? calcActivityTRIMP(act) : 0,
+        source: 'ghost'
+      };
+      if (existingIdx >= 0) { db.activityLogs[existingIdx] = log; } else { db.activityLogs.push(log); }
+    }
+  }
+
+  db._ghostLogAnswered = yesterdayStr;
+  saveDB();
+  if (typeof renderCoachTab === 'function') renderCoachTab();
+  else if (typeof renderCoachTodayHTML === 'function') {
+    var el = document.getElementById('coachTodayContent');
+    if (el) el.innerHTML = renderCoachTodayHTML();
+  }
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -13854,6 +13902,36 @@ function renderCoachTodayHTML() {
 
   // ── 0. BILAN DU MATIN ──
   html += renderMorningCheckin();
+
+  // ── 0a0. GHOST LOG — activités d'hier non loggées ──
+  var _yesterday = new Date();
+  _yesterday.setDate(_yesterday.getDate() - 1);
+  var _yesterdayStr = _yesterday.toISOString().split('T')[0];
+  if (db._ghostLogAnswered !== _yesterdayStr) {
+    var _missingLogs = getMissingActivityLogs();
+    if (_missingLogs.length > 0) {
+      html += '<div style="background:var(--surface);border-radius:12px;'
+        + 'padding:12px 14px;margin-bottom:12px;">';
+      html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">'
+        + '📋 Hier, as-tu fait :</div>';
+      _missingLogs.forEach(function(act) {
+        var _emoji = _ACTIVITY_EMOJI[act.type] || '🏅';
+        var _label = act.type.charAt(0).toUpperCase() + act.type.slice(1).replace(/_/g, ' ');
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">';
+        html += '<div style="font-size:13px;">' + _emoji + ' ' + escapeHtml(_label)
+          + ' <span style="color:var(--sub);font-size:11px;">(' + (act.duration || 45) + ' min)</span></div>';
+        html += '<div style="display:flex;gap:6px;">';
+        html += '<button onclick="confirmGhostLog(\'' + escapeHtml(act.type) + '\',true)" '
+          + 'style="padding:4px 10px;border-radius:8px;background:rgba(50,215,75,0.1);'
+          + 'border:1px solid var(--green);color:var(--green);font-size:12px;cursor:pointer;">Oui</button>';
+        html += '<button onclick="confirmGhostLog(\'' + escapeHtml(act.type) + '\',false)" '
+          + 'style="padding:4px 10px;border-radius:8px;background:var(--surface);'
+          + 'border:1px solid var(--border);color:var(--sub);font-size:12px;cursor:pointer;">Non</button>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+  }
 
   // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ──
   var _churn = typeof detectChurn === 'function' ? detectChurn() : null;

@@ -16550,10 +16550,17 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     }
     var warmups = wpBuildWarmups(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
+    var _mainE1rmForRest = typeof getZoneE1RM === 'function'
+      ? (getZoneE1RM(mainName, typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie') || 0)
+      : 0;
+    var _mainRestSeconds = _dupProfile ? _dupRestSeconds
+      : (typeof getOptimalRestTime === 'function'
+          ? getOptimalRestTime(weight, _mainE1rmForRest, 'composé')
+          : (bodyPart === 'lower' ? 300 : 240));
     var mainExoObj = {
       name: mainName,
       type: 'weight',
-      restSeconds: _dupProfile ? _dupRestSeconds : (bodyPart === 'lower' ? 300 : 240),
+      restSeconds: _mainRestSeconds,
       isPrimary: true,
       sets: warmups.concat(wpBuildMainSets(weight, reps, setsCount, rpe))
     };

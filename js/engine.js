@@ -2689,6 +2689,18 @@ function analyzeAthleteProfile() {
     }
   }
 
+  // FIX 2 — Volume spike alerts
+  var volumeSpikes = typeof detectVolumeSpike === 'function' ? detectVolumeSpike() : [];
+  volumeSpikes.forEach(function(spike) {
+    fatigueAlerts.push({
+      severity: 'danger',
+      title: '⚠️ Volume Spike — ' + spike.group,
+      text: 'Augmentation de +' + spike.increase + '% cette semaine ('
+        + spike.thisWeek + ' séries vs ' + spike.lastWeek + ' semaine dernière). '
+        + 'Risque de blessure documenté au-delà de +15%/semaine.'
+    });
+  });
+
   if (fatigueAlerts.length) sections.push({ title: '🔋 Fatigue & Volume', alerts: fatigueAlerts });
 
   // ── SECTION 3 : NUTRITION & PROGRESSION ────────────────────────────────────
@@ -2842,6 +2854,17 @@ function analyzeAthleteProfile() {
   });
   if (neuroAlerts.length) {
     sections.push({ title: '🧠 Profil Neuromusculaire', alerts: neuroAlerts });
+  }
+
+  // FIX 3 — Tapering flat-day adjustment alert
+  var taperingFlat = typeof getTaperingFlatAdjustment === 'function'
+    ? getTaperingFlatAdjustment() : null;
+  if (taperingFlat) {
+    sections.push({ title: '🏆 Tapering Compétition', alerts: [{
+      severity: 'warning',
+      title: 'Ajustement J-7',
+      text: taperingFlat.message
+    }]});
   }
 
   return sections;
@@ -3237,6 +3260,134 @@ function calcTRIMPFromGarminZones(zonesData, activityType) {
     total += minutes * weight;
   });
   return Math.round(total * cSpec);
+}
+
+// ── FIX 1 — Temps de repos par intensité (PCr) ──────────────
+var REST_TIME_BY_INTENSITY = {
+  above90: 300,
+  above80: 240,
+  above70: 180,
+  default: 90
+};
+
+function getOptimalRestTime(weight, e1rm, slot) {
+  if (slot === 'isolation') return REST_TIME_BY_INTENSITY.default;
+  if (!e1rm || e1rm <= 0) return REST_TIME_BY_INTENSITY.above80;
+  var pct = weight / e1rm;
+  if (pct > 0.90) return REST_TIME_BY_INTENSITY.above90;
+  if (pct > 0.80) return REST_TIME_BY_INTENSITY.above80;
+  if (pct > 0.70) return REST_TIME_BY_INTENSITY.above70;
+  return REST_TIME_BY_INTENSITY.default;
+}
+
+// ── FIX 2 — Volume Spike Detection (+15%/semaine) ────────────
+var VOLUME_SPIKE_THRESHOLD = 0.15;
+
+function detectVolumeSpike() {
+  var spikes = [];
+  var thisWeekStart = Date.now() - 7 * 86400000;
+  var lastWeekStart = Date.now() - 14 * 86400000;
+  var thisWeek = {};
+  var lastWeek = {};
+
+  (db.logs || []).forEach(function(log) {
+    var ts = log.timestamp || 0;
+    var isThisWeek = ts > thisWeekStart;
+    var isLastWeek = ts > lastWeekStart && ts <= thisWeekStart;
+    if (!isThisWeek && !isLastWeek) return;
+
+    (log.exercises || []).forEach(function(exo) {
+      var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
+      var group = (meta && meta.muscleGroup) ? meta.muscleGroup : 'autre';
+      var sets = (exo.allSets || []).filter(function(s) { return !s.isWarmup; }).length;
+
+      if (isThisWeek) thisWeek[group] = (thisWeek[group] || 0) + sets;
+      if (isLastWeek) lastWeek[group] = (lastWeek[group] || 0) + sets;
+    });
+  });
+
+  Object.keys(thisWeek).forEach(function(group) {
+    var prev = lastWeek[group] || 0;
+    if (prev === 0) return;
+    var spike = (thisWeek[group] - prev) / prev;
+    if (spike > VOLUME_SPIKE_THRESHOLD) {
+      spikes.push({
+        group: group,
+        increase: Math.round(spike * 100),
+        thisWeek: thisWeek[group],
+        lastWeek: prev
+      });
+    }
+  });
+
+  return spikes;
+}
+
+// ── FIX 3 — Tapering automatique (compétiteur) ───────────────
+var TAPERING_PROTOCOL = {
+  week3: { volumeMultiplier: 1.00, intensityRange: [0.85, 0.92], note: '' },
+  week2: { volumeMultiplier: 0.70, intensityRange: [0.90, 0.95],
+           note: 'Singles et doubles — intensité maximale' },
+  week1: { volumeMultiplier: 0.40, intensityRange: [0.85, 0.87],
+           rpeTarget: 6.5, note: 'Séances courtes — RPE 6-7 uniquement' }
+};
+
+function getTaperingWeek() {
+  var wc = db.user && db.user.weightCut;
+  var competDate = wc && wc.competitionDate ? new Date(wc.competitionDate) : null;
+  if (!competDate) return 0;
+  var daysToCompet = Math.floor((competDate - Date.now()) / 86400000);
+  if (daysToCompet <= 7)  return 1;
+  if (daysToCompet <= 14) return 2;
+  if (daysToCompet <= 21) return 3;
+  return 0;
+}
+
+function getTaperingFlatAdjustment() {
+  var taperingWeek = getTaperingWeek();
+  if (taperingWeek !== 1) return null;
+  var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75 };
+  if (srs.score >= 65) return null;
+  return {
+    glucideBoost: 0.15,
+    removeIsolations: true,
+    message: '⚡ J-7 : Force basse détectée. +15% glucides recommandé. '
+      + 'Suppression des isolations pendant 48h pour maximiser la récupération nerveuse.'
+  };
+}
+
+// ── FIX 4 — Momentum + Récupération mentale ──────────────────
+function detectMomentum() {
+  var prsLast7 = 0;
+  var cutoff7 = Date.now() - 7 * 86400000;
+
+  (db.logs || []).forEach(function(log) {
+    if ((log.timestamp || 0) < cutoff7) return;
+    (log.exercises || []).forEach(function(exo) {
+      if (exo.newPR || exo.isPR) prsLast7++;
+    });
+  });
+
+  return prsLast7 >= 2
+    ? { active: true, prs: prsLast7, message:
+        '🔥 Momentum détecté : ' + prsLast7 + ' PRs cette semaine. '
+        + '65% de probabilité de battre un nouveau record aujourd\'hui.' }
+    : { active: false };
+}
+
+function getMentalRecoveryPenalty() {
+  var sortedLogs = (db.logs || []).slice()
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  if (!sortedLogs.length) return 1.0;
+
+  var lastSession = sortedLogs[0];
+  var hadFailRep = (lastSession.exercises || []).some(function(exo) {
+    return (exo.allSets || []).some(function(s) {
+      return s.isAbandoned || (s.rpe && parseFloat(s.rpe) >= 10);
+    });
+  });
+
+  return hadFailRep ? 0.97 : 1.0;
 }
 
 function getActivityPenaltyFlags() {

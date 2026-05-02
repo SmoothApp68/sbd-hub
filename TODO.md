@@ -428,6 +428,69 @@ Pas de merge base commun → merge git impossible (168+ conflits sur app.js seul
 - Audit Playwright : `audit/12-beta-tester-simulation.md`, 50 screenshots, 18 tests ✓
 - Score : 9.5 → **9.6/10**
 
+## ✅ SESSION — Activités Secondaires Refactor + Gamification v141 → v143 (mai 2026)
+- SW : v141 → v142 → **v143** (8 commits A + 3 commits B + 4 commits FIX)
+
+### A — Activités Secondaires (8 fixes)
+- `ACTIVITY_KEY_MAP` : mapping EN→FR (swimming→natation, running→course, etc.) dans engine.js
+- `sanitizeActivity()` : normalise string/object → objet uniforme avec type FR
+- `calcActivityTRIMP()` : appelle sanitizeActivity() pour tolérer les clés EN
+- `natation.intensityThreshold` : 6 → 3 (repos actif même à faible intensité)
+- `getActivityHeavyThreshold()` : seuil adaptatif DOTS<250→300, 250-400→450, ≥400→600
+- `getSecondaryTRIMPLast24h()` : lit d'abord activityLogs (réel), puis activityTemplate (planifié)
+- `migrateActivityData()` : fusionne secondaryActivities + activities → activityTemplate
+- DB guards : activityLogs[], activityTemplate[], earnedBadges{}, _ghostLogAnswered, xpHighWaterMark
+
+### B — Gamification (3 fixes)
+- Badges permanents (`badgeType:'achiever'`) vs statut (`badgeType:'status'`, re-évalués)
+- `checkAndAwardBadges()` : achiever skip si déjà gagné, status update active flag
+- XP high-water mark (`db.gamification.xpHighWaterMark`) : XP ne peut que monter
+- `consistency_month` + `weekly_warrior` : nouveaux badges status re-évalués
+
+### FIX (4 corrections post-audit Gemini)
+- Seuil adaptatif `getActivityHeavyThreshold()` via DOTS (FIX 1)
+- One-tap activity log via pills dans la carte succès (FIX 2)
+- Ghost log : confirmation matin des activités d'hier non loggées (FIX 3)
+- Badges permanents/status + XP high-water mark (FIX 4)
+
+## ✅ SESSION — Review Complète Claude Code + Blockers v143 → v144 (mai 2026)
+- SW : v143 → **v144** (4 commits)
+- Audit complet : `audit/15-complete-beta-review.md` (score 6.5/10 → v143)
+
+### BLOCKER 1 — Doublon showPRCelebration ✅ — commit 76cb320 + dc707f6
+- Identifié : 2 définitions JS (l.22190 et l.22253) → JS last-write-wins → ancienne version écrasait la nouvelle
+- Fix : renamed → deleted `_showLegacyPRCelebration` + `dismissPRCelebration`
+- CSV import caller mis à jour : `showPRCelebration([{name,value,prev,gain}],'import')`
+- Toutes les célébrations PR passent maintenant par la version modale avec activity tags + partage
+
+### BLOCKER 2 — Auto-générer weeklyPlan au J1 ✅ — commit 76cb320
+- Ajout dans init sequence (après migrations) : si `onboarded + programParams.freq + !weeklyPlan` → `generateWeeklyPlan()`
+- Empêche l'écran "Comment créer ton programme ?" pour un utilisateur onboardé sans plan
+
+### FIX 3 — Console.log : FALSE POSITIVE ✅ (aucune modification)
+- 7 console.log détectés par grep sont TOUS dans des blocs `if (DEBUG)` multi-lignes :
+  - `calcStreak` : `var DEBUG = window.DEBUG_STREAK === true; if (DEBUG) { ... }`
+  - `generateWeeklyPlan` : `if (typeof DEBUG !== 'undefined' && DEBUG) { ... }`
+- Pattern grep `grep -v "if.*DEBUG"` ne filtre que les guards sur la même ligne → faux positif
+
+### FIX 4 — Chart.js local : BLOQUÉ (réseau) 🔴
+- CDN `cdnjs.cloudflare.com` et `cdn.jsdelivr.net` bloqués en environnement CI
+- **Action manuelle requise** : `curl -o js/chart.min.js https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js`
+- Puis : remplacer `<script src="https://cdn.jsdelivr.net/npm/chart.js">` par `<script src="js/chart.min.js">` dans index.html
+- Puis : ajouter `/sbd-hub/js/chart.min.js` dans `ASSETS_TO_CACHE` du service-worker.js
+
+### FIX 5 — Inputs GO pré-remplis : CONFIRMÉ ✅ (aucune modification)
+- `renderGoExoCard()` lines 19123-19124 : `wVal = set.weight`, `rVal = set.reps`
+- `_goDoStartWorkout()` lines 18692-18708 : pre-fill sets depuis `weeklyPlan.exercises[].sets`
+- Les poids et reps suggérés par l'algo sont déjà dans les inputs au démarrage de séance
+
+### FIX 6 — Galettes rétractables ✅ — commit dc707f6
+- `renderGoExoCard()` : "🏋️ Galettes ▾" → tap pour révéler/cacher (display toggle)
+- Réduit la pollution visuelle pendant la séance
+
+### FIX 7 — IndexedDB backup : CONFIRMÉ ✅ (aucune modification)
+- `goAutoSave()` (l.18060) appelle déjà `backupWorkoutToIDB()` explicitement
+
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste

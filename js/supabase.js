@@ -762,7 +762,15 @@ function showFeedSub(subId, btn) {
   if (typeof _updateLastTab === 'function') _updateLastTab('social', subId);
 }
 
+var _socialLastInit = 0;
 async function initSocialTab() {
+  // Throttle: skip full re-init if already initialized in last 30s and DOM has content
+  var now = Date.now();
+  if (now - _socialLastInit < 30000) {
+    var hasContent = document.querySelector('#feed-amis .feed-post, #feedAmisContent .feed-post, #feedAmisContent [class*="friend"]');
+    if (hasContent) { initNotifications(); return; }
+  }
+  _socialLastInit = now;
   if (!supaClient || !cloudSyncEnabled) {
     var amis = document.getElementById('feedAmisContent');
     if (amis) amis.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">☁️</div><div class="feed-empty-title">Connexion requise</div><div class="feed-empty-sub">Connecte-toi au cloud dans Profil > Réglages pour accéder au module social.</div><button onclick="showTab(\'tab-profil\');showProfilSub(\'tab-settings\');setTimeout(function(){toggleAcc(\'acc-cloud\');},200);" style="margin-top:14px;background:var(--blue);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Se connecter au cloud →</button></div>';

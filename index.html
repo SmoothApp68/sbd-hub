@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- CSP — Report-Only mode (RGPD PRIORITÉ 5) -->
+  <meta http-equiv="Content-Security-Policy-Report-Only"
+    content="default-src 'self';
+      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https://raw.githubusercontent.com;
+      connect-src 'self' https://swwygywahfdenyzotrce.supabase.co wss://swwygywahfdenyzotrce.supabase.co;
+      font-src 'self';
+      media-src 'none';
+      object-src 'none';
+      base-uri 'self';">
   <title>TrainHub</title>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">

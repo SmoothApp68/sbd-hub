@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {} },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -209,6 +209,9 @@ let db = (() => {
     // LP 3-Strikes system
     if (p.user.lpActive === undefined) p.user.lpActive = (p.logs || []).length < 24;
     if (!p.user.lpStrikes) p.user.lpStrikes = {};
+    // RGPD — health data consent
+    if (p.user.consentHealth === undefined) p.user.consentHealth = false;
+    if (p.user.consentHealthDate === undefined) p.user.consentHealthDate = null;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -837,6 +840,241 @@ function showToast(msg) { const t = document.createElement('div'); t.className =
 function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="this.closest(\'.modal-overlay\').remove()" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; document.body.appendChild(o); }
 function closeModal() { var el = document.querySelector('.modal-overlay'); if (el) el.remove(); }
 function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
+// ============================================================
+// RGPD & SÉCURITÉ — Priorités Pré-Bêta
+// ============================================================
+
+// ── PRIORITÉ 1 — Consentement données de santé ──────────────
+
+function checkRequiredConsents() {
+  if (!db.user.consentHealth) {
+    setTimeout(showConsentModal, 600);
+  }
+}
+
+function showConsentModal() {
+  var existing = document.getElementById('consentHealthOverlay');
+  if (existing) return;
+  var o = document.createElement('div');
+  o.id = 'consentHealthOverlay';
+  o.className = 'modal-overlay';
+  o.style.cssText = 'z-index:10000;';
+  o.innerHTML = '<div class="modal-box" style="max-width:380px;padding:20px;text-align:left;">'
+    + '<div style="font-size:18px;font-weight:800;margin-bottom:4px;">🔒 Données de santé</div>'
+    + '<div style="font-size:11px;color:var(--sub);margin-bottom:14px;">Conformité RGPD — Art. 9</div>'
+    + '<div style="font-size:13px;line-height:1.6;color:var(--text);margin-bottom:16px;">'
+    + 'TrainHub collecte des <strong>données de santé</strong> (fréquence cardiaque au repos, HRV, '
+    + 'suivi menstruel) pour personnaliser tes séances.<br><br>'
+    + 'Ces données sont stockées <strong>localement sur ton appareil</strong> et synchronisées de '
+    + 'façon chiffrée sur nos serveurs. Elles ne sont jamais partagées ni vendues.<br><br>'
+    + 'Tu peux retirer ton consentement à tout moment dans Réglages → Confidentialité.'
+    + '</div>'
+    + '<div style="display:flex;gap:10px;">'
+    + '<button onclick="revokeHealthConsent(true)" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--sub);font-size:13px;font-weight:600;cursor:pointer;">Refuser</button>'
+    + '<button onclick="grantHealthConsent()" style="flex:2;padding:11px;border-radius:10px;border:none;background:var(--accent);color:white;font-size:13px;font-weight:700;cursor:pointer;">J\'accepte</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(o);
+}
+
+function grantHealthConsent() {
+  db.user.consentHealth = true;
+  db.user.consentHealthDate = new Date().toISOString();
+  saveDB();
+  var el = document.getElementById('consentHealthOverlay');
+  if (el) el.remove();
+  if (typeof renderSettingsProfile === 'function') {
+    var sec = document.getElementById('settingsRGPDSection');
+    if (sec) renderRGPDSection(sec);
+  }
+}
+
+function revokeHealthConsent(fromModal) {
+  if (fromModal) {
+    db.user.consentHealth = false;
+    db.user.consentHealthDate = null;
+    saveDB();
+    var el = document.getElementById('consentHealthOverlay');
+    if (el) el.remove();
+    return;
+  }
+  showModal(
+    'Retirer ton consentement désactivera les modules HRV, FC repos et suivi menstruel. Continuer ?',
+    'Retirer', 'var(--red)',
+    function() {
+      db.user.consentHealth = false;
+      db.user.consentHealthDate = null;
+      saveDB();
+      var sec = document.getElementById('settingsRGPDSection');
+      if (sec) renderRGPDSection(sec);
+      showToast('Consentement retiré. Données de santé désactivées.');
+    }
+  );
+}
+
+function renderRGPDSection(container) {
+  if (!container) return;
+  var hasConsent = db.user.consentHealth === true;
+  var consentDate = db.user.consentHealthDate
+    ? new Date(db.user.consentHealthDate).toLocaleDateString('fr-FR')
+    : null;
+  container.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">🔒 Confidentialité & RGPD</div>'
+    + '<div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:10px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div>'
+    + '<div style="font-size:13px;font-weight:600;">Données de santé</div>'
+    + '<div style="font-size:11px;color:var(--sub);">'
+    + (hasConsent
+       ? '✅ Consentement donné' + (consentDate ? ' le ' + consentDate : '')
+       : '❌ Non consenti — HRV/FC désactivés')
+    + '</div>'
+    + '</div>'
+    + (hasConsent
+       ? '<button onclick="revokeHealthConsent(false)" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--red);background:rgba(255,59,48,0.1);color:var(--red);">Retirer</button>'
+       : '<button onclick="showConsentModal()" style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--accent);background:rgba(10,132,255,0.1);color:var(--accent);">Consentir</button>')
+    + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:10px;">'
+    + '<button onclick="exportUserData()" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">📥 Exporter mes données</button>'
+    + '</div>'
+    + '<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">'
+    + '<div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:8px;">Zone Danger</div>'
+    + '<button onclick="requestAccountDeletion()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--red);background:rgba(255,59,48,0.08);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;">🗑 Supprimer mon compte</button>'
+    + '</div>';
+}
+
+// ── PRIORITÉ 2 — IndexedDB workout backup ───────────────────
+
+var _idbDb = null;
+var IDB_NAME = 'sbd-hub-backup';
+var IDB_STORE = 'workout';
+
+function initWorkoutIDB() {
+  return new Promise(function(resolve, reject) {
+    if (_idbDb) { resolve(_idbDb); return; }
+    var req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = function(e) {
+      e.target.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = function(e) { _idbDb = e.target.result; resolve(_idbDb); };
+    req.onerror = function() { reject(req.error); };
+  });
+}
+
+function backupWorkoutToIDB() {
+  if (!activeWorkout) return;
+  initWorkoutIDB().then(function(db_) {
+    var tx = db_.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put({ id: 'active', data: activeWorkout, ts: Date.now() });
+  }).catch(function(e) { console.warn('IDB backup failed:', e); });
+}
+
+function restoreWorkoutFromIDB() {
+  return initWorkoutIDB().then(function(db_) {
+    return new Promise(function(resolve) {
+      var tx = db_.transaction(IDB_STORE, 'readonly');
+      var req = tx.objectStore(IDB_STORE).get('active');
+      req.onsuccess = function() { resolve(req.result || null); };
+      req.onerror = function() { resolve(null); };
+    });
+  }).catch(function() { return null; });
+}
+
+function clearWorkoutIDB() {
+  initWorkoutIDB().then(function(db_) {
+    var tx = db_.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete('active');
+  }).catch(function(){});
+}
+
+function checkWorkoutBackup() {
+  if (activeWorkout) return;
+  restoreWorkoutFromIDB().then(function(record) {
+    if (!record || !record.data) return;
+    var ageMins = (Date.now() - record.ts) / 60000;
+    if (ageMins > 240) { clearWorkoutIDB(); return; }
+    showModal(
+      'Séance en cours récupérée (' + Math.round(ageMins) + ' min). Reprendre ?',
+      'Reprendre', 'var(--accent)',
+      function() {
+        activeWorkout = record.data;
+        clearWorkoutIDB();
+        if (typeof renderActiveWorkout === 'function') renderActiveWorkout();
+        showTab('workout');
+      },
+      function() { clearWorkoutIDB(); }
+    );
+  });
+}
+
+// ── PRIORITÉ 3 — Suppression de compte (Art. 17) ────────────
+
+function requestAccountDeletion() {
+  showModal(
+    '⚠️ Supprimer ton compte ? Toutes tes données (séances, programme, profil) seront définitivement effacées. Cette action est irréversible.',
+    'Supprimer définitivement', 'var(--red)',
+    function() {
+      showModal(
+        'Dernière confirmation : taper "SUPPRIMER" n\'est pas requis mais tu perds TOUT. Confirmer la suppression ?',
+        'Oui, supprimer', 'var(--red)',
+        async function() {
+          try {
+            if (supaClient && cloudSyncEnabled) {
+              await supaClient.rpc('delete_user_complete_data');
+            }
+          } catch(e) { console.warn('delete_user_complete_data RPC:', e); }
+          try { localStorage.removeItem('SBD_HUB_V29'); } catch(e) {}
+          try { clearWorkoutIDB(); } catch(e) {}
+          if (supaClient) {
+            try { await supaClient.auth.signOut(); } catch(e) {}
+          }
+          if (typeof showLoginScreen === 'function') showLoginScreen();
+          else location.reload();
+        }
+      );
+    }
+  );
+}
+
+// ── PRIORITÉ 4 — Export des données (Art. 20) ───────────────
+
+function exportUserData() {
+  var exportData = {
+    exportDate: new Date().toISOString(),
+    appVersion: 'SBD-Hub',
+    profile: {
+      name: db.user.name,
+      bw: db.user.bw,
+      height: db.user.height,
+      age: db.user.age,
+      gender: db.user.gender,
+      level: db.user.level,
+      trainingMode: db.user.trainingMode,
+      goal: db.user.goal,
+      onboardingDate: db.user.onboardingDate,
+      consentHealth: db.user.consentHealth,
+      consentHealthDate: db.user.consentHealthDate
+    },
+    workoutLogs: db.logs || [],
+    exercises: db.exercises || {},
+    bestPR: db.bestPR || {},
+    body: db.body || [],
+    reports: db.reports || [],
+    rhrHistory: db.rhrHistory || [],
+    weeklyLogs: db.weeklyLogs || []
+  };
+  var blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'sbd-hub-export-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Données exportées avec succès.');
+}
+
 function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
 function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
@@ -12813,6 +13051,17 @@ function renderSettingsProfile() {
   } else if (_wcSection) {
     _wcSection.innerHTML = '';
   }
+
+  // ── RGPD section ──
+  var _rgpdSection = document.getElementById('settingsRGPDSection');
+  if (!_rgpdSection) {
+    _rgpdSection = document.createElement('div');
+    _rgpdSection.id = 'settingsRGPDSection';
+    _rgpdSection.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+    var _rgpdParent = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+    if (_rgpdParent && _rgpdParent.parentNode) _rgpdParent.parentNode.appendChild(_rgpdSection);
+  }
+  renderRGPDSection(_rgpdSection);
 }
 
 // ── Health Connect / Garmin (TÂCHE 17) ──────────────────────
@@ -17349,6 +17598,7 @@ let _goMusclesExpanded = false;
 function goAutoSave() {
   if (activeWorkout) {
     try { localStorage.setItem('SBD_ACTIVE_WORKOUT', JSON.stringify(activeWorkout)); } catch(e) {}
+    backupWorkoutToIDB();
   }
 }
 function goStartAutoSave() { goStopAutoSave(); _goAutoSaveId = setInterval(goAutoSave, 30000); }
@@ -20861,6 +21111,7 @@ function goFinishWorkout() {
 
   // Cleanup
   try { localStorage.removeItem('SBD_ACTIVE_WORKOUT'); } catch(e) {}
+  clearWorkoutIDB();
   goStopAutoSave();
   goStopSessionTimer();
   goSkipRest();
@@ -21210,6 +21461,10 @@ async function postLoginSync() {
     }
     // Notifications J1→J30
     if (typeof checkScheduledNotifications === 'function') checkScheduledNotifications();
+    // RGPD — check health consent
+    checkRequiredConsents();
+    // RGPD — recover in-progress workout from IDB after token refresh
+    checkWorkoutBackup();
   } catch(e) {
     console.error('postLoginSync error:', e);
   }

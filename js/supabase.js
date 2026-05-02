@@ -72,6 +72,10 @@ if (supaClient) {
       cloudSyncEnabled = true;
       ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
     }
+    // Silent token refresh — recover in-progress workout from IDB
+    if (event === 'TOKEN_REFRESHED') {
+      if (typeof checkWorkoutBackup === 'function') checkWorkoutBackup();
+    }
   });
 }
 

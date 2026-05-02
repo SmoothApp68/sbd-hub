@@ -3262,6 +3262,58 @@ function calcTRIMPFromGarminZones(zonesData, activityType) {
   return Math.round(total * cSpec);
 }
 
+// ── FEATURE 1 — Warm-up Generator ────────────────────────────
+var WARMUP_PROTOCOL_HEAVY = [
+  { pctOfWork: 0,    reps: 12, rest: 60,  label: 'Barre à vide' },
+  { pctOfWork: 0.50, reps: 5,  rest: 90,  label: '50%' },
+  { pctOfWork: 0.70, reps: 3,  rest: 120, label: '70%' },
+  { pctOfWork: 0.87, reps: 1,  rest: 180, label: 'Feeler Set' }
+];
+
+var WARMUP_PROTOCOL_VOLUME = [
+  { pctOfWork: 0,    reps: 10, rest: 60, label: 'Barre à vide' },
+  { pctOfWork: 0.50, reps: 5,  rest: 90, label: '50%' },
+  { pctOfWork: 0.70, reps: 3,  rest: 90, label: '70%' }
+];
+
+var WARMUP_ACTIVATION = {
+  squat: [
+    '90/90 Hip Stretch (30s par côté)',
+    'Goblet Squat profond × 10'
+  ],
+  bench: [
+    'Band Pull-apart × 15',
+    'Rotation externe élastique × 12 par côté'
+  ],
+  deadlift: [
+    'Bird-Dog × 10 par côté',
+    'Hip Hinge Kettlebell léger × 10'
+  ]
+};
+
+function generateWarmupSets(workWeight, e1rm, liftType, isEarlyMorning) {
+  if (!workWeight || workWeight <= 0) return [];
+  var barWeight = (db.user && db.user.barWeight) || 20;
+  var intensityPct = e1rm > 0 ? workWeight / e1rm : 0.80;
+  var isHeavy = intensityPct >= 0.80;
+  var protocol = isHeavy ? WARMUP_PROTOCOL_HEAVY : WARMUP_PROTOCOL_VOLUME;
+  var sets = [];
+  if (isEarlyMorning) {
+    sets.push({ type: 'warmup', label: 'Cardio léger', weight: 0, reps: 0,
+      rest: 300, note: '5 min vélo ou marche rapide', isWarmup: true });
+  }
+  protocol.forEach(function(step) {
+    var weight = step.pctOfWork === 0
+      ? barWeight
+      : Math.round(workWeight * step.pctOfWork / 2.5) * 2.5;
+    if (weight >= workWeight) return;
+    sets.push({ type: 'warmup', label: step.label, weight: weight,
+      reps: step.reps, rest: step.rest, isWarmup: true,
+      isFeeler: step.pctOfWork >= 0.85 });
+  });
+  return sets;
+}
+
 // ── Plate Calculator ─────────────────────────────────────────
 function calcPlates(targetWeight, barWeight) {
   var bar = barWeight
@@ -3288,6 +3340,31 @@ function formatPlates(targetWeight, barWeight) {
   return Object.keys(counts).sort(function(a, b) { return b - a; }).map(function(p) {
     return (counts[p] > 1 ? counts[p] + '×' : '') + p + 'kg';
   }).join(' + ') + ' (par côté)';
+}
+
+// ── FEATURE 3 — Unités kg/lbs (stockage toujours en kg) ──────
+var PLATES_US_LBS = [45, 35, 25, 10, 5, 2.5];
+var PLATES_EU_KG  = [25, 20, 15, 10, 5, 2.5, 1.25, 0.5];
+
+function getPlatesSet() {
+  return (db.user && db.user.units === 'lbs') ? PLATES_US_LBS : PLATES_EU_KG;
+}
+
+function toDisplayWeight(kg) {
+  if (kg === null || kg === undefined) return kg;
+  if (db.user && db.user.units === 'lbs') return Math.round(kg * 2.20462 * 10) / 10;
+  return kg;
+}
+
+function toDisplayWeightLabel() {
+  return (db.user && db.user.units === 'lbs') ? 'lbs' : 'kg';
+}
+
+function fromDisplayWeight(displayVal) {
+  var v = parseFloat(displayVal);
+  if (isNaN(v)) return 0;
+  if (db.user && db.user.units === 'lbs') return Math.round(v / 2.20462 * 100) / 100;
+  return v;
 }
 
 // ── FIX 1 — Temps de repos par intensité (PCr) ──────────────

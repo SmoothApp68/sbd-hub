@@ -301,7 +301,8 @@ function calcWeeklyTRIMPForce(logs) {
       });
     });
   });
-  return total;
+  // FIX 2: divide by 15 to align with Bannister cardio TRIMP scale
+  return Math.round(total / 15);
 }
 
 function calcChronicTRIMPForce(logs) {
@@ -319,7 +320,8 @@ function calcChronicTRIMPForce(logs) {
       });
     });
   });
-  return total / 4;
+  // FIX 2: weekly avg (÷4) then normalize (÷15) = ÷60
+  return Math.round(total / 60);
 }
 
 // ── HRV z-score (normalisé sur 7j) ────────────────────────────────────────
@@ -327,15 +329,18 @@ function calcChronicTRIMPForce(logs) {
 // z < -1.5 → Fatigue nerveuse (réduire le score)
 function calcHRVZScore() {
   var history = db.rhrHistory || [];
-  var hrvValues = history.slice(0, 7)
+  // FIX 3: look at up to 10 entries, require minimum 7 valid HRV readings
+  var hrvValues = history.slice(0, 10)
     .filter(function(e) { return e && e.hrv; })
     .map(function(e) { return e.hrv; });
-  if (hrvValues.length < 3) return null;
+  if (hrvValues.length < 7) return null;
   var todayHRV = hrvValues[0];
   var mean = hrvValues.reduce(function(a, b) { return a + b; }, 0) / hrvValues.length;
   var variance = hrvValues.reduce(function(a, b) { return a + Math.pow(b - mean, 2); }, 0) / hrvValues.length;
   var std = Math.sqrt(variance) || 1;
-  return (todayHRV - mean) / std;
+  // FIX 3: cap z-score at ±3 to prevent outlier distortion
+  var z = (todayHRV - mean) / std;
+  return Math.max(-3, Math.min(3, z));
 }
 
 // ── SCORE COACH SRS (Stress / Recovery / State) ──

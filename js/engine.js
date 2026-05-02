@@ -2814,6 +2814,36 @@ function analyzeAthleteProfile() {
     sections.push({ title: '📈 Analyse Progression SBD', alerts: progressionAlerts });
   }
 
+  // ── SECTION 8 : PROFIL NEUROMUSCULAIRE (DUP zones) ──
+  var neuroAlerts = [];
+  var mainLifts = ['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)'];
+  mainLifts.forEach(function(liftName) {
+    var exo = db.exercises && db.exercises[liftName];
+    if (!exo || !exo.zones) return;
+    var forceE1RM = exo.zones.force && exo.zones.force.e1rm || 0;
+    var hypertE1RM = exo.zones.hypertrophie && exo.zones.hypertrophie.e1rm || 0;
+    if (!forceE1RM || !hypertE1RM) return;
+    var ratio = forceE1RM / hypertE1RM;
+    if (ratio > 1.15) {
+      neuroAlerts.push({
+        severity: 'info',
+        title: '⚡ Profil Neurologique — ' + liftName,
+        text: 'Ratio Force/Hypertrophie : ' + ratio.toFixed(2)
+          + '. Dominance neuromusculaire. Un bloc GPP renforcerait l\'endurance musculaire.'
+      });
+    } else if (ratio < 1.02) {
+      neuroAlerts.push({
+        severity: 'info',
+        title: '💪 Profil Endurance — ' + liftName,
+        text: 'Ratio Force/Hypertrophie : ' + ratio.toFixed(2)
+          + '. Dominance endurance musculaire. Un bloc d\'intensification améliorerait le recrutement neurologique.'
+      });
+    }
+  });
+  if (neuroAlerts.length) {
+    sections.push({ title: '🧠 Profil Neuromusculaire', alerts: neuroAlerts });
+  }
+
   return sections;
 }
 

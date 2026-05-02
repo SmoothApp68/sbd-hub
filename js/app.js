@@ -8803,7 +8803,7 @@ async function _doImportCSV(sessions) {
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
-  if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){showPRCelebration(_n,_bestPR[0][1],0);},500);}}
+  if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){_showLegacyPRCelebration(_n,_bestPR[0][1],0);},500);}}
   const suspectCount = Object.values(getSuspiciousRecordsSummary()).length;
   if (suspectCount > 0) {
     setTimeout(() => showToast('⚠️ ' + suspectCount + ' record' + (suspectCount>1?'s':'') + ' suspect' + (suspectCount>1?'s':'') + ' détecté' + (suspectCount>1?'s':'') + ' — vérifie dans Réglages → Correction des Records'), 1500);
@@ -10905,6 +10905,12 @@ function migrateActivityData() {
   migrateDUPRegisters();
   migrateActivityData();
   migrateBadges();
+
+  // Auto-generate weeklyPlan on J1 when programParams exist but no plan yet
+  if (db.user && db.user.onboarded && db.user.programParams && db.user.programParams.freq
+      && (!db.weeklyPlan || !Array.isArray(db.weeklyPlan.days) || !db.weeklyPlan.days.length)) {
+    try { if (typeof generateWeeklyPlan === 'function') generateWeeklyPlan(); } catch(e) {}
+  }
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
@@ -22248,9 +22254,9 @@ function goDiscardWorkout() {
 }
 
 // ============================================================
-// PR CELEBRATION OVERLAY
+// PR CELEBRATION OVERLAY (legacy — CSV import only)
 // ============================================================
-function showPRCelebration(liftName, newValue, oldValue) {
+function _showLegacyPRCelebration(liftName, newValue, oldValue) {
   var overlay = document.createElement('div');
   overlay.className = 'pr-celebration-overlay';
   overlay.innerHTML = '<div class="pr-celebration-box">' +

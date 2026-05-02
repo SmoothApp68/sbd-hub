@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20 },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -212,6 +212,8 @@ let db = (() => {
     // RGPD — health data consent
     if (p.user.consentHealth === undefined) p.user.consentHealth = false;
     if (p.user.consentHealthDate === undefined) p.user.consentHealthDate = null;
+    // Plate calculator bar weight
+    if (p.user.barWeight === undefined) p.user.barWeight = 20;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -13057,6 +13059,28 @@ function renderSettingsProfile() {
     _wcSection.innerHTML = '';
   }
 
+  // ── Poids de la barre ──
+  var _barSection = document.getElementById('settingsBarWeightSection');
+  if (!_barSection) {
+    _barSection = document.createElement('div');
+    _barSection.id = 'settingsBarWeightSection';
+    _barSection.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+    var _barParent = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+    if (_barParent && _barParent.parentNode) _barParent.parentNode.appendChild(_barSection);
+  }
+  var _bw = db.user.barWeight || 20;
+  var _barHtml = '<div style="font-size:13px;font-weight:700;margin-bottom:12px;">🏋️ Poids de la barre</div>';
+  _barHtml += '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Utilisé pour le calculateur de galettes</div>';
+  _barHtml += '<select id="settings-bar-weight" onchange="saveBarWeight(this.value)" '
+    + 'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);'
+    + 'background:var(--bg);color:var(--text);font-size:13px;">';
+  [['20', 'Olympique standard (20kg)'], ['15', 'Femmes / Compétition (15kg)'],
+   ['10', 'EZ Curl (10kg)'], ['5', 'Barre technique (5kg)']].forEach(function(opt) {
+    _barHtml += '<option value="' + opt[0] + '"' + (_bw == opt[0] ? ' selected' : '') + '>' + opt[1] + '</option>';
+  });
+  _barHtml += '</select>';
+  _barSection.innerHTML = _barHtml;
+
   // ── RGPD section ──
   var _rgpdSection = document.getElementById('settingsRGPDSection');
   if (!_rgpdSection) {
@@ -18556,6 +18580,10 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     }
     h += '</div>';
   }
+  if (isBarbellExercise(exo.name) && _suggestedW > 0 && typeof formatPlates === 'function') {
+    h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;padding-left:2px;">'
+      + '🏋️ ' + formatPlates(_suggestedW, db.user.barWeight || 20) + '</div>';
+  }
   h += '</div>';
   h += '<button class="go-exo-menu" onclick="goShowExoMenu(' + exoIdx + ')">⋮</button>';
   h += '</div>';
@@ -19981,6 +20009,16 @@ function _isInSameChain(startIdx, targetIdx) {
     current = activeWorkout.exercises[current] ? activeWorkout.exercises[current].supersetWith : undefined;
   }
   return false;
+}
+
+function isBarbellExercise(exoName) {
+  return /barre|barbell|deadlift|squat|bench|soulevé|développé.*couché|rdl|sdt/i.test(exoName || '');
+}
+
+function saveBarWeight(val) {
+  db.user.barWeight = parseFloat(val) || 20;
+  saveDB();
+  showToast('Poids de barre mis à jour : ' + db.user.barWeight + 'kg');
 }
 
 // ── Calculateur de plateaux ──

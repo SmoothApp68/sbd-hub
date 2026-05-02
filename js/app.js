@@ -15145,6 +15145,22 @@ function hadGrindLastSession(liftType) {
   return false;
 }
 
+// FIX 5: e1RM is stabilized once the exercise has ≥3 logged sessions
+function isE1RMStabilized(exoName) {
+  if (!exoName) return true;
+  var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  var sessions = 0;
+  for (var i = 0; i < logs.length; i++) {
+    if ((logs[i].exercises || []).some(function(e) {
+      return typeof wpNormalizeName === 'function'
+        ? wpNormalizeName(e.name) === wpNormalizeName(exoName)
+        : e.name === exoName;
+    })) sessions++;
+    if (sessions >= 3) return true;
+  }
+  return false;
+}
+
 function wpComputeWorkWeight(liftType, bodyPart) {
   // Cold start: no logs yet — use onboarding PR or calibration weight
   if (typeof isColdStart === 'function' && isColdStart()) {
@@ -15288,46 +15304,62 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
-  // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
+  // FIX 1+5 — Pre-compute penalty multipliers (Kill Switch + stabilization guard)
+  var e1rmRef = (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm)
+    || (history.length > 0 ? history[0].e1rm : 0) || 0;
+
   var _wb = db.todayWellbeing;
   var _wbToday = new Date().toISOString().split('T')[0];
-  if (_wb && _wb.date === _wbToday && _wb.sleep <= 2) {
-    baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
+  var _sleepMult = (_wb && _wb.date === _wbToday && _wb.sleep <= 2) ? 0.95 : 1.0;
+
+  var _rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  var _rhrMult = _rhrAlert
+    ? (_rhrAlert.level === 'danger' ? 0.80 : (_rhrAlert.level === 'warning' ? 0.95 : 1.0))
+    : 1.0;
+
+  var _wcLiftType = typeof getSBDType === 'function' ? getSBDType(realName) : null;
+  var _wcPenalty = (db.user && db.user.weightCut && db.user.weightCut.active
+    && typeof calcWeightCutPenalty === 'function')
+    ? calcWeightCutPenalty(_wcLiftType) : 1.0;
+
+  var _actPenalties = typeof getActivityPenaltyFlags === 'function'
+    ? getActivityPenaltyFlags() : { flags: [] };
+  var _volFlag = _actPenalties.flags.find(function(f) { return f.type === 'volume' && f.reduction >= 1; });
+  var _actMult = _volFlag ? 0.97 : 1.0;
+
+  // FIX 5: skip physiological penalties until e1RM is stabilized (≥3 sessions)
+  var _stabilized = typeof isE1RMStabilized === 'function' ? isE1RMStabilized(realName) : true;
+
+  // FIX 1B: Emergency Kill Switch — cumulated penalty < 70% → active recovery
+  var _cumulPenalty = (_stabilized ? _sleepMult : 1.0)
+    * (_stabilized ? _rhrMult : 1.0)
+    * _wcPenalty
+    * (_stabilized ? _actMult : 1.0);
+  if (_cumulPenalty < 0.70) {
+    return { forceActiveRecovery: true, reason: 'Pénalités cumulées ' + Math.round(_cumulPenalty * 100) + '% < 70%' };
+  }
+
+  // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
+  if (_sleepMult < 1.0 && _stabilized) {
+    baseWeight = Math.round(baseWeight * _sleepMult / 2.5) * 2.5;
   }
 
   // RHR Penalty — Garmin Health Connect (TÂCHE 17 ÉTAPE D)
-  var _rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
-  if (_rhrAlert) {
-    if (_rhrAlert.level === 'danger') {
-      baseWeight = Math.round(baseWeight * 0.80 / 2.5) * 2.5;
-    } else if (_rhrAlert.level === 'warning') {
-      baseWeight = Math.round(baseWeight * 0.95 / 2.5) * 2.5;
-    }
+  if (_rhrMult < 1.0 && _stabilized) {
+    baseWeight = Math.round(baseWeight * _rhrMult / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
   }
 
   // Weight Cut Leverage Penalty (TÂCHE 19 ÉTAPE B)
-  if (db.user && db.user.weightCut && db.user.weightCut.active) {
-    var _wcLiftType = typeof getSBDType === 'function' ? getSBDType(realName) : null;
-    var _wcPenalty = typeof calcWeightCutPenalty === 'function'
-      ? calcWeightCutPenalty(_wcLiftType) : 1.0;
-    if (_wcPenalty < 1.0) {
-      baseWeight = Math.round(baseWeight * _wcPenalty / 2.5) * 2.5;
-      baseWeight = Math.max(20, baseWeight);
-    }
+  if (_wcPenalty < 1.0) {
+    baseWeight = Math.round(baseWeight * _wcPenalty / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
   }
 
   // Activity Penalty — TRIMP secondaire 24h (Total Load Management)
-  if (typeof getActivityPenaltyFlags === 'function') {
-    var _actPenalties = getActivityPenaltyFlags();
-    var _hasVolPenalty = _actPenalties.flags.some(function(f) { return f.type === 'volume'; });
-    if (_hasVolPenalty) {
-      var _volFlag = _actPenalties.flags.find(function(f) { return f.type === 'volume'; });
-      if (_volFlag && _volFlag.reduction >= 1) {
-        baseWeight = Math.round(baseWeight * 0.97 / 2.5) * 2.5;
-        baseWeight = Math.max(20, baseWeight);
-      }
-    }
+  if (_actMult < 1.0 && _stabilized) {
+    baseWeight = Math.round(baseWeight * _actMult / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
   }
 
   // Combined penalty floor: never drop below 60% of the pre-penalty base
@@ -15353,11 +15385,17 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   // PhysioManager — réduction de charge phase lutéale / folliculaire précoce
-  if (typeof getCycleCoeff === 'function') {
+  if (typeof getCycleCoeff === 'function' && _stabilized) {
     var _cycleCoeff = getCycleCoeff();
     if (_cycleCoeff < 1.0) {
       baseWeight = Math.round(baseWeight * _cycleCoeff / 2.5) * 2.5;
     }
+  }
+
+  // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence
+  if (e1rmRef > 0) {
+    var hardCap = Math.round(e1rmRef * 1.025 / 2.5) * 2.5;
+    if (baseWeight > hardCap) baseWeight = hardCap;
   }
 
   // Shadow Weight : conserver le float théorique pour progression fine

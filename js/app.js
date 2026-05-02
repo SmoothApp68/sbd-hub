@@ -13710,6 +13710,15 @@ function renderCoachTodayHTML() {
     }
   }
 
+  // ── 0b3. RETURN-TO-PLAY ──
+  var _absence = typeof getAbsencePenalty === 'function' ? getAbsencePenalty() : null;
+  if (_absence && _absence.message && coachProfile !== 'silent') {
+    html += '<div style="background:rgba(10,132,255,0.1);border:1px solid var(--accent);'
+      + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
+      + '<div style="font-size:13px;color:var(--accent);">' + _absence.message + '</div>'
+      + '</div>';
+  }
+
   // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──
   if (coachProfile !== 'silent') {
     var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
@@ -15784,6 +15793,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     ? getMentalRecoveryPenalty() : 1.0;
   if (_mentalPenalty < 1.0 && _stabilized) {
     baseWeight = Math.round(baseWeight * _mentalPenalty / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+  }
+
+  // Return-to-Play penalty (désadaptation tendineuse après absence prolongée)
+  var _absencePenalty = typeof getAbsencePenalty === 'function'
+    ? getAbsencePenalty() : { factor: 1.0 };
+  if (_absencePenalty.factor < 1.0 && _stabilized) {
+    baseWeight = Math.round(baseWeight * _absencePenalty.factor / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
   }
 

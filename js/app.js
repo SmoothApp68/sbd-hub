@@ -10869,6 +10869,12 @@ var NOTIFICATION_SCHEDULE = [
   { day: 3,  type: 'reminder', trigger: 'training_time',
     title: 'C\'est l\'heure 💪',
     body: 'Prêt à battre ton record ? Ton programme t\'attend.' },
+  { day: 6,  type: 'milestone', trigger: 'evening',
+    title: 'Bilan de ta première semaine 💪',
+    body: 'Tu as complété ta 1ère semaine ! '
+      + 'Ton programme est maintenant calibré sur toi. '
+      + 'Les vrais résultats commencent à partir de la semaine 2.',
+    profileFilter: 'debutant' },
   { day: 7,  type: 'milestone', trigger: 'morning',
     title: 'Semaine 1 validée 🎯',
     body: 'Tu as soulevé {{tonnage}} tonnes cette semaine. Continue !' },
@@ -10911,6 +10917,7 @@ async function checkScheduledNotifications() {
     var notif = NOTIFICATION_SCHEDULE[i];
     if (notif.day !== daysSince) continue;
     if (sent.indexOf('day_' + notif.day) >= 0) continue;
+    if (notif.profileFilter && db.user.obProfile !== notif.profileFilter) continue;
 
     var shouldSend = false;
     if (notif.trigger === 'morning' || notif.trigger === 'evening'

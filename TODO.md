@@ -393,6 +393,32 @@
 - `goUpdateSetValue()` : fromDisplayWeight() appliqué pour le champ weight
 - `defaultDB` + `migrateDB` : `db.user.units = 'kg'`, `medicalConsent`, `medicalConsentDate`
 
+## ✅ SESSION — Audit + Optimisations v138 → v139 (2 mai 2026)
+- SW : v138 → **v139**
+
+### TÂCHE 1 — Branches non-mergées : analyse complète ✅
+Toutes les 5 branches basées sur codebase du 25 avril 2026 (17k lignes vs 21k en main).
+Pas de merge base commun → merge git impossible (168+ conflits sur app.js seul).
+**Toutes les améliorations utiles sont déjà dans main :**
+- `fix-ux-audit-issues` : forme score guard ✓ (l.11530), title chooser guard ✓ (l.5889), pills scrollable ✓ (CSS), rangs SBD conditional ✓ (l.6030)
+- `fix-social-tab-loading` : `_getWeekStart` unique ✓ (l.3270), dead functions déjà supprimés (TÂCHE 8)
+- `add-muscle-badges` : nécessite `assets/badges/*.png` (manquants) + `computeMuscleTonnage()` — **reporter à future session avec assets**
+- `feed-program-modulable` : Feed V2 complexe, trop divergent — **reporter à future sprint**
+- `audit/dead-functions-backup` : dead code déjà supprimé (TÂCHE 8)
+
+### TÂCHE 2 — Optimisation chargement Social tab ✅
+- `supabase.js` : `_socialLastInit` throttle 30s dans `initSocialTab()`
+- Évite re-fetch Supabase à chaque switch vers onglet Social
+- Patterns `refreshUI()` + `showTab()` déjà optimisés (render active tab only)
+
+### TÂCHE 3 — Splash screen + 404 ✅ (déjà implémentés)
+- Splash `#splashScreen` : déjà en index.html (l.1901), fade-out après 1s (l.3289)
+- Route inconnue : déjà gérée dans `_restoreTab()` (l.2556) — fallback vers tab-dash
+
+### TÂCHE 4 — Screenshots audit supprimés du repo ✅
+- 130 fichiers supprimés (audit/screenshots/**)
+- `.gitignore` mis à jour : `audit/screenshots/`
+
 ## ✅ SESSION — Beta Tester Simulation v137 → v138 (2 mai 2026)
 - SW : v137 → **v138** (1 fix)
 

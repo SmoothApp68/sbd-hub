@@ -10906,11 +10906,13 @@ function migrateActivityData() {
   migrateActivityData();
   migrateBadges();
 
-  // Auto-generate weeklyPlan on J1 when programParams exist but no plan yet
-  if (db.user && db.user.onboarded && db.user.programParams && db.user.programParams.freq
-      && (!db.weeklyPlan || !Array.isArray(db.weeklyPlan.days) || !db.weeklyPlan.days.length)) {
-    try { if (typeof generateWeeklyPlan === 'function') generateWeeklyPlan(); } catch(e) {}
-  }
+  // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
+  setTimeout(function() {
+    if (db.user && db.user.onboarded && db.user.programParams && db.user.programParams.freq
+        && (!db.weeklyPlan || !Array.isArray(db.weeklyPlan.days) || !db.weeklyPlan.days.length)) {
+      try { if (typeof generateWeeklyPlan === 'function') generateWeeklyPlan(); } catch(e) {}
+    }
+  }, 0);
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {

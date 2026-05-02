@@ -360,7 +360,7 @@
 - `checkWaitlistRoute()` : détecte `#waitlist` ou `?waitlist` — skip app init, affiche waitlist
 - `submitWaitlist()` : insert Supabase `waitlist` table, gère erreur 23505 (doublon email)
 - `init()` : `checkWaitlistRoute()` en premier
-- ⚠️ **Migration Supabase requise** : créer table `waitlist` (email, profile, created_at, id)
+- ✅ **Migration Supabase appliquée** : table `waitlist` créée (RLS activée, policy `waitlist_anon_insert`)
 
 ## ✅ SESSION — Warm-up Generator + Accessibilité + i18n v135 → v136 (mai 2026)
 - SW : v135 → **v136** (3 commits)
@@ -402,20 +402,11 @@
   - Features à gater : SRS dynamique, APRE avancé, analyzeAthleteProfile complet
   - Exposer db.user.fatPct dans UI Réglages pour Katch-McArdle (F3)
 
-## Migrations Supabase en attente
+## Migrations Supabase — Historique
 
-### ⚠️ WAITLIST TABLE — à créer par Claude.ai
-```sql
-CREATE TABLE waitlist (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  profile TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
--- RLS : lecture interdite en public, insert autorisé (sans auth)
-ALTER TABLE waitlist ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "waitlist_insert" ON waitlist FOR INSERT WITH CHECK (true);
-```
+### ✅ WAITLIST TABLE — Appliquée le 2 mai 2026
+- Table `waitlist` (id, email UNIQUE, profile, created_at)
+- RLS activée, policy `waitlist_anon_insert` (INSERT FOR anon WITH CHECK true)
 
 ### Migrations historiques
 (à appliquer par Claude.ai après chaque tâche)

@@ -5947,6 +5947,10 @@ function calcXPBreakdown() {
 async function _renderLeaderboard() {
   var el = document.getElementById('gamLeaderboard');
   if (!el) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:12px;">📶 Classement disponible en ligne uniquement.</div>';
+    return;
+  }
   el.innerHTML = '<div style="font-size:12px;color:var(--sub);">Chargement...</div>';
   try {
     if (typeof supaClient === 'undefined' || !supaClient) { el.innerHTML = ''; return; }
@@ -7991,6 +7995,8 @@ function renderDayExercises(day) {
 }
 
 function _initSparkTooltips(container) {
+  if (container._tooltipsAttached) return;
+  container._tooltipsAttached = true;
   container.addEventListener('mouseenter', function(e) {
     var hit = e.target.closest('.spark-hit');
     if (!hit) return;
@@ -18374,7 +18380,10 @@ function buildGoIdleHtml() {
     heroHtml = '<div class="go-hero" style="text-align:center;">'+
       '<div style="font-size:36px;margin-bottom:8px;">😴</div>'+
       '<div class="go-hero-title">Jour de repos</div>'+
-      '<div class="go-hero-sub">Récupération — profite bien !</div>'+
+      '<div class="go-hero-sub">Ton programme prévoit une récupération aujourd\'hui.<br>Tu peux quand même démarrer une séance libre.</div>'+
+      '<button onclick="_goDoStartWorkout(true);if(typeof goRequestRender===\'function\')goRequestRender();" '+
+        'style="margin-top:14px;padding:10px 20px;background:var(--surface);border:1px solid var(--border);'+
+        'border-radius:10px;color:var(--sub);font-size:13px;cursor:pointer;">Démarrer quand même</button>'+
     '</div>';
   }
 

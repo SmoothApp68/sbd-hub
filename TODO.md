@@ -177,6 +177,29 @@
 - ℹ️ Quelques tables avec roles={public} pour write — sécurité via WITH CHECK
 - ℹ️ SELECT ouverts sur tables sociales (challenges/leaderboard/reactions) — intentionnel
 
+## ✅ SESSION — Cohérence Algorithmique v129 → v130 (mai 2026)
+- SW : v129 → **v130** (5 commits)
+
+### FIX 1+5 — Hard Cap + Kill Switch + Cold Start Guard ✅ — commit a556516
+- `isE1RMStabilized(exoName)` : vrai si ≥3 sessions de l'exercice dans db.logs
+- Hard Cap : `baseWeight ≤ e1rmRef × 1.025` arrondi à 2.5kg (après toutes pénalités)
+- Kill Switch : si pénalités cumulées < 70% → return `{forceActiveRecovery:true}`
+- Pénalités physiologiques (sommeil/RHR/cycle/activité) skippées jusqu'à stabilisation
+
+### FIX 2+3 — TRIMP Force normalisé + HRV robuste ✅ — commit a3499c7
+- `calcWeeklyTRIMPForce` : divisé par 15 (alignement échelle Bannister cardio)
+- `calcChronicTRIMPForce` : divisé par 60 (weekly avg ÷15)
+- `calcHRVZScore` : exige minimum 7 lectures HRV (était 3), lit 10 entrées, z capé ±3
+
+### FIX 4 — classifyStagnation amélioré ✅ — commit 98d5330
+- Sur-atteinte : seuil continu `trend<-0.03` ou `trend<-0.015+rpe>9.5` (peak) / `rpe>9.0`
+- Nouveau cas `monitoring` entre consolidation et plateau_reel
+- Seuils élargis à 0.01 (était 0.005) pour détection réaliste
+
+### FIX 6 — Weight Cut 14j moving average ✅ — commit ac7218b
+- `getSmoothedBodyWeight()` : moyenne des `weeklyLogs[].weight` sur 14 jours
+- `calcWeightCutPenalty()` utilise poids lissé (plus de faux positifs rétention hormonale)
+
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste

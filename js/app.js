@@ -2673,163 +2673,159 @@ function getAllBadges() {
   const total       = B+S+D;
 
   // ── Séances ──
-  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Reçu à l\'Examen',          ref:'Bleach', desc:'Première séance — bienvenue à l\'Académie des Shinigamis', condition:'1 séance', ck:()=>db.logs.length>=1});
-  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Carte Shinigami',            ref:'Bleach', desc:'10 séances — ton diplôme de Shinigami est officiellement validé', condition:'10 séances', ck:()=>db.logs.length>=10});
-  b.push({id:'s25',   r:'uncommon',  icon:'🏘️', name:'Aventurier d\'Astrub',       ref:'Dofus',  desc:'25 séances — tu quittes enfin le tutoriel d\'Astrub', condition:'25 séances', ck:()=>db.logs.length>=25});
-  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Siège au Seireitei',         ref:'Bleach', desc:'50 séances — on t\'attribue enfin un siège dans une division', condition:'50 séances', ck:()=>db.logs.length>=50});
-  b.push({id:'s75',   r:'rare',      icon:'🛡️', name:'Chevalier de Bonta',         ref:'Dofus',  desc:'75 séances — la milice de Bonta te reconnaît comme l\'un des siens', condition:'75 séances', ck:()=>db.logs.length>=75});
-  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion',                  ref:'Bleach', desc:'100 séances — même un vice-capitaine te respecte désormais', condition:'100 séances', ck:()=>db.logs.length>=100});
-  b.push({id:'s200',  r:'epic',      icon:'🎓', name:'Maître de Guilde',           ref:'Dofus',  desc:'200 séances — ta guilde te suit les yeux fermés en toutes circonstances', condition:'200 séances', ck:()=>db.logs.length>=200});
-  b.push({id:'s300',  r:'epic',      icon:'⚔️', name:'Vice-Capitaine',             ref:'Bleach', desc:'300 séances — le haori blanc t\'attend au bout du couloir du Gotei 13', condition:'300 séances', ck:()=>db.logs.length>=300});
-  b.push({id:'s365',  r:'legendary', icon:'🌍', name:'Tour du Monde des Douze',    ref:'Dofus',  desc:'365 séances — tu as parcouru les 12 nations sans jamais fléchir', condition:'365 séances', ck:()=>db.logs.length>=365});
-  b.push({id:'s500',  r:'legendary', icon:'💀', name:'Capitaine du Gotei 13',      ref:'Bleach', desc:'500 séances — Yamamoto en personne t\'a nommé à la tête d\'une division', condition:'500 séances', ck:()=>db.logs.length>=500});
-  b.push({id:'s750',  r:'mythic',    icon:'🥚', name:'Gardien des 6 Dofus',        ref:'Dofus',  desc:'750 séances — les six œufs légendaires sont sous ta garde exclusive', condition:'750 séances', ck:()=>db.logs.length>=750});
-  b.push({id:'s1000', r:'divine',    icon:'🔥', name:'Bankai Éternel',             ref:'Bleach', desc:'1000 séances — ton Bankai ne se désactive plus jamais. Tu ES ton Bankai', condition:'1000 séances', ck:()=>db.logs.length>=1000});
+  b.push({id:'s1',    r:'common',    icon:'🎯', name:'Première Marque',          desc:'Première séance — bienvenue dans l\'arène. L\'aventure commence ici', condition:'1 séance', ck:()=>db.logs.length>=1});
+  b.push({id:'s10',   r:'uncommon',  icon:'📜', name:'Initié',                   desc:'10 séances — ton engagement est désormais officiel et reconnu', condition:'10 séances', ck:()=>db.logs.length>=10});
+  b.push({id:'s25',   r:'uncommon',  icon:'🏘️', name:'Apprenti Guerrier',        desc:'25 séances — tes premiers pas dans l\'arène sont gravés dans la pierre', condition:'25 séances', ck:()=>db.logs.length>=25});
+  b.push({id:'s50',   r:'rare',      icon:'⭐', name:'Guerrier Aguerri',         desc:'50 séances — ton nom commence à circuler parmi les pairs', condition:'50 séances', ck:()=>db.logs.length>=50});
+  b.push({id:'s75',   r:'rare',      icon:'🛡️', name:'Chevalier de Fer',         desc:'75 séances — la milice t\'accueille parmi ses rangs confirmés', condition:'75 séances', ck:()=>db.logs.length>=75});
+  b.push({id:'s100',  r:'epic',      icon:'🌟', name:'Centurion',                desc:'100 séances — trois chiffres. Un respect qui se gagne, jamais qui se donne', condition:'100 séances', ck:()=>db.logs.length>=100});
+  b.push({id:'s200',  r:'epic',      icon:'🎓', name:'Vétéran des Salles',       desc:'200 séances — ta guilde te suit les yeux fermés en toutes circonstances', condition:'200 séances', ck:()=>db.logs.length>=200});
+  b.push({id:'s300',  r:'epic',      icon:'⚔️', name:'Maître de Guerre',         desc:'300 séances — les novices te regardent avec un mélange de peur et d\'admiration', condition:'300 séances', ck:()=>db.logs.length>=300});
+  b.push({id:'s365',  r:'legendary', icon:'🌍', name:'Tour du Continent',        desc:'365 séances — tu as traversé chaque région sans jamais fléchir', condition:'365 séances', ck:()=>db.logs.length>=365});
+  b.push({id:'s500',  r:'legendary', icon:'💀', name:'Légende Vivante',          desc:'500 séances — ton histoire est déjà racontée dans les antres les plus sombres', condition:'500 séances', ck:()=>db.logs.length>=500});
+  b.push({id:'s750',  r:'mythic',    icon:'🥚', name:'Gardien des Légendes',     desc:'750 séances — les six artefacts légendaires sont sous ta garde exclusive', condition:'750 séances', ck:()=>db.logs.length>=750});
+  b.push({id:'s1000', r:'divine',    icon:'🔥', name:'Immortel',                 desc:'1000 séances — au-delà de tout. Tu transcendes la douleur, l\'espace, le temps', condition:'1000 séances', ck:()=>db.logs.length>=1000});
 
   // ── Volume par séance (max session) ──
-  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Tonneau d\'Astrub',           ref:'Dofus',  desc:'1t en une séance — les marchands d\'Astrub notent ton premier passage', condition:'1t en 1 séance', ck:()=>maxSessVol>=1000});
-  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur de Pandawa',           ref:'Dofus',  desc:'3t — même un Pandawa sobre ne porterait pas plus sans tituber', condition:'3t en 1 séance', ck:()=>maxSessVol>=3000});
-  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Reishi Compressé',             ref:'Bleach', desc:'5t — ton énergie spirituelle commence à peser comme des particules Reishi', condition:'5t en 1 séance', ck:()=>maxSessVol>=5000});
-  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Forgeron de Bonta',            ref:'Dofus',  desc:'10t en une séance — les forges de Bonta s\'inclinent devant ton labeur', condition:'10t en 1 séance', ck:()=>maxSessVol>=10000});
-  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Bankai Partiel',               ref:'Bleach', desc:'20t — ta libération commence à faire trembler les murs de la salle', condition:'20t en 1 séance', ck:()=>maxSessVol>=20000});
-  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Chaos d\'Ogrest',              ref:'Dofus',  desc:'30t — Ogrest lui-même a pleuré moins de tonnes en une seule journée', condition:'30t en 1 séance', ck:()=>maxSessVol>=30000});
-  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'Mugetsu',                      ref:'Bleach', desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance', condition:'40t en 1 séance', ck:()=>maxSessVol>=40000});
-  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Dieu Iop',                     ref:'Dofus',  desc:'50t en une séance — Goultard le Barbare en personne s\'incline', condition:'50t en 1 séance', ck:()=>maxSessVol>=50000});
-  b.push({id:'vs100', r:'divine',    icon:'💀', name:'Mais t\'es malade ?',          ref:'—',      desc:'100t en une séance — appelle un médecin, pas un coach', impossible:true, condition:'100t en 1 séance', ck:()=>false});
+  b.push({id:'vs1',   r:'common',    icon:'🪨', name:'Premier Chargement',       desc:'1t en une séance — les marchands notent ton premier passage', condition:'1t en 1 séance', ck:()=>maxSessVol>=1000});
+  b.push({id:'vs3',   r:'common',    icon:'🚛', name:'Porteur d\'Acier',         desc:'3t — même un colosse sobre ne porterait pas plus sans tituber', condition:'3t en 1 séance', ck:()=>maxSessVol>=3000});
+  b.push({id:'vs5',   r:'uncommon',  icon:'⚡', name:'Énergie Brute',             desc:'5t — ta puissance commence à dépasser l\'entendement ordinaire', condition:'5t en 1 séance', ck:()=>maxSessVol>=5000});
+  b.push({id:'v10t',  r:'rare',      icon:'🏗️', name:'Maître Forgeron',           desc:'10t en une séance — les forges s\'inclinent devant ton labeur', condition:'10t en 1 séance', ck:()=>maxSessVol>=10000});
+  b.push({id:'vs20',  r:'epic',      icon:'💥', name:'Libération Totale',         desc:'20t — tu puises dans des réserves que peu de mortels connaissent', condition:'20t en 1 séance', ck:()=>maxSessVol>=20000});
+  b.push({id:'vs30',  r:'legendary', icon:'🌊', name:'Marée de Fonte',            desc:'30t — les anciens eux-mêmes ont versé moins de larmes en une journée', condition:'30t en 1 séance', ck:()=>maxSessVol>=30000});
+  b.push({id:'vs40',  r:'mythic',    icon:'🌑', name:'L\'Ultime Sacrifice',       desc:'40t — tout ou rien. Tu brûles tout ce que tu as en une seule séance', condition:'40t en 1 séance', ck:()=>maxSessVol>=40000});
+  b.push({id:'vs50',  r:'divine',    icon:'✨', name:'Titan de la Fonte',         desc:'50t en une séance — le Titan Barbare en personne s\'incline', condition:'50t en 1 séance', ck:()=>maxSessVol>=50000});
+  b.push({id:'vs100', r:'divine',    icon:'💀', name:'Mais t\'es malade ?',       desc:'100t en une séance — appelle un médecin, pas un coach', impossible:true, condition:'100t en 1 séance', ck:()=>false});
 
   // ── Volume cumulatif total ──
-  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',           ref:'Dofus',  desc:'10t cumulées — la forge ne fait que commencer', condition:'10t cumulées', ck:()=>totalVol>=10000});
-  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan d\'Astrub',            ref:'Dofus',  desc:'50t — tes premiers pas d\'artisan sont validés par la guilde', condition:'50t cumulées', ck:()=>totalVol>=50000});
-  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',                 ref:'Bleach', desc:'100t — ton zanpakuto prend enfin une forme reconnaissable', condition:'100t cumulées', ck:()=>totalVol>=100000});
-  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Sacrieur Éprouvé',            ref:'Dofus',  desc:'250t — la douleur est devenue ton alliée la plus fidèle', condition:'250t cumulées', ck:()=>totalVol>=250000});
-  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Shikai du Tonnage',           ref:'Bleach', desc:'500t — ton zanpakuto rugit de satisfaction à chaque kilo supplémentaire', condition:'500t cumulées', ck:()=>totalVol>=500000});
-  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur du Monde',          ref:'Dofus',  desc:'1000t cumulées — assez pour remodeler les continents des Douze nations', condition:'1000t cumulées', ck:()=>totalVol>=1000000});
-  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure du Zanpakuto',        ref:'Bleach', desc:'2500t — ton nom est gravé dans la lame pour l\'éternité', condition:'2500t cumulées', ck:()=>totalVol>=2500000});
-  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien des Douze',           ref:'Dofus',  desc:'5000t — les 12 dieux reconnaissent enfin l\'étendue de ton labeur', condition:'5000t cumulées', ck:()=>totalVol>=5000000});
-  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Kenpachi du Volume',          ref:'Bleach', desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter', condition:'7500t cumulées', ck:()=>totalVol>=7500000});
-  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Krosmoz',                     ref:'Dofus',  desc:'10 000t cumulées — tu dépasses le monde des Douze. Tu ES le Krosmoz', condition:'10 000t cumulées', ck:()=>totalVol>=10000000});
+  b.push({id:'vt10',    r:'common',    icon:'⛏️', name:'Apprenti Forgeron',       desc:'10t cumulées — la forge ne fait que commencer', condition:'10t cumulées', ck:()=>totalVol>=10000});
+  b.push({id:'vt50',    r:'common',    icon:'⚒️', name:'Artisan du Fer',           desc:'50t — tes premiers pas d\'artisan sont validés par la guilde', condition:'50t cumulées', ck:()=>totalVol>=50000});
+  b.push({id:'vt100',   r:'uncommon',  icon:'⚔️', name:'Lame Forgée',              desc:'100t — ta force prend une forme reconnaissable, taillée séance après séance', condition:'100t cumulées', ck:()=>totalVol>=100000});
+  b.push({id:'vt250',   r:'rare',      icon:'🩸', name:'Guerrier Éprouvé',        desc:'250t — la douleur est devenue ton alliée la plus fidèle', condition:'250t cumulées', ck:()=>totalVol>=250000});
+  b.push({id:'vt500',   r:'epic',      icon:'⚡', name:'Maîtrise Totale',          desc:'500t — chaque kilo supplémentaire n\'est qu\'un chapitre de plus', condition:'500t cumulées', ck:()=>totalVol>=500000});
+  b.push({id:'vt1000',  r:'legendary', icon:'🗺️', name:'Sculpteur d\'Acier',      desc:'1000t cumulées — assez pour remodeler les continents', condition:'1000t cumulées', ck:()=>totalVol>=1000000});
+  b.push({id:'vt2500',  r:'mythic',    icon:'🌑', name:'Gravure dans le Métal',   desc:'2500t — ton nom est gravé dans l\'acier pour l\'éternité', condition:'2500t cumulées', ck:()=>totalVol>=2500000});
+  b.push({id:'vt5000',  r:'divine',    icon:'🌍', name:'Gardien Éternel',         desc:'5000t — les anciens reconnaissent enfin l\'étendue de ton labeur', condition:'5000t cumulées', ck:()=>totalVol>=5000000});
+  b.push({id:'vt7500',  r:'divine',    icon:'👁️', name:'Le Sans-Limite',          desc:'7500t — tu cherches encore plus fort. Toujours plus fort. Sans jamais t\'arrêter', condition:'7500t cumulées', ck:()=>totalVol>=7500000});
+  b.push({id:'vt10000', r:'divine',    icon:'🌌', name:'Au-delà des Limites',     desc:'10 000t cumulées — tu dépasses le monde connu. Tu ES la légende', condition:'10 000t cumulées', ck:()=>totalVol>=10000000});
 
   // ── Durée de séance (max) ──
-  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',             ref:'Dofus',  desc:'1h — le temps d\'un donjon Astrub en solo. Pas mal pour commencer', condition:'1h en 1 séance', ck:()=>maxSessDur>=3600});
-  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Entraînement de Division',   ref:'Bleach', desc:'1h30 — un entraînement standard au Seireitei entre deux missions', condition:'1h30 en 1 séance', ck:()=>maxSessDur>=5400});
-  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Donjon Majeur',              ref:'Dofus',  desc:'2h — le temps d\'un donjon de haut niveau avec une bonne équipe', condition:'2h en 1 séance', ck:()=>maxSessDur>=7200});
-  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Dangai Training',            ref:'Bleach', desc:'2h30 — Ichigo s\'entraînait dans le Dangai avant l\'affrontement final', condition:'2h30 en 1 séance', ck:()=>maxSessDur>=9000});
-  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',            ref:'Dofus',  desc:'3h — même Xelor est impressionné par ta maîtrise du tempo', condition:'3h en 1 séance', ck:()=>maxSessDur>=10800});
-  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Retraite de Seireitei',      ref:'Bleach', desc:'4h — comme Byakuya en méditation solitaire avant d\'activer son Bankai', condition:'4h en 1 séance', ck:()=>maxSessDur>=14400});
-  b.push({id:'dur480', r:'divine',    icon:'🛋️', name:'T\'es au chômage ?',         ref:'—',      desc:'8h en une séance — c\'est une journée de boulot. Appelle tes proches', impossible:true, condition:'8h en 1 séance', ck:()=>false});
+  b.push({id:'dur60',  r:'common',    icon:'⏱️', name:'Première Heure',           desc:'1h — le temps d\'une épreuve d\'initiation. Pas mal pour commencer', condition:'1h en 1 séance', ck:()=>maxSessDur>=3600});
+  b.push({id:'dur90',  r:'uncommon',  icon:'🌲', name:'Épreuve de Résistance',    desc:'1h30 — l\'endurance se distingue ici de la simple volonté', condition:'1h30 en 1 séance', ck:()=>maxSessDur>=5400});
+  b.push({id:'dur120', r:'rare',      icon:'🏰', name:'Épreuve Majeure',           desc:'2h — le temps d\'une grande épreuve avec une équipe d\'élite', condition:'2h en 1 séance', ck:()=>maxSessDur>=7200});
+  b.push({id:'dur150', r:'epic',      icon:'⚔️', name:'Entraînement des Élites',  desc:'2h30 — seuls les meilleurs tiennent à cette intensité aussi longtemps', condition:'2h30 en 1 séance', ck:()=>maxSessDur>=9000});
+  b.push({id:'dur180', r:'legendary', icon:'⏰', name:'Maître du Temps',           desc:'3h — même les gardiens du temps sont impressionnés par ta maîtrise', condition:'3h en 1 séance', ck:()=>maxSessDur>=10800});
+  b.push({id:'dur240', r:'mythic',    icon:'🌑', name:'Méditation Forgeron',       desc:'4h — l\'acier est forgé dans la durée, pas dans la précipitation', condition:'4h en 1 séance', ck:()=>maxSessDur>=14400});
+  b.push({id:'dur480', r:'divine',    icon:'🛋️', name:'T\'es au chômage ?',       desc:'8h en une séance — c\'est une journée de boulot. Appelle tes proches', impossible:true, condition:'8h en 1 séance', ck:()=>false});
 
   // ── Temps d\'entraînement cumulatif ──
-  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures de Forge',         ref:'Dofus',  desc:'50h cumulées — un forgeron de Bonta met moins de temps pour une épée légendaire', condition:'50h cumulées', ck:()=>totalDur>=180000});
-  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Siège Confirmé',             ref:'Bleach', desc:'100h — ta place au Seireitei n\'est plus discutable pour personne', condition:'100h cumulées', ck:()=>totalDur>=360000});
-  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maîtrise du Reishi',         ref:'Bleach', desc:'250h — ton énergie spirituelle prend une forme permanente et visible', condition:'250h cumulées', ck:()=>totalDur>=900000});
-  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Reiatsu Écrasant',           ref:'Bleach', desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire', condition:'500h cumulées', ck:()=>totalDur>=1800000});
-  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Millénaire des Douze',        ref:'Dofus',  desc:'1000h — mille heures gravées dans l\'histoire du monde des Douze nations', condition:'1000h cumulées', ck:()=>totalDur>=3600000});
-  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Bankai Final',               ref:'Bleach', desc:'1500h — même Yamamoto regardait avec respect ceux qui avaient autant forgé', condition:'1500h cumulées', ck:()=>totalDur>=5400000});
-  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu Forgeron',              ref:'Dofus',  desc:'2000h — les dieux des Douze eux-mêmes n\'ont pas forgé autant dans leur vie', condition:'2000h cumulées', ck:()=>totalDur>=7200000});
+  b.push({id:'tdur50',   r:'uncommon',  icon:'🕐', name:'50 Heures d\'Acier',      desc:'50h cumulées — un maître artisan met moins de temps pour une lame légendaire', condition:'50h cumulées', ck:()=>totalDur>=180000});
+  b.push({id:'tdur100',  r:'rare',      icon:'🕑', name:'Cent Heures d\'Acier',    desc:'100h — ta place parmi les sérieux n\'est plus discutable pour personne', condition:'100h cumulées', ck:()=>totalDur>=360000});
+  b.push({id:'tdur250',  r:'epic',      icon:'🕒', name:'Maître de l\'Effort',     desc:'250h — ton énergie semble inépuisable et visible à ceux qui t\'entourent', condition:'250h cumulées', ck:()=>totalDur>=900000});
+  b.push({id:'tdur500',  r:'legendary', icon:'🕓', name:'Présence Écrasante',      desc:'500h — les gens autour de toi commencent à sentir ta présence involontaire', condition:'500h cumulées', ck:()=>totalDur>=1800000});
+  b.push({id:'tdur1000', r:'divine',    icon:'🕔', name:'Le Millénaire',            desc:'1000h — mille heures gravées dans l\'histoire', condition:'1000h cumulées', ck:()=>totalDur>=3600000});
+  b.push({id:'tdur1500', r:'divine',    icon:'🌒', name:'Forgeron des Profondeurs', desc:'1500h — même les anciens regardent avec respect ceux qui ont autant forgé', condition:'1500h cumulées', ck:()=>totalDur>=5400000});
+  b.push({id:'tdur2000', r:'divine',    icon:'⚗️', name:'Dieu de la Forge',        desc:'2000h — les dieux eux-mêmes n\'ont pas forgé autant dans leur vie', condition:'2000h cumulées', ck:()=>totalDur>=7200000});
 
   // ── Séries totales ──
-  b.push({id:'st100',   r:'common',    icon:'📊', name:'Recrue du Seireitei',         ref:'Bleach', desc:'100 séries — les officiers du Seireitei commencent à te remarquer', condition:'100 séries', ck:()=>totalSets>=100});
-  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier de Bonta',           ref:'Dofus',  desc:'500 séries — la milice de Bonta t\'inscrit dans ses rangs officiels', condition:'500 séries', ck:()=>totalSets>=500});
-  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Sacrieur Confirmé',           ref:'Dofus',  desc:'1000 séries de douleur — ton corps est devenu un véritable temple sacré', condition:'1000 séries', ck:()=>totalSets>=1000});
-  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Libération Shikai',           ref:'Bleach', desc:'2500 séries — ta lame intérieure se libère enfin et révèle son vrai nom', condition:'2500 séries', ck:()=>totalSets>=2500});
-  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant des Douze',        ref:'Dofus',  desc:'5000 séries — les 12 nations connaissent ton nom et tremblent', condition:'5000 séries', ck:()=>totalSets>=5000});
-  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Les 10 000 Coups',            ref:'Bleach', desc:'10 000 séries — Yamamoto frappait 10 000 fois par jour depuis des siècles', condition:'10 000 séries', ck:()=>totalSets>=10000});
-  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Ascension Divine',            ref:'Dofus',  desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende des Douze', condition:'20 000 séries', ck:()=>totalSets>=20000});
-  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Finale Absolue',        ref:'Bleach', desc:'40 000 séries — au-delà du Bankai. Au-delà de tout ce qui existe', condition:'40 000 séries', ck:()=>totalSets>=40000});
+  b.push({id:'st100',   r:'common',    icon:'📊', name:'Cent Séries de Forge',     desc:'100 séries — les pairs te remarquent et commencent à compter tes répétitions', condition:'100 séries', ck:()=>totalSets>=100});
+  b.push({id:'st500',   r:'uncommon',  icon:'🛡️', name:'Guerrier Confirmé',        desc:'500 séries — l\'ordre des guerriers t\'inscrit dans ses rangs officiels', condition:'500 séries', ck:()=>totalSets>=500});
+  b.push({id:'st1000',  r:'rare',      icon:'🩸', name:'Guerrier Sanglant',        desc:'1000 séries de douleur — ton corps est devenu un véritable temple de pierre', condition:'1000 séries', ck:()=>totalSets>=1000});
+  b.push({id:'st2500',  r:'epic',      icon:'⚡', name:'Force Libérée',            desc:'2500 séries — ta puissance intérieure se libère enfin et révèle sa vraie nature', condition:'2500 séries', ck:()=>totalSets>=2500});
+  b.push({id:'st5000',  r:'legendary', icon:'🌍', name:'Conquérant Légendaire',    desc:'5000 séries — ton nom est connu et craint dans tous les cercles', condition:'5000 séries', ck:()=>totalSets>=5000});
+  b.push({id:'st10000', r:'mythic',    icon:'💥', name:'Dix Mille Coups',          desc:'10 000 séries — les grands maîtres frappaient dix mille fois par jour, des siècles durant', condition:'10 000 séries', ck:()=>totalSets>=10000});
+  b.push({id:'st20000', r:'divine',    icon:'🌌', name:'Transcendance',            desc:'20 000 séries — tu dépasses le plan mortel et entres dans la légende immortelle', condition:'20 000 séries', ck:()=>totalSets>=20000});
+  b.push({id:'st40000', r:'divine',    icon:'🔥', name:'Forme Absolue',            desc:'40 000 séries — au-delà de tout ce qui existe. L\'ultime manifestation de ta volonté', condition:'40 000 séries', ck:()=>totalSets>=40000});
 
   // ── Exercices uniques maîtrisés ──
-  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet d\'Astrub',             ref:'Dofus',  desc:'10 exercices — le carnet de l\'apprenti commence à se remplir', condition:'10 exercices', ck:()=>uniqueExos>=10});
-  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent du Gotei',          ref:'Bleach', desc:'25 exercices — tu maîtrises Kidō, Zanjutsu et Hakuda à la fois', condition:'25 exercices', ck:()=>uniqueExos>=25});
-  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie des Douze',       ref:'Dofus',  desc:'50 exercices — les 12 nations n\'ont plus de secrets pour toi', condition:'50 exercices', ck:()=>uniqueExos>=50});
-  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit d\'Urahara',            ref:'Bleach', desc:'75 exercices — même Kisuke serait impressionné par ta pluridisciplinarité', condition:'75 exercices', ck:()=>uniqueExos>=75});
-  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de toutes les Classes', ref:'Dofus',  desc:'100 exercices — Iop, Sacrieur, Pandawa... tu les incarnes tous à la fois', condition:'100 exercices', ck:()=>uniqueExos>=100});
+  b.push({id:'ex10',  r:'common',    icon:'📚', name:'Carnet de l\'Initié',       desc:'10 exercices — ton arsenal commence à se remplir sérieusement', condition:'10 exercices', ck:()=>uniqueExos>=10});
+  b.push({id:'ex25',  r:'uncommon',  icon:'📖', name:'Polyvalent Confirmé',       desc:'25 exercices — force, cardio, mobilité — tu maîtrises chaque dimension', condition:'25 exercices', ck:()=>uniqueExos>=25});
+  b.push({id:'ex50',  r:'rare',      icon:'🗺️', name:'Encyclopédie du Fer',      desc:'50 exercices — l\'arsenal complet du guerrier accompli', condition:'50 exercices', ck:()=>uniqueExos>=50});
+  b.push({id:'ex75',  r:'epic',      icon:'🌀', name:'Érudit de l\'Effort',       desc:'75 exercices — même les plus grands spécialistes seraient impressionnés', condition:'75 exercices', ck:()=>uniqueExos>=75});
+  b.push({id:'ex100', r:'legendary', icon:'📜', name:'Maître de Toutes les Disciplines', desc:'100 exercices — force brute, endurance, technique — tu incarnes tout à la fois', condition:'100 exercices', ck:()=>uniqueExos>=100});
 
 
   // ── Bench Press (only if SBD mode) ──
   if (modeFeature('showSBDCards')) {
   const _benchRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _benchIcons = ['🌱','💪','⚔️','🩸','⚡','🏰','🌀','🪓','🌊','🔥','❄️','👁️','💥'];
-  const _benchNames = ["L'Apprenti d'Astrub","Cogneur de la Milice","Iop Authentique","Sacrieur de la Fonte","Shikai Débloqué","Champion de Brakmar","Reishi Condensé","Goultard le Barbare","Reiatsu d'Élite","Fracture du Temps","Lame de Glace de Rukia","Kenpachi Sans Bandeau","BANKAI — Pectoraux"];
-  const _benchRefs = ['Dofus','Dofus','Dofus','Dofus','Bleach','Dofus','Bleach','Dofus','Bleach','Bleach','Bleach','Bleach','Bleach'];
-  const _benchDescs = ["Astrub reconnaît tes efforts. La forge ne fait que commencer","Les miliciens d'Astrub s'écartent sur ton passage","Force avant tout — l'intelligence peut attendre selon les Iops","Ta douleur est ton carburant — sang et acier mêlés","Ton zanpakuto pectoraux a enfin révélé sa vraie forme","Même les forces obscures de Brakmar fléchissent devant toi","Ton aura déborde — les plafonds de la salle tremblent","Tu atteins la légende du plus grand des Iops de l'histoire","Ton reiatsu commence à impressionner les capitaines du Gotei","Tout sacrifier pour un PR — ta lame brise le temps lui-même","Ton press glace l'atmosphère — Sode no Shirayuki s'incline","Il a retiré son bandeau — il te voit enfin comme un rival digne","Forme finale. Byakuya pose Senbonzakura pour t'admirer"];
-  _bt.bench.forEach((kg,i)=>b.push({id:`bench_${kg}`,r:_benchRarities[i]||'mythic',icon:_benchIcons[i]||'💥',name:_benchNames[i]||('Bench '+kg+'kg'),ref:_benchRefs[i]||'Bleach',desc:_benchDescs[i]||('Bench press '+kg+'kg'),condition:'Bench '+kg+'kg',ck:()=>B>=kg}));
+  const _benchNames = ["L'Apprenti Forgeron","Cogneur Confirmé","Force Pure","Acier et Sueur","Énergie Libérée","Champion de la Fonte","Aura de Puissance","Le Colosse","Présence de Fer","Fracture des Limites","Gel de l'Hiver","L'Intouchable","Forme Ultime — Pectoraux"];
+  const _benchDescs = ["La forge ne fait que commencer. Tes efforts sont notés","Les rangs s'écartent sur ton passage","Force avant tout — la technique viendra plus tard","Ta douleur est ton carburant — sang et acier mêlés","Ta puissance intérieure a enfin révélé sa vraie forme","Même les forces les plus obscures fléchissent devant toi","Ton aura déborde — les plafonds de la salle tremblent","Tu atteins la légende du plus grand des guerriers","Ta présence commence à impressionner tous les cercles","Tout sacrifier pour un record — ta force brise le temps","Ton press glace l'atmosphère — la maîtrise est totale","Il t'a enfin reconnu comme un rival digne et redoutable","Forme finale. Les anciens posent leurs barres pour t'admirer"];
+  _bt.bench.forEach((kg,i)=>b.push({id:`bench_${kg}`,r:_benchRarities[i]||'mythic',icon:_benchIcons[i]||'💥',name:_benchNames[i]||('Bench '+kg+'kg'),desc:_benchDescs[i]||('Bench press '+kg+'kg'),condition:'Bench '+kg+'kg',ck:()=>B>=kg}));
 
   // ── Squat ──
   const _squatRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _squatIcons = ['🦵','🐼','🌲','💧','⚔️','🌀','🌳','🩸','🌊','👻','✨','🔥','🌌'];
-  const _squatNames = ["Cavalier de Dragodinde","Pandawa en Transe","Racines d'Amakna","Flux de Reishi","Guerrier du Seireitei","Aura Condensée","Ancré comme un Sadida","Iop Transcendé","Déferlante d'Ogrest","Reiatsu Oppressant","Bankai des Jambes","Flamme de Yamamoto","Chaos Primordial"];
-  const _squatRefs = ['Dofus','Dofus','Dofus','Bleach','Bleach','Bleach','Dofus','Dofus','Dofus','Bleach','Bleach','Bleach','Dofus'];
-  const _squatDescs = ["Tes cuisses portent ta Dragodinde avec fierté et aisance","L'ivresse de l'acier — la sagesse du Bambou sacré","Tes jambes sont enracinées comme les arbres de la forêt d'Amakna","Ton énergie spirituelle descend dans tes jambes à chaque rep","Pour l'honneur du Gotei — Renji Abarai serait jaloux","Ton aura se condense jusqu'aux genoux à chaque répétition","Les arbres-poupées du Sadida sont jaloux de la force de tes cuisses","Tu dépasses la simple force brute — même un dieu-Iop t'envie","Là où tu squattes, le sol s'en souvient pour toujours","Ton reiatsu involontaire fait plier les genoux des autres clients","Tu as transcendé les limites — la forme finale est atteinte","300kg — Yamamoto lui-même salue cette chaleur dans ses jambes","Au-delà du monde des Douze — tu existes dans l'Extérieur"];
-  _bt.squat.forEach((kg,i)=>b.push({id:`squat_${kg}`,r:_squatRarities[i]||'mythic',icon:_squatIcons[i]||'🌌',name:_squatNames[i]||('Squat '+kg+'kg'),ref:_squatRefs[i]||'Dofus',desc:_squatDescs[i]||('Squat '+kg+'kg'),condition:'Squat '+kg+'kg',ck:()=>S>=kg}));
+  const _squatNames = ["Cavalier des Plaines","Gardien en Transe","Racines Profondes","Flux d'Énergie","Guerrier des Profondeurs","Aura Condensée","Ancré dans la Terre","Transcendance des Jambes","Déferlante Titanesque","Présence Oppressante","Maîtrise Absolue","Flamme Intérieure","Chaos Primordial"];
+  const _squatDescs = ["Tes cuisses portent le monde avec fierté et aisance","L'ivresse de l'acier — la sagesse du silence","Tes jambes sont enracinées comme des arbres millénaires","Ton énergie descend dans tes jambes à chaque répétition","Pour l'honneur des profondeurs — les rivaux sont jaloux","Ton aura se condense jusqu'aux genoux à chaque rep","Les anciens sont jaloux de la force de tes cuisses","Tu dépasses la simple force brute — même les dieux t'envient","Là où tu squattes, le sol s'en souvient pour toujours","Ta présence involontaire fait plier les genoux des autres","Tu as transcendé les limites — la forme finale est atteinte","Les 300kg — les anciens saluent cette chaleur dans tes jambes","Au-delà du monde connu — tu existes dans l'Absolu"];
+  _bt.squat.forEach((kg,i)=>b.push({id:`squat_${kg}`,r:_squatRarities[i]||'mythic',icon:_squatIcons[i]||'🌌',name:_squatNames[i]||('Squat '+kg+'kg'),desc:_squatDescs[i]||('Squat '+kg+'kg'),condition:'Squat '+kg+'kg',ck:()=>S>=kg}));
 
   // ── Deadlift ──
   const _deadRarities = ['common','common','uncommon','uncommon','rare','rare','rare','epic','epic','epic','legendary','legendary','mythic'];
   const _deadIcons = ['⚒️','🌲','🌑','👁️','🔥','🩸','⚡','🌊','❄️','🌑','🏆','💥','🔥'];
-  const _deadNames = ["Forgeron d'Amakna","Bûcheron Musclé","Ombre du Seireitei","Kenpachi t'a Senti","Flamme d'Amaterasu","Sacrieur Transcendé","Shunpo du Sol","Chaos d'Ogrest","Sode no Shirayuki","Getsuga Tensho","Les Trois Cents","Mugetsu du Sol","Zanka no Tachi"];
-  const _deadRefs = ['Dofus','Dofus','Bleach','Bleach','Bleach','Dofus','Bleach','Dofus','Bleach','Bleach','Dofus','Bleach','Bleach'];
-  const _deadDescs = ["Les forges d'Amakna te font confiance pour le premier lingot","Plus solide que les arbres millénaires de la forêt d'Amakna","Tu tires depuis l'ombre — comme les agents de la Division 2","Il a senti ton reiatsu depuis les profondeurs du Seireitei","Ta barre brûle comme la flamme noire inextinguible de Yamamoto","La douleur du bas du dos t'alimente comme rien d'autre ne peut","Tes mains attrapent la barre avec la vitesse du pas flash","Même Ogrest n'aurait pas osé soulever un tel poids du sol","Ton deadlift gèle l'air ambiant — Rukia approuve dans l'ombre","Ton cri intérieur libère une énergie obscure et dévastatrice","Les 12 Dieux s'inclinent ensemble devant ce chiffre légendaire","Tout ou rien — comme Ichigo face au Roi des Quincies","Yamamoto libère la flamme ultime — ton deadlift en est l'écho"];
-  _bt.deadlift.forEach((kg,i)=>b.push({id:`dead_${kg}`,r:_deadRarities[i]||'mythic',icon:_deadIcons[i]||'🔥',name:_deadNames[i]||('Deadlift '+kg+'kg'),ref:_deadRefs[i]||'Bleach',desc:_deadDescs[i]||('Deadlift '+kg+'kg'),condition:'Dead '+kg+'kg',ck:()=>D>=kg}));
+  const _deadNames = ["Forgeron des Plaines","Bûcheron Musclé","Ombre des Profondeurs","Le Regard du Maître","Flamme de l'Acier","Transcendance du Dos","Vitesse et Puissance","Vague de Titan","Gel de l'Hiver","Libération Obscure","Les Trois Cents","L'Ultime du Sol","Forme Primordiale"];
+  const _deadDescs = ["Les forges te font confiance pour le premier lingot","Plus solide que les arbres millénaires","Tu tires depuis l'ombre — invisible et dévastateur","Il a senti ta puissance depuis les profondeurs","Ta barre brûle comme une flamme inextinguible","La douleur du dos t'alimente comme rien d'autre ne peut","Tes mains attrapent la barre avec une vitesse foudroyante","Là où tu tires, la terre s'en souvient pour toujours","Ton deadlift glace l'air ambiant — la maîtrise est totale","Ton cri intérieur libère une énergie obscure et dévastatrice","Les anciens s'inclinent ensemble devant ce chiffre légendaire","Tout ou rien — une seule répétition qui change tout","La force primordiale libérée — l'écho de l'Absolu"];
+  _bt.deadlift.forEach((kg,i)=>b.push({id:`dead_${kg}`,r:_deadRarities[i]||'mythic',icon:_deadIcons[i]||'🔥',name:_deadNames[i]||('Deadlift '+kg+'kg'),desc:_deadDescs[i]||('Deadlift '+kg+'kg'),condition:'Dead '+kg+'kg',ck:()=>D>=kg}));
 
   // ── Overhead Press ──
   const _ohpRarities = ['common','uncommon','rare','epic','legendary','mythic'];
   const _ohpIcons = ['💪','🌤️','🛡️','🌊','💫','🔥'];
-  const _ohpNames = ["Bras d'Iop Junior","Brise de Seireitei","Épaules de la Division","Iop Divin","Épaules de Goultard","Zanka no Tachi — Higashi"];
-  const _ohpRefsArr = ['Dofus','Bleach','Bleach','Dofus','Dofus','Bleach'];
-  const _ohpDescs = ["Premier pas sur la voie du dieu-Iop. L'acier au-dessus ne fait que commencer","60kg au-dessus — un Shinigami de 6e division te regarderait avec respect","Les épaulières du Seireitei ont été forgées pour tes épaules","La paume tendue vers le ciel — 100kg au-dessus comme un dieu-Iop","Goultard portait ses victoires légendaires sur ces épaules millénaires","Yamamoto libère sa flamme vers les cieux — ton press en est l'écho terrestre"];
-  _bt.ohp.forEach((kg,i)=>b.push({id:`ohp_${kg}`,r:_ohpRarities[i]||'mythic',icon:_ohpIcons[i]||'🔥',name:_ohpNames[i]||('OHP '+kg+'kg'),ref:_ohpRefsArr[i]||'Bleach',desc:_ohpDescs[i]||('OHP '+kg+'kg'),condition:'OHP '+kg+'kg',ck:()=>ohpRM>=kg}));
+  const _ohpNames = ["Bras du Guerrier","Épaules de Pierre","Bouclier des Épaules","Maître de la Presse","Titan des Épaules","Forme Céleste — OHP"];
+  const _ohpDescs = ["Premier pas sur la voie de la force verticale. L'acier au-dessus ne fait que commencer","60kg au-dessus — un guerrier confirmé te regarderait avec respect","Les épaulières des élites ont été forgées pour des épaules comme les tiennes","La paume tendue vers le ciel — 100kg au-dessus comme un titan","Le colosse légendaire portait ses victoires sur des épaules comme les tiennes","La flamme intérieure libérée vers les cieux — ton press en est l'écho terrestre"];
+  _bt.ohp.forEach((kg,i)=>b.push({id:`ohp_${kg}`,r:_ohpRarities[i]||'mythic',icon:_ohpIcons[i]||'🔥',name:_ohpNames[i]||('OHP '+kg+'kg'),desc:_ohpDescs[i]||('OHP '+kg+'kg'),condition:'OHP '+kg+'kg',ck:()=>ohpRM>=kg}));
 
   // ── Total SBD ──
-  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            ref:'Dofus',  desc:'B+S+D ≥ 300kg — les trois piliers accomplis. Rushu frémit depuis sa prison', condition:'Total SBD ≥ 300kg', ck:()=>total>=300});
-  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          ref:'Bleach', desc:'B+S+D ≥ 400kg — ton reiatsu combiné commence à impressionner le Gotei 13', condition:'Total SBD ≥ 400kg', ck:()=>total>=400});
-  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total de Goultard',      ref:'Dofus',  desc:'B+S+D ≥ 500kg — le légendaire Iop te tend la main en signe d\'égal à égal', condition:'Total SBD ≥ 500kg', ck:()=>total>=500});
-  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     ref:'Bleach', desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un capitaine du Gotei 13', condition:'Total SBD ≥ 600kg', ck:()=>total>=600});
-  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos de l\'Extérieur',  ref:'Dofus',  desc:'B+S+D ≥ 700kg — même les Dieux des Douze se taisent devant ta force brute', condition:'Total SBD ≥ 700kg', ck:()=>total>=700});
-  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Bankai Total',           ref:'Bleach', desc:'B+S+D ≥ 800kg — Yamamoto libère sa flamme en signe d\'hommage ultime', condition:'Total SBD ≥ 800kg', ck:()=>total>=800});
+  b.push({id:'total_300',r:'rare',      icon:'🔱',name:'La Trinité',            desc:'B+S+D ≥ 300kg — les trois piliers accomplis. La légende commence ici', condition:'Total SBD ≥ 300kg', ck:()=>total>=300});
+  b.push({id:'total_400',r:'epic',      icon:'⚡',name:'Aura d\'Élite',          desc:'B+S+D ≥ 400kg — ta puissance combinée commence à impressionner tous les cercles', condition:'Total SBD ≥ 400kg', ck:()=>total>=400});
+  b.push({id:'total_500',r:'legendary', icon:'👑',name:'Total Légendaire',       desc:'B+S+D ≥ 500kg — le guerrier légendaire te tend la main en signe d\'égal à égal', condition:'Total SBD ≥ 500kg', ck:()=>total>=500});
+  b.push({id:'total_600',r:'legendary', icon:'💀',name:'Capitaine de Force',     desc:'B+S+D ≥ 600kg — tu te déplaces avec la puissance d\'un commandant d\'élite', condition:'Total SBD ≥ 600kg', ck:()=>total>=600});
+  b.push({id:'total_700',r:'mythic',    icon:'🌊',name:'Chaos Primordial',       desc:'B+S+D ≥ 700kg — même les forces les plus anciennes se taisent devant ta force brute', condition:'Total SBD ≥ 700kg', ck:()=>total>=700});
+  b.push({id:'total_800',r:'divine',    icon:'🔥',name:'Force Absolue',          desc:'B+S+D ≥ 800kg — la flamme ultime libérée en signe d\'hommage suprême', condition:'Total SBD ≥ 800kg', ck:()=>total>=800});
 
   // ── Poids de Corps ──
   if (bw > 0) {
     const _bwB = _gender === 'female' ? [0.75, 1.0, 1.25] : [1.0, 1.5, 2.0];
     const _bwS = _gender === 'female' ? [1.0, 1.5, 2.0] : [1.5, 2.0, 2.5];
     const _bwD = _gender === 'female' ? [1.25, 1.75, 2.25] : [2.0, 2.5, 3.0];
-    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:_bwB[0]+'× au Bench',    ref:'Dofus',  desc:`${Math.round(bw*_bwB[0])}kg au bench — ton propre corps dans la fonte. L'Iop approuve enfin`, condition:_bwB[0]+'× BW au Bench', ck:()=>B>=bw*_bwB[0]});
-    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:_bwB[1]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[1])}kg — digne d'un combattant du Seireitei`, condition:_bwB[1]+'× BW au Bench', ck:()=>B>=bw*_bwB[1]});
-    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:_bwB[2]+'× au Bench',    ref:'Bleach', desc:`${Math.round(bw*_bwB[2])}kg bench — ton reiatsu dépasse celui d'un vice-capitaine`, condition:_bwB[2]+'× BW au Bench', ck:()=>B>=bw*_bwB[2]});
-    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:_bwS[0]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[0])}kg — la milice de Bonta est impressionnée par ta puissance`, condition:_bwS[0]+'× BW au Squat', ck:()=>S>=bw*_bwS[0]});
-    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:_bwS[1]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[1])}kg — les Sadidas sont jaloux de ta puissance de jambes`, condition:_bwS[1]+'× BW au Squat', ck:()=>S>=bw*_bwS[1]});
-    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:_bwS[2]+'× au Squat',    ref:'Dofus',  desc:`${Math.round(bw*_bwS[2])}kg — Ogrest lui-même ne squattait pas autant à son pic`, condition:_bwS[2]+'× BW au Squat', ck:()=>S>=bw*_bwS[2]});
-    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:_bwD[0]+'× au Deadlift', ref:'Dofus',  desc:`${Math.round(bw*_bwD[0])}kg deadlift — les forgerons de Bonta s'inclinent en silence`, condition:_bwD[0]+'× BW au Dead', ck:()=>D>=bw*_bwD[0]});
-    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[1])}kg — ton Getsuga résonne depuis le sol jusqu'au ciel`, condition:_bwD[1]+'× BW au Dead', ck:()=>D>=bw*_bwD[1]});
-    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', ref:'Bleach', desc:`${Math.round(bw*_bwD[2])}kg — Yamamoto lui-même te salue depuis ses flammes éternelles`, condition:_bwD[2]+'× BW au Dead', ck:()=>D>=bw*_bwD[2]});
+    b.push({id:'bw_b1',  r:'uncommon', icon:'⚖️', name:_bwB[0]+'× au Bench',    desc:`${Math.round(bw*_bwB[0])}kg au bench — ton propre corps dans la fonte. Un cap symbolique franchi`, condition:_bwB[0]+'× BW au Bench', ck:()=>B>=bw*_bwB[0]});
+    b.push({id:'bw_b15', r:'rare',     icon:'💪', name:_bwB[1]+'× au Bench',    desc:`${Math.round(bw*_bwB[1])}kg — digne d'un combattant d'élite confirmé`, condition:_bwB[1]+'× BW au Bench', ck:()=>B>=bw*_bwB[1]});
+    b.push({id:'bw_b2',  r:'epic',     icon:'🔥', name:_bwB[2]+'× au Bench',    desc:`${Math.round(bw*_bwB[2])}kg bench — ta puissance dépasse celle de n'importe quel rival`, condition:_bwB[2]+'× BW au Bench', ck:()=>B>=bw*_bwB[2]});
+    b.push({id:'bw_s15', r:'uncommon', icon:'🦵', name:_bwS[0]+'× au Squat',    desc:`${Math.round(bw*_bwS[0])}kg — les guerriers d'élite sont impressionnés par ta puissance`, condition:_bwS[0]+'× BW au Squat', ck:()=>S>=bw*_bwS[0]});
+    b.push({id:'bw_s2',  r:'rare',     icon:'🌳', name:_bwS[1]+'× au Squat',    desc:`${Math.round(bw*_bwS[1])}kg — les anciens sont jaloux de ta puissance de jambes`, condition:_bwS[1]+'× BW au Squat', ck:()=>S>=bw*_bwS[1]});
+    b.push({id:'bw_s25', r:'epic',     icon:'🌊', name:_bwS[2]+'× au Squat',    desc:`${Math.round(bw*_bwS[2])}kg — même les titans légendaires ne squattaient pas autant à leur pic`, condition:_bwS[2]+'× BW au Squat', ck:()=>S>=bw*_bwS[2]});
+    b.push({id:'bw_d2',  r:'rare',     icon:'⚒️', name:_bwD[0]+'× au Deadlift', desc:`${Math.round(bw*_bwD[0])}kg deadlift — les maîtres forgeurs s'inclinent en silence`, condition:_bwD[0]+'× BW au Dead', ck:()=>D>=bw*_bwD[0]});
+    b.push({id:'bw_d25', r:'epic',     icon:'🌑', name:_bwD[1]+'× au Deadlift', desc:`${Math.round(bw*_bwD[1])}kg — ta puissance résonne depuis le sol jusqu'au ciel`, condition:_bwD[1]+'× BW au Dead', ck:()=>D>=bw*_bwD[1]});
+    b.push({id:'bw_d3',  r:'legendary',icon:'🔥', name:_bwD[2]+'× au Deadlift', desc:`${Math.round(bw*_bwD[2])}kg — les anciens te saluent depuis leurs flammes éternelles`, condition:_bwD[2]+'× BW au Dead', ck:()=>D>=bw*_bwD[2]});
   }
   } // end if showSBDCards
 
   // ── Streak (semaines consécutives) ──
   const streakData = [
-    [4,   'common',    '📅', "Collectionneur d'Almanax",  'Dofus',  "4 semaines parfaites — l'engagement de l'Almanax Dofus est là"],
-    [8,   'common',    '🏠', "Guildien Modèle",           'Dofus',  "Ta guilde compte sur toi chaque semaine — tu n'as jamais déçu"],
-    [12,  'uncommon',  '⏳', "Survivant Temporis",        'Dofus',  "Un serveur saisonnier Temporis complet sans jamais fléchir"],
-    [26,  'uncommon',  '🎯', "Élève de l'Académie",       'Bleach', "6 mois d'assiduité — Yoruichi t'a sélectionné pour la formation avancée"],
-    [52,  'rare',      '🎂', "Anniversaire de Serveur",   'Dofus',  "Un an de connexion — les anciens du serveur t'accueillent parmi eux"],
-    [78,  'rare',      '⚡', "Shikai Débloqué",           'Bleach', "78 semaines — ton zanpakuto te révèle enfin son vrai nom en entier"],
-    [104, 'rare',      '💎', "Shinigami Confirmé",        'Bleach', "2 ans — ta Division ne peut plus t'imaginer absent du Seireitei"],
-    [130, 'epic',      '🌋', "Grands Comptes des Douze",  'Dofus',  "2 ans et demi — les Grands Comptes murmurent ton nom avec respect"],
-    [156, 'epic',      '👻', "Reiatsu Perceptible",       'Bleach', "3 ans — les humains ordinaires commencent à sentir ta présence"],
-    [182, 'epic',      '📚', "Mémoire du Monde",          'Dofus',  "3 ans et demi — les bibliothèques du monde des Douze conservent ton histoire"],
-    [208, 'epic',      '⚔️', "Rang de Capitaine",         'Bleach', "4 ans — tu portes dignement le haori blanc du Gotei 13"],
-    [234, 'legendary', '⭐', "Vice-Capitaine Permanent",  'Bleach', "4 ans et demi — ta présence est aussi immuable que le Gotei lui-même"],
-    [260, 'legendary', '🔗', "Pilier des Douze",          'Dofus',  "5 ans — les dieux des Douze te confient la garde de leurs reliques sacrées"],
-    [286, 'legendary', '🌀', "Reiatsu Permanent",         'Bleach', "5 ans et demi — ton énergie spirituelle ne se dissipe plus jamais"],
-    [312, 'legendary', '💥', "Bankai Maîtrisé",           'Bleach', "6 ans — tu ne l'actives plus, tu l'es en permanence désormais"],
-    [338, 'legendary', '🌍', "Émissaire des Douze",       'Dofus',  "6 ans et demi — les 12 dieux t'ont choisi pour porter leur message"],
-    [364, 'legendary', '📜', "Chronique Éternelle",       'Dofus',  "7 ans — les historiens des Douze nations écrivent des livres sur toi"],
-    [390, 'mythic',    '🌊', "Témoin d'Ogrest",           'Dofus',  "7 ans et demi — tu as vu le Chaos d'Ogrest de près sans fléchir"],
-    [416, 'mythic',    '🌺', "Chroniqueur des Âges",      'Dofus',  "8 ans — tu as vécu assez de saisons pour voir le monde changer"],
-    [442, 'mythic',    '🌑', "Forme Libérée",             'Bleach', "8 ans et demi — au-delà de toute limite, comme après la libération finale"],
-    [468, 'mythic',    '🥚', "Porteur des 6 Dofus",       'Dofus',  "9 ans — les six œufs légendaires t'ont désigné comme gardien éternel"],
-    [494, 'mythic',    '🌠', "Mugetsu de l'Âme",          'Bleach', "9 ans et demi — tu brûles tout ce qui te reste pour tenir debout"],
-    [520, 'divine',    '🔥', "Zanka no Tachi",            'Bleach', "10 ans — Yamamoto libérait la flamme ultime. Tu ES cette flamme"],
+    [4,   'common',    '📅', "Régulier de l'Arène",        "4 semaines parfaites — l'engagement est visible et reconnu"],
+    [8,   'common',    '🏠', "Guerrier Modèle",             "Ta guilde compte sur toi chaque semaine — tu n'as jamais déçu"],
+    [12,  'uncommon',  '⏳', "Survivant des Saisons",       "Une saison complète sans jamais fléchir — la régularité gravée en toi"],
+    [26,  'uncommon',  '🎯', "Élève de la Forge",           "6 mois d'assiduité — les maîtres t'ont sélectionné pour la formation avancée"],
+    [52,  'rare',      '🎂', "Un An d'Acier",               "Un an de connexion — les anciens du cercle t'accueillent parmi eux"],
+    [78,  'rare',      '⚡', "Maîtrise Révélée",            "78 semaines — ta vraie puissance intérieure se révèle enfin"],
+    [104, 'rare',      '💎', "Guerrier Confirmé",           "2 ans — personne ne peut plus imaginer l'arène sans toi"],
+    [130, 'epic',      '🌋', "Mémoire des Anciens",         "2 ans et demi — les anciens murmurent ton nom avec respect"],
+    [156, 'epic',      '👻', "Présence Perceptible",        "3 ans — les gens autour de toi commencent à sentir ta présence"],
+    [182, 'epic',      '📚', "Mémoire du Monde",            "3 ans et demi — les chroniqueurs conservent ton histoire pour l'éternité"],
+    [208, 'epic',      '⚔️', "Rang de Commandant",          "4 ans — tu portes dignement les insignes des plus grands"],
+    [234, 'legendary', '⭐', "Commandant Permanent",        "4 ans et demi — ta présence est aussi immuable que la forge elle-même"],
+    [260, 'legendary', '🔗', "Pilier de l'Arène",           "5 ans — les anciens te confient la garde de leurs reliques sacrées"],
+    [286, 'legendary', '🌀', "Énergie Permanente",          "5 ans et demi — ton énergie intérieure ne se dissipe plus jamais"],
+    [312, 'legendary', '💥', "Maîtrise Perpétuelle",        "6 ans — tu ne l'actives plus, tu l'es en permanence désormais"],
+    [338, 'legendary', '🌍', "Émissaire Légendaire",        "6 ans et demi — les forces anciennes t'ont choisi pour porter leur message"],
+    [364, 'legendary', '📜', "Chronique Éternelle",         "7 ans — les historiens de tous les royaumes écrivent des livres sur toi"],
+    [390, 'mythic',    '🌊', "Témoin des Âges",             "7 ans et demi — tu as vu le chaos des origines de près sans fléchir"],
+    [416, 'mythic',    '🌺', "Chroniqueur des Ères",        "8 ans — tu as vécu assez de saisons pour voir le monde entier changer"],
+    [442, 'mythic',    '🌑', "Forme Libérée",               "8 ans et demi — au-delà de toute limite connue, comme après la libération finale"],
+    [468, 'mythic',    '🥚', "Porteur des Artefacts",       "9 ans — les six artefacts légendaires t'ont désigné comme gardien éternel"],
+    [494, 'mythic',    '🌠', "Brûlure de l'Âme",           "9 ans et demi — tu brûles tout ce qui te reste pour tenir debout"],
+    [520, 'divine',    '🔥', "Flamme Primordiale",          "10 ans — la flamme ultime libérée. Tu ES cette flamme"],
   ];
-  streakData.forEach(([w,r,icon,name,ref,desc])=>b.push({id:`streak_${w}`,r,icon,name,ref,desc,condition:w+' semaines',ck:()=>streak>=w}));
+  streakData.forEach(([w,r,icon,name,desc])=>b.push({id:`streak_${w}`,r,icon,name,desc,condition:w+' semaines',ck:()=>streak>=w}));
 
   // ── Collectionneur ──
   // Fix: use a function that counts all non-collector, non-impossible unlocked badges
@@ -2848,13 +2844,13 @@ function getAllBadges() {
     return count >= threshold;
   }
   const totalNormal = _nonColBadges.length + 7; // +7 for the collector badges about to be added
-  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      ref:'Dofus',        desc:'5 badges — ton inventaire commence à se remplir d\'histoire', condition:'5 badges', ck:()=>_colCount(5)});
-  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur d\'Âmes',  ref:'Bleach',       desc:'15 badges — tu accumules les lames comme un Shinigami expérimenté', condition:'15 badges', ck:()=>_colCount(15)});
-  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    ref:'Dofus',        desc:'30 badges — les vitrines d\'Astrub ne suffisent plus à tout exposer', condition:'30 badges', ck:()=>_colCount(30)});
-  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste du Seireitei', ref:'Bleach',       desc:'50 badges — le Département de Recherche du Seireitei t\'envie profondément', condition:'50 badges', ck:()=>_colCount(50)});
-  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     ref:'Dofus',        desc:'75 badges — ta panoplie légendaire fait pâlir les marchands d\'équipement', condition:'75 badges', ck:()=>_colCount(75)});
-  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Bankai Collectionné',     ref:'Bleach',       desc:'100 badges — chaque badge est une lame supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
-  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   ref:'Dofus × Bleach',desc:'Tous les badges — tu as tout accompli. Légende absolue des deux mondes', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
+  b.push({id:'col5',    r:'common',    icon:'🎒', name:'Premier Inventaire',      desc:'5 badges — ton inventaire commence à se remplir d\'histoire', condition:'5 badges', ck:()=>_colCount(5)});
+  b.push({id:'col15',   r:'uncommon',  icon:'💀', name:'Collectionneur de Gloire', desc:'15 badges — tu accumules les exploits comme un guerrier accompli', condition:'15 badges', ck:()=>_colCount(15)});
+  b.push({id:'col30',   r:'rare',      icon:'🏺', name:'Chasseur de Trophées',    desc:'30 badges — les vitrines ne suffisent plus à tout exposer', condition:'30 badges', ck:()=>_colCount(30)});
+  b.push({id:'col50',   r:'epic',      icon:'📂', name:'Archiviste de l\'Arène',  desc:'50 badges — les grands archivistes t\'envient profondément', condition:'50 badges', ck:()=>_colCount(50)});
+  b.push({id:'col75',   r:'legendary', icon:'🛡️', name:'Gardien de Panoplie',     desc:'75 badges — ta panoplie légendaire fait pâlir tous les marchands', condition:'75 badges', ck:()=>_colCount(75)});
+  b.push({id:'col100',  r:'mythic',    icon:'🌀', name:'Arsenal Absolu',          desc:'100 badges — chaque badge est une arme supplémentaire dans ton arsenal', condition:'100 badges', ck:()=>_colCount(100)});
+  b.push({id:'col_all', r:'divine',    icon:'👑', name:'Complétionniste Divin',   desc:'Tous les badges — tu as tout accompli. Légende absolue de l\'arène', condition:'Tous les badges', ck:()=>{ let c=_nonColCount; [5,15,30,50,75,100].forEach(function(t){if(c>=t)c++;}); return c>=totalNormal; }});
 
   // ── Badges de compétence (TÂCHE 14) ──
   // precision_rpe: RPE logged on majority of sets over last 20 sessions
@@ -3312,13 +3308,13 @@ var MONTHLY_QUEST_POOL = [
   { id:'m_consistency', name:'Métronome', descFn:function(t){return 'Entraîne-toi au moins '+t+' jours chaque semaine pendant 4 semaines';}, targetFn:function(){ return getTrainingDaysCount(); }, xp:500 }
 ];
 
-// ── Player Classes (Dofus) ──
+// ── Player Classes (Archetypes) ──
 const PLAYER_CLASSES = [
-  { id:'iop',      icon:'⚔️',  name:'Iop',      desc:'Force brute. Tu vis pour les charges lourdes, rien d\'autre.' },
-  { id:'sacrieur', icon:'🩸',  name:'Sacrieur', desc:'Tu sacrifies tout pour la pompe. Le volume est ta religion.' },
-  { id:'pandawa',  icon:'🍶',  name:'Pandawa',  desc:'Patient et équilibré. Tu joues sur le long terme.' },
+  { id:'iop',      icon:'⚔️',  name:'Guerrier',      desc:'Force brute. Tu vis pour les charges lourdes, rien d\'autre.' },
+  { id:'sacrieur', icon:'🩸',  name:'Combattant', desc:'Tu sacrifies tout pour la pompe. Le volume est ta religion.' },
+  { id:'pandawa',  icon:'🍶',  name:'Équilibriste',  desc:'Patient et équilibré. Tu joues sur le long terme.' },
   { id:'osamodas', icon:'🐉',  name:'Osamodas', desc:'Instinctif. Tu écoutes ton corps et varies sans cesse.' },
-  { id:'xelor',    icon:'⏳',  name:'Xelor',    desc:'Tout est planifié. La périodisation, c\'est ton art.' },
+  { id:'xelor',    icon:'⏳',  name:'Stratège',    desc:'Tout est planifié. La périodisation, c\'est ton art.' },
   { id:'feca',     icon:'🛡️', name:'Feca',     desc:'Technique et prévention. Ton temple, tu le protèges.' },
   { id:'ecaflip',  icon:'🎲',  name:'Ecaflip',  desc:'Irrégulier mais enthousiaste. Tu y vas quand tu peux.' },
   { id:'enutrof',  icon:'💰',  name:'Enutrof',  desc:'Vétéran. Des années de fer, des progressions en béton.' }
@@ -3398,7 +3394,7 @@ const QUIZ_QUESTIONS = [
   },
   {
     type: 'choice',
-    text: "Si tu étais un personnage Dofus ?",
+    text: "Quel est ton archétype d'entraînement ?",
     options: [
       { text: "⚔️  Un guerrier qui fonce dans le tas",          scores: { iop:3 } },
       { text: "🩸  Un titan du volume qui encaisse tout",        scores: { sacrieur:3 } },
@@ -3429,7 +3425,7 @@ function computeQuizResult(answers) {
       Object.keys(delta).forEach(function(k) { scores[k] = (scores[k] || 0) + delta[k]; });
     }
   });
-  // Tiebreak priority: Xelor > Enutrof > Feca > Osamodas > Iop = Sacrieur = Pandawa = Ecaflip
+  // Tiebreak priority: xelor > enutrof > feca > osamodas > iop = sacrieur = pandawa = ecaflip
   var priority = ['xelor','enutrof','feca','osamodas','iop','sacrieur','pandawa','ecaflip'];
   var best = priority[0], bestScore = -1, bestPrio = priority.length;
   priority.forEach(function(c, idx) {
@@ -3578,7 +3574,7 @@ function showClassQuiz() {
   renderQ();
 }
 
-// ── SBD Lift Ranks (Dofus tiers) ──
+// ── SBD Lift Ranks (tiers) ──
 const SBD_TIERS = [
   { name: 'Apprenti',   color: '#8B7355', min: 0  },
   { name: 'Aventurier', color: '#9EB0C0', min: 20 },
@@ -5948,7 +5944,7 @@ function renderGamificationTab() {
     document.getElementById('gamXPSources').innerHTML = html;
   })();
 
-  // ── 3. Quêtes hebdomadaires (Dofus quest style) ──
+  // ── 3. Quêtes hebdomadaires ──
   generateWeeklyChallenges();
   updateChallengeProgress();
   (function() {

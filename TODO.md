@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : **9.5/10**
-- SW version : **v134**
+- SW version : **v135**
 - Objectif : lancement multi-users juillet 2026
 - Dernier audit : `audit/11-v134-complete.md` (2 mai 2026)
 
@@ -311,6 +311,39 @@
 - Phase C (algo) : 34/34 assertions vertes (FIX 1-4, DUP, LP, Activités, RGPD)
 - Findings non-bloquants : F1 program.js SW (déjà présent), F2 _realLevel write-only, F3 fatPct absent UI
 - SW bumped : v132 → v133 (FIX 1-4) → **v134** (audit)
+
+## ✅ SESSION — Fixes Audit Final Gemini v134 → v135 (mai 2026)
+- SW : v134 → **v135** (8 commits)
+
+### FIX 1 — Plate Calculator + Bar Weight Setting ✅
+- `calcPlates(targetWeight, barWeight)` + `formatPlates()` dans engine.js
+- `isBarbellExercise()` : détection regex (squat/bench/deadlift/barre/SDT)
+- `renderGoExoCard()` : affichage galettes inline sous e1RM pour exercices barre
+- `saveBarWeight()` + select dans renderSettingsProfile() (20/15/10/5kg)
+- `defaultDB` + `migrateDB` : `db.user.barWeight = 20`
+
+### FIX 2 — Return-to-Play après absence > 7j ✅
+- `getAbsencePenalty()` dans engine.js : -8%/j7, -15%/j10, -18%/j14
+- Intégré dans `wpComputeWorkWeight()` après mental penalty
+- Carte info bleue dans `renderCoachTodayHTML()` si absence détectée
+
+### FIX 3 — APRE bloqué pendant Weight Cut ✅
+- `wpComputeWorkWeight()` : cap baseWeight à 98% e1RM si weightCut.active
+- Empêche la progression APRE pendant la perte de poids (anti-yoyo LPF)
+
+### FIX 4 — Cold Start e1RM reference guard ✅
+- `shouldRecordE1RMAsReference()` : false si cold start + sommeil≤2 ou readiness≤1
+- `goFinishWorkout()` : tag `session.skipColdStartRef = true` si état insuffisant
+- `wpComputeWorkWeight()` : filtre sessions skipColdStartRef de l'historique
+
+### FIX 5 — RPE Dissonance Detection ✅
+- `detectRPEDissonance(rpe, restSec)` dans engine.js
+- `goToggleSetComplete()` : timestamp `set._completedAt`, calcul repos réel vs RPE déclaré
+- Toast si RPE≤7 + repos>4min (sous-estimation) ou RPE≥9 + repos<2min (surestimation)
+
+### FIX 6 — Notification J6 rétention débutant ✅
+- Entrée J6 ajoutée dans `NOTIFICATION_SCHEDULE` avec `profileFilter:'debutant'`
+- `checkScheduledNotifications()` : filtre `profileFilter` vs `db.user.obProfile`
 
 ## 🔄 En cours / À faire
 

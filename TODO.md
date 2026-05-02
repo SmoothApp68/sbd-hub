@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : **9.5/10**
-- SW version : **v136**
+- SW version : **v137**
 - Objectif : lancement multi-users juillet 2026
 - Dernier audit : `audit/11-v134-complete.md` (2 mai 2026)
 
@@ -345,6 +345,23 @@
 - Entrée J6 ajoutée dans `NOTIFICATION_SCHEDULE` avec `profileFilter:'debutant'`
 - `checkScheduledNotifications()` : filtre `profileFilter` vs `db.user.obProfile`
 
+## ✅ SESSION — Cartes de Partage + Waitlist v136 → v137 (mai 2026)
+- SW : v136 → **v137** (4 commits)
+
+### FEATURE 1 — Cartes de Partage ✅
+- `generateShareCard(session)` dans engine.js : collecte PRs, mainLifts, tonnage hors warmup
+- `renderShareCardHTML(cardData)` : carte 340px dark gradient (doré si PR, bleu sinon)
+- `showShareModal(session)` : overlay modal avec carte + bouton télécharger
+- `downloadShareCard()` : html2canvas chargé à la demande, scale:2 haute résolution
+- `goFinishWorkout()` : toast "Partager ta séance" si hasPR ou tonnage > 2t (délai 3.5s)
+
+### FEATURE 2 — Waitlist Page ✅
+- `index.html` : section `#waitlist-page` (dark gradient, stats, form email/profil, features clés)
+- `checkWaitlistRoute()` : détecte `#waitlist` ou `?waitlist` — skip app init, affiche waitlist
+- `submitWaitlist()` : insert Supabase `waitlist` table, gère erreur 23505 (doublon email)
+- `init()` : `checkWaitlistRoute()` en premier
+- ⚠️ **Migration Supabase requise** : créer table `waitlist` (email, profile, created_at, id)
+
 ## ✅ SESSION — Warm-up Generator + Accessibilité + i18n v135 → v136 (mai 2026)
 - SW : v135 → **v136** (3 commits)
 
@@ -386,6 +403,21 @@
   - Exposer db.user.fatPct dans UI Réglages pour Katch-McArdle (F3)
 
 ## Migrations Supabase en attente
+
+### ⚠️ WAITLIST TABLE — à créer par Claude.ai
+```sql
+CREATE TABLE waitlist (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  profile TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+-- RLS : lecture interdite en public, insert autorisé (sans auth)
+ALTER TABLE waitlist ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "waitlist_insert" ON waitlist FOR INSERT WITH CHECK (true);
+```
+
+### Migrations historiques
 (à appliquer par Claude.ai après chaque tâche)
 - TÂCHE 15 (notifications J1→J30) : nécessite table `notification_schedule` en Supabase
   - Colonnes : user_id, day_number (1-30), scheduled_at, sent_at, title, body, type

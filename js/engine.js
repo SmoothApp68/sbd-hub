@@ -2960,12 +2960,29 @@ var WEIGHT_CUT_RATES = {
   danger: 0.015
 };
 
+// FIX 6: 14-day moving average of body weight to smooth hormonal fluctuations
+function getSmoothedBodyWeight() {
+  var wc = db.user && db.user.weightCut;
+  if (!wc) return 0;
+  var logs = wc.weeklyLogs || [];
+  if (!logs.length) return wc.currentWeight || 0;
+  var cutoff = Date.now() - 14 * 86400000;
+  var recent = logs.filter(function(l) { return l.ts && l.ts >= cutoff && l.weight > 0; });
+  if (!recent.length) return wc.currentWeight || 0;
+  var sum = recent.reduce(function(s, l) { return s + l.weight; }, 0);
+  return sum / recent.length;
+}
+
 function calcWeightCutPenalty(liftType) {
   if (!db.user || !db.user.weightCut || !db.user.weightCut.active) return 1.0;
   var wc = db.user.weightCut;
-  if (!wc.startWeight || !wc.currentWeight) return 1.0;
+  if (!wc.startWeight) return 1.0;
 
-  var lossPct = (wc.startWeight - wc.currentWeight) / wc.startWeight;
+  // FIX 6: use 14-day moving average instead of raw currentWeight
+  var smoothedWeight = getSmoothedBodyWeight();
+  if (!smoothedWeight) return 1.0;
+
+  var lossPct = (wc.startWeight - smoothedWeight) / wc.startWeight;
   if (lossPct < 0.02) return 1.0;
 
   var weeklyLoss = wc.weeklyLogs && wc.weeklyLogs.length > 0

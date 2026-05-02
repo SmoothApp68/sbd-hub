@@ -15519,7 +15519,9 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   var pr = db.bestPR || {};
-  var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  var logs = (db.logs || []).slice()
+    .filter(function(l) { return !l.skipColdStartRef; })
+    .sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var targetNames = {
     squat: 'Squat', bench: 'Développé couché',
     deadlift: 'Soulevé de Terre', squat_pause: 'Squat Pause'
@@ -21138,6 +21140,19 @@ function goConfirmFinish() {
   );
 }
 
+function shouldRecordE1RMAsReference() {
+  if (typeof isColdStart !== 'function' || !isColdStart()) return true;
+  var wellbeing = db.todayWellbeing;
+  if (!wellbeing) return true;
+  var badSleep = wellbeing.sleep !== undefined && wellbeing.sleep <= 2;
+  var badReadiness = wellbeing.readiness !== undefined && wellbeing.readiness <= 1;
+  if (badSleep || badReadiness) {
+    showToast('⚠️ État de santé insuffisant — cette séance ne sert pas de référence de calibration');
+    return false;
+  }
+  return true;
+}
+
 function goFinishWorkout() {
   if (!activeWorkout) return;
   var session = convertWorkoutToSession(activeWorkout);
@@ -21147,6 +21162,11 @@ function goFinishWorkout() {
   // Snapshot des meilleurs e1RM par exo AVANT d'ajouter la séance (pour overlay PR Type B)
   var _previousBestE1RMs = {};
   try { _previousBestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {}; } catch(e) {}
+
+  // Cold start reference guard: flag if health state is too poor to serve as calibration
+  if (!shouldRecordE1RMAsReference()) {
+    session.skipColdStartRef = true;
+  }
 
   // Add to db.logs
   db.logs.push(session);

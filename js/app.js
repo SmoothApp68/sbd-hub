@@ -15780,6 +15780,16 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
+  // FIX 3 — Weight Cut APRE block (anti-yoyo : ne pas dépasser e1RM actuel pendant le cut)
+  var _isWCActive = db.user && db.user.weightCut && db.user.weightCut.active;
+  if (_isWCActive) {
+    var _wcE1rmCap = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
+      || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm) || 0;
+    if (_wcE1rmCap > 0 && baseWeight > Math.round(_wcE1rmCap * 0.98 / 2.5) * 2.5) {
+      baseWeight = Math.round(_wcE1rmCap * 0.98 / 2.5) * 2.5;
+    }
+  }
+
   // PhysioManager — réduction de charge phase lutéale / folliculaire précoce
   if (typeof getCycleCoeff === 'function' && _stabilized) {
     var _cycleCoeff = getCycleCoeff();

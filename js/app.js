@@ -10401,6 +10401,52 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   showToast('✓ Exercice remplacé');
 }
 
+// DUP ÉTAPE B — Migration one-shot des zones e1RM depuis l'historique
+function migrateDUPRegisters() {
+  if (!db.exercises || db._dupMigrated) return;
+  var cutoff30j = Date.now() - 30 * 86400000;
+  Object.keys(db.exercises).forEach(function(exoName) {
+    var exo = db.exercises[exoName];
+    if (!exo || exo.zones) return;
+    var legacyE1RM = exo.e1rm || exo.shadowWeight || 0;
+    var zoneE1RMs = { force: 0, hypertrophie: 0, vitesse: 0 };
+    (db.logs || []).forEach(function(log) {
+      if (log.timestamp < cutoff30j) return;
+      (log.exercises || []).forEach(function(logExo) {
+        if (!logExo.name || logExo.name !== exoName) return;
+        (logExo.allSets || logExo.series || []).forEach(function(s) {
+          if (s.isWarmup || s.isBackOff) return;
+          var reps = parseInt(s.reps) || 0;
+          var weight = parseFloat(s.weight) || 0;
+          if (reps <= 0 || weight <= 0) return;
+          var e1rmCalc = weight / (1.0278 - 0.0278 * reps);
+          var zone = typeof getDUPZone === 'function' ? getDUPZone(reps) : 'force';
+          if (e1rmCalc > zoneE1RMs[zone]) zoneE1RMs[zone] = e1rmCalc;
+        });
+      });
+    });
+    var baseE1RM = zoneE1RMs.force > 0 ? zoneE1RMs.force : legacyE1RM;
+    if (baseE1RM <= 0) return;
+    exo.zones = {
+      force: {
+        e1rm: Math.round((zoneE1RMs.force > 0 ? zoneE1RMs.force : baseE1RM) / 2.5) * 2.5,
+        shadowWeight: exo.shadowWeight || 0, sessionsCount: 0
+      },
+      hypertrophie: {
+        e1rm: Math.round((zoneE1RMs.hypertrophie > 0 ? zoneE1RMs.hypertrophie : baseE1RM * 0.94) / 2.5) * 2.5,
+        shadowWeight: 0, sessionsCount: 0
+      },
+      vitesse: {
+        e1rm: Math.round((zoneE1RMs.vitesse > 0 ? zoneE1RMs.vitesse : baseE1RM * 0.88) / 2.5) * 2.5,
+        shadowWeight: 0, sessionsCount: 0
+      }
+    };
+    if (typeof applyDUPTethering === 'function') applyDUPTethering(exoName);
+  });
+  db._dupMigrated = true;
+  saveDB();
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -10458,6 +10504,7 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
   renderProgramViewer();
 
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
+  migrateDUPRegisters();
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {

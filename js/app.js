@@ -8803,7 +8803,7 @@ async function _doImportCSV(sessions) {
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
   bar.style.width='100%';txt.textContent='✓ '+imported+' séances importées !';btn.textContent='✓ Importé';showToast('✓ '+imported+' séances importées');
   const prSummary=Object.entries(prs).filter(([,v])=>v>0).map(([k,v])=>k.toUpperCase()+' : '+v+'kg').join(' · ');
-  if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){_showLegacyPRCelebration(_n,_bestPR[0][1],0);},500);}}
+  if(prSummary){showToast('🏆 PRs : '+prSummary);var _bestPR=Object.entries(prs).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(_bestPR.length>0){var _t=_bestPR[0][0],_n=_t==='bench'?'Développé couché':_t==='squat'?'Squat':'Soulevé de terre';setTimeout(function(){showPRCelebration([{name:_n,value:_bestPR[0][1],prev:0,gain:_bestPR[0][1]}],'import');},500);}}
   const suspectCount = Object.values(getSuspiciousRecordsSummary()).length;
   if (suspectCount > 0) {
     setTimeout(() => showToast('⚠️ ' + suspectCount + ' record' + (suspectCount>1?'s':'') + ' suspect' + (suspectCount>1?'s':'') + ' détecté' + (suspectCount>1?'s':'') + ' — vérifie dans Réglages → Correction des Records'), 1500);
@@ -19004,8 +19004,12 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '</div>';
   }
   if (isBarbellExercise(exo.name) && _suggestedW > 0 && typeof formatPlates === 'function') {
-    h += '<div style="font-size:11px;color:var(--sub);margin-top:2px;padding-left:2px;">'
-      + '🏋️ ' + formatPlates(_suggestedW, db.user.barWeight || 20) + '</div>';
+    var _platesId = 'plates-' + exoIdx;
+    h += '<div onclick="var el=document.getElementById(\'' + _platesId + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';" '
+      + 'style="font-size:11px;color:var(--sub);margin-top:2px;padding-left:2px;cursor:pointer;">🏋️ Galettes ▾</div>';
+    h += '<div id="' + _platesId + '" style="display:none;font-size:11px;color:var(--sub);'
+      + 'padding:4px 8px;background:var(--surface);border-radius:6px;margin-top:2px;">'
+      + formatPlates(_suggestedW, db.user.barWeight || 20) + '</div>';
   }
   h += '</div>';
   h += '<button class="go-exo-menu" onclick="goShowExoMenu(' + exoIdx + ')">⋮</button>';
@@ -22251,29 +22255,6 @@ function goDiscardWorkout() {
 
   // Social: clear training status
   try { setTrainingStatus(false); } catch(e) {}
-}
-
-// ============================================================
-// PR CELEBRATION OVERLAY (legacy — CSV import only)
-// ============================================================
-function _showLegacyPRCelebration(liftName, newValue, oldValue) {
-  var overlay = document.createElement('div');
-  overlay.className = 'pr-celebration-overlay';
-  overlay.innerHTML = '<div class="pr-celebration-box">' +
-    '<div class="pr-celebration-trophy">🏆</div>' +
-    '<div class="pr-celebration-title">Nouveau record !</div>' +
-    '<div class="pr-celebration-detail">' + liftName + ' : ' + Math.round(oldValue) + 'kg → <strong style="color:var(--success)">' + Math.round(newValue) + 'kg</strong></div>' +
-    '</div>';
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', function() { dismissPRCelebration(overlay); });
-  setTimeout(function() { dismissPRCelebration(overlay); }, 3000);
-}
-function dismissPRCelebration(overlay) {
-  if (!overlay || overlay._dismissed) return;
-  overlay._dismissed = true;
-  var box = overlay.querySelector('.pr-celebration-box');
-  if (box) box.classList.add('fade-out');
-  setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 500);
 }
 
 // ============================================================

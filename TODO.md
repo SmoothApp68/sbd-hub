@@ -2,7 +2,7 @@
 
 ## État général
 - Score Gemini : **9.5/10**
-- SW version : **v135**
+- SW version : **v136**
 - Objectif : lancement multi-users juillet 2026
 - Dernier audit : `audit/11-v134-complete.md` (2 mai 2026)
 
@@ -344,6 +344,37 @@
 ### FIX 6 — Notification J6 rétention débutant ✅
 - Entrée J6 ajoutée dans `NOTIFICATION_SCHEDULE` avec `profileFilter:'debutant'`
 - `checkScheduledNotifications()` : filtre `profileFilter` vs `db.user.obProfile`
+
+## ✅ SESSION — Warm-up Generator + Accessibilité + i18n v135 → v136 (mai 2026)
+- SW : v135 → **v136** (3 commits)
+
+### FEATURE 1 — Warm-up Generator ✅
+- `WARMUP_PROTOCOL_HEAVY` (feeler set 87%) / `WARMUP_PROTOCOL_VOLUME` (économie énergie) dans engine.js
+- `WARMUP_ACTIVATION` : drills spécifiques squat/bench/deadlift
+- `generateWarmupSets(workWeight, e1rm, liftType, isEarlyMorning)` : paliers par intensité
+  - ≥80% e1RM → protocole heavy avec feeler set
+  - Séance matinale (<10h) → cardio 5min ajouté
+  - Ne dépasse jamais le poids de travail
+- `wpGeneratePowerbuildingDay()` : `mainExoObj.warmupSets = generateWarmupSets(...)`
+- `renderGoExoCard()` : bloc Activation (drills) + checklist paliers avant le tableau des séries
+- `toggleWarmupSet()` : `warmupCompleted[i]` persisté dans activeWorkout, non loggé
+
+### FEATURE 2 — Accessibilité ✅
+- **Icônes daltonisme** : `_SEVERITY_ICONS` (🚨⚠️✅ℹ️) ajoutées à toutes les alertes Diagnostic Athlétique
+- **Touch targets 48px** : `.go-check-btn` CSS 30→48px (index.html)
+- **ARIA labels** : `aria-label` sur inputs poids (kg/lbs), répétitions, bouton valider série
+- **Consentement médical** : case obligatoire dans ob-step-7 avant `obFinish()`
+  - `db.user.medicalConsent + medicalConsentDate` persistés
+  - `obFinish()` bloque si case non cochée
+
+### FEATURE 3 — Unités kg/lbs ✅
+- `toDisplayWeight(kg)` / `toDisplayWeightLabel()` / `fromDisplayWeight(val)` dans engine.js
+- `getPlatesSet()` : retourne PLATES_US_LBS ou PLATES_EU_KG selon db.user.units
+- Toggle kg/lbs dans renderSettingsProfile() (section Équipement & Unités)
+- `setWeightUnit(unit)` : sauvegarde + refresh settings
+- `renderGoExoCard()` : colonne KG/LBS dynamique, display/store conversion via fromDisplayWeight
+- `goUpdateSetValue()` : fromDisplayWeight() appliqué pour le champ weight
+- `defaultDB` + `migrateDB` : `db.user.units = 'kg'`, `medicalConsent`, `medicalConsentDate`
 
 ## 🔄 En cours / À faire
 

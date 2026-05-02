@@ -1,0 +1,35 @@
+{
+  "test1": {
+    "name": "weeklyPlan auto-generated J1",
+    "status": "FAIL",
+    "notes": "weeklyPlan is null in DB and no plan content in UI. \"Comment créer\" visible: true"
+  },
+  "test2": {
+    "name": "showPRCelebration no JS errors",
+    "status": "FAIL",
+    "notes": "JS errors found: generateWeeklyPlan v3 error: TypeError: Cannot read properties of undefined (reading 'squat')\n    at wpGeneratePowerbuildingDay (http://localhost:3456/js/app.js:16917:33)\n    at http://localhost:3456/js/app.js:17636:23\n    at Array.map (<anonymous>)\n    at generateWeeklyPlan (http://localhost:3456/js/app.js:17625:22)\n    at init (http://localhost:3456/js/app.js:10912:57)\n    at http://localhost:3456/js/app.js:10986:3"
+  },
+  "test3": {
+    "name": "Chart.js offline",
+    "status": "PASS",
+    "notes": "Charts render. Canvas: 2. Chart.js local: http://localhost:3456/js/chart.min.js. No \"indisponible\" msg."
+  },
+  "test4": {
+    "name": "Plate Calculator collapsible",
+    "status": "PASS",
+    "notes": "\"Galettes ▾\" toggle present and works: collapsed initially, plates visible after click."
+  },
+  "test5": {
+    "name": "Coach Today J1 regression",
+    "status": "PASS",
+    "notes": "Coach tab has content on J1. Cold start: true, SRS/card: false, Wellbeing: false"
+  },
+  "test6": {
+    "name": "Console errors global check",
+    "status": "WARN",
+    "notes": "1 app errors: generateWeeklyPlan v3 error: TypeError: Cannot read properties of undefined (reading 'squat')\n    at wpGeneratePowerbuil",
+    "errors": [
+      "generateWeeklyPlan v3 error: TypeError: Cannot read properties of undefined (reading 'squat')\n    at wpGeneratePowerbuildingDay (http://localhost:3456/js/app.js:16917:33)\n    at http://localhost:3456/js/app.js:17636:23\n    at Array.map (<anonymous>)\n    at generateWeeklyPlan (http://localhost:3456/js/app.js:17625:22)\n    at init (http://localhost:3456/js/app.js:10912:57)\n    at http://localhost:3456/js/app.js:10986:3"
+    ]
+  }
+}

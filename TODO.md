@@ -228,6 +228,28 @@
 - Section 8 dans `analyzeAthleteProfile()` : ratio Force/Hypertrophie par exercice SBD
 - `>1.15` → profil neurologique (recommande GPP) ; `<1.02` → profil endurance (recommande intensification)
 
+## ✅ SESSION — LP 3-Strikes + Cold Start RPE5 v131 → v132 (mai 2026)
+- SW : v131 → **v132** (2 commits)
+
+### LP ÉTAPE A — Fonctions algo dans engine.js ✅ — commit 704c86c
+- `LP_CONFIG` : 3 strikes, -10% deload, DOTS seuil M=250/F=180, 12 semaines max, incréments gender-aware
+- `isInLP()` : vérifie lpActive + DOTS total < seuil + durée < 12 semaines
+- `recordLPFailure()` : strike1→retry, strike2→deload, strike3→transition APRE (lpActive=false)
+- `getLPIncrement()` : 2.5kg (homme lourd), 1.25kg (femme/homme léger), 0.5kg (isolation)
+- `calcStartWeightFromRPE5Test()` : Brzycki × 0.70 pour démarrage LP
+- `getLPBienEtreProgress()` : LP en reps (8→12) pour yoga/senior/reeducation, puis incrément 1.25kg
+
+### LP ÉTAPE B — Cold Start RPE5 card + Intégration app.js ✅ — commit (ce commit)
+- `buildColdStartRPE5Html()` : carte protocole 10 reps RPE5 pour débutant/senior/reeducation
+- Affichée dans `buildGoIdleHtml()` si cold start + profil débutant + pas de PRs déclarés
+- `defaultDB()` : `lpActive: true, lpStrikes: {}` ajoutés
+- Migration : `lpActive` initialisé à `(logs.length < 24)`, `lpStrikes` initialisé à `{}`
+
+### LP ÉTAPE D — Bloc LP dans wpComputeWorkWeight() + détection échec ✅ — commit (ce commit)
+- Bloc LP pris en priorité sur l'ancien `isBeginnerMode`
+- Strike 0 → +incrément, Strike 1 → retry, Strike 2+ → deload -10%
+- `goFinishWorkout()` : RPE ≥ 9.5 sur dernier work set → `recordLPFailure()` + toast
+
 ## 🔄 En cours / À faire
 
 ### PHASE 5 — Reste

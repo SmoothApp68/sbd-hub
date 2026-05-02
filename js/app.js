@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -206,6 +206,9 @@ let db = (() => {
     if (p.user.skipRPE === undefined) p.user.skipRPE = false;
     // Katch-McArdle TDEE (B5) — % masse grasse pour calcul BMR précis
     if (p.user.fatPct === undefined) p.user.fatPct = null;
+    // LP 3-Strikes system
+    if (p.user.lpActive === undefined) p.user.lpActive = (p.logs || []).length < 24;
+    if (!p.user.lpStrikes) p.user.lpStrikes = {};
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -15280,6 +15283,35 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   var isCuttingW = ((db.user && db.user.programParams && db.user.programParams.goals) || []).includes('seche');
   var baseWeight;
 
+  // ÉTAPE D: 3-Strikes LP mode — takes priority over legacy isBeginnerMode
+  if (typeof isInLP === 'function' && isInLP()) {
+    var _lpExoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(realName) : null;
+    var _lpIsCompound = !_lpExoMeta || (_lpExoMeta && _lpExoMeta.mechanic !== 'isolation');
+    var _lpIncrement = typeof getLPIncrement === 'function'
+      ? getLPIncrement(realName, _lpIsCompound) : 2.5;
+    var _lpLastWeight = history.length > 0 ? history[0].weight : 0;
+    if (_lpLastWeight > 0) {
+      // Bien-être LP: reps-based progression for yoga/senior/reeducation
+      var _lpBE = typeof getLPBienEtreProgress === 'function'
+        ? getLPBienEtreProgress(realName) : null;
+      if (_lpBE) {
+        return Math.max(20, _lpBE.keepWeight
+          ? _lpLastWeight
+          : wpRound25(_lpLastWeight + _lpBE.increment));
+      }
+      var _strikes = (db.user.lpStrikes && db.user.lpStrikes[realName]) || { count: 0 };
+      if (_strikes.count === 0) {
+        return Math.max(20, wpRound25(_lpLastWeight + _lpIncrement));
+      } else if (_strikes.count === 1) {
+        return Math.max(20, _lpLastWeight); // retry
+      } else if (_strikes.count >= 2 && _strikes.lastFailWeight > 0) {
+        return Math.max(20, Math.round(_strikes.lastFailWeight
+          * (1 - LP_CONFIG.deloadPct) / 2.5) * 2.5);
+      }
+      // Strike 3 already transitioned to APRE (lpActive=false) — fall through
+    }
+  }
+
   // LP exit check
   if (isBeginnerMode) {
     var lpCheck = typeof checkLPEnd === 'function'
@@ -17401,6 +17433,30 @@ function renderGoTab() {
 }
 
 // ── Idle View ──
+// ÉTAPE B — Cold Start RPE 5 protocol card for beginner profiles
+function buildColdStartRPE5Html() {
+  var isDebutant = db.user && (
+    db.user.obProfile === 'debutant' ||
+    db.user.obProfile === 'senior' ||
+    db.user.obProfile === 'reeducation'
+  );
+  var hasPRs = db.user && db.user.onboardingPRs &&
+    (db.user.onboardingPRs.squat || db.user.onboardingPRs.bench || db.user.onboardingPRs.deadlift);
+  if (!isDebutant || hasPRs) return '';
+  if (typeof isColdStart !== 'function' || !isColdStart()) return '';
+  return '<div style="background:rgba(10,132,255,0.1);border:1px solid var(--accent);'
+    + 'border-radius:14px;padding:14px;margin-bottom:14px;">'
+    + '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🎯 Calibration Séance 1</div>'
+    + '<div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:10px;">'
+    + 'Pour chaque exercice, trouve un poids avec lequel tu peux faire<br>'
+    + '<strong>10 répétitions propres à effort modéré (RPE 5)</strong> — '
+    + 'tu devrais pouvoir en faire 5 de plus sans forcer.<br><br>'
+    + 'L\'app démarre à 70% de cette charge pour sécuriser ta technique.'
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--sub);">✓ Pas de 1RM. ✓ Technique avant tout. ✓ 3 séances pour calibrer.</div>'
+    + '</div>';
+}
+
 function renderGoIdleView() {
   var el = document.getElementById('goIdleView');
   if (!el) return;
@@ -17543,6 +17599,9 @@ function buildGoIdleHtml() {
       ? '💓 FC connectée — ' + (typeof _currentHR !== 'undefined' && _currentHR ? _currentHR + ' bpm' : '...')
       : '🔵 Connecter cardiofréquencemètre (optionnel)') + '</button>';
 
+  // ÉTAPE B: Cold Start RPE 5 protocol card for beginner/senior/reeducation
+  var coldStartRPE5Html = buildColdStartRPE5Html();
+
   // 5-Rep Test card — cold start + beginner profile (TÂCHE 12)
   var fiveRepHtml = '';
   if (typeof isColdStart === 'function' && isColdStart() && db.user && db.user.skipPRs) {
@@ -17571,7 +17630,7 @@ function buildGoIdleHtml() {
     }
   }
 
-  return toggleHtml + '<div id="go-recap-view">' + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+  return toggleHtml + '<div id="go-recap-view">' + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
 }
 
 // ── CHURN DETECTION + RÉACTIVATION (TÂCHE 16) ─────────────────
@@ -20779,6 +20838,25 @@ function goFinishWorkout() {
       _prCelebrated = true;
     });
     updateLeaderboardSnapshot();
+  } catch(e) {}
+
+  // LP 3-Strikes: detect failures (RPE ≥ 9.5 on last work set = missed reps)
+  try {
+    if (typeof isInLP === 'function' && isInLP()) {
+      (session.exercises || []).forEach(function(_lpExo) {
+        var _lpWork = (_lpExo.allSets || _lpExo.series || []).filter(function(s) {
+          return !s.isWarmup && !s.isBackOff;
+        });
+        if (!_lpWork.length) return;
+        var _lpLastSet = _lpWork[_lpWork.length - 1];
+        if (parseFloat(_lpLastSet.rpe) >= 9.5) {
+          var _lpRes = typeof recordLPFailure === 'function'
+            ? recordLPFailure(_lpExo.name, parseFloat(_lpLastSet.weight) || 0)
+            : null;
+          if (_lpRes && _lpRes.message) showToast(_lpRes.message);
+        }
+      });
+    }
   } catch(e) {}
 
   // Cleanup

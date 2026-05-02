@@ -2461,9 +2461,14 @@ function classifyStagnation(liftType) {
   var rpeAvg = getAvgRPEForLift(liftType, 4);
   var week = (db.weeklyPlan && db.weeklyPlan.week) || 0;
   var weekInBlock = week % 4 || 4;
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
 
-  // Sur-atteinte → Emergency deload 3j OFF
-  if (trend3w < -0.02 && rpeAvg !== null && rpeAvg > 9) {
+  // FIX 4: Phase-aware RPE threshold — peak/intensification/force expect high RPE
+  var peakPhases = { peak: true, intensification: true, force: true };
+  var rpeThreshold = peakPhases[phase] ? 9.5 : 9.0;
+
+  // Sur-atteinte: continuous threshold — deeply negative trend, or negative + high RPE
+  if (trend3w < -0.03 || (trend3w < -0.015 && rpeAvg !== null && rpeAvg > rpeThreshold)) {
     return { type: 'sur_atteinte', action: 'emergency_deload',
       message: '🔴 Sur-atteinte détectée. 3 jours de repos complets recommandés.' };
   }
@@ -2474,15 +2479,22 @@ function classifyStagnation(liftType) {
       message: '🟠 Fatigue accumulée. Deload : -30% volume, -10% intensité pendant 7j.' };
   }
 
-  // Consolidation → Attendre fin du bloc
-  if (Math.abs(trend3w) < 0.005 && weekInBlock >= 3) {
+  // Consolidation → Attendre fin du bloc (semaine 3-4)
+  if (Math.abs(trend3w) < 0.01 && weekInBlock >= 3) {
     return { type: 'consolidation', action: 'wait',
       message: '🟡 Phase de consolidation normale. Attends la fin du bloc.' };
   }
 
-  // Plateau réel → Changer variante ou rep-range
   var logs7 = (db.logs || []).filter(function(l) { return l.timestamp > Date.now() - 7 * 86400000; });
   var compliance = logs7.length > 0 ? Math.min(1, logs7.length / 3) : 0;
+
+  // FIX 4: Monitoring — stagnation légère, surveiller 2-3 séances avant de pivoter
+  if (Math.abs(trend3w) < 0.01 && srs.score >= 65 && compliance > 0.80) {
+    return { type: 'monitoring', action: 'continue',
+      message: '🔵 Progression ralentie — surveille 2-3 séances avant de pivoter.' };
+  }
+
+  // Plateau réel → Changer variante ou rep-range
   if (Math.abs(trend3w) < 0.005 && srs.score > 80 && compliance > 0.90) {
     return { type: 'plateau_reel', action: 'pivot',
       message: '💡 Plateau réel détecté. Change le rep-range ou la variante principale.' };

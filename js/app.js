@@ -18758,6 +18758,8 @@ function goToggleSetComplete(exoIdx, setIdx) {
   var set = activeWorkout.exercises[exoIdx].sets[setIdx];
   set.completed = !set.completed;
   if (set.completed) {
+    var _completedAt = Date.now();
+    set._completedAt = _completedAt;
     // Supersets : ne lancer le timer qu'après le DERNIER exo du superset
     var exo = activeWorkout.exercises[exoIdx];
     var isInSuperset = goIsPartOfSuperset(exoIdx);
@@ -18779,6 +18781,22 @@ function goToggleSetComplete(exoIdx, setIdx) {
         if (_e1rm > _prev && _prev > 0) {
           if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
           if (typeof showPRToast === 'function') showPRToast(exo.name, _e1rm);
+        }
+      }
+    } catch(e) {}
+    // RPE Dissonance — comparer RPE déclaré vs temps depuis la série précédente
+    try {
+      if (set.rpe && typeof detectRPEDissonance === 'function'
+          && (db.user.coachProfile || 'full') !== 'silent') {
+        var _prevCompleted = null;
+        var _sets = exo.sets;
+        for (var _si = setIdx - 1; _si >= 0; _si--) {
+          if (_sets[_si].completed && _sets[_si]._completedAt) { _prevCompleted = _sets[_si]; break; }
+        }
+        if (_prevCompleted && _prevCompleted._completedAt) {
+          var _actualRest = Math.round((_completedAt - _prevCompleted._completedAt) / 1000);
+          var _diss = detectRPEDissonance(parseFloat(set.rpe), _actualRest);
+          if (_diss && _diss.suspected) showToast('💡 ' + _diss.note);
         }
       }
     } catch(e) {}

@@ -17771,11 +17771,25 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     if (isCutting) rest += 30;
     var thisSets = Math.min(setsCount, maxTotalSets - totalSetsUsed);
     totalSetsUsed += thisSets;
-    var dpResult = wpDoubleProgressionWeight(name, repRange[0], repRange[1]);
+
+    // Double Progression pour musculation : slot-based rep ranges à la place de l'APRE
+    var _isMuscuMode = db.user && db.user.trainingMode === 'musculation';
+    var _dpRanges = typeof DOUBLE_PROGRESSION_RANGES !== 'undefined' ? DOUBLE_PROGRESSION_RANGES : null;
+    var _exoMechanicDP = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(name) : null;
+    var _dpSlot = _exoMechanicDP && _exoMechanicDP.mechanic === 'compound'
+      ? 'main'
+      : (_exoMechanicDP && _exoMechanicDP.mechanic === 'isolation' ? 'isolation' : 'accessory');
+    var _dpRange = _isMuscuMode && _dpRanges ? (_dpRanges[_dpSlot] || _dpRanges.accessory) : null;
+
+    var dpResult = _dpRange
+      ? wpDoubleProgressionWeight(name, _dpRange.min, _dpRange.max)
+      : wpDoubleProgressionWeight(name, repRange[0], repRange[1]);
 
     // Volume PR : valider repMax avant d'augmenter la charge
+    var _dpRepMax = _dpRange ? _dpRange.max : repRange[1];
+    var _dpRepMin = _dpRange ? _dpRange.min : repRange[0];
     var vpResult = typeof checkVolumePR === 'function'
-      ? checkVolumePR(name, dpResult ? dpResult.weight : null, repRange[0], repRange[1])
+      ? checkVolumePR(name, dpResult ? dpResult.weight : null, _dpRepMin, _dpRepMax)
       : null;
     if (vpResult && vpResult.action === 'increase') {
       dpResult = { weight: vpResult.newWeight, reps: vpResult.newReps };
@@ -17786,9 +17800,14 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     var exoObj = {
       name: name, type: 'weight', restSeconds: phase === 'deload' ? Math.ceil(rest / 2) : rest,
       sets: Array.from({ length: thisSets }, function() {
-        return { reps: dpResult ? dpResult.reps : reps, rpe: phase === 'deload' ? 6 : rpe, weight: dpResult ? dpResult.weight : null, isWarmup: false };
+        return { reps: dpResult ? dpResult.reps : (_dpRange ? _dpRange.min : reps), rpe: phase === 'deload' ? 6 : rpe, weight: dpResult ? dpResult.weight : null, isWarmup: false };
       })
     };
+    if (_isMuscuMode && _dpRange) {
+      exoObj.isDoubleProgression = true;
+      exoObj.targetReps = _dpRange.min;
+      exoObj.targetRepsMax = _dpRange.max;
+    }
     if (vpResult && vpResult.action === 'increase') {
       exoObj.coachNote = '📈 Volume PR atteint — ' + vpResult.reason;
     }
@@ -19551,6 +19570,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   } else if (_bwExoData && _bwExoData.bwFactor && db.user.bw > 0) {
     var _bwComp = Math.round(db.user.bw * _bwExoData.bwFactor);
     h += '<div style="font-size:10px;color:var(--sub);padding:2px 12px;">💡 Charge effective : ' + _bwComp + 'kg (' + Math.round(_bwExoData.bwFactor * 100) + '% de ' + db.user.bw + 'kg)</div>';
+  }
+
+  // Double Progression fourchette
+  if (exo.isDoubleProgression && exo.targetRepsMax) {
+    h += '<div style="font-size:12px;color:var(--accent);padding:4px 12px;">'
+      + '🎯 Objectif : ' + exo.targetReps + '–' + exo.targetRepsMax + ' reps'
+      + ' <span style="color:var(--sub);font-size:11px;">(augmente quand tu atteins '
+      + exo.targetRepsMax + '×)</span></div>';
   }
 
   // ── Warm-up block (activation drills + palier checklist) ──

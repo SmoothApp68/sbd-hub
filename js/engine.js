@@ -3296,6 +3296,14 @@ var ACTIVITY_KEY_MAP = {
   'climbing':     'escalade',
   'bouldering':   'escalade',
   'rucking':      'rucking',
+  'crossfit':     'crossfit',
+  'wod':          'crossfit',
+  'hyrox':        'hyrox',
+  'padel':        'padel',
+  'tennis':       'tennis',
+  'squash':       'tennis',
+  'hiit':         'hiit',
+  'circuit':      'hiit',
   'other':        'autre'
 };
 
@@ -3325,17 +3333,22 @@ function sanitizeActivity(act) {
 
 var ACTIVITY_SPEC_COEFFICIENTS = {
   natation:          0.8,
-  course:            1.2,
-  trail:             1.4,
-  randonnee:         1.0,
-  velo:              1.0,
-  yoga:              0.5,
+  course:            1.1,
+  trail:             1.3,
+  randonnee:         0.5,
+  velo:              0.9,
+  yoga:              0.3,
   pilates:           0.5,
   ski:               1.3,
-  arts_martiaux:     1.6,
-  sports_collectifs: 1.5,
-  escalade:          1.3,
-  rucking:           0.9,
+  arts_martiaux:     1.4,
+  sports_collectifs: 1.3,
+  escalade:          1.2,
+  rucking:           1.1,
+  crossfit:          1.5,
+  hyrox:             1.4,
+  padel:             1.1,
+  tennis:            1.1,
+  hiit:              1.3,
   autre:             1.0
 };
 
@@ -3356,6 +3369,13 @@ var ACTIVITY_INTERFERENCE_RULES = {
   }
 };
 
+// Double Progression rep ranges for musculation mode (slot-based)
+var DOUBLE_PROGRESSION_RANGES = {
+  main:      { min: 6,  max: 8,  increment: 2.5 },
+  accessory: { min: 8,  max: 12, increment: 1.25 },
+  isolation: { min: 10, max: 15, increment: 1.25 }
+};
+
 // Mapping sport secondaire → zones impactées + pénalité volume (%)
 var CROSS_INTERFERENCE_MAP = {
   trail:             { joints: ['lower_back', 'knee', 'hamstrings'], volumePenalty: 0.15 },
@@ -3367,7 +3387,12 @@ var CROSS_INTERFERENCE_MAP = {
   velo:              { joints: ['quad', 'hip'],                      volumePenalty: 0.10 },
   course:            { joints: ['knee', 'ankle', 'hamstrings'],      volumePenalty: 0.12 },
   sports_collectifs: { joints: ['knee', 'ankle', 'shoulder'],        volumePenalty: 0.10 },
-  rucking:           { joints: ['lower_back', 'knee'],               volumePenalty: 0.10 }
+  rucking:           { joints: ['lower_back', 'knee'],               volumePenalty: 0.10 },
+  crossfit:          { joints: ['lower_back', 'shoulder', 'knee'],   volumePenalty: 0.15 },
+  hyrox:             { joints: ['hamstrings', 'knee', 'lower_back'], volumePenalty: 0.12 },
+  padel:             { joints: ['elbow', 'shoulder', 'knee'],        volumePenalty: 0.10 },
+  tennis:            { joints: ['elbow', 'shoulder', 'knee'],        volumePenalty: 0.10 },
+  hiit:              { joints: ['lower_back', 'knee'],               volumePenalty: 0.12 }
 };
 
 // Zone → muscleGroup keys de wpGetExoMeta()

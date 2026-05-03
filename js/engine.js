@@ -3114,7 +3114,7 @@ function getRestWithCycleAdjust(baseRestSec) {
 }
 
 // ── 5-Rep Test calibration (TÂCHE 12) ────────────────────────
-// Pour profils sans PRs (debutant, yoga, senior, reeducation)
+// Pour profils sans PRs (debutant, yoga, senior)
 // Sécurité S1 : coefficient 0.85 sur le e1RM calculé
 
 function calcE1RMFrom5RepTest(weight, reps) {
@@ -3127,7 +3127,7 @@ function shouldShow5RepTest(exoName) {
   if (!isColdStart()) return false;
   var profile = db.user && db.user.obProfile;
   var skipPRs = db.user && db.user.skipPRs;
-  if (!skipPRs && profile !== 'debutant' && profile !== 'yoga' && profile !== 'senior' && profile !== 'reeducation') return false;
+  if (!skipPRs && profile !== 'debutant' && profile !== 'yoga' && profile !== 'senior') return false;
   // Only show for main compound lifts
   var name = (exoName || '').toLowerCase();
   return name.includes('squat') || name.includes('bench') || name.includes('développé')
@@ -4075,7 +4075,7 @@ function calcStartWeightFromRPE5Test(weight, reps) {
 function getLPBienEtreProgress(exoName) {
   var profile = db.user && db.user.obProfile;
   if (!profile) return null;
-  if (['yoga', 'senior', 'reeducation'].indexOf(profile) < 0) return null;
+  if (['yoga', 'senior'].indexOf(profile) < 0) return null;
   var currentReps = (db.exercises && db.exercises[exoName] && db.exercises[exoName].lastReps) || 8;
   if (currentReps < 12) {
     return { type: 'reps', targetReps: currentReps + 1, keepWeight: true };

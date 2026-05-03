@@ -409,6 +409,13 @@ if (db.user.weightCut && db.user.weightCut.active && !db.user.weightCut.startDat
 // ── HYBRID ATHLETE — defensive init ──────────────────────────
 if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 
+// ── REEDUCATION → DEBUTANT migration (v156) ──────────────────
+if (db.user.onboardingProfile === 'reeducation') {
+  db.user.onboardingProfile = 'debutant';
+  db.user.trainingMode = 'musculation';
+  db.user.vocabLevel = 1;
+}
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -1135,8 +1142,7 @@ var ONBOARDING_PROFILES = {
   intermediaire:{ skipPRs: false, skipRPE: false, coldStartRPE: 7, rpeMax: 9,  vocab: 2, level: 'intermediaire', trainingMode: 'powerbuilding',  goal: 'masse',     message: 'Optimise tes séances. Ne stagne plus jamais.' },
   powerlifter: { skipPRs: false, skipRPE: false, coldStartRPE: 8, rpeMax: 10, vocab: 3, level: 'avance',        trainingMode: 'powerlifting',   goal: 'force',     message: 'Précision millimétrée. Domine ton prochain plateau.' },
   yoga:        { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 7,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Force & Souplesse. Des muscles fonctionnels, sans le volume.' },
-  senior:      { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Santé & Vitalité. Protège ton corps et reste fort longtemps.' },
-  reeducation: { skipPRs: true,  skipRPE: true,  coldStartRPE: 4, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'reprise',   message: 'Reprends le contrôle. Ta guérison est notre priorité.' }
+  senior:      { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Santé & Vitalité. Protège ton corps et reste fort longtemps.' }
 };
 
 let obPath = 'generate'; // 'generate' | 'import'
@@ -1148,7 +1154,7 @@ let obGoals = [
   { id:'seche',   icon:'🔥', label:'Perdre du poids / Sécher', desc:'Déficit calorique + cardio' },
   { id:'recompo', icon:'⚖️', label:'Recomposition corporelle', desc:'Perdre du gras, garder le muscle' },
   { id:'maintien',icon:'🎯', label:'Maintien / Forme générale', desc:'Rester en forme, santé' },
-  { id:'reprise', icon:'🌱', label:'Reprise / Rééducation', desc:'Après blessure ou pause' },
+  { id:'reprise', icon:'🌱', label:'Reprise progressive', desc:'Après blessure ou pause' },
 ];
 let obDragSrc = null;
 
@@ -16339,7 +16345,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       ? getLPIncrement(realName, _lpIsCompound) : 2.5;
     var _lpLastWeight = history.length > 0 ? history[0].weight : 0;
     if (_lpLastWeight > 0) {
-      // Bien-être LP: reps-based progression for yoga/senior/reeducation
+      // Bien-être LP: reps-based progression for yoga/senior
       var _lpBE = typeof getLPBienEtreProgress === 'function'
         ? getLPBienEtreProgress(realName) : null;
       if (_lpBE) {
@@ -18593,7 +18599,7 @@ function buildColdStartRPE5Html() {
   var isDebutant = db.user && (
     db.user.obProfile === 'debutant' ||
     db.user.obProfile === 'senior' ||
-    db.user.obProfile === 'reeducation'
+    db.user.obProfile === 'senior'
   );
   var hasPRs = db.user && db.user.onboardingPRs &&
     (db.user.onboardingPRs.squat || db.user.onboardingPRs.bench || db.user.onboardingPRs.deadlift);
@@ -18787,7 +18793,7 @@ function buildGoIdleHtml() {
     + 'font-size:13px;cursor:pointer;">'
     + (_expressActive ? '⚡ Mode Express actif — Annuler' : '⚡ Session Express (60 min)') + '</button>';
 
-  // ÉTAPE B: Cold Start RPE 5 protocol card for beginner/senior/reeducation
+  // ÉTAPE B: Cold Start RPE 5 protocol card for beginner/senior
   var coldStartRPE5Html = buildColdStartRPE5Html();
 
   // 5-Rep Test card — cold start + beginner profile (TÂCHE 12)

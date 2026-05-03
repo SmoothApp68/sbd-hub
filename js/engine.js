@@ -1900,6 +1900,67 @@ function checkIschioCuadImbalance() {
   return { imbalance: false, ratio: Math.round(ratio * 10) / 10 };
 }
 
+// ── ANTAGONIST MUSCLE BALANCE ────────────────────────────────
+// clés muscleGroup réelles issues de wpGetExoMeta()
+var ANTAGONIST_PAIRS = [
+  { agonist: 'quad',     antagonist: 'hams',
+    threshold: 0.60, label: 'Quads / Ischios',
+    corrections: ['Leg Curl Allongé (Machine)', 'Romanian Deadlift (Barre)', 'Leg Curl Assis'] },
+  { agonist: 'chest',    antagonist: 'back',
+    threshold: 0.90, label: 'Pectoraux / Dos',
+    corrections: ['Rowing Assis (Machine)', 'Tirage Poitrine (Poulie)', 'Face Pull'] },
+  { agonist: 'shoulder', antagonist: 'back',
+    threshold: 0.50, label: 'Épaules / Dos',
+    corrections: ['Face Pull', 'Oiseau (Haltère)', 'Tirage vers Visage'] },
+  { agonist: 'biceps',   antagonist: 'triceps',
+    threshold: 0.70, label: 'Biceps / Triceps',
+    corrections: ['Extension Triceps (Poulie)', 'Dips Triceps'] }
+];
+
+function calcMuscleGroupTonnage21d() {
+  var cutoff = Date.now() - 21 * 86400000;
+  var tonnage = {};
+  (db.logs || []).forEach(function(log) {
+    if ((log.timestamp || 0) < cutoff) return;
+    (log.exercises || []).forEach(function(exo) {
+      var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
+      var group = meta ? meta.muscleGroup : null;
+      if (!group) return;
+      var exoTonnage = (exo.allSets || []).reduce(function(s, set) {
+        if (set.isWarmup) return s;
+        return s + ((parseFloat(set.weight) || 0) * (parseInt(set.reps) || 0));
+      }, 0);
+      tonnage[group] = (tonnage[group] || 0) + exoTonnage;
+    });
+  });
+  return tonnage;
+}
+
+function evaluateAntagonistBalance() {
+  if (!db.logs || db.logs.length < 10) return [];
+  var tonnage = calcMuscleGroupTonnage21d();
+  var alerts = [];
+  ANTAGONIST_PAIRS.forEach(function(pair) {
+    var agonistT = tonnage[pair.agonist] || 0;
+    var antagonistT = tonnage[pair.antagonist] || 0;
+    if (agonistT < 500) return;
+    var ratio = antagonistT / agonistT;
+    if (ratio < pair.threshold) {
+      alerts.push({
+        label: pair.label,
+        ratio: Math.round(ratio * 100),
+        threshold: Math.round(pair.threshold * 100),
+        weakGroup: pair.antagonist,
+        corrections: pair.corrections,
+        severity: ratio < pair.threshold * 0.7 ? 'danger' : 'warning'
+      });
+    }
+  });
+  return alerts.sort(function(a, b) {
+    return (a.severity === 'danger' ? 0 : 1) - (b.severity === 'danger' ? 0 : 1);
+  });
+}
+
 function computeWellbeingMetrics() {
   var logs = db.logs || [];
   if (!logs.length) return null;

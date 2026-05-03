@@ -302,7 +302,20 @@ function processHevy() {
     if (isDuplicate) {
       db.logs = db.logs.filter(l => !((l.shortDate || formatDate(l.timestamp)) === dateKey && (l.title || '') === (sessionTitle || '')));
     }
-    executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+    // Atomic import: backup before, restore on failure
+    var _backupLogs = JSON.parse(JSON.stringify(db.logs || []));
+    var _backupExercises = JSON.parse(JSON.stringify(db.exercises || {}));
+    var _backupBestPR = JSON.parse(JSON.stringify(db.bestPR || {}));
+    try {
+      executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine);
+    } catch(e) {
+      db.logs = _backupLogs;
+      db.exercises = _backupExercises;
+      db.bestPR = _backupBestPR;
+      if (typeof saveDB === 'function') saveDB();
+      console.error('Import failed, rolled back:', e);
+      if (typeof showToast === 'function') showToast('❌ Import échoué — données restaurées');
+    }
   });
 }
 
@@ -896,6 +909,7 @@ function showPRModal(title, detail, onNext) {
 }
 
 function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessionType, shortDate, firstLine) {
+  if (!lines || lines.length === 0) throw new Error('Aucun contenu à importer');
   const session = { date:sessionDate, shortDate, timestamp:sessionTimestamp, volume:0, exercises:[], id:generateId(), title:sessionTitle, type:sessionType, day:DAYS_FULL[new Date(sessionTimestamp).getDay()] };
   let currExo = null;
   for (const line of lines) {
@@ -978,6 +992,7 @@ function executeImport(lines, sessionDate, sessionTimestamp, sessionTitle, sessi
     }
   }
   if (currExo&&(currExo.maxRM>0||currExo.isCardio||currExo.isTime||currExo.isReps||currExo.sets>0)) session.exercises.push(currExo);
+  if (session.exercises.length === 0) throw new Error('Aucun exercice trouvé — vérifie le format du texte Hevy');
   finalizeSession(session, lines.join('\n'));
 }
 

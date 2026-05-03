@@ -60,6 +60,17 @@ var ACWR_ZONES = {
   orange_high: 1.50
 };
 
+function isHybridAthlete() {
+  return !!(db.user && db.user.hybridAthlete);
+}
+
+function getACWRZones() {
+  if (isHybridAthlete()) {
+    return { green_low: 1.00, green_high: 1.50, orange_high: 1.80 };
+  }
+  return { green_low: 0.80, green_high: 1.30, orange_high: 1.50 };
+}
+
 // Taux de progression normaux par niveau (e1RM %/mois)
 var PROGRESSION_RATES = {
   debutant:      { normal: 0.05, alert: 0.01 },
@@ -2733,12 +2744,13 @@ function analyzeAthleteProfile() {
   var fatigueAlerts = [];
   var acwr = srs.acwr || 1.0;
 
-  if (acwr > ACWR_ZONES.orange_high) {
+  var _acwrZ = typeof getACWRZones === 'function' ? getACWRZones() : ACWR_ZONES;
+  if (acwr > _acwrZ.orange_high) {
     fatigueAlerts.push({ severity: 'danger', title: 'Zone Rouge — Risque de Blessure',
-      text: 'ACWR = ' + acwr.toFixed(2) + ' (> 1.50). '
+      text: 'ACWR = ' + acwr.toFixed(2) + ' (> ' + _acwrZ.orange_high + '). '
         + 'Le risque de blessure est statistiquement doublé. '
         + 'Réduire le volume de 30% cette semaine.' });
-  } else if (acwr > ACWR_ZONES.green_high) {
+  } else if (acwr > _acwrZ.green_high) {
     fatigueAlerts.push({ severity: 'warning', title: 'Zone Orange — Charge Élevée',
       text: 'ACWR = ' + acwr.toFixed(2) + '. Surveille les signaux de fatigue et réduis si RPE augmente.' });
   }
@@ -3281,6 +3293,9 @@ var ACTIVITY_KEY_MAP = {
   'skiing':       'ski',
   'team_sports':  'sports_collectifs',
   'team_sport':   'sports_collectifs',
+  'climbing':     'escalade',
+  'bouldering':   'escalade',
+  'rucking':      'rucking',
   'other':        'autre'
 };
 
@@ -3319,6 +3334,8 @@ var ACTIVITY_SPEC_COEFFICIENTS = {
   ski:               1.3,
   arts_martiaux:     1.6,
   sports_collectifs: 1.5,
+  escalade:          1.3,
+  rucking:           0.9,
   autre:             1.0
 };
 
@@ -3338,6 +3355,78 @@ var ACTIVITY_INTERFERENCE_RULES = {
     incompatibleWithPhases: ['peak', 'intensification']
   }
 };
+
+// Mapping sport secondaire → zones impactées + pénalité volume (%)
+var CROSS_INTERFERENCE_MAP = {
+  trail:             { joints: ['lower_back', 'knee', 'hamstrings'], volumePenalty: 0.15 },
+  randonnee:         { joints: ['knee', 'ankle'],                    volumePenalty: 0.10 },
+  escalade:          { joints: ['grip', 'elbow', 'lats'],            volumePenalty: 0.15 },
+  natation:          { joints: ['shoulder', 'rotator_cuff'],         volumePenalty: 0.15 },
+  arts_martiaux:     { joints: ['knee', 'shoulder'],                 volumePenalty: 0.15 },
+  cyclisme:          { joints: ['quad', 'hip'],                      volumePenalty: 0.10 },
+  velo:              { joints: ['quad', 'hip'],                      volumePenalty: 0.10 },
+  course:            { joints: ['knee', 'ankle', 'hamstrings'],      volumePenalty: 0.12 },
+  sports_collectifs: { joints: ['knee', 'ankle', 'shoulder'],        volumePenalty: 0.10 },
+  rucking:           { joints: ['lower_back', 'knee'],               volumePenalty: 0.10 }
+};
+
+// Zone → muscleGroup keys de wpGetExoMeta()
+var INTERFERENCE_ZONE_MAP = {
+  lower_back:   ['Lombaires', 'lower_back'],
+  knee:         ['Quadriceps', 'quad', 'Ischio-jambiers', 'hams'],
+  hamstrings:   ['Ischio-jambiers', 'hams'],
+  shoulder:     ['Épaules', 'shoulder'],
+  rotator_cuff: ['Épaules', 'shoulder'],
+  elbow:        ['Biceps', 'Triceps', 'biceps', 'triceps'],
+  grip:         ['Avant-bras', 'grip'],
+  lats:         ['Dos', 'back'],
+  quad:         ['Quadriceps', 'quad'],
+  hip:          ['Fessiers', 'glute'],
+  ankle:        []
+};
+
+function getCrossInterferencePenalties() {
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = yesterday.toISOString().split('T')[0];
+  var dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  var yesterdayName = dayNames[yesterday.getDay()];
+
+  var yesterdayLogs = (db.activityLogs || []).filter(function(l) { return l.date === yesterdayStr; });
+  if (yesterdayLogs.length === 0) {
+    yesterdayLogs = ((db.user && db.user.activityTemplate) || [])
+      .filter(function(a) { return (a.days || []).indexOf(yesterdayName) >= 0; })
+      .map(function(a) { return { type: a.type, intensity: a.intensity || 3 }; });
+  }
+
+  var penalties = {};
+  yesterdayLogs.forEach(function(log) {
+    var interference = CROSS_INTERFERENCE_MAP[log.type];
+    if (!interference) return;
+    var intensityFactor = 0.5 + ((log.intensity || 3) / 5) * 0.5;
+    interference.joints.forEach(function(zone) {
+      (INTERFERENCE_ZONE_MAP[zone] || []).forEach(function(mg) {
+        var p = interference.volumePenalty * intensityFactor;
+        if (!penalties[mg] || penalties[mg] < p) penalties[mg] = p;
+      });
+    });
+  });
+  return penalties;
+}
+
+// RPE cible pour isolations en mode musculation/powerbuilding
+function getTargetRPEForExo(exoName, slot, trainingMode) {
+  var isIsolation = slot === 'isolation' || slot === 'accessory_light';
+  if (!isIsolation && typeof wpGetExoMeta === 'function') {
+    var meta = wpGetExoMeta(exoName);
+    isIsolation = meta && meta.mechanic === 'isolation';
+  }
+  var isMusculationMode = trainingMode === 'musculation' || trainingMode === 'powerbuilding';
+  if (isIsolation && isMusculationMode) {
+    return { min: 8.0, max: 9.5, target: 8.5 };
+  }
+  return null;
+}
 
 var GARMIN_ZONE_WEIGHTS = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 6 };
 

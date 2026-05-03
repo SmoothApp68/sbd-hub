@@ -5035,3 +5035,63 @@ async function submitBugReport() {
     showToast('Erreur lors de l\'envoi — ' + e.message);
   }
 }
+
+// ============================================================
+// WEB PUSH — v160
+// ============================================================
+
+var PUSH_VAPID_PUBLIC_KEY = 'BG09zEE8jwn60A5Yyrfg9ZueS5Pp6QuQ1Zc2NkC5xbOzbG-ZhQt518KJnkDm8-56Zn59ifLFk6fOGwamuMrsnJ8';
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = atob(base64);
+  return Uint8Array.from([].map.call(raw, function(c) { return c.charCodeAt(0); }));
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Notifications push non supportées sur ce navigateur.');
+    return null;
+  }
+  try {
+    var permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      showToast('Notifications refusées. Active-les dans les réglages du téléphone.');
+      return null;
+    }
+    var reg = await navigator.serviceWorker.ready;
+    var existing = await reg.pushManager.getSubscription();
+    var sub = existing || await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(PUSH_VAPID_PUBLIC_KEY)
+    });
+    if (!supaClient) {
+      showToast('🔔 Notifications locales activées !');
+      return sub;
+    }
+    var { data: { user } } = await supaClient.auth.getUser();
+    if (!user) {
+      showToast('🔔 Notifications locales activées !');
+      return sub;
+    }
+    var subJson = sub.toJSON();
+    await supaClient.from('push_subscriptions').upsert({
+      user_id: user.id,
+      endpoint: subJson.endpoint,
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'endpoint' });
+    if (typeof db !== 'undefined' && typeof saveDB === 'function') {
+      db._pushEnabled = true;
+      saveDB();
+    }
+    showToast('🔔 Notifications push activées !');
+    return sub;
+  } catch(e) {
+    console.error('subscribeToPush:', e);
+    showToast('Erreur activation push : ' + (e.message || e));
+    return null;
+  }
+}

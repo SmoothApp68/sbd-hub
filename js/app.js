@@ -423,6 +423,14 @@ if (db._lastOverdrive === undefined) db._lastOverdrive = null;
 // ── LEADERBOARD METRIC — défaut DOTS pour powerbuilders (v158) ─
 if (db._leaderboardMetric === undefined) db._leaderboardMetric = 'dots';
 
+// ── WEB PUSH — v160 ──────────────────────────────────────────
+if (!db.notificationHistory) db.notificationHistory = [];
+if (db._unreadNotifications === undefined) db._unreadNotifications = 0;
+if (db._lastPushSent === undefined) db._lastPushSent = null;
+if (db._pushEnabled === undefined) db._pushEnabled = false;
+if (db._lastPushAcwr === undefined) db._lastPushAcwr = 0;
+if (db._lastPushStreak === undefined) db._lastPushStreak = 0;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -11185,6 +11193,101 @@ function sendLocalNotification(title, body) {
   try { new Notification(title, { body: body }); } catch(e) {}
 }
 
+function addToNotificationHistory(title, body, type) {
+  if (!db.notificationHistory) db.notificationHistory = [];
+  db.notificationHistory.unshift({ title: title, body: body, type: type || 'training', ts: Date.now(), read: false });
+  if (db.notificationHistory.length > 20) db.notificationHistory.length = 20;
+  db._unreadNotifications = (db._unreadNotifications || 0) + 1;
+  saveDB();
+  _refreshLocalNotifBadge();
+}
+
+function _refreshLocalNotifBadge() {
+  var unread = (db.notificationHistory || []).filter(function(n) { return !n.read; }).length;
+  if (unread === 0) return;
+  var badge = document.getElementById('notif-bell-badge');
+  if (!badge) return;
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  badge.style.display = 'flex';
+}
+
+function renderNotificationCenter() {
+  var container = document.getElementById('notif-training-list');
+  if (!container) return;
+  var history = (db.notificationHistory || []);
+  if (history.length === 0) { container.style.display = 'none'; return; }
+  var hadUnread = history.some(function(n) { return !n.read; });
+  history.forEach(function(n) { n.read = true; });
+  if (hadUnread) { db._unreadNotifications = 0; saveDB(); }
+  container.style.display = 'block';
+  var icons = { acwr: '⚡', streak_danger: '💪', session_complete: '✅', local: '🔔', training: '🏋️' };
+  container.innerHTML = history.map(function(n) {
+    var icon = icons[n.type] || '🔔';
+    var d = new Date(n.ts);
+    var timeStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+      + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return '<div style="display:flex;gap:10px;padding:10px 14px;border-bottom:0.5px solid rgba(255,255,255,0.04);">'
+      + '<span style="font-size:16px;flex-shrink:0;">' + icon + '</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--text);">' + n.title + '</div>'
+      + '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' + n.body + '</div>'
+      + '<div style="font-size:10px;color:var(--sub);margin-top:4px;opacity:0.6;">' + timeStr + '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
+async function sendPushNotification(title, body, type) {
+  var today = getTodayStr();
+  if (db._lastPushSent === today) return;
+  if (typeof supaClient === 'undefined' || !supaClient) return;
+  try {
+    var sessionData = await supaClient.auth.getSession();
+    var session = sessionData.data && sessionData.data.session;
+    if (!session) return;
+    await fetch('https://swwygywahfdenyzotrce.supabase.co/functions/v1/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ title: title, body: body, type: type || 'training' })
+    });
+    db._lastPushSent = today;
+    saveDB();
+  } catch(e) {
+    console.error('sendPushNotification:', e);
+  }
+}
+
+async function checkPushTriggers() {
+  var now = new Date();
+  if (now.getHours() < 20) return;
+
+  var _srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  var _acwr = _srs ? (_srs.acwr || 1.0) : 1.0;
+  if (_acwr >= 0.8 && _acwr <= 1.3) {
+    if ((Date.now() - (db._lastPushAcwr || 0)) / 86400000 >= 7) {
+      var t1 = '⚡ Fenêtre optimale';
+      var b1 = 'Ton ratio charge/récupération est parfait. C\'est le bon moment pour pousser.';
+      addToNotificationHistory(t1, b1, 'acwr');
+      await sendPushNotification(t1, b1, 'acwr');
+      db._lastPushAcwr = Date.now();
+      saveDB();
+      return;
+    }
+  }
+
+  var _lastLog = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); })[0];
+  if (_lastLog) {
+    var _daysSince = (Date.now() - (_lastLog.timestamp || 0)) / 86400000;
+    if (_daysSince >= 2 && (Date.now() - (db._lastPushStreak || 0)) / 86400000 >= 7) {
+      var t2 = '💪 Reprend là où tu t\'es arrêté';
+      var b2 = 'Ça fait ' + Math.floor(_daysSince) + ' jours sans séance. Même 30 min compte.';
+      addToNotificationHistory(t2, b2, 'streak_danger');
+      await sendPushNotification(t2, b2, 'streak_danger');
+      db._lastPushStreak = Date.now();
+      saveDB();
+    }
+  }
+}
+
 function activateOverdriveMode() {
   db._overdriveCount = (db._overdriveCount || 0) + 1;
   db._lastOverdrive = {
@@ -11404,6 +11507,9 @@ async function checkScheduledNotifications() {
   // Trigger percentile régularité + ghost record — max 1x par semaine chacun
   checkDisciplinePercentile();
   checkPersonalRecord();
+
+  // Push notifications (background) — ACWR optimal + streak danger
+  checkPushTriggers();
 }
 
 // ============================================================
@@ -22482,7 +22588,11 @@ function goFinishWorkout() {
   var _nSets = 0, _nTonnage = 0;
   (session.exercises||[]).forEach(function(e) { _nSets += (e.sets||0); });
   _nTonnage = session.volume || 0;
-  sendLocalNotification('✅ Séance terminée', 'Bravo ! ' + _nSets + ' séries, ' + (_nTonnage >= 1000 ? (_nTonnage/1000).toFixed(1) + 't' : _nTonnage + 'kg') + ' de volume');
+  var _sessionNotifTitle = '✅ Séance terminée';
+  var _sessionNotifBody = 'Bravo ! ' + _nSets + ' séries, ' + (_nTonnage >= 1000 ? (_nTonnage/1000).toFixed(1) + 't' : _nTonnage + 'kg') + ' de volume';
+  sendLocalNotification(_sessionNotifTitle, _sessionNotifBody);
+  addToNotificationHistory(_sessionNotifTitle, _sessionNotifBody, 'session_complete');
+  sendPushNotification(_sessionNotifTitle, _sessionNotifBody, 'session_complete');
 
   checkAndShowPRCelebration(session);
 

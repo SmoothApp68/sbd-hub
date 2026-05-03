@@ -406,6 +406,9 @@ if (db.user.weightCut && db.user.weightCut.active && !db.user.weightCut.startDat
   db.user.weightCut.startDate = new Date().toISOString().split('T')[0];
 }
 
+// ── HYBRID ATHLETE — defensive init ──────────────────────────
+if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -13557,6 +13560,30 @@ function renderSettingsProfile() {
   _barHtml += '</select>';
   _barSection.innerHTML = _barHtml;
 
+  // ── Mode Hybrid Athlete ──
+  var _hybridSection = document.getElementById('settingsHybridSection');
+  if (!_hybridSection) {
+    _hybridSection = document.createElement('div');
+    _hybridSection.id = 'settingsHybridSection';
+    _hybridSection.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+    var _hybridParent = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+    if (_hybridParent && _hybridParent.parentNode) _hybridParent.parentNode.appendChild(_hybridSection);
+  }
+  var _isHybrid = !!(db.user && db.user.hybridAthlete);
+  _hybridSection.innerHTML = '<div style="font-size:13px;font-weight:700;margin-bottom:12px;">🏊 Endurance & Force</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">'
+    + '<div>'
+    + '<div style="font-size:13px;">Mode Hybrid Athlete</div>'
+    + '<div style="font-size:11px;color:var(--sub);">Endurance + Force — plafond ACWR adapté (1.0–1.5)</div>'
+    + '</div>'
+    + '<label style="position:relative;display:inline-block;width:44px;height:24px;">'
+    + '<input type="checkbox" id="toggle-hybrid" ' + (_isHybrid ? 'checked' : '')
+    + ' onchange="db.user.hybridAthlete=this.checked;saveDB();showToast(this.checked ? \'Mode Hybrid activé\' : \'Mode Hybrid désactivé\')" '
+    + 'style="opacity:0;width:0;height:0;">'
+    + '<span style="position:absolute;cursor:pointer;inset:0;background:' + (_isHybrid ? 'var(--accent)' : 'var(--border)') + ';border-radius:24px;transition:.3s;">'
+    + '<span style="position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;bottom:3px;left:' + (_isHybrid ? '23px' : '3px') + ';transition:.3s;"></span></span>'
+    + '</label></div>';
+
   // ── RGPD section ──
   var _rgpdSection = document.getElementById('settingsRGPDSection');
   if (!_rgpdSection) {
@@ -14328,6 +14355,24 @@ function renderCoachTodayHTML() {
       });
       html += '</div>';
     }
+  }
+
+  // ── 0b0. INTERFÉRENCE CROISÉE — activité secondaire hier ──
+  if (coachProfile !== 'silent') {
+    try {
+      var _interPen = typeof getCrossInterferencePenalties === 'function'
+        ? getCrossInterferencePenalties() : {};
+      var _penZones = Object.keys(_interPen);
+      if (_penZones.length > 0) {
+        html += '<div style="background:rgba(255,159,10,0.08);border-radius:12px;'
+          + 'padding:10px 12px;margin-bottom:12px;border-left:3px solid var(--orange);">';
+        html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">⚡ Interférence détectée</div>';
+        html += '<div style="font-size:11px;color:var(--sub);">Volume réduit sur : '
+          + _penZones.slice(0, 3).join(', ')
+          + ' (récupération activité d\'hier)</div>';
+        html += '</div>';
+      }
+    } catch(e) {}
   }
 
   // ── 0b1. TENDON TRACKER — seulement si alerte danger (rouge) ──
@@ -17677,6 +17722,12 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     }
     var isCompound = /squat|développé|rowing|tractions|deadlift|soulevé|presse/i.test(name);
     var rpe = isCompound ? (rpeTarget + 0.5) : rpeTarget;
+    // Isolation en mode musculation/powerbuilding → RPE cible 8.5 (pas RPE 7.5)
+    if (!isCompound) {
+      var _rpeOverride = typeof getTargetRPEForExo === 'function'
+        ? getTargetRPEForExo(name, null, db.user && db.user.trainingMode) : null;
+      if (_rpeOverride) rpe = _rpeOverride.target;
+    }
     var reps = isCompound ? repRange[0] : repRange[1];
     var rest = isCompound ? 150 : 90;
     if (isCutting) rest += 30;
@@ -17711,6 +17762,26 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     }
     return exoObj;
   }).filter(Boolean);
+
+  // Matrice d'interférence croisée — réduire le volume si activité secondaire hier
+  var _interPenalties = typeof getCrossInterferencePenalties === 'function'
+    ? getCrossInterferencePenalties() : {};
+  if (Object.keys(_interPenalties).length > 0) {
+    exercises.forEach(function(exo) {
+      if (!exo || !exo.name) return;
+      var _meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
+      var _mg = _meta ? _meta.muscleGroup : null;
+      if (!_mg) return;
+      var _penalty = _interPenalties[_mg] || 0;
+      if (_penalty > 0 && exo.sets && exo.sets.length > 1) {
+        var _newCount = Math.max(1, Math.round(exo.sets.length * (1 - _penalty)));
+        if (_newCount < exo.sets.length) {
+          exo.sets = exo.sets.slice(0, _newCount);
+          exo._interferenceNote = 'Volume réduit (-' + Math.round(_penalty * 100) + '%) — récupération activité secondaire d\'hier';
+        }
+      }
+    });
+  }
 
   // Déséquilibre Ischios/Quads — injecter Leg Curl / RDL si nécessaire
   if (/legs|lower/i.test(tplKey || '')) {

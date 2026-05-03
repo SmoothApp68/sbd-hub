@@ -394,6 +394,9 @@ if (db._lastMissedNotif === undefined) db._lastMissedNotif = 0;
 // ── CREATINE — defensive init ─────────────────────────────────
 if (db.user.takesCreatine === undefined) db.user.takesCreatine = false;
 
+// ── JOINT HEALTH — defensive init ────────────────────────────
+if (!db.user.jointHealth) db.user.jointHealth = {};
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -12050,6 +12053,7 @@ function renderCorpsTab() {
   try { renderMacroHistory(); } catch(e) {}
   try { renderBodyWeightChart(bwHistory); } catch(e) {}
   try { renderMuscleHeatmap(); } catch(e) { const _e=document.getElementById('muscleHeatmapContent'); if(_e) _e.innerHTML='<div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">Données insuffisantes</div>'; }
+  try { if (typeof renderJointHealthSection === 'function') renderJointHealthSection(); } catch(e) {}
 }
 function renderBodyWeightChart(entries) {
   const el = document.getElementById('chartBodyWeight');
@@ -14198,6 +14202,16 @@ function renderCoachTodayHTML() {
       });
       html += '</div>';
     }
+  }
+
+  // ── 0b1. TENDON TRACKER — seulement si alerte danger (rouge) ──
+  if (typeof evaluateJointAlerts === 'function' && coachProfile !== 'silent') {
+    try {
+      var _jointAlerts = evaluateJointAlerts();
+      if (_jointAlerts.some(function(a) { return a.severity === 'danger'; })) {
+        html += renderJointAlertsHTML();
+      }
+    } catch(e) {}
   }
 
   // ── 0b2. MOMENTUM ──
@@ -18439,6 +18453,21 @@ function buildGoIdleHtml() {
         ? '<div style="font-size:11px;color:var(--sub);font-style:italic;'
           + 'margin:8px 0 4px;padding:0 4px;">💬 ' + _pendingNote + '</div>'
         : '') +
+      (function() {
+        if (typeof evaluateJointAlerts !== 'function') return '';
+        try {
+          var _gjAlerts = evaluateJointAlerts().slice(0, 1);
+          return _gjAlerts.map(function(alert) {
+            var color = alert.severity === 'danger' ? 'var(--red)' : 'var(--orange)';
+            return '<div style="background:rgba(0,0,0,0.2);border-radius:10px;'
+              + 'padding:8px 12px;margin-bottom:8px;border-left:2px solid ' + color + ';">'
+              + '<div style="font-size:12px;color:' + color + ';">'
+              + alert.label + ' : +' + alert.overBy + '% de stress vs habituel. '
+              + 'Pense à échauffer cette zone.</div>'
+              + '</div>';
+          }).join('');
+        } catch(e) { return ''; }
+      })() +
       '<button class="go-launch" onclick="openReadinessQuiz(\'today\')">Lancer la séance du jour 💪</button>'+
     '</div>';
   } else {
@@ -22109,6 +22138,11 @@ function goFinishWorkout() {
 
   // Award any newly unlocked badges (permanent store)
   try { checkAndAwardBadges(); } catch(e) {}
+
+  // Mettre à jour le snapshot articulaire après chaque séance
+  if (typeof calcCurrentJointStress === 'function') {
+    try { db.user.jointHealth = calcCurrentJointStress(); } catch(e) {}
+  }
 
   // Proposer le partage si PR ou tonnage > 2t
   try {

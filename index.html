@@ -2517,6 +2517,15 @@
       <div class="corps-acc-body" id="ca-heatmap"><div class="corps-acc-inner" id="muscleHeatmapContent"></div></div>
     </div>
 
+    <!-- Santé articulaire -->
+    <div class="corps-acc">
+      <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-joints')">
+        <div class="corps-acc-left"><div class="corps-acc-ico" style="background:rgba(255,159,10,0.1);">🦴</div><div class="corps-acc-info">Santé Articulaire</div></div>
+        <span class="corps-acc-chev" id="chev-ca-joints">▾</span>
+      </div>
+      <div class="corps-acc-body" id="ca-joints"><div class="corps-acc-inner" id="jointHealthContent"><div style="color:var(--sub);font-size:12px;text-align:center;padding:10px;">—</div></div></div>
+    </div>
+
     <!-- 3. Poids & Courbe -->
     <div class="corps-acc">
       <div class="corps-acc-head" onclick="toggleCorpsAcc('ca-poids')">
@@ -3269,6 +3278,7 @@
 <script src="js/supabase.js"></script>
 <script src="js/import.js"></script>
 <script src="js/program.js"></script>
+<script src="js/joints.js"></script>
 <script src="js/coach.js"></script>
 <script src="js/app.js"></script>
 <script>

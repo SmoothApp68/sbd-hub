@@ -3065,6 +3065,9 @@ function calcWeightCutPenalty(liftType) {
   var smoothedWeight = getSmoothedBodyWeight();
   if (!smoothedWeight) return 1.0;
 
+  // Creatine supplementation adds ~1kg water retention — exclude from cut calculation
+  if (db.user && db.user.takesCreatine) smoothedWeight = Math.max(smoothedWeight - 1, 40);
+
   var lossPct = (wc.startWeight - smoothedWeight) / wc.startWeight;
   if (lossPct < 0.02) return 1.0;
 

@@ -391,6 +391,9 @@ if (db.user.onboardingPRs === undefined) db.user.onboardingPRs = null;
 if (db._lastAcwrNotif === undefined) db._lastAcwrNotif = 0;
 if (db._lastMissedNotif === undefined) db._lastMissedNotif = 0;
 
+// ── CREATINE — defensive init ─────────────────────────────────
+if (db.user.takesCreatine === undefined) db.user.takesCreatine = false;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -13372,6 +13375,16 @@ function renderSettingsProfile() {
           + '<div style="height:100%;width:' + _pct + '%;background:var(--orange);border-radius:3px;transition:width 0.3s;"></div>'
           + '</div></div>';
       }
+      wcHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);margin-bottom:10px;">'
+        + '<div><div style="font-size:13px;">Supplémentation en créatine</div>'
+        + '<div style="font-size:11px;color:var(--sub);">+1kg poids de corps (eau intracellulaire)</div></div>'
+        + '<label style="position:relative;display:inline-block;width:44px;height:24px;">'
+        + '<input type="checkbox" id="toggle-creatine" ' + (db.user.takesCreatine ? 'checked' : '')
+        + ' onchange="db.user.takesCreatine=this.checked;saveDB();showToast(\'Créatine mise à jour\')" '
+        + 'style="opacity:0;width:0;height:0;">'
+        + '<span style="position:absolute;cursor:pointer;inset:0;background:' + (db.user.takesCreatine ? 'var(--orange)' : 'var(--border)') + ';border-radius:24px;transition:.3s;">'
+        + '<span style="position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;bottom:3px;left:' + (db.user.takesCreatine ? '23px' : '3px') + ';transition:.3s;"></span></span>'
+        + '</label></div>';
       wcHtml += '<button onclick="saveWeightCutData()" style="width:100%;padding:10px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Enregistrer</button>';
     }
     wcHtml += '</div>';

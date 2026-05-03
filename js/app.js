@@ -401,6 +401,11 @@ if (!db.user.jointHealth) db.user.jointHealth = {};
 if (db._lastPercentileNotif === undefined) db._lastPercentileNotif = 0;
 if (db._lastGhostNotif === undefined) db._lastGhostNotif = 0;
 
+// ── WEIGHT CUT startDate — migration pour cuts créés avant v154 ──
+if (db.user.weightCut && db.user.weightCut.active && !db.user.weightCut.startDate) {
+  db.user.weightCut.startDate = new Date().toISOString().split('T')[0];
+}
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -14426,32 +14431,54 @@ function renderCoachTodayHTML() {
     }
   }
 
-  // ── 0d. CYCLAGE CALORIQUE ──
+  // ── 0d. REFEED / CYCLAGE CALORIQUE ──
   if (coachProfile !== 'silent') {
-    var caloricTarget = typeof getDailyCaloricTarget === 'function' ? getDailyCaloricTarget() : null;
-    if (caloricTarget) {
-      html += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">';
-      html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
-        + 'letter-spacing:0.8px;margin-bottom:8px;">🍽️ Nutrition — ' + caloricTarget.label + '</div>';
-      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
-      [
-        { label: 'Calories',  value: caloricTarget.calories, unit: 'kcal' },
-        { label: 'Glucides',  value: caloricTarget.carbs,    unit: 'g' },
-        { label: 'Protéines', value: caloricTarget.proteins, unit: 'g' },
-        { label: 'Lipides',   value: caloricTarget.fats,     unit: 'g' }
-      ].forEach(function(m) {
-        html += '<div style="text-align:center;">';
-        html += '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + m.value + '</div>';
-        html += '<div style="font-size:10px;color:var(--sub);">' + m.unit + '</div>';
-        html += '<div style="font-size:10px;color:var(--sub);">' + m.label + '</div>';
+    var _refeed = typeof getRefeedRecommendation === 'function' ? getRefeedRecommendation() : null;
+    if (_refeed && _refeed.active) {
+      html += '<div style="background:rgba(255,159,10,0.1);border-radius:12px;'
+        + 'padding:12px;margin-bottom:12px;border:1px solid var(--orange);">';
+      html += '<div style="font-size:11px;color:var(--orange);text-transform:uppercase;'
+        + 'letter-spacing:0.8px;margin-bottom:8px;">🔄 Refeed Day</div>';
+      html += '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Jour de recharge énergétique</div>';
+      html += '<div style="font-size:12px;color:var(--sub);line-height:1.5;margin-bottom:10px;">'
+        + _refeed.message + '</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">';
+      html += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
+      html += '<div style="font-size:18px;font-weight:700;color:var(--orange);">' + _refeed.tdee + '</div>';
+      html += '<div style="font-size:10px;color:var(--sub);">kcal cible</div>';
+      html += '</div>';
+      html += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
+      html += '<div style="font-size:18px;font-weight:700;color:var(--sub);">' + _refeed.srsScore + '/100</div>';
+      html += '<div style="font-size:10px;color:var(--sub);">récupération</div>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+    } else {
+      var caloricTarget = typeof getDailyCaloricTarget === 'function' ? getDailyCaloricTarget() : null;
+      if (caloricTarget) {
+        html += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">';
+        html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+          + 'letter-spacing:0.8px;margin-bottom:8px;">🍽️ Nutrition — ' + caloricTarget.label + '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
+        [
+          { label: 'Calories',  value: caloricTarget.calories, unit: 'kcal' },
+          { label: 'Glucides',  value: caloricTarget.carbs,    unit: 'g' },
+          { label: 'Protéines', value: caloricTarget.proteins, unit: 'g' },
+          { label: 'Lipides',   value: caloricTarget.fats,     unit: 'g' }
+        ].forEach(function(m) {
+          html += '<div style="text-align:center;">';
+          html += '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + m.value + '</div>';
+          html += '<div style="font-size:10px;color:var(--sub);">' + m.unit + '</div>';
+          html += '<div style="font-size:10px;color:var(--sub);">' + m.label + '</div>';
+          html += '</div>';
+        });
         html += '</div>';
-      });
-      html += '</div>';
-      if (caloricTarget.type === 'high') {
-        html += '<div style="font-size:11px;color:var(--sub);margin-top:8px;">'
-          + '💡 Vise ' + caloricTarget.carbs + 'g de glucides complexes 2h avant la séance.</div>';
+        if (caloricTarget.type === 'high') {
+          html += '<div style="font-size:11px;color:var(--sub);margin-top:8px;">'
+            + '💡 Vise ' + caloricTarget.carbs + 'g de glucides complexes 2h avant la séance.</div>';
+        }
+        html += '</div>';
       }
-      html += '</div>';
     }
   }
 

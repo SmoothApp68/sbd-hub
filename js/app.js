@@ -397,6 +397,10 @@ if (db.user.takesCreatine === undefined) db.user.takesCreatine = false;
 // ── JOINT HEALTH — defensive init ────────────────────────────
 if (!db.user.jointHealth) db.user.jointHealth = {};
 
+// ── PERCENTILE / GHOST NOTIF — defensive init ────────────────
+if (db._lastPercentileNotif === undefined) db._lastPercentileNotif = 0;
+if (db._lastGhostNotif === undefined) db._lastGhostNotif = 0;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -6128,6 +6132,7 @@ function _renderGamMuscleAnatomy() {
     }
     if (typeof renderMuscleColors === 'function') renderMuscleColors();
     if (typeof renderMuscleList === 'function') renderMuscleList();
+    renderAntagonistAlerts();
   } catch(e) { console.error('muscle anatomy render:', e); }
 }
 
@@ -11135,6 +11140,36 @@ function sendLocalNotification(title, body) {
   try { new Notification(title, { body: body }); } catch(e) {}
 }
 
+function renderAntagonistAlerts() {
+  var el = document.getElementById('antagonistAlerts');
+  if (!el) return;
+  var alerts = typeof evaluateAntagonistBalance === 'function' ? evaluateAntagonistBalance() : [];
+  if (alerts.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--green);padding:8px 0;">'
+      + '✅ Équilibre musculaire correct sur les 21 derniers jours.</div>';
+    return;
+  }
+  var html = '';
+  alerts.forEach(function(alert) {
+    var color = alert.severity === 'danger' ? 'var(--red)' : 'var(--orange)';
+    html += '<div style="background:var(--surface);border-radius:12px;padding:12px;'
+      + 'margin-bottom:8px;border-left:3px solid ' + color + ';">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">';
+    html += '<div style="font-size:13px;font-weight:600;">⚖️ ' + alert.label + '</div>';
+    html += '<div style="font-size:12px;color:' + color + ';font-weight:700;">'
+      + alert.ratio + '% <span style="color:var(--sub);font-weight:400;">(min '
+      + alert.threshold + '%)</span></div>';
+    html += '</div>';
+    html += '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Sur les 21 derniers jours</div>';
+    html += '<div style="font-size:12px;margin-bottom:4px;">💡 Ajouter à tes séances :</div>';
+    alert.corrections.slice(0, 2).forEach(function(ex) {
+      html += '<div style="font-size:12px;color:var(--accent);padding:2px 0;">→ ' + ex + '</div>';
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
 function _checkTrainingReminder() {
   var now = new Date();
   if (now.getHours() < 17) return;
@@ -11191,6 +11226,46 @@ function calcWeeklyTonnage() {
     });
   });
   return Math.round(total / 1000 * 10) / 10; // en tonnes
+}
+
+var REGULARITY_BENCHMARKS = [
+  { sessions: 14, label: 'top 5% mondial',  emoji: '🏅' },
+  { sessions: 10, label: 'top 15% mondial', emoji: '⭐' },
+  { sessions: 7,  label: 'top 30% mondial', emoji: '💪' }
+];
+
+function checkDisciplinePercentile() {
+  var monthStart = new Date();
+  monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  var count = (db.logs || []).filter(function(l) {
+    return (l.timestamp || 0) > monthStart.getTime();
+  }).length;
+  if ((Date.now() - (db._lastPercentileNotif || 0)) / 86400000 < 7) return;
+  var rank = REGULARITY_BENCHMARKS.find(function(b) { return count >= b.sessions; });
+  if (!rank) return;
+  sendLocalNotification(
+    rank.emoji + ' Régularité ' + rank.label,
+    'Avec ' + count + ' séances ce mois, tu es dans le ' + rank.label + '.'
+  );
+  db._lastPercentileNotif = Date.now();
+  saveDB();
+}
+
+function checkPersonalRecord() {
+  var now = new Date();
+  var thisMonth = (db.logs || []).filter(function(l) {
+    var d = new Date(l.timestamp || 0);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  var lastYear = (db.logs || []).filter(function(l) {
+    var d = new Date(l.timestamp || 0);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() - 1;
+  }).length;
+  if (lastYear < 3 || thisMonth <= lastYear) return;
+  if ((Date.now() - (db._lastGhostNotif || 0)) / 86400000 < 7) return;
+  showToast('👻 ' + thisMonth + ' séances ce mois — record vs l\'an dernier (' + lastYear + ') !');
+  db._lastGhostNotif = Date.now();
+  saveDB();
 }
 
 async function checkScheduledNotifications() {
@@ -11262,6 +11337,52 @@ async function checkScheduledNotifications() {
       saveDB();
     }
   }
+
+  // Trigger percentile régularité + ghost record — max 1x par semaine chacun
+  checkDisciplinePercentile();
+  checkPersonalRecord();
+}
+
+// ============================================================
+// CALORIC CYCLING
+// ============================================================
+function getTodayWorkoutPlan() {
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return null;
+  var dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  var today = dayNames[new Date().getDay()];
+  return db.weeklyPlan.days.find(function(d) { return d.day === today; }) || null;
+}
+
+function getDailyCaloricTarget() {
+  var bw = (db.user && db.user.bw) || 75;
+  var tonnage7 = (db.logs || [])
+    .filter(function(l) { return (l.timestamp || 0) > Date.now() - 7 * 86400000; })
+    .reduce(function(s, l) { return s + (l.volume || 0); }, 0);
+  var tdee = typeof calcTDEE === 'function' ? calcTDEE(bw, tonnage7) : (db.user.tdee || 0);
+  if (!tdee || tdee < 1000) return null;
+
+  var todayPlan = getTodayWorkoutPlan();
+  var isRestDay = !todayPlan || todayPlan.rest === true
+    || !todayPlan.exercises || todayPlan.exercises.length === 0;
+  var isSBDDay = !isRestDay && (todayPlan.exercises || []).some(function(e) {
+    return e.isPrimary;
+  });
+
+  var multiplier = isSBDDay ? 1.10 : isRestDay ? 0.90 : 1.00;
+  var targetCalories = Math.round(tdee * multiplier);
+  var targetProteins = Math.round(bw * 2.0);
+  var targetCarbs = Math.round(targetCalories * (isSBDDay ? 0.50 : 0.30) / 4);
+  var targetFats = Math.max(40,
+    Math.round((targetCalories - targetProteins * 4 - targetCarbs * 4) / 9));
+
+  return {
+    calories: targetCalories,
+    carbs: targetCarbs,
+    proteins: targetProteins,
+    fats: targetFats,
+    type: isSBDDay ? 'high' : isRestDay ? 'low' : 'moderate',
+    label: isSBDDay ? 'Jour de séance lourde' : isRestDay ? 'Jour de repos' : 'Jour modéré'
+  };
 }
 
 // ============================================================
@@ -14300,6 +14421,35 @@ function renderCoachTodayHTML() {
         html += '<div style="font-size:11px;color:var(--green);line-height:1.5;">';
         html += 'Phase anabolique — capacité de récupération maximale. Bonne séance pour progresser.';
         html += '</div>';
+      }
+      html += '</div>';
+    }
+  }
+
+  // ── 0d. CYCLAGE CALORIQUE ──
+  if (coachProfile !== 'silent') {
+    var caloricTarget = typeof getDailyCaloricTarget === 'function' ? getDailyCaloricTarget() : null;
+    if (caloricTarget) {
+      html += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">';
+      html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+        + 'letter-spacing:0.8px;margin-bottom:8px;">🍽️ Nutrition — ' + caloricTarget.label + '</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
+      [
+        { label: 'Calories',  value: caloricTarget.calories, unit: 'kcal' },
+        { label: 'Glucides',  value: caloricTarget.carbs,    unit: 'g' },
+        { label: 'Protéines', value: caloricTarget.proteins, unit: 'g' },
+        { label: 'Lipides',   value: caloricTarget.fats,     unit: 'g' }
+      ].forEach(function(m) {
+        html += '<div style="text-align:center;">';
+        html += '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + m.value + '</div>';
+        html += '<div style="font-size:10px;color:var(--sub);">' + m.unit + '</div>';
+        html += '<div style="font-size:10px;color:var(--sub);">' + m.label + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      if (caloricTarget.type === 'high') {
+        html += '<div style="font-size:11px;color:var(--sub);margin-top:8px;">'
+          + '💡 Vise ' + caloricTarget.carbs + 'g de glucides complexes 2h avant la séance.</div>';
       }
       html += '</div>';
     }

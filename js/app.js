@@ -420,6 +420,9 @@ if (db.user.onboardingProfile === 'reeducation') {
 if (db._overdriveCount === undefined) db._overdriveCount = 0;
 if (db._lastOverdrive === undefined) db._lastOverdrive = null;
 
+// ── LEADERBOARD METRIC — défaut DOTS pour powerbuilders (v158) ─
+if (db._leaderboardMetric === undefined) db._leaderboardMetric = 'dots';
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -5990,28 +5993,52 @@ async function _renderLeaderboard() {
     el.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:12px;">📶 Classement disponible en ligne uniquement.</div>';
     return;
   }
+
+  var currentMetric = db._leaderboardMetric || 'dots';
+  var periodType = currentMetric === 'dots' ? 'alltime' : 'weekly';
+  var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
+  var periodKey = currentMetric === 'dots' ? 'alltime' : weekKey;
+  var unitLabel = currentMetric === 'dots' ? 'pts' : 'XP';
+  var periodLabel = currentMetric === 'dots' ? 'Tout temps — DOTS' : 'Cette semaine — XP';
+
   el.innerHTML = '<div style="font-size:12px;color:var(--sub);">Chargement...</div>';
   try {
     if (typeof supaClient === 'undefined' || !supaClient) { el.innerHTML = ''; return; }
-    var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
     var res = await supaClient.from('leaderboard_entries').select('username,value,user_id')
-      .eq('period_type','weekly').eq('period_key',weekKey).eq('metric','xp')
-      .order('value',{ascending:false}).limit(10);
+      .eq('period_type', periodType).eq('period_key', periodKey).eq('metric', currentMetric)
+      .order('value', { ascending: false }).limit(10);
     var data = res.data;
+
+    // Toggle header (rendered regardless of data)
+    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;">'
+      + periodLabel + '</div>';
+    html += '<div style="display:flex;gap:4px;">';
+    html += '<button onclick="db._leaderboardMetric=\'dots\';saveDB();_renderLeaderboard();" '
+      + 'style="padding:3px 8px;border-radius:6px;font-size:10px;border:none;cursor:pointer;'
+      + 'background:' + (currentMetric === 'dots' ? 'var(--accent)' : 'var(--surface)') + ';'
+      + 'color:' + (currentMetric === 'dots' ? '#fff' : 'var(--sub)') + ';">DOTS</button>';
+    html += '<button onclick="db._leaderboardMetric=\'xp\';saveDB();_renderLeaderboard();" '
+      + 'style="padding:3px 8px;border-radius:6px;font-size:10px;border:none;cursor:pointer;'
+      + 'background:' + (currentMetric === 'xp' ? 'var(--accent)' : 'var(--surface)') + ';'
+      + 'color:' + (currentMetric === 'xp' ? '#fff' : 'var(--sub)') + ';">XP</button>';
+    html += '</div></div>';
+
     if (!data || !data.length) {
-      el.innerHTML = '<div style="font-size:12px;color:var(--sub);text-align:center;padding:16px;">🏆 Le classement se remplit au fur et à mesure des séances.</div>';
+      html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:16px;">🏆 Le classement se remplit au fur et à mesure des séances.</div>';
+      el.innerHTML = html;
       return;
     }
     var authRes = await supaClient.auth.getUser();
     var myId = authRes.data && authRes.data.user ? authRes.data.user.id : null;
-    var html = '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Cette semaine — XP</div>';
     data.forEach(function(entry, i) {
       var isMe = entry.user_id === myId;
       var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
+      var valueStr = entry.value > 0 ? Math.round(entry.value) + ' ' + unitLabel : '—';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;margin-bottom:4px;background:'+(isMe?'rgba(10,132,255,0.1)':'var(--surface)')+';border:1px solid '+(isMe?'var(--accent)':'transparent')+';">';
       html += '<div style="display:flex;align-items:center;gap:8px;"><div style="font-size:14px;">'+medal+'</div>';
       html += '<div style="font-size:13px;font-weight:'+(isMe?'700':'400')+';">'+(entry.username||'Athlète').replace(/</g,'&lt;')+(isMe?' (toi)':'')+'</div></div>';
-      html += '<div style="font-size:13px;font-weight:700;color:var(--accent);">'+Math.round(entry.value)+' XP</div></div>';
+      html += '<div style="font-size:13px;font-weight:700;color:var(--accent);">'+valueStr+'</div></div>';
     });
     el.innerHTML = html;
   } catch(e) { el.innerHTML = ''; }

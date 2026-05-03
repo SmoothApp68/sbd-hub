@@ -17942,6 +17942,7 @@ function generateWeeklyPlan() {
   } catch(err) {
     console.error('generateWeeklyPlan v3 error:', err);
     showToast('Erreur : ' + (err.message || String(err)));
+    if (typeof logErrorToSupabase === 'function') logErrorToSupabase('generateWeeklyPlan_crash', err.message, 'generateWeeklyPlan');
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '✦ Générer le programme de la semaine'; }
   }

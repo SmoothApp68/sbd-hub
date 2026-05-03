@@ -134,6 +134,34 @@ async function submitNewPassword() {
   }
 }
 
+// Télémétrie silencieuse — envoyer les erreurs critiques à Supabase sans jamais bloquer l'utilisateur
+async function logErrorToSupabase(errorType, errorMessage, functionName, appState) {
+  try {
+    var swVersion = typeof SW_VERSION !== 'undefined' ? SW_VERSION : 'unknown';
+    var userId = null;
+    try {
+      var _u = await supaClient.auth.getUser();
+      userId = (_u.data && _u.data.user) ? _u.data.user.id : null;
+    } catch(e) {}
+    var lightState = appState || {
+      logsCount: (typeof db !== 'undefined' && db && db.logs) ? db.logs.length : 0,
+      hasWeeklyPlan: !!(typeof db !== 'undefined' && db && db.weeklyPlan),
+      onboardingProfile: (typeof db !== 'undefined' && db && db.user) ? db.user.onboardingProfile : null
+    };
+    await supaClient.from('error_logs').insert({
+      user_id: userId,
+      error_type: errorType,
+      error_message: String(errorMessage).substring(0, 500),
+      function_name: functionName || null,
+      sw_version: swVersion,
+      user_agent: navigator.userAgent.substring(0, 200),
+      app_state: lightState
+    });
+  } catch(e) {
+    // Silencieux — ne jamais faire planter l'app à cause du logging
+  }
+}
+
 async function syncLeaderboard() {
   if (!supaClient) return;
   try {

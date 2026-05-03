@@ -3273,6 +3273,31 @@
 <script src="js/app.js"></script>
 <script>
 // ═══════════════════════════════════════════
+// TÉLÉMÉTRIE — Catcher les erreurs non gérées
+// ═══════════════════════════════════════════
+window.addEventListener('error', function(event) {
+  if (typeof logErrorToSupabase === 'function') {
+    logErrorToSupabase(
+      'uncaught_js_error',
+      event.message + ' at ' + event.filename + ':' + event.lineno,
+      'global',
+      null
+    );
+  }
+});
+window.addEventListener('unhandledrejection', function(event) {
+  if (typeof logErrorToSupabase === 'function') {
+    logErrorToSupabase(
+      'unhandled_promise_rejection',
+      String(event.reason).substring(0, 300),
+      'promise',
+      null
+    );
+  }
+});
+</script>
+<script>
+// ═══════════════════════════════════════════
 // PWA — Service Worker + Install + Offline
 // ═══════════════════════════════════════════
 

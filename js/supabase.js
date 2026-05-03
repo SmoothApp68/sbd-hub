@@ -10,6 +10,27 @@ const SUPABASE_KEY = 'sb_publishable_JDEEN5nMLQjvfWOX0UfBNw_R38Olz-T';
 let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
 try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
 
+// ── Sync bidirectionnelle au retour sur l'app (multi-appareils) ──
+document.addEventListener('visibilitychange', async function() {
+  if (document.visibilityState !== 'visible') return;
+  if (!supaClient || !cloudSyncEnabled) return;
+  try {
+    var _vAuthRes = await supaClient.auth.getUser();
+    if (!_vAuthRes.data || !_vAuthRes.data.user) return;
+    var _vRes = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', _vAuthRes.data.user.id).single();
+    if (!_vRes.data) return;
+    var _vCloudTs = new Date(_vRes.data.updated_at).getTime();
+    var _vLocalTs = (typeof db !== 'undefined' && db.lastSync) ? db.lastSync : 0;
+    if (_vCloudTs > _vLocalTs + 5000) {
+      await syncFromCloud();
+      updateSyncStatus('sync');
+      if (typeof showToast === 'function') showToast('🔄 Données mises à jour depuis un autre appareil');
+    }
+  } catch(e) {
+    // Silencieux — ne jamais bloquer l'UI
+  }
+});
+
 // ============================================================
 // ANTHROPIC PROXY HELPER
 // ============================================================

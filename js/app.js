@@ -416,6 +416,10 @@ if (db.user.onboardingProfile === 'reeducation') {
   db.user.vocabLevel = 1;
 }
 
+// ── OVERDRIVE — defensive init ────────────────────────────────
+if (db._overdriveCount === undefined) db._overdriveCount = 0;
+if (db._lastOverdrive === undefined) db._lastOverdrive = null;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -11154,6 +11158,24 @@ function sendLocalNotification(title, body) {
   try { new Notification(title, { body: body }); } catch(e) {}
 }
 
+function activateOverdriveMode() {
+  db._overdriveCount = (db._overdriveCount || 0) + 1;
+  db._lastOverdrive = {
+    date: new Date().toISOString(),
+    srs: db._lastSRS || null,
+    coachNote: db._pendingCoachNote || null,
+    reason: 'user_override'
+  };
+  db._pendingCoachNote = null;
+  saveDB();
+  if (typeof logErrorToSupabase === 'function') {
+    logErrorToSupabase('overdrive_mode', 'User overrode recommendations', 'activateOverdriveMode',
+      { srs: db._lastSRS, overdriveCount: db._overdriveCount });
+  }
+  showToast('⚡ Mode Overdrive — tu assumes, on suit !');
+  if (typeof goRequestRender === 'function') goRequestRender();
+}
+
 function renderAntagonistAlerts() {
   var el = document.getElementById('antagonistAlerts');
   if (!el) return;
@@ -14462,21 +14484,18 @@ function renderCoachTodayHTML() {
         ? 'var(--orange)' : 'var(--green)';
       html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
       html += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🌸 ' + _phaseLabel + '</div>';
-      if (_phaseData.injuryAlert) {
-        html += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:8px;'
-          + 'background:var(--orange)18;border-left:3px solid var(--orange);">';
-        html += '<div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:3px;">⚠️ Risque articulaire élevé</div>';
-        html += '<div style="font-size:11px;color:var(--text);line-height:1.5;">Laxité ligamentaire accrue. Privilégie la technique sur la charge. Évite les charges maximales aujourd\'hui.</div>';
-        html += '</div>';
+      var _cycleMessages = {
+        folliculaire_precoce: 'Ton corps se régénère. Séance de maintien — qualité > quantité.',
+        folliculaire_tardive: 'Énergie en hausse ! Bonne phase pour augmenter le volume.',
+        ovulatoire:           'Pic de force potentiel. Parfait pour tenter un nouveau PR. ⚠️ Échauffe bien les articulations.',
+        luteale:              'Ton corps récupère en profondeur. L\'intensité est adaptée — les gains continuent.'
+      };
+      var _cycleMsg = _cycleMessages[_cyclePhase];
+      if (_cycleMsg) {
+        html += '<div style="font-size:11px;color:var(--text);line-height:1.6;">' + _cycleMsg + '</div>';
       }
-      if (_phaseData.rpeAdjust > 0) {
-        html += '<div style="font-size:11px;color:var(--sub);line-height:1.5;">';
-        html += 'Effort perçu majoré de +' + _phaseData.rpeAdjust + ' — charge réduite automatiquement.';
-        html += '</div>';
-      } else if (_phaseData.rpeAdjust < 0) {
-        html += '<div style="font-size:11px;color:var(--green);line-height:1.5;">';
-        html += 'Phase anabolique — capacité de récupération maximale. Bonne séance pour progresser.';
-        html += '</div>';
+      if (_phaseData.injuryAlert && _cyclePhase !== 'ovulatoire') {
+        html += '<div style="font-size:10px;color:var(--orange);margin-top:6px;">⚠️ Échauffement articulaire conseillé.</div>';
       }
       html += '</div>';
     }
@@ -16453,6 +16472,9 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
+  // Capture APRE base before penalty application (used by female cycle floor)
+  var apre_base = baseWeight;
+
   // FIX 1+5 — Pre-compute penalty multipliers (Kill Switch + stabilization guard)
   // ÉTAPE C: use zone-specific e1rm for Hard Cap reference
   var e1rmRef = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
@@ -16587,6 +16609,16 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     baseWeight = Math.round(baseWeight * _absencePenalty.factor / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
     _coachNotes.push('Retour après ' + (_absencePenalty.days || '?') + ' jours — on y va progressivement.');
+  }
+
+  // Female cycle floor: min 70% APRE base during high-penalty phases
+  var _isFemaleWithCycle = db.user && db.user.gender === 'female' && db.user.menstrualEnabled;
+  if (_isFemaleWithCycle && apre_base > 0) {
+    var _cycleFloor = Math.round(apre_base * 0.70 / 2.5) * 2.5;
+    if (baseWeight < _cycleFloor) {
+      baseWeight = _cycleFloor;
+      _coachNotes.push('Programme adapté pour cette phase du cycle. La récupération d\'aujourd\'hui pose les bases des prochains PRs.');
+    }
   }
 
   if (_coachNotes.length > 0) db._pendingCoachNote = _coachNotes[0];
@@ -18687,6 +18719,9 @@ function buildGoIdleHtml() {
     var coachNote = wpToday && wpToday.coachNote ? wpToday.coachNote : '';
 
     var _pendingNote = db._pendingCoachNote || null;
+    var _goSRS = typeof computeSRS === 'function' ? computeSRS() : null;
+    var _goSRSScore = _goSRS && typeof _goSRS.score === 'number' ? _goSRS.score : 75;
+    var _hasGoAlerts = !!_pendingNote || _goSRSScore < 50;
     heroHtml = '<div class="go-hero">'+
       '<div class="go-hero-top">'+
         '<span class="go-badge">Aujourd\'hui</span>'+
@@ -18722,6 +18757,13 @@ function buildGoIdleHtml() {
           }).join('');
         } catch(e) { return ''; }
       })() +
+      (_hasGoAlerts
+        ? '<div style="text-align:center;margin-bottom:6px;">'
+          + '<button onclick="activateOverdriveMode()" '
+          + 'style="padding:8px 16px;background:none;border:1px solid var(--sub);'
+          + 'border-radius:20px;color:var(--sub);font-size:12px;cursor:pointer;">'
+          + '⚡ Passer outre les recommandations</button></div>'
+        : '') +
       '<button class="go-launch" onclick="openReadinessQuiz(\'today\')">Lancer la séance du jour 💪</button>'+
     '</div>';
   } else {

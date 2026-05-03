@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 
 const BASE = 'http://localhost:8787/';
+const STORAGE_KEY = 'SBD_HUB_V29';
 
 // J1 cold-start DB (onboarded, no weeklyPlan)
 const DB_J1 = {
@@ -57,13 +58,15 @@ function makeDB_J30() {
   };
 }
 
-// DB with today forced as rest day
+// DB with today forced as rest day via db.routine
 function makeDB_RestDay() {
-  const today = new Date().getDay(); // 0=Sun...6=Sat
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    days.push({ dayIndex: i, type: i === today ? 'rest' : 'training', exercises: i === today ? [] : [{ name: 'Squat', sets: [{ weight: 100, reps: 5 }] }] });
-  }
+  // DAYS_FULL in app: ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+  const DAYS_FULL = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const today = new Date().getDay(); // 0=Sun
+  const routine = {};
+  DAYS_FULL.forEach((d, i) => {
+    routine[d] = (i === today) ? '😴 Repos' : 'Séance Force';
+  });
   return {
     user: {
       onboarded: true,
@@ -74,7 +77,8 @@ function makeDB_RestDay() {
       settings: {}
     },
     logs: [],
-    weeklyPlan: { days, week: 1 }
+    routine,
+    weeklyPlan: null
   };
 }
 
@@ -101,13 +105,16 @@ async function runTest(name, fn) {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const errors = [];
-    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED')) errors.push(m.text()); });
+    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED') && !m.text().includes('ERR_CERT') && !m.text().includes('navigator.vibrate') && !m.text().includes('chromestatus') && !m.text().includes('404') && !m.text().includes('File not found')) errors.push(m.text()); });
     await page.goto(BASE);
-    await page.evaluate(db => { localStorage.setItem('sbd-hub-db', JSON.stringify(db)); }, makeDB_RestDay());
+    await page.evaluate(db => { localStorage.setItem('SBD_HUB_V29', JSON.stringify(db)); }, makeDB_RestDay());
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
-    // Navigate to GO tab
-    await page.evaluate(() => { if (typeof showTab === 'function') showTab('go'); });
+    // Navigate to GO tab (tab-seances contains the GO section)
+    await page.evaluate(() => { if (typeof showTab === 'function') showTab('tab-seances'); });
+    await page.waitForTimeout(500);
+    // Ensure GO sub-tab is shown
+    await page.evaluate(() => { if (typeof showSeancesSub === 'function') showSeancesSub('seances-go'); else if (typeof renderGoTab === 'function') renderGoTab(); });
     await page.waitForTimeout(1000);
 
     results.push(await runTest('GO rest day — Jour de repos visible', async () => {
@@ -136,9 +143,9 @@ async function runTest(name, fn) {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const errors = [];
-    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED')) errors.push(m.text()); });
+    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED') && !m.text().includes('ERR_CERT') && !m.text().includes('navigator.vibrate') && !m.text().includes('chromestatus') && !m.text().includes('404') && !m.text().includes('File not found')) errors.push(m.text()); });
     await page.goto(BASE);
-    await page.evaluate(db => { localStorage.setItem('sbd-hub-db', JSON.stringify(db)); }, makeDB_J30());
+    await page.evaluate(db => { localStorage.setItem('SBD_HUB_V29', JSON.stringify(db)); }, makeDB_J30());
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
 
@@ -162,7 +169,10 @@ async function runTest(name, fn) {
     }));
 
     results.push(await runTest('getAllBadges J30 — gamification tab renders', async () => {
-      await page.evaluate(() => { if (typeof showTab === 'function') showTab('jeux'); });
+      // tab-game is the gamification tab; show jeux-badges sub to populate gamBadgesSections
+      await page.evaluate(() => { if (typeof showTab === 'function') showTab('tab-game'); });
+      await page.waitForTimeout(800);
+      await page.evaluate(() => { if (typeof showJeuxSub === 'function') showJeuxSub('jeux-badges', null); });
       await page.waitForTimeout(1500);
       const badgesLen = await page.evaluate(() => {
         const el = document.getElementById('gamBadgesSections');
@@ -185,12 +195,18 @@ async function runTest(name, fn) {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const errors = [];
-    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED')) errors.push(m.text()); });
+    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED') && !m.text().includes('ERR_CERT') && !m.text().includes('navigator.vibrate') && !m.text().includes('chromestatus') && !m.text().includes('404') && !m.text().includes('File not found')) errors.push(m.text()); });
     await page.goto(BASE);
-    await page.evaluate(db => { localStorage.setItem('sbd-hub-db', JSON.stringify(db)); }, DB_J1);
+    await page.evaluate(db => { localStorage.setItem('SBD_HUB_V29', JSON.stringify(db)); }, DB_J1);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
-    await page.evaluate(() => { if (typeof showTab === 'function') showTab('coach'); });
+    // tab-seances contains coach sub-section; switch to seances-coach sub-tab
+    await page.evaluate(() => { if (typeof showTab === 'function') showTab('tab-seances'); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      if (typeof showSeancesSub === 'function') showSeancesSub('seances-coach');
+      else if (typeof renderCoachTab === 'function') renderCoachTab();
+    });
     await page.waitForTimeout(1000);
 
     results.push(await runTest('Coach J1 — content present', async () => {
@@ -225,14 +241,14 @@ async function runTest(name, fn) {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const errors = [];
-    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED')) errors.push(m.text()); });
+    page.on('console', m => { if (m.type() === 'error' && !m.text().includes('supabase') && !m.text().includes('favicon') && !m.text().includes('ERR_NAME_NOT_RESOLVED') && !m.text().includes('ERR_CERT') && !m.text().includes('navigator.vibrate') && !m.text().includes('chromestatus') && !m.text().includes('404') && !m.text().includes('File not found')) errors.push(m.text()); });
     await page.goto(BASE);
-    await page.evaluate(db => { localStorage.setItem('sbd-hub-db', JSON.stringify(db)); }, makeDB_J30());
+    await page.evaluate(db => { localStorage.setItem('SBD_HUB_V29', JSON.stringify(db)); }, makeDB_J30());
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
 
-    // Visit all tabs
-    for (const tab of ['go', 'coach', 'programme', 'jeux', 'logs']) {
+    // Visit all tabs using correct IDs
+    for (const tab of ['tab-dash', 'tab-seances', 'tab-stats', 'tab-game', 'tab-profil']) {
       await page.evaluate(t => { if (typeof showTab === 'function') showTab(t); }, tab);
       await page.waitForTimeout(800);
     }

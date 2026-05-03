@@ -774,6 +774,45 @@ function doFinalizeSession(session) {
   if (allPRs.length > 0) {
     setTimeout(() => showPRModals(allPRs, 0), 500);
   }
+
+  // Validation e1RM après import — afficher après les modales de PR
+  setTimeout(function() { if (typeof showImportedE1RMValidation === 'function') showImportedE1RMValidation(); }, 800);
+}
+
+function showImportedE1RMValidation() {
+  var lifts = [
+    { label: '🦵 Squat',    e1rm: db.exercises && db.exercises['Squat (Barre)'] ? db.exercises['Squat (Barre)'].e1rm : null },
+    { label: '💪 Bench',    e1rm: db.exercises && db.exercises['Développé Couché (Barre)'] ? db.exercises['Développé Couché (Barre)'].e1rm
+                                : (db.exercises && db.exercises['Développé couché'] ? db.exercises['Développé couché'].e1rm : null) },
+    { label: '⚡ Deadlift', e1rm: db.exercises && db.exercises['Soulevé de Terre'] ? db.exercises['Soulevé de Terre'].e1rm : null }
+  ].filter(function(l) { return l.e1rm && l.e1rm > 0; });
+
+  if (!lifts.length) return;
+
+  var o = document.createElement('div');
+  o.className = 'modal-overlay';
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  var liftsHtml = lifts.map(function(l) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;'
+      + 'padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px;">'
+      + '<div style="font-size:13px;">' + l.label + '</div>'
+      + '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + l.e1rm + ' kg</div>'
+      + '</div>';
+  }).join('');
+  o.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;">'
+    + '<div style="font-size:16px;font-weight:700;margin-bottom:6px;">📊 Vérification des données importées</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;line-height:1.5;">'
+    + 'Voici ce qu\'on a calculé depuis ton historique :<br>Est-ce que ces valeurs te semblent correctes ?</div>'
+    + liftsHtml
+    + '<div style="display:flex;gap:8px;margin-top:14px;">'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();if(typeof generateWeeklyPlan===\'function\')generateWeeklyPlan();" '
+    + 'style="flex:1;padding:12px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">'
+    + '✓ Ces valeurs sont correctes</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();if(typeof showTab===\'function\')showTab(\'tab-profil\');if(typeof showProfilSub===\'function\')showProfilSub(\'tab-settings\');" '
+    + 'style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:13px;cursor:pointer;">'
+    + 'Corriger</button>'
+    + '</div></div>';
+  document.body.appendChild(o);
 }
 
 function getPrevRepRecord(exoName, reps, beforeTs) {

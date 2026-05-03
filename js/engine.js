@@ -1912,9 +1912,12 @@ var ANTAGONIST_PAIRS = [
   { agonist: 'shoulder', antagonist: 'back',
     threshold: 0.50, label: 'Épaules / Dos',
     corrections: ['Face Pull', 'Oiseau (Haltère)', 'Tirage vers Visage'] },
-  { agonist: 'biceps',   antagonist: 'triceps',
+  { agonist: 'biceps',     antagonist: 'triceps',
     threshold: 0.70, label: 'Biceps / Triceps',
-    corrections: ['Extension Triceps (Poulie)', 'Dips Triceps'] }
+    corrections: ['Extension Triceps (Poulie)', 'Dips Triceps'] },
+  { agonist: 'Lombaires',  antagonist: 'Abdos',
+    threshold: 0.80, label: 'Lombaires / Abdominaux',
+    corrections: ['Gainage', 'Crunch Vélo', 'Relevé de Jambes Suspendu', 'Abdos Ciseaux', 'Planche Latérale'] }
 ];
 
 function calcMuscleGroupTonnage21d() {
@@ -1959,6 +1962,36 @@ function evaluateAntagonistBalance() {
   return alerts.sort(function(a, b) {
     return (a.severity === 'danger' ? 0 : 1) - (b.severity === 'danger' ? 0 : 1);
   });
+}
+
+// Refeed : weight cut > 10j ET SRS < 50 → maintenance pour relancer le métabolisme
+function getRefeedRecommendation() {
+  var wc = db.user && db.user.weightCut;
+  if (!wc || !wc.active || !wc.startDate) return null;
+
+  var cutDays = (Date.now() - new Date(wc.startDate).getTime()) / 86400000;
+  if (cutDays < 10) return null;
+
+  var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  if (!srs || srs.score >= 50) return null;
+
+  var bw = (db.user && db.user.bw) || 75;
+  var tonnage7 = (db.logs || [])
+    .filter(function(l) { return (l.timestamp || 0) > Date.now() - 7 * 86400000; })
+    .reduce(function(s, l) { return s + (l.volume || 0); }, 0);
+  var tdee = typeof calcTDEE === 'function' ? calcTDEE(bw, tonnage7) : 0;
+  if (!tdee || tdee < 1000) return null;
+
+  return {
+    active: true,
+    tdee: Math.round(tdee),
+    cutDays: Math.round(cutDays),
+    srsScore: Math.round(srs.score),
+    message: 'Refeed recommandé : ' + Math.round(cutDays) + ' jours de cut '
+      + '+ récupération faible (' + Math.round(srs.score) + '/100). '
+      + 'Mange à maintenance aujourd\'hui (' + Math.round(tdee) + ' kcal) '
+      + 'pour relancer ton métabolisme et préserver ta masse musculaire.'
+  };
 }
 
 function computeWellbeingMetrics() {

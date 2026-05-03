@@ -16312,6 +16312,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
+  // Kill Switch compétition — déficit >2.5% poids corps ET ≤3j avant compétition
+  var _wcEmergency = typeof getWeightCutEmergency === 'function' ? getWeightCutEmergency() : null;
+  if (_wcEmergency && _wcEmergency.emergency) {
+    baseWeight = Math.round(baseWeight * 0.85 / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+    _coachNotes.push(_wcEmergency.message);
+  }
+
   // PhysioManager — réduction de charge phase lutéale / folliculaire précoce
   if (typeof getCycleCoeff === 'function' && _stabilized) {
     var _cycleCoeff = getCycleCoeff();

@@ -3100,6 +3100,27 @@ function detectMuscleLoss() {
   return squatTrend !== null && squatTrend < -0.05 && srs.score >= 65;
 }
 
+function getWeightCutEmergency() {
+  var wc = db.user && db.user.weightCut;
+  if (!wc || !wc.active || !wc.competitionDate) return null;
+  var daysToCompet = Math.ceil((new Date(wc.competitionDate) - Date.now()) / 86400000);
+  if (daysToCompet > 3) return null;
+  var currentWeight = db.user.bw || 0;
+  var targetWeight = wc.targetWeight || currentWeight;
+  if (!currentWeight || !targetWeight) return null;
+  var deficit = currentWeight - targetWeight;
+  var deficitPct = deficit / currentWeight;
+  if (deficitPct > 0.025) {
+    return {
+      emergency: true,
+      deficit: Math.round(deficit * 10) / 10,
+      message: '⚠️ Déficit critique (' + Math.round(deficitPct * 100) + '%) — '
+        + 'Mode Maintien Nerveux activé. Singles à RPE 6 uniquement.'
+    };
+  }
+  return null;
+}
+
 function getWeightCutAlerts() {
   if (!db.user || !db.user.weightCut || !db.user.weightCut.active) return [];
   var wc = db.user.weightCut;

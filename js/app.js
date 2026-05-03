@@ -387,6 +387,10 @@ if (!db.wellbeingHistory) db.wellbeingHistory = [];
 // ── ONBOARDING PRs — defensive init ─────────────────────────
 if (db.user.onboardingPRs === undefined) db.user.onboardingPRs = null;
 
+// ── NOTIFICATION BEHAVIORAL TRIGGERS — defensive init ────────
+if (db._lastAcwrNotif === undefined) db._lastAcwrNotif = 0;
+if (db._lastMissedNotif === undefined) db._lastMissedNotif = 0;
+
 // One-shot fix: stale 'Jour X' labels in db.routine overwritten by cloud sync.
 // Replace with the canonical exercise name from the matching weeklyPlan day.
 if (!db._routineFixed) {
@@ -11219,6 +11223,38 @@ async function checkScheduledNotifications() {
     db.notificationsSent.push('day_' + notif.day);
     saveDB();
     break; // Une seule notification par jour
+  }
+
+  // ── Triggers comportementaux (indépendants du calendrier J1→J30) ─────────
+
+  // Trigger ACWR optimal — max 1x par semaine
+  var _srsForAcwr = typeof computeSRS === 'function' ? computeSRS() : null;
+  var _acwr = _srsForAcwr ? (_srsForAcwr.acwr || 1.0) : null;
+  if (_acwr && _acwr >= 0.8 && _acwr <= 1.3) {
+    var _lastAcwrNotif = db._lastAcwrNotif || 0;
+    if ((Date.now() - _lastAcwrNotif) / 86400000 >= 7) {
+      sendLocalNotification(
+        '⚡ Fenêtre optimale',
+        'Ton ratio charge/récupération est parfait cette semaine. C\'est le bon moment pour pousser un peu plus.'
+      );
+      db._lastAcwrNotif = Date.now();
+      saveDB();
+    }
+  }
+
+  // Trigger séances manquées — max 1x tous les 3 jours
+  var _lastLog = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0];
+  if (_lastLog) {
+    var _daysSinceSession = (Date.now() - (_lastLog.timestamp || 0)) / 86400000;
+    var _lastMissedNotif = db._lastMissedNotif || 0;
+    if (_daysSinceSession >= 2 && (Date.now() - _lastMissedNotif) / 86400000 >= 3) {
+      sendLocalNotification(
+        '💪 On se retrouve ?',
+        'Ça fait ' + Math.floor(_daysSinceSession) + ' jours. Même 30 minutes compte pour maintenir ta progression.'
+      );
+      db._lastMissedNotif = Date.now();
+      saveDB();
+    }
   }
 }
 

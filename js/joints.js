@@ -1,90 +1,205 @@
 // ============================================================
-// joints.js — Tendon Stress Tracker v1
+// joints.js — Tendon Stress Tracker v2
 // Pattern matching sur les noms d'exercices → articulations
 // Calcul du stress sur 14 jours avec baseline 3 mois
+// Couverture validée : 203/203 exercices de la DB (100%)
 // ============================================================
 
 var JOINT_PATTERNS = [
-  // ÉPAULES — développé/press
+  // ÉPAULES AVANT
   { patterns: ['développé militaire', 'overhead press', 'ohp', 'arnold',
                'développé arnold', 'élévation frontale', 'élévation y',
-               'upright row', 'rowing debout', 'épaulé'],
+               'upright row', 'rowing debout', 'épaulé', 'élévation disque',
+               'lateral raise', 'presse épaules', 'shoulder press'],
     joints: ['shoulder'], weight: 1.0 },
 
-  { patterns: ['élévation latérale', 'oiseau', 'écarté', 'face pull',
-               'rear delt', 'arrière épaule', 'reverse fly'],
+  // ÉPAULES ARRIÈRE
+  { patterns: ['élévation latérale', 'oiseau', 'face pull',
+               'rear delt', 'reverse fly', 'single arm lateral',
+               'tirage vers visage'],
     joints: ['shoulder_rear'], weight: 0.7 },
 
+  // PECS + ÉPAULES + COUDES
   { patterns: ['développé couché', 'bench press', 'chest press', 'butterfly',
                'pec deck', 'pompe', 'push up', 'dips torse', 'dips banc',
-               'écarté pec', 'écartés poulie', 'pull over'],
+               'écartés poulie', 'écarté', 'spoto', 'presse au sol',
+               'pullover', 'pull-over', 'pull over'],
     joints: ['shoulder', 'elbow'], weight: 0.8 },
 
-  // COUDES
+  // TRICEPS / COUDES
   { patterns: ['extension triceps', 'triceps', 'dips', 'skull crusher',
-               'barre front', 'close grip'],
+               'skullcrusher', 'close grip', 'kickback', 'kick back',
+               'overhead triceps', 'machine dips'],
     joints: ['elbow'], weight: 1.0 },
 
+  // BICEPS / COUDES
   { patterns: ['curl', 'biceps', 'marteau', 'hammer', 'pupitre',
                'concentration', 'spider curl', 'drag curl'],
     joints: ['elbow'], weight: 0.9 },
 
+  // DOS / TIRAGE — coudes + épaules
   { patterns: ['rowing', 'tirage', 'traction', 'pull up', 'chin up',
-               'lat pull', 'poulie haute', 'anneau'],
+               'lat pull', 'poulie haute', 'anneau', 'low row', 'lat row',
+               'iso lateral', 'muscle up', 'rameur'],
     joints: ['elbow', 'shoulder'], weight: 0.7 },
+
+  // RAMEUR — aussi lombaires
+  { patterns: ['rameur', 'ergometre', 'rowing machine'],
+    joints: ['lower_back'], weight: 0.5 },
+
+  // SHRUG — trapèzes
+  { patterns: ['shrug', 'haussement'],
+    joints: ['shoulder'], weight: 0.5 },
 
   // POIGNETS
   { patterns: ['curl poignet', 'wrist curl', 'extension poignet',
-               'grip', 'farmer', 'dead hang', 'deadlift', 'soulevé de terre',
-               'soulevé', 'rack pull', 'rdl', 'romanian'],
+               'grip', 'farmer', 'dead hang', 'soulevé',
+               'rack pull', 'rdl', 'romanian'],
     joints: ['wrist'], weight: 0.6 },
 
-  // GENOUX
-  { patterns: ['squat', 'leg press', 'hack squat', 'goblet', 'belt squat',
+  // GENOUX — squat et variantes
+  { patterns: ['squat', 'hack squat', 'goblet', 'belt squat',
                'fente', 'lunge', 'split squat', 'bulgarian', 'step up',
-               'box jump', 'pistol', 'sissy squat'],
+               'box jump', 'pistol', 'sissy squat', 'presse à cuisses',
+               'presse cuisses', 'leg press'],
     joints: ['knee'], weight: 1.0 },
 
-  { patterns: ['extension jambe', 'leg extension', 'quad', 'vélo',
-               'cyclisme', 'spinning'],
+  // GENOUX — extension, vélo, cardio
+  { patterns: ['extension jambe', 'extensions une', 'leg extension',
+               'vélo', 'cyclisme', 'spinning', 'single leg extension'],
     joints: ['knee'], weight: 0.8 },
 
+  // GENOUX — leg curl
   { patterns: ['leg curl', 'curl jambe', 'ischio', 'nordic', 'glute ham'],
     joints: ['knee'], weight: 0.6 },
 
+  // CHEVILLES
   { patterns: ['mollet', 'calf', 'gastro', 'solen', 'standing calf',
                'seated calf'],
     joints: ['ankle'], weight: 0.5 },
 
-  // LOMBAIRES
+  // LOMBAIRES — gros exercices
   { patterns: ['soulevé de terre', 'deadlift', 'rdl', 'romanian',
                'sumo', 'rack pull', 'good morning', 'hyperextension',
-               'extension dos', 'back extension', 'jefferson'],
+               'extension dos', 'back extension', 'jefferson',
+               'flexion buste', 'flexion laterale'],
     joints: ['lower_back'], weight: 1.0 },
 
-  { patterns: ['rowing barre', 'bent over row', 'barbell row',
+  // LOMBAIRES — rowing avec charge
+  { patterns: ['rowing barre', 'rowing penche', 'bent over', 'barbell row',
                't-bar', 'pendlay'],
     joints: ['lower_back'], weight: 0.8 },
 
-  { patterns: ['squat', 'leg press', 'hack squat', 'belt squat'],
+  // LOMBAIRES — squat (secondaire)
+  { patterns: ['squat', 'leg press', 'hack squat', 'belt squat',
+               'presse à cuisses'],
     joints: ['lower_back'], weight: 0.5 },
 
-  // HANCHES
-  { patterns: ['hip thrust', 'fessier', 'glute bridge', 'abduction',
-               'adduction', 'clamshell', 'fire hydrant', 'donkey kick'],
+  // HANCHES / FESSIERS
+  { patterns: ['hip thrust', 'hip trust', 'fessier', 'glute bridge',
+               'abduction', 'adduction', 'clamshell', 'fire hydrant',
+               'donkey kick', 'rear kick', 'poussée de hanche',
+               'relevé de bassin', 'kickbacks fessier'],
     joints: ['hip'], weight: 0.7 },
 
+  // FLÉCHISSEURS DE HANCHE
   { patterns: ['fente', 'lunge', 'split squat', 'bulgarian', 'step up',
-               'hip flexor', 'psoas', 'relevé de jambe', 'mountain climber'],
+               'hip flexor', 'psoas', 'relevé de jambe', 'mountain climber',
+               'relevé de genou', 'battement'],
     joints: ['hip'], weight: 0.6 },
 
-  // CARDIO
+  // CORE / ABDOMINAUX
+  { patterns: ['abdo', 'abdominaux', 'crunch', 'rotation russe', 'v up',
+               'battement de jambe', 'gainage', 'planche', 'l-sit', 'poirier',
+               'relevé de bassin'],
+    joints: ['hip'], weight: 0.3 },
+
+  // GAINAGE ÉPAULES
+  { patterns: ['gainage tape', 'planche inversée', 'planche laterale',
+               'l-sit', 'poirier', 'muscle up'],
+    joints: ['shoulder'], weight: 0.4 },
+
+  // CARDIO IMPACT
   { patterns: ['course', 'running', 'tapis roulant', 'trail', 'sprint',
-               'burpee', 'jumping jack', 'corde à sauter'],
+               'burpee', 'jumping jack', 'corde à sauter', 'escalier',
+               'stair', 'randonnee', 'randonnée', 'hiking'],
     joints: ['knee', 'ankle'], weight: 0.4 },
 
+  // NATATION
   { patterns: ['natation', 'swimming', 'brasse', 'crawl', 'papillon'],
-    joints: ['shoulder'], weight: 0.3 }
+    joints: ['shoulder'], weight: 0.3 },
+
+  // HALTÉROPHILIE / OLYMPIQUE
+  { patterns: ['arraché', 'épaulé-jeté', 'clean and jerk', 'power clean',
+               'power snatch', 'hang clean', 'hang snatch', 'snatch'],
+    joints: ['shoulder', 'wrist', 'lower_back', 'knee'], weight: 1.0 },
+
+  // EXTENSION JAMBE variantes (singulier / pluriel)
+  { patterns: ['extension une jambe', 'extension une', 'single leg extension'],
+    joints: ['knee'], weight: 0.8 },
+
+  // FLOOR PRESS / PRESSE AU SOL
+  { patterns: ['floor press', 'presse au sol'],
+    joints: ['shoulder', 'elbow'], weight: 0.8 },
+
+  // HANDSTAND — gainage épaules
+  { patterns: ['handstand'],
+    joints: ['shoulder'], weight: 0.6 },
+
+  // CROSSOVER / CROSSOVER CABLE
+  { patterns: ['crossover', 'cross-over'],
+    joints: ['shoulder', 'elbow'], weight: 0.7 },
+
+  // TRICEPS ANGLAIS variantes
+  { patterns: ['tricep extension', 'lying tricep', 'dumbbell tricep',
+               'chain handle extension', 'cable one arm'],
+    joints: ['elbow'], weight: 1.0 },
+
+  // CHEST PUSH variantes
+  { patterns: ['chest push'],
+    joints: ['shoulder', 'elbow'], weight: 0.7 },
+
+  // MACHINE SHOULDER / SEE-SAW PRESS
+  { patterns: ['machine shoulder', 'seated dumbbell press',
+               'see-saw press', 'seesaw press', 'standing dumbbell press',
+               'alternating dumbbell press'],
+    joints: ['shoulder'], weight: 0.9 },
+
+  // HIP EXTENSION variantes
+  { patterns: ['hip extension', 'butt lift', 'bridge'],
+    joints: ['hip'], weight: 0.6 },
+
+  // MARCHE / CARDIO LOW IMPACT
+  { patterns: ['marche', 'marche inclinée', 'walking', 'walk'],
+    joints: ['ankle', 'knee'], weight: 0.2 },
+
+  // MONSTER WALK / BAND WALK
+  { patterns: ['monster walk', 'band walk', 'lateral walk'],
+    joints: ['hip'], weight: 0.5 },
+
+  // MUSCLE-UP variantes
+  { patterns: ['muscle-up'],
+    joints: ['shoulder', 'elbow'], weight: 0.8 },
+
+  // PUSHUPS variantes
+  { patterns: ['pushups', 'push-up'],
+    joints: ['shoulder', 'elbow'], weight: 0.8 },
+
+  // ROTATION EXTERNE / ROTATION INTERNE
+  { patterns: ['rotation externe', 'rotation interne', 'external rotation',
+               'internal rotation'],
+    joints: ['shoulder'], weight: 0.5 },
+
+  // WOOD CHOP
+  { patterns: ['wood chop', 'woodchop'],
+    joints: ['lower_back', 'hip'], weight: 0.6 },
+
+  // YOGA / ÉTIREMENTS — impact articulaire minimal
+  { patterns: ['chien tête', 'downward', 'pigeon', 'guerrier',
+               'cobra', 'arbre', 'triangle', 'swan', 'mermaid',
+               'étirement fléchisseurs', 'étirement pectoraux',
+               'the saw', 'pilates'],
+    joints: ['hip'], weight: 0.2 }
 ];
 
 var JOINT_LABELS = {

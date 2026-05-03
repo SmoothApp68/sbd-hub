@@ -6,7 +6,7 @@
   <!-- CSP — Enforcement via meta (Report-Only requires HTTP header, not supported in meta) -->
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self';
-      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+      script-src 'self' 'unsafe-inline';
       style-src 'self' 'unsafe-inline';
       img-src 'self' data: blob: https://raw.githubusercontent.com;
       connect-src 'self' https://swwygywahfdenyzotrce.supabase.co wss://swwygywahfdenyzotrce.supabase.co;
@@ -23,8 +23,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TrainHub">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <script src="js/chart.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="js/chart.min.js"></script>
+  <script defer src="js/supabase-cdn.min.js"></script>
   <style>
     :root {
       /* Fonds */
@@ -3270,14 +3270,14 @@
   <div id="musclePopHint" style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.4;"></div>
 </div>
 
-<script src="js/engine.js"></script>
-<script src="js/exercises.js"></script>
-<script src="js/supabase.js"></script>
-<script src="js/import.js"></script>
-<script src="js/program.js"></script>
-<script src="js/joints.js"></script>
-<script src="js/coach.js"></script>
-<script src="js/app.js"></script>
+<script defer src="js/engine.min.js"></script>
+<script defer src="js/exercises.js"></script>
+<script defer src="js/supabase.min.js"></script>
+<script defer src="js/import.js"></script>
+<script defer src="js/program.js"></script>
+<script defer src="js/joints.js"></script>
+<script defer src="js/coach.js"></script>
+<script defer src="js/app.min.js"></script>
 <script>
 // ═══════════════════════════════════════════
 // TÉLÉMÉTRIE — Catcher les erreurs non gérées

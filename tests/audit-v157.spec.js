@@ -13,11 +13,13 @@ async function seedDB(page, db) {
     localStorage.setItem(key, JSON.stringify(data));
   }, [STORAGE_KEY, db]);
   await page.reload({ waitUntil: 'load' });
+  // Suppress auth overlays permanently (supabase-cdn.min.js is now local and runs async auth check)
+  await page.addStyleTag({ content: '#loginScreen, #onboarding-overlay { display: none !important; pointer-events: none !important; z-index: -1 !important; }' });
   await page.evaluate(() => {
     const ob = document.getElementById('onboarding-overlay');
     if (ob) ob.style.display = 'none';
     const login = document.getElementById('loginScreen');
-    if (login) login.style.display = 'none';
+    if (login) { login.style.display = 'none'; login.style.zIndex = '-1'; }
   });
   await page.waitForSelector('#mainTabBar', { state: 'visible', timeout: 15000 });
 }

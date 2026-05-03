@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v158';
+const CACHE_NAME = 'trainhub-v159';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -7,14 +7,15 @@ const ASSETS_TO_CACHE = [
   '/sbd-hub/icons/icon-192.png',
   '/sbd-hub/icons/icon-512.png',
   '/sbd-hub/js/chart.min.js',
-  '/sbd-hub/js/app.js',
-  '/sbd-hub/js/engine.js',
+  '/sbd-hub/js/supabase-cdn.min.js',
+  '/sbd-hub/js/app.min.js',
+  '/sbd-hub/js/engine.min.js',
+  '/sbd-hub/js/supabase.min.js',
   '/sbd-hub/js/exercises.js',
   '/sbd-hub/js/import.js',
   '/sbd-hub/js/program.js',
   '/sbd-hub/js/joints.js',
   '/sbd-hub/js/coach.js',
-  '/sbd-hub/js/supabase.js',
   '/sbd-hub/assets/body-front.svg',
   '/sbd-hub/assets/body-back.svg',
   '/sbd-hub/assets/body-front-female.svg',

@@ -423,6 +423,14 @@ if (db._lastOverdrive === undefined) db._lastOverdrive = null;
 // ── LEADERBOARD METRIC — défaut DOTS pour powerbuilders (v158) ─
 if (db._leaderboardMetric === undefined) db._leaderboardMetric = 'dots';
 
+// ── db.routine rebuild from weeklyPlan if empty (v162) ───────
+if ((!db.routine || !Object.keys(db.routine).length) && db.weeklyPlan && db.weeklyPlan.days) {
+  db.routine = {};
+  db.weeklyPlan.days.forEach(function(d) {
+    if (!d.rest && d.day && d.title) db.routine[d.day] = d.title;
+  });
+}
+
 // ── WEB PUSH — v160 ──────────────────────────────────────────
 if (!db.notificationHistory) db.notificationHistory = [];
 if (db._unreadNotifications === undefined) db._unreadNotifications = 0;
@@ -9247,16 +9255,20 @@ function renderProgramBuilder() {
                    (db.routine && Object.keys(db.routine).length > 0) ||
                    (db.user.programMode === 'custom' && db.customProgramTemplate);
   if (hasProgram && !_pbState) {
+    container.innerHTML = '';
     renderProgramBuilderView(container);
     // En mode custom : bouton "Modifier les exercices" en haut
     if (db.user.programMode === 'custom') {
-      var editBtn = document.createElement('button');
-      editBtn.innerHTML = '✏️ Modifier les exercices';
-      editBtn.style.cssText = 'width:100%;padding:10px;background:rgba(255,159,10,0.1);'
-        + 'border:1px solid var(--orange);border-radius:10px;color:var(--orange);'
-        + 'font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;';
-      editBtn.onclick = function() { pbStartCustomBuilder(true); };
-      container.insertBefore(editBtn, container.firstChild);
+      if (!container.querySelector('.pb-edit-btn')) {
+        var editBtn = document.createElement('button');
+        editBtn.className = 'pb-edit-btn';
+        editBtn.innerHTML = '✏️ Modifier les exercices';
+        editBtn.style.cssText = 'width:100%;padding:10px;background:rgba(255,159,10,0.1);'
+          + 'border:1px solid var(--orange);border-radius:10px;color:var(--orange);'
+          + 'font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;';
+        editBtn.onclick = function() { pbStartCustomBuilder(true); };
+        container.insertBefore(editBtn, container.firstChild);
+      }
     }
     return;
   }

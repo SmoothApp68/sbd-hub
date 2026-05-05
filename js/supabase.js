@@ -11,9 +11,16 @@ let supaClient = null, cloudSyncEnabled = false, syncDebounceTimer = null;
 try { supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init failed:', e); }
 
 // ── Sync bidirectionnelle au retour sur l'app (multi-appareils) ──
+var _lastFocusCheck = 0;
 document.addEventListener('visibilitychange', async function() {
   if (document.visibilityState !== 'visible') return;
   if (!supaClient || !cloudSyncEnabled) return;
+
+  // Throttle : max 1 check par minute
+  var now = Date.now();
+  if (now - _lastFocusCheck < 60000) return;
+  _lastFocusCheck = now;
+
   try {
     var _vAuthRes = await supaClient.auth.getUser();
     if (!_vAuthRes.data || !_vAuthRes.data.user) return;

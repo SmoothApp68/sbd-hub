@@ -431,6 +431,22 @@ if ((!db.routine || !Object.keys(db.routine).length) && db.weeklyPlan && db.week
   });
 }
 
+// ── db.routine all-Repos guard (v164) ────────────────────────
+// 504/409 conflict during sync can overwrite routine with all '😴 Repos'.
+// If weeklyPlan still has real exercises, rebuild routine from it.
+(function() {
+  var _rv = db.routine ? Object.values(db.routine) : [];
+  var _allRest = _rv.length > 0 && _rv.every(function(v) { return !v || /repos/i.test(v); });
+  var _hasReal = db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.some(function(d) {
+    return !d.rest && d.exercises && d.exercises.length > 0;
+  });
+  if (_allRest && _hasReal) {
+    db.weeklyPlan.days.forEach(function(d) {
+      if (!d.rest && d.day && d.title) db.routine[d.day] = d.title;
+    });
+  }
+}());
+
 // ── WEB PUSH — v160 ──────────────────────────────────────────
 if (!db.notificationHistory) db.notificationHistory = [];
 if (db._unreadNotifications === undefined) db._unreadNotifications = 0;
@@ -9821,6 +9837,7 @@ function saveCustomTemplate() {
   _customBuilderState = null;
   _customBuilderDaySelected = null;
   saveDB();
+  if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
   if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
   showToast('✅ Programme sauvegardé !');
   renderProgramBuilder();

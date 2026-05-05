@@ -191,6 +191,10 @@ async function logErrorToSupabase(errorType, errorMessage, functionName, appStat
 }
 
 async function syncLeaderboard() {
+  var _lbNow = Date.now();
+  var _lbLast = parseInt(localStorage.getItem('_lastLeaderboardSync') || '0');
+  if (_lbNow - _lbLast < 5 * 60 * 1000) return;
+  localStorage.setItem('_lastLeaderboardSync', String(_lbNow));
   if (!supaClient) return;
   try {
     var authRes = await supaClient.auth.getUser();

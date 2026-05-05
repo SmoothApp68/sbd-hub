@@ -247,6 +247,10 @@ let _goSessionTimerId = null;
 var _btDevice = null;
 var _btCharacteristic = null;
 var _currentHR = null;
+var _hrSeriesStart = null;
+var _hrSeriesPeak  = null;
+var _hrRecov30s    = null;
+var _hrRecov60s    = null;
 let _goRestTimerId = null;
 let _goPipInterval = null;
 let _goPipVisibilityHandler = null;
@@ -19399,16 +19403,67 @@ function updateHRDisplay() {
   var age = (db.user && db.user.age) || 30;
   var maxHR = 220 - age;
   var hrPct = Math.round(_currentHR / maxHR * 100);
-  var ready = _currentHR < Math.round(maxHR * 0.65);
-  var color = ready ? 'var(--green)' : (_currentHR > Math.round(maxHR * 0.85) ? 'var(--red)' : 'var(--orange)');
+  var zone = hrPct < 60 ? 1 : hrPct < 70 ? 2 : hrPct < 80 ? 3 : hrPct < 90 ? 4 : 5;
+  var zoneColors = ['#64D2FF','#32D74B','#FF9F0A','#FF6B35','#FF453A'];
+  var zoneLabels = ['Repos','Aérobie','Tempo','Seuil','Max'];
+  var color = zoneColors[zone - 1];
+  var ready = hrPct < 65;
 
-  hrEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
-    + '<div style="font-size:22px;font-weight:800;color:' + color + ';">' + _currentHR + '</div>'
-    + '<div style="font-size:11px;color:var(--sub);">bpm<br>' + hrPct + '% FC max</div>'
+  hrEl.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;'
+    + 'background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);'
+    + 'border-radius:10px;padding:8px 12px;">'
+    + '<div style="text-align:center;">'
+    + '<div style="font-size:22px;font-weight:800;color:' + color + ';line-height:1;">'
+    + _currentHR + '</div>'
+    + '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;'
+    + 'letter-spacing:0.5px;">bpm</div>'
+    + '</div>'
+    + '<div style="flex:1;">'
+    + '<div style="font-size:11px;font-weight:600;color:' + color + ';">Z' + zone
+    + ' — ' + zoneLabels[zone - 1] + ' · ' + hrPct + '%</div>'
+    + '<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;'
+    + 'margin-top:4px;overflow:hidden;">'
+    + '<div style="height:100%;width:' + Math.min(hrPct, 100) + '%;background:' + color
+    + ';border-radius:2px;transition:width 0.5s;"></div>'
+    + '</div>'
+    + '</div>'
     + (ready
       ? '<div style="font-size:11px;color:var(--green);font-weight:700;">✓ Prêt</div>'
-      : '<div style="font-size:11px;color:' + color + ';">Récup…</div>')
+      : '<div style="font-size:11px;color:' + color + ';">Z' + zone + '</div>')
     + '</div>';
+}
+
+function analyzeSetRPEvsHR(rpe, hrPeak, hrRecov60, age) {
+  if (!hrPeak || !rpe) return null;
+  var maxHR = 220 - (age || 30);
+  var hrPct = Math.round(hrPeak / maxHR * 100);
+  var recoveryScore = hrRecov60
+    ? Math.round((hrPeak - hrRecov60) / hrPeak * 100)
+    : null;
+
+  var interpretation = null;
+  var tip = null;
+
+  if (rpe >= 8 && hrPct >= 85) {
+    interpretation = 'metabolic';
+    tip = 'Effort total élevé — repos complet recommandé';
+  } else if (rpe >= 8 && hrPct < 80) {
+    interpretation = 'neuromuscular';
+    tip = 'Force limitée mais cardio OK — fatigue SNC probable';
+  } else if (rpe <= 6 && hrPct >= 80) {
+    interpretation = 'cardiovascular';
+    tip = 'Cardio sollicité — poids OK mais condition cardiaque à améliorer';
+  } else if (rpe <= 6 && hrPct < 70) {
+    interpretation = 'recovered';
+    tip = 'Bonne récupération — tu peux progresser';
+  }
+
+  if (recoveryScore !== null && recoveryScore < 10 && rpe >= 7) {
+    tip = (tip ? tip + ' · ' : '') + 'Récup FC lente — surveille la fatigue cumulée';
+  }
+
+  return { interpretation: interpretation, tip: tip, hrPct: hrPct, recoveryScore: recoveryScore };
 }
 
 function goSwitchView(view) {
@@ -20181,6 +20236,22 @@ function goToggleSetComplete(exoIdx, setIdx) {
         }
       }
     } catch(e) {}
+    // HR per set — save snapshot and run RPE×FC analysis
+    set.hrAtLog  = _currentHR || null;
+    set.hrPeak   = _hrSeriesPeak || _currentHR || null;
+    set.hrRecov30 = _hrRecov30s || null;
+    set.hrRecov60 = _hrRecov60s || null;
+    try {
+      if (set.hrPeak && set.rpe && typeof analyzeSetRPEvsHR === 'function') {
+        var _hrAnalysis = analyzeSetRPEvsHR(parseFloat(set.rpe), set.hrPeak, _hrRecov60s, db.user && db.user.age);
+        if (_hrAnalysis && _hrAnalysis.tip && (db.user.coachProfile || 'full') !== 'silent') {
+          setTimeout(function() { showToast('💓 ' + _hrAnalysis.tip, 3000); }, 500);
+        }
+        set.hrAnalysis = _hrAnalysis ? _hrAnalysis.interpretation : null;
+      }
+    } catch(e) {}
+    _hrSeriesStart = _currentHR || null;
+    _hrSeriesPeak  = null;
   }
   goAutoSave();
   goUpdateCounters();
@@ -20537,10 +20608,19 @@ function getAdaptiveRestTime(lastRPE, baseRestSeconds) {
 
 function goStartRestTimer(seconds, exoIndex) {
   goSkipRest(); // clear any existing
+  // Capture peak HR at end of set, reset recovery snapshots
+  if (typeof _currentHR !== 'undefined' && _currentHR) {
+    _hrSeriesPeak = Math.max(_hrSeriesPeak || 0, _currentHR);
+  }
+  _hrRecov30s = null;
+  _hrRecov60s = null;
   activeWorkout.restTimer = { running: true, remaining: seconds, total: seconds, exoIndex: exoIndex };
   _goRestTimerId = setInterval(function() {
     if (!activeWorkout || !activeWorkout.restTimer.running) { goSkipRest(); return; }
     activeWorkout.restTimer.remaining--;
+    var _elapsed = activeWorkout.restTimer.total - activeWorkout.restTimer.remaining;
+    if (_elapsed === 30 && _currentHR) _hrRecov30s = _currentHR;
+    if (_elapsed === 60 && _currentHR) _hrRecov60s = _currentHR;
     var el = document.getElementById('goRestDisplay');
     if (el) el.textContent = goFormatTime(Math.max(0, activeWorkout.restTimer.remaining));
     // Mise à jour de la barre de progression
@@ -20550,6 +20630,16 @@ function goStartRestTimer(seconds, exoIndex) {
       progEl.style.width = pct + '%';
     }
     if (activeWorkout.restTimer.remaining <= 0) {
+      // FC-aware rest extension: if HR still high at end of timer, auto-extend 30s
+      if (_hrRecov60s && _currentHR) {
+        var _rAge = (db.user && db.user.age) || 30;
+        var _rMaxHR = 220 - _rAge;
+        if (_hrRecov60s > Math.round(_rMaxHR * 0.65) + 15) {
+          showToast('💓 FC à ' + _hrRecov60s + ' bpm — repos prolongé 30s');
+          activeWorkout.restTimer = { running: true, remaining: 30, total: 30, exoIndex: activeWorkout.restTimer.exoIndex };
+          return;
+        }
+      }
       try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
       // Notification sonore
       try {
@@ -22554,7 +22644,12 @@ function convertWorkoutToSession(workout) {
         rpe: s.rpe || null,
         grind: s.grind || false,
         grindTech: s.grindTech || false,
-        isAbandoned: s.isAbandoned || false
+        isAbandoned: s.isAbandoned || false,
+        hrAtLog:    s.hrAtLog    || null,
+        hrPeak:     s.hrPeak     || null,
+        hrRecov30:  s.hrRecov30  || null,
+        hrRecov60:  s.hrRecov60  || null,
+        hrAnalysis: s.hrAnalysis || null
       });
     });
     if (exercise.series.length > 0) session.exercises.push(exercise);
@@ -22744,6 +22839,21 @@ function logActivityFromQuickLog(templateIdx) {
 function goFinishWorkout() {
   if (!activeWorkout) return;
   var session = convertWorkoutToSession(activeWorkout);
+
+  // Aggregate per-set HR data into session summary
+  try {
+    var _allHR = [];
+    activeWorkout.exercises.forEach(function(e) {
+      (e.sets || []).forEach(function(s) {
+        if (s.hrPeak) _allHR.push(s.hrPeak);
+      });
+    });
+    session.hrData = _allHR.length > 0 ? {
+      mean:    Math.round(_allHR.reduce(function(a,b){return a+b;},0) / _allHR.length),
+      peak:    Math.max.apply(null, _allHR),
+      samples: _allHR.length
+    } : null;
+  } catch(e) { session.hrData = null; }
 
   // Track old PRs for PR detection
   const oldPRs = { bench: db.bestPR.bench, squat: db.bestPR.squat, deadlift: db.bestPR.deadlift };

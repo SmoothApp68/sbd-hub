@@ -9255,52 +9255,280 @@ function pgmSwapDays(a, b) {
 // ============================================================
 var _pbState = null;
 
-function renderProgramBuilder() {
+function renderProgramTab() {
   var container = document.getElementById('programBuilderContent');
   if (!container) return;
 
-  // Custom builder en cours d'édition
-  if (_customBuilderState) {
-    renderCustomBuilder();
-    return;
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  if (mode === 'bodybuilding') mode = 'musculation';
+  if (mode === 'bien-etre') mode = 'bien_etre';
+
+  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var routine = typeof getRoutine === 'function' ? getRoutine() : (db.routine || {});
+  var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
+  var week = (db.weeklyPlan && db.weeklyPlan.week) || 1;
+
+  var PHASE_LABELS_LOCAL = {
+    intro:'🌱 Intro', accumulation:'📈 Accumulation',
+    hypertrophie:'💪 Hypertrophie', force:'🏋️ Force',
+    intensification:'⚡ Intensification', peak:'🔥 Peak',
+    deload:'🔋 Deload', recuperation:'😌 Récupération',
+    fondation:'🌿 Fondation', maintien:'✅ Maintien',
+    volume:'📊 Volume', progression:'🚀 Progression'
+  };
+
+  var PHASE_COLORS_LOCAL = {
+    accumulation:'#32D74B', intro:'#32D74B', fondation:'#32D74B',
+    hypertrophie:'#BF5AF2', volume:'#BF5AF2', progression:'#0A84FF',
+    force:'#FF9F0A', intensification:'#FF9F0A',
+    peak:'#FF453A', deload:'#7878A8',
+    recuperation:'#64D2FF', maintien:'#64D2FF'
+  };
+
+  var PHASES_BY_MODE_LOCAL = {
+    powerlifting:  ['intro','accumulation','intensification','peak','deload'],
+    powerbuilding: ['hypertrophie','force','peak','deload'],
+    musculation:   ['hypertrophie','volume','maintien','recuperation'],
+    bien_etre:     ['fondation','progression','maintien']
+  };
+
+  var phaseColor = PHASE_COLORS_LOCAL[phase] || '#0A84FF';
+  var phaseLabel = PHASE_LABELS_LOCAL[phase] || phase;
+  var availablePhases = PHASES_BY_MODE_LOCAL[mode] || PHASES_BY_MODE_LOCAL.powerbuilding;
+
+  var lastDeload = (db.weeklyPlanHistory || []).slice().reverse()
+    .find(function(p) { return p.isDeload; });
+  var isNewCycle = ['accumulation','intro','fondation'].indexOf(phase) !== -1 &&
+    lastDeload &&
+    (Date.now() - new Date(lastDeload.generated_at).getTime()) < 14 * 86400000;
+
+  var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var dayLabels = { Lundi:'LUN', Mardi:'MAR', Mercredi:'MER', Jeudi:'JEU',
+                    Vendredi:'VEN', Samedi:'SAM', Dimanche:'DIM' };
+  var todayName = allDays[(new Date().getDay() + 6) % 7];
+
+  var phaseHex = phaseColor.replace('#','');
+  var pr = parseInt(phaseHex.slice(0,2),16);
+  var pg = parseInt(phaseHex.slice(2,4),16);
+  var pb = parseInt(phaseHex.slice(4,6),16);
+
+  var html = '';
+
+  // ── HEADER ──
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+    + 'padding:4px 0 12px;">';
+  html += '<div>';
+  html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+    + 'letter-spacing:1px;font-weight:600;">Programme</div>';
+  html += '<div style="font-size:20px;font-weight:700;color:var(--text);margin-top:2px;">'
+    + 'Mes séances</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-top:3px;">'
+    + _getModeLabel(mode) + ' · S' + week + '</div>';
+  html += '</div>';
+
+  html += '<div style="position:relative;">';
+  html += '<div id="phasePill" onclick="_togglePhaseDD()" style="display:inline-flex;'
+    + 'align-items:center;gap:6px;cursor:pointer;'
+    + 'background:rgba(' + pr + ',' + pg + ',' + pb + ',0.12);'
+    + 'border:0.5px solid rgba(' + pr + ',' + pg + ',' + pb + ',0.3);'
+    + 'border-radius:20px;padding:6px 12px;font-size:12px;font-weight:600;'
+    + 'color:' + phaseColor + ';">';
+  if (isNewCycle) {
+    html += '<span style="width:6px;height:6px;border-radius:50%;'
+      + 'background:#32D74B;display:inline-block;"></span>';
+  }
+  html += phaseLabel;
+  html += '<span style="font-size:9px;opacity:0.6;">▾</span>';
+  html += '</div>';
+
+  html += '<div id="phaseDropdown" style="display:none;position:absolute;right:0;top:36px;'
+    + 'background:#1A1A2E;border:0.5px solid var(--border);border-radius:14px;'
+    + 'padding:6px;z-index:20;min-width:180px;">';
+  availablePhases.forEach(function(p) {
+    var pc = PHASE_COLORS_LOCAL[p] || '#7878A8';
+    var isActive = p === phase;
+    html += '<div onclick="_setPhase(\'' + p + '\')" style="padding:9px 12px;'
+      + 'font-size:13px;border-radius:8px;cursor:pointer;display:flex;'
+      + 'align-items:center;gap:8px;color:' + (isActive ? pc : 'var(--sub)') + ';'
+      + 'font-weight:' + (isActive ? '600' : '400') + ';">';
+    html += '<span style="width:7px;height:7px;border-radius:50%;background:' + pc
+      + ';flex-shrink:0;display:inline-block;"></span>';
+    html += (PHASE_LABELS_LOCAL[p] || p);
+    if (isActive) html += ' ✓';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // ── BADGE NOUVEAU CYCLE ──
+  if (isNewCycle) {
+    html += '<div style="background:rgba(50,215,75,0.08);border:0.5px solid rgba(50,215,75,0.2);'
+      + 'border-radius:10px;padding:10px 14px;margin-bottom:12px;'
+      + 'display:flex;align-items:center;gap:10px;">';
+    html += '<span style="width:8px;height:8px;border-radius:50%;background:#32D74B;'
+      + 'flex-shrink:0;display:inline-block;"></span>';
+    html += '<div>';
+    html += '<div style="font-size:12px;font-weight:600;color:#32D74B;">Nouveau cycle · '
+      + phaseLabel.replace(/[^\w\sÀ-ÿ]/gu,'').trim() + ' S1</div>';
+    html += '<div style="font-size:11px;color:var(--sub);margin-top:1px;">'
+      + 'Après ton Deload · Charges recalibrées</div>';
+    html += '</div>';
+    html += '</div>';
   }
 
-  // Si un programme existe déjà (généré OU manuel OU routine), afficher la vue programme
+  // ── LISTE DES JOURS ──
+  allDays.forEach(function(day) {
+    var label = routine[day] || '';
+    var isRest = !label || /repos/i.test(label);
+    var isNatation = /natation|🏊|swim/i.test(label);
+    var isToday = day === todayName;
+    var wpDay = wpDays.find(function(d) { return d.day === day; });
+    var exos = [];
+    if (wpDay && wpDay.exercises) {
+      exos = wpDay.exercises
+        .filter(function(e) { return e && !e.isWarmup && !e.isPrehab && !e.isSecondaryActivity; })
+        .map(function(e) { return typeof e === 'string' ? e : (e.name || ''); })
+        .filter(Boolean);
+    }
+
+    var rowStyle = 'display:flex;align-items:center;gap:12px;padding:10px 12px;'
+      + 'border-radius:12px;margin-bottom:5px;';
+    if (isToday && !isRest) {
+      rowStyle += 'background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.2);';
+    }
+
+    if (isRest || isNatation) {
+      rowStyle += 'opacity:' + (isNatation ? '0.7' : '0.4') + ';';
+      html += '<div style="' + rowStyle + '">';
+      html += '<div style="width:38px;height:38px;border-radius:10px;'
+        + 'background:var(--card);border:0.5px solid var(--border);'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'font-size:11px;font-weight:600;color:var(--sub);flex-shrink:0;">'
+        + dayLabels[day] + '</div>';
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:14px;font-weight:500;color:var(--sub);">'
+        + (isNatation ? label : 'Repos') + '</div>';
+      if (isNatation && wpDay && wpDay.coachNote) {
+        html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">'
+          + wpDay.coachNote + '</div>';
+      }
+      html += '</div></div>';
+      return;
+    }
+
+    html += '<div onclick="progShowDayDetail(\'' + day + '\')" style="' + rowStyle
+      + 'cursor:pointer;">';
+
+    var badgeStyle = 'width:38px;height:38px;border-radius:10px;flex-shrink:0;'
+      + 'display:flex;align-items:center;justify-content:center;'
+      + 'font-size:11px;font-weight:600;';
+    if (isToday) {
+      badgeStyle += 'background:rgba(10,132,255,0.2);border:0.5px solid rgba(10,132,255,0.4);'
+        + 'color:var(--blue);';
+    } else {
+      badgeStyle += 'background:var(--card);border:0.5px solid var(--border);color:var(--sub);';
+    }
+    html += '<div style="' + badgeStyle + '">' + dayLabels[day] + '</div>';
+
+    html += '<div style="flex:1;min-width:0;">';
+    if (isToday) {
+      html += '<div style="font-size:10px;font-weight:600;color:var(--blue);'
+        + 'text-transform:uppercase;letter-spacing:0.5px;">Aujourd\'hui</div>';
+    }
+    html += '<div style="font-size:14px;font-weight:500;color:var(--text);'
+      + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + label + '</div>';
+    if (exos.length > 0) {
+      html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;'
+        + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+        + exos.slice(0,3).join(' · ')
+        + (exos.length > 3 ? ' +' + (exos.length - 3) : '') + '</div>';
+    }
+    html += '</div>';
+
+    if (isToday) {
+      html += '<button onclick="event.stopPropagation();showSeancesSub(\'seances-go\')" '
+        + 'style="padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;'
+        + 'border:none;background:var(--blue);color:white;cursor:pointer;flex-shrink:0;">'
+        + 'GO</button>';
+    } else {
+      html += '<button onclick="event.stopPropagation();progEditDay(\'' + day + '\')" '
+        + 'style="width:30px;height:30px;border-radius:8px;font-size:13px;color:var(--sub);'
+        + 'background:rgba(255,255,255,0.04);border:0.5px solid var(--border);'
+        + 'cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">'
+        + '✏️</button>';
+    }
+
+    html += '</div>';
+  });
+
+  // ── FOOTER ──
+  html += '<div style="display:flex;gap:8px;margin-top:8px;">';
+  html += '<button onclick="pbEditExisting()" style="flex:1;padding:11px;border-radius:10px;'
+    + 'font-size:13px;font-weight:500;border:0.5px solid var(--border);'
+    + 'background:var(--surface);color:var(--sub);cursor:pointer;">'
+    + 'Modifier les exercices</button>';
+  html += '<button onclick="pbStartGuided()" style="flex:1;padding:11px;border-radius:10px;'
+    + 'font-size:13px;font-weight:500;border:0.5px solid var(--border);'
+    + 'background:var(--surface);color:var(--sub);cursor:pointer;">'
+    + 'Nouveau programme</button>';
+  html += '</div>';
+
+  container.innerHTML = html;
+
+  setTimeout(function() {
+    document.addEventListener('click', function _closeDD(e) {
+      var dd = document.getElementById('phaseDropdown');
+      var pill = document.getElementById('phasePill');
+      if (dd && pill && !dd.contains(e.target) && !pill.contains(e.target)) {
+        dd.style.display = 'none';
+        document.removeEventListener('click', _closeDD);
+      }
+    });
+  }, 100);
+}
+
+function _togglePhaseDD() {
+  var dd = document.getElementById('phaseDropdown');
+  if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function _setPhase(phase) {
+  var dd = document.getElementById('phaseDropdown');
+  if (dd) dd.style.display = 'none';
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+  db.weeklyPlan.currentBlock.phase = phase;
+  db.weeklyPlan.currentBlock.forcedAt = Date.now();
+  saveDB();
+  if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
+  renderProgramTab();
+}
+
+function _getModeLabel(mode) {
+  var labels = { powerbuilding:'Powerbuilding', powerlifting:'Powerlifting',
+                 musculation:'Musculation', bien_etre:'Bien-être' };
+  return labels[mode] || 'Powerbuilding';
+}
+
+function renderProgramBuilder() {
+  if (_customBuilderState) { renderCustomBuilder(); return; }
+  if (_pbState) { renderProgramBuilderStep(document.getElementById('programBuilderContent')); return; }
+
   var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
                    (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
                    (db.routine && Object.keys(db.routine).length > 0) ||
                    (db.user.programMode === 'custom' && db.customProgramTemplate);
-  if (hasProgram && !_pbState) {
-    container.innerHTML = '';
-    renderProgramBuilderView(container);
-    // En mode custom : bouton "Modifier les exercices" en haut
-    if (db.user.programMode === 'custom') {
-      if (!container.querySelector('.pb-edit-btn')) {
-        var editBtn = document.createElement('button');
-        editBtn.className = 'pb-edit-btn';
-        editBtn.innerHTML = '✏️ Modifier les exercices';
-        editBtn.style.cssText = 'width:100%;padding:10px;background:rgba(255,159,10,0.1);'
-          + 'border:1px solid var(--orange);border-radius:10px;color:var(--orange);'
-          + 'font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;';
-        editBtn.onclick = function() { pbStartCustomBuilder(true); };
-        container.insertBefore(editBtn, container.firstChild);
-      }
-    }
-    return;
-  }
-  // Si le builder guidé/manuel est en cours, afficher l'étape courante
-  if (_pbState) {
-    renderProgramBuilderStep(container);
-    return;
-  }
+  if (hasProgram) { renderProgramTab(); return; }
 
-  // Écran de choix initial
+  // Écran de choix initial (premier lancement, pas encore de programme)
+  var container = document.getElementById('programBuilderContent');
+  if (!container) return;
   var h = '<div style="text-align:center;padding:20px 0;">';
   h += '<div style="font-size:48px;margin-bottom:16px;">📅</div>';
   h += '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Comment tu veux créer ton programme ?</div>';
   h += '<div style="font-size:13px;color:var(--sub);margin-bottom:24px;line-height:1.6;">Choisis ta méthode préférée. Tu pourras tout modifier après.</div>';
 
-  // Option 1 : Guidé
   h += '<div class="card" style="text-align:left;cursor:pointer;border:1px solid rgba(10,132,255,0.3);margin-bottom:12px;" onclick="pbStartGuided()">';
   h += '<div style="display:flex;align-items:center;gap:12px;">';
   h += '<div style="font-size:32px;">🤖</div>';
@@ -9308,7 +9536,6 @@ function renderProgramBuilder() {
   h += '<div style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.5;">Réponds à quelques questions et on te propose un programme adapté. Tu pourras tout modifier après.</div></div>';
   h += '</div></div>';
 
-  // Option 2 : Custom builder
   h += '<div class="card" style="text-align:left;cursor:pointer;border:1px solid rgba(255,159,10,0.3);" onclick="showCustomBuilderChoice()">';
   h += '<div style="display:flex;align-items:center;gap:12px;">';
   h += '<div style="font-size:32px;">🛠️</div>';

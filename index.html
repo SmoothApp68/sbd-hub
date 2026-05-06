@@ -73,6 +73,7 @@
     .content-section.slide-in-left { animation: slideInLeft 0.3s ease-out both; }
     .seances-sub-section { display: none; }
     .seances-sub-section.active { display: block; }
+    .seances-sub { padding-top: 4px; }
     .profil-sub-section { display: none; }
     .profil-sub-section.active { display: block; }
     .jeux-sub-section { display: none; }
@@ -2362,13 +2363,41 @@
     </div>
   </div>
   <div id="tab-seances" class="content-section">
-    <div class="nav-fade-wrap"><div class="stats-sub-nav" style="margin-bottom:14px;">
-      <button class="stats-sub-pill" onclick="showSeancesSub('seances-historique',this)">📋 Séances</button>
-      <button class="stats-sub-pill active" onclick="showSeancesSub('seances-go',this)">🏋️ GO</button>
-      <button class="stats-sub-pill" onclick="showSeancesSub('seances-programme',this)">📅 Programme</button>
-      <button class="stats-sub-pill" onclick="showSeancesSub('seances-coach',this)">🦍 Coach</button>
-    </div></div>
-    <div id="seances-historique" class="seances-sub-section">
+    <!-- Nav scrollable 5 pills -->
+    <div class="seances-nav" style="display:flex;overflow-x:auto;gap:6px;padding:10px 15px 0;scrollbar-width:none;border-bottom:0.5px solid var(--border-card);background:rgba(12,12,24,0.8);">
+      <button class="stats-sub-pill" onclick="showSeancesSub('s-coach',this)">Coach</button>
+      <button class="stats-sub-pill" onclick="showSeancesSub('s-plan',this)">Plan</button>
+      <button class="stats-sub-pill active" onclick="showSeancesSub('s-go',this)">GO</button>
+      <button class="stats-sub-pill" onclick="showSeancesSub('s-log',this)">Log</button>
+      <button class="stats-sub-pill" onclick="showSeancesSub('s-analyse',this)">Analyse</button>
+    </div>
+
+    <!-- Coach -->
+    <div id="s-coach" class="seances-sub" style="display:none;">
+      <div class="nav-fade-wrap"><div class="coach-sub-nav">
+        <button class="stats-sub-pill active" onclick="showCoachSub('coach-today',this)">Aujourd'hui</button>
+        <button class="stats-sub-pill" onclick="showCoachSub('coach-history',this)">
+          Historique <span id="coachHistoBadge" class="coach-badge-count" style="display:none;"></span>
+        </button>
+      </div></div>
+      <div id="coach-today" class="coach-sub-section active"></div>
+      <div id="coach-history" class="coach-sub-section"></div>
+    </div>
+
+    <!-- Plan -->
+    <div id="s-plan" class="seances-sub" style="display:none;">
+      <div id="programmeV2Content"></div>
+      <div id="programBuilderContent"></div>
+    </div>
+
+    <!-- GO -->
+    <div id="s-go" class="seances-sub">
+      <div id="goIdleView"></div>
+      <div id="goActiveView" style="display:none;"></div>
+    </div>
+
+    <!-- Log -->
+    <div id="s-log" class="seances-sub" style="display:none;">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <button id="prevWeekBtn" onclick="navigateWeek(-1)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 16px;cursor:pointer;font-size:18px;font-weight:700;transition:all 0.2s;">←</button>
@@ -2381,24 +2410,9 @@
         <div id="weekSessionsContainer"></div>
       </div>
     </div>
-    <div id="seances-programme" class="seances-sub-section">
-      <div id="programmeV2Content"></div>
-      <div id="programBuilderContent"></div>
-    </div>
-    <div id="seances-go" class="seances-sub-section active">
-      <div id="goIdleView"></div>
-      <div id="goActiveView" style="display:none;"></div>
-    </div>
-    <div id="seances-coach" class="seances-sub-section">
-      <div class="nav-fade-wrap"><div class="coach-sub-nav">
-        <button class="stats-sub-pill active" onclick="showCoachSub('coach-today',this)">Aujourd'hui</button>
-        <button class="stats-sub-pill" onclick="showCoachSub('coach-history',this)">
-          Historique <span id="coachHistoBadge" class="coach-badge-count" style="display:none;"></span>
-        </button>
-      </div></div>
-      <div id="coach-today" class="coach-sub-section active"></div>
-      <div id="coach-history" class="coach-sub-section"></div>
-    </div>
+
+    <!-- Analyse -->
+    <div id="s-analyse" class="seances-sub" style="display:none;"></div>
   </div>
   <div id="tab-ai" class="content-section">
 

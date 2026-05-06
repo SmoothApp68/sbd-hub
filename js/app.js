@@ -257,6 +257,7 @@ let _goPipVisibilityHandler = null;
 let _goAutoSaveId = null;
 let _goWakeLock = null;
 let _goSessionPaused = false;
+var _logFilter = null; // filter chips in Log tab
 
 // Chart memory management — destroy charts of inactive tabs
 var _currentTab = 'tab-dash';
@@ -488,7 +489,7 @@ db.gamification.muscleRanks = db.gamification.muscleRanks || null;
 db.gamification.lastTab = db.gamification.lastTab || {
   main: 'tab-dash',
   jeux: 'jeux-profil-joueur',
-  seances: 'seances-historique',
+  seances: 's-go',
   social: 'feed-amis',
   profil: 'tab-corps'
 };
@@ -2410,32 +2411,42 @@ function saveRoutine() {
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-let activeSeancesSub = 'seances-historique';
+let activeSeancesSub = 's-go';
 let activeProfilSub = 'tab-corps';
 
 function showSeancesSub(id, btn) {
   activeSeancesSub = id;
-  document.querySelectorAll('.seances-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('#tab-seances .stats-sub-pill').forEach(el => el.classList.remove('active'));
-  const sec = document.getElementById(id);
-  if (sec) sec.classList.add('active');
+  document.querySelectorAll('#tab-seances .seances-sub').forEach(function(s) {
+    s.style.display = 'none';
+  });
+  document.querySelectorAll('#tab-seances .seances-nav .stats-sub-pill').forEach(function(p) {
+    p.classList.remove('active');
+  });
+
+  var el = document.getElementById(id);
+  if (el) el.style.display = 'block';
+
   if (btn && btn.classList) {
     btn.classList.add('active');
   } else {
-    // Fallback: retrouver la pill via son onclick
-    document.querySelectorAll('#tab-seances > .stats-sub-nav .stats-sub-pill').forEach(function(p) {
+    document.querySelectorAll('#tab-seances .seances-nav .stats-sub-pill').forEach(function(p) {
       var oc = p.getAttribute('onclick') || '';
       if (oc.indexOf("'" + id + "'") >= 0) p.classList.add('active');
     });
   }
-  if (id === 'seances-historique') renderSeancesTab();
-  if (id === 'seances-go') renderGoTab();
-  if (id === 'seances-programme') {
-    var oldPgm = document.getElementById('programmeV2Content');
-    if (oldPgm) oldPgm.innerHTML = '';
-    renderProgramBuilder();
+
+  switch (id) {
+    case 's-coach':   renderCoachTab(); break;
+    case 's-plan':
+      var oldPgm = document.getElementById('programmeV2Content');
+      if (oldPgm) oldPgm.innerHTML = '';
+      renderProgramBuilder();
+      break;
+    case 's-go':      renderGoTab(); break;
+    case 's-log':     renderSeancesTab(); break;
+    case 's-analyse': renderAnalyseTab(); break;
   }
-  if (id === 'seances-coach') renderCoachTab();
+
   _updateLastTab('seances', id);
 }
 // Explicit global export (safety for inline onclick handlers)
@@ -2444,7 +2455,7 @@ if (typeof window !== 'undefined') window.showSeancesSub = showSeancesSub;
 // Delegated click listener fallback on tab-seances sub-nav
 (function() {
   function _attachSeancesNav() {
-    var nav = document.querySelector('#tab-seances > .stats-sub-nav');
+    var nav = document.querySelector('#tab-seances .seances-nav');
     if (!nav || nav._seancesDelegated) return;
     nav._seancesDelegated = true;
     nav.addEventListener('click', function(e) {
@@ -2552,8 +2563,12 @@ function showTab(tabId, opts) {
   if (typeof _updateLastTab === 'function') _updateLastTab('main', tabId);
   if (tabId==='tab-dash') renderDash();
   if (tabId==='tab-seances') {
-    if (activeSeancesSub === 'seances-go') renderGoTab();
-    else renderSeancesTab();
+    if (activeSeancesSub === 's-go') renderGoTab();
+    else if (activeSeancesSub === 's-log') renderSeancesTab();
+    else if (activeSeancesSub === 's-coach') renderCoachTab();
+    else if (activeSeancesSub === 's-plan') renderProgramBuilder();
+    else if (activeSeancesSub === 's-analyse') renderAnalyseTab();
+    else renderGoTab();
   }
   if (tabId==='tab-stats') { showStatsSub(activeStatsSub, document.querySelector('.stats-sub-pill.active')); }
   if (tabId==='tab-ai') { renderReportsTimeline(); markReportsRead(); renderCoachAlgoAI(); }
@@ -2650,7 +2665,9 @@ function _applyLastTabSub(mainId, lt) {
   if (mainId === 'tab-game' && lt.jeux && typeof showJeuxSub === 'function') {
     try { showJeuxSub(lt.jeux); } catch(e) {}
   } else if (mainId === 'tab-seances' && lt.seances && typeof showSeancesSub === 'function') {
-    try { showSeancesSub(lt.seances); } catch(e) {}
+    var _seancesIdMap = { 'seances-historique':'s-log','seances-go':'s-go','seances-programme':'s-plan','seances-coach':'s-coach' };
+    var _seancesId = _seancesIdMap[lt.seances] || lt.seances;
+    try { showSeancesSub(_seancesId); } catch(e) {}
   } else if (mainId === 'tab-social' && lt.social && typeof showFeedSub === 'function') {
     try { showFeedSub(lt.social); } catch(e) {}
   } else if (mainId === 'tab-profil' && lt.profil && typeof showProfilSub === 'function') {
@@ -6776,7 +6793,7 @@ function refreshUI() {
   const activeTab = document.querySelector('.content-section.active');
   const tabId = activeTab ? activeTab.id : 'tab-dash';
   if (tabId === 'tab-dash') { renderDash(); renderProgramViewer(); }
-  else if (tabId === 'tab-seances') { if (activeSeancesSub === 'seances-go') renderGoTab(); else renderSeancesTab(); }
+  else if (tabId === 'tab-seances') { if (activeSeancesSub === 's-go') renderGoTab(); else if (activeSeancesSub === 's-log') renderSeancesTab(); else if (activeSeancesSub === 's-coach') renderCoachTab(); else if (activeSeancesSub === 's-plan') renderProgramBuilder(); else if (activeSeancesSub === 's-analyse') renderAnalyseTab(); }
   else if (tabId === 'tab-stats') showStatsSub(activeStatsSub);
   else if (tabId === 'tab-ai') { renderReportsTimeline(); renderCoachAlgoAI(); }
   else if (tabId === 'tab-profil') { if (activeProfilSub === 'tab-settings') { renderProgramViewer(); _accDirty.prog = true; _accDirty.records = true; _accDirty.keylifts = true; fillSettingsFields(); } else { renderCorpsTab(); } }
@@ -7030,7 +7047,7 @@ function renderWeekCard() {
             '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + displayLabel + '</div>' +
           '</div>' +
           (isDisplayToday
-            ? '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'seances-go\');">GO 💪</button>'
+            ? '<button class="btn" style="padding:8px 12px;font-size:11px;font-weight:700;border-radius:20px;white-space:nowrap;flex-shrink:0;max-width:96px;" onclick="showTab(\'tab-seances\');showSeancesSub(\'s-go\');">GO 💪</button>'
             : '') +
           '<button style="' + arrowBtn + '" onclick="homeNavDay(1)">▶</button>' +
         '</div>' +
@@ -7439,9 +7456,9 @@ function _normalizeMuscle(name) {
 function startTodayWorkout() {
   showTab('tab-seances');
   // Aller directement au sous-onglet GO
-  var goBtn = document.querySelector('.stats-sub-pill[onclick*="seances-go"]') ||
-              document.querySelectorAll('#tab-seances .stats-sub-nav .stats-sub-pill')[1];
-  if (typeof showSeancesSub === 'function') showSeancesSub('seances-go', goBtn);
+  var goBtn = document.querySelector('.stats-sub-pill[onclick*="s-go"]') ||
+              document.querySelectorAll('#tab-seances .seances-nav .stats-sub-pill')[2];
+  if (typeof showSeancesSub === 'function') showSeancesSub('s-go', goBtn);
 }
 
 // ── Heatmap de récupération musculaire ──────────────────────
@@ -9165,7 +9182,7 @@ function renderProgrammeV2() {
         h += '<div class="pgm-today-exo"><span class="pgm-today-exo-name">' + (exo.name || exo.exercise || '') + '</span><span class="pgm-today-exo-detail">' + detail + '</span></div>';
       });
       if (exos.length > 3) h += '<div style="font-size:11px;color:var(--sub);padding:2px 0;">+' + (exos.length - 3) + ' exercices</div>';
-      h += '<button class="pgm-go-btn" onclick="showSeancesSub(\'seances-go\',document.querySelector(\'.stats-sub-pill:nth-child(2)\'))">GO 💪</button>';
+      h += '<button class="pgm-go-btn" onclick="showSeancesSub(\'s-go\',document.querySelector(\'#tab-seances .seances-nav .stats-sub-pill:nth-child(3)\'))">GO 💪</button>';
       h += '</div>';
     }
 
@@ -9451,7 +9468,7 @@ function renderProgramTab() {
     html += '</div>';
 
     if (isToday) {
-      html += '<button onclick="event.stopPropagation();showSeancesSub(\'seances-go\')" '
+      html += '<button onclick="event.stopPropagation();showSeancesSub(\'s-go\')" '
         + 'style="padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;'
         + 'border:none;background:var(--blue);color:white;cursor:pointer;flex-shrink:0;">'
         + 'GO</button>';
@@ -12666,8 +12683,32 @@ function renderSeancesTab() {
   document.getElementById('nextWeekBtn').style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
   document.getElementById('nextWeekBtn').disabled = currentWeekOffset >= 0;
 
-  const sessions = db.logs.filter(l => l.timestamp >= targetWeekStart && l.timestamp <= targetWeekEnd)
+  var allWeekSessions = db.logs.filter(l => l.timestamp >= targetWeekStart && l.timestamp <= targetWeekEnd)
     .sort((a,b) => a.timestamp - b.timestamp);
+
+  // Filter chips
+  var _logFilters = ['Tout','Squat','Bench','Deadlift','Épaules','Dos'];
+  var filterHtml = '<div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;'
+    + 'scrollbar-width:none;padding-bottom:2px;">';
+  _logFilters.forEach(function(f) {
+    var isActive = (_logFilter === f) || (f === 'Tout' && !_logFilter);
+    filterHtml += '<button onclick="setLogFilter(\'' + f + '\')" '
+      + 'style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;'
+      + 'border:0.5px solid ' + (isActive ? 'var(--accent)' : 'var(--border-card)') + ';'
+      + 'background:' + (isActive ? 'rgba(10,132,255,0.15)' : 'none') + ';'
+      + 'color:' + (isActive ? 'var(--accent)' : 'var(--sub)') + ';cursor:pointer;">'
+      + f + '</button>';
+  });
+  filterHtml += '</div>';
+
+  // Apply lift filter
+  var sessions = _logFilter
+    ? allWeekSessions.filter(function(s) {
+        return (s.exercises || []).some(function(e) {
+          return ((e.name || '').toLowerCase()).includes(_logFilter.toLowerCase());
+        });
+      })
+    : allWeekSessions;
 
   const container = document.getElementById('weekSessionsContainer');
 
@@ -12699,12 +12740,17 @@ function renderSeancesTab() {
 
   // Générer les cards (sans jours de repos)
   var cardsHtml = sessions.length === 0
-    ? '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;">Aucune séance cette semaine<br><button onclick="showSeancesSub(\'seances-go\',document.querySelector(\'#tab-seances .stats-sub-pill[onclick*=seances-go]\'))" style="margin-top:14px;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Démarrer une séance GO 💪</button></div>'
+    ? '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;">Aucune séance cette semaine<br><button onclick="showSeancesSub(\'s-go\')" style="margin-top:14px;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Démarrer une séance GO 💪</button></div>'
     : sessions.map(function(session, si) {
       return renderSessionCard2(session, si, _prevBestByTs[session.timestamp]||{});
     }).join('');
 
-  container.innerHTML = statsHtml + '<div id="sc-cards-wrap">' + cardsHtml + '</div>';
+  container.innerHTML = filterHtml + statsHtml + '<div id="sc-cards-wrap">' + cardsHtml + '</div>';
+}
+
+function setLogFilter(f) {
+  _logFilter = (f === 'Tout') ? null : f;
+  renderSeancesTab();
 }
 
 function renderSessionCard2(session, si, prevBestRM) {
@@ -12889,7 +12935,7 @@ function copySessionToGo(sessionId) {
   if (!session) { showToast('Séance introuvable'); return; }
   db._copiedSession = session;
   showToast('✅ Séance copiée — ouvre GO pour la lancer');
-  showSeancesSub('seances-go', document.querySelector('[onclick*="seances-go"]'));
+  showSeancesSub('s-go', document.querySelector('[onclick*="s-go"]'));
 }
 
 function shareSessionToFeed(sessionId) {
@@ -14505,8 +14551,8 @@ function renderCoachTab() {
 
 function showCoachSub(id, btn) {
   _activeCoachSub = id;
-  document.querySelectorAll('#seances-coach .coach-sub-section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('#seances-coach .coach-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#s-coach .coach-sub-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#s-coach .coach-sub-nav .stats-sub-pill').forEach(el => el.classList.remove('active'));
   const sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (btn) btn.classList.add('active');
@@ -19022,6 +19068,160 @@ function goGetLastTimeSummary(exoName) {
   return { weight: w, reps: r, sets: s.length, date: prev.date };
 }
 
+// ── Analyse Tab helpers ──────────────────────────────────────────────────────
+function _unreadReports() {
+  return (db.reports || []).filter(function(r) { return !r.read && r.expires_at > Date.now(); }).length;
+}
+
+function renderAnalyseTab() {
+  var el = document.getElementById('s-analyse');
+  if (!el) return;
+
+  var html = '';
+
+  // ── FC × RPE ──
+  html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;'
+    + 'letter-spacing:1px;font-weight:600;margin-bottom:8px;">FC × RPE</div>';
+
+  var lastSession = (db.logs || []).slice().sort(function(a, b) {
+    return (b.timestamp || 0) - (a.timestamp || 0);
+  })[0];
+
+  if (lastSession) {
+    var setsWithHR = [];
+    (lastSession.exercises || []).forEach(function(exo) {
+      (exo.allSets || []).forEach(function(s) {
+        if (s.hrPeak) setsWithHR.push({ exo: exo, set: s });
+      });
+    });
+
+    if (setsWithHR.length > 0) {
+      html += '<div style="background:var(--bg-card);border:0.5px solid var(--border-card);'
+        + 'border-radius:14px;padding:14px;margin-bottom:12px;">';
+      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">'
+        + 'Dernière séance — ' + (lastSession.title || 'Séance') + '</div>';
+
+      var lastExoName = null;
+      var setIdxByExo = {};
+      setsWithHR.forEach(function(item) {
+        var name = item.exo.name || '';
+        if (name !== lastExoName) {
+          if (lastExoName !== null) html += '<div style="height:8px;"></div>';
+          html += '<div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text);">' + name + '</div>';
+          lastExoName = name;
+          setIdxByExo[name] = 0;
+        }
+        var s = item.set;
+        var idx = setIdxByExo[name]++;
+        var color = s.hrAnalysis === 'neuromuscular' ? 'var(--orange)'
+          : s.hrAnalysis === 'metabolic' ? 'var(--red)'
+          : s.hrAnalysis === 'recovered' ? 'var(--green)'
+          : 'var(--teal)';
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;'
+          + 'border-bottom:0.5px solid var(--border-subtle);">';
+        html += '<div style="width:7px;height:7px;border-radius:50%;background:' + color
+          + ';flex-shrink:0;"></div>';
+        html += '<div style="flex:1;font-size:11px;color:var(--sub);">S' + (idx + 1)
+          + ' · RPE ' + (s.rpe || '—') + ' · FC ' + s.hrPeak + ' bpm</div>';
+        html += '<div style="font-size:10px;color:' + color + ';">'
+          + (s.hrRecov60 ? 'Récup 60s: ' + s.hrRecov60 + 'bpm' : '') + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="background:var(--bg-card);border:0.5px solid var(--border-card);'
+        + 'border-radius:14px;padding:14px;margin-bottom:12px;text-align:center;">';
+      html += '<div style="font-size:12px;color:var(--sub);">Connecte ta montre FC pendant une séance<br>'
+        + 'pour voir l\'analyse biologique RPE × FC</div>';
+      html += '</div>';
+    }
+  } else {
+    html += '<div style="background:var(--bg-card);border:0.5px solid var(--border-card);'
+      + 'border-radius:14px;padding:14px;margin-bottom:12px;text-align:center;">';
+    html += '<div style="font-size:12px;color:var(--sub);">Aucune séance enregistrée</div>';
+    html += '</div>';
+  }
+
+  // ── FC Widget live (si connecté) ──
+  html += renderFCWidget();
+
+  // ── OUTILS ──
+  html += '<div style="font-size:10px;color:var(--sub);text-transform:uppercase;'
+    + 'letter-spacing:1px;font-weight:600;margin:8px 0;">Outils</div>';
+  html += '<div style="background:var(--bg-card);border:0.5px solid var(--border-card);'
+    + 'border-radius:14px;padding:4px 0;margin-bottom:12px;">';
+
+  var unreadRep = _unreadReports();
+  var outils = [
+    { label: 'Import Hevy CSV', fn: 'importCSV()' },
+    { label: 'Import Garmin CSV', fn: 'showGarminCSVImport()' },
+    { label: 'Rapports hebdo', fn: 'showSeancesSub(\'s-coach\');showCoachSub(\'coach-history\',null)',
+      badge: unreadRep > 0 ? unreadRep + ' non lu' + (unreadRep > 1 ? 's' : '') : null, badgeColor: 'var(--blue)' },
+    { label: 'Records & corrections', fn: 'showTab(\'tab-profil\');showProfilSub(\'tab-profil-stats\');setTimeout(function(){showStatsSub(\'stats-records\');},100)' }
+  ];
+
+  outils.forEach(function(o, i) {
+    var isLast = i === outils.length - 1;
+    html += '<div onclick="' + o.fn + '" style="display:flex;align-items:center;'
+      + 'justify-content:space-between;padding:12px 14px;'
+      + (isLast ? '' : 'border-bottom:0.5px solid var(--border-subtle);')
+      + 'cursor:pointer;">';
+    html += '<div style="font-size:13px;color:var(--text);">' + o.label + '</div>';
+    if (o.badge) {
+      html += '<span style="background:rgba(10,132,255,0.15);color:' + o.badgeColor
+        + ';padding:3px 8px;border-radius:20px;font-size:11px;">' + o.badge + '</span>';
+    } else {
+      html += '<span style="color:var(--sub);">›</span>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// ── FC Widget (idle view + analyse tab) ─────────────────────────────────────
+function renderFCWidget() {
+  var age = (db.user && db.user.age) || 30;
+  var maxHR = 220 - age;
+  var isConnected = typeof _currentHR !== 'undefined' && _currentHR && _currentHR > 0;
+
+  var html = '<div id="go-fc-widget" style="background:var(--bg-card);border:0.5px solid var(--border-card);'
+    + 'border-radius:10px;padding:10px 12px;margin-bottom:12px;'
+    + 'display:flex;align-items:center;gap:12px;">';
+
+  if (isConnected) {
+    var hrPct = Math.round(_currentHR / maxHR * 100);
+    var zoneColors = ['#64D2FF','#32D74B','#FF9F0A','#FF6B35','#FF453A'];
+    var zone = hrPct < 60 ? 0 : hrPct < 70 ? 1 : hrPct < 80 ? 2 : hrPct < 90 ? 3 : 4;
+    var color = zoneColors[zone];
+    var ready = hrPct < 65;
+    html += '<div style="text-align:center;">';
+    html += '<div style="font-size:22px;font-weight:600;color:' + color + ';line-height:1;">'
+      + _currentHR + '</div>';
+    html += '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;">bpm</div>';
+    html += '</div>';
+    html += '<div style="flex:1;">';
+    html += '<div style="font-size:11px;font-weight:600;color:' + color + ';">Z'
+      + (zone + 1) + ' · ' + hrPct + '% FC max</div>';
+    html += '<div style="height:3px;background:var(--border);border-radius:2px;margin:4px 0;overflow:hidden;">'
+      + '<div style="height:100%;width:' + hrPct + '%;background:' + color
+      + ';border-radius:2px;transition:width 0.5s;"></div></div>';
+    html += '<div style="font-size:10px;color:var(--sub);">±15bpm sur effort intense (optique)</div>';
+    html += '</div>';
+    if (ready) {
+      html += '<div style="font-size:11px;font-weight:700;color:var(--green);">✓ Prêt</div>';
+    }
+  } else {
+    html += '<div style="font-size:13px;color:var(--sub);flex:1;">Moniteur FC non connecté</div>';
+    html += '<button onclick="toggleBluetoothHR()" style="padding:6px 12px;border-radius:20px;'
+      + 'font-size:11px;border:0.5px solid var(--border-card);background:none;'
+      + 'color:var(--sub);cursor:pointer;">Connecter</button>';
+  }
+  html += '</div>';
+  return html;
+}
+
 // ============================================================
 // GO TAB — Render principal
 // ============================================================
@@ -19278,7 +19478,33 @@ function buildGoIdleHtml() {
     }
   }
 
-  return toggleHtml + '<div id="go-recap-view">' + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+  // Draft card (séance interrompue)
+  var draftCardHtml = '';
+  if (hasDraft) {
+    var _draftTitle = 'Brouillon';
+    try {
+      var _draftRaw = localStorage.getItem('SBD_ACTIVE_WORKOUT');
+      if (_draftRaw) {
+        var _draftData = JSON.parse(_draftRaw);
+        if (_draftData && _draftData.title) _draftTitle = _draftData.title;
+      }
+    } catch(e) {}
+    draftCardHtml = '<div style="background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.25);'
+      + 'border-radius:10px;padding:12px;margin-bottom:12px;">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:4px;">'
+      + 'Séance en cours — ' + _draftTitle + '</div>'
+      + '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Reprise disponible</div>'
+      + '<div style="display:flex;gap:8px;">'
+      + '<button onclick="goRestoreDraft()" style="flex:1;padding:8px;border-radius:8px;'
+      + 'background:var(--accent);color:white;border:none;font-size:12px;cursor:pointer;">'
+      + 'Reprendre</button>'
+      + '<button onclick="localStorage.removeItem(\'SBD_ACTIVE_WORKOUT\');renderGoIdleView()" '
+      + 'style="padding:8px 12px;border-radius:8px;border:0.5px solid var(--border-card);'
+      + 'background:none;color:var(--sub);font-size:12px;cursor:pointer;">Ignorer</button>'
+      + '</div></div>';
+  }
+
+  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
 }
 
 // ── CHURN DETECTION + RÉACTIVATION (TÂCHE 16) ─────────────────
@@ -19397,6 +19623,12 @@ async function toggleBluetoothHR() {
 }
 
 function updateHRDisplay() {
+  // Update the persistent FC widget (idle view + analyse tab)
+  var fcWidget = document.getElementById('go-fc-widget');
+  if (fcWidget && typeof renderFCWidget === 'function') {
+    fcWidget.outerHTML = renderFCWidget();
+  }
+
   var hrEl = document.getElementById('go-hr-display');
   if (!hrEl || !_currentHR) return;
 
@@ -22998,14 +23230,14 @@ function goFinishWorkout() {
     var _weekDiff = Math.round((_sesWeekStart - _thisWeekStart) / (7 * 86400000));
     currentWeekOffset = _weekDiff;
     // Forcer le re-render si l'onglet séances est visible
-    if (activeSeancesSub === 'seances-historique') {
+    if (activeSeancesSub === 's-log') {
       renderSeancesTab();
     }
   } catch(e) {}
 
   // Force render all key views — refreshUI() only renders the active sub-tab
-  // which is still 'seances-go' at this point
-  if (activeSeancesSub !== 'seances-historique') {
+  // which is still 's-go' at this point
+  if (activeSeancesSub !== 's-log') {
     renderSeancesTab();
   }
   renderDash();

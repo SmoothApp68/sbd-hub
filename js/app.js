@@ -224,6 +224,8 @@ let db = (() => {
     if (p.user.units === undefined) p.user.units = 'kg';
     if (p.user.medicalConsent === undefined) p.user.medicalConsent = false;
     if (p.user.medicalConsentDate === undefined) p.user.medicalConsentDate = null;
+    // Magic Start — users with > 3 logs already seen onboarding
+    if (p._magicStartDone === undefined) p._magicStartDone = (p.logs || []).length > 3;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -2240,13 +2242,13 @@ function obFinish() {
   if (typeof validateUserLevel === 'function') validateUserLevel();
   autoPopulateKeyLifts();
   saveDB();
-  if (typeof generateWeeklyPlan === 'function') {
-    try { generateWeeklyPlan(); } catch (e) { console.warn('generateWeeklyPlan failed:', e); }
-  }
   hideOnboarding();
   refreshUI();
   renderProgramViewer();
   showToast('Bienvenue ' + (db.user.name||'') + ' ! 🚀');
+  if (!db._magicStartDone) {
+    setTimeout(showMagicStart, 400);
+  }
   // Enchaîner l'onboarding social si user connecté et pas encore de pseudo
   setTimeout(async function() {
     var isLoggedIn = false;
@@ -2260,6 +2262,103 @@ function obFinish() {
       if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
     }
   }, 500);
+}
+
+// ============================================================
+// ============================================================
+// MAGIC START — Onboarding post-inscription (J1 blank slate fix)
+// ============================================================
+function showMagicStart() {
+  if (document.getElementById('magic-start-overlay')) return;
+  var overlay = document.createElement('div');
+  overlay.id = 'magic-start-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;'
+    + 'background:var(--bg-primary);z-index:9999;display:flex;flex-direction:column;'
+    + 'align-items:center;justify-content:center;padding:24px;box-sizing:border-box;';
+
+  var name = (db.user && db.user.name) ? db.user.name.split(' ')[0] : 'Toi';
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var modeLabel = { powerbuilding:'Powerbuilding', powerlifting:'Powerlifting',
+    musculation:'Musculation', bien_etre:'Bien-être' }[mode] || 'ta discipline';
+
+  overlay.innerHTML =
+    '<div style="text-align:center;margin-bottom:32px;">'
+    + '<div style="font-size:32px;margin-bottom:12px;">⚡</div>'
+    + '<div style="font-size:22px;font-weight:700;color:var(--text);">Bienvenue ' + name + '</div>'
+    + '<div style="font-size:14px;color:var(--sub);margin-top:6px;">Par où tu veux commencer ?</div>'
+    + '</div>'
+
+    + '<button onclick="handleMagicChoice(\'programme\')" '
+    + 'style="width:100%;max-width:320px;padding:16px;margin-bottom:12px;'
+    + 'border-radius:14px;background:var(--accent);color:white;border:none;'
+    + 'font-size:15px;font-weight:700;cursor:pointer;text-align:left;'
+    + 'display:flex;align-items:center;gap:14px;">'
+    + '<span style="font-size:24px;">📋</span>'
+    + '<div><div>Programme complet</div>'
+    + '<div style="font-size:12px;font-weight:400;opacity:0.85;margin-top:2px;">'
+    + 'L\'algo génère ton plan ' + modeLabel + '</div></div>'
+    + '</button>'
+
+    + '<button onclick="handleMagicChoice(\'libre\')" '
+    + 'style="width:100%;max-width:320px;padding:16px;margin-bottom:12px;'
+    + 'border-radius:14px;background:var(--bg-card);color:var(--text);'
+    + 'border:0.5px solid var(--border-card);'
+    + 'font-size:15px;font-weight:600;cursor:pointer;text-align:left;'
+    + 'display:flex;align-items:center;gap:14px;">'
+    + '<span style="font-size:24px;">🏋️</span>'
+    + '<div><div>Séance libre</div>'
+    + '<div style="font-size:12px;color:var(--sub);font-weight:400;margin-top:2px;">'
+    + 'Je choisis mes exercices maintenant</div></div>'
+    + '</button>'
+
+    + '<button onclick="handleMagicChoice(\'import\')" '
+    + 'style="width:100%;max-width:320px;padding:16px;margin-bottom:24px;'
+    + 'border-radius:14px;background:var(--bg-card);color:var(--text);'
+    + 'border:0.5px solid var(--border-card);'
+    + 'font-size:15px;font-weight:600;cursor:pointer;text-align:left;'
+    + 'display:flex;align-items:center;gap:14px;">'
+    + '<span style="font-size:24px;">📥</span>'
+    + '<div><div>Importer depuis Hevy</div>'
+    + '<div style="font-size:12px;color:var(--sub);font-weight:400;margin-top:2px;">'
+    + 'J\'ai déjà un historique d\'entraînement</div></div>'
+    + '</button>'
+
+    + '<div style="font-size:11px;color:var(--sub);text-align:center;cursor:pointer;" '
+    + 'onclick="handleMagicChoice(\'skip\')">Passer pour l\'instant</div>';
+
+  document.body.appendChild(overlay);
+}
+
+function handleMagicChoice(choice) {
+  db._magicStartDone = true;
+  saveDB();
+  var overlay = document.getElementById('magic-start-overlay');
+  if (overlay) overlay.remove();
+
+  switch (choice) {
+    case 'programme':
+      if (typeof generateWeeklyPlan === 'function') {
+        try { generateWeeklyPlan(); } catch(e) {}
+        saveDB();
+      }
+      showTab('tab-seances');
+      setTimeout(function() {
+        showSeancesSub('s-plan', document.querySelector('.seances-nav .stats-sub-pill:nth-child(2)'));
+      }, 150);
+      break;
+    case 'libre':
+      showTab('tab-seances');
+      setTimeout(function() {
+        showSeancesSub('s-go', document.querySelector('.seances-nav .stats-sub-pill:nth-child(3)'));
+      }, 150);
+      break;
+    case 'import':
+      if (typeof importCSV === 'function') importCSV();
+      break;
+    case 'skip':
+      showTab('tab-dash');
+      break;
+  }
 }
 
 // ============================================================

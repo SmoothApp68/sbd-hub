@@ -2689,6 +2689,12 @@ function showTab(tabId, opts) {
     }
   }
   if (tabId==='tab-social') { initSocialTab(); }
+  if (tabId==='tab-game') {
+    var _gtb = document.getElementById('gameTabBadge');
+    if (_gtb) _gtb.style.display = 'none';
+    var _sjd = document.getElementById('socialJeuxBadgeDot');
+    if (_sjd) _sjd.style.display = 'none';
+  }
 
   // Restore scroll position for the new tab
   requestAnimationFrame(function() { window.scrollTo(0, _scrollPositions[tabId] || 0); });
@@ -3228,9 +3234,20 @@ function checkAndAwardBadges() {
   });
   if (newBadges.length > 0) {
     saveDB();
-    newBadges.forEach(function(b) {
-      showToast('🏅 Badge : ' + b.name);
+    newBadges.forEach(function(b, i) {
+      setTimeout(function() {
+        showToast('🏅 Badge débloqué — ' + b.name, 3500);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      }, i * 2000);
     });
+    // Show red dot on game tab and social cross-link
+    var _gameTabBadge = document.getElementById('gameTabBadge');
+    if (_gameTabBadge) {
+      _gameTabBadge.textContent = newBadges.length;
+      _gameTabBadge.style.display = 'inline-flex';
+    }
+    var _socialJeuxDot = document.getElementById('socialJeuxBadgeDot');
+    if (_socialJeuxDot) _socialJeuxDot.style.display = 'block';
   }
   return newBadges;
 }
@@ -12981,6 +12998,12 @@ function renderSessionCard2(session, si, prevBestRM) {
     return '<span class="sc-tag" style="color:var(--sub);border-color:var(--border);">'+mg+'</span>';
   }).join('');
 
+  // Sparkline — exercice principal
+  var mainExo = (session.exercises||[]).find(function(e){return e.isPrimary;}) || (session.exercises||[])[0];
+  var sparkHtml = (mainExo && mainExo.name && typeof _buildSparkSVG === 'function')
+    ? _buildSparkSVG(mainExo.name, accentColor)
+    : '';
+
   // Détail complet (sets par exercice)
   var detailHtml = renderSessionDetail2(session);
 
@@ -12996,6 +13019,7 @@ function renderSessionCard2(session, si, prevBestRM) {
       '<div class="sc-title">'+title+'</div>'+
       '<div class="sc-meta-line">'+metaStr+'</div>'+
       (tagsHtml ? '<div class="sc-tags">'+tagsHtml+'</div>' : '')+
+      (sparkHtml ? '<div style="margin:6px 0 2px;">'+sparkHtml+'</div>' : '')+
       '<div class="sc-footer">'+
         '<div style="flex:1;font-size:10px;color:var(--sub);">Appuie pour voir le détail</div>'+
         '<button class="sc-menu-btn" onclick="event.stopPropagation();togScMenu(\'menu-'+uid+'\')">···</button>'+

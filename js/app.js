@@ -226,6 +226,25 @@ let db = (() => {
     if (p.user.medicalConsentDate === undefined) p.user.medicalConsentDate = null;
     // Magic Start — users with > 3 logs already seen onboarding
     if (p._magicStartDone === undefined) p._magicStartDone = (p.logs || []).length > 3;
+    // sportsConfig — structure enrichie depuis activityTemplate existant
+    if (!p.user.sportsConfig) {
+      if (p.user.activityTemplate && p.user.activityTemplate.length > 0) {
+        p.user.sportsConfig = p.user.activityTemplate.map(function(a) {
+          return {
+            id: a.type + '_' + Date.now(),
+            type: a.type,
+            subType: a.subType || null,
+            priority: 2,
+            freqMin: 1,
+            freqMax: a.days ? a.days.length : 1,
+            duration: a.duration || 45,
+            intensity: a.intensity || 3
+          };
+        });
+      } else {
+        p.user.sportsConfig = [];
+      }
+    }
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;
@@ -14907,6 +14926,78 @@ function confirmGhostLog(actType, done) {
   }
 }
 
+function getActivityRecommendation(activityType, targetDay) {
+  var map = typeof CROSS_INTERFERENCE_MAP !== 'undefined' ? CROSS_INTERFERENCE_MAP : {};
+  var interference = map[activityType] || { joints: [], volumePenalty: 0, recovHours: 12, muscles: [] };
+
+  var DAYS_FR = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var todayIdx = DAYS_FR.indexOf(targetDay);
+  var tomorrowDay = DAYS_FR[(todayIdx + 1) % 7];
+
+  var routine = typeof getRoutine === 'function' ? getRoutine() : (db.routine || {});
+  var tomorrowLabel = routine[tomorrowDay] || '';
+  var todayLabel = routine[targetDay] || '';
+
+  var wpDays = db.weeklyPlan && db.weeklyPlan.days ? db.weeklyPlan.days : [];
+  var tomorrowWpDay = wpDays.find(function(d) { return d.day === tomorrowDay; });
+  var tomorrowExos = tomorrowWpDay ? (tomorrowWpDay.exercises || []) : [];
+
+  var activityMuscles = interference.muscles || [];
+  var hasMuscleConflict = false;
+  var conflictReason = '';
+
+  if (tomorrowLabel && !(/repos|😴/i.test(tomorrowLabel))) {
+    var tomorrowContext = tomorrowLabel + ' ' + JSON.stringify(tomorrowExos);
+    if (activityMuscles.indexOf('full_body') >= 0) {
+      hasMuscleConflict = true;
+      conflictReason = 'Impact musculaire global';
+    } else if (activityMuscles.some(function(m) { return m === 'lombaires' || m === 'dos'; })
+        && /deadlift|soulevé|souleve|rdl|hip.thrust/i.test(tomorrowContext)) {
+      hasMuscleConflict = true;
+      conflictReason = 'Lombaires/Dos — conflit avec ' + tomorrowLabel;
+    } else if (activityMuscles.some(function(m) { return m === 'epaules' || m === 'dos'; })
+        && /bench|couché|couche|press|pect|développé/i.test(tomorrowContext)) {
+      hasMuscleConflict = true;
+      conflictReason = 'Épaules/Dos — conflit avec ' + tomorrowLabel;
+    } else if (activityMuscles.some(function(m) { return m === 'quadriceps' || m === 'mollets'; })
+        && /squat|presse|jambes|leg/i.test(tomorrowContext)) {
+      hasMuscleConflict = true;
+      conflictReason = 'Jambes — conflit avec ' + tomorrowLabel;
+    }
+  }
+
+  if (db._killSwitchActive) {
+    return { level: 'forbidden', emoji: '🚫', reason: 'Kill Switch actif', detail: 'Repos total recommandé avant la compétition' };
+  }
+
+  var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75, acwr: 1.0 };
+  var acwr = srs ? srs.acwr : 1.0;
+  var srsScore = srs && typeof srs.score === 'number' ? srs.score : 75;
+
+  if (acwr && acwr > 1.3) {
+    return { level: 'warning', emoji: '⚠️', reason: 'Charge hebdo élevée (ACWR ' + acwr.toFixed(1) + ')', detail: 'Risque de surcharge — intensité légère seulement' };
+  }
+
+  if (todayLabel && !(/repos|😴/i.test(todayLabel)) && hasMuscleConflict) {
+    return { level: 'warning', emoji: '⚠️', reason: conflictReason || 'Séance lourde aujourd\'hui', detail: 'Si tu pratiques, reste à RPE ≤ 4 maximum' };
+  }
+
+  if (hasMuscleConflict && tomorrowLabel) {
+    return { level: 'forbidden', emoji: '🚫', reason: conflictReason, detail: tomorrowLabel + ' demain — ' + (interference.recovHours || 24) + 'h de récupération nécessaires' };
+  }
+
+  if (srsScore < 45) {
+    return { level: 'warning', emoji: '⚠️', reason: 'Récupération insuffisante (SRS ' + srsScore + ')', detail: 'Ton corps a besoin de repos — activité légère max' };
+  }
+
+  var acwrOk = !acwr || (acwr >= 0.8 && acwr <= 1.2);
+  if (acwrOk && !hasMuscleConflict) {
+    return { level: 'ok', emoji: '✅', reason: 'Bonne fenêtre de récupération active', detail: tomorrowLabel ? 'Pas de conflit avec ' + tomorrowLabel + ' demain' : 'Aucune interférence détectée' };
+  }
+
+  return { level: 'ok', emoji: '✅', reason: 'Praticable', detail: 'Adapte l\'intensité selon ta forme' };
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -14984,6 +15075,40 @@ function renderCoachTodayHTML() {
       });
       html += '</div>';
     }
+  }
+
+  // ── 0a0b. CONSEIL ACTIVITÉ SECONDAIRE — que faire aujourd'hui ──
+  var _sportTemplate = (db.user && db.user.activityTemplate) || [];
+  if (_sportTemplate.length > 0) {
+    var _todayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][(new Date().getDay() + 6) % 7];
+    var _sportLabels = {
+      natation:'Natation', course:'Course à pied', yoga:'Yoga',
+      yoga_vinyasa:'Yoga Vinyasa', yoga_yin:'Yoga Yin', crossfit:'CrossFit',
+      escalade:'Escalade', velo:'Vélo', cyclisme:'Cyclisme', trail:'Trail',
+      tennis:'Tennis', padel:'Padel', hyrox:'Hyrox', hiit:'HIIT',
+      randonnee:'Randonnée', arts_martiaux:'Arts martiaux',
+      sports_collectifs:'Sport collectif', rucking:'Rucking', pilates:'Pilates'
+    };
+    _sportTemplate.forEach(function(activity) {
+      var _actType = (typeof ACTIVITY_KEY_MAP !== 'undefined' && ACTIVITY_KEY_MAP[activity.type])
+        || activity.type || 'autre';
+      var _rec = getActivityRecommendation(_actType, _todayName);
+      var _sportLabel = _sportLabels[_actType] || (activity.type || 'Activité');
+      var _borderColor = _rec.level === 'ok' ? 'rgba(50,215,75,0.25)'
+        : _rec.level === 'warning' ? 'rgba(255,159,10,0.25)' : 'rgba(255,69,58,0.25)';
+      var _bgColor = _rec.level === 'ok' ? 'rgba(50,215,75,0.06)'
+        : _rec.level === 'warning' ? 'rgba(255,159,10,0.06)' : 'rgba(255,69,58,0.06)';
+      var _textColor = _rec.level === 'ok' ? 'var(--green)'
+        : _rec.level === 'warning' ? 'var(--orange)' : 'var(--red)';
+      html += '<div style="background:' + _bgColor + ';border:0.5px solid ' + _borderColor + ';'
+        + 'border-radius:12px;padding:12px 14px;margin-bottom:10px;">';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
+      html += '<div style="font-size:13px;font-weight:600;color:var(--text);">' + escapeHtml(_sportLabel) + '</div>';
+      html += '<div style="font-size:12px;font-weight:700;color:' + _textColor + ';">' + _rec.emoji + ' ' + escapeHtml(_rec.reason) + '</div>';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:var(--sub);">' + escapeHtml(_rec.detail) + '</div>';
+      html += '</div>';
+    });
   }
 
   // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ──
@@ -20438,6 +20563,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
 
   // Notes
   h += '<div class="go-exo-notes"><input type="text" placeholder="Ajouter des notes ici..." value="' + (exo.notes || '').replace(/"/g, '&quot;') + '" onchange="activeWorkout.exercises[' + exoIdx + '].notes=this.value;goAutoSave();"></div>';
+
+  // Interférence croisée — activité secondaire hier
+  if (exo._interferenceNote) {
+    h += '<div style="background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.2);'
+      + 'border-radius:8px;padding:8px 10px;margin:4px 8px 0;font-size:11px;color:var(--orange);">';
+    h += '⚡ ' + exo._interferenceNote;
+    h += '</div>';
+  }
 
   // Rest badge
   h += '<div class="go-rest-badge" onclick="goEditRest(' + exoIdx + ')">⏱ Repos: ' + goFormatRestBadge(exo.restSeconds || 90) + '</div>';

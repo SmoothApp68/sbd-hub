@@ -455,6 +455,21 @@ function computeSRS() {
 
   var score = Math.round(Math.min(100, Math.max(0, raw)));
 
+  // Malus SRS — activité secondaire intense dans les dernières 24h (activityLogs)
+  var _todayStr2 = new Date().toISOString().split('T')[0];
+  var _yesterdayD = new Date(); _yesterdayD.setDate(_yesterdayD.getDate() - 1);
+  var _yesterdayStr2 = _yesterdayD.toISOString().split('T')[0];
+  var _recentActs = (db.activityLogs || []).filter(function(l) {
+    return l.date === _todayStr2 || l.date === _yesterdayStr2;
+  });
+  _recentActs.forEach(function(act) {
+    var _actType = (typeof ACTIVITY_KEY_MAP !== 'undefined' && ACTIVITY_KEY_MAP[act.type]) || act.type;
+    var _coeff = (typeof ACTIVITY_SPEC_COEFFICIENTS !== 'undefined' && ACTIVITY_SPEC_COEFFICIENTS[_actType]) || 1.0;
+    var _intensity = act.intensity || 3;
+    var _malus = Math.round(_coeff * (_intensity / 5) * 10);
+    score = Math.max(0, score - _malus);
+  });
+
   // ACWR critical or secondary TRIMP critical → cap score + forceActiveRecovery
   var activityFlags = typeof getActivityPenaltyFlags === 'function'
     ? getActivityPenaltyFlags() : { trimp24h: 0, flags: [] };

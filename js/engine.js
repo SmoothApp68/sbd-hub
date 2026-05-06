@@ -3378,21 +3378,25 @@ var DOUBLE_PROGRESSION_RANGES = {
 
 // Mapping sport secondaire → zones impactées + pénalité volume (%)
 var CROSS_INTERFERENCE_MAP = {
-  trail:             { joints: ['lower_back', 'knee', 'hamstrings'], volumePenalty: 0.15 },
-  randonnee:         { joints: ['knee', 'ankle'],                    volumePenalty: 0.10 },
-  escalade:          { joints: ['grip', 'elbow', 'lats'],            volumePenalty: 0.15 },
-  natation:          { joints: ['shoulder', 'rotator_cuff'],         volumePenalty: 0.15 },
-  arts_martiaux:     { joints: ['knee', 'shoulder'],                 volumePenalty: 0.15 },
-  cyclisme:          { joints: ['quad', 'hip'],                      volumePenalty: 0.10 },
-  velo:              { joints: ['quad', 'hip'],                      volumePenalty: 0.10 },
-  course:            { joints: ['knee', 'ankle', 'hamstrings'],      volumePenalty: 0.12 },
-  sports_collectifs: { joints: ['knee', 'ankle', 'shoulder'],        volumePenalty: 0.10 },
-  rucking:           { joints: ['lower_back', 'knee'],               volumePenalty: 0.10 },
-  crossfit:          { joints: ['lower_back', 'shoulder', 'knee'],   volumePenalty: 0.15 },
-  hyrox:             { joints: ['hamstrings', 'knee', 'lower_back'], volumePenalty: 0.12 },
-  padel:             { joints: ['elbow', 'shoulder', 'knee'],        volumePenalty: 0.10 },
-  tennis:            { joints: ['elbow', 'shoulder', 'knee'],        volumePenalty: 0.10 },
-  hiit:              { joints: ['lower_back', 'knee'],               volumePenalty: 0.12 }
+  trail:             { joints: ['lower_back','knee','hamstrings'],   volumePenalty: 0.15, recovHours: 36, muscles: ['quadriceps','mollets','lombaires'] },
+  randonnee:         { joints: ['knee','ankle'],                     volumePenalty: 0.10, recovHours: 12, muscles: ['mollets','quadriceps'] },
+  escalade:          { joints: ['grip','elbow','lats'],              volumePenalty: 0.15, recovHours: 36, muscles: ['avant_bras','dos','epaules'] },
+  natation:          { joints: ['shoulder','rotator_cuff'],          volumePenalty: 0.15, recovHours: 24, muscles: ['dos','epaules','lombaires'] },
+  arts_martiaux:     { joints: ['knee','shoulder'],                  volumePenalty: 0.15, recovHours: 24, muscles: ['epaules','dos','mollets'] },
+  cyclisme:          { joints: ['quad','hip'],                       volumePenalty: 0.10, recovHours: 12, muscles: ['quadriceps','mollets'] },
+  velo:              { joints: ['quad','hip'],                       volumePenalty: 0.10, recovHours: 12, muscles: ['quadriceps','mollets'] },
+  course:            { joints: ['knee','ankle','hamstrings'],        volumePenalty: 0.12, recovHours: 12, muscles: ['mollets','quadriceps','lombaires'] },
+  sports_collectifs: { joints: ['knee','ankle','shoulder'],          volumePenalty: 0.10, recovHours: 18, muscles: ['mollets','epaules','quadriceps'] },
+  rucking:           { joints: ['lower_back','knee'],                volumePenalty: 0.10, recovHours: 18, muscles: ['lombaires','trapezes','mollets'] },
+  crossfit:          { joints: ['lower_back','shoulder','knee'],     volumePenalty: 0.15, recovHours: 48, muscles: ['full_body'] },
+  hyrox:             { joints: ['hamstrings','knee','lower_back'],   volumePenalty: 0.12, recovHours: 36, muscles: ['quadriceps','lombaires','mollets'] },
+  padel:             { joints: ['elbow','shoulder','knee'],          volumePenalty: 0.10, recovHours: 18, muscles: ['epaules','avant_bras'] },
+  tennis:            { joints: ['elbow','shoulder','knee'],          volumePenalty: 0.10, recovHours: 18, muscles: ['epaules','avant_bras'] },
+  hiit:              { joints: ['lower_back','knee'],                volumePenalty: 0.12, recovHours: 24, muscles: ['full_body'] },
+  yoga_vinyasa:      { joints: ['shoulder','wrist'],                 volumePenalty: 0.08, recovHours: 12, muscles: ['epaules','poignets'] },
+  yoga_yin:          { joints: [],                                   volumePenalty: 0.00, recovHours: 0,  muscles: [] },
+  yoga:              { joints: ['shoulder'],                         volumePenalty: 0.04, recovHours: 6,  muscles: ['epaules'] },
+  pilates:           { joints: [],                                   volumePenalty: 0.03, recovHours: 6,  muscles: ['abdominaux'] }
 };
 
 // Zone → muscleGroup keys de wpGetExoMeta()

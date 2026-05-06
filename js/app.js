@@ -7064,7 +7064,87 @@ function renderWeekCard() {
         '</div>' +
       '</div>';
 
+  // ── Batterie Nerveuse / Bilan du matin ──
+  var _srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  var _srsScore = (_srs && typeof _srs.score === 'number') ? _srs.score : 75;
+  var _srsColor = _srsScore >= 70 ? 'var(--green)' : _srsScore >= 40 ? 'var(--orange)' : 'var(--red)';
+  var _acwr = typeof computeACWR === 'function' ? computeACWR() : null;
+  var _acwrStr = (_acwr && _acwr > 0) ? _acwr.toFixed(1) : '—';
+  var _acwrColor = (_acwr && _acwr >= 0.8 && _acwr <= 1.3) ? 'var(--green)' : 'var(--orange)';
+  var _todayStr = new Date().toISOString().split('T')[0];
+  var _hasBilan = !!(db.todayWellbeing && db.todayWellbeing.date === _todayStr);
+
+  var batteryHtml = '<div style="background:var(--bg-card);border:0.5px solid var(--bg-card-border);'
+    + 'border-radius:14px;padding:14px;margin-bottom:12px;">';
+  if (!_hasBilan) {
+    batteryHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+      + 'letter-spacing:1px;font-weight:600;margin-bottom:8px;">Bilan du matin</div>';
+    batteryHtml += '<div style="font-size:13px;color:var(--text);margin-bottom:10px;">'
+      + 'Comment te sens-tu ce matin ?</div>';
+    batteryHtml += '<button onclick="showTab(\'tab-seances\');setTimeout(function(){'
+      + 'showSeancesSub(\'s-coach\',document.querySelector(\'.seances-nav .stats-sub-pill:first-child\'));},100)" '
+      + 'style="padding:8px 16px;border-radius:20px;border:0.5px solid var(--accent);'
+      + 'background:rgba(10,132,255,0.1);color:var(--accent);font-size:12px;cursor:pointer;">'
+      + 'Faire le bilan →</button>';
+  } else {
+    batteryHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+    batteryHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">Batterie Nerveuse</div>';
+    batteryHtml += '<div style="font-size:22px;font-weight:700;color:' + _srsColor + ';">'
+      + _srsScore + '<span style="font-size:12px;color:var(--sub);font-weight:400;">/100</span></div>';
+    batteryHtml += '</div>';
+    batteryHtml += '<div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:10px;overflow:hidden;">'
+      + '<div style="height:100%;width:' + Math.min(_srsScore, 100) + '%;background:' + _srsColor
+      + ';border-radius:2px;transition:width 0.5s;"></div></div>';
+    batteryHtml += '<div style="display:flex;gap:0;">';
+    batteryHtml += '<div style="flex:1;text-align:center;">'
+      + '<div style="font-size:13px;font-weight:600;color:' + _acwrColor + ';">' + _acwrStr + '</div>'
+      + '<div style="font-size:10px;color:var(--sub);">ACWR</div></div>';
+    batteryHtml += '<div style="width:0.5px;background:var(--border);"></div>';
+    batteryHtml += '<div style="flex:1;text-align:center;">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--text);">' + streak + '</div>'
+      + '<div style="font-size:10px;color:var(--sub);">Streak</div></div>';
+    batteryHtml += '<div style="width:0.5px;background:var(--border);"></div>';
+    batteryHtml += '<div style="flex:1;text-align:center;">'
+      + '<div style="font-size:13px;font-weight:600;color:' + scoreColor + ';">'
+      + (formScore !== null ? formScore : '—') + '</div>'
+      + '<div style="font-size:10px;color:var(--sub);">Forme</div></div>';
+    batteryHtml += '</div>';
+  }
+  batteryHtml += '</div>';
+
+  // ── GO CTA contextuel ──
+  var goHtml = '';
+  if (!isRestDay && todayLabel) {
+    var _wpDay = db.weeklyPlan && db.weeklyPlan.days
+      ? db.weeklyPlan.days.find(function(d) { return d.day === todayName; })
+      : null;
+    var _exoCount = _wpDay && _wpDay.exercises
+      ? _wpDay.exercises.filter(function(e) { return !e.isWarmup; }).length
+      : 0;
+    var _exoStr = _exoCount > 0 ? ' · ' + _exoCount + ' exercice' + (_exoCount > 1 ? 's' : '') : '';
+    goHtml = '<div style="margin-bottom:12px;">'
+      + '<button onclick="showTab(\'tab-seances\');setTimeout(function(){'
+      + 'showSeancesSub(\'s-go\',document.querySelector(\'.seances-nav .stats-sub-pill:nth-child(3)\'));},100)" '
+      + 'style="width:100%;padding:13px;border-radius:12px;background:var(--accent);'
+      + 'color:white;border:none;font-size:14px;font-weight:700;cursor:pointer;'
+      + 'display:flex;align-items:center;justify-content:center;gap:8px;">'
+      + '<span>GO — ' + todayLabel + _exoStr + '</span>'
+      + '</button>'
+      + '</div>';
+  } else if (!todayLabel) {
+    goHtml = '<div style="margin-bottom:12px;">'
+      + '<button onclick="showTab(\'tab-seances\');setTimeout(function(){'
+      + 'showSeancesSub(\'s-plan\',document.querySelector(\'.seances-nav .stats-sub-pill:nth-child(2)\'));},100)" '
+      + 'style="width:100%;padding:13px;border-radius:12px;'
+      + 'background:rgba(10,132,255,0.1);color:var(--accent);'
+      + 'border:0.5px solid rgba(10,132,255,0.3);font-size:14px;font-weight:600;cursor:pointer;">'
+      + 'Générer ma séance →'
+      + '</button>'
+      + '</div>';
+  }
+
   el.innerHTML =
+    batteryHtml +
     // Header : nom + date + pills
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">' +
       '<div>' +
@@ -7084,6 +7164,8 @@ function renderWeekCard() {
 
     // Jours de la semaine
     '<div style="display:flex;gap:4px;margin-bottom:12px;">' + daysHtml + '</div>' +
+
+    goHtml +
 
     // Métriques
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;">' +
@@ -20201,7 +20283,16 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   }
   var _suggestedW = 0;
   (exo.sets || []).some(function(s) { if (s.type !== 'warmup' && s.weight > 0) { _suggestedW = s.weight; return true; } return false; });
+  var _shadowW = (db.exercises && db.exercises[exo.name]) ? (db.exercises[exo.name].shadowWeight || 0) : 0;
+  var _isChargeReduced = _shadowW > 0 && _suggestedW > 0 && _suggestedW < _shadowW * 0.97;
   h += '<div class="go-exo-info"><div class="go-exo-name">' + exo.name + '</div>';
+  if (_isChargeReduced) {
+    h += '<div style="font-size:10px;color:var(--orange);margin-bottom:2px;">'
+      + '↓ Charge adaptée (' + _suggestedW + 'kg vs ' + _shadowW + 'kg) '
+      + '<button onclick="showAPREExplanation()" style="background:none;border:none;color:var(--sub);'
+      + 'font-size:10px;cursor:pointer;padding:0;vertical-align:middle;text-decoration:underline dotted;">ⓘ</button>'
+      + '</div>';
+  }
   if (e1rm > 0) {
     h += '<div class="go-exo-e1rm">e1RM: ' + Math.round(e1rm) + 'kg ' + renderGlossaryTip('e1rm');
     if (_suggestedW > 0) {
@@ -22214,6 +22305,10 @@ function explainWeight(exoName, suggestedWeight) {
   }
 
   return lines.join('\n');
+}
+
+function showAPREExplanation() {
+  showToast('La charge a été réduite automatiquement selon ton niveau de récupération (SRS/APRE). La progression reprend quand ton SNC est prêt.', 4000);
 }
 
 function showWeightExplanation(exoName, suggestedWeight) {

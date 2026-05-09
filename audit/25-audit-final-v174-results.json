@@ -784,7 +784,7 @@
       "id": "14-04",
       "label": "Chargement < 3s",
       "passed": true,
-      "note": "load=151ms"
+      "note": "load=152ms"
     },
     {
       "profile": "ALL",

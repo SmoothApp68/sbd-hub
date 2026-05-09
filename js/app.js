@@ -21237,11 +21237,45 @@ function goStartRestTimer(seconds, exoIndex) {
   }
   _hrRecov30s = null;
   _hrRecov60s = null;
+  // Trouver la dernière série loggée (set qui vient juste d'être checkée)
+  // pour pouvoir corriger son hrPeak après la fenêtre Valsalva de 20s.
+  var _lastLoggedSet = null;
+  if (typeof activeWorkout !== 'undefined' && activeWorkout && Number.isInteger(exoIndex)) {
+    var _exo = activeWorkout.exercises[exoIndex];
+    if (_exo && _exo.sets) {
+      for (var _li = _exo.sets.length - 1; _li >= 0; _li--) {
+        if (_exo.sets[_li].completed && !_exo.sets[_li].isWarmup) {
+          _lastLoggedSet = _exo.sets[_li];
+          break;
+        }
+      }
+    }
+  }
+  var _hrPeakWindowSec = 20;       // la FC optique met 5–15s à suivre la Valsalva
+  var _hrPeakWindowDone = false;
   activeWorkout.restTimer = { running: true, remaining: seconds, total: seconds, exoIndex: exoIndex };
   _goRestTimerId = setInterval(function() {
     if (!activeWorkout || !activeWorkout.restTimer.running) { goSkipRest(); return; }
     activeWorkout.restTimer.remaining--;
     var _elapsed = activeWorkout.restTimer.total - activeWorkout.restTimer.remaining;
+    // Fenêtre Valsalva : capturer le vrai peak pendant les 20 premières secondes de repos
+    if (!_hrPeakWindowDone && _elapsed <= _hrPeakWindowSec && _currentHR) {
+      _hrSeriesPeak = Math.max(_hrSeriesPeak || 0, _currentHR);
+    }
+    // Fin de fenêtre : corriger le hrPeak de la dernière série loggée + re-analyser RPE×FC
+    if (!_hrPeakWindowDone && _elapsed >= _hrPeakWindowSec) {
+      _hrPeakWindowDone = true;
+      if (_lastLoggedSet && _hrSeriesPeak && _hrSeriesPeak > (_lastLoggedSet.hrPeak || 0)) {
+        _lastLoggedSet.hrPeak = _hrSeriesPeak;
+        try {
+          if (_lastLoggedSet.rpe && typeof analyzeSetRPEvsHR === 'function') {
+            var _newAnalysis = analyzeSetRPEvsHR(parseFloat(_lastLoggedSet.rpe),
+              _lastLoggedSet.hrPeak, _hrRecov60s, db.user && db.user.age);
+            if (_newAnalysis) _lastLoggedSet.hrAnalysis = _newAnalysis.interpretation;
+          }
+        } catch(e) {}
+      }
+    }
     if (_elapsed === 30 && _currentHR) _hrRecov30s = _currentHR;
     if (_elapsed === 60 && _currentHR) _hrRecov60s = _currentHR;
     var el = document.getElementById('goRestDisplay');

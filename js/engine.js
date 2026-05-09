@@ -1539,6 +1539,25 @@ function computeWilks(total, bw, gender) {
   return Math.round((500 / denom) * total * 100) / 100;
 }
 
+// ── ACWR (Acute:Chronic Workload Ratio) — fallback volume-based ────────────
+// Note : computeSRS() dans coach.js calcule un ACWR basé TRIMP Force (plus précis).
+// Cette fonction sert de fallback simple lorsque le contexte SRS n'est pas disponible.
+function computeACWR() {
+  if (!db || !db.logs || db.logs.length === 0) return null;
+  var now = Date.now();
+  var DAY = 86400000;
+  var acuteLogs = db.logs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= 7 * DAY;
+  });
+  var chronicLogs = db.logs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= 28 * DAY;
+  });
+  var acuteLoad = acuteLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0) / 7;
+  var chronicLoad = chronicLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0) / 28;
+  if (chronicLoad === 0) return null;
+  return Math.round(Math.min(Math.max(acuteLoad / chronicLoad, 0.3), 2.5) * 100) / 100;
+}
+
 // ── Volume hebdomadaire réel par groupe musculaire ──────────
 function computeWeeklyVolume(logs, weeksBack) {
   if (weeksBack === undefined) weeksBack = 1;

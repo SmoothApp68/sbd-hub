@@ -350,6 +350,31 @@ window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
+
+// Global error trap — capture "n is not a function" et autres TypeError
+// minifiés pour que l'app ne plante pas silencieusement chez l'utilisateur.
+window.addEventListener('error', function(event) {
+  if (!event || !event.error) return;
+  var msg = String(event.error.message || event.message || 'Unknown error');
+  // Ignorer les erreurs réseau/Supabase déjà gérées ailleurs
+  if (/Failed to fetch|NetworkError|Load failed|ResizeObserver/i.test(msg)) return;
+  try {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('window_error', msg.substring(0, 500),
+        (event.filename || '?') + ':' + (event.lineno || '?'));
+    }
+  } catch(e) {}
+});
+window.addEventListener('unhandledrejection', function(event) {
+  if (!event || !event.reason) return;
+  var msg = String(event.reason.message || event.reason || 'Unhandled rejection');
+  if (/Failed to fetch|NetworkError|Load failed|AbortError/i.test(msg)) return;
+  try {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('unhandled_rejection', msg.substring(0, 500), 'promise');
+    }
+  } catch(e) {}
+});
 function debouncedCloudSync() {
   if (!cloudSyncEnabled) return;
   if (!navigator.onLine) {
@@ -7344,21 +7369,31 @@ function renderWeekCard() {
 }
 
 function renderDash() {
-  // Carte bienvenue
-  const welcomeCard = document.getElementById('welcomeCard');
-  if (welcomeCard) {
-    const noData = !db.logs || db.logs.length === 0;
-    welcomeCard.style.display = noData ? '' : 'none';
-    if (noData && db.user.name) {
-      const title = document.getElementById('welcomeTitle');
-      if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
+  try {
+    // Carte bienvenue
+    const welcomeCard = document.getElementById('welcomeCard');
+    if (welcomeCard) {
+      const noData = !db.logs || db.logs.length === 0;
+      welcomeCard.style.display = noData ? '' : 'none';
+      if (noData && db.user.name) {
+        const title = document.getElementById('welcomeTitle');
+        if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
+      }
+    }
+
+    requestAnimationFrame(function() {
+      try { renderWeekCard(); } catch (e) {
+        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderWeekCard');
+      }
+      try { renderPerfCard(); } catch (e) {
+        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderPerfCard');
+      }
+    });
+  } catch (err) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('render_crash', String(err && err.message || err), 'renderDash');
     }
   }
-
-  requestAnimationFrame(function() {
-    renderWeekCard();
-    renderPerfCard();
-  });
 }
 
 
@@ -14846,7 +14881,14 @@ function renderCoachToday() {
 
   if (!db.logs || db.logs.length === 0) {
     if (typeof isColdStart === 'function' && isColdStart()) {
-      el.innerHTML = renderCoachTodayHTML();
+      try {
+        el.innerHTML = renderCoachTodayHTML();
+      } catch (err) {
+        if (typeof logErrorToSupabase === 'function') {
+          logErrorToSupabase('render_crash', String(err && err.message || err), 'renderCoachTodayHTML');
+        }
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sub);font-size:13px;">Coach indisponible — réessaie dans quelques secondes.</div>';
+      }
       return;
     }
     el.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;line-height:1.7;">'+
@@ -14855,7 +14897,14 @@ function renderCoachToday() {
     return;
   }
 
-  el.innerHTML = renderCoachTodayHTML();
+  try {
+    el.innerHTML = renderCoachTodayHTML();
+  } catch (err) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('render_crash', String(err && err.message || err), 'renderCoachTodayHTML');
+    }
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sub);font-size:13px;">Coach indisponible — réessaie dans quelques secondes.</div>';
+  }
 }
 
 function getWeeklyExternalLoad() {
@@ -19638,14 +19687,21 @@ function renderFCWidget() {
 function renderGoTab() {
   var idle = document.getElementById('goIdleView');
   var act  = document.getElementById('goActiveView');
-  if (activeWorkout) {
-    if (idle) idle.style.display = 'none';
-    if (act)  act.style.display = 'block';
-    goRequestRender();
-  } else {
-    if (idle) idle.style.display = 'block';
-    if (act)  act.style.display = 'none';
-    renderGoIdleView();
+  try {
+    if (activeWorkout) {
+      if (idle) idle.style.display = 'none';
+      if (act)  act.style.display = 'block';
+      goRequestRender();
+    } else {
+      if (idle) idle.style.display = 'block';
+      if (act)  act.style.display = 'none';
+      renderGoIdleView();
+    }
+  } catch (err) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('render_crash', String(err && err.message || err), 'renderGoTab');
+    }
+    if (idle) idle.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sub);font-size:13px;">GO indisponible — réessaie dans quelques secondes.</div>';
   }
 }
 

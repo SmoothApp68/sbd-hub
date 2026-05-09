@@ -3114,11 +3114,24 @@ var MENSTRUAL_PHASES = {
 };
 
 function getCurrentMenstrualPhase() {
-  if (!db.user || !db.user.menstrualEnabled || !db.user.menstrualData) return null;
-  var data = db.user.menstrualData;
-  if (!data.lastPeriodStart) return null;
-  var cycleLength = data.cycleLength || 28;
-  var start = new Date(data.lastPeriodStart);
+  if (!db || !db.user) return null;
+  var lastPeriodDate = null;
+  var cycleLength = 28;
+
+  if (db.user.menstrualEnabled && db.user.menstrualData) {
+    var md = db.user.menstrualData;
+    lastPeriodDate = md.lastPeriodStart || md.lastPeriodDate || null;
+    cycleLength = md.cycleLength || 28;
+    // Si phase explicitement renseignée et pas de date → la respecter
+    if (!lastPeriodDate && md.phase) return md.phase;
+  }
+  if (!lastPeriodDate && db.user.cycleTracking && db.user.cycleTracking.enabled) {
+    lastPeriodDate = db.user.cycleTracking.lastPeriodDate || null;
+    cycleLength = db.user.cycleTracking.cycleLength || 28;
+  }
+  if (!lastPeriodDate) return null;
+
+  var start = new Date(lastPeriodDate);
   var today = new Date();
   var diffDays = Math.floor((today - start) / 86400000);
   var dayInCycle = (diffDays % cycleLength) + 1;

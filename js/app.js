@@ -2383,7 +2383,7 @@ function showMagicStart() {
 
 function handleMagicChoice(choice) {
   db._magicStartDone = true;
-  saveDB();
+  saveDBNow();
   var overlay = document.getElementById('magic-start-overlay');
   if (overlay) overlay.remove();
 

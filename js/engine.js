@@ -165,9 +165,33 @@ const INJURY_PROFILES = {
   }
 };
 
+// Normalize injury schema — supports both internal (zone/level) and onboarding (joint/severity)
+function normalizeInjury(inj) {
+  if (!inj) return inj;
+  if (inj.joint && !inj.zone) {
+    var jointToZone = {
+      knee: 'genou', shoulder: 'epaule', elbow: 'coude',
+      wrist: 'poignet', lower_back: 'lombaires', hip: 'hanches',
+      ankle: 'cheville', neck: 'cervicales'
+    };
+    var severityToLevel = { mild: 1, moderate: 2, severe: 3 };
+    return {
+      zone: jointToZone[inj.joint] || inj.joint,
+      level: severityToLevel[inj.severity] || 2,
+      active: inj.active !== false,
+      since: inj.since,
+      returnDate: inj.returnDate
+    };
+  }
+  // Defensive : ensure active defaults to true if absent (existing zone/level schema)
+  if (inj.active === undefined) inj.active = true;
+  return inj;
+}
+
 // Returns true if an exercise is excluded by the user's active level-2+ injuries
 function isExerciseInjured(exoName, injuries) {
   if (!Array.isArray(injuries)) return false;
+  injuries = injuries.map(normalizeInjury);
   for (var i = 0; i < injuries.length; i++) {
     var inj = injuries[i];
     if (!inj.active || inj.level < 2) continue;
@@ -185,6 +209,7 @@ function isExerciseInjured(exoName, injuries) {
 // Returns the replacement exercise for level-1 injuries, or null
 function getInjurySwap(exoName, injuries) {
   if (!Array.isArray(injuries)) return null;
+  injuries = injuries.map(normalizeInjury);
   for (var i = 0; i < injuries.length; i++) {
     var inj = injuries[i];
     if (!inj.active || inj.level !== 1) continue;
@@ -1539,6 +1564,25 @@ function computeWilks(total, bw, gender) {
   return Math.round((500 / denom) * total * 100) / 100;
 }
 
+// ── ACWR (Acute:Chronic Workload Ratio) — fallback volume-based ────────────
+// Note : computeSRS() dans coach.js calcule un ACWR basé TRIMP Force (plus précis).
+// Cette fonction sert de fallback simple lorsque le contexte SRS n'est pas disponible.
+function computeACWR() {
+  if (!db || !db.logs || db.logs.length === 0) return null;
+  var now = Date.now();
+  var DAY = 86400000;
+  var acuteLogs = db.logs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= 7 * DAY;
+  });
+  var chronicLogs = db.logs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= 28 * DAY;
+  });
+  var acuteLoad = acuteLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0) / 7;
+  var chronicLoad = chronicLogs.reduce(function(s, l) { return s + (l.volume || 0); }, 0) / 28;
+  if (chronicLoad === 0) return null;
+  return Math.round(Math.min(Math.max(acuteLoad / chronicLoad, 0.3), 2.5) * 100) / 100;
+}
+
 // ── Volume hebdomadaire réel par groupe musculaire ──────────
 function computeWeeklyVolume(logs, weeksBack) {
   if (weeksBack === undefined) weeksBack = 1;
@@ -1643,6 +1687,7 @@ function computeActivityScore(activity) {
 
 function checkActivityInjuryConflict(activityType, injuries) {
   if (!injuries || !injuries.length) return null;
+  injuries = injuries.map(normalizeInjury);
   var CONFLICTS = {
     trail: {
       zones: ['genou', 'hanches'], level: 1,
@@ -1998,10 +2043,10 @@ function getRefeedRecommendation() {
     tdee: Math.round(tdee),
     cutDays: Math.round(cutDays),
     srsScore: Math.round(srs.score),
-    message: 'Refeed recommandé : ' + Math.round(cutDays) + ' jours de cut '
-      + '+ récupération faible (' + Math.round(srs.score) + '/100). '
-      + 'Mange à maintenance aujourd\'hui (' + Math.round(tdee) + ' kcal) '
-      + 'pour relancer ton métabolisme et préserver ta masse musculaire.'
+    message: 'Recharge stratégique : ' + Math.round(cutDays) + ' jours de déficit '
+      + '+ ta récupération est basse (' + Math.round(srs.score) + '/100). '
+      + 'Aujourd\'hui, mange à maintenance (' + Math.round(tdee) + ' kcal) '
+      + 'pour relancer la machine et performer demain.'
   };
 }
 
@@ -2746,13 +2791,15 @@ function analyzeAthleteProfile() {
 
   var _acwrZ = typeof getACWRZones === 'function' ? getACWRZones() : ACWR_ZONES;
   if (acwr > _acwrZ.orange_high) {
-    fatigueAlerts.push({ severity: 'danger', title: 'Zone Rouge — Risque de Blessure',
-      text: 'ACWR = ' + acwr.toFixed(2) + ' (> ' + _acwrZ.orange_high + '). '
-        + 'Le risque de blessure est statistiquement doublé. '
-        + 'Réduire le volume de 30% cette semaine.' });
+    fatigueAlerts.push({ severity: 'danger', title: 'Charge élevée — récupération à prioriser',
+      text: 'Cette semaine, ton corps absorbe ' + Math.round((acwr - 1) * 100) + ' % de plus que d\'habitude '
+        + '(ratio ' + acwr.toFixed(2) + '). Réduis le volume de 30 % pour rester dans la zone de progression.' });
   } else if (acwr > _acwrZ.green_high) {
-    fatigueAlerts.push({ severity: 'warning', title: 'Zone Orange — Charge Élevée',
-      text: 'ACWR = ' + acwr.toFixed(2) + '. Surveille les signaux de fatigue et réduis si RPE augmente.' });
+    fatigueAlerts.push({ severity: 'warning', title: 'Charge soutenue — vigilance utile',
+      text: 'Ratio de charge ' + acwr.toFixed(2) + '. Tu pousses bien — surveille le RPE et ajuste si tu sens la fatigue grimper.' });
+  } else if (acwr >= _acwrZ.green_low && acwr <= _acwrZ.green_high) {
+    fatigueAlerts.push({ severity: 'good', title: '✅ Fenêtre optimale',
+      text: 'Ratio de charge ' + acwr.toFixed(2) + '. Charge équilibrée — c\'est le moment idéal pour viser un PR ou pousser un peu.' });
   }
 
   // Volume proche MRV par groupe musculaire
@@ -3069,11 +3116,24 @@ var MENSTRUAL_PHASES = {
 };
 
 function getCurrentMenstrualPhase() {
-  if (!db.user || !db.user.menstrualEnabled || !db.user.menstrualData) return null;
-  var data = db.user.menstrualData;
-  if (!data.lastPeriodStart) return null;
-  var cycleLength = data.cycleLength || 28;
-  var start = new Date(data.lastPeriodStart);
+  if (!db || !db.user) return null;
+  var lastPeriodDate = null;
+  var cycleLength = 28;
+
+  if (db.user.menstrualEnabled && db.user.menstrualData) {
+    var md = db.user.menstrualData;
+    lastPeriodDate = md.lastPeriodStart || md.lastPeriodDate || null;
+    cycleLength = md.cycleLength || 28;
+    // Si phase explicitement renseignée et pas de date → la respecter
+    if (!lastPeriodDate && md.phase) return md.phase;
+  }
+  if (!lastPeriodDate && db.user.cycleTracking && db.user.cycleTracking.enabled) {
+    lastPeriodDate = db.user.cycleTracking.lastPeriodDate || null;
+    cycleLength = db.user.cycleTracking.cycleLength || 28;
+  }
+  if (!lastPeriodDate) return null;
+
+  var start = new Date(lastPeriodDate);
   var today = new Date();
   var diffDays = Math.floor((today - start) / 86400000);
   var dayInCycle = (diffDays % cycleLength) + 1;

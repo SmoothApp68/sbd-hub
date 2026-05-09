@@ -995,7 +995,7 @@
     .gam-separator { text-align:center; padding:8px 0; color:var(--gold); font-size:10px; letter-spacing:4px; opacity:0.4; }
 
     /* ── Gamification V2 — Animations ── */
-    @keyframes reiatsuPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0), inset 0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 25px rgba(191,90,242,0.12), inset 0 0 15px rgba(191,90,242,0.04); } }
+    @keyframes rarityPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0), inset 0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 25px rgba(191,90,242,0.12), inset 0 0 15px rgba(191,90,242,0.04); } }
     @keyframes xpFlow { 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
     @keyframes badgeUnlock { 0%{ transform:scale(0);opacity:0; } 70%{ transform:scale(1.1);opacity:1; } 100%{ transform:scale(1);opacity:1; } }
     @keyframes xpFloat { 0%{ opacity:1;transform:translateY(0); } 100%{ opacity:0;transform:translateY(-30px); } }
@@ -1004,7 +1004,7 @@
     @keyframes flamePulse { 0%,100%{ transform:scaleY(1);opacity:0.9; } 50%{ transform:scaleY(1.15);opacity:1; } }
     @keyframes pulse { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(0.8); } }
 
-    .lvl-card-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
+    .lvl-card-v2 { animation: rarityPulse 4s ease-in-out infinite; }
     .lvl-card-v2::before, .lvl-card-v2::after { content:''; position:absolute; width:20px; height:20px; border:2px solid var(--gold); opacity:0.25; pointer-events:none; }
     .lvl-card-v2::before { top:8px; left:8px; border-right:none; border-bottom:none; }
     .lvl-card-v2::after { bottom:8px; right:8px; border-left:none; border-top:none; }
@@ -1017,7 +1017,7 @@
     .lvl-title { font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.2s; }
     .lvl-title:active { opacity:0.6; }
 
-    /* ── Quest Card (Dofus style) ── */
+    /* ── Quest Card ── */
     .quest-card { background: linear-gradient(135deg, rgba(200,162,76,0.03) 0%, transparent 40%, rgba(200,162,76,0.02) 100%); border: 1px solid var(--gold-border); border-radius: 16px; padding: 16px; margin-bottom: 14px; position: relative; }
     .quest-card::before { content:'◆'; position:absolute; top:-6px; left:12px; color:var(--gold); font-size:8px; background:#0d0816; padding:0 4px; opacity:0.5; }
     .quest-item { background: var(--surface); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.15s; position: relative; }
@@ -1058,10 +1058,10 @@
     /* ── New dot indicator ── */
     .new-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); animation:newDot 2s ease infinite; margin-left:4px; vertical-align:middle; }
 
-    /* ── Badge rarity enhancements (Dofus/Bleach theme) ── */
+    /* ── Badge rarity enhancements ── */
     .bdg.common-v2 { background: var(--parchment); }
-    .bdg.mythic-v2 { animation: reiatsuPulse 4s ease-in-out infinite; }
-    .bdg.divine-v2 { animation: reiatsuPulse 3s ease-in-out infinite; }
+    .bdg.mythic-v2 { animation: rarityPulse 4s ease-in-out infinite; }
+    .bdg.divine-v2 { animation: rarityPulse 3s ease-in-out infinite; }
 
     /* ── XP source bars clickable ── */
     .xs-bar-row-click { cursor: pointer; transition: transform 0.15s; border-radius: 8px; padding: 4px; margin: -4px; }

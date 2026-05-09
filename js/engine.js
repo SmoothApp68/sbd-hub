@@ -2043,10 +2043,10 @@ function getRefeedRecommendation() {
     tdee: Math.round(tdee),
     cutDays: Math.round(cutDays),
     srsScore: Math.round(srs.score),
-    message: 'Refeed recommandé : ' + Math.round(cutDays) + ' jours de cut '
-      + '+ récupération faible (' + Math.round(srs.score) + '/100). '
-      + 'Mange à maintenance aujourd\'hui (' + Math.round(tdee) + ' kcal) '
-      + 'pour relancer ton métabolisme et préserver ta masse musculaire.'
+    message: 'Recharge stratégique : ' + Math.round(cutDays) + ' jours de déficit '
+      + '+ ta récupération est basse (' + Math.round(srs.score) + '/100). '
+      + 'Aujourd\'hui, mange à maintenance (' + Math.round(tdee) + ' kcal) '
+      + 'pour relancer la machine et performer demain.'
   };
 }
 
@@ -2791,13 +2791,15 @@ function analyzeAthleteProfile() {
 
   var _acwrZ = typeof getACWRZones === 'function' ? getACWRZones() : ACWR_ZONES;
   if (acwr > _acwrZ.orange_high) {
-    fatigueAlerts.push({ severity: 'danger', title: 'Zone Rouge — Risque de Blessure',
-      text: 'ACWR = ' + acwr.toFixed(2) + ' (> ' + _acwrZ.orange_high + '). '
-        + 'Le risque de blessure est statistiquement doublé. '
-        + 'Réduire le volume de 30% cette semaine.' });
+    fatigueAlerts.push({ severity: 'danger', title: 'Charge élevée — récupération à prioriser',
+      text: 'Cette semaine, ton corps absorbe ' + Math.round((acwr - 1) * 100) + ' % de plus que d\'habitude '
+        + '(ratio ' + acwr.toFixed(2) + '). Réduis le volume de 30 % pour rester dans la zone de progression.' });
   } else if (acwr > _acwrZ.green_high) {
-    fatigueAlerts.push({ severity: 'warning', title: 'Zone Orange — Charge Élevée',
-      text: 'ACWR = ' + acwr.toFixed(2) + '. Surveille les signaux de fatigue et réduis si RPE augmente.' });
+    fatigueAlerts.push({ severity: 'warning', title: 'Charge soutenue — vigilance utile',
+      text: 'Ratio de charge ' + acwr.toFixed(2) + '. Tu pousses bien — surveille le RPE et ajuste si tu sens la fatigue grimper.' });
+  } else if (acwr >= _acwrZ.green_low && acwr <= _acwrZ.green_high) {
+    fatigueAlerts.push({ severity: 'good', title: '✅ Fenêtre optimale',
+      text: 'Ratio de charge ' + acwr.toFixed(2) + '. Charge équilibrée — c\'est le moment idéal pour viser un PR ou pousser un peu.' });
   }
 
   // Volume proche MRV par groupe musculaire

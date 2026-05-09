@@ -14876,6 +14876,8 @@ function getRegularityMessage() {
   if (totalSessions === 10) return '10 séances dans les pattes. L\'algo commence à vraiment te connaître.';
   if (totalSessions === 25) return '25 séances. La progression devient prévisible — et ça, c\'est du pouvoir.';
   if (last30.length >= 12) return '12+ séances ce mois-ci. C\'est de la constance professionnelle.';
+  if (last30.length >= 8)  return '✨ ' + last30.length + ' séances ce mois-ci. Tu es dans la bonne dynamique.';
+  if (totalSessions >= 5 && totalSessions < 10) return '👏 ' + totalSessions + ' séances enregistrées. La machine prend forme.';
   return null;
 }
 
@@ -14967,7 +14969,9 @@ function getActivityRecommendation(activityType, targetDay) {
   }
 
   if (db._killSwitchActive) {
-    return { level: 'forbidden', emoji: '🚫', reason: 'Kill Switch actif', detail: 'Repos total recommandé avant la compétition' };
+    return { level: 'forbidden', emoji: '🚫',
+      reason: 'Mode Préservation actif',
+      detail: 'Compétition imminente — repos total aujourd\'hui pour arriver à 100 %.' };
   }
 
   var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 75, acwr: 1.0 };
@@ -19896,7 +19900,7 @@ function detectChurn() {
     message = daysSinceRound + ' jours sans séance. C\'est tout à fait normal d\'avoir des pauses. Une petite séance aujourd\'hui suffit pour reprendre le rythme.';
   } else {
     title = 'De retour !';
-    message = 'Absence de ' + daysSinceRound + ' jours — ton prochain entraînement relance la machine. Réduis légèrement les charges pour commencer.';
+    message = 'Absence de ' + daysSinceRound + ' jours — ton prochain entraînement relance la machine. Tu peux y aller un peu plus doucement pour redémarrer.';
   }
 
   if (lastPR && lastPR.bench > 0) {

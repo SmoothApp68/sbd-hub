@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v177';
+var SW_VERSION = 'trainhub-v178';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -10689,8 +10689,10 @@ function pbGenerateProgram() {
 
   // Appeler le générateur existant si disponible
   try {
-    // Pousser les jours choisis dans la global lue par generateProgram (program.js)
-    window.obSelectedDays = pickedDays;
+    // generateProgram() lit la variable lexicale `obSelectedDays` (let, ligne 1343),
+    // pas window.obSelectedDays. Assigner directement à la variable lexicale.
+    obSelectedDays = pickedDays;
+    window.obSelectedDays = pickedDays; // back-compat pour autres lecteurs éventuels
     var result = generateProgram(goals, s.days, mat, s.duration, [], [], null, null, s.level);
     if (result && result.length > 0) {
       db.generatedProgram = result;

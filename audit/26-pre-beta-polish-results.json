@@ -1,0 +1,77 @@
+{
+  "total": 14,
+  "pass": 14,
+  "fail": 0,
+  "results": [
+    {
+      "name": "A-01 SW_VERSION est défini",
+      "pass": true,
+      "msg": "typeof SW_VERSION = string"
+    },
+    {
+      "name": "A-02 SW_VERSION commence par \"trainhub-\"",
+      "pass": true,
+      "msg": "trainhub-v175"
+    },
+    {
+      "name": "A-03 logErrorToSupabase lirait SW_VERSION correct",
+      "pass": true,
+      "msg": "trainhub-v175"
+    },
+    {
+      "name": "B-01 Z1 label contient \"Récup active\" (pas \"Repos\")",
+      "pass": true,
+      "msg": "55 BPM Z1 — Récup active · 29% ✓ Prêt"
+    },
+    {
+      "name": "B-02 Z1 label ne contient pas \"Repos\"",
+      "pass": true,
+      "msg": "OK"
+    },
+    {
+      "name": "C-01 _magicStartDone = true immédiatement après handleMagicChoice()",
+      "pass": true,
+      "msg": "db._magicStartDone = true"
+    },
+    {
+      "name": "C-02 localStorage mis à jour immédiatement (saveDBNow vs saveDB debounced)",
+      "pass": true,
+      "msg": "localStorage._magicStartDone = true"
+    },
+    {
+      "name": "D-01 Kill Switch → getActivityRecommendation() level forbidden",
+      "pass": true,
+      "msg": "level=forbidden reason=Mode Préservation actif"
+    },
+    {
+      "name": "D-02 Kill Switch applique RPE cap ≤ 7 dans wpGeneratePowerbuildingDay",
+      "pass": true,
+      "msg": "code constraint présent"
+    },
+    {
+      "name": "E-01 buildChargeExplanation() est définie",
+      "pass": true,
+      "msg": "retourne un résultat"
+    },
+    {
+      "name": "E-02 buildChargeExplanation() retourne un résultat non-vide",
+      "pass": true,
+      "msg": "{\"text\":\"Charge augmentée de 8 % · Récupération basse (SRS 2"
+    },
+    {
+      "name": "F-01 Bouton \"Signaler un problème\" présent dans GO idle",
+      "pass": true,
+      "msg": "bouton trouvé"
+    },
+    {
+      "name": "F-02 goReportIssue() est définie",
+      "pass": true,
+      "msg": "function OK"
+    },
+    {
+      "name": "F-03 0 erreur console critique (tour de tous les onglets)",
+      "pass": true,
+      "msg": "0 erreur"
+    }
+  ]
+}

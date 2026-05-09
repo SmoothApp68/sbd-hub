@@ -243,8 +243,34 @@ async function syncFromCloud() {
         await syncToCloud(true);
         return true;
       }
-      // Cloud has changes after our last push — load it
-      db = cloudData;
+      // Cloud has changes after our last push — merge intelligently
+      var _localLogs = (typeof db !== 'undefined' && db && db.logs) ? db.logs.length : 0;
+      var _cloudLogs = (cloudData && cloudData.logs) ? cloudData.logs.length : 0;
+      // FIX 3 — preserve activeWorkout if a session is in progress
+      var _activeBackup = (typeof db !== 'undefined' && db) ? (db.activeWorkout || null) : null;
+      var _hasActiveSession = _activeBackup &&
+        _activeBackup.exercises && _activeBackup.exercises.length > 0 &&
+        !_activeBackup.isFinished;
+      var _didMergeLogs = false;
+      if (_localLogs > _cloudLogs) {
+        // FIX 1 — local has logs the cloud doesn't: merge local logs into cloud data
+        var _mergedData = Object.assign({}, cloudData);
+        _mergedData.logs = db.logs;
+        _mergedData.exercises = db.exercises || cloudData.exercises;
+        _mergedData.bestPR = db.bestPR || cloudData.bestPR;
+        db = _mergedData;
+        _didMergeLogs = true;
+        // Push merged result back to cloud immediately
+        setTimeout(function() { syncToCloud(true); }, 500);
+      } else {
+        // Cloud has same or more logs — cloud wins (last-write-wins)
+        db = cloudData;
+      }
+      // FIX 3 — restore active session that was in progress
+      if (_hasActiveSession) {
+        db.activeWorkout = _activeBackup;
+        setTimeout(function() { syncToCloud(true); }, 1200);
+      }
       if (db.weeklyPlan && db.weeklyPlan.days) {
         db.weeklyPlan.days.forEach(function(day) {
           if (day.exercises) day.exercises = day.exercises.filter(function(e) { return !e.isPrehab; });
@@ -263,7 +289,14 @@ async function syncFromCloud() {
       localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt));
       localStorage.setItem('_lastCloudPush', String(cloudTs));
       refreshUI();
-      showToast('Données cloud chargées !');
+      // FIX 2 — toast contextuel selon le type de sync
+      if (_hasActiveSession) {
+        showToast('⚠️ Sync partielle — séance en cours préservée');
+      } else if (_didMergeLogs) {
+        showToast('✅ Séances offline synchronisées (' + _localLogs + ' logs)');
+      } else {
+        showToast('Données cloud chargées !');
+      }
       return true;
     } else {
       showToast('Aucune donnée cloud trouvée');

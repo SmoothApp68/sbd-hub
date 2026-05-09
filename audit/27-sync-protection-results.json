@@ -1,0 +1,92 @@
+{
+  "total": 17,
+  "pass": 17,
+  "fail": 0,
+  "results": [
+    {
+      "name": "SYNC-01a syncFromCloud() est définie",
+      "pass": true,
+      "msg": "fonction disponible"
+    },
+    {
+      "name": "SYNC-01b local(5) > cloud(3) → merge déclenché",
+      "pass": true,
+      "msg": "localLogs=5 cloudLogs=3"
+    },
+    {
+      "name": "SYNC-01c merged a 5 logs (local wins)",
+      "pass": true,
+      "msg": "mergedLogs=5"
+    },
+    {
+      "name": "SYNC-01d données cloud préservées (user.name cloud)",
+      "pass": true,
+      "msg": "cloudNamePreserved=true"
+    },
+    {
+      "name": "SYNC-02a séance active correctement détectée",
+      "pass": true,
+      "msg": "detectedAsActive=true"
+    },
+    {
+      "name": "SYNC-02b activeWorkout.id préservé après overwrite cloud",
+      "pass": true,
+      "msg": "id=test-session-123"
+    },
+    {
+      "name": "SYNC-02c activeWorkout.exercises préservé",
+      "pass": true,
+      "msg": "exercises=1"
+    },
+    {
+      "name": "SYNC-02d données cloud prises pour le reste (user.name)",
+      "pass": true,
+      "msg": "cloudNameTaken=true"
+    },
+    {
+      "name": "SYNC-03a local(2) <= cloud(3) → PAS de merge (cloud wins)",
+      "pass": true,
+      "msg": "local=2 cloud=3"
+    },
+    {
+      "name": "SYNC-03b cloud data prise telle quelle (3 logs cloud)",
+      "pass": true,
+      "msg": "resultLogs=3"
+    },
+    {
+      "name": "SYNC-03c user.name = cloud (comportement actuel préservé)",
+      "pass": true,
+      "msg": "CloudWins"
+    },
+    {
+      "name": "SYNC-04a merge pattern dans source (minification-safe)",
+      "pass": true,
+      "msg": "hasMergePattern=true"
+    },
+    {
+      "name": "SYNC-04b activeWorkout backup + isFinished check dans source",
+      "pass": true,
+      "msg": "activeBackup=true isFinished=true"
+    },
+    {
+      "name": "SYNC-04c Object.assign merge dans source",
+      "pass": true,
+      "msg": "hasMergedData=true"
+    },
+    {
+      "name": "SYNC-04d toast \"Séances offline\" dans source",
+      "pass": true,
+      "msg": "hasMergeToast=true"
+    },
+    {
+      "name": "SYNC-04e toast \"séance en cours\" dans source",
+      "pass": true,
+      "msg": "hasActiveToast=true"
+    },
+    {
+      "name": "SYNC-04f 0 erreur console critique",
+      "pass": true,
+      "msg": "0 erreur"
+    }
+  ]
+}

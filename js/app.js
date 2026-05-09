@@ -2819,31 +2819,31 @@ document.getElementById('dayButtonsContainer').addEventListener('click', e => { 
 // GAMIFICATION — XP, NIVEAUX, BADGES
 // ============================================================
 const XP_LEVELS = [
-  { level:1,  name:'Âme errante',             xp:0,       icon:'👻' },
-  { level:2,  name:'Porteur de lame',         xp:500,     icon:'🗡️' },
-  { level:3,  name:'Recrue du Rukongai',      xp:1500,    icon:'🏘️' },
-  { level:4,  name:'Élève de l\'Académie',    xp:3500,    icon:'📜' },
-  { level:5,  name:'Faucheur d\'âmes',        xp:6000,    icon:'💀' },
-  { level:6,  name:'Lame nommée',             xp:10000,   icon:'⚔️' },
-  { level:7,  name:'Gardien de division',     xp:16000,   icon:'🛡️' },
-  { level:8,  name:'Chasseur de Hollows',     xp:24000,   icon:'👹' },
-  { level:9,  name:'Porteur du masque',       xp:35000,   icon:'🎭' },
-  { level:10, name:'Lame libérée',            xp:50000,   icon:'✨' },
-  { level:11, name:'Bras droit du Capitaine', xp:70000,   icon:'💪' },
-  { level:12, name:'Maître de division',      xp:95000,   icon:'🏯' },
-  { level:13, name:'Éveilleur de Bankai',     xp:125000,  icon:'🔥' },
-  { level:14, name:'Lame finale',             xp:160000,  icon:'⚡' },
-  { level:15, name:'Dévoreur de mondes',      xp:200000,  icon:'🌑' },
-  { level:16, name:'Sang Royal',              xp:240000,  icon:'👑' },
-  { level:17, name:'Fléau du Seireitei',      xp:280000,  icon:'🌊' },
-  { level:18, name:'Flamme millénaire',       xp:320000,  icon:'🔱' },
-  { level:19, name:'Trancheur de ciel',       xp:360000,  icon:'⛩️' },
-  { level:20, name:'L\'Ombre qui marche',     xp:400000,  icon:'🌒' },
-  { level:21, name:'Forgeur d\'âmes',         xp:430000,  icon:'⚒️' },
-  { level:22, name:'Au-delà de la lame',      xp:455000,  icon:'🌟' },
-  { level:23, name:'Gardien du Trône',        xp:475000,  icon:'🏰' },
-  { level:24, name:'Dieu déchu',              xp:490000,  icon:'💫' },
-  { level:25, name:'Roi des Âmes',            xp:500000,  icon:'👁️' },
+  { level:1,  name:'Novice',                  xp:0,       icon:'🌱' },
+  { level:2,  name:'Pratiquant',              xp:500,     icon:'🏋️' },
+  { level:3,  name:'Initié',                  xp:1500,    icon:'📘' },
+  { level:4,  name:'Apprenti de Force',       xp:3500,    icon:'📜' },
+  { level:5,  name:'Athlète',                 xp:6000,    icon:'💪' },
+  { level:6,  name:'Athlète Confirmé',        xp:10000,   icon:'⚔️' },
+  { level:7,  name:'Garde des Records',       xp:16000,   icon:'🛡️' },
+  { level:8,  name:'Chasseur de PR',          xp:24000,   icon:'🎯' },
+  { level:9,  name:'Maître Technicien',       xp:35000,   icon:'🎭' },
+  { level:10, name:'Force Libérée',           xp:50000,   icon:'✨' },
+  { level:11, name:'Pilier de la Salle',      xp:70000,   icon:'🏛️' },
+  { level:12, name:'Maître Coach',            xp:95000,   icon:'🏯' },
+  { level:13, name:'Éveil de Puissance',      xp:125000,  icon:'🔥' },
+  { level:14, name:'Force Ultime',            xp:160000,  icon:'⚡' },
+  { level:15, name:'Briseur de Limites',      xp:200000,  icon:'🌑' },
+  { level:16, name:'Sang de Champion',        xp:240000,  icon:'👑' },
+  { level:17, name:'Fléau de la Fonte',       xp:280000,  icon:'🌊' },
+  { level:18, name:'Flamme Inextinguible',    xp:320000,  icon:'🔱' },
+  { level:19, name:'Trancheur d\'Acier',      xp:360000,  icon:'⛩️' },
+  { level:20, name:'L\'Ombre Inarrêtable',    xp:400000,  icon:'🌒' },
+  { level:21, name:'Forgeur de Records',      xp:430000,  icon:'⚒️' },
+  { level:22, name:'Au-delà du Plateau',      xp:455000,  icon:'🌟' },
+  { level:23, name:'Gardien du Sanctuaire',   xp:475000,  icon:'🏰' },
+  { level:24, name:'Titan Légendaire',        xp:490000,  icon:'💫' },
+  { level:25, name:'Roi de la Force',         xp:500000,  icon:'👁️' },
 ];
 
 const BADGE_THRESHOLDS = {
@@ -3664,14 +3664,14 @@ var MONTHLY_QUEST_POOL = [
 
 // ── Player Classes (Archetypes) ──
 const PLAYER_CLASSES = [
-  { id:'iop',      icon:'⚔️',  name:'Guerrier',      desc:'Force brute. Tu vis pour les charges lourdes, rien d\'autre.' },
-  { id:'sacrieur', icon:'🩸',  name:'Combattant', desc:'Tu sacrifies tout pour la pompe. Le volume est ta religion.' },
-  { id:'pandawa',  icon:'🍶',  name:'Équilibriste',  desc:'Patient et équilibré. Tu joues sur le long terme.' },
-  { id:'osamodas', icon:'🐉',  name:'Osamodas', desc:'Instinctif. Tu écoutes ton corps et varies sans cesse.' },
-  { id:'xelor',    icon:'⏳',  name:'Stratège',    desc:'Tout est planifié. La périodisation, c\'est ton art.' },
-  { id:'feca',     icon:'🛡️', name:'Feca',     desc:'Technique et prévention. Ton temple, tu le protèges.' },
-  { id:'ecaflip',  icon:'🎲',  name:'Ecaflip',  desc:'Irrégulier mais enthousiaste. Tu y vas quand tu peux.' },
-  { id:'enutrof',  icon:'💰',  name:'Enutrof',  desc:'Vétéran. Des années de fer, des progressions en béton.' }
+  { id:'iop',      icon:'⚔️',  name:'Guerrier',       desc:'Force brute. Tu vis pour les charges lourdes, rien d\'autre.' },
+  { id:'sacrieur', icon:'🩸',  name:'Combattant',     desc:'Tu sacrifies tout pour la pompe. Le volume est ta religion.' },
+  { id:'pandawa',  icon:'🍶',  name:'Équilibriste',   desc:'Patient et équilibré. Tu joues sur le long terme.' },
+  { id:'osamodas', icon:'🐉',  name:'Instinctif',     desc:'Tu écoutes ton corps et varies sans cesse.' },
+  { id:'xelor',    icon:'⏳',  name:'Stratège',       desc:'Tout est planifié. La périodisation, c\'est ton art.' },
+  { id:'feca',     icon:'🛡️', name:'Protecteur',     desc:'Technique et prévention. Ton temple, tu le protèges.' },
+  { id:'ecaflip',  icon:'🎲',  name:'Joueur',         desc:'Irrégulier mais enthousiaste. Tu y vas quand tu peux.' },
+  { id:'enutrof',  icon:'💰',  name:'Vétéran',        desc:'Des années de fer, des progressions en béton.' }
 ];
 
 // ── Quiz Questions (7) ──
@@ -7203,7 +7203,7 @@ function renderWeekCard() {
   var _srs = typeof computeSRS === 'function' ? computeSRS() : null;
   var _srsScore = (_srs && typeof _srs.score === 'number') ? _srs.score : 75;
   var _srsColor = _srsScore >= 70 ? 'var(--green)' : _srsScore >= 40 ? 'var(--orange)' : 'var(--red)';
-  var _acwr = typeof computeACWR === 'function' ? computeACWR() : null;
+  var _acwr = (_srs && typeof _srs.acwr === 'number') ? _srs.acwr : null;
   var _acwrStr = (_acwr && _acwr > 0) ? _acwr.toFixed(1) : '—';
   var _acwrColor = (_acwr && _acwr >= 0.8 && _acwr <= 1.3) ? 'var(--green)' : 'var(--orange)';
   var _todayStr = new Date().toISOString().split('T')[0];

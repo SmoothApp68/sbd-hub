@@ -20537,6 +20537,61 @@ function renderGoActiveView() {
 }
 
 // ── Render a single exercise card ──
+// Audit Trail — explique pourquoi la charge proposée diffère de la shadowWeight.
+// Retourne null si la variation est négligeable ou si aucune raison active n'a été détectée.
+function buildChargeExplanation(exoName, calculatedWeight, shadowWeight) {
+  if (!shadowWeight || shadowWeight <= 0 || !calculatedWeight) return null;
+  var diff = calculatedWeight - shadowWeight;
+  var pct = Math.round(Math.abs(diff) / shadowWeight * 100);
+  if (pct < 3) return null; // Variation négligeable
+
+  var reasons = [];
+
+  if (db._killSwitchActive) reasons.push('Mode Compétition actif');
+
+  var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  if (srs && typeof srs.score === 'number' && srs.score < 50) {
+    reasons.push('Récupération basse (SRS ' + srs.score + ')');
+  }
+
+  var acwr = typeof computeACWR === 'function' ? computeACWR() : null;
+  if (acwr && acwr > 1.3) reasons.push('Charge hebdo élevée (ACWR ' + acwr + ')');
+
+  var wb = db.todayWellbeing;
+  var todayStr = new Date().toISOString().split('T')[0];
+  if (wb && wb.date === todayStr && wb.sleep && wb.sleep <= 2) {
+    reasons.push('Sommeil insuffisant (' + wb.sleep + '/5)');
+  }
+
+  if (db.user && db.user.menstrualEnabled && typeof getCurrentMenstrualPhase === 'function') {
+    var phase = getCurrentMenstrualPhase();
+    if (phase === 'luteale') reasons.push('Phase lutéale (-12 %)');
+    else if (phase === 'folliculaire_precoce') reasons.push('Phase folliculaire précoce (-8 %)');
+  }
+
+  if (db.user && db.user.weightCut && db.user.weightCut.active) {
+    reasons.push('Weight Cut actif');
+  }
+
+  if (db.todayWellbeing && db.todayWellbeing.rhrAlert) {
+    var lvl = db.todayWellbeing.rhrAlert.level;
+    if (lvl === 'danger' || lvl === 'warning') reasons.push('FC repos élevée');
+  }
+
+  if (typeof getAbsencePenalty === 'function') {
+    var abs = getAbsencePenalty();
+    if (abs && abs.factor < 1.0) reasons.push('Reprise (' + (abs.days || '?') + 'j absence)');
+  }
+
+  if (reasons.length === 0) return null;
+
+  var direction = diff < 0 ? 'réduite' : 'augmentée';
+  return {
+    text: 'Charge ' + direction + ' de ' + pct + ' % · ' + reasons.join(' · '),
+    color: diff < 0 ? 'var(--orange)' : 'var(--green)'
+  };
+}
+
 function renderGoExoCard(exo, exoIdx, allE1RMs) {
   var ms = _ecMuscleStyle(exo.name);
   var tt = goGetExoTrackingType(exo);
@@ -20592,6 +20647,13 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
         + 'style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;padding:0 2px;vertical-align:middle;" title="Pourquoi ce poids ?">ℹ️</button>';
     }
     h += '</div>';
+  }
+  // Audit Trail — pourquoi la charge a changé (raisons inline)
+  var _chargeExp = buildChargeExplanation(exo.name, _suggestedW, _shadowW);
+  if (_chargeExp) {
+    h += '<div style="font-size:10px;color:' + _chargeExp.color + ';'
+      + 'margin-top:4px;padding:4px 8px;border-radius:6px;'
+      + 'background:rgba(255,255,255,0.03);">ⓘ ' + _chargeExp.text + '</div>';
   }
   if (isBarbellExercise(exo.name) && _suggestedW > 0 && typeof formatPlates === 'function') {
     var _platesId = 'plates-' + exoIdx;

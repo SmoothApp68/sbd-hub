@@ -7552,6 +7552,11 @@ function renderSBDTotal() {
       sbdPairs.forEach(function(p) {
         var ctx = document.getElementById('chartSBD_' + p.label);
         if (!ctx) return;
+        // Détruire toute instance Chart.js existante attachée au canvas
+        try {
+          var _existingP = (Chart.getChart) ? Chart.getChart(ctx) : null;
+          if (_existingP) _existingP.destroy();
+        } catch(e) {}
         var vals = [p.real, p.est, p.tgt].filter(function(v) { return v > 0; });
         var maxVal = vals.length ? Math.max.apply(null, vals) : 100;
         var minVal = vals.length ? Math.min.apply(null, vals) : 0;
@@ -7626,6 +7631,11 @@ function renderSBDTotal() {
     requestAnimationFrame(function() {
       var ctx = document.getElementById('chartSBDCanvas');
       if (!ctx) return;
+      // Détruire toute instance Chart.js existante attachée au canvas
+      try {
+        var _existingS = (Chart.getChart) ? Chart.getChart(ctx) : null;
+        if (_existingS) _existingS.destroy();
+      } catch(e) {}
       var longestLabels = datasets.reduce(function(a, b) { return a._xlabels.length >= b._xlabels.length ? a : b; })._xlabels;
       chartSBD = new Chart(ctx, {
         type: 'line',
@@ -8003,6 +8013,11 @@ function renderPerfCard() {
     requestAnimationFrame(function() {
       var ctxBar = document.getElementById('chartPerfDash');
       if (!ctxBar) return;
+      // Détruire toute instance Chart.js existante attachée au canvas
+      try {
+        var _existing = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(ctxBar) : null;
+        if (_existing) _existing.destroy();
+      } catch(e) {}
       chartPerf = new Chart(ctxBar, {
         type: 'bar',
         data: {
@@ -8072,6 +8087,11 @@ function renderPerfCard() {
   requestAnimationFrame(function() {
     var ctxLine = document.getElementById('chartPerfLine');
     if (!ctxLine) return;
+    // Détruire toute instance Chart.js existante attachée au canvas
+    try {
+      var _existingL = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(ctxLine) : null;
+      if (_existingL) _existingL.destroy();
+    } catch(e) {}
     window._chartPerfLine = new Chart(ctxLine, {
       type: 'line',
       data: {
@@ -8644,7 +8664,13 @@ function renderVolumeChart(period) {
   if (typeof Chart === 'undefined') { const cv = document.getElementById('chartVolume'); if (cv) cv.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
   period = period || 'week';
   setPeriodButtons('volumeButtons', period);
-  const cv = document.getElementById('chartVolume'); if (!cv) return; if (chartVolume) chartVolume.destroy();
+  const cv = document.getElementById('chartVolume'); if (!cv) return;
+  if (chartVolume) { try { chartVolume.destroy(); } catch(e) {} chartVolume = null; }
+  // Détruire toute instance Chart.js déjà attachée au canvas (cas race condition)
+  try {
+    const _existingV = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(cv) : null;
+    if (_existingV) _existingV.destroy();
+  } catch(e) {}
   // 'week' = 10 dernières séances, 'month' = 30 dernières séances
   const limit = period === 'week' ? 10 : 30;
   const vl = [...db.logs].sort((a,b) => a.timestamp-b.timestamp).filter(l => l.volume > 0).slice(-limit);
@@ -13337,8 +13363,13 @@ function setMuscleView(v) {
 
 function renderMuscleEvolChart() {
   const ctx = document.getElementById('chartMuscleEvol'); if (!ctx) return;
-  if (typeof Chart === 'undefined') { ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
-  if (chartMuscleEvol) chartMuscleEvol.destroy();
+  if (typeof Chart === 'undefined') { if (ctx.parentElement) ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
+  if (chartMuscleEvol) { try { chartMuscleEvol.destroy(); } catch(e) {} chartMuscleEvol = null; }
+  // Détruire toute instance Chart.js déjà attachée au canvas
+  try {
+    const _existingM = Chart.getChart ? Chart.getChart(ctx) : null;
+    if (_existingM) _existingM.destroy();
+  } catch(e) {}
 
   const now = Date.now(); const week = 7*86400000;
   const weeks = [

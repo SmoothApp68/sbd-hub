@@ -18220,6 +18220,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     var setsCount = wpSetsForPhase(phase);
     var rpe = variant.rpe;
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
+    // Kill Switch — Mode Préservation : volume -40 %, RPE plafonné à 7
+    if (db._killSwitchActive) {
+      setsCount = Math.max(2, Math.floor(setsCount * 0.60));
+      if (rpe > 7) rpe = 7;
+    }
     var mainName = variant.name;
     // DUP : override reps / rpe / setsCount si profil actif
     if (_dupProfile) {
@@ -18259,7 +18264,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       mainExoObj.coachNote = (mainExoObj.coachNote || '') + ' 💡 Si les paliers d\'échauffement semblent légers (RPE < 7), tente +5kg sur le Top Set.';
     }
     // Back-Off Sets Dynamiques — force / intensification / peak uniquement
-    if (phase === 'force' || phase === 'intensification' || phase === 'peak') {
+    // Kill Switch désactive les séries dégressives pour préserver le SNC
+    if ((phase === 'force' || phase === 'intensification' || phase === 'peak') && !db._killSwitchActive) {
       if (typeof computeBackOffSets === 'function' && weight > 0) {
         var backOffResult = computeBackOffSets(weight, rpe, rpe, 3, bodyPart);
         if (backOffResult.sets.length) {
@@ -18339,6 +18345,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       sc = Math.max(1, sc - 1);
     }
     if (isCutting) sc = Math.max(2, Math.floor(sc * 0.7));
+    // Kill Switch : volume accessoires -40 % et RPE plafonné à 7
+    if (db._killSwitchActive) {
+      sc = Math.max(1, Math.floor(sc * 0.60));
+      if (acc.rpe && acc.rpe > 7) acc = Object.assign({}, acc, { rpe: 7 });
+    }
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;
     var dpResult = wpDoubleProgressionWeight(acc.name, repsLow, repsHigh);
@@ -20537,6 +20548,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   var isSuperset = goIsPartOfSuperset(exoIdx);
   var supersetStyle = isSuperset ? 'border-left:3px solid ' + goGetSupersetColor(exoIdx) + ';' : '';
   var h = '<div class="go-exo-card" style="' + supersetStyle + '">';
+
+  // Kill Switch — bannière par exercice : Mode Préservation actif
+  if (db._killSwitchActive) {
+    h += '<div style="background:rgba(255,159,10,0.1);border-radius:8px;'
+      + 'padding:6px 10px;margin:4px 8px 8px;font-size:11px;color:var(--orange);'
+      + 'font-weight:600;text-align:center;">'
+      + '🏆 Mode Préservation — RPE max 7 · Volume −40 %</div>';
+  }
   // Superset link button
   if (exoIdx < activeWorkout.exercises.length - 1) {
     var isLinked = exo.supersetWith === exoIdx + 1;

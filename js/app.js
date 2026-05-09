@@ -19001,7 +19001,17 @@ function generateWeeklyPlan() {
     var freq        = params.freq || 4;
     var phase       = wpDetectPhase();
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-    var selectedDays = params.selectedDays || allDays.slice(0, freq);
+    // Sensible fallback : avoid Wed/Sun (rest middle + weekend) instead of first-N
+    var _DEFAULT_DAYS_BY_FREQ = {
+      2: ['Lundi','Jeudi'],
+      3: ['Lundi','Mercredi','Vendredi'],
+      4: ['Lundi','Mardi','Jeudi','Vendredi'],
+      5: ['Lundi','Mardi','Jeudi','Vendredi','Samedi'],
+      6: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+    };
+    var selectedDays = (params.selectedDays && params.selectedDays.length === freq)
+      ? params.selectedDays
+      : (_DEFAULT_DAYS_BY_FREQ[freq] || allDays.slice(0, freq));
 
     // Debug: trace what the generator received and what it derives.
     if (typeof DEBUG !== 'undefined' && DEBUG) {

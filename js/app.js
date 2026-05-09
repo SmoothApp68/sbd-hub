@@ -15044,6 +15044,27 @@ function renderCoachTodayHTML() {
   var pr = db.bestPR || {};
   var html = '';
 
+  // ── 0a. KILL SWITCH BANNER — compétition imminente ──
+  if (db._killSwitchActive) {
+    var _ksDays = db._killSwitchDate
+      ? Math.ceil((new Date(db._killSwitchDate).getTime() - Date.now()) / 86400000)
+      : null;
+    html += '<div style="background:rgba(255,69,58,0.08);border:0.5px solid '
+      + 'rgba(255,69,58,0.3);border-radius:14px;padding:14px;margin-bottom:14px;">';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+    html += '<span style="font-size:20px;">🏆</span><div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--red);">'
+      + 'Mode Compétition actif</div>';
+    if (_ksDays !== null && _ksDays > 0) {
+      html += '<div style="font-size:11px;color:var(--sub);">J-' + _ksDays + '</div>';
+    }
+    html += '</div></div>';
+    html += '<div style="font-size:12px;color:var(--text);line-height:1.6;">'
+      + 'Programme de préservation. Charges fixes, récupération maximale. '
+      + 'Ton corps est prêt — protège ce que tu as construit.</div>';
+    html += '</div>';
+  }
+
   // ── 0. BILAN DU MATIN ──
   html += renderMorningCheckin();
 

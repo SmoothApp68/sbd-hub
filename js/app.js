@@ -20148,7 +20148,7 @@ function updateHRDisplay() {
   var hrPct = Math.round(_currentHR / maxHR * 100);
   var zone = hrPct < 60 ? 1 : hrPct < 70 ? 2 : hrPct < 80 ? 3 : hrPct < 90 ? 4 : 5;
   var zoneColors = ['#64D2FF','#32D74B','#FF9F0A','#FF6B35','#FF453A'];
-  var zoneLabels = ['Repos','Aérobie','Tempo','Seuil','Max'];
+  var zoneLabels = ['Récup active','Aérobie','Tempo','Seuil','Max'];
   var color = zoneColors[zone - 1];
   var ready = hrPct < 65;
 

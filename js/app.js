@@ -14714,7 +14714,27 @@ function setPrehabEnabled(enabled) {
   if (typeof refreshUI === 'function') refreshUI();
 }
 
-function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'freq', f); }
+function setSettingsFreq(f, btn) {
+  _toggleSingleSelect('settingsFreq', btn, 'freq', f);
+  // Auto-adjust selectedDays so it always matches new freq — avoids silent
+  // fallback in generateWeeklyPlan() when length mismatches.
+  if (!db.user.programParams) db.user.programParams = {};
+  var current = (db.user.programParams.selectedDays || []).slice();
+  if (current.length !== f) {
+    if (current.length > f) {
+      db.user.programParams.selectedDays = current.slice(0, f);
+    } else {
+      var defaults = (typeof _pbDefaultDaysForFreq === 'function')
+        ? _pbDefaultDaysForFreq(f)
+        : ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'].slice(0, f);
+      db.user.programParams.selectedDays = defaults;
+    }
+    _debouncedSaveSettings();
+    if (typeof renderSettingsProfile === 'function') {
+      try { renderSettingsProfile(); } catch(e) {}
+    }
+  }
+}
 function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
 function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
 function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }

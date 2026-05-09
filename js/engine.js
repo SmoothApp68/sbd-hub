@@ -172,7 +172,18 @@ function normalizeInjury(inj) {
     var jointToZone = {
       knee: 'genou', shoulder: 'epaule', elbow: 'coude',
       wrist: 'poignet', lower_back: 'lombaires', hip: 'hanches',
-      ankle: 'cheville', neck: 'cervicales'
+      ankle: 'cheville', neck: 'cervicales',
+      groin: 'adducteurs', adductor: 'adducteurs', adductors: 'adducteurs',
+      hamstring: 'ischios', hamstrings: 'ischios',
+      pec: 'pectoraux', chest: 'pectoraux', pectoral: 'pectoraux',
+      calf: 'mollets', calves: 'mollets',
+      quad: 'quadriceps', quadriceps: 'quadriceps',
+      bicep: 'biceps', biceps: 'biceps',
+      tricep: 'triceps', triceps: 'triceps',
+      forearm: 'avant_bras', forearms: 'avant_bras',
+      glute: 'fessiers', glutes: 'fessiers',
+      lat: 'dos', lats: 'dos', back: 'dos',
+      abs: 'abdos', core: 'abdos'
     };
     var severityToLevel = { mild: 1, moderate: 2, severe: 3 };
     return {

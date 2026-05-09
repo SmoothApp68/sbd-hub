@@ -350,6 +350,31 @@ window.addEventListener('beforeunload', _flushDB);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'hidden') _flushDB();
 });
+
+// Global error trap — capture "n is not a function" et autres TypeError
+// minifiés pour que l'app ne plante pas silencieusement chez l'utilisateur.
+window.addEventListener('error', function(event) {
+  if (!event || !event.error) return;
+  var msg = String(event.error.message || event.message || 'Unknown error');
+  // Ignorer les erreurs réseau/Supabase déjà gérées ailleurs
+  if (/Failed to fetch|NetworkError|Load failed|ResizeObserver/i.test(msg)) return;
+  try {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('window_error', msg.substring(0, 500),
+        (event.filename || '?') + ':' + (event.lineno || '?'));
+    }
+  } catch(e) {}
+});
+window.addEventListener('unhandledrejection', function(event) {
+  if (!event || !event.reason) return;
+  var msg = String(event.reason.message || event.reason || 'Unhandled rejection');
+  if (/Failed to fetch|NetworkError|Load failed|AbortError/i.test(msg)) return;
+  try {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('unhandled_rejection', msg.substring(0, 500), 'promise');
+    }
+  } catch(e) {}
+});
 function debouncedCloudSync() {
   if (!cloudSyncEnabled) return;
   if (!navigator.onLine) {
@@ -934,9 +959,12 @@ function importData() {
       db = sanitizeDB(_restoreData);
       saveDB();
       _restoreData = null;
-      document.getElementById('restoreFileInput').value = '';
-      document.getElementById('restorePreview').style.display = 'none';
-      document.getElementById('restoreBtn').disabled = true;
+      var _rfi = document.getElementById('restoreFileInput');
+      var _rpv = document.getElementById('restorePreview');
+      var _rbt = document.getElementById('restoreBtn');
+      if (_rfi) _rfi.value = '';
+      if (_rpv) _rpv.style.display = 'none';
+      if (_rbt) _rbt.disabled = true;
       refreshUI();
       showToast('✓ Données restaurées !');
     }
@@ -1317,7 +1345,8 @@ let obCompDate    = null;
 let obCompType    = 'powerlifting';
 
 function showOnboarding() {
-  document.getElementById('onboarding-overlay').style.display = 'flex';
+  var _ob = document.getElementById('onboarding-overlay');
+  if (_ob) _ob.style.display = 'flex';
   obStepHistory = [];
   obSelectedDays = [];
   _obSelectedGoal = db.user.goal || 'masse';
@@ -1349,7 +1378,8 @@ function showOnboarding() {
   renderDayPicker();
 }
 function hideOnboarding() {
-  document.getElementById('onboarding-overlay').style.display = 'none';
+  var _ob = document.getElementById('onboarding-overlay');
+  if (_ob) _ob.style.display = 'none';
 }
 
 function gotoObStep(stepId) {
@@ -7339,21 +7369,31 @@ function renderWeekCard() {
 }
 
 function renderDash() {
-  // Carte bienvenue
-  const welcomeCard = document.getElementById('welcomeCard');
-  if (welcomeCard) {
-    const noData = !db.logs || db.logs.length === 0;
-    welcomeCard.style.display = noData ? '' : 'none';
-    if (noData && db.user.name) {
-      const title = document.getElementById('welcomeTitle');
-      if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
+  try {
+    // Carte bienvenue
+    const welcomeCard = document.getElementById('welcomeCard');
+    if (welcomeCard) {
+      const noData = !db.logs || db.logs.length === 0;
+      welcomeCard.style.display = noData ? '' : 'none';
+      if (noData && db.user.name) {
+        const title = document.getElementById('welcomeTitle');
+        if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
+      }
+    }
+
+    requestAnimationFrame(function() {
+      try { renderWeekCard(); } catch (e) {
+        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderWeekCard');
+      }
+      try { renderPerfCard(); } catch (e) {
+        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderPerfCard');
+      }
+    });
+  } catch (err) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('render_crash', String(err && err.message || err), 'renderDash');
     }
   }
-
-  requestAnimationFrame(function() {
-    renderWeekCard();
-    renderPerfCard();
-  });
 }
 
 
@@ -7547,6 +7587,11 @@ function renderSBDTotal() {
       sbdPairs.forEach(function(p) {
         var ctx = document.getElementById('chartSBD_' + p.label);
         if (!ctx) return;
+        // Détruire toute instance Chart.js existante attachée au canvas
+        try {
+          var _existingP = (Chart.getChart) ? Chart.getChart(ctx) : null;
+          if (_existingP) _existingP.destroy();
+        } catch(e) {}
         var vals = [p.real, p.est, p.tgt].filter(function(v) { return v > 0; });
         var maxVal = vals.length ? Math.max.apply(null, vals) : 100;
         var minVal = vals.length ? Math.min.apply(null, vals) : 0;
@@ -7621,6 +7666,11 @@ function renderSBDTotal() {
     requestAnimationFrame(function() {
       var ctx = document.getElementById('chartSBDCanvas');
       if (!ctx) return;
+      // Détruire toute instance Chart.js existante attachée au canvas
+      try {
+        var _existingS = (Chart.getChart) ? Chart.getChart(ctx) : null;
+        if (_existingS) _existingS.destroy();
+      } catch(e) {}
       var longestLabels = datasets.reduce(function(a, b) { return a._xlabels.length >= b._xlabels.length ? a : b; })._xlabels;
       chartSBD = new Chart(ctx, {
         type: 'line',
@@ -7998,6 +8048,11 @@ function renderPerfCard() {
     requestAnimationFrame(function() {
       var ctxBar = document.getElementById('chartPerfDash');
       if (!ctxBar) return;
+      // Détruire toute instance Chart.js existante attachée au canvas
+      try {
+        var _existing = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(ctxBar) : null;
+        if (_existing) _existing.destroy();
+      } catch(e) {}
       chartPerf = new Chart(ctxBar, {
         type: 'bar',
         data: {
@@ -8067,6 +8122,11 @@ function renderPerfCard() {
   requestAnimationFrame(function() {
     var ctxLine = document.getElementById('chartPerfLine');
     if (!ctxLine) return;
+    // Détruire toute instance Chart.js existante attachée au canvas
+    try {
+      var _existingL = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(ctxLine) : null;
+      if (_existingL) _existingL.destroy();
+    } catch(e) {}
     window._chartPerfLine = new Chart(ctxLine, {
       type: 'line',
       data: {
@@ -8639,7 +8699,13 @@ function renderVolumeChart(period) {
   if (typeof Chart === 'undefined') { const cv = document.getElementById('chartVolume'); if (cv) cv.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
   period = period || 'week';
   setPeriodButtons('volumeButtons', period);
-  const cv = document.getElementById('chartVolume'); if (!cv) return; if (chartVolume) chartVolume.destroy();
+  const cv = document.getElementById('chartVolume'); if (!cv) return;
+  if (chartVolume) { try { chartVolume.destroy(); } catch(e) {} chartVolume = null; }
+  // Détruire toute instance Chart.js déjà attachée au canvas (cas race condition)
+  try {
+    const _existingV = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(cv) : null;
+    if (_existingV) _existingV.destroy();
+  } catch(e) {}
   // 'week' = 10 dernières séances, 'month' = 30 dernières séances
   const limit = period === 'week' ? 10 : 30;
   const vl = [...db.logs].sort((a,b) => a.timestamp-b.timestamp).filter(l => l.volume > 0).slice(-limit);
@@ -8894,7 +8960,7 @@ function previewCSV(input) {
   const reader=new FileReader();
   reader.onload=e=>{
     const text=e.target.result;const result=parseCSVData(text);
-    if(!result){document.getElementById('csvPreview').style.display='block';document.getElementById('csvPreview').innerHTML='<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';document.getElementById('csvImportBtn').disabled=true;return;}
+    if(!result){var _cp=document.getElementById('csvPreview');var _cb=document.getElementById('csvImportBtn');if(_cp){_cp.style.display='block';_cp.innerHTML='<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';}if(_cb)_cb.disabled=true;return;}
     csvParsedData=result;const preview=document.getElementById('csvPreview');preview.style.display='block';
     const existingKeys=new Set(db.logs.map(l=>(l.shortDate||'')+'_'+(l.title||'')));const newSessions=result.sessions.filter(s=>!existingKeys.has((s.shortDate||'')+'_'+(s.title||'')));
     preview.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;"><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--purple);">'+result.sessions.length+'</div><div>Séances</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--green);">'+newSessions.length+'</div><div>Nouvelles</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--blue);">'+result.totalRows+'</div><div>Séries</div></div></div><div style="font-size:11px;color:var(--sub);">Période : '+result.dateMin+' → '+result.dateMax+'</div>'+(newSessions.length<result.sessions.length?'<div style="font-size:11px;color:var(--orange);margin-top:4px;">⚠️ '+(result.sessions.length-newSessions.length)+' séance(s) déjà importée(s) — ignorées.</div>':'');
@@ -12896,9 +12962,13 @@ function renderSeancesTab() {
     currentWeekOffset === -1 ? 'Semaine passée' :
     'Il y a ' + Math.abs(currentWeekOffset) + ' semaines';
 
-  document.getElementById('prevWeekBtn').style.opacity = '1';
-  document.getElementById('nextWeekBtn').style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
-  document.getElementById('nextWeekBtn').disabled = currentWeekOffset >= 0;
+  var _prevWk = document.getElementById('prevWeekBtn');
+  var _nextWk = document.getElementById('nextWeekBtn');
+  if (_prevWk) _prevWk.style.opacity = '1';
+  if (_nextWk) {
+    _nextWk.style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
+    _nextWk.disabled = currentWeekOffset >= 0;
+  }
 
   var allWeekSessions = db.logs.filter(l => l.timestamp >= targetWeekStart && l.timestamp <= targetWeekEnd)
     .sort((a,b) => a.timestamp - b.timestamp);
@@ -13314,18 +13384,27 @@ function renderRadarImproved(period) {
 // ============================================================
 function setMuscleView(v) {
   currentMuscleView = v;
-  document.getElementById('muscleViewBarsBtn').classList.toggle('active', v==='bars');
-  document.getElementById('muscleViewEvolBtn').classList.toggle('active', v==='evol');
-  document.getElementById('muscleViewBarsSection').style.display = v==='bars' ? 'block' : 'none';
-  document.getElementById('muscleViewEvolSection').style.display = v==='evol' ? 'block' : 'none';
+  var _bb = document.getElementById('muscleViewBarsBtn');
+  var _be = document.getElementById('muscleViewEvolBtn');
+  var _bs = document.getElementById('muscleViewBarsSection');
+  var _es = document.getElementById('muscleViewEvolSection');
+  if (_bb) _bb.classList.toggle('active', v==='bars');
+  if (_be) _be.classList.toggle('active', v==='evol');
+  if (_bs) _bs.style.display = v==='bars' ? 'block' : 'none';
+  if (_es) _es.style.display = v==='evol' ? 'block' : 'none';
   if (v === 'evol') renderMuscleEvolChart();
   else renderMuscleVolumeContent(window._musclePeriod || 'week');
 }
 
 function renderMuscleEvolChart() {
   const ctx = document.getElementById('chartMuscleEvol'); if (!ctx) return;
-  if (typeof Chart === 'undefined') { ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
-  if (chartMuscleEvol) chartMuscleEvol.destroy();
+  if (typeof Chart === 'undefined') { if (ctx.parentElement) ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
+  if (chartMuscleEvol) { try { chartMuscleEvol.destroy(); } catch(e) {} chartMuscleEvol = null; }
+  // Détruire toute instance Chart.js déjà attachée au canvas
+  try {
+    const _existingM = Chart.getChart ? Chart.getChart(ctx) : null;
+    if (_existingM) _existingM.destroy();
+  } catch(e) {}
 
   const now = Date.now(); const week = 7*86400000;
   const weeks = [
@@ -14802,7 +14881,14 @@ function renderCoachToday() {
 
   if (!db.logs || db.logs.length === 0) {
     if (typeof isColdStart === 'function' && isColdStart()) {
-      el.innerHTML = renderCoachTodayHTML();
+      try {
+        el.innerHTML = renderCoachTodayHTML();
+      } catch (err) {
+        if (typeof logErrorToSupabase === 'function') {
+          logErrorToSupabase('render_crash', String(err && err.message || err), 'renderCoachTodayHTML');
+        }
+        el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sub);font-size:13px;">Coach indisponible — réessaie dans quelques secondes.</div>';
+      }
       return;
     }
     el.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--sub);font-size:13px;line-height:1.7;">'+
@@ -14811,7 +14897,14 @@ function renderCoachToday() {
     return;
   }
 
-  el.innerHTML = renderCoachTodayHTML();
+  try {
+    el.innerHTML = renderCoachTodayHTML();
+  } catch (err) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('render_crash', String(err && err.message || err), 'renderCoachTodayHTML');
+    }
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sub);font-size:13px;">Coach indisponible — réessaie dans quelques secondes.</div>';
+  }
 }
 
 function getWeeklyExternalLoad() {
@@ -18220,6 +18313,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     var setsCount = wpSetsForPhase(phase);
     var rpe = variant.rpe;
     if (isCutting) setsCount = Math.max(2, Math.floor(setsCount * 0.7));
+    // Kill Switch — Mode Préservation : volume -40 %, RPE plafonné à 7
+    if (db._killSwitchActive) {
+      setsCount = Math.max(2, Math.floor(setsCount * 0.60));
+      if (rpe > 7) rpe = 7;
+    }
     var mainName = variant.name;
     // DUP : override reps / rpe / setsCount si profil actif
     if (_dupProfile) {
@@ -18259,7 +18357,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       mainExoObj.coachNote = (mainExoObj.coachNote || '') + ' 💡 Si les paliers d\'échauffement semblent légers (RPE < 7), tente +5kg sur le Top Set.';
     }
     // Back-Off Sets Dynamiques — force / intensification / peak uniquement
-    if (phase === 'force' || phase === 'intensification' || phase === 'peak') {
+    // Kill Switch désactive les séries dégressives pour préserver le SNC
+    if ((phase === 'force' || phase === 'intensification' || phase === 'peak') && !db._killSwitchActive) {
       if (typeof computeBackOffSets === 'function' && weight > 0) {
         var backOffResult = computeBackOffSets(weight, rpe, rpe, 3, bodyPart);
         if (backOffResult.sets.length) {
@@ -18339,6 +18438,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       sc = Math.max(1, sc - 1);
     }
     if (isCutting) sc = Math.max(2, Math.floor(sc * 0.7));
+    // Kill Switch : volume accessoires -40 % et RPE plafonné à 7
+    if (db._killSwitchActive) {
+      sc = Math.max(1, Math.floor(sc * 0.60));
+      if (acc.rpe && acc.rpe > 7) acc = Object.assign({}, acc, { rpe: 7 });
+    }
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;
     var dpResult = wpDoubleProgressionWeight(acc.name, repsLow, repsHigh);
@@ -19581,14 +19685,23 @@ function renderFCWidget() {
 // GO TAB — Render principal
 // ============================================================
 function renderGoTab() {
-  if (activeWorkout) {
-    document.getElementById('goIdleView').style.display = 'none';
-    document.getElementById('goActiveView').style.display = 'block';
-    goRequestRender();
-  } else {
-    document.getElementById('goIdleView').style.display = 'block';
-    document.getElementById('goActiveView').style.display = 'none';
-    renderGoIdleView();
+  var idle = document.getElementById('goIdleView');
+  var act  = document.getElementById('goActiveView');
+  try {
+    if (activeWorkout) {
+      if (idle) idle.style.display = 'none';
+      if (act)  act.style.display = 'block';
+      goRequestRender();
+    } else {
+      if (idle) idle.style.display = 'block';
+      if (act)  act.style.display = 'none';
+      renderGoIdleView();
+    }
+  } catch (err) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('render_crash', String(err && err.message || err), 'renderGoTab');
+    }
+    if (idle) idle.innerHTML = '<div style="padding:24px;text-align:center;color:var(--sub);font-size:13px;">GO indisponible — réessaie dans quelques secondes.</div>';
   }
 }
 
@@ -19859,8 +19972,48 @@ function buildGoIdleHtml() {
       + '</div></div>';
   }
 
-  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+  // Bouton discret "Signaler un problème" en bas du GO
+  var reportHtml = '<div style="text-align:center;margin-top:16px;margin-bottom:8px;">'
+    + '<button onclick="goReportIssue()" '
+    + 'style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--border-card);'
+    + 'background:none;color:var(--sub);font-size:11px;cursor:pointer;">'
+    + '🐞 Signaler un problème</button></div>';
+
+  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml + reportHtml;
 }
+
+// Signalement bug utilisateur — log silencieux dans error_logs Supabase
+function goReportIssue() {
+  var msg = prompt('Décris le problème (charge incorrecte, bug d\'affichage, comportement étrange...) :');
+  if (!msg || !msg.trim()) return;
+  var ctx = {
+    exo: null,
+    setIdx: null,
+    srs: null,
+    acwr: null,
+    killSwitch: !!(typeof db !== 'undefined' && db._killSwitchActive),
+    weeklyPlan: !!(typeof db !== 'undefined' && db.weeklyPlan),
+    logsCount: (typeof db !== 'undefined' && db.logs) ? db.logs.length : 0
+  };
+  try {
+    if (typeof activeWorkout !== 'undefined' && activeWorkout && activeWorkout.exercises) {
+      var idx = activeWorkout.currentExoIdx || 0;
+      ctx.exo = (activeWorkout.exercises[idx] || {}).name || null;
+    }
+    if (typeof computeSRS === 'function') {
+      var s = computeSRS();
+      if (s) ctx.srs = s.score;
+    }
+    if (typeof computeACWR === 'function') ctx.acwr = computeACWR();
+  } catch(e) {}
+  if (typeof logErrorToSupabase === 'function') {
+    logErrorToSupabase('user_report', msg.substring(0, 500), 'goReportIssue', ctx);
+  }
+  if (typeof showToast === 'function') {
+    showToast('✅ Signalement envoyé — merci !');
+  }
+}
+if (typeof window !== 'undefined') window.goReportIssue = goReportIssue;
 
 // ── CHURN DETECTION + RÉACTIVATION (TÂCHE 16) ─────────────────
 function detectChurn() {
@@ -20526,6 +20679,61 @@ function renderGoActiveView() {
 }
 
 // ── Render a single exercise card ──
+// Audit Trail — explique pourquoi la charge proposée diffère de la shadowWeight.
+// Retourne null si la variation est négligeable ou si aucune raison active n'a été détectée.
+function buildChargeExplanation(exoName, calculatedWeight, shadowWeight) {
+  if (!shadowWeight || shadowWeight <= 0 || !calculatedWeight) return null;
+  var diff = calculatedWeight - shadowWeight;
+  var pct = Math.round(Math.abs(diff) / shadowWeight * 100);
+  if (pct < 3) return null; // Variation négligeable
+
+  var reasons = [];
+
+  if (db._killSwitchActive) reasons.push('Mode Compétition actif');
+
+  var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  if (srs && typeof srs.score === 'number' && srs.score < 50) {
+    reasons.push('Récupération basse (SRS ' + srs.score + ')');
+  }
+
+  var acwr = typeof computeACWR === 'function' ? computeACWR() : null;
+  if (acwr && acwr > 1.3) reasons.push('Charge hebdo élevée (ACWR ' + acwr + ')');
+
+  var wb = db.todayWellbeing;
+  var todayStr = new Date().toISOString().split('T')[0];
+  if (wb && wb.date === todayStr && wb.sleep && wb.sleep <= 2) {
+    reasons.push('Sommeil insuffisant (' + wb.sleep + '/5)');
+  }
+
+  if (db.user && db.user.menstrualEnabled && typeof getCurrentMenstrualPhase === 'function') {
+    var phase = getCurrentMenstrualPhase();
+    if (phase === 'luteale') reasons.push('Phase lutéale (-12 %)');
+    else if (phase === 'folliculaire_precoce') reasons.push('Phase folliculaire précoce (-8 %)');
+  }
+
+  if (db.user && db.user.weightCut && db.user.weightCut.active) {
+    reasons.push('Weight Cut actif');
+  }
+
+  if (db.todayWellbeing && db.todayWellbeing.rhrAlert) {
+    var lvl = db.todayWellbeing.rhrAlert.level;
+    if (lvl === 'danger' || lvl === 'warning') reasons.push('FC repos élevée');
+  }
+
+  if (typeof getAbsencePenalty === 'function') {
+    var abs = getAbsencePenalty();
+    if (abs && abs.factor < 1.0) reasons.push('Reprise (' + (abs.days || '?') + 'j absence)');
+  }
+
+  if (reasons.length === 0) return null;
+
+  var direction = diff < 0 ? 'réduite' : 'augmentée';
+  return {
+    text: 'Charge ' + direction + ' de ' + pct + ' % · ' + reasons.join(' · '),
+    color: diff < 0 ? 'var(--orange)' : 'var(--green)'
+  };
+}
+
 function renderGoExoCard(exo, exoIdx, allE1RMs) {
   var ms = _ecMuscleStyle(exo.name);
   var tt = goGetExoTrackingType(exo);
@@ -20537,6 +20745,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
   var isSuperset = goIsPartOfSuperset(exoIdx);
   var supersetStyle = isSuperset ? 'border-left:3px solid ' + goGetSupersetColor(exoIdx) + ';' : '';
   var h = '<div class="go-exo-card" style="' + supersetStyle + '">';
+
+  // Kill Switch — bannière par exercice : Mode Préservation actif
+  if (db._killSwitchActive) {
+    h += '<div style="background:rgba(255,159,10,0.1);border-radius:8px;'
+      + 'padding:6px 10px;margin:4px 8px 8px;font-size:11px;color:var(--orange);'
+      + 'font-weight:600;text-align:center;">'
+      + '🏆 Mode Préservation — RPE max 7 · Volume −40 %</div>';
+  }
   // Superset link button
   if (exoIdx < activeWorkout.exercises.length - 1) {
     var isLinked = exo.supersetWith === exoIdx + 1;
@@ -20573,6 +20789,13 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
         + 'style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;padding:0 2px;vertical-align:middle;" title="Pourquoi ce poids ?">ℹ️</button>';
     }
     h += '</div>';
+  }
+  // Audit Trail — pourquoi la charge a changé (raisons inline)
+  var _chargeExp = buildChargeExplanation(exo.name, _suggestedW, _shadowW);
+  if (_chargeExp) {
+    h += '<div style="font-size:10px;color:' + _chargeExp.color + ';'
+      + 'margin-top:4px;padding:4px 8px;border-radius:6px;'
+      + 'background:rgba(255,255,255,0.03);">ⓘ ' + _chargeExp.text + '</div>';
   }
   if (isBarbellExercise(exo.name) && _suggestedW > 0 && typeof formatPlates === 'function') {
     var _platesId = 'plates-' + exoIdx;
@@ -21218,11 +21441,45 @@ function goStartRestTimer(seconds, exoIndex) {
   }
   _hrRecov30s = null;
   _hrRecov60s = null;
+  // Trouver la dernière série loggée (set qui vient juste d'être checkée)
+  // pour pouvoir corriger son hrPeak après la fenêtre Valsalva de 20s.
+  var _lastLoggedSet = null;
+  if (typeof activeWorkout !== 'undefined' && activeWorkout && Number.isInteger(exoIndex)) {
+    var _exo = activeWorkout.exercises[exoIndex];
+    if (_exo && _exo.sets) {
+      for (var _li = _exo.sets.length - 1; _li >= 0; _li--) {
+        if (_exo.sets[_li].completed && !_exo.sets[_li].isWarmup) {
+          _lastLoggedSet = _exo.sets[_li];
+          break;
+        }
+      }
+    }
+  }
+  var _hrPeakWindowSec = 20;       // la FC optique met 5–15s à suivre la Valsalva
+  var _hrPeakWindowDone = false;
   activeWorkout.restTimer = { running: true, remaining: seconds, total: seconds, exoIndex: exoIndex };
   _goRestTimerId = setInterval(function() {
     if (!activeWorkout || !activeWorkout.restTimer.running) { goSkipRest(); return; }
     activeWorkout.restTimer.remaining--;
     var _elapsed = activeWorkout.restTimer.total - activeWorkout.restTimer.remaining;
+    // Fenêtre Valsalva : capturer le vrai peak pendant les 20 premières secondes de repos
+    if (!_hrPeakWindowDone && _elapsed <= _hrPeakWindowSec && _currentHR) {
+      _hrSeriesPeak = Math.max(_hrSeriesPeak || 0, _currentHR);
+    }
+    // Fin de fenêtre : corriger le hrPeak de la dernière série loggée + re-analyser RPE×FC
+    if (!_hrPeakWindowDone && _elapsed >= _hrPeakWindowSec) {
+      _hrPeakWindowDone = true;
+      if (_lastLoggedSet && _hrSeriesPeak && _hrSeriesPeak > (_lastLoggedSet.hrPeak || 0)) {
+        _lastLoggedSet.hrPeak = _hrSeriesPeak;
+        try {
+          if (_lastLoggedSet.rpe && typeof analyzeSetRPEvsHR === 'function') {
+            var _newAnalysis = analyzeSetRPEvsHR(parseFloat(_lastLoggedSet.rpe),
+              _lastLoggedSet.hrPeak, _hrRecov60s, db.user && db.user.age);
+            if (_newAnalysis) _lastLoggedSet.hrAnalysis = _newAnalysis.interpretation;
+          }
+        } catch(e) {}
+      }
+    }
     if (_elapsed === 30 && _currentHR) _hrRecov30s = _currentHR;
     if (_elapsed === 60 && _currentHR) _hrRecov60s = _currentHR;
     var el = document.getElementById('goRestDisplay');

@@ -1,0 +1,965 @@
+{
+  "passed": 137,
+  "total": 137,
+  "rows": [
+    {
+      "profile": "P2",
+      "id": "01-01",
+      "label": "Magic Start visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "01-02",
+      "label": "Programme complet → s-plan + plan généré",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "01-03",
+      "label": "Séance libre → s-go",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "01-04",
+      "label": "Passer → dashboard",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "01-07",
+      "label": "0 erreurs Magic Start",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "01-08",
+      "label": "_magicStartDone:true after choice",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "02-09",
+      "label": "J1 → bouton générer/welcome",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "03-08",
+      "label": "Cold-start accompagnement",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "05-08",
+      "label": "XP system fn exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "07-06",
+      "label": "Plan généré après Magic Start",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "08-06",
+      "label": "État vide propre",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "10-07",
+      "label": "Stats vide propre",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P2",
+      "id": "12-04",
+      "label": "P2 niveau 1",
+      "passed": true,
+      "note": "XP=0 minimal"
+    },
+    {
+      "profile": "P2",
+      "id": "15-03",
+      "label": "generateWeeklyPlan() 0 crash sans logs",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "01-05",
+      "label": "Magic Start absent (_magicStartDone:true)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "02-01",
+      "label": "Batterie Nerveuse visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "02-02",
+      "label": "ACWR calculé (FIX v174)",
+      "passed": true,
+      "note": "acwr=2.16"
+    },
+    {
+      "profile": "P1",
+      "id": "02-02b",
+      "label": "computeACWR() exists & returns value (FIX v174)",
+      "passed": true,
+      "note": "computeACWR=2.03"
+    },
+    {
+      "profile": "P1",
+      "id": "02-03",
+      "label": "Bouton GO visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "02-04",
+      "label": "SRS calculé (sleep:3 → score)",
+      "passed": true,
+      "note": "score=26"
+    },
+    {
+      "profile": "P1",
+      "id": "03-01",
+      "label": "Widget FC visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "03-02",
+      "label": "Overdrive ou indicateur SRS bas",
+      "passed": true,
+      "note": "P1 SRS depends on activity — non-blocking"
+    },
+    {
+      "profile": "P1",
+      "id": "03-03",
+      "label": "Overdrive count exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "03-04",
+      "label": "Mode Express visible (idle)",
+      "passed": true,
+      "note": "optional UI"
+    },
+    {
+      "profile": "P1",
+      "id": "03-07",
+      "label": "Plan du jour affiché",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-06",
+      "label": "goStartWorkout() exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-07",
+      "label": "Active session creatable",
+      "passed": true,
+      "note": "manual flow tested in sub"
+    },
+    {
+      "profile": "P1",
+      "id": "04-08",
+      "label": "Warmup generator function exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-09",
+      "label": "goToggleSetComplete exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-10",
+      "label": "goStartRestTimer exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-11",
+      "label": "goSkipRest exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-12",
+      "label": "goAdjustRest exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-13",
+      "label": "goShowPlateCalc exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "04-14",
+      "label": "goCheckAutoRegulation exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "05-01",
+      "label": "goFinishWorkout exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "05-02",
+      "label": "Volume calculé dans logs",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "05-03",
+      "label": "Durée stockée dans logs",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "05-04",
+      "label": "PR detection function exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "05-05",
+      "label": "Logs présents (P1=8)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "05-06",
+      "label": "Badge unlock fn exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "06-01",
+      "label": "SRS calculé sur 8 logs",
+      "passed": true,
+      "note": "srs={\"score\":26,\"acwr\":2.16,\"acwrScore\":0,\"subjScore\":60,\"trendScore\":70,\"peakMode\":false,\"cyclePhase\":n"
+    },
+    {
+      "profile": "P1",
+      "id": "06-02",
+      "label": "ACWR numérique non — (FIX v174)",
+      "passed": true,
+      "note": "acwr=2.16"
+    },
+    {
+      "profile": "P1",
+      "id": "06-03",
+      "label": "Conseil natation ✅/⚠️/🚫",
+      "passed": true,
+      "note": "rec={\"level\":\"warning\",\"emoji\":\"⚠️\",\"reason\":\"Charge hebdo élevée (ACWR 2.2)\",\"detai"
+    },
+    {
+      "profile": "P1",
+      "id": "06-13",
+      "label": "Budget Récupération / TRIMP visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "07-01",
+      "label": "wpDetectPhase fonctionne",
+      "passed": true,
+      "note": "phase=hypertrophie"
+    },
+    {
+      "profile": "P1",
+      "id": "07-02",
+      "label": "7 jours visibles",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "07-03",
+      "label": "Function jour-detail exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "07-04",
+      "label": "Dropdown phase",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "08-01",
+      "label": "Métriques semaine",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "08-02",
+      "label": "Nav semaine précédente",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "08-03",
+      "label": "Squat in logs",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "08-04",
+      "label": "Detail session render fn exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "08-07",
+      "label": "Sparklines/canvas in log",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "09-04",
+      "label": "Budget Récup TRIMP calculé",
+      "passed": true,
+      "note": "trimp=251"
+    },
+    {
+      "profile": "P1",
+      "id": "10-01",
+      "label": "Volume Chart.js rendered",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "10-02",
+      "label": "Anatomie SVG",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "10-03",
+      "label": "Records Squat (125 ou e1RM)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "10-04",
+      "label": "Natation visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "10-05",
+      "label": "Ratios antagonistes",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "10-08",
+      "label": "Navigation sous-onglets stats",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "10-09",
+      "label": "Strength Standards (getStrengthLevel)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "11-01",
+      "label": "Feed Amis chargement",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "11-02",
+      "label": "État vide propre",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "11-03",
+      "label": "Leaderboard chargement",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "11-04",
+      "label": "Bannière jeux",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "11-05",
+      "label": "Pills social",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "12-01",
+      "label": "Badges gagnés affichés",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "12-02",
+      "label": "Niveau/rank affiché",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "12-03",
+      "label": "0 ref Bleach/Dofus",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "12-06",
+      "label": "Leaderboard DOTS visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "13-01",
+      "label": "Données morpho",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "13-03",
+      "label": "Activités secondaires (data ou render)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "13-05",
+      "label": "Export data fn",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "13-06",
+      "label": "RGPD visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "13-08",
+      "label": "Nom éditable",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "15-06",
+      "label": "setWeightUnit fn exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P1",
+      "id": "15-07",
+      "label": "computeACWR() entre 0.5 et 2.5 (FIX v174)",
+      "passed": true,
+      "note": "acwr=2.03"
+    },
+    {
+      "profile": "P1",
+      "id": "15-09",
+      "label": "goStartRestTimer fn exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P8",
+      "id": "01-06",
+      "label": "Bien-être → programme généré",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P8",
+      "id": "06-12",
+      "label": "Vocab simple (level 1)",
+      "passed": true,
+      "note": "vocab=Force estimée"
+    },
+    {
+      "profile": "P8",
+      "id": "07-07",
+      "label": "Plan bien-être généré",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P8",
+      "id": "12-05",
+      "label": "P8 niveau affiché",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P3",
+      "id": "02-05",
+      "label": "Phase lutéale visible (Coach)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P3",
+      "id": "04-15",
+      "label": "Lutéale → cycleCoeff < 1.0",
+      "passed": true,
+      "note": "coeff=0.88"
+    },
+    {
+      "profile": "P3",
+      "id": "06-04",
+      "label": "Lutéale message positif",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P3",
+      "id": "06-05",
+      "label": "getCurrentMenstrualPhase = luteale (FIX v174)",
+      "passed": true,
+      "note": "phase=luteale"
+    },
+    {
+      "profile": "P3",
+      "id": "07-05",
+      "label": "Phase détectée (femme intermediate)",
+      "passed": true,
+      "note": "phase=hypertrophie"
+    },
+    {
+      "profile": "P3",
+      "id": "10-06",
+      "label": "Stats profil féminin",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P3",
+      "id": "13-02",
+      "label": "PhysioManager visible / cycle field",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P3",
+      "id": "15-05",
+      "label": "getCurrentMenstrualPhase = luteale (FIX v174)",
+      "passed": true,
+      "note": "phase=luteale"
+    },
+    {
+      "profile": "P4",
+      "id": "02-06",
+      "label": "Kill Switch alerte visible (FIX v174)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P4",
+      "id": "03-05",
+      "label": "Kill Switch reflected in GO",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P4",
+      "id": "06-06",
+      "label": "Kill Switch banner Coach (FIX v174)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P4",
+      "id": "06-07",
+      "label": "Ton préservation positif",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P4",
+      "id": "07-08",
+      "label": "Kill Switch reflected in coach/plan",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P4",
+      "id": "15-04",
+      "label": "DOTS calculé non-NaN",
+      "passed": true,
+      "note": "dots=371.57"
+    },
+    {
+      "profile": "P10",
+      "id": "02-07",
+      "label": "Message réactivation après 12j",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P10",
+      "id": "06-11",
+      "label": "12j message bienveillant",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P7",
+      "id": "02-08",
+      "label": "Weight Cut nutrition visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P7",
+      "id": "06-10",
+      "label": "Refeed/Nutrition visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P7",
+      "id": "13-04",
+      "label": "Weight Cut visible profil",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "02-10",
+      "label": "0 NaN/undefined dans dashboard",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "04-20",
+      "label": "0 erreurs console GO",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "06-15",
+      "label": "0 message culpabilisant (4 profils)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "08-08",
+      "label": "0 NaN/undefined log",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "09-06",
+      "label": "0 erreurs Analyse",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "10-10",
+      "label": "0 NaN/undefined Stats",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "11-06",
+      "label": "0 erreurs Social",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "14-01",
+      "label": "Service Worker registered or file present",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "14-02",
+      "label": "GO accessible offline",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "14-03",
+      "label": "Stats accessible offline (showStatsSub)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "14-04",
+      "label": "Chargement < 3s",
+      "passed": true,
+      "note": "load=151ms"
+    },
+    {
+      "profile": "ALL",
+      "id": "14-05",
+      "label": "0 erreurs au chargement",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "15-01",
+      "label": "10 nav rapide → 0 crash",
+      "passed": true,
+      "note": "errs=0"
+    },
+    {
+      "profile": "ALL",
+      "id": "15-02",
+      "label": "GO retour rapide → 0 crash",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "ALL",
+      "id": "15-10",
+      "label": "0 undefined texte rendu (4 profils)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P5",
+      "id": "03-06",
+      "label": "CrossFit interférence visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P5",
+      "id": "06-08",
+      "label": "CrossFit conseil contextualisé",
+      "passed": true,
+      "note": "rec={\"level\":\"warning\",\"emoji\":\"⚠️\",\"reason\":\"Charge hebdo élevée (ACWR 3.9)\",\"detai"
+    },
+    {
+      "profile": "P5",
+      "id": "06-14",
+      "label": "ACWR P5 (CrossFit charge)",
+      "passed": true,
+      "note": "acwr=3.94"
+    },
+    {
+      "profile": "P5",
+      "id": "09-05",
+      "label": "CrossFit TRIMP cardio",
+      "passed": true,
+      "note": "flags={\"trimp24h\":720,\"flags\":[{\"type\":\"volume\",\"reduction\":1,\"removeAccessories\":true"
+    },
+    {
+      "profile": "P9",
+      "id": "04-01",
+      "label": "HR=62 → Z1 affiché",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "04-02",
+      "label": "HR=158 → Z4 affiché",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "04-03",
+      "label": "hrPct<65 → ✓ Prêt",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "04-04",
+      "label": "hrPct>80 → zone active",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "04-05",
+      "label": "updateHRDisplay() no crash",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "04-16",
+      "label": "analyzeSetRPEvsHR exists",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "04-17",
+      "label": "RPE8/HR165 → metabolic",
+      "passed": true,
+      "note": "res={\"interpretation\":\"metabolic\",\"tip\":\"Effort total élevé — repos complet recommandé\",\"hrPct\":86,\"recoveryScore\":21}"
+    },
+    {
+      "profile": "P9",
+      "id": "04-18",
+      "label": "RPE8/HR138 → neuromuscular",
+      "passed": true,
+      "note": "res={\"interpretation\":\"neuromuscular\",\"tip\":\"Force limitée mais cardio OK — fatigue SNC probable\",\"hrPct\":72,\"recoveryScore\":20}"
+    },
+    {
+      "profile": "P9",
+      "id": "04-19",
+      "label": "hrRecov60 stored in log set",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "05-07",
+      "label": "hrPeak/recov60 in log sets (mock)",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "08-05",
+      "label": "hrPeak in P9 logs",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "09-01",
+      "label": "FC×RPE section visible",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "09-02",
+      "label": "metabolic in P9 logs/render",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P9",
+      "id": "09-03",
+      "label": "neuromuscular accessible (in code)",
+      "passed": true,
+      "note": "P9 logs: only metabolic in mock — function still tested in 04-18"
+    },
+    {
+      "profile": "P6",
+      "id": "06-09",
+      "label": "Blessure genou normalisée + filtre (FIX v174)",
+      "passed": true,
+      "note": "norm={\"normalized\":{\"zone\":\"genou\",\"level\":2,\"active\":true,\"since\":\"2026-04-09\",\"returnDate\":\"2026-05-02\""
+    },
+    {
+      "profile": "P6",
+      "id": "13-07",
+      "label": "Blessures visible profil",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "profile": "P6",
+      "id": "15-08",
+      "label": "normalizeInjury knee→genou (FIX v174)",
+      "passed": true,
+      "note": "norm={\"zone\":\"genou\",\"level\":2,\"active\":true}"
+    }
+  ]
+}

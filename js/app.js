@@ -251,6 +251,9 @@ let db = (() => {
   } catch { return defaultDB(); }
 })();
 
+// Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
+var SW_VERSION = 'trainhub-v175';
+
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
 let chartPerf = null;

@@ -165,9 +165,33 @@ const INJURY_PROFILES = {
   }
 };
 
+// Normalize injury schema — supports both internal (zone/level) and onboarding (joint/severity)
+function normalizeInjury(inj) {
+  if (!inj) return inj;
+  if (inj.joint && !inj.zone) {
+    var jointToZone = {
+      knee: 'genou', shoulder: 'epaule', elbow: 'coude',
+      wrist: 'poignet', lower_back: 'lombaires', hip: 'hanches',
+      ankle: 'cheville', neck: 'cervicales'
+    };
+    var severityToLevel = { mild: 1, moderate: 2, severe: 3 };
+    return {
+      zone: jointToZone[inj.joint] || inj.joint,
+      level: severityToLevel[inj.severity] || 2,
+      active: inj.active !== false,
+      since: inj.since,
+      returnDate: inj.returnDate
+    };
+  }
+  // Defensive : ensure active defaults to true if absent (existing zone/level schema)
+  if (inj.active === undefined) inj.active = true;
+  return inj;
+}
+
 // Returns true if an exercise is excluded by the user's active level-2+ injuries
 function isExerciseInjured(exoName, injuries) {
   if (!Array.isArray(injuries)) return false;
+  injuries = injuries.map(normalizeInjury);
   for (var i = 0; i < injuries.length; i++) {
     var inj = injuries[i];
     if (!inj.active || inj.level < 2) continue;
@@ -185,6 +209,7 @@ function isExerciseInjured(exoName, injuries) {
 // Returns the replacement exercise for level-1 injuries, or null
 function getInjurySwap(exoName, injuries) {
   if (!Array.isArray(injuries)) return null;
+  injuries = injuries.map(normalizeInjury);
   for (var i = 0; i < injuries.length; i++) {
     var inj = injuries[i];
     if (!inj.active || inj.level !== 1) continue;
@@ -1662,6 +1687,7 @@ function computeActivityScore(activity) {
 
 function checkActivityInjuryConflict(activityType, injuries) {
   if (!injuries || !injuries.length) return null;
+  injuries = injuries.map(normalizeInjury);
   var CONFLICTS = {
     trail: {
       zones: ['genou', 'hanches'], level: 1,

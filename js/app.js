@@ -19870,8 +19870,48 @@ function buildGoIdleHtml() {
       + '</div></div>';
   }
 
-  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml;
+  // Bouton discret "Signaler un problème" en bas du GO
+  var reportHtml = '<div style="text-align:center;margin-top:16px;margin-bottom:8px;">'
+    + '<button onclick="goReportIssue()" '
+    + 'style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--border-card);'
+    + 'background:none;color:var(--sub);font-size:11px;cursor:pointer;">'
+    + '🐞 Signaler un problème</button></div>';
+
+  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml + reportHtml;
 }
+
+// Signalement bug utilisateur — log silencieux dans error_logs Supabase
+function goReportIssue() {
+  var msg = prompt('Décris le problème (charge incorrecte, bug d\'affichage, comportement étrange...) :');
+  if (!msg || !msg.trim()) return;
+  var ctx = {
+    exo: null,
+    setIdx: null,
+    srs: null,
+    acwr: null,
+    killSwitch: !!(typeof db !== 'undefined' && db._killSwitchActive),
+    weeklyPlan: !!(typeof db !== 'undefined' && db.weeklyPlan),
+    logsCount: (typeof db !== 'undefined' && db.logs) ? db.logs.length : 0
+  };
+  try {
+    if (typeof activeWorkout !== 'undefined' && activeWorkout && activeWorkout.exercises) {
+      var idx = activeWorkout.currentExoIdx || 0;
+      ctx.exo = (activeWorkout.exercises[idx] || {}).name || null;
+    }
+    if (typeof computeSRS === 'function') {
+      var s = computeSRS();
+      if (s) ctx.srs = s.score;
+    }
+    if (typeof computeACWR === 'function') ctx.acwr = computeACWR();
+  } catch(e) {}
+  if (typeof logErrorToSupabase === 'function') {
+    logErrorToSupabase('user_report', msg.substring(0, 500), 'goReportIssue', ctx);
+  }
+  if (typeof showToast === 'function') {
+    showToast('✅ Signalement envoyé — merci !');
+  }
+}
+if (typeof window !== 'undefined') window.goReportIssue = goReportIssue;
 
 // ── CHURN DETECTION + RÉACTIVATION (TÂCHE 16) ─────────────────
 function detectChurn() {

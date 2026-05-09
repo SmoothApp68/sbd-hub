@@ -934,9 +934,12 @@ function importData() {
       db = sanitizeDB(_restoreData);
       saveDB();
       _restoreData = null;
-      document.getElementById('restoreFileInput').value = '';
-      document.getElementById('restorePreview').style.display = 'none';
-      document.getElementById('restoreBtn').disabled = true;
+      var _rfi = document.getElementById('restoreFileInput');
+      var _rpv = document.getElementById('restorePreview');
+      var _rbt = document.getElementById('restoreBtn');
+      if (_rfi) _rfi.value = '';
+      if (_rpv) _rpv.style.display = 'none';
+      if (_rbt) _rbt.disabled = true;
       refreshUI();
       showToast('✓ Données restaurées !');
     }
@@ -1317,7 +1320,8 @@ let obCompDate    = null;
 let obCompType    = 'powerlifting';
 
 function showOnboarding() {
-  document.getElementById('onboarding-overlay').style.display = 'flex';
+  var _ob = document.getElementById('onboarding-overlay');
+  if (_ob) _ob.style.display = 'flex';
   obStepHistory = [];
   obSelectedDays = [];
   _obSelectedGoal = db.user.goal || 'masse';
@@ -1349,7 +1353,8 @@ function showOnboarding() {
   renderDayPicker();
 }
 function hideOnboarding() {
-  document.getElementById('onboarding-overlay').style.display = 'none';
+  var _ob = document.getElementById('onboarding-overlay');
+  if (_ob) _ob.style.display = 'none';
 }
 
 function gotoObStep(stepId) {
@@ -8894,7 +8899,7 @@ function previewCSV(input) {
   const reader=new FileReader();
   reader.onload=e=>{
     const text=e.target.result;const result=parseCSVData(text);
-    if(!result){document.getElementById('csvPreview').style.display='block';document.getElementById('csvPreview').innerHTML='<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';document.getElementById('csvImportBtn').disabled=true;return;}
+    if(!result){var _cp=document.getElementById('csvPreview');var _cb=document.getElementById('csvImportBtn');if(_cp){_cp.style.display='block';_cp.innerHTML='<span style="color:var(--red);">❌ Format non reconnu. Vérifie que le séparateur est le point-virgule (;).</span>';}if(_cb)_cb.disabled=true;return;}
     csvParsedData=result;const preview=document.getElementById('csvPreview');preview.style.display='block';
     const existingKeys=new Set(db.logs.map(l=>(l.shortDate||'')+'_'+(l.title||'')));const newSessions=result.sessions.filter(s=>!existingKeys.has((s.shortDate||'')+'_'+(s.title||'')));
     preview.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;"><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--purple);">'+result.sessions.length+'</div><div>Séances</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--green);">'+newSessions.length+'</div><div>Nouvelles</div></div><div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--blue);">'+result.totalRows+'</div><div>Séries</div></div></div><div style="font-size:11px;color:var(--sub);">Période : '+result.dateMin+' → '+result.dateMax+'</div>'+(newSessions.length<result.sessions.length?'<div style="font-size:11px;color:var(--orange);margin-top:4px;">⚠️ '+(result.sessions.length-newSessions.length)+' séance(s) déjà importée(s) — ignorées.</div>':'');
@@ -12896,9 +12901,13 @@ function renderSeancesTab() {
     currentWeekOffset === -1 ? 'Semaine passée' :
     'Il y a ' + Math.abs(currentWeekOffset) + ' semaines';
 
-  document.getElementById('prevWeekBtn').style.opacity = '1';
-  document.getElementById('nextWeekBtn').style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
-  document.getElementById('nextWeekBtn').disabled = currentWeekOffset >= 0;
+  var _prevWk = document.getElementById('prevWeekBtn');
+  var _nextWk = document.getElementById('nextWeekBtn');
+  if (_prevWk) _prevWk.style.opacity = '1';
+  if (_nextWk) {
+    _nextWk.style.opacity = currentWeekOffset >= 0 ? '0.3' : '1';
+    _nextWk.disabled = currentWeekOffset >= 0;
+  }
 
   var allWeekSessions = db.logs.filter(l => l.timestamp >= targetWeekStart && l.timestamp <= targetWeekEnd)
     .sort((a,b) => a.timestamp - b.timestamp);
@@ -13314,10 +13323,14 @@ function renderRadarImproved(period) {
 // ============================================================
 function setMuscleView(v) {
   currentMuscleView = v;
-  document.getElementById('muscleViewBarsBtn').classList.toggle('active', v==='bars');
-  document.getElementById('muscleViewEvolBtn').classList.toggle('active', v==='evol');
-  document.getElementById('muscleViewBarsSection').style.display = v==='bars' ? 'block' : 'none';
-  document.getElementById('muscleViewEvolSection').style.display = v==='evol' ? 'block' : 'none';
+  var _bb = document.getElementById('muscleViewBarsBtn');
+  var _be = document.getElementById('muscleViewEvolBtn');
+  var _bs = document.getElementById('muscleViewBarsSection');
+  var _es = document.getElementById('muscleViewEvolSection');
+  if (_bb) _bb.classList.toggle('active', v==='bars');
+  if (_be) _be.classList.toggle('active', v==='evol');
+  if (_bs) _bs.style.display = v==='bars' ? 'block' : 'none';
+  if (_es) _es.style.display = v==='evol' ? 'block' : 'none';
   if (v === 'evol') renderMuscleEvolChart();
   else renderMuscleVolumeContent(window._musclePeriod || 'week');
 }
@@ -19592,13 +19605,15 @@ function renderFCWidget() {
 // GO TAB — Render principal
 // ============================================================
 function renderGoTab() {
+  var idle = document.getElementById('goIdleView');
+  var act  = document.getElementById('goActiveView');
   if (activeWorkout) {
-    document.getElementById('goIdleView').style.display = 'none';
-    document.getElementById('goActiveView').style.display = 'block';
+    if (idle) idle.style.display = 'none';
+    if (act)  act.style.display = 'block';
     goRequestRender();
   } else {
-    document.getElementById('goIdleView').style.display = 'block';
-    document.getElementById('goActiveView').style.display = 'none';
+    if (idle) idle.style.display = 'block';
+    if (act)  act.style.display = 'none';
     renderGoIdleView();
   }
 }

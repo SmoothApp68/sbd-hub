@@ -1,0 +1,59 @@
+{
+  "date": "2026-05-10T11:28:02.165Z",
+  "version": "v182-verify",
+  "pass": 10,
+  "fail": 0,
+  "total": 10,
+  "results": [
+    {
+      "name": "LB-01 calcLeaderboardMetrics() définie",
+      "pass": true,
+      "msg": "fonction globale présente"
+    },
+    {
+      "name": "LB-02 dots > 0 (459kg total / 85kg bw)",
+      "pass": true,
+      "msg": "dots=306"
+    },
+    {
+      "name": "LB-03 xp_week = 200 (1 challenge complété)",
+      "pass": true,
+      "msg": "xp_week=200"
+    },
+    {
+      "name": "LB-04 xp_week ≠ xp (200 ≠ 15000)",
+      "pass": true,
+      "msg": "xp_week=200, xp=15000"
+    },
+    {
+      "name": "LB-05 sessions_week = 2 (J-40 exclu)",
+      "pass": true,
+      "msg": "sessions_week=2"
+    },
+    {
+      "name": "LB-06 weekly key format YYYY-WNN",
+      "pass": true,
+      "msg": "got: 2026-W19"
+    },
+    {
+      "name": "LB-07 monthly key format YYYY-MM",
+      "pass": true,
+      "msg": "got: 2026-05"
+    },
+    {
+      "name": "ENG-01 wpComputeWorkWeightSafe avec logs corrompus → nombre",
+      "pass": true,
+      "msg": "val=60"
+    },
+    {
+      "name": "ENG-02 wpGeneratePowerbuildingDaySafe params=null → objet",
+      "pass": true,
+      "msg": "got: {\"rest\":false,\"title\":\"squat\",\"coachNote\":\"\",\"exercises\":[]}"
+    },
+    {
+      "name": "ENG-03 0 erreurs console avec logs corrompus",
+      "pass": true,
+      "msg": "errors=0"
+    }
+  ]
+}

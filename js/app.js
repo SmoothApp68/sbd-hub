@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v179';
+var SW_VERSION = 'trainhub-v180';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -345,6 +345,12 @@ function _flushDB() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch(e) {
     console.error('saveDB error:', e);
+    // Surface quota errors to the user instead of failing silently — otherwise
+    // users keep training and the data quietly stops persisting.
+    var isQuota = e && (e.name === 'QuotaExceededError' || e.code === 22 || /quota/i.test(e.message || ''));
+    if (isQuota && typeof showToast === 'function') {
+      showToast('⚠️ Stockage local plein — synchronise avec le cloud');
+    }
   }
 }
 
@@ -10745,7 +10751,11 @@ function pbGenerateProgram() {
     // pas window.obSelectedDays. Assigner directement à la variable lexicale.
     obSelectedDays = pickedDays;
     window.obSelectedDays = pickedDays; // back-compat pour autres lecteurs éventuels
-    var result = generateProgram(goals, s.days, mat, s.duration, [], [], null, null, s.level);
+    // Pass real injuries + cardio so generated exercises respect them.
+    // Previously hardcoded to [] / [] which silently ignored user settings.
+    var wizardInjuries = (db.user.programParams && db.user.programParams.injuries) || [];
+    var wizardCardio   = (db.user.programParams && db.user.programParams.cardio) || 'integre';
+    var result = generateProgram(goals, s.days, mat, s.duration, wizardInjuries, wizardCardio, null, null, s.level);
     if (result && result.length > 0) {
       db.generatedProgram = result;
       // Also create routine map
@@ -11765,6 +11775,8 @@ function migrateInjuryNames() {
   // Pré-remplir settings
   if(db.user.name){const ni=document.getElementById('inputName');if(ni)ni.value=db.user.name;}
   document.getElementById('inputBW').value=db.user.bw||'';
+  var _fpEl = document.getElementById('inputFatPct');
+  if (_fpEl) _fpEl.value = (db.user.fatPct != null) ? db.user.fatPct : '';
   const tB=document.getElementById('tgtBench'),tS=document.getElementById('tgtSquat'),tD=document.getElementById('tgtDead');
   if(tB)tB.value=db.user.targets.bench;if(tS)tS.value=db.user.targets.squat;if(tD)tD.value=db.user.targets.deadlift;
 
@@ -14153,6 +14165,10 @@ function renderSettingsProfile() {
   // Niveau de détail UI
   const uiDetailEl = document.getElementById('settingsUIDetail');
   if (uiDetailEl) uiDetailEl.value = db.user.uiDetail || 'auto';
+
+  // Niveau de vocabulaire (1 = débutant, 2 = intermédiaire, 3 = expert)
+  const vocabEl = document.getElementById('settingsVocabLevel');
+  if (vocabEl) vocabEl.value = String(db.user.vocabLevel || 2);
 
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
@@ -19649,6 +19665,15 @@ function goRequestWakeLock() {
 function goReleaseWakeLock() {
   try { if (_goWakeLock) { _goWakeLock.release(); _goWakeLock = null; } } catch(e) {}
 }
+// Browser auto-releases wakeLock when the page goes hidden — re-acquire when
+// it becomes visible again, but only if a GO session is still active.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible'
+      && typeof activeWorkout !== 'undefined' && activeWorkout && !activeWorkout.isFinished
+      && !_goWakeLock) {
+    goRequestWakeLock();
+  }
+});
 
 // ── Format helpers ──
 function goFormatTime(sec) {
@@ -20275,7 +20300,10 @@ async function toggleBluetoothHR() {
   }
 
   if (!navigator.bluetooth) {
-    showToast('⚠️ Bluetooth non disponible (Chrome Android requis)');
+    var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+    showToast(_isIOS
+      ? '⚠️ Web Bluetooth non supporté sur iOS — utilise Chrome Android'
+      : '⚠️ Bluetooth non disponible (Chrome Android requis)');
     return;
   }
 

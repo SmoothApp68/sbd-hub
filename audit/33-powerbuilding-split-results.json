@@ -1,0 +1,69 @@
+{
+  "date": "2026-05-10T13:21:52.090Z",
+  "version": "v183",
+  "pass": 12,
+  "fail": 0,
+  "total": 12,
+  "results": [
+    {
+      "name": "PB-01 trainingMode=powerbuilding → routage powerbuilding",
+      "pass": true,
+      "msg": "J1=Squat — Force & Volume"
+    },
+    {
+      "name": "PB-02 5j powerbuilding → powerbuilding_5 séquence",
+      "pass": true,
+      "msg": "labels=[\"Squat — Force & Volume\",\"Bench — Force & Volume\",\"Deadlift — Force & Volume\",\"Bench 2 — Volume & Accessoires\",\"Squat 2 — Volume Jambes\"]"
+    },
+    {
+      "name": "PB-03 5j powerlifting → powerlifting_5 (inchangé)",
+      "pass": true,
+      "msg": "labels=[\"Squat + Accessoires\",\"Bench + Accessoires\",\"Deadlift + Accessoires\",\"Squat 2\",\"Bench 2\"]"
+    },
+    {
+      "name": "PB-04 5j bodybuilding → ppl_ul (inchangé)",
+      "pass": true,
+      "msg": "labels=[\"Push — Volume\",\"Pull — Volume\",\"Jambes — Volume\",\"Upper Body\",\"Lower Body\"]"
+    },
+    {
+      "name": "PB-05 J1 commence par squat (barre)",
+      "pass": true,
+      "msg": "J1 exo[0]=squat"
+    },
+    {
+      "name": "PB-06 J2 commence par bench (barre)",
+      "pass": true,
+      "msg": "J2 exo[0]=bench"
+    },
+    {
+      "name": "PB-07 ratio 1.06 < 1.20 → J5 spécialisation quad",
+      "pass": true,
+      "msg": "J5=Spécialisation Quad — Rattrapage"
+    },
+    {
+      "name": "PB-08 ratio 1.43 > 1.20 → J5 standard (pas spec)",
+      "pass": true,
+      "msg": "J5=Squat 2 — Volume Jambes"
+    },
+    {
+      "name": "PB-09 ratio < 1.20 + powerlifting → pas de spec (PL inchangé)",
+      "pass": true,
+      "msg": "J5=Bench 2"
+    },
+    {
+      "name": "PB-10 4j powerbuilding → powerbuilding_4",
+      "pass": true,
+      "msg": "labels=[\"Squat — Force & Volume\",\"Bench — Force & Volume\",\"Deadlift — Force & Volume\",\"Bench 2 — Volume & Accessoires\"]"
+    },
+    {
+      "name": "PB-11 6j powerbuilding → J6=Pull volume",
+      "pass": true,
+      "msg": "J6=Pull — Volume (total 6 jours)"
+    },
+    {
+      "name": "PB-12 audit trail → ratio mentionné dans note",
+      "pass": true,
+      "msg": "note=Spécialisation Squat activée (ratio 1.06 < 1.20)"
+    }
+  ]
+}

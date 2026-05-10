@@ -205,7 +205,7 @@ async function syncLeaderboard() {
     var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
     var monthKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('monthly') : '';
     var entries = [
-      {period_type:'weekly', period_key:weekKey, metric:'xp', value:metrics.xp||0},
+      {period_type:'weekly', period_key:weekKey, metric:'xp', value:metrics.xp_week||0},
       {period_type:'weekly', period_key:weekKey, metric:'volume', value:metrics.volume_week||0},
       {period_type:'weekly', period_key:weekKey, metric:'sessions', value:metrics.sessions_week||0},
       {period_type:'monthly', period_key:monthKey, metric:'sessions', value:metrics.sessions_month||0},

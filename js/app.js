@@ -21815,6 +21815,28 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     }
   }
 
+  // ── RÈGLE 0 — Drop set volontaire vs Échec (Gemini Q1) ─────────────────
+  // Un drop set intentionnel : charge baisse de >10% → ne pas signaler
+  // Un "pseudo-drop" (charge baisse <10% + reps chutent) = échec déguisé
+  var _workCompletedSets = exo.sets.filter(function(s) {
+    return s.completed && !s.isWarmup && s.setType !== 'warmup'
+      && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
+  });
+  if (_workCompletedSets.length >= 2) {
+    var _prev = _workCompletedSets[_workCompletedSets.length - 2];
+    var _curr = _workCompletedSets[_workCompletedSets.length - 1];
+    var _prevW = parseFloat(_prev.weight) || 0;
+    var _currW = parseFloat(_curr.weight) || 0;
+    var _isVoluntaryDrop = _prevW > 0 && _currW < _prevW * 0.90;
+    if (_isVoluntaryDrop) {
+      if (!_curr.isDropSet && _curr.setType === 'normal') {
+        _curr.isDropSet = true;
+        _curr.setType = 'dropset';
+      }
+      return null;
+    }
+  }
+
   // ── Règle 7 — Échec implicite (sans RPE) ──────────────────────────────────
   var _workSets = exo.sets.filter(function(s) {
     return s.completed && !s.isWarmup && s.setType !== 'warmup'

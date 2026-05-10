@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v180';
+var SW_VERSION = 'trainhub-v181';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -980,6 +980,15 @@ function importData() {
   );
 }
 function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+var _LABEL_MAP = {
+  srs:   { 1:'Forme du jour',    2:'Forme du jour',   3:'SRS (Readiness)' },
+  acwr:  { 1:'Charge semaine',   2:'Charge semaine',  3:'ACWR' },
+  trimp: { 1:'Fatigue',          2:'Charge cumul.',   3:'TRIMP' }
+};
+function labelFor(key, fallback) {
+  var lvl = Math.min(3, Math.max(1, parseInt((db && db.user && db.user.vocabLevel) || 2)));
+  return (_LABEL_MAP[key] && _LABEL_MAP[key][lvl]) || fallback || key.toUpperCase();
+}
 function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="this.closest(\'.modal-overlay\').remove()" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; document.body.appendChild(o); }
 function closeModal() { var el = document.querySelector('.modal-overlay'); if (el) el.remove(); }
 function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { o.remove(); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { o.remove(); onConfirm(); }; }
@@ -7272,7 +7281,7 @@ function renderWeekCard() {
     batteryHtml += '<div style="display:flex;gap:0;">';
     batteryHtml += '<div style="flex:1;text-align:center;">'
       + '<div style="font-size:13px;font-weight:600;color:' + _acwrColor + ';">' + _acwrStr + '</div>'
-      + '<div style="font-size:10px;color:var(--sub);">ACWR</div></div>';
+      + '<div style="font-size:10px;color:var(--sub);">' + labelFor('acwr','ACWR') + '</div></div>';
     batteryHtml += '<div style="width:0.5px;background:var(--border);"></div>';
     batteryHtml += '<div style="flex:1;text-align:center;">'
       + '<div style="font-size:13px;font-weight:600;color:var(--text);">' + streak + '</div>'
@@ -11881,6 +11890,8 @@ function migrateInjuryNames() {
   });
   // Local notifications init
   try { initNotifications(); } catch(e) {}
+  // iOS install prompt (Safari only, once)
+  setTimeout(function() { try { checkIOSInstallPrompt(); } catch(e) {} }, 3000);
 })();
 
 // ============================================================
@@ -11896,6 +11907,30 @@ function initNotifications() {
   Notification.requestPermission().then(function(perm) {
     if (perm === 'granted') _checkTrainingReminder();
   });
+}
+
+function checkIOSInstallPrompt() {
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua);
+  var isSafari = isIOS && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+  if (!isSafari) return;
+  if (navigator.standalone) return; // already installed
+  if (db.user && db.user._iosInstallPromptShown) return;
+  var banner = document.createElement('div');
+  banner.id = 'ios-install-banner';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;'
+    + 'background:var(--bg-card,#1c1c1e);border-top:0.5px solid var(--border-card,#3a3a3c);'
+    + 'padding:14px 16px;display:flex;align-items:center;gap:12px;'
+    + 'box-shadow:0 -4px 20px rgba(0,0,0,0.4);';
+  banner.innerHTML = '<div style="flex:1;">'
+    + '<div style="font-size:13px;font-weight:600;color:var(--text,#fff);margin-bottom:2px;">Installer TrainHub</div>'
+    + '<div style="font-size:11px;color:var(--sub,#8e8e93);">Appuie sur <strong>Partager ⎙</strong> puis <strong>Sur l\'écran d\'accueil</strong></div>'
+    + '</div>'
+    + '<button onclick="document.getElementById(\'ios-install-banner\').remove()" '
+    + 'style="background:none;border:none;color:var(--sub,#8e8e93);font-size:20px;padding:4px;cursor:pointer;">✕</button>';
+  document.body.appendChild(banner);
+  if (db.user) { db.user._iosInstallPromptShown = true; saveDB(); }
+  setTimeout(function() { var b = document.getElementById('ios-install-banner'); if (b) b.remove(); }, 10000);
 }
 
 function sendLocalNotification(title, body) {
@@ -15444,8 +15479,8 @@ function renderCoachTodayHTML() {
       html += '<div style="width:' + _secPct + '%;background:var(--orange);"></div>';
       html += '</div>';
       html += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:8px;">';
-      html += '<span>💪 Muscu ' + _muscuPct + '% (' + _muscuTRIMP + ' TRIMP)</span>';
-      html += '<span>🏃 Activités ' + _secPct + '% (' + _secTRIMP + ' TRIMP)</span>';
+      html += '<span>💪 Muscu ' + _muscuPct + '% (' + _muscuTRIMP + ' ' + labelFor('trimp','TRIMP') + ')</span>';
+      html += '<span>🏃 Activités ' + _secPct + '% (' + _secTRIMP + ' ' + labelFor('trimp','TRIMP') + ')</span>';
       html += '</div>';
       _actData.flags.forEach(function(flag) {
         var _fc = flag.type === 'warning' ? 'var(--orange)' : 'var(--blue)';
@@ -16243,13 +16278,13 @@ function generateWeeklyReport() {
   // SRS score + ACWR
   var srs = typeof computeSRS === 'function' ? computeSRS() : null;
   if (srs) {
-    h += '<div class="ai-section-title">⚡ CHARGE (SRS / ACWR)</div>';
-    h += 'SRS : <strong>' + srs.score + '/100</strong>';
+    h += '<div class="ai-section-title">⚡ CHARGE (' + labelFor('srs','SRS') + ' / ' + labelFor('acwr','ACWR') + ')</div>';
+    h += labelFor('srs','SRS') + ' : <strong>' + srs.score + '/100</strong>';
     if (srs.label) h += ' — ' + srs.label;
     if (srs.acwr !== undefined) {
       var acwrRounded = Math.round(srs.acwr * 100) / 100;
-      var acwrAlert = (srs.acwr < 0.8 || srs.acwr > 1.3) ? ' ⚠️ ACWR hors zone !' : '';
-      h += '<br>ACWR : ' + acwrRounded + acwrAlert;
+      var acwrAlert = (srs.acwr < 0.8 || srs.acwr > 1.3) ? ' ⚠️ ' + labelFor('acwr','ACWR') + ' hors zone !' : '';
+      h += '<br>' + labelFor('acwr','ACWR') + ' : ' + acwrRounded + acwrAlert;
     }
     h += '<br>';
   }
@@ -17542,6 +17577,13 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       var d = 1.0278 - 0.0278 * wReps;
       if (d > 0) baseWeight = wpRound25(preDeloadE1rm * mult * d);
     }
+  }
+
+  // Cap APRE progression at +5%/week on main lifts (prevent yo-yo death spiral)
+  var _isMainLift = liftType === 'squat' || liftType === 'bench' || liftType === 'deadlift';
+  var _notLP = !(typeof isInLP === 'function' && isInLP()) && !isBeginnerMode;
+  if (_isMainLift && _notLP && last.weight > 0 && baseWeight > last.weight * 1.05) {
+    baseWeight = wpRound25(last.weight * 1.05);
   }
 
   // Capture APRE base before penalty application (used by female cycle floor)
@@ -19876,10 +19918,23 @@ function renderFCWidget() {
       html += '<div style="font-size:11px;font-weight:700;color:var(--green);">✓ Prêt</div>';
     }
   } else {
-    html += '<div style="font-size:13px;color:var(--sub);flex:1;">Moniteur FC non connecté</div>';
-    html += '<button onclick="toggleBluetoothHR()" style="padding:6px 12px;border-radius:20px;'
-      + 'font-size:11px;border:0.5px solid var(--border-card);background:none;'
-      + 'color:var(--sub);cursor:pointer;">Connecter</button>';
+    var _fcIsIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') && !/CriOS|FxiOS/.test(navigator.userAgent || '');
+    if (_fcIsIOS) {
+      html += '<div style="flex:1;">';
+      html += '<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">FC manuelle (bpm)</div>';
+      html += '<input type="number" min="40" max="220" placeholder="—" '
+        + 'style="width:64px;padding:4px 8px;border-radius:8px;border:0.5px solid var(--border-card);'
+        + 'background:var(--bg-card);color:var(--text);font-size:14px;font-weight:600;text-align:center;" '
+        + 'onchange="var v=parseInt(this.value);if(v>=40&&v<=220){_currentHR=v;'
+        + 'var w=document.getElementById(\'go-fc-widget\');'
+        + 'if(w&&typeof renderFCWidget===\'function\')w.outerHTML=renderFCWidget();}" />';
+      html += '</div>';
+    } else {
+      html += '<div style="font-size:13px;color:var(--sub);flex:1;">Moniteur FC non connecté</div>';
+      html += '<button onclick="toggleBluetoothHR()" style="padding:6px 12px;border-radius:20px;'
+        + 'font-size:11px;border:0.5px solid var(--border-card);background:none;'
+        + 'color:var(--sub);cursor:pointer;">Connecter</button>';
+    }
   }
   html += '</div>';
   return html;
@@ -23860,7 +23915,7 @@ function showActivityQuickLog() {
       + 'background:var(--surface);border:1px solid var(--border);">';
     html += '<div>';
     html += '<div style="font-size:13px;font-weight:600;">' + escapeHtml(label) + '</div>';
-    html += '<div style="font-size:11px;color:var(--sub);">' + (act.duration || 45) + ' min · TRIMP ' + trimp + '</div>';
+    html += '<div style="font-size:11px;color:var(--sub);">' + (act.duration || 45) + ' min · ' + labelFor('trimp','TRIMP') + ' ' + trimp + '</div>';
     html += '</div>';
     html += '<div id="aq-check-' + i + '" style="font-size:20px;">⬜</div>';
     html += '</div>';

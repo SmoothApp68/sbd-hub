@@ -345,6 +345,12 @@ function _flushDB() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch(e) {
     console.error('saveDB error:', e);
+    // Surface quota errors to the user instead of failing silently — otherwise
+    // users keep training and the data quietly stops persisting.
+    var isQuota = e && (e.name === 'QuotaExceededError' || e.code === 22 || /quota/i.test(e.message || ''));
+    if (isQuota && typeof showToast === 'function') {
+      showToast('⚠️ Stockage local plein — synchronise avec le cloud');
+    }
   }
 }
 

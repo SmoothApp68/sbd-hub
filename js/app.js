@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v184';
+var SW_VERSION = 'trainhub-v187';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -15380,6 +15380,18 @@ function confirmGhostLog(actType, done) {
     }
   }
 
+  if (!done) {
+    var _tomorrow = new Date();
+    _tomorrow.setDate(_tomorrow.getDate() + 1);
+    var _tomorrowStr = _tomorrow.toISOString().split('T')[0];
+    if (!db._recoveryBonus) db._recoveryBonus = {};
+    db._recoveryBonus[actType] = {
+      date: _tomorrowStr,
+      bonus: 2.5,
+      reason: 'Activité ' + actType + ' non effectuée — récupération économisée'
+    };
+  }
+
   db._ghostLogAnswered = yesterdayStr;
   saveDB();
   if (typeof renderCoachTab === 'function') renderCoachTab();
@@ -16037,6 +16049,12 @@ function renderCoachTodayHTML() {
 function getSetStyle(set) {
   if (set.isBackOff || set.isBackoff) return 'background:rgba(255,159,10,0.13);border-left:3px solid var(--orange);border-radius:4px;';
   if (set.isDropSet) return 'background:rgba(191,90,242,0.13);border-left:3px solid var(--purple,#BF5AF2);border-radius:4px;';
+  if (set.fatigueType === 'neural' && set.fatigueConfidence >= 0.60) {
+    return 'background:rgba(255,69,58,0.10);border-left:3px solid var(--red);border-radius:4px;';
+  }
+  if (set.fatigueType === 'muscular' && set.fatigueConfidence >= 0.60) {
+    return 'background:rgba(255,159,10,0.10);border-left:3px solid var(--orange);border-radius:4px;';
+  }
   if (set.isWarmup) return 'opacity:0.5;';
   return '';
 }
@@ -16044,6 +16062,9 @@ function getSetStyle(set) {
 function getSetLabel(set) {
   if (set.isBackOff || set.isBackoff) return '🟠 Back-off';
   if (set.isDropSet) return '🟣 Drop';
+  if (set.fatigueType === 'neural')    return '🔴 SNC';
+  if (set.fatigueType === 'muscular')  return '🟠 Muscu';
+  if (set.fatigueType === 'overload')  return '⚠️ Surcharge';
   if (set.isWarmup) return 'Échauff.';
   return 'Série';
 }
@@ -16534,6 +16555,37 @@ function saveAlgoDebrief(session) {
     tips.push('💪 Ta force explose même en récupération (PR !) — mais garde tes cartouches pour l\'intensification qui arrive.');
   }
 
+  // Résumé fatigue par exercice (Gemini Q5)
+  var fatigueReport = [];
+  try {
+    (session.exercises || []).forEach(function(exo) {
+      var neuralSets = (exo.allSets || []).filter(function(s) {
+        return s.fatigueType === 'neural' && s.fatigueConfidence >= 0.60;
+      });
+      var muscularSets = (exo.allSets || []).filter(function(s) {
+        return s.fatigueType === 'muscular' && s.fatigueConfidence >= 0.60;
+      });
+      if (neuralSets.length > 0 || muscularSets.length > 0) {
+        fatigueReport.push({
+          exo: exo.name,
+          neural: neuralSets.length,
+          muscular: muscularSets.length,
+          dominantType: neuralSets.length > muscularSets.length ? 'neural' : 'muscular'
+        });
+      }
+    });
+    if (fatigueReport.length > 0) {
+      session.fatigueReport = fatigueReport;
+      var _neuralCount = fatigueReport.reduce(function(s, r) { return s + r.neural; }, 0);
+      var _muscularCount = fatigueReport.reduce(function(s, r) { return s + r.muscular; }, 0);
+      if (_neuralCount > 0) {
+        tips.push('🧠 ' + _neuralCount + ' série(s) avec fatigue nerveuse détectée — récupération prioritaire.');
+      } else if (_muscularCount >= 3) {
+        tips.push('💪 ' + _muscularCount + ' séries avec fatigue musculaire — stimulus hypertrophique solide.');
+      }
+    }
+  } catch(e) {}
+
   if (!tips.length) return;
 
   var vol = session.volume || 0;
@@ -16796,9 +16848,112 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   return { exercises: adapted, adaptations };
 }
 
+// ── shouldDeload() — Gemini validation (paramètres calibrés) ─────────────
+function shouldDeload(logs, trainingMode) {
+  if (!logs || logs.length < 3) return { needed: false };
+
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var now = Date.now();
+  var DAY = 86400000;
+  var WEEK = 7 * DAY;
+
+  // Paramètres par niveau (Gemini)
+  var PARAMS = {
+    debutant:      { maxWeeks: 12, rpeThreshold: 9.0,  volumeDrop: 0.20, srsThreshold: 40 },
+    intermediaire: { maxWeeks: 8,  rpeThreshold: 8.5,  volumeDrop: 0.15, srsThreshold: 45 },
+    avance:        { maxWeeks: 6,  rpeThreshold: 8.5,  volumeDrop: 0.15, srsThreshold: 45 }
+  };
+  var p = PARAMS[level] || PARAMS.intermediaire;
+
+  // CRITÈRE 1 — SRS bas (Kill Switch prioritaire)
+  if (typeof computeSRS === 'function') {
+    var _srs = computeSRS();
+    var _srsScore = _srs && typeof _srs.score === 'number' ? _srs.score : 70;
+    if (_srsScore < p.srsThreshold) {
+      return {
+        needed: true,
+        reason: 'Récupération systémique insuffisante (Forme ' + _srsScore + '/100 < ' + p.srsThreshold + '). Semaine de récupération recommandée.',
+        trigger: 'srs'
+      };
+    }
+  }
+
+  // CRITÈRE 2 — Volume Drop + RPE élevé (signal stagnation épuisement)
+  var recentLogs = logs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= 3 * WEEK;
+  }).sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+
+  if (recentLogs.length >= 6) {
+    var w1Logs = recentLogs.filter(function(l) { return (now - (l.timestamp||0)) <= WEEK; });
+    var w3Logs = recentLogs.filter(function(l) {
+      var age = now - (l.timestamp||0);
+      return age >= 2*WEEK && age <= 3*WEEK;
+    });
+    var w1Vol = w1Logs.reduce(function(s, l) { return s + (l.volume||0); }, 0);
+    var w3Vol = w3Logs.reduce(function(s, l) { return s + (l.volume||0); }, 0);
+    var volumeDropped = w3Vol > 0 && w1Vol < w3Vol * (1 - p.volumeDrop);
+
+    var rpeValues = [];
+    w1Logs.forEach(function(l) {
+      (l.exercises||[]).forEach(function(e) {
+        (e.allSets||[]).forEach(function(s) {
+          if (!s.isWarmup && parseFloat(s.rpe) > 0) rpeValues.push(parseFloat(s.rpe));
+        });
+      });
+    });
+    var avgRpe = rpeValues.length > 0
+      ? rpeValues.reduce(function(s, r) { return s + r; }, 0) / rpeValues.length
+      : null;
+    var rpeHigh = avgRpe && avgRpe > p.rpeThreshold;
+
+    if (volumeDropped && rpeHigh) {
+      return {
+        needed: true,
+        reason: 'Volume en baisse (' + Math.round((1 - w1Vol/w3Vol)*100) + '%) et RPE moyen élevé (' + avgRpe.toFixed(1) + '). Surmenage détecté.',
+        trigger: 'volume_rpe'
+      };
+    }
+  }
+
+  // CRITÈRE 3 — Max semaines sans deload (déclenchement auto préventif)
+  var lastDeloadLog = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
+    ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
+    : null;
+  var weeksSinceDeload = lastDeloadLog
+    ? Math.round((now - lastDeloadLog) / WEEK)
+    : null;
+
+  // Fallback : estimer depuis les logs si lastDeloadDate absent
+  if (!weeksSinceDeload) {
+    var sortedLogs = logs.slice().sort(function(a, b) { return (a.timestamp||0) - (b.timestamp||0); });
+    var firstLog = sortedLogs[0];
+    if (firstLog && firstLog.timestamp) {
+      weeksSinceDeload = Math.round((now - firstLog.timestamp) / WEEK);
+    }
+  }
+
+  if (weeksSinceDeload && weeksSinceDeload >= p.maxWeeks) {
+    return {
+      needed: true,
+      reason: weeksSinceDeload + ' semaines d\'entraînement consécutives. Deload préventif recommandé même si tu te sens bien.',
+      trigger: 'max_weeks'
+    };
+  }
+
+  return { needed: false };
+}
+
 // ── Deload automatique (banner UI : mésocycle / readiness / plateaus) ──
 function isDeloadWeek() {
   return !!db._deloadAccepted;
+}
+
+// Acceptation d'un deload : flag + date pour shouldDeload() futur
+function acceptDeload() {
+  db._deloadAccepted = true;
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  db.weeklyPlan.lastDeloadDate = new Date().toISOString().split('T')[0];
+  if (typeof saveDB === 'function') saveDB();
 }
 
 // ============================================================
@@ -16963,13 +17118,14 @@ var WP_ACCESSORIES_BY_PHASE = {
   force: {
     squat: [
       { name: 'Paused Squat',     reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
-      { name: 'Step-up',          reps: '6-8', rpe: 7.5, sets: 3, rest: 120, priority: 2 },
+      { name: 'Bulgarian Split Squat', reps: '6-8', rpe: 8, sets: 3, rest: 150, priority: 2 },
       { name: 'Mollets lourds',   reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
     ],
     bench: [
       { name: 'Spoto Press',  reps: '3-5', rpe: 8,   sets: 4, rest: 240, priority: 1 },
       { name: 'Rowing Barre', reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Face Pull',    reps: '15',  rpe: 7,   sets: 3, rest: 60,  priority: 2 }
+      { name: 'Face Pull',    reps: '15',  rpe: 7,   sets: 3, rest: 60,  priority: 2 },
+      { name: 'Curl Marteau', reps: '10-12', rpe: 7.5, sets: 3, rest: 60, priority: 2 }
     ],
     deadlift: [
       { name: 'Good Morning', reps: '6-8', rpe: 7.5, sets: 3, rest: 180, priority: 1 },
@@ -17405,10 +17561,38 @@ function wpEstimateWeight(exoName) {
   return wpRound25(baseVal * est.ratio);
 }
 
-function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
+// Increment de Double Progression différencié par bodyPart/muscleGroup
+function getDPIncrement(exoName) {
+  var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
+  var mg   = meta ? (meta.muscleGroup || '') : '';
+  var mech = meta ? (meta.mechanic || '') : '';
+
+  // Lower body composés et machines lourdes : +5kg
+  if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) return 5.0;
+
+  // Isolation lower (Leg Extension, Leg Curl) : +2.5kg
+  if (/quad|hams/.test(mg) && /isolation/.test(mech)) return 2.5;
+
+  // Upper composés (Rowing, Développé haltères) : +2.5kg
+  if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) return 2.5;
+
+  // Isolation upper légère (Curl, Extension triceps, Élévations) : +1.0kg
+  if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) return 1.0;
+
+  // Abdos et gainage : pas d'incrément charge (on augmente les reps)
+  if (/core|Abdos|Lombaires/.test(mg)) return 0;
+
+  // Défaut upper : +2kg, lower : +5kg
+  return mg && /quad|hams|glute/.test(mg) ? 5.0 : 2.0;
+}
+
+function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessionsRequired) {
+  sessionsRequired = sessionsRequired || 1;
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
   if (!realName) return null;
+  var successCount = 0;
+  var lastWeightSeen = 0;
   for (var i = 0; i < Math.min(logs.length, 15); i++) {
     var log = logs[i];
     var exo = (log.exercises || []).find(function(e) {
@@ -17422,18 +17606,47 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
     if (!workSets.length) continue;
     var lastSet    = workSets[workSets.length - 1];
     var lastWeight = parseFloat(lastSet.weight) || 0;
-    var lastRpe    = parseFloat(lastSet.rpe)    || null;
+    lastWeightSeen = lastWeight;
+    var lastRpe    = parseFloat(lastSet.rpe);
+    if (isNaN(lastRpe)) lastRpe = null;
     var completedSets = workSets.filter(function(s) { return parseInt(s.reps) > 0; });
     if (!completedSets.length) {
       return { weight: lastWeight, reps: targetRepMax, progressed: false };
     }
-    var allSetsComplete = completedSets.every(function(s) {
+    // Bug 3 fix : strict — toutes les séries DOIVENT atteindre targetRepMax
+    var allSetsComplete = completedSets.length > 0 && completedSets.every(function(s) {
       return parseInt(s.reps) >= targetRepMax;
     });
-    if (allSetsComplete && lastRpe <= 8) {
-      return { weight: wpRound25(lastWeight + 2), reps: targetRepMin, progressed: true };
+    var almostComplete = !allSetsComplete && completedSets.every(function(s) {
+      return parseInt(s.reps) >= targetRepMax - 1;
+    });
+    // Bug 1 fix : RPE null ne bloque pas la progression
+    var rpeValid = (lastRpe === null || lastRpe === undefined || lastRpe <= 8);
+    if (allSetsComplete && rpeValid) {
+      successCount++;
+      if (successCount >= sessionsRequired) {
+        // Bug 2 fix : incrément différencié par muscle/mécanique
+        var _dpIncrement = getDPIncrement(exoName);
+        if (_dpIncrement === 0) {
+          return { weight: lastWeight, reps: Math.min(targetRepMin + 1, targetRepMax), progressed: true };
+        }
+        return { weight: wpRound25(lastWeight + _dpIncrement), reps: targetRepMin, progressed: true };
+      }
+      continue;
+    }
+    if (almostComplete) {
+      return {
+        weight: lastWeight,
+        reps: targetRepMax,
+        progressed: false,
+        almostComplete: true,
+        coachNote: '⏳ Encore une séance pour valider les ' + targetRepMax + ' reps sur chaque série avant de monter.'
+      };
     }
     return { weight: lastWeight, reps: targetRepMax, progressed: false };
+  }
+  if (lastWeightSeen > 0) {
+    return { weight: lastWeightSeen, reps: targetRepMax, progressed: false };
   }
   var estimated = wpEstimateWeight(exoName, null);
   if (estimated) {
@@ -17942,6 +18155,20 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   if (!db.exercises[realName]) db.exercises[realName] = {};
   db.exercises[realName].shadowWeight = baseWeight;
 
+  // Bonus récupération Ghost Log (activité secondaire non effectuée)
+  if (db._recoveryBonus) {
+    var _todayStr = new Date().toISOString().split('T')[0];
+    var _hasBonus = Object.values(db._recoveryBonus).some(function(b) {
+      return b.date === _todayStr && b.bonus > 0;
+    });
+    if (_hasBonus) {
+      baseWeight = wpRound25(baseWeight + 2.5);
+      Object.keys(db._recoveryBonus).forEach(function(k) {
+        if (db._recoveryBonus[k].date === _todayStr) delete db._recoveryBonus[k];
+      });
+    }
+  }
+
   // Choix de l'arrondi selon le type d'exercice
   var exoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(realName) : null;
   var isIsolation = exoMeta && exoMeta.mechanic === 'isolation';
@@ -17962,7 +18189,8 @@ function wpDetectPlateau(liftType) {
   var names = liftNames[liftType] || [];
   var history = [];
   var sortedLogs2 = logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
-  for (var i = 0; i < sortedLogs2.length && history.length < 6; i++) {
+  var _plateauWindow = liftType === 'deadlift' ? 8 : 6;
+  for (var i = 0; i < sortedLogs2.length && history.length < _plateauWindow; i++) {
     var log = sortedLogs2[i];
     var exo = (log.exercises || []).find(function(e) {
       return names.some(function(n) { return e.name && e.name.toLowerCase().includes(n.toLowerCase()); });
@@ -17978,7 +18206,8 @@ function wpDetectPlateau(liftType) {
     }, workSets[0]);
     history.push({ weight: parseFloat(best.weight) || 0, rpe: parseFloat(best.rpe) || 7.5 });
   }
-  if (history.length < 3) return null;
+  var _minHistory = liftType === 'deadlift' ? 4 : 3;
+  if (history.length < _minHistory) return null;
   var stagnant = history[0].weight === history[1].weight && history[0].weight === history[2].weight;
   var highRpe = history[0].rpe >= 9 && history[1].rpe >= 9;
   if (!stagnant || !highRpe) return null;
@@ -17987,7 +18216,23 @@ function wpDetectPlateau(liftType) {
     squat:    { variation: 'Squat Pause',  reason: 'Renforcer la sortie du trou' },
     deadlift: { variation: 'Block Pulls',  reason: 'Travailler le verrouillage au genou' }
   };
-  return { liftType: liftType, sessions: history.length, correction: corrections[liftType], action: 'back_off_10pct' };
+  var _plateauActions = {
+    squat:    'switch_variation',
+    bench:    'switch_rep_range',
+    deadlift: 'back_off_10pct'
+  };
+  var _coachNotes = {
+    squat:    '🔄 Plateau Squat détecté — essaie le High Bar ou le Squat Pause 2 semaines.',
+    bench:    '🔄 Plateau Bench — change le rep range (ex: 5x5 → 4x8) pendant 2 semaines.',
+    deadlift: '📉 Plateau Deadlift — réduis de 10% et reconstruis proprement.'
+  };
+  return {
+    liftType:  liftType,
+    sessions:  history.length,
+    correction: corrections[liftType],
+    action:    _plateauActions[liftType] || 'back_off_10pct',
+    coachNote: _coachNotes[liftType] || ''
+  };
 }
 
 function wpForcePhase() {
@@ -21552,6 +21797,16 @@ function goToggleSetComplete(exoIdx, setIdx) {
   if (set.completed) {
     var _completedAt = Date.now();
     set._completedAt = _completedAt;
+
+    // Enrichir le set avec les métadonnées Gemini (Q3)
+    var _exoForMeta = activeWorkout.exercises[exoIdx];
+    var _workIdx = _exoForMeta.sets
+      .filter(function(s, i) { return i <= setIdx && !s.isWarmup && s.setType !== 'warmup'; })
+      .length - 1;
+    set.setIndex    = _workIdx;
+    set.isTopSet    = _workIdx === 0;
+    set.targetReps  = (_exoForMeta.targetReps) || set.reps;
+    if (set.fatigueType === undefined) set.fatigueType = null;
     // Supersets : ne lancer le timer qu'après le DERNIER exo du superset
     var exo = activeWorkout.exercises[exoIdx];
     var isInSuperset = goIsPartOfSuperset(exoIdx);
@@ -21666,6 +21921,45 @@ function showGrindTechQuestion(exoIdx, setIdx) {
 
 // ── Auto-régulation intra-séance basée sur le RPE ──────────
 // Pure : retourne { msg, type } ou null. Affichage via showLiveCoachBanner.
+// ── Classification de fatigue (Gemini Q4 — formule MVF) ─────────────────
+// Sans FC ni RPE, inférence depuis le contexte de la séance
+function classifyFatigue(setIndex, repDrop, srsScore, acwr, level) {
+  var isEarly = setIndex <= 1;
+  var srsLow  = srsScore < 50;
+  var acwrHigh = acwr && acwr > 1.3;
+
+  // Overload : échec dès la toute première série, manque massif de reps
+  if (setIndex === 0 && repDrop >= 3) {
+    return { type: 'overload', confidence: 0.90,
+      signals: ['set_index_0', 'rep_drop_' + repDrop] };
+  }
+
+  // Neural / SNC : chute brutale en début de séance + SRS bas ou ACWR haut
+  if (isEarly && repDrop >= 2 && (srsLow || acwrHigh)) {
+    var _conf = (srsLow && acwrHigh) ? 0.90 : 0.75;
+    return { type: 'neural', confidence: _conf,
+      signals: ['early_set', 'rep_drop_' + repDrop,
+        srsLow ? 'srs_' + srsScore : null,
+        acwrHigh ? 'acwr_' + (acwr || 0).toFixed(2) : null
+      ].filter(Boolean) };
+  }
+
+  // Avancé : plus alarmiste sur la détection neurale
+  if (level === 'avance' && repDrop >= 2 && acwrHigh) {
+    return { type: 'neural', confidence: 0.80,
+      signals: ['advanced_profile', 'acwr_high', 'rep_drop_' + repDrop] };
+  }
+
+  // Musculaire : chute progressive en fin de séance, SRS OK
+  if (!isEarly && repDrop >= 1 && !srsLow) {
+    var _confMusc = level === 'debutant' ? 0.60 : 0.70;
+    return { type: 'muscular', confidence: _confMusc,
+      signals: ['late_set', 'rep_drop_' + repDrop, 'srs_ok'] };
+  }
+
+  return { type: null, confidence: 0, signals: [] };
+}
+
 function goCheckAutoRegulation(exoIdx, setIdx) {
   if (!activeWorkout || !db.weeklyPlan) return null;
   var exo = activeWorkout.exercises[exoIdx];
@@ -21766,6 +22060,138 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
           'Passe aux back-off légers ou arrête la séance.',
         type: 'danger',
         blockAPREIncrease: true
+      };
+    }
+  }
+
+  // ── RÈGLE 0 — Drop set volontaire vs Échec (Gemini Q1) ─────────────────
+  // Un drop set intentionnel : charge baisse de >10% → ne pas signaler
+  // Un "pseudo-drop" (charge baisse <10% + reps chutent) = échec déguisé
+  var _workCompletedSets = exo.sets.filter(function(s) {
+    return s.completed && !s.isWarmup && s.setType !== 'warmup'
+      && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
+  });
+  if (_workCompletedSets.length >= 2) {
+    var _prev = _workCompletedSets[_workCompletedSets.length - 2];
+    var _curr = _workCompletedSets[_workCompletedSets.length - 1];
+    var _prevW = parseFloat(_prev.weight) || 0;
+    var _currW = parseFloat(_curr.weight) || 0;
+    var _isVoluntaryDrop = _prevW > 0 && _currW < _prevW * 0.90;
+    if (_isVoluntaryDrop) {
+      if (!_curr.isDropSet && _curr.setType === 'normal') {
+        _curr.isDropSet = true;
+        _curr.setType = 'dropset';
+      }
+      return null;
+    }
+  }
+
+  // ── RÈGLE 7 — Détection d'échec implicite + classification fatigue ──────
+  var _workSets2 = exo.sets.filter(function(s) {
+    return s.completed && !s.isWarmup && !s.isDropSet
+      && s.setType !== 'warmup' && s.setType !== 'dropset'
+      && parseInt(s.reps) > 0 && parseFloat(s.weight) > 0;
+  });
+
+  if (_workSets2.length >= 2) {
+    var _p = _workSets2[_workSets2.length - 2];
+    var _c = _workSets2[_workSets2.length - 1];
+    var _pR = parseInt(_p.reps) || 0;
+    var _cR = parseInt(_c.reps) || 0;
+    var _pW = parseFloat(_p.weight) || 0;
+    var _cW = parseFloat(_c.weight) || 0;
+    var _repsDrop = _pR - _cR;
+
+    // targetReps depuis le plan
+    var _planExo2 = planDay ? (planDay.exercises || []).find(function(e) {
+      return e.name && exo.name && wpNormalizeName(e.name) === wpNormalizeName(exo.name);
+    }) : null;
+    var _targetReps = (_planExo2 && _planExo2.targetReps)
+      || (_planExo2 && _planExo2.sets && _planExo2.sets[0] && _planExo2.sets[0].reps)
+      || _pR;
+    var _repDropVsTarget = _targetReps - _cR;
+
+    // Épuisement : charge ET reps baissent
+    var _isExhaustion = _cW < _pW * 0.99 && _cR < _pR;
+    // Échec implicite : charge stable, reps chutent
+    var _isImplicitFail = _repsDrop >= 2 && _cW >= _pW * 0.99;
+    var _isCriticalFail = _repsDrop >= 3;
+
+    if (_isExhaustion || _isCriticalFail || _isImplicitFail) {
+      // Contexte pour classifyFatigue
+      var _srsCtx = typeof computeSRS === 'function' ? computeSRS() : { score: 70 };
+      var _srsScore2 = (_srsCtx && _srsCtx.score) || 70;
+      var _acwr2 = typeof computeACWR === 'function' ? computeACWR() : null;
+      var _level2 = (db.user && db.user.level) || 'intermediaire';
+      var _setIndex = _workSets2.length - 1;
+
+      var _fatigue = typeof classifyFatigue === 'function'
+        ? classifyFatigue(_setIndex, _repsDrop, _srsScore2, _acwr2, _level2)
+        : { type: null, confidence: 0, signals: [] };
+
+      // Enrichir le set avec la classification
+      _c.fatigueType       = _fatigue.type;
+      _c.fatigueConfidence = _fatigue.confidence;
+      _c.fatigueSignals    = _fatigue.signals;
+
+      // UX selon seuil de confiance (Gemini Q5)
+      // Silence si pas de classification confiante ET pas de signal objectif fort.
+      // Signaux forts = _isExhaustion, _isCriticalFail, ou _isImplicitFail sans RPE.
+      var _hasStrongSignal = _isExhaustion || _isCriticalFail || (_isImplicitFail && !set.rpe);
+      if (_fatigue.confidence < 0.60 && !_hasStrongSignal) {
+        return null;
+      }
+
+      var _fatigueMsg = '';
+      var _msgType = 'warning';
+      var _addStrike = false;
+
+      if (_fatigue.type === 'neural' && _fatigue.confidence >= 0.80) {
+        _msgType = 'danger';
+        _addStrike = true;
+        _fatigueMsg = phase === 'peak'
+          ? '🛑 SNC saturé en Peak — STOP TOTAL. Protection articulaire absolue.'
+          : '🧠 Fatigue nerveuse détectée (SRS ' + _srsScore2 + '). Arrête cet exercice — le SNC ne récupère pas entre les séries.';
+      } else if (_fatigue.type === 'overload') {
+        _msgType = 'danger';
+        _fatigueMsg = '⚠️ Charge trop lourde dès la première série. Réduis de 5-10% pour la prochaine séance.';
+      } else if (_fatigue.type === 'muscular') {
+        _msgType = 'warning';
+        _fatigueMsg = phase === 'volume' || phase === 'hypertrophie'
+          ? '💪 Fatigue musculaire — c\'est ici que tu progresses. Continue en back-off si besoin.'
+          : '📉 Fatigue musculaire détectée. Convertis en back-off (-10%) pour finir le volume.';
+      } else if (_isCriticalFail || _isExhaustion) {
+        // Échec objectif fort sans classification : danger + strike (compat v185)
+        _msgType = 'danger';
+        _addStrike = true;
+        _fatigueMsg = phase === 'peak'
+          ? '🛑 Échec critique — STOP. Protection articulaire absolue en Peak.'
+          : phase === 'force'
+          ? '🛑 Arrête l\'exercice. On ne grinde pas en Force — SNC préservé.'
+          : '⚠️ Épuisement détecté — conversion en Back-off (-10%) pour finir le volume.';
+      } else {
+        // _isImplicitFail seul : warning sans classification confiante
+        _msgType = 'warning';
+        _fatigueMsg = '📉 -' + _repsDrop + ' reps sans RPE noté — échec implicite possible. '
+          + (phase === 'volume' ? 'Convertis la prochaine série en Back-off (-10%).' : 'Évalue si tu continues ou stops.');
+      }
+
+      // Strike LP : neural confiant OU épuisement / échec critique objectif
+      if (_addStrike && exo.name) {
+        if (!db.user.lpStrikes) db.user.lpStrikes = {};
+        if (!db.user.lpStrikes[exo.name]) db.user.lpStrikes[exo.name] = { count: 0 };
+        db.user.lpStrikes[exo.name].count++;
+        db.user.lpStrikes[exo.name].lastFailWeight = _cW;
+        if (_fatigue.type === 'neural') db.user.lpStrikes[exo.name].fatigueType = 'neural';
+      }
+
+      return {
+        msg: _fatigueMsg,
+        type: _msgType,
+        isImplicitFailure: true,
+        blockAPREIncrease: _fatigue.type === 'neural' || _isCriticalFail || _isExhaustion,
+        fatigueType: _fatigue.type,
+        fatigueConfidence: _fatigue.confidence
       };
     }
   }

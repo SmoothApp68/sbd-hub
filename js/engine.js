@@ -2850,6 +2850,28 @@ function analyzeAthleteProfile() {
     }
   }
 
+  // ── RATIO ISCHIOS/QUADS (volume sets hebdomadaire) ──────────────────────────
+  var _isoSets = 0, _quadSets = 0;
+  _weekLogs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      var _meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(e.name) : null;
+      if (!_meta) return;
+      var _mg = (_meta.muscleGroup || '').toLowerCase();
+      var _sets = parseInt(e.sets) || 0;
+      if (/hams|ischio/.test(_mg)) _isoSets += _sets;
+      if (/quad/.test(_mg)) _quadSets += _sets;
+    });
+  });
+  var isoQuadRatio = _quadSets > 0 ? _isoSets / _quadSets : null;
+  if (isoQuadRatio !== null && isoQuadRatio < 0.75 && _quadSets >= 4) {
+    bioAlerts.push({
+      severity: 'warning',
+      title: 'Ischios/Quads faible (' + isoQuadRatio.toFixed(2) + ' < 0.75)',
+      text: 'Ratio H:Q insuffisant — risque blessure LCA. '
+        + 'Ajoute 2 sets de Leg Curl isolés cette semaine.'
+    });
+  }
+
   if (bioAlerts.length) sections.push({ title: '⚠️ Biomécanique & Ratios', alerts: bioAlerts });
 
   // ── SECTION 2 : FATIGUE & VOLUME ───────────────────────────────────────────

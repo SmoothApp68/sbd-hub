@@ -1,0 +1,78 @@
+{
+  "passed": 12,
+  "total": 12,
+  "results": [
+    {
+      "id": "FIX1",
+      "desc": "Bulgarian Split Squat in force.squat (Step-up removed)",
+      "pass": true,
+      "detail": "{\"found\":true,\"noStep\":true}"
+    },
+    {
+      "id": "FIX2",
+      "desc": "Curl Marteau in force.bench",
+      "pass": true,
+      "detail": "found=true"
+    },
+    {
+      "id": "FIX3",
+      "desc": "wpDetectPlateau deadlift 4 sessions → detected (minHistory=4)",
+      "pass": true,
+      "detail": "{\"liftType\":\"deadlift\",\"sessions\":4,\"correction\":{\"variation\":\"Block Pulls\",\"reason\":\"Travailler le verrouillage au genou\"},\"action\":\"back_off_10pct\",\"coachNote\":\"📉 Plateau Deadlift — réduis de 10% et reconstruis proprement.\"}"
+    },
+    {
+      "id": "FIX3b",
+      "desc": "wpDetectPlateau squat 3 sessions → detected (minHistory=3 unchanged)",
+      "pass": true,
+      "detail": "{\"liftType\":\"squat\",\"sessions\":3,\"correction\":{\"variation\":\"Squat Pause\",\"reason\":\"Renforcer la sortie du trou\"},\"action\":\"switch_variation\",\"coachNote\":\"🔄 Plateau Squat détecté — essaie le High Bar ou le Squat Pause 2 semaines.\"}"
+    },
+    {
+      "id": "FIX4",
+      "desc": "getMissingActivityLogs filters by day (behavioral check)",
+      "pass": true,
+      "detail": "{\"ok\":true,\"reason\":\"Samedi not in template → missing=0\"}"
+    },
+    {
+      "id": "FIX5",
+      "desc": "confirmGhostLog(type, false) → db._recoveryBonus.natation.bonus=2.5",
+      "pass": true,
+      "detail": "{\"natation\":{\"date\":\"2026-05-11\",\"bonus\":2.5,\"reason\":\"Activité natation non effectuée — récupération économisée\"}}"
+    },
+    {
+      "id": "FIX5b",
+      "desc": "wpComputeWorkWeight consumes _recoveryBonus (+2.5kg, key deleted)",
+      "pass": true,
+      "detail": "{\"wWith\":127.5,\"wWithout\":125,\"bonusConsumed\":true,\"diff\":2.5}"
+    },
+    {
+      "id": "FIX6",
+      "desc": "-2 reps same weight → warning isImplicitFailure",
+      "pass": true,
+      "detail": "📉 -2 reps sans RPE noté — échec implicite possible. Évalue "
+    },
+    {
+      "id": "FIX6b",
+      "desc": "-3 reps → danger + blockAPREIncrease + strike",
+      "pass": true,
+      "detail": "{\"type\":\"danger\",\"strike\":1}"
+    },
+    {
+      "id": "FIX6c",
+      "desc": "weight drop + rep drop → danger (exhaustion)",
+      "pass": true,
+      "detail": "⚠️ Épuisement détecté — conversion en Back-off (-10%) pour f"
+    },
+    {
+      "id": "FIX7",
+      "desc": "wpDetectPlateau squat → action switch_variation",
+      "pass": true,
+      "detail": "switch_variation"
+    },
+    {
+      "id": "FIX8",
+      "desc": "analyzeAthleteProfile returns sections array (ischios/quads logic integrated)",
+      "pass": true,
+      "detail": "{\"isArray\":true,\"len\":1}"
+    }
+  ]
+}

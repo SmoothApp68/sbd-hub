@@ -16854,9 +16854,59 @@ var DUP_PARAMS = {
 };
 
 var DUP_SEQUENCE = {
-  2: ['force', 'volume'],
-  3: ['force', 'vitesse', 'volume']
+  // Débutants : volume fixe (LP pure, pas de DUP)
+  debutant: {
+    2: ['volume', 'volume'],
+    3: ['volume', 'volume', 'volume'],
+    4: ['volume', 'volume', 'volume', 'volume'],
+    5: ['volume', 'volume', 'volume', 'volume', 'volume']
+  },
+  // Bien-être : technique + léger
+  bien_etre: {
+    2: ['vitesse', 'volume'],
+    3: ['vitesse', 'volume', 'vitesse'],
+    4: ['vitesse', 'volume', 'vitesse', 'volume'],
+    5: ['vitesse', 'volume', 'vitesse', 'volume', 'vitesse']
+  },
+  // Musculation intermédiaire : volume + force alternés
+  musculation: {
+    2: ['volume', 'force'],
+    3: ['volume', 'force', 'volume'],
+    4: ['volume', 'force', 'volume', 'force'],
+    5: ['volume', 'force', 'volume', 'force', 'volume']
+  },
+  // Powerbuilding intermédiaire
+  powerbuilding_intermediaire: {
+    2: ['force', 'volume'],
+    3: ['force', 'volume', 'force'],
+    4: ['force', 'volume', 'force', 'volume'],
+    5: ['force', 'volume', 'force', 'volume', 'volume']
+  },
+  // Powerbuilding avancé
+  powerbuilding_avance: {
+    2: ['force', 'volume'],
+    3: ['force', 'volume', 'vitesse'],
+    4: ['force', 'volume', 'force', 'volume'],
+    5: ['force', 'volume', 'force', 'volume', 'vitesse']
+  },
+  // Powerlifting : force + vitesse, zéro volume hypertrophie
+  powerlifting: {
+    2: ['force', 'vitesse'],
+    3: ['force', 'vitesse', 'force'],
+    4: ['force', 'vitesse', 'force', 'vitesse'],
+    5: ['force', 'vitesse', 'force', 'vitesse', 'force'],
+    6: ['force', 'vitesse', 'force', 'vitesse', 'force', 'vitesse']
+  }
 };
+
+// Sélection de la clé DUP selon mode × niveau
+function getDUPKey(mode, level) {
+  if (level === 'debutant') return 'debutant';
+  if (mode === 'bien_etre') return 'bien_etre';
+  if (mode === 'powerlifting') return 'powerlifting';
+  if (mode === 'musculation') return 'musculation';
+  return level === 'avance' ? 'powerbuilding_avance' : 'powerbuilding_intermediaire';
+}
 
 // ── ACCESSOIRES PAR PHASE ───────────────────────────────────
 // Accessoires hypertrophie : volume + isolation, rep ranges élevés.
@@ -18645,8 +18695,19 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       var _sameLiftDays = _selectedDays.filter(function(d) { return _liftPat && _liftPat.test((routine && routine[d]) || ''); });
       var _dupIdx = _sameLiftDays.indexOf(currentDay);
       if (_dupIdx < 0) _dupIdx = 0;
-      var _dupSeq = DUP_SEQUENCE[Math.min(_dupFreq, 3)] || DUP_SEQUENCE[2];
+      var _mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+      var _level = (db.user && db.user.level) || 'intermediaire';
+      var _dupKey = getDUPKey(_mode, _level);
+      var _dupSeq = (DUP_SEQUENCE[_dupKey] && DUP_SEQUENCE[_dupKey][Math.min(_dupFreq, 6)])
+                    || DUP_SEQUENCE.powerbuilding_intermediaire[2];
       _dupProfile = DUP_PARAMS[_dupSeq[_dupIdx % _dupSeq.length]];
+      // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
+      var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;
+      var _hasSecondary = !!(db.user && db.user.activityTemplate && db.user.activityTemplate.length);
+      if (_dupProfile && _acwrDup && _acwrDup > 1.3 && _hasSecondary
+          && _dupProfile.label === 'Volume / Hypertrophie DUP') {
+        _dupProfile = Object.assign({}, _dupProfile, { rpe: [6, 7] });
+      }
       if (_dupProfile) {
         _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
         _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';

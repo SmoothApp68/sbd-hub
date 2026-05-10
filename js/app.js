@@ -19665,6 +19665,15 @@ function goRequestWakeLock() {
 function goReleaseWakeLock() {
   try { if (_goWakeLock) { _goWakeLock.release(); _goWakeLock = null; } } catch(e) {}
 }
+// Browser auto-releases wakeLock when the page goes hidden — re-acquire when
+// it becomes visible again, but only if a GO session is still active.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible'
+      && typeof activeWorkout !== 'undefined' && activeWorkout && !activeWorkout.isFinished
+      && !_goWakeLock) {
+    goRequestWakeLock();
+  }
+});
 
 // ── Format helpers ──
 function goFormatTime(sec) {

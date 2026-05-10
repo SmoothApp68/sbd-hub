@@ -1,0 +1,124 @@
+{
+  "date": "2026-05-10T11:14:30.798Z",
+  "version": "v182",
+  "pass": 23,
+  "fail": 0,
+  "total": 23,
+  "results": [
+    {
+      "name": "LB-01 calcLeaderboardMetrics() is defined",
+      "pass": true,
+      "msg": "function exists globally"
+    },
+    {
+      "name": "LB-02 metrics.dots > 0 with valid bestPR",
+      "pass": true,
+      "msg": "dots=327"
+    },
+    {
+      "name": "LB-03 xp_week (175) computed from completed challenges",
+      "pass": true,
+      "msg": "xp_week=175"
+    },
+    {
+      "name": "LB-04 xp (alltime) reads from gamification.xp",
+      "pass": true,
+      "msg": "xp=5000"
+    },
+    {
+      "name": "LB-05 xp_week !== xp",
+      "pass": true,
+      "msg": "distinct values"
+    },
+    {
+      "name": "LB-06 weekly key format YYYY-WNN",
+      "pass": true,
+      "msg": "got: 2026-W19"
+    },
+    {
+      "name": "LB-07 monthly key format YYYY-MM",
+      "pass": true,
+      "msg": "got: 2026-05"
+    },
+    {
+      "name": "LB-08 alltime key === \"alltime\"",
+      "pass": true,
+      "msg": "got: alltime"
+    },
+    {
+      "name": "LB-09 sessions_week counts last 7 days only",
+      "pass": true,
+      "msg": "sessions_week=2"
+    },
+    {
+      "name": "LB-10 volume_week sums last 7 days",
+      "pass": true,
+      "msg": "volume_week=8000"
+    },
+    {
+      "name": "LB-11 sessions_month counts last 30 days",
+      "pass": true,
+      "msg": "sessions_month=3"
+    },
+    {
+      "name": "LB-12 supabase.js uses metrics.xp_week for weekly entry",
+      "pass": true,
+      "msg": "xp_week distinct in syncLeaderboard"
+    },
+    {
+      "name": "ENG-01 wpComputeWorkWeightSafe defined",
+      "pass": true,
+      "msg": "function exists"
+    },
+    {
+      "name": "ENG-02 wpGeneratePowerbuildingDaySafe defined",
+      "pass": true,
+      "msg": "function exists"
+    },
+    {
+      "name": "ENG-03 wpBuildWarmupsSafe defined",
+      "pass": true,
+      "msg": "function exists"
+    },
+    {
+      "name": "ENG-04 Safe wrapper returns number on unknown lift",
+      "pass": true,
+      "msg": "w=30"
+    },
+    {
+      "name": "ENG-05 Safe wrapper returns object with exercises[] on null params",
+      "pass": true,
+      "msg": "got: {\"rest\":false,\"title\":\"squat\",\"coachNote\":\"\",\"exercises\":[]}"
+    },
+    {
+      "name": "ENG-06 Safe wrapper returns array on weight=0",
+      "pass": true,
+      "msg": "len=0"
+    },
+    {
+      "name": "ENG-07 Safe wrapper resilient to undefined args",
+      "pass": true,
+      "msg": "len=0"
+    },
+    {
+      "name": "ENG-08 No console errors during normal load",
+      "pass": true,
+      "msg": "errors=0"
+    },
+    {
+      "name": "ENG-09 wpComputeWorkWeightSafe in app.min.js",
+      "pass": true,
+      "msg": "minified"
+    },
+    {
+      "name": "ENG-10 wpGeneratePowerbuildingDaySafe in app.min.js",
+      "pass": true,
+      "msg": "minified"
+    },
+    {
+      "name": "ENG-11 wpBuildWarmupsSafe in app.min.js",
+      "pass": true,
+      "msg": "minified"
+    }
+  ]
+}

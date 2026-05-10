@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v181';
+var SW_VERSION = 'trainhub-v182';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -3385,6 +3385,78 @@ function calcTotalXP() {
     try { localStorage.setItem('SBD_HUB', JSON.stringify(db)); } catch(e) {}
   }
   return Math.max(xp, hwm);
+}
+
+// ── LEADERBOARD METRICS — used by syncLeaderboard() in supabase.js ──────────
+function calcLeaderboardMetrics() {
+  if (typeof db === 'undefined' || !db) return {};
+  var now = Date.now();
+  var WEEK = 7 * 86400000;
+  var MONTH = 30 * 86400000;
+
+  var allLogs = db.logs || [];
+  var weekLogs = allLogs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= WEEK;
+  });
+  var monthLogs = allLogs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= MONTH;
+  });
+
+  var volumeWeek = weekLogs.reduce(function(s, l) {
+    return s + (parseFloat(l.volume) || 0);
+  }, 0);
+
+  var totalXP = (db.gamification && db.gamification.xp)
+    || (db.gamification && db.gamification.xpHighWaterMark)
+    || 0;
+
+  var xpWeek = 0;
+  if (db.weeklyChallenges && Array.isArray(db.weeklyChallenges.challenges)) {
+    db.weeklyChallenges.challenges.forEach(function(c) {
+      if (c.completed) xpWeek += (c.xpReward || 0);
+    });
+  }
+
+  var dots = 0;
+  try {
+    var bw = (db.user && db.user.bw) || 80;
+    var gender = (db.user && db.user.gender) === 'female' ? 'F' : 'M';
+    var sq = (db.bestPR && db.bestPR.squat) || 0;
+    var bn = (db.bestPR && db.bestPR.bench) || 0;
+    var dl = (db.bestPR && db.bestPR.deadlift) || 0;
+    var total = sq + bn + dl;
+    if (total > 0 && bw > 0 && typeof computeDOTS === 'function') {
+      dots = Math.round(computeDOTS(total, bw, gender));
+    }
+  } catch(e) {}
+
+  var streak = typeof calcStreak === 'function' ? calcStreak() : 0;
+
+  return {
+    xp:             totalXP,
+    xp_week:        xpWeek,
+    volume_week:    Math.round(volumeWeek),
+    sessions_week:  weekLogs.length,
+    sessions_month: monthLogs.length,
+    dots:           dots,
+    streak:         streak
+  };
+}
+
+function getLeaderboardPeriodKey(type) {
+  var now = new Date();
+  if (type === 'weekly') {
+    var d = new Date(now);
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var year = d.getUTCFullYear();
+    var jan1 = new Date(Date.UTC(year, 0, 1));
+    var week = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+    return year + '-W' + String(week).padStart(2, '0');
+  }
+  if (type === 'monthly') {
+    return now.getUTCFullYear() + '-' + String(now.getUTCMonth() + 1).padStart(2, '0');
+  }
+  return 'alltime';
 }
 
 // ── ISO 8601 week helpers (UTC-only, no DST/TZ drift) ──
@@ -18535,7 +18607,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       var _fallbackNames = { squat: 'Squat (Barre)', bench: 'Développé couché (Barre)', deadlift: 'Soulevé de terre (Barre)', squat_pause: 'Squat Pause' };
       variant = { name: _fallbackNames[tpl.mainLift] || tpl.mainLift, reps: [5, 5], rpe: 7.5 };
     }
-    var weight = wpComputeWorkWeight(tpl.mainLift, bodyPart);
+    var weight = wpComputeWorkWeightSafe(tpl.mainLift, bodyPart);
     var reps = Math.round((variant.reps[0] + variant.reps[1]) / 2);
     var setsCount = wpSetsForPhase(phase);
     var rpe = variant.rpe;
@@ -18558,7 +18630,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       reps = 10;
       rpe = 7;
     }
-    var warmups = wpBuildWarmups(weight, reps, mainName, 1, []);
+    var warmups = wpBuildWarmupsSafe(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     var _mainE1rmForRest = typeof getZoneE1RM === 'function'
       ? (getZoneE1RM(mainName, typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie') || 0)
@@ -18606,11 +18678,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   }
 
   if (tpl.mainLift === 'squat_pause') {
-    var sqW = wpComputeWorkWeight('squat', 'lower');
+    var sqW = wpComputeWorkWeightSafe('squat', 'lower');
     var pauseWeight = wpRound25(sqW * 0.85);
     exercises.push({
       name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: true,
-      sets: wpBuildWarmups(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
+      sets: wpBuildWarmupsSafe(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
     });
   }
 
@@ -18685,7 +18757,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
         sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || null, weight: null, isWarmup: false, useBodyweight: true }; }) });
     } else {
       var accWeight = dpResult ? (parseFloat(dpResult.weight) || 0) : 0;
-      var accWarmups = wpBuildWarmups(accWeight, repsVal, acc.name, accOrder, placedExoNames);
+      var accWarmups = wpBuildWarmupsSafe(accWeight, repsVal, acc.name, accOrder, placedExoNames);
       var exoObj = { name: acc.name, type: 'weight', restSeconds: restVal,
         sets: accWarmups.concat(Array.from({ length: sc }, function() {
           return { reps: dpResult ? dpResult.reps : repsVal, rpe: phase === 'deload' ? 6 : (acc.rpe || 7.5), weight: dpResult ? dpResult.weight : null, isWarmup: false };
@@ -18727,7 +18799,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       exercises.unshift({
         name: 'Extension Dos (Hyperextension Lestée)', type: 'weight', restSeconds: 180, isPrimary: true,
         coachNote: '⚠️ Fatigue axiale (Squat RPE ' + squatRpe48 + ' il y a < 48h). Deadlift remplacé. Retour la semaine prochaine.',
-        sets: wpBuildWarmups(60, 8, 'Extension Dos', 1, []).concat([
+        sets: wpBuildWarmupsSafe(60, 8, 'Extension Dos', 1, []).concat([
           { weight: 60, reps: 8, rpe: 7, isWarmup: false },
           { weight: 60, reps: 8, rpe: 7, isWarmup: false },
           { weight: 60, reps: 8, rpe: 7, isWarmup: false }
@@ -18810,6 +18882,64 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
+
+// ── SAFE WRAPPERS — protection crash GO sur logs malformés ─────────────────
+function wpComputeWorkWeightSafe(liftType, bodyPart) {
+  try {
+    return wpComputeWorkWeight(liftType, bodyPart);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpComputeWorkWeightSafe', { liftType: liftType, bodyPart: bodyPart });
+    }
+    var _logs = (typeof db !== 'undefined' && db && db.logs) || [];
+    var _last = _logs
+      .filter(function(l) {
+        return (l.exercises || []).some(function(ex) {
+          return String(ex && ex.name || '').toLowerCase().indexOf(String(liftType||'').toLowerCase()) >= 0;
+        });
+      })
+      .sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0];
+    if (_last) {
+      var _lastExo = (_last.exercises || []).find(function(ex) {
+        return String(ex && ex.name || '').toLowerCase().indexOf(String(liftType||'').toLowerCase()) >= 0;
+      });
+      if (_lastExo && _lastExo.shadowWeight) return _lastExo.shadowWeight;
+    }
+    return 60;
+  }
+}
+
+function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentDay) {
+  try {
+    return wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpGeneratePowerbuildingDaySafe', { dayKey: dayKey, phase: phase });
+    }
+    return { rest: false, title: dayKey || 'Séance', coachNote: '', exercises: [] };
+  }
+}
+
+function wpBuildWarmupsSafe(workWeight, workReps, liftType, exerciseOrder, previousExoNames) {
+  try {
+    return wpBuildWarmups(workWeight, workReps, liftType, exerciseOrder, previousExoNames);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpBuildWarmupsSafe', { workWeight: workWeight, liftType: liftType });
+    }
+    var w = parseFloat(workWeight) || 60;
+    var rnd = function(v) { return Math.max(20, Math.round(v / 2.5) * 2.5); };
+    return [
+      { weight: rnd(w * 0.5),  reps: 5, isWarmup: true },
+      { weight: rnd(w * 0.7),  reps: 3, isWarmup: true },
+      { weight: rnd(w * 0.85), reps: 2, isWarmup: true }
+    ];
+  }
+}
+// ───────────────────────────────────────────────────────────────────────────
 
 function wpGenerateMuscuDay(tplKey, params, phase) {
   var tpl = WP_PPL_TEMPLATES[tplKey];
@@ -19073,8 +19203,8 @@ function calculateParametersForCustomPlan() {
         ? getFatiguePenalty(session.exercises, exoIdx)
         : 0;
 
-      var baseWeight = typeof wpComputeWorkWeight === 'function'
-        ? wpComputeWorkWeight(tmplExo.name, isMainLift ? 'primary' : 'accessory')
+      var baseWeight = typeof wpComputeWorkWeightSafe === 'function'
+        ? wpComputeWorkWeightSafe(tmplExo.name, isMainLift ? 'primary' : 'accessory')
         : 0;
 
       if (isMainLift && exoIdx > 0 && penalty > 0) {
@@ -19088,8 +19218,8 @@ function calculateParametersForCustomPlan() {
       var rest      = isMainLift ? 240 : 90;
 
       var warmupSets = [];
-      if (isMainLift && typeof wpBuildWarmups === 'function') {
-        warmupSets = wpBuildWarmups(baseWeight, reps, tmplExo.name, exoIdx, []);
+      if (isMainLift && typeof wpBuildWarmupsSafe === 'function') {
+        warmupSets = wpBuildWarmupsSafe(baseWeight, reps, tmplExo.name, exoIdx, []);
       }
 
       var workSets = [];
@@ -19270,7 +19400,7 @@ function generateWeeklyPlan() {
         else if (/point|faible|technique.*sbd|sbd.*tech/i.test(label)) {
           dayKey = allDays.indexOf(day) % 2 === 0 ? 'weakpoints' : 'technique';
         }
-        var dayData = wpGeneratePowerbuildingDay(dayKey, routine, phase, params, day);
+        var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         return Object.assign({ day: day }, dayData, { title: label || dayData.title });
       });

@@ -2006,6 +2006,16 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
   };
 
+  // ── ANALYSE BIOMÉCANIQUE — ratio antagonistes ────────────────────────────
+  var bestPR = (typeof db !== 'undefined' && db && db.bestPR) || {};
+  var prSq   = parseFloat(bestPR.squat) || 0;
+  var prBn   = parseFloat(bestPR.bench) || 0;
+  var squatBenchRatio = prBn > 0 ? prSq / prBn : 1.20;
+  var needsSquatSpec  = squatBenchRatio < 1.20 && level === 'avance' && isPB;
+  var _ratioNote = needsSquatSpec
+    ? 'Spécialisation Squat activée (ratio ' + squatBenchRatio.toFixed(2) + ' < 1.20)'
+    : null;
+
   // Map split → séquence de blocs
   function getSplitSequence(splitType, f) {
     switch (splitType) {
@@ -2031,6 +2041,14 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
         return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.squat2, plBlocks.bench2];
       case 'powerlifting_6':
         return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.squat2, plBlocks.bench2, plBlocks.dead2_acc];
+      case 'powerbuilding_4':
+        return [pbBlocks.sq_hyp, pbBlocks.bench_hyp, pbBlocks.dead_hyp, pbBlocks.bench2_hyp];
+      case 'powerbuilding_5':
+        return [pbBlocks.sq_hyp, pbBlocks.bench_hyp, pbBlocks.dead_hyp, pbBlocks.bench2_hyp,
+                needsSquatSpec ? pbBlocks.sq2_spec : pbBlocks.sq2_hyp];
+      case 'powerbuilding_6':
+        return [pbBlocks.sq_hyp, pbBlocks.bench_hyp, pbBlocks.dead_hyp, pbBlocks.bench2_hyp,
+                needsSquatSpec ? pbBlocks.sq2_spec : pbBlocks.sq2_hyp, pbBlocks.pull_hyp];
       default:
         return [Bg.full_a];
     }

@@ -3387,6 +3387,62 @@ function calcTotalXP() {
   return Math.max(xp, hwm);
 }
 
+// ── LEADERBOARD METRICS — used by syncLeaderboard() in supabase.js ──────────
+function calcLeaderboardMetrics() {
+  if (typeof db === 'undefined' || !db) return {};
+  var now = Date.now();
+  var WEEK = 7 * 86400000;
+  var MONTH = 30 * 86400000;
+
+  var allLogs = db.logs || [];
+  var weekLogs = allLogs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= WEEK;
+  });
+  var monthLogs = allLogs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= MONTH;
+  });
+
+  var volumeWeek = weekLogs.reduce(function(s, l) {
+    return s + (parseFloat(l.volume) || 0);
+  }, 0);
+
+  var totalXP = (db.gamification && db.gamification.xp)
+    || (db.gamification && db.gamification.xpHighWaterMark)
+    || 0;
+
+  var xpWeek = 0;
+  if (db.weeklyChallenges && Array.isArray(db.weeklyChallenges.challenges)) {
+    db.weeklyChallenges.challenges.forEach(function(c) {
+      if (c.completed) xpWeek += (c.xpReward || 0);
+    });
+  }
+
+  var dots = 0;
+  try {
+    var bw = (db.user && db.user.bw) || 80;
+    var gender = (db.user && db.user.gender) === 'female' ? 'F' : 'M';
+    var sq = (db.bestPR && db.bestPR.squat) || 0;
+    var bn = (db.bestPR && db.bestPR.bench) || 0;
+    var dl = (db.bestPR && db.bestPR.deadlift) || 0;
+    var total = sq + bn + dl;
+    if (total > 0 && bw > 0 && typeof computeDOTS === 'function') {
+      dots = Math.round(computeDOTS(total, bw, gender));
+    }
+  } catch(e) {}
+
+  var streak = typeof calcStreak === 'function' ? calcStreak() : 0;
+
+  return {
+    xp:             totalXP,
+    xp_week:        xpWeek,
+    volume_week:    Math.round(volumeWeek),
+    sessions_week:  weekLogs.length,
+    sessions_month: monthLogs.length,
+    dots:           dots,
+    streak:         streak
+  };
+}
+
 // ── ISO 8601 week helpers (UTC-only, no DST/TZ drift) ──
 function getISOWeekKey(ts) {
   var d = new Date(ts);

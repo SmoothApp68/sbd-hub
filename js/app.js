@@ -15380,6 +15380,18 @@ function confirmGhostLog(actType, done) {
     }
   }
 
+  if (!done) {
+    var _tomorrow = new Date();
+    _tomorrow.setDate(_tomorrow.getDate() + 1);
+    var _tomorrowStr = _tomorrow.toISOString().split('T')[0];
+    if (!db._recoveryBonus) db._recoveryBonus = {};
+    db._recoveryBonus[actType] = {
+      date: _tomorrowStr,
+      bonus: 2.5,
+      reason: 'Activité ' + actType + ' non effectuée — récupération économisée'
+    };
+  }
+
   db._ghostLogAnswered = yesterdayStr;
   saveDB();
   if (typeof renderCoachTab === 'function') renderCoachTab();
@@ -17942,6 +17954,20 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   if (!db.exercises) db.exercises = {};
   if (!db.exercises[realName]) db.exercises[realName] = {};
   db.exercises[realName].shadowWeight = baseWeight;
+
+  // Bonus récupération Ghost Log (activité secondaire non effectuée)
+  if (db._recoveryBonus) {
+    var _todayStr = new Date().toISOString().split('T')[0];
+    var _hasBonus = Object.values(db._recoveryBonus).some(function(b) {
+      return b.date === _todayStr && b.bonus > 0;
+    });
+    if (_hasBonus) {
+      baseWeight = wpRound25(baseWeight + 2.5);
+      Object.keys(db._recoveryBonus).forEach(function(k) {
+        if (db._recoveryBonus[k].date === _todayStr) delete db._recoveryBonus[k];
+      });
+    }
+  }
 
   // Choix de l'arrondi selon le type d'exercice
   var exoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(realName) : null;

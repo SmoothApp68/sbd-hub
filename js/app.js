@@ -9733,7 +9733,9 @@ function renderProgramTab() {
   if (mode === 'bodybuilding') mode = 'musculation';
   if (mode === 'bien-etre') mode = 'bien_etre';
 
-  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var phase = (typeof wpDetectPhase === 'function' ? wpDetectPhase() : null)
+    || (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase)
+    || 'accumulation';
   var routine = typeof getRoutine === 'function' ? getRoutine() : (db.routine || {});
   var wpDays = (db.weeklyPlan && db.weeklyPlan.days) ? db.weeklyPlan.days : [];
   var week = (db.weeklyPlan && db.weeklyPlan.week) || 1;
@@ -9762,8 +9764,8 @@ function renderProgramTab() {
     bien_etre:     ['fondation','progression','maintien']
   };
 
-  var phaseColor = PHASE_COLORS_LOCAL[phase] || '#0A84FF';
-  var phaseLabel = PHASE_LABELS_LOCAL[phase] || phase;
+  var phaseColor = (phase && PHASE_COLORS_LOCAL[phase]) || '#0A84FF';
+  var phaseLabel = (phase && PHASE_LABELS_LOCAL[phase]) || (phase || 'Accumulation');
   var availablePhases = PHASES_BY_MODE_LOCAL[mode] || PHASES_BY_MODE_LOCAL.powerbuilding;
 
   var lastDeload = (db.weeklyPlanHistory || []).slice().reverse()
@@ -18271,7 +18273,7 @@ function wpEstimateCurrentWeek() {
 function wpDetectPhase() {
   // Priorité 1 : forçage manuel récent (< 7 jours)
   var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
-  if (cb && cb.forcedAt && (Date.now() - cb.forcedAt) < 7 * 86400000) {
+  if (cb && cb.forcedAt && (Date.now() - cb.forcedAt) < 7 * 86400000 && cb.phase) {
     return cb.phase;
   }
 

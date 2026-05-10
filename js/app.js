@@ -10731,6 +10731,13 @@ function pbGenerateProgram() {
     ? s.selectedDays.slice()
     : _pbDefaultDaysForFreq(s.days);
   db.user.programParams.selectedDays = pickedDays;
+  // Preserve any secondary goals the user set via Settings (seche, recompo,
+  // maintien, reprise) — wizard only chooses the primary, so don't drop them.
+  var existingGoals = Array.isArray(db.user.programParams.goals) ? db.user.programParams.goals : [];
+  var secondaryGoals = existingGoals.filter(function(g) {
+    return g !== primaryGoalId && ['seche','recompo','maintien','reprise'].indexOf(g) >= 0;
+  });
+  db.user.programParams.goals = [primaryGoalId].concat(secondaryGoals);
 
   // Appeler le générateur existant si disponible
   try {

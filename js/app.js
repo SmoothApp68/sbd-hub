@@ -16848,6 +16848,101 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   return { exercises: adapted, adaptations };
 }
 
+// ── shouldDeload() — Gemini validation (paramètres calibrés) ─────────────
+function shouldDeload(logs, trainingMode) {
+  if (!logs || logs.length < 3) return { needed: false };
+
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var now = Date.now();
+  var DAY = 86400000;
+  var WEEK = 7 * DAY;
+
+  // Paramètres par niveau (Gemini)
+  var PARAMS = {
+    debutant:      { maxWeeks: 12, rpeThreshold: 9.0,  volumeDrop: 0.20, srsThreshold: 40 },
+    intermediaire: { maxWeeks: 8,  rpeThreshold: 8.5,  volumeDrop: 0.15, srsThreshold: 45 },
+    avance:        { maxWeeks: 6,  rpeThreshold: 8.5,  volumeDrop: 0.15, srsThreshold: 45 }
+  };
+  var p = PARAMS[level] || PARAMS.intermediaire;
+
+  // CRITÈRE 1 — SRS bas (Kill Switch prioritaire)
+  if (typeof computeSRS === 'function') {
+    var _srs = computeSRS();
+    var _srsScore = _srs && typeof _srs.score === 'number' ? _srs.score : 70;
+    if (_srsScore < p.srsThreshold) {
+      return {
+        needed: true,
+        reason: 'Récupération systémique insuffisante (Forme ' + _srsScore + '/100 < ' + p.srsThreshold + '). Semaine de récupération recommandée.',
+        trigger: 'srs'
+      };
+    }
+  }
+
+  // CRITÈRE 2 — Volume Drop + RPE élevé (signal stagnation épuisement)
+  var recentLogs = logs.filter(function(l) {
+    return (now - (l.timestamp || 0)) <= 3 * WEEK;
+  }).sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+
+  if (recentLogs.length >= 6) {
+    var w1Logs = recentLogs.filter(function(l) { return (now - (l.timestamp||0)) <= WEEK; });
+    var w3Logs = recentLogs.filter(function(l) {
+      var age = now - (l.timestamp||0);
+      return age >= 2*WEEK && age <= 3*WEEK;
+    });
+    var w1Vol = w1Logs.reduce(function(s, l) { return s + (l.volume||0); }, 0);
+    var w3Vol = w3Logs.reduce(function(s, l) { return s + (l.volume||0); }, 0);
+    var volumeDropped = w3Vol > 0 && w1Vol < w3Vol * (1 - p.volumeDrop);
+
+    var rpeValues = [];
+    w1Logs.forEach(function(l) {
+      (l.exercises||[]).forEach(function(e) {
+        (e.allSets||[]).forEach(function(s) {
+          if (!s.isWarmup && parseFloat(s.rpe) > 0) rpeValues.push(parseFloat(s.rpe));
+        });
+      });
+    });
+    var avgRpe = rpeValues.length > 0
+      ? rpeValues.reduce(function(s, r) { return s + r; }, 0) / rpeValues.length
+      : null;
+    var rpeHigh = avgRpe && avgRpe > p.rpeThreshold;
+
+    if (volumeDropped && rpeHigh) {
+      return {
+        needed: true,
+        reason: 'Volume en baisse (' + Math.round((1 - w1Vol/w3Vol)*100) + '%) et RPE moyen élevé (' + avgRpe.toFixed(1) + '). Surmenage détecté.',
+        trigger: 'volume_rpe'
+      };
+    }
+  }
+
+  // CRITÈRE 3 — Max semaines sans deload (déclenchement auto préventif)
+  var lastDeloadLog = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
+    ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
+    : null;
+  var weeksSinceDeload = lastDeloadLog
+    ? Math.round((now - lastDeloadLog) / WEEK)
+    : null;
+
+  // Fallback : estimer depuis les logs si lastDeloadDate absent
+  if (!weeksSinceDeload) {
+    var sortedLogs = logs.slice().sort(function(a, b) { return (a.timestamp||0) - (b.timestamp||0); });
+    var firstLog = sortedLogs[0];
+    if (firstLog && firstLog.timestamp) {
+      weeksSinceDeload = Math.round((now - firstLog.timestamp) / WEEK);
+    }
+  }
+
+  if (weeksSinceDeload && weeksSinceDeload >= p.maxWeeks) {
+    return {
+      needed: true,
+      reason: weeksSinceDeload + ' semaines d\'entraînement consécutives. Deload préventif recommandé même si tu te sens bien.',
+      trigger: 'max_weeks'
+    };
+  }
+
+  return { needed: false };
+}
+
 // ── Deload automatique (banner UI : mésocycle / readiness / plateaus) ──
 function isDeloadWeek() {
   return !!db._deloadAccepted;

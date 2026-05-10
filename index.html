@@ -2743,6 +2743,15 @@
         </div>
 
         <div style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Niveau de vocabulaire</div>
+          <select id="settingsVocabLevel" onchange="db.user.vocabLevel=parseInt(this.value)||2;saveDB();showToast('✓ Vocabulaire mis à jour');" style="width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;">
+            <option value="1">Débutant — termes simples</option>
+            <option value="2">Intermédiaire — RPE, e1RM</option>
+            <option value="3">Expert — APRE, ACWR, TRIMP</option>
+          </select>
+        </div>
+
+        <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Objectifs (coche par priorité)</div>
           <div id="settingsGoals" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>

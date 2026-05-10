@@ -14164,6 +14164,10 @@ function renderSettingsProfile() {
   const uiDetailEl = document.getElementById('settingsUIDetail');
   if (uiDetailEl) uiDetailEl.value = db.user.uiDetail || 'auto';
 
+  // Niveau de vocabulaire (1 = débutant, 2 = intermédiaire, 3 = expert)
+  const vocabEl = document.getElementById('settingsVocabLevel');
+  if (vocabEl) vocabEl.value = String(db.user.vocabLevel || 2);
+
   // Objectifs (toggle buttons)
   const goalsEl = document.getElementById('settingsGoals');
   if (goalsEl) {

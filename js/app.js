@@ -16963,13 +16963,14 @@ var WP_ACCESSORIES_BY_PHASE = {
   force: {
     squat: [
       { name: 'Paused Squat',     reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
-      { name: 'Step-up',          reps: '6-8', rpe: 7.5, sets: 3, rest: 120, priority: 2 },
+      { name: 'Bulgarian Split Squat', reps: '6-8', rpe: 8, sets: 3, rest: 150, priority: 2 },
       { name: 'Mollets lourds',   reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
     ],
     bench: [
       { name: 'Spoto Press',  reps: '3-5', rpe: 8,   sets: 4, rest: 240, priority: 1 },
       { name: 'Rowing Barre', reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Face Pull',    reps: '15',  rpe: 7,   sets: 3, rest: 60,  priority: 2 }
+      { name: 'Face Pull',    reps: '15',  rpe: 7,   sets: 3, rest: 60,  priority: 2 },
+      { name: 'Curl Marteau', reps: '10-12', rpe: 7.5, sets: 3, rest: 60, priority: 2 }
     ],
     deadlift: [
       { name: 'Good Morning', reps: '6-8', rpe: 7.5, sets: 3, rest: 180, priority: 1 },

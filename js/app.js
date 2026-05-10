@@ -16555,6 +16555,37 @@ function saveAlgoDebrief(session) {
     tips.push('💪 Ta force explose même en récupération (PR !) — mais garde tes cartouches pour l\'intensification qui arrive.');
   }
 
+  // Résumé fatigue par exercice (Gemini Q5)
+  var fatigueReport = [];
+  try {
+    (session.exercises || []).forEach(function(exo) {
+      var neuralSets = (exo.allSets || []).filter(function(s) {
+        return s.fatigueType === 'neural' && s.fatigueConfidence >= 0.60;
+      });
+      var muscularSets = (exo.allSets || []).filter(function(s) {
+        return s.fatigueType === 'muscular' && s.fatigueConfidence >= 0.60;
+      });
+      if (neuralSets.length > 0 || muscularSets.length > 0) {
+        fatigueReport.push({
+          exo: exo.name,
+          neural: neuralSets.length,
+          muscular: muscularSets.length,
+          dominantType: neuralSets.length > muscularSets.length ? 'neural' : 'muscular'
+        });
+      }
+    });
+    if (fatigueReport.length > 0) {
+      session.fatigueReport = fatigueReport;
+      var _neuralCount = fatigueReport.reduce(function(s, r) { return s + r.neural; }, 0);
+      var _muscularCount = fatigueReport.reduce(function(s, r) { return s + r.muscular; }, 0);
+      if (_neuralCount > 0) {
+        tips.push('🧠 ' + _neuralCount + ' série(s) avec fatigue nerveuse détectée — récupération prioritaire.');
+      } else if (_muscularCount >= 3) {
+        tips.push('💪 ' + _muscularCount + ' séries avec fatigue musculaire — stimulus hypertrophique solide.');
+      }
+    }
+  } catch(e) {}
+
   if (!tips.length) return;
 
   var vol = session.volume || 0;

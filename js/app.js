@@ -16948,6 +16948,14 @@ function isDeloadWeek() {
   return !!db._deloadAccepted;
 }
 
+// Acceptation d'un deload : flag + date pour shouldDeload() futur
+function acceptDeload() {
+  db._deloadAccepted = true;
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  db.weeklyPlan.lastDeloadDate = new Date().toISOString().split('T')[0];
+  if (typeof saveDB === 'function') saveDB();
+}
+
 // ============================================================
 // GENERATE WEEKLY PLAN v3
 // Règles calibrées par coach expert (Gemini) + science APRE/RPE

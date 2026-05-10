@@ -2634,6 +2634,7 @@
       <div class="acc-body open" id="acc-profil">
         <input type="text"   id="inputName" placeholder="Prénom" onchange="updateProfile()">
         <input type="number" id="inputBW"   placeholder="Poids de corps (kg)" onchange="updateProfile()">
+        <input type="number" id="inputFatPct" min="3" max="60" step="0.5" placeholder="% masse grasse (optionnel — calcTDEE Katch-McArdle)" onchange="db.user.fatPct=parseFloat(this.value)||null;saveDB();showToast('✓ Profil mis à jour');">
 
         <div style="margin-top:12px;">
           <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">Niveau</div>

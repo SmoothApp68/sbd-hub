@@ -9990,6 +9990,7 @@ function renderProgramBuilder() {
   var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
                    (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
                    (db.routine && Object.keys(db.routine).length > 0) ||
+                   (db.weeklyPlan && Array.isArray(db.weeklyPlan.days) && db.weeklyPlan.days.length > 0) ||
                    (db.user.programMode === 'custom' && db.customProgramTemplate);
   if (hasProgram) { renderProgramTab(); return; }
 

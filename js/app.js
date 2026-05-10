@@ -9855,7 +9855,27 @@ function renderProgramBuilder() {
 }
 
 function pbStartGuided() {
-  _pbState = { mode: 'guided', step: 1, days: 4, selectedDays: [], goal: 'hypertrophie', equipment: ['barbell','dumbbell','machine','cable'], duration: 60, level: db.user.level || 'intermediaire' };
+  // Pre-select goal/freq/days/duration from existing programParams + trainingMode
+  // so users with an existing program land on their current settings.
+  var currentMode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var modeToGoal = {
+    powerbuilding:  'mixte',
+    powerlifting:   'force',
+    musculation:    'hypertrophie',
+    bien_etre:      'remise_en_forme',
+    bodybuilding:   'hypertrophie'
+  };
+  var pp = (db.user && db.user.programParams) || {};
+  _pbState = {
+    mode: 'guided',
+    step: 1,
+    days: pp.freq || 4,
+    selectedDays: (Array.isArray(pp.selectedDays) && pp.selectedDays.length > 0) ? pp.selectedDays.slice() : [],
+    goal: modeToGoal[currentMode] || 'mixte',
+    equipment: ['barbell','dumbbell','machine','cable'],
+    duration: pp.duration || 60,
+    level: db.user.level || 'intermediaire'
+  };
   renderProgramBuilder();
 }
 
@@ -10492,11 +10512,13 @@ function renderProgramBuilderStep(container) {
       }
     } else if (s.step === 3) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel objectif principal ?</div>';
+      // Labels aligned on Settings → trainingMode vocabulary so the same word
+      // means the same thing everywhere in the app.
       var goals = [
-        { id: 'force', label: 'Force', desc: 'Devenir plus fort sur les mouvements de base', icon: '🏋️' },
-        { id: 'hypertrophie', label: 'Hypertrophie', desc: 'Prendre du volume musculaire', icon: '💪' },
-        { id: 'mixte', label: 'Mixte', desc: 'Force + volume, le meilleur des deux', icon: '⚡' },
-        { id: 'remise_en_forme', label: 'Remise en forme', desc: 'Retrouver la forme et la santé', icon: '🌱' }
+        { id: 'mixte',           label: 'Powerbuilding',  desc: 'Force + volume — le meilleur des deux',     icon: '⚡' },
+        { id: 'force',           label: 'Powerlifting',   desc: 'SBD pur — maximiser ton total',             icon: '🏋️' },
+        { id: 'hypertrophie',    label: 'Musculation',    desc: 'Volume et hypertrophie — prendre du muscle',icon: '💪' },
+        { id: 'remise_en_forme', label: 'Bien-être',      desc: 'Remise en forme, santé, mobilité',          icon: '🌱' }
       ];
       goals.forEach(function(g) {
         var sel = s.goal === g.id ? 'border-color:var(--accent);background:rgba(10,132,255,0.08);' : '';
@@ -10672,8 +10694,22 @@ function pbGenerateProgram() {
   if (db.weeklyPlan || db.generatedProgram) _snapshotCurrentProgram();
   _skipNextPlanSnapshot = true;
   // Utiliser le générateur existant
-  var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'force', remise_en_forme: 'bien_etre' };
-  var goals = [{ id: goalMap[s.goal] || 'force' }];
+  // mixte = Powerbuilding → primary goal is 'masse' (force+volume mix).
+  // Keep generateProgram contract: id is the primary goal slot.
+  var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'masse', remise_en_forme: 'bien_etre' };
+  var primaryGoalId = goalMap[s.goal] || 'masse';
+  var goals = [{ id: primaryGoalId }];
+
+  // Sync trainingMode with the wizard choice so generateWeeklyPlan branches
+  // into the right algorithm (powerbuilding / powerlifting / musculation /
+  // bien_etre).
+  var goalToMode = {
+    mixte:           'powerbuilding',
+    force:           'powerlifting',
+    hypertrophie:    'musculation',
+    remise_en_forme: 'bien_etre'
+  };
+  if (goalToMode[s.goal]) db.user.trainingMode = goalToMode[s.goal];
   // Translate wizard equipment array (['barbell','dumbbell',...]) into filtMat key
   // ('salle' / 'halteres' / 'maison') — filtMat compares against e.mat which only
   // contains those three values.

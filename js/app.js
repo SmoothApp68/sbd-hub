@@ -16049,6 +16049,12 @@ function renderCoachTodayHTML() {
 function getSetStyle(set) {
   if (set.isBackOff || set.isBackoff) return 'background:rgba(255,159,10,0.13);border-left:3px solid var(--orange);border-radius:4px;';
   if (set.isDropSet) return 'background:rgba(191,90,242,0.13);border-left:3px solid var(--purple,#BF5AF2);border-radius:4px;';
+  if (set.fatigueType === 'neural' && set.fatigueConfidence >= 0.60) {
+    return 'background:rgba(255,69,58,0.10);border-left:3px solid var(--red);border-radius:4px;';
+  }
+  if (set.fatigueType === 'muscular' && set.fatigueConfidence >= 0.60) {
+    return 'background:rgba(255,159,10,0.10);border-left:3px solid var(--orange);border-radius:4px;';
+  }
   if (set.isWarmup) return 'opacity:0.5;';
   return '';
 }
@@ -16056,6 +16062,9 @@ function getSetStyle(set) {
 function getSetLabel(set) {
   if (set.isBackOff || set.isBackoff) return '🟠 Back-off';
   if (set.isDropSet) return '🟣 Drop';
+  if (set.fatigueType === 'neural')    return '🔴 SNC';
+  if (set.fatigueType === 'muscular')  return '🟠 Muscu';
+  if (set.fatigueType === 'overload')  return '⚠️ Surcharge';
   if (set.isWarmup) return 'Échauff.';
   return 'Série';
 }

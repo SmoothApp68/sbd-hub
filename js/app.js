@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v183';
+var SW_VERSION = 'trainhub-v184';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -2005,6 +2005,25 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     sq2_spec:  { label:'Spécialisation Quad — Rattrapage', exos: filtSafe(filtLevel(['squat','leg_press','leg_ext','hip_thrust','mollet']), mat) },
     pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
   };
+
+  // ── FATIGUE-BASED EXERCISE SELECTION (Gemini Next Big Feature) ───────────
+  // ACWR > 1.3 → remplacer Squat barre (axial lourd) par Leg Press (axial léger)
+  var _acwrPB = typeof computeACWR === 'function' ? computeACWR() : null;
+  if (isPB && _acwrPB && _acwrPB > 1.3) {
+    pbBlocks.sq_hyp = { label: 'Lower Body — Récupération (ACWR ' + _acwrPB.toFixed(2) + ')',
+      exos: filtSafe(filtLevel(['leg_press','rdl','hip_thrust','leg_curl','mollet']), mat) };
+    pbBlocks.sq2_spec = { label: 'Lower Volume — Récupération',
+      exos: filtSafe(filtLevel(['leg_press','leg_ext','hip_thrust','mollet']), mat) };
+    pbBlocks.sq2_hyp = { label: 'Lower Volume — Récupération',
+      exos: filtSafe(filtLevel(['leg_press','leg_ext','hip_thrust','mollet']), mat) };
+    if (typeof db !== 'undefined' && db) {
+      db.weeklyPlan = db.weeklyPlan || {};
+      db.weeklyPlan.coachNotes = db.weeklyPlan.coachNotes || [];
+      db.weeklyPlan.coachNotes.push(
+        'ACWR ' + _acwrPB.toFixed(2) + ' > 1.3 — Squat remplacé par Leg Press (charge axiale réduite)'
+      );
+    }
+  }
 
   // ── ANALYSE BIOMÉCANIQUE — ratio antagonistes ────────────────────────────
   var bestPR = (typeof db !== 'undefined' && db && db.bestPR) || {};
@@ -16074,7 +16093,7 @@ function renderBackOffSuggestion() {
   var tpl = plan.exercises[0];
   var bodyPart = /squat|deadlift|soulevé|hip|fentes|leg/i.test(primaryLift.name || '') ? 'lower' : 'upper';
   var result = computeBackOffSets(topSetWeight, topSetRPE, targetRPE, 3, bodyPart);
-  if (!result.sets.length) return '';
+  if (!result || !result.sets || !result.sets.length) return '';
 
   var bo = result.sets[0];
   var suggHtml = '';
@@ -16854,9 +16873,59 @@ var DUP_PARAMS = {
 };
 
 var DUP_SEQUENCE = {
-  2: ['force', 'volume'],
-  3: ['force', 'vitesse', 'volume']
+  // Débutants : volume fixe (LP pure, pas de DUP)
+  debutant: {
+    2: ['volume', 'volume'],
+    3: ['volume', 'volume', 'volume'],
+    4: ['volume', 'volume', 'volume', 'volume'],
+    5: ['volume', 'volume', 'volume', 'volume', 'volume']
+  },
+  // Bien-être : technique + léger
+  bien_etre: {
+    2: ['vitesse', 'volume'],
+    3: ['vitesse', 'volume', 'vitesse'],
+    4: ['vitesse', 'volume', 'vitesse', 'volume'],
+    5: ['vitesse', 'volume', 'vitesse', 'volume', 'vitesse']
+  },
+  // Musculation intermédiaire : volume + force alternés
+  musculation: {
+    2: ['volume', 'force'],
+    3: ['volume', 'force', 'volume'],
+    4: ['volume', 'force', 'volume', 'force'],
+    5: ['volume', 'force', 'volume', 'force', 'volume']
+  },
+  // Powerbuilding intermédiaire
+  powerbuilding_intermediaire: {
+    2: ['force', 'volume'],
+    3: ['force', 'volume', 'force'],
+    4: ['force', 'volume', 'force', 'volume'],
+    5: ['force', 'volume', 'force', 'volume', 'volume']
+  },
+  // Powerbuilding avancé
+  powerbuilding_avance: {
+    2: ['force', 'volume'],
+    3: ['force', 'volume', 'vitesse'],
+    4: ['force', 'volume', 'force', 'volume'],
+    5: ['force', 'volume', 'force', 'volume', 'vitesse']
+  },
+  // Powerlifting : force + vitesse, zéro volume hypertrophie
+  powerlifting: {
+    2: ['force', 'vitesse'],
+    3: ['force', 'vitesse', 'force'],
+    4: ['force', 'vitesse', 'force', 'vitesse'],
+    5: ['force', 'vitesse', 'force', 'vitesse', 'force'],
+    6: ['force', 'vitesse', 'force', 'vitesse', 'force', 'vitesse']
+  }
 };
+
+// Sélection de la clé DUP selon mode × niveau
+function getDUPKey(mode, level) {
+  if (level === 'debutant') return 'debutant';
+  if (mode === 'bien_etre') return 'bien_etre';
+  if (mode === 'powerlifting') return 'powerlifting';
+  if (mode === 'musculation') return 'musculation';
+  return level === 'avance' ? 'powerbuilding_avance' : 'powerbuilding_intermediaire';
+}
 
 // ── ACCESSOIRES PAR PHASE ───────────────────────────────────
 // Accessoires hypertrophie : volume + isolation, rep ranges élevés.
@@ -17827,14 +17896,10 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     _coachNotes.push(_wcEmergency.message);
   }
 
-  // PhysioManager — réduction de charge phase lutéale / folliculaire précoce
-  if (typeof getCycleCoeff === 'function' && _stabilized) {
-    var _cycleCoeff = getCycleCoeff();
-    if (_cycleCoeff < 1.0) {
-      baseWeight = Math.round(baseWeight * _cycleCoeff / 2.5) * 2.5;
-      _coachNotes.push('Phase de récupération hormonale — les charges sont légèrement adaptées.');
-    }
-  }
+  // PhysioManager — phase lutéale / folliculaire précoce
+  // Gemini v184 : C_cycle s'applique sur le VOLUME (sets), pas sur la charge.
+  // → wpGeneratePowerbuildingDay réduit setsCount via getCycleCoeff().
+  // La charge reste pleine pour préserver le stimulus neuro-musculaire.
 
   // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
   var _mentalPenalty = typeof getMentalRecoveryPenalty === 'function'
@@ -18645,8 +18710,19 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       var _sameLiftDays = _selectedDays.filter(function(d) { return _liftPat && _liftPat.test((routine && routine[d]) || ''); });
       var _dupIdx = _sameLiftDays.indexOf(currentDay);
       if (_dupIdx < 0) _dupIdx = 0;
-      var _dupSeq = DUP_SEQUENCE[Math.min(_dupFreq, 3)] || DUP_SEQUENCE[2];
+      var _mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+      var _level = (db.user && db.user.level) || 'intermediaire';
+      var _dupKey = getDUPKey(_mode, _level);
+      var _dupSeq = (DUP_SEQUENCE[_dupKey] && DUP_SEQUENCE[_dupKey][Math.min(_dupFreq, 6)])
+                    || DUP_SEQUENCE.powerbuilding_intermediaire[2];
       _dupProfile = DUP_PARAMS[_dupSeq[_dupIdx % _dupSeq.length]];
+      // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
+      var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;
+      var _hasSecondary = !!(db.user && db.user.activityTemplate && db.user.activityTemplate.length);
+      if (_dupProfile && _acwrDup && _acwrDup > 1.3 && _hasSecondary
+          && _dupProfile.label === 'Volume / Hypertrophie DUP') {
+        _dupProfile = Object.assign({}, _dupProfile, { rpe: [6, 7] });
+      }
       if (_dupProfile) {
         _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
         _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';
@@ -18680,6 +18756,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       reps = Math.round((_dupProfile.reps[0] + _dupProfile.reps[1]) / 2);
       rpe = (_dupProfile.rpe[0] + _dupProfile.rpe[1]) / 2;
       setsCount = Math.round((_dupProfile.sets[0] + _dupProfile.sets[1]) / 2);
+    }
+    // PhysioManager (v184) — C_cycle s'applique sur le VOLUME (sets), pas la charge
+    if (typeof getCycleCoeff === 'function') {
+      var _cycleCoeff = getCycleCoeff();
+      if (_cycleCoeff < 1.0) {
+        setsCount = Math.max(2, Math.floor(setsCount * _cycleCoeff));
+      }
     }
     // Débutant : remplacer par exercice technique-first
     if (isBeginnerMode && typeof BEGINNER_SUBSTITUTES !== 'undefined' && BEGINNER_SUBSTITUTES[mainName]) {
@@ -18717,7 +18800,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     if ((phase === 'force' || phase === 'intensification' || phase === 'peak') && !db._killSwitchActive) {
       if (typeof computeBackOffSets === 'function' && weight > 0) {
         var backOffResult = computeBackOffSets(weight, rpe, rpe, 3, bodyPart);
-        if (backOffResult.sets.length) {
+        if (backOffResult && backOffResult.sets && backOffResult.sets.length) {
           mainExoObj.sets = mainExoObj.sets.concat(backOffResult.sets);
           mainExoObj.backOffSuggestion = backOffResult.suggestion || null;
           mainExoObj.coachNote = (mainExoObj.coachNote || '') +

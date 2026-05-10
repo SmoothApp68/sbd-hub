@@ -2069,6 +2069,16 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     const splitType = getSplitForFrequency(Math.min(freq, 6), isPL, isPB, level);
     seq = getSplitSequence(splitType, Math.min(freq, 6));
   }
+
+  // Audit trail : note de spécialisation injectée par le ratio
+  if (_ratioNote) {
+    if (typeof db !== 'undefined' && db) {
+      db.weeklyPlan = db.weeklyPlan || {};
+      db.weeklyPlan.coachNotes = db.weeklyPlan.coachNotes || [];
+      db.weeklyPlan.coachNotes.push(_ratioNote);
+    }
+  }
+
   const plan = [];
   const allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
@@ -2100,6 +2110,7 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   }
   plan._levelNote = lp.note;
   plan._level = level;
+  if (_ratioNote) plan._ratioNote = _ratioNote;
 
   return plan;
 }

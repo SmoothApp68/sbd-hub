@@ -7,7 +7,7 @@
 // ============================================================
 function t(key, value, opts) {
   var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var mode = db ? (db.user.trainingMode || 'powerbuilding') : 'powerbuilding';
   var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
   if (detail === 'simple') level = 'debutant';
   else if (detail === 'expert') level = 'competiteur';
@@ -54,7 +54,7 @@ function t(key, value, opts) {
 
 function shouldShow(feature) {
   var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var mode = db ? (db.user.trainingMode || 'powerbuilding') : 'powerbuilding';
   var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
   if (detail === 'simple') level = 'debutant';
   else if (detail === 'expert') level = 'competiteur';
@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v178';
+var SW_VERSION = 'trainhub-v179';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -3309,7 +3309,7 @@ function isBadgeEarned(badgeId) {
 }
 
 function getBadgeTheme() {
-  var mode = db.user.trainingMode || 'powerlifting';
+  var mode = db.user.trainingMode || 'powerbuilding';
   if (mode === 'bien_etre') return 'wellness';
   return 'warrior';
 }
@@ -9855,7 +9855,27 @@ function renderProgramBuilder() {
 }
 
 function pbStartGuided() {
-  _pbState = { mode: 'guided', step: 1, days: 4, selectedDays: [], goal: 'hypertrophie', equipment: ['barbell','dumbbell','machine','cable'], duration: 60, level: db.user.level || 'intermediaire' };
+  // Pre-select goal/freq/days/duration from existing programParams + trainingMode
+  // so users with an existing program land on their current settings.
+  var currentMode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var modeToGoal = {
+    powerbuilding:  'mixte',
+    powerlifting:   'force',
+    musculation:    'hypertrophie',
+    bien_etre:      'remise_en_forme',
+    bodybuilding:   'hypertrophie'
+  };
+  var pp = (db.user && db.user.programParams) || {};
+  _pbState = {
+    mode: 'guided',
+    step: 1,
+    days: pp.freq || 4,
+    selectedDays: (Array.isArray(pp.selectedDays) && pp.selectedDays.length > 0) ? pp.selectedDays.slice() : [],
+    goal: modeToGoal[currentMode] || 'mixte',
+    equipment: ['barbell','dumbbell','machine','cable'],
+    duration: pp.duration || 60,
+    level: db.user.level || 'intermediaire'
+  };
   renderProgramBuilder();
 }
 
@@ -10492,11 +10512,13 @@ function renderProgramBuilderStep(container) {
       }
     } else if (s.step === 3) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel objectif principal ?</div>';
+      // Labels aligned on Settings → trainingMode vocabulary so the same word
+      // means the same thing everywhere in the app.
       var goals = [
-        { id: 'force', label: 'Force', desc: 'Devenir plus fort sur les mouvements de base', icon: '🏋️' },
-        { id: 'hypertrophie', label: 'Hypertrophie', desc: 'Prendre du volume musculaire', icon: '💪' },
-        { id: 'mixte', label: 'Mixte', desc: 'Force + volume, le meilleur des deux', icon: '⚡' },
-        { id: 'remise_en_forme', label: 'Remise en forme', desc: 'Retrouver la forme et la santé', icon: '🌱' }
+        { id: 'mixte',           label: 'Powerbuilding',  desc: 'Force + volume — le meilleur des deux',     icon: '⚡' },
+        { id: 'force',           label: 'Powerlifting',   desc: 'SBD pur — maximiser ton total',             icon: '🏋️' },
+        { id: 'hypertrophie',    label: 'Musculation',    desc: 'Volume et hypertrophie — prendre du muscle',icon: '💪' },
+        { id: 'remise_en_forme', label: 'Bien-être',      desc: 'Remise en forme, santé, mobilité',          icon: '🌱' }
       ];
       goals.forEach(function(g) {
         var sel = s.goal === g.id ? 'border-color:var(--accent);background:rgba(10,132,255,0.08);' : '';
@@ -10672,20 +10694,50 @@ function pbGenerateProgram() {
   if (db.weeklyPlan || db.generatedProgram) _snapshotCurrentProgram();
   _skipNextPlanSnapshot = true;
   // Utiliser le générateur existant
-  var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'force', remise_en_forme: 'bien_etre' };
-  var goals = [{ id: goalMap[s.goal] || 'force' }];
-  var mat = s.equipment;
+  // mixte = Powerbuilding → primary goal is 'masse' (force+volume mix).
+  // Keep generateProgram contract: id is the primary goal slot.
+  var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'masse', remise_en_forme: 'bien_etre' };
+  var primaryGoalId = goalMap[s.goal] || 'masse';
+  var goals = [{ id: primaryGoalId }];
+
+  // Sync trainingMode with the wizard choice so generateWeeklyPlan branches
+  // into the right algorithm (powerbuilding / powerlifting / musculation /
+  // bien_etre).
+  var goalToMode = {
+    mixte:           'powerbuilding',
+    force:           'powerlifting',
+    hypertrophie:    'musculation',
+    remise_en_forme: 'bien_etre'
+  };
+  if (goalToMode[s.goal]) db.user.trainingMode = goalToMode[s.goal];
+  // Translate wizard equipment array (['barbell','dumbbell',...]) into filtMat key
+  // ('salle' / 'halteres' / 'maison') — filtMat compares against e.mat which only
+  // contains those three values.
+  var mat = (function(equip) {
+    if (!equip || equip.length === 0) return 'salle';
+    if (equip.indexOf('barbell') >= 0 || equip.indexOf('machine') >= 0) return 'salle';
+    if (equip.indexOf('dumbbell') >= 0 || equip.indexOf('cable') >= 0) return 'halteres';
+    return 'maison';
+  })(s.equipment);
 
   // Sauvegarder les paramètres dans le profil
   db.user.level = s.level;
   if (!db.user.programParams) db.user.programParams = {};
   db.user.programParams.duration = s.duration;
   db.user.programParams.freq = s.days;
+  db.user.programParams.mat = mat;
   // Use the days the user actually picked in the wizard — fall back to defaults if missing
   var pickedDays = (s.selectedDays && s.selectedDays.length === s.days)
     ? s.selectedDays.slice()
     : _pbDefaultDaysForFreq(s.days);
   db.user.programParams.selectedDays = pickedDays;
+  // Preserve any secondary goals the user set via Settings (seche, recompo,
+  // maintien, reprise) — wizard only chooses the primary, so don't drop them.
+  var existingGoals = Array.isArray(db.user.programParams.goals) ? db.user.programParams.goals : [];
+  var secondaryGoals = existingGoals.filter(function(g) {
+    return g !== primaryGoalId && ['seche','recompo','maintien','reprise'].indexOf(g) >= 0;
+  });
+  db.user.programParams.goals = [primaryGoalId].concat(secondaryGoals);
 
   // Appeler le générateur existant si disponible
   try {
@@ -11655,6 +11707,26 @@ function migrateActivityData() {
   saveDB();
 }
 
+function migrateInjuryNames() {
+  // Pre-v179 : injuries were stored as accented capitalised labels ("Épaules"),
+  // but INJURY_EXCLUSIONS / WP_INJURY_EXCLUSIONS keys are lowercase ASCII
+  // ("epaules") — so exclusions silently never fired. Normalize once.
+  if (db.user._injuryMigrated) return;
+  if (!db.user.programParams || !Array.isArray(db.user.programParams.injuries)) {
+    db.user._injuryMigrated = true;
+    return;
+  }
+  var fn = (typeof _normalizeInjuryZone === 'function')
+    ? _normalizeInjuryZone
+    : function(z) { return String(z || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  var seen = {};
+  db.user.programParams.injuries = db.user.programParams.injuries
+    .map(fn)
+    .filter(function(z) { if (!z || seen[z]) return false; seen[z] = true; return true; });
+  db.user._injuryMigrated = true;
+  saveDB();
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -11715,6 +11787,7 @@ function migrateActivityData() {
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
   migrateActivityData();
+  migrateInjuryNames();
   migrateBadges();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
@@ -14075,7 +14148,7 @@ function renderSettingsProfile() {
 
   // Mode d'entraînement
   const modeEl = document.getElementById('settingsTrainingMode');
-  if (modeEl) modeEl.value = db.user.trainingMode || 'powerlifting';
+  if (modeEl) modeEl.value = db.user.trainingMode || 'powerbuilding';
 
   // Niveau de détail UI
   const uiDetailEl = document.getElementById('settingsUIDetail');
@@ -14148,7 +14221,9 @@ function renderSettingsProfile() {
     const currentInj = params.injuries || [];
     const zones = ['Épaules','Genoux','Dos','Poignets','Nuque','Hanches'];
     injEl.innerHTML = zones.map(z => {
-      const active = currentInj.includes(z);
+      // Compare against the normalized form persisted in programParams
+      const norm = (typeof _normalizeInjuryZone === 'function') ? _normalizeInjuryZone(z) : z.toLowerCase();
+      const active = currentInj.includes(norm) || currentInj.includes(z);
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="toggleSettingsInjury('${z}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--orange)':'var(--border)'};background:${active?'rgba(255,159,10,0.15)':'var(--surface)'};color:${active?'var(--orange)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${z}</button>`;
     }).join('');
   }
@@ -14774,15 +14849,24 @@ function toggleSettingsDay(day, btn) {
   btn.style.color = active ? 'var(--blue)' : 'var(--sub)';
 }
 
+function _normalizeInjuryZone(zone) {
+  // INJURY_EXCLUSIONS / WP_INJURY_EXCLUSIONS use lowercase keys without accents
+  // ("epaules"). Settings UI labels use accented capitalised ("Épaules"). Keep
+  // them aligned so injuries actually exclude exercises in both algos.
+  return String(zone || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function toggleSettingsInjury(zone, btn) {
   if (!db.user.programParams) db.user.programParams = {};
+  var normalized = _normalizeInjuryZone(zone);
   const inj = db.user.programParams.injuries || [];
-  const idx = inj.indexOf(zone);
-  if (idx >= 0) inj.splice(idx, 1); else inj.push(zone);
+  const idx = inj.indexOf(normalized);
+  if (idx >= 0) inj.splice(idx, 1); else inj.push(normalized);
   db.user.programParams.injuries = inj;
   _debouncedSaveSettings();
   // Toggle just this button
-  const active = inj.includes(zone);
+  const active = inj.includes(normalized);
   btn.classList.toggle('active', active);
   btn.style.borderColor = active ? 'var(--orange)' : 'var(--border)';
   btn.style.background = active ? 'rgba(255,159,10,0.15)' : 'var(--surface)';

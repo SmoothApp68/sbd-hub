@@ -1,0 +1,97 @@
+{
+  "pass": 18,
+  "fail": 0,
+  "total": 18,
+  "results": [
+    {
+      "name": "SETTINGS-01 injuries=[\"epaules\"] (lowercase ASCII)",
+      "pass": true,
+      "msg": "injuries=[\"epaules\"]"
+    },
+    {
+      "name": "SETTINGS-01b _normalizeInjuryZone(\"Épaules\") = \"epaules\"",
+      "pass": true,
+      "msg": "got=epaules"
+    },
+    {
+      "name": "SETTINGS-02 WP_INJURY_EXCLUSIONS[\"epaules\"] retourne ≥3 exos",
+      "pass": true,
+      "msg": "count=5"
+    },
+    {
+      "name": "SETTINGS-03 filtMat(\"salle\") garde les 3 exos barre",
+      "pass": true,
+      "msg": "output=[\"squat\",\"bench\",\"deadlift\"]"
+    },
+    {
+      "name": "SETTINGS-04 programParams.mat = \"salle\"",
+      "pass": true,
+      "msg": "mat=salle"
+    },
+    {
+      "name": "SETTINGS-05 settingsTrainingMode.value = \"powerbuilding\"",
+      "pass": true,
+      "msg": "value=powerbuilding dbMode=null"
+    },
+    {
+      "name": "SETTINGS-06 trainingMode=\"powerbuilding\"",
+      "pass": true,
+      "msg": "mode=powerbuilding"
+    },
+    {
+      "name": "SETTINGS-06b primary goal = \"masse\" (powerbuilding=force+volume)",
+      "pass": true,
+      "msg": "goal=masse"
+    },
+    {
+      "name": "SETTINGS-07 trainingMode=\"powerlifting\"",
+      "pass": true,
+      "msg": "mode=powerlifting"
+    },
+    {
+      "name": "SETTINGS-07b primary goal = \"force\"",
+      "pass": true,
+      "msg": "goal=force"
+    },
+    {
+      "name": "SETTINGS-08a powerbuilding → goal=mixte",
+      "pass": true,
+      "msg": "goal=mixte"
+    },
+    {
+      "name": "SETTINGS-08b powerlifting → goal=force",
+      "pass": true,
+      "msg": "goal=force"
+    },
+    {
+      "name": "SETTINGS-08c bien_etre → goal=remise_en_forme",
+      "pass": true,
+      "msg": "goal=remise_en_forme"
+    },
+    {
+      "name": "SETTINGS-09 goals après wizard contient \"seche\"",
+      "pass": true,
+      "msg": "goals=[\"force\",\"seche\"]"
+    },
+    {
+      "name": "SETTINGS-09b goal principal \"force\" présent",
+      "pass": true,
+      "msg": "goals=[\"force\",\"seche\"]"
+    },
+    {
+      "name": "SETTINGS-10 0 erreur console pendant flux complet",
+      "pass": true,
+      "msg": "OK"
+    },
+    {
+      "name": "SETTINGS-11 injuries normalisées en lowercase ASCII",
+      "pass": true,
+      "msg": "injuries=[\"epaules\",\"genoux\"]"
+    },
+    {
+      "name": "SETTINGS-11b _injuryMigrated=true",
+      "pass": true,
+      "msg": "flag=true"
+    }
+  ]
+}

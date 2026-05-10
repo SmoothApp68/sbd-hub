@@ -1866,6 +1866,12 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   const exosN = lp.exosPerSession[duration] || lp.exosPerSession[60];
   const excluded = new Set((injuries||[]).flatMap(z => INJURY_EXCLUSIONS[z]||[]));
 
+  // ── 3-way split routing : powerlifting / powerbuilding / bodybuilding ──
+  var trainingMode = (typeof db !== 'undefined' && db && db.user && db.user.trainingMode) || '';
+  var isPL = (g1 === 'force');
+  var isPB = (trainingMode === 'powerbuilding' || g1 === 'mixte');
+  var isBB = (!isPL && !isPB);
+
   // Filtrage exercices par blessures + matériel
   function filtSafe(ids, m) {
     return filtMat(ids.filter(id => !excluded.has(id)), m).slice(0, exosN);
@@ -1956,13 +1962,24 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   // ── Split intelligent basé sur fréquence, objectif et niveau ──
   // Chaque muscle entraîné 2×/sem minimum (pas de bro-split)
   // Sources : NSCA, Stronger by Science, meta-analyses 2024-2025
-  function getSplitForFrequency(f, goal, lvl) {
-    const isPL = goal === 'force' || goal === 'recompo';
+  function getSplitForFrequency(f, isPL, isPB, lvl) {
     if (f <= 2) return 'full_body';
     if (f === 3) return lvl === 'debutant' ? 'full_body' : 'upper_lower_alt';
-    if (f === 4) return isPL ? 'powerlifting_4' : 'upper_lower';
-    if (f === 5) return isPL ? 'powerlifting_5' : 'ppl_ul';
-    if (f >= 6) return isPL ? 'powerlifting_6' : 'ppl_x2';
+    if (f === 4) {
+      if (isPL) return 'powerlifting_4';
+      if (isPB) return 'powerbuilding_4';
+      return 'upper_lower';
+    }
+    if (f === 5) {
+      if (isPL) return 'powerlifting_5';
+      if (isPB) return 'powerbuilding_5';
+      return 'ppl_ul';
+    }
+    if (f >= 6) {
+      if (isPL) return 'powerlifting_6';
+      if (isPB) return 'powerbuilding_6';
+      return 'ppl_x2';
+    }
     return 'upper_lower';
   }
 
@@ -2020,7 +2037,7 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   if (specialSequences[g1]) {
     seq = specialSequences[g1][Math.min(freq, 6)] || [Bg.full_a];
   } else {
-    const splitType = getSplitForFrequency(Math.min(freq, 6), g1, level);
+    const splitType = getSplitForFrequency(Math.min(freq, 6), isPL, isPB, level);
     seq = getSplitSequence(splitType, Math.min(freq, 6));
   }
   const plan = [];

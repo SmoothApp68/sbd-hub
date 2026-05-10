@@ -2006,6 +2006,25 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
   };
 
+  // ── FATIGUE-BASED EXERCISE SELECTION (Gemini Next Big Feature) ───────────
+  // ACWR > 1.3 → remplacer Squat barre (axial lourd) par Leg Press (axial léger)
+  var _acwrPB = typeof computeACWR === 'function' ? computeACWR() : null;
+  if (isPB && _acwrPB && _acwrPB > 1.3) {
+    pbBlocks.sq_hyp = { label: 'Lower Body — Récupération (ACWR ' + _acwrPB.toFixed(2) + ')',
+      exos: filtSafe(filtLevel(['leg_press','rdl','hip_thrust','leg_curl','mollet']), mat) };
+    pbBlocks.sq2_spec = { label: 'Lower Volume — Récupération',
+      exos: filtSafe(filtLevel(['leg_press','leg_ext','hip_thrust','mollet']), mat) };
+    pbBlocks.sq2_hyp = { label: 'Lower Volume — Récupération',
+      exos: filtSafe(filtLevel(['leg_press','leg_ext','hip_thrust','mollet']), mat) };
+    if (typeof db !== 'undefined' && db) {
+      db.weeklyPlan = db.weeklyPlan || {};
+      db.weeklyPlan.coachNotes = db.weeklyPlan.coachNotes || [];
+      db.weeklyPlan.coachNotes.push(
+        'ACWR ' + _acwrPB.toFixed(2) + ' > 1.3 — Squat remplacé par Leg Press (charge axiale réduite)'
+      );
+    }
+  }
+
   // ── ANALYSE BIOMÉCANIQUE — ratio antagonistes ────────────────────────────
   var bestPR = (typeof db !== 'undefined' && db && db.bestPR) || {};
   var prSq   = parseFloat(bestPR.squat) || 0;

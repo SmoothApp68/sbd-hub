@@ -21711,6 +21711,45 @@ function showGrindTechQuestion(exoIdx, setIdx) {
 
 // ── Auto-régulation intra-séance basée sur le RPE ──────────
 // Pure : retourne { msg, type } ou null. Affichage via showLiveCoachBanner.
+// ── Classification de fatigue (Gemini Q4 — formule MVF) ─────────────────
+// Sans FC ni RPE, inférence depuis le contexte de la séance
+function classifyFatigue(setIndex, repDrop, srsScore, acwr, level) {
+  var isEarly = setIndex <= 1;
+  var srsLow  = srsScore < 50;
+  var acwrHigh = acwr && acwr > 1.3;
+
+  // Overload : échec dès la toute première série, manque massif de reps
+  if (setIndex === 0 && repDrop >= 3) {
+    return { type: 'overload', confidence: 0.90,
+      signals: ['set_index_0', 'rep_drop_' + repDrop] };
+  }
+
+  // Neural / SNC : chute brutale en début de séance + SRS bas ou ACWR haut
+  if (isEarly && repDrop >= 2 && (srsLow || acwrHigh)) {
+    var _conf = (srsLow && acwrHigh) ? 0.90 : 0.75;
+    return { type: 'neural', confidence: _conf,
+      signals: ['early_set', 'rep_drop_' + repDrop,
+        srsLow ? 'srs_' + srsScore : null,
+        acwrHigh ? 'acwr_' + (acwr || 0).toFixed(2) : null
+      ].filter(Boolean) };
+  }
+
+  // Avancé : plus alarmiste sur la détection neurale
+  if (level === 'avance' && repDrop >= 2 && acwrHigh) {
+    return { type: 'neural', confidence: 0.80,
+      signals: ['advanced_profile', 'acwr_high', 'rep_drop_' + repDrop] };
+  }
+
+  // Musculaire : chute progressive en fin de séance, SRS OK
+  if (!isEarly && repDrop >= 1 && !srsLow) {
+    var _confMusc = level === 'debutant' ? 0.60 : 0.70;
+    return { type: 'muscular', confidence: _confMusc,
+      signals: ['late_set', 'rep_drop_' + repDrop, 'srs_ok'] };
+  }
+
+  return { type: null, confidence: 0, signals: [] };
+}
+
 function goCheckAutoRegulation(exoIdx, setIdx) {
   if (!activeWorkout || !db.weeklyPlan) return null;
   var exo = activeWorkout.exercises[exoIdx];

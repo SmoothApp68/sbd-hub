@@ -1,0 +1,134 @@
+{
+  "date": "2026-05-10T10:35:58.826Z",
+  "version": "v181",
+  "pass": 25,
+  "fail": 0,
+  "total": 25,
+  "results": [
+    {
+      "name": "FIX1-01 checkIOSInstallPrompt is defined",
+      "pass": true,
+      "msg": "function exists globally"
+    },
+    {
+      "name": "FIX1-02 No banner on non-iOS UA",
+      "pass": true,
+      "msg": "desktop UA → no banner"
+    },
+    {
+      "name": "FIX1-03 Banner shown on iOS Safari UA",
+      "pass": true,
+      "msg": "iOS Safari UA → banner visible"
+    },
+    {
+      "name": "FIX1-04 No banner when _iosInstallPromptShown=true",
+      "pass": true,
+      "msg": "flag prevents repeat"
+    },
+    {
+      "name": "FIX1-05 No banner when standalone=true (installed)",
+      "pass": true,
+      "msg": "already installed → skip"
+    },
+    {
+      "name": "FIX1-06 No banner on Chrome iOS (CriOS)",
+      "pass": true,
+      "msg": "CriOS UA → no banner"
+    },
+    {
+      "name": "FIX2-01 renderFCWidget is defined",
+      "pass": true,
+      "msg": "function exists"
+    },
+    {
+      "name": "FIX2-02 Non-iOS renders Connecter button",
+      "pass": true,
+      "msg": "non-iOS → BLE button"
+    },
+    {
+      "name": "FIX2-03 iOS returns number input",
+      "pass": true,
+      "msg": "iOS → manual input"
+    },
+    {
+      "name": "FIX2-04 iOS no Connecter button",
+      "pass": true,
+      "msg": "iOS → BLE button absent"
+    },
+    {
+      "name": "FIX2-05 Connected state shows bpm",
+      "pass": true,
+      "msg": "connected → HR display"
+    },
+    {
+      "name": "FIX3-01 wpComputeWorkWeight is defined",
+      "pass": true,
+      "msg": "function exists"
+    },
+    {
+      "name": "FIX3-02 +5% cap code in app.min.js",
+      "pass": true,
+      "msg": "cap multiplier present"
+    },
+    {
+      "name": "FIX3-03 Squat APRE capped ≤ 105% last weight",
+      "pass": true,
+      "msg": "weight=60"
+    },
+    {
+      "name": "FIX3-04 LP users return a weight (not null)",
+      "pass": true,
+      "msg": "LP exempt, weight=60"
+    },
+    {
+      "name": "FIX4-01 labelFor() is defined",
+      "pass": true,
+      "msg": "function exists globally"
+    },
+    {
+      "name": "FIX4-02 vocabLevel 1 SRS → \"Forme du jour\"",
+      "pass": true,
+      "msg": "got: Forme du jour"
+    },
+    {
+      "name": "FIX4-03 vocabLevel 1 ACWR → \"Charge semaine\"",
+      "pass": true,
+      "msg": "got: Charge semaine"
+    },
+    {
+      "name": "FIX4-04 vocabLevel 1 TRIMP → \"Fatigue\"",
+      "pass": true,
+      "msg": "got: Fatigue"
+    },
+    {
+      "name": "FIX4-05 vocabLevel 2 ACWR → \"Charge semaine\"",
+      "pass": true,
+      "msg": "got: Charge semaine"
+    },
+    {
+      "name": "FIX4-06 vocabLevel 2 TRIMP → \"Charge cumul.\"",
+      "pass": true,
+      "msg": "got: Charge cumul."
+    },
+    {
+      "name": "FIX4-07 vocabLevel 3 SRS → \"SRS (Readiness)\"",
+      "pass": true,
+      "msg": "got: SRS (Readiness)"
+    },
+    {
+      "name": "FIX4-08 vocabLevel 3 ACWR → \"ACWR\"",
+      "pass": true,
+      "msg": "got: ACWR"
+    },
+    {
+      "name": "FIX4-09 vocabLevel 3 TRIMP → \"TRIMP\"",
+      "pass": true,
+      "msg": "got: TRIMP"
+    },
+    {
+      "name": "FIX4-10 Dashboard shows \"Charge semaine\" for vocabLevel 1",
+      "pass": true,
+      "msg": "vocabLevel 1 → friendly label in dashWeekContent"
+    }
+  ]
+}

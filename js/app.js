@@ -3443,6 +3443,22 @@ function calcLeaderboardMetrics() {
   };
 }
 
+function getLeaderboardPeriodKey(type) {
+  var now = new Date();
+  if (type === 'weekly') {
+    var d = new Date(now);
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var year = d.getUTCFullYear();
+    var jan1 = new Date(Date.UTC(year, 0, 1));
+    var week = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+    return year + '-W' + String(week).padStart(2, '0');
+  }
+  if (type === 'monthly') {
+    return now.getUTCFullYear() + '-' + String(now.getUTCMonth() + 1).padStart(2, '0');
+  }
+  return 'alltime';
+}
+
 // ── ISO 8601 week helpers (UTC-only, no DST/TZ drift) ──
 function getISOWeekKey(ts) {
   var d = new Date(ts);

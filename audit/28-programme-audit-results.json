@@ -1,0 +1,162 @@
+{
+  "total": 31,
+  "pass": 31,
+  "fail": 0,
+  "results": [
+    {
+      "name": "PROG-01 Wizard step=1 + question \"Combien de jours par semaine ?\"",
+      "pass": true,
+      "msg": "step=1 selectedDays=true hasQuestion=true"
+    },
+    {
+      "name": "PROG-02a step=2 après pbSetDaysAndAdvance(6)",
+      "pass": true,
+      "msg": "step=2"
+    },
+    {
+      "name": "PROG-02b étape 2 affiche \"Quels jours t'entraînes-tu\"",
+      "pass": true,
+      "msg": "hasQuelsJours=true"
+    },
+    {
+      "name": "PROG-02c selectedDays pré-rempli avec 6 jours par défaut",
+      "pass": true,
+      "msg": "count=6"
+    },
+    {
+      "name": "PROG-03a 3/4 sélectionnés → bouton Continuer absent",
+      "pass": true,
+      "msg": "sel=3/4 continueBtn=false"
+    },
+    {
+      "name": "PROG-03b 4/4 sélectionnés → bouton Continuer apparaît",
+      "pass": true,
+      "msg": "sel=4 continueBtn=true"
+    },
+    {
+      "name": "PROG-04a programParams.selectedDays = [Mardi,Jeudi,Samedi]",
+      "pass": true,
+      "msg": "[\"Mardi\",\"Jeudi\",\"Samedi\"]"
+    },
+    {
+      "name": "PROG-04b programParams.freq sauvegardé = 3",
+      "pass": true,
+      "msg": "freq=3"
+    },
+    {
+      "name": "PROG-04c window.obSelectedDays alimentée avec ces jours",
+      "pass": true,
+      "msg": "[\"Mardi\",\"Jeudi\",\"Samedi\"]"
+    },
+    {
+      "name": "PROG-05a Lundi entraîné (non Repos)",
+      "pass": true,
+      "msg": "Lundi=\"Squat + Accessoires\""
+    },
+    {
+      "name": "PROG-05b Mercredi en Repos (non sélectionné)",
+      "pass": true,
+      "msg": "Mercredi=\"😴 Repos Complet\""
+    },
+    {
+      "name": "PROG-05c Dimanche en Repos (non sélectionné)",
+      "pass": true,
+      "msg": "Dimanche=\"😴 Repos Complet\""
+    },
+    {
+      "name": "PROG-06a generatedProgram a 7 jours",
+      "pass": true,
+      "msg": "total=7"
+    },
+    {
+      "name": "PROG-06b 5 jours de repos (Lun/Mer/Ven/Sam/Dim)",
+      "pass": true,
+      "msg": "rest=5 (Lundi,Mercredi,Vendredi,Samedi,Dimanche)"
+    },
+    {
+      "name": "PROG-06c 2 jours d'entraînement (Mardi/Jeudi)",
+      "pass": true,
+      "msg": "train=Mardi,Jeudi"
+    },
+    {
+      "name": "PROG-07a selectedDays mémoire = 5 jours",
+      "pass": true,
+      "msg": "[\"Lundi\",\"Mardi\",\"Jeudi\",\"Vendredi\",\"Samedi\"]"
+    },
+    {
+      "name": "PROG-07b selectedDays localStorage = mêmes 5 jours",
+      "pass": true,
+      "msg": "[\"Lundi\",\"Mardi\",\"Jeudi\",\"Vendredi\",\"Samedi\"]"
+    },
+    {
+      "name": "PROG-07c db.user.level mis à jour",
+      "pass": true,
+      "msg": "level=avance"
+    },
+    {
+      "name": "PROG-08a Mercredi est en Repos (non sélectionné)",
+      "pass": true,
+      "msg": "Mer.rest=true"
+    },
+    {
+      "name": "PROG-08b Dimanche est en Repos (non sélectionné)",
+      "pass": true,
+      "msg": "Dim.rest=true"
+    },
+    {
+      "name": "PROG-08c Lundi entraîné (sélectionné)",
+      "pass": true,
+      "msg": "Lundi.rest=false"
+    },
+    {
+      "name": "PROG-09a freq sauvegardé = 4",
+      "pass": true,
+      "msg": "before=5 after=4"
+    },
+    {
+      "name": "PROG-09b selectedDays trimé à 4 entrées",
+      "pass": true,
+      "msg": "count: 5→4"
+    },
+    {
+      "name": "PROG-10a Mercredi entraîné (sélectionné inhabituel)",
+      "pass": true,
+      "msg": "Mer.rest=false"
+    },
+    {
+      "name": "PROG-10b Samedi entraîné (sélectionné)",
+      "pass": true,
+      "msg": "Sam.rest=false"
+    },
+    {
+      "name": "PROG-10c Dimanche entraîné (sélectionné)",
+      "pass": true,
+      "msg": "Dim.rest=false"
+    },
+    {
+      "name": "PROG-10d Lundi en Repos (non sélectionné)",
+      "pass": true,
+      "msg": "Lun.rest=true"
+    },
+    {
+      "name": "PROG-11a fallback default → Mercredi en Repos (4 jours: Lun/Mar/Jeu/Ven)",
+      "pass": true,
+      "msg": "Mer.rest=true"
+    },
+    {
+      "name": "PROG-11b fallback default → Dimanche en Repos",
+      "pass": true,
+      "msg": "Dim.rest=true"
+    },
+    {
+      "name": "PROG-11c fallback default → Jeudi entraîné",
+      "pass": true,
+      "msg": "Jeu.rest=false"
+    },
+    {
+      "name": "PROG-12 0 erreur console critique pendant flux complet",
+      "pass": true,
+      "msg": "0 erreur"
+    }
+  ]
+}

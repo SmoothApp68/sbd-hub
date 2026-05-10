@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v177';
+var SW_VERSION = 'trainhub-v178';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -9855,7 +9855,38 @@ function renderProgramBuilder() {
 }
 
 function pbStartGuided() {
-  _pbState = { mode: 'guided', step: 1, days: 4, goal: 'hypertrophie', equipment: ['barbell','dumbbell','machine','cable'], duration: 60, level: db.user.level || 'intermediaire' };
+  _pbState = { mode: 'guided', step: 1, days: 4, selectedDays: [], goal: 'hypertrophie', equipment: ['barbell','dumbbell','machine','cable'], duration: 60, level: db.user.level || 'intermediaire' };
+  renderProgramBuilder();
+}
+
+// Default day-of-week distributions for each frequency — avoids Wed/Sun by default
+function _pbDefaultDaysForFreq(freq) {
+  var defaults = {
+    2: ['Lundi','Jeudi'],
+    3: ['Lundi','Mercredi','Vendredi'],
+    4: ['Lundi','Mardi','Jeudi','Vendredi'],
+    5: ['Lundi','Mardi','Jeudi','Vendredi','Samedi'],
+    6: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+  };
+  return (defaults[freq] || ['Lundi','Mercredi','Vendredi']).slice();
+}
+
+function pbSetDaysAndAdvance(d) {
+  _pbState.days = d;
+  // Pre-seed sensible day distribution so user can adjust rather than start blank
+  _pbState.selectedDays = _pbDefaultDaysForFreq(d);
+  _pbState.step = 2;
+  renderProgramBuilder();
+}
+
+function pbToggleDay(day) {
+  if (!_pbState.selectedDays) _pbState.selectedDays = [];
+  var idx = _pbState.selectedDays.indexOf(day);
+  if (idx >= 0) {
+    _pbState.selectedDays.splice(idx, 1);
+  } else if (_pbState.selectedDays.length < _pbState.days) {
+    _pbState.selectedDays.push(day);
+  }
   renderProgramBuilder();
 }
 
@@ -10420,7 +10451,7 @@ function renderProgramBuilderStep(container) {
   var h = '';
 
   if (s.mode === 'guided') {
-    var totalSteps = 5;
+    var totalSteps = 6;
     // Progress bar
     h += '<div style="display:flex;gap:4px;margin-bottom:20px;">';
     for (var i = 1; i <= totalSteps; i++) {
@@ -10432,10 +10463,34 @@ function renderProgramBuilderStep(container) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Combien de jours par semaine ?</div>';
       h += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
       for (var d = 2; d <= 6; d++) {
-        h += '<button onclick="_pbState.days=' + d + ';_pbState.step=2;renderProgramBuilder();" class="day-btn' + (s.days === d ? ' active' : '') + '" style="width:50px;height:50px;font-size:18px;font-weight:700;">' + d + '</button>';
+        h += '<button onclick="pbSetDaysAndAdvance(' + d + ')" class="day-btn' + (s.days === d ? ' active' : '') + '" style="width:50px;height:50px;font-size:18px;font-weight:700;">' + d + '</button>';
       }
       h += '</div>';
     } else if (s.step === 2) {
+      // Day picker — user must select exactly s.days days of the week
+      h += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Quels jours t\'entraînes-tu ?</div>';
+      h += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">Choisis exactement ' + s.days + ' jours</div>';
+      var allDaysWizard = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+      var dayLabelsWizard = { Lundi:'LUN', Mardi:'MAR', Mercredi:'MER', Jeudi:'JEU', Vendredi:'VEN', Samedi:'SAM', Dimanche:'DIM' };
+      h += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
+      allDaysWizard.forEach(function(day) {
+        var isSelected = (s.selectedDays || []).indexOf(day) >= 0;
+        h += '<button onclick="pbToggleDay(\'' + day + '\')" '
+          + 'style="width:52px;height:52px;border-radius:12px;font-size:11px;font-weight:700;'
+          + 'border:1.5px solid ' + (isSelected ? 'var(--accent)' : 'var(--border)') + ';'
+          + 'background:' + (isSelected ? 'rgba(10,132,255,0.12)' : 'var(--surface)') + ';'
+          + 'color:' + (isSelected ? 'var(--accent)' : 'var(--sub)') + ';cursor:pointer;">'
+          + dayLabelsWizard[day] + '</button>';
+      });
+      h += '</div>';
+      var selectedCount = (s.selectedDays || []).length;
+      h += '<div style="text-align:center;margin-top:12px;font-size:12px;color:'
+        + (selectedCount === s.days ? 'var(--green)' : 'var(--sub)') + ';">'
+        + selectedCount + '/' + s.days + ' jours sélectionnés</div>';
+      if (selectedCount === s.days) {
+        h += '<button class="btn" style="margin-top:16px;width:100%;" onclick="_pbState.step=3;renderProgramBuilder();">Continuer →</button>';
+      }
+    } else if (s.step === 3) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel objectif principal ?</div>';
       var goals = [
         { id: 'force', label: 'Force', desc: 'Devenir plus fort sur les mouvements de base', icon: '🏋️' },
@@ -10445,11 +10500,11 @@ function renderProgramBuilderStep(container) {
       ];
       goals.forEach(function(g) {
         var sel = s.goal === g.id ? 'border-color:var(--accent);background:rgba(10,132,255,0.08);' : '';
-        h += '<div class="card" style="cursor:pointer;' + sel + '" onclick="_pbState.goal=\'' + g.id + '\';_pbState.step=3;renderProgramBuilder();">';
+        h += '<div class="card" style="cursor:pointer;' + sel + '" onclick="_pbState.goal=\'' + g.id + '\';_pbState.step=4;renderProgramBuilder();">';
         h += '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:24px;">' + g.icon + '</span>';
         h += '<div><div style="font-weight:700;">' + g.label + '</div><div style="font-size:12px;color:var(--sub);">' + g.desc + '</div></div></div></div>';
       });
-    } else if (s.step === 3) {
+    } else if (s.step === 4) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Quel équipement as-tu ?</div>';
       var equips = [
         { id: 'barbell', label: 'Barre + rack', icon: '🏋️' },
@@ -10464,16 +10519,16 @@ function renderProgramBuilderStep(container) {
         h += '<button onclick="pbToggleEquip(\'' + eq.id + '\')" class="day-btn' + (sel ? ' active' : '') + '" style="padding:10px 14px;font-size:13px;">' + eq.icon + ' ' + eq.label + '</button>';
       });
       h += '</div>';
-      h += '<button class="btn" style="margin-top:20px;" onclick="_pbState.step=4;renderProgramBuilder();">Continuer →</button>';
-    } else if (s.step === 4) {
+      h += '<button class="btn" style="margin-top:20px;" onclick="_pbState.step=5;renderProgramBuilder();">Continuer →</button>';
+    } else if (s.step === 5) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Combien de temps par séance ?</div>';
       var durations = [30, 45, 60, 75, 90];
       h += '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">';
       durations.forEach(function(d) {
-        h += '<button onclick="_pbState.duration=' + d + ';_pbState.step=5;renderProgramBuilder();" class="day-btn' + (s.duration === d ? ' active' : '') + '" style="padding:10px 16px;font-size:13px;">' + d + 'min</button>';
+        h += '<button onclick="_pbState.duration=' + d + ';_pbState.step=6;renderProgramBuilder();" class="day-btn' + (s.duration === d ? ' active' : '') + '" style="padding:10px 16px;font-size:13px;">' + d + 'min</button>';
       });
       h += '</div>';
-    } else if (s.step === 5) {
+    } else if (s.step === 6) {
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">Niveau d\'expérience ?</div>';
       var levels = [
         { id: 'debutant', label: 'Débutant', desc: 'Moins de 6 mois', icon: '🌱' },
@@ -10625,12 +10680,19 @@ function pbGenerateProgram() {
   db.user.level = s.level;
   if (!db.user.programParams) db.user.programParams = {};
   db.user.programParams.duration = s.duration;
-  db.user.programParams.selectedDays = window.obSelectedDays;
+  db.user.programParams.freq = s.days;
+  // Use the days the user actually picked in the wizard — fall back to defaults if missing
+  var pickedDays = (s.selectedDays && s.selectedDays.length === s.days)
+    ? s.selectedDays.slice()
+    : _pbDefaultDaysForFreq(s.days);
+  db.user.programParams.selectedDays = pickedDays;
 
   // Appeler le générateur existant si disponible
   try {
-    // Simuler les variables globales d'onboarding
-    window.obSelectedDays = { 2: ['Lundi', 'Jeudi'], 3: ['Lundi', 'Mercredi', 'Vendredi'], 4: ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'], 5: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'], 6: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'] }[s.days] || ['Lundi', 'Mercredi', 'Vendredi'];
+    // generateProgram() lit la variable lexicale `obSelectedDays` (let, ligne 1343),
+    // pas window.obSelectedDays. Assigner directement à la variable lexicale.
+    obSelectedDays = pickedDays;
+    window.obSelectedDays = pickedDays; // back-compat pour autres lecteurs éventuels
     var result = generateProgram(goals, s.days, mat, s.duration, [], [], null, null, s.level);
     if (result && result.length > 0) {
       db.generatedProgram = result;
@@ -14654,7 +14716,27 @@ function setPrehabEnabled(enabled) {
   if (typeof refreshUI === 'function') refreshUI();
 }
 
-function setSettingsFreq(f, btn) { _toggleSingleSelect('settingsFreq', btn, 'freq', f); }
+function setSettingsFreq(f, btn) {
+  _toggleSingleSelect('settingsFreq', btn, 'freq', f);
+  // Auto-adjust selectedDays so it always matches new freq — avoids silent
+  // fallback in generateWeeklyPlan() when length mismatches.
+  if (!db.user.programParams) db.user.programParams = {};
+  var current = (db.user.programParams.selectedDays || []).slice();
+  if (current.length !== f) {
+    if (current.length > f) {
+      db.user.programParams.selectedDays = current.slice(0, f);
+    } else {
+      var defaults = (typeof _pbDefaultDaysForFreq === 'function')
+        ? _pbDefaultDaysForFreq(f)
+        : ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'].slice(0, f);
+      db.user.programParams.selectedDays = defaults;
+    }
+    _debouncedSaveSettings();
+    if (typeof renderSettingsProfile === 'function') {
+      try { renderSettingsProfile(); } catch(e) {}
+    }
+  }
+}
 function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
 function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
 function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }
@@ -18941,7 +19023,17 @@ function generateWeeklyPlan() {
     var freq        = params.freq || 4;
     var phase       = wpDetectPhase();
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-    var selectedDays = params.selectedDays || allDays.slice(0, freq);
+    // Sensible fallback : avoid Wed/Sun (rest middle + weekend) instead of first-N
+    var _DEFAULT_DAYS_BY_FREQ = {
+      2: ['Lundi','Jeudi'],
+      3: ['Lundi','Mercredi','Vendredi'],
+      4: ['Lundi','Mardi','Jeudi','Vendredi'],
+      5: ['Lundi','Mardi','Jeudi','Vendredi','Samedi'],
+      6: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+    };
+    var selectedDays = (params.selectedDays && params.selectedDays.length === freq)
+      ? params.selectedDays
+      : (_DEFAULT_DAYS_BY_FREQ[freq] || allDays.slice(0, freq));
 
     // Debug: trace what the generator received and what it derives.
     if (typeof DEBUG !== 'undefined' && DEBUG) {

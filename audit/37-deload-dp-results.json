@@ -1,0 +1,66 @@
+{
+  "passed": 10,
+  "total": 10,
+  "results": [
+    {
+      "id": "DELOAD-01",
+      "desc": "SRS<45 → needed:true, trigger=srs",
+      "pass": true,
+      "detail": "{\"needed\":true,\"reason\":\"Récupération systémique insuffisante (Forme 40/100 < 45). Semaine de récupération recommandée.\",\"trigger\":\"srs\"}"
+    },
+    {
+      "id": "DELOAD-02",
+      "desc": "SRS=70 + volume drop + RPE 8.8 → trigger=volume_rpe",
+      "pass": true,
+      "detail": "{\"needed\":true,\"reason\":\"Volume en baisse (33%) et RPE moyen élevé (8.8). Surmenage détecté.\",\"trigger\":\"volume_rpe\"}"
+    },
+    {
+      "id": "DELOAD-03",
+      "desc": "avancé 7 semaines (maxWeeks=6) → trigger=max_weeks",
+      "pass": true,
+      "detail": "{\"needed\":true,\"reason\":\"7 semaines d'entraînement consécutives. Deload préventif recommandé même si tu te sens bien.\",\"trigger\":\"max_weeks\"}"
+    },
+    {
+      "id": "DELOAD-04",
+      "desc": "Tout OK, 4 semaines → needed:false",
+      "pass": true,
+      "detail": "{\"needed\":false}"
+    },
+    {
+      "id": "DELOAD-05",
+      "desc": "débutant 8 semaines (maxWeeks=12) → needed:false",
+      "pass": true,
+      "detail": "{\"needed\":false}"
+    },
+    {
+      "id": "DP-01",
+      "desc": "RPE null + allSetsComplete → progressed:true",
+      "pass": true,
+      "detail": "{\"weight\":105,\"reps\":8,\"progressed\":true}"
+    },
+    {
+      "id": "DP-02",
+      "desc": "Leg Press → getDPIncrement=+5kg",
+      "pass": true,
+      "detail": "{\"inc\":5}"
+    },
+    {
+      "id": "DP-03",
+      "desc": "Curl Haltères → getDPIncrement=+1kg",
+      "pass": true,
+      "detail": "{\"inc\":1}"
+    },
+    {
+      "id": "DP-04",
+      "desc": "3×11 au lieu de 3×12 → almostComplete:true",
+      "pass": true,
+      "detail": "{\"weight\":100,\"reps\":12,\"progressed\":false,\"almostComplete\":true,\"coachNote\":\"⏳ Encore une séance pour valider les 12 reps sur chaque série avant de monter.\"}"
+    },
+    {
+      "id": "DP-05",
+      "desc": "almostComplete → coachNote présente",
+      "pass": true,
+      "detail": "{\"weight\":100,\"reps\":12,\"progressed\":false,\"almostComplete\":true,\"coachNote\":\"⏳ Encore une séance pour valider les 12 reps sur chaque série avant de monter.\"}"
+    }
+  ]
+}

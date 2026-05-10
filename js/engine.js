@@ -2102,42 +2102,56 @@ var BASIC_SUPPLEMENTS = [
   { name: 'Whey Protéine',        dose: 'Selon besoins du jour', reason: 'Praticité pour atteindre les apports protéiques', priority: 3 }
 ];
 
-// Back-Off Sets Dynamiques
+// Back-Off Sets Dynamiques — calibré par niveau (Gemini validation)
+// Débutant : interdit (RPE > 8 → arrêt séance, pas back-off)
+// Intermédiaire : back-off -10%, mêmes reps, si RPE > 8.5
+// Avancé : back-off -15%, +2 reps, si RPE > 9
 function computeBackOffSets(plannedWeight, topSetRPE, targetRPE, backOffCount, bodyPart) {
-  if (!plannedWeight || plannedWeight <= 0) return { sets: [], suggestion: null };
-  var count = backOffCount || 3;
-  var diff = (topSetRPE || targetRPE) - (targetRPE || 8);
-  var backOffWeight, suggestion = null;
-  var extraReps = 0;
+  if (!plannedWeight || plannedWeight <= 0) return null;
 
-  if (diff > 0) {
-    // Overshoot — alléger la charge
-    var reduction = Math.min(0.10 + diff * 0.02, 0.25);
-    backOffWeight = Math.floor((plannedWeight * (1 - reduction)) / 2.5) * 2.5;
-  } else if (diff <= -1.5) {
-    // Big undershoot — charger un peu plus + proposer bonus set
-    backOffWeight = Math.round(plannedWeight * 1.025 / 2.5) * 2.5;
+  var _level = (db && db.user && db.user.level) || 'intermediaire';
+  var _phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+
+  // Phase Peak/Deload → pas de back-off (intensité pure ou repos)
+  if (_phase === 'peak' || _phase === 'deload') return null;
+
+  // Seuils RPE par niveau
+  var _rpeThresholds = { debutant: null, intermediaire: 8.5, avance: 9.0 };
+  var _threshold = _rpeThresholds[_level];
+  if (_threshold === null || _threshold === undefined) return null; // débutant : jamais
+  if (!topSetRPE || topSetRPE <= _threshold) return null;           // RPE sous seuil
+
+  // Suggestion de progression sur undershoot (intermédiaire+ uniquement)
+  var diff = (topSetRPE || targetRPE) - (targetRPE || 8);
+  var suggestion = null;
+  if (diff <= -1.5) {
     suggestion = { type: 'bonus_set', weight: Math.round(plannedWeight * 1.05 / 2.5) * 2.5 };
   } else if (diff <= -1) {
-    // Small undershoot — même charge + rep supplémentaire
-    backOffWeight = plannedWeight;
-    extraReps = 1;
     suggestion = { type: 'extra_reps' };
-  } else {
-    // On target
-    backOffWeight = plannedWeight;
   }
-  backOffWeight = Math.max(20, backOffWeight);
 
-  var lower = (bodyPart === 'lower');
-  var backOffReps = (lower ? 4 : 5) + extraReps;
-  var backOffRpe = Math.max(6, (targetRPE || 8) - 1.5);
+  // Réduction selon niveau
+  var _pct  = (_level === 'avance') ? 0.85 : 0.90;
+  var _backOffWeight = Math.max(20, Math.round(plannedWeight * _pct / 2.5) * 2.5);
+  var _lower = (bodyPart === 'lower');
+  var _baseReps = _lower ? 4 : 5;
+  var _extraReps = (_level === 'avance') ? 2 : 0;
+  var _backOffReps = _baseReps + _extraReps;
+  var _backOffRpe = Math.max(6, _threshold - 1.5);
 
+  var count = backOffCount || 3;
   var sets = [];
   for (var i = 0; i < count; i++) {
-    sets.push({ weight: backOffWeight, reps: backOffReps, rpe: backOffRpe, isWarmup: false, isBackOff: true });
+    sets.push({
+      weight: _backOffWeight, reps: _backOffReps, rpe: _backOffRpe,
+      isWarmup: false, isBackOff: true
+    });
   }
-  return { sets: sets, suggestion: suggestion };
+
+  var note = 'Back-off ' + (_level === 'avance' ? '-15%' : '-10%')
+    + ' — RPE top set ' + topSetRPE + ' > ' + _threshold;
+
+  return { sets: sets, suggestion: suggestion, note: note };
 }
 
 function computeDropSets(topSetWeight, topSetRPE, dropPct, dropCount) {

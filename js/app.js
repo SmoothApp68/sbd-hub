@@ -16074,7 +16074,7 @@ function renderBackOffSuggestion() {
   var tpl = plan.exercises[0];
   var bodyPart = /squat|deadlift|soulevé|hip|fentes|leg/i.test(primaryLift.name || '') ? 'lower' : 'upper';
   var result = computeBackOffSets(topSetWeight, topSetRPE, targetRPE, 3, bodyPart);
-  if (!result.sets.length) return '';
+  if (!result || !result.sets || !result.sets.length) return '';
 
   var bo = result.sets[0];
   var suggHtml = '';
@@ -18778,7 +18778,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     if ((phase === 'force' || phase === 'intensification' || phase === 'peak') && !db._killSwitchActive) {
       if (typeof computeBackOffSets === 'function' && weight > 0) {
         var backOffResult = computeBackOffSets(weight, rpe, rpe, 3, bodyPart);
-        if (backOffResult.sets.length) {
+        if (backOffResult && backOffResult.sets && backOffResult.sets.length) {
           mainExoObj.sets = mainExoObj.sets.concat(backOffResult.sets);
           mainExoObj.backOffSuggestion = backOffResult.suggestion || null;
           mainExoObj.coachNote = (mainExoObj.coachNote || '') +

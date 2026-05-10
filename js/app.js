@@ -20291,7 +20291,10 @@ async function toggleBluetoothHR() {
   }
 
   if (!navigator.bluetooth) {
-    showToast('⚠️ Bluetooth non disponible (Chrome Android requis)');
+    var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+    showToast(_isIOS
+      ? '⚠️ Web Bluetooth non supporté sur iOS — utilise Chrome Android'
+      : '⚠️ Bluetooth non disponible (Chrome Android requis)');
     return;
   }
 

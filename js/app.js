@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v182';
+var SW_VERSION = 'trainhub-v183';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -1866,6 +1866,12 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   const exosN = lp.exosPerSession[duration] || lp.exosPerSession[60];
   const excluded = new Set((injuries||[]).flatMap(z => INJURY_EXCLUSIONS[z]||[]));
 
+  // ── 3-way split routing : powerlifting / powerbuilding / bodybuilding ──
+  var trainingMode = (typeof db !== 'undefined' && db && db.user && db.user.trainingMode) || '';
+  var isPL = (g1 === 'force');
+  var isPB = (trainingMode === 'powerbuilding' || g1 === 'mixte');
+  var isBB = (!isPL && !isPB);
+
   // Filtrage exercices par blessures + matériel
   function filtSafe(ids, m) {
     return filtMat(ids.filter(id => !excluded.has(id)), m).slice(0, exosN);
@@ -1956,13 +1962,24 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   // ── Split intelligent basé sur fréquence, objectif et niveau ──
   // Chaque muscle entraîné 2×/sem minimum (pas de bro-split)
   // Sources : NSCA, Stronger by Science, meta-analyses 2024-2025
-  function getSplitForFrequency(f, goal, lvl) {
-    const isPL = goal === 'force' || goal === 'recompo';
+  function getSplitForFrequency(f, isPL, isPB, lvl) {
     if (f <= 2) return 'full_body';
     if (f === 3) return lvl === 'debutant' ? 'full_body' : 'upper_lower_alt';
-    if (f === 4) return isPL ? 'powerlifting_4' : 'upper_lower';
-    if (f === 5) return isPL ? 'powerlifting_5' : 'ppl_ul';
-    if (f >= 6) return isPL ? 'powerlifting_6' : 'ppl_x2';
+    if (f === 4) {
+      if (isPL) return 'powerlifting_4';
+      if (isPB) return 'powerbuilding_4';
+      return 'upper_lower';
+    }
+    if (f === 5) {
+      if (isPL) return 'powerlifting_5';
+      if (isPB) return 'powerbuilding_5';
+      return 'ppl_ul';
+    }
+    if (f >= 6) {
+      if (isPL) return 'powerlifting_6';
+      if (isPB) return 'powerbuilding_6';
+      return 'ppl_x2';
+    }
     return 'upper_lower';
   }
 
@@ -1977,6 +1994,27 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     dead2_acc:  { label:'Deadlift 2 + Accessoires', exos: filtSafe(filtLevel(['deadlift','row_halt','traction','face_pull','curl_halt']), mat) },
     accessoires:{ label:'Accessoires', exos: filtSafe(filtLevel(['elev_lat','face_pull','curl_barre','tri_cable','crunch','mollet']), mat) },
   };
+
+  // Powerbuilding-specific blocks (compound barre prioritaire + accessoires hypertrophie)
+  var pbBlocks = {
+    sq_hyp:    { label:'Squat — Force & Volume',     exos: filtSafe(filtLevel(['squat','leg_press','rdl','leg_curl','mollet']), mat) },
+    bench_hyp: { label:'Bench — Force & Volume',     exos: filtSafe(filtLevel(['bench','incline_bench','ecarte','tri_cable','elev_lat']), mat) },
+    dead_hyp:  { label:'Deadlift — Force & Volume',  exos: filtSafe(filtLevel(['deadlift','row_barre','lat_pull','face_pull','curl_barre']), mat) },
+    bench2_hyp:{ label:'Bench 2 — Volume & Accessoires', exos: filtSafe(filtLevel(['bench_halt','ohp','elev_lat','tri_cable','curl_halt']), mat) },
+    sq2_hyp:   { label:'Squat 2 — Volume Jambes',    exos: filtSafe(filtLevel(['squat','leg_press','hip_thrust','leg_curl','mollet']), mat) },
+    sq2_spec:  { label:'Spécialisation Quad — Rattrapage', exos: filtSafe(filtLevel(['squat','leg_press','leg_ext','hip_thrust','mollet']), mat) },
+    pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
+  };
+
+  // ── ANALYSE BIOMÉCANIQUE — ratio antagonistes ────────────────────────────
+  var bestPR = (typeof db !== 'undefined' && db && db.bestPR) || {};
+  var prSq   = parseFloat(bestPR.squat) || 0;
+  var prBn   = parseFloat(bestPR.bench) || 0;
+  var squatBenchRatio = prBn > 0 ? prSq / prBn : 1.20;
+  var needsSquatSpec  = squatBenchRatio < 1.20 && level === 'avance' && isPB;
+  var _ratioNote = needsSquatSpec
+    ? 'Spécialisation Squat activée (ratio ' + squatBenchRatio.toFixed(2) + ' < 1.20)'
+    : null;
 
   // Map split → séquence de blocs
   function getSplitSequence(splitType, f) {
@@ -2003,6 +2041,14 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
         return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.squat2, plBlocks.bench2];
       case 'powerlifting_6':
         return [plBlocks.squat_acc, plBlocks.bench_acc, plBlocks.dead_acc, plBlocks.squat2, plBlocks.bench2, plBlocks.dead2_acc];
+      case 'powerbuilding_4':
+        return [pbBlocks.sq_hyp, pbBlocks.bench_hyp, pbBlocks.dead_hyp, pbBlocks.bench2_hyp];
+      case 'powerbuilding_5':
+        return [pbBlocks.sq_hyp, pbBlocks.bench_hyp, pbBlocks.dead_hyp, pbBlocks.bench2_hyp,
+                needsSquatSpec ? pbBlocks.sq2_spec : pbBlocks.sq2_hyp];
+      case 'powerbuilding_6':
+        return [pbBlocks.sq_hyp, pbBlocks.bench_hyp, pbBlocks.dead_hyp, pbBlocks.bench2_hyp,
+                needsSquatSpec ? pbBlocks.sq2_spec : pbBlocks.sq2_hyp, pbBlocks.pull_hyp];
       default:
         return [Bg.full_a];
     }
@@ -2020,9 +2066,19 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   if (specialSequences[g1]) {
     seq = specialSequences[g1][Math.min(freq, 6)] || [Bg.full_a];
   } else {
-    const splitType = getSplitForFrequency(Math.min(freq, 6), g1, level);
+    const splitType = getSplitForFrequency(Math.min(freq, 6), isPL, isPB, level);
     seq = getSplitSequence(splitType, Math.min(freq, 6));
   }
+
+  // Audit trail : note de spécialisation injectée par le ratio
+  if (_ratioNote) {
+    if (typeof db !== 'undefined' && db) {
+      db.weeklyPlan = db.weeklyPlan || {};
+      db.weeklyPlan.coachNotes = db.weeklyPlan.coachNotes || [];
+      db.weeklyPlan.coachNotes.push(_ratioNote);
+    }
+  }
+
   const plan = [];
   const allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
@@ -2054,6 +2110,7 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   }
   plan._levelNote = lp.note;
   plan._level = level;
+  if (_ratioNote) plan._ratioNote = _ratioNote;
 
   return plan;
 }

@@ -18883,6 +18883,64 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 
+// ── SAFE WRAPPERS — protection crash GO sur logs malformés ─────────────────
+function wpComputeWorkWeightSafe(liftType, bodyPart) {
+  try {
+    return wpComputeWorkWeight(liftType, bodyPart);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpComputeWorkWeightSafe', { liftType: liftType, bodyPart: bodyPart });
+    }
+    var _logs = (typeof db !== 'undefined' && db && db.logs) || [];
+    var _last = _logs
+      .filter(function(l) {
+        return (l.exercises || []).some(function(ex) {
+          return String(ex && ex.name || '').toLowerCase().indexOf(String(liftType||'').toLowerCase()) >= 0;
+        });
+      })
+      .sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0];
+    if (_last) {
+      var _lastExo = (_last.exercises || []).find(function(ex) {
+        return String(ex && ex.name || '').toLowerCase().indexOf(String(liftType||'').toLowerCase()) >= 0;
+      });
+      if (_lastExo && _lastExo.shadowWeight) return _lastExo.shadowWeight;
+    }
+    return 60;
+  }
+}
+
+function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentDay) {
+  try {
+    return wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpGeneratePowerbuildingDaySafe', { dayKey: dayKey, phase: phase });
+    }
+    return { rest: false, title: dayKey || 'Séance', coachNote: '', exercises: [] };
+  }
+}
+
+function wpBuildWarmupsSafe(workWeight, workReps, liftType, exerciseOrder, previousExoNames) {
+  try {
+    return wpBuildWarmups(workWeight, workReps, liftType, exerciseOrder, previousExoNames);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpBuildWarmupsSafe', { workWeight: workWeight, liftType: liftType });
+    }
+    var w = parseFloat(workWeight) || 60;
+    var rnd = function(v) { return Math.max(20, Math.round(v / 2.5) * 2.5); };
+    return [
+      { weight: rnd(w * 0.5),  reps: 5, isWarmup: true },
+      { weight: rnd(w * 0.7),  reps: 3, isWarmup: true },
+      { weight: rnd(w * 0.85), reps: 2, isWarmup: true }
+    ];
+  }
+}
+// ───────────────────────────────────────────────────────────────────────────
+
 function wpGenerateMuscuDay(tplKey, params, phase) {
   var tpl = WP_PPL_TEMPLATES[tplKey];
   if (!tpl) return null;

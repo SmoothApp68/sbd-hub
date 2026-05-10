@@ -1995,6 +1995,17 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     accessoires:{ label:'Accessoires', exos: filtSafe(filtLevel(['elev_lat','face_pull','curl_barre','tri_cable','crunch','mollet']), mat) },
   };
 
+  // Powerbuilding-specific blocks (compound barre prioritaire + accessoires hypertrophie)
+  var pbBlocks = {
+    sq_hyp:    { label:'Squat — Force & Volume',     exos: filtSafe(filtLevel(['squat','leg_press','rdl','leg_curl','mollet']), mat) },
+    bench_hyp: { label:'Bench — Force & Volume',     exos: filtSafe(filtLevel(['bench','incline_bench','ecarte','tri_cable','elev_lat']), mat) },
+    dead_hyp:  { label:'Deadlift — Force & Volume',  exos: filtSafe(filtLevel(['deadlift','row_barre','lat_pull','face_pull','curl_barre']), mat) },
+    bench2_hyp:{ label:'Bench 2 — Volume & Accessoires', exos: filtSafe(filtLevel(['bench_halt','ohp','elev_lat','tri_cable','curl_halt']), mat) },
+    sq2_hyp:   { label:'Squat 2 — Volume Jambes',    exos: filtSafe(filtLevel(['squat','leg_press','hip_thrust','leg_curl','mollet']), mat) },
+    sq2_spec:  { label:'Spécialisation Quad — Rattrapage', exos: filtSafe(filtLevel(['squat','leg_press','leg_ext','hip_thrust','mollet']), mat) },
+    pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
+  };
+
   // Map split → séquence de blocs
   function getSplitSequence(splitType, f) {
     switch (splitType) {

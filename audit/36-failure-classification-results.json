@@ -1,0 +1,78 @@
+{
+  "passed": 12,
+  "total": 12,
+  "results": [
+    {
+      "id": "DROP-01",
+      "desc": "baisse charge >10% → isVoluntaryDrop=true, pas de message",
+      "pass": true,
+      "detail": "{\"result\":null,\"isDropSet\":true,\"setType\":\"dropset\"}"
+    },
+    {
+      "id": "DROP-02",
+      "desc": "baisse charge <10% + reps chutent → pas un drop, signaler",
+      "pass": true,
+      "detail": "{\"result\":{\"type\":\"danger\",\"isImplicit\":true},\"isDropSet\":false}"
+    },
+    {
+      "id": "DROP-03",
+      "desc": "charge stable + -2 reps → Échec implicite",
+      "pass": true,
+      "detail": "{\"type\":\"warning\",\"isImpl\":true}"
+    },
+    {
+      "id": "CLASS-01",
+      "desc": "setIndex=0, repDrop=3, SRS=70 → overload, conf=0.90",
+      "pass": true,
+      "detail": "{\"type\":\"overload\",\"confidence\":0.9,\"signals\":[\"set_index_0\",\"rep_drop_3\"]}"
+    },
+    {
+      "id": "CLASS-02",
+      "desc": "setIndex=1, repDrop=2, SRS=42, ACWR=1.45 → neural, conf=0.90",
+      "pass": true,
+      "detail": "{\"type\":\"neural\",\"confidence\":0.9,\"signals\":[\"early_set\",\"rep_drop_2\",\"srs_42\",\"acwr_1.45\"]}"
+    },
+    {
+      "id": "CLASS-03",
+      "desc": "setIndex=3, repDrop=1, SRS=65 → muscular, conf=0.70",
+      "pass": true,
+      "detail": "{\"type\":\"muscular\",\"confidence\":0.7,\"signals\":[\"late_set\",\"rep_drop_1\",\"srs_ok\"]}"
+    },
+    {
+      "id": "CLASS-04",
+      "desc": "débutant, setIndex=2, repDrop=2 → muscular, conf=0.60",
+      "pass": true,
+      "detail": "{\"type\":\"muscular\",\"confidence\":0.6,\"signals\":[\"late_set\",\"rep_drop_2\",\"srs_ok\"]}"
+    },
+    {
+      "id": "CLASS-05",
+      "desc": "avancé, ACWR=1.4, repDrop=2 → neural, conf=0.80",
+      "pass": true,
+      "detail": "{\"type\":\"neural\",\"confidence\":0.8,\"signals\":[\"advanced_profile\",\"acwr_high\",\"rep_drop_2\"]}"
+    },
+    {
+      "id": "UX-01",
+      "desc": "confidence<0.60 + RPE noté → return null (silence)",
+      "pass": true,
+      "detail": "{\"result\":null,\"fatigueType\":null}"
+    },
+    {
+      "id": "UX-02",
+      "desc": "confidence 0.75, type=neural → msg type=warning",
+      "pass": true,
+      "detail": "{\"type\":\"warning\",\"fatigueType\":\"neural\",\"confidence\":0.75}"
+    },
+    {
+      "id": "UX-03",
+      "desc": "confidence 0.90, type=neural → danger + blockAPREIncrease",
+      "pass": true,
+      "detail": "{\"type\":\"danger\",\"fatigueType\":\"neural\",\"confidence\":0.9,\"blockAPRE\":true}"
+    },
+    {
+      "id": "UX-04",
+      "desc": "muscular + hypertrophie → \"c'est ici que tu progresses\"",
+      "pass": true,
+      "detail": "{\"type\":\"warning\",\"fatigueType\":\"muscular\",\"msg\":\"💪 Fatigue musculaire — c'est ici que tu progresses. Continue en back-off si besoin.\"}"
+    }
+  ]
+}

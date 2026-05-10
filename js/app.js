@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v185';
+var SW_VERSION = 'trainhub-v186';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -21975,25 +21975,23 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
       _c.fatigueSignals    = _fatigue.signals;
 
       // UX selon seuil de confiance (Gemini Q5)
-      if (_fatigue.confidence < 0.60) {
+      // Silence si pas de classification confiante ET pas de signal objectif fort.
+      // Signaux forts = _isExhaustion, _isCriticalFail, ou _isImplicitFail sans RPE.
+      var _hasStrongSignal = _isExhaustion || _isCriticalFail || (_isImplicitFail && !set.rpe);
+      if (_fatigue.confidence < 0.60 && !_hasStrongSignal) {
         return null;
       }
 
       var _fatigueMsg = '';
       var _msgType = 'warning';
+      var _addStrike = false;
 
       if (_fatigue.type === 'neural' && _fatigue.confidence >= 0.80) {
         _msgType = 'danger';
+        _addStrike = true;
         _fatigueMsg = phase === 'peak'
           ? '🛑 SNC saturé en Peak — STOP TOTAL. Protection articulaire absolue.'
           : '🧠 Fatigue nerveuse détectée (SRS ' + _srsScore2 + '). Arrête cet exercice — le SNC ne récupère pas entre les séries.';
-        if (exo.name) {
-          if (!db.user.lpStrikes) db.user.lpStrikes = {};
-          if (!db.user.lpStrikes[exo.name]) db.user.lpStrikes[exo.name] = { count: 0 };
-          db.user.lpStrikes[exo.name].count++;
-          db.user.lpStrikes[exo.name].lastFailWeight = _cW;
-          db.user.lpStrikes[exo.name].fatigueType = 'neural';
-        }
       } else if (_fatigue.type === 'overload') {
         _msgType = 'danger';
         _fatigueMsg = '⚠️ Charge trop lourde dès la première série. Réduis de 5-10% pour la prochaine séance.';
@@ -22002,17 +22000,36 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
         _fatigueMsg = phase === 'volume' || phase === 'hypertrophie'
           ? '💪 Fatigue musculaire — c\'est ici que tu progresses. Continue en back-off si besoin.'
           : '📉 Fatigue musculaire détectée. Convertis en back-off (-10%) pour finir le volume.';
+      } else if (_isCriticalFail || _isExhaustion) {
+        // Échec objectif fort sans classification : danger + strike (compat v185)
+        _msgType = 'danger';
+        _addStrike = true;
+        _fatigueMsg = phase === 'peak'
+          ? '🛑 Échec critique — STOP. Protection articulaire absolue en Peak.'
+          : phase === 'force'
+          ? '🛑 Arrête l\'exercice. On ne grinde pas en Force — SNC préservé.'
+          : '⚠️ Épuisement détecté — conversion en Back-off (-10%) pour finir le volume.';
       } else {
-        // Épuisement général (fatigue.type=null mais critical/exhaustion)
-        _fatigueMsg = '📉 Baisse de performance sur ' + _repsDrop + ' reps — '
-          + (phase === 'force' ? 'arrête l\'exercice.' : 'passe en back-off.');
+        // _isImplicitFail seul : warning sans classification confiante
+        _msgType = 'warning';
+        _fatigueMsg = '📉 -' + _repsDrop + ' reps sans RPE noté — échec implicite possible. '
+          + (phase === 'volume' ? 'Convertis la prochaine série en Back-off (-10%).' : 'Évalue si tu continues ou stops.');
+      }
+
+      // Strike LP : neural confiant OU épuisement / échec critique objectif
+      if (_addStrike && exo.name) {
+        if (!db.user.lpStrikes) db.user.lpStrikes = {};
+        if (!db.user.lpStrikes[exo.name]) db.user.lpStrikes[exo.name] = { count: 0 };
+        db.user.lpStrikes[exo.name].count++;
+        db.user.lpStrikes[exo.name].lastFailWeight = _cW;
+        if (_fatigue.type === 'neural') db.user.lpStrikes[exo.name].fatigueType = 'neural';
       }
 
       return {
         msg: _fatigueMsg,
         type: _msgType,
         isImplicitFailure: true,
-        blockAPREIncrease: _fatigue.type === 'neural' || _isCriticalFail,
+        blockAPREIncrease: _fatigue.type === 'neural' || _isCriticalFail || _isExhaustion,
         fatigueType: _fatigue.type,
         fatigueConfidence: _fatigue.confidence
       };

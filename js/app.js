@@ -10745,7 +10745,11 @@ function pbGenerateProgram() {
     // pas window.obSelectedDays. Assigner directement à la variable lexicale.
     obSelectedDays = pickedDays;
     window.obSelectedDays = pickedDays; // back-compat pour autres lecteurs éventuels
-    var result = generateProgram(goals, s.days, mat, s.duration, [], [], null, null, s.level);
+    // Pass real injuries + cardio so generated exercises respect them.
+    // Previously hardcoded to [] / [] which silently ignored user settings.
+    var wizardInjuries = (db.user.programParams && db.user.programParams.injuries) || [];
+    var wizardCardio   = (db.user.programParams && db.user.programParams.cardio) || 'integre';
+    var result = generateProgram(goals, s.days, mat, s.duration, wizardInjuries, wizardCardio, null, null, s.level);
     if (result && result.length > 0) {
       db.generatedProgram = result;
       // Also create routine map

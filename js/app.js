@@ -18607,7 +18607,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       var _fallbackNames = { squat: 'Squat (Barre)', bench: 'Développé couché (Barre)', deadlift: 'Soulevé de terre (Barre)', squat_pause: 'Squat Pause' };
       variant = { name: _fallbackNames[tpl.mainLift] || tpl.mainLift, reps: [5, 5], rpe: 7.5 };
     }
-    var weight = wpComputeWorkWeight(tpl.mainLift, bodyPart);
+    var weight = wpComputeWorkWeightSafe(tpl.mainLift, bodyPart);
     var reps = Math.round((variant.reps[0] + variant.reps[1]) / 2);
     var setsCount = wpSetsForPhase(phase);
     var rpe = variant.rpe;
@@ -18630,7 +18630,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       reps = 10;
       rpe = 7;
     }
-    var warmups = wpBuildWarmups(weight, reps, mainName, 1, []);
+    var warmups = wpBuildWarmupsSafe(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     var _mainE1rmForRest = typeof getZoneE1RM === 'function'
       ? (getZoneE1RM(mainName, typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie') || 0)
@@ -18678,11 +18678,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   }
 
   if (tpl.mainLift === 'squat_pause') {
-    var sqW = wpComputeWorkWeight('squat', 'lower');
+    var sqW = wpComputeWorkWeightSafe('squat', 'lower');
     var pauseWeight = wpRound25(sqW * 0.85);
     exercises.push({
       name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: true,
-      sets: wpBuildWarmups(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
+      sets: wpBuildWarmupsSafe(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
     });
   }
 
@@ -18757,7 +18757,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
         sets: Array.from({ length: sc }, function() { return { reps: repsVal, rpe: acc.rpe || null, weight: null, isWarmup: false, useBodyweight: true }; }) });
     } else {
       var accWeight = dpResult ? (parseFloat(dpResult.weight) || 0) : 0;
-      var accWarmups = wpBuildWarmups(accWeight, repsVal, acc.name, accOrder, placedExoNames);
+      var accWarmups = wpBuildWarmupsSafe(accWeight, repsVal, acc.name, accOrder, placedExoNames);
       var exoObj = { name: acc.name, type: 'weight', restSeconds: restVal,
         sets: accWarmups.concat(Array.from({ length: sc }, function() {
           return { reps: dpResult ? dpResult.reps : repsVal, rpe: phase === 'deload' ? 6 : (acc.rpe || 7.5), weight: dpResult ? dpResult.weight : null, isWarmup: false };
@@ -18799,7 +18799,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       exercises.unshift({
         name: 'Extension Dos (Hyperextension Lestée)', type: 'weight', restSeconds: 180, isPrimary: true,
         coachNote: '⚠️ Fatigue axiale (Squat RPE ' + squatRpe48 + ' il y a < 48h). Deadlift remplacé. Retour la semaine prochaine.',
-        sets: wpBuildWarmups(60, 8, 'Extension Dos', 1, []).concat([
+        sets: wpBuildWarmupsSafe(60, 8, 'Extension Dos', 1, []).concat([
           { weight: 60, reps: 8, rpe: 7, isWarmup: false },
           { weight: 60, reps: 8, rpe: 7, isWarmup: false },
           { weight: 60, reps: 8, rpe: 7, isWarmup: false }
@@ -19203,8 +19203,8 @@ function calculateParametersForCustomPlan() {
         ? getFatiguePenalty(session.exercises, exoIdx)
         : 0;
 
-      var baseWeight = typeof wpComputeWorkWeight === 'function'
-        ? wpComputeWorkWeight(tmplExo.name, isMainLift ? 'primary' : 'accessory')
+      var baseWeight = typeof wpComputeWorkWeightSafe === 'function'
+        ? wpComputeWorkWeightSafe(tmplExo.name, isMainLift ? 'primary' : 'accessory')
         : 0;
 
       if (isMainLift && exoIdx > 0 && penalty > 0) {
@@ -19218,8 +19218,8 @@ function calculateParametersForCustomPlan() {
       var rest      = isMainLift ? 240 : 90;
 
       var warmupSets = [];
-      if (isMainLift && typeof wpBuildWarmups === 'function') {
-        warmupSets = wpBuildWarmups(baseWeight, reps, tmplExo.name, exoIdx, []);
+      if (isMainLift && typeof wpBuildWarmupsSafe === 'function') {
+        warmupSets = wpBuildWarmupsSafe(baseWeight, reps, tmplExo.name, exoIdx, []);
       }
 
       var workSets = [];
@@ -19400,7 +19400,7 @@ function generateWeeklyPlan() {
         else if (/point|faible|technique.*sbd|sbd.*tech/i.test(label)) {
           dayKey = allDays.indexOf(day) % 2 === 0 ? 'weakpoints' : 'technique';
         }
-        var dayData = wpGeneratePowerbuildingDay(dayKey, routine, phase, params, day);
+        var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         return Object.assign({ day: day }, dayData, { title: label || dayData.title });
       });

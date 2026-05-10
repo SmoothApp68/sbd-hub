@@ -1,0 +1,152 @@
+{
+  "pass": 29,
+  "fail": 0,
+  "total": 29,
+  "results": [
+    {
+      "name": "DIAG-01 generatedProgram exclut OHP/militaire (injuries=epaules)",
+      "pass": true,
+      "msg": "foundOHP=false injuries=[\"epaules\"]"
+    },
+    {
+      "name": "DIAG-02a settingsVocabLevel existe",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "DIAG-02b db.user.vocabLevel=3 après onchange",
+      "pass": true,
+      "msg": "vocab=3"
+    },
+    {
+      "name": "DIAG-03a inputFatPct existe",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "DIAG-03b db.user.fatPct=15.5 après onchange",
+      "pass": true,
+      "msg": "fp=15.5"
+    },
+    {
+      "name": "DIAG-04 toast quota affiché",
+      "pass": true,
+      "msg": "count=1 last=⚠️ Stockage local plein — synchronise avec le cloud"
+    },
+    {
+      "name": "DIAG-05 source contient guard iOS (UA check)",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "DIAG-06a wakeLock présent dans bundle",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "DIAG-06b visibilitychange présent",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "DIAG-06c re-acquire guard (!isFinished) présent",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "DIAG-07 computeACWR(0 logs) = null",
+      "pass": true,
+      "msg": "acwr=null"
+    },
+    {
+      "name": "DIAG-08 wpDetectPhase retourne une phase string",
+      "pass": true,
+      "msg": "phase=intro"
+    },
+    {
+      "name": "DIAG-09 computeDOTS retourne un nombre fini",
+      "pass": true,
+      "msg": "dots=376.9"
+    },
+    {
+      "name": "DIAG-10 computeDOTS(unspecified) retourne un nombre",
+      "pass": true,
+      "msg": "dots=376.9"
+    },
+    {
+      "name": "DIAG-11 weeklyPlan.days[].exercises sans HIIT/cardio",
+      "pass": true,
+      "msg": "hasCardio=false"
+    },
+    {
+      "name": "DIAG-12 goals contient seche après wizard",
+      "pass": true,
+      "msg": "goals=[\"force\",\"seche\"]"
+    },
+    {
+      "name": "DIAG-13 STORAGE_KEY = \"SBD_HUB_V29\"",
+      "pass": true,
+      "msg": "key=SBD_HUB_V29"
+    },
+    {
+      "name": "DIAG-14 10/10 scripts en defer/async",
+      "pass": true,
+      "msg": "defered=10 total=10"
+    },
+    {
+      "name": "DIAG-15 debouncedCloudSync présent dans bundle",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "EXTRA-01 0 erreur console",
+      "pass": true,
+      "msg": "OK"
+    },
+    {
+      "name": "EXTRA-02 STORAGE_KEY dans app.min.js",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "EXTRA-03 aucune clé privée VAPID en clair dans app.min.js",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "EXTRA-04 destroys >= new Chart",
+      "pass": true,
+      "msg": "destroys=18 news=6"
+    },
+    {
+      "name": "EXTRA-05 pas de clé future SBD_HUB_V30+",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "FINAL-01 computeSRS uniquement dans coach.js",
+      "pass": true,
+      "msg": "coach=1 engine=0"
+    },
+    {
+      "name": "FINAL-02 (signal) coachEnabled est un dead field — comportement actuel rend toujours",
+      "pass": true,
+      "msg": "ignored=true"
+    },
+    {
+      "name": "FINAL-03 (signal) DOTS calculé client — tricheable, post-bêta à durcir",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "FINAL-04 Plate Calculator implémenté",
+      "pass": true,
+      "msg": ""
+    },
+    {
+      "name": "FINAL-05 (signal) manifest.start_url=/sbd-hub/index.html — à adapter pour Cloudflare",
+      "pass": true,
+      "msg": "start_url=/sbd-hub/index.html"
+    }
+  ]
+}

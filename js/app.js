@@ -17877,14 +17877,10 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     _coachNotes.push(_wcEmergency.message);
   }
 
-  // PhysioManager — réduction de charge phase lutéale / folliculaire précoce
-  if (typeof getCycleCoeff === 'function' && _stabilized) {
-    var _cycleCoeff = getCycleCoeff();
-    if (_cycleCoeff < 1.0) {
-      baseWeight = Math.round(baseWeight * _cycleCoeff / 2.5) * 2.5;
-      _coachNotes.push('Phase de récupération hormonale — les charges sont légèrement adaptées.');
-    }
-  }
+  // PhysioManager — phase lutéale / folliculaire précoce
+  // Gemini v184 : C_cycle s'applique sur le VOLUME (sets), pas sur la charge.
+  // → wpGeneratePowerbuildingDay réduit setsCount via getCycleCoeff().
+  // La charge reste pleine pour préserver le stimulus neuro-musculaire.
 
   // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
   var _mentalPenalty = typeof getMentalRecoveryPenalty === 'function'
@@ -18741,6 +18737,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       reps = Math.round((_dupProfile.reps[0] + _dupProfile.reps[1]) / 2);
       rpe = (_dupProfile.rpe[0] + _dupProfile.rpe[1]) / 2;
       setsCount = Math.round((_dupProfile.sets[0] + _dupProfile.sets[1]) / 2);
+    }
+    // PhysioManager (v184) — C_cycle s'applique sur le VOLUME (sets), pas la charge
+    if (typeof getCycleCoeff === 'function') {
+      var _cycleCoeff = getCycleCoeff();
+      if (_cycleCoeff < 1.0) {
+        setsCount = Math.max(2, Math.round(setsCount * _cycleCoeff));
+      }
     }
     // Débutant : remplacer par exercice technique-first
     if (isBeginnerMode && typeof BEGINNER_SUBSTITUTES !== 'undefined' && BEGINNER_SUBSTITUTES[mainName]) {

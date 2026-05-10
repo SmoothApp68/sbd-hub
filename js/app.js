@@ -252,7 +252,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v183';
+var SW_VERSION = 'trainhub-v184';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -18761,7 +18761,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     if (typeof getCycleCoeff === 'function') {
       var _cycleCoeff = getCycleCoeff();
       if (_cycleCoeff < 1.0) {
-        setsCount = Math.max(2, Math.round(setsCount * _cycleCoeff));
+        setsCount = Math.max(2, Math.floor(setsCount * _cycleCoeff));
       }
     }
     // Débutant : remplacer par exercice technique-first

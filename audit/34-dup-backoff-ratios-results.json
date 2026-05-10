@@ -1,0 +1,89 @@
+{
+  "date": "2026-05-10T14:20:56.334Z",
+  "version": "v184",
+  "pass": 16,
+  "fail": 0,
+  "total": 16,
+  "results": [
+    {
+      "name": "DUP-01 débutant 3j → volume×3",
+      "pass": true,
+      "msg": "seq=[\"volume\",\"volume\",\"volume\"]"
+    },
+    {
+      "name": "DUP-02 PB avancé 5j",
+      "pass": true,
+      "msg": "seq=[\"force\",\"volume\",\"force\",\"volume\",\"vitesse\"]"
+    },
+    {
+      "name": "DUP-03 PL avancé 4j",
+      "pass": true,
+      "msg": "seq=[\"force\",\"vitesse\",\"force\",\"vitesse\"]"
+    },
+    {
+      "name": "DUP-04 bien-être 3j",
+      "pass": true,
+      "msg": "seq=[\"vitesse\",\"volume\",\"vitesse\"]"
+    },
+    {
+      "name": "DUP-05 getDUPKey routing 6 cas",
+      "pass": true,
+      "msg": "{\"pb_av\":\"powerbuilding_avance\",\"pb_in\":\"powerbuilding_intermediaire\",\"pl\":\"powerlifting\",\"mu\":\"musculation\",\"be\":\"bien_etre\",\"deb\":\"debutant\"}"
+    },
+    {
+      "name": "BO-01 débutant RPE 9 → null",
+      "pass": true,
+      "msg": "r=null"
+    },
+    {
+      "name": "BO-02 intermédiaire RPE 8.6 → -10% (90kg) + 5 reps",
+      "pass": true,
+      "msg": "w=90, reps=5"
+    },
+    {
+      "name": "BO-03 avancé RPE 9.1 → -15% (85kg) + 7 reps",
+      "pass": true,
+      "msg": "w=85, reps=7"
+    },
+    {
+      "name": "BO-04 phase peak → null",
+      "pass": true,
+      "msg": "r=null"
+    },
+    {
+      "name": "RATIO-01 DL/Sq < 1.10 → alerte warning",
+      "pass": true,
+      "msg": "alerts=3, titles=Ratio Squat/Bench|Déficit Rétraction Scapulaire|Deadlift/Squat faible (1.00 < 1.10)"
+    },
+    {
+      "name": "RATIO-02 Pull/Push < 1.0 → alerte warning",
+      "pass": true,
+      "msg": "meta_push={\"mechanic\":\"compound\",\"equipment\":\"barbell\",\"muscleGroup\":\"chest\"}, meta_pull={\"mechanic\":\"compound\",\"equipment\":\"barbell\",\"muscleGroup\":\"back\"}, titres=Ratio Squat/Bench|Symétrie Horizontale|Deadlift/Squat faible (0.00 < 1.10)|Tirage/Poussée < 1.0 cette semaine|Dominance Antérieure"
+    },
+    {
+      "name": "RATIO-03 OHP/Bench < 0.60 → alerte warning",
+      "pass": true,
+      "msg": "titres=Ratio Squat/Bench à surveiller|Ratio Squat/Dead|Déficit Rétraction Scapulaire|OHP/Bench faible (0.50 < 0.60)"
+    },
+    {
+      "name": "LEA-01 lutéale 0.88 → 4 sets × 0.88 = 3 (floor)",
+      "pass": true,
+      "msg": "phase=luteale, coeff=0.88, reduced=3"
+    },
+    {
+      "name": "LEA-02 weightCut actif → pénalité charge < 1.0",
+      "pass": true,
+      "msg": "wcActive=true, penalty=1"
+    },
+    {
+      "name": "LEA-03 wpComputeWorkWeight ne réduit plus la charge par cycle",
+      "pass": true,
+      "msg": "hasOldNote=false, hasCycleVolNote=false"
+    },
+    {
+      "name": "ACWR-01 ACWR>1.3 → J1 contient leg_press, pas squat + note",
+      "pass": true,
+      "msg": "label=Lower Body — Récupération (ACWR 1.50) | exos=[\"leg_press\",\"rdl\",\"hip_thrust\",\"leg_curl\",\"mollet\",\"cardio_liss\"] | notes=[\"ACWR 1.50 > 1.3 — Squat remplacé par Leg Press (charge axiale réduite)\"]"
+    }
+  ]
+}

@@ -11664,6 +11664,26 @@ function migrateActivityData() {
   saveDB();
 }
 
+function migrateInjuryNames() {
+  // Pre-v179 : injuries were stored as accented capitalised labels ("Épaules"),
+  // but INJURY_EXCLUSIONS / WP_INJURY_EXCLUSIONS keys are lowercase ASCII
+  // ("epaules") — so exclusions silently never fired. Normalize once.
+  if (db.user._injuryMigrated) return;
+  if (!db.user.programParams || !Array.isArray(db.user.programParams.injuries)) {
+    db.user._injuryMigrated = true;
+    return;
+  }
+  var fn = (typeof _normalizeInjuryZone === 'function')
+    ? _normalizeInjuryZone
+    : function(z) { return String(z || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  var seen = {};
+  db.user.programParams.injuries = db.user.programParams.injuries
+    .map(fn)
+    .filter(function(z) { if (!z || seen[z]) return false; seen[z] = true; return true; });
+  db.user._injuryMigrated = true;
+  saveDB();
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -11724,6 +11744,7 @@ function migrateActivityData() {
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
   migrateActivityData();
+  migrateInjuryNames();
   migrateBadges();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
@@ -14157,7 +14178,9 @@ function renderSettingsProfile() {
     const currentInj = params.injuries || [];
     const zones = ['Épaules','Genoux','Dos','Poignets','Nuque','Hanches'];
     injEl.innerHTML = zones.map(z => {
-      const active = currentInj.includes(z);
+      // Compare against the normalized form persisted in programParams
+      const norm = (typeof _normalizeInjuryZone === 'function') ? _normalizeInjuryZone(z) : z.toLowerCase();
+      const active = currentInj.includes(norm) || currentInj.includes(z);
       return `<button class="settings-toggle-btn ${active?'active':''}" onclick="toggleSettingsInjury('${z}', this)" style="padding:6px 12px;border-radius:8px;border:1px solid ${active?'var(--orange)':'var(--border)'};background:${active?'rgba(255,159,10,0.15)':'var(--surface)'};color:${active?'var(--orange)':'var(--sub)'};font-size:12px;font-weight:600;cursor:pointer;">${z}</button>`;
     }).join('');
   }
@@ -14783,15 +14806,24 @@ function toggleSettingsDay(day, btn) {
   btn.style.color = active ? 'var(--blue)' : 'var(--sub)';
 }
 
+function _normalizeInjuryZone(zone) {
+  // INJURY_EXCLUSIONS / WP_INJURY_EXCLUSIONS use lowercase keys without accents
+  // ("epaules"). Settings UI labels use accented capitalised ("Épaules"). Keep
+  // them aligned so injuries actually exclude exercises in both algos.
+  return String(zone || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function toggleSettingsInjury(zone, btn) {
   if (!db.user.programParams) db.user.programParams = {};
+  var normalized = _normalizeInjuryZone(zone);
   const inj = db.user.programParams.injuries || [];
-  const idx = inj.indexOf(zone);
-  if (idx >= 0) inj.splice(idx, 1); else inj.push(zone);
+  const idx = inj.indexOf(normalized);
+  if (idx >= 0) inj.splice(idx, 1); else inj.push(normalized);
   db.user.programParams.injuries = inj;
   _debouncedSaveSettings();
   // Toggle just this button
-  const active = inj.includes(zone);
+  const active = inj.includes(normalized);
   btn.classList.toggle('active', active);
   btn.style.borderColor = active ? 'var(--orange)' : 'var(--border)';
   btn.style.background = active ? 'rgba(255,159,10,0.15)' : 'var(--surface)';

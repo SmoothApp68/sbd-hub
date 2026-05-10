@@ -21597,6 +21597,16 @@ function goToggleSetComplete(exoIdx, setIdx) {
   if (set.completed) {
     var _completedAt = Date.now();
     set._completedAt = _completedAt;
+
+    // Enrichir le set avec les métadonnées Gemini (Q3)
+    var _exoForMeta = activeWorkout.exercises[exoIdx];
+    var _workIdx = _exoForMeta.sets
+      .filter(function(s, i) { return i <= setIdx && !s.isWarmup && s.setType !== 'warmup'; })
+      .length - 1;
+    set.setIndex    = _workIdx;
+    set.isTopSet    = _workIdx === 0;
+    set.targetReps  = (_exoForMeta.targetReps) || set.reps;
+    if (set.fatigueType === undefined) set.fatigueType = null;
     // Supersets : ne lancer le timer qu'après le DERNIER exo du superset
     var exo = activeWorkout.exercises[exoIdx];
     var isInSuperset = goIsPartOfSuperset(exoIdx);

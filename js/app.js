@@ -21815,6 +21815,49 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     }
   }
 
+  // ── Règle 7 — Échec implicite (sans RPE) ──────────────────────────────────
+  var _workSets = exo.sets.filter(function(s) {
+    return s.completed && !s.isWarmup && s.setType !== 'warmup'
+      && parseInt(s.reps) > 0 && parseFloat(s.weight) > 0;
+  });
+  if (_workSets.length >= 2) {
+    var _prevSet = _workSets[_workSets.length - 2];
+    var _currSet = _workSets[_workSets.length - 1];
+    var _prevReps = parseInt(_prevSet.reps) || 0;
+    var _currReps = parseInt(_currSet.reps) || 0;
+    var _prevWeight = parseFloat(_prevSet.weight) || 0;
+    var _currWeight = parseFloat(_currSet.weight) || 0;
+    var _repsDrop = _prevReps - _currReps;
+    var _isExhaustion = _currWeight < _prevWeight && _currReps < _prevReps;
+    var _isImplicitFail = _repsDrop >= 2 && _currWeight >= _prevWeight * 0.99;
+    var _isCriticalFail = _repsDrop >= 3;
+    if (_isCriticalFail || _isExhaustion) {
+      var _exoName = exo.name || '';
+      if (_exoName && typeof db !== 'undefined' && db.user) {
+        if (!db.user.lpStrikes) db.user.lpStrikes = {};
+        if (!db.user.lpStrikes[_exoName]) db.user.lpStrikes[_exoName] = { count: 0 };
+        db.user.lpStrikes[_exoName].count++;
+        db.user.lpStrikes[_exoName].lastFailWeight = _currWeight;
+      }
+      var _failMsg = phase === 'peak'
+        ? '🛑 Échec critique — STOP. Protection articulaire absolue en Peak.'
+        : phase === 'force'
+        ? '🛑 Arrête l\'exercice. On ne grinde pas en Force — SNC préservé.'
+        : '⚠️ Épuisement détecté — conversion en Back-off (-10%) pour finir le volume.';
+      return { msg: _failMsg, type: 'danger', isImplicitFailure: true, blockAPREIncrease: true };
+    }
+    if (_isImplicitFail && !set.rpe) {
+      var _phaseMsg = phase === 'volume'
+        ? ' Convertis la prochaine série en Back-off (-10%).'
+        : ' Évalue si tu continues ou stops.';
+      return {
+        msg: '📉 -' + _repsDrop + ' reps sans RPE noté — échec implicite possible.' + _phaseMsg,
+        type: 'warning',
+        isImplicitFailure: true
+      };
+    }
+  }
+
   return null;
 }
 

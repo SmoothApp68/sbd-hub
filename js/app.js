@@ -7,7 +7,7 @@
 // ============================================================
 function t(key, value, opts) {
   var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var mode = db ? (db.user.trainingMode || 'powerbuilding') : 'powerbuilding';
   var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
   if (detail === 'simple') level = 'debutant';
   else if (detail === 'expert') level = 'competiteur';
@@ -54,7 +54,7 @@ function t(key, value, opts) {
 
 function shouldShow(feature) {
   var level = db ? (db.user.level || 'intermediaire') : 'intermediaire';
-  var mode = db ? (db.user.trainingMode || 'powerlifting') : 'powerlifting';
+  var mode = db ? (db.user.trainingMode || 'powerbuilding') : 'powerbuilding';
   var detail = db ? (db.user.uiDetail || 'auto') : 'auto';
   if (detail === 'simple') level = 'debutant';
   else if (detail === 'expert') level = 'competiteur';
@@ -3309,7 +3309,7 @@ function isBadgeEarned(badgeId) {
 }
 
 function getBadgeTheme() {
-  var mode = db.user.trainingMode || 'powerlifting';
+  var mode = db.user.trainingMode || 'powerbuilding';
   if (mode === 'bien_etre') return 'wellness';
   return 'warrior';
 }
@@ -14105,7 +14105,7 @@ function renderSettingsProfile() {
 
   // Mode d'entraînement
   const modeEl = document.getElementById('settingsTrainingMode');
-  if (modeEl) modeEl.value = db.user.trainingMode || 'powerlifting';
+  if (modeEl) modeEl.value = db.user.trainingMode || 'powerbuilding';
 
   // Niveau de détail UI
   const uiDetailEl = document.getElementById('settingsUIDetail');

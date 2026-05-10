@@ -2774,6 +2774,48 @@ function analyzeAthleteProfile() {
     }
   }
 
+  // ── Deadlift / Squat — chaîne postérieure en retard ─────────────────────
+  var raw = ratios.raw || {};
+  var dlSqRatio = (raw.squat > 0) ? (raw.deadlift / raw.squat) : null;
+  if (dlSqRatio !== null && dlSqRatio < 1.10 && level !== 'debutant') {
+    bioAlerts.push({ severity: 'warning', title: 'Deadlift/Squat faible (' + dlSqRatio.toFixed(2) + ' < 1.10)',
+      text: 'Ta chaîne postérieure (ischios, érecteurs) est en retard. '
+        + '+1 session Ischios/Dos recommandée jusqu\'à ratio > 1.10.' });
+  }
+
+  // ── OHP / Bench — déséquilibre épaules/pectoraux ────────────────────────
+  var ob = ratios.ohp_bench;
+  if (ob !== null && ob > 0 && ob < 0.60) {
+    bioAlerts.push({ severity: 'warning', title: 'OHP/Bench faible (' + ob.toFixed(2) + ' < 0.60)',
+      text: 'Déséquilibre épaules/pectoraux. Remplacer 1 séance Bench par OHP lourd '
+        + 'pendant 4 semaines pour rééquilibrer.' });
+  }
+
+  // ── Pull / Push (volume hebdomadaire) ────────────────────────────────────
+  var _weekPull = 0, _weekPush = 0;
+  var _now = Date.now();
+  var _weekLogs = (db.logs || []).filter(function(l) {
+    return (_now - (l.timestamp || 0)) <= 7 * 86400000;
+  });
+  _weekLogs.forEach(function(l) {
+    (l.exercises || []).forEach(function(e) {
+      var meta = (typeof wpGetExoMeta === 'function') ? wpGetExoMeta(e.name) : null;
+      if (!meta) return;
+      var mg = (meta.muscleGroup || '').toLowerCase();
+      var vol = parseFloat(e.volume) || 0;
+      if (/back|dos|biceps/.test(mg)) _weekPull += vol;
+      if (/chest|pec|shoulder|epaule|triceps/.test(mg)) _weekPush += vol;
+    });
+  });
+  if (_weekPush > 0 && _weekPull > 0) {
+    var pullPushRatio = _weekPull / _weekPush;
+    if (pullPushRatio < 1.0) {
+      bioAlerts.push({ severity: 'warning', title: 'Tirage/Poussée < 1.0 cette semaine',
+        text: 'Tu pousses plus que tu ne tires (ratio ' + pullPushRatio.toFixed(2) + ') — '
+          + 'risque posture et épaules. Doubler le volume Rowing/Face Pull cette semaine.' });
+    }
+  }
+
   // Push / Pull ratio (sets sur 30j)
   var PUSH_KEYS = { 'Pecs': 1, 'Pecs (haut)': 1, 'Pecs (bas)': 1,
     'Épaules': 1, 'Épaules (antérieur)': 1, 'Épaules (latéral)': 1, 'Triceps': 1 };

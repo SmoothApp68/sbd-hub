@@ -17553,10 +17553,38 @@ function wpEstimateWeight(exoName) {
   return wpRound25(baseVal * est.ratio);
 }
 
-function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
+// Increment de Double Progression différencié par bodyPart/muscleGroup
+function getDPIncrement(exoName) {
+  var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
+  var mg   = meta ? (meta.muscleGroup || '') : '';
+  var mech = meta ? (meta.mechanic || '') : '';
+
+  // Lower body composés et machines lourdes : +5kg
+  if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) return 5.0;
+
+  // Isolation lower (Leg Extension, Leg Curl) : +2.5kg
+  if (/quad|hams/.test(mg) && /isolation/.test(mech)) return 2.5;
+
+  // Upper composés (Rowing, Développé haltères) : +2.5kg
+  if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) return 2.5;
+
+  // Isolation upper légère (Curl, Extension triceps, Élévations) : +1.0kg
+  if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) return 1.0;
+
+  // Abdos et gainage : pas d'incrément charge (on augmente les reps)
+  if (/core|Abdos|Lombaires/.test(mg)) return 0;
+
+  // Défaut upper : +2kg, lower : +5kg
+  return mg && /quad|hams|glute/.test(mg) ? 5.0 : 2.0;
+}
+
+function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessionsRequired) {
+  sessionsRequired = sessionsRequired || 1;
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
   if (!realName) return null;
+  var successCount = 0;
+  var lastWeightSeen = 0;
   for (var i = 0; i < Math.min(logs.length, 15); i++) {
     var log = logs[i];
     var exo = (log.exercises || []).find(function(e) {
@@ -17570,18 +17598,47 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax) {
     if (!workSets.length) continue;
     var lastSet    = workSets[workSets.length - 1];
     var lastWeight = parseFloat(lastSet.weight) || 0;
-    var lastRpe    = parseFloat(lastSet.rpe)    || null;
+    lastWeightSeen = lastWeight;
+    var lastRpe    = parseFloat(lastSet.rpe);
+    if (isNaN(lastRpe)) lastRpe = null;
     var completedSets = workSets.filter(function(s) { return parseInt(s.reps) > 0; });
     if (!completedSets.length) {
       return { weight: lastWeight, reps: targetRepMax, progressed: false };
     }
-    var allSetsComplete = completedSets.every(function(s) {
+    // Bug 3 fix : strict — toutes les séries DOIVENT atteindre targetRepMax
+    var allSetsComplete = completedSets.length > 0 && completedSets.every(function(s) {
       return parseInt(s.reps) >= targetRepMax;
     });
-    if (allSetsComplete && lastRpe <= 8) {
-      return { weight: wpRound25(lastWeight + 2), reps: targetRepMin, progressed: true };
+    var almostComplete = !allSetsComplete && completedSets.every(function(s) {
+      return parseInt(s.reps) >= targetRepMax - 1;
+    });
+    // Bug 1 fix : RPE null ne bloque pas la progression
+    var rpeValid = (lastRpe === null || lastRpe === undefined || lastRpe <= 8);
+    if (allSetsComplete && rpeValid) {
+      successCount++;
+      if (successCount >= sessionsRequired) {
+        // Bug 2 fix : incrément différencié par muscle/mécanique
+        var _dpIncrement = getDPIncrement(exoName);
+        if (_dpIncrement === 0) {
+          return { weight: lastWeight, reps: Math.min(targetRepMin + 1, targetRepMax), progressed: true };
+        }
+        return { weight: wpRound25(lastWeight + _dpIncrement), reps: targetRepMin, progressed: true };
+      }
+      continue;
+    }
+    if (almostComplete) {
+      return {
+        weight: lastWeight,
+        reps: targetRepMax,
+        progressed: false,
+        almostComplete: true,
+        coachNote: '⏳ Encore une séance pour valider les ' + targetRepMax + ' reps sur chaque série avant de monter.'
+      };
     }
     return { weight: lastWeight, reps: targetRepMax, progressed: false };
+  }
+  if (lastWeightSeen > 0) {
+    return { weight: lastWeightSeen, reps: targetRepMax, progressed: false };
   }
   var estimated = wpEstimateWeight(exoName, null);
   if (estimated) {

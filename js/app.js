@@ -21876,45 +21876,95 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     }
   }
 
-  // ── Règle 7 — Échec implicite (sans RPE) ──────────────────────────────────
-  var _workSets = exo.sets.filter(function(s) {
-    return s.completed && !s.isWarmup && s.setType !== 'warmup'
+  // ── RÈGLE 7 — Détection d'échec implicite + classification fatigue ──────
+  var _workSets2 = exo.sets.filter(function(s) {
+    return s.completed && !s.isWarmup && !s.isDropSet
+      && s.setType !== 'warmup' && s.setType !== 'dropset'
       && parseInt(s.reps) > 0 && parseFloat(s.weight) > 0;
   });
-  if (_workSets.length >= 2) {
-    var _prevSet = _workSets[_workSets.length - 2];
-    var _currSet = _workSets[_workSets.length - 1];
-    var _prevReps = parseInt(_prevSet.reps) || 0;
-    var _currReps = parseInt(_currSet.reps) || 0;
-    var _prevWeight = parseFloat(_prevSet.weight) || 0;
-    var _currWeight = parseFloat(_currSet.weight) || 0;
-    var _repsDrop = _prevReps - _currReps;
-    var _isExhaustion = _currWeight < _prevWeight && _currReps < _prevReps;
-    var _isImplicitFail = _repsDrop >= 2 && _currWeight >= _prevWeight * 0.99;
+
+  if (_workSets2.length >= 2) {
+    var _p = _workSets2[_workSets2.length - 2];
+    var _c = _workSets2[_workSets2.length - 1];
+    var _pR = parseInt(_p.reps) || 0;
+    var _cR = parseInt(_c.reps) || 0;
+    var _pW = parseFloat(_p.weight) || 0;
+    var _cW = parseFloat(_c.weight) || 0;
+    var _repsDrop = _pR - _cR;
+
+    // targetReps depuis le plan
+    var _planExo2 = planDay ? (planDay.exercises || []).find(function(e) {
+      return e.name && exo.name && wpNormalizeName(e.name) === wpNormalizeName(exo.name);
+    }) : null;
+    var _targetReps = (_planExo2 && _planExo2.targetReps)
+      || (_planExo2 && _planExo2.sets && _planExo2.sets[0] && _planExo2.sets[0].reps)
+      || _pR;
+    var _repDropVsTarget = _targetReps - _cR;
+
+    // Épuisement : charge ET reps baissent
+    var _isExhaustion = _cW < _pW * 0.99 && _cR < _pR;
+    // Échec implicite : charge stable, reps chutent
+    var _isImplicitFail = _repsDrop >= 2 && _cW >= _pW * 0.99;
     var _isCriticalFail = _repsDrop >= 3;
-    if (_isCriticalFail || _isExhaustion) {
-      var _exoName = exo.name || '';
-      if (_exoName && typeof db !== 'undefined' && db.user) {
-        if (!db.user.lpStrikes) db.user.lpStrikes = {};
-        if (!db.user.lpStrikes[_exoName]) db.user.lpStrikes[_exoName] = { count: 0 };
-        db.user.lpStrikes[_exoName].count++;
-        db.user.lpStrikes[_exoName].lastFailWeight = _currWeight;
+
+    if (_isExhaustion || _isCriticalFail || _isImplicitFail) {
+      // Contexte pour classifyFatigue
+      var _srsCtx = typeof computeSRS === 'function' ? computeSRS() : { score: 70 };
+      var _srsScore2 = (_srsCtx && _srsCtx.score) || 70;
+      var _acwr2 = typeof computeACWR === 'function' ? computeACWR() : null;
+      var _level2 = (db.user && db.user.level) || 'intermediaire';
+      var _setIndex = _workSets2.length - 1;
+
+      var _fatigue = typeof classifyFatigue === 'function'
+        ? classifyFatigue(_setIndex, _repsDrop, _srsScore2, _acwr2, _level2)
+        : { type: null, confidence: 0, signals: [] };
+
+      // Enrichir le set avec la classification
+      _c.fatigueType       = _fatigue.type;
+      _c.fatigueConfidence = _fatigue.confidence;
+      _c.fatigueSignals    = _fatigue.signals;
+
+      // UX selon seuil de confiance (Gemini Q5)
+      if (_fatigue.confidence < 0.60) {
+        return null;
       }
-      var _failMsg = phase === 'peak'
-        ? '🛑 Échec critique — STOP. Protection articulaire absolue en Peak.'
-        : phase === 'force'
-        ? '🛑 Arrête l\'exercice. On ne grinde pas en Force — SNC préservé.'
-        : '⚠️ Épuisement détecté — conversion en Back-off (-10%) pour finir le volume.';
-      return { msg: _failMsg, type: 'danger', isImplicitFailure: true, blockAPREIncrease: true };
-    }
-    if (_isImplicitFail && !set.rpe) {
-      var _phaseMsg = phase === 'volume'
-        ? ' Convertis la prochaine série en Back-off (-10%).'
-        : ' Évalue si tu continues ou stops.';
+
+      var _fatigueMsg = '';
+      var _msgType = 'warning';
+
+      if (_fatigue.type === 'neural' && _fatigue.confidence >= 0.80) {
+        _msgType = 'danger';
+        _fatigueMsg = phase === 'peak'
+          ? '🛑 SNC saturé en Peak — STOP TOTAL. Protection articulaire absolue.'
+          : '🧠 Fatigue nerveuse détectée (SRS ' + _srsScore2 + '). Arrête cet exercice — le SNC ne récupère pas entre les séries.';
+        if (exo.name) {
+          if (!db.user.lpStrikes) db.user.lpStrikes = {};
+          if (!db.user.lpStrikes[exo.name]) db.user.lpStrikes[exo.name] = { count: 0 };
+          db.user.lpStrikes[exo.name].count++;
+          db.user.lpStrikes[exo.name].lastFailWeight = _cW;
+          db.user.lpStrikes[exo.name].fatigueType = 'neural';
+        }
+      } else if (_fatigue.type === 'overload') {
+        _msgType = 'danger';
+        _fatigueMsg = '⚠️ Charge trop lourde dès la première série. Réduis de 5-10% pour la prochaine séance.';
+      } else if (_fatigue.type === 'muscular') {
+        _msgType = 'warning';
+        _fatigueMsg = phase === 'volume' || phase === 'hypertrophie'
+          ? '💪 Fatigue musculaire — c\'est ici que tu progresses. Continue en back-off si besoin.'
+          : '📉 Fatigue musculaire détectée. Convertis en back-off (-10%) pour finir le volume.';
+      } else {
+        // Épuisement général (fatigue.type=null mais critical/exhaustion)
+        _fatigueMsg = '📉 Baisse de performance sur ' + _repsDrop + ' reps — '
+          + (phase === 'force' ? 'arrête l\'exercice.' : 'passe en back-off.');
+      }
+
       return {
-        msg: '📉 -' + _repsDrop + ' reps sans RPE noté — échec implicite possible.' + _phaseMsg,
-        type: 'warning',
-        isImplicitFailure: true
+        msg: _fatigueMsg,
+        type: _msgType,
+        isImplicitFailure: true,
+        blockAPREIncrease: _fatigue.type === 'neural' || _isCriticalFail,
+        fatigueType: _fatigue.type,
+        fatigueConfidence: _fatigue.confidence
       };
     }
   }

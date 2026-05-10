@@ -17963,7 +17963,8 @@ function wpDetectPlateau(liftType) {
   var names = liftNames[liftType] || [];
   var history = [];
   var sortedLogs2 = logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
-  for (var i = 0; i < sortedLogs2.length && history.length < 6; i++) {
+  var _plateauWindow = liftType === 'deadlift' ? 8 : 6;
+  for (var i = 0; i < sortedLogs2.length && history.length < _plateauWindow; i++) {
     var log = sortedLogs2[i];
     var exo = (log.exercises || []).find(function(e) {
       return names.some(function(n) { return e.name && e.name.toLowerCase().includes(n.toLowerCase()); });
@@ -17979,7 +17980,8 @@ function wpDetectPlateau(liftType) {
     }, workSets[0]);
     history.push({ weight: parseFloat(best.weight) || 0, rpe: parseFloat(best.rpe) || 7.5 });
   }
-  if (history.length < 3) return null;
+  var _minHistory = liftType === 'deadlift' ? 4 : 3;
+  if (history.length < _minHistory) return null;
   var stagnant = history[0].weight === history[1].weight && history[0].weight === history[2].weight;
   var highRpe = history[0].rpe >= 9 && history[1].rpe >= 9;
   if (!stagnant || !highRpe) return null;
@@ -17988,7 +17990,23 @@ function wpDetectPlateau(liftType) {
     squat:    { variation: 'Squat Pause',  reason: 'Renforcer la sortie du trou' },
     deadlift: { variation: 'Block Pulls',  reason: 'Travailler le verrouillage au genou' }
   };
-  return { liftType: liftType, sessions: history.length, correction: corrections[liftType], action: 'back_off_10pct' };
+  var _plateauActions = {
+    squat:    'switch_variation',
+    bench:    'switch_rep_range',
+    deadlift: 'back_off_10pct'
+  };
+  var _coachNotes = {
+    squat:    '🔄 Plateau Squat détecté — essaie le High Bar ou le Squat Pause 2 semaines.',
+    bench:    '🔄 Plateau Bench — change le rep range (ex: 5x5 → 4x8) pendant 2 semaines.',
+    deadlift: '📉 Plateau Deadlift — réduis de 10% et reconstruis proprement.'
+  };
+  return {
+    liftType:  liftType,
+    sessions:  history.length,
+    correction: corrections[liftType],
+    action:    _plateauActions[liftType] || 'back_off_10pct',
+    coachNote: _coachNotes[liftType] || ''
+  };
 }
 
 function wpForcePhase() {

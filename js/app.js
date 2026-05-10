@@ -10674,13 +10674,22 @@ function pbGenerateProgram() {
   // Utiliser le générateur existant
   var goalMap = { force: 'force', hypertrophie: 'masse', mixte: 'force', remise_en_forme: 'bien_etre' };
   var goals = [{ id: goalMap[s.goal] || 'force' }];
-  var mat = s.equipment;
+  // Translate wizard equipment array (['barbell','dumbbell',...]) into filtMat key
+  // ('salle' / 'halteres' / 'maison') — filtMat compares against e.mat which only
+  // contains those three values.
+  var mat = (function(equip) {
+    if (!equip || equip.length === 0) return 'salle';
+    if (equip.indexOf('barbell') >= 0 || equip.indexOf('machine') >= 0) return 'salle';
+    if (equip.indexOf('dumbbell') >= 0 || equip.indexOf('cable') >= 0) return 'halteres';
+    return 'maison';
+  })(s.equipment);
 
   // Sauvegarder les paramètres dans le profil
   db.user.level = s.level;
   if (!db.user.programParams) db.user.programParams = {};
   db.user.programParams.duration = s.duration;
   db.user.programParams.freq = s.days;
+  db.user.programParams.mat = mat;
   // Use the days the user actually picked in the wizard — fall back to defaults if missing
   var pickedDays = (s.selectedDays && s.selectedDays.length === s.days)
     ? s.selectedDays.slice()

@@ -1691,7 +1691,7 @@
       z-index:500;align-items:flex-end;justify-content:center; }
     .quiz-overlay.open { display:flex;animation:fadeIn .2s ease; }
     .quiz-box { background:#13132a;border:1px solid rgba(255,255,255,.1);
-      border-radius:24px 24px 0 0;padding:22px 18px 38px;width:100%;max-width:430px;
+      border-radius:24px 24px 0 0;padding:22px 18px calc(38px + env(safe-area-inset-bottom, 0px));width:100%;max-width:430px;
       animation:slideUp .25s ease;position:relative;max-height:85vh;overflow-y:auto; }
     .quiz-skip { position:absolute;top:14px;right:16px;background:none;border:none;
       color:var(--sub);font-size:13px;cursor:pointer;padding:2px 6px;line-height:1; }
@@ -1701,8 +1701,8 @@
     .quiz-dot.active { background:var(--accent); }
     .quiz-step { display:none; }
     .quiz-step.active { display:block; }
-    .quiz-title { font-size:18px;font-weight:800;margin-bottom:4px;text-align:center; }
-    .quiz-sub { font-size:12px;color:var(--sub);text-align:center;margin-bottom:18px;line-height:1.5; }
+    .quiz-title { font-size:16px;font-weight:800;margin-bottom:2px;text-align:center; }
+    .quiz-sub { font-size:11px;color:var(--sub);text-align:center;margin-bottom:10px;line-height:1.5; }
     .quiz-opts { display:flex;justify-content:space-between;gap:6px;margin-bottom:8px; }
     .quiz-opt { flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
       background:var(--card);border:1.5px solid var(--border);border-radius:12px;
@@ -1714,13 +1714,14 @@
       margin-top:14px;opacity:.35;transition:opacity .2s; }
     .quiz-next.ready { opacity:1; }
     .quiz-result { text-align:center; }
-    .quiz-score-ring { position:relative;width:80px;height:80px;margin:0 auto 12px; }
+    .quiz-step.quiz-result { max-height:calc(85vh - 80px);overflow-y:auto; }
+    .quiz-score-ring { position:relative;width:64px;height:64px;margin:0 auto 8px; }
     .quiz-score-ring svg { transform:rotate(-90deg); }
     .quiz-score-num { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      font-size:22px;font-weight:900; }
-    .quiz-go-btn { display:block;width:100%;padding:14px;
+      font-size:18px;font-weight:900; }
+    .quiz-go-btn { display:block;width:100%;padding:12px;
       background:linear-gradient(135deg,var(--accent),#6366f1);
-      border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:16px; }
+      border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:10px; }
 
     /* Curseur accent PB */
     .pb-slider-track { height:8px;background:rgba(255,255,255,.08);border-radius:4px;

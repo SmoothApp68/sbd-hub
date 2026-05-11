@@ -979,7 +979,17 @@ function importData() {
     }
   );
 }
-function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+function showToast(msg, duration, onClick) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  if (typeof onClick === 'function') {
+    t.style.cursor = 'pointer';
+    t.addEventListener('click', function() { try { onClick(); } catch(e) {} t.remove(); });
+  }
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), Math.max(1500, duration || 2500));
+}
 var _LABEL_MAP = {
   srs:   { 1:'Forme du jour',    2:'Forme du jour',   3:'SRS (Readiness)' },
   acwr:  { 1:'Charge semaine',   2:'Charge semaine',  3:'ACWR' },
@@ -10039,13 +10049,20 @@ function pbStartGuided() {
     days: pp.freq || 4,
     selectedDays: (Array.isArray(pp.selectedDays) && pp.selectedDays.length > 0) ? pp.selectedDays.slice() : [],
     goal: modeToGoal[currentMode] || 'mixte',
-    equipment: ['barbell','dumbbell','machine','cable'],
+    equipment: _pbEquipmentFromMat(pp.mat || 'salle'),
     duration: pp.duration || 60,
     level: db.user.level || 'intermediaire',
     blockedDays: []
   };
   _pbDayMode = 'manual';
   renderProgramBuilder();
+}
+
+// Translate the saved 'mat' setting back into the wizard equipment array.
+function _pbEquipmentFromMat(mat) {
+  if (mat === 'halteres') return ['dumbbell','cable'];
+  if (mat === 'maison')   return ['dumbbell','bodyweight'];
+  return ['barbell','dumbbell','machine','cable'];
 }
 
 // Default day-of-week distributions for each frequency — avoids Wed/Sun by default
@@ -10682,11 +10699,84 @@ function openExoLibrary(dayIndex) {
   renderCustomBuilder();
 }
 
+// v194 — Détecte si l'user a déjà un profil complet (raccourci wizard)
+function _pbHasFullProfile() {
+  var pp = db.user && db.user.programParams;
+  return !!(pp && pp.freq && pp.mat && pp.goals && pp.goals.length > 0
+    && Array.isArray(pp.selectedDays) && pp.selectedDays.length === pp.freq);
+}
+
+function _shortcutRow(label, value) {
+  return '<div><div style="font-size:10px;color:var(--sub);margin-bottom:2px;">' + label + '</div>'
+    + '<div style="font-size:12px;font-weight:600;color:var(--text);">' + value + '</div></div>';
+}
+
+function _renderProgramShortcut() {
+  var pp = db.user.programParams || {};
+  var mode = db.user.trainingMode || 'powerbuilding';
+  var modeLabels = {
+    powerbuilding:'💪 Powerbuilding', powerlifting:'🏋️ Powerlifting',
+    musculation:'💪 Musculation', bien_etre:'🌿 Bien-être', bodybuilding:'💪 Musculation'
+  };
+  var cardioLabels = { integre:'Cardio intégré', dedie:'Jours dédiés', aucun:'Sans cardio' };
+  var matLabels = { salle:'Salle complète', halteres:'Haltères', maison:'Maison' };
+  var injuriesText = (pp.injuries || []).length > 0
+    ? '⚠️ ' + pp.injuries.join(', ')
+    : '✅ Aucune blessure';
+
+  return [
+    '<div style="padding:8px 0;">',
+    '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">Régénérer ton programme</div>',
+    '<div style="font-size:13px;color:var(--sub);margin-bottom:18px;">Basé sur tes réglages actuels</div>',
+    '<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:16px;border:0.5px solid var(--border);">',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
+    _shortcutRow('🎯 Mode', modeLabels[mode] || mode),
+    _shortcutRow('📅 Jours', (pp.freq || 4) + 'j — ' + (pp.selectedDays || []).join(', ')),
+    _shortcutRow('⏱ Durée', (pp.duration || 90) + ' min'),
+    _shortcutRow('🏢 Équipement', matLabels[pp.mat] || 'Salle complète'),
+    _shortcutRow('📊 Niveau', db.user.level || 'intermédiaire'),
+    _shortcutRow('🏃 Cardio', cardioLabels[pp.cardio || 'integre']),
+    '<div style="grid-column:1/-1;">' + _shortcutRow('🩹 Blessures', injuriesText) + '</div>',
+    '</div></div>',
+    '<button onclick="pbGenerateFromSettings()" style="width:100%;padding:14px;border-radius:12px;background:var(--accent);border:none;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">⚡ Générer avec ces paramètres</button>',
+    '<button onclick="_pbState._skipShortcut=true;renderProgramBuilder();" style="width:100%;padding:12px;border-radius:12px;background:var(--surface);border:0.5px solid var(--border);color:var(--sub);font-size:13px;cursor:pointer;">✏️ Modifier les paramètres</button>',
+    '<button onclick="_pbState=null;renderProgramBuilder();" style="width:100%;padding:10px;background:none;border:none;color:var(--sub);font-size:12px;cursor:pointer;margin-top:6px;">← Annuler</button>',
+    '</div>'
+  ].join('');
+}
+
+// Generate the program directly from saved settings without walking the 6 steps.
+function pbGenerateFromSettings() {
+  var pp = (db.user && db.user.programParams) || {};
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var modeToGoal = {
+    powerbuilding:'mixte', powerlifting:'force',
+    musculation:'hypertrophie', bien_etre:'remise_en_forme', bodybuilding:'hypertrophie'
+  };
+  _pbState = {
+    mode: 'guided',
+    step: 6,
+    days: pp.freq || 4,
+    selectedDays: (Array.isArray(pp.selectedDays) && pp.selectedDays.length > 0) ? pp.selectedDays.slice() : [],
+    goal: modeToGoal[mode] || 'mixte',
+    equipment: _pbEquipmentFromMat(pp.mat || 'salle'),
+    duration: pp.duration || 90,
+    level: (db.user && db.user.level) || 'intermediaire',
+    blockedDays: []
+  };
+  pbGenerateProgram();
+}
+
 function renderProgramBuilderStep(container) {
   var s = _pbState;
   var h = '';
 
   if (s.mode === 'guided') {
+    // v194 — Profil complet + step 1 → écran raccourci au lieu du wizard
+    if (s.step === 1 && !s._skipShortcut && _pbHasFullProfile()) {
+      container.innerHTML = _renderProgramShortcut();
+      return;
+    }
     var totalSteps = 6;
     // Progress bar
     h += '<div style="display:flex;gap:4px;margin-bottom:20px;">';
@@ -14366,6 +14456,7 @@ function updateProfileField(field, value) {
   }
   _debouncedSaveSettings();
   showToast('✓ Profil mis à jour');
+  if (field === 'level' || field === 'trainingMode') _notifyProgramOutdated();
 }
 
 // ── Cycle menstruel handlers ─────────────────────────────────
@@ -15059,6 +15150,17 @@ function setSettingsGender(g) {
 }
 
 // Helper to toggle a single-select button group without full re-render
+// v194 — Notifie l'user qu'un paramètre clé du programme a changé.
+// Affiche un toast avec un lien cliquable pour relancer pbStartGuided().
+function _notifyProgramOutdated() {
+  var hasProgram = !!(db.weeklyPlan || db.generatedProgram || db.routine);
+  if (!hasProgram) return;
+  if (typeof showToast !== 'function') return;
+  showToast('⚙️ Paramètre modifié — appuie pour régénérer le programme', 6000, function() {
+    if (typeof pbStartGuided === 'function') pbStartGuided();
+  });
+}
+
 function _toggleSingleSelect(containerId, btn, field, value, color) {
   if (!db.user.programParams) db.user.programParams = {};
   db.user.programParams[field] = value;
@@ -15111,10 +15213,11 @@ function setSettingsFreq(f, btn) {
       try { renderSettingsProfile(); } catch(e) {}
     }
   }
+  _notifyProgramOutdated();
 }
-function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); }
-function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); }
-function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); }
+function setSettingsMat(m, btn) { _toggleSingleSelect('settingsMat', btn, 'mat', m); _notifyProgramOutdated(); }
+function setSettingsDuration(d, btn) { _toggleSingleSelect('settingsDuration', btn, 'duration', d); _notifyProgramOutdated(); }
+function setSettingsCardio(c, btn) { _toggleSingleSelect('settingsCardio', btn, 'cardio', c); _notifyProgramOutdated(); }
 
 function setSupersetPref(pref, btn) {
   db.user.supersetPreference = pref;
@@ -15171,6 +15274,7 @@ function toggleSettingsInjury(zone, btn) {
   btn.style.borderColor = active ? 'var(--orange)' : 'var(--border)';
   btn.style.background = active ? 'rgba(255,159,10,0.15)' : 'var(--surface)';
   btn.style.color = active ? 'var(--orange)' : 'var(--sub)';
+  _notifyProgramOutdated();
 }
 
 // ── Records Correction Tool ──────────────────────────────────

@@ -586,20 +586,20 @@ function showReadinessModal(onComplete) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
-  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:20px;">
-    <div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Comment te sens-tu ?</div>
-    <div class="readiness-sliders">
-      <div class="readiness-row"><span>😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val">5</span></div>
-      <div class="readiness-row"><span>⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val">5</span></div>
-      <div class="readiness-row"><span>🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val">5</span></div>
-      <div class="readiness-row"><span>🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val">5</span></div>
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
+    <div class="readiness-sliders" style="margin-bottom:8px;">
+      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val" style="font-size:12px;min-width:16px;">5</span></div>
+      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val" style="font-size:12px;min-width:16px;">5</span></div>
+      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val" style="font-size:12px;min-width:16px;">5</span></div>
+      <div class="readiness-row" style="margin-bottom:4px;"><span style="font-size:12px;">🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val" style="font-size:12px;min-width:16px;">5</span></div>
     </div>
-    <div style="font-size:10px;color:var(--sub);text-align:center;margin:4px 0;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
-    <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:8px 0;color:var(--blue);">Score : —</div>
-    <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:8px;"></div>
-    <div class="modal-actions">
+    <div style="font-size:9px;color:var(--sub);text-align:center;margin:2px 0 6px;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
+    <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:6px 0 2px;color:var(--blue);">Score : —</div>
+    <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
       <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="skipReadiness()">Passer</button>
-      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider</button>
+      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider ✓</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -18940,21 +18940,37 @@ function wpCoachNote(liftType, phase, weight, history) {
 }
 
 // Addendum H: Cardio adapté blessures
-function wpGetCardioForProfile(injuries, duration, isCutting) {
-  var goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : ['force']);
+function wpGetCardioForProfile(injuries, baseDuration, isCutting) {
+  // PRIORITÉ 1 : réglage utilisateur
+  var cardioSetting = db.user && db.user.programParams && db.user.programParams.cardio;
+  if (cardioSetting === 'aucun' || cardioSetting === 'dedie') return null;
+
+  // PRIORITÉ 2 : matrice mode × phase (getCardioDuration) — remplace la logique
+  // progressive qui produisait 34 min après ~14 semaines d'entraînement.
+  var _mode  = (db.user && db.user.trainingMode) || 'musculation';
+  var _phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var _goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : []);
+  // Pas de contrainte de temps restant ici — laisse la matrice retourner sa
+  // valeur cible (powerbuilding × hypertrophie = 20, peak = 5, etc.).
+  var _dur = (typeof getCardioDuration === 'function')
+    ? getCardioDuration(_mode, _phase, _goals)
+    : (baseDuration || 20);
+  if (!_dur || _dur < 5) return null;
+
+  // Équipement cardio selon mat
   var mat = (db.user && db.user.programParams && db.user.programParams.mat) || 'salle';
-  // v196 — Route through the getCardioDuration matrix (mode × phase) so this
-  // legacy path stops emitting 34 min cardio on powerbuilding/hypertrophie.
-  var trainingMode = (db.user && db.user.trainingMode) || 'powerbuilding';
-  var macroPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
-  var finalDuration = typeof getCardioDuration === 'function'
-    ? getCardioDuration(trainingMode, macroPhase, goals, duration || 20)
-    : (duration || 20);
-  if (finalDuration === 0) return null; // user cardio='aucun'|'dedie' — skip
-  if (typeof getCardioForProfile === 'function') {
-    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: finalDuration });
-  }
-  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, evictionCategory: 'cardio', sets: [{ durationMin: finalDuration, isWarmup: false }] };
+  var cardioName = mat === 'maison' ? 'Marche rapide'
+    : mat === 'halteres' ? 'Vélo stationnaire'
+    : 'Tapis roulant';
+
+  return {
+    name: cardioName,
+    type: 'cardio',
+    restSeconds: 0,
+    evictionCategory: 'cardio',
+    sets: [{ durationMin: _dur, isWarmup: false, rpe: 5 }],
+    coachNote: 'Cardio Z2 léger (' + _dur + 'min) — santé mitochondriale, préserver les gains'
+  };
 }
 
 function getProgressiveCardioDuration(baseDuration) {

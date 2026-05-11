@@ -19100,7 +19100,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   var _dupCoachNote = null;
   var _dupRestSeconds = null;
   var _level = (db.user && db.user.level) || 'intermediaire';
-  if (dupProfileKey && tpl.mainLift && tpl.mainLift !== 'squat_pause' && !isBeginnerMode) {
+  if (dupProfileKey && tpl.mainLift && tpl.mainLift !== 'squat_pause') {
     if (dupProfileKey === 'force')   _dupProfile = getDUPForce(phase);
     else if (dupProfileKey === 'volume')  _dupProfile = getDUPVolume(phase);
     else if (dupProfileKey === 'vitesse') _dupProfile = getDUPVitesse(phase, _level);
@@ -20009,7 +20009,7 @@ function generateWeeklyPlan() {
         _gwpTrainIdx++;
         var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
-        if (dayData && !dayData.dupProfile) dayData.dupProfile = _gwpProfileKey;
+        if (dayData) dayData.dupProfileKey = _gwpProfileKey;
         return Object.assign({ day: day }, dayData, { title: label || dayData.title });
       });
 
@@ -22202,7 +22202,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     var srsScore = srs && typeof srs.score === 'number' ? srs.score : 70;
 
     // Force + SRS très bas → suggérer conversion Vitesse (message uniquement)
-    if (dupProfile.label === 'Force' && srsScore < 35) {
+    if (/^Force/.test(dupProfile.label || '') && srsScore < 35) {
       planDay._srsOverrideApplied = true;
       return {
         msg: '🔄 Fatigue trop élevée pour une séance Force (SRS ' + srsScore + '/100). ' +

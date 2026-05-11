@@ -20203,13 +20203,17 @@ function generateWeeklyPlan() {
             }
           });
         }
-        // v195 — Defensive sort: ensure the primary lift is always first
-        if (dayData && Array.isArray(dayData.exercises)) {
-          dayData.exercises.sort(function(a, b) {
-            if (a.isPrimary && !b.isPrimary) return -1;
-            if (!a.isPrimary && b.isPrimary) return 1;
-            return 0;
-          });
+        // v195/v196 — Reorder: primary lift first, technical variations (Paused/
+        // Spoto/Tempo/Pin/Deficit) second, everything else after. Gemini: skill
+        // work must come before fatiguing accessory volume.
+        if (dayData && Array.isArray(dayData.exercises) && dayData.exercises.length > 1) {
+          var _isTechVar = function(e) {
+            return !e.isPrimary && /paus(e|ed)|spoto|tempo|pin squat|deficit|dead.?stop/i.test(e.name || '');
+          };
+          var _primary = dayData.exercises.filter(function(e) { return e.isPrimary; });
+          var _tech    = dayData.exercises.filter(_isTechVar);
+          var _rest    = dayData.exercises.filter(function(e) { return !e.isPrimary && !_isTechVar(e); });
+          dayData.exercises = _primary.concat(_tech).concat(_rest);
         }
         // v193 — Titre dynamique : "Block · DUP label" (ex. "Squat 2 · Technique & Vitesse")
         var _dupLab = dayData.dupProfile && dayData.dupProfile.label;

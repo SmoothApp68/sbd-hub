@@ -18940,21 +18940,37 @@ function wpCoachNote(liftType, phase, weight, history) {
 }
 
 // Addendum H: Cardio adapté blessures
-function wpGetCardioForProfile(injuries, duration, isCutting) {
-  var goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : ['force']);
+function wpGetCardioForProfile(injuries, baseDuration, isCutting) {
+  // PRIORITÉ 1 : réglage utilisateur
+  var cardioSetting = db.user && db.user.programParams && db.user.programParams.cardio;
+  if (cardioSetting === 'aucun' || cardioSetting === 'dedie') return null;
+
+  // PRIORITÉ 2 : matrice mode × phase (getCardioDuration) — remplace la logique
+  // progressive qui produisait 34 min après ~14 semaines d'entraînement.
+  var _mode  = (db.user && db.user.trainingMode) || 'musculation';
+  var _phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var _goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : []);
+  // Pas de contrainte de temps restant ici — laisse la matrice retourner sa
+  // valeur cible (powerbuilding × hypertrophie = 20, peak = 5, etc.).
+  var _dur = (typeof getCardioDuration === 'function')
+    ? getCardioDuration(_mode, _phase, _goals)
+    : (baseDuration || 20);
+  if (!_dur || _dur < 5) return null;
+
+  // Équipement cardio selon mat
   var mat = (db.user && db.user.programParams && db.user.programParams.mat) || 'salle';
-  // v196 — Route through the getCardioDuration matrix (mode × phase) so this
-  // legacy path stops emitting 34 min cardio on powerbuilding/hypertrophie.
-  var trainingMode = (db.user && db.user.trainingMode) || 'powerbuilding';
-  var macroPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
-  var finalDuration = typeof getCardioDuration === 'function'
-    ? getCardioDuration(trainingMode, macroPhase, goals, duration || 20)
-    : (duration || 20);
-  if (finalDuration === 0) return null; // user cardio='aucun'|'dedie' — skip
-  if (typeof getCardioForProfile === 'function') {
-    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: finalDuration });
-  }
-  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, evictionCategory: 'cardio', sets: [{ durationMin: finalDuration, isWarmup: false }] };
+  var cardioName = mat === 'maison' ? 'Marche rapide'
+    : mat === 'halteres' ? 'Vélo stationnaire'
+    : 'Tapis roulant';
+
+  return {
+    name: cardioName,
+    type: 'cardio',
+    restSeconds: 0,
+    evictionCategory: 'cardio',
+    sets: [{ durationMin: _dur, isWarmup: false, rpe: 5 }],
+    coachNote: 'Cardio Z2 léger (' + _dur + 'min) — santé mitochondriale, préserver les gains'
+  };
 }
 
 function getProgressiveCardioDuration(baseDuration) {

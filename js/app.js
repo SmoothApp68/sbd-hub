@@ -16900,6 +16900,37 @@ function estimateSessionDuration(exercises) {
 }
 
 // Adapter la séance si elle dépasse la durée configurée
+// ── Matrice cardio dynamique (Gemini — effet d'interférence) ─────────────
+// Plus l'objectif est force/explosion, plus le cardio long est contre-productif.
+// Valeurs en minutes (durée plafond du cardio en fin de séance).
+var CARDIO_MAX_MATRIX = {
+  powerbuilding: { hypertrophie:20, accumulation:20, force:10, intensification:10, peak:5,  deload:30 },
+  powerlifting:  { hypertrophie:20, accumulation:20, force:10, intensification:10, peak:5,  deload:30 },
+  musculation:   { hypertrophie:25, accumulation:25, force:15, intensification:15, peak:10, deload:30 },
+  seche:         { hypertrophie:45, accumulation:45, force:30, intensification:30, peak:15, deload:45 },
+  bien_etre:     { hypertrophie:45, accumulation:45, force:45, intensification:45, peak:45 },
+  crossfit:      { hypertrophie:30, accumulation:30, force:20, intensification:20, peak:15, deload:45 }
+};
+
+function getCardioDuration(trainingMode, macroPhase, goals, remainingMin) {
+  // PRIORITÉ 1 : réglage utilisateur
+  var cardioSetting = db.user && db.user.programParams && db.user.programParams.cardio;
+  if (cardioSetting === 'aucun') return 0;
+  if (cardioSetting === 'dedie') return 0;
+  // 'integre' (ou null/undefined) → matrice
+  var isCutting = goals && (goals.indexOf('seche') >= 0 || goals.indexOf('perte_de_poids') >= 0);
+  var mode = isCutting ? 'seche' : (trainingMode || 'musculation');
+  var phase = macroPhase || 'hypertrophie';
+  var matrix = CARDIO_MAX_MATRIX[mode] || CARDIO_MAX_MATRIX.musculation;
+  var baseMax = matrix[phase] || matrix.hypertrophie || 20;
+  var userPref = db.user && db.user.programParams && db.user.programParams.cardioDuration;
+  var target = userPref || baseMax;
+  var finalDuration = Math.min(target, remainingMin || baseMax);
+  if (finalDuration < 5) return 0;
+  return Math.round(finalDuration);
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 function adaptSessionForDuration(exercises, targetMinutes, goal) {
   if (!targetMinutes || targetMinutes <= 0) return { exercises, adaptations: [] };
   const est = estimateSessionDuration(exercises);
@@ -16939,11 +16970,33 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   const est4 = estimateSessionDuration(adapted);
   if (est4 <= targetMinutes) return { exercises: adapted, adaptations };
 
-  // 4. Dernier recours : retirer une isolation
-  const lastIso = adapted.findIndex(e => getExoCategory(e.name) === 'isolation');
-  if (lastIso >= 0) {
-    adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
-    adapted.splice(lastIso, 1);
+  // 4. Dernier recours : retirer une isolation (pile d'éviction Gemini)
+  // Ordre : cardio (sauf sèche) → calves → forearms → abs → adductors → secondary → JAMAIS isCorrectivePriority/primary
+  var _isCutting = (goal === 'seche' || goal === 'perte_de_poids');
+  var EVICTION_ORDER = (_isCutting
+    ? ['calves','forearms','abs','adductors','cardio','secondary']
+    : ['cardio','calves','forearms','abs','adductors','secondary']);
+  for (var _evIdx = 0; _evIdx < EVICTION_ORDER.length; _evIdx++) {
+    if (estimateSessionDuration(adapted) <= targetMinutes) break;
+    var cat = EVICTION_ORDER[_evIdx];
+    var removeIdx = adapted.findIndex(function(e) {
+      if (e.isPrimary || e.isCorrectivePriority) return false;
+      return e.evictionCategory === cat;
+    });
+    if (removeIdx >= 0) {
+      adaptations.push((adapted[removeIdx].name || cat) + ' retiré');
+      adapted.splice(removeIdx, 1);
+    }
+  }
+  // Fallback final : retirer la dernière isolation non-protégée
+  if (estimateSessionDuration(adapted) > targetMinutes) {
+    var lastIso = adapted.findIndex(function(e) {
+      return !e.isPrimary && !e.isCorrectivePriority && getExoCategory(e.name) === 'isolation';
+    });
+    if (lastIso >= 0) {
+      adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
+      adapted.splice(lastIso, 1);
+    }
   }
 
   return { exercises: adapted, adaptations };
@@ -16951,6 +17004,9 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
 
 // ── shouldDeload() — Gemini validation (paramètres calibrés) ─────────────
 function shouldDeload(logs, trainingMode) {
+  // v193 — Bien-être : pas de deload (mode neutre, pas d'accumulation SNC)
+  var _mode = trainingMode || (db.user && db.user.trainingMode);
+  if (_mode === 'bien_etre') return { needed: false };
   if (!logs || logs.length < 3) return { needed: false };
 
   var level = (db.user && db.user.level) || 'intermediaire';
@@ -18419,6 +18475,8 @@ function wpEstimateCurrentWeek() {
 }
 
 function wpDetectPhase() {
+  // v193 — Bien-être : phase neutre, jamais de peak/force/deload
+  if (db.user && db.user.trainingMode === 'bien_etre') return 'accumulation';
   // Priorité 1 : forçage manuel récent (< 7 jours)
   var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
   if (cb && cb.forcedAt && (Date.now() - cb.forcedAt) < 7 * 86400000 && cb.phase) {
@@ -19303,16 +19361,18 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       exercises.push({ name: acc.name, type: 'time', restSeconds: acc.rest || 60,
         sets: Array.from({ length: sc }, function() { return { durationSec: 90, isWarmup: false }; }) });
     } else if (acc.type === 'cardio') {
-      // v192 — Cardio en fin de séance plafonné à 20 min, ajusté au temps restant
+      // v193 — Cardio plafond dynamique : matrice (mode × phase) ∩ temps restant ∩ réglage user
       var _workMin = (typeof estimateSessionDuration === 'function')
         ? estimateSessionDuration(exercises) : 0;
       var _remainingMin = Math.max(0, (duration || 60) - _workMin);
-      var _cardioDur = _remainingMin >= 25 ? 20
-                     : _remainingMin >= 15 ? 15
-                     : _remainingMin >= 10 ? 10
-                     : 0;
+      var _cardioDur = getCardioDuration(
+        (db.user && db.user.trainingMode),
+        phase,
+        (params && params.goals) || (db.user && db.user.programParams && db.user.programParams.goals),
+        _remainingMin
+      );
       if (_cardioDur > 0) {
-        exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, sets: [{ durationMin: _cardioDur, isWarmup: false }] });
+        exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, evictionCategory: 'cardio', sets: [{ durationMin: _cardioDur, isWarmup: false }] });
       }
     } else if (acc.type === 'reps' && acc.useBodyweight) {
       var bw = getUserBW();
@@ -20010,7 +20070,11 @@ function generateWeeklyPlan() {
         var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         if (dayData) dayData.dupProfileKey = _gwpProfileKey;
-        return Object.assign({ day: day }, dayData, { title: label || dayData.title });
+        // v193 — Titre dynamique : "Block · DUP label" (ex. "Squat 2 · Technique & Vitesse")
+        var _dupLab = dayData.dupProfile && dayData.dupProfile.label;
+        var _finalTitle = label || dayData.title;
+        if (_dupLab && _finalTitle) _finalTitle = _finalTitle + ' · ' + _dupLab;
+        return Object.assign({ day: day }, dayData, { title: _finalTitle });
       });
 
     // ── MUSCULATION ──────────────────────────────────────────

@@ -17244,9 +17244,11 @@ var WP_PROGRESSION = {
 // Choisit l'exercice principal et son rep range selon la phase active.
 var SBD_VARIANTS = {
   hypertrophie: {
-    squat:    { name: 'High Bar Squat',                    reps: [8,10],  rpe: 7.5 },
-    bench:    { name: 'Larsen Press',                      reps: [10,12], rpe: 8.0 },
-    deadlift: { name: 'Soulevé de Terre Roumain (Barre)',  reps: [8,10],  rpe: 8.0 }
+    squat:    { name: 'High Bar Squat',            reps: [8,10],  rpe: 7.5 },
+    bench:    { name: 'Larsen Press',              reps: [10,12], rpe: 8.0 },
+    // v195 — classic Soulevé de Terre as the primary heavy lift in hypertrophie
+    // RDL stays available as an accessory via pbBlocks.dead_hyp
+    deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [6,8],   rpe: 8.0 }
   },
   force: {
     squat:    { name: 'Squat (Barre)',             reps: [3,5],  rpe: 8.5 },
@@ -18984,7 +18986,11 @@ function wpAdjustForMissedSessions(plan, missed) {
   if (missed === 2) {
     plan.days = plan.days.map(function(d) {
       if (d.rest) return d;
-      if (/point|faible|technique|accessoire/i.test(d.title || '')) {
+      // v195 — match base title only (before ' · DUP label') to avoid the
+      // dynamic DUP label tripping the eviction regex (e.g. "Squat 2 ·
+      // Technique & Vitesse" was being compressed because 'Technique' matched).
+      var baseTitle = String(d.title || '').split(' · ')[0];
+      if (/point|faible|technique|accessoire/i.test(baseTitle)) {
         return { day: d.day, rest: true, title: '😴 Repos (séance compressée)', exercises: [] };
       }
       return d;
@@ -20174,6 +20180,14 @@ function generateWeeklyPlan() {
         var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         if (dayData) dayData.dupProfileKey = _gwpProfileKey;
+        // v195 — Defensive sort: ensure the primary lift is always first
+        if (dayData && Array.isArray(dayData.exercises)) {
+          dayData.exercises.sort(function(a, b) {
+            if (a.isPrimary && !b.isPrimary) return -1;
+            if (!a.isPrimary && b.isPrimary) return 1;
+            return 0;
+          });
+        }
         // v193 — Titre dynamique : "Block · DUP label" (ex. "Squat 2 · Technique & Vitesse")
         var _dupLab = dayData.dupProfile && dayData.dupProfile.label;
         var _finalTitle = label || dayData.title;

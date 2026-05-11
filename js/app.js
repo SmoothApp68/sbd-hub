@@ -17121,6 +17121,54 @@ var SBD_VARIANTS = {
   }
 };
 
+// ── DUP × Macrocycle (Gemini validation) ────────────────────────────────
+// Le slot 'force' du DUP s'adapte à la phase macrocycle courante.
+// En Hypertrophie : tension mécanique sans brûler le SNC (5-8 reps)
+// En Force : recrutement nerveux pur (3-5 reps)
+// En Peak : expression maximale (1-3 reps)
+function getDUPForce(macroPhase) {
+  var map = {
+    hypertrophie:    { sets:[3,4], reps:[5,8],  intensity:[0.75,0.80], rpe:[7.5,8.5], rest:[180,240], label:'Force / Hypertrophie' },
+    accumulation:    { sets:[3,4], reps:[5,8],  intensity:[0.75,0.80], rpe:[7.5,8.5], rest:[180,240], label:'Force / Accumulation' },
+    force:           { sets:[3,4], reps:[3,5],  intensity:[0.80,0.85], rpe:[8,9],     rest:[240,300], label:'Force' },
+    intensification: { sets:[3,4], reps:[2,4],  intensity:[0.85,0.90], rpe:[8.5,9],   rest:[240,300], label:'Force / Intensification' },
+    peak:            { sets:[2,3], reps:[1,3],  intensity:[0.90,0.95], rpe:[9,9.5],   rest:[300,360], label:'Force / Peak' },
+    deload:          { sets:[2,3], reps:[8,12], intensity:[0.60,0.65], rpe:[6,7],     rest:[120,120], label:'Force / Deload' }
+  };
+  return map[macroPhase] || map.force;
+}
+
+// Le slot 'volume' s'affûte à mesure que l'intensité monte (taper en peak).
+function getDUPVolume(macroPhase) {
+  var map = {
+    hypertrophie:    { sets:[3,4], reps:[8,12], intensity:[0.65,0.70], rpe:[7,8], rest:[120,120], label:'Volume / Hypertrophie' },
+    accumulation:    { sets:[3,4], reps:[8,10], intensity:[0.70,0.72], rpe:[7,8], rest:[120,120], label:'Volume / Accumulation' },
+    force:           { sets:[3,4], reps:[6,8],  intensity:[0.72,0.75], rpe:[7,8], rest:[120,180], label:'Volume / Force' },
+    intensification: { sets:[2,3], reps:[4,6],  intensity:[0.75,0.80], rpe:[7,8], rest:[150,180], label:'Volume / Intensification' },
+    peak:            { sets:[2,3], reps:[3,5],  intensity:[0.70,0.70], rpe:[6,7], rest:[120,120], label:'Volume / Peak (taper)' },
+    deload:          { sets:[2,3], reps:[10,15],intensity:[0.50,0.60], rpe:[5,6], rest:[90,90],   label:'Volume / Deload' }
+  };
+  return map[macroPhase] || map.hypertrophie;
+}
+
+// Le slot 'vitesse' selon niveau et phase. Débutant → technique uniquement.
+function getDUPVitesse(macroPhase, level) {
+  if (level === 'debutant') {
+    return { sets:[3,4], reps:[8,10], intensity:[0.50,0.60], rpe:[6,7], rest:[90,90], label:'Technique' };
+  }
+  var phase = macroPhase || 'accumulation';
+  var map = {
+    hypertrophie:    { sets:[4,6], reps:[2,3], intensity:[0.60,0.65], rpe:[6,7], rest:[60,90],  label:'Technique & Vitesse' },
+    accumulation:    { sets:[4,6], reps:[2,3], intensity:[0.60,0.65], rpe:[6,7], rest:[60,90],  label:'Technique & Vitesse' },
+    force:           { sets:[5,8], reps:[1,2], intensity:[0.55,0.65], rpe:[6,7], rest:[60,90],  label:'Force Dynamique' },
+    intensification: { sets:[5,8], reps:[1,2], intensity:[0.55,0.65], rpe:[6,7], rest:[60,90],  label:'Force Dynamique' },
+    peak:            { sets:[3,5], reps:[1,2], intensity:[0.50,0.60], rpe:[5,6], rest:[60,90],  label:'Activation' },
+    deload:          { sets:[2,3], reps:[8,10],intensity:[0.40,0.50], rpe:[5,6], rest:[60,60],  label:'Récupération Active' }
+  };
+  return map[phase] || map.hypertrophie;
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 // ── DUP HYBRIDE ─────────────────────────────────────────────
 // Variation quotidienne dans un bloc. Pertinent dès 2x/semaine par lift.
 var DUP_PARAMS = {

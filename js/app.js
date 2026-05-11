@@ -18943,12 +18943,18 @@ function wpCoachNote(liftType, phase, weight, history) {
 function wpGetCardioForProfile(injuries, duration, isCutting) {
   var goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : ['force']);
   var mat = (db.user && db.user.programParams && db.user.programParams.mat) || 'salle';
-  var progressiveDuration = typeof getProgressiveCardioDuration === 'function'
-    ? getProgressiveCardioDuration(duration || 30) : (duration || 30);
+  // v196 — Route through the getCardioDuration matrix (mode × phase) so this
+  // legacy path stops emitting 34 min cardio on powerbuilding/hypertrophie.
+  var trainingMode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var macroPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var finalDuration = typeof getCardioDuration === 'function'
+    ? getCardioDuration(trainingMode, macroPhase, goals, duration || 20)
+    : (duration || 20);
+  if (finalDuration === 0) return null; // user cardio='aucun'|'dedie' — skip
   if (typeof getCardioForProfile === 'function') {
-    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: progressiveDuration });
+    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: finalDuration });
   }
-  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, sets: [{ durationMin: duration || 20, isWarmup: false }] };
+  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, evictionCategory: 'cardio', sets: [{ durationMin: finalDuration, isWarmup: false }] };
 }
 
 function getProgressiveCardioDuration(baseDuration) {
@@ -19306,8 +19312,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
+    // v196 — Bench 2 (volume slot in hypertrophie) uses Développé Incliné
+    // (Haltères) instead of Larsen Press so the 2nd bench day is a different
+    // angle, not a duplicate of Bench 1.
+    var _bench2Override = (dupProfileKey === 'volume' && phase === 'hypertrophie' && tpl.mainLift === 'bench');
     // Récupérer la variante SBD selon la phase active
-    var variant = (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
+    var variant = _bench2Override
+      ? { name: 'Développé Incliné (Haltères)', reps: [10,12], rpe: 7.5 }
+      : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
       ? SBD_VARIANTS[phase][tpl.mainLift]
       : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS.accumulation && SBD_VARIANTS.accumulation[tpl.mainLift]
           ? SBD_VARIANTS.accumulation[tpl.mainLift] : null);
@@ -19589,7 +19601,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
-    exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
+    var _cardioBlock = wpGetCardioForProfile(injuries, 20, isCutting);
+    if (_cardioBlock) exercises.push(_cardioBlock);
   }
   var derivedTitle = wpDeriveTitle(exercises) || tpl.title;
 
@@ -20164,6 +20177,10 @@ function generateWeeklyPlan() {
       var _gwpDupSeq = (DUP_SEQUENCE[_gwpDupKey] && DUP_SEQUENCE[_gwpDupKey][Math.min(freq, 6)])
                        || DUP_SEQUENCE.powerbuilding_intermediaire[4];
       var _gwpTrainIdx = 0;
+      // v196 — Detect low Squat/Bench ratio to flag corrective exercises
+      var _gwpPR = (db.bestPR) || {};
+      var _gwpSquatBench = (_gwpPR.bench > 0) ? (_gwpPR.squat || 0) / _gwpPR.bench : 1.20;
+      var _gwpNeedsSquatSpec = _gwpSquatBench < 1.20 && _gwpLevel === 'avance' && mode === 'powerbuilding';
       days = allDays.map(function(day) {
         var isTraining = selectedDays.indexOf(day) >= 0;
         var label = routine[day] || '';
@@ -20180,13 +20197,29 @@ function generateWeeklyPlan() {
         var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         if (dayData) dayData.dupProfileKey = _gwpProfileKey;
-        // v195 — Defensive sort: ensure the primary lift is always first
-        if (dayData && Array.isArray(dayData.exercises)) {
-          dayData.exercises.sort(function(a, b) {
-            if (a.isPrimary && !b.isPrimary) return -1;
-            if (!a.isPrimary && b.isPrimary) return 1;
-            return 0;
+        // v196 — Tag Leg Extension / Hack Squat as corrective when S/B ratio is low.
+        // Gemini: the correctif must be protected from eviction on Squat days
+        // where quads recruitment is maximum (Lundi). Same flag on Samedi for spec day.
+        if (dayData && Array.isArray(dayData.exercises) && _gwpNeedsSquatSpec) {
+          dayData.exercises.forEach(function(e) {
+            if (e.isPrimary) return;
+            if (/leg.?ext|hack.?squat|sissy/i.test(e.name || '')) {
+              e.isCorrectivePriority = true;
+              e.evictionCategory = 'corrective';
+            }
           });
+        }
+        // v195/v196 — Reorder: primary lift first, technical variations (Paused/
+        // Spoto/Tempo/Pin/Deficit) second, everything else after. Gemini: skill
+        // work must come before fatiguing accessory volume.
+        if (dayData && Array.isArray(dayData.exercises) && dayData.exercises.length > 1) {
+          var _isTechVar = function(e) {
+            return !e.isPrimary && /paus(e|ed)|spoto|tempo|pin squat|deficit|dead.?stop/i.test(e.name || '');
+          };
+          var _primary = dayData.exercises.filter(function(e) { return e.isPrimary; });
+          var _tech    = dayData.exercises.filter(_isTechVar);
+          var _rest    = dayData.exercises.filter(function(e) { return !e.isPrimary && !_isTechVar(e); });
+          dayData.exercises = _primary.concat(_tech).concat(_rest);
         }
         // v193 — Titre dynamique : "Block · DUP label" (ex. "Squat 2 · Technique & Vitesse")
         var _dupLab = dayData.dupProfile && dayData.dupProfile.label;

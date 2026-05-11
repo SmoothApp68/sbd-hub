@@ -18984,7 +18984,11 @@ function wpAdjustForMissedSessions(plan, missed) {
   if (missed === 2) {
     plan.days = plan.days.map(function(d) {
       if (d.rest) return d;
-      if (/point|faible|technique|accessoire/i.test(d.title || '')) {
+      // v195 — match base title only (before ' · DUP label') to avoid the
+      // dynamic DUP label tripping the eviction regex (e.g. "Squat 2 ·
+      // Technique & Vitesse" was being compressed because 'Technique' matched).
+      var baseTitle = String(d.title || '').split(' · ')[0];
+      if (/point|faible|technique|accessoire/i.test(baseTitle)) {
         return { day: d.day, rest: true, title: '😴 Repos (séance compressée)', exercises: [] };
       }
       return d;

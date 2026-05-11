@@ -357,7 +357,9 @@ function computeSRS() {
   }
 
   var logs = db.logs || [];
-  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  // Lecture directe currentBlock.phase (NE PAS appeler wpDetectPhase → cycle avec shouldDeload)
+  var phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase)
+    || 'accumulation';
 
   // 1. ACWR via TRIMP Force (remplace volume × RPE)
   var acuteSBD = calcWeeklyTRIMPForce(logs);

@@ -16868,14 +16868,15 @@ function shouldDeload(logs, trainingMode) {
   };
   var p = PARAMS[level] || PARAMS.intermediaire;
 
-  // CRITÈRE 1 — SRS bas (Kill Switch prioritaire)
-  if (typeof computeSRS === 'function') {
-    var _srs = computeSRS();
-    var _srsScore = _srs && typeof _srs.score === 'number' ? _srs.score : 70;
-    if (_srsScore < p.srsThreshold) {
+  // CRITÈRE 1 — Récupération faible (lecture directe todayWellbeing)
+  // NE PAS appeler computeSRS() → cycle infini avec wpDetectPhase → stack overflow
+  var _wb = db.todayWellbeing;
+  if (_wb && _wb.sleep && _wb.motivation) {
+    var _normalized = (_wb.sleep + _wb.motivation) / 2 / 5 * 100;
+    if (_normalized < p.srsThreshold) {
       return {
         needed: true,
-        reason: 'Récupération systémique insuffisante (Forme ' + _srsScore + '/100 < ' + p.srsThreshold + '). Semaine de récupération recommandée.',
+        reason: 'Récupération insuffisante (sommeil ' + _wb.sleep + '/5, motivation ' + _wb.motivation + '/5). Semaine de récupération recommandée.',
         trigger: 'srs'
       };
     }
@@ -18278,11 +18279,13 @@ function wpDetectPhase() {
     return cb.phase;
   }
 
-  // Priorité 2 : deload automatique si fatigue/volume excessifs
-  var deloadCheck = typeof shouldDeload === 'function'
-    ? shouldDeload(db.logs, db.user && db.user.trainingMode)
-    : { needed: false };
-  if (deloadCheck.needed) return 'deload';
+  // Priorité 2 : deload automatique si récupération critique
+  // Lecture directe todayWellbeing (NE PAS appeler shouldDeload → cycle avec computeSRS)
+  var _wbPh = db.todayWellbeing;
+  if (_wbPh && _wbPh.sleep && _wbPh.motivation) {
+    var _normPh = (_wbPh.sleep + _wbPh.motivation) / 2 / 5 * 100;
+    if (_normPh < 45) return 'deload';
+  }
 
   // Durées adaptatives par mode × niveau
   var mode = (db.user && db.user.trainingMode) || 'powerbuilding';

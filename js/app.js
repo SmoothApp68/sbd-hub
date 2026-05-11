@@ -19278,6 +19278,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     var repsLow  = repsArr[0] || 10;
     var repsHigh = repsArr[repsArr.length - 1] || 12;
     var repsVal  = repsHigh;
+    // v192 — Plancher accessoires : ≥ 8 reps (Gemini), sauf variations techniques SBD (≥ 5)
+    var _isTechVariation = ['Paused Squat','Pause Squat','Spoto Press','Pin Squat','Dead Squat','Close Grip Bench','Pause Bench','Squat Pause'].indexOf(acc.name) >= 0;
+    if (!acc.isPrimary) {
+      var _minReps = _isTechVariation ? 5 : 8;
+      if (repsVal < _minReps) repsVal = _minReps;
+    }
     var sc = phase === 'deload' ? Math.ceil((acc.sets || 3) / 2) : (acc.sets || 3);
     // Tapering Peak : -1 série sur les accessoires pour préserver la fraîcheur nerveuse
     if (phase === 'peak' && !acc.isPrimary && acc.type !== 'time' && acc.type !== 'cardio') {
@@ -19297,7 +19303,17 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       exercises.push({ name: acc.name, type: 'time', restSeconds: acc.rest || 60,
         sets: Array.from({ length: sc }, function() { return { durationSec: 90, isWarmup: false }; }) });
     } else if (acc.type === 'cardio') {
-      exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, sets: [{ durationMin: 45, isWarmup: false }] });
+      // v192 — Cardio en fin de séance plafonné à 20 min, ajusté au temps restant
+      var _workMin = (typeof estimateSessionDuration === 'function')
+        ? estimateSessionDuration(exercises) : 0;
+      var _remainingMin = Math.max(0, (duration || 60) - _workMin);
+      var _cardioDur = _remainingMin >= 25 ? 20
+                     : _remainingMin >= 15 ? 15
+                     : _remainingMin >= 10 ? 10
+                     : 0;
+      if (_cardioDur > 0) {
+        exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, sets: [{ durationMin: _cardioDur, isWarmup: false }] });
+      }
     } else if (acc.type === 'reps' && acc.useBodyweight) {
       var bw = getUserBW();
       exercises.push({ name: acc.name, type: 'reps', restSeconds: acc.rest || 120, bodyweightBase: bw,

@@ -20171,6 +20171,10 @@ function generateWeeklyPlan() {
       var _gwpDupSeq = (DUP_SEQUENCE[_gwpDupKey] && DUP_SEQUENCE[_gwpDupKey][Math.min(freq, 6)])
                        || DUP_SEQUENCE.powerbuilding_intermediaire[4];
       var _gwpTrainIdx = 0;
+      // v196 — Detect low Squat/Bench ratio to flag corrective exercises
+      var _gwpPR = (db.bestPR) || {};
+      var _gwpSquatBench = (_gwpPR.bench > 0) ? (_gwpPR.squat || 0) / _gwpPR.bench : 1.20;
+      var _gwpNeedsSquatSpec = _gwpSquatBench < 1.20 && _gwpLevel === 'avance' && mode === 'powerbuilding';
       days = allDays.map(function(day) {
         var isTraining = selectedDays.indexOf(day) >= 0;
         var label = routine[day] || '';
@@ -20187,6 +20191,18 @@ function generateWeeklyPlan() {
         var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         if (dayData) dayData.dupProfileKey = _gwpProfileKey;
+        // v196 — Tag Leg Extension / Hack Squat as corrective when S/B ratio is low.
+        // Gemini: the correctif must be protected from eviction on Squat days
+        // where quads recruitment is maximum (Lundi). Same flag on Samedi for spec day.
+        if (dayData && Array.isArray(dayData.exercises) && _gwpNeedsSquatSpec) {
+          dayData.exercises.forEach(function(e) {
+            if (e.isPrimary) return;
+            if (/leg.?ext|hack.?squat|sissy/i.test(e.name || '')) {
+              e.isCorrectivePriority = true;
+              e.evictionCategory = 'corrective';
+            }
+          });
+        }
         // v195 — Defensive sort: ensure the primary lift is always first
         if (dayData && Array.isArray(dayData.exercises)) {
           dayData.exercises.sort(function(a, b) {

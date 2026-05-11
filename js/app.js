@@ -19665,6 +19665,23 @@ function calculateParametersForCustomPlan() {
 }
 
 // ── FONCTION PRINCIPALE ──────────────────────────────────────
+// Stable per-split labels — must mirror generateProgram() pbBlocks/plBlocks.
+// Used to keep db.routine in sync with the actual block sequence so the
+// per-day dayKey routing inside generateWeeklyPlan() works correctly.
+function _wpGetSplitLabels(mode, freq) {
+  if (mode === 'powerbuilding') {
+    if (freq === 4) return ['Squat — Force & Volume','Bench — Force & Volume','Deadlift — Force & Volume','Bench 2 — Volume'];
+    if (freq === 5) return ['Squat — Force & Volume','Bench — Force & Volume','Deadlift — Force & Volume','Bench 2 — Volume','Squat 2 — Volume Jambes'];
+    if (freq >= 6) return ['Squat — Force & Volume','Bench — Force & Volume','Deadlift — Force & Volume','Bench 2 — Volume','Squat 2 — Volume Jambes','Pull — Volume'];
+  }
+  if (mode === 'powerlifting') {
+    if (freq === 4) return ['Squat + Accessoires','Bench + Accessoires','Deadlift + Accessoires','Bench 2 + Squat léger'];
+    if (freq === 5) return ['Squat + Accessoires','Bench + Accessoires','Deadlift + Accessoires','Squat 2','Bench 2'];
+    if (freq >= 6) return ['Squat + Accessoires','Bench + Accessoires','Deadlift + Accessoires','Squat 2','Bench 2','Deadlift 2 + Accessoires'];
+  }
+  return null;
+}
+
 function generateWeeklyPlan() {
   var btn = document.getElementById('wpGenerateBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
@@ -19697,6 +19714,25 @@ function generateWeeklyPlan() {
     var selectedDays = (params.selectedDays && params.selectedDays.length === freq)
       ? params.selectedDays
       : (_DEFAULT_DAYS_BY_FREQ[freq] || allDays.slice(0, freq));
+
+    // v191 — Force routine alignment with the powerbuilding/powerlifting split
+    // sequence so dayKey routing in the per-day loop matches the actual block
+    // order. Previously a stale db.routine (e.g. from a previous program) would
+    // make generateWeeklyPlan derive the wrong dayKey for the new split.
+    if ((mode === 'powerbuilding' || mode === 'powerlifting') && selectedDays.length === freq) {
+      var _splitLabels = _wpGetSplitLabels(mode, freq);
+      if (_splitLabels) {
+        var _newRoutine = {};
+        selectedDays.forEach(function(day, idx) {
+          if (_splitLabels[idx]) _newRoutine[day] = _splitLabels[idx];
+        });
+        allDays.forEach(function(day) {
+          if (!_newRoutine[day]) _newRoutine[day] = '😴 Repos';
+        });
+        db.routine = _newRoutine;
+        routine = _newRoutine;
+      }
+    }
 
     // Debug: trace what the generator received and what it derives.
     if (typeof DEBUG !== 'undefined' && DEBUG) {

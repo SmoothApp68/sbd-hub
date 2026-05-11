@@ -1292,9 +1292,14 @@ const EXO_DB = {
   deadlift:       { name:'Soulevé de terre', sets:'4×5', mat:['salle'], muscle:'Jambes/Dos', icon:'🏋️', alts:[{name:'Roumain haltères',mat:'halteres'},{name:'Trap bar deadlift',mat:'salle'},{name:'Good Morning',mat:'maison'}] },
   leg_ext:        { name:'Leg Extension', sets:'3×15', mat:['salle'], muscle:'Jambes', icon:'🦵', alts:[{name:'Squat bulgare',mat:'halteres'},{name:'Sissy Squat',mat:'maison'},{name:'Step-up',mat:'maison'}] },
   mollet:         { name:'Mollets debout', sets:'4×15', mat:['salle','halteres'], muscle:'Mollets', icon:'🦶', alts:[{name:'Mollets assis machine',mat:'salle'},{name:'Mollets escalier',mat:'maison'}] },
+  mollet_presse:  { name:'Mollets à la presse', sets:'4×12', mat:['salle'], muscle:'Mollets', icon:'🦶', alts:[{name:'Mollets debout',mat:'salle'},{name:'Mollets escalier',mat:'maison'}] },
+  squat_pause:    { name:'Squat Pause', sets:'4×3', mat:['salle'], muscle:'Jambes', icon:'🦵', alts:[{name:'Squat tempo 3s',mat:'salle'},{name:'Pin Squat',mat:'salle'}] },
+  speed_deadlift: { name:'Speed Deadlift', sets:'6×1', mat:['salle'], muscle:'Jambes/Dos', icon:'🏋️', alts:[{name:'Deficit Deadlift',mat:'salle'},{name:'Block Pull',mat:'salle'}] },
   // PECS
   bench:          { name:'Bench Press barre', sets:'4×5', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Développé haltères',mat:'halteres'},{name:'Développé incliné barre',mat:'salle'},{name:'Pompes lestées',mat:'maison'}] },
   bench_halt:     { name:'Développé haltères', sets:'3×10', mat:['halteres','salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Pompes',mat:'maison'},{name:'Développé incliné haltères',mat:'halteres'}] },
+  larsen_press:   { name:'Larsen Press', sets:'3×10', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Développé haltères',mat:'halteres'}] },
+  dips:           { name:'Dips lestés', sets:'3×8', mat:['salle','maison'], muscle:'Pecs/Triceps', icon:'🫁', alts:[{name:'Dips poids de corps',mat:'maison'},{name:'Pompes pieds surélevés',mat:'maison'}] },
   incline_bench:  { name:'Développé incliné barre', sets:'3×8', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Développé incliné haltères',mat:'halteres'},{name:'Pompes pieds surélevés',mat:'maison'}] },
   ecarte:         { name:'Écarté poulie basse', sets:'3×15', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Écarté haltères',mat:'halteres'},{name:'Pompes diamant',mat:'maison'}] },
   pompe:          { name:'Pompes', sets:'4×max', mat:['maison','halteres','salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Pompes diamant',mat:'maison'},{name:'Pompes pieds surélevés',mat:'maison'},{name:'Bench Press barre',mat:'salle'}] },
@@ -1304,6 +1309,7 @@ const EXO_DB = {
   traction:       { name:'Tractions', sets:'4×max', mat:['salle','maison'], muscle:'Dos', icon:'🔙', alts:[{name:'Lat Pulldown',mat:'salle'},{name:'Traction élastique',mat:'maison'},{name:'Rowing inversé',mat:'maison'}] },
   lat_pull:       { name:'Lat Pulldown', sets:'3×12', mat:['salle'], muscle:'Dos', icon:'🔙', alts:[{name:'Tractions',mat:'salle'},{name:'Tractions élastique',mat:'maison'},{name:'Tirage poulie haute',mat:'salle'}] },
   row_halt:       { name:'Rowing haltère 1 bras', sets:'3×12', mat:['halteres','salle'], muscle:'Dos', icon:'🔙', alts:[{name:'Rowing barre',mat:'salle'},{name:'Rowing inversé',mat:'maison'},{name:'Tirage horizontal câble',mat:'salle'}] },
+  rowing_poulie:  { name:'Rowing poulie assis', sets:'4×6', mat:['salle'], muscle:'Dos', icon:'🔙', alts:[{name:'Rowing barre',mat:'salle'},{name:'Rowing haltère 1 bras',mat:'halteres'}] },
   rowing_inv:     { name:'Rowing inversé', sets:'3×12', mat:['maison','salle'], muscle:'Dos', icon:'🔙', alts:[{name:'Rowing haltère',mat:'halteres'},{name:'Tractions',mat:'maison'},{name:'Lat Pulldown',mat:'salle'}] },
   face_pull:      { name:'Face Pull', sets:'3×15', mat:['salle'], muscle:'Épaules/Dos', icon:'🔙', alts:[{name:'Oiseau haltères',mat:'halteres'},{name:'Élévation postérieure',mat:'halteres'}] },
   shrug:          { name:'Shrugs barre', sets:'3×15', mat:['salle','halteres'], muscle:'Dos', icon:'🔙', alts:[{name:'Shrugs haltères',mat:'halteres'},{name:'Élévation épaules',mat:'maison'}] },
@@ -1322,6 +1328,9 @@ const EXO_DB = {
   crunch:         { name:'Crunch', sets:'3×20', mat:['maison','salle','halteres'], muscle:'Abdos', icon:'🔥', alts:[{name:'Crunch câble',mat:'salle'},{name:'Relevé de genoux suspendu',mat:'salle'},{name:'Ab Wheel',mat:'maison'}] },
   planche:        { name:'Planche', sets:'3×60s', mat:['maison','salle','halteres'], muscle:'Abdos', icon:'🔥', alts:[{name:'Gainage latéral',mat:'maison'},{name:'Planche avec toucher',mat:'maison'}] },
   releve_genoux:  { name:'Relevé de genoux suspendu', sets:'3×15', mat:['salle','maison'], muscle:'Abdos', icon:'🔥', alts:[{name:'Relevé de jambes sol',mat:'maison'},{name:'Crunch',mat:'maison'}] },
+  'relevé_jambes':{ name:'Relevé de jambes', sets:'3×15', mat:['salle','maison','halteres'], muscle:'Abdos', icon:'🔥', alts:[{name:'Crunch',mat:'maison'},{name:'Relevé de genoux suspendu',mat:'salle'}] },
+  bird_dog:       { name:'Bird Dog', sets:'3×10/côté', mat:['maison','salle','halteres'], muscle:'Lombaires', icon:'🔥', alts:[{name:'Dead Bug',mat:'maison'},{name:'Superman',mat:'maison'}] },
+  fentes:         { name:'Fentes avant', sets:'3×12', mat:['salle','halteres','maison'], muscle:'Jambes', icon:'🦵', alts:[{name:'Fentes bulgares',mat:'halteres'},{name:'Step-up',mat:'maison'}] },
   russian_twist:  { name:'Russian Twist', sets:'3×20', mat:['maison','halteres','salle'], muscle:'Abdos', icon:'🔥', alts:[{name:'Rotation buste câble',mat:'salle'},{name:'Crunch oblique',mat:'maison'}] },
   // CARDIO
   cardio_hiit:    { name:'HIIT / Intervalles', sets:'20min', mat:['maison','salle','halteres'], muscle:'Cardio', icon:'🏃', alts:[{name:'Course à pied',mat:'maison'},{name:'Vélo stationnaire',mat:'salle'},{name:'Corde à sauter',mat:'maison'}] },
@@ -2005,14 +2014,24 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     accessoires:{ label:'Accessoires', exos: filtSafe(filtLevel(['elev_lat','face_pull','curl_barre','tri_cable','crunch','mollet']), mat) },
   };
 
-  // Powerbuilding-specific blocks (compound barre prioritaire + accessoires hypertrophie)
+  // Powerbuilding-specific blocks (Gemini v200 — Ready for Prod)
+  // Refonte complète : compound prioritaire, gainage fonctionnel, équilibre antago/protag
   var pbBlocks = {
-    sq_hyp:    { label:'Squat — Force & Volume',     exos: filtSafe(filtLevel(['squat','leg_press','rdl','leg_curl','mollet']), mat) },
-    bench_hyp: { label:'Bench — Force & Volume',     exos: filtSafe(filtLevel(['bench','incline_bench','ecarte','tri_cable','elev_lat']), mat) },
-    dead_hyp:  { label:'Deadlift — Force & Volume',  exos: filtSafe(filtLevel(['deadlift','row_barre','lat_pull','face_pull','curl_barre']), mat) },
-    bench2_hyp:{ label:'Bench 2 — Volume & Accessoires', exos: filtSafe(filtLevel(['bench_halt','ohp','elev_lat','tri_cable','curl_halt']), mat) },
-    sq2_hyp:   { label:'Squat 2 — Volume Jambes',    exos: filtSafe(filtLevel(['squat','leg_press','hip_thrust','leg_curl','mollet']), mat) },
-    sq2_spec:  { label:'Spécialisation Quad — Rattrapage', exos: filtSafe(filtLevel(['squat','leg_press','leg_ext','hip_thrust','mollet']), mat) },
+    // BLOC 1 — Squat Force/Hypertrophie : Presse pieds bas remplace Hack Squat post-Squat lourd
+    sq_hyp:    { label:'Squat — Force & Volume',     exos: filtSafe(filtLevel(['squat','leg_press','leg_ext','mollet_presse','planche']), mat) },
+    // BLOC 2 — Bench Force/Hypertrophie : santé épaules (face_pull) crucial à 140kg+
+    bench_hyp: { label:'Bench — Force & Volume',     exos: filtSafe(filtLevel(['bench','rowing_poulie','dips','face_pull','tri_cable']), mat) },
+    // BLOC 3 — Deadlift Force/Hypertrophie : Squat Pause en position 2 (technical), leg_curl ajouté
+    dead_hyp:  { label:'Deadlift — Force & Volume',  exos: filtSafe(filtLevel(['deadlift','squat_pause','lat_pull','leg_curl','relevé_jambes']), mat) },
+    // BLOC 4 — Bench Volume/Variation : angle différent (incline + larsen) ≠ Bench barre J1
+    bench2_hyp:{ label:'Bench 2 — Volume',           exos: filtSafe(filtLevel(['incline_bench','larsen_press','row_halt','elev_lat','curl_barre']), mat) },
+    // BLOC 5 spec — SBD Technique/Vitesse (spécialisation quad si ratio S/B < 1.20)
+    sq2_spec:  { label:'SBD — Technique & Vitesse',  exos: filtSafe(filtLevel(['squat','bench','speed_deadlift','leg_ext']), mat) },
+    // BLOC 5 standard — Squat 2 sans spécialisation : Fentes ICI (pas dans sq_hyp)
+    sq2_hyp:   { label:'Squat 2 — Volume Jambes',    exos: filtSafe(filtLevel(['squat','leg_press','leg_ext','fentes','mollet']), mat) },
+    // BLOC 6 — Récupération active (6ème jour optionnel, non-systémique)
+    recovery_day: { label:'Récupération Active',     exos: filtSafe(filtLevel(['face_pull','bird_dog','relevé_jambes','planche']), mat) },
+    // Pull — gardé pour compatibilité splits 6j (ne plus router par défaut)
     pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
   };
 
@@ -17245,7 +17264,9 @@ var WP_PROGRESSION = {
 var SBD_VARIANTS = {
   hypertrophie: {
     squat:    { name: 'High Bar Squat',            reps: [8,10],  rpe: 7.5 },
-    bench:    { name: 'Larsen Press',              reps: [10,12], rpe: 8.0 },
+    // v200 — Bench barre TOUJOURS en J1 hypertrophie (mouvement de compétition,
+    // maintien influx nerveux spécifique). Larsen Press = accessoire bench2_hyp uniquement.
+    bench:    { name: 'Bench Press (Barre)',       reps: [5,8],   rpe: 8.0 },
     // v195 — classic Soulevé de Terre as the primary heavy lift in hypertrophie
     // RDL stays available as an accessory via pbBlocks.dead_hyp
     deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [6,8],   rpe: 8.0 }
@@ -19067,6 +19088,9 @@ var WP_EXO_META = {
   'spoto bench':               { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
   'souleve de terre pause':    { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
   'developpe couche':          { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
+  'bench press':               { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
+  'larsen press':              { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
+  'speed deadlift':            { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'hams'     },
   'developpe incline halteres':{ mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'chest'    },
   'developpe incline':         { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'chest'    },
   'ecarte poulie':             { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'chest'    },
@@ -19332,6 +19356,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     // (Haltères) instead of Larsen Press so the 2nd bench day is a different
     // angle, not a duplicate of Bench 1.
     var _bench2Override = (dupProfileKey === 'volume' && phase === 'hypertrophie' && tpl.mainLift === 'bench');
+    // v200 — diversity_score : si un Bench primary a déjà été placé cette semaine,
+    // forcer Développé Incliné (Haltères) sur le suivant. Lecture via
+    // db.weeklyPlan._genCtx.placedMains (rempli par generateWeeklyPlan au fil de l'eau).
+    if (!_bench2Override && tpl.mainLift === 'bench') {
+      var _genCtx = db.weeklyPlan && db.weeklyPlan._genCtx;
+      if (_genCtx && Array.isArray(_genCtx.placedMains)) {
+        var _benchAlready = _genCtx.placedMains.some(function(n) { return /bench|développé couché|larsen/i.test(n || ''); });
+        if (_benchAlready) _bench2Override = true;
+      }
+    }
     // Récupérer la variante SBD selon la phase active
     var variant = _bench2Override
       ? { name: 'Développé Incliné (Haltères)', reps: [10,12], rpe: 7.5 }
@@ -20072,7 +20106,13 @@ function generateWeeklyPlan() {
     var routine     = getRoutine();
     var injuries    = params.injuries || [];
     var freq        = params.freq || 4;
-    var phase       = wpDetectPhase();
+    // v200 — phase NEVER null. Default 'hypertrophie' if detection returns falsy.
+    // Stored immediately into currentBlock so getDUPForce/Volume/Vitesse always
+    // receive a valid phase even if generateWeeklyPlan crashes mid-execution.
+    var phase       = wpDetectPhase() || 'hypertrophie';
+    if (!db.weeklyPlan) db.weeklyPlan = {};
+    if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+    db.weeklyPlan.currentBlock.phase = phase;
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     // Sensible fallback : avoid Wed/Sun (rest middle + weekend) instead of first-N
     var _DEFAULT_DAYS_BY_FREQ = {
@@ -20197,6 +20237,11 @@ function generateWeeklyPlan() {
       var _gwpPR = (db.bestPR) || {};
       var _gwpSquatBench = (_gwpPR.bench > 0) ? (_gwpPR.squat || 0) / _gwpPR.bench : 1.20;
       var _gwpNeedsSquatSpec = _gwpSquatBench < 1.20 && _gwpLevel === 'avance' && mode === 'powerbuilding';
+      // v200 — diversity_score context : track primary lifts placed this week.
+      // wpGeneratePowerbuildingDay reads db.weeklyPlan._genCtx.placedMains pour
+      // forcer Développé Incliné si Bench déjà placé.
+      if (!db.weeklyPlan) db.weeklyPlan = {};
+      db.weeklyPlan._genCtx = { placedMains: [] };
       days = allDays.map(function(day) {
         var isTraining = selectedDays.indexOf(day) >= 0;
         var label = routine[day] || '';
@@ -20241,8 +20286,17 @@ function generateWeeklyPlan() {
         var _dupLab = dayData.dupProfile && dayData.dupProfile.label;
         var _finalTitle = label || dayData.title;
         if (_dupLab && _finalTitle) _finalTitle = _finalTitle + ' · ' + _dupLab;
+        // v200 — record primary main lift name for diversity_score on subsequent days
+        if (dayData && Array.isArray(dayData.exercises)) {
+          var _primaryExo = dayData.exercises.find(function(e) { return e.isPrimary; });
+          if (_primaryExo && _primaryExo.name && db.weeklyPlan && db.weeklyPlan._genCtx) {
+            db.weeklyPlan._genCtx.placedMains.push(_primaryExo.name);
+          }
+        }
         return Object.assign({ day: day }, dayData, { title: _finalTitle });
       });
+      // v200 — clean up generation context after the loop completes
+      if (db.weeklyPlan && db.weeklyPlan._genCtx) delete db.weeklyPlan._genCtx;
 
     // ── MUSCULATION ──────────────────────────────────────────
     } else if (mode === 'musculation' || mode === 'bodybuilding') {

@@ -19069,7 +19069,7 @@ function getDupFrequencyForLift(liftKey, selectedDays, routine) {
   return Math.max(1, count);
 }
 
-function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) {
+function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, dupProfileKey) {
   if (typeof WP_SESSION_TEMPLATES === 'undefined' || !WP_SESSION_TEMPLATES) return null;
   var tpl = WP_SESSION_TEMPLATES[dayKey];
   if (!tpl) return null;
@@ -19093,12 +19093,21 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   var maxExos = duration <= 45 ? 5 : duration <= 60 ? 7 : duration <= 90 ? 9 : 12;
   var exercises = [];
 
-  // DUP Hybride : profil du lift pour ce jour
+  // DUP Hybride × Macrocycle (v192) : le slot DUP (force/volume/vitesse) est
+  // fourni par generateWeeklyPlan et résolu via getDUPForce/Volume/Vitesse
+  // qui adaptent reps/intensité à la phase macrocycle.
   var _dupProfile = null;
   var _dupCoachNote = null;
   var _dupRestSeconds = null;
-  if ((phase === 'force' || phase === 'intensification' || phase === 'accumulation') &&
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  if (dupProfileKey && tpl.mainLift && tpl.mainLift !== 'squat_pause' && !isBeginnerMode) {
+    if (dupProfileKey === 'force')   _dupProfile = getDUPForce(phase);
+    else if (dupProfileKey === 'volume')  _dupProfile = getDUPVolume(phase);
+    else if (dupProfileKey === 'vitesse') _dupProfile = getDUPVitesse(phase, _level);
+    else _dupProfile = getDUPVolume(phase);
+  } else if ((phase === 'force' || phase === 'intensification' || phase === 'accumulation' || phase === 'hypertrophie') &&
       tpl.mainLift && tpl.mainLift !== 'squat_pause' && currentDay && !isBeginnerMode) {
+    // Fallback per-lift DUP for callers that don't pass dupProfileKey
     var _selectedDays = (params && params.selectedDays) || [];
     var _dupFreq = getDupFrequencyForLift(tpl.mainLift, _selectedDays, routine);
     if (_dupFreq >= 2) {
@@ -19108,23 +19117,24 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       var _dupIdx = _sameLiftDays.indexOf(currentDay);
       if (_dupIdx < 0) _dupIdx = 0;
       var _mode = (db.user && db.user.trainingMode) || 'powerbuilding';
-      var _level = (db.user && db.user.level) || 'intermediaire';
       var _dupKey = getDUPKey(_mode, _level);
       var _dupSeq = (DUP_SEQUENCE[_dupKey] && DUP_SEQUENCE[_dupKey][Math.min(_dupFreq, 6)])
                     || DUP_SEQUENCE.powerbuilding_intermediaire[2];
-      _dupProfile = DUP_PARAMS[_dupSeq[_dupIdx % _dupSeq.length]];
-      // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
-      var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;
-      var _hasSecondary = !!(db.user && db.user.activityTemplate && db.user.activityTemplate.length);
-      if (_dupProfile && _acwrDup && _acwrDup > 1.3 && _hasSecondary
-          && _dupProfile.label === 'Volume / Hypertrophie DUP') {
-        _dupProfile = Object.assign({}, _dupProfile, { rpe: [6, 7] });
-      }
-      if (_dupProfile) {
-        _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
-        _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';
-      }
+      var _fallbackKey = _dupSeq[_dupIdx % _dupSeq.length];
+      if (_fallbackKey === 'force')   _dupProfile = getDUPForce(phase);
+      else if (_fallbackKey === 'volume')  _dupProfile = getDUPVolume(phase);
+      else if (_fallbackKey === 'vitesse') _dupProfile = getDUPVitesse(phase, _level);
     }
+  }
+  if (_dupProfile) {
+    // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
+    var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;
+    var _hasSecondary = !!(db.user && db.user.activityTemplate && db.user.activityTemplate.length);
+    if (_acwrDup && _acwrDup > 1.3 && _hasSecondary && /Volume/.test(_dupProfile.label || '')) {
+      _dupProfile = Object.assign({}, _dupProfile, { rpe: [6, 7] });
+    }
+    _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
+    _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';
   }
 
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
@@ -19447,9 +19457,9 @@ function wpComputeWorkWeightSafe(liftType, bodyPart) {
   }
 }
 
-function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentDay) {
+function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentDay, dupProfileKey) {
   try {
-    return wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay);
+    return wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, dupProfileKey);
   } catch(e) {
     if (typeof logErrorToSupabase === 'function') {
       logErrorToSupabase('algo_crash', String(e && e.message || e),
@@ -19962,6 +19972,12 @@ function generateWeeklyPlan() {
 
     // ── POWERBUILDING / POWERLIFTING ─────────────────────────
     if (mode === 'powerbuilding' || mode === 'powerlifting') {
+      // v192 — résoudre la séquence DUP × Macrocycle pour la semaine
+      var _gwpLevel = (db.user && db.user.level) || 'intermediaire';
+      var _gwpDupKey = getDUPKey(mode, _gwpLevel);
+      var _gwpDupSeq = (DUP_SEQUENCE[_gwpDupKey] && DUP_SEQUENCE[_gwpDupKey][Math.min(freq, 6)])
+                       || DUP_SEQUENCE.powerbuilding_intermediaire[4];
+      var _gwpTrainIdx = 0;
       days = allDays.map(function(day) {
         var isTraining = selectedDays.indexOf(day) >= 0;
         var label = routine[day] || '';
@@ -19973,8 +19989,11 @@ function generateWeeklyPlan() {
         else if (/point|faible|technique.*sbd|sbd.*tech/i.test(label)) {
           dayKey = allDays.indexOf(day) % 2 === 0 ? 'weakpoints' : 'technique';
         }
-        var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day);
+        var _gwpProfileKey = _gwpDupSeq[_gwpTrainIdx % _gwpDupSeq.length];
+        _gwpTrainIdx++;
+        var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
+        if (dayData && !dayData.dupProfile) dayData.dupProfile = _gwpProfileKey;
         return Object.assign({ day: day }, dayData, { title: label || dayData.title });
       });
 

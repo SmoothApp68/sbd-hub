@@ -17206,12 +17206,12 @@ var DUP_SEQUENCE = {
     4: ['force', 'volume', 'force', 'volume'],
     5: ['force', 'volume', 'force', 'volume', 'volume']
   },
-  // Powerbuilding avancé
+  // Powerbuilding avancé — Gemini Option A : triple Force consécutive sur S/B/D
   powerbuilding_avance: {
     2: ['force', 'volume'],
-    3: ['force', 'volume', 'vitesse'],
-    4: ['force', 'volume', 'force', 'volume'],
-    5: ['force', 'volume', 'force', 'volume', 'vitesse']
+    3: ['force', 'force', 'volume'],
+    4: ['force', 'force', 'volume', 'vitesse'],
+    5: ['force', 'force', 'force', 'volume', 'vitesse']
   },
   // Powerlifting : force + vitesse, zéro volume hypertrophie
   powerlifting: {

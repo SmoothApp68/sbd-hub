@@ -9724,6 +9724,7 @@ function pgmSwapDays(a, b) {
 // PROGRAMME BUILDER — Guided + Manual paths
 // ============================================================
 var _pbState = null;
+var _pbDayMode = 'manual'; // 'manual' | 'algo' | 'constrained'
 
 function renderProgramTab() {
   var container = document.getElementById('programBuilderContent');
@@ -10040,8 +10041,10 @@ function pbStartGuided() {
     goal: modeToGoal[currentMode] || 'mixte',
     equipment: ['barbell','dumbbell','machine','cable'],
     duration: pp.duration || 60,
-    level: db.user.level || 'intermediaire'
+    level: db.user.level || 'intermediaire',
+    blockedDays: []
   };
+  _pbDayMode = 'manual';
   renderProgramBuilder();
 }
 
@@ -10073,6 +10076,53 @@ function pbToggleDay(day) {
   } else if (_pbState.selectedDays.length < _pbState.days) {
     _pbState.selectedDays.push(day);
   }
+  renderProgramBuilder();
+}
+
+// Pick freq best training days from `available` (excludes blocked days).
+// Prefers a per-frequency ideal spread (e.g. Mon/Wed/Fri for 3j), then fills
+// from remaining available days if blocked days reduced the ideal set below freq.
+function _pbOptimizeDays(available, freq) {
+  var dayIdx = { Lundi:0, Mardi:1, Mercredi:2, Jeudi:3, Vendredi:4, Samedi:5, Dimanche:6 };
+  var IDEAL = {
+    2: ['Lundi','Jeudi'],
+    3: ['Lundi','Mercredi','Vendredi'],
+    4: ['Lundi','Mardi','Jeudi','Vendredi'],
+    5: ['Lundi','Mardi','Jeudi','Vendredi','Samedi'],
+    6: ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+  };
+  var ideal = IDEAL[freq] || IDEAL[4];
+  var picked = ideal.filter(function(d) { return available.indexOf(d) >= 0; });
+  if (picked.length < freq) {
+    available.forEach(function(d) {
+      if (picked.length < freq && picked.indexOf(d) < 0) picked.push(d);
+    });
+  }
+  picked.sort(function(a, b) { return (dayIdx[a]||0) - (dayIdx[b]||0); });
+  return picked.slice(0, freq);
+}
+
+// Mode B — Algo libre : pick days, avoiding days blocked by secondary activities.
+function pbAlgoPickDays() {
+  var freq = _pbState.days || 4;
+  var allDaysW = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var blocked = [];
+  var template = (db.user && db.user.activityTemplate) || [];
+  template.forEach(function(act) {
+    (act.days || []).forEach(function(d) {
+      if (blocked.indexOf(d) < 0) blocked.push(d);
+    });
+  });
+  var available = allDaysW.filter(function(d) { return blocked.indexOf(d) < 0; });
+  _pbState.selectedDays = _pbOptimizeDays(available, freq);
+}
+
+// Mode C — Algo contraint : toggle a user-blocked day (rouge), algo re-picks.
+function pbToggleBlockedDay(day) {
+  if (!_pbState.blockedDays) _pbState.blockedDays = [];
+  var idx = _pbState.blockedDays.indexOf(day);
+  if (idx >= 0) _pbState.blockedDays.splice(idx, 1);
+  else _pbState.blockedDays.push(day);
   renderProgramBuilder();
 }
 
@@ -10653,22 +10703,70 @@ function renderProgramBuilderStep(container) {
       }
       h += '</div>';
     } else if (s.step === 2) {
-      // Day picker — user must select exactly s.days days of the week
       h += '<div style="font-size:18px;font-weight:700;margin-bottom:8px;">Quels jours t\'entraînes-tu ?</div>';
-      h += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">Choisis exactement ' + s.days + ' jours</div>';
-      var allDaysWizard = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-      var dayLabelsWizard = { Lundi:'LUN', Mardi:'MAR', Mercredi:'MER', Jeudi:'JEU', Vendredi:'VEN', Samedi:'SAM', Dimanche:'DIM' };
-      h += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
-      allDaysWizard.forEach(function(day) {
-        var isSelected = (s.selectedDays || []).indexOf(day) >= 0;
-        h += '<button onclick="pbToggleDay(\'' + day + '\')" '
-          + 'style="width:52px;height:52px;border-radius:12px;font-size:11px;font-weight:700;'
-          + 'border:1.5px solid ' + (isSelected ? 'var(--accent)' : 'var(--border)') + ';'
-          + 'background:' + (isSelected ? 'rgba(10,132,255,0.12)' : 'var(--surface)') + ';'
-          + 'color:' + (isSelected ? 'var(--accent)' : 'var(--sub)') + ';cursor:pointer;">'
-          + dayLabelsWizard[day] + '</button>';
+      h += '<div style="font-size:12px;color:var(--sub);margin-bottom:14px;">Choisis exactement ' + s.days + ' jours</div>';
+
+      // 3-mode selector
+      h += '<div style="display:flex;gap:6px;margin-bottom:14px;">';
+      var _modes = [
+        { id:'manual',      label:'✏️ Je choisis',  color:'var(--accent)', bg:'rgba(10,132,255,0.12)' },
+        { id:'algo',        label:'🤖 Algo choisit', color:'var(--green)',  bg:'rgba(48,209,88,0.12)' },
+        { id:'constrained', label:'🔒 Algo sauf…',   color:'var(--orange)', bg:'rgba(255,159,10,0.12)' }
+      ];
+      _modes.forEach(function(m) {
+        var active = _pbDayMode === m.id;
+        var onclick = m.id === 'algo'
+          ? "_pbDayMode='algo';pbAlgoPickDays();renderProgramBuilder();"
+          : "_pbDayMode='" + m.id + "';renderProgramBuilder();";
+        h += '<button onclick="' + onclick + '" '
+          + 'style="flex:1;padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;'
+          + 'border:1.5px solid ' + (active ? m.color : 'var(--border)') + ';'
+          + 'background:' + (active ? m.bg : 'var(--surface)') + ';'
+          + 'color:' + (active ? m.color : 'var(--sub)') + ';">'
+          + m.label + '</button>';
       });
       h += '</div>';
+
+      var allDaysWizard = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+      var dayLabelsWizard = { Lundi:'LUN', Mardi:'MAR', Mercredi:'MER', Jeudi:'JEU', Vendredi:'VEN', Samedi:'SAM', Dimanche:'DIM' };
+
+      if (_pbDayMode === 'constrained') {
+        if (!s.blockedDays) s.blockedDays = [];
+        var availableForAlgo = allDaysWizard.filter(function(d) { return s.blockedDays.indexOf(d) < 0; });
+        s.selectedDays = _pbOptimizeDays(availableForAlgo, s.days);
+        h += '<div style="font-size:12px;color:var(--sub);margin-bottom:10px;text-align:center;">'
+          + 'Appuie sur un jour pour le bloquer — l\'algo choisit parmi les autres</div>';
+        h += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
+        allDaysWizard.forEach(function(day) {
+          var isBlocked  = s.blockedDays.indexOf(day) >= 0;
+          var isSelected = !isBlocked && s.selectedDays.indexOf(day) >= 0;
+          var color = isBlocked ? 'var(--red)' : isSelected ? 'var(--green)' : 'var(--border)';
+          var bg    = isBlocked ? 'rgba(255,69,58,0.12)' : isSelected ? 'rgba(48,209,88,0.12)' : 'var(--surface)';
+          h += '<button onclick="pbToggleBlockedDay(\'' + day + '\')" '
+            + 'style="width:52px;height:52px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;'
+            + 'border:1.5px solid ' + color + ';background:' + bg + ';color:' + color + ';">'
+            + dayLabelsWizard[day] + (isBlocked ? ' 🔒' : '') + '</button>';
+        });
+        h += '</div>';
+      } else {
+        // manual + algo render: clickable in manual, read-only in algo
+        h += '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">';
+        allDaysWizard.forEach(function(day) {
+          var isSelected = (s.selectedDays || []).indexOf(day) >= 0;
+          var clickAttr = _pbDayMode === 'manual'
+            ? ' onclick="pbToggleDay(\'' + day + '\')"'
+            : '';
+          h += '<button' + clickAttr + ' '
+            + 'style="width:52px;height:52px;border-radius:12px;font-size:11px;font-weight:700;'
+            + 'border:1.5px solid ' + (isSelected ? 'var(--accent)' : 'var(--border)') + ';'
+            + 'background:' + (isSelected ? 'rgba(10,132,255,0.12)' : 'var(--surface)') + ';'
+            + 'color:' + (isSelected ? 'var(--accent)' : 'var(--sub)') + ';'
+            + 'cursor:' + (_pbDayMode === 'manual' ? 'pointer' : 'default') + ';">'
+            + dayLabelsWizard[day] + '</button>';
+        });
+        h += '</div>';
+      }
+
       var selectedCount = (s.selectedDays || []).length;
       h += '<div style="text-align:center;margin-top:12px;font-size:12px;color:'
         + (selectedCount === s.days ? 'var(--green)' : 'var(--sub)') + ';">'
@@ -19665,6 +19763,23 @@ function calculateParametersForCustomPlan() {
 }
 
 // ── FONCTION PRINCIPALE ──────────────────────────────────────
+// Stable per-split labels — must mirror generateProgram() pbBlocks/plBlocks.
+// Used to keep db.routine in sync with the actual block sequence so the
+// per-day dayKey routing inside generateWeeklyPlan() works correctly.
+function _wpGetSplitLabels(mode, freq) {
+  if (mode === 'powerbuilding') {
+    if (freq === 4) return ['Squat — Force & Volume','Bench — Force & Volume','Deadlift — Force & Volume','Bench 2 — Volume'];
+    if (freq === 5) return ['Squat — Force & Volume','Bench — Force & Volume','Deadlift — Force & Volume','Bench 2 — Volume','Squat 2 — Volume Jambes'];
+    if (freq >= 6) return ['Squat — Force & Volume','Bench — Force & Volume','Deadlift — Force & Volume','Bench 2 — Volume','Squat 2 — Volume Jambes','Pull — Volume'];
+  }
+  if (mode === 'powerlifting') {
+    if (freq === 4) return ['Squat + Accessoires','Bench + Accessoires','Deadlift + Accessoires','Bench 2 + Squat léger'];
+    if (freq === 5) return ['Squat + Accessoires','Bench + Accessoires','Deadlift + Accessoires','Squat 2','Bench 2'];
+    if (freq >= 6) return ['Squat + Accessoires','Bench + Accessoires','Deadlift + Accessoires','Squat 2','Bench 2','Deadlift 2 + Accessoires'];
+  }
+  return null;
+}
+
 function generateWeeklyPlan() {
   var btn = document.getElementById('wpGenerateBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
@@ -19697,6 +19812,25 @@ function generateWeeklyPlan() {
     var selectedDays = (params.selectedDays && params.selectedDays.length === freq)
       ? params.selectedDays
       : (_DEFAULT_DAYS_BY_FREQ[freq] || allDays.slice(0, freq));
+
+    // v191 — Force routine alignment with the powerbuilding/powerlifting split
+    // sequence so dayKey routing in the per-day loop matches the actual block
+    // order. Previously a stale db.routine (e.g. from a previous program) would
+    // make generateWeeklyPlan derive the wrong dayKey for the new split.
+    if ((mode === 'powerbuilding' || mode === 'powerlifting') && selectedDays.length === freq) {
+      var _splitLabels = _wpGetSplitLabels(mode, freq);
+      if (_splitLabels) {
+        var _newRoutine = {};
+        selectedDays.forEach(function(day, idx) {
+          if (_splitLabels[idx]) _newRoutine[day] = _splitLabels[idx];
+        });
+        allDays.forEach(function(day) {
+          if (!_newRoutine[day]) _newRoutine[day] = '😴 Repos';
+        });
+        db.routine = _newRoutine;
+        routine = _newRoutine;
+      }
+    }
 
     // Debug: trace what the generator received and what it derives.
     if (typeof DEBUG !== 'undefined' && DEBUG) {

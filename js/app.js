@@ -17121,6 +17121,54 @@ var SBD_VARIANTS = {
   }
 };
 
+// ── DUP × Macrocycle (Gemini validation) ────────────────────────────────
+// Le slot 'force' du DUP s'adapte à la phase macrocycle courante.
+// En Hypertrophie : tension mécanique sans brûler le SNC (5-8 reps)
+// En Force : recrutement nerveux pur (3-5 reps)
+// En Peak : expression maximale (1-3 reps)
+function getDUPForce(macroPhase) {
+  var map = {
+    hypertrophie:    { sets:[3,4], reps:[5,8],  intensity:[0.75,0.80], rpe:[7.5,8.5], rest:[180,240], label:'Force / Hypertrophie' },
+    accumulation:    { sets:[3,4], reps:[5,8],  intensity:[0.75,0.80], rpe:[7.5,8.5], rest:[180,240], label:'Force / Accumulation' },
+    force:           { sets:[3,4], reps:[3,5],  intensity:[0.80,0.85], rpe:[8,9],     rest:[240,300], label:'Force' },
+    intensification: { sets:[3,4], reps:[2,4],  intensity:[0.85,0.90], rpe:[8.5,9],   rest:[240,300], label:'Force / Intensification' },
+    peak:            { sets:[2,3], reps:[1,3],  intensity:[0.90,0.95], rpe:[9,9.5],   rest:[300,360], label:'Force / Peak' },
+    deload:          { sets:[2,3], reps:[8,12], intensity:[0.60,0.65], rpe:[6,7],     rest:[120,120], label:'Force / Deload' }
+  };
+  return map[macroPhase] || map.force;
+}
+
+// Le slot 'volume' s'affûte à mesure que l'intensité monte (taper en peak).
+function getDUPVolume(macroPhase) {
+  var map = {
+    hypertrophie:    { sets:[3,4], reps:[8,12], intensity:[0.65,0.70], rpe:[7,8], rest:[120,120], label:'Volume / Hypertrophie' },
+    accumulation:    { sets:[3,4], reps:[8,10], intensity:[0.70,0.72], rpe:[7,8], rest:[120,120], label:'Volume / Accumulation' },
+    force:           { sets:[3,4], reps:[6,8],  intensity:[0.72,0.75], rpe:[7,8], rest:[120,180], label:'Volume / Force' },
+    intensification: { sets:[2,3], reps:[4,6],  intensity:[0.75,0.80], rpe:[7,8], rest:[150,180], label:'Volume / Intensification' },
+    peak:            { sets:[2,3], reps:[3,5],  intensity:[0.70,0.70], rpe:[6,7], rest:[120,120], label:'Volume / Peak (taper)' },
+    deload:          { sets:[2,3], reps:[10,15],intensity:[0.50,0.60], rpe:[5,6], rest:[90,90],   label:'Volume / Deload' }
+  };
+  return map[macroPhase] || map.hypertrophie;
+}
+
+// Le slot 'vitesse' selon niveau et phase. Débutant → technique uniquement.
+function getDUPVitesse(macroPhase, level) {
+  if (level === 'debutant') {
+    return { sets:[3,4], reps:[8,10], intensity:[0.50,0.60], rpe:[6,7], rest:[90,90], label:'Technique' };
+  }
+  var phase = macroPhase || 'accumulation';
+  var map = {
+    hypertrophie:    { sets:[4,6], reps:[2,3], intensity:[0.60,0.65], rpe:[6,7], rest:[60,90],  label:'Technique & Vitesse' },
+    accumulation:    { sets:[4,6], reps:[2,3], intensity:[0.60,0.65], rpe:[6,7], rest:[60,90],  label:'Technique & Vitesse' },
+    force:           { sets:[5,8], reps:[1,2], intensity:[0.55,0.65], rpe:[6,7], rest:[60,90],  label:'Force Dynamique' },
+    intensification: { sets:[5,8], reps:[1,2], intensity:[0.55,0.65], rpe:[6,7], rest:[60,90],  label:'Force Dynamique' },
+    peak:            { sets:[3,5], reps:[1,2], intensity:[0.50,0.60], rpe:[5,6], rest:[60,90],  label:'Activation' },
+    deload:          { sets:[2,3], reps:[8,10],intensity:[0.40,0.50], rpe:[5,6], rest:[60,60],  label:'Récupération Active' }
+  };
+  return map[phase] || map.hypertrophie;
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 // ── DUP HYBRIDE ─────────────────────────────────────────────
 // Variation quotidienne dans un bloc. Pertinent dès 2x/semaine par lift.
 var DUP_PARAMS = {
@@ -17158,12 +17206,12 @@ var DUP_SEQUENCE = {
     4: ['force', 'volume', 'force', 'volume'],
     5: ['force', 'volume', 'force', 'volume', 'volume']
   },
-  // Powerbuilding avancé
+  // Powerbuilding avancé — Gemini Option A : triple Force consécutive sur S/B/D
   powerbuilding_avance: {
     2: ['force', 'volume'],
-    3: ['force', 'volume', 'vitesse'],
-    4: ['force', 'volume', 'force', 'volume'],
-    5: ['force', 'volume', 'force', 'volume', 'vitesse']
+    3: ['force', 'force', 'volume'],
+    4: ['force', 'force', 'volume', 'vitesse'],
+    5: ['force', 'force', 'force', 'volume', 'vitesse']
   },
   // Powerlifting : force + vitesse, zéro volume hypertrophie
   powerlifting: {
@@ -19021,7 +19069,7 @@ function getDupFrequencyForLift(liftKey, selectedDays, routine) {
   return Math.max(1, count);
 }
 
-function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) {
+function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, dupProfileKey) {
   if (typeof WP_SESSION_TEMPLATES === 'undefined' || !WP_SESSION_TEMPLATES) return null;
   var tpl = WP_SESSION_TEMPLATES[dayKey];
   if (!tpl) return null;
@@ -19045,12 +19093,21 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
   var maxExos = duration <= 45 ? 5 : duration <= 60 ? 7 : duration <= 90 ? 9 : 12;
   var exercises = [];
 
-  // DUP Hybride : profil du lift pour ce jour
+  // DUP Hybride × Macrocycle (v192) : le slot DUP (force/volume/vitesse) est
+  // fourni par generateWeeklyPlan et résolu via getDUPForce/Volume/Vitesse
+  // qui adaptent reps/intensité à la phase macrocycle.
   var _dupProfile = null;
   var _dupCoachNote = null;
   var _dupRestSeconds = null;
-  if ((phase === 'force' || phase === 'intensification' || phase === 'accumulation') &&
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  if (dupProfileKey && tpl.mainLift && tpl.mainLift !== 'squat_pause') {
+    if (dupProfileKey === 'force')   _dupProfile = getDUPForce(phase);
+    else if (dupProfileKey === 'volume')  _dupProfile = getDUPVolume(phase);
+    else if (dupProfileKey === 'vitesse') _dupProfile = getDUPVitesse(phase, _level);
+    else _dupProfile = getDUPVolume(phase);
+  } else if ((phase === 'force' || phase === 'intensification' || phase === 'accumulation' || phase === 'hypertrophie') &&
       tpl.mainLift && tpl.mainLift !== 'squat_pause' && currentDay && !isBeginnerMode) {
+    // Fallback per-lift DUP for callers that don't pass dupProfileKey
     var _selectedDays = (params && params.selectedDays) || [];
     var _dupFreq = getDupFrequencyForLift(tpl.mainLift, _selectedDays, routine);
     if (_dupFreq >= 2) {
@@ -19060,23 +19117,24 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       var _dupIdx = _sameLiftDays.indexOf(currentDay);
       if (_dupIdx < 0) _dupIdx = 0;
       var _mode = (db.user && db.user.trainingMode) || 'powerbuilding';
-      var _level = (db.user && db.user.level) || 'intermediaire';
       var _dupKey = getDUPKey(_mode, _level);
       var _dupSeq = (DUP_SEQUENCE[_dupKey] && DUP_SEQUENCE[_dupKey][Math.min(_dupFreq, 6)])
                     || DUP_SEQUENCE.powerbuilding_intermediaire[2];
-      _dupProfile = DUP_PARAMS[_dupSeq[_dupIdx % _dupSeq.length]];
-      // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
-      var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;
-      var _hasSecondary = !!(db.user && db.user.activityTemplate && db.user.activityTemplate.length);
-      if (_dupProfile && _acwrDup && _acwrDup > 1.3 && _hasSecondary
-          && _dupProfile.label === 'Volume / Hypertrophie DUP') {
-        _dupProfile = Object.assign({}, _dupProfile, { rpe: [6, 7] });
-      }
-      if (_dupProfile) {
-        _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
-        _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';
-      }
+      var _fallbackKey = _dupSeq[_dupIdx % _dupSeq.length];
+      if (_fallbackKey === 'force')   _dupProfile = getDUPForce(phase);
+      else if (_fallbackKey === 'volume')  _dupProfile = getDUPVolume(phase);
+      else if (_fallbackKey === 'vitesse') _dupProfile = getDUPVitesse(phase, _level);
     }
+  }
+  if (_dupProfile) {
+    // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
+    var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;
+    var _hasSecondary = !!(db.user && db.user.activityTemplate && db.user.activityTemplate.length);
+    if (_acwrDup && _acwrDup > 1.3 && _hasSecondary && /Volume/.test(_dupProfile.label || '')) {
+      _dupProfile = Object.assign({}, _dupProfile, { rpe: [6, 7] });
+    }
+    _dupRestSeconds = Math.round((_dupProfile.rest[0] + _dupProfile.rest[1]) / 2);
+    _dupCoachNote = '📊 DUP ' + _dupProfile.label + ' — variation dans le bloc ' + phase + '.';
   }
 
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
@@ -19220,6 +19278,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
     var repsLow  = repsArr[0] || 10;
     var repsHigh = repsArr[repsArr.length - 1] || 12;
     var repsVal  = repsHigh;
+    // v192 — Plancher accessoires : ≥ 8 reps (Gemini), sauf variations techniques SBD (≥ 5)
+    var _isTechVariation = ['Paused Squat','Pause Squat','Spoto Press','Pin Squat','Dead Squat','Close Grip Bench','Pause Bench','Squat Pause'].indexOf(acc.name) >= 0;
+    if (!acc.isPrimary) {
+      var _minReps = _isTechVariation ? 5 : 8;
+      if (repsVal < _minReps) repsVal = _minReps;
+    }
     var sc = phase === 'deload' ? Math.ceil((acc.sets || 3) / 2) : (acc.sets || 3);
     // Tapering Peak : -1 série sur les accessoires pour préserver la fraîcheur nerveuse
     if (phase === 'peak' && !acc.isPrimary && acc.type !== 'time' && acc.type !== 'cardio') {
@@ -19239,7 +19303,17 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay) 
       exercises.push({ name: acc.name, type: 'time', restSeconds: acc.rest || 60,
         sets: Array.from({ length: sc }, function() { return { durationSec: 90, isWarmup: false }; }) });
     } else if (acc.type === 'cardio') {
-      exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, sets: [{ durationMin: 45, isWarmup: false }] });
+      // v192 — Cardio en fin de séance plafonné à 20 min, ajusté au temps restant
+      var _workMin = (typeof estimateSessionDuration === 'function')
+        ? estimateSessionDuration(exercises) : 0;
+      var _remainingMin = Math.max(0, (duration || 60) - _workMin);
+      var _cardioDur = _remainingMin >= 25 ? 20
+                     : _remainingMin >= 15 ? 15
+                     : _remainingMin >= 10 ? 10
+                     : 0;
+      if (_cardioDur > 0) {
+        exercises.push({ name: acc.name, type: 'cardio', restSeconds: 0, sets: [{ durationMin: _cardioDur, isWarmup: false }] });
+      }
     } else if (acc.type === 'reps' && acc.useBodyweight) {
       var bw = getUserBW();
       exercises.push({ name: acc.name, type: 'reps', restSeconds: acc.rest || 120, bodyweightBase: bw,
@@ -19399,9 +19473,9 @@ function wpComputeWorkWeightSafe(liftType, bodyPart) {
   }
 }
 
-function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentDay) {
+function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentDay, dupProfileKey) {
   try {
-    return wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay);
+    return wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, dupProfileKey);
   } catch(e) {
     if (typeof logErrorToSupabase === 'function') {
       logErrorToSupabase('algo_crash', String(e && e.message || e),
@@ -19914,6 +19988,12 @@ function generateWeeklyPlan() {
 
     // ── POWERBUILDING / POWERLIFTING ─────────────────────────
     if (mode === 'powerbuilding' || mode === 'powerlifting') {
+      // v192 — résoudre la séquence DUP × Macrocycle pour la semaine
+      var _gwpLevel = (db.user && db.user.level) || 'intermediaire';
+      var _gwpDupKey = getDUPKey(mode, _gwpLevel);
+      var _gwpDupSeq = (DUP_SEQUENCE[_gwpDupKey] && DUP_SEQUENCE[_gwpDupKey][Math.min(freq, 6)])
+                       || DUP_SEQUENCE.powerbuilding_intermediaire[4];
+      var _gwpTrainIdx = 0;
       days = allDays.map(function(day) {
         var isTraining = selectedDays.indexOf(day) >= 0;
         var label = routine[day] || '';
@@ -19925,8 +20005,11 @@ function generateWeeklyPlan() {
         else if (/point|faible|technique.*sbd|sbd.*tech/i.test(label)) {
           dayKey = allDays.indexOf(day) % 2 === 0 ? 'weakpoints' : 'technique';
         }
-        var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day);
+        var _gwpProfileKey = _gwpDupSeq[_gwpTrainIdx % _gwpDupSeq.length];
+        _gwpTrainIdx++;
+        var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
+        if (dayData) dayData.dupProfileKey = _gwpProfileKey;
         return Object.assign({ day: day }, dayData, { title: label || dayData.title });
       });
 
@@ -22119,7 +22202,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     var srsScore = srs && typeof srs.score === 'number' ? srs.score : 70;
 
     // Force + SRS très bas → suggérer conversion Vitesse (message uniquement)
-    if (dupProfile.label === 'Force' && srsScore < 35) {
+    if (/^Force/.test(dupProfile.label || '') && srsScore < 35) {
       planDay._srsOverrideApplied = true;
       return {
         msg: '🔄 Fatigue trop élevée pour une séance Force (SRS ' + srsScore + '/100). ' +

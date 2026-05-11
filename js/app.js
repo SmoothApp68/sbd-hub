@@ -586,20 +586,20 @@ function showReadinessModal(onComplete) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
-  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:20px;">
-    <div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Comment te sens-tu ?</div>
-    <div class="readiness-sliders">
-      <div class="readiness-row"><span>😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val">5</span></div>
-      <div class="readiness-row"><span>⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val">5</span></div>
-      <div class="readiness-row"><span>🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val">5</span></div>
-      <div class="readiness-row"><span>🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val">5</span></div>
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
+    <div class="readiness-sliders" style="margin-bottom:8px;">
+      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val" style="font-size:12px;min-width:16px;">5</span></div>
+      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val" style="font-size:12px;min-width:16px;">5</span></div>
+      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val" style="font-size:12px;min-width:16px;">5</span></div>
+      <div class="readiness-row" style="margin-bottom:4px;"><span style="font-size:12px;">🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val" style="font-size:12px;min-width:16px;">5</span></div>
     </div>
-    <div style="font-size:10px;color:var(--sub);text-align:center;margin:4px 0;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
-    <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:8px 0;color:var(--blue);">Score : —</div>
-    <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:8px;"></div>
-    <div class="modal-actions">
+    <div style="font-size:9px;color:var(--sub);text-align:center;margin:2px 0 6px;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
+    <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:6px 0 2px;color:var(--blue);">Score : —</div>
+    <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
       <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="skipReadiness()">Passer</button>
-      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider</button>
+      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider ✓</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);

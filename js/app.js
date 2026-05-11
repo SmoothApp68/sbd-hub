@@ -19312,8 +19312,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if (tpl.mainLift && tpl.mainLift !== 'squat_pause') {
+    // v196 — Bench 2 (volume slot in hypertrophie) uses Développé Incliné
+    // (Haltères) instead of Larsen Press so the 2nd bench day is a different
+    // angle, not a duplicate of Bench 1.
+    var _bench2Override = (dupProfileKey === 'volume' && phase === 'hypertrophie' && tpl.mainLift === 'bench');
     // Récupérer la variante SBD selon la phase active
-    var variant = (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
+    var variant = _bench2Override
+      ? { name: 'Développé Incliné (Haltères)', reps: [10,12], rpe: 7.5 }
+      : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
       ? SBD_VARIANTS[phase][tpl.mainLift]
       : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS.accumulation && SBD_VARIANTS.accumulation[tpl.mainLift]
           ? SBD_VARIANTS.accumulation[tpl.mainLift] : null);

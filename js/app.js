@@ -18943,12 +18943,18 @@ function wpCoachNote(liftType, phase, weight, history) {
 function wpGetCardioForProfile(injuries, duration, isCutting) {
   var goals = (db.user && db.user.programParams && db.user.programParams.goals) || (isCutting ? ['seche'] : ['force']);
   var mat = (db.user && db.user.programParams && db.user.programParams.mat) || 'salle';
-  var progressiveDuration = typeof getProgressiveCardioDuration === 'function'
-    ? getProgressiveCardioDuration(duration || 30) : (duration || 30);
+  // v196 — Route through the getCardioDuration matrix (mode × phase) so this
+  // legacy path stops emitting 34 min cardio on powerbuilding/hypertrophie.
+  var trainingMode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var macroPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var finalDuration = typeof getCardioDuration === 'function'
+    ? getCardioDuration(trainingMode, macroPhase, goals, duration || 20)
+    : (duration || 20);
+  if (finalDuration === 0) return null; // user cardio='aucun'|'dedie' — skip
   if (typeof getCardioForProfile === 'function') {
-    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: progressiveDuration });
+    return getCardioForProfile({ goals: goals, mat: mat, injuries: injuries || [], cardioDuration: finalDuration });
   }
-  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, sets: [{ durationMin: duration || 20, isWarmup: false }] };
+  return { name: 'Tapis roulant', type: 'cardio', restSeconds: 0, evictionCategory: 'cardio', sets: [{ durationMin: finalDuration, isWarmup: false }] };
 }
 
 function getProgressiveCardioDuration(baseDuration) {
@@ -19589,7 +19595,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
-    exercises.push(wpGetCardioForProfile(injuries, 17, isCutting));
+    var _cardioBlock = wpGetCardioForProfile(injuries, 20, isCutting);
+    if (_cardioBlock) exercises.push(_cardioBlock);
   }
   var derivedTitle = wpDeriveTitle(exercises) || tpl.title;
 

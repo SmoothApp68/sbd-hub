@@ -1531,6 +1531,17 @@ function obQ3SelectMat(matId, btn) {
   obMat = matId;
   document.querySelectorAll('#ob-q3-mat .ob-mat-btn').forEach(function(b) { b.classList.remove('selected'); });
   if (btn) btn.classList.add('selected');
+  // Persistance immédiate + side effects (Gemini v211)
+  db.user.programParams = db.user.programParams || {};
+  db.user.programParams.mat = matId;
+  // Poids de corps uniquement → bascule en mode calisthenics
+  if (matId === 'maison') {
+    db.user.trainingMode = 'calisthenics';
+  } else if (db.user.trainingMode === 'calisthenics') {
+    // Si l'user revient sur salle/haltères après avoir vu calisthenics → repasser musculation
+    db.user.trainingMode = 'musculation';
+  }
+  saveDB();
 }
 
 function obSaveQ3() {
@@ -8013,6 +8024,10 @@ function confirmPhaseTransition(nextPhase) {
   document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
   if (!db.weeklyPlan) db.weeklyPlan = {};
   if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+  // Retour à hypertrophie = fin d'un macrocycle complet (Gemini v211)
+  if (nextPhase === 'hypertrophie' && typeof incrementMacrocycleCounter === 'function') {
+    incrementMacrocycleCounter();
+  }
   db.weeklyPlan.currentBlock.phase = nextPhase;
   db.weeklyPlan.currentBlock.blockStartDate = Date.now();
   db.weeklyPlan.currentBlock.forcedAt = Date.now();
@@ -19145,6 +19160,147 @@ function applyAgeAdaptations(exercises) {
   });
 }
 
+// ── KNEE FILTER — Gemini v211 ──────────────────────────────────────
+// Marie (52 ans, genou) : blacklister les exercices à fort risque pivot/saut,
+// remplacer par alternative amplitude contrôlée quand possible.
+var KNEE_INJURY_BLACKLIST = [
+  'Sissy Squat', 'Sissy Squat Machine',
+  'Fentes (Grand Pas)', 'Fentes Marchées',
+  'Box Jump', 'Saut en Hauteur', 'Broad Jump',
+  'Jump Squat', 'Sauts Pliométriques'
+];
+
+var KNEE_INJURY_SUBSTITUTES = {
+  'Sissy Squat':         'Leg Extension (Amplitude Réduite)',
+  'Sissy Squat Machine': 'Leg Extension (Amplitude Réduite)',
+  'Fentes (Grand Pas)':  'Step-up Bas (Haltères)',
+  'Fentes Marchées':     'Step-up Bas (Haltères)',
+  'Box Jump':            'Box Squat (Amplitude Contrôlée)',
+  'Saut en Hauteur':     'Box Squat (Amplitude Contrôlée)',
+  'Broad Jump':          'Box Squat (Amplitude Contrôlée)',
+  'Jump Squat':          'Box Squat (Amplitude Contrôlée)',
+  'Sauts Pliométriques': 'Box Squat (Amplitude Contrôlée)'
+};
+
+function applyKneeFilter(exercises) {
+  if (!Array.isArray(exercises)) return exercises;
+  var _injuries = (db.user && db.user.injuries) || [];
+  var _hasKnee = _injuries.some(function(inj) {
+    var _zone = typeof inj === 'string' ? inj : (inj && (inj.zone || inj.area) || '');
+    return /genou|knee/i.test(String(_zone));
+  });
+  if (!_hasKnee) return exercises;
+
+  return exercises.map(function(exo) {
+    if (!exo || !exo.name) return exo;
+    var _name = String(exo.name);
+    var _matched = KNEE_INJURY_BLACKLIST.find(function(b) {
+      return _name.toLowerCase().indexOf(b.toLowerCase()) !== -1;
+    });
+    if (!_matched) return exo;
+    var _sub = KNEE_INJURY_SUBSTITUTES[_matched];
+    if (!_sub) return null;
+    return Object.assign({}, exo, {
+      name: _sub,
+      _originalName: exo.name,
+      _injurySubstitute: true,
+      note: '🦵 Adapté blessure genou (original : ' + exo.name + ')'
+    });
+  }).filter(Boolean);
+}
+
+// ── TALK TEST — Gemini v211 ────────────────────────────────────────
+// Pour les users sans PRs : pas de % 1RM possible → instruction qualitative.
+// L'algo progresse ensuite via LP pure (+5%/semaine tant que SRS > 80).
+function hasPRData() {
+  return !!(db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift));
+}
+
+function getTalkTestInstruction(exoName) {
+  return 'Prends un poids avec lequel tu peux faire 10 reps '
+    + 'tout en étant capable de discuter sans être essoufflé(e). '
+    + 'Ce poids devient ta baseline — l\'algo progressera depuis là.';
+}
+
+// ── PIVOT WEEK — Gemini v211 ───────────────────────────────────────
+// Toutes les 12 semaines (entre 2 macrocycles) : swap 100% des exos vers
+// variantes unilatérales / stabilité. Objectif : désensibiliser SNC +
+// soigner les micro-traumatismes tendineux. Fréquence forcée à 3j max.
+var PIVOT_WEEK_SWAPS = {
+  'High Bar Squat':          ['Goblet Squat', 'Bulgarian Split Squat'],
+  'Squat (Barre)':           ['Goblet Squat', 'Bulgarian Split Squat'],
+  'Low Bar Squat':           ['Goblet Squat', 'Bulgarian Split Squat'],
+  'Bench Press (Barre)':     ['Développé Haltères (Prise Neutre)', 'Push-ups Anneaux'],
+  'Bench Press':             ['Développé Haltères (Prise Neutre)', 'Push-ups Anneaux'],
+  'Soulevé de Terre (Barre)':['Trap Bar Deadlift', 'Kettlebell Swing Lourd'],
+  'Deadlift (Classique)':    ['Trap Bar Deadlift', 'Kettlebell Swing Lourd'],
+  'Soulevé de Terre':        ['Trap Bar Deadlift', 'Kettlebell Swing Lourd'],
+  'Curl Biceps':             ['Turkish Get-up'],
+  'Extension Triceps':       ['Face Pull'],
+  'Leg Extension':           ['Planche Dynamique (Hollow Body)']
+};
+
+function isPivotWeek() {
+  var _cycleWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock
+    && db.weeklyPlan.currentBlock.week) || 0;
+  return _cycleWeek > 0 && _cycleWeek % 12 === 0;
+}
+
+function applyPivotWeekSwaps(exercises) {
+  if (!Array.isArray(exercises) || !isPivotWeek()) return exercises;
+  return exercises.map(function(exo) {
+    if (!exo || !exo.name) return exo;
+    var _swaps = PIVOT_WEEK_SWAPS[exo.name];
+    if (!_swaps || !_swaps.length) return exo;
+    var _swapIdx = Math.floor(Date.now() / (7 * 86400000)) % _swaps.length;
+    return Object.assign({}, exo, {
+      name: _swaps[_swapIdx],
+      _pivotWeekSwap: true,
+      _originalName: exo.name,
+      note: '🔄 Pivot Week — diversification motrice'
+    });
+  });
+}
+
+// Pivot Week → fréquence forcée à 3j (hard cap Gemini)
+function getPivotWeekFrequency() {
+  return isPivotWeek() ? 3 : null;
+}
+
+// ── LEG OVERREACH — Gemini v211 ────────────────────────────────────
+// Cycle 3 : après 2 macrocycles complets ET ratio Squat/Bench ≤ 1.10
+// → spécialisation jambes (+30%), upper -20%, bench maintenance ×0.6.
+function shouldTriggerLegOverreach() {
+  var _completedCycles = (db.weeklyPlan && db.weeklyPlan._completedMacrocycles) || 0;
+  if (_completedCycles < 2) return false;
+  var _squat = db.bestPR && db.bestPR.squat;
+  var _bench = db.bestPR && db.bestPR.bench;
+  if (!_squat || !_bench) return false;
+  return (_squat / _bench) <= 1.10;
+}
+
+function getLegOverreachModifiers() {
+  if (!shouldTriggerLegOverreach()) return null;
+  var _ratio = (db.bestPR && db.bestPR.squat && db.bestPR.bench)
+    ? (db.bestPR.squat / db.bestPR.bench).toFixed(2) : '?';
+  return {
+    legsVolumeMultiplier:  1.30,
+    upperVolumeMultiplier: 0.80,
+    benchVolumeMultiplier: 0.60,
+    benchMaxRPE: 8,
+    benchFreqMax: 2,
+    label: '🦵 Spécialisation Jambes — Leg Overreach',
+    note: 'Ratio Squat/Bench ' + _ratio
+      + ' — 100% capacité récupération allouée aux quads'
+  };
+}
+
+function incrementMacrocycleCounter() {
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  db.weeklyPlan._completedMacrocycles = (db.weeklyPlan._completedMacrocycles || 0) + 1;
+  if (typeof saveDB === 'function') saveDB();
+}
+
 // ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
 // Détection :
 //   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
@@ -20732,6 +20888,22 @@ function getDupFrequencyForLift(liftKey, selectedDays, routine) {
   return Math.max(1, count);
 }
 
+// ── Priority Queue 5 niveaux — Gemini v211 ─────────────────────────
+// Hiérarchie d'éviction si plafond exercices atteint :
+//   100 — Lifts principaux (SBD / Skill Calisthenics) IMMUABLE
+//    80 — Substituts blessure (épaule/genou)
+//    60 — Accessoires fonctionnels (ratio tirage/poussée, Face Pull/Bench)
+//    40 — Corrections de ratios
+//    20 — Esthétique/isolation (premier évincé)
+function _getExercisePriority(exo) {
+  if (!exo) return 0;
+  if (exo.isPrimary) return 100;
+  if (exo._injurySubstitute || exo._injuryAdapted || exo._addedByShoulderFilter) return 80;
+  if (exo._addedByRule === 2 || exo._addedByRule === 9) return 60;
+  if (exo.isCorrectivePriority || exo._addedByRule === 5 || exo._addedByRule === 8) return 40;
+  return 20;
+}
+
 // ── selectExercisesForProfile — Gemini v209 (7 règles universelles) ──
 // Filtre déterministe appliqué après les filtres locaux (épaule, senior,
 // stress). Remplace les blocs hardcodés disséminés dans wpGenerate*.
@@ -20930,11 +21102,9 @@ function selectExercisesForProfile(exercises, profile) {
     });
   }
 
-  // RÈGLE 1 (fin) — Plafond : isPrimary > isCorrectivePriority > reste
+  // RÈGLE 1 (fin) — Priority Queue 5 niveaux (Gemini v211)
   result.sort(function(a, b) {
-    var _as = (a && a.isPrimary ? 100 : 0) + (a && a.isCorrectivePriority ? 50 : 0);
-    var _bs = (b && b.isPrimary ? 100 : 0) + (b && b.isCorrectivePriority ? 50 : 0);
-    return _bs - _as;
+    return _getExercisePriority(b) - _getExercisePriority(a);
   });
   result = result.slice(0, _maxExos);
 
@@ -21391,6 +21561,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 
   exercises = applyShoulderFilter(exercises);
 
+  // KNEE : blacklist + substituts (Gemini v211)
+  exercises = applyKneeFilter(exercises);
+
   // SENIOR : rest ×2 + RPE max 7 (Gemini v208)
   exercises = applyAgeAdaptations(exercises);
 
@@ -21413,6 +21586,39 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       var _selProfile = buildProfileForSelection();
       exercises = selectExercisesForProfile(exercises, _selProfile);
     } catch(e) {}
+  }
+
+  // PIVOT WEEK : swap 100% exos toutes les 12 semaines (Gemini v211)
+  if (typeof applyPivotWeekSwaps === 'function') {
+    exercises = applyPivotWeekSwaps(exercises);
+  }
+
+  // LEG OVERREACH : cycle 3 spécialisation jambes (Gemini v211)
+  var _overreach = typeof getLegOverreachModifiers === 'function' ? getLegOverreachModifiers() : null;
+  if (_overreach && Array.isArray(exercises)) {
+    var _isLegDay = /squat|leg|jambe/i.test(derivedTitle || '');
+    var _isUpperDay = !_isLegDay && /bench|push|upper|pectoraux|épaule|epaule/i.test(derivedTitle || '');
+    if (_isLegDay) {
+      exercises = exercises.map(function(exo) {
+        if (!exo) return exo;
+        return Object.assign({}, exo, {
+          sets: Math.round((exo.sets || 3) * _overreach.legsVolumeMultiplier),
+          _overreachAdapted: true
+        });
+      });
+      dayCoachNote = (dayCoachNote ? dayCoachNote + ' ' : '') + _overreach.label + ' — ' + _overreach.note;
+    } else if (_isUpperDay) {
+      exercises = exercises.map(function(exo) {
+        if (!exo) return exo;
+        var _isBench = /bench|développé couché|developpe couche/i.test(exo.name || '');
+        var _mult = _isBench ? _overreach.benchVolumeMultiplier : _overreach.upperVolumeMultiplier;
+        return Object.assign({}, exo, {
+          sets: Math.max(2, Math.round((exo.sets || 3) * _mult)),
+          _overreachAdapted: true,
+          maxRPE: _isBench ? Math.min(exo.maxRPE || 10, _overreach.benchMaxRPE) : exo.maxRPE
+        });
+      });
+    }
   }
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
@@ -21655,6 +21861,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
 
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
   exercises = applyShoulderFilter(exercises);
+  exercises = applyKneeFilter(exercises);
   var note = dayCoachNote ||
     (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
      isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');

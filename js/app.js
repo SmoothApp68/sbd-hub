@@ -18424,6 +18424,85 @@ var DUP_PARAMS = {
   volume:   { sets: [3,3], reps: [8,10], intensity: [0.65, 0.75], rpe: [7,8],   rest: [120, 120], label: 'Volume / Hypertrophie DUP' }
 };
 
+// ── CALISTHENICS SKILL TREE (Gemini v208) ──────────────────────────
+// La "charge" = niveau de version (Step 1 à 10).
+// Progression : chaque step débloqué quand X reps validées.
+var CALISTHENICS_SKILL_TREE = {
+  push: [
+    { step: 1, name: 'Pompes Mur',                  repsTarget: 15, type: 'bw' },
+    { step: 2, name: 'Pompes Genoux',                repsTarget: 15, type: 'bw' },
+    { step: 3, name: 'Pompes Classiques',            repsTarget: 10, type: 'bw' },
+    { step: 4, name: 'Pompes Diamant',               repsTarget: 8,  type: 'bw' },
+    { step: 5, name: 'Pompes Archer',                repsTarget: 6,  type: 'bw' },
+    { step: 6, name: 'Pompes Pike',                  repsTarget: 8,  type: 'bw' },
+    { step: 7, name: 'Pompes Déclinées',             repsTarget: 10, type: 'bw' },
+    { step: 8, name: 'Pompes Lestées',               repsTarget: 8,  type: 'weighted', startKg: 5 },
+    { step: 9, name: 'Handstand Push-up (mur)',      repsTarget: 5,  type: 'bw' },
+    { step: 10, name: 'Handstand Push-up libre',     repsTarget: 3,  type: 'skill' }
+  ],
+  pull: [
+    { step: 1, name: 'Tirage Australien',            repsTarget: 12, type: 'bw' },
+    { step: 2, name: 'Traction Assistée',            repsTarget: 10, type: 'assisted', assistKg: 20 },
+    { step: 3, name: 'Traction Classique',           repsTarget: 5,  type: 'bw' },
+    { step: 4, name: 'Traction Pronation',           repsTarget: 8,  type: 'bw' },
+    { step: 5, name: 'Traction L-sit',               repsTarget: 5,  type: 'bw' },
+    { step: 6, name: 'Traction Lestée',              repsTarget: 5,  type: 'weighted', startKg: 5 },
+    { step: 7, name: 'Traction Archer',              repsTarget: 3,  type: 'bw' },
+    { step: 8, name: 'Muscle-up (base)',             repsTarget: 1,  type: 'skill' },
+    { step: 9, name: 'Muscle-up Strict',             repsTarget: 3,  type: 'skill' },
+    { step: 10, name: 'Muscle-up Lesté',             repsTarget: 3,  type: 'weighted', startKg: 5 }
+  ],
+  core: [
+    { step: 1, name: 'Planche (20s)',                repsTarget: 3,  type: 'hold', holdSec: 20 },
+    { step: 2, name: 'Planche (45s)',                repsTarget: 3,  type: 'hold', holdSec: 45 },
+    { step: 3, name: 'Relevé Genoux',                repsTarget: 15, type: 'bw' },
+    { step: 4, name: 'Relevé Jambes',                repsTarget: 12, type: 'bw' },
+    { step: 5, name: 'Dragon Flag Négatif',          repsTarget: 5,  type: 'bw' },
+    { step: 6, name: 'L-sit (10s)',                  repsTarget: 3,  type: 'hold', holdSec: 10 },
+    { step: 7, name: 'L-sit (20s)',                  repsTarget: 3,  type: 'hold', holdSec: 20 },
+    { step: 8, name: 'Front Lever Plié',             repsTarget: 3,  type: 'hold', holdSec: 5 },
+    { step: 9, name: 'Dragon Flag',                  repsTarget: 5,  type: 'bw' },
+    { step: 10, name: 'Front Lever',                 repsTarget: 1,  type: 'hold', holdSec: 10 }
+  ],
+  legs: [
+    { step: 1, name: 'Squat',                        repsTarget: 20, type: 'bw' },
+    { step: 2, name: 'Squat Bulgare',                repsTarget: 10, type: 'bw' },
+    { step: 3, name: 'Pistol Squat Assisté',         repsTarget: 8,  type: 'assisted' },
+    { step: 4, name: 'Pistol Squat',                 repsTarget: 5,  type: 'bw' },
+    { step: 5, name: 'Pistol Squat Lesté',           repsTarget: 5,  type: 'weighted', startKg: 5 },
+    { step: 6, name: 'Saut en Hauteur',              repsTarget: 5,  type: 'explosive' },
+    { step: 7, name: 'Broad Jump',                   repsTarget: 5,  type: 'explosive' }
+  ]
+};
+
+function getCalisthenicCurrentStep(movement) {
+  var _progress = (db.calisthenicProgress && db.calisthenicProgress[movement])
+    || { step: 1, reps: 0 };
+  return _progress;
+}
+
+function validateCalisthenicStep(movement, repsAchieved) {
+  if (!db.calisthenicProgress) db.calisthenicProgress = {};
+  var _tree = CALISTHENICS_SKILL_TREE[movement] || [];
+  var _current = db.calisthenicProgress[movement] || { step: 1, reps: 0 };
+  var _stepData = _tree.find(function(s) { return s.step === _current.step; });
+  if (!_stepData) return;
+  if (repsAchieved >= _stepData.repsTarget) {
+    var _nextStep = _current.step + 1;
+    var _nextStepData = _tree.find(function(s) { return s.step === _nextStep; });
+    db.calisthenicProgress[movement] = {
+      step: _nextStepData ? _nextStep : _current.step,
+      reps: 0
+    };
+    if (_nextStepData && typeof showToast === 'function') {
+      showToast('🔓 ' + movement + ' débloqué : ' + _nextStepData.name + ' !', 4000);
+    }
+  } else {
+    db.calisthenicProgress[movement] = { step: _current.step, reps: repsAchieved };
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+
 var DUP_SEQUENCE = {
   // Débutants : volume fixe (LP pure, pas de DUP)
   debutant: {
@@ -18467,6 +18546,21 @@ var DUP_SEQUENCE = {
     4: ['force', 'vitesse', 'force', 'vitesse'],
     5: ['force', 'vitesse', 'force', 'vitesse', 'force'],
     6: ['force', 'vitesse', 'force', 'vitesse', 'force', 'vitesse']
+  },
+  // Calisthenics : skill = tentative step suivant, hypertrophie = step actuel reps hautes
+  calisthenics: {
+    debutant: {
+      3: ['hypertrophie', 'hypertrophie', 'skill'],
+      4: ['hypertrophie', 'skill', 'hypertrophie', 'skill']
+    },
+    intermediaire: {
+      4: ['force', 'hypertrophie', 'skill', 'hypertrophie'],
+      5: ['force', 'hypertrophie', 'skill', 'hypertrophie', 'force']
+    },
+    avance: {
+      5: ['force', 'force', 'skill', 'hypertrophie', 'force'],
+      6: ['force', 'force', 'skill', 'hypertrophie', 'force', 'vitesse']
+    }
   }
 };
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v203';
+const CACHE_NAME = 'trainhub-v204';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',

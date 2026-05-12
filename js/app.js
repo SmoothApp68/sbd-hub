@@ -16139,6 +16139,21 @@ function getActivityRecommendation(activityType, targetDay) {
   return { level: 'ok', emoji: '✅', reason: 'Praticable', detail: 'Adapte l\'intensité selon ta forme' };
 }
 
+// v204 — Détection churn "Plateau de Saisie" : 3 séances avec volumes
+// quasi-identiques (variation < 2%) → user en pilote automatique.
+function detectSaisiePlateau() {
+  var recent = (db.logs || [])
+    .filter(function(l) { return (l.volume || 0) > 0; })
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); })
+    .slice(0, 3);
+  if (recent.length < 3) return false;
+  var volumes = recent.map(function(l) { return l.volume || 0; });
+  var avg = volumes.reduce(function(s, v) { return s + v; }, 0) / volumes.length;
+  if (avg <= 0) return false;
+  var maxDev = Math.max.apply(null, volumes.map(function(v) { return Math.abs(v - avg) / avg; }));
+  return maxDev < 0.02;
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -16538,6 +16553,11 @@ function renderCoachTodayHTML() {
     if (_caTodayName === 'Mardi') {
       _coachAlerts.push({ type: 'green',
         text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
+    }
+    // v204 — Plateau de saisie : 3 séances identiques → pilote automatique
+    if (detectSaisiePlateau()) {
+      _coachAlerts.push({ type: 'warning',
+        text: '🔄 3 séances identiques détectées — tu sembles en pilote automatique. On change un exercice pour relancer la progression ?' });
     }
     // Wildcard — avancé + 12+ séances sur 30j → Mode Instinct
     if (_caLevel === 'avance') {
@@ -18380,6 +18400,62 @@ function wpEstimateWeight(exoName) {
   return wpRound25(baseVal * est.ratio);
 }
 
+// v204 — isShoulderHeavy : remplacement auto si user.injuries contient 'epaule'
+var SHOULDER_HEAVY_EXOS = [
+  'Bench Press (Barre)', 'Développé Couché (Barre)', 'Développé couché (Barre)',
+  'Développé Militaire (Barre)', 'OHP', 'Overhead Press',
+  'Dips', 'Dips Lestés', 'Dips lestés',
+  'Larsen Press',
+  'Développé Incliné (Haltères)', 'Développé Incliné Haltères', 'Développé incliné (Haltères)'
+];
+
+var SHOULDER_HEAVY_ALTERNATIVES = {
+  'Bench Press (Barre)':          'Floor Press',
+  'Développé Couché (Barre)':     'Floor Press',
+  'Développé couché (Barre)':     'Floor Press',
+  'Développé Militaire (Barre)':  'Élévations Latérales Machine',
+  'OHP':                          'Élévations Latérales Machine',
+  'Overhead Press':               'Élévations Latérales Machine',
+  'Dips':                         'Extension Triceps Corde',
+  'Dips Lestés':                  'Extension Triceps Corde',
+  'Dips lestés':                  'Extension Triceps Corde',
+  'Larsen Press':                 'DB Press paumes face à face',
+  'Développé Incliné (Haltères)': 'Machine Convergente',
+  'Développé Incliné Haltères':   'Machine Convergente',
+  'Développé incliné (Haltères)': 'Machine Convergente'
+};
+
+function hasShoulderInjury() {
+  var injuries = (db.user && db.user.injuries) || [];
+  return injuries.some(function(inj) {
+    if (!inj) return false;
+    var zone = typeof inj === 'string' ? inj : (inj.zone || '');
+    var active = typeof inj === 'string' ? true : (inj.active !== false);
+    return active && /epaule|shoulder|épaule/i.test(zone);
+  });
+}
+
+function applyShoulderFilter(exercises) {
+  if (!hasShoulderInjury() || !Array.isArray(exercises)) return exercises;
+  return exercises.map(function(exo) {
+    if (!exo || !exo.name) return exo;
+    var matchKey = null;
+    for (var k = 0; k < SHOULDER_HEAVY_EXOS.length; k++) {
+      var s = SHOULDER_HEAVY_EXOS[k];
+      if (exo.name.toLowerCase().indexOf(s.toLowerCase()) !== -1) { matchKey = s; break; }
+    }
+    if (!matchKey) return exo;
+    var alt = SHOULDER_HEAVY_ALTERNATIVES[matchKey];
+    if (!alt) return exo;
+    return Object.assign({}, exo, {
+      name: alt,
+      _originalName: exo.name,
+      _injuryAdapted: true,
+      note: '🩹 Adapté blessure épaule (original : ' + exo.name + ')'
+    });
+  });
+}
+
 // Increment de Double Progression différencié par bodyPart/muscleGroup
 // v202 — Speed Deadlift : charge = 60% PR Deadlift, non soumise à la progression standard
 function getSpeedDeadliftWeight() {
@@ -18388,27 +18464,36 @@ function getSpeedDeadliftWeight() {
   return wpRound25(prDead * 0.60);
 }
 
-function getDPIncrement(exoName) {
+// v204 — incréments proportionnels (~2% du poids actuel) avec planchers
+// pratiques. Micro-loading pour profils légers (Léa, débutants), planchers
+// préservés pour les composés lourds.
+function getDPIncrement(exoName, currentWeight) {
   var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
   var mg   = meta ? (meta.muscleGroup || '') : '';
   var mech = meta ? (meta.mechanic || '') : '';
 
-  // Lower body composés et machines lourdes : +5kg
-  if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) return 5.0;
-
-  // Isolation lower (Leg Extension, Leg Curl) : +2.5kg
-  if (/quad|hams/.test(mg) && /isolation/.test(mech)) return 2.5;
-
-  // Upper composés (Rowing, Développé haltères) : +2.5kg
-  if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) return 2.5;
-
-  // Isolation upper légère (Curl, Extension triceps, Élévations) : +1.0kg
-  if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) return 1.0;
-
-  // Abdos et gainage : pas d'incrément charge (on augmente les reps)
   if (/core|Abdos|Lombaires/.test(mg)) return 0;
 
-  // Défaut upper : +2kg, lower : +5kg
+  if (currentWeight && currentWeight > 0) {
+    var pct2 = currentWeight * 0.02;
+    if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) {
+      return Math.max(5.0, wpRound25(pct2));
+    }
+    if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) {
+      return Math.max(2.5, wpRound25(pct2));
+    }
+    if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) {
+      return Math.max(1.0, wpRound25(pct2));
+    }
+    if (/quad|hams/.test(mg) && /isolation/.test(mech)) {
+      return Math.max(2.5, wpRound25(pct2));
+    }
+  }
+
+  if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) return 5.0;
+  if (/quad|hams/.test(mg) && /isolation/.test(mech)) return 2.5;
+  if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) return 2.5;
+  if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) return 1.0;
   return mg && /quad|hams|glute/.test(mg) ? 5.0 : 2.0;
 }
 
@@ -18456,6 +18541,20 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 
   // 1A — Main Lifts SBD : Wave Loading
   var _isMainLift = /squat|bench|deadlift|soulevé|développé couché/i.test(exoName);
+
+  // v204 — LP Pure pour débutants : +2.5kg simple, pas de strikes ni deload local.
+  // Tant que lpActive=true et level=debutant, on garde la simplicité maximale.
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  var _lpActive = !(db.user && db.user.lpActive === false);
+  if (_isMainLift && _level === 'debutant' && _lpActive) {
+    if (allSetsComplete) {
+      return { weight: wpRound25(lastWeight + 2.5), reps: targetRepMin, progressed: true,
+        coachNote: '✅ +2.5kg — continue comme ça !' };
+    }
+    return { weight: lastWeight, reps: targetRepMax, progressed: false,
+      coachNote: 'Valide toutes les séries avant de monter le poids.' };
+  }
+
   if (_isMainLift) {
     var _strikes = (db.user && db.user.lpStrikes && db.user.lpStrikes[realName]) || { count: 0 };
 
@@ -18478,7 +18577,7 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 
   // 1B — Accessoires : Double Progression classique (fourchette reps)
   if (allSetsComplete) {
-    var _dpIncrement = getDPIncrement(exoName);
+    var _dpIncrement = getDPIncrement(exoName, lastWeight);
     if (_dpIncrement === 0) {
       return { weight: lastWeight, reps: Math.min(targetRepMin + 2, targetRepMax), progressed: true };
     }
@@ -20224,6 +20323,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
   }
 
+  exercises = applyShoulderFilter(exercises);
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 
@@ -20463,6 +20563,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   }
 
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
+  exercises = applyShoulderFilter(exercises);
   var note = dayCoachNote ||
     (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
      isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');

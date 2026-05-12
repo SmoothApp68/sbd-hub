@@ -22553,7 +22553,11 @@ function generateWeeklyPlan() {
     days.forEach(function(d) { db.routine[d.day] = d.rest ? '😴 Repos Complet' : d.title; });
 
     saveDB();
+    // v212 — sync immédiat + retry via debounce pour garantir la persistance
+    // de weeklyPlan.days côté Supabase même si le sync immédiat échoue
+    // (offline, auth pas encore prête, conflit upsert).
     if (typeof syncToCloud === 'function') syncToCloud();
+    if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
     showToast(phase === 'deload' ? '🔄 Semaine deload — récupération !' : '✅ Programme calculé !');
     renderWeeklyPlanUI();
     if (typeof renderProgramBuilderView === 'function') {

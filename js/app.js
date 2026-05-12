@@ -3643,6 +3643,10 @@ function calcTotalXP() {
   var muscleXP = (db.gamification && db.gamification.muscleXP) || 0;
   xp += muscleXP;
 
+  // Wisdom XP (badges sagesse — Gemini v207)
+  var wisdomXP = (db.gamification && db.gamification.wisdomXP) || 0;
+  xp += wisdomXP;
+
   // High-water mark: XP can only increase, never drop
   var hwm = (db.gamification && db.gamification.xpHighWaterMark) || 0;
   if (xp > hwm) {
@@ -18104,7 +18108,91 @@ function acceptDeload() {
   db._deloadAccepted = true;
   if (!db.weeklyPlan) db.weeklyPlan = {};
   db.weeklyPlan.lastDeloadDate = new Date().toISOString().split('T')[0];
+  db._deloadAcceptedCount = (db._deloadAcceptedCount || 0) + 1;
   if (typeof saveDB === 'function') saveDB();
+  if (typeof checkWisdomBadge_Deload === 'function') checkWisdomBadge_Deload();
+}
+
+// ── WISDOM BADGES — Gemini v207 ─────────────────────────────────────
+function _awardWisdomXP(xp, title, message) {
+  if (!db.gamification) db.gamification = {};
+  db.gamification.wisdomXP = (db.gamification.wisdomXP || 0) + xp;
+  if (typeof showToast === 'function') {
+    showToast('🏆 Nouveau badge : ' + title + ' (+' + xp + ' XP)\n' + message, 5000);
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+
+function checkWisdomBadge_Deload() {
+  var _accepted = db._deloadAcceptedCount || (db._deloadAccepted ? 1 : 0);
+  if (_accepted < 1) return;
+  if (!db.badges) db.badges = {};
+  if (db.badges['ecoute_corps']) return;
+  db.badges['ecoute_corps'] = { earned: true, earnedAt: Date.now() };
+  _awardWisdomXP(300, '🧠 Écoute du Corps',
+    'Tu as privilégié la longévité sur l\'ego. Mentalité Pro.');
+}
+
+function checkWisdomBadge_Recovery() {
+  var _readiness = (db.readiness || []).slice().sort(function(a, b) {
+    return (b.date || '').localeCompare(a.date || '');
+  }).slice(0, 3);
+  if (_readiness.length < 3) return;
+  var _highSRS = _readiness.every(function(r) { return (r.score || 0) > 80; });
+  if (!_highSRS) return;
+  if (!db.badges) db.badges = {};
+  if (db.badges['super_recovery']) return;
+  db.badges['super_recovery'] = { earned: true, earnedAt: Date.now() };
+  _awardWisdomXP(200, '😴 Récupération Pro',
+    '3 jours consécutifs avec une forme > 80%.');
+}
+
+function checkWisdomBadge_ACWR() {
+  var _acwr = typeof computeACWR === 'function' ? computeACWR() : null;
+  if (_acwr === null || _acwr === undefined) return;
+  if (!db._acwrPerfectWeeks) db._acwrPerfectWeeks = 0;
+  if (_acwr >= 0.8 && _acwr <= 1.3) {
+    var _lastWeek = db._acwrLastCheckWeek;
+    var _thisWeek = typeof getWeekKey === 'function' ? getWeekKey() : new Date().toISOString().slice(0, 10);
+    if (_lastWeek !== _thisWeek) {
+      db._acwrPerfectWeeks++;
+      db._acwrLastCheckWeek = _thisWeek;
+    }
+    if (db._acwrPerfectWeeks >= 4 && !(db.badges && db.badges['acwr_parfait'])) {
+      if (!db.badges) db.badges = {};
+      db.badges['acwr_parfait'] = { earned: true, earnedAt: Date.now() };
+      _awardWisdomXP(400, '⚖️ Équilibre Parfait',
+        '4 semaines avec une charge optimale. Ton SNC te remercie.');
+    }
+  } else {
+    db._acwrPerfectWeeks = 0;
+  }
+}
+
+function generateWisdomChallenges() {
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  var _challenges = [];
+  if (_level === 'avance') {
+    var _ratio = (db.bestPR && db.bestPR.squat && db.bestPR.bench)
+      ? db.bestPR.squat / db.bestPR.bench : null;
+    if (_ratio && _ratio < 1.20) {
+      _challenges.push({
+        id: 'ratio_correction', type: 'ratio',
+        label: 'Équilibre Squat/Bench',
+        description: 'Améliore ton ratio Squat/Bench de 2% (actuellement ' + (_ratio * 100).toFixed(0) + '%)',
+        target: Math.round(_ratio * 102) / 100,
+        xpReward: 500, current: _ratio
+      });
+    }
+  } else {
+    _challenges.push({
+      id: 'new_exercises', type: 'exploration',
+      label: 'Exploration',
+      description: 'Essaye 3 nouveaux exercices cette semaine',
+      target: 3, current: 0, xpReward: 150
+    });
+  }
+  return _challenges;
 }
 
 // ============================================================
@@ -26463,6 +26551,10 @@ function goFinishWorkout() {
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}
+
+  // Wisdom badges (Gemini v207)
+  try { checkWisdomBadge_Recovery(); } catch(e) {}
+  try { checkWisdomBadge_ACWR(); } catch(e) {}
 
   // Social: publish session activity
   try { publishSessionActivity(session); } catch(e) {}

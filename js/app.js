@@ -19218,6 +19218,51 @@ function getTalkTestInstruction(exoName) {
     + 'Ce poids devient ta baseline — l\'algo progressera depuis là.';
 }
 
+// ── PIVOT WEEK — Gemini v211 ───────────────────────────────────────
+// Toutes les 12 semaines (entre 2 macrocycles) : swap 100% des exos vers
+// variantes unilatérales / stabilité. Objectif : désensibiliser SNC +
+// soigner les micro-traumatismes tendineux. Fréquence forcée à 3j max.
+var PIVOT_WEEK_SWAPS = {
+  'High Bar Squat':          ['Goblet Squat', 'Bulgarian Split Squat'],
+  'Squat (Barre)':           ['Goblet Squat', 'Bulgarian Split Squat'],
+  'Low Bar Squat':           ['Goblet Squat', 'Bulgarian Split Squat'],
+  'Bench Press (Barre)':     ['Développé Haltères (Prise Neutre)', 'Push-ups Anneaux'],
+  'Bench Press':             ['Développé Haltères (Prise Neutre)', 'Push-ups Anneaux'],
+  'Soulevé de Terre (Barre)':['Trap Bar Deadlift', 'Kettlebell Swing Lourd'],
+  'Deadlift (Classique)':    ['Trap Bar Deadlift', 'Kettlebell Swing Lourd'],
+  'Soulevé de Terre':        ['Trap Bar Deadlift', 'Kettlebell Swing Lourd'],
+  'Curl Biceps':             ['Turkish Get-up'],
+  'Extension Triceps':       ['Face Pull'],
+  'Leg Extension':           ['Planche Dynamique (Hollow Body)']
+};
+
+function isPivotWeek() {
+  var _cycleWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock
+    && db.weeklyPlan.currentBlock.week) || 0;
+  return _cycleWeek > 0 && _cycleWeek % 12 === 0;
+}
+
+function applyPivotWeekSwaps(exercises) {
+  if (!Array.isArray(exercises) || !isPivotWeek()) return exercises;
+  return exercises.map(function(exo) {
+    if (!exo || !exo.name) return exo;
+    var _swaps = PIVOT_WEEK_SWAPS[exo.name];
+    if (!_swaps || !_swaps.length) return exo;
+    var _swapIdx = Math.floor(Date.now() / (7 * 86400000)) % _swaps.length;
+    return Object.assign({}, exo, {
+      name: _swaps[_swapIdx],
+      _pivotWeekSwap: true,
+      _originalName: exo.name,
+      note: '🔄 Pivot Week — diversification motrice'
+    });
+  });
+}
+
+// Pivot Week → fréquence forcée à 3j (hard cap Gemini)
+function getPivotWeekFrequency() {
+  return isPivotWeek() ? 3 : null;
+}
+
 // ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
 // Détection :
 //   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
@@ -21503,6 +21548,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       var _selProfile = buildProfileForSelection();
       exercises = selectExercisesForProfile(exercises, _selProfile);
     } catch(e) {}
+  }
+
+  // PIVOT WEEK : swap 100% exos toutes les 12 semaines (Gemini v211)
+  if (typeof applyPivotWeekSwaps === 'function') {
+    exercises = applyPivotWeekSwaps(exercises);
   }
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };

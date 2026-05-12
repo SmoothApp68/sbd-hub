@@ -18380,6 +18380,62 @@ function wpEstimateWeight(exoName) {
   return wpRound25(baseVal * est.ratio);
 }
 
+// v204 — isShoulderHeavy : remplacement auto si user.injuries contient 'epaule'
+var SHOULDER_HEAVY_EXOS = [
+  'Bench Press (Barre)', 'Développé Couché (Barre)', 'Développé couché (Barre)',
+  'Développé Militaire (Barre)', 'OHP', 'Overhead Press',
+  'Dips', 'Dips Lestés', 'Dips lestés',
+  'Larsen Press',
+  'Développé Incliné (Haltères)', 'Développé Incliné Haltères', 'Développé incliné (Haltères)'
+];
+
+var SHOULDER_HEAVY_ALTERNATIVES = {
+  'Bench Press (Barre)':          'Floor Press',
+  'Développé Couché (Barre)':     'Floor Press',
+  'Développé couché (Barre)':     'Floor Press',
+  'Développé Militaire (Barre)':  'Élévations Latérales Machine',
+  'OHP':                          'Élévations Latérales Machine',
+  'Overhead Press':               'Élévations Latérales Machine',
+  'Dips':                         'Extension Triceps Corde',
+  'Dips Lestés':                  'Extension Triceps Corde',
+  'Dips lestés':                  'Extension Triceps Corde',
+  'Larsen Press':                 'DB Press paumes face à face',
+  'Développé Incliné (Haltères)': 'Machine Convergente',
+  'Développé Incliné Haltères':   'Machine Convergente',
+  'Développé incliné (Haltères)': 'Machine Convergente'
+};
+
+function hasShoulderInjury() {
+  var injuries = (db.user && db.user.injuries) || [];
+  return injuries.some(function(inj) {
+    if (!inj) return false;
+    var zone = typeof inj === 'string' ? inj : (inj.zone || '');
+    var active = typeof inj === 'string' ? true : (inj.active !== false);
+    return active && /epaule|shoulder|épaule/i.test(zone);
+  });
+}
+
+function applyShoulderFilter(exercises) {
+  if (!hasShoulderInjury() || !Array.isArray(exercises)) return exercises;
+  return exercises.map(function(exo) {
+    if (!exo || !exo.name) return exo;
+    var matchKey = null;
+    for (var k = 0; k < SHOULDER_HEAVY_EXOS.length; k++) {
+      var s = SHOULDER_HEAVY_EXOS[k];
+      if (exo.name.toLowerCase().indexOf(s.toLowerCase()) !== -1) { matchKey = s; break; }
+    }
+    if (!matchKey) return exo;
+    var alt = SHOULDER_HEAVY_ALTERNATIVES[matchKey];
+    if (!alt) return exo;
+    return Object.assign({}, exo, {
+      name: alt,
+      _originalName: exo.name,
+      _injuryAdapted: true,
+      note: '🩹 Adapté blessure épaule (original : ' + exo.name + ')'
+    });
+  });
+}
+
 // Increment de Double Progression différencié par bodyPart/muscleGroup
 // v202 — Speed Deadlift : charge = 60% PR Deadlift, non soumise à la progression standard
 function getSpeedDeadliftWeight() {
@@ -20224,6 +20280,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
   }
 
+  exercises = applyShoulderFilter(exercises);
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 
@@ -20463,6 +20520,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   }
 
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
+  exercises = applyShoulderFilter(exercises);
   var note = dayCoachNote ||
     (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
      isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');

@@ -10179,10 +10179,10 @@ function renderProgramTab() {
 
   // ── FOOTER ──
   html += '<div style="display:flex;gap:8px;margin-top:8px;">';
-  html += '<button onclick="pbEditExisting()" style="flex:1;padding:11px;border-radius:10px;'
+  html += '<button onclick="openAdjustSession()" style="flex:1;padding:11px;border-radius:10px;'
     + 'font-size:13px;font-weight:500;border:0.5px solid var(--border);'
     + 'background:var(--surface);color:var(--sub);cursor:pointer;">'
-    + 'Modifier les exercices</button>';
+    + 'Ajuster ma séance</button>';
   html += '<button onclick="pbStartGuided()" style="flex:1;padding:11px;border-radius:10px;'
     + 'font-size:13px;font-weight:500;border:0.5px solid var(--border);'
     + 'background:var(--surface);color:var(--sub);cursor:pointer;">'
@@ -12068,6 +12068,233 @@ function beEditIntention() {
     if (typeof saveDB==='function') saveDB();
     renderProgramBuilderView(document.getElementById('programBuilderContent'));
   }
+}
+
+// ── AJUSTER MA SÉANCE (v203 — Gemini UX validé) ─────────────────────────
+var EXERCISE_ALTERNATIVES = {
+  'Presse à Cuisses':    ['Hack Squat', 'Belt Squat', 'Sissy Squat Machine'],
+  'Hack Squat':          ['Presse à Cuisses', 'Belt Squat', 'Goblet Squat'],
+  'Leg Extension':       ['Sissy Squat Machine', 'Presse Bulgare', 'Leg Press Unilat.'],
+  'Rowing Poulie':       ['Rowing Haltère', 'Rowing Barre', 'Tirage Horizontal Câble'],
+  'Développé Incliné':   ['Développé Haltères Plat', 'Machine Inclinée', 'Câble Crossover'],
+  'Dips':                ['Extension Triceps Corde', 'Pushdown Barre', 'Dips Machine'],
+  'Leg Curl':            ['Nordic Curl', 'Leg Curl Debout', 'Romanian DL Haltères'],
+  'Tirage Vertical':     ['Tractions', 'Pullover Machine', 'Tirage Poulie Haute'],
+  'Élévations Latérales':['Élévations Machine', 'Câble Latéral', 'Arnold Press'],
+  'Face Pull':           ['Oiseau Poulie', 'Élévation Arrière Machine', 'Band Pull-Apart'],
+  'Extension Triceps':   ['Dips Machine', 'Pushdown Corde', 'Overhead Triceps'],
+  'Curl Biceps':         ['Curl Marteau', 'Curl Machine', 'Curl Câble'],
+  'Mollets Machine':     ['Mollets Presse', 'Mollets Debout', 'Mollets Assis']
+};
+
+function openAdjustSession() {
+  var days = (db.weeklyPlan && db.weeklyPlan.days || [])
+    .filter(function(d) { return d.exercises && d.exercises.length > 0; });
+  if (!days.length) { showToast('Aucun programme à ajuster.'); return; }
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'adjustSessionOverlay';
+  overlay.innerHTML = _renderAdjustSessionHTML(days, 0);
+  document.body.appendChild(overlay);
+}
+
+function _renderAdjustSessionHTML(days, activeIdx) {
+  var h = '<div class="modal-box" style="max-width:420px;max-height:85vh;'
+    + 'overflow-y:auto;text-align:left;padding:16px;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">'
+    + '✏️ Ajuster ma séance</div>';
+  // Tabs jours
+  h += '<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px;">';
+  days.forEach(function(d, i) {
+    var active = i === activeIdx;
+    var shortDay = (d.day || '').substring(0, 3).toUpperCase();
+    h += '<button onclick="_adjustSwitchDay(' + i + ')" '
+      + 'style="flex-shrink:0;padding:6px 12px;border-radius:8px;font-size:11px;'
+      + 'font-weight:700;border:1.5px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+      + 'background:' + (active ? 'rgba(10,132,255,0.12)' : 'var(--surface)') + ';'
+      + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';cursor:pointer;">'
+      + escapeHtml(shortDay) + '</button>';
+  });
+  h += '</div>';
+  // Exercices du jour actif
+  var day = days[activeIdx];
+  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">'
+    + escapeHtml((day.day || '') + ' — ' + (day.title || '')) + '</div>';
+  (day.exercises || []).forEach(function(exo) {
+    var locked = exo.isPrimary || exo.isCorrectivePriority;
+    var lockReason = exo.isPrimary ? 'Principal' : exo.isCorrectivePriority ? 'Correctif' : '';
+    var firstWork = (exo.sets || []).find(function(s) { return !s.isWarmup; });
+    var setCount = (exo.sets || []).filter(function(s) { return !s.isWarmup; }).length;
+    var setLine = firstWork ? (setCount + '×' + (firstWork.reps || '') + ' @ ' + (firstWork.weight || '') + 'kg') : '';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;'
+      + 'padding:10px 0;border-bottom:0.5px solid var(--border);">';
+    h += '<div><div style="font-size:13px;font-weight:600;">' + escapeHtml(exo.name || '') + '</div>'
+      + '<div style="font-size:11px;color:var(--sub);">' + escapeHtml(setLine) + '</div></div>';
+    var safeName = (exo.name || '').replace(/'/g, "\\'");
+    var safeDay = (day.day || '').replace(/'/g, "\\'");
+    if (locked) {
+      h += '<button onclick="_adjustPrimaryWarning(\'' + safeName + '\',\'' + safeDay + '\')" '
+        + 'style="font-size:10px;color:var(--sub);background:var(--surface);'
+        + 'padding:4px 8px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;">'
+        + '🔒 ' + escapeHtml(lockReason) + '</button>';
+    } else {
+      h += '<button onclick="_adjustShowAlternatives(\'' + safeName + '\',\'' + safeDay + '\')" '
+        + 'style="padding:6px 12px;border-radius:8px;background:var(--surface);'
+        + 'border:0.5px solid var(--accent);color:var(--accent);font-size:11px;'
+        + 'font-weight:600;cursor:pointer;">✏️ Changer</button>';
+    }
+    h += '</div>';
+  });
+  h += '<button onclick="document.getElementById(\'adjustSessionOverlay\').remove()" '
+    + 'style="width:100%;margin-top:14px;padding:12px;border-radius:10px;'
+    + 'background:none;border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
+    + 'Fermer</button></div>';
+  return h;
+}
+
+function _adjustSwitchDay(idx) {
+  var days = (db.weeklyPlan && db.weeklyPlan.days || [])
+    .filter(function(d) { return d.exercises && d.exercises.length > 0; });
+  var overlay = document.getElementById('adjustSessionOverlay');
+  if (overlay) overlay.innerHTML = _renderAdjustSessionHTML(days, idx);
+}
+
+function _adjustShowAlternatives(exoName, dayName) {
+  var alts = EXERCISE_ALTERNATIVES[exoName] || [];
+  if (!alts.length) { showToast('Pas d\'alternative disponible pour ' + exoName); return; }
+  var safeOld = exoName.replace(/'/g, "\\'");
+  var safeDay = dayName.replace(/'/g, "\\'");
+  var h = '<div class="modal-box" style="max-width:360px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">Remplacer</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;">' + escapeHtml(exoName) + '</div>';
+  alts.forEach(function(alt) {
+    var safeAlt = alt.replace(/'/g, "\\'");
+    h += '<button onclick="_adjustApplyChange(\'' + safeOld + '\',\'' + safeAlt + '\',\'' + safeDay + '\')" '
+      + 'style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;'
+      + 'background:var(--surface);border:0.5px solid var(--border);'
+      + 'text-align:left;font-size:13px;font-weight:600;cursor:pointer;">'
+      + escapeHtml(alt) + '</button>';
+  });
+  h += '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;margin-top:4px;">'
+    + 'Annuler</button></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _adjustApplyChange(oldExo, newExo, dayName) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  var safeOld = oldExo.replace(/'/g, "\\'");
+  var safeNew = newExo.replace(/'/g, "\\'");
+  var safeDay = dayName.replace(/'/g, "\\'");
+  var h = '<div class="modal-box" style="max-width:320px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">' + escapeHtml(newExo) + '</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:14px;">Appliquer ce changement pour...</div>'
+    + '<button onclick="_adjustConfirm(\'' + safeOld + '\',\'' + safeNew + '\',\'' + safeDay + '\',false)" '
+    + 'style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
+    + '<div style="font-weight:600;font-size:13px;">Cette séance uniquement</div>'
+    + '<div style="font-size:11px;color:var(--sub);">Dépannage ponctuel</div></button>'
+    + '<button onclick="_adjustConfirm(\'' + safeOld + '\',\'' + safeNew + '\',\'' + safeDay + '\',true)" '
+    + 'style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;'
+    + 'background:var(--surface);border:1.5px solid var(--accent);text-align:left;cursor:pointer;">'
+    + '<div style="font-weight:600;font-size:13px;color:var(--accent);">Tout le cycle actuel</div>'
+    + '<div style="font-size:11px;color:var(--sub);">Mémoriser ma préférence</div></button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">Annuler</button></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _adjustConfirm(oldExo, newExo, dayName, permanent) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  var days = db.weeklyPlan && db.weeklyPlan.days;
+  if (!days) return;
+  var targetDays = permanent ? days : days.filter(function(d) { return d.day === dayName; });
+  targetDays.forEach(function(day) {
+    (day.exercises || []).forEach(function(exo, i) {
+      if (exo.name === oldExo) {
+        day.exercises[i] = Object.assign({}, exo, { name: newExo });
+      }
+    });
+  });
+  if (permanent) {
+    if (!db.exercisePreferences) db.exercisePreferences = {};
+    db.exercisePreferences[oldExo] = {
+      replacement: newExo,
+      changedAt: Date.now(),
+      count: ((db.exercisePreferences[oldExo] || {}).count || 0) + 1
+    };
+  }
+  saveDB();
+  showToast('✅ ' + newExo + ' appliqué' + (permanent ? ' pour tout le cycle' : ' aujourd\'hui'));
+  if (typeof renderProgramTab === 'function') renderProgramTab();
+}
+
+function _adjustPrimaryWarning(exoName, dayName) {
+  var weekNum = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+  var maxWeeks = 4;
+  try {
+    if (typeof BLOCK_DURATION !== 'undefined' && db.weeklyPlan && db.weeklyPlan.currentBlock) {
+      var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+      var level = (db.user && db.user.level) || 'intermediaire';
+      var phase = db.weeklyPlan.currentBlock.phase;
+      maxWeeks = (BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level] && BLOCK_DURATION[mode][level][phase]) || 4;
+    }
+  } catch(e) {}
+  var safeName = exoName.replace(/'/g, "\\'");
+  var safeDay = dayName.replace(/'/g, "\\'");
+  var h = '<div class="modal-box" style="max-width:340px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">⚠️ ' + escapeHtml(exoName) + '</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:14px;">'
+    + 'Cet exercice est la fondation de ta progression Force. '
+    + 'Le remplacer modifie tes objectifs de PR et ta périodisation.</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-bottom:8px;">Raison ?</div>'
+    + '<button onclick="_adjustPrimaryEquipment(\'' + safeName + '\',\'' + safeDay + '\')" '
+    + 'style="width:100%;padding:11px;margin-bottom:6px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
+    + '🏋️ Équipement indisponible<br>'
+    + '<span style="font-size:11px;color:var(--sub);">Variante proche, aujourd\'hui seulement</span></button>'
+    + '<button onclick="_adjustPrimaryInjury(\'' + safeName + '\')" '
+    + 'style="width:100%;padding:11px;margin-bottom:6px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--red);text-align:left;cursor:pointer;">'
+    + '🩹 Blessure / Douleur<br>'
+    + '<span style="font-size:11px;color:var(--sub);">Le Coach adapte ta structure</span></button>'
+    + '<button onclick="_adjustPrimaryWant(' + weekNum + ',' + maxWeeks + ')" '
+    + 'style="width:100%;padding:11px;margin-bottom:6px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
+    + '🔄 Envie de changement<br>'
+    + '<span style="font-size:11px;color:var(--sub);">Semaine ' + weekNum + '/' + maxWeeks + ' — le Coach répond</span></button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;margin-top:4px;">'
+    + 'Annuler</button></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _adjustPrimaryWant(weekNum, maxWeeks) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  showToast('💪 Semaine ' + weekNum + '/' + maxWeeks + '. Termine ce bloc pour valider tes gains avant de changer de pilier.', 5000);
+}
+function _adjustPrimaryEquipment(exoName, dayName) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  _adjustShowAlternatives(exoName, dayName);
+}
+function _adjustPrimaryInjury(exoName) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  showToast('🩹 Blessure notée. Le Coach adapte ta prochaine séance.', 4000);
+  if (!db.user.injuries) db.user.injuries = [];
+  if (db.user.injuries.indexOf(exoName) === -1) db.user.injuries.push(exoName);
+  saveDB();
 }
 
 function pbEditExisting() {

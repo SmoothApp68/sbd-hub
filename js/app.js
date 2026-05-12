@@ -8031,6 +8031,14 @@ function confirmPhaseTransition(nextPhase) {
   db.weeklyPlan.currentBlock.phase = nextPhase;
   db.weeklyPlan.currentBlock.blockStartDate = Date.now();
   db.weeklyPlan.currentBlock.forcedAt = Date.now();
+  // v212 — strip préfixe deload 🔄 de db.routine quand on quitte la phase deload
+  if (db.routine) {
+    Object.keys(db.routine).forEach(function(day) {
+      if (typeof db.routine[day] === 'string') {
+        db.routine[day] = db.routine[day].replace(/^🔄\s*/, '');
+      }
+    });
+  }
   db._phaseGateShownAt = null;
   saveDB();
   if (typeof showToast === 'function') showToast('🔄 Phase ' + nextPhase + ' activée lundi !');
@@ -12836,6 +12844,30 @@ function migrateInjuryNames() {
   saveDB();
 }
 
+// v212 — Synchronise db.routine avec programParams.selectedDays.
+// Bug observé (D'Jo/Léa) : routine peut diverger des selectedDays après
+// migrations multiples — un jour sélectionné apparaît en Repos ou un
+// jour exclu garde un titre d'entraînement. Force la cohérence.
+function syncRoutineWithSelectedDays() {
+  var _selected = (db.user && db.user.programParams && db.user.programParams.selectedDays) || [];
+  if (!_selected.length || !db.routine) return;
+  var _allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var _changed = false;
+  _allDays.forEach(function(day) {
+    var _isSelected = _selected.indexOf(day) >= 0;
+    var _label = db.routine[day];
+    var _isRest = typeof _label === 'string' && /repos|rest|😴/i.test(_label);
+    if (_isSelected && _label && _isRest) {
+      delete db.routine[day];
+      _changed = true;
+    } else if (!_isSelected && _label && !_isRest) {
+      db.routine[day] = '😴 Repos';
+      _changed = true;
+    }
+  });
+  if (_changed && typeof saveDB === 'function') saveDB();
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -12900,6 +12932,7 @@ function migrateInjuryNames() {
   migrateActivityData();
   migrateInjuryNames();
   migrateBadges();
+  if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
   setTimeout(function() {
@@ -15875,16 +15908,49 @@ function setCoachProfile(profile) {
   showToast(labels[profile] || '');
 }
 
+// v212 — Goals incompatibles : règles validées Gemini
+var INCOMPATIBLE_GOALS = {
+  'seche':       ['masse', 'recompo'],
+  'masse':       ['seche', 'maintien'],
+  'recompo':     ['seche'],
+  'maintien':    ['masse', 'force', 'competition'],
+  'reprise':     ['force', 'competition'],
+  'competition': ['reprise', 'maintien']
+};
+var GOAL_MAX_COUNT = 2;
+
+function isGoalCompatible(newGoal, existingGoals) {
+  var _incompatible = INCOMPATIBLE_GOALS[newGoal] || [];
+  return !existingGoals.some(function(g) {
+    if (g === newGoal) return false;
+    if (_incompatible.indexOf(g) !== -1) return true;
+    return (INCOMPATIBLE_GOALS[g] || []).indexOf(newGoal) !== -1;
+  });
+}
+
 function toggleSettingsGoal(goalId, btn) {
   if (!db.user.programParams) db.user.programParams = {};
-  const goals = db.user.programParams.goals || ['force'];
-  const idx = goals.indexOf(goalId);
-  if (idx >= 0) { if (goals.length > 1) goals.splice(idx, 1); else return; }
-  else goals.push(goalId);
+  var goals = db.user.programParams.goals || ['force'];
+  var idx = goals.indexOf(goalId);
+  if (idx >= 0) {
+    if (goals.length > 1) goals.splice(idx, 1);
+    else return;
+  } else {
+    // v212 — limite à 2 goals + check compatibilité
+    if (goals.length >= GOAL_MAX_COUNT) {
+      if (typeof showToast === 'function') showToast('Maximum ' + GOAL_MAX_COUNT + ' objectifs simultanés');
+      return;
+    }
+    if (!isGoalCompatible(goalId, goals)) {
+      if (typeof showToast === 'function') showToast('Objectif incompatible avec ta sélection actuelle');
+      return;
+    }
+    goals.push(goalId);
+  }
   db.user.programParams.goals = goals;
   _debouncedSaveSettings();
   // Toggle just this button instead of re-rendering all groups
-  const active = goals.includes(goalId);
+  var active = goals.includes(goalId);
   btn.classList.toggle('active', active);
   btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
   btn.style.background = active ? 'rgba(10,132,255,0.15)' : 'var(--surface)';
@@ -20538,7 +20604,8 @@ function wpApplySupersets(exercises, pref) {
         exo.superset = true;
         exo.supersetWith = next.name;
         next.isSecondInSuperset = true;
-        next.restSeconds = 0;
+        // v212 — null (et non 0) pour que l'UI affiche "Enchaîner →" au lieu de "0s"
+        next.restSeconds = null;
         result.push(exo);
         result.push(next);
         i += 2;
@@ -21862,6 +21929,60 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
   exercises = applyShoulderFilter(exercises);
   exercises = applyKneeFilter(exercises);
+
+  // PIPELINE v212 — règles universelles aussi en mode musculation
+  // (avant v212, wpGenerateMuscuDay bypassait selectExercisesForProfile,
+  //  Pivot Week, Leg Overreach et applyAgeAdaptations).
+  try {
+    if (typeof applyAgeAdaptations === 'function') {
+      exercises = applyAgeAdaptations(exercises);
+    }
+    if (typeof getStressVolumeModifier === 'function') {
+      var _sMod = getStressVolumeModifier();
+      if (_sMod < 1.0) {
+        exercises = exercises.map(function(e) {
+          if (!e) return e;
+          return Object.assign({}, e, {
+            sets: Math.max(2, Math.round((e.sets || 3) * _sMod)),
+            _stressAdapted: true,
+            _volumeMod: _sMod
+          });
+        });
+      }
+    }
+    if (typeof selectExercisesForProfile === 'function'
+        && typeof buildProfileForSelection === 'function') {
+      var _profile = buildProfileForSelection();
+      exercises = selectExercisesForProfile(exercises, _profile);
+    }
+    if (typeof applyPivotWeekSwaps === 'function') {
+      exercises = applyPivotWeekSwaps(exercises);
+    }
+    if (typeof getLegOverreachModifiers === 'function') {
+      var _overreach = getLegOverreachModifiers();
+      if (_overreach) {
+        var _title = tpl.title || '';
+        var _isLower = /lower|squat|leg|jambe/i.test(_title);
+        var _isUpper = !_isLower && /upper|bench|push|pull/i.test(_title);
+        exercises = exercises.map(function(e) {
+          if (!e) return e;
+          var _mult = _isLower ? _overreach.legsVolumeMultiplier
+            : _isUpper ? _overreach.upperVolumeMultiplier : 1.0;
+          if (_mult === 1.0) return e;
+          return Object.assign({}, e, {
+            sets: Math.max(2, Math.round((e.sets || 3) * _mult)),
+            _overreachAdapted: true
+          });
+        });
+      }
+    }
+  } catch (e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpGenerateMuscuDay_pipeline', { tplKey: tplKey });
+    }
+  }
+
   var note = dayCoachNote ||
     (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
      isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');
@@ -22077,6 +22198,9 @@ function generateWeeklyPlan() {
       ? params.selectedDays
       : (_DEFAULT_DAYS_BY_FREQ[freq] || allDays.slice(0, freq));
 
+    // v212 — nettoyer toute incohérence routine ↔ selectedDays avant la génération
+    if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
+
     // v191 — Force routine alignment with the powerbuilding/powerlifting split
     // sequence so dayKey routing in the per-day loop matches the actual block
     // order. Previously a stale db.routine (e.g. from a previous program) would
@@ -22254,12 +22378,24 @@ function generateWeeklyPlan() {
       var splitMap;
       if (freq >= 6) {
         splitMap = { 'Lundi':'push_a','Mardi':'pull_a','Mercredi':'legs_a','Jeudi':'push_b','Vendredi':'pull_b','Samedi':'legs_b','Dimanche':null };
+      } else if (freq === 5) {
+        // v212 — 5 templates distincts (full_a en J5) pour éviter le doublon Upper A
+        splitMap = { 'Lundi':'upper_a','Mardi':'lower_a','Mercredi':null,'Jeudi':'upper_b','Vendredi':'lower_b','Samedi':'full_a','Dimanche':null };
       } else if (freq >= 4) {
         splitMap = { 'Lundi':'upper_a','Mardi':'lower_a','Mercredi':null,'Jeudi':'upper_b','Vendredi':'lower_b','Samedi':null,'Dimanche':null };
       } else {
         splitMap = { 'Lundi':'full_a','Mercredi':'full_b','Vendredi':'full_c','Mardi':null,'Jeudi':null,'Samedi':null,'Dimanche':null };
       }
       var tplKeys = Object.values(splitMap).filter(Boolean);
+      // v212 — safety : si moins de tpls distincts que de jours d'entraînement,
+      // compléter avec des full bodies pour éviter le recyclage du même template
+      var _fallbackTpls = ['full_a', 'full_b', 'full_c'];
+      while (tplKeys.length < selectedDays.length) {
+        var _candidate = _fallbackTpls.shift();
+        if (!_candidate) break;
+        if (tplKeys.indexOf(_candidate) === -1) tplKeys.push(_candidate);
+        else _fallbackTpls.push(_candidate);
+      }
       var tplIdx = 0;
       days = allDays.map(function(day) {
         if (selectedDays.indexOf(day) < 0) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
@@ -22417,7 +22553,11 @@ function generateWeeklyPlan() {
     days.forEach(function(d) { db.routine[d.day] = d.rest ? '😴 Repos Complet' : d.title; });
 
     saveDB();
+    // v212 — sync immédiat + retry via debounce pour garantir la persistance
+    // de weeklyPlan.days côté Supabase même si le sync immédiat échoue
+    // (offline, auth pas encore prête, conflit upsert).
     if (typeof syncToCloud === 'function') syncToCloud();
+    if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
     showToast(phase === 'deload' ? '🔄 Semaine deload — récupération !' : '✅ Programme calculé !');
     renderWeeklyPlanUI();
     if (typeof renderProgramBuilderView === 'function') {
@@ -22556,7 +22696,10 @@ function fmtRest(sec) {
 function renderWpExercise(exo) {
   const type = exo.type || 'weight';
   const sets = exo.sets || [];
-  const restHtml = exo.restSeconds ? '<div class="wpe-rest">⏸ Repos : ' + fmtRest(exo.restSeconds) + '</div>' : '';
+  // v212 — superset 2è exo : afficher "Enchaîner →" plutôt qu'aucun repos ou "0s"
+  const restHtml = exo.restSeconds
+    ? '<div class="wpe-rest">⏸ Repos : ' + fmtRest(exo.restSeconds) + '</div>'
+    : (exo.isSecondInSuperset ? '<div class="wpe-rest">⏩ Enchaîner →</div>' : '');
 
   // Muscle icon
   const ms = _ecMuscleStyle(exo.name);

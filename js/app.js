@@ -23011,6 +23011,67 @@ function toggleWarmupSet(exoIdx, wsIdx) {
   goRequestRender();
 }
 
+// ── Détection PR automatique — Brzycki ≤ 8 reps (v205) ─────────────────
+// Formule Gemini-validée. Limite fiabilité 8 reps.
+// Si e1RM > PR + 5% → confirmation modale. Sinon → mise à jour silencieuse.
+function calcBrzycki(weight, reps) {
+  if (reps <= 0 || reps > 8) return null;
+  if (reps === 1) return weight;
+  return weight / (1.0278 - 0.0278 * reps);
+}
+
+function detectNewPR(exoName, weight, reps) {
+  var liftKey = null;
+  if (/squat|high bar|low bar/i.test(exoName) && !/jump/i.test(exoName)) liftKey = 'squat';
+  else if (/bench|développé couché|larsen/i.test(exoName)) liftKey = 'bench';
+  else if (/(deadlift|soulevé de terre)/i.test(exoName) && !/roumain|rdl/i.test(exoName)) liftKey = 'deadlift';
+  if (!liftKey) return null;
+
+  var e1rm = calcBrzycki(weight, reps);
+  if (!e1rm) return null;
+
+  var currentPR = (db.bestPR && db.bestPR[liftKey]) || 0;
+  if (e1rm > currentPR * 1.05) {
+    return { liftKey: liftKey, e1rm: Math.round(e1rm * 10) / 10, currentPR: currentPR, weight: weight, reps: reps };
+  }
+  if (e1rm > currentPR) {
+    if (!db.bestPR) db.bestPR = {};
+    db.bestPR[liftKey] = Math.round(e1rm * 10) / 10;
+    saveDB();
+  }
+  return null;
+}
+
+function showPRConfirmation(prData) {
+  var liftLabels = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:320px;text-align:center;">'
+    + '<div style="font-size:32px;margin-bottom:8px;">🏆</div>'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">Nouveau record détecté !</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:16px;">'
+    + prData.weight + 'kg × ' + prData.reps + ' reps → e1RM estimé : '
+    + '<strong>' + prData.e1rm + 'kg</strong> au ' + (liftLabels[prData.liftKey] || prData.liftKey) + '</div>'
+    + '<button onclick="confirmNewPR(\'' + prData.liftKey + '\',' + prData.e1rm + ')" '
+    + 'style="width:100%;padding:12px;border-radius:10px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;cursor:pointer;margin-bottom:8px;">'
+    + 'Valider ' + prData.e1rm + 'kg comme nouveau PR 🏆</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
+    + 'Non, c\'est une erreur</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function confirmNewPR(liftKey, e1rm) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.bestPR) db.bestPR = {};
+  db.bestPR[liftKey] = e1rm;
+  saveDB();
+  showToast('🏆 Nouveau PR ' + liftKey + ' : ' + e1rm + 'kg enregistré !', 4000);
+}
+
 function goToggleSetComplete(exoIdx, setIdx) {
   var set = activeWorkout.exercises[exoIdx].sets[setIdx];
   set.completed = !set.completed;
@@ -23068,6 +23129,13 @@ function goToggleSetComplete(exoIdx, setIdx) {
           if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
           if (typeof showPRToast === 'function') showPRToast(exo.name, _e1rm);
         }
+      }
+    } catch(e) {}
+    // v205 — Détection PR SBD via Brzycki ≤ 8 reps (confirmation modale si > +5%)
+    try {
+      if (set.type !== 'warmup') {
+        var _prData = detectNewPR(exo.name, parseFloat(set.weight), parseInt(set.reps));
+        if (_prData) setTimeout(function() { showPRConfirmation(_prData); }, 500);
       }
     } catch(e) {}
     // RPE Dissonance — comparer RPE déclaré vs temps depuis la série précédente

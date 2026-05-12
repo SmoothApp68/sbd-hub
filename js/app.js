@@ -16785,6 +16785,24 @@ function renderCoachTodayHTML() {
     });
   }
 
+  // ── 1d. ALERTES COMPÉTITION (v206) ──
+  try {
+    var _compDate2 = db.user && db.user.programParams && db.user.programParams.compDate;
+    if (_compDate2 && coachProfile !== 'silent') {
+      var _cp2 = generateCompPeakingPlan(_compDate2);
+      if (_cp2) {
+        if (_cp2.readinessAlert) {
+          html += '<div class="coach-alert coach-alert--warning" style="margin-bottom:10px;">'
+            + _cp2.readinessAlert + '</div>';
+        }
+        if (_cp2.benchAdaptation && _cp2.benchAdaptation.note) {
+          html += '<div class="coach-alert coach-alert--info" style="margin-bottom:10px;">'
+            + '🩹 ' + _cp2.benchAdaptation.note + '</div>';
+        }
+      }
+    }
+  } catch(e) {}
+
   // ── 2. ALERTE DELOAD ──
   var deload = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : {needed:false};
   if (deload && deload.needed) {
@@ -19539,7 +19557,106 @@ var BLOCK_DURATION = {
   }
 };
 
+// ── Programme compétition 12 semaines (v206) ─────────────────────────────
+// Périodisation Gemini : Accumulation 4 → Intensification 4 → Peak 2 → Taper 1 → Comp Week 1.
+// Adaptation blessure épaule par phase. Barre de Sauvetage = 60% PR Bench.
+function generateCompPeakingPlan(compDate) {
+  if (!compDate) return null;
+  var _weeksOut = Math.round((new Date(compDate) - Date.now()) / (7 * 86400000));
+  if (_weeksOut <= 0) return null;
+
+  var _phases = [
+    { label: 'Récupération (Comp Week)', phase: 'deload',          weeks: 1 },
+    { label: 'Taper',                    phase: 'peak',            weeks: 1 },
+    { label: 'Peak',                     phase: 'peak',            weeks: 2 },
+    { label: 'Intensification',          phase: 'intensification', weeks: 4 },
+    { label: 'Accumulation',             phase: 'hypertrophie',    weeks: 4 }
+  ];
+
+  var _schedule = [];
+  var _cursor = new Date(compDate);
+  _phases.forEach(function(p) {
+    var _end = new Date(_cursor);
+    _cursor = new Date(_cursor);
+    _cursor.setDate(_cursor.getDate() - p.weeks * 7);
+    _schedule.unshift({
+      phase: p.phase, label: p.label, weeks: p.weeks,
+      startDate: _cursor.toISOString().split('T')[0],
+      endDate: _end.toISOString().split('T')[0]
+    });
+  });
+
+  var _today = new Date().toISOString().split('T')[0];
+  var _current = _schedule.find(function(s) {
+    return _today >= s.startDate && _today <= s.endDate;
+  });
+
+  // Adaptation blessure épaule par phase
+  var _shoulderBlessure = typeof hasShoulderInjury === 'function' && hasShoulderInjury();
+  var _benchAdaptation = null;
+  if (_shoulderBlessure && _current) {
+    if (_current.phase === 'hypertrophie') {
+      _benchAdaptation = { replace: true, with: 'Floor Press', maxRPE: 6,
+        note: 'Épaule : Bench supprimé en Accumulation. Floor Press léger uniquement.' };
+    } else if (_current.phase === 'intensification') {
+      var _painLevel = _getCurrentShoulderPain();
+      _benchAdaptation = _painLevel < 2
+        ? { replace: false, note: 'Épaule : Bench autorisé (douleur < 2/5). Prise serrée.' }
+        : { replace: true, with: 'Floor Press', maxRPE: 7,
+            note: 'Épaule : douleur ' + _painLevel + '/5. Bench maintenu en Floor Press.' };
+    } else if (_current.phase === 'peak') {
+      _benchAdaptation = { replace: false, minSets: 1, maxSets: 2,
+        note: 'Épaule : volume Bench minimal. 1-2 singles pour valider le total.' };
+    }
+  }
+
+  var _benchPR = (db.bestPR && db.bestPR.bench) || 0;
+  var _safetyBar = _benchPR > 0 ? Math.round(_benchPR * 0.60 / 2.5) * 2.5 : null;
+
+  var _daysToComp = Math.round((new Date(compDate) - Date.now()) / 86400000);
+  var _readinessAlert = null;
+  if (_daysToComp <= 14 && _daysToComp > 0) {
+    var _openingSquat = (db.bestPR && db.bestPR.squat)
+      ? Math.round(db.bestPR.squat * 0.88 / 2.5) * 2.5 : null;
+    if (_daysToComp <= 3) {
+      _readinessAlert = '⚡ J-' + _daysToComp + ' : Activation 50-60% uniquement. Squat + Dead. ZÉRO Bench.';
+    } else if (_safetyBar) {
+      _readinessAlert = '🎯 J-' + _daysToComp + ' : Valide tes ' + _safetyBar + ' kg au Bench pour rester dans la course au total.';
+    } else if (_openingSquat) {
+      _readinessAlert = '🎯 J-' + _daysToComp + ' : Vérifie que ton ouverture Squat (' + _openingSquat + ' kg) passe à RPE 6.';
+    }
+  }
+
+  return {
+    compDate: compDate, weeksOut: _weeksOut, schedule: _schedule,
+    currentPhase: _current ? _current.phase : null,
+    currentLabel: _current ? _current.label : null,
+    benchAdaptation: _benchAdaptation,
+    safetyBar: _safetyBar,
+    readinessAlert: _readinessAlert
+  };
+}
+
+function _getCurrentShoulderPain() {
+  var _inj = ((db.user && db.user.injuries) || []).find(function(i) {
+    return typeof i === 'object' && /epaule|shoulder/i.test(i.zone || '');
+  });
+  return _inj ? (_inj.level || 0) : 0;
+}
+
 function wpDetectPhase() {
+  // v206 — Programme compétition : prioritaire sur toutes les autres détections
+  var _compDate = db.user && db.user.programParams && db.user.programParams.compDate;
+  if (_compDate) {
+    var _cp = generateCompPeakingPlan(_compDate);
+    if (_cp && _cp.currentPhase) {
+      if (db.weeklyPlan && db.weeklyPlan.currentBlock) {
+        db.weeklyPlan.currentBlock.phase = _cp.currentPhase;
+        db.weeklyPlan.currentBlock._compLabel = _cp.currentLabel;
+      }
+      return _cp.currentPhase;
+    }
+  }
   // v193 — Bien-être : phase neutre, jamais de peak/force/deload
   if (db.user && db.user.trainingMode === 'bien_etre') return 'accumulation';
   // Priorité 1 : forçage manuel récent (< 7 jours)

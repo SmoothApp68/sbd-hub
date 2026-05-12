@@ -1697,7 +1697,72 @@ function obSaveStep6() {
 // Mapping zones → INJURY_EXCLUSIONS keys (used by generateProgram)
 var _OB_ZONE_TO_EXCL = { genou:'genoux', epaule:'epaules', dos:'dos', hanche:'hanches', poignet:'poignets', coude:null, nuque:'nuque' };
 
+// ── Consentement RGPD onboarding (v205) ─────────────────────────────────
+// Cases DÉCOCHÉES par défaut (RGPD France). Obligatoire avant génération.
+function renderConsentStep() {
+  return '<div style="padding:20px;">'
+    + '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">📋 Avant de commencer</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">'
+    + 'TrainHub est un outil de programmation sportive, '
+    + '<strong>pas un dispositif médical</strong>. '
+    + 'Consulte un professionnel de santé avant tout programme intensif.</div>'
+    + '<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;cursor:pointer;">'
+    + '<input type="checkbox" id="consent-effort" style="margin-top:2px;width:18px;height:18px;">'
+    + '<span style="font-size:13px;">Je confirme être apte à pratiquer une activité physique '
+    + 'intense et assumer les risques liés à l\'entraînement.</span></label>'
+    + '<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:20px;cursor:pointer;">'
+    + '<input type="checkbox" id="consent-data" style="margin-top:2px;width:18px;height:18px;">'
+    + '<span style="font-size:13px;">J\'accepte que mes données d\'entraînement soient traitées '
+    + 'conformément à la <a href="#" style="color:var(--accent);">Politique de Confidentialité</a>.</span></label>'
+    + '<button onclick="validateConsent()" '
+    + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">'
+    + 'Commencer →</button></div>';
+}
+
+function validateConsent() {
+  var effortOk = !!(document.getElementById('consent-effort') && document.getElementById('consent-effort').checked);
+  var dataOk   = !!(document.getElementById('consent-data')   && document.getElementById('consent-data').checked);
+  if (!effortOk || !dataOk) {
+    showToast('⚠️ Merci de cocher les deux cases pour continuer.', 3000);
+    return;
+  }
+  db.user.consentHealth = true;
+  db.user.consentHealthDate = new Date().toISOString();
+  db.user.medicalConsent = true;
+  db.user.medicalConsentDate = new Date().toISOString();
+  saveDB();
+  nextOnboardingStep();
+}
+
+// Ferme l'overlay consent et continue vers la génération du programme
+function nextOnboardingStep() {
+  var overlay = document.getElementById('ob-consent-overlay');
+  if (overlay) overlay.remove();
+  _obConsentShown = true;
+  _obGenerateProgramCore();
+}
+
+// Flag interne — évite de re-afficher le consent si déjà validé dans cette session
+var _obConsentShown = false;
+
 function obGenerateProgram() {
+  // Afficher le consentement si l'user n'a pas encore validé les deux cases (RGPD France)
+  if (!db.user.consentHealth || !db.user.medicalConsent) {
+    if (!_obConsentShown) {
+      var overlay = document.createElement('div');
+      overlay.id = 'ob-consent-overlay';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = '<div class="modal-box" style="max-width:380px;">'
+        + renderConsentStep() + '</div>';
+      document.body.appendChild(overlay);
+      return;
+    }
+  }
+  _obGenerateProgramCore();
+}
+
+function _obGenerateProgramCore() {
   gotoObStep('7');
   var logo   = document.getElementById('ob7-logo');
   var title  = document.getElementById('ob7-title');

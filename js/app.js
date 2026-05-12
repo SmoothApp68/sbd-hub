@@ -23101,6 +23101,23 @@ function goStartWorkout(withProgram) {
   _goDoStartWorkout(withProgram);
 }
 
+// ── INSTINCT MODE — universel (Gemini v208) ─────────────────────────
+// "Séance Plaisir" pour bien_etre/calisthenics, "Mode Instinct" sinon.
+// Aucune cible imposée, l'algo observe sans intervenir.
+function startInstinctSession(mode) {
+  var _mode = mode || (db.user && db.user.trainingMode) || 'powerbuilding';
+  var _isWellbeing = _mode === 'bien_etre' || _mode === 'calisthenics';
+  var _label = _isWellbeing ? 'Séance Plaisir 🌟' : 'Mode Instinct 🎲';
+  var _desc = _isWellbeing
+    ? 'Aucun log obligatoire. Aucune cible. Juste bouger pour se sentir bien.'
+    : 'Entraîne-toi au feeling. Aucun RPE imposé. L\'algo observe sans intervenir.';
+  db._lastInstinctSession = Date.now();
+  db._instinctMode = true;
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof goStartWorkout === 'function') goStartWorkout(false);
+  if (typeof showToast === 'function') showToast('🎯 ' + _label + ' — ' + _desc, 5000);
+}
+
 function _goDoStartWorkout(withProgram) {
   var todayDay = DAYS_FULL[new Date().getDay()];
   var routine = getRoutine();

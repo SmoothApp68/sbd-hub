@@ -18060,6 +18060,13 @@ function wpEstimateWeight(exoName) {
 }
 
 // Increment de Double Progression différencié par bodyPart/muscleGroup
+// v202 — Speed Deadlift : charge = 60% PR Deadlift, non soumise à la progression standard
+function getSpeedDeadliftWeight() {
+  var prDead = (db.bestPR && db.bestPR.deadlift) || 0;
+  if (prDead === 0) return 70;
+  return wpRound25(prDead * 0.60);
+}
+
 function getDPIncrement(exoName) {
   var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
   var mg   = meta ? (meta.muscleGroup || '') : '';
@@ -18084,73 +18091,86 @@ function getDPIncrement(exoName) {
   return mg && /quad|hams|glute/.test(mg) ? 5.0 : 2.0;
 }
 
+// v202 — No-RPE Double Progression :
+//   1A Main Lifts SBD  → wave loading +2.5kg / 2 strikes → deload local -10%
+//   1B Accessoires     → double progression classique (fourchette reps)
+//   1C Speed Deadlift  → intercept en entrée (60% PR, pas de progression)
 function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessionsRequired) {
-  sessionsRequired = sessionsRequired || 1;
+  // 1C — Speed Deadlift : charge indexée directement sur le PR
+  if (/speed.?dead/i.test(exoName)) {
+    var _sdw = getSpeedDeadliftWeight();
+    return { weight: _sdw, reps: 1, progressed: false, coachNote: '⚡ Speed DL ' + _sdw + 'kg (60% PR)' };
+  }
+
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
   if (!realName) return null;
-  var successCount = 0;
-  var lastWeightSeen = 0;
-  for (var i = 0; i < Math.min(logs.length, 15); i++) {
-    var log = logs[i];
-    var exo = (log.exercises || []).find(function(e) {
+
+  // Lire la session la plus récente pour cet exercice
+  var lastWeight = 0, completedSets = [];
+  for (var _si = 0; _si < Math.min(logs.length, 15); _si++) {
+    var _slog = logs[_si];
+    var _sexo = (_slog.exercises || []).find(function(e) {
       return wpNormalizeName(e.name) === wpNormalizeName(realName);
     });
-    if (!exo) continue;
-    var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+    if (!_sexo) continue;
+    var _swork = (_sexo.allSets || _sexo.series || []).filter(function(s) {
       var isWarm = s.isWarmup === true || s.setType === 'warmup';
       return !isWarm && parseFloat(s.weight) > 0;
     });
-    if (!workSets.length) continue;
-    var lastSet    = workSets[workSets.length - 1];
-    var lastWeight = parseFloat(lastSet.weight) || 0;
-    lastWeightSeen = lastWeight;
-    var lastRpe    = parseFloat(lastSet.rpe);
-    if (isNaN(lastRpe)) lastRpe = null;
-    var completedSets = workSets.filter(function(s) { return parseInt(s.reps) > 0; });
-    if (!completedSets.length) {
-      return { weight: lastWeight, reps: targetRepMax, progressed: false };
+    if (!_swork.length) continue;
+    lastWeight = parseFloat(_swork[_swork.length - 1].weight) || 0;
+    completedSets = _swork.filter(function(s) { return parseInt(s.reps) > 0; });
+    break;
+  }
+
+  if (lastWeight === 0) {
+    var estimated = wpEstimateWeight(exoName, null);
+    if (estimated) return { weight: estimated, reps: targetRepMin, progressed: false, isEstimate: true };
+    return null;
+  }
+  if (!completedSets.length) return { weight: lastWeight, reps: targetRepMax, progressed: false };
+
+  var allSetsComplete = completedSets.every(function(s) { return parseInt(s.reps) >= targetRepMax; });
+
+  // 1A — Main Lifts SBD : Wave Loading
+  var _isMainLift = /squat|bench|deadlift|soulevé|développé couché/i.test(exoName);
+  if (_isMainLift) {
+    var _strikes = (db.user && db.user.lpStrikes && db.user.lpStrikes[realName]) || { count: 0 };
+
+    // 2 strikes consécutifs → deload local -10%, reset strikes
+    if (_strikes.count >= 2) {
+      var _deloadW = wpRound25(lastWeight * 0.90);
+      if (db.user && db.user.lpStrikes) db.user.lpStrikes[realName] = { count: 0 };
+      return { weight: _deloadW, reps: targetRepMin, progressed: false, localDeload: true,
+        coachNote: '📉 Deload local ' + realName + ' (-10%) — 2 séances non validées consécutives.' };
     }
-    // Bug 3 fix : strict — toutes les séries DOIVENT atteindre targetRepMax
-    var allSetsComplete = completedSets.length > 0 && completedSets.every(function(s) {
-      return parseInt(s.reps) >= targetRepMax;
-    });
-    var almostComplete = !allSetsComplete && completedSets.every(function(s) {
-      return parseInt(s.reps) >= targetRepMax - 1;
-    });
-    // Bug 1 fix : RPE null ne bloque pas la progression
-    var rpeValid = (lastRpe === null || lastRpe === undefined || lastRpe <= 8);
-    if (allSetsComplete && rpeValid) {
-      successCount++;
-      if (successCount >= sessionsRequired) {
-        // Bug 2 fix : incrément différencié par muscle/mécanique
-        var _dpIncrement = getDPIncrement(exoName);
-        if (_dpIncrement === 0) {
-          return { weight: lastWeight, reps: Math.min(targetRepMin + 1, targetRepMax), progressed: true };
-        }
-        return { weight: wpRound25(lastWeight + _dpIncrement), reps: targetRepMin, progressed: true };
-      }
-      continue;
+    // Toutes les séries validées → +2.5kg, reset strikes (RPE optionnel)
+    if (allSetsComplete) {
+      if (db.user && db.user.lpStrikes) db.user.lpStrikes[realName] = { count: 0 };
+      return { weight: wpRound25(lastWeight + 2.5), reps: targetRepMin, progressed: true,
+        coachNote: '✅ +2.5kg sur ' + realName };
     }
-    if (almostComplete) {
-      return {
-        weight: lastWeight,
-        reps: targetRepMax,
-        progressed: false,
-        almostComplete: true,
-        coachNote: '⏳ Encore une séance pour valider les ' + targetRepMax + ' reps sur chaque série avant de monter.'
-      };
-    }
+    // Échec partiel → maintenir la charge (strikes incrémentés par goCheckAutoRegulation)
     return { weight: lastWeight, reps: targetRepMax, progressed: false };
   }
-  if (lastWeightSeen > 0) {
-    return { weight: lastWeightSeen, reps: targetRepMax, progressed: false };
+
+  // 1B — Accessoires : Double Progression classique (fourchette reps)
+  if (allSetsComplete) {
+    var _dpIncrement = getDPIncrement(exoName);
+    if (_dpIncrement === 0) {
+      return { weight: lastWeight, reps: Math.min(targetRepMin + 2, targetRepMax), progressed: true };
+    }
+    return { weight: wpRound25(lastWeight + _dpIncrement), reps: targetRepMin, progressed: true,
+      coachNote: '✅ +' + _dpIncrement + 'kg sur ' + exoName + ' — fourchette complétée' };
   }
-  var estimated = wpEstimateWeight(exoName, null);
-  if (estimated) {
-    return { weight: estimated, reps: targetRepMin, progressed: false, isEstimate: true };
+  // Pas encore au max → viser 1 rep de plus
+  var _curMax = Math.max.apply(null, completedSets.map(function(s) { return parseInt(s.reps) || 0; }));
+  if (_curMax < targetRepMax) {
+    return { weight: lastWeight, reps: Math.min(_curMax + 1, targetRepMax), progressed: false,
+      coachNote: 'Cible : ' + (_curMax + 1) + ' reps @ ' + lastWeight + 'kg' };
   }
-  return null;
+  return { weight: lastWeight, reps: targetRepMax, progressed: false };
 }
 
 // ============================================================

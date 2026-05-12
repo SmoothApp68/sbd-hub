@@ -16139,6 +16139,46 @@ function getActivityRecommendation(activityType, targetDay) {
   return { level: 'ok', emoji: '✅', reason: 'Praticable', detail: 'Adapte l\'intensité selon ta forme' };
 }
 
+// ── Alerte blessure persistante (v205) ───────────────────────────────────
+// Déclenchée si blessure level ≥ 2 et active depuis ≥ 14 jours.
+// Propose "Adapter mon programme" (rehabMode) ou "J'ai vu un médecin".
+function checkInjuryPersistence() {
+  var injuries = (db.user && db.user.injuries) || [];
+  var alerts = injuries.filter(function(inj) {
+    if (typeof inj !== 'object' || !inj || !inj.active) return false;
+    if ((inj.level || 0) < 2) return false;
+    if (inj.rehabMode || inj.medicallyCleared) return false;
+    if (!inj.since) return false;
+    var daysSince = Math.round((Date.now() - new Date(inj.since).getTime()) / 86400000);
+    return daysSince >= 14;
+  });
+  return alerts.length > 0 ? alerts : null;
+}
+
+function activateRehabMode(zone) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.user || !db.user.injuries) return;
+  db.user.injuries.forEach(function(inj) {
+    if (typeof inj === 'object' && inj.zone === zone) inj.rehabMode = true;
+  });
+  saveDB();
+  showToast('🩹 Mode Rééducation activé — programme adapté', 4000);
+  if (typeof renderProgramTab === 'function') renderProgramTab();
+}
+
+function acknowledgeInjury(zone) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.user || !db.user.injuries) return;
+  db.user.injuries.forEach(function(inj) {
+    if (typeof inj === 'object' && inj.zone === zone) {
+      inj.medicallyCleared = true;
+      inj.clearedAt = Date.now();
+    }
+  });
+  saveDB();
+  showToast('✅ Validation médicale enregistrée', 3000);
+}
+
 // v204 — Détection churn "Plateau de Saisie" : 3 séances avec volumes
 // quasi-identiques (variation < 2%) → user en pilote automatique.
 function detectSaisiePlateau() {
@@ -16577,6 +16617,31 @@ function renderCoachTodayHTML() {
       });
       html += '</div>';
     }
+  }
+
+  // ── 1c. ALERTE BLESSURE PERSISTANTE (v205) ──
+  var _injuryAlerts = checkInjuryPersistence();
+  if (_injuryAlerts && coachProfile !== 'silent') {
+    _injuryAlerts.forEach(function(inj) {
+      var _zone = inj.zone || 'Blessure';
+      html += '<div style="background:rgba(255,69,58,0.10);border:1px solid var(--red);'
+        + 'border-radius:12px;padding:14px;margin-bottom:12px;">'
+        + '<div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px;">'
+        + '⚠️ Alerte Récupération — ' + _zone + '</div>'
+        + '<div style="font-size:12px;color:var(--text);margin-bottom:10px;">'
+        + 'Ton ' + _zone + ' ne montre pas de signe d\'amélioration depuis 2 semaines. '
+        + 'Continuer risque de transformer une gêne en déchirure.</div>'
+        + '<div style="display:flex;gap:8px;">'
+        + '<button onclick="activateRehabMode(\'' + _zone + '\')" '
+        + 'style="flex:1;padding:10px;border-radius:8px;background:var(--red);'
+        + 'border:none;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">'
+        + 'Adapter mon programme</button>'
+        + '<button onclick="acknowledgeInjury(\'' + _zone + '\')" '
+        + 'style="flex:1;padding:10px;border-radius:8px;background:var(--surface);'
+        + 'border:0.5px solid var(--border);color:var(--sub);font-size:11px;cursor:pointer;">'
+        + 'J\'ai vu un médecin</button>'
+        + '</div></div>';
+    });
   }
 
   // ── 2. ALERTE DELOAD ──

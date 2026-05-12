@@ -18444,27 +18444,36 @@ function getSpeedDeadliftWeight() {
   return wpRound25(prDead * 0.60);
 }
 
-function getDPIncrement(exoName) {
+// v204 — incréments proportionnels (~2% du poids actuel) avec planchers
+// pratiques. Micro-loading pour profils légers (Léa, débutants), planchers
+// préservés pour les composés lourds.
+function getDPIncrement(exoName, currentWeight) {
   var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
   var mg   = meta ? (meta.muscleGroup || '') : '';
   var mech = meta ? (meta.mechanic || '') : '';
 
-  // Lower body composés et machines lourdes : +5kg
-  if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) return 5.0;
-
-  // Isolation lower (Leg Extension, Leg Curl) : +2.5kg
-  if (/quad|hams/.test(mg) && /isolation/.test(mech)) return 2.5;
-
-  // Upper composés (Rowing, Développé haltères) : +2.5kg
-  if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) return 2.5;
-
-  // Isolation upper légère (Curl, Extension triceps, Élévations) : +1.0kg
-  if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) return 1.0;
-
-  // Abdos et gainage : pas d'incrément charge (on augmente les reps)
   if (/core|Abdos|Lombaires/.test(mg)) return 0;
 
-  // Défaut upper : +2kg, lower : +5kg
+  if (currentWeight && currentWeight > 0) {
+    var pct2 = currentWeight * 0.02;
+    if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) {
+      return Math.max(5.0, wpRound25(pct2));
+    }
+    if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) {
+      return Math.max(2.5, wpRound25(pct2));
+    }
+    if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) {
+      return Math.max(1.0, wpRound25(pct2));
+    }
+    if (/quad|hams/.test(mg) && /isolation/.test(mech)) {
+      return Math.max(2.5, wpRound25(pct2));
+    }
+  }
+
+  if (/quad|hams|glute|calves/.test(mg) && /compound/.test(mech)) return 5.0;
+  if (/quad|hams/.test(mg) && /isolation/.test(mech)) return 2.5;
+  if (/back|chest|shoulder/.test(mg) && /compound/.test(mech)) return 2.5;
+  if (/biceps|triceps|shoulder/.test(mg) && /isolation/.test(mech)) return 1.0;
   return mg && /quad|hams|glute/.test(mg) ? 5.0 : 2.0;
 }
 
@@ -18534,7 +18543,7 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 
   // 1B — Accessoires : Double Progression classique (fourchette reps)
   if (allSetsComplete) {
-    var _dpIncrement = getDPIncrement(exoName);
+    var _dpIncrement = getDPIncrement(exoName, lastWeight);
     if (_dpIncrement === 0) {
       return { weight: lastWeight, reps: Math.min(targetRepMin + 2, targetRepMax), progressed: true };
     }

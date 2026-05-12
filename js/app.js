@@ -20866,6 +20866,39 @@ function selectExercisesForProfile(exercises, profile) {
     }
   });
 
+  // RÈGLE 8 — Ratio Ischios/Quads (prévention LCA, Gemini v210)
+  // Leg Curl e1RM / Leg Extension e1RM < 0.75 → Nordic Curl correctif
+  var _legCurlPR = _stats.legCurlE1RM || 0;
+  var _legExtPR  = _stats.legExtE1RM  || 0;
+  if (_legCurlPR > 0 && _legExtPR > 0 && _legCurlPR / _legExtPR < 0.75) {
+    var _hasNordic = result.some(function(e) { return /nordic|leg curl/i.test(e.name || ''); });
+    if (!_hasNordic) {
+      result.push({
+        name: 'Leg Curl Assis', isCorrectivePriority: true,
+        evictionCategory: 'corrective',
+        sets: 3, reps: '12-15', rpe: 8, rest: 90, _addedByRule: 8,
+        note: 'Correctif ratio Ischios/Quads < 0.75 — prévention LCA'
+      });
+    }
+  }
+
+  // RÈGLE 9 — Face Pull / Bench (rotateurs externes, Gemini v210)
+  // 1 série Face Pull par tranche de 3 séries de Bench Press principales
+  var _benchSets = result.filter(function(e) {
+    return e && e.isPrimary && /bench|d[ée]velopp[ée] couch[ée]/i.test(e.name || '');
+  }).reduce(function(s, e) { return s + (e.sets || 3); }, 0);
+  if (_benchSets >= 3) {
+    var _hasFacePull = result.some(function(e) { return /face pull/i.test(e.name || ''); });
+    if (!_hasFacePull) {
+      result.push({
+        name: 'Face Pull', evictionCategory: 'secondary',
+        sets: Math.max(1, Math.floor(_benchSets / 3)),
+        reps: '15-20', rpe: 7, rest: 60, _addedByRule: 9,
+        note: 'Stabilité rotateurs — 1 série par 3 séries de Bench'
+      });
+    }
+  }
+
   // RÈGLE 6 — Blessure : Hard Cap RPE 7 / 75% 1RM sur exos affectés
   if (_injury) {
     var _zone = String(_injury).toLowerCase();
@@ -20918,6 +20951,12 @@ function buildProfileForSelection() {
     if (db.bestPR.squat && db.bestPR.bench)    _prStats.squatBenchRatio    = db.bestPR.squat / db.bestPR.bench;
     if (db.bestPR.deadlift && db.bestPR.squat) _prStats.deadliftSquatRatio = db.bestPR.deadlift / db.bestPR.squat;
   }
+  if (db.exercises) {
+    var _legCurl = db.exercises['Leg Curl Assis'] || db.exercises['Leg Curl'] || db.exercises['Leg Curl allongé'];
+    var _legExt  = db.exercises['Leg Extension'];
+    if (_legCurl && _legCurl.e1rm) _prStats.legCurlE1RM = _legCurl.e1rm;
+    if (_legExt  && _legExt.e1rm)  _prStats.legExtE1RM  = _legExt.e1rm;
+  }
   return {
     duration: (db.user && db.user.trainingDuration)
       || (db.user && db.user.programParams && db.user.programParams.duration)
@@ -20928,6 +20967,33 @@ function buildProfileForSelection() {
     age:     (db.user && db.user.age) || 30,
     stats:   _prStats
   };
+}
+
+// ── DATA-GAP BANNER — semaine 1 (Gemini v210) ─────────────────────────
+// Rappel UI bienveillant : l'algo apprend pendant la 1ère semaine.
+function showDataGapBanner() {
+  var _onboardingDate = db.user && db.user.onboardingDate;
+  if (!_onboardingDate) return '';
+  var _daysSince = Math.round((Date.now() - new Date(_onboardingDate).getTime()) / 86400000);
+  if (_daysSince > 7) return '';
+  var _html = '<div id="data-gap-banner" style="background:rgba(10,132,255,0.10);'
+    + 'border:0.5px solid var(--accent);border-radius:10px;padding:10px 14px;'
+    + 'margin:8px 0;font-size:12px;color:var(--sub);">'
+    + '🧠 <strong>Semaine 1</strong> — Phase d\'apprentissage de l\'algorithme. '
+    + 'Tes charges s\'affineront dès la semaine prochaine.'
+    + '</div>';
+  return _html;
+}
+
+// ── BEGINNER RAMP INCREMENT — semaines 1-2 (Gemini v210) ──────────────
+// Débutants pendant les 3 premières séances : incréments doublés pour
+// calibrer la vraie limite rapidement avant de passer en LP standard.
+function getBeginnerRampIncrement(exoName, sessionCount) {
+  if (typeof sessionCount !== 'number' || sessionCount >= 3) return null;
+  if (typeof getDPIncrement !== 'function') return null;
+  var _base = getDPIncrement(exoName, 0);
+  if (typeof _base !== 'number' || _base <= 0) return null;
+  return _base * 2;
 }
 
 function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, dupProfileKey) {

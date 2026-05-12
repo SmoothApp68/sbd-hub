@@ -16139,6 +16139,21 @@ function getActivityRecommendation(activityType, targetDay) {
   return { level: 'ok', emoji: '✅', reason: 'Praticable', detail: 'Adapte l\'intensité selon ta forme' };
 }
 
+// v204 — Détection churn "Plateau de Saisie" : 3 séances avec volumes
+// quasi-identiques (variation < 2%) → user en pilote automatique.
+function detectSaisiePlateau() {
+  var recent = (db.logs || [])
+    .filter(function(l) { return (l.volume || 0) > 0; })
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); })
+    .slice(0, 3);
+  if (recent.length < 3) return false;
+  var volumes = recent.map(function(l) { return l.volume || 0; });
+  var avg = volumes.reduce(function(s, v) { return s + v; }, 0) / volumes.length;
+  if (avg <= 0) return false;
+  var maxDev = Math.max.apply(null, volumes.map(function(v) { return Math.abs(v - avg) / avg; }));
+  return maxDev < 0.02;
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -16538,6 +16553,11 @@ function renderCoachTodayHTML() {
     if (_caTodayName === 'Mardi') {
       _coachAlerts.push({ type: 'green',
         text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
+    }
+    // v204 — Plateau de saisie : 3 séances identiques → pilote automatique
+    if (detectSaisiePlateau()) {
+      _coachAlerts.push({ type: 'warning',
+        text: '🔄 3 séances identiques détectées — tu sembles en pilote automatique. On change un exercice pour relancer la progression ?' });
     }
     // Wildcard — avancé + 12+ séances sur 30j → Mode Instinct
     if (_caLevel === 'avance') {

@@ -22255,7 +22255,8 @@ function _goDoStartWorkout(withProgram) {
             completed: false,
             rpe: ps.rpe || null,
             duration: 0,
-            distance: 0
+            distance: 0,
+            plannedWeight: ps.weight || 0  // v203 — référence pour warning > 15%
           });
         });
         if (planExo.restSeconds) restSec = planExo.restSeconds;
@@ -22865,6 +22866,22 @@ function goToggleSetComplete(exoIdx, setIdx) {
   if (set.completed) {
     var _completedAt = Date.now();
     set._completedAt = _completedAt;
+
+    // v203 — Warning orange si charge s'écarte de > 15% du plan (non-bloquant)
+    try {
+      var _plannedW = parseFloat(set.plannedWeight) || 0;
+      var _actualW = parseFloat(set.weight) || 0;
+      if (_plannedW > 0 && _actualW > 0 && set.type !== 'warmup') {
+        var _dev = Math.abs(_actualW - _plannedW) / _plannedW;
+        if (_dev > 0.15) {
+          var _sign = _actualW > _plannedW ? '+' : '-';
+          var _pct = Math.round(_dev * 100);
+          showToast('🟠 Charge ' + _sign + _pct + '% vs plan (' + _plannedW + 'kg). L\'algo recalcule ton 1RM estimé.', 4000);
+          if (!set.flags) set.flags = [];
+          if (set.flags.indexOf('high_variance') === -1) set.flags.push('high_variance');
+        }
+      }
+    } catch(e) {}
 
     // Enrichir le set avec les métadonnées Gemini (Q3)
     var _exoForMeta = activeWorkout.exercises[exoIdx];

@@ -1743,6 +1743,50 @@ function nextOnboardingStep() {
   _obGenerateProgramCore();
 }
 
+// v206 — Écran de complétion après génération programme (1ère fois uniquement)
+function showOnboardingComplete() {
+  var _todaySession = db.weeklyPlan && db.weeklyPlan.days
+    ? (db.weeklyPlan.days || []).find(function(d) {
+        return d.exercises && d.exercises.length > 0 && !d.isRest;
+      })
+    : null;
+  var _exoPreview = _todaySession
+    ? ((_todaySession.exercises || []).slice(0, 3).map(function(e) { return e.name; }).join(' · '))
+    : '';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:360px;text-align:center;">'
+    + '<div style="font-size:48px;margin-bottom:12px;">🎉</div>'
+    + '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">Ton programme est prêt !</div>'
+    + (_exoPreview
+      ? '<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'
+        + 'Première séance : <strong>' + (_todaySession.title || '').split(' · ')[0] + '</strong></div>'
+        + '<div style="font-size:11px;color:var(--sub);margin-bottom:20px;">' + _exoPreview + '</div>'
+      : '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">'
+        + 'Va dans l\'onglet Plan pour voir ta semaine.</div>')
+    + (!(db.bestPR && db.bestPR.squat)
+      ? '<div style="font-size:12px;color:var(--orange);background:rgba(255,159,10,0.10);'
+        + 'border-radius:8px;padding:10px;margin-bottom:14px;">'
+        + '💡 Renseigne tes PRs dans le Profil pour affiner les charges.</div>'
+      : '')
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();showTab(\'tab-seances\')" '
+    + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">'
+    + 'Voir mon programme →</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();goStartWorkout(true)" '
+    + 'style="width:100%;padding:12px;border-radius:12px;background:var(--surface);'
+    + 'border:0.5px solid var(--accent);color:var(--accent);font-weight:600;cursor:pointer;">'
+    + 'Lancer maintenant 💪</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+// v206 — Stub : ouvre la page Programme où l'user peut renseigner sa compDate
+function openCompDateSettings() {
+  if (typeof showTab === 'function') showTab('tab-seances');
+}
+
 // Flag interne — évite de re-afficher le consent si déjà validé dans cette session
 var _obConsentShown = false;
 
@@ -11437,6 +11481,8 @@ function pbGenerateProgram() {
   }
 
   _pbState = null;
+  // v206 — Première génération : flag onboarding + écran de complétion
+  var _isFirstProgram = !db.user.onboarded;
   saveDBNow();
   if (typeof generateWeeklyPlan === 'function') {
     try { generateWeeklyPlan(); } catch (e) { console.warn('generateWeeklyPlan failed:', e); }
@@ -11444,6 +11490,12 @@ function pbGenerateProgram() {
   _skipNextPlanSnapshot = false;
   showToast('Programme généré !');
   renderProgramBuilder();
+  if (_isFirstProgram) {
+    db.user.onboarded = true;
+    if (!db.user.onboardingDate) db.user.onboardingDate = new Date().toISOString();
+    saveDB();
+    setTimeout(showOnboardingComplete, 800);
+  }
 }
 
 // Detects when db.weeklyPlan.days[].title no longer matches db.routine — happens
@@ -16671,6 +16723,17 @@ function renderCoachTodayHTML() {
     if (_caTodayName === 'Mardi') {
       _coachAlerts.push({ type: 'green',
         text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
+    }
+    // v206 — Nudge mensuel compDate pour powerlifters
+    var _isLifter = db.user && db.user.trainingMode === 'powerlifting';
+    var _hasCompDate = db.user && db.user.programParams && db.user.programParams.compDate;
+    var _lastCompNudge = db._lastCompDateNudge || 0;
+    var _daysSinceNudge = Math.round((Date.now() - _lastCompNudge) / 86400000);
+    if (_isLifter && !_hasCompDate && _daysSinceNudge >= 30) {
+      _coachAlerts.push({ type: 'info',
+        text: '🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte ton pic de force automatiquement. <a onclick="openCompDateSettings()" style="color:var(--accent);cursor:pointer;">Ajouter une date →</a>' });
+      db._lastCompDateNudge = Date.now();
+      saveDB();
     }
     // v204 — Plateau de saisie : 3 séances identiques → pilote automatique
     if (detectSaisiePlateau()) {

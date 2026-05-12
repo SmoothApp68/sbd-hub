@@ -16192,6 +16192,52 @@ function renderCoachTodayHTML() {
     '<div class="coach-gauge-lbl">Volume</div></div>';
   html += '</div>';
 
+  // ── 1b. TOP 3 ALERTES COACH ADAPTATIVES (v201) ──
+  // Alertes contextuelles : jour de la semaine × ratio S/B × niveau × régularité
+  if (coachProfile !== 'silent') {
+    var _coachAlerts = [];
+    var _caTodayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][(new Date().getDay() + 6) % 7];
+    var _caPR        = db.bestPR || {};
+    var _caBench     = parseFloat(_caPR.bench)  || 0;
+    var _caSquat     = parseFloat(_caPR.squat)  || 0;
+    var _caRatioSB   = _caBench > 0 ? _caSquat / _caBench : 1.20;
+    var _caLevel     = (db.user && db.user.level) || 'intermediaire';
+
+    // Alerte 1 — Lundi/Samedi + ratio S/B < 1.20 → Leg Extension prioritaire
+    if ((_caTodayName === 'Lundi' || _caTodayName === 'Samedi') && _caRatioSB < 1.20) {
+      _coachAlerts.push({ type: 'warning',
+        text: '🎯 Leg Extension prioritaire — ratio S/B ' + _caRatioSB.toFixed(2) + ' < 1.20. Ne saute pas cet exercice correctif aujourd\'hui.' });
+    }
+    // Alerte 2 — Mercredi → Deadlift demain, protège le CNS
+    if (_caTodayName === 'Mercredi') {
+      _coachAlerts.push({ type: 'info',
+        text: '⚡ Demain : Deadlift. Garde tes réserves neuromusculaires — évite les efforts intenses ou séries lourdes aujourd\'hui.' });
+    }
+    // Alerte 3 — Mardi → Rowing fondation du Bench
+    if (_caTodayName === 'Mardi') {
+      _coachAlerts.push({ type: 'green',
+        text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
+    }
+    // Wildcard — avancé + 12+ séances sur 30j → Mode Instinct
+    if (_caLevel === 'avance') {
+      var _caLogs30 = (db.logs || []).filter(function(l) { return l.timestamp && l.timestamp >= Date.now() - 30 * 86400000; });
+      if (_caLogs30.length >= 12) {
+        _coachAlerts.push({ type: 'green',
+          text: '🔥 Mode Instinct disponible — ' + _caLogs30.length + ' séances sur 30j. Fais confiance à tes sensations sur les accessoires.' });
+      }
+    }
+
+    if (_coachAlerts.length > 0) {
+      html += '<div style="margin-bottom:12px;">';
+      _coachAlerts.slice(0, 3).forEach(function(alert) {
+        html += '<div class="coach-alert coach-alert--' + alert.type + '">'
+          + '<div style="font-size:12px;color:var(--text);line-height:1.5;">' + alert.text + '</div>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+  }
+
   // ── 2. ALERTE DELOAD ──
   var deload = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : {needed:false};
   if (deload && deload.needed) {

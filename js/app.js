@@ -21192,6 +21192,23 @@ function selectExercisesForProfile(exercises, profile) {
   });
   result = result.slice(0, _maxExos);
 
+  // v218 — Normaliser exo.sets en Array. Plusieurs règles ci-dessus poussent des
+  // exos correctifs avec sets:N (entier), ce qui crashait renderWpExercise (line
+  // ~22785 sets.filter), adaptSessionForDuration, et autres consommateurs qui
+  // supposent Array. Convertir en Array de N objets {reps, rpe, weight, isWarmup}.
+  result = result.map(function(e) {
+    if (!e || Array.isArray(e.sets) || typeof e.sets !== 'number') return e;
+    var _cnt = Math.max(1, Math.round(e.sets));
+    var _reps = e.reps || '10';
+    var _rpe = e.rpe || 8;
+    var _isWup = e.isWarmup === true;
+    var _arr = [];
+    for (var _i = 0; _i < _cnt; _i++) {
+      _arr.push({ reps: _reps, rpe: _rpe, weight: null, isWarmup: _isWup });
+    }
+    return Object.assign({}, e, { sets: _arr });
+  });
+
   return result;
 }
 
@@ -22761,7 +22778,11 @@ function fmtRest(sec) {
 
 function renderWpExercise(exo) {
   const type = exo.type || 'weight';
-  const sets = exo.sets || [];
+  // v218 — defensive guard : exo.sets peut être un entier (corrective injected by
+  // selectExercisesForProfile, prehab routine, etc.) — un .filter() crashait.
+  const sets = Array.isArray(exo.sets) ? exo.sets
+    : (Array.isArray(exo.allSets) ? exo.allSets
+       : (Array.isArray(exo.series) ? exo.series : []));
   // v212 — superset 2è exo : afficher "Enchaîner →" plutôt qu'aucun repos ou "0s"
   const restHtml = exo.restSeconds
     ? '<div class="wpe-rest">⏸ Repos : ' + fmtRest(exo.restSeconds) + '</div>'

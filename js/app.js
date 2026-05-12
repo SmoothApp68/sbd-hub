@@ -22817,6 +22817,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
       + 'onclick="goToggleSetComplete(' + exoIdx + ',' + setIdx + ')">'
       + (isDone ? '✓' : '') + '</button></td>';
     h += '</tr>';
+
+    // v203 — Slider RPE "Effort ressenti" pour les séries de travail non complétées
+    var _showSlider = !isDone && set.type !== 'warmup' && (tt === 'weight' || tt === 'reps');
+    if (_showSlider) {
+      var _cols = (tt === 'weight') ? 6 : 5;
+      h += '<tr class="go-rpe-slider-row"><td colspan="' + _cols + '" style="padding:0 8px 8px;">'
+        + _goRpeSliderHTML(setIdx, exoIdx, set.rpe) + '</td></tr>';
+    }
   });
 
   h += '</tbody></table></div>';
@@ -23401,6 +23409,53 @@ function goUpdateSetValue(exoIdx, setIdx, field, value) {
     : (parseFloat(value) || 0);
   activeWorkout.exercises[exoIdx].sets[setIdx][field] = v;
   goAutoSave();
+}
+
+// ── RPE Slider "Effort ressenti" (v203 — Gemini UX) ────────────────────────
+var _RPE_LEGENDS = {
+  1: '😴 Très facile',          2: '😴 Facile',
+  3: '🙂 Léger',                4: '🙂 Confortable',
+  5: '😐 Modéré',               6: '😐 Travail propre',
+  7: '💪 Difficile, 3 reps en réserve',
+  8: '💪 Difficile, 2 reps en réserve',
+  9: '😤 Presque à l\'échec, 1 rep en réserve',
+  10:'🔥 Échec total'
+};
+
+function _goRpeSliderHTML(setIdx, exoIdx, currentRpe) {
+  var _vl = (db.user && db.user.vocabLevel) || 2;
+  var _label = _vl >= 3 ? 'RPE' : 'Effort ressenti';
+  var val = parseFloat(currentRpe) > 0 ? parseFloat(currentRpe) : 7;
+  return '<div style="padding:6px 10px;background:rgba(10,132,255,0.04);border-radius:8px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+    + '<span style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;">' + _label + '</span>'
+    + '<span id="rpe-val-' + exoIdx + '-' + setIdx + '" '
+    + 'style="font-size:13px;font-weight:700;color:var(--accent);">' + val + '</span>'
+    + '</div>'
+    + '<input type="range" min="1" max="10" step="0.5" value="' + val + '" '
+    + 'style="width:100%;accent-color:var(--accent);" '
+    + 'oninput="goUpdateRpe(' + exoIdx + ',' + setIdx + ',this.value)" '
+    + 'aria-label="' + _label + '" />'
+    + '<div id="rpe-legend-' + exoIdx + '-' + setIdx + '" '
+    + 'style="font-size:10px;color:var(--sub);margin-top:2px;text-align:center;">'
+    + (_RPE_LEGENDS[Math.round(val)] || '') + '</div></div>';
+}
+
+function goUpdateRpe(exoIdx, setIdx, val) {
+  var v = parseFloat(val);
+  var valEl = document.getElementById('rpe-val-' + exoIdx + '-' + setIdx);
+  if (valEl) valEl.textContent = v;
+  var legendEl = document.getElementById('rpe-legend-' + exoIdx + '-' + setIdx);
+  if (legendEl) legendEl.textContent = _RPE_LEGENDS[Math.round(v)] || '';
+  if (activeWorkout && activeWorkout.exercises[exoIdx]) {
+    var set = activeWorkout.exercises[exoIdx].sets[setIdx];
+    if (set) {
+      set.rpe = v;
+      var numInput = document.querySelector('input.go-set-input[onchange*="rpe"][onchange*="' + exoIdx + ',' + setIdx + '"]');
+      if (numInput) numInput.value = v;
+      goAutoSave();
+    }
+  }
 }
 
 function goUpdateCounters() {

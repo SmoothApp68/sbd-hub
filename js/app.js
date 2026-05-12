@@ -19145,6 +19145,20 @@ function applyAgeAdaptations(exercises) {
   });
 }
 
+// ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
+// Détection :
+//   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
+//   - sinon : motivation ≤ 2 + sleep ≤ 3 → stress haut (proxy)
+// Retour : 0.80 (= -20% volume) en cas de stress, sinon 1.0
+function getStressVolumeModifier() {
+  var _wb = db.todayWellbeing;
+  if (!_wb) return 1.0;
+  var _stressHigh = (typeof _wb.stress === 'number' && _wb.stress >= 4)
+    || (typeof _wb.motivation === 'number' && _wb.motivation <= 2
+        && typeof _wb.sleep === 'number' && _wb.sleep <= 3);
+  return _stressHigh ? 0.80 : 1.0;
+}
+
 // Increment de Double Progression différencié par bodyPart/muscleGroup
 // v202 — Speed Deadlift : charge = 60% PR Deadlift, non soumise à la progression standard
 function getSpeedDeadliftWeight() {
@@ -21112,6 +21126,23 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   exercises = applyShoulderFilter(exercises);
+
+  // SENIOR : rest ×2 + RPE max 7 (Gemini v208)
+  exercises = applyAgeAdaptations(exercises);
+
+  // STRESS : -20% volume si motivation basse + sommeil bas (Gemini v208)
+  var _stressMod = typeof getStressVolumeModifier === 'function' ? getStressVolumeModifier() : 1.0;
+  if (_stressMod < 1.0) {
+    exercises = exercises.map(function(exo) {
+      if (!exo) return exo;
+      return Object.assign({}, exo, {
+        _stressAdapted: true,
+        _volumeMod: _stressMod,
+        coachNote: '🧘 Volume réduit (-' + Math.round((1 - _stressMod) * 100) + '%) — prends soin de toi aujourd\'hui.'
+      });
+    });
+  }
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 

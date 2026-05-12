@@ -3139,6 +3139,43 @@ const BADGE_THRESHOLDS = {
   }
 };
 
+// ── BADGES RELATIFS — multiplicateurs poids de corps (Gemini v207) ───
+var BW_BADGE_LABELS = ['Bronze', 'Argent', 'Or', 'Platine', 'Diamant', 'Élite', 'Légendaire'];
+
+function getBWBadgeThresholds(liftKey, bw, gender) {
+  var multipliers = {
+    bench:    [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+    squat:    [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25],
+    deadlift: [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5],
+    ohp:      [0.3, 0.4, 0.5, 0.6, 0.75, 0.9]
+  };
+  var mults = multipliers[liftKey] || multipliers.bench;
+  return mults.map(function(m) { return Math.round(bw * m / 2.5) * 2.5; });
+}
+
+function getLiftBadgeTier(liftKey, prValue) {
+  var bw = (db.user && db.user.bw) || 0;
+  var gender = (db.user && db.user.gender) || 'male';
+  var thresholds;
+  if (bw > 0) {
+    thresholds = getBWBadgeThresholds(liftKey, bw, gender);
+  } else {
+    thresholds = (BADGE_THRESHOLDS[gender] && BADGE_THRESHOLDS[gender][liftKey])
+      || [60, 80, 100, 120, 140, 160, 180];
+  }
+  var tier = -1;
+  for (var i = 0; i < thresholds.length; i++) {
+    if (prValue >= thresholds[i]) tier = i;
+    else break;
+  }
+  return {
+    tier: tier,
+    label: tier >= 0 ? BW_BADGE_LABELS[tier] : null,
+    next: thresholds[tier + 1] || null,
+    thresholds: thresholds
+  };
+}
+
 function getAllBadges() {
   var b = [];
   var stats = _computeBadgeStats();

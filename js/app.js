@@ -1299,6 +1299,7 @@ const EXO_DB = {
   bench:          { name:'Bench Press barre', sets:'4×5', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Développé haltères',mat:'halteres'},{name:'Développé incliné barre',mat:'salle'},{name:'Pompes lestées',mat:'maison'}] },
   bench_halt:     { name:'Développé haltères', sets:'3×10', mat:['halteres','salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Pompes',mat:'maison'},{name:'Développé incliné haltères',mat:'halteres'}] },
   larsen_press:   { name:'Larsen Press', sets:'3×10', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Développé haltères',mat:'halteres'}] },
+  close_grip_bench:{ name:'Développé couché prise serrée', sets:'4×5', mat:['salle'], muscle:'Pecs/Triceps', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Dips lestés',mat:'salle'}] },
   dips:           { name:'Dips lestés', sets:'3×8', mat:['salle','maison'], muscle:'Pecs/Triceps', icon:'🫁', alts:[{name:'Dips poids de corps',mat:'maison'},{name:'Pompes pieds surélevés',mat:'maison'}] },
   incline_bench:  { name:'Développé incliné barre', sets:'3×8', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Développé incliné haltères',mat:'halteres'},{name:'Pompes pieds surélevés',mat:'maison'}] },
   ecarte:         { name:'Écarté poulie basse', sets:'3×15', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Écarté haltères',mat:'halteres'},{name:'Pompes diamant',mat:'maison'}] },
@@ -2034,6 +2035,21 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     // Pull — gardé pour compatibilité splits 6j (ne plus router par défaut)
     pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
   };
+
+  // v201 — Phase-adaptive pbBlocks : exercices adaptés à la phase courante macrocycle
+  // Force/Intensification → Squat Pause + Close Grip Bench (technique spécifique SBD)
+  // Peak → Volume réduit, exercices haute intensité neuro uniquement
+  var _pbPhase = typeof wpDetectPhase === 'function' ? (wpDetectPhase() || 'hypertrophie') : 'hypertrophie';
+  if (_pbPhase === 'force' || _pbPhase === 'intensification') {
+    pbBlocks.sq_hyp = { label:'Squat — Force',
+      exos: filtSafe(filtLevel(['squat','squat_pause','leg_press','leg_ext','planche']), mat) };
+    pbBlocks.bench_hyp = { label:'Bench — Force',
+      exos: filtSafe(filtLevel(['bench','close_grip_bench','rowing_poulie','dips','face_pull']), mat) };
+  }
+  if (_pbPhase === 'peak') {
+    pbBlocks.sq_hyp = { label:'Squat — Intensification',
+      exos: filtSafe(filtLevel(['squat','squat_pause','leg_ext','planche']), mat) };
+  }
 
   // ── FATIGUE-BASED EXERCISE SELECTION (Gemini Next Big Feature) ───────────
   // ACWR > 1.3 → remplacer Squat barre (axial lourd) par Leg Press (axial léger)

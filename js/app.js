@@ -17370,119 +17370,172 @@ function renderCoachReports() {
   renderCoachHistory();
 }
 
-// ── Débrief post-séance enrichi ───────────────────────────
-// Sauvegarde un report 'debrief' avec stats + tips contextualisés (phase × RPE × PR).
+// ── Débrief post-séance v206 — Bottom Sheet (Expert / Débutant) ─────────
+// Format Gemini : 3 lignes Expert (tonnage + e1RM + SNC) OU Débutant
+// (record + streak + encouragement). Bottom Sheet iOS, auto-fermeture 15s.
+
+var _ENCOURAGE_MSGS = [
+  'Tes muscles te diront merci demain.',
+  'La régularité bat l\'intensité sur le long terme.',
+  'Chaque séance compte. Continue.',
+  'Tu es plus régulier que 80% des gens qui commencent.',
+  'Le progrès, c\'est la somme de petits efforts répétés.',
+  'Ton futur toi te remercie.',
+  'Un jour à la fois. Tu y es.',
+  'La discipline forge le caractère.',
+  'Ce que tu fais aujourd\'hui, tu le ressentiras dans 3 mois.',
+  'Pas besoin d\'être parfait, juste régulier.'
+];
+
 function saveAlgoDebrief(session) {
   if (!session) return;
 
-  // Détection des PR de la séance vs historique antérieur
-  var prs = [];
+  var _vocabLevel = (db.user && db.user.vocabLevel) || 2;
+  var _isExpert = _vocabLevel >= 3;
+
+  // 1. Tonnage vs séance similaire précédente
+  var _sessionVolume = session.volume || 0;
+  var _lastSimilar = (db.logs || [])
+    .filter(function(l) { return l.id !== session.id && l.title === session.title && (l.volume||0) > 0; })
+    .sort(function(a,b) { return (b.timestamp||0) - (a.timestamp||0); })[0];
+  var _prevVolume = _lastSimilar ? (_lastSimilar.volume || 0) : 0;
+  var _volumePct = _prevVolume > 0 ? Math.round((_sessionVolume - _prevVolume) / _prevVolume * 100) : null;
+
+  // 2. Meilleur e1RM de la séance
+  var _bestE1RM = null, _bestE1RMPrev = null, _bestE1RMName = null;
   try {
-    var olderLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
+    var _olderLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
     (session.exercises || []).forEach(function(exo) {
-      if (!(exo.maxRM > 0)) return;
-      var prevBest = 0;
-      olderLogs.forEach(function(ol) {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      var _prevBest = 0;
+      _olderLogs.forEach(function(ol) {
         (ol.exercises || []).forEach(function(oe) {
-          if (oe.name === exo.name && oe.maxRM > prevBest) prevBest = oe.maxRM;
+          if (oe.name === exo.name && oe.maxRM > _prevBest) _prevBest = oe.maxRM;
         });
       });
-      if (exo.maxRM > prevBest && prevBest > 0) {
-        prs.push({ name: exo.name, value: Math.round(exo.maxRM), prev: Math.round(prevBest) });
+      if (!_bestE1RM || exo.maxRM > _bestE1RM) {
+        _bestE1RM = Math.round(exo.maxRM);
+        _bestE1RMPrev = _prevBest > 0 ? Math.round(_prevBest) : null;
+        _bestE1RMName = exo.name;
       }
     });
   } catch(e) {}
 
-  // RPE moyen sur les sets de travail
-  var allRpes = [];
+  // 3. Streak séances (semaine en cours, lundi-dimanche)
+  var _streak = 0;
+  var _weekStart = new Date();
+  _weekStart.setDate(_weekStart.getDate() - _weekStart.getDay() + 1);
+  _weekStart.setHours(0, 0, 0, 0);
+  var _weekLogs = (db.logs || []).filter(function(l) {
+    return (l.timestamp || 0) >= _weekStart.getTime() && (l.volume || 0) > 0;
+  });
+  _streak = _weekLogs.length;
+
+  // 4. Alerte SNC (fatigueType=neural & confidence ≥ 0.75)
+  var _hasSNCAlert = false;
   (session.exercises || []).forEach(function(exo) {
-    (exo.allSets || exo.series || []).forEach(function(s) {
-      if (!s.isWarmup && s.setType !== 'warmup' && parseFloat(s.rpe) > 0) allRpes.push(parseFloat(s.rpe));
+    (exo.allSets || []).forEach(function(s) {
+      if (s.fatigueType === 'neural' && (s.fatigueConfidence || 0) >= 0.75) _hasSNCAlert = true;
     });
   });
-  var avgRpe = allRpes.length ? allRpes.reduce(function(s,r){ return s+r; },0) / allRpes.length : 0;
 
-  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
-  var isDeloadSession = phase === 'deload' || phase === 'recuperation';
-  var hasPR = prs.length > 0;
-
-  var tips = [];
-
-  // PRs
-  prs.forEach(function(p) {
-    tips.push('🏆 PR ' + p.name + ' : ' + p.value + 'kg (ancien ' + p.prev + 'kg)');
-  });
-
-  // Cas 1 — PR avec RPE moyen élevé
-  if (hasPR && avgRpe > 9) {
-    tips.push('⚡ PR validé, mais RPE moyen ' + avgRpe.toFixed(1) + ' — la marge technique est faible. Priorité à la propreté la semaine prochaine.');
-  }
-
-  // Cas 2 — Deload trop intense
-  if (isDeloadSession && avgRpe > 7 && !hasPR) {
-    tips.push('⚠️ RPE moyen ' + avgRpe.toFixed(1) + ' en ' + (phase === 'deload' ? 'deload' : 'récupération') + '. Tu voles de l\'énergie à ton prochain bloc — réduis les charges.');
-  }
-
-  // Cas 3 — PR en deload (ambivalent)
-  if (isDeloadSession && hasPR) {
-    tips.push('💪 Ta force explose même en récupération (PR !) — mais garde tes cartouches pour l\'intensification qui arrive.');
-  }
-
-  // Résumé fatigue par exercice (Gemini Q5)
-  var fatigueReport = [];
+  // 5. Record charge brute (débutant)
+  var _newMaxWeight = null, _newMaxExo = null;
   try {
     (session.exercises || []).forEach(function(exo) {
-      var neuralSets = (exo.allSets || []).filter(function(s) {
-        return s.fatigueType === 'neural' && s.fatigueConfidence >= 0.60;
-      });
-      var muscularSets = (exo.allSets || []).filter(function(s) {
-        return s.fatigueType === 'muscular' && s.fatigueConfidence >= 0.60;
-      });
-      if (neuralSets.length > 0 || muscularSets.length > 0) {
-        fatigueReport.push({
-          exo: exo.name,
-          neural: neuralSets.length,
-          muscular: muscularSets.length,
-          dominantType: neuralSets.length > muscularSets.length ? 'neural' : 'muscular'
+      var _sets = (exo.allSets || []).filter(function(s) { return !s.isWarmup && (s.weight || 0) > 0; });
+      var _maxW = _sets.length ? Math.max.apply(null, _sets.map(function(s) { return parseFloat(s.weight) || 0; })) : 0;
+      if (_maxW <= 0) return;
+      var _prevMax = 0;
+      (db.logs || []).filter(function(l) { return l.id !== session.id; }).forEach(function(ol) {
+        (ol.exercises || []).forEach(function(oe) {
+          if (oe.name === exo.name) {
+            (oe.allSets || []).forEach(function(s) { if ((s.weight || 0) > _prevMax) _prevMax = s.weight; });
+          }
         });
+      });
+      if (_maxW > _prevMax && _prevMax > 0) {
+        _newMaxWeight = _maxW;
+        _newMaxExo = exo.name;
       }
     });
-    if (fatigueReport.length > 0) {
-      session.fatigueReport = fatigueReport;
-      var _neuralCount = fatigueReport.reduce(function(s, r) { return s + r.neural; }, 0);
-      var _muscularCount = fatigueReport.reduce(function(s, r) { return s + r.muscular; }, 0);
-      if (_neuralCount > 0) {
-        tips.push('🧠 ' + _neuralCount + ' série(s) avec fatigue nerveuse détectée — récupération prioritaire.');
-      } else if (_muscularCount >= 3) {
-        tips.push('💪 ' + _muscularCount + ' séries avec fatigue musculaire — stimulus hypertrophique solide.');
-      }
-    }
   } catch(e) {}
 
-  if (!tips.length) return;
+  // Construire les lignes
+  var _lines = [];
+  if (_isExpert) {
+    if (_volumePct !== null) {
+      var _sign = _volumePct >= 0 ? '+' : '';
+      _lines.push('💪 ' + _sessionVolume.toLocaleString('fr-FR') + ' kg ('
+        + _sign + _volumePct + '% vs séance précédente)');
+    } else {
+      _lines.push('💪 Volume de référence établi : ' + _sessionVolume.toLocaleString('fr-FR') + ' kg');
+    }
+    if (_bestE1RM && _bestE1RMName) {
+      var _delta = _bestE1RMPrev ? ' (+' + (_bestE1RM - _bestE1RMPrev) + ' kg)' : '';
+      _lines.push('📊 Estimation Force : ' + _bestE1RM + ' kg au ' + _bestE1RMName + _delta);
+    }
+    _lines.push(_hasSNCAlert
+      ? '🟠 SNC : Récupération requise — priorise le sommeil ce soir'
+      : '🟢 SNC : Optimal');
+  } else {
+    if (_newMaxWeight && _newMaxExo) {
+      _lines.push('🏆 Nouveau record : ' + _newMaxWeight + ' kg au ' + _newMaxExo + ' !');
+    } else if (_sessionVolume > 0) {
+      _lines.push('✅ Séance complétée — beau travail !');
+    }
+    if (_streak >= 2) {
+      _lines.push('🔥 ' + _streak + 'ème séance cette semaine. Tu tiens le rythme !');
+    }
+    _lines.push('💬 ' + _ENCOURAGE_MSGS[Math.floor(Math.random() * _ENCOURAGE_MSGS.length)]);
+  }
 
-  var vol = session.volume || 0;
-  var volStr = vol >= 1000 ? (vol/1000).toFixed(1) + 't' : vol + 'kg';
-  var dur = session.duration ? Math.round(session.duration/60) + 'min' : '—';
+  var _next = _getNextSessionTitle();
+  if (_next) _lines.push('📅 Prochaine : ' + _next);
 
-  var h = '<div class="ai-section-title">🏋️ ' + (session.title || 'Séance') + '</div>';
-  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' +
-       'Volume ' + volStr + ' · Durée ' + dur +
-       (avgRpe > 0 ? ' · RPE ' + avgRpe.toFixed(1) : '') +
-       ' · Phase ' + phase + '</div>';
-  h += tips.map(function(t) { return '<div style="margin-bottom:6px;">' + t + '</div>'; }).join('');
-
-  if (!db.reports) db.reports = [];
-  db.reports.push({
-    id: generateId(),
-    type: 'debrief',
-    sessionId: session.id,
-    html: '<div class="ai-response-content">' + h + '</div>',
-    created_at: Date.now(),
-    expires_at: Date.now() + 14 * 86400000,
-    read: false
-  });
+  session.debrief = { lines: _lines, generatedAt: Date.now(), isExpert: _isExpert };
+  _showDebriefSheet(_lines);
   saveDBNow();
+}
+
+function _showDebriefSheet(lines) {
+  if (!lines || !lines.length) return;
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'align-items:flex-end;background:rgba(0,0,0,0.5);';
+  var h = '<div style="background:var(--bg-card);border-radius:20px 20px 0 0;'
+    + 'padding:12px 16px 32px;width:100%;max-width:480px;'
+    + 'border-top:1.5px solid var(--border-card);">'
+    + '<div style="width:36px;height:4px;background:var(--border);border-radius:2px;'
+    + 'margin:0 auto 16px;"></div>'
+    + '<div style="font-size:17px;font-weight:800;margin-bottom:14px;">Séance terminée 🎯</div>';
+  lines.forEach(function(line) {
+    h += '<div style="font-size:13px;line-height:1.5;padding:9px 0;'
+      + 'border-bottom:0.5px solid var(--border);">' + line + '</div>';
+  });
+  h += '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;margin-top:16px;padding:14px;border-radius:14px;'
+    + 'background:var(--accent);border:none;color:#fff;font-weight:700;'
+    + 'font-size:15px;cursor:pointer;">Continuer 👋</button></div>';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+  setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 15000);
+}
+
+function _getNextSessionTitle() {
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return null;
+  var _dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var _today = new Date().getDay();
+  for (var i = 1; i <= 7; i++) {
+    var _nextDayName = _dayNames[(_today + i) % 7];
+    var _nextPlan = (db.weeklyPlan.days || []).find(function(d) {
+      return d.day === _nextDayName && d.exercises && d.exercises.length > 0 && !d.isRest;
+    });
+    if (_nextPlan) {
+      return _nextDayName + ' — ' + (_nextPlan.title || '').split(' · ')[0];
+    }
+  }
+  return null;
 }
 
 

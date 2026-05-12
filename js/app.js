@@ -12836,6 +12836,30 @@ function migrateInjuryNames() {
   saveDB();
 }
 
+// v212 — Synchronise db.routine avec programParams.selectedDays.
+// Bug observé (D'Jo/Léa) : routine peut diverger des selectedDays après
+// migrations multiples — un jour sélectionné apparaît en Repos ou un
+// jour exclu garde un titre d'entraînement. Force la cohérence.
+function syncRoutineWithSelectedDays() {
+  var _selected = (db.user && db.user.programParams && db.user.programParams.selectedDays) || [];
+  if (!_selected.length || !db.routine) return;
+  var _allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var _changed = false;
+  _allDays.forEach(function(day) {
+    var _isSelected = _selected.indexOf(day) >= 0;
+    var _label = db.routine[day];
+    var _isRest = typeof _label === 'string' && /repos|rest|😴/i.test(_label);
+    if (_isSelected && _label && _isRest) {
+      delete db.routine[day];
+      _changed = true;
+    } else if (!_isSelected && _label && !_isRest) {
+      db.routine[day] = '😴 Repos';
+      _changed = true;
+    }
+  });
+  if (_changed && typeof saveDB === 'function') saveDB();
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -12900,6 +12924,7 @@ function migrateInjuryNames() {
   migrateActivityData();
   migrateInjuryNames();
   migrateBadges();
+  if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
   setTimeout(function() {
@@ -22130,6 +22155,9 @@ function generateWeeklyPlan() {
     var selectedDays = (params.selectedDays && params.selectedDays.length === freq)
       ? params.selectedDays
       : (_DEFAULT_DAYS_BY_FREQ[freq] || allDays.slice(0, freq));
+
+    // v212 — nettoyer toute incohérence routine ↔ selectedDays avant la génération
+    if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
 
     // v191 — Force routine alignment with the powerbuilding/powerlifting split
     // sequence so dayKey routing in the per-day loop matches the actual block

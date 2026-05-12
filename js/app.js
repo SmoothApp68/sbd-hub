@@ -7678,6 +7678,91 @@ function _applyQuickLogToProgram(key, duration) {
   };
 }
 
+// ── VALIDATION GATE — Transition de phase assistée (v202) ─────────────────
+
+function isEndOfPhaseBlock() {
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!cb || !cb.phase) return false;
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var durations = typeof BLOCK_DURATION !== 'undefined' && BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level];
+  if (!durations) return false;
+  var maxWeeks = durations[cb.phase] || 4;
+  var weeksSince = cb.blockStartDate
+    ? Math.round((Date.now() - cb.blockStartDate) / (7 * 86400000)) : 0;
+  return weeksSince >= maxWeeks;
+}
+
+function getNextPhase(currentPhase) {
+  var sequence = ['hypertrophie','accumulation','force','intensification','peak','deload'];
+  var idx = sequence.indexOf(currentPhase);
+  return sequence[idx + 1] || 'hypertrophie';
+}
+
+function _computeBlockVolumeGain() {
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!cb || !cb.blockStartDate) return 0;
+  var blockLogs = (db.logs||[]).filter(function(l) { return (l.timestamp||0) >= cb.blockStartDate; });
+  if (blockLogs.length < 4) return 0;
+  var half = Math.floor(blockLogs.length / 2);
+  var v1 = blockLogs.slice(0, half).reduce(function(s,l){return s+(l.volume||0);},0) / half;
+  var v2 = blockLogs.slice(half).reduce(function(s,l){return s+(l.volume||0);},0) / Math.max(1, blockLogs.length - half);
+  return v1 > 0 ? Math.round((v2 - v1) / v1 * 100) : 0;
+}
+
+function showPhaseValidationGate() {
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!cb) return;
+  var nextPhase = getNextPhase(cb.phase);
+  var phaseLabels = {
+    hypertrophie:'Hypertrophie', force:'Force', intensification:'Intensification',
+    peak:'Peak', deload:'Deload', accumulation:'Accumulation'
+  };
+  var _gain = _computeBlockVolumeGain();
+  var _gainStr = _gain > 0 ? '+' + _gain + '% de volume total sur ce bloc' : 'bloc complété';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:360px;text-align:left;">'
+    + '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">🏆 Bloc '
+    + escapeHtml(phaseLabels[cb.phase] || cb.phase) + ' complété !</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;">'
+    + escapeHtml(_gainStr) + '. La data suggère que tu es prêt pour la phase <strong>'
+    + escapeHtml(phaseLabels[nextPhase] || nextPhase) + '</strong>. On bascule lundi ?</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="confirmPhaseTransition(\'' + escapeHtml(nextPhase) + '\')" '
+    + 'style="flex:1;padding:12px;border-radius:10px;background:var(--accent);border:none;'
+    + 'color:#fff;font-weight:700;cursor:pointer;">Oui, c\'est parti 🚀</button>'
+    + '<button onclick="postponePhaseTransition()" '
+    + 'style="flex:1;padding:12px;border-radius:10px;background:var(--surface);'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">Je refais une semaine</button>'
+    + '</div></div>';
+  document.body.appendChild(overlay);
+}
+
+function confirmPhaseTransition(nextPhase) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+  db.weeklyPlan.currentBlock.phase = nextPhase;
+  db.weeklyPlan.currentBlock.blockStartDate = Date.now();
+  db.weeklyPlan.currentBlock.forcedAt = Date.now();
+  db._phaseGateShownAt = null;
+  saveDB();
+  if (typeof showToast === 'function') showToast('🔄 Phase ' + nextPhase + ' activée lundi !');
+  renderDash();
+}
+
+function postponePhaseTransition() {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate) {
+    db.weeklyPlan.currentBlock.blockStartDate -= 7 * 86400000; // -1 semaine
+  }
+  db._phaseGateShownAt = null;
+  saveDB();
+  if (typeof showToast === 'function') showToast('✅ Semaine supplémentaire ajoutée.');
+}
+
 function renderDash() {
   try {
     // Carte bienvenue
@@ -7694,6 +7779,15 @@ function renderDash() {
     try { renderQuickLogCard(); } catch (e) {
       if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
+
+    // v202 — Validation Gate : afficher une fois par fin de bloc
+    try {
+      if (isEndOfPhaseBlock() && !db._phaseGateShownAt) {
+        db._phaseGateShownAt = Date.now();
+        saveDB();
+        setTimeout(showPhaseValidationGate, 1000);
+      }
+    } catch(e) {}
 
     requestAnimationFrame(function() {
       try { renderWeekCard(); } catch (e) {
@@ -10085,10 +10179,10 @@ function renderProgramTab() {
 
   // ── FOOTER ──
   html += '<div style="display:flex;gap:8px;margin-top:8px;">';
-  html += '<button onclick="pbEditExisting()" style="flex:1;padding:11px;border-radius:10px;'
+  html += '<button onclick="openAdjustSession()" style="flex:1;padding:11px;border-radius:10px;'
     + 'font-size:13px;font-weight:500;border:0.5px solid var(--border);'
     + 'background:var(--surface);color:var(--sub);cursor:pointer;">'
-    + 'Modifier les exercices</button>';
+    + 'Ajuster ma séance</button>';
   html += '<button onclick="pbStartGuided()" style="flex:1;padding:11px;border-radius:10px;'
     + 'font-size:13px;font-weight:500;border:0.5px solid var(--border);'
     + 'background:var(--surface);color:var(--sub);cursor:pointer;">'
@@ -11974,6 +12068,233 @@ function beEditIntention() {
     if (typeof saveDB==='function') saveDB();
     renderProgramBuilderView(document.getElementById('programBuilderContent'));
   }
+}
+
+// ── AJUSTER MA SÉANCE (v203 — Gemini UX validé) ─────────────────────────
+var EXERCISE_ALTERNATIVES = {
+  'Presse à Cuisses':    ['Hack Squat', 'Belt Squat', 'Sissy Squat Machine'],
+  'Hack Squat':          ['Presse à Cuisses', 'Belt Squat', 'Goblet Squat'],
+  'Leg Extension':       ['Sissy Squat Machine', 'Presse Bulgare', 'Leg Press Unilat.'],
+  'Rowing Poulie':       ['Rowing Haltère', 'Rowing Barre', 'Tirage Horizontal Câble'],
+  'Développé Incliné':   ['Développé Haltères Plat', 'Machine Inclinée', 'Câble Crossover'],
+  'Dips':                ['Extension Triceps Corde', 'Pushdown Barre', 'Dips Machine'],
+  'Leg Curl':            ['Nordic Curl', 'Leg Curl Debout', 'Romanian DL Haltères'],
+  'Tirage Vertical':     ['Tractions', 'Pullover Machine', 'Tirage Poulie Haute'],
+  'Élévations Latérales':['Élévations Machine', 'Câble Latéral', 'Arnold Press'],
+  'Face Pull':           ['Oiseau Poulie', 'Élévation Arrière Machine', 'Band Pull-Apart'],
+  'Extension Triceps':   ['Dips Machine', 'Pushdown Corde', 'Overhead Triceps'],
+  'Curl Biceps':         ['Curl Marteau', 'Curl Machine', 'Curl Câble'],
+  'Mollets Machine':     ['Mollets Presse', 'Mollets Debout', 'Mollets Assis']
+};
+
+function openAdjustSession() {
+  var days = (db.weeklyPlan && db.weeklyPlan.days || [])
+    .filter(function(d) { return d.exercises && d.exercises.length > 0; });
+  if (!days.length) { showToast('Aucun programme à ajuster.'); return; }
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'adjustSessionOverlay';
+  overlay.innerHTML = _renderAdjustSessionHTML(days, 0);
+  document.body.appendChild(overlay);
+}
+
+function _renderAdjustSessionHTML(days, activeIdx) {
+  var h = '<div class="modal-box" style="max-width:420px;max-height:85vh;'
+    + 'overflow-y:auto;text-align:left;padding:16px;">';
+  h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">'
+    + '✏️ Ajuster ma séance</div>';
+  // Tabs jours
+  h += '<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px;">';
+  days.forEach(function(d, i) {
+    var active = i === activeIdx;
+    var shortDay = (d.day || '').substring(0, 3).toUpperCase();
+    h += '<button onclick="_adjustSwitchDay(' + i + ')" '
+      + 'style="flex-shrink:0;padding:6px 12px;border-radius:8px;font-size:11px;'
+      + 'font-weight:700;border:1.5px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+      + 'background:' + (active ? 'rgba(10,132,255,0.12)' : 'var(--surface)') + ';'
+      + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';cursor:pointer;">'
+      + escapeHtml(shortDay) + '</button>';
+  });
+  h += '</div>';
+  // Exercices du jour actif
+  var day = days[activeIdx];
+  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">'
+    + escapeHtml((day.day || '') + ' — ' + (day.title || '')) + '</div>';
+  (day.exercises || []).forEach(function(exo) {
+    var locked = exo.isPrimary || exo.isCorrectivePriority;
+    var lockReason = exo.isPrimary ? 'Principal' : exo.isCorrectivePriority ? 'Correctif' : '';
+    var firstWork = (exo.sets || []).find(function(s) { return !s.isWarmup; });
+    var setCount = (exo.sets || []).filter(function(s) { return !s.isWarmup; }).length;
+    var setLine = firstWork ? (setCount + '×' + (firstWork.reps || '') + ' @ ' + (firstWork.weight || '') + 'kg') : '';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;'
+      + 'padding:10px 0;border-bottom:0.5px solid var(--border);">';
+    h += '<div><div style="font-size:13px;font-weight:600;">' + escapeHtml(exo.name || '') + '</div>'
+      + '<div style="font-size:11px;color:var(--sub);">' + escapeHtml(setLine) + '</div></div>';
+    var safeName = (exo.name || '').replace(/'/g, "\\'");
+    var safeDay = (day.day || '').replace(/'/g, "\\'");
+    if (locked) {
+      h += '<button onclick="_adjustPrimaryWarning(\'' + safeName + '\',\'' + safeDay + '\')" '
+        + 'style="font-size:10px;color:var(--sub);background:var(--surface);'
+        + 'padding:4px 8px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;">'
+        + '🔒 ' + escapeHtml(lockReason) + '</button>';
+    } else {
+      h += '<button onclick="_adjustShowAlternatives(\'' + safeName + '\',\'' + safeDay + '\')" '
+        + 'style="padding:6px 12px;border-radius:8px;background:var(--surface);'
+        + 'border:0.5px solid var(--accent);color:var(--accent);font-size:11px;'
+        + 'font-weight:600;cursor:pointer;">✏️ Changer</button>';
+    }
+    h += '</div>';
+  });
+  h += '<button onclick="document.getElementById(\'adjustSessionOverlay\').remove()" '
+    + 'style="width:100%;margin-top:14px;padding:12px;border-radius:10px;'
+    + 'background:none;border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
+    + 'Fermer</button></div>';
+  return h;
+}
+
+function _adjustSwitchDay(idx) {
+  var days = (db.weeklyPlan && db.weeklyPlan.days || [])
+    .filter(function(d) { return d.exercises && d.exercises.length > 0; });
+  var overlay = document.getElementById('adjustSessionOverlay');
+  if (overlay) overlay.innerHTML = _renderAdjustSessionHTML(days, idx);
+}
+
+function _adjustShowAlternatives(exoName, dayName) {
+  var alts = EXERCISE_ALTERNATIVES[exoName] || [];
+  if (!alts.length) { showToast('Pas d\'alternative disponible pour ' + exoName); return; }
+  var safeOld = exoName.replace(/'/g, "\\'");
+  var safeDay = dayName.replace(/'/g, "\\'");
+  var h = '<div class="modal-box" style="max-width:360px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">Remplacer</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;">' + escapeHtml(exoName) + '</div>';
+  alts.forEach(function(alt) {
+    var safeAlt = alt.replace(/'/g, "\\'");
+    h += '<button onclick="_adjustApplyChange(\'' + safeOld + '\',\'' + safeAlt + '\',\'' + safeDay + '\')" '
+      + 'style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;'
+      + 'background:var(--surface);border:0.5px solid var(--border);'
+      + 'text-align:left;font-size:13px;font-weight:600;cursor:pointer;">'
+      + escapeHtml(alt) + '</button>';
+  });
+  h += '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;margin-top:4px;">'
+    + 'Annuler</button></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _adjustApplyChange(oldExo, newExo, dayName) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  var safeOld = oldExo.replace(/'/g, "\\'");
+  var safeNew = newExo.replace(/'/g, "\\'");
+  var safeDay = dayName.replace(/'/g, "\\'");
+  var h = '<div class="modal-box" style="max-width:320px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">' + escapeHtml(newExo) + '</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:14px;">Appliquer ce changement pour...</div>'
+    + '<button onclick="_adjustConfirm(\'' + safeOld + '\',\'' + safeNew + '\',\'' + safeDay + '\',false)" '
+    + 'style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
+    + '<div style="font-weight:600;font-size:13px;">Cette séance uniquement</div>'
+    + '<div style="font-size:11px;color:var(--sub);">Dépannage ponctuel</div></button>'
+    + '<button onclick="_adjustConfirm(\'' + safeOld + '\',\'' + safeNew + '\',\'' + safeDay + '\',true)" '
+    + 'style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;'
+    + 'background:var(--surface);border:1.5px solid var(--accent);text-align:left;cursor:pointer;">'
+    + '<div style="font-weight:600;font-size:13px;color:var(--accent);">Tout le cycle actuel</div>'
+    + '<div style="font-size:11px;color:var(--sub);">Mémoriser ma préférence</div></button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">Annuler</button></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _adjustConfirm(oldExo, newExo, dayName, permanent) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  var days = db.weeklyPlan && db.weeklyPlan.days;
+  if (!days) return;
+  var targetDays = permanent ? days : days.filter(function(d) { return d.day === dayName; });
+  targetDays.forEach(function(day) {
+    (day.exercises || []).forEach(function(exo, i) {
+      if (exo.name === oldExo) {
+        day.exercises[i] = Object.assign({}, exo, { name: newExo });
+      }
+    });
+  });
+  if (permanent) {
+    if (!db.exercisePreferences) db.exercisePreferences = {};
+    db.exercisePreferences[oldExo] = {
+      replacement: newExo,
+      changedAt: Date.now(),
+      count: ((db.exercisePreferences[oldExo] || {}).count || 0) + 1
+    };
+  }
+  saveDB();
+  showToast('✅ ' + newExo + ' appliqué' + (permanent ? ' pour tout le cycle' : ' aujourd\'hui'));
+  if (typeof renderProgramTab === 'function') renderProgramTab();
+}
+
+function _adjustPrimaryWarning(exoName, dayName) {
+  var weekNum = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+  var maxWeeks = 4;
+  try {
+    if (typeof BLOCK_DURATION !== 'undefined' && db.weeklyPlan && db.weeklyPlan.currentBlock) {
+      var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+      var level = (db.user && db.user.level) || 'intermediaire';
+      var phase = db.weeklyPlan.currentBlock.phase;
+      maxWeeks = (BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level] && BLOCK_DURATION[mode][level][phase]) || 4;
+    }
+  } catch(e) {}
+  var safeName = exoName.replace(/'/g, "\\'");
+  var safeDay = dayName.replace(/'/g, "\\'");
+  var h = '<div class="modal-box" style="max-width:340px;">'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">⚠️ ' + escapeHtml(exoName) + '</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:14px;">'
+    + 'Cet exercice est la fondation de ta progression Force. '
+    + 'Le remplacer modifie tes objectifs de PR et ta périodisation.</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-bottom:8px;">Raison ?</div>'
+    + '<button onclick="_adjustPrimaryEquipment(\'' + safeName + '\',\'' + safeDay + '\')" '
+    + 'style="width:100%;padding:11px;margin-bottom:6px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
+    + '🏋️ Équipement indisponible<br>'
+    + '<span style="font-size:11px;color:var(--sub);">Variante proche, aujourd\'hui seulement</span></button>'
+    + '<button onclick="_adjustPrimaryInjury(\'' + safeName + '\')" '
+    + 'style="width:100%;padding:11px;margin-bottom:6px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--red);text-align:left;cursor:pointer;">'
+    + '🩹 Blessure / Douleur<br>'
+    + '<span style="font-size:11px;color:var(--sub);">Le Coach adapte ta structure</span></button>'
+    + '<button onclick="_adjustPrimaryWant(' + weekNum + ',' + maxWeeks + ')" '
+    + 'style="width:100%;padding:11px;margin-bottom:6px;border-radius:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
+    + '🔄 Envie de changement<br>'
+    + '<span style="font-size:11px;color:var(--sub);">Semaine ' + weekNum + '/' + maxWeeks + ' — le Coach répond</span></button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;margin-top:4px;">'
+    + 'Annuler</button></div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+}
+
+function _adjustPrimaryWant(weekNum, maxWeeks) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  showToast('💪 Semaine ' + weekNum + '/' + maxWeeks + '. Termine ce bloc pour valider tes gains avant de changer de pilier.', 5000);
+}
+function _adjustPrimaryEquipment(exoName, dayName) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  _adjustShowAlternatives(exoName, dayName);
+}
+function _adjustPrimaryInjury(exoName) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  showToast('🩹 Blessure notée. Le Coach adapte ta prochaine séance.', 4000);
+  if (!db.user.injuries) db.user.injuries = [];
+  if (db.user.injuries.indexOf(exoName) === -1) db.user.injuries.push(exoName);
+  saveDB();
 }
 
 function pbEditExisting() {
@@ -18060,6 +18381,13 @@ function wpEstimateWeight(exoName) {
 }
 
 // Increment de Double Progression différencié par bodyPart/muscleGroup
+// v202 — Speed Deadlift : charge = 60% PR Deadlift, non soumise à la progression standard
+function getSpeedDeadliftWeight() {
+  var prDead = (db.bestPR && db.bestPR.deadlift) || 0;
+  if (prDead === 0) return 70;
+  return wpRound25(prDead * 0.60);
+}
+
 function getDPIncrement(exoName) {
   var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exoName) : null;
   var mg   = meta ? (meta.muscleGroup || '') : '';
@@ -18084,73 +18412,86 @@ function getDPIncrement(exoName) {
   return mg && /quad|hams|glute/.test(mg) ? 5.0 : 2.0;
 }
 
+// v202 — No-RPE Double Progression :
+//   1A Main Lifts SBD  → wave loading +2.5kg / 2 strikes → deload local -10%
+//   1B Accessoires     → double progression classique (fourchette reps)
+//   1C Speed Deadlift  → intercept en entrée (60% PR, pas de progression)
 function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessionsRequired) {
-  sessionsRequired = sessionsRequired || 1;
+  // 1C — Speed Deadlift : charge indexée directement sur le PR
+  if (/speed.?dead/i.test(exoName)) {
+    var _sdw = getSpeedDeadliftWeight();
+    return { weight: _sdw, reps: 1, progressed: false, coachNote: '⚡ Speed DL ' + _sdw + 'kg (60% PR)' };
+  }
+
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
   if (!realName) return null;
-  var successCount = 0;
-  var lastWeightSeen = 0;
-  for (var i = 0; i < Math.min(logs.length, 15); i++) {
-    var log = logs[i];
-    var exo = (log.exercises || []).find(function(e) {
+
+  // Lire la session la plus récente pour cet exercice
+  var lastWeight = 0, completedSets = [];
+  for (var _si = 0; _si < Math.min(logs.length, 15); _si++) {
+    var _slog = logs[_si];
+    var _sexo = (_slog.exercises || []).find(function(e) {
       return wpNormalizeName(e.name) === wpNormalizeName(realName);
     });
-    if (!exo) continue;
-    var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+    if (!_sexo) continue;
+    var _swork = (_sexo.allSets || _sexo.series || []).filter(function(s) {
       var isWarm = s.isWarmup === true || s.setType === 'warmup';
       return !isWarm && parseFloat(s.weight) > 0;
     });
-    if (!workSets.length) continue;
-    var lastSet    = workSets[workSets.length - 1];
-    var lastWeight = parseFloat(lastSet.weight) || 0;
-    lastWeightSeen = lastWeight;
-    var lastRpe    = parseFloat(lastSet.rpe);
-    if (isNaN(lastRpe)) lastRpe = null;
-    var completedSets = workSets.filter(function(s) { return parseInt(s.reps) > 0; });
-    if (!completedSets.length) {
-      return { weight: lastWeight, reps: targetRepMax, progressed: false };
+    if (!_swork.length) continue;
+    lastWeight = parseFloat(_swork[_swork.length - 1].weight) || 0;
+    completedSets = _swork.filter(function(s) { return parseInt(s.reps) > 0; });
+    break;
+  }
+
+  if (lastWeight === 0) {
+    var estimated = wpEstimateWeight(exoName, null);
+    if (estimated) return { weight: estimated, reps: targetRepMin, progressed: false, isEstimate: true };
+    return null;
+  }
+  if (!completedSets.length) return { weight: lastWeight, reps: targetRepMax, progressed: false };
+
+  var allSetsComplete = completedSets.every(function(s) { return parseInt(s.reps) >= targetRepMax; });
+
+  // 1A — Main Lifts SBD : Wave Loading
+  var _isMainLift = /squat|bench|deadlift|soulevé|développé couché/i.test(exoName);
+  if (_isMainLift) {
+    var _strikes = (db.user && db.user.lpStrikes && db.user.lpStrikes[realName]) || { count: 0 };
+
+    // 2 strikes consécutifs → deload local -10%, reset strikes
+    if (_strikes.count >= 2) {
+      var _deloadW = wpRound25(lastWeight * 0.90);
+      if (db.user && db.user.lpStrikes) db.user.lpStrikes[realName] = { count: 0 };
+      return { weight: _deloadW, reps: targetRepMin, progressed: false, localDeload: true,
+        coachNote: '📉 Deload local ' + realName + ' (-10%) — 2 séances non validées consécutives.' };
     }
-    // Bug 3 fix : strict — toutes les séries DOIVENT atteindre targetRepMax
-    var allSetsComplete = completedSets.length > 0 && completedSets.every(function(s) {
-      return parseInt(s.reps) >= targetRepMax;
-    });
-    var almostComplete = !allSetsComplete && completedSets.every(function(s) {
-      return parseInt(s.reps) >= targetRepMax - 1;
-    });
-    // Bug 1 fix : RPE null ne bloque pas la progression
-    var rpeValid = (lastRpe === null || lastRpe === undefined || lastRpe <= 8);
-    if (allSetsComplete && rpeValid) {
-      successCount++;
-      if (successCount >= sessionsRequired) {
-        // Bug 2 fix : incrément différencié par muscle/mécanique
-        var _dpIncrement = getDPIncrement(exoName);
-        if (_dpIncrement === 0) {
-          return { weight: lastWeight, reps: Math.min(targetRepMin + 1, targetRepMax), progressed: true };
-        }
-        return { weight: wpRound25(lastWeight + _dpIncrement), reps: targetRepMin, progressed: true };
-      }
-      continue;
+    // Toutes les séries validées → +2.5kg, reset strikes (RPE optionnel)
+    if (allSetsComplete) {
+      if (db.user && db.user.lpStrikes) db.user.lpStrikes[realName] = { count: 0 };
+      return { weight: wpRound25(lastWeight + 2.5), reps: targetRepMin, progressed: true,
+        coachNote: '✅ +2.5kg sur ' + realName };
     }
-    if (almostComplete) {
-      return {
-        weight: lastWeight,
-        reps: targetRepMax,
-        progressed: false,
-        almostComplete: true,
-        coachNote: '⏳ Encore une séance pour valider les ' + targetRepMax + ' reps sur chaque série avant de monter.'
-      };
-    }
+    // Échec partiel → maintenir la charge (strikes incrémentés par goCheckAutoRegulation)
     return { weight: lastWeight, reps: targetRepMax, progressed: false };
   }
-  if (lastWeightSeen > 0) {
-    return { weight: lastWeightSeen, reps: targetRepMax, progressed: false };
+
+  // 1B — Accessoires : Double Progression classique (fourchette reps)
+  if (allSetsComplete) {
+    var _dpIncrement = getDPIncrement(exoName);
+    if (_dpIncrement === 0) {
+      return { weight: lastWeight, reps: Math.min(targetRepMin + 2, targetRepMax), progressed: true };
+    }
+    return { weight: wpRound25(lastWeight + _dpIncrement), reps: targetRepMin, progressed: true,
+      coachNote: '✅ +' + _dpIncrement + 'kg sur ' + exoName + ' — fourchette complétée' };
   }
-  var estimated = wpEstimateWeight(exoName, null);
-  if (estimated) {
-    return { weight: estimated, reps: targetRepMin, progressed: false, isEstimate: true };
+  // Pas encore au max → viser 1 rep de plus
+  var _curMax = Math.max.apply(null, completedSets.map(function(s) { return parseInt(s.reps) || 0; }));
+  if (_curMax < targetRepMax) {
+    return { weight: lastWeight, reps: Math.min(_curMax + 1, targetRepMax), progressed: false,
+      coachNote: 'Cible : ' + (_curMax + 1) + ' reps @ ' + lastWeight + 'kg' };
   }
-  return null;
+  return { weight: lastWeight, reps: targetRepMax, progressed: false };
 }
 
 // ============================================================
@@ -18766,6 +19107,30 @@ function wpEstimateCurrentWeek() {
   return Math.max(1, Math.min(16, Math.floor(recentLogs.length / Math.max(1, freq)) + 1));
 }
 
+// v202 — Durées de phases Gemini-calibrées (semaines) — powerbuilding/powerlifting/musculation/bien_etre × niveau
+var BLOCK_DURATION = {
+  powerbuilding: {
+    debutant:      { hypertrophie:6, accumulation:6, force:4, intensification:2, peak:1, deload:1 },
+    intermediaire: { hypertrophie:5, accumulation:5, force:4, intensification:2, peak:1, deload:1 },
+    avance:        { hypertrophie:4, accumulation:4, force:4, intensification:2, peak:1, deload:1 }
+  },
+  powerlifting: {
+    debutant:      { hypertrophie:6, accumulation:6, force:5, intensification:2, peak:1, deload:1 },
+    intermediaire: { hypertrophie:5, accumulation:5, force:5, intensification:2, peak:1, deload:1 },
+    avance:        { hypertrophie:4, accumulation:4, force:5, intensification:2, peak:1, deload:1 }
+  },
+  musculation: {
+    debutant:      { hypertrophie:8, accumulation:8, force:4, intensification:2, peak:1, deload:1 },
+    intermediaire: { hypertrophie:6, accumulation:6, force:4, intensification:2, peak:1, deload:1 },
+    avance:        { hypertrophie:5, accumulation:5, force:4, intensification:2, peak:1, deload:1 }
+  },
+  bien_etre: {
+    debutant:      { accumulation:99 },
+    intermediaire: { accumulation:99 },
+    avance:        { accumulation:99 }
+  }
+};
+
 function wpDetectPhase() {
   // v193 — Bien-être : phase neutre, jamais de peak/force/deload
   if (db.user && db.user.trainingMode === 'bien_etre') return 'accumulation';
@@ -18820,12 +19185,30 @@ function wpDetectPhase() {
     ? ['intro','hypertrophie','volume','recuperation']
     : ['intro','hypertrophie','force','peak'];
 
+  var _detectedPhase = null;
   for (var i = 0; i < phases.length; i++) {
     var dur = durations[phases[i]] || 0;
-    if (dur > 0 && w <= dur) return phases[i];
+    if (dur > 0 && w <= dur) { _detectedPhase = phases[i]; break; }
     w -= dur;
   }
-  return 'deload';
+  if (!_detectedPhase) _detectedPhase = 'deload';
+
+  // v202 — Plateau indicator : 3+ plateaux accessoires ou SRS < 50 ×2 en hypertrophie → force
+  if (_detectedPhase === 'hypertrophie') {
+    var _pLogs = (db.logs || []).filter(function(l) {
+      return Date.now() - (l.timestamp||0) < 3 * 7 * 86400000;
+    });
+    var _pCount = 0;
+    _pLogs.forEach(function(l) {
+      (l.exercises||[]).forEach(function(e) {
+        if (!/squat|bench|deadlift|soulevé|développé couché/i.test(e.name||'') && e.plateauDetected) _pCount++;
+      });
+    });
+    var _pLowSRS = db.readiness
+      ? db.readiness.filter(function(r) { return r.score < 50; }).slice(-7).length : 0;
+    if (_pCount >= 3 || _pLowSRS >= 2) return 'force';
+  }
+  return _detectedPhase;
 }
 
 function wpDayMotivation(dayData, phase) {
@@ -20278,6 +20661,10 @@ function generateWeeklyPlan() {
     if (!db.weeklyPlan) db.weeklyPlan = {};
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
     db.weeklyPlan.currentBlock.phase = phase;
+    // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
+    if (!db.weeklyPlan.currentBlock.blockStartDate) {
+      db.weeklyPlan.currentBlock.blockStartDate = Date.now();
+    }
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     // Sensible fallback : avoid Wed/Sun (rest middle + weekend) instead of first-N
     var _DEFAULT_DAYS_BY_FREQ = {
@@ -21868,7 +22255,8 @@ function _goDoStartWorkout(withProgram) {
             completed: false,
             rpe: ps.rpe || null,
             duration: 0,
-            distance: 0
+            distance: 0,
+            plannedWeight: ps.weight || 0  // v203 — référence pour warning > 15%
           });
         });
         if (planExo.restSeconds) restSec = planExo.restSeconds;
@@ -22430,6 +22818,14 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
       + 'onclick="goToggleSetComplete(' + exoIdx + ',' + setIdx + ')">'
       + (isDone ? '✓' : '') + '</button></td>';
     h += '</tr>';
+
+    // v203 — Slider RPE "Effort ressenti" pour les séries de travail non complétées
+    var _showSlider = !isDone && set.type !== 'warmup' && (tt === 'weight' || tt === 'reps');
+    if (_showSlider) {
+      var _cols = (tt === 'weight') ? 6 : 5;
+      h += '<tr class="go-rpe-slider-row"><td colspan="' + _cols + '" style="padding:0 8px 8px;">'
+        + _goRpeSliderHTML(setIdx, exoIdx, set.rpe) + '</td></tr>';
+    }
   });
 
   h += '</tbody></table></div>';
@@ -22470,6 +22866,22 @@ function goToggleSetComplete(exoIdx, setIdx) {
   if (set.completed) {
     var _completedAt = Date.now();
     set._completedAt = _completedAt;
+
+    // v203 — Warning orange si charge s'écarte de > 15% du plan (non-bloquant)
+    try {
+      var _plannedW = parseFloat(set.plannedWeight) || 0;
+      var _actualW = parseFloat(set.weight) || 0;
+      if (_plannedW > 0 && _actualW > 0 && set.type !== 'warmup') {
+        var _dev = Math.abs(_actualW - _plannedW) / _plannedW;
+        if (_dev > 0.15) {
+          var _sign = _actualW > _plannedW ? '+' : '-';
+          var _pct = Math.round(_dev * 100);
+          showToast('🟠 Charge ' + _sign + _pct + '% vs plan (' + _plannedW + 'kg). L\'algo recalcule ton 1RM estimé.', 4000);
+          if (!set.flags) set.flags = [];
+          if (set.flags.indexOf('high_variance') === -1) set.flags.push('high_variance');
+        }
+      }
+    } catch(e) {}
 
     // Enrichir le set avec les métadonnées Gemini (Q3)
     var _exoForMeta = activeWorkout.exercises[exoIdx];
@@ -23014,6 +23426,53 @@ function goUpdateSetValue(exoIdx, setIdx, field, value) {
     : (parseFloat(value) || 0);
   activeWorkout.exercises[exoIdx].sets[setIdx][field] = v;
   goAutoSave();
+}
+
+// ── RPE Slider "Effort ressenti" (v203 — Gemini UX) ────────────────────────
+var _RPE_LEGENDS = {
+  1: '😴 Très facile',          2: '😴 Facile',
+  3: '🙂 Léger',                4: '🙂 Confortable',
+  5: '😐 Modéré',               6: '😐 Travail propre',
+  7: '💪 Difficile, 3 reps en réserve',
+  8: '💪 Difficile, 2 reps en réserve',
+  9: '😤 Presque à l\'échec, 1 rep en réserve',
+  10:'🔥 Échec total'
+};
+
+function _goRpeSliderHTML(setIdx, exoIdx, currentRpe) {
+  var _vl = (db.user && db.user.vocabLevel) || 2;
+  var _label = _vl >= 3 ? 'RPE' : 'Effort ressenti';
+  var val = parseFloat(currentRpe) > 0 ? parseFloat(currentRpe) : 7;
+  return '<div style="padding:6px 10px;background:rgba(10,132,255,0.04);border-radius:8px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+    + '<span style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;">' + _label + '</span>'
+    + '<span id="rpe-val-' + exoIdx + '-' + setIdx + '" '
+    + 'style="font-size:13px;font-weight:700;color:var(--accent);">' + val + '</span>'
+    + '</div>'
+    + '<input type="range" min="1" max="10" step="0.5" value="' + val + '" '
+    + 'style="width:100%;accent-color:var(--accent);" '
+    + 'oninput="goUpdateRpe(' + exoIdx + ',' + setIdx + ',this.value)" '
+    + 'aria-label="' + _label + '" />'
+    + '<div id="rpe-legend-' + exoIdx + '-' + setIdx + '" '
+    + 'style="font-size:10px;color:var(--sub);margin-top:2px;text-align:center;">'
+    + (_RPE_LEGENDS[Math.round(val)] || '') + '</div></div>';
+}
+
+function goUpdateRpe(exoIdx, setIdx, val) {
+  var v = parseFloat(val);
+  var valEl = document.getElementById('rpe-val-' + exoIdx + '-' + setIdx);
+  if (valEl) valEl.textContent = v;
+  var legendEl = document.getElementById('rpe-legend-' + exoIdx + '-' + setIdx);
+  if (legendEl) legendEl.textContent = _RPE_LEGENDS[Math.round(v)] || '';
+  if (activeWorkout && activeWorkout.exercises[exoIdx]) {
+    var set = activeWorkout.exercises[exoIdx].sets[setIdx];
+    if (set) {
+      set.rpe = v;
+      var numInput = document.querySelector('input.go-set-input[onchange*="rpe"][onchange*="' + exoIdx + ',' + setIdx + '"]');
+      if (numInput) numInput.value = v;
+      goAutoSave();
+    }
+  }
 }
 
 function goUpdateCounters() {

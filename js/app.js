@@ -20732,6 +20732,22 @@ function getDupFrequencyForLift(liftKey, selectedDays, routine) {
   return Math.max(1, count);
 }
 
+// ── Priority Queue 5 niveaux — Gemini v211 ─────────────────────────
+// Hiérarchie d'éviction si plafond exercices atteint :
+//   100 — Lifts principaux (SBD / Skill Calisthenics) IMMUABLE
+//    80 — Substituts blessure (épaule/genou)
+//    60 — Accessoires fonctionnels (ratio tirage/poussée, Face Pull/Bench)
+//    40 — Corrections de ratios
+//    20 — Esthétique/isolation (premier évincé)
+function _getExercisePriority(exo) {
+  if (!exo) return 0;
+  if (exo.isPrimary) return 100;
+  if (exo._injurySubstitute || exo._injuryAdapted || exo._addedByShoulderFilter) return 80;
+  if (exo._addedByRule === 2 || exo._addedByRule === 9) return 60;
+  if (exo.isCorrectivePriority || exo._addedByRule === 5 || exo._addedByRule === 8) return 40;
+  return 20;
+}
+
 // ── selectExercisesForProfile — Gemini v209 (7 règles universelles) ──
 // Filtre déterministe appliqué après les filtres locaux (épaule, senior,
 // stress). Remplace les blocs hardcodés disséminés dans wpGenerate*.
@@ -20930,11 +20946,9 @@ function selectExercisesForProfile(exercises, profile) {
     });
   }
 
-  // RÈGLE 1 (fin) — Plafond : isPrimary > isCorrectivePriority > reste
+  // RÈGLE 1 (fin) — Priority Queue 5 niveaux (Gemini v211)
   result.sort(function(a, b) {
-    var _as = (a && a.isPrimary ? 100 : 0) + (a && a.isCorrectivePriority ? 50 : 0);
-    var _bs = (b && b.isPrimary ? 100 : 0) + (b && b.isCorrectivePriority ? 50 : 0);
-    return _bs - _as;
+    return _getExercisePriority(b) - _getExercisePriority(a);
   });
   result = result.slice(0, _maxExos);
 

@@ -3139,6 +3139,43 @@ const BADGE_THRESHOLDS = {
   }
 };
 
+// ── BADGES RELATIFS — multiplicateurs poids de corps (Gemini v207) ───
+var BW_BADGE_LABELS = ['Bronze', 'Argent', 'Or', 'Platine', 'Diamant', 'Élite', 'Légendaire'];
+
+function getBWBadgeThresholds(liftKey, bw, gender) {
+  var multipliers = {
+    bench:    [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+    squat:    [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25],
+    deadlift: [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5],
+    ohp:      [0.3, 0.4, 0.5, 0.6, 0.75, 0.9]
+  };
+  var mults = multipliers[liftKey] || multipliers.bench;
+  return mults.map(function(m) { return Math.round(bw * m / 2.5) * 2.5; });
+}
+
+function getLiftBadgeTier(liftKey, prValue) {
+  var bw = (db.user && db.user.bw) || 0;
+  var gender = (db.user && db.user.gender) || 'male';
+  var thresholds;
+  if (bw > 0) {
+    thresholds = getBWBadgeThresholds(liftKey, bw, gender);
+  } else {
+    thresholds = (BADGE_THRESHOLDS[gender] && BADGE_THRESHOLDS[gender][liftKey])
+      || [60, 80, 100, 120, 140, 160, 180];
+  }
+  var tier = -1;
+  for (var i = 0; i < thresholds.length; i++) {
+    if (prValue >= thresholds[i]) tier = i;
+    else break;
+  }
+  return {
+    tier: tier,
+    label: tier >= 0 ? BW_BADGE_LABELS[tier] : null,
+    next: thresholds[tier + 1] || null,
+    thresholds: thresholds
+  };
+}
+
 function getAllBadges() {
   var b = [];
   var stats = _computeBadgeStats();
@@ -3605,6 +3642,10 @@ function calcTotalXP() {
   // Muscle XP
   var muscleXP = (db.gamification && db.gamification.muscleXP) || 0;
   xp += muscleXP;
+
+  // Wisdom XP (badges sagesse — Gemini v207)
+  var wisdomXP = (db.gamification && db.gamification.wisdomXP) || 0;
+  xp += wisdomXP;
 
   // High-water mark: XP can only increase, never drop
   var hwm = (db.gamification && db.gamification.xpHighWaterMark) || 0;
@@ -6537,6 +6578,34 @@ function calcXPBreakdown() {
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis, corps: xpCorps };
 }
 
+// ── PROGRESSION SCORE — leaderboard relatif (Gemini v207) ────────────
+// Compare le volume moyen des dernières 30j vs le volume moyen
+// d'une fenêtre équivalente (même nombre de séances) juste avant.
+// Permet de classer les profils légers à égalité avec les lourds.
+function getProgressionScore(userId) {
+  var _logs;
+  if (userId === undefined || userId === null || userId === (db.user && db.user.id)) {
+    _logs = db.logs || [];
+  } else if (typeof _getFriendLogs === 'function') {
+    _logs = _getFriendLogs(userId) || [];
+  } else {
+    _logs = [];
+  }
+  if (!_logs || _logs.length < 2) return 0;
+
+  var _now = Date.now();
+  var _30d = _now - 30 * 86400000;
+  var _recent = _logs.filter(function(l) { return (l.timestamp || 0) > _30d; });
+  var _older  = _logs.filter(function(l) { return (l.timestamp || 0) <= _30d; });
+  if (!_recent.length || !_older.length) return 0;
+
+  var _recentVol = _recent.reduce(function(s, l) { return s + (l.volume || 0); }, 0) / _recent.length;
+  var _olderSlice = _older.slice(-_recent.length);
+  var _olderVol = _olderSlice.reduce(function(s, l) { return s + (l.volume || 0); }, 0)
+    / Math.max(_olderSlice.length, 1);
+  return _olderVol > 0 ? Math.round((_recentVol - _olderVol) / _olderVol * 100) : 0;
+}
+
 async function _renderLeaderboard() {
   var el = document.getElementById('gamLeaderboard');
   if (!el) return;
@@ -6546,11 +6615,13 @@ async function _renderLeaderboard() {
   }
 
   var currentMetric = db._leaderboardMetric || 'dots';
-  var periodType = currentMetric === 'dots' ? 'alltime' : 'weekly';
+  var periodType = currentMetric === 'dots' ? 'alltime' : (currentMetric === 'progression' ? 'monthly' : 'weekly');
   var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
-  var periodKey = currentMetric === 'dots' ? 'alltime' : weekKey;
-  var unitLabel = currentMetric === 'dots' ? 'pts' : 'XP';
-  var periodLabel = currentMetric === 'dots' ? 'Tout temps — DOTS' : 'Cette semaine — XP';
+  var monthKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('monthly') : '';
+  var periodKey = currentMetric === 'dots' ? 'alltime' : (currentMetric === 'progression' ? monthKey : weekKey);
+  var unitLabel = currentMetric === 'dots' ? 'pts' : (currentMetric === 'progression' ? '%' : 'XP');
+  var periodLabel = currentMetric === 'dots' ? 'Tout temps — DOTS'
+    : (currentMetric === 'progression' ? 'Sur 30 jours — Progression' : 'Cette semaine — XP');
 
   el.innerHTML = '<div style="font-size:12px;color:var(--sub);">Chargement...</div>';
   try {
@@ -6573,6 +6644,10 @@ async function _renderLeaderboard() {
       + 'style="padding:3px 8px;border-radius:6px;font-size:10px;border:none;cursor:pointer;'
       + 'background:' + (currentMetric === 'xp' ? 'var(--accent)' : 'var(--surface)') + ';'
       + 'color:' + (currentMetric === 'xp' ? '#fff' : 'var(--sub)') + ';">XP</button>';
+    html += '<button onclick="db._leaderboardMetric=\'progression\';saveDB();_renderLeaderboard();" '
+      + 'style="padding:3px 8px;border-radius:6px;font-size:10px;border:none;cursor:pointer;'
+      + 'background:' + (currentMetric === 'progression' ? 'var(--accent)' : 'var(--surface)') + ';'
+      + 'color:' + (currentMetric === 'progression' ? '#fff' : 'var(--sub)') + ';">Progression</button>';
     html += '</div></div>';
 
     if (!data || !data.length) {
@@ -6585,7 +6660,14 @@ async function _renderLeaderboard() {
     data.forEach(function(entry, i) {
       var isMe = entry.user_id === myId;
       var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
-      var valueStr = entry.value > 0 ? Math.round(entry.value) + ' ' + unitLabel : '—';
+      var valueStr;
+      if (currentMetric === 'progression') {
+        var pct = Math.round(entry.value);
+        var sign = pct > 0 ? '+' : '';
+        valueStr = (pct === 0 ? '0' : sign + pct) + ' ' + unitLabel;
+      } else {
+        valueStr = entry.value > 0 ? Math.round(entry.value) + ' ' + unitLabel : '—';
+      }
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;margin-bottom:4px;background:'+(isMe?'rgba(10,132,255,0.1)':'var(--surface)')+';border:1px solid '+(isMe?'var(--accent)':'transparent')+';">';
       html += '<div style="display:flex;align-items:center;gap:8px;"><div style="font-size:14px;">'+medal+'</div>';
       html += '<div style="font-size:13px;font-weight:'+(isMe?'700':'400')+';">'+(entry.username||'Athlète').replace(/</g,'&lt;')+(isMe?' (toi)':'')+'</div></div>';
@@ -6616,6 +6698,71 @@ async function acceptFriendChallenge(challengeId) {
     showToast('⚔️ Défi accepté ! Que le meilleur gagne.');
     renderFriendChallenges();
   } catch(e) { showToast('❌ Erreur'); }
+}
+
+// ── DAILY HIGHLIGHT + GHOST MODE — Gemini v207 ────────────────────────
+// Max 1 notification sociale par jour : résumé groupé des PRs des amis.
+async function triggerDailyHighlight() {
+  var _today = getTodayStr();
+  if (db._lastDailyHighlight === _today) return;
+
+  var _names = [];
+  try {
+    if (typeof loadFeedItems === 'function') {
+      var _items = await loadFeedItems(0);
+      var _todayStart = new Date(_today + 'T00:00:00').getTime();
+      (_items || []).forEach(function(it) {
+        if (it.type !== 'pr') return;
+        var _ts = it.created_at ? new Date(it.created_at).getTime() : 0;
+        if (_ts < _todayStart) return;
+        var _name = (it.data && (it.data.username || it.data.name)) || 'Un ami';
+        if (_names.indexOf(_name) === -1) _names.push(_name);
+      });
+    }
+  } catch(e) {}
+
+  if (_names.length === 0) {
+    db._lastDailyHighlight = _today;
+    if (typeof saveDB === 'function') saveDB();
+    return;
+  }
+
+  var _msg;
+  if (_names.length === 1) {
+    _msg = _names[0] + ' a battu un record aujourd\'hui ! 🏆';
+  } else if (_names.length === 2) {
+    _msg = _names[0] + ' et ' + _names[1] + ' ont battu des records aujourd\'hui ! 🏆';
+  } else {
+    _msg = _names.slice(0, 2).join(', ') + ' et ' + (_names.length - 2)
+      + ' autre' + (_names.length - 2 > 1 ? 's' : '')
+      + ' ont battu des records aujourd\'hui ! 🏆';
+  }
+  if (typeof showToast === 'function') showToast(_msg, 6000);
+  if (typeof sendLocalNotification === 'function') sendLocalNotification('🏆 Daily Highlight', _msg);
+  db._lastDailyHighlight = _today;
+  if (typeof saveDB === 'function') saveDB();
+}
+
+// Mode Ghost : l'user voit les autres, les autres ne le voient pas
+function setGhostMode(enabled) {
+  if (!db.user) db.user = {};
+  if (!db.user.social) db.user.social = {};
+  db.user.social.ghostMode = !!enabled;
+  if (enabled) {
+    db.user.social.visibility = {
+      bio: 'private', prs: 'private', programme: 'private',
+      seances: 'private', stats: 'private', feed: 'private'
+    };
+  } else {
+    db.user.social.visibility = {
+      bio: 'friends', prs: 'friends', programme: 'friends',
+      seances: 'friends', stats: 'friends', feed: 'friends'
+    };
+  }
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof showToast === 'function') {
+    showToast(enabled ? '👻 Mode privé activé' : '👥 Profil visible par tes amis');
+  }
 }
 
 async function renderFriendChallenges() {
@@ -18067,7 +18214,91 @@ function acceptDeload() {
   db._deloadAccepted = true;
   if (!db.weeklyPlan) db.weeklyPlan = {};
   db.weeklyPlan.lastDeloadDate = new Date().toISOString().split('T')[0];
+  db._deloadAcceptedCount = (db._deloadAcceptedCount || 0) + 1;
   if (typeof saveDB === 'function') saveDB();
+  if (typeof checkWisdomBadge_Deload === 'function') checkWisdomBadge_Deload();
+}
+
+// ── WISDOM BADGES — Gemini v207 ─────────────────────────────────────
+function _awardWisdomXP(xp, title, message) {
+  if (!db.gamification) db.gamification = {};
+  db.gamification.wisdomXP = (db.gamification.wisdomXP || 0) + xp;
+  if (typeof showToast === 'function') {
+    showToast('🏆 Nouveau badge : ' + title + ' (+' + xp + ' XP)\n' + message, 5000);
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+
+function checkWisdomBadge_Deload() {
+  var _accepted = db._deloadAcceptedCount || (db._deloadAccepted ? 1 : 0);
+  if (_accepted < 1) return;
+  if (!db.badges) db.badges = {};
+  if (db.badges['ecoute_corps']) return;
+  db.badges['ecoute_corps'] = { earned: true, earnedAt: Date.now() };
+  _awardWisdomXP(300, '🧠 Écoute du Corps',
+    'Tu as privilégié la longévité sur l\'ego. Mentalité Pro.');
+}
+
+function checkWisdomBadge_Recovery() {
+  var _readiness = (db.readiness || []).slice().sort(function(a, b) {
+    return (b.date || '').localeCompare(a.date || '');
+  }).slice(0, 3);
+  if (_readiness.length < 3) return;
+  var _highSRS = _readiness.every(function(r) { return (r.score || 0) > 80; });
+  if (!_highSRS) return;
+  if (!db.badges) db.badges = {};
+  if (db.badges['super_recovery']) return;
+  db.badges['super_recovery'] = { earned: true, earnedAt: Date.now() };
+  _awardWisdomXP(200, '😴 Récupération Pro',
+    '3 jours consécutifs avec une forme > 80%.');
+}
+
+function checkWisdomBadge_ACWR() {
+  var _acwr = typeof computeACWR === 'function' ? computeACWR() : null;
+  if (_acwr === null || _acwr === undefined) return;
+  if (!db._acwrPerfectWeeks) db._acwrPerfectWeeks = 0;
+  if (_acwr >= 0.8 && _acwr <= 1.3) {
+    var _lastWeek = db._acwrLastCheckWeek;
+    var _thisWeek = typeof getWeekKey === 'function' ? getWeekKey() : new Date().toISOString().slice(0, 10);
+    if (_lastWeek !== _thisWeek) {
+      db._acwrPerfectWeeks++;
+      db._acwrLastCheckWeek = _thisWeek;
+    }
+    if (db._acwrPerfectWeeks >= 4 && !(db.badges && db.badges['acwr_parfait'])) {
+      if (!db.badges) db.badges = {};
+      db.badges['acwr_parfait'] = { earned: true, earnedAt: Date.now() };
+      _awardWisdomXP(400, '⚖️ Équilibre Parfait',
+        '4 semaines avec une charge optimale. Ton SNC te remercie.');
+    }
+  } else {
+    db._acwrPerfectWeeks = 0;
+  }
+}
+
+function generateWisdomChallenges() {
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  var _challenges = [];
+  if (_level === 'avance') {
+    var _ratio = (db.bestPR && db.bestPR.squat && db.bestPR.bench)
+      ? db.bestPR.squat / db.bestPR.bench : null;
+    if (_ratio && _ratio < 1.20) {
+      _challenges.push({
+        id: 'ratio_correction', type: 'ratio',
+        label: 'Équilibre Squat/Bench',
+        description: 'Améliore ton ratio Squat/Bench de 2% (actuellement ' + (_ratio * 100).toFixed(0) + '%)',
+        target: Math.round(_ratio * 102) / 100,
+        xpReward: 500, current: _ratio
+      });
+    }
+  } else {
+    _challenges.push({
+      id: 'new_exercises', type: 'exploration',
+      label: 'Exploration',
+      description: 'Essaye 3 nouveaux exercices cette semaine',
+      target: 3, current: 0, xpReward: 150
+    });
+  }
+  return _challenges;
 }
 
 // ============================================================
@@ -18193,6 +18424,85 @@ var DUP_PARAMS = {
   volume:   { sets: [3,3], reps: [8,10], intensity: [0.65, 0.75], rpe: [7,8],   rest: [120, 120], label: 'Volume / Hypertrophie DUP' }
 };
 
+// ── CALISTHENICS SKILL TREE (Gemini v208) ──────────────────────────
+// La "charge" = niveau de version (Step 1 à 10).
+// Progression : chaque step débloqué quand X reps validées.
+var CALISTHENICS_SKILL_TREE = {
+  push: [
+    { step: 1, name: 'Pompes Mur',                  repsTarget: 15, type: 'bw' },
+    { step: 2, name: 'Pompes Genoux',                repsTarget: 15, type: 'bw' },
+    { step: 3, name: 'Pompes Classiques',            repsTarget: 10, type: 'bw' },
+    { step: 4, name: 'Pompes Diamant',               repsTarget: 8,  type: 'bw' },
+    { step: 5, name: 'Pompes Archer',                repsTarget: 6,  type: 'bw' },
+    { step: 6, name: 'Pompes Pike',                  repsTarget: 8,  type: 'bw' },
+    { step: 7, name: 'Pompes Déclinées',             repsTarget: 10, type: 'bw' },
+    { step: 8, name: 'Pompes Lestées',               repsTarget: 8,  type: 'weighted', startKg: 5 },
+    { step: 9, name: 'Handstand Push-up (mur)',      repsTarget: 5,  type: 'bw' },
+    { step: 10, name: 'Handstand Push-up libre',     repsTarget: 3,  type: 'skill' }
+  ],
+  pull: [
+    { step: 1, name: 'Tirage Australien',            repsTarget: 12, type: 'bw' },
+    { step: 2, name: 'Traction Assistée',            repsTarget: 10, type: 'assisted', assistKg: 20 },
+    { step: 3, name: 'Traction Classique',           repsTarget: 5,  type: 'bw' },
+    { step: 4, name: 'Traction Pronation',           repsTarget: 8,  type: 'bw' },
+    { step: 5, name: 'Traction L-sit',               repsTarget: 5,  type: 'bw' },
+    { step: 6, name: 'Traction Lestée',              repsTarget: 5,  type: 'weighted', startKg: 5 },
+    { step: 7, name: 'Traction Archer',              repsTarget: 3,  type: 'bw' },
+    { step: 8, name: 'Muscle-up (base)',             repsTarget: 1,  type: 'skill' },
+    { step: 9, name: 'Muscle-up Strict',             repsTarget: 3,  type: 'skill' },
+    { step: 10, name: 'Muscle-up Lesté',             repsTarget: 3,  type: 'weighted', startKg: 5 }
+  ],
+  core: [
+    { step: 1, name: 'Planche (20s)',                repsTarget: 3,  type: 'hold', holdSec: 20 },
+    { step: 2, name: 'Planche (45s)',                repsTarget: 3,  type: 'hold', holdSec: 45 },
+    { step: 3, name: 'Relevé Genoux',                repsTarget: 15, type: 'bw' },
+    { step: 4, name: 'Relevé Jambes',                repsTarget: 12, type: 'bw' },
+    { step: 5, name: 'Dragon Flag Négatif',          repsTarget: 5,  type: 'bw' },
+    { step: 6, name: 'L-sit (10s)',                  repsTarget: 3,  type: 'hold', holdSec: 10 },
+    { step: 7, name: 'L-sit (20s)',                  repsTarget: 3,  type: 'hold', holdSec: 20 },
+    { step: 8, name: 'Front Lever Plié',             repsTarget: 3,  type: 'hold', holdSec: 5 },
+    { step: 9, name: 'Dragon Flag',                  repsTarget: 5,  type: 'bw' },
+    { step: 10, name: 'Front Lever',                 repsTarget: 1,  type: 'hold', holdSec: 10 }
+  ],
+  legs: [
+    { step: 1, name: 'Squat',                        repsTarget: 20, type: 'bw' },
+    { step: 2, name: 'Squat Bulgare',                repsTarget: 10, type: 'bw' },
+    { step: 3, name: 'Pistol Squat Assisté',         repsTarget: 8,  type: 'assisted' },
+    { step: 4, name: 'Pistol Squat',                 repsTarget: 5,  type: 'bw' },
+    { step: 5, name: 'Pistol Squat Lesté',           repsTarget: 5,  type: 'weighted', startKg: 5 },
+    { step: 6, name: 'Saut en Hauteur',              repsTarget: 5,  type: 'explosive' },
+    { step: 7, name: 'Broad Jump',                   repsTarget: 5,  type: 'explosive' }
+  ]
+};
+
+function getCalisthenicCurrentStep(movement) {
+  var _progress = (db.calisthenicProgress && db.calisthenicProgress[movement])
+    || { step: 1, reps: 0 };
+  return _progress;
+}
+
+function validateCalisthenicStep(movement, repsAchieved) {
+  if (!db.calisthenicProgress) db.calisthenicProgress = {};
+  var _tree = CALISTHENICS_SKILL_TREE[movement] || [];
+  var _current = db.calisthenicProgress[movement] || { step: 1, reps: 0 };
+  var _stepData = _tree.find(function(s) { return s.step === _current.step; });
+  if (!_stepData) return;
+  if (repsAchieved >= _stepData.repsTarget) {
+    var _nextStep = _current.step + 1;
+    var _nextStepData = _tree.find(function(s) { return s.step === _nextStep; });
+    db.calisthenicProgress[movement] = {
+      step: _nextStepData ? _nextStep : _current.step,
+      reps: 0
+    };
+    if (_nextStepData && typeof showToast === 'function') {
+      showToast('🔓 ' + movement + ' débloqué : ' + _nextStepData.name + ' !', 4000);
+    }
+  } else {
+    db.calisthenicProgress[movement] = { step: _current.step, reps: repsAchieved };
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+
 var DUP_SEQUENCE = {
   // Débutants : volume fixe (LP pure, pas de DUP)
   debutant: {
@@ -18236,6 +18546,21 @@ var DUP_SEQUENCE = {
     4: ['force', 'vitesse', 'force', 'vitesse'],
     5: ['force', 'vitesse', 'force', 'vitesse', 'force'],
     6: ['force', 'vitesse', 'force', 'vitesse', 'force', 'vitesse']
+  },
+  // Calisthenics : skill = tentative step suivant, hypertrophie = step actuel reps hautes
+  calisthenics: {
+    debutant: {
+      3: ['hypertrophie', 'hypertrophie', 'skill'],
+      4: ['hypertrophie', 'skill', 'hypertrophie', 'skill']
+    },
+    intermediaire: {
+      4: ['force', 'hypertrophie', 'skill', 'hypertrophie'],
+      5: ['force', 'hypertrophie', 'skill', 'hypertrophie', 'force']
+    },
+    avance: {
+      5: ['force', 'force', 'skill', 'hypertrophie', 'force'],
+      6: ['force', 'force', 'skill', 'hypertrophie', 'force', 'vitesse']
+    }
   }
 };
 
@@ -18781,6 +19106,57 @@ function applyShoulderFilter(exercises) {
       note: '🩹 Adapté blessure épaule (original : ' + exo.name + ')'
     });
   });
+}
+
+// ── SENIOR ADAPTATIONS (Gemini v208) ───────────────────────────────
+// 3 piliers validés : stabilité first, repos ×2, focus unilatéral.
+var SENIOR_ADAPTATIONS = {
+  restMultiplier: 2.0,
+  preferMachines: true,
+  unilateralPerSession: true,
+  maxRPE: 7,
+  maxSetsPerExo: 3,
+  cardioMax: 20
+};
+
+function applyAgeAdaptations(exercises) {
+  var _age = (db.user && db.user.age) || 0;
+  if (_age < 60 || !Array.isArray(exercises)) return exercises;
+  return exercises.map(function(exo) {
+    if (!exo) return exo;
+    var adapted = Object.assign({}, exo);
+    if (Array.isArray(adapted.sets)) {
+      adapted.sets = adapted.sets.map(function(s) {
+        return Object.assign({}, s, {
+          restSeconds: (s.restSeconds || 120) * SENIOR_ADAPTATIONS.restMultiplier
+        });
+      });
+    } else if (typeof adapted.rest === 'number') {
+      adapted.rest = adapted.rest * SENIOR_ADAPTATIONS.restMultiplier;
+    }
+    if (adapted.targetRPE && adapted.targetRPE > SENIOR_ADAPTATIONS.maxRPE) {
+      adapted.targetRPE = SENIOR_ADAPTATIONS.maxRPE;
+    }
+    if (typeof adapted.rpe === 'number' && adapted.rpe > SENIOR_ADAPTATIONS.maxRPE) {
+      adapted.rpe = SENIOR_ADAPTATIONS.maxRPE;
+    }
+    adapted._seniorAdapted = true;
+    return adapted;
+  });
+}
+
+// ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
+// Détection :
+//   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
+//   - sinon : motivation ≤ 2 + sleep ≤ 3 → stress haut (proxy)
+// Retour : 0.80 (= -20% volume) en cas de stress, sinon 1.0
+function getStressVolumeModifier() {
+  var _wb = db.todayWellbeing;
+  if (!_wb) return 1.0;
+  var _stressHigh = (typeof _wb.stress === 'number' && _wb.stress >= 4)
+    || (typeof _wb.motivation === 'number' && _wb.motivation <= 2
+        && typeof _wb.sleep === 'number' && _wb.sleep <= 3);
+  return _stressHigh ? 0.80 : 1.0;
 }
 
 // Increment de Double Progression différencié par bodyPart/muscleGroup
@@ -20750,6 +21126,23 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   exercises = applyShoulderFilter(exercises);
+
+  // SENIOR : rest ×2 + RPE max 7 (Gemini v208)
+  exercises = applyAgeAdaptations(exercises);
+
+  // STRESS : -20% volume si motivation basse + sommeil bas (Gemini v208)
+  var _stressMod = typeof getStressVolumeModifier === 'function' ? getStressVolumeModifier() : 1.0;
+  if (_stressMod < 1.0) {
+    exercises = exercises.map(function(exo) {
+      if (!exo) return exo;
+      return Object.assign({}, exo, {
+        _stressAdapted: true,
+        _volumeMod: _stressMod,
+        coachNote: '🧘 Volume réduit (-' + Math.round((1 - _stressMod) * 100) + '%) — prends soin de toi aujourd\'hui.'
+      });
+    });
+  }
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 
@@ -22706,6 +23099,23 @@ function goStartWorkout(withProgram) {
     return;
   }
   _goDoStartWorkout(withProgram);
+}
+
+// ── INSTINCT MODE — universel (Gemini v208) ─────────────────────────
+// "Séance Plaisir" pour bien_etre/calisthenics, "Mode Instinct" sinon.
+// Aucune cible imposée, l'algo observe sans intervenir.
+function startInstinctSession(mode) {
+  var _mode = mode || (db.user && db.user.trainingMode) || 'powerbuilding';
+  var _isWellbeing = _mode === 'bien_etre' || _mode === 'calisthenics';
+  var _label = _isWellbeing ? 'Séance Plaisir 🌟' : 'Mode Instinct 🎲';
+  var _desc = _isWellbeing
+    ? 'Aucun log obligatoire. Aucune cible. Juste bouger pour se sentir bien.'
+    : 'Entraîne-toi au feeling. Aucun RPE imposé. L\'algo observe sans intervenir.';
+  db._lastInstinctSession = Date.now();
+  db._instinctMode = true;
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof goStartWorkout === 'function') goStartWorkout(false);
+  if (typeof showToast === 'function') showToast('🎯 ' + _label + ' — ' + _desc, 5000);
 }
 
 function _goDoStartWorkout(withProgram) {
@@ -26426,6 +26836,10 @@ function goFinishWorkout() {
 
   // Generate AI debrief
   try { saveAlgoDebrief(session); } catch(e) {}
+
+  // Wisdom badges (Gemini v207)
+  try { checkWisdomBadge_Recovery(); } catch(e) {}
+  try { checkWisdomBadge_ACWR(); } catch(e) {}
 
   // Social: publish session activity
   try { publishSessionActivity(session); } catch(e) {}

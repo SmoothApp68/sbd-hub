@@ -21862,6 +21862,60 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
   exercises = applyShoulderFilter(exercises);
   exercises = applyKneeFilter(exercises);
+
+  // PIPELINE v212 — règles universelles aussi en mode musculation
+  // (avant v212, wpGenerateMuscuDay bypassait selectExercisesForProfile,
+  //  Pivot Week, Leg Overreach et applyAgeAdaptations).
+  try {
+    if (typeof applyAgeAdaptations === 'function') {
+      exercises = applyAgeAdaptations(exercises);
+    }
+    if (typeof getStressVolumeModifier === 'function') {
+      var _sMod = getStressVolumeModifier();
+      if (_sMod < 1.0) {
+        exercises = exercises.map(function(e) {
+          if (!e) return e;
+          return Object.assign({}, e, {
+            sets: Math.max(2, Math.round((e.sets || 3) * _sMod)),
+            _stressAdapted: true,
+            _volumeMod: _sMod
+          });
+        });
+      }
+    }
+    if (typeof selectExercisesForProfile === 'function'
+        && typeof buildProfileForSelection === 'function') {
+      var _profile = buildProfileForSelection();
+      exercises = selectExercisesForProfile(exercises, _profile);
+    }
+    if (typeof applyPivotWeekSwaps === 'function') {
+      exercises = applyPivotWeekSwaps(exercises);
+    }
+    if (typeof getLegOverreachModifiers === 'function') {
+      var _overreach = getLegOverreachModifiers();
+      if (_overreach) {
+        var _title = tpl.title || '';
+        var _isLower = /lower|squat|leg|jambe/i.test(_title);
+        var _isUpper = !_isLower && /upper|bench|push|pull/i.test(_title);
+        exercises = exercises.map(function(e) {
+          if (!e) return e;
+          var _mult = _isLower ? _overreach.legsVolumeMultiplier
+            : _isUpper ? _overreach.upperVolumeMultiplier : 1.0;
+          if (_mult === 1.0) return e;
+          return Object.assign({}, e, {
+            sets: Math.max(2, Math.round((e.sets || 3) * _mult)),
+            _overreachAdapted: true
+          });
+        });
+      }
+    }
+  } catch (e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpGenerateMuscuDay_pipeline', { tplKey: tplKey });
+    }
+  }
+
   var note = dayCoachNote ||
     (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
      isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');

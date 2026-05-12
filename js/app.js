@@ -1299,6 +1299,7 @@ const EXO_DB = {
   bench:          { name:'Bench Press barre', sets:'4×5', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Développé haltères',mat:'halteres'},{name:'Développé incliné barre',mat:'salle'},{name:'Pompes lestées',mat:'maison'}] },
   bench_halt:     { name:'Développé haltères', sets:'3×10', mat:['halteres','salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Pompes',mat:'maison'},{name:'Développé incliné haltères',mat:'halteres'}] },
   larsen_press:   { name:'Larsen Press', sets:'3×10', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Développé haltères',mat:'halteres'}] },
+  close_grip_bench:{ name:'Développé couché prise serrée', sets:'4×5', mat:['salle'], muscle:'Pecs/Triceps', icon:'🫁', alts:[{name:'Bench Press barre',mat:'salle'},{name:'Dips lestés',mat:'salle'}] },
   dips:           { name:'Dips lestés', sets:'3×8', mat:['salle','maison'], muscle:'Pecs/Triceps', icon:'🫁', alts:[{name:'Dips poids de corps',mat:'maison'},{name:'Pompes pieds surélevés',mat:'maison'}] },
   incline_bench:  { name:'Développé incliné barre', sets:'3×8', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Développé incliné haltères',mat:'halteres'},{name:'Pompes pieds surélevés',mat:'maison'}] },
   ecarte:         { name:'Écarté poulie basse', sets:'3×15', mat:['salle'], muscle:'Pecs', icon:'🫁', alts:[{name:'Écarté haltères',mat:'halteres'},{name:'Pompes diamant',mat:'maison'}] },
@@ -2034,6 +2035,21 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     // Pull — gardé pour compatibilité splits 6j (ne plus router par défaut)
     pull_hyp:  { label:'Pull — Volume',              exos: filtSafe(filtLevel(['row_halt','lat_pull','traction','face_pull','curl_halt']), mat) },
   };
+
+  // v201 — Phase-adaptive pbBlocks : exercices adaptés à la phase courante macrocycle
+  // Force/Intensification → Squat Pause + Close Grip Bench (technique spécifique SBD)
+  // Peak → Volume réduit, exercices haute intensité neuro uniquement
+  var _pbPhase = typeof wpDetectPhase === 'function' ? (wpDetectPhase() || 'hypertrophie') : 'hypertrophie';
+  if (_pbPhase === 'force' || _pbPhase === 'intensification') {
+    pbBlocks.sq_hyp = { label:'Squat — Force',
+      exos: filtSafe(filtLevel(['squat','squat_pause','leg_press','leg_ext','planche']), mat) };
+    pbBlocks.bench_hyp = { label:'Bench — Force',
+      exos: filtSafe(filtLevel(['bench','close_grip_bench','rowing_poulie','dips','face_pull']), mat) };
+  }
+  if (_pbPhase === 'peak') {
+    pbBlocks.sq_hyp = { label:'Squat — Intensification',
+      exos: filtSafe(filtLevel(['squat','squat_pause','leg_ext','planche']), mat) };
+  }
 
   // ── FATIGUE-BASED EXERCISE SELECTION (Gemini Next Big Feature) ───────────
   // ACWR > 1.3 → remplacer Squat barre (axial lourd) par Leg Press (axial léger)
@@ -7563,6 +7579,105 @@ function renderWeekCard() {
     todayHtml;
 }
 
+// ── QUICK-LOG ACTIVITÉ PONCTUELLE (v201) ──────────────────────────────────
+// Carte dashboard : logger une activité hors salle avant la séance
+
+var _QUICK_LOG_IMPACT = {
+  rando:    { zone: 'legs',   pct: -20, minDur: 120 },
+  cardio:   { zone: 'global', pct: -15, minDur: 60  },
+  velo:     { zone: 'global', pct: -10, minDur: 60  },
+  natation: { zone: 'global', pct: -10, minDur: 45  },
+  yoga:     null,
+  autre:    null
+};
+
+var _QUICK_LOG_TYPES = [
+  { key: 'rando',    label: 'Randonnée',  emoji: '🥾' },
+  { key: 'cardio',   label: 'Cardio',     emoji: '🏃' },
+  { key: 'velo',     label: 'Vélo',       emoji: '🚴' },
+  { key: 'natation', label: 'Natation',   emoji: '🏊' },
+  { key: 'yoga',     label: 'Yoga',       emoji: '🧘' },
+  { key: 'autre',    label: 'Autre',      emoji: '🏅' }
+];
+
+function renderQuickLogCard() {
+  var el = document.getElementById('quickLogCard');
+  if (!el) return;
+  var todayStr = new Date().toISOString().split('T')[0];
+  var _logged = (db._quickLogActivities || []).find(function(a) { return a.date === todayStr; });
+  el.style.display = '';
+  if (_logged) {
+    el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);">'
+      + '<span style="color:var(--green);font-size:14px;">✓</span>'
+      + escapeHtml(_logged.emoji) + ' ' + escapeHtml(_logged.label) + ' ' + _logged.duration + 'min loggé'
+      + '<button onclick="clearQuickLog()" style="margin-left:auto;font-size:11px;color:var(--sub);'
+      + 'background:none;border:none;cursor:pointer;padding:2px 6px;">×</button></div>';
+    return;
+  }
+  var html = '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+    + 'letter-spacing:0.8px;margin-bottom:10px;">🏅 Activité hors salle aujourd\'hui ?</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  _QUICK_LOG_TYPES.forEach(function(t) { html += _quickLogBtn(t); });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function _quickLogBtn(t) {
+  return '<button onclick="showQuickLogDuration(\'' + escapeHtml(t.key) + '\',\''
+    + escapeHtml(t.label) + '\',\'' + escapeHtml(t.emoji) + '\')" '
+    + 'style="padding:6px 10px;border-radius:20px;background:var(--surface);border:1px solid var(--border);'
+    + 'font-size:12px;cursor:pointer;">'
+    + escapeHtml(t.emoji) + ' ' + escapeHtml(t.label) + '</button>';
+}
+
+function showQuickLogDuration(key, label, emoji) {
+  var el = document.getElementById('quickLogCard');
+  if (!el) return;
+  var durations = [30, 45, 60, 90, 120];
+  var html = '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">'
+    + escapeHtml(emoji) + ' ' + escapeHtml(label) + ' — Durée ?</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
+  durations.forEach(function(d) {
+    html += '<button onclick="saveQuickLog(\'' + escapeHtml(key) + '\',\'' + escapeHtml(label)
+      + '\',\'' + escapeHtml(emoji) + '\',' + d + ')" '
+      + 'style="padding:6px 12px;border-radius:20px;background:var(--accent);border:none;'
+      + 'color:#fff;font-size:12px;cursor:pointer;">' + d + 'min</button>';
+  });
+  html += '<button onclick="renderQuickLogCard()" '
+    + 'style="padding:6px 10px;border-radius:20px;background:var(--surface);border:1px solid var(--border);'
+    + 'font-size:12px;color:var(--sub);cursor:pointer;">←</button></div>';
+  el.innerHTML = html;
+}
+
+function saveQuickLog(key, label, emoji, duration) {
+  var todayStr = new Date().toISOString().split('T')[0];
+  if (!db._quickLogActivities) db._quickLogActivities = [];
+  db._quickLogActivities = db._quickLogActivities.filter(function(a) { return a.date !== todayStr; });
+  db._quickLogActivities.push({ date: todayStr, key: key, label: label, emoji: emoji, duration: duration });
+  _applyQuickLogToProgram(key, duration);
+  saveDB();
+  renderQuickLogCard();
+  if (typeof showToast === 'function') showToast(emoji + ' ' + label + ' ' + duration + 'min loggé');
+}
+
+function clearQuickLog() {
+  var todayStr = new Date().toISOString().split('T')[0];
+  db._quickLogActivities = (db._quickLogActivities || []).filter(function(a) { return a.date !== todayStr; });
+  if (db.weeklyPlan) delete db.weeklyPlan._quickLogAdjustment;
+  saveDB();
+  renderQuickLogCard();
+}
+
+function _applyQuickLogToProgram(key, duration) {
+  var impact = _QUICK_LOG_IMPACT[key];
+  if (!impact || duration < impact.minDur) return;
+  if (!db.weeklyPlan) return;
+  db.weeklyPlan._quickLogAdjustment = {
+    zone: impact.zone, pct: impact.pct,
+    date: new Date().toISOString().split('T')[0]
+  };
+}
+
 function renderDash() {
   try {
     // Carte bienvenue
@@ -7574,6 +7689,10 @@ function renderDash() {
         const title = document.getElementById('welcomeTitle');
         if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
       }
+    }
+
+    try { renderQuickLogCard(); } catch (e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
 
     requestAnimationFrame(function() {
@@ -16072,6 +16191,52 @@ function renderCoachTodayHTML() {
     '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+volScore+'%;background:'+gaugeColor(volScore)+';"></div></div>'+
     '<div class="coach-gauge-lbl">Volume</div></div>';
   html += '</div>';
+
+  // ── 1b. TOP 3 ALERTES COACH ADAPTATIVES (v201) ──
+  // Alertes contextuelles : jour de la semaine × ratio S/B × niveau × régularité
+  if (coachProfile !== 'silent') {
+    var _coachAlerts = [];
+    var _caTodayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][(new Date().getDay() + 6) % 7];
+    var _caPR        = db.bestPR || {};
+    var _caBench     = parseFloat(_caPR.bench)  || 0;
+    var _caSquat     = parseFloat(_caPR.squat)  || 0;
+    var _caRatioSB   = _caBench > 0 ? _caSquat / _caBench : 1.20;
+    var _caLevel     = (db.user && db.user.level) || 'intermediaire';
+
+    // Alerte 1 — Lundi/Samedi + ratio S/B < 1.20 → Leg Extension prioritaire
+    if ((_caTodayName === 'Lundi' || _caTodayName === 'Samedi') && _caRatioSB < 1.20) {
+      _coachAlerts.push({ type: 'warning',
+        text: '🎯 Leg Extension prioritaire — ratio S/B ' + _caRatioSB.toFixed(2) + ' < 1.20. Ne saute pas cet exercice correctif aujourd\'hui.' });
+    }
+    // Alerte 2 — Mercredi → Deadlift demain, protège le CNS
+    if (_caTodayName === 'Mercredi') {
+      _coachAlerts.push({ type: 'info',
+        text: '⚡ Demain : Deadlift. Garde tes réserves neuromusculaires — évite les efforts intenses ou séries lourdes aujourd\'hui.' });
+    }
+    // Alerte 3 — Mardi → Rowing fondation du Bench
+    if (_caTodayName === 'Mardi') {
+      _coachAlerts.push({ type: 'green',
+        text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
+    }
+    // Wildcard — avancé + 12+ séances sur 30j → Mode Instinct
+    if (_caLevel === 'avance') {
+      var _caLogs30 = (db.logs || []).filter(function(l) { return l.timestamp && l.timestamp >= Date.now() - 30 * 86400000; });
+      if (_caLogs30.length >= 12) {
+        _coachAlerts.push({ type: 'green',
+          text: '🔥 Mode Instinct disponible — ' + _caLogs30.length + ' séances sur 30j. Fais confiance à tes sensations sur les accessoires.' });
+      }
+    }
+
+    if (_coachAlerts.length > 0) {
+      html += '<div style="margin-bottom:12px;">';
+      _coachAlerts.slice(0, 3).forEach(function(alert) {
+        html += '<div class="coach-alert coach-alert--' + alert.type + '">'
+          + '<div style="font-size:12px;color:var(--text);line-height:1.5;">' + alert.text + '</div>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+  }
 
   // ── 2. ALERTE DELOAD ──
   var deload = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : {needed:false};

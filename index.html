@@ -1882,6 +1882,12 @@
     .coach-deload-text { flex:1;font-size:12px;color:var(--sub);line-height:1.5; }
     .coach-deload-text strong { color:var(--orange); }
 
+    /* Coach alertes adaptatives v201 */
+    .coach-alert { padding:10px 12px;margin-bottom:8px;border-radius:0 10px 10px 0; }
+    .coach-alert--info    { background:rgba(10,132,255,0.08);border-left:3px solid var(--blue); }
+    .coach-alert--warning { background:rgba(255,159,10,0.08);border-left:3px solid var(--orange); }
+    .coach-alert--green   { background:rgba(50,215,75,0.08);border-left:3px solid var(--green); }
+
     /* Msg perso */
     .go-msg-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
       z-index:600;align-items:flex-end;justify-content:center; }
@@ -2337,6 +2343,9 @@
     <div class="card" id="dashWeekCard" style="padding:14px 16px;">
       <div id="dashWeekContent"></div>
     </div>
+
+    <!-- Quick-Log activité hors salle -->
+    <div class="card" id="quickLogCard" style="padding:14px 16px;display:none;"></div>
 
     <!-- Carte Performance -->
     <div class="card" id="perfCard" style="padding:14px 16px;">

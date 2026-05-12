@@ -6578,6 +6578,34 @@ function calcXPBreakdown() {
   return { seances: xpSeances, records: xpRecords, regularite: xpRegularite, tonnage: xpTonnage, defis: xpDefis, corps: xpCorps };
 }
 
+// ── PROGRESSION SCORE — leaderboard relatif (Gemini v207) ────────────
+// Compare le volume moyen des dernières 30j vs le volume moyen
+// d'une fenêtre équivalente (même nombre de séances) juste avant.
+// Permet de classer les profils légers à égalité avec les lourds.
+function getProgressionScore(userId) {
+  var _logs;
+  if (userId === undefined || userId === null || userId === (db.user && db.user.id)) {
+    _logs = db.logs || [];
+  } else if (typeof _getFriendLogs === 'function') {
+    _logs = _getFriendLogs(userId) || [];
+  } else {
+    _logs = [];
+  }
+  if (!_logs || _logs.length < 2) return 0;
+
+  var _now = Date.now();
+  var _30d = _now - 30 * 86400000;
+  var _recent = _logs.filter(function(l) { return (l.timestamp || 0) > _30d; });
+  var _older  = _logs.filter(function(l) { return (l.timestamp || 0) <= _30d; });
+  if (!_recent.length || !_older.length) return 0;
+
+  var _recentVol = _recent.reduce(function(s, l) { return s + (l.volume || 0); }, 0) / _recent.length;
+  var _olderSlice = _older.slice(-_recent.length);
+  var _olderVol = _olderSlice.reduce(function(s, l) { return s + (l.volume || 0); }, 0)
+    / Math.max(_olderSlice.length, 1);
+  return _olderVol > 0 ? Math.round((_recentVol - _olderVol) / _olderVol * 100) : 0;
+}
+
 async function _renderLeaderboard() {
   var el = document.getElementById('gamLeaderboard');
   if (!el) return;
@@ -6587,11 +6615,13 @@ async function _renderLeaderboard() {
   }
 
   var currentMetric = db._leaderboardMetric || 'dots';
-  var periodType = currentMetric === 'dots' ? 'alltime' : 'weekly';
+  var periodType = currentMetric === 'dots' ? 'alltime' : (currentMetric === 'progression' ? 'monthly' : 'weekly');
   var weekKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('weekly') : '';
-  var periodKey = currentMetric === 'dots' ? 'alltime' : weekKey;
-  var unitLabel = currentMetric === 'dots' ? 'pts' : 'XP';
-  var periodLabel = currentMetric === 'dots' ? 'Tout temps — DOTS' : 'Cette semaine — XP';
+  var monthKey = typeof getLeaderboardPeriodKey === 'function' ? getLeaderboardPeriodKey('monthly') : '';
+  var periodKey = currentMetric === 'dots' ? 'alltime' : (currentMetric === 'progression' ? monthKey : weekKey);
+  var unitLabel = currentMetric === 'dots' ? 'pts' : (currentMetric === 'progression' ? '%' : 'XP');
+  var periodLabel = currentMetric === 'dots' ? 'Tout temps — DOTS'
+    : (currentMetric === 'progression' ? 'Sur 30 jours — Progression' : 'Cette semaine — XP');
 
   el.innerHTML = '<div style="font-size:12px;color:var(--sub);">Chargement...</div>';
   try {
@@ -6614,6 +6644,10 @@ async function _renderLeaderboard() {
       + 'style="padding:3px 8px;border-radius:6px;font-size:10px;border:none;cursor:pointer;'
       + 'background:' + (currentMetric === 'xp' ? 'var(--accent)' : 'var(--surface)') + ';'
       + 'color:' + (currentMetric === 'xp' ? '#fff' : 'var(--sub)') + ';">XP</button>';
+    html += '<button onclick="db._leaderboardMetric=\'progression\';saveDB();_renderLeaderboard();" '
+      + 'style="padding:3px 8px;border-radius:6px;font-size:10px;border:none;cursor:pointer;'
+      + 'background:' + (currentMetric === 'progression' ? 'var(--accent)' : 'var(--surface)') + ';'
+      + 'color:' + (currentMetric === 'progression' ? '#fff' : 'var(--sub)') + ';">Progression</button>';
     html += '</div></div>';
 
     if (!data || !data.length) {
@@ -6626,7 +6660,14 @@ async function _renderLeaderboard() {
     data.forEach(function(entry, i) {
       var isMe = entry.user_id === myId;
       var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.';
-      var valueStr = entry.value > 0 ? Math.round(entry.value) + ' ' + unitLabel : '—';
+      var valueStr;
+      if (currentMetric === 'progression') {
+        var pct = Math.round(entry.value);
+        var sign = pct > 0 ? '+' : '';
+        valueStr = (pct === 0 ? '0' : sign + pct) + ' ' + unitLabel;
+      } else {
+        valueStr = entry.value > 0 ? Math.round(entry.value) + ' ' + unitLabel : '—';
+      }
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;margin-bottom:4px;background:'+(isMe?'rgba(10,132,255,0.1)':'var(--surface)')+';border:1px solid '+(isMe?'var(--accent)':'transparent')+';">';
       html += '<div style="display:flex;align-items:center;gap:8px;"><div style="font-size:14px;">'+medal+'</div>';
       html += '<div style="font-size:13px;font-weight:'+(isMe?'700':'400')+';">'+(entry.username||'Athlète').replace(/</g,'&lt;')+(isMe?' (toi)':'')+'</div></div>';

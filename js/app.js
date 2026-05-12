@@ -8031,6 +8031,14 @@ function confirmPhaseTransition(nextPhase) {
   db.weeklyPlan.currentBlock.phase = nextPhase;
   db.weeklyPlan.currentBlock.blockStartDate = Date.now();
   db.weeklyPlan.currentBlock.forcedAt = Date.now();
+  // v212 — strip préfixe deload 🔄 de db.routine quand on quitte la phase deload
+  if (db.routine) {
+    Object.keys(db.routine).forEach(function(day) {
+      if (typeof db.routine[day] === 'string') {
+        db.routine[day] = db.routine[day].replace(/^🔄\s*/, '');
+      }
+    });
+  }
   db._phaseGateShownAt = null;
   saveDB();
   if (typeof showToast === 'function') showToast('🔄 Phase ' + nextPhase + ' activée lundi !');

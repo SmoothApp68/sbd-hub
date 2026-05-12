@@ -20604,7 +20604,8 @@ function wpApplySupersets(exercises, pref) {
         exo.superset = true;
         exo.supersetWith = next.name;
         next.isSecondInSuperset = true;
-        next.restSeconds = 0;
+        // v212 — null (et non 0) pour que l'UI affiche "Enchaîner →" au lieu de "0s"
+        next.restSeconds = null;
         result.push(exo);
         result.push(next);
         i += 2;
@@ -22691,7 +22692,10 @@ function fmtRest(sec) {
 function renderWpExercise(exo) {
   const type = exo.type || 'weight';
   const sets = exo.sets || [];
-  const restHtml = exo.restSeconds ? '<div class="wpe-rest">⏸ Repos : ' + fmtRest(exo.restSeconds) + '</div>' : '';
+  // v212 — superset 2è exo : afficher "Enchaîner →" plutôt qu'aucun repos ou "0s"
+  const restHtml = exo.restSeconds
+    ? '<div class="wpe-rest">⏸ Repos : ' + fmtRest(exo.restSeconds) + '</div>'
+    : (exo.isSecondInSuperset ? '<div class="wpe-rest">⏩ Enchaîner →</div>' : '');
 
   // Muscle icon
   const ms = _ecMuscleStyle(exo.name);

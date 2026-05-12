@@ -1440,7 +1440,7 @@ function gotoObStep(stepId) {
     // Pre-select training mode
     if (db.user.trainingMode) {
       document.querySelectorAll('#ob-mode-grid .ob-mode-btn').forEach(function(el) { el.classList.remove('selected'); });
-      var modeMap = { musculation:0, powerbuilding:1, powerlifting:2, bien_etre:3 };
+      var modeMap = { musculation:0, powerbuilding:1, powerlifting:2, bien_etre:3, calisthenics:4 };
       var modeBtns = document.querySelectorAll('#ob-mode-grid .ob-mode-btn');
       var modeIdx = modeMap[db.user.trainingMode];
       if (modeIdx !== undefined && modeBtns[modeIdx]) modeBtns[modeIdx].classList.add('selected');
@@ -1534,11 +1534,11 @@ function obQ3SelectMat(matId, btn) {
   // Persistance immédiate + side effects (Gemini v211)
   db.user.programParams = db.user.programParams || {};
   db.user.programParams.mat = matId;
-  // Poids de corps uniquement → bascule en mode calisthenics
+  // Poids de corps uniquement → bascule en mode calisthenics (sauf si l'user a explicitement choisi calisthenics dans la grille)
   if (matId === 'maison') {
     db.user.trainingMode = 'calisthenics';
-  } else if (db.user.trainingMode === 'calisthenics') {
-    // Si l'user revient sur salle/haltères après avoir vu calisthenics → repasser musculation
+  } else if (db.user.trainingMode === 'calisthenics' && _obSelectedMode !== 'calisthenics') {
+    // Revient sur salle/haltères sans avoir sélectionné explicitement calisthenics → repasser musculation
     db.user.trainingMode = 'musculation';
   }
   saveDB();

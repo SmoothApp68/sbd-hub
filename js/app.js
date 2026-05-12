@@ -22308,12 +22308,24 @@ function generateWeeklyPlan() {
       var splitMap;
       if (freq >= 6) {
         splitMap = { 'Lundi':'push_a','Mardi':'pull_a','Mercredi':'legs_a','Jeudi':'push_b','Vendredi':'pull_b','Samedi':'legs_b','Dimanche':null };
+      } else if (freq === 5) {
+        // v212 — 5 templates distincts (full_a en J5) pour éviter le doublon Upper A
+        splitMap = { 'Lundi':'upper_a','Mardi':'lower_a','Mercredi':null,'Jeudi':'upper_b','Vendredi':'lower_b','Samedi':'full_a','Dimanche':null };
       } else if (freq >= 4) {
         splitMap = { 'Lundi':'upper_a','Mardi':'lower_a','Mercredi':null,'Jeudi':'upper_b','Vendredi':'lower_b','Samedi':null,'Dimanche':null };
       } else {
         splitMap = { 'Lundi':'full_a','Mercredi':'full_b','Vendredi':'full_c','Mardi':null,'Jeudi':null,'Samedi':null,'Dimanche':null };
       }
       var tplKeys = Object.values(splitMap).filter(Boolean);
+      // v212 — safety : si moins de tpls distincts que de jours d'entraînement,
+      // compléter avec des full bodies pour éviter le recyclage du même template
+      var _fallbackTpls = ['full_a', 'full_b', 'full_c'];
+      while (tplKeys.length < selectedDays.length) {
+        var _candidate = _fallbackTpls.shift();
+        if (!_candidate) break;
+        if (tplKeys.indexOf(_candidate) === -1) tplKeys.push(_candidate);
+        else _fallbackTpls.push(_candidate);
+      }
       var tplIdx = 0;
       days = allDays.map(function(day) {
         if (selectedDays.indexOf(day) < 0) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };

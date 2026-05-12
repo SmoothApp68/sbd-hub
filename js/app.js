@@ -1531,6 +1531,17 @@ function obQ3SelectMat(matId, btn) {
   obMat = matId;
   document.querySelectorAll('#ob-q3-mat .ob-mat-btn').forEach(function(b) { b.classList.remove('selected'); });
   if (btn) btn.classList.add('selected');
+  // Persistance immédiate + side effects (Gemini v211)
+  db.user.programParams = db.user.programParams || {};
+  db.user.programParams.mat = matId;
+  // Poids de corps uniquement → bascule en mode calisthenics
+  if (matId === 'maison') {
+    db.user.trainingMode = 'calisthenics';
+  } else if (db.user.trainingMode === 'calisthenics') {
+    // Si l'user revient sur salle/haltères après avoir vu calisthenics → repasser musculation
+    db.user.trainingMode = 'musculation';
+  }
+  saveDB();
 }
 
 function obSaveQ3() {

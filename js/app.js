@@ -17631,6 +17631,51 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   return { exercises: adapted, adaptations };
 }
 
+// ── SRS Adaptatif + Modificateur Cycle Menstruel (v205) ─────────────────
+// Baseline personnelle : moyenne - 1.5σ sur les 30 dernières sessions.
+// < 10 sessions → seuil fixe conservateur 45. 10-30 → baseline provisoire.
+function computeAdaptiveSRSThreshold() {
+  var readiness = (db.readiness || [])
+    .filter(function(r) { return r.score > 0; })
+    .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+  if (readiness.length < 10) {
+    return { threshold: 45, mode: 'fixed', sessions: readiness.length };
+  }
+
+  var sample = readiness.slice(0, Math.min(30, readiness.length));
+  var scores = sample.map(function(r) { return r.score; });
+  var mean = scores.reduce(function(s, v) { return s + v; }, 0) / scores.length;
+  var variance = scores.reduce(function(s, v) { return s + Math.pow(v - mean, 2); }, 0) / scores.length;
+  var sigma = Math.sqrt(variance);
+  var threshold = mean - 1.5 * sigma;
+  var mode = readiness.length >= 30 ? 'stable' : 'provisional';
+
+  return { threshold: Math.max(30, Math.round(threshold)), mean: Math.round(mean),
+           sigma: Math.round(sigma * 10) / 10, mode: mode, sessions: readiness.length };
+}
+
+// Modificateur SRS selon la phase du cycle menstruel (Léa et tout user cycleTracking).
+// Valeurs Gemini-validées : lutéale +5, pré-menstruelle +10, ovulation -5.
+function getCyclePhaseModifier() {
+  var user = db.user;
+  if (!user || !user.cycleTracking || !user.cycleTracking.enabled) return 0;
+  var lastPeriod = user.cycleTracking.lastPeriodDate;
+  if (!lastPeriod) return 0;
+  var cycleLength = user.cycleTracking.cycleLength || 28;
+  var daysSince = Math.round((Date.now() - new Date(lastPeriod).getTime()) / 86400000);
+  var dayInCycle = ((daysSince % cycleLength) + cycleLength) % cycleLength + 1;
+  if (dayInCycle <= 11) return 0;
+  if (dayInCycle <= 14) return -5;
+  if (dayInCycle <= 24) return 5;
+  return 10;
+}
+
+// SRS effectif = brut + modificateur cycle
+function getEffectiveSRS(rawScore) {
+  return (rawScore || 0) + getCyclePhaseModifier();
+}
+
 // ── shouldDeload() — Gemini validation (paramètres calibrés) ─────────────
 function shouldDeload(logs, trainingMode) {
   // v193 — Bien-être : pas de deload (mode neutre, pas d'accumulation SNC)
@@ -17651,12 +17696,17 @@ function shouldDeload(logs, trainingMode) {
   };
   var p = PARAMS[level] || PARAMS.intermediaire;
 
+  // v205 — seuil adaptatif (baseline personnelle), avec modificateur cycle menstruel
+  var _adaptThr = computeAdaptiveSRSThreshold();
+  var _srsThresholdToUse = _adaptThr.mode === 'fixed' ? p.srsThreshold : _adaptThr.threshold;
+
   // CRITÈRE 1 — Récupération faible (lecture directe todayWellbeing)
   // NE PAS appeler computeSRS() → cycle infini avec wpDetectPhase → stack overflow
   var _wb = db.todayWellbeing;
   if (_wb && _wb.sleep && _wb.motivation) {
     var _normalized = (_wb.sleep + _wb.motivation) / 2 / 5 * 100;
-    if (_normalized < p.srsThreshold) {
+    var _effectiveNorm = getEffectiveSRS(_normalized);
+    if (_effectiveNorm < _srsThresholdToUse) {
       return {
         needed: true,
         reason: 'Récupération insuffisante (sommeil ' + _wb.sleep + '/5, motivation ' + _wb.motivation + '/5). Semaine de récupération recommandée.',

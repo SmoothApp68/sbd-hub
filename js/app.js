@@ -15908,16 +15908,49 @@ function setCoachProfile(profile) {
   showToast(labels[profile] || '');
 }
 
+// v212 — Goals incompatibles : règles validées Gemini
+var INCOMPATIBLE_GOALS = {
+  'seche':       ['masse', 'recompo'],
+  'masse':       ['seche', 'maintien'],
+  'recompo':     ['seche'],
+  'maintien':    ['masse', 'force', 'competition'],
+  'reprise':     ['force', 'competition'],
+  'competition': ['reprise', 'maintien']
+};
+var GOAL_MAX_COUNT = 2;
+
+function isGoalCompatible(newGoal, existingGoals) {
+  var _incompatible = INCOMPATIBLE_GOALS[newGoal] || [];
+  return !existingGoals.some(function(g) {
+    if (g === newGoal) return false;
+    if (_incompatible.indexOf(g) !== -1) return true;
+    return (INCOMPATIBLE_GOALS[g] || []).indexOf(newGoal) !== -1;
+  });
+}
+
 function toggleSettingsGoal(goalId, btn) {
   if (!db.user.programParams) db.user.programParams = {};
-  const goals = db.user.programParams.goals || ['force'];
-  const idx = goals.indexOf(goalId);
-  if (idx >= 0) { if (goals.length > 1) goals.splice(idx, 1); else return; }
-  else goals.push(goalId);
+  var goals = db.user.programParams.goals || ['force'];
+  var idx = goals.indexOf(goalId);
+  if (idx >= 0) {
+    if (goals.length > 1) goals.splice(idx, 1);
+    else return;
+  } else {
+    // v212 — limite à 2 goals + check compatibilité
+    if (goals.length >= GOAL_MAX_COUNT) {
+      if (typeof showToast === 'function') showToast('Maximum ' + GOAL_MAX_COUNT + ' objectifs simultanés');
+      return;
+    }
+    if (!isGoalCompatible(goalId, goals)) {
+      if (typeof showToast === 'function') showToast('Objectif incompatible avec ta sélection actuelle');
+      return;
+    }
+    goals.push(goalId);
+  }
   db.user.programParams.goals = goals;
   _debouncedSaveSettings();
   // Toggle just this button instead of re-rendering all groups
-  const active = goals.includes(goalId);
+  var active = goals.includes(goalId);
   btn.classList.toggle('active', active);
   btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
   btn.style.background = active ? 'rgba(10,132,255,0.15)' : 'var(--surface)';

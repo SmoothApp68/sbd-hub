@@ -19108,6 +19108,43 @@ function applyShoulderFilter(exercises) {
   });
 }
 
+// ── SENIOR ADAPTATIONS (Gemini v208) ───────────────────────────────
+// 3 piliers validés : stabilité first, repos ×2, focus unilatéral.
+var SENIOR_ADAPTATIONS = {
+  restMultiplier: 2.0,
+  preferMachines: true,
+  unilateralPerSession: true,
+  maxRPE: 7,
+  maxSetsPerExo: 3,
+  cardioMax: 20
+};
+
+function applyAgeAdaptations(exercises) {
+  var _age = (db.user && db.user.age) || 0;
+  if (_age < 60 || !Array.isArray(exercises)) return exercises;
+  return exercises.map(function(exo) {
+    if (!exo) return exo;
+    var adapted = Object.assign({}, exo);
+    if (Array.isArray(adapted.sets)) {
+      adapted.sets = adapted.sets.map(function(s) {
+        return Object.assign({}, s, {
+          restSeconds: (s.restSeconds || 120) * SENIOR_ADAPTATIONS.restMultiplier
+        });
+      });
+    } else if (typeof adapted.rest === 'number') {
+      adapted.rest = adapted.rest * SENIOR_ADAPTATIONS.restMultiplier;
+    }
+    if (adapted.targetRPE && adapted.targetRPE > SENIOR_ADAPTATIONS.maxRPE) {
+      adapted.targetRPE = SENIOR_ADAPTATIONS.maxRPE;
+    }
+    if (typeof adapted.rpe === 'number' && adapted.rpe > SENIOR_ADAPTATIONS.maxRPE) {
+      adapted.rpe = SENIOR_ADAPTATIONS.maxRPE;
+    }
+    adapted._seniorAdapted = true;
+    return adapted;
+  });
+}
+
 // Increment de Double Progression différencié par bodyPart/muscleGroup
 // v202 — Speed Deadlift : charge = 60% PR Deadlift, non soumise à la progression standard
 function getSpeedDeadliftWeight() {

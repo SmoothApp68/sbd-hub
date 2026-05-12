@@ -7579,6 +7579,105 @@ function renderWeekCard() {
     todayHtml;
 }
 
+// ── QUICK-LOG ACTIVITÉ PONCTUELLE (v201) ──────────────────────────────────
+// Carte dashboard : logger une activité hors salle avant la séance
+
+var _QUICK_LOG_IMPACT = {
+  rando:    { zone: 'legs',   pct: -20, minDur: 120 },
+  cardio:   { zone: 'global', pct: -15, minDur: 60  },
+  velo:     { zone: 'global', pct: -10, minDur: 60  },
+  natation: { zone: 'global', pct: -10, minDur: 45  },
+  yoga:     null,
+  autre:    null
+};
+
+var _QUICK_LOG_TYPES = [
+  { key: 'rando',    label: 'Randonnée',  emoji: '🥾' },
+  { key: 'cardio',   label: 'Cardio',     emoji: '🏃' },
+  { key: 'velo',     label: 'Vélo',       emoji: '🚴' },
+  { key: 'natation', label: 'Natation',   emoji: '🏊' },
+  { key: 'yoga',     label: 'Yoga',       emoji: '🧘' },
+  { key: 'autre',    label: 'Autre',      emoji: '🏅' }
+];
+
+function renderQuickLogCard() {
+  var el = document.getElementById('quickLogCard');
+  if (!el) return;
+  var todayStr = new Date().toISOString().split('T')[0];
+  var _logged = (db._quickLogActivities || []).find(function(a) { return a.date === todayStr; });
+  el.style.display = '';
+  if (_logged) {
+    el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);">'
+      + '<span style="color:var(--green);font-size:14px;">✓</span>'
+      + escapeHtml(_logged.emoji) + ' ' + escapeHtml(_logged.label) + ' ' + _logged.duration + 'min loggé'
+      + '<button onclick="clearQuickLog()" style="margin-left:auto;font-size:11px;color:var(--sub);'
+      + 'background:none;border:none;cursor:pointer;padding:2px 6px;">×</button></div>';
+    return;
+  }
+  var html = '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+    + 'letter-spacing:0.8px;margin-bottom:10px;">🏅 Activité hors salle aujourd\'hui ?</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  _QUICK_LOG_TYPES.forEach(function(t) { html += _quickLogBtn(t); });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function _quickLogBtn(t) {
+  return '<button onclick="showQuickLogDuration(\'' + escapeHtml(t.key) + '\',\''
+    + escapeHtml(t.label) + '\',\'' + escapeHtml(t.emoji) + '\')" '
+    + 'style="padding:6px 10px;border-radius:20px;background:var(--surface);border:1px solid var(--border);'
+    + 'font-size:12px;cursor:pointer;">'
+    + escapeHtml(t.emoji) + ' ' + escapeHtml(t.label) + '</button>';
+}
+
+function showQuickLogDuration(key, label, emoji) {
+  var el = document.getElementById('quickLogCard');
+  if (!el) return;
+  var durations = [30, 45, 60, 90, 120];
+  var html = '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">'
+    + escapeHtml(emoji) + ' ' + escapeHtml(label) + ' — Durée ?</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
+  durations.forEach(function(d) {
+    html += '<button onclick="saveQuickLog(\'' + escapeHtml(key) + '\',\'' + escapeHtml(label)
+      + '\',\'' + escapeHtml(emoji) + '\',' + d + ')" '
+      + 'style="padding:6px 12px;border-radius:20px;background:var(--accent);border:none;'
+      + 'color:#fff;font-size:12px;cursor:pointer;">' + d + 'min</button>';
+  });
+  html += '<button onclick="renderQuickLogCard()" '
+    + 'style="padding:6px 10px;border-radius:20px;background:var(--surface);border:1px solid var(--border);'
+    + 'font-size:12px;color:var(--sub);cursor:pointer;">←</button></div>';
+  el.innerHTML = html;
+}
+
+function saveQuickLog(key, label, emoji, duration) {
+  var todayStr = new Date().toISOString().split('T')[0];
+  if (!db._quickLogActivities) db._quickLogActivities = [];
+  db._quickLogActivities = db._quickLogActivities.filter(function(a) { return a.date !== todayStr; });
+  db._quickLogActivities.push({ date: todayStr, key: key, label: label, emoji: emoji, duration: duration });
+  _applyQuickLogToProgram(key, duration);
+  saveDB();
+  renderQuickLogCard();
+  if (typeof showToast === 'function') showToast(emoji + ' ' + label + ' ' + duration + 'min loggé');
+}
+
+function clearQuickLog() {
+  var todayStr = new Date().toISOString().split('T')[0];
+  db._quickLogActivities = (db._quickLogActivities || []).filter(function(a) { return a.date !== todayStr; });
+  if (db.weeklyPlan) delete db.weeklyPlan._quickLogAdjustment;
+  saveDB();
+  renderQuickLogCard();
+}
+
+function _applyQuickLogToProgram(key, duration) {
+  var impact = _QUICK_LOG_IMPACT[key];
+  if (!impact || duration < impact.minDur) return;
+  if (!db.weeklyPlan) return;
+  db.weeklyPlan._quickLogAdjustment = {
+    zone: impact.zone, pct: impact.pct,
+    date: new Date().toISOString().split('T')[0]
+  };
+}
+
 function renderDash() {
   try {
     // Carte bienvenue
@@ -7590,6 +7689,10 @@ function renderDash() {
         const title = document.getElementById('welcomeTitle');
         if (title) title.textContent = 'Salut ' + db.user.name + ' ! Tout est prêt.';
       }
+    }
+
+    try { renderQuickLogCard(); } catch (e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
 
     requestAnimationFrame(function() {

@@ -6700,6 +6700,71 @@ async function acceptFriendChallenge(challengeId) {
   } catch(e) { showToast('❌ Erreur'); }
 }
 
+// ── DAILY HIGHLIGHT + GHOST MODE — Gemini v207 ────────────────────────
+// Max 1 notification sociale par jour : résumé groupé des PRs des amis.
+async function triggerDailyHighlight() {
+  var _today = getTodayStr();
+  if (db._lastDailyHighlight === _today) return;
+
+  var _names = [];
+  try {
+    if (typeof loadFeedItems === 'function') {
+      var _items = await loadFeedItems(0);
+      var _todayStart = new Date(_today + 'T00:00:00').getTime();
+      (_items || []).forEach(function(it) {
+        if (it.type !== 'pr') return;
+        var _ts = it.created_at ? new Date(it.created_at).getTime() : 0;
+        if (_ts < _todayStart) return;
+        var _name = (it.data && (it.data.username || it.data.name)) || 'Un ami';
+        if (_names.indexOf(_name) === -1) _names.push(_name);
+      });
+    }
+  } catch(e) {}
+
+  if (_names.length === 0) {
+    db._lastDailyHighlight = _today;
+    if (typeof saveDB === 'function') saveDB();
+    return;
+  }
+
+  var _msg;
+  if (_names.length === 1) {
+    _msg = _names[0] + ' a battu un record aujourd\'hui ! 🏆';
+  } else if (_names.length === 2) {
+    _msg = _names[0] + ' et ' + _names[1] + ' ont battu des records aujourd\'hui ! 🏆';
+  } else {
+    _msg = _names.slice(0, 2).join(', ') + ' et ' + (_names.length - 2)
+      + ' autre' + (_names.length - 2 > 1 ? 's' : '')
+      + ' ont battu des records aujourd\'hui ! 🏆';
+  }
+  if (typeof showToast === 'function') showToast(_msg, 6000);
+  if (typeof sendLocalNotification === 'function') sendLocalNotification('🏆 Daily Highlight', _msg);
+  db._lastDailyHighlight = _today;
+  if (typeof saveDB === 'function') saveDB();
+}
+
+// Mode Ghost : l'user voit les autres, les autres ne le voient pas
+function setGhostMode(enabled) {
+  if (!db.user) db.user = {};
+  if (!db.user.social) db.user.social = {};
+  db.user.social.ghostMode = !!enabled;
+  if (enabled) {
+    db.user.social.visibility = {
+      bio: 'private', prs: 'private', programme: 'private',
+      seances: 'private', stats: 'private', feed: 'private'
+    };
+  } else {
+    db.user.social.visibility = {
+      bio: 'friends', prs: 'friends', programme: 'friends',
+      seances: 'friends', stats: 'friends', feed: 'friends'
+    };
+  }
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof showToast === 'function') {
+    showToast(enabled ? '👻 Mode privé activé' : '👥 Profil visible par tes amis');
+  }
+}
+
 async function renderFriendChallenges() {
   var el = document.getElementById('gamChallengesSection');
   if (!el) return;

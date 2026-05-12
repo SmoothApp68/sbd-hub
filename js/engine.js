@@ -387,6 +387,28 @@ const TRAINING_MODES = {
       programStyle: 'sbd',
       badgeTheme: 'strength'
     }
+  },
+  calisthenics: {
+    id: 'calisthenics',
+    label: 'Calisthenics',
+    icon: '🤸',
+    desc: 'Tractions, dips, muscle-up, progressions poids du corps',
+    features: {
+      show1RM: false,
+      showIPF: false,
+      showSBDCards: false,
+      showStrengthLevel: true,
+      showPlateauDetection: true,
+      showCompetition: false,
+      showWeeklyPlan: true,
+      showBWRatio: false,
+      showSkillTree: true,
+      useBWFactors: true,
+      defaultKeyLifts: [],
+      primaryMetrics: ['skill_level', 'sessions_count', 'streak', 'volume_total'],
+      programStyle: 'calisthenics',
+      badgeTheme: 'volume'
+    }
   }
 };
 

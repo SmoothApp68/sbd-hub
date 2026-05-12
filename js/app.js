@@ -1440,7 +1440,7 @@ function gotoObStep(stepId) {
     // Pre-select training mode
     if (db.user.trainingMode) {
       document.querySelectorAll('#ob-mode-grid .ob-mode-btn').forEach(function(el) { el.classList.remove('selected'); });
-      var modeMap = { musculation:0, powerbuilding:1, powerlifting:2, bien_etre:3 };
+      var modeMap = { musculation:0, powerbuilding:1, powerlifting:2, bien_etre:3, calisthenics:4 };
       var modeBtns = document.querySelectorAll('#ob-mode-grid .ob-mode-btn');
       var modeIdx = modeMap[db.user.trainingMode];
       if (modeIdx !== undefined && modeBtns[modeIdx]) modeBtns[modeIdx].classList.add('selected');
@@ -1534,11 +1534,11 @@ function obQ3SelectMat(matId, btn) {
   // Persistance immédiate + side effects (Gemini v211)
   db.user.programParams = db.user.programParams || {};
   db.user.programParams.mat = matId;
-  // Poids de corps uniquement → bascule en mode calisthenics
+  // Poids de corps uniquement → bascule en mode calisthenics (sauf si l'user a explicitement choisi calisthenics dans la grille)
   if (matId === 'maison') {
     db.user.trainingMode = 'calisthenics';
-  } else if (db.user.trainingMode === 'calisthenics') {
-    // Si l'user revient sur salle/haltères après avoir vu calisthenics → repasser musculation
+  } else if (db.user.trainingMode === 'calisthenics' && _obSelectedMode !== 'calisthenics') {
+    // Revient sur salle/haltères sans avoir sélectionné explicitement calisthenics → repasser musculation
     db.user.trainingMode = 'musculation';
   }
   saveDB();
@@ -13690,7 +13690,7 @@ function computeStrengthRatios() {
   const e1rm = (name) => {
     let best = 0;
     db.logs.forEach(log => {
-      log.exercises.forEach(exo => {
+      (log.exercises || []).forEach(exo => {
         if ((exo.maxRM || 0) > best && matchExoName(exo.name, name)) best = exo.maxRM;
       });
     });
@@ -21570,7 +21570,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   // Imbalance corrections — before supersets
-  var _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null;
+  var _imbalanceRatios = null;
+  try { _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null; } catch(e) {}
   exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
 
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref);
@@ -21668,8 +21669,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     if (_isLegDay) {
       exercises = exercises.map(function(exo) {
         if (!exo) return exo;
+        var _setSrc = Array.isArray(exo.sets) ? exo.sets.length : (exo.sets || 3);
         return Object.assign({}, exo, {
-          sets: Math.round((exo.sets || 3) * _overreach.legsVolumeMultiplier),
+          sets: Math.round(_setSrc * _overreach.legsVolumeMultiplier),
           _overreachAdapted: true
         });
       });
@@ -21679,8 +21681,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
         if (!exo) return exo;
         var _isBench = /bench|développé couché|developpe couche/i.test(exo.name || '');
         var _mult = _isBench ? _overreach.benchVolumeMultiplier : _overreach.upperVolumeMultiplier;
+        var _setSrc = Array.isArray(exo.sets) ? exo.sets.length : (exo.sets || 3);
         return Object.assign({}, exo, {
-          sets: Math.max(2, Math.round((exo.sets || 3) * _mult)),
+          sets: Math.max(2, Math.round(_setSrc * _mult)),
           _overreachAdapted: true,
           maxRPE: _isBench ? Math.min(exo.maxRPE || 10, _overreach.benchMaxRPE) : exo.maxRPE
         });
@@ -22181,6 +22184,7 @@ function generateWeeklyPlan() {
     if (!db.weeklyPlan) db.weeklyPlan = {};
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
     db.weeklyPlan.currentBlock.phase = phase;
+    db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
     if (!db.weeklyPlan.currentBlock.blockStartDate) {
       db.weeklyPlan.currentBlock.blockStartDate = Date.now();

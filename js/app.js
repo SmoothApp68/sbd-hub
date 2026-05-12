@@ -12154,7 +12154,12 @@ function renderProgDaysList() {
     var title = label || (wpDay && wpDay.title) || '';
     var exoStr = exos.slice(0,3).join(' · ') + (exos.length > 3 ? ' +' + (exos.length - 3) : '');
     var setsCount = (wpDay && wpDay.exercises) ? wpDay.exercises.reduce(function(s, e) {
-      return s + ((e.sets && e.sets.filter(function(ss) { return !ss.isWarmup; }).length) || 0);
+      if (typeof e.sets === 'number') return s + e.sets;
+      var _arr = Array.isArray(e.sets) ? e.sets
+        : Array.isArray(e.allSets) ? e.allSets
+        : Array.isArray(e.series) ? e.series : null;
+      if (!_arr) return s;
+      return s + (_arr.filter(function(ss) { return !ss.isWarmup; }).length || 0);
     }, 0) : 0;
     var metaStr = exos.length + ' exo' + (exos.length > 1 ? 's' : '') + (setsCount > 0 ? ' · ' + setsCount + ' séries' : '');
 
@@ -18088,10 +18093,18 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   // 2. Réduire séries isolations (max -1, jamais <2)
   adapted.forEach(e => {
     if (getExoCategory(e.name) !== 'isolation') return;
-    const work = e.sets.filter(s => !s.isWarmup);
+    if (typeof e.sets === 'number') {
+      if (e.sets > 2) e.sets = e.sets - 1;
+      return;
+    }
+    const setsArr = Array.isArray(e.sets) ? e.sets
+      : Array.isArray(e.allSets) ? e.allSets
+      : Array.isArray(e.series) ? e.series : null;
+    if (!setsArr) return;
+    const work = setsArr.filter(s => !s.isWarmup);
     if (work.length > 2) {
-      const idx = e.sets.findIndex(s => !s.isWarmup);
-      if (idx >= 0) e.sets.splice(idx, 1);
+      const idx = setsArr.findIndex(s => !s.isWarmup);
+      if (idx >= 0) setsArr.splice(idx, 1);
     }
   });
   adaptations.push('Séries isolations réduites');

@@ -2159,7 +2159,11 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
   // v201 — Phase-adaptive pbBlocks : exercices adaptés à la phase courante macrocycle
   // Force/Intensification → Squat Pause + Close Grip Bench (technique spécifique SBD)
   // Peak → Volume réduit, exercices haute intensité neuro uniquement
-  var _pbPhase = typeof wpDetectPhase === 'function' ? (wpDetectPhase() || 'hypertrophie') : 'hypertrophie';
+  // v216 — lire currentBlock.phase d'abord (canonical après generateWeeklyPlan),
+  // fallback wpDetectPhase(), fallback 'hypertrophie' (jamais null)
+  var _pbPhase = (typeof db !== 'undefined' && db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase)
+    || (typeof wpDetectPhase === 'function' ? wpDetectPhase() : null)
+    || 'hypertrophie';
   if (_pbPhase === 'force' || _pbPhase === 'intensification') {
     pbBlocks.sq_hyp = { label:'Squat — Force',
       exos: filtSafe(filtLevel(['squat','squat_pause','leg_press','leg_ext','planche']), mat) };
@@ -21958,8 +21962,9 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
       if (_sMod < 1.0) {
         exercises = exercises.map(function(e) {
           if (!e) return e;
+          var _setSrc = Array.isArray(e.sets) ? e.sets.length : (e.sets || 3);
           return Object.assign({}, e, {
-            sets: Math.max(2, Math.round((e.sets || 3) * _sMod)),
+            sets: Math.max(2, Math.round(_setSrc * _sMod)),
             _stressAdapted: true,
             _volumeMod: _sMod
           });
@@ -21985,8 +21990,9 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
           var _mult = _isLower ? _overreach.legsVolumeMultiplier
             : _isUpper ? _overreach.upperVolumeMultiplier : 1.0;
           if (_mult === 1.0) return e;
+          var _setSrc = Array.isArray(e.sets) ? e.sets.length : (e.sets || 3);
           return Object.assign({}, e, {
-            sets: Math.max(2, Math.round((e.sets || 3) * _mult)),
+            sets: Math.max(2, Math.round(_setSrc * _mult)),
             _overreachAdapted: true
           });
         });

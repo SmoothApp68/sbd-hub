@@ -1697,7 +1697,116 @@ function obSaveStep6() {
 // Mapping zones → INJURY_EXCLUSIONS keys (used by generateProgram)
 var _OB_ZONE_TO_EXCL = { genou:'genoux', epaule:'epaules', dos:'dos', hanche:'hanches', poignet:'poignets', coude:null, nuque:'nuque' };
 
+// ── Consentement RGPD onboarding (v205) ─────────────────────────────────
+// Cases DÉCOCHÉES par défaut (RGPD France). Obligatoire avant génération.
+function renderConsentStep() {
+  return '<div style="padding:20px;">'
+    + '<div style="font-size:18px;font-weight:700;margin-bottom:16px;">📋 Avant de commencer</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">'
+    + 'TrainHub est un outil de programmation sportive, '
+    + '<strong>pas un dispositif médical</strong>. '
+    + 'Consulte un professionnel de santé avant tout programme intensif.</div>'
+    + '<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;cursor:pointer;">'
+    + '<input type="checkbox" id="consent-effort" style="margin-top:2px;width:18px;height:18px;">'
+    + '<span style="font-size:13px;">Je confirme être apte à pratiquer une activité physique '
+    + 'intense et assumer les risques liés à l\'entraînement.</span></label>'
+    + '<label style="display:flex;gap:10px;align-items:flex-start;margin-bottom:20px;cursor:pointer;">'
+    + '<input type="checkbox" id="consent-data" style="margin-top:2px;width:18px;height:18px;">'
+    + '<span style="font-size:13px;">J\'accepte que mes données d\'entraînement soient traitées '
+    + 'conformément à la <a href="#" style="color:var(--accent);">Politique de Confidentialité</a>.</span></label>'
+    + '<button onclick="validateConsent()" '
+    + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">'
+    + 'Commencer →</button></div>';
+}
+
+function validateConsent() {
+  var effortOk = !!(document.getElementById('consent-effort') && document.getElementById('consent-effort').checked);
+  var dataOk   = !!(document.getElementById('consent-data')   && document.getElementById('consent-data').checked);
+  if (!effortOk || !dataOk) {
+    showToast('⚠️ Merci de cocher les deux cases pour continuer.', 3000);
+    return;
+  }
+  db.user.consentHealth = true;
+  db.user.consentHealthDate = new Date().toISOString();
+  db.user.medicalConsent = true;
+  db.user.medicalConsentDate = new Date().toISOString();
+  saveDB();
+  nextOnboardingStep();
+}
+
+// Ferme l'overlay consent et continue vers la génération du programme
+function nextOnboardingStep() {
+  var overlay = document.getElementById('ob-consent-overlay');
+  if (overlay) overlay.remove();
+  _obConsentShown = true;
+  _obGenerateProgramCore();
+}
+
+// v206 — Écran de complétion après génération programme (1ère fois uniquement)
+function showOnboardingComplete() {
+  var _todaySession = db.weeklyPlan && db.weeklyPlan.days
+    ? (db.weeklyPlan.days || []).find(function(d) {
+        return d.exercises && d.exercises.length > 0 && !d.isRest;
+      })
+    : null;
+  var _exoPreview = _todaySession
+    ? ((_todaySession.exercises || []).slice(0, 3).map(function(e) { return e.name; }).join(' · '))
+    : '';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:360px;text-align:center;">'
+    + '<div style="font-size:48px;margin-bottom:12px;">🎉</div>'
+    + '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">Ton programme est prêt !</div>'
+    + (_exoPreview
+      ? '<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'
+        + 'Première séance : <strong>' + (_todaySession.title || '').split(' · ')[0] + '</strong></div>'
+        + '<div style="font-size:11px;color:var(--sub);margin-bottom:20px;">' + _exoPreview + '</div>'
+      : '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">'
+        + 'Va dans l\'onglet Plan pour voir ta semaine.</div>')
+    + (!(db.bestPR && db.bestPR.squat)
+      ? '<div style="font-size:12px;color:var(--orange);background:rgba(255,159,10,0.10);'
+        + 'border-radius:8px;padding:10px;margin-bottom:14px;">'
+        + '💡 Renseigne tes PRs dans le Profil pour affiner les charges.</div>'
+      : '')
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();showTab(\'tab-seances\')" '
+    + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">'
+    + 'Voir mon programme →</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();goStartWorkout(true)" '
+    + 'style="width:100%;padding:12px;border-radius:12px;background:var(--surface);'
+    + 'border:0.5px solid var(--accent);color:var(--accent);font-weight:600;cursor:pointer;">'
+    + 'Lancer maintenant 💪</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+// v206 — Stub : ouvre la page Programme où l'user peut renseigner sa compDate
+function openCompDateSettings() {
+  if (typeof showTab === 'function') showTab('tab-seances');
+}
+
+// Flag interne — évite de re-afficher le consent si déjà validé dans cette session
+var _obConsentShown = false;
+
 function obGenerateProgram() {
+  // Afficher le consentement si l'user n'a pas encore validé les deux cases (RGPD France)
+  if (!db.user.consentHealth || !db.user.medicalConsent) {
+    if (!_obConsentShown) {
+      var overlay = document.createElement('div');
+      overlay.id = 'ob-consent-overlay';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = '<div class="modal-box" style="max-width:380px;">'
+        + renderConsentStep() + '</div>';
+      document.body.appendChild(overlay);
+      return;
+    }
+  }
+  _obGenerateProgramCore();
+}
+
+function _obGenerateProgramCore() {
   gotoObStep('7');
   var logo   = document.getElementById('ob7-logo');
   var title  = document.getElementById('ob7-title');
@@ -3815,6 +3924,19 @@ function getNextXPLevel(xp) {
 function isBodyweightExo(name) {
   var n = (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   return /traction|pull.?up|chin.?up|dips|pompe|push.?up/.test(n);
+}
+
+// v205 — Affichage e1RM : fiable ≤ 8 reps, indicatif > 8 reps (Gemini-validé).
+// Utilise calcBrzycki() défini dans le bloc "auto PR detection" plus bas.
+function getE1RMDisplay(weight, reps) {
+  if (typeof calcBrzycki === 'function') {
+    var e1rm = calcBrzycki(weight, reps);
+    if (e1rm) return { value: Math.round(e1rm), label: 'e1RM estimé', reliable: true };
+  }
+  // reps > 8 → indicatif via cap à 8 reps (Brzycki devient peu fiable)
+  var indicativeReps = Math.min(reps, 8);
+  var indicative = weight / (1.0278 - 0.0278 * indicativeReps);
+  return { value: Math.round(indicative), label: 'Estimation indicative', reliable: false };
 }
 
 function getAllBestE1RMs() {
@@ -11359,6 +11481,8 @@ function pbGenerateProgram() {
   }
 
   _pbState = null;
+  // v206 — Première génération : flag onboarding + écran de complétion
+  var _isFirstProgram = !db.user.onboarded;
   saveDBNow();
   if (typeof generateWeeklyPlan === 'function') {
     try { generateWeeklyPlan(); } catch (e) { console.warn('generateWeeklyPlan failed:', e); }
@@ -11366,6 +11490,12 @@ function pbGenerateProgram() {
   _skipNextPlanSnapshot = false;
   showToast('Programme généré !');
   renderProgramBuilder();
+  if (_isFirstProgram) {
+    db.user.onboarded = true;
+    if (!db.user.onboardingDate) db.user.onboardingDate = new Date().toISOString();
+    saveDB();
+    setTimeout(showOnboardingComplete, 800);
+  }
 }
 
 // Detects when db.weeklyPlan.days[].title no longer matches db.routine — happens
@@ -16139,6 +16269,46 @@ function getActivityRecommendation(activityType, targetDay) {
   return { level: 'ok', emoji: '✅', reason: 'Praticable', detail: 'Adapte l\'intensité selon ta forme' };
 }
 
+// ── Alerte blessure persistante (v205) ───────────────────────────────────
+// Déclenchée si blessure level ≥ 2 et active depuis ≥ 14 jours.
+// Propose "Adapter mon programme" (rehabMode) ou "J'ai vu un médecin".
+function checkInjuryPersistence() {
+  var injuries = (db.user && db.user.injuries) || [];
+  var alerts = injuries.filter(function(inj) {
+    if (typeof inj !== 'object' || !inj || !inj.active) return false;
+    if ((inj.level || 0) < 2) return false;
+    if (inj.rehabMode || inj.medicallyCleared) return false;
+    if (!inj.since) return false;
+    var daysSince = Math.round((Date.now() - new Date(inj.since).getTime()) / 86400000);
+    return daysSince >= 14;
+  });
+  return alerts.length > 0 ? alerts : null;
+}
+
+function activateRehabMode(zone) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.user || !db.user.injuries) return;
+  db.user.injuries.forEach(function(inj) {
+    if (typeof inj === 'object' && inj.zone === zone) inj.rehabMode = true;
+  });
+  saveDB();
+  showToast('🩹 Mode Rééducation activé — programme adapté', 4000);
+  if (typeof renderProgramTab === 'function') renderProgramTab();
+}
+
+function acknowledgeInjury(zone) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.user || !db.user.injuries) return;
+  db.user.injuries.forEach(function(inj) {
+    if (typeof inj === 'object' && inj.zone === zone) {
+      inj.medicallyCleared = true;
+      inj.clearedAt = Date.now();
+    }
+  });
+  saveDB();
+  showToast('✅ Validation médicale enregistrée', 3000);
+}
+
 // v204 — Détection churn "Plateau de Saisie" : 3 séances avec volumes
 // quasi-identiques (variation < 2%) → user en pilote automatique.
 function detectSaisiePlateau() {
@@ -16554,6 +16724,17 @@ function renderCoachTodayHTML() {
       _coachAlerts.push({ type: 'green',
         text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
     }
+    // v206 — Nudge mensuel compDate pour powerlifters
+    var _isLifter = db.user && db.user.trainingMode === 'powerlifting';
+    var _hasCompDate = db.user && db.user.programParams && db.user.programParams.compDate;
+    var _lastCompNudge = db._lastCompDateNudge || 0;
+    var _daysSinceNudge = Math.round((Date.now() - _lastCompNudge) / 86400000);
+    if (_isLifter && !_hasCompDate && _daysSinceNudge >= 30) {
+      _coachAlerts.push({ type: 'info',
+        text: '🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte ton pic de force automatiquement. <a onclick="openCompDateSettings()" style="color:var(--accent);cursor:pointer;">Ajouter une date →</a>' });
+      db._lastCompDateNudge = Date.now();
+      saveDB();
+    }
     // v204 — Plateau de saisie : 3 séances identiques → pilote automatique
     if (detectSaisiePlateau()) {
       _coachAlerts.push({ type: 'warning',
@@ -16578,6 +16759,49 @@ function renderCoachTodayHTML() {
       html += '</div>';
     }
   }
+
+  // ── 1c. ALERTE BLESSURE PERSISTANTE (v205) ──
+  var _injuryAlerts = checkInjuryPersistence();
+  if (_injuryAlerts && coachProfile !== 'silent') {
+    _injuryAlerts.forEach(function(inj) {
+      var _zone = inj.zone || 'Blessure';
+      html += '<div style="background:rgba(255,69,58,0.10);border:1px solid var(--red);'
+        + 'border-radius:12px;padding:14px;margin-bottom:12px;">'
+        + '<div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px;">'
+        + '⚠️ Alerte Récupération — ' + _zone + '</div>'
+        + '<div style="font-size:12px;color:var(--text);margin-bottom:10px;">'
+        + 'Ton ' + _zone + ' ne montre pas de signe d\'amélioration depuis 2 semaines. '
+        + 'Continuer risque de transformer une gêne en déchirure.</div>'
+        + '<div style="display:flex;gap:8px;">'
+        + '<button onclick="activateRehabMode(\'' + _zone + '\')" '
+        + 'style="flex:1;padding:10px;border-radius:8px;background:var(--red);'
+        + 'border:none;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">'
+        + 'Adapter mon programme</button>'
+        + '<button onclick="acknowledgeInjury(\'' + _zone + '\')" '
+        + 'style="flex:1;padding:10px;border-radius:8px;background:var(--surface);'
+        + 'border:0.5px solid var(--border);color:var(--sub);font-size:11px;cursor:pointer;">'
+        + 'J\'ai vu un médecin</button>'
+        + '</div></div>';
+    });
+  }
+
+  // ── 1d. ALERTES COMPÉTITION (v206) ──
+  try {
+    var _compDate2 = db.user && db.user.programParams && db.user.programParams.compDate;
+    if (_compDate2 && coachProfile !== 'silent') {
+      var _cp2 = generateCompPeakingPlan(_compDate2);
+      if (_cp2) {
+        if (_cp2.readinessAlert) {
+          html += '<div class="coach-alert coach-alert--warning" style="margin-bottom:10px;">'
+            + _cp2.readinessAlert + '</div>';
+        }
+        if (_cp2.benchAdaptation && _cp2.benchAdaptation.note) {
+          html += '<div class="coach-alert coach-alert--info" style="margin-bottom:10px;">'
+            + '🩹 ' + _cp2.benchAdaptation.note + '</div>';
+        }
+      }
+    }
+  } catch(e) {}
 
   // ── 2. ALERTE DELOAD ──
   var deload = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : {needed:false};
@@ -17227,119 +17451,172 @@ function renderCoachReports() {
   renderCoachHistory();
 }
 
-// ── Débrief post-séance enrichi ───────────────────────────
-// Sauvegarde un report 'debrief' avec stats + tips contextualisés (phase × RPE × PR).
+// ── Débrief post-séance v206 — Bottom Sheet (Expert / Débutant) ─────────
+// Format Gemini : 3 lignes Expert (tonnage + e1RM + SNC) OU Débutant
+// (record + streak + encouragement). Bottom Sheet iOS, auto-fermeture 15s.
+
+var _ENCOURAGE_MSGS = [
+  'Tes muscles te diront merci demain.',
+  'La régularité bat l\'intensité sur le long terme.',
+  'Chaque séance compte. Continue.',
+  'Tu es plus régulier que 80% des gens qui commencent.',
+  'Le progrès, c\'est la somme de petits efforts répétés.',
+  'Ton futur toi te remercie.',
+  'Un jour à la fois. Tu y es.',
+  'La discipline forge le caractère.',
+  'Ce que tu fais aujourd\'hui, tu le ressentiras dans 3 mois.',
+  'Pas besoin d\'être parfait, juste régulier.'
+];
+
 function saveAlgoDebrief(session) {
   if (!session) return;
 
-  // Détection des PR de la séance vs historique antérieur
-  var prs = [];
+  var _vocabLevel = (db.user && db.user.vocabLevel) || 2;
+  var _isExpert = _vocabLevel >= 3;
+
+  // 1. Tonnage vs séance similaire précédente
+  var _sessionVolume = session.volume || 0;
+  var _lastSimilar = (db.logs || [])
+    .filter(function(l) { return l.id !== session.id && l.title === session.title && (l.volume||0) > 0; })
+    .sort(function(a,b) { return (b.timestamp||0) - (a.timestamp||0); })[0];
+  var _prevVolume = _lastSimilar ? (_lastSimilar.volume || 0) : 0;
+  var _volumePct = _prevVolume > 0 ? Math.round((_sessionVolume - _prevVolume) / _prevVolume * 100) : null;
+
+  // 2. Meilleur e1RM de la séance
+  var _bestE1RM = null, _bestE1RMPrev = null, _bestE1RMName = null;
   try {
-    var olderLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
+    var _olderLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
     (session.exercises || []).forEach(function(exo) {
-      if (!(exo.maxRM > 0)) return;
-      var prevBest = 0;
-      olderLogs.forEach(function(ol) {
+      if (!exo.maxRM || exo.maxRM <= 0) return;
+      var _prevBest = 0;
+      _olderLogs.forEach(function(ol) {
         (ol.exercises || []).forEach(function(oe) {
-          if (oe.name === exo.name && oe.maxRM > prevBest) prevBest = oe.maxRM;
+          if (oe.name === exo.name && oe.maxRM > _prevBest) _prevBest = oe.maxRM;
         });
       });
-      if (exo.maxRM > prevBest && prevBest > 0) {
-        prs.push({ name: exo.name, value: Math.round(exo.maxRM), prev: Math.round(prevBest) });
+      if (!_bestE1RM || exo.maxRM > _bestE1RM) {
+        _bestE1RM = Math.round(exo.maxRM);
+        _bestE1RMPrev = _prevBest > 0 ? Math.round(_prevBest) : null;
+        _bestE1RMName = exo.name;
       }
     });
   } catch(e) {}
 
-  // RPE moyen sur les sets de travail
-  var allRpes = [];
+  // 3. Streak séances (semaine en cours, lundi-dimanche)
+  var _streak = 0;
+  var _weekStart = new Date();
+  _weekStart.setDate(_weekStart.getDate() - _weekStart.getDay() + 1);
+  _weekStart.setHours(0, 0, 0, 0);
+  var _weekLogs = (db.logs || []).filter(function(l) {
+    return (l.timestamp || 0) >= _weekStart.getTime() && (l.volume || 0) > 0;
+  });
+  _streak = _weekLogs.length;
+
+  // 4. Alerte SNC (fatigueType=neural & confidence ≥ 0.75)
+  var _hasSNCAlert = false;
   (session.exercises || []).forEach(function(exo) {
-    (exo.allSets || exo.series || []).forEach(function(s) {
-      if (!s.isWarmup && s.setType !== 'warmup' && parseFloat(s.rpe) > 0) allRpes.push(parseFloat(s.rpe));
+    (exo.allSets || []).forEach(function(s) {
+      if (s.fatigueType === 'neural' && (s.fatigueConfidence || 0) >= 0.75) _hasSNCAlert = true;
     });
   });
-  var avgRpe = allRpes.length ? allRpes.reduce(function(s,r){ return s+r; },0) / allRpes.length : 0;
 
-  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
-  var isDeloadSession = phase === 'deload' || phase === 'recuperation';
-  var hasPR = prs.length > 0;
-
-  var tips = [];
-
-  // PRs
-  prs.forEach(function(p) {
-    tips.push('🏆 PR ' + p.name + ' : ' + p.value + 'kg (ancien ' + p.prev + 'kg)');
-  });
-
-  // Cas 1 — PR avec RPE moyen élevé
-  if (hasPR && avgRpe > 9) {
-    tips.push('⚡ PR validé, mais RPE moyen ' + avgRpe.toFixed(1) + ' — la marge technique est faible. Priorité à la propreté la semaine prochaine.');
-  }
-
-  // Cas 2 — Deload trop intense
-  if (isDeloadSession && avgRpe > 7 && !hasPR) {
-    tips.push('⚠️ RPE moyen ' + avgRpe.toFixed(1) + ' en ' + (phase === 'deload' ? 'deload' : 'récupération') + '. Tu voles de l\'énergie à ton prochain bloc — réduis les charges.');
-  }
-
-  // Cas 3 — PR en deload (ambivalent)
-  if (isDeloadSession && hasPR) {
-    tips.push('💪 Ta force explose même en récupération (PR !) — mais garde tes cartouches pour l\'intensification qui arrive.');
-  }
-
-  // Résumé fatigue par exercice (Gemini Q5)
-  var fatigueReport = [];
+  // 5. Record charge brute (débutant)
+  var _newMaxWeight = null, _newMaxExo = null;
   try {
     (session.exercises || []).forEach(function(exo) {
-      var neuralSets = (exo.allSets || []).filter(function(s) {
-        return s.fatigueType === 'neural' && s.fatigueConfidence >= 0.60;
-      });
-      var muscularSets = (exo.allSets || []).filter(function(s) {
-        return s.fatigueType === 'muscular' && s.fatigueConfidence >= 0.60;
-      });
-      if (neuralSets.length > 0 || muscularSets.length > 0) {
-        fatigueReport.push({
-          exo: exo.name,
-          neural: neuralSets.length,
-          muscular: muscularSets.length,
-          dominantType: neuralSets.length > muscularSets.length ? 'neural' : 'muscular'
+      var _sets = (exo.allSets || []).filter(function(s) { return !s.isWarmup && (s.weight || 0) > 0; });
+      var _maxW = _sets.length ? Math.max.apply(null, _sets.map(function(s) { return parseFloat(s.weight) || 0; })) : 0;
+      if (_maxW <= 0) return;
+      var _prevMax = 0;
+      (db.logs || []).filter(function(l) { return l.id !== session.id; }).forEach(function(ol) {
+        (ol.exercises || []).forEach(function(oe) {
+          if (oe.name === exo.name) {
+            (oe.allSets || []).forEach(function(s) { if ((s.weight || 0) > _prevMax) _prevMax = s.weight; });
+          }
         });
+      });
+      if (_maxW > _prevMax && _prevMax > 0) {
+        _newMaxWeight = _maxW;
+        _newMaxExo = exo.name;
       }
     });
-    if (fatigueReport.length > 0) {
-      session.fatigueReport = fatigueReport;
-      var _neuralCount = fatigueReport.reduce(function(s, r) { return s + r.neural; }, 0);
-      var _muscularCount = fatigueReport.reduce(function(s, r) { return s + r.muscular; }, 0);
-      if (_neuralCount > 0) {
-        tips.push('🧠 ' + _neuralCount + ' série(s) avec fatigue nerveuse détectée — récupération prioritaire.');
-      } else if (_muscularCount >= 3) {
-        tips.push('💪 ' + _muscularCount + ' séries avec fatigue musculaire — stimulus hypertrophique solide.');
-      }
-    }
   } catch(e) {}
 
-  if (!tips.length) return;
+  // Construire les lignes
+  var _lines = [];
+  if (_isExpert) {
+    if (_volumePct !== null) {
+      var _sign = _volumePct >= 0 ? '+' : '';
+      _lines.push('💪 ' + _sessionVolume.toLocaleString('fr-FR') + ' kg ('
+        + _sign + _volumePct + '% vs séance précédente)');
+    } else {
+      _lines.push('💪 Volume de référence établi : ' + _sessionVolume.toLocaleString('fr-FR') + ' kg');
+    }
+    if (_bestE1RM && _bestE1RMName) {
+      var _delta = _bestE1RMPrev ? ' (+' + (_bestE1RM - _bestE1RMPrev) + ' kg)' : '';
+      _lines.push('📊 Estimation Force : ' + _bestE1RM + ' kg au ' + _bestE1RMName + _delta);
+    }
+    _lines.push(_hasSNCAlert
+      ? '🟠 SNC : Récupération requise — priorise le sommeil ce soir'
+      : '🟢 SNC : Optimal');
+  } else {
+    if (_newMaxWeight && _newMaxExo) {
+      _lines.push('🏆 Nouveau record : ' + _newMaxWeight + ' kg au ' + _newMaxExo + ' !');
+    } else if (_sessionVolume > 0) {
+      _lines.push('✅ Séance complétée — beau travail !');
+    }
+    if (_streak >= 2) {
+      _lines.push('🔥 ' + _streak + 'ème séance cette semaine. Tu tiens le rythme !');
+    }
+    _lines.push('💬 ' + _ENCOURAGE_MSGS[Math.floor(Math.random() * _ENCOURAGE_MSGS.length)]);
+  }
 
-  var vol = session.volume || 0;
-  var volStr = vol >= 1000 ? (vol/1000).toFixed(1) + 't' : vol + 'kg';
-  var dur = session.duration ? Math.round(session.duration/60) + 'min' : '—';
+  var _next = _getNextSessionTitle();
+  if (_next) _lines.push('📅 Prochaine : ' + _next);
 
-  var h = '<div class="ai-section-title">🏋️ ' + (session.title || 'Séance') + '</div>';
-  h += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' +
-       'Volume ' + volStr + ' · Durée ' + dur +
-       (avgRpe > 0 ? ' · RPE ' + avgRpe.toFixed(1) : '') +
-       ' · Phase ' + phase + '</div>';
-  h += tips.map(function(t) { return '<div style="margin-bottom:6px;">' + t + '</div>'; }).join('');
-
-  if (!db.reports) db.reports = [];
-  db.reports.push({
-    id: generateId(),
-    type: 'debrief',
-    sessionId: session.id,
-    html: '<div class="ai-response-content">' + h + '</div>',
-    created_at: Date.now(),
-    expires_at: Date.now() + 14 * 86400000,
-    read: false
-  });
+  session.debrief = { lines: _lines, generatedAt: Date.now(), isExpert: _isExpert };
+  _showDebriefSheet(_lines);
   saveDBNow();
+}
+
+function _showDebriefSheet(lines) {
+  if (!lines || !lines.length) return;
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'align-items:flex-end;background:rgba(0,0,0,0.5);';
+  var h = '<div style="background:var(--bg-card);border-radius:20px 20px 0 0;'
+    + 'padding:12px 16px 32px;width:100%;max-width:480px;'
+    + 'border-top:1.5px solid var(--border-card);">'
+    + '<div style="width:36px;height:4px;background:var(--border);border-radius:2px;'
+    + 'margin:0 auto 16px;"></div>'
+    + '<div style="font-size:17px;font-weight:800;margin-bottom:14px;">Séance terminée 🎯</div>';
+  lines.forEach(function(line) {
+    h += '<div style="font-size:13px;line-height:1.5;padding:9px 0;'
+      + 'border-bottom:0.5px solid var(--border);">' + line + '</div>';
+  });
+  h += '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;margin-top:16px;padding:14px;border-radius:14px;'
+    + 'background:var(--accent);border:none;color:#fff;font-weight:700;'
+    + 'font-size:15px;cursor:pointer;">Continuer 👋</button></div>';
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay);
+  setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 15000);
+}
+
+function _getNextSessionTitle() {
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return null;
+  var _dayNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var _today = new Date().getDay();
+  for (var i = 1; i <= 7; i++) {
+    var _nextDayName = _dayNames[(_today + i) % 7];
+    var _nextPlan = (db.weeklyPlan.days || []).find(function(d) {
+      return d.day === _nextDayName && d.exercises && d.exercises.length > 0 && !d.isRest;
+    });
+    if (_nextPlan) {
+      return _nextDayName + ' — ' + (_nextPlan.title || '').split(' · ')[0];
+    }
+  }
+  return null;
 }
 
 
@@ -17631,6 +17908,51 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   return { exercises: adapted, adaptations };
 }
 
+// ── SRS Adaptatif + Modificateur Cycle Menstruel (v205) ─────────────────
+// Baseline personnelle : moyenne - 1.5σ sur les 30 dernières sessions.
+// < 10 sessions → seuil fixe conservateur 45. 10-30 → baseline provisoire.
+function computeAdaptiveSRSThreshold() {
+  var readiness = (db.readiness || [])
+    .filter(function(r) { return r.score > 0; })
+    .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+  if (readiness.length < 10) {
+    return { threshold: 45, mode: 'fixed', sessions: readiness.length };
+  }
+
+  var sample = readiness.slice(0, Math.min(30, readiness.length));
+  var scores = sample.map(function(r) { return r.score; });
+  var mean = scores.reduce(function(s, v) { return s + v; }, 0) / scores.length;
+  var variance = scores.reduce(function(s, v) { return s + Math.pow(v - mean, 2); }, 0) / scores.length;
+  var sigma = Math.sqrt(variance);
+  var threshold = mean - 1.5 * sigma;
+  var mode = readiness.length >= 30 ? 'stable' : 'provisional';
+
+  return { threshold: Math.max(30, Math.round(threshold)), mean: Math.round(mean),
+           sigma: Math.round(sigma * 10) / 10, mode: mode, sessions: readiness.length };
+}
+
+// Modificateur SRS selon la phase du cycle menstruel (Léa et tout user cycleTracking).
+// Valeurs Gemini-validées : lutéale +5, pré-menstruelle +10, ovulation -5.
+function getCyclePhaseModifier() {
+  var user = db.user;
+  if (!user || !user.cycleTracking || !user.cycleTracking.enabled) return 0;
+  var lastPeriod = user.cycleTracking.lastPeriodDate;
+  if (!lastPeriod) return 0;
+  var cycleLength = user.cycleTracking.cycleLength || 28;
+  var daysSince = Math.round((Date.now() - new Date(lastPeriod).getTime()) / 86400000);
+  var dayInCycle = ((daysSince % cycleLength) + cycleLength) % cycleLength + 1;
+  if (dayInCycle <= 11) return 0;
+  if (dayInCycle <= 14) return -5;
+  if (dayInCycle <= 24) return 5;
+  return 10;
+}
+
+// SRS effectif = brut + modificateur cycle
+function getEffectiveSRS(rawScore) {
+  return (rawScore || 0) + getCyclePhaseModifier();
+}
+
 // ── shouldDeload() — Gemini validation (paramètres calibrés) ─────────────
 function shouldDeload(logs, trainingMode) {
   // v193 — Bien-être : pas de deload (mode neutre, pas d'accumulation SNC)
@@ -17651,12 +17973,17 @@ function shouldDeload(logs, trainingMode) {
   };
   var p = PARAMS[level] || PARAMS.intermediaire;
 
+  // v205 — seuil adaptatif (baseline personnelle), avec modificateur cycle menstruel
+  var _adaptThr = computeAdaptiveSRSThreshold();
+  var _srsThresholdToUse = _adaptThr.mode === 'fixed' ? p.srsThreshold : _adaptThr.threshold;
+
   // CRITÈRE 1 — Récupération faible (lecture directe todayWellbeing)
   // NE PAS appeler computeSRS() → cycle infini avec wpDetectPhase → stack overflow
   var _wb = db.todayWellbeing;
   if (_wb && _wb.sleep && _wb.motivation) {
     var _normalized = (_wb.sleep + _wb.motivation) / 2 / 5 * 100;
-    if (_normalized < p.srsThreshold) {
+    var _effectiveNorm = getEffectiveSRS(_normalized);
+    if (_effectiveNorm < _srsThresholdToUse) {
       return {
         needed: true,
         reason: 'Récupération insuffisante (sommeil ' + _wb.sleep + '/5, motivation ' + _wb.motivation + '/5). Semaine de récupération recommandée.',
@@ -19230,7 +19557,106 @@ var BLOCK_DURATION = {
   }
 };
 
+// ── Programme compétition 12 semaines (v206) ─────────────────────────────
+// Périodisation Gemini : Accumulation 4 → Intensification 4 → Peak 2 → Taper 1 → Comp Week 1.
+// Adaptation blessure épaule par phase. Barre de Sauvetage = 60% PR Bench.
+function generateCompPeakingPlan(compDate) {
+  if (!compDate) return null;
+  var _weeksOut = Math.round((new Date(compDate) - Date.now()) / (7 * 86400000));
+  if (_weeksOut <= 0) return null;
+
+  var _phases = [
+    { label: 'Récupération (Comp Week)', phase: 'deload',          weeks: 1 },
+    { label: 'Taper',                    phase: 'peak',            weeks: 1 },
+    { label: 'Peak',                     phase: 'peak',            weeks: 2 },
+    { label: 'Intensification',          phase: 'intensification', weeks: 4 },
+    { label: 'Accumulation',             phase: 'hypertrophie',    weeks: 4 }
+  ];
+
+  var _schedule = [];
+  var _cursor = new Date(compDate);
+  _phases.forEach(function(p) {
+    var _end = new Date(_cursor);
+    _cursor = new Date(_cursor);
+    _cursor.setDate(_cursor.getDate() - p.weeks * 7);
+    _schedule.unshift({
+      phase: p.phase, label: p.label, weeks: p.weeks,
+      startDate: _cursor.toISOString().split('T')[0],
+      endDate: _end.toISOString().split('T')[0]
+    });
+  });
+
+  var _today = new Date().toISOString().split('T')[0];
+  var _current = _schedule.find(function(s) {
+    return _today >= s.startDate && _today <= s.endDate;
+  });
+
+  // Adaptation blessure épaule par phase
+  var _shoulderBlessure = typeof hasShoulderInjury === 'function' && hasShoulderInjury();
+  var _benchAdaptation = null;
+  if (_shoulderBlessure && _current) {
+    if (_current.phase === 'hypertrophie') {
+      _benchAdaptation = { replace: true, with: 'Floor Press', maxRPE: 6,
+        note: 'Épaule : Bench supprimé en Accumulation. Floor Press léger uniquement.' };
+    } else if (_current.phase === 'intensification') {
+      var _painLevel = _getCurrentShoulderPain();
+      _benchAdaptation = _painLevel < 2
+        ? { replace: false, note: 'Épaule : Bench autorisé (douleur < 2/5). Prise serrée.' }
+        : { replace: true, with: 'Floor Press', maxRPE: 7,
+            note: 'Épaule : douleur ' + _painLevel + '/5. Bench maintenu en Floor Press.' };
+    } else if (_current.phase === 'peak') {
+      _benchAdaptation = { replace: false, minSets: 1, maxSets: 2,
+        note: 'Épaule : volume Bench minimal. 1-2 singles pour valider le total.' };
+    }
+  }
+
+  var _benchPR = (db.bestPR && db.bestPR.bench) || 0;
+  var _safetyBar = _benchPR > 0 ? Math.round(_benchPR * 0.60 / 2.5) * 2.5 : null;
+
+  var _daysToComp = Math.round((new Date(compDate) - Date.now()) / 86400000);
+  var _readinessAlert = null;
+  if (_daysToComp <= 14 && _daysToComp > 0) {
+    var _openingSquat = (db.bestPR && db.bestPR.squat)
+      ? Math.round(db.bestPR.squat * 0.88 / 2.5) * 2.5 : null;
+    if (_daysToComp <= 3) {
+      _readinessAlert = '⚡ J-' + _daysToComp + ' : Activation 50-60% uniquement. Squat + Dead. ZÉRO Bench.';
+    } else if (_safetyBar) {
+      _readinessAlert = '🎯 J-' + _daysToComp + ' : Valide tes ' + _safetyBar + ' kg au Bench pour rester dans la course au total.';
+    } else if (_openingSquat) {
+      _readinessAlert = '🎯 J-' + _daysToComp + ' : Vérifie que ton ouverture Squat (' + _openingSquat + ' kg) passe à RPE 6.';
+    }
+  }
+
+  return {
+    compDate: compDate, weeksOut: _weeksOut, schedule: _schedule,
+    currentPhase: _current ? _current.phase : null,
+    currentLabel: _current ? _current.label : null,
+    benchAdaptation: _benchAdaptation,
+    safetyBar: _safetyBar,
+    readinessAlert: _readinessAlert
+  };
+}
+
+function _getCurrentShoulderPain() {
+  var _inj = ((db.user && db.user.injuries) || []).find(function(i) {
+    return typeof i === 'object' && /epaule|shoulder/i.test(i.zone || '');
+  });
+  return _inj ? (_inj.level || 0) : 0;
+}
+
 function wpDetectPhase() {
+  // v206 — Programme compétition : prioritaire sur toutes les autres détections
+  var _compDate = db.user && db.user.programParams && db.user.programParams.compDate;
+  if (_compDate) {
+    var _cp = generateCompPeakingPlan(_compDate);
+    if (_cp && _cp.currentPhase) {
+      if (db.weeklyPlan && db.weeklyPlan.currentBlock) {
+        db.weeklyPlan.currentBlock.phase = _cp.currentPhase;
+        db.weeklyPlan.currentBlock._compLabel = _cp.currentLabel;
+      }
+      return _cp.currentPhase;
+    }
+  }
   // v193 — Bien-être : phase neutre, jamais de peak/force/deload
   if (db.user && db.user.trainingMode === 'bien_etre') return 'accumulation';
   // Priorité 1 : forçage manuel récent (< 7 jours)
@@ -22961,6 +23387,67 @@ function toggleWarmupSet(exoIdx, wsIdx) {
   goRequestRender();
 }
 
+// ── Détection PR automatique — Brzycki ≤ 8 reps (v205) ─────────────────
+// Formule Gemini-validée. Limite fiabilité 8 reps.
+// Si e1RM > PR + 5% → confirmation modale. Sinon → mise à jour silencieuse.
+function calcBrzycki(weight, reps) {
+  if (reps <= 0 || reps > 8) return null;
+  if (reps === 1) return weight;
+  return weight / (1.0278 - 0.0278 * reps);
+}
+
+function detectNewPR(exoName, weight, reps) {
+  var liftKey = null;
+  if (/squat|high bar|low bar/i.test(exoName) && !/jump/i.test(exoName)) liftKey = 'squat';
+  else if (/bench|développé couché|larsen/i.test(exoName)) liftKey = 'bench';
+  else if (/(deadlift|soulevé de terre)/i.test(exoName) && !/roumain|rdl/i.test(exoName)) liftKey = 'deadlift';
+  if (!liftKey) return null;
+
+  var e1rm = calcBrzycki(weight, reps);
+  if (!e1rm) return null;
+
+  var currentPR = (db.bestPR && db.bestPR[liftKey]) || 0;
+  if (e1rm > currentPR * 1.05) {
+    return { liftKey: liftKey, e1rm: Math.round(e1rm * 10) / 10, currentPR: currentPR, weight: weight, reps: reps };
+  }
+  if (e1rm > currentPR) {
+    if (!db.bestPR) db.bestPR = {};
+    db.bestPR[liftKey] = Math.round(e1rm * 10) / 10;
+    saveDB();
+  }
+  return null;
+}
+
+function showPRConfirmation(prData) {
+  var liftLabels = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:320px;text-align:center;">'
+    + '<div style="font-size:32px;margin-bottom:8px;">🏆</div>'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">Nouveau record détecté !</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:16px;">'
+    + prData.weight + 'kg × ' + prData.reps + ' reps → e1RM estimé : '
+    + '<strong>' + prData.e1rm + 'kg</strong> au ' + (liftLabels[prData.liftKey] || prData.liftKey) + '</div>'
+    + '<button onclick="confirmNewPR(\'' + prData.liftKey + '\',' + prData.e1rm + ')" '
+    + 'style="width:100%;padding:12px;border-radius:10px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;cursor:pointer;margin-bottom:8px;">'
+    + 'Valider ' + prData.e1rm + 'kg comme nouveau PR 🏆</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
+    + 'Non, c\'est une erreur</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function confirmNewPR(liftKey, e1rm) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.bestPR) db.bestPR = {};
+  db.bestPR[liftKey] = e1rm;
+  saveDB();
+  showToast('🏆 Nouveau PR ' + liftKey + ' : ' + e1rm + 'kg enregistré !', 4000);
+}
+
 function goToggleSetComplete(exoIdx, setIdx) {
   var set = activeWorkout.exercises[exoIdx].sets[setIdx];
   set.completed = !set.completed;
@@ -23018,6 +23505,13 @@ function goToggleSetComplete(exoIdx, setIdx) {
           if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
           if (typeof showPRToast === 'function') showPRToast(exo.name, _e1rm);
         }
+      }
+    } catch(e) {}
+    // v205 — Détection PR SBD via Brzycki ≤ 8 reps (confirmation modale si > +5%)
+    try {
+      if (set.type !== 'warmup') {
+        var _prData = detectNewPR(exo.name, parseFloat(set.weight), parseInt(set.reps));
+        if (_prData) setTimeout(function() { showPRConfirmation(_prData); }, 500);
       }
     } catch(e) {}
     // RPE Dissonance — comparer RPE déclaré vs temps depuis la série précédente

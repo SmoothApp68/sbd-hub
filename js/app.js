@@ -19145,6 +19145,68 @@ function applyAgeAdaptations(exercises) {
   });
 }
 
+// ── KNEE FILTER — Gemini v211 ──────────────────────────────────────
+// Marie (52 ans, genou) : blacklister les exercices à fort risque pivot/saut,
+// remplacer par alternative amplitude contrôlée quand possible.
+var KNEE_INJURY_BLACKLIST = [
+  'Sissy Squat', 'Sissy Squat Machine',
+  'Fentes (Grand Pas)', 'Fentes Marchées',
+  'Box Jump', 'Saut en Hauteur', 'Broad Jump',
+  'Jump Squat', 'Sauts Pliométriques'
+];
+
+var KNEE_INJURY_SUBSTITUTES = {
+  'Sissy Squat':         'Leg Extension (Amplitude Réduite)',
+  'Sissy Squat Machine': 'Leg Extension (Amplitude Réduite)',
+  'Fentes (Grand Pas)':  'Step-up Bas (Haltères)',
+  'Fentes Marchées':     'Step-up Bas (Haltères)',
+  'Box Jump':            'Box Squat (Amplitude Contrôlée)',
+  'Saut en Hauteur':     'Box Squat (Amplitude Contrôlée)',
+  'Broad Jump':          'Box Squat (Amplitude Contrôlée)',
+  'Jump Squat':          'Box Squat (Amplitude Contrôlée)',
+  'Sauts Pliométriques': 'Box Squat (Amplitude Contrôlée)'
+};
+
+function applyKneeFilter(exercises) {
+  if (!Array.isArray(exercises)) return exercises;
+  var _injuries = (db.user && db.user.injuries) || [];
+  var _hasKnee = _injuries.some(function(inj) {
+    var _zone = typeof inj === 'string' ? inj : (inj && (inj.zone || inj.area) || '');
+    return /genou|knee/i.test(String(_zone));
+  });
+  if (!_hasKnee) return exercises;
+
+  return exercises.map(function(exo) {
+    if (!exo || !exo.name) return exo;
+    var _name = String(exo.name);
+    var _matched = KNEE_INJURY_BLACKLIST.find(function(b) {
+      return _name.toLowerCase().indexOf(b.toLowerCase()) !== -1;
+    });
+    if (!_matched) return exo;
+    var _sub = KNEE_INJURY_SUBSTITUTES[_matched];
+    if (!_sub) return null;
+    return Object.assign({}, exo, {
+      name: _sub,
+      _originalName: exo.name,
+      _injurySubstitute: true,
+      note: '🦵 Adapté blessure genou (original : ' + exo.name + ')'
+    });
+  }).filter(Boolean);
+}
+
+// ── TALK TEST — Gemini v211 ────────────────────────────────────────
+// Pour les users sans PRs : pas de % 1RM possible → instruction qualitative.
+// L'algo progresse ensuite via LP pure (+5%/semaine tant que SRS > 80).
+function hasPRData() {
+  return !!(db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift));
+}
+
+function getTalkTestInstruction(exoName) {
+  return 'Prends un poids avec lequel tu peux faire 10 reps '
+    + 'tout en étant capable de discuter sans être essoufflé(e). '
+    + 'Ce poids devient ta baseline — l\'algo progressera depuis là.';
+}
+
 // ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
 // Détection :
 //   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
@@ -21405,6 +21467,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 
   exercises = applyShoulderFilter(exercises);
 
+  // KNEE : blacklist + substituts (Gemini v211)
+  exercises = applyKneeFilter(exercises);
+
   // SENIOR : rest ×2 + RPE max 7 (Gemini v208)
   exercises = applyAgeAdaptations(exercises);
 
@@ -21669,6 +21734,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
 
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref2);
   exercises = applyShoulderFilter(exercises);
+  exercises = applyKneeFilter(exercises);
   var note = dayCoachNote ||
     (isCutting ? 'Sèche — RPE 8, repos courts, supersets sur l\'isolation.' :
      isBulking  ? 'Masse — RPE 7-8, charges lourdes, manger suffisamment.' : 'Recompo — progression régulière, RPE 8.');

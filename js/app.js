@@ -18521,6 +18521,20 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 
   // 1A — Main Lifts SBD : Wave Loading
   var _isMainLift = /squat|bench|deadlift|soulevé|développé couché/i.test(exoName);
+
+  // v204 — LP Pure pour débutants : +2.5kg simple, pas de strikes ni deload local.
+  // Tant que lpActive=true et level=debutant, on garde la simplicité maximale.
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  var _lpActive = !(db.user && db.user.lpActive === false);
+  if (_isMainLift && _level === 'debutant' && _lpActive) {
+    if (allSetsComplete) {
+      return { weight: wpRound25(lastWeight + 2.5), reps: targetRepMin, progressed: true,
+        coachNote: '✅ +2.5kg — continue comme ça !' };
+    }
+    return { weight: lastWeight, reps: targetRepMax, progressed: false,
+      coachNote: 'Valide toutes les séries avant de monter le poids.' };
+  }
+
   if (_isMainLift) {
     var _strikes = (db.user && db.user.lpStrikes && db.user.lpStrikes[realName]) || { count: 0 };
 

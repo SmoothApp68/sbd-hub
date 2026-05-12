@@ -20732,6 +20732,204 @@ function getDupFrequencyForLift(liftKey, selectedDays, routine) {
   return Math.max(1, count);
 }
 
+// ── selectExercisesForProfile — Gemini v209 (7 règles universelles) ──
+// Filtre déterministe appliqué après les filtres locaux (épaule, senior,
+// stress). Remplace les blocs hardcodés disséminés dans wpGenerate*.
+function selectExercisesForProfile(exercises, profile) {
+  if (!Array.isArray(exercises) || !exercises.length) return exercises || [];
+  profile = profile || {};
+  var _duration = profile.duration || 90;
+  var _mode     = profile.mode || 'musculation';
+  var _injury   = profile.injury || null;
+  var _age      = profile.age || 30;
+  var _stats    = profile.stats || {};
+
+  function _muscleGroupOf(e) {
+    if (!e) return '';
+    if (e.muscleGroup) return String(e.muscleGroup).toLowerCase();
+    if (typeof wpGetExerciseMeta === 'function') {
+      var _meta = wpGetExerciseMeta(e.name || '');
+      if (_meta && _meta.muscleGroup) return String(_meta.muscleGroup).toLowerCase();
+    }
+    return '';
+  }
+
+  var result = exercises.slice();
+
+  // RÈGLE 1 — Durée → plafond exercices
+  var _maxExos = _duration <= 45 ? 4
+    : _duration <= 60 ? 5
+    : _duration <= 75 ? 6
+    : 7;
+  if (_mode === 'powerlifting') _maxExos = Math.max(4, _maxExos - 1);
+
+  // RÈGLE 4 — 45min : retirer Deadlift, ajouter RDL, préférer machines
+  if (_duration <= 45) {
+    result = result.filter(function(e) {
+      if (!e) return false;
+      var _isDL = /^soulev[eé] de terre\b|^deadlift\b/i.test(e.name || '');
+      if (_isDL && !e.isPrimary) return false;
+      return true;
+    });
+    var _hasRDL = result.some(function(e) { return /rdl|roumain/i.test(e.name || ''); });
+    var _hadDL  = exercises.some(function(e) { return /^soulev[eé] de terre\b|^deadlift\b/i.test(e.name || ''); });
+    if (_hadDL && !_hasRDL) {
+      result.push({
+        name: 'RDL (Soulevé Roumain)', evictionCategory: 'secondary',
+        sets: 3, reps: '10-12', rpe: 8, rest: 90, _addedByRule: 4
+      });
+    }
+    result = result.map(function(e) {
+      return e ? Object.assign({}, e, { _preferMachine: true }) : e;
+    });
+  }
+
+  // RÈGLE 2 — Ratio tirage/poussée (1.2 normal, 1.5 si blessure épaule)
+  var _pullRatio = _injury === 'shoulder' ? 1.5 : 1.2;
+  var _pushSets = 0, _pullSets = 0;
+  result.forEach(function(e) {
+    if (!e) return;
+    var _mg = _muscleGroupOf(e);
+    var _name = (e.name || '').toLowerCase();
+    var _sets = e.sets || 3;
+    var _isPush = /chest|pec|triceps|shoulder.*(front|ant)|front.*shoulder|pectoraux/i.test(_mg)
+      || /bench|d[ée]velopp[ée]|ohp|dips|larsen|incline|incline?/i.test(_name);
+    var _isPull = /back|biceps|rear.*delt|lat|dorsal|trap/i.test(_mg)
+      || /row|rowing|tirage|traction|face\s*pull|pull-?up/i.test(_name);
+    if (_isPush) _pushSets += _sets;
+    if (_isPull) _pullSets += _sets;
+  });
+  if (_pushSets > 0 && _pullSets / _pushSets < _pullRatio) {
+    var _extraPull = _injury === 'shoulder'
+      ? { name: 'Face Pull', evictionCategory: 'secondary', sets: 3, reps: '15-20', rpe: 7, rest: 60, _addedByRule: 2 }
+      : { name: 'Rowing Poulie Assis', evictionCategory: 'secondary', sets: 3, reps: '10-12', rpe: 8, rest: 90, _addedByRule: 2 };
+    result.push(_extraPull);
+  }
+
+  // RÈGLE 3 — Powerlifting : retirer exercices esthétiques (sauf correctifs)
+  if (_mode === 'powerlifting') {
+    var _aestheticFilter = ['écarté machine', 'ecarte machine', 'écarté haltères', 'ecarte halteres',
+                            'curl concentré', 'curl concentre', 'leg extension'];
+    result = result.filter(function(e) {
+      if (!e) return false;
+      var _name = (e.name || '').toLowerCase();
+      var _isAesthetic = _aestheticFilter.some(function(f) { return _name.indexOf(f) !== -1; });
+      return !_isAesthetic || e.isCorrectivePriority;
+    });
+  }
+
+  // RÈGLE 5 — Correctifs de ratios (seuils par mode, Gemini validé)
+  var _ratioThresholds = {
+    powerlifting: { squatBenchRatio: 1.25, deadliftSquatRatio: 1.15, rowBenchRatio: 1.10, ohpBenchRatio: 0.60 },
+    musculation:  { squatBenchRatio: 1.10, deadliftSquatRatio: 1.00, rowBenchRatio: 1.00, ohpBenchRatio: 0.65 },
+    bien_etre:    { squatBenchRatio: 1.00, deadliftSquatRatio: 0.90, rowBenchRatio: 1.00, ohpBenchRatio: 0.50 }
+  };
+  var _t = _ratioThresholds[_mode] || _ratioThresholds.musculation;
+  var _ratioCorrections = [
+    { ratio: 'squatBenchRatio',    threshold: _t.squatBenchRatio,    exo: 'Leg Extension',         tag: 'quad_isolation' },
+    { ratio: 'deadliftSquatRatio', threshold: _t.deadliftSquatRatio, exo: 'RDL (Soulevé Roumain)', tag: 'posterior_chain' },
+    { ratio: 'rowBenchRatio',      threshold: _t.rowBenchRatio,      exo: 'Rowing Barre',          tag: 'back_compound' },
+    { ratio: 'ohpBenchRatio',      threshold: _t.ohpBenchRatio,      exo: 'Face Pull',             tag: 'shoulder_health' }
+  ];
+
+  // Morpho-Logic : Dead/Squat > 1.50 → mobilité cheville prioritaire
+  if (_stats.deadliftSquatRatio && _stats.deadliftSquatRatio > 1.50) {
+    var _hasMobility = result.some(function(e) { return /cheville|ankle|mobilit[ée]/i.test(e.name || ''); });
+    if (!_hasMobility) {
+      result.unshift({
+        name: 'Mobilité Cheville', evictionCategory: 'warmup',
+        sets: 2, reps: '10', rest: 30, isWarmup: true, _addedByRule: 'morpho',
+        note: 'Levier favorable au tirage détecté — mobilité cheville en priorité'
+      });
+    }
+  }
+
+  _ratioCorrections.forEach(function(rc) {
+    var _val = _stats[rc.ratio];
+    if (typeof _val !== 'number' || _val >= rc.threshold) return;
+    var _already = result.some(function(e) {
+      return (e.name || '').toLowerCase().indexOf(rc.exo.toLowerCase()) !== -1;
+    });
+    if (!_already) {
+      result.push({
+        name: rc.exo, isCorrectivePriority: true, evictionCategory: 'corrective',
+        sets: 3, reps: '12-15', rpe: 8, rest: 90, _addedByRule: 5,
+        note: 'Correctif ratio ' + rc.ratio + ' (' + (_val * 100).toFixed(0) + '% < ' + Math.round(rc.threshold * 100) + '%)'
+      });
+    } else {
+      result = result.map(function(e) {
+        if ((e.name || '').toLowerCase().indexOf(rc.exo.toLowerCase()) !== -1) {
+          return Object.assign({}, e, { isCorrectivePriority: true, evictionCategory: 'corrective' });
+        }
+        return e;
+      });
+    }
+  });
+
+  // RÈGLE 6 — Blessure : Hard Cap RPE 7 / 75% 1RM sur exos affectés
+  if (_injury) {
+    var _zone = String(_injury).toLowerCase();
+    result = result.map(function(e) {
+      if (!e) return e;
+      var _name = (e.name || '');
+      var _isAffected = (_zone === 'shoulder' && /^(bench|d[ée]velopp[ée]|ohp|dips|larsen|incline|incliné)/i.test(_name))
+        || (_zone === 'knee'    && /^(squat|leg press|hack squat)/i.test(_name))
+        || (_zone === 'back'    && /^(deadlift|soulev[eé]|good morning)/i.test(_name));
+      if (!_isAffected) return e;
+      return Object.assign({}, e, {
+        maxRPE: 7,
+        maxIntensity: 0.75,
+        _injuryCapApplied: true,
+        note: (e.note || '') + ' ⚠️ Cap RPE 7 / 75% (blessure ' + _zone + ')'
+      });
+    });
+  }
+
+  // RÈGLE 6b — Senior (≥ 60 ans) : repos ×2, RPE max 7
+  if (_age >= 60) {
+    result = result.map(function(e) {
+      if (!e) return e;
+      return Object.assign({}, e, {
+        restMultiplier: 2.0,
+        maxRPE: Math.min(e.maxRPE || 10, 7),
+        _seniorAdapted: true
+      });
+    });
+  }
+
+  // RÈGLE 1 (fin) — Plafond : isPrimary > isCorrectivePriority > reste
+  result.sort(function(a, b) {
+    var _as = (a && a.isPrimary ? 100 : 0) + (a && a.isCorrectivePriority ? 50 : 0);
+    var _bs = (b && b.isPrimary ? 100 : 0) + (b && b.isCorrectivePriority ? 50 : 0);
+    return _bs - _as;
+  });
+  result = result.slice(0, _maxExos);
+
+  return result;
+}
+
+function buildProfileForSelection() {
+  var _injuries = (db.user && db.user.injuries) || [];
+  var _activeInjury = _injuries.find(function(i) {
+    return typeof i === 'object' && i && i.active;
+  });
+  var _prStats = {};
+  if (db.bestPR) {
+    if (db.bestPR.squat && db.bestPR.bench)    _prStats.squatBenchRatio    = db.bestPR.squat / db.bestPR.bench;
+    if (db.bestPR.deadlift && db.bestPR.squat) _prStats.deadliftSquatRatio = db.bestPR.deadlift / db.bestPR.squat;
+  }
+  return {
+    duration: (db.user && db.user.trainingDuration)
+      || (db.user && db.user.programParams && db.user.programParams.duration)
+      || 90,
+    mode:    (db.user && db.user.trainingMode) || 'musculation',
+    injury:  _activeInjury ? (_activeInjury.zone || _activeInjury.area || null) : null,
+    goals:   (db.user && db.user.programParams && db.user.programParams.goals) || [],
+    age:     (db.user && db.user.age) || 30,
+    stats:   _prStats
+  };
+}
+
 function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, dupProfileKey) {
   if (typeof WP_SESSION_TEMPLATES === 'undefined' || !WP_SESSION_TEMPLATES) return null;
   var tpl = WP_SESSION_TEMPLATES[dayKey];
@@ -21141,6 +21339,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
         coachNote: '🧘 Volume réduit (-' + Math.round((1 - _stressMod) * 100) + '%) — prends soin de toi aujourd\'hui.'
       });
     });
+  }
+
+  // SELECT EXERCISES FOR PROFILE — 7 règles universelles (Gemini v209)
+  if (typeof selectExercisesForProfile === 'function' && bodyPart !== 'recovery') {
+    try {
+      var _selProfile = buildProfileForSelection();
+      exercises = selectExercisesForProfile(exercises, _selProfile);
+    } catch(e) {}
   }
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };

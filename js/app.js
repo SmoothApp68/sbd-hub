@@ -3882,6 +3882,19 @@ function isBodyweightExo(name) {
   return /traction|pull.?up|chin.?up|dips|pompe|push.?up/.test(n);
 }
 
+// v205 — Affichage e1RM : fiable ≤ 8 reps, indicatif > 8 reps (Gemini-validé).
+// Utilise calcBrzycki() défini dans le bloc "auto PR detection" plus bas.
+function getE1RMDisplay(weight, reps) {
+  if (typeof calcBrzycki === 'function') {
+    var e1rm = calcBrzycki(weight, reps);
+    if (e1rm) return { value: Math.round(e1rm), label: 'e1RM estimé', reliable: true };
+  }
+  // reps > 8 → indicatif via cap à 8 reps (Brzycki devient peu fiable)
+  var indicativeReps = Math.min(reps, 8);
+  var indicative = weight / (1.0278 - 0.0278 * indicativeReps);
+  return { value: Math.round(indicative), label: 'Estimation indicative', reliable: false };
+}
+
 function getAllBestE1RMs() {
   // Returns { exoName: { e1rm, date } } for all exercises across all logs
   const best = {};

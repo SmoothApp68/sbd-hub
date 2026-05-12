@@ -18786,6 +18786,30 @@ function wpEstimateCurrentWeek() {
   return Math.max(1, Math.min(16, Math.floor(recentLogs.length / Math.max(1, freq)) + 1));
 }
 
+// v202 — Durées de phases Gemini-calibrées (semaines) — powerbuilding/powerlifting/musculation/bien_etre × niveau
+var BLOCK_DURATION = {
+  powerbuilding: {
+    debutant:      { hypertrophie:6, accumulation:6, force:4, intensification:2, peak:1, deload:1 },
+    intermediaire: { hypertrophie:5, accumulation:5, force:4, intensification:2, peak:1, deload:1 },
+    avance:        { hypertrophie:4, accumulation:4, force:4, intensification:2, peak:1, deload:1 }
+  },
+  powerlifting: {
+    debutant:      { hypertrophie:6, accumulation:6, force:5, intensification:2, peak:1, deload:1 },
+    intermediaire: { hypertrophie:5, accumulation:5, force:5, intensification:2, peak:1, deload:1 },
+    avance:        { hypertrophie:4, accumulation:4, force:5, intensification:2, peak:1, deload:1 }
+  },
+  musculation: {
+    debutant:      { hypertrophie:8, accumulation:8, force:4, intensification:2, peak:1, deload:1 },
+    intermediaire: { hypertrophie:6, accumulation:6, force:4, intensification:2, peak:1, deload:1 },
+    avance:        { hypertrophie:5, accumulation:5, force:4, intensification:2, peak:1, deload:1 }
+  },
+  bien_etre: {
+    debutant:      { accumulation:99 },
+    intermediaire: { accumulation:99 },
+    avance:        { accumulation:99 }
+  }
+};
+
 function wpDetectPhase() {
   // v193 — Bien-être : phase neutre, jamais de peak/force/deload
   if (db.user && db.user.trainingMode === 'bien_etre') return 'accumulation';
@@ -18840,12 +18864,30 @@ function wpDetectPhase() {
     ? ['intro','hypertrophie','volume','recuperation']
     : ['intro','hypertrophie','force','peak'];
 
+  var _detectedPhase = null;
   for (var i = 0; i < phases.length; i++) {
     var dur = durations[phases[i]] || 0;
-    if (dur > 0 && w <= dur) return phases[i];
+    if (dur > 0 && w <= dur) { _detectedPhase = phases[i]; break; }
     w -= dur;
   }
-  return 'deload';
+  if (!_detectedPhase) _detectedPhase = 'deload';
+
+  // v202 — Plateau indicator : 3+ plateaux accessoires ou SRS < 50 ×2 en hypertrophie → force
+  if (_detectedPhase === 'hypertrophie') {
+    var _pLogs = (db.logs || []).filter(function(l) {
+      return Date.now() - (l.timestamp||0) < 3 * 7 * 86400000;
+    });
+    var _pCount = 0;
+    _pLogs.forEach(function(l) {
+      (l.exercises||[]).forEach(function(e) {
+        if (!/squat|bench|deadlift|soulevé|développé couché/i.test(e.name||'') && e.plateauDetected) _pCount++;
+      });
+    });
+    var _pLowSRS = db.readiness
+      ? db.readiness.filter(function(r) { return r.score < 50; }).slice(-7).length : 0;
+    if (_pCount >= 3 || _pLowSRS >= 2) return 'force';
+  }
+  return _detectedPhase;
 }
 
 function wpDayMotivation(dayData, phase) {
@@ -20298,6 +20340,10 @@ function generateWeeklyPlan() {
     if (!db.weeklyPlan) db.weeklyPlan = {};
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
     db.weeklyPlan.currentBlock.phase = phase;
+    // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
+    if (!db.weeklyPlan.currentBlock.blockStartDate) {
+      db.weeklyPlan.currentBlock.blockStartDate = Date.now();
+    }
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     // Sensible fallback : avoid Wed/Sun (rest middle + weekend) instead of first-N
     var _DEFAULT_DAYS_BY_FREQ = {

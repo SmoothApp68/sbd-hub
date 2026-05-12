@@ -21750,6 +21750,24 @@ function wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, currentD
   }
 }
 
+// v217 — Safe wrapper for wpGenerateMuscuDay : protège generateWeeklyPlan
+// quand un helper (wpDetectIsolationPlateau, checkVolumePR, selectExercisesForProfile,
+// checkIschioCuadImbalance, getCrossInterferencePenalties, etc.) lance une exception.
+// Sans ce wrapper, le throw remontait au outer try/catch de generateWeeklyPlan et
+// laissait db.weeklyPlan.days vide pour Léa/Alexis (musculation).
+function wpGenerateMuscuDaySafe(tplKey, params, phase) {
+  try {
+    return wpGenerateMuscuDay(tplKey, params, phase);
+  } catch(e) {
+    if (typeof logErrorToSupabase === 'function') {
+      logErrorToSupabase('algo_crash', String(e && e.message || e),
+        'wpGenerateMuscuDaySafe', { tplKey: tplKey, phase: phase });
+    }
+    var _tpl = (typeof WP_PPL_TEMPLATES !== 'undefined' && WP_PPL_TEMPLATES[tplKey]) || null;
+    return { rest: false, title: (_tpl && _tpl.title) || tplKey || 'Séance', coachNote: '', exercises: [] };
+  }
+}
+
 function wpBuildWarmupsSafe(workWeight, workReps, liftType, exerciseOrder, previousExoNames) {
   try {
     return wpBuildWarmups(workWeight, workReps, liftType, exerciseOrder, previousExoNames);
@@ -22424,7 +22442,7 @@ function generateWeeklyPlan() {
         if (selectedDays.indexOf(day) < 0) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
         var tplKey = tplKeys[tplIdx % tplKeys.length];
         tplIdx++;
-        var dayData = wpGenerateMuscuDay(tplKey, params, phase);
+        var dayData = wpGenerateMuscuDaySafe(tplKey, params, phase);
         if (!dayData) return { day: day, rest: true, title: '😴 Repos Complet', exercises: [] };
         return Object.assign({ day: day }, dayData);
       });
@@ -22488,74 +22506,95 @@ function generateWeeklyPlan() {
       });
     }
 
-    // ── ADAPTER LA DURÉE DES SÉANCES ─────────────────────────
-    var targetDuration = (db.user && db.user.trainingDuration) || params.duration || 90;
-    days.forEach(function(dayData) {
-      if (!dayData || dayData.rest || !dayData.exercises || !dayData.exercises.length) return;
-      var estimated = typeof estimateSessionDuration === 'function'
-        ? estimateSessionDuration(dayData.exercises)
-        : 0;
-      if (estimated > targetDuration * 1.10) {
-        var adapted = typeof adaptSessionForDuration === 'function'
-          ? adaptSessionForDuration(dayData.exercises, targetDuration, (params.goals || [])[0])
-          : { exercises: dayData.exercises, adaptations: [] };
-        dayData.exercises = adapted.exercises;
-        if (adapted.adaptations && adapted.adaptations.length) {
-          dayData.coachNote = (dayData.coachNote || '') +
-            ' 📋 Séance ajustée pour tenir en ' + targetDuration + 'min : ' +
-            adapted.adaptations.join(', ') + '.';
-        }
-      }
-    });
-
-    // ── ACTIVE WASHOUT — 1ère semaine hypertrophie si ≥16 sem. sans event ────
-    var washoutCheck = typeof checkActiveWashoutNeeded === 'function' ? checkActiveWashoutNeeded() : null;
+    // v217 — post-processing wrapped per-block so an unexpected helper crash
+    // never leaves db.weeklyPlan.days = [] for Léa/Alexis/D'Jo.
     var _planIsWashout = false;
-    if (washoutCheck && washoutCheck.needed && phase === 'hypertrophie') {
-      _planIsWashout = true;
-      var _wSubs = washoutCheck.substitutes;
+    try {
+      // ── ADAPTER LA DURÉE DES SÉANCES ─────────────────────────
+      var targetDuration = (db.user && db.user.trainingDuration) || params.duration || 90;
       days.forEach(function(dayData) {
-        if (!dayData || dayData.rest) return;
-        (dayData.exercises || []).forEach(function(exo) {
-          var sub = _wSubs[exo.name];
-          if (sub) {
-            exo.name = sub;
-            exo.coachNote = '🔧 Active Washout — tempo 4s excentrique. ' + washoutCheck.tempoNote;
-            exo.tempoEcc = 4;
+        if (!dayData || dayData.rest || !dayData.exercises || !dayData.exercises.length) return;
+        var estimated = typeof estimateSessionDuration === 'function'
+          ? estimateSessionDuration(dayData.exercises)
+          : 0;
+        if (estimated > targetDuration * 1.10) {
+          var adapted = typeof adaptSessionForDuration === 'function'
+            ? adaptSessionForDuration(dayData.exercises, targetDuration, (params.goals || [])[0])
+            : { exercises: dayData.exercises, adaptations: [] };
+          dayData.exercises = adapted.exercises;
+          if (adapted.adaptations && adapted.adaptations.length) {
+            dayData.coachNote = (dayData.coachNote || '') +
+              ' 📋 Séance ajustée pour tenir en ' + targetDuration + 'min : ' +
+              adapted.adaptations.join(', ') + '.';
           }
-        });
+        }
       });
-      showToast('🔧 Active Washout activé — ' + washoutCheck.weeksSince + ' sem. de charges axiales.');
+    } catch(e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('algo_crash', String(e && e.message || e), 'generateWeeklyPlan_adaptDuration');
     }
 
-    // ── CONFLITS ACTIVITÉS SECONDAIRES ───────────────────────
-    days = days.map(function(dayData) {
-      if (!dayData || dayData.rest) return dayData;
-      return wpCheckActivityConflicts(dayData, dayData.day);
-    });
-
-    // ── DELOAD GLOBAL ────────────────────────────────────────
-    if (phase === 'deload') {
-      days.forEach(function(d) {
-        if (d.rest) return;
-        d.isDeload = true;
-        d.title = (d.title || '').replace(/^(🔄\s*)+/, '');
-        if (!d.title.includes('Deload')) d.title = '🔄 ' + d.title;
-        d.exercises.forEach(function(exo) {
-          exo.sets = (exo.sets || []).map(function(s) {
-            var ns = Object.assign({}, s);
-            if (ns.weight) ns.weight = wpRound25(ns.weight * 0.80);
-            if (ns.rpe) ns.rpe = Math.min(ns.rpe, 6);
-            return ns;
-          }).filter(function(s, i, arr) {
-            if (s.isWarmup) return true;
-            return arr.slice(0, i).filter(function(x) { return !x.isWarmup; }).length < 3;
+    try {
+      // ── ACTIVE WASHOUT — 1ère semaine hypertrophie si ≥16 sem. sans event ────
+      var washoutCheck = typeof checkActiveWashoutNeeded === 'function' ? checkActiveWashoutNeeded() : null;
+      if (washoutCheck && washoutCheck.needed && phase === 'hypertrophie') {
+        _planIsWashout = true;
+        var _wSubs = washoutCheck.substitutes;
+        days.forEach(function(dayData) {
+          if (!dayData || dayData.rest) return;
+          (dayData.exercises || []).forEach(function(exo) {
+            var sub = _wSubs[exo.name];
+            if (sub) {
+              exo.name = sub;
+              exo.coachNote = '🔧 Active Washout — tempo 4s excentrique. ' + washoutCheck.tempoNote;
+              exo.tempoEcc = 4;
+            }
           });
         });
-      });
+        showToast('🔧 Active Washout activé — ' + washoutCheck.weeksSince + ' sem. de charges axiales.');
+      }
+    } catch(e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('algo_crash', String(e && e.message || e), 'generateWeeklyPlan_washout');
     }
 
-    _injectSecondaryActivities(days);
+    try {
+      // ── CONFLITS ACTIVITÉS SECONDAIRES ───────────────────────
+      days = days.map(function(dayData) {
+        if (!dayData || dayData.rest) return dayData;
+        return wpCheckActivityConflicts(dayData, dayData.day);
+      });
+    } catch(e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('algo_crash', String(e && e.message || e), 'generateWeeklyPlan_conflicts');
+    }
+
+    try {
+      // ── DELOAD GLOBAL ────────────────────────────────────────
+      if (phase === 'deload') {
+        days.forEach(function(d) {
+          if (d.rest) return;
+          d.isDeload = true;
+          d.title = (d.title || '').replace(/^(🔄\s*)+/, '');
+          if (!d.title.includes('Deload')) d.title = '🔄 ' + d.title;
+          (d.exercises || []).forEach(function(exo) {
+            if (!Array.isArray(exo.sets)) return; // skip non-array sets
+            exo.sets = exo.sets.map(function(s) {
+              var ns = Object.assign({}, s);
+              if (ns.weight) ns.weight = wpRound25(ns.weight * 0.80);
+              if (ns.rpe) ns.rpe = Math.min(ns.rpe, 6);
+              return ns;
+            }).filter(function(s, i, arr) {
+              if (s.isWarmup) return true;
+              return arr.slice(0, i).filter(function(x) { return !x.isWarmup; }).length < 3;
+            });
+          });
+        });
+      }
+    } catch(e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('algo_crash', String(e && e.message || e), 'generateWeeklyPlan_deload');
+    }
+
+    try { _injectSecondaryActivities(days); } catch(e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('algo_crash', String(e && e.message || e), 'generateWeeklyPlan_injectSecondary');
+    }
 
     // ── SAUVEGARDER ─────────────────────────────────────────
     var plan = {
@@ -22564,8 +22603,12 @@ function generateWeeklyPlan() {
     };
 
     // Addendum D: Séances manquées
-    var missed = wpCountMissedSessions();
-    if (missed > 0) { plan = wpAdjustForMissedSessions(plan, missed); if (plan.missedNote) showToast('📋 ' + plan.missedNote); }
+    try {
+      var missed = wpCountMissedSessions();
+      if (missed > 0) { plan = wpAdjustForMissedSessions(plan, missed); if (plan.missedNote) showToast('📋 ' + plan.missedNote); }
+    } catch(e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('algo_crash', String(e && e.message || e), 'generateWeeklyPlan_missed');
+    }
 
     if (!db.weeklyPlanHistory) db.weeklyPlanHistory = [];
     db.weeklyPlanHistory.push({ generated_at: plan.generated_at, isDeload: plan.isDeload, isWashout: _planIsWashout });

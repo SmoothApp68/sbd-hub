@@ -8024,6 +8024,10 @@ function confirmPhaseTransition(nextPhase) {
   document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
   if (!db.weeklyPlan) db.weeklyPlan = {};
   if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+  // Retour à hypertrophie = fin d'un macrocycle complet (Gemini v211)
+  if (nextPhase === 'hypertrophie' && typeof incrementMacrocycleCounter === 'function') {
+    incrementMacrocycleCounter();
+  }
   db.weeklyPlan.currentBlock.phase = nextPhase;
   db.weeklyPlan.currentBlock.blockStartDate = Date.now();
   db.weeklyPlan.currentBlock.forcedAt = Date.now();
@@ -19263,6 +19267,40 @@ function getPivotWeekFrequency() {
   return isPivotWeek() ? 3 : null;
 }
 
+// ── LEG OVERREACH — Gemini v211 ────────────────────────────────────
+// Cycle 3 : après 2 macrocycles complets ET ratio Squat/Bench ≤ 1.10
+// → spécialisation jambes (+30%), upper -20%, bench maintenance ×0.6.
+function shouldTriggerLegOverreach() {
+  var _completedCycles = (db.weeklyPlan && db.weeklyPlan._completedMacrocycles) || 0;
+  if (_completedCycles < 2) return false;
+  var _squat = db.bestPR && db.bestPR.squat;
+  var _bench = db.bestPR && db.bestPR.bench;
+  if (!_squat || !_bench) return false;
+  return (_squat / _bench) <= 1.10;
+}
+
+function getLegOverreachModifiers() {
+  if (!shouldTriggerLegOverreach()) return null;
+  var _ratio = (db.bestPR && db.bestPR.squat && db.bestPR.bench)
+    ? (db.bestPR.squat / db.bestPR.bench).toFixed(2) : '?';
+  return {
+    legsVolumeMultiplier:  1.30,
+    upperVolumeMultiplier: 0.80,
+    benchVolumeMultiplier: 0.60,
+    benchMaxRPE: 8,
+    benchFreqMax: 2,
+    label: '🦵 Spécialisation Jambes — Leg Overreach',
+    note: 'Ratio Squat/Bench ' + _ratio
+      + ' — 100% capacité récupération allouée aux quads'
+  };
+}
+
+function incrementMacrocycleCounter() {
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  db.weeklyPlan._completedMacrocycles = (db.weeklyPlan._completedMacrocycles || 0) + 1;
+  if (typeof saveDB === 'function') saveDB();
+}
+
 // ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
 // Détection :
 //   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
@@ -21553,6 +21591,34 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   // PIVOT WEEK : swap 100% exos toutes les 12 semaines (Gemini v211)
   if (typeof applyPivotWeekSwaps === 'function') {
     exercises = applyPivotWeekSwaps(exercises);
+  }
+
+  // LEG OVERREACH : cycle 3 spécialisation jambes (Gemini v211)
+  var _overreach = typeof getLegOverreachModifiers === 'function' ? getLegOverreachModifiers() : null;
+  if (_overreach && Array.isArray(exercises)) {
+    var _isLegDay = /squat|leg|jambe/i.test(derivedTitle || '');
+    var _isUpperDay = !_isLegDay && /bench|push|upper|pectoraux|épaule|epaule/i.test(derivedTitle || '');
+    if (_isLegDay) {
+      exercises = exercises.map(function(exo) {
+        if (!exo) return exo;
+        return Object.assign({}, exo, {
+          sets: Math.round((exo.sets || 3) * _overreach.legsVolumeMultiplier),
+          _overreachAdapted: true
+        });
+      });
+      dayCoachNote = (dayCoachNote ? dayCoachNote + ' ' : '') + _overreach.label + ' — ' + _overreach.note;
+    } else if (_isUpperDay) {
+      exercises = exercises.map(function(exo) {
+        if (!exo) return exo;
+        var _isBench = /bench|développé couché|developpe couche/i.test(exo.name || '');
+        var _mult = _isBench ? _overreach.benchVolumeMultiplier : _overreach.upperVolumeMultiplier;
+        return Object.assign({}, exo, {
+          sets: Math.max(2, Math.round((exo.sets || 3) * _mult)),
+          _overreachAdapted: true,
+          maxRPE: _isBench ? Math.min(exo.maxRPE || 10, _overreach.benchMaxRPE) : exo.maxRPE
+        });
+      });
+    }
   }
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };

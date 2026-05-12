@@ -7678,6 +7678,91 @@ function _applyQuickLogToProgram(key, duration) {
   };
 }
 
+// ── VALIDATION GATE — Transition de phase assistée (v202) ─────────────────
+
+function isEndOfPhaseBlock() {
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!cb || !cb.phase) return false;
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var durations = typeof BLOCK_DURATION !== 'undefined' && BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level];
+  if (!durations) return false;
+  var maxWeeks = durations[cb.phase] || 4;
+  var weeksSince = cb.blockStartDate
+    ? Math.round((Date.now() - cb.blockStartDate) / (7 * 86400000)) : 0;
+  return weeksSince >= maxWeeks;
+}
+
+function getNextPhase(currentPhase) {
+  var sequence = ['hypertrophie','accumulation','force','intensification','peak','deload'];
+  var idx = sequence.indexOf(currentPhase);
+  return sequence[idx + 1] || 'hypertrophie';
+}
+
+function _computeBlockVolumeGain() {
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!cb || !cb.blockStartDate) return 0;
+  var blockLogs = (db.logs||[]).filter(function(l) { return (l.timestamp||0) >= cb.blockStartDate; });
+  if (blockLogs.length < 4) return 0;
+  var half = Math.floor(blockLogs.length / 2);
+  var v1 = blockLogs.slice(0, half).reduce(function(s,l){return s+(l.volume||0);},0) / half;
+  var v2 = blockLogs.slice(half).reduce(function(s,l){return s+(l.volume||0);},0) / Math.max(1, blockLogs.length - half);
+  return v1 > 0 ? Math.round((v2 - v1) / v1 * 100) : 0;
+}
+
+function showPhaseValidationGate() {
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!cb) return;
+  var nextPhase = getNextPhase(cb.phase);
+  var phaseLabels = {
+    hypertrophie:'Hypertrophie', force:'Force', intensification:'Intensification',
+    peak:'Peak', deload:'Deload', accumulation:'Accumulation'
+  };
+  var _gain = _computeBlockVolumeGain();
+  var _gainStr = _gain > 0 ? '+' + _gain + '% de volume total sur ce bloc' : 'bloc complété';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:360px;text-align:left;">'
+    + '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">🏆 Bloc '
+    + escapeHtml(phaseLabels[cb.phase] || cb.phase) + ' complété !</div>'
+    + '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;">'
+    + escapeHtml(_gainStr) + '. La data suggère que tu es prêt pour la phase <strong>'
+    + escapeHtml(phaseLabels[nextPhase] || nextPhase) + '</strong>. On bascule lundi ?</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="confirmPhaseTransition(\'' + escapeHtml(nextPhase) + '\')" '
+    + 'style="flex:1;padding:12px;border-radius:10px;background:var(--accent);border:none;'
+    + 'color:#fff;font-weight:700;cursor:pointer;">Oui, c\'est parti 🚀</button>'
+    + '<button onclick="postponePhaseTransition()" '
+    + 'style="flex:1;padding:12px;border-radius:10px;background:var(--surface);'
+    + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">Je refais une semaine</button>'
+    + '</div></div>';
+  document.body.appendChild(overlay);
+}
+
+function confirmPhaseTransition(nextPhase) {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (!db.weeklyPlan) db.weeklyPlan = {};
+  if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+  db.weeklyPlan.currentBlock.phase = nextPhase;
+  db.weeklyPlan.currentBlock.blockStartDate = Date.now();
+  db.weeklyPlan.currentBlock.forcedAt = Date.now();
+  db._phaseGateShownAt = null;
+  saveDB();
+  if (typeof showToast === 'function') showToast('🔄 Phase ' + nextPhase + ' activée lundi !');
+  renderDash();
+}
+
+function postponePhaseTransition() {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  if (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate) {
+    db.weeklyPlan.currentBlock.blockStartDate -= 7 * 86400000; // -1 semaine
+  }
+  db._phaseGateShownAt = null;
+  saveDB();
+  if (typeof showToast === 'function') showToast('✅ Semaine supplémentaire ajoutée.');
+}
+
 function renderDash() {
   try {
     // Carte bienvenue
@@ -7694,6 +7779,15 @@ function renderDash() {
     try { renderQuickLogCard(); } catch (e) {
       if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
+
+    // v202 — Validation Gate : afficher une fois par fin de bloc
+    try {
+      if (isEndOfPhaseBlock() && !db._phaseGateShownAt) {
+        db._phaseGateShownAt = Date.now();
+        saveDB();
+        setTimeout(showPhaseValidationGate, 1000);
+      }
+    } catch(e) {}
 
     requestAnimationFrame(function() {
       try { renderWeekCard(); } catch (e) {

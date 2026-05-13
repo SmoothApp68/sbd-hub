@@ -2485,7 +2485,7 @@ function autoPopulateKeyLifts() {
   // Priorité 1b : exercices SBD si mode SBD et renseignés pendant l'onboarding
   if (modeFeature('showSBDCards') && lifts.length === 0) {
     const SBD_DEFAULTS = [
-      { key: 'bench',    name: 'Bench press (Barre)', targetKey: 'bench' },
+      { key: 'bench',    name: 'Bench Press (Barre)', targetKey: 'bench' },
       { key: 'squat',    name: 'Squat (Barre)',        targetKey: 'squat' },
       { key: 'deadlift', name: 'Soulevé de Terre',     targetKey: 'deadlift' }
     ];
@@ -18723,24 +18723,24 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
     ],
     deadlift: [
-      { name: 'Leg Curl allongé',  reps: '12-15',rpe: 7.5, sets: 4, rest: 90,  priority: 1 },
-      { name: 'Hip Thrust',        reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
-      { name: 'Tirage Vertical',   reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Mollets (Machine)', reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Leg Curl Allongé',    reps: '12-15',rpe: 7.5, sets: 4, rest: 90,  priority: 1 },
+      { name: 'Hip Thrust (Machine)', reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Tirage Vertical',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Mollets (Machine)',   reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
     ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
       { name: 'Curl Marteau',         reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 },
       { name: 'Oiseau Machine',       reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 2 },
-      { name: 'Tirage Visage',        reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 1 },
+      { name: 'Face Pull',            reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 1 },
       { name: 'Extension Triceps',    reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 }
     ]
   },
   force: {
     squat: [
-      { name: 'Paused Squat',     reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
-      { name: 'Bulgarian Split Squat', reps: '6-8', rpe: 8, sets: 3, rest: 150, priority: 2 },
-      { name: 'Mollets lourds',   reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
+      { name: 'Squat Pause',          reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
+      { name: 'Fentes Bulgares',      reps: '6-8', rpe: 8,   sets: 3, rest: 150, priority: 2 },
+      { name: 'Mollets Lourds',       reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
     ],
     bench: [
       { name: 'Spoto Press',  reps: '3-5', rpe: 8,   sets: 4, rest: 240, priority: 1 },
@@ -18780,16 +18780,17 @@ var PHASE_ACCESSORY_MAP = {
 
 var WP_SESSION_TEMPLATES = {
   // v220 — Aligned with pbBlocks v200 (Gemini-validated)
+  // v222 — Title Case cohérent FR
   // sq_hyp: ['squat','leg_press','leg_ext','mollet_presse','planche']
   squat: {
     title: '🦵 Jambes',
     mainLift: 'squat',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Presse à cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Presse à Cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
       { name: 'Leg Extension',      reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
       { name: 'Mollets (Machine)',  reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 2, isoTension: true },
-      { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
+      { name: 'Gainage (Planche)',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ]
   },
   // bench_hyp: ['bench','rowing_poulie','dips','face_pull','tri_cable']
@@ -18798,10 +18799,10 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'bench',
     bodyPart: 'upper',
     accessories: [
-      { name: 'Rowing poulie assis',     reps: '6',    rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Rowing Poulie Assis',     reps: '6',    rpe: 8.5, sets: 4, rest: 180, priority: 1 },
       { name: 'Dips',                    reps: '8-10', rpe: 8,   sets: 4, rest: 120, priority: 1 },
       { name: 'Face Pull',               reps: '15',   rpe: 7,   sets: 4, rest: 60,  priority: 2 },
-      { name: 'Extension triceps câble', reps: '12',   rpe: 7.5, sets: 4, rest: 90,  priority: 2 }
+      { name: 'Extension Triceps Câble', reps: '12',   rpe: 7.5, sets: 4, rest: 90,  priority: 2 }
     ]
   },
   // dead_hyp: ['deadlift','squat_pause','lat_pull','leg_curl','relevé_jambes']
@@ -18810,10 +18811,10 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Squat Pause',             reps: '5',    rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
-      { name: 'Tirage poitrine poulie',  reps: '8',    rpe: 8,   sets: 4, rest: 120, priority: 1 },
-      { name: 'Leg Curl allongé',        reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Relevé de jambes',        reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' }
+      { name: 'Squat Pause',         reps: '5',    rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',     reps: '8',    rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Leg Curl Allongé',    reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Relevé de Jambes',    reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' }
     ]
   },
   weakpoints: {
@@ -18821,15 +18822,15 @@ var WP_SESSION_TEMPLATES = {
     mainLift: null,
     bodyPart: 'upper',
     accessories: [
-      { name: 'Tirage visage',             reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
-      { name: 'Oiseau machine',            reps: '12',  rpe: 7,   sets: 3, rest: 60  },
-      { name: 'Tirage poitrine poulie',    reps: '8',   rpe: 8,   sets: 4, rest: 120 },
+      { name: 'Face Pull',                 reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
+      { name: 'Oiseau Machine',            reps: '12',  rpe: 7,   sets: 3, rest: 60  },
+      { name: 'Tirage Vertical',           reps: '8',   rpe: 8,   sets: 4, rest: 120 },
       { name: 'Shrugs',                    reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
-      { name: 'Curl marteau',              reps: '10',  rpe: 7.5, sets: 4, rest: 90  },
-      { name: 'Extension triceps',         reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
-      { name: 'Curl poignet',              reps: '15',  rpe: 7,   sets: 4, rest: 60  },
-      { name: 'Élévations latérales',      reps: '15',  rpe: 7.5, sets: 3, rest: 60  },
-      { name: 'Ab Wheel',                  reps: 'max', rpe: 8,   sets: 4, rest: 90, type: 'reps' }
+      { name: 'Curl Marteau',              reps: '10',  rpe: 7.5, sets: 4, rest: 90  },
+      { name: 'Extension Triceps',         reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
+      { name: 'Curl Poignet',              reps: '15',  rpe: 7,   sets: 4, rest: 60  },
+      { name: 'Élévations Latérales',      reps: '15',  rpe: 7.5, sets: 3, rest: 60  },
+      { name: 'Roue Abdominale',           reps: 'max', rpe: 8,   sets: 4, rest: 90, type: 'reps' }
     ]
   },
   technique: {
@@ -18837,9 +18838,9 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'squat_pause',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Spoto Bench',           reps: '3-5',  rpe: 8, sets: 5, rest: 240, isPrimary: true },
-      { name: 'Soulevé de Terre Pause',reps: '3-5',  rpe: 8, sets: 4, rest: 240, isPrimary: true },
-      { name: 'Gainage planche',       reps: '90s',  rpe: 7, sets: 3, rest: 60,  type: 'time'    }
+      { name: 'Spoto Bench',             reps: '3-5',  rpe: 8, sets: 5, rest: 240, isPrimary: true },
+      { name: 'Soulevé de Terre Pause',  reps: '3-5',  rpe: 8, sets: 4, rest: 240, isPrimary: true },
+      { name: 'Gainage (Planche)',       reps: '90s',  rpe: 7, sets: 3, rest: 60,  type: 'time'    }
     ]
   },
   recovery: {
@@ -18853,64 +18854,65 @@ var WP_SESSION_TEMPLATES = {
 };
 
 var WP_PPL_TEMPLATES = {
+  // v222 — Tous les noms d'exercices en français. Title Case cohérent.
   push_a: {
     title: '💪 Push A — Pecto / Épaules / Triceps',
-    exercises: ['Développé couché','Développé incliné haltères','Écarté machine','Élévations latérales','Extension triceps','Dips']
+    exercises: ['Développé Couché','Développé Incliné Haltères','Écarté Machine','Élévations Latérales','Extension Triceps','Dips']
   },
   pull_a: {
     title: '🔵 Pull A — Dos / Biceps',
-    exercises: ['Tractions','Rowing barre','Tirage poitrine poulie','Curl barre','Face pull']
+    exercises: ['Tractions','Rowing Barre','Tirage Vertical','Curl Barre','Face Pull']
   },
   legs_a: {
     title: '🦵 Legs A — Quad / Fessiers',
-    exercises: ['Squat','Presse à cuisses','Leg Extension','Hip Thrust','Adduction']
+    exercises: ['Squat','Presse à Cuisses','Leg Extension','Hip Thrust (Machine)','Adduction Machine']
   },
   push_b: {
     title: '💪 Push B — Épaules / Pecto incliné',
-    exercises: ['Développé militaire','Développé incliné haltères','Écarté machine','Élévations latérales','Dips']
+    exercises: ['Développé Militaire','Développé Incliné Haltères','Écarté Machine','Élévations Latérales','Dips']
   },
   pull_b: {
     title: '🔵 Pull B — Dos épais / Ischio',
-    exercises: ['Rowing haltères','Romanian Deadlift','Leg Curl allongé','Curl marteau','Face pull']
+    exercises: ['Rowing Haltères','Soulevé de Terre Roumain (RDL)','Leg Curl Allongé','Curl Marteau','Face Pull']
   },
   legs_b: {
     title: '🦵 Legs B — Ischio / Fessiers',
-    exercises: ['Romanian Deadlift','Leg Curl allongé','Hip Thrust','Adduction','Gainage planche']
+    exercises: ['Soulevé de Terre Roumain (RDL)','Leg Curl Allongé','Hip Thrust (Machine)','Adduction Machine','Gainage (Planche)']
   },
   upper_a: {
     title: '💪 Upper A — Force',
     // v221 Gemini : poussée horizontale + tirage. PAS de curl/triceps (dépasse 45min).
     // Face Pull = santé épaule + correctif.
-    exercises: ['Développé couché','Tirage poitrine poulie','Développé militaire haltères','Rowing poulie assis','Face Pull']
+    exercises: ['Développé Couché','Tirage Vertical','Développé Militaire Haltères','Rowing Poulie Assis','Face Pull']
   },
   lower_a: {
     title: '🦵 Lower A — Force',
     // v221 Gemini : quad-dominant + correctif ischios via RDL.
     // PAS de Hip Thrust ici (chaîne post saturée après Squat + RDL).
-    exercises: ['Squat','Romanian Deadlift','Presse à cuisses','Leg Curl allongé']
+    exercises: ['Squat','Soulevé de Terre Roumain (RDL)','Presse à Cuisses','Leg Curl Allongé']
   },
   upper_b: {
     title: '💪 Upper B — Volume',
     // v221 Gemini : angles différents d'Upper A (incliné ≠ plat, traction ≠ tirage vertical).
     // Triceps ici car Upper B = moins dense en composés lourds qu'Upper A.
-    exercises: ['Développé incliné haltères','Tractions','Élévations latérales','Rowing haltères','Extension triceps câble']
+    exercises: ['Développé Incliné Haltères','Tractions','Élévations Latérales','Rowing Haltères','Extension Triceps Câble']
   },
   lower_b: {
     title: '🦵 Lower B — Volume',
     // v221 Gemini : Hip Thrust ICI (pas de Squat lourd avant). Fentes = unilatéral pour stabilité genou.
-    exercises: ['Hip Thrust','Fentes','Leg Extension','Mollets (Machine)']
+    exercises: ['Hip Thrust (Machine)','Fentes','Leg Extension','Mollets (Machine)']
   },
   full_a: {
     title: '🏋️ Full Body A',
-    exercises: ['Squat','Développé couché','Rowing barre','Élévations latérales','Curl haltères','Gainage planche']
+    exercises: ['Squat','Développé Couché','Rowing Barre','Élévations Latérales','Curl Haltères','Gainage (Planche)']
   },
   full_b: {
     title: '🏋️ Full Body B',
-    exercises: ['Romanian Deadlift','Développé incliné haltères','Tractions','Hip Thrust','Extension triceps','Ab Wheel']
+    exercises: ['Soulevé de Terre Roumain (RDL)','Développé Incliné Haltères','Tractions','Hip Thrust (Machine)','Extension Triceps','Roue Abdominale']
   },
   full_c: {
     title: '🏋️ Full Body C',
-    exercises: ['Presse à cuisses','Développé militaire','Rowing haltères','Leg Curl allongé','Curl barre','Gainage planche']
+    exercises: ['Presse à Cuisses','Développé Militaire','Rowing Haltères','Leg Curl Allongé','Curl Barre','Gainage (Planche)']
   }
 };
 
@@ -21069,7 +21071,7 @@ function applyHipThrustRule(exercises, profile) {
     return exercises.map(function(e) {
       if (!e || !/hip thrust/i.test(e.name || '')) return e;
       return Object.assign({}, e, {
-        name: 'Glute Bridge',
+        name: 'Pont Fessier (Glute Bridge)',
         note: '🦴 Débutant — variante bas du sol pour apprentissage hinge',
         _hipThrustReplaced: true
       });
@@ -21080,7 +21082,7 @@ function applyHipThrustRule(exercises, profile) {
     return exercises.map(function(e) {
       if (!e || !/hip thrust/i.test(e.name || '')) return e;
       return Object.assign({}, e, {
-        name: 'Hip Thrust Machine',
+        name: 'Hip Thrust (Machine)',
         note: '⏱ Setup rapide (45min)',
         _hipThrustReplaced: true
       });
@@ -21181,7 +21183,7 @@ function selectExercisesForProfile(exercises, profile) {
     var _hadDL  = exercises.some(function(e) { return /^soulev[eé] de terre\b|^deadlift\b/i.test(e.name || ''); });
     if (_hadDL && !_hasRDL) {
       result.push({
-        name: 'RDL (Soulevé Roumain)', evictionCategory: 'secondary',
+        name: 'Soulevé de Terre Roumain (RDL)', evictionCategory: 'secondary',
         sets: 3, reps: '10-12', rpe: 8, rest: 90, _addedByRule: 4
       });
     }
@@ -21233,7 +21235,7 @@ function selectExercisesForProfile(exercises, profile) {
   var _t = _ratioThresholds[_mode] || _ratioThresholds.musculation;
   var _ratioCorrections = [
     { ratio: 'squatBenchRatio',    threshold: _t.squatBenchRatio,    exo: 'Leg Extension',         tag: 'quad_isolation' },
-    { ratio: 'deadliftSquatRatio', threshold: _t.deadliftSquatRatio, exo: 'RDL (Soulevé Roumain)', tag: 'posterior_chain' },
+    { ratio: 'deadliftSquatRatio', threshold: _t.deadliftSquatRatio, exo: 'Soulevé de Terre Roumain (RDL)', tag: 'posterior_chain' },
     { ratio: 'rowBenchRatio',      threshold: _t.rowBenchRatio,      exo: 'Rowing Barre',          tag: 'back_compound' },
     { ratio: 'ohpBenchRatio',      threshold: _t.ohpBenchRatio,      exo: 'Face Pull',             tag: 'shoulder_health' }
   ];

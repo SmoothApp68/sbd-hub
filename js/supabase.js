@@ -221,7 +221,60 @@ async function syncLeaderboard() {
   }
 }
 
-async function syncToCloud(silent) { if (!supaClient || !cloudSyncEnabled) return; try { const {data:{user}} = await supaClient.auth.getUser(); if (!user) return; if (!db.gamification) db.gamification = {}; const dataToSync = { ...db, gamification: db.gamification || {} }; const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() }; const {data: _upsertRes, error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }).select('updated_at').single(); if (error) throw error; var _pushTs = (_upsertRes && _upsertRes.updated_at) ? new Date(_upsertRes.updated_at).getTime() : Date.now(); db._cloudUpdatedAt = db.updatedAt || 0; db.lastSync = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt)); localStorage.setItem('_lastCloudPush', String(_pushTs)); if (!silent) showToast('Synchronisé !'); updateSyncStatus('sync'); syncLeaderboard(); } catch(e) { console.error('Cloud sync:', e); if (!silent) showToast('Erreur sync'); updateSyncStatus('error'); } }
+// v219 — Delta sync : skip upload entirely if db unchanged since last push.
+// Aurélien : 510 logs = 443 kB. Was uploaded on every tab switch / autosync.
+// Cheap hash on the fields most likely to change keeps the check ~0ms.
+function _computeDataHash(d) {
+  if (!d) return '';
+  var lastLog = (d.logs && d.logs[0]) || null;
+  return [
+    (d.logs || []).length,
+    (lastLog && lastLog.timestamp) || 0,
+    Object.keys(d.exercises || {}).length,
+    d.xpHighWaterMark || 0,
+    Object.keys(d.earnedBadges || {}).length,
+    (d.activityLogs || []).length,
+    (d.readiness || []).length,
+    JSON.stringify(d.user || {}).length,
+    JSON.stringify(d.weeklyPlan || {}).length,
+    JSON.stringify(d.bestPR || {}).length,
+    d.lastModified || 0
+  ].join('|');
+}
+
+async function syncToCloud(silent) {
+  if (!supaClient || !cloudSyncEnabled) return;
+  try {
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return;
+    if (!db.gamification) db.gamification = {};
+    // v219 — Skip upload if data hash unchanged since last successful push
+    var _hash = _computeDataHash(db);
+    if (db._lastSyncHash === _hash) {
+      updateSyncStatus('sync');
+      if (!silent) showToast('Déjà à jour');
+      return;
+    }
+    const dataToSync = { ...db, gamification: db.gamification || {} };
+    const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() };
+    const {data: _upsertRes, error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }).select('updated_at').single();
+    if (error) throw error;
+    var _pushTs = (_upsertRes && _upsertRes.updated_at) ? new Date(_upsertRes.updated_at).getTime() : Date.now();
+    db._cloudUpdatedAt = db.updatedAt || 0;
+    db.lastSync = Date.now();
+    db._lastSyncHash = _hash;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt));
+    localStorage.setItem('_lastCloudPush', String(_pushTs));
+    if (!silent) showToast('Synchronisé !');
+    updateSyncStatus('sync');
+    syncLeaderboard();
+  } catch(e) {
+    console.error('Cloud sync:', e);
+    if (!silent) showToast('Erreur sync');
+    updateSyncStatus('error');
+  }
+}
 async function syncFromCloud() {
   if (!supaClient) return false;
   try {

@@ -12317,8 +12317,10 @@ function progShowDayDetail(day) {
 
   var exosHtml = wpDay.exercises.map(function(e) {
     if (!e || !e.name) return '';
-    var workSets = (e.sets || []).filter(function(s) { return !s.isWarmup; });
-    var warmSets = (e.sets || []).filter(function(s) { return s.isWarmup; });
+    // v219 — guard : e.sets peut être un entier sur les anciens plans pré-v218
+    var _setsArr = Array.isArray(e.sets) ? e.sets : [];
+    var workSets = _setsArr.filter(function(s) { return !s.isWarmup; });
+    var warmSets = _setsArr.filter(function(s) { return s.isWarmup; });
     var firstWork = workSets[0];
     var loadStr = '';
     if (firstWork) {
@@ -12833,6 +12835,35 @@ function migrateActivityData() {
   saveDB();
 }
 
+// v219 — Normalize legacy weeklyPlan.days[].exercises[].sets:number → Array.
+// Pre-v218, selectExercisesForProfile injected corrective exercises with
+// sets:N (an integer). renderWpExercise / progShowDayDetail / renderGoTab
+// all called sets.filter(...) which crashed for any exo with sets:number.
+// Heal once on load so old saved plans don't keep crashing the UI.
+function migrateWeeklyPlanSets() {
+  if (db._weeklyPlanSetsMigrated) return;
+  var plan = db.weeklyPlan;
+  if (plan && Array.isArray(plan.days)) {
+    plan.days.forEach(function(d) {
+      if (!d || !Array.isArray(d.exercises)) return;
+      d.exercises.forEach(function(exo) {
+        if (!exo || Array.isArray(exo.sets) || typeof exo.sets !== 'number') return;
+        var _cnt = Math.max(1, Math.round(exo.sets));
+        var _reps = exo.reps || '10';
+        var _rpe = exo.rpe || 8;
+        var _isWup = exo.isWarmup === true;
+        var _arr = [];
+        for (var _i = 0; _i < _cnt; _i++) {
+          _arr.push({ reps: _reps, rpe: _rpe, weight: null, isWarmup: _isWup });
+        }
+        exo.sets = _arr;
+      });
+    });
+  }
+  db._weeklyPlanSetsMigrated = true;
+  saveDB();
+}
+
 function migrateInjuryNames() {
   // Pre-v179 : injuries were stored as accented capitalised labels ("Épaules"),
   // but INJURY_EXCLUSIONS / WP_INJURY_EXCLUSIONS keys are lowercase ASCII
@@ -12941,6 +12972,7 @@ function syncRoutineWithSelectedDays() {
   migrateActivityData();
   migrateInjuryNames();
   migrateBadges();
+  migrateWeeklyPlanSets();
   if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
@@ -23234,7 +23266,9 @@ function buildGoIdleHtml() {
     if (todayExercises.length > 0) {
       exosHtml = todayExercises.map(function(e) {
         if (!e || !e.name) return '';
-        var workSets = (e.sets || []).filter(function(s) { return !s.isWarmup; });
+        // v219 — guard : e.sets peut être un entier sur les anciens plans pré-v218
+        var _setsArr = Array.isArray(e.sets) ? e.sets : [];
+        var workSets = _setsArr.filter(function(s) { return !s.isWarmup; });
         var firstWork = workSets[0];
         var loadStr = '';
         if (firstWork) {

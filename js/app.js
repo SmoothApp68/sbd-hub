@@ -10089,102 +10089,300 @@ function getSuspiciousRecordsSummary() {
 var _pgmEditMode = false;
 var _pgmOriginalDays = null;
 
+// v231 — Badge phase + barre de progression du bloc
+function renderPhaseProgressBadge() {
+  var _block = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (!_block) return '';
+
+  var _phase = _block.phase || 'hypertrophie';
+  var _week = _block.week || 1;
+  var _mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var _level = (db.user && db.user.level) || 'intermediaire';
+
+  var _durations = (typeof BLOCK_DURATION !== 'undefined'
+    && BLOCK_DURATION[_mode] && BLOCK_DURATION[_mode][_level])
+    ? Object.assign({}, BLOCK_DURATION[_mode][_level]) : {};
+  if (db.user && db.user.programMode === 'custom' && db.user.customBlockDuration) {
+    Object.keys(db.user.customBlockDuration).forEach(function(p) {
+      if (db.user.customBlockDuration[p] > 0) _durations[p] = db.user.customBlockDuration[p];
+    });
+  }
+
+  var _phaseDur = _durations[_phase] || 4;
+  var _pct = Math.min(100, Math.round((_week / _phaseDur) * 100));
+
+  // Ordre des phases par mode (cohérent avec wpDetectPhase v229)
+  var _phasesByMode = {
+    powerbuilding: ['hypertrophie','force','intensification','peak','deload'],
+    powerlifting:  ['hypertrophie','force','intensification','peak','deload'],
+    musculation:   ['accumulation','volume','recuperation','deload'],
+    calisthenics:  ['accumulation','volume','deload'],
+    bien_etre:     ['accumulation']
+  };
+  var _phasesOrder = _phasesByMode[_mode] || _phasesByMode.powerbuilding;
+  var _idx = _phasesOrder.indexOf(_phase);
+  var _nextPhase = _idx >= 0 && _idx < _phasesOrder.length - 1
+    ? _phasesOrder[_idx + 1] : null;
+  var _weeksLeft = Math.max(0, _phaseDur - _week);
+
+  var _phaseLabels = {
+    hypertrophie:'Hypertrophie', accumulation:'Accumulation',
+    force:'Force', intensification:'Intensification', peak:'Peak',
+    deload:'Deload', volume:'Volume', recuperation:'Récupération'
+  };
+  var _phaseEmojis = {
+    hypertrophie:'💪', accumulation:'📈', force:'🏋️',
+    intensification:'⚡', peak:'🏆', deload:'😴',
+    volume:'🔥', recuperation:'🌿'
+  };
+
+  var _nextLabel = _weeksLeft > 0 && _nextPhase
+    ? (_phaseLabels[_nextPhase] || _nextPhase) + ' dans ' + _weeksLeft + ' sem.'
+    : 'Fin de bloc cette semaine';
+
+  return '<div style="padding:10px 16px 6px;">'
+    + '<div style="display:inline-flex;align-items:center;gap:6px;'
+    + 'background:rgba(167,139,250,0.1);border:0.5px solid rgba(167,139,250,0.25);'
+    + 'border-radius:20px;padding:5px 12px;margin-bottom:8px;">'
+    + '<span style="font-size:13px;">' + (_phaseEmojis[_phase] || '💪') + '</span>'
+    + '<span style="color:#a78bfa;font-size:12px;font-weight:500;">'
+    + (_phaseLabels[_phase] || _phase) + ' · S' + _week + ' / ' + _phaseDur
+    + '</span></div>'
+    + '<div style="display:flex;align-items:center;gap:8px;">'
+    + '<div style="flex:1;height:3px;background:var(--surface2,#1e1e2e);border-radius:2px;">'
+    + '<div style="height:100%;width:' + _pct + '%;background:#a78bfa;border-radius:2px;"></div>'
+    + '</div>'
+    + '<span style="color:var(--sub);font-size:11px;">' + _nextLabel + '</span>'
+    + '</div></div>';
+}
+
+// v231 — Carte "Aujourd'hui" mise en avant
+function renderTodayCard() {
+  var _todayName = DAYS_FULL[new Date().getDay()];
+  var _days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  var _todayDay = _days.find(function(d) { return d.day === _todayName; });
+
+  if (!_todayDay || _todayDay.rest || !_todayDay.exercises || !_todayDay.exercises.length) {
+    return '<div style="padding:0 0 4px;">'
+      + '<div style="color:var(--sub);font-size:11px;letter-spacing:0.05em;'
+      + 'text-transform:uppercase;padding:6px 16px 4px;">Aujourd\'hui · ' + _todayName + '</div>'
+      + '<div style="margin:0 12px 8px;padding:14px;background:var(--surface,#13131f);'
+      + 'border:0.5px solid var(--border,#1e1e2e);border-radius:14px;'
+      + 'color:var(--sub);font-size:13px;">😴 Repos aujourd\'hui</div></div>';
+  }
+
+  var _exos = _todayDay.exercises.filter(function(e) {
+    return e && !e.isWarmup && !(e.setType === 'warmup');
+  });
+
+  var _top3 = _exos.slice(0, 3);
+  var _more = _exos.length - 3;
+
+  var _exoRows = _top3.map(function(e) {
+    var _setsArr = Array.isArray(e.sets) ? e.sets.filter(function(s) {
+      return s && !s.isWarmup && s.setType !== 'warmup';
+    }) : [];
+    var _setsCount = _setsArr.length || (typeof e.sets === 'number' ? e.sets : 3);
+    var _reps = e.reps || (_setsArr[0] && _setsArr[0].reps) || '10';
+    var _weight = (_setsArr[0] && _setsArr[0].weight) || e.workWeight || e.weight || '';
+    var _detail = _setsCount + '×' + _reps + (_weight ? ' · ' + _weight + 'kg' : '');
+
+    return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
+      + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
+      + 'opacity:0.6;flex-shrink:0;"></div>'
+      + '<span style="color:var(--sub);font-size:12px;flex:1;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis;">' + (e.name || e.exercise || '') + '</span>'
+      + '<span style="color:var(--sub2,#666);font-size:11px;flex-shrink:0;">' + _detail + '</span>'
+      + '</div>';
+  }).join('');
+
+  if (_more > 0) {
+    _exoRows += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
+      + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
+      + 'opacity:0.2;flex-shrink:0;"></div>'
+      + '<span style="color:var(--sub2,#666);font-size:12px;">+' + _more + ' exercices</span>'
+      + '</div>';
+  }
+
+  var _durMin = (db.user && db.user.programParams && db.user.programParams.duration)
+    || (db.user && db.user.trainingDuration) || 90;
+
+  var _todayStr = getTodayStr();
+  var _done = (db.logs || []).some(function(l) {
+    if (!l) return false;
+    if (l.date === _todayStr) return true;
+    if (l.timestamp) {
+      var d = new Date(l.timestamp);
+      if (!isNaN(d.getTime()) && d.toISOString().slice(0, 10) === _todayStr) return true;
+    }
+    return false;
+  });
+
+  var _goBtn = _done
+    ? '<span style="background:rgba(26,188,126,0.15);color:#1abc7e;border-radius:10px;'
+      + 'padding:6px 12px;font-size:12px;font-weight:500;">✓ Fait</span>'
+    : '<button onclick="showSeancesSub(\'s-go\',document.querySelector(\'#tab-seances .seances-nav .stats-sub-pill:nth-child(3)\'))" '
+      + 'style="background:#a78bfa;border:none;border-radius:10px;padding:7px 14px;'
+      + 'color:#fff;font-size:12px;font-weight:600;cursor:pointer;">▶ GO</button>';
+
+  return '<div style="padding:0 0 4px;">'
+    + '<div style="color:var(--sub);font-size:11px;letter-spacing:0.05em;'
+    + 'text-transform:uppercase;padding:6px 16px 4px;">Aujourd\'hui · ' + _todayName + '</div>'
+    + '<div style="margin:0 12px 8px;background:var(--surface,#16162a);'
+    + 'border:0.5px solid rgba(167,139,250,0.2);border-radius:16px;padding:14px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+    + 'margin-bottom:10px;gap:10px;">'
+    + '<div style="min-width:0;flex:1;">'
+    + '<div style="color:var(--text);font-size:14px;font-weight:600;white-space:nowrap;'
+    + 'overflow:hidden;text-overflow:ellipsis;">' + (_todayDay.title || 'Séance') + '</div>'
+    + '<div style="color:var(--sub);font-size:11px;margin-top:2px;">~' + _durMin + ' min</div>'
+    + '</div>' + _goBtn + '</div>'
+    + _exoRows
+    + '</div></div>';
+}
+
+// v231 — Liste compacte des jours de la semaine
+function renderWeekRowsCompact() {
+  var _days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  var _todayName = DAYS_FULL[new Date().getDay()];
+
+  // Logs marqués par date (YYYY-MM-DD)
+  var _loggedDays = {};
+  (db.logs || []).forEach(function(l) {
+    if (!l) return;
+    var _d = l.date;
+    if (!_d && l.timestamp) {
+      var _dt = new Date(l.timestamp);
+      if (!isNaN(_dt.getTime())) _d = _dt.toISOString().slice(0, 10);
+    }
+    if (_d) _loggedDays[_d] = true;
+  });
+
+  var _order = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+  var _html = '<div style="color:var(--sub);font-size:11px;letter-spacing:0.05em;'
+    + 'text-transform:uppercase;padding:8px 16px 4px;">Cette semaine</div>'
+    + '<div style="padding:0 12px;display:flex;flex-direction:column;gap:5px;">';
+
+  _order.forEach(function(dayName) {
+    var _dayData = _days.find(function(d) { return d.day === dayName; });
+    var _isToday = dayName === _todayName;
+    var _isRest = !_dayData || _dayData.rest || !_dayData.exercises
+      || !_dayData.exercises.length
+      || (_dayData.title || '').toLowerCase().indexOf('repos') !== -1;
+
+    // Date du jour cette semaine pour matcher avec _loggedDays
+    var _done = false;
+    if (!_isRest) {
+      var _dayOfWeek = _order.indexOf(dayName); // 0=Lundi..6=Dimanche
+      var _today = new Date();
+      var _todayDow = _today.getDay() === 0 ? 6 : _today.getDay() - 1;
+      var _diff = _dayOfWeek - _todayDow;
+      var _targetDate = new Date(_today);
+      _targetDate.setDate(_today.getDate() + _diff);
+      var _targetStr = _targetDate.toISOString().slice(0, 10);
+      _done = !!_loggedDays[_targetStr];
+    }
+
+    var _badgeStyle = _isToday
+      ? 'background:rgba(167,139,250,0.15);color:#a78bfa;'
+      : _done ? 'background:rgba(26,188,126,0.12);color:#1abc7e;'
+      : 'background:var(--surface2,#1e1e2e);color:var(--sub);';
+
+    var _rowOpacity = _isRest ? 'opacity:0.55;' : '';
+    var _shortDay = dayName.slice(0, 3).toUpperCase();
+
+    var _exoPreview = '';
+    if (!_isRest && _dayData && _dayData.exercises) {
+      var _e = _dayData.exercises.filter(function(x) { return x && !x.isWarmup; });
+      _exoPreview = _e.slice(0, 3).map(function(x) { return x.name || x.exercise || ''; })
+        .filter(Boolean).join(' · ');
+      if (_e.length > 3) _exoPreview += '…';
+    }
+
+    var _rightIcon = _isRest ? ''
+      : _done ? '<span style="color:#1abc7e;font-size:13px;flex-shrink:0;">✓</span>'
+      : '<span style="color:var(--sub2,#666);font-size:13px;flex-shrink:0;">›</span>';
+
+    _html += '<div style="background:var(--surface,#13131f);'
+      + 'border:0.5px solid var(--border,#1e1e2e);border-radius:12px;'
+      + 'padding:9px 12px;display:flex;align-items:center;gap:10px;' + _rowOpacity + '">'
+      + '<div style="width:34px;height:34px;border-radius:8px;' + _badgeStyle
+      + 'display:flex;align-items:center;justify-content:center;'
+      + 'font-size:10px;font-weight:600;flex-shrink:0;letter-spacing:0.05em;">'
+      + _shortDay + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + (_isRest
+        ? '<span style="color:var(--sub2,#666);font-size:12px;">Repos</span>'
+        : '<div style="color:var(--text);font-size:12px;font-weight:500;'
+          + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+          + (_dayData.title || dayName) + '</div>'
+          + (_exoPreview
+            ? '<div style="color:var(--sub2,#666);font-size:10px;white-space:nowrap;'
+              + 'overflow:hidden;text-overflow:ellipsis;margin-top:1px;">'
+              + _exoPreview + '</div>'
+            : ''))
+      + '</div>'
+      + _rightIcon
+      + '</div>';
+  });
+
+  _html += '</div>';
+  return _html;
+}
+
 function renderProgrammeV2() {
   var container = document.getElementById('programmeV2Content');
   if (!container) return;
 
-  var wp = db.weeklyPlan;
-  if (!wp || !wp.days || !wp.days.length) {
-    container.innerHTML = '';
+  if (!db.weeklyPlan || !db.weeklyPlan.days || !db.weeklyPlan.days.length) {
+    container.innerHTML = '<div style="padding:24px 16px;text-align:center;">'
+      + '<p style="color:var(--sub);font-size:14px;margin-bottom:14px;">'
+      + 'Génère ton programme pour commencer.</p>'
+      + '<button onclick="generateWeeklyPlan()" style="background:#a78bfa;border:none;'
+      + 'border-radius:10px;padding:10px 22px;color:#fff;font-size:14px;font-weight:600;'
+      + 'cursor:pointer;">⚡ Générer mon programme</button></div>';
     return;
   }
 
-  var now = new Date();
-  var todayIdx = (now.getDay() + 6) % 7; // 0=Lundi, 6=Dimanche
-  var dayLabels = ['L', 'M', 'Me', 'J', 'V', 'Sa', 'Di'];
-
-  // Determine which days are done this week
-  var weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - todayIdx);
-  weekStart.setHours(0, 0, 0, 0);
-  var doneDays = new Set();
-  if (db.logs) {
-    db.logs.forEach(function(log) {
-      var d = new Date(log.timestamp || log.date);
-      if (d >= weekStart && d <= now) {
-        var dIdx = (d.getDay() + 6) % 7;
-        doneDays.add(dIdx);
-      }
+  // Edit mode : barre dédiée puis sortie (drag&drop géré ailleurs)
+  if (_pgmEditMode) {
+    var eh = '<div class="pgm-edit-bar">'
+      + '<button onclick="savePgmEdit()" style="background:var(--green);border:none;color:#000;font-weight:700;">✓ Enregistrer</button>'
+      + '<button onclick="cancelPgmEdit()" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);">Annuler</button>'
+      + '<button onclick="resetPgmEdit()" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);">↺ Réinitialiser</button>'
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;text-align:center;">Glisse-dépose les jours pour réorganiser ta semaine</div>';
+    eh += '<div class="pgm-days" id="pgmDaysContainer">';
+    var dayLabels = ['L','M','Me','J','V','Sa','Di'];
+    db.weeklyPlan.days.forEach(function(day, idx) {
+      var isRest = day.rest;
+      eh += '<div class="pgm-day ' + (isRest ? 'rest' : '') + '" data-day-idx="' + idx + '"'
+        + ' draggable="true" ondragstart="pgmDragStart(event,' + idx + ')" ondragend="pgmDragEnd(event)"'
+        + ' ondragover="pgmDragOver(event)" ondragleave="pgmDragLeave(event)" ondrop="pgmDrop(event,' + idx + ')">'
+        + '<div class="pgm-day-header">'
+        + '<div class="pgm-day-badge ' + (isRest ? 'rest-badge' : 'upcoming') + '">' + dayLabels[idx] + '</div>'
+        + '<div class="pgm-day-info">'
+        + '<div class="pgm-day-title">' + (day.title || (isRest ? '😴 Repos' : 'Séance')) + '</div>'
+        + '</div></div></div>';
     });
+    eh += '</div>';
+    container.innerHTML = eh;
+    return;
   }
 
   var h = '';
-
-  // Header
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
-  h += '<div style="font-size:16px;font-weight:800;color:var(--text);">📅 Programme Semaine' + (wp.week ? ' ' + wp.week : '') + '</div>';
-  if (!_pgmEditMode) {
-    h += '<button onclick="startPgmEdit()" style="background:var(--surface);border:1px solid var(--border);color:var(--blue);padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">Modifier le planning</button>';
-  }
-  h += '</div>';
-
-  // Edit mode bar
-  if (_pgmEditMode) {
-    h += '<div class="pgm-edit-bar">';
-    h += '<button onclick="savePgmEdit()" style="background:var(--green);border:none;color:#000;font-weight:700;">✓ Enregistrer</button>';
-    h += '<button onclick="cancelPgmEdit()" style="background:var(--surface);border:1px solid var(--border);color:var(--sub);">Annuler</button>';
-    h += '<button onclick="resetPgmEdit()" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.3);color:var(--red);">↺ Réinitialiser</button>';
-    h += '</div>';
-    h += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;text-align:center;">Glisse-dépose les jours pour réorganiser ta semaine</div>';
-  }
-
-  // Day cards
-  h += '<div class="pgm-days" id="pgmDaysContainer">';
-  wp.days.forEach(function(day, idx) {
-    var isDone = doneDays.has(idx);
-    var isToday = idx === todayIdx;
-    var isRest = day.rest;
-    var stateClass = isRest ? 'rest' : isDone ? 'done' : isToday ? 'today' : '';
-    var badgeClass = isRest ? 'rest-badge' : isDone ? 'done' : isToday ? 'today' : 'upcoming';
-    var statusClass = isRest ? 'rest-status' : isDone ? 'done' : isToday ? 'today' : 'upcoming';
-    var statusText = isRest ? '— Repos' : isDone ? '✓ Fait' : isToday ? '← Aujourd\'hui' : 'À venir';
-    var exos = day.exercises || [];
-    var exoCount = exos.length;
-    var estDuration = exoCount * 8; // ~8min per exercise estimate
-
-    h += '<div class="pgm-day ' + stateClass + '" data-day-idx="' + idx + '"' +
-      (_pgmEditMode ? ' draggable="true" ondragstart="pgmDragStart(event,' + idx + ')" ondragend="pgmDragEnd(event)" ondragover="pgmDragOver(event)" ondragleave="pgmDragLeave(event)" ondrop="pgmDrop(event,' + idx + ')"' : '') + '>';
-    h += '<div class="pgm-day-header">';
-    h += '<div class="pgm-day-badge ' + badgeClass + '">' + dayLabels[idx] + '</div>';
-    h += '<div class="pgm-day-info">';
-    h += '<div class="pgm-day-title">' + (day.title || (isRest ? '😴 Repos' : 'Séance')) + '</div>';
-    if (!isRest) h += '<div class="pgm-day-sub">' + exoCount + ' exercice' + (exoCount > 1 ? 's' : '') + (estDuration > 0 ? ' · ~' + estDuration + 'min' : '') + '</div>';
-    h += '</div>';
-    h += '<div class="pgm-day-status ' + statusClass + '">' + statusText + '</div>';
-    h += '</div>';
-
-    // Today: show first 3 exercises + GO button
-    if (isToday && !isRest && !_pgmEditMode && exos.length > 0) {
-      h += '<div class="pgm-today-exos">';
-      exos.slice(0, 3).forEach(function(exo) {
-        var detail = '';
-        if (exo.weight && exo.sets && exo.reps) {
-          detail = exo.weight + 'kg · ' + exo.sets + '×' + exo.reps;
-        } else if (exo.sets && exo.reps) {
-          detail = exo.sets + '×' + exo.reps;
-        } else if (exo.sets) {
-          detail = exo.sets + ' séries';
-        }
-        h += '<div class="pgm-today-exo"><span class="pgm-today-exo-name">' + (exo.name || exo.exercise || '') + '</span><span class="pgm-today-exo-detail">' + detail + '</span></div>';
-      });
-      if (exos.length > 3) h += '<div style="font-size:11px;color:var(--sub);padding:2px 0;">+' + (exos.length - 3) + ' exercices</div>';
-      h += '<button class="pgm-go-btn" onclick="showSeancesSub(\'s-go\',document.querySelector(\'#tab-seances .seances-nav .stats-sub-pill:nth-child(3)\'))">GO 💪</button>';
-      h += '</div>';
-    }
-
-    h += '</div>';
-  });
-  h += '</div>';
+  h += renderPhaseProgressBadge();
+  h += renderTodayCard();
+  h += renderWeekRowsCompact();
+  h += '<div style="display:flex;gap:8px;padding:10px 12px 16px;">'
+    + '<button onclick="startPgmEdit()" style="flex:1;background:var(--surface);'
+    + 'border:0.5px solid var(--border);border-radius:10px;padding:10px;'
+    + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;">Modifier le planning</button>'
+    + '<button onclick="generateWeeklyPlan()" style="flex:1;background:var(--surface);'
+    + 'border:0.5px solid var(--border);border-radius:10px;padding:10px;'
+    + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;">⚡ Nouveau programme</button>'
+    + '</div>';
 
   container.innerHTML = h;
 }
@@ -28573,6 +28771,10 @@ async function postLoginSync() {
     // v230 — Recalculer currentBlock.week depuis lastDeloadDate (ou blockStartDate) après load
     if (typeof wpDetectPhase === 'function' && db.weeklyPlan) {
       try { wpDetectPhase(); if (typeof saveDB === 'function') saveDB(); } catch (e) {}
+    }
+    // v231 — Re-render du tab Plan après sync cloud (sinon S1 figé jusqu'au refresh)
+    if (typeof renderProgrammeV2 === 'function') {
+      try { renderProgrammeV2(); } catch (e) {}
     }
     if (db.pendingSync && navigator.onLine) {
       db.pendingSync = false;

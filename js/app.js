@@ -15484,10 +15484,11 @@ function renderSettingsProfile() {
   if (programModeEl) {
     var currentMode = db.user.programMode || 'auto';
     var currentCoachProfile = db.user.coachProfile || 'full';
+    // v224 — Labels Guidé/Avancé (au lieu de Auto/Custom)
     programModeEl.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px;">'
       + ['auto','custom'].map(function(m) {
         var active = m === currentMode;
-        var labels = { auto: '🤖 Auto', custom: '🛠 Custom' };
+        var labels = { auto: '🧭 Guidé', custom: '⚙️ Avancé' };
         return '<button onclick="setProgramMode(\'' + m + '\')" '
           + 'style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;'
           + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
@@ -15507,6 +15508,10 @@ function renderSettingsProfile() {
           + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + labels[p] + '</button>';
       }).join('')
       + '</div>';
+    // v224 — En mode Avancé, afficher les durées de phases personnalisables
+    if (currentMode === 'custom' && typeof renderPhaseDurationSettings === 'function') {
+      programModeEl.innerHTML += renderPhaseDurationSettings();
+    }
   }
 
   // PhysioManager — section cycle menstruel (uniquement si genre F/female/femme)
@@ -15930,15 +15935,70 @@ function saveWeightCutData() {
 
 function setProgramMode(mode) {
   if (mode === 'auto' && db.user.programMode === 'custom') {
-    if (!confirm('Repasser en mode automatique ? Ton template custom sera conservé mais les exercices seront regénérés par l\'algo.')) return;
+    if (!confirm('Repasser en mode Guidé ? Tes durées de phases personnalisées seront conservées mais l\'algo reprendra les valeurs par défaut.')) return;
   }
   db.user.programMode = mode;
   saveDB();
   renderSettingsProfile();
-  showToast(mode === 'custom' ? '🛠 Mode Custom activé' : '🤖 Mode Auto activé');
+  showToast(mode === 'custom' ? '⚙️ Mode Avancé activé' : '🧭 Mode Guidé activé');
   if (mode === 'custom' && !db.customProgramTemplate) {
     showCustomBuilderChoice();
   }
+}
+
+// v224 — Mode Avancé : UI pour personnaliser les durées de phases.
+function renderPhaseDurationSettings() {
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var level = (db.user && db.user.level) || 'intermediaire';
+  if (!db.user.customBlockDuration) db.user.customBlockDuration = {};
+  var defaults = (typeof BLOCK_DURATION !== 'undefined'
+    && BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level])
+    || { hypertrophie: 4, force: 4, intensification: 2, peak: 1, deload: 1 };
+  var phaseLabels = {
+    hypertrophie: '🏗️ Hypertrophie',
+    force: '💪 Force',
+    intensification: '⚡ Intensification',
+    peak: '🏆 Peak',
+    deload: '😴 Deload'
+  };
+  var phaseRanges = {
+    hypertrophie: [3, 4, 5, 6, 8],
+    force: [3, 4, 5, 6],
+    intensification: [1, 2, 3],
+    peak: [1, 2],
+    deload: [1]
+  };
+  var phases = ['hypertrophie', 'force', 'intensification', 'peak', 'deload'];
+  var h = '<div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">'
+    + '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Durée des phases (semaines)</div>';
+  phases.forEach(function(phase) {
+    if (!phaseRanges[phase] || phaseRanges[phase].length <= 1) return;
+    var current = db.user.customBlockDuration[phase] || defaults[phase] || 4;
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;'
+      + 'padding:8px 0;border-bottom:0.5px solid var(--border);">'
+      + '<span style="font-size:13px;">' + phaseLabels[phase] + '</span>'
+      + '<div style="display:flex;gap:4px;">';
+    phaseRanges[phase].forEach(function(weeks) {
+      var active = weeks === current;
+      h += '<button onclick="setPhaseDuration(\'' + phase + '\',' + weeks + ')" '
+        + 'style="width:28px;height:28px;border-radius:6px;font-size:11px;font-weight:700;'
+        + 'cursor:pointer;border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+        + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+        + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">'
+        + weeks + '</button>';
+    });
+    h += '</div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function setPhaseDuration(phase, weeks) {
+  if (!db.user.customBlockDuration) db.user.customBlockDuration = {};
+  db.user.customBlockDuration[phase] = weeks;
+  saveDB();
+  showToast('✅ ' + phase + ' : ' + weeks + ' semaines');
+  if (typeof renderSettingsProfile === 'function') renderSettingsProfile();
 }
 
 function setCoachProfile(profile) {
@@ -18724,10 +18784,12 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
     ],
     deadlift: [
-      { name: 'Leg Curl Allongé',    reps: '12-15',rpe: 7.5, sets: 4, rest: 90,  priority: 1 },
-      { name: 'Hip Thrust (Machine)', reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).
+      // Hip Thrust reste dans Lower B (musculation). Ajout Relevé de Jambes + Face Pull.
+      { name: 'Leg Curl Allongé',    reps: '12-15',rpe: 9,   sets: 3, rest: 90,  priority: 1 },
       { name: 'Tirage Vertical',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Mollets (Machine)',   reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Relevé de Jambes',    reps: '12-15',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',           reps: '15-20',rpe: 7,   sets: 3, rest: 60,  priority: 4 }
     ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
@@ -20359,15 +20421,36 @@ function wpDetectPhase() {
     return 'accumulation';
   }
 
-  // Semaines depuis le dernier deload
-  var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse()
-    .find(function(p) { return p.isDeload; });
-  var weeksSince = lastDeloadPlan
-    ? Math.round((Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000))
+  // v224 — Mode Avancé : overrider les durées avec customBlockDuration
+  if (db.user && db.user.programMode === 'custom' && db.user.customBlockDuration) {
+    durations = Object.assign({}, durations);
+    var _customDur = db.user.customBlockDuration;
+    Object.keys(_customDur).forEach(function(phase) {
+      if (_customDur[phase] > 0) durations[phase] = _customDur[phase];
+    });
+  }
+
+  // v224 — Semaines depuis le dernier deload : 3 sources ordonnées
+  // SOURCE 1 : lastDeloadDate explicite (le plus fiable)
+  var _lastDeloadDate = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
+  var weeksSince = _lastDeloadDate
+    ? Math.round((Date.now() - new Date(_lastDeloadDate).getTime()) / (7 * 86400000))
     : null;
+  // SOURCE 2 : blockStartDate
+  if (weeksSince === null || isNaN(weeksSince)) {
+    var _bs = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate;
+    if (_bs) weeksSince = Math.round((Date.now() - _bs) / (7 * 86400000));
+  }
+  // SOURCE 3 : weeklyPlanHistory (fallback existant)
+  if (weeksSince === null || isNaN(weeksSince)) {
+    var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse()
+      .find(function(p) { return p.isDeload; });
+    if (lastDeloadPlan) weeksSince = Math.round(
+      (Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000));
+  }
 
   // Fallback si pas d'historique : rotation sur le cycle complet
-  if (!weeksSince) {
+  if (weeksSince === null || isNaN(weeksSince) || weeksSince <= 0) {
     var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
     var totalWeeks = Math.round((db.logs || []).length / Math.max(1, freq));
     weeksSince = (totalWeeks % (durations.cycleWeeks || 14)) + 1;
@@ -20384,10 +20467,12 @@ function wpDetectPhase() {
     : ['intro','hypertrophie','force','peak'];
 
   var _detectedPhase = null;
+  var _weeksBeforePhase = 0;
   for (var i = 0; i < phases.length; i++) {
     var dur = durations[phases[i]] || 0;
     if (dur > 0 && w <= dur) { _detectedPhase = phases[i]; break; }
     w -= dur;
+    _weeksBeforePhase += dur;
   }
   if (!_detectedPhase) _detectedPhase = 'deload';
 
@@ -20404,8 +20489,26 @@ function wpDetectPhase() {
     });
     var _pLowSRS = db.readiness
       ? db.readiness.filter(function(r) { return r.score < 50; }).slice(-7).length : 0;
-    if (_pCount >= 3 || _pLowSRS >= 2) return 'force';
+    if (_pCount >= 3 || _pLowSRS >= 2) _detectedPhase = 'force';
   }
+
+  // v224 — Sync currentBlock.phase + week pour cohérence avec generateWeeklyPlan
+  if (db.weeklyPlan && db.weeklyPlan.currentBlock) {
+    db.weeklyPlan.currentBlock.phase = _detectedPhase;
+    var _weekInPhase = weeksSince - _weeksBeforePhase;
+    if (_detectedPhase === 'force') {
+      // Recalculer _weeksBeforePhase pour 'force' au cas où plateau-indicator
+      // l'a forcé depuis hypertrophie (sinon _weeksBeforePhase reflète déjà force)
+      var _wbpForce = 0;
+      for (var _pi2 = 0; _pi2 < phases.indexOf('force'); _pi2++) {
+        _wbpForce += (durations[phases[_pi2]] || 0);
+      }
+      _weekInPhase = weeksSince - _wbpForce;
+    }
+    db.weeklyPlan.currentBlock.week = Math.max(1,
+      Math.min(_weekInPhase, durations[_detectedPhase] || 4));
+  }
+
   return _detectedPhase;
 }
 

@@ -18878,20 +18878,27 @@ var WP_PPL_TEMPLATES = {
     exercises: ['Romanian Deadlift','Leg Curl allongé','Hip Thrust','Adduction','Gainage planche']
   },
   upper_a: {
-    title: '💪 Upper A',
-    exercises: ['Développé couché','Rowing barre','Développé militaire','Tractions','Curl haltères','Extension triceps']
+    title: '💪 Upper A — Force',
+    // v221 Gemini : poussée horizontale + tirage. PAS de curl/triceps (dépasse 45min).
+    // Face Pull = santé épaule + correctif.
+    exercises: ['Développé couché','Tirage poitrine poulie','Développé militaire haltères','Rowing poulie assis','Face Pull']
   },
   lower_a: {
-    title: '🦵 Lower A',
-    exercises: ['Squat','Romanian Deadlift','Presse à cuisses','Leg Curl allongé','Hip Thrust','Gainage planche']
+    title: '🦵 Lower A — Force',
+    // v221 Gemini : quad-dominant + correctif ischios via RDL.
+    // PAS de Hip Thrust ici (chaîne post saturée après Squat + RDL).
+    exercises: ['Squat','Romanian Deadlift','Presse à cuisses','Leg Curl allongé']
   },
   upper_b: {
-    title: '💪 Upper B',
-    exercises: ['Développé incliné haltères','Rowing haltères','Élévations latérales','Tirage poitrine poulie','Curl barre','Dips']
+    title: '💪 Upper B — Volume',
+    // v221 Gemini : angles différents d'Upper A (incliné ≠ plat, traction ≠ tirage vertical).
+    // Triceps ici car Upper B = moins dense en composés lourds qu'Upper A.
+    exercises: ['Développé incliné haltères','Tractions','Élévations latérales','Rowing haltères','Extension triceps câble']
   },
   lower_b: {
-    title: '🦵 Lower B',
-    exercises: ['Fentes','Romanian Deadlift','Leg Extension','Leg Curl allongé','Hip Thrust','Adduction']
+    title: '🦵 Lower B — Volume',
+    // v221 Gemini : Hip Thrust ICI (pas de Squat lourd avant). Fentes = unilatéral pour stabilité genou.
+    exercises: ['Hip Thrust','Fentes','Leg Extension','Mollets (Machine)']
   },
   full_a: {
     title: '🏋️ Full Body A',
@@ -19518,12 +19525,28 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 
   // v204 — LP Pure pour débutants : +2.5kg simple, pas de strikes ni deload local.
   // Tant que lpActive=true et level=debutant, on garde la simplicité maximale.
+  // v221 Gemini Fast-Track : ancien athlète (Bench e1RM/BW > 1.2) → +5kg.
+  // Dégrade à +2.5 si SRS du jour < 85 (récupération sub-optimale).
   var _level = (db.user && db.user.level) || 'intermediaire';
   var _lpActive = !(db.user && db.user.lpActive === false);
   if (_isMainLift && _level === 'debutant' && _lpActive) {
     if (allSetsComplete) {
-      return { weight: wpRound25(lastWeight + 2.5), reps: targetRepMin, progressed: true,
-        coachNote: '✅ +2.5kg — continue comme ça !' };
+      var _ft = (typeof isFastTrackDebutant === 'function') && isFastTrackDebutant();
+      var _increment = 2.5;
+      var _ftNote = '';
+      if (_ft) {
+        var _srsMean = 100;
+        try {
+          if (typeof computeAdaptiveSRSThreshold === 'function') {
+            var _srsRes = computeAdaptiveSRSThreshold();
+            if (_srsRes && typeof _srsRes.mean === 'number') _srsMean = _srsRes.mean;
+          }
+        } catch(e) {}
+        if (_srsMean >= 85) { _increment = 5.0; _ftNote = ' 🚀 Fast-Track ancien athlète'; }
+        else _ftNote = ' (Fast-Track dégradé : SRS ' + _srsMean + ' < 85)';
+      }
+      return { weight: wpRound25(lastWeight + _increment), reps: targetRepMin, progressed: true,
+        coachNote: '✅ +' + _increment + 'kg — continue comme ça !' + _ftNote };
     }
     return { weight: lastWeight, reps: targetRepMax, progressed: false,
       coachNote: 'Valide toutes les séries avant de monter le poids.' };
@@ -21020,6 +21043,101 @@ function _getExercisePriority(exo) {
   return 20;
 }
 
+// ── v221 — Helpers Gemini : Hip Thrust rules + Senior Sportif + Fast-Track ──
+
+// Hip Thrust : ne jamais combiner avec un Deadlift lourd (chaîne post saturée).
+// Débutant : Glute Bridge (risque cambrure lombaire). 45min : Hip Thrust Machine
+// (setup rapide). Senior 60+ : Leg Press pieds hauts (low-stress pelvien).
+function applyHipThrustRule(exercises, profile) {
+  if (!Array.isArray(exercises) || !exercises.length) return exercises;
+  profile = profile || {};
+  var _hasHT = exercises.some(function(e) {
+    return e && /hip thrust/i.test(e.name || '');
+  });
+  if (!_hasHT) return exercises;
+
+  var _hasDL = exercises.some(function(e) {
+    return e && /deadlift|soulev[eé] de terre/i.test(e.name || '');
+  });
+  if (_hasDL) {
+    return exercises.filter(function(e) {
+      return !(e && /hip thrust/i.test(e.name || ''));
+    });
+  }
+
+  if (profile.level === 'debutant') {
+    return exercises.map(function(e) {
+      if (!e || !/hip thrust/i.test(e.name || '')) return e;
+      return Object.assign({}, e, {
+        name: 'Glute Bridge',
+        note: '🦴 Débutant — variante bas du sol pour apprentissage hinge',
+        _hipThrustReplaced: true
+      });
+    });
+  }
+
+  if ((profile.duration || 60) <= 45) {
+    return exercises.map(function(e) {
+      if (!e || !/hip thrust/i.test(e.name || '')) return e;
+      return Object.assign({}, e, {
+        name: 'Hip Thrust Machine',
+        note: '⏱ Setup rapide (45min)',
+        _hipThrustReplaced: true
+      });
+    });
+  }
+
+  if ((profile.age || 0) >= 60) {
+    return exercises.map(function(e) {
+      if (!e || !/hip thrust/i.test(e.name || '')) return e;
+      return Object.assign({}, e, {
+        name: 'Leg Press (Pieds Hauts)',
+        note: '🦴 Adapté senior — activation fessiers sans pression pelvienne',
+        _hipThrustReplaced: true
+      });
+    });
+  }
+
+  return exercises;
+}
+
+// Senior Sportif (55-59 ans, objectif force/masse, RPE > 8) :
+// Squat barre haut → Presse à Cuisses (low-stress axial).
+function applySeniorStrengthFilter(exercises, profile) {
+  if (!Array.isArray(exercises) || !exercises.length) return exercises;
+  profile = profile || {};
+  var _age = profile.age || 0;
+  if (_age <= 55 || _age >= 60) return exercises; // 60+ géré par applyAgeAdaptations
+  var _hasStrengthGoal = (profile.goals || []).some(function(g) {
+    var s = (typeof g === 'string') ? g : (g && g.id) || '';
+    return /force|masse/i.test(s);
+  });
+  if (!_hasStrengthGoal) return exercises;
+
+  return exercises.map(function(e) {
+    if (!e) return e;
+    var _isHighBarSquat = /^high bar squat\b|^squat \(barre\)|^squat barre\b/i.test(e.name || '');
+    var _highRPE = (e.targetRPE || e.maxRPE || e.rpe || 0) > 8;
+    if (!_isHighBarSquat || !_highRPE) return e;
+    return Object.assign({}, e, {
+      name: 'Presse à Cuisses',
+      note: '🦴 Senior > 55 ans — variante low-stress axial',
+      _seniorReplaced: true
+    });
+  });
+}
+
+// Fast-Track Débutant : ancien athlète revenant après pause longue.
+// Détection : level=debutant ET Bench e1RM/BW > 1.2 → +5kg LP au lieu de +2.5.
+// Dégradé +2.5 si SRS du jour < 85.
+function isFastTrackDebutant() {
+  if (!db || !db.user || db.user.level !== 'debutant') return false;
+  var bw = db.user.bw || 0;
+  if (bw <= 0) return false;
+  var benchE1RM = (db.bestPR && db.bestPR.bench) || 0;
+  return (benchE1RM / bw) > 1.2;
+}
+
 // ── selectExercisesForProfile — Gemini v209 (7 règles universelles) ──
 // Filtre déterministe appliqué après les filtres locaux (épaule, senior,
 // stress). Remplace les blocs hardcodés disséminés dans wpGenerate*.
@@ -21215,6 +21333,27 @@ function selectExercisesForProfile(exercises, profile) {
         maxRPE: Math.min(e.maxRPE || 10, 7),
         _seniorAdapted: true
       });
+    });
+  }
+
+  // v221 — RÈGLE HIP THRUST (Gemini) : Hip Thrust + Deadlift même séance = retirer.
+  // Débutant : remplacer par Glute Bridge. 45min : remplacer par Hip Thrust Machine.
+  // Senior 60+ : remplacer par Leg Press pieds hauts (même activation, moins de pression pelvienne).
+  if (typeof applyHipThrustRule === 'function') {
+    result = applyHipThrustRule(result, {
+      duration: _duration,
+      level: (profile && profile.level) || (db.user && db.user.level) || 'intermediaire',
+      age: _age,
+      goals: (profile && profile.goals) || []
+    });
+  }
+
+  // v221 — RÈGLE SENIOR SPORTIF (Gemini) : 55-59 ans avec objectif force/masse + RPE > 8
+  // → Squat barre remplacé par Presse à Cuisses (low-stress axial).
+  if (typeof applySeniorStrengthFilter === 'function') {
+    result = applySeniorStrengthFilter(result, {
+      age: _age,
+      goals: (profile && profile.goals) || []
     });
   }
 

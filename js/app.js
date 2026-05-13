@@ -20313,9 +20313,17 @@ var BLOCK_DURATION = {
     avance:        { hypertrophie:4, accumulation:4, force:5, intensification:2, peak:1, deload:1 }
   },
   musculation: {
-    debutant:      { hypertrophie:8, accumulation:8, force:4, intensification:2, peak:1, deload:1 },
-    intermediaire: { hypertrophie:6, accumulation:6, force:4, intensification:2, peak:1, deload:1 },
-    avance:        { hypertrophie:5, accumulation:5, force:4, intensification:2, peak:1, deload:1 }
+    // v229 — Cycle musculation classique : Accumulation → Volume → Récupération → Deload
+    // (pas de Force/Intensification/Peak — réservés à powerbuilding/powerlifting)
+    debutant:      { accumulation:6, volume:4, recuperation:2, deload:1 },
+    intermediaire: { accumulation:5, volume:4, recuperation:2, deload:1 },
+    avance:        { accumulation:4, volume:4, recuperation:2, deload:1 }
+  },
+  calisthenics: {
+    // v229 — Calisthenics : Accumulation skill → Volume → Deload
+    debutant:      { accumulation:5, volume:4, deload:1 },
+    intermediaire: { accumulation:4, volume:4, deload:1 },
+    avance:        { accumulation:4, volume:4, deload:1 }
   },
   bien_etre: {
     debutant:      { accumulation:99 },
@@ -20580,14 +20588,18 @@ function wpDetectPhase() {
   }
 
   // Navigation dans le cycle
+  // v229 — Tableaux alignés avec les clés réelles de BLOCK_DURATION.
+  // ('intro', 'fondation', 'progression', 'maintien' n'existaient pas → durations=0 → skip → bug)
   var w = weeksSince;
   var phases = mode === 'powerlifting'
-    ? ['intro','accumulation','intensification','peak']
-    : mode === 'bien_etre'
-    ? ['fondation','progression','maintien']
+    ? ['hypertrophie', 'force', 'intensification', 'peak', 'deload']
     : mode === 'musculation'
-    ? ['intro','hypertrophie','volume','recuperation']
-    : ['intro','hypertrophie','force','peak'];
+    ? ['accumulation', 'volume', 'recuperation', 'deload']
+    : mode === 'calisthenics'
+    ? ['accumulation', 'volume', 'deload']
+    : mode === 'bien_etre'
+    ? ['accumulation']
+    : ['hypertrophie', 'force', 'intensification', 'peak', 'deload']; // powerbuilding (default)
 
   var _detectedPhase = null;
   var _weeksBeforePhase = 0;
@@ -28566,6 +28578,11 @@ async function postLoginSync() {
   try {
     if (typeof syncFromCloud === 'function') await syncFromCloud();
     else if (typeof loadFromCloud === 'function') await loadFromCloud();
+    // v229 — Recalculer currentBlock.week depuis lastDeloadDate après load
+    // (sinon week reste figée entre deux générations).
+    if (typeof wpDetectPhase === 'function' && db.weeklyPlan && db.weeklyPlan.lastDeloadDate) {
+      try { wpDetectPhase(); if (typeof saveDB === 'function') saveDB(); } catch (e) {}
+    }
     if (db.pendingSync && navigator.onLine) {
       db.pendingSync = false;
       if (typeof syncToCloud === 'function') syncToCloud(true);

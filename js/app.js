@@ -18708,12 +18708,13 @@ function getDUPKey(mode, level) {
 // Accessoires force : transfert SBD, stabilité, intensité plus haute.
 var WP_ACCESSORIES_BY_PHASE = {
   hypertrophie: {
+    // v223 — Aligné Gemini v200/pbBlocks.sq_hyp : Presse à Cuisses (PAS Hack Squat),
+    // suppression Fentes (déplacé vers sq2_hyp/Lower B) et Adduction.
     squat: [
-      { name: 'Hack Squat',         reps: '8-12', rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Presse à Cuisses',   reps: '8-12', rpe: 8,   sets: 4, rest: 120, priority: 1 },
       { name: 'Leg Extension',      reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Fentes',             reps: '10-12',rpe: 7,   sets: 3, rest: 90,  priority: 2 },
-      { name: 'Adduction',          reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 },
-      { name: 'Mollets (Machine)',  reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Mollets (Machine)',  reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 },
+      { name: 'Gainage (Planche)',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ],
     bench: [
       { name: 'Dips',                reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
@@ -20624,7 +20625,9 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     exercises.splice(Math.min(2, exercises.length), 0, sealRow);
   }
 
-  // Rule 2: Bench/Squat > 0.83 (i.e. squat/bench < 1.20) on squat day → replace 2nd accessory with Hack Squat
+  // Rule 2: Bench/Squat > 0.83 (i.e. squat/bench < 1.20) on squat day → replace 2nd accessory with Presse à Cuisses
+  // v223 — Aligné Gemini : Presse à Cuisses (charge axiale réduite vs Hack Squat) pour
+  // priorité quad sans aggraver la fatigue post-Squat lourd.
   if (dayKey === 'squat' && ratios.bench_squat && ratios.bench_squat.value > (1 / 1.20)) {
     var accIdx = -1;
     var accCount = 0;
@@ -20632,11 +20635,15 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
       if (!exercises[i].isPrimary && !exercises[i].isWarmup) { accCount++; if (accCount === 2) { accIdx = i; break; } }
     }
     if (accIdx >= 0) {
-      exercises[accIdx] = {
-        name: 'Hack Squat', type: 'weight', restSeconds: 180, isPrimary: false,
-        coachNote: '⚖️ Ratio Squat/Bench bas — Hack Squat priorité quad.',
-        sets: Array.from({ length: 4 }, function() { return { reps: 8, rpe: 8, weight: null, isWarmup: false }; })
-      };
+      // Ne pas écraser si l'accessoire est DÉJÀ Presse à Cuisses (sinon dédoublonné)
+      var _existingName = (exercises[accIdx].name || '').toLowerCase();
+      if (!/presse à cuisses/i.test(_existingName)) {
+        exercises[accIdx] = {
+          name: 'Presse à Cuisses', type: 'weight', restSeconds: 180, isPrimary: false,
+          coachNote: '⚖️ Ratio Squat/Bench bas — Presse à Cuisses priorité quad (low-stress axial).',
+          sets: Array.from({ length: 4 }, function() { return { reps: 8, rpe: 8, weight: null, isWarmup: false }; })
+        };
+      }
     }
   }
 
@@ -22564,13 +22571,14 @@ function generateWeeklyPlan() {
         var dayData = wpGeneratePowerbuildingDaySafe(dayKey, routine, phase, params, day, _gwpProfileKey);
         if (!dayData) return { day: day, rest: false, title: label, coachNote: '', exercises: [] };
         if (dayData) dayData.dupProfileKey = _gwpProfileKey;
-        // v196 — Tag Leg Extension / Hack Squat as corrective when S/B ratio is low.
+        // v196 — Tag Leg Extension / Presse à Cuisses as corrective when S/B ratio is low.
+        // v223 — Presse à Cuisses remplace Hack Squat dans le pool sq_hyp.
         // Gemini: the correctif must be protected from eviction on Squat days
         // where quads recruitment is maximum (Lundi). Same flag on Samedi for spec day.
         if (dayData && Array.isArray(dayData.exercises) && _gwpNeedsSquatSpec) {
           dayData.exercises.forEach(function(e) {
             if (e.isPrimary) return;
-            if (/leg.?ext|hack.?squat|sissy/i.test(e.name || '')) {
+            if (/leg.?ext|presse à cuisses|hack.?squat|sissy/i.test(e.name || '')) {
               e.isCorrectivePriority = true;
               e.evictionCategory = 'corrective';
             }

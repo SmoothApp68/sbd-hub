@@ -56,13 +56,14 @@ function buildDeloadLogs() {
   return logs;
 }
 
-// 5 semaines à volume normal, 1 semaine très basse (500kg = 17%), pas de rebound → blessure
+// 5 semaines normales, 1 semaine chute (500kg = 17%), rebound partiel (1500kg = 50%) → INJURY_OR_PAUSE
 function buildInjuryLogs() {
   var logs = [];
   var now = Date.now();
-  for (var w = 0; w < 6; w++) {
-    var monday = now - (5 - w) * 7 * 86400000;
-    var vol = (w === 4) ? 500 : 3000; // semaine 5 (index 4) = chute brutale
+  // 7 semaines : semaine 6 (index 5) = chute, semaine 7 (index 6) = rebound partiel
+  for (var w = 0; w < 7; w++) {
+    var monday = now - (6 - w) * 7 * 86400000;
+    var vol = (w === 5) ? 500 : (w === 6) ? 1500 : 3000;
     logs.push(makeLog(monday, vol, 0));
   }
   return logs;

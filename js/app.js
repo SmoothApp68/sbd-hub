@@ -18779,6 +18779,8 @@ var PHASE_ACCESSORY_MAP = {
 };
 
 var WP_SESSION_TEMPLATES = {
+  // v220 — Aligned with pbBlocks v200 (Gemini-validated)
+  // sq_hyp: ['squat','leg_press','leg_ext','mollet_presse','planche']
   squat: {
     title: '🦵 Jambes',
     mainLift: 'squat',
@@ -18786,34 +18788,32 @@ var WP_SESSION_TEMPLATES = {
     accessories: [
       { name: 'Presse à cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
       { name: 'Leg Extension',      reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Adduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 2 },
-      { name: 'Abduction',          reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 2 },
-      { name: 'Mollets (Machine)',   reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 3, isoTension: true },
-      { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 1, type: 'time' }
+      { name: 'Mollets (Machine)',  reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 2, isoTension: true },
+      { name: 'Gainage planche',    reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ]
   },
+  // bench_hyp: ['bench','rowing_poulie','dips','face_pull','tri_cable']
   bench: {
     title: '💪 Pecs — Dos',
     mainLift: 'bench',
     bodyPart: 'upper',
     accessories: [
-      { name: 'Rowing poulie assis',       reps: '6',    rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Développé incliné haltères',reps: '6-8',  rpe: 8.5, sets: 3, rest: 150, priority: 1 },
-      { name: 'Tractions',                 reps: '6',    rpe: 8,   sets: 4, rest: 150, priority: 1, type: 'reps', useBodyweight: true },
-      { name: 'Écarté machine',            reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Oiseau machine',            reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 1 }
+      { name: 'Rowing poulie assis',     reps: '6',    rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Dips',                    reps: '8-10', rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Face Pull',               reps: '15',   rpe: 7,   sets: 4, rest: 60,  priority: 2 },
+      { name: 'Extension triceps câble', reps: '12',   rpe: 7.5, sets: 4, rest: 90,  priority: 2 }
     ]
   },
+  // dead_hyp: ['deadlift','squat_pause','lat_pull','leg_curl','relevé_jambes']
   deadlift: {
     title: '🏋️ Ischios — Fessiers',
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Hip Thrust',           reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Leg Curl allongé',     reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 1 },
-      { name: 'Mollets (Machine)',     reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 2 },
-      { name: 'Élévations latérales', reps: '15',   rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Gainage planche',      reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 1, type: 'time' }
+      { name: 'Squat Pause',             reps: '5',    rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage poitrine poulie',  reps: '8',    rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      { name: 'Leg Curl allongé',        reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Relevé de jambes',        reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' }
     ]
   },
   weakpoints: {

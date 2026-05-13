@@ -28566,6 +28566,11 @@ async function postLoginSync() {
   try {
     if (typeof syncFromCloud === 'function') await syncFromCloud();
     else if (typeof loadFromCloud === 'function') await loadFromCloud();
+    // v229 — Recalculer currentBlock.week depuis lastDeloadDate après load
+    // (sinon week reste figée entre deux générations).
+    if (typeof wpDetectPhase === 'function' && db.weeklyPlan && db.weeklyPlan.lastDeloadDate) {
+      try { wpDetectPhase(); if (typeof saveDB === 'function') saveDB(); } catch (e) {}
+    }
     if (db.pendingSync && navigator.onLine) {
       db.pendingSync = false;
       if (typeof syncToCloud === 'function') syncToCloud(true);

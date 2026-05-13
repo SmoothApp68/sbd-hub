@@ -21461,7 +21461,8 @@ function selectExercisesForProfile(exercises, profile) {
   };
   var _t = _ratioThresholds[_mode] || _ratioThresholds.musculation;
   var _ratioCorrections = [
-    { ratio: 'squatBenchRatio',    threshold: _t.squatBenchRatio,    exo: 'Leg Extension',         tag: 'quad_isolation' },
+    { ratio: 'squatBenchRatio',    threshold: _t.squatBenchRatio,    exo: 'Leg Extension',         tag: 'quad_isolation',
+      onlyOnDays: ['squat', 'lower', 'sq_hyp', 'sq2_hyp', 'legs', 'lower_a', 'lower_b'] },
     { ratio: 'deadliftSquatRatio', threshold: _t.deadliftSquatRatio, exo: 'Soulevé de Terre Roumain (RDL)', tag: 'posterior_chain' },
     { ratio: 'rowBenchRatio',      threshold: _t.rowBenchRatio,      exo: 'Rowing Barre',          tag: 'back_compound' },
     { ratio: 'ohpBenchRatio',      threshold: _t.ohpBenchRatio,      exo: 'Face Pull',             tag: 'shoulder_health' }
@@ -21482,6 +21483,13 @@ function selectExercisesForProfile(exercises, profile) {
   _ratioCorrections.forEach(function(rc) {
     var _val = _stats[rc.ratio];
     if (typeof _val !== 'number' || _val >= rc.threshold) return;
+    // v230 — Leg Extension n'est injecté que sur jours squat/lower
+    if (rc.onlyOnDays && profile.dayType) {
+      var _dayOk = rc.onlyOnDays.some(function(d) {
+        return (profile.dayType || '').toLowerCase().includes(d);
+      });
+      if (!_dayOk) return;
+    }
     var _already = result.some(function(e) {
       return (e.name || '').toLowerCase().indexOf(rc.exo.toLowerCase()) !== -1;
     });
@@ -22086,6 +22094,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   if (typeof selectExercisesForProfile === 'function' && bodyPart !== 'recovery') {
     try {
       var _selProfile = buildProfileForSelection();
+      _selProfile.dayType = dayKey || '';
       exercises = selectExercisesForProfile(exercises, _selProfile);
     } catch(e) {}
   }
@@ -22409,6 +22418,7 @@ function wpGenerateMuscuDay(tplKey, params, phase) {
     if (typeof selectExercisesForProfile === 'function'
         && typeof buildProfileForSelection === 'function') {
       var _profile = buildProfileForSelection();
+      _profile.dayType = tplKey || '';
       exercises = selectExercisesForProfile(exercises, _profile);
     }
     if (typeof applyPivotWeekSwaps === 'function') {

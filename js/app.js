@@ -18724,10 +18724,12 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
     ],
     deadlift: [
-      { name: 'Leg Curl Allongé',    reps: '12-15',rpe: 7.5, sets: 4, rest: 90,  priority: 1 },
-      { name: 'Hip Thrust (Machine)', reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
+      // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).
+      // Hip Thrust reste dans Lower B (musculation). Ajout Relevé de Jambes + Face Pull.
+      { name: 'Leg Curl Allongé',    reps: '12-15',rpe: 9,   sets: 3, rest: 90,  priority: 1 },
       { name: 'Tirage Vertical',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Mollets (Machine)',   reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Relevé de Jambes',    reps: '12-15',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',           reps: '15-20',rpe: 7,   sets: 3, rest: 60,  priority: 4 }
     ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },

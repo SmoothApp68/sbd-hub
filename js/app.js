@@ -16796,6 +16796,26 @@ function renderCoachTodayHTML() {
     html += '</div>';
   }
 
+  // ── 0a1. DELOAD PROACTIF — alerte si trop longtemps sans deload ──
+  var _deloadWks = typeof getWeeksSinceDeload === 'function' ? getWeeksSinceDeload() : null;
+  if (_deloadWks !== null) {
+    var _dlLevel = (db.user && db.user.level) || 'intermediaire';
+    var _dlThresh = _dlLevel === 'avance' ? 8 : _dlLevel === 'debutant' ? 14 : 10;
+    if (_deloadWks > _dlThresh) {
+      var _dlExtra = _deloadWks - _dlThresh;
+      html += '<div class="coach-alert coach-alert--warning" style="background:rgba(255,159,10,0.08);'
+        + 'border:0.5px solid rgba(255,159,10,0.3);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+      html += '<span style="font-size:20px;">⚠️</span>';
+      html += '<div style="font-size:13px;font-weight:700;">Deload recommandé</div>';
+      html += '</div>';
+      html += '<div style="font-size:12px;color:var(--sub);line-height:1.6;">';
+      html += _deloadWks + ' semaines sans deload — +' + _dlExtra + ' sem. au-dessus du seuil. ';
+      html += 'Réduis le volume à ~50% cette semaine pour prévenir la stagnation et favoriser la surcompensation.';
+      html += '</div></div>';
+    }
+  }
+
   // ── 0b. BUDGET RÉCUPÉRATION — Total Load Management ──
   if (typeof getActivityPenaltyFlags === 'function') {
     var _actData = getActivityPenaltyFlags();
@@ -20379,6 +20399,85 @@ function _getCurrentShoulderPain() {
   return _inj ? (_inj.level || 0) : 0;
 }
 
+// v225 — Semaines depuis le dernier deload (pour bannière proactive)
+function getWeeksSinceDeload() {
+  var _ldd = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
+  if (!_ldd) return null;
+  return Math.round((Date.now() - new Date(_ldd).getTime()) / (7 * 86400000));
+}
+
+// v225 — Détection automatique du deload depuis les logs (seuils validés Gemini)
+function detectLastDeload() {
+  var logs = db.logs || [];
+  if (logs.length < 6) return null;
+  var level = (db.user && db.user.level) || 'intermediaire';
+
+  // Clé semaine : lundi de la semaine (ISO-like)
+  function _weekKey(ts) {
+    var d = new Date(ts);
+    var day = d.getDay() || 7;
+    var monday = new Date(d.getTime() - (day - 1) * 86400000);
+    return monday.toISOString().split('T')[0];
+  }
+
+  var weekMap = {};
+  logs.forEach(function(log) {
+    var ts = log.timestamp || 0;
+    if (!ts) return;
+    var wk = _weekKey(ts);
+    if (!weekMap[wk]) weekMap[wk] = { ts: ts, volume: 0 };
+    (log.exercises || []).forEach(function(e) {
+      var sets = Array.isArray(e.sets) ? e.sets : [];
+      sets.forEach(function(s) {
+        if (!s.isWarmup && s.weight > 0 && s.reps > 0) {
+          weekMap[wk].volume += s.weight * s.reps;
+        }
+      });
+    });
+  });
+
+  var weeks = Object.keys(weekMap).sort();
+  if (weeks.length < 5) return null;
+
+  // Guard débutant : variance trop haute → signal non fiable
+  if (level === 'debutant') {
+    var vols = weeks.map(function(wk) { return weekMap[wk].volume; });
+    var mean = vols.reduce(function(a, b) { return a + b; }, 0) / vols.length;
+    var variance = vols.reduce(function(a, v) { return a + Math.pow(v - mean, 2); }, 0) / vols.length;
+    var cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+    if (cv > 0.20) return null;
+  }
+
+  var threshold = level === 'debutant' ? 0.50 : 0.60;
+
+  // Chercher le deload le plus récent (itération depuis la fin)
+  for (var i = weeks.length - 1; i >= 4; i--) {
+    var prevFour = [weeks[i - 4], weeks[i - 3], weeks[i - 2], weeks[i - 1]];
+    var avgVol = prevFour.reduce(function(sum, wk) { return sum + weekMap[wk].volume; }, 0) / 4;
+    if (avgVol === 0) continue;
+    var curVol = weekMap[weeks[i]].volume;
+    var ratio = curVol / avgVol;
+    if (ratio >= threshold) continue;
+
+    var reboundRatio = null;
+    var status = 'PENDING';
+    if (i + 1 < weeks.length) {
+      var nextVol = weekMap[weeks[i + 1]].volume;
+      reboundRatio = avgVol > 0 ? nextVol / avgVol : null;
+      if (reboundRatio !== null) {
+        status = reboundRatio >= 0.95 ? 'CONFIRMED_DELOAD' : 'INJURY_OR_PAUSE';
+      }
+    }
+    return {
+      date: new Date(weekMap[weeks[i]].ts).toISOString(),
+      status: status,
+      volumeRatio: ratio,
+      reboundRatio: reboundRatio
+    };
+  }
+  return null;
+}
+
 function wpDetectPhase() {
   // v206 — Programme compétition : prioritaire sur toutes les autres détections
   var _compDate = db.user && db.user.programParams && db.user.programParams.compDate;
@@ -20428,6 +20527,17 @@ function wpDetectPhase() {
     Object.keys(_customDur).forEach(function(phase) {
       if (_customDur[phase] > 0) durations[phase] = _customDur[phase];
     });
+  }
+
+  // v225 — SOURCE 0 : detectLastDeload() — auto-détection depuis les logs
+  if (!db.weeklyPlan || !db.weeklyPlan.lastDeloadDate) {
+    var _detected = typeof detectLastDeload === 'function' ? detectLastDeload() : null;
+    if (_detected && _detected.status === 'CONFIRMED_DELOAD') {
+      if (!db.weeklyPlan) db.weeklyPlan = {};
+      db.weeklyPlan.lastDeloadDate = _detected.date;
+      db.weeklyPlan._deloadDetectedAuto = true;
+      if (typeof saveDB === 'function') saveDB();
+    }
   }
 
   // v224 — Semaines depuis le dernier deload : 3 sources ordonnées

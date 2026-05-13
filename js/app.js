@@ -20563,29 +20563,11 @@ function wpDetectPhase() {
     }
   }
 
-  // v224 — Semaines depuis le dernier deload : 3 sources ordonnées
-  // SOURCE 1 : lastDeloadDate explicite (le plus fiable)
-  var _lastDeloadDate = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
-  var weeksSince = _lastDeloadDate
-    ? Math.round((Date.now() - new Date(_lastDeloadDate).getTime()) / (7 * 86400000))
-    : null;
-  // SOURCE 2 : blockStartDate
-  if (weeksSince === null || isNaN(weeksSince)) {
-    var _bs = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate;
-    if (_bs) weeksSince = Math.round((Date.now() - _bs) / (7 * 86400000));
-  }
-  // SOURCE 3 : weeklyPlanHistory (fallback existant)
-  if (weeksSince === null || isNaN(weeksSince)) {
-    var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse()
-      .find(function(p) { return p.isDeload; });
-    if (lastDeloadPlan) weeksSince = Math.round(
-      (Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000));
-  }
-
-  // v227 — Fallback : pas de référence temporelle fiable → début de cycle (S1 hypertrophie)
-  if (weeksSince === null || isNaN(weeksSince) || weeksSince <= 0) {
-    weeksSince = 1;
-  }
+  // v230 — weeksSince : lastDeloadDate (prioritaire) sinon blockStartDate, plancher à 1
+  var _ref = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
+    ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
+    : (cb && cb.blockStartDate) || Date.now();
+  var weeksSince = Math.max(1, Math.round((Date.now() - _ref) / (7 * 86400000)));
 
   // Navigation dans le cycle
   // v229 — Tableaux alignés avec les clés réelles de BLOCK_DURATION.
@@ -28578,9 +28560,8 @@ async function postLoginSync() {
   try {
     if (typeof syncFromCloud === 'function') await syncFromCloud();
     else if (typeof loadFromCloud === 'function') await loadFromCloud();
-    // v229 — Recalculer currentBlock.week depuis lastDeloadDate après load
-    // (sinon week reste figée entre deux générations).
-    if (typeof wpDetectPhase === 'function' && db.weeklyPlan && db.weeklyPlan.lastDeloadDate) {
+    // v230 — Recalculer currentBlock.week depuis lastDeloadDate (ou blockStartDate) après load
+    if (typeof wpDetectPhase === 'function' && db.weeklyPlan) {
       try { wpDetectPhase(); if (typeof saveDB === 'function') saveDB(); } catch (e) {}
     }
     if (db.pendingSync && navigator.onLine) {

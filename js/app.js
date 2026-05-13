@@ -20359,15 +20359,36 @@ function wpDetectPhase() {
     return 'accumulation';
   }
 
-  // Semaines depuis le dernier deload
-  var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse()
-    .find(function(p) { return p.isDeload; });
-  var weeksSince = lastDeloadPlan
-    ? Math.round((Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000))
+  // v224 — Mode Avancé : overrider les durées avec customBlockDuration
+  if (db.user && db.user.programMode === 'custom' && db.user.customBlockDuration) {
+    durations = Object.assign({}, durations);
+    var _customDur = db.user.customBlockDuration;
+    Object.keys(_customDur).forEach(function(phase) {
+      if (_customDur[phase] > 0) durations[phase] = _customDur[phase];
+    });
+  }
+
+  // v224 — Semaines depuis le dernier deload : 3 sources ordonnées
+  // SOURCE 1 : lastDeloadDate explicite (le plus fiable)
+  var _lastDeloadDate = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
+  var weeksSince = _lastDeloadDate
+    ? Math.round((Date.now() - new Date(_lastDeloadDate).getTime()) / (7 * 86400000))
     : null;
+  // SOURCE 2 : blockStartDate
+  if (weeksSince === null || isNaN(weeksSince)) {
+    var _bs = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate;
+    if (_bs) weeksSince = Math.round((Date.now() - _bs) / (7 * 86400000));
+  }
+  // SOURCE 3 : weeklyPlanHistory (fallback existant)
+  if (weeksSince === null || isNaN(weeksSince)) {
+    var lastDeloadPlan = (db.weeklyPlanHistory || []).slice().reverse()
+      .find(function(p) { return p.isDeload; });
+    if (lastDeloadPlan) weeksSince = Math.round(
+      (Date.now() - new Date(lastDeloadPlan.generated_at).getTime()) / (7 * 86400000));
+  }
 
   // Fallback si pas d'historique : rotation sur le cycle complet
-  if (!weeksSince) {
+  if (weeksSince === null || isNaN(weeksSince) || weeksSince <= 0) {
     var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
     var totalWeeks = Math.round((db.logs || []).length / Math.max(1, freq));
     weeksSince = (totalWeeks % (durations.cycleWeeks || 14)) + 1;
@@ -20384,10 +20405,12 @@ function wpDetectPhase() {
     : ['intro','hypertrophie','force','peak'];
 
   var _detectedPhase = null;
+  var _weeksBeforePhase = 0;
   for (var i = 0; i < phases.length; i++) {
     var dur = durations[phases[i]] || 0;
     if (dur > 0 && w <= dur) { _detectedPhase = phases[i]; break; }
     w -= dur;
+    _weeksBeforePhase += dur;
   }
   if (!_detectedPhase) _detectedPhase = 'deload';
 
@@ -20404,8 +20427,26 @@ function wpDetectPhase() {
     });
     var _pLowSRS = db.readiness
       ? db.readiness.filter(function(r) { return r.score < 50; }).slice(-7).length : 0;
-    if (_pCount >= 3 || _pLowSRS >= 2) return 'force';
+    if (_pCount >= 3 || _pLowSRS >= 2) _detectedPhase = 'force';
   }
+
+  // v224 — Sync currentBlock.phase + week pour cohérence avec generateWeeklyPlan
+  if (db.weeklyPlan && db.weeklyPlan.currentBlock) {
+    db.weeklyPlan.currentBlock.phase = _detectedPhase;
+    var _weekInPhase = weeksSince - _weeksBeforePhase;
+    if (_detectedPhase === 'force') {
+      // Recalculer _weeksBeforePhase pour 'force' au cas où plateau-indicator
+      // l'a forcé depuis hypertrophie (sinon _weeksBeforePhase reflète déjà force)
+      var _wbpForce = 0;
+      for (var _pi2 = 0; _pi2 < phases.indexOf('force'); _pi2++) {
+        _wbpForce += (durations[phases[_pi2]] || 0);
+      }
+      _weekInPhase = weeksSince - _wbpForce;
+    }
+    db.weeklyPlan.currentBlock.week = Math.max(1,
+      Math.min(_weekInPhase, durations[_detectedPhase] || 4));
+  }
+
   return _detectedPhase;
 }
 

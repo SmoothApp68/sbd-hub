@@ -11722,7 +11722,8 @@ function renderProgramIdentityCard() {
   var tmpl = db.customProgramTemplate;
   var updatedAt = db.updatedAt || 0;
   var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : '';
-  var week = db.weeklyPlan && db.weeklyPlan.week ? db.weeklyPlan.week : '?';
+  // v228 — lire currentBlock.week (semaine du bloc) et non weeklyPlan.week (compteur générations)
+  var week = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || '?';
 
   var progName = progMode === 'custom' && tmpl ? (tmpl.name || 'Programme Custom') : 'Programme Auto';
   var dateStr = updatedAt ? 'Mis à jour ' + formatRelativeDate(updatedAt) : 'Non synchronisé';
@@ -20269,9 +20270,10 @@ function wpForcePhase() {
   if (!select) return;
   var phase = select.value;
   if (!db.weeklyPlan) db.weeklyPlan = {};
+  // v228 — forcer une phase ⇒ week=1 du nouveau bloc (nouvelle phase = nouveau bloc)
   db.weeklyPlan.currentBlock = {
     phase: phase,
-    week: db.weeklyPlan.week || 1,
+    week: 1,
     forcedAt: Date.now(),
     blockStartDate: Date.now()
   };
@@ -20290,11 +20292,12 @@ function wpForcePhase() {
 }
 
 function wpEstimateCurrentWeek() {
+  // v228 — Source canonique : currentBlock.week (écrite par wpDetectPhase).
+  // Legacy : db.weeklyPlan.week subsiste sur d'anciens profils → fallback non-cassant.
+  var cb = db.weeklyPlan && db.weeklyPlan.currentBlock;
+  if (cb && cb.week && cb.week > 0) return cb.week;
   if (db.weeklyPlan && db.weeklyPlan.week && db.weeklyPlan.week > 0) return db.weeklyPlan.week;
-  var freq = (db.user && db.user.programParams && db.user.programParams.freq) || 4;
-  var cutoff = Date.now() - 120 * 86400000;
-  var recentLogs = (db.logs || []).filter(function(l) { return l.timestamp >= cutoff; });
-  return Math.max(1, Math.min(16, Math.floor(recentLogs.length / Math.max(1, freq)) + 1));
+  return 1;
 }
 
 // v202 — Durées de phases Gemini-calibrées (semaines) — powerbuilding/powerlifting/musculation/bien_etre × niveau
@@ -23018,8 +23021,10 @@ function generateWeeklyPlan() {
     }
 
     // ── SAUVEGARDER ─────────────────────────────────────────
+    // v228 — plan.week supprimé (compteur de générations renommé _generationCount)
+    // La semaine du bloc est dans currentBlock.week (écrite par wpDetectPhase).
     var plan = {
-      days: days, week: (db.weeklyPlanHistory || []).length + 1, weekStreak: (typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0),
+      days: days, _generationCount: (db.weeklyPlanHistory || []).length + 1, weekStreak: (typeof computeWeekStreak === 'function' ? computeWeekStreak().current : 0),
       phase: phase, mode: mode, isDeload: phase === 'deload', generated_at: new Date().toISOString()
     };
 
@@ -23035,7 +23040,14 @@ function generateWeeklyPlan() {
     db.weeklyPlanHistory.push({ generated_at: plan.generated_at, isDeload: plan.isDeload, isWashout: _planIsWashout });
     if (db.weeklyPlanHistory.length > 12) db.weeklyPlanHistory.shift();
 
+    // v228 — préserver currentBlock + lastDeloadDate (sinon écrasés à chaque génération)
+    var _prevCurrentBlock = db.weeklyPlan && db.weeklyPlan.currentBlock;
+    var _prevLastDeload = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
+    var _prevDeloadAuto = db.weeklyPlan && db.weeklyPlan._deloadDetectedAuto;
     db.weeklyPlan = plan;
+    if (_prevCurrentBlock) db.weeklyPlan.currentBlock = _prevCurrentBlock;
+    if (_prevLastDeload) db.weeklyPlan.lastDeloadDate = _prevLastDeload;
+    if (_prevDeloadAuto) db.weeklyPlan._deloadDetectedAuto = _prevDeloadAuto;
     if (!db.routine) db.routine = {};
     days.forEach(function(d) { db.routine[d.day] = d.rest ? '😴 Repos Complet' : d.title; });
 

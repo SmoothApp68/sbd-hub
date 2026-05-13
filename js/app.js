@@ -15484,10 +15484,11 @@ function renderSettingsProfile() {
   if (programModeEl) {
     var currentMode = db.user.programMode || 'auto';
     var currentCoachProfile = db.user.coachProfile || 'full';
+    // v224 — Labels Guidé/Avancé (au lieu de Auto/Custom)
     programModeEl.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px;">'
       + ['auto','custom'].map(function(m) {
         var active = m === currentMode;
-        var labels = { auto: '🤖 Auto', custom: '🛠 Custom' };
+        var labels = { auto: '🧭 Guidé', custom: '⚙️ Avancé' };
         return '<button onclick="setProgramMode(\'' + m + '\')" '
           + 'style="flex:1;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;'
           + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
@@ -15507,6 +15508,10 @@ function renderSettingsProfile() {
           + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + labels[p] + '</button>';
       }).join('')
       + '</div>';
+    // v224 — En mode Avancé, afficher les durées de phases personnalisables
+    if (currentMode === 'custom' && typeof renderPhaseDurationSettings === 'function') {
+      programModeEl.innerHTML += renderPhaseDurationSettings();
+    }
   }
 
   // PhysioManager — section cycle menstruel (uniquement si genre F/female/femme)
@@ -15930,15 +15935,70 @@ function saveWeightCutData() {
 
 function setProgramMode(mode) {
   if (mode === 'auto' && db.user.programMode === 'custom') {
-    if (!confirm('Repasser en mode automatique ? Ton template custom sera conservé mais les exercices seront regénérés par l\'algo.')) return;
+    if (!confirm('Repasser en mode Guidé ? Tes durées de phases personnalisées seront conservées mais l\'algo reprendra les valeurs par défaut.')) return;
   }
   db.user.programMode = mode;
   saveDB();
   renderSettingsProfile();
-  showToast(mode === 'custom' ? '🛠 Mode Custom activé' : '🤖 Mode Auto activé');
+  showToast(mode === 'custom' ? '⚙️ Mode Avancé activé' : '🧭 Mode Guidé activé');
   if (mode === 'custom' && !db.customProgramTemplate) {
     showCustomBuilderChoice();
   }
+}
+
+// v224 — Mode Avancé : UI pour personnaliser les durées de phases.
+function renderPhaseDurationSettings() {
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var level = (db.user && db.user.level) || 'intermediaire';
+  if (!db.user.customBlockDuration) db.user.customBlockDuration = {};
+  var defaults = (typeof BLOCK_DURATION !== 'undefined'
+    && BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level])
+    || { hypertrophie: 4, force: 4, intensification: 2, peak: 1, deload: 1 };
+  var phaseLabels = {
+    hypertrophie: '🏗️ Hypertrophie',
+    force: '💪 Force',
+    intensification: '⚡ Intensification',
+    peak: '🏆 Peak',
+    deload: '😴 Deload'
+  };
+  var phaseRanges = {
+    hypertrophie: [3, 4, 5, 6, 8],
+    force: [3, 4, 5, 6],
+    intensification: [1, 2, 3],
+    peak: [1, 2],
+    deload: [1]
+  };
+  var phases = ['hypertrophie', 'force', 'intensification', 'peak', 'deload'];
+  var h = '<div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">'
+    + '<div style="font-size:11px;color:var(--sub);margin-bottom:8px;">Durée des phases (semaines)</div>';
+  phases.forEach(function(phase) {
+    if (!phaseRanges[phase] || phaseRanges[phase].length <= 1) return;
+    var current = db.user.customBlockDuration[phase] || defaults[phase] || 4;
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;'
+      + 'padding:8px 0;border-bottom:0.5px solid var(--border);">'
+      + '<span style="font-size:13px;">' + phaseLabels[phase] + '</span>'
+      + '<div style="display:flex;gap:4px;">';
+    phaseRanges[phase].forEach(function(weeks) {
+      var active = weeks === current;
+      h += '<button onclick="setPhaseDuration(\'' + phase + '\',' + weeks + ')" '
+        + 'style="width:28px;height:28px;border-radius:6px;font-size:11px;font-weight:700;'
+        + 'cursor:pointer;border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+        + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+        + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">'
+        + weeks + '</button>';
+    });
+    h += '</div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function setPhaseDuration(phase, weeks) {
+  if (!db.user.customBlockDuration) db.user.customBlockDuration = {};
+  db.user.customBlockDuration[phase] = weeks;
+  saveDB();
+  showToast('✅ ' + phase + ' : ' + weeks + ' semaines');
+  if (typeof renderSettingsProfile === 'function') renderSettingsProfile();
 }
 
 function setCoachProfile(profile) {

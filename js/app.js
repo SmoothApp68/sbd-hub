@@ -20450,7 +20450,8 @@ function detectLastDeload() {
 
   var threshold = level === 'debutant' ? 0.50 : 0.60;
 
-  // Chercher le deload le plus récent (itération depuis la fin)
+  // v226 — Chercher le deload CONFIRMÉ le plus récent ; sauter PENDING/INJURY (semaine en cours sans rebond)
+  var _fallback = null;
   for (var i = weeks.length - 1; i >= 4; i--) {
     var prevFour = [weeks[i - 4], weeks[i - 3], weeks[i - 2], weeks[i - 1]];
     var avgVol = prevFour.reduce(function(sum, wk) { return sum + weekMap[wk].volume; }, 0) / 4;
@@ -20468,14 +20469,16 @@ function detectLastDeload() {
         status = reboundRatio >= 0.95 ? 'CONFIRMED_DELOAD' : 'INJURY_OR_PAUSE';
       }
     }
-    return {
+    var _candidate = {
       date: new Date(weekMap[weeks[i]].ts).toISOString(),
       status: status,
       volumeRatio: ratio,
       reboundRatio: reboundRatio
     };
+    if (status === 'CONFIRMED_DELOAD') return _candidate;
+    if (!_fallback) _fallback = _candidate;
   }
-  return null;
+  return _fallback;
 }
 
 function wpDetectPhase() {

@@ -19106,6 +19106,21 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Relevé de Jambes',    reps: '12-15',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' },
       { name: 'Face Pull',           reps: '15-20',rpe: 7,   sets: 3, rest: 60,  priority: 4 }
     ],
+    // v239 — S2/S3 : variantes semaine 2 et 3 (wave loading accessoires DL)
+    deadlift_s2: [
+      { name: 'Squat Pause',      reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',  reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
+      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+    ],
+    deadlift_s3: [
+      { name: 'Squat Pause',      reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',  reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
+      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+    ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
       { name: 'Curl Marteau',         reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 },
@@ -21002,6 +21017,13 @@ function wpRepsForPhase(phase, slot) {
   return { hypertrophie: 8, accumulation: 6, force: 4, intensification: 3,
            peak: 2, deload: 6, intro: 8, recuperation: 8 }[phase] || 5;
 }
+function getDLSetsReps(weekInPhase) {
+  var w = parseInt(weekInPhase) || 1;
+  if (w <= 1) return { sets: 5, reps: 5, rpe: 7.5, restSeconds: 300 };
+  if (w === 2) return { sets: 4, reps: 4, rpe: 8.0, restSeconds: 300 };
+  return             { sets: 4, reps: 3, rpe: 8.5, restSeconds: 360 };
+}
+
 function wpSetsForPhase(phase, slot) {
   if (slot === 'isolation') return 3;
   return { hypertrophie: 4, accumulation: 4, force: 4, intensification: 4,
@@ -22078,6 +22100,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       rpe = (_dupProfile.rpe[0] + _dupProfile.rpe[1]) / 2;
       setsCount = Math.round((_dupProfile.sets[0] + _dupProfile.sets[1]) / 2);
     }
+    // v239 — DL wave loading S1/S2/S3 : override reps/sets when no DUP profile
+    if (dayKey === 'deadlift' && !_dupProfile && typeof getDLSetsReps === 'function') {
+      var _dlWave = getDLSetsReps((db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1);
+      reps = _dlWave.reps;
+      setsCount = _dlWave.sets;
+      rpe = _dlWave.rpe;
+    }
     // PhysioManager (v184) — C_cycle s'applique sur le VOLUME (sets), pas la charge
     if (typeof getCycleCoeff === 'function') {
       var _cycleCoeff = getCycleCoeff();
@@ -22150,8 +22179,15 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 
   // Sélection des accessoires selon la phase (hypertrophie vs force pool)
   var accessoryPhase = (typeof PHASE_ACCESSORY_MAP !== 'undefined' && PHASE_ACCESSORY_MAP && PHASE_ACCESSORY_MAP[phase]) || 'hypertrophie';
-  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey])
-    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey]
+  // v239 — DL wave loading : S1/S2/S3 variant selection based on week-in-phase
+  var _accDayKey = dayKey;
+  if (dayKey === 'deadlift' && accessoryPhase === 'hypertrophie') {
+    var _dlAccWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    var _dlKey = _dlAccWeek <= 1 ? 'deadlift' : (_dlAccWeek === 2 ? 'deadlift_s2' : 'deadlift_s3');
+    if (WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_dlKey]) _accDayKey = _dlKey;
+  }
+  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey])
+    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey]
     : (tpl.accessories || []);
   var accessories = wpFilterInjuries(phaseAccessories, injuries);
   // Rééquilibrage Squat/Bench (Gemini)

@@ -5618,6 +5618,12 @@ function findExoInDatabase(exoName) {
     // Deadlift
     'deadlift':                      'deadlift_conventional',
     'souleve de terre':              'deadlift_conventional',
+    // Squat pause / variations techniques
+    'squat pause':                   'squat_pause',
+    'squat pause barre':             'squat_pause',
+    'squat avec pause barre':        'squat_pause',
+    'paused squat':                  'squat_pause',
+    'pause squat':                   'squat_pause',
   };
 
   var nClean = n.replace(/[()]/g,' ')
@@ -10133,6 +10139,7 @@ function getSuspiciousRecordsSummary() {
 // ============================================================
 var _pgmEditMode = false;
 var _pgmOriginalDays = null;
+var _todayCardExpanded = false;
 
 // v231 — Badge phase + barre de progression du bloc
 function renderPhaseProgressBadge() {
@@ -10220,8 +10227,8 @@ function renderTodayCard() {
     return e && !e.isWarmup && !(e.setType === 'warmup');
   });
 
-  var _top3 = _exos.slice(0, 3);
-  var _more = _exos.length - 3;
+  var _top3 = _todayCardExpanded ? _exos : _exos.slice(0, 3);
+  var _more = _todayCardExpanded ? 0 : _exos.length - 3;
 
   var _exoRows = _top3.map(function(e) {
     var _setsArr = Array.isArray(e.sets) ? e.sets.filter(function(s) {
@@ -10244,10 +10251,11 @@ function renderTodayCard() {
   }).join('');
 
   if (_more > 0) {
-    _exoRows += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
+    _exoRows += '<div onclick="_todayCardExpanded=true;if(typeof renderProgrammeV2===\'function\')renderProgrammeV2();" '
+      + 'style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;">'
       + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
       + 'opacity:0.2;flex-shrink:0;"></div>'
-      + '<span style="color:var(--sub2,#666);font-size:12px;">+' + _more + ' exercices</span>'
+      + '<span style="color:#a78bfa;font-size:12px;">+' + _more + ' exercices ▾</span>'
       + '</div>';
   }
 
@@ -19315,9 +19323,16 @@ var WP_SYNONYMS = {
     'Souleve de Terre Roumain (Barre)','Souleve de Terre Roumain',
     'Souleve de Terre Jambes Tendues','Romanian Deadlift (Barre)','RDL'
   ],
-  'Squat Pause': ['Squat avec pause (barre)', 'Squat Pause'],
+  'Squat Pause': ['Squat avec pause (barre)', 'Squat Pause', 'Squat Pause (Barre)'],
+  'Squat Pause (Barre)': ['Squat avec pause (barre)', 'Squat Pause', 'Squat Pause (Barre)'],
+  'Paused Squat': ['Squat avec pause (barre)', 'Squat Pause'],
+  'Pause Squat': ['Squat avec pause (barre)', 'Squat Pause'],
   'Souleve de Terre Pause': ['Souleve De Terre avec pause', 'Souleve de Terre avec pause'],
-  'Spoto Bench': ['Spoto Bench'],
+  'Deadlift Pause': ['Souleve De Terre avec pause', 'Souleve de Terre avec pause'],
+  'Bench Pause': ['Developpe Couche avec pause', 'Developpe couche avec pause', 'Bench Pause'],
+  'Pause Bench': ['Developpe Couche avec pause', 'Bench Pause'],
+  'Spoto Press': ['Spoto Press', 'Spoto Bench'],
+  'Spoto Bench': ['Spoto Bench', 'Spoto Press'],
   'Presse a cuisses': [
     'Presse a Cuisses','Presse a Cuisses Horizontal',
     'Presse a Cuisses (pieds Bas)','Presse a Cuisses Une Jambe',

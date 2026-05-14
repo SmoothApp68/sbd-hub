@@ -10139,6 +10139,7 @@ function getSuspiciousRecordsSummary() {
 // ============================================================
 var _pgmEditMode = false;
 var _pgmOriginalDays = null;
+var _todayCardExpanded = false;
 
 // v231 — Badge phase + barre de progression du bloc
 function renderPhaseProgressBadge() {
@@ -10226,8 +10227,8 @@ function renderTodayCard() {
     return e && !e.isWarmup && !(e.setType === 'warmup');
   });
 
-  var _top3 = _exos.slice(0, 3);
-  var _more = _exos.length - 3;
+  var _top3 = _todayCardExpanded ? _exos : _exos.slice(0, 3);
+  var _more = _todayCardExpanded ? 0 : _exos.length - 3;
 
   var _exoRows = _top3.map(function(e) {
     var _setsArr = Array.isArray(e.sets) ? e.sets.filter(function(s) {
@@ -10250,10 +10251,11 @@ function renderTodayCard() {
   }).join('');
 
   if (_more > 0) {
-    _exoRows += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
+    _exoRows += '<div onclick="_todayCardExpanded=true;if(typeof renderProgrammeV2===\'function\')renderProgrammeV2();" '
+      + 'style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;">'
       + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
       + 'opacity:0.2;flex-shrink:0;"></div>'
-      + '<span style="color:var(--sub2,#666);font-size:12px;">+' + _more + ' exercices</span>'
+      + '<span style="color:#a78bfa;font-size:12px;">+' + _more + ' exercices ▾</span>'
       + '</div>';
   }
 

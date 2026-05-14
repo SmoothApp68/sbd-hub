@@ -22139,8 +22139,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if (tpl.mainLift === 'squat_pause') {
-    var sqW = wpComputeWorkWeightSafe('squat', 'lower');
-    var pauseWeight = wpRound25(sqW * 0.85);
+    var _spWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    var pauseWeight = wpCalcVariationWeight('squat_pause', 6, 2, phase, _spWeek)
+      || wpRound25((wpComputeWorkWeightSafe('squat', 'lower') || 60) * 0.85);
     exercises.push({
       name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: true,
       sets: wpBuildWarmupsSafe(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
@@ -22430,9 +22431,72 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 }
 
 // ── SAFE WRAPPERS — protection crash GO sur logs malformés ─────────────────
+function _getLastWorkoutData(liftType) {
+  var _keyMap = {
+    squat:    /squat.*barre|high bar squat/i,
+    bench:    /bench press.*barre|développé couché.*barre/i,
+    deadlift: /soulevé de terre.*barre/i
+  };
+  var _regex = _keyMap[liftType];
+  if (!_regex) return null;
+  var _logs = (typeof db !== 'undefined' && db && db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  for (var i = 0; i < _logs.length; i++) {
+    var _exos = _logs[i].exercises || [];
+    for (var j = 0; j < _exos.length; j++) {
+      var _exo = _exos[j];
+      if (!_regex.test(_exo.name || '')) continue;
+      var _sets = (_exo.allSets || _exo.series || []).filter(function(s) {
+        return s.setType !== 'warmup' && !s.isWarmup && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
+      });
+      if (_sets.length > 0) {
+        var _best = _sets.reduce(function(a, b) { return parseFloat(b.weight) > parseFloat(a.weight) ? b : a; });
+        return { weight: parseFloat(_best.weight), reps: parseInt(_best.reps), rpe: parseFloat(_best.rpe) || 8 };
+      }
+    }
+  }
+  return null;
+}
+
+// Table des Variation Factors (Gemini validé)
+var WP_VARIATION_FACTORS = {
+  'squat_pause':     { factor: 0.85, masterLift: 'squat' },
+  'spoto_press':     { factor: 0.90, masterLift: 'bench' },
+  'rdl':             { factor: 0.75, masterLift: 'deadlift' },
+  'good_morning':    { factor: 0.45, masterLift: 'squat' },
+  'larsen_press':    { factor: 0.85, masterLift: 'bench' },
+  'paused_deadlift': { factor: 0.85, masterLift: 'deadlift' }
+};
+
+var WP_REPS_INTENSITY = {
+  3: 0.90, 4: 0.87, 5: 0.83, 6: 0.80,
+  7: 0.77, 8: 0.74, 10: 0.70, 12: 0.65
+};
+
+var WP_PLACEMENT_PENALTY = { 1: 1.00, 2: 0.97, 3: 0.95 };
+
+function wpCalcVariationWeight(variationKey, targetReps, exerciseOrder, phase, weekInPhase) {
+  var _vf = WP_VARIATION_FACTORS[variationKey];
+  if (!_vf) return null;
+  var _lastLog = _getLastWorkoutData(_vf.masterLift);
+  if (!_lastLog) return null;
+  var _rir = Math.max(0, 10 - (_lastLog.rpe || 8));
+  var _e1rm = _lastLog.weight * (1 + (_lastLog.reps + _rir) * 0.0333);
+  var _varE1rm = _e1rm * _vf.factor;
+  var _repPct = WP_REPS_INTENSITY[targetReps] || WP_REPS_INTENSITY[6];
+  var _phaseBonus = (weekInPhase >= 3) ? 1.03 : 1.00;
+  var _pos = Math.min(exerciseOrder || 1, 3);
+  var _final = _varE1rm * _repPct * _phaseBonus * (WP_PLACEMENT_PENALTY[_pos] || 0.95);
+  return wpRound25(_final);
+}
+
 function wpComputeWorkWeightSafe(liftType, bodyPart) {
   try {
-    return wpComputeWorkWeight(liftType, bodyPart);
+    var result = wpComputeWorkWeight(liftType, bodyPart);
+    if (typeof result !== 'number' || isNaN(result) || result <= 0) {
+      var _fallback = _getLastWorkoutData(liftType);
+      return (_fallback && _fallback.weight > 0) ? _fallback.weight : 60;
+    }
+    return result;
   } catch(e) {
     if (typeof logErrorToSupabase === 'function') {
       logErrorToSupabase('algo_crash', String(e && e.message || e),

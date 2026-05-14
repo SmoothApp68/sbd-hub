@@ -10800,9 +10800,8 @@ function renderProgramBuilder() {
   if (_customBuilderState) { renderCustomBuilder(); return; }
   if (_pbState) { renderProgramBuilderStep(document.getElementById('programBuilderContent')); return; }
 
-  // v232 — délègue à renderProgrammeV2 (Plan tab redesign v231) si un plan existe
-  if (typeof renderProgrammeV2 === 'function'
-      && db.weeklyPlan && Array.isArray(db.weeklyPlan.days) && db.weeklyPlan.days.length > 0) {
+  // v236 — délègue toujours à renderProgrammeV2 (gère en interne le cas sans plan)
+  if (typeof renderProgrammeV2 === 'function') {
     var _pbc = document.getElementById('programBuilderContent');
     if (_pbc) _pbc.innerHTML = '';
     renderProgrammeV2();

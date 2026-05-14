@@ -10733,10 +10733,18 @@ function renderProgramBuilder() {
   if (_customBuilderState) { renderCustomBuilder(); return; }
   if (_pbState) { renderProgramBuilderStep(document.getElementById('programBuilderContent')); return; }
 
+  // v232 — délègue à renderProgrammeV2 (Plan tab redesign v231) si un plan existe
+  if (typeof renderProgrammeV2 === 'function'
+      && db.weeklyPlan && Array.isArray(db.weeklyPlan.days) && db.weeklyPlan.days.length > 0) {
+    var _pbc = document.getElementById('programBuilderContent');
+    if (_pbc) _pbc.innerHTML = '';
+    renderProgrammeV2();
+    return;
+  }
+
   var hasProgram = (db.generatedProgram && db.generatedProgram.length > 0) ||
                    (db.manualProgram && db.manualProgram.dayNames && db.manualProgram.dayNames.length > 0) ||
                    (db.routine && Object.keys(db.routine).length > 0) ||
-                   (db.weeklyPlan && Array.isArray(db.weeklyPlan.days) && db.weeklyPlan.days.length > 0) ||
                    (db.user.programMode === 'custom' && db.customProgramTemplate);
   if (hasProgram) { renderProgramTab(); return; }
 

@@ -7580,11 +7580,43 @@ function wpGetStreak() {
 }
 
 // ── Carte "Cette semaine" (nouvelle homepage) ────────────────
-var _homeDayOffset = 0;
+var _homeDayOffset = 0; // 0..13 — permet de naviguer cette semaine + semaine prochaine
 
 function homeNavDay(delta) {
-  _homeDayOffset = (_homeDayOffset + delta + 7) % 7;
+  _homeDayOffset = (_homeDayOffset + delta + 14) % 14;
   renderWeekCard();
+}
+
+// v232 — Projection des charges semaine N+1
+function projectNextWeekWeights(exercises) {
+  return (exercises || []).map(function(exo) {
+    var _sets = Array.isArray(exo.sets)
+      ? exo.sets.filter(function(s) { return s && !s.isWarmup; }) : [];
+    var _currentWeight = (_sets[0] && _sets[0].weight) || 0;
+    if (!_currentWeight) return exo;
+
+    // Y a-t-il déjà un log sur cet exercice cette semaine ?
+    var _weekStart = typeof getWeekStart === 'function' ? getWeekStart(Date.now()) : Date.now() - 7 * 86400000;
+    var _weekLogs = (db.logs || []).filter(function(l) {
+      return l && l.timestamp && l.timestamp >= _weekStart;
+    });
+    var _matchLog = _weekLogs.find(function(l) {
+      return (l.exercises || []).some(function(e) {
+        return (e.name || '').toLowerCase() === (exo.name || '').toLowerCase();
+      });
+    });
+    // Pas de log cette semaine → charge identique
+    if (!_matchLog) return exo;
+
+    var _increment = typeof getDPIncrement === 'function'
+      ? getDPIncrement(exo.name, _currentWeight) : 2.5;
+    var _nextWeight = _currentWeight + _increment;
+
+    var _nextSets = _sets.map(function(s) {
+      return Object.assign({}, s, { weight: _nextWeight, _projected: true });
+    });
+    return Object.assign({}, exo, { sets: _nextSets, _projectedWeight: _nextWeight });
+  });
 }
 
 function renderWeekCard() {
@@ -7663,8 +7695,10 @@ function renderWeekCard() {
       '</div>';
   }).join('');
 
-  // Day to display (offset from today, wraps around the week)
-  const displayMonIdx = (todayMonIdx + _homeDayOffset + 7) % 7;
+  // Day to display (offset from today, can span this week + next week)
+  const _absOffset = todayMonIdx + _homeDayOffset;
+  const displayMonIdx = _absOffset % 7;
+  const _weekOffset = Math.floor(_absOffset / 7); // 0 = cette semaine, 1+ = semaine prochaine
   const isDisplayToday = _homeDayOffset === 0;
   const displayDayName = weekDaysFull[displayMonIdx];
   const displayLabel = routine[displayDayName] || '';
@@ -7675,7 +7709,11 @@ function renderWeekCard() {
   let exosHtml = '';
   if (!isDisplayRest && displayLabel && db.weeklyPlan && db.weeklyPlan.days) {
     const displayDay = db.weeklyPlan.days[displayMonIdx];
-    const exos = (displayDay && !displayDay.rest) ? (displayDay.exercises || displayDay.exos || []) : [];
+    let exos = (displayDay && !displayDay.rest) ? (displayDay.exercises || displayDay.exos || []) : [];
+    // v232 — projection charges N+1 si on visualise la semaine prochaine
+    if (_weekOffset >= 1 && typeof projectNextWeekWeights === 'function') {
+      exos = projectNextWeekWeights(exos);
+    }
     if (exos.length > 0) {
       exosHtml = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(10,132,255,0.15);">';
       exos.forEach(function(exo) {
@@ -7705,14 +7743,21 @@ function renderWeekCard() {
     }
   }
 
-  const dayHeaderLabel = isDisplayToday ? 'Aujourd\'hui' : displayDayName;
+  const dayHeaderLabel = isDisplayToday
+    ? 'Aujourd\'hui'
+    : (_weekOffset >= 1 ? displayDayName + ' · sem. prochaine' : displayDayName);
+  const _projBadge = _weekOffset >= 1
+    ? '<span style="background:rgba(167,139,250,0.15);color:#a78bfa;'
+      + 'font-size:9px;font-weight:600;padding:2px 8px;border-radius:10px;'
+      + 'margin-left:6px;text-transform:uppercase;letter-spacing:0.04em;">Projection</span>'
+    : '';
   const todayHtml = !isDisplayRest && displayLabel
     ? '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);border-radius:12px;padding:10px 12px;overflow:hidden;">' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
           '<button style="' + arrowBtn + '" onclick="homeNavDay(-1)">◀</button>' +
           '<div style="width:32px;height:32px;background:rgba(10,132,255,0.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🏋️</div>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">' + dayHeaderLabel + '</div>' +
+            '<div style="font-size:9px;color:rgba(10,132,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">' + dayHeaderLabel + _projBadge + '</div>' +
             '<div style="font-size:12px;font-weight:700;margin-top:1px;">' + displayLabel + '</div>' +
           '</div>' +
           (isDisplayToday
@@ -7726,7 +7771,7 @@ function renderWeekCard() {
         '<div style="display:flex;align-items:center;gap:8px;">' +
           '<button style="' + arrowBtn + '" onclick="homeNavDay(-1)">◀</button>' +
           '<div style="flex:1;text-align:center;color:var(--sub);font-size:12px;">' +
-            '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">' + dayHeaderLabel + '</div>' +
+            '<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">' + dayHeaderLabel + _projBadge + '</div>' +
             '😴 Repos complet' +
           '</div>' +
           '<button style="' + arrowBtn + '" onclick="homeNavDay(1)">▶</button>' +
@@ -10185,7 +10230,9 @@ function renderTodayCard() {
     var _setsCount = _setsArr.length || (typeof e.sets === 'number' ? e.sets : 3);
     var _reps = e.reps || (_setsArr[0] && _setsArr[0].reps) || '10';
     var _weight = (_setsArr[0] && _setsArr[0].weight) || e.workWeight || e.weight || '';
-    var _detail = _setsCount + '×' + _reps + (_weight ? ' · ' + _weight + 'kg' : '');
+    var _detail = _weight
+      ? _setsCount + '×' + _reps + ' · <span style="color:#a78bfa;font-weight:500;">' + _weight + 'kg</span>'
+      : _setsCount + '×' + _reps;
 
     return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
       + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
@@ -10295,8 +10342,20 @@ function renderWeekRowsCompact() {
     var _exoPreview = '';
     if (!_isRest && _dayData && _dayData.exercises) {
       var _e = _dayData.exercises.filter(function(x) { return x && !x.isWarmup; });
-      _exoPreview = _e.slice(0, 3).map(function(x) { return x.name || x.exercise || ''; })
-        .filter(Boolean).join(' · ');
+      _exoPreview = _e.slice(0, 3).map(function(x, i) {
+        var _name = x.name || x.exercise || '';
+        if (i !== 0) return _name;
+        // Premier exo : ajouter sets×reps · charge
+        var _wSets = Array.isArray(x.sets)
+          ? x.sets.filter(function(s) { return s && !s.isWarmup && s.setType !== 'warmup'; })
+          : [];
+        var _setsCount = _wSets.length || (typeof x.sets === 'number' ? x.sets : 3);
+        var _reps = (_wSets[0] && _wSets[0].reps) || x.reps || '';
+        var _weight = (_wSets[0] && _wSets[0].weight) || x.workWeight || x.weight || '';
+        var _detail = _reps ? (_setsCount + '×' + _reps) : '';
+        if (_weight) _detail += (_detail ? ' · ' : '') + _weight + 'kg';
+        return _detail ? _name + ' ' + _detail : _name;
+      }).filter(Boolean).join(' · ');
       if (_e.length > 3) _exoPreview += '…';
     }
 

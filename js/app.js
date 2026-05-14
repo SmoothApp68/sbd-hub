@@ -5618,6 +5618,12 @@ function findExoInDatabase(exoName) {
     // Deadlift
     'deadlift':                      'deadlift_conventional',
     'souleve de terre':              'deadlift_conventional',
+    // Squat pause / variations techniques
+    'squat pause':                   'squat_pause',
+    'squat pause barre':             'squat_pause',
+    'squat avec pause barre':        'squat_pause',
+    'paused squat':                  'squat_pause',
+    'pause squat':                   'squat_pause',
   };
 
   var nClean = n.replace(/[()]/g,' ')
@@ -19315,9 +19321,16 @@ var WP_SYNONYMS = {
     'Souleve de Terre Roumain (Barre)','Souleve de Terre Roumain',
     'Souleve de Terre Jambes Tendues','Romanian Deadlift (Barre)','RDL'
   ],
-  'Squat Pause': ['Squat avec pause (barre)', 'Squat Pause'],
+  'Squat Pause': ['Squat avec pause (barre)', 'Squat Pause', 'Squat Pause (Barre)'],
+  'Squat Pause (Barre)': ['Squat avec pause (barre)', 'Squat Pause', 'Squat Pause (Barre)'],
+  'Paused Squat': ['Squat avec pause (barre)', 'Squat Pause'],
+  'Pause Squat': ['Squat avec pause (barre)', 'Squat Pause'],
   'Souleve de Terre Pause': ['Souleve De Terre avec pause', 'Souleve de Terre avec pause'],
-  'Spoto Bench': ['Spoto Bench'],
+  'Deadlift Pause': ['Souleve De Terre avec pause', 'Souleve de Terre avec pause'],
+  'Bench Pause': ['Developpe Couche avec pause', 'Developpe couche avec pause', 'Bench Pause'],
+  'Pause Bench': ['Developpe Couche avec pause', 'Bench Pause'],
+  'Spoto Press': ['Spoto Press', 'Spoto Bench'],
+  'Spoto Bench': ['Spoto Bench', 'Spoto Press'],
   'Presse a cuisses': [
     'Presse a Cuisses','Presse a Cuisses Horizontal',
     'Presse a Cuisses (pieds Bas)','Presse a Cuisses Une Jambe',

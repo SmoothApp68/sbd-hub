@@ -10797,13 +10797,26 @@ function _getModeLabel(mode) {
 }
 
 function renderProgramBuilder() {
-  if (_customBuilderState) { renderCustomBuilder(); return; }
-  if (_pbState) { renderProgramBuilderStep(document.getElementById('programBuilderContent')); return; }
+  var _pbc = document.getElementById('programBuilderContent');
+  var _v2c = document.getElementById('programmeV2Content');
 
-  // v236 — délègue toujours à renderProgrammeV2 (gère en interne le cas sans plan)
+  if (_customBuilderState) {
+    if (_pbc) _pbc.style.display = '';
+    if (_v2c) _v2c.style.display = 'none';
+    renderCustomBuilder();
+    return;
+  }
+  if (_pbState) {
+    if (_pbc) _pbc.style.display = '';
+    if (_v2c) _v2c.style.display = 'none';
+    renderProgramBuilderStep(_pbc);
+    return;
+  }
+
+  // v237 — délègue toujours à renderProgrammeV2, cache l'ancien container
   if (typeof renderProgrammeV2 === 'function') {
-    var _pbc = document.getElementById('programBuilderContent');
-    if (_pbc) _pbc.innerHTML = '';
+    if (_pbc) { _pbc.style.display = 'none'; _pbc.innerHTML = ''; }
+    if (_v2c) _v2c.style.display = '';
     renderProgrammeV2();
     return;
   }

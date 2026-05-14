@@ -19106,6 +19106,21 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Relevé de Jambes',    reps: '12-15',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' },
       { name: 'Face Pull',           reps: '15-20',rpe: 7,   sets: 3, rest: 60,  priority: 4 }
     ],
+    // v239 — S2/S3 : variantes semaine 2 et 3 (wave loading accessoires DL)
+    deadlift_s2: [
+      { name: 'Squat Pause',      reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',  reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
+      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+    ],
+    deadlift_s3: [
+      { name: 'Squat Pause',      reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',  reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
+      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+    ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
       { name: 'Curl Marteau',         reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 },
@@ -21002,6 +21017,13 @@ function wpRepsForPhase(phase, slot) {
   return { hypertrophie: 8, accumulation: 6, force: 4, intensification: 3,
            peak: 2, deload: 6, intro: 8, recuperation: 8 }[phase] || 5;
 }
+function getDLSetsReps(weekInPhase) {
+  var w = parseInt(weekInPhase) || 1;
+  if (w <= 1) return { sets: 5, reps: 5, rpe: 7.5, restSeconds: 300 };
+  if (w === 2) return { sets: 4, reps: 4, rpe: 8.0, restSeconds: 300 };
+  return             { sets: 4, reps: 3, rpe: 8.5, restSeconds: 360 };
+}
+
 function wpSetsForPhase(phase, slot) {
   if (slot === 'isolation') return 3;
   return { hypertrophie: 4, accumulation: 4, force: 4, intensification: 4,
@@ -22078,6 +22100,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       rpe = (_dupProfile.rpe[0] + _dupProfile.rpe[1]) / 2;
       setsCount = Math.round((_dupProfile.sets[0] + _dupProfile.sets[1]) / 2);
     }
+    // v239 — DL wave loading S1/S2/S3 : override reps/sets when no DUP profile
+    if (dayKey === 'deadlift' && !_dupProfile && typeof getDLSetsReps === 'function') {
+      var _dlWave = getDLSetsReps((db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1);
+      reps = _dlWave.reps;
+      setsCount = _dlWave.sets;
+      rpe = _dlWave.rpe;
+    }
     // PhysioManager (v184) — C_cycle s'applique sur le VOLUME (sets), pas la charge
     if (typeof getCycleCoeff === 'function') {
       var _cycleCoeff = getCycleCoeff();
@@ -22139,8 +22168,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if (tpl.mainLift === 'squat_pause') {
-    var sqW = wpComputeWorkWeightSafe('squat', 'lower');
-    var pauseWeight = wpRound25(sqW * 0.85);
+    var _spWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    var pauseWeight = wpCalcVariationWeight('squat_pause', 6, 2, phase, _spWeek)
+      || wpRound25((wpComputeWorkWeightSafe('squat', 'lower') || 60) * 0.85);
     exercises.push({
       name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: true,
       sets: wpBuildWarmupsSafe(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
@@ -22149,8 +22179,15 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 
   // Sélection des accessoires selon la phase (hypertrophie vs force pool)
   var accessoryPhase = (typeof PHASE_ACCESSORY_MAP !== 'undefined' && PHASE_ACCESSORY_MAP && PHASE_ACCESSORY_MAP[phase]) || 'hypertrophie';
-  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey])
-    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey]
+  // v239 — DL wave loading : S1/S2/S3 variant selection based on week-in-phase
+  var _accDayKey = dayKey;
+  if (dayKey === 'deadlift' && accessoryPhase === 'hypertrophie') {
+    var _dlAccWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    var _dlKey = _dlAccWeek <= 1 ? 'deadlift' : (_dlAccWeek === 2 ? 'deadlift_s2' : 'deadlift_s3');
+    if (WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_dlKey]) _accDayKey = _dlKey;
+  }
+  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey])
+    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey]
     : (tpl.accessories || []);
   var accessories = wpFilterInjuries(phaseAccessories, injuries);
   // Rééquilibrage Squat/Bench (Gemini)
@@ -22430,9 +22467,72 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 }
 
 // ── SAFE WRAPPERS — protection crash GO sur logs malformés ─────────────────
+function _getLastWorkoutData(liftType) {
+  var _keyMap = {
+    squat:    /squat.*barre|high bar squat/i,
+    bench:    /bench press.*barre|développé couché.*barre/i,
+    deadlift: /soulevé de terre.*barre/i
+  };
+  var _regex = _keyMap[liftType];
+  if (!_regex) return null;
+  var _logs = (typeof db !== 'undefined' && db && db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  for (var i = 0; i < _logs.length; i++) {
+    var _exos = _logs[i].exercises || [];
+    for (var j = 0; j < _exos.length; j++) {
+      var _exo = _exos[j];
+      if (!_regex.test(_exo.name || '')) continue;
+      var _sets = (_exo.allSets || _exo.series || []).filter(function(s) {
+        return s.setType !== 'warmup' && !s.isWarmup && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
+      });
+      if (_sets.length > 0) {
+        var _best = _sets.reduce(function(a, b) { return parseFloat(b.weight) > parseFloat(a.weight) ? b : a; });
+        return { weight: parseFloat(_best.weight), reps: parseInt(_best.reps), rpe: parseFloat(_best.rpe) || 8 };
+      }
+    }
+  }
+  return null;
+}
+
+// Table des Variation Factors (Gemini validé)
+var WP_VARIATION_FACTORS = {
+  'squat_pause':     { factor: 0.85, masterLift: 'squat' },
+  'spoto_press':     { factor: 0.90, masterLift: 'bench' },
+  'rdl':             { factor: 0.75, masterLift: 'deadlift' },
+  'good_morning':    { factor: 0.45, masterLift: 'squat' },
+  'larsen_press':    { factor: 0.85, masterLift: 'bench' },
+  'paused_deadlift': { factor: 0.85, masterLift: 'deadlift' }
+};
+
+var WP_REPS_INTENSITY = {
+  3: 0.90, 4: 0.87, 5: 0.83, 6: 0.80,
+  7: 0.77, 8: 0.74, 10: 0.70, 12: 0.65
+};
+
+var WP_PLACEMENT_PENALTY = { 1: 1.00, 2: 0.97, 3: 0.95 };
+
+function wpCalcVariationWeight(variationKey, targetReps, exerciseOrder, phase, weekInPhase) {
+  var _vf = WP_VARIATION_FACTORS[variationKey];
+  if (!_vf) return null;
+  var _lastLog = _getLastWorkoutData(_vf.masterLift);
+  if (!_lastLog) return null;
+  var _rir = Math.max(0, 10 - (_lastLog.rpe || 8));
+  var _e1rm = _lastLog.weight * (1 + (_lastLog.reps + _rir) * 0.0333);
+  var _varE1rm = _e1rm * _vf.factor;
+  var _repPct = WP_REPS_INTENSITY[targetReps] || WP_REPS_INTENSITY[6];
+  var _phaseBonus = (weekInPhase >= 3) ? 1.03 : 1.00;
+  var _pos = Math.min(exerciseOrder || 1, 3);
+  var _final = _varE1rm * _repPct * _phaseBonus * (WP_PLACEMENT_PENALTY[_pos] || 0.95);
+  return wpRound25(_final);
+}
+
 function wpComputeWorkWeightSafe(liftType, bodyPart) {
   try {
-    return wpComputeWorkWeight(liftType, bodyPart);
+    var result = wpComputeWorkWeight(liftType, bodyPart);
+    if (typeof result !== 'number' || isNaN(result) || result <= 0) {
+      var _fallback = _getLastWorkoutData(liftType);
+      return (_fallback && _fallback.weight > 0) ? _fallback.weight : 60;
+    }
+    return result;
   } catch(e) {
     if (typeof logErrorToSupabase === 'function') {
       logErrorToSupabase('algo_crash', String(e && e.message || e),

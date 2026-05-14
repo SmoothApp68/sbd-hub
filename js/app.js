@@ -23343,8 +23343,8 @@ function generateWeeklyPlan() {
     if (typeof debouncedCloudSync === 'function') debouncedCloudSync();
     showToast(phase === 'deload' ? '🔄 Semaine deload — récupération !' : '✅ Programme calculé !');
     renderWeeklyPlanUI();
-    if (typeof renderProgramBuilderView === 'function') {
-      renderProgramBuilderView(document.getElementById('programBuilderContent'));
+    if (typeof renderProgramBuilder === 'function') {
+      renderProgramBuilder();
     }
 
   } catch(err) {

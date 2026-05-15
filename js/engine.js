@@ -3629,6 +3629,78 @@ var INSOLVENCY_THRESHOLDS = {
   critical: 1.4    // Banqueroute — Deload complet forcé
 };
 
+// ── DOMS FUNCTIONS ────────────────────────────────────────────────────────
+
+// Récupérer les DOMS du jour pour un ou plusieurs muscles
+// Lit la dernière entrée db.body[] du jour avec un champ doms
+function getTodayDOMS(muscleKey) {
+  var todayStr = new Date().toDateString();
+  var entries = (db.body || []).filter(function(e) {
+    return e.ts && new Date(e.ts).toDateString() === todayStr
+      && e.doms && typeof e.doms === 'object';
+  });
+  if (entries.length === 0) return muscleKey ? 0 : {};
+  var latest = entries.reduce(function(a, b) { return b.ts > a.ts ? b : a; });
+  if (muscleKey) return (latest.doms[muscleKey] || 0);
+  return latest.doms || {};
+}
+
+// Sauvegarder les DOMS dans db.body[]
+// Fusionne avec l'entrée du jour si elle existe déjà
+function saveTodayDOMS(domsObj) {
+  if (!domsObj || typeof domsObj !== 'object') return;
+  var filtered = {};
+  Object.keys(domsObj).forEach(function(k) {
+    if (domsObj[k] >= 1) filtered[k] = domsObj[k];
+  });
+  if (Object.keys(filtered).length === 0) return;
+
+  var todayStr = new Date().toDateString();
+  db.body = db.body || [];
+  var todayEntry = null;
+  for (var i = 0; i < db.body.length; i++) {
+    if (db.body[i].ts && new Date(db.body[i].ts).toDateString() === todayStr) {
+      todayEntry = db.body[i]; break;
+    }
+  }
+  if (todayEntry) {
+    todayEntry.doms = Object.assign({}, todayEntry.doms || {}, filtered);
+  } else {
+    db.body.push({ ts: Date.now(), doms: filtered });
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+
+// Calculer l'ajustement de volume/intensité basé sur les DOMS
+// Retourne { volumeReduction: int, intensityFactor: float, postpone: bool }
+function getDOMSAdjustment(muscleKey) {
+  var domsScore = getTodayDOMS(muscleKey);
+  if (!domsScore || domsScore === 0) return { volumeReduction: 0, intensityFactor: 1.0, postpone: false };
+
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var thresholds = (level === 'debutant')
+    ? DOMS_THRESHOLDS.debutant
+    : DOMS_THRESHOLDS.default;
+
+  var volumeReduction = 0;
+  var intensityFactor = 1.0;
+  var postpone = false;
+
+  if (domsScore >= thresholds.postpone) {
+    postpone = true;
+    volumeReduction = 3;
+    intensityFactor = 0.85;
+  } else if (domsScore >= thresholds.volume_reduction) {
+    volumeReduction = domsScore >= 4.5 ? 2 : 1;
+    intensityFactor = 0.95;
+  } else if (thresholds.intensity_reduction && domsScore >= thresholds.intensity_reduction) {
+    intensityFactor = 0.90;
+  }
+
+  return { volumeReduction: volumeReduction, intensityFactor: intensityFactor,
+           postpone: postpone, score: domsScore };
+}
+
 // Multiplicateur de capacité de récupération de base (base 1.0)
 // Gemini : avancé +0.10, powerlifting -0.05, age>40 -0.10, femme +0.05
 var RECOVERY_CAPACITY_MODIFIERS = {

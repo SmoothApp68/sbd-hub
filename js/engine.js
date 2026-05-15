@@ -3406,6 +3406,51 @@ var JOINT_STRESS_THRESHOLDS = {
   red:    100   // Substitution recommandée
 };
 
+// ── INSOLVENCY INDEX — Bilan comptable de récupération ────────────────────
+// Source : Gemini validation 2026 — adapté de la gestion de charge athlétique
+// Distinct du SRS (radar tactique) — mesure la dette accumulée sur 7j
+
+// Latence de récupération par groupe musculaire (jours)
+// Correction Gemini : quads 2.5j, abdos/avant_bras 0.5j
+var RECOVERY_LATENCY = {
+  ischio:     { days: 3.5 },
+  fessiers:   { days: 2.5 },
+  dos:        { days: 2.5 },
+  quads:      { days: 2.5 },  // Gemini : 2.5 (pas 2.0) — muscle massif, dommages élevés
+  pecs:       { days: 1.5 },
+  epaules:    { days: 1.5 },
+  biceps:     { days: 1.0 },
+  triceps:    { days: 1.0 },
+  mollets:    { days: 1.5 },
+  abdos:      { days: 0.5 },  // Gemini : 0.5 (récupération quasi immédiate)
+  trapezes:   { days: 1.5 },
+  avant_bras: { days: 0.5 }   // Gemini : 0.5
+};
+
+// Seuils Insolvency Index
+var INSOLVENCY_THRESHOLDS = {
+  orange:   1.0,   // Déficit modéré — réduire volume (-1 série accessoires)
+  red:      1.2,   // Insolvabilité — Active Recovery + supprimer gros lifts
+  critical: 1.4    // Banqueroute — Deload complet forcé
+};
+
+// Multiplicateur de capacité de récupération de base (base 1.0)
+// Gemini : avancé +0.10, powerlifting -0.05, age>40 -0.10, femme +0.05
+var RECOVERY_CAPACITY_MODIFIERS = {
+  level: {
+    debutant:      0.0,
+    intermediaire: 0.0,
+    avance:        0.10,
+    competiteur:   0.10
+  },
+  mode: {
+    powerlifting:  -0.05,
+    powerbuilding:  0.0,
+    musculation:    0.0,
+    bien_etre:      0.05
+  }
+};
+
 // ── Lookup stress articulaire pour un exercice ────────────────────────────
 // Normalise le nom, cherche dans JOINT_STRESS_TABLE par correspondance partielle.
 // Retourne null si exercice non trouvé (pas de stress articulaire significatif).

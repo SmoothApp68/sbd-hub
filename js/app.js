@@ -21186,13 +21186,18 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     }
   }
 
-  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat
+  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat (si pas déjà présent)
   if (dayKey === 'deadlift' && ratios.squat_deadlift && ratios.squat_deadlift.value < 0.80) {
-    exercises.push({
-      name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
-      coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
-      sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+    var _alreadyHasSquatPause = exercises.some(function(e) {
+      return /squat\s*pause/i.test(e.name || '');
     });
+    if (!_alreadyHasSquatPause) {
+      exercises.push({
+        name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
+        coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
+        sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+      });
+    }
   }
 
   // Rule 4: OHP/Bench < 0.60 on weakpoints day → unshift Développé Militaire

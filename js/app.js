@@ -1704,12 +1704,37 @@ function obSaveQ4() {
     short_torso:           !!_obMorphoAnswers.short_torso
   };
   saveDB();
+
+  // Utilisateur déjà onboardé avec un programme existant → préserver le programme,
+  // régénérer le weeklyPlan uniquement (applique les adaptations morpho sans tout écraser)
+  if (db.user.onboarded && db.routine && Object.keys(db.routine).length > 0) {
+    if (typeof generateWeeklyPlan === 'function') {
+      try { generateWeeklyPlan(); } catch(e) { console.warn('[morpho] generateWeeklyPlan:', e); }
+    }
+    showToast('🦴 Morphologie enregistrée — plan adapté.');
+    var ov = document.getElementById('onboarding-overlay');
+    if (ov) ov.style.display = 'none';
+    return;
+  }
+
+  // Premier onboarding → générer le programme normalement
   obGenerateProgram();
 }
 
 function obSkipMorpho() {
   db.user.morpho = null;
   saveDB();
+
+  // Même logique : utilisateur déjà onboardé → ne pas écraser le programme
+  if (db.user.onboarded && db.routine && Object.keys(db.routine).length > 0) {
+    if (typeof generateWeeklyPlan === 'function') {
+      try { generateWeeklyPlan(); } catch(e) {}
+    }
+    var ov = document.getElementById('onboarding-overlay');
+    if (ov) ov.style.display = 'none';
+    return;
+  }
+
   obGenerateProgram();
 }
 

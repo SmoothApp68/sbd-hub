@@ -23362,6 +23362,14 @@ function generateWeeklyPlan() {
       showToast('🚨 Insolvency critique — Deload forcé. Ton corps a besoin de récupérer.');
     }
 
+    // ── Auto-Tuner Volume Landmarks (Sprint Feedback Loop) ────────────────────
+    // Évaluation en fin de mésocycle uniquement (isEndOfPhaseBlock)
+    if (typeof isEndOfPhaseBlock === 'function' && isEndOfPhaseBlock()
+        && typeof applyVolumeAutoTune === 'function') {
+      var _tuned = applyVolumeAutoTune(db.logs || []);
+      if (_tuned) showToast('📊 Volume ajusté automatiquement selon ta progression.');
+    }
+
     db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
     if (!db.weeklyPlan.currentBlock.blockStartDate) {

@@ -3451,6 +3451,25 @@ var RECOVERY_CAPACITY_MODIFIERS = {
   }
 };
 
+// Capacité de récupération individuelle (multiplicateur, base 1.0)
+// Combine niveau, mode, âge et genre pour personnaliser le dénominateur
+function calcBaseCapacity() {
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  var mode  = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var age   = (db.user && db.user.age) || 0;
+  var gender = (db.user && db.user.gender) || '';
+  var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
+
+  var capacity = 1.0;
+  capacity += (RECOVERY_CAPACITY_MODIFIERS.level[level] || 0);
+  capacity += (RECOVERY_CAPACITY_MODIFIERS.mode[mode]  || 0);
+  if (age > 40) capacity -= 0.10;
+  if (isFemale) capacity += 0.05;
+
+  // Plancher à 0.5 — éviter division par zéro ou valeurs absurdes
+  return Math.max(0.5, Math.round(capacity * 100) / 100);
+}
+
 // ── Lookup stress articulaire pour un exercice ────────────────────────────
 // Normalise le nom, cherche dans JOINT_STRESS_TABLE par correspondance partielle.
 // Retourne null si exercice non trouvé (pas de stress articulaire significatif).

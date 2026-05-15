@@ -22382,7 +22382,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     });
   }
 
-  if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
+  var _cardioBlockedPhases = ['peak', 'intensification'];
+  var _cardioBlockedBodies = ['lower'];
+  var _cardioBlocked = _cardioBlockedPhases.indexOf(phase) >= 0 && _cardioBlockedBodies.indexOf(bodyPart) >= 0;
+  if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery' && !_cardioBlocked) {
     var _cardioBlock = wpGetCardioForProfile(injuries, 20, isCutting);
     if (_cardioBlock) exercises.push(_cardioBlock);
   }

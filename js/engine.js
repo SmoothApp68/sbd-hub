@@ -3399,6 +3399,57 @@ var JOINT_MORPHO_COEFFS = {
   long_torso:   { hanches: 1.1 }
 };
 
+// ── SUBSTITUTIONS MORPHOLOGIQUES ─────────────────────────────────────────
+// Validées Gemini 2026. Appliquées sur les lifts principaux uniquement.
+// Hiérarchie : BLESSURE > TECHNIQUE > MORPHO
+// Mode powerlifting : note d'optimisation uniquement (pas de substitution auto)
+// Débutants : désactivé (db.user.level === 'debutant')
+var MORPHO_SUBSTITUTIONS = {
+  long_femurs: {
+    squat: {
+      name:        'Low Bar Squat',
+      loadFactor:  1.0,
+      note:        '🦴 Morpho fémurs longs — Low Bar Squat : meilleur levier hanches, réduit le stress lombaire.'
+    }
+    // deadlift : pas de substitution — fémurs longs avantagent le Dead
+  },
+  long_arms: {
+    bench: {
+      name:        'Floor Press',
+      loadFactor:  0.85,  // -15% validé Gemini : compense perte leg drive + rebond
+      note:        '🦴 Morpho bras longs — Floor Press : limite l\'amplitude dangereuse pour tes épaules.'
+    }
+    // squat/deadlift : bras longs avantagent ces mouvements
+  },
+  short_arms_long_torso: {
+    deadlift: {
+      name:        'Sumo Deadlift',
+      loadFactor:  1.0,
+      note:        '🦴 Morpho buste long — Sumo Deadlift : redresse le buste, réduit le bras de levier lombaire.'
+    }
+  },
+  short_torso: {
+    deadlift: {
+      name:        'Block Pulls (10cm)',
+      loadFactor:  0.95,
+      note:        '🦴 Morpho torse court — Block Pulls 10cm : compense le levier défavorable au démarrage.'
+    },
+    row: {
+      name:        'Chest Supported Row',
+      loadFactor:  0.95,
+      note:        '🦴 Morpho torse court — Chest Supported Row : décharge les lombaires sur les tirages.'
+    }
+  }
+};
+
+// Note d'optimisation pour le mode powerlifting (pas de substitution auto)
+var MORPHO_POWERLIFTING_NOTES = {
+  long_femurs:           'Ta morphologie (fémurs longs) suggère que le Low Bar Squat serait plus performant pour toi. L\'as-tu testé ?',
+  long_arms:             'Ton envergure suggère que le Floor Press renforcerait ton lockout au Bench. Piste à explorer.',
+  short_arms_long_torso: 'Ta morphologie suggère que le Sumo Deadlift correspondrait mieux à tes leviers. L\'as-tu essayé ?',
+  short_torso:           'Ton torse court crée un bras de levier fort au Deadlift. Assure-toi que ta technique est optimisée.'
+};
+
 // Seuils hebdomadaires de stress par articulation
 // Source : Gemini validation 2026
 var JOINT_STRESS_THRESHOLDS = {

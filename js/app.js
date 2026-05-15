@@ -10442,7 +10442,13 @@ function renderProgrammeV2() {
   h += renderPhaseProgressBadge();
   h += renderTodayCard();
   h += renderWeekRowsCompact();
-  h += '<div style="display:flex;gap:8px;padding:10px 12px 16px;">'
+  h += '<div style="padding:4px 12px 0;">'
+    + '<button onclick="openAdjustSession()" style="width:100%;padding:12px;margin-bottom:8px;'
+    + 'background:var(--surface);border:1px solid var(--border);'
+    + 'color:var(--text);border-radius:12px;font-size:13px;'
+    + 'font-weight:600;cursor:pointer;">🔄 Ajuster la séance du jour</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:4px 12px 16px;">'
     + '<button onclick="startPgmEdit()" style="flex:1;background:var(--surface);'
     + 'border:0.5px solid var(--border);border-radius:10px;padding:10px;'
     + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;">Modifier le planning</button>'

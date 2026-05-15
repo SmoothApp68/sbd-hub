@@ -21088,9 +21088,15 @@ function wpDetectPhase() {
   }
 
   // v230 — weeksSince : lastDeloadDate (prioritaire) sinon blockStartDate, plancher à 1
-  var _ref = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
-    ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
-    : (cb && cb.blockStartDate) || Date.now();
+  // Fix B — exception : blockStartDate récente (< 14j) + lastDeloadDate auto-détectée
+  // = nouveau mésocycle démarré manuellement → blockStartDate prime sur historique
+  var _cbBSD = cb && cb.blockStartDate;
+  var _lastDL = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
+  var _autoDetected = !!(db.weeklyPlan && db.weeklyPlan._deloadDetectedAuto);
+  var _blockIsRecent = !!(_cbBSD && (Date.now() - _cbBSD) < 14 * 86400000);
+  var _ref = (_lastDL && !(_autoDetected && _blockIsRecent))
+    ? new Date(_lastDL).getTime()
+    : _cbBSD || Date.now();
   var weeksSince = Math.max(1, Math.round((Date.now() - _ref) / (7 * 86400000)));
 
   // Navigation dans le cycle

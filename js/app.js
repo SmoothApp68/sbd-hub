@@ -19101,8 +19101,7 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Dips',                reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
       { name: 'Écarté Haltères',     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
       { name: 'Extension Triceps',   reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
-      { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 }
     ],
     deadlift: [
       // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).

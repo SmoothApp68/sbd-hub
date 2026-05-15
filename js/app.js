@@ -22810,6 +22810,25 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       ' — Volume accessoires réduit. Priorise la récupération.';
   }
 
+  // ── Dédoublonnage final ──────────────────────────────────────────────────────
+  // Un exercice peut apparaître deux fois si le pool accessoires + wpApplyImbalanceCorrections
+  // placent le même exercice (ex: Presse à Cuisses). Fusionner les séries de travail.
+  var _seen = {};
+  exercises = exercises.filter(function(exo) {
+    var key = (exo.name || '').toLowerCase().trim();
+    if (_seen[key]) {
+      var existing = _seen[key];
+      var newWorkSets = (exo.sets || []).filter(function(s) { return !s.isWarmup; });
+      existing.sets = (existing.sets || []).concat(newWorkSets);
+      if (exo.coachNote && (!existing.coachNote || exo.coachNote.length > existing.coachNote.length)) {
+        existing.coachNote = exo.coachNote;
+      }
+      return false;
+    }
+    _seen[key] = exo;
+    return true;
+  });
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 

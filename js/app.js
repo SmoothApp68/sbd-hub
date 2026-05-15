@@ -23443,13 +23443,16 @@ function generateWeeklyPlan() {
     db.weeklyPlan.currentBlock.phase = phase;
 
     // ── Garde-fou Insolvency (C3b) ────────────────────────────────────────────
-    // Index critique → deload forcé indépendamment de la phase calculée.
+    // Index critique → deload TACTIQUE cette semaine uniquement.
     // Red (1.2-1.4) géré par réduction volume dans wpGeneratePowerbuildingDay.
+    // IMPORTANT : ne JAMAIS écrire 'deload' dans currentBlock.phase — sinon
+    // isEndOfPhaseBlock() (durations.deload=1) déclenche à tort le reset
+    // blockStartDate + week=1, ce qui détruit le mésocycle (audit 62).
+    // Le deload reste un override local hebdomadaire ; le bloc garde sa phase réelle.
     var _insolvencyCheck = typeof calcInsolvencyIndex === 'function'
       ? calcInsolvencyIndex(db.logs || []) : { level: 'ok' };
     if (_insolvencyCheck.level === 'critical' && phase !== 'deload') {
-      phase = 'deload';
-      db.weeklyPlan.currentBlock.phase = phase;
+      phase = 'deload'; // override local hebdomadaire — currentBlock.phase NON modifié
       showToast('🚨 Insolvency critique — Deload forcé. Ton corps a besoin de récupérer.');
     }
 

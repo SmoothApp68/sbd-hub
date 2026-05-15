@@ -3387,6 +3387,71 @@ var JOINT_STRESS_THRESHOLDS = {
   red:    100   // Substitution recommandée
 };
 
+// ── Lookup stress articulaire pour un exercice ────────────────────────────
+// Normalise le nom, cherche dans JOINT_STRESS_TABLE par correspondance partielle.
+// Retourne null si exercice non trouvé (pas de stress articulaire significatif).
+function getJointStressEntry(exoName) {
+  if (!exoName) return null;
+  var n = exoName.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ').trim();
+  var keys = Object.keys(JOINT_STRESS_TABLE);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i].toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (n === k || n.indexOf(k) >= 0 || k.indexOf(n) >= 0) {
+      return JOINT_STRESS_TABLE[keys[i]];
+    }
+  }
+  return null;
+}
+
+// Calcule le score de stress articulaire pondéré pour un set d'un exercice.
+// Formule : Score_base × (Charge / e1RM) × nb_sets
+// Applique les coefficients genre et morpho si disponibles.
+function calcJointStressForExo(exoName, charge, nbSets, liftType) {
+  var entry = getJointStressEntry(exoName);
+  if (!entry) return {};
+
+  // e1RM : EWMA si SBD, sinon valeur brute depuis db.exercises
+  var e1rm = 0;
+  if (liftType && typeof getSmoothedE1RM === 'function') {
+    e1rm = getSmoothedE1RM(liftType) || 0;
+  }
+  if (e1rm <= 0 && db.exercises && db.exercises[exoName]) {
+    e1rm = db.exercises[exoName].ewmaE1rm || db.exercises[exoName].e1rm || 0;
+  }
+  // Fallback : intensité relative = 0.75 si e1RM inconnu (RPE 8 estimé)
+  var intensity = (e1rm > 0 && charge > 0) ? Math.min(charge / e1rm, 1.5) : 0.75;
+
+  // Coefficients genre
+  var gender = db.user && db.user.gender;
+  var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
+
+  // Coefficients morpho (Prompt B les alimentera — fallback 1.0 si absent)
+  var morpho = (db.user && db.user.morpho) || {};
+
+  var result = {};
+  Object.keys(entry).forEach(function(joint) {
+    var base = entry[joint];
+    var coeff = 1.0;
+
+    // Coefficient genre (genoux uniquement)
+    if (joint === 'genoux' && isFemale) coeff *= 1.2;
+
+    // Coefficients morpho
+    Object.keys(JOINT_MORPHO_COEFFS).forEach(function(morphType) {
+      if (morpho[morphType] && JOINT_MORPHO_COEFFS[morphType][joint]) {
+        coeff *= JOINT_MORPHO_COEFFS[morphType][joint];
+      }
+    });
+
+    result[joint] = Math.round(base * intensity * nbSets * coeff * 10) / 10;
+  });
+
+  return result;
+}
+
 // ── Mise à jour EWMA après une séance ──────────────────────────────────────
 // Appelée après chaque log sauvegardé, pour chaque exercice de la séance.
 // Ne met PAS à jour pendant les séances de deload (SNC au repos).

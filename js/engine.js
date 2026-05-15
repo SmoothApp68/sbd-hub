@@ -43,6 +43,7 @@ var STRENGTH_RATIO_TARGETS = {
 };
 
 // MRV par groupe musculaire (Dr. Mike Israetel / RP)
+// Sources : RP Strength / Mike Israetel — validé Gemini 2026
 var MUSCLE_VOLUME_TARGETS = {
   quads:      { MEV: 8,  MAV_low: 12, MAV_high: 18, MRV: 20 },
   ischio:     { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 },
@@ -52,26 +53,31 @@ var MUSCLE_VOLUME_TARGETS = {
   biceps:     { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
   triceps:    { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
   fessiers:   { MEV: 4,  MAV_low: 8,  MAV_high: 16, MRV: 20 },
-  abdos:      { MEV: 6,  MAV_low: 10, MAV_high: 14, MRV: 20 },
-  mollets:    { MEV: 8,  MAV_low: 10, MAV_high: 14, MRV: 18 },
-  trapezes:   { MEV: 4,  MAV_low: 8,  MAV_high: 10, MRV: 14 },
-  avant_bras: { MEV: 4,  MAV_low: 8,  MAV_high: 10, MRV: 14 }
+  abdos:      { MEV: 6,  MAV_low: 10, MAV_high: 14, MRV: 18 },
+  mollets:    { MEV: 6,  MAV_low: 8,  MAV_high: 12, MRV: 16 },
+  trapezes:   { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 14 },
+  avant_bras: { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 }
 };
 
-// Noms d'affichage FR → clé MUSCLE_VOLUME_TARGETS (source unique de vérité)
+// Noms d'affichage FR + alias EN → clé MUSCLE_VOLUME_TARGETS (source unique de vérité)
 var MUSCLE_DISPLAY_TO_KEY = {
-  'pectoraux': 'pecs', 'pecs': 'pecs', 'poitrine': 'pecs',
-  'dos': 'dos', 'dorsaux': 'dos', 'lats': 'dos',
+  // Noms FR
+  'pectoraux': 'pecs', 'pecs': 'pecs', 'pecs (haut)': 'pecs', 'poitrine': 'pecs',
+  'dos': 'dos', 'dorsaux': 'dos', 'lats': 'dos', 'grand dorsal': 'dos',
   'epaules': 'epaules', 'deltoïdes': 'epaules', 'deltoides': 'epaules',
   'quadriceps': 'quads', 'quads': 'quads', 'jambes': 'quads',
   'ischio': 'ischio', 'ischios': 'ischio', 'ischio-jambiers': 'ischio',
-  'fessiers': 'fessiers', 'glutes': 'fessiers',
-  'biceps': 'biceps',
+  'fessiers': 'fessiers',
+  'biceps': 'biceps', 'bras': 'biceps',
   'triceps': 'triceps',
-  'abdominaux': 'abdos', 'abdos': 'abdos', 'core': 'abdos',
+  'abdominaux': 'abdos', 'abdos': 'abdos', 'core': 'abdos', 'obliques': 'abdos',
   'mollets': 'mollets', 'mollet': 'mollets',
-  'trapezes': 'trapezes', 'trapèzes': 'trapezes',
-  'avant-bras': 'avant_bras', 'avant_bras': 'avant_bras'
+  'trapezes': 'trapezes',
+  'avant-bras': 'avant_bras', 'avant_bras': 'avant_bras',
+  // Alias EN (compatibilité computeWeeklyVolume/computeMuscleFatigue)
+  'back': 'dos', 'chest': 'pecs', 'shoulders': 'epaules',
+  'hamstrings': 'ischio', 'glutes': 'fessiers', 'calves': 'mollets',
+  'abs': 'abdos', 'traps': 'trapezes', 'forearms': 'avant_bras'
 };
 
 // Liste canonique des muscles pour l'affichage coach/volume
@@ -80,12 +86,15 @@ var MUSCLE_VOLUME_DISPLAY_KEYS = [
   'Fessiers', 'Biceps', 'Triceps', 'Abdominaux', 'Mollets', 'Trapèzes', 'Avant-bras'
 ];
 
-function getMuscleVolumeTarget(muscleName) {
+function getMuscleKey(muscleName) {
   if (!muscleName) return null;
-  var key = (muscleName || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '');
-  var mappedKey = MUSCLE_DISPLAY_TO_KEY[key] || key;
-  return MUSCLE_VOLUME_TARGETS[mappedKey] || null;
+  var k = (muscleName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return MUSCLE_DISPLAY_TO_KEY[k] || k;
+}
+
+function getMuscleVolumeTarget(muscleName) {
+  var key = getMuscleKey(muscleName);
+  return key ? (MUSCLE_VOLUME_TARGETS[key] || null) : null;
 }
 
 // Zones ACWR
@@ -266,39 +275,8 @@ function getInjurySwap(exoName, injuries) {
   return null;
 }
 
-// ── Volume Landmarks (sets/semaine par groupe musculaire) ────
-const VOLUME_LANDMARKS = {
-  chest:      { MEV: 8,  MAV: 14, MRV: 20 },
-  back:       { MEV: 8,  MAV: 16, MRV: 23 },
-  shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
-  quads:      { MEV: 6,  MAV: 14, MRV: 20 },
-  hamstrings: { MEV: 4,  MAV: 10, MRV: 16 },
-  glutes:     { MEV: 4,  MAV: 10, MRV: 16 },
-  biceps:     { MEV: 4,  MAV: 10, MRV: 18 },
-  triceps:    { MEV: 4,  MAV: 10, MRV: 16 },
-  calves:     { MEV: 6,  MAV: 10, MRV: 16 },
-  abs:        { MEV: 0,  MAV: 10, MRV: 18 },
-  traps:      { MEV: 0,  MAV: 8,  MRV: 14 },
-  forearms:   { MEV: 0,  MAV: 6,  MRV: 12 },
-};
-
-// Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
-const MUSCLE_TO_VL_KEY = {
-  'Pecs': 'chest', 'Pecs (haut)': 'chest',
-  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back',
-  'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
-  'Quadriceps': 'quads', 'Quads': 'quads',
-  'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',
-  'Fessiers': 'glutes', 'Glutes': 'glutes',
-  'Biceps': 'biceps',
-  'Triceps': 'triceps',
-  'Mollets': 'calves',
-  'Abdos': 'abs', 'Abdos (frontal)': 'abs', 'Core': 'abs', 'Obliques': 'abs',
-  'Trapèzes': 'traps', 'Traps': 'traps',
-  'Avant-bras': 'forearms',
-  'Jambes': 'quads', // fallback
-  'Bras': 'biceps',  // fallback
-};
+// VOLUME_LANDMARKS supprimé — MUSCLE_VOLUME_TARGETS est désormais la source unique MRV/MAV/MEV
+// MUSCLE_TO_VL_KEY supprimé — remplacé par getMuscleKey() + MUSCLE_DISPLAY_TO_KEY
 
 // ── TRAINING MODES ──────────────────────────────────────────
 const TRAINING_MODES = {
@@ -1210,17 +1188,17 @@ function getCyclePhase() {
   return day <= 14 ? 'folliculaire' : 'luteale';
 }
 
-// ── MRV ajusté par genre (+15% femmes) ────────────────────────
+// ── MRV ajusté par genre (+15% femmes) — RP Strength ──────────
 function getMRV(muscle, gender) {
-  var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
-  var base = (VOLUME_LANDMARKS[key] || {}).MRV || 15;
+  var target = getMuscleVolumeTarget(muscle);
+  var base = target ? target.MRV : 15;
   var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
   return isFemale ? Math.round(base * 1.15) : base;
 }
 
 function getMEV(muscle, gender) {
-  var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
-  var base = (VOLUME_LANDMARKS[key] || {}).MEV || 6;
+  var target = getMuscleVolumeTarget(muscle);
+  var base = target ? target.MEV : 6;
   var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
   return isFemale ? Math.round(base * 1.1) : base;
 }
@@ -1667,7 +1645,7 @@ function computeWeeklyVolume(logs, weeksBack) {
         : (exo.sets || exo.setCount || 0);
       for (var ci = 0; ci < contributions.length; ci++) {
         var mc = contributions[ci];
-        var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();
+        var vlKey = getMuscleKey(mc.muscle) || mc.muscle.toLowerCase();
         volumeByMuscle[vlKey] = (volumeByMuscle[vlKey] || 0) + setCount * mc.coeff;
       }
     }
@@ -1691,13 +1669,13 @@ function computeMuscleFatigue(logs) {
       var workSets = typeof exo.sets === 'number' ? exo.sets : (exo.setCount || 0);
       for (var ci = 0; ci < contributions.length; ci++) {
         var mc = contributions[ci];
-        var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();
+        var vlKey = getMuscleKey(mc.muscle) || mc.muscle.toLowerCase();
         fatigue[vlKey] = (fatigue[vlKey] || 0) + workSets * mc.coeff * decayFactor;
       }
     }
   }
   for (var muscle in fatigue) {
-    var mrv = (VOLUME_LANDMARKS[muscle] || {}).MRV || 15;
+    var mrv = (getMuscleVolumeTarget(muscle) || {}).MRV || 15;
     fatigue[muscle] = Math.min(100, Math.round((fatigue[muscle] / (mrv / 7 * 2)) * 100));
   }
   return fatigue;

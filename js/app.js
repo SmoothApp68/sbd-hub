@@ -8508,23 +8508,23 @@ function renderMuscleHeatmap() {
   }
   // Simplified body SVG (front view) with muscle zones
   const muscles = [
-    { key:'shoulders', label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
-    { key:'shoulders', label:'Épaules',   cx:138, cy:68,  rx:14, ry:10 },
-    { key:'chest',     label:'Pecs',      cx:100, cy:85,  rx:22, ry:14 },
+    { key:'epaules',   label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
+    { key:'epaules',   label:'Épaules',   cx:138, cy:68,  rx:14, ry:10 },
+    { key:'pecs',      label:'Pecs',      cx:100, cy:85,  rx:22, ry:14 },
     { key:'biceps',    label:'Biceps',    cx:52,  cy:105, rx:8,  ry:16 },
     { key:'triceps',   label:'Triceps',   cx:148, cy:105, rx:8,  ry:16 },
-    { key:'abs',       label:'Abdos',     cx:100, cy:120, rx:16, ry:18 },
-    { key:'forearms',  label:'Avant-bras',cx:44,  cy:140, rx:6,  ry:14 },
-    { key:'forearms',  label:'Avant-bras',cx:156, cy:140, rx:6,  ry:14 },
+    { key:'abdos',     label:'Abdos',     cx:100, cy:120, rx:16, ry:18 },
+    { key:'avant_bras',label:'Avant-bras',cx:44,  cy:140, rx:6,  ry:14 },
+    { key:'avant_bras',label:'Avant-bras',cx:156, cy:140, rx:6,  ry:14 },
     { key:'quads',     label:'Quads',     cx:85,  cy:170, rx:12, ry:22 },
     { key:'quads',     label:'Quads',     cx:115, cy:170, rx:12, ry:22 },
-    { key:'hamstrings',label:'Ischio',    cx:85,  cy:175, rx:8,  ry:12 },
-    { key:'hamstrings',label:'Ischio',    cx:115, cy:175, rx:8,  ry:12 },
-    { key:'calves',    label:'Mollets',   cx:85,  cy:210, rx:8,  ry:14 },
-    { key:'calves',    label:'Mollets',   cx:115, cy:210, rx:8,  ry:14 },
-    { key:'traps',     label:'Trapèzes',  cx:100, cy:55,  rx:18, ry:8  },
-    { key:'back',      label:'Dos',       cx:100, cy:100, rx:18, ry:16 },
-    { key:'glutes',    label:'Fessiers',  cx:100, cy:148, rx:16, ry:10 },
+    { key:'ischio',    label:'Ischio',    cx:85,  cy:175, rx:8,  ry:12 },
+    { key:'ischio',    label:'Ischio',    cx:115, cy:175, rx:8,  ry:12 },
+    { key:'mollets',   label:'Mollets',   cx:85,  cy:210, rx:8,  ry:14 },
+    { key:'mollets',   label:'Mollets',   cx:115, cy:210, rx:8,  ry:14 },
+    { key:'trapezes',  label:'Trapèzes',  cx:100, cy:55,  rx:18, ry:8  },
+    { key:'dos',       label:'Dos',       cx:100, cy:100, rx:18, ry:16 },
+    { key:'fessiers',  label:'Fessiers',  cx:100, cy:148, rx:16, ry:10 },
   ];
 
   const seen = new Set();
@@ -8537,9 +8537,9 @@ function renderMuscleHeatmap() {
     svgParts += `<ellipse cx="${m.cx}" cy="${m.cy}" rx="${m.rx}" ry="${m.ry}" fill="${color}" opacity="${opacity}" style="cursor:pointer;" onclick="showMuscleFatigueTooltip('${m.key}')"/>`;
     if (!seen.has(m.key)) {
       seen.add(m.key);
-      const lm = VOLUME_LANDMARKS[m.key];
+      const lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(m.key) : null;
       const sets = Math.round((vol[m.key] || 0) * 10) / 10;
-      tooltipData.push({ key: m.key, label: m.label, fatigue: f, sets, mav: lm ? lm.MAV : '—' });
+      tooltipData.push({ key: m.key, label: m.label, fatigue: f, sets, mav: lm ? lm.MAV_high : '—' });
     }
   });
 
@@ -8574,8 +8574,8 @@ function showMuscleFatigueTooltip(key) {
   if (!el) return;
   const fatigue = computeMuscleFatigue(db.logs || []);
   const vol = computeWeeklyVolume(db.logs, 1);
-  const lm = VOLUME_LANDMARKS[key] || {};
-  const LABELS_FR = { chest:'Pecs', back:'Dos', shoulders:'Épaules', quads:'Quads', hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps', calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras' };
+  const lm = (typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(key) : null) || {};
+  const LABELS_FR = { dos:'Dos', pecs:'Pecs', epaules:'Épaules', quads:'Quads', ischio:'Ischio', fessiers:'Fessiers', biceps:'Biceps', triceps:'Triceps', mollets:'Mollets', abdos:'Abdos', trapezes:'Trapèzes', avant_bras:'Avant-bras' };
   const f = fatigue[key] || 0;
   const sets = Math.round((vol[key] || 0) * 10) / 10;
   // Find last session with this muscle
@@ -8584,7 +8584,7 @@ function showMuscleFatigueTooltip(key) {
     const log = db.logs[i];
     const found = log.exercises.some(exo => {
       const contribs = getMuscleContributions(exo.name);
-      return contribs.some(c => (MUSCLE_TO_VL_KEY[c.muscle] || c.muscle.toLowerCase()) === key);
+      return contribs.some(c => (typeof getMuscleKey === 'function' ? getMuscleKey(c.muscle) : c.muscle.toLowerCase()) === key);
     });
     if (found) {
       const d = new Date(log.timestamp);
@@ -8597,7 +8597,7 @@ function showMuscleFatigueTooltip(key) {
   el.innerHTML = '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">' + (LABELS_FR[key] || key) + '</div>' +
     '<div>Fatigue : <strong>' + f + '%</strong> ' + renderGlossaryTip('fatigue_index') + '</div>' +
     '<div>Dernière séance : ' + lastSession + '</div>' +
-    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV || '—') + ') ' + renderGlossaryTip('mav') + '</div>';
+    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV_high || '—') + ') ' + renderGlossaryTip('mav') + '</div>';
 }
 
 // ── Score de forme composite (Dashboard) ────────────────────
@@ -13951,34 +13951,36 @@ function renderVolumeLandmarks() {
     calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras'
   };
   const DISPLAY_ORDER = [
-    { vlKey: 'back',       label: 'Dos' },
-    { vlKey: 'chest',      label: 'Pecs' },
-    { vlKey: 'abs',        label: 'Abdos' },
+    { vlKey: 'dos',        label: 'Dos' },
+    { vlKey: 'pecs',       label: 'Pecs' },
+    { vlKey: 'abdos',      label: 'Abdos' },
     { vlKey: 'quads',      label: 'Quads' },
-    { vlKey: 'glutes',     label: 'Fessiers' },
-    { vlKey: 'hamstrings', label: 'Ischio' },
-    { vlKey: 'shoulders',  label: 'Épaules' },
+    { vlKey: 'fessiers',   label: 'Fessiers' },
+    { vlKey: 'ischio',     label: 'Ischio' },
+    { vlKey: 'epaules',    label: 'Épaules' },
     { vlKey: 'biceps',     label: 'Biceps' },
     { vlKey: 'triceps',    label: 'Triceps' },
-    { vlKey: 'calves',     label: 'Mollets' },
-    { vlKey: 'traps',      label: 'Trapèzes' },
-    { vlKey: 'forearms',   label: 'Avant-bras' },
+    { vlKey: 'mollets',    label: 'Mollets' },
+    { vlKey: 'trapezes',   label: 'Trapèzes' },
+    { vlKey: 'avant_bras', label: 'Avant-bras' },
   ];
   let html = '';
   DISPLAY_ORDER.forEach(function(item) {
-    const key = item.vlKey; const lm = VOLUME_LANDMARKS[key]; if (!lm) return;
+    const key = item.vlKey;
+    const lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(key) : null;
+    if (!lm) return;
     const sets = Math.round((vol[key] || 0) * 10) / 10;
     const pct = Math.min(100, (sets / lm.MRV) * 100);
     let color = 'var(--sub)'; let status = '< MEV';
     if (shouldShow('mev_mav_mrv')) {
       if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
-      else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
+      else if (sets >= lm.MAV_high) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
       else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
     } else {
       if (sets >= lm.MEV) { color = 'var(--green)'; status = '✅ Volume suffisant'; }
       else { color = 'var(--orange)'; status = '⚠️ Volume insuffisant'; }
     }
-    var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
+    var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV_high ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
     html += '<div style="margin-bottom:8px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
       '<span style="font-weight:600;">' + item.label + '</span>' +
@@ -13986,7 +13988,7 @@ function renderVolumeLandmarks() {
       '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
       '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div>' +
       '<div class="vol-detail" style="display:none;font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;">' +
-      'MEV: ' + lm.MEV + ' · MAV: ' + lm.MAV + ' · MRV: ' + lm.MRV + ' sets/sem<br>' +
+      'MEV: ' + lm.MEV + ' · MAV: ' + lm.MAV_high + ' · MRV: ' + lm.MRV + ' sets/sem<br>' +
       'Actuel : ' + sets + ' sets → ' + zoneLabel + '</div>' +
       '</div>';
   });
@@ -14047,8 +14049,8 @@ function computeStrengthRatios() {
   if (ohp && bench)      ratios.ohp_bench      = { value: ohp/bench,      ideal: [0.60, 0.65], label: 'OHP / Bench' };
   if (row && bench)      ratios.row_bench       = { value: row/bench,      ideal: [0.90, 1.00], label: 'Row / Bench' };
   const vol = computeWeeklyVolume(db.logs, 1);
-  const pushVol = (vol.chest || 0) + (vol.shoulders || 0) * 0.5 + (vol.triceps || 0);
-  const pullVol = (vol.back || 0) + (vol.biceps || 0);
+  const pushVol = (vol.pecs || 0) + (vol.epaules || 0) * 0.5 + (vol.triceps || 0);
+  const pullVol = (vol.dos || 0) + (vol.biceps || 0);
   if (pullVol > 0) ratios.push_pull = { value: pushVol/pullVol, ideal: [0.80, 1.10], label: 'Push / Pull (volume)' };
   return ratios;
 }

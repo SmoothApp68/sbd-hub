@@ -3369,6 +3369,37 @@ function updateEWMAForExo(exoName, currentE1RM, isDeloadSession) {
   exo.ewmaUpdatedAt = Date.now();
 }
 
+// ── Accès à l'e1RM lissé (EWMA) ────────────────────────────────────────────
+// Pour les lifts SBD : cherche dans db.exercises par pattern de nom.
+// Fallback sur e1RM brut si EWMA pas encore calculé (cold start).
+function getSmoothedE1RM(liftType) {
+  if (!db.exercises) return null;
+
+  var LIFT_PATTERNS = {
+    bench:    /bench|développé\s*couché|dc\b/i,
+    squat:    /\bsquat\b/i,
+    deadlift: /deadlift|soulevé\s*de\s*terre/i
+  };
+
+  var pattern = LIFT_PATTERNS[liftType];
+  if (!pattern) return null;
+
+  var bestEwma = 0;
+  Object.keys(db.exercises).forEach(function(name) {
+    if (pattern.test(name)) {
+      var ewma = (db.exercises[name] && db.exercises[name].ewmaE1rm) || 0;
+      if (ewma > bestEwma) bestEwma = ewma;
+    }
+  });
+
+  // Fallback sur e1RM brut si EWMA absent
+  if (bestEwma <= 0 && typeof getTopE1RMForLift === 'function') {
+    return getTopE1RMForLift(liftType);
+  }
+
+  return bestEwma > 0 ? bestEwma : null;
+}
+
 function calcE1RMFrom5RepTest(weight, reps) {
   if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
   var e1rm = weight / (1.0278 - (0.0278 * reps));

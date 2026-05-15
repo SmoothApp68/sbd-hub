@@ -21113,6 +21113,13 @@ function wpDetectPhase() {
     ? ['accumulation']
     : ['hypertrophie', 'force', 'intensification', 'peak', 'deload']; // powerbuilding (default)
 
+  // Fix A — Guard cycle dépassé : si weeksSince > durée totale du cycle,
+  // lastDeloadDate appartient au cycle précédent → recaler sur blockStartDate
+  var _totalCycleWeeks = phases.reduce(function(s, ph) { return s + (durations[ph] || 0); }, 0) || 14;
+  if (weeksSince > _totalCycleWeeks && _lastDL && _cbBSD) {
+    weeksSince = Math.max(1, Math.round((Date.now() - _cbBSD) / (7 * 86400000)));
+  }
+
   var _detectedPhase = null;
   var _weeksBeforePhase = 0;
   for (var i = 0; i < phases.length; i++) {

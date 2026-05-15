@@ -21118,6 +21118,7 @@ function wpDetectPhase() {
   var _totalCycleWeeks = phases.reduce(function(s, ph) { return s + (durations[ph] || 0); }, 0) || 14;
   if (weeksSince > _totalCycleWeeks && _lastDL && _cbBSD) {
     weeksSince = Math.max(1, Math.round((Date.now() - _cbBSD) / (7 * 86400000)));
+    w = weeksSince; // w est capturé avant Fix A → doit être synchronisé
   }
 
   var _detectedPhase = null;

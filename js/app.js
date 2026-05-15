@@ -21158,9 +21158,13 @@ function wpCheckActivityConflicts(dayData, dayName) {
 
 function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
   if (!ratios) return exercises;
+  // Seuils lus depuis STRENGTH_RATIO_TARGETS — cohérence diagnostic Coach = prescription programme
+  var _t = typeof STRENGTH_RATIO_TARGETS !== 'undefined' ? STRENGTH_RATIO_TARGETS : {};
 
-  // Rule 1: Row/Bench < 0.90 on bench day → insert Seal Row at position 2
-  if (dayKey === 'bench' && ratios.row_bench && ratios.row_bench.value < 0.90) {
+  // Rule 1 : Row/Bench < seuil alert (STRENGTH_RATIO_TARGETS.row_bench.alert = 0.85)
+  // Même seuil que le diagnostic Coach → correction visible = alerte visible
+  if (dayKey === 'bench' && ratios.row_bench &&
+      ratios.row_bench.value < ((_t.row_bench && _t.row_bench.alert) || 0.90)) {
     var sealRow = {
       name: 'Seal Row', type: 'weight', restSeconds: 120, isPrimary: false,
       coachNote: '⚖️ Ratio Row/Bench bas (' + ratios.row_bench.value.toFixed(2) + ') — Seal Row ajouté.',
@@ -21169,10 +21173,11 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     exercises.splice(Math.min(2, exercises.length), 0, sealRow);
   }
 
-  // Rule 2: Bench/Squat > 0.83 (i.e. squat/bench < 1.20) on squat day → replace 2nd accessory with Presse à Cuisses
+  // Rule 2 : Bench/Squat > 1/squat_bench.alert (STRENGTH_RATIO_TARGETS.squat_bench.alert = 1.20 → 0.833)
   // v223 — Aligné Gemini : Presse à Cuisses (charge axiale réduite vs Hack Squat) pour
   // priorité quad sans aggraver la fatigue post-Squat lourd.
-  if (dayKey === 'squat' && ratios.bench_squat && ratios.bench_squat.value > (1 / 1.20)) {
+  var _sqBenchAlert = (_t.squat_bench && _t.squat_bench.alert) || 1.20;
+  if (dayKey === 'squat' && ratios.bench_squat && ratios.bench_squat.value > (1 / _sqBenchAlert)) {
     var accIdx = -1;
     var accCount = 0;
     for (var i = 0; i < exercises.length; i++) {
@@ -21191,8 +21196,10 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     }
   }
 
-  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat (si pas déjà présent)
-  if (dayKey === 'deadlift' && ratios.squat_deadlift && ratios.squat_deadlift.value < 0.80) {
+  // Rule 3 : Squat/Deadlift < seuil danger (STRENGTH_RATIO_TARGETS.squat_dead.danger = 0.78)
+  // Seuil danger (pas alert) car la correction est agressive (Squat Pause en plus du DL)
+  if (dayKey === 'deadlift' && ratios.squat_deadlift &&
+      ratios.squat_deadlift.value < ((_t.squat_dead && _t.squat_dead.danger) || 0.80)) {
     var _alreadyHasSquatPause = exercises.some(function(e) {
       return /squat\s*pause/i.test(e.name || '');
     });
@@ -21205,8 +21212,10 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     }
   }
 
-  // Rule 4: OHP/Bench < 0.60 on weakpoints day → unshift Développé Militaire
-  if (dayKey === 'weakpoints' && ratios.ohp_bench && ratios.ohp_bench.value < 0.60) {
+  // Rule 4 : OHP/Bench < seuil alert (STRENGTH_RATIO_TARGETS.ohp_bench.alert = 0.58)
+  // Même seuil que le diagnostic Coach → correction visible = alerte visible
+  if (dayKey === 'weakpoints' && ratios.ohp_bench &&
+      ratios.ohp_bench.value < ((_t.ohp_bench && _t.ohp_bench.alert) || 0.60)) {
     exercises.unshift({
       name: 'Développé Militaire', type: 'weight', restSeconds: 180, isPrimary: true,
       coachNote: '⚖️ Ratio OHP/Bench bas (' + ratios.ohp_bench.value.toFixed(2) + ') — OHP en priorité.',

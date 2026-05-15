@@ -1,5 +1,8 @@
 // ============================================================
 // engine.js — Pure computation, constants, exercise matching
+// NOTE: engine.min.js a été supprimé (figé v213, avant sprints B/C/Fix-Hardcoded/FIX 6).
+// Ce fichier est chargé directement par index.html. Ne jamais recréer engine.min.js
+// manuellement — utiliser le script build du package.json.
 // ============================================================
 
 // ============================================================

@@ -651,6 +651,15 @@ function computeSRS() {
   var acute = acuteSBD + acuteExt;
   var chronic = chronicSBD + chronicExt + 1;
   var acwr = acute / chronic;
+  // Guard ACWR non fiable : le chronic (÷60) et l'acute (÷15) partagent les mêmes
+  // logs quand tout l'entraînement est dans les 7 derniers jours → ratio bloqué
+  // artificiellement à ~4.0. L'ACWR exige un chronic établi (≥3 séances en 7-28j).
+  // Sinon → zone neutre 1.0 (ne pas punir un historique mince, cf. cold start).
+  var _chronicBaseLogs = logs.filter(function(l) {
+    var age = Date.now() - (l.timestamp || 0);
+    return age > 7 * 86400000 && age <= 28 * 86400000;
+  });
+  if (_chronicBaseLogs.length < 3) acwr = 1.0;
   // Zones powerbuilding : 0.8-1.2 optimal, 1.2-1.4 overreach tolérable, >1.5 danger
   var acwrScore;
   if (acwr >= 0.8 && acwr <= 1.2) {

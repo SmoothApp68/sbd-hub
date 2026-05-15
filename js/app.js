@@ -22388,6 +22388,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   try { _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null; } catch(e) {}
   exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
 
+  // Adaptations morphologiques (Prompt B) — après corrections déséquilibre
+  // Hiérarchie : BLESSURE > IMBALANCE > MORPHO
+  if (typeof applyMorphoAdaptations === 'function') {
+    exercises = applyMorphoAdaptations(exercises, dayKey);
+  }
+
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref);
 
   // Recompo + blessure active → supprimer supersets sur membres blessés

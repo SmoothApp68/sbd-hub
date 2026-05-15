@@ -3772,7 +3772,13 @@ function calcMuscleRecoveryDebt(logs) {
     if (!lastTs) { debt[muscle] = 1.0; return; }
     var daysSince = (now - lastTs) / 86400000;
     var latency = RECOVERY_LATENCY[muscle].days;
-    debt[muscle] = daysSince < latency ? 1.5 : 1.0;
+    // Dette de base (latence temporelle)
+    var baseDebt = daysSince < latency ? 1.5 : 1.0;
+    // Modulation par les DOMS du jour (Gemini : BaseDebt × (1 + DOMS/10))
+    // DOMS 4/5 → ×1.4 ; DOMS 5/5 → ×1.5 sur la dette existante
+    var domsScore = typeof getTodayDOMS === 'function' ? getTodayDOMS(muscle) : 0;
+    var domsModifier = 1.0 + ((domsScore || 0) / 10);
+    debt[muscle] = Math.round(baseDebt * domsModifier * 100) / 100;
   });
 
   return debt;

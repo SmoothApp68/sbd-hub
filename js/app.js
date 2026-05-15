@@ -23441,6 +23441,12 @@ function generateWeeklyPlan() {
       }
     }
 
+    // Reset blockStartDate quand fin de mésocycle détectée — stoppe la boucle isEndOfPhaseBlock (audit 60)
+    if (_isEndOfMesocycle && db.weeklyPlan.currentBlock) {
+      db.weeklyPlan.currentBlock.blockStartDate = Date.now();
+      db.weeklyPlan.currentBlock.week = 1;
+    }
+
     db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
     if (!db.weeklyPlan.currentBlock.blockStartDate) {

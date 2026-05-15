@@ -173,9 +173,9 @@ function shouldDeload(logs, mode) {
   var avgSessionsPerWeek = last2Weeks.length / 2;
   var totalVolume2Weeks = last2Weeks.reduce(function(s, l) { return s + (l.volume || 0); }, 0);
 
-  // Fatigue élevée si > 5 séances/sem ou volume > 20t/sem en moyenne
+  // Fatigue élevée si > 5 séances/sem ou ACWR tonnage > 1.3 (Gabbett 2016)
   var highFreq = avgSessionsPerWeek > 5;
-  var highVol = (totalVolume2Weeks / 2) > 20000;
+  var highVol = typeof isFatigued === 'function' && isFatigued(logs);
 
   // Powerlifting / Powerbuilding : deload time-based toutes les 4-5 semaines.
   // Musculation : pas de deload time-based — uniquement déclenché par fatigue élevée.
@@ -257,6 +257,33 @@ function getLoadFromReadiness(readinessScore) {
   if (readinessScore >= 55) return { multiplier: 0.95, label: 'Charges réduites (-5%)', color: 'var(--orange)' };
   if (readinessScore >= 40) return { multiplier: 0.90, label: 'Séance légère (-10%)', color: 'var(--orange)' };
   return { multiplier: 0.80, label: 'Technique seulement (-20%)', color: 'var(--red)' };
+}
+
+// ── ACWR TONNAGE FATIGUE — Gabbett 2016 adapté au tonnage ──
+// Ratio semaine courante / moyenne des 4 semaines précédentes > 1.3 = pic de charge
+// Pas de seuil absolu : adaptatif à la charge habituelle de l'athlète
+function isFatigued(logs) {
+  if (!logs || logs.length < 4) return false;
+  function weekVolume(weeksAgo) {
+    var now = Date.now();
+    var start = now - (weeksAgo + 1) * 7 * 86400000;
+    var end   = now - weeksAgo * 7 * 86400000;
+    return (logs || [])
+      .filter(function(l) { return l.timestamp >= start && l.timestamp < end; })
+      .reduce(function(sum, log) {
+        return sum + (log.exercises || []).reduce(function(s, exo) {
+          return s + (exo.allSets || []).filter(function(st) {
+            return !st.isWarmup;
+          }).reduce(function(sv, st) {
+            return sv + ((parseFloat(st.weight) || 0) * (parseInt(st.reps) || 0));
+          }, 0);
+        }, 0);
+      }, 0);
+  }
+  var currentWeek = weekVolume(0);
+  var avg4weeks = (weekVolume(1) + weekVolume(2) + weekVolume(3) + weekVolume(4)) / 4;
+  if (avg4weeks <= 0) return false;
+  return (currentWeek / avg4weeks) > 1.3;
 }
 
 // ── ACCUMULATED FATIGUE SCORE (0-100) ──

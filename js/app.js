@@ -1574,6 +1574,45 @@ function obSaveQ3() {
   var defaultDays4 = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];
   obSelectedDays = (obFreq === 4) ? defaultDays4 : defaultDays3;
   saveDB();
+  // Si débutant → skip morpho (pas pertinent sans base technique)
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  if (_level === 'debutant') {
+    db.user.morpho = null;
+    obGenerateProgram();
+  } else {
+    _obMorphoAnswers = {}; // reset réponses
+    gotoObStep('q4');
+  }
+}
+
+// ── MORPHO ONBOARDING ─────────────────────────────────────────────────────
+var _obMorphoAnswers = {};
+
+function obMorphoAnswer(morphType, value, btn) {
+  _obMorphoAnswers[morphType] = value;
+  var parent = btn.closest('.ob-morpho-question');
+  if (parent) {
+    parent.querySelectorAll('.ob-morpho-btn').forEach(function(b) {
+      b.classList.remove('selected');
+    });
+  }
+  btn.classList.add('selected');
+}
+
+function obSaveQ4() {
+  db.user.morpho = {
+    long_femurs:           !!_obMorphoAnswers.long_femurs,
+    short_arms_long_torso: !!_obMorphoAnswers.short_arms_long_torso,
+    long_arms:             !!_obMorphoAnswers.long_arms,
+    short_torso:           !!_obMorphoAnswers.short_torso
+  };
+  saveDB();
+  obGenerateProgram();
+}
+
+function obSkipMorpho() {
+  db.user.morpho = null;
+  saveDB();
   obGenerateProgram();
 }
 

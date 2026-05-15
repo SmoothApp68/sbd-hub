@@ -3328,6 +3328,65 @@ function getEWMAAlpha() {
   return EWMA_ALPHA[level] || EWMA_ALPHA.intermediaire;
 }
 
+// ── STRESS ARTICULAIRE — Table de base (scores 0-10 à RPE 8) ──────────────
+// Source : Gemini validation 2026 — biomécanique articulaire powerbuilding
+// 6 articulations : lombaires, genoux, epaules, hanches, coudes, poignets
+// Score de base × (charge/e1RM) × séries = stress pondéré par intensité
+var JOINT_STRESS_TABLE = {
+  // ── Lifts principaux SBD ─────────────────────────────────────────────────
+  'squat':              { lombaires: 9, genoux: 7, hanches: 8 },
+  'squat barre':        { lombaires: 9, genoux: 7, hanches: 8 },
+  'low bar squat':      { lombaires: 9, genoux: 7, hanches: 8 },
+  'high bar squat':     { lombaires: 6, genoux: 8, hanches: 5 },
+  'deadlift':           { lombaires: 10, hanches: 8, coudes: 2 },
+  'soulevé de terre':   { lombaires: 10, hanches: 8, coudes: 2 },
+  'sumo deadlift':      { lombaires: 6, genoux: 6, hanches: 9 },
+  'bench':              { epaules: 7, coudes: 5, poignets: 4 },
+  'développé couché':   { epaules: 7, coudes: 5, poignets: 4 },
+  'bench haltères':     { epaules: 5, coudes: 3, poignets: 5 },
+  // ── Variantes SBD ────────────────────────────────────────────────────────
+  'squat pause':        { lombaires: 8, genoux: 7, hanches: 7 },
+  'front squat':        { lombaires: 4, genoux: 9, hanches: 3 },
+  'deadlift déficit':   { lombaires: 10, hanches: 9 },
+  'rdl':                { lombaires: 8, hanches: 7 },
+  'romanian deadlift':  { lombaires: 8, hanches: 7 },
+  'good morning':       { lombaires: 10, hanches: 6 },
+  'spoto press':        { epaules: 6, coudes: 5, poignets: 4 },
+  // ── Accessoires ──────────────────────────────────────────────────────────
+  'hack squat':         { genoux: 9, lombaires: 2 },
+  'presse à cuisses':   { genoux: 7, lombaires: 3, hanches: 5 },
+  'leg extension':      { genoux: 5 },
+  'leg curl':           { genoux: 2 },
+  'hip thrust':         { hanches: 6, lombaires: 3 },
+  'rowing barre':       { lombaires: 8, coudes: 4 },
+  'rowing poulie':      { lombaires: 3, coudes: 3 },
+  'tirage vertical':    { epaules: 4, coudes: 5 },
+  'lat pulldown':       { epaules: 4, coudes: 5 },
+  'ohp':                { epaules: 8, lombaires: 5, coudes: 4 },
+  'développé militaire':{ epaules: 8, lombaires: 5, coudes: 4 },
+  'dips':               { epaules: 9, coudes: 7 },
+  'tractions':          { epaules: 4, coudes: 5 },
+  'curl barre':         { coudes: 6 },
+  'élévations latérales':{ epaules: 3 },
+  'face pull':          { epaules: 2, coudes: 2 }
+};
+
+// Multiplicateurs morphologiques — actifs uniquement si db.user.morpho est renseigné
+// Prompt B (onboarding morpho) alimentera db.user.morpho — fallback 1.0 si absent
+var JOINT_MORPHO_COEFFS = {
+  long_femurs:  { lombaires: 1.3, genoux: 1.2 },
+  long_arms:    { epaules: 1.25 },
+  short_torso:  { lombaires: 1.2 },
+  long_torso:   { hanches: 1.1 }
+};
+
+// Seuils hebdomadaires de stress par articulation
+// Source : Gemini validation 2026
+var JOINT_STRESS_THRESHOLDS = {
+  orange: 70,   // Alerte Coach
+  red:    100   // Substitution recommandée
+};
+
 // ── Mise à jour EWMA après une séance ──────────────────────────────────────
 // Appelée après chaque log sauvegardé, pour chaque exercice de la séance.
 // Ne met PAS à jour pendant les séances de deload (SNC au repos).

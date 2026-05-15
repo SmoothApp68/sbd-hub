@@ -3450,6 +3450,99 @@ var MORPHO_POWERLIFTING_NOTES = {
   short_torso:           'Ton torse court crée un bras de levier fort au Deadlift. Assure-toi que ta technique est optimisée.'
 };
 
+// ── Application des adaptations morphologiques ────────────────────────────
+// Appelée après wpApplyImbalanceCorrections() dans wpGeneratePowerbuildingDay()
+// Hiérarchie : BLESSURE active > MORPHO (la morpho ne prime jamais sur la sécurité)
+// Désactivé pour : débutants, morpho non renseignée (null)
+// Mode powerlifting : note seule, pas de substitution auto
+function applyMorphoAdaptations(exercises, dayKey) {
+  var morpho = db.user && db.user.morpho;
+  if (!morpho) return exercises; // null/undefined = pas renseigné
+
+  var level = (db.user && db.user.level) || 'intermediaire';
+  if (level === 'debutant') return exercises;
+
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var isPowerlifting = mode === 'powerlifting';
+
+  if (isPowerlifting) {
+    var plNotes = [];
+    Object.keys(morpho).forEach(function(morphType) {
+      if (!morpho[morphType]) return;
+      var note = MORPHO_POWERLIFTING_NOTES[morphType];
+      if (note) plNotes.push(note);
+    });
+    if (plNotes.length > 0) {
+      exercises = exercises.map(function(exo) {
+        if (!exo.isPrimary) return exo;
+        return Object.assign({}, exo, {
+          coachNote: (exo.coachNote ? exo.coachNote + ' | ' : '') + '💡 ' + plNotes[0]
+        });
+      });
+    }
+    return exercises;
+  }
+
+  // Blessures actives — zones protégées (blessure prime sur morpho)
+  var activeInjuryZones = ((db.user && db.user.injuries) || [])
+    .filter(function(i) { return i.active; })
+    .map(function(i) { return i.zone; });
+
+  var INJURY_ZONE_TO_EXERCISE = {
+    genou:   ['squat', 'leg', 'presse', 'fentes'],
+    epaule:  ['bench', 'press', 'développé', 'dips'],
+    dos:     ['deadlift', 'soulevé', 'rowing', 'tirage'],
+    hanches: ['hip', 'squat', 'fentes']
+  };
+
+  function isExerciseProtected(exoName) {
+    var n = (exoName || '').toLowerCase();
+    return activeInjuryZones.some(function(zone) {
+      var patterns = INJURY_ZONE_TO_EXERCISE[zone] || [];
+      return patterns.some(function(p) { return n.indexOf(p) >= 0; });
+    });
+  }
+
+  return exercises.map(function(exo) {
+    if (!exo.isPrimary) return exo; // accessoires non touchés
+
+    if (isExerciseProtected(exo.name)) return exo; // blessure prime
+
+    var substitution = null;
+    Object.keys(morpho).forEach(function(morphType) {
+      if (!morpho[morphType] || substitution) return;
+      var subs = MORPHO_SUBSTITUTIONS[morphType];
+      if (!subs) return;
+
+      var subEntry = subs[dayKey] || null;
+      if (!subEntry) {
+        var exoLower = (exo.name || '').toLowerCase();
+        Object.keys(subs).forEach(function(key) {
+          if (!subEntry && key !== dayKey && exoLower.indexOf(key) >= 0) {
+            subEntry = subs[key];
+          }
+        });
+      }
+      if (subEntry) substitution = subEntry;
+    });
+
+    if (!substitution) return exo;
+
+    var newSets = (exo.sets || []).map(function(s) {
+      if (s.isWarmup || !s.weight || s.weight <= 0) return s;
+      var newWeight = Math.round(s.weight * substitution.loadFactor / 2.5) * 2.5;
+      return Object.assign({}, s, { weight: newWeight });
+    });
+
+    return Object.assign({}, exo, {
+      name:      substitution.name,
+      sets:      newSets,
+      coachNote: substitution.note + (exo.coachNote ? ' | ' + exo.coachNote : '')
+        + ' [↩️ Rétablir : ' + exo.name + ']'
+    });
+  });
+}
+
 // Seuils hebdomadaires de stress par articulation
 // Source : Gemini validation 2026
 var JOINT_STRESS_THRESHOLDS = {

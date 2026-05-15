@@ -3452,6 +3452,62 @@ function calcJointStressForExo(exoName, charge, nbSets, liftType) {
   return result;
 }
 
+// ── Score de stress articulaire hebdomadaire (fenêtre 7j glissante) ────────
+// Retourne un objet { lombaires: X, genoux: X, epaules: X, hanches: X, coudes: X, poignets: X }
+// Utilise calcJointStressForExo() pour chaque exercice de chaque séance.
+function calcWeeklyJointStress(logs) {
+  var cutoff = Date.now() - 7 * 86400000;
+  var weekLogs = (logs || []).filter(function(l) { return l.timestamp > cutoff; });
+  var totals = { lombaires: 0, genoux: 0, epaules: 0, hanches: 0, coudes: 0, poignets: 0 };
+
+  weekLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo.name) return;
+      var liftType = typeof getSBDType === 'function' ? getSBDType(exo.name) : null;
+      var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+        return !(s.isWarmup === true || s.setType === 'warmup' || s.isBackOff);
+      });
+      if (workSets.length === 0) return;
+
+      // Charge moyenne des sets de travail
+      var avgCharge = workSets.reduce(function(sum, s) {
+        return sum + (parseFloat(s.weight) || 0);
+      }, 0) / workSets.length;
+
+      var stress = calcJointStressForExo(exo.name, avgCharge, workSets.length, liftType);
+      Object.keys(stress).forEach(function(joint) {
+        if (totals[joint] !== undefined) totals[joint] += stress[joint];
+      });
+    });
+  });
+
+  // Arrondi final
+  Object.keys(totals).forEach(function(j) {
+    totals[j] = Math.round(totals[j] * 10) / 10;
+  });
+
+  return totals;
+}
+
+// Retourne les articulations en zone orange ou rouge
+function getJointStressAlerts(logs) {
+  var stress = calcWeeklyJointStress(logs);
+  var alerts = [];
+  var LABELS = {
+    lombaires: 'Lombaires', genoux: 'Genoux', epaules: 'Épaules',
+    hanches: 'Hanches', coudes: 'Coudes', poignets: 'Poignets'
+  };
+  Object.keys(stress).forEach(function(joint) {
+    var val = stress[joint];
+    if (val >= JOINT_STRESS_THRESHOLDS.red) {
+      alerts.push({ joint: joint, label: LABELS[joint], score: val, level: 'red' });
+    } else if (val >= JOINT_STRESS_THRESHOLDS.orange) {
+      alerts.push({ joint: joint, label: LABELS[joint], score: val, level: 'orange' });
+    }
+  });
+  return alerts;
+}
+
 // ── Mise à jour EWMA après une séance ──────────────────────────────────────
 // Appelée après chaque log sauvegardé, pour chaque exercice de la séance.
 // Ne met PAS à jour pendant les séances de deload (SNC au repos).

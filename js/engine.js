@@ -3312,6 +3312,22 @@ function getInitLoadCoeff(type) {
   return (INIT_LOAD_COEFFS[level] || INIT_LOAD_COEFFS.intermediaire)[type];
 }
 
+// ── EWMA — Lissage exponentiel des performances ────────────────────────────
+// Alpha = réactivité au changement. Plus α est élevé, plus l'algo réagit vite.
+// Débutant : progression rapide → α élevé. Avancé : force stable → α bas.
+// Source : Gemini validation 2026 — adapté de la littérature athlétique (EWMA sportif)
+var EWMA_ALPHA = {
+  debutant:      0.40,
+  intermediaire: 0.35,
+  avance:        0.35,
+  competiteur:   0.25
+};
+
+function getEWMAAlpha() {
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  return EWMA_ALPHA[level] || EWMA_ALPHA.intermediaire;
+}
+
 function calcE1RMFrom5RepTest(weight, reps) {
   if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
   var e1rm = weight / (1.0278 - (0.0278 * reps));

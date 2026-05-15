@@ -1826,12 +1826,10 @@ function checkLPEnd(logs, bw, pr) {
       message: 'Tu as atteint un palier. On passe en double progression pour consolider.' };
   }
 
-  var squat = (pr && pr.squat) || 0;
-  var bench = (pr && pr.bench) || 0;
-  if (bw > 0 && (squat >= bw * 1.0 || bench >= bw * 0.8)) {
-    return { exit: true, reason: 'performance',
-      message: 'Tes ratios de force montrent que tu es prêt pour une vraie périodisation.' };
-  }
+  // Check multi-lift : sortie par ratio e1RM/BW adaptatif par genre (Gemini 2026)
+  var multiLiftCheck = typeof checkMultiLiftLPExit === 'function'
+    ? checkMultiLiftLPExit() : { exit: false };
+  if (multiLiftCheck.exit) return multiLiftCheck;
 
   return { exit: false };
 }
@@ -4777,6 +4775,45 @@ var LP_CONFIG = {
   durationMaxWeeks: 12,
   increments: { composé_lourd: 2.5, composé_leger: 1.25, isolation: 0.5 }
 };
+
+// Seuils de sortie LP par ratio e1RM/BW — Gemini validation 2026
+// Source : RP Strength + Starting Strength — ratios niveau "Intermédiaire"
+// Sortie si 2 lifts sur 3 franchis (ou 1/1-2 si moins de lifts disponibles)
+var LP_EXIT_RATIOS = {
+  male:   { squat: 1.1, bench: 0.8, deadlift: 1.3 },
+  female: { squat: 0.8, bench: 0.5, deadlift: 1.0 }
+};
+
+function checkMultiLiftLPExit() {
+  var bw = (db.user && db.user.bw) || 0;
+  if (bw <= 0) return { exit: false };
+  var gender = ((db.user && db.user.gender) || 'M').toString().toUpperCase();
+  var isFemale = gender === 'F' || gender === 'FEMALE' || gender === 'FEMME';
+  var ratios = isFemale ? LP_EXIT_RATIOS.female : LP_EXIT_RATIOS.male;
+  var pr = db.bestPR || {};
+  var e1rmSquat    = (typeof getSmoothedE1RM === 'function' && getSmoothedE1RM('squat'))
+                     || pr.squat || 0;
+  var e1rmBench    = (typeof getSmoothedE1RM === 'function' && getSmoothedE1RM('bench'))
+                     || pr.bench || 0;
+  var e1rmDeadlift = (typeof getSmoothedE1RM === 'function' && getSmoothedE1RM('deadlift'))
+                     || pr.deadlift || 0;
+  var passed = 0;
+  var checked = 0;
+  if (e1rmSquat > 0)    { checked++; if (e1rmSquat    >= bw * ratios.squat)    passed++; }
+  if (e1rmBench > 0)    { checked++; if (e1rmBench    >= bw * ratios.bench)    passed++; }
+  if (e1rmDeadlift > 0) { checked++; if (e1rmDeadlift >= bw * ratios.deadlift) passed++; }
+  if (checked === 0) return { exit: false };
+  // Seuil adaptatif : 2/3 si 3 lifts disponibles, sinon 1/1 ou 2/2
+  var exitThreshold = checked >= 3 ? 2 : checked;
+  var shouldExit = passed >= exitThreshold;
+  return {
+    exit: shouldExit,
+    reason: 'strength_threshold',
+    message: shouldExit
+      ? '🎯 Niveau intermédiaire atteint (' + passed + '/' + checked + ' lifts) — passage en APRE.'
+      : null
+  };
+}
 
 function isInLP() {
   if (!db.user || !db.user.lpActive) return false;

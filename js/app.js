@@ -22529,6 +22529,42 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     placedExoNames.push(acc.name);
   });
 
+  // ── Modulateur DOMS (Sprint Feedback Loop) ────────────────────────────────
+  // Appliqué après Insolvency — sur les accessoires uniquement
+  if (typeof getDOMSAdjustment === 'function') {
+    exercises = exercises.map(function(exo) {
+      if (exo.isPrimary) return exo;
+      var contribs = typeof getMuscleContributions === 'function'
+        ? getMuscleContributions(exo.name) : [];
+      var primaryMuscle = contribs.length > 0
+        ? (typeof getMuscleKey === 'function' ? getMuscleKey(contribs[0].muscle) : null)
+        : null;
+      if (!primaryMuscle) return exo;
+      var domsAdj = getDOMSAdjustment(primaryMuscle);
+      if (domsAdj.volumeReduction === 0 && domsAdj.intensityFactor === 1.0) return exo;
+      var newSets = (exo.sets || []).map(function(s) {
+        if (s.isWarmup) return s;
+        var newWeight = s.weight && domsAdj.intensityFactor < 1.0
+          ? Math.round(s.weight * domsAdj.intensityFactor / 2.5) * 2.5
+          : s.weight;
+        return Object.assign({}, s, { weight: newWeight });
+      });
+      if (domsAdj.volumeReduction > 0) {
+        var workSets = newSets.filter(function(s) { return !s.isWarmup; });
+        var warmSets = newSets.filter(function(s) { return s.isWarmup; });
+        workSets = workSets.slice(0, Math.max(1, workSets.length - domsAdj.volumeReduction));
+        newSets = warmSets.concat(workSets);
+      }
+      var domsNote = domsAdj.postpone
+        ? '😬 DOMS ' + domsAdj.score + '/5 — séries réduites, considère de reporter.'
+        : '⚠️ DOMS ' + domsAdj.score + '/5 — volume adapté.';
+      return Object.assign({}, exo, {
+        sets: newSets,
+        coachNote: domsNote + (exo.coachNote ? ' | ' + exo.coachNote : '')
+      });
+    });
+  }
+
   // Correction 3: Buffer 48h Squat → Deadlift
   var dayCoachNote = wpCoachNote(tpl.mainLift, phase, null, null);
   if (_dupCoachNote) dayCoachNote = _dupCoachNote + (dayCoachNote ? ' ' + dayCoachNote : '');

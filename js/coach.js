@@ -324,6 +324,45 @@ function calcChronicTRIMPForce(logs) {
   return Math.round(total / 60);
 }
 
+// ── SFR (Stimulus/Fatigue Ratio) — coût récupération distinct du TRIMP ────
+var SFR_TABLE = {
+  'soulevé de terre': 1.0, 'deadlift': 1.0,
+  'squat': 1.12, 'squat barre': 1.12, 'back squat': 1.12,
+  'développé couché': 1.4, 'bench press': 1.4, 'bench': 1.4,
+  'rowing poulie': 2.5, 'chest supported': 2.5,
+  'rowing barre': 1.5,
+  'leg curl': 3.5, 'curl': 3.5,
+  '_big': 1.2, '_compound': 2.0, '_isolation': 3.5
+};
+
+function getSFRForExo(exoName, category) {
+  var name = (exoName || '').toLowerCase();
+  for (var key in SFR_TABLE) {
+    if (key[0] !== '_' && name.indexOf(key) >= 0) return SFR_TABLE[key];
+  }
+  if (category === 'isolation') return SFR_TABLE['_isolation'];
+  if (category === 'compound') return SFR_TABLE['_compound'];
+  return SFR_TABLE['_big'];
+}
+
+function calcWeeklyFatigueCost(logs) {
+  var cutoff = Date.now() - 7 * 86400000;
+  var weekLogs = (logs || []).filter(function(l) { return l.timestamp > cutoff; });
+  var total = 0;
+  weekLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var sfr = getSFRForExo(exo.name, exo.slot);
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff) return;
+        var rpe = parseFloat(s.rpe) || 7;
+        var reps = parseInt(s.reps) || 0;
+        total += reps * (1 / sfr) * (Math.pow(rpe, 2) / 100);
+      });
+    });
+  });
+  return Math.round(total * 10) / 10;
+}
+
 // ── HRV z-score (normalisé sur 7j) ────────────────────────────────────────
 // z > 1.0  → God Mode (augmenter le score)
 // z < -1.5 → Fatigue nerveuse (réduire le score)

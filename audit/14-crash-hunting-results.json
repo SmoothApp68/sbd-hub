@@ -1,0 +1,404 @@
+[
+  {
+    "scn": 1,
+    "name": "Cold Start absolu",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 0,
+        "level": "ok",
+        "details": {}
+      },
+      "jointAlerts": [],
+      "smoothSquat": null,
+      "lpExit": {
+        "exit": false
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": null,
+        "bench_dead": null,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 0,
+          "bench": 0,
+          "deadlift": 0,
+          "ohp": 0,
+          "row": 0
+        }
+      },
+      "morphoApplied": "Squat (Barre)",
+      "diagnostic": "ok(sections=1)",
+      "bodyText": "Tout est prêt !\n\nImporte tes séances depuis Hevy pour débloquer tes statistiques.\n\n📥 Importer des séances\nBILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n12\nLUN\nMAR\nMER\nJEU\nVEN\n●\nSAM\nDIM\nGO — 🎯 Points Faibles\n0\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n◀\n🏋️\nAUJOURD'HUI\n🎯 Points Faibles\nGO 💪\n▶\n🏅 ACTIVITÉ HORS SALLE AUJOURD'HUI ?\n🥾 Randonnée\n🏃 Cardio\n🚴 Vé",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 2,
+    "name": "Aurélien-like (avancé, 0 log, morpho=null)",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 0,
+        "level": "ok",
+        "details": {}
+      },
+      "jointAlerts": [],
+      "smoothSquat": null,
+      "lpExit": {
+        "exit": false
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": null,
+        "bench_dead": null,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 0,
+          "bench": 0,
+          "deadlift": 0,
+          "ohp": 0,
+          "row": 0
+        }
+      },
+      "morphoApplied": "Squat (Barre)",
+      "diagnostic": "ok(sections=1)",
+      "bodyText": "Tout est prêt !\n\nImporte tes séances depuis Hevy pour débloquer tes statistiques.\n\n📥 Importer des séances\nBILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n12\nLUN\nMAR\nMER\nJEU\nVEN\n●\nSAM\nDIM\nGO — Bench 2 — Volume · Technique & Vitesse · 6 exercices\n0\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n◀\n🏋️\nAUJOURD'HUI\nBench 2 — Volume · Technique & Vitesse\nGO 💪\n▶\nDéveloppé",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 3,
+    "name": "NaN injecté dans e1RM",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 0,
+        "level": "ok",
+        "details": {}
+      },
+      "jointAlerts": [],
+      "smoothSquat": null,
+      "lpExit": {
+        "exit": false
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": null,
+        "bench_dead": null,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 0,
+          "bench": 0,
+          "deadlift": 0,
+          "ohp": 0,
+          "row": 0
+        }
+      },
+      "morphoApplied": "Squat (Barre)",
+      "diagnostic": "ok(sections=1)",
+      "bodyText": "Tout est prêt !\n\nImporte tes séances depuis Hevy pour débloquer tes statistiques.\n\n📥 Importer des séances\nBILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n12\nLUN\nMAR\nMER\nJEU\nVEN\n●\nSAM\nDIM\nGO — 🎯 Points Faibles\n0\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n◀\n🏋️\nAUJOURD'HUI\n🎯 Points Faibles\nGO 💪\n▶\n🏅 ACTIVITÉ HORS SALLE AUJOURD'HUI ?\n🥾 Randonnée\n🏃 Cardio\n🚴 Vé",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 4,
+    "name": "Morpho tous flags true (contradictoire)",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 0,
+        "level": "ok",
+        "details": {}
+      },
+      "jointAlerts": [],
+      "smoothSquat": null,
+      "lpExit": {
+        "exit": false
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": null,
+        "bench_dead": null,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 0,
+          "bench": 0,
+          "deadlift": 0,
+          "ohp": 0,
+          "row": 0
+        }
+      },
+      "morphoApplied": "Low Bar Squat",
+      "diagnostic": "ok(sections=1)",
+      "bodyText": "Tout est prêt !\n\nImporte tes séances depuis Hevy pour débloquer tes statistiques.\n\n📥 Importer des séances\nBILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n12\nLUN\nMAR\nMER\nJEU\nVEN\n●\nSAM\nDIM\nGO — 🎯 Points Faibles\n0\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n◀\n🏋️\nAUJOURD'HUI\n🎯 Points Faibles\nGO 💪\n▶\n🏅 ACTIVITÉ HORS SALLE AUJOURD'HUI ?\n🥾 Randonnée\n🏃 Cardio\n🚴 Vé",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 5,
+    "name": "Insolvency critique (semaine lourde)",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 5.78,
+        "level": "critical",
+        "fatigueCost": 170.8,
+        "baseCapacity": 1.1,
+        "recoveryBudget": 30,
+        "jointMalus": 0.6000000000000001,
+        "redJoints": [
+          "Lombaires",
+          "Genoux",
+          "Hanches"
+        ],
+        "srsScore": 26
+      },
+      "jointAlerts": [
+        {
+          "joint": "lombaires",
+          "label": "Lombaires",
+          "score": 332.5,
+          "level": "red"
+        },
+        {
+          "joint": "genoux",
+          "label": "Genoux",
+          "score": 122.5,
+          "level": "red"
+        },
+        {
+          "joint": "hanches",
+          "label": "Hanches",
+          "score": 280,
+          "level": "red"
+        }
+      ],
+      "smoothSquat": 171.4,
+      "lpExit": {
+        "exit": true,
+        "reason": "strength_threshold",
+        "message": "🎯 Niveau intermédiaire atteint (2/2 lifts) — passage en APRE."
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": 0.7497812773403325,
+        "bench_dead": 0,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 171.4,
+          "bench": 0,
+          "deadlift": 228.6,
+          "ohp": 0,
+          "row": 171.4
+        }
+      },
+      "morphoApplied": "Squat (Barre)",
+      "diagnostic": "ok(sections=6)",
+      "bodyText": "BILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n41\nLUN\n✓\nMAR\n✓\nMER\n✓\nJEU\n✓\nVEN\n●\nSAM\nDIM\nGO — 🔄 Bench 2 — Volume · Récupération Active · 6 exercices\n5\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n🔥\n1\nsem. consécutives\n◀\n🏋️\nAUJOURD'HUI\n🔄 Bench 2 — Volume · Récupération Active\nGO 💪\n▶\nDéveloppé Incliné (Haltères)\n2×9 @ 37.5kg\nDips\n1×12 reps\nRowing Poulie Assis\n1×",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 6,
+    "name": "Stress articulaire zone rouge (lombaires)",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 2.48,
+        "level": "critical",
+        "fatigueCost": 75.2,
+        "baseCapacity": 1.1,
+        "recoveryBudget": 30,
+        "jointMalus": 0.2,
+        "redJoints": [
+          "Lombaires"
+        ],
+        "srsScore": 26
+      },
+      "jointAlerts": [
+        {
+          "joint": "lombaires",
+          "label": "Lombaires",
+          "score": 156.5,
+          "level": "red"
+        },
+        {
+          "joint": "hanches",
+          "label": "Hanches",
+          "score": 99.4,
+          "level": "orange"
+        }
+      ],
+      "smoothSquat": 165.3,
+      "lpExit": {
+        "exit": true,
+        "reason": "strength_threshold",
+        "message": "🎯 Niveau intermédiaire atteint (2/2 lifts) — passage en APRE."
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": 0.7778823529411765,
+        "bench_dead": 0,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 165.3,
+          "bench": 0,
+          "deadlift": 212.5,
+          "ohp": 0,
+          "row": 165.3
+        }
+      },
+      "morphoApplied": "Squat (Barre)",
+      "diagnostic": "ok(sections=6)",
+      "bodyText": "BILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n16\nLUN\nMAR\nMER\nJEU\n✓\nVEN\n●\nSAM\nDIM\nGO — 🎯 Points Faibles\n1\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n🔥\n1\nsem. consécutives\n◀\n🏋️\nAUJOURD'HUI\n🎯 Points Faibles\nGO 💪\n▶\n🏅 ACTIVITÉ HORS SALLE AUJOURD'HUI ?\n🥾 Randonnée\n🏃 Cardio\n🚴 Vélo\n🏊 Natation\n🧘 Yoga\n🏅 Autre\nPERFORMANCE\nImporte des séances pour voir ta progr",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 7,
+    "name": "Alexis-like (débutant, seuils sous LP)",
+    "swapEngine": true,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": true,
+      "insolvency": {
+        "index": 0,
+        "level": "ok",
+        "details": {}
+      },
+      "jointAlerts": [],
+      "smoothSquat": null,
+      "lpExit": {
+        "exit": false
+      },
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": null,
+        "bench_dead": null,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 0,
+          "bench": 0,
+          "deadlift": 0,
+          "ohp": 0,
+          "row": 0
+        }
+      },
+      "morphoApplied": "Squat (Barre)",
+      "diagnostic": "ok(sections=1)",
+      "bodyText": "Tout est prêt !\n\nImporte tes séances depuis Hevy pour débloquer tes statistiques.\n\n📥 Importer des séances\nBILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n12\nLUN\nMAR\nMER\nJEU\nVEN\n●\nSAM\nDIM\nGO — 🏋️ Full Body C · 4 exercices\n0\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n◀\n🏋️\nAUJOURD'HUI\n🏋️ Full Body C\nGO 💪\n▶\nPresse à Cuisses\n4×6 reps\nDéveloppé Militaire\n4×6 reps\n",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  },
+  {
+    "scn": 2,
+    "name": "Aurélien-like (avancé, 0 log, morpho=null)",
+    "swapEngine": false,
+    "nav": "ok",
+    "consoleErrs": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."
+    ],
+    "pageErrs": [],
+    "probe": {
+      "engineLoaded": false,
+      "insolvency": {
+        "index": 0,
+        "level": "ok",
+        "details": {}
+      },
+      "jointAlerts": "fn-absent",
+      "smoothSquat": "fn-absent",
+      "lpExit": "fn-absent",
+      "ratios": {
+        "squat_bench": null,
+        "squat_dead": null,
+        "bench_dead": null,
+        "ohp_bench": null,
+        "row_bench": null,
+        "raw": {
+          "squat": 0,
+          "bench": 0,
+          "deadlift": 0,
+          "ohp": 0,
+          "row": 0
+        }
+      },
+      "morphoApplied": "fn-absent",
+      "diagnostic": "ok(sections=1)",
+      "bodyText": "Tout est prêt !\n\nImporte tes séances depuis Hevy pour débloquer tes statistiques.\n\n📥 Importer des séances\nBILAN DU MATIN\nComment te sens-tu ce matin ?\nFaire le bilan →\nSalut Athlète 👋\nVendredi 15 mai\nForme\n12\nLUN\nMAR\nMER\nJEU\nVEN\n●\nSAM\nDIM\nGO — Bench 2 — Volume · Technique & Vitesse · 6 exercices\n0\nSÉANCES\n—\nDURÉE\n—\nVOLUME\n◀\n🏋️\nAUJOURD'HUI\nBench 2 — Volume · Technique & Vitesse\nGO 💪\n▶\nDéveloppé",
+      "hasNaNVisible": false
+    },
+    "onboardingShown": false,
+    "genPlan": "called; days=7"
+  }
+]

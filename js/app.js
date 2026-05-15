@@ -2677,6 +2677,7 @@ function handleMagicChoice(choice) {
       if (typeof importCSV === 'function') importCSV();
       break;
     case 'skip':
+      if (!db.weeklyPlan && typeof generateWeeklyPlan === 'function') generateWeeklyPlan();
       showTab('tab-dash');
       break;
   }

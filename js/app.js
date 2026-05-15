@@ -21024,8 +21024,12 @@ function wpRepsForPhase(phase, slot) {
 }
 function getDLSetsReps(weekInPhase) {
   var w = parseInt(weekInPhase) || 1;
+  var level = (db && db.user && db.user.level) || 'intermediaire';
+  var isDebutant = level === 'debutant';
   if (w <= 1) return { sets: 5, reps: 5, rpe: 7.5, restSeconds: 300 };
-  if (w === 2) return { sets: 4, reps: 4, rpe: 8.0, restSeconds: 300 };
+  // S2 : 6 reps pour intermédiaire+ (volume), RPE 7.5 compensatoire (−3% charge)
+  // S2 : 5 reps pour débutant (technique prioritaire)
+  if (w === 2) return { sets: 4, reps: isDebutant ? 5 : 6, rpe: 7.5, restSeconds: 300 };
   return             { sets: 4, reps: 3, rpe: 8.5, restSeconds: 360 };
 }
 

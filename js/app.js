@@ -21545,11 +21545,12 @@ function wpCountMissedSessions() {
   var now = Date.now();
   var weekStart = now - (new Date().getDay() || 7) * 86400000;
   weekStart = new Date(weekStart).setHours(0, 0, 0, 0);
+  var todayStart = new Date().setHours(0, 0, 0, 0);
   var plannedDays = 0, doneDays = 0;
   var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
   allDays.forEach(function(day, idx) {
     var dayTs = weekStart + idx * 86400000;
-    if (dayTs > now) return;
+    if (dayTs >= todayStart) return; // aujourd'hui et futur → pas encore manqué
     var label = routine[day] || '';
     if (!label || /repos/i.test(label)) return;
     plannedDays++;

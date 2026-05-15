@@ -239,7 +239,12 @@ function analyzeMuscleBalance(logs, days) {
       var mg = typeof getMuscleGroup === 'function' ? getMuscleGroup(exo.name) : '';
       var sets = exo.sets || exo.series || 1;
       if (PUSH_MUSCLES.indexOf(mg) >= 0) pushSets += sets;
-      if (PULL_MUSCLES.indexOf(mg) >= 0) pullSets += sets;
+      if (PULL_MUSCLES.indexOf(mg) >= 0) {
+        // Tirage vertical (tractions, lat pulldown) : SFR élevé → coefficient 0.5
+        var _isVerticalPull = /tirage\s*(poitrine|vertical|nuque)|lat\s*pull|traction/i.test(exo.name || '');
+        var _pullCoeff = _isVerticalPull ? 0.5 : 1.0;
+        pullSets += sets * _pullCoeff;
+      }
       if (ANTERIOR.indexOf(mg) >= 0) anteriorSets += sets;
       if (POSTERIOR.indexOf(mg) >= 0) posteriorSets += sets;
     });

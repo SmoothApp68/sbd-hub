@@ -2908,6 +2908,25 @@ function analyzeAthleteProfile() {
 
   if (bioAlerts.length) sections.push({ title: '⚠️ Biomécanique & Ratios', alerts: bioAlerts });
 
+  // ── SECTION 1b : STRESS ARTICULAIRE (C2) ───────────────────────────────────
+  var jointStressAlerts = typeof getJointStressAlerts === 'function'
+    ? getJointStressAlerts(db.logs || []) : [];
+
+  if (jointStressAlerts.length > 0) {
+    var artAlerts = [];
+    jointStressAlerts.forEach(function(alert) {
+      var msg = alert.label + ' : ' + Math.round(alert.score) + ' pts/sem';
+      if (alert.level === 'red') {
+        msg += ' — Réduire le volume ou substituer un exercice low-impact.';
+        artAlerts.push({ severity: 'danger', title: '🦴 Surcharge ' + alert.label, text: msg });
+      } else {
+        msg += ' — Surveiller, charge hebdomadaire élevée.';
+        artAlerts.push({ severity: 'warning', title: '⚠️ Stress ' + alert.label, text: msg });
+      }
+    });
+    sections.push({ title: '🦴 Santé Articulaire', alerts: artAlerts });
+  }
+
   // ── SECTION 2 : FATIGUE & VOLUME ───────────────────────────────────────────
   var fatigueAlerts = [];
   var acwr = srs.acwr || 1.0;

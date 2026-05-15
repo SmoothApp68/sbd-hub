@@ -45,7 +45,8 @@ function coachAnalyzeWeeklyVolume() {
 
   // Analyser chaque muscle vs landmarks
   var report = { optimal: [], under: [], high: [], over: [] };
-  Object.keys(VOLUME_LANDMARKS_FR).forEach(function(muscle) {
+  var _muscleKeys = typeof MUSCLE_VOLUME_DISPLAY_KEYS !== 'undefined' ? MUSCLE_VOLUME_DISPLAY_KEYS : [];
+  _muscleKeys.forEach(function(muscle) {
     var sets = muscleSetMap[muscle] || 0;
     if (sets === 0) return; // ignorer muscles non travaillés
     var status = getVolumeStatus(muscle, sets);
@@ -218,9 +219,9 @@ function coachGetFullAnalysis() {
     if (allMuscles.length > 0) {
       var volHtml = '<div class="ai-section-title">💪 Volume semaine (MEV → MRV)</div>';
       allMuscles.forEach(function(e) {
-        var lm = VOLUME_LANDMARKS_FR[e.muscle];
+        var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
         if (!lm) return;
-        var fillPct = Math.min(100, Math.round((e.sets / lm.mrv) * 100));
+        var fillPct = Math.min(100, Math.round((e.sets / lm.MRV) * 100));
         var barColor = e.status.color;
         volHtml += '<div style="margin-bottom:7px;">';
         volHtml += '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;">';
@@ -322,6 +323,247 @@ function calcChronicTRIMPForce(logs) {
   });
   // FIX 2: weekly avg (÷4) then normalize (÷15) = ÷60
   return Math.round(total / 60);
+}
+
+// ── SFR (Stimulus/Fatigue Ratio) — coût récupération distinct du TRIMP ────
+var SFR_TABLE = {
+  'soulevé de terre': 1.0, 'deadlift': 1.0,
+  'squat': 1.12, 'squat barre': 1.12, 'back squat': 1.12,
+  'développé couché': 1.4, 'bench press': 1.4, 'bench': 1.4,
+  'rowing poulie': 2.5, 'chest supported': 2.5,
+  'rowing barre': 1.5,
+  'leg curl': 3.5, 'curl': 3.5,
+  '_big': 1.2, '_compound': 2.0, '_isolation': 3.5
+};
+
+function getSFRForExo(exoName, category) {
+  var name = (exoName || '').toLowerCase();
+  for (var key in SFR_TABLE) {
+    if (key[0] !== '_' && name.indexOf(key) >= 0) return SFR_TABLE[key];
+  }
+  if (category === 'isolation') return SFR_TABLE['_isolation'];
+  if (category === 'compound') return SFR_TABLE['_compound'];
+  return SFR_TABLE['_big'];
+}
+
+function calcWeeklyFatigueCost(logs) {
+  var cutoff = Date.now() - 7 * 86400000;
+  var weekLogs = (logs || []).filter(function(l) { return l.timestamp > cutoff; });
+  var total = 0;
+  weekLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var sfr = getSFRForExo(exo.name, exo.slot);
+      (exo.allSets || []).forEach(function(s) {
+        if (s.isWarmup || s.isBackOff) return;
+        var rpe = parseFloat(s.rpe) || 7;
+        var reps = parseInt(s.reps) || 0;
+        total += reps * (1 / sfr) * (Math.pow(rpe, 2) / 100);
+      });
+    });
+  });
+  return Math.round(total * 10) / 10;
+}
+
+// ── INSOLVENCY INDEX — Calcul principal ──────────────────────────────────
+// Ratio dette/capacité. > 1.0 = insolvabilité biologique.
+// Séparé du SRS (radar tactique) — mesure la dette accumulée sur 7j.
+// Source : Gemini validation 2026
+function calcInsolvencyIndex(logs) {
+  if (!logs || logs.length === 0) return { index: 0, level: 'ok', details: {} };
+
+  // 1. Coût de fatigue hebdomadaire (Prompt A — SFR-pondéré)
+  var fatigueCost = typeof calcWeeklyFatigueCost === 'function'
+    ? calcWeeklyFatigueCost(logs) : 0;
+  if (!fatigueCost || isNaN(fatigueCost) || fatigueCost <= 0) {
+    return { index: 0, level: 'ok', details: {} };
+  }
+
+  // 2. Capacité de base individuelle
+  var baseCapacity = typeof calcBaseCapacity === 'function'
+    ? calcBaseCapacity() : 1.0;
+
+  // 3. Budget récupération depuis le SRS (0.0 → 1.0)
+  // SRS score 100 = récupération optimale, score 0 = épuisement total
+  var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  var srsScore = (srs && typeof srs.score === 'number') ? srs.score : 70;
+  // Plancher à 0.3 pour éviter division par ~0 si SRS très bas
+  var recoveryBudget = Math.max(0.3, srsScore / 100);
+
+  // 4. Index brut
+  // fatigueCost est normalisé (Σ reps × (1/SFR) × RPE²/100)
+  // dénominateur ×100 calibré pour qu'une semaine normale (fatigueCost≈70) donne index≈0.875
+  var rawIndex = fatigueCost / (baseCapacity * recoveryBudget * 100);
+
+  // 5. Malus articulaire : +0.2 par articulation en zone rouge
+  var jointAlerts = typeof getJointStressAlerts === 'function'
+    ? getJointStressAlerts(logs) : [];
+  var redJoints = jointAlerts.filter(function(a) { return a.level === 'red'; });
+  var jointMalus = redJoints.length * 0.2;
+
+  var finalIndex = Math.round((rawIndex + jointMalus) * 100) / 100;
+  // Valeur bornée à 1.99 pour l'affichage — au-delà de critical (1.4)
+  // la valeur exacte n'a pas de valeur informative pour l'utilisateur
+  var displayIndex = Math.min(finalIndex, 1.99);
+
+  // 6. Niveau
+  var thresholds = typeof INSOLVENCY_THRESHOLDS !== 'undefined'
+    ? INSOLVENCY_THRESHOLDS : { orange: 1.0, red: 1.2, critical: 1.4 };
+  var level = finalIndex >= thresholds.critical ? 'critical'
+            : finalIndex >= thresholds.red      ? 'red'
+            : finalIndex >= thresholds.orange   ? 'orange'
+            : 'ok';
+
+  return {
+    index:         finalIndex,
+    displayIndex:  displayIndex,
+    level:         level,
+    fatigueCost:   fatigueCost,
+    baseCapacity:  baseCapacity,
+    recoveryBudget:Math.round(recoveryBudget * 100),
+    jointMalus:    jointMalus,
+    redJoints:     redJoints.map(function(a) { return a.label; }),
+    srsScore:      srsScore
+  };
+}
+
+// ── AUTO-TUNER : ajustements de Volume Landmarks ─────────────────────────────
+// Évalué en fin de mésocycle (4 semaines).
+// +1 delta : volume ≥ MAV_high + insolvency moyen < 0.9 + volume en hausse
+// -1 delta : insolvency moyen ≥ 1.2 (zone rouge persistante)
+// Source : Gemini validation 2026
+function calcVolumeAutoTune(logs) {
+  if (!logs || logs.length === 0) return {};
+
+  var now = Date.now();
+  var fourWeeks = 28 * 86400000;
+  var twoWeeks  = 14 * 86400000;
+
+  var logs4w = logs.filter(function(l) { return l.timestamp > now - fourWeeks; });
+  if (logs4w.length < 4) return {};
+
+  var insolvency = typeof calcInsolvencyIndex === 'function'
+    ? calcInsolvencyIndex(logs4w) : { index: 0 };
+  var avgInsolvency = insolvency.index || 0;
+
+  function getMuscleWeeklySets(subset, startTs, endTs) {
+    var sets = {};
+    subset.filter(function(l) {
+      return l.timestamp >= startTs && l.timestamp < endTs;
+    }).forEach(function(log) {
+      (log.exercises || []).forEach(function(exo) {
+        var contribs = typeof getMuscleContributions === 'function'
+          ? getMuscleContributions(exo.name) : [];
+        var workSets = (exo.allSets || []).filter(function(s) {
+          return !(s.isWarmup === true || s.setType === 'warmup');
+        });
+        contribs.forEach(function(mc) {
+          if (mc.coeff < 0.5) return;
+          var key = typeof getMuscleKey === 'function' ? getMuscleKey(mc.muscle) : null;
+          if (!key) return;
+          sets[key] = (sets[key] || 0) + workSets.length;
+        });
+      });
+    });
+    return sets;
+  }
+
+  var setsEarly = getMuscleWeeklySets(logs4w, now - fourWeeks, now - twoWeeks);
+  var setsLate  = getMuscleWeeklySets(logs4w, now - twoWeeks, now);
+
+  var recommendations = {};
+  Object.keys(setsLate).forEach(function(muscle) {
+    var target = typeof getMuscleVolumeTarget === 'function'
+      ? getMuscleVolumeTarget(muscle) : null;
+    if (!target) return;
+    var avgSets = setsLate[muscle] || 0;
+    var trend = avgSets - (setsEarly[muscle] || 0);
+    var limits = typeof VOLUME_DELTA_LIMITS !== 'undefined' ? VOLUME_DELTA_LIMITS : { max: 4, min: -4 };
+    var currentDelta = (db.user && db.user.volumeDeltas && db.user.volumeDeltas[muscle]) || 0;
+    if (avgSets >= target.MAV_high && avgInsolvency < 0.9 && trend >= 0) {
+      if (currentDelta < limits.max) recommendations[muscle] = currentDelta + 1;
+    } else if (avgInsolvency >= 1.2 && avgSets > target.MEV) {
+      if (currentDelta > limits.min) recommendations[muscle] = currentDelta - 1;
+    }
+  });
+  return recommendations;
+}
+
+// Appliquer les recommandations auto-tuner dans db.user.volumeDeltas
+// À appeler en fin de cycle (lors de la génération d'un nouveau programme)
+function applyVolumeAutoTune(logs) {
+  var recs = calcVolumeAutoTune(logs);
+  if (!recs || Object.keys(recs).length === 0) return false;
+  db.user.volumeDeltas = db.user.volumeDeltas || {};
+  var changed = false;
+  Object.keys(recs).forEach(function(muscle) {
+    if (recs[muscle] !== db.user.volumeDeltas[muscle]) {
+      db.user.volumeDeltas[muscle] = recs[muscle];
+      changed = true;
+    }
+  });
+  if (changed && typeof saveDB === 'function') saveDB();
+  return changed;
+}
+
+// ── Diagnostic Coach enrichi avec l'Insolvency Index ────────────────────────
+// Wrapper autour d'analyzeAthleteProfile() — distinct du SRS (radar tactique).
+// Insolvency = bilan comptable (dette accumulée 7j). SRS = forme du jour.
+function analyzeAthleteProfileWithInsolvency() {
+  var sections = typeof analyzeAthleteProfile === 'function'
+    ? analyzeAthleteProfile() : [];
+
+  var insolvency = calcInsolvencyIndex(db.logs || []);
+  if (insolvency.index <= 0) return sections;
+
+  var alerts = [];
+  var indexDisplay = (insolvency.displayIndex !== undefined
+    ? insolvency.displayIndex : insolvency.index).toFixed(2);
+  var budgetDisplay = insolvency.recoveryBudget + '%';
+
+  if (insolvency.level === 'ok') {
+    alerts.push({
+      severity: 'good',
+      title: '✅ Bilan de récupération',
+      text: 'Index ' + indexDisplay + ' — Capacité de récupération OK. '
+          + 'Budget SRS : ' + budgetDisplay + '. Continue à ce rythme.'
+    });
+  } else if (insolvency.level === 'orange') {
+    alerts.push({
+      severity: 'warning',
+      title: '⚠️ Déficit de récupération modéré',
+      text: 'Index ' + indexDisplay + ' — Tu dépenses légèrement plus que tu ne récupères. '
+          + 'Budget SRS : ' + budgetDisplay + '. '
+          + 'Volume accessoires réduit automatiquement (-1 série) cette semaine.'
+    });
+  } else if (insolvency.level === 'red') {
+    var jointText = insolvency.redJoints.length
+      ? ' Articulations en rouge : ' + insolvency.redJoints.join(', ') + '.'
+      : '';
+    alerts.push({
+      severity: 'danger',
+      title: '🔴 Insolvabilité biologique',
+      text: 'Index ' + indexDisplay + ' — Récupération insuffisante. '
+          + 'Séance Active Recovery recommandée (cardio zone 2, mobilité).'
+          + jointText
+    });
+  } else if (insolvency.level === 'critical') {
+    alerts.push({
+      severity: 'danger',
+      title: '🚨 Banqueroute — Deload immédiat',
+      text: 'Index ' + indexDisplay + ' — Surcharge critique. '
+          + 'Deload complet cette semaine obligatoire. '
+          + 'Charges réduites à 50-60%, volume minimal.'
+    });
+  }
+
+  if (alerts.length > 0) {
+    sections.push({
+      title: '💳 Bilan de Récupération (Insolvency Index)',
+      alerts: alerts
+    });
+  }
+
+  return sections;
 }
 
 // ── HRV z-score (normalisé sur 7j) ────────────────────────────────────────

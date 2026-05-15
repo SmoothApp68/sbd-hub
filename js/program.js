@@ -33,21 +33,6 @@ var BLOCK_DURATION = {
 // MEV = Minimum Effective Volume (sets/semaine min pour progrès)
 // MAV = Maximum Adaptive Volume (zone optimale)
 // MRV = Maximum Recoverable Volume (au-delà → surentraînement)
-var VOLUME_LANDMARKS_FR = {
-  'Pectoraux':     { mev: 8,  mav: 16, mrv: 22 },
-  'Dos':           { mev: 10, mav: 20, mrv: 26 },
-  'Épaules':       { mev: 6,  mav: 14, mrv: 20 },
-  'Quadriceps':    { mev: 8,  mav: 16, mrv: 22 },
-  'Ischio':        { mev: 6,  mav: 12, mrv: 16 },
-  'Fessiers':      { mev: 6,  mav: 14, mrv: 18 },
-  'Biceps':        { mev: 6,  mav: 12, mrv: 18 },
-  'Triceps':       { mev: 6,  mav: 12, mrv: 18 },
-  'Abdominaux':    { mev: 6,  mav: 14, mrv: 20 },
-  'Mollets':       { mev: 8,  mav: 14, mrv: 18 },
-  'Trapèzes':      { mev: 4,  mav: 10, mrv: 14 },
-  'Avant-bras':    { mev: 4,  mav: 10, mrv: 14 }
-};
-
 // ── RECOMMANDATIONS SPLIT PAR FRÉQUENCE ──
 // Basé sur meta-analyse : fréquence 2x/semaine par muscle = optimal
 // Sources : Schoenfeld 2016, Ralston 2017
@@ -188,9 +173,9 @@ function shouldDeload(logs, mode) {
   var avgSessionsPerWeek = last2Weeks.length / 2;
   var totalVolume2Weeks = last2Weeks.reduce(function(s, l) { return s + (l.volume || 0); }, 0);
 
-  // Fatigue élevée si > 5 séances/sem ou volume > 20t/sem en moyenne
+  // Fatigue élevée si > 5 séances/sem ou ACWR tonnage > 1.3 (Gabbett 2016)
   var highFreq = avgSessionsPerWeek > 5;
-  var highVol = (totalVolume2Weeks / 2) > 20000;
+  var highVol = typeof isFatigued === 'function' && isFatigued(logs);
 
   // Powerlifting / Powerbuilding : deload time-based toutes les 4-5 semaines.
   // Musculation : pas de deload time-based — uniquement déclenché par fatigue élevée.
@@ -212,11 +197,11 @@ function shouldDeload(logs, mode) {
 
 // ── VOLUME STATUS PAR MUSCLE ──
 function getVolumeStatus(muscle, setsPerWeek) {
-  var lm = VOLUME_LANDMARKS_FR[muscle];
+  var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(muscle) : null;
   if (!lm) return { status: 'unknown', label: '—', color: 'var(--sub)' };
-  if (setsPerWeek < lm.mev) return { status: 'under', label: 'Sous MEV ('+lm.mev+' sets min)', color: 'var(--red)' };
-  if (setsPerWeek <= lm.mav) return { status: 'optimal', label: 'Zone optimale (MAV)', color: 'var(--green)' };
-  if (setsPerWeek <= lm.mrv) return { status: 'high', label: 'Volume élevé (proche MRV)', color: 'var(--orange)' };
+  if (setsPerWeek < lm.MEV) return { status: 'under', label: 'Sous MEV ('+lm.MEV+' sets min)', color: 'var(--red)' };
+  if (setsPerWeek <= lm.MAV_high) return { status: 'optimal', label: 'Zone optimale (MAV)', color: 'var(--green)' };
+  if (setsPerWeek <= lm.MRV) return { status: 'high', label: 'Volume élevé (proche MRV)', color: 'var(--orange)' };
   return { status: 'over', label: 'Au-dessus du MRV — risque surentraînement', color: 'var(--red)' };
 }
 
@@ -239,7 +224,12 @@ function analyzeMuscleBalance(logs, days) {
       var mg = typeof getMuscleGroup === 'function' ? getMuscleGroup(exo.name) : '';
       var sets = exo.sets || exo.series || 1;
       if (PUSH_MUSCLES.indexOf(mg) >= 0) pushSets += sets;
-      if (PULL_MUSCLES.indexOf(mg) >= 0) pullSets += sets;
+      if (PULL_MUSCLES.indexOf(mg) >= 0) {
+        // Tirage vertical (tractions, lat pulldown) : SFR élevé → coefficient 0.5
+        var _isVerticalPull = /tirage\s*(poitrine|vertical|nuque)|lat\s*pull|traction/i.test(exo.name || '');
+        var _pullCoeff = _isVerticalPull ? 0.5 : 1.0;
+        pullSets += sets * _pullCoeff;
+      }
       if (ANTERIOR.indexOf(mg) >= 0) anteriorSets += sets;
       if (POSTERIOR.indexOf(mg) >= 0) posteriorSets += sets;
     });
@@ -267,6 +257,33 @@ function getLoadFromReadiness(readinessScore) {
   if (readinessScore >= 55) return { multiplier: 0.95, label: 'Charges réduites (-5%)', color: 'var(--orange)' };
   if (readinessScore >= 40) return { multiplier: 0.90, label: 'Séance légère (-10%)', color: 'var(--orange)' };
   return { multiplier: 0.80, label: 'Technique seulement (-20%)', color: 'var(--red)' };
+}
+
+// ── ACWR TONNAGE FATIGUE — Gabbett 2016 adapté au tonnage ──
+// Ratio semaine courante / moyenne des 4 semaines précédentes > 1.3 = pic de charge
+// Pas de seuil absolu : adaptatif à la charge habituelle de l'athlète
+function isFatigued(logs) {
+  if (!logs || logs.length < 4) return false;
+  function weekVolume(weeksAgo) {
+    var now = Date.now();
+    var start = now - (weeksAgo + 1) * 7 * 86400000;
+    var end   = now - weeksAgo * 7 * 86400000;
+    return (logs || [])
+      .filter(function(l) { return l.timestamp >= start && l.timestamp < end; })
+      .reduce(function(sum, log) {
+        return sum + (log.exercises || []).reduce(function(s, exo) {
+          return s + (exo.allSets || []).filter(function(st) {
+            return !st.isWarmup;
+          }).reduce(function(sv, st) {
+            return sv + ((parseFloat(st.weight) || 0) * (parseInt(st.reps) || 0));
+          }, 0);
+        }, 0);
+      }, 0);
+  }
+  var currentWeek = weekVolume(0);
+  var avg4weeks = (weekVolume(1) + weekVolume(2) + weekVolume(3) + weekVolume(4)) / 4;
+  if (avg4weeks <= 0) return false;
+  return (currentWeek / avg4weeks) > 1.3;
 }
 
 // ── ACCUMULATED FATIGUE SCORE (0-100) ──

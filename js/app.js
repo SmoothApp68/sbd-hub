@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -469,6 +469,9 @@ if (db.user.weightCut && db.user.weightCut.active && !db.user.weightCut.startDat
 // ── HYBRID ATHLETE — defensive init ──────────────────────────
 if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 
+// ── VOLUME DELTAS — defensive init ───────────────────────────
+if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
+
 // ── REEDUCATION → DEBUTANT migration (v156) ──────────────────
 if (db.user.onboardingProfile === 'reeducation') {
   db.user.onboardingProfile = 'debutant';
@@ -612,6 +615,100 @@ function showReadinessModal(onComplete) {
   });
   updateReadinessPreview();
 }
+
+// ── DOMS Modal — évaluation courbatures avant séance GO ──────────────────
+// Affiché après la Readiness Modal, avant _goDoStartWorkout()
+// Ne montre que les muscles ciblés par la séance du jour
+function showDOMSModal(callback) {
+  // Déjà renseigné aujourd'hui ?
+  var todayDOMS = typeof getTodayDOMS === 'function' ? getTodayDOMS() : {};
+  if (Object.keys(todayDOMS).length > 0) { if (callback) callback(); return; }
+
+  // Muscles ciblés par la séance du jour
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var dayExos = typeof getProgExosForDay === 'function' ? getProgExosForDay(todayDay) : [];
+  var musclesSet = {};
+  dayExos.forEach(function(exoRef) {
+    var contribs = typeof getMuscleContributions === 'function'
+      ? getMuscleContributions(exoRef) : [];
+    contribs.forEach(function(mc) {
+      var key = typeof getMuscleKey === 'function' ? getMuscleKey(mc.muscle) : null;
+      if (key && mc.coeff >= 0.5) musclesSet[key] = true;
+    });
+  });
+  var muscles = Object.keys(musclesSet);
+  if (muscles.length === 0) { if (callback) callback(); return; }
+
+  var MUSCLE_LABELS = {
+    quads: 'Quadriceps', ischio: 'Ischios', fessiers: 'Fessiers',
+    dos: 'Dos', pecs: 'Pectoraux', epaules: 'Épaules',
+    biceps: 'Biceps', triceps: 'Triceps', mollets: 'Mollets',
+    abdos: 'Abdos', trapezes: 'Trapèzes', avant_bras: 'Avant-bras'
+  };
+
+  window._domsValues = {};
+  muscles.forEach(function(m) { window._domsValues[m] = 0; });
+
+  var html = '<div style="padding:16px;">';
+  html += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">💪 Courbatures du jour</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">Comment vont ces muscles ? (0 = aucune, 5 = très douloureux)</div>';
+  muscles.forEach(function(muscle) {
+    var label = MUSCLE_LABELS[muscle] || muscle;
+    html += '<div style="margin-bottom:12px;">';
+    html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;">' + label + '</div>';
+    html += '<div style="display:flex;gap:6px;">';
+    [0,1,2,3,4,5].forEach(function(score) {
+      var emoji = score === 0 ? '✅' : score <= 2 ? '🟡' : score <= 3 ? '🟠' : '🔴';
+      html += '<button class="doms-btn" data-muscle="' + muscle + '" data-score="' + score + '" ' +
+        'onclick="domsSetScore(\'' + muscle + '\',' + score + ',this)" ' +
+        'style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid var(--border);' +
+        'background:var(--surface);font-size:13px;cursor:pointer;">' +
+        emoji + '<br><span style="font-size:10px;color:var(--sub);">' + score + '</span></button>';
+    });
+    html += '</div></div>';
+  });
+  html += '<button onclick="domsConfirm()" style="width:100%;padding:12px;margin-top:8px;' +
+    'background:var(--accent);border:none;border-radius:12px;color:#000;font-weight:700;' +
+    'font-size:14px;cursor:pointer;">Continuer →</button>';
+  html += '<button onclick="domsSkip()" style="width:100%;padding:8px;margin-top:6px;' +
+    'background:transparent;border:none;color:var(--sub);font-size:12px;cursor:pointer;">Passer</button>';
+  html += '</div>';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'doms-modal-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+    'background:rgba(0,0,0,0.7);display:flex;align-items:flex-end;justify-content:center;z-index:9999;';
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;' +
+    'width:100%;max-width:500px;max-height:80vh;overflow-y:auto;">' + html + '</div>';
+  document.body.appendChild(overlay);
+  window._domsCallback = callback;
+}
+
+window.domsSetScore = function(muscle, score, btn) {
+  if (!window._domsValues) return;
+  window._domsValues[muscle] = score;
+  var parent = btn.closest('div[style*="display:flex"]');
+  if (parent) parent.querySelectorAll('.doms-btn').forEach(function(b) {
+    b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface)';
+  });
+  btn.style.borderColor = 'var(--accent)';
+  btn.style.background = 'rgba(10,132,255,0.15)';
+};
+
+window.domsConfirm = function() {
+  if (typeof saveTodayDOMS === 'function') saveTodayDOMS(window._domsValues || {});
+  var overlay = document.getElementById('doms-modal-overlay');
+  if (overlay) overlay.remove();
+  var cb = window._domsCallback; window._domsCallback = null;
+  if (cb) cb();
+};
+
+window.domsSkip = function() {
+  var overlay = document.getElementById('doms-modal-overlay');
+  if (overlay) overlay.remove();
+  var cb = window._domsCallback; window._domsCallback = null;
+  if (cb) cb();
+};
 
 function updateReadinessPreview() {
   const sleep = parseInt(document.getElementById('rd-sleep')?.value || 5);
@@ -1573,6 +1670,45 @@ function obSaveQ3() {
   var defaultDays3 = ['Lundi', 'Mercredi', 'Vendredi'];
   var defaultDays4 = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];
   obSelectedDays = (obFreq === 4) ? defaultDays4 : defaultDays3;
+  saveDB();
+  // Si débutant → skip morpho (pas pertinent sans base technique)
+  var _level = (db.user && db.user.level) || 'intermediaire';
+  if (_level === 'debutant') {
+    db.user.morpho = null;
+    obGenerateProgram();
+  } else {
+    _obMorphoAnswers = {}; // reset réponses
+    gotoObStep('q4');
+  }
+}
+
+// ── MORPHO ONBOARDING ─────────────────────────────────────────────────────
+var _obMorphoAnswers = {};
+
+function obMorphoAnswer(morphType, value, btn) {
+  _obMorphoAnswers[morphType] = value;
+  var parent = btn.closest('.ob-morpho-question');
+  if (parent) {
+    parent.querySelectorAll('.ob-morpho-btn').forEach(function(b) {
+      b.classList.remove('selected');
+    });
+  }
+  btn.classList.add('selected');
+}
+
+function obSaveQ4() {
+  db.user.morpho = {
+    long_femurs:           !!_obMorphoAnswers.long_femurs,
+    short_arms_long_torso: !!_obMorphoAnswers.short_arms_long_torso,
+    long_arms:             !!_obMorphoAnswers.long_arms,
+    short_torso:           !!_obMorphoAnswers.short_torso
+  };
+  saveDB();
+  obGenerateProgram();
+}
+
+function obSkipMorpho() {
+  db.user.morpho = null;
   saveDB();
   obGenerateProgram();
 }
@@ -2677,6 +2813,7 @@ function handleMagicChoice(choice) {
       if (typeof importCSV === 'function') importCSV();
       break;
     case 'skip':
+      if (!db.weeklyPlan && typeof generateWeeklyPlan === 'function') generateWeeklyPlan();
       showTab('tab-dash');
       break;
   }
@@ -8507,23 +8644,23 @@ function renderMuscleHeatmap() {
   }
   // Simplified body SVG (front view) with muscle zones
   const muscles = [
-    { key:'shoulders', label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
-    { key:'shoulders', label:'Épaules',   cx:138, cy:68,  rx:14, ry:10 },
-    { key:'chest',     label:'Pecs',      cx:100, cy:85,  rx:22, ry:14 },
+    { key:'epaules',   label:'Épaules',   cx:62,  cy:68,  rx:14, ry:10 },
+    { key:'epaules',   label:'Épaules',   cx:138, cy:68,  rx:14, ry:10 },
+    { key:'pecs',      label:'Pecs',      cx:100, cy:85,  rx:22, ry:14 },
     { key:'biceps',    label:'Biceps',    cx:52,  cy:105, rx:8,  ry:16 },
     { key:'triceps',   label:'Triceps',   cx:148, cy:105, rx:8,  ry:16 },
-    { key:'abs',       label:'Abdos',     cx:100, cy:120, rx:16, ry:18 },
-    { key:'forearms',  label:'Avant-bras',cx:44,  cy:140, rx:6,  ry:14 },
-    { key:'forearms',  label:'Avant-bras',cx:156, cy:140, rx:6,  ry:14 },
+    { key:'abdos',     label:'Abdos',     cx:100, cy:120, rx:16, ry:18 },
+    { key:'avant_bras',label:'Avant-bras',cx:44,  cy:140, rx:6,  ry:14 },
+    { key:'avant_bras',label:'Avant-bras',cx:156, cy:140, rx:6,  ry:14 },
     { key:'quads',     label:'Quads',     cx:85,  cy:170, rx:12, ry:22 },
     { key:'quads',     label:'Quads',     cx:115, cy:170, rx:12, ry:22 },
-    { key:'hamstrings',label:'Ischio',    cx:85,  cy:175, rx:8,  ry:12 },
-    { key:'hamstrings',label:'Ischio',    cx:115, cy:175, rx:8,  ry:12 },
-    { key:'calves',    label:'Mollets',   cx:85,  cy:210, rx:8,  ry:14 },
-    { key:'calves',    label:'Mollets',   cx:115, cy:210, rx:8,  ry:14 },
-    { key:'traps',     label:'Trapèzes',  cx:100, cy:55,  rx:18, ry:8  },
-    { key:'back',      label:'Dos',       cx:100, cy:100, rx:18, ry:16 },
-    { key:'glutes',    label:'Fessiers',  cx:100, cy:148, rx:16, ry:10 },
+    { key:'ischio',    label:'Ischio',    cx:85,  cy:175, rx:8,  ry:12 },
+    { key:'ischio',    label:'Ischio',    cx:115, cy:175, rx:8,  ry:12 },
+    { key:'mollets',   label:'Mollets',   cx:85,  cy:210, rx:8,  ry:14 },
+    { key:'mollets',   label:'Mollets',   cx:115, cy:210, rx:8,  ry:14 },
+    { key:'trapezes',  label:'Trapèzes',  cx:100, cy:55,  rx:18, ry:8  },
+    { key:'dos',       label:'Dos',       cx:100, cy:100, rx:18, ry:16 },
+    { key:'fessiers',  label:'Fessiers',  cx:100, cy:148, rx:16, ry:10 },
   ];
 
   const seen = new Set();
@@ -8536,9 +8673,9 @@ function renderMuscleHeatmap() {
     svgParts += `<ellipse cx="${m.cx}" cy="${m.cy}" rx="${m.rx}" ry="${m.ry}" fill="${color}" opacity="${opacity}" style="cursor:pointer;" onclick="showMuscleFatigueTooltip('${m.key}')"/>`;
     if (!seen.has(m.key)) {
       seen.add(m.key);
-      const lm = VOLUME_LANDMARKS[m.key];
+      const lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(m.key) : null;
       const sets = Math.round((vol[m.key] || 0) * 10) / 10;
-      tooltipData.push({ key: m.key, label: m.label, fatigue: f, sets, mav: lm ? lm.MAV : '—' });
+      tooltipData.push({ key: m.key, label: m.label, fatigue: f, sets, mav: lm ? lm.MAV_high : '—' });
     }
   });
 
@@ -8573,8 +8710,8 @@ function showMuscleFatigueTooltip(key) {
   if (!el) return;
   const fatigue = computeMuscleFatigue(db.logs || []);
   const vol = computeWeeklyVolume(db.logs, 1);
-  const lm = VOLUME_LANDMARKS[key] || {};
-  const LABELS_FR = { chest:'Pecs', back:'Dos', shoulders:'Épaules', quads:'Quads', hamstrings:'Ischio', glutes:'Fessiers', biceps:'Biceps', triceps:'Triceps', calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras' };
+  const lm = (typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(key) : null) || {};
+  const LABELS_FR = { dos:'Dos', pecs:'Pecs', epaules:'Épaules', quads:'Quads', ischio:'Ischio', fessiers:'Fessiers', biceps:'Biceps', triceps:'Triceps', mollets:'Mollets', abdos:'Abdos', trapezes:'Trapèzes', avant_bras:'Avant-bras' };
   const f = fatigue[key] || 0;
   const sets = Math.round((vol[key] || 0) * 10) / 10;
   // Find last session with this muscle
@@ -8583,7 +8720,7 @@ function showMuscleFatigueTooltip(key) {
     const log = db.logs[i];
     const found = log.exercises.some(exo => {
       const contribs = getMuscleContributions(exo.name);
-      return contribs.some(c => (MUSCLE_TO_VL_KEY[c.muscle] || c.muscle.toLowerCase()) === key);
+      return contribs.some(c => (typeof getMuscleKey === 'function' ? getMuscleKey(c.muscle) : c.muscle.toLowerCase()) === key);
     });
     if (found) {
       const d = new Date(log.timestamp);
@@ -8596,7 +8733,7 @@ function showMuscleFatigueTooltip(key) {
   el.innerHTML = '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">' + (LABELS_FR[key] || key) + '</div>' +
     '<div>Fatigue : <strong>' + f + '%</strong> ' + renderGlossaryTip('fatigue_index') + '</div>' +
     '<div>Dernière séance : ' + lastSession + '</div>' +
-    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV || '—') + ') ' + renderGlossaryTip('mav') + '</div>';
+    '<div>' + sets + ' sets cette semaine (MAV: ' + (lm.MAV_high || '—') + ') ' + renderGlossaryTip('mav') + '</div>';
 }
 
 // ── Score de forme composite (Dashboard) ────────────────────
@@ -10442,7 +10579,13 @@ function renderProgrammeV2() {
   h += renderPhaseProgressBadge();
   h += renderTodayCard();
   h += renderWeekRowsCompact();
-  h += '<div style="display:flex;gap:8px;padding:10px 12px 16px;">'
+  h += '<div style="padding:4px 12px 0;">'
+    + '<button onclick="openAdjustSession()" style="width:100%;padding:12px;margin-bottom:8px;'
+    + 'background:var(--surface);border:1px solid var(--border);'
+    + 'color:var(--text);border-radius:12px;font-size:13px;'
+    + 'font-weight:600;cursor:pointer;">🔄 Ajuster la séance du jour</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:4px 12px 16px;">'
     + '<button onclick="startPgmEdit()" style="flex:1;background:var(--surface);'
     + 'border:0.5px solid var(--border);border-radius:10px;padding:10px;'
     + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;">Modifier le planning</button>'
@@ -10797,14 +10940,26 @@ function _getModeLabel(mode) {
 }
 
 function renderProgramBuilder() {
-  if (_customBuilderState) { renderCustomBuilder(); return; }
-  if (_pbState) { renderProgramBuilderStep(document.getElementById('programBuilderContent')); return; }
+  var _pbc = document.getElementById('programBuilderContent');
+  var _v2c = document.getElementById('programmeV2Content');
 
-  // v232 — délègue à renderProgrammeV2 (Plan tab redesign v231) si un plan existe
-  if (typeof renderProgrammeV2 === 'function'
-      && db.weeklyPlan && Array.isArray(db.weeklyPlan.days) && db.weeklyPlan.days.length > 0) {
-    var _pbc = document.getElementById('programBuilderContent');
-    if (_pbc) _pbc.innerHTML = '';
+  if (_customBuilderState) {
+    if (_pbc) _pbc.style.display = '';
+    if (_v2c) _v2c.style.display = 'none';
+    renderCustomBuilder();
+    return;
+  }
+  if (_pbState) {
+    if (_pbc) _pbc.style.display = '';
+    if (_v2c) _v2c.style.display = 'none';
+    renderProgramBuilderStep(_pbc);
+    return;
+  }
+
+  // v237 — délègue toujours à renderProgrammeV2, cache l'ancien container
+  if (typeof renderProgrammeV2 === 'function') {
+    if (_pbc) { _pbc.style.display = 'none'; _pbc.innerHTML = ''; }
+    if (_v2c) _v2c.style.display = '';
     renderProgrammeV2();
     return;
   }
@@ -13253,6 +13408,7 @@ function syncRoutineWithSelectedDays() {
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
   migrateActivityData();
+  if (db.user.morpho === undefined) db.user.morpho = null;
   migrateInjuryNames();
   migrateBadges();
   migrateWeeklyPlanSets();
@@ -13932,34 +14088,36 @@ function renderVolumeLandmarks() {
     calves:'Mollets', abs:'Abdos', traps:'Trapèzes', forearms:'Avant-bras'
   };
   const DISPLAY_ORDER = [
-    { vlKey: 'back',       label: 'Dos' },
-    { vlKey: 'chest',      label: 'Pecs' },
-    { vlKey: 'abs',        label: 'Abdos' },
+    { vlKey: 'dos',        label: 'Dos' },
+    { vlKey: 'pecs',       label: 'Pecs' },
+    { vlKey: 'abdos',      label: 'Abdos' },
     { vlKey: 'quads',      label: 'Quads' },
-    { vlKey: 'glutes',     label: 'Fessiers' },
-    { vlKey: 'hamstrings', label: 'Ischio' },
-    { vlKey: 'shoulders',  label: 'Épaules' },
+    { vlKey: 'fessiers',   label: 'Fessiers' },
+    { vlKey: 'ischio',     label: 'Ischio' },
+    { vlKey: 'epaules',    label: 'Épaules' },
     { vlKey: 'biceps',     label: 'Biceps' },
     { vlKey: 'triceps',    label: 'Triceps' },
-    { vlKey: 'calves',     label: 'Mollets' },
-    { vlKey: 'traps',      label: 'Trapèzes' },
-    { vlKey: 'forearms',   label: 'Avant-bras' },
+    { vlKey: 'mollets',    label: 'Mollets' },
+    { vlKey: 'trapezes',   label: 'Trapèzes' },
+    { vlKey: 'avant_bras', label: 'Avant-bras' },
   ];
   let html = '';
   DISPLAY_ORDER.forEach(function(item) {
-    const key = item.vlKey; const lm = VOLUME_LANDMARKS[key]; if (!lm) return;
+    const key = item.vlKey;
+    const lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(key) : null;
+    if (!lm) return;
     const sets = Math.round((vol[key] || 0) * 10) / 10;
     const pct = Math.min(100, (sets / lm.MRV) * 100);
     let color = 'var(--sub)'; let status = '< MEV';
     if (shouldShow('mev_mav_mrv')) {
       if (sets >= lm.MRV) { color = 'var(--red)'; status = '> MRV ⚠️ ' + renderGlossaryTip('mrv'); }
-      else if (sets >= lm.MAV) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
+      else if (sets >= lm.MAV_high) { color = 'var(--orange)'; status = 'MAV→MRV ' + renderGlossaryTip('mav'); }
       else if (sets >= lm.MEV) { color = 'var(--green)'; status = 'MEV→MAV ✅ ' + renderGlossaryTip('mev'); }
     } else {
       if (sets >= lm.MEV) { color = 'var(--green)'; status = '✅ Volume suffisant'; }
       else { color = 'var(--orange)'; status = '⚠️ Volume insuffisant'; }
     }
-    var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
+    var zoneLabel = sets < lm.MEV ? '< MEV (sous le minimum)' : sets < lm.MAV_high ? 'MEV→MAV (zone efficace) ✅' : sets < lm.MRV ? 'MAV→MRV (volume élevé)' : '> MRV (surmenage) ⚠️';
     html += '<div style="margin-bottom:8px;">' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
       '<span style="font-weight:600;">' + item.label + '</span>' +
@@ -13967,7 +14125,7 @@ function renderVolumeLandmarks() {
       '<div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">' +
       '<div style="height:6px;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width 0.4s;"></div></div>' +
       '<div class="vol-detail" style="display:none;font-size:10px;color:var(--sub);margin-top:3px;line-height:1.5;">' +
-      'MEV: ' + lm.MEV + ' · MAV: ' + lm.MAV + ' · MRV: ' + lm.MRV + ' sets/sem<br>' +
+      'MEV: ' + lm.MEV + ' · MAV: ' + lm.MAV_high + ' · MRV: ' + lm.MRV + ' sets/sem<br>' +
       'Actuel : ' + sets + ' sets → ' + zoneLabel + '</div>' +
       '</div>';
   });
@@ -14020,7 +14178,9 @@ function computeStrengthRatios() {
     });
     return best > 0 ? best : null;
   };
-  const squat = e1rm('squat'), bench = e1rm('bench'), deadlift = e1rm('deadlift');
+  const squat    = (typeof getSmoothedE1RM === 'function' ? getSmoothedE1RM('squat')    : null) || e1rm('squat');
+  const bench    = (typeof getSmoothedE1RM === 'function' ? getSmoothedE1RM('bench')    : null) || e1rm('bench');
+  const deadlift = (typeof getSmoothedE1RM === 'function' ? getSmoothedE1RM('deadlift') : null) || e1rm('deadlift');
   const ohp = e1rm('ohp'), row = e1rm('barbell row');
   const ratios = {};
   if (squat && deadlift) ratios.squat_deadlift = { value: squat/deadlift, ideal: [0.80, 0.85], label: 'Squat / Deadlift' };
@@ -14028,8 +14188,8 @@ function computeStrengthRatios() {
   if (ohp && bench)      ratios.ohp_bench      = { value: ohp/bench,      ideal: [0.60, 0.65], label: 'OHP / Bench' };
   if (row && bench)      ratios.row_bench       = { value: row/bench,      ideal: [0.90, 1.00], label: 'Row / Bench' };
   const vol = computeWeeklyVolume(db.logs, 1);
-  const pushVol = (vol.chest || 0) + (vol.shoulders || 0) * 0.5 + (vol.triceps || 0);
-  const pullVol = (vol.back || 0) + (vol.biceps || 0);
+  const pushVol = (vol.pecs || 0) + (vol.epaules || 0) * 0.5 + (vol.triceps || 0);
+  const pullVol = (vol.dos || 0) + (vol.biceps || 0);
   if (pullVol > 0) ratios.push_pull = { value: pushVol/pullVol, ideal: [0.80, 1.10], label: 'Push / Pull (volume)' };
   return ratios;
 }
@@ -16008,6 +16168,56 @@ function renderSettingsProfile() {
     if (_rgpdParent && _rgpdParent.parentNode) _rgpdParent.parentNode.appendChild(_rgpdSection);
   }
   renderRGPDSection(_rgpdSection);
+
+  // ── Analyse morphologique (Prompt B) ──
+  var _morphoSettingsSection = document.getElementById('settingsMorphoSection');
+  var _levelForMorpho = db.user && db.user.level;
+  if (_levelForMorpho !== 'debutant') {
+    if (!_morphoSettingsSection) {
+      _morphoSettingsSection = document.createElement('div');
+      _morphoSettingsSection.id = 'settingsMorphoSection';
+      _morphoSettingsSection.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+      var _morphoParent = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+      if (_morphoParent && _morphoParent.parentNode) _morphoParent.parentNode.appendChild(_morphoSettingsSection);
+    }
+    var _morpho = db.user.morpho;
+    var _morphoAnswered = _morpho !== null && _morpho !== undefined;
+    var _morphoHtml = '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">📐 Analyse morphologique</div>';
+    _morphoHtml += '<div style="font-size:11px;color:var(--sub);line-height:1.5;margin-bottom:12px;">Adapte les exercices à ta morphologie (longueur des leviers, proportions tronc/membres).</div>';
+    if (_morphoAnswered) {
+      var _morphoLines = [];
+      if (_morpho.long_femurs) _morphoLines.push('Fémurs longs');
+      if (_morpho.short_arms_long_torso) _morphoLines.push('Bras courts / tronc long');
+      if (_morpho.long_arms) _morphoLines.push('Bras longs');
+      if (_morpho.short_torso) _morphoLines.push('Tronc court');
+      _morphoHtml += '<div style="font-size:12px;color:var(--sub);margin-bottom:10px;">'
+        + (_morphoLines.length > 0 ? '✓ ' + _morphoLines.join(' · ') : 'Aucun morphotype sélectionné') + '</div>';
+    }
+    _morphoHtml += '<button onclick="openMorphoSettings()" style="width:100%;padding:9px;border-radius:10px;'
+      + 'border:1px solid var(--border);background:var(--bg);color:var(--text);'
+      + 'font-size:12px;font-weight:600;cursor:pointer;">'
+      + (_morphoAnswered ? '✏️ Modifier mon analyse morphologique' : '➕ Configurer mon analyse morphologique')
+      + '</button>';
+    _morphoSettingsSection.innerHTML = _morphoHtml;
+    _morphoSettingsSection.style.display = '';
+  } else if (_morphoSettingsSection) {
+    _morphoSettingsSection.style.display = 'none';
+  }
+}
+
+function openMorphoSettings() {
+  // Pré-remplir _obMorphoAnswers avec les valeurs existantes
+  var _morpho = db.user && db.user.morpho;
+  _obMorphoAnswers = {};
+  if (_morpho && typeof _morpho === 'object') {
+    if (_morpho.long_femurs) _obMorphoAnswers.long_femurs = true;
+    if (_morpho.short_arms_long_torso) _obMorphoAnswers.short_arms_long_torso = true;
+    if (_morpho.long_arms) _obMorphoAnswers.long_arms = true;
+    if (_morpho.short_torso) _obMorphoAnswers.short_torso = true;
+  }
+  // Afficher l'étape Q4 de l'onboarding comme modal de re-configuration
+  gotoObStep('q4');
+  document.getElementById('onboarding-overlay').style.display = 'flex';
 }
 
 // ── Health Connect / Garmin (TÂCHE 17) ──────────────────────
@@ -16982,6 +17192,24 @@ function renderCoachTodayHTML() {
   var pr = db.bestPR || {};
   var html = '';
 
+  // ── MORPHO-CARD — utilisateurs existants sans morpho ──
+  var _morphoLevel = db.user && db.user.level;
+  if (db.user && db.user.onboarded && _morphoLevel !== 'debutant'
+      && (db.user.morpho === null || db.user.morpho === undefined)) {
+    html += '<div style="background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.25);'
+      + 'border-radius:14px;padding:14px;margin-bottom:14px;display:flex;'
+      + 'align-items:center;justify-content:space-between;gap:12px;">';
+    html += '<div>';
+    html += '<div style="font-size:13px;font-weight:700;margin-bottom:3px;">📐 Analyse morphologique</div>';
+    html += '<div style="font-size:11px;color:var(--sub);line-height:1.5;">'
+      + 'Adapte tes exercices à ta morphologie pour optimiser les angles et réduire le stress articulaire.</div>';
+    html += '</div>';
+    html += '<button onclick="openMorphoSettings()" style="flex-shrink:0;padding:8px 14px;'
+      + 'border-radius:10px;background:var(--accent);border:none;color:#fff;'
+      + 'font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Configurer</button>';
+    html += '</div>';
+  }
+
   // ── 0a. KILL SWITCH BANNER — compétition imminente ──
   if (db._killSwitchActive) {
     var _ksDays = db._killSwitchDate
@@ -17196,7 +17424,9 @@ function renderCoachTodayHTML() {
   // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──
   var _SEVERITY_ICONS = { danger: '🚨', warning: '⚠️', good: '✅', info: 'ℹ️' };
   if (coachProfile !== 'silent') {
-    var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
+    var diagnosis = typeof analyzeAthleteProfileWithInsolvency === 'function'
+      ? analyzeAthleteProfileWithInsolvency()
+      : (typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : []);
     if (diagnosis.length) {
       var severityColor = { danger: 'var(--red)', warning: 'var(--orange)', good: 'var(--green)', info: 'var(--blue)' };
       html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
@@ -17480,8 +17710,8 @@ function renderCoachTodayHTML() {
       recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
         reallyUnder.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
         ' — cible MEV : '+reallyUnder.map(function(e){
-          var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
-          return lm ? lm.mev+' sets' : '?';
+          var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
+          return lm ? lm.MEV+' sets' : '?';
         }).join(', ')
       });
     }
@@ -17589,9 +17819,9 @@ function renderCoachTodayHTML() {
     if (allMuscles.length > 0) {
       html += '<div class="coach-muscles"><div class="coach-reco-title">💪 Volume / semaine</div>';
       allMuscles.forEach(function(e) {
-        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
+        var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
         if (!lm) return;
-        var fillPct = Math.min(100, Math.round((e.sets/lm.mrv)*100));
+        var fillPct = Math.min(100, Math.round((e.sets/lm.MRV)*100));
         var barColor = (e.status && e.status.color) || 'var(--sub)';
         html += '<div class="coach-muscle-row">'+
           '<div class="coach-muscle-top">'+
@@ -19083,8 +19313,7 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Dips',                reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
       { name: 'Écarté Haltères',     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
       { name: 'Extension Triceps',   reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
-      { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 }
     ],
     deadlift: [
       // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).
@@ -19093,6 +19322,21 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Tirage Vertical',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
       { name: 'Relevé de Jambes',    reps: '12-15',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' },
       { name: 'Face Pull',           reps: '15-20',rpe: 7,   sets: 3, rest: 60,  priority: 4 }
+    ],
+    // v239 — S2/S3 : variantes semaine 2 et 3 (wave loading accessoires DL)
+    deadlift_s2: [
+      { name: 'Squat Pause',      reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',  reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
+      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+    ],
+    deadlift_s3: [
+      { name: 'Squat Pause',      reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Vertical',  reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
+      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
+      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
     ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
@@ -20990,6 +21234,17 @@ function wpRepsForPhase(phase, slot) {
   return { hypertrophie: 8, accumulation: 6, force: 4, intensification: 3,
            peak: 2, deload: 6, intro: 8, recuperation: 8 }[phase] || 5;
 }
+function getDLSetsReps(weekInPhase) {
+  var w = parseInt(weekInPhase) || 1;
+  var level = (db && db.user && db.user.level) || 'intermediaire';
+  var isDebutant = level === 'debutant';
+  if (w <= 1) return { sets: 5, reps: 5, rpe: 7.5, restSeconds: 300 };
+  // S2 : 6 reps pour intermédiaire+ (volume), RPE 7.5 compensatoire (−3% charge)
+  // S2 : 5 reps pour débutant (technique prioritaire)
+  if (w === 2) return { sets: 4, reps: isDebutant ? 5 : 6, rpe: 7.5, restSeconds: 300 };
+  return             { sets: 4, reps: 3, rpe: 8.5, restSeconds: 360 };
+}
+
 function wpSetsForPhase(phase, slot) {
   if (slot === 'isolation') return 3;
   return { hypertrophie: 4, accumulation: 4, force: 4, intensification: 4,
@@ -21114,9 +21369,13 @@ function wpCheckActivityConflicts(dayData, dayName) {
 
 function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
   if (!ratios) return exercises;
+  // Seuils lus depuis STRENGTH_RATIO_TARGETS — cohérence diagnostic Coach = prescription programme
+  var _t = typeof STRENGTH_RATIO_TARGETS !== 'undefined' ? STRENGTH_RATIO_TARGETS : {};
 
-  // Rule 1: Row/Bench < 0.90 on bench day → insert Seal Row at position 2
-  if (dayKey === 'bench' && ratios.row_bench && ratios.row_bench.value < 0.90) {
+  // Rule 1 : Row/Bench < seuil alert (STRENGTH_RATIO_TARGETS.row_bench.alert = 0.85)
+  // Même seuil que le diagnostic Coach → correction visible = alerte visible
+  if (dayKey === 'bench' && ratios.row_bench &&
+      ratios.row_bench.value < ((_t.row_bench && _t.row_bench.alert) || 0.90)) {
     var sealRow = {
       name: 'Seal Row', type: 'weight', restSeconds: 120, isPrimary: false,
       coachNote: '⚖️ Ratio Row/Bench bas (' + ratios.row_bench.value.toFixed(2) + ') — Seal Row ajouté.',
@@ -21125,10 +21384,11 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     exercises.splice(Math.min(2, exercises.length), 0, sealRow);
   }
 
-  // Rule 2: Bench/Squat > 0.83 (i.e. squat/bench < 1.20) on squat day → replace 2nd accessory with Presse à Cuisses
+  // Rule 2 : Bench/Squat > 1/squat_bench.alert (STRENGTH_RATIO_TARGETS.squat_bench.alert = 1.20 → 0.833)
   // v223 — Aligné Gemini : Presse à Cuisses (charge axiale réduite vs Hack Squat) pour
   // priorité quad sans aggraver la fatigue post-Squat lourd.
-  if (dayKey === 'squat' && ratios.bench_squat && ratios.bench_squat.value > (1 / 1.20)) {
+  var _sqBenchAlert = (_t.squat_bench && _t.squat_bench.alert) || 1.20;
+  if (dayKey === 'squat' && ratios.bench_squat && ratios.bench_squat.value > (1 / _sqBenchAlert)) {
     var accIdx = -1;
     var accCount = 0;
     for (var i = 0; i < exercises.length; i++) {
@@ -21147,17 +21407,26 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     }
   }
 
-  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat
-  if (dayKey === 'deadlift' && ratios.squat_deadlift && ratios.squat_deadlift.value < 0.80) {
-    exercises.push({
-      name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
-      coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
-      sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+  // Rule 3 : Squat/Deadlift < seuil danger (STRENGTH_RATIO_TARGETS.squat_dead.danger = 0.78)
+  // Seuil danger (pas alert) car la correction est agressive (Squat Pause en plus du DL)
+  if (dayKey === 'deadlift' && ratios.squat_deadlift &&
+      ratios.squat_deadlift.value < ((_t.squat_dead && _t.squat_dead.danger) || 0.80)) {
+    var _alreadyHasSquatPause = exercises.some(function(e) {
+      return /squat\s*pause/i.test(e.name || '');
     });
+    if (!_alreadyHasSquatPause) {
+      exercises.push({
+        name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
+        coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
+        sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+      });
+    }
   }
 
-  // Rule 4: OHP/Bench < 0.60 on weakpoints day → unshift Développé Militaire
-  if (dayKey === 'weakpoints' && ratios.ohp_bench && ratios.ohp_bench.value < 0.60) {
+  // Rule 4 : OHP/Bench < seuil alert (STRENGTH_RATIO_TARGETS.ohp_bench.alert = 0.58)
+  // Même seuil que le diagnostic Coach → correction visible = alerte visible
+  if (dayKey === 'weakpoints' && ratios.ohp_bench &&
+      ratios.ohp_bench.value < ((_t.ohp_bench && _t.ohp_bench.alert) || 0.60)) {
     exercises.unshift({
       name: 'Développé Militaire', type: 'weight', restSeconds: 180, isPrimary: true,
       coachNote: '⚖️ Ratio OHP/Bench bas (' + ratios.ohp_bench.value.toFixed(2) + ') — OHP en priorité.',
@@ -22066,6 +22335,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       rpe = (_dupProfile.rpe[0] + _dupProfile.rpe[1]) / 2;
       setsCount = Math.round((_dupProfile.sets[0] + _dupProfile.sets[1]) / 2);
     }
+    // v239 — DL wave loading S1/S2/S3 : override reps/sets when no DUP profile
+    if (dayKey === 'deadlift' && !_dupProfile && typeof getDLSetsReps === 'function') {
+      var _dlWave = getDLSetsReps((db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1);
+      reps = _dlWave.reps;
+      setsCount = _dlWave.sets;
+      rpe = _dlWave.rpe;
+    }
     // PhysioManager (v184) — C_cycle s'applique sur le VOLUME (sets), pas la charge
     if (typeof getCycleCoeff === 'function') {
       var _cycleCoeff = getCycleCoeff();
@@ -22127,8 +22403,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   }
 
   if (tpl.mainLift === 'squat_pause') {
-    var sqW = wpComputeWorkWeightSafe('squat', 'lower');
-    var pauseWeight = wpRound25(sqW * 0.85);
+    var _spWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    var pauseWeight = wpCalcVariationWeight('squat_pause', 6, 2, phase, _spWeek)
+      || wpRound25((wpComputeWorkWeightSafe('squat', 'lower') || 60) * 0.85);
     exercises.push({
       name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: true,
       sets: wpBuildWarmupsSafe(pauseWeight, 3, 'Squat Pause', 1, []).concat(wpBuildMainSets(pauseWeight, 3, 5, 8))
@@ -22137,8 +22414,15 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
 
   // Sélection des accessoires selon la phase (hypertrophie vs force pool)
   var accessoryPhase = (typeof PHASE_ACCESSORY_MAP !== 'undefined' && PHASE_ACCESSORY_MAP && PHASE_ACCESSORY_MAP[phase]) || 'hypertrophie';
-  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey])
-    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][dayKey]
+  // v239 — DL wave loading : S1/S2/S3 variant selection based on week-in-phase
+  var _accDayKey = dayKey;
+  if (dayKey === 'deadlift' && accessoryPhase === 'hypertrophie') {
+    var _dlAccWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    var _dlKey = _dlAccWeek <= 1 ? 'deadlift' : (_dlAccWeek === 2 ? 'deadlift_s2' : 'deadlift_s3');
+    if (WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_dlKey]) _accDayKey = _dlKey;
+  }
+  var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey])
+    ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey]
     : (tpl.accessories || []);
   var accessories = wpFilterInjuries(phaseAccessories, injuries);
   // Rééquilibrage Squat/Bench (Gemini)
@@ -22153,6 +22437,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       });
     }
   }
+  // ── Insolvency Index — modulateur de volume (C3b) ─────────────────────────
+  var _insolvency = typeof calcInsolvencyIndex === 'function'
+    ? calcInsolvencyIndex(db.logs || []) : { index: 0, level: 'ok' };
+  var _insolvencyLevel = _insolvency.level || 'ok';
+
   var remaining = maxExos - exercises.length;
   var placedExoNames = exercises.map(function(e) { return e.name || ''; });
   // Trier par priorité avant de couper — évite de supprimer les exercices cruciaux (Gemini)
@@ -22197,6 +22486,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       sc = Math.max(1, Math.floor(sc * 0.60));
       if (acc.rpe && acc.rpe > 7) acc = Object.assign({}, acc, { rpe: 7 });
     }
+    // Modulateur Insolvency (C3b) — accessoires uniquement, jamais les lifts primaires
+    if (!acc.isPrimary) {
+      if (_insolvencyLevel === 'orange') {
+        sc = Math.max(1, sc - 1);
+      } else if (_insolvencyLevel === 'red' || _insolvencyLevel === 'critical') {
+        sc = Math.max(1, sc - 2);
+      }
+    }
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;
     var dpResult = wpDoubleProgressionWeight(acc.name, repsLow, repsHigh);
@@ -22234,6 +22531,42 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
     placedExoNames.push(acc.name);
   });
+
+  // ── Modulateur DOMS (Sprint Feedback Loop) ────────────────────────────────
+  // Appliqué après Insolvency — sur les accessoires uniquement
+  if (typeof getDOMSAdjustment === 'function') {
+    exercises = exercises.map(function(exo) {
+      if (exo.isPrimary) return exo;
+      var contribs = typeof getMuscleContributions === 'function'
+        ? getMuscleContributions(exo.name) : [];
+      var primaryMuscle = contribs.length > 0
+        ? (typeof getMuscleKey === 'function' ? getMuscleKey(contribs[0].muscle) : null)
+        : null;
+      if (!primaryMuscle) return exo;
+      var domsAdj = getDOMSAdjustment(primaryMuscle);
+      if (domsAdj.volumeReduction === 0 && domsAdj.intensityFactor === 1.0) return exo;
+      var newSets = (exo.sets || []).map(function(s) {
+        if (s.isWarmup) return s;
+        var newWeight = s.weight && domsAdj.intensityFactor < 1.0
+          ? Math.round(s.weight * domsAdj.intensityFactor / 2.5) * 2.5
+          : s.weight;
+        return Object.assign({}, s, { weight: newWeight });
+      });
+      if (domsAdj.volumeReduction > 0) {
+        var workSets = newSets.filter(function(s) { return !s.isWarmup; });
+        var warmSets = newSets.filter(function(s) { return s.isWarmup; });
+        workSets = workSets.slice(0, Math.max(1, workSets.length - domsAdj.volumeReduction));
+        newSets = warmSets.concat(workSets);
+      }
+      var domsNote = domsAdj.postpone
+        ? '😬 DOMS ' + domsAdj.score + '/5 — séries réduites, considère de reporter.'
+        : '⚠️ DOMS ' + domsAdj.score + '/5 — volume adapté.';
+      return Object.assign({}, exo, {
+        sets: newSets,
+        coachNote: domsNote + (exo.coachNote ? ' | ' + exo.coachNote : '')
+      });
+    });
+  }
 
   // Correction 3: Buffer 48h Squat → Deadlift
   var dayCoachNote = wpCoachNote(tpl.mainLift, phase, null, null);
@@ -22296,6 +22629,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   try { _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null; } catch(e) {}
   exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
 
+  // Adaptations morphologiques (Prompt B) — après corrections déséquilibre
+  // Hiérarchie : BLESSURE > IMBALANCE > MORPHO
+  if (typeof applyMorphoAdaptations === 'function') {
+    exercises = applyMorphoAdaptations(exercises, dayKey);
+  }
+
   if (useSupersets) exercises = wpApplySupersets(exercises, _ssPref);
 
   // Recompo + blessure active → supprimer supersets sur membres blessés
@@ -22323,7 +22662,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     });
   }
 
-  if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
+  var _cardioBlockedPhases = ['peak', 'intensification'];
+  var _cardioBlockedBodies = ['lower'];
+  var _cardioBlocked = _cardioBlockedPhases.indexOf(phase) >= 0 && _cardioBlockedBodies.indexOf(bodyPart) >= 0;
+  if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery' && !_cardioBlocked) {
     var _cardioBlock = wpGetCardioForProfile(injuries, 20, isCutting);
     if (_cardioBlock) exercises.push(_cardioBlock);
   }
@@ -22414,13 +22756,93 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
   }
 
+  // Technique sessions : RPE plafonné à 6 — priorité apprentissage moteur
+  if (dayKey === 'technique') {
+    exercises = exercises.map(function(exo) {
+      if (!exo) return exo;
+      var cappedRPE = Math.min(parseFloat(exo.rpe) || 6, 6);
+      return Object.assign({}, exo, { rpe: cappedRPE, maxRPE: Math.min(exo.maxRPE || 6, 6) });
+    });
+  }
+
+  // Note Insolvency coach (C3b)
+  if (_insolvencyLevel === 'critical' || _insolvencyLevel === 'red') {
+    dayCoachNote = (dayCoachNote || '') +
+      ' 🚨 Index Insolvency ' + (_insolvency.displayIndex !== undefined
+        ? _insolvency.displayIndex : _insolvency.index).toFixed(2) +
+      ' — Volume accessoires réduit. Priorise la récupération.';
+  }
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 
 // ── SAFE WRAPPERS — protection crash GO sur logs malformés ─────────────────
+function _getLastWorkoutData(liftType) {
+  var _keyMap = {
+    squat:    /squat.*barre|high bar squat/i,
+    bench:    /bench press.*barre|développé couché.*barre/i,
+    deadlift: /soulevé de terre.*barre/i
+  };
+  var _regex = _keyMap[liftType];
+  if (!_regex) return null;
+  var _logs = (typeof db !== 'undefined' && db && db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
+  for (var i = 0; i < _logs.length; i++) {
+    var _exos = _logs[i].exercises || [];
+    for (var j = 0; j < _exos.length; j++) {
+      var _exo = _exos[j];
+      if (!_regex.test(_exo.name || '')) continue;
+      var _sets = (_exo.allSets || _exo.series || []).filter(function(s) {
+        return s.setType !== 'warmup' && !s.isWarmup && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
+      });
+      if (_sets.length > 0) {
+        var _best = _sets.reduce(function(a, b) { return parseFloat(b.weight) > parseFloat(a.weight) ? b : a; });
+        return { weight: parseFloat(_best.weight), reps: parseInt(_best.reps), rpe: parseFloat(_best.rpe) || 8 };
+      }
+    }
+  }
+  return null;
+}
+
+// Table des Variation Factors (Gemini validé)
+var WP_VARIATION_FACTORS = {
+  'squat_pause':     { factor: 0.85, masterLift: 'squat' },
+  'spoto_press':     { factor: 0.90, masterLift: 'bench' },
+  'rdl':             { factor: 0.75, masterLift: 'deadlift' },
+  'good_morning':    { factor: 0.45, masterLift: 'squat' },
+  'larsen_press':    { factor: 0.85, masterLift: 'bench' },
+  'paused_deadlift': { factor: 0.85, masterLift: 'deadlift' }
+};
+
+var WP_REPS_INTENSITY = {
+  3: 0.90, 4: 0.87, 5: 0.83, 6: 0.80,
+  7: 0.77, 8: 0.74, 10: 0.70, 12: 0.65
+};
+
+var WP_PLACEMENT_PENALTY = { 1: 1.00, 2: 0.97, 3: 0.95 };
+
+function wpCalcVariationWeight(variationKey, targetReps, exerciseOrder, phase, weekInPhase) {
+  var _vf = WP_VARIATION_FACTORS[variationKey];
+  if (!_vf) return null;
+  var _lastLog = _getLastWorkoutData(_vf.masterLift);
+  if (!_lastLog) return null;
+  var _rir = Math.max(0, 10 - (_lastLog.rpe || 8));
+  var _e1rm = _lastLog.weight * (1 + (_lastLog.reps + _rir) * 0.0333);
+  var _varE1rm = _e1rm * _vf.factor;
+  var _repPct = WP_REPS_INTENSITY[targetReps] || WP_REPS_INTENSITY[6];
+  var _phaseBonus = (weekInPhase >= 3) ? 1.03 : 1.00;
+  var _pos = Math.min(exerciseOrder || 1, 3);
+  var _final = _varE1rm * _repPct * _phaseBonus * (WP_PLACEMENT_PENALTY[_pos] || 0.95);
+  return wpRound25(_final);
+}
+
 function wpComputeWorkWeightSafe(liftType, bodyPart) {
   try {
-    return wpComputeWorkWeight(liftType, bodyPart);
+    var result = wpComputeWorkWeight(liftType, bodyPart);
+    if (typeof result !== 'number' || isNaN(result) || result <= 0) {
+      var _fallback = _getLastWorkoutData(liftType);
+      return (_fallback && _fallback.weight > 0) ? _fallback.weight : 60;
+    }
+    return result;
   } catch(e) {
     if (typeof logErrorToSupabase === 'function') {
       logErrorToSupabase('algo_crash', String(e && e.message || e),
@@ -22928,6 +23350,26 @@ function generateWeeklyPlan() {
     if (!db.weeklyPlan) db.weeklyPlan = {};
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
     db.weeklyPlan.currentBlock.phase = phase;
+
+    // ── Garde-fou Insolvency (C3b) ────────────────────────────────────────────
+    // Index critique → deload forcé indépendamment de la phase calculée.
+    // Red (1.2-1.4) géré par réduction volume dans wpGeneratePowerbuildingDay.
+    var _insolvencyCheck = typeof calcInsolvencyIndex === 'function'
+      ? calcInsolvencyIndex(db.logs || []) : { level: 'ok' };
+    if (_insolvencyCheck.level === 'critical' && phase !== 'deload') {
+      phase = 'deload';
+      db.weeklyPlan.currentBlock.phase = phase;
+      showToast('🚨 Insolvency critique — Deload forcé. Ton corps a besoin de récupérer.');
+    }
+
+    // ── Auto-Tuner Volume Landmarks (Sprint Feedback Loop) ────────────────────
+    // Évaluation en fin de mésocycle uniquement (isEndOfPhaseBlock)
+    if (typeof isEndOfPhaseBlock === 'function' && isEndOfPhaseBlock()
+        && typeof applyVolumeAutoTune === 'function') {
+      var _tuned = applyVolumeAutoTune(db.logs || []);
+      if (_tuned) showToast('📊 Volume ajusté automatiquement selon ta progression.');
+    }
+
     db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
     if (!db.weeklyPlan.currentBlock.blockStartDate) {
@@ -24506,10 +24948,12 @@ function goLaunchActual() {
 function goStartWorkout(withProgram) {
   // Show readiness modal before starting (only if not already filled today)
   if (withProgram && !hasTodayReadiness()) {
-    showReadinessModal(function() { _goDoStartWorkout(withProgram); });
+    showReadinessModal(function() {
+      showDOMSModal(function() { _goDoStartWorkout(withProgram); });
+    });
     return;
   }
-  _goDoStartWorkout(withProgram);
+  showDOMSModal(function() { _goDoStartWorkout(withProgram); });
 }
 
 // ── INSTINCT MODE — universel (Gemini v208) ─────────────────────────
@@ -28308,6 +28752,18 @@ function goFinishWorkout() {
           if (_lpRes && _lpRes.message) showToast(_lpRes.message);
         }
       });
+    }
+  } catch(e) {}
+
+  // Mise à jour EWMA après chaque séance loggée
+  try {
+    if (typeof updateEWMAForExo === 'function') {
+      var _isDeload = typeof isDeloadWeek === 'function' && isDeloadWeek();
+      (session.exercises || []).forEach(function(_ewmaExo) {
+        if (!_ewmaExo.name || !_ewmaExo.maxRM || _ewmaExo.maxRM <= 0) return;
+        updateEWMAForExo(_ewmaExo.name, _ewmaExo.maxRM, _isDeload);
+      });
+      saveDB();
     }
   } catch(e) {}
 

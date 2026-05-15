@@ -1,5 +1,8 @@
 // ============================================================
 // engine.js — Pure computation, constants, exercise matching
+// NOTE: engine.min.js a été supprimé (figé v213, avant sprints B/C/Fix-Hardcoded/FIX 6).
+// Ce fichier est chargé directement par index.html. Ne jamais recréer engine.min.js
+// manuellement — utiliser le script build du package.json.
 // ============================================================
 
 // ============================================================
@@ -43,16 +46,74 @@ var STRENGTH_RATIO_TARGETS = {
 };
 
 // MRV par groupe musculaire (Dr. Mike Israetel / RP)
+// Sources : RP Strength / Mike Israetel — validé Gemini 2026
 var MUSCLE_VOLUME_TARGETS = {
-  quads:    { MEV: 8,  MAV_low: 12, MAV_high: 18, MRV: 20 },
-  ischio:   { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 },
-  pecs:     { MEV: 8,  MAV_low: 12, MAV_high: 20, MRV: 22 },
-  dos:      { MEV: 10, MAV_low: 14, MAV_high: 22, MRV: 25 },
-  epaules:  { MEV: 6,  MAV_low: 10, MAV_high: 16, MRV: 20 },
-  biceps:   { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
-  triceps:  { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
-  fessiers: { MEV: 4,  MAV_low: 8,  MAV_high: 16, MRV: 20 }
+  quads:      { MEV: 8,  MAV_low: 12, MAV_high: 18, MRV: 20 },
+  ischio:     { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 },
+  pecs:       { MEV: 8,  MAV_low: 12, MAV_high: 20, MRV: 22 },
+  dos:        { MEV: 10, MAV_low: 14, MAV_high: 22, MRV: 25 },
+  epaules:    { MEV: 6,  MAV_low: 10, MAV_high: 16, MRV: 20 },
+  biceps:     { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
+  triceps:    { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
+  fessiers:   { MEV: 4,  MAV_low: 8,  MAV_high: 16, MRV: 20 },
+  abdos:      { MEV: 6,  MAV_low: 10, MAV_high: 14, MRV: 18 },
+  mollets:    { MEV: 6,  MAV_low: 8,  MAV_high: 12, MRV: 16 },
+  trapezes:   { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 14 },
+  avant_bras: { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 }
 };
+
+// Noms d'affichage FR + alias EN → clé MUSCLE_VOLUME_TARGETS (source unique de vérité)
+var MUSCLE_DISPLAY_TO_KEY = {
+  // Noms FR
+  'pectoraux': 'pecs', 'pecs': 'pecs', 'pecs (haut)': 'pecs', 'poitrine': 'pecs',
+  'dos': 'dos', 'dorsaux': 'dos', 'lats': 'dos', 'grand dorsal': 'dos',
+  'epaules': 'epaules', 'deltoïdes': 'epaules', 'deltoides': 'epaules',
+  'quadriceps': 'quads', 'quads': 'quads', 'jambes': 'quads',
+  'ischio': 'ischio', 'ischios': 'ischio', 'ischio-jambiers': 'ischio',
+  'fessiers': 'fessiers',
+  'biceps': 'biceps', 'bras': 'biceps',
+  'triceps': 'triceps',
+  'abdominaux': 'abdos', 'abdos': 'abdos', 'core': 'abdos', 'obliques': 'abdos',
+  'mollets': 'mollets', 'mollet': 'mollets',
+  'trapezes': 'trapezes',
+  'avant-bras': 'avant_bras', 'avant_bras': 'avant_bras',
+  // Alias EN (compatibilité computeWeeklyVolume/computeMuscleFatigue)
+  'back': 'dos', 'chest': 'pecs', 'shoulders': 'epaules',
+  'hamstrings': 'ischio', 'glutes': 'fessiers', 'calves': 'mollets',
+  'abs': 'abdos', 'traps': 'trapezes', 'forearms': 'avant_bras'
+};
+
+// Liste canonique des muscles pour l'affichage coach/volume
+var MUSCLE_VOLUME_DISPLAY_KEYS = [
+  'Pectoraux', 'Dos', 'Épaules', 'Quadriceps', 'Ischio',
+  'Fessiers', 'Biceps', 'Triceps', 'Abdominaux', 'Mollets', 'Trapèzes', 'Avant-bras'
+];
+
+function getMuscleKey(muscleName) {
+  if (!muscleName) return null;
+  var k = (muscleName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return MUSCLE_DISPLAY_TO_KEY[k] || k;
+}
+
+function getMuscleVolumeTarget(muscleName) {
+  var key = getMuscleKey(muscleName);
+  if (!key) return null;
+  var base = MUSCLE_VOLUME_TARGETS[key];
+  if (!base) return null;
+  // Appliquer le delta individuel si présent (Volume Landmarks dynamiques)
+  var deltas = db.user && db.user.volumeDeltas;
+  if (deltas && deltas[key] !== undefined) {
+    var delta = Math.max(VOLUME_DELTA_LIMITS.min,
+                  Math.min(VOLUME_DELTA_LIMITS.max, deltas[key]));
+    return Object.assign({}, base, {
+      MEV:      Math.max(0, base.MEV + delta),
+      MAV_low:  Math.max(0, base.MAV_low + delta),
+      MAV_high: Math.max(0, base.MAV_high + delta),
+      MRV:      Math.max(1, base.MRV + delta)
+    });
+  }
+  return base;
+}
 
 // Zones ACWR
 var ACWR_ZONES = {
@@ -232,39 +293,8 @@ function getInjurySwap(exoName, injuries) {
   return null;
 }
 
-// ── Volume Landmarks (sets/semaine par groupe musculaire) ────
-const VOLUME_LANDMARKS = {
-  chest:      { MEV: 8,  MAV: 14, MRV: 20 },
-  back:       { MEV: 8,  MAV: 16, MRV: 23 },
-  shoulders:  { MEV: 6,  MAV: 12, MRV: 18 },
-  quads:      { MEV: 6,  MAV: 14, MRV: 20 },
-  hamstrings: { MEV: 4,  MAV: 10, MRV: 16 },
-  glutes:     { MEV: 4,  MAV: 10, MRV: 16 },
-  biceps:     { MEV: 4,  MAV: 10, MRV: 18 },
-  triceps:    { MEV: 4,  MAV: 10, MRV: 16 },
-  calves:     { MEV: 6,  MAV: 10, MRV: 16 },
-  abs:        { MEV: 0,  MAV: 10, MRV: 18 },
-  traps:      { MEV: 0,  MAV: 8,  MRV: 14 },
-  forearms:   { MEV: 0,  MAV: 6,  MRV: 12 },
-};
-
-// Mapping des noms de muscles FR → clé VOLUME_LANDMARKS
-const MUSCLE_TO_VL_KEY = {
-  'Pecs': 'chest', 'Pecs (haut)': 'chest',
-  'Dos': 'back', 'Dorsaux': 'back', 'Lats': 'back',
-  'Épaules': 'shoulders', 'Épaules (antérieur)': 'shoulders', 'Épaules (latéral)': 'shoulders', 'Épaules (postérieur)': 'shoulders', 'Deltoïdes': 'shoulders',
-  'Quadriceps': 'quads', 'Quads': 'quads',
-  'Ischio-jambiers': 'hamstrings', 'Ischio': 'hamstrings', 'Ischios': 'hamstrings',
-  'Fessiers': 'glutes', 'Glutes': 'glutes',
-  'Biceps': 'biceps',
-  'Triceps': 'triceps',
-  'Mollets': 'calves',
-  'Abdos': 'abs', 'Abdos (frontal)': 'abs', 'Core': 'abs', 'Obliques': 'abs',
-  'Trapèzes': 'traps', 'Traps': 'traps',
-  'Avant-bras': 'forearms',
-  'Jambes': 'quads', // fallback
-  'Bras': 'biceps',  // fallback
-};
+// VOLUME_LANDMARKS supprimé — MUSCLE_VOLUME_TARGETS est désormais la source unique MRV/MAV/MEV
+// MUSCLE_TO_VL_KEY supprimé — remplacé par getMuscleKey() + MUSCLE_DISPLAY_TO_KEY
 
 // ── TRAINING MODES ──────────────────────────────────────────
 const TRAINING_MODES = {
@@ -1176,17 +1206,17 @@ function getCyclePhase() {
   return day <= 14 ? 'folliculaire' : 'luteale';
 }
 
-// ── MRV ajusté par genre (+15% femmes) ────────────────────────
+// ── MRV ajusté par genre (+15% femmes) — RP Strength ──────────
 function getMRV(muscle, gender) {
-  var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
-  var base = (VOLUME_LANDMARKS[key] || {}).MRV || 15;
+  var target = getMuscleVolumeTarget(muscle);
+  var base = target ? target.MRV : 15;
   var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
   return isFemale ? Math.round(base * 1.15) : base;
 }
 
 function getMEV(muscle, gender) {
-  var key = MUSCLE_TO_VL_KEY[muscle] || muscle;
-  var base = (VOLUME_LANDMARKS[key] || {}).MEV || 6;
+  var target = getMuscleVolumeTarget(muscle);
+  var base = target ? target.MEV : 6;
   var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
   return isFemale ? Math.round(base * 1.1) : base;
 }
@@ -1305,7 +1335,8 @@ function calcMacrosCibles(kcalCible, bw) {
   var protPerKg = goal === 'recompo' ? 2.4 : 1.95;
   var prot = Math.round(bw * protPerKg);
   // Lipides : 1g/kg min pour femmes (santé hormonale), 0.73g/kg sinon
-  var fatPerKg = gender === 'female' ? Math.max(1.0, 0.73) : 0.73;
+  // Lipides : 1.0g/kg femme (hormones), 0.73g/kg homme (RP Strength)
+  var fatPerKg = gender === 'female' ? 1.0 : 0.73;
   var fat = Math.round(bw * fatPerKg);
   var carb = Math.max(0, Math.round((kcalCible - prot * 4 - fat * 9) / 4));
   return { prot: prot, carb: carb, fat: fat, kcal: kcalCible };
@@ -1633,7 +1664,7 @@ function computeWeeklyVolume(logs, weeksBack) {
         : (exo.sets || exo.setCount || 0);
       for (var ci = 0; ci < contributions.length; ci++) {
         var mc = contributions[ci];
-        var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();
+        var vlKey = getMuscleKey(mc.muscle) || mc.muscle.toLowerCase();
         volumeByMuscle[vlKey] = (volumeByMuscle[vlKey] || 0) + setCount * mc.coeff;
       }
     }
@@ -1657,13 +1688,13 @@ function computeMuscleFatigue(logs) {
       var workSets = typeof exo.sets === 'number' ? exo.sets : (exo.setCount || 0);
       for (var ci = 0; ci < contributions.length; ci++) {
         var mc = contributions[ci];
-        var vlKey = MUSCLE_TO_VL_KEY[mc.muscle] || mc.muscle.toLowerCase();
+        var vlKey = getMuscleKey(mc.muscle) || mc.muscle.toLowerCase();
         fatigue[vlKey] = (fatigue[vlKey] || 0) + workSets * mc.coeff * decayFactor;
       }
     }
   }
   for (var muscle in fatigue) {
-    var mrv = (VOLUME_LANDMARKS[muscle] || {}).MRV || 15;
+    var mrv = (getMuscleVolumeTarget(muscle) || {}).MRV || 15;
     fatigue[muscle] = Math.min(100, Math.round((fatigue[muscle] / (mrv / 7 * 2)) * 100));
   }
   return fatigue;
@@ -1813,12 +1844,10 @@ function checkLPEnd(logs, bw, pr) {
       message: 'Tu as atteint un palier. On passe en double progression pour consolider.' };
   }
 
-  var squat = (pr && pr.squat) || 0;
-  var bench = (pr && pr.bench) || 0;
-  if (bw > 0 && (squat >= bw * 1.0 || bench >= bw * 0.8)) {
-    return { exit: true, reason: 'performance',
-      message: 'Tes ratios de force montrent que tu es prêt pour une vraie périodisation.' };
-  }
+  // Check multi-lift : sortie par ratio e1RM/BW adaptatif par genre (Gemini 2026)
+  var multiLiftCheck = typeof checkMultiLiftLPExit === 'function'
+    ? checkMultiLiftLPExit() : { exit: false };
+  if (multiLiftCheck.exit) return multiLiftCheck;
 
   return { exit: false };
 }
@@ -2513,9 +2542,9 @@ function getTopE1RMForLift(liftType) {
 // Ratios de force actuels (squat/bench/deadlift/ohp/row)
 function computeStrengthRatiosDetailed() {
   var e1rms = {
-    squat:     getTopE1RMForLift('squat')    || 0,
-    bench:     getTopE1RMForLift('bench')    || 0,
-    deadlift:  getTopE1RMForLift('deadlift') || 0,
+    squat:     (getSmoothedE1RM('squat')    || getTopE1RMForLift('squat'))    || 0,
+    bench:     (getSmoothedE1RM('bench')    || getTopE1RMForLift('bench'))    || 0,
+    deadlift:  (getSmoothedE1RM('deadlift') || getTopE1RMForLift('deadlift')) || 0,
     ohp:       getTopE1RMForLift('ohp')      || 0,
     row:       getTopE1RMForLift('row')      || 0
   };
@@ -2895,6 +2924,25 @@ function analyzeAthleteProfile() {
   }
 
   if (bioAlerts.length) sections.push({ title: '⚠️ Biomécanique & Ratios', alerts: bioAlerts });
+
+  // ── SECTION 1b : STRESS ARTICULAIRE (C2) ───────────────────────────────────
+  var jointStressAlerts = typeof getJointStressAlerts === 'function'
+    ? getJointStressAlerts(db.logs || []) : [];
+
+  if (jointStressAlerts.length > 0) {
+    var artAlerts = [];
+    jointStressAlerts.forEach(function(alert) {
+      var msg = alert.label + ' : ' + Math.round(alert.score) + ' pts/sem';
+      if (alert.level === 'red') {
+        msg += ' — Réduire le volume ou substituer un exercice low-impact.';
+        artAlerts.push({ severity: 'danger', title: '🦴 Surcharge ' + alert.label, text: msg });
+      } else {
+        msg += ' — Surveiller, charge hebdomadaire élevée.';
+        artAlerts.push({ severity: 'warning', title: '⚠️ Stress ' + alert.label, text: msg });
+      }
+    });
+    sections.push({ title: '🦴 Santé Articulaire', alerts: artAlerts });
+  }
 
   // ── SECTION 2 : FATIGUE & VOLUME ───────────────────────────────────────────
   var fatigueAlerts = [];
@@ -3286,12 +3334,687 @@ function getRestWithCycleAdjust(baseRestSec) {
 
 // ── 5-Rep Test calibration (TÂCHE 12) ────────────────────────
 // Pour profils sans PRs (debutant, yoga, senior)
-// Sécurité S1 : coefficient 0.85 sur le e1RM calculé
+
+// Sources : Brzycki 1993, Epley 1985 — adapté par niveau (Gemini validation 2026)
+var INIT_LOAD_COEFFS = {
+  debutant:      { fiveRM: 0.85, rpe5: 0.70 },
+  intermediaire: { fiveRM: 0.87, rpe5: 0.72 },
+  avance:        { fiveRM: 0.88, rpe5: 0.75 },
+  competiteur:   { fiveRM: 0.88, rpe5: 0.75 }
+};
+
+function getInitLoadCoeff(type) {
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  return (INIT_LOAD_COEFFS[level] || INIT_LOAD_COEFFS.intermediaire)[type];
+}
+
+// ── EWMA — Lissage exponentiel des performances ────────────────────────────
+// Alpha = réactivité au changement. Plus α est élevé, plus l'algo réagit vite.
+// Débutant : progression rapide → α élevé. Avancé : force stable → α bas.
+// Source : Gemini validation 2026 — adapté de la littérature athlétique (EWMA sportif)
+var EWMA_ALPHA = {
+  debutant:      0.40,
+  intermediaire: 0.35,
+  avance:        0.35,
+  competiteur:   0.25
+};
+
+function getEWMAAlpha() {
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  return EWMA_ALPHA[level] || EWMA_ALPHA.intermediaire;
+}
+
+// ── STRESS ARTICULAIRE — Table de base (scores 0-10 à RPE 8) ──────────────
+// Source : Gemini validation 2026 — biomécanique articulaire powerbuilding
+// 6 articulations : lombaires, genoux, epaules, hanches, coudes, poignets
+// Score de base × (charge/e1RM) × séries = stress pondéré par intensité
+var JOINT_STRESS_TABLE = {
+  // ── Lifts principaux SBD ─────────────────────────────────────────────────
+  'squat':              { lombaires: 9, genoux: 7, hanches: 8 },
+  'squat barre':        { lombaires: 9, genoux: 7, hanches: 8 },
+  'low bar squat':      { lombaires: 9, genoux: 7, hanches: 8 },
+  'high bar squat':     { lombaires: 6, genoux: 8, hanches: 5 },
+  'deadlift':           { lombaires: 10, hanches: 8, coudes: 2 },
+  'soulevé de terre':   { lombaires: 10, hanches: 8, coudes: 2 },
+  'sumo deadlift':      { lombaires: 6, genoux: 6, hanches: 9 },
+  'bench':              { epaules: 7, coudes: 5, poignets: 4 },
+  'développé couché':   { epaules: 7, coudes: 5, poignets: 4 },
+  'bench haltères':     { epaules: 5, coudes: 3, poignets: 5 },
+  // ── Variantes SBD ────────────────────────────────────────────────────────
+  'squat pause':        { lombaires: 8, genoux: 7, hanches: 7 },
+  'front squat':        { lombaires: 4, genoux: 9, hanches: 3 },
+  'deadlift déficit':   { lombaires: 10, hanches: 9 },
+  'rdl':                { lombaires: 8, hanches: 7 },
+  'romanian deadlift':  { lombaires: 8, hanches: 7 },
+  'good morning':       { lombaires: 10, hanches: 6 },
+  'spoto press':        { epaules: 6, coudes: 5, poignets: 4 },
+  // ── Accessoires ──────────────────────────────────────────────────────────
+  'hack squat':         { genoux: 9, lombaires: 2 },
+  'presse à cuisses':   { genoux: 7, lombaires: 3, hanches: 5 },
+  'leg extension':      { genoux: 5 },
+  'leg curl':           { genoux: 2 },
+  'hip thrust':         { hanches: 6, lombaires: 3 },
+  'rowing barre':       { lombaires: 8, coudes: 4 },
+  'rowing poulie':      { lombaires: 3, coudes: 3 },
+  'tirage vertical':    { epaules: 4, coudes: 5 },
+  'lat pulldown':       { epaules: 4, coudes: 5 },
+  'ohp':                { epaules: 8, lombaires: 5, coudes: 4 },
+  'développé militaire':{ epaules: 8, lombaires: 5, coudes: 4 },
+  'dips':               { epaules: 9, coudes: 7 },
+  'tractions':          { epaules: 4, coudes: 5 },
+  'curl barre':         { coudes: 6 },
+  'élévations latérales':{ epaules: 3 },
+  'face pull':          { epaules: 2, coudes: 2 }
+};
+
+// Multiplicateurs morphologiques — actifs uniquement si db.user.morpho est renseigné
+// Prompt B (onboarding morpho) alimentera db.user.morpho — fallback 1.0 si absent
+var JOINT_MORPHO_COEFFS = {
+  long_femurs:  { lombaires: 1.3, genoux: 1.2 },
+  long_arms:    { epaules: 1.25 },
+  short_torso:  { lombaires: 1.2 },
+  long_torso:   { hanches: 1.1 }
+};
+
+// ── SUBSTITUTIONS MORPHOLOGIQUES ─────────────────────────────────────────
+// Validées Gemini 2026. Appliquées sur les lifts principaux uniquement.
+// Hiérarchie : BLESSURE > TECHNIQUE > MORPHO
+// Mode powerlifting : note d'optimisation uniquement (pas de substitution auto)
+// Débutants : désactivé (db.user.level === 'debutant')
+var MORPHO_SUBSTITUTIONS = {
+  long_femurs: {
+    squat: {
+      name:        'Low Bar Squat',
+      loadFactor:  1.0,
+      note:        '🦴 Morpho fémurs longs — Low Bar Squat : meilleur levier hanches, réduit le stress lombaire.'
+    }
+    // deadlift : pas de substitution — fémurs longs avantagent le Dead
+  },
+  long_arms: {
+    bench: {
+      name:        'Floor Press',
+      loadFactor:  0.85,  // -15% validé Gemini : compense perte leg drive + rebond
+      note:        '🦴 Morpho bras longs — Floor Press : limite l\'amplitude dangereuse pour tes épaules.'
+    }
+    // squat/deadlift : bras longs avantagent ces mouvements
+  },
+  short_arms_long_torso: {
+    deadlift: {
+      name:        'Sumo Deadlift',
+      loadFactor:  1.0,
+      note:        '🦴 Morpho buste long — Sumo Deadlift : redresse le buste, réduit le bras de levier lombaire.'
+    }
+  },
+  short_torso: {
+    deadlift: {
+      name:        'Block Pulls (10cm)',
+      loadFactor:  0.95,
+      note:        '🦴 Morpho torse court — Block Pulls 10cm : compense le levier défavorable au démarrage.'
+    },
+    row: {
+      name:        'Chest Supported Row',
+      loadFactor:  0.95,
+      note:        '🦴 Morpho torse court — Chest Supported Row : décharge les lombaires sur les tirages.'
+    }
+  }
+};
+
+// Note d'optimisation pour le mode powerlifting (pas de substitution auto)
+var MORPHO_POWERLIFTING_NOTES = {
+  long_femurs:           'Ta morphologie (fémurs longs) suggère que le Low Bar Squat serait plus performant pour toi. L\'as-tu testé ?',
+  long_arms:             'Ton envergure suggère que le Floor Press renforcerait ton lockout au Bench. Piste à explorer.',
+  short_arms_long_torso: 'Ta morphologie suggère que le Sumo Deadlift correspondrait mieux à tes leviers. L\'as-tu essayé ?',
+  short_torso:           'Ton torse court crée un bras de levier fort au Deadlift. Assure-toi que ta technique est optimisée.'
+};
+
+// ── Application des adaptations morphologiques ────────────────────────────
+// Appelée après wpApplyImbalanceCorrections() dans wpGeneratePowerbuildingDay()
+// Hiérarchie : BLESSURE active > MORPHO (la morpho ne prime jamais sur la sécurité)
+// Désactivé pour : débutants, morpho non renseignée (null)
+// Mode powerlifting : note seule, pas de substitution auto
+function applyMorphoAdaptations(exercises, dayKey) {
+  var morpho = db.user && db.user.morpho;
+  if (!morpho) return exercises; // null/undefined = pas renseigné
+
+  var level = (db.user && db.user.level) || 'intermediaire';
+  if (level === 'debutant') return exercises;
+
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var isPowerlifting = mode === 'powerlifting';
+
+  if (isPowerlifting) {
+    var plNotes = [];
+    Object.keys(morpho).forEach(function(morphType) {
+      if (!morpho[morphType]) return;
+      var note = MORPHO_POWERLIFTING_NOTES[morphType];
+      if (note) plNotes.push(note);
+    });
+    if (plNotes.length > 0) {
+      exercises = exercises.map(function(exo) {
+        if (!exo.isPrimary) return exo;
+        return Object.assign({}, exo, {
+          coachNote: (exo.coachNote ? exo.coachNote + ' | ' : '') + '💡 ' + plNotes[0]
+        });
+      });
+    }
+    return exercises;
+  }
+
+  // Blessures actives — zones protégées (blessure prime sur morpho)
+  var activeInjuryZones = ((db.user && db.user.injuries) || [])
+    .filter(function(i) { return i.active; })
+    .map(function(i) { return i.zone; });
+
+  var INJURY_ZONE_TO_EXERCISE = {
+    genou:   ['squat', 'leg', 'presse', 'fentes'],
+    epaule:  ['bench', 'press', 'développé', 'dips'],
+    dos:     ['deadlift', 'soulevé', 'rowing', 'tirage'],
+    hanches: ['hip', 'squat', 'fentes']
+  };
+
+  function isExerciseProtected(exoName) {
+    var n = (exoName || '').toLowerCase();
+    return activeInjuryZones.some(function(zone) {
+      var patterns = INJURY_ZONE_TO_EXERCISE[zone] || [];
+      return patterns.some(function(p) { return n.indexOf(p) >= 0; });
+    });
+  }
+
+  return exercises.map(function(exo) {
+    if (!exo.isPrimary) return exo; // accessoires non touchés
+
+    if (isExerciseProtected(exo.name)) return exo; // blessure prime
+
+    var substitution = null;
+    Object.keys(morpho).forEach(function(morphType) {
+      if (!morpho[morphType] || substitution) return;
+      var subs = MORPHO_SUBSTITUTIONS[morphType];
+      if (!subs) return;
+
+      var subEntry = subs[dayKey] || null;
+      if (!subEntry) {
+        var exoLower = (exo.name || '').toLowerCase();
+        Object.keys(subs).forEach(function(key) {
+          if (!subEntry && key !== dayKey && exoLower.indexOf(key) >= 0) {
+            subEntry = subs[key];
+          }
+        });
+      }
+      if (subEntry) substitution = subEntry;
+    });
+
+    if (!substitution) return exo;
+
+    var newSets = (exo.sets || []).map(function(s) {
+      if (s.isWarmup || !s.weight || s.weight <= 0) return s;
+      var newWeight = Math.round(s.weight * substitution.loadFactor / 2.5) * 2.5;
+      return Object.assign({}, s, { weight: newWeight });
+    });
+
+    return Object.assign({}, exo, {
+      name:      substitution.name,
+      sets:      newSets,
+      coachNote: substitution.note + (exo.coachNote ? ' | ' + exo.coachNote : '')
+        + ' [↩️ Rétablir : ' + exo.name + ']'
+    });
+  });
+}
+
+// Seuils hebdomadaires de stress par articulation
+// Source : Gemini validation 2026
+var JOINT_STRESS_THRESHOLDS = {
+  orange: 70,   // Alerte Coach
+  red:    100   // Substitution recommandée
+};
+
+// ── INSOLVENCY INDEX — Bilan comptable de récupération ────────────────────
+// Source : Gemini validation 2026 — adapté de la gestion de charge athlétique
+// Distinct du SRS (radar tactique) — mesure la dette accumulée sur 7j
+
+// Latence de récupération par groupe musculaire (jours)
+// Correction Gemini : quads 2.5j, abdos/avant_bras 0.5j
+var RECOVERY_LATENCY = {
+  ischio:     { days: 3.5 },
+  fessiers:   { days: 2.5 },
+  dos:        { days: 2.5 },
+  quads:      { days: 2.5 },  // Gemini : 2.5 (pas 2.0) — muscle massif, dommages élevés
+  pecs:       { days: 1.5 },
+  epaules:    { days: 1.5 },
+  biceps:     { days: 1.0 },
+  triceps:    { days: 1.0 },
+  mollets:    { days: 1.5 },
+  abdos:      { days: 0.5 },  // Gemini : 0.5 (récupération quasi immédiate)
+  trapezes:   { days: 1.5 },
+  avant_bras: { days: 0.5 }   // Gemini : 0.5
+};
+
+// ── DOMS TRACKING ─────────────────────────────────────────────────────────
+// DOMS = courbatures post-séance. Signal local (par muscle), distinct de
+// l'Insolvency Index (signal global). Échelle 0-5.
+// Source : Gemini validation 2026 — Repeated Bout Effect pour les avancés
+
+// Seuils de réponse DOMS par niveau
+// debutant : plus sensible — ajustement dès 3/5
+// intermediaire/avance : tolèrent plus — ajustement à partir de 4/5
+var DOMS_THRESHOLDS = {
+  debutant: {
+    intensity_reduction: 3,   // ≥ 3 → LOAD_PCT × 0.9
+    volume_reduction:    4,   // ≥ 4 → -1 à -2 séries
+    postpone:            5    // ≥ 5 → décalage recommandé
+  },
+  default: {  // intermediaire, avance, competiteur
+    intensity_reduction: null,  // pas d'ajustement intensité
+    volume_reduction:    4,     // ≥ 4 → -1 série
+    postpone:            5      // ≥ 5 → décalage recommandé
+  }
+};
+
+// Mapping muscles GO → clés RECOVERY_LATENCY
+// Permet de faire le lien entre les groupes musculaires d'une séance
+// et les clés de la table de latence
+var DOMS_MUSCLE_MAP = {
+  'quads':    'quads',    'quadriceps': 'quads',
+  'ischio':   'ischio',   'ischios': 'ischio',  'ischio-jambiers': 'ischio',
+  'fessiers': 'fessiers', 'glutes': 'fessiers',
+  'dos':      'dos',      'dorsaux': 'dos',      'lats': 'dos',
+  'pecs':     'pecs',     'pectoraux': 'pecs',
+  'epaules':  'epaules',  'épaules': 'epaules',  'delts': 'epaules',
+  'biceps':   'biceps',
+  'triceps':  'triceps',
+  'mollets':  'mollets',  'calves': 'mollets',
+  'abdos':    'abdos',    'abs': 'abdos',
+  'trapezes': 'trapezes', 'trapèzes': 'trapezes',
+  'avant_bras': 'avant_bras', 'forearms': 'avant_bras'
+};
+
+// ── VOLUME LANDMARKS DYNAMIQUES ───────────────────────────────────────────
+// db.user.volumeDeltas = { dos: +2, quads: -1 }
+// Delta appliqué sur MUSCLE_VOLUME_TARGETS à chaque lecture via getMuscleVolumeTarget()
+// Plafond ±4 séries vs base. Évaluation fin de mésocycle (4 semaines).
+// Source : Gemini validation 2026
+var VOLUME_DELTA_LIMITS = {
+  max: 4,   // +4 séries max vs base
+  min: -4   // -4 séries min vs base
+};
+
+// Seuils Insolvency Index
+var INSOLVENCY_THRESHOLDS = {
+  orange:   1.0,   // Déficit modéré — réduire volume (-1 série accessoires)
+  red:      1.2,   // Insolvabilité — Active Recovery + supprimer gros lifts
+  critical: 1.4    // Banqueroute — Deload complet forcé
+};
+
+// ── DOMS FUNCTIONS ────────────────────────────────────────────────────────
+
+// Récupérer les DOMS du jour pour un ou plusieurs muscles
+// Lit la dernière entrée db.body[] du jour avec un champ doms
+function getTodayDOMS(muscleKey) {
+  var todayStr = new Date().toDateString();
+  var entries = (db.body || []).filter(function(e) {
+    return e.ts && new Date(e.ts).toDateString() === todayStr
+      && e.doms && typeof e.doms === 'object';
+  });
+  if (entries.length === 0) return muscleKey ? 0 : {};
+  var latest = entries.reduce(function(a, b) { return b.ts > a.ts ? b : a; });
+  if (muscleKey) return (latest.doms[muscleKey] || 0);
+  return latest.doms || {};
+}
+
+// Sauvegarder les DOMS dans db.body[]
+// Fusionne avec l'entrée du jour si elle existe déjà
+function saveTodayDOMS(domsObj) {
+  if (!domsObj || typeof domsObj !== 'object') return;
+  var filtered = {};
+  Object.keys(domsObj).forEach(function(k) {
+    if (domsObj[k] >= 1) filtered[k] = domsObj[k];
+  });
+  if (Object.keys(filtered).length === 0) return;
+
+  var todayStr = new Date().toDateString();
+  db.body = db.body || [];
+  var todayEntry = null;
+  for (var i = 0; i < db.body.length; i++) {
+    if (db.body[i].ts && new Date(db.body[i].ts).toDateString() === todayStr) {
+      todayEntry = db.body[i]; break;
+    }
+  }
+  if (todayEntry) {
+    todayEntry.doms = Object.assign({}, todayEntry.doms || {}, filtered);
+  } else {
+    db.body.push({ ts: Date.now(), doms: filtered });
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+
+// Calculer l'ajustement de volume/intensité basé sur les DOMS
+// Retourne { volumeReduction: int, intensityFactor: float, postpone: bool }
+function getDOMSAdjustment(muscleKey) {
+  var domsScore = getTodayDOMS(muscleKey);
+  if (!domsScore || domsScore === 0) return { volumeReduction: 0, intensityFactor: 1.0, postpone: false };
+
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var thresholds = (level === 'debutant')
+    ? DOMS_THRESHOLDS.debutant
+    : DOMS_THRESHOLDS.default;
+
+  var volumeReduction = 0;
+  var intensityFactor = 1.0;
+  var postpone = false;
+
+  if (domsScore >= thresholds.postpone) {
+    postpone = true;
+    volumeReduction = 3;
+    intensityFactor = 0.85;
+  } else if (domsScore >= thresholds.volume_reduction) {
+    volumeReduction = domsScore >= 4.5 ? 2 : 1;
+    intensityFactor = 0.95;
+  } else if (thresholds.intensity_reduction && domsScore >= thresholds.intensity_reduction) {
+    intensityFactor = 0.90;
+  }
+
+  return { volumeReduction: volumeReduction, intensityFactor: intensityFactor,
+           postpone: postpone, score: domsScore };
+}
+
+// Multiplicateur de capacité de récupération de base (base 1.0)
+// Gemini : avancé +0.10, powerlifting -0.05, age>40 -0.10, femme +0.05
+var RECOVERY_CAPACITY_MODIFIERS = {
+  level: {
+    debutant:      0.0,
+    intermediaire: 0.0,
+    avance:        0.10,
+    competiteur:   0.10
+  },
+  mode: {
+    powerlifting:  -0.05,
+    powerbuilding:  0.0,
+    musculation:    0.0,
+    bien_etre:      0.05
+  }
+};
+
+// Capacité de récupération individuelle (multiplicateur, base 1.0)
+// Combine niveau, mode, âge et genre pour personnaliser le dénominateur
+function calcBaseCapacity() {
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  var mode  = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var age   = (db.user && db.user.age) || 0;
+  var gender = (db.user && db.user.gender) || '';
+  var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
+
+  var capacity = 1.0;
+  capacity += (RECOVERY_CAPACITY_MODIFIERS.level[level] || 0);
+  capacity += (RECOVERY_CAPACITY_MODIFIERS.mode[mode]  || 0);
+  if (age > 40) capacity -= 0.10;
+  if (isFemale) capacity += 0.05;
+
+  // Plancher à 0.5 — éviter division par zéro ou valeurs absurdes
+  return Math.max(0.5, Math.round(capacity * 100) / 100);
+}
+
+// ── Dette de récupération musculaire (latence par groupe) ─────────────────
+// Détecte les muscles travaillés trop récemment selon RECOVERY_LATENCY.
+// Retourne un objet { muscle: urgencyMultiplier } — 1.0 si OK, 1.5 si dette
+function calcMuscleRecoveryDebt(logs) {
+  var now = Date.now();
+  var muscleLastWorked = {}; // muscle → timestamp dernière séance
+
+  // Parcourir les 14 derniers jours
+  var cutoff = now - 14 * 86400000;
+  var recentLogs = (logs || [])
+    .filter(function(l) { return l.timestamp > cutoff; })
+    .sort(function(a, b) { return b.timestamp - a.timestamp; }); // plus récent en premier
+
+  recentLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo.name) return;
+      var contributions = typeof getMuscleContributions === 'function'
+        ? getMuscleContributions(exo.name) : [];
+      contributions.forEach(function(mc) {
+        var key = typeof getMuscleKey === 'function'
+          ? getMuscleKey(mc.muscle) : mc.muscle.toLowerCase();
+        if (key && !muscleLastWorked[key]) {
+          muscleLastWorked[key] = log.timestamp;
+        }
+      });
+    });
+  });
+
+  // Calculer la dette par muscle
+  var debt = {};
+  Object.keys(RECOVERY_LATENCY).forEach(function(muscle) {
+    var lastTs = muscleLastWorked[muscle];
+    if (!lastTs) { debt[muscle] = 1.0; return; }
+    var daysSince = (now - lastTs) / 86400000;
+    var latency = RECOVERY_LATENCY[muscle].days;
+    // Dette de base (latence temporelle)
+    var baseDebt = daysSince < latency ? 1.5 : 1.0;
+    // Modulation par les DOMS du jour (Gemini : BaseDebt × (1 + DOMS/10))
+    // DOMS 4/5 → ×1.4 ; DOMS 5/5 → ×1.5 sur la dette existante
+    var domsScore = typeof getTodayDOMS === 'function' ? getTodayDOMS(muscle) : 0;
+    var domsModifier = 1.0 + ((domsScore || 0) / 10);
+    debt[muscle] = Math.round(baseDebt * domsModifier * 100) / 100;
+  });
+
+  return debt;
+}
+
+// ── Lookup stress articulaire pour un exercice ────────────────────────────
+// Normalise le nom, cherche dans JOINT_STRESS_TABLE par correspondance partielle.
+// Retourne null si exercice non trouvé (pas de stress articulaire significatif).
+function getJointStressEntry(exoName) {
+  if (!exoName) return null;
+  var n = exoName.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ').trim();
+  var keys = Object.keys(JOINT_STRESS_TABLE);
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i].toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (n === k || n.indexOf(k) >= 0 || k.indexOf(n) >= 0) {
+      return JOINT_STRESS_TABLE[keys[i]];
+    }
+  }
+  return null;
+}
+
+// Calcule le score de stress articulaire pondéré pour un set d'un exercice.
+// Formule : Score_base × (Charge / e1RM) × nb_sets
+// Applique les coefficients genre et morpho si disponibles.
+function calcJointStressForExo(exoName, charge, nbSets, liftType) {
+  var entry = getJointStressEntry(exoName);
+  if (!entry) return {};
+
+  // e1RM : EWMA si SBD, sinon valeur brute depuis db.exercises
+  var e1rm = 0;
+  if (liftType && typeof getSmoothedE1RM === 'function') {
+    e1rm = getSmoothedE1RM(liftType) || 0;
+  }
+  if (e1rm <= 0 && db.exercises && db.exercises[exoName]) {
+    e1rm = db.exercises[exoName].ewmaE1rm || db.exercises[exoName].e1rm || 0;
+  }
+  // Fallback : intensité relative = 0.75 si e1RM inconnu (RPE 8 estimé)
+  var intensity = (e1rm > 0 && charge > 0) ? Math.min(charge / e1rm, 1.5) : 0.75;
+
+  // Coefficients genre
+  var gender = db.user && db.user.gender;
+  var isFemale = gender === 'F' || gender === 'female' || gender === 'femme';
+
+  // Coefficients morpho (Prompt B les alimentera — fallback 1.0 si absent)
+  var morpho = (db.user && db.user.morpho) || {};
+
+  var result = {};
+  Object.keys(entry).forEach(function(joint) {
+    var base = entry[joint];
+    var coeff = 1.0;
+
+    // Coefficient genre (genoux uniquement)
+    if (joint === 'genoux' && isFemale) coeff *= 1.2;
+
+    // Coefficients morpho
+    Object.keys(JOINT_MORPHO_COEFFS).forEach(function(morphType) {
+      if (morpho[morphType] && JOINT_MORPHO_COEFFS[morphType][joint]) {
+        coeff *= JOINT_MORPHO_COEFFS[morphType][joint];
+      }
+    });
+
+    result[joint] = Math.round(base * intensity * nbSets * coeff * 10) / 10;
+  });
+
+  return result;
+}
+
+// ── Score de stress articulaire hebdomadaire (fenêtre 7j glissante) ────────
+// Retourne un objet { lombaires: X, genoux: X, epaules: X, hanches: X, coudes: X, poignets: X }
+// Utilise calcJointStressForExo() pour chaque exercice de chaque séance.
+function calcWeeklyJointStress(logs) {
+  var cutoff = Date.now() - 7 * 86400000;
+  var weekLogs = (logs || []).filter(function(l) { return l.timestamp > cutoff; });
+  var totals = { lombaires: 0, genoux: 0, epaules: 0, hanches: 0, coudes: 0, poignets: 0 };
+
+  weekLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo.name) return;
+      var liftType = typeof getSBDType === 'function' ? getSBDType(exo.name) : null;
+      var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+        return !(s.isWarmup === true || s.setType === 'warmup' || s.isBackOff);
+      });
+      if (workSets.length === 0) return;
+
+      // Charge moyenne des sets de travail
+      var avgCharge = workSets.reduce(function(sum, s) {
+        return sum + (parseFloat(s.weight) || 0);
+      }, 0) / workSets.length;
+
+      var stress = calcJointStressForExo(exo.name, avgCharge, workSets.length, liftType);
+      Object.keys(stress).forEach(function(joint) {
+        if (totals[joint] !== undefined) totals[joint] += stress[joint];
+      });
+    });
+  });
+
+  // Arrondi final
+  Object.keys(totals).forEach(function(j) {
+    totals[j] = Math.round(totals[j] * 10) / 10;
+  });
+
+  return totals;
+}
+
+// Retourne les articulations en zone orange ou rouge
+function getJointStressAlerts(logs) {
+  var stress = calcWeeklyJointStress(logs);
+  var alerts = [];
+  var LABELS = {
+    lombaires: 'Lombaires', genoux: 'Genoux', epaules: 'Épaules',
+    hanches: 'Hanches', coudes: 'Coudes', poignets: 'Poignets'
+  };
+  Object.keys(stress).forEach(function(joint) {
+    var val = stress[joint];
+    if (val >= JOINT_STRESS_THRESHOLDS.red) {
+      alerts.push({ joint: joint, label: LABELS[joint], score: val, level: 'red' });
+    } else if (val >= JOINT_STRESS_THRESHOLDS.orange) {
+      alerts.push({ joint: joint, label: LABELS[joint], score: val, level: 'orange' });
+    }
+  });
+  return alerts;
+}
+
+// ── Mise à jour EWMA après une séance ──────────────────────────────────────
+// Appelée après chaque log sauvegardé, pour chaque exercice de la séance.
+// Ne met PAS à jour pendant les séances de deload (SNC au repos).
+// Filtre outlier ±15% : protège contre les erreurs de saisie et les God Mode isolés.
+function updateEWMAForExo(exoName, currentE1RM, isDeloadSession) {
+  if (!exoName || !currentE1RM || currentE1RM <= 0) return;
+  if (isDeloadSession) return; // Gel EWMA pendant deload
+
+  if (!db.exercises) db.exercises = {};
+  if (!db.exercises[exoName]) db.exercises[exoName] = {};
+
+  var exo = db.exercises[exoName];
+  var alpha = getEWMAAlpha();
+  var prev = exo.ewmaE1rm || null;
+  var sessionCount = exo.ewmaSessionCount || 0;
+
+  // Filtre outlier : brider à ±15% vs EWMA précédent
+  var e1rmToUse = currentE1RM;
+  if (prev && prev > 0) {
+    var maxChange = prev * 0.15;
+    e1rmToUse = Math.max(prev - maxChange, Math.min(prev + maxChange, currentE1RM));
+  }
+
+  var newEWMA;
+  if (sessionCount === 0) {
+    // Session 1 : initialisation directe
+    newEWMA = e1rmToUse;
+  } else if (sessionCount < 3) {
+    // Sessions 2-3 : moyenne arithmétique simple
+    newEWMA = ((prev * sessionCount) + e1rmToUse) / (sessionCount + 1);
+  } else {
+    // Session 4+ : formule EWMA
+    // ⚠️ Formule : α × current + (1-α) × previous — NE PAS écrire (1 - α × previous)
+    newEWMA = alpha * e1rmToUse + (1 - alpha) * prev;
+  }
+
+  exo.ewmaE1rm = Math.round(newEWMA * 10) / 10; // arrondi 0.1kg
+  exo.ewmaSessionCount = sessionCount + 1;
+  exo.ewmaUpdatedAt = Date.now();
+}
+
+// ── Accès à l'e1RM lissé (EWMA) ────────────────────────────────────────────
+// Pour les lifts SBD : cherche dans db.exercises par pattern de nom.
+// Fallback sur e1RM brut si EWMA pas encore calculé (cold start).
+function getSmoothedE1RM(liftType) {
+  if (!db.exercises) return null;
+
+  var LIFT_PATTERNS = {
+    bench:    /bench|développé\s*couché|dc\b/i,
+    squat:    /\bsquat\b/i,
+    deadlift: /deadlift|soulevé\s*de\s*terre/i
+  };
+
+  var pattern = LIFT_PATTERNS[liftType];
+  if (!pattern) return null;
+
+  var bestEwma = 0;
+  Object.keys(db.exercises).forEach(function(name) {
+    if (pattern.test(name)) {
+      var ewma = (db.exercises[name] && db.exercises[name].ewmaE1rm) || 0;
+      if (ewma > bestEwma) bestEwma = ewma;
+    }
+  });
+
+  // Fallback 1 : e1RM depuis les logs bruts
+  if (bestEwma <= 0 && typeof getTopE1RMForLift === 'function') {
+    var logE1rm = getTopE1RMForLift(liftType);
+    if (logE1rm && logE1rm > 0) return logE1rm;
+  }
+
+  // Fallback 2 : e1rm stocké dans db.exercises (shadowWeight calculé en GO)
+  if (bestEwma <= 0) {
+    var bestExoE1rm = 0;
+    Object.keys(db.exercises).forEach(function(name) {
+      if (pattern.test(name)) {
+        var e = (db.exercises[name] && db.exercises[name].e1rm) || 0;
+        if (e > bestExoE1rm) bestExoE1rm = e;
+      }
+    });
+    if (bestExoE1rm > 0) return bestExoE1rm;
+  }
+
+  // Fallback 3 : bestPR historique (sera lissé par EWMA dès la première séance GO)
+  if (bestEwma <= 0 && db.bestPR) {
+    var prVal = db.bestPR[liftType];
+    if (prVal && prVal > 0) return prVal;
+  }
+
+  return bestEwma > 0 ? bestEwma : null;
+}
 
 function calcE1RMFrom5RepTest(weight, reps) {
   if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
   var e1rm = weight / (1.0278 - (0.0278 * reps));
-  return Math.round(e1rm * 0.85 / 2.5) * 2.5;
+  return Math.round(e1rm * getInitLoadCoeff('fiveRM') / 2.5) * 2.5;
 }
 
 function shouldShow5RepTest(exoName) {
@@ -4217,6 +4940,45 @@ var LP_CONFIG = {
   increments: { composé_lourd: 2.5, composé_leger: 1.25, isolation: 0.5 }
 };
 
+// Seuils de sortie LP par ratio e1RM/BW — Gemini validation 2026
+// Source : RP Strength + Starting Strength — ratios niveau "Intermédiaire"
+// Sortie si 2 lifts sur 3 franchis (ou 1/1-2 si moins de lifts disponibles)
+var LP_EXIT_RATIOS = {
+  male:   { squat: 1.1, bench: 0.8, deadlift: 1.3 },
+  female: { squat: 0.8, bench: 0.5, deadlift: 1.0 }
+};
+
+function checkMultiLiftLPExit() {
+  var bw = (db.user && db.user.bw) || 0;
+  if (bw <= 0) return { exit: false };
+  var gender = ((db.user && db.user.gender) || 'M').toString().toUpperCase();
+  var isFemale = gender === 'F' || gender === 'FEMALE' || gender === 'FEMME';
+  var ratios = isFemale ? LP_EXIT_RATIOS.female : LP_EXIT_RATIOS.male;
+  var pr = db.bestPR || {};
+  var e1rmSquat    = (typeof getSmoothedE1RM === 'function' && getSmoothedE1RM('squat'))
+                     || pr.squat || 0;
+  var e1rmBench    = (typeof getSmoothedE1RM === 'function' && getSmoothedE1RM('bench'))
+                     || pr.bench || 0;
+  var e1rmDeadlift = (typeof getSmoothedE1RM === 'function' && getSmoothedE1RM('deadlift'))
+                     || pr.deadlift || 0;
+  var passed = 0;
+  var checked = 0;
+  if (e1rmSquat > 0)    { checked++; if (e1rmSquat    >= bw * ratios.squat)    passed++; }
+  if (e1rmBench > 0)    { checked++; if (e1rmBench    >= bw * ratios.bench)    passed++; }
+  if (e1rmDeadlift > 0) { checked++; if (e1rmDeadlift >= bw * ratios.deadlift) passed++; }
+  if (checked === 0) return { exit: false };
+  // Seuil adaptatif : 2/3 si 3 lifts disponibles, sinon 1/1 ou 2/2
+  var exitThreshold = checked >= 3 ? 2 : checked;
+  var shouldExit = passed >= exitThreshold;
+  return {
+    exit: shouldExit,
+    reason: 'strength_threshold',
+    message: shouldExit
+      ? '🎯 Niveau intermédiaire atteint (' + passed + '/' + checked + ' lifts) — passage en APRE.'
+      : null
+  };
+}
+
 function isInLP() {
   if (!db.user || !db.user.lpActive) return false;
   var bw = db.user.bw || 0;
@@ -4263,13 +5025,15 @@ function getLPIncrement(exoName, isCompound) {
   if (!isCompound) return LP_CONFIG.increments.isolation;
   var bw = (db.user && db.user.bw) || 80;
   var gender = (db.user && db.user.gender || 'M').toUpperCase();
+  // Incrément réduit : femmes (récupération différente) OU hommes < 65kg (charge absolue faible)
+  // Source : Starting Strength / RP Strength — increments adaptés au profil morphologique
   if (gender === 'F' || bw < 65) return LP_CONFIG.increments.composé_leger;
   return LP_CONFIG.increments.composé_lourd;
 }
 
 function calcStartWeightFromRPE5Test(weight, reps) {
   var e1rm = weight / (1.0278 - 0.0278 * reps);
-  return Math.round(e1rm * 0.70 / 2.5) * 2.5;
+  return Math.round(e1rm * getInitLoadCoeff('rpe5') / 2.5) * 2.5;
 }
 
 function getLPBienEtreProgress(exoName) {

@@ -3718,12 +3718,15 @@ function getDOMSAdjustment(muscleKey) {
 
 // Multiplicateur de capacité de récupération de base (base 1.0)
 // Gemini : avancé +0.10, powerlifting -0.05, age>40 -0.10, femme +0.05
+// Recalibré Gemini 2026 — valeurs absolues (deltas sur base 1.0)
+// debutant: 1.0 + (-0.2) = 0.8  | intermédiaire: 1.0 + 0.0 = 1.0
+// avancé:   1.0 + 0.3  = 1.3    | compétiteur:   1.0 + 0.5 = 1.5
 var RECOVERY_CAPACITY_MODIFIERS = {
   level: {
-    debutant:      0.0,
-    intermediaire: 0.0,
-    avance:        0.10,
-    competiteur:   0.10
+    debutant:      -0.2,  // BaseCapacity = 0.8 — récupération limitée
+    intermediaire:  0.0,  // BaseCapacity = 1.0 — référence
+    avance:         0.3,  // BaseCapacity = 1.3 — adaptation mitochondriale
+    competiteur:    0.5   // BaseCapacity = 1.5 — élite, récupération optimisée
   },
   mode: {
     powerlifting:  -0.05,

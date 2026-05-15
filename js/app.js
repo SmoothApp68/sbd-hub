@@ -20723,6 +20723,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
 
   if (_coachNotes.length > 0) db._pendingCoachNote = _coachNotes[0];
 
+  // Plancher 60% e1RM pour avancé/compétiteur sur lifts principaux
+  // Évite les charges "cardio" causées par DUP vitesse + reps hautes (Gemini)
+  var _isAdvancedLevel = db.user && (db.user.level === 'avance' || db.user.level === 'competiteur');
+  if (_isAdvancedLevel && _isMainLift && e1rmRef > 0) {
+    var _e1rmFloor = Math.round(e1rmRef * 0.60 / 2.5) * 2.5;
+    if (baseWeight < _e1rmFloor) baseWeight = _e1rmFloor;
+  }
+
   // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence
   if (e1rmRef > 0) {
     var hardCap = Math.round(e1rmRef * 1.025 / 2.5) * 2.5;
@@ -22366,6 +22374,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       reps = _dlWave.reps;
       setsCount = _dlWave.sets;
       rpe = _dlWave.rpe;
+    }
+    // Cap 10 reps SBD en hypertrophie — au-delà = endurance, pas hypertrophie (Gemini)
+    if (phase === 'hypertrophie' && typeof getSBDType === 'function' && getSBDType(mainName)) {
+      reps = Math.min(reps, 10);
     }
     // PhysioManager (v184) — C_cycle s'applique sur le VOLUME (sets), pas la charge
     if (typeof getCycleCoeff === 'function') {

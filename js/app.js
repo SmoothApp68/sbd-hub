@@ -23430,10 +23430,15 @@ function generateWeeklyPlan() {
 
     // ── Auto-Tuner Volume Landmarks (Sprint Feedback Loop) ────────────────────
     // Évaluation en fin de mésocycle uniquement (isEndOfPhaseBlock)
-    if (typeof isEndOfPhaseBlock === 'function' && isEndOfPhaseBlock()
-        && typeof applyVolumeAutoTune === 'function') {
-      var _tuned = applyVolumeAutoTune(db.logs || []);
-      if (_tuned) showToast('📊 Volume ajusté automatiquement selon ta progression.');
+    // Mode passif — suggestions Coach uniquement, plus de modification auto de volumeDeltas
+    var _isEndOfMesocycle = typeof isEndOfPhaseBlock === 'function' && isEndOfPhaseBlock();
+    if (_isEndOfMesocycle && typeof applyVolumeAutoTune === 'function') {
+      var _tuneResult = applyVolumeAutoTune(db.logs || []);
+      if (_tuneResult && Object.keys(_tuneResult.suggestions || {}).length > 0) {
+        db.weeklyPlan._volumeSuggestions = _tuneResult.suggestions;
+        db.weeklyPlan._volumeSuggestionsDate = Date.now();
+        // Suggestions affichées dans le tab Coach — pas de toast ici (pas d'action auto)
+      }
     }
 
     db.weeklyPlan.coachNotes = [];

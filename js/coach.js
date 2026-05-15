@@ -508,21 +508,15 @@ function calcVolumeAutoTune(logs) {
   return recommendations;
 }
 
-// Appliquer les recommandations auto-tuner dans db.user.volumeDeltas
-// À appeler en fin de cycle (lors de la génération d'un nouveau programme)
+// Mode passif — ne plus modifier volumeDeltas automatiquement.
+// Retourne les suggestions pour affichage Coach ; l'utilisateur valide manuellement.
 function applyVolumeAutoTune(logs) {
   var recs = calcVolumeAutoTune(logs);
-  if (!recs || Object.keys(recs).length === 0) return false;
-  db.user.volumeDeltas = db.user.volumeDeltas || {};
-  var changed = false;
-  Object.keys(recs).forEach(function(muscle) {
-    if (recs[muscle] !== db.user.volumeDeltas[muscle]) {
-      db.user.volumeDeltas[muscle] = recs[muscle];
-      changed = true;
-    }
-  });
-  if (changed && typeof saveDB === 'function') saveDB();
-  return changed;
+  if (!recs || Object.keys(recs).length === 0) return { changed: false, suggestions: {} };
+
+  // MODE PASSIF — ne plus écrire dans db.user.volumeDeltas
+  // Les suggestions sont stockées dans db.weeklyPlan._volumeSuggestions par generateWeeklyPlan
+  return { changed: false, suggestions: recs };
 }
 
 // ── Diagnostic Coach enrichi avec l'Insolvency Index ────────────────────────

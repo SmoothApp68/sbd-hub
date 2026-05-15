@@ -439,11 +439,17 @@ function calcVolumeAutoTune(logs) {
   var twoWeeks  = 14 * 86400000;
 
   var logs4w = logs.filter(function(l) { return l.timestamp > now - fourWeeks; });
-  if (logs4w.length < 4) return {};
+  // Minimum 8 séances sur 14j calendaires — évite les faux positifs cold start
+  if (logs4w.length < 8) return {};
+  var oldestLog = logs4w.reduce(function(min, l) { return l.timestamp < min ? l.timestamp : min; }, Date.now());
+  if ((Date.now() - oldestLog) < 14 * 86400000) return {};
 
-  var insolvency = typeof calcInsolvencyIndex === 'function'
-    ? calcInsolvencyIndex(logs4w) : { index: 0 };
-  var avgInsolvency = insolvency.index || 0;
+  // Insolvency sur les 7 derniers jours uniquement — un pic isolé ne doit pas
+  // déclencher une réduction globale (lissage vs calcul sur 4 semaines)
+  var logs7d = logs.filter(function(l) { return l.timestamp > now - 7 * 86400000; });
+  var insolvency7d = typeof calcInsolvencyIndex === 'function'
+    ? calcInsolvencyIndex(logs7d) : { index: 0 };
+  var avgInsolvency = insolvency7d.index || 0;
 
   function getMuscleWeeklySets(subset, startTs, endTs) {
     var sets = {};
@@ -481,8 +487,22 @@ function calcVolumeAutoTune(logs) {
     var currentDelta = (db.user && db.user.volumeDeltas && db.user.volumeDeltas[muscle]) || 0;
     if (avgSets >= target.MAV_high && avgInsolvency < 0.9 && trend >= 0) {
       if (currentDelta < limits.max) recommendations[muscle] = currentDelta + 1;
-    } else if (avgInsolvency >= 1.2 && avgSets > target.MEV) {
-      if (currentDelta > limits.min) recommendations[muscle] = currentDelta - 1;
+    } else if (avgInsolvency >= 1.3 && avgSets > target.MEV) {
+      // Ne réduire que si le muscle correspond à une articulation en zone rouge
+      // OU si l'insolvency est vraiment critique (> 1.4)
+      var MUSCLE_TO_JOINT = {
+        quads: 'genoux', ischio: 'genoux', fessiers: 'hanches',
+        dos: 'lombaires', trapezes: 'lombaires', pecs: 'epaules', epaules: 'epaules'
+      };
+      var jointAlerts7d = typeof getJointStressAlerts === 'function'
+        ? getJointStressAlerts(logs7d) : [];
+      var muscleJoint = MUSCLE_TO_JOINT[muscle];
+      var hasJointAlert = muscleJoint && jointAlerts7d.some(function(a) {
+        return a.joint === muscleJoint && a.level === 'red';
+      });
+      if ((hasJointAlert || avgInsolvency >= 1.4) && currentDelta > limits.min) {
+        recommendations[muscle] = currentDelta - 1;
+      }
     }
   });
   return recommendations;

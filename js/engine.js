@@ -3573,6 +3573,55 @@ var RECOVERY_LATENCY = {
   avant_bras: { days: 0.5 }   // Gemini : 0.5
 };
 
+// ── DOMS TRACKING ─────────────────────────────────────────────────────────
+// DOMS = courbatures post-séance. Signal local (par muscle), distinct de
+// l'Insolvency Index (signal global). Échelle 0-5.
+// Source : Gemini validation 2026 — Repeated Bout Effect pour les avancés
+
+// Seuils de réponse DOMS par niveau
+// debutant : plus sensible — ajustement dès 3/5
+// intermediaire/avance : tolèrent plus — ajustement à partir de 4/5
+var DOMS_THRESHOLDS = {
+  debutant: {
+    intensity_reduction: 3,   // ≥ 3 → LOAD_PCT × 0.9
+    volume_reduction:    4,   // ≥ 4 → -1 à -2 séries
+    postpone:            5    // ≥ 5 → décalage recommandé
+  },
+  default: {  // intermediaire, avance, competiteur
+    intensity_reduction: null,  // pas d'ajustement intensité
+    volume_reduction:    4,     // ≥ 4 → -1 série
+    postpone:            5      // ≥ 5 → décalage recommandé
+  }
+};
+
+// Mapping muscles GO → clés RECOVERY_LATENCY
+// Permet de faire le lien entre les groupes musculaires d'une séance
+// et les clés de la table de latence
+var DOMS_MUSCLE_MAP = {
+  'quads':    'quads',    'quadriceps': 'quads',
+  'ischio':   'ischio',   'ischios': 'ischio',  'ischio-jambiers': 'ischio',
+  'fessiers': 'fessiers', 'glutes': 'fessiers',
+  'dos':      'dos',      'dorsaux': 'dos',      'lats': 'dos',
+  'pecs':     'pecs',     'pectoraux': 'pecs',
+  'epaules':  'epaules',  'épaules': 'epaules',  'delts': 'epaules',
+  'biceps':   'biceps',
+  'triceps':  'triceps',
+  'mollets':  'mollets',  'calves': 'mollets',
+  'abdos':    'abdos',    'abs': 'abdos',
+  'trapezes': 'trapezes', 'trapèzes': 'trapezes',
+  'avant_bras': 'avant_bras', 'forearms': 'avant_bras'
+};
+
+// ── VOLUME LANDMARKS DYNAMIQUES ───────────────────────────────────────────
+// db.user.volumeDeltas = { dos: +2, quads: -1 }
+// Delta appliqué sur MUSCLE_VOLUME_TARGETS à chaque lecture via getMuscleVolumeTarget()
+// Plafond ±4 séries vs base. Évaluation fin de mésocycle (4 semaines).
+// Source : Gemini validation 2026
+var VOLUME_DELTA_LIMITS = {
+  max: 4,   // +4 séries max vs base
+  min: -4   // -4 séries min vs base
+};
+
 // Seuils Insolvency Index
 var INSOLVENCY_THRESHOLDS = {
   orange:   1.0,   // Déficit modéré — réduire volume (-1 série accessoires)

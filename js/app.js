@@ -21121,6 +21121,14 @@ function wpDetectPhase() {
     }
   }
 
+  // Guard : blockStartDate désynchronisée (snapshot cloud depuis appareil mal daté)
+  // Ne peut pas arriver en code normal — 4 écritures utilisent toutes Date.now()
+  if (cb && cb.blockStartDate && cb.blockStartDate > Date.now()) {
+    console.warn('[wpDetectPhase] blockStartDate dans le futur — reset à Date.now()');
+    cb.blockStartDate = Date.now();
+    if (typeof saveDB === 'function') saveDB();
+  }
+
   // v230 — weeksSince : lastDeloadDate (prioritaire) sinon blockStartDate, plancher à 1
   var _ref = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
     ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
@@ -23430,6 +23438,11 @@ function generateWeeklyPlan() {
     db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
     if (!db.weeklyPlan.currentBlock.blockStartDate) {
+      db.weeklyPlan.currentBlock.blockStartDate = Date.now();
+    }
+    // Guard : blockStartDate dans le futur (sync cloud aberrant)
+    if (db.weeklyPlan.currentBlock.blockStartDate > Date.now()) {
+      console.warn('[generateWeeklyPlan] blockStartDate dans le futur — reset à Date.now()');
       db.weeklyPlan.currentBlock.blockStartDate = Date.now();
     }
     var allDays     = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];

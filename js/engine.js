@@ -3298,12 +3298,24 @@ function getRestWithCycleAdjust(baseRestSec) {
 
 // ── 5-Rep Test calibration (TÂCHE 12) ────────────────────────
 // Pour profils sans PRs (debutant, yoga, senior)
-// Sécurité S1 : coefficient 0.85 sur le e1RM calculé
+
+// Sources : Brzycki 1993, Epley 1985 — adapté par niveau (Gemini validation 2026)
+var INIT_LOAD_COEFFS = {
+  debutant:      { fiveRM: 0.85, rpe5: 0.70 },
+  intermediaire: { fiveRM: 0.87, rpe5: 0.72 },
+  avance:        { fiveRM: 0.88, rpe5: 0.75 },
+  competiteur:   { fiveRM: 0.88, rpe5: 0.75 }
+};
+
+function getInitLoadCoeff(type) {
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  return (INIT_LOAD_COEFFS[level] || INIT_LOAD_COEFFS.intermediaire)[type];
+}
 
 function calcE1RMFrom5RepTest(weight, reps) {
   if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
   var e1rm = weight / (1.0278 - (0.0278 * reps));
-  return Math.round(e1rm * 0.85 / 2.5) * 2.5;
+  return Math.round(e1rm * getInitLoadCoeff('fiveRM') / 2.5) * 2.5;
 }
 
 function shouldShow5RepTest(exoName) {
@@ -4281,7 +4293,7 @@ function getLPIncrement(exoName, isCompound) {
 
 function calcStartWeightFromRPE5Test(weight, reps) {
   var e1rm = weight / (1.0278 - 0.0278 * reps);
-  return Math.round(e1rm * 0.70 / 2.5) * 2.5;
+  return Math.round(e1rm * getInitLoadCoeff('rpe5') / 2.5) * 2.5;
 }
 
 function getLPBienEtreProgress(exoName) {

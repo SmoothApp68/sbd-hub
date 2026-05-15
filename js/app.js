@@ -22232,6 +22232,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       });
     }
   }
+  // ── Insolvency Index — modulateur de volume (C3b) ─────────────────────────
+  var _insolvency = typeof calcInsolvencyIndex === 'function'
+    ? calcInsolvencyIndex(db.logs || []) : { index: 0, level: 'ok' };
+  var _insolvencyLevel = _insolvency.level || 'ok';
+
   var remaining = maxExos - exercises.length;
   var placedExoNames = exercises.map(function(e) { return e.name || ''; });
   // Trier par priorité avant de couper — évite de supprimer les exercices cruciaux (Gemini)
@@ -22275,6 +22280,14 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     if (db._killSwitchActive) {
       sc = Math.max(1, Math.floor(sc * 0.60));
       if (acc.rpe && acc.rpe > 7) acc = Object.assign({}, acc, { rpe: 7 });
+    }
+    // Modulateur Insolvency (C3b) — accessoires uniquement, jamais les lifts primaires
+    if (!acc.isPrimary) {
+      if (_insolvencyLevel === 'orange') {
+        sc = Math.max(1, sc - 1);
+      } else if (_insolvencyLevel === 'red' || _insolvencyLevel === 'critical') {
+        sc = Math.max(1, sc - 2);
+      }
     }
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;
@@ -22503,6 +22516,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       var cappedRPE = Math.min(parseFloat(exo.rpe) || 6, 6);
       return Object.assign({}, exo, { rpe: cappedRPE, maxRPE: Math.min(exo.maxRPE || 6, 6) });
     });
+  }
+
+  // Note Insolvency coach (C3b)
+  if (_insolvencyLevel === 'critical' || _insolvencyLevel === 'red') {
+    dayCoachNote = (dayCoachNote || '') +
+      ' 🚨 Index Insolvency ' + _insolvency.index.toFixed(2) +
+      ' — Volume accessoires réduit. Priorise la récupération.';
   }
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };

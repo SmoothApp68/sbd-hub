@@ -97,7 +97,22 @@ function getMuscleKey(muscleName) {
 
 function getMuscleVolumeTarget(muscleName) {
   var key = getMuscleKey(muscleName);
-  return key ? (MUSCLE_VOLUME_TARGETS[key] || null) : null;
+  if (!key) return null;
+  var base = MUSCLE_VOLUME_TARGETS[key];
+  if (!base) return null;
+  // Appliquer le delta individuel si présent (Volume Landmarks dynamiques)
+  var deltas = db.user && db.user.volumeDeltas;
+  if (deltas && deltas[key] !== undefined) {
+    var delta = Math.max(VOLUME_DELTA_LIMITS.min,
+                  Math.min(VOLUME_DELTA_LIMITS.max, deltas[key]));
+    return Object.assign({}, base, {
+      MEV:      Math.max(0, base.MEV + delta),
+      MAV_low:  Math.max(0, base.MAV_low + delta),
+      MAV_high: Math.max(0, base.MAV_high + delta),
+      MRV:      Math.max(1, base.MRV + delta)
+    });
+  }
+  return base;
 }
 
 // Zones ACWR

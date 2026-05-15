@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -468,6 +468,9 @@ if (db.user.weightCut && db.user.weightCut.active && !db.user.weightCut.startDat
 
 // ── HYBRID ATHLETE — defensive init ──────────────────────────
 if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
+
+// ── VOLUME DELTAS — defensive init ───────────────────────────
+if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
 
 // ── REEDUCATION → DEBUTANT migration (v156) ──────────────────
 if (db.user.onboardingProfile === 'reeducation') {

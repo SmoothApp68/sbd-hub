@@ -80,7 +80,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -13311,6 +13311,7 @@ function syncRoutineWithSelectedDays() {
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
   migrateActivityData();
+  if (db.user.morpho === undefined) db.user.morpho = null;
   migrateInjuryNames();
   migrateBadges();
   migrateWeeklyPlanSets();
@@ -16070,6 +16071,56 @@ function renderSettingsProfile() {
     if (_rgpdParent && _rgpdParent.parentNode) _rgpdParent.parentNode.appendChild(_rgpdSection);
   }
   renderRGPDSection(_rgpdSection);
+
+  // ── Analyse morphologique (Prompt B) ──
+  var _morphoSettingsSection = document.getElementById('settingsMorphoSection');
+  var _levelForMorpho = db.user && db.user.level;
+  if (_levelForMorpho !== 'debutant') {
+    if (!_morphoSettingsSection) {
+      _morphoSettingsSection = document.createElement('div');
+      _morphoSettingsSection.id = 'settingsMorphoSection';
+      _morphoSettingsSection.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px;margin-top:16px;';
+      var _morphoParent = document.querySelector('.settings-profile-container') || document.getElementById('settingsProgramMode');
+      if (_morphoParent && _morphoParent.parentNode) _morphoParent.parentNode.appendChild(_morphoSettingsSection);
+    }
+    var _morpho = db.user.morpho;
+    var _morphoAnswered = _morpho !== null && _morpho !== undefined;
+    var _morphoHtml = '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">📐 Analyse morphologique</div>';
+    _morphoHtml += '<div style="font-size:11px;color:var(--sub);line-height:1.5;margin-bottom:12px;">Adapte les exercices à ta morphologie (longueur des leviers, proportions tronc/membres).</div>';
+    if (_morphoAnswered) {
+      var _morphoLines = [];
+      if (_morpho.long_femurs) _morphoLines.push('Fémurs longs');
+      if (_morpho.short_arms_long_torso) _morphoLines.push('Bras courts / tronc long');
+      if (_morpho.long_arms) _morphoLines.push('Bras longs');
+      if (_morpho.short_torso) _morphoLines.push('Tronc court');
+      _morphoHtml += '<div style="font-size:12px;color:var(--sub);margin-bottom:10px;">'
+        + (_morphoLines.length > 0 ? '✓ ' + _morphoLines.join(' · ') : 'Aucun morphotype sélectionné') + '</div>';
+    }
+    _morphoHtml += '<button onclick="openMorphoSettings()" style="width:100%;padding:9px;border-radius:10px;'
+      + 'border:1px solid var(--border);background:var(--bg);color:var(--text);'
+      + 'font-size:12px;font-weight:600;cursor:pointer;">'
+      + (_morphoAnswered ? '✏️ Modifier mon analyse morphologique' : '➕ Configurer mon analyse morphologique')
+      + '</button>';
+    _morphoSettingsSection.innerHTML = _morphoHtml;
+    _morphoSettingsSection.style.display = '';
+  } else if (_morphoSettingsSection) {
+    _morphoSettingsSection.style.display = 'none';
+  }
+}
+
+function openMorphoSettings() {
+  // Pré-remplir _obMorphoAnswers avec les valeurs existantes
+  var _morpho = db.user && db.user.morpho;
+  _obMorphoAnswers = {};
+  if (_morpho && typeof _morpho === 'object') {
+    if (_morpho.long_femurs) _obMorphoAnswers.long_femurs = true;
+    if (_morpho.short_arms_long_torso) _obMorphoAnswers.short_arms_long_torso = true;
+    if (_morpho.long_arms) _obMorphoAnswers.long_arms = true;
+    if (_morpho.short_torso) _obMorphoAnswers.short_torso = true;
+  }
+  // Afficher l'étape Q4 de l'onboarding comme modal de re-configuration
+  gotoObStep('q4');
+  document.getElementById('onboarding-overlay').style.display = 'flex';
 }
 
 // ── Health Connect / Garmin (TÂCHE 17) ──────────────────────
@@ -17043,6 +17094,24 @@ function renderCoachTodayHTML() {
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var pr = db.bestPR || {};
   var html = '';
+
+  // ── MORPHO-CARD — utilisateurs existants sans morpho ──
+  var _morphoLevel = db.user && db.user.level;
+  if (db.user && db.user.onboarded && _morphoLevel !== 'debutant'
+      && (db.user.morpho === null || db.user.morpho === undefined)) {
+    html += '<div style="background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.25);'
+      + 'border-radius:14px;padding:14px;margin-bottom:14px;display:flex;'
+      + 'align-items:center;justify-content:space-between;gap:12px;">';
+    html += '<div>';
+    html += '<div style="font-size:13px;font-weight:700;margin-bottom:3px;">📐 Analyse morphologique</div>';
+    html += '<div style="font-size:11px;color:var(--sub);line-height:1.5;">'
+      + 'Adapte tes exercices à ta morphologie pour optimiser les angles et réduire le stress articulaire.</div>';
+    html += '</div>';
+    html += '<button onclick="openMorphoSettings()" style="flex-shrink:0;padding:8px 14px;'
+      + 'border-radius:10px;background:var(--accent);border:none;color:#fff;'
+      + 'font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Configurer</button>';
+    html += '</div>';
+  }
 
   // ── 0a. KILL SWITCH BANNER — compétition imminente ──
   if (db._killSwitchActive) {

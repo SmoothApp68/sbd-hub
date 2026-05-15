@@ -613,6 +613,100 @@ function showReadinessModal(onComplete) {
   updateReadinessPreview();
 }
 
+// ── DOMS Modal — évaluation courbatures avant séance GO ──────────────────
+// Affiché après la Readiness Modal, avant _goDoStartWorkout()
+// Ne montre que les muscles ciblés par la séance du jour
+function showDOMSModal(callback) {
+  // Déjà renseigné aujourd'hui ?
+  var todayDOMS = typeof getTodayDOMS === 'function' ? getTodayDOMS() : {};
+  if (Object.keys(todayDOMS).length > 0) { if (callback) callback(); return; }
+
+  // Muscles ciblés par la séance du jour
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var dayExos = typeof getProgExosForDay === 'function' ? getProgExosForDay(todayDay) : [];
+  var musclesSet = {};
+  dayExos.forEach(function(exoRef) {
+    var contribs = typeof getMuscleContributions === 'function'
+      ? getMuscleContributions(exoRef) : [];
+    contribs.forEach(function(mc) {
+      var key = typeof getMuscleKey === 'function' ? getMuscleKey(mc.muscle) : null;
+      if (key && mc.coeff >= 0.5) musclesSet[key] = true;
+    });
+  });
+  var muscles = Object.keys(musclesSet);
+  if (muscles.length === 0) { if (callback) callback(); return; }
+
+  var MUSCLE_LABELS = {
+    quads: 'Quadriceps', ischio: 'Ischios', fessiers: 'Fessiers',
+    dos: 'Dos', pecs: 'Pectoraux', epaules: 'Épaules',
+    biceps: 'Biceps', triceps: 'Triceps', mollets: 'Mollets',
+    abdos: 'Abdos', trapezes: 'Trapèzes', avant_bras: 'Avant-bras'
+  };
+
+  window._domsValues = {};
+  muscles.forEach(function(m) { window._domsValues[m] = 0; });
+
+  var html = '<div style="padding:16px;">';
+  html += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">💪 Courbatures du jour</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">Comment vont ces muscles ? (0 = aucune, 5 = très douloureux)</div>';
+  muscles.forEach(function(muscle) {
+    var label = MUSCLE_LABELS[muscle] || muscle;
+    html += '<div style="margin-bottom:12px;">';
+    html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;">' + label + '</div>';
+    html += '<div style="display:flex;gap:6px;">';
+    [0,1,2,3,4,5].forEach(function(score) {
+      var emoji = score === 0 ? '✅' : score <= 2 ? '🟡' : score <= 3 ? '🟠' : '🔴';
+      html += '<button class="doms-btn" data-muscle="' + muscle + '" data-score="' + score + '" ' +
+        'onclick="domsSetScore(\'' + muscle + '\',' + score + ',this)" ' +
+        'style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid var(--border);' +
+        'background:var(--surface);font-size:13px;cursor:pointer;">' +
+        emoji + '<br><span style="font-size:10px;color:var(--sub);">' + score + '</span></button>';
+    });
+    html += '</div></div>';
+  });
+  html += '<button onclick="domsConfirm()" style="width:100%;padding:12px;margin-top:8px;' +
+    'background:var(--accent);border:none;border-radius:12px;color:#000;font-weight:700;' +
+    'font-size:14px;cursor:pointer;">Continuer →</button>';
+  html += '<button onclick="domsSkip()" style="width:100%;padding:8px;margin-top:6px;' +
+    'background:transparent;border:none;color:var(--sub);font-size:12px;cursor:pointer;">Passer</button>';
+  html += '</div>';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'doms-modal-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+    'background:rgba(0,0,0,0.7);display:flex;align-items:flex-end;justify-content:center;z-index:9999;';
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;' +
+    'width:100%;max-width:500px;max-height:80vh;overflow-y:auto;">' + html + '</div>';
+  document.body.appendChild(overlay);
+  window._domsCallback = callback;
+}
+
+window.domsSetScore = function(muscle, score, btn) {
+  if (!window._domsValues) return;
+  window._domsValues[muscle] = score;
+  var parent = btn.closest('div[style*="display:flex"]');
+  if (parent) parent.querySelectorAll('.doms-btn').forEach(function(b) {
+    b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface)';
+  });
+  btn.style.borderColor = 'var(--accent)';
+  btn.style.background = 'rgba(10,132,255,0.15)';
+};
+
+window.domsConfirm = function() {
+  if (typeof saveTodayDOMS === 'function') saveTodayDOMS(window._domsValues || {});
+  var overlay = document.getElementById('doms-modal-overlay');
+  if (overlay) overlay.remove();
+  var cb = window._domsCallback; window._domsCallback = null;
+  if (cb) cb();
+};
+
+window.domsSkip = function() {
+  var overlay = document.getElementById('doms-modal-overlay');
+  if (overlay) overlay.remove();
+  var cb = window._domsCallback; window._domsCallback = null;
+  if (cb) cb();
+};
+
 function updateReadinessPreview() {
   const sleep = parseInt(document.getElementById('rd-sleep')?.value || 5);
   const energy = parseInt(document.getElementById('rd-energy')?.value || 5);
@@ -24807,10 +24901,12 @@ function goLaunchActual() {
 function goStartWorkout(withProgram) {
   // Show readiness modal before starting (only if not already filled today)
   if (withProgram && !hasTodayReadiness()) {
-    showReadinessModal(function() { _goDoStartWorkout(withProgram); });
+    showReadinessModal(function() {
+      showDOMSModal(function() { _goDoStartWorkout(withProgram); });
+    });
     return;
   }
-  _goDoStartWorkout(withProgram);
+  showDOMSModal(function() { _goDoStartWorkout(withProgram); });
 }
 
 // ── INSTINCT MODE — universel (Gemini v208) ─────────────────────────

@@ -1317,7 +1317,8 @@ function calcMacrosCibles(kcalCible, bw) {
   var protPerKg = goal === 'recompo' ? 2.4 : 1.95;
   var prot = Math.round(bw * protPerKg);
   // Lipides : 1g/kg min pour femmes (santé hormonale), 0.73g/kg sinon
-  var fatPerKg = gender === 'female' ? Math.max(1.0, 0.73) : 0.73;
+  // Lipides : 1.0g/kg femme (hormones), 0.73g/kg homme (RP Strength)
+  var fatPerKg = gender === 'female' ? 1.0 : 0.73;
   var fat = Math.round(bw * fatPerKg);
   var carb = Math.max(0, Math.round((kcalCible - prot * 4 - fat * 9) / 4));
   return { prot: prot, carb: carb, fat: fat, kcal: kcalCible };

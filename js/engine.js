@@ -4824,6 +4824,8 @@ function getLPIncrement(exoName, isCompound) {
   if (!isCompound) return LP_CONFIG.increments.isolation;
   var bw = (db.user && db.user.bw) || 80;
   var gender = (db.user && db.user.gender || 'M').toUpperCase();
+  // Incrément réduit : femmes (récupération différente) OU hommes < 65kg (charge absolue faible)
+  // Source : Starting Strength / RP Strength — increments adaptés au profil morphologique
   if (gender === 'F' || bw < 65) return LP_CONFIG.increments.composé_leger;
   return LP_CONFIG.increments.composé_lourd;
 }

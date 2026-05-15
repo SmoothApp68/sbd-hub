@@ -21131,9 +21131,15 @@ function wpDetectPhase() {
   }
 
   // v230 — weeksSince : lastDeloadDate (prioritaire) sinon blockStartDate, plancher à 1
-  var _ref = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
-    ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
-    : (cb && cb.blockStartDate) || Date.now();
+  // Fix B — exception : blockStartDate récente (< 14j) + lastDeloadDate auto-détectée
+  // = nouveau mésocycle démarré manuellement → blockStartDate prime sur historique
+  var _cbBSD = cb && cb.blockStartDate;
+  var _lastDL = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
+  var _autoDetected = !!(db.weeklyPlan && db.weeklyPlan._deloadDetectedAuto);
+  var _blockIsRecent = !!(_cbBSD && (Date.now() - _cbBSD) < 14 * 86400000);
+  var _ref = (_lastDL && !(_autoDetected && _blockIsRecent))
+    ? new Date(_lastDL).getTime()
+    : _cbBSD || Date.now();
   var weeksSince = Math.max(1, Math.round((Date.now() - _ref) / (7 * 86400000)));
 
   // Navigation dans le cycle
@@ -21149,6 +21155,14 @@ function wpDetectPhase() {
     : mode === 'bien_etre'
     ? ['accumulation']
     : ['hypertrophie', 'force', 'intensification', 'peak', 'deload']; // powerbuilding (default)
+
+  // Fix A — Guard cycle dépassé : si weeksSince > durée totale du cycle,
+  // lastDeloadDate appartient au cycle précédent → recaler sur blockStartDate
+  var _totalCycleWeeks = phases.reduce(function(s, ph) { return s + (durations[ph] || 0); }, 0) || 14;
+  if (weeksSince > _totalCycleWeeks && _lastDL && _cbBSD) {
+    weeksSince = Math.max(1, Math.round((Date.now() - _cbBSD) / (7 * 86400000)));
+    w = weeksSince; // w est capturé avant Fix A → doit être synchronisé
+  }
 
   var _detectedPhase = null;
   var _weeksBeforePhase = 0;
@@ -21574,11 +21588,12 @@ function wpCountMissedSessions() {
   var now = Date.now();
   var weekStart = now - (new Date().getDay() || 7) * 86400000;
   weekStart = new Date(weekStart).setHours(0, 0, 0, 0);
+  var todayStart = new Date().setHours(0, 0, 0, 0);
   var plannedDays = 0, doneDays = 0;
   var allDays = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
   allDays.forEach(function(day, idx) {
     var dayTs = weekStart + idx * 86400000;
-    if (dayTs > now) return;
+    if (dayTs >= todayStart) return; // aujourd'hui et futur → pas encore manqué
     var label = routine[day] || '';
     if (!label || /repos/i.test(label)) return;
     plannedDays++;
@@ -22404,6 +22419,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
     var warmups = wpBuildWarmupsSafe(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
+    // Fix C — Plancher 60% e1RM ré-appliqué APRÈS réduction deload (bypass fix)
+    // wpComputeWorkWeight() a un plancher interne mais la réduction ×0.80 ci-dessus l'écrase
+    var _isAdvancedLevel = db.user && (db.user.level === 'avance' || db.user.level === 'competiteur');
+    if (phase === 'deload' && _isAdvancedLevel) {
+      var _e1rmFloorRef = typeof getZoneE1RM === 'function' ? (getZoneE1RM(mainName, 'hypertrophie') || 0) : 0;
+      if (_e1rmFloorRef > 0) {
+        var _e1rmFloor60 = Math.round(_e1rmFloorRef * 0.60 / 2.5) * 2.5;
+        if (weight < _e1rmFloor60) weight = _e1rmFloor60;
+      }
+    }
     var _mainE1rmForRest = typeof getZoneE1RM === 'function'
       ? (getZoneE1RM(mainName, typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie') || 0)
       : 0;

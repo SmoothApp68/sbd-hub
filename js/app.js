@@ -8196,7 +8196,7 @@ function isEndOfPhaseBlock() {
   if (!durations) return false;
   var maxWeeks = durations[cb.phase] || 4;
   var weeksSince = cb.blockStartDate
-    ? Math.round((Date.now() - cb.blockStartDate) / (7 * 86400000)) : 0;
+    ? Math.max(0, Math.round((Date.now() - cb.blockStartDate) / (7 * 86400000))) : 0;
   return weeksSince >= maxWeeks;
 }
 

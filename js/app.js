@@ -22370,6 +22370,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
     var warmups = wpBuildWarmupsSafe(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
+    // Fix C — Plancher 60% e1RM ré-appliqué APRÈS réduction deload (bypass fix)
+    // wpComputeWorkWeight() a un plancher interne mais la réduction ×0.80 ci-dessus l'écrase
+    var _isAdvancedLevel = db.user && (db.user.level === 'avance' || db.user.level === 'competiteur');
+    if (phase === 'deload' && _isAdvancedLevel) {
+      var _e1rmFloorRef = typeof getZoneE1RM === 'function' ? (getZoneE1RM(mainName, 'hypertrophie') || 0) : 0;
+      if (_e1rmFloorRef > 0) {
+        var _e1rmFloor60 = Math.round(_e1rmFloorRef * 0.60 / 2.5) * 2.5;
+        if (weight < _e1rmFloor60) weight = _e1rmFloor60;
+      }
+    }
     var _mainE1rmForRest = typeof getZoneE1RM === 'function'
       ? (getZoneE1RM(mainName, typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie') || 0)
       : 0;

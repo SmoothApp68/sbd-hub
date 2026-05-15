@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit 12 — Valeurs hardcodées non-adaptatives — TrainHub v239</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0f;
+      color: #e5e5ea;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .meta {
+      font-size: 12px;
+      color: #636366;
+      margin-bottom: 32px;
+    }
+    .meta span { margin-right: 16px; }
+    h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #aeaeb2;
+      margin: 28px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 .file-badge {
+      background: #1c1c1e;
+      border: 1px solid #2c2c2e;
+      color: #8e8e93;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .card {
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px 14px;
+    }
+    .card.critical {
+      background: rgba(255, 59, 48, 0.08);
+      border: 1px solid rgba(255, 59, 48, 0.25);
+    }
+    .card.warning {
+      background: rgba(255, 159, 10, 0.07);
+      border: 1px solid rgba(255, 159, 10, 0.22);
+    }
+    .card.ok {
+      background: rgba(52, 199, 89, 0.06);
+      border: 1px solid rgba(52, 199, 89, 0.20);
+      padding: 10px 16px;
+      grid-template-columns: auto 1fr;
+    }
+    .badge {
+      font-size: 18px;
+      line-height: 1;
+      padding-top: 2px;
+    }
+    .card-body { min-width: 0; }
+    .location {
+      font-size: 11px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #8e8e93;
+      margin-bottom: 5px;
+    }
+    .location strong { color: #aeaeb2; }
+    code {
+      display: block;
+      background: #1c1c1e;
+      border: 1px solid #2c2c2e;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #e5e5ea;
+      margin: 6px 0;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    code .hl { color: #ff453a; font-weight: 700; }
+    code .hlw { color: #ff9f0a; font-weight: 700; }
+    .issue {
+      font-size: 13px;
+      color: #c7c7cc;
+      margin-top: 4px;
+    }
+    .fix {
+      font-size: 12px;
+      color: #30d158;
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: rgba(48, 209, 88, 0.06);
+      border-radius: 4px;
+    }
+    .fix::before { content: '💡 '; }
+    .ok-text {
+      font-size: 13px;
+      color: #30d158;
+    }
+
+    /* Summary table */
+    .summary-section { margin-top: 40px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    th {
+      background: #1c1c1e;
+      color: #8e8e93;
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid #2c2c2e;
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #1c1c1e;
+      vertical-align: top;
+    }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .td-file {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #aeaeb2;
+    }
+    .n-critical { color: #ff453a; font-weight: 700; text-align: center; }
+    .n-warning { color: #ff9f0a; font-weight: 700; text-align: center; }
+    .n-ok { color: #30d158; font-weight: 700; text-align: center; }
+    .score-cell { font-weight: 700; text-align: center; }
+
+    /* Global score */
+    .score-box {
+      margin-top: 32px;
+      background: linear-gradient(135deg, rgba(0,122,255,0.12), rgba(88,86,214,0.08));
+      border: 1px solid rgba(0,122,255,0.25);
+      border-radius: 14px;
+      padding: 24px;
+      text-align: center;
+    }
+    .score-number {
+      font-size: 56px;
+      font-weight: 900;
+      color: #007aff;
+      line-height: 1;
+    }
+    .score-label {
+      font-size: 14px;
+      color: #8e8e93;
+      margin-top: 6px;
+    }
+    .score-sub {
+      font-size: 12px;
+      color: #636366;
+      margin-top: 8px;
+    }
+
+    /* Prio recommendations */
+    .prio-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .prio-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #1c1c1e;
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .prio-rank {
+      font-size: 11px;
+      font-weight: 800;
+      color: #636366;
+      min-width: 22px;
+    }
+    .prio-text { font-size: 13px; color: #c7c7cc; }
+    .prio-text strong { color: #fff; }
+    .prio-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-right: 6px;
+    }
+    .tag-critical { background: rgba(255,59,48,0.2); color: #ff453a; }
+    .tag-minor { background: rgba(255,159,10,0.2); color: #ff9f0a; }
+    .tag-doc { background: rgba(48,209,88,0.15); color: #30d158; }
+
+    hr.section { border: none; border-top: 1px solid #2c2c2e; margin: 32px 0; }
+  </style>
+</head>
+<body>
+
+<h1>🔍 Audit 12 — Valeurs hardcodées non-adaptatives</h1>
+<div class="meta">
+  <span>📅 2026-05-15</span>
+  <span>🔢 SW trainhub-v239</span>
+  <span>🌿 claude/diagnose-program-display-U2WwA</span>
+  <span>📁 5 fichiers audités</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2><span class="file-badge">js/engine.js</span> — 6 violations mineures</h2>
+<div class="cards">
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>getLPIncrement()</strong> — ligne ~4266</div>
+      <code>if (gender === 'F' || bw <span class="hlw">&lt; 65</span>) return LP_CONFIG.increments.composé_leger;</code>
+      <div class="issue">Seuil absolu 65 kg pour séparer les incréments LP "léger" / "lourd". Un compétiteur de 64 kg reçoit le même incrément qu'un débutant de 55 kg. Non adaptatif au niveau ou à la force relative.</div>
+      <div class="fix">Remplacer par <code>LP_INCREMENT_BY_LEVEL[level]</code> ou ajouter un ratio DOTS-dépendant.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>shouldExitLP()</strong> — ligne ~1818</div>
+      <code>if (bw > 0 && (squat >= bw * <span class="hlw">1.0</span> || bench >= bw * <span class="hlw">0.8</span>)) {
+  return { exit: true, reason: 'performance' };
+}</code>
+      <div class="issue">Ratios BW×1.0 (squat) et BW×0.8 (bench) pour sortir de LP. Non adaptés au genre : bench = 0.8×BW est élite pour une femme, mais intermédiaire pour un homme. Pas de différenciation par <code>level</code> ou <code>gender</code>.</div>
+      <div class="fix">Utiliser <code>LP_EXIT_RATIOS[gender][lift]</code> ou croiser avec les percentiles de <code>STRENGTH_STANDARDS_FEMALE</code>.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>analyzeAthleteProfile()</strong> — ligne ~2802</div>
+      <code>var dlSqRatio = raw.deadlift / raw.squat;
+if (dlSqRatio !== null && dlSqRatio <span class="hlw">&lt; 1.10</span> && level !== 'debutant') {</code>
+      <div class="issue">Seuil 1.10 hardcodé directement dans la fonction. Incohérent : tous les autres ratios (squat_bench, row_bench…) passent par <code>STRENGTH_RATIO_TARGETS</code>. La table n'a pas d'entrée <code>dl_sq</code>.</div>
+      <div class="fix">Ajouter <code>STRENGTH_RATIO_TARGETS.dl_sq = { ideal:[1.10,1.25], alert:1.10, danger:1.00 }</code> et référencer depuis la fonction.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>getMRV() / getMEV()</strong> — lignes ~1184, ~1191</div>
+      <code>// getMRV
+return isFemale ? Math.round(base * <span class="hlw">1.15</span>) : base;
+// getMEV
+return isFemale ? Math.round(base * <span class="hlw">1.10</span>) : base;</code>
+      <div class="issue">Multiplicateurs féminins universels (×1.15 MRV, ×1.10 MEV) appliqués à tous les groupes musculaires sans distinction. Les fessiers/ischio nécessitent bien plus de volume pour les femmes que les triceps — un coefficient global efface cette nuance.</div>
+      <div class="fix">Ajouter une colonne <code>female_mult</code> par muscle dans <code>MUSCLE_VOLUME_TARGETS</code> avec des valeurs spécifiques (fessiers×1.30, pecs×1.10, triceps×1.05…).</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>calcE1RMFrom5RepTest()</strong> — ligne ~3294</div>
+      <code>var e1rm = weight / (1.0278 - 0.0278 * reps);
+return Math.round(e1rm * <span class="hlw">0.85</span> / 2.5) * 2.5;</code>
+      <div class="issue">Escompte 15% sur le e1RM estimé depuis un test 5RM. Aucun commentaire de source. Non adaptatif : un athlète élite a une courbe force-endurance plus plate (0.90 serait plus juste) qu'un débutant (0.80 acceptable).</div>
+      <div class="fix">Documenter la source (Helms 2017?) et/ou indexer par <code>level</code> : <code>{ debutant:0.80, intermediaire:0.85, avancé:0.88 }</code>.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>calcStartWeightFromRPE5Test()</strong> — ligne ~4272</div>
+      <code>return Math.round(e1rm * <span class="hlw">0.70</span> / 2.5) * 2.5;</code>
+      <div class="issue">Escompte 30% universel pour le poids de démarrage LP. Trop conservateur pour un intermédiaire qui reprend, trop généreux pour un vrai débutant avec technique précaire. Sans documentation.</div>
+      <div class="fix">Table <code>LP_START_PCT[level]</code> : débutant→0.65, intermédiaire→0.72, avancé→0.78.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2><span class="file-badge">js/app.js</span> — 3 violations mineures</h2>
+<div class="cards">
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>wpGeneratePowerbuildingDay()</strong> — ligne 22139</div>
+      <code>if (phase === 'deload') {
+  weight = wpRound25(weight * <span class="hlw">0.80</span>);
+  setsCount = Math.ceil(setsCount / <span class="hlw">2</span>);
+  rpe = <span class="hlw">6</span>;
+}</code>
+      <div class="issue">Deload uniforme : -20% charge, séries ÷2, RPE 6. Valeurs raisonnables (standard RP Strength) mais identiques que le deload soit préventif (SRS 65, forçé par planning) ou réactif (SRS 35, fatigue réelle). Un athlète léger en deload préventif pourrait maintenir -10% seulement.</div>
+      <div class="fix">Lire le SRS : <code>deloadPct = srs &lt; 40 ? 0.75 : 0.80</code>, <code>rpe = srs &lt; 40 ? 5.5 : 6</code>.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>wpApplyImbalanceCorrections()</strong> — lignes ~21164, ~21176, ~21195, ~21207</div>
+      <code>if (ratios.row_bench.value <span class="hlw">&lt; 0.90</span>) { /* Seal Row */ }
+if (ratios.bench_squat.value <span class="hlw">&gt; 0.83</span>) { /* Presse */ }
+if (ratios.squat_deadlift.value <span class="hlw">&lt; 0.80</span>) { /* Squat Pause */ }
+if (ratios.ohp_bench.value <span class="hlw">&lt; 0.60</span>)   { /* OHP */ }</code>
+      <div class="issue">4 seuils hardcodés dans la logique de prescription, divergents de <code>STRENGTH_RATIO_TARGETS</code> (ex: row/bench alert = 0.85 dans la table vs 0.90 ici). Deux sources de vérité pour les mêmes ratios.</div>
+      <div class="fix">Lire les seuils depuis <code>STRENGTH_RATIO_TARGETS[key].alert</code> pour garantir la cohérence avec <code>analyzeAthleteProfile()</code>.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>isFatigued()</strong> (via program.js) — ligne ~193 de program.js</div>
+      <code>var highVol = (totalVolume2Weeks / 2) <span class="hlw">&gt; 20000</span>; // 20 tonnes/semaine</code>
+      <div class="issue">Seuil tonnage absolu 20 000 g/semaine. Un athlète de 120 kg en phase force dépasse ce seuil normalement (5×5 @ 200 kg = 5 000 g × 3 lifts = 15 000 g + accessoires). Non calibré au BW ou au niveau.</div>
+      <div class="fix"><code>var bwRef = (db.user &amp;&amp; db.user.bw) || 80; var highVol = (totalVolume2Weeks / 2) &gt; bwRef * 250;</code></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2><span class="file-badge">js/coach.js</span> — 1 violation mineure</h2>
+<div class="cards">
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>computeReadinessScore()</strong> — ligne ~481</div>
+      <code>raw = (acwrScore * <span class="hlw">0.60</span>) + (subjScore * <span class="hlw">0.20</span>) + (trendScore * <span class="hlw">0.20</span>);</code>
+      <div class="issue">Pondérations ACWR/Subjectif/Trend fixes, documentées dans CLAUDE.md mais pas dans le code source. Non adaptatives : si HRV est disponible, les poids changent (ACWR 40%, HRV 30%, Subj 15%, Trend 15%) mais les fallback sans HRV restent fixes indépendamment du niveau ou du profil.</div>
+      <div class="fix">Ajouter commentaire <code>// Poids validés CLAUDE.md §4 SRS</code> ; envisager une pondération adaptée au profil <code>onboardingProfile</code> (senior → Subjectif ×0.30, compétiteur → ACWR ×0.70).</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2><span class="file-badge">js/program.js</span> — 1 violation critique + 1 mineure</h2>
+<div class="cards">
+
+  <div class="card critical">
+    <div class="badge">🔴</div>
+    <div class="card-body">
+      <div class="location"><strong>VOLUME_LANDMARKS</strong> (constante globale) — lignes 37–48</div>
+      <code>// program.js — VOLUME_LANDMARKS
+const VOLUME_LANDMARKS = {
+  'Dos': { mev: 10, mav: 20, <span class="hl">mrv: 26</span> },
+  'Pectoraux': { mev: 8, mav: 16, <span class="hl">mrv: 22</span> },
+  ...
+};
+
+// engine.js — MUSCLE_VOLUME_TARGETS (source officielle)
+var MUSCLE_VOLUME_TARGETS = {
+  dos:  { MEV: 10, MAV_low: 14, MAV_high: 22, <span class="hl">MRV: 25</span> },
+  pecs: { MEV: 8,  MAV_low: 12, MAV_high: 20, <span class="hl">MRV: 22</span> },
+  ...
+};</code>
+      <div class="issue"><strong>Deux tables de volumes divergentes pour les mêmes muscles.</strong> Dos MRV : 26 (program.js) vs 25 (engine.js). Pas de MAV_low/MAV_high dans program.js. Les fonctions getMRV()/getMEV() d'engine.js et le calcul d'imbalance de program.js utilisent des références différentes — un utilisateur reçoit des recommandations contradictoires selon le chemin de code emprunté.</div>
+      <div class="fix">Supprimer <code>VOLUME_LANDMARKS</code> de program.js. Exposer <code>MUSCLE_VOLUME_TARGETS</code> depuis engine.js comme source unique. Adapter les références dans program.js.</div>
+    </div>
+  </div>
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>analyzeMuscleBalance()</strong> — appel isFatigued() — ligne ~193</div>
+      <code>var highVol = (totalVolume2Weeks / 2) <span class="hlw">&gt; 20000</span>;</code>
+      <div class="issue">Cf. app.js ci-dessus — même seuil absolu tonnage sans calibrage BW.</div>
+      <div class="fix">Voir suggestion app.js.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2><span class="file-badge">index.html</span> — 1 violation mineure (admin)</h2>
+<div class="cards">
+
+  <div class="card warning">
+    <div class="badge">⚠️</div>
+    <div class="card-body">
+      <div class="location"><strong>_tryActivateGodMode()</strong> — ligne 3476</div>
+      <code>const ADMIN_EMAIL = <span class="hlw">'aurelien.cofypro@gmail.com'</span>;</code>
+      <div class="issue">Email personnel hardcodé pour l'accès God Mode. N'influence pas la prescription d'entraînement (portée : admin seulement). Risque opérationnel : si l'email change, le God Mode est bloqué sans modification du code. La vérification Supabase <code>profiles.is_admin</code> (ligne 3521) est suffisante à elle seule.</div>
+      <div class="fix">Supprimer la vérification email, conserver uniquement le check <code>profile.is_admin</code> Supabase. Ou déplacer dans une variable d'environnement non committée.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="section">
+<h2>✅ Patterns corrects — Adaptatifs confirmés</h2>
+<div class="cards">
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>STRENGTH_RATIO_TARGETS</strong> (engine.js:37–43) — Table lookup externe consultée dynamiquement par <code>analyzeAthleteProfile()</code>. Valeurs cohérentes avec littérature SBD.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>MUSCLE_VOLUME_TARGETS</strong> (engine.js:46–55) — Table RP Strength citée en commentaire. Lookup via getMRV()/getMEV().</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>BLOCK_DURATION[mode][level]</strong> (program.js) — Durées de blocs adaptatives par mode d'entraînement et niveau. Aucune valeur absolue.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>getDLSetsReps(weekInPhase)</strong> (app.js — après FIX 2) — S2 adaptatif : 6 reps pour intermédiaire+, 5 reps pour débutant. RPE compensatoire 7.5.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>isCreator()</strong> (app.js:15487) — Vérifie un flag booléen en DB (<code>db.user.isCreator</code>), pas un email ou nom hardcodé.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>SFR_TABLE + getSFRForExo()</strong> (coach.js — FIX 1) — Lookup par nom d'exercice avec fallback catégorie. Aucune valeur prescription absolue.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>GENDER_MUSCLE_FACTORS</strong> (app.js) — Table par groupe musculaire (pecs×0.60, épaules×0.65…) et non coefficient global unique.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>WP_ACCESSORIES_BY_PHASE</strong> (app.js) — Constantes de pool (valeurs par défaut légitimes), remplacées dynamiquement par DUP, APRE, phase, et imbalance corrections avant prescription finale.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>Coefficients Brzycki</strong> (0.0278, 1.0278) — Constantes physiques de la formule, invariantes par nature. Documentées dans CLAUDE.md.</div>
+  </div>
+
+  <div class="card ok">
+    <div class="badge">✅</div>
+    <div class="ok-text"><strong>Aucune condition sur userId / name / email dans la logique de prescription.</strong> Zéro occurrence de '6e29', '9ed8', 'Aurélien', 'Léa' dans les fonctions de génération de programme.</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="section">
+<div class="summary-section">
+  <h2>📊 Tableau récapitulatif</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Fichier</th>
+        <th>🔴 Critiques</th>
+        <th>⚠️ Mineures</th>
+        <th>✅ Patterns OK</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="td-file">js/engine.js</td>
+        <td class="n-critical">0</td>
+        <td class="n-warning">6</td>
+        <td class="n-ok">5</td>
+        <td class="score-cell">7.5 / 10</td>
+      </tr>
+      <tr>
+        <td class="td-file">js/app.js</td>
+        <td class="n-critical">0</td>
+        <td class="n-warning">2</td>
+        <td class="n-ok">6</td>
+        <td class="score-cell">8.5 / 10</td>
+      </tr>
+      <tr>
+        <td class="td-file">js/coach.js</td>
+        <td class="n-critical">0</td>
+        <td class="n-warning">1</td>
+        <td class="n-ok">3</td>
+        <td class="score-cell">9.0 / 10</td>
+      </tr>
+      <tr>
+        <td class="td-file">js/program.js</td>
+        <td class="n-critical">1</td>
+        <td class="n-warning">1</td>
+        <td class="n-ok">2</td>
+        <td class="score-cell">7.0 / 10</td>
+      </tr>
+      <tr>
+        <td class="td-file">index.html</td>
+        <td class="n-critical">0</td>
+        <td class="n-warning">1</td>
+        <td class="n-ok">2</td>
+        <td class="score-cell">9.0 / 10</td>
+      </tr>
+      <tr style="background:rgba(255,255,255,0.02);font-weight:700;">
+        <td>TOTAL</td>
+        <td class="n-critical">1</td>
+        <td class="n-warning">11</td>
+        <td class="n-ok">18</td>
+        <td class="score-cell">8.2 / 10</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<hr class="section">
+<h2>🎯 Recommandations prioritaires</h2>
+<div class="prio-list">
+
+  <div class="prio-item">
+    <div class="prio-rank">P1</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-critical">CRITIQUE</span>
+      <strong>Unifier VOLUME_LANDMARKS / MUSCLE_VOLUME_TARGETS.</strong>
+      Supprimer la table dupliquée dans program.js et référencer MUSCLE_VOLUME_TARGETS d'engine.js. Éliminer la divergence dos MRV 26 vs 25.
+    </div>
+  </div>
+
+  <div class="prio-item">
+    <div class="prio-rank">P2</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-minor">MINEUR</span>
+      <strong>Aligner wpApplyImbalanceCorrections() sur STRENGTH_RATIO_TARGETS.</strong>
+      Lire <code>.alert</code> depuis la table au lieu de hardcoder 0.90 / 0.83 / 0.80 / 0.60.
+    </div>
+  </div>
+
+  <div class="prio-item">
+    <div class="prio-rank">P3</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-minor">MINEUR</span>
+      <strong>Ajouter dl_sq dans STRENGTH_RATIO_TARGETS</strong> et déprogrammer le hardcode 1.10 de analyzeAthleteProfile().
+    </div>
+  </div>
+
+  <div class="prio-item">
+    <div class="prio-rank">P4</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-minor">MINEUR</span>
+      <strong>Remplacer bw &lt; 65 dans getLPIncrement()</strong> par une condition sur <code>level</code>. Le poids de corps ne devrait pas être le critère pivot des incréments LP.
+    </div>
+  </div>
+
+  <div class="prio-item">
+    <div class="prio-rank">P5</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-minor">MINEUR</span>
+      <strong>Calibrer isFatigued() au BW</strong> : <code>> (db.user.bw || 80) * 250</code> au lieu du seuil absolu 20 000 g.
+    </div>
+  </div>
+
+  <div class="prio-item">
+    <div class="prio-rank">P6</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-doc">DOC</span>
+      <strong>Documenter les coefficients 0.85 et 0.70</strong> dans calcE1RMFrom5RepTest / calcStartWeightFromRPE5Test avec source (Helms, Israetel, RP Strength) ou créer une table par <code>level</code>.
+    </div>
+  </div>
+
+  <div class="prio-item">
+    <div class="prio-rank">P7</div>
+    <div class="prio-text">
+      <span class="prio-tag tag-doc">DOC</span>
+      <strong>Supprimer ADMIN_EMAIL de index.html</strong> — la vérification Supabase <code>profiles.is_admin</code> est suffisante. Réduire la surface d'information dans le code source public.
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="score-box" style="margin-top:40px;">
+  <div class="score-number">8.2</div>
+  <div class="score-label">Score adaptatif global — <strong>10</strong></div>
+  <div class="score-sub">1 violation critique (doublon tables MEV/MAV/MRV) · 11 mineures (seuils documentables) · 0 identifiant utilisateur dans la prescription · Architecture globale saine</div>
+</div>
+
+<div style="margin-top:20px;font-size:11px;color:#3a3a3c;text-align:center;">
+  Audit 12 — Lecture seule — TrainHub v239 — 2026-05-15
+</div>
+
+</body>
+</html>

@@ -28461,6 +28461,18 @@ function goFinishWorkout() {
     }
   } catch(e) {}
 
+  // Mise à jour EWMA après chaque séance loggée
+  try {
+    if (typeof updateEWMAForExo === 'function') {
+      var _isDeload = typeof isDeloadWeek === 'function' && isDeloadWeek();
+      (session.exercises || []).forEach(function(_ewmaExo) {
+        if (!_ewmaExo.name || !_ewmaExo.maxRM || _ewmaExo.maxRM <= 0) return;
+        updateEWMAForExo(_ewmaExo.name, _ewmaExo.maxRM, _isDeload);
+      });
+      saveDB();
+    }
+  } catch(e) {}
+
   // Cleanup
   try { localStorage.removeItem('SBD_ACTIVE_WORKOUT'); } catch(e) {}
   clearWorkoutIDB();

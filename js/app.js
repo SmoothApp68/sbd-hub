@@ -10400,9 +10400,18 @@ function renderTodayCard() {
     var _setsCount = _setsArr.length || (typeof e.sets === 'number' ? e.sets : 3);
     var _reps = e.reps || (_setsArr[0] && _setsArr[0].reps) || '10';
     var _weight = (_setsArr[0] && _setsArr[0].weight) || e.workWeight || e.weight || '';
-    var _detail = _weight
-      ? _setsCount + '×' + _reps + ' · <span style="color:#a78bfa;font-weight:500;">' + _weight + 'kg</span>'
-      : _setsCount + '×' + _reps;
+    var _detail;
+    if (e.type === 'cardio') {
+      var _cDur = _setsArr[0] && (_setsArr[0].durationMin || _setsArr[0].durationSec);
+      _detail = _cDur ? (_setsArr[0].durationMin ? _setsArr[0].durationMin + ' min' : _setsArr[0].durationSec + 's') : (_setsCount + ' min');
+    } else if (e.type === 'time') {
+      var _tSec = _setsArr[0] && _setsArr[0].durationSec;
+      _detail = _tSec ? _setsCount + '×' + _tSec + 's' : _setsCount + '×' + _reps;
+    } else {
+      _detail = _weight
+        ? _setsCount + '×' + _reps + ' · <span style="color:#a78bfa;font-weight:500;">' + _weight + 'kg</span>'
+        : _setsCount + '×' + _reps;
+    }
 
     return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
       + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
@@ -10523,8 +10532,17 @@ function renderWeekRowsCompact() {
         var _setsCount = _wSets.length || (typeof x.sets === 'number' ? x.sets : 3);
         var _reps = (_wSets[0] && _wSets[0].reps) || x.reps || '';
         var _weight = (_wSets[0] && _wSets[0].weight) || x.workWeight || x.weight || '';
-        var _detail = _reps ? (_setsCount + '×' + _reps) : '';
-        if (_weight) _detail += (_detail ? ' · ' : '') + _weight + 'kg';
+        var _detail;
+        if (x.type === 'cardio') {
+          var _cMin = _wSets[0] && _wSets[0].durationMin;
+          _detail = _cMin ? _cMin + ' min' : (_setsCount + ' min');
+        } else if (x.type === 'time') {
+          var _tSec2 = _wSets[0] && _wSets[0].durationSec;
+          _detail = _tSec2 ? _setsCount + '×' + _tSec2 + 's' : (_reps ? _setsCount + '×' + _reps : '');
+        } else {
+          _detail = _reps ? (_setsCount + '×' + _reps) : '';
+          if (_weight) _detail += (_detail ? ' · ' : '') + _weight + 'kg';
+        }
         return _detail ? _name + ' ' + _detail : _name;
       }).filter(Boolean).join(' · ');
       if (_e.length > 3) _exoPreview += '…';
@@ -20136,7 +20154,11 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 
   var logs = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); });
   var realName = wpFindBestMatch(exoName, logs);
-  if (!realName) return null;
+  if (!realName) {
+    var _est0 = wpEstimateWeight(exoName);
+    if (_est0) return { weight: _est0, reps: targetRepMin || 10, progressed: false, isEstimate: true };
+    return null;
+  }
 
   // Lire la session la plus récente pour cet exercice
   var lastWeight = 0, completedSets = [];
@@ -21452,9 +21474,11 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
       if (!exercises[i].isPrimary && !exercises[i].isWarmup) { accCount++; if (accCount === 2) { accIdx = i; break; } }
     }
     if (accIdx >= 0) {
-      // Ne pas écraser si l'accessoire est DÉJÀ Presse à Cuisses (sinon dédoublonné)
-      var _existingName = (exercises[accIdx].name || '').toLowerCase();
-      if (!/presse à cuisses/i.test(_existingName)) {
+      // Ne pas écraser si Presse à Cuisses déjà présente AILLEURS dans le plan
+      var _presseAlreadyInPlan = exercises.some(function(e) {
+        return /presse à cuisses/i.test(e.name || '');
+      });
+      if (!_presseAlreadyInPlan) {
         exercises[accIdx] = {
           name: 'Presse à Cuisses', type: 'weight', restSeconds: 180, isPrimary: false,
           coachNote: '⚖️ Ratio Squat/Bench bas — Presse à Cuisses priorité quad (low-stress axial).',
@@ -22563,7 +22587,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       if (_insolvencyLevel === 'orange') {
         sc = Math.max(1, sc - 1);
       } else if (_insolvencyLevel === 'red' || _insolvencyLevel === 'critical') {
-        sc = Math.max(1, sc - 2);
+        sc = Math.max(2, sc - 2);
       }
     }
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);

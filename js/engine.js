@@ -44,15 +44,49 @@ var STRENGTH_RATIO_TARGETS = {
 
 // MRV par groupe musculaire (Dr. Mike Israetel / RP)
 var MUSCLE_VOLUME_TARGETS = {
-  quads:    { MEV: 8,  MAV_low: 12, MAV_high: 18, MRV: 20 },
-  ischio:   { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 },
-  pecs:     { MEV: 8,  MAV_low: 12, MAV_high: 20, MRV: 22 },
-  dos:      { MEV: 10, MAV_low: 14, MAV_high: 22, MRV: 25 },
-  epaules:  { MEV: 6,  MAV_low: 10, MAV_high: 16, MRV: 20 },
-  biceps:   { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
-  triceps:  { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
-  fessiers: { MEV: 4,  MAV_low: 8,  MAV_high: 16, MRV: 20 }
+  quads:      { MEV: 8,  MAV_low: 12, MAV_high: 18, MRV: 20 },
+  ischio:     { MEV: 4,  MAV_low: 6,  MAV_high: 10, MRV: 12 },
+  pecs:       { MEV: 8,  MAV_low: 12, MAV_high: 20, MRV: 22 },
+  dos:        { MEV: 10, MAV_low: 14, MAV_high: 22, MRV: 25 },
+  epaules:    { MEV: 6,  MAV_low: 10, MAV_high: 16, MRV: 20 },
+  biceps:     { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
+  triceps:    { MEV: 4,  MAV_low: 8,  MAV_high: 14, MRV: 18 },
+  fessiers:   { MEV: 4,  MAV_low: 8,  MAV_high: 16, MRV: 20 },
+  abdos:      { MEV: 6,  MAV_low: 10, MAV_high: 14, MRV: 20 },
+  mollets:    { MEV: 8,  MAV_low: 10, MAV_high: 14, MRV: 18 },
+  trapezes:   { MEV: 4,  MAV_low: 8,  MAV_high: 10, MRV: 14 },
+  avant_bras: { MEV: 4,  MAV_low: 8,  MAV_high: 10, MRV: 14 }
 };
+
+// Noms d'affichage FR → clé MUSCLE_VOLUME_TARGETS (source unique de vérité)
+var MUSCLE_DISPLAY_TO_KEY = {
+  'pectoraux': 'pecs', 'pecs': 'pecs', 'poitrine': 'pecs',
+  'dos': 'dos', 'dorsaux': 'dos', 'lats': 'dos',
+  'epaules': 'epaules', 'deltoïdes': 'epaules', 'deltoides': 'epaules',
+  'quadriceps': 'quads', 'quads': 'quads', 'jambes': 'quads',
+  'ischio': 'ischio', 'ischios': 'ischio', 'ischio-jambiers': 'ischio',
+  'fessiers': 'fessiers', 'glutes': 'fessiers',
+  'biceps': 'biceps',
+  'triceps': 'triceps',
+  'abdominaux': 'abdos', 'abdos': 'abdos', 'core': 'abdos',
+  'mollets': 'mollets', 'mollet': 'mollets',
+  'trapezes': 'trapezes', 'trapèzes': 'trapezes',
+  'avant-bras': 'avant_bras', 'avant_bras': 'avant_bras'
+};
+
+// Liste canonique des muscles pour l'affichage coach/volume
+var MUSCLE_VOLUME_DISPLAY_KEYS = [
+  'Pectoraux', 'Dos', 'Épaules', 'Quadriceps', 'Ischio',
+  'Fessiers', 'Biceps', 'Triceps', 'Abdominaux', 'Mollets', 'Trapèzes', 'Avant-bras'
+];
+
+function getMuscleVolumeTarget(muscleName) {
+  if (!muscleName) return null;
+  var key = (muscleName || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+  var mappedKey = MUSCLE_DISPLAY_TO_KEY[key] || key;
+  return MUSCLE_VOLUME_TARGETS[mappedKey] || null;
+}
 
 // Zones ACWR
 var ACWR_ZONES = {

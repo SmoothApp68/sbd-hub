@@ -45,7 +45,8 @@ function coachAnalyzeWeeklyVolume() {
 
   // Analyser chaque muscle vs landmarks
   var report = { optimal: [], under: [], high: [], over: [] };
-  Object.keys(VOLUME_LANDMARKS_FR).forEach(function(muscle) {
+  var _muscleKeys = typeof MUSCLE_VOLUME_DISPLAY_KEYS !== 'undefined' ? MUSCLE_VOLUME_DISPLAY_KEYS : [];
+  _muscleKeys.forEach(function(muscle) {
     var sets = muscleSetMap[muscle] || 0;
     if (sets === 0) return; // ignorer muscles non travaillés
     var status = getVolumeStatus(muscle, sets);
@@ -218,9 +219,9 @@ function coachGetFullAnalysis() {
     if (allMuscles.length > 0) {
       var volHtml = '<div class="ai-section-title">💪 Volume semaine (MEV → MRV)</div>';
       allMuscles.forEach(function(e) {
-        var lm = VOLUME_LANDMARKS_FR[e.muscle];
+        var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
         if (!lm) return;
-        var fillPct = Math.min(100, Math.round((e.sets / lm.mrv) * 100));
+        var fillPct = Math.min(100, Math.round((e.sets / lm.MRV) * 100));
         var barColor = e.status.color;
         volHtml += '<div style="margin-bottom:7px;">';
         volHtml += '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;">';

@@ -17499,8 +17499,8 @@ function renderCoachTodayHTML() {
       recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
         reallyUnder.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
         ' — cible MEV : '+reallyUnder.map(function(e){
-          var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
-          return lm ? lm.mev+' sets' : '?';
+          var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
+          return lm ? lm.MEV+' sets' : '?';
         }).join(', ')
       });
     }
@@ -17608,9 +17608,9 @@ function renderCoachTodayHTML() {
     if (allMuscles.length > 0) {
       html += '<div class="coach-muscles"><div class="coach-reco-title">💪 Volume / semaine</div>';
       allMuscles.forEach(function(e) {
-        var lm = typeof VOLUME_LANDMARKS_FR!=='undefined' ? VOLUME_LANDMARKS_FR[e.muscle] : null;
+        var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
         if (!lm) return;
-        var fillPct = Math.min(100, Math.round((e.sets/lm.mrv)*100));
+        var fillPct = Math.min(100, Math.round((e.sets/lm.MRV)*100));
         var barColor = (e.status && e.status.color) || 'var(--sub)';
         html += '<div class="coach-muscle-row">'+
           '<div class="coach-muscle-top">'+

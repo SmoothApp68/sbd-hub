@@ -17219,7 +17219,9 @@ function renderCoachTodayHTML() {
   // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──
   var _SEVERITY_ICONS = { danger: '🚨', warning: '⚠️', good: '✅', info: 'ℹ️' };
   if (coachProfile !== 'silent') {
-    var diagnosis = typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : [];
+    var diagnosis = typeof analyzeAthleteProfileWithInsolvency === 'function'
+      ? analyzeAthleteProfileWithInsolvency()
+      : (typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : []);
     if (diagnosis.length) {
       var severityColor = { danger: 'var(--red)', warning: 'var(--orange)', good: 'var(--green)', info: 'var(--blue)' };
       html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';

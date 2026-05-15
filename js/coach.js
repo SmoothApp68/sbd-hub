@@ -420,6 +420,66 @@ function calcInsolvencyIndex(logs) {
   };
 }
 
+// ── Diagnostic Coach enrichi avec l'Insolvency Index ────────────────────────
+// Wrapper autour d'analyzeAthleteProfile() — distinct du SRS (radar tactique).
+// Insolvency = bilan comptable (dette accumulée 7j). SRS = forme du jour.
+function analyzeAthleteProfileWithInsolvency() {
+  var sections = typeof analyzeAthleteProfile === 'function'
+    ? analyzeAthleteProfile() : [];
+
+  var insolvency = calcInsolvencyIndex(db.logs || []);
+  if (insolvency.index <= 0) return sections;
+
+  var alerts = [];
+  var indexDisplay = insolvency.index.toFixed(2);
+  var budgetDisplay = insolvency.recoveryBudget + '%';
+
+  if (insolvency.level === 'ok') {
+    alerts.push({
+      severity: 'good',
+      title: '✅ Bilan de récupération',
+      text: 'Index ' + indexDisplay + ' — Capacité de récupération OK. '
+          + 'Budget SRS : ' + budgetDisplay + '. Continue à ce rythme.'
+    });
+  } else if (insolvency.level === 'orange') {
+    alerts.push({
+      severity: 'warning',
+      title: '⚠️ Déficit de récupération modéré',
+      text: 'Index ' + indexDisplay + ' — Tu dépenses légèrement plus que tu ne récupères. '
+          + 'Budget SRS : ' + budgetDisplay + '. '
+          + 'Volume accessoires réduit automatiquement (-1 série) cette semaine.'
+    });
+  } else if (insolvency.level === 'red') {
+    var jointText = insolvency.redJoints.length
+      ? ' Articulations en rouge : ' + insolvency.redJoints.join(', ') + '.'
+      : '';
+    alerts.push({
+      severity: 'danger',
+      title: '🔴 Insolvabilité biologique',
+      text: 'Index ' + indexDisplay + ' — Récupération insuffisante. '
+          + 'Séance Active Recovery recommandée (cardio zone 2, mobilité).'
+          + jointText
+    });
+  } else if (insolvency.level === 'critical') {
+    alerts.push({
+      severity: 'danger',
+      title: '🚨 Banqueroute — Deload immédiat',
+      text: 'Index ' + indexDisplay + ' — Surcharge critique. '
+          + 'Deload complet cette semaine obligatoire. '
+          + 'Charges réduites à 50-60%, volume minimal.'
+    });
+  }
+
+  if (alerts.length > 0) {
+    sections.push({
+      title: '💳 Bilan de Récupération (Insolvency Index)',
+      alerts: alerts
+    });
+  }
+
+  return sections;
+}
+
 // ── HRV z-score (normalisé sur 7j) ────────────────────────────────────────
 // z > 1.0  → God Mode (augmenter le score)
 // z < -1.5 → Fatigue nerveuse (réduire le score)

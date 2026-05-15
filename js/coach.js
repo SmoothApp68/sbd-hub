@@ -426,6 +426,85 @@ function calcInsolvencyIndex(logs) {
   };
 }
 
+// ── AUTO-TUNER : ajustements de Volume Landmarks ─────────────────────────────
+// Évalué en fin de mésocycle (4 semaines).
+// +1 delta : volume ≥ MAV_high + insolvency moyen < 0.9 + volume en hausse
+// -1 delta : insolvency moyen ≥ 1.2 (zone rouge persistante)
+// Source : Gemini validation 2026
+function calcVolumeAutoTune(logs) {
+  if (!logs || logs.length === 0) return {};
+
+  var now = Date.now();
+  var fourWeeks = 28 * 86400000;
+  var twoWeeks  = 14 * 86400000;
+
+  var logs4w = logs.filter(function(l) { return l.timestamp > now - fourWeeks; });
+  if (logs4w.length < 4) return {};
+
+  var insolvency = typeof calcInsolvencyIndex === 'function'
+    ? calcInsolvencyIndex(logs4w) : { index: 0 };
+  var avgInsolvency = insolvency.index || 0;
+
+  function getMuscleWeeklySets(subset, startTs, endTs) {
+    var sets = {};
+    subset.filter(function(l) {
+      return l.timestamp >= startTs && l.timestamp < endTs;
+    }).forEach(function(log) {
+      (log.exercises || []).forEach(function(exo) {
+        var contribs = typeof getMuscleContributions === 'function'
+          ? getMuscleContributions(exo.name) : [];
+        var workSets = (exo.allSets || []).filter(function(s) {
+          return !(s.isWarmup === true || s.setType === 'warmup');
+        });
+        contribs.forEach(function(mc) {
+          if (mc.coeff < 0.5) return;
+          var key = typeof getMuscleKey === 'function' ? getMuscleKey(mc.muscle) : null;
+          if (!key) return;
+          sets[key] = (sets[key] || 0) + workSets.length;
+        });
+      });
+    });
+    return sets;
+  }
+
+  var setsEarly = getMuscleWeeklySets(logs4w, now - fourWeeks, now - twoWeeks);
+  var setsLate  = getMuscleWeeklySets(logs4w, now - twoWeeks, now);
+
+  var recommendations = {};
+  Object.keys(setsLate).forEach(function(muscle) {
+    var target = typeof getMuscleVolumeTarget === 'function'
+      ? getMuscleVolumeTarget(muscle) : null;
+    if (!target) return;
+    var avgSets = setsLate[muscle] || 0;
+    var trend = avgSets - (setsEarly[muscle] || 0);
+    var limits = typeof VOLUME_DELTA_LIMITS !== 'undefined' ? VOLUME_DELTA_LIMITS : { max: 4, min: -4 };
+    var currentDelta = (db.user && db.user.volumeDeltas && db.user.volumeDeltas[muscle]) || 0;
+    if (avgSets >= target.MAV_high && avgInsolvency < 0.9 && trend >= 0) {
+      if (currentDelta < limits.max) recommendations[muscle] = currentDelta + 1;
+    } else if (avgInsolvency >= 1.2 && avgSets > target.MEV) {
+      if (currentDelta > limits.min) recommendations[muscle] = currentDelta - 1;
+    }
+  });
+  return recommendations;
+}
+
+// Appliquer les recommandations auto-tuner dans db.user.volumeDeltas
+// À appeler en fin de cycle (lors de la génération d'un nouveau programme)
+function applyVolumeAutoTune(logs) {
+  var recs = calcVolumeAutoTune(logs);
+  if (!recs || Object.keys(recs).length === 0) return false;
+  db.user.volumeDeltas = db.user.volumeDeltas || {};
+  var changed = false;
+  Object.keys(recs).forEach(function(muscle) {
+    if (recs[muscle] !== db.user.volumeDeltas[muscle]) {
+      db.user.volumeDeltas[muscle] = recs[muscle];
+      changed = true;
+    }
+  });
+  if (changed && typeof saveDB === 'function') saveDB();
+  return changed;
+}
+
 // ── Diagnostic Coach enrichi avec l'Insolvency Index ────────────────────────
 // Wrapper autour d'analyzeAthleteProfile() — distinct du SRS (radar tactique).
 // Insolvency = bilan comptable (dette accumulée 7j). SRS = forme du jour.

@@ -10442,7 +10442,13 @@ function renderProgrammeV2() {
   h += renderPhaseProgressBadge();
   h += renderTodayCard();
   h += renderWeekRowsCompact();
-  h += '<div style="display:flex;gap:8px;padding:10px 12px 16px;">'
+  h += '<div style="padding:4px 12px 0;">'
+    + '<button onclick="openAdjustSession()" style="width:100%;padding:12px;margin-bottom:8px;'
+    + 'background:var(--surface);border:1px solid var(--border);'
+    + 'color:var(--text);border-radius:12px;font-size:13px;'
+    + 'font-weight:600;cursor:pointer;">🔄 Ajuster la séance du jour</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:4px 12px 16px;">'
     + '<button onclick="startPgmEdit()" style="flex:1;background:var(--surface);'
     + 'border:0.5px solid var(--border);border-radius:10px;padding:10px;'
     + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;">Modifier le planning</button>'
@@ -19095,8 +19101,7 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Dips',                reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
       { name: 'Écarté Haltères',     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
       { name: 'Extension Triceps',   reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
-      { name: 'Écarté Machine',      reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 }
+      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 }
     ],
     deadlift: [
       // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).
@@ -21181,13 +21186,18 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
     }
   }
 
-  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat
+  // Rule 3: Squat/Deadlift < 0.80 on deadlift day → append Paused Squat (si pas déjà présent)
   if (dayKey === 'deadlift' && ratios.squat_deadlift && ratios.squat_deadlift.value < 0.80) {
-    exercises.push({
-      name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
-      coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
-      sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+    var _alreadyHasSquatPause = exercises.some(function(e) {
+      return /squat\s*pause/i.test(e.name || '');
     });
+    if (!_alreadyHasSquatPause) {
+      exercises.push({
+        name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
+        coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
+        sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
+      });
+    }
   }
 
   // Rule 4: OHP/Bench < 0.60 on weakpoints day → unshift Développé Militaire
@@ -22372,7 +22382,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     });
   }
 
-  if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery') {
+  var _cardioBlockedPhases = ['peak', 'intensification'];
+  var _cardioBlockedBodies = ['lower'];
+  var _cardioBlocked = _cardioBlockedPhases.indexOf(phase) >= 0 && _cardioBlockedBodies.indexOf(bodyPart) >= 0;
+  if ((params.cardio || '') === 'integre' && bodyPart !== 'recovery' && !_cardioBlocked) {
     var _cardioBlock = wpGetCardioForProfile(injuries, 20, isCutting);
     if (_cardioBlock) exercises.push(_cardioBlock);
   }

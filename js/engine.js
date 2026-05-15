@@ -3328,6 +3328,47 @@ function getEWMAAlpha() {
   return EWMA_ALPHA[level] || EWMA_ALPHA.intermediaire;
 }
 
+// ── Mise à jour EWMA après une séance ──────────────────────────────────────
+// Appelée après chaque log sauvegardé, pour chaque exercice de la séance.
+// Ne met PAS à jour pendant les séances de deload (SNC au repos).
+// Filtre outlier ±15% : protège contre les erreurs de saisie et les God Mode isolés.
+function updateEWMAForExo(exoName, currentE1RM, isDeloadSession) {
+  if (!exoName || !currentE1RM || currentE1RM <= 0) return;
+  if (isDeloadSession) return; // Gel EWMA pendant deload
+
+  if (!db.exercises) db.exercises = {};
+  if (!db.exercises[exoName]) db.exercises[exoName] = {};
+
+  var exo = db.exercises[exoName];
+  var alpha = getEWMAAlpha();
+  var prev = exo.ewmaE1rm || null;
+  var sessionCount = exo.ewmaSessionCount || 0;
+
+  // Filtre outlier : brider à ±15% vs EWMA précédent
+  var e1rmToUse = currentE1RM;
+  if (prev && prev > 0) {
+    var maxChange = prev * 0.15;
+    e1rmToUse = Math.max(prev - maxChange, Math.min(prev + maxChange, currentE1RM));
+  }
+
+  var newEWMA;
+  if (sessionCount === 0) {
+    // Session 1 : initialisation directe
+    newEWMA = e1rmToUse;
+  } else if (sessionCount < 3) {
+    // Sessions 2-3 : moyenne arithmétique simple
+    newEWMA = ((prev * sessionCount) + e1rmToUse) / (sessionCount + 1);
+  } else {
+    // Session 4+ : formule EWMA
+    // ⚠️ Formule : α × current + (1-α) × previous — NE PAS écrire (1 - α × previous)
+    newEWMA = alpha * e1rmToUse + (1 - alpha) * prev;
+  }
+
+  exo.ewmaE1rm = Math.round(newEWMA * 10) / 10; // arrondi 0.1kg
+  exo.ewmaSessionCount = sessionCount + 1;
+  exo.ewmaUpdatedAt = Date.now();
+}
+
 function calcE1RMFrom5RepTest(weight, reps) {
   if (!weight || weight <= 0 || !reps || reps <= 0) return 0;
   var e1rm = weight / (1.0278 - (0.0278 * reps));

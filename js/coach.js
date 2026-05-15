@@ -444,6 +444,11 @@ function calcVolumeAutoTune(logs) {
   var oldestLog = logs4w.reduce(function(min, l) { return l.timestamp < min ? l.timestamp : min; }, Date.now());
   if ((Date.now() - oldestLog) < 14 * 86400000) return {};
 
+  // Cooldown 25j entre deux évaluations (1 mésocycle minimum)
+  // Empêche les tirs répétés à chaque régénération de plan (audit 60)
+  var _lastSuggestion = (db.weeklyPlan && db.weeklyPlan._volumeSuggestionsDate) || 0;
+  if (_lastSuggestion && (now - _lastSuggestion) < 25 * 86400000) return {};
+
   // Insolvency sur les 7 derniers jours uniquement — un pic isolé ne doit pas
   // déclencher une réduction globale (lissage vs calcul sur 4 semaines)
   var logs7d = logs.filter(function(l) { return l.timestamp > now - 7 * 86400000; });

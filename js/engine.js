@@ -2525,9 +2525,9 @@ function getTopE1RMForLift(liftType) {
 // Ratios de force actuels (squat/bench/deadlift/ohp/row)
 function computeStrengthRatiosDetailed() {
   var e1rms = {
-    squat:     getTopE1RMForLift('squat')    || 0,
-    bench:     getTopE1RMForLift('bench')    || 0,
-    deadlift:  getTopE1RMForLift('deadlift') || 0,
+    squat:     (getSmoothedE1RM('squat')    || getTopE1RMForLift('squat'))    || 0,
+    bench:     (getSmoothedE1RM('bench')    || getTopE1RMForLift('bench'))    || 0,
+    deadlift:  (getSmoothedE1RM('deadlift') || getTopE1RMForLift('deadlift')) || 0,
     ohp:       getTopE1RMForLift('ohp')      || 0,
     row:       getTopE1RMForLift('row')      || 0
   };

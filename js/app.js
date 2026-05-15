@@ -14041,7 +14041,9 @@ function computeStrengthRatios() {
     });
     return best > 0 ? best : null;
   };
-  const squat = e1rm('squat'), bench = e1rm('bench'), deadlift = e1rm('deadlift');
+  const squat    = (typeof getSmoothedE1RM === 'function' ? getSmoothedE1RM('squat')    : null) || e1rm('squat');
+  const bench    = (typeof getSmoothedE1RM === 'function' ? getSmoothedE1RM('bench')    : null) || e1rm('bench');
+  const deadlift = (typeof getSmoothedE1RM === 'function' ? getSmoothedE1RM('deadlift') : null) || e1rm('deadlift');
   const ohp = e1rm('ohp'), row = e1rm('barbell row');
   const ratios = {};
   if (squat && deadlift) ratios.squat_deadlift = { value: squat/deadlift, ideal: [0.80, 0.85], label: 'Squat / Deadlift' };

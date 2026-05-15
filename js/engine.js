@@ -3842,9 +3842,28 @@ function getSmoothedE1RM(liftType) {
     }
   });
 
-  // Fallback sur e1RM brut si EWMA absent
+  // Fallback 1 : e1RM depuis les logs bruts
   if (bestEwma <= 0 && typeof getTopE1RMForLift === 'function') {
-    return getTopE1RMForLift(liftType);
+    var logE1rm = getTopE1RMForLift(liftType);
+    if (logE1rm && logE1rm > 0) return logE1rm;
+  }
+
+  // Fallback 2 : e1rm stocké dans db.exercises (shadowWeight calculé en GO)
+  if (bestEwma <= 0) {
+    var bestExoE1rm = 0;
+    Object.keys(db.exercises).forEach(function(name) {
+      if (pattern.test(name)) {
+        var e = (db.exercises[name] && db.exercises[name].e1rm) || 0;
+        if (e > bestExoE1rm) bestExoE1rm = e;
+      }
+    });
+    if (bestExoE1rm > 0) return bestExoE1rm;
+  }
+
+  // Fallback 3 : bestPR historique (sera lissé par EWMA dès la première séance GO)
+  if (bestEwma <= 0 && db.bestPR) {
+    var prVal = db.bestPR[liftType];
+    if (prVal && prVal > 0) return prVal;
   }
 
   return bestEwma > 0 ? bestEwma : null;

@@ -22480,6 +22480,15 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
   }
 
+  // Technique sessions : RPE plafonné à 6 — priorité apprentissage moteur
+  if (dayKey === 'technique') {
+    exercises = exercises.map(function(exo) {
+      if (!exo) return exo;
+      var cappedRPE = Math.min(parseFloat(exo.rpe) || 6, 6);
+      return Object.assign({}, exo, { rpe: cappedRPE, maxRPE: Math.min(exo.maxRPE || 6, 6) });
+    });
+  }
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 

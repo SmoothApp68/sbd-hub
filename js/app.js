@@ -1,6 +1,7 @@
 // ============================================================
 // app.js — DB, UI, rendering, navigation, init
 // ============================================================
+// WARNING: app.min.js has been removed. Load app.js directly.
 
 // ============================================================
 // UI Adaptative — t() et shouldShow()

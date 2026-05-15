@@ -20859,6 +20859,7 @@ function wpEstimateCurrentWeek() {
 }
 
 // v202 — Durées de phases Gemini-calibrées (semaines) — powerbuilding/powerlifting/musculation/bien_etre × niveau
+// Source de vérité unique — BLOCK_DURATION était aussi déclarée dans program.js (supprimée)
 var BLOCK_DURATION = {
   powerbuilding: {
     debutant:      { hypertrophie:6, accumulation:6, force:4, intensification:2, peak:1, deload:1 },

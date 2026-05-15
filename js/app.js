@@ -23443,18 +23443,14 @@ function generateWeeklyPlan() {
     db.weeklyPlan.currentBlock.phase = phase;
 
     // ── Garde-fou Insolvency (C3b) ────────────────────────────────────────────
-    // Index critique → deload TACTIQUE cette semaine uniquement.
-    // Red (1.2-1.4) géré par réduction volume dans wpGeneratePowerbuildingDay.
-    // IMPORTANT : ne JAMAIS écrire 'deload' dans currentBlock.phase — sinon
-    // isEndOfPhaseBlock() (durations.deload=1) déclenche à tort le reset
-    // blockStartDate + week=1, ce qui détruit le mésocycle (audit 62).
-    // Le deload reste un override local hebdomadaire ; le bloc garde sa phase réelle.
-    var _insolvencyCheck = typeof calcInsolvencyIndex === 'function'
-      ? calcInsolvencyIndex(db.logs || []) : { level: 'ok' };
-    if (_insolvencyCheck.level === 'critical' && phase !== 'deload') {
-      phase = 'deload'; // override local hebdomadaire — currentBlock.phase NON modifié
-      showToast('🚨 Insolvency critique — Deload forcé. Ton corps a besoin de récupérer.');
-    }
+    // Index critique/red → réduction de volume des ACCESSOIRES uniquement,
+    // gérée dans wpGeneratePowerbuildingDay (sc-2) + note coach. Les lifts
+    // principaux conservent la programmation de la phase courante.
+    // Le phase-switch 'deload' (qui écrasait TOUT le plan en DUP deload RPE6/2sets,
+    // y compris les lifts principaux) est SUPPRIMÉ : redondant avec la réduction
+    // accessoires + Kill Switch, et identifié comme la cause racine catastrophique
+    // du plan bloqué en Deload (audit 62/63). La fatigue extrême reste couverte
+    // par le Kill Switch (db._killSwitchActive) et la réduction accessoires.
 
     // ── Auto-Tuner Volume Landmarks (Sprint Feedback Loop) ────────────────────
     // Évaluation en fin de mésocycle uniquement (isEndOfPhaseBlock)

@@ -364,6 +364,62 @@ function calcWeeklyFatigueCost(logs) {
   return Math.round(total * 10) / 10;
 }
 
+// ── INSOLVENCY INDEX — Calcul principal ──────────────────────────────────
+// Ratio dette/capacité. > 1.0 = insolvabilité biologique.
+// Séparé du SRS (radar tactique) — mesure la dette accumulée sur 7j.
+// Source : Gemini validation 2026
+function calcInsolvencyIndex(logs) {
+  if (!logs || logs.length === 0) return { index: 0, level: 'ok', details: {} };
+
+  // 1. Coût de fatigue hebdomadaire (Prompt A — SFR-pondéré)
+  var fatigueCost = typeof calcWeeklyFatigueCost === 'function'
+    ? calcWeeklyFatigueCost(logs) : 0;
+  if (fatigueCost <= 0) return { index: 0, level: 'ok', details: {} };
+
+  // 2. Capacité de base individuelle
+  var baseCapacity = typeof calcBaseCapacity === 'function'
+    ? calcBaseCapacity() : 1.0;
+
+  // 3. Budget récupération depuis le SRS (0.0 → 1.0)
+  // SRS score 100 = récupération optimale, score 0 = épuisement total
+  var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  var srsScore = (srs && typeof srs.score === 'number') ? srs.score : 70;
+  // Plancher à 0.3 pour éviter division par ~0 si SRS très bas
+  var recoveryBudget = Math.max(0.3, srsScore / 100);
+
+  // 4. Index brut
+  // fatigueCost est normalisé (Σ reps × (1/SFR) × RPE²/100)
+  // dénominateur ×100 calibré pour qu'une semaine normale (fatigueCost≈70) donne index≈0.875
+  var rawIndex = fatigueCost / (baseCapacity * recoveryBudget * 100);
+
+  // 5. Malus articulaire : +0.2 par articulation en zone rouge
+  var jointAlerts = typeof getJointStressAlerts === 'function'
+    ? getJointStressAlerts(logs) : [];
+  var redJoints = jointAlerts.filter(function(a) { return a.level === 'red'; });
+  var jointMalus = redJoints.length * 0.2;
+
+  var finalIndex = Math.round((rawIndex + jointMalus) * 100) / 100;
+
+  // 6. Niveau
+  var thresholds = typeof INSOLVENCY_THRESHOLDS !== 'undefined'
+    ? INSOLVENCY_THRESHOLDS : { orange: 1.0, red: 1.2, critical: 1.4 };
+  var level = finalIndex >= thresholds.critical ? 'critical'
+            : finalIndex >= thresholds.red      ? 'red'
+            : finalIndex >= thresholds.orange   ? 'orange'
+            : 'ok';
+
+  return {
+    index:         finalIndex,
+    level:         level,
+    fatigueCost:   fatigueCost,
+    baseCapacity:  baseCapacity,
+    recoveryBudget:Math.round(recoveryBudget * 100),
+    jointMalus:    jointMalus,
+    redJoints:     redJoints.map(function(a) { return a.label; }),
+    srsScore:      srsScore
+  };
+}
+
 // ── HRV z-score (normalisé sur 7j) ────────────────────────────────────────
 // z > 1.0  → God Mode (augmenter le score)
 // z < -1.5 → Fatigue nerveuse (réduire le score)

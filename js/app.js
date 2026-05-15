@@ -23102,6 +23102,18 @@ function generateWeeklyPlan() {
     if (!db.weeklyPlan) db.weeklyPlan = {};
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
     db.weeklyPlan.currentBlock.phase = phase;
+
+    // ── Garde-fou Insolvency (C3b) ────────────────────────────────────────────
+    // Index critique → deload forcé indépendamment de la phase calculée.
+    // Red (1.2-1.4) géré par réduction volume dans wpGeneratePowerbuildingDay.
+    var _insolvencyCheck = typeof calcInsolvencyIndex === 'function'
+      ? calcInsolvencyIndex(db.logs || []) : { level: 'ok' };
+    if (_insolvencyCheck.level === 'critical' && phase !== 'deload') {
+      phase = 'deload';
+      db.weeklyPlan.currentBlock.phase = phase;
+      showToast('🚨 Insolvency critique — Deload forcé. Ton corps a besoin de récupérer.');
+    }
+
     db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()
     if (!db.weeklyPlan.currentBlock.blockStartDate) {

@@ -374,7 +374,9 @@ function calcInsolvencyIndex(logs) {
   // 1. Coût de fatigue hebdomadaire (Prompt A — SFR-pondéré)
   var fatigueCost = typeof calcWeeklyFatigueCost === 'function'
     ? calcWeeklyFatigueCost(logs) : 0;
-  if (fatigueCost <= 0) return { index: 0, level: 'ok', details: {} };
+  if (!fatigueCost || isNaN(fatigueCost) || fatigueCost <= 0) {
+    return { index: 0, level: 'ok', details: {} };
+  }
 
   // 2. Capacité de base individuelle
   var baseCapacity = typeof calcBaseCapacity === 'function'
@@ -399,6 +401,9 @@ function calcInsolvencyIndex(logs) {
   var jointMalus = redJoints.length * 0.2;
 
   var finalIndex = Math.round((rawIndex + jointMalus) * 100) / 100;
+  // Valeur bornée à 1.99 pour l'affichage — au-delà de critical (1.4)
+  // la valeur exacte n'a pas de valeur informative pour l'utilisateur
+  var displayIndex = Math.min(finalIndex, 1.99);
 
   // 6. Niveau
   var thresholds = typeof INSOLVENCY_THRESHOLDS !== 'undefined'
@@ -410,6 +415,7 @@ function calcInsolvencyIndex(logs) {
 
   return {
     index:         finalIndex,
+    displayIndex:  displayIndex,
     level:         level,
     fatigueCost:   fatigueCost,
     baseCapacity:  baseCapacity,
@@ -431,7 +437,8 @@ function analyzeAthleteProfileWithInsolvency() {
   if (insolvency.index <= 0) return sections;
 
   var alerts = [];
-  var indexDisplay = insolvency.index.toFixed(2);
+  var indexDisplay = (insolvency.displayIndex !== undefined
+    ? insolvency.displayIndex : insolvency.index).toFixed(2);
   var budgetDisplay = insolvency.recoveryBudget + '%';
 
   if (insolvency.level === 'ok') {

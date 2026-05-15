@@ -22635,7 +22635,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   // Note Insolvency coach (C3b)
   if (_insolvencyLevel === 'critical' || _insolvencyLevel === 'red') {
     dayCoachNote = (dayCoachNote || '') +
-      ' 🚨 Index Insolvency ' + _insolvency.index.toFixed(2) +
+      ' 🚨 Index Insolvency ' + (_insolvency.displayIndex !== undefined
+        ? _insolvency.displayIndex : _insolvency.index).toFixed(2) +
       ' — Volume accessoires réduit. Priorise la récupération.';
   }
 

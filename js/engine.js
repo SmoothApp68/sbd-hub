@@ -3470,6 +3470,47 @@ function calcBaseCapacity() {
   return Math.max(0.5, Math.round(capacity * 100) / 100);
 }
 
+// ── Dette de récupération musculaire (latence par groupe) ─────────────────
+// Détecte les muscles travaillés trop récemment selon RECOVERY_LATENCY.
+// Retourne un objet { muscle: urgencyMultiplier } — 1.0 si OK, 1.5 si dette
+function calcMuscleRecoveryDebt(logs) {
+  var now = Date.now();
+  var muscleLastWorked = {}; // muscle → timestamp dernière séance
+
+  // Parcourir les 14 derniers jours
+  var cutoff = now - 14 * 86400000;
+  var recentLogs = (logs || [])
+    .filter(function(l) { return l.timestamp > cutoff; })
+    .sort(function(a, b) { return b.timestamp - a.timestamp; }); // plus récent en premier
+
+  recentLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo.name) return;
+      var contributions = typeof getMuscleContributions === 'function'
+        ? getMuscleContributions(exo.name) : [];
+      contributions.forEach(function(mc) {
+        var key = typeof getMuscleKey === 'function'
+          ? getMuscleKey(mc.muscle) : mc.muscle.toLowerCase();
+        if (key && !muscleLastWorked[key]) {
+          muscleLastWorked[key] = log.timestamp;
+        }
+      });
+    });
+  });
+
+  // Calculer la dette par muscle
+  var debt = {};
+  Object.keys(RECOVERY_LATENCY).forEach(function(muscle) {
+    var lastTs = muscleLastWorked[muscle];
+    if (!lastTs) { debt[muscle] = 1.0; return; }
+    var daysSince = (now - lastTs) / 86400000;
+    var latency = RECOVERY_LATENCY[muscle].days;
+    debt[muscle] = daysSince < latency ? 1.5 : 1.0;
+  });
+
+  return debt;
+}
+
 // ── Lookup stress articulaire pour un exercice ────────────────────────────
 // Normalise le nom, cherche dans JOINT_STRESS_TABLE par correspondance partielle.
 // Retourne null si exercice non trouvé (pas de stress articulaire significatif).

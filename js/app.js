@@ -21159,6 +21159,29 @@ function wpDetectPhase() {
   var _lastDL = db.weeklyPlan && db.weeklyPlan.lastDeloadDate;
   var _autoDetected = !!(db.weeklyPlan && db.weeklyPlan._deloadDetectedAuto);
   var _blockIsRecent = !!(_cbBSD && (Date.now() - _cbBSD) < 14 * 86400000);
+
+  // v232 — Recovery: blockStartDate nulle ou < 24h (reset par bug) → inférer depuis logs SBD
+  // Protégé par le forcedAt check ci-dessus (confirmPhaseTransition ne passe jamais ici)
+  if (cb && (!_cbBSD || (Date.now() - _cbBSD) < 86400000)) {
+    var _sbdNames232 = ['squat', 'bench', 'deadlift', 'soulevé', 'développé couché'];
+    var _minAge232 = 86400000;       // > 1 jour : exclut la séance du jour
+    var _maxAge232 = 14 * 86400000;  // fenêtre 14 jours (2 semaines)
+    var _inferTs232 = Infinity;
+    (db.logs || []).forEach(function(l) {
+      var age = Date.now() - (l.timestamp || 0);
+      if (age <= _minAge232 || age > _maxAge232) return;
+      var hasSBD = (l.exercises || []).some(function(e) {
+        var n = (e.name || '').toLowerCase();
+        return _sbdNames232.some(function(k) { return n.indexOf(k) !== -1; });
+      });
+      if (hasSBD && (l.timestamp || 0) < _inferTs232) _inferTs232 = l.timestamp || 0;
+    });
+    if (_inferTs232 < Infinity) {
+      _cbBSD = _inferTs232;
+      cb.blockStartDate = _cbBSD;
+      if (typeof saveDB === 'function') saveDB();
+    }
+  }
   var _ref = (_lastDL && !(_autoDetected && _blockIsRecent))
     ? new Date(_lastDL).getTime()
     : _cbBSD || Date.now();
@@ -23489,11 +23512,8 @@ function generateWeeklyPlan() {
       }
     }
 
-    // Reset blockStartDate quand fin de mésocycle détectée — stoppe la boucle isEndOfPhaseBlock (audit 60)
-    if (_isEndOfMesocycle && db.weeklyPlan.currentBlock) {
-      db.weeklyPlan.currentBlock.blockStartDate = Date.now();
-      db.weeklyPlan.currentBlock.week = 1;
-    }
+    // v232 — fin de mésocycle : NE PAS écraser blockStartDate ici (causait week=1 permanent).
+    // La transition est gérée par showPhaseValidationGate() + confirmPhaseTransition().
 
     db.weeklyPlan.coachNotes = [];
     // v202 — blockStartDate : date de début du bloc courant, utilisée par isEndOfPhaseBlock()

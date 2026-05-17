@@ -19821,6 +19821,13 @@ function wpFindBestMatch(targetName, logs) {
 function wpEstimateWeight(exoName) {
   var bw = getUserBW();
   var pr = db.bestPR || {};
+  // v235 — Seal Row : charge estimée depuis le Rowing Poulie Assis
+  // (~85% de son e1RM) sinon valeur de référence 75kg (Gemini, avancé).
+  if (/seal\s*row/i.test(exoName || '')) {
+    var _rowE1rm = (db.exercises && db.exercises['Rowing Poulie Assis'] &&
+                    db.exercises['Rowing Poulie Assis'].e1rm) || 0;
+    return _rowE1rm > 0 ? wpRound25(_rowE1rm * 0.85) : 75;
+  }
   var ESTIMATES = {
     'Spoto Bench':              { base: 'bench',    ratio: 0.80 },
     'Souleve de Terre Pause':   { base: 'deadlift', ratio: 0.75 },
@@ -20762,6 +20769,21 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   if (_isAdvancedLevel && _isMainLift && e1rmRef > 0) {
     var _e1rmFloor = Math.round(e1rmRef * 0.60 / 2.5) * 2.5;
     if (baseWeight < _e1rmFloor) baseWeight = _e1rmFloor;
+  }
+
+  // v235 — Surcharge progressive par semaine de bloc (Gemini S3/S4) :
+  // +2.5kg sur les lifts principaux SBD par semaine de bloc écoulée vs S1.
+  // Appliquée APRÈS le cap de phase APRE (overload planifié intentionnel) mais
+  // AVANT le Hard Cap 102.5% e1RM qui reste le garde-fou anti-PR.
+  // Désactivée en deload/récupération.
+  if (_isMainLift && _notLP && !isBeginnerMode) {
+    var _woPhase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+    if (_woPhase !== 'deload' && _woPhase !== 'recuperation') {
+      var _blockWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                        db.weeklyPlan.currentBlock.week) || 1;
+      var _weekProgressKg = Math.max(0, _blockWeek - 1) * 2.5;
+      if (_weekProgressKg > 0) baseWeight = wpRound25(baseWeight + _weekProgressKg);
+    }
   }
 
   // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence

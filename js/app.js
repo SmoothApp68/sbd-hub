@@ -29286,6 +29286,18 @@ function goFinishWorkout() {
     }
   } catch(e) {}
 
+  // Recalculer les projections mésocycle après chaque séance loggée (v241)
+  // Seules les charges se recalculent (deep-copy S3/S4 depuis S2 + +2.5kg/offset)
+  if (typeof buildMesoWeeks === 'function') {
+    try {
+      buildMesoWeeks();
+      if (typeof renderProgramBuilder === 'function' &&
+          document.querySelector('#programmeV2Content:not([style*="none"])')) {
+        renderProgramBuilder();
+      }
+    } catch(e) { console.warn('[MesoRecalc]', e); }
+  }
+
   // Cleanup
   try { localStorage.removeItem('SBD_ACTIVE_WORKOUT'); } catch(e) {}
   clearWorkoutIDB();

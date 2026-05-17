@@ -24032,6 +24032,25 @@ function buildMesoWeeks() {
   db.weeklyPlan.mesoWeeks = mesoWeeks;
 }
 
+// Nombre max de jours d'entraînement consécutifs PRÉVUS dans le plan.
+// Sert de référence pour ne pas alerter sur une structure de plan normale
+// (ex : Jeu/Ven/Sam = 3 consécutifs voulus → pas un signal de fatigue).
+function getMaxPlannedConsecutive() {
+  var days = db.weeklyPlan && db.weeklyPlan.days;
+  if (!days || !days.length) return 3; // fallback cold-start
+  var maxStreak = 0;
+  var currentStreak = 0;
+  days.forEach(function(day) {
+    if (!day.rest) {
+      currentStreak++;
+      maxStreak = Math.max(maxStreak, currentStreak);
+    } else {
+      currentStreak = 0;
+    }
+  });
+  return maxStreak;
+}
+
 function generateWeeklyPlan() {
   var btn = document.getElementById('wpGenerateBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
@@ -24166,7 +24185,12 @@ function generateWeeklyPlan() {
       return maxConsec;
     }
     var maxConsec = hasConsecutiveDays(selectedDays);
-    if (maxConsec >= 3) {
+    // Seuil dynamique : la fatigue cumulée n'est anormale que si le réel
+    // dépasse ce que le plan prévoit (min 4 jours). Élimine le faux positif
+    // systématique pour un plan à 3 jours consécutifs voulus.
+    var _maxPlanned = getMaxPlannedConsecutive();
+    var _safeThreshold = Math.max(_maxPlanned + 1, 4);
+    if (maxConsec >= _safeThreshold) {
       var splitNote = '⚠️ ' + maxConsec + ' jours consécutifs détectés. ' +
         'Pour éviter la fatigue cumulée, répartis tes séances avec des jours de repos entre les gros lifts.';
       showToast(splitNote);

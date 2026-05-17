@@ -10662,7 +10662,7 @@ function renderMesoDayRow(day, isProjected, weekNumber) {
     }
   }
 
-  return '<div style="padding:7px 0;border-bottom:1px solid var(--border);'
+  var html = '<div style="padding:7px 0;border-bottom:1px solid var(--border);'
     + 'display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'
     + '<div style="min-width:0;flex:1;">'
     + '<div style="font-size:12px;color:var(--text);">'
@@ -10675,6 +10675,55 @@ function renderMesoDayRow(day, isProjected, weekNumber) {
     + '<div style="text-align:right;font-size:12px;line-height:1.4;white-space:nowrap;">'
     + weightHtml + '</div>'
     + '</div>';
+
+  // Accessoires (non primaires) — affichage condensé avec delta réel
+  var accessories = (day.exercises || []).filter(function(e) { return !e.isPrimary; });
+  accessories.forEach(function(acc) {
+    var accFirstSet = (acc.sets || []).find(function(s) {
+      return !s.isWarmup && s.setType !== 'warmup';
+    });
+    var accReps = accFirstSet && accFirstSet.reps ? accFirstSet.reps : '';
+    var accSets = (acc.sets || []).filter(function(s) {
+      return !s.isWarmup && s.setType !== 'warmup';
+    }).length;
+    var accPlanned = accFirstSet && accFirstSet.weight ? parseFloat(accFirstSet.weight) : null;
+
+    var accReal = log && typeof getLoggedWeightForExo === 'function'
+      ? getLoggedWeightForExo(log, acc.name) : null;
+    var accWeightDisplay = '';
+    if (accReal !== null && accPlanned !== null) {
+      var accDelta = Math.round((accReal - accPlanned) * 10) / 10;
+      var accColor = accDelta >= 0 ? 'var(--green)' : 'var(--orange)';
+      accWeightDisplay = '<span style="color:' + accColor + ';">' + accReal + 'kg ✓</span>';
+      if (accDelta !== 0) {
+        accWeightDisplay += ' <span style="font-size:10px;color:' + accColor + ';">('
+          + (accDelta > 0 ? '+' : '') + accDelta + 'kg)</span>';
+      }
+    } else if (accReal !== null) {
+      accWeightDisplay = '<span style="color:var(--green);">' + accReal + 'kg ✓</span>';
+    } else if (accPlanned !== null) {
+      accWeightDisplay = isProjected
+        ? '<em style="color:var(--sub);font-style:italic;">~' + accPlanned + 'kg</em>'
+        : accPlanned + 'kg';
+    }
+
+    var isTimeType = acc.type === 'time' || acc.type === 'cardio'
+      || /tapis|gainage|planche|natation|pompe/i.test(acc.name || '');
+
+    html += '<div style="padding:4px 0 4px 18px;border-bottom:1px solid var(--border);'
+      + 'display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+      + '<span style="font-size:11px;color:var(--sub);min-width:0;flex:1;overflow:hidden;'
+      + 'text-overflow:ellipsis;">' + acc.name + '</span>'
+      + '<span style="font-size:11px;color:var(--sub);white-space:nowrap;">'
+      + (isTimeType
+          ? (accReps || '')
+          : accSets + '×' + (accReps || '?')
+            + (accWeightDisplay ? ' · ' + accWeightDisplay : ''))
+      + '</span>'
+      + '</div>';
+  });
+
+  return html;
 }
 
 function toggleMesoWeek(weekNumber) {

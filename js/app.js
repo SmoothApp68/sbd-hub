@@ -23530,6 +23530,138 @@ function _wpGetSplitLabels(mode, freq) {
   return null;
 }
 
+// ── MÉSOCYCLE 4 SEMAINES (v241) ─────────────────────────────────────────────
+// Génère db.weeklyPlan.mesoWeeks : tableau des 4 semaines du bloc courant
+// avec statut completed/active/projected/deload et résumés associés.
+// Appelé depuis generateWeeklyPlan() et re-appelé après chaque log.
+
+function buildWeekSummary(days) {
+  if (!days) return {};
+  var totalSets = 0;
+  var mainLiftPeak = null;
+  (days || []).forEach(function(day) {
+    if (day.rest) return;
+    (day.exercises || []).forEach(function(exo) {
+      var workSets = (exo.sets || []).filter(function(s) { return !s.isWarmup && s.setType !== 'warmup'; });
+      totalSets += workSets.length;
+      if (exo.isPrimary && !mainLiftPeak) {
+        var firstSet = workSets[0];
+        if (firstSet) mainLiftPeak = {
+          name: exo.name,
+          weight: firstSet.weight,
+          reps: firstSet.reps,
+          rpe: firstSet.rpe
+        };
+      }
+    });
+  });
+  return { totalSets: totalSets, mainLiftPeak: mainLiftPeak };
+}
+
+function buildCompletedWeekSummary(weekNumber) {
+  var bsd = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+            db.weeklyPlan.currentBlock.blockStartDate;
+  if (!bsd) return { status: 'completed', sessionsLogged: 0, totalSets: 0 };
+  // Snap to Monday of block start for clean week boundaries
+  var bsdDate = new Date(bsd);
+  var bsdMonday = new Date(bsdDate);
+  bsdMonday.setDate(bsdDate.getDate() - ((bsdDate.getDay() + 6) % 7));
+  bsdMonday.setHours(0, 0, 0, 0);
+  var weekStart = bsdMonday.getTime() + (weekNumber - 1) * 7 * 86400000;
+  var weekEnd   = weekStart + 7 * 86400000;
+  var weekLogs  = (db.logs || []).filter(function(l) {
+    return l.timestamp >= weekStart && l.timestamp < weekEnd;
+  });
+  var totalSets = 0;
+  var mainLiftPeak = null;
+  weekLogs.forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var ws = (exo.allSets || exo.series || []).filter(function(s) {
+        return !(s.isWarmup === true || s.setType === 'warmup');
+      });
+      totalSets += ws.length;
+      if (exo.isPrimary && !mainLiftPeak && ws.length) {
+        mainLiftPeak = { name: exo.name, weight: ws[0].weight, reps: ws[0].reps };
+      }
+    });
+  });
+  return { totalSets: totalSets, sessionsLogged: weekLogs.length, mainLiftPeak: mainLiftPeak };
+}
+
+function buildProjectedWeek(weekOffset) {
+  // Deep-copy current week days, scaling primary SBD work sets by +2.5kg per offset.
+  // Avoids re-generating full days (expensive) and temporary state mutations.
+  var days = db.weeklyPlan && db.weeklyPlan.days;
+  if (!days) return [];
+  var addKg = weekOffset * 2.5;
+  return days.map(function(day) {
+    if (day.rest) return { day: day.day, rest: true, title: day.title, exercises: [] };
+    var projDay = {
+      day: day.day, rest: false, title: day.title, isProjected: true,
+      exercises: (day.exercises || []).map(function(exo) {
+        var projExo = Object.assign({}, exo, { isProjected: true });
+        // Scale main SBD lifts only (accessories stay flat)
+        var isSBD = exo.isPrimary && typeof getSBDType === 'function' && getSBDType(exo.name || '');
+        if (isSBD && addKg > 0) {
+          projExo.sets = (exo.sets || []).map(function(s) {
+            if (s.isWarmup || s.setType === 'warmup') return s;
+            return Object.assign({}, s, {
+              weight: s.weight ? wpRound25(s.weight + addKg) : s.weight
+            });
+          });
+        }
+        return projExo;
+      })
+    };
+    return projDay;
+  });
+}
+
+function buildMesoWeeks() {
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return;
+  var currentWeek = (db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+  var phase  = (db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var level  = (db.user && db.user.level) || 'intermediaire';
+  var mode   = (db.user && db.user.trainingMode) || 'powerbuilding';
+  // Débutant en LP → pas de vue mésocycle
+  if (level === 'debutant') { db.weeklyPlan.mesoWeeks = null; return; }
+  var blockDuration = (typeof BLOCK_DURATION !== 'undefined' &&
+    BLOCK_DURATION[mode] && BLOCK_DURATION[mode][level])
+    ? (BLOCK_DURATION[mode][level][phase] || 4) : 4;
+  var mesoWeeks = [];
+  for (var w = 1; w <= blockDuration + 1; w++) {
+    var weekStatus = w < currentWeek  ? 'completed'
+                   : w === currentWeek ? 'active'
+                   : w === blockDuration + 1 ? 'deload'
+                   : 'projected';
+    if (weekStatus === 'active') {
+      mesoWeeks.push({
+        weekNumber: w, status: 'active', blockDuration: blockDuration,
+        days: db.weeklyPlan.days,
+        summary: buildWeekSummary(db.weeklyPlan.days)
+      });
+    } else if (weekStatus === 'projected') {
+      var projDays = buildProjectedWeek(w - currentWeek);
+      mesoWeeks.push({
+        weekNumber: w, status: 'projected', blockDuration: blockDuration,
+        weekOffset: w - currentWeek, days: projDays,
+        summary: buildWeekSummary(projDays)
+      });
+    } else if (weekStatus === 'completed') {
+      mesoWeeks.push({
+        weekNumber: w, status: 'completed', blockDuration: blockDuration,
+        summary: buildCompletedWeekSummary(w)
+      });
+    } else {
+      mesoWeeks.push({
+        weekNumber: w, status: 'deload', blockDuration: blockDuration,
+        summary: { label: 'Deload — Récupération & Supercompensation' }
+      });
+    }
+  }
+  db.weeklyPlan.mesoWeeks = mesoWeeks;
+}
+
 function generateWeeklyPlan() {
   var btn = document.getElementById('wpGenerateBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
@@ -23996,6 +24128,10 @@ function generateWeeklyPlan() {
     days.forEach(function(d) { db.routine[d.day] = d.rest ? '😴 Repos Complet' : d.title; });
 
     saveDB();
+    // Construire la vue mésocycle 4 semaines (v241)
+    if (typeof buildMesoWeeks === 'function') {
+      try { buildMesoWeeks(); } catch(e) { console.warn('[Meso]', e); }
+    }
     // v212 — sync immédiat + retry via debounce pour garantir la persistance
     // de weeklyPlan.days côté Supabase même si le sync immédiat échoue
     // (offline, auth pas encore prête, conflit upsert).

@@ -22420,6 +22420,15 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       else if (_fallbackKey === 'vitesse') _dupProfile = getDUPVitesse(phase, _level);
     }
   }
+  // v235 — Squat 2 (jour jambes secondaire) en hypertrophie : un slot vitesse
+  // (5×3 @ RPE 6.5, effort dynamique) est un contresens en plein bloc
+  // hypertrophie. On vise du volume métabolique : 4×6-8 @ RPE 7.5.
+  if (dayKey === 'squat' && phase === 'hypertrophie' && dupProfileKey === 'vitesse' && _dupProfile) {
+    _dupProfile = {
+      sets: [4, 4], reps: [6, 8], intensity: [0.65, 0.72],
+      rpe: [7.5, 7.5], rest: [120, 150], label: 'Volume Hypertrophie'
+    };
+  }
   if (_dupProfile) {
     // Hybride CrossFit : ACWR > 1.3 + activité secondaire → forcer RPE volume 6-7
     var _acwrDup = typeof computeACWR === 'function' ? computeACWR() : null;

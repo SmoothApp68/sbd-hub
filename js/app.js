@@ -23876,6 +23876,15 @@ function getMesoLogForDay(dayName, weekNumber) {
   }) || null;
 }
 
+// v244 — Reconstruit les days d'une semaine completed depuis les logs.
+// Utilise buildProjectedWeek (offset négatif) pour les charges prévues ;
+// renderMesoDayRow ira chercher le réel via getMesoLogForDay.
+function buildCompletedWeekDays(weekNumber) {
+  var currentWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                     db.weeklyPlan.currentBlock.week) || 1;
+  return buildProjectedWeek(weekNumber - currentWeek);
+}
+
 function getLoggedWeightForExo(log, exoName) {
   if (!log || !exoName) return null;
   var target = exoName.toLowerCase();
@@ -23954,6 +23963,7 @@ function buildMesoWeeks() {
     } else if (weekStatus === 'completed') {
       mesoWeeks.push({
         weekNumber: w, status: 'completed', blockDuration: blockDuration,
+        days: buildCompletedWeekDays(w),
         summary: buildCompletedWeekSummary(w)
       });
     } else {

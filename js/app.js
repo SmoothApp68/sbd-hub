@@ -617,72 +617,86 @@ function showReadinessModal(onComplete) {
   updateReadinessPreview();
 }
 
-// ── DOMS Modal — évaluation courbatures avant séance GO ──────────────────
-// Affiché après la Readiness Modal, avant _goDoStartWorkout()
-// Ne montre que les muscles ciblés par la séance du jour
+// ── DOMS Modal GO — sécurité axiale uniquement ───────────────────────────────
+// Affiché au lancement GO uniquement si :
+//   • DOMS matinal non renseigné ET
+//   • La séance contient Dead/Squat ET
+//   • Profil avancé/powerbuilding (filet sécurité lombaire)
+// Sinon skip immédiat → callback(). Évaluation complète = Dashboard matinal.
 function showDOMSModal(callback) {
-  // Déjà renseigné aujourd'hui ?
-  var todayDOMS = typeof getTodayDOMS === 'function' ? getTodayDOMS() : {};
-  if (Object.keys(todayDOMS).length > 0) { if (callback) callback(); return; }
+  // DOMS déjà renseignés aujourd'hui → skip
+  if (typeof hasTodayDOMS === 'function' && hasTodayDOMS()) {
+    if (callback) callback();
+    return;
+  }
 
-  // Muscles ciblés par la séance du jour
+  // Détecter si la séance contient un lift axial lourd (Dead ou Squat)
   var todayDay = DAYS_FULL[new Date().getDay()];
-  var dayExos = typeof getProgExosForDay === 'function' ? getProgExosForDay(todayDay) : [];
-  var musclesSet = {};
-  dayExos.forEach(function(exoRef) {
-    var contribs = typeof getMuscleContributions === 'function'
-      ? getMuscleContributions(exoRef) : [];
-    contribs.forEach(function(mc) {
-      var key = typeof getMuscleKey === 'function' ? getMuscleKey(mc.muscle) : null;
-      if (key && mc.coeff >= 0.5) musclesSet[key] = true;
-    });
+  var dayExos = typeof getProgExosForDay === 'function'
+    ? getProgExosForDay(todayDay) : [];
+  var hasAxialLift = dayExos.some(function(exoRef) {
+    return /squat|deadlift|soulevé|sdt|soulev/i.test(exoRef || '');
   });
-  var muscles = Object.keys(musclesSet);
-  if (muscles.length === 0) { if (callback) callback(); return; }
 
-  var MUSCLE_LABELS = {
-    quads: 'Quadriceps', ischio: 'Ischios', fessiers: 'Fessiers',
-    dos: 'Dos', pecs: 'Pectoraux', epaules: 'Épaules',
-    biceps: 'Biceps', triceps: 'Triceps', mollets: 'Mollets',
-    abdos: 'Abdos', trapezes: 'Trapèzes', avant_bras: 'Avant-bras'
-  };
+  // Filet axial actif uniquement pour avancés/compétiteurs ou powerlifters.
+  // "Profil avancé/powerlifting uniquement" (Gemini) : les débutants et
+  // intermédiaires sont couverts par l'évaluation matinale, pas le GO.
+  var level = db.user && db.user.level;
+  var mode  = db.user && db.user.trainingMode;
+  var needsAxialCheck = hasAxialLift &&
+    level !== 'debutant' &&
+    (level === 'avance' || level === 'competiteur' ||
+     mode === 'powerlifting');
 
-  window._domsValues = {};
-  muscles.forEach(function(m) { window._domsValues[m] = 0; });
+  if (!needsAxialCheck) {
+    // Pas de séance axiale lourde ou profil débutant/intermédiaire → skip
+    if (callback) callback();
+    return;
+  }
 
+  // Afficher uniquement la question lombaires/dos
   var html = '<div style="padding:16px;">';
-  html += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">💪 Courbatures du jour</div>';
-  html += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">Comment vont ces muscles ? (0 = aucune, 5 = très douloureux)</div>';
-  muscles.forEach(function(muscle) {
-    var label = MUSCLE_LABELS[muscle] || muscle;
-    html += '<div style="margin-bottom:12px;">';
-    html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;">' + label + '</div>';
-    html += '<div style="display:flex;gap:6px;">';
-    [0,1,2,3,4,5].forEach(function(score) {
-      var emoji = score === 0 ? '✅' : score <= 2 ? '🟡' : score <= 3 ? '🟠' : '🔴';
-      html += '<button class="doms-btn" data-muscle="' + muscle + '" data-score="' + score + '" ' +
-        'onclick="domsSetScore(\'' + muscle + '\',' + score + ',this)" ' +
-        'style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid var(--border);' +
-        'background:var(--surface);font-size:13px;cursor:pointer;">' +
-        emoji + '<br><span style="font-size:10px;color:var(--sub);">' + score + '</span></button>';
-    });
-    html += '</div></div>';
+  html += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">⚠️ Sécurité lombaires</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">' +
+    'Ta séance contient du Deadlift ou du Squat.<br>' +
+    'Comment vont tes lombaires / bas du dos aujourd\'hui ?' +
+    '</div>';
+
+  html += '<div style="display:flex;gap:6px;margin-bottom:16px;">';
+  [0,1,2,3,4,5].forEach(function(score) {
+    var emoji = score === 0 ? '✅' : score <= 2 ? '🟡' : score <= 3 ? '🟠' : '🔴';
+    var label = score === 0 ? 'Parfait' : score <= 2 ? 'Léger' :
+                score <= 3 ? 'Modéré' : score <= 4 ? 'Fort' : 'Intense';
+    html += '<button class="doms-btn" data-muscle="dos" data-score="' + score + '" ' +
+      'onclick="domsSetScore(\'dos\',' + score + ',this)" ' +
+      'style="flex:1;padding:8px 3px;border-radius:10px;border:1.5px solid var(--border);' +
+      'background:var(--surface);font-size:12px;cursor:pointer;text-align:center;">' +
+      emoji + '<br><span style="font-size:9px;color:var(--sub);">' + label + '</span>' +
+      '</button>';
   });
-  html += '<button onclick="domsConfirm()" style="width:100%;padding:12px;margin-top:8px;' +
-    'background:var(--accent);border:none;border-radius:12px;color:#000;font-weight:700;' +
-    'font-size:14px;cursor:pointer;">Continuer →</button>';
-  html += '<button onclick="domsSkip()" style="width:100%;padding:8px;margin-top:6px;' +
-    'background:transparent;border:none;color:var(--sub);font-size:12px;cursor:pointer;">Passer</button>';
   html += '</div>';
 
+  html += '<button onclick="domsConfirm()" ' +
+    'style="width:100%;padding:12px;background:var(--accent);border:none;' +
+    'border-radius:12px;color:#000;font-weight:700;font-size:14px;cursor:pointer;">' +
+    'Continuer →</button>';
+  html += '<button onclick="domsSkip()" ' +
+    'style="width:100%;padding:8px;margin-top:6px;background:transparent;' +
+    'border:none;color:var(--sub);font-size:12px;cursor:pointer;">Aucune douleur</button>';
+  html += '</div>';
+
+  // Overlay centré (pas collé en bas comme la version précédente)
   var overlay = document.createElement('div');
   overlay.id = 'doms-modal-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
-    'background:rgba(0,0,0,0.7);display:flex;align-items:flex-end;justify-content:center;z-index:9999;';
-  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;' +
-    'width:100%;max-width:500px;max-height:80vh;overflow-y:auto;">' + html + '</div>';
+    'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
+    'justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;' +
+    'width:100%;max-width:500px;">' + html + '</div>';
   document.body.appendChild(overlay);
+
   window._domsCallback = callback;
+  window._domsValues = { dos: 0 };  // lombaires uniquement
 }
 
 window.domsSetScore = function(muscle, score, btn) {

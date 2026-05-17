@@ -22848,7 +22848,19 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     // de wpComputeWorkWeight('bench') (charge barre) → diviser par 2 (par haltère).
     weight = wpDumbbellAdjust(weight, mainName);
     var warmups = wpBuildWarmupsSafe(weight, reps, mainName, 1, []);
-    if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
+    if (phase === 'deload') {
+      // Option A (Gemini) : mêmes exercices, volume -50%, charge ≤ 65% e1RM.
+      setsCount = Math.max(1, Math.round(setsCount * 0.5));
+      rpe = 6;
+      var _dlE1rm = typeof getZoneE1RM === 'function'
+        ? (getZoneE1RM(mainName, 'hypertrophie') || 0) : 0;
+      if (_dlE1rm > 0) {
+        var _dlCap = Math.round(_dlE1rm * 0.65 / 2.5) * 2.5;
+        weight = Math.min(wpRound25(weight * 0.80), _dlCap);
+      } else {
+        weight = wpRound25(weight * 0.80);
+      }
+    }
     // Fix C — Plancher 60% e1RM ré-appliqué APRÈS réduction deload (bypass fix)
     // wpComputeWorkWeight() a un plancher interne mais la réduction ×0.80 ci-dessus l'écrase
     var _isAdvancedLevel = db.user && (db.user.level === 'avance' || db.user.level === 'competiteur');
@@ -23273,6 +23285,20 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       ' 🚨 Index Insolvency ' + (_insolvency.displayIndex !== undefined
         ? _insolvency.displayIndex : _insolvency.index).toFixed(2) +
       ' — Volume accessoires réduit. Priorise la récupération.';
+  }
+
+  // Deload sauté (Gemini Q3) : S1 Force bridée — cap RPE séries de travail
+  var _rpeCap = db.weeklyPlan && db.weeklyPlan._deloadSkippedRpeCap;
+  if (_rpeCap && phase === 'force') {
+    exercises = exercises.map(function(exo) {
+      if (!exo || !exo.sets) return exo;
+      return Object.assign({}, exo, {
+        sets: exo.sets.map(function(s) {
+          if (s.isWarmup) return s;
+          return Object.assign({}, s, { rpe: Math.min(s.rpe || 8, _rpeCap) });
+        })
+      });
+    });
   }
 
   // ── Dédoublonnage final ──────────────────────────────────────────────────────
@@ -24076,7 +24102,29 @@ function generateWeeklyPlan() {
     var phase       = wpDetectPhase() || 'hypertrophie';
     if (!db.weeklyPlan) db.weeklyPlan = {};
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
+    var _previousPhase = db.weeklyPlan.currentBlock.phase;
+    db.weeklyPlan.currentBlock._previousPhase = _previousPhase || null;
     db.weeklyPlan.currentBlock.phase = phase;
+
+    // Transition hypertrophie→force sans deload complété → malus RPE (Gemini Q3)
+    var _skippedDeload = (_previousPhase === 'hypertrophie' &&
+                          phase === 'force' &&
+                          !db.weeklyPlan._deloadCompleted);
+    if (_skippedDeload) {
+      showToast('⚠️ Deload sauté — S1 Force bridée à RPE 6.5 pour protéger tes tissus.');
+      db.weeklyPlan._deloadSkippedRpeCap = 6.5;
+    } else {
+      db.weeklyPlan._deloadSkippedRpeCap = null;
+    }
+    // Entrée dans un nouveau bloc deload → reset compteur de complétion
+    if (phase === 'deload' && _previousPhase !== 'deload') {
+      db.weeklyPlan._deloadSessionCount = 0;
+      db.weeklyPlan._deloadCompleted = false;
+    }
+    // Sortie du deload vers la force → consommer le flag de complétion
+    if (phase === 'force' && _previousPhase === 'deload') {
+      db.weeklyPlan._deloadCompleted = false;
+    }
 
     // ── Garde-fou Insolvency (C3b) ────────────────────────────────────────────
     // Index critique/red → réduction de volume des ACCESSOIRES uniquement,
@@ -29431,6 +29479,17 @@ function goFinishWorkout() {
 
   // Add to db.logs
   db.logs.push(session);
+  // Deload complété (Gemini Q3) : ≥3 séances loggées en phase deload
+  try {
+    var _bp = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+              db.weeklyPlan.currentBlock.phase;
+    if (_bp === 'deload') {
+      db.weeklyPlan._deloadSessionCount = (db.weeklyPlan._deloadSessionCount || 0) + 1;
+      if (db.weeklyPlan._deloadSessionCount >= 3) {
+        db.weeklyPlan._deloadCompleted = true;
+      }
+    }
+  } catch(e) {}
   try { updateActiveProgramStats(); } catch(e) {}
   saveDBNow();
   if (!navigator.onLine) {

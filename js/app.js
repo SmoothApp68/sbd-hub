@@ -23753,6 +23753,51 @@ function buildCompletedWeekSummary(weekNumber) {
   return { totalSets: totalSets, sessionsLogged: weekLogs.length, mainLiftPeak: mainLiftPeak };
 }
 
+// v242 — Lookup charge réelle loggée par jour de bloc.
+// Bornes Monday-snapped, cohérentes avec buildCompletedWeekSummary().
+function _mesoBlockMonday() {
+  var bsd = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+            db.weeklyPlan.currentBlock.blockStartDate;
+  if (!bsd) return null;
+  var d = new Date(bsd);
+  var m = new Date(d);
+  m.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  m.setHours(0, 0, 0, 0);
+  return m.getTime();
+}
+
+function getMesoLogForDay(dayName, weekNumber) {
+  var bsdMonday = _mesoBlockMonday();
+  if (bsdMonday === null || !dayName) return null;
+  var DAY_INDEX = {
+    'Lundi':0,'Mardi':1,'Mercredi':2,'Jeudi':3,
+    'Vendredi':4,'Samedi':5,'Dimanche':6
+  };
+  var idx = DAY_INDEX[dayName];
+  if (idx === undefined) return null;
+  var dayStart = bsdMonday + (weekNumber - 1) * 7 * 86400000 + idx * 86400000;
+  var dayEnd   = dayStart + 86400000;
+  return (db.logs || []).find(function(log) {
+    return log.timestamp >= dayStart && log.timestamp < dayEnd;
+  }) || null;
+}
+
+function getLoggedWeightForExo(log, exoName) {
+  if (!log || !exoName) return null;
+  var target = exoName.toLowerCase();
+  var exo = (log.exercises || []).find(function(e) {
+    return e.name && e.name.toLowerCase() === target;
+  });
+  if (!exo) return null;
+  var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+    return !(s.isWarmup === true || s.setType === 'warmup');
+  });
+  if (!workSets.length) return null;
+  return Math.max.apply(null, workSets.map(function(s) {
+    return parseFloat(s.weight) || 0;
+  }));
+}
+
 function buildProjectedWeek(weekOffset) {
   // Deep-copy current week days, scaling primary SBD work sets by +2.5kg per offset.
   // Avoids re-generating full days (expensive) and temporary state mutations.

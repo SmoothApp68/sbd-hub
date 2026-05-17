@@ -3609,6 +3609,10 @@ var DOMS_THRESHOLDS = {
   }
 };
 
+// Muscles axiaux/systémiques — risque blessure élevé, pas de Repeated Bout
+// Effect protecteur. Ajustement dès 4/5 même pour les avancés.
+var DOMS_AXIAL_MUSCLES = ['lombaires', 'dos', 'trapezes', 'ischio', 'genoux', 'fessiers'];
+
 // Mapping muscles GO → clés RECOVERY_LATENCY
 // Permet de faire le lien entre les groupes musculaires d'une séance
 // et les clés de la table de latence
@@ -3690,30 +3694,63 @@ function saveTodayDOMS(domsObj) {
 // Retourne { volumeReduction: int, intensityFactor: float, postpone: bool }
 function getDOMSAdjustment(muscleKey) {
   var domsScore = getTodayDOMS(muscleKey);
-  if (!domsScore || domsScore === 0) return { volumeReduction: 0, intensityFactor: 1.0, postpone: false };
+  if (!domsScore || domsScore === 0) {
+    return { volumeReduction: 0, intensityFactor: 1.0, postpone: false };
+  }
 
   var level = (db.user && db.user.level) || 'intermediaire';
-  var thresholds = (level === 'debutant')
-    ? DOMS_THRESHOLDS.debutant
-    : DOMS_THRESHOLDS.default;
+
+  // Muscle axial (lombaires, dos, SNC…) → pas de tolérance RBE, risque blessure
+  var isAxial = DOMS_AXIAL_MUSCLES.indexOf(muscleKey) !== -1;
+
+  // S4 overreaching : DOMS 4/5 sur muscle périphérique = résultat voulu,
+  // ne pas réduire le volume (le stimulus est le but recherché).
+  var currentWeek = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                     db.weeklyPlan.currentBlock.week;
+  var phase = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+              db.weeklyPlan.currentBlock.phase;
+  var isOverreaching = (phase === 'hypertrophie' && currentWeek >= 4);
 
   var volumeReduction = 0;
   var intensityFactor = 1.0;
   var postpone = false;
 
-  if (domsScore >= thresholds.postpone) {
+  if (domsScore >= 5) {
+    // 5/5 = décalage recommandé, tous profils
     postpone = true;
     volumeReduction = 3;
     intensityFactor = 0.85;
-  } else if (domsScore >= thresholds.volume_reduction) {
-    volumeReduction = domsScore >= 4.5 ? 2 : 1;
-    intensityFactor = 0.95;
-  } else if (thresholds.intensity_reduction && domsScore >= thresholds.intensity_reduction) {
-    intensityFactor = 0.90;
+  } else if (domsScore >= 4) {
+    if (isAxial) {
+      // Muscle axial 4/5 → réduction systématique (risque SNC/lombaire)
+      volumeReduction = 2;
+      intensityFactor = 0.90;
+    } else if (isOverreaching && level !== 'debutant') {
+      // S4 overreaching + périphérique → on encaisse (Gemini)
+      volumeReduction = 0;
+      intensityFactor = 1.0;
+    } else if (level === 'debutant') {
+      volumeReduction = 2;
+      intensityFactor = 0.90;
+    } else {
+      // Intermédiaire/avancé, périphérique, hors S4 → réduction légère
+      volumeReduction = 1;
+      intensityFactor = 0.95;
+    }
+  } else if (domsScore >= 3) {
+    if (level === 'debutant') {
+      intensityFactor = 0.90;
+    }
+    // Intermédiaire/avancé 3/5 → aucun ajustement (RBE)
   }
 
-  return { volumeReduction: volumeReduction, intensityFactor: intensityFactor,
-           postpone: postpone, score: domsScore };
+  return {
+    volumeReduction: volumeReduction,
+    intensityFactor: intensityFactor,
+    postpone: postpone,
+    score: domsScore,
+    isAxial: isAxial
+  };
 }
 
 // Multiplicateur de capacité de récupération de base (base 1.0)

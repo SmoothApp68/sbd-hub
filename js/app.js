@@ -21160,9 +21160,12 @@ function wpDetectPhase() {
   var _autoDetected = !!(db.weeklyPlan && db.weeklyPlan._deloadDetectedAuto);
   var _blockIsRecent = !!(_cbBSD && (Date.now() - _cbBSD) < 14 * 86400000);
 
-  // v232 — Recovery: blockStartDate nulle ou < 24h (reset par bug) → inférer depuis logs SBD
-  // Protégé par le forcedAt check ci-dessus (confirmPhaseTransition ne passe jamais ici)
-  if (cb && (!_cbBSD || (Date.now() - _cbBSD) < 86400000)) {
+  // v233 — Recovery blockStartDate : nulle OU incohérente avec l'historique.
+  // Si blockStartDate est plus récente que le plus ancien log SBD de la fenêtre
+  // 14j par > 3j, elle a été resetée par bug (sync cloud, deploy) → ré-inférer.
+  // Protégé par le forcedAt check ci-dessus (confirmPhaseTransition/wpForcePhase
+  // ne passent jamais ici car return anticipé sur forcedAt < 7j).
+  if (cb) {
     var _sbdNames232 = ['squat', 'bench', 'deadlift', 'soulevé', 'développé couché'];
     var _minAge232 = 86400000;       // > 1 jour : exclut la séance du jour
     var _maxAge232 = 14 * 86400000;  // fenêtre 14 jours (2 semaines)
@@ -21176,7 +21179,15 @@ function wpDetectPhase() {
       });
       if (hasSBD && (l.timestamp || 0) < _inferTs232) _inferTs232 = l.timestamp || 0;
     });
-    if (_inferTs232 < Infinity) {
+    // Clamp : ne jamais remonter avant un deload connu (nouveau bloc légitime)
+    var _dlClamp232 = _lastDL ? new Date(_lastDL).getTime() : 0;
+    if (_inferTs232 < Infinity && _dlClamp232 && _inferTs232 < _dlClamp232) {
+      _inferTs232 = _dlClamp232;
+    }
+    var _bsdMissing232 = !_cbBSD;
+    var _bsdTooRecent232 = _cbBSD && _inferTs232 < Infinity &&
+                           (_cbBSD - _inferTs232) > 3 * 86400000;
+    if (_inferTs232 < Infinity && (_bsdMissing232 || _bsdTooRecent232)) {
       _cbBSD = _inferTs232;
       cb.blockStartDate = _cbBSD;
       if (typeof saveDB === 'function') saveDB();

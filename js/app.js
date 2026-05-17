@@ -21196,7 +21196,16 @@ function wpDetectPhase() {
   var _ref = (_lastDL && !(_autoDetected && _blockIsRecent))
     ? new Date(_lastDL).getTime()
     : _cbBSD || Date.now();
-  var weeksSince = Math.max(1, Math.round((Date.now() - _ref) / (7 * 86400000)));
+  // v234 — Changement de semaine ancré au lundi (pas fenêtre glissante 7j)
+  var _refDate = new Date(_ref);
+  var _refMonday = new Date(_refDate);
+  _refMonday.setDate(_refDate.getDate() - ((_refDate.getDay() + 6) % 7));
+  _refMonday.setHours(0, 0, 0, 0);
+  var _nowDate = new Date();
+  var _nowMonday = new Date(_nowDate);
+  _nowMonday.setDate(_nowDate.getDate() - ((_nowDate.getDay() + 6) % 7));
+  _nowMonday.setHours(0, 0, 0, 0);
+  var weeksSince = Math.max(1, Math.round((_nowMonday - _refMonday) / (7 * 86400000)) + 1);
 
   // Navigation dans le cycle
   // v229 — Tableaux alignés avec les clés réelles de BLOCK_DURATION.
@@ -21216,7 +21225,11 @@ function wpDetectPhase() {
   // lastDeloadDate appartient au cycle précédent → recaler sur blockStartDate
   var _totalCycleWeeks = phases.reduce(function(s, ph) { return s + (durations[ph] || 0); }, 0) || 14;
   if (weeksSince > _totalCycleWeeks && _lastDL && _cbBSD) {
-    weeksSince = Math.max(1, Math.round((Date.now() - _cbBSD) / (7 * 86400000)));
+    var _bsdDate = new Date(_cbBSD);
+    var _bsdMonday = new Date(_bsdDate);
+    _bsdMonday.setDate(_bsdDate.getDate() - ((_bsdDate.getDay() + 6) % 7));
+    _bsdMonday.setHours(0, 0, 0, 0);
+    weeksSince = Math.max(1, Math.round((_nowMonday - _bsdMonday) / (7 * 86400000)) + 1);
     w = weeksSince; // w est capturé avant Fix A → doit être synchronisé
   }
 

@@ -21840,7 +21840,7 @@ function wpCheckActivityConflicts(dayData, dayName) {
   return dayData;
 }
 
-function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
+function wpApplyImbalanceCorrections(exercises, dayKey, ratios, phase) {
   if (!ratios) return exercises;
   // Seuils lus depuis STRENGTH_RATIO_TARGETS — cohérence diagnostic Coach = prescription programme
   var _t = typeof STRENGTH_RATIO_TARGETS !== 'undefined' ? STRENGTH_RATIO_TARGETS : {};
@@ -21890,11 +21890,26 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios) {
       return /squat\s*pause/i.test(e.name || '');
     });
     if (!_alreadyHasSquatPause) {
-      exercises.push({
+      var _sqPause = {
         name: 'Squat Pause', type: 'weight', restSeconds: 240, isPrimary: false,
         coachNote: '⚖️ Ratio Squat/Deadlift bas (' + ratios.squat_deadlift.value.toFixed(2) + ') — Squat Pause ajouté.',
         sets: Array.from({ length: 3 }, function() { return { reps: 4, rpe: 7.5, weight: null, isWarmup: false }; })
-      });
+      };
+      // Bloc Force : maintenir la correction mais intensité technique (Gemini Q4)
+      // — charge ≤ 70% e1RM squat, RPE ≤ 7 (technique sous fatigue, pas surcharge)
+      if (phase === 'force') {
+        var _sqE1rm = typeof getSmoothedE1RM === 'function'
+          ? (getSmoothedE1RM('squat') || 0) : 0;
+        var _cap70 = _sqE1rm > 0 ? Math.round(_sqE1rm * 0.70 / 2.5) * 2.5 : null;
+        _sqPause.coachNote = '⚖️ Ratio Squat/Deadlift bas — Squat Pause technique (≤70% e1RM, RPE 7).';
+        _sqPause.sets = _sqPause.sets.map(function(s) {
+          return Object.assign({}, s, {
+            weight: _cap70,
+            rpe: Math.min(s.rpe || 7, 7)
+          });
+        });
+      }
+      exercises.push(_sqPause);
     }
   }
 
@@ -23141,7 +23156,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   // Imbalance corrections — before supersets
   var _imbalanceRatios = null;
   try { _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null; } catch(e) {}
-  exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios);
+  exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios, phase);
 
   // Adaptations morphologiques (Prompt B) — après corrections déséquilibre
   // Hiérarchie : BLESSURE > IMBALANCE > MORPHO
@@ -23298,6 +23313,18 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
           return Object.assign({}, s, { rpe: Math.min(s.rpe || 8, _rpeCap) });
         })
       });
+    });
+  }
+
+  // Bloc Force : volume accessoires -50% (Gemini Q4) — la charge neurologique
+  // des SBD lourds absorbe la capacité de récupération. Lifts principaux intacts.
+  if (phase === 'force') {
+    exercises = exercises.map(function(exo) {
+      if (!exo || exo.isPrimary) return exo;
+      var workSets   = (exo.sets || []).filter(function(s) { return !s.isWarmup; });
+      var warmupSets = (exo.sets || []).filter(function(s) { return s.isWarmup; });
+      var reducedWork = workSets.slice(0, Math.max(1, Math.round(workSets.length / 2)));
+      return Object.assign({}, exo, { sets: warmupSets.concat(reducedWork) });
     });
   }
 

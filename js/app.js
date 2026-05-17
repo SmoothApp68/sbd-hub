@@ -10726,27 +10726,114 @@ function renderMesoDayRow(day, isProjected, weekNumber) {
   return html;
 }
 
-function toggleMesoWeek(weekNumber) {
-  var mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
-  if (!mesoWeeks) return;
-  mesoWeeks.forEach(function(w) {
-    var content = document.getElementById('meso-content-' + w.weekNumber);
-    var chevron = document.querySelector('[data-meso-week="' + w.weekNumber + '"] .meso-chevron');
-    if (!content) return;
-    if (w.weekNumber === weekNumber) {
-      var isOpen = content.style.display !== 'none';
-      content.style.display = isOpen ? 'none' : 'block';
-      if (chevron) chevron.textContent = isOpen ? '▼' : '▲';
-    } else {
-      content.style.display = 'none';
-      if (chevron) chevron.textContent = '▼';
-    }
+// v244 — Swipe horizontal mésocycle
+
+function getMesoPhaseLabel(week) {
+  if (!week || week.status === 'deload') return 'Récupération';
+  var w = week.weekNumber || 1;
+  var dur = week.blockDuration || 4;
+  if (w === 1) return 'Accumulation';
+  if (w === 2 && dur >= 4) return 'Intensification';
+  if (w === 3 && dur >= 4) return 'Volume Peak';
+  if (w >= 4) return 'Overreaching';
+  return 'Accumulation';
+}
+
+function _buildMesoProgressBar(mesoWeeks, currentIdx) {
+  var html = '<div style="display:flex;gap:3px;height:4px;border-radius:2px;overflow:hidden;">';
+  mesoWeeks.forEach(function(week, i) {
+    var color = i < currentIdx  ? 'rgba(50,215,75,0.5)'
+              : i === currentIdx ? 'var(--blue)'
+              : 'var(--border)';
+    html += '<div style="flex:1;background:' + color + ';border-radius:1px;"></div>';
   });
+  html += '</div>';
+  return html;
+}
+
+function _mesoNavLabel(week) {
+  if (!week) return '';
+  if (week.status === 'deload') return '💤 Deload';
+  return 'S' + week.weekNumber + '/' + (week.blockDuration || 4);
+}
+
+function renderMesoSlide(week, idx, mesoWeeks) {
+  if (!week) return '';
+  var isActive    = week.status === 'active';
+  var isCompleted = week.status === 'completed';
+  var isProjected = week.status === 'projected';
+  var isDeload    = week.status === 'deload';
+  var blockDuration = week.blockDuration || 4;
+
+  var bg = isActive    ? 'rgba(10,132,255,0.08)'
+         : isCompleted ? 'rgba(100,100,100,0.06)'
+         : isDeload    ? 'rgba(52,199,89,0.08)'
+         : 'rgba(255,255,255,0.02)';
+  var border = isActive ? '1.5px solid rgba(10,132,255,0.4)' : '1px solid var(--border)';
+  var opacity = isProjected ? '0.65' : '1';
+
+  var weekLabel = isDeload
+    ? '💤 Deload — Récupération'
+    : '💪 S' + week.weekNumber + '/' + blockDuration + ' — '
+      + (isCompleted ? 'Terminée ✓' : isActive ? 'En cours' : 'À venir');
+
+  var html = '<div style="background:' + bg + ';border:' + border + ';border-radius:14px;'
+    + 'overflow:hidden;opacity:' + opacity + ';">';
+
+  html += '<div style="padding:11px 14px 8px;">';
+  html += '<div style="font-size:13px;font-weight:700;color:var(--text);">' + weekLabel + '</div>';
+  html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">'
+    + getMesoPhaseLabel(week) + '</div>';
+  var badgeText = typeof renderMesoBadges === 'function'
+    ? renderMesoBadges(week, (db.user && db.user.trainingMode) || 'powerbuilding') : '';
+  if (badgeText) {
+    html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + badgeText + '</div>';
+  }
+  html += '</div>';
+
+  html += '<div style="padding:0 14px 10px;">';
+  if (isDeload) {
+    html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">'
+      + 'Charges à 60-75%, volume minimal — supercompensation en cours.</div>';
+  } else if (week.days && week.days.length) {
+    week.days.forEach(function(day) {
+      if (day.rest) return;
+      html += renderMesoDayRow(day, isProjected, week.weekNumber);
+    });
+  } else if (isCompleted) {
+    var s = week.summary || {};
+    html += '<div style="font-size:12px;color:var(--sub);padding:4px 0;">'
+      + (s.sessionsLogged || 0) + ' séance(s) · ' + (s.totalSets || 0) + ' séries</div>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function mesoGoTo(idx) {
+  var mesoWeeks = (db.weeklyPlan && db.weeklyPlan.mesoWeeks) || [];
+  if (!mesoWeeks.length) return;
+  idx = Math.max(0, Math.min(mesoWeeks.length - 1, idx));
+  window._mesoCur = idx;
+
+  var progressEl = document.getElementById('meso-progress-bar');
+  if (progressEl) progressEl.innerHTML = _buildMesoProgressBar(mesoWeeks, idx);
+
+  var slideEl = document.getElementById('meso-slide-content');
+  if (slideEl) slideEl.innerHTML = renderMesoSlide(mesoWeeks[idx], idx, mesoWeeks);
+
+  var prevBtn = document.getElementById('meso-prev-btn');
+  var nextBtn = document.getElementById('meso-next-btn');
+  if (prevBtn) prevBtn.style.opacity = idx === 0 ? '0.3' : '1';
+  if (nextBtn) nextBtn.style.opacity = idx === mesoWeeks.length - 1 ? '0.3' : '1';
+
+  var navLabel = document.getElementById('meso-nav-label');
+  if (navLabel) navLabel.textContent = _mesoNavLabel(mesoWeeks[idx]);
 }
 
 function renderMesoView() {
   var mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
-  // Lazy-build if missing (e.g. old localStorage data)
   if (!mesoWeeks) {
     if (typeof buildMesoWeeks === 'function') {
       try { buildMesoWeeks(); } catch(e) {}
@@ -10755,85 +10842,40 @@ function renderMesoView() {
   }
   if (!mesoWeeks || mesoWeeks.length === 0) return '';
   var level = (db.user && db.user.level) || 'intermediaire';
-  var mode  = (db.user && db.user.trainingMode) || 'powerbuilding';
   if (level === 'debutant') return '';
 
-  var blockDuration = (mesoWeeks[0] && mesoWeeks[0].blockDuration) || 4;
-  var html = '<div class="meso-container" style="margin:0 0 16px;">';
+  var activeIdx = 0;
+  mesoWeeks.forEach(function(w, i) { if (w.status === 'active') activeIdx = i; });
+
+  window._mesoCur   = activeIdx;
+  window._mesoTotal = mesoWeeks.length;
+
+  var html = '<div id="meso-swipe-wrap" class="meso-container" style="margin:0 0 16px;">';
   html += '<div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;'
     + 'text-transform:uppercase;margin-bottom:8px;padding:0 2px;">📅 Mésocycle complet</div>';
 
-  mesoWeeks.forEach(function(week) {
-    var isActive    = week.status === 'active';
-    var isCompleted = week.status === 'completed';
-    var isProjected = week.status === 'projected';
-    var isDeload    = week.status === 'deload';
+  html += '<div id="meso-progress-bar" style="margin-bottom:10px;">'
+    + _buildMesoProgressBar(mesoWeeks, activeIdx) + '</div>';
 
-    var opacity = isProjected ? '0.65' : '1';
-    var bg = isActive    ? 'rgba(10,132,255,0.08)'
-           : isCompleted ? 'rgba(100,100,100,0.06)'
-           : isDeload    ? 'rgba(52,199,89,0.08)'
-           : 'rgba(255,255,255,0.02)';
-    var border = isActive
-      ? '1.5px solid rgba(10,132,255,0.4)'
-      : '1px solid var(--border)';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;'
+    + 'margin-bottom:8px;padding:0 2px;">'
+    + '<button id="meso-prev-btn" onclick="mesoGoTo(window._mesoCur-1)" '
+    + 'style="background:var(--surface);border:1px solid var(--border);color:var(--text);'
+    + 'border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;'
+    + 'opacity:' + (activeIdx === 0 ? '0.3' : '1') + ';">‹</button>'
+    + '<span id="meso-nav-label" style="font-size:13px;font-weight:700;color:var(--sub);">'
+    + _mesoNavLabel(mesoWeeks[activeIdx]) + '</span>'
+    + '<button id="meso-next-btn" onclick="mesoGoTo(window._mesoCur+1)" '
+    + 'style="background:var(--surface);border:1px solid var(--border);color:var(--text);'
+    + 'border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;'
+    + 'opacity:' + (activeIdx === mesoWeeks.length - 1 ? '0.3' : '1') + ';">›</button>'
+    + '</div>';
 
-    var weekLabel = isDeload
-      ? '💤 Deload'
-      : '💪 S' + week.weekNumber + '/' + blockDuration + ' — '
-        + (isCompleted ? 'Terminée ✓' : isActive ? 'En cours' : 'À venir');
+  html += '<div id="meso-slide-content">'
+    + renderMesoSlide(mesoWeeks[activeIdx], activeIdx, mesoWeeks)
+    + '</div>';
 
-    html += '<div class="meso-week" data-meso-week="' + week.weekNumber + '" '
-      + 'style="background:' + bg + ';border:' + border + ';border-radius:14px;'
-      + 'margin-bottom:8px;opacity:' + opacity + ';overflow:hidden;">';
-
-    // Accordéon header
-    html += '<div onclick="toggleMesoWeek(' + week.weekNumber + ')" '
-      + 'style="padding:11px 14px;display:flex;align-items:center;'
-      + 'justify-content:space-between;cursor:pointer;user-select:none;">';
-    html += '<div style="flex:1;min-width:0;">';
-    html += '<div style="font-size:13px;font-weight:700;color:var(--text);">' + weekLabel + '</div>';
-    var badgeText = renderMesoBadges(week, mode);
-    if (badgeText) {
-      html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + badgeText + '</div>';
-    }
-    html += '</div>';
-    var chevron = isActive ? '▲' : '▼';
-    html += '<span class="meso-chevron" style="font-size:10px;color:var(--sub);margin-left:8px;">'
-      + chevron + '</span>';
-    html += '</div>'; // header
-
-    // Accordéon content
-    var contentDisplay = isActive ? 'block' : 'none';
-    html += '<div id="meso-content-' + week.weekNumber + '" '
-      + 'style="display:' + contentDisplay + ';padding:0 14px 10px;">';
-
-    if (isDeload) {
-      html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">'
-        + 'Charges à 60-75%, volume minimal — supercompensation en cours.</div>';
-    } else if (isCompleted) {
-      var s = week.summary || {};
-      html += '<div style="font-size:12px;color:var(--sub);padding:4px 0;">'
-        + (s.sessionsLogged || 0) + ' séance' + (s.sessionsLogged !== 1 ? 's' : '')
-        + ' réalisée' + (s.sessionsLogged !== 1 ? 's' : '')
-        + ' · ' + (s.totalSets || 0) + ' séries au total</div>';
-      if (s.mainLiftPeak) {
-        html += '<div style="font-size:11px;color:var(--sub);padding:2px 0;">'
-          + s.mainLiftPeak.name + ' : ' + s.mainLiftPeak.weight + 'kg × '
-          + s.mainLiftPeak.reps + ' reps</div>';
-      }
-    } else if (week.days) {
-      (week.days || []).forEach(function(day) {
-        if (day.rest) return;
-        html += renderMesoDayRow(day, isProjected, week.weekNumber);
-      });
-    }
-
-    html += '</div>'; // content
-    html += '</div>'; // meso-week
-  });
-
-  html += '</div>'; // meso-container
+  html += '</div>';
   return html;
 }
 
@@ -10898,6 +10940,20 @@ function renderProgrammeV2() {
     + '</div>';
 
   container.innerHTML = h;
+
+  // Attach touch-swipe on meso view (cannot use script tag in innerHTML)
+  (function() {
+    var wrap = document.getElementById('meso-swipe-wrap');
+    if (!wrap) return;
+    var _tx = 0;
+    wrap.addEventListener('touchstart', function(e) {
+      _tx = e.touches[0].clientX;
+    }, { passive: true });
+    wrap.addEventListener('touchend', function(e) {
+      var dx = e.changedTouches[0].clientX - _tx;
+      if (Math.abs(dx) > 40) mesoGoTo(window._mesoCur + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  })();
 }
 
 function startPgmEdit() {

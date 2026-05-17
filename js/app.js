@@ -19582,6 +19582,16 @@ var rpeCapReprise = null; // Correction 7: cap RPE pour avancé en reprise
 
 function wpRound25(v) { return Math.round(v / 2.5) * 2.5; }
 function wpRound125(v) { return Math.round(v / 1.25) * 1.25; }
+// v235 — Charge haltères : la valeur calculée représente le poids PAR haltère.
+// Les estimations dérivées d'un e1RM barre (Bench/Squat) sont des charges
+// totales → diviser par 2 pour les exercices avec haltères.
+function wpIsDumbbellExo(name) {
+  return /halt[eè]res?|halt\.|dumbbell|\bDB\b/i.test(name || '');
+}
+function wpDumbbellAdjust(weight, name) {
+  if (wpIsDumbbellExo(name) && weight > 0) return wpRound25(weight / 2);
+  return weight;
+}
 // ── NORMALISATION NOM EXERCICE ───────────────────────────────
 function wpNormalizeName(name) {
   if (!name) return '';
@@ -19842,14 +19852,14 @@ function wpEstimateWeight(exoName) {
     var nk = wpNormalizeName(key);
     if (normalExo === nk || normalExo.includes(nk.split(' ')[0])) est = ESTIMATES[key];
   });
-  if (!est) return wpRound25(bw * 0.40);
+  if (!est) return wpDumbbellAdjust(wpRound25(bw * 0.40), exoName);
   if (est.ratio === 0) return null;
   var baseVal = est.base === 'bw' ? bw
     : est.base === 'bench'    ? (pr.bench    || bw * 1.0)
     : est.base === 'squat'    ? (pr.squat    || bw * 1.3)
     : est.base === 'deadlift' ? (pr.deadlift || bw * 1.6)
     : bw;
-  return wpRound25(baseVal * est.ratio);
+  return wpDumbbellAdjust(wpRound25(baseVal * est.ratio), exoName);
 }
 
 // v204 — isShoulderHeavy : remplacement auto si user.injuries contient 'epaule'
@@ -22488,6 +22498,9 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       reps = 10;
       rpe = 7;
     }
+    // v235 — Bench 2 override = Développé Incliné (Haltères) : la charge vient
+    // de wpComputeWorkWeight('bench') (charge barre) → diviser par 2 (par haltère).
+    weight = wpDumbbellAdjust(weight, mainName);
     var warmups = wpBuildWarmupsSafe(weight, reps, mainName, 1, []);
     if (phase === 'deload') { weight = wpRound25(weight * 0.80); setsCount = Math.ceil(setsCount / 2); rpe = 6; }
     // Fix C — Plancher 60% e1RM ré-appliqué APRÈS réduction deload (bypass fix)

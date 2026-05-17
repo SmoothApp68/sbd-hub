@@ -3753,6 +3753,12 @@ function getDOMSAdjustment(muscleKey) {
   };
 }
 
+// Renvoie true si au moins un muscle a déjà été renseigné aujourd'hui.
+function hasTodayDOMS() {
+  var todayDOMS = typeof getTodayDOMS === 'function' ? getTodayDOMS() : {};
+  return Object.keys(todayDOMS).length > 0;
+}
+
 // Multiplicateur de capacité de récupération de base (base 1.0)
 // Gemini : avancé +0.10, powerlifting -0.05, age>40 -0.10, femme +0.05
 // Recalibré Gemini 2026 — valeurs absolues (deltas sur base 1.0)

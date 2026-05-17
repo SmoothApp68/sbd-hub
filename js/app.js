@@ -711,6 +711,102 @@ window.domsSkip = function() {
   if (cb) cb();
 };
 
+// ── DOMS matinal — évaluation complète dans le Dashboard ─────────────────────
+// Affiché uniquement si l'utilisateur a une séance aujourd'hui et n'a pas
+// encore renseigné ses DOMS. Utilise hasTodayDOMS() de engine.js.
+
+function renderDOMSMorningCard() {
+  if (!db.user || !db.user.onboarded) return '';
+  if (typeof hasTodayDOMS === 'function' && hasTodayDOMS()) return '';
+  if (typeof isTodayTrainingDay === 'function' && !isTodayTrainingDay()) return '';
+
+  return '<div style="background:var(--surface);border:1px solid var(--border);' +
+    'border-radius:16px;padding:14px;margin-bottom:12px;">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
+      '<span style="font-size:16px;">💪</span>' +
+      '<div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text);">Comment vont tes muscles ?</div>' +
+        '<div style="font-size:11px;color:var(--sub);">Évaluation matinale · Séance prévue aujourd\'hui</div>' +
+      '</div>' +
+    '</div>' +
+    '<button onclick="openDOMSMorningModal()" ' +
+      'style="width:100%;padding:10px;background:var(--accent);border:none;' +
+      'border-radius:10px;color:#000;font-weight:700;font-size:13px;cursor:pointer;">' +
+      'Évaluer mes courbatures →' +
+    '</button>' +
+    '</div>';
+}
+
+function openDOMSMorningModal() {
+  var MORNING_MUSCLES = [
+    { key: 'quads',   label: 'Quadriceps' },
+    { key: 'ischio',  label: 'Ischios' },
+    { key: 'dos',     label: 'Dos / Lombaires' },
+    { key: 'pecs',    label: 'Pectoraux' },
+    { key: 'epaules', label: 'Épaules' },
+    { key: 'biceps',  label: 'Bras' }
+  ];
+
+  var domsValues = {};
+  MORNING_MUSCLES.forEach(function(m) { domsValues[m.key] = 0; });
+
+  var html = '<div style="padding:16px;">';
+  html += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">💪 Check courbatures</div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">0 = aucune · 5 = très douloureux</div>';
+
+  MORNING_MUSCLES.forEach(function(muscle) {
+    html += '<div style="margin-bottom:10px;">';
+    html += '<div style="font-size:12px;font-weight:600;margin-bottom:5px;">' + muscle.label + '</div>';
+    html += '<div style="display:flex;gap:5px;">';
+    [0,1,2,3,4,5].forEach(function(score) {
+      var emoji = score === 0 ? '✅' : score <= 2 ? '🟡' : score <= 3 ? '🟠' : '🔴';
+      html += '<button class="doms-btn" data-muscle="' + muscle.key + '" ' +
+        'onclick="domsSetScore(\'' + muscle.key + '\',' + score + ',this)" ' +
+        'style="flex:1;padding:5px 2px;border-radius:8px;border:1.5px solid var(--border);' +
+        'background:var(--surface);font-size:12px;cursor:pointer;">' +
+        emoji + '<br><span style="font-size:9px;color:var(--sub);">' + score + '</span>' +
+        '</button>';
+    });
+    html += '</div></div>';
+  });
+
+  html += '<button onclick="domsMorningConfirm()" ' +
+    'style="width:100%;padding:11px;margin-top:10px;background:var(--accent);' +
+    'border:none;border-radius:12px;color:#000;font-weight:700;font-size:13px;cursor:pointer;">' +
+    'Enregistrer</button>';
+  html += '<button onclick="domsMorningSkip()" ' +
+    'style="width:100%;padding:7px;margin-top:5px;background:transparent;' +
+    'border:none;color:var(--sub);font-size:12px;cursor:pointer;">Passer</button>';
+  html += '</div>';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'doms-morning-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+    'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
+    'justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;' +
+    'width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+  document.body.appendChild(overlay);
+
+  window._domsValues = domsValues;
+}
+
+window.domsMorningConfirm = function() {
+  if (typeof saveTodayDOMS === 'function') saveTodayDOMS(window._domsValues || {});
+  var overlay = document.getElementById('doms-morning-overlay');
+  if (overlay) overlay.remove();
+  // Refresh dashboard card to hide after entry
+  try {
+    var _el = document.getElementById('doms-morning-card');
+    if (_el) _el.innerHTML = renderDOMSMorningCard();
+  } catch(e) {}
+};
+
+window.domsMorningSkip = function() {
+  var overlay = document.getElementById('doms-morning-overlay');
+  if (overlay) overlay.remove();
+};
+
 function updateReadinessPreview() {
   const sleep = parseInt(document.getElementById('rd-sleep')?.value || 5);
   const energy = parseInt(document.getElementById('rd-energy')?.value || 5);
@@ -8298,6 +8394,11 @@ function renderDash() {
     try { renderQuickLogCard(); } catch (e) {
       if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
+
+    try {
+      var _domsMorningEl = document.getElementById('doms-morning-card');
+      if (_domsMorningEl) _domsMorningEl.innerHTML = renderDOMSMorningCard();
+    } catch(e) {}
 
     // v202 — Validation Gate : afficher une fois par fin de bloc
     try {

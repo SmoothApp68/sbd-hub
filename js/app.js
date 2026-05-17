@@ -10606,7 +10606,7 @@ function renderMesoBadges(week, mode) {
   return badges.join(' · ');
 }
 
-function renderMesoDayRow(day, isProjected) {
+function renderMesoDayRow(day, isProjected, weekNumber) {
   if (!day || day.rest) return '';
   var mainExo = (day.exercises || []).find(function(e) { return e.isPrimary; });
   if (!mainExo) return '';
@@ -10614,22 +10614,67 @@ function renderMesoDayRow(day, isProjected) {
     return !s.isWarmup && s.setType !== 'warmup';
   });
   var firstSet = workSets[0];
-  var weightStr = '';
-  if (firstSet && firstSet.weight) {
-    weightStr = isProjected
-      ? ' · <em style="color:var(--sub);font-style:italic;">~' + firstSet.weight + 'kg</em>'
-      : ' · <strong>' + firstSet.weight + 'kg</strong>';
+  var plannedWeight = firstSet && firstSet.weight ? parseFloat(firstSet.weight) : null;
+  var setsCount = workSets.length;
+
+  // Log réel pour ce jour de bloc
+  var log = typeof getMesoLogForDay === 'function'
+    ? getMesoLogForDay(day.day, weekNumber || 1) : null;
+  var realWeight = log && typeof getLoggedWeightForExo === 'function'
+    ? getLoggedWeightForExo(log, mainExo.name) : null;
+
+  var weightHtml = '';
+  if (realWeight !== null && plannedWeight !== null) {
+    var delta = Math.round((realWeight - plannedWeight) * 10) / 10;
+    var deltaStr = delta > 0 ? '(+' + delta + 'kg)' : delta < 0 ? '(' + delta + 'kg)' : '';
+    var deltaColor = delta >= 0 ? 'var(--green)' : 'var(--orange)';
+    var arrow = delta > 0 ? ' ↑' : delta < 0 ? ' ↓' : '';
+    weightHtml =
+      '<span style="color:' + deltaColor + ';font-weight:600;">'
+        + realWeight + 'kg ✓' + arrow + '</span>'
+      + (delta !== 0
+        ? ' <span style="font-size:10px;color:' + deltaColor + ';">' + deltaStr + '</span>'
+        : '')
+      + '<br><span style="font-size:10px;color:var(--sub);text-decoration:line-through;">'
+        + plannedWeight + 'kg prévu</span>';
+  } else if (realWeight !== null) {
+    weightHtml = '<span style="color:var(--green);font-weight:600;">'
+      + realWeight + 'kg ✓</span>';
+  } else if (plannedWeight !== null) {
+    weightHtml = isProjected
+      ? '<em style="color:var(--sub);font-style:italic;">~' + plannedWeight + 'kg</em>'
+      : '<strong>' + plannedWeight + 'kg</strong>';
   }
-  return '<div style="padding:5px 0;border-bottom:1px solid var(--border);'
-    + 'display:flex;justify-content:space-between;align-items:center;">'
+
+  // Badge "Non réalisée" : semaine passée + jour échu sans log
+  var missedBadge = '';
+  if (!log && weekNumber) {
+    var currentWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                       db.weeklyPlan.currentBlock.week) || 1;
+    var bsdMonday = typeof _mesoBlockMonday === 'function' ? _mesoBlockMonday() : null;
+    var dayIdx = {'Lundi':0,'Mardi':1,'Mercredi':2,'Jeudi':3,
+                  'Vendredi':4,'Samedi':5,'Dimanche':6}[day.day] || 0;
+    if (bsdMonday !== null) {
+      var dayTs = bsdMonday + (weekNumber - 1) * 7 * 86400000 + dayIdx * 86400000;
+      if (weekNumber < currentWeek && dayTs < Date.now()) {
+        missedBadge = ' <span style="font-size:10px;color:var(--orange);">Non réalisée</span>';
+      }
+    }
+  }
+
+  return '<div style="padding:7px 0;border-bottom:1px solid var(--border);'
+    + 'display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'
+    + '<div style="min-width:0;flex:1;">'
     + '<div style="font-size:12px;color:var(--text);">'
     + '<span style="color:var(--sub);font-size:11px;margin-right:6px;font-weight:600;">'
     + day.day.substring(0, 3).toUpperCase() + '</span>'
-    + mainExo.name
+    + mainExo.name + missedBadge + '</div>'
+    + '<div style="font-size:11px;color:var(--sub);margin-top:1px;">'
+    + setsCount + '×' + (firstSet ? (firstSet.reps || '?') : '?') + '</div>'
     + '</div>'
-    + '<div style="font-size:11px;color:var(--sub);">'
-    + workSets.length + '×' + (firstSet ? (firstSet.reps || '?') : '?') + weightStr
-    + '</div></div>';
+    + '<div style="text-align:right;font-size:12px;line-height:1.4;white-space:nowrap;">'
+    + weightHtml + '</div>'
+    + '</div>';
 }
 
 function toggleMesoWeek(weekNumber) {
@@ -10731,7 +10776,7 @@ function renderMesoView() {
     } else if (week.days) {
       (week.days || []).forEach(function(day) {
         if (day.rest) return;
-        html += renderMesoDayRow(day, isProjected);
+        html += renderMesoDayRow(day, isProjected, week.weekNumber);
       });
     }
 

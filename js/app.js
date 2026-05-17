@@ -10579,6 +10579,170 @@ function renderWeekRowsCompact() {
   return _html;
 }
 
+// ── RENDU MÉSOCYCLE (v241) ────────────────────────────────────────────────────
+
+function renderMesoBadges(week, mode) {
+  if (!week.summary) return '';
+  var s = week.summary;
+  if (week.status === 'deload') return 'Récupération active';
+  if (week.status === 'completed') {
+    return (s.sessionsLogged || 0) + ' séance' + (s.sessionsLogged !== 1 ? 's' : '') +
+      ' · ' + (s.totalSets || 0) + ' sets';
+  }
+  var badges = [];
+  if (mode === 'powerbuilding' || mode === 'powerlifting') {
+    if (s.mainLiftPeak && s.mainLiftPeak.weight) {
+      var liftShort = (s.mainLiftPeak.name || '').split(' ')[0];
+      var wStr = week.status === 'projected'
+        ? '~' + s.mainLiftPeak.weight + 'kg'
+        : s.mainLiftPeak.weight + 'kg';
+      badges.push(liftShort + ' ' + wStr);
+    }
+    if (s.totalSets) badges.push(s.totalSets + ' sets');
+  } else {
+    if (s.totalSets) badges.push(s.totalSets + ' sets');
+    if (s.mainLiftPeak) badges.push((s.mainLiftPeak.name || '').split(' ')[0]);
+  }
+  return badges.join(' · ');
+}
+
+function renderMesoDayRow(day, isProjected) {
+  if (!day || day.rest) return '';
+  var mainExo = (day.exercises || []).find(function(e) { return e.isPrimary; });
+  if (!mainExo) return '';
+  var workSets = (mainExo.sets || []).filter(function(s) {
+    return !s.isWarmup && s.setType !== 'warmup';
+  });
+  var firstSet = workSets[0];
+  var weightStr = '';
+  if (firstSet && firstSet.weight) {
+    weightStr = isProjected
+      ? ' · <em style="color:var(--sub);font-style:italic;">~' + firstSet.weight + 'kg</em>'
+      : ' · <strong>' + firstSet.weight + 'kg</strong>';
+  }
+  return '<div style="padding:5px 0;border-bottom:1px solid var(--border);'
+    + 'display:flex;justify-content:space-between;align-items:center;">'
+    + '<div style="font-size:12px;color:var(--text);">'
+    + '<span style="color:var(--sub);font-size:11px;margin-right:6px;font-weight:600;">'
+    + day.day.substring(0, 3).toUpperCase() + '</span>'
+    + mainExo.name
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--sub);">'
+    + workSets.length + '×' + (firstSet ? (firstSet.reps || '?') : '?') + weightStr
+    + '</div></div>';
+}
+
+function toggleMesoWeek(weekNumber) {
+  var mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
+  if (!mesoWeeks) return;
+  mesoWeeks.forEach(function(w) {
+    var content = document.getElementById('meso-content-' + w.weekNumber);
+    var chevron = document.querySelector('[data-meso-week="' + w.weekNumber + '"] .meso-chevron');
+    if (!content) return;
+    if (w.weekNumber === weekNumber) {
+      var isOpen = content.style.display !== 'none';
+      content.style.display = isOpen ? 'none' : 'block';
+      if (chevron) chevron.textContent = isOpen ? '▼' : '▲';
+    } else {
+      content.style.display = 'none';
+      if (chevron) chevron.textContent = '▼';
+    }
+  });
+}
+
+function renderMesoView() {
+  var mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
+  // Lazy-build if missing (e.g. old localStorage data)
+  if (!mesoWeeks) {
+    if (typeof buildMesoWeeks === 'function') {
+      try { buildMesoWeeks(); } catch(e) {}
+    }
+    mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
+  }
+  if (!mesoWeeks || mesoWeeks.length === 0) return '';
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var mode  = (db.user && db.user.trainingMode) || 'powerbuilding';
+  if (level === 'debutant') return '';
+
+  var blockDuration = (mesoWeeks[0] && mesoWeeks[0].blockDuration) || 4;
+  var html = '<div class="meso-container" style="margin:0 0 16px;">';
+  html += '<div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;'
+    + 'text-transform:uppercase;margin-bottom:8px;padding:0 2px;">📅 Mésocycle complet</div>';
+
+  mesoWeeks.forEach(function(week) {
+    var isActive    = week.status === 'active';
+    var isCompleted = week.status === 'completed';
+    var isProjected = week.status === 'projected';
+    var isDeload    = week.status === 'deload';
+
+    var opacity = isProjected ? '0.65' : '1';
+    var bg = isActive    ? 'rgba(10,132,255,0.08)'
+           : isCompleted ? 'rgba(100,100,100,0.06)'
+           : isDeload    ? 'rgba(52,199,89,0.08)'
+           : 'rgba(255,255,255,0.02)';
+    var border = isActive
+      ? '1.5px solid rgba(10,132,255,0.4)'
+      : '1px solid var(--border)';
+
+    var weekLabel = isDeload
+      ? '💤 Deload'
+      : '💪 S' + week.weekNumber + '/' + blockDuration + ' — '
+        + (isCompleted ? 'Terminée ✓' : isActive ? 'En cours' : 'À venir');
+
+    html += '<div class="meso-week" data-meso-week="' + week.weekNumber + '" '
+      + 'style="background:' + bg + ';border:' + border + ';border-radius:14px;'
+      + 'margin-bottom:8px;opacity:' + opacity + ';overflow:hidden;">';
+
+    // Accordéon header
+    html += '<div onclick="toggleMesoWeek(' + week.weekNumber + ')" '
+      + 'style="padding:11px 14px;display:flex;align-items:center;'
+      + 'justify-content:space-between;cursor:pointer;user-select:none;">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text);">' + weekLabel + '</div>';
+    var badgeText = renderMesoBadges(week, mode);
+    if (badgeText) {
+      html += '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + badgeText + '</div>';
+    }
+    html += '</div>';
+    var chevron = isActive ? '▲' : '▼';
+    html += '<span class="meso-chevron" style="font-size:10px;color:var(--sub);margin-left:8px;">'
+      + chevron + '</span>';
+    html += '</div>'; // header
+
+    // Accordéon content
+    var contentDisplay = isActive ? 'block' : 'none';
+    html += '<div id="meso-content-' + week.weekNumber + '" '
+      + 'style="display:' + contentDisplay + ';padding:0 14px 10px;">';
+
+    if (isDeload) {
+      html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">'
+        + 'Charges à 60-75%, volume minimal — supercompensation en cours.</div>';
+    } else if (isCompleted) {
+      var s = week.summary || {};
+      html += '<div style="font-size:12px;color:var(--sub);padding:4px 0;">'
+        + (s.sessionsLogged || 0) + ' séance' + (s.sessionsLogged !== 1 ? 's' : '')
+        + ' réalisée' + (s.sessionsLogged !== 1 ? 's' : '')
+        + ' · ' + (s.totalSets || 0) + ' séries au total</div>';
+      if (s.mainLiftPeak) {
+        html += '<div style="font-size:11px;color:var(--sub);padding:2px 0;">'
+          + s.mainLiftPeak.name + ' : ' + s.mainLiftPeak.weight + 'kg × '
+          + s.mainLiftPeak.reps + ' reps</div>';
+      }
+    } else if (week.days) {
+      (week.days || []).forEach(function(day) {
+        if (day.rest) return;
+        html += renderMesoDayRow(day, isProjected);
+      });
+    }
+
+    html += '</div>'; // content
+    html += '</div>'; // meso-week
+  });
+
+  html += '</div>'; // meso-container
+  return html;
+}
+
 function renderProgrammeV2() {
   var container = document.getElementById('programmeV2Content');
   if (!container) return;
@@ -10621,6 +10785,7 @@ function renderProgrammeV2() {
 
   var h = '';
   h += renderPhaseProgressBadge();
+  h += renderMesoView();
   h += renderTodayCard();
   h += renderWeekRowsCompact();
   h += '<div style="padding:4px 12px 0;">'

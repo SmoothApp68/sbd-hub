@@ -5323,3 +5323,57 @@ function findBestKnownSubstitute(fallbacks) {
     return !isExoBanned(exo) && hasUserDoneExercise(exo);
   }) || null;
 }
+
+/**
+ * Sélectionne le meilleur exercice pour un slot d'accessoire.
+ * Architecture Gemini Q5 :
+ * 1. Banni → substitut connu
+ * 2. Connu → utiliser directement
+ * 3. Inconnu + débutant + fondamental → injecter + tutoriel
+ * 4. Inconnu + avancé → substitut connu + Discovery Card
+ *
+ * @param {string} targetExo — exercice optimal visé par l'algo
+ * @param {string[]} fallbacks — substituts ordonnés
+ * @param {string} reason — pourquoi cet exo est recommandé (pour la card)
+ * @returns {{ selectedExo: string, insight: Object|null }}
+ */
+function assignAccessory(targetExo, fallbacks, reason) {
+  var level = (db.user && db.user.level) || 'intermediaire';
+  var isDebutant = level === 'debutant';
+
+  // 1. Exercice banni → substitut connu direct, pas d'insight
+  if (isExoBanned(targetExo)) {
+    var bannedSub = findBestKnownSubstitute(fallbacks);
+    return { selectedExo: bannedSub || (fallbacks && fallbacks[0]) || targetExo, insight: null };
+  }
+
+  // 2. Déjà pratiqué → utiliser directement
+  if (hasUserDoneExercise(targetExo)) {
+    return { selectedExo: targetExo, insight: null };
+  }
+
+  // 3. Inconnu + débutant + exercice fondamental → injection directe + tutoriel
+  var FUNDAMENTAL_EXOS = [
+    'Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)',
+    'Tractions', 'Dips Torse', 'Rowing Barre', 'Développé Militaire (Barre)'
+  ];
+  if (isDebutant && FUNDAMENTAL_EXOS.indexOf(targetExo) !== -1) {
+    return {
+      selectedExo: targetExo,
+      insight: { type: 'TUTORIAL_REQUIRED', exo: targetExo }
+    };
+  }
+
+  // 4. Inconnu + intermédiaire/avancé → substitut connu + Discovery Card
+  var bestSub = findBestKnownSubstitute(fallbacks);
+  var selected = bestSub || (fallbacks && fallbacks[0]) || targetExo;
+  return {
+    selectedExo: selected,
+    insight: bestSub ? {
+      type: 'DISCOVERY_CARD',
+      targetExo: targetExo,
+      currentExo: selected,
+      reason: reason || ('Exercice optimal pour ce slot : ' + targetExo)
+    } : null
+  };
+}

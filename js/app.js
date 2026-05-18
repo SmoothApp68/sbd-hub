@@ -11115,12 +11115,15 @@ function renderProgrammeV2() {
   (function() {
     var wrap = document.getElementById('meso-swipe-wrap');
     if (!wrap) return;
-    var _tx = 0;
+    var _tx = 0, _ty = 0;
     wrap.addEventListener('touchstart', function(e) {
       _tx = e.touches[0].clientX;
+      _ty = e.touches[0].clientY;
     }, { passive: true });
     wrap.addEventListener('touchend', function(e) {
       var dx = e.changedTouches[0].clientX - _tx;
+      var dy = e.changedTouches[0].clientY - _ty;
+      if (Math.abs(dy) > Math.abs(dx)) return; // scroll vertical → ne pas changer de semaine
       if (Math.abs(dx) > 40) mesoGoTo(window._mesoCur + (dx < 0 ? 1 : -1));
     }, { passive: true });
   })();

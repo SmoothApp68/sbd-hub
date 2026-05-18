@@ -1197,16 +1197,26 @@ function importData() {
     }
   );
 }
-function showToast(msg, duration, onClick) {
-  const t = document.createElement('div');
+var _toastQueue = [];
+var _toastBusy = false;
+function _flushToast() {
+  if (!_toastQueue.length) { _toastBusy = false; return; }
+  _toastBusy = true;
+  var item = _toastQueue.shift();
+  var dur = Math.max(1500, item.duration || 3500);
+  var t = document.createElement('div');
   t.className = 'toast';
-  t.textContent = msg;
-  if (typeof onClick === 'function') {
+  t.textContent = item.msg;
+  if (typeof item.onClick === 'function') {
     t.style.cursor = 'pointer';
-    t.addEventListener('click', function() { try { onClick(); } catch(e) {} t.remove(); });
+    t.addEventListener('click', function() { try { item.onClick(); } catch(e) {} t.remove(); _flushToast(); });
   }
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), Math.max(1500, duration || 2500));
+  setTimeout(function() { t.remove(); _flushToast(); }, dur);
+}
+function showToast(msg, duration, onClick) {
+  _toastQueue.push({ msg: msg, duration: duration, onClick: onClick });
+  if (!_toastBusy) _flushToast();
 }
 var _LABEL_MAP = {
   srs:   { 1:'Forme du jour',    2:'Forme du jour',   3:'SRS (Readiness)' },

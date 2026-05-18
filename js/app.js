@@ -475,6 +475,7 @@ if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 
 // ── BANNED / DISCOVERY EXERCISES — defensive init ────────────────────────
 if (!db.user.bannedExercises) db.user.bannedExercises = [];
+if (!db.user.exercisesToIntroduce) db.user.exercisesToIntroduce = [];
 
 // ── VOLUME DELTAS — defensive init ───────────────────────────
 if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
@@ -17739,6 +17740,81 @@ function detectSaisiePlateau() {
   return maxDev < 0.02;
 }
 
+// ── DISCOVERY CARDS — exercices bénéfiques jamais pratiqués ────────────────
+// Priority queue Gemini Q4 : 1 suggestion à la fois, désactivé pour les débutants.
+var DISCOVERY_PRIORITY_QUEUE = [
+  {
+    exo: 'Soulevé de Terre Roumain',
+    reason: 'Chaîne postérieure — développe les ischios sans griller le SNC comme le Dead lourd.',
+    modes: ['powerbuilding', 'powerlifting']
+  },
+  {
+    exo: 'Squat Bulgare',
+    reason: 'Unilatéral — cible les quadriceps et la stabilisation pour débloquer ton Squat.',
+    modes: null
+  },
+  {
+    exo: 'Soulevé De Terre avec pause',
+    reason: 'Consolide ton départ du sol — faiblesse fréquente sur les Deadlifts lourds.',
+    modes: null
+  }
+];
+
+function renderDiscoveryCards() {
+  if ((db.user && db.user.level) === 'debutant') return '';
+  if (typeof hasUserDoneExercise !== 'function' || typeof isExoBanned !== 'function') return '';
+  var mode = db.user && db.user.trainingMode;
+  var suggestion = null;
+  for (var _i = 0; _i < DISCOVERY_PRIORITY_QUEUE.length; _i++) {
+    var _p = DISCOVERY_PRIORITY_QUEUE[_i];
+    if (_p.modes && _p.modes.indexOf(mode) === -1) continue;
+    if (hasUserDoneExercise(_p.exo) || isExoBanned(_p.exo)) continue;
+    suggestion = _p;
+    break;
+  }
+  if (!suggestion) return '';
+  var _safeExo = suggestion.exo.replace(/'/g, "\\'");
+  return '<div style="background:var(--surface);border:1px solid var(--border);'
+    + 'border-radius:14px;padding:14px;margin-bottom:10px;">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">'
+    + '🔍 Exercice recommandé : ' + suggestion.exo
+    + '</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">'
+    + suggestion.reason
+    + '</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="introduceExercise(\'' + _safeExo + '\')" '
+    + 'style="flex:1;padding:9px;background:var(--accent);border:none;'
+    + 'border-radius:10px;color:#000;font-weight:700;font-size:12px;cursor:pointer;">'
+    + 'Ajouter au plan →</button>'
+    + '<button onclick="banExercise(\'' + _safeExo + '\')" '
+    + 'style="flex:1;padding:9px;background:var(--surface);border:1px solid var(--border);'
+    + 'border-radius:10px;color:var(--sub);font-size:12px;cursor:pointer;">'
+    + 'Pas pour moi</button>'
+    + '</div>'
+    + '</div>';
+}
+
+window.introduceExercise = function(exoName) {
+  db.user.exercisesToIntroduce = db.user.exercisesToIntroduce || [];
+  if (db.user.exercisesToIntroduce.indexOf(exoName) === -1) {
+    db.user.exercisesToIntroduce.push(exoName);
+  }
+  saveDB();
+  showToast('✅ ' + exoName + ' sera intégré à ton prochain plan.');
+  if (typeof renderCoachTab === 'function') renderCoachTab();
+};
+
+window.banExercise = function(exoName) {
+  db.user.bannedExercises = db.user.bannedExercises || [];
+  if (db.user.bannedExercises.indexOf(exoName) === -1) {
+    db.user.bannedExercises.push(exoName);
+  }
+  saveDB();
+  showToast('🚫 ' + exoName + ' ne sera plus proposé.');
+  if (typeof renderCoachTab === 'function') renderCoachTab();
+};
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -18053,6 +18129,11 @@ function renderCoachTodayHTML() {
   // ── 0c-ter. STALENESS — rotations accessoires pendant le Deload (Gemini Q2.4) ──
   if (coachProfile !== 'silent' && typeof renderStalenessRotationCard === 'function') {
     try { html += renderStalenessRotationCard(); } catch(e) {}
+  }
+
+  // ── 0c-quart. DISCOVERY CARDS — exercices bénéfiques inconnus (Gemini Q2/Q4) ──
+  if (coachProfile !== 'silent') {
+    try { html += renderDiscoveryCards(); } catch(e) {}
   }
 
   // ── 0c. PHYSIOMANAGER — alerte cycle menstruel ──

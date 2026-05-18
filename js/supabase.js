@@ -262,6 +262,7 @@ async function syncToCloud(silent) {
           delete wp.mesoWeeks;
           delete wp._volumeSuggestions;
           delete wp._volumeSuggestionsDate;
+          delete wp._discoveryInsights;
           return wp;
         })()
       : db.weeklyPlan;

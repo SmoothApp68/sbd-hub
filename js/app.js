@@ -591,7 +591,8 @@ function showReadinessModal(onComplete) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
-  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;">
+  overlay.style.cssText = 'align-items:center;padding:16px;box-sizing:border-box;';
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;max-height:85vh;overflow-y:auto;box-sizing:border-box;">
     <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
     <div class="readiness-sliders" style="margin-bottom:8px;">
       <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val" style="font-size:12px;min-width:16px;">5</span></div>

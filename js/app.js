@@ -17368,6 +17368,33 @@ window.snoozeAutoTunerDelta = function(muscle) {
   if (typeof renderCoachTab === 'function') renderCoachTab();
 };
 
+// Staleness — card rotations affichée pendant le Deload (Gemini Q2.4)
+function renderStalenessRotationCard() {
+  var phase = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+              db.weeklyPlan.currentBlock.phase;
+  if (phase !== 'deload') return '';
+  var rotations = db.weeklyPlan && db.weeklyPlan._pendingRotations;
+  if (!rotations || Object.keys(rotations).length === 0) return '';
+  var items = Object.keys(rotations).map(function(from) {
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);' +
+      'display:flex;align-items:center;justify-content:space-between;">' +
+      '<span style="font-size:12px;color:var(--sub);text-decoration:line-through;">' +
+        from + '</span>' +
+      '<span style="font-size:12px;color:var(--accent);">→ ' + rotations[from] + '</span>' +
+      '</div>';
+  }).join('');
+  return '<div style="background:var(--card);border:1px solid var(--border);' +
+    'border-radius:14px;padding:14px;margin-bottom:12px;">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">' +
+      '🔄 Rotations pour le prochain bloc</div>' +
+    '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">' +
+      'Ces exercices ont été optimisés depuis trop longtemps. ' +
+      'Le prochain bloc utilisera de nouveaux angles de stimulation.' +
+    '</div>' +
+    items +
+    '</div>';
+}
+
 function renderCoachTab() {
   if (new Date().getDay() === 1) generateWeeklyReport();
   updateCoachHistoBadge();
@@ -17997,6 +18024,11 @@ function renderCoachTodayHTML() {
   // ── 0c-bis. AUTO-TUNER — suggestions volume interactives (Gemini Q1) ──
   if (coachProfile !== 'silent' && typeof renderAutoTunerCard === 'function') {
     try { html += renderAutoTunerCard(); } catch(e) {}
+  }
+
+  // ── 0c-ter. STALENESS — rotations accessoires pendant le Deload (Gemini Q2.4) ──
+  if (coachProfile !== 'silent' && typeof renderStalenessRotationCard === 'function') {
+    try { html += renderStalenessRotationCard(); } catch(e) {}
   }
 
   // ── 0c. PHYSIOMANAGER — alerte cycle menstruel ──

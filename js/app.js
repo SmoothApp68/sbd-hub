@@ -23556,6 +23556,32 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     return true;
   });
 
+  // ── Staleness — substitution exercices stale (Gemini Q2) ────────────────
+  var _stLevel = db.user && db.user.level;
+  if (_stLevel !== 'debutant' && typeof isExerciseStale === 'function') {
+    exercises = exercises.map(function(exo) {
+      if (!exo || exo.isPrimary) return exo; // jamais toucher aux lifts principaux
+      var category = typeof getExerciseCategory === 'function'
+        ? getExerciseCategory(exo.name) : 'compound';
+      if (category === 'fixed' || category === 'cardio') return exo;
+      if (isExerciseStale(exo.name, _stLevel)) {
+        var substitute = typeof getStalenessSubstitute === 'function'
+          ? getStalenessSubstitute(exo.name) : null;
+        if (substitute) {
+          db.weeklyPlan = db.weeklyPlan || {};
+          db.weeklyPlan._pendingRotations = db.weeklyPlan._pendingRotations || {};
+          db.weeklyPlan._pendingRotations[exo.name] = substitute;
+          return Object.assign({}, exo, {
+            name: substitute,
+            coachNote: '🔄 Rotation : ' + exo.name + ' → ' + substitute +
+              ' (variation du stimulus, ' + exo.name + ' saturation)'
+          });
+        }
+      }
+      return exo;
+    });
+  }
+
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };
 }
 

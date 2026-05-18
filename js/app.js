@@ -5846,7 +5846,7 @@ function findExoInDatabase(exoName) {
     'tirage machine convergente':    'cable_row',
     'rowing assi machine':           'cable_row',
     'rowing poulie assi':            'cable_row',
-    'rowing poulie assi prise large':'lat_pulldown_wide',
+    'rowing poulie assi prise large':'cable_row_wide',
     'rowing haltere':                'dumbbell_row',
     'rowing inverse':                'barbell_row',
     'seated row':                    'cable_row',

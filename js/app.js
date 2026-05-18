@@ -20064,7 +20064,11 @@ function wpIsDumbbellExo(name) {
   return /halt[eè]res?|halt\.|dumbbell|\bDB\b/i.test(name || '');
 }
 function wpDumbbellAdjust(weight, name) {
-  if (wpIsDumbbellExo(name) && weight > 0) return wpRound25(weight / 2);
+  if (wpIsDumbbellExo(name) && weight > 0) {
+    // Ratio 0.37 par haltère (littérature de force — Gemini validation 2026)
+    // W_haltère = W_barre × 0.37 — plus précis que ÷2 pour les profils avancés
+    return Math.max(2.5, wpRound25(weight * 0.37));
+  }
   return weight;
 }
 // ── NORMALISATION NOM EXERCICE ───────────────────────────────

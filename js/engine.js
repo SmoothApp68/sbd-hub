@@ -5120,3 +5120,157 @@ function getLeaderboardPeriodKey(type) {
   }
   return 'alltime';
 }
+
+// ── STALENESS — Rotation des exercices accessoires ────────────────────────
+// Source : Gemini validation 2026
+// Seuils de rotation en semaines par catégorie et niveau
+var STALENESS_THRESHOLDS = {
+  debutant:      { isolation: null, compound: null,    variation: null },   // 0 rotation
+  intermediaire: { isolation: 6,    compound: 10,      variation: null },   // 4-6 sem isolation
+  avance:        { isolation: 10,   compound: 12,      variation: 'bloc' }, // 8-12 sem
+  competiteur:   { isolation: 12,   compound: 16,      variation: 'bloc' }
+};
+// Catégories d'exercices
+// 'fixed'    = SBD compétition — jamais de rotation
+// 'variation'= variations SBD techniques — rotation au changement de bloc
+// 'compound' = accessoires polyarticulaires
+// 'isolation'= monoarticulaires
+// 'cardio'   = cardio/mobilité — jamais de rotation
+var EXERCISE_CATEGORIES = {
+  // Fixed — SBD compétition
+  'Squat (Barre)':               'fixed',
+  'High Bar Squat':              'fixed',
+  'Low Bar Squat':               'fixed',
+  'Développé Couché (Barre)':    'fixed',
+  'Bench Press (Barre)':         'fixed',
+  'Soulevé de Terre (Barre)':    'fixed',
+  'Deadlift (Barre)':            'fixed',
+  // Variations SBD — rotation au changement de bloc
+  'Squat Pause':                 'variation',
+  'Squat Avant (Barre)':         'variation',
+  'Squat Bulgare':               'variation',
+  'Squat Sumo':                  'variation',
+  'Spoto Press':                 'variation',
+  'Développé Couché Prise Serrée':'variation',
+  'Soulevé de Terre Roumain':    'variation',
+  'Soulevé de Terre Déficit':    'variation',
+  'Soulevé de Terre Sumo':       'variation',
+  'Good Morning':                'variation',
+  // Compound accessoires — rotation 8-12 sem avancé
+  'Dips':                        'compound',
+  'Tractions':                   'compound',
+  'Traction (Barre)':            'compound',
+  'Rowing Barre':                'compound',
+  'Rowing Haltères':             'compound',
+  'Seal Row':                    'compound',
+  'Rowing Poulie Assis':         'compound',
+  'Tirage Vertical':             'compound',
+  'Développé Militaire (Barre)': 'compound',
+  'Développé Incliné (Barre)':   'compound',
+  // Isolation — rotation 4-8 sem
+  'Leg Extension':               'isolation',
+  'Leg Curl Allongé':            'isolation',
+  'Leg Curl Assis':              'isolation',
+  'Extension Mollets Debout':    'isolation',
+  'Mollets (Machine)':           'isolation',
+  'Écarté Haltères':             'isolation',
+  'Écarté Machine':              'isolation',
+  'Écarté Câbles':               'isolation',
+  'Extension Triceps Corde':     'isolation',
+  'Extension Triceps Poulie':    'isolation',
+  'Curl Biceps Barre':           'isolation',
+  'Curl Haltères':               'isolation',
+  'Élévation Latérale':          'isolation',
+  'Face Pull':                   'isolation',
+  'Relevé de Jambes':            'isolation',
+  'Gainage (Planche)':           'cardio',
+  // Cardio/mobilité — jamais de rotation
+  'Tapis roulant':               'cardio',
+  'Natation':                    'cardio',
+  'Vélo Elliptique':             'cardio',
+  'Rameur':                      'cardio',
+  'Pompes':                      'cardio',
+  'Gainage':                     'cardio'
+};
+// Substituts par exercice (même muscle, angle différent)
+var STALENESS_SUBSTITUTES = {
+  'Leg Extension':         ['Hack Squat Machine', 'Presse à Cuisses', 'Squat Goblet'],
+  'Leg Curl Allongé':      ['Leg Curl Assis', 'Soulevé de Terre Roumain', 'Glute Ham Raise'],
+  'Écarté Haltères':       ['Écarté Câbles', 'Écarté Machine', 'Pull-Over'],
+  'Écarté Machine':        ['Écarté Câbles', 'Écarté Haltères'],
+  'Écarté Câbles':         ['Écarté Machine', 'Écarté Haltères'],
+  'Extension Triceps Corde':['Extension Triceps Poulie', 'Dips Triceps', 'Kickback'],
+  'Extension Triceps Poulie':['Extension Triceps Corde', 'Dips Triceps'],
+  'Curl Biceps Barre':     ['Curl Haltères', 'Curl Câble', 'Curl Concentré'],
+  'Curl Haltères':         ['Curl Biceps Barre', 'Curl Câble', 'Curl Marteau'],
+  'Élévation Latérale':    ['Élévation Câble', 'Développé Arnold'],
+  'Face Pull':             ['Oiseau Machine', 'Tirage vers Visage'],
+  'Dips':                  ['Dips Triceps Machine', 'Développé Décliné Haltères'],
+  'Tractions':             ['Tirage Vertical', 'Tirage Poulie Haute'],
+  'Tirage Vertical':       ['Tractions', 'Tirage Poulie Haute'],
+  'Rowing Barre':          ['Seal Row', 'Rowing Haltères', 'Rowing Poulie Assis'],
+  'Seal Row':              ['Rowing Barre', 'Rowing Haltères'],
+  'Rowing Poulie Assis':   ['Seal Row', 'Rowing Barre', 'Rowing Haltères'],
+  'Mollets (Machine)':     ['Extension Mollets Debout', 'Mollets Donkey', 'Leg Press Mollets'],
+  'Extension Mollets Debout':['Mollets (Machine)', 'Leg Press Mollets']
+};
+// Obtenir la catégorie d'un exercice
+function getExerciseCategory(exoName) {
+  if (!exoName) return 'compound';
+  var normalized = exoName.trim();
+  if (EXERCISE_CATEGORIES[normalized]) return EXERCISE_CATEGORIES[normalized];
+  if (/tapis|natation|vélo|rameur|pompe|gainage|cardio/i.test(normalized)) return 'cardio';
+  if (/extension|curl|écarté|élévation|mollet|face pull|relevé/i.test(normalized)) return 'isolation';
+  return 'compound';
+}
+// Obtenir le seuil de rotation en semaines pour un exercice et un niveau
+function getStalenessThreshold(exoName, level) {
+  var category = getExerciseCategory(exoName);
+  if (category === 'fixed' || category === 'cardio') return null;
+  if (category === 'variation') return 'bloc';
+  var levelThresholds = STALENESS_THRESHOLDS[level] || STALENESS_THRESHOLDS.intermediaire;
+  return levelThresholds[category] || null;
+}
+// Nombre de semaines distinctes où l'exercice a été loggé depuis le début du bloc
+function getExoWeeksLogged(exoName) {
+  if (!exoName || !db.logs || !db.logs.length) return 0;
+  var bsd = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+            db.weeklyPlan.currentBlock.blockStartDate;
+  if (!bsd) return 0;
+  var weeksWithExo = {};
+  db.logs.forEach(function(log) {
+    var hasExo = (log.exercises || []).some(function(e) {
+      return e.name && e.name.toLowerCase() === exoName.toLowerCase();
+    });
+    if (hasExo && log.timestamp >= bsd) {
+      var weekNum = Math.floor((log.timestamp - bsd) / (7 * 86400000));
+      weeksWithExo[weekNum] = true;
+    }
+  });
+  return Object.keys(weeksWithExo).length;
+}
+// Vérifier si un exercice est en staleness
+function isExerciseStale(exoName, level) {
+  var threshold = getStalenessThreshold(exoName, level);
+  if (!threshold || threshold === 'bloc') return false;
+  return getExoWeeksLogged(exoName) >= threshold;
+}
+// Meilleur substitut : moins récemment utilisé
+function getStalenessSubstitute(exoName) {
+  var substitutes = STALENESS_SUBSTITUTES[exoName] || [];
+  if (!substitutes.length) return null;
+  var lastUsed = {};
+  substitutes.forEach(function(sub) {
+    var matching = (db.logs || []).filter(function(l) {
+      return (l.exercises || []).some(function(e) {
+        return e.name && e.name.toLowerCase() === sub.toLowerCase();
+      });
+    });
+    lastUsed[sub] = matching.length > 0
+      ? Math.max.apply(null, matching.map(function(l) { return l.timestamp; }))
+      : 0;
+  });
+  return substitutes.slice().sort(function(a, b) {
+    return (lastUsed[a] || 0) - (lastUsed[b] || 0);
+  })[0];
+}

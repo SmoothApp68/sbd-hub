@@ -19902,7 +19902,7 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
       { name: 'Rowing Poulie Assis (Prise Large)',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
-      { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
+      { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2, isCorrectivePriority: true, evictionCategory: 'corrective' }
     ],
     // Vendredi (séance volume) — angles différents + isolation (Gemini)
     bench2: [
@@ -23323,6 +23323,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
           return { reps: dpResult ? dpResult.reps : repsVal, rpe: phase === 'deload' ? 6 : (acc.rpe || 7.5), weight: dpResult ? dpResult.weight : null, isWarmup: false };
         })) };
       if (dpResult && dpResult.isEstimate) exoObj.coachNote = '💡 Charge estimée (1ère fois) — ajuste selon ta sensation.';
+      // Propager la protection d'éviction du pool (Face Pull = santé scapulaire,
+      // ne doit pas être coupé par adaptSessionForDuration sur Bench lourd)
+      if (acc.isCorrectivePriority) exoObj.isCorrectivePriority = true;
+      if (acc.evictionCategory) exoObj.evictionCategory = acc.evictionCategory;
       exercises.push(exoObj);
     }
     placedExoNames.push(acc.name);

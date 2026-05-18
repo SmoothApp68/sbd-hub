@@ -22110,15 +22110,20 @@ function wpApplyImbalanceCorrections(exercises, dayKey, ratios, phase) {
   var _t = typeof STRENGTH_RATIO_TARGETS !== 'undefined' ? STRENGTH_RATIO_TARGETS : {};
 
   // Rule 1 : Row/Bench < seuil alert (STRENGTH_RATIO_TARGETS.row_bench.alert = 0.85)
-  // Même seuil que le diagnostic Coach → correction visible = alerte visible
+  // Reçoit _accDayKey : bench2 (VEN) ne déclenche jamais l'injection (pool VEN a déjà du tirage).
+  // Guard _hasRow évite le doublon sur MAR quand le pool accessoires inclut déjà un Rowing.
   if (dayKey === 'bench' && ratios.row_bench &&
       ratios.row_bench.value < ((_t.row_bench && _t.row_bench.alert) || 0.90)) {
-    var sealRow = {
-      name: 'Seal Row', type: 'weight', restSeconds: 120, isPrimary: false,
-      coachNote: '⚖️ Ratio Row/Bench bas (' + ratios.row_bench.value.toFixed(2) + ') — Seal Row ajouté.',
-      sets: Array.from({ length: 3 }, function() { return { reps: 9, rpe: 8, weight: null, isWarmup: false }; })
-    };
-    exercises.splice(Math.min(2, exercises.length), 0, sealRow);
+    var _hasRow = exercises.some(function(e) {
+      return /rowing|tirage|pull/i.test(e.name || '');
+    });
+    if (!_hasRow) {
+      exercises.splice(Math.min(2, exercises.length), 0, {
+        name: 'Rowing Poulie Assis (Prise Large)', type: 'weight', restSeconds: 120, isPrimary: false,
+        coachNote: '⚖️ Ratio Row/Bench bas (' + ratios.row_bench.value.toFixed(2) + ') — Rowing ajouté.',
+        sets: Array.from({ length: 3 }, function() { return { reps: 9, rpe: 8, weight: null, isWarmup: false }; })
+      });
+    }
   }
 
   // Rule 2 : Bench/Squat > 1/squat_bench.alert (STRENGTH_RATIO_TARGETS.squat_bench.alert = 1.20 → 0.833)
@@ -23429,7 +23434,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   // Imbalance corrections — before supersets
   var _imbalanceRatios = null;
   try { _imbalanceRatios = typeof computeStrengthRatios === 'function' ? computeStrengthRatios() : null; } catch(e) {}
-  exercises = wpApplyImbalanceCorrections(exercises, dayKey, _imbalanceRatios, phase);
+  exercises = wpApplyImbalanceCorrections(exercises, _accDayKey, _imbalanceRatios, phase);
 
   // Adaptations morphologiques (Prompt B) — après corrections déséquilibre
   // Hiérarchie : BLESSURE > IMBALANCE > MORPHO

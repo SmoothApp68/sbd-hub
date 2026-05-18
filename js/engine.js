@@ -5163,7 +5163,8 @@ var EXERCISE_CATEGORIES = {
   'Rowing Barre':                'compound',
   'Rowing Haltères':             'compound',
   'Seal Row':                    'compound',
-  'Rowing Poulie Assis':         'compound',
+  'Rowing Poulie Assis (V-Grip)':       'compound',
+  'Rowing Poulie Assis (Prise Large)':  'compound',
   'Tirage Vertical':             'compound',
   'Développé Militaire (Barre)': 'compound',
   'Développé Incliné (Barre)':   'compound',
@@ -5212,10 +5213,10 @@ var STALENESS_SUBSTITUTES = {
   'Dips':                  ['Dips Triceps Machine', 'Développé Décliné Haltères'],
   'Tractions':             ['Tirage Vertical', 'Tirage Poulie Haute'],
   'Tirage Vertical':       ['Tractions', 'Tirage Poulie Haute'],
-  'Rowing Barre':          ['Seal Row', 'Rowing Haltères', 'Rowing Poulie Assis'],
+  'Rowing Barre':          ['Seal Row', 'Rowing Haltères', 'Rowing Poulie Assis (V-Grip)'],
   'Seal Row':              ['Rowing Barre', 'Rowing Haltères'],
-  'Rowing Poulie Assis':   ['Rowing Poulie Prise Large', 'Rowing Assis (Machine)', 'Rowing Haltère'],
-  'Rowing Poulie Prise Large': ['Rowing Poulie Assis', 'Rowing Assis (Machine)'],
+  'Rowing Poulie Assis (V-Grip)':      ['Rowing Poulie Assis (Prise Large)', 'Rowing Assis (Machine)', 'Rowing Haltère'],
+  'Rowing Poulie Assis (Prise Large)': ['Rowing Poulie Assis (V-Grip)', 'Rowing Assis (Machine)'],
   'Mollets (Machine)':     ['Extension Mollets Debout', 'Mollets Donkey', 'Leg Press Mollets'],
   'Extension Mollets Debout':['Mollets (Machine)', 'Leg Press Mollets']
 };

@@ -19891,13 +19891,13 @@ var WP_ACCESSORIES_BY_PHASE = {
     // Mardi (séance lourde) — plateforme scapulaire post-Bench lourd (Gemini)
     bench: [
       { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
-      { name: 'Rowing Poulie Prise Large',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Rowing Poulie Assis (Prise Large)',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
       { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ],
     // Vendredi (séance volume) — angles différents + isolation (Gemini)
     bench2: [
-      { name: 'Rowing Poulie Assis',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Rowing Poulie Assis (V-Grip)',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Écarté Machine',          reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
       { name: 'Oiseau Machine',          reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 },
       { name: 'Extension Triceps Corde', reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 }
@@ -19997,7 +19997,7 @@ var WP_SESSION_TEMPLATES = {
     bodyPart: 'upper',
     accessories: [
       { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
-      { name: 'Rowing Poulie Prise Large',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Rowing Poulie Assis (Prise Large)',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
       { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ]
@@ -20080,7 +20080,7 @@ var WP_PPL_TEMPLATES = {
     title: '💪 Upper A — Force',
     // v221 Gemini : poussée horizontale + tirage. PAS de curl/triceps (dépasse 45min).
     // Face Pull = santé épaule + correctif.
-    exercises: ['Développé Couché','Tirage Vertical','Développé Militaire Haltères','Rowing Poulie Assis','Face Pull']
+    exercises: ['Développé Couché','Tirage Vertical','Développé Militaire Haltères','Rowing Poulie Assis (V-Grip)','Face Pull']
   },
   lower_a: {
     title: '🦵 Lower A — Force',
@@ -20233,7 +20233,7 @@ var WP_SYNONYMS = {
   ],
   'Rowing halteres': ['Rowing Haltere','Rowing Inverse','Rowing Penche (Barre)'],
   'Rowing poulie assis': [
-    'Rowing Poulie Assis','Rowing Assis (Machine)','Rowing Poulie Assis - Prise Large',
+    'Rowing Poulie Assis (V-Grip)','Rowing Assis (Machine)','Rowing Poulie Assis (Prise Large)',
     'Seated Cable Row - V Grip (Cable)',
     'Tirage assis a la poulie - prise en V (poulie)',
     'Iso-Lateral Low Row','Rowing Debout (Barre)',
@@ -20371,11 +20371,11 @@ function wpEstimateWeight(exoName) {
   // Dips Torse = PDC strict (Aurélien jamais lesté, Gemini validation 2026)
   if (/dips\s*torse/i.test(exoName || '')) return null;
 
-  // v235 — Seal Row : charge estimée depuis le Rowing Poulie Assis
+  // v235 — Seal Row : charge estimée depuis le Rowing Poulie Assis (V-Grip)
   // (~85% de son e1RM) sinon valeur de référence 75kg (Gemini, avancé).
   if (/seal\s*row/i.test(exoName || '')) {
-    var _rowE1rm = (db.exercises && db.exercises['Rowing Poulie Assis'] &&
-                    db.exercises['Rowing Poulie Assis'].e1rm) || 0;
+    var _rowE1rm = (db.exercises && db.exercises['Rowing Poulie Assis (V-Grip)'] &&
+                    db.exercises['Rowing Poulie Assis (V-Grip)'].e1rm) || 0;
     return _rowE1rm > 0 ? wpRound25(_rowE1rm * 0.85) : 75;
   }
   var ESTIMATES = {
@@ -22344,8 +22344,8 @@ var WP_EXO_META = {
   'hip thrust':                { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'glute'    },
   'rowing barre':              { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'back'     },
   'rowing haltere':            { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'back'     },
-  'rowing poulie assis':       { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
-  'rowing poulie prise large': { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'rowing poulie assis v grip':      { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'rowing poulie assis prise large': { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'rowing poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage vertical':           { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
@@ -22733,7 +22733,7 @@ function selectExercisesForProfile(exercises, profile) {
   if (_pushSets > 0 && _pullSets / _pushSets < _pullRatio) {
     var _extraPull = _injury === 'shoulder'
       ? { name: 'Face Pull', evictionCategory: 'secondary', sets: 3, reps: '15-20', rpe: 7, rest: 60, _addedByRule: 2 }
-      : { name: 'Rowing Poulie Assis', evictionCategory: 'secondary', sets: 3, reps: '10-12', rpe: 8, rest: 90, _addedByRule: 2 };
+      : { name: 'Rowing Poulie Assis (V-Grip)', evictionCategory: 'secondary', sets: 3, reps: '10-12', rpe: 8, rest: 90, _addedByRule: 2 };
     result.push(_extraPull);
   }
 

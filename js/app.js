@@ -24108,8 +24108,16 @@ function buildCompletedWeekSummary(weekNumber) {
   var mainLiftPeak = null;
   weekLogs.forEach(function(log) {
     (log.exercises || []).forEach(function(exo) {
+      // Exclure les exercices cardio/mobilité du comptage volume
+      var isCardio = /tapis|natation|vélo|rameur|pompe|gainage|planche/i.test(exo.name || '');
+      if (isCardio) return;
+      // Ne compter que les work sets effectifs (Gemini : seules les séries
+      // effectives comptent dans le volume global en Powerbuilding)
       var ws = (exo.allSets || exo.series || []).filter(function(s) {
-        return !(s.isWarmup === true || s.setType === 'warmup');
+        if (s.isWarmup === true || s.setType === 'warmup') return false;
+        // Exclure les sets cardio/récupération active (RPE < 6 si renseigné)
+        if (s.rpe !== undefined && s.rpe !== null && parseFloat(s.rpe) < 6) return false;
+        return true;
       });
       totalSets += ws.length;
       if (exo.isPrimary && !mainLiftPeak && ws.length) {

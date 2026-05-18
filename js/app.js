@@ -326,6 +326,9 @@ function saveDB() {
     _saveDBTimer = null;
     _flushDB();
   }, 2000);
+  // Auto cloud-sync déjà câblé ici : debouncedCloudSync() est offline-safe
+  // (db.pendingSync + resync sur event 'online') et auth-guarded
+  // (cloudSyncEnabled). Ne PAS ajouter de second timer de sync en parallèle.
   debouncedCloudSync();
 }
 

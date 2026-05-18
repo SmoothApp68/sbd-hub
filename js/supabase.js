@@ -255,7 +255,17 @@ async function syncToCloud(silent) {
       if (!silent) showToast('Déjà à jour');
       return;
     }
-    const dataToSync = { ...db, gamification: db.gamification || {} };
+    // FIX 3 (Gemini Q3.3): exclude derived weeklyPlan fields from sync payload
+    var _weeklyPlanToSync = db.weeklyPlan
+      ? (function() {
+          var wp = Object.assign({}, db.weeklyPlan);
+          delete wp.mesoWeeks;
+          delete wp._volumeSuggestions;
+          delete wp._volumeSuggestionsDate;
+          return wp;
+        })()
+      : db.weeklyPlan;
+    const dataToSync = { ...db, gamification: db.gamification || {}, weeklyPlan: _weeklyPlanToSync };
     const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() };
     const {data: _upsertRes, error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }).select('updated_at').single();
     if (error) throw error;

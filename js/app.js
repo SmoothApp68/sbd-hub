@@ -19888,11 +19888,19 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Mollets (Machine)',  reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 },
       { name: 'Gainage (Planche)',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ],
+    // Mardi (séance lourde) — plateforme scapulaire post-Bench lourd (Gemini)
     bench: [
-      { name: 'Dips',                reps: '10-12',rpe: 8,   sets: 4, rest: 120, priority: 1 },
-      { name: 'Écarté Haltères',     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Extension Triceps',   reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Rowing Poulie Assis', reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 }
+      { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
+      { name: 'Rowing Poulie Prise Large',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
+      { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
+    ],
+    // Vendredi (séance volume) — angles différents + isolation (Gemini)
+    bench2: [
+      { name: 'Rowing Poulie Assis',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Écarté Machine',          reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Oiseau Machine',          reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 },
+      { name: 'Extension Triceps Corde', reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 }
     ],
     deadlift: [
       // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).
@@ -19982,16 +19990,16 @@ var WP_SESSION_TEMPLATES = {
       { name: 'Gainage (Planche)',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ]
   },
-  // bench_hyp: ['bench','rowing_poulie','dips','face_pull','tri_cable']
+  // bench_hyp: MAR — plateforme scapulaire post-Bench lourd (Gemini Q2)
   bench: {
     title: '💪 Pecs — Dos',
     mainLift: 'bench',
     bodyPart: 'upper',
     accessories: [
-      { name: 'Rowing Poulie Assis',     reps: '6',    rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Dips',                    reps: '8-10', rpe: 8,   sets: 4, rest: 120, priority: 1 },
-      { name: 'Face Pull',               reps: '15',   rpe: 7,   sets: 4, rest: 60,  priority: 2 },
-      { name: 'Extension Triceps Câble', reps: '12',   rpe: 7.5, sets: 4, rest: 90,  priority: 2 }
+      { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
+      { name: 'Rowing Poulie Prise Large',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
+      { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ]
   },
   // dead_hyp: ['deadlift','squat_pause','lat_pull','leg_curl','relevé_jambes']
@@ -22337,6 +22345,7 @@ var WP_EXO_META = {
   'rowing barre':              { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'back'     },
   'rowing haltere':            { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'back'     },
   'rowing poulie assis':       { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
+  'rowing poulie prise large': { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'rowing poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage poulie':             { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
   'tirage vertical':           { mechanic: 'compound',  equipment: 'cable',      muscleGroup: 'back'     },
@@ -22354,11 +22363,13 @@ var WP_EXO_META = {
   'ecarte poulie':             { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'chest'    },
   'ecarte halteres':           { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'chest'    },
   'dips':                      { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'chest'    },
+  'dips torse':                { mechanic: 'compound',  equipment: 'bodyweight', muscleGroup: 'chest'    },
   'developpe militaire':       { mechanic: 'compound',  equipment: 'barbell',    muscleGroup: 'shoulder' },
   'developpe halteres':        { mechanic: 'compound',  equipment: 'dumbbell',   muscleGroup: 'shoulder' },
   'elevations laterales':      { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'shoulder' },
   'elevations poulie':         { mechanic: 'isolation', equipment: 'cable',      muscleGroup: 'shoulder' },
   'oiseau':                    { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'shoulder' },
+  'oiseau machine':            { mechanic: 'isolation', equipment: 'machine',    muscleGroup: 'shoulder' },
   'curl barre':                { mechanic: 'isolation', equipment: 'barbell',    muscleGroup: 'biceps'   },
   'curl haltere':              { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'biceps'   },
   'curl marteau':              { mechanic: 'isolation', equipment: 'dumbbell',   muscleGroup: 'biceps'   },
@@ -23190,6 +23201,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   var accessoryPhase = (typeof PHASE_ACCESSORY_MAP !== 'undefined' && PHASE_ACCESSORY_MAP && PHASE_ACCESSORY_MAP[phase]) || 'hypertrophie';
   // v239 — DL wave loading : S1/S2/S3 variant selection based on week-in-phase
   var _accDayKey = dayKey;
+  // bench2 pool (Gemini Q2) — VEN différencié de MAR via _bench2Override flag
+  if (dayKey === 'bench' && _bench2Override) _accDayKey = 'bench2';
   if (dayKey === 'deadlift' && accessoryPhase === 'hypertrophie') {
     var _dlAccWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
     var _dlKey = _dlAccWeek <= 1 ? 'deadlift' : (_dlAccWeek === 2 ? 'deadlift_s2' : 'deadlift_s3');

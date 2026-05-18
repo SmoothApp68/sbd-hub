@@ -11093,7 +11093,6 @@ function renderProgrammeV2() {
   h += renderPhaseProgressBadge();
   h += renderMesoView();
   h += renderTodayCard();
-  h += renderWeekRowsCompact();
   h += '<div style="padding:4px 12px 0;">'
     + '<button onclick="openAdjustSession()" style="width:100%;padding:12px;margin-bottom:8px;'
     + 'background:var(--surface);border:1px solid var(--border);'

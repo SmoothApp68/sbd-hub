@@ -10962,32 +10962,44 @@ function renderMesoView() {
   var activeIdx = 0;
   mesoWeeks.forEach(function(w, i) { if (w.status === 'active') activeIdx = i; });
 
-  window._mesoCur   = activeIdx;
-  window._mesoTotal = mesoWeeks.length;
+  // Préserver la position de swipe entre deux rendus (cloud sync, fin de
+  // séance, retour d'onglet, reload SW). Sans ça, tout re-render ramène
+  // brutalement à la semaine active (bug : "l'affichage revient seul").
+  // On ne resnappe sur activeIdx que si l'index est invalide OU si la
+  // semaine active a réellement avancé depuis le dernier rendu.
+  var prevCur = window._mesoCur;
+  var prevActive = window._mesoActiveIdx;
+  var keep = typeof prevCur === 'number' && prevCur >= 0 &&
+             prevCur < mesoWeeks.length && prevActive === activeIdx;
+  var curIdx = keep ? prevCur : activeIdx;
+
+  window._mesoCur       = curIdx;
+  window._mesoActiveIdx = activeIdx;
+  window._mesoTotal     = mesoWeeks.length;
 
   var html = '<div id="meso-swipe-wrap" class="meso-container" style="margin:0 0 16px;">';
   html += '<div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;'
     + 'text-transform:uppercase;margin-bottom:8px;padding:0 2px;">📅 Mésocycle complet</div>';
 
   html += '<div id="meso-progress-bar" style="margin-bottom:10px;">'
-    + _buildMesoProgressBar(mesoWeeks, activeIdx) + '</div>';
+    + _buildMesoProgressBar(mesoWeeks, curIdx) + '</div>';
 
   html += '<div style="display:flex;align-items:center;justify-content:space-between;'
     + 'margin-bottom:8px;padding:0 2px;">'
     + '<button id="meso-prev-btn" onclick="mesoGoTo(window._mesoCur-1)" '
     + 'style="background:var(--surface);border:1px solid var(--border);color:var(--text);'
     + 'border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;'
-    + 'opacity:' + (activeIdx === 0 ? '0.3' : '1') + ';">‹</button>'
+    + 'opacity:' + (curIdx === 0 ? '0.3' : '1') + ';">‹</button>'
     + '<span id="meso-nav-label" style="font-size:13px;font-weight:700;color:var(--sub);">'
-    + _mesoNavLabel(mesoWeeks[activeIdx]) + '</span>'
+    + _mesoNavLabel(mesoWeeks[curIdx]) + '</span>'
     + '<button id="meso-next-btn" onclick="mesoGoTo(window._mesoCur+1)" '
     + 'style="background:var(--surface);border:1px solid var(--border);color:var(--text);'
     + 'border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;'
-    + 'opacity:' + (activeIdx === mesoWeeks.length - 1 ? '0.3' : '1') + ';">›</button>'
+    + 'opacity:' + (curIdx === mesoWeeks.length - 1 ? '0.3' : '1') + ';">›</button>'
     + '</div>';
 
   html += '<div id="meso-slide-content">'
-    + renderMesoSlide(mesoWeeks[activeIdx], activeIdx, mesoWeeks)
+    + renderMesoSlide(mesoWeeks[curIdx], curIdx, mesoWeeks)
     + '</div>';
 
   html += '</div>';

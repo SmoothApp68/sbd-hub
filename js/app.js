@@ -24112,9 +24112,18 @@ function buildCompletedWeekDays(weekNumber) {
 function getLoggedWeightForExo(log, exoName) {
   if (!log || !exoName) return null;
   var target = exoName.toLowerCase();
+  // Le nom prévu (généré : "High Bar Squat") diffère souvent du nom loggé
+  // (importé/renommé : "Squat Barre"). Match strict d'abord, puis par type
+  // SBD (squat/bench/deadlift) pour retrouver le lift principal réel.
+  var plannedType = typeof getSBDType === 'function' ? getSBDType(exoName) : null;
   var exo = (log.exercises || []).find(function(e) {
     return e.name && e.name.toLowerCase() === target;
   });
+  if (!exo && plannedType && typeof getSBDType === 'function') {
+    exo = (log.exercises || []).find(function(e) {
+      return e.name && getSBDType(e.name) === plannedType;
+    });
+  }
   if (!exo) return null;
   var workSets = (exo.allSets || exo.series || []).filter(function(s) {
     return !(s.isWarmup === true || s.setType === 'warmup');

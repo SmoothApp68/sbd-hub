@@ -20360,6 +20360,9 @@ function wpFindBestMatch(targetName, logs) {
 function wpEstimateWeight(exoName) {
   var bw = getUserBW();
   var pr = db.bestPR || {};
+  // Dips Torse = PDC strict (Aurélien jamais lesté, Gemini validation 2026)
+  if (/dips\s*torse/i.test(exoName || '')) return null;
+
   // v235 — Seal Row : charge estimée depuis le Rowing Poulie Assis
   // (~85% de son e1RM) sinon valeur de référence 75kg (Gemini, avancé).
   if (/seal\s*row/i.test(exoName || '')) {
@@ -20383,6 +20386,7 @@ function wpEstimateWeight(exoName) {
     'Tirage poitrine poulie':   { base: 'bw',       ratio: 0.60 },
     'Romanian Deadlift':        { base: 'deadlift', ratio: 0.65 },
     'Rowing poulie assis':      { base: 'deadlift', ratio: 0.50 },
+    'Rowing poulie prise large':{ base: 'deadlift', ratio: 0.48 },
     'Developpe incline halteres': { base: 'bench',  ratio: 0.55 },
     'Extension triceps':        { base: 'bw',       ratio: 0.25 },
     'Curl barre':               { base: 'bw',       ratio: 0.22 },

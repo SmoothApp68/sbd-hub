@@ -21132,6 +21132,23 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm)
     || (history.length > 0 ? history[0].e1rm : 0) || 0;
 
+  // Facteur de sécurité neuro transition hypertrophie → force (Gemini Q4.3)
+  // L'e1RM EWMA calculé depuis des séries hypertrophie (7-10 reps @ RPE 9.5)
+  // surestime la force absolue. Correction × 0.95 uniquement en S1 du bloc
+  // Force (l'athlète n'est pas encore "peaked"). À partir de S2, l'EWMA se
+  // recale sur de vraies séries de force → le facteur ne s'applique plus.
+  var _forceNeuroCorrectionApplied = false;
+  var _cbPhase = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                 db.weeklyPlan.currentBlock.phase;
+  if (_cbPhase === 'force' && e1rmRef > 0) {
+    var _forceBlockWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                           db.weeklyPlan.currentBlock.week) || 1;
+    if (_forceBlockWeek === 1) {
+      e1rmRef = Math.round(e1rmRef * 0.95 * 10) / 10;
+      _forceNeuroCorrectionApplied = true;
+    }
+  }
+
   var _wb = db.todayWellbeing;
   var _wbToday = new Date().toISOString().split('T')[0];
   var _sleepMult = (_wb && _wb.date === _wbToday && _wb.sleep <= 2) ? 0.95 : 1.0;

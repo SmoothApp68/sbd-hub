@@ -5280,3 +5280,46 @@ function getStalenessSubstitute(exoName) {
     return (lastUsed[a] || 0) - (lastUsed[b] || 0);
   })[0];
 }
+
+// ── EXERCICES JAMAIS PRATIQUÉS — Système de détection ────────────────────
+
+/**
+ * Vérifie si l'utilisateur a déjà pratiqué un exercice (historique complet).
+ * Seuil = 1 occurrence (Gemini : "une fois suffit pour acquérir la biomécanique").
+ * Ne jamais utiliser une fenêtre temporelle courte.
+ * @param {string} exoName
+ * @returns {boolean}
+ */
+function hasUserDoneExercise(exoName) {
+  if (!exoName || !db.logs || !db.logs.length) return false;
+  var normalized = exoName.trim().toLowerCase();
+  return db.logs.some(function(log) {
+    return (log.exercises || []).some(function(e) {
+      return e.name && e.name.trim().toLowerCase() === normalized;
+    });
+  });
+}
+
+/**
+ * Vérifie si un exercice est banni par l'utilisateur.
+ * @param {string} exoName
+ * @returns {boolean}
+ */
+function isExoBanned(exoName) {
+  if (!exoName) return false;
+  var banned = (db.user && db.user.bannedExercises) || [];
+  var normalized = exoName.trim().toLowerCase();
+  return banned.some(function(b) { return b.trim().toLowerCase() === normalized; });
+}
+
+/**
+ * Trouve le meilleur substitut connu parmi une liste ordonnée.
+ * @param {string[]} fallbacks — liste ordonnée de substituts
+ * @returns {string|null}
+ */
+function findBestKnownSubstitute(fallbacks) {
+  if (!fallbacks || !fallbacks.length) return null;
+  return fallbacks.find(function(exo) {
+    return !isExoBanned(exo) && hasUserDoneExercise(exo);
+  }) || null;
+}

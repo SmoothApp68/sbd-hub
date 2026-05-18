@@ -473,6 +473,9 @@ if (db.user.weightCut && db.user.weightCut.active && !db.user.weightCut.startDat
 // ── HYBRID ATHLETE — defensive init ──────────────────────────
 if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 
+// ── BANNED / DISCOVERY EXERCISES — defensive init ────────────────────────
+if (!db.user.bannedExercises) db.user.bannedExercises = [];
+
 // ── VOLUME DELTAS — defensive init ───────────────────────────
 if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
 if (!db.user.snoozedDeltas) db.user.snoozedDeltas = {};

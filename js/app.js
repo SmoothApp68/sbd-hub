@@ -10948,13 +10948,13 @@ function mesoGoTo(idx) {
 }
 
 function renderMesoView() {
-  var mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
-  if (!mesoWeeks) {
-    if (typeof buildMesoWeeks === 'function') {
-      try { buildMesoWeeks(); } catch(e) {}
-    }
-    mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
+  // Toujours reconstruire : la semaine active doit suivre la date courante.
+  // Un mesoWeeks persisté d'une session précédente reste figé sur l'ancienne
+  // semaine si on ne rebuild pas (bug : la vue ne passe pas à S3 le lundi).
+  if (typeof buildMesoWeeks === 'function') {
+    try { buildMesoWeeks(); } catch(e) {}
   }
+  var mesoWeeks = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
   if (!mesoWeeks || mesoWeeks.length === 0) return '';
   var level = (db.user && db.user.level) || 'intermediaire';
   if (level === 'debutant') return '';
@@ -24156,6 +24156,10 @@ function buildProjectedWeek(weekOffset) {
 
 function buildMesoWeeks() {
   if (!db.weeklyPlan || !db.weeklyPlan.days) return;
+  // Resync currentBlock.week/phase depuis blockStartDate (ancrage lundi).
+  // Sans ça, la semaine affichée reste figée à la valeur persistée tant
+  // qu'aucune autre fonction n'appelle wpDetectPhase (bug : reste S2 le lundi).
+  if (typeof wpDetectPhase === 'function') { try { wpDetectPhase(); } catch(e) {} }
   var currentWeek = (db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
   var phase  = (db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
   var level  = (db.user && db.user.level) || 'intermediaire';

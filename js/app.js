@@ -10738,8 +10738,22 @@ function renderMesoDayRow(day, isProjected, weekNumber) {
   var realWeight = log && typeof getLoggedWeightForExo === 'function'
     ? getLoggedWeightForExo(log, mainExo.name) : null;
 
+  // FIX 1 (Gemini Q3.1): completed weeks → only réalisé, never barred prévu
+  var weekStatus = null;
+  var _mesoWeeksRef = db.weeklyPlan && db.weeklyPlan.mesoWeeks;
+  if (_mesoWeeksRef && weekNumber) {
+    var _mesoWeekRef = _mesoWeeksRef.find(function(w) { return w.weekNumber === weekNumber; });
+    if (_mesoWeekRef) weekStatus = _mesoWeekRef.status;
+  }
+  var isCompletedWeek = weekStatus === 'completed';
+
   var weightHtml = '';
-  if (realWeight !== null && plannedWeight !== null) {
+  if (isCompletedWeek) {
+    if (realWeight !== null) {
+      weightHtml = '<span style="color:var(--green);font-weight:500;">' + realWeight + 'kg ✓</span>';
+    }
+    // no log → empty here; "Séance sautée" is rendered by renderMesoSlide (FIX 2)
+  } else if (realWeight !== null && plannedWeight !== null) {
     var delta = Math.round((realWeight - plannedWeight) * 10) / 10;
     var deltaStr = delta > 0 ? '(+' + delta + 'kg)' : delta < 0 ? '(' + delta + 'kg)' : '';
     var deltaColor = delta >= 0 ? 'var(--green)' : 'var(--orange)';
@@ -10913,6 +10927,25 @@ function renderMesoSlide(week, idx, mesoWeeks) {
   } else if (week.days && week.days.length) {
     week.days.forEach(function(day) {
       if (day.rest) return;
+      // FIX 2 (Gemini Q3.2): completed weeks — detect missed days via log lookup
+      if (isCompleted) {
+        var _dayLog = typeof getMesoLogForDay === 'function'
+          ? getMesoLogForDay(day.day, week.weekNumber) : null;
+        if (!_dayLog) {
+          var _mainExoName = (day.exercises || []).filter(function(e) { return e.isPrimary; })
+            .map(function(e) { return e.name; })[0] || 'Séance';
+          html += '<div style="padding:7px 0;border-bottom:1px solid var(--border);'
+            + 'display:flex;align-items:center;justify-content:space-between;gap:8px;opacity:0.45;">'
+            + '<div style="font-size:12px;color:var(--sub);">'
+            + '<span style="font-size:11px;margin-right:6px;font-weight:600;color:var(--sub);">'
+            + day.day.substring(0, 3).toUpperCase() + '</span>'
+            + _mainExoName + '</div>'
+            + '<span style="font-size:10px;background:rgba(120,120,168,0.2);color:var(--sub);'
+            + 'padding:2px 7px;border-radius:6px;white-space:nowrap;">Séance sautée</span>'
+            + '</div>';
+          return;
+        }
+      }
       html += renderMesoDayRow(day, isProjected, week.weekNumber);
     });
   } else if (isCompleted) {

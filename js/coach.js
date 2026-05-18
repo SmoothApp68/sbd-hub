@@ -524,6 +524,78 @@ function applyVolumeAutoTune(logs) {
   return { changed: false, suggestions: recs };
 }
 
+// ── Auto-Tuner — card interactive suggestions volume (Gemini Q1) ────────────
+// _volumeSuggestions[muscle] = delta CIBLE (currentDelta ± 1), pas l'incrément.
+// L'incrément réel = cible - currentDelta → détermine le sens (+/-).
+function renderAutoTunerCard() {
+  var level = db.user && db.user.level;
+  if (level === 'debutant') return '';
+
+  var suggestions = db.weeklyPlan && db.weeklyPlan._volumeSuggestions;
+  if (!suggestions || Object.keys(suggestions).length === 0) return '';
+
+  db.user.snoozedDeltas = db.user.snoozedDeltas || {};
+  var currentWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                     db.weeklyPlan.currentBlock.week) || 1;
+
+  var MUSCLE_LABELS = {
+    dos: 'Dos', quads: 'Quadriceps', pecs: 'Pectoraux',
+    epaules: 'Épaules', biceps: 'Biceps', triceps: 'Triceps',
+    ischio: 'Ischios', fessiers: 'Fessiers', mollets: 'Mollets'
+  };
+  var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
+  var isPBPL = mode === 'powerbuilding' || mode === 'powerlifting';
+
+  var cards = '';
+  Object.keys(suggestions).forEach(function(muscle) {
+    var targetDelta = suggestions[muscle];
+    var currentDelta = (db.user && db.user.volumeDeltas && db.user.volumeDeltas[muscle]) || 0;
+    var increment = targetDelta - currentDelta;
+    if (!increment) return;
+
+    var snoozeUntil = db.user.snoozedDeltas[muscle];
+    if (snoozeUntil && currentWeek < snoozeUntil) return;
+
+    var muscleLabel = MUSCLE_LABELS[muscle] || muscle;
+    var indicatorA = isPBPL ? 'Insolvency stable' : 'Récupération stable';
+    var indicatorB = isPBPL ? 'Insolvency critique, tension articulaire'
+                            : 'Fatigue musculaire élevée';
+
+    var isPositive = increment > 0;
+    var icon  = isPositive ? '📈' : '⚠️';
+    var color = isPositive ? 'var(--green)' : 'var(--orange)';
+    var title = isPositive
+      ? icon + ' Volume ' + muscleLabel + ' optimal'
+      : icon + ' Surcharge ' + muscleLabel + ' détectée';
+    var text = isPositive
+      ? indicatorA + ', tonnage en hausse. +1 série suggérée.'
+      : indicatorB + '. -1 série suggérée.';
+    var deltaStr = (isPositive ? '+' : '') + increment + ' série';
+
+    cards += '<div style="background:var(--card);border:1px solid var(--border);' +
+      'border-radius:14px;padding:14px;margin-bottom:10px;">' +
+      '<div style="font-size:13px;font-weight:700;color:' + color + ';margin-bottom:6px;">' +
+        title + '</div>' +
+      '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">' + text + '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button onclick="applyAutoTunerDelta(\'' + muscle + '\',' + targetDelta + ')" ' +
+          'style="flex:1;padding:9px;background:var(--accent);border:none;' +
+          'border-radius:10px;color:#000;font-weight:700;font-size:12px;cursor:pointer;">' +
+          'Appliquer ' + deltaStr + '</button>' +
+        '<button onclick="snoozeAutoTunerDelta(\'' + muscle + '\')" ' +
+          'style="flex:1;padding:9px;background:var(--surface);border:1px solid var(--border);' +
+          'border-radius:10px;color:var(--sub);font-size:12px;cursor:pointer;">' +
+          'Ignorer</button>' +
+      '</div>' +
+      '</div>';
+  });
+
+  if (!cards) return '';
+  return '<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--sub);' +
+    'text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">📊 AJUSTEMENTS VOLUME</div>' +
+    cards + '</div>';
+}
+
 // ── Diagnostic Coach enrichi avec l'Insolvency Index ────────────────────────
 // Wrapper autour d'analyzeAthleteProfile() — distinct du SRS (radar tactique).
 // Insolvency = bilan comptable (dette accumulée 7j). SRS = forme du jour.

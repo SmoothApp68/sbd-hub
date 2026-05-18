@@ -472,6 +472,7 @@ if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 
 // ── VOLUME DELTAS — defensive init ───────────────────────────
 if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
+if (!db.user.snoozedDeltas) db.user.snoozedDeltas = {};
 
 // ── REEDUCATION → DEBUTANT migration (v156) ──────────────────
 if (db.user.onboardingProfile === 'reeducation') {
@@ -17345,6 +17346,28 @@ function renderCoachAlgoAI() {
 var _coachSelectedDay = null;
 var _activeCoachSub = 'coach-today';
 
+// Auto-Tuner — applique le delta CIBLE suggéré (set, pas incrément) (Gemini Q1)
+window.applyAutoTunerDelta = function(muscle, targetDelta) {
+  db.user.volumeDeltas = db.user.volumeDeltas || {};
+  var clamped = Math.max(-4, Math.min(4, targetDelta));
+  db.user.volumeDeltas[muscle] = clamped;
+  if (db.weeklyPlan && db.weeklyPlan._volumeSuggestions) {
+    delete db.weeklyPlan._volumeSuggestions[muscle];
+  }
+  saveDB();
+  if (typeof showToast === 'function') showToast('✅ Volume ' + muscle + ' ajusté.');
+  if (typeof renderCoachTab === 'function') renderCoachTab();
+};
+
+window.snoozeAutoTunerDelta = function(muscle) {
+  var currentWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                     db.weeklyPlan.currentBlock.week) || 1;
+  db.user.snoozedDeltas = db.user.snoozedDeltas || {};
+  db.user.snoozedDeltas[muscle] = currentWeek + 4; // snooze 1 mésocycle
+  saveDB();
+  if (typeof renderCoachTab === 'function') renderCoachTab();
+};
+
 function renderCoachTab() {
   if (new Date().getDay() === 1) generateWeeklyReport();
   updateCoachHistoBadge();
@@ -17969,6 +17992,11 @@ function renderCoachTodayHTML() {
       });
       html += '</div>';
     }
+  }
+
+  // ── 0c-bis. AUTO-TUNER — suggestions volume interactives (Gemini Q1) ──
+  if (coachProfile !== 'silent' && typeof renderAutoTunerCard === 'function') {
+    try { html += renderAutoTunerCard(); } catch(e) {}
   }
 
   // ── 0c. PHYSIOMANAGER — alerte cycle menstruel ──

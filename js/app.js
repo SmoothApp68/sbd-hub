@@ -595,18 +595,23 @@ function showReadinessModal(onComplete) {
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
   overlay.style.cssText = 'align-items:center;padding:16px;box-sizing:border-box;';
-  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;max-height:85vh;overflow-y:auto;box-sizing:border-box;">
-    <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
-    <div class="readiness-sliders" style="margin-bottom:8px;">
-      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val" style="font-size:12px;min-width:16px;">5</span></div>
-      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val" style="font-size:12px;min-width:16px;">5</span></div>
-      <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val" style="font-size:12px;min-width:16px;">5</span></div>
-      <div class="readiness-row" style="margin-bottom:4px;"><span style="font-size:12px;">🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val" style="font-size:12px;min-width:16px;">5</span></div>
+  // max-height en vh ET dvh (iOS : la barre d'URL réduit la zone visible).
+  // modal-box = flex column ; le contenu scrolle, mais .modal-actions est
+  // épinglé hors du scroll (flex:0 0 auto) → bouton Valider toujours visible.
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;max-height:85vh;max-height:85dvh;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;">
+    <div style="flex:1 1 auto;overflow-y:auto;min-height:0;">
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
+      <div class="readiness-sliders" style="margin-bottom:8px;">
+        <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val" style="font-size:12px;min-width:16px;">5</span></div>
+        <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val" style="font-size:12px;min-width:16px;">5</span></div>
+        <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val" style="font-size:12px;min-width:16px;">5</span></div>
+        <div class="readiness-row" style="margin-bottom:4px;"><span style="font-size:12px;">🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val" style="font-size:12px;min-width:16px;">5</span></div>
+      </div>
+      <div style="font-size:9px;color:var(--sub);text-align:center;margin:2px 0 6px;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
+      <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:6px 0 2px;color:var(--blue);">Score : —</div>
+      <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
     </div>
-    <div style="font-size:9px;color:var(--sub);text-align:center;margin:2px 0 6px;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
-    <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:6px 0 2px;color:var(--blue);">Score : —</div>
-    <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
-    <div class="modal-actions" style="margin-top:10px;">
+    <div class="modal-actions" style="flex:0 0 auto;margin-top:10px;">
       <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="skipReadiness()">Passer</button>
       <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider ✓</button>
     </div>

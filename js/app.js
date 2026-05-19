@@ -2718,29 +2718,6 @@ function obDragEnd() {
   obDragSrc = null;
 }
 
-function parseManualProgram(text) {
-  const result = {};
-  const dayAliases = {
-    'lun':'Lundi','lundi':'Lundi','mon':'Lundi','monday':'Lundi',
-    'mar':'Mardi','mardi':'Mardi','tue':'Mardi','tuesday':'Mardi',
-    'mer':'Mercredi','mercredi':'Mercredi','wed':'Mercredi','wednesday':'Mercredi',
-    'jeu':'Jeudi','jeudi':'Jeudi','thu':'Jeudi','thursday':'Jeudi',
-    'ven':'Vendredi','vendredi':'Vendredi','fri':'Vendredi','friday':'Vendredi',
-    'sam':'Samedi','samedi':'Samedi','sat':'Samedi','saturday':'Samedi',
-    'dim':'Dimanche','dimanche':'Dimanche','sun':'Dimanche','sunday':'Dimanche'
-  };
-  const lines = text.split('\n');
-  lines.forEach(line => {
-    const m = line.match(/^([^:：]+)[：:]\s*(.+)$/);
-    if (!m) return;
-    const dayRaw = m[1].trim().toLowerCase().replace(/[^a-záàâäéèêëîïôöùûüÿ]/g,'');
-    const content = m[2].trim();
-    const day = dayAliases[dayRaw];
-    if (day) result[day] = content;
-  });
-  return result;
-}
-
 // Render programme généré (step 7)
 function renderObGeneratedProgram(plan) {
   const container = document.getElementById('ob-generated-program');
@@ -6073,7 +6050,6 @@ const BODYWEIGHT_FALLBACK = {
 // Utilisées uniquement en fallback quand l'utilisateur n'a pas entré reps/durée.
 const BW_DEFAULT_REPS = 10;       // reps moyennes (tractions, pompes, dips…)
 const BW_DEFAULT_ISO_SECS = 45;   // durée isométrique type (planche, gainage)
-const BW_DEFAULT_CARDIO_MIN = 20; // durée cardio sans données (min)
 const BW_FALLBACK_KG = 80;        // poids de corps par défaut quand l'utilisateur n'a rien saisi
 
 // Source unique de vérité du poids de corps pour les niveaux de force.
@@ -19226,13 +19202,6 @@ let wpSelectedDay = DAYS_FULL[new Date().getDay()] === 'Dimanche' ? 'Lundi' : DA
 
 // Arrondi au 0.5kg
 function round05(v) { return Math.round(v * 2) / 2; }
-
-// Ratios poids de corps pour estimation de charge sans historique
-const BW_RATIOS = {
-  big:       { debutant: 0.5,  intermediaire: 0.8,  avance: 1.2,  competiteur: 1.5  },
-  compound:  { debutant: 0.3,  intermediaire: 0.5,  avance: 0.8,  competiteur: 1.0  },
-  isolation: { debutant: 0.15, intermediaire: 0.25, avance: 0.35, competiteur: 0.45 },
-};
 
 // ── Apprentissage progression personnalisée ─────────────────
 // Après 4+ semaines de données, calcule le taux de progression réel

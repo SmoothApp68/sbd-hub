@@ -62,6 +62,11 @@ async function callAnthropicProxy(body) {
 // ============================================================
 // CLOUD SYNC
 // ============================================================
+
+// Set to true before calling signOut() so onAuthStateChange knows it's intentional.
+// Without this flag, a network error (signInAnonymously fails) triggers SIGNED_OUT
+// and would show the login screen over the user's local data.
+var _voluntaryLogout = false;
 async function cloudSignIn() {
   if (!supaClient) return null;
   try {
@@ -89,7 +94,12 @@ async function cloudSignIn() {
 if (supaClient) {
   supaClient.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) {
-      showLoginScreen();
+      // Only show login if this is a voluntary logout OR the user has no local data.
+      // A network-triggered SIGNED_OUT (signInAnonymously failure) must not block
+      // access to local data for an already-onboarded user.
+      var hasLocalData = typeof db !== 'undefined' && db && db.user && db.user.onboarded;
+      if (_voluntaryLogout || !hasLocalData) showLoginScreen();
+      _voluntaryLogout = false;
       return;
     }
     if (event === 'PASSWORD_RECOVERY') {
@@ -748,6 +758,7 @@ async function checkPasswordMigration(user) {
 }
 async function cloudLogout() {
   if (!supaClient) return;
+  _voluntaryLogout = true;
   try {
     await supaClient.auth.signOut();
   } catch(e) { console.warn('signOut error:', e); }

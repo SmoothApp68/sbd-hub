@@ -20016,28 +20016,25 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Oiseau Machine',          reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 },
       { name: 'Extension Triceps Corde', reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 }
     ],
+    // Jeudi — MAX 2 accessoires (Dead+Squat Pause = massacre SNC/érecteurs)
+    // DANGER retiré : Relevé de Jambes (flexion lombaire post-Dead en extension = risque hernie)
     deadlift: [
-      // v224 Gemini : Hip Thrust retiré (pression axiale excessive après Deadlift).
-      // Hip Thrust reste dans Lower B (musculation). Ajout Relevé de Jambes + Face Pull.
-      { name: 'Leg Curl Allongé',    reps: '12-15',rpe: 9,   sets: 3, rest: 90,  priority: 1 },
-      { name: 'Tirage Vertical',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Relevé de Jambes',    reps: '12-15',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' },
-      { name: 'Face Pull',           reps: '15-20',rpe: 7,   sets: 3, rest: 60,  priority: 4 }
+      { name: 'Tirage Poitrine (Poulie)', reps: '10',   rpe: 8,   sets: 4, rest: 90, priority: 1 },
+      { name: 'Tirage vers Visage',       reps: '15',   rpe: 7.5, sets: 3, rest: 60, priority: 2 }
     ],
     // v239 — S2/S3 : variantes semaine 2 et 3 (wave loading accessoires DL)
+    // Relevé de Jambes retiré (même raison danger lombaire)
     deadlift_s2: [
-      { name: 'Squat Pause',      reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
-      { name: 'Tirage Vertical',  reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
-      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
-      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
-      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+      { name: 'Squat Pause',             reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Poitrine (Poulie)', reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé',        reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
+      { name: 'Tirage vers Visage',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
     ],
     deadlift_s3: [
-      { name: 'Squat Pause',      reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
-      { name: 'Tirage Vertical',  reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
-      { name: 'Leg Curl Allongé', reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
-      { name: 'Relevé de Jambes', reps: '12-15', rpe: 7,   sets: 2, rest: 60,  priority: 3, type: 'reps' },
-      { name: 'Face Pull',        reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
+      { name: 'Squat Pause',             reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Poitrine (Poulie)', reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Leg Curl Allongé',        reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
+      { name: 'Tirage vers Visage',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
     ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
@@ -20122,16 +20119,16 @@ var WP_SESSION_TEMPLATES = {
       { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ]
   },
-  // dead_hyp: ['deadlift','squat_pause','lat_pull','leg_curl','relevé_jambes']
+  // dead_hyp — Relevé de Jambes retiré (flexion lombaire post-Dead = risque hernie discale)
   deadlift: {
     title: '🏋️ Ischios — Fessiers',
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Squat Pause',         reps: '5',    rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
-      { name: 'Tirage Vertical',     reps: '8',    rpe: 8,   sets: 4, rest: 120, priority: 1 },
-      { name: 'Leg Curl Allongé',    reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Relevé de Jambes',    reps: '12',   rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'reps' }
+      { name: 'Squat Pause',             reps: '5',  rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Tirage Poitrine (Poulie)', reps: '10', rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Leg Curl Allongé',        reps: '12', rpe: 7,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Tirage vers Visage',      reps: '15', rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ]
   },
   weakpoints: {

@@ -476,6 +476,7 @@ if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 // ── BANNED / DISCOVERY EXERCISES — defensive init ────────────────────────
 if (!db.user.bannedExercises) db.user.bannedExercises = [];
 if (!db.user.exercisesToIntroduce) db.user.exercisesToIntroduce = [];
+if (!db.macrocycles) db.macrocycles = { current: null, history: [] };
 
 // ── VOLUME DELTAS — defensive init ───────────────────────────
 if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
@@ -19993,6 +19994,14 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Adduction Machine',                reps: '12-15', rpe: 8,   sets: 3, rest: 60,  priority: 3 },
       { name: 'Extension Mollets Debout (Machine)', reps: '12', rpe: 8,   sets: 4, rest: 60,  priority: 3 }
     ],
+    // Samedi — angles différents du Lundi, ischios/fessiers, core fin de semaine
+    // La chaîne postérieure (Leg Curl ou Hip Thrust) est injectée dynamiquement
+    // en position 2 par getSaturdayChainAccessory() dans wpGeneratePowerbuildingDay().
+    squat2: [
+      { name: 'Hack Squat (Machine)', reps: '8-10',  rpe: 8,   sets: 3, rest: 120, priority: 1 },
+      { name: 'Abduction Hanche',     reps: '15-20', rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Planche',              reps: '45-60s',rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
+    ],
     // Mardi (séance lourde) — plateforme scapulaire post-Bench lourd (Gemini)
     bench: [
       { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
@@ -20039,6 +20048,12 @@ var WP_ACCESSORIES_BY_PHASE = {
     ]
   },
   force: {
+    // Samedi force — angle différent + chaîne postérieure injectée dynamiquement
+    squat2: [
+      { name: 'Hack Squat (Machine)', reps: '6-8',  rpe: 8,   sets: 3, rest: 150, priority: 1 },
+      { name: 'Abduction Hanche',     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Planche',              reps: '60s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
+    ],
     squat: [
       { name: 'Squat Pause',          reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
       { name: 'Fentes Bulgares',      reps: '6-8', rpe: 8,   sets: 3, rest: 150, priority: 2 },
@@ -23313,6 +23328,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   var _accDayKey = dayKey;
   // bench2 pool (Gemini Q2) — VEN différencié de MAR via _bench2Override flag
   if (dayKey === 'bench' && _bench2Override) _accDayKey = 'bench2';
+  // squat2 pool — SAM (dupProfileKey='vitesse') différencié de LUN (dupProfileKey='force')
+  if (dayKey === 'squat' && dupProfileKey === 'vitesse' &&
+      WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase]['squat2']) {
+    _accDayKey = 'squat2';
+  }
   if (dayKey === 'deadlift' && accessoryPhase === 'hypertrophie') {
     var _dlAccWeek = (db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
     var _dlKey = _dlAccWeek <= 1 ? 'deadlift' : (_dlAccWeek === 2 ? 'deadlift_s2' : 'deadlift_s3');
@@ -23321,6 +23341,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   var phaseAccessories = (typeof WP_ACCESSORIES_BY_PHASE !== 'undefined' && WP_ACCESSORIES_BY_PHASE && WP_ACCESSORIES_BY_PHASE[accessoryPhase] && WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey])
     ? WP_ACCESSORIES_BY_PHASE[accessoryPhase][_accDayKey]
     : (tpl.accessories || []);
+  // Injection chaîne postérieure SAM en position 2 (après Hack Squat, avant Abduction)
+  if (_accDayKey === 'squat2' && typeof getSaturdayChainAccessory === 'function') {
+    var _chainAcc = getSaturdayChainAccessory();
+    phaseAccessories = [phaseAccessories[0]].concat([_chainAcc]).concat(phaseAccessories.slice(1));
+  }
   var accessories = wpFilterInjuries(phaseAccessories, injuries);
   // Rééquilibrage Squat/Bench (Gemini)
   if (dayKey === 'squat') {

@@ -5337,6 +5337,21 @@ function findBestKnownSubstitute(fallbacks) {
  * @param {string} reason — pourquoi cet exo est recommandé (pour la card)
  * @returns {{ selectedExo: string, insight: Object|null }}
  */
+/**
+ * Alternance inter-blocs chaîne postérieure Samedi.
+ * Pair (0,2,4...) → Leg Curl Assis (ischios en raccourci)
+ * Impair (1,3,5...) → Hip Thrust (Barre) (fessiers en allongement)
+ * @returns {Object} — entrée pool accessoire compatible WP_ACCESSORIES_BY_PHASE
+ */
+function getSaturdayChainAccessory() {
+  var historyLen = (db.macrocycles && db.macrocycles.history &&
+                   db.macrocycles.history.length) || 0;
+  if (historyLen % 2 === 0) {
+    return { name: 'Leg Curl Assis', reps: '12-15', rpe: 8.5, sets: 3, rest: 75, priority: 2 };
+  }
+  return { name: 'Hip Thrust (Barre)', reps: '8', rpe: 8.5, sets: 3, rest: 120, priority: 2 };
+}
+
 function assignAccessory(targetExo, fallbacks, reason) {
   var level = (db.user && db.user.level) || 'intermediaire';
   var isDebutant = level === 'debutant';

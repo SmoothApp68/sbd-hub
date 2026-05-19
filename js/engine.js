@@ -5194,6 +5194,50 @@ var EXERCISE_CATEGORIES = {
   'Gainage':                     'cardio'
 };
 // Substituts par exercice (même muscle, angle différent)
+// ── SBD BLOCK VARIATIONS — Table Staleness Hypertrophie/Force ───────────────
+// Source : profil Aurélien, Low Bar toujours, historique Hevy vérifié
+// accessoryMode 'DIRECT' = dans les logs → prescrire directement
+// accessoryMode 'DISCOVERY_CARD' = 0 occurrence → assignAccessory() retourne
+//   un substitut connu + insight DISCOVERY_CARD pour le Coach
+var SBD_BLOCK_VARIATIONS = {
+  squat: {
+    hypertrophie: {
+      main: 'Squat (Barre)',
+      accessory: 'Squat avec pause (barre)',   // 25 séances dans logs
+      accessoryMode: 'DIRECT'
+    },
+    force: {
+      main: 'Squat (Barre)',
+      accessory: 'Pin Squat',                  // 0 occurrence dans logs
+      accessoryMode: 'DISCOVERY_CARD'
+    }
+  },
+  bench: {
+    hypertrophie: {
+      main: 'Développé Couché (Barre)',
+      accessory: 'Spoto Bench',                // 3 séances dans logs
+      accessoryMode: 'DIRECT'
+    },
+    force: {
+      main: 'Développé Couché (Barre)',
+      accessory: 'Paused Bench 3s',            // 0 occurrence dans logs
+      accessoryMode: 'DISCOVERY_CARD'
+    }
+  },
+  deadlift: {
+    hypertrophie: {
+      main: 'Soulevé de Terre (Barre)',
+      accessory: 'Soulevé de Terre Roumain (Barre)', // 6 séances dans logs
+      accessoryMode: 'DIRECT'
+    },
+    force: {
+      main: 'Soulevé de Terre (Barre)',
+      accessory: 'Soulevé de Terre avec pause',      // 16 séances dans logs
+      accessoryMode: 'DIRECT'
+    }
+  }
+};
+
 var STALENESS_SUBSTITUTES = {
   'Leg Extension':         ['Hack Squat Machine', 'Presse à Cuisses', 'Squat Goblet'],
   'Leg Curl Allongé':      ['Leg Curl Assis', 'Soulevé de Terre Roumain', 'Glute Ham Raise'],

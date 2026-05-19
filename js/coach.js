@@ -544,7 +544,22 @@ function renderAutoTunerCard() {
     ischio: 'Ischios', fessiers: 'Fessiers', mollets: 'Mollets'
   };
   var mode = (db.user && db.user.trainingMode) || 'powerbuilding';
-  var isPBPL = mode === 'powerbuilding' || mode === 'powerlifting';
+
+  var AUTOTUNER_WORDING = {
+    powerbuilding: {
+      positive: { title: '📈 Volume [Muscle] optimal', text: 'Insolvency stable, tonnage en hausse. +1 série suggérée.' },
+      negative: { title: '⚠️ Surcharge [Muscle] détectée', text: 'Insolvency critique, tension articulaire. -1 série suggérée.' }
+    },
+    musculation: {
+      positive: { title: '🔥 Récupération Optimale — [Muscle]', text: '[Muscle] ont complètement récupéré. +1 série pour maximiser la croissance.' },
+      negative: { title: '⚠️ Surcharge Détectée — [Muscle]', text: '[Muscle] accumulent trop de fatigue. -1 série pour relancer la progression.' }
+    },
+    powerlifting: {
+      positive: { title: '📈 Volume [Muscle] optimal', text: 'Insolvency stable, tonnage en hausse. +1 série suggérée.' },
+      negative: { title: '⚠️ Alerte Insolvency — [Muscle]', text: 'Ta vitesse de barre chute, fatigue nerveuse accumulée. On drop 1 série pour dissiper la fatigue sans perdre la spécificité.' }
+    }
+  };
+  var wording = AUTOTUNER_WORDING[mode] || AUTOTUNER_WORDING['powerbuilding'];
 
   var cards = '';
   Object.keys(suggestions).forEach(function(muscle) {
@@ -557,19 +572,12 @@ function renderAutoTunerCard() {
     if (snoozeUntil && currentWeek < snoozeUntil) return;
 
     var muscleLabel = MUSCLE_LABELS[muscle] || muscle;
-    var indicatorA = isPBPL ? 'Insolvency stable' : 'Récupération stable';
-    var indicatorB = isPBPL ? 'Insolvency critique, tension articulaire'
-                            : 'Fatigue musculaire élevée';
 
     var isPositive = increment > 0;
-    var icon  = isPositive ? '📈' : '⚠️';
     var color = isPositive ? 'var(--green)' : 'var(--orange)';
-    var title = isPositive
-      ? icon + ' Volume ' + muscleLabel + ' optimal'
-      : icon + ' Surcharge ' + muscleLabel + ' détectée';
-    var text = isPositive
-      ? indicatorA + ', tonnage en hausse. +1 série suggérée.'
-      : indicatorB + '. -1 série suggérée.';
+    var wrd = isPositive ? wording.positive : wording.negative;
+    var title = wrd.title.replace(/\[Muscle\]/g, muscleLabel);
+    var text  = wrd.text.replace(/\[Muscle\]/g, muscleLabel);
     var deltaStr = (isPositive ? '+' : '') + increment + ' série';
 
     cards += '<div style="background:var(--card);border:1px solid var(--border);' +

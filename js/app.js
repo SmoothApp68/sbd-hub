@@ -17802,6 +17802,26 @@ function detectSaisiePlateau() {
 // Priority queue Gemini Q4 : 1 suggestion à la fois, désactivé pour les débutants.
 var DISCOVERY_PRIORITY_QUEUE = [
   {
+    exo: 'Pin Squat',
+    reason: 'Élimine le réflexe myotatique et force une concentration nerveuse maximale au point mort de ton Squat.',
+    modes: ['powerbuilding', 'powerlifting'],
+    condition: function() {
+      var phase = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase;
+      var week  = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week;
+      return phase === 'force' && week === 1;
+    }
+  },
+  {
+    exo: 'Paused Bench Press 3s',
+    reason: 'Apprend au SNC à rester compact et immobile au contact du torse — élimine le rebond.',
+    modes: ['powerbuilding', 'powerlifting'],
+    condition: function() {
+      var phase = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase;
+      var week  = db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week;
+      return phase === 'force' && week === 1;
+    }
+  },
+  {
     exo: 'Soulevé de Terre Roumain',
     reason: 'Chaîne postérieure — développe les ischios sans griller le SNC comme le Dead lourd.',
     modes: ['powerbuilding', 'powerlifting']
@@ -17826,6 +17846,7 @@ function renderDiscoveryCards() {
   for (var _i = 0; _i < DISCOVERY_PRIORITY_QUEUE.length; _i++) {
     var _p = DISCOVERY_PRIORITY_QUEUE[_i];
     if (_p.modes && _p.modes.indexOf(mode) === -1) continue;
+    if (typeof _p.condition === 'function' && !_p.condition()) continue;
     if (hasUserDoneExercise(_p.exo) || isExoBanned(_p.exo)) continue;
     suggestion = _p;
     break;

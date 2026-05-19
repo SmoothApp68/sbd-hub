@@ -19985,13 +19985,13 @@ function getDUPKey(mode, level) {
 // Accessoires force : transfert SBD, stabilité, intensité plus haute.
 var WP_ACCESSORIES_BY_PHASE = {
   hypertrophie: {
-    // v223 — Aligné Gemini v200/pbBlocks.sq_hyp : Presse à Cuisses (PAS Hack Squat),
-    // suppression Fentes (déplacé vers sq2_hyp/Lower B) et Adduction.
+    // Lundi — quadriceps/adducteurs, zéro fatigue lombaire (Dead jeudi)
+    // Retrait Gainage (core épuisé par bracing Squat lourd) + Hip Thrust/RDL (chaîne post pour jeudi)
     squat: [
-      { name: 'Presse à Cuisses',   reps: '8-12', rpe: 8,   sets: 4, rest: 120, priority: 1 },
-      { name: 'Leg Extension',      reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Mollets (Machine)',  reps: '15',   rpe: 7,   sets: 3, rest: 60,  priority: 3 },
-      { name: 'Gainage (Planche)',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
+      { name: 'Presse à Cuisses',                 reps: '10-12', rpe: 8,   sets: 3, rest: 120, priority: 1 },
+      { name: 'Extension Jambes',                 reps: '12-15', rpe: 8.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Adduction Machine',                reps: '12-15', rpe: 8,   sets: 3, rest: 60,  priority: 3 },
+      { name: 'Extension Mollets Debout (Machine)', reps: '12', rpe: 8,   sets: 4, rest: 60,  priority: 3 }
     ],
     // Mardi (séance lourde) — plateforme scapulaire post-Bench lourd (Gemini)
     bench: [

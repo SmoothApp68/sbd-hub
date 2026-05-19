@@ -10959,7 +10959,31 @@ function renderMesoSlide(week, idx, mesoWeeks) {
   html += '</div>';
 
   html += '<div style="padding:0 14px 10px;">';
-  if (isDeload) {
+  if (isDeload && week.days && week.days.length) {
+    html += '<div style="font-size:10px;color:var(--green);text-align:center;'
+      + 'padding:4px 0 8px;letter-spacing:.04em;">⚡ Charges à 60% — Supercompensation</div>';
+    week.days.forEach(function(day) {
+      if (day.rest) return;
+      var mainExo = (day.exercises || []).find(function(e) { return e.isPrimary; });
+      if (!mainExo) return;
+      var workSets = (mainExo.sets || []).filter(function(s) { return !s.isWarmup; });
+      var firstSet = workSets[0];
+      var plannedWeight = firstSet && firstSet.weight ? parseFloat(firstSet.weight) : null;
+      var weightHtml = plannedWeight !== null
+        ? '<span style="color:var(--sub);font-size:12px;">~' + plannedWeight + 'kg</span>'
+        : '<span style="color:var(--sub);font-size:11px;font-style:italic;">technique</span>';
+      html += '<div style="padding:7px 0;border-bottom:1px solid var(--border);'
+        + 'display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+        + '<div style="font-size:12px;color:var(--text);">'
+        + '<span style="color:var(--sub);font-size:11px;margin-right:6px;font-weight:600;">'
+        + day.day.substring(0, 3).toUpperCase() + '</span>'
+        + mainExo.name + '</div>'
+        + '<div style="text-align:right;">' + weightHtml
+        + '<div style="font-size:10px;color:var(--sub);">'
+        + workSets.length + '×' + (firstSet ? (firstSet.reps || '?') : '?') + '</div>'
+        + '</div></div>';
+    });
+  } else if (isDeload) {
     html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px 0;">'
       + 'Charges à 60-75%, volume minimal — supercompensation en cours.</div>';
   } else if (week.days && week.days.length) {
@@ -24508,6 +24532,46 @@ function buildProjectedWeek(weekOffset) {
   });
 }
 
+function buildDeloadWeekDays() {
+  var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  return days.map(function(day) {
+    if (day.rest) return day;
+    var deloadExercises = (day.exercises || [])
+      .filter(function(exo) {
+        var category = typeof getExerciseCategory === 'function'
+          ? getExerciseCategory(exo.name || '') : 'compound';
+        return category !== 'isolation'; // supprimer isolation pure
+      })
+      .map(function(exo) {
+        var d = JSON.parse(JSON.stringify(exo));
+        var isCardio = exo.type === 'cardio' || /tapis|natation|v[eé]lo|rameur/i.test(exo.name || '');
+        var newSets = (d.sets || []).map(function(s) {
+          var s2 = Object.assign({}, s);
+          if (!s2.isWarmup) {
+            if (!isCardio) {
+              if (s2.weight && s2.weight > 0) {
+                s2.weight = Math.round(s2.weight * 0.6 / 2.5) * 2.5;
+              }
+              if (typeof s2.reps === 'number') s2.reps = Math.min(s2.reps, 4);
+            } else {
+              // Cardio : réduire durée de 50%
+              if (typeof s2.durationMin === 'number') s2.durationMin = Math.round(s2.durationMin / 2);
+              if (typeof s2.reps === 'number') s2.reps = Math.round(s2.reps / 2);
+            }
+          }
+          return s2;
+        });
+        // Limiter à 3 séries de travail max (pas les warmups)
+        var warmups = newSets.filter(function(s) { return s.isWarmup; });
+        var workSets = newSets.filter(function(s) { return !s.isWarmup; }).slice(0, 3);
+        d.sets = warmups.concat(workSets);
+        d.isDeload = true;
+        return d;
+      });
+    return Object.assign({}, day, { exercises: deloadExercises, isDeload: true });
+  });
+}
+
 function buildMesoWeeks() {
   if (!db.weeklyPlan || !db.weeklyPlan.days) return;
   // Resync currentBlock.week/phase depuis blockStartDate (ancrage lundi).
@@ -24551,6 +24615,7 @@ function buildMesoWeeks() {
     } else {
       mesoWeeks.push({
         weekNumber: w, status: 'deload', blockDuration: blockDuration,
+        days: buildDeloadWeekDays(),
         summary: { label: 'Deload — Récupération & Supercompensation' }
       });
     }

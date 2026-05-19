@@ -25676,7 +25676,7 @@ function buildColdStartRPE5Html() {
   var isDebutant = db.user && (
     db.user.obProfile === 'debutant' ||
     db.user.obProfile === 'senior' ||
-    db.user.obProfile === 'senior'
+    db.user.obProfile === 'yoga'
   );
   var hasPRs = db.user && db.user.onboardingPRs &&
     (db.user.onboardingPRs.squat || db.user.onboardingPRs.bench || db.user.onboardingPRs.deadlift);

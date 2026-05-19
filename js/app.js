@@ -13028,7 +13028,7 @@ function renderProgramBienEtre() {
   var heroHtml = '<div class="be-prog-hero">'+
     '<div class="be-prog-ico">🌿</div>'+
     '<div class="be-prog-title">Intention de la semaine <span onclick="beEditIntention()" style="font-size:14px;cursor:pointer;opacity:.5;">✏️</span></div>'+
-    '<div class="be-prog-sub">'+intention+'</div>'+
+    '<div class="be-prog-sub">'+(typeof escapeHtml === 'function' ? escapeHtml(intention) : intention)+'</div>'+
     '<div class="be-prog-stats">'+
       '<div class="be-prog-stat"><div class="be-prog-stat-val" style="color:var(--green);">🔥 '+streak+'</div><div class="be-prog-stat-lbl">Jours actifs</div></div>'+
       '<div class="be-prog-stat"><div class="be-prog-stat-val" style="color:var(--teal);">4</div><div class="be-prog-stat-lbl">Objectif sem.</div></div>'+

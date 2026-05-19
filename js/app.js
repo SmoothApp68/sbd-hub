@@ -793,42 +793,48 @@ function openDOMSMorningModal() {
   var domsValues = {};
   MORNING_MUSCLES.forEach(function(m) { domsValues[m.key] = 0; });
 
-  var html = '<div style="padding:16px;">';
-  html += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">💪 Check courbatures</div>';
-  html += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">0 = aucune · 5 = très douloureux</div>';
+  var scrollHtml = '<div style="padding:16px 16px 8px;">';
+  scrollHtml += '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">💪 Check courbatures</div>';
+  scrollHtml += '<div style="font-size:12px;color:var(--sub);margin-bottom:16px;">0 = aucune · 5 = très douloureux</div>';
 
   MORNING_MUSCLES.forEach(function(muscle) {
-    html += '<div style="margin-bottom:10px;">';
-    html += '<div style="font-size:12px;font-weight:600;margin-bottom:5px;">' + muscle.label + '</div>';
-    html += '<div style="display:flex;gap:5px;">';
+    scrollHtml += '<div style="margin-bottom:10px;">';
+    scrollHtml += '<div style="font-size:12px;font-weight:600;margin-bottom:5px;">' + muscle.label + '</div>';
+    scrollHtml += '<div style="display:flex;gap:5px;">';
     [0,1,2,3,4,5].forEach(function(score) {
       var emoji = score === 0 ? '✅' : score <= 2 ? '🟡' : score <= 3 ? '🟠' : '🔴';
-      html += '<button class="doms-btn" data-muscle="' + muscle.key + '" ' +
+      scrollHtml += '<button class="doms-btn" data-muscle="' + muscle.key + '" ' +
         'onclick="domsSetScore(\'' + muscle.key + '\',' + score + ',this)" ' +
         'style="flex:1;padding:5px 2px;border-radius:8px;border:1.5px solid var(--border);' +
         'background:var(--surface);font-size:12px;cursor:pointer;">' +
         emoji + '<br><span style="font-size:9px;color:var(--sub);">' + score + '</span>' +
         '</button>';
     });
-    html += '</div></div>';
+    scrollHtml += '</div></div>';
   });
+  scrollHtml += '</div>';
 
-  html += '<button onclick="domsMorningConfirm()" ' +
-    'style="width:100%;padding:11px;margin-top:10px;background:var(--accent);' +
-    'border:none;border-radius:12px;color:#000;font-weight:700;font-size:13px;cursor:pointer;">' +
-    'Enregistrer</button>';
-  html += '<button onclick="domsMorningSkip()" ' +
-    'style="width:100%;padding:7px;margin-top:5px;background:transparent;' +
-    'border:none;color:var(--sub);font-size:12px;cursor:pointer;">Passer</button>';
-  html += '</div>';
+  var footerHtml = '<div style="flex:0 0 auto;padding:0 16px 16px;">'
+    + '<button onclick="domsMorningConfirm()" '
+    + 'style="width:100%;padding:11px;background:var(--accent);'
+    + 'border:none;border-radius:12px;color:#000;font-weight:700;font-size:13px;cursor:pointer;">'
+    + 'Enregistrer</button>'
+    + '<button onclick="domsMorningSkip()" '
+    + 'style="width:100%;padding:7px;margin-top:5px;background:transparent;'
+    + 'border:none;color:var(--sub);font-size:12px;cursor:pointer;">Passer</button>'
+    + '</div>';
 
   var overlay = document.createElement('div');
   overlay.id = 'doms-morning-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
     'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
     'justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
-  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;' +
-    'width:100%;max-width:500px;max-height:85vh;overflow-y:auto;">' + html + '</div>';
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;'
+    + 'width:100%;max-width:500px;max-height:85vh;max-height:85dvh;'
+    + 'overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">'
+    + '<div style="flex:1 1 auto;overflow-y:auto;min-height:0;">' + scrollHtml + '</div>'
+    + footerHtml
+    + '</div>';
   document.body.appendChild(overlay);
 
   window._domsValues = domsValues;
@@ -13451,8 +13457,9 @@ function openAdjustSession() {
 }
 
 function _renderAdjustSessionHTML(days, activeIdx) {
-  var h = '<div class="modal-box" style="max-width:420px;max-height:85vh;'
-    + 'overflow-y:auto;text-align:left;padding:16px;">';
+  var h = '<div class="modal-box" style="max-width:420px;max-height:85vh;max-height:85dvh;'
+    + 'overflow:hidden;display:flex;flex-direction:column;text-align:left;padding:0;">'
+    + '<div style="flex:1 1 auto;overflow-y:auto;min-height:0;padding:16px;">';
   h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">'
     + '✏️ Ajuster ma séance</div>';
   // Tabs jours
@@ -13497,10 +13504,14 @@ function _renderAdjustSessionHTML(days, activeIdx) {
     }
     h += '</div>';
   });
-  h += '<button onclick="document.getElementById(\'adjustSessionOverlay\').remove()" '
-    + 'style="width:100%;margin-top:14px;padding:12px;border-radius:10px;'
+  h += '</div>';  // close scrollable inner div
+  h += '<div style="flex:0 0 auto;padding:0 16px 16px;">'
+    + '<button onclick="document.getElementById(\'adjustSessionOverlay\').remove()" '
+    + 'style="width:100%;padding:12px;border-radius:10px;'
     + 'background:none;border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
-    + 'Fermer</button></div>';
+    + 'Fermer</button>'
+    + '</div>';
+  h += '</div>';  // close modal-box
   return h;
 }
 

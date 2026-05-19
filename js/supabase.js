@@ -3795,11 +3795,11 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
   let html = '<div class="card" style="margin-bottom:12px;border:1px solid ' + (isFinished ? 'var(--border)' : 'rgba(10,132,255,0.3)') + ';">';
   // Header
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-  html += '<div style="font-weight:700;font-size:14px;">' + t.icon + ' ' + (challenge.title || t.label) + '</div>';
+  html += '<div style="font-weight:700;font-size:14px;">' + t.icon + ' ' + escapeHtml(challenge.title || t.label) + '</div>';
   html += '<span style="font-size:10px;padding:3px 8px;border-radius:10px;background:' + (isFinished ? 'rgba(255,255,255,0.05)' : 'rgba(10,132,255,0.1)') + ';color:' + (isFinished ? 'var(--sub)' : 'var(--blue)') + ';">' + (isFinished ? 'Terminé' : daysLeft + 'j restants') + '</span>';
   html += '</div>';
   html += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">par ' + escapeHtml(creator.username) + (challenge.target_exercise ? ' · ' + escapeHtml(challenge.target_exercise) : '') + '</div>';
-  if (challenge.description) html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' + challenge.description + '</div>';
+  if (challenge.description) html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' + escapeHtml(challenge.description) + '</div>';
 
   // Participants + progress
   if (sorted.length) {
@@ -4833,7 +4833,7 @@ async function renderFeedChallengesV2() {
         h += '<div class="ch2-header"><div class="ch2-status ' + (isJoined ? 'active' : 'open') + '">' +
           (isJoined ? '🟢 ACTIF · REJOINT ✓' : '🔵 OUVERT · INSCRIPTIONS') + '</div>' +
           '<div class="ch2-time">' + daysLeft + 'j restants</div></div>';
-        h += '<div class="ch2-title">' + (c.title || 'Challenge') + '</div>';
+        h += '<div class="ch2-title">' + escapeHtml(c.title || 'Challenge') + '</div>';
         h += '<div class="ch2-meta">' + parts.length + ' participant' + (parts.length > 1 ? 's' : '') + '</div>';
 
         if (isJoined && myPart) {
@@ -4870,7 +4870,7 @@ async function renderFeedChallengesV2() {
         h += '<div class="ch2-card finished">';
         h += '<div class="ch2-header"><div class="ch2-status done">⚪ TERMINÉ</div>' +
           (myRank > 0 ? '<div class="ch2-time">' + (medals[myRank - 1] || '#' + myRank) + ' ta place</div>' : '') + '</div>';
-        h += '<div class="ch2-title">' + (c.title || 'Challenge') + '</div>';
+        h += '<div class="ch2-title">' + escapeHtml(c.title || 'Challenge') + '</div>';
         if (sorted.length) {
           h += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">';
           sorted.slice(0, 3).forEach(function(p, i) {

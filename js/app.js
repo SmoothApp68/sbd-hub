@@ -592,6 +592,7 @@ function getTodayStr() { return new Date().toISOString().slice(0, 10); }
 
 function hasTodayReadiness() {
   const today = getTodayStr();
+  if (db.user && db.user._readinessSkipDate === today) return true;
   return (db.readiness || []).some(r => r.date === today);
 }
 
@@ -893,6 +894,10 @@ function getReadinessLoadAdjustment(readinessScore) {
 let _readinessOnComplete = null;
 
 function skipReadiness() {
+  // Marquer le skip pour aujourd'hui — ne pas polluer db.readiness (scores).
+  // hasTodayReadiness() lira _readinessSkipDate → la modal ne réapparaît plus
+  // aujourd'hui, mais redemande demain.
+  if (db.user) { db.user._readinessSkipDate = getTodayStr(); saveDB(); }
   const modal = document.getElementById('readinessModal');
   if (modal) modal.remove();
   if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }

@@ -1868,8 +1868,8 @@ function renderFeedCard(item, profiles, uid) {
   let body = '';
   let detail = '';
   if (item.type === 'session') {
-    body = '🏋️ <strong>' + profile.username + '</strong> a terminé';
-    if (d.title) body += ' <em>' + d.title + '</em>';
+    body = '🏋️ <strong>' + escapeHtml(profile.username) + '</strong> a terminé';
+    if (d.title) body += ' <em>' + escapeHtml(d.title) + '</em>';
     const stats = [];
     if (d.exercise_count) stats.push(d.exercise_count + ' exos');
     if (d.volume) stats.push(Math.round(d.volume) + 'kg de tonnage');
@@ -1898,23 +1898,23 @@ function renderFeedCard(item, profiles, uid) {
         : d.exercises.map(e => '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>').join('');
     }
   } else if (item.type === 'pr') {
-    body = '🏆 <strong>' + profile.username + '</strong> nouveau PR !';
-    body += ' <em>' + (d.exercise || '') + '</em> <strong style="color:var(--green);">' + (d.value || 0) + 'kg</strong>';
+    body = '🏆 <strong>' + escapeHtml(profile.username) + '</strong> nouveau PR !';
+    body += ' <em>' + escapeHtml(d.exercise || '') + '</em> <strong style="color:var(--green);">' + (d.value || 0) + 'kg</strong>';
     if (d.delta && d.delta > 0) body += ' <span style="color:var(--green);">(+' + d.delta + 'kg)</span>';
     if (d.previous) body += '<br><span style="color:var(--sub);font-size:12px;">Ancien : ' + d.previous + 'kg</span>';
   } else if (item.type === 'goal') {
-    body = '🎯 <strong>' + profile.username + '</strong> — Objectif atteint ! ' +
-      (d.exercise || '') + ' ' + (d.value || 0) + 'kg' +
+    body = '🎯 <strong>' + escapeHtml(profile.username) + '</strong> — Objectif atteint ! ' +
+      escapeHtml(d.exercise || '') + ' ' + (d.value || 0) + 'kg' +
       (d.weeks ? ' (en ' + d.weeks + ' semaines)' : '');
   } else if (item.type === 'achievement') {
-    body = '⭐ <strong>' + profile.username + '</strong> a débloqué <em>' + (d.badge || d.title || '') + '</em>';
+    body = '⭐ <strong>' + escapeHtml(profile.username) + '</strong> a débloqué <em>' + escapeHtml(d.badge || d.title || '') + '</em>';
   }
 
   return '<div class="feed-card' + (item.pinned ? ' pinned' : '') + '" id="feed-' + item.id + '">' +
     '<div class="feed-card-header">' +
       '<div class="feed-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
       '<div class="feed-user-info">' +
-        '<div class="feed-username" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + profile.username + (typeof renderTierBadge==='function' && profile.tier ? ' '+renderTierBadge(profile.tier) : '') + '</div>' +
+        '<div class="feed-username" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + escapeHtml(profile.username) + (typeof renderTierBadge==='function' && profile.tier ? ' '+renderTierBadge(profile.tier) : '') + '</div>' +
         '<div class="feed-time">' + timeAgo(item.created_at) + '</div>' +
       '</div>' +
       '<span class="feed-type-badge ' + item.type + '">' + (typeLabels[item.type] || '') + '</span>' +
@@ -2635,7 +2635,7 @@ function renderSocialProfileCard() {
   // Avatar + pseudo + bio (lecture)
   html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">';
   html += '<div style="width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">' + initial + '</div>';
-  html += '<div><div style="font-weight:700;font-size:15px;color:var(--text);">' + (username || '—') + '</div>';
+  html += '<div><div style="font-weight:700;font-size:15px;color:var(--text);">' + escapeHtml(username || '—') + '</div>';
   html += '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' + (bio || 'Aucune bio') + '</div></div>';
   html += '</div>';
 
@@ -3179,7 +3179,7 @@ async function showProfileOverlay(userId) {
     let html = '<button class="profile-back" onclick="closeProfileOverlay()">← Retour</button>';
     html += '<div class="profile-header">';
     html += '<div class="profile-big-avatar">' + avatarInitial(profile.username) + '</div>';
-    html += '<div class="profile-username">' + profile.username + (typeof renderTierBadge === 'function' && profile.tier ? ' ' + renderTierBadge(profile.tier) : '') + '</div>';
+    html += '<div class="profile-username">' + escapeHtml(profile.username) + (typeof renderTierBadge === 'function' && profile.tier ? ' ' + renderTierBadge(profile.tier) : '') + '</div>';
 
     // Live training indicator (training_status est rempli pendant une séance en cours)
     if (canSeeStats && profile.training_status && profile.training_since) {
@@ -3414,9 +3414,9 @@ async function showComparisonView(friendId) {
     let html = '<button class="profile-back" onclick="showProfileOverlay(\'' + friendId + '\')">← Retour au profil</button>';
     html += '<div style="text-align:center;padding:16px 0 12px;"><div style="font-size:20px;font-weight:800;">⚔️ Comparaison</div>';
     html += '<div style="display:flex;justify-content:center;align-items:center;gap:20px;margin-top:12px;">';
-    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(myUsername) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + myUsername + '</div></div>';
+    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(myUsername) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + escapeHtml(myUsername) + '</div></div>';
     html += '<div style="font-size:18px;font-weight:800;color:var(--sub);">VS</div>';
-    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(friendProfile.username) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + friendProfile.username + '</div></div>';
+    html += '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin:0 auto;">' + avatarInitial(friendProfile.username) + '</div><div style="font-size:12px;font-weight:700;margin-top:4px;">' + escapeHtml(friendProfile.username) + '</div></div>';
     html += '</div></div>';
 
     function compRow(label, myVal, friendVal, unit) {
@@ -3798,7 +3798,7 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
   html += '<div style="font-weight:700;font-size:14px;">' + t.icon + ' ' + (challenge.title || t.label) + '</div>';
   html += '<span style="font-size:10px;padding:3px 8px;border-radius:10px;background:' + (isFinished ? 'rgba(255,255,255,0.05)' : 'rgba(10,132,255,0.1)') + ';color:' + (isFinished ? 'var(--sub)' : 'var(--blue)') + ';">' + (isFinished ? 'Terminé' : daysLeft + 'j restants') + '</span>';
   html += '</div>';
-  html += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">par ' + creator.username + (challenge.target_exercise ? ' · ' + challenge.target_exercise : '') + '</div>';
+  html += '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;">par ' + escapeHtml(creator.username) + (challenge.target_exercise ? ' · ' + escapeHtml(challenge.target_exercise) : '') + '</div>';
   if (challenge.description) html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">' + challenge.description + '</div>';
 
   // Participants + progress
@@ -3810,7 +3810,7 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
       const isMe = p.user_id === uid;
       html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;' + (isMe ? 'background:rgba(10,132,255,0.05);padding:4px 6px;border-radius:8px;' : '') + '">';
       html += '<span style="font-size:11px;font-weight:700;width:18px;color:' + (i === 0 && !isFinished ? 'var(--green)' : 'var(--sub)') + ';">' + (i + 1) + '.</span>';
-      html += '<span style="font-size:12px;font-weight:' + (isMe ? '700' : '500') + ';flex:1;">' + prof.username + '</span>';
+      html += '<span style="font-size:12px;font-weight:' + (isMe ? '700' : '500') + ';flex:1;">' + escapeHtml(prof.username) + '</span>';
       html += '<span style="font-size:12px;font-weight:700;color:var(--blue);">' + Math.round(val) + (t.unit ? ' ' + t.unit : '') + '</span>';
       if (challenge.target_value) {
         html += '<div style="width:60px;height:4px;background:var(--border);border-radius:2px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + pct + '%;"></div></div>';
@@ -4290,8 +4290,8 @@ function fv2RenderCard(item, profile, uid) {
       '<div class="fv2-header">' +
         '<div class="fv2-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
         '<div class="fv2-user-info">' +
-          '<div class="fv2-username">' + (profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
-          '<div class="fv2-subtitle">' + (d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
+          '<div class="fv2-username">' + escapeHtml(profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
+          '<div class="fv2-subtitle">' + escapeHtml(d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
         '</div>' +
         '<button class="fv2-menu" onclick="openFv2Menu(\'' + item.id + '\',\'' + item.user_id + '\')">···</button>' +
       '</div>' +
@@ -4842,15 +4842,15 @@ async function renderFeedChallengesV2() {
           h += '<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="font-weight:700;">Ma position : #' + myRank + '</span><span style="color:var(--blue);font-weight:700;">' + Math.round(myPart.current_value || 0) + ' / ' + (c.target_value || '∞') + '</span><span style="color:var(--green);font-weight:700;">' + pct + '% ↑</span></div>';
           h += '<div class="ch2-bar-bg"><div class="ch2-bar-fill" style="width:' + pct + '%;background:var(--green);"></div></div>';
           if (sorted.length >= 2) {
-            h += '<div class="ch2-podium-row">Podium : 🥇 ' + ((profiles[sorted[0].user_id] || {}).username || '?');
-            if (sorted[1]) h += ' · 🥈 ' + ((profiles[sorted[1].user_id] || {}).username || '?');
+            h += '<div class="ch2-podium-row">Podium : 🥇 ' + escapeHtml((profiles[sorted[0].user_id] || {}).username || '?');
+            if (sorted[1]) h += ' · 🥈 ' + escapeHtml((profiles[sorted[1].user_id] || {}).username || '?');
             h += '</div>';
           }
           h += '</div>';
           h += '<button class="btn" style="font-size:12px;padding:8px 16px;margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + c.id + '\')">📝 Mettre à jour</button>';
         } else {
           h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">';
-          h += '<span style="font-size:11px;color:var(--sub);">Créé par ' + ((profiles[c.creator_id] || {}).username || '?') + '</span>';
+          h += '<span style="font-size:11px;color:var(--sub);">Créé par ' + escapeHtml((profiles[c.creator_id] || {}).username || '?') + '</span>';
           h += '<button class="btn" style="font-size:12px;padding:8px 16px;width:auto;" onclick="joinChallenge(\'' + c.id + '\',this)">Rejoindre</button>';
           h += '</div>';
         }
@@ -4874,7 +4874,7 @@ async function renderFeedChallengesV2() {
         if (sorted.length) {
           h += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">';
           sorted.slice(0, 3).forEach(function(p, i) {
-            h += (medals[i] || (i + 1) + '.') + ' ' + ((profiles[p.user_id] || {}).username || '?') + ' · ' + Math.round(p.current_value || 0) + '  ';
+            h += (medals[i] || (i + 1) + '.') + ' ' + escapeHtml((profiles[p.user_id] || {}).username || '?') + ' · ' + Math.round(p.current_value || 0) + '  ';
           });
           h += '</div>';
         }

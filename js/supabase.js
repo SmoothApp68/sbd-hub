@@ -2636,7 +2636,7 @@ function renderSocialProfileCard() {
   html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">';
   html += '<div style="width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">' + initial + '</div>';
   html += '<div><div style="font-weight:700;font-size:15px;color:var(--text);">' + escapeHtml(username || '—') + '</div>';
-  html += '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' + (bio || 'Aucune bio') + '</div></div>';
+  html += '<div style="font-size:12px;color:var(--sub);margin-top:2px;">' + escapeHtml(bio || 'Aucune bio') + '</div></div>';
   html += '</div>';
 
   // Edit pseudo

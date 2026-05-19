@@ -3427,8 +3427,19 @@ window.addEventListener('unhandledrejection', function(event) {
 // Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js')
-      .then((reg) => console.log('SW enregistré:', reg.scope))
+    // updateViaCache:'none' → le script SW est TOUJOURS refetch sans passer
+    // par le cache HTTP. Sans ça, GitHub Pages sert un service-worker.js
+    // mis en cache → la nouvelle version n'est jamais détectée tant que
+    // l'utilisateur ne vide pas le cache manuellement.
+    navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' })
+      .then((reg) => {
+        console.log('SW enregistré:', reg.scope);
+        // Re-check à chaque retour au premier plan (une PWA ouverte plusieurs
+        // jours ne re-déclenche jamais register() → jamais d'update détecté).
+        document.addEventListener('visibilitychange', function() {
+          if (!document.hidden) { try { reg.update(); } catch (e) {} }
+        });
+      })
       .catch((err) => console.log('SW erreur:', err));
     // Auto-reload dès qu'un nouveau SW prend le contrôle
     var _swReloading = false;

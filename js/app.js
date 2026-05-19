@@ -477,6 +477,7 @@ if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 if (!db.user.bannedExercises) db.user.bannedExercises = [];
 if (!db.user.exercisesToIntroduce) db.user.exercisesToIntroduce = [];
 if (!db.macrocycles) db.macrocycles = { current: null, history: [] };
+if (!db.user.insights) db.user.insights = {};
 // Peupler current depuis currentBlock si macrocycles.current est null (première migration)
 if (!db.macrocycles.current && db.weeklyPlan && db.weeklyPlan.currentBlock) {
   var _cb0 = db.weeklyPlan.currentBlock;
@@ -17872,6 +17873,74 @@ window.banExercise = function(exoName) {
   if (typeof renderCoachTab === 'function') renderCoachTab();
 };
 
+// ── Insight Hip Thrust sous-chargé (Gemini Q5) ──────────────────────────────
+function renderHipThrustInsight() {
+  if ((db.user && db.user.level) === 'debutant') return '';
+  if (db.user && db.user.insights && db.user.insights.hipThrustFixed) return '';
+  var currentWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 0;
+  if (currentWeek !== 1) return '';
+  var planDays = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  var hasHT = planDays.some(function(day) {
+    return (day.exercises || []).some(function(e) {
+      return /hip thrust/i.test(e.name || '');
+    });
+  });
+  if (!hasHT) return '';
+  var maxHT = 0;
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!/hip thrust/i.test(exo.name || '')) return;
+      (exo.allSets || exo.series || []).forEach(function(s) {
+        var w = parseFloat(s.weight) || 0;
+        if (!s.isWarmup && w > maxHT) maxHT = w;
+      });
+    });
+  });
+  if (maxHT >= 100) return '';
+  var target = maxHT > 0 ? Math.round((maxHT * 1.33) / 5) * 5 : null;
+  var maxText = maxHT > 0 ? 'Max actuel : <strong>' + maxHT + 'kg</strong>. ' : '';
+  var targetText = target ? 'Cible ce bloc : <strong>' + target + 'kg</strong> (+33%).' : 'Objectif : franchir les 100kg.';
+  return '<div style="background:var(--surface);border:1px solid var(--border);'
+    + 'border-radius:14px;padding:14px;margin-bottom:10px;">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">'
+    + '🍑 Hip Thrust sous-chargé</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">'
+    + 'Les fessiers sont sous-entraînés chez la majorité des powerbuilders. '
+    + maxText + targetText + '</div>'
+    + '<button onclick="dismissHipThrustInsight()" '
+    + 'style="padding:8px 14px;background:var(--surface);border:1px solid var(--border);'
+    + 'border-radius:10px;color:var(--sub);font-size:12px;cursor:pointer;">'
+    + 'Compris ✓</button>'
+    + '</div>';
+}
+
+window.dismissHipThrustInsight = function() {
+  db.user.insights = db.user.insights || {};
+  db.user.insights.hipThrustFixed = true;
+  saveDB();
+  if (typeof renderCoachTab === 'function') renderCoachTab();
+};
+
+function checkHipThrustProgress(session) {
+  if (!session) return;
+  (session.exercises || []).forEach(function(exo) {
+    if (!/hip thrust/i.test(exo.name || '')) return;
+    var maxW = 0;
+    (exo.allSets || exo.series || []).forEach(function(s) {
+      var w = parseFloat(s.weight) || 0;
+      if (!s.isWarmup && w > maxW) maxW = w;
+    });
+    if (maxW >= 100) {
+      db.user.insights = db.user.insights || {};
+      if (!db.user.insights.hipThrustFixed) {
+        db.user.insights.hipThrustFixed = true;
+        saveDB();
+        showToast('🍑 Objectif Hip Thrust atteint — les 100kg sont dans la boîte !');
+      }
+    }
+  });
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -18191,6 +18260,7 @@ function renderCoachTodayHTML() {
   // ── 0c-quart. DISCOVERY CARDS — exercices bénéfiques inconnus (Gemini Q2/Q4) ──
   if (coachProfile !== 'silent') {
     try { html += renderDiscoveryCards(); } catch(e) {}
+    try { html += renderHipThrustInsight(); } catch(e) {}
   }
 
   // ── 0c. PHYSIOMANAGER — alerte cycle menstruel ──
@@ -30213,6 +30283,9 @@ function goFinishWorkout() {
 
   // Award any newly unlocked badges (permanent store)
   try { checkAndAwardBadges(); } catch(e) {}
+
+  // Hip Thrust insight auto-dismiss if > 100kg logged (Gemini Q5)
+  try { checkHipThrustProgress(session); } catch(e) {}
 
   // Mettre à jour le snapshot articulaire après chaque séance
   if (typeof calcCurrentJointStress === 'function') {

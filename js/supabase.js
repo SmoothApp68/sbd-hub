@@ -4386,8 +4386,8 @@ function fv2RenderCard(item, profile, uid) {
     '<div class="fv2-header">' +
       '<div class="fv2-avatar" onclick="showProfileOverlay(\'' + item.user_id + '\')">' + initial + '</div>' +
       '<div class="fv2-user-info">' +
-        '<div class="fv2-username">' + (profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
-        '<div class="fv2-subtitle">' + (d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
+        '<div class="fv2-username">' + escapeHtml(profile.username || 'Utilisateur') + ' ' + fv2TierBadge(profile.tier) + '</div>' +
+        '<div class="fv2-subtitle">' + escapeHtml(d.title || 'Séance') + ' · ' + fv2TimeAgo(item.created_at) + '</div>' +
       '</div>' +
       '<button class="fv2-menu" onclick="openFv2Menu(\'' + item.id + '\',\'' + item.user_id + '\')">···</button>' +
     '</div>' +

@@ -477,6 +477,19 @@ if (db.user.hybridAthlete === undefined) db.user.hybridAthlete = false;
 if (!db.user.bannedExercises) db.user.bannedExercises = [];
 if (!db.user.exercisesToIntroduce) db.user.exercisesToIntroduce = [];
 if (!db.macrocycles) db.macrocycles = { current: null, history: [] };
+// Peupler current depuis currentBlock si macrocycles.current est null (première migration)
+if (!db.macrocycles.current && db.weeklyPlan && db.weeklyPlan.currentBlock) {
+  var _cb0 = db.weeklyPlan.currentBlock;
+  var _cbPhase = _cb0.phase || 'hypertrophie';
+  var _cbWeek  = _cb0.week || 1;
+  db.macrocycles.current = {
+    phase:      _cbPhase,
+    currentWeek: _cbWeek,
+    totalWeeks: 4,
+    label:      _cbPhase.charAt(0).toUpperCase() + _cbPhase.slice(1) + ' S' + _cbWeek + '/4',
+    startDate:  _cb0.blockStartDate || Date.now()
+  };
+}
 
 // ── VOLUME DELTAS — defensive init ───────────────────────────
 if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
@@ -24545,6 +24558,20 @@ function getMaxPlannedConsecutive() {
   return maxStreak;
 }
 
+function archiveCurrentBlock() {
+  if (!db.macrocycles || !db.macrocycles.current) return;
+  var archived = Object.assign({}, db.macrocycles.current, {
+    id: 'b' + Date.now(),
+    status: 'COMPLETED',
+    endDate: Date.now(),
+    label: db.macrocycles.current.phase.charAt(0).toUpperCase()
+           + db.macrocycles.current.phase.slice(1) + ' ✓'
+  });
+  db.macrocycles.history = db.macrocycles.history || [];
+  db.macrocycles.history.push(archived);
+  if (db.macrocycles.history.length > 5) db.macrocycles.history.shift();
+}
+
 function generateWeeklyPlan() {
   var btn = document.getElementById('wpGenerateBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Calcul en cours…'; }
@@ -24572,6 +24599,10 @@ function generateWeeklyPlan() {
     if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
     var _previousPhase = db.weeklyPlan.currentBlock.phase;
     db.weeklyPlan.currentBlock._previousPhase = _previousPhase || null;
+    // Archiver le bloc précédent si la phase change (hypertrophie→deload→force→...)
+    if (_previousPhase && _previousPhase !== phase && db.macrocycles) {
+      archiveCurrentBlock();
+    }
     db.weeklyPlan.currentBlock.phase = phase;
 
     // Transition hypertrophie→force sans deload complété → malus RPE (Gemini Q3)
@@ -25036,6 +25067,22 @@ function generateWeeklyPlan() {
     if (_prevDeloadAuto) db.weeklyPlan._deloadDetectedAuto = _prevDeloadAuto;
     if (!db.routine) db.routine = {};
     days.forEach(function(d) { db.routine[d.day] = d.rest ? '😴 Repos Complet' : d.title; });
+
+    // Sync macrocycles.current avec currentBlock (phase + semaine actuelle)
+    if (db.macrocycles) {
+      var _mcLevel = (db.user && db.user.level) || 'intermediaire';
+      var _mcBD = (typeof BLOCK_DURATION !== 'undefined' && BLOCK_DURATION[mode] &&
+                   BLOCK_DURATION[mode][_mcLevel])
+                  ? (BLOCK_DURATION[mode][_mcLevel][phase] || 4) : 4;
+      var _mcWeek = (db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+      db.macrocycles.current = {
+        phase:       phase,
+        currentWeek: _mcWeek,
+        totalWeeks:  _mcBD,
+        label:       phase.charAt(0).toUpperCase() + phase.slice(1) + ' S' + _mcWeek + '/' + _mcBD,
+        startDate:   (db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate) || Date.now()
+      };
+    }
 
     saveDB();
     // Construire la vue mésocycle 4 semaines (v241)

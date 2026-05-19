@@ -11018,6 +11018,23 @@ function mesoGoTo(idx) {
   if (navLabel) navLabel.textContent = _mesoNavLabel(mesoWeeks[idx]);
 }
 
+function renderMacroBar() {
+  if (!db.macrocycles) return '';
+  var steps = [];
+  (db.macrocycles.history || []).forEach(function(h) {
+    steps.push('<span style="color:var(--green);">' + h.label + '</span>');
+  });
+  if (db.macrocycles.current) {
+    steps.push('<span style="color:var(--text);font-weight:700;">'
+      + db.macrocycles.current.label + '</span>');
+  }
+  if (steps.length === 0) return '';
+  return '<div style="font-size:11px;color:var(--sub);margin-bottom:10px;'
+    + 'text-align:center;overflow-x:auto;white-space:nowrap;padding:4px 0;">'
+    + steps.join(' <span style="color:var(--border);">•</span> ')
+    + '</div>';
+}
+
 function renderMesoView() {
   // Toujours reconstruire : la semaine active doit suivre la date courante.
   // Un mesoWeeks persisté d'une session précédente reste figé sur l'ancienne
@@ -11051,6 +11068,8 @@ function renderMesoView() {
   var html = '<div id="meso-swipe-wrap" class="meso-container" style="margin:0 0 16px;">';
   html += '<div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.08em;'
     + 'text-transform:uppercase;margin-bottom:8px;padding:0 2px;">📅 Mésocycle complet</div>';
+
+  html += renderMacroBar();
 
   html += '<div id="meso-progress-bar" style="margin-bottom:10px;">'
     + _buildMesoProgressBar(mesoWeeks, curIdx) + '</div>';

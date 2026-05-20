@@ -20957,7 +20957,7 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
       return !isWarm && parseFloat(s.weight) > 0;
     });
     if (!_swork.length) continue;
-    lastWeight = parseFloat(_swork[_swork.length - 1].weight) || 0;
+    lastWeight = wpRound25(parseFloat(_swork[_swork.length - 1].weight) || 0);
     completedSets = _swork.filter(function(s) { return parseInt(s.reps) > 0; });
     break;
   }

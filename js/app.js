@@ -23374,6 +23374,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
         if (weight < _e1rmFloor60) weight = _e1rmFloor60;
       }
     }
+    // RPE Sanity Check (Gemini) — RPE ne peut pas baisser si la charge augmente
+    if (phase !== 'deload' && !isBeginnerMode && tpl.mainLift && typeof _getLastWorkoutData === 'function') {
+      var _lastLift = _getLastWorkoutData(tpl.mainLift);
+      if (_lastLift && weight > _lastLift.weight && _lastLift.rpe > 0) {
+        rpe = Math.max(rpe, _lastLift.rpe);
+      }
+    }
     var _mainE1rmForRest = typeof getZoneE1RM === 'function'
       ? (getZoneE1RM(mainName, typeof getActiveZoneForPhase === 'function' ? getActiveZoneForPhase() : 'hypertrophie') || 0)
       : 0;

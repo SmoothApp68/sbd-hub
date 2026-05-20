@@ -2184,7 +2184,7 @@ function _obGenerateProgramCore() {
       var goalObj = obGoals.find(function(g) { return g.id === (db.user.goal || 'masse'); }) || obGoals[1];
       var generated = generateProgram([goalObj], obFreq, obMat, obDuration, obInjuries, obCardio, null, null, db.user.level);
       db.generatedProgram = generated;
-      db.user.programParams = { goals: [goalObj.id], freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, level: db.user.level };
+      db.user.programParams = { goals: [goalObj.id], freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, level: db.user.level, selectedDays: (Array.isArray(obSelectedDays) && obSelectedDays.length ? obSelectedDays.slice() : []) };
       db.routine = {};
       db.routineExos = db.routineExos || {};
       generated.forEach(function(d) {

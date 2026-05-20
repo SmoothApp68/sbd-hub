@@ -23505,6 +23505,12 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       var loR = parseInt(String(acc.reps).split('-')[0] || '10') + 3;
       acc = Object.assign({}, acc, { reps: loR + '-' + hiR, plateauNote: '📈 Rep range +3 — plateau sem. ' + plat.plateauWeeks });
     }
+    // Moteur 3 — substitution P3/P4/P5 depuis pool logs utilisateur (Gemini Q2)
+    if (!acc.isPrimary && _dayPool && typeof selectAccessoryForSlot === 'function' && (acc.priority || 99) >= 3) {
+      var _m3PKey = Object.keys(_dayPool).find(function(k) { return k.indexOf('_p' + (acc.priority || 5)) >= 0; });
+      var _m3Sel = selectAccessoryForSlot(_m3PKey || null, _dayPool, acc.name, null);
+      if (_m3Sel && _m3Sel.name) acc = Object.assign({}, acc, { name: _m3Sel.name });
+    }
     var repsArr = String(acc.reps || '10').split('-').map(Number);
     var repsLow  = repsArr[0] || 10;
     var repsHigh = repsArr[repsArr.length - 1] || 12;

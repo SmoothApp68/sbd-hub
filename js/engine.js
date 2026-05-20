@@ -5575,6 +5575,25 @@ function getWeightExplanation(exo, vocabLevel) {
   return pct + '% e1RM · ' + phaseLabel + ' S' + week;
 }
 
+// ── Moteur 3 — Sélection slot accessoire (Gemini Q2) ─────────────────────────
+// Uniquement pour P3/P4/P5 — jamais P1/P2 (calculs % stricts).
+// Priorité : banni → dayPool (logs) → statique → fallback safe
+function selectAccessoryForSlot(slotKey, dayPool, staticExoName, staticFallback) {
+  var banned = (typeof db !== 'undefined' && db && db.user && db.user.bannedExercises) || [];
+  var dayPoolExo = dayPool && slotKey ? dayPool[slotKey] : null;
+  var isBanned = banned.some(function(b) {
+    return b === staticExoName || b === dayPoolExo;
+  });
+  if (isBanned) return { name: staticFallback || staticExoName, source: 'banned_fallback' };
+  if (dayPoolExo && typeof hasUserDoneExercise === 'function' && hasUserDoneExercise(dayPoolExo)) {
+    return { name: dayPoolExo, source: 'dayPool_logs' };
+  }
+  if (staticExoName && typeof hasUserDoneExercise === 'function' && hasUserDoneExercise(staticExoName)) {
+    return { name: staticExoName, source: 'static_validated' };
+  }
+  return { name: staticFallback || staticExoName, source: 'safe_fallback' };
+}
+
 // ── Ratio S/B — Format Bench S3/S4 peak (Gemini Q1) ─────────────────────────
 // sbRatio = e1RM Squat / e1RM Bench
 // > 1.30 → Bench faible → booster (sets + accessoryBoost)

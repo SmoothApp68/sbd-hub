@@ -81,7 +81,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -189,7 +189,6 @@ let db = (() => {
     if (p.customProgramTemplate === undefined) p.customProgramTemplate = null;
     if (p.user.programMode === undefined) p.user.programMode = 'auto';
     if (p.user.coachProfile === undefined) p.user.coachProfile = 'full';
-    if (p.user.coachEnabled === undefined) p.user.coachEnabled = true;
     if (p.customProgramBackups === undefined) p.customProgramBackups = [];
     // PhysioManager — migration cycle menstruel
     if (p.user.menstrualEnabled === undefined) p.user.menstrualEnabled = false;
@@ -13897,6 +13896,9 @@ function syncRoutineWithSelectedDays() {
   migrateBadges();
   migrateWeeklyPlanSets();
   if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
+  // Nettoyage champs morts (audit #9)
+  if (db.user && db.user.coachEnabled !== undefined) delete db.user.coachEnabled;
+  if (db.weeklyPlan && db.weeklyPlan.isCustom !== undefined) delete db.weeklyPlan.isCustom;
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
   setTimeout(function() {
@@ -24344,7 +24346,6 @@ function calculateParametersForCustomPlan() {
       title: session.label || dayName,
       coachNote: sessionCoachNote,
       exercises: exercises,
-      isCustom: true
     };
   });
 

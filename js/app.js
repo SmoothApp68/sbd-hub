@@ -20120,21 +20120,24 @@ var WP_ACCESSORIES_BY_PHASE = {
     // DANGER retiré : Relevé de Jambes (flexion lombaire post-Dead en extension = risque hernie)
     deadlift: [
       { name: 'Tirage Poitrine (Poulie)', reps: '10',   rpe: 8,   sets: 4, rest: 90, priority: 1 },
-      { name: 'Tirage vers Visage',       reps: '15',   rpe: 7.5, sets: 3, rest: 60, priority: 2 }
+      { name: 'Leg Curl Assis',           reps: '12-15', rpe: 8,  sets: 3, rest: 75, priority: 2 },
+      { name: 'Tirage vers Visage',       reps: '15',   rpe: 7.5, sets: 3, rest: 60, priority: 3 }
     ],
     // v239 — S2/S3 : variantes semaine 2 et 3 (wave loading accessoires DL)
     // Relevé de Jambes retiré (même raison danger lombaire)
     deadlift_s2: [
-      { name: 'Squat Pause',             reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Squat Pause',              reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
       { name: 'Tirage Poitrine (Poulie)', reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
-      { name: 'Leg Curl Allongé',        reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
-      { name: 'Tirage vers Visage',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
+      { name: 'Leg Curl Allongé',         reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
+      { name: 'Leg Curl Assis',           reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 3 },
+      { name: 'Tirage vers Visage',       reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
     ],
     deadlift_s3: [
-      { name: 'Squat Pause',             reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Squat Pause',              reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
       { name: 'Tirage Poitrine (Poulie)', reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
-      { name: 'Leg Curl Allongé',        reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
-      { name: 'Tirage vers Visage',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
+      { name: 'Leg Curl Allongé',         reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
+      { name: 'Leg Curl Assis',           reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 3 },
+      { name: 'Tirage vers Visage',       reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 4 }
     ],
     weakpoints: [
       { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },

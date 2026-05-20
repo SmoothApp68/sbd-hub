@@ -17863,6 +17863,14 @@ window.dismissHipThrustInsight = function() {
   if (typeof renderCoachTab === 'function') renderCoachTab();
 };
 
+window.toggleCoachDetails = function() {
+  window._coachDetailsExpanded = !window._coachDetailsExpanded;
+  var el = document.getElementById('coach-details');
+  var btn = el && el.previousElementSibling;
+  if (el) el.style.display = window._coachDetailsExpanded ? 'block' : 'none';
+  if (btn) btn.textContent = 'Voir toutes les recommandations ' + (window._coachDetailsExpanded ? '▴' : '▾');
+};
+
 function checkHipThrustProgress(session) {
   if (!session) return;
   (session.exercises || []).forEach(function(exo) {
@@ -18332,6 +18340,15 @@ function renderCoachTodayHTML() {
     '<div class="coach-gauge-lbl">Volume</div></div>';
   html += '</div>';
 
+  // ── Collapse toggle — "Voir toutes les recommandations" (audit #2) ──
+  var _coachExpanded = (typeof window._coachDetailsExpanded !== 'undefined') ? window._coachDetailsExpanded : false;
+  html += '<button onclick="toggleCoachDetails()" style="width:100%;margin:8px 0 4px;padding:10px;'
+    + 'background:var(--surface);border:0.5px solid var(--border);border-radius:10px;'
+    + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;text-align:left;">'
+    + 'Voir toutes les recommandations ' + (_coachExpanded ? '▴' : '▾')
+    + '</button>';
+  html += '<div id="coach-details" style="display:' + (_coachExpanded ? 'block' : 'none') + ';">';
+
   // ── 1b. TOP 3 ALERTES COACH ADAPTATIVES (v201) ──
   // Alertes contextuelles : jour de la semaine × ratio S/B × niveau × régularité
   if (coachProfile !== 'silent') {
@@ -18630,6 +18647,8 @@ function renderCoachTodayHTML() {
   // ── 6. BACK-OFF SUGGESTION ──
   var backOffHtml = renderBackOffSuggestion();
   if (backOffHtml) html += backOffHtml;
+
+  html += '</div>'; // ferme #coach-details collapse
 
   return html;
 }

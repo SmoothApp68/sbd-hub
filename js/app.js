@@ -19505,6 +19505,7 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
 
   // 2. Réduire séries isolations (max -1, jamais <2)
   adapted.forEach(e => {
+    if (e.isVolumePeakProtected) return;
     if (getExoCategory(e.name) !== 'isolation') return;
     if (typeof e.sets === 'number') {
       if (e.sets > 2) e.sets = e.sets - 1;
@@ -19551,7 +19552,7 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
   // Fallback final : retirer la dernière isolation non-protégée
   if (estimateSessionDuration(adapted) > targetMinutes) {
     var lastIso = adapted.findIndex(function(e) {
-      return !e.isPrimary && !e.isCorrectivePriority && getExoCategory(e.name) === 'isolation';
+      return !e.isPrimary && !e.isCorrectivePriority && !e.isVolumePeakProtected && getExoCategory(e.name) === 'isolation';
     });
     if (lastIso >= 0) {
       adaptations.push('Isolation retirée : ' + adapted[lastIso].name);
@@ -23587,7 +23588,8 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       while (_adjusted.length < _vol.sets && _workSets.length > 0) {
         _adjusted.push(Object.assign({}, _workSets[_workSets.length - 1]));
       }
-      return Object.assign({}, exo, { sets: _warmupSets.concat(_adjusted) });
+      var _isPeakVol = (_m2Phase === 'hypertrophie') && (_m2Week === 3 || _m2Week === 4) && (_prio === 3 || _prio === 4);
+      return Object.assign({}, exo, { sets: _warmupSets.concat(_adjusted) }, _isPeakVol ? { isVolumePeakProtected: true } : {});
     }).filter(Boolean);
   }
 

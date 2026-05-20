@@ -253,7 +253,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v260';
+var SW_VERSION = 'trainhub-v261';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -23118,6 +23118,17 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   if (typeof WP_SESSION_TEMPLATES === 'undefined' || !WP_SESSION_TEMPLATES) return null;
   var tpl = WP_SESSION_TEMPLATES[dayKey];
   if (!tpl) return null;
+
+  // Moteur 3 — Pool accessoires personnalisé logs-based (Gemini)
+  var _pool = typeof getUserAccessoryPool === 'function' ? getUserAccessoryPool() : null;
+  var _dayPool = _pool ? ({
+    'squat':    _pool.lundi_squat,
+    'bench':    _pool.mardi_bench,
+    'deadlift': _pool.jeudi_dead,
+    'bench2':   _pool.vendredi_bench2,
+    'squat2':   _pool.samedi_squat2
+  })[dayKey] : null;
+
   var bodyPart = tpl.bodyPart;
   var injuries = params.injuries || [];
   var duration = (db.user && db.user.trainingDuration) || params.duration || 90;
@@ -23476,6 +23487,25 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     placedExoNames.push(acc.name);
   });
 
+  // Moteur 2 — Volume dynamique phase/semaine/priorité (Gemini)
+  if (typeof getAccessoryVolume === 'function' && typeof getExoPriority === 'function') {
+    var _m2Phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || phase;
+    var _m2Week  = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+    exercises = exercises.map(function(exo) {
+      if (!exo || exo.isPrimary) return exo;
+      var _prio = getExoPriority(exo.name);
+      var _vol  = getAccessoryVolume(_m2Phase, _m2Week, _prio);
+      if (!_vol) return null;
+      var _workSets   = (exo.sets || []).filter(function(s) { return !s.isWarmup; });
+      var _warmupSets = (exo.sets || []).filter(function(s) { return s.isWarmup; });
+      var _adjusted   = _workSets.slice(0, _vol.sets);
+      while (_adjusted.length < _vol.sets && _workSets.length > 0) {
+        _adjusted.push(Object.assign({}, _workSets[_workSets.length - 1]));
+      }
+      return Object.assign({}, exo, { sets: _warmupSets.concat(_adjusted) });
+    }).filter(Boolean);
+  }
+
   // ── Modulateur DOMS (Sprint Feedback Loop) ────────────────────────────────
   // Appliqué après Insolvency — sur les accessoires uniquement
   if (typeof getDOMSAdjustment === 'function') {
@@ -23786,6 +23816,11 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       }
       return exo;
     });
+  }
+
+  // Moteur 1 — Ordonnancement biomécanique strict 5 priorités (Gemini)
+  if (typeof sortWorkoutSession === 'function') {
+    exercises = sortWorkoutSession(exercises);
   }
 
   return { rest: false, title: derivedTitle, coachNote: dayCoachNote, exercises: exercises, prehabKey: _prehabKey, dupProfile: _dupProfile || null };

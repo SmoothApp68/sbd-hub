@@ -5420,3 +5420,128 @@ function assignAccessory(targetExo, fallbacks, reason) {
     } : null
   };
 }
+
+// ── MOTEUR 1 — Ordonnancement biomécanique strict (Gemini) ─────────────────
+var EXERCISE_PRIORITIES = {
+  COMPETITION_LIFT: 1, TECHNICAL_VARIATION: 2, COMPOUND_ACCESSORY: 3,
+  ISOLATION: 4, PROPHYLAXIS: 5
+};
+
+var EXO_PRIORITY_MAP = {
+  'Squat (Barre)': 1, 'Développé Couché (Barre)': 1, 'Soulevé de Terre (Barre)': 1,
+  'Squat avec pause (barre)': 2, 'Spoto Bench': 2, 'Soulevé de Terre avec pause': 2,
+  'Soulevé de Terre Roumain': 2, 'Pin Squat': 2, 'Paused Bench Press 3s': 2,
+  'Hack Squat (Machine)': 3, 'Presse à Cuisses': 3, 'Développé Incliné (Haltères)': 3,
+  'Rowing Poulie Assis (Prise Large)': 3, 'Rowing Poulie Assis (V-Grip)': 3,
+  'Dips Torse': 3, 'Tirage Poitrine (Poulie)': 3, 'Tirage Vertical Prise Large': 3,
+  'Extension Jambes': 4, 'Leg Curl Assis': 4, 'Hip Thrust (Barre)': 4,
+  'Adduction Machine': 4, 'Abduction Hanche': 4, 'Extension Triceps Corde': 4,
+  'Écarté Machine': 4, 'Écarté Machine (Pec Deck)': 4, 'Oiseau Machine': 4,
+  'Élévation Latérale (Haltère)': 4, 'Face Pull': 5, 'Tirage vers Visage': 5,
+  'Extension Mollets Debout (Machine)': 5, 'Mollets (Machine)': 5,
+  'Gainage (Planche)': 5, 'Tapis roulant': 5, 'Natation': 5
+};
+
+function getExoPriority(exoName) {
+  if (!exoName) return 3;
+  var p = EXO_PRIORITY_MAP[exoName.trim()];
+  if (p) return p;
+  if (/tapis|natation|vélo|gainage|planche|mollet|face pull|tirage.*visage/i.test(exoName)) return 5;
+  if (/extension.*jambe|leg curl|écarté|adduct|abduct|élévation|oiseau|triceps/i.test(exoName)) return 4;
+  if (/hack squat|presse.*cuisse|incliné.*halt|rowing|tirage.*poitrine|dips/i.test(exoName)) return 3;
+  if (/pause|spoto|pin squat|roumain/i.test(exoName)) return 2;
+  return 3;
+}
+
+function sortWorkoutSession(exercises) {
+  if (!exercises || !exercises.length) return exercises;
+  return exercises.slice().sort(function(a, b) {
+    var pa = getExoPriority(a.name);
+    var pb = getExoPriority(b.name);
+    if (pa !== pb) return pa - pb;
+    var repsA = (a.sets && a.sets[0] && a.sets[0].reps) || 8;
+    var repsB = (b.sets && b.sets[0] && b.sets[0].reps) || 8;
+    return repsA - repsB;
+  });
+}
+
+// ── MOTEUR 2 — Volume dynamique par phase / semaine / priorité (Gemini) ────
+function getAccessoryVolume(phase, weekNumber, priority) {
+  var isPeak = (phase === 'hypertrophie') && (weekNumber === 3 || weekNumber === 4);
+  var isDeload = phase === 'deload';
+  var isForce  = phase === 'force';
+  if (isDeload) {
+    if (priority === 3 || priority === 4) return null;
+    if (priority === 5) return { sets: 2, rpe: 6 };
+    return null;
+  }
+  if (priority === 3 || priority === 4) {
+    if (isForce)  return { sets: 2, rpe: 7.5 };
+    if (isPeak)   return { sets: 4, rpe: 8.75 };
+    return { sets: 3, rpe: 8 };
+  }
+  if (priority === 5) {
+    if (isForce)  return { sets: 2, rpe: 7 };
+    if (isPeak)   return { sets: 4, rpe: 8 };
+    return { sets: 3, rpe: 7.5 };
+  }
+  return null;
+}
+
+// ── MOTEUR 3 — Pool accessoires personnalisé logs-based (Gemini) ───────────
+function buildUserAccessoryPool() {
+  var logs = (typeof db !== 'undefined' && db && db.logs) || [];
+  var logSet = new Set();
+  logs.forEach(function(log) {
+    (log.exercises || []).forEach(function(e) {
+      if (e.name) logSet.add(e.name.trim());
+    });
+  });
+  function pickBest(preferences) {
+    for (var i = 0; i < preferences.length; i++) {
+      if (logSet.has(preferences[i])) return preferences[i];
+    }
+    return preferences[preferences.length - 1];
+  }
+  return {
+    lundi_squat: {
+      quads_p3:    pickBest(['Hack Squat (Machine)', 'Presse à Cuisses', 'Goblet Squat']),
+      quads_p4:    pickBest(['Extension Jambes']),
+      adductors:   pickBest(['Adduction Machine', 'Adduction Hanche']),
+      calves:      pickBest(['Extension Mollets Debout (Machine)', 'Mollets (Machine)'])
+    },
+    mardi_bench: {
+      chest_p3:    pickBest(['Développé Incliné (Haltères)', 'Développé Incliné (Barre)']),
+      triceps_p4:  pickBest(['Dips Torse', 'Extension Triceps Corde']),
+      back_p3:     pickBest(['Rowing Poulie Assis (Prise Large)', 'Rowing Haltère']),
+      shoulders_p5:pickBest(['Tirage vers Visage', 'Face Pull'])
+    },
+    jeudi_dead: {
+      back_p4:     pickBest(['Tirage Poitrine (Poulie)', 'Tirage Vertical Prise Large']),
+      rear_delt:   pickBest(['Tirage vers Visage', 'Face Pull'])
+    },
+    vendredi_bench2: {
+      chest_p4:    pickBest(['Écarté Machine (Pec Deck)', 'Écarté Machine']),
+      back_p3:     pickBest(['Rowing Poulie Assis (V-Grip)', 'Tirage Poitrine (Poulie)']),
+      isolation_p4:pickBest(['Oiseau Machine', 'Élévation Latérale (Haltère)']),
+      triceps_p4:  pickBest(['Extension Triceps Corde'])
+    },
+    samedi_squat2: {
+      abductors:   pickBest(['Abduction Hanche', 'Abduction Machine']),
+      core_p5:     pickBest(['Gainage (Planche)', 'Crunch Poulie'])
+    }
+  };
+}
+
+var _userAccessoryPoolCache = null;
+var _userAccessoryPoolCacheLogsLen = -1;
+
+function getUserAccessoryPool() {
+  var logsLen = (typeof db !== 'undefined' && db && db.logs && db.logs.length) || 0;
+  if (_userAccessoryPoolCache && _userAccessoryPoolCacheLogsLen === logsLen) {
+    return _userAccessoryPoolCache;
+  }
+  _userAccessoryPoolCache = buildUserAccessoryPool();
+  _userAccessoryPoolCacheLogsLen = logsLen;
+  return _userAccessoryPoolCache;
+}

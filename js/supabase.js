@@ -3955,6 +3955,58 @@ async function createChallengeFromTemplate(index) {
   await createChallenge({ label: t.label, type: t.type, exercise: t.exercise, target: t.target, duration: t.duration });
 }
 
+// ── SEED CONTENT — défis modèles communauté (audit #3) ─────────────────────
+// Contenu Gemini-pending : remplir DEFAULT_COMMUNITY_CHALLENGES avec les 3-5
+// défis validés par Gemini avant le lancement bêta.
+const DEFAULT_COMMUNITY_CHALLENGES = [
+  // Format : { label, type, exercise, target, duration }
+  // À compléter avec le contenu Gemini
+];
+
+async function seedDefaultChallenges() {
+  if (!supaClient || !DEFAULT_COMMUNITY_CHALLENGES.length) return;
+  var uid = await getMyUserIdAsync();
+  if (!uid) return;
+  try {
+    var existing = await supaClient.from('social_challenges').select('id').limit(1);
+    if (existing.data && existing.data.length > 0) return; // déjà seedé
+    for (var i = 0; i < DEFAULT_COMMUNITY_CHALLENGES.length; i++) {
+      var c = DEFAULT_COMMUNITY_CHALLENGES[i];
+      await supaClient.from('social_challenges').insert({
+        creator_id: uid,
+        title: c.label,
+        type: c.type,
+        exercise: c.exercise || null,
+        target: c.target || null,
+        duration_days: c.duration || 7,
+        is_community: true,
+        created_at: new Date().toISOString()
+      });
+    }
+  } catch(e) {
+    console.warn('seedDefaultChallenges error:', e);
+  }
+}
+
+async function createWelcomeChallenge(userId) {
+  if (!supaClient || !userId) return;
+  try {
+    // Défi de bienvenue : 3 séances dans la première semaine
+    await supaClient.from('social_challenges').insert({
+      creator_id: userId,
+      title: '🎯 Défi Bienvenue — 3 séances cette semaine',
+      type: 'frequency',
+      exercise: null,
+      target: 3,
+      duration_days: 7,
+      is_welcome: true,
+      created_at: new Date().toISOString()
+    });
+  } catch(e) {
+    console.warn('createWelcomeChallenge error:', e);
+  }
+}
+
 async function joinChallenge(challengeId, btnEl) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) { showToast('Connecte-toi pour rejoindre'); return; }

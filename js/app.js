@@ -17925,6 +17925,25 @@ function renderCoachTodayHTML() {
     return _csHtml;
   }
 
+  // ── GUARDRAIL MODE — SRS simplifiée + 1 alerte articulaire max (audit #4) ──
+  if (coachProfile === 'guardrail') {
+    var _grSrs = typeof computeSRS === 'function' ? computeSRS() : { score: 60 };
+    var _grHtml = getBatteryDisplay(_grSrs.score);
+    var _grInjuries = typeof checkInjuryPersistence === 'function' ? checkInjuryPersistence() : null;
+    if (_grInjuries && _grInjuries.length > 0) {
+      var _grInj = _grInjuries[0];
+      var _grZone = _grInj.zone || 'Blessure';
+      _grHtml += '<div style="background:rgba(255,69,58,0.10);border:1px solid var(--red);'
+        + 'border-radius:12px;padding:14px;margin-bottom:12px;">'
+        + '<div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px;">'
+        + '⚠️ Alerte Récupération — ' + _grZone + '</div>'
+        + '<div style="font-size:12px;color:var(--text);">'
+        + 'Ton ' + _grZone + ' nécessite ton attention. Consulte un professionnel si la gêne persiste.</div>'
+        + '</div>';
+    }
+    return _grHtml;
+  }
+
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var pr = db.bestPR || {};
   var html = '';

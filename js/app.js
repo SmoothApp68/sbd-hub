@@ -19835,7 +19835,7 @@ var WP_PROGRESSION = {
 // Choisit l'exercice principal et son rep range selon la phase active.
 var SBD_VARIANTS = {
   hypertrophie: {
-    squat:    { name: 'High Bar Squat',            reps: [8,10],  rpe: 7.5 },
+    squat:    { name: 'Squat (Barre)',             reps: [8,10],  rpe: 7.5 },
     // v200 — Bench barre TOUJOURS en J1 hypertrophie (mouvement de compétition,
     // maintien influx nerveux spécifique). Larsen Press = accessoire bench2_hyp uniquement.
     bench:    { name: 'Bench Press (Barre)',       reps: [5,8],   rpe: 8.0 },
@@ -20107,7 +20107,7 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
       { name: 'Rowing Poulie Assis (Prise Large)',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
-      { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2, isCorrectivePriority: true, evictionCategory: 'corrective' }
+      { name: 'Tirage vers Visage',             reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2, isCorrectivePriority: true, evictionCategory: 'corrective' }
     ],
     // Vendredi (séance volume) — angles différents + isolation (Gemini)
     bench2: [
@@ -20585,6 +20585,24 @@ function wpFindBestMatch(targetName, logs) {
 }
 
 // Fallback PR/BW pour exercices jamais faits
+function wpGetMaxLogWeight(exoName) {
+  var logs = (db.logs || []);
+  var max = 0;
+  var normalized = exoName ? exoName.trim().toLowerCase() : '';
+  for (var _li = 0; _li < logs.length; _li++) {
+    var exos = logs[_li].exercises || [];
+    for (var _ei = 0; _ei < exos.length; _ei++) {
+      if ((exos[_ei].name || '').trim().toLowerCase() !== normalized) continue;
+      var sets = (exos[_ei].allSets || exos[_ei].series || []);
+      for (var _si = 0; _si < sets.length; _si++) {
+        var w = parseFloat(sets[_si].weight) || 0;
+        if (w > max) max = w;
+      }
+    }
+  }
+  return max;
+}
+
 function wpEstimateWeight(exoName) {
   var bw = getUserBW();
   var pr = db.bestPR || {};
@@ -20605,7 +20623,7 @@ function wpEstimateWeight(exoName) {
     'Ab Wheel':                 { base: 'bw',       ratio: 0    },
     'Gainage planche':          { base: 'bw',       ratio: 0    },
     'Presse a cuisses':         { base: 'bw',       ratio: 2.50 },
-    'Leg Extension':            { base: 'bw',       ratio: 0.55 },
+    'Leg Extension':            { base: 'squat',    ratio: 0.35 },
     'Leg Curl allonge':         { base: 'bw',       ratio: 0.45 },
     'Elevations laterales':     { base: 'bw',       ratio: 0.12 },
     'Shrugs':                   { base: 'bw',       ratio: 0.90 },
@@ -20637,7 +20655,15 @@ function wpEstimateWeight(exoName) {
     : est.base === 'squat'    ? (pr.squat    || bw * 1.3)
     : est.base === 'deadlift' ? (pr.deadlift || bw * 1.6)
     : bw;
-  return wpDumbbellAdjust(wpRound25(baseVal * est.ratio), exoName);
+  var _estResult = wpDumbbellAdjust(wpRound25(baseVal * est.ratio), exoName);
+  // Cap Gemini : isolation machine — si estimate < 50% du max log → utiliser max × 0.70
+  if (_estResult && /oiseau|oiseau machine|rear delt machine|écart.*machine/i.test(exoName || '')) {
+    var _maxLog = wpGetMaxLogWeight(exoName);
+    if (_maxLog > 0 && _estResult < _maxLog * 0.5) {
+      _estResult = wpRound25(_maxLog * 0.70);
+    }
+  }
+  return _estResult;
 }
 
 // v204 — isShoulderHeavy : remplacement auto si user.injuries contient 'epaule'
@@ -24576,7 +24602,7 @@ function buildCompletedWeekDays(weekNumber) {
 function getLoggedWeightForExo(log, exoName) {
   if (!log || !exoName) return null;
   var target = exoName.toLowerCase();
-  // Le nom prévu (généré : "High Bar Squat") diffère souvent du nom loggé
+  // Le nom prévu (généré : "Squat (Barre)") diffère souvent du nom loggé
   // (importé/renommé : "Squat Barre"). Match strict d'abord, puis par type
   // SBD (squat/bench/deadlift) pour retrouver le lift principal réel.
   var plannedType = typeof getSBDType === 'function' ? getSBDType(exoName) : null;

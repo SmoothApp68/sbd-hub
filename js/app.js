@@ -11006,6 +11006,33 @@ function renderMesoView() {
   return html;
 }
 
+function renderColdStartCard() {
+  if (!db.logs || db.logs.length > 0) return '';
+  if (!db.weeklyPlan || !db.weeklyPlan.days) return '';
+  return '<div style="margin:8px 12px 0;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.1));'
+    + 'border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:16px;">'
+    + '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">🎯 Ton programme est prêt !</div>'
+    + '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.5;">'
+      + 'L\'algorithme va apprendre au fil de tes séances.<br>'
+      + 'Les charges s\'affinent automatiquement — dès ta 1ère séance.'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;">'
+      + '<div style="flex:1;background:rgba(99,102,241,0.1);border-radius:10px;padding:8px;text-align:center;">'
+        + '<div style="font-size:18px;">💪</div>'
+        + '<div style="font-size:10px;color:var(--sub);margin-top:2px;">Lance ta 1ère séance</div>'
+      + '</div>'
+      + '<div style="flex:1;background:rgba(99,102,241,0.1);border-radius:10px;padding:8px;text-align:center;">'
+        + '<div style="font-size:18px;">📈</div>'
+        + '<div style="font-size:10px;color:var(--sub);margin-top:2px;">Les charges s\'adaptent</div>'
+      + '</div>'
+      + '<div style="flex:1;background:rgba(99,102,241,0.1);border-radius:10px;padding:8px;text-align:center;">'
+        + '<div style="font-size:18px;">🏆</div>'
+        + '<div style="font-size:10px;color:var(--sub);margin-top:2px;">Suis ta progression</div>'
+      + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
 function renderProgrammeV2() {
   var container = document.getElementById('programmeV2Content');
   if (!container) return;
@@ -11047,6 +11074,7 @@ function renderProgrammeV2() {
   }
 
   var h = '';
+  h += renderColdStartCard();
   h += renderPhaseProgressBadge();
   h += renderMesoView();
   h += renderTodayCard();

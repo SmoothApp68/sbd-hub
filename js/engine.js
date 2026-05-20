@@ -5574,3 +5574,26 @@ function getWeightExplanation(exo, vocabLevel) {
     : phase ? phase.charAt(0).toUpperCase() + phase.slice(1) : 'Programme';
   return pct + '% e1RM · ' + phaseLabel + ' S' + week;
 }
+
+// ── Ratio S/B — Format Bench S3/S4 peak (Gemini Q1) ─────────────────────────
+// sbRatio = e1RM Squat / e1RM Bench
+// > 1.30 → Bench faible → booster (sets + accessoryBoost)
+// < 1.15 → Bench fort par rapport au Squat → maintenir seulement
+function getBenchFormatForRatio(sbRatio, weekNumber) {
+  var isBenchWeak = sbRatio > 1.30;
+  var setsTarget = (isBenchWeak && weekNumber === 3) ? 5 : 4;
+  var rpeTarget  = weekNumber === 4 ? 9.0 : 8.0;
+  return { sets: setsTarget, reps: 6, rpe: rpeTarget, accessoryBoost: isBenchWeak };
+}
+
+// ── getP1FormatForPeak — Format lift principal selon ratio inter-lifts ────────
+function getP1FormatForPeak(liftType, weekNumber) {
+  var wk = weekNumber || 3;
+  if (liftType === 'bench') {
+    var sqE1rm = (typeof db !== 'undefined' && db && db.exercises && db.exercises['Squat (Barre)'] && db.exercises['Squat (Barre)'].e1rm) || 0;
+    var bE1rm  = (typeof db !== 'undefined' && db && db.exercises && db.exercises['Développé Couché (Barre)'] && db.exercises['Développé Couché (Barre)'].e1rm) || 0;
+    var sbRatio = (sqE1rm > 0 && bE1rm > 0) ? sqE1rm / bE1rm : 1.10;
+    return getBenchFormatForRatio(sbRatio, wk);
+  }
+  return { sets: 4, reps: 5, rpe: wk === 4 ? 9.0 : 8.5, accessoryBoost: false };
+}

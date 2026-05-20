@@ -26975,7 +26975,7 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
           : 'background:var(--surface);border-color:var(--border);color:var(--sub);';
         h += '<td style="white-space:nowrap;">' +
           '<input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:36px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>' +
-          '<button id="grind-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleGrind(' + exoIdx + ',' + setIdx + ')" title="Grind — ralentissement involontaire" style="padding:3px 6px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;margin-left:2px;' + _gStyle + '">' + (_isGrind ? 'G✓' : 'G') + '</button>' +
+          '<button id="grind-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleGrind(' + exoIdx + ',' + setIdx + ')" title="Effort max — ralentissement involontaire" style="padding:3px 6px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;margin-left:2px;' + _gStyle + '">' + (_isGrind ? '★✓' : '★') + '</button>' +
           '<button id="abandoned-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleAbandoned(' + exoIdx + ',' + setIdx + ')" title="Série abandonnée — exclue du e1RM" style="padding:3px 6px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;margin-left:2px;' + _aStyle + '">🚫</button>' +
           '</td>';
       } else {
@@ -27253,7 +27253,7 @@ function toggleAbandoned(exoIdx, setIdx) {
 }
 
 function showGrindTechQuestion(exoIdx, setIdx) {
-  var answer = confirm('Technique maintenue pendant le grind ?');
+  var answer = confirm('Technique maintenue pendant l\'effort max ?');
   if (!activeWorkout) return;
   activeWorkout.exercises[exoIdx].sets[setIdx].grindTech = !answer;
   goAutoSave();
@@ -27395,7 +27395,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     var grindThreshold = phase === 'peak' ? 0 : phase === 'hypertrophie' ? 1 : 2;
     if (grindData.grindCount >= grindThreshold) {
       return {
-        msg: '🚨 ' + grindData.grindCount + ' grind(s) détectés en phase ' + phase + '. ' +
+        msg: '🚨 ' + grindData.grindCount + ' effort(s) max détectés en phase ' + phase + '. ' +
           'Limite technique atteinte — stop les séries lourdes. ' +
           'Passe aux back-off légers ou arrête la séance.',
         type: 'danger',
@@ -27507,7 +27507,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
         _fatigueMsg = phase === 'peak'
           ? '🛑 Échec critique — STOP. Protection articulaire absolue en Peak.'
           : phase === 'force'
-          ? '🛑 Arrête l\'exercice. On ne grinde pas en Force — SNC préservé.'
+          ? '🛑 Arrête l\'exercice. Pas d\'effort max en Force — SNC préservé.'
           : '⚠️ Épuisement détecté — conversion en Back-off (-10%) pour finir le volume.';
       } else {
         // _isImplicitFail seul : warning sans classification confiante

@@ -2235,7 +2235,7 @@ function processGrind(set, e1rmForLift) {
 function getSetRPELabel(set) {
   if (!set.rpe && !set.grind) return '—';
   var rpe = set.grind ? Math.max(set.rpe || 9, 9) : set.rpe;
-  return rpe + (set.grind ? 'G' : '');
+  return rpe + (set.grind ? '★' : '');
 }
 
 function countGrindThisSession() {

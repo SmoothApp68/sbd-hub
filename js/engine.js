@@ -5545,3 +5545,32 @@ function getUserAccessoryPool() {
   _userAccessoryPoolCacheLogsLen = logsLen;
   return _userAccessoryPoolCache;
 }
+
+// ── MOTEUR 6 — Contexte charge "Pourquoi ce poids ?" (Gemini, audit #6) ────
+function getWeightExplanation(exo, vocabLevel) {
+  if (!exo || !exo.sets) return '';
+  var firstWork = (exo.sets || []).find(function(s) { return !s.isWarmup; });
+  if (!firstWork || !firstWork.weight) return '';
+  var weight = firstWork.weight;
+  var e1rm = (typeof db !== 'undefined' && db && db.exercises && db.exercises[exo.name] && db.exercises[exo.name].e1rm) || 0;
+  var phase = (typeof db !== 'undefined' && db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || null;
+  var week  = (typeof db !== 'undefined' && db && db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+  var level = vocabLevel || (typeof db !== 'undefined' && db && db.user && db.user.vocabLevel) || 1;
+  if (!e1rm || e1rm === 0) {
+    return level <= 1
+      ? 'Charge de démarrage · s\'adaptera après 3 séances'
+      : 'Charge initiale · e1RM en cours de calcul';
+  }
+  var pct = Math.round((weight / e1rm) * 100);
+  if (level <= 1) {
+    if (pct <= 65) return 'Charge légère · apprentissage du mouvement';
+    if (pct <= 80) return 'Charge modérée · bonne pour progresser';
+    return 'Charge élevée · effort important prévu';
+  }
+  if (level === 2) return pct + '% de ton max estimé (' + e1rm + 'kg)';
+  var phaseLabel = phase === 'force' ? 'Bloc Force'
+    : phase === 'hypertrophie' ? 'Bloc Hypertrophie'
+    : phase === 'deload' ? 'Deload'
+    : phase ? phase.charAt(0).toUpperCase() + phase.slice(1) : 'Programme';
+  return pct + '% e1RM · ' + phaseLabel + ' S' + week;
+}

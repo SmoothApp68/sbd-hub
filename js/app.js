@@ -10533,6 +10533,7 @@ function renderTodayCard() {
   var _top3 = _todayCardExpanded ? _exos : _exos.slice(0, 3);
   var _more = _todayCardExpanded ? 0 : _exos.length - 3;
 
+  var _vocabLvl = (db.user && db.user.vocabLevel) || 1;
   var _exoRows = _top3.map(function(e) {
     var _setsArr = Array.isArray(e.sets) ? e.sets.filter(function(s) {
       return s && !s.isWarmup && s.setType !== 'warmup';
@@ -10552,13 +10553,22 @@ function renderTodayCard() {
         ? _setsCount + '×' + _reps + ' · <span style="color:#a78bfa;font-weight:500;">' + _weight + 'kg</span>'
         : _setsCount + '×' + _reps;
     }
+    // "Pourquoi ce poids ?" — uniquement pour le lift principal (audit #6)
+    var _whyHtml = '';
+    if (e.isPrimary && typeof getWeightExplanation === 'function') {
+      var _why = getWeightExplanation(e, _vocabLvl);
+      if (_why) _whyHtml = '<div style="font-size:10px;color:var(--sub2,#555);margin-top:1px;">→ ' + _why + '</div>';
+    }
 
-    return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
+    return '<div style="padding:3px 0;">'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
       + '<div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;'
       + 'opacity:0.6;flex-shrink:0;"></div>'
       + '<span style="color:var(--sub);font-size:12px;flex:1;white-space:nowrap;'
       + 'overflow:hidden;text-overflow:ellipsis;">' + (e.name || e.exercise || '') + '</span>'
       + '<span style="color:var(--sub2,#666);font-size:11px;flex-shrink:0;">' + _detail + '</span>'
+      + '</div>'
+      + _whyHtml
       + '</div>';
   }).join('');
 

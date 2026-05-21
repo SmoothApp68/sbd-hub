@@ -10370,6 +10370,19 @@ function _showDuplicateImportModal(duplicates, onForce, onCancel) {
   document.body.appendChild(overlay);
 }
 
+function ingestHevyLog(rawLog) {
+  var enriched = Object.assign({}, rawLog);
+  enriched.exercises = (rawLog.exercises || []).map(function(exo) {
+    if (exo.canonicalName) return exo; // déjà enrichi
+    var rawName = exo.name || '';
+    return Object.assign({}, exo, {
+      canonicalName: typeof normalizeExoName === 'function' ? normalizeExoName(rawName) : rawName,
+      muscleGroup:   typeof getCanonicalMuscle === 'function' ? getCanonicalMuscle(rawName) : 'unknown'
+    });
+  });
+  return enriched;
+}
+
 async function _doImportCSV(sessions) {
   const btn=document.getElementById('csvImportBtn');
   const progress=document.getElementById('csvProgress');const bar=document.getElementById('csvProgressBar');const txt=document.getElementById('csvProgressText');
@@ -10378,7 +10391,7 @@ async function _doImportCSV(sessions) {
   for(const session of sessions){
     session.exercises.forEach(exo=>{ delete exo._rawSets; });
     session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM&&exo.maxRM>prs[type])prs[type]=exo.maxRM;});
-    db.logs.push(session);imported++;
+    db.logs.push(ingestHevyLog(session));imported++;
     if(imported%10===0||imported===sessions.length){const pct=Math.round((imported/sessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+sessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);saveDBNow();
@@ -13928,6 +13941,15 @@ function syncRoutineWithSelectedDays() {
 
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
+  // Migration lazy canonicalName — enrichit les logs sans canonicalName (import antérieur)
+  if (typeof ingestHevyLog === 'function' && db.logs) {
+    var _needsEnrich = db.logs.some(function(log) {
+      return (log.exercises || []).some(function(e) { return !e.canonicalName; });
+    });
+    if (_needsEnrich) {
+      db.logs = db.logs.map(function(log) { return ingestHevyLog(log); });
+    }
+  }
   migrateActivityData();
   if (db.user.morpho === undefined) db.user.morpho = null;
   migrateInjuryNames();

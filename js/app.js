@@ -255,7 +255,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v262';
+var SW_VERSION = 'trainhub-v263';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -627,11 +627,15 @@ function showReadinessModal(onComplete) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
-  overlay.style.cssText = 'align-items:center;padding:16px;box-sizing:border-box;';
+  overlay.style.cssText = 'align-items:center;padding:16px;box-sizing:border-box;'
+    // Android Chrome : .modal-overlay { height:100% } résout en LVH (URL bar visible),
+    // donc align-items:center pousse la modal vers le bas hors viewport.
+    // 100dvh = viewport dynamique = zone réellement visible.
+    + 'height:100vh;height:100dvh;';
   // max-height en vh ET dvh (iOS : la barre d'URL réduit la zone visible).
   // modal-box = flex column ; le contenu scrolle, mais .modal-actions est
   // épinglé hors du scroll (flex:0 0 auto) → bouton Valider toujours visible.
-  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;max-height:85vh;max-height:85dvh;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;">
+  overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;">
     <div style="flex:1 1 auto;overflow-y:auto;min-height:0;">
       <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
       <div class="readiness-sliders" style="margin-bottom:8px;">

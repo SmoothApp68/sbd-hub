@@ -4364,8 +4364,9 @@ function _getWeekStart(date) {
 }
 
 function _getLogsThisWeek() {
-  var wk = _getWeekKey();
-  var start = new Date(wk).getTime();
+  // Lundi 00:00 heure locale — _getWeekKey() via toISOString() décale d'un jour
+  // dans les fuseaux > UTC (Stats/Log affichaient 0 sur certaines séances).
+  var start = _getWeekStart(Date.now()).getTime();
   var end = start + 7 * 86400000;
   return db.logs.filter(function(l) { return l.timestamp >= start && l.timestamp < end; });
 }
@@ -6444,7 +6445,8 @@ function _hashWeekKey(key) {
 }
 
 function _getPrevBest() {
-  var wkStart = new Date(_getWeekKey()).getTime();
+  // Lundi 00:00 heure locale (cf. _getLogsThisWeek)
+  var wkStart = _getWeekStart(Date.now()).getTime();
   var prevBest = {};
   db.logs.forEach(function(l) {
     if (l.timestamp >= wkStart) return;

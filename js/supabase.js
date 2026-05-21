@@ -3955,12 +3955,38 @@ async function createChallengeFromTemplate(index) {
   await createChallenge({ label: t.label, type: t.type, exercise: t.exercise, target: t.target, duration: t.duration });
 }
 
-// ── SEED CONTENT — défis modèles communauté (audit #3) ─────────────────────
-// Contenu Gemini-pending : remplir DEFAULT_COMMUNITY_CHALLENGES avec les 3-5
-// défis validés par Gemini avant le lancement bêta.
+// ── SEED CONTENT — défis modèles communauté (Gemini validé 2026) ────────────
+// Métriques relatives (jamais tonnage absolu brut — Gemini rule).
 const DEFAULT_COMMUNITY_CHALLENGES = [
-  // Format : { label, type, exercise, target, duration }
-  // À compléter avec le contenu Gemini
+  {
+    title: "🕐 L'Horloge Suisse",
+    description: "Complète 3 séances cette semaine. Simple, efficace.",
+    metric: 'sessions_count',
+    target: 3,
+    duration_days: 7,
+    is_public: true,
+    is_relative: true,
+    badge_reward: 'horloge_suisse'
+  },
+  {
+    title: '🎯 Chasseur de PRs',
+    description: "Qui bat le plus de records personnels ce mois-ci ? Peu importe le poids.",
+    metric: 'pr_count',
+    target: null,
+    duration_days: 30,
+    is_public: true,
+    is_relative: true
+  },
+  {
+    title: '⚡ Gravité Zéro',
+    description: "Soulève 10× ton poids de corps en tonnage cumulé relatif.",
+    metric: 'bodyweight_ratio_tonnage',
+    target: 10,
+    duration_days: null,
+    is_public: true,
+    is_relative: true,
+    badge_reward: 'gravite_zero'
+  }
 ];
 
 async function seedDefaultChallenges() {
@@ -3974,11 +4000,14 @@ async function seedDefaultChallenges() {
       var c = DEFAULT_COMMUNITY_CHALLENGES[i];
       await supaClient.from('social_challenges').insert({
         creator_id: uid,
-        title: c.label,
-        type: c.type,
-        exercise: c.exercise || null,
+        title: c.title,
+        description: c.description || null,
+        metric: c.metric || null,
         target: c.target || null,
-        duration_days: c.duration || 7,
+        duration_days: c.duration_days || null,
+        is_public: c.is_public !== false,
+        is_relative: c.is_relative || false,
+        badge_reward: c.badge_reward || null,
         is_community: true,
         created_at: new Date().toISOString()
       });

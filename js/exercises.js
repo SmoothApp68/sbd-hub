@@ -137,6 +137,205 @@ function getExoPlaceholderIcon(exoName) {
   return '🏋️';
 }
 
+
+// ── NORMALISATION NOMS HEVY → CANONIQUES ─────────────────────────────────────
+// Gemini 2026 — Table exhaustive + fallback regex. 120+ noms Hevy distincts.
+// Clé = nom brut Hevy. Valeur = identifiant canonique interne.
+// Ne jamais modifier les logs bruts — enrichissement à l'ingestion uniquement.
+
+var HEVY_TO_CANONICAL = {
+  // Groupe 1 — Deltoïde postérieur
+  'Oiseau (Haltère)':                     'OISEAU_HALTERES',
+  'Oiseau Penché (Haltère)':              'OISEAU_HALTERES',
+  'Oiseau (Machine)':                     'OISEAU_MACHINE',
+  'Oiseau Machine':                       'OISEAU_MACHINE',
+  'Oiseau (Poulie)':                      'OISEAU_POULIE',
+  'Face Pull':                            'FACE_PULL',
+  'Tirage vers Visage':                   'FACE_PULL',
+
+  // Groupe 2 — Écarté pectoraux
+  'Écarté (Haltère)':                     'ECARTE_HALTERES',
+  'Écarté Haltères':                      'ECARTE_HALTERES',
+  'Écarté (Machine)':                     'ECARTE_MACHINE',
+  'Écarté Machine (Pec Deck)':            'ECARTE_MACHINE',
+  'Écartés Poulie Basse':                 'ECARTE_POULIE_BASSE',
+  'Écartés Poulie':                       'ECARTE_POULIE_HAUTE',
+  'Écarté Machine':                       'ECARTE_MACHINE',
+
+  // Groupe 3 — Hip Thrust
+  'Hip Thrust (Machine)':                 'HIP_THRUST_MACHINE',
+  'Poussée de hanches (machine)':         'HIP_THRUST_MACHINE',
+  'Hip Thrust (Barre)':                   'HIP_THRUST_BARRE',
+  'Hip Thrust':                           'HIP_THRUST_BARRE',
+
+  // Groupe 4 — Extension Triceps
+  'Extension Triceps Poulie Haute':       'TRICEPS_POULIE_HAUTE',
+  'Extension Triceps (Poulie)':           'TRICEPS_POULIE_HAUTE',
+  'Extension Triceps Corde':              'TRICEPS_POULIE_CORDE',
+  'Extension Triceps (Haltère)':          'TRICEPS_HALTERE',
+  'Extension Triceps':                    'TRICEPS_POULIE_HAUTE',
+
+  // Groupe 5 — Tirage vertical / Lat Pulldown
+  'Tirage Poitrine (Poulie)':             'TIRAGE_VERTICAL_POULIE',
+  'Tirage Vertical Prise Large':          'TIRAGE_VERTICAL_POULIE',
+  'Tirage Poitrine Un Bras':              'TIRAGE_VERTICAL_UN_BRAS',
+  'Tirage Poitrine (Machine)':            'TIRAGE_VERTICAL_MACHINE',
+  'Tirage Poitrine Bras Tendus (Poulie)': 'TIRAGE_BRAS_TENDUS',
+  'Extension Jambes':                     'LEG_EXTENSION',
+
+  // Groupe 6 — Rowing horizontal
+  'Rowing Poulie Assis':                  'ROWING_POULIE_ASSIS',
+  'Rowing Poulie Assis (V-Grip)':         'ROWING_POULIE_ASSIS',
+  'Rowing Poulie Assis - Prise Large':    'ROWING_POULIE_ASSIS_LARGE',
+  'Rowing Poulie Assis (Prise Large)':    'ROWING_POULIE_ASSIS_LARGE',
+  'Rowing Assis (Machine)':               'ROWING_MACHINE_ASSIS',
+  'Rowing Haltère':                       'ROWING_HALTERE_UN_BRAS',
+  'Rowing Haltère 1 Bras':                'ROWING_HALTERE_UN_BRAS',
+  'Rowing Debout (Barre)':                'ROWING_DEBOUT_BARRE',
+
+  // Groupe 7 — Squat
+  'Squat (Barre)':                        'SQUAT_LOW_BAR',
+  'Squat Barre':                          'SQUAT_LOW_BAR',
+  'High Bar Squat':                       'SQUAT_LOW_BAR',
+  'Squat avec pause (barre)':             'SQUAT_PAUSE',
+  'Squat Pause':                          'SQUAT_PAUSE',
+  'Squat (Poids du Corps)':               'SQUAT_PDC',
+
+  // Groupe 8 — Deadlift
+  'Soulevé de Terre (Barre)':             'DEADLIFT_CONVENTIONNEL',
+  'Soulevé de Terre Conventionnel':       'DEADLIFT_CONVENTIONNEL',
+  'Soulevé de Terre':                     'DEADLIFT_CONVENTIONNEL',
+  'Soulevé De Terre avec pause':          'DEADLIFT_PAUSE',
+  'Soulevé de Terre avec pause':          'DEADLIFT_PAUSE',
+  'Soulevé de Terre Jambes Tendues':      'DEADLIFT_JAMBES_TENDUES',
+  'Soulevé de Terre Roumain (Barre)':     'DEADLIFT_ROUMAIN',
+  'Soulevé de Terre Roumain':             'DEADLIFT_ROUMAIN',
+  'Soulevé de Terre Sumo':                'DEADLIFT_SUMO',
+
+  // Groupe 9 — Tractions
+  'Tractions':                            'TRACTIONS_PRONATION',
+  'Tractions Pronation':                  'TRACTIONS_PRONATION',
+  'Tractions Supination':                 'TRACTIONS_SUPINATION',
+  'Tractions (Élastique)':                'TRACTIONS_ASSISTEES',
+  'Tractions (Lesté)':                    'TRACTIONS_LESTEES',
+
+  // Groupe 10 — Curl Biceps
+  'Curl Biceps (Haltère)':                'CURL_HALTERES',
+  'Curl Biceps (Barre)':                  'CURL_BARRE',
+  'Curl Biceps (Barre EZ)':               'CURL_BARRE_EZ',
+  'Curl Barre EZ':                        'CURL_BARRE_EZ',
+  'Curl Biceps (Poulie)':                 'CURL_POULIE',
+  'Curl Pupitre (Machine)':               'CURL_PUPITRE_MACHINE',
+  'Curl Marteau (Haltère)':               'CURL_MARTEAU',
+
+  // Groupe 11 — OHP
+  'Développé Militaire (Barre)':          'OHP_BARRE',
+  'Développé Militaire Debout (Barre)':   'OHP_BARRE',
+  'Développé Militaire (Haltère)':        'DEVELOPPE_HALTERES_ASSIS',
+  'Presse Épaules Assis (Machine)':       'DEVELOPPE_MACHINE_ASSIS',
+
+  // Groupe 12 — Extension dos
+  'Extension Dos (Hyperextension Lestée)':'HYPEREXTENSION',
+  'Extension Dos (Hyperextension)':       'HYPEREXTENSION',
+  'Extension Dos (Machine)':              'HYPEREXTENSION_MACHINE',
+
+  // Exercices primaires SBD et accessoires courants
+  'Développé Couché (Barre)':             'BENCH_PRESS',
+  'Bench Press (Barre)':                  'BENCH_PRESS',
+  'Spoto Bench':                          'BENCH_SPOTO',
+  'Développé Incliné (Haltères)':         'INCLINE_DUMBBELL',
+  'Développé Couché Incliné (Haltère)':   'INCLINE_DUMBBELL',
+  'Hack Squat (Machine)':                 'HACK_SQUAT',
+  'Presse à Cuisses':                     'LEG_PRESS',
+  'Leg Extension':                        'LEG_EXTENSION',
+  'Leg Curl Assis':                       'LEG_CURL_ASSIS',
+  'Leg Curl Allongé':                     'LEG_CURL_ALLONGE',
+  'Adduction Machine':                    'ADDUCTION_MACHINE',
+  'Adduction Hanche':                     'ADDUCTION_MACHINE',
+  'Abduction Hanche':                     'ABDUCTION_HANCHE',
+  'Abduction Machine':                    'ABDUCTION_HANCHE',
+  'Extension Mollets Debout (Machine)':   'CALVES_MACHINE',
+  'Mollets (Machine)':                    'CALVES_MACHINE',
+  'Dips Torse':                           'DIPS_TORSE',
+  'Gainage (Planche)':                    'PLANCHE',
+  'Planche':                              'PLANCHE',
+  'Tapis roulant':                        'CARDIO_TAPIS',
+};
+
+var CANONICAL_TO_MUSCLE = {
+  // Deltoïde postérieur
+  'OISEAU_HALTERES':           'deltoid_posterior',
+  'OISEAU_MACHINE':            'deltoid_posterior',
+  'OISEAU_POULIE':             'deltoid_posterior',
+  'FACE_PULL':                 'deltoid_posterior',
+  // Pectoraux
+  'ECARTE_HALTERES':           'chest',
+  'ECARTE_MACHINE':            'chest',
+  'ECARTE_POULIE_BASSE':       'chest',
+  'ECARTE_POULIE_HAUTE':       'chest',
+  'BENCH_PRESS':               'chest',
+  'BENCH_SPOTO':               'chest',
+  'INCLINE_DUMBBELL':          'chest',
+  'DIPS_TORSE':                'chest',
+  // Fessiers
+  'HIP_THRUST_MACHINE':        'glutes',
+  'HIP_THRUST_BARRE':          'glutes',
+  'ABDUCTION_HANCHE':          'glutes',
+  // Triceps
+  'TRICEPS_POULIE_HAUTE':      'triceps',
+  'TRICEPS_POULIE_CORDE':      'triceps',
+  'TRICEPS_HALTERE':           'triceps',
+  // Dos vertical (pull)
+  'TIRAGE_VERTICAL_POULIE':    'back_vertical',
+  'TIRAGE_VERTICAL_UN_BRAS':   'back_vertical',
+  'TIRAGE_VERTICAL_MACHINE':   'back_vertical',
+  'TRACTIONS_PRONATION':       'back_vertical',
+  'TRACTIONS_SUPINATION':      'back_vertical',
+  'TRACTIONS_ASSISTEES':       'back_vertical',
+  'TRACTIONS_LESTEES':         'back_vertical',
+  'TIRAGE_BRAS_TENDUS':        'back_isolation',
+  // Dos horizontal (row)
+  'ROWING_POULIE_ASSIS':       'back_horizontal',
+  'ROWING_POULIE_ASSIS_LARGE': 'back_horizontal',
+  'ROWING_MACHINE_ASSIS':      'back_horizontal',
+  'ROWING_HALTERE_UN_BRAS':    'back_horizontal',
+  'ROWING_DEBOUT_BARRE':       'shoulders_traps',
+  // Quadriceps
+  'SQUAT_LOW_BAR':             'quads_axial',
+  'SQUAT_PAUSE':               'quads_axial',
+  'HACK_SQUAT':                'quads_axial',
+  'LEG_PRESS':                 'quads_axial',
+  'LEG_EXTENSION':             'quads_isolation',
+  'ADDUCTION_MACHINE':         'adductors',
+  'CALVES_MACHINE':            'calves',
+  'SQUAT_PDC':                 'quads_isolation',
+  // Ischio / chaîne postérieure
+  'DEADLIFT_CONVENTIONNEL':    'hamstrings_glutes_axial',
+  'DEADLIFT_PAUSE':            'hamstrings_glutes_axial',
+  'DEADLIFT_SUMO':             'hamstrings_glutes_axial',
+  'DEADLIFT_JAMBES_TENDUES':   'hamstrings_glutes_isolation',
+  'DEADLIFT_ROUMAIN':          'hamstrings_glutes_isolation',
+  'LEG_CURL_ASSIS':            'hamstrings',
+  'LEG_CURL_ALLONGE':          'hamstrings',
+  // Biceps
+  'CURL_HALTERES':             'biceps',
+  'CURL_BARRE':                'biceps',
+  'CURL_BARRE_EZ':             'biceps',
+  'CURL_POULIE':               'biceps',
+  'CURL_PUPITRE_MACHINE':      'biceps',
+  'CURL_MARTEAU':              'brachioradialis',
+  // Épaules / OHP
+  'OHP_BARRE':                 'shoulders_anterior',
+  'DEVELOPPE_HALTERES_ASSIS':  'shoulders_anterior',
+  'DEVELOPPE_MACHINE_ASSIS':   'shoulders_anterior',
+  // Lombaires
+  'HYPEREXTENSION':            'erector_spinae',
+  'HYPEREXTENSION_MACHINE':    'erector_spinae',
+  // Core / Cardio
+  'PLANCHE':                   'core',
+  'CARDIO_TAPIS':              'cardio',
+};
+
 const EXO_DATABASE = {
 // ── PECS ──
 bench_press_barbell:{id:'bench_press_barbell',name:'Développé Couché (Barre)',nameAlt:['Bench Press','Bench barre','DC barre','Développé couché (barre)','Développé Couché (Barre)','Bench Press (Barre)','bench press barre','Spoto Bench','Développé Couché avec pause'],equipment:'barbell',category:'compound',trackingType:'weight',primaryMuscles:['Pecs'],secondaryMuscles:['Triceps','Épaules (antérieur)'],tertiaryMuscles:['Abdos (frontal)'],defaultRest:180,instructions:'1. Allongé sur le banc, pieds au sol, fessiers et omoplates plaqués\n2. Prise légèrement plus large que les épaules\n3. Descendre la barre au sternum en contrôlant (2-3s)\n4. Pousser vers le haut en expirant\n5. Verrouiller les coudes sans hyperextension',muscles:{primary:["chest_lower"],secondary:["chest_upper","triceps","shoulders_front"],tertiary:["serratus"]}},

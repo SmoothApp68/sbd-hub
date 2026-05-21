@@ -5318,12 +5318,76 @@ function getStalenessSubstitute(exoName) {
  * @param {string} exoName
  * @returns {boolean}
  */
+
+// ── Normalisation noms Hevy → canoniques (Gemini 2026) ──────────────────────
+function normalizeExoName(rawName) {
+  if (!rawName) return rawName;
+  var trimmed = rawName.trim();
+  // 1. Table exhaustive (priorité absolue)
+  if (typeof HEVY_TO_CANONICAL !== 'undefined' && HEVY_TO_CANONICAL[trimmed]) {
+    return HEVY_TO_CANONICAL[trimmed];
+  }
+  // 2. Fallback regex pour noms personnalisés Hevy
+  if (/squat/i.test(trimmed) && /pause/i.test(trimmed)) return 'SQUAT_PAUSE';
+  if (/squat/i.test(trimmed)) return 'SQUAT_LOW_BAR';
+  if (/soulevé.*terre|deadlift/i.test(trimmed) && /roumain|rdl/i.test(trimmed)) return 'DEADLIFT_ROUMAIN';
+  if (/soulevé.*terre|deadlift/i.test(trimmed) && /pause/i.test(trimmed)) return 'DEADLIFT_PAUSE';
+  if (/soulevé.*terre|deadlift/i.test(trimmed)) return 'DEADLIFT_CONVENTIONNEL';
+  if (/face.*pull|tirage.*visage/i.test(trimmed)) return 'FACE_PULL';
+  if (/oiseau/i.test(trimmed) && /machine/i.test(trimmed)) return 'OISEAU_MACHINE';
+  if (/oiseau/i.test(trimmed)) return 'OISEAU_HALTERES';
+  if (/écarté|ecarté/i.test(trimmed) && /machine|pec/i.test(trimmed)) return 'ECARTE_MACHINE';
+  if (/écarté|ecarté/i.test(trimmed) && /poulie/i.test(trimmed)) return 'ECARTE_POULIE_BASSE';
+  if (/écarté|ecarté/i.test(trimmed)) return 'ECARTE_HALTERES';
+  if (/hip thrust|poussée.*hanche/i.test(trimmed)) return 'HIP_THRUST_MACHINE';
+  if (/tractions?/i.test(trimmed) && /supin/i.test(trimmed)) return 'TRACTIONS_SUPINATION';
+  if (/tractions?/i.test(trimmed)) return 'TRACTIONS_PRONATION';
+  // 3. Pas reconnu → retourner le nom brut (ne jamais bloquer)
+  return trimmed;
+}
+
+function getCanonicalMuscle(exoName) {
+  var canonical = normalizeExoName(exoName);
+  return (typeof CANONICAL_TO_MUSCLE !== 'undefined' && CANONICAL_TO_MUSCLE[canonical]) || 'unknown';
+}
+
+function getE1rmForExercise(exoName) {
+  if (!exoName || typeof db === 'undefined') return null;
+  // 1. e1RM direct
+  var direct = db.exercises && db.exercises[exoName] && db.exercises[exoName].e1rm;
+  if (direct && direct > 0) return direct;
+  // 2. Chercher via nom canonique dans db.exercises
+  var canonical = normalizeExoName(exoName);
+  var keys = Object.keys(db.exercises || {});
+  for (var i = 0; i < keys.length; i++) {
+    if (normalizeExoName(keys[i]) === canonical) {
+      var val = db.exercises[keys[i]].e1rm;
+      if (val && val > 0) return val;
+    }
+  }
+  // 3. Fallback depuis même groupe musculaire (-25%)
+  var muscle = getCanonicalMuscle(exoName);
+  if (muscle && muscle !== 'unknown') {
+    for (var j = 0; j < keys.length; j++) {
+      if (getCanonicalMuscle(keys[j]) === muscle) {
+        var fallbackVal = db.exercises[keys[j]].e1rm;
+        if (fallbackVal && fallbackVal > 0) return Math.round(fallbackVal * 0.75 / 2.5) * 2.5;
+      }
+    }
+  }
+  return null;
+}
+
 function hasUserDoneExercise(exoName) {
   if (!exoName || !db.logs || !db.logs.length) return false;
-  var normalized = exoName.trim().toLowerCase();
+  var targetCanonical = normalizeExoName(exoName);
+  var rawLower = exoName.trim().toLowerCase();
   return db.logs.some(function(log) {
     return (log.exercises || []).some(function(e) {
-      return e.name && e.name.trim().toLowerCase() === normalized;
+      if (!e.name) return false;
+      // Match exact (brut) ou même canonique (variantes du même exercice)
+      if (e.name.trim().toLowerCase() === rawLower) return true;
+      return normalizeExoName(e.name) === targetCanonical;
     });
   });
 }

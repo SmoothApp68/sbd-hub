@@ -2473,7 +2473,7 @@ function generateProgram(goals, freq, mat, duration, injuries, cardio, compDate,
     // BLOC 2 — Bench Force/Hypertrophie : santé épaules (face_pull) crucial à 140kg+
     bench_hyp: { label:'Bench — Force & Volume',     exos: filtSafe(filtLevel(['bench','rowing_poulie','dips','face_pull','tri_cable']), mat) },
     // BLOC 3 — Deadlift Force/Hypertrophie : Squat Pause en position 2 (technical), leg_curl ajouté
-    dead_hyp:  { label:'Deadlift — Force & Volume',  exos: filtSafe(filtLevel(['deadlift','squat_pause','lat_pull','leg_curl','relevé_jambes']), mat) },
+    dead_hyp:  { label:'Deadlift — Force & Volume',  exos: filtSafe(filtLevel(['deadlift','squat_pause','lat_pull','leg_curl','face_pull']), mat) },
     // BLOC 4 — Bench Volume/Variation : angle différent (incline + larsen) ≠ Bench barre J1
     bench2_hyp:{ label:'Bench 2 — Volume',           exos: filtSafe(filtLevel(['incline_bench','larsen_press','row_halt','elev_lat','curl_barre']), mat) },
     // BLOC 5 spec — SBD Technique/Vitesse (spécialisation quad si ratio S/B < 1.20)

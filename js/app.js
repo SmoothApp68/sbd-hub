@@ -593,9 +593,20 @@ db.readiness = db.readiness || [];
 function getTodayStr() { return new Date().toISOString().slice(0, 10); }
 
 function hasTodayReadiness() {
+  // Vérifier le flag persisté (timestamp ms, comparé à minuit local)
+  var todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  var ts = db.user && db.user._readinessSkipDate;
+  if (typeof ts === 'number' && ts >= todayMidnight.getTime()) return true;
+  // Fallback rétrocompat : entrée du jour dans db.readiness
   const today = getTodayStr();
-  if (db.user && db.user._readinessSkipDate === today) return true;
   return (db.readiness || []).some(r => r.date === today);
+}
+
+function markReadinessDone() {
+  if (!db.user) return;
+  db.user._readinessSkipDate = Date.now();
+  saveDB();
 }
 
 function isTodayTrainingDay() {
@@ -899,7 +910,7 @@ function skipReadiness() {
   // Marquer le skip pour aujourd'hui — ne pas polluer db.readiness (scores).
   // hasTodayReadiness() lira _readinessSkipDate → la modal ne réapparaît plus
   // aujourd'hui, mais redemande demain.
-  if (db.user) { db.user._readinessSkipDate = getTodayStr(); saveDB(); }
+  markReadinessDone();
   const modal = document.getElementById('readinessModal');
   if (modal) modal.remove();
   if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
@@ -918,7 +929,7 @@ function submitReadiness() {
   if (!db.readinessHistory) db.readinessHistory = [];
   db.readinessHistory.push({ ts: Date.now(), sleep, energy, motivation, soreness, score });
   db.readinessHistory = db.readinessHistory.slice(-90);
-  saveDB();
+  markReadinessDone();
   // Stocker dans la séance active si elle existe
   if (activeWorkout) {
     activeWorkout.readiness = { sleep, energy, motivation, soreness, score, loadAdjustment: adj };

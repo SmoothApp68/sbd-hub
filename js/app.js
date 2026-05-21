@@ -221,6 +221,8 @@ let db = (() => {
     if (p.user.consentHealthDate === undefined) p.user.consentHealthDate = null;
     // Plate calculator bar weight
     if (p.user.barWeight === undefined) p.user.barWeight = 20;
+    // Navigation mode (Option A : séance inline sur Maison, onglet GO masqué)
+    if (p.user.navMode === undefined) p.user.navMode = 'A';
     // Units + medical consent
     if (p.user.units === undefined) p.user.units = 'kg';
     if (p.user.medicalConsent === undefined) p.user.medicalConsent = false;
@@ -253,7 +255,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v260';
+var SW_VERSION = 'trainhub-v261';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -3131,7 +3133,7 @@ function saveRoutine() {
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-let activeSeancesSub = 's-go';
+let activeSeancesSub = 's-coach';
 let activeProfilSub = 'tab-corps';
 
 function showSeancesSub(id, btn) {
@@ -8431,6 +8433,10 @@ function renderDash() {
       }
     }
 
+    try { renderTodaySessionInline(); } catch (e) {
+      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderTodaySessionInline');
+    }
+
     try { renderQuickLogCard(); } catch (e) {
       if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
@@ -10608,6 +10614,110 @@ function renderTodayCard() {
     + _exoRows
     + '</div></div>';
 }
+
+// ── SÉANCE DU JOUR INLINE (Option A — Maison) ─────────────────────────────────
+function renderTodaySessionInline() {
+  var container = document.getElementById('todaySessionInline');
+  if (!container) return;
+
+  var todayName = DAYS_FULL[new Date().getDay()];
+  var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  var session = days.find(function(d) { return d && d.day === todayName; });
+
+  var todayStr = (typeof getTodayStr === 'function') ? getTodayStr() : new Date().toISOString().slice(0, 10);
+  var done = (db.logs || []).some(function(l) {
+    if (!l) return false;
+    if (l.date === todayStr) return true;
+    if (l.timestamp) {
+      var d = new Date(l.timestamp);
+      if (!isNaN(d.getTime()) && d.toISOString().slice(0, 10) === todayStr) return true;
+    }
+    return false;
+  });
+
+  if (!session || session.rest || !session.exercises || !session.exercises.length) {
+    container.innerHTML = '<div class="card" style="padding:16px;text-align:center;margin:8px 12px;">'
+      + '<div style="font-size:9px;color:var(--sub);letter-spacing:2px;margin-bottom:6px;">SÉANCE DU JOUR</div>'
+      + '<div style="font-size:28px;margin-bottom:4px;">💤</div>'
+      + '<div style="font-size:13px;font-weight:600;color:var(--sub);">Repos · récupération active</div>'
+      + '</div>';
+    return;
+  }
+
+  var exos = session.exercises.filter(function(e) {
+    return e && !e.isWarmup && !(e.setType === 'warmup');
+  });
+
+  var maxShow = 4;
+  var shown = exos.slice(0, maxShow);
+  var remaining = exos.length - maxShow;
+
+  var exoRows = shown.map(function(e) {
+    var setsArr = Array.isArray(e.sets) ? e.sets.filter(function(s) {
+      return s && !s.isWarmup && s.setType !== 'warmup';
+    }) : [];
+    var setsCount = setsArr.length || (typeof e.sets === 'number' ? e.sets : 3);
+    var firstSet = setsArr[0] || {};
+    var reps = e.reps || firstSet.reps || '10';
+    var weight = firstSet.weight || e.workWeight || e.weight || '';
+    var detail;
+    if (e.type === 'cardio') {
+      var cDur = firstSet.durationMin || firstSet.durationSec;
+      detail = cDur ? (firstSet.durationMin ? firstSet.durationMin + ' min' : firstSet.durationSec + 's') : (setsCount + ' min');
+    } else if (e.type === 'time') {
+      detail = firstSet.durationSec ? setsCount + '×' + firstSet.durationSec + 's' : setsCount + '×' + reps;
+    } else if (weight) {
+      detail = setsCount + '×' + reps + ' · <span style="color:#a78bfa;font-weight:600;">' + weight + 'kg</span>';
+    } else {
+      detail = setsCount + '×' + reps + (e.bodyweight ? ' · PDC' : '');
+    }
+    return '<div style="display:flex;justify-content:space-between;align-items:center;'
+      + 'padding:7px 0;border-bottom:0.5px solid var(--border);gap:8px;">'
+      + '<span style="font-size:12px;color:var(--text);flex:1;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis;">' + (e.name || e.exercise || '') + '</span>'
+      + '<span style="font-size:11px;color:var(--sub);font-family:ui-monospace,monospace;'
+      + 'flex-shrink:0;">' + detail + '</span>'
+      + '</div>';
+  }).join('');
+
+  if (remaining > 0) {
+    exoRows += '<div style="font-size:11px;color:var(--sub);padding:8px 0 0;text-align:center;">+'
+      + remaining + ' exercice' + (remaining > 1 ? 's' : '') + '…</div>';
+  }
+
+  var durMin = (db.user && db.user.programParams && db.user.programParams.duration)
+    || (db.user && db.user.trainingDuration) || 90;
+
+  var btnHtml = done
+    ? '<div style="width:100%;padding:13px;background:rgba(26,188,126,0.15);'
+      + 'color:#1abc7e;border-radius:12px;font-size:14px;font-weight:700;text-align:center;'
+      + 'letter-spacing:0.5px;">✓ Séance faite</div>'
+    : '<button onclick="goDirectFromHome()" '
+      + 'style="width:100%;padding:13px;background:var(--accent);border:none;'
+      + 'border-radius:12px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;'
+      + 'letter-spacing:0.5px;">GO — Lancer 💪</button>';
+
+  container.innerHTML = '<div class="card" style="margin:8px 12px;padding:16px;'
+    + 'border:0.5px solid rgba(167,139,250,0.2);">'
+    + '<div style="font-size:9px;color:var(--sub);letter-spacing:2px;margin-bottom:6px;">SÉANCE DU JOUR · ' + todayName.toUpperCase() + '</div>'
+    + '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px;">'
+    + (session.title || 'Séance')
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--sub);margin-bottom:12px;">~' + durMin + ' min</div>'
+    + '<div style="margin-bottom:14px;">' + exoRows + '</div>'
+    + btnHtml
+    + '</div>';
+}
+
+window.goDirectFromHome = function() {
+  if (typeof showTab === 'function') showTab('tab-seances');
+  if (typeof showSeancesSub === 'function') showSeancesSub('s-go');
+  setTimeout(function() {
+    if (typeof goStartWorkout === 'function' && !(db && db._currentGoSession)) {
+      goStartWorkout(true);
+    }
+  }, 150);
+};
 
 // ── RENDU MÉSOCYCLE (v241) ────────────────────────────────────────────────────
 

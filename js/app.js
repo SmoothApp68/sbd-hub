@@ -13856,6 +13856,16 @@ function migrateInjuryNames() {
   saveDB();
 }
 
+function migrateExerciseNames() {
+  if (!db.logs || !db.logs.length) return;
+  if (typeof ingestHevyLog !== 'function') return;
+  var needsEnrich = db.logs.some(function(log) {
+    return (log.exercises || []).some(function(e) { return !e.canonicalName; });
+  });
+  if (!needsEnrich) return;
+  db.logs = db.logs.map(function(log) { return ingestHevyLog(log); });
+}
+
 // v212 — Synchronise db.routine avec programParams.selectedDays.
 // Bug observé (D'Jo/Léa) : routine peut diverger des selectedDays après
 // migrations multiples — un jour sélectionné apparaît en Repos ou un
@@ -13941,15 +13951,6 @@ function syncRoutineWithSelectedDays() {
 
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
   migrateDUPRegisters();
-  // Migration lazy canonicalName — enrichit les logs sans canonicalName (import antérieur)
-  if (typeof ingestHevyLog === 'function' && db.logs) {
-    var _needsEnrich = db.logs.some(function(log) {
-      return (log.exercises || []).some(function(e) { return !e.canonicalName; });
-    });
-    if (_needsEnrich) {
-      db.logs = db.logs.map(function(log) { return ingestHevyLog(log); });
-    }
-  }
   migrateActivityData();
   if (db.user.morpho === undefined) db.user.morpho = null;
   migrateInjuryNames();

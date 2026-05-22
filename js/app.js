@@ -259,7 +259,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v265';
+var SW_VERSION = 'trainhub-v266';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -10976,27 +10976,30 @@ function renderRecordsPersonnels() {
 // ── SWIPE EXERCICES — Onboarding bonus (Gemini) ──────────────────────────────
 // 16 cartes, décision binaire rapide. Alimente buildUserAccessoryPool() dès
 // le départ et résout le "cold start" sur les exercices accessoires.
+// Noms alignés sur la convention "Exercice (Équipement)" du reste du code.
+// matchExoName() (engine.js) résout les variantes via synonymes — pas besoin
+// d'une table HEVY_TO_CANONICAL.
 var SWIPE_EXERCISES = [
   // Chaîne postérieure & Jambes
-  { id: 'rdl',          name: 'Soulevé de Terre Roumain',     muscle: 'hamstrings', equipment: 'barbell',   emoji: '🏋' },
-  { id: 'bulgarian',    name: 'Squat Bulgare',                 muscle: 'quads',      equipment: 'dumbbell',  emoji: '🦵' },
-  { id: 'leg_press',    name: 'Presse à Cuisses',              muscle: 'quads',      equipment: 'machine',   emoji: '⚙' },
-  { id: 'leg_curl',     name: 'Leg Curl Assis',                muscle: 'hamstrings', equipment: 'machine',   emoji: '⚙' },
+  { id: 'rdl',          name: 'Soulevé de Terre Roumain (Barre)', muscle: 'hamstrings', equipment: 'barbell',   emoji: '🏋' },
+  { id: 'bulgarian',    name: 'Squat Bulgare (Haltères)',         muscle: 'quads',      equipment: 'dumbbell',  emoji: '🦵' },
+  { id: 'leg_press',    name: 'Presse à Cuisses',                 muscle: 'quads',      equipment: 'machine',   emoji: '⚙' },
+  { id: 'leg_curl',     name: 'Leg Curl Assis',                   muscle: 'hamstrings', equipment: 'machine',   emoji: '⚙' },
   // Poussée
-  { id: 'db_press',     name: 'Développé Couché Haltères',     muscle: 'chest',      equipment: 'dumbbell',  emoji: '🏋' },
-  { id: 'dips',         name: 'Dips (Torse)',                  muscle: 'chest',      equipment: 'bodyweight',emoji: '💪' },
-  { id: 'ohp',          name: 'Développé Militaire Barre',     muscle: 'shoulders',  equipment: 'barbell',   emoji: '🏋' },
-  { id: 'cable_fly',    name: 'Écartés Poulie Vis-à-Vis',      muscle: 'chest',      equipment: 'cable',     emoji: '🔄' },
+  { id: 'db_press',     name: 'Développé Couché (Haltères)',      muscle: 'chest',      equipment: 'dumbbell',  emoji: '🏋' },
+  { id: 'dips',         name: 'Dips (Torse)',                     muscle: 'chest',      equipment: 'bodyweight',emoji: '💪' },
+  { id: 'ohp',          name: 'Développé Militaire (Barre)',      muscle: 'shoulders',  equipment: 'barbell',   emoji: '🏋' },
+  { id: 'cable_fly',    name: 'Écartés Poulie Vis-à-Vis',         muscle: 'chest',      equipment: 'cable',     emoji: '🔄' },
   // Tirage
-  { id: 'lat_pulldown', name: 'Tirage Poitrine Prise Large',   muscle: 'back',       equipment: 'cable',     emoji: '🔄' },
-  { id: 'bb_row',       name: 'Rowing Barre Buste Penché',     muscle: 'back',       equipment: 'barbell',   emoji: '🏋' },
-  { id: 'machine_row',  name: 'Rowing Machine Assis',          muscle: 'back',       equipment: 'machine',   emoji: '⚙' },
-  { id: 'pullup',       name: 'Tractions (Pronation)',         muscle: 'back',       equipment: 'bodyweight',emoji: '💪' },
+  { id: 'lat_pulldown', name: 'Tirage Poitrine Prise Large',      muscle: 'back',       equipment: 'cable',     emoji: '🔄' },
+  { id: 'bb_row',       name: 'Rowing (Barre)',                   muscle: 'back',       equipment: 'barbell',   emoji: '🏋' },
+  { id: 'machine_row',  name: 'Rowing Machine Assis',             muscle: 'back',       equipment: 'machine',   emoji: '⚙' },
+  { id: 'pullup',       name: 'Tractions (Pronation)',            muscle: 'back',       equipment: 'bodyweight',emoji: '💪' },
   // Isolation
-  { id: 'lateral',      name: 'Élévations Latérales Haltères', muscle: 'shoulders',  equipment: 'dumbbell',  emoji: '🏋' },
-  { id: 'face_pull',    name: 'Face Pull Poulie Haute',        muscle: 'rear_delt',  equipment: 'cable',     emoji: '🔄' },
-  { id: 'curl_incline', name: 'Curl Incliné Haltères',         muscle: 'biceps',     equipment: 'dumbbell',  emoji: '💪' },
-  { id: 'tricep_rope',  name: 'Extension Triceps Corde',       muscle: 'triceps',    equipment: 'cable',     emoji: '🔄' }
+  { id: 'lateral',      name: 'Élévations Latérales (Haltères)',  muscle: 'shoulders',  equipment: 'dumbbell',  emoji: '🏋' },
+  { id: 'face_pull',    name: 'Face Pull',                        muscle: 'rear_delt',  equipment: 'cable',     emoji: '🔄' },
+  { id: 'curl_incline', name: 'Curl Incliné (Haltères)',          muscle: 'biceps',     equipment: 'dumbbell',  emoji: '💪' },
+  { id: 'tricep_rope',  name: 'Extension Triceps (Corde)',        muscle: 'triceps',    equipment: 'cable',     emoji: '🔄' }
 ];
 
 var SWIPE_STATUSES = { LOVE: 'love', DONE: 'done', NEVER: 'never', AVOID: 'avoid' };

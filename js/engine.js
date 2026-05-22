@@ -5322,22 +5322,27 @@ function hasUserDoneExercise(exoName) {
   if (!exoName) return false;
   var normalized = exoName.trim().toLowerCase();
 
-  // 1. Logs réels
+  // 1. Logs réels — match strict d'abord (rapide), fuzzy ensuite via matchExoName
   if (db.logs && db.logs.length) {
     var inLogs = db.logs.some(function(log) {
       return (log.exercises || []).some(function(e) {
-        return e.name && e.name.trim().toLowerCase() === normalized;
+        if (!e.name) return false;
+        if (e.name.trim().toLowerCase() === normalized) return true;
+        return typeof matchExoName === 'function' && matchExoName(e.name, exoName);
       });
     });
     if (inLogs) return true;
   }
 
-  // 2. Cold start résolu via swipe onboarding (love / done)
+  // 2. Cold start résolu via swipe onboarding (love / done) — fuzzy match
+  // pour absorber les variantes "Soulevé de Terre Roumain" vs "...(Barre)".
   var seed = db.user && db.user._swipeSeedExercises;
   if (seed && seed.length) {
-    if (seed.some(function(n) { return n && n.trim().toLowerCase() === normalized; })) {
-      return true;
-    }
+    return seed.some(function(n) {
+      if (!n) return false;
+      if (n.trim().toLowerCase() === normalized) return true;
+      return typeof matchExoName === 'function' && matchExoName(n, exoName);
+    });
   }
 
   return false;

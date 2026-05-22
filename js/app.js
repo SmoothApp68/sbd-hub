@@ -2198,6 +2198,32 @@ function _obGenerateProgramCore() {
       i++;
       setTimeout(animStep, stepDur);
     } else {
+      // Inférence (Gemini) — remplir les champs manquants AVANT generateProgram
+      // pour que db.user.level inféré soit utilisé. N'écrase jamais l'existant.
+      if (typeof inferMissingData === 'function') {
+        try {
+          var _enriched = inferMissingData({
+            trainingMode: db.user.trainingMode,
+            level:        db.user.level,
+            mat:          obMat,
+            freq:         obFreq,
+            duration:     obDuration,
+            goals:        db.user.goal ? [db.user.goal] : null,
+            gender:       db.user.gender,
+            bw:           db.user.bw,
+            obProfile:    db.user.obProfile
+          });
+          if (!db.user.level && _enriched.level) db.user.level = _enriched.level;
+          if ((db.user.vocabLevel === undefined || db.user.vocabLevel === null) && _enriched.vocabLevel !== undefined) {
+            db.user.vocabLevel = _enriched.vocabLevel;
+          }
+          if (db.user.skipPRs === undefined && _enriched.skipPRs !== undefined) db.user.skipPRs = _enriched.skipPRs;
+          if (db.user.skipRPE === undefined && _enriched.skipRPE !== undefined) db.user.skipRPE = _enriched.skipRPE;
+        } catch (eInfer) {
+          if (typeof logErrorToSupabase === 'function') logErrorToSupabase('infer_missing_data', String(eInfer && eInfer.message || eInfer), '_obGenerateProgramCore');
+        }
+      }
+
       // Compute injuries from db
       obInjuries = (db.user.injuries || [])
         .filter(function(inj) { return inj && inj.active && inj.level >= 1; })
@@ -2207,6 +2233,19 @@ function _obGenerateProgramCore() {
       var generated = generateProgram([goalObj], obFreq, obMat, obDuration, obInjuries, obCardio, null, null, db.user.level);
       db.generatedProgram = generated;
       db.user.programParams = { goals: [goalObj.id], freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, level: db.user.level };
+
+      // Compléter programParams avec les inférences (split notamment)
+      if (typeof inferMissingData === 'function') {
+        try {
+          var _enrichedPP = inferMissingData({
+            trainingMode: db.user.trainingMode,
+            freq:         obFreq,
+            duration:     obDuration,
+            obProfile:    db.user.obProfile
+          });
+          if (!db.user.programParams.split && _enrichedPP.split) db.user.programParams.split = _enrichedPP.split;
+        } catch(e) {}
+      }
       db.routine = {};
       db.routineExos = db.routineExos || {};
       generated.forEach(function(d) {

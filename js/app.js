@@ -14104,6 +14104,29 @@ function migrateExerciseNames() {
   db.logs = db.logs.map(function(log) { return ingestHevyLog(log); });
 }
 
+// db.user.targets = source of truth pour objectifs SBD (lu par Coach, Records, Maison).
+// Cette migration garantit l'existence du champ + fusionne un éventuel db.user.prObjectives legacy.
+function migrateUserTargets() {
+  if (!db.user) db.user = {};
+  if (!db.user.targets || typeof db.user.targets !== 'object') {
+    db.user.targets = { bench: 100, squat: 120, deadlift: 140 };
+  }
+  ['bench','squat','deadlift'].forEach(function(k) {
+    if (typeof db.user.targets[k] !== 'number' || db.user.targets[k] <= 0) {
+      var defaults = { bench: 100, squat: 120, deadlift: 140 };
+      db.user.targets[k] = defaults[k];
+    }
+  });
+  if (db.user.prObjectives && typeof db.user.prObjectives === 'object') {
+    ['bench','squat','deadlift'].forEach(function(k) {
+      if (typeof db.user.prObjectives[k] === 'number' && db.user.prObjectives[k] > 0) {
+        db.user.targets[k] = db.user.prObjectives[k];
+      }
+    });
+    delete db.user.prObjectives;
+  }
+}
+
 // v212 — Synchronise db.routine avec programParams.selectedDays.
 // Bug observé (D'Jo/Léa) : routine peut diverger des selectedDays après
 // migrations multiples — un jour sélectionné apparaît en Repos ou un
@@ -14188,6 +14211,7 @@ function syncRoutineWithSelectedDays() {
   renderProgramViewer();
 
   if (typeof migrateExerciseNames === 'function') migrateExerciseNames();
+  if (typeof migrateUserTargets === 'function') migrateUserTargets();
   migrateDUPRegisters();
   migrateActivityData();
   if (db.user.morpho === undefined) db.user.morpho = null;

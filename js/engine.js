@@ -5760,3 +5760,86 @@ function buildE1rmHistory(liftType) {
 
   return history.sort(function(a, b) { return a.date - b.date; });
 }
+
+// --- Section PR Celebration (Gemini) ---
+
+function renderPRCelebration(liftName, newPR, oldPR, vocabLevel, isPrimary) {
+  var level = vocabLevel || (typeof db !== 'undefined' && db.user && db.user.vocabLevel) || 2;
+  var gain = Math.round((newPR - oldPR) * 10) / 10;
+  var gainStr = gain > 0 ? '+' + gain + ' kg' : '';
+  var liftColors = {
+    'Squat': 'var(--color-squat)',
+    'Développé couché': 'var(--color-bench)',
+    'Soulevé de terre': 'var(--color-deadlift)'
+  };
+  var accentColor = liftColors[liftName] || 'var(--accent)';
+
+  if (isPrimary) {
+    var headlineL3 = 'Nouveau maximum estimé.';
+    var headlineL2 = 'Nouveau record !';
+    var subL3 = 'e1RM ' + newPR + ' kg · ∆' + gainStr + ' vs dernier référentiel.';
+    var subL2 = 'Tu viens de battre ton PR de ' + gainStr + ' !';
+    return '<div style="text-align:center;padding:24px 16px;">'
+      + '<div style="font-size:48px;margin-bottom:12px;">⚡</div>'
+      + '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Record Personnel</div>'
+      + '<div style="font-size:24px;font-weight:800;color:var(--text-primary);margin-bottom:4px;">' + liftName + '</div>'
+      + '<div style="font-size:52px;font-weight:900;background:linear-gradient(135deg,' + accentColor + ',var(--purple));'
+      + '-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1;margin-bottom:8px;">' + newPR + ' kg</div>'
+      + (gainStr ? '<div style="font-size:14px;color:var(--success);font-weight:600;margin-bottom:4px;">' + gainStr + ' vs précédent</div>' : '')
+      + '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;">'
+      + (level >= 3 ? subL3 : subL2) + '</div>'
+      + '</div>';
+  }
+  return '<div style="background:rgba(50,215,75,0.08);border:1px solid rgba(50,215,75,0.25);'
+    + 'border-radius:14px;padding:14px 16px;text-align:center;">'
+    + '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">' + liftName + '</div>'
+    + '<div style="font-size:26px;font-weight:800;color:var(--success);">' + newPR + ' kg</div>'
+    + (gainStr ? '<div style="font-size:12px;color:var(--text-secondary);">' + gainStr + '</div>' : '')
+    + '</div>';
+}
+
+function showPRToastInSession(liftName, newPR, oldPR) {
+  var existing = document.getElementById('prToastSession');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  var gain = Math.round((newPR - oldPR) * 10) / 10;
+  var t = document.createElement('div');
+  t.id = 'prToastSession';
+  t.innerHTML = '⚡ PR ' + liftName + ' · ' + newPR + ' kg'
+    + (gain > 0 ? ' <span style="color:var(--success);font-size:11px;">+' + gain + '</span>' : '');
+  t.style.cssText = [
+    'position:fixed', 'top:16px', 'left:50%',
+    'transform:translateX(-50%)',
+    'background:linear-gradient(135deg,rgba(10,132,255,0.95),rgba(191,90,242,0.95))',
+    'color:white', 'font-size:13px', 'font-weight:700',
+    'padding:10px 20px', 'border-radius:20px',
+    'z-index:9999', 'white-space:nowrap',
+    'box-shadow:0 4px 20px rgba(10,132,255,0.4)',
+    'pointer-events:none'
+  ].join(';');
+  document.body.appendChild(t);
+  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 3000);
+}
+
+function checkAndCelebratePR(exoName, weight, reps, rpe) {
+  try {
+    var liftType = typeof getSBDType === 'function' ? getSBDType(exoName) : null;
+    if (!liftType) return;
+    if (rpe && parseFloat(rpe) >= 9.5) return;
+    if (!weight || !reps || weight <= 0 || reps <= 0) return;
+    var e1rm = typeof calcE1RM === 'function'
+      ? calcE1RM(weight, reps)
+      : weight * (36 / (37 - Math.min(reps, 36)));
+    if (!e1rm || e1rm <= 0) return;
+    var currentBest = (typeof db !== 'undefined' && db.bestPR && db.bestPR[liftType]) || 0;
+    if (currentBest <= 0) return;
+    if (e1rm < currentBest * 1.02) return;
+    var liftLabels = { squat: 'Squat', bench: 'Développé couché', deadlift: 'Soulevé de terre' };
+    var liftName = liftLabels[liftType] || liftType;
+    var newPR = Math.round(e1rm * 2) / 2;
+    var vocabLevel = (db.user && db.user.vocabLevel) || 2;
+    if (typeof showPRToastInSession === 'function') showPRToastInSession(liftName, newPR, currentBest);
+    if (!db._pendingPRCelebration) {
+      db._pendingPRCelebration = { liftName: liftName, newPR: newPR, oldPR: currentBest, isPrimary: true };
+    }
+  } catch(e) {}
+}

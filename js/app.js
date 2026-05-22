@@ -27580,6 +27580,12 @@ function goToggleSetComplete(exoIdx, setIdx) {
         if (_prData) setTimeout(function() { showPRConfirmation(_prData); }, 500);
       }
     } catch(e) {}
+    // PR 2% — toast non-bloquant + queue _pendingPRCelebration (Gemini)
+    try {
+      if (set.type !== 'warmup' && typeof checkAndCelebratePR === 'function') {
+        checkAndCelebratePR(exo.name, parseFloat(set.weight), parseInt(set.reps), set.rpe);
+      }
+    } catch(e) {}
     // RPE Dissonance — comparer RPE déclaré vs temps depuis la série précédente
     try {
       if (set.rpe && typeof detectRPEDissonance === 'function'
@@ -30546,6 +30552,16 @@ function goFinishWorkout() {
       _prCelebrated = true;
     });
     updateLeaderboardSnapshot();
+    // Consume _pendingPRCelebration queue if showPROverlay didn't fire (accessory PRs)
+    if (!_prCelebrated && db._pendingPRCelebration) {
+      var _ppc = db._pendingPRCelebration;
+      if (typeof renderPRCelebration === 'function' && typeof showModal === 'function') {
+        var _ppcHtml = renderPRCelebration(_ppc.liftName, _ppc.newPR, _ppc.oldPR,
+          (db.user && db.user.vocabLevel) || 2, _ppc.isPrimary);
+        setTimeout(function() { showModal('', _ppcHtml); }, 700);
+      }
+    }
+    db._pendingPRCelebration = null;
   } catch(e) {}
 
   // LP 3-Strikes: detect failures (RPE ≥ 9.5 on last work set = missed reps)

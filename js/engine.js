@@ -5319,13 +5319,28 @@ function getStalenessSubstitute(exoName) {
  * @returns {boolean}
  */
 function hasUserDoneExercise(exoName) {
-  if (!exoName || !db.logs || !db.logs.length) return false;
+  if (!exoName) return false;
   var normalized = exoName.trim().toLowerCase();
-  return db.logs.some(function(log) {
-    return (log.exercises || []).some(function(e) {
-      return e.name && e.name.trim().toLowerCase() === normalized;
+
+  // 1. Logs réels
+  if (db.logs && db.logs.length) {
+    var inLogs = db.logs.some(function(log) {
+      return (log.exercises || []).some(function(e) {
+        return e.name && e.name.trim().toLowerCase() === normalized;
+      });
     });
-  });
+    if (inLogs) return true;
+  }
+
+  // 2. Cold start résolu via swipe onboarding (love / done)
+  var seed = db.user && db.user._swipeSeedExercises;
+  if (seed && seed.length) {
+    if (seed.some(function(n) { return n && n.trim().toLowerCase() === normalized; })) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**

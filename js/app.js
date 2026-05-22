@@ -223,6 +223,10 @@ let db = (() => {
     if (p.user.barWeight === undefined) p.user.barWeight = 20;
     // Navigation mode (Option A : séance inline sur Maison, onglet GO masqué)
     if (p.user.navMode === undefined) p.user.navMode = 'A';
+    // Swipe exercices post-onboarding (Gemini) — jamais écraser
+    if (p.user._swipeCompleted === undefined) p.user._swipeCompleted = false;
+    if (!p.user._swipeResults) p.user._swipeResults = {};
+    if (!p.user._swipeSeedExercises) p.user._swipeSeedExercises = [];
     // Units + medical consent
     if (p.user.units === undefined) p.user.units = 'kg';
     if (p.user.medicalConsent === undefined) p.user.medicalConsent = false;
@@ -2884,8 +2888,23 @@ function obFinish() {
   refreshUI();
   renderProgramViewer();
   showToast('Bienvenue ' + (db.user.name||'') + ' ! 🚀');
+  // Bypass magicStart si le programme a déjà été généré + déclencher le swipe
+  // (Gemini : "Instant Value — jamais bloquer avant de montrer le programme")
+  var _hasPlan = !!(db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.length);
+  var _isPowerlifting = db.user && db.user.trainingMode === 'powerlifting';
+  if (_hasPlan && !db._magicStartDone) {
+    db._magicStartDone = true;
+    saveDB();
+  }
   if (!db._magicStartDone) {
     setTimeout(showMagicStart, 400);
+  }
+  if (_hasPlan && !_isPowerlifting && !db.user._swipeCompleted) {
+    setTimeout(function() {
+      try { renderSwipeOnboarding(); } catch (e) {
+        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderSwipeOnboarding');
+      }
+    }, 800);
   }
   // Enchaîner l'onboarding social si user connecté et pas encore de pseudo
   setTimeout(async function() {
@@ -10913,6 +10932,168 @@ function renderRecordsPersonnels() {
     + '</div>'
     + '<div style="background:#141428;border-radius:14px;overflow:hidden;margin-bottom:8px;">' + rows + '</div>'
     + '</div>';
+}
+
+// ── SWIPE EXERCICES — Onboarding bonus (Gemini) ──────────────────────────────
+// 16 cartes, décision binaire rapide. Alimente buildUserAccessoryPool() dès
+// le départ et résout le "cold start" sur les exercices accessoires.
+var SWIPE_EXERCISES = [
+  // Chaîne postérieure & Jambes
+  { id: 'rdl',          name: 'Soulevé de Terre Roumain',     muscle: 'hamstrings', equipment: 'barbell',   emoji: '🏋' },
+  { id: 'bulgarian',    name: 'Squat Bulgare',                 muscle: 'quads',      equipment: 'dumbbell',  emoji: '🦵' },
+  { id: 'leg_press',    name: 'Presse à Cuisses',              muscle: 'quads',      equipment: 'machine',   emoji: '⚙' },
+  { id: 'leg_curl',     name: 'Leg Curl Assis',                muscle: 'hamstrings', equipment: 'machine',   emoji: '⚙' },
+  // Poussée
+  { id: 'db_press',     name: 'Développé Couché Haltères',     muscle: 'chest',      equipment: 'dumbbell',  emoji: '🏋' },
+  { id: 'dips',         name: 'Dips (Torse)',                  muscle: 'chest',      equipment: 'bodyweight',emoji: '💪' },
+  { id: 'ohp',          name: 'Développé Militaire Barre',     muscle: 'shoulders',  equipment: 'barbell',   emoji: '🏋' },
+  { id: 'cable_fly',    name: 'Écartés Poulie Vis-à-Vis',      muscle: 'chest',      equipment: 'cable',     emoji: '🔄' },
+  // Tirage
+  { id: 'lat_pulldown', name: 'Tirage Poitrine Prise Large',   muscle: 'back',       equipment: 'cable',     emoji: '🔄' },
+  { id: 'bb_row',       name: 'Rowing Barre Buste Penché',     muscle: 'back',       equipment: 'barbell',   emoji: '🏋' },
+  { id: 'machine_row',  name: 'Rowing Machine Assis',          muscle: 'back',       equipment: 'machine',   emoji: '⚙' },
+  { id: 'pullup',       name: 'Tractions (Pronation)',         muscle: 'back',       equipment: 'bodyweight',emoji: '💪' },
+  // Isolation
+  { id: 'lateral',      name: 'Élévations Latérales Haltères', muscle: 'shoulders',  equipment: 'dumbbell',  emoji: '🏋' },
+  { id: 'face_pull',    name: 'Face Pull Poulie Haute',        muscle: 'rear_delt',  equipment: 'cable',     emoji: '🔄' },
+  { id: 'curl_incline', name: 'Curl Incliné Haltères',         muscle: 'biceps',     equipment: 'dumbbell',  emoji: '💪' },
+  { id: 'tricep_rope',  name: 'Extension Triceps Corde',       muscle: 'triceps',    equipment: 'cable',     emoji: '🔄' }
+];
+
+var SWIPE_STATUSES = { LOVE: 'love', DONE: 'done', NEVER: 'never', AVOID: 'avoid' };
+
+function renderSwipeOnboarding() {
+  if (!db.user) return;
+  if (!db.user._swipeState) db.user._swipeState = { index: 0, results: {} };
+  var state = db.user._swipeState;
+  var exercises = SWIPE_EXERCISES;
+
+  // Supprimer toute card swipe existante avant de re-render
+  var existing = document.querySelector('[data-swipe-container]');
+  if (existing) existing.remove();
+
+  if (state.index >= exercises.length) {
+    applySwipeResults(state.results);
+    return;
+  }
+
+  var exo = exercises[state.index];
+  var progress = Math.round((state.index / exercises.length) * 100);
+
+  var html = '<div data-swipe-container style="position:fixed;top:0;left:0;width:100%;'
+    + 'height:100vh;height:100dvh;background:#0a0a14;z-index:9998;display:flex;'
+    + 'flex-direction:column;align-items:center;justify-content:center;padding:20px;'
+    + 'box-sizing:border-box;">'
+    + '<div style="width:100%;max-width:400px;margin-bottom:16px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:12px;color:#7c6bff;font-family:monospace;">'
+    + 'Personnalisation · ' + (state.index + 1) + '/' + exercises.length
+    + '</span>'
+    + '<button onclick="skipSwipeOnboarding()" style="background:transparent;border:none;'
+    + 'color:#4a4a6a;font-size:11px;cursor:pointer;">Passer ✕</button>'
+    + '</div>'
+    + '<div style="background:#1a1a2e;border-radius:3px;height:4px;">'
+    + '<div style="background:#7c6bff;height:4px;border-radius:3px;width:' + progress + '%;transition:width 0.3s;"></div>'
+    + '</div>'
+    + '</div>'
+    + '<div style="background:#141428;border-radius:20px;padding:32px 24px;width:100%;'
+    + 'max-width:400px;text-align:center;margin-bottom:24px;border:1px solid #2a2a45;">'
+    + '<div style="font-size:48px;margin-bottom:12px;">' + exo.emoji + '</div>'
+    + '<div style="font-size:20px;font-weight:700;color:#e8e8ff;margin-bottom:6px;">' + exo.name + '</div>'
+    + '<div style="font-size:11px;color:#4a4a6a;font-family:monospace;letter-spacing:1px;">'
+    + exo.muscle.toUpperCase() + ' · ' + exo.equipment.toUpperCase()
+    + '</div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:400px;">'
+    + '<button onclick="swipeAnswer(\'avoid\')" style="padding:14px;background:#1f1010;'
+    + 'border:1px solid #3a1a1a;border-radius:14px;color:#ff6b6b;font-size:13px;cursor:pointer;">'
+    + '🚫 À éviter</button>'
+    + '<button onclick="swipeAnswer(\'never\')" style="padding:14px;background:#141428;'
+    + 'border:1px solid #2a2a45;border-radius:14px;color:#9999bb;font-size:13px;cursor:pointer;">'
+    + '✗ Jamais fait</button>'
+    + '<button onclick="swipeAnswer(\'done\')" style="padding:14px;background:#141428;'
+    + 'border:1px solid #2a2a45;border-radius:14px;color:#7c6bff;font-size:13px;cursor:pointer;">'
+    + '✓ Je l\'ai fait</button>'
+    + '<button onclick="swipeAnswer(\'love\')" style="padding:14px;background:#1a1a3a;'
+    + 'border:1px solid #7c6bff;border-radius:14px;color:#e8e8ff;font-size:13px;font-weight:600;cursor:pointer;">'
+    + '❤ Je le fais</button>'
+    + '</div>'
+    + '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+window.swipeAnswer = function(status) {
+  if (!db.user || !db.user._swipeState) return;
+  var state = db.user._swipeState;
+  var exo = SWIPE_EXERCISES[state.index];
+  if (!exo) return;
+  state.results[exo.id] = {
+    name: exo.name,
+    status: status,
+    muscle: exo.muscle,
+    equipment: exo.equipment
+  };
+  state.index++;
+  db.user._swipeState = state;
+  renderSwipeOnboarding();
+};
+
+window.skipSwipeOnboarding = function() {
+  var existing = document.querySelector('[data-swipe-container]');
+  if (existing) existing.remove();
+  if (db.user) {
+    db.user._swipeCompleted = true;
+    saveDB();
+  }
+};
+
+function applySwipeResults(results) {
+  if (!results || !db.user) return;
+
+  var entries = Object.keys(results).map(function(k) { return results[k]; });
+
+  // 1. Bannir les exercices "À éviter"
+  var avoided = entries.filter(function(r) { return r.status === 'avoid'; })
+                       .map(function(r) { return r.name; });
+  var bans = (db.user.bannedExercises || []).slice();
+  avoided.forEach(function(n) { if (bans.indexOf(n) < 0) bans.push(n); });
+  db.user.bannedExercises = bans;
+
+  // 2. Seed cold start : love/done = exercice pratiqué
+  var practiced = entries.filter(function(r) { return r.status === 'love' || r.status === 'done'; });
+  var seedNames = practiced.map(function(r) { return r.name; });
+  var existingSeed = db.user._swipeSeedExercises || [];
+  seedNames.forEach(function(n) { if (existingSeed.indexOf(n) < 0) existingSeed.push(n); });
+  db.user._swipeSeedExercises = existingSeed;
+
+  // 3. Inférence matériel — si beaucoup de "jamais fait" machine + câble → halteres
+  var neverOrAvoid = entries.filter(function(r) { return r.status === 'never' || r.status === 'avoid'; });
+  var machineNever = neverOrAvoid.filter(function(r) { return r.equipment === 'machine'; });
+  var cableNever   = neverOrAvoid.filter(function(r) { return r.equipment === 'cable'; });
+  if (machineNever.length >= 3 && cableNever.length >= 2 && !db.user._matConfirmed) {
+    if (!db.user.programParams) db.user.programParams = {};
+    if (!db.user.programParams.mat) db.user.programParams.mat = 'halteres';
+  }
+
+  // 4. Inférence niveau technique
+  var advancedNever = ['rdl', 'bulgarian', 'ohp', 'pullup'].filter(function(id) {
+    return results[id] && results[id].status === 'never';
+  });
+  if (advancedNever.length >= 3 && db.user.level === 'intermediaire') {
+    db.user._levelAdjusted = 'debutant_tech';
+  }
+
+  // 5. Marquer comme complété
+  db.user._swipeCompleted = true;
+  db.user._swipeResults = results;
+  if (db.user._swipeState) delete db.user._swipeState;
+
+  var existing = document.querySelector('[data-swipe-container]');
+  if (existing) existing.remove();
+
+  saveDB();
+  if (typeof showToast === 'function') showToast('✅ Préférences enregistrées — Programme personnalisé !');
 }
 
 // ── RENDU MÉSOCYCLE (v241) ────────────────────────────────────────────────────

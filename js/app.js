@@ -8601,6 +8601,90 @@ function renderStatsCompact() {
   return '<div style="display:flex;align-items:center;background:#141428;border-radius:10px;padding:6px 8px;margin-bottom:8px;">' + cols + '</div>';
 }
 
+function renderStatsHUD() {
+  var logs = db.logs || [];
+  var level = (db.user && db.user.vocabLevel) || 2;
+  var cutoff30 = Date.now() - 30*86400000;
+  var logs30 = logs.filter(function(l) { return l.timestamp >= cutoff30; });
+  var sessions30 = logs30.length;
+  var tonnage30 = logs30.reduce(function(acc, l) {
+    if (l.volume) return acc + l.volume;
+    (l.exercises || []).forEach(function(e) {
+      (e.allSets || e.sets || []).forEach(function(s) {
+        if (s && !s.isWarmup && s.setType !== 'warmup' && s.weight && s.reps) acc += s.weight * s.reps;
+      });
+    });
+    return acc;
+  }, 0);
+  var tonnageStr = tonnage30 >= 1000
+    ? (Math.round(tonnage30 / 100) / 10) + ' t'
+    : Math.round(tonnage30) + ' kg';
+
+  // Stat étoile : biggest e1RM delta in 30d across SBD
+  var starLabel = '', starDelta = 0, starLift = '';
+  var sbdKeys = [
+    { key: 'squat', label: level >= 3 ? 'Squat' : 'Squat', color: 'var(--color-squat)' },
+    { key: 'bench', label: level >= 3 ? 'Développé couché' : 'Bench', color: 'var(--color-bench)' },
+    { key: 'deadlift', label: level >= 3 ? 'Soulevé de terre' : 'Deadlift', color: 'var(--color-deadlift)' }
+  ];
+  var starColor = 'var(--accent)';
+  sbdKeys.forEach(function(lift) {
+    if (typeof buildE1rmHistory !== 'function') return;
+    var hist = buildE1rmHistory(lift.key);
+    if (hist.length < 2) return;
+    var oldest = hist[0].e1rm;
+    var newest = hist[hist.length - 1].e1rm;
+    var delta = newest - oldest;
+    if (delta > starDelta) { starDelta = delta; starLabel = lift.label; starColor = lift.color; starLift = lift.key; }
+  });
+  var starDeltaStr = starDelta > 0 ? '+' + Math.round(starDelta * 10) / 10 + ' kg' : null;
+  var starE1rm = 0;
+  if (starLift && typeof buildE1rmHistory === 'function') {
+    var _hist = buildE1rmHistory(starLift);
+    if (_hist.length > 0) starE1rm = _hist[_hist.length - 1].e1rm;
+  }
+
+  var titleL3 = 'Tableau de bord — 30 jours';
+  var titleL2 = 'Résumé du mois';
+  var htmlStar = starDeltaStr
+    ? '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+      + 'border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;">'
+      + '<div style="font-size:22px;">⭐</div>'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:11px;color:var(--text-secondary);letter-spacing:0.5px;">'
+      + (level >= 3 ? 'Progression maximale e1RM / 90 jours' : 'Ta plus belle progression') + '</div>'
+      + '<div style="font-size:15px;font-weight:700;color:' + starColor + ';margin-top:2px;">'
+      + starLabel + ' · ' + starE1rm + ' kg'
+      + '</div>'
+      + '</div>'
+      + '<div style="text-align:right;">'
+      + '<div style="font-size:18px;font-weight:800;color:var(--success);">' + starDeltaStr + '</div>'
+      + '<div style="font-size:10px;color:var(--text-secondary);">90 jours</div>'
+      + '</div>'
+      + '</div>'
+    : '';
+
+  var kpis = [
+    { val: sessions30 || '—', lbl: level >= 3 ? 'SÉANCES' : 'SÉANCES', color: 'var(--success)' },
+    { val: tonnageStr || '—', lbl: level >= 3 ? 'VOLUME' : 'TONNAGE', color: 'var(--purple)' }
+  ];
+  var kpiHtml = '<div style="display:flex;gap:8px;margin-bottom:8px;">'
+    + kpis.map(function(k) {
+      return '<div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+        + 'border-radius:12px;padding:10px;text-align:center;">'
+        + '<div style="font-size:20px;font-weight:800;color:' + k.color + ';">' + k.val + '</div>'
+        + '<div style="font-size:9px;color:var(--text-secondary);letter-spacing:1px;margin-top:2px;">' + k.lbl + '</div>'
+        + '</div>';
+    }).join('') + '</div>';
+
+  return '<div style="padding:12px 4px 0;">'
+    + '<div style="font-size:11px;color:var(--text-secondary);letter-spacing:0.5px;margin-bottom:8px;">'
+    + (level >= 3 ? titleL3 : titleL2) + '</div>'
+    + htmlStar
+    + kpiHtml
+    + '</div>';
+}
+
 function renderRecordsPersonnels() {
   var targets = (db.user && db.user.targets) || {};
   var lifts = [
@@ -14872,6 +14956,19 @@ function generateCoachAlgoMessage() {
 function showStatsSub(id, btn) {
   if (!id) id = activeStatsSub;
   activeStatsSub = id;
+  // HUD — inject once at top of tab-stats (before sub-nav)
+  try {
+    var _tabStats = document.getElementById('tab-stats');
+    if (_tabStats) {
+      var _hud = document.getElementById('statsHudContainer');
+      if (!_hud) {
+        _hud = document.createElement('div');
+        _hud.id = 'statsHudContainer';
+        _tabStats.insertBefore(_hud, _tabStats.firstChild);
+      }
+      if (typeof renderStatsHUD === 'function') _hud.innerHTML = renderStatsHUD();
+    }
+  } catch(e) {}
   // Deactivate all stats sub-sections
   document.querySelectorAll('#tab-stats .stats-sub-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('#tab-stats .stats-sub-pill').forEach(el => el.classList.remove('active'));

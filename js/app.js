@@ -8440,7 +8440,7 @@ function postponePhaseTransition() {
 
 function renderDash() {
   try {
-    // Carte bienvenue
+    // Carte bienvenue (visible si aucune séance importée)
     const welcomeCard = document.getElementById('welcomeCard');
     if (welcomeCard) {
       const noData = !db.logs || db.logs.length === 0;
@@ -8451,12 +8451,15 @@ function renderDash() {
       }
     }
 
+    // Maison v264 — anciennes cards remplacées par la composition 4 zones
+    // (programme timeline + séance sélectionnée + stats + records personnels)
+    ['dashWeekCard', 'quickLogCard', 'perfCard'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+
     try { renderTodaySessionInline(); } catch (e) {
       if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderTodaySessionInline');
-    }
-
-    try { renderQuickLogCard(); } catch (e) {
-      if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderQuickLogCard');
     }
 
     try {
@@ -8472,15 +8475,6 @@ function renderDash() {
         setTimeout(showPhaseValidationGate, 1000);
       }
     } catch(e) {}
-
-    requestAnimationFrame(function() {
-      try { renderWeekCard(); } catch (e) {
-        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderWeekCard');
-      }
-      try { renderPerfCard(); } catch (e) {
-        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderPerfCard');
-      }
-    });
   } catch (err) {
     if (typeof logErrorToSupabase === 'function') {
       logErrorToSupabase('render_crash', String(err && err.message || err), 'renderDash');
@@ -10633,98 +10627,17 @@ function renderTodayCard() {
     + '</div></div>';
 }
 
-// ── SÉANCE DU JOUR INLINE (Option A — Maison) ─────────────────────────────────
+// ── MAISON v264 — Programme + Séance + Stats + Records ──────────────────────
 function renderTodaySessionInline() {
   var container = document.getElementById('todaySessionInline');
   if (!container) return;
-
-  var todayName = DAYS_FULL[new Date().getDay()];
-  var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
-  var session = days.find(function(d) { return d && d.day === todayName; });
-
-  var todayStr = (typeof getTodayStr === 'function') ? getTodayStr() : new Date().toISOString().slice(0, 10);
-  var done = (db.logs || []).some(function(l) {
-    if (!l) return false;
-    if (l.date === todayStr) return true;
-    if (l.timestamp) {
-      var d = new Date(l.timestamp);
-      if (!isNaN(d.getTime()) && d.toISOString().slice(0, 10) === todayStr) return true;
-    }
-    return false;
-  });
-
-  if (!session || session.rest || !session.exercises || !session.exercises.length) {
-    container.innerHTML = '<div class="card" style="padding:16px;text-align:center;margin:8px 12px;">'
-      + '<div style="font-size:9px;color:var(--sub);letter-spacing:2px;margin-bottom:6px;">SÉANCE DU JOUR</div>'
-      + '<div style="font-size:28px;margin-bottom:4px;">💤</div>'
-      + '<div style="font-size:13px;font-weight:600;color:var(--sub);">Repos · récupération active</div>'
-      + '</div>';
-    return;
-  }
-
-  var exos = session.exercises.filter(function(e) {
-    return e && !e.isWarmup && !(e.setType === 'warmup');
-  });
-
-  var maxShow = 4;
-  var shown = exos.slice(0, maxShow);
-  var remaining = exos.length - maxShow;
-
-  var exoRows = shown.map(function(e) {
-    var setsArr = Array.isArray(e.sets) ? e.sets.filter(function(s) {
-      return s && !s.isWarmup && s.setType !== 'warmup';
-    }) : [];
-    var setsCount = setsArr.length || (typeof e.sets === 'number' ? e.sets : 3);
-    var firstSet = setsArr[0] || {};
-    var reps = e.reps || firstSet.reps || '10';
-    var weight = firstSet.weight || e.workWeight || e.weight || '';
-    var detail;
-    if (e.type === 'cardio') {
-      var cDur = firstSet.durationMin || firstSet.durationSec;
-      detail = cDur ? (firstSet.durationMin ? firstSet.durationMin + ' min' : firstSet.durationSec + 's') : (setsCount + ' min');
-    } else if (e.type === 'time') {
-      detail = firstSet.durationSec ? setsCount + '×' + firstSet.durationSec + 's' : setsCount + '×' + reps;
-    } else if (weight) {
-      detail = setsCount + '×' + reps + ' · <span style="color:#a78bfa;font-weight:600;">' + weight + 'kg</span>';
-    } else {
-      detail = setsCount + '×' + reps + (e.bodyweight ? ' · PDC' : '');
-    }
-    return '<div style="display:flex;justify-content:space-between;align-items:center;'
-      + 'padding:7px 0;border-bottom:0.5px solid var(--border);gap:8px;">'
-      + '<span style="font-size:12px;color:var(--text);flex:1;white-space:nowrap;'
-      + 'overflow:hidden;text-overflow:ellipsis;">' + (e.name || e.exercise || '') + '</span>'
-      + '<span style="font-size:11px;color:var(--sub);font-family:ui-monospace,monospace;'
-      + 'flex-shrink:0;">' + detail + '</span>'
-      + '</div>';
-  }).join('');
-
-  if (remaining > 0) {
-    exoRows += '<div style="font-size:11px;color:var(--sub);padding:8px 0 0;text-align:center;">+'
-      + remaining + ' exercice' + (remaining > 1 ? 's' : '') + '…</div>';
-  }
-
-  var durMin = (db.user && db.user.programParams && db.user.programParams.duration)
-    || (db.user && db.user.trainingDuration) || 90;
-
-  var btnHtml = done
-    ? '<div style="width:100%;padding:13px;background:rgba(26,188,126,0.15);'
-      + 'color:#1abc7e;border-radius:12px;font-size:14px;font-weight:700;text-align:center;'
-      + 'letter-spacing:0.5px;">✓ Séance faite</div>'
-    : '<button onclick="goDirectFromHome()" '
-      + 'style="width:100%;padding:13px;background:var(--accent);border:none;'
-      + 'border-radius:12px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;'
-      + 'letter-spacing:0.5px;">GO — Lancer 💪</button>';
-
-  container.innerHTML = '<div class="card" style="margin:8px 12px;padding:16px;'
-    + 'border:0.5px solid rgba(167,139,250,0.2);">'
-    + '<div style="font-size:9px;color:var(--sub);letter-spacing:2px;margin-bottom:6px;">SÉANCE DU JOUR · ' + todayName.toUpperCase() + '</div>'
-    + '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px;">'
-    + (session.title || 'Séance')
-    + '</div>'
-    + '<div style="font-size:11px;color:var(--sub);margin-bottom:12px;">~' + durMin + ' min</div>'
-    + '<div style="margin-bottom:14px;">' + exoRows + '</div>'
-    + btnHtml
-    + '</div>';
+  var selectedDay = db._selectedProgramDay || null;
+  container.innerHTML =
+    renderProgrammeSemaineTimeline(selectedDay) +
+    '<div style="height:8px;"></div>' +
+    renderSeanceSelected(selectedDay) +
+    renderStatsCompact() +
+    renderRecordsPersonnels();
 }
 
 window.goDirectFromHome = function() {
@@ -10736,6 +10649,271 @@ window.goDirectFromHome = function() {
     }
   }, 150);
 };
+
+window.selectProgramDay = function(jour) {
+  db._selectedProgramDay = jour;
+  renderTodaySessionInline();
+};
+
+// ── 1. PROGRAMME SEMAINE — timeline 7 jours cliquable ────────────────────────
+function renderProgrammeSemaineTimeline(selectedDay) {
+  var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  var joursFR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var todayName = joursFR[new Date().getDay()];
+  var activeName = selectedDay || todayName;
+
+  var typeColors = { hypertrophie: '#7c6bff', force: '#ff6b6b', deload: '#5fc85f' };
+  var currentPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var accentColor = typeColors[currentPhase] || '#7c6bff';
+
+  var weekStart = typeof _getWeekStart === 'function' ? _getWeekStart(Date.now()).getTime() : Date.now() - 7 * 86400000;
+  var loggedDays = {};
+  (db.logs || []).forEach(function(log) {
+    if (log.timestamp >= weekStart) {
+      loggedDays[joursFR[new Date(log.timestamp).getDay()]] = true;
+    }
+  });
+
+  var jours7 = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var totalPlanned = 0;
+  jours7.forEach(function(j) {
+    var d = days.find(function(x) { return x.day === j; });
+    if (d && !d.rest && d.exercises && d.exercises.length) totalPlanned++;
+  });
+  var doneCount = Object.keys(loggedDays).length;
+
+  var cols = jours7.map(function(jour) {
+    var dayData = days.find(function(d) { return d.day === jour; });
+    var isDone = !!loggedDays[jour];
+    var isSelected = jour === activeName;
+    var isRest = !dayData || dayData.rest;
+    var shortName = jour.slice(0, 3).toUpperCase();
+    var sessionTitle = dayData && !isRest
+      ? (dayData.title || jour).replace(/[^A-Za-zÀ-ÿ0-9\s]/g, '').split(' ').slice(0, 2).join(' ')
+      : '';
+
+    var bg = isDone ? 'rgba(26,58,26,0.8)' : isSelected ? 'rgba(26,26,58,1)' : 'rgba(20,20,40,0.7)';
+    var border = isSelected ? '2px solid ' + accentColor : (isDone ? '1px solid #2a4a2a' : '1px solid #1a1a2e');
+    var dayColor = isDone ? '#5fc85f' : isSelected ? accentColor : '#4a4a6a';
+
+    return '<div onclick="selectProgramDay(\'' + jour + '\')" style="flex:1;background:' + bg + ';'
+      + 'border:' + border + ';border-radius:8px;padding:4px 2px;text-align:center;cursor:pointer;min-width:0;">'
+      + '<div style="font-size:7px;font-family:monospace;color:' + dayColor + ';letter-spacing:1px;margin-bottom:4px;">' + shortName + '</div>'
+      + (isDone ? '<div style="font-size:11px;color:#5fc85f;">✓</div>'
+         : isRest ? '<div style="font-size:14px;">💤</div>'
+         : isSelected ? '<div style="width:8px;height:8px;border-radius:50%;background:' + accentColor + ';margin:2px auto;"></div>'
+         : '<div style="font-size:8px;color:#3a3a5a;">·</div>')
+      + (sessionTitle ? '<div style="font-size:6px;color:' + (isSelected ? '#fff' : '#9999bb')
+          + ';margin-top:2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + sessionTitle + '</div>' : '')
+      + (dayData && !isRest
+          ? '<div style="width:14px;height:2px;border-radius:1px;background:' + (isSelected ? accentColor : accentColor + '55') + ';margin:3px auto 0;"></div>'
+          : '')
+      + '</div>';
+  }).join('');
+
+  var weekNum = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || '—';
+
+  return '<div style="padding:0 12px;">'
+    + '<div style="margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">'
+    + '<span style="font-size:8px;color:#9999bb;font-family:monospace;letter-spacing:2px;">SEMAINE ' + weekNum + '</span>'
+    + '<span style="font-size:8px;color:#5fc85f;font-family:monospace;">' + doneCount + '/' + (totalPlanned || '—') + ' ✓</span>'
+    + '</div>'
+    + '<div style="display:flex;gap:4px;">' + cols + '</div>'
+    + '</div>';
+}
+
+// ── 2. SÉANCE SÉLECTIONNÉE — tous les exercices numérotés + GO ───────────────
+function renderSeanceSelected(selectedDay) {
+  var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  var joursFR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var todayName = joursFR[new Date().getDay()];
+  var activeName = selectedDay || todayName;
+  var dayData = days.find(function(d) { return d.day === activeName; });
+  var currentPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var gradient = currentPhase === 'force'
+    ? 'linear-gradient(135deg,#8b1a1a,#5a1010)'
+    : currentPhase === 'deload'
+    ? 'linear-gradient(135deg,#1a3a2a,#0f2a1a)'
+    : 'linear-gradient(135deg,#7c6bff,#4a3ab8)';
+
+  var isToday = activeName === todayName;
+  var dateStr = activeName + (isToday ? ' · Aujourd\'hui' : '');
+
+  if (!dayData || dayData.rest) {
+    return '<div style="padding:0 12px;">'
+      + '<div style="background:#141428;border-radius:14px;padding:16px;text-align:center;margin-bottom:8px;">'
+      + '<div style="font-size:11px;color:#4a4a6a;letter-spacing:2px;font-family:monospace;margin-bottom:8px;">SÉANCE · ' + activeName.toUpperCase() + '</div>'
+      + '<div style="font-size:28px;">💤</div>'
+      + '<div style="font-size:11px;color:#6a6a8a;margin-top:6px;">Repos · récupération active</div>'
+      + '</div></div>';
+  }
+
+  var exercises = dayData.exercises || [];
+  var displayExos = exercises.filter(function(e) {
+    return e && e.name && !e.isWarmup && !(e.setType === 'warmup') && !e.isWarmupOnly;
+  });
+
+  var exosHtml = displayExos.map(function(exo, i) {
+    var setsAll = Array.isArray(exo.sets) ? exo.sets : [];
+    var workSets = setsAll.filter(function(s) { return s && !s.isWarmup && s.setType !== 'warmup'; });
+    var firstWork = workSets[0] || {};
+    var weightStr = firstWork.weight ? firstWork.weight + 'kg' : (exo.useBodyweight || exo.bodyweight ? 'PDC' : '—');
+    var setsStr = workSets.length > 0
+      ? workSets.length + '×' + (firstWork.reps || '—')
+      : (setsAll.length ? setsAll.length + '×—' : '—');
+    var isCardio = /tapis|cardio|natation|vélo|velo|course/i.test(exo.name || '');
+    var opacity = isCardio ? '0.5' : '0.9';
+    var numStr = (i + 1 < 10 ? '0' : '') + (i + 1);
+
+    return '<div style="display:flex;align-items:center;padding:7px 0;">'
+      + '<span style="font-size:7px;color:#fff;opacity:0.35;font-family:monospace;width:18px;flex-shrink:0;">' + numStr + '</span>'
+      + '<span style="font-size:10px;color:#fff;opacity:' + opacity + ';flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (exo.name || '') + '</span>'
+      + '<span style="font-size:9px;color:#fff;opacity:0.8;font-family:monospace;flex-shrink:0;margin-left:8px;">' + setsStr + ' · ' + weightStr + '</span>'
+      + '</div>'
+      + (i < displayExos.length - 1 ? '<div style="height:0.5px;background:#fff;opacity:0.08;"></div>' : '');
+  }).join('');
+
+  var srsScore = null;
+  try { srsScore = typeof computeSRS === 'function' ? computeSRS() : null; } catch (e) {}
+  var coachHint = (srsScore && srsScore.score < 50)
+    ? '<div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:4px 10px;display:inline-block;margin-bottom:8px;">'
+      + '<span style="font-size:7.5px;font-family:monospace;color:#fff;">⚠ Forme basse · adapte le volume</span></div>'
+    : '';
+
+  var duration = dayData.estimatedDuration
+    || (db.user && db.user.programParams && db.user.programParams.duration)
+    || 90;
+
+  var btnHtml = isToday
+    ? '<button onclick="goDirectFromHome()" style="padding:8px 20px;background:#fff;border:none;border-radius:20px;'
+      + 'font-size:11px;font-weight:700;color:#7c6bff;cursor:pointer;">GO 💪</button>'
+    : '<span style="font-size:9px;color:#fff;opacity:0.5;font-family:monospace;">Aperçu</span>';
+
+  return '<div style="padding:0 12px;">'
+    + '<div style="font-size:8px;color:#7c6bff;font-family:monospace;letter-spacing:2px;margin-bottom:4px;">SÉANCE · ' + dateStr.toUpperCase() + '</div>'
+    + '<div style="background:' + gradient + ';border-radius:14px;padding:14px 16px;margin-bottom:8px;">'
+    + coachHint
+    + '<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:2px;">' + (dayData.title || activeName) + '</div>'
+    + '<div style="font-size:9px;color:#fff;opacity:0.6;margin-bottom:8px;">'
+    + duration + ' min · ' + displayExos.length + ' exercice' + (displayExos.length > 1 ? 's' : '')
+    + '</div>'
+    + '<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;margin-bottom:10px;">' + exosHtml + '</div>'
+    + '<div style="display:flex;justify-content:flex-end;align-items:center;">' + btnHtml + '</div>'
+    + '</div></div>';
+}
+
+// ── 3. STATS COMPACT — 1 ligne (4 colonnes) ──────────────────────────────────
+function renderStatsCompact() {
+  var logs = db.logs || [];
+  var weekStart = typeof _getWeekStart === 'function' ? _getWeekStart(Date.now()).getTime() : Date.now() - 7 * 86400000;
+  var weekLogs = logs.filter(function(l) { return l && l.timestamp >= weekStart; });
+  var totalDurationSec = weekLogs.reduce(function(acc, l) { return acc + (l.duration || 0); }, 0);
+  var totalDurationMin = Math.round(totalDurationSec / 60);
+  var totalTonnage = weekLogs.reduce(function(acc, l) {
+    if (l.volume) return acc + l.volume;
+    (l.exercises || []).forEach(function(e) {
+      (e.allSets || e.series || []).forEach(function(s) {
+        if (!s.isWarmup && s.setType !== 'warmup' && s.weight && s.reps) acc += s.weight * s.reps;
+      });
+    });
+    return acc;
+  }, 0);
+
+  var streak = (typeof calcStreak === 'function') ? calcStreak() : ((db.user && db.user.weekStreak) || 0);
+
+  var durationStr;
+  if (totalDurationMin <= 0) durationStr = '—';
+  else if (totalDurationMin >= 60) {
+    var h = Math.floor(totalDurationMin / 60);
+    var m = totalDurationMin % 60;
+    durationStr = h + 'h' + (m > 0 ? (m < 10 ? '0' : '') + m : '');
+  } else durationStr = totalDurationMin + 'm';
+
+  var tonnageStr = totalTonnage > 0
+    ? (totalTonnage >= 1000 ? Math.round(totalTonnage / 1000) + 't' : Math.round(totalTonnage) + 'kg')
+    : '—';
+
+  var items = [
+    { val: weekLogs.length || '—', lbl: 'SÉANCES', color: '#5fc85f' },
+    { val: durationStr,            lbl: 'DURÉE',   color: '#7c6bff' },
+    { val: tonnageStr,             lbl: 'TONNAGE', color: '#ffa500' },
+    { val: streak > 0 ? streak + ' 🔥' : '—', lbl: 'STREAK', color: '#ff8c42' }
+  ];
+
+  var cols = items.map(function(item, i) {
+    return (i > 0 ? '<div style="width:0.5px;background:#2a2a45;margin:4px 0;"></div>' : '')
+      + '<div style="flex:1;text-align:center;min-width:0;">'
+      + '<div style="font-size:13px;font-weight:700;color:' + item.color + ';font-family:ui-monospace,monospace;">' + item.val + '</div>'
+      + '<div style="font-size:6px;color:#4a4a6a;letter-spacing:1px;margin-top:2px;">' + item.lbl + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div style="padding:0 12px;">'
+    + '<div style="display:flex;align-items:center;background:#141428;border-radius:10px;padding:6px 8px;margin-bottom:8px;">' + cols + '</div>'
+    + '</div>';
+}
+
+// ── 4. RECORDS PERSONNELS — barres + messages Gemini ─────────────────────────
+function renderRecordsPersonnels() {
+  var tgt = (db.user && db.user.targets) || {};
+  var lifts = [
+    { key: 'squat', label: 'SQUAT', color: '#4a8fff',
+      pr: (db.bestPR && db.bestPR.squat) || 0,
+      e1rm: (db.exercises && db.exercises['Squat (Barre)'] && db.exercises['Squat (Barre)'].e1rm) || 0,
+      obj: tgt.squat || 160 },
+    { key: 'bench', label: 'BENCH', color: '#5fc85f',
+      pr: (db.bestPR && db.bestPR.bench) || 0,
+      e1rm: (db.exercises && db.exercises['Développé Couché (Barre)'] && db.exercises['Développé Couché (Barre)'].e1rm) || 0,
+      obj: tgt.bench || 143 },
+    { key: 'deadlift', label: 'DEAD', color: '#ff6b6b',
+      pr: (db.bestPR && db.bestPR.deadlift) || 0,
+      e1rm: (db.exercises && db.exercises['Soulevé de Terre (Barre)'] && db.exercises['Soulevé de Terre (Barre)'].e1rm) || 0,
+      obj: tgt.deadlift || 190 }
+  ];
+
+  var plannedTestDate = (db.user && db.user.plannedTestDate)
+    ? new Date(db.user.plannedTestDate)
+    : new Date(Date.now() + 35 * 86400000);
+  var testDateStr = plannedTestDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  var vocabLevel = (db.user && db.user.vocabLevel) || 2;
+
+  var statusColors = { ON_TRACK: '#5fc85f', AMBITIOUS: '#ffa500', FATIGUE_MASKED: '#9966ff' };
+  var statusIcons  = { ON_TRACK: '✓',        AMBITIOUS: '⚡',       FATIGUE_MASKED: '⟳' };
+
+  var rows = lifts.map(function(lift, i) {
+    var history = (typeof buildE1rmHistory === 'function') ? buildE1rmHistory(lift.key) : [];
+    var msg = (typeof getProgressionMessage === 'function')
+      ? getProgressionMessage(lift.key, history, lift.pr, lift.obj, plannedTestDate, vocabLevel)
+      : { line1: '', line2: '', status: 'ON_TRACK' };
+
+    var msgColor = statusColors[msg.status] || lift.color;
+    var msgIcon  = statusIcons[msg.status] || '';
+    var pct = lift.obj > 0 ? Math.min(100, Math.round((lift.pr / lift.obj) * 100)) : 0;
+
+    return (i > 0 ? '<div style="height:0.5px;background:#1e1e2e;"></div>' : '')
+      + '<div style="padding:12px 14px;">'
+      + '<div style="display:flex;align-items:baseline;margin-bottom:5px;">'
+      + '<span style="font-size:9px;color:' + lift.color + ';font-family:monospace;letter-spacing:1px;">' + lift.label + '</span>'
+      + '<span style="flex:1;"></span>'
+      + '<span style="font-size:14px;font-weight:700;color:#e8e8ff;font-family:ui-monospace,monospace;">' + lift.pr + '<span style="font-size:9px;color:#4a4a6a;">kg</span></span>'
+      + '<span style="font-size:9px;color:#4a4a6a;font-family:monospace;margin-left:6px;">/ ' + lift.obj + '</span>'
+      + '</div>'
+      + '<div style="background:#1a1a2e;border-radius:2px;height:4px;margin-bottom:8px;overflow:hidden;">'
+      + '<div style="height:4px;width:' + pct + '%;background:' + lift.color + ';border-radius:2px;opacity:0.85;"></div>'
+      + '</div>'
+      + '<div style="font-size:8.5px;color:' + msgColor + ';font-weight:600;margin-bottom:2px;">' + msgIcon + ' ' + (msg.line1 || '') + '</div>'
+      + '<div style="font-size:7.5px;color:#6a6a8a;">' + (msg.line2 || '') + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div style="padding:0 12px 16px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+    + '<span style="font-size:8px;color:#9999bb;font-family:monospace;letter-spacing:2px;">RECORDS PERSONNELS</span>'
+    + '<span style="font-size:7.5px;color:#4a4a6a;font-family:monospace;">Test : ' + testDateStr + '</span>'
+    + '</div>'
+    + '<div style="background:#141428;border-radius:14px;overflow:hidden;margin-bottom:8px;">' + rows + '</div>'
+    + '</div>';
+}
 
 // ── RENDU MÉSOCYCLE (v241) ────────────────────────────────────────────────────
 

@@ -5996,6 +5996,21 @@ function calibrationStatus() {
   };
 }
 
+// ── COACH MODE — avant / après séance (Gemini) ───────────────────────────────
+// Avant : pas de séance loggée aujourd'hui. Après : séance terminée aujourd'hui.
+function getCoachMode() {
+  var lastEnd = (db && db.user && db.user._lastWorkoutEnd) || 0;
+  // Fallback : timestamp de la séance la plus récente (logs.push → dernier index)
+  if (!lastEnd && db && db.logs && db.logs.length) {
+    var lastLog = db.logs[db.logs.length - 1];
+    lastEnd = (lastLog && lastLog.timestamp) || 0;
+  }
+  if (!lastEnd) return 'before';
+  var todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  return lastEnd >= todayMidnight.getTime() ? 'after' : 'before';
+}
+
 // ── SIGNAUX COMPORTEMENTAUX (Gemini) ─────────────────────────────────────────
 // 1 occurrence = bruit / 2 = tendance / 3 = signal validé → réécriture pool
 function detectBehavioralSignals(prescribedExos, loggedExos) {

@@ -30730,6 +30730,9 @@ function goFinishWorkout() {
   } catch(e) {}
   try { updateActiveProgramStats(); } catch(e) {}
 
+  // Mémoriser la fin de séance pour getCoachMode() (Gemini)
+  try { db.user._lastWorkoutEnd = Date.now(); } catch(e) {}
+
   // Signaux comportementaux (Gemini) : prescrit vs réel → compteurs / bannissements
   try {
     if (typeof detectBehavioralSignals === 'function' && typeof updateBehavioralSignalCounts === 'function') {

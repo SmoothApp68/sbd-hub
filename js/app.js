@@ -259,7 +259,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v264';
+var SW_VERSION = 'trainhub-v265';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -26372,6 +26372,11 @@ function buildGoIdleHtml() {
   // ÉTAPE B: Cold Start RPE 5 protocol card for beginner/senior
   var coldStartRPE5Html = buildColdStartRPE5Html();
 
+  // Banner calibration générique (Gemini) — séance 1 sans PRs ni e1RM connus.
+  // Affiché uniquement si le coldStart RPE5 (profil débutant/senior/yoga) n'est
+  // pas déjà visible — évite la double consigne.
+  var calibrationBannerHtml = (!coldStartRPE5Html) ? renderCalibrationBanner() : '';
+
   // 5-Rep Test card — cold start + beginner profile (TÂCHE 12)
   var fiveRepHtml = '';
   if (typeof isColdStart === 'function' && isColdStart() && db.user && db.user.skipPRs) {
@@ -26433,7 +26438,27 @@ function buildGoIdleHtml() {
     + 'background:none;color:var(--sub);font-size:11px;cursor:pointer;">'
     + '🐞 Signaler un problème</button></div>';
 
-  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml + reportHtml;
+  return renderFCWidget() + toggleHtml + '<div id="go-recap-view">' + draftCardHtml + coldStartRPE5Html + calibrationBannerHtml + fiveRepHtml + heroHtml + altsHtml + draftHtml + '</div>' + debriefHtml + reportHtml;
+}
+
+// ── CALIBRATION BANNER — séance 1, PRs inconnus (Gemini) ─────────────────────
+function renderCalibrationBanner() {
+  var hasE1rm = db.exercises && Object.keys(db.exercises).some(function(k) {
+    var e = db.exercises[k];
+    return e && e.e1rm && e.e1rm > 0;
+  });
+  var sessionCount = (db.logs || []).length;
+  if (hasE1rm || sessionCount > 0) return '';
+
+  return '<div style="background:rgba(124,107,255,0.1);border:1px solid rgba(124,107,255,0.3);'
+    + 'border-radius:12px;padding:12px 14px;margin-bottom:12px;">'
+    + '<div style="font-size:11px;font-weight:700;color:#7c6bff;margin-bottom:4px;">'
+    + '🎯 Séance de calibration</div>'
+    + '<div style="font-size:10px;color:var(--sub);line-height:1.5;">'
+    + 'Pour chaque lift principal, monte progressivement jusqu\'à trouver '
+    + 'une charge où il te reste <strong style="color:var(--text);">2 reps en réserve sur 5</strong>. '
+    + 'L\'algo ajustera ton programme dès la séance suivante.'
+    + '</div></div>';
 }
 
 // Signalement bug utilisateur — log silencieux dans error_logs Supabase

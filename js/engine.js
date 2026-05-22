@@ -5996,6 +5996,43 @@ function calibrationStatus() {
   };
 }
 
+// ── AUTO-TUNER ACTION (Gemini) ───────────────────────────────────────────────
+// Exécute une action AutoTuner : ACCEPT applique, BYPASS rejette. Message vocab-adapté.
+function handleAutoTunerAction(actionType, userChoice, exerciseId) {
+  var vocabLevel = (db && db.user && db.user.vocabLevel) || 2;
+  var result = { status: '', msg: '', mutatePlan: false };
+
+  if (userChoice === 'ACCEPT') {
+    result.status = 'SUCCESS';
+    result.mutatePlan = true;
+    switch (actionType) {
+      case 'ADD_VOLUME':
+        result.msg = vocabLevel >= 3
+          ? '[OK] +1 série injectée dans le protocole. Tonnage recalculé.'
+          : '[OK] Série ajoutée à ta séance !';
+        try { if (typeof applyAutoTunerDelta === 'function') applyAutoTunerDelta(); } catch(e) {}
+        break;
+      case 'DELOAD_FATIGUE':
+        result.msg = vocabLevel >= 3
+          ? '[EXEC] Charge structurelle réduite de 20%.'
+          : '[OK] On allège la séance pour préserver ta récupération.';
+        break;
+      default:
+        result.msg = '[OK] Directive appliquée.';
+    }
+  } else {
+    result.status = 'BYPASS';
+    result.mutatePlan = false;
+    result.msg = vocabLevel >= 3
+      ? '[IGNORE] Directive rejetée. Programmation initiale maintenue.'
+      : '[IGNORE] On reste sur la séance normale pour aujourd\'hui.';
+  }
+
+  try { if (typeof saveDB === 'function') saveDB(); } catch(e) {}
+  try { if (typeof showToast === 'function' && result.msg) showToast(result.msg); } catch(e) {}
+  return result;
+}
+
 // ── COACH MODE — avant / après séance (Gemini) ───────────────────────────────
 // Avant : pas de séance loggée aujourd'hui. Après : séance terminée aujourd'hui.
 function getCoachMode() {

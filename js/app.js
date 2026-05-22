@@ -30676,6 +30676,22 @@ function goFinishWorkout() {
     }
   } catch(e) {}
   try { updateActiveProgramStats(); } catch(e) {}
+
+  // Signaux comportementaux (Gemini) : prescrit vs réel → compteurs / bannissements
+  try {
+    if (typeof detectBehavioralSignals === 'function' && typeof updateBehavioralSignalCounts === 'function') {
+      var _todayPlan = null;
+      if (db.weeklyPlan && db.weeklyPlan.days) {
+        var _todayName = new Date().toLocaleDateString('fr-FR', { weekday: 'long' });
+        _todayName = _todayName.charAt(0).toUpperCase() + _todayName.slice(1);
+        _todayPlan = db.weeklyPlan.days.filter(function(d) { return d.day === _todayName; })[0];
+      }
+      var _prescribed = _todayPlan && _todayPlan.exercises ? _todayPlan.exercises : [];
+      var _signals = detectBehavioralSignals(_prescribed, session.exercises || []);
+      updateBehavioralSignalCounts(_signals);
+    }
+  } catch(e) {}
+
   saveDBNow();
   if (!navigator.onLine) {
     showToast('📱 Séance sauvegardée localement — sync au retour du réseau');

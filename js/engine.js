@@ -5561,11 +5561,21 @@ function buildUserAccessoryPool() {
       if (e.name) logSet.add(e.name.trim());
     });
   });
+  // ε-greedy (Gemini) : 85% exploitation (exo connu) + 15% exploration (nouveau)
+  var bannedNames = (db && db.user && db.user.bannedExercises) || [];
+  function isBanned(name) { return bannedNames.indexOf(name) !== -1; }
   function pickBest(preferences) {
-    for (var i = 0; i < preferences.length; i++) {
-      if (logSet.has(preferences[i])) return preferences[i];
+    var available = preferences.filter(function(p) { return !isBanned(p); });
+    if (available.length === 0) available = preferences.slice();
+    var known = available.filter(function(p) { return logSet.has(p); });
+    var unknown = available.filter(function(p) { return !logSet.has(p); });
+    if (known.length > 0 && unknown.length > 0 && Math.random() < 0.15) {
+      return unknown[Math.floor(Math.random() * unknown.length)];
     }
-    return preferences[preferences.length - 1];
+    for (var i = 0; i < available.length; i++) {
+      if (logSet.has(available[i])) return available[i];
+    }
+    return available[available.length - 1];
   }
   return {
     lundi_squat: {
@@ -5984,6 +5994,135 @@ function calibrationStatus() {
     daysSinceStart: daysSinceStart, unlockedFeatures: unlockedFeatures,
     newFeature: newFeature, coachMsg: coachMsg
   };
+}
+
+// ── SIGNAUX COMPORTEMENTAUX (Gemini) ─────────────────────────────────────────
+// 1 occurrence = bruit / 2 = tendance / 3 = signal validé → réécriture pool
+function detectBehavioralSignals(prescribedExos, loggedExos) {
+  var signals = { substitutions: [], additions: [], skips: [], progressionAnomalies: [] };
+  if (!prescribedExos || !loggedExos) return signals;
+  var INTENSITY_THRESHOLD = 0.15;
+  var normalize = typeof normalizeExoName === 'function' ? normalizeExoName : function(n) { return n; };
+
+  var prescribedNames = prescribedExos.map(function(e) { return normalize(e.name || ''); });
+  var loggedNames     = loggedExos.map(function(e) { return normalize(e.name || ''); });
+
+  prescribedExos.forEach(function(p) {
+    var pName = normalize(p.name || '');
+    if (loggedNames.indexOf(pName) === -1) {
+      signals.skips.push({ name: p.name, canonical: pName, ts: Date.now() });
+    }
+  });
+
+  loggedExos.forEach(function(l) {
+    var lName = normalize(l.name || '');
+    if (prescribedNames.indexOf(lName) === -1) {
+      signals.additions.push({ name: l.name, canonical: lName, ts: Date.now() });
+    }
+  });
+
+  signals.skips.forEach(function(skip) {
+    signals.additions.forEach(function(add) {
+      var skipMuscle = typeof getCanonicalMuscle === 'function' ? getCanonicalMuscle(skip.name) : null;
+      var addMuscle  = typeof getCanonicalMuscle === 'function' ? getCanonicalMuscle(add.name) : null;
+      if (skipMuscle && addMuscle && skipMuscle === addMuscle) {
+        signals.substitutions.push({
+          replaced: skip.name, substitutedWith: add.name,
+          muscle: skipMuscle, ts: Date.now()
+        });
+      }
+    });
+  });
+
+  loggedExos.forEach(function(l) {
+    var prescribed = prescribedExos.filter(function(p) {
+      return normalize(p.name || '') === normalize(l.name || '');
+    })[0];
+    if (!prescribed || !prescribed.targetWeight || prescribed.targetWeight <= 0) return;
+    var lWeight = l.weight || (l.allSets && l.allSets[0] && l.allSets[0].weight) || 0;
+    if (!lWeight) return;
+    var deviation = (lWeight - prescribed.targetWeight) / prescribed.targetWeight;
+    if (Math.abs(deviation) >= INTENSITY_THRESHOLD) {
+      signals.progressionAnomalies.push({
+        name: l.name,
+        deviation: Math.round(deviation * 100),
+        direction: deviation > 0 ? 'OVER' : 'UNDER'
+      });
+    }
+  });
+
+  return signals;
+}
+
+// Met à jour les compteurs de signaux. Bannit l'exo après 3 occurrences (jamais SBD).
+function updateBehavioralSignalCounts(signals) {
+  if (!signals) return false;
+  if (!db.user._signalCounts) db.user._signalCounts = {};
+  var counts = db.user._signalCounts;
+  var THRESHOLD = 3;
+  var poolUpdated = false;
+  var normalize = typeof normalizeExoName === 'function' ? normalizeExoName : function(n) { return n; };
+
+  (signals.substitutions || []).forEach(function(sub) {
+    var key = 'sub_' + normalize(sub.replaced);
+    counts[key] = (counts[key] || 0) + 1;
+    if (counts[key] === THRESHOLD) {
+      if (!db.user.bannedExercises) db.user.bannedExercises = [];
+      if (db.user.bannedExercises.indexOf(sub.replaced) === -1) {
+        db.user.bannedExercises.push(sub.replaced);
+      }
+      if (!db._swipeSeedExercises) db._swipeSeedExercises = [];
+      if (db._swipeSeedExercises.indexOf(sub.substitutedWith) === -1) {
+        db._swipeSeedExercises.push(sub.substitutedWith);
+      }
+      poolUpdated = true;
+      if (!db.user._coachNotifications) db.user._coachNotifications = [];
+      db.user._coachNotifications.push({
+        type: 'BEHAVIORAL_LEARN',
+        msg: 'J\'ai remarqué que tu préfères ' + sub.substitutedWith + '. Pool mis à jour.',
+        ts: Date.now(), read: false
+      });
+    }
+  });
+
+  (signals.skips || []).forEach(function(skip) {
+    var key = 'skip_' + normalize(skip.name);
+    counts[key] = (counts[key] || 0) + 1;
+    // JAMAIS bannir un lift SBD sur signal comportemental — structure sacrée
+    var isSBD = /squat|couché|deadlift|soulevé|bench/i.test(skip.name);
+    if (!isSBD && counts[key] === THRESHOLD) {
+      if (!db.user.bannedExercises) db.user.bannedExercises = [];
+      if (db.user.bannedExercises.indexOf(skip.name) === -1) {
+        db.user.bannedExercises.push(skip.name);
+        poolUpdated = true;
+      }
+    }
+  });
+
+  db.user._signalCounts = counts;
+  if (poolUpdated && typeof saveDB === 'function') saveDB();
+  return poolUpdated;
+}
+
+// ε-greedy (Gemini) : 85% exploitation + 15% exploration. Évite biais de confirmation.
+function applyEpsilonGreedy(pool, allAvailableExos, epsilon) {
+  epsilon = epsilon || 0.15;
+  if (!pool || pool.length === 0) return pool;
+  var explorationCount = Math.max(1, Math.round(pool.length * epsilon));
+  var exploitationCount = pool.length - explorationCount;
+  var exploitPool = pool.slice(0, exploitationCount);
+  var bannedNames = (db.user && db.user.bannedExercises) || [];
+  var currentNames = pool.map(function(e) { return e.name || e; });
+  var candidates = (allAvailableExos || []).filter(function(e) {
+    var name = e.name || e;
+    return currentNames.indexOf(name) === -1 && bannedNames.indexOf(name) === -1;
+  });
+  var explorePool = [];
+  while (explorePool.length < explorationCount && candidates.length > 0) {
+    var idx = Math.floor(Math.random() * candidates.length);
+    explorePool.push(candidates.splice(idx, 1)[0]);
+  }
+  return exploitPool.concat(explorePool);
 }
 
 // ── RPE BINAIRE DÉBUTANT (Gemini) ────────────────────────────────────────────

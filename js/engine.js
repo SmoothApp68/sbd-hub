@@ -5422,6 +5422,61 @@ function assignAccessory(targetExo, fallbacks, reason) {
 }
 
 // ============================================================
+// INFER MISSING DATA — Inférences post-onboarding (Gemini)
+// Réduit le nombre de questions en déduisant les paramètres manquants.
+// N'écrase JAMAIS un champ déjà renseigné.
+// ============================================================
+function inferMissingData(profile) {
+  var p = Object.assign({}, profile || {});
+
+  if (p.trainingMode === 'powerlifting') {
+    p.level = p.level || 'avance';
+    p.mat = p.mat || 'salle';
+    p.duration = p.duration || 105;
+    if (!p.goals || !p.goals.length) p.goals = ['force'];
+    if (p.skipPRs === undefined) p.skipPRs = false;
+  }
+
+  if (p.trainingMode === 'debutant' || p.obProfile === 'debutant') {
+    p.level = p.level || 'debutant';
+    p.duration = p.duration || 60;
+    if (p.vocabLevel === undefined || p.vocabLevel === null) p.vocabLevel = 1;
+    if (p.skipPRs === undefined) p.skipPRs = true;
+    if (p.skipRPE === undefined) p.skipRPE = true;
+  }
+
+  if (p.trainingMode === 'bienetre' || p.trainingMode === 'bien_etre') {
+    p.level = p.level || 'debutant';
+    p.mat = p.mat || 'maison';
+    if (!p.goals || !p.goals.length) p.goals = ['sante'];
+    if (p.skipPRs === undefined) p.skipPRs = true;
+  }
+
+  // Durée inférée depuis la fréquence
+  if (!p.duration) {
+    if (p.freq <= 2) p.duration = 90;
+    else if (p.freq >= 5) p.duration = 60;
+    else if (p.trainingMode === 'powerbuilding') p.duration = 90;
+    else p.duration = 75;
+  }
+
+  // Split inféré depuis la fréquence
+  if (!p.split) {
+    if (p.freq <= 3) p.split = 'full_body';
+    else if (p.freq === 4) p.split = 'upper_lower';
+    else p.split = 'ppl';
+  }
+
+  // Valeurs par défaut prudentes
+  p.bw = p.bw || (p.gender === 'F' ? 65 : 80);
+  p.age = p.age || 25;
+  p.level = p.level || 'intermediaire';
+  if (!Array.isArray(p.injuries)) p.injuries = [];
+
+  return p;
+}
+
+// ============================================================
 // PROGRESSION MESSAGES — Records personnels (Gemini validé)
 // Plafonds physiologiques de progression hebdomadaire en kg.
 // ============================================================

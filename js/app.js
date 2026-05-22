@@ -18318,6 +18318,142 @@ function checkHipThrustProgress(session) {
   });
 }
 
+// ── COACH TERMINAL — 2 modes avant/après séance (Gemini) ────────────────────
+function renderCoachTerminal() {
+  var mode = typeof getCoachMode === 'function' ? getCoachMode() : 'before';
+  var vocabLevel = (db.user && db.user.vocabLevel) || 2;
+  var rows = [];
+
+  // Contexte inline (buildCoachContext n'existe pas — calcul à la volée)
+  var srs = null;
+  try { srs = typeof computeSRS === 'function' ? computeSRS() : null; } catch(e) {}
+  var srsScore = (srs && srs.score) || 75;
+  var acwr = null;
+  try {
+    acwr = (srs && srs.acwr) || (typeof computeACWR === 'function' ? computeACWR() : 1.0);
+  } catch(e) { acwr = 1.0; }
+  var hasJointAlert = false;
+  try {
+    var injuries = typeof checkInjuryPersistence === 'function' ? checkInjuryPersistence() : null;
+    hasJointAlert = injuries && injuries.length > 0;
+  } catch(e) {}
+  var phaseHormone = null, cycleDay = null;
+  try {
+    if (db.user && db.user.menstrualEnabled && typeof getCyclePhase === 'function') {
+      var cp = getCyclePhase();
+      phaseHormone = (cp && cp.phase) || null;
+      cycleDay = (cp && cp.day) || null;
+    }
+  } catch(e) {}
+  var hasAutoTuner = false;
+  try {
+    hasAutoTuner = !!(db.user && db.user.volumeDeltas && Object.keys(db.user.volumeDeltas).some(function(k) {
+      return db.user.volumeDeltas[k] && Math.abs(db.user.volumeDeltas[k]) > 0;
+    }));
+  } catch(e) {}
+  var hasDiscoveryCard = false;
+  try {
+    hasDiscoveryCard = !!(db.user && db.user.exercisesToIntroduce && db.user.exercisesToIntroduce.length > 0);
+  } catch(e) {}
+
+  if (mode === 'before') {
+    // SLOT 1 — État système (priorité absolue)
+    if (hasJointAlert) {
+      rows.push({ cls:'terminal-warning', code:'[ALERTE]', text:'<strong>Zone articulaire signalée.</strong> Exo concerné retiré du bloc.', action:'→', actionFn:"showTab('tab-seances');showSeancesSub('s-plan')" });
+    } else if (srsScore < 40) {
+      rows.push({ cls:'terminal-danger', code:'[SRS_CRIT]', text:'<strong>Crash nerveux.</strong> SRS ' + srsScore + '/100 — Risque blessure x3.', action:'DÉLOAD', actionFn:"showTab('tab-seances');showSeancesSub('s-plan')" });
+    } else if (phaseHormone === 'LUTEAL_LATE') {
+      rows.push({ cls:'terminal-warning', code:'[CYCLE_J' + (cycleDay || '?') + ']', text:'<strong>Phase lutéale.</strong> RPE cibles ajustés -1 unité.', action:'', actionFn:'' });
+    } else {
+      rows.push({ cls:'terminal-success', code:'[SRS]', text:'<strong>' + srsScore + '/100</strong> — ' + (srsScore >= 70 ? 'Système opérationnel.' : 'Récupération en cours.'), action:'', actionFn:'' });
+    }
+
+    // SLOT 2 — ACWR
+    if (vocabLevel >= 2) {
+      var acwrCls = acwr > 1.5 ? 'terminal-danger' : acwr > 1.2 ? 'terminal-warning' : 'terminal-success';
+      var acwrMsg = acwr > 1.5 ? '<strong>Surcharge chronique.</strong> Volume écrêté.' : acwr > 1.2 ? '<strong>Zone de vigilance.</strong> Surveiller.' : '<strong>Nominal.</strong> Aucun frein.';
+      rows.push({ cls:acwrCls, code:'[ACWR_' + (acwr || 0).toFixed(2) + ']', text:acwrMsg, action: acwr > 1.2 ? '→ Plan' : '', actionFn: acwr > 1.2 ? "showTab('tab-seances');showSeancesSub('s-plan')" : '' });
+    }
+
+    // SLOT 3 — AutoTuner
+    if (hasAutoTuner) {
+      var atMsg = vocabLevel >= 3
+        ? 'Volume sous-optimal sur microcycle. Suggère +1 série effective.'
+        : vocabLevel >= 2 ? 'Ajout de volume conseillé pour progresser plus vite.'
+        : 'Je te conseille d\'ajouter 1 série aujourd\'hui.';
+      rows.push({ cls:'terminal-ai', code:'[TUNER]', text:atMsg, action:'Appliquer', actionFn:"handleAutoTunerAction && handleAutoTunerAction('ADD_VOLUME','ACCEPT')" });
+    }
+
+    // SLOT 4 — Discovery
+    if (hasDiscoveryCard && rows.length < 4) {
+      rows.push({ cls:'terminal-ai', code:'[NOUVEAU]', text:'Nouvel exercice disponible dans ton pool.', action:'→ Plan', actionFn:"showTab('tab-seances');showSeancesSub('s-plan')" });
+    }
+  } else {
+    // SLOT 1 — Bilan cinétique
+    var pending = db._pendingPRCelebration;
+    var lastLog = db.logs && db.logs[db.logs.length - 1];
+    if (pending && pending.newPR) {
+      rows.push({ cls:'terminal-ai', code:'[PERF_LOG]', text:'<strong>Nouveau standard.</strong> +' + ((pending.newPR - (pending.oldPR || 0)) || 0).toFixed(1) + 'kg. Influx validé.', action:'→ Stats', actionFn:"showTab('tab-stats')" });
+    } else {
+      var tonnage = 0;
+      if (lastLog) {
+        (lastLog.exercises || []).forEach(function(e) {
+          (e.allSets || e.sets || []).forEach(function(s) {
+            if (!s.isWarmup && s.weight && s.reps) tonnage += s.weight * s.reps;
+          });
+        });
+      }
+      rows.push({ cls:'terminal-success', code:'[PERF_LOG]', text:'Volume validé. Tonnage : <strong>' + Math.round(tonnage) + 'kg</strong>.', action:'', actionFn:'' });
+    }
+
+    // SLOT 2 — Analyse RPE
+    var avgRpe = 0, rpeCount = 0;
+    if (lastLog) {
+      (lastLog.exercises || []).forEach(function(e) {
+        (e.allSets || e.sets || []).forEach(function(s) {
+          if (s.rpe && !s.isWarmup) { avgRpe += s.rpe; rpeCount++; }
+        });
+      });
+      avgRpe = rpeCount > 0 ? avgRpe / rpeCount : 0;
+    }
+    if (avgRpe > 0) {
+      var rpeMsg = avgRpe > 9 ? '<strong>Surcharge RPE.</strong> Récupération prioritaire.' : 'RPE moyen conforme — <strong>' + avgRpe.toFixed(1) + '</strong>.';
+      rows.push({ cls: avgRpe > 9 ? 'terminal-warning' : 'terminal-success', code:'[ANALYSIS]', text:rpeMsg, action:'', actionFn:'' });
+    }
+
+    // SLOT 3 — AutoTuner semaine
+    if (hasAutoTuner) {
+      rows.push({ cls:'terminal-ai', code:'[TUNER_WK]', text:'Bloc semaine ajusté selon RPE réel.', action:'Voir', actionFn:"showTab('tab-seances');showSeancesSub('s-plan')" });
+    }
+
+    // SLOT 4 — Récupération
+    var recovMsg = vocabLevel >= 3
+      ? 'Protocole reconstruction : protéines &amp; sommeil 8h.'
+      : 'Bien récupérer ce soir — mange et dors bien !';
+    rows.push({ cls:'terminal-success', code:'[RECOV]', text:recovMsg, action:'', actionFn:'' });
+  }
+
+  var modeLabel = mode === 'before' ? 'PRÉ-SÉANCE' : 'POST-SÉANCE';
+  var rowsHtml = rows.map(function(r) {
+    return '<div class="terminal-row ' + r.cls + '">'
+      + '<span class="terminal-code">' + r.code + '</span>'
+      + '<span class="terminal-text">' + r.text + '</span>'
+      + (r.action
+        ? '<button class="terminal-action" onclick="' + r.actionFn + '">' + r.action + '</button>'
+        : '<span style="width:50px;flex-shrink:0;"></span>')
+      + '</div>';
+  }).join('');
+
+  var swVer = (typeof SW_VERSION !== 'undefined' && SW_VERSION) || '270';
+  return '<div class="terminal-card">'
+    + '<div class="terminal-header">'
+      + '<span>COACH SYSTEM · ' + modeLabel + '</span>'
+      + '<span style="color:#2a2a45;">v' + swVer + '</span>'
+    + '</div>'
+    + rowsHtml
+    + '</div>';
+}
+
 // ── INDICATEUR CALIBRATION (Gemini) ──────────────────────────────────────────
 // Visible uniquement si calibration non complète
 function renderCalibrationIndicator() {
@@ -18372,10 +18508,11 @@ function renderCoachTodayHTML() {
   if (coachProfile === 'silent') {
     return '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Mode silencieux — juste les chiffres.</div>';
   }
-  // Indicateur calibration + notifications comportementales (Gemini, en tête)
+  // Indicateur calibration + notifications comportementales + terminal (Gemini, en tête)
   var _coachPrefix = '';
   try { _coachPrefix += renderCalibrationIndicator(); } catch(e) {}
   try { _coachPrefix += renderCoachNotifications(); } catch(e) {}
+  try { _coachPrefix += renderCoachTerminal(); } catch(e) {}
 
   // ── COLD START WELCOME ──
   if (typeof isColdStart === 'function' && isColdStart()) {

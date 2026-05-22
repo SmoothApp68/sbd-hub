@@ -18318,11 +18318,64 @@ function checkHipThrustProgress(session) {
   });
 }
 
+// ── INDICATEUR CALIBRATION (Gemini) ──────────────────────────────────────────
+// Visible uniquement si calibration non complète
+function renderCalibrationIndicator() {
+  var status = null;
+  try { status = typeof calibrationStatus === 'function' ? calibrationStatus() : null; } catch(e) {}
+  if (!status || status.isComplete) return '';
+  var pct = status.pct;
+  var barColor = pct < 50 ? '#7c6bff' : pct < 80 ? '#f97316' : '#22c55e';
+  var latestFeature = status.unlockedFeatures[status.unlockedFeatures.length - 1] || null;
+  return '<div style="background:#0d0d18;border:1px solid rgba(124,107,255,.3);'
+    + 'border-radius:12px;padding:12px 14px;margin-bottom:10px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+      + '<span style="font-size:8px;color:#7c6bff;font-family:monospace;letter-spacing:2px;">🟪 SYNCHRONISATION MOTEUR IA</span>'
+      + '<span style="font-size:11px;color:#7c6bff;font-family:monospace;font-weight:700;">' + pct + '%</span>'
+    + '</div>'
+    + '<div style="background:#1e1e35;border-radius:3px;height:6px;margin-bottom:8px;">'
+      + '<div style="background:' + barColor + ';height:6px;border-radius:3px;width:' + pct + '%;transition:width .5s ease;"></div>'
+    + '</div>'
+    + '<div style="font-size:10px;color:#9999bb;margin-bottom:6px;">'
+      + '🦾 ' + status.completedSessions + '/' + status.sessionsNeeded + ' séances analysées'
+    + '</div>'
+    + (latestFeature
+      ? '<div style="font-size:9px;color:#22c55e;font-family:monospace;">🔓 ' + latestFeature + ' déverrouillé</div>'
+      : '')
+    + '<div style="font-size:10px;color:#6a6a8a;margin-top:6px;font-style:italic;">' + status.coachMsg + '</div>'
+    + '</div>';
+}
+
+// Notifications comportementales — affichées une fois puis marquées lues
+function renderCoachNotifications() {
+  var notifs = (db.user && db.user._coachNotifications) || [];
+  var unread = notifs.filter(function(n) { return !n.read; });
+  if (unread.length === 0) return '';
+  db.user._coachNotifications = notifs.map(function(n) {
+    return Object.assign({}, n, { read: true });
+  });
+  try { if (typeof saveDB === 'function') saveDB(); } catch(e) {}
+  var vocabLevel = (db.user && db.user.vocabLevel) || 2;
+  return unread.map(function(n) {
+    if (n.type !== 'BEHAVIORAL_LEARN') return '';
+    var msg = vocabLevel >= 3 ? '[AUTOTUNER_MUTATION] ' + n.msg : '🤖 ' + n.msg;
+    return '<div style="background:#141428;border:1px solid rgba(124,107,255,.3);'
+      + 'border-radius:10px;padding:10px 12px;margin-bottom:8px;'
+      + 'font-size:10px;color:#c8c8e8;font-family:'
+      + (vocabLevel >= 3 ? 'ui-monospace,monospace' : '-apple-system,sans-serif') + ';">'
+      + msg + '</div>';
+  }).join('');
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
     return '<div style="text-align:center;padding:20px;color:var(--sub);font-size:13px;">Mode silencieux — juste les chiffres.</div>';
   }
+  // Indicateur calibration + notifications comportementales (Gemini, en tête)
+  var _coachPrefix = '';
+  try { _coachPrefix += renderCalibrationIndicator(); } catch(e) {}
+  try { _coachPrefix += renderCoachNotifications(); } catch(e) {}
 
   // ── COLD START WELCOME ──
   if (typeof isColdStart === 'function' && isColdStart()) {
@@ -18357,7 +18410,7 @@ function renderCoachTodayHTML() {
       _csHtml += '</div></div>';
     }
 
-    return _csHtml;
+    return _coachPrefix + _csHtml;
   }
 
   // ── GUARDRAIL MODE — SRS simplifiée + 1 alerte articulaire max (audit #4) ──
@@ -18376,7 +18429,7 @@ function renderCoachTodayHTML() {
         + 'Ton ' + _grZone + ' nécessite ton attention. Consulte un professionnel si la gêne persiste.</div>'
         + '</div>';
     }
-    return _grHtml;
+    return _coachPrefix + _grHtml;
   }
 
   var mode = (db.user && db.user.trainingMode) || 'powerlifting';
@@ -19077,7 +19130,7 @@ function renderCoachTodayHTML() {
 
   html += '</div>'; // ferme #coach-details collapse
 
-  return html;
+  return _coachPrefix + html;
 }
 
 function getSetStyle(set) {

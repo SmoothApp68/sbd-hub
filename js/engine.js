@@ -5420,3 +5420,88 @@ function assignAccessory(targetExo, fallbacks, reason) {
     } : null
   };
 }
+
+// ============================================================
+// PROGRESSION MESSAGES — Records personnels (Gemini validé)
+// Plafonds physiologiques de progression hebdomadaire en kg.
+// ============================================================
+var WP_MAX_WEEKLY_RATES = { squat: 2.0, bench: 1.0, deadlift: 2.5 };
+
+function getProgressionMessage(liftType, e1rmHistory, currentPR, objectif, plannedTestDate, vocabLevel) {
+  var today = new Date();
+  var testDate = plannedTestDate ? new Date(plannedTestDate) : new Date(today.getTime() + 35 * 86400000);
+  var weeksRemaining = Math.max(1, (testDate - today) / (7 * 86400000));
+
+  var hist = e1rmHistory || [];
+  var currentE1rm = hist.length > 0 ? hist[hist.length - 1].e1rm : (currentPR * 0.95);
+  var maxHistoricE1rm = hist.length > 0
+    ? Math.max.apply(null, hist.map(function(h) { return h.e1rm; }))
+    : currentE1rm;
+
+  var allowedRate = WP_MAX_WEEKLY_RATES[String(liftType).toLowerCase()] || 1.5;
+  var kgNeededFromBest = objectif - maxHistoricE1rm;
+  var requiredRateFromBest = kgNeededFromBest / weeksRemaining;
+  var level = vocabLevel
+    || (typeof db !== 'undefined' && db.user && db.user.vocabLevel)
+    || 2;
+
+  var status, line1, line2;
+  // Fatigue masking : e1RM actuel < max historique (typique Dead en peak hyp)
+  var isFatigueMasked = currentE1rm < maxHistoricE1rm * 0.95 && maxHistoricE1rm >= objectif * 0.95;
+
+  if (isFatigueMasked) {
+    status = 'FATIGUE_MASKED';
+    line1 = level >= 3 ? 'Force masquée par la fatigue accumulée.' : 'Fatigue de volume détectée.';
+    line2 = level >= 3
+      ? 'Potentiel ' + objectif + 'kg intact · Hausse attendue post-deload.'
+      : 'Ton niveau est là — il se libère dès que le volume baisse.';
+  } else if (requiredRateFromBest > allowedRate) {
+    status = 'AMBITIOUS';
+    line1 = level >= 3 ? 'Écart de vélocité critique.' : 'Objectif très ambitieux.';
+    line2 = level >= 3
+      ? 'Requis +' + requiredRateFromBest.toFixed(1) + 'kg/sem · Plafond physio +' + allowedRate + 'kg'
+      : 'Reste régulier — chaque séance compte.';
+  } else {
+    status = 'ON_TRACK';
+    var dateStr = testDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    line1 = level >= 3 ? 'Cinétique de progression nominale.' : 'Sur la bonne voie.';
+    line2 = level >= 3
+      ? 'Objectif ciblé pour le pic du ' + dateStr + '.'
+      : 'Rendez-vous fixé pour le test de fin de cycle.';
+  }
+
+  return { status: status, line1: line1, line2: line2, onTrack: status !== 'AMBITIOUS' };
+}
+
+function buildE1rmHistory(liftType) {
+  var logs = (typeof db !== 'undefined' && db.logs) || [];
+  var liftKey = String(liftType).toLowerCase();
+  var matchRe = liftKey === 'squat' ? /squat/i
+    : liftKey === 'bench' ? /(couché|bench)/i
+    : /(soulev|deadlift|terre)/i;
+
+  var history = [];
+  var cutoff = Date.now() - 90 * 86400000;
+
+  logs.forEach(function(log) {
+    if (!log.timestamp || log.timestamp < cutoff) return;
+    (log.exercises || []).forEach(function(exo) {
+      var name = exo.name || exo.canonicalName || '';
+      if (!matchRe.test(name)) return;
+      var workSets = (exo.allSets || exo.series || []).filter(function(s) {
+        return s && !s.isWarmup && s.setType !== 'warmup' && s.weight > 0 && s.reps > 0;
+      });
+      if (!workSets.length) return;
+      var maxE1rm = 0;
+      workSets.forEach(function(s) {
+        var e = typeof calcE1RM === 'function'
+          ? calcE1RM(s.weight, s.reps)
+          : s.weight * (36 / (37 - Math.min(s.reps, 36)));
+        if (e > maxE1rm) maxE1rm = e;
+      });
+      if (maxE1rm > 0) history.push({ date: log.timestamp, e1rm: Math.round(maxE1rm * 2) / 2 });
+    });
+  });
+
+  return history.sort(function(a, b) { return a.date - b.date; });
+}

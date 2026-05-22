@@ -8744,6 +8744,39 @@ function renderRecordsPersonnels() {
     + '</div>';
 }
 
+function renderRetentionBanner() {
+  try {
+    if (typeof detectDisengagementSignals !== 'function') return '';
+    var d = detectDisengagementSignals();
+    if (!d || d.riskLevel === 'NONE') return '';
+    if (typeof getRetentionAction !== 'function') return '';
+    var userProfile = {
+      vocabLevel: (db.user && db.user.vocabLevel) || 2,
+      currentCyclePhase: (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie'
+    };
+    var ret = getRetentionAction(d, userProfile, null);
+    if (!ret) return '';
+    var bgColors = { LOW: 'rgba(10,132,255,0.08)', MEDIUM: 'rgba(255,159,10,0.08)', HIGH: 'rgba(255,69,58,0.10)' };
+    var borderColors = { LOW: 'rgba(10,132,255,0.25)', MEDIUM: 'rgba(255,159,10,0.30)', HIGH: 'rgba(255,69,58,0.35)' };
+    var iconColors = { LOW: 'var(--accent)', MEDIUM: 'var(--warning)', HIGH: 'var(--danger)' };
+    var icons = { LOW: '💡', MEDIUM: '⏳', HIGH: '🔔' };
+    var bg = bgColors[d.riskLevel] || bgColors.LOW;
+    var border = borderColors[d.riskLevel] || borderColors.LOW;
+    var iconColor = iconColors[d.riskLevel] || iconColors.LOW;
+    var icon = icons[d.riskLevel] || '💡';
+    return '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:12px;'
+      + 'padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+      + '<div style="font-size:18px;flex-shrink:0;">' + icon + '</div>'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:12px;color:var(--text-primary);font-weight:500;line-height:1.4;">' + ret.message + '</div>'
+      + '</div>'
+      + (ret.cta ? '<button onclick="' + (ret.ctaFn || '') + '" style="flex-shrink:0;padding:6px 12px;'
+        + 'background:' + iconColor + ';border:none;border-radius:8px;color:#fff;'
+        + 'font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">' + ret.cta + '</button>' : '')
+      + '</div>';
+  } catch(e) { return ''; }
+}
+
 function renderDash() {
   try {
     // v202 — Validation Gate : afficher une fois par fin de bloc
@@ -8773,7 +8806,8 @@ function renderDash() {
 
     var selectedDay = db._selectedProgramDay || null;
     host.innerHTML =
-      renderProgrammeSemaineTimeline(selectedDay)
+      renderRetentionBanner()
+      + renderProgrammeSemaineTimeline(selectedDay)
       + '<div style="height:8px;"></div>'
       + renderSeanceSelected(selectedDay)
       + renderStatsCompact()

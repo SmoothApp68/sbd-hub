@@ -5843,3 +5843,71 @@ function checkAndCelebratePR(exoName, weight, reps, rpe) {
     }
   } catch(e) {}
 }
+
+// --- Rétention J7-J30 (Gemini) ---
+// NOTE : L'envoi push rétention (J7/J14/J30) nécessite une Edge Function cron Supabase —
+// hors-scope ici. Signal : créer edge fn scheduled pour interroger db.user.lastSessionAt
+// et déclencher Web Push si inactif. Implémenter séparément (scope infra).
+
+function detectDisengagementSignals() {
+  var logs = (typeof db !== 'undefined' && db.logs) || [];
+  if (!logs.length) return { riskLevel: 'NONE', daysSinceLast: 0, signals: [] };
+
+  var now = Date.now();
+  var lastTs = logs.reduce(function(max, l) { return l.timestamp > max ? l.timestamp : max; }, 0);
+  var daysSinceLast = Math.floor((now - lastTs) / 86400000);
+
+  // Tendance : comparer moyenne 7j J8-14 vs 7j récents (J1-7)
+  var cutoff7  = now - 7*86400000;
+  var cutoff14 = now - 14*86400000;
+  var recent7  = logs.filter(function(l) { return l.timestamp >= cutoff7; }).length;
+  var prev7    = logs.filter(function(l) { return l.timestamp >= cutoff14 && l.timestamp < cutoff7; }).length;
+  var dropOff  = prev7 >= 2 && recent7 < prev7 * 0.5;
+
+  var signals = [];
+  if (daysSinceLast >= 7)  signals.push('INACTIVE_7D');
+  if (daysSinceLast >= 14) signals.push('INACTIVE_14D');
+  if (daysSinceLast >= 30) signals.push('INACTIVE_30D');
+  if (dropOff)             signals.push('FREQUENCY_DROP');
+
+  var riskLevel = 'NONE';
+  if (daysSinceLast >= 30 || signals.indexOf('INACTIVE_30D') !== -1) riskLevel = 'HIGH';
+  else if (daysSinceLast >= 14) riskLevel = 'MEDIUM';
+  else if (daysSinceLast >= 7 || dropOff) riskLevel = 'LOW';
+
+  return { riskLevel: riskLevel, daysSinceLast: daysSinceLast, signals: signals, dropOff: dropOff };
+}
+
+function getRetentionAction(disengagement, vocabLevel) {
+  var d = disengagement || { riskLevel: 'NONE', daysSinceLast: 0, signals: [] };
+  var level = vocabLevel || (typeof db !== 'undefined' && db.user && db.user.vocabLevel) || 2;
+  if (d.riskLevel === 'NONE') return null;
+
+  var days = d.daysSinceLast;
+  var action, message, cta, ctaFn;
+
+  if (d.riskLevel === 'HIGH') {
+    message = level >= 3
+      ? 'Aucune séance depuis ' + days + 'j — risque de déconditionnement.'
+      : 'Tu n\'as pas entraîné depuis ' + days + ' jours.';
+    action  = 'COMEBACK';
+    cta     = level >= 3 ? 'Démarrer une séance de reprise' : 'Reprendre maintenant';
+    ctaFn   = 'showTab(\'tab-seances\');showSeancesSub(\'s-go\')';
+  } else if (d.riskLevel === 'MEDIUM') {
+    message = level >= 3
+      ? 'Fréquence hebdomadaire dégradée — ' + days + 'j sans session.'
+      : 'Ça fait ' + days + ' jours. Une séance courte suffit !';
+    action  = 'REMIND';
+    cta     = level >= 3 ? 'Lancer une séance express (30min)' : 'Séance express →';
+    ctaFn   = 'showTab(\'tab-seances\');showSeancesSub(\'s-go\')';
+  } else {
+    message = level >= 3
+      ? 'Baisse de fréquence détectée (J7).'
+      : 'Tu étais plus régulier la semaine passée.';
+    action  = 'NUDGE';
+    cta     = level >= 3 ? 'Voir le plan de la semaine' : 'Mon programme →';
+    ctaFn   = 'showTab(\'tab-dash\')';
+  }
+
+  return { action: action, message: message, cta: cta, ctaFn: ctaFn, riskLevel: d.riskLevel };
+}

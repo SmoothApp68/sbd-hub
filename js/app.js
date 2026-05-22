@@ -27510,6 +27510,19 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
       var wVal = set.weight ? (_disp ? toDisplayWeight(set.weight) : set.weight) : '';
       var rVal = set.reps ? set.reps : '';
       var rpVal = set.rpe ? set.rpe : '';
+      // RPE binaire débutant (Gemini) : vocabLevel 1 + calibration < J14
+      var _calibSt = null;
+      try { _calibSt = (typeof calibrationStatus === 'function') ? calibrationStatus() : null; } catch(e) {}
+      var _useBinaryRpe = _calibSt && !_calibSt.rpeActive;
+      var _binaryRpeCell = function() {
+        var _curChoice = !set.rpe ? '' : (set.rpe <= 6 ? 'easy' : set.rpe >= 9 ? 'hard' : 'ok');
+        return '<select class="go-set-input" style="width:64px;font-size:11px;" onchange="goUpdateSetBinaryRpe(' + exoIdx + ',' + setIdx + ',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>'
+          + '<option value="" ' + (_curChoice === '' ? 'selected' : '') + '>—</option>'
+          + '<option value="easy" ' + (_curChoice === 'easy' ? 'selected' : '') + '>😤 Facile</option>'
+          + '<option value="ok" ' + (_curChoice === 'ok' ? 'selected' : '') + '>💪 OK</option>'
+          + '<option value="hard" ' + (_curChoice === 'hard' ? 'selected' : '') + '>😮‍💨 Dur</option>'
+          + '</select>';
+      };
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + wVal + '" placeholder="' + _unitLabel + '" aria-label="Poids en ' + _unitLabel + '" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'weight\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
       h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rVal + '" placeholder="reps" aria-label="Nombre de répétitions" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'reps\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
       if (_isPrimarySBD) {
@@ -27521,13 +27534,18 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
         var _aStyle = _isAbandoned
           ? 'background:rgba(255,69,58,0.2);border-color:var(--red);color:var(--red);'
           : 'background:var(--surface);border-color:var(--border);color:var(--sub);';
+        var _rpeInputSBD = _useBinaryRpe
+          ? _binaryRpeCell()
+          : '<input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:36px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>';
         h += '<td style="white-space:nowrap;">' +
-          '<input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:36px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>' +
+          _rpeInputSBD +
           '<button id="grind-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleGrind(' + exoIdx + ',' + setIdx + ')" title="Effort max — ralentissement involontaire" style="padding:3px 6px;border-radius:5px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;margin-left:2px;' + _gStyle + '">' + (_isGrind ? '★✓' : '★') + '</button>' +
           '<button id="abandoned-btn-' + exoIdx + '-' + setIdx + '" onclick="toggleAbandoned(' + exoIdx + ',' + setIdx + ')" title="Série abandonnée — exclue du e1RM" style="padding:3px 6px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;margin-left:2px;' + _aStyle + '">🚫</button>' +
           '</td>';
       } else {
-        h += '<td><input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '></td>';
+        h += '<td>' + (_useBinaryRpe
+          ? _binaryRpeCell()
+          : '<input class="go-set-input" type="number" inputmode="decimal" value="' + rpVal + '" placeholder="—" style="width:40px;" onchange="goUpdateSetValue(' + exoIdx + ',' + setIdx + ',\'rpe\',this.value)" ' + (isDone ? 'tabindex="-1"' : '') + '>') + '</td>';
       }
     } else if (tt === 'reps') {
       var rVal2 = set.reps ? set.reps : '';
@@ -28218,6 +28236,20 @@ function goAddSet(exoIdx) {
     }
   }
   exo.sets.push(newSet);
+  goAutoSave();
+  goRequestRender();
+}
+
+// RPE binaire débutant (Gemini) : easy/ok/hard → RPE numérique pour l'algo
+function goUpdateSetBinaryRpe(exoIdx, setIdx, choice) {
+  if (!activeWorkout || !activeWorkout.exercises || !activeWorkout.exercises[exoIdx]) return;
+  var exo = activeWorkout.exercises[exoIdx];
+  var set = exo.sets && exo.sets[setIdx];
+  if (!set) return;
+  if (!choice) { set.rpe = null; goAutoSave(); return; }
+  var targetRpe = exo.targetRPE || 7;
+  set.rpe = typeof binaryChoiceToRpe === 'function' ? binaryChoiceToRpe(choice, targetRpe) : (choice === 'easy' ? 5 : choice === 'hard' ? 9 : 7);
+  set._binaryChoice = choice;
   goAutoSave();
   goRequestRender();
 }

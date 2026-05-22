@@ -5986,6 +5986,23 @@ function calibrationStatus() {
   };
 }
 
+// ── RPE BINAIRE DÉBUTANT (Gemini) ────────────────────────────────────────────
+// Convertit le choix easy/ok/hard en RPE numérique pour l'algo
+function binaryChoiceToRpe(choice, targetRpe) {
+  var t = targetRpe || 7;
+  if (choice === 'easy') return Math.max(5, t - 2);
+  if (choice === 'hard') return Math.min(10, t + 1);
+  return t;
+}
+
+// Ajustement de charge selon choix binaire : easy +10%, ok +2.5/5kg, hard maintien
+function getBinaryWeightAdjustment(choice, currentWeight, exerciseType) {
+  if (!currentWeight || currentWeight <= 0) return currentWeight;
+  if (choice === 'easy') return Math.round(currentWeight * 1.10 / 2.5) * 2.5;
+  if (choice === 'ok')   return currentWeight + (exerciseType === 'lower' ? 5 : 2.5);
+  return currentWeight;
+}
+
 // Recalcule les e1RM depuis les logs si manquants (corrige D'Jo, Léa, Alexis)
 function recalcE1rmFromLogsIfMissing() {
   var logs = (typeof db !== 'undefined' && db && db.logs) || [];

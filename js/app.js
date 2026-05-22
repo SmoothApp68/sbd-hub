@@ -502,6 +502,17 @@ if (db.user.onboardingProfile === 'reeducation') {
   db.user.vocabLevel = 1;
 }
 
+// ── CALIBRATION + SIGNAUX COMPORTEMENTAUX — defensive init (v270 Gemini) ──
+if (!db.user._calibrationStatus) {
+  db.user._calibrationStatus = { completedSessions: 0, pct: 0, isComplete: false };
+}
+if (!db.user._behavioralSignals) db.user._behavioralSignals = {};
+if (!db.user._signalCounts) db.user._signalCounts = {};
+if (!db.user._coachNotifications) db.user._coachNotifications = [];
+
+// Recalcul e1RM si manquant (corrige D'Jo, Léa, Alexis)
+try { if (typeof recalcE1rmFromLogsIfMissing === 'function') recalcE1rmFromLogsIfMissing(); } catch(e) {}
+
 // ── OVERDRIVE — defensive init ────────────────────────────────
 if (db._overdriveCount === undefined) db._overdriveCount = 0;
 if (db._lastOverdrive === undefined) db._lastOverdrive = null;

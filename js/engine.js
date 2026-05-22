@@ -5911,3 +5911,109 @@ function getRetentionAction(disengagement, vocabLevel) {
 
   return { action: action, message: message, cta: cta, ctaFn: ctaFn, riskLevel: d.riskLevel };
 }
+
+// ── CALIBRATION STATUS — modèle hybride Gemini ──────────────────────────────
+// 4 séances pour inter/avancé, 6 pour débutant. e1RM stabilisé après 3-4 expos.
+function calibrationStatus() {
+  var logs = (typeof db !== 'undefined' && db && db.logs) || [];
+  var user = (typeof db !== 'undefined' && db && db.user) || {};
+  var vocabLevel = user.vocabLevel || 2;
+  var level = user.level || 'intermediaire';
+  var isDebutant = level === 'debutant' || vocabLevel === 1;
+
+  var sessionsNeeded = isDebutant ? 6 : 4;
+  var rpeActivationDay = isDebutant ? 14 : 0;
+
+  var calibSessions = logs.filter(function(log) {
+    var hasMainLift = (log.exercises || []).some(function(e) {
+      var name = (e.name || '').toLowerCase();
+      return name.indexOf('squat') !== -1 || name.indexOf('couché') !== -1 ||
+             name.indexOf('deadlift') !== -1 || name.indexOf('soulevé') !== -1 ||
+             name.indexOf('bench') !== -1;
+    });
+    return hasMainLift && (log.exercises || []).length >= 2;
+  });
+
+  var completedSessions = calibSessions.length;
+  var pct = Math.min(100, Math.round((completedSessions / sessionsNeeded) * 100));
+  var isComplete = completedSessions >= sessionsNeeded;
+
+  var hasE1rm = db.exercises && (
+    (db.exercises['Squat (Barre)'] && db.exercises['Squat (Barre)'].e1rm > 0) ||
+    (db.exercises['Développé Couché (Barre)'] && db.exercises['Développé Couché (Barre)'].e1rm > 0) ||
+    (db.exercises['Soulevé de Terre (Barre)'] && db.exercises['Soulevé de Terre (Barre)'].e1rm > 0)
+  );
+
+  var firstLog = logs.length > 0 ? (logs[logs.length - 1].timestamp || Date.now()) : Date.now();
+  var daysSinceStart = Math.floor((Date.now() - firstLog) / 86400000);
+  var rpeActive = !isDebutant || daysSinceStart >= rpeActivationDay;
+
+  var unlockedFeatures = [];
+  if (completedSessions >= 1) unlockedFeatures.push('Graphique progression');
+  if (completedSessions >= 2) unlockedFeatures.push('AutoTuner basique');
+  if (completedSessions >= 3) unlockedFeatures.push('Analyse ACWR');
+  if (isComplete)             unlockedFeatures.push('AutoTuner prédictif');
+
+  var newFeature = null;
+  var prevStatus = user._calibrationStatus;
+  if (prevStatus && prevStatus.completedSessions < completedSessions) {
+    newFeature = unlockedFeatures[completedSessions - 1] || null;
+  }
+
+  var coachMsg = isComplete
+    ? (vocabLevel >= 3
+      ? 'Profil biomécanique complet. Algorithme en mode prédictif.'
+      : 'Calibration terminée. Mon programme est maintenant 100% adapté à toi.')
+    : (vocabLevel >= 3
+      ? 'Séance ' + completedSessions + '/' + sessionsNeeded + ' — Précision algorithmique +' + Math.round(pct * 0.125) + '% / séance.'
+      : 'Je te connais mieux à chaque séance. Encore ' + (sessionsNeeded - completedSessions) + ' pour finir.');
+
+  if (typeof db !== 'undefined' && db && db.user) {
+    db.user._calibrationStatus = {
+      completedSessions: completedSessions,
+      pct: pct,
+      isComplete: isComplete,
+      updatedAt: Date.now()
+    };
+  }
+
+  return {
+    isComplete: isComplete, isDebutant: isDebutant,
+    completedSessions: completedSessions, sessionsNeeded: sessionsNeeded,
+    pct: pct, hasE1rm: hasE1rm, rpeActive: rpeActive,
+    daysSinceStart: daysSinceStart, unlockedFeatures: unlockedFeatures,
+    newFeature: newFeature, coachMsg: coachMsg
+  };
+}
+
+// Recalcule les e1RM depuis les logs si manquants (corrige D'Jo, Léa, Alexis)
+function recalcE1rmFromLogsIfMissing() {
+  var logs = (typeof db !== 'undefined' && db && db.logs) || [];
+  if (logs.length === 0) return;
+  var targetExos = [
+    'Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)',
+    'Rowing Barre', 'Développé Militaire (Barre)'
+  ];
+  targetExos.forEach(function(exoName) {
+    if (db.exercises && db.exercises[exoName] && db.exercises[exoName].e1rm > 0) return;
+    var bestE1rm = 0;
+    logs.forEach(function(log) {
+      (log.exercises || []).forEach(function(exo) {
+        if ((exo.name || '') !== exoName) return;
+        (exo.allSets || exo.sets || []).forEach(function(s) {
+          if (s.isWarmup || s.setType === 'warmup' || s.isAbandoned) return;
+          if (!s.weight || !s.reps || s.weight <= 0 || s.reps <= 0) return;
+          var e1rm = typeof calcE1RM === 'function'
+            ? calcE1RM(s.weight, s.reps)
+            : s.weight * (36 / (37 - Math.min(s.reps, 36)));
+          if (e1rm > bestE1rm) bestE1rm = e1rm;
+        });
+      });
+    });
+    if (bestE1rm > 0) {
+      if (!db.exercises) db.exercises = {};
+      if (!db.exercises[exoName]) db.exercises[exoName] = {};
+      db.exercises[exoName].e1rm = Math.round(bestE1rm * 2) / 2;
+    }
+  });
+}

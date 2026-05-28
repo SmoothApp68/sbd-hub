@@ -27265,7 +27265,7 @@ window.openCoachQuestion = function(exoIdx, btn) {
   if (!activeWorkout || !activeWorkout.exercises || !activeWorkout.exercises[exoIdx]) return;
   var exo = activeWorkout.exercises[exoIdx];
 
-  // Snapshot léger : nom, sets, reps, RPE, weight, raison algo
+  // Snapshot enrichi : nom, sets, reps, RPE, weight, raison algo, phase, dernier poids
   var workSets = (exo.sets || []).filter(function(s) { return s && !s.isWarmup && s.type !== 'warmup'; });
   var firstWork = workSets[0] || {};
   var shadowW = (db.exercises && db.exercises[exo.name]) ? (db.exercises[exo.name].shadowWeight || 0) : 0;
@@ -27273,14 +27273,34 @@ window.openCoachQuestion = function(exoIdx, btn) {
   var chargeExp = (typeof buildChargeExplanation === 'function')
     ? buildChargeExplanation(exo.name, suggestedW, shadowW)
     : null;
+  var completedCount = workSets.filter(function(s) { return s.completed; }).length;
+  var phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var setsCount = workSets.length || (exo.sets || []).length;
+  var repsVal = firstWork.reps || (exo.sets && exo.sets[0] && exo.sets[0].reps) || '—';
+
+  // Raison par défaut si aucune explication algo : déduire depuis la phase
+  var reason = chargeExp ? chargeExp.text : null;
+  if (!reason && setsCount && repsVal !== '—') {
+    var setsStr = setsCount + 'x' + repsVal;
+    reason = phase === 'hypertrophie'
+      ? setsStr + ' pour maximiser le temps sous tension en phase volume'
+      : phase === 'force'
+      ? setsStr + ' pour développer la force maximale en phase intensité'
+      : phase === 'deload'
+      ? setsStr + ' en deload pour récupérer sans perdre les acquis'
+      : setsStr + ' selon le protocole ' + phase;
+  }
 
   var exoContext = {
     name: exo.name,
-    sets: workSets.length || (exo.sets || []).length,
-    reps: firstWork.reps || (exo.sets && exo.sets[0] && exo.sets[0].reps) || '—',
+    sets: setsCount,
+    reps: repsVal,
     rpe: firstWork.rpe || (exo.sets && exo.sets[0] && exo.sets[0].rpe) || '—',
     weight: suggestedW || '—',
-    reason: chargeExp ? chargeExp.text : null
+    reason: reason,
+    phase: phase,
+    lastWeight: shadowW || null,
+    setsCompleted: completedCount + '/' + (workSets.length || setsCount)
   };
 
   var exoId = (exo.name || 'exo').replace(/[^a-z0-9]+/gi, '_').toLowerCase();

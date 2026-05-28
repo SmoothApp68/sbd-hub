@@ -5640,25 +5640,38 @@ function buildCoachPrompt(question, exoContext) {
       'kg / Dead ' + (pr.deadlift || '—') + 'kg'
   ];
 
+  var exoLines = [];
   if (exoContext) {
-    contextLines.push(
-      'EXERCICE : ' + (exoContext.name || '') +
-      ' — ' + (exoContext.sets || '—') + '×' + (exoContext.reps || '—') +
-      ' @ RPE ' + (exoContext.rpe || '—') +
-      ' · ' + (exoContext.weight || '—') + 'kg'
-    );
-    if (exoContext.reason) {
-      contextLines.push('RAISON ALGO : ' + exoContext.reason);
-    }
+    exoLines.push('EXERCICE : ' + (exoContext.name || ''));
+    var hasWeight = exoContext.weight && exoContext.weight !== '—' && exoContext.weight !== 0;
+    var hasRpe = exoContext.rpe && exoContext.rpe !== '—';
+    exoLines.push('PRESCRIPTION : ' + (exoContext.sets || '—') + '×' + (exoContext.reps || '—') +
+      (hasWeight ? ' @ ' + exoContext.weight + 'kg' : '') +
+      (hasRpe ? ' RPE ' + exoContext.rpe : ''));
+    if (exoContext.lastWeight) exoLines.push('DERNIER POIDS LOGGÉ : ' + exoContext.lastWeight + 'kg');
+    if (exoContext.setsCompleted) exoLines.push('AVANCEMENT : ' + exoContext.setsCompleted + ' séries');
+    if (exoContext.reason) exoLines.push('RAISON ALGO : ' + exoContext.reason);
   }
 
   var toneInstruction = vocab >= 3
     ? 'Ton : coach powerbuilding expert, factuel, biomécanique. Pas de généralités.'
     : 'Ton : coach bienveillant, vocabulaire accessible, encourageant.';
 
-  return 'Tu es le coach IA de TrainHub. Réponds en 2-3 phrases maximum.\n' +
+  // Instruction anti-générique : forcer la mention des chiffres précis
+  var antiGeneric = '';
+  if (exoContext) {
+    var hasW = exoContext.weight && exoContext.weight !== '—' && exoContext.weight !== 0;
+    var prescription = (exoContext.sets || '—') + '×' + (exoContext.reps || '—');
+    antiGeneric = 'IMPORTANT : Cite des chiffres précis (' +
+      (hasW ? exoContext.weight + 'kg, ' : '') + prescription + ', phase ' + phase +
+      '). Pas de généralités vagues. Si tu ignores le pourquoi exact, dis-le directement.';
+  }
+
+  return 'Tu es le coach IA de TrainHub. Réponds en 2-3 phrases MAX.\n' +
     toneInstruction + '\n\n' +
-    contextLines.join('\n') + '\n\n' +
+    contextLines.join('\n') +
+    (exoLines.length ? '\n' + exoLines.join('\n') : '') + '\n\n' +
+    (antiGeneric ? antiGeneric + '\n\n' : '') +
     'QUESTION : ' + question;
 }
 
@@ -5733,8 +5746,10 @@ async function askCoachAI(question, exoContext, onResult, onError) {
 // Fallback statique si IA indisponible (offline / Edge inaccessible).
 function buildStaticFallback(question, exoContext) {
   if (!exoContext) return 'Coach indisponible pour l\'instant. Réessaie dans quelques instants.';
-  var phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var phase = exoContext.phase || (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var hasW = exoContext.weight && exoContext.weight !== '—' && exoContext.weight !== 0;
   return (exoContext.name || 'Cet exercice') + ' est prescrit en ' + phase +
     ' pour ' + (exoContext.sets || '—') + '×' + (exoContext.reps || '—') +
+    (hasW ? ' @ ' + exoContext.weight + 'kg' : '') +
     '. L\'intensité RPE ' + (exoContext.rpe || 8) + ' est adaptée à ta phase actuelle.';
 }

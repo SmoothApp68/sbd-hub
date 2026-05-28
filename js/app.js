@@ -10703,6 +10703,38 @@ function renderTodaySessionInline() {
     renderRecordsPersonnels();
 }
 
+// Détermine le jour de séance actif (sélection manuelle > aujourd'hui > prochaine séance).
+// Retourne un objet { day, ...data } depuis db.weeklyPlan.days, ou null.
+function getActiveProgramDay() {
+  var joursFR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  var todayName = joursFR[new Date().getDay()];
+  var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
+  if (!days.length) return null;
+
+  // 1. Jour sélectionné manuellement
+  var selectedDay = db._selectedProgramDay;
+  if (selectedDay) {
+    var found = days.find(function(d) { return d.day === selectedDay; });
+    if (found) return found;
+  }
+
+  // 2. Aujourd'hui s'il a une séance
+  var todayData = days.find(function(d) { return d.day === todayName && !d.rest && d.exercises && d.exercises.length; });
+  if (todayData) return todayData;
+
+  // 3. Prochain jour de séance (sans repos)
+  var joursOrder = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  var todayIdx = joursOrder.indexOf(todayName);
+  for (var i = 1; i <= 7; i++) {
+    var nextIdx = (todayIdx + i) % 7;
+    var nextDay = days.find(function(d) { return d.day === joursOrder[nextIdx] && !d.rest && d.exercises && d.exercises.length; });
+    if (nextDay) return nextDay;
+  }
+
+  // 4. Fallback — premier jour non-repos puis n'importe quel jour
+  return days.find(function(d) { return !d.rest; }) || days[0];
+}
+
 window.goDirectFromHome = function() {
   if (typeof showTab === 'function') showTab('tab-seances');
   if (typeof showSeancesSub === 'function') showSeancesSub('s-go');
@@ -10790,8 +10822,18 @@ function renderSeanceSelected(selectedDay) {
   var days = (db.weeklyPlan && db.weeklyPlan.days) || [];
   var joursFR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   var todayName = joursFR[new Date().getDay()];
-  var activeName = selectedDay || todayName;
-  var dayData = days.find(function(d) { return d.day === activeName; });
+
+  // Si aucune sélection manuelle : utiliser le prochain jour de séance plutôt que today (qui peut être repos)
+  var dayData;
+  var activeName;
+  if (selectedDay) {
+    activeName = selectedDay;
+    dayData = days.find(function(d) { return d.day === activeName; });
+  } else {
+    var active = typeof getActiveProgramDay === 'function' ? getActiveProgramDay() : null;
+    dayData = active || days.find(function(d) { return d.day === todayName; });
+    activeName = (dayData && dayData.day) || todayName;
+  }
   var currentPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
   var gradient = currentPhase === 'force'
     ? 'linear-gradient(135deg,#8b1a1a,#5a1010)'

@@ -5580,3 +5580,161 @@ function buildE1rmHistory(liftType) {
 
   return history.sort(function(a, b) { return a.date - b.date; });
 }
+
+// ============================================================
+// IA COACHING FREEMIUM (Gemini Flash via Edge Function coach-ai)
+// ============================================================
+
+// Vérifie si l'user peut utiliser l'IA coaching.
+// - beta (permanente ou date future) → illimité
+// - premium → illimité
+// - free → 1 req/semaine (compteur local hebdo)
+function canUseAI() {
+  var plan = (typeof db !== 'undefined' && db.user && db.user.plan) || 'free';
+  var betaExpiry = (typeof db !== 'undefined' && db.user && db.user.betaExpiresAt);
+
+  var isBetaPermanent = plan === 'beta' && (betaExpiry === null || betaExpiry === undefined);
+  var isBetaActive = plan === 'beta' && typeof betaExpiry === 'number' && betaExpiry > Date.now();
+
+  if (isBetaPermanent || isBetaActive || plan === 'premium') {
+    return { allowed: true, unlimited: true };
+  }
+
+  var weekStart = typeof _getWeekStart === 'function'
+    ? _getWeekStart(Date.now()).getTime()
+    : Date.now() - 7 * 86400000;
+
+  if (!db.user.aiCreditsWeekStart || db.user.aiCreditsWeekStart < weekStart) {
+    db.user.aiCreditsWeek = 0;
+    db.user.aiCreditsWeekStart = weekStart;
+    if (typeof saveDB === 'function') saveDB();
+  }
+
+  var FREE_LIMIT = 1;
+  var used = db.user.aiCreditsWeek || 0;
+  if (used < FREE_LIMIT) {
+    return { allowed: true, unlimited: false, remaining: FREE_LIMIT - used };
+  }
+  return { allowed: false, remaining: 0 };
+}
+
+// Construit le prompt coaching avec contexte algorithmique complet.
+function buildCoachPrompt(question, exoContext) {
+  var srs   = typeof computeSRS === 'function' ? computeSRS() : null;
+  var phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  var week  = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1;
+  var bw    = typeof getUserBW === 'function' ? getUserBW() : 80;
+  var vocab = (db.user && db.user.vocabLevel) || 2;
+  var pr    = db.bestPR || {};
+
+  var srsScore = srs && (typeof srs.score === 'number' ? srs.score : (typeof srs === 'number' ? srs : null));
+  var acwr = srs && typeof srs.acwr === 'number' ? srs.acwr : null;
+
+  var contextLines = [
+    'PROFIL : ' + ((db.user && db.user.trainingMode) || 'powerbuilding') +
+      ' | Poids : ' + bw + 'kg | Niveau : ' + ((db.user && db.user.level) || 'inter'),
+    'CYCLE : ' + phase + ' S' + week +
+      (srsScore !== null ? ' | SRS : ' + Math.round(srsScore) + '/100' : '') +
+      (acwr !== null ? ' | ACWR : ' + acwr.toFixed(2) : ''),
+    'PRs : Squat ' + (pr.squat || '—') + 'kg / Bench ' + (pr.bench || '—') +
+      'kg / Dead ' + (pr.deadlift || '—') + 'kg'
+  ];
+
+  if (exoContext) {
+    contextLines.push(
+      'EXERCICE : ' + (exoContext.name || '') +
+      ' — ' + (exoContext.sets || '—') + '×' + (exoContext.reps || '—') +
+      ' @ RPE ' + (exoContext.rpe || '—') +
+      ' · ' + (exoContext.weight || '—') + 'kg'
+    );
+    if (exoContext.reason) {
+      contextLines.push('RAISON ALGO : ' + exoContext.reason);
+    }
+  }
+
+  var toneInstruction = vocab >= 3
+    ? 'Ton : coach powerbuilding expert, factuel, biomécanique. Pas de généralités.'
+    : 'Ton : coach bienveillant, vocabulaire accessible, encourageant.';
+
+  return 'Tu es le coach IA de TrainHub. Réponds en 2-3 phrases maximum.\n' +
+    toneInstruction + '\n\n' +
+    contextLines.join('\n') + '\n\n' +
+    'QUESTION : ' + question;
+}
+
+// Appel IA coaching via Edge Function coach-ai.
+// Gère cooldown (429/cooldown), file d'attente (429/queue → retry), paywall (free épuisé).
+async function askCoachAI(question, exoContext, onResult, onError) {
+  var access = canUseAI();
+  if (!access.allowed) {
+    if (typeof showPaywall === 'function') showPaywall();
+    return;
+  }
+
+  var prompt = buildCoachPrompt(question, exoContext);
+  var supabaseUrl = typeof SUPABASE_URL !== 'undefined'
+    ? SUPABASE_URL
+    : 'https://swwygywahfdenyzotrce.supabase.co';
+  var anonKey = typeof SUPABASE_KEY !== 'undefined'
+    ? SUPABASE_KEY
+    : (typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '');
+
+  try {
+    var response = await fetch(supabaseUrl + '/functions/v1/coach-ai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + anonKey
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        userId: (db.user && db.user.id) || 'anonymous',
+        plan: (db.user && db.user.plan) || 'free',
+        betaExpiresAt: (db.user && db.user.betaExpiresAt) !== undefined
+          ? db.user.betaExpiresAt
+          : null
+      })
+    });
+
+    var data = await response.json();
+
+    if (response.status === 429) {
+      if (data.error === 'cooldown') {
+        if (onError) onError('cooldown', data.waitSeconds);
+      } else if (data.error === 'queue') {
+        if (onError) onError('queue', data.waitSeconds);
+        setTimeout(function() {
+          askCoachAI(question, exoContext, onResult, onError);
+        }, (data.waitSeconds + 1) * 1000);
+      } else if (data.error === 'daily_limit') {
+        if (onError) onError('daily_limit', 0);
+      }
+      return;
+    }
+
+    if (data && data.answer) {
+      // Consommer crédit si free
+      if ((db.user && db.user.plan) === 'free' || !(db.user && db.user.plan)) {
+        db.user.aiCreditsWeek = (db.user.aiCreditsWeek || 0) + 1;
+        if (typeof saveDB === 'function') saveDB();
+      }
+      if (onResult) onResult(data.answer);
+    } else {
+      var fb = buildStaticFallback(question, exoContext);
+      if (onResult) onResult(fb);
+    }
+
+  } catch (err) {
+    var fallback = buildStaticFallback(question, exoContext);
+    if (onResult) onResult(fallback);
+  }
+}
+
+// Fallback statique si IA indisponible (offline / Edge inaccessible).
+function buildStaticFallback(question, exoContext) {
+  if (!exoContext) return 'Coach indisponible pour l\'instant. Réessaie dans quelques instants.';
+  var phase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
+  return (exoContext.name || 'Cet exercice') + ' est prescrit en ' + phase +
+    ' pour ' + (exoContext.sets || '—') + '×' + (exoContext.reps || '—') +
+    '. L\'intensité RPE ' + (exoContext.rpe || 8) + ' est adaptée à ta phase actuelle.';
+}

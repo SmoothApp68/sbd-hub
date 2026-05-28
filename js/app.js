@@ -252,6 +252,11 @@ let db = (() => {
         p.user.sportsConfig = [];
       }
     }
+    // IA coaching freemium — plan + crédits hebdo gratuits
+    // NE PAS écraser un plan 'beta' déjà en base (4 users actuels avec betaExpiresAt:null)
+    if (!p.user.plan) p.user.plan = 'free';
+    if (p.user.aiCreditsWeek === undefined) p.user.aiCreditsWeek = 0;
+    if (p.user.aiCreditsWeekStart === undefined) p.user.aiCreditsWeekStart = null;
     // Restore last known cloud sync timestamp from localStorage (not Supabase)
     p._cloudUpdatedAt = parseInt(localStorage.getItem('_lastCloudSync') || '0');
     return p;

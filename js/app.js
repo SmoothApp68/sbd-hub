@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v272';
+var SW_VERSION = 'trainhub-v273';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -10736,6 +10736,14 @@ function getActiveProgramDay() {
 }
 
 window.goDirectFromHome = function() {
+  // Pré-sélectionne le bon jour (auj. ou prochaine séance si auj. = repos)
+  var active = typeof getActiveProgramDay === 'function' ? getActiveProgramDay() : null;
+  if (active && active.day) {
+    db._selectedProgramDay = active.day;
+    if (typeof saveDB === 'function') saveDB();
+  }
+
+  // Flux strictement identique à "Lancer la séance du jour"
   if (typeof showTab === 'function') showTab('tab-seances');
   if (typeof showSeancesSub === 'function') showSeancesSub('s-go');
   setTimeout(function() {
@@ -26935,7 +26943,15 @@ function startInstinctSession(mode) {
 }
 
 function _goDoStartWorkout(withProgram) {
-  var todayDay = DAYS_FULL[new Date().getDay()];
+  // Honore db._selectedProgramDay (sélection home) avant de retomber sur aujourd'hui.
+  // Si auj. est repos et qu'aucun jour n'est sélectionné, getActiveProgramDay() pointe vers la prochaine séance.
+  var actualToday = DAYS_FULL[new Date().getDay()];
+  var todayDay = actualToday;
+  if (withProgram) {
+    var override = db._selectedProgramDay
+      || (typeof getActiveProgramDay === 'function' && (getActiveProgramDay() || {}).day);
+    if (override) todayDay = override;
+  }
   var routine = getRoutine();
   activeWorkout = {
     id: generateId(),
@@ -26946,7 +26962,7 @@ function _goDoStartWorkout(withProgram) {
   };
   if (withProgram) {
     var dayExos = getProgExosForDay(todayDay);
-    // Check if weeklyPlan has data for today
+    // Check if weeklyPlan has data for the resolved day
     var planDay = null;
     if (db.weeklyPlan && db.weeklyPlan.days) {
       planDay = db.weeklyPlan.days.find(function(d) { return d.day === todayDay && !d.rest; });

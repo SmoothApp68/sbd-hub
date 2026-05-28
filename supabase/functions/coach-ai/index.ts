@@ -60,7 +60,7 @@ serve(async (req) => {
     // ── 1. Cooldown par user ─────────────────────────────────────
     const { data: userLimit } = await supabase
       .from('ai_rate_limits')
-      .select('last_request_at')
+      .select('last_request_at, minute_key, minute_count, day_key, day_count')
       .eq('user_id', userId)
       .maybeSingle()
 
@@ -79,23 +79,6 @@ serve(async (req) => {
     }
 
     // ── 2. Limites globales /minute et /jour ─────────────────────
-    const { data: minuteRow } = await supabase
-      .from('ai_rate_limits')
-      .select('minute_count')
-      .eq('minute_key', minuteKey)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const { data: dayRow } = await supabase
-      .from('ai_rate_limits')
-      .select('day_count')
-      .eq('day_key', dayKey)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    // Aggregate global counters across all users for this minute / day
     const { count: globalMinuteCount } = await supabase
       .from('ai_rate_limits')
       .select('user_id', { count: 'exact', head: true })
@@ -153,11 +136,11 @@ serve(async (req) => {
     const answer = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 
     // ── 4. Update counters (upsert per user) ────────────────────
-    const prevMinuteCount = userLimit && (userLimit as any).minute_key === minuteKey
-      ? ((userLimit as any).minute_count ?? 0)
+    const prevMinuteCount = userLimit && userLimit.minute_key === minuteKey
+      ? (userLimit.minute_count ?? 0)
       : 0
-    const prevDayCount = userLimit && (userLimit as any).day_key === dayKey
-      ? ((userLimit as any).day_count ?? 0)
+    const prevDayCount = userLimit && userLimit.day_key === dayKey
+      ? (userLimit.day_count ?? 0)
       : 0
 
     await supabase.from('ai_rate_limits').upsert({

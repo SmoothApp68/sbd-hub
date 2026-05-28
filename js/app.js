@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v266';
+var SW_VERSION = 'trainhub-v267';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -27227,6 +27227,133 @@ function renderGoActiveView() {
   }
 }
 
+// ============================================================
+// IA COACHING — Bouton "Pourquoi ?" contextuel + Paywall
+// ============================================================
+
+// Bouton "Pourquoi ?" sous le nom de l'exercice (GO tab).
+function renderWhyButton(exo, exoIdx, suggestedWeight, chargeReason) {
+  if (!exo || !exo.name) return '';
+  var access = typeof canUseAI === 'function' ? canUseAI() : { allowed: true, unlimited: true };
+  var exoId = (exo.name || 'exo').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+
+  return '<div style="margin-top:4px;">' +
+    '<button id="why-btn-' + exoId + '" ' +
+    'onclick="openCoachQuestion(' + exoIdx + ', this)" ' +
+    'style="font-size:9px;padding:3px 10px;border-radius:8px;cursor:pointer;' +
+    'background:' + (access.allowed ? 'rgba(124,107,255,.15)' : 'rgba(100,100,100,.1)') + ';' +
+    'border:1px solid ' + (access.allowed ? 'rgba(124,107,255,.35)' : '#2a2a45') + ';' +
+    'color:' + (access.allowed ? '#a89fff' : '#4a4a6a') + ';' +
+    'font-family:monospace;letter-spacing:0.5px;">' +
+    (access.allowed ? '💬 Pourquoi ?' : '🔒 Pourquoi ?') +
+    (!access.unlimited && access.remaining === 1 ? ' · 1 restante' : '') +
+    '</button>' +
+    '<div id="why-answer-' + exoId + '" style="display:none;margin-top:6px;' +
+    'background:#0d0d18;border:1px solid rgba(124,107,255,.2);border-radius:8px;' +
+    'padding:8px 10px;font-size:10px;color:#c8c8e8;line-height:1.5;"></div>' +
+  '</div>';
+}
+
+// Ouvre une question coach pour un exercice de la séance active.
+window.openCoachQuestion = function(exoIdx, btn) {
+  var access = typeof canUseAI === 'function' ? canUseAI() : { allowed: true, unlimited: true };
+  if (!access.allowed) {
+    if (typeof showPaywall === 'function') showPaywall();
+    return;
+  }
+
+  if (!activeWorkout || !activeWorkout.exercises || !activeWorkout.exercises[exoIdx]) return;
+  var exo = activeWorkout.exercises[exoIdx];
+
+  // Snapshot léger : nom, sets, reps, RPE, weight, raison algo
+  var workSets = (exo.sets || []).filter(function(s) { return s && !s.isWarmup && s.type !== 'warmup'; });
+  var firstWork = workSets[0] || {};
+  var shadowW = (db.exercises && db.exercises[exo.name]) ? (db.exercises[exo.name].shadowWeight || 0) : 0;
+  var suggestedW = firstWork.weight || 0;
+  var chargeExp = (typeof buildChargeExplanation === 'function')
+    ? buildChargeExplanation(exo.name, suggestedW, shadowW)
+    : null;
+
+  var exoContext = {
+    name: exo.name,
+    sets: workSets.length || (exo.sets || []).length,
+    reps: firstWork.reps || (exo.sets && exo.sets[0] && exo.sets[0].reps) || '—',
+    rpe: firstWork.rpe || (exo.sets && exo.sets[0] && exo.sets[0].rpe) || '—',
+    weight: suggestedW || '—',
+    reason: chargeExp ? chargeExp.text : null
+  };
+
+  var exoId = (exo.name || 'exo').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+  var answerDiv = document.getElementById('why-answer-' + exoId);
+  var btnEl = document.getElementById('why-btn-' + exoId) || btn;
+  if (!answerDiv) return;
+
+  // Toggle si déjà ouvert
+  if (answerDiv.style.display !== 'none') {
+    answerDiv.style.display = 'none';
+    return;
+  }
+
+  answerDiv.style.display = 'block';
+  answerDiv.innerHTML = '<span style="color:#7c6bff;font-family:monospace;">⏳ Coach en train de réfléchir...</span>';
+  if (btnEl) btnEl.disabled = true;
+
+  var question = 'Pourquoi cet exercice dans ma séance aujourd\'hui ?';
+
+  askCoachAI(
+    question,
+    exoContext,
+    function(answer) {
+      answerDiv.innerHTML = '<span style="color:#7c6bff;font-size:8px;font-family:monospace;letter-spacing:1px;">COACH IA</span><br>'
+        + String(answer).replace(/[<>]/g, function(c) { return c === '<' ? '&lt;' : '&gt;'; });
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✓ Réponse'; }
+    },
+    function(errType, waitSec) {
+      var msg = errType === 'cooldown'
+        ? '⏳ Attends encore ' + waitSec + 's...'
+        : errType === 'queue'
+        ? '⏳ File d\'attente... réessai dans ' + waitSec + 's'
+        : '⚠ Coach indisponible. Réessaie demain.';
+      answerDiv.innerHTML = '<span style="color:#f97316;font-size:10px;">' + msg + '</span>';
+      if (btnEl) btnEl.disabled = false;
+    }
+  );
+};
+
+// Paywall affiché quand un user free a épuisé son crédit hebdo.
+function showPaywall() {
+  if (document.getElementById('ai-paywall')) return;
+  var now = new Date();
+  var nextMonday = new Date(now);
+  var dow = now.getDay(); // 0=dim, 1=lun
+  var daysUntil = ((8 - dow) % 7) || 7;
+  nextMonday.setDate(now.getDate() + daysUntil);
+  var dayLabel = daysUntil > 1 ? 's' : '';
+
+  document.body.insertAdjacentHTML('beforeend',
+    '<div id="ai-paywall" style="position:fixed;top:0;left:0;width:100%;height:100%;' +
+    'background:rgba(5,5,9,.97);z-index:9999;display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;padding:24px;">' +
+    '<div style="max-width:300px;text-align:center;">' +
+      '<div style="font-size:9px;color:#7c6bff;font-family:monospace;letter-spacing:3px;margin-bottom:16px;">COACH IA</div>' +
+      '<div style="font-size:22px;font-weight:800;margin-bottom:10px;">Question utilisée 💬</div>' +
+      '<div style="font-size:12px;color:#9999bb;line-height:1.7;margin-bottom:24px;">' +
+        'Tu as utilisé ta question gratuite cette semaine.<br>' +
+        'Prochaine disponible dans <strong style="color:#fff">' + daysUntil + ' jour' + dayLabel + '</strong>.' +
+      '</div>' +
+      '<button style="width:100%;padding:13px;background:#7c6bff;border:none;border-radius:12px;' +
+        'color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">' +
+        'Passer Premium · Illimité →' +
+      '</button>' +
+      '<button onclick="document.getElementById(\'ai-paywall\').remove()" ' +
+        'style="width:100%;padding:10px;background:transparent;border:1px solid #2a2a45;' +
+        'border-radius:12px;color:#6a6a8a;font-size:12px;cursor:pointer;">' +
+        'Continuer en gratuit' +
+      '</button>' +
+    '</div></div>'
+  );
+}
+
 // ── Render a single exercise card ──
 // Audit Trail — explique pourquoi la charge proposée diffère de la shadowWeight.
 // Retourne null si la variation est négligeable ou si aucune raison active n'a été détectée.
@@ -27345,6 +27472,10 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '<div style="font-size:10px;color:' + _chargeExp.color + ';'
       + 'margin-top:4px;padding:4px 8px;border-radius:6px;'
       + 'background:rgba(255,255,255,0.03);">ⓘ ' + _chargeExp.text + '</div>';
+  }
+  // Bouton "Pourquoi ?" — IA coaching freemium (Gemini Flash)
+  if (typeof renderWhyButton === 'function') {
+    h += renderWhyButton(exo, exoIdx, _suggestedW, _chargeExp && _chargeExp.text);
   }
   if (isBarbellExercise(exo.name) && _suggestedW > 0 && typeof formatPlates === 'function') {
     var _platesId = 'plates-' + exoIdx;

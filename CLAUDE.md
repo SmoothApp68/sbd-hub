@@ -33,11 +33,10 @@ js/engine.js      — Calculs purs : APRE, e1RM, TRIMP, ACWR, SRS, DUP zones
 js/exercises.js   — Base 800+ exercices
 js/supabase.js    — Auth, sync cloud, leaderboard, challenges
 js/import.js      — Import CSV Hevy
-js/stats.js       — Statistiques et graphiques
 js/coach.js       — Textes coach, recommandations
-js/social.js      — Feed social, amis
 js/program.js     — Génération programme (wpGeneratePowerbuildingDay)
-js/app.js         — TOUJOURS EN DERNIER (~22 500 lignes)
+js/app.js         — TOUJOURS EN DERNIER (~31 500 lignes, 31 563 au 03/06/2026)
+// NB: stats.js et social.js n'existent plus — leur code est intégré dans app.js
 ```
 
 **Règle absolue : app.js toujours chargé en dernier.**
@@ -162,9 +161,13 @@ db = {
   bestPR: { squat: 148, bench: 140, deadlift: 186 },
   weeklyPlan: null,       // Généré par generateWeeklyPlan()
   activityLogs: [],       // Vraies activités faites (vs template = prévu)
-  earnedBadges: {},       // { 's25': { earnedAt, xp } } — jamais révoqués
-  xpHighWaterMark: 0,     // XP ne peut que monter
-  _ghostLogAnswered: null // Date ISO — reset chaque jour
+  earnedBadges: {},       // { 's25': { earnedAt, xp, active } } — jamais révoqués (racine db)
+  _ghostLogAnswered: null, // Date ISO — reset chaque jour
+  gamification: {
+    xpHighWaterMark: 0,   // XP ne descend jamais — SOURCE DE VÉRITÉ UNIQUE
+    streakFreezes: 2,     // Boucliers de streak
+    // ... autres champs gamification
+  }
 }
 ```
 
@@ -319,6 +322,9 @@ S/B ratio          : 1.057 (bench fort par rapport au squat)
 | v148 | renderGamificationTab 638L→20L, Leaderboard, Friend Challenges, 6 badges status |
 | v149 | getAllBadges 343L→18L, calcE1RM clarifiée, EventListeners guards, offline messages |
 | v150 | Télémétrie silencieuse (error_logs) |
+| v268-v269 | getRetentionAction + detectDisengagementSignals |
+| v270 | calibrationStatus, RPE binaire, signaux comportementaux, renderCalibrationIndicator |
+| v271 | handleAutoTunerAction, getCoachMode, renderCoachTerminal (CSS terminal interactif) |
 
 ---
 
@@ -358,8 +364,29 @@ Influenceurs       : Coachs Evidence-Based 10k-50k abonnés
 - [ ] Message d'annonce waitlist (fichier prêt : message-annonce-waitlist.md)
 
 ## POST-BÊTA (ne pas faire avant)
-- Découper renderCoachTodayHTML (438L) — trop risqué avant bêta
-- Découper wpComputeWorkWeight (339L) — cœur de l'algo, attendre les tests
+- Découper renderCoachTodayHTML (766L réelles) — trop risqué avant bêta
+- Découper wpComputeWorkWeight (418L réelles) — cœur de l'algo, attendre les tests
 - Modularisation ES6 complète d'app.js
 - Health Connect Edge Function (Garmin automatique)
 - Paywall Stripe (infrastructure en place : profiles.tier, stripe_customer_id)
+
+---
+
+## 15. SOURCES DE VÉRITÉ — NE JAMAIS DUPLIQUER
+
+### XP — source de vérité unique
+- `db.gamification.xpHighWaterMark` — ne descend jamais
+- Calculé dynamiquement par `computeGamificationData()`
+- **NE JAMAIS créer** `db.user.totalXP` ou toute structure parallèle
+- `db.earnedBadges` reste à la **racine** de `db` (pas dans `db.gamification`)
+
+### shouldDeload() — source de vérité unique
+- Défini **uniquement** dans `app.js` (~ligne 20229)
+- Version supprimée de `program.js` (commit P0-A, 03/06/2026)
+- **NE JAMAIS recréer** dans program.js, engine.js ou coach.js
+
+### Sync cloud — règle absolue
+- `debouncedCloudSync()` est appelé automatiquement par `saveDB()` (ligne 331)
+- `saveDB()` debounce 2s → `_flushDB()` + `debouncedCloudSync()`
+- **Ne jamais ajouter** d'appels sync redondants dans saveDB ou ses callsites
+- `db.pendingSync` + handler `'online'` gèrent le rattrapage offline

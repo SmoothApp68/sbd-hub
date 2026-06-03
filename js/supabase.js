@@ -292,6 +292,8 @@ async function syncToCloud(silent) {
     syncLeaderboard();
     // P1-A — Sync logs en parallèle (non-bloquant, dual-write)
     syncLogsToSupabase().catch(function(e){ console.error('log sync failed:', e); });
+    // P1-B — Sync program backups en parallèle (non-bloquant, dual-write)
+    syncProgramBackupsToSupabase().catch(function(e){ console.error('backup sync failed:', e); });
   } catch(e) {
     console.error('Cloud sync:', e);
     if (!silent) showToast('Erreur sync');
@@ -5363,5 +5365,44 @@ async function syncLogsToSupabase() {
     }
   } catch(e) {
     console.error('syncLogsToSupabase error:', e);
+  }
+}
+
+// ── P1-B — Sync program backups vers program_backups (dual-write) ─────────
+// Les backups n'ont pas de champ `id` : on utilise `savedAt` (timestamp stable)
+// comme identifiant unique. db.customProgramBackups reste intact.
+async function syncProgramBackupsToSupabase() {
+  if (!supaClient || !cloudSyncEnabled || !db.customProgramBackups || db.customProgramBackups.length === 0) return;
+  try {
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return;
+
+    const { data: existing } = await supaClient
+      .from('program_backups')
+      .select('backup_id')
+      .eq('user_id', user.id);
+    const existingIds = new Set((existing || []).map(function(r){ return r.backup_id; }));
+
+    const toInsert = db.customProgramBackups
+      .filter(function(b){ return b.savedAt && !existingIds.has(String(b.savedAt)); })
+      .map(function(b){
+        return {
+          user_id: user.id,
+          backup_id: String(b.savedAt),
+          saved_at: b.savedAt ? new Date(b.savedAt).toISOString() : new Date().toISOString(),
+          session_count: b.sessionCount || 0,
+          label: b.label || b.name || 'Backup',
+          data: b
+        };
+      });
+
+    if (toInsert.length === 0) return;
+
+    const { error } = await supaClient
+      .from('program_backups')
+      .upsert(toInsert, { onConflict: 'user_id,backup_id' });
+    if (error) console.error('syncProgramBackups error:', error);
+  } catch(e) {
+    console.error('syncProgramBackupsToSupabase error:', e);
   }
 }

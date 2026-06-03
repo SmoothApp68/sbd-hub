@@ -2096,43 +2096,6 @@ function nextOnboardingStep() {
 }
 
 // v206 — Écran de complétion après génération programme (1ère fois uniquement)
-function showOnboardingComplete() {
-  var _todaySession = db.weeklyPlan && db.weeklyPlan.days
-    ? (db.weeklyPlan.days || []).find(function(d) {
-        return d.exercises && d.exercises.length > 0 && !d.isRest;
-      })
-    : null;
-  var _exoPreview = _todaySession
-    ? ((_todaySession.exercises || []).slice(0, 3).map(function(e) { return e.name; }).join(' · '))
-    : '';
-
-  var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = '<div class="modal-box" style="max-width:360px;text-align:center;">'
-    + '<div style="font-size:48px;margin-bottom:12px;">🎉</div>'
-    + '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">Ton programme est prêt !</div>'
-    + (_exoPreview
-      ? '<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'
-        + 'Première séance : <strong>' + (_todaySession.title || '').split(' · ')[0] + '</strong></div>'
-        + '<div style="font-size:11px;color:var(--sub);margin-bottom:20px;">' + _exoPreview + '</div>'
-      : '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">'
-        + 'Va dans l\'onglet Plan pour voir ta semaine.</div>')
-    + (!(db.bestPR && db.bestPR.squat)
-      ? '<div style="font-size:12px;color:var(--orange);background:rgba(255,159,10,0.10);'
-        + 'border-radius:8px;padding:10px;margin-bottom:14px;">'
-        + '💡 Renseigne tes PRs dans le Profil pour affiner les charges.</div>'
-      : '')
-    + '<button onclick="this.closest(\'.modal-overlay\').remove();showTab(\'tab-seances\')" '
-    + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
-    + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">'
-    + 'Voir mon programme →</button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove();goStartWorkout(true)" '
-    + 'style="width:100%;padding:12px;border-radius:12px;background:var(--surface);'
-    + 'border:0.5px solid var(--accent);color:var(--accent);font-weight:600;cursor:pointer;">'
-    + 'Lancer maintenant 💪</button>'
-    + '</div>';
-  document.body.appendChild(overlay);
-}
 
 // v206 — Stub : ouvre la page Programme où l'user peut renseigner sa compDate
 function openCompDateSettings() {
@@ -2261,21 +2224,6 @@ function selectCardio(mode) {
   event.currentTarget.classList.add('selected');
 }
 
-function doGenerateProgram() {
-  const generated = generateProgram(obGoals, obFreq, obMat, obDuration, obInjuries, obCardio, obCompDate, obCompType, db.user.level);
-  db.generatedProgram = generated;
-  db.user.programParams = { goals: obGoals.map(g=>g.id), freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, compDate: obCompDate, compType: obCompType, level: db.user.level };
-  db.routine = {};
-  db.routineExos = db.routineExos || {};
-  generated.forEach(d => {
-    db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label);
-    if (!d.isRest && d.exos && d.exos.length > 0) {
-      db.routineExos[d.day] = d.exos.map(id => EXO_DB[id] ? EXO_DB[id].name : id);
-    }
-  });
-  renderObGeneratedProgram(generated);
-  gotoObStep('7');
-}
 
 // ── PARAMÈTRES PAR NIVEAU ────────────────────────────────────
 const LEVEL_PARAMS = {
@@ -5108,19 +5056,6 @@ function renderMuscleColors() {
   }
 }
 
-function svgToggleView(view) {
-  var front = document.getElementById('anatomyFront');
-  var back = document.getElementById('anatomyBack');
-  var btnF = document.getElementById('anatBtnFront');
-  var btnB = document.getElementById('anatBtnBack');
-  var showBack = (view === 'back');
-  if (front) front.style.display = showBack ? 'none' : 'block';
-  if (back) back.style.display = showBack ? 'block' : 'none';
-  if (btnF) btnF.classList.toggle('active', !showBack);
-  if (btnB) btnB.classList.toggle('active', showBack);
-  // Close any open popover on view switch
-  _closeMusclePop();
-}
 if (typeof window !== 'undefined') window.svgToggleView = svgToggleView;
 
 function _closeMusclePop() {
@@ -7083,26 +7018,6 @@ async function triggerDailyHighlight() {
 }
 
 // Mode Ghost : l'user voit les autres, les autres ne le voient pas
-function setGhostMode(enabled) {
-  if (!db.user) db.user = {};
-  if (!db.user.social) db.user.social = {};
-  db.user.social.ghostMode = !!enabled;
-  if (enabled) {
-    db.user.social.visibility = {
-      bio: 'private', prs: 'private', programme: 'private',
-      seances: 'private', stats: 'private', feed: 'private'
-    };
-  } else {
-    db.user.social.visibility = {
-      bio: 'friends', prs: 'friends', programme: 'friends',
-      seances: 'friends', stats: 'friends', feed: 'friends'
-    };
-  }
-  if (typeof saveDB === 'function') saveDB();
-  if (typeof showToast === 'function') {
-    showToast(enabled ? '👻 Mode privé activé' : '👥 Profil visible par tes amis');
-  }
-}
 
 async function renderFriendChallenges() {
   var el = document.getElementById('gamChallengesSection');
@@ -8834,114 +8749,10 @@ function renderDash() {
 // ============================================================
 // Résumé hebdomadaire — nombre de séances, durée, volume
 // ============================================================
-function renderWeeklySummary() {
-  var now = new Date();
-  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // Lundi = 0
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - dayOfWeek);
-  weekStart.setHours(0, 0, 0, 0);
-  var weekStartTs = weekStart.getTime();
-  var nowTs = now.getTime();
-
-  var sessions = 0, totalDuration = 0, totalVolume = 0;
-  (db.logs || []).forEach(function(log) {
-    // Utiliser timestamp (fiable) au lieu de log.date (string FR non parsable)
-    var ts = log.timestamp;
-    if (!ts) return;
-    if (ts >= weekStartTs && ts <= nowTs) {
-      sessions++;
-      // Duration est en secondes
-      if (log.duration) totalDuration += log.duration;
-      // Volume : utiliser log.volume (pré-calculé) ou recalculer
-      if (log.volume) {
-        totalVolume += log.volume;
-      } else {
-        (log.exercises || []).forEach(function(exo) {
-          (exo.series || exo.allSets || []).forEach(function(s) {
-            if (s.weight && s.reps) totalVolume += s.weight * s.reps;
-          });
-        });
-      }
-    }
-  });
-
-  var el;
-  el = document.getElementById('weekSessions');
-  if (el) el.textContent = sessions;
-
-  // Duration : convertir secondes → affichage lisible
-  el = document.getElementById('weekDuration');
-  if (el) {
-    var durMin = Math.round(totalDuration / 60);
-    if (durMin >= 60) {
-      var h = Math.floor(durMin / 60);
-      var m = durMin % 60;
-      el.textContent = h + 'h' + (m > 0 ? (m < 10 ? '0' : '') + m : '');
-    } else {
-      el.textContent = durMin + 'min';
-    }
-  }
-
-  el = document.getElementById('weekVolume');
-  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : Math.round(totalVolume) + 'kg';
-
-  // Message si aucune séance
-  var card = document.getElementById('weeklySummaryCard');
-  if (card && sessions === 0) {
-    var msgEl = card.querySelector('.weekly-empty-msg');
-    if (!msgEl) {
-      msgEl = document.createElement('div');
-      msgEl.className = 'weekly-empty-msg';
-      msgEl.style.cssText = 'text-align:center;padding:8px 0;font-size:12px;color:var(--sub);';
-      msgEl.textContent = 'Aucune séance cette semaine — c\'est le moment de s\'y mettre !';
-      card.appendChild(msgEl);
-    }
-    msgEl.style.display = sessions === 0 ? '' : 'none';
-  } else if (card) {
-    var exist = card.querySelector('.weekly-empty-msg');
-    if (exist) exist.style.display = 'none';
-  }
-}
 
 // ============================================================
 // Programme du jour — carte d'accueil
 // ============================================================
-function renderTodayProgram() {
-  var el = document.getElementById('todayProgramContent');
-  if (!el) return;
-  var todayDay = DAYS_FULL[new Date().getDay()];
-  var routine = getRoutine();
-  var label = routine[todayDay] || '';
-  var isRest = !label || /repos|😴/i.test(label);
-
-  var h = '';
-  if (isRest) {
-    h += '<div style="text-align:center;padding:8px 0;">';
-    h += '<div style="font-size:28px;margin-bottom:4px;">😴</div>';
-    h += '<div style="font-size:15px;font-weight:600;color:var(--sub);">Jour de repos</div>';
-    h += '</div>';
-    // Changer le bouton
-    var btn = document.getElementById('startTodayWorkoutBtn');
-    if (btn) { btn.textContent = 'Séance libre 🏋️'; }
-  } else {
-    h += '<div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;">' + label + '</div>';
-    // Afficher les exercices du jour
-    var exos = (db.routineExos && db.routineExos[todayDay]) ? db.routineExos[todayDay] : [];
-    if (!exos.length && db.generatedProgram) {
-      var gp = db.generatedProgram.find(function(p) { return p.day === todayDay && !p.isRest; });
-      if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
-    }
-    if (exos.length > 0) {
-      exos.forEach(function(name) {
-        var exoName = typeof name === 'string' ? name : (name && name.name) || 'Exercice';
-        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
-      });
-    } else {
-      h += '<div style="font-size:13px;color:var(--sub);">' + todayDay + '</div>';
-    }
-  }
-  el.innerHTML = h;
-}
 
 // ============================================================
 // Total SBD estimé — barres + progression
@@ -19270,28 +19081,7 @@ function renderCoachTodayHTML() {
   return _coachPrefix + html;
 }
 
-function getSetStyle(set) {
-  if (set.isBackOff || set.isBackoff) return 'background:rgba(255,159,10,0.13);border-left:3px solid var(--orange);border-radius:4px;';
-  if (set.isDropSet) return 'background:rgba(191,90,242,0.13);border-left:3px solid var(--purple,#BF5AF2);border-radius:4px;';
-  if (set.fatigueType === 'neural' && set.fatigueConfidence >= 0.60) {
-    return 'background:rgba(255,69,58,0.10);border-left:3px solid var(--red);border-radius:4px;';
-  }
-  if (set.fatigueType === 'muscular' && set.fatigueConfidence >= 0.60) {
-    return 'background:rgba(255,159,10,0.10);border-left:3px solid var(--orange);border-radius:4px;';
-  }
-  if (set.isWarmup) return 'opacity:0.5;';
-  return '';
-}
 
-function getSetLabel(set) {
-  if (set.isBackOff || set.isBackoff) return '🟠 Back-off';
-  if (set.isDropSet) return '🟣 Drop';
-  if (set.fatigueType === 'neural')    return '🔴 SNC';
-  if (set.fatigueType === 'muscular')  return '🟠 Muscu';
-  if (set.fatigueType === 'overload')  return '⚠️ Surcharge';
-  if (set.isWarmup) return 'Échauff.';
-  return 'Série';
-}
 
 function renderBackOffSuggestion() {
   if (typeof computeBackOffSets !== 'function') return '';
@@ -19376,152 +19166,7 @@ function updateTargetFromCoach(type, newTarget) {
   renderCoachToday();
 }
 
-function coachSelectDay(day) {
-  _coachSelectedDay = day;
-  renderCoachToday();
-}
 
-function renderCoachDayDetail(day, routine, donedays, weekStart) {
-  const label = routine[day] || '';
-  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
-
-  if (isRest) {
-    const isSwim = /natation|🏊/i.test(label);
-    return '<div class="coach-rest-day">' + (isSwim ? '🏊 Natation — récupération active' : '😴 Repos complet') + '</div>';
-  }
-
-  // Check if day is already done (use actual log data)
-  const dayDone = !!donedays[day];
-  let exercises = [];
-  let usePlanSets = false;
-
-  // PRIORITY 1: routine manuelle for exercise list
-  const progExos = getProgExosForDay(day);
-
-  // PRIORITY 2: weeklyPlan for detailed sets
-  const plan = db.weeklyPlan;
-  let planDay = null;
-  if (plan && plan.days) {
-    planDay = plan.days.find(d => d.day === day && !d.rest);
-  }
-
-  // If day is done, use actual log data
-  if (dayDone) {
-    const weekLogs = (db.logs || []).filter(l => l.timestamp >= weekStart);
-    const dayLog = weekLogs.find(l => DAYS_FULL[new Date(l.timestamp).getDay()] === day);
-    if (dayLog && dayLog.exercises) {
-      exercises = dayLog.exercises.map(e => ({
-        name: e.name,
-        sets: (e.series || e.allSets || []).map((s, idx) => ({
-          label: (s.isWarmup || s.type === 'warmup') ? '🔥 Chauffe ' + (idx + 1) : 'Série ' + (idx + 1),
-          weight: s.weight || 0,
-          reps: s.reps || 0,
-          rpe: s.rpe || null,
-          rest: s.rest || null,
-          isWarmup: s.isWarmup || s.type === 'warmup',
-          isPR: s.isPR || false
-        })),
-        actual: true
-      }));
-    }
-  } else if (planDay && planDay.exercises && planDay.exercises.length) {
-    // Use weeklyPlan sets
-    exercises = planDay.exercises.map(pe => {
-      const matched = progExos.find(n => matchExoName(n, pe.name));
-      return {
-        name: pe.name,
-        sets: (pe.sets || []).map((s, idx) => {
-          const isW = s.isWarmup || false;
-          const isB = s.isBackoff || false;
-          const lbl = isW ? '🔥 Chauffe ' + (idx + 1) : (isB ? 'Back-off ' + (idx + 1) : 'Série ' + (idx + 1));
-          return { label: lbl, weight: s.weight || 0, reps: s.reps || 0, rpe: s.rpe || null, rest: pe.restSeconds || null, isWarmup: isW, isPR: false };
-        }),
-        actual: false
-      };
-    });
-    // Add any routine exercises not in plan
-    progExos.forEach(name => {
-      if (!exercises.find(e => matchExoName(e.name, name))) {
-        const prev = goGetPreviousSets(name);
-        exercises.push({ name: name, sets: _buildSetsFromHistory(prev), actual: false });
-      }
-    });
-  } else {
-    // Fallback: use routine + history
-    exercises = progExos.map(name => {
-      const prev = goGetPreviousSets(name);
-      return { name: name, sets: _buildSetsFromHistory(prev), actual: false };
-    });
-  }
-
-  if (!exercises.length) {
-    return '<div class="coach-rest-day" style="font-size:12px;">Aucun exercice configuré pour ' + day + '</div>';
-  }
-
-  let h = '<div style="margin-top:4px;">';
-  exercises.forEach((exo, idx) => {
-    const ms = _ecMuscleStyle(exo.name);
-    const shortName = exo.name.replace(/\s*\(.*\)/, '').trim();
-
-    // Summary: sets x reps @ weight
-    let summary = '';
-    const workSets = (exo.sets || []).filter(s => !s.isWarmup);
-    if (workSets.length > 0) {
-      const w = workSets[0].weight;
-      const r = workSets[0].reps;
-      summary = workSets.length + '×' + r + (w ? ' @ ' + w + 'kg' : '');
-    }
-
-    // Trend vs last session
-    let trendHtml = '';
-    if (!exo.actual) {
-      var pts = [];
-      var desc = getSortedLogs();
-      for (var i = 0; i < desc.length && pts.length < 4; i++) {
-        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, exo.name) && e.maxRM > 0; });
-        if (found) pts.push(found.maxRM);
-      }
-      if (pts.length >= 2) {
-        var d = pts[0] - pts[1];
-        if (d > 0) trendHtml = '<span class="cec-trend" style="color:var(--green);">↑+' + d + 'kg</span>';
-        else if (d < 0) trendHtml = '<span class="cec-trend" style="color:var(--red);">↓' + d + 'kg</span>';
-        else trendHtml = '<span class="cec-trend" style="color:var(--sub);">→</span>';
-      }
-    }
-
-    const hasDetails = exo.sets && exo.sets.length > 0;
-    h += '<div class="coach-exo-card" id="coachExo' + idx + '">';
-    h += '<div class="coach-exo-card-header" onclick="toggleCoachExo(' + idx + ')">';
-    h += '<span class="cec-icon">' + ms.icon + '</span>';
-    h += '<span class="cec-name">' + shortName + '</span>';
-    h += trendHtml;
-    h += '<span class="cec-summary">' + summary + '</span>';
-    if (hasDetails) h += '<span class="cec-chevron">▾</span>';
-    h += '</div>';
-
-    if (hasDetails) {
-      h += '<div class="coach-exo-card-body">';
-      h += '<table class="coach-sets-table"><thead><tr><th>Label</th><th>Kg</th><th>Reps</th><th>Repos</th><th>RPE</th></tr></thead><tbody>';
-      exo.sets.forEach(s => {
-        let rowCls = s.isWarmup ? ' class="warmup"' : (s.isPR ? ' class="pr"' : '');
-        let rpeHtml = '';
-        if (s.rpe || s.grind) {
-          var _rpeLabel = typeof getSetRPELabel === 'function' ? getSetRPELabel(s) : (s.rpe || '—');
-          let rpeCls = (s.rpe || 0) <= 8 ? 'rpe-green' : ((s.rpe || 0) < 9.5 ? 'rpe-orange' : 'rpe-red');
-          if (s.grind) rpeCls = 'rpe-red';
-          rpeHtml = '<span class="rpe-badge ' + rpeCls + '">' + _rpeLabel + '</span>';
-        }
-        let restHtml = s.rest ? '<span style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;font-size:10px;">' + fmtRest(s.rest) + '</span>' : '';
-        let prefix = s.isWarmup ? '🔥 ' : (s.isPR ? '🏆 ' : '');
-        h += '<tr' + rowCls + '><td>' + prefix + s.label + '</td><td>' + (s.weight || '—') + '</td><td>' + (s.reps || '—') + '</td><td>' + restHtml + '</td><td>' + rpeHtml + '</td></tr>';
-      });
-      h += '</tbody></table></div>';
-    }
-    h += '</div>';
-  });
-  h += '</div>';
-  return h;
-}
 
 function _buildSetsFromHistory(prev) {
   if (!prev || !prev.series || !prev.series.length) return [];
@@ -19937,91 +19582,11 @@ function mapTrainingModeToGoal(mode) {
   return map[mode] || 'force';
 }
 
-function getWorkSets(exerciseCategory, goal) {
-  const table = {
-    force:    { big: 5, compound: 4, isolation: 3 },
-    masse:    { big: 4, compound: 4, isolation: 3 },
-    recompo:  { big: 4, compound: 3, isolation: 3 },
-    seche:    { big: 3, compound: 3, isolation: 2 },
-    maintien: { big: 3, compound: 3, isolation: 2 },
-    bien_etre:{ big: 3, compound: 3, isolation: 2 }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || 3;
-}
 
-function getRepRange(exerciseCategory, goal) {
-  const table = {
-    force:    { big: {reps:5, rpe:8},  compound: {reps:6, rpe:8},  isolation: {reps:10, rpe:8} },
-    masse:    { big: {reps:8, rpe:8},  compound: {reps:10, rpe:8}, isolation: {reps:12, rpe:9} },
-    recompo:  { big: {reps:6, rpe:8},  compound: {reps:8, rpe:8},  isolation: {reps:10, rpe:8} },
-    seche:    { big: {reps:8, rpe:7},  compound: {reps:10, rpe:8}, isolation: {reps:15, rpe:8} },
-    maintien: { big: {reps:6, rpe:7},  compound: {reps:8, rpe:7},  isolation: {reps:12, rpe:7} },
-    bien_etre:{ big: {reps:10,rpe:7},  compound: {reps:12, rpe:7}, isolation: {reps:15, rpe:7} }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || {reps:10, rpe:8};
-}
 
-function getRestSeconds(exerciseCategory, goal) {
-  const table = {
-    force:    { big: 240, compound: 180, isolation: 120 },
-    masse:    { big: 150, compound: 120, isolation: 75 },
-    recompo:  { big: 180, compound: 150, isolation: 90 },
-    seche:    { big: 120, compound: 90,  isolation: 60 },
-    maintien: { big: 150, compound: 120, isolation: 90 },
-    bien_etre:{ big: 120, compound: 90,  isolation: 60 }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || 90;
-}
 
 // ── Échauffements intelligents par exercice ─────────────────
 // Sources : Ripped Body, BarBend (Ben Pollack), Skill Based Fitness
-function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isFirstCompound, cat) {
-  if (!workWeight || workWeight <= 0) return [];
-  if (!cat) cat = 'isolation';
-
-  // Isolation → pas d'échauffement (muscles déjà chauds après compounds)
-  if (cat === 'isolation') return [];
-
-  // Premier compound de la séance → échauffement complet
-  if (isFirstCompound) {
-    if (workReps <= 5) {
-      // Force : 5 montantes → bar, 50%, 65%, 80%, 90%
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.40), reps: 8 },
-        { isWarmup: true, weight: round05(workWeight * 0.55), reps: 5 },
-        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 },
-        { isWarmup: true, weight: round05(workWeight * 0.85), reps: 2 },
-        { isWarmup: true, weight: round05(workWeight * 0.92), reps: 1 }
-      ];
-    } else if (workReps <= 10) {
-      // Hypertrophie : 3 montantes
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 8 },
-        { isWarmup: true, weight: round05(workWeight * 0.65), reps: 5 },
-        { isWarmup: true, weight: round05(workWeight * 0.80), reps: 3 }
-      ];
-    } else {
-      // Endurance : 2 montantes
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 10 },
-        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 5 }
-      ];
-    }
-  }
-
-  // Compound suivant mais premier pour ce groupe musculaire → 2 montantes
-  if (isFirstForMuscleGroup) {
-    return [
-      { isWarmup: true, weight: round05(workWeight * 0.50), reps: 5 },
-      { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 }
-    ];
-  }
-
-  // Compound suivant, même groupe déjà échauffé → 1 montante
-  return [
-    { isWarmup: true, weight: round05(workWeight * 0.60), reps: 5 }
-  ];
-}
 
 // ── Estimation durée séance scientifique ────────────────────
 function estimateSessionDuration(exercises) {
@@ -20600,33 +20165,7 @@ var CALISTHENICS_SKILL_TREE = {
   ]
 };
 
-function getCalisthenicCurrentStep(movement) {
-  var _progress = (db.calisthenicProgress && db.calisthenicProgress[movement])
-    || { step: 1, reps: 0 };
-  return _progress;
-}
 
-function validateCalisthenicStep(movement, repsAchieved) {
-  if (!db.calisthenicProgress) db.calisthenicProgress = {};
-  var _tree = CALISTHENICS_SKILL_TREE[movement] || [];
-  var _current = db.calisthenicProgress[movement] || { step: 1, reps: 0 };
-  var _stepData = _tree.find(function(s) { return s.step === _current.step; });
-  if (!_stepData) return;
-  if (repsAchieved >= _stepData.repsTarget) {
-    var _nextStep = _current.step + 1;
-    var _nextStepData = _tree.find(function(s) { return s.step === _nextStep; });
-    db.calisthenicProgress[movement] = {
-      step: _nextStepData ? _nextStep : _current.step,
-      reps: 0
-    };
-    if (_nextStepData && typeof showToast === 'function') {
-      showToast('🔓 ' + movement + ' débloqué : ' + _nextStepData.name + ' !', 4000);
-    }
-  } else {
-    db.calisthenicProgress[movement] = { step: _current.step, reps: repsAchieved };
-  }
-  if (typeof saveDB === 'function') saveDB();
-}
 
 var DUP_SEQUENCE = {
   // Débutants : volume fixe (LP pure, pas de DUP)
@@ -27092,19 +26631,6 @@ function goStartWorkout(withProgram) {
 // ── INSTINCT MODE — universel (Gemini v208) ─────────────────────────
 // "Séance Plaisir" pour bien_etre/calisthenics, "Mode Instinct" sinon.
 // Aucune cible imposée, l'algo observe sans intervenir.
-function startInstinctSession(mode) {
-  var _mode = mode || (db.user && db.user.trainingMode) || 'powerbuilding';
-  var _isWellbeing = _mode === 'bien_etre' || _mode === 'calisthenics';
-  var _label = _isWellbeing ? 'Séance Plaisir 🌟' : 'Mode Instinct 🎲';
-  var _desc = _isWellbeing
-    ? 'Aucun log obligatoire. Aucune cible. Juste bouger pour se sentir bien.'
-    : 'Entraîne-toi au feeling. Aucun RPE imposé. L\'algo observe sans intervenir.';
-  db._lastInstinctSession = Date.now();
-  db._instinctMode = true;
-  if (typeof saveDB === 'function') saveDB();
-  if (typeof goStartWorkout === 'function') goStartWorkout(false);
-  if (typeof showToast === 'function') showToast('🎯 ' + _label + ' — ' + _desc, 5000);
-}
 
 function _goDoStartWorkout(withProgram) {
   var todayDay = DAYS_FULL[new Date().getDay()];
@@ -31561,3 +31087,550 @@ async function postLoginSync() {
   }
 }
 
+
+// ═══════════════════════════════════════════
+// ARCHIVE — Fonctions orphelines (P0-D, 03/06/2026)
+// À supprimer définitivement après v300
+// ═══════════════════════════════════════════
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function showOnboardingComplete() {
+  var _todaySession = db.weeklyPlan && db.weeklyPlan.days
+    ? (db.weeklyPlan.days || []).find(function(d) {
+        return d.exercises && d.exercises.length > 0 && !d.isRest;
+      })
+    : null;
+  var _exoPreview = _todaySession
+    ? ((_todaySession.exercises || []).slice(0, 3).map(function(e) { return e.name; }).join(' · '))
+    : '';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-box" style="max-width:360px;text-align:center;">'
+    + '<div style="font-size:48px;margin-bottom:12px;">🎉</div>'
+    + '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">Ton programme est prêt !</div>'
+    + (_exoPreview
+      ? '<div style="font-size:12px;color:var(--sub);margin-bottom:4px;">'
+        + 'Première séance : <strong>' + (_todaySession.title || '').split(' · ')[0] + '</strong></div>'
+        + '<div style="font-size:11px;color:var(--sub);margin-bottom:20px;">' + _exoPreview + '</div>'
+      : '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">'
+        + 'Va dans l\'onglet Plan pour voir ta semaine.</div>')
+    + (!(db.bestPR && db.bestPR.squat)
+      ? '<div style="font-size:12px;color:var(--orange);background:rgba(255,159,10,0.10);'
+        + 'border-radius:8px;padding:10px;margin-bottom:14px;">'
+        + '💡 Renseigne tes PRs dans le Profil pour affiner les charges.</div>'
+      : '')
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();showTab(\'tab-seances\')" '
+    + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
+    + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">'
+    + 'Voir mon programme →</button>'
+    + '<button onclick="this.closest(\'.modal-overlay\').remove();goStartWorkout(true)" '
+    + 'style="width:100%;padding:12px;border-radius:12px;background:var(--surface);'
+    + 'border:0.5px solid var(--accent);color:var(--accent);font-weight:600;cursor:pointer;">'
+    + 'Lancer maintenant 💪</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function doGenerateProgram() {
+  const generated = generateProgram(obGoals, obFreq, obMat, obDuration, obInjuries, obCardio, obCompDate, obCompType, db.user.level);
+  db.generatedProgram = generated;
+  db.user.programParams = { goals: obGoals.map(g=>g.id), freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, compDate: obCompDate, compType: obCompType, level: db.user.level };
+  db.routine = {};
+  db.routineExos = db.routineExos || {};
+  generated.forEach(d => {
+    db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label);
+    if (!d.isRest && d.exos && d.exos.length > 0) {
+      db.routineExos[d.day] = d.exos.map(id => EXO_DB[id] ? EXO_DB[id].name : id);
+    }
+  });
+  renderObGeneratedProgram(generated);
+  gotoObStep('7');
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function svgToggleView(view) {
+  var front = document.getElementById('anatomyFront');
+  var back = document.getElementById('anatomyBack');
+  var btnF = document.getElementById('anatBtnFront');
+  var btnB = document.getElementById('anatBtnBack');
+  var showBack = (view === 'back');
+  if (front) front.style.display = showBack ? 'none' : 'block';
+  if (back) back.style.display = showBack ? 'block' : 'none';
+  if (btnF) btnF.classList.toggle('active', !showBack);
+  if (btnB) btnB.classList.toggle('active', showBack);
+  // Close any open popover on view switch
+  _closeMusclePop();
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function setGhostMode(enabled) {
+  if (!db.user) db.user = {};
+  if (!db.user.social) db.user.social = {};
+  db.user.social.ghostMode = !!enabled;
+  if (enabled) {
+    db.user.social.visibility = {
+      bio: 'private', prs: 'private', programme: 'private',
+      seances: 'private', stats: 'private', feed: 'private'
+    };
+  } else {
+    db.user.social.visibility = {
+      bio: 'friends', prs: 'friends', programme: 'friends',
+      seances: 'friends', stats: 'friends', feed: 'friends'
+    };
+  }
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof showToast === 'function') {
+    showToast(enabled ? '👻 Mode privé activé' : '👥 Profil visible par tes amis');
+  }
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function renderWeeklySummary() {
+  var now = new Date();
+  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // Lundi = 0
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+  var weekStartTs = weekStart.getTime();
+  var nowTs = now.getTime();
+
+  var sessions = 0, totalDuration = 0, totalVolume = 0;
+  (db.logs || []).forEach(function(log) {
+    // Utiliser timestamp (fiable) au lieu de log.date (string FR non parsable)
+    var ts = log.timestamp;
+    if (!ts) return;
+    if (ts >= weekStartTs && ts <= nowTs) {
+      sessions++;
+      // Duration est en secondes
+      if (log.duration) totalDuration += log.duration;
+      // Volume : utiliser log.volume (pré-calculé) ou recalculer
+      if (log.volume) {
+        totalVolume += log.volume;
+      } else {
+        (log.exercises || []).forEach(function(exo) {
+          (exo.series || exo.allSets || []).forEach(function(s) {
+            if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+          });
+        });
+      }
+    }
+  });
+
+  var el;
+  el = document.getElementById('weekSessions');
+  if (el) el.textContent = sessions;
+
+  // Duration : convertir secondes → affichage lisible
+  el = document.getElementById('weekDuration');
+  if (el) {
+    var durMin = Math.round(totalDuration / 60);
+    if (durMin >= 60) {
+      var h = Math.floor(durMin / 60);
+      var m = durMin % 60;
+      el.textContent = h + 'h' + (m > 0 ? (m < 10 ? '0' : '') + m : '');
+    } else {
+      el.textContent = durMin + 'min';
+    }
+  }
+
+  el = document.getElementById('weekVolume');
+  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : Math.round(totalVolume) + 'kg';
+
+  // Message si aucune séance
+  var card = document.getElementById('weeklySummaryCard');
+  if (card && sessions === 0) {
+    var msgEl = card.querySelector('.weekly-empty-msg');
+    if (!msgEl) {
+      msgEl = document.createElement('div');
+      msgEl.className = 'weekly-empty-msg';
+      msgEl.style.cssText = 'text-align:center;padding:8px 0;font-size:12px;color:var(--sub);';
+      msgEl.textContent = 'Aucune séance cette semaine — c\'est le moment de s\'y mettre !';
+      card.appendChild(msgEl);
+    }
+    msgEl.style.display = sessions === 0 ? '' : 'none';
+  } else if (card) {
+    var exist = card.querySelector('.weekly-empty-msg');
+    if (exist) exist.style.display = 'none';
+  }
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function renderTodayProgram() {
+  var el = document.getElementById('todayProgramContent');
+  if (!el) return;
+  var todayDay = DAYS_FULL[new Date().getDay()];
+  var routine = getRoutine();
+  var label = routine[todayDay] || '';
+  var isRest = !label || /repos|😴/i.test(label);
+
+  var h = '';
+  if (isRest) {
+    h += '<div style="text-align:center;padding:8px 0;">';
+    h += '<div style="font-size:28px;margin-bottom:4px;">😴</div>';
+    h += '<div style="font-size:15px;font-weight:600;color:var(--sub);">Jour de repos</div>';
+    h += '</div>';
+    // Changer le bouton
+    var btn = document.getElementById('startTodayWorkoutBtn');
+    if (btn) { btn.textContent = 'Séance libre 🏋️'; }
+  } else {
+    h += '<div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;">' + label + '</div>';
+    // Afficher les exercices du jour
+    var exos = (db.routineExos && db.routineExos[todayDay]) ? db.routineExos[todayDay] : [];
+    if (!exos.length && db.generatedProgram) {
+      var gp = db.generatedProgram.find(function(p) { return p.day === todayDay && !p.isRest; });
+      if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
+    }
+    if (exos.length > 0) {
+      exos.forEach(function(name) {
+        var exoName = typeof name === 'string' ? name : (name && name.name) || 'Exercice';
+        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
+      });
+    } else {
+      h += '<div style="font-size:13px;color:var(--sub);">' + todayDay + '</div>';
+    }
+  }
+  el.innerHTML = h;
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getSetStyle(set) {
+  if (set.isBackOff || set.isBackoff) return 'background:rgba(255,159,10,0.13);border-left:3px solid var(--orange);border-radius:4px;';
+  if (set.isDropSet) return 'background:rgba(191,90,242,0.13);border-left:3px solid var(--purple,#BF5AF2);border-radius:4px;';
+  if (set.fatigueType === 'neural' && set.fatigueConfidence >= 0.60) {
+    return 'background:rgba(255,69,58,0.10);border-left:3px solid var(--red);border-radius:4px;';
+  }
+  if (set.fatigueType === 'muscular' && set.fatigueConfidence >= 0.60) {
+    return 'background:rgba(255,159,10,0.10);border-left:3px solid var(--orange);border-radius:4px;';
+  }
+  if (set.isWarmup) return 'opacity:0.5;';
+  return '';
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getSetLabel(set) {
+  if (set.isBackOff || set.isBackoff) return '🟠 Back-off';
+  if (set.isDropSet) return '🟣 Drop';
+  if (set.fatigueType === 'neural')    return '🔴 SNC';
+  if (set.fatigueType === 'muscular')  return '🟠 Muscu';
+  if (set.fatigueType === 'overload')  return '⚠️ Surcharge';
+  if (set.isWarmup) return 'Échauff.';
+  return 'Série';
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function coachSelectDay(day) {
+  _coachSelectedDay = day;
+  renderCoachToday();
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function renderCoachDayDetail(day, routine, donedays, weekStart) {
+  const label = routine[day] || '';
+  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
+
+  if (isRest) {
+    const isSwim = /natation|🏊/i.test(label);
+    return '<div class="coach-rest-day">' + (isSwim ? '🏊 Natation — récupération active' : '😴 Repos complet') + '</div>';
+  }
+
+  // Check if day is already done (use actual log data)
+  const dayDone = !!donedays[day];
+  let exercises = [];
+  let usePlanSets = false;
+
+  // PRIORITY 1: routine manuelle for exercise list
+  const progExos = getProgExosForDay(day);
+
+  // PRIORITY 2: weeklyPlan for detailed sets
+  const plan = db.weeklyPlan;
+  let planDay = null;
+  if (plan && plan.days) {
+    planDay = plan.days.find(d => d.day === day && !d.rest);
+  }
+
+  // If day is done, use actual log data
+  if (dayDone) {
+    const weekLogs = (db.logs || []).filter(l => l.timestamp >= weekStart);
+    const dayLog = weekLogs.find(l => DAYS_FULL[new Date(l.timestamp).getDay()] === day);
+    if (dayLog && dayLog.exercises) {
+      exercises = dayLog.exercises.map(e => ({
+        name: e.name,
+        sets: (e.series || e.allSets || []).map((s, idx) => ({
+          label: (s.isWarmup || s.type === 'warmup') ? '🔥 Chauffe ' + (idx + 1) : 'Série ' + (idx + 1),
+          weight: s.weight || 0,
+          reps: s.reps || 0,
+          rpe: s.rpe || null,
+          rest: s.rest || null,
+          isWarmup: s.isWarmup || s.type === 'warmup',
+          isPR: s.isPR || false
+        })),
+        actual: true
+      }));
+    }
+  } else if (planDay && planDay.exercises && planDay.exercises.length) {
+    // Use weeklyPlan sets
+    exercises = planDay.exercises.map(pe => {
+      const matched = progExos.find(n => matchExoName(n, pe.name));
+      return {
+        name: pe.name,
+        sets: (pe.sets || []).map((s, idx) => {
+          const isW = s.isWarmup || false;
+          const isB = s.isBackoff || false;
+          const lbl = isW ? '🔥 Chauffe ' + (idx + 1) : (isB ? 'Back-off ' + (idx + 1) : 'Série ' + (idx + 1));
+          return { label: lbl, weight: s.weight || 0, reps: s.reps || 0, rpe: s.rpe || null, rest: pe.restSeconds || null, isWarmup: isW, isPR: false };
+        }),
+        actual: false
+      };
+    });
+    // Add any routine exercises not in plan
+    progExos.forEach(name => {
+      if (!exercises.find(e => matchExoName(e.name, name))) {
+        const prev = goGetPreviousSets(name);
+        exercises.push({ name: name, sets: _buildSetsFromHistory(prev), actual: false });
+      }
+    });
+  } else {
+    // Fallback: use routine + history
+    exercises = progExos.map(name => {
+      const prev = goGetPreviousSets(name);
+      return { name: name, sets: _buildSetsFromHistory(prev), actual: false };
+    });
+  }
+
+  if (!exercises.length) {
+    return '<div class="coach-rest-day" style="font-size:12px;">Aucun exercice configuré pour ' + day + '</div>';
+  }
+
+  let h = '<div style="margin-top:4px;">';
+  exercises.forEach((exo, idx) => {
+    const ms = _ecMuscleStyle(exo.name);
+    const shortName = exo.name.replace(/\s*\(.*\)/, '').trim();
+
+    // Summary: sets x reps @ weight
+    let summary = '';
+    const workSets = (exo.sets || []).filter(s => !s.isWarmup);
+    if (workSets.length > 0) {
+      const w = workSets[0].weight;
+      const r = workSets[0].reps;
+      summary = workSets.length + '×' + r + (w ? ' @ ' + w + 'kg' : '');
+    }
+
+    // Trend vs last session
+    let trendHtml = '';
+    if (!exo.actual) {
+      var pts = [];
+      var desc = getSortedLogs();
+      for (var i = 0; i < desc.length && pts.length < 4; i++) {
+        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, exo.name) && e.maxRM > 0; });
+        if (found) pts.push(found.maxRM);
+      }
+      if (pts.length >= 2) {
+        var d = pts[0] - pts[1];
+        if (d > 0) trendHtml = '<span class="cec-trend" style="color:var(--green);">↑+' + d + 'kg</span>';
+        else if (d < 0) trendHtml = '<span class="cec-trend" style="color:var(--red);">↓' + d + 'kg</span>';
+        else trendHtml = '<span class="cec-trend" style="color:var(--sub);">→</span>';
+      }
+    }
+
+    const hasDetails = exo.sets && exo.sets.length > 0;
+    h += '<div class="coach-exo-card" id="coachExo' + idx + '">';
+    h += '<div class="coach-exo-card-header" onclick="toggleCoachExo(' + idx + ')">';
+    h += '<span class="cec-icon">' + ms.icon + '</span>';
+    h += '<span class="cec-name">' + shortName + '</span>';
+    h += trendHtml;
+    h += '<span class="cec-summary">' + summary + '</span>';
+    if (hasDetails) h += '<span class="cec-chevron">▾</span>';
+    h += '</div>';
+
+    if (hasDetails) {
+      h += '<div class="coach-exo-card-body">';
+      h += '<table class="coach-sets-table"><thead><tr><th>Label</th><th>Kg</th><th>Reps</th><th>Repos</th><th>RPE</th></tr></thead><tbody>';
+      exo.sets.forEach(s => {
+        let rowCls = s.isWarmup ? ' class="warmup"' : (s.isPR ? ' class="pr"' : '');
+        let rpeHtml = '';
+        if (s.rpe || s.grind) {
+          var _rpeLabel = typeof getSetRPELabel === 'function' ? getSetRPELabel(s) : (s.rpe || '—');
+          let rpeCls = (s.rpe || 0) <= 8 ? 'rpe-green' : ((s.rpe || 0) < 9.5 ? 'rpe-orange' : 'rpe-red');
+          if (s.grind) rpeCls = 'rpe-red';
+          rpeHtml = '<span class="rpe-badge ' + rpeCls + '">' + _rpeLabel + '</span>';
+        }
+        let restHtml = s.rest ? '<span style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;font-size:10px;">' + fmtRest(s.rest) + '</span>' : '';
+        let prefix = s.isWarmup ? '🔥 ' : (s.isPR ? '🏆 ' : '');
+        h += '<tr' + rowCls + '><td>' + prefix + s.label + '</td><td>' + (s.weight || '—') + '</td><td>' + (s.reps || '—') + '</td><td>' + restHtml + '</td><td>' + rpeHtml + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getWorkSets(exerciseCategory, goal) {
+  const table = {
+    force:    { big: 5, compound: 4, isolation: 3 },
+    masse:    { big: 4, compound: 4, isolation: 3 },
+    recompo:  { big: 4, compound: 3, isolation: 3 },
+    seche:    { big: 3, compound: 3, isolation: 2 },
+    maintien: { big: 3, compound: 3, isolation: 2 },
+    bien_etre:{ big: 3, compound: 3, isolation: 2 }
+  };
+  return (table[goal] || table.maintien)[exerciseCategory] || 3;
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getRepRange(exerciseCategory, goal) {
+  const table = {
+    force:    { big: {reps:5, rpe:8},  compound: {reps:6, rpe:8},  isolation: {reps:10, rpe:8} },
+    masse:    { big: {reps:8, rpe:8},  compound: {reps:10, rpe:8}, isolation: {reps:12, rpe:9} },
+    recompo:  { big: {reps:6, rpe:8},  compound: {reps:8, rpe:8},  isolation: {reps:10, rpe:8} },
+    seche:    { big: {reps:8, rpe:7},  compound: {reps:10, rpe:8}, isolation: {reps:15, rpe:8} },
+    maintien: { big: {reps:6, rpe:7},  compound: {reps:8, rpe:7},  isolation: {reps:12, rpe:7} },
+    bien_etre:{ big: {reps:10,rpe:7},  compound: {reps:12, rpe:7}, isolation: {reps:15, rpe:7} }
+  };
+  return (table[goal] || table.maintien)[exerciseCategory] || {reps:10, rpe:8};
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getRestSeconds(exerciseCategory, goal) {
+  const table = {
+    force:    { big: 240, compound: 180, isolation: 120 },
+    masse:    { big: 150, compound: 120, isolation: 75 },
+    recompo:  { big: 180, compound: 150, isolation: 90 },
+    seche:    { big: 120, compound: 90,  isolation: 60 },
+    maintien: { big: 150, compound: 120, isolation: 90 },
+    bien_etre:{ big: 120, compound: 90,  isolation: 60 }
+  };
+  return (table[goal] || table.maintien)[exerciseCategory] || 90;
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isFirstCompound, cat) {
+  if (!workWeight || workWeight <= 0) return [];
+  if (!cat) cat = 'isolation';
+
+  // Isolation → pas d'échauffement (muscles déjà chauds après compounds)
+  if (cat === 'isolation') return [];
+
+  // Premier compound de la séance → échauffement complet
+  if (isFirstCompound) {
+    if (workReps <= 5) {
+      // Force : 5 montantes → bar, 50%, 65%, 80%, 90%
+      return [
+        { isWarmup: true, weight: round05(workWeight * 0.40), reps: 8 },
+        { isWarmup: true, weight: round05(workWeight * 0.55), reps: 5 },
+        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 },
+        { isWarmup: true, weight: round05(workWeight * 0.85), reps: 2 },
+        { isWarmup: true, weight: round05(workWeight * 0.92), reps: 1 }
+      ];
+    } else if (workReps <= 10) {
+      // Hypertrophie : 3 montantes
+      return [
+        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 8 },
+        { isWarmup: true, weight: round05(workWeight * 0.65), reps: 5 },
+        { isWarmup: true, weight: round05(workWeight * 0.80), reps: 3 }
+      ];
+    } else {
+      // Endurance : 2 montantes
+      return [
+        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 10 },
+        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 5 }
+      ];
+    }
+  }
+
+  // Compound suivant mais premier pour ce groupe musculaire → 2 montantes
+  if (isFirstForMuscleGroup) {
+    return [
+      { isWarmup: true, weight: round05(workWeight * 0.50), reps: 5 },
+      { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 }
+    ];
+  }
+
+  // Compound suivant, même groupe déjà échauffé → 1 montante
+  return [
+    { isWarmup: true, weight: round05(workWeight * 0.60), reps: 5 }
+  ];
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function getCalisthenicCurrentStep(movement) {
+  var _progress = (db.calisthenicProgress && db.calisthenicProgress[movement])
+    || { step: 1, reps: 0 };
+  return _progress;
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function validateCalisthenicStep(movement, repsAchieved) {
+  if (!db.calisthenicProgress) db.calisthenicProgress = {};
+  var _tree = CALISTHENICS_SKILL_TREE[movement] || [];
+  var _current = db.calisthenicProgress[movement] || { step: 1, reps: 0 };
+  var _stepData = _tree.find(function(s) { return s.step === _current.step; });
+  if (!_stepData) return;
+  if (repsAchieved >= _stepData.repsTarget) {
+    var _nextStep = _current.step + 1;
+    var _nextStepData = _tree.find(function(s) { return s.step === _nextStep; });
+    db.calisthenicProgress[movement] = {
+      step: _nextStepData ? _nextStep : _current.step,
+      reps: 0
+    };
+    if (_nextStepData && typeof showToast === 'function') {
+      showToast('🔓 ' + movement + ' débloqué : ' + _nextStepData.name + ' !', 4000);
+    }
+  } else {
+    db.calisthenicProgress[movement] = { step: _current.step, reps: repsAchieved };
+  }
+  if (typeof saveDB === 'function') saveDB();
+}
+*/
+/* ORPHAN — archivé P0-D (03/06/2026)
+ * Ancienne génération remplacée par moteur wp*
+ * Supprimer définitivement après v300 si aucune régression
+function startInstinctSession(mode) {
+  var _mode = mode || (db.user && db.user.trainingMode) || 'powerbuilding';
+  var _isWellbeing = _mode === 'bien_etre' || _mode === 'calisthenics';
+  var _label = _isWellbeing ? 'Séance Plaisir 🌟' : 'Mode Instinct 🎲';
+  var _desc = _isWellbeing
+    ? 'Aucun log obligatoire. Aucune cible. Juste bouger pour se sentir bien.'
+    : 'Entraîne-toi au feeling. Aucun RPE imposé. L\'algo observe sans intervenir.';
+  db._lastInstinctSession = Date.now();
+  db._instinctMode = true;
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof goStartWorkout === 'function') goStartWorkout(false);
+  if (typeof showToast === 'function') showToast('🎯 ' + _label + ' — ' + _desc, 5000);
+}
+*/

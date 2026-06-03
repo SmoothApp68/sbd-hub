@@ -5406,3 +5406,92 @@ async function syncProgramBackupsToSupabase() {
     console.error('syncProgramBackupsToSupabase error:', e);
   }
 }
+
+// ── P1-C — Freemium gate pour le coaching IA (coach-ai edge function) ─────
+// Betas/premium : illimité. Free : 1 question/semaine. Offline → autorisé.
+async function canUseAICoaching() {
+  try {
+    // Beta/premium local : accès illimité
+    if (db.user && (db.user.plan === 'beta' || db.user.tier === 'premium' ||
+        db.user.tier === 'founder' || db.user.tier === 'early_adopter')) {
+      return { allowed: true, reason: 'premium_local' };
+    }
+    if (!supaClient) return { allowed: true, reason: 'offline_fallback' };
+
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return { allowed: false, reason: 'not_authenticated' };
+
+    const { data: profile } = await supaClient
+      .from('profiles')
+      .select('tier')
+      .eq('id', user.id)
+      .single();
+
+    const tier = (profile && profile.tier) || 'member';
+    if (tier === 'premium' || tier === 'founder' || tier === 'early_adopter') {
+      return { allowed: true, reason: 'premium' };
+    }
+
+    // Free users : 1 requête par semaine (ISO week key)
+    const weekKey = (typeof getLeaderboardPeriodKey === 'function')
+      ? getLeaderboardPeriodKey('weekly')
+      : new Date().toISOString().slice(0, 7) + '-W' + Math.ceil(new Date().getDate() / 7);
+
+    const { data: rateLimit } = await supaClient
+      .from('ai_rate_limits')
+      .select('day_count, day_key')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!rateLimit || rateLimit.day_key !== weekKey || rateLimit.day_count < 1) {
+      return { allowed: true, reason: 'free_weekly', weekKey: weekKey };
+    }
+    return { allowed: false, reason: 'limit_reached', weekKey: weekKey };
+  } catch(e) {
+    // Erreur réseau → autoriser (offline-first)
+    return { allowed: true, reason: 'offline_fallback' };
+  }
+}
+
+async function recordAICoachingUsage(weekKey) {
+  try {
+    if (!supaClient) return;
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return;
+    await supaClient.from('ai_rate_limits').upsert({
+      user_id: user.id,
+      day_key: weekKey,
+      day_count: 1,
+      last_request_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+  } catch(e) { console.error('recordAICoachingUsage error:', e); }
+}
+
+function showAIPaywall() {
+  showToast('💬 Coaching IA — 1 question gratuite/semaine utilisée. Premium pour illimité.');
+}
+
+// Câblage du bouton IA « Pourquoi ? » (édition future — pas encore branché en UI).
+// Le bouton "Pourquoi ce poids ?" actuel reste algorithmique (showInfoModal).
+async function askCoachWhy(exerciseName, context) {
+  const access = await canUseAICoaching();
+  if (!access.allowed) { showAIPaywall(); return; }
+  try {
+    const { data, error } = await supaClient.functions.invoke('coach-ai', {
+      body: { exercise: exerciseName, context: context }
+    });
+    if (error) throw error;
+    if (access.reason === 'free_weekly') {
+      await recordAICoachingUsage(access.weekKey);
+    }
+    var _resp = (data && (data.response || data.text || data.message)) || 'Réponse indisponible.';
+    if (typeof showInfoModal === 'function') {
+      showInfoModal('💬 Coach IA — ' + (exerciseName || ''),
+        '<p style="color:var(--color-ai,#7c6bff);font-size:14px;line-height:1.5;">' + _resp + '</p>');
+    }
+  } catch(e) {
+    console.error('coach-ai error:', e);
+    showToast('❌ Coaching IA indisponible');
+  }
+}

@@ -290,6 +290,8 @@ async function syncToCloud(silent) {
     if (!silent) showToast('Synchronisé !');
     updateSyncStatus('sync');
     syncLeaderboard();
+    // P1-A — Sync logs en parallèle (non-bloquant, dual-write)
+    syncLogsToSupabase().catch(function(e){ console.error('log sync failed:', e); });
   } catch(e) {
     console.error('Cloud sync:', e);
     if (!silent) showToast('Erreur sync');
@@ -5314,5 +5316,52 @@ async function subscribeToPush() {
     console.error('subscribeToPush:', e);
     showToast('Erreur activation push : ' + (e.message || e));
     return null;
+  }
+}
+
+// ── P1-A — Sync logs vers workout_sessions (dual-write) ───────────────────
+// db.logs reste la source de lecture (localStorage). On pousse en parallèle
+// vers la table workout_sessions pour alléger le blob sbd_profiles à terme.
+async function syncLogsToSupabase() {
+  if (!supaClient || !cloudSyncEnabled || !db.logs || db.logs.length === 0) return;
+  try {
+    const {data:{user}} = await supaClient.auth.getUser();
+    if (!user) return;
+
+    // IDs déjà syncés
+    const { data: existing } = await supaClient
+      .from('workout_sessions')
+      .select('session_id')
+      .eq('user_id', user.id);
+    const existingIds = new Set((existing || []).map(function(r){ return r.session_id; }));
+
+    const toInsert = db.logs
+      .filter(function(log){ return log.id && !existingIds.has(log.id); })
+      .map(function(log){
+        return {
+          user_id: user.id,
+          session_id: log.id,
+          short_date: log.shortDate || '',
+          title: log.title || '',
+          timestamp: log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString(),
+          volume: log.volume || 0,
+          duration: log.duration || 0,
+          exercise_count: (log.exercises || []).length,
+          data: log
+        };
+      });
+
+    if (toInsert.length === 0) return;
+
+    // Insérer par batch de 50
+    for (var i = 0; i < toInsert.length; i += 50) {
+      var batch = toInsert.slice(i, i + 50);
+      var { error } = await supaClient
+        .from('workout_sessions')
+        .upsert(batch, { onConflict: 'user_id,session_id' });
+      if (error) { console.error('syncLogs batch error:', error); break; }
+    }
+  } catch(e) {
+    console.error('syncLogsToSupabase error:', e);
   }
 }

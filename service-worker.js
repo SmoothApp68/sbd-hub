@@ -1,8 +1,9 @@
-const CACHE_NAME = 'trainhub-v271';
+const CACHE_NAME = 'trainhub-v272';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
   '/sbd-hub/index.html',
+  '/sbd-hub/style.css',
   '/sbd-hub/manifest.json',
   '/sbd-hub/icons/icon-192.png',
   '/sbd-hub/icons/icon-512.png',

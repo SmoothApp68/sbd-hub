@@ -5688,25 +5688,24 @@ async function askCoachAI(question, exoContext, onResult, onError) {
   var supabaseUrl = typeof SUPABASE_URL !== 'undefined'
     ? SUPABASE_URL
     : 'https://swwygywahfdenyzotrce.supabase.co';
-  var anonKey = typeof SUPABASE_KEY !== 'undefined'
-    ? SUPABASE_KEY
-    : (typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '');
+  // Send the user's session JWT (not the anon key) so coach-ai can verify the
+  // caller and derive userId from the token server-side (C5).
+  var accessToken = '';
+  try {
+    if (typeof supaClient !== 'undefined' && supaClient) {
+      var _sess = await supaClient.auth.getSession();
+      accessToken = (_sess && _sess.data && _sess.data.session && _sess.data.session.access_token) || '';
+    }
+  } catch (e) {}
 
   try {
     var response = await fetch(supabaseUrl + '/functions/v1/coach-ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + anonKey
+        'Authorization': 'Bearer ' + accessToken
       },
-      body: JSON.stringify({
-        prompt: prompt,
-        userId: (db.user && db.user.id) || 'anonymous',
-        plan: (db.user && db.user.plan) || 'free',
-        betaExpiresAt: (db.user && db.user.betaExpiresAt) !== undefined
-          ? db.user.betaExpiresAt
-          : null
-      })
+      body: JSON.stringify({ prompt: prompt })
     });
 
     var data = await response.json();

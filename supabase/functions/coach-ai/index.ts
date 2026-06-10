@@ -9,6 +9,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const MAX_PROMPT_LENGTH = 4000
 
 const COOLDOWN_MS = 30_000        // 30s par user
 const MAX_PER_MINUTE = 10         // plafond global /min
@@ -42,16 +45,40 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: cors })
   }
 
+  // ── Verify JWT — derive userId from the token, never from the body ──
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Missing authorization token' }), { status: 401, headers: cors })
+  }
+  const token = authHeader.replace('Bearer ', '')
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+  const { data: { user }, error: authError } = await authClient.auth.getUser()
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401, headers: cors })
+  }
+  const userId = user.id  // ← authoritative identity, from the token
+
   try {
-    const { prompt, userId, plan, betaExpiresAt } = await req.json()
-    if (!prompt || !userId) {
-      return new Response(JSON.stringify({ error: 'Missing prompt or userId' }), { status: 400, headers: cors })
+    const { prompt } = await req.json()
+    if (typeof prompt !== 'string' || prompt.trim().length === 0 || prompt.length > MAX_PROMPT_LENGTH) {
+      return new Response(JSON.stringify({ error: 'invalid prompt' }), { status: 400, headers: cors })
     }
 
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
+      SUPABASE_URL,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    // Tier is read server-side from profiles, never trusted from the request body.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tier')
+      .eq('id', userId)
+      .single()
+    const tier = profile?.tier || 'free'
+    const isBetaPermanent = tier !== 'free' && tier !== 'member'
 
     const now = new Date()
     const minuteKey = now.toISOString().slice(0, 16)  // "2026-05-22T14:35"
@@ -63,8 +90,6 @@ serve(async (req) => {
       .select('last_request_at, minute_key, minute_count, day_key, day_count')
       .eq('user_id', userId)
       .maybeSingle()
-
-    const isBetaPermanent = plan === 'beta' && (betaExpiresAt === null || betaExpiresAt === undefined)
 
     if (userLimit?.last_request_at && !isBetaPermanent) {
       const msSinceLast = Date.now() - new Date(userLimit.last_request_at).getTime()

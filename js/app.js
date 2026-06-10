@@ -347,12 +347,20 @@ function _flushDB() {
     db.updatedAt = Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch(e) {
-    console.error('saveDB error:', e);
-    // Surface quota errors to the user instead of failing silently — otherwise
-    // users keep training and the data quietly stops persisting.
     var isQuota = e && (e.name === 'QuotaExceededError' || e.code === 22 || /quota/i.test(e.message || ''));
-    if (isQuota && typeof showToast === 'function') {
-      showToast('⚠️ Stockage local plein — synchronise avec le cloud');
+    if (isQuota) {
+      // Emergency purge — appel direct sans repasser par saveDBNow/_flushDB (évite récursion)
+      console.warn('saveDB: QuotaExceeded — triggering emergency purge');
+      if (typeof purgeVeryOldLogs === 'function') purgeVeryOldLogs();
+      try {
+        if (!db.gamification) db.gamification = {};
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      } catch(e2) {
+        console.error('saveDB: still full after purge', e2);
+        if (typeof showToast === 'function') showToast('⚠️ Stockage local plein — synchronise avec le cloud');
+      }
+    } else {
+      console.error('saveDB error:', e);
     }
   }
 }
@@ -14119,8 +14127,9 @@ function syncRoutineWithSelectedDays() {
   if(ns)saveDB();
   cleanupExistingLogs();
   purgeExpiredReports();
-  // Compress logs older than 6 months to save storage
+  // Compress logs older than 3 months, purge > 18 months (cloud-only)
   if (typeof compressOldLogs === 'function') compressOldLogs();
+  if (typeof purgeVeryOldLogs === 'function') purgeVeryOldLogs();
 
   const today=DAYS_FULL[new Date().getDay()];
   selectedDay=today;

@@ -4177,20 +4177,20 @@ async function keepAlive() {
 // OLD LOG COMPRESSION
 // ============================================================
 function compressOldLogs() {
-  var sixMonthsAgo = Date.now() - 180 * 86400000;
+  var threeMonthsAgo = Date.now() - 90 * 86400000;
+  var COMPRESS_FIELDS = ['id', 'timestamp', 'shortDate', 'title', 'volume', 'duration', 'day'];
   var modified = false;
 
   (db.logs || []).forEach(function(log) {
-    if (log.timestamp > sixMonthsAgo) return;
+    if ((log.timestamp || 0) > threeMonthsAgo) return;
     if (log._compressed) return;
 
+    // Compress allSets per exercise (keep only best set)
     (log.exercises || []).forEach(function(exo) {
       if (!exo.allSets || exo.allSets.length <= 1) return;
-
       var bestSet = { weight: 0, reps: 0 };
       var totalVol = 0;
       var setCount = 0;
-
       exo.allSets.forEach(function(s) {
         if (s.setType === 'warmup') return;
         setCount++;
@@ -4200,20 +4200,57 @@ function compressOldLogs() {
           bestSet = { weight: s.weight || 0, reps: s.reps || 0 };
         }
       });
-
       exo._originalSetCount = exo.allSets.length;
       exo.allSets = [bestSet];
       exo.sets = setCount;
       exo._compressedVolume = totalVol;
     });
 
-    log._compressed = true;
+    // Strip top-level log to essential fields only (saves ~60-70% per log)
+    var compressedExos = (log.exercises || []).map(function(exo) {
+      return {
+        name: exo.name,
+        sets: exo.sets,
+        maxRM: exo.maxRM,
+        exoType: exo.exoType,
+        _compressedVolume: exo._compressedVolume,
+        allSets: exo.allSets
+      };
+    });
+    var stripped = { _compressed: true };
+    COMPRESS_FIELDS.forEach(function(f) { if (log[f] !== undefined) stripped[f] = log[f]; });
+    stripped.exercises = compressedExos;
+    Object.keys(log).forEach(function(k) { delete log[k]; });
+    Object.assign(log, stripped);
+
     modified = true;
   });
 
   if (modified) {
     saveDBNow();
-    // old logs compressed (6+ months)
+  }
+}
+
+// ── P0-E — Purge logs > 18 mois (seulement si cloud sync actif) ──────────
+// Garde toujours les 100 logs les plus récents. Ne s'exécute jamais offline.
+function purgeVeryOldLogs() {
+  if (!cloudSyncEnabled || !db.lastSync || db.lastSync === 0) return;
+  if (!db.logs || !db.logs.length) return;
+
+  var EIGHTEEN_MONTHS_MS = 18 * 30 * 24 * 60 * 60 * 1000;
+  var cutoff = Date.now() - EIGHTEEN_MONTHS_MS;
+  var before = db.logs.length;
+
+  var sorted = db.logs.slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  var toKeep = sorted.filter(function(log, idx) {
+    return idx < 100 || (log.timestamp || 0) > cutoff;
+  });
+
+  if (toKeep.length < before) {
+    db.logs = toKeep;
+    var removed = before - toKeep.length;
+    console.log('purgeVeryOldLogs: removed ' + removed + ' logs older than 18 months');
+    if (typeof saveDBNow === 'function') saveDBNow();
   }
 }
 

@@ -40,7 +40,7 @@ async function setupPage(page, dbOverrides = {}) {
   // Seed localStorage with a valid DB using the app's actual storage key
   const mergedDB = deepMerge(structuredClone(DEFAULT_DB), dbOverrides);
   await page.evaluate((db) => {
-    localStorage.setItem('SBD_HUB_V28', JSON.stringify(db));
+    localStorage.setItem('SBD_HUB_V29', JSON.stringify(db));
   }, mergedDB);
 
   // Reload so the app picks up the seeded DB

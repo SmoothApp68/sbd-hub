@@ -5752,3 +5752,8 @@ function buildStaticFallback(question, exoContext) {
     (hasW ? ' @ ' + exoContext.weight + 'kg' : '') +
     '. L\'intensité RPE ' + (exoContext.rpe || 8) + ' est adaptée à ta phase actuelle.';
 }
+
+// Conditional export for unit tests (no-op in the browser — module is undefined there).
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getDUPZone, computeACWR, calcActivityTRIMP };
+}

@@ -861,7 +861,7 @@ async function appendRealtimeComment(activityId, comment) {
   var uid = _cachedUid || await getMyUserIdAsync();
   var username = 'Utilisateur';
   if (supaClient) {
-    var { data: profile } = await supaClient.from('profiles').select('username').eq('id', comment.user_id).maybeSingle();
+    var { data: profile } = await supaClient.from('public_profiles').select('username').eq('id', comment.user_id).maybeSingle();
     if (profile) username = profile.username;
   }
   var isMe = comment.user_id === uid;
@@ -1053,7 +1053,7 @@ async function ensureFriendCode() {
     let code = db.friendCode || generateFriendCode();
     let attempts = 0;
     while (attempts < 10) {
-      const { data: existing } = await supaClient.from('profiles').select('id').eq('friend_code', code).maybeSingle();
+      const { data: existing } = await supaClient.from('public_profiles').select('id').eq('friend_code', code).maybeSingle();
       if (!existing) break;
       code = generateFriendCode();
       attempts++;
@@ -1090,7 +1090,7 @@ async function lookupFriendByCode(code) {
   if (!supaClient || !code) return null;
   code = code.trim().toUpperCase();
   try {
-    const { data, error } = await supaClient.from('profiles')
+    const { data, error } = await supaClient.from('public_profiles')
       .select('id, username')
       .eq('friend_code', code)
       .maybeSingle();
@@ -1235,7 +1235,7 @@ async function checkUsernameAvailability(username) {
   if (!supaClient) return;
   try {
     // Check profiles
-    const { data: existing } = await supaClient.from('profiles').select('id').eq('username', username).maybeSingle();
+    const { data: existing } = await supaClient.from('public_profiles').select('id').eq('username', username).maybeSingle();
     if (existing) {
       statusEl.innerHTML = '<span style="color:var(--red);">❌ Pseudo déjà pris</span>';
       return;
@@ -1342,11 +1342,10 @@ async function searchUsers(query) {
   if (!supaClient || !query || query.length < 2) return [];
   const uid = await getMyUserIdAsync();
   try {
-    const { data, error } = await supaClient.from('profiles')
+    const { data, error } = await supaClient.from('public_profiles')
       .select('id, username')
       .ilike('username', '%' + query + '%')
       .neq('id', uid)
-      .is('deleted_at', null)
       .limit(10);
     if (error) throw error;
     return data || [];
@@ -1415,10 +1414,9 @@ async function getAcceptedFriendIds() {
 async function getFriendProfiles(friendIds) {
   if (!friendIds.length || !supaClient) return [];
   try {
-    const { data, error } = await supaClient.from('profiles')
+    const { data, error } = await supaClient.from('public_profiles')
       .select('id, username, bio, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
-      .in('id', friendIds)
-      .is('deleted_at', null);
+      .in('id', friendIds);
     if (error) throw error;
     return data || [];
   } catch (e) {
@@ -1762,7 +1760,7 @@ async function renderFeed() {
     (async () => {
       if (userIds.length) {
         try {
-          const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+          const { data } = await supaClient.from('public_profiles').select('id, username').in('id', userIds);
           (data || []).forEach(p => profiles[p.id] = p);
         } catch {}
       }
@@ -1786,7 +1784,7 @@ async function renderFeed() {
   let trainingBanner = '';
   try {
     if (friendIds.length) {
-      const { data: trainingFriends } = await supaClient.from('profiles')
+      const { data: trainingFriends } = await supaClient.from('public_profiles')
         .select('username, training_status, training_since')
         .in('id', friendIds)
         .not('training_status', 'is', null);
@@ -2094,7 +2092,7 @@ async function loadAndRenderComments(activityId) {
   let profiles = {};
   if (userIds.length) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', userIds);
+      const { data } = await supaClient.from('public_profiles').select('id, username').in('id', userIds);
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -2524,7 +2522,7 @@ async function renderLeaderboard() {
     const profileIds = Object.keys(bestByUser);
     let profiles = {};
     if (profileIds.length) {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', profileIds);
+      const { data } = await supaClient.from('public_profiles').select('id, username').in('id', profileIds);
       (data || []).forEach(p => profiles[p.id] = p);
     }
 
@@ -2720,7 +2718,7 @@ async function renderFriendsTab() {
   let profiles = {};
   if (allUserIds.size) {
     try {
-      const { data } = await supaClient.from('profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
+      const { data } = await supaClient.from('public_profiles').select('id, username, training_status, training_since').in('id', Array.from(allUserIds));
       (data || []).forEach(p => profiles[p.id] = p);
     } catch {}
   }
@@ -3151,7 +3149,7 @@ async function showProfileOverlay(userId) {
   overlay.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">Chargement...</div>';
 
   try {
-    const { data: profile, error: profileErr } = await supaClient.from('profiles')
+    const { data: profile, error: profileErr } = await supaClient.from('public_profiles')
       .select('id, username, bio, tier, training_status, training_since, visibility_bio, visibility_prs, visibility_programme, visibility_seances, visibility_stats')
       .eq('id', userId)
       .maybeSingle();
@@ -3352,7 +3350,7 @@ async function showComparisonView(friendId) {
 
   try {
     // Load friend profile
-    const { data: friendProfile } = await supaClient.from('profiles')
+    const { data: friendProfile } = await supaClient.from('public_profiles')
       .select('id, username, visibility_prs, visibility_stats')
       .eq('id', friendId)
       .maybeSingle();
@@ -3512,7 +3510,7 @@ async function sobNext(currentStep) {
     }
     // Check availability
     if (supaClient) {
-      const { data: existing } = await supaClient.from('profiles').select('id').eq('username', username).maybeSingle();
+      const { data: existing } = await supaClient.from('public_profiles').select('id').eq('username', username).maybeSingle();
       if (existing) { showToast('Pseudo déjà pris'); return; }
       const { data: reserved } = await supaClient.from('reserved_usernames').select('username').eq('username', username).maybeSingle();
       if (reserved) { showToast('Pseudo réservé temporairement'); return; }
@@ -3769,7 +3767,7 @@ async function renderChallengesTab() {
     allParticipants.forEach(p => involvedIds.add(p.user_id));
     let profiles = {};
     if (involvedIds.size) {
-      const { data } = await supaClient.from('profiles').select('id, username').in('id', Array.from(involvedIds));
+      const { data } = await supaClient.from('public_profiles').select('id, username').in('id', Array.from(involvedIds));
       (data || []).forEach(p => profiles[p.id] = p);
     }
 
@@ -4460,7 +4458,7 @@ async function renderFeedAmis() {
     _feedAmisItems.forEach(function(i) { if (!seen[i.user_id]) { seen[i.user_id] = true; userIds.push(i.user_id); } });
     var profiles = {};
     if (userIds.length) {
-      var pResp = await supaClient.from('profiles').select('id, username, tier').in('id', userIds);
+      var pResp = await supaClient.from('public_profiles').select('id, username, tier').in('id', userIds);
       (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
     }
 
@@ -4724,7 +4722,7 @@ async function renderFeedCommunaute() {
     _feedCommunauteItems.forEach(function(i) { if (!seen[i.user_id]) { seen[i.user_id] = true; userIds.push(i.user_id); } });
     var profiles = {};
     if (userIds.length) {
-      var pResp = await supaClient.from('profiles').select('id, username, tier, training_status').in('id', userIds);
+      var pResp = await supaClient.from('public_profiles').select('id, username, tier, training_status').in('id', userIds);
       (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
     }
 
@@ -4817,7 +4815,7 @@ async function renderFeedChallengesV2() {
     var profiles = {};
     var idArr = Object.keys(involvedIds);
     if (idArr.length) {
-      var r5 = await supaClient.from('profiles').select('id, username, tier').in('id', idArr);
+      var r5 = await supaClient.from('public_profiles').select('id, username, tier').in('id', idArr);
       (r5.data || []).forEach(function(p) { profiles[p.id] = p; });
     }
 
@@ -4947,7 +4945,7 @@ async function renderFeedClassementV2() {
 
     var profiles = {};
     if (allIds.length) {
-      var pResp = await supaClient.from('profiles').select('id, username, tier').in('id', allIds);
+      var pResp = await supaClient.from('public_profiles').select('id, username, tier').in('id', allIds);
       (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
     }
 

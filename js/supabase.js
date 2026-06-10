@@ -917,7 +917,7 @@ function timeAgo(input) {
 }
 
 function avatarInitial(username) {
-  return (username || 'U').charAt(0).toUpperCase();
+  return escapeHtml((username || 'U').charAt(0).toUpperCase());
 }
 
 function generateInviteCodeString() {
@@ -1371,9 +1371,9 @@ function onFriendSearchInput(val) {
       return;
     }
     dropdown.innerHTML = results.map(u =>
-      '<div class="friends-ac-item" onclick="onSelectSearchUser(\'' + u.id + '\',\'' + u.username + '\')">' +
+      '<div class="friends-ac-item" onclick="onSelectSearchUser(\'' + u.id + '\')">' +
         '<div class="friends-ac-avatar">' + avatarInitial(u.username) + '</div>' +
-        '<span class="friends-ac-name">' + u.username + '</span>' +
+        '<span class="friends-ac-name">' + escapeHtml(u.username) + '</span>' +
       '</div>'
     ).join('');
     dropdown.classList.add('open');
@@ -1794,7 +1794,7 @@ async function renderFeed() {
         trainingBanner = '<div style="background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;">' +
           trainingFriends.map(f => {
             const mins = Math.floor((Date.now() - new Date(f.training_since).getTime()) / 60000);
-            return '<div style="font-size:12px;color:var(--green);padding:2px 0;">🟢 <strong>' + f.username + '</strong> s\'entraîne — ' + f.training_status + ' · depuis ' + mins + 'min</div>';
+            return '<div style="font-size:12px;color:var(--green);padding:2px 0;">🟢 <strong>' + escapeHtml(f.username) + '</strong> s\'entraîne — ' + escapeHtml(f.training_status) + ' · depuis ' + mins + 'min</div>';
           }).join('') + '</div>';
       }
     }
@@ -1826,14 +1826,14 @@ function renderFeedSessionDetail(exercises) {
     var sets = exo.allSets || [];
     if (!sets.length) {
       // Fallback for exercises without allSets
-      return '<div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">' + exo.name + '</div>' +
+      return '<div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">' + escapeHtml(exo.name) + '</div>' +
         '<div style="font-size:11px;color:var(--sub);">' + (exo.sets || 0) + ' séries</div></div>';
     }
     var workSets = sets.filter(function(s) { return s.type !== 'warmup'; });
     var tonnage = sets.reduce(function(sum, s) { return sum + ((s.weight || 0) * (s.reps || 0)); }, 0);
 
     var html = '<div style="margin-bottom:12px;">';
-    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">' + exo.name + '</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">' + escapeHtml(exo.name) + '</div>';
 
     // Table header
     html += '<div style="display:grid;grid-template-columns:32px 1fr 1fr 58px;font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0;font-weight:600;">';
@@ -1886,14 +1886,15 @@ function renderFeedCard(item, profiles, uid) {
     if (d.volume) stats.push(Math.round(d.volume) + 'kg de tonnage');
     if (d.duration) stats.push(formatTime(d.duration));
     if (stats.length) body += ' · ' + stats.join(' · ');
-    if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + d.top_set + '</span>';
+    if (d.top_set) body += '<br><span style="color:var(--blue);font-size:12px;">Top set : ' + escapeHtml(d.top_set) + '</span>';
     if (d.edited) body += ' <span style="font-size:10px;color:var(--sub);font-style:italic;">(modifié)</span>';
     // Photos de séance
     if (d.photos && d.photos.length) {
       body += '<div style="display:flex;gap:4px;margin-top:8px;overflow-x:auto;">';
       d.photos.forEach(function(p) {
         var src = p.url || p.dataUrl || '';
-        if (src) body += '<img src="' + src + '" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy">';
+        var safeSrc = /^(https?:|data:image\/)/.test(src) ? encodeURI(src) : '';
+        if (safeSrc) body += '<img src="' + safeSrc + '" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;" loading="lazy">';
       });
       body += '</div>';
     }
@@ -1906,7 +1907,7 @@ function renderFeedCard(item, profiles, uid) {
       const hasEnrichedData = d.exercises.some(e => e.allSets && e.allSets.length);
       detail = hasEnrichedData
         ? renderFeedSessionDetail(d.exercises)
-        : d.exercises.map(e => '<div class="exo-row"><span>' + e.name + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>').join('');
+        : d.exercises.map(e => '<div class="exo-row"><span>' + escapeHtml(e.name) + '</span><span style="color:var(--blue);">' + (e.sets || 0) + ' séries</span></div>').join('');
     }
   } else if (item.type === 'pr') {
     body = '🏆 <strong>' + escapeHtml(profile.username) + '</strong> nouveau PR !';
@@ -2111,7 +2112,7 @@ async function loadAndRenderComments(activityId) {
     return '<div class="feed-comment">' +
       '<div class="feed-comment-avatar">' + avatarInitial(p.username) + '</div>' +
       '<div class="feed-comment-body">' +
-        '<div class="feed-comment-user">' + p.username + '</div>' +
+        '<div class="feed-comment-user">' + escapeHtml(p.username) + '</div>' +
         '<div class="feed-comment-text">' + escapeHtml(c.text) + '</div>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
           '<span class="feed-comment-time">' + timeAgo(c.created_at) + '</span>' +
@@ -2541,7 +2542,7 @@ async function renderLeaderboard() {
         '<div class="lb-podium-item' + (entry.userId === uid ? ' me' : '') + '">' +
           '<div class="lb-podium-rank">' + medals[i] + '</div>' +
           '<div class="lb-podium-avatar" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + avatarInitial(entry.username) + '</div>' +
-          '<div class="lb-podium-name">' + entry.username + '</div>' +
+          '<div class="lb-podium-name">' + escapeHtml(entry.username) + '</div>' +
           '<div class="lb-podium-val">' + Math.round(entry.value) + 'kg</div>' +
         '</div>'
       ).join('');
@@ -2553,7 +2554,7 @@ async function renderLeaderboard() {
       '<div class="lb-row' + (entry.userId === uid ? ' me' : '') + '">' +
         '<div class="lb-rank">' + (i + 4) + '</div>' +
         '<div class="lb-row-avatar" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + avatarInitial(entry.username) + '</div>' +
-        '<div class="lb-row-name" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + entry.username + '</div>' +
+        '<div class="lb-row-name" onclick="showProfileOverlay(\'' + entry.userId + '\')">' + escapeHtml(entry.username) + '</div>' +
         '<div class="lb-row-val">' + Math.round(entry.value) + 'kg</div>' +
       '</div>'
     ).join('');
@@ -2734,7 +2735,7 @@ async function renderFriendsTab() {
       const p = profiles[f.requester_id] || { username: 'Utilisateur' };
       return '<div class="friends-item">' +
         '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + avatarInitial(p.username) + '</div>' +
-        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + p.username + '</div><div class="friends-item-status">Demande reçue</div></div>' +
+        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + f.requester_id + '\')">' + escapeHtml(p.username) + '</div><div class="friends-item-status">Demande reçue</div></div>' +
         '<div class="friends-item-actions">' +
           '<button class="friends-item-btn accept" onclick="acceptFriendRequest(\'' + f.id + '\')">Accepter</button>' +
           '<button class="friends-item-btn decline" onclick="declineFriendRequest(\'' + f.id + '\')">Refuser</button>' +
@@ -2760,7 +2761,7 @@ async function renderFriendsTab() {
       let statusHtml = '';
       if (isTraining) {
         const minsSince = Math.floor((Date.now() - new Date(p.training_since).getTime()) / 60000);
-        statusHtml = '<div style="color:var(--green);font-size:11px;font-weight:600;">🟢 S\'entraîne — ' + p.training_status + ' · depuis ' + minsSince + 'min</div>';
+        statusHtml = '<div style="color:var(--green);font-size:11px;font-weight:600;">🟢 S\'entraîne — ' + escapeHtml(p.training_status) + ' · depuis ' + minsSince + 'min</div>';
       } else {
         statusHtml = '<div class="friends-item-status" style="color:var(--sub);font-size:11px;">' + sinceText + '</div>';
       }
@@ -2768,7 +2769,7 @@ async function renderFriendsTab() {
         '<div class="friends-item-avatar" onclick="showProfileOverlay(\'' + friendId + '\')" style="position:relative;">' + avatarInitial(p.username) +
         (isTraining ? '<span style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--card);animation:pulse 2s infinite;"></span>' : '') +
         '</div>' +
-        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + p.username + '</div>' +
+        '<div class="friends-item-info"><div class="friends-item-name" onclick="showProfileOverlay(\'' + friendId + '\')">' + escapeHtml(p.username) + '</div>' +
         statusHtml + '</div>' +
         '<div class="friends-item-actions">' +
           '<button class="friends-item-btn remove" onclick="removeFriend(\'' + f.id + '\')">Retirer</button>' +
@@ -2790,7 +2791,7 @@ async function renderFriendsTab() {
       const p = profiles[f.target_id] || { username: 'Utilisateur' };
       return '<div class="friends-item">' +
         '<div class="friends-item-avatar">' + avatarInitial(p.username) + '</div>' +
-        '<div class="friends-item-info"><div class="friends-item-name">' + p.username + '</div><div class="friends-item-status">Bloqué</div></div>' +
+        '<div class="friends-item-info"><div class="friends-item-name">' + escapeHtml(p.username) + '</div><div class="friends-item-status">Bloqué</div></div>' +
         '<div class="friends-item-actions">' +
           '<button class="friends-item-btn unblock" onclick="unblockUser(\'' + f.id + '\')">Débloquer</button>' +
         '</div>' +
@@ -2855,10 +2856,10 @@ async function renderNotifications() {
     const ic = icons[n.type] || { icon: '🔔', css: '' };
     const d = n.data || {};
     let text = '';
-    if (n.type === 'friend_accepted') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a accepté ta demande d\'ami';
-    else if (n.type === 'reaction') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a réagi ' + (d.emoji || '') + ' à ton post';
-    else if (n.type === 'comment') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a commenté : "' + (d.text || '') + '"';
-    else if (n.type === 'pr_beaten') text = '<strong>' + (d.username || 'Utilisateur') + '</strong> a battu ton PR ' + (d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
+    if (n.type === 'friend_accepted') text = '<strong>' + escapeHtml(d.username || 'Utilisateur') + '</strong> a accepté ta demande d\'ami';
+    else if (n.type === 'reaction') text = '<strong>' + escapeHtml(d.username || 'Utilisateur') + '</strong> a réagi ' + escapeHtml(d.emoji || '') + ' à ton post';
+    else if (n.type === 'comment') text = '<strong>' + escapeHtml(d.username || 'Utilisateur') + '</strong> a commenté : "' + escapeHtml(d.text || '') + '"';
+    else if (n.type === 'pr_beaten') text = '<strong>' + escapeHtml(d.username || 'Utilisateur') + '</strong> a battu ton PR ' + escapeHtml(d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
 
     return '<div class="notif-item' + (!n.read ? ' unread' : '') + '">' +
       '<div class="notif-icon ' + ic.css + '">' + ic.icon + '</div>' +
@@ -2977,17 +2978,17 @@ function renderNotifItem(n) {
   var d = {};
   try { d = typeof n.data === 'string' ? JSON.parse(n.data) : (n.data || {}); } catch(e) {}
   var icon = { friend_accepted: '🤝', reaction: d.emoji || '😀', comment: '💬', pr_beaten: '💥', defi: '🏆' }[n.type] || '🔔';
-  var u = '<strong>' + (d.username || 'Quelqu\'un') + '</strong>';
+  var u = '<strong>' + escapeHtml(d.username || 'Quelqu\'un') + '</strong>';
   var text = 'Nouvelle notification';
   if (n.type === 'friend_accepted') text = u + ' a accepté ta demande d\'ami';
-  else if (n.type === 'reaction') text = u + ' a réagi ' + (d.emoji || '') + ' à ton post';
-  else if (n.type === 'comment') text = u + ' a commenté : « ' + (d.text || '') + ' »';
-  else if (n.type === 'pr_beaten') text = u + ' a battu ton PR ' + (d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
-  else if (n.type === 'defi') text = u + ' t\'a lancé un défi : ' + (d.exercise || '');
+  else if (n.type === 'reaction') text = u + ' a réagi ' + escapeHtml(d.emoji || '') + ' à ton post';
+  else if (n.type === 'comment') text = u + ' a commenté : « ' + escapeHtml(d.text || '') + ' »';
+  else if (n.type === 'pr_beaten') text = u + ' a battu ton PR ' + escapeHtml(d.exercise || '') + ' avec ' + (d.value || 0) + 'kg !';
+  else if (n.type === 'defi') text = u + ' t\'a lancé un défi : ' + escapeHtml(d.exercise || '');
   var dot = n.read ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);display:inline-block;flex-shrink:0;margin-top:6px;"></span>';
   var safeData = encodeURIComponent(JSON.stringify(d));
   return '<div class="notif-item' + (n.read ? '' : ' unread') + '" style="cursor:pointer;" onclick="handleNotifTap(\'' + n.id + '\',\'' + n.type + '\',\'' + safeData + '\')">' +
-    '<span style="font-size:18px;flex-shrink:0;">' + icon + '</span>' +
+    '<span style="font-size:18px;flex-shrink:0;">' + escapeHtml(icon) + '</span>' +
     '<div class="notif-body">' + text + '<div class="notif-time">' + timeAgo(n.created_at) + '</div></div>' +
     dot + '</div>';
 }

@@ -4235,6 +4235,9 @@ function compressOldLogs() {
 // Garde toujours les 100 logs les plus récents. Ne s'exécute jamais offline.
 function purgeVeryOldLogs() {
   if (!cloudSyncEnabled || !db.lastSync || db.lastSync === 0) return;
+  // SAFETY LOCK P0-E : ne pas purger tant que workout_sessions n'est pas alimentée
+  // Ce flag sera positionné à true par syncLogsToSupabase() après le premier batch (P1-A)
+  if (!db._workoutSessionsSynced) return;
   if (!db.logs || !db.logs.length) return;
 
   var EIGHTEEN_MONTHS_MS = 18 * 30 * 24 * 60 * 60 * 1000;

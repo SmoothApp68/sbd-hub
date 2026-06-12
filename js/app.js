@@ -22007,7 +22007,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     force: 0.92, intensification: 0.95,
     peak: 1.00, deload: 0.75, recuperation: 0.70
   };
-  var _capPhase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+  var _capPhase = currentPhase; // ALGO-A2.5 : réutilise la détection unique (currentPhase), pas de 2e wpDetectPhase()
   var _phaseCap = APRE_PHASE_CAPS[_capPhase];
   if (_phaseCap && _phaseCap < 1.0 && history.length > 0) {
     var _e1rmRef = history[0].e1rm || 0;
@@ -22084,7 +22084,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   // AVANT le Hard Cap 102.5% e1RM qui reste le garde-fou anti-PR.
   // Désactivée en deload/récupération.
   if (_isMainLift && _notLP && !isBeginnerMode) {
-    var _woPhase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
+    var _woPhase = currentPhase; // ALGO-A2.5 : réutilise la détection unique, pas de 3e wpDetectPhase()
     if (_woPhase !== 'deload' && _woPhase !== 'recuperation') {
       var _blockWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
                         db.weeklyPlan.currentBlock.week) || 1;

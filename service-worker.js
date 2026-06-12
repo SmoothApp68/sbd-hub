@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v274';
+const CACHE_NAME = 'trainhub-v275';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -39,17 +39,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Never cache Supabase requests
-  if (event.request.url.includes('supabase.co')) return;
+  const req = event.request;
+  const url = new URL(req.url);
 
-  // Exercise images → cache séparé avec stratégie cache-first
-  if (event.request.url.includes('raw.githubusercontent.com') && event.request.url.includes('/exercises/')) {
+  // Ne jamais cacher : Supabase, APIs Google, Edge Functions, requêtes non-GET.
+  // Laisser le navigateur faire le réseau par défaut (données toujours fraîches).
+  if (
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('googleapis.com') ||
+    url.pathname.startsWith('/functions/v1/') ||
+    req.method !== 'GET'
+  ) {
+    return;
+  }
+
+  // Images d'exercices → cache séparé, cache-first
+  if (url.href.includes('raw.githubusercontent.com') && url.href.includes('/exercises/')) {
     event.respondWith(
       caches.open(IMAGE_CACHE_NAME).then((cache) =>
-        cache.match(event.request).then((cached) => {
+        cache.match(req).then((cached) => {
           if (cached) return cached;
-          return fetch(event.request).then((response) => {
-            if (response.ok) cache.put(event.request, response.clone());
+          return fetch(req).then((response) => {
+            if (response.ok) cache.put(req, response.clone());
             return response;
           }).catch(() => new Response('', { status: 404 }));
         })
@@ -58,14 +69,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Shell statique (HTML/JS/CSS/SVG/icons) → CACHE-FIRST + stale-while-revalidate :
+  // servir le cache immédiatement (plus de stall sur wifi lent qui "pend"), puis
+  // revalider en arrière-plan. Le bump de CACHE_NAME force le rafraîchissement.
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+    caches.match(req).then((cached) => {
+      const networkFetch = fetch(req).then((response) => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+        }
         return response;
-      })
-      .catch(() => caches.match(event.request))
+      });
+      if (cached) {
+        networkFetch.catch(() => {}); // revalidation silencieuse (offline-safe)
+        return cached;
+      }
+      return networkFetch; // premier chargement non caché → réseau
+    })
   );
 });
 

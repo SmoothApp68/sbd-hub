@@ -104,8 +104,9 @@ describe('getReadinessLoadAdjustment — table 90/80/70/60/50/40', () => {
 describe('_wpComputeWorkWeightPenalties — pénalités saisies (post-A1)', () => {
   // READY-C2-c : fixtures sommeil redirigées vers readinessHistory (sleep10 = 2×sleep5),
   // assertions inchangées. Les fixtures rhrAlert restent sur todayWellbeing (relogement = commit RHR).
-  const pen = (wb, hist) => vm.runInContext("_wpComputeWorkWeightPenalties('Squat','hypertrophie',[])",
-    makeCtx({ todayWellbeing: wb, readinessHistory: hist || [], readiness: [], exercises: {}, user: {}, weeklyPlan: null }));
+  const pen = (wb, hist, gh) => vm.runInContext("_wpComputeWorkWeightPenalties('Squat','hypertrophie',[])",
+    makeCtx({ todayWellbeing: wb, readinessHistory: hist || [], readiness: [],
+      garminHealth: gh || null, exercises: {}, user: {}, weeklyPlan: null }));
   const H = (date, sleep10) => ({ ts: 1, date: date, sleep: sleep10, energy: 6, motivation: 6, soreness: 5, score: 50 });
   test('sleep ≤ 2 aujourd\'hui → sleepMult 0.95', () => expect(pen(null, [H(TODAY, 4)]).sleepMult).toBe(0.95));
   test('sleep 3 → 1.0 (seuil strict ≤ 2)', () => expect(pen(null, [H(TODAY, 6)]).sleepMult).toBe(1.0));
@@ -115,17 +116,19 @@ describe('_wpComputeWorkWeightPenalties — pénalités saisies (post-A1)', () =
     expect(p.sleepMult).toBe(1.0);
     expect(p.rhrMult).toBe(1.0);
   });
-  test('rhrAlert warning → 0.95 / danger → 0.80 / niveau inconnu → 1.0', () => {
-    expect(pen({ date: TODAY, rhrAlert: { level: 'warning' } }).rhrMult).toBe(0.95);
-    expect(pen({ date: TODAY, rhrAlert: { level: 'danger' } }).rhrMult).toBe(0.80);
-    expect(pen({ date: TODAY, rhrAlert: { level: 'info' } }).rhrMult).toBe(1.0);
+  // READY-C2-c : RHR relogé dans db.garminHealth — fixtures redirigées, niveaux inchangés.
+  test('rhrAlert warning → 0.95 / danger → 0.80 / niveau inconnu → 1.0 (jour J)', () => {
+    expect(pen(null, [], { date: TODAY, rhrAlert: { level: 'warning' } }).rhrMult).toBe(0.95);
+    expect(pen(null, [], { date: TODAY, rhrAlert: { level: 'danger' } }).rhrMult).toBe(0.80);
+    expect(pen(null, [], { date: TODAY, rhrAlert: { level: 'info' } }).rhrMult).toBe(1.0);
   });
-  test('NB : rhrAlert est lu SANS contrôle de date (contrairement au sommeil)', () => {
-    // Caractérisation : un rhrAlert d'hier (date périmée) pénalise quand même.
-    expect(pen({ date: '2020-01-01', rhrAlert: { level: 'danger' } }).rhrMult).toBe(0.80);
+  // READY-C2-c : test INVERSÉ sciemment (ex « rhrAlert lu SANS contrôle de date »).
+  // Décision actée Phase 2 : l'alerte n'est valide que le jour de l'import.
+  test('rhr_alert_expire_apres_24h : une alerte d\'un autre jour ne pénalise plus', () => {
+    expect(pen(null, [], { date: '2020-01-01', rhrAlert: { level: 'danger' } }).rhrMult).toBe(1.0);
   });
   test('cumul sleep 2 + danger → cumulPenalty 0.76 (0.95 × 0.80)', () => {
-    expect(pen({ date: TODAY, rhrAlert: { level: 'danger' } }, [H(TODAY, 4)]).cumulPenalty).toBeCloseTo(0.76, 10);
+    expect(pen(null, [H(TODAY, 4)], { date: TODAY, rhrAlert: { level: 'danger' } }).cumulPenalty).toBeCloseTo(0.76, 10);
   });
 });
 

@@ -3081,7 +3081,9 @@ function analyzeAthleteProfile() {
   }
 
   // ── RHR alert — Garmin Health Connect (TÂCHE 17 ÉTAPE C) ──
-  var rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  // READY-C2-c : relogé dans db.garminHealth, valide le jour de l'import uniquement
+  var _ghToday = new Date().toISOString().split('T')[0];
+  var rhrAlert = db.garminHealth && db.garminHealth.date === _ghToday && db.garminHealth.rhrAlert;
   if (rhrAlert) {
     var rhrAlerts = [];
     rhrAlerts.push({

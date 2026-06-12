@@ -474,6 +474,7 @@ if (!db.gamification._migratedFreezeV4) {
 
 // ── WELLBEING — defensive init ───────────────────────────────
 if (db.todayWellbeing === undefined) db.todayWellbeing = null;
+if (db.garminHealth === undefined) db.garminHealth = null; // READY-C2-c : relogement RHR
 if (!db.wellbeingHistory) db.wellbeingHistory = [];
 
 // ── ONBOARDING PRs — defensive init ─────────────────────────
@@ -17391,9 +17392,9 @@ async function parseGarminCSV(file) {
       db.garminLastSync = Date.now();
 
       var rhrAlert = analyzeRHR(rhrData[0].value, db.rhrHistory);
-      if (!db.todayWellbeing) db.todayWellbeing = { date: new Date().toISOString().split('T')[0] };
-      db.todayWellbeing.rhr = rhrData[0].value;
-      if (rhrAlert) db.todayWellbeing.rhrAlert = rhrAlert;
+      // READY-C2-c : relogement — le RHR ne vit plus dans todayWellbeing.
+      db.garminHealth = { date: new Date().toISOString().split('T')[0],
+        rhr: rhrData[0].value, rhrAlert: rhrAlert || null, importedAt: Date.now() };
 
       saveDB();
       debouncedCloudSync();
@@ -21819,7 +21820,10 @@ function _wpComputeWorkWeightPenalties(realName, dupZone, history) {
   var _wbToday = new Date().toISOString().split('T')[0];
   var sleepMult = (_ckPen && _ckPen.sleep5 <= 2) ? 0.95 : 1.0;
 
-  var rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  // READY-C2-c : RHR depuis db.garminHealth, valide UNIQUEMENT le jour de
+  // l'import (décision actée — l'alerte sans date pénalisait indéfiniment).
+  var _gh = db.garminHealth;
+  var rhrAlert = (_gh && _gh.date === _wbToday && _gh.rhrAlert) || null;
   var rhrMult = rhrAlert
     ? (rhrAlert.level === 'danger' ? 0.80 : (rhrAlert.level === 'warning' ? 0.95 : 1.0))
     : 1.0;
@@ -27685,8 +27689,8 @@ function buildChargeExplanation(exoName, calculatedWeight, shadowWeight) {
     reasons.push('Weight Cut actif');
   }
 
-  if (db.todayWellbeing && db.todayWellbeing.rhrAlert) {
-    var lvl = db.todayWellbeing.rhrAlert.level;
+  if (db.garminHealth && db.garminHealth.date === todayStr && db.garminHealth.rhrAlert) { // READY-C2-c
+    var lvl = db.garminHealth.rhrAlert.level;
     if (lvl === 'danger' || lvl === 'warning') reasons.push('FC repos élevée');
   }
 
@@ -30125,8 +30129,11 @@ function explainWeight(exoName, suggestedWeight) {
   }
 
   if (_ckEw && _ckEw.sleep5 <= 2) lines.push('• Sommeil insuffisant : -5%');
-  if (db.todayWellbeing && db.todayWellbeing.rhrAlert) {
-    lines.push('• FC repos élevée : ' + (db.todayWellbeing.rhrAlert.msg || '').split('.')[0]);
+  // READY-C2-c : RHR relogé (lecteur d'affichage non listé au prompt, rebranché
+  // pour cohérence — sinon il lisait un store que Garmin n'écrit plus)
+  var _ghEw = db.garminHealth;
+  if (_ghEw && _ghEw.date === new Date().toISOString().split('T')[0] && _ghEw.rhrAlert) {
+    lines.push('• FC repos élevée : ' + (_ghEw.rhrAlert.msg || '').split('.')[0]);
   }
 
   if (db.user && db.user.weightCut && db.user.weightCut.active) {

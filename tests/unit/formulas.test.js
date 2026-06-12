@@ -22,11 +22,11 @@ describe('calcE1RM (Brzycki)', () => {
   test('5 reps ≈ 113 (Brzycki)', () => expect(calcE1RM(100, 5)).toBe(113));
   test('0 reps is handled (<=1 branch)', () => expect(calcE1RM(100, 0)).toBe(100));
 
-  // FAILING ON PURPOSE — captures A1-F1: the divisor (1.0278 - 0.0278*r) is not
-  // guarded, so e1RM goes negative beyond ~36 reps. The fix is scheduled for P1;
-  // test.failing documents the bug while keeping CI green until then.
-  test.failing('high reps must not produce a negative e1RM (A1-F1)', () => {
+  // A1-F1 fixed in P1-1: reps are capped at 20 (Brzycki diverges beyond), so the
+  // divisor stays positive and e1RM never goes negative on aberrant input.
+  test('reps > 20 clamped, result stays positive (A1-F1 fixed)', () => {
     expect(calcE1RM(100, 37)).toBeGreaterThan(0);
+    expect(calcE1RM(100, 20)).toBeGreaterThan(100);
   });
 });
 

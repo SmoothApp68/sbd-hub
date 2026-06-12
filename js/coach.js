@@ -751,7 +751,8 @@ function computeSRS() {
   }
 
   // 2. Readiness subjective
-  var recentR = (db.readiness || []).filter(function(r) {
+  // READY-C2-c — couche d'accès unique (typeof-gardé : coach.js charge avant app.js)
+  var recentR = (typeof getCheckinHistory === 'function' ? getCheckinHistory() : []).filter(function(r) {
     return (Date.now() - (r.ts || new Date(r.date).getTime())) < 7 * 86400000;
   });
   var subjScore = recentR.length

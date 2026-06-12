@@ -151,25 +151,27 @@ describe('wpDetectPhase — branche wellbeing (deload auto) et branche readiness
   test('sans todayWellbeing → hypertrophie (cycle S1 powerbuilding intermédiaire)', () => {
     expect(phase({ user: {}, weeklyPlan: baseWP(), logs: [], readiness: [] }).r).toBe('hypertrophie');
   });
+  // READY-C2-c : fixtures redirigées vers readinessHistory (source unique) —
+  // assertions STRICTEMENT inchangées.
   test('2 scores readiness < 50 → phase forcée \'force\' (cap APRE 0.92 > 0.85 — quirk S9 du C0)', () => {
     expect(phase({ user: {}, weeklyPlan: baseWP(), logs: [],
-      readiness: [{ date: TODAY, score: 45 }, { date: TODAY, score: 40 }] }).r).toBe('force');
+      readinessHistory: [{ ts: 1, date: TODAY, score: 45 }, { ts: 2, date: TODAY, score: 40 }] }).r).toBe('force');
   });
   test('1 seul score < 50 → reste hypertrophie', () => {
     expect(phase({ user: {}, weeklyPlan: baseWP(), logs: [],
-      readiness: [{ date: TODAY, score: 45 }] }).r).toBe('hypertrophie');
+      readinessHistory: [{ ts: 1, date: TODAY, score: 45 }] }).r).toBe('hypertrophie');
   });
   test('0 score bas → hypertrophie', () => {
     expect(phase({ user: {}, weeklyPlan: baseWP(), logs: [],
-      readiness: [{ date: TODAY, score: 80 }] }).r).toBe('hypertrophie');
+      readinessHistory: [{ ts: 1, date: TODAY, score: 80 }] }).r).toBe('hypertrophie');
   });
   test('PRIORITÉ : wellbeing < 45 ET 2 scores bas → deload gagne (early return)', () => {
     expect(phase({ user: {}, todayWellbeing: { sleep: 2, motivation: 2 }, weeklyPlan: baseWP(), logs: [],
-      readiness: [{ date: TODAY, score: 45 }, { date: TODAY, score: 40 }] }).r).toBe('deload');
+      readinessHistory: [{ ts: 1, date: TODAY, score: 45 }, { ts: 2, date: TODAY, score: 40 }] }).r).toBe('deload');
   });
   test('effet de bord figé : sync db.weeklyPlan.currentBlock.phase/week', () => {
     const r = phase({ user: {}, weeklyPlan: baseWP(), logs: [],
-      readiness: [{ date: TODAY, score: 45 }, { date: TODAY, score: 40 }] });
+      readinessHistory: [{ ts: 1, date: TODAY, score: 45 }, { ts: 2, date: TODAY, score: 40 }] });
     expect(r.db.weeklyPlan.currentBlock.phase).toBe('force');
     expect(r.db.weeklyPlan.currentBlock.week).toBe(1);
   });
@@ -248,16 +250,18 @@ describe('hasTodayReadiness / getTodayReadiness', () => {
     const c = makeCtx({ user: {}, readiness: [],
       todayWellbeing: { date: TODAY, sleep: 3, motivation: 3 } });
     expect(vm.runInContext('hasTodayCheckin()', c)).toBe(true);
-    // hasTodayReadiness reste inchangé (skip flag + db.readiness) — c'est
-    // l'union des deux qui gate le modal dans showReadinessModal.
-    expect(vm.runInContext('hasTodayReadiness()', c)).toBe(false);
+    // READY-C2-c : hasTodayReadiness est devenue une façade (skip OU
+    // hasTodayCheckin) → true ici aussi. Assertion méta mise à jour dans le
+    // même commit que la façade (ce n'était pas un seuil figé, cf. rapport).
+    expect(vm.runInContext('hasTodayReadiness()', c)).toBe(true);
   });
 });
 
 // ── 8. computeAdaptiveSRSThreshold + LP Fast-Track ───────────────────────────
 describe('computeAdaptiveSRSThreshold + LP Fast-Track débutant', () => {
+  // READY-C2-c : fixtures sur readinessHistory — assertions inchangées
   const thr = (scores) => vm.runInContext('computeAdaptiveSRSThreshold()',
-    makeCtx({ readiness: scores.map((s, i) => ({ date: '2026-05-' + String(1 + (i % 28)).padStart(2, '0'), score: s })) }));
+    makeCtx({ readiness: [], readinessHistory: scores.map((s, i) => ({ ts: i + 1, date: '2026-05-' + String(1 + (i % 28)).padStart(2, '0'), score: s })) }));
   test('< 10 saisies → seuil fixe 45, mode \'fixed\'', () => {
     expect(thr([60, 70, 80, 75, 65])).toEqual({ threshold: 45, mode: 'fixed', sessions: 5 });
   });
@@ -274,8 +278,8 @@ describe('computeAdaptiveSRSThreshold + LP Fast-Track débutant', () => {
   const ft = (scores) => {
     const logsFT = [{ timestamp: Date.now() - 2 * 86400000, exercises: [{ name: 'Développé couché',
       allSets: [{ weight: 80, reps: 10, isWarmup: false }, { weight: 80, reps: 10, isWarmup: false }] }] }];
-    const c = makeCtx({ user: { level: 'debutant', lpActive: true }, logs: logsFT,
-      readiness: scores.map((s, i) => ({ date: '2026-05-' + String(1 + (i % 28)).padStart(2, '0'), score: s })) },
+    const c = makeCtx({ user: { level: 'debutant', lpActive: true }, logs: logsFT, readiness: [],
+      readinessHistory: scores.map((s, i) => ({ ts: i + 1, date: '2026-05-' + String(1 + (i % 28)).padStart(2, '0'), score: s })) },
       { isFastTrackDebutant: () => true });
     return vm.runInContext("wpDoubleProgressionWeight('Développé couché', 8, 10)", c);
   };

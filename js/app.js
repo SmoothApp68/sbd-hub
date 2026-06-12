@@ -619,14 +619,13 @@ db.readiness = db.readiness || [];
 function getTodayStr() { return new Date().toISOString().slice(0, 10); }
 
 function hasTodayReadiness() {
-  // Vérifier le flag persisté (timestamp ms, comparé à minuit local)
+  // READY-C2-c : façade — flag « Passer » du jour OU check-in du jour
+  // (couche d'accès unique ; ne lit plus db.readiness directement).
   var todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
   var ts = db.user && db.user._readinessSkipDate;
   if (typeof ts === 'number' && ts >= todayMidnight.getTime()) return true;
-  // Fallback rétrocompat : entrée du jour dans db.readiness
-  const today = getTodayStr();
-  return (db.readiness || []).some(r => r.date === today);
+  return hasTodayCheckin();
 }
 
 function markReadinessDone() {
@@ -643,8 +642,11 @@ function isTodayTrainingDay() {
 }
 
 function getTodayReadiness() {
-  const today = getTodayStr();
-  return (db.readiness || []).find(r => r.date === today) || null;
+  // READY-C2-c : façade dénormalisée (forme 1-10 historique, attendue par la
+  // bannière — contenu de celle-ci inchangé jusqu'à C2-d).
+  const c = getTodayCheckin();
+  return c ? { date: c.date, sleep: c.sleep10, energy: c.energy10,
+    motivation: c.motivation10, soreness: c.soreness10, score: c.score } : null;
 }
 
 // READY-C2-b — Gate unifié anti-double-saisie. Vrai si un check-in du jour
@@ -9012,7 +9014,7 @@ function showMuscleFatigueTooltip(key) {
 function computeFormScoreComposite() {
   const components = {};
   // 1. Readiness moyenne 7j (20%)
-  const recent = (db.readiness || []).filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000);
+  const recent = getCheckinHistory().filter(r => (Date.now() - new Date(r.date).getTime()) < 7 * 86400000); // READY-C2-c
   components.readiness = recent.length > 0 ? recent.reduce((s, r) => s + r.score, 0) / recent.length : 50;
   // 2. Compliance 7j (25%)
   const routine = getRoutine();
@@ -19596,7 +19598,7 @@ function generateWeeklyReport() {
   }
 
   // Readiness
-  var weekReadiness = (db.readiness || []).filter(function(r) {
+  var weekReadiness = getCheckinHistory().filter(function(r) { // READY-C2-c
     var ts = new Date(r.date).getTime();
     return ts >= prevWeekStart && ts < prevWeekEnd;
   });
@@ -20096,7 +20098,7 @@ function adaptSessionForDuration(exercises, targetMinutes, goal) {
 // Baseline personnelle : moyenne - 1.5σ sur les 30 dernières sessions.
 // < 10 sessions → seuil fixe conservateur 45. 10-30 → baseline provisoire.
 function computeAdaptiveSRSThreshold() {
-  var readiness = (db.readiness || [])
+  var readiness = getCheckinHistory() // READY-C2-c — logique et arrondis inchangés (frontière 84.5 du harnais)
     .filter(function(r) { return r.score > 0; })
     .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
 
@@ -20277,7 +20279,7 @@ function checkWisdomBadge_Deload() {
 }
 
 function checkWisdomBadge_Recovery() {
-  var _readiness = (db.readiness || []).slice().sort(function(a, b) {
+  var _readiness = getCheckinHistory().sort(function(a, b) { // READY-C2-c
     return (b.date || '').localeCompare(a.date || '');
   }).slice(0, 3);
   if (_readiness.length < 3) return;
@@ -22766,8 +22768,8 @@ function wpDetectPhase() {
         if (!/squat|bench|deadlift|soulevé|développé couché/i.test(e.name||'') && e.plateauDetected) _pCount++;
       });
     });
-    var _pLowSRS = db.readiness
-      ? db.readiness.filter(function(r) { return r.score < 50; }).slice(-7).length : 0;
+    // READY-C2-c — même expression exacte (lows de tout l'historique, 7 derniers lows)
+    var _pLowSRS = getCheckinHistory().filter(function(r) { return r.score < 50; }).slice(-7).length;
     if (_pCount >= 3 || _pLowSRS >= 2) _detectedPhase = 'force';
   }
 

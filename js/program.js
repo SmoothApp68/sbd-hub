@@ -121,42 +121,7 @@ function computeNextLoad(currentLoad, currentReps, targetRepsLow, targetRepsHigh
 }
 
 // ── DELOAD DETECTION ──
-// Recommande un deload si : fatigue accumulée élevée OU 4+ semaines sans progrès
-function shouldDeload(logs, mode) {
-  if (mode === 'bien_etre') return { needed: false };
-  if (!logs || logs.length < 4) return { needed: false };
-  var now = Date.now();
-  var fourWeeksAgo = now - 28 * 86400000;
-  var recentLogs = logs.filter(function(l) { return l.timestamp >= fourWeeksAgo; });
-  if (recentLogs.length < 3) return { needed: false };
-
-  // Score de fatigue : basé sur la fréquence et le volume des 2 dernières semaines
-  var twoWeeksAgo = now - 14 * 86400000;
-  var last2Weeks = recentLogs.filter(function(l) { return l.timestamp >= twoWeeksAgo; });
-  var avgSessionsPerWeek = last2Weeks.length / 2;
-  var totalVolume2Weeks = last2Weeks.reduce(function(s, l) { return s + (l.volume || 0); }, 0);
-
-  // Fatigue élevée si > 5 séances/sem ou ACWR tonnage > 1.3 (Gabbett 2016)
-  var highFreq = avgSessionsPerWeek > 5;
-  var highVol = typeof isFatigued === 'function' && isFatigued(logs);
-
-  // Powerlifting / Powerbuilding : deload time-based toutes les 4-5 semaines.
-  // Musculation : pas de deload time-based — uniquement déclenché par fatigue élevée.
-  var isPL = (mode === 'powerlifting' || mode === 'powerbuilding');
-  var sessionCount4Weeks = recentLogs.length;
-  var timeBasedDeload = isPL && sessionCount4Weeks >= 12; // ~3 séances/sem × 4 sem
-
-  if (highFreq || highVol || timeBasedDeload) {
-    return {
-      needed: true,
-      reason: highFreq ? 'Fréquence élevée sur 2 semaines' :
-               highVol  ? 'Volume très élevé sur 2 semaines' :
-               'Cycle de 4 semaines terminé — récupération recommandée',
-      intensity: 0.6 // charger à 60% du 1RM pendant le deload
-    };
-  }
-  return { needed: false };
-}
+// shouldDeload() — défini dans js/app.js (source de vérité unique, P1-2)
 
 // ── VOLUME STATUS PAR MUSCLE ──
 function getVolumeStatus(muscle, setsPerWeek) {

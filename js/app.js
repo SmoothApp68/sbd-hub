@@ -25984,7 +25984,27 @@ let _goMusclesExpanded = false;
 
 function goAutoSave() {
   if (activeWorkout) {
-    try { localStorage.setItem('SBD_ACTIVE_WORKOUT', JSON.stringify(activeWorkout)); } catch(e) {}
+    try {
+      localStorage.setItem('SBD_ACTIVE_WORKOUT', JSON.stringify(activeWorkout));
+    } catch(e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+        // Quota plein pendant une séance active — critique : un crash perdrait la séance.
+        console.error('goAutoSave: quota plein, backup séance échoué', e);
+        if (typeof showToast === 'function') {
+          showToast('⚠️ Stockage plein — sauvegarde séance impossible');
+        }
+        if (typeof purgeVeryOldLogs === 'function') {
+          purgeVeryOldLogs();
+          try {
+            localStorage.setItem('SBD_ACTIVE_WORKOUT', JSON.stringify(activeWorkout));
+          } catch(e2) {
+            console.error('goAutoSave: toujours plein après purge', e2);
+          }
+        }
+      } else {
+        console.warn('goAutoSave error:', e);
+      }
+    }
     backupWorkoutToIDB();
   }
 }

@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v281';
+var SW_VERSION = 'trainhub-v282';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -966,8 +966,9 @@ function submitReadiness() {
   }
   const modal = document.getElementById('readinessModal');
   if (modal) modal.remove();
-  const adjMsg = adj === 1 ? '' : (adj > 1 ? ' (+' + Math.round((adj-1)*100) + '% charges)' : ' (' + Math.round((adj-1)*100) + '% charges)');
-  showToast('✅ Readiness : ' + score + '/100' + adjMsg);
+  // READY-C1 (S1) : ne plus annoncer un effet sur les charges — loadAdjustment
+  // est stocké mais n'est appliqué nulle part (sera branché en C2/C4).
+  showToast('✅ Readiness : ' + score + '/100');
   if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
 }
 
@@ -979,8 +980,8 @@ function getReadinessBannerHtml() {
     'Score : (' + r.sleep + '+' + r.energy + '+' + r.soreness + '+' + r.stress + ') / 20 × 100 = ' + r.score + '/100' +
     '</div>';
   var toggleBtn = ' <span class="glossary-tip" onclick="event.stopPropagation();var d=this.parentElement.querySelector(\'.readiness-detail\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">ℹ️</span>';
-  if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — séance allégée recommandée (volume -40%, charge -15%)' + toggleBtn + detail + '</div>';
-  if (r.score < 60) return '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--orange);">Readiness modérée (' + r.score + '/100) — charge maintenue, volume réduit (-1 set/exo)' + toggleBtn + detail + '</div>';
+  if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — écoute ton corps aujourd\'hui' + toggleBtn + detail + '</div>';
+  if (r.score < 60) return '<div style="background:rgba(255,159,10,0.12);border-left:3px solid var(--orange);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--orange);">Readiness modérée (' + r.score + '/100) — ménage l\'intensité si besoin' + toggleBtn + detail + '</div>';
   if (r.score >= 80) return '<div style="background:rgba(50,215,75,0.12);border-left:3px solid var(--green);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--green);">Readiness excellente (' + r.score + '/100) — go ! 💪' + toggleBtn + detail + '</div>';
   if (r.score >= 60) return '<div style="background:rgba(255,255,255,0.05);border-left:3px solid var(--sub);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--text);">Readiness correcte (' + r.score + '/100) — programme normal' + toggleBtn + detail + '</div>';
   return '';
@@ -24346,15 +24347,16 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
   // SENIOR : rest ×2 + RPE max 7 (Gemini v208)
   exercises = applyAgeAdaptations(exercises);
 
-  // STRESS : -20% volume si motivation basse + sommeil bas (Gemini v208)
+  // STRESS (Gemini v208) : flags posés mais réduction NON appliquée sur ce chemin
+  // (elle l'est dans wpGenerateMuscuDay). READY-C1 (S5) : coachNote « Volume
+  // réduit (-20%) » retirée — elle annonçait une réduction qui n'a jamais lieu ici.
   var _stressMod = typeof getStressVolumeModifier === 'function' ? getStressVolumeModifier() : 1.0;
   if (_stressMod < 1.0) {
     exercises = exercises.map(function(exo) {
       if (!exo) return exo;
       return Object.assign({}, exo, {
         _stressAdapted: true,
-        _volumeMod: _stressMod,
-        coachNote: '🧘 Volume réduit (-' + Math.round((1 - _stressMod) * 100) + '%) — prends soin de toi aujourd\'hui.'
+        _volumeMod: _stressMod
       });
     });
   }
@@ -28194,8 +28196,10 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
     if (/^Force/.test(dupProfile.label || '') && srsScore < 35) {
       planDay._srsOverrideApplied = true;
       return {
+        // READY-C1 (S4) : overrideDupStyle n'a aucun consommateur — ne plus
+        // annoncer une conversion automatique qui n'a pas lieu.
         msg: '🔄 Fatigue trop élevée pour une séance Force (SRS ' + srsScore + '/100). ' +
-          'Conversion automatique en Vitesse — charges à 70%, focus barre.',
+          'Ménage les charges et privilégie la technique aujourd\'hui.',
         type: 'danger',
         overrideDupStyle: 'vitesse'
       };

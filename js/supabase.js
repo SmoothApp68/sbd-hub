@@ -4874,21 +4874,24 @@ async function renderFeedChallengesV2() {
     var allCreatorIds = [uid].concat(friendIds);
     var allChallenges = [];
 
-    // My participations
-    var partResp = await supaClient.from('challenge_participants').select('challenge_id').eq('user_id', uid);
+    // Parallelize the independent fetches: my participations, friend-created and
+    // own-created challenges only depend on uid/friendIds, not on each other.
+    var _chRes = await Promise.all([
+      supaClient.from('challenge_participants').select('challenge_id').eq('user_id', uid),
+      friendIds.length ? supaClient.from('social_challenges').select('*').in('creator_id', friendIds).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+      supaClient.from('social_challenges').select('*').eq('creator_id', uid).order('created_at', { ascending: false })
+    ]);
+    var partResp = _chRes[0], r2 = _chRes[1], r3 = _chRes[2];
     var myChIds = (partResp.data || []).map(function(p) { return p.challenge_id; });
 
+    // My-participated challenges depend on partResp's ids → fetched after.
     if (myChIds.length) {
       var r1 = await supaClient.from('social_challenges').select('*').in('id', myChIds).order('created_at', { ascending: false });
       if (r1.data) allChallenges = r1.data;
     }
-    // Friend-created
-    if (friendIds.length) {
-      var r2 = await supaClient.from('social_challenges').select('*').in('creator_id', friendIds).order('created_at', { ascending: false });
-      if (r2.data) r2.data.forEach(function(c) { if (!allChallenges.find(function(x) { return x.id === c.id; })) allChallenges.push(c); });
-    }
-    // Own created
-    var r3 = await supaClient.from('social_challenges').select('*').eq('creator_id', uid).order('created_at', { ascending: false });
+    // Friend-created (merge, dedup) — same order as before
+    if (r2.data) r2.data.forEach(function(c) { if (!allChallenges.find(function(x) { return x.id === c.id; })) allChallenges.push(c); });
+    // Own created (merge, dedup)
     if (r3.data) r3.data.forEach(function(c) { if (!allChallenges.find(function(x) { return x.id === c.id; })) allChallenges.push(c); });
 
     // Load participants
@@ -5035,16 +5038,22 @@ async function renderFeedClassementV2() {
     var allIds = [uid].concat(friendIds);
 
     var profiles = {};
+    var snaps = [];
     if (allIds.length) {
-      var pResp = await supaClient.from('public_profiles').select('id, username, tier').in('id', allIds);
-      (pResp.data || []).forEach(function(p) { profiles[p.id] = p; });
+      // Parallelize: profiles and snapshots both key on allIds and are independent.
+      var _needSnaps = (_lb2Category === 'sbd' || _lb2Category === 'volume');
+      var _lb2Res = await Promise.all([
+        supaClient.from('public_profiles').select('id, username, tier').in('id', allIds),
+        _needSnaps ? supaClient.from('leaderboard_snapshots').select('user_id, exercise_name, value').in('user_id', allIds) : Promise.resolve({ data: [] })
+      ]);
+      (_lb2Res[0].data || []).forEach(function(p) { profiles[p.id] = p; });
+      snaps = _lb2Res[1].data || [];
     }
 
     var ranking = [];
 
     if (_lb2Category === 'sbd') {
-      var snapResp = await supaClient.from('leaderboard_snapshots').select('user_id, exercise_name, value').in('user_id', allIds);
-      var snaps = snapResp.data || [];
+      // snaps already fetched in parallel with profiles above (no extra round-trip).
       var userSBD = {};
       allIds.forEach(function(id) { userSBD[id] = { s: 0, b: 0, d: 0 }; });
       snaps.forEach(function(s) {
@@ -5058,9 +5067,8 @@ async function renderFeedClassementV2() {
         return { userId: id, score: t, username: (profiles[id] || {}).username || '?' };
       }).filter(function(r) { return r.score > 0; });
     } else if (_lb2Category === 'volume') {
-      var snapResp2 = await supaClient.from('leaderboard_snapshots').select('user_id, exercise_name, value').in('user_id', allIds);
       var volByUser = {};
-      (snapResp2.data || []).forEach(function(s) {
+      snaps.forEach(function(s) {
         if (!volByUser[s.user_id]) volByUser[s.user_id] = 0;
         volByUser[s.user_id] += s.value;
       });

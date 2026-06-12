@@ -1812,6 +1812,9 @@ async function renderFeed() {
   const feedContent = document.getElementById('feedContent');
   const pinnedSection = document.getElementById('feedPinnedSection');
   const loadMoreBtn = document.getElementById('feedLoadMore');
+  // Guard: the social tab may have been replaced while the awaits above were
+  // pending (tab change mid-fetch) — bail out instead of touching null .style/.innerHTML.
+  if (!feedContent || !pinnedSection || !loadMoreBtn) return;
 
   if (_feedPage === 0) {
     _feedItems = [];
@@ -2535,6 +2538,8 @@ async function renderLeaderboard() {
   const podiumEl = document.getElementById('lbPodium');
   const tableEl = document.getElementById('lbTable');
   const emptyEl = document.getElementById('lbEmpty');
+  // Guard: tab may have changed during the awaits above — avoid null .style/.innerHTML.
+  if (!filterSelect || !podiumEl || !tableEl || !emptyEl) return;
 
   if (!friendIds.length) {
     podiumEl.innerHTML = '';
@@ -2810,6 +2815,9 @@ async function renderFriendsTab() {
   const pending = friends.filter(f => f.status === 'pending' && f.target_id === uid);
   const pendingSection = document.getElementById('pendingRequestsSection');
   const pendingList = document.getElementById('pendingRequestsList');
+  // Guard: tab may have changed during the awaits above. No await follows before
+  // the friends/blocked/badge elements are read, so one check covers them all.
+  if (!pendingSection || !pendingList) return;
   if (pending.length) {
     pendingSection.style.display = '';
     pendingList.innerHTML = pending.map(f => {

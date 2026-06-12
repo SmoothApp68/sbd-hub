@@ -45,7 +45,8 @@ const PREAMBLE = (function () {
     'shouldDeload', 'wpDetectPhase', '_wpComputeWorkWeightPenalties',
     'wpDoubleProgressionWeight', 'wpFindBestMatch', 'wpNormalizeName', 'wpRound25',
     'generateId', 'calcE1RM', 'convertWorkoutToSession',
-    'hasTodayCheckin', 'saveDailyCheckin']; // READY-C2-b : saisie unique
+    'hasTodayCheckin', 'saveDailyCheckin', // READY-C2-b : saisie unique
+    '_normalizeCheckinEntry', 'getTodayCheckin', 'getCheckinHistory']; // READY-C2-c : couche d'accès
   const fromImp = ['createSession', 'finalizeSessionFromSeries'];
   let p = '';
   fromApp.forEach(function (n) { p += extractFn(APP, n) + '\n'; });
@@ -394,8 +395,7 @@ describe('READY-C2-b — saveDailyCheckin (mapping 1-5 → Helms 1-10 + 4 écrit
   });
 });
 
-describe('READY-C2-b — hasTodayCheckin (gate unifié, 4 cas)', () => {
-  const has = (db) => vm.runInContext('hasTodayCheckin()', makeCtx(db));
+describe('READY-C2-b — hasTodayCheckin (gate unifié, 4 cas)', () => {  const has = (db) => vm.runInContext('hasTodayCheckin()', makeCtx(db));
   test('aucune saisie nulle part → false', () => {
     expect(has({ user: {}, readiness: [], readinessHistory: [], todayWellbeing: null })).toBe(false);
   });
@@ -408,5 +408,51 @@ describe('READY-C2-b — hasTodayCheckin (gate unifié, 4 cas)', () => {
   test('todayWellbeing du jour (rétrocompat déploiement) → true ; d\'hier → false', () => {
     expect(has({ user: {}, readiness: [], readinessHistory: [], todayWellbeing: { date: TODAY, sleep: 3 } })).toBe(true);
     expect(has({ user: {}, readiness: [], readinessHistory: [], todayWellbeing: { date: '2020-01-01', sleep: 3 } })).toBe(false);
+  });
+});
+
+// ── READY-C2-c — couche d'accès unique ───────────────────────────────────────
+describe('READY-C2-c — getTodayCheckin / getCheckinHistory', () => {
+  const HIST_TODAY = { ts: Date.now(), date: TODAY, sleep: 8, energy: 6, motivation: 10, soreness: 7, score: 68, pain: 'Dos' };
+  test('normalisation : les deux échelles calculées une fois (entrée C2-b paire)', () => {
+    const c = makeCtx({ readinessHistory: [HIST_TODAY], readiness: [] });
+    const e = vm.runInContext('getTodayCheckin()', c);
+    expect(e).toEqual({ date: TODAY, ts: HIST_TODAY.ts, score: 68, pain: 'Dos',
+      sleep10: 8, energy10: 6, motivation10: 10, soreness10: 7,
+      sleep5: 4, energy5: 3, motivation5: 5, fraicheur5: 2 });
+  });
+  test('ancienne entrée sliders (impaire) → demi-points x5, acceptés (seuils ≤/<)', () => {
+    const c = makeCtx({ readinessHistory: [{ ts: 1, date: TODAY, sleep: 5, energy: 7, motivation: 3, soreness: 4, score: 50 }], readiness: [] });
+    const e = vm.runInContext('getTodayCheckin()', c);
+    expect(e.sleep5).toBe(2.5);
+    expect(e.fraicheur5).toBe(3.5);
+    expect(e.pain).toBeNull(); // champ absent → null
+  });
+  test('fallback transitoire db.readiness (entrée pré-C2-b) quand readinessHistory n\'a pas le jour', () => {
+    const c = makeCtx({ readinessHistory: [], readiness: [{ date: TODAY, sleep: 6, energy: 6, motivation: 6, soreness: 5, score: 60 }] });
+    const e = vm.runInContext('getTodayCheckin()', c);
+    expect(e.score).toBe(60);
+    expect(e.sleep5).toBe(3);
+  });
+  test('aucune entrée du jour → null (une entrée d\'hier ne compte pas)', () => {
+    const c = makeCtx({ readinessHistory: [{ ts: 1, date: '2020-01-01', sleep: 8, energy: 8, motivation: 8, soreness: 3, score: 80 }], readiness: [] });
+    expect(vm.runInContext('getTodayCheckin()', c)).toBeNull();
+  });
+  test('getCheckinHistory : ordre chrono (tri ts) + slice(-n)', () => {
+    const c = makeCtx({ readinessHistory: [
+      { ts: 300, date: TODAY, sleep: 8, energy: 8, motivation: 8, soreness: 3, score: 80 },
+      { ts: 100, date: '2026-06-10', sleep: 4, energy: 4, motivation: 4, soreness: 7, score: 35 },
+      { ts: 200, date: '2026-06-11', sleep: 6, energy: 6, motivation: 6, soreness: 5, score: 60 },
+    ], readiness: [] });
+    const all = vm.runInContext('getCheckinHistory()', c);
+    expect(all.map(e => e.score)).toEqual([35, 60, 80]);
+    const last2 = vm.runInContext('getCheckinHistory(2)', c);
+    expect(last2.map(e => e.score)).toEqual([60, 80]);
+  });
+  test('équivalence d\'échelle : sleep10=6 → sleep5=3 (les seuils 1-5 restent exprimables à l\'identique)', () => {
+    const c = makeCtx({ readinessHistory: [{ ts: 1, date: TODAY, sleep: 6, energy: 6, motivation: 6, soreness: 5, score: 60 }], readiness: [] });
+    const e = vm.runInContext('getTodayCheckin()', c);
+    expect(e.sleep5).toBe(3);
+    expect(e.sleep5 <= 2).toBe(false); // même verdict que l'ancien todayWellbeing.sleep(3) ≤ 2
   });
 });

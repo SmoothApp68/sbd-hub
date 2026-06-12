@@ -658,6 +658,47 @@ function hasTodayCheckin() {
   return false;
 }
 
+// READY-C2-c — COUCHE D'ACCÈS UNIQUE au check-in quotidien.
+// Source : db.readinessHistory (1-10). AUCUN lecteur ne parse readinessHistory
+// directement : tout passe par getTodayCheckin / getCheckinHistory.
+// Forme normalisée : les deux échelles calculées une fois (x5 = x10/2 ;
+// fraicheur5 = (11 − soreness10)/2). Les entrées mappées C2-b étant paires,
+// les x5 sont entiers ; les anciennes entrées sliders (impaires possibles)
+// donnent des demi-points — acceptable, les seuils sont des ≤/<.
+function _normalizeCheckinEntry(e) {
+  if (!e) return null;
+  return {
+    date: e.date, ts: e.ts || 0, score: e.score,
+    pain: e.pain !== undefined ? e.pain : null,
+    sleep10: e.sleep, energy10: e.energy,
+    motivation10: e.motivation, soreness10: e.soreness,
+    sleep5: e.sleep / 2, energy5: e.energy / 2, motivation5: e.motivation / 2,
+    fraicheur5: (11 - e.soreness) / 2
+  };
+}
+
+// Entrée du jour normalisée, ou null. Fallback transitoire : db.readiness du
+// jour (même forme 1-10, couvre les entrées pré-C2-b). Pas de fallback
+// todayWellbeing (energy/soreness non reconstructibles — edge jour de
+// déploiement, accepté).
+function getTodayCheckin() {
+  const today = getTodayStr();
+  const hist = db.readinessHistory || [];
+  for (let i = hist.length - 1; i >= 0; i--) {
+    if (hist[i] && hist[i].date === today) return _normalizeCheckinEntry(hist[i]);
+  }
+  const legacy = (db.readiness || []).find(r => r.date === today);
+  return legacy ? _normalizeCheckinEntry(legacy) : null;
+}
+
+// n dernières entrées normalisées, ordre chronologique. Sans n : tout l'historique.
+function getCheckinHistory(n) {
+  const hist = (db.readinessHistory || []).filter(Boolean).slice()
+    .sort(function(a, b) { return (a.ts || 0) - (b.ts || 0); });
+  const norm = hist.map(_normalizeCheckinEntry);
+  return (typeof n === 'number' && n > 0) ? norm.slice(-n) : norm;
+}
+
 function showReadinessModal(onComplete) {
   // READY-C2-b : gate unifié — un check-in fait le matin (carte Coach) supprime
   // le modal pré-séance ; « Passer » (hasTodayReadiness via _readinessSkipDate)

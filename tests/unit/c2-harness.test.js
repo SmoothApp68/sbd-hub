@@ -44,7 +44,8 @@ const PREAMBLE = (function () {
     'computeAdaptiveSRSThreshold', 'getCyclePhaseModifier', 'getEffectiveSRS',
     'shouldDeload', 'wpDetectPhase', '_wpComputeWorkWeightPenalties',
     'wpDoubleProgressionWeight', 'wpFindBestMatch', 'wpNormalizeName', 'wpRound25',
-    'generateId', 'calcE1RM', 'convertWorkoutToSession'];
+    'generateId', 'calcE1RM', 'convertWorkoutToSession',
+    'hasTodayCheckin', 'saveDailyCheckin']; // READY-C2-b : saisie unique
   const fromImp = ['createSession', 'finalizeSessionFromSeries'];
   let p = '';
   fromApp.forEach(function (n) { p += extractFn(APP, n) + '\n'; });
@@ -238,10 +239,17 @@ describe('hasTodayReadiness / getTodayReadiness', () => {
   test('_readinessSkipDate d\'avant-hier (-30h) → gate ouvert', () => {
     expect(gate({ user: { _readinessSkipDate: Date.now() - 30 * 3600000 }, readiness: [] }).has).toBe(false);
   });
-  test('double_saisie_possible_actuellement : Bilan du matin rempli (todayWellbeing) '
-    + 'ne ferme PAS le gate → le modal readiness redemande sommeil/motivation le même jour', () => {
-    expect(gate({ user: {}, readiness: [],
-      todayWellbeing: { date: TODAY, sleep: 3, motivation: 3 } }).has).toBe(false);
+  // READY-C2-b : test INVERSÉ sciemment (ex `double_saisie_possible_actuellement`).
+  // Le gate du modal est désormais hasTodayReadiness() || hasTodayCheckin() —
+  // un check-in fait le matin (todayWellbeing/miroirs) supprime le modal pré-séance.
+  test('double_saisie_impossible : un check-in du jour, quel que soit son store, '
+    + 'ferme le gate unifié (hasTodayCheckin) → plus de double saisie', () => {
+    const c = makeCtx({ user: {}, readiness: [],
+      todayWellbeing: { date: TODAY, sleep: 3, motivation: 3 } });
+    expect(vm.runInContext('hasTodayCheckin()', c)).toBe(true);
+    // hasTodayReadiness reste inchangé (skip flag + db.readiness) — c'est
+    // l'union des deux qui gate le modal dans showReadinessModal.
+    expect(vm.runInContext('hasTodayReadiness()', c)).toBe(false);
   });
 });
 
@@ -290,13 +298,20 @@ describe('computeAdaptiveSRSThreshold + LP Fast-Track débutant', () => {
 
 // ── 9. convertWorkoutToSession — non-persistance de la readiness ─────────────
 describe('convertWorkoutToSession', () => {
-  test('readiness_non_persiste_actuellement : activeWorkout.readiness N\'est PAS copié '
-    + 'dans la session (C2-b inversera sciemment ce test en branchant la persistance)', () => {
+  // READY-C2-b : test INVERSÉ sciemment (ex `readiness_non_persiste_actuellement`).
+  // Décision Phase 2 : le check-in de séance est persisté dans le log final —
+  // generateAlgoSessionDebrief (import.js) reçoit désormais un vrai objet.
+  test('readiness_persistee_dans_session : activeWorkout.readiness EST copié dans la session', () => {
     const c = makeCtx({ logs: [], user: {} });
     const session = vm.runInContext(
-      "convertWorkoutToSession({ title: 'T', startTime: Date.now() - 3600000, exercises: [], readiness: { score: 72, loadAdjustment: 0.97 } })", c);
+      "convertWorkoutToSession({ title: 'T', startTime: Date.now() - 3600000, exercises: [], readiness: { sleep: 10, energy: 8, motivation: 6, soreness: 1, score: 88, loadAdjustment: 1.00 } })", c);
+    expect(session.readiness).toEqual({ sleep: 10, energy: 8, motivation: 6, soreness: 1, score: 88, loadAdjustment: 1.00 });
+  });
+  test('pas de readiness sur la séance → pas de champ fantôme dans le log', () => {
+    const c = makeCtx({ logs: [], user: {} });
+    const session = vm.runInContext(
+      "convertWorkoutToSession({ title: 'T', startTime: Date.now() - 3600000, exercises: [] })", c);
     expect(session.readiness).toBeUndefined();
-    expect(Object.keys(session)).not.toContain('readiness');
   });
   test('sanity : la session produite garde titre/durée/volume', () => {
     const c = makeCtx({ logs: [], user: {} });
@@ -305,5 +320,93 @@ describe('convertWorkoutToSession', () => {
     expect(session.title).toBe('T');
     expect(session.durationSource).toBe('go');
     expect(session.volume).toBe(0);
+  });
+});
+
+// ── READY-C2-b — saisie quotidienne unique ───────────────────────────────────
+describe('READY-C2-b — saveDailyCheckin (mapping 1-5 → Helms 1-10 + 4 écritures)', () => {
+  function save(checkin, dbOver, extra) {
+    const c = makeCtx(Object.assign({ readiness: [], readinessHistory: [],
+      todayWellbeing: null, wellbeingHistory: [], user: {}, logs: [] }, dbOver || {}), extra || {});
+    vm.runInContext('_checkinData = ' + JSON.stringify(checkin), c);
+    const score = vm.runInContext('saveDailyCheckin()', c);
+    return { score: score, db: c.db, ctx: c };
+  }
+  const ALL5 = { sleep: 5, energy: 5, motivation: 5, fresh: 5 };
+
+  test('valeur de contrôle : tout à 5 → (10,10,10,1) → score 100', () => {
+    expect(save(ALL5).score).toBe(100);
+  });
+  test('valeur de contrôle : tout à 1 → (2,2,2,9) → score 20', () => {
+    expect(save({ sleep: 1, energy: 1, motivation: 1, fresh: 1 }).score).toBe(20);
+  });
+  test('valeur de contrôle : tout à 3 → (6,6,6,5) → score 60', () => {
+    expect(save({ sleep: 3, energy: 3, motivation: 3, fresh: 3 }).score).toBe(60);
+  });
+  test('item manquant (3/4) → null, aucune écriture', () => {
+    const r = save({ sleep: 5, energy: 5, motivation: 5 });
+    expect(r.score).toBeNull();
+    expect(r.db.readinessHistory.length).toBe(0);
+  });
+  test('écriture 1 — readinessHistory : forme exacte {ts,date,sleep,energy,motivation,soreness,score,pain}', () => {
+    const r = save(Object.assign({}, ALL5, { fresh: 2, pain: 'Dos' }));
+    const e = r.db.readinessHistory[0];
+    expect(e.date).toBe(TODAY);
+    expect(e.sleep).toBe(10); expect(e.energy).toBe(10); expect(e.motivation).toBe(10);
+    expect(e.soreness).toBe(7); // fraîcheur 2 → 11 − 4
+    expect(e.pain).toBe('Dos');
+    expect(typeof e.ts).toBe('number');
+  });
+  test('écriture 2 — miroir db.readiness : même forme qu\'avant (1-10, sans ts/pain)', () => {
+    const r = save(ALL5);
+    expect(r.db.readiness[0]).toEqual({ date: TODAY, sleep: 10, energy: 10,
+      motivation: 10, soreness: 1, score: 100 });
+  });
+  test('écriture 3 — miroir todayWellbeing : échelle 1-5 BRUTE (lecteurs intacts)', () => {
+    const r = save({ sleep: 2, energy: 3, motivation: 4, fresh: 3, pain: 'Genou' });
+    expect(r.db.todayWellbeing.sleep).toBe(2);
+    expect(r.db.todayWellbeing.motivation).toBe(4);
+    expect(r.db.todayWellbeing.pain).toBe('Genou');
+    expect(r.db.todayWellbeing.date).toBe(TODAY);
+  });
+  test('écriture 4 — wellbeingHistory : unshift comme avant', () => {
+    const r = save(ALL5);
+    expect(r.db.wellbeingHistory[0]).toBe(r.db.todayWellbeing);
+  });
+  test('merge NON destructif : rhr/rhrAlert d\'un import Garmin du JOUR préservés', () => {
+    const r = save(ALL5, { todayWellbeing: { date: TODAY, rhr: 52, rhrAlert: { level: 'warning' } } });
+    expect(r.db.todayWellbeing.rhr).toBe(52);
+    expect(r.db.todayWellbeing.rhrAlert).toEqual({ level: 'warning' });
+    expect(r.db.todayWellbeing.sleep).toBe(5); // et le check-in est bien posé
+  });
+  test('rhrAlert d\'un AUTRE jour : volontairement non propagé (alerte périmée)', () => {
+    const r = save(ALL5, { todayWellbeing: { date: '2020-01-01', rhr: 70, rhrAlert: { level: 'danger' } } });
+    expect(r.db.todayWellbeing.rhrAlert).toBeUndefined();
+    expect(r.db.todayWellbeing.rhr).toBeUndefined();
+  });
+  test('séance active → activeWorkout.readiness posé (10-scale + loadAdjustment stocké non consommé)', () => {
+    const r = save(ALL5, {}, { activeWorkout: {} });
+    expect(r.ctx.activeWorkout.readiness).toEqual({ sleep: 10, energy: 10,
+      motivation: 10, soreness: 1, score: 100, loadAdjustment: 1.03 });
+  });
+  test('saveDB appelé exactement 1×', () => {
+    expect(save(ALL5).ctx._calls.saveDB).toBe(1);
+  });
+});
+
+describe('READY-C2-b — hasTodayCheckin (gate unifié, 4 cas)', () => {
+  const has = (db) => vm.runInContext('hasTodayCheckin()', makeCtx(db));
+  test('aucune saisie nulle part → false', () => {
+    expect(has({ user: {}, readiness: [], readinessHistory: [], todayWellbeing: null })).toBe(false);
+  });
+  test('entrée du jour dans readinessHistory (cible) → true', () => {
+    expect(has({ user: {}, readiness: [], readinessHistory: [{ date: TODAY, score: 80 }] })).toBe(true);
+  });
+  test('entrée du jour dans db.readiness (miroir) → true', () => {
+    expect(has({ user: {}, readiness: [{ date: TODAY, score: 80 }], readinessHistory: [] })).toBe(true);
+  });
+  test('todayWellbeing du jour (rétrocompat déploiement) → true ; d\'hier → false', () => {
+    expect(has({ user: {}, readiness: [], readinessHistory: [], todayWellbeing: { date: TODAY, sleep: 3 } })).toBe(true);
+    expect(has({ user: {}, readiness: [], readinessHistory: [], todayWellbeing: { date: '2020-01-01', sleep: 3 } })).toBe(false);
   });
 });

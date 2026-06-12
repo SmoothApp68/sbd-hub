@@ -647,9 +647,24 @@ function getTodayReadiness() {
   return (db.readiness || []).find(r => r.date === today) || null;
 }
 
+// READY-C2-b — Gate unifié anti-double-saisie. Vrai si un check-in du jour
+// existe, quel que soit le store où il a atterri (readinessHistory = cible,
+// readiness/todayWellbeing = miroirs transitoires + rétrocompat jour de déploiement).
+function hasTodayCheckin() {
+  const today = getTodayStr();
+  if ((db.readinessHistory || []).some(r => r.date === today)) return true;
+  if ((db.readiness || []).some(r => r.date === today)) return true;
+  if (db.todayWellbeing && db.todayWellbeing.date === today) return true;
+  return false;
+}
+
 function showReadinessModal(onComplete) {
-  if (hasTodayReadiness()) { if (onComplete) onComplete(); return; }
+  // READY-C2-b : gate unifié — un check-in fait le matin (carte Coach) supprime
+  // le modal pré-séance ; « Passer » (hasTodayReadiness via _readinessSkipDate)
+  // le supprime aussi pour la journée sans compter comme rempli.
+  if (hasTodayReadiness() || hasTodayCheckin()) { if (onComplete) onComplete(); return; }
   _readinessOnComplete = onComplete || null;
+  _checkinData = {};
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'readinessModal';
@@ -663,31 +678,15 @@ function showReadinessModal(onComplete) {
   // épinglé hors du scroll (flex:0 0 auto) → bouton Valider toujours visible.
   overlay.innerHTML = `<div class="modal-box" style="max-width:360px;padding:16px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;">
     <div style="flex:1 1 auto;overflow-y:auto;min-height:0;">
-      <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">Comment te sens-tu ?</div>
-      <div class="readiness-sliders" style="margin-bottom:8px;">
-        <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">😴 Sommeil</span><input type="range" min="1" max="10" value="5" id="rd-sleep"><span id="rd-sleep-val" style="font-size:12px;min-width:16px;">5</span></div>
-        <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">⚡ Énergie</span><input type="range" min="1" max="10" value="5" id="rd-energy"><span id="rd-energy-val" style="font-size:12px;min-width:16px;">5</span></div>
-        <div class="readiness-row" style="margin-bottom:6px;"><span style="font-size:12px;">🧠 Motivation</span><input type="range" min="1" max="10" value="5" id="rd-motivation"><span id="rd-motivation-val" style="font-size:12px;min-width:16px;">5</span></div>
-        <div class="readiness-row" style="margin-bottom:4px;"><span style="font-size:12px;">🦵 Courbatures</span><input type="range" min="1" max="10" value="5" id="rd-soreness"><span id="rd-soreness-val" style="font-size:12px;min-width:16px;">5</span></div>
-      </div>
-      <div style="font-size:9px;color:var(--sub);text-align:center;margin:2px 0 6px;">1 = mauvais · 10 = excellent (courbatures : 10 = très courbaturé)</div>
-      <div id="rd-score-preview" style="text-align:center;font-size:13px;font-weight:700;margin:6px 0 2px;color:var(--blue);">Score : —</div>
-      <div id="rd-adj-preview" style="text-align:center;font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;text-align:center;">☀️ Check-in du jour</div>
+      ${buildCheckinFormHtml('modal')}
     </div>
     <div class="modal-actions" style="flex:0 0 auto;margin-top:10px;">
       <button class="modal-cancel" style="background:var(--sub);color:#000;" onclick="skipReadiness()">Passer</button>
-      <button class="modal-confirm" style="background:var(--green);color:#000;" onclick="submitReadiness()">Valider ✓</button>
+      <button class="modal-confirm" id="checkin-save-btn-modal" style="background:var(--green);color:#000;opacity:0.4;" onclick="submitCheckin('modal')">Valider ✓</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
-  ['sleep','energy','motivation','soreness'].forEach(k => {
-    const slider = document.getElementById('rd-'+k);
-    slider.oninput = () => {
-      document.getElementById('rd-'+k+'-val').textContent = slider.value;
-      updateReadinessPreview();
-    };
-  });
-  updateReadinessPreview();
 }
 
 // ── DOMS Modal GO — sécurité axiale uniquement ───────────────────────────────
@@ -900,20 +899,9 @@ window.domsMorningSkip = function() {
   if (overlay) overlay.remove();
 };
 
-function updateReadinessPreview() {
-  const sleep = parseInt(document.getElementById('rd-sleep')?.value || 5);
-  const energy = parseInt(document.getElementById('rd-energy')?.value || 5);
-  const motivation = parseInt(document.getElementById('rd-motivation')?.value || 5);
-  const soreness = parseInt(document.getElementById('rd-soreness')?.value || 5);
-  const score = calculateReadiness(sleep, energy, motivation, soreness);
-  const adj = getReadinessLoadAdjustment(score);
-  const pctStr = adj >= 1 ? '+' + Math.round((adj - 1) * 100) + '%' : Math.round((adj - 1) * 100) + '%';
-  const el = document.getElementById('rd-score-preview');
-  const adjEl = document.getElementById('rd-adj-preview');
-  if (el) el.textContent = 'Score readiness : ' + score + '%';
-  if (el) el.style.color = score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--blue)' : 'var(--orange)';
-  if (adjEl) adjEl.textContent = adj === 1 ? 'Charges inchangées' : 'Charges ajustées : ' + pctStr;
-}
+// READY-C2-b : l'ancien modal sliders 1-10 (updateReadinessPreview + son
+// affichage « Charges ajustées ») et le fallback fossile rd-stress ont été
+// supprimés avec lui — remplacés par le composant check-in emoji unique.
 
 // Calcul readiness pondéré (Helms 2018, Zourdos 2016)
 function calculateReadiness(sleep, energy, motivation, soreness) {
@@ -946,31 +934,8 @@ function skipReadiness() {
   if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
 }
 
-function submitReadiness() {
-  const sleep = parseInt(document.getElementById('rd-sleep').value);
-  const energy = parseInt(document.getElementById('rd-energy').value);
-  const motivation = parseInt(document.getElementById('rd-motivation')?.value || document.getElementById('rd-stress')?.value || 5);
-  const soreness = parseInt(document.getElementById('rd-soreness').value);
-  const score = calculateReadiness(sleep, energy, motivation, soreness);
-  const adj = getReadinessLoadAdjustment(score);
-  // Stocker dans db.readiness (rétrocompat)
-  db.readiness.push({ date: getTodayStr(), sleep, energy, motivation, soreness, score });
-  // Stocker dans l'historique readiness (90 jours)
-  if (!db.readinessHistory) db.readinessHistory = [];
-  db.readinessHistory.push({ ts: Date.now(), sleep, energy, motivation, soreness, score });
-  db.readinessHistory = db.readinessHistory.slice(-90);
-  markReadinessDone();
-  // Stocker dans la séance active si elle existe
-  if (activeWorkout) {
-    activeWorkout.readiness = { sleep, energy, motivation, soreness, score, loadAdjustment: adj };
-  }
-  const modal = document.getElementById('readinessModal');
-  if (modal) modal.remove();
-  // READY-C1 (S1) : ne plus annoncer un effet sur les charges — loadAdjustment
-  // est stocké mais n'est appliqué nulle part (sera branché en C2/C4).
-  showToast('✅ Readiness : ' + score + '/100');
-  if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
-}
+// READY-C2-b : submitReadiness (sliders) remplacé par saveDailyCheckin/submitCheckin
+// — voir la section « CHECK-IN QUOTIDIEN UNIQUE » (composant partagé Coach + modal).
 
 function getReadinessBannerHtml() {
   const r = getTodayReadiness();
@@ -21566,94 +21531,158 @@ function wpDoubleProgressionWeight(exoName, targetRepMin, targetRepMax, sessions
 }
 
 // ============================================================
-// BILAN DU MATIN — Morning check-in (Étape D)
+// CHECK-IN QUOTIDIEN UNIQUE (READY-C2-b)
+// Un seul composant emoji 1-5 (carte Coach + modal pré-séance), une seule
+// fonction de sauvegarde, un gate unifié (hasTodayCheckin). Le moteur Helms
+// (calculateReadiness) reste INTACT — mapping 1-5 → 1-10 ci-dessous.
 // ============================================================
 
 var _checkinData = {};
 
-function setCheckin(field, value) {
-  _checkinData[field] = value;
-  document.querySelectorAll('[id^="checkin-' + field + '-"]').forEach(function(btn) {
-    btn.style.background = 'var(--surface)';
-    btn.style.borderColor = 'var(--border)';
+// Items scorés (1-4 obligatoires). Tous orientés « plus c'est haut, mieux
+// c'est » : la fraîcheur musculaire remplace « courbatures » (inversion
+// délibérée du seul item qui était à l'envers côté emoji).
+var CHECKIN_ITEMS = [
+  { field: 'sleep',      label: 'Sommeil ?',    emojis: ['😫', '😞', '😐', '😊', '🤩'] },
+  { field: 'energy',     label: 'Énergie ?',    emojis: ['🪫', '😪', '😐', '😊', '🔋'] },
+  { field: 'motivation', label: 'Motivation ?', emojis: ['💤', '😑', '💪', '🔥', '⚡'] },
+  { field: 'fresh',      label: 'Fraîcheur musculaire ? <span style="opacity:0.5">(1 = très courbaturé · 5 = très frais)</span>',
+    emojis: ['🥵', '😖', '😐', '😌', '✨'] }
+];
+
+// Rendu partagé du formulaire — prefix isole les ids carte Coach vs modal.
+function buildCheckinFormHtml(prefix) {
+  var h = '';
+  CHECKIN_ITEMS.forEach(function(item) {
+    h += '<div style="margin-bottom:10px;">';
+    h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">' + item.label + '</div>';
+    h += '<div style="display:flex;gap:8px;">';
+    item.emojis.forEach(function(emoji, i) {
+      var val = i + 1;
+      h += '<button onclick="setCheckin(\'' + item.field + '\',' + val + ',\'' + prefix + '\')" '
+        + 'id="checkin-' + prefix + '-' + item.field + '-' + val + '" '
+        + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
+        + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
+        + emoji + '</button>';
+    });
+    h += '</div></div>';
   });
-  var btn = document.getElementById('checkin-' + field + '-' + value);
-  if (btn) {
-    btn.style.background = 'rgba(10,132,255,0.2)';
-    btn.style.borderColor = 'var(--accent)';
-  }
-  var saveBtn = document.getElementById('checkin-save-btn');
-  if (saveBtn && _checkinData.sleep && _checkinData.motivation) {
-    saveBtn.style.opacity = '1';
-  }
-}
-
-function saveCheckin() {
-  if (!_checkinData.sleep || !_checkinData.motivation) return;
-  var today = new Date().toISOString().split('T')[0];
-  db.todayWellbeing = {
-    date: today,
-    sleep: _checkinData.sleep,
-    motivation: _checkinData.motivation,
-    pain: _checkinData.pain || null,
-    savedAt: Date.now()
-  };
-  if (!db.wellbeingHistory) db.wellbeingHistory = [];
-  db.wellbeingHistory.unshift(db.todayWellbeing);
-  if (db.wellbeingHistory.length > 90) db.wellbeingHistory.pop();
-  _checkinData = {};
-  saveDB();
-  showToast('✅ Bilan enregistré');
-  renderCoachToday();
-}
-
-function renderMorningCheckin() {
-  var today = new Date().toISOString().split('T')[0];
-  if (db.todayWellbeing && db.todayWellbeing.date === today) return '';
-
-  var h = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
-  h += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">☀️ Bilan du matin</div>';
-
-  // Q1 — Sommeil
-  h += '<div style="margin-bottom:10px;">';
-  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Nuit ?</div>';
-  h += '<div style="display:flex;gap:8px;">';
-  ['😫','😞','😐','😊','🤩'].forEach(function(emoji, i) {
-    var val = i + 1;
-    h += '<button onclick="setCheckin(\'sleep\',' + val + ')" id="checkin-sleep-' + val + '" '
-      + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
-      + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
-      + emoji + '</button>';
-  });
-  h += '</div></div>';
-
-  // Q2 — Motivation
-  h += '<div style="margin-bottom:10px;">';
-  h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Motivation ?</div>';
-  h += '<div style="display:flex;gap:8px;">';
-  ['💤','😑','💪','🔥','⚡'].forEach(function(emoji, i) {
-    var val = i + 1;
-    h += '<button onclick="setCheckin(\'motivation\',' + val + ')" id="checkin-motivation-' + val + '" '
-      + 'style="flex:1;padding:8px;border-radius:8px;font-size:20px;'
-      + 'border:1px solid var(--border);background:var(--surface);cursor:pointer;">'
-      + emoji + '</button>';
-  });
-  h += '</div></div>';
-
-  // Q3 — Douleurs (optionnel)
+  // Douleurs (optionnel, non scoré) — zones inchangées
   h += '<div style="margin-bottom:10px;">';
   h += '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">'
     + 'Douleurs ? <span style="opacity:0.5">(optionnel)</span></div>';
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-  ['Aucune','Genou','Épaule','Dos','Hanche'].forEach(function(zone) {
-    h += '<button onclick="setCheckin(\'pain\',\'' + zone + '\')" id="checkin-pain-' + zone + '" '
+  ['Aucune', 'Genou', 'Épaule', 'Dos', 'Hanche'].forEach(function(zone) {
+    h += '<button onclick="setCheckin(\'pain\',\'' + zone + '\',\'' + prefix + '\')" '
+      + 'id="checkin-' + prefix + '-pain-' + zone + '" '
       + 'style="padding:6px 10px;border-radius:8px;font-size:11px;'
       + 'border:1px solid var(--border);background:var(--surface);'
       + 'color:var(--sub);cursor:pointer;">' + zone + '</button>';
   });
   h += '</div></div>';
+  return h;
+}
 
-  h += '<button onclick="saveCheckin()" id="checkin-save-btn" '
+function setCheckin(field, value, prefix) {
+  prefix = prefix || 'coach';
+  _checkinData[field] = value;
+  document.querySelectorAll('[id^="checkin-' + prefix + '-' + field + '-"]').forEach(function(btn) {
+    btn.style.background = 'var(--surface)';
+    btn.style.borderColor = 'var(--border)';
+  });
+  var btn = document.getElementById('checkin-' + prefix + '-' + field + '-' + value);
+  if (btn) {
+    btn.style.background = 'rgba(10,132,255,0.2)';
+    btn.style.borderColor = 'var(--accent)';
+  }
+  // Items 1-4 obligatoires : le bouton s'active à 4/4
+  var saveBtn = document.getElementById('checkin-save-btn-' + prefix);
+  if (saveBtn && _checkinData.sleep && _checkinData.energy
+      && _checkinData.motivation && _checkinData.fresh) {
+    saveBtn.style.opacity = '1';
+  }
+}
+
+// LA fonction de sauvegarde unique du check-in quotidien.
+// Mapping emoji 1-5 → moteur Helms 1-10 : ×2, et soreness = 11 − fraîcheur×2
+// (fraîcheur 5 → soreness 1 ; fraîcheur 1 → soreness 9).
+// Contrôles : tout à 5 → (10,10,10,1) → 100 ; tout à 1 → (2,2,2,9) → 20 ;
+// tout à 3 → (6,6,6,5) → 60.
+function saveDailyCheckin() {
+  if (!_checkinData.sleep || !_checkinData.energy
+      || !_checkinData.motivation || !_checkinData.fresh) return null;
+  var sleep10      = _checkinData.sleep * 2;
+  var energy10     = _checkinData.energy * 2;
+  var motivation10 = _checkinData.motivation * 2;
+  var soreness10   = 11 - (_checkinData.fresh * 2);
+  var score = calculateReadiness(sleep10, energy10, motivation10, soreness10);
+  var today = getTodayStr();
+
+  // 1) Source unique cible (lecteurs rebranchés en C2-c)
+  if (!db.readinessHistory) db.readinessHistory = [];
+  db.readinessHistory.push({ ts: Date.now(), date: today, sleep: sleep10,
+    energy: energy10, motivation: motivation10, soreness: soreness10,
+    score: score, pain: _checkinData.pain || null });
+  db.readinessHistory = db.readinessHistory.slice(-90);
+
+  // 2) Miroir transitoire db.readiness — même forme qu'avant (9 lecteurs intacts)
+  db.readiness = db.readiness || [];
+  db.readiness.push({ date: today, sleep: sleep10, energy: energy10,
+    motivation: motivation10, soreness: soreness10, score: score });
+
+  // 3) Miroir transitoire todayWellbeing — échelle 1-5 brute (celle que ses
+  //    lecteurs attendent), merge NON destructif : préserve rhr/rhrAlert d'un
+  //    import Garmin du JOUR (l'ancien saveCheckin les écrasait). Un rhrAlert
+  //    d'un autre jour n'est volontairement PAS propagé (alerte périmée).
+  var _prevWb = db.todayWellbeing || null;
+  db.todayWellbeing = { date: today, sleep: _checkinData.sleep,
+    motivation: _checkinData.motivation, pain: _checkinData.pain || null,
+    savedAt: Date.now() };
+  if (_prevWb && _prevWb.date === today) {
+    if (_prevWb.rhr !== undefined) db.todayWellbeing.rhr = _prevWb.rhr;
+    if (_prevWb.rhrAlert) db.todayWellbeing.rhrAlert = _prevWb.rhrAlert;
+  }
+
+  // 4) wellbeingHistory — comme aujourd'hui (suppression = C2-d)
+  if (!db.wellbeingHistory) db.wellbeingHistory = [];
+  db.wellbeingHistory.unshift(db.todayWellbeing);
+  if (db.wellbeingHistory.length > 90) db.wellbeingHistory.pop();
+
+  // Séance active : même forme qu'avant — loadAdjustment stocké, toujours
+  // pas consommé (branchement = C3).
+  if (typeof activeWorkout !== 'undefined' && activeWorkout) {
+    activeWorkout.readiness = { sleep: sleep10, energy: energy10,
+      motivation: motivation10, soreness: soreness10, score: score,
+      loadAdjustment: getReadinessLoadAdjustment(score) };
+  }
+
+  _checkinData = {};
+  // 5) Persistance + toast : le score, rien d'autre (aucune promesse de charge)
+  saveDB();
+  if (typeof showToast === 'function') showToast('✅ Check-in : ' + score + '/100');
+  return score;
+}
+
+// Soumission depuis l'une des deux surfaces.
+function submitCheckin(prefix) {
+  var score = saveDailyCheckin();
+  if (score === null) return;
+  if (prefix === 'modal') {
+    var modal = document.getElementById('readinessModal');
+    if (modal) modal.remove();
+    if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
+  } else {
+    renderCoachToday();
+  }
+}
+
+function renderMorningCheckin() {
+  // Gate unifié : une saisie (matin OU pré-séance) suffit pour la journée
+  if (hasTodayCheckin()) return '';
+  var h = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+  h += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">☀️ Check-in du jour</div>';
+  h += buildCheckinFormHtml('coach');
+  h += '<button onclick="submitCheckin(\'coach\')" id="checkin-save-btn-coach" '
     + 'style="width:100%;padding:10px;background:var(--accent);border:none;'
     + 'border-radius:10px;color:#fff;font-weight:700;font-size:13px;'
     + 'cursor:pointer;opacity:0.4;">Confirmer</button>';

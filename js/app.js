@@ -21783,6 +21783,31 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   var isCuttingW = ((db.user && db.user.programParams && db.user.programParams.goals) || []).includes('seche');
   var baseWeight;
 
+  // ALGO-A2.5 (étape 2) — Effets de bord accumulés ici puis appliqués en un seul
+  // point (_applySideEffects) avant chaque return concerné. Ne couvre QUE les
+  // écritures SANS relecture intra-exécution : shadowWeight, _pendingCoachNote,
+  // purge _recoveryBonus, saveDB, showToast. setZoneE1RM et db.user.lpBridge*
+  // restent inline car relus plus loin dans le même calcul.
+  var _sideEffects = { shadowWeight: undefined, pendingCoachNote: undefined,
+    consumedRecoveryBonus: null, needsSave: false, toasts: [] };
+  function _applySideEffects() {
+    if (_sideEffects.shadowWeight !== undefined) {
+      if (!db.exercises) db.exercises = {};
+      if (!db.exercises[realName]) db.exercises[realName] = {};
+      db.exercises[realName].shadowWeight = _sideEffects.shadowWeight;
+    }
+    if (_sideEffects.pendingCoachNote !== undefined) {
+      db._pendingCoachNote = _sideEffects.pendingCoachNote;
+    }
+    if (_sideEffects.consumedRecoveryBonus && db._recoveryBonus) {
+      _sideEffects.consumedRecoveryBonus.forEach(function(k) {
+        if (db._recoveryBonus[k]) delete db._recoveryBonus[k];
+      });
+    }
+    if (_sideEffects.needsSave) saveDB();
+    _sideEffects.toasts.forEach(function(t) { showToast(t); });
+  }
+
   // ÉTAPE D: 3-Strikes LP mode — takes priority over legacy isBeginnerMode
   if (typeof isInLP === 'function' && isInLP()) {
     var _lpExoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(realName) : null;
@@ -21821,8 +21846,8 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       if (!db.user.lpBridgeActive) {
         db.user.lpBridgeActive = true;
         db.user.lpBridgeWeek = 0;
-        saveDB();
-        showToast('📈 ' + lpCheck.message);
+        _sideEffects.needsSave = true;                      // ALGO-A2.5 : saveDB différé
+        _sideEffects.toasts.push('📈 ' + lpCheck.message);  // ALGO-A2.5 : showToast différé
       }
       isBeginnerMode = false;
     }
@@ -21837,7 +21862,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     if (bridgeWeek >= 4) {
       db.user.lpBridgeActive = false;
       db.user.lpBridgeWeek = 0;
-      saveDB();
+      _sideEffects.needsSave = true;                        // ALGO-A2.5 : saveDB différé
       // Graduated into standard APRE
       if (last.rpe < 8)         baseWeight = last.weight + prog.increase;
       else if (last.rpe <= 8.5) baseWeight = last.weight;
@@ -21960,6 +21985,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     * _wcPenalty
     * (_stabilized ? _actMult : 1.0);
   if (_cumulPenalty < 0.70) {
+    _applySideEffects(); // ALGO-A2.5 : flush saveDB/showToast accumulés (LP exit) avant la sortie kill switch
     return { forceActiveRecovery: true, reason: 'Pénalités cumulées ' + Math.round(_cumulPenalty * 100) + '% < 70%' };
   }
 
@@ -22068,7 +22094,7 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
-  if (_coachNotes.length > 0) db._pendingCoachNote = _coachNotes[0];
+  if (_coachNotes.length > 0) _sideEffects.pendingCoachNote = _coachNotes[0]; // ALGO-A2.5 : écriture différée
 
   // Plancher 60% e1RM pour avancé/compétiteur sur lifts principaux
   // Évite les charges "cardio" causées par DUP vitesse + reps hautes (Gemini)
@@ -22100,9 +22126,9 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   // Shadow Weight : conserver le float théorique pour progression fine
-  if (!db.exercises) db.exercises = {};
-  if (!db.exercises[realName]) db.exercises[realName] = {};
-  db.exercises[realName].shadowWeight = baseWeight;
+  // ALGO-A2.5 : capturé ici (post-cap, pré-bonus = même point qu'avant) puis écrit
+  // dans _applySideEffects. La valeur reste celle d'avant le recovery bonus.
+  _sideEffects.shadowWeight = baseWeight;
 
   // Bonus récupération Ghost Log (activité secondaire non effectuée)
   if (db._recoveryBonus) {
@@ -22111,12 +22137,17 @@ function wpComputeWorkWeight(liftType, bodyPart) {
       return b.date === _todayStr && b.bonus > 0;
     });
     if (_hasBonus) {
-      baseWeight = wpRound25(baseWeight + 2.5);
-      Object.keys(db._recoveryBonus).forEach(function(k) {
-        if (db._recoveryBonus[k].date === _todayStr) delete db._recoveryBonus[k];
+      baseWeight = wpRound25(baseWeight + 2.5); // effet de CALCUL — reste inline
+      // ALGO-A2.5 : purge des clés consommées différée (effet de bord pur)
+      _sideEffects.consumedRecoveryBonus = Object.keys(db._recoveryBonus).filter(function(k) {
+        return db._recoveryBonus[k].date === _todayStr;
       });
     }
   }
+
+  // ALGO-A2.5 : tous les effets de bord accumulés sont appliqués ici, en un point
+  // unique, juste avant le(s) return(s) final(aux).
+  _applySideEffects();
 
   // Choix de l'arrondi selon le type d'exercice
   var exoMeta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(realName) : null;

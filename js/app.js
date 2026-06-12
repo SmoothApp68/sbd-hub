@@ -21709,6 +21709,102 @@ function isE1RMStabilized(exoName) {
   return false;
 }
 
+// ALGO-A1 (1/2) — Agrégation LECTURE SEULE des pénalités physiologiques.
+// Regroupe tous les appels aux helpers de pénalités (typeof-gardés : un helper
+// absent → valeur neutre, comme avant) et les lectures db associées, y compris
+// les "stragglers" historiquement appelés au milieu du pipeline de bornes
+// (wcE1rmCap, wcEmergency, mentalPenalty, absencePenalty). AUCUNE écriture db,
+// aucun saveDB — lecture pure de l'état. Le Kill Switch reste décidé par
+// l'appelant (wpComputeWorkWeight) via cumulPenalty.
+function _wpComputeWorkWeightPenalties(realName, dupZone, history) {
+  // ÉTAPE C: use zone-specific e1rm for Hard Cap reference
+  var e1rmRef = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
+    || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm)
+    || (history.length > 0 ? history[0].e1rm : 0) || 0;
+
+  // Facteur de sécurité neuro transition hypertrophie → force (Gemini Q4.3)
+  // L'e1RM EWMA calculé depuis des séries hypertrophie (7-10 reps @ RPE 9.5)
+  // surestime la force absolue. Correction × 0.95 uniquement en S1 du bloc
+  // Force (l'athlète n'est pas encore "peaked"). À partir de S2, l'EWMA se
+  // recale sur de vraies séries de force → le facteur ne s'applique plus.
+  var forceNeuroCorrectionApplied = false;
+  var _cbPhase = db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                 db.weeklyPlan.currentBlock.phase;
+  if (_cbPhase === 'force' && e1rmRef > 0) {
+    var _forceBlockWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
+                           db.weeklyPlan.currentBlock.week) || 1;
+    if (_forceBlockWeek === 1) {
+      e1rmRef = Math.round(e1rmRef * 0.95 * 10) / 10;
+      forceNeuroCorrectionApplied = true;
+    }
+  }
+
+  var _wb = db.todayWellbeing;
+  var _wbToday = new Date().toISOString().split('T')[0];
+  var sleepMult = (_wb && _wb.date === _wbToday && _wb.sleep <= 2) ? 0.95 : 1.0;
+
+  var rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
+  var rhrMult = rhrAlert
+    ? (rhrAlert.level === 'danger' ? 0.80 : (rhrAlert.level === 'warning' ? 0.95 : 1.0))
+    : 1.0;
+
+  var _wcLiftType = typeof getSBDType === 'function' ? getSBDType(realName) : null;
+  var wcPenalty = (db.user && db.user.weightCut && db.user.weightCut.active
+    && typeof calcWeightCutPenalty === 'function')
+    ? calcWeightCutPenalty(_wcLiftType) : 1.0;
+
+  var _actPenalties = typeof getActivityPenaltyFlags === 'function'
+    ? getActivityPenaltyFlags() : { flags: [] };
+  var _volFlag = _actPenalties.flags.find(function(f) { return f.type === 'volume' && f.reduction >= 1; });
+  var actMult = _volFlag ? 0.97 : 1.0;
+
+  // FIX 5: skip physiological penalties until e1RM is stabilized (≥3 sessions)
+  var stabilized = typeof isE1RMStabilized === 'function' ? isE1RMStabilized(realName) : true;
+
+  // FIX 1B: pénalité cumulée — le seuil Kill Switch (< 0.70) est testé par l'appelant
+  var cumulPenalty = (stabilized ? sleepMult : 1.0)
+    * (stabilized ? rhrMult : 1.0)
+    * wcPenalty
+    * (stabilized ? actMult : 1.0);
+
+  // FIX 3 — Weight Cut APRE block : cap e1RM lu seulement si le cut est actif
+  // (même garde qu'historiquement, appel getZoneE1RM identique)
+  var wcActive = db.user && db.user.weightCut && db.user.weightCut.active;
+  var wcE1rmCap = 0;
+  if (wcActive) {
+    wcE1rmCap = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
+      || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm) || 0;
+  }
+
+  // Kill Switch compétition — déficit >2.5% poids corps ET ≤3j avant compétition
+  var wcEmergency = typeof getWeightCutEmergency === 'function' ? getWeightCutEmergency() : null;
+
+  // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
+  var mentalPenalty = typeof getMentalRecoveryPenalty === 'function'
+    ? getMentalRecoveryPenalty() : 1.0;
+
+  // Return-to-Play penalty (désadaptation tendineuse après absence prolongée)
+  var absencePenalty = typeof getAbsencePenalty === 'function'
+    ? getAbsencePenalty() : { factor: 1.0 };
+
+  return {
+    e1rmRef: e1rmRef,
+    forceNeuroCorrectionApplied: forceNeuroCorrectionApplied,
+    sleepMult: sleepMult,
+    rhrMult: rhrMult,
+    rhrAlert: rhrAlert,
+    wcPenalty: wcPenalty,
+    actMult: actMult,
+    stabilized: stabilized,
+    cumulPenalty: cumulPenalty,
+    wcActive: wcActive,
+    wcE1rmCap: wcE1rmCap,
+    wcEmergency: wcEmergency,
+    mentalPenalty: mentalPenalty,
+    absencePenalty: absencePenalty
+  };
+}
+
 function wpComputeWorkWeight(liftType, bodyPart) {
   // Cold start: no logs yet — use onboarding PR or calibration weight
   if (typeof isColdStart === 'function' && isColdStart()) {
@@ -21934,74 +22030,30 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   // Capture APRE base before penalty application (used by female cycle floor)
   var apre_base = baseWeight;
 
-  // FIX 1+5 — Pre-compute penalty multipliers (Kill Switch + stabilization guard)
-  // ÉTAPE C: use zone-specific e1rm for Hard Cap reference
-  var e1rmRef = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
-    || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm)
-    || (history.length > 0 ? history[0].e1rm : 0) || 0;
-
-  // Facteur de sécurité neuro transition hypertrophie → force (Gemini Q4.3)
-  // L'e1RM EWMA calculé depuis des séries hypertrophie (7-10 reps @ RPE 9.5)
-  // surestime la force absolue. Correction × 0.95 uniquement en S1 du bloc
-  // Force (l'athlète n'est pas encore "peaked"). À partir de S2, l'EWMA se
-  // recale sur de vraies séries de force → le facteur ne s'applique plus.
-  var _forceNeuroCorrectionApplied = false;
-  var _cbPhase = db.weeklyPlan && db.weeklyPlan.currentBlock &&
-                 db.weeklyPlan.currentBlock.phase;
-  if (_cbPhase === 'force' && e1rmRef > 0) {
-    var _forceBlockWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
-                           db.weeklyPlan.currentBlock.week) || 1;
-    if (_forceBlockWeek === 1) {
-      e1rmRef = Math.round(e1rmRef * 0.95 * 10) / 10;
-      _forceNeuroCorrectionApplied = true;
-    }
-  }
-
-  var _wb = db.todayWellbeing;
-  var _wbToday = new Date().toISOString().split('T')[0];
-  var _sleepMult = (_wb && _wb.date === _wbToday && _wb.sleep <= 2) ? 0.95 : 1.0;
-
-  var _rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
-  var _rhrMult = _rhrAlert
-    ? (_rhrAlert.level === 'danger' ? 0.80 : (_rhrAlert.level === 'warning' ? 0.95 : 1.0))
-    : 1.0;
-
-  var _wcLiftType = typeof getSBDType === 'function' ? getSBDType(realName) : null;
-  var _wcPenalty = (db.user && db.user.weightCut && db.user.weightCut.active
-    && typeof calcWeightCutPenalty === 'function')
-    ? calcWeightCutPenalty(_wcLiftType) : 1.0;
-
-  var _actPenalties = typeof getActivityPenaltyFlags === 'function'
-    ? getActivityPenaltyFlags() : { flags: [] };
-  var _volFlag = _actPenalties.flags.find(function(f) { return f.type === 'volume' && f.reduction >= 1; });
-  var _actMult = _volFlag ? 0.97 : 1.0;
-
-  // FIX 5: skip physiological penalties until e1RM is stabilized (≥3 sessions)
-  var _stabilized = typeof isE1RMStabilized === 'function' ? isE1RMStabilized(realName) : true;
+  // FIX 1+5 / ALGO-A1 : agrégation LECTURE SEULE des pénalités — helpers
+  // typeof-gardés + lectures db regroupés dans _wpComputeWorkWeightPenalties.
+  var _pen = _wpComputeWorkWeightPenalties(realName, dupZone, history);
+  var e1rmRef = _pen.e1rmRef;
 
   // FIX 1B: Emergency Kill Switch — cumulated penalty < 70% → active recovery
-  var _cumulPenalty = (_stabilized ? _sleepMult : 1.0)
-    * (_stabilized ? _rhrMult : 1.0)
-    * _wcPenalty
-    * (_stabilized ? _actMult : 1.0);
-  if (_cumulPenalty < 0.70) {
+  if (_pen.cumulPenalty < 0.70) {
     _applySideEffects(); // ALGO-A2.5 : flush saveDB/showToast accumulés (LP exit) avant la sortie kill switch
-    return { forceActiveRecovery: true, reason: 'Pénalités cumulées ' + Math.round(_cumulPenalty * 100) + '% < 70%' };
+    return { forceActiveRecovery: true, reason: 'Pénalités cumulées ' + Math.round(_pen.cumulPenalty * 100) + '% < 70%' };
   }
 
   var _coachNotes = [];
 
   // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
-  if (_sleepMult < 1.0 && _stabilized) {
-    baseWeight = Math.round(baseWeight * _sleepMult / 2.5) * 2.5;
+  if (_pen.sleepMult < 1.0 && _pen.stabilized) {
+    baseWeight = Math.round(baseWeight * _pen.sleepMult / 2.5) * 2.5;
     _coachNotes.push('Ton sommeil était court cette nuit — on reste prudents.');
   }
 
   // RHR Penalty — Garmin Health Connect (TÂCHE 17 ÉTAPE D)
-  if (_rhrMult < 1.0 && _stabilized) {
-    baseWeight = Math.round(baseWeight * _rhrMult / 2.5) * 2.5;
+  if (_pen.rhrMult < 1.0 && _pen.stabilized) {
+    baseWeight = Math.round(baseWeight * _pen.rhrMult / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
-    if (_rhrAlert && _rhrAlert.level === 'danger') {
+    if (_pen.rhrAlert && _pen.rhrAlert.level === 'danger') {
       _coachNotes.push('Ton cœur bat vite ce matin — journée de récupération active recommandée.');
     } else {
       _coachNotes.push('Ton cœur bat un peu vite — on va être prudents sur le volume.');
@@ -22009,15 +22061,15 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   // Weight Cut Leverage Penalty (TÂCHE 19 ÉTAPE B)
-  if (_wcPenalty < 1.0) {
-    baseWeight = Math.round(baseWeight * _wcPenalty / 2.5) * 2.5;
+  if (_pen.wcPenalty < 1.0) {
+    baseWeight = Math.round(baseWeight * _pen.wcPenalty / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
     _coachNotes.push('En phase de cut — les charges sont ajustées pour préserver la masse musculaire.');
   }
 
   // Activity Penalty — TRIMP secondaire 24h (Total Load Management)
-  if (_actMult < 1.0 && _stabilized) {
-    baseWeight = Math.round(baseWeight * _actMult / 2.5) * 2.5;
+  if (_pen.actMult < 1.0 && _pen.stabilized) {
+    baseWeight = Math.round(baseWeight * _pen.actMult / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
   }
 
@@ -22044,21 +22096,17 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   }
 
   // FIX 3 — Weight Cut APRE block (anti-yoyo : ne pas dépasser e1RM actuel pendant le cut)
-  var _isWCActive = db.user && db.user.weightCut && db.user.weightCut.active;
-  if (_isWCActive) {
-    var _wcE1rmCap = (typeof getZoneE1RM === 'function' ? getZoneE1RM(realName, dupZone) : 0)
-      || (db.exercises && db.exercises[realName] && db.exercises[realName].e1rm) || 0;
-    if (_wcE1rmCap > 0 && baseWeight > Math.round(_wcE1rmCap * 0.98 / 2.5) * 2.5) {
-      baseWeight = Math.round(_wcE1rmCap * 0.98 / 2.5) * 2.5;
+  if (_pen.wcActive) {
+    if (_pen.wcE1rmCap > 0 && baseWeight > Math.round(_pen.wcE1rmCap * 0.98 / 2.5) * 2.5) {
+      baseWeight = Math.round(_pen.wcE1rmCap * 0.98 / 2.5) * 2.5;
     }
   }
 
   // Kill Switch compétition — déficit >2.5% poids corps ET ≤3j avant compétition
-  var _wcEmergency = typeof getWeightCutEmergency === 'function' ? getWeightCutEmergency() : null;
-  if (_wcEmergency && _wcEmergency.emergency) {
+  if (_pen.wcEmergency && _pen.wcEmergency.emergency) {
     baseWeight = Math.round(baseWeight * 0.85 / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
-    _coachNotes.push(_wcEmergency.message);
+    _coachNotes.push(_pen.wcEmergency.message);
   }
 
   // PhysioManager — phase lutéale / folliculaire précoce
@@ -22067,21 +22115,17 @@ function wpComputeWorkWeight(liftType, bodyPart) {
   // La charge reste pleine pour préserver le stimulus neuro-musculaire.
 
   // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
-  var _mentalPenalty = typeof getMentalRecoveryPenalty === 'function'
-    ? getMentalRecoveryPenalty() : 1.0;
-  if (_mentalPenalty < 1.0 && _stabilized) {
-    baseWeight = Math.round(baseWeight * _mentalPenalty / 2.5) * 2.5;
+  if (_pen.mentalPenalty < 1.0 && _pen.stabilized) {
+    baseWeight = Math.round(baseWeight * _pen.mentalPenalty / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
     _coachNotes.push('L\'échec d\'hier fait partie du processus — on reconstruit la confiance.');
   }
 
   // Return-to-Play penalty (désadaptation tendineuse après absence prolongée)
-  var _absencePenalty = typeof getAbsencePenalty === 'function'
-    ? getAbsencePenalty() : { factor: 1.0 };
-  if (_absencePenalty.factor < 1.0 && _stabilized) {
-    baseWeight = Math.round(baseWeight * _absencePenalty.factor / 2.5) * 2.5;
+  if (_pen.absencePenalty.factor < 1.0 && _pen.stabilized) {
+    baseWeight = Math.round(baseWeight * _pen.absencePenalty.factor / 2.5) * 2.5;
     baseWeight = Math.max(20, baseWeight);
-    _coachNotes.push('Retour après ' + (_absencePenalty.days || '?') + ' jours — on y va progressivement.');
+    _coachNotes.push('Retour après ' + (_pen.absencePenalty.days || '?') + ' jours — on y va progressivement.');
   }
 
   // Female cycle floor: min 70% APRE base during high-penalty phases

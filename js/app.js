@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v275';
+var SW_VERSION = 'trainhub-v276';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -419,6 +419,23 @@ window.addEventListener('online', function() {
   }
 });
 function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+// Lazy-load chart.min.js on first chart render (A3-F3) — keeps its 204 KB parse
+// off the synchronous boot path. The SW precaches it, so cache-first serves it
+// near-instantly when a chart first needs it.
+let _chartLoadPromise = null;
+function ensureChartLoaded() {
+  if (typeof Chart !== 'undefined') return Promise.resolve();
+  if (_chartLoadPromise) return _chartLoadPromise;
+  _chartLoadPromise = new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'js/chart.min.js';
+    s.onload = function() { resolve(); };
+    s.onerror = function() { _chartLoadPromise = null; reject(new Error('chart load failed')); };
+    document.head.appendChild(s);
+  });
+  return _chartLoadPromise;
+}
 
 // ── GAMIFICATION — defensive init ───────────────────────────
 db.gamification = db.gamification || {};
@@ -8732,7 +8749,7 @@ function renderSBDTotal() {
       '<span style="font-size:10px;color:var(--sub);opacity:0.3;">&#9646; Objectif</span></div>';
     el.innerHTML = toggleHtml + miniHtml;
     requestAnimationFrame(function() {
-      if (typeof Chart === 'undefined') return;
+      if (typeof Chart === 'undefined') { ensureChartLoaded().then(renderSBDTotal).catch(function(){}); return; }
       sbdPairs.forEach(function(p) {
         var ctx = document.getElementById('chartSBD_' + p.label);
         if (!ctx) return;
@@ -9179,7 +9196,7 @@ function renderPerfCard() {
   // Détruire anciens charts si existants
   if (chartPerf) { try { chartPerf.destroy(); } catch(e) {} chartPerf = null; }
   if (window._chartPerfLine) { try { window._chartPerfLine.destroy(); } catch(e) {} window._chartPerfLine = null; }
-  if (typeof Chart === 'undefined') return;
+  if (typeof Chart === 'undefined') { ensureChartLoaded().then(renderPerfCard).catch(function(){}); return; }
 
   // ── MODE BARRES : 3 datasets groupés ──
   if (perfChartMode === 'bars') {
@@ -9845,7 +9862,7 @@ function toggleExo(id) {
 // CHARTS
 // ============================================================
 function renderVolumeChart(period) {
-  if (typeof Chart === 'undefined') { const cv = document.getElementById('chartVolume'); if (cv) cv.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
+  if (typeof Chart === 'undefined') { ensureChartLoaded().then(function(){ renderVolumeChart(period); }).catch(function(){ const cv = document.getElementById('chartVolume'); if (cv) cv.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; }); return; }
   period = period || 'week';
   setPeriodButtons('volumeButtons', period);
   const cv = document.getElementById('chartVolume'); if (!cv) return;
@@ -16258,7 +16275,7 @@ function setMuscleView(v) {
 
 function renderMuscleEvolChart() {
   const ctx = document.getElementById('chartMuscleEvol'); if (!ctx) return;
-  if (typeof Chart === 'undefined') { if (ctx.parentElement) ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; return; }
+  if (typeof Chart === 'undefined') { ensureChartLoaded().then(renderMuscleEvolChart).catch(function(){ if (ctx.parentElement) ctx.parentElement.innerHTML = '<div style="text-align:center;padding:20px;color:var(--sub);font-size:12px;">Graphique indisponible (hors-ligne)</div>'; }); return; }
   if (chartMuscleEvol) { try { chartMuscleEvol.destroy(); } catch(e) {} chartMuscleEvol = null; }
   // Détruire toute instance Chart.js déjà attachée au canvas
   try {

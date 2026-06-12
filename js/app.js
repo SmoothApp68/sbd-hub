@@ -21805,6 +21805,144 @@ function _wpComputeWorkWeightPenalties(realName, dupZone, history) {
   };
 }
 
+// ALGO-A1 (2/2) — Pipeline de bornes 100% PUR : (weight, penalties, ctx) →
+// { weight, coachNotes }. Zéro lecture db, zéro typeof, zéro helper impur —
+// uniquement de l'arithmétique + wpRound25 (pure). Ordre des clamps et
+// constantes STRICTEMENT identiques à l'inline historique : cap +5%/sem →
+// capture apre_base → pénalités (sommeil, RHR, cut, activité) → plancher 60%
+// pré-pénalité → cap APRE par phase → cap Weight Cut 98% → urgence compétition
+// → mental → return-to-play → plancher cycle 70% → plancher avancé 60% →
+// surcharge hebdo → Hard Cap 102.5%. Les Math.max(20, ...) n'existent QUE là
+// où ils existaient (PAS sur le chemin sommeil — quirk gelé par le harnais).
+function _wpApplyWorkWeightBounds(baseWeight, pen, ctx) {
+  var coachNotes = [];
+
+  // Cap APRE progression at +5%/week on main lifts (prevent yo-yo death spiral)
+  if (ctx.isMainLift && ctx.notLP && ctx.lastWeight > 0 && baseWeight > ctx.lastWeight * 1.05) {
+    baseWeight = wpRound25(ctx.lastWeight * 1.05);
+  }
+
+  // Capture APRE base before penalty application (used by female cycle floor)
+  var apre_base = baseWeight;
+
+  // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
+  if (pen.sleepMult < 1.0 && pen.stabilized) {
+    baseWeight = Math.round(baseWeight * pen.sleepMult / 2.5) * 2.5;
+    coachNotes.push('Ton sommeil était court cette nuit — on reste prudents.');
+  }
+
+  // RHR Penalty — Garmin Health Connect (TÂCHE 17 ÉTAPE D)
+  if (pen.rhrMult < 1.0 && pen.stabilized) {
+    baseWeight = Math.round(baseWeight * pen.rhrMult / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+    if (pen.rhrAlert && pen.rhrAlert.level === 'danger') {
+      coachNotes.push('Ton cœur bat vite ce matin — journée de récupération active recommandée.');
+    } else {
+      coachNotes.push('Ton cœur bat un peu vite — on va être prudents sur le volume.');
+    }
+  }
+
+  // Weight Cut Leverage Penalty (TÂCHE 19 ÉTAPE B)
+  if (pen.wcPenalty < 1.0) {
+    baseWeight = Math.round(baseWeight * pen.wcPenalty / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+    coachNotes.push('En phase de cut — les charges sont ajustées pour préserver la masse musculaire.');
+  }
+
+  // Activity Penalty — TRIMP secondaire 24h (Total Load Management)
+  if (pen.actMult < 1.0 && pen.stabilized) {
+    baseWeight = Math.round(baseWeight * pen.actMult / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+  }
+
+  // Combined penalty floor: never drop below 60% of the pre-penalty base
+  if (ctx.prepenaltyBase) {
+    var _floor = Math.round(ctx.prepenaltyBase * 0.60 / 2.5) * 2.5;
+    if (baseWeight < _floor) baseWeight = _floor;
+  }
+
+  // APRE cap par phase — évite les PRs non intentionnels hors peak
+  var APRE_PHASE_CAPS = {
+    intro: 0.80, accumulation: 0.85, hypertrophie: 0.85,
+    force: 0.92, intensification: 0.95,
+    peak: 1.00, deload: 0.75, recuperation: 0.70
+  };
+  var _phaseCap = APRE_PHASE_CAPS[ctx.phase];
+  if (_phaseCap && _phaseCap < 1.0 && ctx.histE1rm > 0) {
+    var _maxAllowed = Math.round(ctx.histE1rm * _phaseCap / 2.5) * 2.5;
+    if (baseWeight > _maxAllowed) baseWeight = _maxAllowed;
+  }
+
+  // FIX 3 — Weight Cut APRE block (anti-yoyo : ne pas dépasser e1RM actuel pendant le cut)
+  if (pen.wcActive) {
+    if (pen.wcE1rmCap > 0 && baseWeight > Math.round(pen.wcE1rmCap * 0.98 / 2.5) * 2.5) {
+      baseWeight = Math.round(pen.wcE1rmCap * 0.98 / 2.5) * 2.5;
+    }
+  }
+
+  // Kill Switch compétition — déficit >2.5% poids corps ET ≤3j avant compétition
+  if (pen.wcEmergency && pen.wcEmergency.emergency) {
+    baseWeight = Math.round(baseWeight * 0.85 / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+    coachNotes.push(pen.wcEmergency.message);
+  }
+
+  // PhysioManager — phase lutéale / folliculaire précoce
+  // Gemini v184 : C_cycle s'applique sur le VOLUME (sets), pas sur la charge.
+  // → wpGeneratePowerbuildingDay réduit setsCount via getCycleCoeff().
+  // La charge reste pleine pour préserver le stimulus neuro-musculaire.
+
+  // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
+  if (pen.mentalPenalty < 1.0 && pen.stabilized) {
+    baseWeight = Math.round(baseWeight * pen.mentalPenalty / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+    coachNotes.push('L\'échec d\'hier fait partie du processus — on reconstruit la confiance.');
+  }
+
+  // Return-to-Play penalty (désadaptation tendineuse après absence prolongée)
+  if (pen.absencePenalty.factor < 1.0 && pen.stabilized) {
+    baseWeight = Math.round(baseWeight * pen.absencePenalty.factor / 2.5) * 2.5;
+    baseWeight = Math.max(20, baseWeight);
+    coachNotes.push('Retour après ' + (pen.absencePenalty.days || '?') + ' jours — on y va progressivement.');
+  }
+
+  // Female cycle floor: min 70% APRE base during high-penalty phases
+  if (ctx.isFemaleWithCycle && apre_base > 0) {
+    var _cycleFloor = Math.round(apre_base * 0.70 / 2.5) * 2.5;
+    if (baseWeight < _cycleFloor) {
+      baseWeight = _cycleFloor;
+      coachNotes.push('Programme adapté pour cette phase du cycle. La récupération d\'aujourd\'hui pose les bases des prochains PRs.');
+    }
+  }
+
+  // Plancher 60% e1RM pour avancé/compétiteur sur lifts principaux
+  // Évite les charges "cardio" causées par DUP vitesse + reps hautes (Gemini)
+  if (ctx.isAdvancedLevel && ctx.isMainLift && pen.e1rmRef > 0) {
+    var _e1rmFloor = Math.round(pen.e1rmRef * 0.60 / 2.5) * 2.5;
+    if (baseWeight < _e1rmFloor) baseWeight = _e1rmFloor;
+  }
+
+  // v235 — Surcharge progressive par semaine de bloc (Gemini S3/S4) :
+  // +2.5kg sur les lifts principaux SBD par semaine de bloc écoulée vs S1.
+  // Appliquée APRÈS le cap de phase APRE (overload planifié intentionnel) mais
+  // AVANT le Hard Cap 102.5% e1RM qui reste le garde-fou anti-PR.
+  // Désactivée en deload/récupération.
+  if (ctx.isMainLift && ctx.notLP && !ctx.isBeginnerMode) {
+    if (ctx.phase !== 'deload' && ctx.phase !== 'recuperation') {
+      var _weekProgressKg = Math.max(0, ctx.blockWeek - 1) * 2.5;
+      if (_weekProgressKg > 0) baseWeight = wpRound25(baseWeight + _weekProgressKg);
+    }
+  }
+
+  // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence
+  if (pen.e1rmRef > 0) {
+    var hardCap = Math.round(pen.e1rmRef * 1.025 / 2.5) * 2.5;
+    if (baseWeight > hardCap) baseWeight = hardCap;
+  }
+
+  return { weight: baseWeight, coachNotes: coachNotes };
+}
+
 function wpComputeWorkWeight(liftType, bodyPart) {
   // Cold start: no logs yet — use onboarding PR or calibration weight
   if (typeof isColdStart === 'function' && isColdStart()) {
@@ -22020,20 +22158,14 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     }
   }
 
-  // Cap APRE progression at +5%/week on main lifts (prevent yo-yo death spiral)
+  // ALGO-A1 : le cap +5%/sem et la capture apre_base sont désormais dans
+  // _wpApplyWorkWeightBounds (même ordre relatif). Seuls les flags restent ici.
   var _isMainLift = liftType === 'squat' || liftType === 'bench' || liftType === 'deadlift';
   var _notLP = !(typeof isInLP === 'function' && isInLP()) && !isBeginnerMode;
-  if (_isMainLift && _notLP && last.weight > 0 && baseWeight > last.weight * 1.05) {
-    baseWeight = wpRound25(last.weight * 1.05);
-  }
-
-  // Capture APRE base before penalty application (used by female cycle floor)
-  var apre_base = baseWeight;
 
   // FIX 1+5 / ALGO-A1 : agrégation LECTURE SEULE des pénalités — helpers
   // typeof-gardés + lectures db regroupés dans _wpComputeWorkWeightPenalties.
   var _pen = _wpComputeWorkWeightPenalties(realName, dupZone, history);
-  var e1rmRef = _pen.e1rmRef;
 
   // FIX 1B: Emergency Kill Switch — cumulated penalty < 70% → active recovery
   if (_pen.cumulPenalty < 0.70) {
@@ -22041,133 +22173,28 @@ function wpComputeWorkWeight(liftType, bodyPart) {
     return { forceActiveRecovery: true, reason: 'Pénalités cumulées ' + Math.round(_pen.cumulPenalty * 100) + '% < 70%' };
   }
 
+  // ALGO-A1 : pipeline de bornes PUR — les notes coach reviennent en valeur de
+  // retour (plus de side-channel). Le ctx est construit ici, seul endroit
+  // autorisé à lire db. NB : l'assignation _pendingCoachNote, historiquement
+  // située entre le plancher cycle et le plancher avancé, est déplacée après le
+  // pipeline — identique car aucun bloc aval ne pousse de note.
   var _coachNotes = [];
-
-  // Sleep Penalty : -5% si sommeil ≤ 2/5 ce jour
-  if (_pen.sleepMult < 1.0 && _pen.stabilized) {
-    baseWeight = Math.round(baseWeight * _pen.sleepMult / 2.5) * 2.5;
-    _coachNotes.push('Ton sommeil était court cette nuit — on reste prudents.');
-  }
-
-  // RHR Penalty — Garmin Health Connect (TÂCHE 17 ÉTAPE D)
-  if (_pen.rhrMult < 1.0 && _pen.stabilized) {
-    baseWeight = Math.round(baseWeight * _pen.rhrMult / 2.5) * 2.5;
-    baseWeight = Math.max(20, baseWeight);
-    if (_pen.rhrAlert && _pen.rhrAlert.level === 'danger') {
-      _coachNotes.push('Ton cœur bat vite ce matin — journée de récupération active recommandée.');
-    } else {
-      _coachNotes.push('Ton cœur bat un peu vite — on va être prudents sur le volume.');
-    }
-  }
-
-  // Weight Cut Leverage Penalty (TÂCHE 19 ÉTAPE B)
-  if (_pen.wcPenalty < 1.0) {
-    baseWeight = Math.round(baseWeight * _pen.wcPenalty / 2.5) * 2.5;
-    baseWeight = Math.max(20, baseWeight);
-    _coachNotes.push('En phase de cut — les charges sont ajustées pour préserver la masse musculaire.');
-  }
-
-  // Activity Penalty — TRIMP secondaire 24h (Total Load Management)
-  if (_pen.actMult < 1.0 && _pen.stabilized) {
-    baseWeight = Math.round(baseWeight * _pen.actMult / 2.5) * 2.5;
-    baseWeight = Math.max(20, baseWeight);
-  }
-
-  // Combined penalty floor: never drop below 60% of the pre-penalty base
-  if (db.exercises && db.exercises[realName] && db.exercises[realName]._prepenaltyBase) {
-    var _floor = Math.round(db.exercises[realName]._prepenaltyBase * 0.60 / 2.5) * 2.5;
-    if (baseWeight < _floor) baseWeight = _floor;
-  }
-
-  // APRE cap par phase — évite les PRs non intentionnels hors peak
-  var APRE_PHASE_CAPS = {
-    intro: 0.80, accumulation: 0.85, hypertrophie: 0.85,
-    force: 0.92, intensification: 0.95,
-    peak: 1.00, deload: 0.75, recuperation: 0.70
-  };
-  var _capPhase = currentPhase; // ALGO-A2.5 : réutilise la détection unique (currentPhase), pas de 2e wpDetectPhase()
-  var _phaseCap = APRE_PHASE_CAPS[_capPhase];
-  if (_phaseCap && _phaseCap < 1.0 && history.length > 0) {
-    var _e1rmRef = history[0].e1rm || 0;
-    if (_e1rmRef > 0) {
-      var _maxAllowed = Math.round(_e1rmRef * _phaseCap / 2.5) * 2.5;
-      if (baseWeight > _maxAllowed) baseWeight = _maxAllowed;
-    }
-  }
-
-  // FIX 3 — Weight Cut APRE block (anti-yoyo : ne pas dépasser e1RM actuel pendant le cut)
-  if (_pen.wcActive) {
-    if (_pen.wcE1rmCap > 0 && baseWeight > Math.round(_pen.wcE1rmCap * 0.98 / 2.5) * 2.5) {
-      baseWeight = Math.round(_pen.wcE1rmCap * 0.98 / 2.5) * 2.5;
-    }
-  }
-
-  // Kill Switch compétition — déficit >2.5% poids corps ET ≤3j avant compétition
-  if (_pen.wcEmergency && _pen.wcEmergency.emergency) {
-    baseWeight = Math.round(baseWeight * 0.85 / 2.5) * 2.5;
-    baseWeight = Math.max(20, baseWeight);
-    _coachNotes.push(_pen.wcEmergency.message);
-  }
-
-  // PhysioManager — phase lutéale / folliculaire précoce
-  // Gemini v184 : C_cycle s'applique sur le VOLUME (sets), pas sur la charge.
-  // → wpGeneratePowerbuildingDay réduit setsCount via getCycleCoeff().
-  // La charge reste pleine pour préserver le stimulus neuro-musculaire.
-
-  // FIX 4 — Mental Recovery Penalty (-3% après un fail rep)
-  if (_pen.mentalPenalty < 1.0 && _pen.stabilized) {
-    baseWeight = Math.round(baseWeight * _pen.mentalPenalty / 2.5) * 2.5;
-    baseWeight = Math.max(20, baseWeight);
-    _coachNotes.push('L\'échec d\'hier fait partie du processus — on reconstruit la confiance.');
-  }
-
-  // Return-to-Play penalty (désadaptation tendineuse après absence prolongée)
-  if (_pen.absencePenalty.factor < 1.0 && _pen.stabilized) {
-    baseWeight = Math.round(baseWeight * _pen.absencePenalty.factor / 2.5) * 2.5;
-    baseWeight = Math.max(20, baseWeight);
-    _coachNotes.push('Retour après ' + (_pen.absencePenalty.days || '?') + ' jours — on y va progressivement.');
-  }
-
-  // Female cycle floor: min 70% APRE base during high-penalty phases
-  var _isFemaleWithCycle = db.user && db.user.gender === 'female' && db.user.menstrualEnabled;
-  if (_isFemaleWithCycle && apre_base > 0) {
-    var _cycleFloor = Math.round(apre_base * 0.70 / 2.5) * 2.5;
-    if (baseWeight < _cycleFloor) {
-      baseWeight = _cycleFloor;
-      _coachNotes.push('Programme adapté pour cette phase du cycle. La récupération d\'aujourd\'hui pose les bases des prochains PRs.');
-    }
-  }
+  var _bounds = _wpApplyWorkWeightBounds(baseWeight, _pen, {
+    isMainLift: _isMainLift,
+    notLP: _notLP,
+    isBeginnerMode: isBeginnerMode,
+    lastWeight: last.weight,
+    prepenaltyBase: db.exercises && db.exercises[realName] && db.exercises[realName]._prepenaltyBase,
+    histE1rm: history.length > 0 ? (history[0].e1rm || 0) : 0,
+    phase: currentPhase, // ALGO-A2.5 : détection unique réutilisée
+    blockWeek: (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.week) || 1,
+    isFemaleWithCycle: db.user && db.user.gender === 'female' && db.user.menstrualEnabled,
+    isAdvancedLevel: db.user && (db.user.level === 'avance' || db.user.level === 'competiteur')
+  });
+  baseWeight = _bounds.weight;
+  Array.prototype.push.apply(_coachNotes, _bounds.coachNotes);
 
   if (_coachNotes.length > 0) _sideEffects.pendingCoachNote = _coachNotes[0]; // ALGO-A2.5 : écriture différée
-
-  // Plancher 60% e1RM pour avancé/compétiteur sur lifts principaux
-  // Évite les charges "cardio" causées par DUP vitesse + reps hautes (Gemini)
-  var _isAdvancedLevel = db.user && (db.user.level === 'avance' || db.user.level === 'competiteur');
-  if (_isAdvancedLevel && _isMainLift && e1rmRef > 0) {
-    var _e1rmFloor = Math.round(e1rmRef * 0.60 / 2.5) * 2.5;
-    if (baseWeight < _e1rmFloor) baseWeight = _e1rmFloor;
-  }
-
-  // v235 — Surcharge progressive par semaine de bloc (Gemini S3/S4) :
-  // +2.5kg sur les lifts principaux SBD par semaine de bloc écoulée vs S1.
-  // Appliquée APRÈS le cap de phase APRE (overload planifié intentionnel) mais
-  // AVANT le Hard Cap 102.5% e1RM qui reste le garde-fou anti-PR.
-  // Désactivée en deload/récupération.
-  if (_isMainLift && _notLP && !isBeginnerMode) {
-    var _woPhase = currentPhase; // ALGO-A2.5 : réutilise la détection unique, pas de 3e wpDetectPhase()
-    if (_woPhase !== 'deload' && _woPhase !== 'recuperation') {
-      var _blockWeek = (db.weeklyPlan && db.weeklyPlan.currentBlock &&
-                        db.weeklyPlan.currentBlock.week) || 1;
-      var _weekProgressKg = Math.max(0, _blockWeek - 1) * 2.5;
-      if (_weekProgressKg > 0) baseWeight = wpRound25(baseWeight + _weekProgressKg);
-    }
-  }
-
-  // FIX 1A: Hard Cap — jamais plus de 102.5% du e1RM de référence
-  if (e1rmRef > 0) {
-    var hardCap = Math.round(e1rmRef * 1.025 / 2.5) * 2.5;
-    if (baseWeight > hardCap) baseWeight = hardCap;
-  }
 
   // Shadow Weight : conserver le float théorique pour progression fine
   // ALGO-A2.5 : capturé ici (post-cap, pré-bonus = même point qu'avant) puis écrit

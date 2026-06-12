@@ -31,7 +31,7 @@ function extractFn(src, name) {
 const PREAMBLE = (function () {
   const fromApp = ['wpCalcE1RM', 'wpRound25', 'wpRound125', 'wpRepsForPhase', 'wpNormalizeName',
     'isE1RMStabilized', 'hadGrindLastSession', 'getUserBW', 'wpFindBestMatch',
-    '_wpComputeWorkWeightPenalties', // ALGO-A1 : extraite de wpComputeWorkWeight, vraie source
+    '_wpComputeWorkWeightPenalties', '_wpApplyWorkWeightBounds', // ALGO-A1 : extraites de wpComputeWorkWeight, vraie source
     'wpComputeWorkWeight', 'wpComputeWorkWeightSafe'];
   const fromEng = ['getZoneE1RM'];
   let p = '';

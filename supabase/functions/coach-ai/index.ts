@@ -1,7 +1,10 @@
 // ============================================================
-// coach-ai — Edge Function freemium IA coaching
+// coach-ai v2 — Edge Function freemium IA coaching
 // Stack : Gemini Flash (gratuit) + Supabase rate limiting
+// Auth : JWT vérifié, userId dérivé du token (jamais du body)
 // Limites : 10 req/min global · 1200 req/jour global · 30s cooldown/user
+// Tiers exemptés du cooldown : beta, premium, founder, early_adopter
+// Déployé par Claude.ai le 2026-06-11, aligné repo le 2026-06-12
 // ============================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -16,6 +19,7 @@ const MAX_PROMPT_LENGTH = 4000
 const COOLDOWN_MS = 30_000        // 30s par user
 const MAX_PER_MINUTE = 10         // plafond global /min
 const MAX_PER_DAY = 1200          // plafond global /jour
+const EXEMPT_TIERS = ['beta', 'premium', 'founder', 'early_adopter']  // exemptés du cooldown
 
 const ALLOWED_ORIGINS = [
   'https://smoothapp68.github.io',
@@ -78,7 +82,7 @@ serve(async (req) => {
       .eq('id', userId)
       .single()
     const tier = profile?.tier || 'free'
-    const isBetaPermanent = tier !== 'free' && tier !== 'member'
+    const isBetaPermanent = EXEMPT_TIERS.includes(tier)
 
     const now = new Date()
     const minuteKey = now.toISOString().slice(0, 16)  // "2026-05-22T14:35"

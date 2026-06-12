@@ -290,10 +290,74 @@ async function syncToCloud(silent) {
     if (!silent) showToast('Synchronisé !');
     updateSyncStatus('sync');
     syncLeaderboard();
+    syncLogsToSupabase().catch(function(e) { console.error('log sync failed:', e); });
   } catch(e) {
     console.error('Cloud sync:', e);
     if (!silent) showToast('Erreur sync');
     updateSyncStatus('error');
+  }
+}
+
+// Dual-write append-only des séances vers workout_sessions (A2-F1, A3-F1).
+// db.logs reste la source de lecture locale ; ceci écrit EN PLUS chaque séance
+// (clé user_id+session_id) côté cloud, sans jamais écraser. Pose
+// _workoutSessionsSynced à true uniquement après succès complet de tous les batches.
+async function syncLogsToSupabase() {
+  if (!supaClient || !db.logs || db.logs.length === 0) return;
+  try {
+    const { data: { user } } = await supaClient.auth.getUser();
+    if (!user) return;
+
+    // IDs déjà présents côté cloud (pour n'insérer que les nouveaux)
+    const { data: existing } = await supaClient
+      .from('workout_sessions')
+      .select('session_id')
+      .eq('user_id', user.id);
+    const existingIds = new Set((existing || []).map(function(r) { return r.session_id; }));
+
+    const toInsert = db.logs
+      .filter(function(log) { return log && log.id && !existingIds.has(log.id); })
+      .map(function(log) {
+        return {
+          user_id: user.id,
+          session_id: log.id,
+          short_date: log.shortDate || '',
+          title: log.title || '',
+          timestamp: log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString(),
+          volume: log.volume || 0,
+          duration: log.duration || 0,
+          exercise_count: (log.exercises || []).length,
+          data: log
+        };
+      });
+
+    if (toInsert.length === 0) {
+      // Tout est déjà syncé — poser le flag si des logs existent
+      if (db.logs.length > 0 && !db._workoutSessionsSynced) {
+        db._workoutSessionsSynced = true;
+        saveDB();
+      }
+      return;
+    }
+
+    // Insertion par batches de 50 (upsert idempotent sur user_id+session_id)
+    let allOk = true;
+    for (let i = 0; i < toInsert.length; i += 50) {
+      const batch = toInsert.slice(i, i + 50);
+      const { error } = await supaClient
+        .from('workout_sessions')
+        .upsert(batch, { onConflict: 'user_id,session_id' });
+      if (error) { console.error('syncLogs batch error:', error); allOk = false; break; }
+    }
+
+    // Flag posé SEULEMENT si TOUS les batches ont réussi (sinon une purge future
+    // pourrait supprimer des logs non encore présents côté cloud).
+    if (allOk && !db._workoutSessionsSynced) {
+      db._workoutSessionsSynced = true;
+      saveDB();
+    }
+  } catch (e) {
+    console.error('syncLogsToSupabase error:', e);
   }
 }
 async function syncFromCloud() {
@@ -326,19 +390,38 @@ async function syncFromCloud() {
         _activeBackup.exercises && _activeBackup.exercises.length > 0 &&
         !_activeBackup.isFinished;
       var _didMergeLogs = false;
-      if (_localLogs > _cloudLogs) {
-        // FIX 1 — local has logs the cloud doesn't: merge local logs into cloud data
-        var _mergedData = Object.assign({}, cloudData);
-        _mergedData.logs = db.logs;
-        _mergedData.exercises = db.exercises || cloudData.exercises;
-        _mergedData.bestPR = db.bestPR || cloudData.bestPR;
-        db = _mergedData;
-        _didMergeLogs = true;
-        // Push merged result back to cloud immediately
+      // A2-F1 — Merge par id : union des logs local + cloud, dédupliqués par log.id
+      // (remplace l'ancien "celui qui a le plus de logs gagne" qui perdait des
+      // séances divergentes en multi-appareils). Le plus récent par timestamp gagne.
+      var _localLogsArr = (typeof db !== 'undefined' && db && db.logs) ? db.logs : [];
+      var _cloudLogsArr = (cloudData && cloudData.logs) ? cloudData.logs : [];
+      var _mergedMap = {};
+      var _noIdLogs = [];
+      _cloudLogsArr.forEach(function(log) {
+        if (log && log.id) _mergedMap[log.id] = log;
+        else if (log) _noIdLogs.push(log);
+      });
+      _localLogsArr.forEach(function(log) {
+        if (log && log.id) {
+          if (!_mergedMap[log.id] || (log.timestamp || 0) > (_mergedMap[log.id].timestamp || 0)) {
+            _mergedMap[log.id] = log;
+          }
+        } else if (log) {
+          _noIdLogs.push(log); // log sans id → conservé pour ne perdre aucune donnée
+        }
+      });
+      var _mergedLogs = Object.keys(_mergedMap).map(function(k) { return _mergedMap[k]; })
+        .concat(_noIdLogs)
+        .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+      var _mergedData = Object.assign({}, cloudData);
+      _mergedData.logs = _mergedLogs;
+      _mergedData.exercises = db.exercises || cloudData.exercises;
+      _mergedData.bestPR = db.bestPR || cloudData.bestPR;
+      db = _mergedData;
+      _didMergeLogs = _mergedLogs.length > _cloudLogs;
+      // On a des séances que le cloud n'a pas → repousser le résultat fusionné
+      if (_didMergeLogs) {
         setTimeout(function() { syncToCloud(true); }, 500);
-      } else {
-        // Cloud has same or more logs — cloud wins (last-write-wins)
-        db = cloudData;
       }
       // FIX 3 — restore active session that was in progress
       if (_hasActiveSession) {

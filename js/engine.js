@@ -2770,7 +2770,8 @@ function analyzeAthleteProfile() {
   var volumes   = getVolumeByMuscleGroup();
   var level     = (db.user && db.user.level) || 'intermediaire';
   var phase     = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
-  var wellbeing = db.todayWellbeing || null;
+  // READY-C2-c : couche d'accès (typeof-gardé : engine.js charge avant app.js)
+  var wellbeing = typeof getTodayCheckin === 'function' ? getTodayCheckin() : null;
   var sections  = [];
 
   // ── SECTION 1 : BIOMÉCANIQUE & RATIOS ──────────────────────────────────────
@@ -3062,12 +3063,12 @@ function analyzeAthleteProfile() {
   // ── SECTION 4 : BIEN-ÊTRE DU JOUR ──────────────────────────────────────────
   if (wellbeing) {
     var wbAlerts = [];
-    if (wellbeing.sleep <= 2) {
+    if (wellbeing.sleep5 <= 2) {
       wbAlerts.push({ severity: 'warning', title: 'Sommeil Insuffisant',
-        text: 'Qualité du sommeil : ' + wellbeing.sleep + '/5. '
+        text: 'Qualité du sommeil : ' + wellbeing.sleep5 + '/5. '
           + 'Sleep Penalty actif : charges réduites de 5% ce jour.' });
     }
-    if (wellbeing.motivation <= 1 && phase === 'peak') {
+    if (wellbeing.motivation5 <= 1 && phase === 'peak') {
       wbAlerts.push({ severity: 'danger', title: 'Faible Motivation en Phase Peak',
         text: 'Tentative de PR déconseillée. '
           + 'Séance technique à 80% recommandée à la place.' });
@@ -4544,8 +4545,10 @@ function generateShareCard(session) {
     mainLifts: mainLifts,
     tonnage: Math.round(totalTonnage / 100) / 10,
     hasPR: prs.length > 0,
-    srsScore: db.todayWellbeing
-      ? Math.round((db.todayWellbeing.sleep + db.todayWellbeing.readiness) / 2 * 20) : null
+    // READY-C2-c : le champ fantôme todayWellbeing.readiness produisait NaN —
+    // le vrai score du check-in du jour, ou null.
+    srsScore: (typeof getTodayCheckin === 'function' && getTodayCheckin())
+      ? getTodayCheckin().score : null
   };
 }
 

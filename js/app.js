@@ -8200,7 +8200,7 @@ function renderWeekCard() {
   var _acwrStr = (_acwr && _acwr > 0) ? _acwr.toFixed(1) : '—';
   var _acwrColor = (_acwr && _acwr >= 0.8 && _acwr <= 1.3) ? 'var(--green)' : 'var(--orange)';
   var _todayStr = new Date().toISOString().split('T')[0];
-  var _hasBilan = !!(db.todayWellbeing && db.todayWellbeing.date === _todayStr);
+  var _hasBilan = getTodayCheckin() !== null; // READY-C2-c
 
   var batteryHtml = '<div style="background:var(--bg-card);border:0.5px solid var(--bg-card-border);'
     + 'border-radius:14px;padding:14px;margin-bottom:12px;">';
@@ -20165,14 +20165,14 @@ function shouldDeload(logs, trainingMode) {
 
   // CRITÈRE 1 — Récupération faible (lecture directe todayWellbeing)
   // NE PAS appeler computeSRS() → cycle infini avec wpDetectPhase → stack overflow
-  var _wb = db.todayWellbeing;
-  if (_wb && _wb.sleep && _wb.motivation) {
-    var _normalized = (_wb.sleep + _wb.motivation) / 2 / 5 * 100;
+  var _ckSd = getTodayCheckin(); // READY-C2-c — mêmes conditions, échelle x5 de l'accesseur
+  if (_ckSd && _ckSd.sleep5 && _ckSd.motivation5) {
+    var _normalized = (_ckSd.sleep5 + _ckSd.motivation5) / 2 / 5 * 100;
     var _effectiveNorm = getEffectiveSRS(_normalized);
     if (_effectiveNorm < _srsThresholdToUse) {
       return {
         needed: true,
-        reason: 'Récupération insuffisante (sommeil ' + _wb.sleep + '/5, motivation ' + _wb.motivation + '/5). Semaine de récupération recommandée.',
+        reason: 'Récupération insuffisante (sommeil ' + _ckSd.sleep5 + '/5, motivation ' + _ckSd.motivation5 + '/5). Semaine de récupération recommandée.',
         trigger: 'srs'
       };
     }
@@ -21408,11 +21408,12 @@ function incrementMacrocycleCounter() {
 //   - sinon : motivation ≤ 2 + sleep ≤ 3 → stress haut (proxy)
 // Retour : 0.80 (= -20% volume) en cas de stress, sinon 1.0
 function getStressVolumeModifier() {
+  // READY-C2-c : branche vivante sur la couche d'accès (équivalence x5 exacte).
+  // La branche stress≥4 reste sur todayWellbeing — fossile conservé tel quel (C2-d).
   var _wb = db.todayWellbeing;
-  if (!_wb) return 1.0;
-  var _stressHigh = (typeof _wb.stress === 'number' && _wb.stress >= 4)
-    || (typeof _wb.motivation === 'number' && _wb.motivation <= 2
-        && typeof _wb.sleep === 'number' && _wb.sleep <= 3);
+  var _ckSt = getTodayCheckin();
+  var _stressHigh = (_wb && typeof _wb.stress === 'number' && _wb.stress >= 4)
+    || (!!_ckSt && _ckSt.motivation5 <= 2 && _ckSt.sleep5 <= 3);
   return _stressHigh ? 0.80 : 1.0;
 }
 
@@ -21812,9 +21813,11 @@ function _wpComputeWorkWeightPenalties(realName, dupZone, history) {
     }
   }
 
-  var _wb = db.todayWellbeing;
+  // READY-C2-c : sommeil via la couche d'accès — le contrôle « du jour » est
+  // porté par getTodayCheckin (équivalent au contrôle de date historique).
+  var _ckPen = getTodayCheckin();
   var _wbToday = new Date().toISOString().split('T')[0];
-  var sleepMult = (_wb && _wb.date === _wbToday && _wb.sleep <= 2) ? 0.95 : 1.0;
+  var sleepMult = (_ckPen && _ckPen.sleep5 <= 2) ? 0.95 : 1.0;
 
   var rhrAlert = db.todayWellbeing && db.todayWellbeing.rhrAlert;
   var rhrMult = rhrAlert
@@ -22619,9 +22622,9 @@ function wpDetectPhase() {
 
   // Priorité 2 : deload automatique si récupération critique
   // Lecture directe todayWellbeing (NE PAS appeler shouldDeload → cycle avec computeSRS)
-  var _wbPh = db.todayWellbeing;
-  if (_wbPh && _wbPh.sleep && _wbPh.motivation) {
-    var _normPh = (_wbPh.sleep + _wbPh.motivation) / 2 / 5 * 100;
+  var _ckPh = getTodayCheckin(); // READY-C2-c — frontière 45 identique (harnais)
+  if (_ckPh && _ckPh.sleep5 && _ckPh.motivation5) {
+    var _normPh = (_ckPh.sleep5 + _ckPh.motivation5) / 2 / 5 * 100;
     if (_normPh < 45) return 'deload';
   }
 
@@ -27666,10 +27669,10 @@ function buildChargeExplanation(exoName, calculatedWeight, shadowWeight) {
   var acwr = typeof computeACWR === 'function' ? computeACWR() : null;
   if (acwr && acwr > 1.3) reasons.push('Charge hebdo élevée (ACWR ' + acwr + ')');
 
-  var wb = db.todayWellbeing;
+  var _ckBce = getTodayCheckin(); // READY-C2-c — contrôle de date porté par l'accesseur
   var todayStr = new Date().toISOString().split('T')[0];
-  if (wb && wb.date === todayStr && wb.sleep && wb.sleep <= 2) {
-    reasons.push('Sommeil insuffisant (' + wb.sleep + '/5)');
+  if (_ckBce && _ckBce.sleep5 && _ckBce.sleep5 <= 2) {
+    reasons.push('Sommeil insuffisant (' + _ckBce.sleep5 + '/5)');
   }
 
   if (db.user && db.user.menstrualEnabled && typeof getCurrentMenstrualPhase === 'function') {
@@ -30099,7 +30102,7 @@ function explainWeight(exoName, suggestedWeight) {
     e1rm = allE1RMs[exoName] ? allE1RMs[exoName].e1rm : 0;
   }
   var lastSession = typeof goGetPreviousSets === 'function' ? goGetPreviousSets(exoName) : null;
-  var wellbeing = db.todayWellbeing;
+  var _ckEw = getTodayCheckin(); // READY-C2-c
 
   lines.push('📊 Calcul du poids suggéré');
   lines.push('');
@@ -30121,9 +30124,9 @@ function explainWeight(exoName, suggestedWeight) {
     }
   }
 
-  if (wellbeing) {
-    if (wellbeing.sleep <= 2) lines.push('• Sommeil insuffisant : -5%');
-    if (wellbeing.rhrAlert) lines.push('• FC repos élevée : ' + (wellbeing.rhrAlert.msg || '').split('.')[0]);
+  if (_ckEw && _ckEw.sleep5 <= 2) lines.push('• Sommeil insuffisant : -5%');
+  if (db.todayWellbeing && db.todayWellbeing.rhrAlert) {
+    lines.push('• FC repos élevée : ' + (db.todayWellbeing.rhrAlert.msg || '').split('.')[0]);
   }
 
   if (db.user && db.user.weightCut && db.user.weightCut.active) {
@@ -30840,11 +30843,12 @@ function goConfirmFinish() {
 
 function shouldRecordE1RMAsReference() {
   if (typeof isColdStart !== 'function' || !isColdStart()) return true;
-  var wellbeing = db.todayWellbeing;
-  if (!wellbeing) return true;
-  var badSleep = wellbeing.sleep !== undefined && wellbeing.sleep <= 2;
-  var badReadiness = wellbeing.readiness !== undefined && wellbeing.readiness <= 1;
-  if (badSleep || badReadiness) {
+  // READY-C2-c : lecture sommeil via la couche d'accès. La garde morte
+  // `todayWellbeing.readiness !== undefined` (champ jamais écrit) vivait sur
+  // cette ligne — retirée ici, impossible de rebrancher sans la toucher.
+  var _ck = getTodayCheckin();
+  if (!_ck) return true;
+  if (_ck.sleep5 <= 2) {
     showToast('⚠️ État de santé insuffisant — cette séance ne sert pas de référence de calibration');
     return false;
   }

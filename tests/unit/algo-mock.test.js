@@ -42,7 +42,9 @@ function runShouldDeload(logs, dbOverride) {
     // Stubs for the only external functions shouldDeload references:
     computeAdaptiveSRSThreshold: function () { return { mode: 'fixed' }; },
     getEffectiveSRS: function (x) { return x; },
-    computeSRS: function () { return { score: 100 }; }
+    computeSRS: function () { return { score: 100 }; },
+    // READY-C2-c : critère 1 lit la couche d'accès — null ≡ l'ancien todayWellbeing:null
+    getTodayCheckin: function () { return null; }
   });
   vm.runInContext(extractFn('shouldDeload'), ctx);
   return vm.runInContext('shouldDeload(logs, db.user.trainingMode)', ctx);

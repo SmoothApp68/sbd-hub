@@ -102,12 +102,15 @@ describe('getReadinessLoadAdjustment — table 90/80/70/60/50/40', () => {
 
 // ── 3. _wpComputeWorkWeightPenalties — sommeil / rhrAlert ────────────────────
 describe('_wpComputeWorkWeightPenalties — pénalités saisies (post-A1)', () => {
-  const pen = (wb) => vm.runInContext("_wpComputeWorkWeightPenalties('Squat','hypertrophie',[])",
-    makeCtx({ todayWellbeing: wb, exercises: {}, user: {}, weeklyPlan: null }));
-  test('sleep ≤ 2 aujourd\'hui → sleepMult 0.95', () => expect(pen({ date: TODAY, sleep: 2 }).sleepMult).toBe(0.95));
-  test('sleep 3 → 1.0 (seuil strict ≤ 2)', () => expect(pen({ date: TODAY, sleep: 3 }).sleepMult).toBe(1.0));
-  test('date périmée → 1.0 même avec sleep 1', () => expect(pen({ date: '2020-01-01', sleep: 1 }).sleepMult).toBe(1.0));
-  test('todayWellbeing null → sleepMult 1.0 et rhrMult 1.0', () => {
+  // READY-C2-c : fixtures sommeil redirigées vers readinessHistory (sleep10 = 2×sleep5),
+  // assertions inchangées. Les fixtures rhrAlert restent sur todayWellbeing (relogement = commit RHR).
+  const pen = (wb, hist) => vm.runInContext("_wpComputeWorkWeightPenalties('Squat','hypertrophie',[])",
+    makeCtx({ todayWellbeing: wb, readinessHistory: hist || [], readiness: [], exercises: {}, user: {}, weeklyPlan: null }));
+  const H = (date, sleep10) => ({ ts: 1, date: date, sleep: sleep10, energy: 6, motivation: 6, soreness: 5, score: 50 });
+  test('sleep ≤ 2 aujourd\'hui → sleepMult 0.95', () => expect(pen(null, [H(TODAY, 4)]).sleepMult).toBe(0.95));
+  test('sleep 3 → 1.0 (seuil strict ≤ 2)', () => expect(pen(null, [H(TODAY, 6)]).sleepMult).toBe(1.0));
+  test('date périmée → 1.0 même avec sleep 1', () => expect(pen(null, [H('2020-01-01', 2)]).sleepMult).toBe(1.0));
+  test('aucune saisie → sleepMult 1.0 et rhrMult 1.0', () => {
     const p = pen(null);
     expect(p.sleepMult).toBe(1.0);
     expect(p.rhrMult).toBe(1.0);
@@ -122,7 +125,7 @@ describe('_wpComputeWorkWeightPenalties — pénalités saisies (post-A1)', () =
     expect(pen({ date: '2020-01-01', rhrAlert: { level: 'danger' } }).rhrMult).toBe(0.80);
   });
   test('cumul sleep 2 + danger → cumulPenalty 0.76 (0.95 × 0.80)', () => {
-    expect(pen({ date: TODAY, sleep: 2, rhrAlert: { level: 'danger' } }).cumulPenalty).toBeCloseTo(0.76, 10);
+    expect(pen({ date: TODAY, rhrAlert: { level: 'danger' } }, [H(TODAY, 4)]).cumulPenalty).toBeCloseTo(0.76, 10);
   });
 });
 
@@ -136,17 +139,22 @@ describe('wpDetectPhase — branche wellbeing (deload auto) et branche readiness
   const baseWP = () => ({ lastDeloadDate: mondayISO(),
     currentBlock: { blockStartDate: Date.now() - 2 * 86400000, phase: 'x', week: 1 } });
 
+  // READY-C2-c : fixtures wellbeing redirigées vers readinessHistory (x10 = 2×x5),
+  // frontières STRICTEMENT identiques.
   test('(sleep+motivation)/2 = 40% < 45 → deload AUTOMATIQUE, avant tout le reste', () => {
-    expect(phase({ user: { trainingMode: 'powerbuilding' }, todayWellbeing: { sleep: 2, motivation: 2 },
+    expect(phase({ user: { trainingMode: 'powerbuilding' },
+      readinessHistory: [{ ts: 1, date: TODAY, sleep: 4, energy: 6, motivation: 4, soreness: 5, score: 40 }],
       weeklyPlan: null, logs: [] }).r).toBe('deload');
   });
   test('frontière : 50% (sleep 2 + motivation 3) → pas de deload → hypertrophie (S1 cycle)', () => {
-    expect(phase({ user: {}, todayWellbeing: { sleep: 2, motivation: 3 },
-      weeklyPlan: baseWP(), logs: [], readiness: [] }).r).toBe('hypertrophie');
+    expect(phase({ user: {},
+      readinessHistory: [{ ts: 1, date: TODAY, sleep: 4, energy: 6, motivation: 6, soreness: 5, score: 60 }],
+      weeklyPlan: baseWP(), logs: [] }).r).toBe('hypertrophie');
   });
   test('motivation absente → garde falsy → branche sautée même avec sleep 1', () => {
-    expect(phase({ user: {}, todayWellbeing: { sleep: 1 },
-      weeklyPlan: baseWP(), logs: [], readiness: [] }).r).toBe('hypertrophie');
+    expect(phase({ user: {},
+      readinessHistory: [{ ts: 1, date: TODAY, sleep: 2, energy: 6, soreness: 5, score: 60 }],
+      weeklyPlan: baseWP(), logs: [] }).r).toBe('hypertrophie');
   });
   test('sans todayWellbeing → hypertrophie (cycle S1 powerbuilding intermédiaire)', () => {
     expect(phase({ user: {}, weeklyPlan: baseWP(), logs: [], readiness: [] }).r).toBe('hypertrophie');
@@ -166,8 +174,9 @@ describe('wpDetectPhase — branche wellbeing (deload auto) et branche readiness
       readinessHistory: [{ ts: 1, date: TODAY, score: 80 }] }).r).toBe('hypertrophie');
   });
   test('PRIORITÉ : wellbeing < 45 ET 2 scores bas → deload gagne (early return)', () => {
-    expect(phase({ user: {}, todayWellbeing: { sleep: 2, motivation: 2 }, weeklyPlan: baseWP(), logs: [],
-      readinessHistory: [{ ts: 1, date: TODAY, score: 45 }, { ts: 2, date: TODAY, score: 40 }] }).r).toBe('deload');
+    expect(phase({ user: {}, weeklyPlan: baseWP(), logs: [],
+      readinessHistory: [{ ts: 1, date: TODAY, score: 45 },
+        { ts: 2, date: TODAY, sleep: 4, energy: 4, motivation: 4, soreness: 5, score: 40 }] }).r).toBe('deload');
   });
   test('effet de bord figé : sync db.weeklyPlan.currentBlock.phase/week', () => {
     const r = phase({ user: {}, weeklyPlan: baseWP(), logs: [],
@@ -179,11 +188,15 @@ describe('wpDetectPhase — branche wellbeing (deload auto) et branche readiness
 
 // ── 5. getStressVolumeModifier ───────────────────────────────────────────────
 describe('getStressVolumeModifier', () => {
-  const stress = (wb) => vm.runInContext('getStressVolumeModifier()', makeCtx({ todayWellbeing: wb }));
-  test('branche vivante : motivation ≤ 2 ET sleep ≤ 3 → 0.80', () => expect(stress({ motivation: 2, sleep: 3 })).toBe(0.80));
+  // READY-C2-c : branche vivante sur readinessHistory (x10), branche stress
+  // fossile toujours sur todayWellbeing — assertions inchangées.
+  const stress = (wb, hist) => vm.runInContext('getStressVolumeModifier()',
+    makeCtx({ todayWellbeing: wb, readinessHistory: hist || [], readiness: [] }));
+  const E = (m10, s10) => [{ ts: 1, date: TODAY, sleep: s10, energy: 6, motivation: m10, soreness: 5, score: 50 }];
+  test('branche vivante : motivation ≤ 2 ET sleep ≤ 3 → 0.80', () => expect(stress(null, E(4, 6))).toBe(0.80));
   test('frontières : motivation 2 + sleep 4 → 1.0 ; motivation 3 + sleep 3 → 1.0', () => {
-    expect(stress({ motivation: 2, sleep: 4 })).toBe(1.0);
-    expect(stress({ motivation: 3, sleep: 3 })).toBe(1.0);
+    expect(stress(null, E(4, 8))).toBe(1.0);
+    expect(stress(null, E(6, 6))).toBe(1.0);
   });
   test('fossile_stress_inerte — NUANCE vs diagnostic : la branche stress>=4 est VIVANTE '
     + 'au niveau fonction (→ 0.80) ; le fossile est au niveau SYSTÈME (aucun écrivain ne pose '
@@ -200,23 +213,25 @@ describe('shouldDeload critère 1 — wellbeing vs seuil adaptatif (fixe 45 si <
   const logs3 = [1, 3, 5].map((d) => ({ timestamp: Date.now() - d * 86400000, volume: 5000,
     exercises: [{ name: 'Squat', allSets: [{ weight: 100, reps: 5, rpe: 7, isWarmup: false }] }] }));
   const sd = (db) => vm.runInContext('shouldDeload(db.logs, "powerbuilding")', makeCtx(db));
+  // READY-C2-c : fixtures sur readinessHistory, conditions/frontières identiques.
+  const W = (s10, m10) => [{ ts: 1, date: TODAY, sleep: s10, energy: 6, motivation: m10, soreness: 5, score: 60 }];
   test('sleep 2 + motivation 2 (40 < 45) → needed:true, trigger \'srs\'', () => {
-    const r = sd({ logs: logs3, user: { level: 'intermediaire' }, todayWellbeing: { sleep: 2, motivation: 2 }, readiness: [], weeklyPlan: null });
+    const r = sd({ logs: logs3, user: { level: 'intermediaire' }, readinessHistory: W(4, 4), readiness: [], weeklyPlan: null });
     expect(r.needed).toBe(true);
     expect(r.trigger).toBe('srs');
     expect(r.reason).toMatch(/sommeil 2\/5/);
   });
   test('frontière : sleep 2 + motivation 3 (50 ≥ 45) → critère 1 ne mord pas → needed:false', () => {
-    expect(sd({ logs: logs3, user: { level: 'intermediaire' }, todayWellbeing: { sleep: 2, motivation: 3 }, readiness: [], weeklyPlan: null }).needed).toBe(false);
+    expect(sd({ logs: logs3, user: { level: 'intermediaire' }, readinessHistory: W(4, 6), readiness: [], weeklyPlan: null }).needed).toBe(false);
   });
   test('sleep 3 + motivation 3 → needed:false', () => {
-    expect(sd({ logs: logs3, user: { level: 'intermediaire' }, todayWellbeing: { sleep: 3, motivation: 3 }, readiness: [], weeklyPlan: null }).needed).toBe(false);
+    expect(sd({ logs: logs3, user: { level: 'intermediaire' }, readinessHistory: W(6, 6), readiness: [], weeklyPlan: null }).needed).toBe(false);
   });
-  test('sans todayWellbeing → needed:false (sur ces logs calmes)', () => {
+  test('sans saisie → needed:false (sur ces logs calmes)', () => {
     expect(sd({ logs: logs3, user: { level: 'intermediaire' }, todayWellbeing: null, readiness: [], weeklyPlan: null }).needed).toBe(false);
   });
-  test('< 3 logs → needed:false même avec wellbeing catastrophique', () => {
-    expect(sd({ logs: [], user: {}, todayWellbeing: { sleep: 1, motivation: 1 }, readiness: [], weeklyPlan: null }).needed).toBe(false);
+  test('< 3 logs → needed:false même avec saisie catastrophique', () => {
+    expect(sd({ logs: [], user: {}, readinessHistory: W(2, 2), readiness: [], weeklyPlan: null }).needed).toBe(false);
   });
 });
 

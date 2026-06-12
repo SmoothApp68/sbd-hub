@@ -32,6 +32,7 @@ const PREAMBLE = (function () {
   const fromApp = ['wpCalcE1RM', 'wpRound25', 'wpRound125', 'wpRepsForPhase', 'wpNormalizeName',
     'isE1RMStabilized', 'hadGrindLastSession', 'getUserBW', 'wpFindBestMatch',
     '_wpComputeWorkWeightPenalties', '_wpApplyWorkWeightBounds', // ALGO-A1 : extraites de wpComputeWorkWeight, vraie source
+    'getTodayStr', '_normalizeCheckinEntry', 'getTodayCheckin', // READY-C2-c : deps de la couche d'accès
     'wpComputeWorkWeight', 'wpComputeWorkWeightSafe'];
   const fromEng = ['getZoneE1RM'];
   let p = '';
@@ -150,9 +151,11 @@ describe('wpComputeWorkWeight — caractérisation des VALEURS', () => {
     expect(r.result).toBe(142.5);
   });
   test('pénalité sommeil (3 sessions, stabilisé, sleep≤2) → 132.5', () => {
+    // READY-C2-c : fixture redirigée vers readinessHistory (sleep10=2 → sleep5=1), assertion inchangée
     const today = new Date().toISOString().split('T')[0];
     const logs = [squatLog(140, 5, 8, 1), squatLog(140, 5, 8, 4), squatLog(140, 5, 8, 7)];
-    const r = run(nominalDb({ logs: logs, todayWellbeing: { date: today, sleep: 1, motivation: 3 } }), 'squat', 'lower');
+    const r = run(nominalDb({ logs: logs,
+      readinessHistory: [{ ts: 1, date: today, sleep: 2, energy: 6, motivation: 6, soreness: 5, score: 40 }] }), 'squat', 'lower');
     expect(r.result).toBe(132.5);
   });
   test('phase peak (cap APRE 1.00) : 200x1@RPE6 → 205 (cap ne mord pas)', () => {
@@ -185,9 +188,11 @@ describe('wpComputeWorkWeight — caractérisation des EFFETS DE BORD', () => {
     expect(r.db._recoveryBonus.k1).toBeUndefined();
   });
   test('_pendingCoachNote posée quand une pénalité émet une note (sommeil)', () => {
+    // READY-C2-c : fixture redirigée vers readinessHistory, assertion inchangée
     const today = new Date().toISOString().split('T')[0];
     const logs = [squatLog(140, 5, 8, 1), squatLog(140, 5, 8, 4), squatLog(140, 5, 8, 7)];
-    const r = run(nominalDb({ logs: logs, todayWellbeing: { date: today, sleep: 1, motivation: 3 } }), 'squat', 'lower');
+    const r = run(nominalDb({ logs: logs,
+      readinessHistory: [{ ts: 1, date: today, sleep: 2, energy: 6, motivation: 6, soreness: 5, score: 40 }] }), 'squat', 'lower');
     expect(typeof r.db._pendingCoachNote).toBe('string');
     expect(r.db._pendingCoachNote).toMatch(/sommeil/i);
   });

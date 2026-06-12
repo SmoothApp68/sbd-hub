@@ -30713,6 +30713,10 @@ function convertWorkoutToSession(workout) {
   var session = createSession(workout.title, workout.startTime);
   session.duration = Math.round((Date.now() - workout.startTime) / 1000);
   session.durationSource = 'go';
+  // READY-C2-b : persister le check-in de la séance. Effet assumé (décision
+  // Phase 2) : generateAlgoSessionDebrief (import.js) reçoit désormais un vrai
+  // session.readiness → son readinessAdj devient actif sur la cible de compliance.
+  if (workout.readiness) session.readiness = workout.readiness;
 
   // Group class: single cardio-like exercise with duration
   if (workout.isGroupClass) {

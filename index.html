@@ -135,6 +135,10 @@
     @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     input, select, textarea { width: 100%; background: var(--bg-input); border: 0.5px solid var(--border-input); color: var(--text-primary); border-radius: 10px; padding: 14px; margin-bottom: 12px; font-size: 16px; transition: border-color 0.2s; }
     input:focus, textarea:focus, select:focus { border-color: var(--accent); outline: none; }
+    /* A11y (A7-F3) — anneau de focus clavier visible. :focus-visible ne se déclenche
+       qu'au clavier (Tab), jamais à la souris → aucune régression visuelle au repos.
+       Les inputs gardent leur focus par border-color (règle ci-dessus, plus spécifique). */
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     select option { background: #111128; }
     .btn { background: var(--accent); border: none; color: white; width: 100%; padding: 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; transition: transform 0.15s ease, opacity 0.15s ease; }
     .btn:active { transform: scale(0.96); opacity: 0.85; }
@@ -1481,7 +1485,7 @@
 
     /* Global top bar */
     .global-top-bar{position:fixed;top:0;left:0;right:0;height:44px;max-width:500px;margin:0 auto;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;background:var(--bg-tab-bar);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:0.5px solid rgba(255,255,255,0.06);z-index:999;}
-    .global-notif-btn{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);}
+    .global-notif-btn{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);padding:0;font:inherit;color:inherit;}
     .global-notif-btn:active{opacity:0.7;}
     #notif-panel-global{position:fixed;top:44px;left:0;right:0;max-width:500px;margin:0 auto;background:var(--bg-primary);border-bottom:0.5px solid rgba(255,255,255,0.08);max-height:60vh;overflow-y:auto;z-index:998;display:none;}
 
@@ -3354,10 +3358,10 @@
   </div>
 
   <div class="global-top-bar">
-    <div class="global-notif-btn" onclick="toggleNotifPanel();if(typeof renderNotificationCenter==='function')renderNotificationCenter();">
+    <button class="global-notif-btn" type="button" aria-label="Notifications" onclick="toggleNotifPanel();if(typeof renderNotificationCenter==='function')renderNotificationCenter();">
       <span style="font-size:18px;">🔔</span>
       <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;background:#FF453A;border-radius:8px;font-size:9px;font-weight:700;color:#fff;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--bg-primary);">0</span>
-    </div>
+    </button>
   </div>
 
   <div id="notif-panel-global">
@@ -4098,7 +4102,7 @@ setTimeout(fetchAndStoreTier, 2000);
   <div id="muscle-pop-desc" style="color:rgba(255,255,255,0.35);font-size:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;"></div>
 </div>
 
-<button id="bugReportBtn" onclick="showBugReport()"
+<button id="bugReportBtn" onclick="showBugReport()" aria-label="Signaler un bug"
   style="position:fixed;bottom:80px;right:16px;z-index:9000;
   width:44px;height:44px;border-radius:50%;border:none;
   background:rgba(255,69,58,0.15);color:var(--red,#ff3b30);

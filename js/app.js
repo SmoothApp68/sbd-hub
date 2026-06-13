@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v284';
+var SW_VERSION = 'trainhub-v285';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -984,14 +984,13 @@ function skipReadiness() {
 function getReadinessBannerHtml() {
   const r = getTodayReadiness();
   if (!r) return '';
-  // READY-C2-d : détail honnête — vrais items (dont fraîcheur), échelle saisie
-  // 1-5 (dérivée du 1-10 de la façade), pondérations Helms réelles, score /100.
-  // Plus de « courbatures » / « stress » / formule fictive « (somme)/20 ».
-  var _s5 = r.sleep / 2, _e5 = r.energy / 2, _m5 = r.motivation / 2,
-      _f5 = (11 - r.soreness) / 2;
+  // READY-C2-d : détail honnête — les 4 vrais items et leurs pondérations Helms
+  // réelles, score /100. Plus de « courbatures » / « stress » / échelle « /5 »
+  // (l'emoji EST l'échelle de saisie) / formule fictive « (somme)/20 ».
   var detail = '<div class="readiness-detail" style="display:none;margin-top:6px;font-size:11px;line-height:1.6;opacity:0.85;">' +
-    '😴 Sommeil ' + _s5 + '/5 (35%) · ⚡ Énergie ' + _e5 + '/5 (25%) · 🧠 Motivation ' + _m5 + '/5 (15%) · 🦵 Fraîcheur ' + _f5 + '/5 (25%)<br>' +
-    'Score pondéré (Helms) = ' + r.score + '/100' +
+    '😴 Sommeil · ⚡ Énergie · 🧠 Motivation · 🦵 Fraîcheur musculaire<br>' +
+    'Pondération Helms : 35 % · 25 % · 15 % · 25 %<br>' +
+    'Score : ' + r.score + ' / 100' +
     '</div>';
   var toggleBtn = ' <span class="glossary-tip" onclick="event.stopPropagation();var d=this.parentElement.querySelector(\'.readiness-detail\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">ℹ️</span>';
   if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — écoute ton corps aujourd\'hui' + toggleBtn + detail + '</div>';

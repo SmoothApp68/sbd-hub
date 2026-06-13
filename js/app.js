@@ -984,9 +984,14 @@ function skipReadiness() {
 function getReadinessBannerHtml() {
   const r = getTodayReadiness();
   if (!r) return '';
+  // READY-C2-d : détail honnête — vrais items (dont fraîcheur), échelle saisie
+  // 1-5 (dérivée du 1-10 de la façade), pondérations Helms réelles, score /100.
+  // Plus de « courbatures » / « stress » / formule fictive « (somme)/20 ».
+  var _s5 = r.sleep / 2, _e5 = r.energy / 2, _m5 = r.motivation / 2,
+      _f5 = (11 - r.soreness) / 2;
   var detail = '<div class="readiness-detail" style="display:none;margin-top:6px;font-size:11px;line-height:1.6;opacity:0.85;">' +
-    '😴 Sommeil : ' + r.sleep + '/5 · ⚡ Énergie : ' + r.energy + '/5 · 💪 Courbatures : ' + r.soreness + '/5 · 🧠 Stress : ' + r.stress + '/5<br>' +
-    'Score : (' + r.sleep + '+' + r.energy + '+' + r.soreness + '+' + r.stress + ') / 20 × 100 = ' + r.score + '/100' +
+    '😴 Sommeil ' + _s5 + '/5 (35%) · ⚡ Énergie ' + _e5 + '/5 (25%) · 🧠 Motivation ' + _m5 + '/5 (15%) · 🦵 Fraîcheur ' + _f5 + '/5 (25%)<br>' +
+    'Score pondéré (Helms) = ' + r.score + '/100' +
     '</div>';
   var toggleBtn = ' <span class="glossary-tip" onclick="event.stopPropagation();var d=this.parentElement.querySelector(\'.readiness-detail\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">ℹ️</span>';
   if (r.score < 40) return '<div style="background:rgba(255,69,58,0.15);border-left:3px solid var(--red);padding:8px 12px;margin:8px 0;border-radius:8px;font-size:12px;color:var(--red);">⚠️ Readiness faible (' + r.score + '/100) — écoute ton corps aujourd\'hui' + toggleBtn + detail + '</div>';
@@ -1057,8 +1062,8 @@ const GLOSSARY = {
   readiness: {
     short: "Score de Readiness",
     desc: "Indique à quel point ton corps est prêt à s'entraîner aujourd'hui, sur 100.",
-    calc: "Moyenne de 4 critères notés de 1 à 5 : sommeil, énergie, douleurs (inversé), stress. Score = (somme / 20) × 100.",
-    example: "Sommeil 4/5 + Énergie 3/5 + Douleurs 4/5 + Stress 3/5 = 14/20 → Readiness 70/100.",
+    calc: "4 critères notés en emoji 1 à 5 : sommeil, énergie, motivation et fraîcheur musculaire. Pondération Helms : sommeil 35 %, énergie 25 %, fraîcheur 25 %, motivation 15 %. Score sur 100.",
+    example: "Sommeil 5/5, énergie 5/5, motivation 5/5, fraîcheur 5/5 (très frais) → Readiness 100/100.",
     category: "recuperation"
   },
   form_score: {
@@ -8193,7 +8198,7 @@ function renderWeekCard() {
         '</div>' +
       '</div>';
 
-  // ── Batterie Nerveuse / Bilan du matin ──
+  // ── Batterie Nerveuse / Check-in du jour ──
   var _srs = typeof computeSRS === 'function' ? computeSRS() : null;
   var _srsScore = (_srs && typeof _srs.score === 'number') ? _srs.score : 75;
   var _srsColor = _srsScore >= 70 ? 'var(--green)' : _srsScore >= 40 ? 'var(--orange)' : 'var(--red)';
@@ -8207,14 +8212,14 @@ function renderWeekCard() {
     + 'border-radius:14px;padding:14px;margin-bottom:12px;">';
   if (!_hasBilan) {
     batteryHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
-      + 'letter-spacing:1px;font-weight:600;margin-bottom:8px;">Bilan du matin</div>';
+      + 'letter-spacing:1px;font-weight:600;margin-bottom:8px;">Check-in du jour</div>';
     batteryHtml += '<div style="font-size:13px;color:var(--text);margin-bottom:10px;">'
-      + 'Comment te sens-tu ce matin ?</div>';
+      + 'Comment te sens-tu aujourd\'hui ?</div>';
     batteryHtml += '<button onclick="showTab(\'tab-seances\');setTimeout(function(){'
       + 'showSeancesSub(\'s-coach\',document.querySelector(\'.seances-nav .stats-sub-pill:first-child\'));},100)" '
       + 'style="padding:8px 16px;border-radius:20px;border:0.5px solid var(--accent);'
       + 'background:rgba(10,132,255,0.1);color:var(--accent);font-size:12px;cursor:pointer;">'
-      + 'Faire le bilan →</button>';
+      + 'Faire le check-in →</button>';
   } else {
     batteryHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
     batteryHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">Batterie Nerveuse</div>';

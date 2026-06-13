@@ -346,8 +346,8 @@ describe('convertWorkoutToSession', () => {
   });
 });
 
-// ── READY-C2-b — saisie quotidienne unique ───────────────────────────────────
-describe('READY-C2-b — saveDailyCheckin (mapping 1-5 → Helms 1-10 + 4 écritures)', () => {
+// ── READY-C2-b/d — saisie quotidienne unique ─────────────────────────────────
+describe('READY-C2-d — saveDailyCheckin (mapping 1-5 → Helms 1-10, source UNIQUE)', () => {
   function save(checkin, dbOver, extra) {
     const c = makeCtx(Object.assign({ readiness: [], readinessHistory: [],
       todayWellbeing: null, wellbeingHistory: [], user: {}, logs: [] }, dbOver || {}), extra || {});
@@ -371,7 +371,8 @@ describe('READY-C2-b — saveDailyCheckin (mapping 1-5 → Helms 1-10 + 4 écrit
     expect(r.score).toBeNull();
     expect(r.db.readinessHistory.length).toBe(0);
   });
-  test('écriture 1 — readinessHistory : forme exacte {ts,date,sleep,energy,motivation,soreness,score,pain}', () => {
+  test('readinessHistory : forme exacte {ts,date,sleep,energy,motivation,soreness,score,pain} '
+    + '(strictement identique à C2-b)', () => {
     const r = save(Object.assign({}, ALL5, { fresh: 2, pain: 'Dos' }));
     const e = r.db.readinessHistory[0];
     expect(e.date).toBe(TODAY);
@@ -379,33 +380,21 @@ describe('READY-C2-b — saveDailyCheckin (mapping 1-5 → Helms 1-10 + 4 écrit
     expect(e.soreness).toBe(7); // fraîcheur 2 → 11 − 4
     expect(e.pain).toBe('Dos');
     expect(typeof e.ts).toBe('number');
+    // forme exacte (clés inchangées vs C2-b)
+    expect(Object.keys(e).sort()).toEqual(['date', 'energy', 'motivation', 'pain', 'score', 'sleep', 'soreness', 'ts']);
   });
-  test('écriture 2 — miroir db.readiness : même forme qu\'avant (1-10, sans ts/pain)', () => {
+  test('READY-C2-d : les miroirs db.readiness / todayWellbeing / wellbeingHistory NE sont '
+    + 'PLUS écrits (source unique readinessHistory)', () => {
     const r = save(ALL5);
-    expect(r.db.readiness[0]).toEqual({ date: TODAY, sleep: 10, energy: 10,
-      motivation: 10, soreness: 1, score: 100 });
+    expect(r.db.readiness).toEqual([]);        // store conservé en lecture, plus alimenté
+    expect(r.db.todayWellbeing).toBeNull();    // plus de miroir
+    expect(r.db.wellbeingHistory).toEqual([]); // write-only supprimé
+    expect(r.db.readinessHistory.length).toBe(1); // seul store écrit
   });
-  test('écriture 3 — miroir todayWellbeing : échelle 1-5 BRUTE (lecteurs intacts)', () => {
-    const r = save({ sleep: 2, energy: 3, motivation: 4, fresh: 3, pain: 'Genou' });
-    expect(r.db.todayWellbeing.sleep).toBe(2);
-    expect(r.db.todayWellbeing.motivation).toBe(4);
-    expect(r.db.todayWellbeing.pain).toBe('Genou');
-    expect(r.db.todayWellbeing.date).toBe(TODAY);
-  });
-  test('écriture 4 — wellbeingHistory : unshift comme avant', () => {
-    const r = save(ALL5);
-    expect(r.db.wellbeingHistory[0]).toBe(r.db.todayWellbeing);
-  });
-  test('merge NON destructif : rhr/rhrAlert d\'un import Garmin du JOUR préservés', () => {
-    const r = save(ALL5, { todayWellbeing: { date: TODAY, rhr: 52, rhrAlert: { level: 'warning' } } });
-    expect(r.db.todayWellbeing.rhr).toBe(52);
-    expect(r.db.todayWellbeing.rhrAlert).toEqual({ level: 'warning' });
-    expect(r.db.todayWellbeing.sleep).toBe(5); // et le check-in est bien posé
-  });
-  test('rhrAlert d\'un AUTRE jour : volontairement non propagé (alerte périmée)', () => {
-    const r = save(ALL5, { todayWellbeing: { date: '2020-01-01', rhr: 70, rhrAlert: { level: 'danger' } } });
-    expect(r.db.todayWellbeing.rhrAlert).toBeUndefined();
-    expect(r.db.todayWellbeing.rhr).toBeUndefined();
+  test('READY-C2-d : un import Garmin du jour (garminHealth) n\'est pas touché par le check-in', () => {
+    const r = save(ALL5, { garminHealth: { date: TODAY, rhr: 52, rhrAlert: { level: 'warning' } } });
+    expect(r.db.garminHealth).toEqual({ date: TODAY, rhr: 52, rhrAlert: { level: 'warning' } });
+    expect(r.db.todayWellbeing).toBeNull();
   });
   test('séance active → activeWorkout.readiness posé (10-scale + loadAdjustment stocké non consommé)', () => {
     const r = save(ALL5, {}, { activeWorkout: {} });

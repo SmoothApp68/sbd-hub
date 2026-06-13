@@ -21663,35 +21663,17 @@ function saveDailyCheckin() {
   var score = calculateReadiness(sleep10, energy10, motivation10, soreness10);
   var today = getTodayStr();
 
-  // 1) Source unique cible (lecteurs rebranchés en C2-c)
+  // Source UNIQUE du check-in quotidien (READY-C2-d : les miroirs db.readiness,
+  // todayWellbeing et wellbeingHistory ne sont plus écrits — tous les lecteurs
+  // passent par la couche d'accès getTodayCheckin/getCheckinHistory depuis C2-c.
+  // Les stores existants ne sont PAS purgés : db.readiness reste lu en fallback
+  // transitoire par getTodayCheckin, todayWellbeing reste lu en rétrocompat par
+  // hasTodayCheckin — on cesse seulement de dupliquer l'écriture.)
   if (!db.readinessHistory) db.readinessHistory = [];
   db.readinessHistory.push({ ts: Date.now(), date: today, sleep: sleep10,
     energy: energy10, motivation: motivation10, soreness: soreness10,
     score: score, pain: _checkinData.pain || null });
   db.readinessHistory = db.readinessHistory.slice(-90);
-
-  // 2) Miroir transitoire db.readiness — même forme qu'avant (9 lecteurs intacts)
-  db.readiness = db.readiness || [];
-  db.readiness.push({ date: today, sleep: sleep10, energy: energy10,
-    motivation: motivation10, soreness: soreness10, score: score });
-
-  // 3) Miroir transitoire todayWellbeing — échelle 1-5 brute (celle que ses
-  //    lecteurs attendent), merge NON destructif : préserve rhr/rhrAlert d'un
-  //    import Garmin du JOUR (l'ancien saveCheckin les écrasait). Un rhrAlert
-  //    d'un autre jour n'est volontairement PAS propagé (alerte périmée).
-  var _prevWb = db.todayWellbeing || null;
-  db.todayWellbeing = { date: today, sleep: _checkinData.sleep,
-    motivation: _checkinData.motivation, pain: _checkinData.pain || null,
-    savedAt: Date.now() };
-  if (_prevWb && _prevWb.date === today) {
-    if (_prevWb.rhr !== undefined) db.todayWellbeing.rhr = _prevWb.rhr;
-    if (_prevWb.rhrAlert) db.todayWellbeing.rhrAlert = _prevWb.rhrAlert;
-  }
-
-  // 4) wellbeingHistory — comme aujourd'hui (suppression = C2-d)
-  if (!db.wellbeingHistory) db.wellbeingHistory = [];
-  db.wellbeingHistory.unshift(db.todayWellbeing);
-  if (db.wellbeingHistory.length > 90) db.wellbeingHistory.pop();
 
   // Séance active : même forme qu'avant — loadAdjustment stocké, toujours
   // pas consommé (branchement = C3).
@@ -21702,7 +21684,7 @@ function saveDailyCheckin() {
   }
 
   _checkinData = {};
-  // 5) Persistance + toast : le score, rien d'autre (aucune promesse de charge)
+  // Persistance + toast : le score, rien d'autre (aucune promesse de charge)
   saveDB();
   if (typeof showToast === 'function') showToast('✅ Check-in : ' + score + '/100');
   return score;

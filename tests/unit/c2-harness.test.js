@@ -31,10 +31,12 @@ function extractFn(src, name) {
 }
 // Extraction d'une constante objet top-level (var X = { ... };) — vraie source.
 function extractVar(src, name) {
-  const sm = src.match(new RegExp('^var ' + name + ' = \\{', 'm'));
+  // Gère les littéraux objet (var X = { … };) ET tableau (var X = [ … ];)
+  const sm = src.match(new RegExp('^var ' + name + ' = ([\\{\\[])', 'm'));
   if (!sm) throw new Error('NOT FOUND var in source: ' + name);
+  const closeRe = sm[1] === '{' ? /\n\};/ : /\n\];/;
   const rest = src.slice(sm.index);
-  const em = rest.match(/\n\};/);
+  const em = rest.match(closeRe);
   return rest.slice(0, em.index + 3);
 }
 
@@ -46,11 +48,13 @@ const PREAMBLE = (function () {
     'wpDoubleProgressionWeight', 'wpFindBestMatch', 'wpNormalizeName', 'wpRound25',
     'generateId', 'calcE1RM', 'convertWorkoutToSession',
     'hasTodayCheckin', 'saveDailyCheckin', // READY-C2-b : saisie unique
+    'buildCheckinFormHtml', 'renderMorningCheckin', 'showReadinessModal', // READY-C2-d : gate comportemental
     '_normalizeCheckinEntry', 'getTodayCheckin', 'getCheckinHistory']; // READY-C2-c : couche d'accès
   const fromImp = ['createSession', 'finalizeSessionFromSeries'];
   let p = '';
   fromApp.forEach(function (n) { p += extractFn(APP, n) + '\n'; });
   p += extractVar(APP, 'BLOCK_DURATION') + '\n';
+  p += extractVar(APP, 'CHECKIN_ITEMS') + '\n'; // READY-C2-d : requis par buildCheckinFormHtml
   fromImp.forEach(function (n) { p += extractFn(IMP, n) + '\n'; });
   return p;
 })();
@@ -261,18 +265,52 @@ describe('hasTodayReadiness / getTodayReadiness', () => {
   test('_readinessSkipDate d\'avant-hier (-30h) → gate ouvert', () => {
     expect(gate({ user: { _readinessSkipDate: Date.now() - 30 * 3600000 }, readiness: [] }).has).toBe(false);
   });
-  // READY-C2-b : test INVERSÉ sciemment (ex `double_saisie_possible_actuellement`).
-  // Le gate du modal est désormais hasTodayReadiness() || hasTodayCheckin() —
-  // un check-in fait le matin (todayWellbeing/miroirs) supprime le modal pré-séance.
-  test('double_saisie_impossible : un check-in du jour, quel que soit son store, '
-    + 'ferme le gate unifié (hasTodayCheckin) → plus de double saisie', () => {
-    const c = makeCtx({ user: {}, readiness: [],
-      todayWellbeing: { date: TODAY, sleep: 3, motivation: 3 } });
-    expect(vm.runInContext('hasTodayCheckin()', c)).toBe(true);
-    // READY-C2-c : hasTodayReadiness est devenue une façade (skip OU
-    // hasTodayCheckin) → true ici aussi. Assertion méta mise à jour dans le
-    // même commit que la façade (ce n'était pas un seuil figé, cf. rapport).
-    expect(vm.runInContext('hasTodayReadiness()', c)).toBe(true);
+  // READY-C2-d : test COMPORTEMENTAL du gate unifié (remplace l'assertion méta
+  // sur la valeur de retour d'une façade). On observe l'EFFET dans les 2 sens.
+  // Stub document : compte les créations d'élément → prouve qu'aucun modal n'est
+  // monté quand le gate ferme (early-return AVANT tout accès DOM).
+  function gateCtx(db) {
+    const dom = { created: 0 };
+    const c = makeCtx(db, {
+      document: { createElement: function () { dom.created++; return { style: {}, set innerHTML(v) {}, appendChild: function () {} }; },
+        body: { appendChild: function () {} } }
+    });
+    c._dom = dom;
+    return c;
+  }
+  test('gate sens 1 : check-in fait (carte Coach) → showReadinessModal rend la main '
+    + 'SANS monter de modal + callback appelé', () => {
+    const c = gateCtx({ user: {}, readiness: [], readinessHistory: [{ ts: 1, date: TODAY, sleep: 8, energy: 8, motivation: 8, soreness: 3, score: 80 }] });
+    const r = vm.runInContext('var fired=false; showReadinessModal(function(){fired=true;}); fired;', c);
+    expect(r).toBe(true);          // callback déclenché (séance peut démarrer)
+    expect(c._dom.created).toBe(0); // aucun élément modal créé
+  });
+  test('contrôle : SANS check-in, showReadinessModal monte bien un modal '
+    + '(prouve que created===0 ci-dessus vient du gate, pas d\'autre chose)', () => {
+    const c = gateCtx({ user: {}, readiness: [], readinessHistory: [] });
+    vm.runInContext('showReadinessModal(function(){});', c);
+    expect(c._dom.created).toBeGreaterThan(0);
+  });
+  test('gate sens 2 : check-in fait (via readinessHistory) → la carte Coach se masque '
+    + '(renderMorningCheckin retourne \'\')', () => {
+    const c = makeCtx({ user: {}, readiness: [], readinessHistory: [{ ts: 1, date: TODAY, sleep: 8, energy: 8, motivation: 8, soreness: 3, score: 80 }] });
+    expect(vm.runInContext('renderMorningCheckin()', c)).toBe('');
+  });
+  test('gate : aucun check-in → la carte Coach S\'AFFICHE (composant rendu)', () => {
+    const c = makeCtx({ user: {}, readiness: [], readinessHistory: [] });
+    const html = vm.runInContext('renderMorningCheckin()', c);
+    expect(html).toMatch(/Check-in du jour/);
+    expect(html).toMatch(/checkin-coach-sleep-1/);
+  });
+  test('couverture « Passer » : skip du jour → modal supprimé (showReadinessModal '
+    + 'rend la main) MAIS la carte Coach reste affichée (skip ≠ check-in)', () => {
+    const skipDb = { user: { _readinessSkipDate: Date.now() }, readiness: [], readinessHistory: [] };
+    const c1 = gateCtx(skipDb);
+    const fired = vm.runInContext('var f=false; showReadinessModal(function(){f=true;}); f;', c1);
+    expect(fired).toBe(true);
+    expect(c1._dom.created).toBe(0); // skip ferme le modal du jour
+    const c2 = makeCtx(skipDb);
+    expect(vm.runInContext('renderMorningCheckin()', c2)).toMatch(/Check-in du jour/); // mais la carte reste
   });
 });
 

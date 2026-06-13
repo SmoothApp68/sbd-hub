@@ -21404,17 +21404,14 @@ function incrementMacrocycleCounter() {
 }
 
 // ── STRESS AUTO-REDUCTION (Gemini v208) ────────────────────────────
-// Détection :
-//   - champ explicite todayWellbeing.stress ≥ 4 → stress haut
-//   - sinon : motivation ≤ 2 + sleep ≤ 3 → stress haut (proxy)
-// Retour : 0.80 (= -20% volume) en cas de stress, sinon 1.0
+// Détection (proxy) : motivation ≤ 2 ET sleep ≤ 3 → stress haut.
+// Retour : 0.80 (= -20% volume) en cas de stress, sinon 1.0.
+// READY-C2-d : la branche fossile `todayWellbeing.stress ≥ 4` (mine dormante —
+// aucun écrivain ne pose ce champ, mais elle se serait armée si quelqu'un le
+// faisait) est SUPPRIMÉE. Seul le proxy motivation/sommeil subsiste.
 function getStressVolumeModifier() {
-  // READY-C2-c : branche vivante sur la couche d'accès (équivalence x5 exacte).
-  // La branche stress≥4 reste sur todayWellbeing — fossile conservé tel quel (C2-d).
-  var _wb = db.todayWellbeing;
   var _ckSt = getTodayCheckin();
-  var _stressHigh = (_wb && typeof _wb.stress === 'number' && _wb.stress >= 4)
-    || (!!_ckSt && _ckSt.motivation5 <= 2 && _ckSt.sleep5 <= 3);
+  var _stressHigh = !!_ckSt && _ckSt.motivation5 <= 2 && _ckSt.sleep5 <= 3;
   return _stressHigh ? 0.80 : 1.0;
 }
 

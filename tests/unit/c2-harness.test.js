@@ -201,14 +201,15 @@ describe('getStressVolumeModifier', () => {
     expect(stress(null, E(4, 8))).toBe(1.0);
     expect(stress(null, E(6, 6))).toBe(1.0);
   });
-  test('fossile_stress_inerte — NUANCE vs diagnostic : la branche stress>=4 est VIVANTE '
-    + 'au niveau fonction (→ 0.80) ; le fossile est au niveau SYSTÈME (aucun écrivain ne pose '
-    + 'todayWellbeing.stress, cf. C2-diagnostic Q5.5)', () => {
-    // Si un jour quelqu'un écrit le champ, la réduction s'activera silencieusement.
-    expect(stress({ stress: 4 })).toBe(0.80);
-    expect(stress({ stress: 5, motivation: 5, sleep: 5 })).toBe(0.80);
+  // READY-C2-d : la branche fossile stress≥4 est SUPPRIMÉE — régression-garde
+  // (remplace `fossile_stress_inerte`). Réintroduire un champ `stress` ne doit
+  // RIEN déclencher : seul le proxy motivation/sommeil compte désormais.
+  test('stress_desarme : un champ stress (où qu\'il soit) est ignoré', () => {
+    expect(stress({ stress: 5 }, [])).toBe(1.0); // todayWellbeing.stress ignoré
+    // stress posé sur l'entrée check-in du jour : ignoré aussi (motivation/sommeil OK)
+    expect(stress(null, [{ ts: 1, date: TODAY, sleep: 8, energy: 8, motivation: 8, soreness: 3, score: 80, stress: 5 }])).toBe(1.0);
   });
-  test('todayWellbeing null → 1.0', () => expect(stress(null)).toBe(1.0));
+  test('aucun check-in du jour → 1.0', () => expect(stress(null, [])).toBe(1.0));
 });
 
 // ── 6. shouldDeload — critère 1 (wellbeing) ──────────────────────────────────

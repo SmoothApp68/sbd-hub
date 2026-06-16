@@ -237,6 +237,12 @@ async function syncLeaderboard() {
 function _computeDataHash(d) {
   if (!d) return '';
   var lastLog = (d.logs && d.logs[0]) || null;
+  // READY-C2-hotfix-2 : readinessHistory est la source unique des check-in depuis
+  // C2-b. L'omettre rendait tout check-in invisible à la sync (hash inchangé →
+  // syncToCloud court-circuite). On signe sa longueur ET le ts de sa dernière
+  // entrée (un check-in du même jour remplace l'entrée sans changer la longueur
+  // → le ts détecte la mise à jour). On garde d.readiness.length (fallback lu).
+  var lastRh = (d.readinessHistory && d.readinessHistory[d.readinessHistory.length - 1]) || null;
   return [
     (d.logs || []).length,
     (lastLog && lastLog.timestamp) || 0,
@@ -245,6 +251,8 @@ function _computeDataHash(d) {
     Object.keys(d.earnedBadges || {}).length,
     (d.activityLogs || []).length,
     (d.readiness || []).length,
+    (d.readinessHistory || []).length,
+    (lastRh && lastRh.ts) || 0,
     JSON.stringify(d.user || {}).length,
     JSON.stringify(d.weeklyPlan || {}).length,
     JSON.stringify(d.bestPR || {}).length,

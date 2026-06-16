@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v285';
+var SW_VERSION = 'trainhub-v286';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -21685,8 +21685,10 @@ function saveDailyCheckin() {
   }
 
   _checkinData = {};
-  // Persistance + toast : le score, rien d'autre (aucune promesse de charge)
-  saveDB();
+  // Persistance SYNCHRONE + toast : le check-in est une action ponctuelle
+  // critique → saveDBNow() (flush localStorage immédiat + sync cloud), pas
+  // saveDB() débouncé 2 s qui perd l'écriture si l'app est fermée aussitôt.
+  saveDBNow();
   if (typeof showToast === 'function') showToast('✅ Check-in : ' + score + '/100');
   return score;
 }

@@ -67,7 +67,7 @@ test('harnais c2 : les sources réelles s\'extraient proprement', () => {
 });
 
 function makeCtx(db, extra) {
-  const calls = { saveDB: 0 };
+  const calls = { saveDB: 0, saveDBNow: 0 };
   const c = Object.assign({
     db: db, console: console, Math: Math, Date: Date, JSON: JSON,
     Object: Object, Array: Array, String: String, Number: Number, Boolean: Boolean,
@@ -75,6 +75,7 @@ function makeCtx(db, extra) {
     DAYS_FULL: ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
     WP_SYNONYMS: {},
     saveDB: function () { calls.saveDB++; },
+    saveDBNow: function () { calls.saveDBNow++; }, // READY-C2-hotfix : saisie persiste via saveDBNow
   }, extra || {});
   c._calls = calls;
   vm.createContext(c);
@@ -440,8 +441,74 @@ describe('READY-C2-d — saveDailyCheckin (mapping 1-5 → Helms 1-10, source UN
     expect(r.ctx.activeWorkout.readiness).toEqual({ sleep: 10, energy: 10,
       motivation: 10, soreness: 1, score: 100, loadAdjustment: 1.03 });
   });
-  test('saveDB appelé exactement 1×', () => {
-    expect(save(ALL5).ctx._calls.saveDB).toBe(1);
+  test('persistance via saveDBNow exactement 1× (READY-C2-hotfix : synchrone, plus saveDB débouncé)', () => {
+    const r = save(ALL5);
+    expect(r.ctx._calls.saveDBNow).toBe(1);
+    expect(r.ctx._calls.saveDB).toBe(0);
+  });
+});
+
+// ── READY-C2-hotfix — persistance synchrone du check-in ──────────────────────
+// Le check-in est une action ponctuelle critique. Bug prod : saveDB() débounce
+// l'écriture localStorage de 2 s → fermeture rapide de l'app = perte. Ce test
+// prouve, en exécutant la VRAIE chaîne saveDailyCheckin → saveDBNow → _flushDB,
+// que localStorage.setItem part IMMÉDIATEMENT, sans avancer aucun timer.
+describe('READY-C2-hotfix — checkin_persiste_immediatement', () => {
+  // Closure réelle minimale : saveDailyCheckin + la vraie persistance synchrone
+  // (saveDBNow/_flushDB/vars), avec stubs neutres pour ce qui n'est pas testé.
+  const PERSIST_PRE =
+    extractFn(APP, 'getTodayStr') + '\n'
+    + extractFn(APP, 'calculateReadiness') + '\n'
+    + extractFn(APP, 'getReadinessLoadAdjustment') + '\n'
+    + extractFn(APP, 'saveDailyCheckin') + '\n'
+    + 'var _saveDBTimer = null; var _saveDBDirty = false;\n'
+    + extractFn(APP, 'saveDBNow') + '\n'
+    + extractFn(APP, '_flushDB') + '\n';
+
+  function persistCtx(db) {
+    const store = {}; const calls = { setItem: 0, lastKey: null, cloudSync: 0 };
+    const c = {
+      db: db, console: console, Math: Math, Date: Date, JSON: JSON,
+      Object: Object, Array: Array, String: String, Number: Number, Boolean: Boolean,
+      parseInt: parseInt, parseFloat: parseFloat, isNaN: isNaN,
+      STORAGE_KEY: 'SBD_HUB_V29',
+      // localStorage stub instrumenté
+      localStorage: { setItem: function (k, v) { calls.setItem++; calls.lastKey = k; store[k] = v; },
+        getItem: function (k) { return store[k] || null; } },
+      // stubs neutres (hors périmètre : on teste la persistance, pas le cache/sync)
+      clearCaches: function () {}, debouncedCloudSync: function () { calls.cloudSync++; },
+      setTimeout: function () { throw new Error('setTimeout ne doit PAS être appelé (persistance synchrone)'); },
+      clearTimeout: function () {},
+      showToast: function () {},
+    };
+    c._calls = calls; c._store = store;
+    vm.createContext(c);
+    vm.runInContext(PERSIST_PRE, c);
+    return c;
+  }
+
+  test('checkin_persiste_immediatement : localStorage.setItem(STORAGE_KEY) appelé '
+    + 'AVANT tout délai, avec l\'entrée du jour', () => {
+    const c = persistCtx({ readinessHistory: [] });
+    vm.runInContext('_checkinData = { sleep: 4, energy: 3, motivation: 5, fresh: 2, pain: "Dos" }', c);
+    const score = vm.runInContext('saveDailyCheckin()', c);
+    // setItem a bien été appelé synchronement (sinon setTimeout aurait throw)
+    expect(c._calls.setItem).toBe(1);
+    expect(c._calls.lastKey).toBe('SBD_HUB_V29');
+    // le db sérialisé en localStorage contient l'entrée du jour avec le bon score
+    const persisted = JSON.parse(c._store['SBD_HUB_V29']);
+    expect(persisted.readinessHistory).toHaveLength(1);
+    expect(persisted.readinessHistory[0].date).toBe(new Date().toISOString().slice(0, 10));
+    expect(persisted.readinessHistory[0].score).toBe(score);
+    // et la sync cloud est déclenchée (saveDBNow appelle debouncedCloudSync)
+    expect(c._calls.cloudSync).toBe(1);
+  });
+
+  test('item manquant → null → AUCUNE persistance', () => {
+    const c = persistCtx({ readinessHistory: [] });
+    vm.runInContext('_checkinData = { sleep: 4, energy: 3, motivation: 5 }', c);
+    expect(vm.runInContext('saveDailyCheckin()', c)).toBeNull();
+    expect(c._calls.setItem).toBe(0);
   });
 });
 

@@ -298,7 +298,7 @@ async function syncToCloud(silent) {
     if (!silent) showToast('Synchronisé !');
     updateSyncStatus('sync');
     syncLeaderboard();
-    syncLogsToSupabase().catch(function(e) { console.error('log sync failed:', e); });
+    syncLogsToSupabase(user.id).catch(function(e) { console.error('log sync failed:', e); });
   } catch(e) {
     console.error('Cloud sync:', e);
     if (!silent) showToast('Erreur sync');
@@ -306,28 +306,132 @@ async function syncToCloud(silent) {
   }
 }
 
-// Dual-write append-only des séances vers workout_sessions (A2-F1, A3-F1).
-// db.logs reste la source de lecture locale ; ceci écrit EN PLUS chaque séance
-// (clé user_id+session_id) côté cloud, sans jamais écraser. Pose
-// _workoutSessionsSynced à true uniquement après succès complet de tous les batches.
-async function syncLogsToSupabase() {
+// P3-b — Dual-write FIABLE des séances vers workout_sessions.
+// db.logs reste la source de lecture locale ET la source de vérité ; cette passe
+// rend workout_sessions FIDÈLE au local : insertions, ÉDITIONS (réécriture du data
+// + colonnes dérivées) et SUPPRESSIONS. La détection des éditions s'appuie sur une
+// carte locale de hash de contenu (localStorage '_wsSyncedHashes', device-local,
+// HORS blob) — on ne relit jamais le jsonb cloud (coûteux). Garde-fou anti-wipe.
+
+// Signature de contenu d'un log (djb2 32-bit sur le JSON). Pure → vm-extractable.
+function _wsLogHash(log) {
+  if (!log) return '0';
+  var s;
+  try { s = JSON.stringify(log); } catch (e) { s = String(log && log.id); }
+  var h = 5381;
+  for (var i = 0; i < s.length; i++) {
+    h = ((h << 5) + h + s.charCodeAt(i)) | 0; // djb2
+  }
+  return (h >>> 0).toString(36);
+}
+
+// Calcule le plan de sync fidèle pour workout_sessions. Pure (aucun réseau, aucun
+// accès global) → testable par vm-extraction.
+// Règles : id absent du cloud → upsert (nouveau) ; id présent + hash changé →
+// upsert (édité) ; id présent + hash inconnu localement → adopté SANS réécriture
+// (1er run post-backfill : évite de réécrire les centaines de lignes existantes) ;
+// id cloud absent du local → suppression, SAUF garde-fou anti-wipe (non hydraté,
+// local vide, ou volume de suppression anormal).
+function computeWorkoutSessionsSyncPlan(localLogs, cloudSessionIds, syncedHashes, opts) {
+  var logs = localLogs || [];
+  var hashes = syncedHashes || {};
+  var o = opts || {};
+  var absDeleteAllow = (typeof o.absDeleteAllow === 'number') ? o.absDeleteAllow : 5;
+  var deleteRatioMax = (typeof o.deleteRatioMax === 'number') ? o.deleteRatioMax : 0.2;
+  var cloudIds = cloudSessionIds || [];
+
+  var cloudSet = {};
+  for (var c = 0; c < cloudIds.length; c++) { cloudSet[cloudIds[c]] = true; }
+
+  var toUpsert = [];
+  var nextHashes = {};
+  var localSet = {};
+  for (var i = 0; i < logs.length; i++) {
+    var log = logs[i];
+    if (!log || !log.id) continue;
+    var id = log.id;
+    localSet[id] = true;
+    var h = _wsLogHash(log);
+    nextHashes[id] = h;
+    var known = hashes[id];
+    if (!cloudSet[id]) {
+      toUpsert.push(log);                       // nouveau (ou perdu côté cloud)
+    } else if (known !== undefined && known !== h) {
+      toUpsert.push(log);                       // édité depuis le dernier push
+    }
+    // sinon : présent côté cloud + (hash inconnu → adopté | identique → inchangé)
+  }
+
+  var toDelete = [];
+  for (var k = 0; k < cloudIds.length; k++) {
+    if (!localSet[cloudIds[k]]) toDelete.push(cloudIds[k]);
+  }
+  var deleteCandidateCount = toDelete.length;
+
+  var deleteAborted = false;
+  var deleteAbortReason = null;
+  if (o.synced !== true || logs.length === 0) {
+    if (deleteCandidateCount > 0) { deleteAborted = true; deleteAbortReason = 'not_hydrated'; }
+    toDelete = [];
+  } else if (deleteCandidateCount > absDeleteAllow && cloudIds.length > 0 &&
+             deleteCandidateCount > deleteRatioMax * cloudIds.length) {
+    deleteAborted = true;
+    deleteAbortReason = 'threshold_exceeded';
+    toDelete = [];
+  }
+
+  return {
+    toUpsert: toUpsert,
+    toDelete: toDelete,
+    nextHashes: nextHashes,
+    deleteCandidateCount: deleteCandidateCount,
+    deleteAborted: deleteAborted,
+    deleteAbortReason: deleteAbortReason
+  };
+}
+
+// Après ce passage, workout_sessions contient EXACTEMENT les id de db.logs (data à
+// jour). userIdArg : passé par syncToCloud pour éviter un 2e auth.getUser()
+// concurrent (verrous gotrue « lock stolen »). _workoutSessionsSynced reste posé
+// uniquement après succès complet.
+async function syncLogsToSupabase(userIdArg) {
   if (!supaClient || !db.logs || db.logs.length === 0) return;
   try {
-    const { data: { user } } = await supaClient.auth.getUser();
-    if (!user) return;
+    var uid = userIdArg;
+    if (!uid) {
+      const { data: { user } } = await supaClient.auth.getUser();
+      if (!user) return;
+      uid = user.id;
+    }
 
-    // IDs déjà présents côté cloud (pour n'insérer que les nouveaux)
-    const { data: existing } = await supaClient
+    // session_id déjà présents côté cloud (colonnes légères, JAMAIS le jsonb data)
+    const { data: existing, error: selErr } = await supaClient
       .from('workout_sessions')
       .select('session_id')
-      .eq('user_id', user.id);
-    const existingIds = new Set((existing || []).map(function(r) { return r.session_id; }));
+      .eq('user_id', uid);
+    if (selErr) { console.error('syncLogs select error:', selErr); return; }
+    const cloudIds = (existing || []).map(function(r) { return r.session_id; });
 
-    const toInsert = db.logs
-      .filter(function(log) { return log && log.id && !existingIds.has(log.id); })
-      .map(function(log) {
+    var syncedHashes = {};
+    try { syncedHashes = JSON.parse(localStorage.getItem('_wsSyncedHashes') || '{}') || {}; } catch (e) { syncedHashes = {}; }
+
+    var plan = computeWorkoutSessionsSyncPlan(db.logs, cloudIds, syncedHashes, {
+      synced: db._workoutSessionsSynced === true
+    });
+
+    if (plan.deleteAborted && plan.deleteAbortReason === 'threshold_exceeded') {
+      console.warn('[syncLogs] Suppression anormale ignorée (garde-fou anti-wipe) : '
+        + plan.deleteCandidateCount + ' / ' + cloudIds.length
+        + ' lignes cloud. Vérification manuelle requise.');
+    }
+
+    var allOk = true;
+
+    // 1) Upserts (nouveaux + édités) — batches de 50, upsert sur user_id+session_id
+    if (plan.toUpsert.length > 0) {
+      var rows = plan.toUpsert.map(function(log) {
         return {
-          user_id: user.id,
+          user_id: uid,
           session_id: log.id,
           short_date: log.shortDate || '',
           title: log.title || '',
@@ -338,31 +442,35 @@ async function syncLogsToSupabase() {
           data: log
         };
       });
+      for (var i = 0; i < rows.length; i += 50) {
+        const batch = rows.slice(i, i + 50);
+        const up = await supaClient
+          .from('workout_sessions')
+          .upsert(batch, { onConflict: 'user_id,session_id' });
+        if (up.error) { console.error('syncLogs upsert batch error:', up.error); allOk = false; break; }
+      }
+    }
 
-    if (toInsert.length === 0) {
-      // Tout est déjà syncé — poser le flag si des logs existent
-      if (db.logs.length > 0 && !db._workoutSessionsSynced) {
+    // 2) Suppressions (garde-fou déjà appliqué dans le plan ; user courant uniquement)
+    if (allOk && plan.toDelete.length > 0) {
+      for (var d = 0; d < plan.toDelete.length; d += 50) {
+        const delBatch = plan.toDelete.slice(d, d + 50);
+        const del = await supaClient
+          .from('workout_sessions')
+          .delete()
+          .eq('user_id', uid)
+          .in('session_id', delBatch);
+        if (del.error) { console.error('syncLogs delete batch error:', del.error); allOk = false; break; }
+      }
+    }
+
+    // 3) Persistance de l'état SEULEMENT si tout a réussi (sinon retry au prochain run)
+    if (allOk) {
+      try { localStorage.setItem('_wsSyncedHashes', JSON.stringify(plan.nextHashes)); } catch (e) {}
+      if (!db._workoutSessionsSynced) {
         db._workoutSessionsSynced = true;
         saveDB();
       }
-      return;
-    }
-
-    // Insertion par batches de 50 (upsert idempotent sur user_id+session_id)
-    let allOk = true;
-    for (let i = 0; i < toInsert.length; i += 50) {
-      const batch = toInsert.slice(i, i + 50);
-      const { error } = await supaClient
-        .from('workout_sessions')
-        .upsert(batch, { onConflict: 'user_id,session_id' });
-      if (error) { console.error('syncLogs batch error:', error); allOk = false; break; }
-    }
-
-    // Flag posé SEULEMENT si TOUS les batches ont réussi (sinon une purge future
-    // pourrait supprimer des logs non encore présents côté cloud).
-    if (allOk && !db._workoutSessionsSynced) {
-      db._workoutSessionsSynced = true;
-      saveDB();
     }
   } catch (e) {
     console.error('syncLogsToSupabase error:', e);

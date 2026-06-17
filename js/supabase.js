@@ -273,6 +273,15 @@ function _computeDataHash(d) {
   ].join('|');
 }
 
+// P3-c — construit le blob synchronisé SANS logs (les logs vivent dans
+// workout_sessions, maintenus par le dual-write P3-b). Allège sbd_profiles.data
+// (~815 ko → ~150 ko) → fin des timeouts 57014. Pur → vm-extractable.
+function _buildSyncedBlob(d, weeklyPlanToSync) {
+  var out = Object.assign({}, d, { gamification: d.gamification || {}, weeklyPlan: weeklyPlanToSync });
+  delete out.logs; // logs hors blob (shallow copy : d.logs n'est PAS modifié)
+  return out;
+}
+
 async function syncToCloud(silent) {
   if (!supaClient || !cloudSyncEnabled) return;
   try {
@@ -297,7 +306,7 @@ async function syncToCloud(silent) {
           return wp;
         })()
       : db.weeklyPlan;
-    const dataToSync = { ...db, gamification: db.gamification || {}, weeklyPlan: _weeklyPlanToSync };
+    const dataToSync = _buildSyncedBlob(db, _weeklyPlanToSync); // P3-c — sans logs
     const payload = { user_id: user.id, data: dataToSync, updated_at: new Date().toISOString() };
     const {data: _upsertRes, error} = await supaClient.from('sbd_profiles').upsert(payload, { onConflict: 'user_id' }).select('updated_at').single();
     if (error) throw error;
@@ -489,6 +498,65 @@ async function syncLogsToSupabase(userIdArg) {
     console.error('syncLogsToSupabase error:', e);
   }
 }
+// P3-c — reconstruit db.logs à partir des lignes workout_sessions (data jsonb =
+// log complet), trié par timestamp desc. Pur → vm-extractable.
+function _logsFromSessionRows(rows) {
+  var logs = [];
+  for (var i = 0; i < (rows || []).length; i++) {
+    var r = rows[i];
+    if (r && r.data) logs.push(r.data);
+  }
+  logs.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  return logs;
+}
+
+// P3-c — n'hydrater que si le local est vide : le local fait foi quand il existe
+// (cf. lot 1). Pur → vm-extractable.
+function _shouldHydrateLogs(localLogs) {
+  return !localLogs || localLogs.length === 0;
+}
+
+// P3-c — charge l'historique depuis workout_sessions vers db.logs quand le local
+// est vide (nouvel appareil / réinstallation), les logs n'étant plus dans le blob.
+// Pagination par batches de 200 (sous les limites PostgREST, 532 lignes ≈ 3 pages).
+async function hydrateLogsFromCloud(userIdArg) {
+  if (!supaClient) return false;
+  if (!_shouldHydrateLogs(db.logs)) return false; // ne JAMAIS écraser un local peuplé
+  try {
+    var uid = userIdArg;
+    if (!uid) {
+      const { data: { user } } = await supaClient.auth.getUser();
+      if (!user) return false;
+      uid = user.id;
+    }
+    var rows = [];
+    var from = 0;
+    var BATCH = 200;
+    while (true) {
+      const { data, error } = await supaClient
+        .from('workout_sessions')
+        .select('data')
+        .eq('user_id', uid)
+        .order('timestamp', { ascending: false })
+        .range(from, from + BATCH - 1);
+      if (error) { console.error('hydrateLogs select error:', error); return false; }
+      if (!data || data.length === 0) break;
+      rows = rows.concat(data);
+      if (data.length < BATCH) break;
+      from += BATCH;
+    }
+    if (rows.length === 0) return false;
+    db.logs = _logsFromSessionRows(rows);
+    saveDBNow();
+    if (typeof recalcBestPR === 'function') recalcBestPR();
+    if (typeof refreshUI === 'function') refreshUI();
+    return true;
+  } catch (e) {
+    console.error('hydrateLogsFromCloud error:', e);
+    return false;
+  }
+}
+
 async function syncFromCloud() {
   if (!supaClient) return false;
   try {
@@ -547,7 +615,10 @@ async function syncFromCloud() {
       _mergedData.exercises = db.exercises || cloudData.exercises;
       _mergedData.bestPR = db.bestPR || cloudData.bestPR;
       db = _mergedData;
-      _didMergeLogs = _mergedLogs.length > _cloudLogs;
+      // P3-c — ne considérer un "merge offline" que si le cloud portait des logs.
+      // Sans cette garde, cloudData.logs absent (logs hors blob) rendrait _didMergeLogs
+      // toujours vrai → re-push + toast trompeur à CHAQUE pull.
+      _didMergeLogs = (cloudData.logs != null) && (_mergedLogs.length > _cloudLogs);
       // On a des séances que le cloud n'a pas → repousser le résultat fusionné
       if (_didMergeLogs) {
         setTimeout(function() { syncToCloud(true); }, 500);
@@ -569,6 +640,11 @@ async function syncFromCloud() {
       if (!db.social) db.social = {};
       if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
       if (!db.gamification) db.gamification = {};
+      // P3-c — logs hors blob : si le local est vide après merge (nouvel appareil),
+      // hydrater l'historique depuis workout_sessions.
+      if (_shouldHydrateLogs(db.logs)) {
+        await hydrateLogsFromCloud(user.id);
+      }
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
       db._cloudUpdatedAt = db.updatedAt || 0;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));

@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v290';
+var SW_VERSION = 'trainhub-v291';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -12418,18 +12418,61 @@ function updateActiveProgramStats() {
   active.lastUsedAt = Date.now();
 }
 
+// ── BACKUPS DE PROGRAMME (allégés v291) ──────────────────────
+// Un backup ne stocke plus weeklyPlan/mesoWeeks (dérivé, régénérable) quand il
+// porte une structure régénérable (customProgramTemplate). Sans template (legacy/
+// auto), on conserve le weeklyPlan figé : c'est sa seule structure restaurable.
+// Discriminant FIABLE = présence de customProgramTemplate (PAS programMode, qui
+// peut valoir 'auto' même pour un programme à template). Fonctions pures → testées.
+function _backupHasTemplate(backup) {
+  return !!(backup && backup.customProgramTemplate);
+}
+
+// Construit l'objet backup. Avec template → SANS weeklyPlan. Sans template → AVEC
+// weeklyPlan figé. Pur (aucun accès global ; deep-copies faites par l'appelant).
+function _buildBackupSnapshot(weeklyPlan, routine, template, programMode, now) {
+  var snap = {
+    savedAt: now, firstUsedAt: now, lastUsedAt: now, sessionCount: 0,
+    programMode: programMode || 'auto',
+    routine: routine || null,
+    customProgramTemplate: template || null
+  };
+  if (!template) snap.weeklyPlan = weeklyPlan || null; // legacy/auto : seule structure
+  return snap;
+}
+
+// Allège un backup existant : retire weeklyPlan (donc mesoWeeks) s'il a un template.
+// Idempotent ; backups sans template inchangés. Pur (renvoie le même ref si rien à
+// faire, un nouvel objet sinon).
+function _lightenBackup(backup) {
+  if (!_backupHasTemplate(backup) || backup.weeklyPlan == null) return backup;
+  var out = {};
+  for (var k in backup) { if (backup.hasOwnProperty(k) && k !== 'weeklyPlan') out[k] = backup[k]; }
+  return out;
+}
+
+// Migration locale : allège les backups en localStorage (le sync propagera le blob
+// léger). Pur sur le tableau passé ; renvoie le nombre de backups modifiés.
+function _migrateLightenBackups(backups) {
+  if (!backups || !backups.length) return 0;
+  var n = 0;
+  for (var i = 0; i < backups.length; i++) {
+    var light = _lightenBackup(backups[i]);
+    if (light !== backups[i]) { backups[i] = light; n++; }
+  }
+  return n;
+}
+
 function _snapshotCurrentProgram() {
   if (!db.customProgramBackups) db.customProgramBackups = [];
-  var snap = {
-    savedAt: Date.now(),
-    firstUsedAt: Date.now(),
-    lastUsedAt: Date.now(),
-    sessionCount: 0,
-    programMode: (db.user && db.user.programMode) || 'auto',
-    weeklyPlan: db.weeklyPlan ? JSON.parse(JSON.stringify(db.weeklyPlan)) : null,
-    routine: db.routine ? JSON.parse(JSON.stringify(db.routine)) : null,
-    customProgramTemplate: db.customProgramTemplate ? JSON.parse(JSON.stringify(db.customProgramTemplate)) : null
-  };
+  var hasTemplate = !!db.customProgramTemplate;
+  var snap = _buildBackupSnapshot(
+    (!hasTemplate && db.weeklyPlan) ? JSON.parse(JSON.stringify(db.weeklyPlan)) : null,
+    db.routine ? JSON.parse(JSON.stringify(db.routine)) : null,
+    hasTemplate ? JSON.parse(JSON.stringify(db.customProgramTemplate)) : null,
+    (db.user && db.user.programMode) || 'auto',
+    Date.now()
+  );
   db.customProgramBackups.unshift(snap);
   if (db.customProgramBackups.length > 15) db.customProgramBackups.pop();
 }
@@ -12730,13 +12773,18 @@ function restoreCustomProgramBackup(index) {
   // Snapshot current before restoring so user can undo; capture whether we did so BEFORE overwriting
   var didSnapshot = !!(db.weeklyPlan || db.customProgramTemplate);
   if (didSnapshot) _snapshotCurrentProgram();
-  // Restore all fields from the backup
+  // Restore structure + meta from the backup
   db.user.programMode = backup.programMode || 'auto';
-  db.weeklyPlan = backup.weeklyPlan ? JSON.parse(JSON.stringify(backup.weeklyPlan)) : null;
   db.routine = backup.routine ? JSON.parse(JSON.stringify(backup.routine)) : null;
   db.customProgramTemplate = backup.customProgramTemplate ? JSON.parse(JSON.stringify(backup.customProgramTemplate)) : null;
-  // If custom, re-sync routine labels from template
-  if (db.user.programMode === 'custom' && db.customProgramTemplate) {
+  if (_backupHasTemplate(backup)) {
+    // Structure régénérable : on récupère la STRUCTURE (template) et on RECALCULE
+    // les charges sur les PR ACTUELS — pas de weeklyPlan figé (les backups allégés
+    // n'en ont plus ; pour un ancien backup lourd, days/mesoWeeks figés seraient de
+    // toute façon écrasés par la régénération). currentBlock (phase/semaine) suit la
+    // timeline courante ; mesoWeeks est reconstruit au rendu (buildMesoWeeks).
+    db.user.programMode = 'custom'; // un template ⇒ custom (programMode non fiable en base)
+    if (!db.weeklyPlan) db.weeklyPlan = {};
     var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
     if (!db.routine) db.routine = {};
     ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
@@ -12744,6 +12792,9 @@ function restoreCustomProgramBackup(index) {
       db.routine[day] = s ? s.label : '😴 Repos';
     });
     if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
+  } else {
+    // Legacy / sans template : le weeklyPlan figé est la seule structure restaurable.
+    db.weeklyPlan = backup.weeklyPlan ? JSON.parse(JSON.stringify(backup.weeklyPlan)) : null;
   }
   // Remove the restored entry (shifted by 1 if we prepended an undo snapshot)
   var realIdx = didSnapshot ? index + 1 : index;
@@ -14530,6 +14581,7 @@ function syncRoutineWithSelectedDays() {
   migrateBadges();
   migrateWeeklyPlanSets();
   if (_migrateLogEditedAt(db.logs) > 0) saveDB(); // SYNC-LOT1 (P1) — horloge d'édition rétrocompat
+  if (_migrateLightenBackups(db.customProgramBackups) > 0) saveDB(); // v291 — backups allégés (retire weeklyPlan/mesoWeeks si template)
   if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised

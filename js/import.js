@@ -80,6 +80,7 @@ function createSession(title, ts) {
     type:       '',       // ex: 'GO', 'Import', etc.
     volume:     0,        // kg×reps — calculé par finalizeSessionFromSeries()
     duration:   0,        // secondes — à remplir par le journal (timer)
+    editedAt:   t,        // SYNC-LOT1 (P1) : horloge d'édition (= création ici) ; bumpée à chaque édition
     exercises:  []
   };
 }
@@ -759,6 +760,7 @@ function doFinalizeSession(session) {
     }
   }
 
+  if (session.editedAt == null) session.editedAt = session.timestamp || Date.now(); // SYNC-LOT1 (P1)
   db.logs.unshift(session);
   db.logs.sort((a,b)=>b.timestamp-a.timestamp);
   saveDBNow();

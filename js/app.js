@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v288';
+var SW_VERSION = 'trainhub-v289';
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -10491,6 +10491,7 @@ async function _doImportCSV(sessions) {
   for(const session of sessions){
     session.exercises.forEach(exo=>{ delete exo._rawSets; });
     session.exercises.forEach(exo=>{const type=getSBDType(exo.name);if(type&&exo.maxRM&&exo.maxRM>prs[type])prs[type]=exo.maxRM;});
+    if(session.editedAt==null)session.editedAt=session.timestamp||Date.now(); // SYNC-LOT1 (P1)
     db.logs.push(session);imported++;
     if(imported%10===0||imported===sessions.length){const pct=Math.round((imported/sessions.length)*100);bar.style.width=pct+'%';txt.textContent=imported+' / '+sessions.length+' séances importées';await new Promise(r=>setTimeout(r,0));}
   }
@@ -14281,6 +14282,23 @@ function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {
 }
 
 // DUP ÉTAPE B — Migration one-shot des zones e1RM depuis l'historique
+// SYNC-LOT1 (P1) — rétrocompat : tout log sans editedAt reçoit son timestamp comme
+// horloge d'édition de base (les éditions futures la bumpent au-dessus). Pur →
+// testable par vm-extraction. Renvoie le nombre de logs modifiés.
+function _migrateLogEditedAt(logs) {
+  if (!logs || !logs.length) return 0;
+  var n = 0;
+  for (var i = 0; i < logs.length; i++) {
+    var log = logs[i];
+    if (!log) continue;
+    if (log.editedAt === undefined || log.editedAt === null) {
+      log.editedAt = log.timestamp || 0;
+      n++;
+    }
+  }
+  return n;
+}
+
 function migrateDUPRegisters() {
   if (!db.exercises || db._dupMigrated) return;
   var cutoff30j = Date.now() - 30 * 86400000;
@@ -14511,6 +14529,7 @@ function syncRoutineWithSelectedDays() {
   migrateInjuryNames();
   migrateBadges();
   migrateWeeklyPlanSets();
+  if (_migrateLogEditedAt(db.logs) > 0) saveDB(); // SYNC-LOT1 (P1) — horloge d'édition rétrocompat
   if (typeof syncRoutineWithSelectedDays === 'function') syncRoutineWithSelectedDays();
 
   // Auto-generate weeklyPlan on J1 — deferred so WP_SESSION_TEMPLATES (line 15269+) is initialised
@@ -14586,8 +14605,8 @@ function syncRoutineWithSelectedDays() {
       _showFirstRunUI(user);
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
-      // Keep-alive ping to prevent Supabase project pause
-      if (typeof keepAlive === 'function') keepAlive();
+      // Keep-alive ping to prevent Supabase project pause (heartbeats, pas sbd_profiles)
+      if (typeof keepAlive === 'function') keepAlive(user.id);
     });
   });
   // Local notifications init
@@ -17863,6 +17882,7 @@ function editRecord(exoName, currentRM, isSBD, sbdType) {
   db.logs.forEach(log => {
     log.exercises.forEach(exo => {
       if (!matchExoName(exo.name, exoName)) return;
+      log.editedAt = Date.now(); // SYNC-LOT1 (P1) — édition de contenu d'un log
       if (exo.maxRM > val) exo.maxRM = val;
       // Recalculer les repRecords si besoin
       if (exo.repRecords) {
@@ -17891,7 +17911,9 @@ function deleteRecord(exoName, isSBD, sbdType) {
   showModal('Supprimer le record de ' + exoName + ' ? Les séries et records seront effacés pour cet exercice.', 'Supprimer', 'var(--red)', () => {
     // Effacer complètement l'exercice de tous les logs
     db.logs.forEach(log => {
+      var _before = log.exercises.length;
       log.exercises = log.exercises.filter(exo => !matchExoName(exo.name, exoName));
+      if (log.exercises.length !== _before) log.editedAt = Date.now(); // SYNC-LOT1 (P1)
     });
 
     saveDB();

@@ -243,9 +243,22 @@ function _computeDataHash(d) {
   // entrée (un check-in du même jour remplace l'entrée sans changer la longueur
   // → le ts détecte la mise à jour). On garde d.readiness.length (fallback lu).
   var lastRh = (d.readinessHistory && d.readinessHistory[d.readinessHistory.length - 1]) || null;
+  // SYNC-LOT1 (P4) : signer la plus récente horloge d'édition de log. Sans ça,
+  // éditer un log NON-récent (renommage, reps…) ne change ni logs.length ni
+  // logs[0].timestamp → hash inchangé → syncToCloud court-circuite → l'édition
+  // n'est jamais poussée (ni au blob ni à workout_sessions). max(editedAt) bascule
+  // dès qu'un log quelconque est édité.
+  var _maxLogEditedAt = 0;
+  var _hashLogs = d.logs || [];
+  for (var _hi = 0; _hi < _hashLogs.length; _hi++) {
+    var _hl = _hashLogs[_hi];
+    var _he = (_hl && (_hl.editedAt || _hl.timestamp)) || 0;
+    if (_he > _maxLogEditedAt) _maxLogEditedAt = _he;
+  }
   return [
     (d.logs || []).length,
     (lastLog && lastLog.timestamp) || 0,
+    _maxLogEditedAt,
     Object.keys(d.exercises || {}).length,
     d.xpHighWaterMark || 0,
     Object.keys(d.earnedBadges || {}).length,
@@ -4282,15 +4295,23 @@ setInterval(function() {
 }, 5 * 60 * 1000);
 
 // Keep-alive: update last_active to prevent project pause
-async function keepAlive() {
+// SYNC-LOT1 (P3) : heartbeat anti-pause sur une table DÉDIÉE. Avant, ce ping
+// faisait UPDATE sbd_profiles SET updated_at=now() SANS données → le pull voyait
+// "cloud plus récent" et armait le merge (qui écrasait l'édition locale). On
+// cible désormais public.heartbeats : sbd_profiles.updated_at ne bouge plus que
+// sur un vrai push de données. userIdArg réutilise l'uid du boot (évite un 2e
+// auth.getUser() → verrou gotrue « lock stolen »).
+async function keepAlive(userIdArg) {
   if (!supaClient || !cloudSyncEnabled) return;
   await safeSupabaseCall(async function() {
-    var { data: { user } } = await supaClient.auth.getUser();
-    if (user) {
-      await supaClient.from('sbd_profiles')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
+    var uid = userIdArg;
+    if (!uid) {
+      var { data: { user } } = await supaClient.auth.getUser();
+      if (!user) return;
+      uid = user.id;
     }
+    await supaClient.from('heartbeats')
+      .upsert({ user_id: uid, last_seen: new Date().toISOString() }, { onConflict: 'user_id' });
   });
 }
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v291';
+const CACHE_NAME = 'trainhub-v292';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -23,10 +23,25 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  // Pas de skipWaiting() automatique : on laisse le nouveau SW en "waiting" pour
+  // surfacer "mise à jour disponible" dans les réglages. L'activation se fait sur
+  // tap utilisateur (message SKIP_WAITING) → controllerchange → reload.
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
+});
+
+// Canal version + activation à la demande. La page demande GET_VERSION au SW
+// ACTIF (source de vérité) ; SKIP_WAITING active le SW en attente sur tap.
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data.type === 'GET_VERSION') {
+    const payload = { type: 'VERSION', version: CACHE_NAME };
+    if (event.ports && event.ports[0]) event.ports[0].postMessage(payload);
+    else if (event.source && event.source.postMessage) event.source.postMessage(payload);
+  } else if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {

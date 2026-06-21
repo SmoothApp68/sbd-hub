@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v291';
+var SW_VERSION = 'trainhub-v292'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -3348,6 +3348,88 @@ if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
   }
 })();
 
+// ── VERSION DE L'APP (servie par le SW actif) ────────────────────────────────
+// Source de vérité = service worker ACTIF (CACHE_NAME), pas la constante JS
+// SW_VERSION : pendant une transition de cache, le code chargé et le SW servi
+// peuvent différer. Helpers purs (testés) + requête au SW via MessageChannel.
+
+// 'trainhub-v291' → 'v291'. Pur.
+function _appVersionLabel(cacheName) {
+  var m = String(cacheName || '').match(/v\d[\w.]*/i);
+  return m ? m[0] : '';
+}
+
+// État de mise à jour depuis un registration : un SW en attente ⇒ MAJ prête. Pur.
+function _swUpdateState(reg) {
+  return { available: !!(reg && reg.waiting) };
+}
+
+// Demande sa version au SW ACTIF (controller) via MessageChannel. Résout à null si
+// pas de SW contrôleur / pas de réponse (ancien SW sans handler, dev, navigation privée).
+function _querySWVersion(timeoutMs) {
+  return new Promise(function(resolve) {
+    try {
+      var ctrl = (typeof navigator !== 'undefined' && navigator.serviceWorker)
+        ? navigator.serviceWorker.controller : null;
+      if (!ctrl || typeof MessageChannel === 'undefined') { resolve(null); return; }
+      var mc = new MessageChannel();
+      var settled = false;
+      var t = setTimeout(function() { if (!settled) { settled = true; resolve(null); } }, timeoutMs || 1500);
+      mc.port1.onmessage = function(ev) {
+        if (settled) return;
+        settled = true; clearTimeout(t);
+        resolve((ev.data && ev.data.version) ? ev.data.version : null);
+      };
+      ctrl.postMessage({ type: 'GET_VERSION' }, [mc.port2]);
+    } catch (e) { resolve(null); }
+  });
+}
+
+// Active le SW en attente sur tap → controllerchange (listener index.html) → reload.
+function _swApplyUpdate() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) { location.reload(); return; }
+  navigator.serviceWorker.getRegistration().then(function(reg) {
+    if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    else location.reload();
+  }).catch(function() { location.reload(); });
+}
+
+function renderAppVersionLine() {
+  var el = document.getElementById('appVersionLine');
+  if (!el) return;
+  var localLabel = _appVersionLabel(typeof SW_VERSION !== 'undefined' ? SW_VERSION : '');
+
+  function paint(servedLabel, reg) {
+    var html = 'SBD Hub';
+    if (servedLabel) {
+      html += ' · ' + servedLabel;
+      if (_swUpdateState(reg).available) {
+        html += ' · <span style="color:var(--orange);font-weight:700;">nouvelle version prête</span>'
+          + ' <button onclick="_swApplyUpdate()" style="margin-left:6px;background:var(--accent);'
+          + 'color:#fff;border:none;border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">Mettre à jour</button>';
+      } else {
+        html += ' · à jour';
+      }
+    } else if (localLabel) {
+      // Pas de SW contrôleur : on n'affiche QUE la version du code chargé, étiquetée
+      // comme telle — jamais en la faisant passer pour la version servie.
+      html += ' · ' + localLabel + ' · version du code (SW non actif)';
+    } else {
+      html += ' · version non disponible';
+    }
+    el.innerHTML = html;
+  }
+
+  var hasSW = (typeof navigator !== 'undefined') && ('serviceWorker' in navigator)
+    && !!navigator.serviceWorker.getRegistration;
+  if (!hasSW) { paint(null, null); return; }
+  navigator.serviceWorker.getRegistration().then(function(reg) {
+    _querySWVersion(1500).then(function(v) { paint(v, reg || null); });
+  }).catch(function() {
+    _querySWVersion(1500).then(function(v) { paint(v, null); });
+  });
+}
+
 function showProfilSub(id, btn) {
   activeProfilSub = id;
   document.querySelectorAll('.profil-sub-section').forEach(el => el.classList.remove('active'));
@@ -3357,7 +3439,7 @@ function showProfilSub(id, btn) {
   if (btn) btn.classList.add('active');
   if (typeof _updateLastTab === 'function') _updateLastTab('profil', id);
   if (id === 'tab-corps') renderCorpsTab();
-  if (id === 'tab-settings') fillSettingsFields();
+  if (id === 'tab-settings') { fillSettingsFields(); renderAppVersionLine(); }
   // Afficher les badges dans le profil — rendre dans tab-game puis copier le HTML
   if (id === 'tab-profil-badges') {
     if (typeof renderGamificationTab === 'function') renderGamificationTab();

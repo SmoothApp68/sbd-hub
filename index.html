@@ -3069,6 +3069,9 @@
       </button>
     </div>
 
+    <!-- Version de l'app — reflète le SW actif (renderAppVersionLine) -->
+    <div id="appVersionLine" style="margin-top:18px;text-align:center;font-size:11px;color:var(--sub);line-height:1.7;">SBD Hub</div>
+
   </div><!-- /tab-settings -->
 
 
@@ -3444,6 +3447,17 @@ if ('serviceWorker' in navigator) {
         // jours ne re-déclenche jamais register() → jamais d'update détecté).
         document.addEventListener('visibilitychange', function() {
           if (!document.hidden) { try { reg.update(); } catch (e) {} }
+        });
+        // Surfacer "mise à jour disponible" dès qu'un nouveau SW est installé en
+        // attente, sans recharger (le tap "Mettre à jour" activera).
+        reg.addEventListener('updatefound', function() {
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', function() {
+            if (nw.state === 'installed' && typeof renderAppVersionLine === 'function') {
+              renderAppVersionLine();
+            }
+          });
         });
       })
       .catch((err) => console.log('SW erreur:', err));

@@ -43,9 +43,32 @@ Playwright : ✓ SYNC-X merge cross-device.
 ---
 
 ## ⚠️ Actions Supabase à exécuter par Claude.ai — APRÈS le merge de cette PR
-1. **Backfill `workout_sessions`** pour les comptes dont les logs ne vivent que dans le blob (Jordan `0f1a…`, Léa `9ed8…`, `430d…`, `workout_sessions=0`) — sinon la purge perdrait l'historique.
-2. **Purge des `logs` résiduels** du blob — **gatée par compte** (vérifier que `workout_sessions` couvre 100 % des `id` du blob, sinon backfill d'abord), `UPDATE sbd_profiles SET data = data - 'logs'`.
-3. **Revert `statement_timeout` 30s → 8s** (rôle `authenticated`) — après confirmation des blobs allégés.
+
+### Chaîne de sécurité du backfill (idempotence anti-doublon — vérifiée)
+La dédup repose sur l'`upsert` du dual-write : `session_id: log.id` (`supabase.js:457`) +
+`{ onConflict: 'user_id,session_id' }` (`:471`). Deux conditions font la différence entre un
+backfill **sûr** et un **générateur de doublons** :
+
+| Condition | État |
+|---|---|
+| (a) Backfill serveur écrit `session_id = (blob log).id` (jamais un uuid généré) | **impératif** — sinon le push client à la reconnexion crée une 2ᵉ ligne |
+| (b) Contrainte UNIQUE `(user_id, session_id)` | ✅ **vérifiée présente** : `workout_sessions_user_session_unique` |
+| Le dual-write client re-pousse **tout** `db.logs` à la reconnexion (`!cloudSet[id]` → upsert, `:379`) | ✅ confirmé (ws vide ⇒ tous les logs « manquants » ⇒ tous poussés) |
+| Format log du blob == `workout_sessions.data` | ✅ structure identique |
+
+→ Grâce à (b), backfill serveur **puis** reconnexion client **convergent vers un UPDATE** (pas un doublon),
+à condition que les deux utilisent la **même clé** `session_id = log.id` (a).
+
+### Ordre STRICT (ne jamais purger avant couverture confirmée)
+1. **Backfill `workout_sessions`** des comptes à logs uniquement-dans-le-blob (Jordan `0f1a…` 144 / Léa `9ed8…` 126 / `430d…` 64 = 334 séances) — mapping : `log.id→session_id`, `log.timestamp(ms)→timestamp(tstz)`, `volume`, `duration`, `exercises.length→exercise_count`, log entier→`data`. **`session_id = log.id` impératif.**
+2. **Vérif couverture 1:1** : `count(data->'logs')` du blob == `count(workout_sessions)` pour chaque compte (avant/après, sous les yeux d'Aurélien).
+3. **Purge** `UPDATE sbd_profiles SET data = data - 'logs'` — **uniquement après couverture 100 % confirmée** par compte.
+4. **Revert `statement_timeout` 30s → 8s** (rôle `authenticated`) — après confirmation des blobs allégés.
+
+> **Pourquoi le backfill serveur PROACTIF** (alors que le client backfille seul à la reconnexion) : le push du
+> blob-sans-logs (`syncToCloud:311`, qui purge déjà les logs du blob) s'exécute **AVANT** `syncLogsToSupabase`
+> (`:323`, fire-and-forget). Backfiller en base **avant** que ces comptes ne se reconnectent ferme la fenêtre
+> où un nouvel appareil tomberait sur un **blob purgé + `ws` vide** → réhydratation vide.
 
 ## À vérifier device (Aurélien) — avant merge
 - Sur 2 appareils du même compte : une séance créée sur A **apparaît** sur B après un pull (refocus/boot), **sans doublon**.

@@ -417,12 +417,12 @@ function computeWorkoutSessionsSyncPlan(localLogs, cloudSessionIds, syncedHashes
 // concurrent (verrous gotrue « lock stolen »). _workoutSessionsSynced reste posé
 // uniquement après succès complet.
 async function syncLogsToSupabase(userIdArg) {
-  if (!supaClient || !db.logs || db.logs.length === 0) return;
+  if (!supaClient || !db.logs || db.logs.length === 0) return false;
   try {
     var uid = userIdArg;
     if (!uid) {
       const { data: { user } } = await supaClient.auth.getUser();
-      if (!user) return;
+      if (!user) return false;
       uid = user.id;
     }
 
@@ -431,7 +431,7 @@ async function syncLogsToSupabase(userIdArg) {
       .from('workout_sessions')
       .select('session_id')
       .eq('user_id', uid);
-    if (selErr) { console.error('syncLogs select error:', selErr); return; }
+    if (selErr) { console.warn('[sync] workout_sessions select failed:', (selErr && selErr.message) ? selErr.message : selErr); return false; }
     const cloudIds = (existing || []).map(function(r) { return r.session_id; });
 
     var syncedHashes = {};
@@ -469,7 +469,7 @@ async function syncLogsToSupabase(userIdArg) {
         const up = await supaClient
           .from('workout_sessions')
           .upsert(batch, { onConflict: 'user_id,session_id' });
-        if (up.error) { console.error('syncLogs upsert batch error:', up.error); allOk = false; break; }
+        if (up.error) { console.warn('[sync] workout_sessions upsert failed:', (up.error && up.error.message) ? up.error.message : up.error); allOk = false; break; }
       }
     }
 
@@ -482,7 +482,7 @@ async function syncLogsToSupabase(userIdArg) {
           .delete()
           .eq('user_id', uid)
           .in('session_id', delBatch);
-        if (del.error) { console.error('syncLogs delete batch error:', del.error); allOk = false; break; }
+        if (del.error) { console.warn('[sync] workout_sessions delete failed:', (del.error && del.error.message) ? del.error.message : del.error); allOk = false; break; }
       }
     }
 
@@ -494,10 +494,50 @@ async function syncLogsToSupabase(userIdArg) {
         saveDB();
       }
     }
+    return allOk;
   } catch (e) {
-    console.error('syncLogsToSupabase error:', e);
+    console.warn('[sync] workout_sessions sync error:', (e && e.message) ? e.message : e);
+    return false;
   }
 }
+
+// ── Dual-write workout_sessions DÉCLENCHÉ À t=0 (fin de séance) ───────────────
+// Aligné sur le chemin qui marche déjà (le feed) : l'écriture part PENDANT que
+// l'utilisateur est encore à l'écran, au lieu de dépendre du syncToCloud debouncé
+// (2 s) qui lançait syncLogsToSupabase en fire-and-forget APRÈS le toast — tué quand
+// l'app se refermait, d'où workout_sessions figé. L'uid est résolu via le cache
+// (getMyUserIdAsync → _cachedUid) : pas de getUser() concurrent → pas de lock gotrue.
+// ⚠️ Ce n'est PAS syncToCloud() : on ne pousse QUE workout_sessions, jamais le blob.
+// _wsPendingFlush reste vrai tant que l'écriture n'a pas abouti → dernier essai
+// best-effort sur pagehide / visibilitychange:hidden (filet de fermeture d'app).
+var _wsPendingFlush = false;
+
+async function pushWorkoutSessionsNow() {
+  if (!supaClient || !cloudSyncEnabled || !db.logs || db.logs.length === 0) return;
+  _wsPendingFlush = true;
+  var uid = await getMyUserIdAsync();
+  if (!uid) return; // pas (encore) connecté : on garde _wsPendingFlush → retenté plus tard
+  var ok = false;
+  try {
+    ok = await syncLogsToSupabase(uid);
+  } catch (e) {
+    console.warn('[sync] workout_sessions upsert failed:', (e && e.message) ? e.message : e);
+  }
+  if (ok) _wsPendingFlush = false;
+}
+
+// Filet de fermeture : si une écriture workout_sessions est encore en attente quand
+// l'app passe en arrière-plan / se ferme, tenter un dernier flush (best-effort, non
+// bloquant). pagehide (et non 'unload', déprécié/peu fiable mobile) + visibilitychange
+// hidden couvrent le cas « l'utilisateur referme l'app juste après avoir loggé ».
+function _flushWorkoutSessionsOnHide() {
+  if (!_wsPendingFlush) return;
+  try { pushWorkoutSessionsNow(); } catch (e) {}
+}
+window.addEventListener('pagehide', _flushWorkoutSessionsOnHide);
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden') _flushWorkoutSessionsOnHide();
+});
 // P3-c — reconstruit db.logs à partir des lignes workout_sessions (data jsonb =
 // log complet), trié par timestamp desc. Pur → vm-extractable.
 function _logsFromSessionRows(rows) {

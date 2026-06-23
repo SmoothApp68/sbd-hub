@@ -31274,6 +31274,13 @@ function goFinishWorkout() {
   // Social: publish session activity
   try { publishSessionActivity(session); } catch(e) {}
 
+  // Dual-write workout_sessions à t=0 (même chemin que le feed) : on ne dépend plus
+  // du syncToCloud debouncé qui partait en fire-and-forget APRÈS le toast — la séance
+  // n'atteignait plus workout_sessions si l'app se refermait juste après le log.
+  // pushWorkoutSessionsNow résout l'uid via le cache (pas de getUser concurrent → pas
+  // de lock gotrue) et ne pousse QUE workout_sessions (jamais syncToCloud/le blob).
+  try { if (typeof pushWorkoutSessionsNow === 'function') pushWorkoutSessionsNow(); } catch(e) {}
+
   // Social: detect new PRs and publish + celebration
   try {
     recalcBestPR();

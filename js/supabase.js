@@ -557,6 +557,91 @@ async function hydrateLogsFromCloud(userIdArg) {
   }
 }
 
+// SYNC-X — horloge d'édition d'un log : editedAt (posé à chaque mutation, Lot 1) ;
+// fallback timestamp de séance pour les anciennes données. Pure.
+function _logEditClock(log) {
+  return (log && (log.editedAt || log.timestamp)) || 0;
+}
+
+// SYNC-X — fusion NON-DESTRUCTIVE de deux jeux de logs par identité (log.id), en
+// gardant la version à l'horloge d'ÉDITION la plus récente (PISTE #2 : editedAt, pas
+// timestamp de séance). Additive : une séance présente d'un seul côté est conservée
+// (jamais supprimée sur simple absence — la suppression cross-device exige un tombstone,
+// ABSENT ici → gap documenté). Logs sans id concaténés. Idempotente. Pure → testable.
+function _reconcileLogs(localLogs, remoteLogs) {
+  var map = {};
+  var noId = [];
+  (remoteLogs || []).forEach(function(log) {
+    if (log && log.id) map[log.id] = log;
+    else if (log) noId.push(log);
+  });
+  (localLogs || []).forEach(function(log) {
+    if (log && log.id) {
+      if (!map[log.id] || _logEditClock(log) > _logEditClock(map[log.id])) map[log.id] = log;
+    } else if (log) {
+      noId.push(log);
+    }
+  });
+  return Object.keys(map).map(function(k) { return map[k]; })
+    .concat(noId)
+    .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+}
+
+// SYNC-X (PISTE #1) — réconcilie workout_sessions dans un local PEUPLÉ au pull : ajoute
+// les séances distantes absentes en local (sync incrémentale cross-device). Efficient :
+// on lit d'abord les session_id (léger) et on ne télécharge le data QUE des manquantes
+// (sur un appareil à jour : 0 manquant → 0 fetch → no-op idempotent). L'édition d'une
+// séance EXISTANTE ne se propage pas ici (faute de colonne editedAt sur workout_sessions)
+// — gap documenté ; piste #2 empêche au moins l'écrasement d'une édition au merge du blob.
+async function reconcileLogsFromCloud(userIdArg) {
+  if (!supaClient || !cloudSyncEnabled) return false;
+  try {
+    var uid = userIdArg;
+    if (!uid) {
+      const { data: { user } } = await supaClient.auth.getUser();
+      if (!user) return false;
+      uid = user.id;
+    }
+    var localIds = {};
+    (db.logs || []).forEach(function(l) { if (l && l.id) localIds[l.id] = true; });
+    // 1) ids distants (colonne légère, jamais le jsonb data)
+    var remoteIds = [];
+    var from = 0;
+    var IDBATCH = 1000;
+    while (true) {
+      const { data, error } = await supaClient
+        .from('workout_sessions').select('session_id').eq('user_id', uid)
+        .range(from, from + IDBATCH - 1);
+      if (error) { console.error('reconcile ids error:', error); return false; }
+      if (!data || data.length === 0) break;
+      data.forEach(function(r) { if (r && r.session_id) remoteIds.push(r.session_id); });
+      if (data.length < IDBATCH) break;
+      from += IDBATCH;
+    }
+    // 2) séances distantes absentes en local
+    var missing = remoteIds.filter(function(id) { return !localIds[id]; });
+    if (missing.length === 0) return false; // idempotent : rien à ajouter
+    // 3) télécharger le data des seules manquantes (batches de 200)
+    var added = [];
+    for (var i = 0; i < missing.length; i += 200) {
+      var batch = missing.slice(i, i + 200);
+      const { data, error } = await supaClient
+        .from('workout_sessions').select('data').eq('user_id', uid).in('session_id', batch);
+      if (error) { console.error('reconcile data error:', error); break; }
+      (data || []).forEach(function(r) { if (r && r.data) added.push(r.data); });
+    }
+    if (added.length === 0) return false;
+    db.logs = _reconcileLogs(db.logs, added);
+    saveDBNow();
+    if (typeof recalcBestPR === 'function') recalcBestPR();
+    if (typeof refreshUI === 'function') refreshUI();
+    return true;
+  } catch (e) {
+    console.error('reconcileLogsFromCloud error:', e);
+    return false;
+  }
+}
+
 async function syncFromCloud() {
   if (!supaClient) return false;
   try {
@@ -587,29 +672,14 @@ async function syncFromCloud() {
         _activeBackup.exercises && _activeBackup.exercises.length > 0 &&
         !_activeBackup.isFinished;
       var _didMergeLogs = false;
-      // A2-F1 — Merge par id : union des logs local + cloud, dédupliqués par log.id
-      // (remplace l'ancien "celui qui a le plus de logs gagne" qui perdait des
-      // séances divergentes en multi-appareils). Le plus récent par timestamp gagne.
+      // A2-F1 — Merge par id : union des logs local + cloud, dédupliqués par log.id.
+      // SYNC-X : départage désormais par horloge d'ÉDITION (editedAt), pas par timestamp.
       var _localLogsArr = (typeof db !== 'undefined' && db && db.logs) ? db.logs : [];
       var _cloudLogsArr = (cloudData && cloudData.logs) ? cloudData.logs : [];
-      var _mergedMap = {};
-      var _noIdLogs = [];
-      _cloudLogsArr.forEach(function(log) {
-        if (log && log.id) _mergedMap[log.id] = log;
-        else if (log) _noIdLogs.push(log);
-      });
-      _localLogsArr.forEach(function(log) {
-        if (log && log.id) {
-          if (!_mergedMap[log.id] || (log.timestamp || 0) > (_mergedMap[log.id].timestamp || 0)) {
-            _mergedMap[log.id] = log;
-          }
-        } else if (log) {
-          _noIdLogs.push(log); // log sans id → conservé pour ne perdre aucune donnée
-        }
-      });
-      var _mergedLogs = Object.keys(_mergedMap).map(function(k) { return _mergedMap[k]; })
-        .concat(_noIdLogs)
-        .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+      // PISTE #2 — fusion non-destructive par horloge d'ÉDITION (editedAt), via le
+      // helper partagé _reconcileLogs : une édition non poussée n'est plus écrasée à
+      // égalité de timestamp de séance (l'ancien départage `local.timestamp > cloud`).
+      var _mergedLogs = _reconcileLogs(_localLogsArr, _cloudLogsArr);
       var _mergedData = Object.assign({}, cloudData);
       _mergedData.logs = _mergedLogs;
       _mergedData.exercises = db.exercises || cloudData.exercises;
@@ -640,10 +710,13 @@ async function syncFromCloud() {
       if (!db.social) db.social = {};
       if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
       if (!db.gamification) db.gamification = {};
-      // P3-c — logs hors blob : si le local est vide après merge (nouvel appareil),
-      // hydrater l'historique depuis workout_sessions.
+      // logs hors blob : local VIDE → hydratation complète (nouvel appareil) ;
+      // local PEUPLÉ → réconciliation incrémentale (PISTE #1 : ajoute les séances
+      // distantes manquantes — sync cross-device des nouvelles séances).
       if (_shouldHydrateLogs(db.logs)) {
         await hydrateLogsFromCloud(user.id);
+      } else {
+        await reconcileLogsFromCloud(user.id);
       }
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
       db._cloudUpdatedAt = db.updatedAt || 0;

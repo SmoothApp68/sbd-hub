@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v292'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
+var SW_VERSION = 'trainhub-v293'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -11695,6 +11695,80 @@ function renderMesoView() {
   return html;
 }
 
+// LOT1 — Rendu réutilisable de la liste des backups de programme (rows + boutons
+// Prévisualiser/Restaurer/Supprimer). Source UNIQUE partagée par renderProgrammeV2
+// (vue live, bloc repliable) et renderProgramBuilderView (legacy). Renvoie '' si
+// aucun backup. Tolère les backups allégés (lit customProgramTemplate, jamais weeklyPlan).
+function buildBackupsListHtml() {
+  var backups = db.customProgramBackups;
+  if (!backups || !backups.length) return '';
+  var html = '';
+  backups.forEach(function(bk, i) {
+    var fmt = { day: 'numeric', month: 'long' };
+    var firstD = new Date(bk.firstUsedAt || bk.savedAt);
+    var lastD = new Date(bk.lastUsedAt || bk.savedAt);
+    var sc = bk.sessionCount || 0;
+    var usageStr;
+    if (sc === 0) {
+      var savedStr = new Date(bk.savedAt).toLocaleDateString('fr-FR', fmt);
+      usageStr = 'Sauvegardé le ' + savedStr + ' · jamais utilisé';
+    } else {
+      var firstStr = firstD.toLocaleDateString('fr-FR', fmt);
+      var lastStr = lastD.toLocaleDateString('fr-FR', fmt);
+      var sameDay = firstD.toDateString() === lastD.toDateString();
+      usageStr = (sameDay ? firstStr : 'Du ' + firstStr + ' au ' + lastStr) + ' · ' + sc + ' séance' + (sc > 1 ? 's' : '');
+    }
+    var bkTmpl = bk.customProgramTemplate;
+    var bkName = bkTmpl ? (bkTmpl.name || 'Programme Custom') : 'Programme Auto';
+    html +=
+      '<div style="display:flex;justify-content:space-between;align-items:center;' +
+      'padding:9px 12px;background:var(--surface);border:0.5px solid var(--border);' +
+      'border-radius:10px;margin-bottom:6px;">' +
+        '<div>' +
+          '<div style="font-size:12px;font-weight:600;">' + escapeHtml(bkName) + '</div>' +
+          '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + usageStr + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;">' +
+          '<button onclick="previewBackup(' + i + ')" ' +
+          'style="padding:6px 10px;background:none;border:1px solid var(--border);' +
+          'border-radius:8px;color:var(--sub);font-size:11px;cursor:pointer;">👁</button>' +
+          '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
+          'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
+          'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Restaurer</button>' +
+          '<button onclick="deleteCustomProgramBackup(' + i + ')" ' +
+          'style="padding:6px 10px;background:none;border:1px solid var(--red);' +
+          'border-radius:8px;color:var(--red);font-size:11px;cursor:pointer;">🗑</button>' +
+        '</div>' +
+      '</div>';
+  });
+  return html;
+}
+
+// LOT1 — Bloc repliable « 📦 Versions sauvegardées » pour la vue live (replié par
+// défaut). Renvoie '' si aucun backup.
+function buildBackupsCollapsibleHtml() {
+  var rows = buildBackupsListHtml();
+  if (!rows) return '';
+  var n = (db.customProgramBackups || []).length;
+  return '<div style="margin:20px 12px 0;border-top:1px solid var(--border);padding-top:12px;">'
+    + '<div onclick="toggleBackupsList()" style="display:flex;justify-content:space-between;'
+    + 'align-items:center;cursor:pointer;font-size:13px;font-weight:700;color:var(--sub);">'
+    + '<span>📦 Versions sauvegardées (' + n + ')</span>'
+    + '<span id="v2BackupsChevron">▸</span></div>'
+    + '<div id="v2BackupsList" style="display:none;margin-top:10px;">' + rows + '</div>'
+    + '</div>';
+}
+
+// LOT1 — Toggle du bloc repliable des backups.
+function toggleBackupsList() {
+  var b = document.getElementById('v2BackupsList');
+  if (!b) return;
+  var open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  var c = document.getElementById('v2BackupsChevron');
+  if (c) c.textContent = open ? '▸' : '▾';
+}
+
 function renderProgrammeV2() {
   var container = document.getElementById('programmeV2Content');
   if (!container) return;
@@ -11705,7 +11779,8 @@ function renderProgrammeV2() {
       + 'Génère ton programme pour commencer.</p>'
       + '<button onclick="generateWeeklyPlan()" style="background:#a78bfa;border:none;'
       + 'border-radius:10px;padding:10px 22px;color:#fff;font-size:14px;font-weight:600;'
-      + 'cursor:pointer;">⚡ Générer mon programme</button></div>';
+      + 'cursor:pointer;">⚡ Générer mon programme</button></div>'
+      + buildBackupsCollapsibleHtml(); // LOT1 — restaurer un backup même sans programme actif
     return;
   }
 
@@ -11753,6 +11828,7 @@ function renderProgrammeV2() {
     + 'border:0.5px solid var(--border);border-radius:10px;padding:10px;'
     + 'color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;">⚡ Nouveau programme</button>'
     + '</div>';
+  h += buildBackupsCollapsibleHtml(); // LOT1 — section « Versions sauvegardées » (repliable) en bas de la vue mésocycle
 
   container.innerHTML = h;
 
@@ -13571,50 +13647,13 @@ function renderProgramBuilderView(container) {
     modeHtml = renderProgramPowerlifting();
   }
 
+  // LOT1 — source unique : rows via buildBackupsListHtml() (mêmes boutons câblés).
   var backupsHtml = '';
-  var backups = db.customProgramBackups;
-  if (backups && backups.length) {
-    backupsHtml += '<div style="margin-top:20px;">';
-    backupsHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--sub);">📦 Versions sauvegardées</div>';
-    backups.forEach(function(bk, i) {
-      var fmt = { day: 'numeric', month: 'long' };
-      var firstD = new Date(bk.firstUsedAt || bk.savedAt);
-      var lastD = new Date(bk.lastUsedAt || bk.savedAt);
-      var sc = bk.sessionCount || 0;
-      var usageStr;
-      if (sc === 0) {
-        var savedStr = new Date(bk.savedAt).toLocaleDateString('fr-FR', fmt);
-        usageStr = 'Sauvegardé le ' + savedStr + ' · jamais utilisé';
-      } else {
-        var firstStr = firstD.toLocaleDateString('fr-FR', fmt);
-        var lastStr = lastD.toLocaleDateString('fr-FR', fmt);
-        var sameDay = firstD.toDateString() === lastD.toDateString();
-        usageStr = (sameDay ? firstStr : 'Du ' + firstStr + ' au ' + lastStr) + ' · ' + sc + ' séance' + (sc > 1 ? 's' : '');
-      }
-      var bkTmpl = bk.customProgramTemplate;
-      var bkName = bkTmpl ? (bkTmpl.name || 'Programme Custom') : 'Programme Auto';
-      backupsHtml +=
-        '<div style="display:flex;justify-content:space-between;align-items:center;' +
-        'padding:9px 12px;background:var(--surface);border:0.5px solid var(--border);' +
-        'border-radius:10px;margin-bottom:6px;">' +
-          '<div>' +
-            '<div style="font-size:12px;font-weight:600;">' + escapeHtml(bkName) + '</div>' +
-            '<div style="font-size:11px;color:var(--sub);margin-top:2px;">' + usageStr + '</div>' +
-          '</div>' +
-          '<div style="display:flex;gap:6px;">' +
-            '<button onclick="previewBackup(' + i + ')" ' +
-            'style="padding:6px 10px;background:none;border:1px solid var(--border);' +
-            'border-radius:8px;color:var(--sub);font-size:11px;cursor:pointer;">👁</button>' +
-            '<button onclick="restoreCustomProgramBackup(' + i + ')" ' +
-            'style="padding:6px 12px;background:var(--accent);color:white;border:none;' +
-            'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Restaurer</button>' +
-            '<button onclick="deleteCustomProgramBackup(' + i + ')" ' +
-            'style="padding:6px 10px;background:none;border:1px solid var(--red);' +
-            'border-radius:8px;color:var(--red);font-size:11px;cursor:pointer;">🗑</button>' +
-          '</div>' +
-        '</div>';
-    });
-    backupsHtml += '</div>';
+  var _bkRows = buildBackupsListHtml();
+  if (_bkRows) {
+    backupsHtml = '<div style="margin-top:20px;">'
+      + '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--sub);">📦 Versions sauvegardées</div>'
+      + _bkRows + '</div>';
   }
 
   var footerHtml =

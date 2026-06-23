@@ -3977,6 +3977,98 @@ const CHALLENGE_TEMPLATES = [
   { icon: '🦵', label: 'PR Squat ce mois', type: 'weight', target: null, duration: 30, exercise: 'Squat' }
 ];
 
+// ============================================================
+// SCORING AUTOMATIQUE DES DÉFIS (Lot B)
+// Chaque appareil calcule SON propre score depuis db.logs (local, privé) sur la
+// fenêtre ABSOLUE [start_date, end_date] et n'écrit que current_value de SA ligne.
+// ============================================================
+
+// Normalisation %PDC (type 'weight' uniquement). Pure.
+function _normalizeWeightScore(e1rm, bw) {
+  var w = (bw && bw > 0) ? bw : (typeof BW_FALLBACK_KG !== 'undefined' ? BW_FALLBACK_KG : 80);
+  return (e1rm > 0) ? (e1rm / w) : 0;
+}
+
+// Cœur pur : score depuis une liste de logs + poids de corps, fenêtre ABSOLUE.
+// frequency → nb de séances ; volume → tonnage brut (kg) ; weight → meilleur e1RM
+// (calcE1RM, recalculé sur les séries de travail de la fenêtre) normalisé %PDC.
+function _computeChallengeScoreFromLogs(challenge, logs, bw) {
+  if (!challenge) return 0;
+  var startTs = challenge.start_date ? new Date(challenge.start_date).getTime() : 0;
+  var endTs = challenge.end_date ? new Date(challenge.end_date).getTime() : Infinity;
+  var inWindow = (logs || []).filter(function(l) {
+    var t = l && l.timestamp;
+    return typeof t === 'number' && t >= startTs && t <= endTs;
+  });
+  if (challenge.type === 'frequency') return inWindow.length;
+  if (challenge.type === 'volume') {
+    return inWindow.reduce(function(s, l) { return s + (parseFloat(l.volume) || 0); }, 0);
+  }
+  if (challenge.type === 'weight') {
+    var target = challenge.target_exercise || '';
+    var targetType = (typeof getSBDType === 'function') ? getSBDType(target) : null;
+    var best = 0;
+    inWindow.forEach(function(l) {
+      (l.exercises || []).forEach(function(exo) {
+        var name = exo.name || '';
+        var match = targetType
+          ? ((typeof getSBDType === 'function') && getSBDType(name) === targetType)
+          : (target && name.toLowerCase() === target.toLowerCase());
+        if (!match) return;
+        (exo.allSets || exo.series || []).forEach(function(set) {
+          if (set.setType === 'warmup' || set.isWarmup) return;
+          var w = set.weight || 0, r = set.reps || 0;
+          if (w > 0 && r > 0 && typeof calcE1RM === 'function') {
+            var e = calcE1RM(w, r);
+            if (e > best) best = e;
+          }
+        });
+      });
+    });
+    return _normalizeWeightScore(best, bw);
+  }
+  return 0;
+}
+
+// Wrapper : MON score depuis db.logs + getUserBW().
+function computeMyChallengeScore(challenge, uid) {
+  var logs = (typeof db !== 'undefined' && db && db.logs) ? db.logs : [];
+  var bw = (typeof getUserBW === 'function') ? getUserBW()
+    : (typeof BW_FALLBACK_KG !== 'undefined' ? BW_FALLBACK_KG : 80);
+  return _computeChallengeScoreFromLogs(challenge, logs, bw);
+}
+
+// Formatage d'affichage par type. Pure. weight → ratio %PDC à 2 décimales
+// (ex. 1.78 → « 1.78× PDC », plus de Math.round qui afficherait « 2 »).
+function formatChallengeValue(value, type) {
+  var v = value || 0;
+  if (type === 'weight') return v.toFixed(2) + '× PDC';
+  if (type === 'volume') return Math.round(v) + ' kg';
+  return String(Math.round(v));
+}
+
+// Recalcule MON score pour mes défis ACTIFS et n'écrit current_value que s'il a
+// changé (anti-spam réseau). Réutilise les données déjà chargées par le render
+// (aucun fetch en plus) et met à jour myPart en mémoire pour un rendu immédiat.
+async function refreshMyChallengeScores(uid, challenges, participants) {
+  if (!supaClient || !cloudSyncEnabled || !uid) return;
+  var now = Date.now();
+  for (var i = 0; i < (challenges || []).length; i++) {
+    var c = challenges[i];
+    if (!c || !c.end_date || new Date(c.end_date).getTime() <= now) continue; // actifs seulement
+    var myPart = (participants || []).find(function(p) { return p.challenge_id === c.id && p.user_id === uid; });
+    if (!myPart) continue; // je ne participe pas → je n'écris pas
+    var score = computeMyChallengeScore(c, uid);
+    var rounded = Math.round(score * 1000) / 1000;
+    if (Math.abs((myPart.current_value || 0) - rounded) < 1e-6) continue; // inchangé → pas d'écriture
+    try {
+      var up = await supaClient.from('challenge_participants').update({ current_value: rounded })
+        .eq('challenge_id', c.id).eq('user_id', uid);
+      if (!up.error) myPart.current_value = rounded;
+    } catch (e) { console.error('refreshMyChallengeScores error:', e); }
+  }
+}
+
 async function renderChallengesTab() {
   const templatesEl = document.getElementById('challengeTemplates');
   const activeEl = document.getElementById('challengesActiveList');
@@ -4057,6 +4149,9 @@ async function renderChallengesTab() {
       allParticipants = data || [];
     }
 
+    // Lot B — recalcul auto de MON score avant rendu (anti-spam : écrit si changé)
+    await refreshMyChallengeScores(uid, active, allParticipants);
+
     // Load profiles for all involved users
     const involvedIds = new Set();
     allChallenges.forEach(c => involvedIds.add(c.creator_id));
@@ -4117,7 +4212,7 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
       html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;' + (isMe ? 'background:rgba(10,132,255,0.05);padding:4px 6px;border-radius:8px;' : '') + '">';
       html += '<span style="font-size:11px;font-weight:700;width:18px;color:' + (i === 0 && !isFinished ? 'var(--green)' : 'var(--sub)') + ';">' + (i + 1) + '.</span>';
       html += '<span style="font-size:12px;font-weight:' + (isMe ? '700' : '500') + ';flex:1;">' + escapeHtml(prof.username) + '</span>';
-      html += '<span style="font-size:12px;font-weight:700;color:var(--blue);">' + Math.round(val) + (t.unit ? ' ' + t.unit : '') + '</span>';
+      html += '<span style="font-size:12px;font-weight:700;color:var(--blue);">' + formatChallengeValue(val, challenge.type) + '</span>';
       if (challenge.target_value) {
         html += '<div style="width:60px;height:4px;background:var(--border);border-radius:2px;"><div style="height:4px;background:var(--blue);border-radius:2px;width:' + pct + '%;"></div></div>';
       }
@@ -4127,14 +4222,10 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
     html += '<div style="font-size:12px;color:var(--sub);text-align:center;padding:8px;">Aucun participant</div>';
   }
 
-  // Actions
-  if (!isFinished) {
+  // Actions — Lot B : scoring auto, plus de bouton manuel. Seul « Rejoindre » subsiste.
+  if (!isFinished && !isParticipant) {
     html += '<div style="display:flex;gap:8px;margin-top:10px;">';
-    if (!isParticipant) {
-      html += '<button class="btn" style="font-size:12px;padding:8px 16px;" onclick="joinChallenge(\'' + challenge.id + '\',this)">Rejoindre</button>';
-    } else {
-      html += '<button class="btn" style="font-size:12px;padding:8px 16px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + challenge.id + '\')">📝 Mettre à jour</button>';
-    }
+    html += '<button class="btn" style="font-size:12px;padding:8px 16px;" onclick="joinChallenge(\'' + challenge.id + '\',this)">Rejoindre</button>';
     html += '</div>';
   }
 
@@ -4278,44 +4369,8 @@ async function joinChallenge(challengeId, btnEl) {
   }
 }
 
-function showUpdateChallengeProgress(challengeId) {
-  const existing = document.getElementById('chalUpdateSheet');
-  if (existing) existing.remove();
-
-  const sheet = document.createElement('div');
-  sheet.id = 'chalUpdateSheet';
-  sheet.className = 'go-bottom-sheet';
-  sheet.style.display = '';
-  sheet.innerHTML =
-    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'chalUpdateSheet\').remove()"></div>' +
-    '<div class="go-bottom-sheet-content">' +
-      '<div class="go-bottom-sheet-handle"></div>' +
-      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Mettre à jour ta progression</div>' +
-      '<input type="number" id="chalUpdateValue" placeholder="Nouvelle valeur" style="margin-bottom:12px;text-align:center;font-size:18px;">' +
-      '<button class="btn" onclick="updateSocialChallengeProgress(\'' + challengeId + '\')">Enregistrer</button>' +
-    '</div>';
-  document.body.appendChild(sheet);
-}
-
-async function updateSocialChallengeProgress(challengeId) {
-  const uid = await getMyUserIdAsync();
-  if (!uid || !supaClient) return;
-  const val = parseFloat(document.getElementById('chalUpdateValue').value);
-  if (isNaN(val)) { showToast('Entre une valeur'); return; }
-  try {
-    await supaClient.from('challenge_participants').update({
-      current_value: val
-    }).eq('challenge_id', challengeId).eq('user_id', uid);
-
-    const sheet = document.getElementById('chalUpdateSheet');
-    if (sheet) sheet.remove();
-    showToast('Progression mise à jour !');
-    renderChallengesTab();
-  } catch (e) {
-    console.error('updateSocialChallengeProgress error:', e);
-    showToast('Erreur');
-  }
-}
+// Lot B — scoring MANUEL retiré (showUpdateChallengeProgress / updateSocialChallengeProgress).
+// Le score est désormais calculé automatiquement (computeMyChallengeScore + refreshMyChallengeScores).
 
 // ============================================================
 // SUPABASE PAUSE DETECTION & SAFE WRAPPER
@@ -5131,6 +5186,9 @@ async function renderFeedChallengesV2() {
     var active = allChallenges.filter(function(c) { return new Date(c.end_date) > now; });
     var finished = allChallenges.filter(function(c) { return new Date(c.end_date) <= now; }).slice(0, 5);
 
+    // Lot B — recalcul auto de MON score avant rendu (écrit si changé)
+    await refreshMyChallengeScores(uid, active, allParticipants);
+
     var h = '';
 
     // Create button
@@ -5157,7 +5215,7 @@ async function renderFeedChallengesV2() {
         if (isJoined && myPart) {
           var pct = c.target_value ? Math.min(100, Math.round((myPart.current_value || 0) / c.target_value * 100)) : 0;
           h += '<div class="ch2-progress">';
-          h += '<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="font-weight:700;">Ma position : #' + myRank + '</span><span style="color:var(--blue);font-weight:700;">' + Math.round(myPart.current_value || 0) + ' / ' + (c.target_value || '∞') + '</span><span style="color:var(--green);font-weight:700;">' + pct + '% ↑</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="font-weight:700;">Ma position : #' + myRank + '</span><span style="color:var(--blue);font-weight:700;">' + formatChallengeValue(myPart.current_value, c.type) + (c.target_value ? ' / ' + c.target_value : '') + '</span><span style="color:var(--green);font-weight:700;">' + pct + '% ↑</span></div>';
           h += '<div class="ch2-bar-bg"><div class="ch2-bar-fill" style="width:' + pct + '%;background:var(--green);"></div></div>';
           if (sorted.length >= 2) {
             h += '<div class="ch2-podium-row">Podium : 🥇 ' + escapeHtml((profiles[sorted[0].user_id] || {}).username || '?');
@@ -5165,7 +5223,6 @@ async function renderFeedChallengesV2() {
             h += '</div>';
           }
           h += '</div>';
-          h += '<button class="btn" style="font-size:12px;padding:8px 16px;margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text);" onclick="showUpdateChallengeProgress(\'' + c.id + '\')">📝 Mettre à jour</button>';
         } else {
           h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">';
           h += '<span style="font-size:11px;color:var(--sub);">Créé par ' + escapeHtml((profiles[c.creator_id] || {}).username || '?') + '</span>';
@@ -5192,7 +5249,7 @@ async function renderFeedChallengesV2() {
         if (sorted.length) {
           h += '<div style="font-size:11px;color:var(--sub);margin-top:4px;">';
           sorted.slice(0, 3).forEach(function(p, i) {
-            h += (medals[i] || (i + 1) + '.') + ' ' + escapeHtml((profiles[p.user_id] || {}).username || '?') + ' · ' + Math.round(p.current_value || 0) + '  ';
+            h += (medals[i] || (i + 1) + '.') + ' ' + escapeHtml((profiles[p.user_id] || {}).username || '?') + ' · ' + formatChallengeValue(p.current_value, c.type) + '  ';
           });
           h += '</div>';
         }

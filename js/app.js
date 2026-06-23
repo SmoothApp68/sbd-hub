@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v294'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
+var SW_VERSION = 'trainhub-v295'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';

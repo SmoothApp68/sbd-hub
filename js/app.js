@@ -7202,28 +7202,6 @@ async function _renderLeaderboard() {
   } catch(e) { el.innerHTML = ''; }
 }
 
-async function sendFriendChallenge(friendUserId, metric, periodDays) {
-  try {
-    if (typeof supaClient === 'undefined' || !supaClient) return;
-    var authRes = await supaClient.auth.getUser();
-    if (!authRes.data.user) return;
-    var endsAt = new Date(Date.now() + periodDays * 86400000).toISOString();
-    var res = await supaClient.from('friend_challenges').insert({
-      challenger_id: authRes.data.user.id, challenged_id: friendUserId,
-      metric: metric, period_days: periodDays, ends_at: endsAt, status: 'pending'
-    });
-    if (res.error) throw res.error;
-    showToast('⚔️ Défi envoyé ! Ton ami a 24h pour accepter.');
-  } catch(e) { showToast('❌ Erreur lors de l\'envoi du défi'); }
-}
-
-async function acceptFriendChallenge(challengeId) {
-  try {
-    await supaClient.from('friend_challenges').update({status:'active'}).eq('id', challengeId);
-    showToast('⚔️ Défi accepté ! Que le meilleur gagne.');
-  } catch(e) { showToast('❌ Erreur'); }
-}
-
 // ── DAILY HIGHLIGHT + GHOST MODE — Gemini v207 ────────────────────────
 // Max 1 notification sociale par jour : résumé groupé des PRs des amis.
 async function triggerDailyHighlight() {
@@ -7313,8 +7291,8 @@ function _buildChallengeTemplate(metricKey, days) {
   return { label: m.label, type: m.type, exercise: m.exercise, target: null, duration: d };
 }
 
-// Bottom-sheet réutilisable du picker (pattern showCreateChallengeModal). showModal()
-// est un dialogue confirm/cancel — inadapté à du contenu ; on utilise go-bottom-sheet.
+// Bottom-sheet réutilisable du picker. showModal() est un dialogue confirm/cancel —
+// inadapté à du contenu ; on utilise go-bottom-sheet.
 function _showChallengeSheet(title, innerHtml) {
   var existing = document.getElementById('challengePickerSheet');
   if (existing) existing.remove();

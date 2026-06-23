@@ -4362,55 +4362,6 @@ function renderChallengeCard(challenge, participants, profiles, uid) {
   return html;
 }
 
-function showCreateChallengeModal() {
-  // Remove existing modal if any
-  const existing = document.getElementById('challengeModalSheet');
-  if (existing) existing.remove();
-
-  const sheet = document.createElement('div');
-  sheet.id = 'challengeModalSheet';
-  sheet.className = 'go-bottom-sheet';
-  sheet.style.display = '';
-  sheet.innerHTML =
-    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'challengeModalSheet\').remove()"></div>' +
-    '<div class="go-bottom-sheet-content" style="max-height:80vh;overflow-y:auto;">' +
-      '<div class="go-bottom-sheet-handle"></div>' +
-      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">Créer un défi</div>' +
-      '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Titre</div>' +
-        '<input type="text" id="chalTitle" placeholder="Mon défi..." maxlength="60" style="margin-bottom:0;">' +
-      '</div>' +
-      '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Type</div>' +
-        '<select id="chalType" style="margin-bottom:0;">' +
-          '<option value="volume">📊 Volume (tonnage)</option>' +
-          '<option value="reps">💪 Reps</option>' +
-          '<option value="weight">🏋️ Charge max (e1RM)</option>' +
-          '<option value="frequency">🔥 Nb séances</option>' +
-        '</select>' +
-      '</div>' +
-      '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Exercice ciblé (optionnel)</div>' +
-        '<input type="text" id="chalExercise" placeholder="Ex: Bench Press" maxlength="50" style="margin-bottom:0;">' +
-      '</div>' +
-      '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Objectif</div>' +
-        '<input type="number" id="chalTarget" placeholder="Ex: 100" style="margin-bottom:0;">' +
-      '</div>' +
-      '<div style="margin-bottom:16px;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;margin-bottom:4px;">Durée</div>' +
-        '<select id="chalDuration" style="margin-bottom:0;">' +
-          '<option value="3">3 jours</option>' +
-          '<option value="7" selected>1 semaine</option>' +
-          '<option value="14">2 semaines</option>' +
-          '<option value="30">1 mois</option>' +
-        '</select>' +
-      '</div>' +
-      '<button class="btn" style="background:linear-gradient(135deg,var(--orange,#ff9500),var(--red,#ff3b30));border:none;font-size:14px;" onclick="createChallenge()">Lancer 🚀</button>' +
-    '</div>';
-  document.body.appendChild(sheet);
-}
-
 async function createChallenge(templateData) {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) { showToast('Connexion requise'); return; }

@@ -2330,23 +2330,6 @@ function selectDur(min) {
   event.currentTarget.classList.add('selected');
 }
 
-function toggleInjury(zone) {
-  const btn = document.querySelector('.ob-inj-btn[data-inj="'+zone+'"]');
-  if (obInjuries.includes(zone)) {
-    obInjuries = obInjuries.filter(z => z !== zone);
-    if (btn) btn.classList.remove('selected');
-  } else {
-    obInjuries.push(zone);
-    if (btn) btn.classList.add('selected');
-  }
-}
-
-function selectCardio(mode) {
-  obCardio = mode;
-  document.querySelectorAll('.ob-cardio-btn').forEach(b => b.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-}
-
 function doGenerateProgram() {
   const generated = generateProgram(obGoals, obFreq, obMat, obDuration, obInjuries, obCardio, obCompDate, obCompType, db.user.level);
   db.generatedProgram = generated;
@@ -7202,28 +7185,6 @@ async function _renderLeaderboard() {
   } catch(e) { el.innerHTML = ''; }
 }
 
-async function sendFriendChallenge(friendUserId, metric, periodDays) {
-  try {
-    if (typeof supaClient === 'undefined' || !supaClient) return;
-    var authRes = await supaClient.auth.getUser();
-    if (!authRes.data.user) return;
-    var endsAt = new Date(Date.now() + periodDays * 86400000).toISOString();
-    var res = await supaClient.from('friend_challenges').insert({
-      challenger_id: authRes.data.user.id, challenged_id: friendUserId,
-      metric: metric, period_days: periodDays, ends_at: endsAt, status: 'pending'
-    });
-    if (res.error) throw res.error;
-    showToast('⚔️ Défi envoyé ! Ton ami a 24h pour accepter.');
-  } catch(e) { showToast('❌ Erreur lors de l\'envoi du défi'); }
-}
-
-async function acceptFriendChallenge(challengeId) {
-  try {
-    await supaClient.from('friend_challenges').update({status:'active'}).eq('id', challengeId);
-    showToast('⚔️ Défi accepté ! Que le meilleur gagne.');
-  } catch(e) { showToast('❌ Erreur'); }
-}
-
 // ── DAILY HIGHLIGHT + GHOST MODE — Gemini v207 ────────────────────────
 // Max 1 notification sociale par jour : résumé groupé des PRs des amis.
 async function triggerDailyHighlight() {
@@ -7313,8 +7274,8 @@ function _buildChallengeTemplate(metricKey, days) {
   return { label: m.label, type: m.type, exercise: m.exercise, target: null, duration: d };
 }
 
-// Bottom-sheet réutilisable du picker (pattern showCreateChallengeModal). showModal()
-// est un dialogue confirm/cancel — inadapté à du contenu ; on utilise go-bottom-sheet.
+// Bottom-sheet réutilisable du picker. showModal() est un dialogue confirm/cancel —
+// inadapté à du contenu ; on utilise go-bottom-sheet.
 function _showChallengeSheet(title, innerHtml) {
   var existing = document.getElementById('challengePickerSheet');
   if (existing) existing.remove();
@@ -8684,118 +8645,6 @@ function renderDash() {
   }
 }
 
-
-// ============================================================
-// Résumé hebdomadaire — nombre de séances, durée, volume
-// ============================================================
-function renderWeeklySummary() {
-  var now = new Date();
-  var dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // Lundi = 0
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - dayOfWeek);
-  weekStart.setHours(0, 0, 0, 0);
-  var weekStartTs = weekStart.getTime();
-  var nowTs = now.getTime();
-
-  var sessions = 0, totalDuration = 0, totalVolume = 0;
-  (db.logs || []).forEach(function(log) {
-    // Utiliser timestamp (fiable) au lieu de log.date (string FR non parsable)
-    var ts = log.timestamp;
-    if (!ts) return;
-    if (ts >= weekStartTs && ts <= nowTs) {
-      sessions++;
-      // Duration est en secondes
-      if (log.duration) totalDuration += log.duration;
-      // Volume : utiliser log.volume (pré-calculé) ou recalculer
-      if (log.volume) {
-        totalVolume += log.volume;
-      } else {
-        (log.exercises || []).forEach(function(exo) {
-          (exo.series || exo.allSets || []).forEach(function(s) {
-            if (s.weight && s.reps) totalVolume += s.weight * s.reps;
-          });
-        });
-      }
-    }
-  });
-
-  var el;
-  el = document.getElementById('weekSessions');
-  if (el) el.textContent = sessions;
-
-  // Duration : convertir secondes → affichage lisible
-  el = document.getElementById('weekDuration');
-  if (el) {
-    var durMin = Math.round(totalDuration / 60);
-    if (durMin >= 60) {
-      var h = Math.floor(durMin / 60);
-      var m = durMin % 60;
-      el.textContent = h + 'h' + (m > 0 ? (m < 10 ? '0' : '') + m : '');
-    } else {
-      el.textContent = durMin + 'min';
-    }
-  }
-
-  el = document.getElementById('weekVolume');
-  if (el) el.textContent = totalVolume >= 1000 ? (totalVolume / 1000).toFixed(1) + 't' : Math.round(totalVolume) + 'kg';
-
-  // Message si aucune séance
-  var card = document.getElementById('weeklySummaryCard');
-  if (card && sessions === 0) {
-    var msgEl = card.querySelector('.weekly-empty-msg');
-    if (!msgEl) {
-      msgEl = document.createElement('div');
-      msgEl.className = 'weekly-empty-msg';
-      msgEl.style.cssText = 'text-align:center;padding:8px 0;font-size:12px;color:var(--sub);';
-      msgEl.textContent = 'Aucune séance cette semaine — c\'est le moment de s\'y mettre !';
-      card.appendChild(msgEl);
-    }
-    msgEl.style.display = sessions === 0 ? '' : 'none';
-  } else if (card) {
-    var exist = card.querySelector('.weekly-empty-msg');
-    if (exist) exist.style.display = 'none';
-  }
-}
-
-// ============================================================
-// Programme du jour — carte d'accueil
-// ============================================================
-function renderTodayProgram() {
-  var el = document.getElementById('todayProgramContent');
-  if (!el) return;
-  var todayDay = DAYS_FULL[new Date().getDay()];
-  var routine = getRoutine();
-  var label = routine[todayDay] || '';
-  var isRest = !label || /repos|😴/i.test(label);
-
-  var h = '';
-  if (isRest) {
-    h += '<div style="text-align:center;padding:8px 0;">';
-    h += '<div style="font-size:28px;margin-bottom:4px;">😴</div>';
-    h += '<div style="font-size:15px;font-weight:600;color:var(--sub);">Jour de repos</div>';
-    h += '</div>';
-    // Changer le bouton
-    var btn = document.getElementById('startTodayWorkoutBtn');
-    if (btn) { btn.textContent = 'Séance libre 🏋️'; }
-  } else {
-    h += '<div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;">' + label + '</div>';
-    // Afficher les exercices du jour
-    var exos = (db.routineExos && db.routineExos[todayDay]) ? db.routineExos[todayDay] : [];
-    if (!exos.length && db.generatedProgram) {
-      var gp = db.generatedProgram.find(function(p) { return p.day === todayDay && !p.isRest; });
-      if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return e.name || e; });
-    }
-    if (exos.length > 0) {
-      exos.forEach(function(name) {
-        var exoName = typeof name === 'string' ? name : (name && name.name) || 'Exercice';
-        h += '<div style="font-size:13px;color:var(--sub);padding:2px 0;">• ' + exoName + '</div>';
-      });
-    } else {
-      h += '<div style="font-size:13px;color:var(--sub);">' + todayDay + '</div>';
-    }
-  }
-  el.innerHTML = h;
-}
 
 // ============================================================
 // Total SBD estimé — barres + progression
@@ -16352,17 +16201,6 @@ function shareSessionToFeed(sessionId) {
   }
 }
 
-function toggleSession(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
-}
-function toggleScExo(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.toggle('open');
-  const chev = document.getElementById('chev-' + id);
-  if (chev) chev.classList.toggle('open', el.classList.contains('open'));
-}
 function deleteSessionFromList(logId) {
   showModal('Supprimer cette séance ?', 'Supprimer', 'var(--red)', () => {
     db.logs = db.logs.filter(l => l.id !== logId);
@@ -19411,29 +19249,6 @@ function renderCoachTodayHTML() {
   return html;
 }
 
-function getSetStyle(set) {
-  if (set.isBackOff || set.isBackoff) return 'background:rgba(255,159,10,0.13);border-left:3px solid var(--orange);border-radius:4px;';
-  if (set.isDropSet) return 'background:rgba(191,90,242,0.13);border-left:3px solid var(--purple,#BF5AF2);border-radius:4px;';
-  if (set.fatigueType === 'neural' && set.fatigueConfidence >= 0.60) {
-    return 'background:rgba(255,69,58,0.10);border-left:3px solid var(--red);border-radius:4px;';
-  }
-  if (set.fatigueType === 'muscular' && set.fatigueConfidence >= 0.60) {
-    return 'background:rgba(255,159,10,0.10);border-left:3px solid var(--orange);border-radius:4px;';
-  }
-  if (set.isWarmup) return 'opacity:0.5;';
-  return '';
-}
-
-function getSetLabel(set) {
-  if (set.isBackOff || set.isBackoff) return '🟠 Back-off';
-  if (set.isDropSet) return '🟣 Drop';
-  if (set.fatigueType === 'neural')    return '🔴 SNC';
-  if (set.fatigueType === 'muscular')  return '🟠 Muscu';
-  if (set.fatigueType === 'overload')  return '⚠️ Surcharge';
-  if (set.isWarmup) return 'Échauff.';
-  return 'Série';
-}
-
 function renderBackOffSuggestion() {
   if (typeof computeBackOffSets !== 'function') return '';
   var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
@@ -19515,153 +19330,6 @@ function updateTargetFromCoach(type, newTarget) {
   db.user.targets[type] = parseFloat(newTarget) || newTarget;
   saveDBNow();
   renderCoachToday();
-}
-
-function coachSelectDay(day) {
-  _coachSelectedDay = day;
-  renderCoachToday();
-}
-
-function renderCoachDayDetail(day, routine, donedays, weekStart) {
-  const label = routine[day] || '';
-  const isRest = !label || /repos|😴|natation|🏊/i.test(label);
-
-  if (isRest) {
-    const isSwim = /natation|🏊/i.test(label);
-    return '<div class="coach-rest-day">' + (isSwim ? '🏊 Natation — récupération active' : '😴 Repos complet') + '</div>';
-  }
-
-  // Check if day is already done (use actual log data)
-  const dayDone = !!donedays[day];
-  let exercises = [];
-  let usePlanSets = false;
-
-  // PRIORITY 1: routine manuelle for exercise list
-  const progExos = getProgExosForDay(day);
-
-  // PRIORITY 2: weeklyPlan for detailed sets
-  const plan = db.weeklyPlan;
-  let planDay = null;
-  if (plan && plan.days) {
-    planDay = plan.days.find(d => d.day === day && !d.rest);
-  }
-
-  // If day is done, use actual log data
-  if (dayDone) {
-    const weekLogs = (db.logs || []).filter(l => l.timestamp >= weekStart);
-    const dayLog = weekLogs.find(l => DAYS_FULL[new Date(l.timestamp).getDay()] === day);
-    if (dayLog && dayLog.exercises) {
-      exercises = dayLog.exercises.map(e => ({
-        name: e.name,
-        sets: (e.series || e.allSets || []).map((s, idx) => ({
-          label: (s.isWarmup || s.type === 'warmup') ? '🔥 Chauffe ' + (idx + 1) : 'Série ' + (idx + 1),
-          weight: s.weight || 0,
-          reps: s.reps || 0,
-          rpe: s.rpe || null,
-          rest: s.rest || null,
-          isWarmup: s.isWarmup || s.type === 'warmup',
-          isPR: s.isPR || false
-        })),
-        actual: true
-      }));
-    }
-  } else if (planDay && planDay.exercises && planDay.exercises.length) {
-    // Use weeklyPlan sets
-    exercises = planDay.exercises.map(pe => {
-      const matched = progExos.find(n => matchExoName(n, pe.name));
-      return {
-        name: pe.name,
-        sets: (pe.sets || []).map((s, idx) => {
-          const isW = s.isWarmup || false;
-          const isB = s.isBackoff || false;
-          const lbl = isW ? '🔥 Chauffe ' + (idx + 1) : (isB ? 'Back-off ' + (idx + 1) : 'Série ' + (idx + 1));
-          return { label: lbl, weight: s.weight || 0, reps: s.reps || 0, rpe: s.rpe || null, rest: pe.restSeconds || null, isWarmup: isW, isPR: false };
-        }),
-        actual: false
-      };
-    });
-    // Add any routine exercises not in plan
-    progExos.forEach(name => {
-      if (!exercises.find(e => matchExoName(e.name, name))) {
-        const prev = goGetPreviousSets(name);
-        exercises.push({ name: name, sets: _buildSetsFromHistory(prev), actual: false });
-      }
-    });
-  } else {
-    // Fallback: use routine + history
-    exercises = progExos.map(name => {
-      const prev = goGetPreviousSets(name);
-      return { name: name, sets: _buildSetsFromHistory(prev), actual: false };
-    });
-  }
-
-  if (!exercises.length) {
-    return '<div class="coach-rest-day" style="font-size:12px;">Aucun exercice configuré pour ' + day + '</div>';
-  }
-
-  let h = '<div style="margin-top:4px;">';
-  exercises.forEach((exo, idx) => {
-    const ms = _ecMuscleStyle(exo.name);
-    const shortName = exo.name.replace(/\s*\(.*\)/, '').trim();
-
-    // Summary: sets x reps @ weight
-    let summary = '';
-    const workSets = (exo.sets || []).filter(s => !s.isWarmup);
-    if (workSets.length > 0) {
-      const w = workSets[0].weight;
-      const r = workSets[0].reps;
-      summary = workSets.length + '×' + r + (w ? ' @ ' + w + 'kg' : '');
-    }
-
-    // Trend vs last session
-    let trendHtml = '';
-    if (!exo.actual) {
-      var pts = [];
-      var desc = getSortedLogs();
-      for (var i = 0; i < desc.length && pts.length < 4; i++) {
-        var found = desc[i].exercises.find(function(e) { return matchExoName(e.name, exo.name) && e.maxRM > 0; });
-        if (found) pts.push(found.maxRM);
-      }
-      if (pts.length >= 2) {
-        var d = pts[0] - pts[1];
-        if (d > 0) trendHtml = '<span class="cec-trend" style="color:var(--green);">↑+' + d + 'kg</span>';
-        else if (d < 0) trendHtml = '<span class="cec-trend" style="color:var(--red);">↓' + d + 'kg</span>';
-        else trendHtml = '<span class="cec-trend" style="color:var(--sub);">→</span>';
-      }
-    }
-
-    const hasDetails = exo.sets && exo.sets.length > 0;
-    h += '<div class="coach-exo-card" id="coachExo' + idx + '">';
-    h += '<div class="coach-exo-card-header" onclick="toggleCoachExo(' + idx + ')">';
-    h += '<span class="cec-icon">' + ms.icon + '</span>';
-    h += '<span class="cec-name">' + shortName + '</span>';
-    h += trendHtml;
-    h += '<span class="cec-summary">' + summary + '</span>';
-    if (hasDetails) h += '<span class="cec-chevron">▾</span>';
-    h += '</div>';
-
-    if (hasDetails) {
-      h += '<div class="coach-exo-card-body">';
-      h += '<table class="coach-sets-table"><thead><tr><th>Label</th><th>Kg</th><th>Reps</th><th>Repos</th><th>RPE</th></tr></thead><tbody>';
-      exo.sets.forEach(s => {
-        let rowCls = s.isWarmup ? ' class="warmup"' : (s.isPR ? ' class="pr"' : '');
-        let rpeHtml = '';
-        if (s.rpe || s.grind) {
-          var _rpeLabel = typeof getSetRPELabel === 'function' ? getSetRPELabel(s) : (s.rpe || '—');
-          let rpeCls = (s.rpe || 0) <= 8 ? 'rpe-green' : ((s.rpe || 0) < 9.5 ? 'rpe-orange' : 'rpe-red');
-          if (s.grind) rpeCls = 'rpe-red';
-          rpeHtml = '<span class="rpe-badge ' + rpeCls + '">' + _rpeLabel + '</span>';
-        }
-        let restHtml = s.rest ? '<span style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:4px;font-size:10px;">' + fmtRest(s.rest) + '</span>' : '';
-        let prefix = s.isWarmup ? '🔥 ' : (s.isPR ? '🏆 ' : '');
-        h += '<tr' + rowCls + '><td>' + prefix + s.label + '</td><td>' + (s.weight || '—') + '</td><td>' + (s.reps || '—') + '</td><td>' + restHtml + '</td><td>' + rpeHtml + '</td></tr>';
-      });
-      h += '</tbody></table></div>';
-    }
-    h += '</div>';
-  });
-  h += '</div>';
-  return h;
 }
 
 function _buildSetsFromHistory(prev) {
@@ -19857,11 +19525,6 @@ function generateWeeklyReport() {
   upsertReport('weekly', h, null, weekKey);
 }
 
-function renderCoachReports() {
-  // Legacy — now handled by renderCoachHistory()
-  renderCoachHistory();
-}
-
 // ── Débrief post-séance v206 — Bottom Sheet (Expert / Débutant) ─────────
 // Format Gemini : 3 lignes Expert (tonnage + e1RM + SNC) OU Débutant
 // (record + streak + encouragement). Bottom Sheet iOS, auto-fermeture 15s.
@@ -20039,129 +19702,12 @@ let wpSelectedDay = DAYS_FULL[new Date().getDay()] === 'Dimanche' ? 'Lundi' : DA
 // Arrondi au 0.5kg
 function round05(v) { return Math.round(v * 2) / 2; }
 
-// ── Apprentissage progression personnalisée ─────────────────
-// Après 4+ semaines de données, calcule le taux de progression réel
-function getPersonalProgressionRate(exoName) {
-  const pts = [];
-  const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
-  for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exoName || matchExoName(e.name, exoName));
-    if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
-    pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
-    if (pts.length >= 8) break;
-  }
-  if (pts.length < 4) return null;
-  pts.sort((a,b) => a.x - b.x);
-  const n = pts.length;
-  const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
-  const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
-  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-  const kgPerWeek = Math.round(slope * 7 * 10) / 10;
-  const lastE1rm = pts[pts.length - 1].y;
-  if (lastE1rm <= 0) return null;
-  const pctPerWeek = Math.round((kgPerWeek / lastE1rm) * 1000) / 10;
-  return { kgPerWeek, pctPerWeek, lastE1rm, confidence: n >= 6 ? 'high' : 'medium', n };
-}
-
 // ── Catégorie d'exercice (global) ───────────────────────────
 function getExoCategory(name) {
   const n = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   if (/squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(n)) return 'big';
   if (/overhead|militaire|\bohp\b|rowing\b|tirage|row\b|traction|pull.?up|chin.?up|\bdips?\b|rdl|roumain|hip\s*thrust|pouss[ée]e\s*de\s*hanche|leg\s*press|presse\s*(a\s*)?cuisses|fentes?|\blunge|good\s*morning|inclin[eé]|d[eé]clin[eé]/.test(n)) return 'compound';
   return 'isolation';
-}
-
-// ── Helpers séries / reps / repos par catégorie et objectif ──
-// Sources : NSCA, PubMed (de Salles 2009), Stronger by Science, Pelland/Zourdos 2025
-function mapTrainingModeToGoal(mode) {
-  const map = { powerlifting:'force', force_athletique:'force', powerbuilding:'force', bodybuilding:'masse', musculation:'masse', bien_etre:'bien_etre' };
-  return map[mode] || 'force';
-}
-
-function getWorkSets(exerciseCategory, goal) {
-  const table = {
-    force:    { big: 5, compound: 4, isolation: 3 },
-    masse:    { big: 4, compound: 4, isolation: 3 },
-    recompo:  { big: 4, compound: 3, isolation: 3 },
-    seche:    { big: 3, compound: 3, isolation: 2 },
-    maintien: { big: 3, compound: 3, isolation: 2 },
-    bien_etre:{ big: 3, compound: 3, isolation: 2 }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || 3;
-}
-
-function getRepRange(exerciseCategory, goal) {
-  const table = {
-    force:    { big: {reps:5, rpe:8},  compound: {reps:6, rpe:8},  isolation: {reps:10, rpe:8} },
-    masse:    { big: {reps:8, rpe:8},  compound: {reps:10, rpe:8}, isolation: {reps:12, rpe:9} },
-    recompo:  { big: {reps:6, rpe:8},  compound: {reps:8, rpe:8},  isolation: {reps:10, rpe:8} },
-    seche:    { big: {reps:8, rpe:7},  compound: {reps:10, rpe:8}, isolation: {reps:15, rpe:8} },
-    maintien: { big: {reps:6, rpe:7},  compound: {reps:8, rpe:7},  isolation: {reps:12, rpe:7} },
-    bien_etre:{ big: {reps:10,rpe:7},  compound: {reps:12, rpe:7}, isolation: {reps:15, rpe:7} }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || {reps:10, rpe:8};
-}
-
-function getRestSeconds(exerciseCategory, goal) {
-  const table = {
-    force:    { big: 240, compound: 180, isolation: 120 },
-    masse:    { big: 150, compound: 120, isolation: 75 },
-    recompo:  { big: 180, compound: 150, isolation: 90 },
-    seche:    { big: 120, compound: 90,  isolation: 60 },
-    maintien: { big: 150, compound: 120, isolation: 90 },
-    bien_etre:{ big: 120, compound: 90,  isolation: 60 }
-  };
-  return (table[goal] || table.maintien)[exerciseCategory] || 90;
-}
-
-// ── Échauffements intelligents par exercice ─────────────────
-// Sources : Ripped Body, BarBend (Ben Pollack), Skill Based Fitness
-function getWarmupSets(exoName, workWeight, workReps, isFirstForMuscleGroup, isFirstCompound, cat) {
-  if (!workWeight || workWeight <= 0) return [];
-  if (!cat) cat = 'isolation';
-
-  // Isolation → pas d'échauffement (muscles déjà chauds après compounds)
-  if (cat === 'isolation') return [];
-
-  // Premier compound de la séance → échauffement complet
-  if (isFirstCompound) {
-    if (workReps <= 5) {
-      // Force : 5 montantes → bar, 50%, 65%, 80%, 90%
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.40), reps: 8 },
-        { isWarmup: true, weight: round05(workWeight * 0.55), reps: 5 },
-        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 },
-        { isWarmup: true, weight: round05(workWeight * 0.85), reps: 2 },
-        { isWarmup: true, weight: round05(workWeight * 0.92), reps: 1 }
-      ];
-    } else if (workReps <= 10) {
-      // Hypertrophie : 3 montantes
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 8 },
-        { isWarmup: true, weight: round05(workWeight * 0.65), reps: 5 },
-        { isWarmup: true, weight: round05(workWeight * 0.80), reps: 3 }
-      ];
-    } else {
-      // Endurance : 2 montantes
-      return [
-        { isWarmup: true, weight: round05(workWeight * 0.50), reps: 10 },
-        { isWarmup: true, weight: round05(workWeight * 0.70), reps: 5 }
-      ];
-    }
-  }
-
-  // Compound suivant mais premier pour ce groupe musculaire → 2 montantes
-  if (isFirstForMuscleGroup) {
-    return [
-      { isWarmup: true, weight: round05(workWeight * 0.50), reps: 5 },
-      { isWarmup: true, weight: round05(workWeight * 0.70), reps: 3 }
-    ];
-  }
-
-  // Compound suivant, même groupe déjà échauffé → 1 montante
-  return [
-    { isWarmup: true, weight: round05(workWeight * 0.60), reps: 5 }
-  ];
 }
 
 // ── Estimation durée séance scientifique ────────────────────
@@ -28766,29 +28312,6 @@ function showLiveCoachBanner(msg) {
   _liveCoachBannerTimer = setTimeout(function() {
     if (banner.parentNode) banner.remove();
   }, 10000);
-}
-
-function goShowAutoRegSuggestion(exoIdx, setIdx, suggestion) {
-  // Retirer toute suggestion précédente
-  var prev = document.getElementById('go-autoreg-banner');
-  if (prev) prev.remove();
-
-  var bgColor = suggestion.type === 'reduce' ? 'rgba(255,159,10,0.08)' : 'rgba(10,132,255,0.08)';
-  var borderColor = suggestion.type === 'reduce' ? 'var(--orange)' : 'var(--blue)';
-  var icon = suggestion.type === 'reduce' ? '📉' : '📈';
-
-  var banner = document.createElement('div');
-  banner.id = 'go-autoreg-banner';
-  banner.style.cssText = 'background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:10px;padding:10px 12px;margin:8px 0;font-size:12px;';
-  banner.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">' + icon + ' ' + suggestion.message + '</div>' +
-    '<div style="color:var(--sub);margin-bottom:6px;">' + suggestion.action + '</div>' +
-    '<div style="display:flex;gap:8px;">' +
-    '<button onclick="goApplyAutoReg(' + exoIdx + ',' + suggestion.newWeight + ')" style="flex:1;padding:6px;background:' + borderColor + ';border:none;color:white;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Oui</button>' +
-    '<button onclick="document.getElementById(\'go-autoreg-banner\').remove()" style="flex:1;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:11px;cursor:pointer;">Non</button></div>';
-
-  // Insérer après l'exercice courant
-  var exoCard = document.querySelectorAll('.go-exo-card')[exoIdx];
-  if (exoCard) exoCard.parentNode.insertBefore(banner, exoCard.nextSibling);
 }
 
 function goApplyAutoReg(exoIdx, newWeight) {

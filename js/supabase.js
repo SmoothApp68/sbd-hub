@@ -4221,6 +4221,7 @@ async function createChallenge(templateData) {
       type: type,
       target_value: target,
       target_exercise: exercise,
+      start_date: new Date().toISOString(), // Lot A — ancre la fenêtre de scoring (Lot B)
       end_date: end.toISOString()
     }).select('id').single();
 

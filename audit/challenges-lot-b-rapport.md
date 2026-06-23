@@ -52,6 +52,21 @@ Playwright : ✓ Lot B : scoring auto chargé, manuel retiré, ratio formaté.
 ## Vérif device (Aurélien)
 Ouvrir l'onglet défis (les deux surfaces : Social + feed-challenges) → un score s'affiche (ratio « ×.xx× PDC » pour un défi lift), **aucun bouton « Mettre à jour »**, pas d'erreur console.
 
+## Phase 3-bis — robustesse du matching d'exercice (SW v296)
+
+**Constat honnête après lecture du vrai `getSBDType`** (engine.js:806, `VARIANT_KEYWORDS=['pause','spoto','deficit','board']`) :
+- `getSBDType('Développé couché')` **et** `getSBDType('Développé Couché (Barre)')` renvoient **tous deux `bench`** (« barre » n'est PAS un variant-keyword). → la branche **SBD de #219 matchait DÉJÀ** la divergence de noms du picker vs logs. Le `current_value=0` observé en base venait du **défi à fenêtre vide** (footnote du prompt : créé le 23/06, dernière séance le 15/06), **pas** du matching.
+- Le vrai trou était le **fallback NON-SBD** (accessoires) qui était **strict** (`name.toLowerCase() === target.toLowerCase()`) → un accessoire « Tirage vers Visage » ne matchait pas « Tirage vers Visage (Poulie) ».
+
+**Changement (commit atomique)** :
+- Nouveau helper pur `_normalizeExoName(name)` (lowercase + retrait du `(matériel)` + collapse espaces).
+- Branche `weight` : SBD → `getSBDType` des deux côtés (inchangé, respecte l'exclusion volontaire des variants pause/spoto/…) ; **non-SBD → match par NOM NORMALISÉ** (au lieu de strict).
+- **Test qui manquait, désormais avec le VRAI `getSBDType`** (vm-extraction de `_getSBDTypeRaw` + `VARIANT_KEYWORDS` d'engine.js, plus de stub) : cible « Développé couché » + log « Développé Couché (Barre) » `[105×7,107.5×7,110×7,112.5×7]` → e1RM **135.00** (oracle Supabase) → ratio `135/90 = 1.50` → « 1.50× PDC ». + test fallback non-SBD (Tirage vers Visage ignore un curl à 200 kg).
+
+Jest : **207 verts** (11 dans le fichier scoring). `node -c` OK. SW **v295→v296**.
+
+> À re-vérifier device/Supabase : un défi lift dont la **fenêtre couvre** de vraies séances de Développé Couché doit donner un `current_value` non nul (≈ ratio %PDC). Le défi actuel (fenêtre vide) reste légitimement à 0.
+
 ## Backlog signalé (hors commit)
 - Hook **post-séance** (recalcul immédiat à la fin d'une séance GO) — décision d = render-only pour ce commit.
 - `friend_challenges` (1v1) reste du code mort (Lot A) — nettoyage séparé.

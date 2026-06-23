@@ -3989,6 +3989,17 @@ function _normalizeWeightScore(e1rm, bw) {
   return (e1rm > 0) ? (e1rm / w) : 0;
 }
 
+// Normalise un nom d'exercice pour le matching non-SBD : lowercase, retrait du
+// suffixe matériel entre parenthèses (ex. « (Barre) »), collapse des espaces, trim.
+// Pure. « Tirage vers Visage (Poulie) » → « tirage vers visage ».
+function _normalizeExoName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Cœur pur : score depuis une liste de logs + poids de corps, fenêtre ABSOLUE.
 // frequency → nb de séances ; volume → tonnage brut (kg) ; weight → meilleur e1RM
 // (calcE1RM, recalculé sur les séries de travail de la fenêtre) normalisé %PDC.
@@ -4007,13 +4018,18 @@ function _computeChallengeScoreFromLogs(challenge, logs, bw) {
   if (challenge.type === 'weight') {
     var target = challenge.target_exercise || '';
     var targetType = (typeof getSBDType === 'function') ? getSBDType(target) : null;
+    var targetNorm = _normalizeExoName(target);
     var best = 0;
     inWindow.forEach(function(l) {
       (l.exercises || []).forEach(function(exo) {
         var name = exo.name || '';
         var match = targetType
+          // Défi SBD : matcher par TYPE (getSBDType absorbe casse + suffixe matériel,
+          // ex. « Développé couché » et « Développé Couché (Barre) » → bench).
           ? ((typeof getSBDType === 'function') && getSBDType(name) === targetType)
-          : (target && name.toLowerCase() === target.toLowerCase());
+          // Non-SBD : match par NOM NORMALISÉ (et non strict) pour absorber le
+          // suffixe matériel et la casse.
+          : (!!targetNorm && _normalizeExoName(name) === targetNorm);
         if (!match) return;
         (exo.allSets || exo.series || []).forEach(function(set) {
           if (set.setType === 'warmup' || set.isWarmup) return;

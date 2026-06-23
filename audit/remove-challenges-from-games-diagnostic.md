@@ -87,4 +87,22 @@ Après retrait de l'appel 7433, la **chaîne complète du picker** (app.js) n'a 
 - Device : onglet Jeux sans section Défis ; onglet Social intact (liste, création, scoring `× PDC`).
 - Le scoring s'écrit toujours (`current_value`) depuis Social (`renderChallengesTab`/`renderFeedChallengesV2`) — inchangé par ce retrait.
 
-*Fin de la Phase 1. Aucun code modifié. En attente de la décision Q4 (A/B/C) avant Phase 3.*
+---
+
+## Phase 3 — RÉALISÉ (décision Aurélien : **option C** — « on enlève de Jeux mais on garde dans Social »)
+
+**Changements (1 commit atomique, SW v296→v297) :**
+1. `renderGamificationTab` : retrait de l'appel `renderFriendChallenges();` (app.js, ex-7433).
+2. **`renderFriendChallenges` supprimée** (app.js, ex-7293-7334) + retrait de son appel mort dans `acceptFriendChallenge` (ex-7224).
+3. `index.html` : bloc « ⚔️ Défis » + `<div id="gamChallengesSection">` retirés de `#tab-game`.
+4. **Picker recâblé dans Social** : `renderFeedChallengesV2` → bouton « Créer un challenge » (supabase.js:5211) pointe désormais sur **`showChallengePicker()`** (au lieu de `showCreateChallengeModal()`). La chaîne Lot A (showChallengePicker / selectChallengeMetric / createChallengeFromMetric / _buildChallengeTemplate / _showChallengeSheet / CHALLENGE_METRIC_MAP) + ses 2 tests sont **conservés**.
+
+**Scoring intact** : `refreshMyChallengeScores` reste branché dans `renderChallengesTab` (supabase.js:4169) et `renderFeedChallengesV2` (5206). Zone non touchée.
+
+**Tests** : Jest **13 suites / 207 verts** ; Playwright `challenges-create.spec.js` mis à jour — vérifie (a) le picker crée toujours `{type:'weight',exercise:'Squat',duration:14}`, (c) `#gamChallengesSection` **absent**, `renderFriendChallenges` **undefined**, `showChallengePicker` **conservé**. `node -c` OK (5 fichiers).
+
+**Code nouvellement mort (signalé, NON supprimé — hors scope)** : `showCreateChallengeModal` (supabase.js:4252) n'a plus d'appelant (son unique caller 5211 a été recâblé) → candidat à un nettoyage séparé. `acceptFriendChallenge`/`sendFriendChallenge`/`friend_challenges` restent du code mort 1v1 (Lot A).
+
+**À vérifier device/Supabase (Claude.ai)** : onglet Jeux sans section Défis ; onglet Social → « Créer un challenge » ouvre le **picker 5 métriques** (et non le formulaire brut) ; scoring `× PDC` toujours écrit depuis Social.
+
+*Fin du chantier (Phase 1 diag + Phase 3 option C).*

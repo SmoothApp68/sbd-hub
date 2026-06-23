@@ -1,16 +1,15 @@
-// Playwright (navigation) — DÉFIS Lot A : le picker → choix métrique → choix durée
-// → createChallenge (système ouvert). Vérifie que selectChallengeMetric est défini
-// (anti-ReferenceError, le bug du diagnostic) et construit le bon objet ; et que la
-// section ne mentionne plus « Adversaire » (1v1 abandonné).
+// Playwright (navigation) — DÉFIS : le picker (5 métriques → durée → createChallenge)
+// vit désormais dans Social. Vérifie aussi que la section Défis de l'onglet Jeux a été
+// RETIRÉE (plus de #gamChallengesSection ni de renderFriendChallenges).
 const { test, expect } = require('@playwright/test');
 
-test('Défis : picker → métrique → durée → createChallenge, sans 1v1', async ({ page }) => {
+test('Défis : picker → métrique → durée → createChallenge ; section Jeux retirée', async ({ page }) => {
   await page.goto('/index.html');
   await page.waitForFunction(() => typeof window.selectChallengeMetric === 'function', null, { timeout: 15000 });
   // Le splash écran intercepte les clics ~1s au boot → le retirer avant d'interagir.
   await page.evaluate(() => { var s = document.getElementById('splashScreen'); if (s) s.remove(); });
 
-  // (a) le handler manquant existe désormais
+  // (a) le handler du picker existe (anti-ReferenceError)
   expect(await page.evaluate(() => typeof selectChallengeMetric === 'function')).toBe(true);
 
   // Stub createChallenge pour capturer l'objet sans dépendre du réseau Supabase.
@@ -34,8 +33,13 @@ test('Défis : picker → métrique → durée → createChallenge, sans 1v1', a
   const captured = await page.evaluate(() => window.__chal);
   expect(captured).toMatchObject({ type: 'weight', exercise: 'Squat', target: null, duration: 14 });
 
-  // (c) la section gamification ne rend plus le 1v1 « Adversaire »
-  await page.evaluate(() => { if (typeof renderFriendChallenges === 'function') return renderFriendChallenges(); });
-  const sectionHtml = await page.locator('#gamChallengesSection').innerHTML();
-  expect(sectionHtml).not.toContain('Adversaire');
+  // (c) la section Défis de l'onglet Jeux a été RETIRÉE — le picker survit (Social).
+  const state = await page.evaluate(() => ({
+    noDiv: document.getElementById('gamChallengesSection') === null,
+    fnGone: typeof renderFriendChallenges === 'undefined',
+    pickerKept: typeof showChallengePicker === 'function',
+  }));
+  expect(state.noDiv).toBe(true);
+  expect(state.fnGone).toBe(true);
+  expect(state.pickerKept).toBe(true);
 });

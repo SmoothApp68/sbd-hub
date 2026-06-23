@@ -5208,7 +5208,7 @@ async function renderFeedChallengesV2() {
     var h = '';
 
     // Create button
-    h += '<div class="ch2-create" onclick="showCreateChallengeModal()"><div style="font-size:28px;margin-bottom:6px;">➕</div><div style="font-size:13px;font-weight:600;color:var(--sub);">Créer un challenge</div></div>';
+    h += '<div class="ch2-create" onclick="showChallengePicker()"><div style="font-size:28px;margin-bottom:6px;">➕</div><div style="font-size:13px;font-weight:600;color:var(--sub);">Créer un challenge</div></div>';
 
     // Active challenges
     if (active.length) {

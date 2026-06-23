@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v293'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
+var SW_VERSION = 'trainhub-v294'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -7293,56 +7293,123 @@ function setGhostMode(enabled) {
 async function renderFriendChallenges() {
   var el = document.getElementById('gamChallengesSection');
   if (!el) return;
+  // Lot A — section unifiée sur le système OUVERT (social_challenges). L'ancien rendu
+  // 1v1 (friend_challenges, « Toi vs Adversaire ») est ABANDONNÉ. Vue compacte de MES
+  // défis ouverts + entrée de création ; la gestion complète (rejoindre, classement)
+  // reste dans l'onglet Social (renderChallengesTab).
   try {
-    if (typeof supaClient === 'undefined' || !supaClient) { el.innerHTML = ''; return; }
-    var authRes = await supaClient.auth.getUser();
-    var userId = authRes.data && authRes.data.user ? authRes.data.user.id : null;
-    if (!userId) return;
-    var res = await supaClient.from('friend_challenges').select('*')
-      .or('challenger_id.eq.'+userId+',challenged_id.eq.'+userId)
-      .in('status',['pending','active']).order('created_at',{ascending:false}).limit(5);
-    var data = res.data;
-    if (!data || !data.length) {
-      el.innerHTML = '<div style="font-size:12px;color:var(--sub);padding:12px;text-align:center;">⚔️ Pas de défi en cours.<br><span style="color:var(--accent);cursor:pointer;" onclick="showChallengePicker()">Défier un ami</span></div>';
+    if (typeof supaClient === 'undefined' || !supaClient || !cloudSyncEnabled) { el.innerHTML = ''; return; }
+    var uid = typeof getMyUserIdAsync === 'function' ? await getMyUserIdAsync() : null;
+    if (!uid) { el.innerHTML = ''; return; }
+    var newBtn = '<button onclick="showChallengePicker()" style="width:100%;padding:10px;background:var(--accent);'
+      + 'border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;">'
+      + '⚔️ Nouveau défi</button>';
+    var part = await supaClient.from('challenge_participants').select('challenge_id').eq('user_id', uid);
+    var ids = (part.data || []).map(function(p) { return p.challenge_id; });
+    var challenges = [];
+    if (ids.length) {
+      var res = await supaClient.from('social_challenges')
+        .select('id,title,type,target_exercise,end_date')
+        .in('id', ids).order('created_at', { ascending: false });
+      var now = Date.now();
+      challenges = (res.data || []).filter(function(c) { return new Date(c.end_date).getTime() > now; }).slice(0, 5);
+    }
+    if (!challenges.length) {
+      el.innerHTML = newBtn + '<div style="font-size:12px;color:var(--sub);text-align:center;padding:6px;">Aucun défi en cours. Lance-toi !</div>';
       return;
     }
-    var metricLabel = {volume:'Volume total',sessions:'Nombre de séances',squat_e1rm:'e1RM Squat',bench_e1rm:'e1RM Bench',dead_e1rm:'e1RM Deadlift',dots:'Score DOTS'};
-    var html = '';
-    data.forEach(function(ch) {
-      var isChallenger = ch.challenger_id === userId;
-      var label = metricLabel[ch.metric] || ch.metric;
-      var daysLeft = Math.max(0, Math.ceil((new Date(ch.ends_at) - Date.now()) / 86400000));
-      var statusEmoji = ch.status === 'pending' ? '⏳' : '⚔️';
-      html += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">';
-      html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><div style="font-size:13px;font-weight:700;">'+statusEmoji+' '+label+'</div><div style="font-size:11px;color:var(--sub);">'+daysLeft+'j restants</div></div>';
-      if (ch.status === 'pending' && !isChallenger) {
-        html += '<button onclick="acceptFriendChallenge(\''+ch.id+'\')" style="width:100%;padding:8px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;">Accepter le défi ⚔️</button>';
-      } else if (ch.status === 'active') {
-        var myVal = isChallenger ? ch.challenger_value : ch.challenged_value;
-        var theirVal = isChallenger ? ch.challenged_value : ch.challenger_value;
-        var winning = (myVal||0) >= (theirVal||0);
-        html += '<div style="display:flex;justify-content:space-between;"><div style="font-size:12px;color:'+(winning?'var(--green)':'var(--red)')+';">Toi : '+Math.round(myVal||0)+'</div><div style="font-size:12px;color:var(--sub);">vs</div><div style="font-size:12px;">Adversaire : '+Math.round(theirVal||0)+'</div></div>';
-      }
-      html += '</div>';
-    });
-    el.innerHTML = html;
-  } catch(e) { el.innerHTML = ''; }
+    var rows = challenges.map(function(c) {
+      var t = (typeof CHALLENGE_TYPES !== 'undefined' && CHALLENGE_TYPES[c.type]) || { icon: '⚔️', label: 'Défi' };
+      var daysLeft = Math.max(0, Math.ceil((new Date(c.end_date) - Date.now()) / 86400000));
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface);'
+        + 'border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:6px;">'
+        + '<div style="font-size:13px;font-weight:600;">' + t.icon + ' ' + escapeHtml(c.title || t.label)
+        + (c.target_exercise ? ' · ' + escapeHtml(c.target_exercise) : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--sub);">' + daysLeft + 'j</div></div>';
+    }).join('');
+    var seeAll = '<div style="text-align:center;margin-top:4px;"><span onclick="showTab(\'tab-social\')" '
+      + 'style="font-size:11px;color:var(--accent);cursor:pointer;">Voir tous les défis →</span></div>';
+    el.innerHTML = newBtn + rows + seeAll;
+  } catch (e) { el.innerHTML = ''; }
+}
+
+// DÉFIS Lot A — mappe les 5 métriques du picker vers le vocabulaire de createChallenge
+// (système OUVERT social_challenges). On réutilise les types EXISTANTS de
+// CHALLENGE_TYPES (frequency/volume/weight) ; le lift e1RM est porté par target_exercise.
+var CHALLENGE_METRIC_MAP = {
+  sessions:   { label: 'Nombre de séances', type: 'frequency', exercise: null },
+  volume:     { label: 'Volume total',      type: 'volume',    exercise: null },
+  squat_e1rm: { label: 'e1RM Squat',        type: 'weight',    exercise: 'Squat' },
+  bench_e1rm: { label: 'e1RM Bench',         type: 'weight',    exercise: 'Développé couché' },
+  dead_e1rm:  { label: 'e1RM Deadlift',      type: 'weight',    exercise: 'Soulevé de terre' }
+};
+
+// Pur (testable) : construit le templateData attendu par createChallenge, ou null si
+// métrique inconnue. target:null = « qui fait le plus » (pas de cible chiffrée).
+function _buildChallengeTemplate(metricKey, days) {
+  var m = CHALLENGE_METRIC_MAP[metricKey];
+  if (!m) return null;
+  var d = (typeof days === 'number' && days > 0) ? days : 7;
+  return { label: m.label, type: m.type, exercise: m.exercise, target: null, duration: d };
+}
+
+// Bottom-sheet réutilisable du picker (pattern showCreateChallengeModal). showModal()
+// est un dialogue confirm/cancel — inadapté à du contenu ; on utilise go-bottom-sheet.
+function _showChallengeSheet(title, innerHtml) {
+  var existing = document.getElementById('challengePickerSheet');
+  if (existing) existing.remove();
+  var sheet = document.createElement('div');
+  sheet.id = 'challengePickerSheet';
+  sheet.className = 'go-bottom-sheet';
+  sheet.style.display = '';
+  sheet.innerHTML =
+    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'challengePickerSheet\').remove()"></div>' +
+    '<div class="go-bottom-sheet-content">' +
+      '<div class="go-bottom-sheet-handle"></div>' +
+      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">' + title + '</div>' +
+      innerHtml +
+    '</div>';
+  document.body.appendChild(sheet);
+}
+
+// Maillon manquant (bug du diagnostic) : après le choix de métrique, demande la durée
+// puis crée un défi OUVERT via createChallenge.
+function selectChallengeMetric(metricKey) {
+  var m = CHALLENGE_METRIC_MAP[metricKey];
+  if (!m) { if (typeof showToast === 'function') showToast('Métrique inconnue'); return; }
+  var durations = [{d:7,l:'1 semaine'},{d:14,l:'2 semaines'},{d:30,l:'1 mois'}];
+  var btns = durations.map(function(x) {
+    return '<button onclick="createChallengeFromMetric(\'' + metricKey + '\',' + x.d + ')" '
+      + 'style="width:100%;padding:12px;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);'
+      + 'border-radius:10px;color:var(--text);font-size:14px;text-align:left;cursor:pointer;">' + x.l + '</button>';
+  }).join('');
+  _showChallengeSheet('⏱ ' + escapeHtml(m.label),
+    '<div style="font-size:13px;color:var(--sub);margin-bottom:12px;">Sur combien de temps ?</div>' + btns);
+}
+
+function createChallengeFromMetric(metricKey, days) {
+  var tmpl = _buildChallengeTemplate(metricKey, days);
+  var sheet = document.getElementById('challengePickerSheet');
+  if (sheet) sheet.remove();
+  if (!tmpl) { if (typeof showToast === 'function') showToast('Métrique inconnue'); return; }
+  if (typeof createChallenge === 'function') createChallenge(tmpl);
 }
 
 function showChallengePicker() {
   var metrics = [
-    {key:'sessions', label:'📅 Nombre de séances (7j)'},
-    {key:'volume', label:'🏋️ Volume total (7j)'},
+    {key:'sessions', label:'📅 Nombre de séances'},
+    {key:'volume', label:'🏋️ Volume total'},
     {key:'squat_e1rm', label:'🦵 e1RM Squat'},
     {key:'bench_e1rm', label:'💪 e1RM Bench'},
     {key:'dead_e1rm', label:'⚡ e1RM Deadlift'}
   ];
-  var html = '<div style="padding:8px 0;"><div style="font-size:13px;color:var(--sub);margin-bottom:12px;">Choisis ce sur quoi tu veux te battre :</div>';
-  metrics.forEach(function(m) {
-    html += '<button onclick="closeModal();selectChallengeMetric(\''+m.key+'\')" style="width:100%;padding:10px;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;text-align:left;cursor:pointer;">'+m.label+'</button>';
-  });
-  html += '</div>';
-  showModal('⚔️ Nouveau Défi', html);
+  var btns = metrics.map(function(m) {
+    return '<button onclick="selectChallengeMetric(\'' + m.key + '\')" '
+      + 'style="width:100%;padding:12px;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);'
+      + 'border-radius:10px;color:var(--text);font-size:14px;text-align:left;cursor:pointer;">' + m.label + '</button>';
+  }).join('');
+  _showChallengeSheet('⚔️ Nouveau défi',
+    '<div style="font-size:13px;color:var(--sub);margin-bottom:12px;">Choisis ta métrique :</div>' + btns);
 }
 
 function renderGamificationTab() {

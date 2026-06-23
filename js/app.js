@@ -264,7 +264,7 @@ let db = (() => {
 })();
 
 // Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v296'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
+var SW_VERSION = 'trainhub-v297'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -7221,7 +7221,6 @@ async function acceptFriendChallenge(challengeId) {
   try {
     await supaClient.from('friend_challenges').update({status:'active'}).eq('id', challengeId);
     showToast('⚔️ Défi accepté ! Que le meilleur gagne.');
-    renderFriendChallenges();
   } catch(e) { showToast('❌ Erreur'); }
 }
 
@@ -7290,48 +7289,9 @@ function setGhostMode(enabled) {
   }
 }
 
-async function renderFriendChallenges() {
-  var el = document.getElementById('gamChallengesSection');
-  if (!el) return;
-  // Lot A — section unifiée sur le système OUVERT (social_challenges). L'ancien rendu
-  // 1v1 (friend_challenges, « Toi vs Adversaire ») est ABANDONNÉ. Vue compacte de MES
-  // défis ouverts + entrée de création ; la gestion complète (rejoindre, classement)
-  // reste dans l'onglet Social (renderChallengesTab).
-  try {
-    if (typeof supaClient === 'undefined' || !supaClient || !cloudSyncEnabled) { el.innerHTML = ''; return; }
-    var uid = typeof getMyUserIdAsync === 'function' ? await getMyUserIdAsync() : null;
-    if (!uid) { el.innerHTML = ''; return; }
-    var newBtn = '<button onclick="showChallengePicker()" style="width:100%;padding:10px;background:var(--accent);'
-      + 'border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;">'
-      + '⚔️ Nouveau défi</button>';
-    var part = await supaClient.from('challenge_participants').select('challenge_id').eq('user_id', uid);
-    var ids = (part.data || []).map(function(p) { return p.challenge_id; });
-    var challenges = [];
-    if (ids.length) {
-      var res = await supaClient.from('social_challenges')
-        .select('id,title,type,target_exercise,end_date')
-        .in('id', ids).order('created_at', { ascending: false });
-      var now = Date.now();
-      challenges = (res.data || []).filter(function(c) { return new Date(c.end_date).getTime() > now; }).slice(0, 5);
-    }
-    if (!challenges.length) {
-      el.innerHTML = newBtn + '<div style="font-size:12px;color:var(--sub);text-align:center;padding:6px;">Aucun défi en cours. Lance-toi !</div>';
-      return;
-    }
-    var rows = challenges.map(function(c) {
-      var t = (typeof CHALLENGE_TYPES !== 'undefined' && CHALLENGE_TYPES[c.type]) || { icon: '⚔️', label: 'Défi' };
-      var daysLeft = Math.max(0, Math.ceil((new Date(c.end_date) - Date.now()) / 86400000));
-      return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface);'
-        + 'border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:6px;">'
-        + '<div style="font-size:13px;font-weight:600;">' + t.icon + ' ' + escapeHtml(c.title || t.label)
-        + (c.target_exercise ? ' · ' + escapeHtml(c.target_exercise) : '') + '</div>'
-        + '<div style="font-size:11px;color:var(--sub);">' + daysLeft + 'j</div></div>';
-    }).join('');
-    var seeAll = '<div style="text-align:center;margin-top:4px;"><span onclick="showTab(\'tab-social\')" '
-      + 'style="font-size:11px;color:var(--accent);cursor:pointer;">Voir tous les défis →</span></div>';
-    el.innerHTML = newBtn + rows + seeAll;
-  } catch (e) { el.innerHTML = ''; }
-}
+// Les défis ne vivent QUE dans l'onglet Social. La section compacte de l'onglet Jeux
+// (ex-renderFriendChallenges) a été retirée ; le picker ci-dessous est désormais
+// branché dans Social (renderFeedChallengesV2 → showChallengePicker).
 
 // DÉFIS Lot A — mappe les 5 métriques du picker vers le vocabulaire de createChallenge
 // (système OUVERT social_challenges). On réutilise les types EXISTANTS de
@@ -7430,7 +7390,6 @@ function renderGamificationTab() {
   _renderGamHeatmap(ctx);
   _renderGamBadges(ctx);
   _renderLeaderboard();
-  renderFriendChallenges();
 }
 
 function _buildGamContext() {

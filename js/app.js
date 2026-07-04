@@ -1590,7 +1590,6 @@ var ONBOARDING_PROFILES = {
   senior:      { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Santé & Vitalité. Protège ton corps et reste fort longtemps.' }
 };
 
-let obPath = 'generate'; // 'generate' | 'import'
 let obFreq = 3;
 let obMat  = 'salle';
 let obGoals = [
@@ -1601,7 +1600,6 @@ let obGoals = [
   { id:'maintien',icon:'🎯', label:'Maintien / Forme générale', desc:'Rester en forme, santé' },
   { id:'reprise', icon:'🌱', label:'Reprise progressive', desc:'Après blessure ou pause' },
 ];
-let obDragSrc = null;
 
 // ── EXERCISE DATABASE ────────────────────────────────────────
 // Format: { name, sets, reps, mat:['salle','halteres','maison'], muscle, icon, alts:[{name,mat}] }
@@ -1703,8 +1701,6 @@ let obSelectedDays = [];
 let obDuration    = 60;    // minutes par séance
 let obInjuries    = [];    // zones fragiles
 let obCardio      = 'integre'; // 'integre' | 'dedie' | 'aucun'
-let obCompDate    = null;
-let obCompType    = 'powerlifting';
 
 function showOnboarding() {
   var _ob = document.getElementById('onboarding-overlay');
@@ -2330,22 +2326,6 @@ function selectDur(min) {
   event.currentTarget.classList.add('selected');
 }
 
-function doGenerateProgram() {
-  const generated = generateProgram(obGoals, obFreq, obMat, obDuration, obInjuries, obCardio, obCompDate, obCompType, db.user.level);
-  db.generatedProgram = generated;
-  db.user.programParams = { goals: obGoals.map(g=>g.id), freq: obFreq, mat: obMat, duration: obDuration, injuries: obInjuries, cardio: obCardio, compDate: obCompDate, compType: obCompType, level: db.user.level };
-  db.routine = {};
-  db.routineExos = db.routineExos || {};
-  generated.forEach(d => {
-    db.routine[d.day] = d.isRest ? '😴 Repos' : (d.isCardio ? '🏃 '+d.label : d.label);
-    if (!d.isRest && d.exos && d.exos.length > 0) {
-      db.routineExos[d.day] = d.exos.map(id => EXO_DB[id] ? EXO_DB[id].name : id);
-    }
-  });
-  renderObGeneratedProgram(generated);
-  gotoObStep('7');
-}
-
 // ── PARAMÈTRES PAR NIVEAU ────────────────────────────────────
 const LEVEL_PARAMS = {
   debutant: {
@@ -2759,102 +2739,6 @@ function selectMat(m) {
   obMat = m;
   document.querySelectorAll('.ob-mat-btn').forEach(b => b.classList.remove('selected'));
   event.currentTarget.classList.add('selected');
-}
-
-// Drag & drop priorités
-function renderObGoals() {
-  const list = document.getElementById('ob-priority-list');
-  if (!list) return;
-  list.innerHTML = obGoals.map((g, i) =>
-    '<div class="ob-priority-item" draggable="true" data-id="'+g.id+'" '+
-    'ondragstart="obDragStart(event,'+i+')" ondragover="obDragOver(event)" ondrop="obDrop(event,'+i+')" ondragend="obDragEnd()">'+
-    '<div class="ob-priority-rank">'+(i+1)+'</div>'+
-    '<div class="ob-priority-icon">'+g.icon+'</div>'+
-    '<div class="ob-priority-text"><strong>'+g.label+'</strong><span>'+g.desc+'</span></div>'+
-    '<div class="ob-priority-handle">⠿</div></div>'
-  ).join('');
-}
-
-function obDragStart(e, i) {
-  obDragSrc = i;
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-function obDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('.ob-priority-item').forEach(el => el.classList.remove('drag-over'));
-  e.currentTarget.classList.add('drag-over');
-}
-function obDrop(e, i) {
-  e.preventDefault();
-  if (obDragSrc === null || obDragSrc === i) return;
-  const moved = obGoals.splice(obDragSrc, 1)[0];
-  obGoals.splice(i, 0, moved);
-  renderObGoals();
-}
-function obDragEnd() {
-  document.querySelectorAll('.ob-priority-item').forEach(el => { el.classList.remove('dragging'); el.classList.remove('drag-over'); });
-  obDragSrc = null;
-}
-
-// Render programme généré (step 7)
-function renderObGeneratedProgram(plan) {
-  const container = document.getElementById('ob-generated-program');
-  const summaryEl = document.getElementById('ob-prog-summary');
-  if (!container) return;
-
-  // Tags résumé
-  const levelLabels = { debutant:'Débutant', intermediaire:'Intermédiaire', avance:'Avancé', competiteur:'Compétiteur' };
-  const matLabels   = { salle:'Salle complète', halteres:'Haltères', maison:'Maison' };
-  const durLabels   = { 30:'30min', 45:'45min', 60:'1h', 90:'1h30', 120:'2h+' };
-  const cardioLabels = { integre:'Cardio intégré', dedie:'Cardio dédié', aucun:'Sans cardio' };
-
-  const tags = [
-    { text: obGoals[0]?.icon+' '+obGoals[0]?.label, cls:'' },
-    obGoals[1] ? { text: obGoals[1]?.icon+' '+obGoals[1]?.label, cls:'purple' } : null,
-    { text: '📆 '+obFreq+'j/sem', cls:'green' },
-    { text: matLabels[obMat]||obMat, cls:'orange' },
-    { text: durLabels[obDuration]||obDuration+'min', cls:'orange' },
-    { text: levelLabels[db.user.level]||db.user.level, cls:'' },
-    { text: cardioLabels[obCardio], cls: obCardio==='aucun'?'':'green' },
-    obInjuries.length ? { text:'🩹 '+obInjuries.length+' zone(s) ménagée(s)', cls:'orange' } : null
-  ].filter(Boolean);
-
-  if (summaryEl) summaryEl.innerHTML = '<div class="ob-prog-tags">'+tags.map(t=>'<span class="ob-prog-tag'+(t.cls?' '+t.cls:'')+'" >'+t.text+'</span>').join('')+'</div>';
-
-  // Bloc compétition
-  let compHtml = '';
-  if (plan._compInfo) {
-    const ci = plan._compInfo;
-    const w = ci.weeksOut;
-    let advice = '';
-    if (w > 12) advice = 'Phase de construction — '+Math.round(w-4)+' semaines de volume, puis 4 semaines de peak.';
-    else if (w > 6) advice = 'Phase de force — réduis progressivement le volume, augmente l\'intensité.';
-    else if (w > 2) advice = 'Peak — séances courtes, charges lourdes, récupération prioritaire.';
-    else advice = (typeof getVocab === 'function' ? getVocab('deload') : 'Deload') + ' — séances légères, aucun nouveau max. Préserve ton énergie.';
-    compHtml = '<div class="ob-comp-bloc"><div class="ob-comp-bloc-title">🏆 Compétition dans '+w+' semaine'+(w>1?'s':'')+' — '+new Date(ci.date).toLocaleDateString('fr-FR')+'</div><div class="ob-comp-bloc-body">'+advice+'</div></div>';
-  }
-
-  // Note niveau
-  const levelNote = plan._levelNote ? '<div style="background:rgba(50,215,75,0.08);border:1px solid rgba(50,215,75,0.2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--green);margin-bottom:14px;">💡 '+plan._levelNote+'</div>' : '';
-
-  container.innerHTML = compHtml + levelNote +
-    '<div class="ob-program-card">'+
-    plan.filter(d => !d._compInfo).map(d => {
-      if (d.isRest) return '<div class="ob-day-card" style="opacity:0.4;"><div class="ob-day-header"><span class="ob-day-name">'+d.day+'</span><span class="ob-day-type">😴 Repos</span></div></div>';
-      const exoRows = (d.exosSets||d.exos.map(id=>({id,setsReps:''}))).map(e => {
-        const exo = EXO_DB[e.id] || { name: e.id, icon:'💪' };
-        return '<span class="ob-exo-tag">'+exo.icon+' '+exo.name+(e.setsReps?' · '+e.setsReps:'')+'</span>';
-      }).join('');
-      const restColor = d.isCardio ? 'var(--green)' : 'var(--blue)';
-      return '<div class="ob-day-card">'+
-        '<div class="ob-day-header"><span class="ob-day-name" style="color:'+restColor+'">'+d.day+'</span>'+
-        '<span class="ob-day-type">'+(d.isCardio?'🏃 ':'🏋️ ')+'Entraînement</span></div>'+
-        '<div class="ob-day-label">'+d.label+'</div>'+
-        '<div class="ob-day-exos">'+exoRows+'</div></div>';
-    }).join('')+
-    '</div>';
 }
 
 function autoPopulateKeyLifts() {

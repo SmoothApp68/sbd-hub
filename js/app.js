@@ -27849,7 +27849,9 @@ function showGrindTechQuestion(exoIdx, setIdx) {
 }
 
 // ── Auto-régulation intra-séance basée sur le RPE ──────────
-// Pure : retourne { msg, type } ou null. Affichage via showLiveCoachBanner.
+// Retourne { msg, type, newWeight?, exoIdx? } ou null. Affichage via
+// showLiveCoachBanner ; newWeight (kg interne, arrondi au pas getDPIncrement)
+// n'est présent que pour les règles à charge applicable (R1/R2/R4/back-off).
 // ── Classification de fatigue (Gemini Q4 — formule MVF) ─────────────────
 // Sans FC ni RPE, inférence depuis le contexte de la séance
 function classifyFatigue(setIndex, repDrop, srsScore, acwr, level) {
@@ -27889,14 +27891,26 @@ function classifyFatigue(setIndex, repDrop, srsScore, acwr, level) {
   return { type: null, confidence: 0, signals: [] };
 }
 
+// Pas de charge par exercice pour le bouton « Appliquer » : getDPIncrement
+// (1.0/2.0/2.5/5.0 kg selon muscle×mécanique), fallback 2.5 (core → 0).
+function _autoRegStep(exoName, currentWeight) {
+  var step = typeof getDPIncrement === 'function' ? getDPIncrement(exoName, currentWeight) : 0;
+  return (step && step > 0) ? step : 2.5;
+}
+
+function _autoRegSnap(rawWeight, step) {
+  return Math.round(Math.round(rawWeight / step) * step * 100) / 100;
+}
+
 function goCheckAutoRegulation(exoIdx, setIdx) {
   if (!activeWorkout || !db.weeklyPlan) return null;
   var exo = activeWorkout.exercises[exoIdx];
   var set = exo && exo.sets[setIdx];
   if (!set || !set.completed) return null;
 
-  // JAMAIS sur les warmups
-  if (set.isWarmup || set.setType === 'warmup') return null;
+  // JAMAIS sur les warmups — les sets d'activeWorkout portent `type`
+  // ('warmup'|'backoff'|'dropset'|'normal'), pas isWarmup/setType (bug latent corrigé)
+  if (set.type === 'warmup') return null;
 
   // ── HIÉRARCHIE DUP vs SRS — Live Coaching GO override ──
   // Précédence : Live Coaching GO > SRS > DUP > Bloc > Programme
@@ -27945,22 +27959,42 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
   var targetWeight = planSets.length ? (planSets[0].weight || 0) : 0;
   var actualRpe = parseFloat(set.rpe) || 0;
   var diffRpe = actualRpe - targetRpe;
+  var _setW = parseFloat(set.weight) || 0;
 
   // Règle 1 — Overshoot RPE
   if (actualRpe > 0 && diffRpe >= 1.5) {
-    return { msg: "⚠️ RPE " + actualRpe + " au lieu de " + targetRpe + ". Réduis de 5% au prochain set pour sauver ton volume.", type: "warning" };
+    var _r1 = { msg: "⚠️ RPE " + actualRpe + " au lieu de " + targetRpe + ". Réduis de 5% au prochain set pour sauver ton volume.", type: "warning" };
+    if (_setW > 0) {
+      var _step1 = _autoRegStep(exo.name, _setW);
+      var _nw1 = _autoRegSnap(_setW * 0.95, _step1);
+      if (_nw1 >= _setW) _nw1 = _autoRegSnap(_setW - _step1, _step1);
+      if (_nw1 > 0) { _r1.newWeight = _nw1; _r1.exoIdx = exoIdx; }
+    }
+    return _r1;
   }
 
   // Règle 2 — Undershoot RPE (pas en peak)
   if (actualRpe > 0 && diffRpe <= -1.5 && !isPeak) {
     var meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(exo.name) : null;
     var step = (meta && meta.bodyPart === 'lower') ? '2.5kg' : '1.25kg';
-    return { msg: "🚀 Trop facile (RPE " + actualRpe + "). Ajoute " + step + " au prochain set.", type: "success" };
+    var _r2 = { msg: "🚀 Trop facile (RPE " + actualRpe + "). Ajoute " + step + " au prochain set.", type: "success" };
+    if (_setW > 0) {
+      var _delta2 = (meta && meta.bodyPart === 'lower') ? 2.5 : 1.25;
+      var _step2 = _autoRegStep(exo.name, _setW);
+      var _nw2 = _autoRegSnap(_setW + _delta2, _step2);
+      // L'arrondi au pas peut retomber sur la charge actuelle → forcer un pas complet
+      if (_nw2 <= _setW) _nw2 = _autoRegSnap(_setW + _step2, _step2);
+      if (_nw2 <= _setW) _nw2 = _setW + _step2;
+      _r2.msg = "🚀 Trop facile (RPE " + actualRpe + "). Ajoute " + (Math.round((_nw2 - _setW) * 100) / 100) + "kg au prochain set.";
+      _r2.newWeight = _nw2;
+      _r2.exoIdx = exoIdx;
+    }
+    return _r2;
   }
 
   // Règle 3 — Fatigue Drop : 3 sets de travail consécutifs avec RPE > cible + 1
   var validSets = exo.sets.filter(function(s) {
-    return s.completed && !s.isWarmup && s.setType !== 'warmup' && parseFloat(s.rpe) > 0;
+    return s.completed && s.type !== 'warmup' && parseFloat(s.rpe) > 0;
   });
   if (validSets.length >= 3) {
     var last3 = validSets.slice(-3);
@@ -27971,8 +28005,11 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
   }
 
   // Règle 4 — Peak Protection
+  // newWeight = targetWeight tel quel (déjà arrondi par le plan) : le
+  // re-snapper au pas getDPIncrement pourrait REMONTER le plafond protecteur
+  // au-dessus du poids prévu que le message annonce.
   if (isPeak && targetWeight > 0 && set.weight > targetWeight * 1.05) {
-    return { msg: "🛡️ Peak : reste sur le poids prévu (" + targetWeight + "kg). Ne brûle pas ton influx nerveux avant le test.", type: "danger" };
+    return { msg: "🛡️ Peak : reste sur le poids prévu (" + targetWeight + "kg). Ne brûle pas ton influx nerveux avant le test.", type: "danger", newWeight: targetWeight, exoIdx: exoIdx };
   }
 
   // Règle 5 — Deload Check
@@ -27999,7 +28036,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
   // Un drop set intentionnel : charge baisse de >10% → ne pas signaler
   // Un "pseudo-drop" (charge baisse <10% + reps chutent) = échec déguisé
   var _workCompletedSets = exo.sets.filter(function(s) {
-    return s.completed && !s.isWarmup && s.setType !== 'warmup'
+    return s.completed && s.type !== 'warmup'
       && parseFloat(s.weight) > 0 && parseInt(s.reps) > 0;
   });
   if (_workCompletedSets.length >= 2) {
@@ -28019,8 +28056,8 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
 
   // ── RÈGLE 7 — Détection d'échec implicite + classification fatigue ──────
   var _workSets2 = exo.sets.filter(function(s) {
-    return s.completed && !s.isWarmup && !s.isDropSet
-      && s.setType !== 'warmup' && s.setType !== 'dropset'
+    return s.completed && s.type !== 'warmup' && !s.isDropSet
+      && s.setType !== 'dropset'
       && parseInt(s.reps) > 0 && parseFloat(s.weight) > 0;
   });
 
@@ -28076,6 +28113,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
       var _fatigueMsg = '';
       var _msgType = 'warning';
       var _addStrike = false;
+      var _backoffApplicable = false; // true quand le message propose un back-off -10%
 
       if (_fatigue.type === 'neural' && _fatigue.confidence >= 0.80) {
         _msgType = 'danger';
@@ -28091,6 +28129,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
         _fatigueMsg = phase === 'volume' || phase === 'hypertrophie'
           ? '💪 Fatigue musculaire — c\'est ici que tu progresses. Continue en back-off si besoin.'
           : '📉 Fatigue musculaire détectée. Convertis en back-off (-10%) pour finir le volume.';
+        _backoffApplicable = true;
       } else if (_isCriticalFail || _isExhaustion) {
         // Échec objectif fort sans classification : danger + strike (compat v185)
         _msgType = 'danger';
@@ -28100,11 +28139,13 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
           : phase === 'force'
           ? '🛑 Arrête l\'exercice. On ne grinde pas en Force — SNC préservé.'
           : '⚠️ Épuisement détecté — conversion en Back-off (-10%) pour finir le volume.';
+        _backoffApplicable = phase !== 'peak' && phase !== 'force';
       } else {
         // _isImplicitFail seul : warning sans classification confiante
         _msgType = 'warning';
         _fatigueMsg = '📉 -' + _repsDrop + ' reps sans RPE noté — échec implicite possible. '
           + (phase === 'volume' ? 'Convertis la prochaine série en Back-off (-10%).' : 'Évalue si tu continues ou stops.');
+        _backoffApplicable = phase === 'volume';
       }
 
       // Strike LP : neural confiant OU épuisement / échec critique objectif
@@ -28116,7 +28157,7 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
         if (_fatigue.type === 'neural') db.user.lpStrikes[exo.name].fatigueType = 'neural';
       }
 
-      return {
+      var _r7 = {
         msg: _fatigueMsg,
         type: _msgType,
         isImplicitFailure: true,
@@ -28124,6 +28165,13 @@ function goCheckAutoRegulation(exoIdx, setIdx) {
         fatigueType: _fatigue.type,
         fatigueConfidence: _fatigue.confidence
       };
+      if (_backoffApplicable && _cW > 0) {
+        var _step7 = _autoRegStep(exo.name, _cW);
+        var _nw7 = _autoRegSnap(_cW * 0.90, _step7);
+        if (_nw7 >= _cW) _nw7 = _autoRegSnap(_cW - _step7, _step7);
+        if (_nw7 > 0) { _r7.newWeight = _nw7; _r7.exoIdx = exoIdx; }
+      }
+      return _r7;
     }
   }
 
@@ -28190,25 +28238,51 @@ function showLiveCoachBanner(msg) {
   closeBtn.onclick = function() { banner.remove(); };
 
   banner.appendChild(text);
+
+  // Bouton « Appliquer » — présent uniquement si la suggestion porte une
+  // charge chiffrée (newWeight en kg interne, exoIdx pour goApplyAutoReg)
+  var hasApply = typeof msg.newWeight === 'number' && msg.newWeight > 0
+    && typeof msg.exoIdx === 'number';
+  if (hasApply) {
+    var applyBtn = document.createElement('button');
+    var _dispW = typeof toDisplayWeight === 'function' ? toDisplayWeight(msg.newWeight) : msg.newWeight;
+    var _dispU = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
+    applyBtn.textContent = '✓ Appliquer ' + _dispW + ' ' + _dispU;
+    applyBtn.style.cssText = 'background:' + c.text + ';border:none;color:#000;' +
+      'font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;' +
+      'cursor:pointer;flex-shrink:0;align-self:center;';
+    applyBtn.onclick = function() { goApplyAutoReg(msg.exoIdx, msg.newWeight); };
+    banner.appendChild(applyBtn);
+  }
+
   banner.appendChild(closeBtn);
   document.body.appendChild(banner);
 
-  _liveCoachBannerTimer = setTimeout(function() {
-    if (banner.parentNode) banner.remove();
-  }, 10000);
+  // Auto-dismiss gelé quand un bouton d'action est présent — sinon la
+  // suggestion disparaît sous le doigt. Le × et « Appliquer » ferment.
+  if (!hasApply) {
+    _liveCoachBannerTimer = setTimeout(function() {
+      if (banner.parentNode) banner.remove();
+    }, 10000);
+  }
 }
 
 function goApplyAutoReg(exoIdx, newWeight) {
+  if (!activeWorkout || !activeWorkout.exercises || !activeWorkout.exercises[exoIdx]) return;
   var exo = activeWorkout.exercises[exoIdx];
-  // Appliquer le nouveau poids aux séries non complétées
+  // Appliquer le nouveau poids (kg interne, déjà arrondi au pas en amont)
+  // aux séries de travail non complétées — warmups/backoff/dropset intacts
   exo.sets.forEach(function(s) {
-    if (!s.completed) s.weight = newWeight;
+    if (!s.completed && s.type === 'normal') s.weight = newWeight;
   });
-  var banner = document.getElementById('go-autoreg-banner');
+  var banner = document.getElementById('live-coach-banner');
   if (banner) banner.remove();
+  if (_liveCoachBannerTimer) { clearTimeout(_liveCoachBannerTimer); _liveCoachBannerTimer = null; }
   goAutoSave();
   goRequestRender();
-  showToast('✅ Charge ajustée à ' + newWeight + 'kg');
+  var _dw = typeof toDisplayWeight === 'function' ? toDisplayWeight(newWeight) : newWeight;
+  var _du = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
+  showToast('✅ Charge ajustée à ' + _dw + ' ' + _du);
 }
 
 function goAddSet(exoIdx) {

@@ -27723,7 +27723,7 @@ function goToggleSetComplete(exoIdx, setIdx) {
     // Enrichir le set avec les métadonnées Gemini (Q3)
     var _exoForMeta = activeWorkout.exercises[exoIdx];
     var _workIdx = _exoForMeta.sets
-      .filter(function(s, i) { return i <= setIdx && !s.isWarmup && s.setType !== 'warmup'; })
+      .filter(function(s, i) { return i <= setIdx && s.type !== 'warmup'; })
       .length - 1;
     set.setIndex    = _workIdx;
     set.isTopSet    = _workIdx === 0;

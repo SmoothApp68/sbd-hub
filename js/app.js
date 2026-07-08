@@ -27135,10 +27135,60 @@ function renderGoActiveView() {
   h += '<button class="go-btn-sec" style="border-color:rgba(255,69,58,0.3);color:var(--red);" onclick="goConfirmDiscard()">✕ Annuler la séance</button>';
 
   document.getElementById('goActiveView').innerHTML = h;
+  // Sparklines de progression (les canvas viennent d'être recréés par innerHTML)
+  if (typeof _renderGoSparklines === 'function') _renderGoSparklines();
   // Update BLE HR display after render (TÂCHE 18)
   if (typeof _currentHR !== 'undefined' && _currentHR && typeof updateHRDisplay === 'function') {
     updateHRDisplay();
   }
+}
+
+// ── Sparklines GO — instanciation Chart.js après chaque render ─────────────
+// innerHTML remplace les canvas à chaque render : les instances Chart attachées
+// aux anciens canvas (détachés) doivent être détruites explicitement, sinon
+// fuite mémoire. Registre + destroy systématique avant recréation.
+var _goSparkCharts = [];
+
+function _renderGoSparklines() {
+  _goSparkCharts.forEach(function(c) { try { c.destroy(); } catch (e) {} });
+  _goSparkCharts = [];
+  var canvases = document.querySelectorAll('canvas.go-exo-spark');
+  if (!canvases.length) return;
+  if (typeof Chart === 'undefined') {
+    // Lazy-load (pattern A3-F3) puis re-tenter — hors-ligne sans cache : pas de courbe, pas d'erreur
+    ensureChartLoaded().then(function() { _renderGoSparklines(); }).catch(function() {});
+    return;
+  }
+  canvases.forEach(function(cv) {
+    var exoIdx = parseInt(cv.getAttribute('data-exo-idx'), 10);
+    var exo = activeWorkout && activeWorkout.exercises && activeWorkout.exercises[exoIdx];
+    if (!exo) return;
+    var pts = computeExoSparklineData(exo.name);
+    if (!pts) return;
+    var _existing = Chart.getChart ? Chart.getChart(cv) : null;
+    if (_existing) { try { _existing.destroy(); } catch (e) {} }
+    _goSparkCharts.push(new Chart(cv, {
+      type: 'line',
+      data: {
+        labels: pts.map(function(_, i) { return i; }),
+        datasets: [{
+          data: pts.map(function(p) { return p.e1rm; }),
+          borderColor: '#0A84FF',
+          borderWidth: 1.5,
+          pointRadius: pts.map(function(_, i) { return i === pts.length - 1 ? 2 : 0; }),
+          pointBackgroundColor: '#0A84FF',
+          fill: false,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: false, maintainAspectRatio: false, animation: false,
+        events: [],
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { display: false }, y: { display: false } }
+      }
+    }));
+  });
 }
 
 // ============================================================
@@ -27444,6 +27494,13 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
         + 'style="background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;padding:0 2px;vertical-align:middle;" title="Pourquoi ce poids ?">ℹ️</button>';
     }
     h += '</div>';
+  }
+  // Sparkline de progression (lecture seule) — exos trackés au poids uniquement
+  if (tt === 'weight' && typeof computeExoSparklineData === 'function'
+      && computeExoSparklineData(exo.name)) {
+    h += '<canvas class="go-exo-spark" data-exo-idx="' + exoIdx + '" width="120" height="32" '
+      + 'style="width:120px;height:32px;margin-top:4px;display:block;" '
+      + 'title="Tendance e1RM (10 dernières séances)"></canvas>';
   }
   // Audit Trail — pourquoi la charge a changé (raisons inline)
   var _chargeExp = buildChargeExplanation(exo.name, _suggestedW, _shadowW);

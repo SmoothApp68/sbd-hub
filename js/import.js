@@ -1729,6 +1729,25 @@ function migrateExerciseNames() {
 
   // Build lookup: normalized nameAlt/name → canonical name
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  // Nomenclature Lot 1 (audit 64, conflit C6-1) : NE JAMAIS renommer ces noms
+  // précis de l'historique. Pour 18 d'entre eux, le canonique EXO_DATABASE est
+  // le nom GÉNÉRIQUE (ex. 'Squat (Barre)' est nameAlt de name:'Squat Barre') :
+  // la migration allait dans la direction inverse de la nomenclature cible.
+  // Inclut les sources de fusion de variantes ('Squat Pause' vers 'Squat Barre').
+  // Effet : la migration migre MOINS, jamais plus. Aucune nouvelle règle d'écriture.
+  const PROTECTED = new Set([
+    'Squat (Barre)', 'Développé Couché (Barre)', 'Planche', 'Extension Jambes',
+    'Adduction Hanche', 'Abduction Hanche', 'Tapis Roulant',
+    'Extension Mollets Debout (Machine)', 'Développé Couché Incliné (Haltère)',
+    'Tractions', 'Extension Dos (Hyperextension)', 'Écarté (Machine)',
+    'Hip Thrust (Machine)', 'Développé Couché Décliné (Barre)', 'Oiseau (Machine)',
+    'Shrug (Haltère)', 'Leg Curl Allongé (Machine)', 'Tirage vers Visage',
+    'Curl Poignets Paumes vers le Haut Assis', 'Curl Marteau (Haltère)',
+    'Curl Biceps (Barre EZ)', 'Squat avec pause (barre)',
+    'Rowing Poulie Assis - Prise Large', 'Soulevé De Terre avec pause',
+    'Oiseau (Poulie)', 'Squat Pause', 'Squat Pause (Barre)'
+  ].map(norm));
+
   const lookup = new Map();
   for (const exo of Object.values(EXO_DATABASE)) {
     if (!exo || !exo.name) continue;
@@ -1745,6 +1764,7 @@ function migrateExerciseNames() {
     (session.exercises || []).forEach(exo => {
       if (!exo.name) return;
       const key = norm(exo.name);
+      if (PROTECTED.has(key)) return; // nom précis/variante protégé — intouchable
       const canonical = lookup.get(key);
       // Only rename on EXACT match (score 100) — never fuzzy
       if (canonical && canonical !== exo.name) {

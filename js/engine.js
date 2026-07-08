@@ -985,10 +985,10 @@ function _matchCacheStore(key, result, reverseKey) {
   }
 }
 
-function matchExoName(hevyName, progName) {
+function matchExoName(hevyName, progName, useSynonyms) {
   if (!hevyName || !progName) return false;
 
-  var cacheKey = hevyName + '|||' + progName;
+  var cacheKey = (useSynonyms ? 'syn|' : '') + hevyName + '|||' + progName;
   if (cacheKey in _matchCache) return _matchCache[cacheKey];
 
   const norm = s => s.toLowerCase()
@@ -1000,10 +1000,26 @@ function matchExoName(hevyName, progName) {
   const h = norm(hevyName);
   const p = norm(progName);
 
-  var reverseKey = progName + '|||' + hevyName;
+  var reverseKey = (useSynonyms ? 'syn|' : '') + progName + '|||' + hevyName;
   var result = _matchExoNameCore(h, p, norm);
+  // Pont synonymes (nomenclature Lot 1, audit 64) \u2014 OPT-IN, lecture seule :
+  // deux noms du m\u00eame groupe WP_SYNONYMS d\u00e9signent le m\u00eame exercice
+  // (g\u00e9n\u00e9rique programme \u2194 pr\u00e9cis historique). Opt-in uniquement : les
+  // appelants qui \u00c9CRIVENT (editRecord/deleteRecord) gardent le strict.
+  if (!result && useSynonyms) {
+    result = _matchSynonymBridge(hevyName, progName, h, p, norm);
+  }
   _matchCacheStore(cacheKey, result, reverseKey);
   return result;
+}
+
+function _matchSynonymBridge(hevyName, progName, h, p, norm) {
+  if (typeof wpSynonymGroupOf !== 'function') return false;
+  var g = wpSynonymGroupOf(progName);
+  if (g) { for (var i = 0; i < g.length; i++) { if (norm(g[i]) === h) return true; } }
+  g = wpSynonymGroupOf(hevyName);
+  if (g) { for (var j = 0; j < g.length; j++) { if (norm(g[j]) === p) return true; } }
+  return false;
 }
 
 function _matchExoNameCore(h, p, norm) {

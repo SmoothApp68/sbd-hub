@@ -20609,14 +20609,25 @@ function wpNormalizeName(name) {
 
 // ── TABLE DE SYNONYMES COMPLÈTE ──────────────────────────────
 var WP_SYNONYMS = {
+  // Nomenclature Lot 1 (audit 64) : clés générique-programme → noms précis historique.
+  // Anti-fusion C6(2) : les variantes pause/décliné/poulie vivent dans leurs
+  // propres groupes, jamais dans le groupe du lift plein.
+  'High Bar Squat': ['Squat (Barre)','Squat Barre'],
+  'Bench Press (Barre)': ['Developpe Couche (Barre)'],
+  'Developpe Decline (Barre)': ['Developpe Couche Decline (Barre)'],
+  'Hyperextension': ['Extension Dos (Hyperextension)','Extension Dos (Hyperextension Lestee)'],
+  'Shrugs Halteres': ['Shrug (Haltere)'],
+  'Curl Barre EZ': ['Curl Biceps (Barre EZ)'],
+  'Curl Poignet': ['Curl Poignets Paumes vers le Haut Assis'],
+  'Oiseau Poulie': ['Oiseau (Poulie)','Oiseau Un Bras (Poulie)'],
   'Squat': [
     'Squat (Barre)','Squat (Machine)','Squat (Haltere)','Squat (Poids du Corps)',
     'Hack Squat (Machine)','Belt Squat (Machine)','Squat Avant',
-    'Squat avec pause (barre)','Sumo Squat (Kettlebell)','Squat'
+    'Sumo Squat (Kettlebell)','Squat'
   ],
   'Souleve de Terre': [
     'Souleve de Terre (Barre)','Souleve de Terre Sumo',
-    'Souleve De Terre avec pause','Deadlift','Romanian Deadlift (Barre)'
+    'Deadlift','Romanian Deadlift (Barre)'
   ],
   'Romanian Deadlift': [
     'Souleve de Terre Roumain (Barre)','Souleve de Terre Roumain',
@@ -20659,10 +20670,11 @@ var WP_SYNONYMS = {
     'Extension Dos (Hyperextension Lestee)','Extension Dos (Hyperextension)',
     'Extension Dos (Machine)','Flexion Buste Avant (Barre)'
   ],
+  // Anti-fusion C6(2) : les variantes déclinées retirées du groupe plat —
+  // elles vivent sous la clé 'Developpe Decline (Barre)' dédiée
   'Developpe couche': [
     'Developpe Couche (Barre)','Developpe Couche (Haltere)',
-    'Developpe Couche (Machine Smith)','Developpe Couche Decline (Barre)',
-    'Developpe Couche Decline (Haltere)','Developpe Couche Decline (Machine)',
+    'Developpe Couche (Machine Smith)',
     'Bench Press','Bench','Chest Press (Machine)','Chest Press Convergent (Machine)',
     'Presse au Sol (Haltere)'
   ],
@@ -20700,13 +20712,13 @@ var WP_SYNONYMS = {
     'Tirage Poitrine Un Bras','Tirage bras tendu'
   ],
   'Ecarte machine': [
-    'Ecarte (Machine)','Ecarte (Haltere)','Ecarte Incline (Haltere)',
+    'Ecarte (Machine)','Ecarte Machine (Pec Deck)','Ecarte (Haltere)','Ecarte Incline (Haltere)',
     'Ecartes Poulie Basse','Ecartes Poulie','Butterfly (Pec Deck)',
     'Ecartes a la poulie assis','Pull-Over'
   ],
+  // Anti-fusion C6(2) : variantes poulie retirées — clé 'Oiseau Poulie' dédiée
   'Oiseau machine': [
-    'Oiseau (Machine)','Oiseau (Haltere)','Oiseau Penche (Haltere)',
-    'Oiseau (Poulie)','Oiseau Un Bras (Poulie)'
+    'Oiseau (Machine)','Oiseau (Haltere)','Oiseau Penche (Haltere)'
   ],
   'Elevations laterales': [
     'Elevation Laterale (Haltere)','Elevation Laterale (Poulie)',
@@ -20748,6 +20760,22 @@ var WP_SYNONYMS = {
   'Velo doux': ['Velo Machine','Cyclisme'],
   'Marche inclinees tapis': ['Tapis Roulant']
 };
+
+// Nomenclature Lot 1 : groupe de synonymes contenant `name` (clé + valeurs),
+// ou null. Consommé par le pont matchExoName (engine.js) et wpGetExoMeta —
+// même résolution curée pour tous les lecteurs. Lecture seule.
+function wpSynonymGroupOf(name) {
+  if (!name || typeof WP_SYNONYMS === 'undefined') return null;
+  var n = wpNormalizeName(name);
+  var keys = Object.keys(WP_SYNONYMS);
+  for (var i = 0; i < keys.length; i++) {
+    var group = [keys[i]].concat(WP_SYNONYMS[keys[i]]);
+    for (var j = 0; j < group.length; j++) {
+      if (wpNormalizeName(group[j]) === n) return group;
+    }
+  }
+  return null;
+}
 
 // Trouve le vrai nom dans db.logs — 3 niveaux de fallback
 function wpFindBestMatch(targetName, logs) {
@@ -23018,6 +23046,21 @@ function wpGetExoMeta(name) {
   var keys = Object.keys(WP_EXO_META);
   for (var i = 0; i < keys.length; i++) {
     if (wpNormalizeName(keys[i]) === n) return WP_EXO_META[keys[i]];
+  }
+
+  // Niveau 1b : résolution via groupe de synonymes (nomenclature Lot 1) —
+  // « High Bar Squat » hérite de la méta de « squat barre » via son groupe
+  if (typeof wpSynonymGroupOf === 'function') {
+    var _grp = wpSynonymGroupOf(name);
+    if (_grp) {
+      for (var g = 0; g < _grp.length; g++) {
+        var gn = wpNormalizeName(_grp[g]);
+        if (gn === n) continue;
+        for (var k = 0; k < keys.length; k++) {
+          if (wpNormalizeName(keys[k]) === gn) return WP_EXO_META[keys[k]];
+        }
+      }
+    }
   }
 
   // Niveau 2 : frontière de mot (évite 'curl' → 'leg curl')
@@ -25951,7 +25994,9 @@ function goGetPreviousSets(exoName) {
   for (var i = db.logs.length - 1; i >= 0; i--) {
     var ses = db.logs[i];
     for (var j = 0; j < (ses.exercises || []).length; j++) {
-      if (matchExoName(ses.exercises[j].name, exoName)) {
+      // useSynonyms : « Dernière fois » résout le générique programme vers
+      // l'historique précis (nomenclature Lot 1) — lecture seule
+      if (matchExoName(ses.exercises[j].name, exoName, true)) {
         return { series: ses.exercises[j].series || ses.exercises[j].allSets || [], date: ses.shortDate || ses.date || '' };
       }
     }

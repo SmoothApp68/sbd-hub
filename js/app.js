@@ -15314,44 +15314,34 @@ function renderCardioStats() {
   const el = document.getElementById('cardioStatsContent');
   if (!el) return;
 
-  const isSwim = n => /natation|swimming|nage|crawl|brasse|papillon|dos crawl/.test(n.toLowerCase());
-  const isTapis = n => /tapis|treadmill|course|running|jogging/.test(n.toLowerCase());
-  const isVelo = n => /velo|cycling|bike/.test(n.toLowerCase());
   const fmtDur = sec => { if (!sec) return '—'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60); return h > 0 ? h+'h'+String(m).padStart(2,'0') : m+'min'; };
   const fmtPace = (dist, sec) => dist > 0 && sec > 0 ? ((sec/60)/dist).toFixed(1) + ' min/km' : null;
 
-  const all = [];
-  db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
-      if (!exo.isCardio) return;
-      all.push({ name: exo.name, distance: exo.distance || 0, duration: exo.maxTime || 0, ts: log.timestamp, date: log.shortDate || formatDate(log.timestamp) });
-    });
-  });
+  // Fusion lecture seule db.logs + db.activityLogs, durées en secondes (audit 63)
+  const all = computeCardioStatsData();
 
   if (!all.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">Aucune session cardio détectée.<br><span style="font-size:11px;">Tapis, natation, vélo… apparaissent ici automatiquement.</span></div>';
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--sub);font-size:13px;">Aucune session cardio détectée.<br><span style="font-size:11px;">Tapis, natation, vélo, activités loggées… apparaissent ici automatiquement.</span></div>';
     return;
   }
 
   const limit30 = Date.now() - 30 * 86400000;
-  const swim = all.filter(c => isSwim(c.name));
-  const tapis = all.filter(c => isTapis(c.name));
-  const velo = all.filter(c => isVelo(c.name) && !isSwim(c.name) && !isTapis(c.name));
-  const other = all.filter(c => !isSwim(c.name) && !isTapis(c.name) && !isVelo(c.name));
-
   const CARDIO_TYPES = [
-    { list: swim,  label: 'Natation',        icon: '🏊', color: '#64D2FF', bg: 'rgba(100,210,255,0.1)' },
-    { list: tapis, label: 'Course / Tapis',   icon: '🏃', color: '#32D74B', bg: 'rgba(50,215,75,0.1)' },
-    { list: velo,  label: 'Vélo',             icon: '🚴', color: '#FF9F0A', bg: 'rgba(255,159,10,0.1)' },
-    { list: other, label: 'Autre cardio',     icon: '💪', color: '#86868B', bg: 'rgba(134,134,139,0.1)' }
+    { cat: 'swim',  label: 'Natation',       icon: '🏊', color: '#64D2FF', bg: 'rgba(100,210,255,0.1)' },
+    { cat: 'run',   label: 'Course / Tapis', icon: '🏃', color: '#32D74B', bg: 'rgba(50,215,75,0.1)' },
+    { cat: 'bike',  label: 'Vélo',           icon: '🚴', color: '#FF9F0A', bg: 'rgba(255,159,10,0.1)' },
+    { cat: 'other', label: 'Autre activité', icon: '💪', color: '#86868B', bg: 'rgba(134,134,139,0.1)' }
   ];
+  const styleFor = cat => CARDIO_TYPES.find(t => t.cat === cat) || CARDIO_TYPES[3];
 
   const sectionHtml = CARDIO_TYPES.map(t => {
-    if (!t.list.length) return '';
-    const recent = t.list.filter(c => c.ts >= limit30);
+    const list = all.filter(c => c.cat === t.cat);
+    if (!list.length) return '';
+    const recent = list.filter(c => c.ts >= limit30);
     const totalDist = recent.reduce((s, c) => s + c.distance, 0);
-    const totalDur = recent.reduce((s, c) => s + c.duration, 0);
-    const bestDist = Math.max(...t.list.map(c => c.distance), 0);
+    const totalDur = recent.reduce((s, c) => s + c.durationSec, 0);
+    const totalTrimp = recent.reduce((s, c) => s + (c.trimp || 0), 0);
+    const bestDist = Math.max(...list.map(c => c.distance), 0);
     const avgPace = totalDist > 0 && totalDur > 0 ? fmtPace(totalDist, totalDur) : null;
 
     let metrics = '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + recent.length + '</div><div class="cardio-metric-lbl">Sessions 30j</div></div>';
@@ -15359,23 +15349,16 @@ function renderCardioStats() {
     if (totalDur > 0) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + fmtDur(totalDur) + '</div><div class="cardio-metric-lbl">Durée totale</div></div>';
     if (bestDist > 0) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + bestDist.toFixed(1) + '<span>km</span></div><div class="cardio-metric-lbl">Record dist.</div></div>';
     if (avgPace) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + avgPace + '</div><div class="cardio-metric-lbl">Allure moy.</div></div>';
+    if (totalTrimp > 0) metrics += '<div class="cardio-metric"><div class="cardio-metric-val" style="color:' + t.color + ';">' + Math.round(totalTrimp) + '</div><div class="cardio-metric-lbl">TRIMP 30j</div></div>';
 
     return '<div class="cardio-sec"><div class="cardio-sec-title" style="color:' + t.color + ';">' + t.icon + ' ' + t.label + '</div>' +
       '<div class="cardio-metrics">' + metrics + '</div></div>';
   }).join('');
 
-  // Recent history
-  const recentAll = [...all].sort((a, b) => b.ts - a.ts).slice(0, 10);
-  const getCardioStyle = c => {
-    if (isSwim(c.name)) return { icon: '🏊', color: '#64D2FF', bg: 'rgba(100,210,255,0.1)' };
-    if (isTapis(c.name)) return { icon: '🏃', color: '#32D74B', bg: 'rgba(50,215,75,0.1)' };
-    if (isVelo(c.name)) return { icon: '🚴', color: '#FF9F0A', bg: 'rgba(255,159,10,0.1)' };
-    return { icon: '💪', color: '#86868B', bg: 'rgba(134,134,139,0.1)' };
-  };
-
-  const historyHtml = recentAll.map(c => {
-    const cs = getCardioStyle(c);
-    const pace = fmtPace(c.distance, c.duration);
+  // Historique récent fusionné (all est déjà trié par ts décroissant)
+  const historyHtml = all.slice(0, 10).map(c => {
+    const cs = styleFor(c.cat);
+    const pace = fmtPace(c.distance, c.durationSec);
     return '<div class="cardio-h-item">' +
       '<div class="cardio-h-left">' +
         '<div class="cardio-h-ico" style="background:' + cs.bg + ';">' + cs.icon + '</div>' +
@@ -15383,8 +15366,9 @@ function renderCardioStats() {
       '</div>' +
       '<div class="cardio-h-right">' +
         (c.distance ? '<div class="cardio-h-dist">' + c.distance.toFixed(2) + ' km</div>' : '') +
-        (c.duration ? '<div class="cardio-h-time">' + fmtDur(c.duration) + '</div>' : '') +
+        (c.durationSec ? '<div class="cardio-h-time">' + fmtDur(c.durationSec) + '</div>' : '') +
         (pace ? '<div class="cardio-h-pace">' + pace + '</div>' : '') +
+        (!pace && c.trimp ? '<div class="cardio-h-pace">' + Math.round(c.trimp) + ' TRIMP</div>' : '') +
       '</div></div>';
   }).join('');
 

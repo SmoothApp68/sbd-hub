@@ -27344,6 +27344,51 @@ function buildChargeExplanation(exoName, calculatedWeight, shadowWeight) {
   };
 }
 
+// ── Sparkline de progression par exercice (carte GO) — LECTURE SEULE ────────
+// Un point = une séance passée contenant l'exercice ; valeur = meilleur e1RM
+// (Brzycki, calcE1RM) des work sets. Source primaire : exercise.series, qui ne
+// contient QUE les sets 'normal' complétés non abandonnés (convertWorkoutToSession) ;
+// fallback allSets filtré setType==='normal' pour les formes legacy/import.
+// Cache mémoire pur (invalidé quand db.logs change de longueur) — AUCUNE écriture db.
+var _sparkCache = {};
+
+function computeExoSparklineData(exoName, maxPoints) {
+  if (!exoName || typeof db === 'undefined' || !db || !Array.isArray(db.logs) || db.logs.length < 2) return null;
+  maxPoints = maxPoints || 10;
+  var _cached = _sparkCache[exoName];
+  if (_cached && _cached.logsLen === db.logs.length) return _cached.points;
+
+  var targetNorm = wpNormalizeName(exoName);
+  var resolved = typeof wpFindBestMatch === 'function' ? wpFindBestMatch(exoName, db.logs) : null;
+  var resolvedNorm = resolved ? wpNormalizeName(resolved) : null;
+
+  var points = [];
+  // db.logs : plus récent en premier (index 0)
+  for (var i = 0; i < db.logs.length && points.length < maxPoints; i++) {
+    var exos = db.logs[i].exercises || [];
+    var best = 0;
+    for (var j = 0; j < exos.length; j++) {
+      var n = wpNormalizeName(exos[j].name);
+      if (n !== targetNorm && n !== resolvedNorm) continue;
+      var sets = (exos[j].series && exos[j].series.length)
+        ? exos[j].series
+        : (exos[j].allSets || []).filter(function(s) { return (s.setType || 'normal') === 'normal'; });
+      for (var k = 0; k < sets.length; k++) {
+        var w = parseFloat(sets[k].weight) || 0;
+        var r = parseInt(sets[k].reps) || 0;
+        if (w <= 0 || r <= 0) continue;
+        var e = calcE1RM(w, r);
+        if (e > best) best = e;
+      }
+    }
+    if (best > 0) points.push({ t: db.logs[i].timestamp || 0, e1rm: best });
+  }
+
+  var result = points.length >= 2 ? points.reverse() : null; // chronologique gauche → droite
+  _sparkCache[exoName] = { logsLen: db.logs.length, points: result };
+  return result;
+}
+
 function renderGoExoCard(exo, exoIdx, allE1RMs) {
   var ms = _ecMuscleStyle(exo.name);
   var tt = goGetExoTrackingType(exo);

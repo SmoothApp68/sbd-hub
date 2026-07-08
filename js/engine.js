@@ -4997,6 +4997,99 @@ function getActiveZoneForPhase() {
   return zoneMap[phase] || 'hypertrophie';
 }
 
+// ── Nomenclature Lot 2 — Fusion d'entrées db.exercises (doublon générique → précis)
+// FONCTION PURE : ne mute ni db ni le cloud, ne sauvegarde rien. L'appelant décide
+// d'écrire (application manuelle contrôlée via Claude.ai/Supabase — AUCUNE
+// auto-migration ne l'appelle au boot).
+// Règle validée (audit 64, Phase 1) :
+//  - zones[z].sessionsCount : SOMME from+to (compteur cumulatif d'historique)
+//  - zones[z].e1rm : PRÉCIS-prioritaire (to si >0, sinon from) — JAMAIS max,
+//    pour ne pas réinjecter une charge de départ APRE périmée
+//  - zones[z].shadowWeight : to si non nul, sinon from (vestigial, 0 lecteur)
+//  - zone présente uniquement dans from : importée telle quelle
+//  - e1rm top : recalculé = max des zones fusionnées + tethering
+//  - shadowWeight top / champs inconnus : to prioritaire, from en combleur
+// Retour : { merged, summary } — merged = null si no-op total.
+function mergeExerciseData(dbLike, fromName, toName) {
+  var exercises = (dbLike && dbLike.exercises) ? dbLike.exercises : (dbLike || {});
+  var from = exercises[fromName];
+  var to = exercises[toName];
+  var copy = function(o) { return o ? JSON.parse(JSON.stringify(o)) : o; };
+
+  if (!from && !to) {
+    return { merged: null, summary: { action: 'noop', reason: 'aucune des deux entrées n\'existe' } };
+  }
+  if (!from) {
+    // Idempotence : from déjà fusionné/supprimé → to inchangé
+    return { merged: copy(to), summary: { action: 'noop', reason: fromName + ' absent (déjà fusionné ?)' } };
+  }
+  if (!to) {
+    // Simple renommage : l'entrée générique devient l'entrée précise
+    return { merged: copy(from), summary: { action: 'rename', from: fromName, to: toName } };
+  }
+
+  var f = copy(from);
+  var t = copy(to);
+  var merged = {};
+
+  // Champs plats (hors zones) : to prioritaire, from en combleur
+  Object.keys(f).forEach(function(k) { if (k !== 'zones') merged[k] = f[k]; });
+  Object.keys(t).forEach(function(k) { if (k !== 'zones' && t[k] !== undefined) merged[k] = t[k]; });
+
+  var summary = { action: 'merge', from: fromName, to: toName, zones: {} };
+
+  // Zones
+  var zoneNames = {};
+  Object.keys(f.zones || {}).forEach(function(z) { zoneNames[z] = 1; });
+  Object.keys(t.zones || {}).forEach(function(z) { zoneNames[z] = 1; });
+  var zk = Object.keys(zoneNames);
+  if (zk.length) {
+    merged.zones = {};
+    zk.forEach(function(z) {
+      var fz = (f.zones || {})[z];
+      var tz = (t.zones || {})[z];
+      if (fz && !tz) {
+        merged.zones[z] = fz;
+        summary.zones[z] = { imported: 'from', sessionsCount: fz.sessionsCount || 0, e1rm: fz.e1rm || 0 };
+        return;
+      }
+      if (!fz && tz) {
+        merged.zones[z] = tz;
+        return;
+      }
+      var mz = {};
+      Object.keys(fz).forEach(function(k) { mz[k] = fz[k]; });
+      Object.keys(tz).forEach(function(k) { if (tz[k] !== undefined) mz[k] = tz[k]; });
+      mz.sessionsCount = (fz.sessionsCount || 0) + (tz.sessionsCount || 0);
+      mz.e1rm = (tz.e1rm > 0) ? tz.e1rm : (fz.e1rm || 0);
+      mz.shadowWeight = tz.shadowWeight ? tz.shadowWeight : (fz.shadowWeight || 0);
+      merged.zones[z] = mz;
+      summary.zones[z] = {
+        sessionsCount: { from: fz.sessionsCount || 0, to: tz.sessionsCount || 0, merged: mz.sessionsCount },
+        e1rm: { from: fz.e1rm || 0, to: tz.e1rm || 0, kept: mz.e1rm }
+      };
+    });
+
+    // e1rm top = dérivé : max des zones fusionnées, puis tethering.
+    // Formules reproduites À L'IDENTIQUE d'applyDUPTethering (engine.js:4948-4961),
+    // qui mute db.exercises par nom et n'est donc pas utilisable en fonction pure.
+    var zf = merged.zones.force, zh = merged.zones.hypertrophie, zv = merged.zones.vitesse;
+    var topE1RM = Math.max((zf && zf.e1rm) || 0, (zh && zh.e1rm) || 0, (zv && zv.e1rm) || 0);
+    if (topE1RM > 0) merged.e1rm = topE1RM;
+    var _fe = (zf && zf.e1rm) || 0;
+    var _he = (zh && zh.e1rm) || 0;
+    if (_fe && _he) {
+      if (_fe > _he * 1.15) zh.e1rm = Math.round(_fe * 0.85 / 2.5) * 2.5;
+      if (_he > _fe) { zf.e1rm = Math.round(_he * 1.02 / 2.5) * 2.5; merged.e1rm = zf.e1rm; }
+    }
+  }
+
+  summary.topE1RM = merged.e1rm || 0;
+  summary.shadowWeight = merged.shadowWeight || 0;
+  summary.note = 'écrire merged sous "' + toName + '" puis SUPPRIMER la clé "' + fromName + '"';
+  return { merged: merged, summary: summary };
+}
+
 // ── LINEAR PROGRESSION (LP) — 3-Strikes System ───────────────────────────────
 
 var LP_CONFIG = {

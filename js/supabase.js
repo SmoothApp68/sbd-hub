@@ -320,7 +320,10 @@ async function syncToCloud(silent) {
     if (!silent) showToast('Synchronisé !');
     updateSyncStatus('sync');
     syncLeaderboard();
-    syncLogsToSupabase(user.id).catch(function(e) { console.error('log sync failed:', e); });
+    syncLogsToSupabase(user.id).catch(function(e) {
+      console.error('log sync failed:', e);
+      if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'syncLogsToSupabase');
+    });
   } catch(e) {
     console.error('Cloud sync:', e);
     if (!silent) showToast('Erreur sync');
@@ -497,6 +500,7 @@ async function syncLogsToSupabase(userIdArg) {
     return allOk;
   } catch (e) {
     console.warn('[sync] workout_sessions sync error:', (e && e.message) ? e.message : e);
+    if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'syncLogsToSupabase.body');
     return false;
   }
 }
@@ -522,6 +526,7 @@ async function pushWorkoutSessionsNow() {
     ok = await syncLogsToSupabase(uid);
   } catch (e) {
     console.warn('[sync] workout_sessions upsert failed:', (e && e.message) ? e.message : e);
+    if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'pushWorkoutSessionsNow');
   }
   if (ok) _wsPendingFlush = false;
 }
@@ -1297,6 +1302,8 @@ async function getMyUserIdAsync() {
   try {
     const { data } = await supaClient.auth.getUser();
     _cachedUid = data?.user?.id || null;
+    // Associe l'utilisateur à ses erreurs via UUID uniquement (jamais email/pseudo)
+    if (_cachedUid && typeof sentrySetUserId === 'function') sentrySetUserId(_cachedUid);
     return _cachedUid;
   } catch { return null; }
 }

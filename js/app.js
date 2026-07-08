@@ -15244,6 +15244,72 @@ function computeStrengthRatios() {
   return ratios;
 }
 
+// ── Stats Cardio — agrégation LECTURE SEULE (db.logs + db.activityLogs) ─────
+// Normalise toutes les durées en SECONDES, ne modifie jamais db (audit 63).
+// P3 : les séances GO cardio n'ont ni maxTime ni distance (perdus à l'écriture
+// par convertWorkoutToSession — zone rouge, non corrigé ici) ; leur durée est
+// récupérée depuis series[].reps (minutes saisies dans la carte GO).
+var _ACTIVITY_CARDIO_CAT = { natation: 'swim', course: 'run', trail: 'run', velo: 'bike' };
+
+function _cardioCat(name, activityType) {
+  if (activityType) return _ACTIVITY_CARDIO_CAT[activityType] || 'other';
+  var n = (name || '').toLowerCase();
+  if (/natation|swimming|nage|crawl|brasse|papillon|dos crawl/.test(n)) return 'swim';
+  if (/tapis|treadmill|course|running|jogging|trail/.test(n)) return 'run';
+  if (/v[eé]lo|cycling|bike/.test(n)) return 'bike';
+  return 'other';
+}
+
+function _cardioDurationSec(exo) {
+  if ((exo.maxTime || 0) > 0) return exo.maxTime; // secondes (import Hevy / group class)
+  // Forme GO : maxTime absent, durée (minutes) rangée dans series[].reps
+  var best = 0;
+  (exo.series || []).forEach(function(s) {
+    if ((parseFloat(s.weight) || 0) > 0) return; // set pondéré réel → pas une durée
+    var v = parseInt(s.reps) || 0;
+    if (v > best) best = v;
+  });
+  if (best <= 0) return 0;
+  // Plausibilité : ≤ 600 → minutes GO (× 60) ; au-delà → déjà des secondes
+  return best <= 600 ? best * 60 : best;
+}
+
+function computeCardioStatsData() {
+  var entries = [];
+  if (typeof db === 'undefined' || !db) return entries;
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (!exo.isCardio) return;
+      entries.push({
+        name: exo.name,
+        cat: _cardioCat(exo.name, null),
+        distance: exo.distance || 0,
+        durationSec: _cardioDurationSec(exo),
+        trimp: null,
+        ts: log.timestamp || 0,
+        date: log.shortDate || '',
+        source: 'log'
+      });
+    });
+  });
+  (db.activityLogs || []).forEach(function(a) {
+    if (!a || !a.type) return;
+    var meta = (typeof ACTIVITY_SESSION_LABELS !== 'undefined' && ACTIVITY_SESSION_LABELS[a.type]) || null;
+    entries.push({
+      name: meta ? (meta.emoji + ' ' + meta.label) : a.type,
+      cat: _cardioCat('', a.type),
+      distance: 0, // jamais stockée dans activityLogs — pas de placeholder trompeur
+      durationSec: (parseFloat(a.duration) || 0) * 60, // minutes → secondes
+      trimp: a.trimp || null,
+      ts: a.date ? new Date(a.date + 'T12:00:00').getTime() : 0,
+      date: a.date ? (a.date.slice(8, 10) + '/' + a.date.slice(5, 7)) : '',
+      source: 'activity'
+    });
+  });
+  entries.sort(function(x, y) { return y.ts - x.ts; });
+  return entries;
+}
+
 function renderCardioStats() {
   const el = document.getElementById('cardioStatsContent');
   if (!el) return;

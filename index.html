@@ -9,7 +9,7 @@
       script-src 'self' 'unsafe-inline';
       style-src 'self' 'unsafe-inline';
       img-src 'self' data: blob: https://raw.githubusercontent.com;
-      connect-src 'self' https://swwygywahfdenyzotrce.supabase.co wss://swwygywahfdenyzotrce.supabase.co;
+      connect-src 'self' https://swwygywahfdenyzotrce.supabase.co wss://swwygywahfdenyzotrce.supabase.co https://o4511701283241984.ingest.de.sentry.io;
       font-src 'self';
       media-src 'none';
       object-src 'none';
@@ -25,6 +25,10 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <!-- chart.min.js lazy-loaded on first chart render (A3-F3) — see ensureChartLoaded() -->
   <script defer src="js/supabase-cdn.min.js"></script>
+  <!-- Sentry (monitoring d'erreurs) — bundlé localement, chargé tôt en defer.
+       Fail-silent : si le SDK ne charge pas, l'app fonctionne normalement. -->
+  <script defer src="js/sentry.min.js"></script>
+  <script defer src="js/sentry-init.js"></script>
   <style>
     :root {
       /* Fonds */

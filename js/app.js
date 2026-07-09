@@ -7266,21 +7266,15 @@ function _buildChallengeTemplate(metricKey, days) {
 
 // Bottom-sheet réutilisable du picker. showModal() est un dialogue confirm/cancel —
 // inadapté à du contenu ; on utilise go-bottom-sheet.
+// Chantier A vague 2 — RÉPARÉE : référençait des classes CSS inexistantes
+// (go-bottom-sheet-overlay/-content/-handle → panneau non stylé, tap-dehors mort).
+// Rebranchée sur la primitive showSheet() (mêmes classes que toutes les sheets).
+// Le retrait instantané du doublon est conservé (dédup par id : les 2 étapes du
+// picker se remplacent, un _uiClose de 240ms laisserait 2 nœuds avec le même id).
 function _showChallengeSheet(title, innerHtml) {
   var existing = document.getElementById('challengePickerSheet');
   if (existing) existing.remove();
-  var sheet = document.createElement('div');
-  sheet.id = 'challengePickerSheet';
-  sheet.className = 'go-bottom-sheet';
-  sheet.style.display = '';
-  sheet.innerHTML =
-    '<div class="go-bottom-sheet-overlay" onclick="document.getElementById(\'challengePickerSheet\').remove()"></div>' +
-    '<div class="go-bottom-sheet-content">' +
-      '<div class="go-bottom-sheet-handle"></div>' +
-      '<div style="font-size:16px;font-weight:700;margin-bottom:14px;text-align:center;">' + title + '</div>' +
-      innerHtml +
-    '</div>';
-  document.body.appendChild(sheet);
+  return showSheet({ id: 'challengePickerSheet', title: title, body: innerHtml });
 }
 
 // Maillon manquant (bug du diagnostic) : après le choix de métrique, demande la durée
@@ -7301,7 +7295,7 @@ function selectChallengeMetric(metricKey) {
 function createChallengeFromMetric(metricKey, days) {
   var tmpl = _buildChallengeTemplate(metricKey, days);
   var sheet = document.getElementById('challengePickerSheet');
-  if (sheet) sheet.remove();
+  if (sheet) closeModalEl(sheet);
   if (!tmpl) { if (typeof showToast === 'function') showToast('Métrique inconnue'); return; }
   if (typeof createChallenge === 'function') createChallenge(tmpl);
 }

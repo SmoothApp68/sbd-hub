@@ -1284,6 +1284,10 @@ function importData() {
     }
   );
 }
+// ── Chantier A vague 1 — toast unifié ────────────────────────────────────────
+// Une seule primitive, file sérialisée (1 toast visible à la fois), entrée+sortie
+// animées. Options : { duration, onClick, variant ('pr'…), position ('top'|'bottom') }.
+// Signature historique showToast(msg, duration, onClick) conservée (~100 appelants).
 var _toastQueue = [];
 var _toastBusy = false;
 function _flushToast() {
@@ -1292,17 +1296,29 @@ function _flushToast() {
   var item = _toastQueue.shift();
   var dur = Math.max(1500, item.duration || 3500);
   var t = document.createElement('div');
-  t.className = 'toast';
+  t.className = 'toast'
+    + (item.position === 'top' ? ' toast--top' : '')
+    + (item.variant ? ' toast--' + item.variant : '');
   t.textContent = item.msg;
+  var finished = false;
+  var done = function() {
+    if (finished) return;
+    finished = true;
+    _uiClose(t, _flushToast);
+  };
   if (typeof item.onClick === 'function') {
     t.style.cursor = 'pointer';
-    t.addEventListener('click', function() { try { item.onClick(); } catch(e) {} t.remove(); _flushToast(); });
+    t.addEventListener('click', function() { try { item.onClick(); } catch(e) {} done(); });
   }
-  document.body.appendChild(t);
-  setTimeout(function() { t.remove(); _flushToast(); }, dur);
+  _uiOpen(t, { modal: false });
+  setTimeout(done, dur);
 }
-function showToast(msg, duration, onClick) {
-  _toastQueue.push({ msg: msg, duration: duration, onClick: onClick });
+function showToast(msg, durationOrOpts, onClick) {
+  var opts = (durationOrOpts && typeof durationOrOpts === 'object')
+    ? durationOrOpts
+    : { duration: durationOrOpts, onClick: onClick };
+  _toastQueue.push({ msg: msg, duration: opts.duration, onClick: opts.onClick,
+    variant: opts.variant, position: opts.position });
   if (!_toastBusy) _flushToast();
 }
 var _LABEL_MAP = {
@@ -31466,24 +31482,11 @@ function goDiscardWorkout() {
 // ============================================================
 // PR CELEBRATION — Toast (Type A) + Overlay (Type B) + Partage
 // ============================================================
+// Chantier A vague 1 — rebranché sur le toast unifié. Position haute + style
+// célébration conservés par choix délibéré (variante paramétrée, pas un 2ᵉ système).
 function showPRToast(exoName, e1rm) {
-  var existing = document.getElementById('prToastA');
-  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-  var t = document.createElement('div');
-  t.id = 'prToastA';
-  t.innerHTML = '⚡ Nouveau PR — ' + exoName + ' · ' + Math.round(e1rm) + ' kg e1RM';
-  t.style.cssText = [
-    'position:fixed', 'top:16px', 'left:50%',
-    'transform:translateX(-50%)',
-    'background:linear-gradient(135deg,rgba(191,90,242,0.95),rgba(255,55,95,0.95))',
-    'color:white', 'font-size:13px', 'font-weight:700',
-    'padding:10px 18px', 'border-radius:20px',
-    'z-index:9999', 'white-space:nowrap',
-    'box-shadow:0 4px 20px rgba(191,90,242,0.4)',
-    'animation:slideDownFade 2.5s ease forwards'
-  ].join(';');
-  document.body.appendChild(t);
-  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 2600);
+  showToast('⚡ Nouveau PR — ' + exoName + ' · ' + Math.round(e1rm) + ' kg e1RM',
+    { variant: 'pr', position: 'top', duration: 2600 });
 }
 
 function showPROverlay(liftName, weightKg, newTier) {

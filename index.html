@@ -172,6 +172,16 @@
     .period-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
     .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--success); color: #000; padding: 12px 20px; border-radius: 14px; font-weight: 600; font-size: 13px; z-index:var(--z-toast); animation: toastSlide 0.3s ease; }
     @keyframes toastSlide { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    /* Chantier A v1 — toast unifié : sortie animée + variantes position/style.
+       .toast--top : position haute (choix délibéré pour les célébrations PR).
+       .toast--pr : style célébration (gradient repris de l'ancien showPRToast). */
+    @keyframes toastOut { to { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+    @keyframes toastSlideTop { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    @keyframes toastOutTop { to { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
+    .toast.closing { animation: toastOut 0.24s ease forwards; pointer-events: none; }
+    .toast--top { bottom: auto; top: 16px; animation: toastSlideTop 0.3s ease; }
+    .toast--top.closing { animation: toastOutTop 0.24s ease forwards; }
+    .toast--pr { background: linear-gradient(135deg, rgba(191,90,242,0.95), rgba(255,55,95,0.95)); color: white; font-weight: 700; padding: 10px 18px; border-radius: 20px; white-space: nowrap; box-shadow: 0 4px 20px rgba(191,90,242,0.4); }
     /* Polish Tier 0 — entrée/sortie modale sobre et symétrique (240ms ease, fade + scale 0.98).
        La sortie s'appuie sur .closing (posée par closeModalEl() dans app.js avant retrait DOM).
        Soumis au blanket prefers-reduced-motion global (règle *,*::before,*::after plus bas). */

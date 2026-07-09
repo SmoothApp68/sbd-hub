@@ -806,7 +806,7 @@ function showDOMSModal(callback) {
   overlay.id = 'doms-modal-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
     'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
-    'justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    'justify-content:center;z-index:var(--z-overlay);padding:16px;box-sizing:border-box;';
   overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;' +
     'width:100%;max-width:500px;">' + html + '</div>';
   document.body.appendChild(overlay);
@@ -915,7 +915,7 @@ function openDOMSMorningModal() {
   overlay.id = 'doms-morning-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
     'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
-    'justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    'justify-content:center;z-index:var(--z-overlay);padding:16px;box-sizing:border-box;';
   overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;'
     + 'width:100%;max-width:500px;max-height:85vh;max-height:85dvh;'
     + 'overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">'
@@ -1344,7 +1344,7 @@ function showConsentModal() {
   var o = document.createElement('div');
   o.id = 'consentHealthOverlay';
   o.className = 'modal-overlay';
-  o.style.cssText = 'z-index:10000;';
+  o.style.cssText = 'z-index:var(--z-critical);';
   o.innerHTML = '<div class="modal-box" style="max-width:380px;padding:20px;text-align:left;">'
     + '<div style="font-size:18px;font-weight:800;margin-bottom:4px;">🔒 Données de santé</div>'
     + '<div style="font-size:11px;color:var(--sub);margin-bottom:14px;">Conformité RGPD — Art. 9</div>'
@@ -2881,7 +2881,7 @@ function showMagicStart() {
   var overlay = document.createElement('div');
   overlay.id = 'magic-start-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;'
-    + 'background:var(--bg-primary);z-index:9999;display:flex;flex-direction:column;'
+    + 'background:var(--bg-primary);z-index:var(--z-overlay);display:flex;flex-direction:column;'
     + 'align-items:center;justify-content:center;padding:24px;box-sizing:border-box;';
 
   var name = (db.user && db.user.name) ? db.user.name.split(' ')[0] : 'Toi';
@@ -4602,7 +4602,7 @@ function showClassQuiz() {
   overlay.id = 'classQuizOverlay';
   overlay.innerHTML =
     '<style>' +
-      '#classQuizOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}' +
+      '#classQuizOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:var(--z-critical);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}' +
       '#classQuizOverlay .cq-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;max-width:380px;width:100%;color:#fff;animation:cqFade 0.4s ease;}' +
       '#classQuizOverlay .cq-progress{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;text-align:center;}' +
       '#classQuizOverlay .cq-progress-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:20px;}' +
@@ -10960,7 +10960,7 @@ function renderSwipeOnboarding() {
   var progress = Math.round((state.index / exercises.length) * 100);
 
   var html = '<div data-swipe-container style="position:fixed;top:0;left:0;width:100%;'
-    + 'height:100vh;height:100dvh;background:#0a0a14;z-index:9998;display:flex;'
+    + 'height:100vh;height:100dvh;background:#0a0a14;z-index:var(--z-overlay);display:flex;'
     + 'flex-direction:column;align-items:center;justify-content:center;padding:20px;'
     + 'box-sizing:border-box;">'
     + '<div style="width:100%;max-width:400px;margin-bottom:16px;">'
@@ -14580,7 +14580,7 @@ function checkIOSInstallPrompt() {
   if (db.user && db.user._iosInstallPromptShown) return;
   var banner = document.createElement('div');
   banner.id = 'ios-install-banner';
-  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;'
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:var(--z-banner);'
     + 'background:var(--bg-card,#1c1c1e);border-top:0.5px solid var(--border-card,#3a3a3c);'
     + 'padding:14px 16px;display:flex;align-items:center;gap:12px;'
     + 'box-shadow:0 -4px 20px rgba(0,0,0,0.4);';
@@ -27420,7 +27420,7 @@ function showPaywall() {
 
   document.body.insertAdjacentHTML('beforeend',
     '<div id="ai-paywall" style="position:fixed;top:0;left:0;width:100%;height:100%;' +
-    'background:rgba(5,5,9,.97);z-index:9999;display:flex;flex-direction:column;' +
+    'background:rgba(5,5,9,.97);z-index:var(--z-overlay);display:flex;flex-direction:column;' +
     'align-items:center;justify-content:center;padding:24px;">' +
     '<div style="max-width:300px;text-align:center;">' +
       '<div style="font-size:9px;color:#7c6bff;font-family:monospace;letter-spacing:3px;margin-bottom:16px;">COACH IA</div>' +
@@ -28430,7 +28430,7 @@ function showLiveCoachBanner(msg) {
     'background:' + c.bg + ';border:1px solid ' + c.border + ';' +
     'border-radius:12px;padding:10px 14px;' +
     'font-size:13px;font-weight:600;color:' + c.text + ';' +
-    'z-index:1050;line-height:1.4;' +
+    'z-index:var(--z-banner);line-height:1.4;' +
     'display:flex;align-items:flex-start;gap:8px;' +
     'box-shadow:0 4px 20px rgba(0,0,0,0.3);';
 
@@ -28979,7 +28979,7 @@ function renderCropOverlay() {
 
   var overlay = document.createElement('div');
   overlay.id = 'cropOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:30000;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:15px;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:var(--z-critical);background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:15px;';
 
   // Calculer les dimensions d'affichage (fit dans l'écran)
   var maxW = Math.min(window.innerWidth - 30, 400);
@@ -29261,7 +29261,7 @@ function renderSessionEditor() {
 
   var overlay = document.createElement('div');
   overlay.id = 'sessionEditorOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;background:var(--bg-primary);overflow-y:auto;padding:15px 15px 120px;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay);background:var(--bg-primary);overflow-y:auto;padding:15px 15px 120px;';
 
   var dt = new Date(s.timestamp);
   var dateVal = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
@@ -31453,7 +31453,7 @@ function showPROverlay(liftName, weightKg, newTier) {
   var overlay = document.createElement('div');
   overlay.id = 'prOverlayB';
   overlay.style.cssText = [
-    'position:fixed', 'inset:0', 'z-index:10000',
+    'position:fixed', 'inset:0', 'z-index:var(--z-overlay)',
     'background:rgba(8,4,18,0.96)',
     'display:flex', 'flex-direction:column',
     'align-items:center', 'justify-content:center',

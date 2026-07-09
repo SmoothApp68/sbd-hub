@@ -28182,11 +28182,25 @@ function toggleAbandoned(exoIdx, setIdx) {
   goAutoSave();
 }
 
+// Chantier A vague 4 — confirm() natif → showConfirm async. Les DEUX branches
+// agissent : Oui → grindTech:false (technique tenue), Non → grindTech:true.
+// Réordonnancement sûr (Phase 1) : toggleGrind enchaîne sur goCheckAutoRegulation
+// qui ne lit PAS grindTech ; grindTech n'est lu qu'à la sauvegarde de séance.
+// Les guards re-vérifient l'existence du set au moment du choix (état async).
 function showGrindTechQuestion(exoIdx, setIdx) {
-  var answer = confirm('Technique maintenue pendant le grind ?');
-  if (!activeWorkout) return;
-  activeWorkout.exercises[exoIdx].sets[setIdx].grindTech = !answer;
-  goAutoSave();
+  var _setGrindTech = function(broken) {
+    if (!activeWorkout || !activeWorkout.exercises[exoIdx]
+      || !activeWorkout.exercises[exoIdx].sets[setIdx]) return;
+    activeWorkout.exercises[exoIdx].sets[setIdx].grindTech = broken;
+    goAutoSave();
+  };
+  showConfirm({
+    title: 'Technique maintenue pendant le grind ?',
+    confirmLabel: 'Oui',
+    cancelLabel: 'Non',
+    onConfirm: function() { _setGrindTech(false); },
+    onCancel: function() { _setGrindTech(true); }
+  });
 }
 
 // ── Auto-régulation intra-séance basée sur le RPE ──────────

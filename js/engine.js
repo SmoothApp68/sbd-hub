@@ -1826,7 +1826,7 @@ function computeWeeklyActivityScore() {
 
 var BEGINNER_SUBSTITUTES = {
   'Squat (Barre)':            'Goblet Squat',
-  'Soulevé de Terre (Barre)': 'Soulevé de Terre Roumain (Haltères)',
+  'Soulevé de Terre (Barre)': 'Soulevé de Terre Roumain (Haltère)',
   'Développé Couché (Barre)': 'Développé Couché (Haltères)'
 };
 

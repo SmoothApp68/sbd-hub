@@ -20072,10 +20072,10 @@ var WP_PROGRESSION = {
 // Choisit l'exercice principal et son rep range selon la phase active.
 var SBD_VARIANTS = {
   hypertrophie: {
-    squat:    { name: 'High Bar Squat',            reps: [8,10],  rpe: 7.5 },
+    squat:    { name: 'Squat (Barre)',            reps: [8,10],  rpe: 7.5 },
     // v200 — Bench barre TOUJOURS en J1 hypertrophie (mouvement de compétition,
     // maintien influx nerveux spécifique). Larsen Press = accessoire bench2_hyp uniquement.
-    bench:    { name: 'Bench Press (Barre)',       reps: [5,8],   rpe: 8.0 },
+    bench:    { name: 'Développé Couché (Barre)',       reps: [5,8],   rpe: 8.0 },
     // v195 — classic Soulevé de Terre as the primary heavy lift in hypertrophie
     // RDL stays available as an accessory via pbBlocks.dead_hyp
     deadlift: { name: 'Soulevé de Terre (Barre)',  reps: [6,8],   rpe: 8.0 }
@@ -20341,44 +20341,44 @@ var WP_ACCESSORIES_BY_PHASE = {
     ],
     // Mardi (séance lourde) — plateforme scapulaire post-Bench lourd (Gemini)
     bench: [
-      { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
-      { name: 'Rowing Poulie Assis (Prise Large)',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Développé Couché Incliné (Haltère)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
+      { name: 'Rowing Poulie Assis - Prise Large',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
       { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2, isCorrectivePriority: true, evictionCategory: 'corrective' }
     ],
     // Vendredi (séance volume) — angles différents + isolation (Gemini)
     bench2: [
       { name: 'Rowing Poulie Assis (V-Grip)',     reps: '10-12',rpe: 8,   sets: 4, rest: 90,  priority: 1 },
-      { name: 'Écarté Machine',          reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
-      { name: 'Oiseau Machine',          reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 },
+      { name: 'Écarté (Machine)',          reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 },
+      { name: 'Oiseau (Machine)',          reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 },
       { name: 'Extension Triceps Corde', reps: '12-15',rpe: 8,   sets: 3, rest: 60,  priority: 2 }
     ],
     // Jeudi — MAX 2 accessoires (Dead+Squat Pause = massacre SNC/érecteurs)
     // DANGER retiré : Relevé de Jambes (flexion lombaire post-Dead en extension = risque hernie)
     deadlift: [
       { name: 'Tirage Poitrine (Poulie)', reps: '10',   rpe: 8,   sets: 4, rest: 90, priority: 1 },
-      { name: 'Tirage vers Visage',       reps: '15',   rpe: 7.5, sets: 3, rest: 60, priority: 2 }
+      { name: 'Face Pull',       reps: '15',   rpe: 7.5, sets: 3, rest: 60, priority: 2 }
     ],
     // v239 — S2/S3 : variantes semaine 2 et 3 (wave loading accessoires DL)
     // Relevé de Jambes retiré (même raison danger lombaire)
     deadlift_s2: [
-      { name: 'Squat Pause',             reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Squat avec pause (barre)',             reps: '5-6',   rpe: 7.5, sets: 3, rest: 180, priority: 1, isPrimary: true },
       { name: 'Tirage Poitrine (Poulie)', reps: '10-12', rpe: 7.5, sets: 3, rest: 90,  priority: 2 },
-      { name: 'Leg Curl Allongé',        reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
-      { name: 'Tirage vers Visage',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
+      { name: 'Leg Curl Allongé (Machine)',        reps: '12-15', rpe: 7.5, sets: 3, rest: 75,  priority: 2 },
+      { name: 'Face Pull',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
     ],
     deadlift_s3: [
-      { name: 'Squat Pause',             reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Squat avec pause (barre)',             reps: '5-6',   rpe: 8,   sets: 3, rest: 180, priority: 1, isPrimary: true },
       { name: 'Tirage Poitrine (Poulie)', reps: '10-12', rpe: 8,   sets: 3, rest: 90,  priority: 2 },
-      { name: 'Leg Curl Allongé',        reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
-      { name: 'Tirage vers Visage',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
+      { name: 'Leg Curl Allongé (Machine)',        reps: '12-15', rpe: 8,   sets: 3, rest: 75,  priority: 2 },
+      { name: 'Face Pull',      reps: '15-20', rpe: 7,   sets: 2, rest: 60,  priority: 3 }
     ],
     weakpoints: [
-      { name: 'Élévations Latérales', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
+      { name: 'Élévation Latérale (Haltère)', reps: '15', rpe: 7.5, sets: 4, rest: 60, priority: 1 },
       { name: 'Curl Marteau',         reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 },
-      { name: 'Oiseau Machine',       reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 2 },
+      { name: 'Oiseau (Machine)',       reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 2 },
       { name: 'Face Pull',            reps: '15', rpe: 7,   sets: 3, rest: 60, priority: 1 },
-      { name: 'Extension Triceps',    reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 }
+      { name: 'Extension Triceps Poulie Haute',    reps: '12', rpe: 7.5, sets: 3, rest: 60, priority: 2 }
     ]
   },
   force: {
@@ -20389,9 +20389,9 @@ var WP_ACCESSORIES_BY_PHASE = {
       { name: 'Planche',              reps: '60s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ],
     squat: [
-      { name: 'Squat Pause',          reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
-      { name: 'Fentes Bulgares',      reps: '6-8', rpe: 8,   sets: 3, rest: 150, priority: 2 },
-      { name: 'Mollets Lourds',       reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
+      { name: 'Squat avec pause (barre)',          reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
+      { name: 'Split Squat Bulgare',      reps: '6-8', rpe: 8,   sets: 3, rest: 150, priority: 2 },
+      { name: 'Extension Mollets Debout (Machine)',       reps: '6-8', rpe: 8,   sets: 3, rest: 90,  priority: 3 }
     ],
     bench: [
       { name: 'Spoto Press',  reps: '3-5', rpe: 8,   sets: 4, rest: 240, priority: 1 },
@@ -20402,12 +20402,12 @@ var WP_ACCESSORIES_BY_PHASE = {
     deadlift: [
       { name: 'Good Morning', reps: '6-8', rpe: 7.5, sets: 3, rest: 180, priority: 1 },
       { name: 'Rack Pull',    reps: '3-5', rpe: 8,   sets: 3, rest: 240, priority: 1 },
-      { name: 'Gainage Lesté',reps: '60s', rpe: 7,   sets: 3, rest: 90,  priority: 2, type: 'time' }
+      { name: 'Planche',reps: '60s', rpe: 7,   sets: 3, rest: 90,  priority: 2, type: 'time' }
     ],
     weakpoints: [
-      { name: 'OHP (Barre)',       reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
+      { name: 'Développé Militaire (Barre)',       reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
       { name: 'Tractions Lestées', reps: '4-6', rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Shrugs',            reps: '8-10',rpe: 8,   sets: 3, rest: 120, priority: 2 }
+      { name: 'Shrug (Haltère)',            reps: '8-10',rpe: 8,   sets: 3, rest: 120, priority: 2 }
     ]
   }
 };
@@ -20439,9 +20439,9 @@ var WP_SESSION_TEMPLATES = {
     bodyPart: 'lower',
     accessories: [
       { name: 'Presse à Cuisses',   reps: '6-8',  rpe: 8.5, sets: 4, rest: 180, priority: 1 },
-      { name: 'Leg Extension',      reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
-      { name: 'Mollets (Machine)',  reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 2, isoTension: true },
-      { name: 'Gainage (Planche)',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
+      { name: 'Extension Jambes',      reps: '12',   rpe: 7,   sets: 4, rest: 90,  priority: 2 },
+      { name: 'Extension Mollets Debout (Machine)',  reps: '12',   rpe: 8,   sets: 4, rest: 60,  priority: 2, isoTension: true },
+      { name: 'Planche',  reps: '90s',  rpe: 7,   sets: 3, rest: 60,  priority: 3, type: 'time' }
     ]
   },
   // bench_hyp: MAR — plateforme scapulaire post-Bench lourd (Gemini Q2)
@@ -20450,8 +20450,8 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'bench',
     bodyPart: 'upper',
     accessories: [
-      { name: 'Développé Incliné (Haltères)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
-      { name: 'Rowing Poulie Assis (Prise Large)',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
+      { name: 'Développé Couché Incliné (Haltère)', reps: '8-10', rpe: 8,   sets: 3, rest: 120, priority: 2 },
+      { name: 'Rowing Poulie Assis - Prise Large',     reps: '8',    rpe: 8,   sets: 4, rest: 90,  priority: 1 },
       { name: 'Dips Torse',                    reps: '8-15', rpe: 8,   sets: 3, rest: 120, priority: 1, type: 'reps', useBodyweight: true },
       { name: 'Face Pull',                     reps: '12-15',rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ]
@@ -20462,10 +20462,10 @@ var WP_SESSION_TEMPLATES = {
     mainLift: 'deadlift',
     bodyPart: 'lower',
     accessories: [
-      { name: 'Squat Pause',             reps: '5',  rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
+      { name: 'Squat avec pause (barre)',             reps: '5',  rpe: 8,   sets: 4, rest: 180, priority: 1, isPrimary: true },
       { name: 'Tirage Poitrine (Poulie)', reps: '10', rpe: 8,   sets: 4, rest: 90,  priority: 1 },
-      { name: 'Leg Curl Allongé',        reps: '12', rpe: 7,   sets: 3, rest: 90,  priority: 2 },
-      { name: 'Tirage vers Visage',      reps: '15', rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
+      { name: 'Leg Curl Allongé (Machine)',        reps: '12', rpe: 7,   sets: 3, rest: 90,  priority: 2 },
+      { name: 'Face Pull',      reps: '15', rpe: 7.5, sets: 3, rest: 60,  priority: 2 }
     ]
   },
   weakpoints: {
@@ -20474,13 +20474,13 @@ var WP_SESSION_TEMPLATES = {
     bodyPart: 'upper',
     accessories: [
       { name: 'Face Pull',                 reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
-      { name: 'Oiseau Machine',            reps: '12',  rpe: 7,   sets: 3, rest: 60  },
-      { name: 'Tirage Vertical',           reps: '8',   rpe: 8,   sets: 4, rest: 120 },
-      { name: 'Shrugs',                    reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
+      { name: 'Oiseau (Machine)',            reps: '12',  rpe: 7,   sets: 3, rest: 60  },
+      { name: 'Tirage Poitrine (Poulie)',           reps: '8',   rpe: 8,   sets: 4, rest: 120 },
+      { name: 'Shrug (Haltère)',                    reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
       { name: 'Curl Marteau',              reps: '10',  rpe: 7.5, sets: 4, rest: 90  },
-      { name: 'Extension Triceps',         reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
+      { name: 'Extension Triceps Poulie Haute',         reps: '12',  rpe: 7.5, sets: 4, rest: 90  },
       { name: 'Curl Poignet',              reps: '15',  rpe: 7,   sets: 4, rest: 60  },
-      { name: 'Élévations Latérales',      reps: '15',  rpe: 7.5, sets: 3, rest: 60  },
+      { name: 'Élévation Latérale (Haltère)',      reps: '15',  rpe: 7.5, sets: 3, rest: 60  },
       { name: 'Roue Abdominale',           reps: 'max', rpe: 8,   sets: 4, rest: 90, type: 'reps' }
     ]
   },
@@ -20490,8 +20490,8 @@ var WP_SESSION_TEMPLATES = {
     bodyPart: 'lower',
     accessories: [
       { name: 'Spoto Bench',             reps: '3-5',  rpe: 8, sets: 5, rest: 240, isPrimary: true },
-      { name: 'Soulevé de Terre Pause',  reps: '3-5',  rpe: 8, sets: 4, rest: 240, isPrimary: true },
-      { name: 'Gainage (Planche)',       reps: '90s',  rpe: 7, sets: 3, rest: 60,  type: 'time'    }
+      { name: 'Soulevé De Terre avec pause',  reps: '3-5',  rpe: 8, sets: 4, rest: 240, isPrimary: true },
+      { name: 'Planche',       reps: '90s',  rpe: 7, sets: 3, rest: 60,  type: 'time'    }
     ]
   },
   recovery: {
@@ -20508,62 +20508,62 @@ var WP_PPL_TEMPLATES = {
   // v222 — Tous les noms d'exercices en français. Title Case cohérent.
   push_a: {
     title: '💪 Push A — Pecto / Épaules / Triceps',
-    exercises: ['Développé Couché','Développé Incliné Haltères','Écarté Machine','Élévations Latérales','Extension Triceps','Dips']
+    exercises: ['Développé Couché (Barre)','Développé Couché Incliné (Haltère)','Écarté (Machine)','Élévation Latérale (Haltère)','Extension Triceps Poulie Haute','Dips Triceps']
   },
   pull_a: {
     title: '🔵 Pull A — Dos / Biceps',
-    exercises: ['Tractions','Rowing Barre','Tirage Vertical','Curl Barre','Face Pull']
+    exercises: ['Tractions','Rowing Barre','Tirage Poitrine (Poulie)','Curl Barre','Face Pull']
   },
   legs_a: {
     title: '🦵 Legs A — Quad / Fessiers',
-    exercises: ['Squat','Presse à Cuisses','Leg Extension','Hip Thrust (Machine)','Adduction Machine']
+    exercises: ['Squat (Barre)','Presse à Cuisses','Extension Jambes','Hip Thrust (Machine)','Adduction Machine']
   },
   push_b: {
     title: '💪 Push B — Épaules / Pecto incliné',
-    exercises: ['Développé Militaire','Développé Incliné Haltères','Écarté Machine','Élévations Latérales','Dips']
+    exercises: ['Développé Militaire','Développé Couché Incliné (Haltère)','Écarté (Machine)','Élévation Latérale (Haltère)','Dips Triceps']
   },
   pull_b: {
     title: '🔵 Pull B — Dos épais / Ischio',
-    exercises: ['Rowing Haltères','Soulevé de Terre Roumain (RDL)','Leg Curl Allongé','Curl Marteau','Face Pull']
+    exercises: ['Rowing Haltère','Soulevé de Terre Roumain (Barre)','Leg Curl Allongé (Machine)','Curl Marteau','Face Pull']
   },
   legs_b: {
     title: '🦵 Legs B — Ischio / Fessiers',
-    exercises: ['Soulevé de Terre Roumain (RDL)','Leg Curl Allongé','Hip Thrust (Machine)','Adduction Machine','Gainage (Planche)']
+    exercises: ['Soulevé de Terre Roumain (Barre)','Leg Curl Allongé (Machine)','Hip Thrust (Machine)','Adduction Machine','Planche']
   },
   upper_a: {
     title: '💪 Upper A — Force',
     // v221 Gemini : poussée horizontale + tirage. PAS de curl/triceps (dépasse 45min).
     // Face Pull = santé épaule + correctif.
-    exercises: ['Développé Couché','Tirage Vertical','Développé Militaire Haltères','Rowing Poulie Assis (V-Grip)','Face Pull']
+    exercises: ['Développé Couché (Barre)','Tirage Poitrine (Poulie)','Développé Militaire (Haltère)','Rowing Poulie Assis (V-Grip)','Face Pull']
   },
   lower_a: {
     title: '🦵 Lower A — Force',
     // v221 Gemini : quad-dominant + correctif ischios via RDL.
     // PAS de Hip Thrust ici (chaîne post saturée après Squat + RDL).
-    exercises: ['Squat','Soulevé de Terre Roumain (RDL)','Presse à Cuisses','Leg Curl Allongé']
+    exercises: ['Squat (Barre)','Soulevé de Terre Roumain (Barre)','Presse à Cuisses','Leg Curl Allongé (Machine)']
   },
   upper_b: {
     title: '💪 Upper B — Volume',
     // v221 Gemini : angles différents d'Upper A (incliné ≠ plat, traction ≠ tirage vertical).
     // Triceps ici car Upper B = moins dense en composés lourds qu'Upper A.
-    exercises: ['Développé Incliné Haltères','Tractions','Élévations Latérales','Rowing Haltères','Extension Triceps Câble']
+    exercises: ['Développé Couché Incliné (Haltère)','Tractions','Élévation Latérale (Haltère)','Rowing Haltère','Extension Triceps (Poulie)']
   },
   lower_b: {
     title: '🦵 Lower B — Volume',
     // v221 Gemini : Hip Thrust ICI (pas de Squat lourd avant). Fentes = unilatéral pour stabilité genou.
-    exercises: ['Hip Thrust (Machine)','Fentes','Leg Extension','Mollets (Machine)']
+    exercises: ['Hip Thrust (Machine)','Fentes Avant','Extension Jambes','Extension Mollets Debout (Machine)']
   },
   full_a: {
     title: '🏋️ Full Body A',
-    exercises: ['Squat','Développé Couché','Rowing Barre','Élévations Latérales','Curl Haltères','Gainage (Planche)']
+    exercises: ['Squat (Barre)','Développé Couché (Barre)','Rowing Barre','Élévation Latérale (Haltère)','Curl Haltères','Planche']
   },
   full_b: {
     title: '🏋️ Full Body B',
-    exercises: ['Soulevé de Terre Roumain (RDL)','Développé Incliné Haltères','Tractions','Hip Thrust (Machine)','Extension Triceps','Roue Abdominale']
+    exercises: ['Soulevé de Terre Roumain (Barre)','Développé Couché Incliné (Haltère)','Tractions','Hip Thrust (Machine)','Extension Triceps Poulie Haute','Roue Abdominale']
   },
   full_c: {
     title: '🏋️ Full Body C',
-    exercises: ['Presse à Cuisses','Développé Militaire','Rowing Haltères','Leg Curl Allongé','Curl Barre','Gainage (Planche)']
+    exercises: ['Presse à Cuisses','Développé Militaire','Rowing Haltère','Leg Curl Allongé (Machine)','Curl Barre','Planche']
   }
 };
 

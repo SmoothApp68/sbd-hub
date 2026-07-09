@@ -19686,28 +19686,21 @@ function saveAlgoDebrief(session) {
   saveDBNow();
 }
 
+// Chantier A vague 2 — vraie sheet unifiée (avant : .modal-overlay hackée en
+// align-items:flex-end + box inline). Auto-dismiss 15s conservé, désormais
+// avec la sortie animée du système (via showSheet autoDismiss → _uiClose).
 function _showDebriefSheet(lines) {
   if (!lines || !lines.length) return;
-  var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.style.cssText = 'align-items:flex-end;background:rgba(0,0,0,0.5);';
-  var h = '<div style="background:var(--bg-card);border-radius:20px 20px 0 0;'
-    + 'padding:12px 16px 32px;width:100%;max-width:480px;'
-    + 'border-top:1.5px solid var(--border-card);">'
-    + '<div style="width:36px;height:4px;background:var(--border);border-radius:2px;'
-    + 'margin:0 auto 16px;"></div>'
-    + '<div style="font-size:17px;font-weight:800;margin-bottom:14px;">Séance terminée 🎯</div>';
+  var body = '<div style="font-size:17px;font-weight:800;margin-bottom:14px;">Séance terminée 🎯</div>';
   lines.forEach(function(line) {
-    h += '<div style="font-size:13px;line-height:1.5;padding:9px 0;'
+    body += '<div style="font-size:13px;line-height:1.5;padding:9px 0;'
       + 'border-bottom:0.5px solid var(--border);">' + line + '</div>';
   });
-  h += '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+  body += '<button onclick="closeModalEl(this.closest(\'.go-bottom-sheet\'))" '
     + 'style="width:100%;margin-top:16px;padding:14px;border-radius:14px;'
     + 'background:var(--accent);border:none;color:#fff;font-weight:700;'
-    + 'font-size:15px;cursor:pointer;">Continuer 👋</button></div>';
-  overlay.innerHTML = h;
-  document.body.appendChild(overlay);
-  setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 15000);
+    + 'font-size:15px;cursor:pointer;">Continuer 👋</button>';
+  showSheet({ body: body, autoDismiss: 15000 });
 }
 
 function _getNextSessionTitle() {

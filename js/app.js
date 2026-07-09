@@ -1408,6 +1408,27 @@ document.addEventListener('keydown', function(e) {
 function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; _uiOpen(o, { dismissible: true }); }
 function closeModal() { var el = document.querySelector('.modal-overlay:not(.closing)'); if (el) _uiClose(el); }
 function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; _uiOpen(o, { dismissible: false }); o.querySelector('.modal-cancel').onclick = () => { _uiClose(o); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { _uiClose(o); onConfirm(); }; }
+// ── Chantier A vague 4 — primitive de confirmation unifiée ───────────────────
+// Remplace les confirm() natifs (bloquants) par une modale async NON-dismissible
+// (l'utilisateur DOIT choisir : Échap/tap-dehors ne valident ni n'annulent —
+// cohérent avec les gates vague 3). danger:true → bouton rouge (destructif).
+function showConfirm(opts) {
+  opts = opts || {};
+  var o = document.createElement('div');
+  o.className = 'modal-overlay';
+  var color = opts.danger ? 'var(--danger)' : 'var(--accent)';
+  o.innerHTML = '<div class="modal-box">'
+    + (opts.title ? '<p style="margin:0 0 6px;font-size:15px;font-weight:700;">' + opts.title + '</p>' : '')
+    + (opts.body ? '<p style="margin:0 0 5px;font-size:13px;color:var(--sub);line-height:1.5;">' + opts.body + '</p>' : '')
+    + '<div class="modal-actions">'
+    + '<button class="modal-cancel" style="background:var(--sub);color:#000;">' + (opts.cancelLabel || 'Annuler') + '</button>'
+    + '<button class="modal-confirm" style="background:' + color + ';color:white;">' + (opts.confirmLabel || 'Confirmer') + '</button>'
+    + '</div></div>';
+  _uiOpen(o, { dismissible: false });
+  o.querySelector('.modal-cancel').onclick = function() { _uiClose(o); if (opts.onCancel) opts.onCancel(); };
+  o.querySelector('.modal-confirm').onclick = function() { _uiClose(o); if (opts.onConfirm) opts.onConfirm(); };
+  return o;
+}
 // ── Chantier A vague 2 — primitive sheet unifiée ─────────────────────────────
 // Bottom-sheet sur le cœur vague 1 : classes .go-bottom-sheet/.go-sheet-box,
 // entrée translateY(100%)→0 + backdrop fondu (240ms), sortie symétrique,
@@ -1551,10 +1572,11 @@ function renderRGPDSection(container) {
 
 // v227 — Vider le cache local et recharger (force resync cloud)
 function clearLocalCache() {
-  if (!confirm('Vider le cache local ? Tes données cloud seront rechargées.')) return;
-  try { localStorage.clear(); } catch (e) {}
-  if (typeof showToast === 'function') showToast('Cache vidé — rechargement...');
-  setTimeout(function() { window.location.reload(); }, 1000);
+  showConfirm({ title: 'Vider le cache local ?', body: 'Tes données cloud seront rechargées.', confirmLabel: 'Vider', danger: true, onConfirm: function() {
+    try { localStorage.clear(); } catch (e) {}
+    if (typeof showToast === 'function') showToast('Cache vidé — rechargement...');
+    setTimeout(function() { window.location.reload(); }, 1000);
+  }});
 }
 
 // ── PRIORITÉ 2 — IndexedDB workout backup ───────────────────
@@ -12770,11 +12792,12 @@ function cycleCustomExoSlot(dayIndex, exoIndex) {
 }
 
 function cancelCustomBuilder() {
-  if (!confirm('Quitter sans sauvegarder ? Tes modifications seront perdues.')) return;
-  _customBuilderState = null;
-  _customBuilderDaySelected = null;
-  _libraryFilter = { group: null, search: '' };
-  renderProgramBuilder();
+  showConfirm({ title: 'Quitter sans sauvegarder ?', body: 'Tes modifications seront perdues.', confirmLabel: 'Quitter', danger: true, onConfirm: function() {
+    _customBuilderState = null;
+    _customBuilderDaySelected = null;
+    _libraryFilter = { group: null, search: '' };
+    renderProgramBuilder();
+  }});
 }
 
 function saveCustomTemplate() {
@@ -12804,40 +12827,41 @@ function restoreCustomProgramBackup(index) {
   if (!backup) return;
   var d = new Date(backup.savedAt);
   var label = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' });
-  if (!confirm('Restaurer la version du ' + label + ' ? Le programme actuel sera remplacé.')) return;
-  // Snapshot current before restoring so user can undo; capture whether we did so BEFORE overwriting
-  var didSnapshot = !!(db.weeklyPlan || db.customProgramTemplate);
-  if (didSnapshot) _snapshotCurrentProgram();
-  // Restore structure + meta from the backup
-  db.user.programMode = backup.programMode || 'auto';
-  db.routine = backup.routine ? JSON.parse(JSON.stringify(backup.routine)) : null;
-  db.customProgramTemplate = backup.customProgramTemplate ? JSON.parse(JSON.stringify(backup.customProgramTemplate)) : null;
-  if (_backupHasTemplate(backup)) {
-    // Structure régénérable : on récupère la STRUCTURE (template) et on RECALCULE
-    // les charges sur les PR ACTUELS — pas de weeklyPlan figé (les backups allégés
-    // n'en ont plus ; pour un ancien backup lourd, days/mesoWeeks figés seraient de
-    // toute façon écrasés par la régénération). currentBlock (phase/semaine) suit la
-    // timeline courante ; mesoWeeks est reconstruit au rendu (buildMesoWeeks).
-    db.user.programMode = 'custom'; // un template ⇒ custom (programMode non fiable en base)
-    if (!db.weeklyPlan) db.weeklyPlan = {};
-    var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
-    if (!db.routine) db.routine = {};
-    ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
-      var s = _block && (_block.sessions || []).find(function(s) { return s.dayIndex === idx; });
-      db.routine[day] = s ? s.label : '😴 Repos';
-    });
-    if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
-  } else {
-    // Legacy / sans template : le weeklyPlan figé est la seule structure restaurable.
-    db.weeklyPlan = backup.weeklyPlan ? JSON.parse(JSON.stringify(backup.weeklyPlan)) : null;
-  }
-  // Remove the restored entry (shifted by 1 if we prepended an undo snapshot)
-  var realIdx = didSnapshot ? index + 1 : index;
-  db.customProgramBackups.splice(realIdx, 1);
-  if (db.customProgramBackups.length > 15) db.customProgramBackups.pop();
-  saveDB();
-  showToast('✅ Programme restauré !');
-  renderProgramBuilder();
+  showConfirm({ title: 'Restaurer la version du ' + label + ' ?', body: 'Le programme actuel sera remplacé.', confirmLabel: 'Restaurer', onConfirm: function() {
+    // Snapshot current before restoring so user can undo; capture whether we did so BEFORE overwriting
+    var didSnapshot = !!(db.weeklyPlan || db.customProgramTemplate);
+    if (didSnapshot) _snapshotCurrentProgram();
+    // Restore structure + meta from the backup
+    db.user.programMode = backup.programMode || 'auto';
+    db.routine = backup.routine ? JSON.parse(JSON.stringify(backup.routine)) : null;
+    db.customProgramTemplate = backup.customProgramTemplate ? JSON.parse(JSON.stringify(backup.customProgramTemplate)) : null;
+    if (_backupHasTemplate(backup)) {
+      // Structure régénérable : on récupère la STRUCTURE (template) et on RECALCULE
+      // les charges sur les PR ACTUELS — pas de weeklyPlan figé (les backups allégés
+      // n'en ont plus ; pour un ancien backup lourd, days/mesoWeeks figés seraient de
+      // toute façon écrasés par la régénération). currentBlock (phase/semaine) suit la
+      // timeline courante ; mesoWeeks est reconstruit au rendu (buildMesoWeeks).
+      db.user.programMode = 'custom'; // un template ⇒ custom (programMode non fiable en base)
+      if (!db.weeklyPlan) db.weeklyPlan = {};
+      var _block = db.customProgramTemplate.blocks && db.customProgramTemplate.blocks[0];
+      if (!db.routine) db.routine = {};
+      ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].forEach(function(day, idx) {
+        var s = _block && (_block.sessions || []).find(function(s) { return s.dayIndex === idx; });
+        db.routine[day] = s ? s.label : '😴 Repos';
+      });
+      if (typeof calculateParametersForCustomPlan === 'function') calculateParametersForCustomPlan();
+    } else {
+      // Legacy / sans template : le weeklyPlan figé est la seule structure restaurable.
+      db.weeklyPlan = backup.weeklyPlan ? JSON.parse(JSON.stringify(backup.weeklyPlan)) : null;
+    }
+    // Remove the restored entry (shifted by 1 if we prepended an undo snapshot)
+    var realIdx = didSnapshot ? index + 1 : index;
+    db.customProgramBackups.splice(realIdx, 1);
+    if (db.customProgramBackups.length > 15) db.customProgramBackups.pop();
+    saveDB();
+    showToast('✅ Programme restauré !');
+    renderProgramBuilder();
+  }});
 }
 
 function openExoLibrary(dayIndex) {
@@ -13435,11 +13459,12 @@ function deleteCustomProgramBackup(index) {
   var months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
   var d = new Date(backup.savedAt);
   var dateStr = d.getDate() + ' ' + months[d.getMonth()];
-  if (!confirm('Supprimer la version du ' + dateStr + ' ? Cette action est irréversible.')) return;
-  db.customProgramBackups.splice(index, 1);
-  saveDB();
-  showToast('Version supprimée');
-  renderProgramBuilder();
+  showConfirm({ title: 'Supprimer la version du ' + dateStr + ' ?', body: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true, onConfirm: function() {
+    db.customProgramBackups.splice(index, 1);
+    saveDB();
+    showToast('Version supprimée');
+    renderProgramBuilder();
+  }});
 }
 
 var _renderProgramBuilderInProgress = false;
@@ -14218,19 +14243,20 @@ function pbEditExisting() {
 }
 
 function pbResetProgram() {
-  if (!confirm('Réinitialiser le programme ? Tu pourras en créer un nouveau.')) return;
-  db.generatedProgram = null;
-  db.routine = null;
-  db.manualProgram = null;
-  db.routineExos = null;
-  db.weeklyPlan = null;
-  db.customProgramTemplate = null;
-  db.customProgramBackups = [];
-  db.user.programMode = 'auto';
-  db.user.programParams = {};
-  saveDBNow();
-  _pbState = null;
-  renderProgramBuilder();
+  showConfirm({ title: 'Réinitialiser le programme ?', body: 'Tu pourras en créer un nouveau.', confirmLabel: 'Réinitialiser', danger: true, onConfirm: function() {
+    db.generatedProgram = null;
+    db.routine = null;
+    db.manualProgram = null;
+    db.routineExos = null;
+    db.weeklyPlan = null;
+    db.customProgramTemplate = null;
+    db.customProgramBackups = [];
+    db.user.programMode = 'auto';
+    db.user.programParams = {};
+    saveDBNow();
+    _pbState = null;
+    renderProgramBuilder();
+  }});
 }
 
 // PROGRAMME VIEWER + SWAP EXERCICE
@@ -17632,16 +17658,25 @@ function saveWeightCutData() {
 }
 
 function setProgramMode(mode) {
+  var _apply = function() {
+    db.user.programMode = mode;
+    saveDB();
+    renderSettingsProfile();
+    showToast(mode === 'custom' ? '⚙️ Mode Avancé activé' : '🧭 Mode Guidé activé');
+    if (mode === 'custom' && !db.customProgramTemplate) {
+      showCustomBuilderChoice();
+    }
+  };
   if (mode === 'auto' && db.user.programMode === 'custom') {
-    if (!confirm('Repasser en mode Guidé ? Tes durées de phases personnalisées seront conservées mais l\'algo reprendra les valeurs par défaut.')) return;
+    showConfirm({
+      title: 'Repasser en mode Guidé ?',
+      body: 'Tes durées de phases personnalisées seront conservées mais l\'algo reprendra les valeurs par défaut.',
+      confirmLabel: 'Repasser en Guidé',
+      onConfirm: _apply
+    });
+    return;
   }
-  db.user.programMode = mode;
-  saveDB();
-  renderSettingsProfile();
-  showToast(mode === 'custom' ? '⚙️ Mode Avancé activé' : '🧭 Mode Guidé activé');
-  if (mode === 'custom' && !db.customProgramTemplate) {
-    showCustomBuilderChoice();
-  }
+  _apply();
 }
 
 // v224 — Mode Avancé : UI pour personnaliser les durées de phases.
@@ -29282,23 +29317,24 @@ async function processSessionPhotos(sessionId, files) {
 }
 
 function removeSessionPhoto(sessionId, photoIdx) {
-  if (!confirm('Supprimer cette photo ?')) return;
-  var session = db.logs.find(function(l) { return l.id === sessionId; });
-  if (!session || !session.photos) return;
+  showConfirm({ title: 'Supprimer cette photo ?', confirmLabel: 'Supprimer', danger: true, onConfirm: function() {
+    var session = db.logs.find(function(l) { return l.id === sessionId; });
+    if (!session || !session.photos) return;
 
-  var photo = session.photos[photoIdx];
-  if (photo && !photo.dataUrl) {
-    // Supprimer du storage
-    deleteSessionPhoto(sessionId, photo.index);
-  }
-  session.photos.splice(photoIdx, 1);
-  saveDB();
-  showToast('Photo supprimée');
+    var photo = session.photos[photoIdx];
+    if (photo && !photo.dataUrl) {
+      // Supprimer du storage
+      deleteSessionPhoto(sessionId, photo.index);
+    }
+    session.photos.splice(photoIdx, 1);
+    saveDB();
+    showToast('Photo supprimée');
 
-  if (_editSession && _editSessionId === sessionId) {
-    _editSession.photos = session.photos;
-    renderSessionEditor();
-  }
+    if (_editSession && _editSessionId === sessionId) {
+      _editSession.photos = session.photos;
+      renderSessionEditor();
+    }
+  }});
 }
 
 /**
@@ -29511,9 +29547,10 @@ function seMoveExo(exoIdx, direction) {
 }
 
 function seRemoveExo(exoIdx) {
-  if (!confirm('Supprimer cet exercice ?')) return;
-  _editSession.exercises.splice(exoIdx, 1);
-  renderSessionEditor();
+  showConfirm({ title: 'Supprimer cet exercice ?', confirmLabel: 'Supprimer', danger: true, onConfirm: function() {
+    _editSession.exercises.splice(exoIdx, 1);
+    renderSessionEditor();
+  }});
 }
 
 function seAddExercise() {
@@ -29534,13 +29571,14 @@ function seAddExercise() {
 }
 
 function seDeleteSession() {
-  if (!confirm('Supprimer définitivement cette séance ?\nCette action est irréversible.')) return;
-  db.logs = db.logs.filter(function(l) { return l.id !== _editSessionId; });
-  saveDBNow();
-  recalcBestPR();
-  closeSessionEditor();
-  renderSeancesTab();
-  showToast('✓ Séance supprimée');
+  showConfirm({ title: 'Supprimer définitivement cette séance ?', body: 'Cette action est irréversible.', confirmLabel: 'Supprimer', danger: true, onConfirm: function() {
+    db.logs = db.logs.filter(function(l) { return l.id !== _editSessionId; });
+    saveDBNow();
+    recalcBestPR();
+    closeSessionEditor();
+    renderSeancesTab();
+    showToast('✓ Séance supprimée');
+  }});
 }
 
 function saveSessionEdits() {

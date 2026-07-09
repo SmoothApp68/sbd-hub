@@ -1,0 +1,162 @@
+nom_exact,family,fusion_vers
+Écarté (Haltère),fly,
+Écarté (Machine),fly,
+Butterfly (Pec Deck),fly,Écarté (Machine)
+Écarté Machine (Pec Deck),fly,Écarté (Machine)
+Écarté (Poulie),fly,
+Écartés Poulie,fly,Écarté (Poulie)
+Écartés à la poulie assis,fly,Écarté (Poulie)
+Écartés Poulie Basse,fly,
+Développé Couché (Barre),bench,
+Développé Couché (Haltère),bench,
+Développé Couché (Machine),bench,
+Chest Press (Machine),bench,Développé Couché (Machine)
+Chest Press Convergent (Machine),bench,Développé Couché (Machine)
+Développé Couché Incliné (Barre),bench,
+Développé Couché Incliné (Haltère),bench,
+Développé Incliné (Haltères),bench,Développé Couché Incliné (Haltère)
+Développé Couché Incliné (Machine Smith),bench,
+Développé Couché Décliné (Barre),bench,
+Développé Couché Décliné (Haltère),bench,
+Développé Couché Décliné (Machine),bench,
+Développé Décliné (Barre),bench,Développé Couché Décliné (Barre)
+Spoto Bench,bench,
+Shrug (Haltère),shrug,
+Shrugs Haltères,shrug,Shrug (Haltère)
+Shrug (Poulie),shrug,
+Shrug (Barre),shrug,
+Shrug (Machine Smith),shrug,
+Oiseau (Machine),rear-delt,
+Oiseau (Haltère),rear-delt,
+Oiseau (Poulie),rear-delt,
+Oiseau Penché (Haltère),rear-delt,
+Curl Biceps (Barre),curl,
+Curl Biceps (Haltère),curl,
+Curl Biceps (Poulie),curl,
+Curl Biceps (Barre EZ),curl,
+Curl Barre EZ,curl,Curl Biceps (Barre EZ)
+Curl Pupitre (Machine),curl,
+Curl Marteau (Haltère),curl,
+Curl Marteau Oblique,curl,
+Curl Poignets Paumes vers le Haut Assis,wrist,
+Extension Poignets Assis (Barre),wrist,
+Extension Triceps Poulie Haute,triceps-extension,
+Extension Triceps Corde,triceps-extension,
+Extension Triceps (Haltère),triceps-extension,
+Extension Triceps (Poulie),triceps-extension,
+Skullcrusher (Haltère),triceps-extension,
+Skullcrusher (Barre),triceps-extension,
+Kickback Triceps,triceps-extension,
+Kickbacks Poulie,triceps-extension,
+Extension des triceps au-dessus de la tête (câble),triceps-extension,
+Extension Triceps Au-Dessus,triceps-extension,Extension des triceps au-dessus de la tête (câble)
+Dips Triceps,dips,
+Machine Dips Assis,dips,
+Dips Torse,dips,
+Dips Banc,dips,
+Dips Torse (Assisté),dips,
+Développé Militaire (Barre),overhead-press,
+Développé Militaire Debout (Barre),overhead-press,Développé Militaire (Barre)
+Développé Militaire Assis (Barre),overhead-press,
+Développé Militaire (Haltère),overhead-press,
+Développé Militaire (Haltères),overhead-press,Développé Militaire (Haltère)
+Presse Épaules Assis (Machine),overhead-press,
+Développé Arnold (Haltère),overhead-press,
+Élévation Latérale (Haltère),lateral-raise,
+Élévation Latérale (Poulie),lateral-raise,
+Élévation Latérale Câble,lateral-raise,Élévation Latérale (Poulie)
+Élévation Latérale un bras (Poulie),lateral-raise,
+Élévation latérale à un bras (câble),lateral-raise,Élévation Latérale un bras (Poulie)
+Single Arm Lateral Raise (Cable),lateral-raise,Élévation Latérale un bras (Poulie)
+Elevation Latérale Complète,lateral-raise,
+Élévation Frontale (Haltère),front-raise,
+Élévation Frontale (Barre),front-raise,
+Élévation Frontale (Poulie),front-raise,
+Élévation Disque Frontale,front-raise,
+Rowing Poulie Assis,row,
+Tirage Horizontal Câble,row,Rowing Poulie Assis
+Rowing Assis (Machine),row,
+Rowing Debout (Barre),row,
+Rowing Penché (Barre),row,
+Rowing Haltère,row,
+Rowing Poulie Assis (V-Grip),row,
+Seated Cable Row - V Grip (Cable),row,Rowing Poulie Assis (V-Grip)
+Tirage assis à la poulie - prise en V (poulie),row,Rowing Poulie Assis (V-Grip)
+Rowing Poulie Assis - Prise Large,row,
+Tirage Horizontal Machine,row,
+Tirage Machine Convergente,row,
+Iso-Lateral Low Row,row,
+Tirage Poitrine (Poulie),pulldown,
+Tirage Poitrine Un Bras,pulldown,
+Tirage un bras,pulldown,Tirage Poitrine Un Bras
+Tirage Vertical Prise Serrée,pulldown,
+Tirage Poitrine - Prise Serrée (Poulie),pulldown,
+Tirage Vertical Prise Large,pulldown,
+Tirage Poitrine (Machine),pulldown,
+Tractions,traction,
+Tractions Pronation,traction,
+Tractions Supination,traction,
+Tractions (Lesté),traction,
+Tractions Élastiques,traction,
+Muscle Up,traction,
+Pull-Over (Haltère),pullover,
+Pull-Over,pullover,Pull-Over (Haltère)
+Straight-arm (Poulie),pullover,
+Pullover (Câble),pullover,Straight-arm (Poulie)
+Tirage Poitrine Bras Tendus (Poulie),pullover,Straight-arm (Poulie)
+Tirage bras tendu,pullover,Straight-arm (Poulie)
+Squat (Barre),squat,
+Squat Barre,squat,Squat (Barre)
+Squat avec pause (barre),squat,
+Hack Squat (Machine),squat,
+Belt Squat (Machine),squat,
+Split Squat Bulgare,squat,
+Step Up Haltère,squat,
+Squat (Poids du Corps),squat,
+Presse à Cuisses,leg-press,
+Soulevé de Terre (Barre),hinge,
+Soulevé de Terre Jambes Tendues,hinge,
+Soulevé de Terre Roumain (Barre),hinge,
+Romanian Deadlift (Barre),hinge,Soulevé de Terre Roumain (Barre)
+Soulevé de Terre Sumo,hinge,
+Soulevé de Terre Conventionnel,hinge,
+Soulevé De Terre avec pause,hinge,
+Flexion Buste Avant (Barre),hinge,
+Hip Thrust (Machine),hip-thrust,
+Poussée de hanches (machine),hip-thrust,Hip Thrust (Machine)
+Hip Thrust (Barre),hip-thrust,
+Relevé de Bassin (Barre),hip-thrust,
+Hip Thrust Une Jambe (Haltère),hip-thrust,
+Single Leg Hip Thrust (Dumbbell),hip-thrust,Hip Thrust Une Jambe (Haltère)
+Kickbacks Fessier (Machine),glute-kickback,
+Rear Kick (Machine),glute-kickback,Kickbacks Fessier (Machine)
+Extension Jambes,leg-extension,
+Leg Extension,leg-extension,Extension Jambes
+Extensions Une Jambe,leg-extension,
+Leg Curl Assis,leg-curl,
+Leg Curl Allongé (Machine),leg-curl,
+Extension Mollets Debout (Machine),calf,
+Extension Mollets Assis,calf,
+Planche,plank,
+Planche Latérale,plank,
+Gainage Tape Épaule,plank,
+L-Sit Hold,plank,
+Relevé de Genoux,leg-raise,
+Relevé de Genoux Suspendu,leg-raise,
+Relevé de Jambe Barres Parallèles,leg-raise,
+Relevé de Jambes Allongé,leg-raise,
+Relevé de Jambes Suspendu,leg-raise,
+Rotation Russe (Lesté),rotation,
+Pompes,push-up,
+Pompes Diamant,push-up,
+Pompes Claquées,push-up,
+Pompes - Prisé Serrée,push-up,
+Tapis Roulant,cardio,
+Natation,cardio,
+Randonnée,cardio,
+Escaliers,cardio,
+Course à Pieds,cardio,
+Cyclisme,cardio,
+Vélo Machine,cardio,
+Épaulé-jeté,olympic,
+Burpee,conditioning,

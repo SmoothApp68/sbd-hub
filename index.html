@@ -115,17 +115,10 @@
     @keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
     @keyframes founderGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(200, 133, 10, 0.25); } 50% { box-shadow: 0 0 8px 2px rgba(200, 133, 10, 0); } }
     @keyframes prCelebrate { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-    @keyframes prCelebrateOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
     #live-coach-banner { animation: liveCoachSlide 0.25s ease; }
     @keyframes liveCoachSlide {
       from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
       to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-    @keyframes slideDownFade {
-      0%   { opacity:0; transform:translateX(-50%) translateY(-20px); }
-      15%  { opacity:1; transform:translateX(-50%) translateY(0); }
-      75%  { opacity:1; transform:translateX(-50%) translateY(0); }
-      100% { opacity:0; transform:translateX(-50%) translateY(-10px); }
     }
     @keyframes prPulse {
       from { transform: scale(1);   opacity: 0.8; }
@@ -472,9 +465,8 @@
     .prog-exo-swap { background: none; border: 1px solid var(--border); color: var(--sub); border-radius: 8px; padding: 4px 8px; font-size: 10px; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
     .prog-exo-swap:hover { border-color: var(--orange); color: var(--orange); }
     /* Swap modal */
-    .swap-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index:var(--z-overlay); display: flex; align-items: flex-end; justify-content: center; }
-    .swap-modal-box { background: var(--surface-solid); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 500px; max-height: 70vh; overflow-y: auto; }
-    .swap-modal-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    /* Chantier A v5 : conteneur .swap-modal/-box/-title supprimés (fusionnés dans
+       .go-bottom-sheet en v2). .swap-modal-sub et .swap-alt-* restent utilisés (contenu). */
     .swap-modal-sub { font-size: 12px; color: var(--sub); margin-bottom: 16px; }
     .swap-alt-btn { display: flex; align-items: center; gap: 12px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; text-align: left; transition: all 0.2s; }
     .swap-alt-btn:hover { border-color: var(--blue); }
@@ -1591,12 +1583,8 @@
     .tab-badge-num.visible{display:flex;}
 
     /* ── PR Celebration Overlay ── */
-    .pr-celebration-overlay { position: fixed; inset: 0; z-index:var(--z-overlay); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s ease; }
-    .pr-celebration-box { background: linear-gradient(rgba(50,215,75,0.12), rgba(50,215,75,0.12)), var(--surface-solid); border: 1px solid var(--success); border-radius: 20px; padding: 40px 30px; text-align: center; max-width: 320px; width: 90%; animation: prCelebrate 0.4s ease-out both; }
-    .pr-celebration-box.fade-out { animation: prCelebrateOut 0.5s ease-in both; }
-    .pr-celebration-trophy { font-size: 64px; margin-bottom: 16px; }
-    .pr-celebration-title { font-size: 22px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
-    .pr-celebration-detail { font-size: 15px; color: var(--text-primary); }
+    /* Chantier A v5 : bloc .pr-celebration-* supprimé — orphelin (0 référence JS,
+       showPRCelebration passe par showModal depuis longtemps). */
 
     /* ── Badge Founder ── */
     .badge-founder { background: var(--founder-gradient); color: var(--founder-text); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 8px; display: inline-block; animation: founderGlow 3s ease-in-out infinite; }

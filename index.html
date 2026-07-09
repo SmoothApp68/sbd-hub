@@ -1224,8 +1224,14 @@
     .go-search-item-e1rm{font-size:11px;font-weight:700;color:var(--blue);}
     .go-search-create{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--surface);border:1px dashed var(--blue);border-radius:12px;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;}
     /* Bottom sheet */
-    .go-bottom-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:var(--z-overlay);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.15s ease;}
-    .go-sheet-box{background:#1A1A2E;border-radius:20px 20px 0 0;padding:20px 16px;padding-bottom:calc(20px + env(safe-area-inset-bottom));width:100%;max-width:500px;max-height:80vh;overflow-y:auto;}
+    /* Chantier A v2 — sheet unifiée : backdrop fondu 240ms + box glisse du bas,
+       sortie symétrique via .closing (même mécanique que .modal-overlay). */
+    @keyframes sheetBoxIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes sheetBoxOut { from { transform: translateY(0); } to { transform: translateY(100%); } }
+    .go-bottom-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:var(--z-overlay);display:flex;align-items:flex-end;justify-content:center;animation:modalFadeIn 0.24s ease;}
+    .go-bottom-sheet.closing{animation:modalFadeOut 0.24s ease forwards;pointer-events:none;}
+    .go-bottom-sheet.closing .go-sheet-box{animation:sheetBoxOut 0.24s ease forwards;}
+    .go-sheet-box{background:#1A1A2E;border-radius:20px 20px 0 0;padding:20px 16px;padding-bottom:calc(20px + env(safe-area-inset-bottom));width:100%;max-width:500px;max-height:80vh;overflow-y:auto;animation:sheetBoxIn 0.24s ease;}
     .go-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
     .go-sheet-title{font-size:16px;font-weight:800;margin-bottom:12px;text-align:center;}
     .go-sheet-item{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;text-align:left;font-size:14px;font-weight:600;color:var(--text);}

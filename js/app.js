@@ -1386,6 +1386,43 @@ document.addEventListener('keydown', function(e) {
 function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; _uiOpen(o, { dismissible: true }); }
 function closeModal() { var el = document.querySelector('.modal-overlay:not(.closing)'); if (el) _uiClose(el); }
 function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; _uiOpen(o, { dismissible: false }); o.querySelector('.modal-cancel').onclick = () => { _uiClose(o); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { _uiClose(o); onConfirm(); }; }
+// ── Chantier A vague 2 — primitive sheet unifiée ─────────────────────────────
+// Bottom-sheet sur le cœur vague 1 : classes .go-bottom-sheet/.go-sheet-box,
+// entrée translateY(100%)→0 + backdrop fondu (240ms), sortie symétrique,
+// pile/scroll-lock/Échap/tap-dehors hérités de _uiOpen.
+// opts : { id, title, body (html), actions:[{icon,label,danger,action}],
+//          dismissible (défaut true), onClose (au dismiss), autoDismiss (ms) }
+function showSheet(opts) {
+  opts = opts || {};
+  var overlay = document.createElement('div');
+  overlay.className = 'go-bottom-sheet';
+  if (opts.id) overlay.id = opts.id;
+  var h = '<div class="go-sheet-box"><div class="go-sheet-handle"></div>';
+  if (opts.title) h += '<div class="go-sheet-title">' + opts.title + '</div>';
+  if (opts.body) h += opts.body;
+  if (opts.actions && opts.actions.length) {
+    opts.actions.forEach(function(item, i) {
+      h += '<div class="go-sheet-item' + (item.danger ? ' danger' : '') + '" data-sheet-idx="' + i + '">'
+        + '<span class="sheet-icon">' + (item.icon || '') + '</span> ' + item.label + '</div>';
+    });
+  }
+  h += '</div>';
+  overlay.innerHTML = h;
+  _uiOpen(overlay, { dismissible: opts.dismissible !== false, onDismiss: opts.onClose || null });
+  if (opts.actions && opts.actions.length) {
+    overlay.querySelectorAll('[data-sheet-idx]').forEach(function(el) {
+      el.onclick = function() {
+        var idx = parseInt(el.getAttribute('data-sheet-idx'));
+        _uiClose(overlay);
+        if (opts.actions[idx] && opts.actions[idx].action) opts.actions[idx].action();
+      };
+    });
+  }
+  if (opts.autoDismiss) {
+    setTimeout(function() { _uiClose(overlay); }, opts.autoDismiss);
+  }
+  return overlay;
+}
 // ============================================================
 // RGPD & SÉCURITÉ — Priorités Pré-Bêta
 // ============================================================
@@ -29904,43 +29941,19 @@ function goShowInstructions(exoIdx) {
     });
     body += '</div></div>';
   }
-  var overlay = document.createElement('div');
-  overlay.className = 'go-bottom-sheet';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-  overlay.innerHTML = '<div class="go-sheet-box">' +
-    '<div class="go-sheet-handle"></div>' +
-    '<div class="go-sheet-title">📖 ' + exo.name + '</div>' +
-    body +
-    '<button class="go-btn-sec" style="margin-top:16px;" onclick="this.closest(\'.go-bottom-sheet\').remove()">Fermer</button>' +
-    '</div>';
-  document.body.appendChild(overlay);
+  showSheet({
+    title: '📖 ' + exo.name,
+    body: body + '<button class="go-btn-sec" style="margin-top:16px;" onclick="closeModalEl(this.closest(\'.go-bottom-sheet\'))">Fermer</button>'
+  });
 }
 
 // ============================================================
 // GO TAB — Bottom Sheets
 // ============================================================
+// Chantier A vague 2 — wrapper rétro-compatible sur la primitive showSheet()
+// (signature et rendu identiques ; gagne pile/scroll-lock/Échap/sortie animée).
 function goShowBottomSheet(title, items) {
-  var overlay = document.createElement('div');
-  overlay.className = 'go-bottom-sheet';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-  var h = '<div class="go-sheet-box"><div class="go-sheet-handle"></div>';
-  h += '<div class="go-sheet-title">' + title + '</div>';
-  items.forEach(function(item, i) {
-    var cls = item.danger ? ' danger' : '';
-    h += '<div class="go-sheet-item' + cls + '" data-idx="' + i + '">';
-    h += '<span class="sheet-icon">' + (item.icon || '') + '</span> ' + item.label;
-    h += '</div>';
-  });
-  h += '</div>';
-  overlay.innerHTML = h;
-  document.body.appendChild(overlay);
-  overlay.querySelectorAll('.go-sheet-item').forEach(function(el) {
-    el.onclick = function() {
-      var idx = parseInt(el.getAttribute('data-idx'));
-      overlay.remove();
-      if (items[idx] && items[idx].action) items[idx].action();
-    };
-  });
+  return showSheet({ title: title, actions: items });
 }
 
 function goShowExoMenu(exoIdx) {

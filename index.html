@@ -66,7 +66,9 @@
     html, body { overscroll-behavior-y: contain; }
     body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; background: var(--bg-primary); background-image: var(--bg-screen); min-height: 100vh; color: var(--text-primary); margin: 0; padding: 59px 15px 100px; -webkit-font-smoothing: antialiased; max-width: 500px; margin-left: auto; margin-right: auto; }
     button, .tab-btn, .card, label, .badge-founder, .badge-early-adopter, .stats-sub-pill, .period-btn, .day-btn { -webkit-user-select: none; user-select: none; }
-    .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; max-width: 500px; margin: 0 auto; height: 85px; background: var(--bg-tab-bar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--border-card); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
+    /* Polish Tier 0 — blur 20px→8px sur les 3 barres fixes/sticky : le fond est déjà quasi-opaque
+       (0.92), rendu identique à l'œil mais repaint de scroll bien moins coûteux sur Android. */
+    .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; max-width: 500px; margin: 0 auto; height: 85px; background: var(--bg-tab-bar); backdrop-filter: saturate(180%) blur(8px); -webkit-backdrop-filter: saturate(180%) blur(8px); border-top: 0.5px solid var(--border-card); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
     .tab-btn { flex: 1; border: none; background: transparent; color: #5E5E8E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: color 0.2s; position: relative; }
     .tab-btn.active { color: var(--accent); }
     .tab-btn svg { width: 22px; height: 22px; fill: currentColor; }
@@ -1172,7 +1174,7 @@
     .go-exo-footer button:hover{border-color:var(--blue);color:var(--blue);}
     .go-last-time{font-size:11px;color:var(--sub);padding:6px 16px 10px;display:flex;align-items:center;gap:4px;}
     /* Rest timer */
-    .go-rest-timer{background:rgba(50,215,75,0.06);border:1px solid rgba(50,215,75,0.25);border-radius:16px;padding:8px 16px;margin-bottom:14px;text-align:center;position:sticky;top:44px;z-index:100;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+    .go-rest-timer{background:rgba(50,215,75,0.06);border:1px solid rgba(50,215,75,0.25);border-radius:16px;padding:8px 16px;margin-bottom:14px;text-align:center;position:sticky;top:44px;z-index:100;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
     .go-rest-timer-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:2px;display:flex;align-items:center;justify-content:center;gap:6px;}
     .go-rest-timer-exo{font-size:11px;color:var(--sub);margin-bottom:4px;}
     .go-rest-timer-count{font-size:22px;font-weight:800;color:var(--text);line-height:1;margin-bottom:4px;}
@@ -1488,7 +1490,7 @@
     .friends-item-btn.add{background:var(--blue);color:white;}
 
     /* Global top bar */
-    .global-top-bar{position:fixed;top:0;left:0;right:0;height:44px;max-width:500px;margin:0 auto;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;background:var(--bg-tab-bar);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:0.5px solid rgba(255,255,255,0.06);z-index:999;}
+    .global-top-bar{position:fixed;top:0;left:0;right:0;height:44px;max-width:500px;margin:0 auto;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;background:var(--bg-tab-bar);backdrop-filter:saturate(180%) blur(8px);-webkit-backdrop-filter:saturate(180%) blur(8px);border-bottom:0.5px solid rgba(255,255,255,0.06);z-index:999;}
     .global-notif-btn{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);padding:0;font:inherit;color:inherit;}
     .global-notif-btn:active{opacity:0.7;}
     #notif-panel-global{position:fixed;top:44px;left:0;right:0;max-width:500px;margin:0 auto;background:var(--bg-primary);border-bottom:0.5px solid rgba(255,255,255,0.08);max-height:60vh;overflow-y:auto;z-index:998;display:none;}

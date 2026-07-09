@@ -1314,18 +1314,62 @@ function labelFor(key, fallback) {
   var lvl = Math.min(3, Math.max(1, parseInt((db && db.user && db.user.vocabLevel) || 2)));
   return (_LABEL_MAP[key] && _LABEL_MAP[key][lvl]) || fallback || key.toUpperCase();
 }
-// Polish Tier 0 — fermeture animée des modales : pose .closing (anim CSS 240ms, index.html)
-// puis retire le nœud APRÈS l'animation. Aucun changement de flux : les callbacks des boutons
-// s'exécutent immédiatement comme avant, seul le retrait DOM est retardé de 240ms.
-function closeModalEl(el) {
+// ── Chantier A vague 1 — cœur unifié des overlays ────────────────────────────
+// Pile LIFO + scroll-lock + Échap + fermeture animée (240ms via .closing, CSS index.html).
+// Vague 1 : seules les primitives (showInfoModal/showModal/toasts) passent par _uiOpen ;
+// les overlays artisanaux migrent vagues 2-3 (ils gardent leur cycle de vie actuel).
+var _uiStack = [];
+function _uiSyncScrollLock() {
+  _uiStack = _uiStack.filter(function(el) { return el.isConnected && !el._closing; });
+  var lock = _uiStack.length ? 'hidden' : '';
+  document.body.style.overflow = lock;
+  document.documentElement.style.overflow = lock;
+}
+function _uiOpen(el, opts) {
+  opts = opts || {};
+  el._uiDismissible = opts.dismissible !== false;
+  el._uiOnDismiss = opts.onDismiss || null;
+  if (!el.parentNode) document.body.appendChild(el);
+  if (opts.modal !== false) {
+    _uiStack.push(el);
+    _uiSyncScrollLock();
+    if (el._uiDismissible) {
+      el.addEventListener('click', function(e) {
+        if (e.target === el) { if (el._uiOnDismiss) el._uiOnDismiss(); _uiClose(el); }
+      });
+    }
+  }
+  return el;
+}
+function _uiClose(el, onRemoved) {
   if (!el || el._closing) return;
   el._closing = true;
   el.classList.add('closing');
-  setTimeout(function() { el.remove(); }, 240);
+  _uiSyncScrollLock();
+  setTimeout(function() {
+    el.remove();
+    _uiSyncScrollLock();
+    if (onRemoved) onRemoved();
+  }, 240);
 }
-function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; document.body.appendChild(o); }
-function closeModal() { var el = document.querySelector('.modal-overlay:not(.closing)'); if (el) closeModalEl(el); }
-function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; document.body.appendChild(o); o.querySelector('.modal-cancel').onclick = () => { closeModalEl(o); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { closeModalEl(o); onConfirm(); }; }
+// Alias Tier 0 conservé (référencé par des onclick inline)
+function closeModalEl(el) { _uiClose(el); }
+// Remplace l'idiome « nuke-all » (même sémantique, version animée — ferme aussi
+// les overlays .modal-overlay non enregistrés dans la pile)
+function closeAllOverlays() {
+  document.querySelectorAll('.modal-overlay').forEach(function(o) { _uiClose(o); });
+}
+// Échap : ferme uniquement le sommet de pile s'il est dismissible (jamais les gates/confirms)
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  _uiSyncScrollLock();
+  if (!_uiStack.length) return;
+  var top = _uiStack[_uiStack.length - 1];
+  if (top._uiDismissible) { if (top._uiOnDismiss) top._uiOnDismiss(); _uiClose(top); }
+});
+function showInfoModal(title, contentHtml) { var o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 10px;font-size:15px;font-weight:700;">'+title+'</p>'+contentHtml+'<div class="modal-actions"><button class="modal-confirm" onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:var(--accent);color:white;width:100%;">Fermer</button></div></div>'; _uiOpen(o, { dismissible: true }); }
+function closeModal() { var el = document.querySelector('.modal-overlay:not(.closing)'); if (el) _uiClose(el); }
+function showModal(msg, cText, cColor, onConfirm, onCancelOrText) { var cancelLabel = typeof onCancelOrText === 'string' ? onCancelOrText : 'Annuler'; var onCancel = typeof onCancelOrText === 'function' ? onCancelOrText : null; const o = document.createElement('div'); o.className = 'modal-overlay'; o.innerHTML = '<div class="modal-box"><p style="margin:0 0 5px;font-size:14px;">'+msg+'</p><div class="modal-actions"><button class="modal-cancel" style="background:var(--sub);color:#000;">'+cancelLabel+'</button><button class="modal-confirm" style="background:'+cColor+';color:white;">'+cText+'</button></div></div>'; _uiOpen(o, { dismissible: false }); o.querySelector('.modal-cancel').onclick = () => { _uiClose(o); if (onCancel) onCancel(); }; o.querySelector('.modal-confirm').onclick = () => { _uiClose(o); onConfirm(); }; }
 // ============================================================
 // RGPD & SÉCURITÉ — Priorités Pré-Bêta
 // ============================================================

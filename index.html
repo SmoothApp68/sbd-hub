@@ -101,12 +101,9 @@
     .muscle-row-score { font-size:10px; color:var(--sub); min-width:28px; text-align:right; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-30px); } }
     @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-    @keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(30px); } }
     @keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
     @keyframes founderGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(200, 133, 10, 0.25); } 50% { box-shadow: 0 0 8px 2px rgba(200, 133, 10, 0); } }
-    @keyframes fillBar { from { width: 0%; } }
     @keyframes prCelebrate { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
     @keyframes prCelebrateOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
     #live-coach-banner { animation: liveCoachSlide 0.25s ease; }
@@ -1004,8 +1001,6 @@
     /* ── Gamification V2 — Animations ── */
     @keyframes reiatsuPulse { 0%,100%{ box-shadow:0 0 0 rgba(191,90,242,0), inset 0 0 0 rgba(191,90,242,0); } 50%{ box-shadow:0 0 25px rgba(191,90,242,0.12), inset 0 0 15px rgba(191,90,242,0.04); } }
     @keyframes xpFlow { 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
-    @keyframes badgeUnlock { 0%{ transform:scale(0);opacity:0; } 70%{ transform:scale(1.1);opacity:1; } 100%{ transform:scale(1);opacity:1; } }
-    @keyframes xpFloat { 0%{ opacity:1;transform:translateY(0); } 100%{ opacity:0;transform:translateY(-30px); } }
     @keyframes shimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
     @keyframes newDot { 0%,100%{ opacity:1;transform:scale(1); } 50%{ opacity:0.5;transform:scale(0.7); } }
     @keyframes flamePulse { 0%,100%{ transform:scaleY(1);opacity:0.9; } 50%{ transform:scaleY(1.15);opacity:1; } }
@@ -1492,8 +1487,9 @@
 
     /* Skeleton loader */
     .skeleton-card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;pointer-events:none;}
-    .skeleton-line{background:linear-gradient(90deg,var(--surface) 25%,var(--border) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:4px;}
-    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .skeleton-line{background:linear-gradient(90deg,var(--surface) 25%,var(--border) 50%,var(--surface) 75%);background-size:200% 100%;animation:skeletonShimmer 1.2s infinite;border-radius:4px;}
+    /* Renommé (ex-doublon de shimmer ligne ~1000 qu'il écrasait en sens inverse) */
+    @keyframes skeletonShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
     /* Notifications */
     .notif-list{margin-top:12px;}
@@ -1699,10 +1695,11 @@
     .quiz-overlay.open { display:flex;animation:fadeIn .2s ease; }
     .quiz-box { background:#13132a;border:1px solid rgba(255,255,255,.1);
       border-radius:24px 24px 0 0;padding:22px 18px calc(38px + env(safe-area-inset-bottom, 0px));width:100%;max-width:430px;
-      animation:slideUp .25s ease;position:relative;max-height:85vh;overflow-y:auto; }
+      animation:sheetSlideUp .25s ease;position:relative;max-height:85vh;overflow-y:auto; }
     .quiz-skip { position:absolute;top:14px;right:16px;background:none;border:none;
       color:var(--sub);font-size:13px;cursor:pointer;padding:2px 6px;line-height:1; }
-    @keyframes slideUp { from{transform:translateY(60px)}to{transform:translateY(0)} }
+    /* Renommé (ex-doublon de slideUp ligne ~103 qui écrasait le fade des .card) */
+    @keyframes sheetSlideUp { from{transform:translateY(60px)}to{transform:translateY(0)} }
     .quiz-progress { display:flex;gap:5px;justify-content:center;margin-bottom:16px; }
     .quiz-dot { width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15); }
     .quiz-dot.active { background:var(--accent); }
@@ -1901,7 +1898,7 @@
     .go-msg-overlay.open { display:flex;animation:fadeIn .2s ease; }
     .go-msg-box { background:#13132a;border:1px solid rgba(255,255,255,.1);
       border-radius:24px 24px 0 0;padding:26px 22px 40px;width:100%;max-width:430px;
-      text-align:center;animation:slideUp .25s ease; }
+      text-align:center;animation:sheetSlideUp .25s ease; }
     .go-msg-emoji { font-size:46px;margin-bottom:10px; }
     .go-msg-title { font-size:21px;font-weight:900;margin-bottom:5px; }
     .go-msg-body { font-size:13px;color:var(--sub);margin-bottom:22px;line-height:1.65; }

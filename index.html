@@ -61,6 +61,10 @@
       --border-input: rgba(255, 255, 255, 0.1);
       /* Legacy aliases for compatibility */
       --bg:#0C0C18; --card:rgba(255,255,255,0.05); --blue:#0A84FF; --green:#32D74B; --red:#FF453A; --text:#F0F0FF; --sub:#7878A8; --border:rgba(255,255,255,0.08); --orange:#FF9F0A; --purple:#BF5AF2; --teal:#64D2FF; --surface:rgba(255,255,255,0.03); --surface-border:rgba(255,255,255,0.06); --gold:#C8850A; --gold-subtle:rgba(200,133,10,0.15); --gold-border:rgba(200,133,10,0.3); --parchment:#1e1c1a;
+      /* Surface OPAQUE canonique des box de modale/sheet (fond plein, jamais translucide).
+         À utiliser pour toute box flottante au-dessus d'un backdrop — contrairement à
+         --card/--surface (rgba translucides, réservés aux éléments POSÉS sur la page). */
+      --surface-solid: #1A1A2E;
       /* Échelle z-index unifiée (Chantier A v1 — CHANTIER_A_PHASE1.md §B).
          nav < bannières/popovers < overlays (empilement par ordre DOM) < gates critiques < toasts.
          Hors échelle (volontaire) : splash/login (boot), god-mode (dev). */
@@ -190,7 +194,7 @@
     @keyframes modalBoxIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
     @keyframes modalBoxOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.98); } }
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index:var(--z-overlay); animation: modalFadeIn 0.24s ease; }
-    .modal-box { background: #1A1A2E; color: var(--text-primary); padding: 20px; border-radius: 14px; text-align: center; border: 0.5px solid var(--border-card); max-width: 280px; width: 90%; max-height: 85vh; overflow-y: auto; animation: modalBoxIn 0.24s ease; }
+    .modal-box { background: var(--surface-solid); color: var(--text-primary); padding: 20px; border-radius: 14px; text-align: center; border: 0.5px solid var(--border-card); max-width: 280px; width: 90%; max-height: 85vh; overflow-y: auto; animation: modalBoxIn 0.24s ease; }
     .modal-overlay.closing { animation: modalFadeOut 0.24s ease forwards; pointer-events: none; }
     .modal-overlay.closing .modal-box { animation: modalBoxOut 0.24s ease forwards; }
     .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
@@ -469,7 +473,7 @@
     .prog-exo-swap:hover { border-color: var(--orange); color: var(--orange); }
     /* Swap modal */
     .swap-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index:var(--z-overlay); display: flex; align-items: flex-end; justify-content: center; }
-    .swap-modal-box { background: #1A1A2E; border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 500px; max-height: 70vh; overflow-y: auto; }
+    .swap-modal-box { background: var(--surface-solid); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 500px; max-height: 70vh; overflow-y: auto; }
     .swap-modal-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
     .swap-modal-sub { font-size: 12px; color: var(--sub); margin-bottom: 16px; }
     .swap-alt-btn { display: flex; align-items: center; gap: 12px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; text-align: left; transition: all 0.2s; }
@@ -1233,7 +1237,7 @@
     .go-bottom-sheet{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:var(--z-overlay);display:flex;align-items:flex-end;justify-content:center;animation:modalFadeIn 0.24s ease;}
     .go-bottom-sheet.closing{animation:modalFadeOut 0.24s ease forwards;pointer-events:none;}
     .go-bottom-sheet.closing .go-sheet-box{animation:sheetBoxOut 0.24s ease forwards;}
-    .go-sheet-box{background:#1A1A2E;border-radius:20px 20px 0 0;padding:20px 16px;padding-bottom:calc(20px + env(safe-area-inset-bottom));width:100%;max-width:500px;max-height:80vh;overflow-y:auto;animation:sheetBoxIn 0.24s ease;}
+    .go-sheet-box{background:var(--surface-solid);border-radius:20px 20px 0 0;padding:20px 16px;padding-bottom:calc(20px + env(safe-area-inset-bottom));width:100%;max-width:500px;max-height:80vh;overflow-y:auto;animation:sheetBoxIn 0.24s ease;}
     .go-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
     .go-sheet-title{font-size:16px;font-weight:800;margin-bottom:12px;text-align:center;}
     .go-sheet-item{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;text-align:left;font-size:14px;font-weight:600;color:var(--text);}
@@ -1488,7 +1492,7 @@
     .friends-search{position:relative;margin-bottom:16px;}
     .friends-search input{margin-bottom:0;padding-right:40px;}
     .friends-search-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--sub);font-size:16px;pointer-events:none;}
-    .friends-autocomplete{position:absolute;top:100%;left:0;right:0;background:#1A1A2E;border:0.5px solid var(--bg-card-border);border-radius:10px;margin-top:4px;max-height:200px;overflow-y:auto;z-index:100;display:none;}
+    .friends-autocomplete{position:absolute;top:100%;left:0;right:0;background:var(--surface-solid);border:0.5px solid var(--bg-card-border);border-radius:10px;margin-top:4px;max-height:200px;overflow-y:auto;z-index:100;display:none;}
     .friends-autocomplete.open{display:block;}
     .friends-ac-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background 0.15s;}
     .friends-ac-item:hover{background:var(--surface);}
@@ -1576,7 +1580,7 @@
     .deletion-option-desc{font-size:12px;color:var(--sub);line-height:1.4;}
 
     /* Emoji picker (simple) */
-    .emoji-picker-popup{position:absolute;bottom:100%;left:0;background:#1A1A2E;border:0.5px solid var(--bg-card-border);border-radius:10px;padding:8px;display:none;z-index:200;max-width:280px;}
+    .emoji-picker-popup{position:absolute;bottom:100%;left:0;background:var(--surface-solid);border:0.5px solid var(--bg-card-border);border-radius:10px;padding:8px;display:none;z-index:200;max-width:280px;}
     .emoji-picker-popup.open{display:block;}
     .emoji-picker-grid{display:flex;flex-wrap:wrap;gap:4px;}
     .emoji-picker-grid button{background:none;border:none;font-size:20px;cursor:pointer;padding:4px;border-radius:6px;transition:background 0.15s;}

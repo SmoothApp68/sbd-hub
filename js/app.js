@@ -807,7 +807,7 @@ function showDOMSModal(callback) {
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
     'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
     'justify-content:center;z-index:var(--z-overlay);padding:16px;box-sizing:border-box;';
-  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;' +
+  overlay.innerHTML = '<div style="background:var(--surface-solid);border-radius:20px;' +
     'width:100%;max-width:500px;">' + html + '</div>';
   document.body.appendChild(overlay);
 
@@ -916,7 +916,7 @@ function openDOMSMorningModal() {
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
     'background:rgba(0,0,0,0.7);display:flex;align-items:center;' +
     'justify-content:center;z-index:var(--z-overlay);padding:16px;box-sizing:border-box;';
-  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;'
+  overlay.innerHTML = '<div style="background:var(--surface-solid);border-radius:20px;'
     + 'width:100%;max-width:500px;max-height:85vh;max-height:85dvh;'
     + 'overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">'
     + '<div style="flex:1 1 auto;overflow-y:auto;min-height:0;">' + scrollHtml + '</div>'

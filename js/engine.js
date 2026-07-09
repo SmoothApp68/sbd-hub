@@ -3461,7 +3461,7 @@ var MORPHO_SUBSTITUTIONS = {
   },
   short_arms_long_torso: {
     deadlift: {
-      name:        'Sumo Deadlift',
+      name:        'Soulevé de Terre Sumo',
       loadFactor:  1.0,
       note:        '🦴 Morpho buste long — Sumo Deadlift : redresse le buste, réduit le bras de levier lombaire.'
     }
@@ -3473,7 +3473,7 @@ var MORPHO_SUBSTITUTIONS = {
       note:        '🦴 Morpho torse court — Block Pulls 10cm : compense le levier défavorable au démarrage.'
     },
     row: {
-      name:        'Chest Supported Row',
+      name:        'Seal Row',
       loadFactor:  0.95,
       note:        '🦴 Morpho torse court — Chest Supported Row : décharge les lombaires sur les tirages.'
     }

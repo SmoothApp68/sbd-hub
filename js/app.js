@@ -20922,9 +20922,9 @@ var SHOULDER_HEAVY_ALTERNATIVES = {
   'Dips Lestés':                  'Extension Triceps Corde',
   'Dips lestés':                  'Extension Triceps Corde',
   'Larsen Press':                 'DB Press paumes face à face',
-  'Développé Incliné (Haltères)': 'Machine Convergente',
-  'Développé Incliné Haltères':   'Machine Convergente',
-  'Développé incliné (Haltères)': 'Machine Convergente'
+  'Développé Incliné (Haltères)': 'Développé Convergent Machine',
+  'Développé Incliné Haltères':   'Développé Convergent Machine',
+  'Développé incliné (Haltères)': 'Développé Convergent Machine'
 };
 
 function hasShoulderInjury() {
@@ -23361,7 +23361,7 @@ function selectExercisesForProfile(exercises, profile) {
     var _hadDL  = exercises.some(function(e) { return /^soulev[eé] de terre\b|^deadlift\b/i.test(e.name || ''); });
     if (_hadDL && !_hasRDL) {
       result.push({
-        name: 'Soulevé de Terre Roumain (RDL)', evictionCategory: 'secondary',
+        name: 'Soulevé de Terre Roumain (Barre)', evictionCategory: 'secondary',
         sets: 3, reps: '10-12', rpe: 8, rest: 90, _addedByRule: 4
       });
     }
@@ -23414,7 +23414,7 @@ function selectExercisesForProfile(exercises, profile) {
   var _ratioCorrections = [
     { ratio: 'squatBenchRatio',    threshold: _t.squatBenchRatio,    exo: 'Leg Extension',         tag: 'quad_isolation',
       onlyOnDays: ['squat', 'lower', 'sq_hyp', 'sq2_hyp', 'legs', 'lower_a', 'lower_b'] },
-    { ratio: 'deadliftSquatRatio', threshold: _t.deadliftSquatRatio, exo: 'Soulevé de Terre Roumain (RDL)', tag: 'posterior_chain' },
+    { ratio: 'deadliftSquatRatio', threshold: _t.deadliftSquatRatio, exo: 'Soulevé de Terre Roumain (Barre)', tag: 'posterior_chain' },
     { ratio: 'rowBenchRatio',      threshold: _t.rowBenchRatio,      exo: 'Rowing Barre',          tag: 'back_compound' },
     { ratio: 'ohpBenchRatio',      threshold: _t.ohpBenchRatio,      exo: 'Face Pull',             tag: 'shoulder_health' }
   ];
@@ -23720,13 +23720,13 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     }
     // Récupérer la variante SBD selon la phase active
     var variant = _bench2Override
-      ? { name: 'Développé Incliné (Haltères)', reps: [10,12], rpe: 7.5 }
+      ? { name: 'Développé Couché Incliné (Haltère)', reps: [10,12], rpe: 7.5 }
       : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS[phase] && SBD_VARIANTS[phase][tpl.mainLift])
       ? SBD_VARIANTS[phase][tpl.mainLift]
       : (typeof SBD_VARIANTS !== 'undefined' && SBD_VARIANTS && SBD_VARIANTS.accumulation && SBD_VARIANTS.accumulation[tpl.mainLift]
           ? SBD_VARIANTS.accumulation[tpl.mainLift] : null);
     if (!variant) {
-      var _fallbackNames = { squat: 'Squat (Barre)', bench: 'Développé couché (Barre)', deadlift: 'Soulevé de terre (Barre)', squat_pause: 'Squat Pause' };
+      var _fallbackNames = { squat: 'Squat (Barre)', bench: 'Développé couché (Barre)', deadlift: 'Soulevé de terre (Barre)', squat_pause: 'Squat avec pause (barre)' };
       variant = { name: _fallbackNames[tpl.mainLift] || tpl.mainLift, reps: [5, 5], rpe: 7.5 };
     }
     var weight = wpComputeWorkWeightSafe(tpl.mainLift, bodyPart);

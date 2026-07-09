@@ -806,7 +806,7 @@ function showImportedE1RMValidation() {
 
   var o = document.createElement('div');
   o.className = 'modal-overlay';
-  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:var(--z-overlay);display:flex;align-items:flex-end;justify-content:center;';
   var liftsHtml = lifts.map(function(l) {
     return '<div style="display:flex;justify-content:space-between;align-items:center;'
       + 'padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px;">'
@@ -814,7 +814,7 @@ function showImportedE1RMValidation() {
       + '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + l.e1rm + ' kg</div>'
       + '</div>';
   }).join('');
-  o.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;">'
+  o.innerHTML = '<div style="background:var(--surface-solid);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;">'
     + '<div style="font-size:16px;font-weight:700;margin-bottom:6px;">📊 Vérification des données importées</div>'
     + '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;line-height:1.5;">'
     + 'Voici ce qu\'on a calculé depuis ton historique :<br>Est-ce que ces valeurs te semblent correctes ?</div>'

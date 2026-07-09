@@ -14665,7 +14665,7 @@ function checkIOSInstallPrompt() {
   var banner = document.createElement('div');
   banner.id = 'ios-install-banner';
   banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:var(--z-banner);'
-    + 'background:var(--bg-card,#1c1c1e);border-top:0.5px solid var(--border-card,#3a3a3c);'
+    + 'background:var(--surface-solid);border-top:0.5px solid var(--border-card,#3a3a3c);'
     + 'padding:14px 16px;display:flex;align-items:center;gap:12px;'
     + 'box-shadow:0 -4px 20px rgba(0,0,0,0.4);';
   banner.innerHTML = '<div style="flex:1;">'
@@ -28504,7 +28504,7 @@ function showLiveCoachBanner(msg) {
   banner.style.cssText =
     'position:fixed;top:54px;left:50%;transform:translateX(-50%);' +
     'max-width:460px;width:calc(100% - 24px);' +
-    'background:' + c.bg + ';border:1px solid ' + c.border + ';' +
+    'background:linear-gradient(' + c.bg + ',' + c.bg + '),var(--surface-solid);border:1px solid ' + c.border + ';' +
     'border-radius:12px;padding:10px 14px;' +
     'font-size:13px;font-weight:600;color:' + c.text + ';' +
     'z-index:var(--z-banner);line-height:1.4;' +

@@ -1592,7 +1592,7 @@
 
     /* ── PR Celebration Overlay ── */
     .pr-celebration-overlay { position: fixed; inset: 0; z-index:var(--z-overlay); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); animation: fadeIn 0.3s ease; }
-    .pr-celebration-box { background: rgba(50, 215, 75, 0.12); border: 1px solid var(--success); border-radius: 20px; padding: 40px 30px; text-align: center; max-width: 320px; width: 90%; animation: prCelebrate 0.4s ease-out both; }
+    .pr-celebration-box { background: linear-gradient(rgba(50,215,75,0.12), rgba(50,215,75,0.12)), var(--surface-solid); border: 1px solid var(--success); border-radius: 20px; padding: 40px 30px; text-align: center; max-width: 320px; width: 90%; animation: prCelebrate 0.4s ease-out both; }
     .pr-celebration-box.fade-out { animation: prCelebrateOut 0.5s ease-in both; }
     .pr-celebration-trophy { font-size: 64px; margin-bottom: 16px; }
     .pr-celebration-title { font-size: 22px; font-weight: 700; color: var(--success); margin-bottom: 8px; }
@@ -1602,7 +1602,7 @@
     .badge-founder { background: var(--founder-gradient); color: var(--founder-text); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 8px; display: inline-block; animation: founderGlow 3s ease-in-out infinite; }
 
     /* ── Pull to refresh indicator ── */
-    .ptr-indicator { position: fixed; top: 0; left: 50%; transform: translateX(-50%); background: var(--bg-card); border: 0.5px solid var(--bg-card-border); border-radius: 0 0 14px 14px; padding: 8px 20px; font-size: 12px; color: var(--text-secondary); z-index:var(--z-banner); opacity: 0; transition: opacity 0.3s, transform 0.3s; }
+    .ptr-indicator { position: fixed; top: 0; left: 50%; transform: translateX(-50%); background: linear-gradient(var(--bg-card), var(--bg-card)), var(--surface-solid); border: 0.5px solid var(--bg-card-border); border-radius: 0 0 14px 14px; padding: 8px 20px; font-size: 12px; color: var(--text-secondary); z-index:var(--z-banner); opacity: 0; transition: opacity 0.3s, transform 0.3s; }
     .ptr-indicator.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ── Stats sub-nav restyle ── */
@@ -1981,7 +1981,7 @@
   </div>
 
   <!-- OFFLINE BANNER -->
-  <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;padding:8px 16px;background:rgba(255,159,10,0.15);border-bottom:1px solid rgba(255,159,10,0.3);text-align:center;font-size:12px;font-weight:600;color:#FF9F0A;z-index:var(--z-banner);">📡 Hors-ligne</div>
+  <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;padding:8px 16px;background:linear-gradient(rgba(255,159,10,0.15),rgba(255,159,10,0.15)),var(--surface-solid);border-bottom:1px solid rgba(255,159,10,0.3);text-align:center;font-size:12px;font-weight:600;color:#FF9F0A;z-index:var(--z-banner);">📡 Hors-ligne</div>
 
   <!-- ANNOUNCEMENT BANNER -->
   <div id="announcementBanner" style="display:none;margin:0 0 12px;padding:12px 16px;background:rgba(10,132,255,0.1);border:1px solid rgba(10,132,255,0.2);border-radius:12px;font-size:13px;color:var(--text,#F0F0FF);position:relative;">
@@ -4156,7 +4156,7 @@ setTimeout(fetchAndStoreTier, 2000);
 <div id="bugReportModal" style="display:none;position:fixed;inset:0;
   z-index:var(--z-overlay);background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
   overflow-y:auto;">
-  <div style="background:var(--card,#1c1c2e);border-radius:20px 20px 0 0;
+  <div style="background:var(--surface-solid);border-radius:20px 20px 0 0;
     margin-top:10vh;padding:24px;max-width:480px;margin-left:auto;
     margin-right:auto;min-height:90vh;">
     <div style="display:flex;justify-content:space-between;align-items:center;

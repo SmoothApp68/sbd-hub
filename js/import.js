@@ -820,14 +820,15 @@ function showImportedE1RMValidation() {
     + 'Voici ce qu\'on a calculé depuis ton historique :<br>Est-ce que ces valeurs te semblent correctes ?</div>'
     + liftsHtml
     + '<div style="display:flex;gap:8px;margin-top:14px;">'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove();if(typeof generateWeeklyPlan===\'function\')generateWeeklyPlan();" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'));if(typeof generateWeeklyPlan===\'function\')generateWeeklyPlan();" '
     + 'style="flex:1;padding:12px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">'
     + '✓ Ces valeurs sont correctes</button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove();if(typeof showTab===\'function\')showTab(\'tab-profil\');if(typeof showProfilSub===\'function\')showProfilSub(\'tab-settings\');" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'));if(typeof showTab===\'function\')showTab(\'tab-profil\');if(typeof showProfilSub===\'function\')showProfilSub(\'tab-settings\');" '
     + 'style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:13px;cursor:pointer;">'
     + 'Corriger</button>'
     + '</div></div>';
-  document.body.appendChild(o);
+  if (typeof _uiOpen === 'function') _uiOpen(o, { dismissible: false });
+  else document.body.appendChild(o);
 }
 
 function getPrevRepRecord(exoName, reps, beforeTs) {

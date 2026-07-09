@@ -730,7 +730,7 @@ function showReadinessModal(onComplete) {
       <button class="modal-confirm" id="checkin-save-btn-modal" style="background:var(--green);color:#000;opacity:0.4;" onclick="submitCheckin('modal')">Valider ✓</button>
     </div>
   </div>`;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 }
 
 // ── DOMS Modal GO — sécurité axiale uniquement ───────────────────────────────
@@ -809,7 +809,7 @@ function showDOMSModal(callback) {
     'justify-content:center;z-index:var(--z-overlay);padding:16px;box-sizing:border-box;';
   overlay.innerHTML = '<div style="background:var(--surface-solid);border-radius:20px;' +
     'width:100%;max-width:500px;">' + html + '</div>';
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 
   window._domsCallback = callback;
   window._domsValues = { dos: 0 };  // lombaires uniquement
@@ -829,14 +829,14 @@ window.domsSetScore = function(muscle, score, btn) {
 window.domsConfirm = function() {
   if (typeof saveTodayDOMS === 'function') saveTodayDOMS(window._domsValues || {});
   var overlay = document.getElementById('doms-modal-overlay');
-  if (overlay) overlay.remove();
+  if (overlay) closeModalEl(overlay);
   var cb = window._domsCallback; window._domsCallback = null;
   if (cb) cb();
 };
 
 window.domsSkip = function() {
   var overlay = document.getElementById('doms-modal-overlay');
-  if (overlay) overlay.remove();
+  if (overlay) closeModalEl(overlay);
   var cb = window._domsCallback; window._domsCallback = null;
   if (cb) cb();
 };
@@ -922,7 +922,7 @@ function openDOMSMorningModal() {
     + '<div style="flex:1 1 auto;overflow-y:auto;min-height:0;">' + scrollHtml + '</div>'
     + footerHtml
     + '</div>';
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 
   window._domsValues = domsValues;
 }
@@ -930,7 +930,7 @@ function openDOMSMorningModal() {
 window.domsMorningConfirm = function() {
   if (typeof saveTodayDOMS === 'function') saveTodayDOMS(window._domsValues || {});
   var overlay = document.getElementById('doms-morning-overlay');
-  if (overlay) overlay.remove();
+  if (overlay) closeModalEl(overlay);
   // Refresh dashboard card to hide after entry
   try {
     var _el = document.getElementById('doms-morning-card');
@@ -940,7 +940,7 @@ window.domsMorningConfirm = function() {
 
 window.domsMorningSkip = function() {
   var overlay = document.getElementById('doms-morning-overlay');
-  if (overlay) overlay.remove();
+  if (overlay) closeModalEl(overlay);
 };
 
 // READY-C2-b : l'ancien modal sliders 1-10 (updateReadinessPreview + son
@@ -974,7 +974,7 @@ function skipReadiness() {
   // aujourd'hui, mais redemande demain.
   markReadinessDone();
   const modal = document.getElementById('readinessModal');
-  if (modal) modal.remove();
+  if (modal) closeModalEl(modal);
   if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
 }
 
@@ -1334,11 +1334,34 @@ function labelFor(key, fallback) {
 // Vague 1 : seules les primitives (showInfoModal/showModal/toasts) passent par _uiOpen ;
 // les overlays artisanaux migrent vagues 2-3 (ils gardent leur cycle de vie actuel).
 var _uiStack = [];
+// Verrou de scroll robuste (fix device) : overflow:hidden sur html/body ne
+// suffit pas toujours sur mobile → on FIGE le body en position:fixed à sa
+// position de scroll (top:-scrollY) et on restaure scrollY au déverrouillage.
+// Transitionnel : capture uniquement au passage déverrouillé→verrouillé
+// (sinon une 2e modale re-capturerait scrollY=0). Le scroll INTERNE des
+// modales/sheets (overflow-y:auto sur les box) n'est pas affecté.
+var _uiScrollLockY = null;
 function _uiSyncScrollLock() {
   _uiStack = _uiStack.filter(function(el) { return el.isConnected && !el._closing; });
-  var lock = _uiStack.length ? 'hidden' : '';
-  document.body.style.overflow = lock;
-  document.documentElement.style.overflow = lock;
+  var shouldLock = _uiStack.length > 0;
+  if (shouldLock && _uiScrollLockY === null) {
+    _uiScrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = (-_uiScrollLockY) + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.documentElement.style.overflow = 'hidden';
+  } else if (!shouldLock && _uiScrollLockY !== null) {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, _uiScrollLockY);
+    _uiScrollLockY = null;
+  }
 }
 function _uiOpen(el, opts) {
   opts = opts || {};
@@ -2238,7 +2261,7 @@ function validateConsent() {
 // Ferme l'overlay consent et continue vers la génération du programme
 function nextOnboardingStep() {
   var overlay = document.getElementById('ob-consent-overlay');
-  if (overlay) overlay.remove();
+  if (overlay) closeModalEl(overlay);
   _obConsentShown = true;
   _obGenerateProgramCore();
 }
@@ -2299,7 +2322,7 @@ function obGenerateProgram() {
       overlay.className = 'modal-overlay';
       overlay.innerHTML = '<div class="modal-box" style="max-width:380px;">'
         + renderConsentStep() + '</div>';
-      document.body.appendChild(overlay);
+      _uiOpen(overlay, { dismissible: false });
       return;
     }
   }
@@ -13964,7 +13987,7 @@ function openAdjustSession() {
   overlay.className = 'modal-overlay';
   overlay.id = 'adjustSessionOverlay';
   overlay.innerHTML = _renderAdjustSessionHTML(days, 0);
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 }
 
 function _renderAdjustSessionHTML(days, activeIdx) {
@@ -14017,7 +14040,7 @@ function _renderAdjustSessionHTML(days, activeIdx) {
   });
   h += '</div>';  // close scrollable inner div
   h += '<div style="flex:0 0 auto;padding:0 16px 16px;">'
-    + '<button onclick="document.getElementById(\'adjustSessionOverlay\').remove()" '
+    + '<button onclick="closeModalEl(document.getElementById(\'adjustSessionOverlay\'))" '
     + 'style="width:100%;padding:12px;border-radius:10px;'
     + 'background:none;border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
     + 'Fermer</button>'
@@ -21514,7 +21537,7 @@ function submitCheckin(prefix) {
   if (score === null) return;
   if (prefix === 'modal') {
     var modal = document.getElementById('readinessModal');
-    if (modal) modal.remove();
+    if (modal) closeModalEl(modal);
     if (_readinessOnComplete) { _readinessOnComplete(); _readinessOnComplete = null; }
   } else {
     renderCoachToday();
@@ -29724,7 +29747,7 @@ function goShowPlateCalc(exoIdx, setIdx) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'plateCalcOverlay';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = function(e) { if (e.target === overlay) closeModalEl(overlay); };
 
   var h = '<div class="modal-box" style="max-width:320px;text-align:left;">';
   h += '<div style="font-size:16px;font-weight:700;margin-bottom:12px;text-align:center;">🔢 Calculateur de plateaux</div>';
@@ -29741,10 +29764,10 @@ function goShowPlateCalc(exoIdx, setIdx) {
   h += '<option value="7"' + (barWeight === 7 ? ' selected' : '') + '>EZ court (7kg)</option>';
   h += '</select></div>';
   h += '<div id="plateCalcResult" style="min-height:60px;"></div>';
-  h += '<div class="modal-actions"><button onclick="document.getElementById(\'plateCalcOverlay\').remove()" style="background:var(--surface);color:var(--text);">Fermer</button></div>';
+  h += '<div class="modal-actions"><button onclick="closeModalEl(document.getElementById(\'plateCalcOverlay\'))" style="background:var(--surface);color:var(--text);">Fermer</button></div>';
   h += '</div>';
   overlay.innerHTML = h;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
   updatePlateCalc();
 }
 

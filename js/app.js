@@ -8504,7 +8504,7 @@ function showPhaseValidationGate() {
 }
 
 function confirmPhaseTransition(nextPhase) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   if (!db.weeklyPlan) db.weeklyPlan = {};
   if (!db.weeklyPlan.currentBlock) db.weeklyPlan.currentBlock = {};
   // Retour à hypertrophie = fin d'un macrocycle complet (Gemini v211)
@@ -8529,7 +8529,7 @@ function confirmPhaseTransition(nextPhase) {
 }
 
 function postponePhaseTransition() {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   if (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.blockStartDate) {
     db.weeklyPlan.currentBlock.blockStartDate -= 7 * 86400000; // -1 semaine
   }
@@ -14019,7 +14019,7 @@ function _adjustShowAlternatives(exoName, dayName) {
 }
 
 function _adjustApplyChange(oldExo, newExo, dayName) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   var safeOld = oldExo.replace(/'/g, "\\'");
   var safeNew = newExo.replace(/'/g, "\\'");
   var safeDay = dayName.replace(/'/g, "\\'");
@@ -14046,7 +14046,7 @@ function _adjustApplyChange(oldExo, newExo, dayName) {
 }
 
 function _adjustConfirm(oldExo, newExo, dayName, permanent) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   var days = db.weeklyPlan && db.weeklyPlan.days;
   if (!days) return;
   var targetDays = permanent ? days : days.filter(function(d) { return d.day === dayName; });
@@ -14115,15 +14115,15 @@ function _adjustPrimaryWarning(exoName, dayName) {
 }
 
 function _adjustPrimaryWant(weekNum, maxWeeks) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   showToast('💪 Semaine ' + weekNum + '/' + maxWeeks + '. Termine ce bloc pour valider tes gains avant de changer de pilier.', 5000);
 }
 function _adjustPrimaryEquipment(exoName, dayName) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   _adjustShowAlternatives(exoName, dayName);
 }
 function _adjustPrimaryInjury(exoName) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   showToast('🩹 Blessure notée. Le Coach adapte ta prochaine séance.', 4000);
   if (!db.user.injuries) db.user.injuries = [];
   if (db.user.injuries.indexOf(exoName) === -1) db.user.injuries.push(exoName);
@@ -18302,7 +18302,7 @@ function checkInjuryPersistence() {
 }
 
 function activateRehabMode(zone) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   if (!db.user || !db.user.injuries) return;
   db.user.injuries.forEach(function(inj) {
     if (typeof inj === 'object' && inj.zone === zone) inj.rehabMode = true;
@@ -18313,7 +18313,7 @@ function activateRehabMode(zone) {
 }
 
 function acknowledgeInjury(zone) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   if (!db.user || !db.user.injuries) return;
   db.user.injuries.forEach(function(inj) {
     if (typeof inj === 'object' && inj.zone === zone) {
@@ -27940,7 +27940,7 @@ function showPRConfirmation(prData) {
 }
 
 function confirmNewPR(liftKey, e1rm) {
-  document.querySelectorAll('.modal-overlay').forEach(function(o) { o.remove(); });
+  closeAllOverlays();
   if (!db.bestPR) db.bestPR = {};
   db.bestPR[liftKey] = e1rm;
   saveDB();

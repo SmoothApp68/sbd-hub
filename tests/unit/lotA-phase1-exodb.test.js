@@ -21,8 +21,8 @@ const rows = fs.readFileSync(path.join(ROOT, 'audit/mapping_nomenclature_lotA.cs
 const canonList = rows.filter(r => !r.fusion);
 
 describe('Lot A — EXO_DATABASE (état final Phases 1+2)', () => {
-  test('compte : 1011 entrées (963 post-Phase1 − 8 fusions + 56 créations)', () => {
-    expect(ids.length).toBe(1011);
+  test('compte : 1016 entrées (1011 Lot A + 5 gaps catalogue Lot B-2)', () => {
+    expect(ids.length).toBe(1016);
   });
 
   test('chaque canonique CSV → EXACTEMENT une entrée, avec la bonne family', () => {

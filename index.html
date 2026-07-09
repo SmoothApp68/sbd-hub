@@ -145,6 +145,14 @@
     .btn:active { transform: scale(0.96); opacity: 0.85; }
     button, [role="button"] { transition: transform 0.15s ease, opacity 0.15s ease; }
     button:active, [role="button"]:active { transform: scale(0.96); opacity: 0.85; }
+    /* Polish Tier 0 — retour tactile immédiat sur les rangées/cartes cliquables (div/onclick
+       non couvertes par la règle button:active ci-dessus). Léger scale, aucun changement de layout. */
+    .feed-card:active, .bdg:active, .nb-item:active, .ru-item:active,
+    .theme-option:active, .deletion-option:active, .go-sheet-item:active, .muscle-row:active,
+    .ob-dur-btn:active, .ob-mat-btn:active, .ob-cardio-btn:active, .ob-inj-btn:active,
+    .ob-freq-btn:active, .ob-sec-btn:active, .ob-path-btn:active, .ob-mode-btn:active,
+    .ob-goal-btn:active, .ob-morpho-btn:active, .ob-profile-btn:active, .ob-inj-lvl-btn:active
+    { transform: scale(0.98); transition: transform 0.1s ease; }
     .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
     .report-box { background: var(--bg-card); padding: 15px; border-radius: 10px; border: 0.5px solid var(--bg-card-border); text-align: center; }
     .report-val { font-size: 22px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; font-variant-numeric: tabular-nums; }

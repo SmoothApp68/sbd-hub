@@ -319,6 +319,14 @@ S/B ratio          : 1.057 (bench fort par rapport au squat)
 | v148 | renderGamificationTab 638L→20L, Leaderboard, Friend Challenges, 6 badges status |
 | v149 | getAllBadges 343L→18L, calcE1RM clarifiée, EventListeners guards, offline messages |
 | v150 | Télémétrie silencieuse (error_logs) |
+| v312 | Polish Tier 0 : modales animées 240ms (entrée+sortie), keyframes slideUp/shimmer dédupliqués, :active rangées, blur barres 20→8px |
+| v313 | Chantier A v1 : cœur `_uiOpen/_uiClose/closeAllOverlays` (pile LIFO, scroll-lock, Échap, tap-dehors), échelle z (5 vars `--z-*`), toasts unifiés (PR = variante top) |
+| v314 | Chantier A v2 : `showSheet()` unifiée, `_showChallengeSheet` réparée, `.swap-modal` fusionnée, débrief en vraie sheet |
+| v315 | Chantier A v3 : 16 dialogues centrés artisanaux routés sur le cœur (gates non-dismissibles) |
+| v316 | Fix transparence : token `--surface-solid` (#1A1A2E), box DOMS opaques |
+| v317 | Fix device : transparence exhaustive (récap import + 6 panneaux), scroll-lock réel (body position:fixed + top:-scrollY, overlays orphelins enregistrés) |
+| v318 | Chantier A v4 : `showConfirm()` (non-dismissible, danger), 11 confirm() natifs migrés sync→async |
+| v319 | Chantier A v5 : CSS mort supprimé (slideDownFade, .swap-modal conteneur, .pr-celebration-*) — chantier A complet |
 
 ---
 

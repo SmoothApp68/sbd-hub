@@ -1154,13 +1154,12 @@ function showGlossaryModal(key) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'glossaryModal';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = '<div class="modal-box" style="max-width:380px;padding:20px;text-align:left;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
     '<div style="font-size:15px;font-weight:700;color:var(--text);">' + g.short + '</div>' +
-    '<button onclick="document.getElementById(\'glossaryModal\').remove()" style="background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer;padding:0;">✕</button>' +
+    '<button onclick="closeModalEl(document.getElementById(\'glossaryModal\'))" style="background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer;padding:0;">✕</button>' +
     '</div>' + body + '</div>';
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function renderGlossaryPage() {
@@ -1457,7 +1456,7 @@ function showConsentModal() {
     + '<button onclick="grantHealthConsent()" style="flex:2;padding:11px;border-radius:10px;border:none;background:var(--accent);color:white;font-size:13px;font-weight:700;cursor:pointer;">J\'accepte</button>'
     + '</div>'
     + '</div>';
-  document.body.appendChild(o);
+  _uiOpen(o, { dismissible: false });
 }
 
 function grantHealthConsent() {
@@ -1465,7 +1464,7 @@ function grantHealthConsent() {
   db.user.consentHealthDate = new Date().toISOString();
   saveDB();
   var el = document.getElementById('consentHealthOverlay');
-  if (el) el.remove();
+  if (el) closeModalEl(el);
   if (typeof renderSettingsProfile === 'function') {
     var sec = document.getElementById('settingsRGPDSection');
     if (sec) renderRGPDSection(sec);
@@ -1478,7 +1477,7 @@ function revokeHealthConsent(fromModal) {
     db.user.consentHealthDate = null;
     saveDB();
     var el = document.getElementById('consentHealthOverlay');
-    if (el) el.remove();
+    if (el) closeModalEl(el);
     return;
   }
   showModal(
@@ -2271,16 +2270,16 @@ function showOnboardingComplete() {
         + 'border-radius:8px;padding:10px;margin-bottom:14px;">'
         + '💡 Renseigne tes PRs dans le Profil pour affiner les charges.</div>'
       : '')
-    + '<button onclick="this.closest(\'.modal-overlay\').remove();showTab(\'tab-seances\')" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'));showTab(\'tab-seances\')" '
     + 'style="width:100%;padding:14px;border-radius:12px;background:var(--accent);'
     + 'border:none;color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">'
     + 'Voir mon programme →</button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove();goStartWorkout(true)" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'));goStartWorkout(true)" '
     + 'style="width:100%;padding:12px;border-radius:12px;background:var(--surface);'
     + 'border:0.5px solid var(--accent);color:var(--accent);font-weight:600;cursor:pointer;">'
     + 'Lancer maintenant 💪</button>'
     + '</div>';
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 }
 
 // v206 — Stub : ouvre la page Programme où l'user peut renseigner sa compDate
@@ -6848,7 +6847,6 @@ function checkTitles() {
 function showJeuHelp() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   var box = document.createElement('div');
   box.className = 'modal-box';
   box.style.maxWidth = '360px';
@@ -6856,7 +6854,7 @@ function showJeuHelp() {
   box.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
       '<div style="font-size:16px;font-weight:800;">Comment fonctionne l\'onglet Jeu ?</div>' +
-      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;color:var(--sub);font-size:22px;cursor:pointer;line-height:1;">×</button>' +
+      '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:none;border:none;color:var(--sub);font-size:22px;cursor:pointer;line-height:1;">×</button>' +
     '</div>' +
     '<div style="font-size:13px;line-height:1.7;color:var(--text);">' +
       '<p style="margin:0 0 10px;"><strong>🏆 XP</strong> — Tu gagnes de l\'XP à chaque séance, PR, série hebdomadaire et objectif atteint.</p>' +
@@ -6865,20 +6863,19 @@ function showJeuHelp() {
       '<p style="margin:0;"><strong>💪 Rangs</strong> — Tes performances sur Squat, Bench et Deadlift sont comparées à des standards de force.</p>' +
     '</div>';
   overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function showTitleModal() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   var box = document.createElement('div');
   box.className = 'modal-box';
   box.style.maxWidth = '340px';
   box.style.textAlign = 'left';
   box.innerHTML = '<div style="font-size:16px;font-weight:800;margin-bottom:14px;text-align:center;">Choisis ton titre</div><div class="title-modal-list" id="titleList"></div>';
   overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 
   var list = box.querySelector('#titleList');
   var html = '';
@@ -6887,7 +6884,7 @@ function showTitleModal() {
     var isUnlocked = unlocked.indexOf(t.id) >= 0;
     var isActive = db.activeTitle === t.id;
     var rc = _titleRarityColor[t.rarity] || '#86868B';
-    html += '<div class="title-row ' + (isActive ? 'active-title' : '') + (isUnlocked ? '' : ' locked-title') + '" ' + (isUnlocked ? 'onclick="db.activeTitle=&quot;' + t.id + '&quot;;saveDB();document.querySelector(&quot;.modal-overlay&quot;).remove();renderGamificationTab();"' : '') + '>';
+    html += '<div class="title-row ' + (isActive ? 'active-title' : '') + (isUnlocked ? '' : ' locked-title') + '" ' + (isUnlocked ? 'onclick="db.activeTitle=&quot;' + t.id + '&quot;;saveDB();closeModalEl(document.querySelector(&quot;.modal-overlay&quot;));renderGamificationTab();"' : '') + '>';
     html += '<div><div style="font-size:13px;font-weight:700;color:' + (isUnlocked ? rc : 'var(--sub)') + ';">' + (isUnlocked ? '' : '🔒 ') + t.title + '</div>';
     html += '<div class="title-cond">' + t.condText + '</div></div>';
     html += '<div class="title-rarity" style="background:' + rc + '15;color:' + rc + ';">' + t.rarity + '</div>';
@@ -8547,7 +8544,7 @@ function showPhaseValidationGate() {
     + 'style="flex:1;padding:12px;border-radius:10px;background:var(--surface);'
     + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">Je refais une semaine</button>'
     + '</div></div>';
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 }
 
 function confirmPhaseTransition(nextPhase) {
@@ -10397,7 +10394,6 @@ function buildSessionFromCSV(dateRaw, seanceName, rows) {
 function _showDuplicateImportModal(duplicates, onForce, onCancel) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); onCancel(); } };
   var box = document.createElement('div');
   box.className = 'modal-box';
   box.style.maxWidth = '360px';
@@ -10410,18 +10406,18 @@ function _showDuplicateImportModal(duplicates, onForce, onCancel) {
   box.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
       '<div style="font-size:15px;font-weight:800;">⚠️ Doublons détectés</div>' +
-      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;color:var(--sub);font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>' +
+      '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:none;border:none;color:var(--sub);font-size:20px;cursor:pointer;padding:0;line-height:1;">×</button>' +
     '</div>' +
     '<p style="font-size:13px;color:var(--sub);margin-bottom:10px;">' + duplicates.length + ' séance' + (duplicates.length > 1 ? 's' : '') + ' déjà présente' + (duplicates.length > 1 ? 's' : '') + ' dans ta base :</p>' +
     '<ul style="font-size:12px;padding-left:18px;margin-bottom:16px;color:var(--text);">' + listHtml + '</ul>' +
     '<div class="modal-actions">' +
-      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--sub);cursor:pointer;font-size:14px;">Annuler</button>' +
+      '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--sub);cursor:pointer;font-size:14px;">Annuler</button>' +
       '<button id="_forceImportBtn" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--orange);color:#fff;cursor:pointer;font-size:14px;font-weight:700;">Forcer l\'import</button>' +
     '</div>';
-  box.querySelector('#_forceImportBtn').onclick = function() { overlay.remove(); onForce(); };
-  box.querySelector('.modal-actions button:first-child').onclick = function() { overlay.remove(); onCancel(); };
+  box.querySelector('#_forceImportBtn').onclick = function() { closeModalEl(overlay); onForce(); };
+  box.querySelector('.modal-actions button:first-child').onclick = function() { closeModalEl(overlay); onCancel(); };
   overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true, onDismiss: onCancel });
 }
 
 async function _doImportCSV(sessions) {
@@ -12237,10 +12233,9 @@ function showCustomBuilderChoice() {
     + 'border:1px solid var(--border);border-radius:10px;color:var(--text);'
     + 'font-size:14px;cursor:pointer;">📄 Page blanche</button>'
     + '</div></div>';
-  document.body.appendChild(o);
-  o.querySelector('#_cbFromExisting').onclick = function() { o.remove(); pbStartCustomBuilder(true); };
-  o.querySelector('#_cbBlank').onclick = function() { o.remove(); pbStartCustomBuilder(false); };
-  o.addEventListener('click', function(e) { if (e.target === o) o.remove(); });
+  _uiOpen(o, { dismissible: true });
+  o.querySelector('#_cbFromExisting').onclick = function() { closeModalEl(o); pbStartCustomBuilder(true); };
+  o.querySelector('#_cbBlank').onclick = function() { closeModalEl(o); pbStartCustomBuilder(false); };
 }
 
 // ── CUSTOM BUILDER — state ───────────────────────────────────
@@ -13395,7 +13390,6 @@ function previewBackup(index) {
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
   var box = document.createElement('div');
   box.className = 'modal-box';
   box.style.maxWidth = '360px';
@@ -13405,11 +13399,11 @@ function previewBackup(index) {
   box.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
       '<div style="font-size:15px;font-weight:700;">Aperçu du programme</div>' +
-      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="background:none;border:none;color:var(--sub);font-size:22px;cursor:pointer;line-height:1;">×</button>' +
+      '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="background:none;border:none;color:var(--sub);font-size:22px;cursor:pointer;line-height:1;">×</button>' +
     '</div>' +
     content;
   overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function deleteCustomProgramBackup(index) {
@@ -14055,14 +14049,14 @@ function _adjustShowAlternatives(exoName, dayName) {
       + 'text-align:left;font-size:13px;font-weight:600;cursor:pointer;">'
       + escapeHtml(alt) + '</button>';
   });
-  h += '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+  h += '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" '
     + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
     + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;margin-top:4px;">'
     + 'Annuler</button></div>';
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = h;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function _adjustApplyChange(oldExo, newExo, dayName) {
@@ -14083,13 +14077,13 @@ function _adjustApplyChange(oldExo, newExo, dayName) {
     + 'background:var(--surface);border:1.5px solid var(--accent);text-align:left;cursor:pointer;">'
     + '<div style="font-weight:600;font-size:13px;color:var(--accent);">Tout le cycle actuel</div>'
     + '<div style="font-size:11px;color:var(--sub);">Mémoriser ma préférence</div></button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" '
     + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
     + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">Annuler</button></div>';
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = h;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function _adjustConfirm(oldExo, newExo, dayName, permanent) {
@@ -14151,14 +14145,14 @@ function _adjustPrimaryWarning(exoName, dayName) {
     + 'background:var(--surface);border:0.5px solid var(--border);text-align:left;cursor:pointer;">'
     + '🔄 Envie de changement<br>'
     + '<span style="font-size:11px;color:var(--sub);">Semaine ' + weekNum + '/' + maxWeeks + ' — le Coach répond</span></button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" '
     + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
     + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;margin-top:4px;">'
     + 'Annuler</button></div>';
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = h;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function _adjustPrimaryWant(weekNum, maxWeeks) {
@@ -27970,12 +27964,12 @@ function showPRConfirmation(prData) {
     + 'style="width:100%;padding:12px;border-radius:10px;background:var(--accent);'
     + 'border:none;color:#fff;font-weight:700;cursor:pointer;margin-bottom:8px;">'
     + 'Valider ' + prData.e1rm + 'kg comme nouveau PR 🏆</button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove()" '
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" '
     + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
     + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
     + 'Non, c\'est une erreur</button>'
     + '</div>';
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: false });
 }
 
 function confirmNewPR(liftKey, e1rm) {
@@ -29175,16 +29169,15 @@ function openSessionPhotoPicker(sessionId) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'photoPickerOverlay';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
   var h = '<div class="modal-box" style="max-width:300px;">';
   h += '<p style="margin:0 0 14px;font-size:15px;font-weight:700;text-align:center;">Ajouter une photo</p>';
   h += '<button onclick="_pickPhoto(\'' + sessionId + '\',true)" class="btn" style="margin-bottom:8px;">📷 Prendre une photo</button>';
   h += '<button onclick="_pickPhoto(\'' + sessionId + '\',false)" class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text);margin-bottom:8px;">🖼️ Choisir dans la galerie</button>';
-  h += '<button onclick="document.getElementById(\'photoPickerOverlay\').remove();" class="btn" style="background:transparent;color:var(--sub);font-size:13px;">Annuler</button>';
+  h += '<button onclick="closeModalEl(document.getElementById(\'photoPickerOverlay\'));" class="btn" style="background:transparent;color:var(--sub);font-size:13px;">Annuler</button>';
   h += '</div>';
   overlay.innerHTML = h;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function _pickPhoto(sessionId, useCamera) {
@@ -29844,7 +29837,6 @@ function showExoDemo(exoId, exoName) {
 
   var overlay = document.createElement('div');
   overlay.className = 'exo-demo-overlay';
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
   var h = '';
   // Animation alternée des 2 images
@@ -29878,10 +29870,10 @@ function showExoDemo(exoId, exoName) {
   }
 
   // Bouton fermer
-  h += '<button onclick="this.closest(\'.exo-demo-overlay\').remove()" style="margin-top:16px;padding:12px 32px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:14px;font-weight:600;cursor:pointer;">Fermer</button>';
+  h += '<button onclick="closeModalEl(this.closest(\'.exo-demo-overlay\'))" style="margin-top:16px;padding:12px 32px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:white;font-size:14px;font-weight:600;cursor:pointer;">Fermer</button>';
 
   overlay.innerHTML = h;
-  document.body.appendChild(overlay);
+  _uiOpen(overlay, { dismissible: true });
 }
 
 function goShowInstructions(exoIdx) {
@@ -31339,18 +31331,17 @@ function showShareModal(session) {
   if (!cardData) return;
   var o = document.createElement('div');
   o.className = 'modal-overlay';
-  o.onclick = function(e) { if (e.target === o) o.remove(); };
   o.innerHTML = '<div class="modal-box" style="max-width:380px;">'
     + '<div style="font-size:14px;font-weight:700;margin-bottom:12px;">📸 Partager ta séance</div>'
     + renderShareCardHTML(cardData)
     + '<div style="display:flex;gap:8px;margin-top:14px;">'
     + '<button onclick="downloadShareCard()" style="flex:1;padding:12px;background:var(--accent);border:none;'
     + 'border-radius:12px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">📥 Télécharger</button>'
-    + '<button onclick="this.closest(\'.modal-overlay\').remove()" style="flex:1;padding:12px;'
+    + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" style="flex:1;padding:12px;'
     + 'background:var(--surface);border:1px solid var(--border);border-radius:12px;'
     + 'color:var(--text);font-size:13px;cursor:pointer;">Fermer</button>'
     + '</div></div>';
-  document.body.appendChild(o);
+  _uiOpen(o, { dismissible: true });
 }
 
 async function downloadShareCard() {

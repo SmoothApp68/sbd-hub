@@ -30507,8 +30507,14 @@ function goSelectSearchResult(name, exoId) {
     activeWorkout.exercises[idx].exoId = exoId || null;
     activeWorkout.exercises[idx].restSeconds = goGetDefaultRest(name, exoId);
     activeWorkout.exercises[idx].sets = [];
-  } else {
-    // Add mode
+    goAutoSave();
+    goRequestRender();
+    return;
+  }
+  // Add mode — vague 4 : l'avertissement difficulté se pose AVANT le push.
+  // L'ancien confirm() synchrone poussait puis pop-ait si refus ; en async,
+  // on n'ajoute l'exercice QUE si l'utilisateur confirme (aucun état résiduel).
+  var _addExo = function() {
     activeWorkout.exercises.push({
       exoId: exoId || null,
       name: name,
@@ -30516,19 +30522,24 @@ function goSelectSearchResult(name, exoId) {
       restSeconds: goGetDefaultRest(name, exoId),
       notes: ''
     });
-    // Difficulty warning for beginners
-    var _exoData = exoId ? EXO_DATABASE[exoId] : null;
-    if (_exoData && _exoData.difficulty >= 4 && (db.user.level || 'intermediaire') === 'debutant') {
-      var alts = (_exoData.alternatives || []).map(function(altId) { var a = EXO_DATABASE[altId]; return a ? a.name : null; }).filter(Boolean);
-      var msg = '⚠️ ' + _exoData.name + ' est un exercice avancé (difficulté ' + _exoData.difficulty + '/5).';
-      if (_exoData.tips) msg += '\n\n💡 ' + _exoData.tips;
-      if (alts.length) msg += '\n\nAlternatives : ' + alts.join(', ');
-      msg += '\n\nContinuer quand même ?';
-      if (!confirm(msg)) { activeWorkout.exercises.pop(); return; }
-    }
+    goAutoSave();
+    goRequestRender();
+  };
+  var _exoData = exoId ? EXO_DATABASE[exoId] : null;
+  if (_exoData && _exoData.difficulty >= 4 && (db.user.level || 'intermediaire') === 'debutant') {
+    var alts = (_exoData.alternatives || []).map(function(altId) { var a = EXO_DATABASE[altId]; return a ? a.name : null; }).filter(Boolean);
+    var body = _exoData.name + ' est un exercice avancé (difficulté ' + _exoData.difficulty + '/5).';
+    if (_exoData.tips) body += '<br><br>💡 ' + _exoData.tips;
+    if (alts.length) body += '<br><br>Alternatives : ' + alts.join(', ');
+    showConfirm({
+      title: '⚠️ Exercice avancé',
+      body: body,
+      confirmLabel: 'Continuer quand même',
+      onConfirm: _addExo
+    });
+    return;
   }
-  goAutoSave();
-  goRequestRender();
+  _addExo();
 }
 
 // ============================================================

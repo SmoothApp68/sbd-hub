@@ -2393,6 +2393,7 @@ var EXERCISE_TRANSFER_MATRIX = {
   'Squat (Barre)':          { family: 'squat', ratio: 1.00 },
   'High Bar Squat':         { family: 'squat', ratio: 0.97 },
   'Paused Squat':           { family: 'squat', ratio: 0.88 },
+  'Squat avec pause (barre)':{ family: 'squat', ratio: 0.88 },  // nom précis (Lot B) — pause ≠ plein
   'Front Squat':            { family: 'squat', ratio: 0.80 },
   'Bulgarian Split Squat':  { family: 'squat', ratio: 0.65 },
   'Goblet Squat':           { family: 'squat', ratio: 0.55 },
@@ -2400,6 +2401,7 @@ var EXERCISE_TRANSFER_MATRIX = {
 
   // Famille Hinge (parent: 'Soulevé de Terre (Barre)')
   'Soulevé de Terre (Barre)':         { family: 'hinge', ratio: 1.00 },
+  'Soulevé De Terre avec pause':      { family: 'hinge', ratio: 0.90 },  // nom précis (Lot B) — pause ≠ plein
   'Soulevé de Terre Sumo (Barre)':    { family: 'hinge', ratio: 0.95 },
   'Soulevé de Terre Roumain (Barre)': { family: 'hinge', ratio: 0.80 },
   'Rack Pull':                         { family: 'hinge', ratio: 1.05 },
@@ -5245,6 +5247,8 @@ var EXERCISE_CATEGORIES = {
   'Deadlift (Barre)':            'fixed',
   // Variations SBD — rotation au changement de bloc
   'Squat Pause':                 'variation',
+  'Squat avec pause (barre)':    'variation',   // nom précis (Lot B) — variante, jamais 'compound'
+  'Soulevé De Terre avec pause': 'variation',   // nom précis (Lot B) — variante pause distincte
   'Squat Avant (Barre)':         'variation',
   'Squat Bulgare':               'variation',
   'Squat Sumo':                  'variation',
@@ -5283,6 +5287,7 @@ var EXERCISE_CATEGORIES = {
   'Face Pull':                   'isolation',
   'Relevé de Jambes':            'isolation',
   'Gainage (Planche)':           'cardio',
+  'Planche':                     'cardio',   // nom précis (Lot B) — hérite du comportement 'Gainage (Planche)'
   // Cardio/mobilité — jamais de rotation
   'Tapis roulant':               'cardio',
   'Natation':                    'cardio',
@@ -5360,7 +5365,17 @@ var STALENESS_SUBSTITUTES = {
   'Rowing Poulie Assis (V-Grip)':      ['Rowing Poulie Assis (Prise Large)', 'Rowing Assis (Machine)', 'Rowing Haltère'],
   'Rowing Poulie Assis (Prise Large)': ['Rowing Poulie Assis (V-Grip)', 'Rowing Assis (Machine)'],
   'Mollets (Machine)':     ['Extension Mollets Debout', 'Mollets Donkey', 'Leg Press Mollets'],
-  'Extension Mollets Debout':['Mollets (Machine)', 'Leg Press Mollets']
+  'Extension Mollets Debout':['Mollets (Machine)', 'Leg Press Mollets'],
+  // ── Alias noms précis (Lot B) — les templates émettent désormais les noms
+  //    précis ; on garde la résolution des substituts staleness pour ces noms.
+  'Extension Jambes':                  ['Hack Squat Machine', 'Presse à Cuisses', 'Squat Goblet'],
+  'Leg Curl Allongé (Machine)':        ['Leg Curl Assis', 'Soulevé de Terre Roumain (Barre)', 'Glute Ham Raise'],
+  'Extension Mollets Debout (Machine)':['Mollets (Machine)', 'Leg Press Mollets'],
+  'Tirage Poitrine (Poulie)':          ['Tractions', 'Tirage Poulie Haute'],
+  'Dips Triceps':                      ['Dips Triceps Machine', 'Développé Décliné Haltères'],
+  'Oiseau (Machine)':                  ['Oiseau Penché (Haltère)', 'Face Pull'],
+  'Écarté (Machine)':                  ['Écarté Machine (Pec Deck)', 'Écarté Câbles', 'Écarté Haltères'],
+  'Rowing Poulie Assis - Prise Large': ['Rowing Poulie Assis (V-Grip)', 'Rowing Assis (Machine)']
 };
 // Obtenir la catégorie d'un exercice
 function getExerciseCategory(exoName) {

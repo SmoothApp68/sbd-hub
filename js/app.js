@@ -14263,16 +14263,17 @@ function toggleProgDay(di) {
   if (chev) chev.classList.toggle('open');
 }
 
+// Chantier A vague 2 — fusionnée dans la sheet unifiée (l'ex-.swap-modal était
+// un clone divergent : backdrop 0.75, 70vh, sans animation). Contenu, callbacks
+// confirmSwap/closeSwap et classes internes .swap-alt-* inchangés.
 function openSwap(dayIdx, exoIdx, currentId) {
   const exo = EXO_DB[currentId];
   if (!exo || !exo.alts || !exo.alts.length) return;
   const matIcons = { salle:'🏋️', halteres:'💪', maison:'🏠' };
-  const modal = document.createElement('div');
-  modal.className = 'swap-modal';
-  modal.id = 'swap-modal';
-  modal.innerHTML = '<div class="swap-modal-box">'+
-    '<div class="swap-modal-title">Remplacer : '+exo.name+'</div>'+
-    '<div class="swap-modal-sub">Même groupe musculaire · '+exo.muscle+'</div>'+
+  showSheet({
+    id: 'swap-modal',
+    title: 'Remplacer : '+exo.name,
+    body: '<div class="swap-modal-sub">Même groupe musculaire · '+exo.muscle+'</div>'+
     exo.alts.map((alt, ai) => {
       const matLabel = alt.mat || 'salle';
       return '<button class="swap-alt-btn" onclick="confirmSwap('+dayIdx+','+exoIdx+',\''+currentId+'\','+ai+')">'+
@@ -14281,15 +14282,13 @@ function openSwap(dayIdx, exoIdx, currentId) {
         '<span class="swap-alt-mat">'+matLabel+'<span class="swap-mat-badge">'+matLabel+'</span></span></div>'+
         '</button>';
     }).join('')+
-    '<button onclick="closeSwap()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--sub);padding:12px;cursor:pointer;font-size:13px;">Annuler</button>'+
-    '</div>';
-  document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal) closeSwap(); });
+    '<button onclick="closeSwap()" style="width:100%;margin-top:8px;background:none;border:none;color:var(--sub);padding:12px;cursor:pointer;font-size:13px;">Annuler</button>'
+  });
 }
 
 function closeSwap() {
   const m = document.getElementById('swap-modal');
-  if (m) m.remove();
+  if (m) closeModalEl(m);
 }
 
 function confirmSwap(dayIdx, exoIdx, currentId, altIdx) {

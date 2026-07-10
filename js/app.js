@@ -30498,11 +30498,13 @@ function _goGetRecentExercises(limit) {
 }
 
 function goSelectSearchResult(name, exoId) {
+  // Capturer l'index de remplacement AVANT goCloseSearch() qui efface _goReplaceIdx :
+  // sinon le flux « 🔍 Recherche manuelle » tombe toujours en mode ajout (index perdu).
+  var _replaceIdx = (typeof window._goReplaceIdx === 'number') ? window._goReplaceIdx : null;
   goCloseSearch();
-  if (typeof window._goReplaceIdx === 'number') {
+  if (_replaceIdx !== null) {
     // Replace mode
-    var idx = window._goReplaceIdx;
-    window._goReplaceIdx = undefined;
+    var idx = _replaceIdx;
     activeWorkout.exercises[idx].name = name;
     activeWorkout.exercises[idx].exoId = exoId || null;
     activeWorkout.exercises[idx].restSeconds = goGetDefaultRest(name, exoId);

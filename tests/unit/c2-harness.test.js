@@ -49,6 +49,7 @@ const PREAMBLE = (function () {
     'generateId', 'calcE1RM', 'convertWorkoutToSession',
     'hasTodayCheckin', 'saveDailyCheckin', // READY-C2-b : saisie unique
     'buildCheckinFormHtml', 'renderMorningCheckin', 'showReadinessModal', // READY-C2-d : gate comportemental
+    '_uiOpen', '_uiSyncScrollLock', // v317 : showReadinessModal ouvre via le cœur overlay unifié (vraie source)
     '_normalizeCheckinEntry', 'getTodayCheckin', 'getCheckinHistory']; // READY-C2-c : couche d'accès
   const fromImp = ['createSession', 'finalizeSessionFromSeries'];
   let p = '';
@@ -74,6 +75,7 @@ function makeCtx(db, extra) {
     parseInt: parseInt, parseFloat: parseFloat, isNaN: isNaN, Infinity: Infinity,
     DAYS_FULL: ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
     WP_SYNONYMS: {},
+    _uiStack: [], _uiScrollLockY: null, // v317 : état du cœur overlay unifié (pile + scroll-lock)
     saveDB: function () { calls.saveDB++; },
     saveDBNow: function () { calls.saveDBNow++; }, // READY-C2-hotfix : saisie persiste via saveDBNow
   }, extra || {});

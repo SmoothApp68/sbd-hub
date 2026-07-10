@@ -30107,6 +30107,9 @@ function goShowSetTypeSheet(exoIdx, setIdx) {
 // GO TAB — Exercise Search Overlay
 // ============================================================
 var _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
+// Polish E 2a — état du rendu progressif du picker (cap + append au scroll).
+var _goRenderState = null;
+var _goResultsObserver = null;
 var _goMuscleMap = {
   'Pecs': ['Pecs','Pecs (haut)','Pecs (bas)'],
   'Dos': ['Grand dorsal','Haut du dos','Trapèzes','Lombaires'],
@@ -30159,6 +30162,8 @@ function goOpenSearch() {
 function goCloseSearch() {
   var el = document.getElementById('goSearchOverlay');
   if (el) el.remove();
+  if (_goResultsObserver) { _goResultsObserver.disconnect(); _goResultsObserver = null; }
+  _goRenderState = null;
   window._goReplaceIdx = undefined;
 }
 
@@ -30372,31 +30377,78 @@ function goRenderSearchResults(query, filters) {
   if (results.length === 0 && q) {
     h += '<div style="text-align:center;padding:40px 0;color:var(--sub);">Aucun résultat pour "' + query + '"</div>';
   }
-  results.forEach(function(e) {
-    var ms = _ecMuscleStyle(e.name);
-    var equipLabels = { barbell: 'Barre', dumbbell: 'Haltères', machine: 'Machine', cable: 'Câble', bodyweight: 'Corps', other: 'Autre' };
-    var catLabels = { compound: 'Composé', isolation: 'Isolation', cardio: 'Cardio', stretch: 'Étirement' };
-    var diffStars = '';
-    if (e.difficulty) { for (var ds = 1; ds <= e.difficulty; ds++) diffStars += '★'; }
-    var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + (diffStars ? ' · ' + diffStars : '');
-    var e1rm = allE1RMs[e.name] ? allE1RMs[e.name].e1rm : 0;
-    var _sImgUrl = e.id ? getExoImageUrl(e.id, 0) : null;
-    h += '<div class="go-search-item" onclick="goSelectSearchResult(\'' + e.name.replace(/'/g, "\\'") + '\',\'' + (e.id || '') + '\')">';
-    if (_sImgUrl) {
-      h += '<div class="go-search-item-icon" style="padding:0;overflow:hidden;border-radius:10px;"><img src="' + _sImgUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.background=\'' + ms.bg + '\';this.parentNode.innerHTML=\'' + ms.icon + '\';"></div>';
-    } else {
-      h += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
-    }
-    h += '<div class="go-search-item-info"><div class="go-search-item-name">' + e.name + '</div>';
-    h += '<div class="go-search-item-sub">' + sub + '</div></div>';
-    if (e1rm > 0) h += '<div class="go-search-item-e1rm">' + Math.round(e1rm) + 'kg</div>';
-    h += '</div>';
-  });
 
-  // Create custom exercise link
+  // Polish E 2a — rendu progressif : on ne monte qu'un premier lot (BATCH), puis on
+  // append les lots suivants au scroll (IntersectionObserver sur une sentinelle). Évite
+  // le montage DOM des ~1020 items d'un coup ET borne les requêtes images lazy.
+  // Items dans #goResultsItems ; sentinelle + lien "créer" en bas (append AVANT eux).
+  h += '<div id="goResultsItems"></div>';
+  h += '<div id="goResultsSentinel" style="height:1px;"></div>';
   h += '<div class="go-search-create" onclick="goCloseSearch();goOpenWizard();">➕ Créer un exercice personnalisé</div>';
-
   container.innerHTML = h;
+
+  _goRenderState = { results: results, rendered: 0, batch: 50, allE1RMs: allE1RMs };
+  _goAppendResultBatch();
+  _goSetupResultsObserver(container);
+}
+
+// Construit le HTML d'une ligne de résultat (factorisé pour le rendu par lots).
+function _goBuildResultItemHtml(e, allE1RMs) {
+  var ms = _ecMuscleStyle(e.name);
+  var equipLabels = { barbell: 'Barre', dumbbell: 'Haltères', machine: 'Machine', cable: 'Câble', bodyweight: 'Corps', other: 'Autre' };
+  var diffStars = '';
+  if (e.difficulty) { for (var ds = 1; ds <= e.difficulty; ds++) diffStars += '★'; }
+  var sub = (equipLabels[e.equipment] || '') + ' · ' + (ms.tag || '') + (diffStars ? ' · ' + diffStars : '');
+  var e1rm = allE1RMs[e.name] ? allE1RMs[e.name].e1rm : 0;
+  var _sImgUrl = e.id ? getExoImageUrl(e.id, 0) : null;
+  var out = '<div class="go-search-item" onclick="goSelectSearchResult(\'' + e.name.replace(/'/g, "\\'") + '\',\'' + (e.id || '') + '\')">';
+  if (_sImgUrl) {
+    out += '<div class="go-search-item-icon" style="padding:0;overflow:hidden;border-radius:10px;"><img src="' + _sImgUrl + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.background=\'' + ms.bg + '\';this.parentNode.innerHTML=\'' + ms.icon + '\';"></div>';
+  } else {
+    out += '<div class="go-search-item-icon" style="background:' + ms.bg + ';">' + ms.icon + '</div>';
+  }
+  out += '<div class="go-search-item-info"><div class="go-search-item-name">' + e.name + '</div>';
+  out += '<div class="go-search-item-sub">' + sub + '</div></div>';
+  if (e1rm > 0) out += '<div class="go-search-item-e1rm">' + Math.round(e1rm) + 'kg</div>';
+  out += '</div>';
+  return out;
+}
+
+// Append le lot suivant dans #goResultsItems (append-only, pas de virtualisation).
+function _goAppendResultBatch() {
+  var st = _goRenderState;
+  if (!st) return;
+  var itemsEl = document.getElementById('goResultsItems');
+  if (!itemsEl) return;
+  var end = Math.min(st.rendered + st.batch, st.results.length);
+  var frag = '';
+  for (var i = st.rendered; i < end; i++) frag += _goBuildResultItemHtml(st.results[i], st.allE1RMs);
+  if (frag) itemsEl.insertAdjacentHTML('beforeend', frag);
+  st.rendered = end;
+  if (st.rendered >= st.results.length && _goResultsObserver) {
+    _goResultsObserver.disconnect();
+    _goResultsObserver = null;
+  }
+}
+
+// (Ré)installe l'observateur de scroll sur la sentinelle de bas de liste.
+function _goSetupResultsObserver(container) {
+  if (_goResultsObserver) { _goResultsObserver.disconnect(); _goResultsObserver = null; }
+  var sentinel = document.getElementById('goResultsSentinel');
+  if (!sentinel) return;
+  if (!_goRenderState || _goRenderState.rendered >= _goRenderState.results.length) return; // tout déjà rendu
+  if (typeof IntersectionObserver === 'undefined') {
+    // Fallback : listener scroll near-bottom
+    container.addEventListener('scroll', function _onScroll() {
+      if (!_goRenderState || _goRenderState.rendered >= _goRenderState.results.length) { container.removeEventListener('scroll', _onScroll); return; }
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 400) _goAppendResultBatch();
+    });
+    return;
+  }
+  _goResultsObserver = new IntersectionObserver(function(entries) {
+    if (entries.some(function(en) { return en.isIntersecting; })) _goAppendResultBatch();
+  }, { root: container, rootMargin: '400px' });
+  _goResultsObserver.observe(sentinel);
 }
 
 function _goGetRecentExercises(limit) {

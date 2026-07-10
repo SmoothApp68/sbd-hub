@@ -1,8 +1,12 @@
-# TrainHub — TODO (état en temps réel)
+# TrainHub — TODO (⚠️ ARCHIVE — figé mai 2026, SW v138)
 
-## État général
+> ⚠️ **Ce fichier n'est PAS à jour** (figé à SW v138 / mai 2026 ; réel : v321 / juillet 2026).
+> **Source de vérité de l'état projet = `ROADMAP.md`** (section « À FAIRE ») + table des versions
+> `CLAUDE.md` §11. Conservé pour son historique (migrations Supabase, sprints).
+
+## État général (mai 2026 — historique)
 - Score Gemini : **9.6/10** (↑ post-beta-test)
-- SW version : **v138**
+- SW version : **v138** *(obsolète — voir CLAUDE.md §11)*
 - Objectif : lancement multi-users juillet 2026
 - Dernier audit : `audit/12-beta-tester-simulation.md` (2 mai 2026)
 

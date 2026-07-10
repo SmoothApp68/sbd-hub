@@ -1,4 +1,6 @@
 # Social Audit — SBD Hub
+
+> 🗄️ **HISTORIQUE — avril 2026.** Photo à un instant T, ne reflète pas l'état actuel (v321).
 *Date : 2026-04-26 | Branche : main*
 
 ---

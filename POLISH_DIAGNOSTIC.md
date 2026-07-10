@@ -1,5 +1,7 @@
 # Diagnostic COSMÉTIQUE / POLISH — TrainHub
 
+> ✅ **Chantier A RÉALISÉ (v312-319).** Restent les chantiers B / E / C / D (voir §5 et ROADMAP).
+
 > **Read-only.** Cartographie de l'état visuel (modales, transitions, cohérence stylistique, fluidité)
 > pour préparer le chantier de polish avant lancement. Cible : Android Chrome (PWA), vanilla JS.
 > Aucun code applicatif modifié, aucun changement visuel. Ce fichier = livrable de diagnostic uniquement.

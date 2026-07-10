@@ -1,5 +1,7 @@
 # Chantier A — Unifier les modales · PHASE 1 (diagnostic + design)
 
+> ✅ **Plan EXÉCUTÉ (v313-319).** Les 5 vagues sont livrées ; chantier A complet.
+
 > **Read-only.** Suite de `POLISH_DIAGNOSTIC.md` + Tier 0 (v312 : `.modal-overlay` animée entrée+sortie,
 > helper `closeModalEl()`). Ce document = inventaire des call-sites classés, API cible, CSS/z-index cible,
 > plan de migration en vagues. **Aucune migration effectuée. Attente du GO d'Aurélien.**

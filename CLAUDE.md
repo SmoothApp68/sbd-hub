@@ -27,18 +27,20 @@ Service Worker (offline complet, Chart.js bundlé localement)
 localStorage clé : SBD_HUB_V29
 ```
 
-### Fichiers JS (ordre de chargement dans index.html)
+### Fichiers JS (ordre RÉEL de chargement — index.html:3414-3421)
 ```
-js/engine.js      — Calculs purs : APRE, e1RM, TRIMP, ACWR, SRS, DUP zones
-js/exercises.js   — Base 800+ exercices
-js/supabase.js    — Auth, sync cloud, leaderboard, challenges
-js/import.js      — Import CSV Hevy
-js/stats.js       — Statistiques et graphiques
-js/coach.js       — Textes coach, recommandations
-js/social.js      — Feed social, amis
+js/sentry.min.js  — Sentry SDK (bundlé) + js/sentry-init.js (init, defer, en tête)
+js/engine.js      — Calculs purs : APRE, e1RM, TRIMP, ACWR, SRS, DUP zones, cycle, weight cut
+js/exercises.js   — Base 800+ exercices (name précis + nameAlt)
+js/supabase.js    — Auth, sync cloud, leaderboard, challenges, télémétrie error_logs
+js/import.js      — Import CSV/texte Hevy + Garmin
 js/program.js     — Génération programme (wpGeneratePowerbuildingDay)
-js/app.js         — TOUJOURS EN DERNIER (~22 500 lignes)
+js/joints.js      — Données articulations / contraintes
+js/coach.js       — Textes coach, recommandations
+js/app.js         — TOUJOURS EN DERNIER (~31 500 lignes)
 ```
+> ⚠️ `js/stats.js` et `js/social.js` N'EXISTENT PAS (stats + social vivent dans app.js). Le système
+> de modales/toasts unifié vit aussi dans app.js (pas de `js/ui.js`).
 
 **Règle absolue : app.js toujours chargé en dernier.**
 
@@ -54,13 +56,23 @@ js/app.js         — TOUJOURS EN DERNIER (~22 500 lignes)
 - Hardcoder des données utilisateur (tout doit fonctionner pour n'importe quel profil)
 - Double-compter le tonnage (MUSCLE_PARENT_MAP gère l'accumulation correctement)
 - Appeler des APIs AI dans la logique de coaching (100% algorithmique)
+- **`confirm()`/`alert()` natifs ou overlays artisanaux** → voir §UI overlays
 
 ### Toujours faire
-- `node -c js/app.js` après chaque modification
+- `node -c js/app.js` après chaque modification **ET `npm test` vert** (règle PROMPT_RULES #1)
+- **Lire `PROMPT_RULES.md`** en début de chantier (règles de commit/tests/SW souvent ratées)
 - Un commit par fichier, push après chaque commit
 - Lire la zone de code AVANT de modifier
 - Signaler les problèmes hors-scope sans les corriger
-- Bumper le SW après chaque feature
+- Bumper `CACHE_NAME` (service-worker.js) après chaque feature précachée (PROMPT_RULES #4 ;
+  plus de `SW_VERSION` littéral depuis v321 — version dérivée du SW via `getSWVersion`)
+
+### UI overlays (système unifié — v313-320, ne pas régresser)
+- Toute modale / feuille / confirmation / toast passe par les primitives :
+  `showModal` · `showInfoModal` · `showConfirm({...danger, onConfirm})` · `showSheet({...})` · `showToast`.
+- **Jamais** de `confirm()`/`alert()` natif, **jamais** d'overlay `createElement` artisanal.
+- Ouverture/fermeture via le cœur `_uiOpen`/`_uiClose`/`closeAllOverlays` (pile LIFO, scroll-lock, Échap).
+- Fond des box : `var(--surface-solid)` (opaque). Z-index : vars `--z-nav/-banner/-overlay/-critical/-toast`.
 
 ### Pattern migrations DB
 ```js
@@ -114,14 +126,13 @@ ACTIVITY_SPEC_COEFFICIENTS = {
 }
 ```
 
-### calcE1RM — DEUX versions intentionnellement différentes
+### calcE1RM — formules distinctes selon l'usage (ne pas fusionner)
 ```js
-// app.js:1092 — Brzycki simple (utilisée partout dans app.js)
-function calcE1RM(w, r) { return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
+// app.js:1720 — Brzycki simple (cap 20 reps), utilisée partout dans app.js
+function calcE1RM(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
 
-// program.js — Moyenne pondérée Epley + Brzycki avec cap 12 reps
-function _calcE1RMPrecise(weight, reps) { ... }
-// NE PAS fusionner — formules différentes pour usages différents
+// program.js:61-66 — Epley ET Brzycki séparées (epleyE1RM / brzyckiE1RM),
+// combinées pour la génération de programme. (L'ancien `_calcE1RMPrecise` n'existe plus.)
 ```
 
 ### LP → APRE (3 Strikes)
@@ -319,6 +330,9 @@ S/B ratio          : 1.057 (bench fort par rapport au squat)
 | v148 | renderGamificationTab 638L→20L, Leaderboard, Friend Challenges, 6 badges status |
 | v149 | getAllBadges 343L→18L, calcE1RM clarifiée, EventListeners guards, offline messages |
 | v150 | Télémétrie silencieuse (error_logs) |
+| v151-v279 | (nombreux jalons non détaillés : périodisation blocs, DUP macro/micro, deload auto, profils universels, calisthenics, SRS/PR légal, gamification social, calibration débutant, weight cut, cycle menstruel, Bluetooth FC, churn, notifs J1-J30…) |
+| v280-v299 | Sentry, cardio stats (fusion logs+activityLogs), sparklines e1RM, sync cross-device (fusion non-destructive + dual-write t0), retrait Défis de l'onglet Jeux, nettoyages code mort |
+| v300-v311 | Nomenclature exercices : Lot A (EXO_DATABASE splits/fusions/family), Lot B (templates générateur → noms précis, maps de lookup), Lot B-2 (littéraux inline + substitutions déterministes) |
 | v312 | Polish Tier 0 : modales animées 240ms (entrée+sortie), keyframes slideUp/shimmer dédupliqués, :active rangées, blur barres 20→8px |
 | v313 | Chantier A v1 : cœur `_uiOpen/_uiClose/closeAllOverlays` (pile LIFO, scroll-lock, Échap, tap-dehors), échelle z (5 vars `--z-*`), toasts unifiés (PR = variante top) |
 | v314 | Chantier A v2 : `showSheet()` unifiée, `_showChallengeSheet` réparée, `.swap-modal` fusionnée, débrief en vraie sheet |
@@ -327,6 +341,8 @@ S/B ratio          : 1.057 (bench fort par rapport au squat)
 | v317 | Fix device : transparence exhaustive (récap import + 6 panneaux), scroll-lock réel (body position:fixed + top:-scrollY, overlays orphelins enregistrés) |
 | v318 | Chantier A v4 : `showConfirm()` (non-dismissible, danger), 11 confirm() natifs migrés sync→async |
 | v319 | Chantier A v5 : CSS mort supprimé (slideDownFade, .swap-modal conteneur, .pr-celebration-*) — chantier A complet |
+| v320 | Fix : flux « Recherche manuelle » (remplacement d'exercice) ne tombe plus en mode ajout |
+| v321 | Garde-fou version SW : `SW_VERSION` littéral supprimé → `getSWVersion` (source unique = CACHE_NAME live) ; fix test c2-harness ; audit docs |
 
 ---
 
@@ -359,11 +375,13 @@ Influenceurs       : Coachs Evidence-Based 10k-50k abonnés
 
 ## 14. CE QUI RESTE À FAIRE (priorité bêta)
 
-- [ ] Télémétrie error_logs branchée dans app.js (prompt prêt)
-- [ ] calcE1RM dedup final (renommage program.js déjà fait)
+> État priorisé complet : voir `ROADMAP.md` (section « À FAIRE »).
+- [x] Télémétrie error_logs branchée (supabase.js:189) + Sentry livré (`js/sentry-init.js`)
+- [x] calcE1RM : program.js utilise `epleyE1RM`/`brzyckiE1RM` (dedup soldé)
 - [ ] Discord ouvert pour la bêta
 - [ ] Typeform de sélection bêta (à faire sur typeform.com)
 - [ ] Message d'annonce waitlist (fichier prêt : message-annonce-waitlist.md)
+- [ ] Freemium (priorité #1) · polish B/E/C/D · décision dette `family` (voir ROADMAP)
 
 ## POST-BÊTA (ne pas faire avant)
 - Découper renderCoachTodayHTML (438L) — trop risqué avant bêta

@@ -32,159 +32,50 @@ grep -r "Aurélien\|Jordan\|Léa\|smoothapp68" js/ --include="*.js"
 
 ---
 
-## TÂCHES — Dans l'ordre strict
+## ÉTAT DU PROJET — au 9 juillet 2026 (SW v321)
 
-### ✅ PHASE 1 — Stabilisation (COMPLÈTE)
-- [x] TÂCHE 1 : Supprimer constants.js + utils.js orphelins
-- [x] TÂCHE 2 : Icônes PWA qualité + séparation any/maskable + icône notifications
-- [x] TÂCHE 3 : Exercices manquants Custom Builder (déjà présents)
-- [x] TÂCHE 4 : Backup programme v2 (déjà implémenté)
+> Réécrit après l'audit `DOC_AUDIT.md` : 9 tâches « à faire » de l'ancienne roadmap étaient en
+> réalité LIVRÉES (re-vérifiées dans le code, fichier:ligne ci-dessous). Tout le travail v151→v321
+> (nomenclature, observabilité, polish) n'y figurait pas. Voir aussi `POLISH_DIAGNOSTIC.md`.
 
-### ✅ PHASE 2 — Qualité coaching (COMPLÈTE)
-- [x] TÂCHE 5 : Transfer Matrix auto-apprenante
-- [x] TÂCHE 6 : Offline first (GO sans réseau)
+### ✅ FAIT
 
-### 🔄 PHASE 3 — Différenciation (EN COURS)
-- [ ] TÂCHE 7 : Module cycle menstruel (prompt prêt)
-- [x] TÂCHE 8 : Nettoyage 29 fonctions mortes app.js (complété — 595 lignes)
-- [ ] TÂCHE 9 : Health Connect / Garmin (attendre validation Claude.ai)
+**Fondations (Phases 1-3 historiques)**
+- [x] TÂCHE 1-4 : stabilisation (orphelins, icônes PWA, custom builder, backup v2)
+- [x] TÂCHE 5-6 : Transfer Matrix auto-apprenante, Offline first (GO sans réseau)
+- [x] TÂCHE 8 : nettoyage fonctions mortes (récurrent — encore v300)
 
-### 🆕 PHASE 4 — Lancement (NOUVEAU — validé Gemini)
+**Physiologie & personnalisation (ex-« à faire », confirmé dans le code)**
+- [x] TÂCHE 7 : module cycle menstruel — `MENSTRUAL_PHASES`/`getCycleCoeff` engine.js:3259-3335, C_cycle app.js:21829
+- [x] TÂCHE 10 : onboarding 3 questions + flags profil — `ONBOARDING_PROFILES` app.js:1735
+- [x] TÂCHE 11 : vocabulaire adaptatif — `getVocab`/`VOCAB` engine.js:33
+- [x] TÂCHE 12 : 5-Rep Test calibration — `calcE1RMFrom5RepTest` engine.js:4081
+- [x] TÂCHE 13 : streak intelligent (jours de repos ne cassent pas) — `smartStreak`/`calcStreak` app.js:4299
+- [x] TÂCHE 14 : badges de compétence — precision_rpe/tempo_master/consistency_king/pr_hunter/volume_beast app.js:3972
+- [x] TÂCHE 16 : churn detection + réactivation — `detectChurn` app.js:26702
+- [x] TÂCHE 18 : Bluetooth FC live GO — `toggleBluetoothHR` (Web Bluetooth GATT) app.js:26771
+- [x] TÂCHE 19 : Weight Cut module — `WEIGHT_CUT_COEFFICIENTS`/`calcWeightCutPenalty` engine.js:4101-4214
 
-#### TÂCHE 10 — Onboarding 3 questions + système de flags profil
-**Priorité : HAUTE — impact direct sur taux de complétion (60% → 92%)**
-**Fichiers :** js/app.js, index.html
-**Action :**
+**Travail v151→v321 (absent de l'ancienne roadmap)**
+- [x] Nomenclature exercices (Lots 1/2/A/B/B-2) — `EXO_SYNONYMS`/`WP_SYNONYMS`/`matchExoName`, `nameAlt`, `mergeExerciseData` ; réf `audit/64-70`
+- [x] Observabilité : Sentry (`js/sentry-init.js`) + télémétrie silencieuse `error_logs` (supabase.js:189)
+- [x] Cardio stats (fusion logs + activityLogs) — `computeCardioStatsData` app.js:15419
+- [x] Sparklines e1RM (GO + cartes exercice) — `_renderGoSparklines` app.js:27391
+- [x] Fusion sync cross-device non-destructive — supabase.js:611
+- [x] Freemium : gate coaching IA — engine.js:5719 (Edge Function `coach-ai`)
+- [x] Polish Chantier A (v312-319) : modales unifiées, scroll-lock, fonds opaques, confirmations, CSS nettoyé
+- [x] Garde-fou version SW source-unique (v321) — `getSWVersion`, plus de littéral figé
 
-Remplacer l'onboarding 7 étapes par 3 questions + micro-onboarding progressif.
+### 🔄 EN COURS / PARTIEL
+- [~] TÂCHE 9/17 Garmin/Health Connect : import CSV + RHR/TRIMP FAITS (`parseGarminCSV` app.js:17505) ; API live / Edge Function RESTANTE (`connectHealthConnect` = placeholder app.js:17456)
+- [~] TÂCHE 15 notifications J1→J30 : programmation CLIENT faite (app.js:14892) ; push SERVEUR (table `notification_schedule` + Edge Function) restant
+- [~] TÂCHE 20 paywall Premium : gate coaching IA fait ; **SRS/APRE/Garmin NON gatés**, pas de Stripe/billing
 
-```js
-// Système de flags profil
-var ONBOARDING_PROFILES = {
-  debutant:      { skipPRs: true,  skipRPE: true,  coldStartRPE: 6, rpeMax: 7,
-                   vocab: 1, message: "On s'occupe de tout. Apprends le mouvement, on gère les poids." },
-  intermediaire: { skipPRs: false, skipRPE: false, coldStartRPE: 7, rpeMax: 9,
-                   vocab: 2, message: "Optimise tes séances. Ne stagne plus jamais." },
-  powerlifter:   { skipPRs: false, skipRPE: false, coldStartRPE: 8, rpeMax: 10,
-                   vocab: 3, message: "Précision millimétrée. Domine ton prochain plateau." },
-  yoga:          { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 7,
-                   vocab: 1, message: "Force & Souplesse. Des muscles fonctionnels, sans le volume." },
-  senior:        { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 6,
-                   vocab: 1, message: "Santé & Vitalité. Protège ton corps et reste fort longtemps." },
-  reeducation:   { skipPRs: true,  skipRPE: true,  coldStartRPE: 4, rpeMax: 6,
-                   vocab: 1, message: "Reprends le contrôle. Ta guérison est notre priorité." }
-};
-```
-
-3 questions onboarding :
-1. Niveau d'expérience → détermine le profil + vocab
-2. Objectif principal → détermine le mode (force/recompo/santé/mobilité)
-3. Matériel disponible → détermine les exercices proposés
-
-Collecter PRs, fréquence, blessures, activités secondaires → via micro-questions
-au fil des premières séances (GO tab).
-
-**Test :** Créer un compte test débutant et vérifier que l'onboarding ne pose pas
-de questions techniques
-**Commit :** `feat(onboarding): 3-question flow + profile flags system`
-
----
-
-#### TÂCHE 11 — Vocabulaire adaptatif selon niveau
-**Fichiers :** js/engine.js, js/app.js
-**Action :**
-
-```js
-var VOCAB = {
-  e1rm:  { 1: 'Force estimée',   2: 'Max théorique',   3: 'e1RM (Brzycki)' },
-  rpe:   { 1: 'Difficulté',      2: 'Effort perçu',    3: 'RPE / RIR' },
-  peak:  { 1: 'Intensité max',   2: 'Phase de force',  3: 'Peaking / Tapering' },
-  apre:  { 1: 'Poids adaptatif', 2: 'Ajustement auto', 3: 'APRE Protocol' },
-  srs:   { 1: 'Forme du jour',   2: 'Score de forme',  3: 'SRS / ACWR' },
-  deload:{ 1: 'Semaine légère',  2: 'Semaine de récup', 3: 'Deload / Washout' }
-};
-
-function getVocab(key) {
-  var level = (db.user && db.user.vocabLevel) || 2;
-  return (VOCAB[key] && VOCAB[key][level]) || key;
-}
-```
-
-Remplacer les termes techniques dans le Coach et GO par `getVocab('terme')`.
-**Commit :** `feat(ux): adaptive vocabulary by user level`
-
----
-
-#### TÂCHE 12 — 5-Rep Test calibration débutants
-**Fichiers :** js/app.js, js/engine.js
-**Action :**
-
-Pour les profils sans PRs (debutant, yoga, senior, reeducation),
-proposer un test de calibration simple à la première séance :
-
-```js
-function calcE1RMFrom5RepTest(weight, reps) {
-  // Brzycki
-  var e1rm = weight / (1.0278 - (0.0278 * reps));
-  // Coefficient sécurité S1
-  return Math.round(e1rm * 0.85 / 2.5) * 2.5;
-}
-```
-
-UI dans GO : avant le premier exercice si cold start + profil débutant →
-"Fais le max de reps avec une bonne forme, arrête quand c'est difficile"
-→ Saisie poids + reps → calcul e1RM → stocké dans db.exercises
-**Commit :** `feat(cold-start): 5-rep test calibration for beginners`
-
----
-
-#### TÂCHE 13 — Streak intelligent
-**Fichiers :** js/app.js
-**Action :**
-
-Le streak ne doit PAS se casser les jours de repos prévus dans le programme.
-Il se casse uniquement si l'user rate une séance PRÉVUE.
-
-**Commit :** `fix(gamification): smart streak — rest days don't break streak`
-
----
-
-#### TÂCHE 14 — Badges de compétence
-**Fichiers :** js/app.js (section gamification)
-**Action :**
-
-Remplacer/compléter les badges de présence par des badges de compétence :
-precision_rpe, tempo_master, consistency_king, pr_hunter, volume_beast.
-**Commit :** `feat(gamification): competence badges replacing presence badges`
-
----
-
-#### TÂCHE 15 — Calendrier notifications J1→J30
-**Fichiers :** js/supabase.js, service-worker.js
-**Action :**
-
-Implémenter un système de notifications programmées basé sur la date
-d'inscription de l'user. 1 notification max par jour. Opt-out facile.
-**Note :** Nécessite migration Supabase — noter dans TODO.md, ne pas exécuter
-**Commit :** `feat(notifications): J1-J30 onboarding notification schedule`
-
----
-
-#### TÂCHE 16 — Churn detection + réactivation
-**Fichiers :** js/app.js, js/supabase.js
-**Action :**
-
-Détecter quand l'user est absent 2× son intervalle habituel.
-Message de réactivation empathique selon le contexte (PR raté, etc).
-**Commit :** `feat(retention): churn detection + empathetic reactivation messages`
-
----
-
-### PHASE 5 — Post-lancement
-- [ ] TÂCHE 17 : Health Connect / Garmin (Supabase Edge Functions)
-- [ ] TÂCHE 18 : Bluetooth FC live GO
-- [ ] TÂCHE 19 : Weight Cut module
-- [ ] TÂCHE 20 : Paywall features Premium (SRS, APRE, Garmin)
+### 📋 À FAIRE — priorisé
+1. **Freemium (priorité #1)** : décider le périmètre gratuit/payant, gater les features premium, brancher Stripe (`profiles.tier` / `stripe_customer_id` déjà en place)
+2. **Polish restant** (`POLISH_DIAGNOSTIC.md`) : chantier B (mouvement/sous-onglets), E (fluidité : virtualisation picker 881 items + fix 429), C (tokens couleur), D (boutons/états)
+3. **Dette `family`** : le champ `family` sur EXO_DATABASE (18 valeurs/139 entrées) n'est PAS consommé et n'est PAS aligné avec le vocabulaire porteur de `EXERCISE_TRANSFER_MATRIX` (engine.js:2391) — trancher : aligner (spec `audit/67`) ou retirer la métadonnée dormante
+4. **Push serveur notifications** (TÂCHE 15 côté serveur) + **Garmin API live** (TÂCHE 9/17)
 
 ---
 

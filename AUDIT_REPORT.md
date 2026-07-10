@@ -1,4 +1,6 @@
 # TrainHub — Rapport d'audit complet
+
+> 🗄️ **HISTORIQUE — avril 2026 (SW v105).** Photo à un instant T, ne reflète pas l'état actuel (v321).
 Date : 2026-04-27  
 Version : SW v105 (post-corrections)  
 Auditeur : Claude Opus 4.7 via Claude Code

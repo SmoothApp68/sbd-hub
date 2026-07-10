@@ -175,7 +175,12 @@ async function submitNewPassword() {
 // Télémétrie silencieuse — envoyer les erreurs critiques à Supabase sans jamais bloquer l'utilisateur
 async function logErrorToSupabase(errorType, errorMessage, functionName, appState) {
   try {
-    var swVersion = typeof SW_VERSION !== 'undefined' ? SW_VERSION : 'unknown';
+    // Source unique = version live du SW (getSWVersion, app.js). Fini le littéral
+    // SW_VERSION figé qui étiquetait toute erreur avec une version périmée.
+    var swVersion = 'unknown';
+    try {
+      if (typeof getSWVersion === 'function') { var _v = await getSWVersion(); if (_v) swVersion = _v; }
+    } catch (e) {}
     var userId = null;
     try {
       var _u = await supaClient.auth.getUser();

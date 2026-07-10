@@ -263,8 +263,12 @@ let db = (() => {
   } catch { return defaultDB(); }
 })();
 
-// Version synchronisée avec service-worker.js — lue par logErrorToSupabase()
-var SW_VERSION = 'trainhub-v298'; // version du CODE chargé (fallback) — la vérité = SW actif (renderAppVersionLine)
+// Version live du Service Worker (= CACHE_NAME), SOURCE DE VÉRITÉ UNIQUE. Peuplée
+// depuis le SW actif via getSWVersion() (MessageChannel) — plus AUCUN littéral de
+// version figé à bumper côté app.js (garde-fou : l'ancien SW_VERSION en dur a été
+// oublié ×22 depuis v299 → telemetry mal étiquetée). Consommée par
+// logErrorToSupabase() (champ sw_version) et renderAppVersionLine() (affichage).
+var _swLiveVersion = null;
 
 let selectedDay = 'Lundi', chartSBD = null, chartSBDs = [], chartVolume = null, newPRs = { bench: false, squat: false, deadlift: false };
 var sbdChartMode = 'bars';
@@ -3367,8 +3371,8 @@ if (typeof window !== 'undefined') window.showJeuxSub = showJeuxSub;
 
 // ── VERSION DE L'APP (servie par le SW actif) ────────────────────────────────
 // Source de vérité = service worker ACTIF (CACHE_NAME), pas la constante JS
-// SW_VERSION : pendant une transition de cache, le code chargé et le SW servi
-// peuvent différer. Helpers purs (testés) + requête au SW via MessageChannel.
+// Version du SW : la vérité vient du SW ACTIF (CACHE_NAME live), interrogé via
+// MessageChannel. Helpers purs (testés) + accesseur mémoïsé getSWVersion().
 
 // 'trainhub-v291' → 'v291'. Pur.
 function _appVersionLabel(cacheName) {
@@ -3402,6 +3406,14 @@ function _querySWVersion(timeoutMs) {
   });
 }
 
+// Accès mémoïsé à la version live du SW (CACHE_NAME) — source unique de version
+// côté app. Résout au littéral 'trainhub-vNNN' du SW actif, ou null (dev/privé/
+// pas de contrôleur). Met en cache _swLiveVersion pour les appels suivants.
+function getSWVersion() {
+  if (_swLiveVersion) return Promise.resolve(_swLiveVersion);
+  return _querySWVersion(1500).then(function(v) { if (v) _swLiveVersion = v; return v || null; });
+}
+
 // Active le SW en attente sur tap → controllerchange (listener index.html) → reload.
 function _swApplyUpdate() {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) { location.reload(); return; }
@@ -3414,12 +3426,14 @@ function _swApplyUpdate() {
 function renderAppVersionLine() {
   var el = document.getElementById('appVersionLine');
   if (!el) return;
-  var localLabel = _appVersionLabel(typeof SW_VERSION !== 'undefined' ? SW_VERSION : '');
 
-  function paint(servedLabel, reg) {
+  // Plus de littéral figé : quand aucune version servie n'est disponible, on
+  // affiche un état honnête ('en cours de détection' / 'non disponible') plutôt
+  // qu'un numéro périmé. La seule source de version = le SW actif (CACHE_NAME live).
+  function paint(servedLabel, reg, swSupported) {
     var html = 'SBD Hub';
     if (servedLabel) {
-      html += ' · ' + servedLabel;
+      html += ' · ' + _appVersionLabel(servedLabel);
       if (_swUpdateState(reg).available) {
         html += ' · <span style="color:var(--orange);font-weight:700;">nouvelle version prête</span>'
           + ' <button onclick="_swApplyUpdate()" style="margin-left:6px;background:var(--accent);'
@@ -3427,10 +3441,8 @@ function renderAppVersionLine() {
       } else {
         html += ' · à jour';
       }
-    } else if (localLabel) {
-      // Pas de SW contrôleur : on n'affiche QUE la version du code chargé, étiquetée
-      // comme telle — jamais en la faisant passer pour la version servie.
-      html += ' · ' + localLabel + ' · version du code (SW non actif)';
+    } else if (swSupported) {
+      html += ' · version en cours de détection…';
     } else {
       html += ' · version non disponible';
     }
@@ -3439,11 +3451,11 @@ function renderAppVersionLine() {
 
   var hasSW = (typeof navigator !== 'undefined') && ('serviceWorker' in navigator)
     && !!navigator.serviceWorker.getRegistration;
-  if (!hasSW) { paint(null, null); return; }
+  if (!hasSW) { paint(null, null, false); return; }
   navigator.serviceWorker.getRegistration().then(function(reg) {
-    _querySWVersion(1500).then(function(v) { paint(v, reg || null); });
+    _querySWVersion(1500).then(function(v) { if (v) _swLiveVersion = v; paint(v, reg || null, true); });
   }).catch(function() {
-    _querySWVersion(1500).then(function(v) { paint(v, null); });
+    _querySWVersion(1500).then(function(v) { if (v) _swLiveVersion = v; paint(v, null, true); });
   });
 }
 

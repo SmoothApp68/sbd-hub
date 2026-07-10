@@ -26502,7 +26502,7 @@ function buildGoIdleHtml() {
           + 'border-radius:20px;color:var(--sub);font-size:12px;cursor:pointer;">'
           + '⚡ Passer outre les recommandations</button></div>'
         : '') +
-      '<button class="go-launch" onclick="openReadinessQuiz(\'today\')">Lancer la séance du jour 💪</button>'+
+      '<button class="go-launch" onclick="goStartWorkout(true)">Lancer la séance du jour 💪</button>'+
     '</div>';
   } else {
     heroHtml = '<div class="go-hero" style="text-align:center;">'+

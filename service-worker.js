@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainhub-v322';
+const CACHE_NAME = 'trainhub-v323';
 const IMAGE_CACHE_NAME = 'trainhub-images-v1';
 const ASSETS_TO_CACHE = [
   '/sbd-hub/',
@@ -55,6 +55,34 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ── Negative-cache des images ratées (TTL) ───────────────────────────────────
+const NEG_TTL_404 = 7 * 24 * 3600 * 1000; // 404 : 7 jours (n'existera pas de sitôt)
+const NEG_TTL_429 = 6 * 3600 * 1000;       // 429 / réseau : 6 h (temporaire)
+// Sentinelle stockée en cache à la place d'une image en échec (marquée par en-têtes).
+function negCacheSentinel(status) {
+  return new Response('', { status: 504, headers: {
+    'X-Neg-Cache': '1', 'X-Neg-Status': String(status), 'X-Neg-Time': String(Date.now())
+  } });
+}
+// La sentinelle est-elle encore dans son TTL ? (sinon on refetch)
+function negCacheFresh(resp) {
+  const status = parseInt(resp.headers.get('X-Neg-Status') || '0', 10);
+  const t = parseInt(resp.headers.get('X-Neg-Time') || '0', 10);
+  const ttl = status === 429 ? NEG_TTL_429 : NEG_TTL_404;
+  return (Date.now() - t) < ttl;
+}
+// Fetch une image : cache la 200, ou negative-cache l'échec (404/429/réseau) + rend un 404 à l'app.
+function fetchAndCacheImage(cache, req) {
+  return fetch(req).then((response) => {
+    if (response.ok) { cache.put(req, response.clone()); return response; }
+    cache.put(req, negCacheSentinel(response.status)); // échec HTTP → negative-cache
+    return new Response('', { status: 404 });
+  }).catch(() => {
+    cache.put(req, negCacheSentinel(429)); // erreur réseau → TTL court
+    return new Response('', { status: 404 });
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
@@ -70,16 +98,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Images d'exercices → cache séparé, cache-first
+  // Images d'exercices → cache séparé, cache-first pour les 200. Negative-cache
+  // (avec TTL) pour les échecs : sans ça, chaque 404/429 re-tapait le host à CHAQUE
+  // ouverture du picker → 429 récurrents. 404 = TTL long (l'image n'existe pas),
+  // 429/erreur réseau = TTL court (rate-limit temporaire → on réessaie après).
   if (url.href.includes('raw.githubusercontent.com') && url.href.includes('/exercises/')) {
     event.respondWith(
       caches.open(IMAGE_CACHE_NAME).then((cache) =>
         cache.match(req).then((cached) => {
-          if (cached) return cached;
-          return fetch(req).then((response) => {
-            if (response.ok) cache.put(req, response.clone());
-            return response;
-          }).catch(() => new Response('', { status: 404 }));
+          if (cached) {
+            if (cached.headers.get('X-Neg-Cache') === '1') {
+              if (negCacheFresh(cached)) return new Response('', { status: 404 }); // encore en échec → onerror app
+              return cache.delete(req).then(() => fetchAndCacheImage(cache, req)); // TTL expiré → réessai
+            }
+            return cached; // vraie image 200 en cache
+          }
+          return fetchAndCacheImage(cache, req);
         })
       )
     );

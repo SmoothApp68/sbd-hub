@@ -1713,44 +1713,6 @@
     .go-debrief-val { font-size:18px;font-weight:800; }
     .go-debrief-lbl { font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-top:2px; }
 
-    /* Readiness quiz */
-    .quiz-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
-      z-index:var(--z-overlay);align-items:flex-end;justify-content:center; }
-    .quiz-overlay.open { display:flex;animation:fadeIn .2s ease; }
-    .quiz-box { background:#13132a;border:1px solid rgba(255,255,255,.1);
-      border-radius:24px 24px 0 0;padding:22px 18px calc(38px + env(safe-area-inset-bottom, 0px));width:100%;max-width:430px;
-      animation:sheetSlideUp .25s ease;position:relative;max-height:85vh;overflow-y:auto; }
-    .quiz-skip { position:absolute;top:14px;right:16px;background:none;border:none;
-      color:var(--sub);font-size:13px;cursor:pointer;padding:2px 6px;line-height:1; }
-    /* Renommé (ex-doublon de slideUp ligne ~103 qui écrasait le fade des .card) */
-    @keyframes sheetSlideUp { from{transform:translateY(60px)}to{transform:translateY(0)} }
-    .quiz-progress { display:flex;gap:5px;justify-content:center;margin-bottom:16px; }
-    .quiz-dot { width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15); }
-    .quiz-dot.active { background:var(--accent); }
-    .quiz-step { display:none; }
-    .quiz-step.active { display:block; }
-    .quiz-title { font-size:16px;font-weight:800;margin-bottom:2px;text-align:center; }
-    .quiz-sub { font-size:11px;color:var(--sub);text-align:center;margin-bottom:10px;line-height:1.5; }
-    .quiz-opts { display:flex;justify-content:space-between;gap:6px;margin-bottom:8px; }
-    .quiz-opt { flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
-      background:var(--card);border:1.5px solid var(--border);border-radius:12px;
-      padding:11px 4px;cursor:pointer;transition:all .15s;font-size:10px;font-weight:600;color:var(--sub); }
-    .quiz-opt-ico { font-size:20px; }
-    .quiz-opt.selected { border-color:var(--accent);background:rgba(10,132,255,.12);color:var(--text); }
-    .quiz-next { display:block;width:100%;padding:13px;background:var(--accent);border:none;
-      border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;
-      margin-top:14px;opacity:.35;transition:opacity .2s; }
-    .quiz-next.ready { opacity:1; }
-    .quiz-result { text-align:center; }
-    .quiz-step.quiz-result { max-height:calc(85vh - 80px);overflow-y:auto; }
-    .quiz-score-ring { position:relative;width:64px;height:64px;margin:0 auto 8px; }
-    .quiz-score-ring svg { transform:rotate(-90deg); }
-    .quiz-score-num { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      font-size:18px;font-weight:900; }
-    .quiz-go-btn { display:block;width:100%;padding:12px;
-      background:linear-gradient(135deg,var(--accent),#6366f1);
-      border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:10px; }
-
     /* Curseur accent PB */
     .pb-slider-track { height:8px;background:rgba(255,255,255,.08);border-radius:4px;
       position:relative;cursor:pointer;margin:6px 0 10px; }
@@ -4048,65 +4010,6 @@ setTimeout(fetchAndStoreTier, 2000);
 </script>
 
 <!-- READINESS QUIZ -->
-<div class="quiz-overlay" id="quiz-overlay">
-  <div class="quiz-box">
-    <button class="quiz-skip" onclick="document.getElementById('quiz-overlay').classList.remove('open')" aria-label="Fermer">×</button>
-    <div class="quiz-progress">
-      <div class="quiz-dot active" id="qd1"></div>
-      <div class="quiz-dot" id="qd2"></div>
-      <div class="quiz-dot" id="qd3"></div>
-    </div>
-    <div class="quiz-step active" id="qs1">
-      <div class="quiz-title">Comment tu as dormi ?</div>
-      <div class="quiz-sub">La qualité du sommeil impacte directement ta performance.</div>
-      <div class="quiz-opts">
-        <div class="quiz-opt" onclick="quizSelect(this,'q1',1)"><div class="quiz-opt-ico">😫</div>Très mal</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q1',2)"><div class="quiz-opt-ico">😴</div>Mal</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q1',3)"><div class="quiz-opt-ico">😐</div>Moyen</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q1',4)"><div class="quiz-opt-ico">😊</div>Bien</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q1',5)"><div class="quiz-opt-ico">🤩</div>Super</div>
-      </div>
-      <button class="quiz-next" id="qn1" onclick="quizNext(2)">Continuer →</button>
-    </div>
-    <div class="quiz-step" id="qs2">
-      <div class="quiz-title">Fatigue musculaire ?</div>
-      <div class="quiz-sub">Comment se sentent tes muscles depuis la dernière séance ?</div>
-      <div class="quiz-opts">
-        <div class="quiz-opt" onclick="quizSelect(this,'q2',1)"><div class="quiz-opt-ico">🔥</div>Courbatures</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q2',2)"><div class="quiz-opt-ico">😓</div>Fatigués</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q2',3)"><div class="quiz-opt-ico">😐</div>Neutre</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q2',4)"><div class="quiz-opt-ico">💪</div>Frais</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q2',5)"><div class="quiz-opt-ico">⚡</div>En forme</div>
-      </div>
-      <button class="quiz-next" id="qn2" onclick="quizNext(3)">Continuer →</button>
-    </div>
-    <div class="quiz-step" id="qs3">
-      <div class="quiz-title">Motivation du jour ?</div>
-      <div class="quiz-sub">Sois honnête — ça aide à adapter la séance.</div>
-      <div class="quiz-opts">
-        <div class="quiz-opt" onclick="quizSelect(this,'q3',1)"><div class="quiz-opt-ico">😑</div>Nulle</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q3',2)"><div class="quiz-opt-ico">😕</div>Faible</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q3',3)"><div class="quiz-opt-ico">🙂</div>OK</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q3',4)"><div class="quiz-opt-ico">😤</div>Motivé</div>
-        <div class="quiz-opt" onclick="quizSelect(this,'q3',5)"><div class="quiz-opt-ico">🦁</div>À fond</div>
-      </div>
-      <button class="quiz-next" id="qn3" onclick="quizShowResult()">Voir mon état →</button>
-    </div>
-    <div class="quiz-step quiz-result" id="qs4">
-      <div class="quiz-score-ring">
-        <svg width="80" height="80" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="6"/>
-          <circle id="quiz-ring-fill" cx="40" cy="40" r="32" fill="none" stroke="var(--green)" stroke-width="6" stroke-dasharray="201" stroke-dashoffset="50" stroke-linecap="round"/>
-        </svg>
-        <div class="quiz-score-num" id="quiz-score-num">75</div>
-      </div>
-      <div id="quiz-result-title" style="font-size:18px;font-weight:800;margin-bottom:4px;text-align:center;"></div>
-      <div id="quiz-result-sub" style="font-size:12px;color:var(--sub);margin-bottom:20px;text-align:center;line-height:1.5;"></div>
-      <button class="quiz-go-btn" onclick="quizLaunch()">C'est parti — Lancer la séance</button>
-    </div>
-  </div>
-</div>
-
 <!-- MESSAGE PERSO -->
 <div class="go-msg-overlay" id="go-msg-overlay">
   <div class="go-msg-box">

@@ -1764,6 +1764,56 @@ function recalcBestPR() {
     });
   }
 }
+// Records RÉELS agrégés d'un exercice sur tout l'historique (synonymes via
+// matchExoName) : poids max jamais soulevé + meilleur poids par nombre de reps.
+function getRealRecords(exoName) {
+  var best = { maxWeight: 0, repRecords: {}, occurrences: 0 };
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      var same = (typeof matchExoName === 'function')
+        ? matchExoName(exo.name, exoName) : exo.name === exoName;
+      if (!same) return;
+      best.occurrences++;
+      if (exo.repRecords && Object.keys(exo.repRecords).length) {
+        Object.keys(exo.repRecords).forEach(function(r) {
+          var w = exo.repRecords[r] || 0;
+          if (w <= 0) return;
+          if (!best.repRecords[r] || w > best.repRecords[r]) best.repRecords[r] = w;
+          if (w > best.maxWeight) best.maxWeight = w;
+        });
+      } else {
+        var w2 = _exoMaxRealWeight(exo);
+        if (w2 > best.maxWeight) best.maxWeight = w2;
+      }
+    });
+  });
+  return best;
+}
+// Un set w×r est-il un VRAI dépassement (philosophie B) vs des records réels ?
+// → { kind:'charge'|'reps', prev } ou null. Jamais de PR à la première
+// occurrence d'un exercice (aucun historique = rien à dépasser), jamais sur
+// une simple hausse d'e1RM estimé (95×8 après 100×5 → null).
+function isRealSetPR(w, r, best) {
+  if (!best || best.occurrences === 0 || best.maxWeight <= 0) return null;
+  if (!(w > 0) || !(r > 0)) return null;
+  if (w > best.maxWeight) return { kind: 'charge', prev: best.maxWeight };
+  // Dominé par un record existant (autant ou plus de reps, à poids ≥) → rien.
+  var reps = Object.keys(best.repRecords);
+  var dominated = reps.some(function(r0) {
+    return parseInt(r0, 10) >= r && best.repRecords[r0] >= w;
+  });
+  if (dominated) return null;
+  // Record de reps : domine STRICTEMENT un record existant (plus lourd à autant
+  // de reps, ou au moins aussi lourd à plus de reps).
+  var beat = null;
+  reps.forEach(function(r0) {
+    var ri = parseInt(r0, 10), w0 = best.repRecords[r0];
+    if ((r >= ri && w > w0) || (r > ri && w >= w0)) {
+      if (!beat || w0 > beat.prev) beat = { kind: 'reps', prev: w0, prevReps: ri };
+    }
+  });
+  return beat;
+}
 function setPeriodButtons(id, period) { const c = document.getElementById(id); if (c) c.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period)); }
 function getLogsInRange(days) { const lim = Date.now() - days * 86400000; return db.logs.filter(l => l.timestamp >= lim && l.timestamp <= Date.now()); }
 function daysLeft(expiresAt) { return Math.max(0, Math.ceil((expiresAt - Date.now()) / 86400000)); }
@@ -28035,16 +28085,15 @@ function goToggleSetComplete(exoIdx, setIdx) {
     // Auto-régulation RPE — bannière fixe via showLiveCoachBanner
     var coachResult = goCheckAutoRegulation(exoIdx, setIdx);
     if (coachResult) showLiveCoachBanner(coachResult);
-    // PR Type A — e1RM en cours de saisie
+    // PR Type A — vrai dépassement uniquement (philosophie B) : charge jamais
+    // soulevée, ou plus lourd à ce nombre de reps. Plus jamais sur e1RM estimé.
     try {
       var _w = set.weight || 0, _r = set.reps || 0;
-      if (_w > 0 && _r > 0 && typeof calcE1RM === 'function' && typeof getAllBestE1RMs === 'function') {
-        var _e1rm = calcE1RM(_w, _r);
-        var _best = getAllBestE1RMs();
-        var _prev = (_best[exo.name] && _best[exo.name].e1rm) || 0;
-        if (_e1rm > _prev && _prev > 0) {
+      if (_w > 0 && _r > 0 && set.type !== 'warmup' && typeof isRealSetPR === 'function') {
+        var _realPR = isRealSetPR(_w, _r, getRealRecords(exo.name));
+        if (_realPR) {
           if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
-          if (typeof showPRToast === 'function') showPRToast(exo.name, _e1rm);
+          if (typeof showPRToast === 'function') showPRToast(exo.name, _w, _r, _realPR.kind);
         }
       }
     } catch(e) {}
@@ -31657,8 +31706,11 @@ function goDiscardWorkout() {
 // ============================================================
 // Chantier A vague 1 — rebranché sur le toast unifié. Position haute + style
 // célébration conservés par choix délibéré (variante paramétrée, pas un 2ᵉ système).
-function showPRToast(exoName, e1rm) {
-  showToast('⚡ Nouveau PR — ' + exoName + ' · ' + Math.round(e1rm) + ' kg e1RM',
+function showPRToast(exoName, weight, reps, kind) {
+  var label = kind === 'reps'
+    ? Math.round(weight) + ' kg × ' + reps + ' — record de reps'
+    : Math.round(weight) + ' kg — record de charge';
+  showToast('⚡ Nouveau PR — ' + exoName + ' · ' + label,
     { variant: 'pr', position: 'top', duration: 2600 });
 }
 

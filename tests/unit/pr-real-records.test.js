@@ -26,7 +26,10 @@ function makeCtx(db) {
   const ctx = vm.createContext({ console, db, _cache: { sbdType: new Map() } });
   vm.runInContext("const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];", ctx); // engine.js:17 (littéral vérifié)
   ['_getSBDTypeRaw', 'getSBDType'].forEach(fn => vm.runInContext(extractFn(ENGINE, fn), ctx));
-  ['calcE1RM', '_exoMaxRealWeight', 'recalcBestPR'].forEach(fn => vm.runInContext(extractFn(APP, fn), ctx));
+  // getRealRecords utilise matchExoName si présent, sinon égalité stricte des
+  // noms (chemin réel du code, exercé tel quel ici — pas de réimplémentation).
+  ['calcE1RM', '_exoMaxRealWeight', 'recalcBestPR', 'getRealRecords', 'isRealSetPR']
+    .forEach(fn => vm.runInContext(extractFn(APP, fn), ctx));
   return ctx;
 }
 
@@ -112,5 +115,39 @@ describe('recalcBestPR — vraies barres + plancher onboarding', () => {
     const ctx = makeCtx(db);
     vm.runInContext('recalcBestPR()', ctx);
     expect(db.bestPR).toEqual({ bench: 0, squat: 0, deadlift: 220 });
+  });
+});
+
+describe('isRealSetPR — les 3 cas canoniques (déclencheurs, commits 2-5)', () => {
+  // Historique : 100kg × 5 au squat.
+  const HIST = { logs: [mkLog(1000, [mkExo('Squat (Barre)', { '5': 100 })])], user: {} };
+  function judge(w, r) {
+    const ctx = makeCtx(JSON.parse(JSON.stringify(HIST)));
+    return vm.runInContext('isRealSetPR(' + w + ',' + r + ", getRealRecords('Squat (Barre)'))", ctx);
+  }
+  test('95×8 après 100×5 → PAS de PR (e1RM monte, la barre non)', () => {
+    expect(judge(95, 8)).toBeNull();
+  });
+  test('100×6 après 100×5 → PR de reps', () => {
+    const pr = judge(100, 6);
+    expect(pr).not.toBeNull();
+    expect(pr.kind).toBe('reps');
+    expect(pr.prev).toBe(100);
+  });
+  test('105×1 après 100 max → PR de charge', () => {
+    const pr = judge(105, 1);
+    expect(pr).not.toBeNull();
+    expect(pr.kind).toBe('charge');
+    expect(pr.prev).toBe(100);
+  });
+  test('100×5 répété → pas de PR (égalité = dominé)', () => {
+    expect(judge(100, 5)).toBeNull();
+  });
+  test('80×6 (plus de reps mais bien plus léger) → pas de PR (ne domine rien)', () => {
+    expect(judge(80, 6)).toBeNull();
+  });
+  test('première occurrence d\'un exercice → jamais de PR', () => {
+    const ctx = makeCtx({ logs: [], user: {} });
+    expect(vm.runInContext("isRealSetPR(100, 5, getRealRecords('Squat (Barre)'))", ctx)).toBeNull();
   });
 });

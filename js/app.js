@@ -10981,6 +10981,10 @@ function renderSeanceSelected(selectedDay) {
     : 'linear-gradient(135deg,#7c6bff,#4a3ab8)';
 
   var isToday = activeName === todayName;
+  // Sans sélection manuelle, un jour de repos fait sauter la carte au prochain
+  // jour d'entraînement (getActiveProgramDay) : l'annoncer explicitement pour
+  // ne pas laisser croire que c'est la séance du jour (audit 🟠-2).
+  var isNextDay = !selectedDay && !isToday;
   var dateStr = activeName + (isToday ? ' · Aujourd\'hui' : '');
 
   if (!dayData || dayData.rest) {
@@ -11034,7 +11038,7 @@ function renderSeanceSelected(selectedDay) {
     : '<span style="font-size:9px;color:#fff;opacity:0.5;font-family:monospace;">Aperçu</span>';
 
   return '<div style="padding:0 12px;">'
-    + '<div style="font-size:8px;color:#7c6bff;font-family:monospace;letter-spacing:2px;margin-bottom:4px;">SÉANCE · ' + dateStr.toUpperCase() + '</div>'
+    + '<div style="font-size:8px;color:#7c6bff;font-family:monospace;letter-spacing:2px;margin-bottom:4px;">' + (isNextDay ? 'PROCHAINE SÉANCE · ' : 'SÉANCE · ') + dateStr.toUpperCase() + '</div>'
     + '<div style="background:' + gradient + ';border-radius:14px;padding:14px 16px;margin-bottom:8px;">'
     + coachHint
     + '<div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:2px;">' + (dayData.title || activeName) + '</div>'

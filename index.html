@@ -266,9 +266,6 @@
     .coach-history-body { display:none;padding:0 12px 12px;border-top:1px solid var(--border); }
     .coach-history-card.open .coach-history-body { display:block; }
     .coach-history-card.open .ch-chevron { transform:rotate(180deg); }
-    /* ── Search multi-filters ── */
-    .go-filter-section { padding:0 12px; margin-bottom:4px; }
-    .go-filter-label { font-size:10px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
     .go-assist-input { display:flex; align-items:center; gap:6px; padding:4px 12px; font-size:11px; color:var(--sub); background:rgba(255,214,10,0.08); border-radius:8px; margin:4px 8px 8px; flex-wrap:wrap; }
     .go-assist-input select { background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:4px 8px; font-size:11px; }
     .exo-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; }
@@ -1206,10 +1203,17 @@
     .go-search-back{background:none;border:none;color:var(--blue);font-size:16px;cursor:pointer;padding:4px;}
     .go-search-input{flex:1;background:var(--surface);border:1px solid var(--border);color:white;border-radius:10px;padding:10px 14px;font-size:15px;}
     .go-search-input:focus{border-color:var(--blue);outline:none;}
-    .go-search-filters{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;scrollbar-width:none;}
-    .go-search-filters::-webkit-scrollbar{display:none;}
-    .go-search-chip{flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--sub);transition:all 0.2s;white-space:nowrap;}
-    .go-search-chip.active{background:var(--blue);color:white;border-color:var(--blue);}
+    /* ── Filtre picker (façon Hevy) : 2 boutons + panneaux déroulants compacts ── */
+    .go-filter-bar{display:flex;gap:8px;padding:8px 16px;}
+    .go-filter-btn{flex:1;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:9px 12px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface-solid);color:var(--text);transition:all 0.2s;white-space:nowrap;overflow:hidden;}
+    .go-filter-btn.has-sel{border-color:var(--blue);color:var(--blue);}
+    .go-filter-btn span:first-child{overflow:hidden;text-overflow:ellipsis;}
+    .go-filter-chev{transition:transform 0.2s;flex-shrink:0;font-size:11px;}
+    .go-filter-btn.open .go-filter-chev{transform:rotate(180deg);}
+    .go-filter-panel{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 10px;animation:fadeIn 0.15s ease;}
+    .go-filter-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;background:#241C38;color:var(--sub);transition:all 0.15s;white-space:nowrap;}
+    .go-filter-chip.active{background:var(--blue);color:#fff;}
+    .go-filter-chip-count{font-size:10px;opacity:0.65;font-weight:700;}
     .go-search-results{flex:1;overflow-y:auto;padding:8px 16px;}
     .go-search-section{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;padding:10px 0 6px;}
     .go-search-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border:0.5px solid var(--bg-card-border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;}

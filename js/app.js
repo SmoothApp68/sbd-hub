@@ -30106,7 +30106,20 @@ function goShowSetTypeSheet(exoIdx, setIdx) {
 // ============================================================
 // GO TAB — Exercise Search Overlay
 // ============================================================
-var _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
+// Filtre picker multi-select (façon Hevy) : deux Set de sélections, un seul
+// panneau déroulant ouvert à la fois. Le filtrage est routé via goRenderSearchResults
+// (préserve le fix remplacement v320 + le cap/scroll Phase 2a).
+var _goEquipSel = new Set();
+var _goMuscleSel = new Set();
+var _goOpenPanel = null; // 'equip' | 'muscle' | null
+// Chips équipement (8) : [displayEquip, label]. Ordre = du plus fréquent au moins.
+var _GO_EQUIP_CHIPS = [
+  ['barbell', 'Barre'], ['bodyweight', 'Poids du corps'], ['dumbbell', 'Haltère'],
+  ['cable', 'Poulie'], ['machine', 'Machine'], ['kettlebell', 'Kettlebell'],
+  ['band', 'Élastique'], ['other', 'Autre']
+];
+// Chips muscle (7) = clés de _goMuscleMap (le val EST le label).
+var _GO_MUSCLE_CHIPS = ['Pecs', 'Dos', 'Épaules', 'Jambes', 'Bras', 'Abdos', 'Cardio'];
 // Polish E 2a — état du rendu progressif du picker (cap + append au scroll).
 var _goRenderState = null;
 var _goResultsObserver = null;
@@ -30144,7 +30157,9 @@ function _goExoGroups(primaryMuscles) {
 }
 
 function goOpenSearch() {
-  _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
+  _goEquipSel = new Set();
+  _goMuscleSel = new Set();
+  _goOpenPanel = null;
   var overlay = document.createElement('div');
   overlay.className = 'go-search-overlay';
   overlay.id = 'goSearchOverlay';
@@ -30153,32 +30168,21 @@ function goOpenSearch() {
   h += '<button class="go-search-back" onclick="goCloseSearch()">← Retour</button>';
   h += '<input class="go-search-input" id="goSearchInput" type="text" placeholder="🔍 Rechercher un exercice..." autofocus>';
   h += '</div>';
-  // Muscle filter
-  h += '<div class="go-filter-section"><div class="go-filter-label">Muscle</div><div class="go-search-filters">';
-  ['Tout','Pecs','Dos','Épaules','Jambes','Bras','Abdos','Cardio'].forEach(function(m) {
-    h += '<span class="go-search-chip' + (m === 'Tout' ? ' active' : '') + '" data-filter="muscle" data-val="' + (m === 'Tout' ? '' : m) + '" onclick="goSetFilter(this)">' + m + '</span>';
-  });
-  h += '</div></div>';
-  // Equipment filter
-  h += '<div class="go-filter-section"><div class="go-filter-label">Matériel</div><div class="go-search-filters">';
-  [['Tout',''],['Barre','barbell'],['Haltères','dumbbell'],['Machine','machine'],['Câble','cable'],['Corps','bodyweight'],['Autre','other']].forEach(function(m) {
-    h += '<span class="go-search-chip' + (m[0] === 'Tout' ? ' active' : '') + '" data-filter="equip" data-val="' + m[1] + '" onclick="goSetFilter(this)">' + m[0] + '</span>';
-  });
-  h += '</div></div>';
-  // Difficulty filter
-  h += '<div class="go-filter-section"><div class="go-filter-label">Difficulté</div><div class="go-search-filters">';
-  [['Tout',''],['★ Facile','1-2'],['★★★ Moyen','3'],['★★★★ Dur','4-5']].forEach(function(m) {
-    h += '<span class="go-search-chip' + (m[0] === 'Tout' ? ' active' : '') + '" data-filter="diff" data-val="' + m[1] + '" onclick="goSetFilter(this)">' + m[0] + '</span>';
-  });
-  h += '</div></div>';
+  // Barre de filtres : 2 boutons (équipement / muscle) + panneaux déroulants compacts.
+  h += '<div class="go-filter-bar">';
+  h += '<button class="go-filter-btn" id="goEquipBtn" onclick="goTogglePanel(\'equip\')"><span id="goEquipBtnLabel">Tous les équipements</span><span class="go-filter-chev">▾</span></button>';
+  h += '<button class="go-filter-btn" id="goMuscleBtn" onclick="goTogglePanel(\'muscle\')"><span id="goMuscleBtnLabel">Tous les muscles</span><span class="go-filter-chev">▾</span></button>';
+  h += '</div>';
+  h += '<div class="go-filter-panel" id="goEquipPanel" style="display:none;"></div>';
+  h += '<div class="go-filter-panel" id="goMusclePanel" style="display:none;"></div>';
   h += '<div class="go-search-results" id="goSearchResults"></div>';
   overlay.innerHTML = h;
   document.body.appendChild(overlay);
-  goRenderSearchResults('', _goSearchFilters);
+  goRenderSearchResults('');
   document.getElementById('goSearchInput').addEventListener('input', function() {
     var q = this.value;
     if (_goSearchDebounce) clearTimeout(_goSearchDebounce);
-    _goSearchDebounce = setTimeout(function() { goRenderSearchResults(q, _goSearchFilters); }, 200);
+    _goSearchDebounce = setTimeout(function() { goRenderSearchResults(q); }, 200);
   });
 }
 
@@ -30187,17 +30191,82 @@ function goCloseSearch() {
   if (el) el.remove();
   if (_goResultsObserver) { _goResultsObserver.disconnect(); _goResultsObserver = null; }
   _goRenderState = null;
+  _goOpenPanel = null;
   window._goReplaceIdx = undefined;
 }
 
-function goSetFilter(chip) {
-  var filterType = chip.getAttribute('data-filter');
-  var val = chip.getAttribute('data-val');
-  _goSearchFilters[filterType] = val;
-  chip.parentElement.querySelectorAll('.go-search-chip').forEach(function(c) { c.classList.remove('active'); });
-  chip.classList.add('active');
+// Comptes par chip, calculés depuis le catalogue (statiques). Construit l'index au besoin.
+function _goComputeChipCounts() {
+  if (!_exoSearchIndex) buildExoSearchIndex();
+  var eqC = {}, muC = {};
+  for (var i = 0; i < _exoSearchIndex.length; i++) {
+    var e = _exoSearchIndex[i];
+    eqC[e.displayEquip] = (eqC[e.displayEquip] || 0) + 1;
+    for (var j = 0; j < e.groups.length; j++) muC[e.groups[j]] = (muC[e.groups[j]] || 0) + 1;
+  }
+  return { equip: eqC, muscle: muC };
+}
+
+// Rend les chips d'un panneau (équipement ou muscle) avec compte + état actif.
+function _goRenderFilterPanel(which) {
+  var counts = _goComputeChipCounts();
+  var chips = which === 'equip' ? _GO_EQUIP_CHIPS : _GO_MUSCLE_CHIPS.map(function(m) { return [m, m]; });
+  var sel = which === 'equip' ? _goEquipSel : _goMuscleSel;
+  var cmap = which === 'equip' ? counts.equip : counts.muscle;
+  var h = '';
+  chips.forEach(function(c) {
+    var val = c[0], label = c[1];
+    var n = cmap[val] || 0;
+    var active = sel.has(val);
+    h += '<span class="go-filter-chip' + (active ? ' active' : '') + '" onclick="goToggleFilter(\'' + which + '\',\'' + val.replace(/'/g, "\\'") + '\')">';
+    if (active) h += '✓ ';
+    h += label + ' <span class="go-filter-chip-count">' + n + '</span></span>';
+  });
+  return h;
+}
+
+// Ouvre/ferme un panneau (un seul ouvert à la fois : ouvrir muscle ferme équipement).
+function goTogglePanel(which) {
+  _goOpenPanel = (_goOpenPanel === which) ? null : which;
+  var eqP = document.getElementById('goEquipPanel');
+  var muP = document.getElementById('goMusclePanel');
+  var eqB = document.getElementById('goEquipBtn');
+  var muB = document.getElementById('goMuscleBtn');
+  if (eqP) { if (_goOpenPanel === 'equip') { eqP.innerHTML = _goRenderFilterPanel('equip'); eqP.style.display = 'flex'; } else { eqP.style.display = 'none'; } }
+  if (muP) { if (_goOpenPanel === 'muscle') { muP.innerHTML = _goRenderFilterPanel('muscle'); muP.style.display = 'flex'; } else { muP.style.display = 'none'; } }
+  if (eqB) eqB.classList.toggle('open', _goOpenPanel === 'equip');
+  if (muB) muB.classList.toggle('open', _goOpenPanel === 'muscle');
+}
+
+// Toggle d'une sélection dans le Set, maj du panneau + libellés + résultats.
+function goToggleFilter(which, val) {
+  var sel = which === 'equip' ? _goEquipSel : _goMuscleSel;
+  if (sel.has(val)) sel.delete(val); else sel.add(val);
+  var panel = document.getElementById(which === 'equip' ? 'goEquipPanel' : 'goMusclePanel');
+  if (panel) panel.innerHTML = _goRenderFilterPanel(which);
+  _goUpdateFilterButtons();
   var q = document.getElementById('goSearchInput') ? document.getElementById('goSearchInput').value : '';
-  goRenderSearchResults(q, _goSearchFilters);
+  goRenderSearchResults(q);
+}
+
+// Libellé dynamique + bordure active des 2 boutons selon les Set de sélection.
+function _goUpdateFilterButtons() {
+  var eqLabel = document.getElementById('goEquipBtnLabel');
+  var muLabel = document.getElementById('goMuscleBtnLabel');
+  var eqB = document.getElementById('goEquipBtn');
+  var muB = document.getElementById('goMuscleBtn');
+  if (eqLabel) {
+    if (_goEquipSel.size === 0) eqLabel.textContent = 'Tous les équipements';
+    else if (_goEquipSel.size === 1) { var v = [].concat(Array.from(_goEquipSel))[0]; var found = _GO_EQUIP_CHIPS.filter(function(c) { return c[0] === v; })[0]; eqLabel.textContent = found ? found[1] : v; }
+    else eqLabel.textContent = _goEquipSel.size + ' équipements';
+  }
+  if (muLabel) {
+    if (_goMuscleSel.size === 0) muLabel.textContent = 'Tous les muscles';
+    else if (_goMuscleSel.size === 1) muLabel.textContent = Array.from(_goMuscleSel)[0];
+    else muLabel.textContent = _goMuscleSel.size + ' muscles';
+  }
+  if (eqB) eqB.classList.toggle('has-sel', _goEquipSel.size > 0);
+  if (muB) muB.classList.toggle('has-sel', _goMuscleSel.size > 0);
 }
 
 
@@ -30283,18 +30352,16 @@ function buildExoSearchIndex() {
   }
 }
 
-function goRenderSearchResults(query, filters) {
-  // Support legacy string equipFilter or new filters object
-  var equipFilter = typeof filters === 'string' ? filters : (filters ? filters.equip : '');
-  var muscleFilter = (filters && typeof filters === 'object') ? filters.muscle : '';
-  var diffFilter = (filters && typeof filters === 'object') ? filters.diff : '';
-  var typeFilter = (filters && typeof filters === 'object') ? filters.type : '';
+function goRenderSearchResults(query) {
+  // Filtres multi-select : Set équipement (displayEquip) × Set muscle (groupes canoniques).
+  // Combinaison : equipement ∈ sélection ET muscle ∈ sélection (Set vide = pas de contrainte).
+  var equipSel = _goEquipSel;
+  var muscleSel = _goMuscleSel;
   var container = document.getElementById('goSearchResults');
   if (!container) return;
   var q = _goNormalize(query.trim());
   var allE1RMs = getAllBestE1RMs();
   var results = [];
-  var targetMuscles = (muscleFilter && _goMuscleMap[muscleFilter]) ? _goMuscleMap[muscleFilter] : null;
 
   // Build index on first use
   if (!_exoSearchIndex) buildExoSearchIndex();
@@ -30302,21 +30369,15 @@ function goRenderSearchResults(query, filters) {
   // Search using pre-computed index
   for (var i = 0; i < _exoSearchIndex.length; i++) {
     var entry = _exoSearchIndex[i];
-    if (equipFilter && entry.equipment !== equipFilter) continue;
-    // Muscle filter
-    if (targetMuscles) {
-      var hasMuscle = false;
-      for (var j = 0; j < entry.primaryMuscles.length; j++) {
-        if (targetMuscles.indexOf(entry.primaryMuscles[j]) >= 0) { hasMuscle = true; break; }
+    // Equipment filter (multi) — sur la catégorie d'affichage dérivée (displayEquip)
+    if (equipSel.size && !equipSel.has(entry.displayEquip)) continue;
+    // Muscle filter (multi) — intersection avec les groupes canoniques de l'exo
+    if (muscleSel.size) {
+      var hasGroup = false;
+      for (var j = 0; j < entry.groups.length; j++) {
+        if (muscleSel.has(entry.groups[j])) { hasGroup = true; break; }
       }
-      if (!hasMuscle) continue;
-    }
-    // Difficulty filter
-    if (diffFilter) {
-      var d = entry.difficulty;
-      if (diffFilter === '1-2' && d > 2) continue;
-      if (diffFilter === '3' && d !== 3) continue;
-      if (diffFilter === '4-5' && d < 4) continue;
+      if (!hasGroup) continue;
     }
     // Text search — fuzzy matching
     if (q) {
@@ -30344,9 +30405,15 @@ function goRenderSearchResults(query, filters) {
     entry.data._searchScore = entry._searchScore;
   }
 
-  // Search custom exercises
+  // Search custom exercises (displayEquip + groups dérivés à la volée, même règles)
   (db.customExercises || []).forEach(function(e) {
-    if (equipFilter && e.equipment !== equipFilter) return;
+    if (equipSel.size && !equipSel.has(_goDeriveEquip(e))) return;
+    if (muscleSel.size) {
+      var cg = _goExoGroups(e.primaryMuscles);
+      var ok = false;
+      for (var k = 0; k < cg.length; k++) { if (muscleSel.has(cg[k])) { ok = true; break; } }
+      if (!ok) return;
+    }
     if (q) {
       var nameN = _goNormalize(e.name);
       if (nameN.indexOf(q) < 0) return;
@@ -30368,11 +30435,11 @@ function goRenderSearchResults(query, filters) {
   });
 
   // Counter
-  var hasFilters = equipFilter || muscleFilter || diffFilter || q;
+  var hasFilters = equipSel.size || muscleSel.size || q;
   if (hasFilters) h += '<div style="font-size:11px;color:var(--sub);padding:4px 16px;">' + results.length + ' exercice' + (results.length > 1 ? 's' : '') + ' trouvé' + (results.length > 1 ? 's' : '') + '</div>';
 
   // If no query, show recent exercises first
-  if (!q && !equipFilter && !muscleFilter && !diffFilter) {
+  if (!q && !equipSel.size && !muscleSel.size) {
     var recents = _goGetRecentExercises(5);
     if (recents.length) {
       h += '<div class="go-search-section">Récents</div>';

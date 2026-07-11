@@ -250,6 +250,21 @@ describe('_sessionHasRealPR — badge 🏆 du Log', () => {
   });
 });
 
+describe('_buildSparkSVG — garde log corrompu (quick win 2/5)', () => {
+  test('un log sans tableau exercises ne jette plus (retour \'\' sans courbe)', () => {
+    const ctx = makeCtx({ logs: [] });
+    // getSortedLogs réel (engine.js, cache seedé) + le log corrompu : avant la
+    // garde, `for (const exo of log.exercises)` levait TypeError et cassait le
+    // rendu des cartes du Log.
+    vm.runInContext('_cache._sortedLogs = null;', ctx);
+    vm.runInContext(extractFn(ENGINE, 'getSortedLogs'), ctx);
+    vm.runInContext(extractFn(APP, '_buildSparkSVG'), ctx);
+    vm.runInContext('db.logs = [{ timestamp: 1000, id: "X" }]', ctx); // pas de .exercises
+    expect(() => vm.runInContext("_buildSparkSVG('Squat (Barre)', '#fff')", ctx)).not.toThrow();
+    expect(vm.runInContext("_buildSparkSVG('Squat (Barre)', '#fff')", ctx)).toBe('');
+  });
+});
+
 describe('getSBDType — caractérisation complète (38 usages, finition 4/5)', () => {
   // Batterie figée par probe AVANT la modification, puis vérifiée APRÈS :
   // seuls RDL/roumain/romanian/jambes tendues/stiff-leg basculent hors deadlift.

@@ -9726,6 +9726,7 @@ function _buildSparkSVG(exoName, muscleColor) {
   const sorted = getSortedLogs();
   for (let i = 0; i < sorted.length && pts.length < 12; i++) {
     const log = sorted[i];
+    if (!Array.isArray(log.exercises)) continue; // log corrompu/partiel : pas de crash, la carte s'affiche sans courbe
     for (const exo of log.exercises) {
       if (matchExoName(exo.name, exoName) && (exo.maxRM || 0) > 0) {
         pts.push({ ts: log.timestamp, rm: exo.maxRM, date: log.shortDate || formatDate(log.timestamp) });

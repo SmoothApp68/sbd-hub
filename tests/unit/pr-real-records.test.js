@@ -151,3 +151,30 @@ describe('isRealSetPR — les 3 cas canoniques (déclencheurs, commits 2-5)', ()
     expect(vm.runInContext("isRealSetPR(100, 5, getRealRecords('Squat (Barre)'))", ctx)).toBeNull();
   });
 });
+
+describe('detectNewPR (modale SBD) — charge réelle, garde premier set, 0 ratchet', () => {
+  function mkDetectCtx(bestPR) {
+    const ctx = makeCtx({ logs: [], user: {}, bestPR });
+    vm.runInContext(extractFn(APP, 'detectNewPR'), ctx);
+    return ctx;
+  }
+  test('tout premier set SBD (bestPR=0) → null (plus de modale fantôme)', () => {
+    const ctx = mkDetectCtx({ bench: 0, squat: 0, deadlift: 0 });
+    expect(vm.runInContext("detectNewPR('Squat (Barre)', 100, 5)", ctx)).toBeNull();
+  });
+  test('rep-work sous la barre max (95×8 vs PR 100) → null, et bestPR INCHANGÉ (ratchet supprimé)', () => {
+    const ctx = mkDetectCtx({ bench: 0, squat: 100, deadlift: 0 });
+    // 95×8 : Brzycki ≈ 118 > 100 — l'ancien code aurait ratcheté bestPR en silence.
+    expect(vm.runInContext("detectNewPR('Squat (Barre)', 95, 8)", ctx)).toBeNull();
+    expect(vm.runInContext('db.bestPR.squat', ctx)).toBe(100);
+  });
+  test('vraie barre au-dessus (105×1 vs PR 100) → modale, données réelles', () => {
+    const ctx = mkDetectCtx({ bench: 0, squat: 100, deadlift: 0 });
+    const pr = vm.runInContext("detectNewPR('Squat (Barre)', 105, 1)", ctx);
+    expect(pr).toEqual({ liftKey: 'squat', weight: 105, reps: 1, currentPR: 100 });
+  });
+  test('exclusions propres à detectNewPR : roumain/RDL → null même au-dessus', () => {
+    const ctx = mkDetectCtx({ bench: 0, squat: 0, deadlift: 100 });
+    expect(vm.runInContext("detectNewPR('Soulevé de Terre Roumain', 150, 1)", ctx)).toBeNull();
+  });
+});

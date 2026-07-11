@@ -27987,24 +27987,22 @@ function calcBrzycki(weight, reps) {
   return weight / (1.0278 - 0.0278 * reps);
 }
 
+// Philosophie B : PR SBD = vrai dépassement de CHARGE uniquement (poids du set
+// vs meilleure barre réelle, bestPR étant désormais une vraie barre). Garde
+// currentPR > 0 : ne tire plus jamais au tout premier set SBD. Plus de ratchet
+// silencieux (bestPR n'est plus écrit ici — recalcBestPR fait foi).
 function detectNewPR(exoName, weight, reps) {
   var liftKey = null;
   if (/squat|high bar|low bar/i.test(exoName) && !/jump/i.test(exoName)) liftKey = 'squat';
   else if (/bench|développé couché|larsen/i.test(exoName)) liftKey = 'bench';
   else if (/(deadlift|soulevé de terre)/i.test(exoName) && !/roumain|rdl/i.test(exoName)) liftKey = 'deadlift';
   if (!liftKey) return null;
-
-  var e1rm = calcBrzycki(weight, reps);
-  if (!e1rm) return null;
+  if (!(weight > 0) || !(reps > 0)) return null;
 
   var currentPR = (db.bestPR && db.bestPR[liftKey]) || 0;
-  if (e1rm > currentPR * 1.05) {
-    return { liftKey: liftKey, e1rm: Math.round(e1rm * 10) / 10, currentPR: currentPR, weight: weight, reps: reps };
-  }
-  if (e1rm > currentPR) {
-    if (!db.bestPR) db.bestPR = {};
-    db.bestPR[liftKey] = Math.round(e1rm * 10) / 10;
-    saveDB();
+  if (currentPR <= 0) return null;
+  if (weight > currentPR) {
+    return { liftKey: liftKey, weight: weight, reps: reps, currentPR: currentPR };
   }
   return null;
 }
@@ -28017,12 +28015,13 @@ function showPRConfirmation(prData) {
     + '<div style="font-size:32px;margin-bottom:8px;">🏆</div>'
     + '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">Nouveau record détecté !</div>'
     + '<div style="font-size:13px;color:var(--sub);margin-bottom:16px;">'
-    + prData.weight + 'kg × ' + prData.reps + ' reps → e1RM estimé : '
-    + '<strong>' + prData.e1rm + 'kg</strong> au ' + (liftLabels[prData.liftKey] || prData.liftKey) + '</div>'
-    + '<button onclick="confirmNewPR(\'' + prData.liftKey + '\',' + prData.e1rm + ')" '
+    + '<strong>' + prData.weight + 'kg × ' + prData.reps + '</strong> au '
+    + (liftLabels[prData.liftKey] || prData.liftKey)
+    + ' — nouvelle meilleure barre (précédent : ' + prData.currentPR + 'kg)</div>'
+    + '<button onclick="confirmNewPR(\'' + prData.liftKey + '\',' + prData.weight + ')" '
     + 'style="width:100%;padding:12px;border-radius:10px;background:var(--accent);'
     + 'border:none;color:#fff;font-weight:700;cursor:pointer;margin-bottom:8px;">'
-    + 'Valider ' + prData.e1rm + 'kg comme nouveau PR 🏆</button>'
+    + 'Valider ' + prData.weight + 'kg comme nouveau PR 🏆</button>'
     + '<button onclick="closeModalEl(this.closest(\'.modal-overlay\'))" '
     + 'style="width:100%;padding:10px;border-radius:10px;background:none;'
     + 'border:0.5px solid var(--border);color:var(--sub);cursor:pointer;">'
@@ -28031,12 +28030,12 @@ function showPRConfirmation(prData) {
   _uiOpen(overlay, { dismissible: false });
 }
 
-function confirmNewPR(liftKey, e1rm) {
+function confirmNewPR(liftKey, weight) {
   closeAllOverlays();
   if (!db.bestPR) db.bestPR = {};
-  db.bestPR[liftKey] = e1rm;
+  db.bestPR[liftKey] = weight; // vraie barre — cohérent avec recalcBestPR
   saveDB();
-  showToast('🏆 Nouveau PR ' + liftKey + ' : ' + e1rm + 'kg enregistré !', 4000);
+  showToast('🏆 Nouveau PR ' + liftKey + ' : ' + weight + 'kg enregistré !', 4000);
 }
 
 function goToggleSetComplete(exoIdx, setIdx) {

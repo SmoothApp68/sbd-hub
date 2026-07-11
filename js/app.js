@@ -30120,6 +30120,29 @@ var _goMuscleMap = {
   'Cardio': ['Cardio']
 };
 
+// Catégorie d'équipement d'AFFICHAGE : affine le fourre-tout 'other' vers
+// kettlebell/band par marqueur de nom. Dérivation à la volée (0 mutation d'EXO_DATABASE).
+function _goDeriveEquip(exo) {
+  var eq = exo.equipment;
+  if (eq && eq !== 'other') return eq; // barbell/dumbbell/machine/cable/bodyweight/band
+  var n = (exo.name || '').toLowerCase();
+  if (/kettlebell|kb\b/i.test(n)) return 'kettlebell';
+  if (/bande|élastique|band pull|pull-apart|monster walk|clamshell|with bands/i.test(n)) return 'band';
+  return 'other'; // anneaux/sled/cardio/strongman/plyo restent « Autre »
+}
+
+// Groupes musculaires canoniques (via _goMuscleMap) portés par un exo, précalculés à l'index.
+function _goExoGroups(primaryMuscles) {
+  var groups = [];
+  var pm = primaryMuscles || [];
+  for (var g in _goMuscleMap) {
+    for (var i = 0; i < pm.length; i++) {
+      if (_goMuscleMap[g].indexOf(pm[i]) >= 0) { groups.push(g); break; }
+    }
+  }
+  return groups;
+}
+
 function goOpenSearch() {
   _goSearchFilters = { equip: '', muscle: '', diff: '', type: '' };
   var overlay = document.createElement('div');
@@ -30252,6 +30275,8 @@ function buildExoSearchIndex() {
       searchText: searchText,
       muscleSearchText: muscleStr,
       equipment: e.equipment,
+      displayEquip: _goDeriveEquip(e),
+      groups: _goExoGroups(e.primaryMuscles),
       difficulty: e.difficulty || 2,
       primaryMuscles: e.primaryMuscles || []
     });

@@ -16675,7 +16675,16 @@ function getLiftType(lift) {
 }
 function getLiftPRDisplay(lift) {
   var type = getLiftType(lift);
-  if (type === 'weight') return { label: lift.maxRM + ' kg', icon: '🏋️' };
+  if (type === 'weight') {
+    // Philosophie B : headline = vrai poids max ; e1RM en sous-libellé « est. ».
+    var realW = lift.maxWeight || 0;
+    if (realW > 0) {
+      var sub = (lift.maxRM || 0) > realW ? 'est. ' + lift.maxRM + ' kg e1RM' : '';
+      return { label: realW + ' kg', icon: '🏋️', sub: sub };
+    }
+    // Fallback sans données de poids réel : l'e1RM reste, mais étiqueté.
+    return { label: lift.maxRM + ' kg', icon: '🏋️', sub: 'e1RM estimé' };
+  }
   if (type === 'reps') return { label: lift.maxReps + ' reps', icon: '🔢' };
   var sec = lift.maxDuration || 0;
   var label = sec >= 60
@@ -16714,11 +16723,14 @@ function renderLifts() {
         liftMap[canonKey] = {
           name: canonKey,
           muscle: getMuscleGroupRadar(getMuscleGroup(canonKey)),
-          maxRM: 0, maxReps: 0, maxDuration: 0, maxRMDate: null
+          maxRM: 0, maxWeight: 0, maxWeightDate: null, maxReps: 0, maxDuration: 0, maxRMDate: null
         };
       }
       var l = liftMap[canonKey];
       if ((exo.maxRM || 0) > l.maxRM) { l.maxRM = exo.maxRM; l.maxRMDate = exo.maxRMDate || null; }
+      // Philosophie B : le record affiché = vrai poids max soulevé, pas l'e1RM.
+      var _realW = _exoMaxRealWeight(exo);
+      if (_realW > l.maxWeight) { l.maxWeight = _realW; l.maxWeightDate = log.timestamp || null; }
       if ((exo.maxReps || 0) > l.maxReps) l.maxReps = exo.maxReps;
       (exo.series || exo.allSets || []).forEach(function(s) {
         if (s.duration && s.duration > (l.maxDuration || 0)) l.maxDuration = s.duration;
@@ -16797,11 +16809,12 @@ function renderLifts() {
     var color = MUSCLE_COLORS_RADAR[lift.muscle] || '#8E8E93';
     var rankStyle = idx < 3 ? RANK_STYLES[idx] : 'background:var(--surface);color:var(--sub);';
     var isSBD = !!getSBDType(lift.name);
-    var prDate = lift.maxRMDate ? formatDate(lift.maxRMDate) : '';
+    var prDate = (lift.maxWeightDate || lift.maxRMDate) ? formatDate(lift.maxWeightDate || lift.maxRMDate) : '';
     var badgesHtml = '';
     if (isSBD) badgesHtml += '<span class="lc-badge purple">SBD</span>';
-    if (lift.maxRM > 0 && db.user && db.user.bw > 0) {
-      badgesHtml += '<span class="lc-badge blue">×' + (lift.maxRM / db.user.bw).toFixed(2) + ' bw</span>';
+    var _bwRef = lift.maxWeight || lift.maxRM || 0; // ratio sur le vrai poids soulevé
+    if (_bwRef > 0 && db.user && db.user.bw > 0) {
+      badgesHtml += '<span class="lc-badge blue">×' + (_bwRef / db.user.bw).toFixed(2) + ' bw</span>';
     }
     badgesHtml += '<span class="lc-badge" style="background:rgba(142,142,147,0.1);color:var(--sub);">' + lift.sessions + ' séances</span>';
     return '<div class="lc">' +
@@ -16810,6 +16823,7 @@ function renderLifts() {
         '<div class="lc-info"><div class="lc-name">' + lift.name + '</div>' +
         '<div class="lc-badges">' + badgesHtml + '</div></div>' +
         '<div class="lc-right"><div class="lc-e1rm" style="color:' + color + ';">' + pr.icon + ' ' + pr.label + '</div>' +
+        (pr.sub ? '<div class="lc-date">' + pr.sub + '</div>' : '') +
         (prDate ? '<div class="lc-date">' + prDate + '</div>' : '') + '</div>' +
       '</div>' +
     '</div>';

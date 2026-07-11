@@ -250,3 +250,26 @@ describe('_sessionHasRealPR — badge 🏆 du Log', () => {
     expect(hasPR([mkExo('Squat', { '1': 105 })], PREV)).toBe(false);
   });
 });
+
+describe('getLiftPRDisplay (Stats→Records) — vrai poids en headline, e1RM en est.', () => {
+  function display(lift) {
+    const ctx = makeCtx({ logs: [], user: {} });
+    ['getLiftType', 'getLiftPRDisplay'].forEach(fn => vm.runInContext(extractFn(APP, fn), ctx));
+    return vm.runInContext('getLiftPRDisplay(' + JSON.stringify(lift) + ')', ctx);
+  }
+  test('curl 30×12 (cas Aurélien) : headline 30 kg réels, e1RM 40 en « est. »', () => {
+    const pr = display({ name: 'Curl (Haltère)', maxWeight: 30, maxRM: 40 });
+    expect(pr.label).toBe('30 kg');
+    expect(pr.sub).toBe('est. 40 kg e1RM');
+  });
+  test('single lourd : e1RM == poids réel → pas de sous-libellé redondant', () => {
+    const pr = display({ name: 'Squat (Barre)', maxWeight: 140, maxRM: 140 });
+    expect(pr.label).toBe('140 kg');
+    expect(pr.sub).toBe('');
+  });
+  test('fallback sans poids réel : e1RM conservé mais étiqueté', () => {
+    const pr = display({ name: 'Squat (Barre)', maxWeight: 0, maxRM: 120 });
+    expect(pr.label).toBe('120 kg');
+    expect(pr.sub).toBe('e1RM estimé');
+  });
+});

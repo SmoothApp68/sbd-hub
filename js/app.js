@@ -1718,15 +1718,51 @@ function exportUserData() {
 function formatDate(ts) { return new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function formatTime(sec) { if (!sec || sec <= 0) return '0s'; const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m'+String(s).padStart(2,'0')+'s'; return m > 0 ? m+'m'+s+'s' : s+'s'; }
 function calcE1RM(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
+// Poids RÉEL max soulevé sur un exercice de log — jamais un e1RM estimé.
+// Source : repRecords (records de travail curés) d'abord, sinon allSets hors
+// warmup, sinon series.
+function _exoMaxRealWeight(exo) {
+  var w = 0;
+  if (exo.repRecords) {
+    Object.keys(exo.repRecords).forEach(function(r) {
+      var v = exo.repRecords[r] || 0;
+      if (v > w) w = v;
+    });
+  }
+  if (w > 0) return w;
+  if (exo.allSets && exo.allSets.length) {
+    exo.allSets.forEach(function(s) {
+      if ((s.reps || 0) > 0 && s.setType !== 'warmup' && (s.weight || 0) > w) w = s.weight;
+    });
+    if (w > 0) return w;
+  }
+  if (exo.series && exo.series.length) {
+    exo.series.forEach(function(s) {
+      if ((s.reps || 0) > 0 && (s.weight || 0) > w) w = s.weight;
+    });
+  }
+  return w;
+}
+// Philosophie B : bestPR = VRAIES barres (poids max réellement soulevé sur les
+// logs SBD), plus jamais le max des e1RM Brzycki (maxRM) — le rep-work ne gonfle
+// plus les records. Plancher = PR déclarés à l'onboarding (db.user.onboardingPRs),
+// jamais effacés : répare le reset {0,0,0} d'un profil déclaré sans logs.
 function recalcBestPR() {
   db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
   db.logs.forEach(log => {
-    log.exercises.forEach(exo => {
+    (log.exercises || []).forEach(exo => {
       const type = getSBDType(exo.name);
-      if (!type || !exo.maxRM || exo.maxRM <= 0) return;
-      if (exo.maxRM > db.bestPR[type]) db.bestPR[type] = exo.maxRM;
+      if (!type) return;
+      const w = _exoMaxRealWeight(exo);
+      if (w > db.bestPR[type]) db.bestPR[type] = w;
     });
   });
+  const ob = db.user && db.user.onboardingPRs;
+  if (ob) {
+    ['bench', 'squat', 'deadlift'].forEach(k => {
+      if ((ob[k] || 0) > db.bestPR[k]) db.bestPR[k] = ob[k];
+    });
+  }
 }
 function setPeriodButtons(id, period) { const c = document.getElementById(id); if (c) c.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period)); }
 function getLogsInRange(days) { const lim = Date.now() - days * 86400000; return db.logs.filter(l => l.timestamp >= lim && l.timestamp <= Date.now()); }

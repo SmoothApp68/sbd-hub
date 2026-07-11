@@ -31596,29 +31596,68 @@ async function downloadShareCard() {
   }
 }
 
+// Vrais PR d'une séance vs l'historique (philosophie B) : pour chaque exercice,
+// records réels agrégés sur prevLogs (poids max + repRecords), puis meilleur vrai
+// dépassement de la séance — charge d'abord, sinon reps. Première occurrence
+// d'un exercice → jamais de PR.
+function _detectSessionRealPRs(session, prevLogs) {
+  var newPRs = [];
+  (session.exercises || []).forEach(function(exo) {
+    if (exo.isSubstituted) return;
+    var best = { maxWeight: 0, repRecords: {}, occurrences: 0 };
+    prevLogs.forEach(function(ol) {
+      (ol.exercises || []).forEach(function(oe) {
+        if (oe.name !== exo.name) return;
+        best.occurrences++;
+        if (oe.repRecords && Object.keys(oe.repRecords).length) {
+          Object.keys(oe.repRecords).forEach(function(r) {
+            var w = oe.repRecords[r] || 0;
+            if (w <= 0) return;
+            if (!best.repRecords[r] || w > best.repRecords[r]) best.repRecords[r] = w;
+            if (w > best.maxWeight) best.maxWeight = w;
+          });
+        } else {
+          var w2 = _exoMaxRealWeight(oe);
+          if (w2 > best.maxWeight) best.maxWeight = w2;
+        }
+      });
+    });
+    if (best.occurrences === 0 || best.maxWeight <= 0) return;
+    var charge = null, repsPR = null;
+    var rr = exo.repRecords || {};
+    Object.keys(rr).forEach(function(rKey) {
+      var w = rr[rKey] || 0, r = parseInt(rKey, 10);
+      var pr = isRealSetPR(w, r, best);
+      if (!pr) return;
+      if (pr.kind === 'charge') { if (!charge || w > charge.w) charge = { w: w, r: r, prev: pr.prev }; }
+      else if (!repsPR || w > repsPR.w) repsPR = { w: w, r: r, prev: pr.prev };
+    });
+    if (!charge && !Object.keys(rr).length) {
+      var wMax = _exoMaxRealWeight(exo);
+      if (wMax > best.maxWeight) charge = { w: wMax, r: 0, prev: best.maxWeight };
+    }
+    var found = charge ? { kind: 'charge', w: charge.w, r: charge.r, prev: charge.prev }
+      : (repsPR ? { kind: 'reps', w: repsPR.w, r: repsPR.r, prev: repsPR.prev } : null);
+    if (found) {
+      newPRs.push({
+        name: exo.name,
+        kind: found.kind,
+        reps: found.r,
+        value: Math.round(found.w),
+        prev: Math.round(found.prev),
+        gain: Math.round(found.w - found.prev)
+      });
+    }
+  });
+  return newPRs;
+}
+
 function checkAndShowPRCelebration(session) {
   if (!session || !session.exercises) return;
   var prevLogs = (db.logs || []).filter(function(l) { return l.id !== session.id; });
   if (prevLogs.length === 0) return;
 
-  var newPRs = [];
-  (session.exercises || []).forEach(function(exo) {
-    if (!exo.maxRM || exo.isSubstituted) return;
-    var prevBest = 0;
-    prevLogs.forEach(function(ol) {
-      (ol.exercises || []).forEach(function(oe) {
-        if (oe.name === exo.name && (oe.maxRM || 0) > prevBest) prevBest = oe.maxRM || 0;
-      });
-    });
-    if (exo.maxRM > prevBest && prevBest > 0) {
-      newPRs.push({
-        name: exo.name,
-        value: Math.round(exo.maxRM),
-        prev: Math.round(prevBest),
-        gain: Math.round(exo.maxRM - prevBest)
-      });
-    }
-  });
+  var newPRs = _detectSessionRealPRs(session, prevLogs);
 
   if (newPRs.length === 0) {
     // No PR but show activity tags if relevant
@@ -31647,11 +31686,17 @@ function showPRCelebration(prs, sessionId) {
   html += '<div style="font-size:13px;color:var(--sub);margin-bottom:20px;">Tu viens de repousser tes limites</div>';
 
   prs.forEach(function(pr) {
+    // kind 'reps' = record de reps (poids égal, plus de reps) ; kind 'charge' ou
+    // absent (chemin import, rétro-compat) = record de charge classique.
+    var big = pr.kind === 'reps' ? (pr.value + 'kg × ' + pr.reps) : (pr.value + 'kg');
+    var sub = pr.kind === 'reps'
+      ? 'Record de reps — plus lourd que ton meilleur à ce nombre de reps (' + pr.prev + 'kg)'
+      : 'Précédent : ' + pr.prev + 'kg · Gain : +' + pr.gain + 'kg';
     html += '<div style="background:rgba(50,215,75,0.1);border:1px solid rgba(50,215,75,0.3);'
       + 'border-radius:14px;padding:14px;margin-bottom:10px;">';
     html += '<div style="font-size:13px;color:var(--sub);margin-bottom:4px;">' + escapeHtml(pr.name) + '</div>';
-    html += '<div style="font-size:28px;font-weight:800;color:var(--green);">' + pr.value + 'kg</div>';
-    html += '<div style="font-size:12px;color:var(--sub);">Précédent : ' + pr.prev + 'kg · Gain : +' + pr.gain + 'kg</div>';
+    html += '<div style="font-size:28px;font-weight:800;color:var(--green);">' + big + '</div>';
+    html += '<div style="font-size:12px;color:var(--sub);">' + sub + '</div>';
     html += '</div>';
   });
 
@@ -31670,7 +31715,9 @@ function showPRCelebration(prs, sessionId) {
   showModal('', html);
 
   sendLocalNotification('Nouveau PR 🏆', prs.map(function(p) {
-    return p.name + ' : ' + p.value + 'kg (+' + p.gain + 'kg)';
+    return p.kind === 'reps'
+      ? p.name + ' : ' + p.value + 'kg × ' + p.reps + ' (record de reps)'
+      : p.name + ' : ' + p.value + 'kg (+' + p.gain + 'kg)';
   }).join(', '));
 }
 

@@ -178,3 +178,48 @@ describe('detectNewPR (modale SBD) — charge réelle, garde premier set, 0 ratc
     expect(vm.runInContext("detectNewPR('Soulevé de Terre Roumain', 150, 1)", ctx)).toBeNull();
   });
 });
+
+describe('_detectSessionRealPRs — célébration fin de séance', () => {
+  function detect(sessionExos, prevExos) {
+    const ctx = makeCtx({ logs: [], user: {} });
+    vm.runInContext(extractFn(APP, '_detectSessionRealPRs'), ctx);
+    const session = { exercises: sessionExos };
+    const prevLogs = [mkLog(1000, prevExos)];
+    return vm.runInContext(
+      '_detectSessionRealPRs(' + JSON.stringify(session) + ',' + JSON.stringify(prevLogs) + ')', ctx);
+  }
+  test('rep-work (95×8 après 100×5) → aucune célébration', () => {
+    expect(detect(
+      [mkExo('Squat (Barre)', { '8': 95 }, { maxRM: 118 })],
+      [mkExo('Squat (Barre)', { '5': 100 })]
+    )).toEqual([]);
+  });
+  test('vraie barre (105×1 après 100×5) → PR charge, valeurs réelles', () => {
+    const prs = detect(
+      [mkExo('Squat (Barre)', { '1': 105 })],
+      [mkExo('Squat (Barre)', { '5': 100 })]
+    );
+    expect(prs).toHaveLength(1);
+    expect(prs[0]).toMatchObject({ name: 'Squat (Barre)', kind: 'charge', value: 105, prev: 100, gain: 5 });
+  });
+  test('reps améliorés (100×6 après 100×5) → PR reps', () => {
+    const prs = detect(
+      [mkExo('Squat (Barre)', { '6': 100 })],
+      [mkExo('Squat (Barre)', { '5': 100 })]
+    );
+    expect(prs).toHaveLength(1);
+    expect(prs[0]).toMatchObject({ kind: 'reps', value: 100, reps: 6 });
+  });
+  test('première occurrence d\'un exercice → pas de célébration', () => {
+    expect(detect(
+      [mkExo('Curl (Haltère)', { '10': 20 })],
+      [mkExo('Squat (Barre)', { '5': 100 })]
+    )).toEqual([]);
+  });
+  test('exercice substitué → ignoré', () => {
+    expect(detect(
+      [mkExo('Squat (Barre)', { '1': 200 }, { isSubstituted: true })],
+      [mkExo('Squat (Barre)', { '5': 100 })]
+    )).toEqual([]);
+  });
+});

@@ -16311,6 +16311,11 @@ function renderSessionCard2(session, si, prevBestRM) {
   var sparkHtml = (mainExo && mainExo.name && typeof _buildSparkSVG === 'function')
     ? _buildSparkSVG(mainExo.name, accentColor)
     : '';
+  // Courbe absente = l'exo principal a < 2 séances d'historique (gate de
+  // _buildSparkSVG) : le dire plutôt que laisser croire à un bug (audit 🟡-4).
+  var sparkNote = (!sparkHtml && mainExo && mainExo.name)
+    ? '<div style="font-size:9px;color:var(--sub);opacity:0.7;margin:6px 0 2px;">📈 Courbe dispo après 2 séances de « ' + mainExo.name + ' »</div>'
+    : '';
 
   // Détail complet (sets par exercice)
   var detailHtml = renderSessionDetail2(session);
@@ -16327,7 +16332,7 @@ function renderSessionCard2(session, si, prevBestRM) {
       '<div class="sc-title">'+title+'</div>'+
       '<div class="sc-meta-line">'+metaStr+'</div>'+
       (tagsHtml ? '<div class="sc-tags">'+tagsHtml+'</div>' : '')+
-      (sparkHtml ? '<div style="margin:6px 0 2px;">'+sparkHtml+'</div>' : '')+
+      (sparkHtml ? '<div style="margin:6px 0 2px;">'+sparkHtml+'</div>' : sparkNote)+
       '<div class="sc-footer">'+
         '<div style="flex:1;font-size:10px;color:var(--sub);">Appuie pour voir le détail</div>'+
         '<button class="sc-menu-btn" onclick="event.stopPropagation();togScMenu(\'menu-'+uid+'\')">···</button>'+

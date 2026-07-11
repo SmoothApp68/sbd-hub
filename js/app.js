@@ -31301,9 +31301,6 @@ function goFinishWorkout() {
 
   // Track old PRs for PR detection
   const oldPRs = { bench: db.bestPR.bench, squat: db.bestPR.squat, deadlift: db.bestPR.deadlift };
-  // Snapshot des meilleurs e1RM par exo AVANT d'ajouter la séance (pour overlay PR Type B)
-  var _previousBestE1RMs = {};
-  try { _previousBestE1RMs = typeof getAllBestE1RMs === 'function' ? getAllBestE1RMs() : {}; } catch(e) {}
 
   // Cold start reference guard: flag if health state is too poor to serve as calibration
   if (!shouldRecordE1RMAsReference()) {
@@ -31358,28 +31355,32 @@ function goFinishWorkout() {
         sendLocalNotification('🏆 Nouveau record !', name + ' : ' + db.bestPR[type] + 'kg (ancien: ' + oldPRs[type] + 'kg)');
       }
     });
-    // Overlay PR Type B — un seul par séance, sur le premier SBD exo qui bat le précédent e1RM
-    var _prCelebrated = false;
-    (session.exercises || []).forEach(function(_exo) {
-      if (_prCelebrated) return;
-      var _sbd = typeof getSBDType === 'function' ? getSBDType(_exo.name) : null;
-      if (!_sbd) return;
-      var _prev = (_previousBestE1RMs[_exo.name] && _previousBestE1RMs[_exo.name].e1rm) || 0;
-      if (!(_exo.maxRM > _prev && _prev > 0)) return;
-      // Anti-doublon : même (exo, poids arrondi) dans les 24h
+    // Overlay PR Type B — un seul par séance, sur le premier VRAI PR SBD
+    // (philosophie B : _detectSessionRealPRs comme les 4 autres déclencheurs —
+    // plus jamais maxRM (e1RM) vs e1RM précédent, et on célèbre le vrai poids).
+    var _prevLogsTypeB = (db.logs || []).filter(function(l) { return l.id !== session.id; });
+    var _realPRsTypeB = (typeof _detectSessionRealPRs === 'function')
+      ? _detectSessionRealPRs(session, _prevLogsTypeB) : [];
+    var _sbdPRTypeB = null, _sbdTypeB = null;
+    for (var _pi = 0; _pi < _realPRsTypeB.length; _pi++) {
+      var _tB = typeof getSBDType === 'function' ? getSBDType(_realPRsTypeB[_pi].name) : null;
+      if (_tB) { _sbdPRTypeB = _realPRsTypeB[_pi]; _sbdTypeB = _tB; break; }
+    }
+    if (_sbdPRTypeB) {
+      // Anti-doublon : même (exo, poids réel) dans les 24h
       db.gamification = db.gamification || {};
       db.gamification.lastPRCelebrated = db.gamification.lastPRCelebrated || {};
-      var _key = _exo.name + '_' + Math.round(_exo.maxRM);
-      if (db.gamification.lastPRCelebrated[_key]
-          && Date.now() - db.gamification.lastPRCelebrated[_key] < 86400000) return;
-      db.gamification.lastPRCelebrated[_key] = Date.now();
-      var _newTierName = null;
-      if (db.gamification.liftRanks && db.gamification.liftRanks[_sbd]) {
-        _newTierName = db.gamification.liftRanks[_sbd].tier;
+      var _key = _sbdPRTypeB.name + '_' + _sbdPRTypeB.value;
+      if (!db.gamification.lastPRCelebrated[_key]
+          || Date.now() - db.gamification.lastPRCelebrated[_key] >= 86400000) {
+        db.gamification.lastPRCelebrated[_key] = Date.now();
+        var _newTierName = null;
+        if (db.gamification.liftRanks && db.gamification.liftRanks[_sbdTypeB]) {
+          _newTierName = db.gamification.liftRanks[_sbdTypeB].tier;
+        }
+        if (typeof showPROverlay === 'function') showPROverlay(_sbdPRTypeB.name, _sbdPRTypeB.value, _newTierName);
       }
-      if (typeof showPROverlay === 'function') showPROverlay(_exo.name, Math.round(_exo.maxRM), _newTierName);
-      _prCelebrated = true;
-    });
+    }
     updateLeaderboardSnapshot();
   } catch(e) {}
 

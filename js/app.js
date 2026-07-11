@@ -16144,16 +16144,41 @@ function renderSeancesTab() {
     '<div class="wk-stats-item"><div class="wk-stats-val" style="color:var(--orange);">'+durStr+'</div><div class="wk-stats-lbl">Durée</div></div>'+
   '</div>';
 
-  // Precompute best e1RM before each session (chronological pass over all logs)
+  // Precompute des records RÉELS avant chaque séance (passe chronologique) —
+  // philosophie B : poids max + repRecords (plus de maxRM/e1RM), noms
+  // canonisés via matchExoName (les synonymes ne re-déclenchent plus de PR).
   var _allSorted = db.logs.slice().sort(function(a,b){ return a.timestamp-b.timestamp; });
   var _runBest = {};
   var _prevBestByTs = {};
+  var _canonCache = {};
+  function _canonName(n) {
+    if (_canonCache[n]) return _canonCache[n];
+    var k = (typeof matchExoName === 'function')
+      ? (Object.keys(_runBest).find(function(k2) { return matchExoName(n, k2); }) || n)
+      : n;
+    _canonCache[n] = k;
+    return k;
+  }
   _allSorted.forEach(function(log) {
     if (log.timestamp >= targetWeekStart && log.timestamp <= targetWeekEnd) {
-      _prevBestByTs[log.timestamp] = Object.assign({}, _runBest);
+      // Copie profonde : _runBest continue de muter après le snapshot.
+      _prevBestByTs[log.timestamp] = JSON.parse(JSON.stringify(_runBest));
     }
     (log.exercises||[]).forEach(function(e) {
-      if ((e.maxRM||0) > (_runBest[e.name]||0)) _runBest[e.name] = e.maxRM;
+      var k = _canonName(e.name);
+      var b = _runBest[k] || (_runBest[k] = { maxWeight: 0, repRecords: {}, occurrences: 0 });
+      b.occurrences++;
+      if (e.repRecords && Object.keys(e.repRecords).length) {
+        Object.keys(e.repRecords).forEach(function(r) {
+          var w = e.repRecords[r] || 0;
+          if (w <= 0) return;
+          if (!b.repRecords[r] || w > b.repRecords[r]) b.repRecords[r] = w;
+          if (w > b.maxWeight) b.maxWeight = w;
+        });
+      } else {
+        var w2 = _exoMaxRealWeight(e);
+        if (w2 > b.maxWeight) b.maxWeight = w2;
+      }
     });
   });
 
@@ -16170,6 +16195,35 @@ function renderSeancesTab() {
 function setLogFilter(f) {
   _logFilter = (f === 'Tout') ? null : f;
   renderSeancesTab();
+}
+
+// Badge 🏆 du Log : la séance contient-elle un VRAI dépassement vs les records
+// réels d'avant (prevBest = { nomCanonique: {maxWeight, repRecords, occurrences} }) ?
+// Première occurrence d'un exercice → jamais de badge.
+function _sessionHasRealPR(session, prevBest) {
+  var _pb = prevBest || {};
+  return (session.exercises || []).some(function(e) {
+    var merged = { maxWeight: 0, repRecords: {}, occurrences: 0 };
+    Object.keys(_pb).forEach(function(k) {
+      var same = (typeof matchExoName === 'function') ? matchExoName(e.name, k) : e.name === k;
+      if (!same) return;
+      var b = _pb[k];
+      merged.occurrences += b.occurrences || 0;
+      if ((b.maxWeight || 0) > merged.maxWeight) merged.maxWeight = b.maxWeight;
+      Object.keys(b.repRecords || {}).forEach(function(r) {
+        if (!merged.repRecords[r] || b.repRecords[r] > merged.repRecords[r]) merged.repRecords[r] = b.repRecords[r];
+      });
+    });
+    if (merged.occurrences === 0 || merged.maxWeight <= 0) return false;
+    var rr = e.repRecords || {};
+    var rKeys = Object.keys(rr);
+    if (rKeys.length) {
+      return rKeys.some(function(rKey) {
+        return !!isRealSetPR(rr[rKey] || 0, parseInt(rKey, 10), merged);
+      });
+    }
+    return _exoMaxRealWeight(e) > merged.maxWeight;
+  });
 }
 
 function renderSessionCard2(session, si, prevBestRM) {
@@ -16204,9 +16258,9 @@ function renderSessionCard2(session, si, prevBestRM) {
   var exoCount = (session.exercises||[]).length;
   var metaStr = [dur, exoCount+' exercice'+(exoCount>1?'s':'')].filter(Boolean).join(' · ');
 
-  // Badge PR — only show if at least one exercise beat its previous all-time e1RM
-  var _pb = prevBestRM || {};
-  var hasPR = (session.exercises||[]).some(function(e){ return (e.maxRM||0) > 0 && (e.maxRM||0) > (_pb[e.name]||0); });
+  // Badge PR — uniquement sur VRAI dépassement (charge ou reps) vs les records
+  // réels d'avant la séance. Plus de faux positifs première-occurrence/e1RM.
+  var hasPR = _sessionHasRealPR(session, prevBestRM);
   var prBadge = hasPR ? '<span class="sc-pr-badge" style="background:rgba(50,215,75,.1);color:var(--green);border:1px solid rgba(50,215,75,.18);">🏆 PR</span>' : '';
 
   // Tags muscles

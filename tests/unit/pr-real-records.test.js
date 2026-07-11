@@ -223,3 +223,30 @@ describe('_detectSessionRealPRs — célébration fin de séance', () => {
     )).toEqual([]);
   });
 });
+
+describe('_sessionHasRealPR — badge 🏆 du Log', () => {
+  // prevBest au format precompute : { nom: {maxWeight, repRecords, occurrences} }
+  function hasPR(sessionExos, prevBest) {
+    const ctx = makeCtx({ logs: [], user: {} });
+    vm.runInContext(extractFn(APP, '_sessionHasRealPR'), ctx);
+    return vm.runInContext(
+      '_sessionHasRealPR(' + JSON.stringify({ exercises: sessionExos }) + ',' + JSON.stringify(prevBest) + ')', ctx);
+  }
+  const PREV = { 'Squat (Barre)': { maxWeight: 100, repRecords: { '5': 100 }, occurrences: 3 } };
+  test('rep-work (95×8) → pas de badge', () => {
+    expect(hasPR([mkExo('Squat (Barre)', { '8': 95 }, { maxRM: 118 })], PREV)).toBe(false);
+  });
+  test('vraie barre (105×1) → badge', () => {
+    expect(hasPR([mkExo('Squat (Barre)', { '1': 105 })], PREV)).toBe(true);
+  });
+  test('reps améliorés (100×6) → badge', () => {
+    expect(hasPR([mkExo('Squat (Barre)', { '6': 100 })], PREV)).toBe(true);
+  });
+  test('première occurrence d\'un exercice → pas de badge (fini le 🏆 systématique)', () => {
+    expect(hasPR([mkExo('Curl (Haltère)', { '10': 20 })], PREV)).toBe(false);
+  });
+  test('sans matchExoName dans le contexte : fallback égalité stricte (chemin réel)', () => {
+    // Le vm ne charge pas matchExoName → typeof === 'undefined' → e.name === k.
+    expect(hasPR([mkExo('Squat', { '1': 105 })], PREV)).toBe(false);
+  });
+});

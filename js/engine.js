@@ -808,7 +808,14 @@ function _getSBDTypeRaw(name) {
   if (VARIANT_KEYWORDS.some(kw => n.includes(kw))) return null;
   if (n.includes('bench') || (n.includes('couche') && !n.includes('incline') && !n.includes('haltere') && !n.includes('decline'))) return 'bench';
   if (n.includes('squat') && !n.includes('hack') && !n.includes('goblet') && !n.includes('sissy') && !n.includes('bulgare') && !n.includes('front') && !n.includes('zercher') && !n.includes('split')) return 'squat';
-  if (n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) return 'deadlift';
+  if (n.includes('deadlift') || (n.includes('souleve') && n.includes('terre'))) {
+    // RDL / jambes tendues = accessoires hinge, pas le soulevé de compétition :
+    // ils n'alimentent plus bestPR.deadlift ni les registres SBD. Exclusion
+    // ciblée ici (pas dans VARIANT_KEYWORDS : includes('rdl') matcherait
+    // « hurdle »). 'romanian' couvre les noms EN ; \brdl\b les abréviations.
+    if (/roumain|romanian|\brdl\b|jambes?\s+tendues?|stiff.?leg/.test(n)) return null;
+    return 'deadlift';
+  }
   return null;
 }
 function getSBDType(name) {

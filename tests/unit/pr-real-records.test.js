@@ -100,11 +100,10 @@ describe('recalcBestPR — vraies barres + plancher onboarding', () => {
     vm.runInContext('recalcBestPR()', ctx);
     expect(db.bestPR).toEqual({ bench: 140, squat: 148, deadlift: 186 });
   });
-  test('exclusions getSBDType observées : goblet exclu, roumain COMPTE (préexistant)', () => {
-    // Observé par probe : getSBDType('Squat Goblet') → null, mais
-    // getSBDType('Soulevé de Terre Roumain') → 'deadlift' (l'exclusion
-    // roumain/rdl ne vit que dans detectNewPR, pas dans getSBDType).
-    // Comportement préexistant au chantier — décrit tel quel, signalé au rapport.
+  test('exclusions getSBDType : goblet ET roumain exclus (finition 4/5)', () => {
+    // Inversion délibérée (chantier finition post-PR) : le RDL/roumain est
+    // désormais exclu de getSBDType → n'alimente plus bestPR.deadlift.
+    // (Avant la finition, seul goblet était exclu ; roumain comptait.)
     const db = {
       logs: [mkLog(1000, [
         mkExo('Squat Goblet', { '5': 200 }),
@@ -114,7 +113,7 @@ describe('recalcBestPR — vraies barres + plancher onboarding', () => {
     };
     const ctx = makeCtx(db);
     vm.runInContext('recalcBestPR()', ctx);
-    expect(db.bestPR).toEqual({ bench: 0, squat: 0, deadlift: 220 });
+    expect(db.bestPR).toEqual({ bench: 0, squat: 0, deadlift: 0 });
   });
 });
 
@@ -248,6 +247,36 @@ describe('_sessionHasRealPR — badge 🏆 du Log', () => {
   test('sans matchExoName dans le contexte : fallback égalité stricte (chemin réel)', () => {
     // Le vm ne charge pas matchExoName → typeof === 'undefined' → e.name === k.
     expect(hasPR([mkExo('Squat', { '1': 105 })], PREV)).toBe(false);
+  });
+});
+
+describe('getSBDType — caractérisation complète (38 usages, finition 4/5)', () => {
+  // Batterie figée par probe AVANT la modification, puis vérifiée APRÈS :
+  // seuls RDL/roumain/romanian/jambes tendues/stiff-leg basculent hors deadlift.
+  const EXPECTED = {
+    'Squat (Barre)': 'squat',
+    'Développé Couché (Barre)': 'bench',
+    'Soulevé de Terre (Barre)': 'deadlift',
+    'Soulevé de Terre Sumo': 'deadlift',       // sumo = style de compétition, reste
+    'Deadlift': 'deadlift',
+    'Soulevé de Terre Roumain': null,           // ← bascule (finition)
+    'Romanian Deadlift': null,                  // ← bascule (finition)
+    'Soulevé de Terre Jambes Tendues': null,    // ← bascule (finition)
+    'Stiff-Leg Deadlift': null,                 // ← bascule (finition)
+    'Stiff Leg Deadlift': null,                 // ← bascule (finition)
+    'RDL (Haltères)': null,                     // déjà null avant (pas de mot-clé deadlift)
+    'Soulevé de Terre Deficit': null,           // VARIANT_KEYWORDS (inchangé)
+    'Bench Press Pause': null,                  // VARIANT_KEYWORDS (inchangé)
+    'Front Squat': null,                        // exclusion squat (inchangé)
+    'Squat Goblet': null,                       // exclusion squat (inchangé)
+    'Hurdle Hops': null,                        // \brdl\b ne matche pas « hurdle »
+    'Rack Pull': null
+  };
+  const ctx = makeCtx({ logs: [], user: {} });
+  Object.keys(EXPECTED).forEach(name => {
+    test(name + ' → ' + JSON.stringify(EXPECTED[name]), () => {
+      expect(vm.runInContext('getSBDType(' + JSON.stringify(name) + ')', ctx)).toBe(EXPECTED[name]);
+    });
   });
 });
 

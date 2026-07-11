@@ -3364,7 +3364,7 @@ function saveRoutine() {
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
-let activeSeancesSub = 's-coach';
+let activeSeancesSub = 's-log'; // défaut = Log (audit 🟡-1) ; le restore cloud/localStorage du dernier sous-onglet prime (voir _applyLastTabSub)
 let activeProfilSub = 'tab-corps';
 
 function showSeancesSub(id, btn) {

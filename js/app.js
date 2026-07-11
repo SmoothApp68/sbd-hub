@@ -11126,6 +11126,9 @@ function renderRecordsPersonnels() {
       + '<div style="background:#1a1a2e;border-radius:2px;height:4px;margin-bottom:8px;overflow:hidden;">'
       + '<div style="height:4px;width:' + pct + '%;background:' + lift.color + ';border-radius:2px;opacity:0.85;"></div>'
       + '</div>'
+      // Philosophie B : la vraie barre (bestPR) est le record ; l'e1RM reste
+      // visible mais toujours étiqueté comme estimation, jamais comme record.
+      + (lift.e1rm > 0 ? '<div style="font-size:8px;color:#6a6a8a;font-family:monospace;margin-bottom:4px;">e1RM estimé : ' + Math.round(lift.e1rm) + ' kg</div>' : '')
       + '<div style="font-size:8.5px;color:' + msgColor + ';font-weight:600;margin-bottom:2px;">' + msgIcon + ' ' + (msg.line1 || '') + '</div>'
       + '<div style="font-size:7.5px;color:#6a6a8a;">' + (msg.line2 || '') + '</div>'
       + '</div>';

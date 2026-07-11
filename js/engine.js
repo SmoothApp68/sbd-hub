@@ -2694,42 +2694,6 @@ function getVolumeByMuscleGroup() {
   return volumes;
 }
 
-// Détecte une chute de performance des accessoires après un PR sur un lift principal
-// Retourne le ratio d'augmentation de RPE (positif = fatigue), ou null
-function detectAccessoryDropoff() {
-  var sorted = (db.logs || []).slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
-  if (sorted.length < 4) return null;
-  var last = sorted[0];
-  var hasPR = (last.exercises || []).some(function(exo) {
-    var type = typeof getSBDType === 'function' ? getSBDType(exo.name) : null;
-    if (!type) return false;
-    var best = (db.bestPR || {})[type] || 0;
-    return exo.maxRM > 0 && best > 0 && exo.maxRM >= best * 0.98;
-  });
-  if (!hasPR) return null;
-  var prevRpe = 0, prevN = 0;
-  sorted.slice(1, 4).forEach(function(log) {
-    (log.exercises || []).forEach(function(exo) {
-      if (typeof getSBDType === 'function' && getSBDType(exo.name)) return;
-      (exo.allSets || []).forEach(function(s) {
-        if (!s.isWarmup && parseFloat(s.rpe) > 0) { prevRpe += parseFloat(s.rpe); prevN++; }
-      });
-    });
-  });
-  if (prevN === 0) return null;
-  prevRpe /= prevN;
-  var lastRpe = 0, lastN = 0;
-  (last.exercises || []).forEach(function(exo) {
-    if (typeof getSBDType === 'function' && getSBDType(exo.name)) return;
-    (exo.allSets || []).forEach(function(s) {
-      if (!s.isWarmup && parseFloat(s.rpe) > 0) { lastRpe += parseFloat(s.rpe); lastN++; }
-    });
-  });
-  if (lastN === 0) return null;
-  lastRpe /= lastN;
-  return prevRpe > 0 ? (lastRpe - prevRpe) / prevRpe : null;
-}
-
 // ── Arbre de décision plateau (Gemini Q4.1 — B4) ──────────────────────────
 // Retourne null si pas de plateau, sinon { type, action, message }
 function classifyStagnation(liftType) {

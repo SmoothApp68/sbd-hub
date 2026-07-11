@@ -5059,7 +5059,8 @@ function calcAndStoreLiftRanks() {
       });
     });
 
-    // Fallback to db.bestPR (which already stores e1RM via maxRM) if logs path missed
+    // Fallback db.bestPR : désormais une VRAIE barre (philosophie B) — borne
+    // basse valide d'un e1RM (une barre soulevée est au moins un 1RM).
     if (db.bestPR) {
       ['squat','bench','deadlift'].forEach(function(t) {
         if ((db.bestPR[t] || 0) > bestByType[t]) bestByType[t] = db.bestPR[t];
@@ -9805,7 +9806,10 @@ function calcDashRM(input, e1rm, uid) {
 function formatExoDropdown(name, exo, idx, staleMatchName) {
   const exoType = exo.exoType || getExoType(name);
   const ms = _ecMuscleStyle(name);
-  const isPR = SBD_TYPES.some(t => exo.maxRM === db.bestPR[t] && db.bestPR[t] > 0);
+  // bestPR = vraie barre (philosophie B) : le marqueur PR compare des poids
+  // réels — l'ancienne égalité maxRM (e1RM) === bestPR ne matchait plus que
+  // les singles.
+  const isPR = SBD_TYPES.some(t => _exoMaxRealWeight(exo) === db.bestPR[t] && db.bestPR[t] > 0);
   const id = 'exo-' + idx;
 
   // ── Main display value + date ──

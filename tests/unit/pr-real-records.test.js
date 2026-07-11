@@ -251,6 +251,28 @@ describe('_sessionHasRealPR — badge 🏆 du Log', () => {
   });
 });
 
+describe('getBestE1RMForLift — e1RM affiché Home = max historique (comme Stats)', () => {
+  test('max des maxRM sur les logs du type, pas le registre DUP', () => {
+    // Deux séances squat : maxRM 148 (ancienne) et 138 (récente) → l'affichage
+    // Home doit suivre le MAX historique (148), pas la valeur récente.
+    const db = {
+      logs: [
+        mkLog(1000, [mkExo('Squat (Barre)', { '5': 125 }, { maxRM: 148 })]),
+        mkLog(2000, [mkExo('Squat (Barre)', { '5': 117 }, { maxRM: 138 })])
+      ],
+      user: {}, exercises: { 'Squat (Barre)': { e1rm: 138 } }
+    };
+    const ctx = makeCtx(db);
+    vm.runInContext(extractFn(APP, 'getBestE1RMForLift'), ctx);
+    expect(vm.runInContext("getBestE1RMForLift('squat')", ctx)).toBe(148);
+  });
+  test('type non présent dans les logs → 0 (le garde-fou bestPR prend le relais)', () => {
+    const ctx = makeCtx({ logs: [], user: {} });
+    vm.runInContext(extractFn(APP, 'getBestE1RMForLift'), ctx);
+    expect(vm.runInContext("getBestE1RMForLift('bench')", ctx)).toBe(0);
+  });
+});
+
 describe('getLiftPRDisplay (Stats→Records) — vrai poids en headline, e1RM en est.', () => {
   function display(lift) {
     const ctx = makeCtx({ logs: [], user: {} });

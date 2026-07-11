@@ -1764,6 +1764,20 @@ function recalcBestPR() {
     });
   }
 }
+// Meilleur e1RM HISTORIQUE d'un lift SBD (lecture seule, pour l'AFFICHAGE) :
+// max des maxRM (Brzycki) sur tous les logs du type — même source que
+// Stats→Records. Ne touche pas au registre DUP db.exercises[].e1rm (capacité
+// actuelle, pilote wpComputeWorkWeight — il peut baisser, c'est voulu).
+function getBestE1RMForLift(liftKey) {
+  var best = 0;
+  (db.logs || []).forEach(function(log) {
+    (log.exercises || []).forEach(function(exo) {
+      if (getSBDType(exo.name) !== liftKey) return;
+      if ((exo.maxRM || 0) > best) best = exo.maxRM;
+    });
+  });
+  return best;
+}
 // Records RÉELS agrégés d'un exercice sur tout l'historique (synonymes via
 // matchExoName) : poids max jamais soulevé + meilleur poids par nombre de reps.
 function getRealRecords(exoName) {
@@ -11085,18 +11099,25 @@ function renderStatsCompact() {
 // ── 4. RECORDS PERSONNELS — barres + messages Gemini ─────────────────────────
 function renderRecordsPersonnels() {
   var tgt = (db.user && db.user.targets) || {};
+  // e1RM affiché = max HISTORIQUE (même source que Stats→Records), jamais le
+  // registre DUP vivant (il baisse avec l'autorégulation → 138 vs 148 device).
+  // Garde-fou : jamais < la vraie barre (bestPR).
+  function _displayE1RM(key) {
+    var best = (typeof getBestE1RMForLift === 'function') ? getBestE1RMForLift(key) : 0;
+    return Math.max(best, (db.bestPR && db.bestPR[key]) || 0);
+  }
   var lifts = [
     { key: 'squat', label: 'SQUAT', color: '#4a8fff',
       pr: (db.bestPR && db.bestPR.squat) || 0,
-      e1rm: (db.exercises && db.exercises['Squat (Barre)'] && db.exercises['Squat (Barre)'].e1rm) || 0,
+      e1rm: _displayE1RM('squat'),
       obj: tgt.squat || 160 },
     { key: 'bench', label: 'BENCH', color: '#5fc85f',
       pr: (db.bestPR && db.bestPR.bench) || 0,
-      e1rm: (db.exercises && db.exercises['Développé Couché (Barre)'] && db.exercises['Développé Couché (Barre)'].e1rm) || 0,
+      e1rm: _displayE1RM('bench'),
       obj: tgt.bench || 143 },
     { key: 'deadlift', label: 'DEAD', color: '#ff6b6b',
       pr: (db.bestPR && db.bestPR.deadlift) || 0,
-      e1rm: (db.exercises && db.exercises['Soulevé de Terre (Barre)'] && db.exercises['Soulevé de Terre (Barre)'].e1rm) || 0,
+      e1rm: _displayE1RM('deadlift'),
       obj: tgt.deadlift || 190 }
   ];
 

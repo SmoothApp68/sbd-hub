@@ -779,7 +779,9 @@
     .lc-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
     .lc-rank { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; }
     .lc-info { flex: 1; min-width: 0; }
-    .lc-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Clamp 2 lignes : le discriminant des variantes (« (Barre) », « Incliné… »)
+       est en fin de nom — l'ellipsis 1 ligne le coupait. */
+    .lc-name { font-size: 14px; font-weight: 700; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .lc-muscle { font-size: 11px; margin-top: 2px; }
     .lc-right { text-align: right; flex-shrink: 0; }
     .lc-e1rm { font-size: 20px; font-weight: 800; color: var(--blue); }

@@ -18459,6 +18459,138 @@ function getCoachCalibration() {
   };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// ARBITRE D'INTENSITÉ (étape 4 Coach — spec validée Gemini). Une seule voix :
+// les 8 émetteurs consomment CE verdict au lieu d'émettre chacun le leur.
+// computeIntensityVerdict est PURE (aucune lecture db, aucune écriture) —
+// testée par table de vérité jest. Le collecteur (lecture seule) est séparé.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Bornes ACWR par profil d'agressivité (Gemini, ±0.1) :
+// acwr < basse → push · entre → maintain · > haute → deload.
+var INTENSITY_ACWR_BOUNDS = {
+  prudent:   [1.2, 1.4],
+  classique: [1.3, 1.5],
+  offensif:  [1.4, 1.6]
+};
+
+// Un check-in est « mauvais » (post-filtre subjectif) si sommeil ou énergie très
+// bas, ou courbatures très élevées — échelle x10 source (sleep10/energy10 ≤ 4
+// ⇔ ≤ 2/5 ; soreness10 ≥ 8). La douleur (pain) est traitée au cran 1, pas ici.
+function _checkinIsBad(c) {
+  if (!c) return false;
+  return (c.sleep10 != null && c.sleep10 <= 4)
+    || (c.energy10 != null && c.energy10 <= 4)
+    || (c.soreness10 != null && c.soreness10 >= 8);
+}
+
+// Arbitre — pyramide de priorité stricte (premier match gagne) puis post-filtre
+// subjectif (dégrade d'UN cran max). Retourne :
+// { direction: 'push'|'maintain'|'ease'|'deload', reason, source, severity,
+//   resetDeloadCalendar?, degradedByCheckin? }
+// PURE : ne lit que ctx, n'écrit rien — resetDeloadCalendar est un FLAG que
+// l'appelant honorera sur événement (jamais pendant un render).
+function computeIntensityVerdict(ctx) {
+  ctx = ctx || {};
+  var profile = ctx.profile || 'classique';
+  var verdict = null;
+
+  // Cran 1 — sécurité immédiate (douleur aiguë incluse : correctif Gemini #4)
+  if (ctx.killSwitch) {
+    verdict = { direction: 'ease', source: 'killswitch', severity: 'critical',
+      reason: 'Mode Compétition — préservation : charges fixes, récupération maximale.' };
+  } else if (ctx.injuryDanger) {
+    verdict = { direction: 'ease', source: 'injury', severity: 'critical',
+      reason: 'Alerte articulaire active — on protège la zone, séance allégée.' };
+  } else if (ctx.painAcute) {
+    verdict = { direction: 'ease', source: 'pain', severity: 'critical',
+      reason: 'Douleur signalée au check-in — séance allégée, on ne charge pas une douleur.' };
+  }
+  // Cran 2 — return-to-play (le mini-cycle de reprise = prompt 4)
+  else if ((ctx.absenceDays || 0) > 14) {
+    verdict = { direction: 'ease', source: 'returnToPlay', severity: 'high',
+      reason: 'Retour après ' + Math.round(ctx.absenceDays) + ' jours — recalibration, les tendons suivent moins vite que les muscles.' };
+  }
+  // Cran 3 — deload piloté par les données (correctif Gemini #1 : reset le calendrier)
+  else if (ctx.deloadDataDriven && ctx.deloadDataDriven.needed) {
+    verdict = { direction: 'deload', source: 'deloadData', severity: 'high',
+      reason: ctx.deloadDataDriven.reason || 'Signaux de fatigue convergents — semaine de deload.',
+      resetDeloadCalendar: true };
+  }
+  // Cran 4 — deload calendaire (semaines > seuil niveau)
+  else if (ctx.deloadCalendar) {
+    verdict = { direction: 'deload', source: 'deloadCalendar', severity: 'high',
+      reason: 'Trop de semaines sans deload — réduis le volume à ~50% cette semaine.' };
+  } else {
+    // Cran 5 — deadlift demain : BYPASS calibration (correctif Gemini #2)
+    if (ctx.deadliftTomorrow) {
+      if (ctx.calibrating) {
+        verdict = { direction: 'maintain', source: 'planning', severity: 'medium',
+          reason: 'Deadlift demain — garde tes réserves (calibration en cours, on sécurise).' };
+      } else if ((ctx.acwr || 0) > 1.3) {
+        verdict = { direction: 'ease', source: 'planning', severity: 'medium',
+          reason: 'Deadlift demain et charge déjà élevée — allège aujourd\'hui.' };
+      }
+      // sinon : pas de contrainte, on continue vers les crans suivants
+    }
+    if (!verdict) {
+      // Cran 6 — calibration : l'ACWR est TOTALEMENT muet (correctif Gemini #3),
+      // le profil est dormant, jamais de push sur un score non fiable.
+      if (ctx.calibrating) {
+        verdict = { direction: 'maintain', source: 'calibration', severity: 'info',
+          reason: 'Calibration en cours — charge nominale, pas de sollicitation maximale.' };
+      }
+      // Cran 7 — opportunités (seulement si rien au-dessus)
+      else if ((ctx.momentumPRs || 0) >= 2) {
+        verdict = { direction: 'push', source: 'momentum', severity: 'info',
+          reason: ctx.momentumPRs + ' vrais PR cette semaine — le momentum est là, profite.' };
+      } else if (ctx.cyclePhase === 'ovulatoire') {
+        verdict = { direction: 'push', source: 'cycle', severity: 'info',
+          reason: 'Pic de force potentiel (phase ovulatoire) — bonne fenêtre pour charger. Échauffe bien les articulations.' };
+      } else if (ctx.backOffOpportunity) {
+        verdict = { direction: 'push', source: 'backoff', severity: 'info',
+          reason: 'Forme du jour excellente — le bonus set est jouable.' };
+      }
+      // Cran 8 — défaut : ACWR × profil (hors calibration)
+      else {
+        var bounds = INTENSITY_ACWR_BOUNDS[profile] || INTENSITY_ACWR_BOUNDS.classique;
+        var acwr = (typeof ctx.acwr === 'number') ? ctx.acwr : 1.0;
+        if (acwr < bounds[0]) {
+          verdict = { direction: 'push', source: 'acwr', severity: 'info',
+            reason: 'Charge saine (ACWR ' + acwr.toFixed(2) + ') — tu as de la marge pour pousser.' };
+        } else if (acwr <= bounds[1]) {
+          verdict = { direction: 'maintain', source: 'acwr', severity: 'info',
+            reason: 'Charge dans la zone haute (ACWR ' + acwr.toFixed(2) + ') — maintiens, n\'empile pas.' };
+        } else {
+          verdict = { direction: 'deload', source: 'acwr', severity: 'high',
+            reason: 'Charge aiguë trop élevée (ACWR ' + acwr.toFixed(2) + ') — lève le pied cette semaine.' };
+        }
+      }
+    }
+  }
+
+  // Étape B — POST-FILTRE subjectif (correctif Gemini #1) : check-in mauvais →
+  // dégrade d'UN cran (push→maintain, maintain→ease), jamais plus — l'ACWR
+  // objectif garde le dernier mot sur l'ampleur. Pas de check-in → aucune
+  // modification. Ne s'applique pas aux verdicts sécurité (crans 1-2) ni deload.
+  var _securitySources = { killswitch: 1, injury: 1, pain: 1, returnToPlay: 1 };
+  if (ctx.checkin && _checkinIsBad(ctx.checkin)
+      && !_securitySources[verdict.source]
+      && verdict.direction !== 'deload' && verdict.direction !== 'ease') {
+    if (verdict.direction === 'push') {
+      verdict = { direction: 'maintain', source: verdict.source, severity: verdict.severity,
+        reason: verdict.reason + ' Mais ton check-in est bas — on tempère : maintiens sans forcer.',
+        degradedByCheckin: true };
+    } else if (verdict.direction === 'maintain') {
+      verdict = { direction: 'ease', source: verdict.source, severity: verdict.severity,
+        reason: verdict.reason + ' Ton check-in est bas — séance allégée aujourd\'hui.',
+        degradedByCheckin: true };
+    }
+  }
+
+  return verdict;
+}
+
 // Affichage Potentiel de Performance pendant la calibration ACWR : jauge de PROGRESSION (aucun
 // score chiffré — on ne montre pas un « faux tableau de bord »). Copy Gemini A.
 function getBatteryCalibrationDisplay(cal) {

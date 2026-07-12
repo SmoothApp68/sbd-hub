@@ -18591,6 +18591,119 @@ function computeIntensityVerdict(ctx) {
   return verdict;
 }
 
+// Vrais PR (charge OU reps) des 7 derniers jours sur COMPOSÉS MAJEURS (S/B/D +
+// OHP) — via _detectSessionRealPRs (records réels, chantier PR), jamais les
+// flags morts exo.newPR/isPR. Lecture seule.
+function _countRealPRsLast7d() {
+  if (typeof _detectSessionRealPRs !== 'function') return 0;
+  var OHP_RE = /développé militaire|overhead press|\bohp\b|press militaire|military press/i;
+  var cutoff = Date.now() - 7 * 86400000;
+  var logs = (db.logs || []).slice().sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+  var count = 0;
+  logs.forEach(function(log, i) {
+    if ((log.timestamp || 0) < cutoff) return;
+    var prs = _detectSessionRealPRs(log, logs.slice(0, i));
+    prs.forEach(function(pr) {
+      var major = (typeof getSBDType === 'function' && getSBDType(pr.name))
+        || OHP_RE.test(pr.name || '');
+      if (major) count++;
+    });
+  });
+  return count;
+}
+
+// Le plan de DEMAIN contient-il un deadlift ? (même convention que les alertes
+// adaptatives : getSBDType — RDL exclu). Lecture seule.
+function _planHasDeadliftTomorrow() {
+  var days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  var tomorrow = days[(new Date().getDay() + 1) % 7];
+  var d = ((db.weeklyPlan && db.weeklyPlan.days) || []).find(function(x) { return x.day === tomorrow; });
+  if (!d || d.isRest || d.rest) return false;
+  return (d.exercises || []).some(function(e) {
+    return typeof getSBDType === 'function' && getSBDType(e.name) === 'deadlift';
+  });
+}
+
+// Un bonus set / +1 rep est-il jouable aujourd'hui ? (mêmes briques que
+// renderBackOffSuggestion, sans HTML — détection seule). Lecture seule.
+function _detectBackOffOpportunity() {
+  if (typeof computeBackOffSets !== 'function') return false;
+  var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
+  var plan = db.weeklyPlan && db.weeklyPlan.days
+    ? db.weeklyPlan.days.find(function(d) { return d.day === today && !d.rest; })
+    : null;
+  if (!plan || !plan.exercises) return false;
+  var primaryLift = plan.exercises.find(function(e) { return e.isPrimary; });
+  if (!primaryLift || !primaryLift.sets) return false;
+  var workSets = primaryLift.sets.filter(function(s) { return !s.isWarmup && !s.isBackOff && !s.isBackoff && !s.isDropSet; });
+  if (!workSets.length) return false;
+  var todayTs = new Date(); todayTs.setHours(0, 0, 0, 0);
+  var todayLog = null;
+  (db.logs || []).forEach(function(l) { if (l.timestamp >= todayTs.getTime()) todayLog = l; });
+  if (!todayLog) return false; // pas de top set loggé aujourd'hui → pas d'opportunité mesurable
+  var topSetRPE = workSets[workSets.length - 1].rpe || 8;
+  var topSetWeight = workSets[workSets.length - 1].weight || 0;
+  var loggedExo = (todayLog.exercises || []).find(function(e) {
+    return e.name && primaryLift.name && e.name.toLowerCase().includes(primaryLift.name.toLowerCase().split(' ')[0]);
+  });
+  if (loggedExo) {
+    var loggedWork = (loggedExo.allSets || loggedExo.series || []).filter(function(s) { return !s.isWarmup && s.weight > 0; });
+    if (loggedWork.length) {
+      var lastLogged = loggedWork[loggedWork.length - 1];
+      topSetRPE = parseFloat(lastLogged.rpe) || topSetRPE;
+      topSetWeight = parseFloat(lastLogged.weight) || topSetWeight;
+    }
+  }
+  if (!topSetWeight) return false;
+  var targetRPE = workSets[0].rpe || 8;
+  var bodyPart = /squat|deadlift|soulevé|hip|fentes|leg/i.test(primaryLift.name || '') ? 'lower' : 'upper';
+  var result = computeBackOffSets(topSetWeight, topSetRPE, targetRPE, 3, bodyPart);
+  return !!(result && result.suggestion
+    && (result.suggestion.type === 'bonus_set' || result.suggestion.type === 'extra_reps'));
+}
+
+// COLLECTEUR de l'arbitre — rassemble toutes les entrées en un objet, chaque
+// source appelée UNE fois. Lecture seule stricte (aucune écriture).
+function collectIntensityContext() {
+  var checkin = (typeof getTodayCheckin === 'function') ? getTodayCheckin() : null;
+  var cal = (typeof getCoachCalibration === 'function') ? getCoachCalibration() : { calibrating: false };
+  var srs = null;
+  try { srs = (typeof computeSRS === 'function') ? computeSRS() : null; } catch (e) {}
+  var deloadDD = { needed: false };
+  try {
+    deloadDD = (typeof shouldDeload === 'function')
+      ? shouldDeload(db.logs, db.user && db.user.trainingMode) : { needed: false };
+  } catch (e) {}
+  var deloadWks = (typeof getWeeksSinceDeload === 'function') ? getWeeksSinceDeload() : null;
+  // Seuils calendaires : jeu shouldDeload retenu (6/8/12 — divergence tranchée à l'étape 4)
+  var level = (db.user && (db.user._realLevel || db.user.level)) || 'intermediaire';
+  var maxWeeks = { debutant: 12, intermediaire: 8, avance: 6 }[level] || 8;
+  // checkInjuryPersistence → null | blessures[] déjà filtrées (actives, niveau
+  // ≥ 2, persistantes ≥ 14j, non réhab/cleared) : toute entrée = danger.
+  var injuryDanger = false;
+  try {
+    var _inj = (typeof checkInjuryPersistence === 'function') ? checkInjuryPersistence() : null;
+    injuryDanger = !!(_inj && _inj.length);
+  } catch (e) {}
+  return {
+    killSwitch: !!db._killSwitchActive,
+    injuryDanger: injuryDanger,
+    painAcute: !!(checkin && checkin.pain),
+    deloadDataDriven: deloadDD,
+    deloadCalendar: (deloadWks !== null && deloadWks > maxWeeks),
+    absenceDays: (typeof getAbsencePenalty === 'function') ? (getAbsencePenalty().days || 0) : 0,
+    deadliftTomorrow: _planHasDeadliftTomorrow(),
+    calibrating: !!cal.calibrating,
+    acwr: (srs && typeof srs.acwr === 'number') ? srs.acwr : null,
+    profile: 'classique', // dérivation f(trainingMode, goal, realLevel) = prompt 3/4
+    cyclePhase: (db.user && db.user.menstrualEnabled && typeof getCurrentMenstrualPhase === 'function')
+      ? getCurrentMenstrualPhase() : null,
+    momentumPRs: _countRealPRsLast7d(),
+    backOffOpportunity: _detectBackOffOpportunity(),
+    checkin: checkin
+  };
+}
+
 // Affichage Potentiel de Performance pendant la calibration ACWR : jauge de PROGRESSION (aucun
 // score chiffré — on ne montre pas un « faux tableau de bord »). Copy Gemini A.
 function getBatteryCalibrationDisplay(cal) {

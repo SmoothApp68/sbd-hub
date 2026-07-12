@@ -228,3 +228,59 @@ describe('Pureté & unicité', () => {
     });
   });
 });
+
+// ── Collecteur (prompt 1/4 b) : helpers lecture seule ────────────────────────
+describe('_countRealPRsLast7d — vrais PR composés majeurs (jamais les flags morts)', () => {
+  const DAY = 86400000;
+  function count(logs) {
+    const c = vm.createContext({ db: { logs }, _cache: { sbdType: new Map() } });
+    vm.runInContext("const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];", c);
+    const ENGINE = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'engine.js'), 'utf8');
+    ['_getSBDTypeRaw', 'getSBDType'].forEach(fn => vm.runInContext(extractFn(ENGINE, fn), c));
+    ['_exoMaxRealWeight', 'isRealSetPR', '_detectSessionRealPRs', '_countRealPRsLast7d']
+      .forEach(fn => vm.runInContext(extractFn(APP, fn), c));
+    return vm.runInContext('_countRealPRsLast7d()', c);
+  }
+  const mk = (daysAgo, name, repRecords) => ({
+    timestamp: Date.now() - daysAgo * DAY,
+    exercises: [{ name, repRecords }]
+  });
+  test('vraie barre squat cette semaine (105 après 100) → 1 PR', () => {
+    expect(count([mk(20, 'Squat (Barre)', { '5': 100 }), mk(2, 'Squat (Barre)', { '1': 105 })])).toBe(1);
+  });
+  test('PR sur ACCESSOIRE seul (curl) → 0 (composés majeurs uniquement)', () => {
+    expect(count([mk(20, 'Curl (Haltère)', { '10': 20 }), mk(2, 'Curl (Haltère)', { '10': 25 })])).toBe(0);
+  });
+  test('OHP compte comme composé majeur', () => {
+    expect(count([mk(20, 'Overhead Press', { '5': 50 }), mk(2, 'Overhead Press', { '5': 55 })])).toBe(1);
+  });
+  test('rep-work sans dépassement (95×8 après 100×5) → 0', () => {
+    expect(count([mk(20, 'Squat (Barre)', { '5': 100 }), mk(2, 'Squat (Barre)', { '8': 95 })])).toBe(0);
+  });
+  test('PR vieux de 10 jours → 0 (fenêtre 7j)', () => {
+    expect(count([mk(30, 'Squat (Barre)', { '5': 100 }), mk(10, 'Squat (Barre)', { '1': 110 })])).toBe(0);
+  });
+});
+
+describe('_planHasDeadliftTomorrow — plan réel, RDL exclu', () => {
+  function has(days) {
+    const c = vm.createContext({ db: { weeklyPlan: { days } }, _cache: { sbdType: new Map() } });
+    vm.runInContext("const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];", c);
+    const ENGINE = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'engine.js'), 'utf8');
+    ['_getSBDTypeRaw', 'getSBDType'].forEach(fn => vm.runInContext(extractFn(ENGINE, fn), c));
+    vm.runInContext(extractFn(APP, '_planHasDeadliftTomorrow'), c);
+    return vm.runInContext('_planHasDeadliftTomorrow()', c);
+  }
+  const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const tomorrow = JOURS[(new Date().getDay() + 1) % 7];
+  test('deadlift au plan de demain → true', () => {
+    expect(has([{ day: tomorrow, exercises: [{ name: 'Soulevé de Terre (Barre)' }] }])).toBe(true);
+  });
+  test('RDL demain → false (accessoire hinge, pas le soulevé de compét)', () => {
+    expect(has([{ day: tomorrow, exercises: [{ name: 'Soulevé de Terre Roumain' }] }])).toBe(false);
+  });
+  test('demain = repos → false ; plan absent → false', () => {
+    expect(has([{ day: tomorrow, rest: true, exercises: [{ name: 'Soulevé de Terre (Barre)' }] }])).toBe(false);
+    expect(has([])).toBe(false);
+  });
+});

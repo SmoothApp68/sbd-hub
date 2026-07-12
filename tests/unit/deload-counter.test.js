@@ -147,3 +147,42 @@ describe('render pur préservé — initDeloadDetection au boot', () => {
     expect(body.indexOf('_deloadDetectedAuto = true')).toBe(-1);
   });
 });
+
+// ── Fix 3 : le pont — générer un plan deload POSE lastDeloadDate ─────────────
+// generateWeeklyPlan est massive et DOM-dépendante → on extrait le fragment
+// RÉEL (restauration v228 + pont), auto-contenu : il ne référence que db/plan.
+describe('pont plan-deload → lastDeloadDate (generateWeeklyPlan)', () => {
+  function extractBridge() {
+    const start = APP.indexOf('// v228 — préserver currentBlock');
+    if (start === -1) throw new Error('marqueur v228 introuvable');
+    const endMark = APP.indexOf('_deloadDetectedAuto = false;', start);
+    if (endMark === -1) throw new Error('pont deload introuvable après la restauration v228');
+    const end = APP.indexOf('}', endMark);
+    return APP.slice(start, end + 1);
+  }
+  function runBridge(db, plan) {
+    const ctx = vm.createContext({ db, plan });
+    vm.runInContext(extractBridge(), ctx);
+    return db;
+  }
+  const oldDate = new Date(Date.now() - 70 * DAY).toISOString().split('T')[0]; // 10 sem
+  test('plan deload → lastDeloadDate = date de génération (écrase la restauration v228)', () => {
+    const db = { weeklyPlan: { lastDeloadDate: oldDate, _deloadDetectedAuto: true } };
+    const plan = { isDeload: true, generated_at: new Date().toISOString() };
+    runBridge(db, plan);
+    expect(db.weeklyPlan.lastDeloadDate).toBe(plan.generated_at.split('T')[0]);
+    expect(db.weeklyPlan._deloadDetectedAuto).toBe(false); // deload réel, plus heuristique
+  });
+  test('plan normal → lastDeloadDate antérieure préservée (restauration v228 intacte)', () => {
+    const db = { weeklyPlan: { lastDeloadDate: oldDate } };
+    runBridge(db, { isDeload: false, generated_at: new Date().toISOString() });
+    expect(db.weeklyPlan.lastDeloadDate).toBe(oldDate);
+  });
+  test('boucle fermée : max_weeks déclenché à 10 sem → pont posé → compteur reparti, plus de deload', () => {
+    const db = longHistoryDb(oldDate);
+    expect(runShouldDeload(db).trigger).toBe('max_weeks'); // avant le pont
+    runBridge(db, { isDeload: true, generated_at: new Date().toISOString() });
+    const after = runShouldDeload(db);
+    expect(after.needed).toBe(false); // le compteur repart de la décharge réelle
+  });
+});

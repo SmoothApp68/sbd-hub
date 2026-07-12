@@ -26352,6 +26352,15 @@ function generateWeeklyPlan() {
     if (_prevCurrentBlock) db.weeklyPlan.currentBlock = _prevCurrentBlock;
     if (_prevLastDeload) db.weeklyPlan.lastDeloadDate = _prevLastDeload;
     if (_prevDeloadAuto) db.weeklyPlan._deloadDetectedAuto = _prevDeloadAuto;
+    // Pont deload : générer un plan deload POSE lastDeloadDate (après la
+    // restauration v228, sinon écrasé) — les deux mécanismes
+    // weeklyPlanHistory[].isDeload ↔ lastDeloadDate restent synchronisés,
+    // le compteur calendaire repart de la vraie décharge. Événement
+    // (generateWeeklyPlan sur action/rollover), pas un render.
+    if (plan.isDeload) {
+      db.weeklyPlan.lastDeloadDate = plan.generated_at.split('T')[0];
+      db.weeklyPlan._deloadDetectedAuto = false;
+    }
     if (!db.routine) db.routine = {};
     days.forEach(function(d) { db.routine[d.day] = d.rest ? '😴 Repos Complet' : d.title; });
 

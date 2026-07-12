@@ -142,7 +142,7 @@ test.describe('Audit UX Navigation — First Time User v162', () => {
     // Dashboard: y a-t-il le SRS ?
     const dashHasSRS = await page.evaluate(() => {
       const text = document.body.innerText;
-      return text.includes('Batterie') || text.includes('SRS') || text.includes('Forme') || text.includes('Readiness');
+      return text.includes('Batterie') || text.includes('Potentiel') || text.includes('SRS') || text.includes('Forme') || text.includes('Readiness');
     });
     console.log('T3 — SRS visible on dashboard:', dashHasSRS);
 
@@ -152,7 +152,7 @@ test.describe('Audit UX Navigation — First Time User v162', () => {
       const html = document.body.innerHTML;
       const text = document.body.innerText;
       return {
-        hasBatterie: html.includes('Batterie') || html.includes('Nerveuse'),
+        hasBatterie: html.includes('Batterie') || html.includes('Potentiel') || html.includes('Nerveuse'),
         hasSRS: html.includes('SRS') || html.includes('score'),
         hasBudget: html.includes('Budget') || html.includes('TRIMP'),
         hasNaN: text.includes('NaN') || text.includes('undefined'),
@@ -278,7 +278,7 @@ test.describe('Audit UX Navigation — First Time User v162', () => {
     // batterie nerveuse
     const hasSRSOnDash = await page.evaluate(() => {
       const d = document.getElementById('tab-dash');
-      return d ? (d.innerText.includes('Batterie') || d.innerText.includes('SRS')) : false;
+      return d ? (d.innerText.includes('Batterie') || d.innerText.includes('Potentiel') || d.innerText.includes('SRS')) : false;
     });
     navDepth.batterie_nerveuse = hasSRSOnDash ? 0 : 2; // Séances→Coach
 

@@ -215,7 +215,7 @@ test.describe('Audit Bêta-Testeur — Onglet Séances v162', () => {
       const sections = {};
       // Batterie Nerveuse
       const srsEl = document.querySelector('.srs-card, [id*="srs"], [class*="srs"]');
-      sections.srsVisible = !!srsEl || document.body.innerHTML.includes('Batterie') || document.body.innerHTML.includes('SRS');
+      sections.srsVisible = !!srsEl || document.body.innerHTML.includes('Batterie') || document.body.innerHTML.includes('Potentiel') || document.body.innerHTML.includes('SRS');
       // Budget Énergétique
       sections.budgetVisible = document.body.innerHTML.includes('Budget') || document.body.innerHTML.includes('TRIMP') || document.body.innerHTML.includes('Charge');
       // Pas de NaN/undefined

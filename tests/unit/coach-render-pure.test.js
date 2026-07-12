@@ -131,7 +131,7 @@ describe('getTopE1RMForLift — mono-formule Brzycki, warm-ups exclus, jamais Na
 function calcRef(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
 
 // ── Coach étape 2b : getCoachCalibration (seuil hybride) ────────────────────
-describe('getCoachCalibration — calibration Batterie (âge OU base chronique)', () => {
+describe('getCoachCalibration — calibration Potentiel de Performance (âge OU base chronique)', () => {
   const DAY = 86400000;
   function run(logs) {
     const ctx = vm.createContext({ db: { logs }, _cache: { _sortedLogs: null } });

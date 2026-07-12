@@ -8414,7 +8414,7 @@ function renderWeekCard() {
         '</div>' +
       '</div>';
 
-  // ── Batterie Nerveuse / Check-in du jour ──
+  // ── Potentiel de Performance / Check-in du jour ──
   var _srs = typeof computeSRS === 'function' ? computeSRS() : null;
   var _srsScore = (_srs && typeof _srs.score === 'number') ? _srs.score : 75;
   var _srsColor = _srsScore >= 70 ? 'var(--green)' : _srsScore >= 40 ? 'var(--orange)' : 'var(--red)';
@@ -8438,7 +8438,7 @@ function renderWeekCard() {
       + 'Faire le check-in →</button>';
   } else {
     batteryHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-    batteryHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">Batterie Nerveuse</div>';
+    batteryHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;font-weight:600;">Potentiel</div>';
     batteryHtml += '<div style="font-size:22px;font-weight:700;color:' + _srsColor + ';">'
       + _srsScore + '<span style="font-size:12px;color:var(--sub);font-weight:400;">/100</span></div>';
     batteryHtml += '</div>';
@@ -18425,7 +18425,7 @@ function getWeeklyMuscuLoad() {
   return Math.round(total);
 }
 
-// État de calibration de la Batterie (ACWR). Sous ~3 semaines d'historique OU
+// État de calibration du Potentiel de Performance (ACWR). Sous ~3 semaines d'historique OU
 // base chronique < 3 séances (même condition que le pin ACWR backend de
 // computeSRS), le score n'a rien mesuré de fiable → l'affichage se masque et
 // montre une jauge de progression. Lecture seule (aucune écriture).
@@ -18459,13 +18459,13 @@ function getCoachCalibration() {
   };
 }
 
-// Affichage Batterie pendant la calibration ACWR : jauge de PROGRESSION (aucun
+// Affichage Potentiel de Performance pendant la calibration ACWR : jauge de PROGRESSION (aucun
 // score chiffré — on ne montre pas un « faux tableau de bord »). Copy Gemini A.
 function getBatteryCalibrationDisplay(cal) {
   var pct = Math.max(0, Math.min(100, Math.round((cal.daysElapsed / 21) * 100)));
   return '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-    + '<div style="font-size:13px;font-weight:600;">Batterie Nerveuse</div>'
+    + '<div style="font-size:13px;font-weight:600;">Potentiel de Performance</div>'
     + '<div style="font-size:12px;color:var(--accent);font-weight:700;">⚙️ Calibration ACWR — S' + cal.weekN + '/' + cal.weeksNeeded + '</div>'
     + '</div>'
     + '<div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">'
@@ -18478,13 +18478,15 @@ function getBatteryCalibrationDisplay(cal) {
 
 function getBatteryDisplay(srsScore) {
   var pct = Math.max(0, Math.min(100, srsScore || 75));
-  var label = pct >= 80 ? 'Pleine charge' : pct >= 60 ? 'Bonne forme'
-    : pct >= 40 ? 'Fatigue modérée' : 'Récupération nécessaire';
-  var color = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--accent)'
+  // Paliers Option A (validé Gemini) — bornes inchangées, libellés + couleurs
+  // renommés. Haut = Pic de forme, bas = Surcharge.
+  var label = pct >= 80 ? 'Pic de forme' : pct >= 60 ? 'Opérationnel'
+    : pct >= 40 ? 'Entamé' : 'Surcharge';
+  var color = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--gold)'
     : pct >= 40 ? 'var(--orange)' : 'var(--red)';
   return '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-    + '<div style="font-size:13px;font-weight:600;">Batterie Nerveuse</div>'
+    + '<div style="font-size:13px;font-weight:600;">Potentiel de Performance</div>'
     + '<div style="font-size:13px;color:' + color + ';font-weight:700;">' + label + '</div>'
     + '</div>'
     + '<div style="height:8px;background:var(--border);border-radius:4px;">'
@@ -19260,7 +19262,7 @@ function renderCoachTodayHTML() {
       html += '<div style="font-size:18px;font-weight:700;color:var(--orange);">' + _refeed.tdee + '</div>';
       html += '<div style="font-size:10px;color:var(--sub);">kcal cible</div>';
       html += '</div>';
-      // Score masqué pendant la calibration ACWR (cohérence avec la Batterie).
+      // Score masqué pendant la calibration ACWR (cohérence avec le Potentiel de Performance).
       var _refeedCal = typeof getCoachCalibration === 'function' && getCoachCalibration().calibrating;
       html += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
       html += '<div style="font-size:18px;font-weight:700;color:var(--sub);">' + (_refeedCal ? '—' : _refeed.srsScore + '/100') + '</div>';
@@ -19311,7 +19313,7 @@ function renderCoachTodayHTML() {
 
   var gaugeColor = function(s) { return s>=70?'var(--green)':s>=40?'var(--orange)':'var(--red)'; };
 
-  // Calibration ACWR : sous ~3 sem d'historique, le score de Batterie n'a rien
+  // Calibration ACWR : sous ~3 sem d'historique, le score de Potentiel de Performance n'a rien
   // mesuré (pin ACWR) → jauge de progression au lieu d'un score trompeur.
   var _batCal = typeof getCoachCalibration === 'function' ? getCoachCalibration() : { calibrating: false };
   html += _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore);

@@ -165,3 +165,46 @@ describe('getCoachCalibration — calibration Batterie (âge OU base chronique)'
     expect(c.calibrating).toBe(true); // daysElapsed=40 mais chronicBaseLogs=0
   });
 });
+
+// ── Coach follow-up étape 1 : calcStreak(readOnly) ne mute rien ─────────────
+describe('calcStreak(readOnly) — affichage pur (0 conso freeze, 0 write)', () => {
+  const DAY = 86400000;
+  function makeStreakCtx(db) {
+    const synced = []; const toasts = [];
+    const ctx = vm.createContext({
+      db, syncToCloud: () => synced.push(1), showToast: (m) => toasts.push(m),
+      __synced: synced, __toasts: toasts, window: {}
+    });
+    ['getISOWeekKey', '_mondayFromISOWeekKey', '_prevISOWeekKey'].forEach(fn => vm.runInContext(extractFn(APP, fn), ctx));
+    vm.runInContext(extractFn(APP, 'calcStreak'), ctx);
+    return ctx;
+  }
+  // Seed : semaines de séances consécutives récentes + un trou, avec des freezes.
+  // (streak >= 4 + trou + freezes > 0 → l'ancien code consommait un freeze.)
+  function seedWithGap() {
+    const wk = (n) => Date.now() - n * 7 * DAY; // il y a n semaines
+    return {
+      logs: [wk(1), wk(2), wk(3), wk(4), wk(6)].map(ts => ({ timestamp: ts, exercises: [] })), // trou en semaine 5
+      gamification: { streakFreezes: 2, freezeProtectedWeeks: [], freezesUsedAt: [] }
+    };
+  }
+  test('readOnly=true : aucune écriture db, aucun freeze consommé, aucun sync/toast', () => {
+    const db = seedWithGap();
+    const ctx = makeStreakCtx(db);
+    const before = JSON.stringify(db);
+    const v = vm.runInContext('calcStreak(true)', ctx);
+    expect(JSON.stringify(db)).toBe(before);          // db strictement inchangée
+    expect(db.gamification.streakFreezes).toBe(2);    // freeze NON consommé
+    expect(vm.runInContext('__synced.length', ctx)).toBe(0);
+    expect(vm.runInContext('__toasts.length', ctx)).toBe(0);
+    expect(db.weeklyStreak).toBeUndefined();          // pas d'écriture
+    expect(typeof v).toBe('number');                  // valeur quand même retournée
+  });
+  test('défaut (mutant) : écrit weeklyStreak* — comportement historique préservé', () => {
+    const db = seedWithGap();
+    const ctx = makeStreakCtx(db);
+    const v = vm.runInContext('calcStreak()', ctx);
+    expect(db.weeklyStreak).toBe(v);                  // écrit la valeur
+    expect(db.weeklyStreakRecord).toBe(v);            // high-water posé
+  });
+});

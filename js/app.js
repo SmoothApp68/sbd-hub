@@ -4408,7 +4408,11 @@ function _prevISOWeekKey(key) {
   return getISOWeekKey(new Date(monday.getTime() - 7 * 86400000));
 }
 
-function calcStreak() {
+// readOnly=true : calcule et RETOURNE le streak sans muter la db (aucune conso de
+// freeze, aucun syncToCloud/toast, pas d'écriture weeklyStreak*). Pour les appels
+// d'AFFICHAGE (render Coach) qui ne doivent avoir aucun effet de bord. Défaut
+// false → comportement historique inchangé (persistance + gestion des freezes).
+function calcStreak(readOnly) {
   // Weekly calendar streak: ISO 8601 weeks (Mon-Sun, UTC) with ≥1 session
   if (!db.logs.length) return 0;
 
@@ -4457,7 +4461,8 @@ function calcStreak() {
       } else if (checkWeek < '2026-W01') {
         if (DEBUG) console.log('[calcStreak] BREAK (pre-2026) at week=' + checkWeek + ' streak=' + streak);
         break;
-      } else if (!freezeConsumedThisCall
+      } else if (!readOnly
+                 && !freezeConsumedThisCall
                  && (db.gamification.streakFreezes || 0) > 0
                  && streak >= 4) {
         streak++;
@@ -4495,9 +4500,13 @@ function calcStreak() {
     streak += 1;
   }
 
-  // Store in db for cloud sync (never overwrite a higher record)
-  db.weeklyStreak = streak;
-  if (streak > (db.weeklyStreakRecord || 0)) db.weeklyStreakRecord = streak;
+  // Store in db for cloud sync (never overwrite a higher record).
+  // readOnly (affichage) : aucune écriture — le record reste alimenté par les
+  // appelants mutants (Home, gamification, import…).
+  if (!readOnly) {
+    db.weeklyStreak = streak;
+    if (streak > (db.weeklyStreakRecord || 0)) db.weeklyStreakRecord = streak;
+  }
 
   if (DEBUG) console.log('[calcStreak] FINAL streak=' + streak);
 
@@ -18490,7 +18499,7 @@ function getBatteryDisplay(srsScore) {
 function getRegularityMessage() {
   var logs = db.logs || [];
   if (!logs.length) return null;
-  var streak = typeof calcStreak === 'function' ? calcStreak() : 0;
+  var streak = typeof calcStreak === 'function' ? calcStreak(true) : 0; // readOnly : affichage pur
   var totalSessions = logs.length;
   var now = Date.now();
   var last30 = logs.filter(function(l) { return (l.timestamp || 0) > now - 30 * 86400000; });

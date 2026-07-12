@@ -19276,18 +19276,34 @@ function renderCoachTodayHTML() {
     var _caRatioSB   = _caBench > 0 ? _caSquat / _caBench : 1.20;
     var _caLevel     = (db.user && db.user.level) || 'intermediaire';
 
-    // Alerte 1 — Lundi/Samedi + ratio S/B < 1.20 → Leg Extension prioritaire
-    if ((_caTodayName === 'Lundi' || _caTodayName === 'Samedi') && _caRatioSB < 1.20) {
+    // Alertes basées sur le VRAI plan (db.weeklyPlan), plus sur un split hardcodé :
+    // on ne parle d'un lift que s'il figure réellement au plan du jour / lendemain.
+    // Plan absent ou custom → aucune de ces alertes ne s'affiche (ne rien inventer).
+    var _caDaysOrder = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    var _caPlanDays = (db.weeklyPlan && db.weeklyPlan.days) || [];
+    var _caFindDay = function(name) { return _caPlanDays.find(function(d) { return d.day === name; }); };
+    var _caDayHasType = function(dayObj, type) {
+      if (!dayObj || dayObj.isRest || dayObj.rest) return false;
+      return (dayObj.exercises || []).some(function(e) {
+        return typeof getSBDType === 'function' && getSBDType(e.name) === type;
+      });
+    };
+    var _caToday = _caFindDay(_caTodayName);
+    var _caTomorrow = _caFindDay(_caDaysOrder[(_caDaysOrder.indexOf(_caTodayName) + 1) % 7]);
+
+    // Alerte 1 — jour de SQUAT au plan + ratio S/B < 1.20 → Leg Extension prioritaire
+    if (_caDayHasType(_caToday, 'squat') && _caRatioSB < 1.20) {
       _coachAlerts.push({ type: 'warning',
         text: '🎯 Leg Extension prioritaire — ratio S/B ' + _caRatioSB.toFixed(2) + ' < 1.20. Ne saute pas cet exercice correctif aujourd\'hui.' });
     }
-    // Alerte 2 — Mercredi → Deadlift demain, protège le CNS
-    if (_caTodayName === 'Mercredi') {
+    // Alerte 2 — Deadlift DEMAIN au plan (RDL exclu par getSBDType) → protège le CNS
+    if (_caDayHasType(_caTomorrow, 'deadlift')) {
       _coachAlerts.push({ type: 'info',
         text: '⚡ Demain : Deadlift. Garde tes réserves neuromusculaires — évite les efforts intenses ou séries lourdes aujourd\'hui.' });
     }
-    // Alerte 3 — Mardi → Rowing fondation du Bench
-    if (_caTodayName === 'Mardi') {
+    // Alerte 3 — Rowing AU PLAN aujourd'hui (rowing n'est pas un type SBD → par nom)
+    if (_caToday && !(_caToday.isRest || _caToday.rest)
+        && (_caToday.exercises || []).some(function(e) { return /rowing|barbell row|\brow\b/i.test(e.name || ''); })) {
       _coachAlerts.push({ type: 'green',
         text: '💡 Rowing = fondation de ton Bench. Pause 1s en position étirée sur chaque rep — renforce la chaîne postérieure qui stabilise tes épaules.' });
     }

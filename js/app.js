@@ -19298,15 +19298,11 @@ function renderCoachTodayHTML() {
   }
 
   // ── 1. JAUGES ──
+  // Une seule « récupération » = le Potentiel de Performance (SRS, bloc ci-dessous).
+  // L'ancienne jauge Récup heures/48 (horloge murale, 49h canapé = 100%) et le
+  // fatigueScore mort ont été retirés (étape 3 Coach).
   var srs = typeof computeSRS === 'function' ? computeSRS() : { score: 60, label: '' };
   var formScore = srs.score;
-  var fatigueScore = 100 - srs.score; // rétrocompat
-
-  var lastSession = (db.logs && db.logs.length)
-    ? db.logs.slice().sort(function(a, b) { return (b.timestamp||0) - (a.timestamp||0); })[0]
-    : null;
-  var hoursAgo = lastSession ? Math.round((Date.now()-lastSession.timestamp)/3600000) : 72;
-  var recovScore = Math.min(100, Math.round((hoursAgo/48)*100));
 
   var volReport = typeof coachAnalyzeWeeklyVolume === 'function' ? coachAnalyzeWeeklyVolume() : null;
   var volOptimal = volReport ? volReport.optimal.length : 0;
@@ -19320,10 +19316,6 @@ function renderCoachTodayHTML() {
   var _batCal = typeof getCoachCalibration === 'function' ? getCoachCalibration() : { calibrating: false };
   html += _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore);
   html += '<div class="coach-gauges">';
-  html += '<div class="coach-gauge">'+
-    '<div class="coach-gauge-val" style="color:'+gaugeColor(recovScore)+';">'+recovScore+'</div>'+
-    '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+recovScore+'%;background:'+gaugeColor(recovScore)+';"></div></div>'+
-    '<div class="coach-gauge-lbl">Récup.</div></div>';
   html += '<div class="coach-gauge">'+
     '<div class="coach-gauge-val" style="color:'+gaugeColor(volScore)+';">'+volScore+'</div>'+
     '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+volScore+'%;background:'+gaugeColor(volScore)+';"></div></div>'+

@@ -19229,7 +19229,6 @@ function renderCoachTodayHTML() {
     return _csHtml;
   }
 
-  var mode = (db.user && db.user.trainingMode) || 'powerlifting';
   var pr = db.bestPR || {};
   var html = '';
 
@@ -19358,25 +19357,8 @@ function renderCoachTodayHTML() {
     html += '</div>';
   }
 
-  // ── 0a1. DELOAD PROACTIF — alerte si trop longtemps sans deload ──
-  var _deloadWks = typeof getWeeksSinceDeload === 'function' ? getWeeksSinceDeload() : null;
-  if (_deloadWks !== null) {
-    var _dlLevel = (db.user && db.user.level) || 'intermediaire';
-    var _dlThresh = _dlLevel === 'avance' ? 8 : _dlLevel === 'debutant' ? 14 : 10;
-    if (_deloadWks > _dlThresh) {
-      var _dlExtra = _deloadWks - _dlThresh;
-      html += '<div class="coach-alert coach-alert--warning" style="background:rgba(255,159,10,0.08);'
-        + 'border:0.5px solid rgba(255,159,10,0.3);border-radius:14px;padding:14px;margin-bottom:14px;">';
-      html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
-      html += '<span style="font-size:20px;">⚠️</span>';
-      html += '<div style="font-size:13px;font-weight:700;">Deload recommandé</div>';
-      html += '</div>';
-      html += '<div style="font-size:12px;color:var(--sub);line-height:1.6;">';
-      html += _deloadWks + ' semaines sans deload — +' + _dlExtra + ' sem. au-dessus du seuil. ';
-      html += 'Réduis le volume à ~50% cette semaine pour prévenir la stagnation et favoriser la surcompensation.';
-      html += '</div></div>';
-    }
-  }
+  // (Deload proactif fusionné dans la carte deload unifiée plus bas — l'arbitre
+  // porte la voix deload : une seule carte, seuils unifiés 6/8/12.)
 
   // ── 0b. BUDGET RÉCUPÉRATION — Total Load Management ──
   if (typeof getActivityPenaltyFlags === 'function') {
@@ -19745,13 +19727,20 @@ function renderCoachTodayHTML() {
     }
   } catch(e) {}
 
-  // ── 2. ALERTE DELOAD ──
-  var deload = typeof shouldDeload === 'function' ? shouldDeload(db.logs, mode) : {needed:false};
-  if (deload && deload.needed) {
+  // ── 2. DELOAD UNIFIÉ (une seule voix, via l'arbitre) ──
+  // Fusion de l'ancien « Deload proactif » (seuils 8/10/14) et de l'« Alerte
+  // deload » shouldDeload : rendu ssi le VERDICT dit deload (seuils 6/8/12,
+  // data-driven prioritaire). Le bouton honore resetDeloadCalendar sur CLIC
+  // (acceptDeload pose lastDeloadDate + saveDB) — jamais pendant le render.
+  if (_verdict && _verdict.direction === 'deload') {
     html += '<div class="coach-deload">'+
-      '<div class="coach-deload-ico">⚠️</div>'+
-      '<div class="coach-deload-text"><strong>Deload recommandé</strong><br>'+(deload.reason||'')+'</div>'+
+      '<div class="coach-deload-ico">🔋</div>'+
+      '<div class="coach-deload-text"><strong>Semaine de décharge</strong><br>'+(_verdict.reason||'')+'</div>'+
     '</div>';
+    html += '<button onclick="acceptDeload();showToast(\'🔋 Deload acté — volume réduit cette semaine\');if(typeof renderCoachToday===\'function\')renderCoachToday();" '
+      + 'style="width:100%;padding:10px;border-radius:10px;border:0.5px solid var(--red);'
+      + 'background:rgba(255,69,58,0.08);color:var(--red);font-size:12px;font-weight:700;'
+      + 'cursor:pointer;margin:-6px 0 12px;">✅ Je décharge cette semaine</button>';
   }
 
   // ── 3. RECOMMANDATIONS ──

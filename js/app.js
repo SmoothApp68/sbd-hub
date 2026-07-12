@@ -18624,23 +18624,25 @@ function _planHasDeadliftTomorrow() {
   });
 }
 
-// Un bonus set / +1 rep est-il jouable aujourd'hui ? (mêmes briques que
-// renderBackOffSuggestion, sans HTML — détection seule). Lecture seule.
-function _detectBackOffOpportunity() {
-  if (typeof computeBackOffSets !== 'function') return false;
+// Calcul back-off PARTAGÉ (détection collecteur + rendu du bloc — une seule
+// source, duplication du prompt 1 résorbée) : plan du jour, lift principal,
+// top set réel du jour → computeBackOffSets. Lecture seule.
+// Retourne { primaryLift, result } ou null.
+function _computeBackOffContext() {
+  if (typeof computeBackOffSets !== 'function') return null;
   var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
   var plan = db.weeklyPlan && db.weeklyPlan.days
     ? db.weeklyPlan.days.find(function(d) { return d.day === today && !d.rest; })
     : null;
-  if (!plan || !plan.exercises) return false;
+  if (!plan || !plan.exercises) return null;
   var primaryLift = plan.exercises.find(function(e) { return e.isPrimary; });
-  if (!primaryLift || !primaryLift.sets) return false;
+  if (!primaryLift || !primaryLift.sets) return null;
   var workSets = primaryLift.sets.filter(function(s) { return !s.isWarmup && !s.isBackOff && !s.isBackoff && !s.isDropSet; });
-  if (!workSets.length) return false;
+  if (!workSets.length) return null;
   var todayTs = new Date(); todayTs.setHours(0, 0, 0, 0);
   var todayLog = null;
   (db.logs || []).forEach(function(l) { if (l.timestamp >= todayTs.getTime()) todayLog = l; });
-  if (!todayLog) return false; // pas de top set loggé aujourd'hui → pas d'opportunité mesurable
+  if (!todayLog) return null; // pas de top set loggé aujourd'hui
   var topSetRPE = workSets[workSets.length - 1].rpe || 8;
   var topSetWeight = workSets[workSets.length - 1].weight || 0;
   var loggedExo = (todayLog.exercises || []).find(function(e) {
@@ -18654,12 +18656,19 @@ function _detectBackOffOpportunity() {
       topSetWeight = parseFloat(lastLogged.weight) || topSetWeight;
     }
   }
-  if (!topSetWeight) return false;
+  if (!topSetWeight) return null;
   var targetRPE = workSets[0].rpe || 8;
   var bodyPart = /squat|deadlift|soulevé|hip|fentes|leg/i.test(primaryLift.name || '') ? 'lower' : 'upper';
   var result = computeBackOffSets(topSetWeight, topSetRPE, targetRPE, 3, bodyPart);
-  return !!(result && result.suggestion
-    && (result.suggestion.type === 'bonus_set' || result.suggestion.type === 'extra_reps'));
+  if (!result || !result.sets || !result.sets.length) return null;
+  return { primaryLift: primaryLift, result: result };
+}
+
+// Un bonus set / +1 rep est-il jouable aujourd'hui ? (entrée de l'arbitre)
+function _detectBackOffOpportunity() {
+  var boCtx = _computeBackOffContext();
+  return !!(boCtx && boCtx.result.suggestion
+    && (boCtx.result.suggestion.type === 'bonus_set' || boCtx.result.suggestion.type === 'extra_reps'));
 }
 
 // COLLECTEUR de l'arbitre — rassemble toutes les entrées en un objet, chaque
@@ -19422,16 +19431,16 @@ function renderCoachTodayHTML() {
     } catch(e) {}
   }
 
-  // ── 0b2. MOMENTUM ──
-  if (coachProfile !== 'silent') {
-    var momentum = typeof detectMomentum === 'function' ? detectMomentum() : null;
-    if (momentum && momentum.active) {
-      html += '<div style="background:rgba(50,215,75,0.1);border:1px solid var(--green);'
-        + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--green);">'
-        + momentum.message + '</div>'
-        + '</div>';
-    }
+  // ── 0b2. MOMENTUM — consomme le verdict (vrais PR, plus les flags morts) ──
+  // Rendu ssi l'arbitre dit push : plus jamais « pousse » sous un deload/ease.
+  // Copy qualitative, sans fausse probabilité chiffrée.
+  if (coachProfile !== 'silent' && _verdict && _verdict.direction === 'push'
+      && _intensityCtx && (_intensityCtx.momentumPRs || 0) >= 2) {
+    html += '<div style="background:rgba(50,215,75,0.1);border:1px solid var(--green);'
+      + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--green);">'
+      + '🔥 ' + _intensityCtx.momentumPRs + ' vrais PR cette semaine — le momentum est là, surfe dessus.</div>'
+      + '</div>';
   }
 
   // ── 0b2b. RÉGULARITÉ ──
@@ -19445,12 +19454,15 @@ function renderCoachTodayHTML() {
     }
   }
 
-  // ── 0b3. RETURN-TO-PLAY ──
-  var _absence = typeof getAbsencePenalty === 'function' ? getAbsencePenalty() : null;
-  if (_absence && _absence.message && coachProfile !== 'silent') {
+  // ── 0b3. RETURN-TO-PLAY — consomme le verdict (cran 2 : absence > 14j) ──
+  // Le détail -8/-15/-18% reste appliqué aux charges par le moteur ; la carte
+  // Coach ne s'affiche que quand l'arbitre porte la voix return-to-play.
+  if (_verdict && _verdict.source === 'returnToPlay' && coachProfile !== 'silent') {
+    var _absence = typeof getAbsencePenalty === 'function' ? getAbsencePenalty() : null;
     html += '<div style="background:rgba(10,132,255,0.1);border:1px solid var(--accent);'
       + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
-      + '<div style="font-size:13px;color:var(--accent);">' + _absence.message + '</div>'
+      + '<div style="font-size:13px;color:var(--accent);">'
+      + ((_absence && _absence.message) || _verdict.reason) + '</div>'
       + '</div>';
   }
 
@@ -19511,10 +19523,16 @@ function renderCoachTodayHTML() {
         ? 'var(--orange)' : 'var(--green)';
       html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
       html += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🌸 ' + _phaseLabel + '</div>';
+      // La carte de phase reste TOUJOURS (info santé/échauffement) ; seul
+      // l'appel « tente un PR » est conditionné au verdict de l'arbitre —
+      // plus jamais « tente un PR » sous un deload/ease (cas B-2 de l'audit).
+      var _cycleOvuMsg = (_verdict && _verdict.direction === 'push')
+        ? 'Pic de force potentiel. Parfait pour tenter un nouveau PR. ⚠️ Échauffe bien les articulations.'
+        : 'Pic de force potentiel — mais la priorité du jour est ailleurs (vois le point du jour). ⚠️ Échauffe bien les articulations.';
       var _cycleMessages = {
         folliculaire_precoce: 'Ton corps se régénère. Séance de maintien — qualité > quantité.',
         folliculaire_tardive: 'Énergie en hausse ! Bonne phase pour augmenter le volume.',
-        ovulatoire:           'Pic de force potentiel. Parfait pour tenter un nouveau PR. ⚠️ Échauffe bien les articulations.',
+        ovulatoire:           _cycleOvuMsg,
         luteale:              'Ton corps récupère en profondeur. L\'intensité est adaptée — les gains continuent.'
       };
       var _cycleMsg = _cycleMessages[_cyclePhase];
@@ -19637,10 +19655,12 @@ function renderCoachTodayHTML() {
       _coachAlerts.push({ type: 'warning',
         text: '🎯 Leg Extension prioritaire — ratio S/B ' + _caRatioSB.toFixed(2) + ' < 1.20. Ne saute pas cet exercice correctif aujourd\'hui.' });
     }
-    // Alerte 2 — Deadlift DEMAIN au plan (RDL exclu par getSBDType) → protège le CNS
+    // Alerte 2 — Deadlift DEMAIN au plan : info de planning NEUTRE. La consigne
+    // d'intensité (« garde tes réserves ») est portée par le verdict (cran 5),
+    // ce bloc n'émet plus de direction.
     if (_caDayHasType(_caTomorrow, 'deadlift')) {
       _coachAlerts.push({ type: 'info',
-        text: '⚡ Demain : Deadlift. Garde tes réserves neuromusculaires — évite les efforts intenses ou séries lourdes aujourd\'hui.' });
+        text: '📅 Demain au plan : Deadlift.' });
     }
     // Alerte 3 — Rowing AU PLAN aujourd'hui (rowing n'est pas un type SBD → par nom)
     if (_caToday && !(_caToday.isRest || _caToday.rest)
@@ -19926,64 +19946,27 @@ function renderCoachTodayHTML() {
   html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
 
   // ── 6. BACK-OFF SUGGESTION ──
-  var backOffHtml = renderBackOffSuggestion();
+  var backOffHtml = renderBackOffSuggestion(_verdict);
   if (backOffHtml) html += backOffHtml;
 
   return html;
 }
 
-function renderBackOffSuggestion() {
-  if (typeof computeBackOffSets !== 'function') return '';
-  var today = typeof DAYS_FULL !== 'undefined' ? DAYS_FULL[new Date().getDay()] : '';
-  var plan = db.weeklyPlan && db.weeklyPlan.days
-    ? db.weeklyPlan.days.find(function(d) { return d.day === today && !d.rest; })
-    : null;
-  if (!plan || !plan.exercises) return '';
-
-  var primaryLift = plan.exercises.find(function(e) { return e.isPrimary; });
-  if (!primaryLift || !primaryLift.sets) return '';
-
-  var workSets = primaryLift.sets.filter(function(s) { return !s.isWarmup && !s.isBackOff && !s.isBackoff && !s.isDropSet; });
-  if (!workSets.length) return '';
-
-  // Look for an actual top set in today's logs
-  var todayLog = null;
-  var todayTs = new Date(); todayTs.setHours(0, 0, 0, 0);
-  (db.logs || []).forEach(function(l) {
-    if (l.timestamp >= todayTs.getTime()) todayLog = l;
-  });
-
-  var topSetRPE = workSets[workSets.length - 1].rpe || 8;
-  var topSetWeight = workSets[workSets.length - 1].weight || 0;
-
-  if (todayLog) {
-    var loggedExo = (todayLog.exercises || []).find(function(e) {
-      return e.name && primaryLift.name && e.name.toLowerCase().includes(primaryLift.name.toLowerCase().split(' ')[0]);
-    });
-    if (loggedExo) {
-      var loggedWork = (loggedExo.allSets || loggedExo.series || []).filter(function(s) {
-        return !s.isWarmup && s.weight > 0;
-      });
-      if (loggedWork.length) {
-        var lastLogged = loggedWork[loggedWork.length - 1];
-        topSetRPE = parseFloat(lastLogged.rpe) || topSetRPE;
-        topSetWeight = parseFloat(lastLogged.weight) || topSetWeight;
-      }
-    }
-  }
-
-  if (!topSetWeight) return '';
-  var targetRPE = workSets[0].rpe || 8;
-  var tpl = plan.exercises[0];
-  var bodyPart = /squat|deadlift|soulevé|hip|fentes|leg/i.test(primaryLift.name || '') ? 'lower' : 'upper';
-  var result = computeBackOffSets(topSetWeight, topSetRPE, targetRPE, 3, bodyPart);
-  if (!result || !result.sets || !result.sets.length) return '';
+function renderBackOffSuggestion(verdict) {
+  // Les back-off sets (contenu séance) s'affichent toujours ; le CTA Bonus/+1
+  // rep n'apparaît que si l'ARBITRE dit push — plus d'appel à pousser sous un
+  // deload/ease. Calcul partagé avec le collecteur (_computeBackOffContext).
+  var boCtx = _computeBackOffContext();
+  if (!boCtx) return '';
+  var primaryLift = boCtx.primaryLift;
+  var result = boCtx.result;
 
   var bo = result.sets[0];
   var suggHtml = '';
-  if (result.suggestion && result.suggestion.type === 'bonus_set') {
+  var _pushOK = verdict && verdict.direction === 'push';
+  if (_pushOK && result.suggestion && result.suggestion.type === 'bonus_set') {
     suggHtml = '<button onclick="acceptBonusSet(' + result.suggestion.weight + ')" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;border:1px solid var(--orange);background:rgba(255,159,10,0.1);color:var(--orange);font-size:12px;font-weight:600;cursor:pointer;">✅ Tenter le Bonus Set — ' + result.suggestion.weight + 'kg</button>';
-  } else if (result.suggestion && result.suggestion.type === 'extra_reps') {
+  } else if (_pushOK && result.suggestion && result.suggestion.type === 'extra_reps') {
     suggHtml = '<div style="font-size:11px;color:var(--green);margin-top:4px;">💪 Forme excellente — tente +1 rep sur la 1ère back-off</div>';
   }
 

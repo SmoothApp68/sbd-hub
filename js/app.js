@@ -18416,6 +18416,34 @@ function getWeeklyMuscuLoad() {
   return Math.round(total);
 }
 
+// État de calibration de la Batterie (ACWR). Sous ~3 semaines d'historique OU
+// base chronique < 3 séances (même condition que le pin ACWR backend de
+// computeSRS), le score n'a rien mesuré de fiable → l'affichage se masque et
+// montre une jauge de progression. Lecture seule (aucune écriture).
+function getCoachCalibration() {
+  var logs = db.logs || [];
+  var WEEKS_NEEDED = 3;
+  if (logs.length === 0) {
+    return { calibrating: true, daysElapsed: 0, daysRemaining: 21, weekN: 1, weeksNeeded: WEEKS_NEEDED };
+  }
+  var sorted = typeof getSortedLogs === 'function' ? getSortedLogs() : logs.slice().sort(function(a, b) { return b.timestamp - a.timestamp; });
+  var oldestTs = sorted.length ? (sorted[sorted.length - 1].timestamp || 0) : 0;
+  var daysElapsed = oldestTs ? Math.floor((Date.now() - oldestTs) / 86400000) : 0;
+  // Base chronique (fenêtre 7-28j) — miroir du pin ACWR (coach.js computeSRS).
+  var chronicBaseLogs = logs.filter(function(l) {
+    var age = Date.now() - (l.timestamp || 0);
+    return age > 7 * 86400000 && age <= 28 * 86400000;
+  }).length;
+  var calibrating = (daysElapsed < 21) || (chronicBaseLogs < 3);
+  return {
+    calibrating: calibrating,
+    daysElapsed: daysElapsed,
+    daysRemaining: Math.max(0, 21 - daysElapsed),
+    weekN: Math.min(WEEKS_NEEDED, Math.max(1, Math.ceil((daysElapsed + 1) / 7))),
+    weeksNeeded: WEEKS_NEEDED
+  };
+}
+
 function getBatteryDisplay(srsScore) {
   var pct = Math.max(0, Math.min(100, srsScore || 75));
   var label = pct >= 80 ? 'Pleine charge' : pct >= 60 ? 'Bonne forme'

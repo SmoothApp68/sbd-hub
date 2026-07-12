@@ -129,3 +129,39 @@ describe('getTopE1RMForLift — mono-formule Brzycki, warm-ups exclus, jamais Na
   });
 });
 function calcRef(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
+
+// ── Coach étape 2b : getCoachCalibration (seuil hybride) ────────────────────
+describe('getCoachCalibration — calibration Batterie (âge OU base chronique)', () => {
+  const DAY = 86400000;
+  function run(logs) {
+    const ctx = vm.createContext({ db: { logs }, _cache: { _sortedLogs: null } });
+    vm.runInContext(extractFn(ENGINE, 'getSortedLogs'), ctx);
+    vm.runInContext(extractFn(APP, 'getCoachCalibration'), ctx);
+    return vm.runInContext('getCoachCalibration()', ctx);
+  }
+  const ago = (d) => ({ timestamp: Date.now() - d * DAY });
+  test('0 log → calibrating (week 1, 21j restants)', () => {
+    const c = run([]);
+    expect(c.calibrating).toBe(true);
+    expect(c.weekN).toBe(1);
+    expect(c.daysRemaining).toBe(21);
+  });
+  test('5 jours d\'historique → calibrating, semaine 1', () => {
+    const c = run([ago(5), ago(3), ago(1)]);
+    expect(c.calibrating).toBe(true);
+    expect(c.weekN).toBe(1);
+  });
+  test('25 jours + ≥3 logs chroniques (7-28j) → NON calibrating', () => {
+    const c = run([ago(25), ago(20), ago(15), ago(10), ago(2)]);
+    expect(c.calibrating).toBe(false);
+    expect(c.daysRemaining).toBe(0);
+  });
+  test('import ancien (oldest il y a 2 ans) + base chronique → NON calibrating', () => {
+    const c = run([ago(730), ago(20), ago(14), ago(9), ago(1)]);
+    expect(c.calibrating).toBe(false);
+  });
+  test('1 log il y a 40j puis rien (0 chronique) → calibrating (l\'âge-seul ratait)', () => {
+    const c = run([ago(40)]);
+    expect(c.calibrating).toBe(true); // daysElapsed=40 mais chronicBaseLogs=0
+  });
+});

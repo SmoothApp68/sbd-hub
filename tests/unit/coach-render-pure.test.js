@@ -96,3 +96,36 @@ describe('getVolumeByMuscleGroup — warm-ups exclus (double test)', () => {
     expect(run({ name: 'Squat (Barre)', sets: 4 }).quads).toBe(0);
   });
 });
+
+describe('getTopE1RMForLift — mono-formule Brzycki, warm-ups exclus, jamais NaN', () => {
+  function run(logs, liftType) {
+    const ctx = vm.createContext({ db: { logs }, console });
+    vm.runInContext("const VARIANT_KEYWORDS=['pause','spoto','deficit','board'];", ctx);
+    ['_getSBDTypeRaw', 'getSBDType'].forEach(fn => vm.runInContext(extractFn(ENGINE, fn), ctx));
+    ctx._cache = { sbdType: new Map() };
+    vm.runInContext(extractFn(APP, 'calcE1RM'), ctx);
+    vm.runInContext(extractFn(ENGINE, 'getTopE1RMForLift'), ctx);
+    return vm.runInContext('getTopE1RMForLift(' + JSON.stringify(liftType) + ')', ctx);
+  }
+  const mkLog = (exo) => ({ timestamp: 1000, exercises: [exo] });
+  test('Brzycki cohérent (100×5 → 112), jamais NaN', () => {
+    const v = run([mkLog({ name: 'Squat (Barre)', allSets: [{ weight: 100, reps: 5, setType: 'normal' }] })], 'squat');
+    expect(v).toBe(113); // calcE1RM(100,5) observé
+    expect(Number.isNaN(v)).toBe(false);
+  });
+  test('warm-ups (setType) exclus du calcul du top e1RM', () => {
+    const v = run([mkLog({ name: 'Squat (Barre)', maxRM: 0, allSets: [
+      { weight: 200, reps: 1, setType: 'warmup' },   // ne doit PAS compter
+      { weight: 100, reps: 5, setType: 'normal' }
+    ] })], 'squat');
+    expect(v).toBe(113); // pas 200 (le warmup 200×1 est exclu)
+  });
+  test('ohp via regex toujours supporté', () => {
+    const v = run([mkLog({ name: 'Overhead Press', allSets: [{ weight: 60, reps: 5, setType: 'normal' }] })], 'ohp');
+    expect(v).toBe(calcRef(60, 5));
+  });
+  test('aucune donnée → null (pas NaN)', () => {
+    expect(run([], 'bench')).toBeNull();
+  });
+});
+function calcRef(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }

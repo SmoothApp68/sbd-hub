@@ -2553,10 +2553,12 @@ function getTopE1RMForLift(liftType) {
       if (!match) return;
       if (exo.maxRM && exo.maxRM > best) best = exo.maxRM;
       (exo.allSets || []).forEach(function(s) {
-        if (s.isWarmup) return;
-        var e = typeof wpCalcE1RM === 'function'
-          ? wpCalcE1RM(parseFloat(s.weight), parseInt(s.reps), parseFloat(s.rpe))
-          : 0;
+        // Mono-formule Brzycki (calcE1RM), plus de branche RPE (RPE mort → l'ancien
+        // wpCalcE1RM mélangeait 2 formules). Double test warm-up (setType + isWarmup).
+        if (s.isWarmup === true || s.setType === 'warmup') return;
+        var w = parseFloat(s.weight) || 0, r = parseInt(s.reps) || 0;
+        if (w <= 0 || r <= 0) return;
+        var e = typeof calcE1RM === 'function' ? calcE1RM(w, r) : 0;
         if (e > best) best = e;
       });
     });

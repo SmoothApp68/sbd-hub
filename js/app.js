@@ -18426,8 +18426,14 @@ function getCoachCalibration() {
   if (logs.length === 0) {
     return { calibrating: true, daysElapsed: 0, daysRemaining: 21, weekN: 1, weeksNeeded: WEEKS_NEEDED };
   }
-  var sorted = typeof getSortedLogs === 'function' ? getSortedLogs() : logs.slice().sort(function(a, b) { return b.timestamp - a.timestamp; });
-  var oldestTs = sorted.length ? (sorted[sorted.length - 1].timestamp || 0) : 0;
+  // oldestTs calculé directement (indépendant du cache getSortedLogs, qui peut
+  // être périmé si db.logs a muté sans invalidation) — une calibration ne doit
+  // pas dépendre de la fraîcheur d'un cache.
+  var oldestTs = 0;
+  for (var i = 0; i < logs.length; i++) {
+    var ts = logs[i].timestamp || 0;
+    if (ts > 0 && (oldestTs === 0 || ts < oldestTs)) oldestTs = ts;
+  }
   var daysElapsed = oldestTs ? Math.floor((Date.now() - oldestTs) / 86400000) : 0;
   // Base chronique (fenêtre 7-28j) — miroir du pin ACWR (coach.js computeSRS).
   var chronicBaseLogs = logs.filter(function(l) {
@@ -19245,9 +19251,11 @@ function renderCoachTodayHTML() {
       html += '<div style="font-size:18px;font-weight:700;color:var(--orange);">' + _refeed.tdee + '</div>';
       html += '<div style="font-size:10px;color:var(--sub);">kcal cible</div>';
       html += '</div>';
+      // Score masqué pendant la calibration ACWR (cohérence avec la Batterie).
+      var _refeedCal = typeof getCoachCalibration === 'function' && getCoachCalibration().calibrating;
       html += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
-      html += '<div style="font-size:18px;font-weight:700;color:var(--sub);">' + _refeed.srsScore + '/100</div>';
-      html += '<div style="font-size:10px;color:var(--sub);">récupération</div>';
+      html += '<div style="font-size:18px;font-weight:700;color:var(--sub);">' + (_refeedCal ? '—' : _refeed.srsScore + '/100') + '</div>';
+      html += '<div style="font-size:10px;color:var(--sub);">' + (_refeedCal ? 'en calibration' : 'récupération') + '</div>';
       html += '</div>';
       html += '</div>';
       html += '</div>';
@@ -19860,18 +19868,23 @@ function generateWeeklyReport() {
     h += ppVal + ' ' + ppStatus + ' (cible 0.80–1.10)<br>';
   }
 
-  // SRS score + ACWR
+  // SRS score + ACWR (masqué pendant la calibration ACWR : cohérence Coach)
   var srs = typeof computeSRS === 'function' ? computeSRS() : null;
+  var _repCal = typeof getCoachCalibration === 'function' && getCoachCalibration().calibrating;
   if (srs) {
     h += '<div class="ai-section-title">⚡ CHARGE (' + labelFor('srs','SRS') + ' / ' + labelFor('acwr','ACWR') + ')</div>';
-    h += labelFor('srs','SRS') + ' : <strong>' + srs.score + '/100</strong>';
-    if (srs.label) h += ' — ' + srs.label;
-    if (srs.acwr !== undefined) {
-      var acwrRounded = Math.round(srs.acwr * 100) / 100;
-      var acwrAlert = (srs.acwr < 0.8 || srs.acwr > 1.3) ? ' ⚠️ ' + labelFor('acwr','ACWR') + ' hors zone !' : '';
-      h += '<br>' + labelFor('acwr','ACWR') + ' : ' + acwrRounded + acwrAlert;
+    if (_repCal) {
+      h += labelFor('srs','SRS') + ' en calibration — charge chronique en cours de mesure.<br>';
+    } else {
+      h += labelFor('srs','SRS') + ' : <strong>' + srs.score + '/100</strong>';
+      if (srs.label) h += ' — ' + srs.label;
+      if (srs.acwr !== undefined) {
+        var acwrRounded = Math.round(srs.acwr * 100) / 100;
+        var acwrAlert = (srs.acwr < 0.8 || srs.acwr > 1.3) ? ' ⚠️ ' + labelFor('acwr','ACWR') + ' hors zone !' : '';
+        h += '<br>' + labelFor('acwr','ACWR') + ' : ' + acwrRounded + acwrAlert;
+      }
+      h += '<br>';
     }
-    h += '<br>';
   }
 
   // Readiness

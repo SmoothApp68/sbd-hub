@@ -19142,6 +19142,51 @@ function applyTdeeAdjustment(value) {
   if (typeof renderCoachToday === 'function') renderCoachToday();
 }
 
+// Carte « Le point du jour » — affiche LE verdict de l'arbitre d'intensité
+// (une seule voix, ton coach — maquette validée). Lecture seule.
+function renderIntensityVerdictCard(verdict, ctx) {
+  if (!verdict) return '';
+  var styles = {
+    push:     { color: 'var(--green)',  bg: 'rgba(50,215,75,0.08)',  border: 'rgba(50,215,75,0.3)',  icon: '🚀' },
+    maintain: { color: 'var(--accent)', bg: 'rgba(10,132,255,0.08)', border: 'rgba(10,132,255,0.3)', icon: '🎯' },
+    ease:     { color: 'var(--orange)', bg: 'rgba(255,159,10,0.08)', border: 'rgba(255,159,10,0.3)', icon: '🛡️' },
+    deload:   { color: 'var(--red)',    bg: 'rgba(255,69,58,0.08)',  border: 'rgba(255,69,58,0.3)',  icon: '🔋' }
+  };
+  var s = styles[verdict.direction] || styles.maintain;
+  var title;
+  if (verdict.direction === 'push') {
+    title = (ctx && typeof ctx.acwr === 'number' && ctx.acwr < 0.8)
+      ? 'Relance la machine.'
+      : 'C\'est un jour pour aller chercher du lourd.';
+  } else if (verdict.direction === 'maintain') {
+    title = verdict.degradedByCheckin
+      ? 'Fais le job, garde le PR pour un meilleur jour.'
+      : (verdict.source === 'calibration'
+        ? 'Tiens le cap — on apprend encore à te connaître.'
+        : 'Tiens le cap, sans en rajouter.');
+  } else if (verdict.direction === 'ease') {
+    title = 'Garde un peu sous le pied.';
+  } else {
+    // Deload = une ARME de programmation, jamais « repose-toi ».
+    title = 'Décharge pour mieux exploser.';
+  }
+  var html = '<div style="background:' + s.bg + ';border:0.5px solid ' + s.border
+    + ';border-radius:14px;padding:14px;margin-bottom:14px;">';
+  html += '<div style="font-size:9px;color:var(--sub);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">Le point du jour</div>';
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">';
+  html += '<span style="font-size:20px;">' + s.icon + '</span>';
+  html += '<div style="font-size:14px;font-weight:800;color:' + s.color + ';line-height:1.3;">' + title + '</div>';
+  html += '</div>';
+  html += '<div style="font-size:12px;color:var(--text);line-height:1.6;">' + verdict.reason + '</div>';
+  if (verdict.direction === 'deload') {
+    html += '<div style="font-size:11px;color:var(--sub);line-height:1.6;margin-top:6px;">'
+      + 'La fatigue accumulée masque ta force réelle — une semaine légère et tu repars au-dessus. '
+      + 'C\'est de la programmation, pas du repos.</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -19225,6 +19270,16 @@ function renderCoachTodayHTML() {
       + 'Programme de préservation. Charges fixes, récupération maximale. '
       + 'Ton corps est prêt — protège ce que tu as construit.</div>';
     html += '</div>';
+  }
+
+  // ── 0a2. LE POINT DU JOUR — l'arbitre d'intensité (UNE voix, étape 4) ──
+  // Verdict calculé UNE fois ici, consommé par les blocs plus bas (deload,
+  // momentum, cycle, RTP, back-off…) au lieu que chacun émette sa direction.
+  var _intensityCtx = (typeof collectIntensityContext === 'function') ? collectIntensityContext() : null;
+  var _verdict = (_intensityCtx && typeof computeIntensityVerdict === 'function')
+    ? computeIntensityVerdict(_intensityCtx) : null;
+  if (_verdict && typeof renderIntensityVerdictCard === 'function') {
+    html += renderIntensityVerdictCard(_verdict, _intensityCtx);
   }
 
   // ── 0. BILAN DU MATIN ──

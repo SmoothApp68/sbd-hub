@@ -20651,22 +20651,18 @@ function shouldDeload(logs, trainingMode) {
     }
   }
 
-  // CRITÈRE 3 — Max semaines sans deload (déclenchement auto préventif)
+  // CRITÈRE 3 — Max semaines sans deload (déclenchement auto préventif).
+  // SANS lastDeloadDate, ce critère ne se déclenche PAS : l'ancien fallback
+  // comptait depuis le PREMIER log (→ « 160 semaines » et deload permanent
+  // pour tout historique long). Mieux vaut rater un deload préventif que
+  // crier deload sans référence — les critères 1-2 (check-in, volume+RPE)
+  // restent actifs, et la détection auto (detectLastDeload) pose la date.
   var lastDeloadLog = (db.weeklyPlan && db.weeklyPlan.lastDeloadDate)
     ? new Date(db.weeklyPlan.lastDeloadDate).getTime()
     : null;
   var weeksSinceDeload = lastDeloadLog
     ? Math.round((now - lastDeloadLog) / WEEK)
     : null;
-
-  // Fallback : estimer depuis les logs si lastDeloadDate absent
-  if (!weeksSinceDeload) {
-    var sortedLogs = logs.slice().sort(function(a, b) { return (a.timestamp||0) - (b.timestamp||0); });
-    var firstLog = sortedLogs[0];
-    if (firstLog && firstLog.timestamp) {
-      weeksSinceDeload = Math.round((now - firstLog.timestamp) / WEEK);
-    }
-  }
 
   if (weeksSinceDeload && weeksSinceDeload >= p.maxWeeks) {
     return {

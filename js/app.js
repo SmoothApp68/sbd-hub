@@ -18806,6 +18806,18 @@ function checkHipThrustProgress(session) {
   });
 }
 
+// Applique l'ajustement TDEE suggéré par le Coach — sur CLIC utilisateur, jamais
+// pendant le render (étape 1 Coach : render lecture seule). POSE la valeur
+// (non-cumulatif) : réappliquer ne fait pas dériver la cible.
+function applyTdeeAdjustment(value) {
+  if (!db.user) db.user = {};
+  db.user.tdeeAdjustment = value;
+  db.user._lastNutrAdjustment = Date.now();
+  saveDB();
+  showToast('🍽️ Cible calorique mise à jour (' + (value > 0 ? '+' : '') + value + ' kcal)');
+  if (typeof renderCoachToday === 'function') renderCoachToday();
+}
+
 function renderCoachTodayHTML() {
   var coachProfile = (db.user && db.user.coachProfile) || 'full';
   if (coachProfile === 'silent') {
@@ -19433,22 +19445,22 @@ function renderCoachTodayHTML() {
       }
     });
 
-    // ── Nutrition stagnation alert ──
+    // ── Nutrition stagnation alert — reco + bouton « Appliquer » (render lecture
+    //    seule : plus d'écriture db à l'affichage ; l'utilisateur décide) ──
     var nutritionAlert = typeof checkNutritionStagnation === 'function' ? checkNutritionStagnation() : null;
     if (nutritionAlert) {
-      var lastNutrAdj = db.user._lastNutrAdjustment || 0;
-      if (Date.now() - lastNutrAdj > 14 * 86400000) {
-        recos.push({
-          dot: nutritionAlert.type === 'warning' ? 'var(--red)' : 'var(--orange)',
-          text: '<strong>Nutrition :</strong> ' + nutritionAlert.msg +
-            (nutritionAlert.adjust ? ' <em>(' + (nutritionAlert.adjust > 0 ? '+' : '') + nutritionAlert.adjust + ' kcal)</em>' : '')
-        });
-        if (Math.abs(nutritionAlert.adjust || 0) > 0) {
-          db.user.tdeeAdjustment = (db.user.tdeeAdjustment || 0) + nutritionAlert.adjust;
-          db.user._lastNutrAdjustment = Date.now();
-          saveDB();
-        }
+      var _adj = nutritionAlert.adjust || 0;
+      var _adjText = _adj ? ' <em>(' + (_adj > 0 ? '+' : '') + _adj + ' kcal)</em>' : '';
+      var _cta = '';
+      if (Math.abs(_adj) > 0) {
+        _cta = ((db.user.tdeeAdjustment || 0) === _adj)
+          ? ' <span style="color:var(--green);font-size:11px;font-weight:700;">✓ Appliqué</span>'
+          : ' <button onclick="applyTdeeAdjustment(' + _adj + ')" style="margin-left:4px;padding:3px 10px;border-radius:14px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Appliquer</button>';
       }
+      recos.push({
+        dot: nutritionAlert.type === 'warning' ? 'var(--red)' : 'var(--orange)',
+        text: '<strong>Nutrition :</strong> ' + nutritionAlert.msg + _adjText + _cta
+      });
     }
 
     // ── Long-term nutrition strategy advice ──

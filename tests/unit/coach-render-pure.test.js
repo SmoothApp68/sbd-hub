@@ -60,3 +60,39 @@ describe('applyTdeeAdjustment — non-cumulatif, idempotent', () => {
     expect(vm.runInContext('__saved.length', ctx)).toBe(1);
   });
 });
+
+// ── Coach étape 2a : getVolumeByMuscleGroup exclut les warm-ups ──────────────
+const ENGINE = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'engine.js'), 'utf8');
+
+describe('getVolumeByMuscleGroup — warm-ups exclus (double test)', () => {
+  function run(exo) {
+    // Stubs des dépendances (getMuscleGroup/getLogsInRange) — la fonction SOUS
+    // TEST (getVolumeByMuscleGroup) est extraite de la vraie source ; on teste
+    // son filtre warm-up, pas le mapping muscle.
+    const ctx = vm.createContext({
+      getLogsInRange: () => [{ exercises: [exo] }],
+      getMuscleGroup: () => 'Quadriceps'
+    });
+    vm.runInContext(extractFn(ENGINE, 'getVolumeByMuscleGroup'), ctx);
+    return vm.runInContext('getVolumeByMuscleGroup()', ctx);
+  }
+  test('sets setType=warmup NE sont plus comptés (ancien !isWarmup les comptait)', () => {
+    const exo = { name: 'Squat (Barre)', allSets: [
+      { setType: 'warmup', reps: 5 }, { setType: 'warmup', reps: 3 },
+      { setType: 'normal', reps: 5 }, { setType: 'normal', reps: 5 }, { setType: 'normal', reps: 5 }
+    ] };
+    expect(run(exo).quads).toBe(3); // pas 5
+  });
+  test('isWarmup=true aussi exclu (les deux formats)', () => {
+    const exo = { name: 'Squat (Barre)', allSets: [
+      { isWarmup: true, reps: 5 }, { setType: 'normal', reps: 5 }, { setType: 'normal', reps: 5 }
+    ] };
+    expect(run(exo).quads).toBe(2);
+  });
+  test('exo sans allSets/series → 0 (fallback exo.sets MORT : `|| []` rend toujours un array)', () => {
+    // Quirk préexistant NON introduit par ce fix : `exo.allSets || exo.series || []`
+    // donne toujours un tableau → Array.isArray vrai → la branche exo.sets est
+    // inatteignable. Observé, figé tel quel (signalé au rapport, hors scope).
+    expect(run({ name: 'Squat (Barre)', sets: 4 }).quads).toBe(0);
+  });
+});

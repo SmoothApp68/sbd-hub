@@ -2685,8 +2685,11 @@ function getVolumeByMuscleGroup() {
       var key = mg ? MG_TO_KEY[mg] : null;
       if (!key) return;
       var allSets = exo.allSets || exo.series || [];
+      // Double test warm-up : les sets réels portent setType='warmup', pas
+      // toujours isWarmup — l'ancien filtre !s.isWarmup comptait les
+      // échauffements comme séries effectives (volume gonflé).
       var sets = Array.isArray(allSets)
-        ? allSets.filter(function(s) { return !s.isWarmup; }).length
+        ? allSets.filter(function(s) { return !(s.isWarmup === true || s.setType === 'warmup'); }).length
         : (typeof exo.sets === 'number' ? exo.sets : 0);
       volumes[key] = (volumes[key] || 0) + sets;
     });

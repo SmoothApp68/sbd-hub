@@ -22988,14 +22988,19 @@ function detectLastDeload() {
     if (!ts) return;
     var wk = _weekKey(ts);
     if (!weekMap[wk]) weekMap[wk] = { ts: ts, volume: 0 };
-    (log.exercises || []).forEach(function(e) {
-      var sets = Array.isArray(e.sets) ? e.sets : [];
-      sets.forEach(function(s) {
-        if (!s.isWarmup && s.weight > 0 && s.reps > 0) {
-          weekMap[wk].volume += s.weight * s.reps;
-        }
+    // log.volume (précalculé par séance, fiable ~98%) ; fallback allSets/series.
+    // L'ancien code lisait exo.sets comme un tableau — or c'est un COMPTEUR
+    // numérique → volume 0 partout → la détection ne trouvait jamais rien.
+    if (typeof log.volume === 'number' && log.volume > 0) {
+      weekMap[wk].volume += log.volume;
+    } else {
+      (log.exercises || []).forEach(function(e) {
+        (e.allSets || e.series || []).forEach(function(s) {
+          if (s.isWarmup === true || s.setType === 'warmup') return;
+          if (s.weight > 0 && s.reps > 0) weekMap[wk].volume += s.weight * s.reps;
+        });
       });
-    });
+    }
   });
 
   var weeks = Object.keys(weekMap).sort();
@@ -23094,16 +23099,10 @@ function wpDetectPhase() {
     });
   }
 
-  // v225 — SOURCE 0 : detectLastDeload() — auto-détection depuis les logs
-  if (!db.weeklyPlan || !db.weeklyPlan.lastDeloadDate) {
-    var _detected = typeof detectLastDeload === 'function' ? detectLastDeload() : null;
-    if (_detected && _detected.status === 'CONFIRMED_DELOAD') {
-      if (!db.weeklyPlan) db.weeklyPlan = {};
-      db.weeklyPlan.lastDeloadDate = _detected.date;
-      db.weeklyPlan._deloadDetectedAuto = true;
-      if (typeof saveDB === 'function') saveDB();
-    }
-  }
+  // v225 — SOURCE 0 (auto-détection lastDeloadDate) : DÉPLACÉE au boot
+  // (initDeloadDetection, fin de fichier). wpDetectPhase est appelé depuis des
+  // renders (GO/plan) — écrire ici violerait « render pur » depuis que
+  // detectLastDeload est réparée. Ici on ne fait plus que LIRE lastDeloadDate.
 
   // Guard : blockStartDate désynchronisée (snapshot cloud depuis appareil mal daté)
   // Ne peut pas arriver en code normal — 4 écritures utilisent toutes Date.now()
@@ -32422,3 +32421,19 @@ async function postLoginSync() {
   }
 }
 
+
+// ── Init boot : auto-détection du dernier deload (SOURCE 0, déplacée hors de
+// wpDetectPhase pour préserver « render pur »). One-shot contrôlé au chargement
+// du script (app.js chargé en dernier), hors de tout render : pose
+// lastDeloadDate depuis les logs si un deload CONFIRMÉ est détecté.
+function initDeloadDetection() {
+  if (db.weeklyPlan && db.weeklyPlan.lastDeloadDate) return;
+  var _detected = typeof detectLastDeload === 'function' ? detectLastDeload() : null;
+  if (_detected && _detected.status === 'CONFIRMED_DELOAD') {
+    if (!db.weeklyPlan) db.weeklyPlan = {};
+    db.weeklyPlan.lastDeloadDate = _detected.date;
+    db.weeklyPlan._deloadDetectedAuto = true;
+    if (typeof saveDB === 'function') saveDB();
+  }
+}
+try { initDeloadDetection(); } catch (e) { console.warn('initDeloadDetection:', e); }

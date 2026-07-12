@@ -80,3 +80,70 @@ describe('shouldDeload critère 3 — plus de fallback « depuis le 1er log »',
     expect(r.trigger).toBe('srs');
   });
 });
+
+// ── Fix 2 : detectLastDeload réparée (lit log.volume, plus exo.sets compteur) ──
+describe('detectLastDeload — détection réelle des deloads passés', () => {
+  function detect(logs, level) {
+    const ctx = vm.createContext({ db: { logs, user: { level: level || 'intermediaire' } } });
+    vm.runInContext(extractFn(APP, 'detectLastDeload'), ctx);
+    return vm.runInContext('detectLastDeload()', ctx);
+  }
+  // Seed : 12 semaines à ~12000kg, deload à 42% il y a 4 semaines, rebond ensuite.
+  function seedWithDeload() {
+    const logs = [];
+    for (let w = 12; w >= 1; w--) {
+      const vol = (w === 4) ? 5000 : 12000;
+      logs.push({ timestamp: Date.now() - w * 7 * DAY, volume: vol,
+        exercises: [{ name: 'Squat (Barre)', sets: 5 }] }); // sets = NOMBRE (format réel)
+    }
+    return logs;
+  }
+  test('seed synthétique avec deload 42% + rebond → CONFIRMED_DELOAD (avant : null)', () => {
+    const r = detect(seedWithDeload());
+    expect(r).not.toBeNull();
+    expect(r.status).toBe('CONFIRMED_DELOAD');
+    expect(r.volumeRatio).toBeLessThan(0.6);
+  });
+  test('seed vacances (chute SANS rebond, dernière semaine) → pas de CONFIRMED', () => {
+    const logs = [];
+    for (let w = 12; w >= 2; w--) logs.push({ timestamp: Date.now() - w * 7 * DAY, volume: 12000, exercises: [] });
+    logs.push({ timestamp: Date.now() - 7 * DAY, volume: 4000, exercises: [] }); // chute, pas de rebond connu
+    const r = detect(logs);
+    expect(r === null || r.status !== 'CONFIRMED_DELOAD').toBe(true);
+  });
+  test('fallback allSets quand log.volume absent', () => {
+    const logs = [];
+    for (let w = 12; w >= 1; w--) {
+      const perSet = (w === 4) ? 40 : 100; // 5×5 → 1000kg vs 2500kg (40%)
+      logs.push({ timestamp: Date.now() - w * 7 * DAY,
+        exercises: [{ name: 'Squat (Barre)', sets: 5,
+          allSets: [1,2,3,4,5].map(() => ({ weight: perSet, reps: 5, setType: 'normal' })) }] });
+    }
+    const r = detect(logs);
+    expect(r).not.toBeNull();
+    expect(r.status).toBe('CONFIRMED_DELOAD');
+  });
+});
+
+// ── Fix 2b : l'écriture SOURCE 0 est au boot, plus dans wpDetectPhase ──
+describe('render pur préservé — initDeloadDetection au boot', () => {
+  test('initDeloadDetection pose lastDeloadDate si deload confirmé (one-shot)', () => {
+    const logs = [];
+    for (let w = 12; w >= 1; w--) logs.push({ timestamp: Date.now() - w * 7 * DAY, volume: (w === 4) ? 5000 : 12000, exercises: [] });
+    const saved = [];
+    const ctx = vm.createContext({ db: { logs, user: { level: 'intermediaire' }, weeklyPlan: {} }, saveDB: () => saved.push(1), console });
+    ['detectLastDeload', 'initDeloadDetection'].forEach(fn => vm.runInContext(extractFn(APP, fn), ctx));
+    vm.runInContext('initDeloadDetection()', ctx);
+    expect(vm.runInContext('db.weeklyPlan.lastDeloadDate', ctx)).toBeTruthy();
+    expect(vm.runInContext('db.weeklyPlan._deloadDetectedAuto', ctx)).toBe(true);
+    expect(saved.length).toBe(1);
+    // one-shot : deuxième appel ne réécrit pas
+    vm.runInContext('initDeloadDetection()', ctx);
+    expect(saved.length).toBe(1);
+  });
+  test('wpDetectPhase ne contient plus l\'écriture lastDeloadDate', () => {
+    const body = extractFn(APP, 'wpDetectPhase');
+    expect(body.indexOf('lastDeloadDate = _detected')).toBe(-1);
+    expect(body.indexOf('_deloadDetectedAuto = true')).toBe(-1);
+  });
+});

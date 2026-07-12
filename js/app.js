@@ -18444,6 +18444,23 @@ function getCoachCalibration() {
   };
 }
 
+// Affichage Batterie pendant la calibration ACWR : jauge de PROGRESSION (aucun
+// score chiffré — on ne montre pas un « faux tableau de bord »). Copy Gemini A.
+function getBatteryCalibrationDisplay(cal) {
+  var pct = Math.max(0, Math.min(100, Math.round((cal.daysElapsed / 21) * 100)));
+  return '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<div style="font-size:13px;font-weight:600;">Batterie Nerveuse</div>'
+    + '<div style="font-size:12px;color:var(--accent);font-weight:700;">⚙️ Calibration ACWR — S' + cal.weekN + '/' + cal.weeksNeeded + '</div>'
+    + '</div>'
+    + '<div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">'
+    + '<div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:4px;transition:width 0.5s;"></div>'
+    + '</div>'
+    + '<div style="font-size:10px;color:var(--sub);margin-top:6px;line-height:1.5;">'
+    + 'Calcul de ta charge chronique en cours. Activation du modèle nerveux dans ' + cal.daysRemaining + ' jour' + (cal.daysRemaining > 1 ? 's' : '') + '.</div>'
+    + '</div>';
+}
+
 function getBatteryDisplay(srsScore) {
   var pct = Math.max(0, Math.min(100, srsScore || 75));
   var label = pct >= 80 ? 'Pleine charge' : pct >= 60 ? 'Bonne forme'
@@ -19281,7 +19298,10 @@ function renderCoachTodayHTML() {
 
   var gaugeColor = function(s) { return s>=70?'var(--green)':s>=40?'var(--orange)':'var(--red)'; };
 
-  html += getBatteryDisplay(formScore);
+  // Calibration ACWR : sous ~3 sem d'historique, le score de Batterie n'a rien
+  // mesuré (pin ACWR) → jauge de progression au lieu d'un score trompeur.
+  var _batCal = typeof getCoachCalibration === 'function' ? getCoachCalibration() : { calibrating: false };
+  html += _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore);
   html += '<div class="coach-gauges">';
   html += '<div class="coach-gauge">'+
     '<div class="coach-gauge-val" style="color:'+gaugeColor(recovScore)+';">'+recovScore+'</div>'+

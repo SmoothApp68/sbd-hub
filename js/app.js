@@ -18817,6 +18817,15 @@ function dismissCompDateNudge() {
   if (typeof renderCoachToday === 'function') renderCoachToday();
 }
 
+// « Masquer » sur la mention suppléments : réarme le throttle 30j — sur clic,
+// jamais pendant le render (qui ne fait plus que LIRE _suppsMentionedAt).
+function dismissSuppsMention() {
+  if (!db.user) db.user = {};
+  db.user._suppsMentionedAt = Date.now();
+  saveDB();
+  if (typeof renderCoachToday === 'function') renderCoachToday();
+}
+
 function applyTdeeAdjustment(value) {
   if (!db.user) db.user = {};
   db.user.tdeeAdjustment = value;
@@ -19482,16 +19491,17 @@ function renderCoachTodayHTML() {
       return (Date.now() - e.ts) < 7 * 86400000 && e.kcal > 0;
     });
     if (hasNutritionData && typeof BASIC_SUPPLEMENTS !== 'undefined' && BASIC_SUPPLEMENTS.length > 0) {
+      // Throttle 30j lu (lecture seule) ; le marqueur n'est écrit que sur clic
+      // « Masquer » (dismissSuppsMention), jamais pendant le render.
       var suppsMentionedAt = db.user._suppsMentionedAt || 0;
       if (Date.now() - suppsMentionedAt > 30 * 86400000) {
         var topSupp = BASIC_SUPPLEMENTS[0];
         recos.push({
           dot: 'var(--sub)',
           text: '💊 <strong>' + topSupp.name + '</strong> (' + topSupp.dose + ') — ' + topSupp.reason +
-            ' <em style="color:var(--sub);font-size:10px;">(informatif, consulte un professionnel)</em>'
+            ' <em style="color:var(--sub);font-size:10px;">(informatif, consulte un professionnel)</em>' +
+            ' <a onclick="dismissSuppsMention()" style="color:var(--sub);cursor:pointer;font-size:10px;">Masquer</a>'
         });
-        db.user._suppsMentionedAt = Date.now();
-        saveDB();
       }
     }
   }

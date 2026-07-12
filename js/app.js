@@ -18809,6 +18809,14 @@ function checkHipThrustProgress(session) {
 // Applique l'ajustement TDEE suggéré par le Coach — sur CLIC utilisateur, jamais
 // pendant le render (étape 1 Coach : render lecture seule). POSE la valeur
 // (non-cumulatif) : réappliquer ne fait pas dériver la cible.
+// « Plus tard » sur le nudge compDate : réarme le throttle 30j — sur clic, jamais
+// pendant le render (le render ne fait plus que LIRE _lastCompDateNudge).
+function dismissCompDateNudge() {
+  db._lastCompDateNudge = Date.now();
+  saveDB();
+  if (typeof renderCoachToday === 'function') renderCoachToday();
+}
+
 function applyTdeeAdjustment(value) {
   if (!db.user) db.user = {};
   db.user.tdeeAdjustment = value;
@@ -19279,11 +19287,11 @@ function renderCoachTodayHTML() {
     var _hasCompDate = db.user && db.user.programParams && db.user.programParams.compDate;
     var _lastCompNudge = db._lastCompDateNudge || 0;
     var _daysSinceNudge = Math.round((Date.now() - _lastCompNudge) / 86400000);
+    // Throttle 30j lu (lecture seule) ; le marqueur n'est écrit que sur clic
+    // « Plus tard » (dismissCompDateNudge), jamais pendant le render.
     if (_isLifter && !_hasCompDate && _daysSinceNudge >= 30) {
       _coachAlerts.push({ type: 'info',
-        text: '🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte ton pic de force automatiquement. <a onclick="openCompDateSettings()" style="color:var(--accent);cursor:pointer;">Ajouter une date →</a>' });
-      db._lastCompDateNudge = Date.now();
-      saveDB();
+        text: '🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte ton pic de force automatiquement. <a onclick="openCompDateSettings()" style="color:var(--accent);cursor:pointer;">Ajouter une date →</a> <a onclick="dismissCompDateNudge()" style="color:var(--sub);cursor:pointer;margin-left:8px;">Plus tard</a>' });
     }
     // v204 — Plateau de saisie : 3 séances identiques → pilote automatique
     if (detectSaisiePlateau()) {

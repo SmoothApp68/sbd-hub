@@ -325,3 +325,101 @@ describe("pain 'Aucune' — choix explicite « pas de douleur »", () => {
     expect(vm.runInContext('db.readinessHistory[0].pain', c2)).toBe('Genou');
   });
 });
+
+// ── Arbitre 4/4 commit 2 — mini-cycle de reprise (return-to-play, Gemini #5) ─
+const COACH = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'coach.js'), 'utf8');
+const DAY = 86400000;
+const ago = (d) => ({ timestamp: Date.now() - d * DAY, exercises: [] });
+
+describe('_computeRepriseState — pur, dérivé des logs (aucune écriture)', () => {
+  function reprise(logs) {
+    const c = vm.createContext({ Date });
+    vm.runInContext(extractFn(COACH, '_computeRepriseState'), c);
+    return vm.runInContext('_computeRepriseState(' + JSON.stringify(logs) + ')', c);
+  }
+  test('trou 16j + 1 séance de reprise (hier) → ACTIF, séance 1', () => {
+    const r = reprise([ago(1), ago(17), ago(20), ago(24)]);
+    expect(r.repriseActive).toBe(true);
+    expect(r.sessionsSinceReturn).toBe(1);
+    expect(r.gapDays).toBe(16);
+  });
+  test('2 séances depuis la reprise → encore ACTIF (séance 2/2)', () => {
+    const r = reprise([ago(1), ago(3), ago(19), ago(23)]);
+    expect(r.repriseActive).toBe(true);
+    expect(r.sessionsSinceReturn).toBe(2);
+  });
+  test('3 séances depuis la reprise → sort du mini-cycle', () => {
+    const r = reprise([ago(1), ago(3), ago(5), ago(21), ago(25)]);
+    expect(r.repriseActive).toBe(false);
+    expect(r.sessionsSinceReturn).toBe(3);
+  });
+  test('plafond 7j : 1ère séance de reprise il y a 8j puis plus rien → INACTIF', () => {
+    const r = reprise([ago(8), ago(24), ago(28)]);
+    expect(r.repriseActive).toBe(false);
+    expect(r.firstReturnTs).toBeTruthy(); // le pin ACWR, lui, reste couvert (< 21j)
+  });
+  test('pas de trou > 14j → inactif, firstReturnTs null', () => {
+    const r = reprise([ago(1), ago(4), ago(8), ago(12), ago(16), ago(20)]);
+    expect(r.repriseActive).toBe(false);
+    expect(r.firstReturnTs).toBeNull();
+  });
+  test('ne mute pas les logs (pureté)', () => {
+    const logs = [ago(1), ago(17), ago(20)];
+    const before = JSON.stringify(logs);
+    reprise(logs);
+    expect(JSON.stringify(logs)).toBe(before);
+  });
+});
+
+describe('verdict — cran 2 à deux étages', () => {
+  test('repriseActive → ease, source reprise, severity medium, « séance N/2 »', () => {
+    const v = verdict({ repriseActive: true, sessionsSinceReturn: 2, acwr: 1.5, profile: 'classique' });
+    expect(v.direction).toBe('ease');
+    expect(v.source).toBe('reprise');
+    expect(v.severity).toBe('medium');
+    expect(v.reason).toContain('séance 2/2');
+  });
+  test('absence courante > 14j PRIME sur repriseActive (jour-1 d\'abord)', () => {
+    const v = verdict({ absenceDays: 16, repriseActive: true });
+    expect(v.source).toBe('returnToPlay');
+  });
+  test('reprise court-circuite le deload calendaire (pas de deload absurde)', () => {
+    const v = verdict({ repriseActive: true, sessionsSinceReturn: 1, deloadCalendar: true });
+    expect(v.source).toBe('reprise');
+    expect(v.direction).toBe('ease');
+  });
+  test('check-in mauvais ne dégrade PAS un verdict de reprise (source sécurité)', () => {
+    const v = verdict({ repriseActive: true, sessionsSinceReturn: 1, checkin: badCheckin });
+    expect(v.direction).toBe('ease');
+    expect(v.degradedByCheckin).toBeFalsy();
+  });
+});
+
+describe('computeSRS — pin ACWR étendu (trou > 14j & reprise < 21j → 1.0)', () => {
+  function srsWith(logs) {
+    const c = vm.createContext({
+      db: { logs, weeklyPlan: {}, weeklyActivities: [], activityLogs: [], user: {} },
+      calcWeeklyTRIMPForce: () => 700,   // acute gonflé (séances de reprise)
+      calcChronicTRIMPForce: () => 100,  // chronic effondré → sans pin, ACWR ≈ 6.8
+      calcHRVZScore: () => null,
+      Date
+    });
+    ['_computeRepriseState'].forEach(fn => vm.runInContext(extractFn(COACH, fn), c));
+    vm.runInContext(extractFn(COACH, 'computeSRS'), c);
+    return vm.runInContext('computeSRS()', c);
+  }
+  test('fenêtre 8-21j : absence 16j, ≥3 vieux logs en base chronique → pin NOUVEAU → acwr 1.0', () => {
+    // vieux logs 17-27j (≥3 dans la fenêtre 7-28j → l ancien pin ne joue PAS), reprise aujourd hui
+    const s = srsWith([ago(0.5), ago(17), ago(20), ago(24), ago(27)]);
+    expect(s.acwr).toBe(1);
+  });
+  test('piège différé ~J+10 : 3 séances de reprise ont vieilli dans la fenêtre 7-28j → pin étendu couvre', () => {
+    // trou 30-60j ; reprise J-12/-10/-8 (3 logs dans 7-28j → ancien pin relâché) + J-2
+    const s = srsWith([ago(2), ago(8), ago(10), ago(12), ago(42), ago(46)]);
+    expect(s.acwr).toBe(1);
+  });
+  test('contrôle : pas de trou → l\'ACWR reste réel (pas pinné)', () => {
+    const s = srsWith([ago(1), ago(4), ago(8), ago(12), ago(16), ago(20), ago(24)]);
+    expect(s.acwr).toBeGreaterThan(1.5); // ≈ 6.8 non pinné (chronic stub effondré)
+  });
+});

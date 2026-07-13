@@ -691,6 +691,34 @@ function calcHRVZScore() {
 //   0.8–1.2 → progression durable (score 100)
 //   1.2–1.4 → overreach tolérable 1-2 semaines (décroissance linéaire)
 //   > 1.5   → risque blessure ligamentaire
+// ── Arbitre 4/4 — état de reprise (return-to-play mini-cycle, Gemini #5) ────
+// PUR, dérivé des logs : AUCUN champ persisté, aucune écriture (render pur par
+// construction, sync-safe). Un trou > 14j entre deux séances ouvre un mini-cycle
+// de reprise : actif tant que ≤ 2 séances validées depuis la fin du trou, avec
+// plafond de sécurité 7j (si l'utilisateur ne s'entraîne plus, l'absence
+// courante reprend la main — étage jour-1 ou info douce 8-14j).
+// firstReturnTs est exposé pour le pin ACWR (fenêtre 21j, plus large que le
+// mini-cycle : le chronic reste creux bien après les 2 premières séances).
+function _computeRepriseState(logs) {
+  var none = { repriseActive: false, sessionsSinceReturn: 0, gapDays: 0, firstReturnTs: null };
+  var sorted = (logs || []).slice().sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+  if (sorted.length < 2) return none;
+  var DAY = 86400000;
+  for (var i = 0; i + 1 < sorted.length; i++) {
+    // au-delà de 28j, une reprise est terminée de toute façon — stop
+    if ((Date.now() - (sorted[i].timestamp || 0)) > 28 * DAY) break;
+    var gap = (sorted[i].timestamp || 0) - (sorted[i + 1].timestamp || 0);
+    if (gap > 14 * DAY) {
+      var firstReturnTs = sorted[i].timestamp || 0; // 1ère séance post-trou (la plus ancienne)
+      var sessions = i + 1;                          // séances validées depuis la fin du trou
+      var active = sessions <= 2 && (Date.now() - firstReturnTs) <= 7 * DAY;
+      return { repriseActive: active, sessionsSinceReturn: sessions,
+               gapDays: Math.round(gap / DAY), firstReturnTs: firstReturnTs };
+    }
+  }
+  return none;
+}
+
 function computeSRS() {
   // Cold start guard — no training data yet
   if (typeof isColdStart === 'function' && isColdStart()) {
@@ -740,6 +768,14 @@ function computeSRS() {
     return age > 7 * 86400000 && age <= 28 * 86400000;
   });
   if (_chronicBaseLogs.length < 3) acwr = 1.0;
+  // Arbitre 4/4 — reprise après absence : un trou > 14j suivi d'une reprise
+  // récente (< 21j) rend le chronic non fiable (effondré) → zone neutre 1.0.
+  // Couvre la fenêtre 8-21j (vieux logs encore dans la base chronique) ET le
+  // piège différé ~J+10 (les séances de reprise vieillissent dans la fenêtre
+  // 7-28j, relâchent le pin ci-dessus sur un chronic encore creux). Corrige
+  // les DEUX surfaces : arbitre (pas de deload absurde) + jauge Potentiel.
+  var _reprisePin = _computeRepriseState(logs);
+  if (_reprisePin.firstReturnTs && (Date.now() - _reprisePin.firstReturnTs) < 21 * 86400000) acwr = 1.0;
   // Zones powerbuilding : 0.8-1.2 optimal, 1.2-1.4 overreach tolérable, >1.5 danger
   var acwrScore;
   if (acwr >= 0.8 && acwr <= 1.2) {

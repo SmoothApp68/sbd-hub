@@ -18626,10 +18626,17 @@ function computeIntensityVerdict(ctx) {
     verdict = { direction: 'ease', source: 'pain', severity: 'critical',
       reason: 'Douleur signalée au check-in — séance allégée, on ne charge pas une douleur.' };
   }
-  // Cran 2 — return-to-play (le mini-cycle de reprise = prompt 4)
+  // Cran 2 — return-to-play à deux étages (correctif Gemini #5) :
+  // jour-1 (absence courante > 14j), puis MINI-CYCLE de reprise (≤ 2 séances
+  // validées depuis la fin du trou, dérivé des logs — l'ACWR est neutralisé en
+  // amont par le pin computeSRS, et le court-circuit ici évite le deload absurde).
   else if ((ctx.absenceDays || 0) > 14) {
     verdict = { direction: 'ease', source: 'returnToPlay', severity: 'high',
       reason: 'Retour après ' + Math.round(ctx.absenceDays) + ' jours — recalibration, les tendons suivent moins vite que les muscles.' };
+  }
+  else if (ctx.repriseActive) {
+    verdict = { direction: 'ease', source: 'reprise', severity: 'medium',
+      reason: 'Reprise progressive — séance ' + (ctx.sessionsSinceReturn || 1) + '/2, on remonte en charge.' };
   }
   // Cran 3 — deload piloté par les données (correctif Gemini #1 : reset le calendrier)
   else if (ctx.deloadDataDriven && ctx.deloadDataDriven.needed) {
@@ -18693,7 +18700,7 @@ function computeIntensityVerdict(ctx) {
   // dégrade d'UN cran (push→maintain, maintain→ease), jamais plus — l'ACWR
   // objectif garde le dernier mot sur l'ampleur. Pas de check-in → aucune
   // modification. Ne s'applique pas aux verdicts sécurité (crans 1-2) ni deload.
-  var _securitySources = { killswitch: 1, injury: 1, pain: 1, returnToPlay: 1 };
+  var _securitySources = { killswitch: 1, injury: 1, pain: 1, returnToPlay: 1, reprise: 1 };
   if (ctx.checkin && _checkinIsBad(ctx.checkin)
       && !_securitySources[verdict.source]
       && verdict.direction !== 'deload' && verdict.direction !== 'ease') {
@@ -18814,6 +18821,10 @@ function collectIntensityContext() {
     var _inj = (typeof checkInjuryPersistence === 'function') ? checkInjuryPersistence() : null;
     injuryDanger = !!(_inj && _inj.length);
   } catch (e) {}
+  // Mini-cycle de reprise — pur, dérivé des logs (coach.js, aucune écriture)
+  var _reprise = (typeof _computeRepriseState === 'function')
+    ? _computeRepriseState(db.logs || [])
+    : { repriseActive: false, sessionsSinceReturn: 0 };
   return {
     killSwitch: !!db._killSwitchActive,
     injuryDanger: injuryDanger,
@@ -18821,6 +18832,8 @@ function collectIntensityContext() {
     deloadDataDriven: deloadDD,
     deloadCalendar: (deloadWks !== null && deloadWks > maxWeeks),
     absenceDays: (typeof getAbsencePenalty === 'function') ? (getAbsencePenalty().days || 0) : 0,
+    repriseActive: _reprise.repriseActive,
+    sessionsSinceReturn: _reprise.sessionsSinceReturn,
     deadliftTomorrow: _planHasDeadliftTomorrow(),
     calibrating: !!cal.calibrating,
     acwr: (srs && typeof srs.acwr === 'number') ? srs.acwr : null,

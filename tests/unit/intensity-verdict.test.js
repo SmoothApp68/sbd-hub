@@ -284,3 +284,44 @@ describe('_planHasDeadliftTomorrow — plan réel, RDL exclu', () => {
     expect(has([])).toBe(false);
   });
 });
+
+// ── Arbitre 4/4 commit 1 — pain 'Aucune' ne déclenche PAS de faux cran 1 ─────
+describe("pain 'Aucune' — choix explicite « pas de douleur »", () => {
+  // Filtre défensif du collecteur (entrées 'Aucune' déjà stockées) : même
+  // expression que collectIntensityContext (source-assert + comportement).
+  const painAcuteOf = (checkin) => !!(checkin && checkin.pain && checkin.pain !== 'Aucune');
+  test("le collecteur contient bien le filtre !== 'Aucune'", () => {
+    expect(APP.includes("painAcute: !!(checkin && checkin.pain && checkin.pain !== 'Aucune')")).toBe(true);
+  });
+  test("pain 'Aucune' → painAcute false → pas de cran 1 (retombe au défaut)", () => {
+    expect(painAcuteOf({ pain: 'Aucune' })).toBe(false);
+    const v = verdict({ painAcute: painAcuteOf({ pain: 'Aucune' }), acwr: 1.0, profile: 'classique' });
+    expect(v.source).not.toBe('pain');
+  });
+  test("pain 'Genou' → painAcute true → cran 1 ease critical", () => {
+    expect(painAcuteOf({ pain: 'Genou' })).toBe(true);
+    const v = verdict({ painAcute: true });
+    expect(v.direction).toBe('ease');
+    expect(v.source).toBe('pain');
+    expect(v.severity).toBe('critical');
+  });
+  test("saveDailyCheckin normalise 'Aucune' → null à l'écriture", () => {
+    const c = vm.createContext({
+      _checkinData: { sleep: 4, energy: 4, motivation: 4, fresh: 4, pain: 'Aucune' },
+      db: {}, calculateReadiness: () => 80, getTodayStr: () => '2026-07-13',
+      saveDBNow: () => {}, showToast: () => {}, Date
+    });
+    vm.runInContext(extractFn(APP, 'saveDailyCheckin'), c);
+    vm.runInContext('saveDailyCheckin()', c);
+    expect(vm.runInContext('db.readinessHistory[0].pain', c)).toBeNull();
+    // une vraie zone reste stockée
+    const c2 = vm.createContext({
+      _checkinData: { sleep: 4, energy: 4, motivation: 4, fresh: 4, pain: 'Genou' },
+      db: {}, calculateReadiness: () => 80, getTodayStr: () => '2026-07-13',
+      saveDBNow: () => {}, showToast: () => {}, Date
+    });
+    vm.runInContext(extractFn(APP, 'saveDailyCheckin'), c2);
+    vm.runInContext('saveDailyCheckin()', c2);
+    expect(vm.runInContext('db.readinessHistory[0].pain', c2)).toBe('Genou');
+  });
+});

@@ -18817,7 +18817,7 @@ function collectIntensityContext() {
   return {
     killSwitch: !!db._killSwitchActive,
     injuryDanger: injuryDanger,
-    painAcute: !!(checkin && checkin.pain),
+    painAcute: !!(checkin && checkin.pain && checkin.pain !== 'Aucune'), // filtre défensif : entrées 'Aucune' déjà stockées
     deloadDataDriven: deloadDD,
     deloadCalendar: (deloadWks !== null && deloadWks > maxWeeks),
     absenceDays: (typeof getAbsencePenalty === 'function') ? (getAbsencePenalty().days || 0) : 0,
@@ -22248,7 +22248,9 @@ function saveDailyCheckin() {
   if (!db.readinessHistory) db.readinessHistory = [];
   db.readinessHistory.push({ ts: Date.now(), date: today, sleep: sleep10,
     energy: energy10, motivation: motivation10, soreness: soreness10,
-    score: score, pain: _checkinData.pain || null });
+    // 'Aucune' = choix explicite « pas de douleur » → null (sinon !!pain déclenchait
+    // un faux cran 1 « Douleur signalée » chez l'arbitre).
+    score: score, pain: (_checkinData.pain && _checkinData.pain !== 'Aucune') ? _checkinData.pain : null });
   db.readinessHistory = db.readinessHistory.slice(-90);
 
   // Séance active : même forme qu'avant — loadAdjustment stocké, toujours

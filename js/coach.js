@@ -449,12 +449,14 @@ function calcVolumeAutoTune(logs) {
   var _lastSuggestion = (db.weeklyPlan && db.weeklyPlan._volumeSuggestionsDate) || 0;
   if (_lastSuggestion && (now - _lastSuggestion) < 25 * 86400000) return {};
 
-  // Insolvency sur les 7 derniers jours uniquement — un pic isolé ne doit pas
-  // déclencher une réduction globale (lissage vs calcul sur 4 semaines)
+  // Signal de récupération : les alertes de stress articulaire 7j (réelles),
+  // à la place de l'Insolvency Index (gelé — mal calibré, cf. C3b). Un pic
+  // isolé ne doit pas déclencher une réduction globale : on ne module que les
+  // muscles dont l'articulation associée est en zone rouge.
   var logs7d = logs.filter(function(l) { return l.timestamp > now - 7 * 86400000; });
-  var insolvency7d = typeof calcInsolvencyIndex === 'function'
-    ? calcInsolvencyIndex(logs7d) : { index: 0 };
-  var avgInsolvency = insolvency7d.index || 0;
+  var _jointAlerts7d = typeof getJointStressAlerts === 'function'
+    ? getJointStressAlerts(logs7d) : [];
+  var _anyRedJoint = _jointAlerts7d.some(function(a) { return a.level === 'red'; });
 
   function getMuscleWeeklySets(subset, startTs, endTs) {
     var sets = {};
@@ -490,22 +492,21 @@ function calcVolumeAutoTune(logs) {
     var trend = avgSets - (setsEarly[muscle] || 0);
     var limits = typeof VOLUME_DELTA_LIMITS !== 'undefined' ? VOLUME_DELTA_LIMITS : { max: 4, min: -4 };
     var currentDelta = (db.user && db.user.volumeDeltas && db.user.volumeDeltas[muscle]) || 0;
-    if (avgSets >= target.MAV_high && avgInsolvency < 0.9 && trend >= 0) {
+    // +1 : volume haut + en hausse ET aucune articulation rouge (récup OK)
+    if (avgSets >= target.MAV_high && !_anyRedJoint && trend >= 0) {
       if (currentDelta < limits.max) recommendations[muscle] = currentDelta + 1;
-    } else if (avgInsolvency >= 1.3 && avgSets > target.MEV) {
-      // Ne réduire que si le muscle correspond à une articulation en zone rouge
-      // OU si l'insolvency est vraiment critique (> 1.4)
+    } else if (avgSets > target.MEV) {
+      // -1 : uniquement si l'articulation associée au muscle est en zone rouge
+      // (signal réel — plus de gate Insolvency cassé qui réduisait en permanence).
       var MUSCLE_TO_JOINT = {
         quads: 'genoux', ischio: 'genoux', fessiers: 'hanches',
         dos: 'lombaires', trapezes: 'lombaires', pecs: 'epaules', epaules: 'epaules'
       };
-      var jointAlerts7d = typeof getJointStressAlerts === 'function'
-        ? getJointStressAlerts(logs7d) : [];
       var muscleJoint = MUSCLE_TO_JOINT[muscle];
-      var hasJointAlert = muscleJoint && jointAlerts7d.some(function(a) {
+      var hasJointAlert = muscleJoint && _jointAlerts7d.some(function(a) {
         return a.joint === muscleJoint && a.level === 'red';
       });
-      if ((hasJointAlert || avgInsolvency >= 1.4) && currentDelta > limits.min) {
+      if (hasJointAlert && currentDelta > limits.min) {
         recommendations[muscle] = currentDelta - 1;
       }
     }

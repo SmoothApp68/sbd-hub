@@ -24797,11 +24797,10 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       });
     }
   }
-  // ── Insolvency Index — modulateur de volume (C3b) ─────────────────────────
-  var _insolvency = typeof calcInsolvencyIndex === 'function'
-    ? calcInsolvencyIndex(db.logs || []) : { index: 0, level: 'ok' };
-  var _insolvencyLevel = _insolvency.level || 'ok';
-
+  // ── Insolvency Index (C3b) GELÉ ───────────────────────────────────────────
+  // L'index était mal calibré (banqueroute permanente) et amputait les
+  // accessoires (-1/-2 séries) en continu. Modulateur + note retirés : la
+  // modulation de charge est la seule responsabilité de l'arbitre d'intensité.
   var remaining = maxExos - exercises.length;
   var placedExoNames = exercises.map(function(e) { return e.name || ''; });
   // Trier par priorité avant de couper — évite de supprimer les exercices cruciaux (Gemini)
@@ -24846,14 +24845,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
       sc = Math.max(1, Math.floor(sc * 0.60));
       if (acc.rpe && acc.rpe > 7) acc = Object.assign({}, acc, { rpe: 7 });
     }
-    // Modulateur Insolvency (C3b) — accessoires uniquement, jamais les lifts primaires
-    if (!acc.isPrimary) {
-      if (_insolvencyLevel === 'orange') {
-        sc = Math.max(1, sc - 1);
-      } else if (_insolvencyLevel === 'red' || _insolvencyLevel === 'critical') {
-        sc = Math.max(2, sc - 2);
-      }
-    }
+    // (Modulateur Insolvency C3b retiré — index cassé, gel : l'arbitre gère l'intensité.)
     var restVal = phase === 'deload' ? 90 : (acc.rest || 120);
     if (isCutting) restVal += 30;
     var dpResult = wpDoubleProgressionWeight(acc.name, repsLow, repsHigh);
@@ -25130,13 +25122,7 @@ function wpGeneratePowerbuildingDay(dayKey, routine, phase, params, currentDay, 
     });
   }
 
-  // Note Insolvency coach (C3b)
-  if (_insolvencyLevel === 'critical' || _insolvencyLevel === 'red') {
-    dayCoachNote = (dayCoachNote || '') +
-      ' 🚨 Index Insolvency ' + (_insolvency.displayIndex !== undefined
-        ? _insolvency.displayIndex : _insolvency.index).toFixed(2) +
-      ' — Volume accessoires réduit. Priorise la récupération.';
-  }
+  // (Note Insolvency coach C3b retirée — voir gel ci-dessus.)
 
   // Deload sauté (Gemini Q3) : S1 Force bridée — cap RPE séries de travail
   var _rpeCap = db.weeklyPlan && db.weeklyPlan._deloadSkippedRpeCap;

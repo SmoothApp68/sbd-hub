@@ -18484,6 +18484,10 @@ function updateCoachHistoBadge() {
   else { badge.style.display = 'none'; }
 }
 
+// Budget de blocs (étape 5) — toggle « Voir plus » en MÉMOIRE seulement
+// (jamais persisté : le cap est un choix d'affichage, aucune écriture db).
+var _coachShowMore = false;
+
 function renderCoachToday() {
   var el = document.getElementById('coach-today');
   if (!el) return;
@@ -19374,22 +19378,32 @@ function renderCoachTodayHTML() {
   var pr = db.bestPR || {};
   var html = '';
 
+  // ── ORDONNANCEUR (étape 5) — budget de blocs ────────────────────────────
+  // P1 sécurité (kill-switch, verdict, tendon, RTP, blessure, compét, deload)
+  // reste en `html +=` direct : JAMAIS capé, toujours en tête. Les blocs
+  // P2 (données du jour) / P3 (tendances-plan) / P4 (motivation-découverte)
+  // poussent leurs cartes ici ; tri stable (priorité puis ordre d'apparition),
+  // cap COACH_CARD_CAP, excédent replié sous « Voir plus ». Lecture seule.
+  var COACH_CARD_CAP = 6;
+  var _cards = [];
+  function _pushCard(pri, frag) { if (frag) _cards.push({ pri: pri, seq: _cards.length, html: frag }); }
+
   // ── MORPHO-CARD — utilisateurs existants sans morpho ── [P4 nav]
   var _morphoLevel = db.user && db.user.level;
   if (db.user && db.user.onboarded && _morphoLevel !== 'debutant'
       && (db.user.morpho === null || db.user.morpho === undefined)) {
-    html += '<div style="background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.25);'
+    _pushCard(4, '<div style="background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.25);'
       + 'border-radius:14px;padding:14px;margin-bottom:14px;display:flex;'
-      + 'align-items:center;justify-content:space-between;gap:12px;">';
-    html += '<div>';
-    html += '<div style="font-size:13px;font-weight:700;margin-bottom:3px;">📐 Analyse morphologique</div>';
-    html += '<div style="font-size:11px;color:var(--sub);line-height:1.5;">'
-      + 'Adapte tes exercices à ta morphologie pour optimiser les angles et réduire le stress articulaire.</div>';
-    html += '</div>';
-    html += '<button onclick="openMorphoSettings()" style="flex-shrink:0;padding:8px 14px;'
+      + 'align-items:center;justify-content:space-between;gap:12px;">'
+      + '<div>'
+      + '<div style="font-size:13px;font-weight:700;margin-bottom:3px;">📐 Analyse morphologique</div>'
+      + '<div style="font-size:11px;color:var(--sub);line-height:1.5;">'
+      + 'Adapte tes exercices à ta morphologie pour optimiser les angles et réduire le stress articulaire.</div>'
+      + '</div>'
+      + '<button onclick="openMorphoSettings()" style="flex-shrink:0;padding:8px 14px;'
       + 'border-radius:10px;background:var(--accent);border:none;color:#fff;'
-      + 'font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Configurer</button>';
-    html += '</div>';
+      + 'font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Configurer</button>'
+      + '</div>');
   }
 
   // ── 0a. KILL SWITCH BANNER — compétition imminente ──
@@ -19423,8 +19437,8 @@ function renderCoachTodayHTML() {
     html += renderIntensityVerdictCard(_verdict, _intensityCtx);
   }
 
-  // ── 0. BILAN DU MATIN ──
-  html += renderMorningCheckin();
+  // ── 0. BILAN DU MATIN ── [P2]
+  _pushCard(2, renderMorningCheckin());
 
   // ── 0a0. CARTE ACTIVITÉ UNIFIÉE (étape 5) — ghost log d'hier + conseil du
   // jour agrégés en UNE carte (cap 1 quelle que soit la quantité d'activités ;
@@ -19485,19 +19499,19 @@ function renderCoachTodayHTML() {
     });
   }
   if (_actInner) {
-    html += '<div style="background:var(--surface);border-radius:12px;'
+    _pushCard(2, '<div style="background:var(--surface);border-radius:12px;'
       + 'padding:12px 14px;margin-bottom:12px;">'
       + '<div style="font-size:13px;font-weight:700;margin-bottom:6px;">🏃 Activités</div>'
-      + _actInner + '</div>';
+      + _actInner + '</div>');
   }
 
   // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ── [P4 motivation]
   var _churn = typeof detectChurn === 'function' ? detectChurn() : null;
   if (_churn && _churn.isChurning) {
-    html += '<div style="background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.25);border-radius:14px;padding:16px;margin-bottom:14px;">';
-    html += '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">👋 ' + _churn.title + '</div>';
-    html += '<div style="font-size:12px;color:var(--sub);line-height:1.6;">' + _churn.message + '</div>';
-    html += '</div>';
+    _pushCard(4, '<div style="background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.25);border-radius:14px;padding:16px;margin-bottom:14px;">'
+      + '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">👋 ' + _churn.title + '</div>'
+      + '<div style="font-size:12px;color:var(--sub);line-height:1.6;">' + _churn.message + '</div>'
+      + '</div>');
   }
 
   // (Deload proactif fusionné dans la carte deload unifiée plus bas — l'arbitre
@@ -19517,23 +19531,24 @@ function renderCoachTodayHTML() {
       var _muscuPct = Math.round(_muscuTRIMP / _totalTRIMP * 100);
       var _secPct = 100 - _muscuPct;
 
-      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
-      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">⚡ Budget Récupération</div>';
-      html += '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:8px;">';
-      html += '<div style="width:' + _muscuPct + '%;background:var(--accent);"></div>';
-      html += '<div style="width:' + _secPct + '%;background:var(--orange);"></div>';
-      html += '</div>';
-      html += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:8px;">';
-      html += '<span>💪 Muscu ' + _muscuPct + '% (' + _muscuTRIMP + ' ' + labelFor('trimp','TRIMP') + ')</span>';
-      html += '<span>🏃 Activités ' + _secPct + '% (' + _secTRIMP + ' ' + labelFor('trimp','TRIMP') + ')</span>';
-      html += '</div>';
+      var _brHtml = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      _brHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">⚡ Budget Récupération</div>';
+      _brHtml += '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:8px;">';
+      _brHtml += '<div style="width:' + _muscuPct + '%;background:var(--accent);"></div>';
+      _brHtml += '<div style="width:' + _secPct + '%;background:var(--orange);"></div>';
+      _brHtml += '</div>';
+      _brHtml += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:8px;">';
+      _brHtml += '<span>💪 Muscu ' + _muscuPct + '% (' + _muscuTRIMP + ' ' + labelFor('trimp','TRIMP') + ')</span>';
+      _brHtml += '<span>🏃 Activités ' + _secPct + '% (' + _secTRIMP + ' ' + labelFor('trimp','TRIMP') + ')</span>';
+      _brHtml += '</div>';
       _actData.flags.forEach(function(flag) {
         var _fc = flag.type === 'warning' ? 'var(--orange)' : 'var(--blue)';
-        html += '<div style="margin-top:6px;padding:8px 10px;border-radius:8px;'
+        _brHtml += '<div style="margin-top:6px;padding:8px 10px;border-radius:8px;'
           + 'background:' + _fc + '18;border-left:3px solid ' + _fc + ';'
           + 'font-size:11px;color:var(--text);">' + flag.reason + '</div>';
       });
-      html += '</div>';
+      _brHtml += '</div>';
+      _pushCard(3, _brHtml);
     }
   }
 
@@ -19544,13 +19559,13 @@ function renderCoachTodayHTML() {
         ? getCrossInterferencePenalties() : {};
       var _penZones = Object.keys(_interPen);
       if (_penZones.length > 0) {
-        html += '<div style="background:rgba(255,159,10,0.08);border-radius:12px;'
-          + 'padding:10px 12px;margin-bottom:12px;border-left:3px solid var(--orange);">';
-        html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">⚡ Interférence détectée</div>';
-        html += '<div style="font-size:11px;color:var(--sub);">Volume réduit sur : '
+        _pushCard(2, '<div style="background:rgba(255,159,10,0.08);border-radius:12px;'
+          + 'padding:10px 12px;margin-bottom:12px;border-left:3px solid var(--orange);">'
+          + '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">⚡ Interférence détectée</div>'
+          + '<div style="font-size:11px;color:var(--sub);">Volume réduit sur : '
           + _penZones.slice(0, 3).join(', ')
-          + ' (récupération activité d\'hier)</div>';
-        html += '</div>';
+          + ' (récupération activité d\'hier)</div>'
+          + '</div>');
       }
     } catch(e) {}
   }
@@ -19570,21 +19585,21 @@ function renderCoachTodayHTML() {
   // Copy qualitative, sans fausse probabilité chiffrée.
   if (coachProfile !== 'silent' && _verdict && _verdict.direction === 'push'
       && _intensityCtx && (_intensityCtx.momentumPRs || 0) >= 2) {
-    html += '<div style="background:rgba(50,215,75,0.1);border:1px solid var(--green);'
+    _pushCard(4, '<div style="background:rgba(50,215,75,0.1);border:1px solid var(--green);'
       + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
       + '<div style="font-size:13px;font-weight:700;color:var(--green);">'
       + '🔥 ' + _intensityCtx.momentumPRs + ' vrais PR cette semaine — le momentum est là, surfe dessus.</div>'
-      + '</div>';
+      + '</div>');
   }
 
   // ── 0b2b. RÉGULARITÉ ── [P4 motivation]
   if (coachProfile !== 'silent') {
     var _regMsg = getRegularityMessage();
     if (_regMsg) {
-      html += '<div style="background:rgba(50,215,75,0.08);border-left:3px solid var(--green);'
+      _pushCard(4, '<div style="background:rgba(50,215,75,0.08);border-left:3px solid var(--green);'
         + 'border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:12px;">'
         + '<div style="font-size:13px;color:var(--text);">' + _regMsg + '</div>'
-        + '</div>';
+        + '</div>');
     }
   }
 
@@ -19605,11 +19620,11 @@ function renderCoachTodayHTML() {
     // dit gentiment. Lecture seule, ne touche ni verdict ni mini-cycle.
     var _absSoft = typeof getAbsencePenalty === 'function' ? getAbsencePenalty() : null;
     if (_absSoft && _absSoft.days > 7 && _absSoft.days <= 14) {
-      html += '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);'
+      _pushCard(2, '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);'
         + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
         + '<div style="font-size:13px;color:var(--accent);">👋 Content de te revoir — '
         + _absSoft.days + ' jours sans séance. On reprend en douceur, charges légèrement réduites.</div>'
-        + '</div>';
+        + '</div>');
     }
   }
 
@@ -19621,43 +19636,44 @@ function renderCoachTodayHTML() {
       : (typeof analyzeAthleteProfile === 'function' ? analyzeAthleteProfile() : []);
     if (diagnosis.length) {
       var severityColor = { danger: 'var(--red)', warning: 'var(--orange)', good: 'var(--green)', info: 'var(--blue)' };
-      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
-      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📊 Diagnostic Athlétique</div>';
+      var _dgHtml = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      _dgHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;">📊 Diagnostic Athlétique</div>';
       diagnosis.forEach(function(section) {
-        html += '<div style="margin-bottom:12px;">';
-        html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+        _dgHtml += '<div style="margin-bottom:12px;">';
+        _dgHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
           + 'letter-spacing:0.8px;font-weight:600;margin-bottom:8px;">' + section.title + '</div>';
         section.alerts.forEach(function(alert) {
           var color = severityColor[alert.severity] || 'var(--sub)';
           var _icon = _SEVERITY_ICONS[alert.severity] || 'ℹ️';
-          html += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;'
+          _dgHtml += '<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;'
             + 'background:' + color + '18;border-left:3px solid ' + color + ';">';
-          html += '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:3px;">'
+          _dgHtml += '<div style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:3px;">'
             + _icon + ' ' + alert.title + '</div>';
-          html += '<div style="font-size:11px;color:var(--text);line-height:1.5;">'
+          _dgHtml += '<div style="font-size:11px;color:var(--text);line-height:1.5;">'
             + alert.text + '</div>';
-          html += '</div>';
+          _dgHtml += '</div>';
         });
-        html += '</div>';
+        _dgHtml += '</div>';
       });
-      html += '</div>';
+      _dgHtml += '</div>';
+      _pushCard(3, _dgHtml);
     }
   }
 
   // ── 0c-bis. AUTO-TUNER — suggestions volume interactives (Gemini Q1) ──
   if (coachProfile !== 'silent' && typeof renderAutoTunerCard === 'function') {
-    try { html += renderAutoTunerCard(); } catch(e) {}
+    try { _pushCard(3, renderAutoTunerCard()); } catch(e) {}
   }
 
   // ── 0c-ter. STALENESS — rotations accessoires pendant le Deload (Gemini Q2.4) ──
   if (coachProfile !== 'silent' && typeof renderStalenessRotationCard === 'function') {
-    try { html += renderStalenessRotationCard(); } catch(e) {}
+    try { _pushCard(2, renderStalenessRotationCard()); } catch(e) {}
   }
 
   // ── 0c-quart. DISCOVERY CARDS — exercices bénéfiques inconnus (Gemini Q2/Q4) ── [P4 découverte]
   if (coachProfile !== 'silent') {
-    try { html += renderDiscoveryCards(); } catch(e) {}
-    try { html += renderHipThrustInsight(); } catch(e) {}
+    try { _pushCard(4, renderDiscoveryCards()); } catch(e) {}
+    try { _pushCard(4, renderHipThrustInsight()); } catch(e) {}
   }
 
   // ── 0c. PHYSIOMANAGER — alerte cycle menstruel ──
@@ -19668,8 +19684,8 @@ function renderCoachTodayHTML() {
       var _phaseLabel = _phaseData.label;
       var _phaseColor = (_cyclePhase === 'luteale' || _cyclePhase === 'folliculaire_precoce')
         ? 'var(--orange)' : 'var(--green)';
-      html += '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
-      html += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🌸 ' + _phaseLabel + '</div>';
+      var _cyHtml = '<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:14px;">';
+      _cyHtml += '<div style="font-size:13px;font-weight:700;margin-bottom:8px;">🌸 ' + _phaseLabel + '</div>';
       // La carte de phase reste TOUJOURS (info santé/échauffement) ; seul
       // l'appel « tente un PR » est conditionné au verdict de l'arbitre —
       // plus jamais « tente un PR » sous un deload/ease (cas B-2 de l'audit).
@@ -19684,66 +19700,69 @@ function renderCoachTodayHTML() {
       };
       var _cycleMsg = _cycleMessages[_cyclePhase];
       if (_cycleMsg) {
-        html += '<div style="font-size:11px;color:var(--text);line-height:1.6;">' + _cycleMsg + '</div>';
+        _cyHtml += '<div style="font-size:11px;color:var(--text);line-height:1.6;">' + _cycleMsg + '</div>';
       }
       if (_phaseData.injuryAlert && _cyclePhase !== 'ovulatoire') {
-        html += '<div style="font-size:10px;color:var(--orange);margin-top:6px;">⚠️ Échauffement articulaire conseillé.</div>';
+        _cyHtml += '<div style="font-size:10px;color:var(--orange);margin-top:6px;">⚠️ Échauffement articulaire conseillé.</div>';
       }
-      html += '</div>';
+      _cyHtml += '</div>';
+      _pushCard(2, _cyHtml);
     }
   }
 
   // ── 0d. REFEED / CYCLAGE CALORIQUE ──
   if (coachProfile !== 'silent') {
     var _refeed = typeof getRefeedRecommendation === 'function' ? getRefeedRecommendation() : null;
+    var _nuHtml = '';
     if (_refeed && _refeed.active) {
-      html += '<div style="background:rgba(255,159,10,0.1);border-radius:12px;'
+      _nuHtml += '<div style="background:rgba(255,159,10,0.1);border-radius:12px;'
         + 'padding:12px;margin-bottom:12px;border:1px solid var(--orange);">';
-      html += '<div style="font-size:11px;color:var(--orange);text-transform:uppercase;'
+      _nuHtml += '<div style="font-size:11px;color:var(--orange);text-transform:uppercase;'
         + 'letter-spacing:0.8px;margin-bottom:8px;">🔄 Refeed Day</div>';
-      html += '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Jour de recharge énergétique</div>';
-      html += '<div style="font-size:12px;color:var(--sub);line-height:1.5;margin-bottom:10px;">'
+      _nuHtml += '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Jour de recharge énergétique</div>';
+      _nuHtml += '<div style="font-size:12px;color:var(--sub);line-height:1.5;margin-bottom:10px;">'
         + _refeed.message + '</div>';
-      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">';
-      html += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
-      html += '<div style="font-size:18px;font-weight:700;color:var(--orange);">' + _refeed.tdee + '</div>';
-      html += '<div style="font-size:10px;color:var(--sub);">kcal cible</div>';
-      html += '</div>';
+      _nuHtml += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">';
+      _nuHtml += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
+      _nuHtml += '<div style="font-size:18px;font-weight:700;color:var(--orange);">' + _refeed.tdee + '</div>';
+      _nuHtml += '<div style="font-size:10px;color:var(--sub);">kcal cible</div>';
+      _nuHtml += '</div>';
       // Score masqué pendant la calibration ACWR (cohérence avec le Potentiel de Performance).
       var _refeedCal = typeof getCoachCalibration === 'function' && getCoachCalibration().calibrating;
-      html += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
-      html += '<div style="font-size:18px;font-weight:700;color:var(--sub);">' + (_refeedCal ? '—' : _refeed.srsScore + '/100') + '</div>';
-      html += '<div style="font-size:10px;color:var(--sub);">' + (_refeedCal ? 'en calibration' : 'récupération') + '</div>';
-      html += '</div>';
-      html += '</div>';
-      html += '</div>';
+      _nuHtml += '<div style="text-align:center;background:var(--surface);border-radius:8px;padding:8px;">';
+      _nuHtml += '<div style="font-size:18px;font-weight:700;color:var(--sub);">' + (_refeedCal ? '—' : _refeed.srsScore + '/100') + '</div>';
+      _nuHtml += '<div style="font-size:10px;color:var(--sub);">' + (_refeedCal ? 'en calibration' : 'récupération') + '</div>';
+      _nuHtml += '</div>';
+      _nuHtml += '</div>';
+      _nuHtml += '</div>';
     } else {
       var caloricTarget = typeof getDailyCaloricTarget === 'function' ? getDailyCaloricTarget() : null;
       if (caloricTarget) {
-        html += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">';
-        html += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
+        _nuHtml += '<div style="background:var(--surface);border-radius:12px;padding:12px;margin-bottom:12px;">';
+        _nuHtml += '<div style="font-size:11px;color:var(--sub);text-transform:uppercase;'
           + 'letter-spacing:0.8px;margin-bottom:8px;">🍽️ Nutrition — ' + caloricTarget.label + '</div>';
-        html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
+        _nuHtml += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
         [
           { label: 'Calories',  value: caloricTarget.calories, unit: 'kcal' },
           { label: 'Glucides',  value: caloricTarget.carbs,    unit: 'g' },
           { label: 'Protéines', value: caloricTarget.proteins, unit: 'g' },
           { label: 'Lipides',   value: caloricTarget.fats,     unit: 'g' }
         ].forEach(function(m) {
-          html += '<div style="text-align:center;">';
-          html += '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + m.value + '</div>';
-          html += '<div style="font-size:10px;color:var(--sub);">' + m.unit + '</div>';
-          html += '<div style="font-size:10px;color:var(--sub);">' + m.label + '</div>';
-          html += '</div>';
+          _nuHtml += '<div style="text-align:center;">';
+          _nuHtml += '<div style="font-size:16px;font-weight:700;color:var(--accent);">' + m.value + '</div>';
+          _nuHtml += '<div style="font-size:10px;color:var(--sub);">' + m.unit + '</div>';
+          _nuHtml += '<div style="font-size:10px;color:var(--sub);">' + m.label + '</div>';
+          _nuHtml += '</div>';
         });
-        html += '</div>';
+        _nuHtml += '</div>';
         if (caloricTarget.type === 'high') {
-          html += '<div style="font-size:11px;color:var(--sub);margin-top:8px;">'
+          _nuHtml += '<div style="font-size:11px;color:var(--sub);margin-top:8px;">'
             + '💡 Vise ' + caloricTarget.carbs + 'g de glucides complexes 2h avant la séance.</div>';
         }
-        html += '</div>';
+        _nuHtml += '</div>';
       }
     }
+    _pushCard(3, _nuHtml);
   }
 
   // ── 1. JAUGES ──
@@ -19763,7 +19782,7 @@ function renderCoachTodayHTML() {
   // Calibration ACWR : sous ~3 sem d'historique, le score de Potentiel de Performance n'a rien
   // mesuré (pin ACWR) → jauge de progression au lieu d'un score trompeur.
   var _batCal = typeof getCoachCalibration === 'function' ? getCoachCalibration() : { calibrating: false };
-  html += _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore);
+  _pushCard(2, _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore));
   // (Jauge Volume déplacée en HEADER de la carte Volume unique plus bas —
   // étape 5 : le volume n'apparaît plus qu'UNE fois.)
 
@@ -19837,13 +19856,14 @@ function renderCoachTodayHTML() {
     }
 
     if (_coachAlerts.length > 0) {
-      html += '<div style="margin-bottom:12px;">';
+      var _caHtml = '<div style="margin-bottom:12px;">';
       _coachAlerts.slice(0, 3).forEach(function(alert) {
-        html += '<div class="coach-alert coach-alert--' + alert.type + '">'
+        _caHtml += '<div class="coach-alert coach-alert--' + alert.type + '">'
           + '<div style="font-size:12px;color:var(--text);line-height:1.5;">' + alert.text + '</div>'
           + '</div>';
       });
-      html += '</div>';
+      _caHtml += '</div>';
+      _pushCard(3, _caHtml);
     }
   }
 
@@ -20016,38 +20036,39 @@ function renderCoachTodayHTML() {
     }
   }
 
-  html += '<div class="coach-recos"><div class="coach-reco-title">🦍 Recommandations</div>';
+  var _rcHtml = '<div class="coach-recos"><div class="coach-reco-title">🦍 Recommandations</div>';
   if (recos.length === 0) {
-    html += '<div class="coach-reco-text">Tout est optimal — continue comme ça !</div>';
+    _rcHtml += '<div class="coach-reco-text">Tout est optimal — continue comme ça !</div>';
   } else {
-    html += recos.map(function(r) {
+    _rcHtml += recos.map(function(r) {
       return '<div class="coach-reco-item">'+
         '<div class="coach-reco-dot" style="background:'+r.dot+';"></div>'+
         '<div class="coach-reco-text">'+r.text+'</div>'+
       '</div>';
     }).join('');
   }
-  html += '</div>';
+  _rcHtml += '</div>';
+  _pushCard(3, _rcHtml);
 
   // ── 4. CARTE VOLUME UNIQUE (étape 5) — jauge (header) + alertes under/over
   // (ex-Recommandations) + barres par muscle. LA seule vue volume du Coach.
   if (volReport) {
     var allMuscles = (volReport.optimal||[]).concat(volReport.under||[]).concat(volReport.high||[]).concat(volReport.over||[]);
     if (allMuscles.length > 0) {
-      html += '<div class="coach-muscles">';
+      var _voHtml = '<div class="coach-muscles">';
       // Header : titre + jauge score (ex-bloc coach-gauges)
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+      _voHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
         + '<div class="coach-reco-title" style="margin-bottom:0;">💪 Volume / semaine</div>'
         + '<div style="font-size:14px;font-weight:800;color:'+gaugeColor(volScore)+';">'+volScore+'<span style="font-size:10px;font-weight:400;color:var(--sub);">/100</span></div>'
         + '</div>';
-      html += '<div style="height:5px;background:var(--border);border-radius:3px;margin-bottom:10px;">'
+      _voHtml += '<div style="height:5px;background:var(--border);border-radius:3px;margin-bottom:10px;">'
         + '<div style="height:100%;width:'+volScore+'%;background:'+gaugeColor(volScore)+';border-radius:3px;"></div></div>';
       // Alertes migrées des Recommandations (mêmes règles : under filtré par le plan)
       var plannedMuscles = typeof getMusclesPlannedThisWeek === 'function' ? getMusclesPlannedThisWeek() : new Set();
       if (volReport.under && volReport.under.length > 0) {
         var reallyUnder = volReport.under.filter(function(e) { return !plannedMuscles.has(e.muscle); });
         if (reallyUnder.length > 0) {
-          html += '<div style="font-size:11px;color:var(--orange);margin-bottom:6px;">'
+          _voHtml += '<div style="font-size:11px;color:var(--orange);margin-bottom:6px;">'
             + '<strong>Volume insuffisant :</strong> '
             + reallyUnder.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')
             + ' — cible MEV : '+reallyUnder.map(function(e){
@@ -20058,7 +20079,7 @@ function renderCoachTodayHTML() {
         }
       }
       if (volReport.over && volReport.over.length > 0) {
-        html += '<div style="font-size:11px;color:var(--red);margin-bottom:6px;">'
+        _voHtml += '<div style="font-size:11px;color:var(--red);margin-bottom:6px;">'
           + '<strong>Survolume :</strong> '
           + volReport.over.map(function(e){ return e.muscle; }).join(', ')
           + ' au-dessus du MRV — réduis ou planifie un deload</div>';
@@ -20068,7 +20089,7 @@ function renderCoachTodayHTML() {
         if (!lm) return;
         var fillPct = Math.min(100, Math.round((e.sets/lm.MRV)*100));
         var barColor = (e.status && e.status.color) || 'var(--sub)';
-        html += '<div class="coach-muscle-row">'+
+        _voHtml += '<div class="coach-muscle-row">'+
           '<div class="coach-muscle-top">'+
             '<span class="coach-muscle-name">'+e.muscle+'</span>'+
             '<span class="coach-muscle-sets" style="color:'+barColor+';">'+e.sets+' sets</span>'+
@@ -20076,19 +20097,39 @@ function renderCoachTodayHTML() {
           '<div class="coach-muscle-bar"><div class="coach-muscle-fill" style="width:'+fillPct+'%;background:'+barColor+';"></div></div>'+
         '</div>';
       });
-      html += '</div>';
+      _voHtml += '</div>';
+      _pushCard(3, _voHtml);
     }
   }
 
   // (Tendance SBD retirée du Coach — étape 5 : doublon Home records + Stats,
   // zéro prescriptif. calcMomentum reste utilisé par la Home.)
 
-  html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
-
   // ── 6. BACK-OFF SUGGESTION ── [P4 motivation]
-  var backOffHtml = renderBackOffSuggestion(_verdict);
-  if (backOffHtml) html += backOffHtml;
+  _pushCard(4, renderBackOffSuggestion(_verdict));
 
+  // ── ASSEMBLAGE (étape 5) — P1 déjà dans html ; cartes triées P2→P4 (tri
+  // stable : priorité puis ordre d'apparition), cap COACH_CARD_CAP, excédent
+  // sous « Voir plus » (toggle _coachShowMore en mémoire, AUCUNE écriture).
+  var _sorted = _cards.slice().sort(function(a, b) { return a.pri - b.pri || a.seq - b.seq; });
+  _sorted.slice(0, COACH_CARD_CAP).forEach(function(c) { html += c.html; });
+  var _hidden = _sorted.slice(COACH_CARD_CAP);
+  if (_hidden.length > 0) {
+    if (_coachShowMore) {
+      _hidden.forEach(function(c) { html += c.html; });
+      html += '<button onclick="_coachShowMore=false;renderCoachToday()" '
+        + 'style="width:100%;padding:10px;border-radius:10px;border:0.5px solid var(--border);'
+        + 'background:var(--surface);color:var(--sub);font-size:12px;cursor:pointer;'
+        + 'margin-bottom:12px;">Réduire ▲</button>';
+    } else {
+      html += '<button onclick="_coachShowMore=true;renderCoachToday()" '
+        + 'style="width:100%;padding:10px;border-radius:10px;border:0.5px solid var(--border);'
+        + 'background:var(--surface);color:var(--sub);font-size:12px;cursor:pointer;'
+        + 'margin-bottom:12px;">Voir plus (' + _hidden.length + ') ▼</button>';
+    }
+  }
+
+  html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
   return html;
 }
 

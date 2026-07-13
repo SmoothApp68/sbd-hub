@@ -19597,6 +19597,19 @@ function renderCoachTodayHTML() {
       + '<div style="font-size:13px;color:var(--accent);">'
       + ((_absence && _absence.message) || _verdict.reason) + '</div>'
       + '</div>';
+  } else if (coachProfile !== 'silent'
+      && _verdict && _verdict.source !== 'returnToPlay' && _verdict.source !== 'reprise') {
+    // Info douce 8-14j (arbitre 4/4) : accueil de reprise SANS voix d'arbitre —
+    // les charges sont déjà réduites par getAbsencePenalty (0.92/0.85), on le
+    // dit gentiment. Lecture seule, ne touche ni verdict ni mini-cycle.
+    var _absSoft = typeof getAbsencePenalty === 'function' ? getAbsencePenalty() : null;
+    if (_absSoft && _absSoft.days > 7 && _absSoft.days <= 14) {
+      html += '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);'
+        + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
+        + '<div style="font-size:13px;color:var(--accent);">👋 Content de te revoir — '
+        + _absSoft.days + ' jours sans séance. On reprend en douceur, charges légèrement réduites.</div>'
+        + '</div>';
+    }
   }
 
   // ── 0c. DIAGNOSTIC ATHLÉTIQUE ──

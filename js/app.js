@@ -2020,6 +2020,10 @@ function gotoObStep(stepId) {
       if (modeIdx !== undefined && modeBtns[modeIdx]) modeBtns[modeIdx].classList.add('selected');
     }
   }
+  if (stepId === 'q2') {
+    // Suggestion (b) — la discipline pré-sélectionne l'objectif cohérent, modifiable.
+    _obPreselectGoal();
+  }
   if (stepId === '4') {
     // Pre-mark secondary activities
     document.querySelectorAll('#ob-secondary-grid .ob-sec-btn').forEach(function(btn) { btn.classList.remove('selected'); });
@@ -2108,6 +2112,19 @@ function obSaveDiscipline() {
   db.user.obProfile = _deriveObProfile(_obLevel, _obDiscipline);
   saveDB();
   gotoObStep('q2');
+}
+
+// Suggestion (b) — objectif cohérent par discipline (= défauts d'archétype),
+// pré-sélectionné mais MODIFIABLE (l'intersaison powerlifting+masse reste possible).
+var _OB_GOAL_BY_DISCIPLINE = { powerlifting: 'force', powerbuilding: 'masse', musculation: 'masse', bien_etre: 'maintien' };
+function _obPreselectGoal() {
+  var suggested = _OB_GOAL_BY_DISCIPLINE[db.user.trainingMode] || 'masse';
+  if (!_obQ2SelectedGoal) _obQ2SelectedGoal = suggested;
+  var list = document.getElementById('ob-q2-goals');
+  if (!list) return;
+  list.querySelectorAll('.ob-goal-btn').forEach(function(b) { b.classList.remove('selected'); });
+  var btn = list.querySelector('.ob-goal-btn[onclick*="\'' + _obQ2SelectedGoal + '\'"]');
+  if (btn) btn.classList.add('selected');
 }
 
 function obQ2SelectGoal(goalId, btn) {

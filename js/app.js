@@ -19764,12 +19764,8 @@ function renderCoachTodayHTML() {
   // mesuré (pin ACWR) → jauge de progression au lieu d'un score trompeur.
   var _batCal = typeof getCoachCalibration === 'function' ? getCoachCalibration() : { calibrating: false };
   html += _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore);
-  html += '<div class="coach-gauges">';
-  html += '<div class="coach-gauge">'+
-    '<div class="coach-gauge-val" style="color:'+gaugeColor(volScore)+';">'+volScore+'</div>'+
-    '<div class="coach-gauge-bar"><div class="coach-gauge-fill" style="width:'+volScore+'%;background:'+gaugeColor(volScore)+';"></div></div>'+
-    '<div class="coach-gauge-lbl">Volume</div></div>';
-  html += '</div>';
+  // (Jauge Volume déplacée en HEADER de la carte Volume unique plus bas —
+  // étape 5 : le volume n'apparaît plus qu'UNE fois.)
 
   // ── 1b. TOP 3 ALERTES COACH ADAPTATIVES (v201) ──
   // Alertes contextuelles : jour de la semaine × ratio S/B × niveau × régularité
@@ -19938,25 +19934,8 @@ function renderCoachTodayHTML() {
 
   recos.push({ dot: 'var(--green)', text: '<strong>Aujourd\'hui ('+today+') :</strong> '+todayLabel });
 
-  // Filtrer les alertes "Volume insuffisant" pour les muscles déjà prévus
-  var plannedMuscles = typeof getMusclesPlannedThisWeek === 'function' ? getMusclesPlannedThisWeek() : new Set();
-  if (volReport && volReport.under && volReport.under.length > 0) {
-    var reallyUnder = volReport.under.filter(function(e) { return !plannedMuscles.has(e.muscle); });
-    if (reallyUnder.length > 0) {
-      recos.push({ dot: 'var(--orange)', text: '<strong>Volume insuffisant :</strong> '+
-        reallyUnder.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')+
-        ' — cible MEV : '+reallyUnder.map(function(e){
-          var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
-          return lm ? lm.MEV+' sets' : '?';
-        }).join(', ')
-      });
-    }
-  }
-  if (volReport && volReport.over && volReport.over.length > 0) {
-    recos.push({ dot: 'var(--red)', text: '<strong>Survolume :</strong> '+
-      volReport.over.map(function(e){ return e.muscle; }).join(', ')+' au-dessus du MRV — réduis ou planifie un deload'
-    });
-  }
+  // (Items « volume insuffisant / survolume » migrés dans la carte Volume
+  // unique — étape 5 : plus de volume ×3 réparti entre jauge/recos/muscles.)
 
   var balance = typeof analyzeMuscleBalance === 'function' ? analyzeMuscleBalance(db.logs, 14) : null;
   if (balance && balance.recommendations) {
@@ -20050,11 +20029,40 @@ function renderCoachTodayHTML() {
   }
   html += '</div>';
 
-  // ── 4. VOLUME PAR MUSCLE ──
+  // ── 4. CARTE VOLUME UNIQUE (étape 5) — jauge (header) + alertes under/over
+  // (ex-Recommandations) + barres par muscle. LA seule vue volume du Coach.
   if (volReport) {
     var allMuscles = (volReport.optimal||[]).concat(volReport.under||[]).concat(volReport.high||[]).concat(volReport.over||[]);
     if (allMuscles.length > 0) {
-      html += '<div class="coach-muscles"><div class="coach-reco-title">💪 Volume / semaine</div>';
+      html += '<div class="coach-muscles">';
+      // Header : titre + jauge score (ex-bloc coach-gauges)
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+        + '<div class="coach-reco-title" style="margin-bottom:0;">💪 Volume / semaine</div>'
+        + '<div style="font-size:14px;font-weight:800;color:'+gaugeColor(volScore)+';">'+volScore+'<span style="font-size:10px;font-weight:400;color:var(--sub);">/100</span></div>'
+        + '</div>';
+      html += '<div style="height:5px;background:var(--border);border-radius:3px;margin-bottom:10px;">'
+        + '<div style="height:100%;width:'+volScore+'%;background:'+gaugeColor(volScore)+';border-radius:3px;"></div></div>';
+      // Alertes migrées des Recommandations (mêmes règles : under filtré par le plan)
+      var plannedMuscles = typeof getMusclesPlannedThisWeek === 'function' ? getMusclesPlannedThisWeek() : new Set();
+      if (volReport.under && volReport.under.length > 0) {
+        var reallyUnder = volReport.under.filter(function(e) { return !plannedMuscles.has(e.muscle); });
+        if (reallyUnder.length > 0) {
+          html += '<div style="font-size:11px;color:var(--orange);margin-bottom:6px;">'
+            + '<strong>Volume insuffisant :</strong> '
+            + reallyUnder.map(function(e){ return e.muscle+' ('+e.sets+' sets/sem)'; }).join(', ')
+            + ' — cible MEV : '+reallyUnder.map(function(e){
+                var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
+                return lm ? lm.MEV+' sets' : '?';
+              }).join(', ')
+            + '</div>';
+        }
+      }
+      if (volReport.over && volReport.over.length > 0) {
+        html += '<div style="font-size:11px;color:var(--red);margin-bottom:6px;">'
+          + '<strong>Survolume :</strong> '
+          + volReport.over.map(function(e){ return e.muscle; }).join(', ')
+          + ' au-dessus du MRV — réduis ou planifie un deload</div>';
+      }
       allMuscles.forEach(function(e) {
         var lm = typeof getMuscleVolumeTarget === 'function' ? getMuscleVolumeTarget(e.muscle) : null;
         if (!lm) return;

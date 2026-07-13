@@ -171,6 +171,8 @@ let db = (() => {
       return inj;
     });
     if (p.user.onboardingVersion === undefined) p.user.onboardingVersion = p.user.onboarded ? 1 : 0;
+    // Normaliser en NOMBRE : le cloud a pu stocker "3" (string) → comparaison numérique fiable.
+    else { var _ov = parseInt(p.user.onboardingVersion, 10); p.user.onboardingVersion = isNaN(_ov) ? (p.user.onboarded ? 1 : 0) : _ov; }
     if (!Array.isArray(p.user.secondaryActivities)) p.user.secondaryActivities = [];
     if (!p.user.goal) p.user.goal = 'masse';
     if (!Array.isArray(p.user.activities)) p.user.activities = [];
@@ -209,7 +211,7 @@ let db = (() => {
     // Onboarding V3 — profile flags
     if (p.user.vocabLevel === undefined) p.user.vocabLevel = 2;
     if (p.user.obProfile === undefined) p.user.obProfile = null;
-    if (p.user.coachingStyle === undefined) p.user.coachingStyle = 'classique';
+    if (p.user.coachingStyle == null) p.user.coachingStyle = 'classique'; // == null : couvre null explicite (profils cloud) + undefined
     if (p.user.skipPRs === undefined) p.user.skipPRs = false;
     // skipRPE retiré (v337) : champ mort, jamais lu.
     if (p.user.skipRPE !== undefined) delete p.user.skipRPE;

@@ -46,3 +46,17 @@ describe('trigger boot-local welcome-back', () => {
     expect(bootTrigger({ onboarded: true })).toBe(true);
   });
 });
+
+// Normalisations (commit 2) — la migration vit dans l'IIFE db (inline), donc
+// source-assert de présence ; le comportement runtime est prouvé en e2e.
+describe('normalisations de chargement', () => {
+  test('onboardingVersion normalisé en nombre (parseInt) au chargement', () => {
+    expect(/parseInt\(p\.user\.onboardingVersion, 10\)/.test(APP)).toBe(true);
+  });
+  test('coachingStyle migré via == null (couvre null explicite des profils cloud)', () => {
+    expect(APP.includes("if (p.user.coachingStyle == null) p.user.coachingStyle = 'classique'")).toBe(true);
+  });
+  test('showOnboarding est idempotent (no-op si overlay déjà ouvert)', () => {
+    expect(APP.includes("if (_ob && _ob.style.display === 'flex') return;")).toBe(true);
+  });
+});

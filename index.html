@@ -2081,7 +2081,30 @@
             <div class="mat-icon">🏠</div><div class="mat-name">Maison</div><div class="mat-desc">Poids de corps</div>
           </div>
         </div>
-        <button class="btn" onclick="obSaveQ3()">Générer mon programme ⚡</button>
+        <button class="btn" onclick="obSaveQ3()">Continuer →</button>
+      </div>
+
+      <!-- Q5 : Style de coaching (agressivité de l'arbitre) — OBLIGATOIRE -->
+      <div class="ob-step" id="ob-step-qstyle">
+        <div class="ob-logo">🧭</div>
+        <div class="ob-title">Ton style de<br>coaching</div>
+        <div class="ob-sub">À quel point l'algorithme pousse ta charge quand tu vas bien.</div>
+        <div id="ob-qstyle-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+          <div class="ob-profile-btn" onclick="obStyleSelect('prudent',this)" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;cursor:pointer;">
+            <span style="font-size:24px;">🛡️</span>
+            <div><div style="font-size:13px;font-weight:700;">Prudent</div><div style="font-size:11px;color:var(--sub);">Progression douce, tempère tôt</div></div>
+          </div>
+          <div class="ob-profile-btn" onclick="obStyleSelect('classique',this)" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;cursor:pointer;">
+            <span style="font-size:24px;">⚖️</span>
+            <div><div style="font-size:13px;font-weight:700;">Classique <span style="font-size:10px;color:var(--green);font-weight:700;">· Recommandé</span></div><div style="font-size:11px;color:var(--sub);">Équilibre progression / récupération</div></div>
+          </div>
+          <div class="ob-profile-btn" onclick="obStyleSelect('agressif',this)" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;cursor:pointer;">
+            <span style="font-size:24px;">🚀</span>
+            <div><div style="font-size:13px;font-weight:700;">Agressif</div><div style="font-size:11px;color:var(--sub);">Pousse plus loin avant de temporiser</div></div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--sub);text-align:center;margin-bottom:12px;">🔒 Les garde-fous de sécurité restent actifs quel que soit le style.</div>
+        <button class="btn" id="ob-qstyle-continue" onclick="obSaveStyle()" disabled>Générer mon programme ⚡</button>
       </div>
 
       <!-- Step Q4 : Morphologie (optionnel) -->

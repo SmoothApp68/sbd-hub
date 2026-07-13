@@ -81,7 +81,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, coachingStyle: 'classique', vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -209,6 +209,7 @@ let db = (() => {
     // Onboarding V3 — profile flags
     if (p.user.vocabLevel === undefined) p.user.vocabLevel = 2;
     if (p.user.obProfile === undefined) p.user.obProfile = null;
+    if (p.user.coachingStyle === undefined) p.user.coachingStyle = 'classique';
     if (p.user.skipPRs === undefined) p.user.skipPRs = false;
     if (p.user.skipRPE === undefined) p.user.skipRPE = false;
     // Katch-McArdle TDEE (B5) — % masse grasse pour calcul BMR précis
@@ -2035,7 +2036,7 @@ function gotoObStep(stepId) {
 }
 
 function updateObProgress(stepId) {
-  var fastSteps = ['q1', 'qdisc', 'q2', 'q3'];
+  var fastSteps = ['q1', 'qdisc', 'q2', 'q3', 'qstyle'];
   var fullSteps = OB_STEP_SEQUENCE;
   var inFastFlow = fastSteps.indexOf(stepId) !== -1;
   var steps = inFastFlow ? fastSteps : fullSteps;
@@ -2178,7 +2179,31 @@ function obSaveQ3() {
   var defaultDays4 = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];
   obSelectedDays = (obFreq === 4) ? defaultDays4 : defaultDays3;
   saveDB();
-  // Si débutant → skip morpho (pas pertinent sans base technique)
+  // Style de coaching (dernière question) avant génération/morpho.
+  gotoObStep('qstyle');
+}
+
+// ── STYLE DE COACHING (agressivité de l'arbitre d'intensité) ─────────────────
+// Choix OBLIGATOIRE : l'agressivité se choisit, ne se dérive jamais du niveau
+// ni de la discipline (axe indépendant). Classique = recommandé.
+var _obCoachingStyle = null;
+function obStyleSelect(styleId, btn) {
+  _obCoachingStyle = styleId;
+  document.querySelectorAll('#ob-qstyle-list .ob-profile-btn').forEach(function(b) { b.classList.remove('selected'); });
+  if (btn) btn.classList.add('selected');
+  var contBtn = document.getElementById('ob-qstyle-continue');
+  if (contBtn) contBtn.disabled = false;
+}
+
+function obSaveStyle() {
+  if (!_obCoachingStyle) { showToast('Choisis ton style de coaching'); return; }
+  db.user.coachingStyle = _obCoachingStyle;
+  saveDB();
+  _obAfterStyle();
+}
+
+// Branche finale : débutant → skip morpho + génération directe, sinon morpho.
+function _obAfterStyle() {
   var _level = (db.user && db.user.level) || 'intermediaire';
   if (_level === 'debutant') {
     db.user.morpho = null;
@@ -17410,6 +17435,7 @@ function renderSettingsProfile() {
   if (programModeEl) {
     var currentMode = db.user.programMode || 'auto';
     var currentCoachProfile = db.user.coachProfile || 'full';
+    var currentCoachingStyle = db.user.coachingStyle || 'classique';
     // v224 — Labels Guidé/Avancé (au lieu de Auto/Custom)
     programModeEl.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px;">'
       + ['auto','custom'].map(function(m) {
@@ -17432,6 +17458,20 @@ function renderSettingsProfile() {
           + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
           + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
           + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + labels[p] + '</button>';
+      }).join('')
+      + '</div>'
+      // Style de coaching (agressivité de l'arbitre d'intensité) — axe distinct
+      // de « Niveau de coaching » (verbosité). Garde-fous toujours actifs.
+      + '<div style="font-size:11px;color:var(--sub);margin:10px 0 6px;">Style de coaching</div>'
+      + '<div style="display:flex;gap:6px;">'
+      + ['prudent','classique','agressif'].map(function(s) {
+        var active = s === currentCoachingStyle;
+        var labels = { prudent: '🛡️ Prudent', classique: '⚖️ Classique', agressif: '🚀 Agressif' };
+        return '<button onclick="setCoachingStyle(\'' + s + '\')" '
+          + 'style="flex:1;padding:6px 4px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;'
+          + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
+          + 'background:' + (active ? 'rgba(10,132,255,0.15)' : 'var(--surface)') + ';'
+          + 'color:' + (active ? 'var(--accent)' : 'var(--sub)') + ';">' + labels[s] + '</button>';
       }).join('')
       + '</div>';
     // v224 — En mode Avancé, afficher les durées de phases personnalisables
@@ -17994,6 +18034,16 @@ function setCoachProfile(profile) {
   showToast(labels[profile] || '');
 }
 
+// Style de coaching = agressivité de l'arbitre d'intensité (prudent/classique/
+// agressif). Distinct de coachProfile (verbosité). Modifiable à tout moment.
+function setCoachingStyle(style) {
+  db.user.coachingStyle = style;
+  saveDB();
+  renderSettingsProfile();
+  var labels = { prudent: 'Style prudent — progression douce', classique: 'Style classique — équilibré', agressif: 'Style agressif — pousse plus loin' };
+  showToast(labels[style] || '');
+}
+
 // v212 — Goals incompatibles : règles validées Gemini
 var INCOMPATIBLE_GOALS = {
   'seche':       ['masse', 'recompo'],
@@ -18510,7 +18560,7 @@ function getCoachCalibration() {
 var INTENSITY_ACWR_BOUNDS = {
   prudent:   [1.2, 1.4],
   classique: [1.3, 1.5],
-  offensif:  [1.4, 1.6]
+  agressif:  [1.4, 1.6]  // vocabulaire unifié UI ↔ moteur (ex-'offensif')
 };
 
 // Un check-in est « mauvais » (post-filtre subjectif) si sommeil ou énergie très
@@ -18743,7 +18793,7 @@ function collectIntensityContext() {
     deadliftTomorrow: _planHasDeadliftTomorrow(),
     calibrating: !!cal.calibrating,
     acwr: (srs && typeof srs.acwr === 'number') ? srs.acwr : null,
-    profile: 'classique', // dérivation f(trainingMode, goal, realLevel) = prompt 3/4
+    profile: (db.user && db.user.coachingStyle) || 'classique', // choisi à l'onboarding (Style de coaching)
     cyclePhase: (db.user && db.user.menstrualEnabled && typeof getCurrentMenstrualPhase === 'function')
       ? getCurrentMenstrualPhase() : null,
     momentumPRs: _countRealPRsLast7d(),

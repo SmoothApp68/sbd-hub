@@ -108,7 +108,7 @@ describe('Cran 6 — calibration : ACWR totalement muet (correctif Gemini #3)', 
     expect(v.source).toBe('calibration');
   });
   test('calibration + momentum 3 PR → maintain (jamais push en calibration, profil dormant)', () => {
-    const v = verdict({ calibrating: true, momentumPRs: 3, profile: 'offensif' });
+    const v = verdict({ calibrating: true, momentumPRs: 3, profile: 'agressif' });
     expect(v.direction).toBe('maintain');
     expect(v.source).toBe('calibration');
   });
@@ -147,26 +147,26 @@ describe('Cran 7 — opportunités (rien au-dessus)', () => {
 });
 
 describe('Cran 8 — défaut ACWR × profil (bornes ±0.1 Gemini)', () => {
-  test('ACWR 1.05 classique, rien d\'autre → push (défaut offensif quand sain)', () => {
+  test('ACWR 1.05 classique, rien d\'autre → push (défaut agressif quand sain)', () => {
     const v = verdict({ acwr: 1.05, profile: 'classique' });
     expect(v.direction).toBe('push');
   });
-  test('ACWR 1.35 : offensif=push · classique=maintain · prudent=maintain (1.2-1.4)', () => {
+  test('ACWR 1.35 : agressif=push · classique=maintain · prudent=maintain (1.2-1.4)', () => {
     // NB : le prompt annonçait « prudent=deload/ease à 1.35 » mais 1.35 < 1.4
     // (borne haute prudent) — la TABLE de bornes est la spec normative.
-    expect(verdict({ acwr: 1.35, profile: 'offensif' }).direction).toBe('push');
+    expect(verdict({ acwr: 1.35, profile: 'agressif' }).direction).toBe('push');
     expect(verdict({ acwr: 1.35, profile: 'classique' }).direction).toBe('maintain');
     expect(verdict({ acwr: 1.35, profile: 'prudent' }).direction).toBe('maintain');
   });
-  test('ACWR 1.45 : prudent=deload · classique=maintain · offensif=maintain', () => {
+  test('ACWR 1.45 : prudent=deload · classique=maintain · agressif=maintain', () => {
     expect(verdict({ acwr: 1.45, profile: 'prudent' }).direction).toBe('deload');
     expect(verdict({ acwr: 1.45, profile: 'classique' }).direction).toBe('maintain');
-    expect(verdict({ acwr: 1.45, profile: 'offensif' }).direction).toBe('maintain');
+    expect(verdict({ acwr: 1.45, profile: 'agressif' }).direction).toBe('maintain');
   });
-  test('ACWR 1.55 : classique=deload · offensif=maintain ; 1.65 : offensif=deload', () => {
+  test('ACWR 1.55 : classique=deload · agressif=maintain ; 1.65 : agressif=deload', () => {
     expect(verdict({ acwr: 1.55, profile: 'classique' }).direction).toBe('deload');
-    expect(verdict({ acwr: 1.55, profile: 'offensif' }).direction).toBe('maintain');
-    expect(verdict({ acwr: 1.65, profile: 'offensif' }).direction).toBe('deload');
+    expect(verdict({ acwr: 1.55, profile: 'agressif' }).direction).toBe('maintain');
+    expect(verdict({ acwr: 1.65, profile: 'agressif' }).direction).toBe('deload');
   });
   test('profil inconnu/absent → bornes classiques', () => {
     expect(verdict({ acwr: 1.35 }).direction).toBe('maintain');

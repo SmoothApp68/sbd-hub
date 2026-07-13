@@ -1961,6 +1961,9 @@ let obCardio      = 'integre'; // 'integre' | 'dedie' | 'aucun'
 
 function showOnboarding() {
   var _ob = document.getElementById('onboarding-overlay');
+  // Idempotence : no-op si l'overlay est déjà ouvert (le trigger boot-local et le
+  // chemin cloud peuvent tous deux appeler showOnboarding le même boot).
+  if (_ob && _ob.style.display === 'flex') return;
   if (_ob) _ob.style.display = 'flex';
   obStepHistory = [];
   obSelectedDays = [];
@@ -14833,6 +14836,16 @@ function syncRoutineWithSelectedDays() {
       try { if (typeof generateWeeklyPlan === 'function') generateWeeklyPlan(); } catch(e) {}
     }
   }, 0);
+
+  // Welcome-back v4 au boot LOCAL (indépendant du cloud/email) : un utilisateur
+  // DÉJÀ onboardé dont la version est en retard voit l'écran (pose coachingStyle)
+  // sans dépendre de cloudSignIn/email. Le db local est le point de vérité
+  // (déjà rehydraté + migré ici). Les NOUVEAUX utilisateurs (non onboardés) restent
+  // gérés par le flux cloud+email (_showFirstRunUI) — inscription inchangée.
+  // Idempotent (showOnboarding no-op si déjà ouvert) → un seul affichage par boot.
+  if (db.user && db.user.onboarded && needsOnboarding()) {
+    try { showOnboarding(); } catch (e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'welcomeBackBoot'); }
+  }
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {

@@ -2761,7 +2761,6 @@ function classifyStagnation(liftType) {
 function analyzeAthleteProfile() {
   var ratios    = computeStrengthRatiosDetailed();
   var srs       = typeof computeSRS === 'function' ? computeSRS() : { score: 70, acwr: 1.0 };
-  var volumes   = getVolumeByMuscleGroup();
   var level     = (db.user && db.user.level) || 'intermediaire';
   var phase     = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
   // READY-C2-c : couche d'accès (typeof-gardé : engine.js charge avant app.js)
@@ -2957,29 +2956,11 @@ function analyzeAthleteProfile() {
   }
 
   // Volume proche MRV par groupe musculaire
-  var TARGET_LABELS = {
-    quads: 'Quadriceps', ischio: 'Ischio-jambiers', pecs: 'Pectoraux',
-    dos: 'Dos', epaules: 'Épaules', biceps: 'Biceps', triceps: 'Triceps', fessiers: 'Fessiers'
-  };
-  Object.keys(MUSCLE_VOLUME_TARGETS).forEach(function(key) {
-    var target = MUSCLE_VOLUME_TARGETS[key];
-    var vol = volumes[key] || 0;
-    var label = TARGET_LABELS[key] || key;
-    if (vol === 0) return;
-    if (vol >= target.MRV) {
-      fatigueAlerts.push({ severity: 'danger', title: 'Volume ' + label + ' au-dessus du MRV',
-        text: vol + ' séries/sem (MRV = ' + target.MRV + '). '
-          + 'Risque de catabolisme et stagnation. Réduire à ' + target.MAV_high + ' séries max.' });
-    } else if (vol >= target.MAV_high) {
-      fatigueAlerts.push({ severity: 'warning', title: 'Volume ' + label + ' élevé',
-        text: vol + ' séries/sem (MAV max = ' + target.MAV_high + ', MRV = ' + target.MRV + '). '
-          + 'Approche de la limite de récupération.' });
-    } else if (vol < target.MEV) {
-      fatigueAlerts.push({ severity: 'info', title: 'Volume ' + label + ' insuffisant',
-        text: vol + ' séries/sem (MEV = ' + target.MEV + '). '
-          + 'En dessous du minimum de stimulation pour l\'adaptation.' });
-    }
-  });
+  // (Alertes Volume MRV/MAV/MEV retirées du Diagnostic — bug d'unité : elles
+  // comparaient getVolumeByMuscleGroup() sur 30 JOURS à des repères HEBDO,
+  // étiquetés « /sem » → mur d'alertes « > MRV » pour tout utilisateur régulier.
+  // La carte Volume unique (v340, coachAnalyzeWeeklyVolume, fenêtre 7j) est LA
+  // source de vérité volume hebdo, avec MEV/MRV corrects + under/over.)
 
   // Fatigue SNC vs musculaire
   var grindData = typeof countGrindThisSession === 'function' ? countGrindThisSession() : null;

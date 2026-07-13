@@ -2028,6 +2028,11 @@ function gotoObStep(stepId) {
     // Suggestion (b) — la discipline pré-sélectionne l'objectif cohérent, modifiable.
     _obPreselectGoal();
   }
+  if (stepId === 'qstyle') {
+    // Label contextuel : welcome-back = « Valider », onboarding complet = « Générer ».
+    var _sb = document.getElementById('ob-qstyle-continue');
+    if (_sb) _sb.textContent = _obStyleFromWelcomeBack ? 'Valider →' : 'Générer mon programme ⚡';
+  }
   if (stepId === '4') {
     // Pre-mark secondary activities
     document.querySelectorAll('#ob-secondary-grid .ob-sec-btn').forEach(function(btn) { btn.classList.remove('selected'); });
@@ -2190,6 +2195,14 @@ function obSaveQ3() {
 // Choix OBLIGATOIRE : l'agressivité se choisit, ne se dérive jamais du niveau
 // ni de la discipline (axe indépendant). Classique = recommandé.
 var _obCoachingStyle = null;
+var _obStyleFromWelcomeBack = false;
+// Welcome-back v4 : les utilisateurs existants ne répondent qu'à la SEULE
+// nouvelle question (Style de coaching), sans re-générer le programme.
+function obWelcomeBackToStyle() {
+  _obStyleFromWelcomeBack = true;
+  _obCoachingStyle = null;
+  gotoObStep('qstyle');
+}
 function obStyleSelect(styleId, btn) {
   _obCoachingStyle = styleId;
   document.querySelectorAll('#ob-qstyle-list .ob-profile-btn').forEach(function(b) { b.classList.remove('selected'); });
@@ -2202,6 +2215,8 @@ function obSaveStyle() {
   if (!_obCoachingStyle) { showToast('Choisis ton style de coaching'); return; }
   db.user.coachingStyle = _obCoachingStyle;
   saveDB();
+  // Welcome-back : poser le style suffit (profil déjà connu), pas de re-génération.
+  if (_obStyleFromWelcomeBack) { _obStyleFromWelcomeBack = false; obFinishWelcomeBack(); return; }
   _obAfterStyle();
 }
 

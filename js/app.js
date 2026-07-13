@@ -19374,7 +19374,7 @@ function renderCoachTodayHTML() {
   var pr = db.bestPR || {};
   var html = '';
 
-  // ── MORPHO-CARD — utilisateurs existants sans morpho ──
+  // ── MORPHO-CARD — utilisateurs existants sans morpho ── [P4 nav]
   var _morphoLevel = db.user && db.user.level;
   if (db.user && db.user.onboarded && _morphoLevel !== 'debutant'
       && (db.user.morpho === null || db.user.morpho === undefined)) {
@@ -19491,7 +19491,7 @@ function renderCoachTodayHTML() {
       + _actInner + '</div>';
   }
 
-  // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ──
+  // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ── [P4 motivation]
   var _churn = typeof detectChurn === 'function' ? detectChurn() : null;
   if (_churn && _churn.isChurning) {
     html += '<div style="background:rgba(10,132,255,0.08);border:1px solid rgba(10,132,255,0.25);border-radius:14px;padding:16px;margin-bottom:14px;">';
@@ -19565,7 +19565,7 @@ function renderCoachTodayHTML() {
     } catch(e) {}
   }
 
-  // ── 0b2. MOMENTUM — consomme le verdict (vrais PR, plus les flags morts) ──
+  // ── 0b2. MOMENTUM — consomme le verdict (vrais PR, plus les flags morts) ── [P4 motivation]
   // Rendu ssi l'arbitre dit push : plus jamais « pousse » sous un deload/ease.
   // Copy qualitative, sans fausse probabilité chiffrée.
   if (coachProfile !== 'silent' && _verdict && _verdict.direction === 'push'
@@ -19577,7 +19577,7 @@ function renderCoachTodayHTML() {
       + '</div>';
   }
 
-  // ── 0b2b. RÉGULARITÉ ──
+  // ── 0b2b. RÉGULARITÉ ── [P4 motivation]
   if (coachProfile !== 'silent') {
     var _regMsg = getRegularityMessage();
     if (_regMsg) {
@@ -19654,7 +19654,7 @@ function renderCoachTodayHTML() {
     try { html += renderStalenessRotationCard(); } catch(e) {}
   }
 
-  // ── 0c-quart. DISCOVERY CARDS — exercices bénéfiques inconnus (Gemini Q2/Q4) ──
+  // ── 0c-quart. DISCOVERY CARDS — exercices bénéfiques inconnus (Gemini Q2/Q4) ── [P4 découverte]
   if (coachProfile !== 'silent') {
     try { html += renderDiscoveryCards(); } catch(e) {}
     try { html += renderHipThrustInsight(); } catch(e) {}
@@ -20080,27 +20080,12 @@ function renderCoachTodayHTML() {
     }
   }
 
-  // ── 5. PROGRESSION SBD ──
-  html += '<div class="coach-sbd"><div class="coach-reco-title">📈 Tendance SBD</div><div class="coach-sbd-grid">';
-  var SBD_COLORS = {bench:'var(--blue)',squat:'var(--red)',deadlift:'var(--orange)'};
-  ['bench','squat','deadlift'].forEach(function(type) {
-    var prVal = pr[type] || 0;
-    var mom = typeof calcMomentum === 'function' ? calcMomentum(type) : 0;
-    var label = type==='bench'?'Bench':type==='squat'?'Squat':'Dead.';
-    var color = SBD_COLORS[type];
-    var trend = mom>0?'↑ +'+mom+'kg':mom<0?'↓ '+mom+'kg':'→ stable';
-    var trendColor = mom>0?'var(--green)':mom<0?'var(--red)':'var(--sub)';
-    html += '<div class="coach-sbd-item">'+
-      '<div class="coach-sbd-label" style="color:'+color+';">'+label+'</div>'+
-      '<div class="coach-sbd-pr" style="color:'+color+';">'+prVal+'<span style="font-size:11px;font-weight:400;">kg</span></div>'+
-      '<div class="coach-sbd-trend" style="color:'+trendColor+';">'+trend+'</div>'+
-    '</div>';
-  });
-  html += '</div></div>';
+  // (Tendance SBD retirée du Coach — étape 5 : doublon Home records + Stats,
+  // zéro prescriptif. calcMomentum reste utilisé par la Home.)
 
   html += '<div class="ai-timestamp">Coach Algo · Calcul instantané · Sans IA</div>';
 
-  // ── 6. BACK-OFF SUGGESTION ──
+  // ── 6. BACK-OFF SUGGESTION ── [P4 motivation]
   var backOffHtml = renderBackOffSuggestion(_verdict);
   if (backOffHtml) html += backOffHtml;
 

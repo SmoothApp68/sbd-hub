@@ -189,7 +189,7 @@ async function logErrorToSupabase(errorType, errorMessage, functionName, appStat
     var lightState = appState || {
       logsCount: (typeof db !== 'undefined' && db && db.logs) ? db.logs.length : 0,
       hasWeeklyPlan: !!(typeof db !== 'undefined' && db && db.weeklyPlan),
-      onboardingProfile: (typeof db !== 'undefined' && db && db.user) ? db.user.onboardingProfile : null
+      onboardingProfile: (typeof db !== 'undefined' && db && db.user) ? db.user.obProfile : null
     };
     await supaClient.from('error_logs').insert({
       user_id: userId,

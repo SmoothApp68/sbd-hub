@@ -50,6 +50,22 @@ describe('dérivations — reproduction des 5 archétypes historiques', () => {
     });
 });
 
+// ── Migration obProfile → axes réels : getLPBienEtreProgress lit trainingMode ──
+const ENG = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'engine.js'), 'utf8');
+describe('getLPBienEtreProgress — migré sur l\'axe discipline (ex-obProfile yoga/senior)', () => {
+  function run(mode) {
+    const ctx = vm.createContext({ db: { user: { trainingMode: mode }, exercises: { Squat: { lastReps: 8 } } } });
+    vm.runInContext(extractFn(ENG, 'getLPBienEtreProgress'), ctx);
+    return vm.runInContext("getLPBienEtreProgress('Squat')", ctx);
+  }
+  test('trainingMode bien_etre → progression LP bien-être (non null)', () => {
+    expect(run('bien_etre')).not.toBeNull();
+  });
+  test('trainingMode powerlifting → null (plus de dépendance à obProfile)', () => {
+    expect(run('powerlifting')).toBeNull();
+  });
+});
+
 describe('dérivations — combinaisons neuves (découplage)', () => {
   test('débutant + powerlifting → skipPRs true (débutant), obProfile debutant, vocab 1', () => {
     expect(skipPRs('debutant', 'powerlifting')).toBe(true);

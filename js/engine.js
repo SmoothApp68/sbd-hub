@@ -4062,9 +4062,10 @@ function calcE1RMFrom5RepTest(weight, reps) {
 
 function shouldShow5RepTest(exoName) {
   if (!isColdStart()) return false;
-  var profile = db.user && db.user.obProfile;
+  // Migré vers axes réels : débutant OU discipline bien-être (ex-obProfile).
+  var isBeginnerOrWellness = db.user && (db.user.level === 'debutant' || db.user.trainingMode === 'bien_etre');
   var skipPRs = db.user && db.user.skipPRs;
-  if (!skipPRs && profile !== 'debutant' && profile !== 'yoga' && profile !== 'senior') return false;
+  if (!skipPRs && !isBeginnerOrWellness) return false;
   // Only show for main compound lifts
   var name = (exoName || '').toLowerCase();
   return name.includes('squat') || name.includes('bench') || name.includes('développé')
@@ -5175,9 +5176,8 @@ function calcStartWeightFromRPE5Test(weight, reps) {
 }
 
 function getLPBienEtreProgress(exoName) {
-  var profile = db.user && db.user.obProfile;
-  if (!profile) return null;
-  if (['yoga', 'senior'].indexOf(profile) < 0) return null;
+  // Migré vers l'axe discipline (ex-obProfile yoga/senior).
+  if (!(db.user && db.user.trainingMode === 'bien_etre')) return null;
   var currentReps = (db.exercises && db.exercises[exoName] && db.exercises[exoName].lastReps) || 8;
   if (currentReps < 12) {
     return { type: 'reps', targetReps: currentReps + 1, keepWeight: true };
@@ -5562,12 +5562,13 @@ function inferMissingData(profile) {
     if (p.skipPRs === undefined) p.skipPRs = false;
   }
 
-  if (p.trainingMode === 'debutant' || p.obProfile === 'debutant') {
+  // Migré : p.trainingMode==='debutant' était un bug (trainingMode n'est jamais
+  // un niveau) → tester l'axe level. obProfile gardé pour compat legacy.
+  if (p.level === 'debutant' || p.obProfile === 'debutant') {
     p.level = p.level || 'debutant';
     p.duration = p.duration || 60;
     if (p.vocabLevel === undefined || p.vocabLevel === null) p.vocabLevel = 1;
     if (p.skipPRs === undefined) p.skipPRs = true;
-    if (p.skipRPE === undefined) p.skipRPE = true;
   }
 
   if (p.trainingMode === 'bienetre' || p.trainingMode === 'bien_etre') {

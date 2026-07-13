@@ -531,10 +531,13 @@ if (!db.user.volumeDeltas) db.user.volumeDeltas = {};
 if (!db.user.snoozedDeltas) db.user.snoozedDeltas = {};
 
 // ── REEDUCATION → DEBUTANT migration (v156) ──────────────────
+// onboardingProfile est un champ legacy vestigial ; le champ réel est obProfile.
 if (db.user.onboardingProfile === 'reeducation') {
-  db.user.onboardingProfile = 'debutant';
+  db.user.obProfile = 'debutant';
+  db.user.level = 'debutant';
   db.user.trainingMode = 'musculation';
   db.user.vocabLevel = 1;
+  delete db.user.onboardingProfile;
 }
 
 // ── OVERDRIVE — defensive init ────────────────────────────────
@@ -27031,10 +27034,11 @@ function renderGoTab() {
 // ── Idle View ──
 // ÉTAPE B — Cold Start RPE 5 protocol card for beginner profiles
 function buildColdStartRPE5Html() {
+  // Migré vers les axes réels : débutant OU discipline bien-être (ex-obProfile
+  // debutant/senior/yoga). Découplé de l'archétype.
   var isDebutant = db.user && (
-    db.user.obProfile === 'debutant' ||
-    db.user.obProfile === 'senior' ||
-    db.user.obProfile === 'yoga'
+    db.user.level === 'debutant' ||
+    db.user.trainingMode === 'bien_etre'
   );
   var hasPRs = db.user && db.user.onboardingPRs &&
     (db.user.onboardingPRs.squat || db.user.onboardingPRs.bench || db.user.onboardingPRs.deadlift);

@@ -81,7 +81,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, coachingStyle: 'classique', vocabLevel: 2, obProfile: null, skipPRs: false, skipRPE: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
+  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, coachingStyle: 'classique', vocabLevel: 2, obProfile: null, skipPRs: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -211,7 +211,10 @@ let db = (() => {
     if (p.user.obProfile === undefined) p.user.obProfile = null;
     if (p.user.coachingStyle === undefined) p.user.coachingStyle = 'classique';
     if (p.user.skipPRs === undefined) p.user.skipPRs = false;
-    if (p.user.skipRPE === undefined) p.user.skipRPE = false;
+    // skipRPE retiré (v337) : champ mort, jamais lu.
+    if (p.user.skipRPE !== undefined) delete p.user.skipRPE;
+    // guardrail retiré du sélecteur coachProfile : inerte (== full).
+    if (p.user.coachProfile === 'guardrail') p.user.coachProfile = 'full';
     // Katch-McArdle TDEE (B5) — % masse grasse pour calcul BMR précis
     if (p.user.fatPct === undefined) p.user.fatPct = null;
     // LP 3-Strikes system
@@ -1840,13 +1843,9 @@ function daysLeft(expiresAt) { return Math.max(0, Math.ceil((expiresAt - Date.no
 // ONBOARDING — STATE
 // ============================================================
 
-var ONBOARDING_PROFILES = {
-  debutant:    { skipPRs: true,  skipRPE: true,  coldStartRPE: 6, rpeMax: 7,  vocab: 1, level: 'debutant',      trainingMode: 'musculation',   goal: 'masse',     message: 'On s\'occupe de tout. Apprends le mouvement, on gère les poids.' },
-  intermediaire:{ skipPRs: false, skipRPE: false, coldStartRPE: 7, rpeMax: 9,  vocab: 2, level: 'intermediaire', trainingMode: 'powerbuilding',  goal: 'masse',     message: 'Optimise tes séances. Ne stagne plus jamais.' },
-  powerlifter: { skipPRs: false, skipRPE: false, coldStartRPE: 8, rpeMax: 10, vocab: 3, level: 'avance',        trainingMode: 'powerlifting',   goal: 'force',     message: 'Précision millimétrée. Domine ton prochain plateau.' },
-  yoga:        { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 7,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Force & Souplesse. Des muscles fonctionnels, sans le volume.' },
-  senior:      { skipPRs: true,  skipRPE: true,  coldStartRPE: 5, rpeMax: 6,  vocab: 1, level: 'debutant',      trainingMode: 'bien_etre',      goal: 'maintien',  message: 'Santé & Vitalité. Protège ton corps et reste fort longtemps.' }
-};
+// ONBOARDING_PROFILES supprimée (v337) : l'onboarding découplé dérive les champs
+// annexes des 2 axes (niveau/discipline). rpeMax/coldStartRPE/vocab/message qui y
+// vivaient étaient morts (jamais copiés vers db.user ni lus).
 
 let obFreq = 3;
 let obMat  = 'salle';
@@ -2116,7 +2115,7 @@ function obSaveDiscipline() {
   if (!_obDiscipline) { showToast('Choisis ta discipline'); return; }
   db.user.trainingMode = _obDiscipline;
   _obSelectedMode      = _obDiscipline;
-  // Dérivations : skipPRs = f(2 axes) ; obProfile = f(2 axes). skipRPE plus écrit (mort).
+  // Dérivations : skipPRs = f(2 axes) ; obProfile = f(2 axes).
   db.user.skipPRs   = (_obLevel === 'debutant' || _obDiscipline === 'bien_etre');
   db.user.obProfile = _deriveObProfile(_obLevel, _obDiscipline);
   saveDB();
@@ -2586,7 +2585,6 @@ function _obGenerateProgramCore() {
             db.user.vocabLevel = _enriched.vocabLevel;
           }
           if (db.user.skipPRs === undefined && _enriched.skipPRs !== undefined) db.user.skipPRs = _enriched.skipPRs;
-          if (db.user.skipRPE === undefined && _enriched.skipRPE !== undefined) db.user.skipRPE = _enriched.skipRPE;
         } catch (eInfer) {
           if (typeof logErrorToSupabase === 'function') logErrorToSupabase('infer_missing_data', String(eInfer && eInfer.message || eInfer), '_obGenerateProgramCore');
         }
@@ -17468,9 +17466,9 @@ function renderSettingsProfile() {
       + '</div>'
       + '<div style="font-size:11px;color:var(--sub);margin-bottom:6px;">Niveau de coaching</div>'
       + '<div style="display:flex;gap:6px;">'
-      + ['full','guardrail','silent'].map(function(p) {
+      + ['full','silent'].map(function(p) {
         var active = p === currentCoachProfile;
-        var labels = { full: '🔔 Complet', guardrail: '🛡 Sécurité', silent: '🔇 Silencieux' };
+        var labels = { full: '🔔 Complet', silent: '🔇 Silencieux' };
         return '<button onclick="setCoachProfile(\'' + p + '\')" '
           + 'style="flex:1;padding:6px 4px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;'
           + 'border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';'
@@ -18048,7 +18046,7 @@ function setCoachProfile(profile) {
   db.user.coachProfile = profile;
   saveDB();
   renderSettingsProfile();
-  var labels = { full: 'Coaching complet activé', guardrail: 'Alertes sécurité uniquement', silent: 'Mode silencieux — juste les chiffres' };
+  var labels = { full: 'Coaching complet activé', silent: 'Mode silencieux — juste les chiffres' };
   showToast(labels[profile] || '');
 }
 

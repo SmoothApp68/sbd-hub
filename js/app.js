@@ -2031,7 +2031,7 @@ function gotoObStep(stepId) {
 }
 
 function updateObProgress(stepId) {
-  var fastSteps = ['q1', 'q2', 'q3'];
+  var fastSteps = ['q1', 'qdisc', 'q2', 'q3'];
   var fullSteps = OB_STEP_SEQUENCE;
   var inFastFlow = fastSteps.indexOf(stepId) !== -1;
   var steps = inFastFlow ? fastSteps : fullSteps;
@@ -2050,39 +2050,62 @@ function obFinishWelcomeBack() {
   showToast('Profil à jour !');
 }
 
-// ── ONBOARDING V3 — 3-question fast flow ──────────────────────
+// ── ONBOARDING V3 — flux découplé (niveau · discipline · objectif · matériel · style) ──
+// Le couplage archétype (niveau+discipline dans un seul choix) est remplacé par
+// 2 questions indépendantes. Les champs annexes sont DÉRIVÉS proprement, chacun
+// sur un axe (reproduit les 5 archétypes historiques sans reconstituer de couplage).
 
-var _obQ1SelectedProfile = null;
+var _obLevel = null;         // 'debutant' | 'intermediaire' | 'avance'
+var _obDiscipline = null;    // 'powerlifting' | 'powerbuilding' | 'musculation' | 'bien_etre'
 var _obQ2SelectedGoal = null;
 
-function obQ1SelectProfile(profileId, btn) {
-  _obQ1SelectedProfile = profileId;
-  document.querySelectorAll('#ob-q1-profiles .ob-profile-btn').forEach(function(b) { b.classList.remove('selected'); });
+function _vocabFromLevel(level) { return level === 'debutant' ? 1 : level === 'avance' ? 3 : 2; }
+// obProfile dérivé — conservé pour la continuité analytics/notifs (les lecteurs
+// comportementaux testent désormais level/trainingMode directement, cf. migration).
+function _deriveObProfile(level, mode) {
+  if (mode === 'bien_etre') return 'yoga';
+  if (level === 'debutant') return 'debutant';
+  if (level === 'avance' && mode === 'powerlifting') return 'powerlifter';
+  return 'intermediaire';
+}
+
+// Q1 — Niveau (pose level). Prénom saisi ici aussi.
+function obQ1SelectLevel(levelId, btn) {
+  _obLevel = levelId;
+  document.querySelectorAll('#ob-q1-levels .ob-profile-btn').forEach(function(b) { b.classList.remove('selected'); });
   if (btn) btn.classList.add('selected');
   var contBtn = document.getElementById('ob-q1-continue');
   if (contBtn) contBtn.disabled = false;
-  // Show profile message
-  var msgEl = document.getElementById('ob-q1-msg');
-  if (msgEl && ONBOARDING_PROFILES[profileId]) {
-    msgEl.textContent = ONBOARDING_PROFILES[profileId].message;
-    msgEl.style.display = 'block';
-  }
 }
 
 function obSaveQ1() {
   var nameEl = document.getElementById('ob-q1-name');
   var name = (nameEl && nameEl.value || '').trim();
   if (!name) { showToast('Entre ton prénom 😊'); return; }
-  if (!_obQ1SelectedProfile) { showToast('Choisis ton profil'); return; }
-  var profile = ONBOARDING_PROFILES[_obQ1SelectedProfile];
-  db.user.name          = name;
-  db.user.level         = profile.level;
-  db.user.trainingMode  = profile.trainingMode;
-  db.user.vocabLevel    = profile.vocab;
-  db.user.obProfile     = _obQ1SelectedProfile;
-  db.user.skipPRs       = profile.skipPRs;
-  db.user.skipRPE       = profile.skipRPE;
-  _obSelectedMode       = profile.trainingMode;
+  if (!_obLevel) { showToast('Choisis ton niveau'); return; }
+  db.user.name       = name;
+  db.user.level      = _obLevel;
+  db.user.vocabLevel = _vocabFromLevel(_obLevel);   // dérivation f(niveau)
+  saveDB();
+  gotoObStep('qdisc');
+}
+
+// Discipline (pose trainingMode). Objectif cohérent pré-suggéré à l'étape suivante.
+function obDiscSelect(discId, btn) {
+  _obDiscipline = discId;
+  document.querySelectorAll('#ob-qdisc-list .ob-profile-btn').forEach(function(b) { b.classList.remove('selected'); });
+  if (btn) btn.classList.add('selected');
+  var contBtn = document.getElementById('ob-qdisc-continue');
+  if (contBtn) contBtn.disabled = false;
+}
+
+function obSaveDiscipline() {
+  if (!_obDiscipline) { showToast('Choisis ta discipline'); return; }
+  db.user.trainingMode = _obDiscipline;
+  _obSelectedMode      = _obDiscipline;
+  // Dérivations : skipPRs = f(2 axes) ; obProfile = f(2 axes). skipRPE plus écrit (mort).
+  db.user.skipPRs   = (_obLevel === 'debutant' || _obDiscipline === 'bien_etre');
+  db.user.obProfile = _deriveObProfile(_obLevel, _obDiscipline);
   saveDB();
   gotoObStep('q2');
 }
@@ -2131,9 +2154,8 @@ function obSaveQ3() {
   obFreq                = 3;
   obDuration            = 60;
   obCardio              = 'integre';
-  // Determine freq from profile
-  var profile = ONBOARDING_PROFILES[_obQ1SelectedProfile || 'debutant'];
-  if (profile && (profile.level === 'avance')) obFreq = 4;
+  // Determine freq from level (avancé → 4j)
+  if ((db.user.level || _obLevel) === 'avance') obFreq = 4;
   // Pick days automatically (Mon/Wed/Fri or Mon/Tue/Thu/Fri)
   var defaultDays3 = ['Lundi', 'Mercredi', 'Vendredi'];
   var defaultDays4 = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];

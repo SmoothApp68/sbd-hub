@@ -19426,37 +19426,35 @@ function renderCoachTodayHTML() {
   // ── 0. BILAN DU MATIN ──
   html += renderMorningCheckin();
 
-  // ── 0a0. GHOST LOG — activités d'hier non loggées ──
+  // ── 0a0. CARTE ACTIVITÉ UNIFIÉE (étape 5) — ghost log d'hier + conseil du
+  // jour agrégés en UNE carte (cap 1 quelle que soit la quantité d'activités ;
+  // avant : 1 carte ghost + N cartes conseil). Lecture seule.
+  var _actInner = '';
   var _yesterday = new Date();
   _yesterday.setDate(_yesterday.getDate() - 1);
   var _yesterdayStr = _yesterday.toISOString().split('T')[0];
   if (db._ghostLogAnswered !== _yesterdayStr) {
     var _missingLogs = getMissingActivityLogs();
     if (_missingLogs.length > 0) {
-      html += '<div style="background:var(--surface);border-radius:12px;'
-        + 'padding:12px 14px;margin-bottom:12px;">';
-      html += '<div style="font-size:12px;color:var(--sub);margin-bottom:8px;">'
+      _actInner += '<div style="font-size:12px;color:var(--sub);margin-bottom:6px;">'
         + '📋 Hier, as-tu fait :</div>';
       _missingLogs.forEach(function(act) {
         var _emoji = _ACTIVITY_EMOJI[act.type] || '🏅';
         var _label = act.type.charAt(0).toUpperCase() + act.type.slice(1).replace(/_/g, ' ');
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">';
-        html += '<div style="font-size:13px;">' + _emoji + ' ' + escapeHtml(_label)
+        _actInner += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">';
+        _actInner += '<div style="font-size:13px;">' + _emoji + ' ' + escapeHtml(_label)
           + ' <span style="color:var(--sub);font-size:11px;">(' + (act.duration || 45) + ' min)</span></div>';
-        html += '<div style="display:flex;gap:6px;">';
-        html += '<button onclick="confirmGhostLog(\'' + escapeHtml(act.type) + '\',true)" '
+        _actInner += '<div style="display:flex;gap:6px;">';
+        _actInner += '<button onclick="confirmGhostLog(\'' + escapeHtml(act.type) + '\',true)" '
           + 'style="padding:4px 10px;border-radius:8px;background:rgba(50,215,75,0.1);'
           + 'border:1px solid var(--green);color:var(--green);font-size:12px;cursor:pointer;">Oui</button>';
-        html += '<button onclick="confirmGhostLog(\'' + escapeHtml(act.type) + '\',false)" '
+        _actInner += '<button onclick="confirmGhostLog(\'' + escapeHtml(act.type) + '\',false)" '
           + 'style="padding:4px 10px;border-radius:8px;background:var(--surface);'
           + 'border:1px solid var(--border);color:var(--sub);font-size:12px;cursor:pointer;">Non</button>';
-        html += '</div></div>';
+        _actInner += '</div></div>';
       });
-      html += '</div>';
     }
   }
-
-  // ── 0a0b. CONSEIL ACTIVITÉ SECONDAIRE — que faire aujourd'hui ──
   var _sportTemplate = (db.user && db.user.activityTemplate) || [];
   if (_sportTemplate.length > 0) {
     var _todayName = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][(new Date().getDay() + 6) % 7];
@@ -19468,26 +19466,29 @@ function renderCoachTodayHTML() {
       randonnee:'Randonnée', arts_martiaux:'Arts martiaux',
       sports_collectifs:'Sport collectif', rucking:'Rucking', pilates:'Pilates'
     };
+    if (_actInner) _actInner += '<div style="height:0.5px;background:var(--border);margin:8px 0;"></div>';
     _sportTemplate.forEach(function(activity) {
       var _actType = (typeof ACTIVITY_KEY_MAP !== 'undefined' && ACTIVITY_KEY_MAP[activity.type])
         || activity.type || 'autre';
       var _rec = getActivityRecommendation(_actType, _todayName);
       var _sportLabel = _sportLabels[_actType] || (activity.type || 'Activité');
-      var _borderColor = _rec.level === 'ok' ? 'rgba(50,215,75,0.25)'
-        : _rec.level === 'warning' ? 'rgba(255,159,10,0.25)' : 'rgba(255,69,58,0.25)';
-      var _bgColor = _rec.level === 'ok' ? 'rgba(50,215,75,0.06)'
-        : _rec.level === 'warning' ? 'rgba(255,159,10,0.06)' : 'rgba(255,69,58,0.06)';
       var _textColor = _rec.level === 'ok' ? 'var(--green)'
         : _rec.level === 'warning' ? 'var(--orange)' : 'var(--red)';
-      html += '<div style="background:' + _bgColor + ';border:0.5px solid ' + _borderColor + ';'
-        + 'border-radius:12px;padding:12px 14px;margin-bottom:10px;">';
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
-      html += '<div style="font-size:13px;font-weight:600;color:var(--text);">' + escapeHtml(_sportLabel) + '</div>';
-      html += '<div style="font-size:12px;font-weight:700;color:' + _textColor + ';">' + _rec.emoji + ' ' + escapeHtml(_rec.reason) + '</div>';
-      html += '</div>';
-      html += '<div style="font-size:11px;color:var(--sub);">' + escapeHtml(_rec.detail) + '</div>';
-      html += '</div>';
+      // Ligne par activité (plus une carte par activité)
+      _actInner += '<div style="padding:6px 0;">';
+      _actInner += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">';
+      _actInner += '<div style="font-size:13px;font-weight:600;color:var(--text);">' + escapeHtml(_sportLabel) + '</div>';
+      _actInner += '<div style="font-size:12px;font-weight:700;color:' + _textColor + ';">' + _rec.emoji + ' ' + escapeHtml(_rec.reason) + '</div>';
+      _actInner += '</div>';
+      _actInner += '<div style="font-size:11px;color:var(--sub);">' + escapeHtml(_rec.detail) + '</div>';
+      _actInner += '</div>';
     });
+  }
+  if (_actInner) {
+    html += '<div style="background:var(--surface);border-radius:12px;'
+      + 'padding:12px 14px;margin-bottom:12px;">'
+      + '<div style="font-size:13px;font-weight:700;margin-bottom:6px;">🏃 Activités</div>'
+      + _actInner + '</div>';
   }
 
   // ── 0a. CHURN DETECTION — message de réactivation (TÂCHE 16) ──

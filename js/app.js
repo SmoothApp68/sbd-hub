@@ -10990,7 +10990,7 @@ function renderProgrammeSemaineTimeline(selectedDay) {
   var todayName = joursFR[new Date().getDay()];
   var activeName = selectedDay || todayName;
 
-  var typeColors = { hypertrophie: '#7c6bff', force: '#ff6b6b', deload: '#5fc85f' };
+  var typeColors = { hypertrophie: '#7c6bff', force: '#ff6b6b', deload: '#64D2FF' }; // deload = cyan (harmonisé Coach 🔋)
   var currentPhase = (db.weeklyPlan && db.weeklyPlan.currentBlock && db.weeklyPlan.currentBlock.phase) || 'hypertrophie';
   var accentColor = typeColors[currentPhase] || '#7c6bff';
 
@@ -11071,7 +11071,7 @@ function renderSeanceSelected(selectedDay) {
   var gradient = currentPhase === 'force'
     ? 'linear-gradient(135deg,#8b1a1a,#5a1010)'
     : currentPhase === 'deload'
-    ? 'linear-gradient(135deg,#1a3a2a,#0f2a1a)'
+    ? 'linear-gradient(135deg,#0e3a4a,#092836)' // deload = cyan sombre (ex-vert), texte blanc lisible
     : 'linear-gradient(135deg,#7c6bff,#4a3ab8)';
 
   var isToday = activeName === todayName;
@@ -11634,7 +11634,7 @@ function renderMesoSlide(week, idx, mesoWeeks) {
 
   var bg = isActive    ? 'rgba(10,132,255,0.08)'
          : isCompleted ? 'rgba(100,100,100,0.06)'
-         : isDeload    ? 'rgba(52,199,89,0.08)'
+         : isDeload    ? 'rgba(100,210,255,0.08)'
          : 'rgba(255,255,255,0.02)';
   var border = isActive ? '1.5px solid rgba(10,132,255,0.4)' : '1px solid var(--border)';
   var opacity = isProjected ? '0.65' : '1';
@@ -11660,8 +11660,8 @@ function renderMesoSlide(week, idx, mesoWeeks) {
 
   html += '<div style="padding:0 14px 10px;">';
   if (isDeload && week.days && week.days.length) {
-    html += '<div style="font-size:10px;color:var(--green);text-align:center;'
-      + 'padding:4px 0 8px;letter-spacing:.04em;">⚡ Charges à 60% — Supercompensation</div>';
+    html += '<div style="font-size:10px;color:var(--teal);text-align:center;'
+      + 'padding:4px 0 8px;letter-spacing:.04em;">🔋 Charges à 60% — Supercompensation</div>';
     week.days.forEach(function(day) {
       if (day.rest) return;
       var mainExo = (day.exercises || []).find(function(e) { return e.isPrimary; });
@@ -19292,7 +19292,7 @@ function renderIntensityVerdictCard(verdict, ctx) {
     push:     { color: 'var(--green)',  bg: 'rgba(50,215,75,0.08)',  border: 'rgba(50,215,75,0.3)',  icon: '🚀' },
     maintain: { color: 'var(--accent)', bg: 'rgba(10,132,255,0.08)', border: 'rgba(10,132,255,0.3)', icon: '🎯' },
     ease:     { color: 'var(--orange)', bg: 'rgba(255,159,10,0.08)', border: 'rgba(255,159,10,0.3)', icon: '🛡️' },
-    deload:   { color: 'var(--red)',    bg: 'rgba(255,69,58,0.08)',  border: 'rgba(255,69,58,0.3)',  icon: '🔋' }
+    deload:   { color: 'var(--teal)',   bg: 'rgba(100,210,255,0.08)', border: 'rgba(100,210,255,0.3)', icon: '🔋' } // cyan : décharge = programmation, pas danger
   };
   var s = styles[verdict.direction] || styles.maintain;
   var title;

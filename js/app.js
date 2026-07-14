@@ -18901,7 +18901,15 @@ function getRegularityMessage() {
   if (streak === 30) return '🏆 Un mois complet. Peu de gens arrivent là.';
   if (totalSessions === 10) return '10 séances dans les pattes. L\'algo commence à vraiment te connaître.';
   if (totalSessions === 25) return '25 séances. La progression devient prévisible — et ça, c\'est du pouvoir.';
-  if (last30.length >= 12) return '12+ séances ce mois-ci. C\'est de la constance professionnelle.';
+  if (last30.length >= 12) {
+    // Fusion motivation : les avancés débloquent aussi le « Mode Instinct »
+    // (ex-wildcard top-3), un seul message le même jour.
+    var _regLevel = db.user && (db.user._realLevel || db.user.level);
+    if (_regLevel === 'avance') {
+      return '🔥 ' + last30.length + ' séances sur 30j — constance pro. Mode Instinct dispo : fais confiance à tes sensations sur les accessoires.';
+    }
+    return '12+ séances ce mois-ci. C\'est de la constance professionnelle.';
+  }
   if (last30.length >= 8)  return '✨ ' + last30.length + ' séances ce mois-ci. Tu es dans la bonne dynamique.';
   if (totalSessions >= 5 && totalSessions < 10) return '👏 ' + totalSessions + ' séances enregistrées. La machine prend forme.';
   return null;
@@ -19800,7 +19808,6 @@ function renderCoachTodayHTML() {
     var _caBench     = parseFloat(_caPR.bench)  || 0;
     var _caSquat     = parseFloat(_caPR.squat)  || 0;
     var _caRatioSB   = _caBench > 0 ? _caSquat / _caBench : 1.20;
-    var _caLevel     = (db.user && db.user.level) || 'intermediaire';
 
     // Alertes basées sur le VRAI plan (db.weeklyPlan), plus sur un split hardcodé :
     // on ne parle d'un lift que s'il figure réellement au plan du jour / lendemain.
@@ -19851,14 +19858,8 @@ function renderCoachTodayHTML() {
       _coachAlerts.push({ type: 'warning',
         text: '🔄 3 séances identiques détectées — tu sembles en pilote automatique. On change un exercice pour relancer la progression ?' });
     }
-    // Wildcard — avancé + 12+ séances sur 30j → Mode Instinct
-    if (_caLevel === 'avance') {
-      var _caLogs30 = (db.logs || []).filter(function(l) { return l.timestamp && l.timestamp >= Date.now() - 30 * 86400000; });
-      if (_caLogs30.length >= 12) {
-        _coachAlerts.push({ type: 'green',
-          text: '🔥 Mode Instinct disponible — ' + _caLogs30.length + ' séances sur 30j. Fais confiance à tes sensations sur les accessoires.' });
-      }
-    }
+    // (Mode Instinct fusionné dans le message de régularité P4 — plus de double
+    // message « Instinct » + « constance » le même jour, cf. getRegularityMessage.)
 
     if (_coachAlerts.length > 0) {
       var _caHtml = '<div style="margin-bottom:12px;">';

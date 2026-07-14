@@ -19427,6 +19427,12 @@ function renderCoachTodayHTML() {
     html += '</div>';
   }
 
+  // ── 0a1. ☀️ CHECK-IN DU JOUR — action du jour, EN TÊTE (après kill-switch,
+  // avant le Point du jour qu'il nourrit). Hors ordonnanceur : ne s'affiche que
+  // si non fait (renderMorningCheckin → '' sinon), non capable, jamais relégué.
+  // Une fois soumis, disparaît → le Point du jour remonte 1er.
+  html += renderMorningCheckin();
+
   // ── 0a2. LE POINT DU JOUR — l'arbitre d'intensité (UNE voix, étape 4) ──
   // Verdict calculé UNE fois ici, consommé par les blocs plus bas (deload,
   // momentum, cycle, RTP, back-off…) au lieu que chacun émette sa direction.
@@ -19437,8 +19443,7 @@ function renderCoachTodayHTML() {
     html += renderIntensityVerdictCard(_verdict, _intensityCtx);
   }
 
-  // ── 0. BILAN DU MATIN ── [P2]
-  _pushCard(2, renderMorningCheckin());
+  // (Check-in déplacé en tête, entre kill-switch et Point du jour — cf. 0a1.)
 
   // ── 0a0. CARTE ACTIVITÉ UNIFIÉE (étape 5) — ghost log d'hier + conseil du
   // jour agrégés en UNE carte (cap 1 quelle que soit la quantité d'activités ;

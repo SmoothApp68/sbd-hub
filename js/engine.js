@@ -3127,33 +3127,37 @@ function analyzeAthleteProfile() {
   }
 
   // ── SECTION 8 : PROFIL NEUROMUSCULAIRE (DUP zones) ──
-  var neuroAlerts = [];
+  // UNE seule carte fusionnée (pas N cartes par lift). Un lift ne compte que si
+  // ses DEUX registres (force + hypertrophie) portent ≥ 3 séances : en deçà, le
+  // ratio n'est que le défaut de migration (hypertrophie = force × 0.94 ⇒ 1.06)
+  // et non un vrai signal. Seuils au-delà du bruit d'arrondi 2.5 kg (~1.7 %) :
+  // < 0.95 endurance, > 1.18 neurologique (symétriques autour de la zone neutre).
+  var neuroLines = [];
   var mainLifts = ['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)'];
   mainLifts.forEach(function(liftName) {
     var exo = db.exercises && db.exercises[liftName];
     if (!exo || !exo.zones) return;
-    var forceE1RM = exo.zones.force && exo.zones.force.e1rm || 0;
-    var hypertE1RM = exo.zones.hypertrophie && exo.zones.hypertrophie.e1rm || 0;
+    var fz = exo.zones.force, hz = exo.zones.hypertrophie;
+    if (!fz || !hz) return;
+    if ((fz.sessionsCount || 0) < 3 || (hz.sessionsCount || 0) < 3) return;
+    var forceE1RM = fz.e1rm || 0, hypertE1RM = hz.e1rm || 0;
     if (!forceE1RM || !hypertE1RM) return;
     var ratio = forceE1RM / hypertE1RM;
-    if (ratio > 1.15) {
-      neuroAlerts.push({
-        severity: 'info',
-        title: '⚡ Profil Neurologique — ' + liftName,
-        text: 'Ratio Force/Hypertrophie : ' + ratio.toFixed(2)
-          + '. Dominance neuromusculaire. Un bloc GPP renforcerait l\'endurance musculaire.'
-      });
-    } else if (ratio < 1.02) {
-      neuroAlerts.push({
-        severity: 'info',
-        title: '💪 Profil Endurance — ' + liftName,
-        text: 'Ratio Force/Hypertrophie : ' + ratio.toFixed(2)
-          + '. Dominance endurance musculaire. Un bloc d\'intensification améliorerait le recrutement neurologique.'
-      });
+    var shortName = liftName.replace(/ \(Barre\)/, '');
+    if (ratio > 1.18) {
+      neuroLines.push('⚡ <b>' + shortName + '</b> — profil neurologique (F/H ' + ratio.toFixed(2)
+        + ') : un bloc GPP renforcerait l\'endurance musculaire.');
+    } else if (ratio < 0.95) {
+      neuroLines.push('💪 <b>' + shortName + '</b> — profil endurance (F/H ' + ratio.toFixed(2)
+        + ') : un bloc d\'intensification améliorerait le recrutement neurologique.');
     }
   });
-  if (neuroAlerts.length) {
-    sections.push({ title: '🧠 Profil Neuromusculaire', alerts: neuroAlerts });
+  if (neuroLines.length) {
+    sections.push({ title: '🧠 Profil Neuromusculaire', alerts: [{
+      severity: 'info',
+      title: 'Dominante par mouvement',
+      text: neuroLines.join('<br>')
+    }]});
   }
 
   // FIX 3 — Tapering flat-day adjustment alert

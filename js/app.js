@@ -20007,9 +20007,17 @@ function renderCoachTodayHTML() {
         // vitesse de progression courante (pente de predictPR), mesuré depuis le PR
         // et non depuis l'e1RM courant : sinon un e1RM sous le PR gonfle l'écart
         // (PR+2.5 depuis un e1RM 5 kg plus bas → >20 sem → palier masqué à tort).
+        // Message dérivé du retour de predictPR (reachable / reason / weeks +
+        // e1RM vs objectif) : plutôt qu'un vide déroutant quand aucun palier n'est
+        // projetable, on explique — factuel, actionnable, jamais culpabilisant
+        // (une baisse peut être une décharge normale ; on ne dit pas « tu régresses »).
+        var _sub = ' <span style="color:var(--sub);font-size:11px;">• ';
+        var _grn = ' <span style="color:var(--green);font-size:11px;">• ';
+        var _e1now = pred ? Math.round(pred.currentE1RM || 0) : 0;
         var predText = '';
         if (pred && pred.reachable && pred.weeks === 0) {
-          predText = ' <span style="color:var(--green);font-size:11px;">• objectif atteint !</span>';
+          // Cas 1 — objectif déjà atteint au niveau du jour (e1RM courant ≥ objectif)
+          predText = _grn + '✅ Objectif ' + targets[t] + 'kg atteint — fixe-toi un nouveau cap.</span>';
         } else if (pred && pred.reachable) {
           var _inc = typeof getDPIncrement === 'function'
             ? Math.max(2.5, getDPIncrement(_exoName, pr[t]) || 0) : 2.5;
@@ -20017,9 +20025,20 @@ function renderCoachTodayHTML() {
           var _gain = parseFloat(pred.weeklyGain) || 0;
           var _wk = _gain > 0 ? Math.ceil((_palier - pr[t]) / _gain) : 0;
           if (_wk > 0 && _wk <= 20) {
-            predText = ' <span style="color:var(--sub);font-size:11px;">• prochain palier ' + _palier + 'kg dans ~' + _wk + ' sem.</span>';
+            predText = _sub + 'prochain palier ' + _palier + 'kg dans ~' + _wk + ' sem.</span>';  // Cas 6 — nominal
+          } else {
+            predText = _sub + 'objectif à long terme au rythme actuel.</span>';                    // Cas 5 — trop lent, pas de date
           }
+        } else if (pred && /pas de progression/i.test(pred.reason || '')) {
+          // Cas 4 — plateau ou baisse : ton neutre + relance, jamais « tu régresses »
+          predText = _sub + label + ' stable autour de ' + _e1now + 'kg — varie l\'intensité '
+            + '(séries lourdes 1-3 reps ou nouveau schéma) pour relancer.</span>';
+        } else if (pred && (pred.dataPoints || 0) >= 1) {
+          // Cas 3 — quelques séances, pas assez pour une pente fiable
+          predText = _sub + 'encore un peu de données pour projeter ton palier ' + label + '.</span>';
         }
+        // Cas 2 — jamais loggé (dataPoints 0, PR issu de l'onboarding) : sous-ligne
+        // masquée, l'objectif long terme suffit (predText reste vide).
         recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
       } else if (!targets[t] && pr[t] > 0) {
         var nextMilestone = Math.ceil(pr[t] * 1.05 / 5) * 5;

@@ -155,7 +155,7 @@ describe('recos Coach — branche « objectif défini » : palier borné, plus d
   });
   test('palier ancré sur le PR RÉEL (pr[t]), plus sur l\'e1RM courant, sans libellé « e1RM »', () => {
     // le palier ne doit jamais tomber sous le PR affiché (« 137.5 » alors que PR 140)
-    expect(APP).toContain('• prochain palier ' + "' + _palier + 'kg dans ~'");
+    expect(APP).toContain("'prochain palier ' + _palier + 'kg dans ~'");
     expect(APP).not.toContain('prochain palier e1RM ');
     expect(APP).toContain('Math.floor(pr[t] / _inc) * _inc + _inc');
     expect(APP).not.toContain('Math.floor(pred.currentE1RM / _inc)');
@@ -167,14 +167,36 @@ describe('recos Coach — branche « objectif défini » : palier borné, plus d
     expect(APP).toContain('_wk > 0 && _wk <= 20');           // borne branche objectif
     expect(APP).toContain('pred2.weeks > 0 && pred2.weeks <= 20'); // borne branche « prochain cap »
   });
-  test('incrément via getDPIncrement sur le PR (plancher 2.5), « objectif atteint » conservé', () => {
+  test('incrément via getDPIncrement sur le PR (plancher 2.5)', () => {
     expect(APP).toContain('Math.max(2.5, getDPIncrement(_exoName, pr[t]) || 0)');
-    expect(APP).toContain('objectif atteint !');
   });
   test('guide pr_prediction : palier = PR réel (plus « e1RM courant »)', () => {
     const m = APP.match(/pr_prediction: \{[\s\S]*?\},/);
     expect(m[0]).toContain('PR réel arrondi');
     expect(m[0]).toContain('20 semaines');
     expect(m[0]).not.toContain('e1RM courant arrondi');
+  });
+});
+
+describe('recos Coach — message quand pas de palier projetable (6 cas, ton non-punitif)', () => {
+  // On sonde les libellés source (le message est dérivé au render, dans un gros
+  // orchestrateur non extractible en pur ; l'e2e couvre le rendu réel).
+  test('cas 1 — objectif atteint (e1RM ≥ objectif) : message positif « nouveau cap »', () => {
+    expect(APP).toContain('✅ Objectif ' + "' + targets[t] + 'kg atteint — fixe-toi un nouveau cap.");
+  });
+  test('cas 4 — plateau/baisse : « stable autour de X » + relance (ton neutre)', () => {
+    expect(APP).toContain("stable autour de ' + _e1now + 'kg");
+    expect(APP).toContain('/pas de progression/i.test(pred.reason');
+    expect(APP).toContain('pour relancer'); // conseil d'action, pas de jugement
+  });
+  test('cas 3 — quelques séances : « encore un peu de données » (dataPoints ≥ 1)', () => {
+    expect(APP).toContain("(pred.dataPoints || 0) >= 1");
+    expect(APP).toContain('encore un peu de données pour projeter ton palier');
+  });
+  test('cas 5 — trop lent : objectif à long terme (pas de date lointaine)', () => {
+    expect(APP).toContain('objectif à long terme au rythme actuel');
+  });
+  test('cas 2 — jamais loggé : sous-ligne masquée (predText reste vide, commentaire)', () => {
+    expect(APP).toContain('jamais loggé (dataPoints 0');
   });
 });

@@ -147,6 +147,18 @@ describe('predictPR — retour enrichi en échec (distinguer les cas sans palier
     expect(r.reason).toBe('Pas de progression détectée');
     expect(typeof r.currentE1RM).toBe('number');
   });
+  test('charges plates sur dates RÉELLES (x ≈ 20000) → plateau robuste au bruit flottant', () => {
+    // Sans seuil, la cancellation flottante donnait une pseudo-pente ~1e-11 →
+    // reachable:true (ETA géant) ; le seuil 0.05 kg/sem rétablit le plateau.
+    const BIG = 20000 * DAY; // ≈ 2024, x = timestamp/DAY ≈ 20000
+    const logs = [];
+    for (let i = 0; i < 6; i++) logs.push({ timestamp: BIG - i * 7 * DAY,
+      exercises: [{ name: 'Soulevé de Terre (Barre)', maxRM: 170 }] });
+    const r = vm.runInContext('predictPR("deadlift", 220)', makeCtx(logs));
+    expect(r.reachable).toBe(false);
+    expect(r.reason).toBe('Pas de progression détectée');
+    expect(r.currentE1RM).toBe(170);
+  });
 });
 
 describe('recos Coach — branche « objectif défini » : palier borné, plus de date lointaine', () => {

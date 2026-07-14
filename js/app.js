@@ -9277,7 +9277,13 @@ function predictPR(liftType, targetWeight) {
   const sumXY = pts.reduce((s,p) => s+p.x*p.y, 0), sumX2 = pts.reduce((s,p) => s+p.x*p.x, 0);
   const denom = n*sumX2 - sumX*sumX;
   const slope = denom !== 0 ? (n*sumXY - sumX*sumY) / denom : 0;
-  const kgPerWeek = slope * 7;
+  // Charges plates → pente algébriquement nulle, mais x = timestamp/86400000 ≈ 20000
+  // (dates réelles) provoque une cancellation flottante qui rend une pseudo-pente
+  // de ~1e-11 : sans seuil, un lift STABLE passerait pour « en progression » (ETA
+  // gigantesque) au lieu de plateau. En deçà de 0.05 kg/sem (= +5 kg en 100 sem) la
+  // « progression » est du bruit → traitée comme nulle (plateau).
+  let kgPerWeek = slope * 7;
+  if (Math.abs(kgPerWeek) < 0.05) kgPerWeek = 0;
 
   // R² calculation
   const meanY = sumY / n;

@@ -1088,7 +1088,7 @@ const GLOSSARY = {
   pr_prediction: {
     short: "Prédiction de PR",
     desc: "Prochain palier réaliste (+2.5/5 kg au-delà de ton e1RM courant) et son échéance estimée, basés sur ta progression réelle.",
-    calc: "1. Progression hebdomadaire en kg (régression linéaire sur 6 dernières séances). 2. Prochain palier = e1RM courant arrondi à l'incrément supérieur (+2.5 kg haut du corps, +5 kg bas du corps). 3. Semaines = écart ÷ progression/semaine — échéance affichée seulement si ≤ 20 semaines (au-delà, l'extrapolation linéaire n'est plus fiable). 4. Confiance (%) = R² de la régression (régularité de la progression).",
+    calc: "1. Progression hebdomadaire en kg (régression linéaire sur 6 dernières séances du lift de compétition — les variantes accessoires comme le soulevé jambes tendues/roumain ou le développé haltères sont exclues). 2. Prochain palier = e1RM courant arrondi à l'incrément supérieur (+2.5 kg haut du corps, +5 kg bas du corps). 3. Semaines = écart ÷ progression/semaine — échéance affichée seulement si ≤ 20 semaines (au-delà, l'extrapolation linéaire n'est plus fiable). 4. Confiance (%) = R² de la régression (régularité de la progression).",
     example: "e1RM 148kg, prochain palier 150kg, progression +1.84 kg/sem → ~2 semaines.",
     category: "scores"
   },
@@ -9252,12 +9252,18 @@ function computeFormScoreComposite() {
 }
 
 // ── Prédiction de PR ────────────────────────────────────────
-function predictPR(exerciseName, targetWeight) {
-  // Use inline trend calculation (same as renderPerfCard's logic)
+// `liftType` = 'bench'|'squat'|'deadlift' : on résout l'exercice par getSBDType
+// (le MÊME matcher que bestPR/getBestE1RMForLift), pas par matchExoName + libellé
+// générique. matchExoName matchait à tort « Soulevé de Terre Jambes Tendues »
+// (RDL, absent de _DIFF_ROOTS) : si le RDL était listé avant le SDT (Barre) dans
+// une séance, .find prenait la variante plate → pente ≤ 0 → pas de palier.
+// getSBDType exclut RDL/roumain/jambes tendues (et DB haltères/incliné pour le
+// bench) → série palier = uniquement le lift de compétition, cohérent avec le PR.
+function predictPR(liftType, targetWeight) {
   const pts = [];
   const desc = [...db.logs].sort((a,b) => b.timestamp - a.timestamp);
   for (const log of desc) {
-    const exo = log.exercises.find(e => e.name === exerciseName || matchExoName(e.name, exerciseName));
+    const exo = log.exercises.find(e => getSBDType(e.name) === liftType);
     if (!exo || !exo.maxRM || exo.maxRM <= 0) continue;
     pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
     if (pts.length >= 6) break;
@@ -19986,7 +19992,7 @@ function renderCoachTodayHTML() {
       } else if (targets[t] && pr[t] < targets[t]) {
         var gap = targets[t] - pr[t];
         var _exoName = t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre';
-        var pred = typeof predictPR === 'function' ? predictPR(_exoName, targets[t]) : null;
+        var pred = typeof predictPR === 'function' ? predictPR(t, targets[t]) : null;
         // Prochain palier réaliste (+2.5/5 kg au-delà de l'e1RM courant) plutôt
         // qu'une date lointaine extrapolée linéairement (« ~117 sem » sur une
         // pente de régression fragile). Même règle d'affichage que la branche
@@ -20001,7 +20007,7 @@ function renderCoachTodayHTML() {
           var _inc = typeof getDPIncrement === 'function'
             ? Math.max(2.5, getDPIncrement(_exoName, pred.currentE1RM) || 0) : 2.5;
           var _palier = Math.min(targets[t], Math.floor(pred.currentE1RM / _inc) * _inc + _inc);
-          var pred2 = predictPR(_exoName, _palier);
+          var pred2 = predictPR(t, _palier);
           if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
             predText = ' <span style="color:var(--sub);font-size:11px;">• prochain palier e1RM ' + _palier + 'kg dans ~' + pred2.weeks + ' sem.</span>';
           }
@@ -20009,7 +20015,7 @@ function renderCoachTodayHTML() {
         recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
       } else if (!targets[t] && pr[t] > 0) {
         var nextMilestone = Math.ceil(pr[t] * 1.05 / 5) * 5;
-        var pred2 = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', nextMilestone) : null;
+        var pred2 = typeof predictPR === 'function' ? predictPR(t, nextMilestone) : null;
         if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
           recos.push({ dot: 'var(--blue)', text: '<strong>'+label+' :</strong> prochain cap ' + nextMilestone + 'kg dans ~' + pred2.weeks + ' sem. (confiance ' + pred2.confidence + '%)' });
         }

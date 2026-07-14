@@ -2855,34 +2855,12 @@ function analyzeAthleteProfile() {
         + 'pendant 4 semaines pour rééquilibrer.' });
   }
 
-  // ── Pull / Push (volume hebdomadaire) ────────────────────────────────────
-  var _weekPull = 0, _weekPush = 0;
-  var _now = Date.now();
-  var _weekLogs = (db.logs || []).filter(function(l) {
-    return (_now - (l.timestamp || 0)) <= 7 * 86400000;
-  });
-  _weekLogs.forEach(function(l) {
-    (l.exercises || []).forEach(function(e) {
-      var meta = (typeof wpGetExoMeta === 'function') ? wpGetExoMeta(e.name) : null;
-      if (!meta) return;
-      var mg = (meta.muscleGroup || '').toLowerCase();
-      var vol = parseFloat(e.volume) || 0;
-      if (/back|dos|biceps/.test(mg)) _weekPull += vol;
-      if (/chest|pec|shoulder|epaule|triceps/.test(mg)) _weekPush += vol;
-    });
-  });
-  if (_weekPush > 0 && _weekPull > 0) {
-    var pullPushRatio = _weekPull / _weekPush;
-    if (pullPushRatio < 1.0) {
-      bioAlerts.push({ severity: 'warning', title: 'Tirage/Poussée < 1.0 cette semaine',
-        text: 'Tu pousses plus que tu ne tires (ratio ' + pullPushRatio.toFixed(2) + ') — '
-          + 'risque posture et épaules. Doubler le volume Rowing/Face Pull cette semaine.' });
-    }
-  }
-
-  // Push / Pull ratio (sets sur 30j)
+  // ── Push / Pull (UNE seule méthode : sets sur 30j) ────────────────────────
+  // Le bloc volume-kg-7j redondant est retiré (deux alertes push/pull, deux
+  // méthodes, deux fenêtres, c'était confus). Les élévations latérales sont
+  // NEUTRES (ni pressing ni stress antérieur) → hors PUSH.
   var PUSH_KEYS = { 'Pecs': 1, 'Pecs (haut)': 1, 'Pecs (bas)': 1,
-    'Épaules': 1, 'Épaules (antérieur)': 1, 'Épaules (latéral)': 1, 'Triceps': 1 };
+    'Épaules': 1, 'Épaules (antérieur)': 1, 'Triceps': 1 };
   var PULL_KEYS = { 'Grand dorsal': 1, 'Haut du dos': 1, 'Trapèzes': 1,
     'Biceps': 1, 'Épaules (postérieur)': 1 };
   var pushSets = 0, pullSets = 0;
@@ -2903,12 +2881,13 @@ function analyzeAthleteProfile() {
     var ppRatio = pullSets > 0 ? pushSets / pullSets : null;
     if (ppRatio !== null) {
       if (ppRatio > 1.2) {
-        bioAlerts.push({ severity: 'warning', title: 'Dominance Antérieure',
-          text: 'Ratio Push/Pull = ' + ppRatio.toFixed(2) + ' (cible ≤ 1.0). '
-            + 'Risque de posture cyphotique et conflit sous-acromial à terme.' });
+        bioAlerts.push({ severity: 'warning', title: 'Tu pousses plus que tu ne tires',
+          text: 'Ratio Push/Pull = ' + ppRatio.toFixed(2) + ' (moyenne 30j ; zone saine 0.8–1.2). '
+            + 'Sur la durée, des épaules qui tirent vers l\'avant. '
+            + 'Ajoute du volume de tirage horizontal (Rowing, Face Pull).' });
       } else if (ppRatio < 0.8) {
-        bioAlerts.push({ severity: 'info', title: 'Bonne Attention au Dos',
-          text: 'Ratio Push/Pull = ' + ppRatio.toFixed(2) + '. '
+        bioAlerts.push({ severity: 'info', title: 'Bonne attention au dos',
+          text: 'Ratio Push/Pull = ' + ppRatio.toFixed(2) + ' (moyenne 30j). '
             + 'Assure-toi de maintenir le volume pectoraux (MEV = 8 séries/sem).' });
       }
     }
@@ -2916,6 +2895,10 @@ function analyzeAthleteProfile() {
 
   // ── RATIO ISCHIOS/QUADS (volume sets hebdomadaire) ──────────────────────────
   var _isoSets = 0, _quadSets = 0;
+  var _iqNow = Date.now();
+  var _weekLogs = (db.logs || []).filter(function(l) {
+    return (_iqNow - (l.timestamp || 0)) <= 7 * 86400000;
+  });
   _weekLogs.forEach(function(l) {
     (l.exercises || []).forEach(function(e) {
       var _meta = typeof wpGetExoMeta === 'function' ? wpGetExoMeta(e.name) : null;

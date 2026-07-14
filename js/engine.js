@@ -37,12 +37,15 @@ function getVocab(key) {
 
 // ── ANALYSE ATHLÈTE — Seuils scientifiques ────────────────────
 // Ratios de force cibles (powerbuilder)
+// Seuils recalibrés (audit justesse, validés Gemini) — le ROUGE = risque
+// imminent de blessure uniquement, pas un simple déséquilibre. Un powerbuilder
+// bencher-fort (S/B ~1.0) est « à surveiller », pas « critique ».
 var STRENGTH_RATIO_TARGETS = {
-  squat_bench: { ideal: [1.25, 1.35], alert: 1.20, danger: 1.10 },
-  squat_dead:  { ideal: [0.85, 0.90], alert: 0.85, danger: 0.78 },
+  squat_bench: { ideal: [1.10, 1.35], alert: 1.10, danger: 0.85 },   // danger : bench nettement > squat
+  squat_dead:  { ideal: [0.75, 1.05], alert: 0.75, danger: 0.65, high: 1.25 }, // bilatéral
   bench_dead:  { ideal: [0.65, 0.70], alert: 0.63, danger: 0.58 },
   ohp_bench:   { ideal: [0.60, 0.65], alert: 0.58, danger: 0.50 },
-  row_bench:   { ideal: [0.90, 1.00], alert: 0.85, danger: 0.78 }
+  row_bench:   { ideal: [0.80, 1.00], alert: 0.80, danger: 0.65 }    // santé épaules — indicateur sérieux
 };
 
 // MRV par groupe musculaire (Dr. Mike Israetel / RP)
@@ -2774,14 +2777,15 @@ function analyzeAthleteProfile() {
   if (sb !== null) {
     var tSB = STRENGTH_RATIO_TARGETS.squat_bench;
     if (sb < tSB.danger) {
-      bioAlerts.push({ severity: 'danger', title: 'Dominance Poussée Supérieure Critique',
-        text: 'Ratio Squat/Bench : ' + sb.toFixed(2) + ' (cible > ' + tSB.ideal[0] + '). '
-          + 'Tes pectoraux compensent le déficit de tes quadriceps. '
-          + 'Sur un Squat maximal, le risque de Good Morning Squat est élevé.' });
+      bioAlerts.push({ severity: 'danger', title: 'Bench nettement plus fort que le Squat',
+        text: 'Ratio Squat/Bench : ' + sb.toFixed(2) + ' (< ' + tSB.danger + '). '
+          + 'Déséquilibre marqué — priorise le travail des quadriceps '
+          + 'pour protéger ton Squat lourd.' });
     } else if (sb < tSB.alert) {
-      bioAlerts.push({ severity: 'warning', title: 'Ratio Squat/Bench à surveiller',
-        text: 'S/B = ' + sb.toFixed(2) + ' (cible ' + tSB.ideal[0] + '–' + tSB.ideal[1] + '). '
-          + 'Prioriser les variantes quadriceps-dominantes (High Bar, Hack Squat, Front Squat).' });
+      bioAlerts.push({ severity: 'warning', title: 'Quadriceps en retard sur le pressing',
+        text: 'S/B = ' + sb.toFixed(2) + ' (cible > ' + tSB.ideal[0] + '). '
+          + 'Rien d\'alarmant — un peu plus de variantes quadriceps-dominantes '
+          + '(High Bar, Hack Squat, Front Squat) resserrera l\'équilibre.' });
     } else {
       bioAlerts.push({ severity: 'good', title: 'Ratio Squat/Bench',
         text: 'S/B = ' + sb.toFixed(2) + ' ✓ Dans la zone optimale.' });
@@ -2791,14 +2795,17 @@ function analyzeAthleteProfile() {
   var sd = ratios.squat_dead;
   if (sd !== null) {
     var tSD = STRENGTH_RATIO_TARGETS.squat_dead;
-    if (sd < tSD.danger) {
-      bioAlerts.push({ severity: 'danger', title: 'Alerte Chaîne Antérieure',
-        text: 'Ratio Squat/Dead : ' + sd.toFixed(2) + ' (cible > ' + tSD.ideal[0] + '). '
-          + 'Ta chaîne postérieure compense massivement le déficit des quadriceps. '
-          + 'Risque lombaire documenté sur les charges maximales au Squat.' });
-    } else if (sd < tSD.alert) {
-      bioAlerts.push({ severity: 'warning', title: 'Ratio Squat/Dead',
-        text: 'S/D = ' + sd.toFixed(2) + '. Renforcement quadriceps prioritaire (Leg Press, Hack Squat).' });
+    // Bilatéral : trop bas (deadlift domine) OU trop haut (squat domine anormalement).
+    if (sd < tSD.danger || sd > tSD.high) {
+      bioAlerts.push({ severity: 'danger', title: 'Squat et Deadlift très déséquilibrés',
+        text: 'Ratio Squat/Dead : ' + sd.toFixed(2) + ' (zone saine ' + tSD.ideal[0] + '–' + tSD.ideal[1] + '). '
+          + (sd < tSD.danger
+            ? 'Ta chaîne postérieure domine largement — renforce les quadriceps.'
+            : 'Ton Squat domine anormalement — vérifie la technique de Deadlift.') });
+    } else if (sd < tSD.alert || sd > 1.05) {
+      bioAlerts.push({ severity: 'warning', title: 'Squat/Dead à surveiller',
+        text: 'S/D = ' + sd.toFixed(2) + ' (zone saine ' + tSD.ideal[0] + '–' + tSD.ideal[1] + '). '
+          + 'Léger déséquilibre, rien d\'urgent.' });
     }
   }
 
@@ -2981,12 +2988,17 @@ function analyzeAthleteProfile() {
   // FIX 2 — Volume spike alerts
   var volumeSpikes = typeof detectVolumeSpike === 'function' ? detectVolumeSpike() : [];
   volumeSpikes.forEach(function(spike) {
+    // Sévérité proportionnée (Gabbett/ACWR) : danger au-delà de +30%, sinon
+    // simple vigilance (+20 à +30%). Le rouge = vrai risque de blessure.
+    var _spikeDanger = spike.increase > 30;
     fatigueAlerts.push({
-      severity: 'danger',
-      title: '⚠️ Volume Spike — ' + spike.group,
+      severity: _spikeDanger ? 'danger' : 'warning',
+      title: (_spikeDanger ? '⚠️ Pic de volume — ' : '📈 Volume en hausse — ') + spike.group,
       text: 'Augmentation de +' + spike.increase + '% cette semaine ('
         + spike.thisWeek + ' séries vs ' + spike.lastWeek + ' semaine dernière). '
-        + 'Risque de blessure documenté au-delà de +15%/semaine.'
+        + (_spikeDanger
+          ? 'Au-delà de +30%/semaine, le risque de blessure grimpe — lisse la montée.'
+          : 'Progression soutenue, rien d\'alarmant sous +30%/semaine.')
     });
   });
 
@@ -3541,9 +3553,12 @@ function applyMorphoAdaptations(exercises, dayKey) {
 
 // Seuils hebdomadaires de stress par articulation
 // Source : Gemini validation 2026
+// Recalibrés (audit justesse) : les 70/100 d'origine étaient calibrés pour ~3
+// séances légères/sem → un powerbuilder assidu (2 squats + 1 deadlift ≈ 120 pts
+// lombaires nominaux) était rouge en permanence. Rouge = vraie dérive (> 180).
 var JOINT_STRESS_THRESHOLDS = {
-  orange: 70,   // Alerte Coach
-  red:    100   // Substitution recommandée
+  orange: 130,  // charge hebdo élevée — surveiller
+  red:    180   // substitution recommandée (vraie surcharge)
 };
 
 // ── INSOLVENCY INDEX — Bilan comptable de récupération ────────────────────
@@ -4655,7 +4670,7 @@ function getOptimalRestTime(weight, e1rm, slot) {
 }
 
 // ── FIX 2 — Volume Spike Detection (+15%/semaine) ────────────
-var VOLUME_SPIKE_THRESHOLD = 0.15;
+var VOLUME_SPIKE_THRESHOLD = 0.20; // spike enregistré ≥ +20% (Gabbett/ACWR) — sain sous +20%
 
 function detectVolumeSpike() {
   var spikes = [];

@@ -85,9 +85,45 @@ describe('contradiction 2 — alertes Volume MRV retirées du Diagnostic', () =>
     expect(body).not.toContain('var volumes   = getVolumeByMuscleGroup')       // décl orpheline retirée
       && expect(body).not.toContain('volumes[key]');
   });
-  test('conservé : Volume Spike (7j vs 7j) et fatigue SNC restent dans le Diagnostic', () => {
+  test('conservé : détection Volume Spike (7j vs 7j) et fatigue SNC restent dans le Diagnostic', () => {
     const body = extractFn(ENG, 'analyzeAthleteProfile');
-    expect(body).toContain('Volume Spike');
+    expect(body).toContain('detectVolumeSpike'); // feature conservée (libellé dédramatisé v343)
     expect(body).toContain('Fatigue Systémique (SNC)');
   });
 });
+
+// ── Diagnostic recalibré (audit justesse — seuils Gemini, rouge = vrai risque) ──
+describe('Diagnostic — seuils recalibrés', () => {
+  test('STRENGTH_RATIO_TARGETS : S/B danger 0.85, S/D bilatéral (0.65/1.25), Row/B danger 0.65', () => {
+    const m = ENG.match(/var STRENGTH_RATIO_TARGETS = \{[\s\S]*?\};/);
+    const src = m[0];
+    expect(src).toContain('squat_bench: { ideal: [1.10, 1.35], alert: 1.10, danger: 0.85 }');
+    expect(src).toContain('high: 1.25'); // borne haute bilatérale S/D
+    expect(src).toContain('row_bench:   { ideal: [0.80, 1.00], alert: 0.80, danger: 0.65 }');
+  });
+  test('charge articulaire : orange 130 / rouge 180 (au lieu de 70/100)', () => {
+    const m = ENG.match(/var JOINT_STRESS_THRESHOLDS = \{[\s\S]*?\};/);
+    expect(m[0]).toContain('orange: 130');
+    expect(m[0]).toContain('red:    180');
+  });
+  test('volume spike : seuil +20% + severity danger seulement au-delà de +30%', () => {
+    expect(ENG).toContain('var VOLUME_SPIKE_THRESHOLD = 0.20;');
+    const body = fnA('analyzeAthleteProfile');
+    expect(body).toContain('spike.increase > 30');
+    expect(body).toContain("severity: _spikeDanger ? 'danger' : 'warning'");
+  });
+  test('libellés dédramatisés : plus de « Critique » sur les ratios', () => {
+    const body = fnA('analyzeAthleteProfile');
+    expect(body).not.toContain('Dominance Poussée Supérieure Critique');
+    expect(body).toContain('Quadriceps en retard sur le pressing');
+  });
+});
+function fnA(name) {
+  const m = ENG.match(new RegExp('^function ' + name + '\\b', 'm'));
+  let depth = 0, i = ENG.indexOf('{', m.index), started = false;
+  for (; i < ENG.length; i++) {
+    if (ENG[i] === '{') { depth++; started = true; }
+    else if (ENG[i] === '}') { depth--; if (started && depth === 0) { i++; break; } }
+  }
+  return ENG.slice(m.index, i);
+}

@@ -1141,11 +1141,13 @@ function calcTDEEKatchMcArdle(bw, fatPct, activityFactor, weeklySecondaryTRIMP) 
 function calcTDEE(bw, tonnage7d) {
   if (!bw || bw <= 0) return 2300;
 
-  // Facteur d'activité basé sur la fréquence réelle des 7 derniers jours
+  // Facteur d'activité basé sur la fréquence réelle des 7 derniers jours.
+  // Plafonné 1.6 (3-5 séances) / 1.7 (6+) : il INCLUT déjà l'entraînement — au-delà
+  // on double-compte l'activité (cf. audit justesse : le 1.85 gonflait le TDEE).
   var sessions7 = typeof getLogsInRange === 'function'
     ? getLogsInRange(7).length
     : Math.round((tonnage7d || 0) / 10000); // fallback estimation
-  var activityFactor = sessions7 >= 6 ? 1.85 : sessions7 >= 5 ? 1.7 : sessions7 >= 3 ? 1.55 : 1.3;
+  var activityFactor = sessions7 >= 6 ? 1.7 : sessions7 >= 3 ? 1.6 : 1.3;
 
   var baseTDEE;
   var height = db.user && db.user.height;
@@ -1170,15 +1172,19 @@ function calcTDEE(bw, tonnage7d) {
     baseTDEE = Math.round(bw * 33 * activityFactor);
   }
 
-  // Ajustement selon la phase courante
-  var phase = typeof wpDetectPhase === 'function' ? wpDetectPhase() : 'accumulation';
-  var PHASE_KCAL = {
-    hypertrophie: +300, accumulation: +200, intro: +100,
-    force: 0, intensification: 0, maintien: 0,
-    peak: +100, fondation: 0,
-    deload: -200, recuperation: -200
+  // Ajustement selon l'OBJECTIF (db.user.goal) — un seul comptage. Le surplus de
+  // PHASE (ex-PHASE_KCAL +300 hypertrophie appliqué à tous) est retiré : un bloc
+  // hypertrophie ne doit pas manger en surplus quand l'objectif est recompo/sèche.
+  var goal = (db.user && db.user.goal) || 'maintien';
+  var GOAL_KCAL = {
+    recompo:  -500,
+    seche:    -600,
+    masse:    +300,
+    maintien:    0,
+    reprise:     0,
+    force:    +150   // objectif force = léger surplus de performance
   };
-  var adjust = PHASE_KCAL[phase] || 0;
+  var adjust = (GOAL_KCAL[goal] !== undefined) ? GOAL_KCAL[goal] : 0;
 
   // Calibration ajustement (apprentissage automatique via calibrateTDEE)
   var userAdjust = (db.user && db.user.tdeeAdjustment) || 0;

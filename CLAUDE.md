@@ -1,391 +1,104 @@
-# CLAUDE.md — Contexte Complet TrainHub
+# CLAUDE.md — SBD Hub
 
-> Ce fichier est lu automatiquement par Claude Code à chaque session.
-> Il contient tout ce qu'il faut savoir sur TrainHub pour travailler efficacement.
-> **Ne jamais supprimer ce fichier. Le mettre à jour après chaque feature majeure.**
+> Constitution du dépôt, lue à chaque session. Respecte-la sauf instruction explicite contraire d'Aurélien.
+> **Ce fichier peut être mis à jour au fil du projet — tiens-le à jour quand une convention change.**
 
----
+## Projet
 
-## 1. IDENTITÉ DU PROJET
+**SBD Hub** : PWA de powerlifting/powerbuilding (français), pour Aurélien et un petit groupe d'utilisateurs réels. Vanilla JS, pas de bundler, hébergée sur GitHub Pages. Cible : Android Chrome.
 
-**TrainHub** — PWA fitness premium de coaching algorithmique.
-- URL : https://smoothapp68.github.io/sbd-hub
-- Repo : SmoothApp68/sbd-hub
-- Positionnement : "Data-Driven Powerbuilding — l'algorithme de force piloté par votre physiologie globale"
-- Cible : powerbuilders, powerlifters, intermédiaires, femmes (cycle menstruel)
-- Prix : Freemium + Premium 9.99€/mois + Lifetime 149€
+- **Repo** : `SmoothApp68/sbd-hub` (privé).
+- **Stack** : vanilla JS (`js/app.js` ~31k lignes, `js/supabase.js`, `js/engine.js`, `js/program.js`, `js/coach.js`, `js/stats.js`, `js/joints.js`, `js/import.js`, `js/exercises.js`, `js/sentry-init.js`), Supabase (PostgreSQL, eu-west-1, free tier), Chart.js, Service Worker, Sentry, Gemini Flash (Edge Function `coach-ai`, premium).
+- **PWA** : Service Worker avec `CACHE_NAME` versionné (`vNNN`). **Tout changement fonctionnel doit bumper le SW.**
 
----
+## ⚠️ Division du travail (CRITIQUE)
 
-## 2. STACK TECHNIQUE
+Il existe **deux Claude** sur ce projet, avec des rôles séparés :
 
-```
-Vanilla JS (pas de bundler, pas de framework)
-GitHub Pages (smoothapp68.github.io/sbd-hub)
-Supabase PostgreSQL eu-west-1 (Paris) — projet swwygywahfdenyzotrce
-Service Worker (offline complet, Chart.js bundlé localement)
-localStorage clé : SBD_HUB_V29
-```
+1. **Claude.ai (chat + MCP Supabase)** — fait **TOUT** ce qui touche Supabase : requêtes SQL, migrations, vérification des données, RLS. C'est là que vivent les diagnostics data et les décisions coaching (avec Gemini).
+2. **Toi, Claude Code** — fais **TOUT** le travail repo : commits, PRs, tests, refactors. **Tu n'as PAS accès à Supabase.**
 
-### Fichiers JS (ordre RÉEL de chargement — index.html:3414-3421)
-```
-js/sentry.min.js  — Sentry SDK (bundlé) + js/sentry-init.js (init, defer, en tête)
-js/engine.js      — Calculs purs : APRE, e1RM, TRIMP, ACWR, SRS, DUP zones, cycle, weight cut
-js/exercises.js   — Base 800+ exercices (name précis + nameAlt)
-js/supabase.js    — Auth, sync cloud, leaderboard, challenges, télémétrie error_logs
-js/import.js      — Import CSV/texte Hevy + Garmin
-js/program.js     — Génération programme (wpGeneratePowerbuildingDay)
-js/joints.js      — Données articulations / contraintes
-js/coach.js       — Textes coach, recommandations
-js/app.js         — TOUJOURS EN DERNIER (~31 500 lignes)
-```
-> ⚠️ `js/stats.js` et `js/social.js` N'EXISTENT PAS (stats + social vivent dans app.js). Le système
-> de modales/toasts unifié vit aussi dans app.js (pas de `js/ui.js`).
+**Conséquence** : si une tâche nécessite une action ou une vérification Supabase (lire des données, patcher une ligne, vérifier une RLS), tu ne peux pas la faire — **signale-le explicitement** dans ton rapport et indique à Aurélien de router cette partie via Claude.ai. Ne tente jamais d'accéder à Supabase directement.
 
-**Règle absolue : app.js toujours chargé en dernier.**
+Les prompts de tâche arrivent en `.md` (préparés côté Claude.ai). Ton rôle : les exécuter dans le repo avec rigueur.
 
----
+## Méthode (non négociable)
 
-## 3. RÈGLES DE DÉVELOPPEMENT
+- **Diagnostic-first** : jamais « diagnostiquer ET fixer » d'un coup. Phase 1 = diagnostic **read-only** (aucune modification) → valider la cause → Phase 2 = fix **minimal**. Un diagnostic qui se termine par un STOP ne modifie rien.
+- **1 prompt = 1 commit atomique.** Commits séparés quand un prompt demande plusieurs changements distincts.
+- **Grep les vrais noms avant d'écrire du code** — les audits et la mémoire dérivent. Le code réel est la source de vérité. (Voir « Noms vérifiés » plus bas, mais re-vérifie toujours.)
+- **Ne touche JAMAIS aux RLS.**
+- **Render lecture seule** : le rendu du Coach ne doit produire **aucune écriture** en base (`db` identique après deux renders). C'est une invariante — préserve-la.
 
-### Ne jamais faire
-- Modifier app.js sans lire la zone concernée en entier
-- Refactoriser une fonction de calcul sans tests (wpComputeWorkWeight, computeSRS, etc.)
-- Ajouter des dépendances CDN externes (tout doit être bundlé localement)
-- Créer des modules ES6 (vanilla JS uniquement, pas d'import/export)
-- Hardcoder des données utilisateur (tout doit fonctionner pour n'importe quel profil)
-- Double-compter le tonnage (MUSCLE_PARENT_MAP gère l'accumulation correctement)
-- Appeler des APIs AI dans la logique de coaching (100% algorithmique)
-- **`confirm()`/`alert()` natifs ou overlays artisanaux** → voir §UI overlays
+## Checks obligatoires avant de livrer
 
-### Toujours faire
-- `node -c js/app.js` après chaque modification **ET `npm test` vert** (règle PROMPT_RULES #1)
-- **Lire `PROMPT_RULES.md`** en début de chantier (règles de commit/tests/SW souvent ratées)
-- Un commit par fichier, push après chaque commit
-- Lire la zone de code AVANT de modifier
-- Signaler les problèmes hors-scope sans les corriger
-- Bumper `CACHE_NAME` (service-worker.js) après chaque feature précachée (PROMPT_RULES #4 ;
-  plus de `SW_VERSION` littéral depuis v321 — version dérivée du SW via `getSWVersion`)
+1. `node -c` sur les 5 fichiers JS principaux (app, supabase, engine, program, + celui touché).
+2. `npm test` **vert** (ajoute/inverse les tests dans le **même commit** que le fix — un test qui ne teste pas ce qu'il prétend est pire qu'aucun test ; vérifie que la fixture déclenche vraiment le chemin visé).
+3. **Bump le Service Worker** (`CACHE_NAME` → version suivante).
+4. Livre en **PR — NE MERGE PAS.** Aurélien vérifie sur **device** avant de merger. **Cette règle n'est pas optionnelle** : un lot mergé sans vérif device a déjà laissé passer des bugs que les tests verts ne voyaient pas (facteur calorique volatile, e1RM affiché au lieu du PR). Les tests verts ne remplacent pas la vérif device sur vraies données.
 
-### UI overlays (système unifié — v313-320, ne pas régresser)
-- Toute modale / feuille / confirmation / toast passe par les primitives :
-  `showModal` · `showInfoModal` · `showConfirm({...danger, onConfirm})` · `showSheet({...})` · `showToast`.
-- **Jamais** de `confirm()`/`alert()` natif, **jamais** d'overlay `createElement` artisanal.
-- Ouverture/fermeture via le cœur `_uiOpen`/`_uiClose`/`closeAllOverlays` (pile LIFO, scroll-lock, Échap).
-- Fond des box : `var(--surface-solid)` (opaque). Z-index : vars `--z-nav/-banner/-overlay/-critical/-toast`.
+## La chaîne à 4 voix (pour le coaching/algo)
 
-### Pattern migrations DB
-```js
-// Dans migrateDB() dans app.js :
-if (db.user.newField === undefined) db.user.newField = defaultValue;
-```
+Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (validation coaching/seuils) → Aurélien (décision finale + vérif device). Ne court-circuite pas Gemini ni la vérif device sur les sujets de coaching : c'est ce qui garantit la justesse.
 
----
+## Architecture & modèle de données
 
-## 4. ALGORITHMES CLÉS
+- **`sbd_profiles`** : une ligne par user, colonne `data` (JSONB unique). `bestPR` au 1er niveau du blob = **vraies barres** (squat/bench/deadlift). Check-in sous `data.readiness`/`readinessHistory` (`{sleep, energy, soreness, motivation, score, pain}`, `pain` nullable).
+- **`workout_sessions`** : colonnes dédiées (`timestamp`, `volume`, `title`, `short_date`, `duration`, `exercise_count`) + `data` JSONB. Détail des exercices dans `data.exercises[]` : `{name, sets(count), maxRM(=e1RM Brzycki), series[], allSets[{rpe,reps,weight,setType}], repRecords}`. **Work sets** : `setType === 'normal'`.
+- Autres tables : `heartbeats`, `social_challenges` (pas de colonne `status` — l'état dérive de `end_date`), `challenge_participants`, `ai_rate_limits`.
 
-### wpComputeWorkWeight() — Ordre des pénalités
-1. Base APRE depuis e1RM zone DUP + phase
-2. Sleep Penalty : -5% si sommeil ≤ 2/5
-3. RHR Penalty : -5%/-20% si FC +5/+10bpm vs moyenne 7j
-4. Cycle Menstruel C_cycle : 0.80 (lutéale) → 1.10 (folliculaire tardive)
-5. Weight Cut LPF : e1RM × (1 - loss% × C_lift), moyenne mobile 14j
-6. Activity Penalty adaptatif : seuil DOTS-dépendant (300/450/600 TRIMP)
-7. Fatigue Penalty : -3% à -15% selon position exercice
-8. APRE Cap par phase : 75% à 100%
-9. Mental Recovery : -3%/-1%/0% décroissance 3 séances après fail rep
-10. Return-to-Play : -8%/10j, -15%/14j, -18%/>14j
-11. Hard Cap 102.5% e1RM
-12. Kill Switch : <0.70 cumulé → forceActiveRecovery
-13. Floor global : jamais <60% base
+### Philosophie PR vs e1RM (IMPORTANTE)
 
-### DUP — Registres e1RM séparés
-```js
-getDUPZone(reps) : ≤5 → 'force', 6-12 → 'hypertrophie', >12 → 'vitesse'
-// Zone Force    : e1RM × 1.00
-// Zone Hypert.  : e1RM × 0.94
-// Zone Vitesse  : e1RM × 0.88
-// Tethering ±15% entre zones
-```
+- **e1RM = indicateur/tendance, JAMAIS un record.** Ne l'affiche jamais comme un chiffre à l'utilisateur. Il sert uniquement en **coulisse** (ex. calcul d'une pente/date de projection).
+- **Le PR ne compte qu'en vraies barres** (`bestPR`, via `recalcBestPR`/`_exoMaxRealWeight`, plancher onboarding) **ou** `repRecords`. Partout où un chiffre est **affiché ou comparé** à l'utilisateur → utilise `bestPR`, pas l'e1RM.
+- `db.exercises[].e1rm` (registre DUP) = capacité courante qui pilote les charges prescrites — distinct du pic historique montré dans Records.
 
-### SRS (Sport Readiness Score)
-```js
-// Sans HRV : ACWR 60% + Readiness 20% + Trend 20%
-// Avec HRV : ACWR 40% + HRV z-score 30% + Readiness 15% + Trend 15%
-// HRV z-score : min 7 jours, capé ±3
-```
+## Noms vérifiés (re-grep avant usage — peut dériver)
 
-### TRIMP (Training Impulse)
-```js
-// Force : Σ(sets × reps × RPE² × C_slot) ÷ 15  (normalisé Bannister)
-// C_slot : main_lift 1.5, accessory 1.2, isolation 1.0
-// Cardio : durée × RPE × C_spec
-ACTIVITY_SPEC_COEFFICIENTS = {
-  natation: 0.8, course: 1.2, trail: 1.4, velo: 1.0,
-  yoga: 0.5, arts_martiaux: 1.6, sports_collectifs: 1.5
-}
-```
+- e1RM : `calcE1RM` (Brzycki, app.js:1720) + `wpCalcE1RM` (RPE-aware). `getBestE1RMForLift` (S/B/D). `getTopE1RMForLift` (engine.js:2562, regex, inclut OHP/row).
+- `getSBDType` (engine.js:806/819) — classe un exercice en `'squat'|'bench'|'deadlift'|null`. **Exclut** RDL/stiff-leg via `/roumain|romanian|\brdl\b|jambes?\s+tendues?|stiff.?leg/`. Exclut aussi les haltères pour le bench. **C'est le matcher canonique des lifts de compétition — utilise-le, pas `matchExoName` + libellé générique.**
+- `matchExoName` (engine.js:998) — matcher générique. ⚠️ **Angle mort** : « Jambes Tendues » (stiff-leg français) **absent** de `_DIFF_ROOTS` → matche à tort « Soulevé de Terre ». **Ne PAS y toucher sans audit complet** (rayon global : import, records, synonymes, matching programme).
+- `predictPR(liftType, target)` (app.js:9255) — résout le lift via `getSBDType`. Retourne `reachable`, `reason`, `weeks`, `currentE1RM`, `dataPoints`, `weeklyGain`. Logique interne inchangée : toute correction d'affichage vit à l'appelant.
+- `getDPIncrement` — incréments réalistes (squat/dead +5, bench +2.5).
+- Calorique : `getDailyCaloricTarget` (app:15300) → `calcTDEE` (engine:1141). `calcTDEE` lit `db.user.goal` (recompo −500, sèche −500/−750, masse +250/300, maintien 0). Facteur d'activité sur fréquence **28j** (borné, `min(4, ancienneté historique en semaines)`), pas la fenêtre 7j.
+- Coach AI : `canUseAI`/`askCoachAI`/`buildCoachPrompt`/`showPaywall`. `renderWhyButton`/`openCoachQuestion`.
+- Arbitre d'intensité : `collectIntensityContext`/`computeIntensityVerdict`, `computeSRS` (coach.js). L'arbitre est **la seule voix du verdict d'intensité** — aucune carte ne doit prescrire un repos/deload concurrent hors arbitre.
+- Diagnostic : `calcWeeklyJointStress` (engine:3894, fenêtre 7j), `STRENGTH_RATIO_TARGETS`, `detectVolumeSpike`, `classifyStagnation` (engine:3367).
+- Constantes : `BW_FALLBACK_KG = 80`, `getUserBW` (supabase.js:6252), `ONBOARDING_VERSION` (engine.js:12, =4).
+- **N'existent PAS** : `wpCalcE1RM` en tant que record, `canUseAICoaching`, `askCoachWhy`, `buildUserAccessoryPool`, `calibrateTDEE` (mort), `PROJECT-STATUS.md`.
 
-### calcE1RM — formules distinctes selon l'usage (ne pas fusionner)
-```js
-// app.js:1720 — Brzycki simple (cap 20 reps), utilisée partout dans app.js
-function calcE1RM(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
+## Seuils Diagnostic (calibrés Gemini — rouge = risque de blessure imminent SEULEMENT)
 
-// program.js:61-66 — Epley ET Brzycki séparées (epleyE1RM / brzyckiE1RM),
-// combinées pour la génération de programme. (L'ancien `_calcE1RMPrecise` n'existe plus.)
-```
+Le fil rouge du projet : les seuils par défaut étaient calibrés pour un pratiquant occasionnel (~3 séances légères/sem) et affolaient un powerbuilder assidu. Les chiffres sont souvent justes, l'alarme sur-calibrée. Seuils validés :
+- Ratios : Squat/Bench danger < 0.85 ; Squat/Deadlift danger < 0.65 ou > 1.25 ; Row/Bench danger < 0.65 (vrai indicateur santé épaules).
+- Charge articulaire : orange 130 / rouge **180** pts/sem (pas 70/100).
+- Volume spike : danger > **+30 %** (pas +15 %).
+- Push/Pull : zone saine 0.8–1.2 (sets 30j, élévations latérales neutres).
+- Libellés dédramatisés, ton non-punitif partout (la stagnation n'est pas un échec, comme le deload est une arme).
 
-### LP → APRE (3 Strikes)
-```js
-// Strike 1 (RPE ≥ 9.5) → retry même poids
-// Strike 2 → deload -10%
-// Strike 3 → transition APRE (lpActive = false)
-// isInLP() : DOTS total SBD < seuil + durée < 12 semaines
-```
+## Aurélien — attentes
 
----
+- Délègue architecture/coaching (« c'est toi le coach ») **mais** attend une reco claire + rationale, pas des questions ouvertes. Choisit toujours l'option la plus optimale et sûre.
+- Valide les maquettes/specs avant implémentation. Un chantier à la fois ; noter-pour-plus-tard plutôt que scope-creep.
+- **Ne génère PAS de prompt/PR non demandé.** Ne merge jamais à sa place.
 
-## 5. STRUCTURE DES DONNÉES
+## Données de référence (aurel_br)
 
-### localStorage (clé SBD_HUB_V29)
-```js
-db = {
-  user: {
-    name, age, bw, height, gender,
-    onboardingProfile,    // 'debutant'|'intermediaire'|'powerlifter'|'yoga'|'senior'|'reeducation'
-    programParams: { freq, goal, level, intensity },
-    onboardingPRs: { squat, bench, deadlift },
-    barWeight,            // 20 (olympique), 15 (femmes), 10 (technique)
-    units,                // 'kg' | 'lbs'
-    tier,                 // 'free' | 'premium'
-    lpActive,             // true si en Progression Linéaire
-    lpStrikes,            // { 'Squat (Barre)': 1, ... }
-    activityTemplate,     // Programme fixe activités secondaires
-    consentHealth,        // RGPD
-    medicalConsent,
-    _activityMigrated,    // Flag migration v142
-    _dupMigrated          // Flag migration DUP
-  },
-  logs: [],               // Séances (ordre: plus récent en premier, index 0)
-  exercises: {            // e1RM par exercice
-    'Squat (Barre)': { e1rm: 157, shadowWeight: 155, lastRPE: 7.5 }
-  },
-  bestPR: { squat: 148, bench: 140, deadlift: 186 },
-  weeklyPlan: null,       // Généré par generateWeeklyPlan()
-  activityLogs: [],       // Vraies activités faites (vs template = prévu)
-  earnedBadges: {},       // { 's25': { earnedAt, xp } } — jamais révoqués
-  xpHighWaterMark: 0,     // XP ne peut que monter
-  _ghostLogAnswered: null // Date ISO — reset chaque jour
-}
-```
+98 kg / 182 cm / 28 ans / H. `goal=recompo`, `mode=powerbuilding`, `level=avance`, `coachingStyle=agressif`. PR vraies barres : squat **145** / bench **140** / deadlift **170**. S/B réel 1.04. Volume hebdo ~75k, ~20 séances/28j, ACWR ~1.26, cible calorique recompo **~2672** (P216/L88/G254). Deadlift loggé dans des séances titrées « Ischios Fessiers » (nom exercice « Soulevé de Terre (Barre) »).
 
-### Supabase — Tables principales
-```
-sbd_profiles        — JSONB principal (col 'data'), sync bidirectionnelle
-profiles            — Username, flags, tier, admin
-activity_logs       — Vraies activités faites (source: 'manual'|'garmin'|'ghost')
-leaderboard_entries — Classement XP/DOTS/volume (SELECT public)
-friend_challenges   — Défis entre amis (SELECT participants seulement)
-error_logs          — Télémétrie silencieuse (INSERT public, SELECT admin)
-user_consents       — RGPD versionnée
-menstrual_logs      — RLS stricte (SELECT own uniquement)
-waitlist            — Emails bêta (INSERT public, SELECT admin)
-```
+## Backlog (par priorité)
 
----
+1. 🔴 **Chantier couleur global** : rouge = alertes only. Sortir le rouge des records, barres volume insuffisant, ratios. Repenser les phases de bloc (force = bordeaux #8b1a1a / hyper = violet #7c6bff / deload = cyan #64D2FF). Diagnostic inventaire de tous les rouges → palette (Gemini) → maquette → impl.
+2. **Morpho → seuils ratios** : brancher l'« Analyse morphologique » existante (carte Configurer) pour assouplir dynamiquement S/B, S/D (bras courts = bench avantagé = S/B bas normal). Diagnostiquer d'abord ce qu'elle collecte.
+3. **Fiabiliser la pente/trend e1RM** (`getE1RMTrend`/`wpCalcE1RM`/`predictPR` — e1RM varie avec les reps). Socle commun sur-atteinte + projections ; si fiable un jour, la sur-atteinte pourra alimenter l'arbitre (en entrée, pas en verdict).
+4. **Auditer l'angle mort `matchExoName`** (« Jambes Tendues »/stiff-leg) sur les autres surfaces à libellé générique (`getRealRecords`, matching programme). Ne pas toucher `matchExoName` sans audit complet.
+5. **Freeze-at-render global** (Home app.js:11079, gamification 7227/7509, leaderboard 8269).
+6. **RPE simplifié + incitation** (collecte low-friction facile/moyen/difficile en fin de séance, incitation par valeur jamais punition).
+7. **Disciplines mixtes / accents secondaires** (discipline principale + accents modulant, pas multi-`trainingMode`).
+8. **Découplage onboarding / cloud+email** (l'onboarding complet dépend de cloud+email pour s'afficher).
+9. **Freemium/paywall** (#1 lancement) : gate IA existe (Gemini), reste Stripe. Ne pas créer `db.user.totalXP`.
+10. **Onglet Analyse** (pausé, option B FC-indépendante : Intensité Relative, Répartition séries/pattern, Densité encadrée).
+11. Réglages dégraisser (11 accordéons) · Plan unifier 2 builders · Corps SVG genré `renderBodyFigure`.
 
-## 6. FONCTIONS REFACTORISÉES (ne pas recombiner)
-
-### renderGamificationTab() — v148
-```js
-// 638L → 20L orchestrateur + 11 sous-fonctions
-function renderGamificationTab() {
-  var ctx = _buildGamContext();      // contexte partagé calculé une fois
-  _renderGamMuscleAnatomy();
-  _renderGamWeeklyRecap(ctx);
-  _renderGamLevelCard(ctx);
-  _renderGamXPSources(ctx);
-  _renderGamChallenges(ctx);
-  _renderGamMonthlyChallenges(ctx);
-  _renderGamSBDRanks(ctx);
-  _renderGamStrengthCards(ctx);
-  _renderGamHeatmap(ctx);
-  _renderGamBadges(ctx);
-  _renderLeaderboard();
-  renderFriendChallenges();
-}
-```
-
-### getAllBadges() — v149
-```js
-// 343L → 18L orchestrateur + 10 sous-fonctions
-function getAllBadges() {
-  var b = [];
-  var stats = _computeBadgeStats(); // 1 seul pass sur db.logs
-  _buildSessionBadges(b, stats);
-  _buildVolumeBadges(b, stats);
-  _buildDurationBadges(b, stats);
-  _buildPRBadges(b, stats);
-  _buildSBDBadges(b, stats);
-  _buildStreakBadges(b, stats);
-  _buildExerciseBadges(b, stats);
-  _buildSkillBadges(b, stats);
-  _buildStatusBadges(b, stats);
-  _buildCollectorBadges(b);
-  _applyWellnessTheme(b);
-  return b;
-}
-```
-
----
-
-## 7. GAMIFICATION
-
-```
-98 badges total
-Types : 'achiever' (permanent) | 'status' (peut se griser, XP conservé)
-earnedBadges : jamais révoqués (db.earnedBadges)
-xpHighWaterMark : XP ne descend jamais
-
-Badges status actuels :
-- status_consistency  : 12 séances/mois
-- status_warrior      : 4 séances/semaine
-- status_volume_king  : TRIMP > 800/semaine
-- status_early_bird   : 5 séances avant 9h/mois
-- status_comeback     : reprise après 10j d'absence
-- status_pr_month     : 3 PRs/mois
-```
-
----
-
-## 8. ACTIVITÉS SECONDAIRES (architecture v142)
-
-```js
-// Template (prévu) vs Logs (réel) — NE PAS mélanger
-db.user.activityTemplate = [
-  { type: 'natation', intensity: 3, days: ['Mercredi'], duration: 45, fixed: true }
-]
-db.activityLogs = [
-  { date: '2026-05-01', type: 'natation', duration: 45, trimp: 108, source: 'manual' }
-]
-
-// Mapping clés onboarding → clés internes
-ACTIVITY_KEY_MAP = { swimming:'natation', running:'course', cycling:'velo', ... }
-
-// Seuil removeAccessories adaptatif
-// DOTS < 250 → 300 TRIMP | DOTS 250-400 → 450 TRIMP | DOTS > 400 → 600 TRIMP
-```
-
----
-
-## 9. RGPD & SÉCURITÉ
-
-```
-- Consentement santé explicite (modal bloquante, db.user.consentHealth)
-- Consentement médical obligatoire onboarding (db.user.medicalConsent)
-- Droit à l'oubli : delete_user_complete_data() SQL
-- Export JSON : exportUserData()
-- IndexedDB backup séance GO par série
-- Content Security Policy dans index.html
-- 0 référence copyright (Dofus/Bleach remplacés en v141)
-- Toutes les tables avec RLS activée
-- NE JAMAIS stocker données sensibles dans error_logs
-```
-
----
-
-## 10. PROFIL AURÉLIEN (fondateur / compte de test)
-
-```
-Supabase profile ID : 9ed88c34-8ebb-4bda-8754-ad222b6a9bdf
-user_id            : 6e2936e7-de11-4f19-89b1-d1eb5968ba35
-PRs                : Bench 140kg / Squat 148kg / Dead 186kg
-e1RM calculés      : Bench 148 / Squat 157 / Dead 200kg
-Poids de corps     : 98kg
-S/D ratio          : 0.785 (quads faibles → programme correctif)
-S/B ratio          : 1.057 (bench fort par rapport au squat)
-```
-
----
-
-## 11. VERSIONS & HISTORIQUE
-
-| SW | Feature principale |
-|---|---|
-| v128-v130 | Total Load Management, TRIMP, HRV |
-| v131-v132 | LP 3-Strikes, RGPD, DUP registres séparés |
-| v133-v135 | Temps repos PCr, Volume Spike, Tapering, Return-to-Play |
-| v136 | Warm-up generator, Accessibilité, kg/lbs |
-| v137 | Cartes partage + Waitlist |
-| v138 | Audit bêta-testeur, fix waitlist route |
-| v139 | Nettoyage GitHub, Social throttle |
-| v140 | Humanisation UX (langage naturel, timer RPE, Express 60min) |
-| v141 | Fix copyright Dofus/Bleach |
-| v142 | Activités secondaires unifiées (Template+Logs), Gamification permanente |
-| v143 | Seuil adaptatif, one-tap log, ghost log, badges status |
-| v144 | showPRCelebration doublon, weeklyPlan J1 auto, Plate Calculator rétractable |
-| v145 | Chart.js local (offline complet) |
-| v146 | generateWeeklyPlan crash guard (cold-start J1) |
-| v147 | Guards wpGeneratePowerbuildingDay + wpComputeWorkWeight |
-| v148 | renderGamificationTab 638L→20L, Leaderboard, Friend Challenges, 6 badges status |
-| v149 | getAllBadges 343L→18L, calcE1RM clarifiée, EventListeners guards, offline messages |
-| v150 | Télémétrie silencieuse (error_logs) |
-| v151-v279 | (nombreux jalons non détaillés : périodisation blocs, DUP macro/micro, deload auto, profils universels, calisthenics, SRS/PR légal, gamification social, calibration débutant, weight cut, cycle menstruel, Bluetooth FC, churn, notifs J1-J30…) |
-| v280-v299 | Sentry, cardio stats (fusion logs+activityLogs), sparklines e1RM, sync cross-device (fusion non-destructive + dual-write t0), retrait Défis de l'onglet Jeux, nettoyages code mort |
-| v300-v311 | Nomenclature exercices : Lot A (EXO_DATABASE splits/fusions/family), Lot B (templates générateur → noms précis, maps de lookup), Lot B-2 (littéraux inline + substitutions déterministes) |
-| v312 | Polish Tier 0 : modales animées 240ms (entrée+sortie), keyframes slideUp/shimmer dédupliqués, :active rangées, blur barres 20→8px |
-| v313 | Chantier A v1 : cœur `_uiOpen/_uiClose/closeAllOverlays` (pile LIFO, scroll-lock, Échap, tap-dehors), échelle z (5 vars `--z-*`), toasts unifiés (PR = variante top) |
-| v314 | Chantier A v2 : `showSheet()` unifiée, `_showChallengeSheet` réparée, `.swap-modal` fusionnée, débrief en vraie sheet |
-| v315 | Chantier A v3 : 16 dialogues centrés artisanaux routés sur le cœur (gates non-dismissibles) |
-| v316 | Fix transparence : token `--surface-solid` (#1A1A2E), box DOMS opaques |
-| v317 | Fix device : transparence exhaustive (récap import + 6 panneaux), scroll-lock réel (body position:fixed + top:-scrollY, overlays orphelins enregistrés) |
-| v318 | Chantier A v4 : `showConfirm()` (non-dismissible, danger), 11 confirm() natifs migrés sync→async |
-| v319 | Chantier A v5 : CSS mort supprimé (slideDownFade, .swap-modal conteneur, .pr-celebration-*) — chantier A complet |
-| v320 | Fix : flux « Recherche manuelle » (remplacement d'exercice) ne tombe plus en mode ajout |
-| v321 | Garde-fou version SW : `SW_VERSION` littéral supprimé → `getSWVersion` (source unique = CACHE_NAME live) ; fix test c2-harness ; audit docs |
-
----
-
-## 12. SCORES EXPERTS
-
-| Source | Score | Version |
-|---|---|---|
-| Gemini (pondéré) | **9.4/10** | v149 |
-| Claude Code (Playwright) | **8.5/10** | v149 |
-| Claude Code (Playwright) | 7.8/10 | v148 |
-| Gemini Architecture | 8.5/10 | v149 |
-| Gemini Algorithmes | 9.8/10 | v149 |
-| Gemini Gamification | 9.6/10 | v148 |
-
----
-
-## 13. BÊTA & LANCEMENT
-
-```
-Bêta juillet 2026  : 50 users, Discord, Typeform de sélection
-Ratio H/F cible    : 60% / 40% (valider PhysioManager)
-Lancement public   : Septembre 2026 (rentrée fitness)
-Product Hunt       : Mardi 00h01 PST
-Presse             : Les Numériques, L'Équipe tech, Maddyness
-Influenceurs       : Coachs Evidence-Based 10k-50k abonnés
-                     Deal : Lifetime + 30% affiliation vs étude de cas 6 semaines
-```
-
----
-
-## 14. CE QUI RESTE À FAIRE (priorité bêta)
-
-> État priorisé complet : voir `ROADMAP.md` (section « À FAIRE »).
-- [x] Télémétrie error_logs branchée (supabase.js:189) + Sentry livré (`js/sentry-init.js`)
-- [x] calcE1RM : program.js utilise `epleyE1RM`/`brzyckiE1RM` (dedup soldé)
-- [ ] Discord ouvert pour la bêta
-- [ ] Typeform de sélection bêta (à faire sur typeform.com)
-- [ ] Message d'annonce waitlist (fichier prêt : message-annonce-waitlist.md)
-- [ ] Freemium (priorité #1) · polish B/E/C/D · décision dette `family` (voir ROADMAP)
-
-## POST-BÊTA (ne pas faire avant)
-- Découper renderCoachTodayHTML (438L) — trop risqué avant bêta
-- Découper wpComputeWorkWeight (339L) — cœur de l'algo, attendre les tests
-- Modularisation ES6 complète d'app.js
-- Health Connect Edge Function (Garmin automatique)
-- Paywall Stripe (infrastructure en place : profiles.tier, stripe_customer_id)
+### Cleanups
+Doublon séance Supabase 09/07 « Épaules / Bras » (hors repo, à supprimer via Claude.ai) · `detectMomentum` orphelin · `calibrateTDEE` mort · `supabase.min.js` orphelin · `blockStartDate` muté au render (préexistant v230) · specs Playwright `audit-*.spec.js` (ancien markup) · band picker regex.

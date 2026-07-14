@@ -14817,8 +14817,7 @@ function syncRoutineWithSelectedDays() {
   document.getElementById('inputBW').value=db.user.bw||'';
   var _fpEl = document.getElementById('inputFatPct');
   if (_fpEl) _fpEl.value = (db.user.fatPct != null) ? db.user.fatPct : '';
-  const tB=document.getElementById('tgtBench'),tS=document.getElementById('tgtSquat'),tD=document.getElementById('tgtDead');
-  if(tB)tB.value=db.user.targets.bench;if(tS)tS.value=db.user.targets.squat;if(tD)tD.value=db.user.targets.deadlift;
+  if (typeof fillTargetSettings === 'function') fillTargetSettings();
 
   newPRs={bench:false,squat:false,deadlift:false};
   renderDash();
@@ -17055,8 +17054,7 @@ function fillSettingsFields() {
   // Activités complémentaires
   renderSettingsActivities();
 
-  const tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
-  if (tB) tB.value = db.user.targets.bench; if (tS) tS.value = db.user.targets.squat; if (tD) tD.value = db.user.targets.deadlift;
+  if (typeof fillTargetSettings === 'function') fillTargetSettings();
   renderSettingsProfile();
   if (typeof renderStorageGauge === 'function') renderStorageGauge();
   if (typeof renderTierSection === 'function') renderTierSection();
@@ -17284,6 +17282,50 @@ function updateProfileField(field, value) {
   _debouncedSaveSettings();
   showToast('✓ Profil mis à jour');
   if (field === 'level' || field === 'trainingMode') _notifyProgramOutdated();
+}
+
+// ── Objectifs Force (Réglages → Profil Athlète) ──────────────
+// Multi-user : saisie/affichage dans l'unité utilisateur (kg stocké en interne),
+// rien de codé en dur, bloc masqué pour les profils sans SBD (skipPRs).
+function updateTarget(type, displayVal) {
+  if (!db.user) db.user = {};
+  if (!db.user.targets) db.user.targets = {};
+  var raw = (displayVal == null ? '' : String(displayVal)).trim();
+  if (raw === '') return; // laissé vide → on ne touche pas à l'objectif existant
+  var kg = typeof fromDisplayWeight === 'function' ? fromDisplayWeight(raw) : parseFloat(raw) || 0;
+  if (!(kg > 0)) { showToast('Objectif invalide'); return; }
+  db.user.targets[type] = kg;
+  _debouncedSaveSettings();
+  showToast('✓ Objectif mis à jour');
+  if (typeof fillTargetSettings === 'function') fillTargetSettings(); // rafraîchit le repère PR
+  if (typeof renderCoachToday === 'function') renderCoachToday();
+}
+
+// Peuple les champs d'objectif dans les Réglages (appelé à l'ouverture des
+// réglages et au boot). Toggle de visibilité selon le profil, unité + repère PR.
+function fillTargetSettings() {
+  var block = document.getElementById('settingsTargetsBlock');
+  if (!block) return;
+  var isSBD = !(db.user && db.user.skipPRs);
+  block.style.display = isSBD ? 'block' : 'none';
+  if (!isSBD) return;
+  var unit = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
+  var ul = document.getElementById('tgtUnitLabel'); if (ul) ul.textContent = unit;
+  var tgt = (db.user && db.user.targets) || {};
+  var _d = function(kg) { kg = parseFloat(kg) || 0; return kg > 0 ? (typeof toDisplayWeight === 'function' ? toDisplayWeight(kg) : kg) : ''; };
+  var tB = document.getElementById('tgtBench'), tS = document.getElementById('tgtSquat'), tD = document.getElementById('tgtDead');
+  if (tB) tB.value = _d(tgt.bench);
+  if (tS) tS.value = _d(tgt.squat);
+  if (tD) tD.value = _d(tgt.deadlift);
+  var pr = (db.bestPR) || {};
+  var hint = document.getElementById('tgtPrHint');
+  if (hint) {
+    var parts = [];
+    if (parseFloat(pr.bench) > 0)    parts.push('Bench ' + toDisplayWeight(pr.bench));
+    if (parseFloat(pr.squat) > 0)    parts.push('Squat ' + toDisplayWeight(pr.squat));
+    if (parseFloat(pr.deadlift) > 0) parts.push('Deadlift ' + toDisplayWeight(pr.deadlift));
+    hint.textContent = parts.length ? ('PR actuels : ' + parts.join(' · ') + ' ' + unit) : '';
+  }
 }
 
 // ── Cycle menstruel handlers ─────────────────────────────────

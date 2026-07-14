@@ -263,3 +263,54 @@ describe('éditeur d\'objectif inline — saveLiftTarget (multi-user : unité + 
     expect(r.toasts[0]).toContain('invalide');
   });
 });
+
+describe('éditeur d\'objectif Réglages — updateTarget + fillTargetSettings (multi-user)', () => {
+  function ctx(units, opts) {
+    opts = opts || {};
+    const db = { user: { units, skipPRs: !!opts.skipPRs, targets: opts.targets || { bench: 160 } }, bestPR: opts.bestPR || { bench: 140, squat: 145, deadlift: 170 } };
+    const els = {}; const toasts = [];
+    // éléments DOM factices minimaux
+    ['settingsTargetsBlock','tgtUnitLabel','tgtBench','tgtSquat','tgtDead','tgtPrHint'].forEach(function(id){ els[id] = { id, style: {}, value: '', textContent: '' }; });
+    const c = vm.createContext({
+      db, document: { getElementById: (id) => els[id] || null },
+      _debouncedSaveSettings: () => {}, saveDB: () => {},
+      showToast: (m) => toasts.push(m),
+      renderCoachToday: () => {}, Math
+    });
+    vm.runInContext(extractFn(ENG, 'toDisplayWeight'), c);
+    vm.runInContext(extractFn(ENG, 'toDisplayWeightLabel'), c);
+    vm.runInContext(extractFn(ENG, 'fromDisplayWeight'), c);
+    vm.runInContext(extractFn(APP, 'updateTarget'), c);
+    vm.runInContext(extractFn(APP, 'fillTargetSettings'), c);
+    return { db, els, toasts, run: (code) => vm.runInContext(code, c) };
+  }
+  test('updateTarget kg : « 180 » → targets.bench = 180 (kg)', () => {
+    const t = ctx('kg'); t.run('updateTarget("bench", "180")');
+    expect(t.db.user.targets.bench).toBe(180);
+    expect(t.toasts[0]).toContain('Objectif');
+  });
+  test('updateTarget lbs : « 405 » → stocké en kg (~183.7)', () => {
+    const t = ctx('lbs'); t.run('updateTarget("squat", "405")');
+    expect(t.db.user.targets.squat).toBeCloseTo(405 / 2.20462, 1);
+  });
+  test('updateTarget vide → objectif inchangé (pas d\'effacement accidentel)', () => {
+    const t = ctx('kg', { targets: { bench: 160 } }); t.run('updateTarget("bench", "  ")');
+    expect(t.db.user.targets.bench).toBe(160);
+  });
+  test('fillTargetSettings : profil SBD → bloc visible, valeurs peuplées en unité + repère PR', () => {
+    const t = ctx('kg', { targets: { bench: 160, squat: 200, deadlift: 220 } }); t.run('fillTargetSettings()');
+    expect(t.els.settingsTargetsBlock.style.display).toBe('block');
+    expect(t.els.tgtBench.value).toBe(160);
+    expect(t.els.tgtUnitLabel.textContent).toBe('kg');
+    expect(t.els.tgtPrHint.textContent).toContain('Bench 140');
+  });
+  test('fillTargetSettings : profil sans SBD (skipPRs) → bloc masqué', () => {
+    const t = ctx('kg', { skipPRs: true }); t.run('fillTargetSettings()');
+    expect(t.els.settingsTargetsBlock.style.display).toBe('none');
+  });
+  test('fillTargetSettings lbs : valeurs converties, label lbs', () => {
+    const t = ctx('lbs', { targets: { bench: 100 } }); t.run('fillTargetSettings()');
+    expect(t.els.tgtUnitLabel.textContent).toBe('lbs');
+    expect(t.els.tgtBench.value).toBe(220.5); // 100 kg → 220.5 lbs
+  });
+});

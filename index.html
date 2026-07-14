@@ -2784,6 +2784,22 @@
             onchange="updateProfileField('targetBW', this.value ? parseFloat(this.value) : null)">
         </div>
 
+        <!-- Objectifs Force SBD — masqué pour les profils sans SBD (skipPRs). Unité kg/lbs selon le réglage. -->
+        <div id="settingsTargetsBlock" style="margin-top:14px;">
+          <div style="font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px;">
+            🎯 Objectifs Force (<span id="tgtUnitLabel">kg</span>)
+          </div>
+          <div style="display:flex;gap:8px;">
+            <input type="number" id="tgtBench" min="0" step="2.5" placeholder="Bench" aria-label="Objectif Bench" onchange="updateTarget('bench', this.value)"
+              style="flex:1;min-width:0;padding:10px 8px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;text-align:center;">
+            <input type="number" id="tgtSquat" min="0" step="2.5" placeholder="Squat" aria-label="Objectif Squat" onchange="updateTarget('squat', this.value)"
+              style="flex:1;min-width:0;padding:10px 8px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;text-align:center;">
+            <input type="number" id="tgtDead" min="0" step="2.5" placeholder="Deadlift" aria-label="Objectif Deadlift" onchange="updateTarget('deadlift', this.value)"
+              style="flex:1;min-width:0;padding:10px 8px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px;text-align:center;">
+          </div>
+          <div id="tgtPrHint" style="font-size:11px;color:var(--sub);margin-top:6px;line-height:1.5;"></div>
+        </div>
+
         <!-- Cycle menstruel — visible uniquement si genre = female -->
         <div id="settingsCycleBlock" style="display:none;margin-top:12px;padding:12px;background:rgba(255,159,10,0.06);border:1px solid rgba(255,159,10,0.2);border-radius:10px;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">

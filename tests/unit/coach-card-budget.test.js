@@ -77,3 +77,30 @@ describe('ordonnanceur — logique de tri/cap (extraite, comportement)', () => {
     expect(r.hidden.every(c => c.pri === 4)).toBe(true);
   });
 });
+
+// ── Mini-chantier ordre du Coach (v342) ─────────────────────────────────────
+describe('ordre du Coach — check-in en tête + priorités décimales', () => {
+  test('check-in rendu en html += direct (hors ordonnanceur), entre kill-switch et Point du jour', () => {
+    // plus poussé via _pushCard : rendu direct
+    expect(BODY).not.toContain('_pushCard(2, renderMorningCheckin())');
+    expect(BODY).toContain('html += renderMorningCheckin();');
+    // position : après le bloc kill-switch, avant le calcul du verdict
+    const posCheckin = BODY.indexOf('html += renderMorningCheckin();');
+    const posKill = BODY.indexOf('Mode Compétition actif');
+    const posVerdict = BODY.indexOf('renderIntensityVerdictCard(_verdict');
+    expect(posKill).toBeGreaterThan(-1);
+    expect(posCheckin).toBeGreaterThan(posKill);
+    expect(posCheckin).toBeLessThan(posVerdict);
+  });
+  test('priorités décimales : Potentiel 2.1, Budget Récup 2.2, Volume 3.1 (tête P3)', () => {
+    expect(BODY).toContain('_pushCard(2.1, _batCal');   // Potentiel
+    expect(BODY).toContain('_pushCard(2.2, _brHtml)');  // Budget Récupération (ex-P3)
+    expect(BODY).toContain('_pushCard(3.1, _voHtml)');  // carte Volume en tête P3
+    expect(BODY).toContain('_pushCard(3.3, _nuHtml)');  // Nutrition
+    expect(BODY).toContain('_pushCard(3.5, _rcHtml)');  // Recommandations
+  });
+  test('Mode Instinct retiré des top-3 alertes (fusionné en P4)', () => {
+    expect(BODY).not.toContain('Mode Instinct disponible');
+    expect(BODY).not.toContain('_caLevel'); // var morte supprimée
+  });
+});

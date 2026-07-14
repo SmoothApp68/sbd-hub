@@ -167,7 +167,7 @@ describe('recos Coach — branche « objectif défini » : palier borné, plus d
   });
   test('palier ancré sur le PR RÉEL (pr[t]), plus sur l\'e1RM courant, sans libellé « e1RM »', () => {
     // le palier ne doit jamais tomber sous le PR affiché (« 137.5 » alors que PR 140)
-    expect(APP).toContain("'prochain palier ' + _palier + 'kg dans ~'");
+    expect(APP).toContain("'prochain palier ' + _dw(_palier) + _u + ' dans ~'"); // units-aware (kg/lbs)
     expect(APP).not.toContain('prochain palier e1RM ');
     expect(APP).toContain('Math.floor(pr[t] / _inc) * _inc + _inc');
     expect(APP).not.toContain('Math.floor(pred.currentE1RM / _inc)');
@@ -198,10 +198,10 @@ describe('recos Coach — message quand pas de palier projetable (6 cas, ton non
     // la seule voix d'atteinte reste la branche externe bestPR ≥ target (🏆).
     expect(APP).not.toContain('atteint — fixe-toi un nouveau cap');
     expect(APP).not.toContain('_grn'); // span vert d'atteinte devenu mort → supprimé
-    expect(APP).toContain('kg atteint ! 🏆'); // branche externe bestPR intacte
+    expect(APP).toContain("_u+' atteint ! 🏆"); // branche externe bestPR intacte (units-aware)
   });
-  test('cas 4 — « stable autour de {bestPR} » (pr[t], plus l\'e1RM _e1now)', () => {
-    expect(APP).toContain("stable autour de ' + pr[t] + 'kg");
+  test('cas 4 — « stable autour de {bestPR} » (pr[t], units-aware, plus l\'e1RM _e1now)', () => {
+    expect(APP).toContain("stable autour de ' + _dw(pr[t]) + _u"); // bestPR, converti kg/lbs
     expect(APP).not.toContain('_e1now'); // variable e1RM supprimée
     expect(APP).toContain('/pas de progression/i.test(pred.reason');
     expect(APP).toContain('pour relancer'); // conseil d'action, pas de jugement
@@ -215,5 +215,51 @@ describe('recos Coach — message quand pas de palier projetable (6 cas, ton non
   });
   test('cas 2 — jamais loggé : sous-ligne masquée (predText reste vide, commentaire)', () => {
     expect(APP).toContain('jamais loggé (dataPoints 0');
+  });
+});
+
+describe('éditeur d\'objectif inline — saveLiftTarget (multi-user : unité + stockage kg)', () => {
+  // vm-extraction de la vraie fonction + les vrais helpers d'unité (engine.js).
+  function ctxWith(units, inputValue) {
+    const db = { user: { units, targets: { bench: 100 } }, bestPR: { bench: 140 } };
+    const toasts = [], overlaysClosed = { n: 0 }, rendered = { n: 0 };
+    const ctx = vm.createContext({
+      db,
+      document: { getElementById: (id) => id === 'editTgtInput' ? { value: inputValue } : null },
+      saveDBNow: () => {}, saveDB: () => {},
+      closeAllOverlays: () => { overlaysClosed.n++; },
+      showToast: (m) => toasts.push(m),
+      renderCoachToday: () => { rendered.n++; },
+      Math
+    });
+    vm.runInContext(extractFn(ENG, 'toDisplayWeight'), ctx);
+    vm.runInContext(extractFn(ENG, 'toDisplayWeightLabel'), ctx);
+    vm.runInContext(extractFn(ENG, 'fromDisplayWeight'), ctx);
+    vm.runInContext(extractFn(APP, 'saveLiftTarget'), ctx);
+    vm.runInContext('saveLiftTarget("bench")', ctx);
+    return { db, toasts, overlaysClosed, rendered };
+  }
+  test('kg : « 165 » → db.user.targets.bench = 165 (kg), toast + refresh', () => {
+    const r = ctxWith('kg', '165');
+    expect(r.db.user.targets.bench).toBe(165);
+    expect(r.overlaysClosed.n).toBe(1);
+    expect(r.rendered.n).toBe(1);
+    expect(r.toasts[0]).toContain('165 kg');
+  });
+  test('lbs : « 405 » stocké en kg (~183.7), converti depuis lbs (pas de kg hardcodé)', () => {
+    const r = ctxWith('lbs', '405');
+    expect(r.db.user.targets.bench).toBeCloseTo(405 / 2.20462, 1); // ≈ 183.7 kg
+    expect(r.toasts[0]).toContain('lbs'); // toast affiché dans l'unité user
+  });
+  test('vide → annule sans modifier (garde l\'ancien objectif)', () => {
+    const r = ctxWith('kg', '   ');
+    expect(r.db.user.targets.bench).toBe(100); // inchangé
+    expect(r.overlaysClosed.n).toBe(1);        // sheet fermée
+    expect(r.rendered.n).toBe(0);              // pas de re-render
+  });
+  test('valeur ≤ 0 → refus (toast invalide), objectif inchangé', () => {
+    const r = ctxWith('kg', '0');
+    expect(r.db.user.targets.bench).toBe(100);
+    expect(r.toasts[0]).toContain('invalide');
   });
 });

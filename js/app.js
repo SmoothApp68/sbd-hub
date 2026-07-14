@@ -19992,12 +19992,19 @@ function renderCoachTodayHTML() {
 
   if (coachProfile === 'full') {
     var targets = (db.user && db.user.targets) || {};
+    // Multi-user : afficher les poids dans l'unité de l'utilisateur (kg stocké en
+    // interne). _editBtn = ✎ inline pour gérer l'objectif depuis le Coach.
+    var _u = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
+    var _dw = function(kg) { return typeof toDisplayWeight === 'function' ? toDisplayWeight(kg) : kg; };
+    var _editBtn = function(type) {
+      return ' <button onclick="editLiftTarget(\'' + type + '\')" aria-label="Modifier l\'objectif ' + type + '" title="Modifier l\'objectif" style="margin-left:5px;font-size:11px;padding:1px 7px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--sub);cursor:pointer;">✎</button>';
+    };
     ['bench','squat','deadlift'].forEach(function(t) {
       var label = t==='bench'?'Bench':t==='squat'?'Squat':'Deadlift';
       if (!pr[t]) return;
       if (targets[t] && pr[t] >= targets[t]) {
-        recos.push({ dot: 'var(--green)', text: '<strong>'+label+' :</strong> Objectif '+targets[t]+'kg atteint ! 🏆 ' +
-          '<button onclick="updateTargetFromCoach(\''+t+'\','+(targets[t]+5)+')" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;">→ '+( targets[t]+5)+'kg</button>'
+        recos.push({ dot: 'var(--green)', text: '<strong>'+label+' :</strong> Objectif '+_dw(targets[t])+_u+' atteint ! 🏆 ' +
+          '<button onclick="updateTargetFromCoach(\''+t+'\','+(targets[t]+5)+')" style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;">→ '+_dw(targets[t]+5)+_u+'</button>' + _editBtn(t)
         });
       } else if (targets[t] && pr[t] < targets[t]) {
         var gap = targets[t] - pr[t];
@@ -20034,13 +20041,13 @@ function renderCoachTodayHTML() {
           var _gain = parseFloat(pred.weeklyGain) || 0;
           var _wk = _gain > 0 ? Math.ceil((_palier - pr[t]) / _gain) : 0;
           if (_wk > 0 && _wk <= 20) {
-            predText = _sub + 'prochain palier ' + _palier + 'kg dans ~' + _wk + ' sem.</span>';  // Cas 6 — nominal
+            predText = _sub + 'prochain palier ' + _dw(_palier) + _u + ' dans ~' + _wk + ' sem.</span>';  // Cas 6 — nominal
           } else {
             predText = _sub + 'objectif à long terme au rythme actuel.</span>';                    // Cas 5 — trop lent, pas de date
           }
         } else if (pred && /pas de progression/i.test(pred.reason || '')) {
           // Cas 4 — plateau ou baisse : ton neutre + relance, jamais « tu régresses »
-          predText = _sub + label + ' stable autour de ' + pr[t] + 'kg — varie l\'intensité '
+          predText = _sub + label + ' stable autour de ' + _dw(pr[t]) + _u + ' — varie l\'intensité '
             + '(séries lourdes 1-3 reps ou nouveau schéma) pour relancer.</span>';
         } else if (pred && (pred.dataPoints || 0) >= 1) {
           // Cas 3 — quelques séances, pas assez pour une pente fiable
@@ -20048,13 +20055,15 @@ function renderCoachTodayHTML() {
         }
         // Cas 2 — jamais loggé (dataPoints 0, PR issu de l'onboarding) : sous-ligne
         // masquée, l'objectif long terme suffit (predText reste vide).
-        recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
+        recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+_dw(pr[t])+_u+' → objectif '+_dw(targets[t])+_u+' (−'+_dw(gap)+_u+')'+_editBtn(t)+predText });
       } else if (!targets[t] && pr[t] > 0) {
+        // Pas d'objectif défini : proposer de le définir (✎), plus le cap projeté si dispo.
         var nextMilestone = Math.ceil(pr[t] * 1.05 / 5) * 5;
         var pred2 = typeof predictPR === 'function' ? predictPR(t, nextMilestone) : null;
-        if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
-          recos.push({ dot: 'var(--blue)', text: '<strong>'+label+' :</strong> prochain cap ' + nextMilestone + 'kg dans ~' + pred2.weeks + ' sem. (confiance ' + pred2.confidence + '%)' });
-        }
+        var _capTxt = (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20)
+          ? ' prochain cap ' + _dw(nextMilestone) + _u + ' dans ~' + pred2.weeks + ' sem. (confiance ' + pred2.confidence + '%)'
+          : ' définis un objectif pour suivre ta progression.';
+        recos.push({ dot: 'var(--blue)', text: '<strong>'+label+' :</strong> '+_dw(pr[t])+_u+' —' + _capTxt + _editBtn(t) });
       }
     });
 
@@ -20243,6 +20252,58 @@ function updateTargetFromCoach(type, newTarget) {
   db.user.targets[type] = parseFloat(newTarget) || newTarget;
   saveDBNow();
   renderCoachToday();
+}
+
+// Éditeur d'objectif SBD inline (Coach). Multi-user : saisie ET affichage dans
+// l'unité de l'utilisateur (toDisplayWeight/fromDisplayWeight), stockage en kg ;
+// aucune valeur codée en dur ; passe par le système d'overlays unifié (showSheet).
+function editLiftTarget(type) {
+  if (!db.user) db.user = {};
+  if (!db.user.targets) db.user.targets = {};
+  var label = type === 'bench' ? 'Bench' : type === 'squat' ? 'Squat' : 'Deadlift';
+  var unit = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
+  var curTgtKg = parseFloat(db.user.targets[type]) || 0;
+  var prKg = (db.bestPR && parseFloat(db.bestPR[type])) || 0;
+  var _disp = function(kg) { return typeof toDisplayWeight === 'function' ? toDisplayWeight(kg) : kg; };
+  var curDisp = curTgtKg > 0 ? _disp(curTgtKg) : '';
+  var prLine = prKg > 0
+    ? '<div style="font-size:12px;color:var(--sub);margin-bottom:12px;">PR actuel : <strong style="color:var(--text);">' + _disp(prKg) + ' ' + unit + '</strong></div>'
+    : '';
+  var body = '<div style="padding:2px 2px 8px;">'
+    + prLine
+    + '<label for="editTgtInput" style="display:block;font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:6px;">Objectif ' + label + ' (' + unit + ')</label>'
+    + '<input id="editTgtInput" type="number" inputmode="decimal" min="0" step="2.5" value="' + curDisp + '" '
+    + 'style="width:100%;padding:12px;background:var(--surface-solid);color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:16px;box-sizing:border-box;">'
+    + '<button onclick="saveLiftTarget(\'' + type + '\')" style="margin-top:12px;width:100%;padding:13px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;">Enregistrer</button>'
+    + '</div>';
+  showSheet({ title: '🎯 Objectif ' + label, body: body });
+  setTimeout(function() { var i = document.getElementById('editTgtInput'); if (i) { i.focus(); i.select(); } }, 120);
+}
+
+function saveLiftTarget(type) {
+  var inp = document.getElementById('editTgtInput');
+  if (!inp) return;
+  if (!db.user) db.user = {};
+  if (!db.user.targets) db.user.targets = {};
+  // Fermer LA sheet (showSheet crée une .go-bottom-sheet, hors périmètre de
+  // closeAllOverlays qui ne vise que .modal-overlay) via son élément parent.
+  var _sheet = inp.closest ? inp.closest('.go-bottom-sheet') : null;
+  var _close = function() {
+    if (_sheet && typeof _uiClose === 'function') _uiClose(_sheet);
+    else if (typeof closeAllOverlays === 'function') closeAllOverlays();
+  };
+  var raw = (inp.value || '').trim();
+  if (raw === '') { _close(); return; } // vide → annuler sans changer
+  var kg = typeof fromDisplayWeight === 'function' ? fromDisplayWeight(raw) : parseFloat(raw) || 0;
+  if (!(kg > 0)) { showToast('Objectif invalide'); return; }
+  db.user.targets[type] = kg;
+  if (typeof saveDBNow === 'function') saveDBNow(); else saveDB();
+  _close();
+  var label = type === 'bench' ? 'Bench' : type === 'squat' ? 'Squat' : 'Deadlift';
+  var unit = typeof toDisplayWeightLabel === 'function' ? toDisplayWeightLabel() : 'kg';
+  var disp = typeof toDisplayWeight === 'function' ? toDisplayWeight(kg) : kg;
+  showToast('✓ Objectif ' + label + ' : ' + disp + ' ' + unit);
+  if (typeof renderCoachToday === 'function') renderCoachToday();
 }
 
 function _buildSetsFromHistory(prev) {

@@ -9268,7 +9268,9 @@ function predictPR(liftType, targetWeight) {
     pts.push({ x: log.timestamp / 86400000, y: exo.maxRM });
     if (pts.length >= 6) break;
   }
-  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données' };
+  // `dataPoints` exposé même en échec : distingue « jamais loggé » (0) de
+  // « une séance, pas assez » (1) côté appelant, sans changer la logique de calcul.
+  if (pts.length < 2) return { reachable: false, reason: 'Pas assez de données', dataPoints: pts.length };
   pts.sort((a,b) => a.x - b.x);
   const n = pts.length;
   const sumX = pts.reduce((s,p) => s+p.x, 0), sumY = pts.reduce((s,p) => s+p.y, 0);
@@ -9284,7 +9286,9 @@ function predictPR(liftType, targetWeight) {
   const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
 
   const currentE1RM = pts[pts.length - 1].y;
-  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée' };
+  // Pente ≤ 0 (charges constantes OU baisse) : on expose e1RM courant + n pour
+  // que l'appelant décrive le plateau (« stable autour de X ») sans juger.
+  if (kgPerWeek <= 0) return { reachable: false, reason: 'Pas de progression détectée', currentE1RM: Math.round(currentE1RM), dataPoints: n };
   if (currentE1RM >= targetWeight) return { reachable: true, reason: 'Objectif déjà atteint !', weeks: 0 };
   const gap = targetWeight - currentE1RM;
   const weeks = Math.ceil(gap / kgPerWeek);

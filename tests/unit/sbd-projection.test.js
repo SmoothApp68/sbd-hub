@@ -118,6 +118,37 @@ describe('predictPR — résolution du lift via getSBDType (fix deadlift v346)',
   });
 });
 
+describe('predictPR — retour enrichi en échec (distinguer les cas sans palier)', () => {
+  test('jamais loggé (0 séance) → dataPoints 0 (cas « jamais loggé »)', () => {
+    const r = vm.runInContext('predictPR("deadlift", 200)', makeCtx([]));
+    expect(r).toMatchObject({ reachable: false, reason: 'Pas assez de données', dataPoints: 0 });
+  });
+  test('une seule séance → dataPoints 1 (cas « pas assez »)', () => {
+    const logs = [{ timestamp: T0, exercises: [{ name: 'Soulevé de Terre (Barre)', maxRM: 170 }] }];
+    const r = vm.runInContext('predictPR("deadlift", 200)', makeCtx(logs));
+    expect(r).toMatchObject({ reachable: false, reason: 'Pas assez de données', dataPoints: 1 });
+  });
+  test('charges plates (160×3 constant) → pas de progression + e1RM courant exposé', () => {
+    // maxRM identique chaque séance → pente 0 → reachable false, currentE1RM fourni.
+    const logs = [];
+    for (let i = 0; i < 6; i++) logs.push({ timestamp: T0 - i * 7 * DAY,
+      exercises: [{ name: 'Soulevé de Terre (Barre)', maxRM: 170 }] });
+    const r = vm.runInContext('predictPR("deadlift", 220)', makeCtx(logs));
+    expect(r.reachable).toBe(false);
+    expect(r.reason).toBe('Pas de progression détectée');
+    expect(r.currentE1RM).toBe(170);   // pour « stable autour de 170kg »
+  });
+  test('pente négative (baisse) → même reason neutre + e1RM courant (jamais « régresse »)', () => {
+    const logs = [];
+    for (let i = 0; i < 6; i++) logs.push({ timestamp: T0 - i * 7 * DAY,
+      exercises: [{ name: 'Soulevé de Terre (Barre)', maxRM: 165 + i }] }); // récent < ancien
+    const r = vm.runInContext('predictPR("deadlift", 220)', makeCtx(logs));
+    expect(r.reachable).toBe(false);
+    expect(r.reason).toBe('Pas de progression détectée');
+    expect(typeof r.currentE1RM).toBe('number');
+  });
+});
+
 describe('recos Coach — branche « objectif défini » : palier borné, plus de date lointaine', () => {
   test('la projection lointaine « objectif dans ~N sem. (date) » est retirée', () => {
     expect(APP).not.toContain('objectif dans ~');

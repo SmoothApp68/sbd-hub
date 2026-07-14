@@ -36,6 +36,53 @@ function tdee(goal, sessionsPerWeek) {
   return vm.runInContext('calcTDEE(98, 0)', ctx);
 }
 
+// Variante : logs arbitraires (pour piloter la position des séances ET l'ancienneté
+// de l'historique complet — le diviseur se mesure sur db.logs, pas sur la fenêtre).
+function tdeeFromLogs(logs, goal) {
+  const ctx = vm.createContext({
+    db: { user: { bw: 98, height: 182, age: 28, gender: 'male', goal, trainingMode: 'powerbuilding', tdeeAdjustment: 0 }, logs },
+    getLogsInRange: (n) => logs.filter(l => l.timestamp > Date.now() - n * DAY),
+    wpDetectPhase: () => 'hypertrophie', Date
+  });
+  vm.runInContext(extractFn(ENG, 'calcTDEE'), ctx);
+  return vm.runInContext('calcTDEE(98, 0)', ctx);
+}
+
+describe('calcTDEE — diviseur sur l\'ancienneté de l\'HISTORIQUE, pas de la fenêtre (fix v345)', () => {
+  // 20 séances dans la fenêtre 28j dont la 1ʳᵉ à J-`oldestInWindow` (trou en début
+  // de fenêtre), + éventuel historique ancien HORS fenêtre.
+  function deviceLogs(oldestInWindow, olderHistoryDays) {
+    const logs = [];
+    for (let i = 0; i < 20; i++) logs.push({ timestamp: Date.now() - (i * oldestInWindow / 19) * DAY });
+    (olderHistoryDays || []).forEach(d => logs.push({ timestamp: Date.now() - d * DAY }));
+    return logs;
+  }
+  test('scénario device aurel : 20 séances, 1ʳᵉ à J-22, historique long → 2672 (PAS 2870)', () => {
+    // Avant fix : semaines = 22/7 = 3.14 → 20/3.14 = 6.36/sem → 1.7 → 2870.
+    // Après : historique ≥ 28j → ÷4 → 5.0/sem → 1.6 → 2672.
+    expect(tdeeFromLogs(deviceLogs(22, [45, 60]), 'recompo')).toBe(2672);
+  });
+  test('stable : le trou en début de fenêtre ne fait plus osciller le TDEE', () => {
+    // Même historique long, mêmes 20 séances — étalées sur 27j OU tassées sur 18j.
+    const spread = tdeeFromLogs(deviceLogs(27, [45, 60]), 'recompo');
+    const packed = tdeeFromLogs(deviceLogs(18, [45, 60]), 'recompo');
+    expect(spread).toBe(2672);
+    expect(packed).toBe(spread);
+  });
+  test('nouvel utilisateur (compte 13j, 10 séances) : protection anti-sous-estimation intacte', () => {
+    // Historique complet = 13j → ÷1.86 → 5.38/sem → 1.6 → 2672 (÷4 strict aurait
+    // donné 2.5/sem → 1.3 → 2077 : sous-estimé).
+    const logs = [];
+    for (let i = 0; i < 10; i++) logs.push({ timestamp: Date.now() - (i * 13 / 9) * DAY });
+    expect(tdeeFromLogs(logs, 'recompo')).toBe(2672);
+  });
+  test('le diviseur lit db.logs (historique complet), pas la fenêtre', () => {
+    const src = extractFn(ENG, 'calcTDEE');
+    expect(src).toContain('(db.logs || []).reduce');
+    expect(src).not.toContain('_logs28.reduce');
+  });
+});
+
 describe('calcTDEE — facteur sur fréquence 28j (stable, pas 7j volatile)', () => {
   test('20 séances/28j (5/sem) → 1.6 → 2672 recompo', () => {
     expect(tdee('recompo', 5)).toBe(2672);

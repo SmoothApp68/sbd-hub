@@ -1147,12 +1147,16 @@ function calcTDEE(bw, tonnage7d) {
   // Facteur d'activité basé sur la fréquence MOYENNE 28 jours (stable) plutôt que
   // 7j (volatile : 2870 une semaine à 7 séances, 2672 la suivante à 5). Plafonné
   // 1.6 (3-5 séances/sem) / 1.7 (6+) : le facteur INCLUT déjà l'entraînement.
-  // Historique court : diviser par les semaines réellement couvertes (pas 4 en dur)
-  // pour ne pas sous-estimer un nouvel utilisateur.
+  // Le diviseur « semaines couvertes » se mesure sur l'ancienneté de l'HISTORIQUE
+  // COMPLET (borné à 4), PAS sur la plus ancienne séance de la fenêtre 28j : un
+  // creux en début de fenêtre rétrécissait le diviseur (20 séances / 3.14 sem =
+  // 6.4/sem → 1.7) et le TDEE oscillait avec la fenêtre glissante. Utilisateur
+  // établi → ÷4 strict ; historique < 28j → ÷ semaines réellement couvertes
+  // (protection anti-sous-estimation du nouvel utilisateur, transition continue).
   var sessionsPerWeek;
   if (typeof getLogsInRange === 'function') {
     var _logs28 = getLogsInRange(28);
-    var _oldestTs = _logs28.reduce(function(min, l) {
+    var _oldestTs = (db.logs || []).reduce(function(min, l) {
       return (l.timestamp && l.timestamp < min) ? l.timestamp : min;
     }, Date.now());
     var _daysCovered = Math.max(1, (Date.now() - _oldestTs) / 86400000);

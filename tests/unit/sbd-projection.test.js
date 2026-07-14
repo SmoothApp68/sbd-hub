@@ -193,11 +193,16 @@ describe('recos Coach — branche « objectif défini » : palier borné, plus d
 describe('recos Coach — message quand pas de palier projetable (6 cas, ton non-punitif)', () => {
   // On sonde les libellés source (le message est dérivé au render, dans un gros
   // orchestrateur non extractible en pur ; l'e2e couvre le rendu réel).
-  test('cas 1 — objectif atteint (e1RM ≥ objectif) : message positif « nouveau cap »', () => {
-    expect(APP).toContain('✅ Objectif ' + "' + targets[t] + 'kg atteint — fixe-toi un nouveau cap.");
+  test('cas 1 — plus de faux « atteint » basé e1RM : weeks===0 → ligne de base seule', () => {
+    // le faux positif (currentE1RM ≥ target mais bestPR < target) est retiré ;
+    // la seule voix d'atteinte reste la branche externe bestPR ≥ target (🏆).
+    expect(APP).not.toContain('atteint — fixe-toi un nouveau cap');
+    expect(APP).not.toContain('_grn'); // span vert d'atteinte devenu mort → supprimé
+    expect(APP).toContain('kg atteint ! 🏆'); // branche externe bestPR intacte
   });
-  test('cas 4 — plateau/baisse : « stable autour de X » + relance (ton neutre)', () => {
-    expect(APP).toContain("stable autour de ' + _e1now + 'kg");
+  test('cas 4 — « stable autour de {bestPR} » (pr[t], plus l\'e1RM _e1now)', () => {
+    expect(APP).toContain("stable autour de ' + pr[t] + 'kg");
+    expect(APP).not.toContain('_e1now'); // variable e1RM supprimée
     expect(APP).toContain('/pas de progression/i.test(pred.reason');
     expect(APP).toContain('pour relancer'); // conseil d'action, pas de jugement
   });

@@ -20018,12 +20018,15 @@ function renderCoachTodayHTML() {
         // projetable, on explique — factuel, actionnable, jamais culpabilisant
         // (une baisse peut être une décharge normale ; on ne dit pas « tu régresses »).
         var _sub = ' <span style="color:var(--sub);font-size:11px;">• ';
-        var _grn = ' <span style="color:var(--green);font-size:11px;">• ';
-        var _e1now = pred ? Math.round(pred.currentE1RM || 0) : 0;
         var predText = '';
         if (pred && pred.reachable && pred.weeks === 0) {
-          // Cas 1 — objectif déjà atteint au niveau du jour (e1RM courant ≥ objectif)
-          predText = _grn + '✅ Objectif ' + targets[t] + 'kg atteint — fixe-toi un nouveau cap.</span>';
+          // Cas 1 — predictPR renvoie weeks 0 quand currentE1RM (e1RM ESTIMÉ) ≥ objectif.
+          // Or on est ici parce que bestPR < objectif (branche interne) : le rep-work a
+          // pu gonfler l'e1RM au-dessus de la cible sans que la VRAIE barre l'ait touchée
+          // → objectif PAS atteint. La seule voix légitime d'atteinte est la branche
+          // externe bestPR ≥ target (🏆). On n'affiche donc rien de plus que la ligne de
+          // base — ni « atteint », ni mention e1RM (predText reste vide).
+          predText = '';
         } else if (pred && pred.reachable) {
           var _inc = typeof getDPIncrement === 'function'
             ? Math.max(2.5, getDPIncrement(_exoName, pr[t]) || 0) : 2.5;
@@ -20037,7 +20040,7 @@ function renderCoachTodayHTML() {
           }
         } else if (pred && /pas de progression/i.test(pred.reason || '')) {
           // Cas 4 — plateau ou baisse : ton neutre + relance, jamais « tu régresses »
-          predText = _sub + label + ' stable autour de ' + _e1now + 'kg — varie l\'intensité '
+          predText = _sub + label + ' stable autour de ' + pr[t] + 'kg — varie l\'intensité '
             + '(séries lourdes 1-3 reps ou nouveau schéma) pour relancer.</span>';
         } else if (pred && (pred.dataPoints || 0) >= 1) {
           // Cas 3 — quelques séances, pas assez pour une pente fiable

@@ -1192,13 +1192,8 @@ function calcTDEE(bw, tonnage7d) {
   return baseTDEE + adjust + userAdjust;
 }
 
-// ── TDEE Cycling pour la recompo ──────────────────────────────
-// +5% jour entraînement, -10% jour repos pour les utilisateurs en recompo
-function getTDEEForDay(baseTDEE, isTrainingDay, goal) {
-  if (!baseTDEE) return 0;
-  if (goal !== 'recompo') return baseTDEE;
-  return isTrainingDay ? Math.round(baseTDEE * 1.05) : Math.round(baseTDEE * 0.90);
-}
+// (getTDEEForDay supprimé — code mort, 0 appelant. Le cycling recompo est
+// désormais géré proprement par db.user.goal dans calcTDEE, un seul comptage.)
 
 // ── Calibration TDEE silencieuse ──────────────────────────────
 // Si poids stable malgré déficit théorique sur 14j → TDEE sous-estimé

@@ -16108,23 +16108,23 @@ function renderCorpsTab() {
   const todayLabel = todayRoutine[todayDayName] || '';
   const todayIsRest = !todayLabel || /repos|😴/i.test(todayLabel);
   const todayIsDeload = isDeloadWeek();
-  let tdeeMultiplier = 0.95; // Repos par défaut
-  let tdeeLabel = '🛋️ Jour de repos — -5% kcal';
-  if (todayIsDeload) {
-    tdeeMultiplier = 0.95; tdeeLabel = '🔄 Jour de deload — -5% kcal';
-  } else if (!todayIsRest) {
-    // Check if today has a big lift
+  // Cycling local RETIRÉ (audit justesse) : une seule source = calcTDEE corrigé
+  // (goal + fréquence). Le ±% jour maison empilait un 3e étage de double comptage.
+  // Le label reste INFORMATIF sur le type de jour, sans changer les kcal.
+  let tdeeLabel;
+  if (todayIsDeload) tdeeLabel = '🔄 Jour de deload';
+  else if (todayIsRest) tdeeLabel = '🛋️ Jour de repos';
+  else {
     const todayExos = getProgExosForDay(todayDayName);
     const hasBig = todayExos.some(n => {
-      const nl = n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const nl = n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
       return /squat|deadlift|souleve|bench\s*(press|barre|couche)?|developpe\s*couche/.test(nl);
     });
-    if (hasBig) { tdeeMultiplier = 1.10; tdeeLabel = '🏋️ Jour lourd — +10% kcal'; }
-    else { tdeeMultiplier = 1.05; tdeeLabel = '💪 Jour modéré — +5% kcal'; }
+    tdeeLabel = hasBig ? '🏋️ Jour lourd' : '💪 Jour modéré';
   }
-  const tdee = baseTdee > 0 ? Math.round(baseTdee * tdeeMultiplier) : 0;
+  const tdee = baseTdee > 0 ? baseTdee : 0;
   const cible=calcCalorieCible(bw);
-  const adjustedCible = baseTdee > 0 ? Math.round(cible * tdeeMultiplier / (cible > 0 && baseTdee > 0 ? baseTdee / baseTdee : 1)) : cible;
+  const adjustedCible = cible; // anneau piloté manuellement (calcCalorieCible) — inchangé
   const macros=calcMacrosCibles(adjustedCible > 0 ? adjustedCible : cible, bw);
   const today=new Date().toDateString();
   const todayEntry=(db.body||[]).find(e=>new Date(e.ts).toDateString()===today);

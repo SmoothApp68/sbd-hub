@@ -2732,10 +2732,14 @@ function classifyStagnation(liftType) {
   var peakPhases = { peak: true, intensification: true, force: true };
   var rpeThreshold = peakPhases[phase] ? 9.5 : 9.0;
 
-  // Sur-atteinte: continuous threshold — deeply negative trend, or negative + high RPE
+  // Sur-atteinte: continuous threshold — deeply negative trend, or negative + high RPE.
+  // Observation, pas prescription : le trend e1RM 3 semaines est fragile (fiabilisation
+  // en backlog), et l'arbitre reste seul juge de l'intensité. On informe, on ne pilote pas
+  // le repos — pas d'action `emergency_deload`, pas de « 3 jours de repos complets ».
   if (trend3w < -0.03 || (trend3w < -0.015 && rpeAvg !== null && rpeAvg > rpeThreshold)) {
-    return { type: 'sur_atteinte', action: 'emergency_deload',
-      message: '🔴 Sur-atteinte détectée. 3 jours de repos complets recommandés.' };
+    var _dropPct = Math.abs(Math.round(trend3w * 100));
+    return { type: 'sur_atteinte', action: 'monitor',
+      message: '📉 e1RM estimé en baisse de ' + _dropPct + '% sur 3 semaines — surveille ta récupération.' };
   }
 
   // Fatigue → Deload -30% vol -10% intensité
@@ -3112,8 +3116,7 @@ function analyzeAthleteProfile() {
     if (stagnation) {
       var liftLabel = lift === 'bench' ? 'Bench' : lift === 'squat' ? 'Squat' : 'Deadlift';
       progressionAlerts.push({
-        severity: stagnation.type === 'sur_atteinte' ? 'danger'
-                : stagnation.type === 'fatigue' ? 'warning' : 'info',
+        severity: (stagnation.type === 'sur_atteinte' || stagnation.type === 'fatigue') ? 'warning' : 'info',
         title: liftLabel + ' — ' + stagnation.type.replace(/_/g, ' '),
         text: stagnation.message
       });

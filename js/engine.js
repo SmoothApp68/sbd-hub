@@ -1144,13 +1144,24 @@ function calcTDEEKatchMcArdle(bw, fatPct, activityFactor, weeklySecondaryTRIMP) 
 function calcTDEE(bw, tonnage7d) {
   if (!bw || bw <= 0) return 2300;
 
-  // Facteur d'activité basé sur la fréquence réelle des 7 derniers jours.
-  // Plafonné 1.6 (3-5 séances) / 1.7 (6+) : il INCLUT déjà l'entraînement — au-delà
-  // on double-compte l'activité (cf. audit justesse : le 1.85 gonflait le TDEE).
-  var sessions7 = typeof getLogsInRange === 'function'
-    ? getLogsInRange(7).length
-    : Math.round((tonnage7d || 0) / 10000); // fallback estimation
-  var activityFactor = sessions7 >= 6 ? 1.7 : sessions7 >= 3 ? 1.6 : 1.3;
+  // Facteur d'activité basé sur la fréquence MOYENNE 28 jours (stable) plutôt que
+  // 7j (volatile : 2870 une semaine à 7 séances, 2672 la suivante à 5). Plafonné
+  // 1.6 (3-5 séances/sem) / 1.7 (6+) : le facteur INCLUT déjà l'entraînement.
+  // Historique court : diviser par les semaines réellement couvertes (pas 4 en dur)
+  // pour ne pas sous-estimer un nouvel utilisateur.
+  var sessionsPerWeek;
+  if (typeof getLogsInRange === 'function') {
+    var _logs28 = getLogsInRange(28);
+    var _oldestTs = _logs28.reduce(function(min, l) {
+      return (l.timestamp && l.timestamp < min) ? l.timestamp : min;
+    }, Date.now());
+    var _daysCovered = Math.max(1, (Date.now() - _oldestTs) / 86400000);
+    var _weeksCovered = Math.max(1, Math.min(4, _daysCovered / 7));
+    sessionsPerWeek = _logs28.length / _weeksCovered;
+  } else {
+    sessionsPerWeek = Math.round((tonnage7d || 0) / 10000); // fallback estimation
+  }
+  var activityFactor = sessionsPerWeek >= 6 ? 1.7 : sessionsPerWeek >= 3 ? 1.6 : 1.3;
 
   var baseTDEE;
   var height = db.user && db.user.height;

@@ -20,16 +20,47 @@ function extractFn(src, name) {
   return src.slice(m.index, i);
 }
 
-// Profil aurel : 98 kg, 182 cm, 28 ans, homme.
-function tdee(goal, sessions) {
+const DAY = 86400000;
+// Profil aurel : 98 kg, 182 cm, 28 ans, homme. `sessions` = séances/sem moyennes
+// sur 28j (le facteur lit désormais la fréquence 28j lissée, pas 7j).
+function tdee(goal, sessionsPerWeek) {
+  const logs = [];
+  const total = Math.round(sessionsPerWeek * 4); // sur 28 jours pleins
+  for (let i = 0; i < total; i++) logs.push({ timestamp: Date.now() - (i * 28 / total) * DAY });
   const ctx = vm.createContext({
-    db: { user: { bw: 98, height: 182, age: 28, gender: 'male', goal, trainingMode: 'powerbuilding', tdeeAdjustment: 0 }, logs: [] },
-    getLogsInRange: () => Array(sessions).fill({}),
-    wpDetectPhase: () => 'hypertrophie'
+    db: { user: { bw: 98, height: 182, age: 28, gender: 'male', goal, trainingMode: 'powerbuilding', tdeeAdjustment: 0 }, logs },
+    getLogsInRange: (n) => logs.filter(l => l.timestamp > Date.now() - n * DAY),
+    wpDetectPhase: () => 'hypertrophie', Date
   });
   vm.runInContext(extractFn(ENG, 'calcTDEE'), ctx);
   return vm.runInContext('calcTDEE(98, 0)', ctx);
 }
+
+describe('calcTDEE — facteur sur fréquence 28j (stable, pas 7j volatile)', () => {
+  test('20 séances/28j (5/sem) → 1.6 → 2672 recompo', () => {
+    expect(tdee('recompo', 5)).toBe(2672);
+  });
+  test('stable : une semaine dense ne change pas le TDEE (moyenne 28j)', () => {
+    // même total 28j → même facteur, que la dernière semaine soit dense ou calme
+    const denseWeek = (() => {
+      const logs = [];
+      for (let d = 0; d < 7; d++) logs.push({ timestamp: Date.now() - d * DAY });      // 7 récentes
+      for (let d = 8; d < 28; d += 1.6) logs.push({ timestamp: Date.now() - d * DAY }); // reste
+      const l = logs.slice(0, 20);
+      const ctx = vm.createContext({
+        db: { user: { bw: 98, height: 182, age: 28, gender: 'male', goal: 'recompo', trainingMode: 'powerbuilding', tdeeAdjustment: 0 }, logs: l },
+        getLogsInRange: (n) => l.filter(x => x.timestamp > Date.now() - n * DAY),
+        wpDetectPhase: () => 'hypertrophie', Date
+      });
+      vm.runInContext(extractFn(ENG, 'calcTDEE'), ctx);
+      return vm.runInContext('calcTDEE(98, 0)', ctx);
+    })();
+    expect(denseWeek).toBe(tdee('recompo', 5)); // 7 séances récentes → toujours 2672
+  });
+  test('lit bien la fenêtre 28j (getLogsInRange(28))', () => {
+    expect(extractFn(ENG, 'calcTDEE')).toContain('getLogsInRange(28)');
+  });
+});
 
 describe('calcTDEE — objectif branché, un seul comptage', () => {
   test('aurel recompo 5 séances → ~2600-2700 (avant : ~3671 avec PHASE_KCAL+bonus)', () => {

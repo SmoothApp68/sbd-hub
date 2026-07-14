@@ -112,9 +112,8 @@ describe('predictPR — résolution du lift via getSBDType (fix deadlift v346)',
     const body = extractFn(APP, 'predictPR');
     expect(body).toContain('getSBDType(e.name) === liftType');
     expect(body).not.toContain('matchExoName');           // plus le matcher permissif ici
-    // les 3 appels passent le type de lift (t), plus le libellé générique
+    // les appels passent le type de lift (t), plus le libellé générique
     expect(APP).toContain('predictPR(t, targets[t])');
-    expect(APP).toContain('predictPR(t, _palier)');
     expect(APP).toContain('predictPR(t, nextMilestone)');
   });
 });
@@ -130,10 +129,12 @@ describe('recos Coach — branche « objectif défini » : palier borné, plus d
     expect(APP).toContain('Math.floor(pr[t] / _inc) * _inc + _inc');
     expect(APP).not.toContain('Math.floor(pred.currentE1RM / _inc)');
   });
-  test('palier borné par l\'objectif et échéance bornée ≤ 20 sem (les DEUX branches)', () => {
+  test('palier borné par l\'objectif ; échéance = incrément ÷ pente depuis le PR, bornée ≤ 20 sem', () => {
     expect(APP).toContain('Math.min(targets[t], Math.floor(pr[t]');
-    // branche objectif + branche « prochain cap » : 2 occurrences de la borne
-    expect((APP.match(/weeks > 0 && \w+\.weeks <= 20/g) || []).length).toBe(2);
+    // échéance mesurée depuis le PR (pas l'e1RM courant) : (_palier - pr[t]) / pente
+    expect(APP).toContain('Math.ceil((_palier - pr[t]) / _gain)');
+    expect(APP).toContain('_wk > 0 && _wk <= 20');           // borne branche objectif
+    expect(APP).toContain('pred2.weeks > 0 && pred2.weeks <= 20'); // borne branche « prochain cap »
   });
   test('incrément via getDPIncrement sur le PR (plancher 2.5), « objectif atteint » conservé', () => {
     expect(APP).toContain('Math.max(2.5, getDPIncrement(_exoName, pr[t]) || 0)');

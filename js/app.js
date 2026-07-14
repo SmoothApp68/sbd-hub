@@ -19999,8 +19999,10 @@ function renderCoachTodayHTML() {
         // au PR déjà réalisé (« palier 137.5kg » alors que le PR est 140). Palier
         // = PR arrondi à l'incrément supérieur (+2.5 haut du corps / +5 bas), capé
         // par l'objectif — même unité que « 140kg → objectif 160kg », plus de
-        // libellé « e1RM ». L'échéance reste estimée par predictPR (régression sur
-        // l'e1RM des séances) ; seule la cible du palier change de référentiel.
+        // libellé « e1RM ». L'échéance = temps pour AJOUTER l'incrément au PR à la
+        // vitesse de progression courante (pente de predictPR), mesuré depuis le PR
+        // et non depuis l'e1RM courant : sinon un e1RM sous le PR gonfle l'écart
+        // (PR+2.5 depuis un e1RM 5 kg plus bas → >20 sem → palier masqué à tort).
         var predText = '';
         if (pred && pred.reachable && pred.weeks === 0) {
           predText = ' <span style="color:var(--green);font-size:11px;">• objectif atteint !</span>';
@@ -20008,9 +20010,10 @@ function renderCoachTodayHTML() {
           var _inc = typeof getDPIncrement === 'function'
             ? Math.max(2.5, getDPIncrement(_exoName, pr[t]) || 0) : 2.5;
           var _palier = Math.min(targets[t], Math.floor(pr[t] / _inc) * _inc + _inc);
-          var pred2 = predictPR(t, _palier);
-          if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
-            predText = ' <span style="color:var(--sub);font-size:11px;">• prochain palier ' + _palier + 'kg dans ~' + pred2.weeks + ' sem.</span>';
+          var _gain = parseFloat(pred.weeklyGain) || 0;
+          var _wk = _gain > 0 ? Math.ceil((_palier - pr[t]) / _gain) : 0;
+          if (_wk > 0 && _wk <= 20) {
+            predText = ' <span style="color:var(--sub);font-size:11px;">• prochain palier ' + _palier + 'kg dans ~' + _wk + ' sem.</span>';
           }
         }
         recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });

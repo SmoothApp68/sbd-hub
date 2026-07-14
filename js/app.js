@@ -1087,9 +1087,9 @@ const GLOSSARY = {
   },
   pr_prediction: {
     short: "Prédiction de PR",
-    desc: "Estimation de quand tu atteindras ton objectif de poids, basée sur ta progression actuelle.",
-    calc: "1. Progression hebdomadaire en kg (régression linéaire sur 6 dernières séances). 2. Écart entre e1RM actuel et objectif. 3. Semaines = écart ÷ progression/semaine. 4. Confiance (%) = R² de la régression (régularité de la progression).",
-    example: "e1RM 140kg, objectif 160kg, progression +1.84 kg/sem → ~11 semaines. R² = 0.16 → confiance 16%.",
+    desc: "Prochain palier réaliste (+2.5/5 kg au-delà de ton e1RM courant) et son échéance estimée, basés sur ta progression réelle.",
+    calc: "1. Progression hebdomadaire en kg (régression linéaire sur 6 dernières séances). 2. Prochain palier = e1RM courant arrondi à l'incrément supérieur (+2.5 kg haut du corps, +5 kg bas du corps). 3. Semaines = écart ÷ progression/semaine — échéance affichée seulement si ≤ 20 semaines (au-delà, l'extrapolation linéaire n'est plus fiable). 4. Confiance (%) = R² de la régression (régularité de la progression).",
+    example: "e1RM 148kg, prochain palier 150kg, progression +1.84 kg/sem → ~2 semaines.",
     category: "scores"
   },
   tonnage: {
@@ -19985,12 +19985,26 @@ function renderCoachTodayHTML() {
         });
       } else if (targets[t] && pr[t] < targets[t]) {
         var gap = targets[t] - pr[t];
-        var pred = typeof predictPR === 'function' ? predictPR(t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre', targets[t]) : null;
+        var _exoName = t === 'bench' ? 'Développé Couché' : t === 'squat' ? 'Squat (Barre)' : 'Soulevé de Terre';
+        var pred = typeof predictPR === 'function' ? predictPR(_exoName, targets[t]) : null;
+        // Prochain palier réaliste (+2.5/5 kg au-delà de l'e1RM courant) plutôt
+        // qu'une date lointaine extrapolée linéairement (« ~117 sem » sur une
+        // pente de régression fragile). Même règle d'affichage que la branche
+        // « prochain cap » : échéance seulement si ≤ 20 sem, sinon l'objectif
+        // reste affiché sans date. Palier et semaines parlent du même
+        // référentiel (e1RM des logs) — le libellé « e1RM » lève l'ambiguïté
+        // avec l'écart affiché sur le PR réel.
         var predText = '';
-        if (pred && pred.reachable && pred.weeks > 0) {
-          predText = ' <span style="color:var(--sub);font-size:11px;">• objectif dans ~' + pred.weeks + ' sem. (' + pred.date + ')</span>';
-        } else if (pred && pred.reachable && pred.weeks === 0) {
+        if (pred && pred.reachable && pred.weeks === 0) {
           predText = ' <span style="color:var(--green);font-size:11px;">• objectif atteint !</span>';
+        } else if (pred && pred.reachable) {
+          var _inc = typeof getDPIncrement === 'function'
+            ? Math.max(2.5, getDPIncrement(_exoName, pred.currentE1RM) || 0) : 2.5;
+          var _palier = Math.min(targets[t], Math.floor(pred.currentE1RM / _inc) * _inc + _inc);
+          var pred2 = predictPR(_exoName, _palier);
+          if (pred2 && pred2.reachable && pred2.weeks > 0 && pred2.weeks <= 20) {
+            predText = ' <span style="color:var(--sub);font-size:11px;">• prochain palier e1RM ' + _palier + 'kg dans ~' + pred2.weeks + ' sem.</span>';
+          }
         }
         recos.push({ dot: 'var(--accent)', text: '<strong>'+label+' :</strong> '+pr[t]+'kg → objectif '+targets[t]+'kg (−'+gap+'kg)'+predText });
       } else if (!targets[t] && pr[t] > 0) {

@@ -58,3 +58,19 @@ describe('calcTDEE — objectif branché, un seul comptage', () => {
     expect(src).toContain('GOAL_KCAL');
   });
 });
+
+describe('getDailyCaloricTarget — un seul comptage, macros P2.2/L0.9', () => {
+  const src = extractFn(APP, 'getDailyCaloricTarget');
+  test('bonus jour-séance ×1.10/×0.90 retiré du calcul kcal', () => {
+    expect(src).not.toContain('tdee * multiplier');
+    expect(src).not.toContain('isSBDDay ? 1.10');
+    expect(src).toContain('Math.round(tdee)');
+  });
+  test('macros : P 2.2 g/kg, L 0.9 g/kg, glucides = reste', () => {
+    expect(src).toContain('bw * 2.2'); // protéines
+    expect(src).toContain('bw * 0.9'); // lipides
+    // aurel 98 kg → P 216, L 88
+    expect(Math.round(98 * 2.2)).toBe(216);
+    expect(Math.round(98 * 0.9)).toBe(88);
+  });
+});

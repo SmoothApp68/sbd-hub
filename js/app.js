@@ -15312,12 +15312,16 @@ function getDailyCaloricTarget() {
     return e.isPrimary;
   });
 
-  var multiplier = isSBDDay ? 1.10 : isRestDay ? 0.90 : 1.00;
-  var targetCalories = Math.round(tdee * multiplier);
-  var targetProteins = Math.round(bw * 2.0);
-  var targetCarbs = Math.round(targetCalories * (isSBDDay ? 0.50 : 0.30) / 4);
-  var targetFats = Math.max(40,
-    Math.round((targetCalories - targetProteins * 4 - targetCarbs * 4) / 9));
+  // Un seul comptage : le TDEE (calcTDEE) inclut déjà la fréquence d'entraînement.
+  // Plus de bonus jour-séance (×1.10) ni de malus repos (×0.90) — on mange pareil
+  // tous les jours (reco Gemini). Le label « jour de séance lourde » reste
+  // INFORMATIF sur la répartition glucides (plus autour de la séance), pas sur
+  // le total kcal. Macros harmonisées avec calcMacrosCibles : P 2.2 g/kg, L 0.9 g/kg.
+  var targetCalories = Math.round(tdee);
+  var targetProteins = Math.round(bw * 2.2);
+  var targetFats = Math.round(bw * 0.9);
+  var targetCarbs = Math.max(0,
+    Math.round((targetCalories - targetProteins * 4 - targetFats * 9) / 4));
 
   return {
     calories: targetCalories,

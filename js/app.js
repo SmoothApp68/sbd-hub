@@ -19504,7 +19504,7 @@ function renderCoachTodayHTML() {
     });
   }
   if (_actInner) {
-    _pushCard(2, '<div style="background:var(--surface);border-radius:12px;'
+    _pushCard(2.5, '<div style="background:var(--surface);border-radius:12px;'
       + 'padding:12px 14px;margin-bottom:12px;">'
       + '<div style="font-size:13px;font-weight:700;margin-bottom:6px;">🏃 Activités</div>'
       + _actInner + '</div>');
@@ -19553,7 +19553,7 @@ function renderCoachTodayHTML() {
           + 'font-size:11px;color:var(--text);">' + flag.reason + '</div>';
       });
       _brHtml += '</div>';
-      _pushCard(3, _brHtml);
+      _pushCard(2.2, _brHtml);
     }
   }
 
@@ -19564,7 +19564,7 @@ function renderCoachTodayHTML() {
         ? getCrossInterferencePenalties() : {};
       var _penZones = Object.keys(_interPen);
       if (_penZones.length > 0) {
-        _pushCard(2, '<div style="background:rgba(255,159,10,0.08);border-radius:12px;'
+        _pushCard(2.5, '<div style="background:rgba(255,159,10,0.08);border-radius:12px;'
           + 'padding:10px 12px;margin-bottom:12px;border-left:3px solid var(--orange);">'
           + '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">⚡ Interférence détectée</div>'
           + '<div style="font-size:11px;color:var(--sub);">Volume réduit sur : '
@@ -19625,7 +19625,7 @@ function renderCoachTodayHTML() {
     // dit gentiment. Lecture seule, ne touche ni verdict ni mini-cycle.
     var _absSoft = typeof getAbsencePenalty === 'function' ? getAbsencePenalty() : null;
     if (_absSoft && _absSoft.days > 7 && _absSoft.days <= 14) {
-      _pushCard(2, '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);'
+      _pushCard(2.5, '<div style="background:rgba(10,132,255,0.06);border:0.5px solid rgba(10,132,255,0.25);'
         + 'border-radius:12px;padding:12px;margin-bottom:12px;">'
         + '<div style="font-size:13px;color:var(--accent);">👋 Content de te revoir — '
         + _absSoft.days + ' jours sans séance. On reprend en douceur, charges légèrement réduites.</div>'
@@ -19661,18 +19661,18 @@ function renderCoachTodayHTML() {
         _dgHtml += '</div>';
       });
       _dgHtml += '</div>';
-      _pushCard(3, _dgHtml);
+      _pushCard(3.2, _dgHtml);
     }
   }
 
   // ── 0c-bis. AUTO-TUNER — suggestions volume interactives (Gemini Q1) ──
   if (coachProfile !== 'silent' && typeof renderAutoTunerCard === 'function') {
-    try { _pushCard(3, renderAutoTunerCard()); } catch(e) {}
+    try { _pushCard(3.6, renderAutoTunerCard()); } catch(e) {}
   }
 
   // ── 0c-ter. STALENESS — rotations accessoires pendant le Deload (Gemini Q2.4) ──
   if (coachProfile !== 'silent' && typeof renderStalenessRotationCard === 'function') {
-    try { _pushCard(2, renderStalenessRotationCard()); } catch(e) {}
+    try { _pushCard(2.5, renderStalenessRotationCard()); } catch(e) {}
   }
 
   // ── 0c-quart. DISCOVERY CARDS — exercices bénéfiques inconnus (Gemini Q2/Q4) ── [P4 découverte]
@@ -19711,7 +19711,7 @@ function renderCoachTodayHTML() {
         _cyHtml += '<div style="font-size:10px;color:var(--orange);margin-top:6px;">⚠️ Échauffement articulaire conseillé.</div>';
       }
       _cyHtml += '</div>';
-      _pushCard(2, _cyHtml);
+      _pushCard(2.5, _cyHtml);
     }
   }
 
@@ -19767,7 +19767,7 @@ function renderCoachTodayHTML() {
         _nuHtml += '</div>';
       }
     }
-    _pushCard(3, _nuHtml);
+    _pushCard(3.3, _nuHtml);
   }
 
   // ── 1. JAUGES ──
@@ -19787,7 +19787,7 @@ function renderCoachTodayHTML() {
   // Calibration ACWR : sous ~3 sem d'historique, le score de Potentiel de Performance n'a rien
   // mesuré (pin ACWR) → jauge de progression au lieu d'un score trompeur.
   var _batCal = typeof getCoachCalibration === 'function' ? getCoachCalibration() : { calibrating: false };
-  _pushCard(2, _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore));
+  _pushCard(2.1, _batCal.calibrating ? getBatteryCalibrationDisplay(_batCal) : getBatteryDisplay(formScore));
   // (Jauge Volume déplacée en HEADER de la carte Volume unique plus bas —
   // étape 5 : le volume n'apparaît plus qu'UNE fois.)
 
@@ -19868,7 +19868,7 @@ function renderCoachTodayHTML() {
           + '</div>';
       });
       _caHtml += '</div>';
-      _pushCard(3, _caHtml);
+      _pushCard(3.4, _caHtml);
     }
   }
 
@@ -20053,7 +20053,7 @@ function renderCoachTodayHTML() {
     }).join('');
   }
   _rcHtml += '</div>';
-  _pushCard(3, _rcHtml);
+  _pushCard(3.5, _rcHtml);
 
   // ── 4. CARTE VOLUME UNIQUE (étape 5) — jauge (header) + alertes under/over
   // (ex-Recommandations) + barres par muscle. LA seule vue volume du Coach.
@@ -20103,7 +20103,7 @@ function renderCoachTodayHTML() {
         '</div>';
       });
       _voHtml += '</div>';
-      _pushCard(3, _voHtml);
+      _pushCard(3.1, _voHtml);
     }
   }
 

@@ -123,23 +123,26 @@ describe('recos Coach — branche « objectif défini » : palier borné, plus d
   test('la projection lointaine « objectif dans ~N sem. (date) » est retirée', () => {
     expect(APP).not.toContain('objectif dans ~');
   });
-  test('remplacée par le prochain palier e1RM (référentiel explicite)', () => {
-    expect(APP).toContain('prochain palier e1RM ');
-    expect(APP).toContain('Math.floor(pred.currentE1RM / _inc) * _inc + _inc');
+  test('palier ancré sur le PR RÉEL (pr[t]), plus sur l\'e1RM courant, sans libellé « e1RM »', () => {
+    // le palier ne doit jamais tomber sous le PR affiché (« 137.5 » alors que PR 140)
+    expect(APP).toContain('• prochain palier ' + "' + _palier + 'kg dans ~'");
+    expect(APP).not.toContain('prochain palier e1RM ');
+    expect(APP).toContain('Math.floor(pr[t] / _inc) * _inc + _inc');
+    expect(APP).not.toContain('Math.floor(pred.currentE1RM / _inc)');
   });
   test('palier borné par l\'objectif et échéance bornée ≤ 20 sem (les DEUX branches)', () => {
-    expect(APP).toContain('Math.min(targets[t], Math.floor(pred.currentE1RM');
+    expect(APP).toContain('Math.min(targets[t], Math.floor(pr[t]');
     // branche objectif + branche « prochain cap » : 2 occurrences de la borne
     expect((APP.match(/weeks > 0 && \w+\.weeks <= 20/g) || []).length).toBe(2);
   });
-  test('incrément via getDPIncrement (plancher 2.5), « objectif atteint » conservé', () => {
-    expect(APP).toContain('Math.max(2.5, getDPIncrement(_exoName, pred.currentE1RM) || 0)');
+  test('incrément via getDPIncrement sur le PR (plancher 2.5), « objectif atteint » conservé', () => {
+    expect(APP).toContain('Math.max(2.5, getDPIncrement(_exoName, pr[t]) || 0)');
     expect(APP).toContain('objectif atteint !');
   });
-  test('guide pr_prediction mis à jour (palier + borne 20 semaines)', () => {
+  test('guide pr_prediction : palier = PR réel (plus « e1RM courant »)', () => {
     const m = APP.match(/pr_prediction: \{[\s\S]*?\},/);
-    expect(m[0]).toContain('palier');
+    expect(m[0]).toContain('PR réel arrondi');
     expect(m[0]).toContain('20 semaines');
-    expect(m[0]).not.toContain('~11 semaines');
+    expect(m[0]).not.toContain('e1RM courant arrondi');
   });
 });

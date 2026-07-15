@@ -47,7 +47,7 @@ Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (val
 
 1. `node -c` sur les fichiers JS touchés (au minimum `app`, `engine`, + celui modifié).
 2. **`npm test` vert.** Ajoute/inverse les tests dans le **même commit** que le fix ; vérifie que la fixture déclenche vraiment le chemin visé (un test qui ne teste pas ce qu'il prétend est pire qu'aucun test).
-3. **Bump le Service Worker** : `CACHE_NAME` (`service-worker.js:1`) → version suivante. Actuel : **`trainhub-v349`**. Plus de littéral `SW_VERSION` depuis v321 — version dérivée du SW via `getSWVersion` (app.js:3597).
+3. **Bump le Service Worker** : `CACHE_NAME` (`service-worker.js:1`) → version suivante. Actuel : **`trainhub-v350`**. Plus de littéral `SW_VERSION` depuis v321 — version dérivée du SW via `getSWVersion` (app.js:3597).
 4. **Livre en PR — NE MERGE JAMAIS.** Aurélien vérifie sur **device** sur vraies données avant de merger. **Non optionnel** : un lot mergé sur CI verte seule a déjà laissé passer des bugs que les tests ne voyaient pas (facteur calorique volatile, e1RM affiché au lieu du PR).
 
 ---
@@ -321,6 +321,7 @@ Doublon séance Supabase 09/07 « Épaules / Bras » (hors repo, via Claude.ai) 
 | v300-v312 | Nomenclature exercices (splits/fusions/family, templates → noms précis), polish modales 240ms |
 | v313-v321 | Chantier overlays A (cœur `_uiOpen/_uiClose`, `showSheet`, `showConfirm`, 16 dialogues routés, `--surface-solid`, scroll-lock réel) · garde-fou version SW (`getSWVersion`) |
 | **v322-v349** | Chantier Coach : **render pur**, calculs justes, Potentiel de Performance, **arbitre d'intensité** + profil agressivité + return-to-play + pain + deload cyan · **onboarding refondu v337** (niveau/discipline/coachingStyle séparés) · welcome-back boot local v338 · budget de blocs v340 · purge des contradictions v341 · ordre du Coach v342 · **justesse calorique + seuils** v343 (round 2 v344, round 3 v345 : diviseur 28j + projections) · fix matching deadlift v346 · message 6-cas + paliers en **PR réel** v348-v349 |
+| **v350** | Objectifs SBD éditables depuis le Coach (✎ inline, multi-user) + bump SW v350 |
 
 ### Scores experts (historique, v149 — non actualisés)
 Gemini pondéré 9.4/10 · Claude Code (Playwright) 8.5/10 · Gemini Architecture 8.5 · Algorithmes 9.8 · Gamification 9.6.

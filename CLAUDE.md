@@ -293,22 +293,91 @@ Délègue architecture/coaching (« c'est toi le coach ») **mais** attend une *
 
 ---
 
-## 17. BACKLOG (par priorité)
+## 17. SCOPE DE LANCEMENT — FIGÉ (audit 00-12, juillet 2026)
 
-1. 🔴 **Chantier couleur global** : rouge = alertes only. Sortir le rouge des records, barres volume insuffisant, ratios. Phases de bloc (force = bordeaux #8b1a1a / hyper = violet #7c6bff / deload = cyan #64D2FF). Diagnostic inventaire → palette (Gemini) → maquette → impl.
-2. **Morpho → seuils ratios** : brancher l'« Analyse morphologique » (carte Configurer) pour assouplir S/B, S/D (bras courts = bench avantagé). Diagnostiquer d'abord ce qu'elle collecte.
-3. **Fiabiliser la pente/trend e1RM** (`getE1RMTrend`/`wpCalcE1RM`/`predictPR`). Socle commun sur-atteinte + projections.
-4. **Auditer l'angle mort `matchExoName`** (« Jambes Tendues »/stiff-leg) sur `getRealRecords`, matching programme. Ne pas toucher `matchExoName` sans audit complet.
-5. **Freeze-at-render global** (Home 11079, gamification 7227/7509, leaderboard 8269).
-6. **RPE simplifié + incitation** (collecte low-friction facile/moyen/difficile en fin de séance, jamais punition).
-7. **Disciplines mixtes / accents secondaires** (principale + accents modulant, pas multi-`trainingMode`).
-8. **Découplage onboarding / cloud+email** (l'onboarding complet dépend de cloud+email pour s'afficher).
-9. **Freemium/paywall** (#1 lancement) : gate IA existe (Gemini), reste Stripe. Ne pas créer `db.user.totalXP`.
-10. **Onglet Analyse** (pausé, option B FC-indépendante : Intensité Relative, Répartition séries/pattern, Densité).
-11. Réglages dégraisser (11 accordéons) · Plan unifier 2 builders · Corps SVG genré `renderBodyFigure`.
+> **Règle : le scope est GELÉ.** Les 6 fixes ci-dessous, et rien d'autre, avant la bêta.
+> Tout le reste (~60 findings consolidés + le backlog produit) attend l'après-bêta — **y compris
+> les bonnes idées**. Un 7e fix « qui serait vraiment mieux » = le round 2 qui recommence.
+> Historique : le chantier Coach a été « bouclé » 4 fois (rounds 2, 3, deadlift, e1RM/PR).
+> Rapports complets : `audit/00` à `audit/12`. Triage : `audit/11`. Décision : `audit/12`.
 
-### Cleanups
-Doublon séance Supabase 09/07 « Épaules / Bras » (hors repo, via Claude.ai) · `detectMomentum` orphelin · `calibrateTDEE` mort · `supabase.min.js` orphelin · `blockStartDate` muté au render (v230) · 🔴 `setItem('SBD_HUB')` app.js:4388 = **P0 RGPD** (résurrection post-suppression via FALLBACK_KEYS, cf. §11) · specs Playwright `audit-*.spec.js` (ancien markup) · band picker regex.
+### Le test d'admission au scope
+> *Un bêta-testeur part-il à cause de ça ?* Si non → post-bêta. Sans exception.
+
+### LES 6 FIXES BLOQUANTS (dans l'ordre)
+
+| # | Fix | Où | Pourquoi bloquant | Effort |
+|---|---|---|---|---|
+| **1** | **RGPD — résurrection du profil supprimé** | `app.js:4388` (écrit `SBD_HUB`) + `app.js:113` (`FALLBACK_KEYS` le relit) + `app.js:1675` (suppression partielle) | **Légal.** App santé, France, consentement explicite. La suppression de compte ne supprime rien : la clé orpheline `SBD_HUB` contient un db complet (santé + logs, 962 KB) et est relue au boot. **Prouvé au runtime** (agent 10, A6 : le render de l'onglet Jeux la réécrit). | petit-moyen |
+| **2** | **Source calorique unique** | `engine.js:1355` (`calcCalorieCible`) → **supprimer** au profit de `calcTDEE` (`engine.js:1144`) | Conseil nutritionnel faux à de **vrais utilisateurs**. **Données Supabase confirmées** : `kcalBase=2300` pour TOUS (défaut jamais personnalisé), `bwBase=80` pour tous **sauf Aurélien (98)**. Léa (65 kg, recompo) → `2300 × 65/80` = **1868 kcal** sur l'anneau Corps, pendant que le Coach affiche son `calcTDEE` correct. Deux chiffres pour la même personne. ⚠️ Ce n'est PAS un fallback à corriger : c'est une chaîne **jamais personnalisée pour personne** (le 2300 d'Aurélien n'est pas non plus son besoin réel — le juste est **2672**). | moyen |
+| **3** | **`calcIPFGL` cassé** | `app.js:15355` | `Math.pow(bw, 2.12345)` parasite dans l'exponentielle → le dénominateur devient constant dès 40 kg → **le score ignore le poids de corps**. Nuancé par l'exécution (agent 10, A2) : le score varie par total (aurel = Débutant, extreme_haut = Avancé), donc moins catastrophique qu'annoncé — mais **faux**, et Aurélien (total 455, avancé) est affiché « Débutant ». | trivial-petit |
+| **4** | **2 cartes rendues non-prescriptives** | `engine.js:2964` (« vise un PR ») + `app.js:20156` (Volume « planifie un deload ») | Contradiction **capturée à l'écran** (agent 10, A5) : « 🔋 Décharge cette semaine » (arbitre) **+** « ✅ vise un PR » (Diagnostic) **simultanément**. ⚠️ **PAS le chantier arbitre complet** (≥6 émetteurs, gros) — seulement ces 2 cartes rendues **factuelles** (elles constatent, elles ne prescrivent plus). | petit |
+| **5** | **Garde `renderFriendsTab`** | `supabase.js:3224` | `getElementById('socialFriendsBadge')` sur un id jamais créé → TypeError. **Localisation rectifiée par l'exécution** (agent 10, A3) : c'est **Social > Amis, comptes connectés** (l'offline est épargné) → casse pour **tout bêta-testeur connecté**. | trivial |
+| **6** | **`isWorkSet()` canonique (warm-ups)** | filtres `isWarmup` seuls (ex. `app.js:31776`) | **Données Supabase confirmées** (aurel, 90 j) : **1180 séries, 211 en `setType='warmup'` (17,9 %), ZÉRO avec le champ `isWarmup`**. Tout filtre sur `isWarmup` seul compte **100 % des warm-ups comme du travail** → volume gonflé, Push/Pull faux (2.61), Ischios/Quads faux (0.43). Le coach affiche des déséquilibres **inexistants**. Le format `isWarmup` est un fossile ; le format réel est `setType`. | petit |
+
+### MÉTHODE (rappel — non négociable)
+Un chantier à la fois · **diagnostic-first** (phase 1 read-only → cause validée → STOP → fix minimal)
+· 1 prompt = 1 commit atomique · test qui **déclenche vraiment** le chemin visé, dans le même commit
+· `node -c` + `npm test` vert · bump `CACHE_NAME` · **PR jamais mergée — vérif device par Aurélien d'abord**.
+
+### CIBLE
+**Bêta début août 2026** (la bêta de juillet est morte — verdict agent 12). Défendable **si et seulement si**
+le scope reste à ces 6.
+
+### ANGLES MORTS CONNUS (assumés, non bloquants)
+- **`npm test` n'a jamais tourné** de tout le dispositif d'audit (`node_modules` absent) → les « 602 verts » sont **analysés, pas vérifiés**.
+- **Toute la surface cloud/social/authentifiée** n'a été auditée qu'**offline** (réseau stubbé pour protéger les vrais utilisateurs).
+- Les **freezes** (Home 11079, gamification 7227/7509, leaderboard 8269) **non reproduits** en local (agent 10, A7) — caveat : serveur ≫ Android, Chart.js async non capté. **À re-tester sur device.**
+
+---
+
+## POST-BÊTA (gelé jusqu'au lancement — ne pas commencer)
+
+> Ordre revu après l'audit. **Ne rien démarrer d'ici tant que les 6 ne sont pas livrés et la bêta lancée.**
+
+1. **Morphologie & composition corporelle** *(nouveau — le plus rentable après la bêta)*
+   Mensurations + **% de masse grasse via comparateur visuel** (planches de silhouettes H/F, 6-8 niveaux :
+   personne ne connaît son % de gras, tout le monde se reconnaît sur une image — standard de l'industrie).
+   **Rationale technique** : `calcTDEE` utilise déjà **Katch-McArdle si le % de gras est connu**, sinon
+   Mifflin-St Jeor → collecter le % de gras améliore directement la justesse calorique.
+   **Débloque aussi** : morpho → seuils de ratios dynamiques (bras courts = bench avantagé = S/B bas
+   normal — suggestion Gemini), et l'« Analyse morphologique » (carte Configurer) déjà présente mais
+   jamais branchée.
+   ⚠️ **Prérequis** : découpler l'onboarding de cloud+email (il ne s'affiche jamais offline, gaté sur
+   `user.email` — **prouvé** agent 10, profil `vierge`). Sinon la feature est inaccessible aux nouveaux.
+   ⚠️ **Coût réel** : assets (silhouettes), refonte d'un onboarding refait en v337, champ + migration,
+   friction ajoutée au moment le plus fragile du parcours. C'est un **chantier**, pas une question de plus.
+
+2. **Arbitre = seule voix (chantier complet)** — ≥6 émetteurs concurrents (Diagnostic `engine.js:2959`,
+   Volume `app.js:20160`, **coach parallèle `coach.js:67-285`** atteignable via `lastTab`, Auto-Tuner
+   `coach.js:552/560`, `getActivityRecommendation` `app.js:19040`, carte SNC `engine.js:2977`).
+   Règle du stratège : *« l'arbitre est la seule voix — tout le reste est un fait ou est supprimé »*.
+   Le coach parallèle est à **supprimer**, pas à rebrancher.
+3. **Render pur (complet)** — `generateWeeklyReport` le lundi (`app.js:18474`), `blockStartDate`
+   (`app.js:23463`), `calcStreak` sans `readOnly` (`app.js:4500`, sites 3931/7594/7009 → mute
+   `db.gamification.*` + `syncToCloud()` + toast).
+4. **Table de ratios unique + « 0 comme null »** — ratios Coach vs Stats divergents (`app.js:15633-15636`
+   vs `STRENGTH_RATIO_TARGETS`), calculés sur e1RM, bandes différentes. Et **fausses alertes rouges pour
+   des lifts jamais faits** (prouvé agent 10 : `mono_lift` → « protéger ton Squat lourd » inexistant).
+   *(Famille #6 de l'agent 11 : « duplication des diagnostics », vue par 5 agents.)*
+5. **Garde-fous données sales** *(famille #7 — du code jamais écrit, pas de la propagation)* — aucune
+   borne de plausibilité : « SQUAT 315 kg » (lbs mal saisis) affiché au dashboard, S/B 3.93 = « ✓ zone
+   optimale » (prouvé agent 10, `donnees_sales`). `recalcBestPR` (`app.js:1759`) accepte tout.
+6. **Filet de tests réel** — les 602 verts étaient aveugles : rétro-ajoutés **après** les fix (verrouillent,
+   n'ont jamais pu prévenir) · **~10 % des assertions grepent la source** au lieu d'exécuter (fichiers
+   coach : **91-92 %**) · fixtures idéalisées. La bibliothèque `tests/fixtures/profiles/` (agent 09)
+   existe et **n'est branchée par aucun test**. Les 5 tests manquants a-e sont prêts (`audit/08`).
+7. **Intégrité sync** — merge de pull asymétrique (`supabase.js:733`) → **XP descend / badges révoqués
+   cross-device** (viole l'invariante §13). Gros, risqué, **non confirmé à l'écran**.
+8. **Freemium/paywall** — gate IA en place (Gemini), reste Stripe. Ne pas créer `db.user.totalXP`.
+9. **Chantier couleur** (P3) — rouge = alertes only, phases de bloc. *(Était #1 du backlog d'avant l'audit ;
+   rétrogradé par le stratège : c'est du confort, pas un départ de bêta.)*
+10. **Dette / cleanups** — ~72 fonctions mortes (`calibrateTDEE` engine.js:1218, `detectMomentum`,
+    `checkRecompoProgress`, `computeWilks`, générateurs `program.js` supplantés par `wpGenerate*`,
+    `supabase.min.js`), specs Playwright `audit-*.spec.js` (ancien markup), doublon séance Supabase 09/07
+    « Épaules / Bras » (via Claude.ai), plafond localStorage ~2700 séances.
+11. **À couper (proposition du stratège, à trancher)** — coach parallèle, moitié des cartes prescriptives,
+    disciplines mixtes, onglet Analyse.
 
 ---
 

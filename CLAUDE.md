@@ -209,7 +209,7 @@ isInLP() : DOTS total SBD < seuil ET durée < 12 semaines.  État : db.user.lpAc
 
 ### localStorage — clé canonique **`SBD_HUB_V29`**
 `STORAGE_KEY='SBD_HUB_V29'` (engine.js:11) : load/save partout (app.js:114/129/370, import.js, supabase.js). Migration depuis SBD_HUB_V26/27/28. Droit à l'oubli : `removeItem('SBD_HUB_V29')` (app.js:1675).
-> ⚠️ Hors-scope à signaler : `app.js:4388` fait `localStorage.setItem('SBD_HUB', …)` (clé **sans** `_V29`, jamais relue) → écriture orpheline dans le hot-path XP.
+> 🔴 **P0 RGPD** `[CORRIGÉ audit 05 — était : « clé sans _V29, jamais relue → écriture orpheline bénigne »]` : `app.js:4388` écrit un db **complet** (santé + logs) sous `'SBD_HUB'` à chaque gain d'XP ; la suppression de compte (`app.js:1675`) n'efface que `SBD_HUB_V29` ; **`'SBD_HUB'` ∈ `FALLBACK_KEYS` (`app.js:113`) → relue au boot → le profil « supprimé » ressuscite.** Droit à l'oubli défait localement — à corriger en priorité.
 
 ```js
 db = {
@@ -308,7 +308,7 @@ Délègue architecture/coaching (« c'est toi le coach ») **mais** attend une *
 11. Réglages dégraisser (11 accordéons) · Plan unifier 2 builders · Corps SVG genré `renderBodyFigure`.
 
 ### Cleanups
-Doublon séance Supabase 09/07 « Épaules / Bras » (hors repo, via Claude.ai) · `detectMomentum` orphelin · `calibrateTDEE` mort · `supabase.min.js` orphelin · `blockStartDate` muté au render (v230) · écriture orpheline `setItem('SBD_HUB')` app.js:4388 · specs Playwright `audit-*.spec.js` (ancien markup) · band picker regex.
+Doublon séance Supabase 09/07 « Épaules / Bras » (hors repo, via Claude.ai) · `detectMomentum` orphelin · `calibrateTDEE` mort · `supabase.min.js` orphelin · `blockStartDate` muté au render (v230) · 🔴 `setItem('SBD_HUB')` app.js:4388 = **P0 RGPD** (résurrection post-suppression via FALLBACK_KEYS, cf. §11) · specs Playwright `audit-*.spec.js` (ancien markup) · band picker regex.
 
 ---
 

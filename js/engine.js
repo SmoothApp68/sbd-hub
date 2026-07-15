@@ -9,6 +9,10 @@
 // CONSTANTS & CONFIG
 // ============================================================
 const STORAGE_KEY='SBD_HUB_V29';
+// Source UNIQUE de vérité pour toutes les clés localStorage du profil (courante + fallbacks
+// legacy). La migration (loadDB) et la suppression de compte RGPD s'en servent : oublier une
+// clé ici = un vecteur de résurrection du profil « supprimé ».
+const SBD_HUB_ALL_KEYS=[STORAGE_KEY,'SBD_HUB_V28','SBD_HUB_V27','SBD_HUB_V26','SBD_HUB'];
 const ONBOARDING_VERSION=4;
 const DAYS_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const DAYS_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];

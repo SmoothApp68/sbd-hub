@@ -110,7 +110,7 @@ const defaultDB = () => ({
 let db = (() => {
   try {
     // Migration automatique : chercher dans les clés connues
-    const FALLBACK_KEYS = ['SBD_HUB_V28', 'SBD_HUB_V27', 'SBD_HUB_V26', 'SBD_HUB'];
+    const FALLBACK_KEYS = SBD_HUB_ALL_KEYS.slice(1); // dérivé de la source unique (engine.js)
     if (!localStorage.getItem(STORAGE_KEY)) {
       for (const k of FALLBACK_KEYS) {
         const old = localStorage.getItem(k);
@@ -1630,9 +1630,15 @@ function restoreWorkoutFromIDB() {
 }
 
 function clearWorkoutIDB() {
-  initWorkoutIDB().then(function(db_) {
-    var tx = db_.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete('active');
+  // Retourne une promesse résolue quand la suppression est COMMITÉE (tx.oncomplete), pas
+  // seulement initiée — pour que la suppression de compte RGPD puisse l'attendre avant reload.
+  return initWorkoutIDB().then(function(db_) {
+    return new Promise(function(resolve) {
+      var tx = db_.transaction(IDB_STORE, 'readwrite');
+      tx.oncomplete = function() { resolve(); };
+      tx.onerror = function() { resolve(); };
+      tx.objectStore(IDB_STORE).delete('active');
+    });
   }).catch(function(){});
 }
 
@@ -1658,6 +1664,17 @@ function checkWorkoutBackup() {
 
 // ── PRIORITÉ 3 — Suppression de compte (Art. 17) ────────────
 
+// RGPD Art.17 — purge TOUTES les clés localStorage du profil (courante + fallbacks legacy).
+// Sans ça, la migration au boot (loadDB) ressuscite le profil « supprimé » depuis une clé de
+// fallback survivante. Source unique : SBD_HUB_ALL_KEYS (engine.js).
+function purgeAllLocalDb() {
+  try {
+    for (var i = 0; i < SBD_HUB_ALL_KEYS.length; i++) {
+      localStorage.removeItem(SBD_HUB_ALL_KEYS[i]);
+    }
+  } catch(e) {}
+}
+
 function requestAccountDeletion() {
   showModal(
     '⚠️ Supprimer ton compte ? Toutes tes données (séances, programme, profil) seront définitivement effacées. Cette action est irréversible.',
@@ -1672,8 +1689,11 @@ function requestAccountDeletion() {
               await supaClient.rpc('delete_user_complete_data');
             }
           } catch(e) { console.warn('delete_user_complete_data RPC:', e); }
-          try { localStorage.removeItem('SBD_HUB_V29'); } catch(e) {}
-          try { clearWorkoutIDB(); } catch(e) {}
+          // La RPC ne supprime PAS l'utilisateur auth → une reconnexion reste possible. Couper
+          // le canal de sync AVANT de purger, sinon un syncToCloud résiduel repousserait le profil.
+          cloudSyncEnabled = false;
+          purgeAllLocalDb();                            // TOUTES les clés, pas seulement V29
+          try { await clearWorkoutIDB(); } catch(e) {}  // attendre l'effacement IDB avant reload
           if (supaClient) {
             try { await supaClient.auth.signOut(); } catch(e) {}
           }
@@ -4384,8 +4404,9 @@ function calcTotalXP() {
   if (xp > hwm) {
     db.gamification = db.gamification || {};
     db.gamification.xpHighWaterMark = xp;
-    // Persist without full saveDB() in hot path — will be committed on next saveDB
-    try { localStorage.setItem('SBD_HUB', JSON.stringify(db)); } catch(e) {}
+    // (Retiré : écriture orpheline sous la clé 'SBD_HUB' — mauvaise clé jamais relue tant que
+    //  SBD_HUB_V29 existe, hwm déjà persisté au prochain saveDB. C'était le vecteur de
+    //  résurrection RGPD, cf. purgeAllLocalDb/requestAccountDeletion. Ne pas ré-ajouter.)
   }
   return Math.max(xp, hwm);
 }

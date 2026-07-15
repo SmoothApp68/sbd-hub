@@ -120,7 +120,7 @@ Refactorisée en 3 parties : `_wpComputeWorkWeightPenalties` (app.js:22483, calc
 5. **RHR Penalty** : ×0.80 (danger) / ×0.95 (warning) — valide uniquement le jour de l'import Garmin.
 6. **Weight Cut LPF** (`calcWeightCutPenalty`).
 7. **Activity Penalty** : ×0.97 si flag volume secondaire (seuil DOTS-dépendant).
-8. **Plancher combiné 60 %** : jamais < 60 % de la base pré-pénalité.
+8. **Plancher combiné 60 %** : jamais < 60 % de la base pré-pénalité. ⚠️ **[DEAD — audit 01]** : `_prepenaltyBase` n'est **jamais écrit** (grep exhaustif) → `ctx.prepenaltyBase` toujours `undefined` → **ce plancher ne s'exécute pas actuellement** (app.js:23017). À réparer (écrire `_prepenaltyBase`) ou assumer sa suppression.
 9. **APRE cap par phase** (`APRE_PHASE_CAPS` : intro 0.80 / accumulation 0.85 / hypertrophie 0.85 / force 0.92 / intensification 0.95 / peak 1.00 / deload 0.75 / recuperation 0.70).
 10. **Weight Cut APRE block** : ×0.98 de l'e1RM courant si cut actif.
 11. **Kill Switch compétition** : ×0.85 si déficit >2.5 % PdC ET ≤3j avant compétition.
@@ -142,7 +142,9 @@ getDUPZone(reps)  // engine.js:4914 : ≤5 → 'force', 6-12 → 'hypertrophie',
 ```js
 // app.js:1729 — Brzycki simple (cap 20 reps), utilisée partout dans app.js :
 function calcE1RM(w, r) { r = Math.min(r, 20); return r <= 1 ? w : Math.round(w / (1.0278 - 0.0278 * r)); }
-// program.js:61-66 — epleyE1RM ET brzyckiE1RM séparées, combinées pour la génération de programme.
+// program.js:61-66 — epleyE1RM ET brzyckiE1RM séparées. ⚠️ [DEAD — audit 00] : les générateurs
+// program.js (generatePLMesocycle/PBSession/MuscuWeek) ne sont PLUS appelés (supplantés par
+// wpGenerate* dans app.js) → ces e1RM ne pilotent plus la génération réelle.
 // wpCalcE1RM (app.js:22428) — RPE-aware, pour l'algo de charge. (JAMAIS un record.)
 ```
 

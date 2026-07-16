@@ -3909,13 +3909,18 @@ async function showComparisonView(friendId) {
 // ============================================================
 // SOCIAL MODULE — SOCIAL ONBOARDING (3 screens)
 // ============================================================
+// Passe à true juste après une suppression pour ne pas re-suggérer, à la
+// recréation immédiate, une identité issue des données qu'on vient d'effacer.
+// One-shot : consommé (remis à false) à chaque affichage de l'onboarding.
+var _skipOnboardingPrefill = false;
 function showSocialOnboarding() {
   document.getElementById('social-onboarding-overlay').style.display = '';
-  // Pre-fill with user name if available
+  // Pre-fill with user name if available — sauf juste après une suppression.
   const nameInput = document.getElementById('sob-username');
-  if (db.user.name && !nameInput.value) {
+  if (!_skipOnboardingPrefill && db.user.name && !nameInput.value) {
     nameInput.value = db.user.name.toLowerCase().replace(/\s+/g, '_');
   }
+  _skipOnboardingPrefill = false;
 }
 
 function sobUpdateProgress(step) {
@@ -4081,8 +4086,16 @@ async function executeAccountDeletion(mode) {
       usernameChangedAt: null
     };
     saveDBNow();
-    showToast('Compte social supprimé');
-    initSocialTab();
+    // Ne PAS rappeler initSocialTab() ici : comme onboardingCompleted vient de
+    // passer à false, il ré-ouvrirait showSocialOnboarding() et re-proposerait un
+    // formulaire de recréation dans la foulée de la suppression. On affiche un état
+    // neutre ; rejoindre reste possible mais devient un geste explicite de l'user.
+    _skipOnboardingPrefill = true;
+    showToast('Tu as quitté la communauté');
+    var _amis = document.getElementById('feedAmisContent');
+    if (_amis) {
+      _amis.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">👋</div><div class="feed-empty-title">Tu as quitté la communauté</div><div class="feed-empty-sub">Ton profil social, tes posts et tes commentaires ont été supprimés. Tes séances et ton compte sont conservés.</div><button onclick="showSocialOnboarding()" style="margin-top:14px;background:var(--blue);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;">Rejoindre à nouveau</button></div>';
+    }
   } catch (e) {
     console.error('executeAccountDeletion error:', e);
     showToast('Erreur lors de la suppression');

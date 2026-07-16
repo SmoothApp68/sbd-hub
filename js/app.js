@@ -1578,8 +1578,7 @@ function renderRGPDSection(container) {
     + '</div>'
     + '<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">'
     + '<div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:8px;">Zone Danger</div>'
-    + '<button onclick="clearLocalCache()" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,59,48,0.1);border:1px solid rgba(255,59,48,0.3);color:#FF3B30;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;">🗑️ Vider le cache local</button>'
-    + '<button onclick="requestAccountDeletion()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--red);background:rgba(255,59,48,0.08);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;">🗑 Supprimer mon compte</button>'
+    + '<button onclick="clearLocalCache()" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,59,48,0.1);border:1px solid rgba(255,59,48,0.3);color:#FF3B30;font-size:13px;font-weight:600;cursor:pointer;">🗑️ Vider le cache local</button>'
     + '</div>';
 }
 

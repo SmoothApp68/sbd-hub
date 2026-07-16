@@ -3100,8 +3100,8 @@
       <div class="acc-body" id="acc-danger">
         <button class="btn" style="background:var(--red);" onclick="fullReset()">⚠️ RÉINITIALISER TOUT</button>
         <p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface toutes les données locales.</p>
-        <button class="btn" style="background:rgba(255,69,58,0.15);color:var(--red);border:1px solid rgba(255,69,58,0.3);margin-top:12px;" onclick="showAccountDeletionDialog()">🗑️ Supprimer le compte social</button>
-        <p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Supprime ou anonymise ton profil social.</p>
+        <button class="btn" style="background:rgba(255,69,58,0.15);color:var(--red);border:1px solid rgba(255,69,58,0.3);margin-top:12px;" onclick="requestAccountDeletion()">🗑️ Supprimer définitivement mon compte</button>
+        <p style="font-size:10px;color:var(--sub);text-align:center;margin-top:8px;">Efface ton compte, tes séances et toutes tes données, en local et en ligne. Irréversible.</p>
         <button onclick="migrateActivityFeed()" class="btn btn-secondary" style="margin-top:8px;">
           🔄 Nettoyer le feed (migration)
         </button>

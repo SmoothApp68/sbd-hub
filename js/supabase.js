@@ -3096,6 +3096,12 @@ function renderSocialProfileCard() {
     html += '<div class="sob-visibility-row"><span class="sob-visibility-label">' + f.label + '</span>' + visOptions(f.key) + '</div>';
   });
 
+  // Quitter la communauté — supprime le profil SOCIAL uniquement (pas le compte ni les séances).
+  html += '<div style="border-top:1px solid var(--border);margin-top:16px;padding-top:12px;">';
+  html += '<button onclick="showAccountDeletionDialog()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:12px;cursor:pointer;">Quitter la communauté</button>';
+  html += '<div style="font-size:10px;color:var(--sub);text-align:center;margin-top:6px;">Ton profil, tes posts et tes commentaires disparaissent. Tes séances et ton compte sont conservés.</div>';
+  html += '</div>';
+
   container.innerHTML = html;
 }
 
@@ -3992,7 +3998,7 @@ function showAccountDeletionDialog() {
   overlay.className = 'modal-overlay';
   overlay.innerHTML =
     '<div class="modal-box" style="max-width:340px;text-align:left;">' +
-      '<p style="font-size:16px;font-weight:700;margin:0 0 6px;text-align:center;">Supprimer le compte social</p>' +
+      '<p style="font-size:16px;font-weight:700;margin:0 0 6px;text-align:center;">Quitter la communauté</p>' +
       '<p style="font-size:12px;color:var(--sub);margin:0 0 16px;text-align:center;">Cette action est irréversible.</p>' +
       '<div class="deletion-option" id="del-erase" onclick="selectDeletionOption(\'erase\')">' +
         '<div class="deletion-option-title">Effacement total</div>' +

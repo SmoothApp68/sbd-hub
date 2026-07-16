@@ -1675,6 +1675,15 @@ function purgeAllLocalDb() {
   } catch(e) {}
 }
 
+// Décide si le local peut être purgé après appel à l'Edge Function delete-account.
+// RGPD : ne purger QUE si les données serveur sont parties (success), ou si elles SONT
+// parties même quand la fermeture du compte auth a échoué (dataDeleted). Pur → testé.
+function _deleteAccountDecision(res) {
+  var dataGone = !!(res && (res.success === true || res.dataDeleted === true));
+  var authIncomplete = !!(res && res.success !== true && res.dataDeleted === true);
+  return { purge: dataGone, authIncomplete: authIncomplete };
+}
+
 function requestAccountDeletion() {
   showModal(
     '⚠️ Supprimer ton compte ? Toutes tes données (séances, programme, profil) seront définitivement effacées. Cette action est irréversible.',
@@ -1684,18 +1693,47 @@ function requestAccountDeletion() {
         'Dernière confirmation : taper "SUPPRIMER" n\'est pas requis mais tu perds TOUT. Confirmer la suppression ?',
         'Oui, supprimer', 'var(--red)',
         async function() {
+          if (!supaClient || !cloudSyncEnabled) {
+            showToast('Connecte-toi d\'abord pour supprimer définitivement ton compte.');
+            return;
+          }
+          // Edge Function delete-account (verify_jwt) : RPC delete_user_complete_data (données)
+          // PUIS suppression de l'auth user via service_role. Appel en fetch + Bearer (pattern
+          // callAnthropicProxy).
+          var _res = null;
           try {
-            if (supaClient && cloudSyncEnabled) {
-              await supaClient.rpc('delete_user_complete_data');
-            }
-          } catch(e) { console.warn('delete_user_complete_data RPC:', e); }
-          // La RPC ne supprime PAS l'utilisateur auth → une reconnexion reste possible. Couper
-          // le canal de sync AVANT de purger, sinon un syncToCloud résiduel repousserait le profil.
+            var _sess = (await supaClient.auth.getSession()).data.session;
+            if (!_sess) throw new Error('No active session');
+            var _r = await fetch(SUPABASE_URL + '/functions/v1/delete-account', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _sess.access_token },
+              body: '{}'
+            });
+            _res = await _r.json();
+          } catch(e) {
+            console.error('delete-account invoke:', e);
+            showToast('❌ Suppression échouée — rien n\'a été effacé. Vérifie ta connexion et réessaie.');
+            return;
+          }
+          var _dec = _deleteAccountDecision(_res);
+          // 🔴 Garde critique : ne purger le local QUE si les données serveur sont parties.
+          if (!_dec.purge) {
+            var _detail = (_res && (_res.detail || _res.error)) || '';
+            console.error('delete-account failed:', _res);
+            showToast('❌ Suppression échouée — rien n\'a été effacé. ' + _detail);
+            try { if (window.Sentry && window.Sentry.captureMessage) window.Sentry.captureMessage('delete-account failed: ' + _detail); } catch(e) {}
+            return;
+          }
+          // Données supprimées en ligne → purge locale exhaustive (flux phase A conservé).
           cloudSyncEnabled = false;
-          purgeAllLocalDb();                            // TOUTES les clés, pas seulement V29
-          try { await clearWorkoutIDB(); } catch(e) {}  // attendre l'effacement IDB avant reload
-          if (supaClient) {
-            try { await supaClient.auth.signOut(); } catch(e) {}
+          purgeAllLocalDb();
+          try { await clearWorkoutIDB(); } catch(e) {}
+          try { await supaClient.auth.signOut(); } catch(e) {}
+          if (_dec.authIncomplete) {
+            // Données parties mais fermeture du compte auth incomplète — ne pas masquer.
+            console.error('delete-account: données supprimées mais auth non fermé', _res);
+            showToast('⚠️ Données supprimées, mais le compte n\'a pu être entièrement fermé. Contacte le support.');
+            try { if (window.Sentry && window.Sentry.captureMessage) window.Sentry.captureMessage('delete-account: dataDeleted true, auth deletion failed'); } catch(e) {}
           }
           if (typeof showLoginScreen === 'function') showLoginScreen();
           else location.reload();

@@ -304,6 +304,14 @@ async function syncToCloud(silent) {
   try {
     const {data:{user}} = await supaClient.auth.getUser();
     if (!user) return;
+    // RC4 — filet de sécurité : toutes les ~30 sources de push passent ici. Si le blob
+    // courant est tatoué au nom d'une AUTRE identité, on refuse le push (jamais de fuite
+    // inter-comptes, même si une transition d'identité a été manquée en amont).
+    if (db && db.user && db.user.ownerUid && db.user.ownerUid !== user.id) {
+      console.warn('syncToCloud: propriétaire du blob (' + db.user.ownerUid + ') ≠ session (' + user.id + ') — push refusé');
+      updateSyncStatus('sync');
+      return;
+    }
     if (!db.gamification) db.gamification = {};
     // v219 — Skip upload if data hash unchanged since last successful push
     var _hash = _computeDataHash(db);
@@ -747,6 +755,7 @@ async function syncFromCloud() {
       _mergedData.exercises = db.exercises || cloudData.exercises;
       _mergedData.bestPR = db.bestPR || cloudData.bestPR;
       db = _mergedData;
+      if (typeof _stampOwner === 'function') _stampOwner(user.id); // RC4 — le blob adopté appartient à user.id
       // P3-c — ne considérer un "merge offline" que si le cloud portait des logs.
       // Sans cette garde, cloudData.logs absent (logs hors blob) rendrait _didMergeLogs
       // toujours vrai → re-push + toast trompeur à CHAQUE pull.
@@ -1053,11 +1062,14 @@ async function loginSubmit() {
       });
       if (error) throw error;
       if (data.user) {
+        // RC4 — un signup est une identité neuve : purger tout blob résiduel AVANT de
+        // sauver/pousser, sinon on téléverse le profil d'un autre dans le nouveau compte.
+        if (typeof assertIdentityOrReset === 'function') assertIdentityOrReset(data.user.id);
         db.passwordMigrated = true;
         saveDB();
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        await syncToCloud(true);
+        await syncToCloud(true); // db propre (defaultDB tatoué) → pousse un profil vierge
         await ensureProfile();
         hideLoginScreen();
         showToast('Compte créé ! Bienvenue');
@@ -1073,12 +1085,16 @@ async function loginSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
+        // RC4 — purger tout blob résiduel d'un autre compte AVANT le pull/push. Le blob
+        // du compte entrant (s'il existe côté cloud) sera adopté juste après.
+        if (typeof assertIdentityOrReset === 'function') assertIdentityOrReset(data.user.id);
         // Sync from cloud if remote is newer
         try {
           const {data: prof} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', data.user.id).maybeSingle();
           if (prof && prof.data) {
             db = prof.data;
             if (!db.reports) db.reports = [];
+            if (typeof _stampOwner === 'function') _stampOwner(data.user.id); // les lignes cloud pré-fix n'ont pas ownerUid
             db.lastSync = prof.updated_at ? new Date(prof.updated_at).getTime() : Date.now();
             localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
             await syncToCloud(true); // push migrated fields back to cloud

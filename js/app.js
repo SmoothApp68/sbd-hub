@@ -15004,7 +15004,7 @@ function syncRoutineWithSelectedDays() {
           if (_bootReset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(user.id);
         } catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'assertIdentityOrReset:boot'); }
       }
-      if (db.logs.length === 0) {
+      if ((db.logs || []).length === 0) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();

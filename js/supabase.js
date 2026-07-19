@@ -311,6 +311,10 @@ async function _adoptCloudForUid(uid) {
     const {data} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', uid).maybeSingle();
     if (data && data.data) {
       db = data.data;
+      // Le blob cloud n'a PAS de clé logs (_buildSyncedBlob fait delete out.logs — les
+      // séances vivent dans workout_sessions). Sans ce garde, db.logs est undefined et le
+      // boot (db.logs.length) crashe AVANT d'hydrater les séances. Symétrie syncFromCloud.
+      if (!db.logs) db.logs = [];
       if (!db.reports) db.reports = [];
       if (typeof _stampOwner === 'function') _stampOwner(uid);
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
@@ -785,8 +789,13 @@ async function syncFromCloud() {
       var _mergedLogs = _reconcileLogs(_localLogsArr, _cloudLogsArr);
       var _mergedData = Object.assign({}, cloudData);
       _mergedData.logs = _mergedLogs;
-      _mergedData.exercises = db.exercises || cloudData.exercises;
-      _mergedData.bestPR = db.bestPR || cloudData.bestPR;
+      // RC4 — « vide comme null » : un local vide (defaultDB après reset : exercises={},
+      // bestPR={0,0,0}, tous truthy) ne doit PAS gagner le || sur le cloud, sinon un reset
+      // suivi d'une adoption ratée (réseau) écraserait exercises/PR cloud par du vide.
+      var _localExo = db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
+      var _localPR = db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
+      _mergedData.exercises = _localExo || cloudData.exercises;
+      _mergedData.bestPR = _localPR || cloudData.bestPR;
       db = _mergedData;
       if (typeof _stampOwner === 'function') _stampOwner(user.id); // RC4 — le blob adopté appartient à user.id
       // P3-c — ne considérer un "merge offline" que si le cloud portait des logs.

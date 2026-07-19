@@ -81,7 +81,7 @@ function shouldShow(feature) {
 // DB
 // ============================================================
 const defaultDB = () => ({
-  user: { name: '', bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, coachingStyle: 'classique', vocabLevel: 2, obProfile: null, skipPRs: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
+  user: { name: '', ownerUid: null, bw: 0, height: null, age: null, targets: { bench: 100, squat: 120, deadlift: 140 }, level: 'intermediaire', gender: 'unspecified', onboarded: false, onboardingVersion: 0, goal: 'masse', kcalBase: 2300, bwBase: 80, trainingMode: null, targetBW: null, cycleTracking: { enabled: false, lastPeriodDate: null, cycleLength: 28 }, _realLevel: null, tdeeAdjustment: 0, injuries: [], secondaryActivities: [], programMode: 'auto', coachProfile: 'full', coachEnabled: true, coachingStyle: 'classique', vocabLevel: 2, obProfile: null, skipPRs: false, menstrualEnabled: false, menstrualData: null, onboardingDate: null, weightCut: null, fatPct: null, lpActive: true, lpStrikes: {}, consentHealth: false, consentHealthDate: null, barWeight: 20, units: 'kg', medicalConsent: false, medicalConsentDate: null, morpho: null, volumeDeltas: {} },
   notificationsSent: [],
   customProgramTemplate: null,
   customProgramBackups: [],
@@ -1672,6 +1672,43 @@ function purgeAllLocalDb() {
       localStorage.removeItem(SBD_HUB_ALL_KEYS[i]);
     }
   } catch(e) {}
+}
+
+// RC4 — Garde d'identité (P0 RGPD). L'app était aveugle à l'identité : un blob local
+// résiduel (compte précédent sur appareil partagé, ou profil supprimé non purgé) était
+// adopté ET poussé vers le cloud du compte entrant → fuite de données de santé entre
+// utilisateurs + résurrection. On tatoue désormais le propriétaire du blob (db.user.ownerUid,
+// + miroir localStorage 'sbd_owner_uid' qui survit à une purge) et on compare à chaque
+// entrée authentifiée. Le cloud est la source de vérité (D2) : sur non-correspondance, on
+// purge le local et on re-pull, on ne pousse JAMAIS le blob résiduel.
+var _OWNER_UID_KEY = 'sbd_owner_uid';
+
+// Décision pure (testée) : 'keep' si même propriétaire authentifié ; 'reset' sinon
+// (propriétaire différent OU inconnu → on ne fait jamais confiance à un blob non-tatoué).
+function _identityVerdict(ownerUid, incomingUid) {
+  if (!incomingUid) return 'ignore';               // pas encore d'identité authentifiée
+  if (ownerUid && ownerUid === incomingUid) return 'keep';
+  return 'reset';
+}
+
+function _stampOwner(uid) {
+  if (!uid) return;
+  if (typeof db !== 'undefined' && db && db.user) db.user.ownerUid = uid;
+  try { localStorage.setItem(_OWNER_UID_KEY, uid); } catch(e) {}
+}
+
+// Appelée à chaque transition vers une identité authentifiée (SIGNED_IN, restauration de
+// session au boot, login/signup). Retourne true si le local a été réinitialisé (le caller
+// doit alors re-pull le cloud de incomingUid). Ne pousse jamais, ne pull jamais elle-même.
+function assertIdentityOrReset(incomingUid) {
+  if (!incomingUid) return false;
+  var ownerUid = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
+  if (_identityVerdict(ownerUid, incomingUid) === 'keep') { _stampOwner(incomingUid); return false; }
+  // Propriétaire différent ou inconnu → purge locale + defaultDB, puis le caller re-pull.
+  purgeAllLocalDb();
+  if (typeof defaultDB === 'function') db = defaultDB();
+  _stampOwner(incomingUid);
+  return true;
 }
 
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
@@ -14935,6 +14972,12 @@ function syncRoutineWithSelectedDays() {
     }
     cloudSignIn().then(async user => {
       if (!user) return;
+      // RC4 — garde d'identité avant toute sync : un blob résiduel appartenant à un autre
+      // compte ne doit être ni adopté ni poussé. Uniquement pour une vraie identité (email) ;
+      // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque boot).
+      if (user.email && typeof assertIdentityOrReset === 'function') {
+        try { assertIdentityOrReset(user.id); } catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'assertIdentityOrReset:boot'); }
+      }
       if (db.logs.length === 0) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();

@@ -108,7 +108,19 @@ if (supaClient) {
     // On sign-in or token refresh, ensure profile exists in Supabase
     if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user?.email) {
       cloudSyncEnabled = true;
-      ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
+      // RC4 — garde d'identité (couvre magic-link / retour de confirmation email qui ne
+      // passent pas par loginSubmit). Si l'identité entrante ≠ propriétaire du blob local,
+      // on purge et on re-pull le cloud ; on ne pousse jamais le résiduel.
+      (async () => {
+        try {
+          var _reset = (typeof assertIdentityOrReset === 'function') ? assertIdentityOrReset(session.user.id) : false;
+          if (_reset && typeof syncFromCloud === 'function') {
+            await syncFromCloud();
+            if (typeof refreshUI === 'function') refreshUI();
+          }
+        } catch (e) { console.warn('identity guard on auth change:', e); }
+        ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
+      })();
     }
     // Silent token refresh — recover in-progress workout from IDB
     if (event === 'TOKEN_REFRESHED') {

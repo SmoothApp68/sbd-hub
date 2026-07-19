@@ -1217,7 +1217,10 @@ async function cloudLogout() {
   updateCloudUI(null);
   updateNotifBadges(0);
   showToast('Déconnecté du cloud');
-  localStorage.removeItem(STORAGE_KEY);
+  // RC4 — purge complète (toutes les clés SBD_HUB* + owner), pas seulement STORAGE_KEY :
+  // une clé legacy survivante ressuscitait le profil au boot suivant (boucle prouvée).
+  if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb(); else localStorage.removeItem(STORAGE_KEY);
+  try { localStorage.removeItem('sbd_owner_uid'); } catch(e) {}
   if (typeof defaultDB === 'function') db = defaultDB();
   if (typeof showLoginScreen === 'function') showLoginScreen();
 }

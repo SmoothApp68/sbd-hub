@@ -32823,11 +32823,13 @@ async function appSignOut() {
       if (typeof supaClient !== 'undefined' && supaClient) {
         try { await supaClient.auth.signOut(); } catch(e) {}
       }
-      // Effacer la session (garder les données d'entraînement)
-      db.user.email = '';
-      db.user.supabaseId = '';
-      if (db.social) db.social.onboardingCompleted = false;
-      saveDBNow();
+      // RC4 / D2 — déconnexion = purge locale complète (toutes les clés SBD_HUB*, dont les
+      // legacy). Sans ça, l'inscrit suivant sur le même appareil héritait des données de
+      // l'ancien. La reconnexion re-pull le cloud (source de vérité). Pas de saveDBNow ici :
+      // le reload re-part d'un defaultDB propre.
+      if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb();
+      try { localStorage.removeItem(_OWNER_UID_KEY); } catch(e) {}
+      db = defaultDB();
       setTimeout(function() { window.location.reload(); }, 300);
     },
     'Annuler'

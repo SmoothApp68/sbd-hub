@@ -478,6 +478,15 @@ async function syncLogsToSupabase(userIdArg) {
       uid = user.id;
     }
 
+    // RC4 — filet ownerUid propre au dual-write workout_sessions (ce chemin,
+    // pushWorkoutSessionsNow → goFinishWorkout/pagehide, ne passe PAS par syncToCloud).
+    // Si le blob est tatoué au nom d'une autre identité, ne pas pousser les séances de A
+    // dans le compte de la session courante.
+    if (typeof _canPushForOwner === 'function' && !_canPushForOwner(db && db.user && db.user.ownerUid, uid)) {
+      console.warn('syncLogsToSupabase: propriétaire du blob ≠ session — push workout_sessions refusé');
+      return false;
+    }
+
     // session_id déjà présents côté cloud (colonnes légères, JAMAIS le jsonb data)
     const { data: existing, error: selErr } = await supaClient
       .from('workout_sessions')
@@ -913,6 +922,9 @@ async function authSubmit() {
         throw error;
       }
       if (data.user) {
+        // RC4 — 2e handler d'auth (Réglages > Sync Cloud) : mêmes gardes que loginSubmit.
+        // Signup = identité neuve → purger tout blob résiduel avant de sauver/pousser.
+        if (typeof assertIdentityOrReset === 'function') assertIdentityOrReset(data.user.id);
         db.passwordMigrated = true;
         saveDB();
         try {
@@ -953,6 +965,13 @@ async function authSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
+        // RC4 — purger tout blob résiduel d'un autre compte, puis adopter le cloud du
+        // compte entrant en OVERWRITE avant tout push (sinon on pousse un defaultDB vide
+        // par-dessus les données cloud de l'entrant).
+        if (typeof assertIdentityOrReset === 'function') {
+          var _authReset = assertIdentityOrReset(data.user.id);
+          if (_authReset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(data.user.id);
+        }
         await syncToCloud(true);
         await ensureProfile();
         showToast('Connecté !');

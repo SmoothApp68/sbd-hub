@@ -114,10 +114,9 @@ if (supaClient) {
       (async () => {
         try {
           var _reset = (typeof assertIdentityOrReset === 'function') ? assertIdentityOrReset(session.user.id) : false;
-          if (_reset && typeof syncFromCloud === 'function') {
-            await syncFromCloud();
-            if (typeof refreshUI === 'function') refreshUI();
-          }
+          // Sur reset : adopter le cloud en OVERWRITE (pas syncFromCloud, dont le merge
+          // laisserait les champs vides d'un defaultDB écraser le cloud).
+          if (_reset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(session.user.id);
         } catch (e) { console.warn('identity guard on auth change:', e); }
         ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
       })();
@@ -299,15 +298,40 @@ function _buildSyncedBlob(d, weeklyPlanToSync) {
   return out;
 }
 
+// RC4 — invalide l'uid en cache (getMyUserIdAsync) lors d'une transition d'identité, pour
+// qu'un changement de compte sans déconnexion ne laisse pas un uid périmé router les writes.
+function _invalidateCachedUid() { _cachedUid = null; }
+
+// RC4 — adoption du profil cloud en OVERWRITE (jamais un merge). Utilisé après un reset
+// d'identité : le local est un defaultDB vide, on remplace par les données cloud de uid.
+// Retourne true si des données cloud existaient (sinon compte neuf → le local reste vierge).
+async function _adoptCloudForUid(uid) {
+  if (!supaClient || !uid) return false;
+  try {
+    const {data} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', uid).maybeSingle();
+    if (data && data.data) {
+      db = data.data;
+      if (!db.reports) db.reports = [];
+      if (typeof _stampOwner === 'function') _stampOwner(uid);
+      db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      if (typeof refreshUI === 'function') refreshUI();
+      return true;
+    }
+  } catch (e) { console.warn('_adoptCloudForUid:', e); }
+  return false;
+}
+
 async function syncToCloud(silent) {
   if (!supaClient || !cloudSyncEnabled) return;
   try {
     const {data:{user}} = await supaClient.auth.getUser();
     if (!user) return;
-    // RC4 — filet de sécurité : toutes les ~30 sources de push passent ici. Si le blob
-    // courant est tatoué au nom d'une AUTRE identité, on refuse le push (jamais de fuite
-    // inter-comptes, même si une transition d'identité a été manquée en amont).
-    if (db && db.user && db.user.ownerUid && db.user.ownerUid !== user.id) {
+    // RC4 — filet de sécurité (le blob sbd_profiles passe ici). Si le blob courant est
+    // tatoué au nom d'une AUTRE identité, on refuse le push (jamais de fuite inter-comptes,
+    // même si une transition d'identité a été manquée en amont). Le dual-write
+    // workout_sessions a son propre filet dans syncLogsToSupabase.
+    if (typeof _canPushForOwner === 'function' && !_canPushForOwner(db && db.user && db.user.ownerUid, user.id)) {
       console.warn('syncToCloud: propriétaire du blob (' + db.user.ownerUid + ') ≠ session (' + user.id + ') — push refusé');
       updateSyncStatus('sync');
       return;
@@ -1217,10 +1241,16 @@ async function cloudLogout() {
   updateCloudUI(null);
   updateNotifBadges(0);
   showToast('Déconnecté du cloud');
-  // RC4 — purge complète (toutes les clés SBD_HUB* + owner), pas seulement STORAGE_KEY :
-  // une clé legacy survivante ressuscitait le profil au boot suivant (boucle prouvée).
+  // RC4 — purge complète (toutes les clés SBD_HUB* + marqueurs de sync device-local), pas
+  // seulement STORAGE_KEY : une clé legacy survivante ressuscitait le profil au boot suivant
+  // (boucle prouvée), et un _lastCloudPush survivant fausserait la 1re sync du compte suivant.
   if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb(); else localStorage.removeItem(STORAGE_KEY);
-  try { localStorage.removeItem('sbd_owner_uid'); } catch(e) {}
+  try {
+    localStorage.removeItem('_lastCloudPush');
+    localStorage.removeItem('_lastCloudSync');
+    localStorage.removeItem('_wsSyncedHashes');
+  } catch(e) {}
+  _cachedUid = null;
   if (typeof defaultDB === 'function') db = defaultDB();
   if (typeof showLoginScreen === 'function') showLoginScreen();
 }

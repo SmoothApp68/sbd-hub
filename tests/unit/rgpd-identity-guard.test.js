@@ -41,7 +41,6 @@ function buildCtx(ls, initialDb) {
   vm.createContext(ctx);
   vm.runInContext("const STORAGE_KEY='SBD_HUB_V29';", ctx);
   vm.runInContext(extractConstArr(ENGINE, 'SBD_HUB_ALL_KEYS'), ctx); // référence STORAGE_KEY
-  vm.runInContext(extractVarStr(APP, '_OWNER_UID_KEY'), ctx);
   // Double de test : la garde remplace db par un defaultDB « propre ». On ne teste pas
   // le contenu de defaultDB (couvert ailleurs), seulement le contrôle de flux de la garde.
   vm.runInContext('var defaultDB = () => ({ user: {}, logs: [] });', ctx);
@@ -90,7 +89,6 @@ describe('RC4 — assertIdentityOrReset : purge sur non-correspondance, conserve
     // db tatoué au nom de B ; toutes les clés SBD_HUB* purgées (dont la legacy)
     expect(ctx.db.user.ownerUid).toBe('B');
     expect(Object.keys(ls._store).filter((k) => k.indexOf('SBD_HUB') === 0)).toEqual([]);
-    expect(ls.getItem('sbd_owner_uid')).toBe('B');
   });
 
   test('(c bis) blob résiduel NON tatoué (legacy) + uid entrant → reset aussi', () => {

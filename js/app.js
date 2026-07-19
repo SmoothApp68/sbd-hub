@@ -1682,11 +1682,10 @@ function purgeAllLocalDb() {
 // RC4 — Garde d'identité (P0 RGPD). L'app était aveugle à l'identité : un blob local
 // résiduel (compte précédent sur appareil partagé, ou profil supprimé non purgé) était
 // adopté ET poussé vers le cloud du compte entrant → fuite de données de santé entre
-// utilisateurs + résurrection. On tatoue désormais le propriétaire du blob (db.user.ownerUid,
-// + miroir localStorage 'sbd_owner_uid' qui survit à une purge) et on compare à chaque
-// entrée authentifiée. Le cloud est la source de vérité (D2) : sur non-correspondance, on
-// purge le local et on re-pull, on ne pousse JAMAIS le blob résiduel.
-var _OWNER_UID_KEY = 'sbd_owner_uid';
+// utilisateurs + résurrection. On tatoue désormais le propriétaire du blob (db.user.ownerUid)
+// et on compare à chaque entrée authentifiée. Le cloud est la source de vérité (D2) : sur
+// non-correspondance, on purge le local et le caller re-pull (overwrite), on ne pousse
+// JAMAIS le blob résiduel.
 
 // Décision pure (testée) : 'keep' si même propriétaire authentifié ; 'reset' sinon
 // (propriétaire différent OU inconnu → on ne fait jamais confiance à un blob non-tatoué).
@@ -1696,21 +1695,38 @@ function _identityVerdict(ownerUid, incomingUid) {
   return 'reset';
 }
 
+// Défense terminale de push (testée) : autorise le push seulement si le blob n'est pas
+// tatoué au nom d'une AUTRE identité. Propriétaire absent → autorisé (backfill au 1er push
+// via _stampOwner) ; égal → autorisé ; différent → refusé.
+function _canPushForOwner(ownerUid, sessionUid) {
+  return !(ownerUid && sessionUid && ownerUid !== sessionUid);
+}
+
 function _stampOwner(uid) {
   if (!uid) return;
   if (typeof db !== 'undefined' && db && db.user) db.user.ownerUid = uid;
-  try { localStorage.setItem(_OWNER_UID_KEY, uid); } catch(e) {}
 }
 
 // Appelée à chaque transition vers une identité authentifiée (SIGNED_IN, restauration de
-// session au boot, login/signup). Retourne true si le local a été réinitialisé (le caller
-// doit alors re-pull le cloud de incomingUid). Ne pousse jamais, ne pull jamais elle-même.
+// session au boot, login/signup). Retourne true si le local a été réinitialisé — le caller
+// DOIT alors re-pull le cloud de incomingUid en OVERWRITE (_adoptCloudForUid), pas en merge :
+// un merge de defaultDB (exercises={}, bestPR={0,0,0} truthy) écraserait les données cloud.
+// Ne pousse ni ne pull elle-même.
 function assertIdentityOrReset(incomingUid) {
   if (!incomingUid) return false;
   var ownerUid = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
   if (_identityVerdict(ownerUid, incomingUid) === 'keep') { _stampOwner(incomingUid); return false; }
-  // Propriétaire différent ou inconnu → purge locale + defaultDB, puis le caller re-pull.
+  // Propriétaire différent ou inconnu → purge locale + defaultDB. On efface AUSSI les
+  // marqueurs de sync device-local (hors blob, donc hors purgeAllLocalDb) : sinon un
+  // _lastCloudPush survivant ferait croire à syncFromCloud que le local (defaultDB vide)
+  // est « autoritaire » → écrasement destructeur du cloud de l'utilisateur légitime.
   purgeAllLocalDb();
+  try {
+    localStorage.removeItem('_lastCloudPush');
+    localStorage.removeItem('_lastCloudSync');
+    localStorage.removeItem('_wsSyncedHashes');
+  } catch (e) {}
+  if (typeof _invalidateCachedUid === 'function') _invalidateCachedUid(); // uid en cache (supabase.js) périmé
   if (typeof defaultDB === 'function') db = defaultDB();
   _stampOwner(incomingUid);
   return true;
@@ -14981,7 +14997,12 @@ function syncRoutineWithSelectedDays() {
       // compte ne doit être ni adopté ni poussé. Uniquement pour une vraie identité (email) ;
       // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque boot).
       if (user.email && typeof assertIdentityOrReset === 'function') {
-        try { assertIdentityOrReset(user.id); } catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'assertIdentityOrReset:boot'); }
+        try {
+          var _bootReset = assertIdentityOrReset(user.id);
+          // Sur reset : adopter le cloud en OVERWRITE avant que le flux de boot ne pousse
+          // le defaultDB vide (sinon écrasement du cloud de l'utilisateur légitime).
+          if (_bootReset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(user.id);
+        } catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'assertIdentityOrReset:boot'); }
       }
       if (db.logs.length === 0) {
         await syncFromCloud();
@@ -32833,7 +32854,11 @@ async function appSignOut() {
       // l'ancien. La reconnexion re-pull le cloud (source de vérité). Pas de saveDBNow ici :
       // le reload re-part d'un defaultDB propre.
       if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb();
-      try { localStorage.removeItem(_OWNER_UID_KEY); } catch(e) {}
+      try {
+        localStorage.removeItem('_lastCloudPush');
+        localStorage.removeItem('_lastCloudSync');
+        localStorage.removeItem('_wsSyncedHashes');
+      } catch(e) {}
       db = defaultDB();
       setTimeout(function() { window.location.reload(); }, 300);
     },

@@ -1688,18 +1688,20 @@ function purgeAllLocalDb() {
 // JAMAIS le blob résiduel.
 
 // Décision pure (testée) : 'keep' si même propriétaire authentifié ; 'reset' sinon
-// (propriétaire différent OU inconnu → on ne fait jamais confiance à un blob non-tatoué).
+// (propriétaire différent OU inconnu → identité à résoudre contre le cloud, cf. resolveIdentity).
 function _identityVerdict(ownerUid, incomingUid) {
   if (!incomingUid) return 'ignore';               // pas encore d'identité authentifiée
   if (ownerUid && ownerUid === incomingUid) return 'keep';
   return 'reset';
 }
 
-// Défense terminale de push (testée) : autorise le push seulement si le blob n'est pas
-// tatoué au nom d'une AUTRE identité. Propriétaire absent → autorisé (backfill au 1er push
-// via _stampOwner) ; égal → autorisé ; différent → refusé.
+// Défense terminale de push (testée) — le pilier anti-fuite. On ne pousse un blob QUE s'il
+// est tatoué au nom EXACT de la session courante. Un blob non-tatoué (résiduel legacy,
+// anonyme) ou tatoué autrui ne part JAMAIS au cloud — pas besoin de détruire le local pour
+// empêcher la fuite. Le tatouage n'a lieu qu'après une résolution d'identité sûre
+// (keep / adoption cloud / compte neuf confirmé en ligne).
 function _canPushForOwner(ownerUid, sessionUid) {
-  return !(ownerUid && sessionUid && ownerUid !== sessionUid);
+  return !!(ownerUid && sessionUid && ownerUid === sessionUid);
 }
 
 function _stampOwner(uid) {
@@ -1707,29 +1709,37 @@ function _stampOwner(uid) {
   if (typeof db !== 'undefined' && db && db.user) db.user.ownerUid = uid;
 }
 
-// Appelée à chaque transition vers une identité authentifiée (SIGNED_IN, restauration de
-// session au boot, login/signup). Retourne true si le local a été réinitialisé — le caller
-// DOIT alors re-pull le cloud de incomingUid en OVERWRITE (_adoptCloudForUid), pas en merge :
-// un merge de defaultDB (exercises={}, bestPR={0,0,0} truthy) écraserait les données cloud.
-// Ne pousse ni ne pull elle-même.
-function assertIdentityOrReset(incomingUid) {
-  if (!incomingUid) return false;
-  var ownerUid = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
-  if (_identityVerdict(ownerUid, incomingUid) === 'keep') { _stampOwner(incomingUid); return false; }
-  // Propriétaire différent ou inconnu → purge locale + defaultDB. On efface AUSSI les
-  // marqueurs de sync device-local (hors blob, donc hors purgeAllLocalDb) : sinon un
-  // _lastCloudPush survivant ferait croire à syncFromCloud que le local (defaultDB vide)
-  // est « autoritaire » → écrasement destructeur du cloud de l'utilisateur légitime.
-  purgeAllLocalDb();
+// Marqueurs de sync device-local (hors blob → non couverts par purgeAllLocalDb). Doivent être
+// effacés avec le db : sinon un _lastCloudPush survivant fausse la 1re sync du compte suivant.
+function _clearDeviceSyncMarkers() {
   try {
     localStorage.removeItem('_lastCloudPush');
     localStorage.removeItem('_lastCloudSync');
     localStorage.removeItem('_wsSyncedHashes');
   } catch (e) {}
-  if (typeof _invalidateCachedUid === 'function') _invalidateCachedUid(); // uid en cache (supabase.js) périmé
+}
+
+// Efface les clés de profil legacy (SBD_HUB, V26-V28) SANS toucher la clé courante — utilisé
+// après une adoption cloud réussie (STORAGE_KEY porte déjà le bon blob) pour casser la boucle
+// de résurrection sans détruire les données fraîchement adoptées.
+function _clearLegacyDbKeys() {
+  try {
+    for (var i = 0; i < SBD_HUB_ALL_KEYS.length; i++) {
+      if (SBD_HUB_ALL_KEYS[i] !== STORAGE_KEY) localStorage.removeItem(SBD_HUB_ALL_KEYS[i]);
+    }
+  } catch (e) {}
+}
+
+// Reset local SÛR (testé) : n'est appelé QUE quand on a la certitude qu'aucune donnée
+// synchronisée n'est perdue — compte neuf confirmé EN LIGNE (aucune ligne cloud). Purge
+// tout, repart d'un defaultDB tatoué au nom de l'entrant. JAMAIS appelé à l'aveugle (hors
+// ligne) : détruire le local avant d'avoir sécurisé le cloud perdrait les données.
+function _resetLocalToOwner(uid) {
+  purgeAllLocalDb();
+  _clearDeviceSyncMarkers();
+  if (typeof _invalidateCachedUid === 'function') _invalidateCachedUid();
   if (typeof defaultDB === 'function') db = defaultDB();
-  _stampOwner(incomingUid);
-  return true;
+  _stampOwner(uid);
 }
 
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
@@ -14996,13 +15006,11 @@ function syncRoutineWithSelectedDays() {
       // RC4 — garde d'identité avant toute sync : un blob résiduel appartenant à un autre
       // compte ne doit être ni adopté ni poussé. Uniquement pour une vraie identité (email) ;
       // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque boot).
-      if (user.email && typeof assertIdentityOrReset === 'function') {
-        try {
-          var _bootReset = assertIdentityOrReset(user.id);
-          // Sur reset : adopter le cloud en OVERWRITE avant que le flux de boot ne pousse
-          // le defaultDB vide (sinon écrasement du cloud de l'utilisateur légitime).
-          if (_bootReset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(user.id);
-        } catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'assertIdentityOrReset:boot'); }
+      if (user.email && typeof resolveIdentity === 'function') {
+        // Adopt-first : ne détruit jamais le local avant d'avoir sécurisé le cloud (hors ligne
+        // → ne touche à rien ; le blob non-tatoué reste non-poussable).
+        try { await resolveIdentity(user.id); }
+        catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'resolveIdentity:boot'); }
       }
       if ((db.logs || []).length === 0) {
         await syncFromCloud();

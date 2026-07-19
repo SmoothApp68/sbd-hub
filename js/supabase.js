@@ -105,20 +105,16 @@ if (supaClient) {
     if (event === 'PASSWORD_RECOVERY') {
       showSetNewPasswordModal();
     }
-    // On sign-in or token refresh, ensure profile exists in Supabase
-    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user?.email) {
-      cloudSyncEnabled = true;
-      // RC4 — garde d'identité (couvre magic-link / retour de confirmation email qui ne
-      // passent pas par loginSubmit). Si l'identité entrante ≠ propriétaire du blob local,
-      // on purge et on re-pull le cloud ; on ne pousse jamais le résiduel.
+    // RC4 — résolution d'identité sur TOUTE transition authentifiée (SIGNED_IN, TOKEN_REFRESHED,
+    // PASSWORD_RECOVERY) : couvre magic-link, retour de confirmation email et recovery, qui ne
+    // passent pas par loginSubmit. Adopt-first : jamais de purge à l'aveugle ni de push résiduel.
+    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY') && session?.user?.id) {
+      if (session.user.email) cloudSyncEnabled = true;
       (async () => {
         try {
-          var _reset = (typeof assertIdentityOrReset === 'function') ? assertIdentityOrReset(session.user.id) : false;
-          // Sur reset : adopter le cloud en OVERWRITE (pas syncFromCloud, dont le merge
-          // laisserait les champs vides d'un defaultDB écraser le cloud).
-          if (_reset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(session.user.id);
+          if (typeof resolveIdentity === 'function') await resolveIdentity(session.user.id);
         } catch (e) { console.warn('identity guard on auth change:', e); }
-        ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
+        if (session.user.email && typeof ensureProfile === 'function') ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
       })();
     }
     // Silent token refresh — recover in-progress workout from IDB
@@ -302,28 +298,58 @@ function _buildSyncedBlob(d, weeklyPlanToSync) {
 // qu'un changement de compte sans déconnexion ne laisse pas un uid périmé router les writes.
 function _invalidateCachedUid() { _cachedUid = null; }
 
-// RC4 — adoption du profil cloud en OVERWRITE (jamais un merge). Utilisé après un reset
-// d'identité : le local est un defaultDB vide, on remplace par les données cloud de uid.
-// Retourne true si des données cloud existaient (sinon compte neuf → le local reste vierge).
+// RC4 — adoption du profil cloud en OVERWRITE (jamais un merge). Remplace le local par les
+// données cloud de uid. Retour TRI-ÉTAT (distinguer « pas de ligne » de « réseau KO ») :
+//  'has-data' : ligne cloud adoptée · 'no-row' : aucune ligne (EN LIGNE, compte neuf) ·
+//  'error'    : réseau/erreur — l'appelant NE DOIT rien détruire ni pousser (hors-ligne).
 async function _adoptCloudForUid(uid) {
-  if (!supaClient || !uid) return false;
+  if (!supaClient || !uid) return 'error';
   try {
-    const {data} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', uid).maybeSingle();
+    const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', uid).maybeSingle();
+    if (error) return 'error';
     if (data && data.data) {
       db = data.data;
       // Le blob cloud n'a PAS de clé logs (_buildSyncedBlob fait delete out.logs — les
-      // séances vivent dans workout_sessions). Sans ce garde, db.logs est undefined et le
-      // boot (db.logs.length) crashe AVANT d'hydrater les séances. Symétrie syncFromCloud.
-      if (!db.logs) db.logs = [];
-      if (!db.reports) db.reports = [];
+      // séances vivent dans workout_sessions). Sans ces gardes, db.logs.length crashe le
+      // boot avant l'hydratation. Backfills défensifs alignés sur syncFromCloud/loadDB.
+      if (!Array.isArray(db.logs)) db.logs = [];
+      if (!Array.isArray(db.reports)) db.reports = [];
+      if (!db.gamification) db.gamification = {};
+      if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
+      if (typeof migrateDB === 'function') { try { migrateDB(); } catch (e) {} }
       if (typeof _stampOwner === 'function') _stampOwner(uid);
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
       if (typeof refreshUI === 'function') refreshUI();
-      return true;
+      return 'has-data';
     }
-  } catch (e) { console.warn('_adoptCloudForUid:', e); }
-  return false;
+    return 'no-row';
+  } catch (e) { console.warn('_adoptCloudForUid:', e); return 'error'; }
+}
+
+// RC4 — résolution d'identité ADOPT-FIRST (jamais purge-à-l'aveugle). Appelée à chaque
+// transition authentifiée (boot session restaurée, SIGNED_IN, login/signup). On ne détruit
+// JAMAIS le local avant d'avoir sécurisé le cloud :
+//  - même propriétaire → keep (aucun re-pull).
+//  - sinon on ADOPTE le cloud (overwrite) ; si aucune ligne (compte neuf, EN LIGNE) → reset
+//    sûr vers defaultDB tatoué ; si réseau KO → on NE TOUCHE À RIEN (le blob reste non-tatoué,
+//    donc non-poussable via _canPushForOwner → ni fuite ni perte ; résolu au prochain boot).
+async function resolveIdentity(incomingUid) {
+  if (!incomingUid) return 'ignore';
+  var ownerUid = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
+  if (_identityVerdict(ownerUid, incomingUid) === 'keep') { _stampOwner(incomingUid); return 'kept'; }
+  var res = await _adoptCloudForUid(incomingUid);
+  if (res === 'has-data') {
+    if (typeof _clearDeviceSyncMarkers === 'function') _clearDeviceSyncMarkers();
+    if (typeof _clearLegacyDbKeys === 'function') _clearLegacyDbKeys();
+    _cachedUid = null;
+    return 'adopted';
+  }
+  if (res === 'no-row') {
+    if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(incomingUid);
+    return 'reset-new';
+  }
+  return 'deferred'; // 'error' : hors-ligne — ne rien détruire, ne rien pousser
 }
 
 async function syncToCloud(silent) {
@@ -931,9 +957,11 @@ async function authSubmit() {
         throw error;
       }
       if (data.user) {
-        // RC4 — 2e handler d'auth (Réglages > Sync Cloud) : mêmes gardes que loginSubmit.
-        // Signup = identité neuve → purger tout blob résiduel avant de sauver/pousser.
-        if (typeof assertIdentityOrReset === 'function') assertIdentityOrReset(data.user.id);
+        cloudSyncEnabled = true;
+        updateCloudUI(data.user);
+        // RC4 — 2e handler d'auth (Réglages > Sync Cloud) : résoudre l'identité (adopt-first)
+        // avant tout push. Signup neuf → reset sûr ; un blob résiduel n'est jamais téléversé.
+        if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
         db.passwordMigrated = true;
         saveDB();
         try {
@@ -943,8 +971,6 @@ async function authSubmit() {
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
         } catch(pe) { console.warn('Profile upsert on signup:', pe); }
-        cloudSyncEnabled = true;
-        updateCloudUI(data.user);
         await syncToCloud(true);
         await ensureProfile();
         showToast('Compte créé ! Bienvenue');
@@ -974,13 +1000,8 @@ async function authSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 — purger tout blob résiduel d'un autre compte, puis adopter le cloud du
-        // compte entrant en OVERWRITE avant tout push (sinon on pousse un defaultDB vide
-        // par-dessus les données cloud de l'entrant).
-        if (typeof assertIdentityOrReset === 'function') {
-          var _authReset = assertIdentityOrReset(data.user.id);
-          if (_authReset && typeof _adoptCloudForUid === 'function') await _adoptCloudForUid(data.user.id);
-        }
+        // RC4 — adopt-first (2e handler, Réglages > Sync Cloud).
+        if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
         await syncToCloud(true);
         await ensureProfile();
         showToast('Connecté !');
@@ -1114,14 +1135,14 @@ async function loginSubmit() {
       });
       if (error) throw error;
       if (data.user) {
-        // RC4 — un signup est une identité neuve : purger tout blob résiduel AVANT de
-        // sauver/pousser, sinon on téléverse le profil d'un autre dans le nouveau compte.
-        if (typeof assertIdentityOrReset === 'function') assertIdentityOrReset(data.user.id);
-        db.passwordMigrated = true;
-        saveDB();
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        await syncToCloud(true); // db propre (defaultDB tatoué) → pousse un profil vierge
+        // RC4 — résoudre l'identité (adopt-first) AVANT tout push : signup neuf → reset sûr
+        // vers defaultDB tatoué ; un blob résiduel n'est jamais téléversé.
+        if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
+        db.passwordMigrated = true;
+        saveDB();
+        await syncToCloud(true);
         await ensureProfile();
         hideLoginScreen();
         showToast('Compte créé ! Bienvenue');
@@ -1137,24 +1158,10 @@ async function loginSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 — purger tout blob résiduel d'un autre compte AVANT le pull/push. Le blob
-        // du compte entrant (s'il existe côté cloud) sera adopté juste après.
-        if (typeof assertIdentityOrReset === 'function') assertIdentityOrReset(data.user.id);
-        // Sync from cloud if remote is newer
-        try {
-          const {data: prof} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', data.user.id).maybeSingle();
-          if (prof && prof.data) {
-            db = prof.data;
-            if (!db.reports) db.reports = [];
-            if (typeof _stampOwner === 'function') _stampOwner(data.user.id); // les lignes cloud pré-fix n'ont pas ownerUid
-            db.lastSync = prof.updated_at ? new Date(prof.updated_at).getTime() : Date.now();
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-            await syncToCloud(true); // push migrated fields back to cloud
-            refreshUI();
-          } else {
-            await syncToCloud(true);
-          }
-        } catch(se) { await syncToCloud(true); }
+        // RC4 — adopt-first : adopte le blob cloud du compte entrant en OVERWRITE (ou reset
+        // sûr si compte neuf), sans jamais pousser un blob résiduel d'un autre compte.
+        if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
+        await syncToCloud(true);
         await ensureProfile();
         hideLoginScreen();
         showToast('Connecté !');

@@ -119,6 +119,11 @@ let db = (() => {
             const parsed = JSON.parse(old);
             if (parsed.logs && parsed.user) {
               localStorage.setItem(STORAGE_KEY, old);
+              // RC4 — supprimer la source APRÈS copie : sans ça, une clé legacy (SBD_HUB)
+              // re-servait de graine au boot suivant → résurrection en boucle du profil
+              // « supprimé »/résiduel. Une vieille clé de version migrée n'a plus de raison
+              // d'être relue.
+              try { localStorage.removeItem(k); } catch(e) {}
               if (typeof DEBUG !== 'undefined' && DEBUG) console.log('[Migration] Données migrées de', k, 'vers', STORAGE_KEY);
               break;
             }

@@ -316,11 +316,12 @@ async function _adoptCloudForUid(uid) {
       if (!Array.isArray(db.reports)) db.reports = [];
       if (!db.gamification) db.gamification = {};
       if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
-      if (typeof migrateDB === 'function') { try { migrateDB(); } catch (e) {} }
       if (typeof _stampOwner === 'function') _stampOwner(uid);
       db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-      if (typeof refreshUI === 'function') refreshUI();
+      // refreshUI hors du catch principal : une erreur de RENDU ne doit pas être reclassée
+      // en 'error'/'deferred' alors que l'adoption (db=cloud, tatoué, persisté) a réussi.
+      try { if (typeof refreshUI === 'function') refreshUI(); } catch (e) {}
       return 'has-data';
     }
     return 'no-row';
@@ -805,9 +806,14 @@ async function syncFromCloud() {
         _activeBackup.exercises && _activeBackup.exercises.length > 0 &&
         !_activeBackup.isFinished;
       var _didMergeLogs = false;
+      // RC4 — ne faire confiance au LOCAL (logs/exercises/bestPR) que s'il appartient à la
+      // session : un blob résiduel non résolu (owner ≠ session, ex. branche 'deferred') ne
+      // doit pas voir ses séances/exercices/PR fusionnés puis tatoués au nom de l'entrant
+      // (contamination inter-comptes). Sinon → cloud pur.
+      var _ownerMatch = !!(db && db.user && db.user.ownerUid && db.user.ownerUid === user.id);
       // A2-F1 — Merge par id : union des logs local + cloud, dédupliqués par log.id.
       // SYNC-X : départage désormais par horloge d'ÉDITION (editedAt), pas par timestamp.
-      var _localLogsArr = (typeof db !== 'undefined' && db && db.logs) ? db.logs : [];
+      var _localLogsArr = (_ownerMatch && typeof db !== 'undefined' && db && db.logs) ? db.logs : [];
       var _cloudLogsArr = (cloudData && cloudData.logs) ? cloudData.logs : [];
       // PISTE #2 — fusion non-destructive par horloge d'ÉDITION (editedAt), via le
       // helper partagé _reconcileLogs : une édition non poussée n'est plus écrasée à
@@ -815,11 +821,10 @@ async function syncFromCloud() {
       var _mergedLogs = _reconcileLogs(_localLogsArr, _cloudLogsArr);
       var _mergedData = Object.assign({}, cloudData);
       _mergedData.logs = _mergedLogs;
-      // RC4 — « vide comme null » : un local vide (defaultDB après reset : exercises={},
-      // bestPR={0,0,0}, tous truthy) ne doit PAS gagner le || sur le cloud, sinon un reset
-      // suivi d'une adoption ratée (réseau) écraserait exercises/PR cloud par du vide.
-      var _localExo = db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
-      var _localPR = db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
+      // « vide comme null » ET owner-match : un local vide (defaultDB) OU d'un autre
+      // propriétaire ne gagne pas le || sur le cloud (sinon écrasement/contamination).
+      var _localExo = _ownerMatch && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
+      var _localPR = _ownerMatch && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
       _mergedData.exercises = _localExo || cloudData.exercises;
       _mergedData.bestPR = _localPR || cloudData.bestPR;
       db = _mergedData;
@@ -1635,6 +1640,9 @@ async function ensureProfile() {
   if (typeof db === 'undefined' || !db) return null;
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient) return null;
+  // RC4 — ne pas écrire le profil public (pseudo/code ami) à partir d'un blob non résolu
+  // (identité en attente, ex. branche 'deferred') tatoué au nom d'une autre identité.
+  if (typeof _canPushForOwner === 'function' && !_canPushForOwner(db.user && db.user.ownerUid, uid)) return null;
 
   try {
     // 1. Read existing profile from Supabase
@@ -3084,6 +3092,8 @@ var updateLeaderboardAfterImport = updateLeaderboardSnapshot;
 async function updateLeaderboardSnapshot() {
   const uid = await getMyUserIdAsync();
   if (!uid || !supaClient || !db.social.onboardingCompleted) return;
+  // RC4 — ne pas publier au leaderboard les PR d'un blob non résolu tatoué autrui.
+  if (typeof _canPushForOwner === 'function' && !_canPushForOwner(db.user && db.user.ownerUid, uid)) return;
   const today = new Date();
   const monday = new Date(today);
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));

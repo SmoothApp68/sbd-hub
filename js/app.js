@@ -414,8 +414,17 @@ window.addEventListener('unhandledrejection', function(event) {
     }
   } catch(e) {}
 });
+// RC4 GARDE 0 (P0) — verrou pull-avant-push. L'auto-sync BACKGROUND (debounced) ne part pas
+// tant que le boot/login n'a pas fait sa réconciliation cloud initiale : sinon un saveDB
+// précoce pousserait un defaultDB post-reset AVANT le 1er pull. Les pushes EXPLICITES (login,
+// boot, retour online) ne passent PAS par ici → non bloqués. Filet anti-blocage : le verrou
+// s'ouvre au plus tard après 15 s, quoi qu'il arrive (jamais de sync gelée).
+var _bootSyncDone = false;
+try { setTimeout(function() { _bootSyncDone = true; }, 15000); } catch (e) { _bootSyncDone = true; }
+
 function debouncedCloudSync() {
   if (!cloudSyncEnabled) return;
+  if (!_bootSyncDone) { db.pendingSync = true; _flushDB(); return; } // pull initial pas encore confirmé
   if (!navigator.onLine) {
     db.pendingSync = true;
     _flushDB();
@@ -1747,6 +1756,35 @@ function _purgeLocalSession() {
 function _resetLocalToOwner(uid) {
   _purgeLocalSession();
   _stampOwner(uid);
+}
+
+// RC4 GARDES DE SYNC (P0 perte de données) — RICHESSE d'un blob sbd_profiles. DÉFINITION
+// UNIQUE réutilisée par les 3 gardes (pas trois heuristiques divergentes). NE compte PAS les
+// logs : le blob n'en contient pas (_buildSyncedBlob fait delete out.logs) ; les séances
+// vivent dans workout_sessions, protégées séparément (garde-fou anti-wipe de
+// computeWorkoutSessionsSyncPlan). Comparaison LEXICOGRAPHIQUE : bestPR réels (le champ
+// écrasé dans le P0 : 145/140/170 → 0) domine, puis registre d'exercices, puis check-ins
+// santé (readinessHistory), puis XP high-water-mark (invariante §13 : ne descend jamais).
+function _blobRichnessVec(blob) {
+  if (!blob || typeof blob !== 'object') return [-1, -1, -1, -1];
+  var pr = blob.bestPR || {};
+  var prCount = ((pr.squat || 0) > 0 ? 1 : 0) + ((pr.bench || 0) > 0 ? 1 : 0) + ((pr.deadlift || 0) > 0 ? 1 : 0);
+  return [
+    prCount,
+    Object.keys(blob.exercises || {}).length,
+    Array.isArray(blob.readinessHistory) ? blob.readinessHistory.length : 0,
+    (blob.gamification && blob.gamification.xpHighWaterMark) || 0
+  ];
+}
+
+// a STRICTEMENT plus riche que b (ordre lexicographique du vecteur). Égalité → false.
+function isBlobRicher(a, b) {
+  var ra = _blobRichnessVec(a), rb = _blobRichnessVec(b);
+  for (var i = 0; i < ra.length; i++) {
+    if (ra[i] > rb[i]) return true;
+    if (ra[i] < rb[i]) return false;
+  }
+  return false;
 }
 
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
@@ -15019,6 +15057,9 @@ function syncRoutineWithSelectedDays() {
         try { await resolveIdentity(user.id); }
         catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'resolveIdentity:boot'); }
       }
+      // RC4 GARDE 0 — identité résolue → ouvrir le verrou d'auto-sync background. Les branches
+      // de sync ci-dessous sont des pushes EXPLICITES (non gatés) ; Garde 1 protège la richesse.
+      _bootSyncDone = true;
       if ((db.logs || []).length === 0) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();

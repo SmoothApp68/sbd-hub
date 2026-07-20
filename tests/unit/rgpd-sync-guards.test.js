@@ -7,9 +7,10 @@ const path = require('path');
 const vm = require('vm');
 
 const APP = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'app.js'), 'utf8');
+const SUPA = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'supabase.js'), 'utf8');
 
 function extractFn(src, name) {
-  const m = src.match(new RegExp('^function ' + name + '\\b[\\s\\S]*?^}', 'm'));
+  const m = src.match(new RegExp('^(?:async )?function ' + name + '\\b[\\s\\S]*?^}', 'm'));
   if (!m) throw new Error('Could not extract fn ' + name);
   return m[0];
 }
@@ -101,5 +102,52 @@ describe('RC4 — _localMightImpoverish : ne payer la lecture cloud (garde 1) qu
   });
   test('local riche (PR ET exercices) → push direct, aucune lecture cloud (coût nul nominal)', () => {
     expect(mightImpoverish(RICH)).toBe(false);
+  });
+});
+
+describe('RC4 — GARDE 2 : pull prioritaire au login (resolveIdentity keep, vraie source)', () => {
+  const ls = () => ({ _s: {}, getItem(k) { return k in this._s ? this._s[k] : null; }, setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } });
+  function keepCtx(localDb, cloudRow) {
+    const store = ls();
+    const c = { JSON, localStorage: store, console: { warn() {}, log() {} }, refreshUI() {}, _cachedUid: 'x' };
+    vm.createContext(c);
+    vm.runInContext("const STORAGE_KEY='SBD_HUB_V29';", c);
+    ['_blobRichnessVec', 'isBlobRicher', '_localMightImpoverish', '_identityVerdict', '_stampOwner'].forEach((n) => vm.runInContext(extractFn(APP, n), c));
+    vm.runInContext(extractFn(SUPA, '_applyCloudBlob'), c);
+    vm.runInContext('async function _adoptCloudForUid() { return "error"; }', c); // non atteint sur keep
+    vm.runInContext(extractFn(SUPA, 'resolveIdentity'), c);
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: cloudRow }) };
+    c.supaClient = { from: () => chain };
+    c.db = localDb;
+    return c;
+  }
+  const CLOUD_RICH = { data: { user: { name: 'Aurel' }, bestPR: { squat: 145, bench: 140, deadlift: 170 }, exercises: { a: {}, b: {} } }, updated_at: '2026-07-20T00:00:00Z' };
+
+  test('(c) login même user, LOCAL pauvre + cloud riche → adopte le cloud (affichage riche)', async () => {
+    const c = keepCtx({ user: { ownerUid: 'A', name: 'Aurel' }, bestPR: { squat: 0, bench: 0, deadlift: 0 }, exercises: {}, logs: [] }, CLOUD_RICH);
+    const r = await vm.runInContext("resolveIdentity('A')", c);
+    expect(r).toBe('adopted-richer');
+    expect(c.db.bestPR).toEqual({ squat: 145, bench: 140, deadlift: 170 }); // cloud adopté
+    expect(c.db.user.ownerUid).toBe('A');
+  });
+
+  test('(d) login même user, LOCAL riche (PR loggé hors-ligne) → conservé, aucun fetch cloud', async () => {
+    let fetched = false;
+    const store = ls();
+    const c = { JSON, localStorage: store, console: { warn() {}, log() {} }, refreshUI() {}, _cachedUid: 'x' };
+    vm.createContext(c);
+    vm.runInContext("const STORAGE_KEY='SBD_HUB_V29';", c);
+    ['_blobRichnessVec', 'isBlobRicher', '_localMightImpoverish', '_identityVerdict', '_stampOwner'].forEach((n) => vm.runInContext(extractFn(APP, n), c));
+    vm.runInContext(extractFn(SUPA, '_applyCloudBlob'), c);
+    vm.runInContext('async function _adoptCloudForUid() { return "error"; }', c);
+    vm.runInContext(extractFn(SUPA, 'resolveIdentity'), c);
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => { fetched = true; return { data: CLOUD_RICH }; } };
+    c.supaClient = { from: () => chain };
+    c.db = { user: { ownerUid: 'A', name: 'Aurel' }, bestPR: { squat: 150, bench: 140, deadlift: 175 }, exercises: { a: {}, b: {}, c: {} }, logs: [{ id: 1 }] };
+    const r = await vm.runInContext("resolveIdentity('A')", c);
+    expect(r).toBe('kept');
+    expect(fetched).toBe(false);              // local riche → pas de lecture cloud (coût nul)
+    expect(c.db.bestPR.squat).toBe(150);      // local conservé (le PR hors-ligne survit)
+    expect(c.db.logs).toHaveLength(1);
   });
 });

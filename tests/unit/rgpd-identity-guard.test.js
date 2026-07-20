@@ -72,6 +72,8 @@ function buildResolve(ls, initialDb, supaResponse) {
   ctx.supaClient = { from: () => chain };
   vm.runInContext('var _cachedUid = "STALE";', ctx);
   vm.runInContext('function _invalidateCachedUid() { _cachedUid = null; }', ctx);
+  ctx.refreshUI = function () {};
+  vm.runInContext(extractFn(SUPA, '_applyCloudBlob'), ctx); // _adoptCloudForUid s'en sert (RC4 garde 2)
   vm.runInContext(extractFn(SUPA, '_adoptCloudForUid'), ctx);
   vm.runInContext(extractFn(SUPA, 'resolveIdentity'), ctx);
   return ctx;

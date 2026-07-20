@@ -302,26 +302,30 @@ function _invalidateCachedUid() { _cachedUid = null; }
 // données cloud de uid. Retour TRI-ÉTAT (distinguer « pas de ligne » de « réseau KO ») :
 //  'has-data' : ligne cloud adoptée · 'no-row' : aucune ligne (EN LIGNE, compte neuf) ·
 //  'error'    : réseau/erreur — l'appelant NE DOIT rien détruire ni pousser (hors-ligne).
+// RC4 — adopte un blob cloud EN OVERWRITE (db = blob) + backfills défensifs + tatouage +
+// persistance. Le blob cloud n'a PAS de clé logs (_buildSyncedBlob fait delete out.logs — les
+// séances vivent dans workout_sessions) ; sans le backfill db.logs=[], db.logs.length crashe
+// le boot. Factorisé pour être réutilisé par _adoptCloudForUid ET la garde 2 (pull prioritaire).
+function _applyCloudBlob(cloudBlob, uid, updatedAt) {
+  db = cloudBlob;
+  if (!Array.isArray(db.logs)) db.logs = [];
+  if (!Array.isArray(db.reports)) db.reports = [];
+  if (!db.gamification) db.gamification = {};
+  if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
+  if (typeof _stampOwner === 'function') _stampOwner(uid);
+  db.lastSync = updatedAt ? new Date(updatedAt).getTime() : Date.now();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  // refreshUI hors du catch appelant : une erreur de RENDU ne doit pas être reclassée en échec.
+  try { if (typeof refreshUI === 'function') refreshUI(); } catch (e) {}
+}
+
 async function _adoptCloudForUid(uid) {
   if (!supaClient || !uid) return 'error';
   try {
     const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', uid).maybeSingle();
     if (error) return 'error';
     if (data && data.data) {
-      db = data.data;
-      // Le blob cloud n'a PAS de clé logs (_buildSyncedBlob fait delete out.logs — les
-      // séances vivent dans workout_sessions). Sans ces gardes, db.logs.length crashe le
-      // boot avant l'hydratation. Backfills défensifs alignés sur syncFromCloud/loadDB.
-      if (!Array.isArray(db.logs)) db.logs = [];
-      if (!Array.isArray(db.reports)) db.reports = [];
-      if (!db.gamification) db.gamification = {};
-      if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
-      if (typeof _stampOwner === 'function') _stampOwner(uid);
-      db.lastSync = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-      // refreshUI hors du catch principal : une erreur de RENDU ne doit pas être reclassée
-      // en 'error'/'deferred' alors que l'adoption (db=cloud, tatoué, persisté) a réussi.
-      try { if (typeof refreshUI === 'function') refreshUI(); } catch (e) {}
+      _applyCloudBlob(data.data, uid, data.updated_at);
       return 'has-data';
     }
     return 'no-row';
@@ -338,7 +342,22 @@ async function _adoptCloudForUid(uid) {
 async function resolveIdentity(incomingUid) {
   if (!incomingUid) return 'ignore';
   var ownerUid = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
-  if (_identityVerdict(ownerUid, incomingUid) === 'keep') { _stampOwner(incomingUid); return 'kept'; }
+  if (_identityVerdict(ownerUid, incomingUid) === 'keep') {
+    _stampOwner(incomingUid);
+    // RC4 GARDE 2 — même propriétaire, mais si le LOCAL est pauvre, vérifier que le cloud n'est
+    // pas PLUS RICHE (autre appareil / reset partiel) → l'adopter pour AFFICHER le riche au login
+    // (les données étaient déjà protégées côté push par la garde 1). Fetch seulement si local pauvre.
+    if (supaClient && typeof _localMightImpoverish === 'function' && _localMightImpoverish(db)) {
+      try {
+        const {data: _row} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', incomingUid).maybeSingle();
+        if (_row && _row.data && typeof isBlobRicher === 'function' && isBlobRicher(_row.data, db)) {
+          _applyCloudBlob(_row.data, incomingUid, _row.updated_at);
+          return 'adopted-richer';
+        }
+      } catch (e) { console.warn('[RC4] garde 2 (keep) lecture cloud échouée:', e); }
+    }
+    return 'kept';
+  }
   var res = await _adoptCloudForUid(incomingUid);
   if (res === 'has-data') {
     if (typeof _clearDeviceSyncMarkers === 'function') _clearDeviceSyncMarkers();
@@ -815,9 +834,14 @@ async function syncFromCloud() {
       }
       var lastPush = parseInt(localStorage.getItem('_lastCloudPush') || '0');
       if (cloudTs <= lastPush) {
-        // We pushed more recently — local is authoritative
-        await syncToCloud(true);
-        return true;
+        // We pushed more recently — local is authoritative... SAUF si le cloud est PLUS RICHE
+        // (RC4 Garde 2 : un _lastCloudPush récent ne garantit pas la richesse — reset partiel /
+        // autre appareil). Alors on NE pousse PAS le local pauvre → on tombe dans le merge (qui
+        // adopte le cloud et hydrate les logs).
+        if (!(typeof isBlobRicher === 'function' && isBlobRicher(cloudData, db))) {
+          await syncToCloud(true);
+          return true;
+        }
       }
       // Cloud has changes after our last push — merge intelligently
       var _localLogs = (typeof db !== 'undefined' && db && db.logs) ? db.logs.length : 0;
@@ -843,10 +867,13 @@ async function syncFromCloud() {
       var _mergedLogs = _reconcileLogs(_localLogsArr, _cloudLogsArr);
       var _mergedData = Object.assign({}, cloudData);
       _mergedData.logs = _mergedLogs;
-      // « vide comme null » ET owner-match : un local vide (defaultDB) OU d'un autre
-      // propriétaire ne gagne pas le || sur le cloud (sinon écrasement/contamination).
-      var _localExo = _ownerMatch && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
-      var _localPR = _ownerMatch && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
+      // « vide comme null » + owner-match + RICHESSE : le local ne gagne le || sur le cloud
+      // pour exercises/bestPR que s'il appartient à la session, n'est pas vide, ET n'est pas
+      // plus pauvre que le cloud (Garde 2 : sinon un local appauvri — reset partiel — écraserait
+      // le cloud au merge même s'il est non-vide).
+      var _cloudRicher = (typeof isBlobRicher === 'function') && isBlobRicher(cloudData, db);
+      var _localExo = _ownerMatch && !_cloudRicher && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
+      var _localPR = _ownerMatch && !_cloudRicher && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
       _mergedData.exercises = _localExo || cloudData.exercises;
       _mergedData.bestPR = _localPR || cloudData.bestPR;
       db = _mergedData;

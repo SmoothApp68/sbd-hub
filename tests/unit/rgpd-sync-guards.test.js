@@ -67,6 +67,32 @@ describe('RC4 — isBlobRicher : richesse d\'un blob (sans logs)', () => {
   });
 });
 
+describe('RC4 — GARDE 0 : verrou pull-avant-push dans debouncedCloudSync (vraie source)', () => {
+  function bootCtx(bootDone) {
+    const c = {
+      cloudSyncEnabled: true, _bootSyncDone: bootDone, db: {}, syncDebounceTimer: null,
+      navigator: { onLine: true }, _flushCalled: false, _scheduled: false,
+      _flushDB() { c._flushCalled = true; },
+      syncToCloud() {}, clearTimeout() {}, setTimeout() { c._scheduled = true; return 1; },
+    };
+    vm.createContext(c);
+    vm.runInContext(extractFn(APP, 'debouncedCloudSync'), c);
+    return c;
+  }
+  test('(b) verrou FERMÉ (boot pas fini) → push différé (pendingSync), rien de programmé', () => {
+    const c = bootCtx(false);
+    vm.runInContext('debouncedCloudSync()', c);
+    expect(c.db.pendingSync).toBe(true);
+    expect(c._flushCalled).toBe(true);   // sauvé localement
+    expect(c._scheduled).toBe(false);    // AUCUN push programmé
+  });
+  test('(b) verrou OUVERT (boot fini) → push programmé', () => {
+    const c = bootCtx(true);
+    vm.runInContext('debouncedCloudSync()', c);
+    expect(c._scheduled).toBe(true);     // syncToCloud programmé
+  });
+});
+
 describe('RC4 — _localMightImpoverish : ne payer la lecture cloud (garde 1) que si nécessaire', () => {
   test('local pauvre (0 PR OU 0 exercice) → on vérifie le cloud avant de pousser', () => {
     expect(mightImpoverish(POOR)).toBe(true);

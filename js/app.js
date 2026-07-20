@@ -1758,33 +1758,22 @@ function _resetLocalToOwner(uid) {
   _stampOwner(uid);
 }
 
-// RC4 GARDES DE SYNC (P0 perte de données) — RICHESSE d'un blob sbd_profiles. DÉFINITION
-// UNIQUE réutilisée par les 3 gardes (pas trois heuristiques divergentes). NE compte PAS les
-// logs : le blob n'en contient pas (_buildSyncedBlob fait delete out.logs) ; les séances
-// vivent dans workout_sessions, protégées séparément (garde-fou anti-wipe de
-// computeWorkoutSessionsSyncPlan). Comparaison LEXICOGRAPHIQUE : bestPR réels (le champ
-// écrasé dans le P0 : 145/140/170 → 0) domine, puis registre d'exercices, puis check-ins
-// santé (readinessHistory), puis XP high-water-mark (invariante §13 : ne descend jamais).
-function _blobRichnessVec(blob) {
-  if (!blob || typeof blob !== 'object') return [-1, -1, -1, -1];
-  var pr = blob.bestPR || {};
-  var prCount = ((pr.squat || 0) > 0 ? 1 : 0) + ((pr.bench || 0) > 0 ? 1 : 0) + ((pr.deadlift || 0) > 0 ? 1 : 0);
-  return [
-    prCount,
-    Object.keys(blob.exercises || {}).length,
-    Array.isArray(blob.readinessHistory) ? blob.readinessHistory.length : 0,
-    (blob.gamification && blob.gamification.xpHighWaterMark) || 0
-  ];
-}
-
-// a STRICTEMENT plus riche que b (ordre lexicographique du vecteur). Égalité → false.
-function isBlobRicher(a, b) {
-  var ra = _blobRichnessVec(a), rb = _blobRichnessVec(b);
-  for (var i = 0; i < ra.length; i++) {
-    if (ra[i] > rb[i]) return true;
-    if (ra[i] < rb[i]) return false;
-  }
-  return false;
+// RC4 GARDES DE SYNC (P0 perte de données) — CRITÈRE D'INTENTION (correction v2, décision
+// Aurélien). Le signal des gardes n'est PAS « le local est-il plus riche/pauvre » (une réduction
+// VOLONTAIRE d'un vrai profil serait annulée à tort) mais « le local est-il un blob vide/non
+// rempli (defaultDB) qui n'a jamais porté de vraies données ». Définition UNIQUE réutilisée par
+// les 3 gardes. Se fie à ce qui est RÉELLEMENT dans le blob sbd_profiles — PAS à db.logs (toujours
+// vide : les séances vivent dans workout_sessions, réhydratées par hydrateLogsFromCloud) :
+//   • aucun bestPR réel (0/0/0 — le champ écrasé dans le P0 : 145/140/170 → 0), ET
+//   • profil non abouti : onboarded !== true ET aucun ownerUid (un defaultDB a tout ça vide).
+// Un profil REMPLI (onboarded / ownerUid / un PR) qui aurait « moins » que le cloud reste un vrai
+// profil modifié → NON traité comme vide (push respecté). Aucun appel réseau (garde locale, rapide).
+function _isDefaultDB(d) {
+  if (!d || typeof d !== 'object') return true;                 // pas de blob → traiter comme vide
+  var u = d.user || {};
+  var pr = d.bestPR || {};
+  var hasRealPR = (pr.squat || 0) > 0 || (pr.bench || 0) > 0 || (pr.deadlift || 0) > 0;
+  return !hasRealPR && u.onboarded !== true && !u.ownerUid;
 }
 
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.

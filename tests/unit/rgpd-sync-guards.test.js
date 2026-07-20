@@ -1,11 +1,10 @@
-// RC4 GARDES DE SYNC (P0 perte de données). Un blob defaultDB (bestPR 0/0/0) a écrasé le
-// cloud d'un vrai user (145/140/170) via syncToCloud (push à l'aveugle). Trois gardes en
-// défense-en-profondeur :
-//   • GARDE 0 : verrou pull-avant-push (debouncedCloudSync / _bootSyncDone).
-//   • GARDE 1 : concurrence optimiste sur updated_at (syncToCloud) — ne pousse pas si le cloud
-//     a divergé de notre dernier push ; réconcilie (pull+merge) à la place.
-//   • GARDE 2 : le merge RICHESSE-conscient de syncFromCloud (garde 2b) + le flux de boot ;
-//     isBlobRicher est la définition UNIQUE de richesse (sans logs : le blob n'en porte pas).
+// RC4 GARDES DE SYNC (P0 perte de données) — CORRECTION v2 : CRITÈRE D'INTENTION.
+// Le bug : un push à l'aveugle a laissé un defaultDB (0/0/0) écraser le blob sbd_profiles d'un
+// vrai user (145/140/170). Correction v1 bloquait sur la « richesse » → faux positif : une
+// suppression VOLONTAIRE de séance (profil légitimement réduit) se faisait annuler par un pull.
+// Correction v2 (décision Aurélien) : on ne bloque QUE si le local est un blob vide/non-hydraté
+// (defaultDB), jamais une réduction volontaire d'un vrai profil. `_isDefaultDB` est le critère
+// UNIQUE (bestPR + onboarded + ownerUid ; PAS db.logs — toujours vide dans le blob).
 // Fonctions extraites de la VRAIE source (js/app.js, js/supabase.js) via vm — pas de copie.
 const fs = require('fs');
 const path = require('path');
@@ -19,128 +18,100 @@ function extractFn(src, name) {
   if (!m) throw new Error('Could not extract fn ' + name);
   return m[0];
 }
+const lsStore = () => ({ _s: {}, getItem(k) { return k in this._s ? this._s[k] : null; }, setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } });
 
-// ── Comparateur de richesse (utilisé par le merge garde 2b de syncFromCloud) ─────────────────
-function ctx() {
-  const c = {};
-  vm.createContext(c);
-  vm.runInContext(extractFn(APP, '_blobRichnessVec'), c);
-  vm.runInContext(extractFn(APP, 'isBlobRicher'), c);
-  return c;
-}
-const richer = (a, b) => { const c = ctx(); c._a = a; c._b = b; return vm.runInContext('isBlobRicher(_a, _b)', c); };
+// Fixtures — un defaultDB (jamais rempli) vs un vrai profil (Aurel).
+const DEFAULT_DB = () => ({ user: { ownerUid: null, onboarded: false, bw: 0 }, bestPR: { squat: 0, bench: 0, deadlift: 0 }, exercises: {}, gamification: {} });
+const FILLED = () => ({ user: { ownerUid: 'A', onboarded: true, bw: 98 }, bestPR: { squat: 145, bench: 140, deadlift: 170 }, exercises: { a: {}, b: {} }, gamification: {}, logs: [{ id: 1 }, { id: 2 }] });
+const FILLED_REDUCED = () => ({ user: { ownerUid: 'A', onboarded: true, bw: 98 }, bestPR: { squat: 145, bench: 140, deadlift: 170 }, exercises: { a: {} }, gamification: {}, logs: [{ id: 1 }] }); // une séance en MOINS (suppression volontaire)
 
-const POOR = { bestPR: { squat: 0, bench: 0, deadlift: 0 }, exercises: {} };                       // defaultDB-like
-const RICH = { bestPR: { squat: 145, bench: 140, deadlift: 170 }, exercises: { 'Squat (Barre)': {}, 'Développé Couché (Barre)': {} } };
-
-describe('RC4 — isBlobRicher : richesse d\'un blob (sans logs), pilote le merge garde 2b', () => {
-  test('un cloud riche (145/140/170) EST plus riche qu\'un defaultDB pauvre → le merge garde le cloud', () => {
-    expect(richer(RICH, POOR)).toBe(true);
+// ── Critère UNIQUE : _isDefaultDB (blob vide/non-hydraté ?) ───────────────────────────────────
+describe('RC4 v2 — _isDefaultDB : le local est-il un defaultDB (vide) et non un vrai profil réduit ?', () => {
+  function isDefault(d) { const c = {}; vm.createContext(c); vm.runInContext(extractFn(APP, '_isDefaultDB'), c); c._d = d; return vm.runInContext('_isDefaultDB(_d)', c); }
+  test('defaultDB (0/0/0, onboarded false, pas d\'ownerUid) → true (blob vide)', () => {
+    expect(isDefault(DEFAULT_DB())).toBe(true);
   });
-  test('l\'inverse est faux : un local pauvre n\'est PAS plus riche que le cloud', () => {
-    expect(richer(POOR, RICH)).toBe(false);
+  test('vrai profil rempli (onboarded, ownerUid, PR) → false', () => {
+    expect(isDefault(FILLED())).toBe(false);
   });
-  test('richesses égales → pas "plus riche"', () => {
-    expect(richer(RICH, RICH)).toBe(false);
+  test('NE se fie PAS à db.logs : un profil sans logs mais avec un PR n\'est PAS un defaultDB', () => {
+    expect(isDefault({ user: { onboarded: false, ownerUid: null }, bestPR: { squat: 100, bench: 0, deadlift: 0 }, logs: [] })).toBe(false);
   });
-  test('cloud absent (null) → jamais "plus riche" que le local (1er profil)', () => {
-    expect(richer(null, POOR)).toBe(false);
-    expect(richer(null, RICH)).toBe(false);
+  test('onboarded === true seul suffit à ne PAS être un defaultDB (même 0/0/0)', () => {
+    expect(isDefault({ user: { onboarded: true, ownerUid: null }, bestPR: { squat: 0, bench: 0, deadlift: 0 } })).toBe(false);
   });
-  test('bestPR DOMINE lexicographiquement le registre d\'exercices', () => {
-    const A = { bestPR: { squat: 100, bench: 0, deadlift: 0 }, exercises: {} };
-    const B = { bestPR: { squat: 0, bench: 0, deadlift: 0 }, exercises: Object.fromEntries(Array.from({ length: 50 }, (_, i) => ['e' + i, {}])) };
-    expect(richer(A, B)).toBe(true);
-    expect(richer(B, A)).toBe(false);
+  test('présence d\'ownerUid seule suffit à ne PAS être un defaultDB', () => {
+    expect(isDefault({ user: { onboarded: false, ownerUid: 'A' }, bestPR: {} })).toBe(false);
   });
-  test('à PR égaux, plus d\'exercices = plus riche', () => {
-    const few = { bestPR: { squat: 100 }, exercises: { a: {} } };
-    const many = { bestPR: { squat: 100 }, exercises: { a: {}, b: {}, c: {} } };
-    expect(richer(many, few)).toBe(true);
-    expect(richer(few, many)).toBe(false);
-  });
-  test('à PR + exercices égaux, plus de check-ins santé = plus riche', () => {
-    const base = { bestPR: { squat: 100 }, exercises: { a: {} } };
-    const withRh = { bestPR: { squat: 100 }, exercises: { a: {} }, readinessHistory: [{}, {}] };
-    expect(richer(withRh, base)).toBe(true);
-  });
-  test('à tout égal par ailleurs, XP high-water-mark plus élevé = plus riche (ne descend jamais)', () => {
-    const lo = { bestPR: { squat: 100 }, exercises: { a: {} }, gamification: { xpHighWaterMark: 100 } };
-    const hi = { bestPR: { squat: 100 }, exercises: { a: {} }, gamification: { xpHighWaterMark: 5000 } };
-    expect(richer(hi, lo)).toBe(true);
+  test('null / {} → traité comme vide (true, pas de crash)', () => {
+    expect(isDefault(null)).toBe(true);
+    expect(isDefault({})).toBe(true);
   });
 });
 
-// ── GARDE 1 : concurrence optimiste sur updated_at (syncToCloud, VRAIE source) ────────────────
-// Le pilier anti-écrasement du P0. Avant de pousser, on lit l'updated_at du cloud : s'il est
-// POSTÉRIEUR à notre dernier push (_lastCloudPush), le cloud a divergé → on RÉCONCILIE au lieu de
-// pousser. Contrairement à un gate local-seul, l'horodatage n'a pas d'angle mort d'appauvrissement
-// PARTIEL (un local à 1 PR + 3 exos vs un cloud à 3 PR + 20 exos : cross-device ⇒ updated_at a
-// avancé ⇒ garde déclenchée ; reset local ⇒ _lastCloudPush=0 ⇒ garde déclenchée).
-describe('RC4 — GARDE 1 : syncToCloud ne peut pas écraser un cloud divergé (vraie source)', () => {
-  function syncCtx({ cloudTs, lastPush, readError }) {
-    const store = { _s: {}, getItem(k) { return k in this._s ? this._s[k] : null; }, setItem(k, v) { this._s[k] = String(v); }, removeItem(k) { delete this._s[k]; } };
-    if (lastPush != null) store.setItem('_lastCloudPush', String(lastPush));
-    const calls = { upserted: false, syncFromCloud: false, payload: null };
+// ── GARDE 1 : syncToCloud ne bloque QUE le defaultDB, respecte les réductions volontaires ─────
+describe('RC4 v2 — GARDE 1 : syncToCloud (vraie source)', () => {
+  function syncCtx({ db, bootDone = true, cloudSyncEnabled = true }) {
+    const calls = { upserted: false, syncFromCloud: false };
     const chain = {
-      select() { return chain; },
-      eq() { return chain; },
-      async maybeSingle() {
-        if (readError) return { error: { message: 'boom' } };            // panne réseau sur la lecture
-        return { data: cloudTs ? { updated_at: new Date(cloudTs).toISOString() } : null };
-      },
-      upsert(p) { calls.upserted = true; calls.payload = p; return chain; }, // ← le push qu'on veut bloquer
-      async single() { return { data: { updated_at: new Date(cloudTs || 9999).toISOString() } }; },
+      select() { return chain; }, eq() { return chain; },
+      upsert() { calls.upserted = true; return chain; },
+      async single() { return { data: { updated_at: new Date(1000).toISOString() } }; },
+      async maybeSingle() { return { data: null }; },
     };
     const c = {
       JSON, console: { warn() {}, error() {}, log() {} }, Date, parseInt, String, Object, Math,
-      localStorage: store, STORAGE_KEY: 'SBD_HUB_V29', cloudSyncEnabled: true,
-      supaClient: {
-        auth: { async getUser() { return { data: { user: { id: 'A', email: 'a@a' } } }; } },
-        from() { return chain; },
-      },
-      // local PAUVRE mais tatoué au bon owner (post-reset re-stamp / device appauvri) : même
-      // ainsi il ne doit PAS écraser un cloud divergé.
-      db: { user: { ownerUid: 'A' }, bestPR: { squat: 0, bench: 0, deadlift: 0 }, exercises: {}, gamification: {} },
-      _computeDataHash: () => 'H',            // ≠ db._lastSyncHash (undefined) → passe le hash-check
-      _buildSyncedBlob: () => ({ blob: true }),
+      localStorage: lsStore(), STORAGE_KEY: 'SBD_HUB_V29',
+      cloudSyncEnabled, _bootSyncDone: bootDone,
+      supaClient: { auth: { async getUser() { return { data: { user: { id: 'A', email: 'a@a' } } }; } }, from() { return chain; } },
+      db,
+      _computeDataHash: () => 'H', _buildSyncedBlob: () => ({ blob: true }),
       updateSyncStatus() {}, showToast() {}, syncLeaderboard() {},
       async syncLogsToSupabase() {},
       async syncFromCloud() { calls.syncFromCloud = true; },
     };
     vm.createContext(c);
-    vm.runInContext(extractFn(APP, '_canPushForOwner'), c);   // vraie garde de propriété
+    vm.runInContext(extractFn(APP, '_isDefaultDB'), c);
+    vm.runInContext(extractFn(APP, '_canPushForOwner'), c);
     vm.runInContext(extractFn(SUPA, 'syncToCloud'), c);
     return { c, calls };
   }
 
-  test('(a) P0 NON-RÉGRESSION : local pauvre (0/0/0) NE peut PAS écraser un cloud qui a divergé (updated_at récent) → réconciliation, AUCUN upsert', async () => {
-    const { c, calls } = syncCtx({ cloudTs: 5000, lastPush: 1000 });
+  test('(a) BUG DU JOUR : local defaultDB + cloud → push REFUSÉ (aucun upsert), pull de réalignement', async () => {
+    const { c, calls } = syncCtx({ db: DEFAULT_DB() });
     await vm.runInContext('syncToCloud(true)', c);
-    expect(calls.syncFromCloud).toBe(true);   // pull+merge (garde 2b) au lieu d'écraser
-    expect(calls.upserted).toBe(false);       // le blob pauvre N'est PAS poussé
+    expect(calls.upserted).toBe(false);       // le defaultDB N'écrase PAS le cloud
+    expect(calls.syncFromCloud).toBe(true);   // on pull pour réaligner (adopte le vrai profil)
   });
-  test('cloud en phase (updated_at ≤ notre dernier push) → push autorisé (upsert), pas de réconciliation', async () => {
-    const { c, calls } = syncCtx({ cloudTs: 5000, lastPush: 5000 });
+  test('(b) cloud pas encore hydraté (_bootSyncDone=false) → push DIFFÉRÉ (pendingSync), rien poussé/pullé', async () => {
+    const { c, calls } = syncCtx({ db: FILLED(), bootDone: false });
     await vm.runInContext('syncToCloud(true)', c);
-    expect(calls.upserted).toBe(true);
-    expect(calls.syncFromCloud).toBe(false);
-  });
-  test('1er profil (aucune ligne cloud) → push autorisé (pas de blocage du premier upload)', async () => {
-    const { c, calls } = syncCtx({ cloudTs: 0, lastPush: 0 });
-    await vm.runInContext('syncToCloud(true)', c);
-    expect(calls.upserted).toBe(true);
-    expect(calls.syncFromCloud).toBe(false);
-  });
-  test('lecture updated_at en échec → FAIL-CLOSED : aucun upsert, aucune réconciliation (retry au prochain debounce ; db déjà en localStorage)', async () => {
-    const { c, calls } = syncCtx({ cloudTs: 5000, lastPush: 1000, readError: true });
-    await vm.runInContext('syncToCloud(true)', c);
+    expect(c.db.pendingSync).toBe(true);
     expect(calls.upserted).toBe(false);
     expect(calls.syncFromCloud).toBe(false);
   });
+  test('(d) FAUX POSITIF CORRIGÉ : vrai profil avec une séance EN MOINS (suppression volontaire) → push AUTORISÉ, PAS de pull qui annulerait', async () => {
+    const { c, calls } = syncCtx({ db: FILLED_REDUCED() });
+    await vm.runInContext('syncToCloud(true)', c);
+    expect(calls.upserted).toBe(true);        // la suppression est poussée…
+    expect(calls.syncFromCloud).toBe(false);  // …et AUCUN pull ne la ressuscite
+  });
+  test('(e) vrai profil + séance loggée hors-ligne (plus riche) → push autorisé', async () => {
+    const { c, calls } = syncCtx({ db: FILLED() });
+    await vm.runInContext('syncToCloud(true)', c);
+    expect(calls.upserted).toBe(true);
+    expect(calls.syncFromCloud).toBe(false);
+  });
+  test('(f) suppression de compte (cloudSyncEnabled=false) → syncToCloud no-op : ni push, ni pull, ni blocage du vidage', async () => {
+    const { c, calls } = syncCtx({ db: DEFAULT_DB(), cloudSyncEnabled: false });
+    await vm.runInContext('syncToCloud(true)', c);
+    expect(calls.upserted).toBe(false);
+    expect(calls.syncFromCloud).toBe(false);
+    expect(c.db.pendingSync).toBeUndefined(); // return tout en haut — la garde defaultDB n'est pas atteinte
+  });
 });
 
-// ── GARDE 0 : verrou pull-avant-push dans debouncedCloudSync (vraie source) ────────────────────
+// ── GARDE 0 : verrou pull-avant-push dans debouncedCloudSync (inchangée) ───────────────────────
 describe('RC4 — GARDE 0 : verrou pull-avant-push dans debouncedCloudSync (vraie source)', () => {
   function bootCtx(bootDone) {
     const c = {
@@ -153,54 +124,55 @@ describe('RC4 — GARDE 0 : verrou pull-avant-push dans debouncedCloudSync (vrai
     vm.runInContext(extractFn(APP, 'debouncedCloudSync'), c);
     return c;
   }
-  test('(b) verrou FERMÉ (boot pas fini) → push différé (pendingSync), rien de programmé', () => {
+  test('verrou FERMÉ (boot pas fini) → push différé (pendingSync), rien de programmé', () => {
     const c = bootCtx(false);
     vm.runInContext('debouncedCloudSync()', c);
     expect(c.db.pendingSync).toBe(true);
-    expect(c._flushCalled).toBe(true);   // sauvé localement
-    expect(c._scheduled).toBe(false);    // AUCUN push programmé
+    expect(c._flushCalled).toBe(true);
+    expect(c._scheduled).toBe(false);
   });
-  test('(b) verrou OUVERT (boot fini) → push programmé', () => {
+  test('verrou OUVERT (boot fini) → push programmé', () => {
     const c = bootCtx(true);
     vm.runInContext('debouncedCloudSync()', c);
-    expect(c._scheduled).toBe(true);     // syncToCloud programmé
+    expect(c._scheduled).toBe(true);
   });
 });
 
-// ── GARDE 2 : resolveIdentity keep = garder le local (le pull cloud est ailleurs) ─────────────
-// Décision d'archi (revue adversariale) : au keep (même owner) on NE fetch NI n'adopte le cloud.
-// Adopter via _applyCloudBlob écraserait des logs locaux non poussés (le blob cloud n'en porte
-// pas). La priorité au pull au login est assurée par le flux de boot (resolveIdentity →
-// syncFromCloud si local vide/périmé) + le merge richesse-conscient (garde 2b) ; l'anti-écrasement
-// du push est assuré par la garde 1. → keep doit être un no-op sûr : 'kept', aucun fetch.
-describe('RC4 — GARDE 2 : resolveIdentity keep ne fetch ni n\'adopte (vraie source)', () => {
-  function keepCtx(localDb) {
+// ── GARDE 2 : resolveIdentity (login) ─────────────────────────────────────────────────────────
+describe('RC4 — GARDE 2 : resolveIdentity (vraie source)', () => {
+  function resolveCtx(db, cloudRow) {
     let fetched = false;
-    const c = { JSON, console: { warn() {}, log() {} }, _cachedUid: 'x' };
+    const c = { JSON, console: { warn() {}, log() {} }, localStorage: lsStore(), refreshUI() {}, Date, _cachedUid: 'x' };
     vm.createContext(c);
+    vm.runInContext("const STORAGE_KEY='SBD_HUB_V29';", c);
+    vm.runInContext('function _invalidateCachedUid(){ _cachedUid = null; }', c);
     ['_identityVerdict', '_stampOwner'].forEach((n) => vm.runInContext(extractFn(APP, n), c));
-    vm.runInContext('async function _adoptCloudForUid() { return "error"; }', c); // non atteint sur keep
+    vm.runInContext('function _clearDeviceSyncMarkers(){}', c);
+    vm.runInContext('function _clearLegacyDbKeys(){}', c);
+    vm.runInContext('function _resetLocalToOwner(){}', c);
+    vm.runInContext(extractFn(SUPA, '_applyCloudBlob'), c);
+    vm.runInContext(extractFn(SUPA, '_adoptCloudForUid'), c);
     vm.runInContext(extractFn(SUPA, 'resolveIdentity'), c);
-    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => { fetched = true; return { data: null }; } };
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => { fetched = true; return { data: cloudRow }; } };
     c.supaClient = { from: () => chain };
-    c.db = localDb;
+    c.db = db;
     return { c, getFetched: () => fetched };
   }
+  const RICH_ROW = { data: { user: { name: 'Aurel', onboarded: true }, bestPR: { squat: 145, bench: 140, deadlift: 170 }, exercises: { a: {}, b: {} } }, updated_at: '2026-07-20T00:00:00Z' };
 
-  test('(c) keep même owner, LOCAL riche (PR loggé hors-ligne) → "kept", AUCUN fetch, local conservé', async () => {
-    const { c, getFetched } = keepCtx({ user: { ownerUid: 'A', name: 'Aurel' }, bestPR: { squat: 150, bench: 140, deadlift: 175 }, exercises: { a: {}, b: {} }, logs: [{ id: 1 }] });
+  test('(c) login, LOCAL defaultDB + cloud riche → adopte le cloud (affichage riche)', async () => {
+    const { c } = resolveCtx(DEFAULT_DB(), RICH_ROW);   // ownerUid null → verdict 'reset' → adoption cloud
     const r = await vm.runInContext("resolveIdentity('A')", c);
-    expect(r).toBe('kept');
-    expect(getFetched()).toBe(false);        // pas de lecture cloud au keep (le PR hors-ligne survit intact)
-    expect(c.db.bestPR.squat).toBe(150);     // local conservé
-    expect(c.db.logs).toHaveLength(1);
-    expect(c.db.user.ownerUid).toBe('A');    // tatoué
+    expect(r).toBe('adopted');
+    expect(c.db.bestPR).toEqual({ squat: 145, bench: 140, deadlift: 170 });
+    expect(c.db.user.ownerUid).toBe('A');
   });
-
-  test('(d) keep même owner mais LOCAL pauvre → toujours "kept", AUCUN fetch (le pull cloud est géré par le boot / la garde 1, pas ici — évite d\'écraser des logs locaux)', async () => {
-    const { c, getFetched } = keepCtx({ user: { ownerUid: 'A' }, bestPR: { squat: 0, bench: 0, deadlift: 0 }, exercises: {}, logs: [] });
+  test('keep même owner (vrai profil) → "kept", AUCUN fetch, local conservé (le PR hors-ligne survit)', async () => {
+    const { c, getFetched } = resolveCtx(FILLED(), RICH_ROW);   // ownerUid 'A' == incoming → keep
     const r = await vm.runInContext("resolveIdentity('A')", c);
     expect(r).toBe('kept');
     expect(getFetched()).toBe(false);
+    expect(c.db.bestPR.squat).toBe(145);
+    expect(c.db.logs).toHaveLength(2);
   });
 });

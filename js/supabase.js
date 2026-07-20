@@ -371,6 +371,25 @@ async function syncToCloud(silent) {
   try {
     const {data:{user}} = await supaClient.auth.getUser();
     if (!user) return;
+    // RC4 CORRECTION v2 — CRITÈRE D'INTENTION (décision Aurélien). On ne bloque un push QUE si le
+    // local est un blob vide/non-hydraté (defaultDB), pas parce qu'il aurait « moins » que le
+    // cloud : une suppression VOLONTAIRE de séance sur un vrai profil doit être respectée (jamais
+    // annulée par un pull). Suppression de compte : cloudSyncEnabled=false → return tout en haut.
+    // (hydratation) — la réconciliation cloud du boot n'a pas eu lieu → différer (le boot pull).
+    if (typeof _bootSyncDone === 'undefined' || !_bootSyncDone) {
+      db.pendingSync = true;
+      updateSyncStatus('sync');
+      return;
+    }
+    // GARDE 1 (P0) — blob vide/non-hydraté (defaultDB : 0/0/0 ET pas onboarded ET pas d'ownerUid)
+    // → ne JAMAIS écraser le cloud ; pull pour réaligner (adopte le vrai profil). C'est le bug du
+    // jour : un defaultDB résiduel poussé sur le cloud d'un vrai user (145/140/170 → 0/0/0).
+    if (typeof _isDefaultDB === 'function' && _isDefaultDB(db)) {
+      console.warn('[RC4] garde 1 : local vide/non-hydraté → pull de réalignement (pas d\'écrasement)');
+      updateSyncStatus('sync');
+      if (typeof syncFromCloud === 'function') { try { await syncFromCloud(); } catch (e2) { console.warn('[RC4] garde 1 : pull de réalignement échoué', e2); } }
+      return;
+    }
     // RC4 — filet de sécurité (le blob sbd_profiles passe ici). Si le blob courant est
     // tatoué au nom d'une AUTRE identité, on refuse le push (jamais de fuite inter-comptes,
     // même si une transition d'identité a été manquée en amont). Le dual-write
@@ -388,37 +407,7 @@ async function syncToCloud(silent) {
       if (!silent) showToast('Déjà à jour');
       return;
     }
-    // RC4 GARDE 1 (P0) — CONCURRENCE OPTIMISTE : ne JAMAIS écraser à l'aveugle un cloud qui a
-    // DIVERGÉ de notre dernier push. Un defaultDB (bestPR 0/0/0) a déjà écrasé un vrai cloud
-    // (145/140/170). On lit l'updated_at du cloud (minuscule) : s'il est POSTÉRIEUR à notre
-    // dernier push (_lastCloudPush), le cloud porte des écritures qu'on n'a pas intégrées —
-    //   • autre appareil qui a poussé plus riche, OU
-    //   • reset/purge local (remet _lastCloudPush à 0 via _clearDeviceSyncMarkers) alors que le
-    //     cloud garde les données d'un vrai compte.
-    // → on RÉCONCILIE (pull+merge RICHESSE-conscient via syncFromCloud, garde 2b) au lieu de
-    // pousser un blob potentiellement appauvri. Le résultat fusionné (riche) repartira au
-    // prochain cycle : syncFromCloud écrit _lastCloudPush=cloudTs → cloudTs<=_lastCloudPush →
-    // push autorisé. Coût nul en régime normal (mono-appareil : cloudTs==_lastCloudPush → on
-    // saute la réconciliation). Contrairement à un gate local-seul (impossible de savoir si le
-    // cloud est plus riche sans le comparer), l'horodatage n'a PAS d'angle mort d'appauvrissement
-    // partiel. Fail-closed : lecture KO → on ne pousse pas (retry au prochain debounce ; db déjà
-    // en localStorage → aucune perte). Exemption suppression : cloudSyncEnabled=false → return amont.
-    try {
-      const {data: _tsRow, error: _tsErr} = await supaClient.from('sbd_profiles').select('updated_at').eq('user_id', user.id).maybeSingle();
-      if (_tsErr) throw _tsErr;
-      var _cloudTs = (_tsRow && _tsRow.updated_at) ? new Date(_tsRow.updated_at).getTime() : 0;
-      var _ourLastPush = parseInt(localStorage.getItem('_lastCloudPush') || '0');
-      if (_cloudTs > _ourLastPush) {
-        console.warn('[RC4] garde 1 : cloud modifié depuis notre dernier push → réconciliation (pas d\'écrasement)');
-        updateSyncStatus('sync');
-        if (typeof syncFromCloud === 'function') { try { await syncFromCloud(); } catch (e2) { console.warn('[RC4] garde 1 : réconciliation échouée', e2); } }
-        return; // le blob local n'est PAS poussé ; le merge (ou le prochain cycle) s'en charge
-      }
-    } catch (e) {
-      console.warn('[RC4] garde 1 : lecture updated_at échouée, push différé', e);
-      updateSyncStatus('sync');
-      return;
-    }
+    // (Le blocage anti-écrasement est en amont : critère d'intention — defaultDB seulement.)
     // FIX 3 (Gemini Q3.3): exclude derived weeklyPlan fields from sync payload
     var _weeklyPlanToSync = db.weeklyPlan
       ? (function() {
@@ -837,11 +826,11 @@ async function syncFromCloud() {
       }
       var lastPush = parseInt(localStorage.getItem('_lastCloudPush') || '0');
       if (cloudTs <= lastPush) {
-        // We pushed more recently — local is authoritative... SAUF si le cloud est PLUS RICHE
-        // (RC4 Garde 2 : un _lastCloudPush récent ne garantit pas la richesse — reset partiel /
-        // autre appareil). Alors on NE pousse PAS le local pauvre → on tombe dans le merge (qui
-        // adopte le cloud et hydrate les logs).
-        if (!(typeof isBlobRicher === 'function' && isBlobRicher(cloudData, db))) {
+        // We pushed more recently — local is authoritative... SAUF si le local est un defaultDB
+        // vide/non-hydraté (RC4 correction v2 : critère d'INTENTION, pas richesse — un vrai profil
+        // modifié hors-ligne, même « plus pauvre », doit être poussé, pas écrasé par le cloud).
+        // Un defaultDB → on ne le pousse pas ; on tombe dans le merge (qui adopte le cloud + logs).
+        if (!(typeof _isDefaultDB === 'function' && _isDefaultDB(db))) {
           await syncToCloud(true);
           return true;
         }
@@ -870,13 +859,13 @@ async function syncFromCloud() {
       var _mergedLogs = _reconcileLogs(_localLogsArr, _cloudLogsArr);
       var _mergedData = Object.assign({}, cloudData);
       _mergedData.logs = _mergedLogs;
-      // « vide comme null » + owner-match + RICHESSE : le local ne gagne le || sur le cloud
-      // pour exercises/bestPR que s'il appartient à la session, n'est pas vide, ET n'est pas
-      // plus pauvre que le cloud (Garde 2 : sinon un local appauvri — reset partiel — écraserait
-      // le cloud au merge même s'il est non-vide).
-      var _cloudRicher = (typeof isBlobRicher === 'function') && isBlobRicher(cloudData, db);
-      var _localExo = _ownerMatch && !_cloudRicher && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
-      var _localPR = _ownerMatch && !_cloudRicher && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
+      // « vide comme null » + owner-match + INTENTION : le local gagne le || sur le cloud pour
+      // exercises/bestPR s'il appartient à la session ET n'est pas vide — MÊME s'il a « moins »
+      // que le cloud (réduction VOLONTAIRE respectée, pas annulée). On ne bascule sur le cloud que
+      // si le local est un defaultDB non-hydraté (RC4 correction v2 : intention, pas richesse).
+      var _localEmpty = (typeof _isDefaultDB === 'function') && _isDefaultDB(db);
+      var _localExo = _ownerMatch && !_localEmpty && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
+      var _localPR = _ownerMatch && !_localEmpty && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
       _mergedData.exercises = _localExo || cloudData.exercises;
       _mergedData.bestPR = _localPR || cloudData.bestPR;
       db = _mergedData;

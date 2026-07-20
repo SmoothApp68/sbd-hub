@@ -964,9 +964,9 @@ async function authSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 — 2e handler d'auth (Réglages > Sync Cloud) : résoudre l'identité (adopt-first)
-        // avant tout push. Signup neuf → reset sûr ; un blob résiduel n'est jamais téléversé.
-        if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
+        // RC4 — 2e handler d'auth (Réglages > Sync Cloud). Signup = identité NEUVE : purge
+        // INCONDITIONNELLE (asymétrie signup/signin, pas de TOFU ni de dépendance réseau).
+        if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
         db.passwordMigrated = true;
         saveDB();
         try {
@@ -1142,9 +1142,11 @@ async function loginSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 — résoudre l'identité (adopt-first) AVANT tout push : signup neuf → reset sûr
-        // vers defaultDB tatoué ; un blob résiduel n'est jamais téléversé.
-        if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
+        // RC4 — un signup est une identité NEUVE : purge INCONDITIONNELLE (asymétrie
+        // signup/signin). Pas de TOFU, pas de dépendance réseau (resolveIdentity « deferre »
+        // si le read échoue → laisserait le résiduel). Le nouvel inscrit repart toujours
+        // vierge, tatoué au nouvel uid → onboarding déclenché.
+        if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
         db.passwordMigrated = true;
         saveDB();
         await syncToCloud(true);

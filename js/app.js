@@ -1734,11 +1734,18 @@ function _clearLegacyDbKeys() {
 // synchronisée n'est perdue — compte neuf confirmé EN LIGNE (aucune ligne cloud). Purge
 // tout, repart d'un defaultDB tatoué au nom de l'entrant. JAMAIS appelé à l'aveugle (hors
 // ligne) : détruire le local avant d'avoir sécurisé le cloud perdrait les données.
-function _resetLocalToOwner(uid) {
-  purgeAllLocalDb();
-  _clearDeviceSyncMarkers();
+// Purge locale canonique d'une session — UNE SEULE VOIX. Tous les chemins de déconnexion
+// (appSignOut « Se déconnecter », cloudLogout « Déconnexion cloud ») ET le reset d'identité
+// passent par ici → aucun ne peut oublier de purger (le bug des « 2 boutons » à nouveau).
+function _purgeLocalSession() {
+  purgeAllLocalDb();                                        // toutes les clés SBD_HUB* (dont legacy)
+  _clearDeviceSyncMarkers();                                // _lastCloudPush/_lastCloudSync/_wsSyncedHashes
   if (typeof _invalidateCachedUid === 'function') _invalidateCachedUid();
-  if (typeof defaultDB === 'function') db = defaultDB();
+  if (typeof defaultDB === 'function') db = defaultDB();    // db mémoire remis à zéro (ownerUid = null)
+}
+
+function _resetLocalToOwner(uid) {
+  _purgeLocalSession();
   _stampOwner(uid);
 }
 
@@ -32857,17 +32864,11 @@ async function appSignOut() {
       if (typeof supaClient !== 'undefined' && supaClient) {
         try { await supaClient.auth.signOut(); } catch(e) {}
       }
-      // RC4 / D2 — déconnexion = purge locale complète (toutes les clés SBD_HUB*, dont les
-      // legacy). Sans ça, l'inscrit suivant sur le même appareil héritait des données de
-      // l'ancien. La reconnexion re-pull le cloud (source de vérité). Pas de saveDBNow ici :
-      // le reload re-part d'un defaultDB propre.
-      if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb();
-      try {
-        localStorage.removeItem('_lastCloudPush');
-        localStorage.removeItem('_lastCloudSync');
-        localStorage.removeItem('_wsSyncedHashes');
-      } catch(e) {}
-      db = defaultDB();
+      // RC4 / D2 — déconnexion = purge locale canonique (voix unique _purgeLocalSession).
+      // Sans ça, l'inscrit suivant sur le même appareil héritait des données de l'ancien.
+      // La reconnexion re-pull le cloud (source de vérité). Le reload re-part d'un defaultDB.
+      if (typeof _purgeLocalSession === 'function') _purgeLocalSession();
+      else { if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb(); db = defaultDB(); }
       setTimeout(function() { window.location.reload(); }, 300);
     },
     'Annuler'

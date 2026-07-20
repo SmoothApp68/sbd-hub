@@ -1281,17 +1281,11 @@ async function cloudLogout() {
   updateCloudUI(null);
   updateNotifBadges(0);
   showToast('Déconnecté du cloud');
-  // RC4 — purge complète (toutes les clés SBD_HUB* + marqueurs de sync device-local), pas
-  // seulement STORAGE_KEY : une clé legacy survivante ressuscitait le profil au boot suivant
-  // (boucle prouvée), et un _lastCloudPush survivant fausserait la 1re sync du compte suivant.
-  if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb(); else localStorage.removeItem(STORAGE_KEY);
-  try {
-    localStorage.removeItem('_lastCloudPush');
-    localStorage.removeItem('_lastCloudSync');
-    localStorage.removeItem('_wsSyncedHashes');
-  } catch(e) {}
+  // RC4 — purge locale canonique (voix unique _purgeLocalSession) : toutes les clés SBD_HUB*
+  // (dont legacy → sinon résurrection au boot) + marqueurs de sync device-local + _cachedUid.
   _cachedUid = null;
-  if (typeof defaultDB === 'function') db = defaultDB();
+  if (typeof _purgeLocalSession === 'function') _purgeLocalSession();
+  else { localStorage.removeItem(STORAGE_KEY); if (typeof defaultDB === 'function') db = defaultDB(); }
   if (typeof showLoginScreen === 'function') showLoginScreen();
 }
 

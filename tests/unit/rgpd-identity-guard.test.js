@@ -54,6 +54,7 @@ function buildSync(ls, initialDb, opts) {
   vm.runInContext(extractFn(APP, '_stampOwner'), ctx);
   vm.runInContext(extractFn(APP, '_clearDeviceSyncMarkers'), ctx);
   vm.runInContext(extractFn(APP, '_clearLegacyDbKeys'), ctx);
+  vm.runInContext(extractFn(APP, '_purgeLocalSession'), ctx);
   vm.runInContext(extractFn(APP, '_resetLocalToOwner'), ctx);
   ctx.db = initialDb;
   return ctx;
@@ -126,6 +127,29 @@ describe('RC4 — _resetLocalToOwner : reset SÛR (compte neuf confirmé en lign
     expect(ctx.db.user.medicalConsent).toBe(false);
     expect(ctx.db.bestPR).toEqual({ bench: 0, squat: 0, deadlift: 0 });
     expect(ctx.db.user.ownerUid).toBe('B');
+  });
+});
+
+describe('RC4 — _purgeLocalSession : voix unique de déconnexion (appSignOut + cloudLogout)', () => {
+  test('purge TOUTES les clés SBD_HUB* (dont legacy) + marqueurs device, db remis à zéro', () => {
+    const ls = makeLS();
+    ['SBD_HUB_V29', 'SBD_HUB', 'SBD_HUB_V28'].forEach((k) => ls.setItem(k, '{"user":{"name":"Aurélien"},"logs":[{}]}'));
+    ls.setItem('_lastCloudPush', '1720000000000');
+    ls.setItem('_lastCloudSync', '5');
+    ls.setItem('_wsSyncedHashes', '{"1":"h"}');
+    ls.setItem('sbd_lastTab', 'garde');
+    const ctx = buildSync(ls, { user: { ownerUid: 'A', name: 'Aurélien' }, logs: [{ id: 1 }] }, { realDefault: true });
+    vm.runInContext('_purgeLocalSession()', ctx);
+    // Reproduit le scénario device : après « Se déconnecter », plus AUCUNE clé SBD_HUB*.
+    expect(sbdKeys(ls)).toEqual([]);
+    expect(ls.getItem('_lastCloudPush')).toBeNull();
+    expect(ls.getItem('_lastCloudSync')).toBeNull();
+    expect(ls.getItem('_wsSyncedHashes')).toBeNull();
+    expect(ls.getItem('sbd_lastTab')).toBe('garde'); // ne touche pas au reste
+    // db mémoire remis à zéro (le blob « Aurélien » ne survit pas pour l'inscrit suivant)
+    expect(ctx.db.user.name).toBe('');
+    expect(ctx.db.user.ownerUid).toBeNull();
+    expect(ctx.db.logs).toEqual([]);
   });
 });
 

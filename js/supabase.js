@@ -375,6 +375,28 @@ async function syncToCloud(silent) {
       if (!silent) showToast('Déjà à jour');
       return;
     }
+    // RC4 GARDE 1 (P0) — FILET anti-appauvrissement : ne JAMAIS écraser un cloud PLUS RICHE
+    // que le local. Un defaultDB (bestPR 0/0/0) a déjà écrasé un vrai cloud 145/140/170.
+    // On ne lit le cloud que si le local pourrait appauvrir (coût nul pour un user établi).
+    // Exemption suppression de compte : elle met cloudSyncEnabled=false → return tout en haut.
+    if (typeof _localMightImpoverish === 'function' && _localMightImpoverish(db)) {
+      var _cloudReadOk = false, _cloudBlob = null;
+      try {
+        const {data: _row, error: _re} = await supaClient.from('sbd_profiles').select('data').eq('user_id', user.id).maybeSingle();
+        if (_re) throw _re;
+        _cloudReadOk = true;
+        _cloudBlob = (_row && _row.data) ? _row.data : null;
+      } catch (e) { console.warn('[RC4] garde 1 : lecture cloud échouée, push différé', e); }
+      // Fail-closed : sans avoir pu vérifier le cloud, on NE pousse PAS un local pauvre
+      // (retry au prochain debounce). N'affecte QUE les locaux pauvres (les riches sautent ce bloc).
+      if (!_cloudReadOk) { updateSyncStatus('sync'); return; }
+      if (_cloudBlob && typeof isBlobRicher === 'function' && isBlobRicher(_cloudBlob, db)) {
+        console.warn('[RC4] push refusé : cloud plus riche que local');
+        updateSyncStatus('sync');
+        return; // cloud préservé ; l'affichage se resynchronise au pull (garde 2 / boot)
+      }
+      // cloud absent (1er profil) OU local ≥ cloud → push autorisé
+    }
     // FIX 3 (Gemini Q3.3): exclude derived weeklyPlan fields from sync payload
     var _weeklyPlanToSync = db.weeklyPlan
       ? (function() {

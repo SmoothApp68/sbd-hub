@@ -1749,6 +1749,44 @@ function _resetLocalToOwner(uid) {
   _stampOwner(uid);
 }
 
+// RC4 GARDES DE SYNC (P0 perte de données) — RICHESSE d'un blob sbd_profiles. DÉFINITION
+// UNIQUE réutilisée par les 3 gardes (pas trois heuristiques divergentes). NE compte PAS les
+// logs : le blob n'en contient pas (_buildSyncedBlob fait delete out.logs) ; les séances
+// vivent dans workout_sessions, protégées séparément (garde-fou anti-wipe de
+// computeWorkoutSessionsSyncPlan). Comparaison LEXICOGRAPHIQUE : bestPR réels (le champ
+// écrasé dans le P0 : 145/140/170 → 0) domine, puis registre d'exercices, puis check-ins
+// santé (readinessHistory), puis XP high-water-mark (invariante §13 : ne descend jamais).
+function _blobRichnessVec(blob) {
+  if (!blob || typeof blob !== 'object') return [-1, -1, -1, -1];
+  var pr = blob.bestPR || {};
+  var prCount = ((pr.squat || 0) > 0 ? 1 : 0) + ((pr.bench || 0) > 0 ? 1 : 0) + ((pr.deadlift || 0) > 0 ? 1 : 0);
+  return [
+    prCount,
+    Object.keys(blob.exercises || {}).length,
+    Array.isArray(blob.readinessHistory) ? blob.readinessHistory.length : 0,
+    (blob.gamification && blob.gamification.xpHighWaterMark) || 0
+  ];
+}
+
+// a STRICTEMENT plus riche que b (ordre lexicographique du vecteur). Égalité → false.
+function isBlobRicher(a, b) {
+  var ra = _blobRichnessVec(a), rb = _blobRichnessVec(b);
+  for (var i = 0; i < ra.length; i++) {
+    if (ra[i] > rb[i]) return true;
+    if (ra[i] < rb[i]) return false;
+  }
+  return false;
+}
+
+// Le local pourrait-il APPAUVRIR le cloud ? On ne paye la lecture de vérification (garde 1)
+// que si le local est pauvre sur un axe protégé (aucun PR réel OU registre d'exercices vide) :
+// un local riche (a des PR ET des exercices) ne peut pas appauvrir → push direct, coût nul
+// pour le cas nominal (utilisateur établi).
+function _localMightImpoverish(d) {
+  var v = _blobRichnessVec(d);
+  return v[0] === 0 || v[1] === 0;
+}
+
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
 // RGPD : ne purger QUE si les données serveur sont parties (success), ou si elles SONT
 // parties même quand la fermeture du compte auth a échoué (dataDeleted). Pur → testé.

@@ -36,6 +36,7 @@ function build(initialDb, opts) {
     cloudHydrationState: opts.hydration || 'pending',
     document: { getElementById: () => null }, // les fns loading sont défensives (if el)
     logErrorToSupabase: () => {},
+    saveDB: () => {},
   };
   vm.createContext(ctx);
   if (!opts.noSupa) {
@@ -127,17 +128,44 @@ describe('ordonnanceur — file nominale (nouvel utilisateur)', () => {
     expect(shows.profile).toBe(1);
   });
 
-  test('reprise à froid : flags intermédiaires → reprend au bon écran', () => {
+  test('compte établi SANS marqueur tunnel : la file ne s\'engage jamais seule', () => {
     const dbMid = freshDb();
-    dbMid.user.onboarded = true; dbMid.user.onboardingVersion = 3; // version en retard MAIS
-    // reprise nouvel utilisateur réel : profil fini, magic start pas fait
-    dbMid.user.onboardingVersion = 4;
-    dbMid._magicStartDone = false;
+    dbMid.user.onboarded = true; dbMid.user.onboardingVersion = 4;
+    dbMid._magicStartDone = false; // même avec des étapes « en retard »…
     const { ctx, shows } = build(dbMid);
-    // profil complet → needsOnboarding false → la file ne s'engage pas seule au boot
     ctx.obSeqStart();
     expect(ctx._obSeqActive).toBe(false);
-    expect(totalShows(shows)).toBe(0); // un compte établi ne reçoit JAMAIS les étapes newUserOnly
+    expect(totalShows(shows)).toBe(0); // …un compte établi ne reçoit JAMAIS les étapes newUserOnly
+  });
+
+  test('le run frais pose db._obSeqTunnel ; la complétion l\'efface', () => {
+    const { ctx } = build(freshDb());
+    ctx.obSeqStart();
+    expect(ctx.db._obSeqTunnel).toBe(true); // posé dès l'engagement (persisté au prochain saveDB)
+    ctx.db.user.onboarded = true; ctx.db.user.onboardingVersion = 4;
+    ctx.obSeqDone('profile');
+    ctx.db._magicStartDone = true; ctx.obSeqDone('plan');
+    ctx.db.user.quizDone = true; ctx.obSeqDone('classQuiz');
+    expect(ctx._obSeqActive).toBe(false);
+    expect(ctx.db._obSeqTunnel).toBeUndefined(); // tunnel fini → marqueur effacé
+  });
+
+  test('reload APRÈS obFinish (tunnel inachevé) → la file reprend à Magic Start, rien n\'est perdu', async () => {
+    const dbReloaded = freshDb();
+    dbReloaded.user.onboarded = true; dbReloaded.user.onboardingVersion = 4; // obFinish passé
+    dbReloaded._obSeqTunnel = true;                                          // marqueur persisté
+    dbReloaded._magicStartDone = false;
+    const { ctx, shows } = build(dbReloaded, { session: null });
+    await ctx._obSeqBootStart();
+    expect(shows.plan).toBe(1); // Magic Start s'ouvre au boot suivant — quiz/swipe pas perdus (D-A)
+    expect(shows.profile).toBe(0);
+  });
+
+  test('welcome-back ne pose PAS le marqueur tunnel', () => {
+    const dbWb = { user: { onboarded: true, onboardingVersion: 3 } };
+    const { ctx } = build(dbWb);
+    ctx.obSeqStart();
+    expect(ctx.db._obSeqTunnel).toBeUndefined();
   });
 
   test('étape dont show() crashe → skippée, la file continue sans bloquer', () => {

@@ -2220,10 +2220,16 @@ function _obSeqFindNext() {
 function obSeqStart() {
   if (_obSeqWaitingHydration) return;              // garde D-B : on ne sait pas encore
   if (_obSeqActive) { obSeqAdvance(); return; }    // idempotent (double boot, re-check)
-  // La file ne s'engage que si l'ENTRÉE est incomplète (profil manquant ou version en
-  // retard) — les étapes newUserOnly ne tournent jamais seules pour un compte établi.
-  if (!needsOnboarding()) return;
-  _obSeqFreshRun = !(db && db.user && db.user.onboarded);
+  // La file s'engage si l'ENTRÉE est incomplète (profil manquant ou version en retard)
+  // OU si un tunnel de nouvel utilisateur est resté inachevé (db._obSeqTunnel : posé au
+  // 1er run frais, effacé à la complétion, synchronisé dans le blob). Sans ce marqueur,
+  // un reload juste après obFinish perdrait Magic Start/swipe/quiz pour toujours —
+  // le risque pointé en D-A (« un écran sans rattrapage risque de n'être jamais vu »).
+  // Un compte établi (sans marqueur) ne reçoit JAMAIS les étapes newUserOnly.
+  var tunnelPending = !!(db && db._obSeqTunnel);
+  if (!needsOnboarding() && !tunnelPending) return;
+  _obSeqFreshRun = tunnelPending || !(db && db.user && db.user.onboarded);
+  if (_obSeqFreshRun && db) db._obSeqTunnel = true; // persisté au prochain saveDB (obFinish au plus tard)
   _obSeqActive = true;
   obSeqAdvance();
 }
@@ -2231,7 +2237,12 @@ function obSeqStart() {
 function obSeqAdvance() {
   if (!_obSeqActive || _obSeqWaitingHydration) return;
   var next = _obSeqFindNext();
-  if (!next) { _obSeqActive = false; _obSeqCurrent = null; return; }
+  if (!next) {
+    _obSeqActive = false; _obSeqCurrent = null;
+    // Tunnel frais terminé → effacer le marqueur de reprise (persisté).
+    if (db && db._obSeqTunnel) { delete db._obSeqTunnel; if (typeof saveDB === 'function') saveDB(); }
+    return;
+  }
   if (_obSeqCurrent === next.id) return;           // déjà à l'écran (un seul à la fois)
   _obSeqCurrent = next.id;
   try { next.show(); }
@@ -2276,7 +2287,7 @@ function _obSeqOnHydrationSettled(state) {
 //    #obSeqLoading — jamais de flash d'écran de collecte.
 //  • aucune session persistée (vrai appareil vierge) → onboarding immédiat, sans attente.
 async function _obSeqBootStart() {
-  if (!needsOnboarding()) return;
+  if (!needsOnboarding() && !(db && db._obSeqTunnel)) return;
   var mustWait = false;
   if (!(db && db.user && db.user.onboarded)) {
     try {

@@ -112,7 +112,13 @@ if (supaClient) {
       if (session.user.email) cloudSyncEnabled = true;
       (async () => {
         try {
-          if (typeof resolveIdentity === 'function') await resolveIdentity(session.user.id);
+          // Chantier 7 (1e, décision D-E) : uid ANONYMES exclus de la résolution
+          // d'identité (même règle que le boot, via _shouldResolveIdentityFor) —
+          // le signInAnonymously du boot ne doit JAMAIS tatouer/purger le blob local
+          // (sinon l'onboarding local devient un « blob d'autrui » au signup).
+          const _resolvable = (typeof _shouldResolveIdentityFor === 'function')
+            ? _shouldResolveIdentityFor(session.user) : !!session.user.email;
+          if (_resolvable && typeof resolveIdentity === 'function') await resolveIdentity(session.user.id);
         } catch (e) { console.warn('identity guard on auth change:', e); }
         if (session.user.email && typeof ensureProfile === 'function') ensureProfile().catch(e => console.warn('ensureProfile on auth change:', e));
       })();
@@ -403,6 +409,25 @@ async function resolveIdentity(incomingUid) {
     return 'adopted';
   }
   if (res === 'no-row') {
+    // Chantier 7 (1e, décision D-D) : un blob local REMPLI et NON tatoué (TOFU —
+    // onboarding complété en local avant la création/confirmation du compte) est
+    // ADOPTÉ par l'entrant : tatouage + push (blob + séances pré-adoption conservées
+    // dans db.logs), pas de purge. Critère d'INTENTION unique (_isDefaultDB). Un blob
+    // vide garde le reset ; un blob tatoué garde le reset aussi (ownerUid non-null ici
+    // = « autrui », le cas « même owner » est sorti en 'kept' plus haut — anti-fuite
+    // inchangée, rien n'est fusionné ni poussé pour autrui via _canPushForOwner).
+    if (!ownerUid && typeof _isDefaultDB === 'function' && !_isDefaultDB(db)) {
+      _stampOwner(incomingUid);
+      if (typeof saveDBNow === 'function') saveDBNow();
+      if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // no-row confirmé EN LIGNE → rien à écraser côté cloud
+      try { if (typeof syncToCloud === 'function') await syncToCloud(true); }
+      catch (e) { console.warn('[RC4] adoption locale: push blob échoué', e); }
+      if (typeof syncLogsToSupabase === 'function') {
+        try { await syncLogsToSupabase(incomingUid); }
+        catch (e) { console.warn('[RC4] adoption locale: push séances échoué', e); }
+      }
+      return 'adopted-local';
+    }
     if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(incomingUid);
     if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // aucun blob cloud confirmé EN LIGNE → hydraté (rien à écraser)
     return 'reset-new';
@@ -1061,9 +1086,12 @@ async function authSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 — 2e handler d'auth (Réglages > Sync Cloud). Signup = identité NEUVE : purge
-        // INCONDITIONNELLE (asymétrie signup/signin, pas de TOFU ni de dépendance réseau).
-        if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
+        // RC4 + chantier 7 (1e, décision D-D) — 2e handler d'auth (Réglages > Sync Cloud).
+        // Signup : blob rempli non tatoué (onboarding local) → ADOPTÉ (tatouage, pas de
+        // purge) ; blob vide ou tatoué autrui → purge d'origine (_claimLocalOnSignup).
+        if (typeof _claimLocalOnSignup === 'function') _claimLocalOnSignup(data.user.id);
+        else if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
+        if (typeof _obSeqResumeAfterSignup === 'function') _obSeqResumeAfterSignup();
         db.passwordMigrated = true;
         saveDB();
         try {
@@ -1239,11 +1267,14 @@ async function loginSubmit() {
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 — un signup est une identité NEUVE : purge INCONDITIONNELLE (asymétrie
-        // signup/signin). Pas de TOFU, pas de dépendance réseau (resolveIdentity « deferre »
-        // si le read échoue → laisserait le résiduel). Le nouvel inscrit repart toujours
-        // vierge, tatoué au nouvel uid → onboarding déclenché.
-        if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
+        // RC4 + chantier 7 (1e, décision D-D) — signup : un blob REMPLI et NON tatoué
+        // (onboarding complété en local, TOFU) est ADOPTÉ (tatoué au nouvel uid, pas de
+        // purge — il appartient au nouvel inscrit) ; un blob vide (defaultDB) ou tatoué
+        // à un AUTRE uid garde la purge d'origine (anti-fuite/anti-résurrection
+        // inchangées). Pas de dépendance réseau : décision 100 % locale.
+        if (typeof _claimLocalOnSignup === 'function') _claimLocalOnSignup(data.user.id);
+        else if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
+        if (typeof _obSeqResumeAfterSignup === 'function') _obSeqResumeAfterSignup();
         db.passwordMigrated = true;
         saveDB();
         await syncToCloud(true);

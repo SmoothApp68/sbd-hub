@@ -47,7 +47,7 @@ Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (val
 
 1. `node -c` sur les fichiers JS touchés (au minimum `app`, `engine`, + celui modifié).
 2. **`npm test` vert.** Ajoute/inverse les tests dans le **même commit** que le fix ; vérifie que la fixture déclenche vraiment le chemin visé (un test qui ne teste pas ce qu'il prétend est pire qu'aucun test).
-3. **Bump le Service Worker** : `CACHE_NAME` (`service-worker.js:1`) → version suivante. Actuel : **`trainhub-v350`**. Plus de littéral `SW_VERSION` depuis v321 — version dérivée du SW via `getSWVersion` (app.js:3597).
+3. **Bump le Service Worker** : `CACHE_NAME` (`service-worker.js:1`) → version suivante. Actuel : **`trainhub-v367`**. Plus de littéral `SW_VERSION` depuis v321 — version dérivée du SW via `getSWVersion` (app.js:3977).
 4. **Livre en PR — NE MERGE JAMAIS.** Aurélien vérifie sur **device** sur vraies données avant de merger. **Non optionnel** : un lot mergé sur CI verte seule a déjà laissé passer des bugs que les tests ne voyaient pas (facteur calorique volatile, e1RM affiché au lieu du PR).
 
 ---
@@ -184,6 +184,7 @@ isInLP() : DOTS total SBD < seuil ET durée < 12 semaines.  État : db.user.lpAc
 - **Matching des lifts SBD** : `getSBDType` (engine.js:824, `_getSBDTypeRaw` 809) est le **matcher canonique** — classe en `'squat'|'bench'|'deadlift'|null`. Exclut RDL/jambes tendues/stiff-leg via `/roumain|romanian|\brdl\b|jambes?\s+tendues?|stiff.?leg/` et les haltères pour le bench. **Utilise-le, pas `matchExoName` + libellé générique.** `predictPR` (app.js:9262) résout le lift via `getSBDType`.
 - **Angle mort `matchExoName`** (engine.js:998, matcher générique) : « Jambes Tendues » (stiff-leg FR) **absent** de `_DIFF_ROOTS` → matche à tort « Soulevé de Terre ». **Ne PAS y toucher sans audit complet** (rayon global : import, records, synonymes, matching programme).
 - **Render pur** (cf. §3) : Home (app.js:11079), gamification (7227/7509), leaderboard (8269) — freeze-at-render à généraliser.
+- **Ordonnanceur d'entrée = SEULE autorité des écrans de première visite** (chantier 7, v363-v367). Toute l'entrée passe par `obSeqStart`/`obSeqAdvance`/`obSeqDone` + `OB_SEQ_STEPS` (app.js, section « ORDONNANCEUR D'ENTRÉE ») : un écran à la fois, avancement par signal de complétion, 100 % local. **Ne JAMAIS ré-introduire** un `setTimeout` qui affiche un écran d'entrée, ni un déclenchement depuis un événement réseau/auth. Garde D-B : session email persistée sur db vierge → attendre le verdict du pull (`_obSeqBootStart` + hooks du verrou d'hydratation) — jamais de flash d'écran de collecte pour un compte existant. Signup : `_claimLocalOnSignup` (blob rempli non tatoué → adopté, jamais purgé) ; identité : `_shouldResolveIdentityFor` (les uid anonymes ne résolvent JAMAIS l'identité).
 
 ---
 
@@ -233,7 +234,7 @@ db = {
   gamification: { earnedBadges:{}, xpHighWaterMark:0 },  // XP ne descend jamais, badges jamais révoqués
   garminHealth, _ghostLogAnswered
 }
-ONBOARDING_VERSION = 4 (engine.js:12) · BW_FALLBACK_KG = 80 (app.js:6472) · getUserBW (app.js:6476)
+ONBOARDING_VERSION = 4 (engine.js:16) · BW_FALLBACK_KG = 80 (app.js:6472) · getUserBW (app.js:6476)
 ```
 
 ### Supabase — tables **réellement référencées dans le repo** (`.from(...)`)
@@ -266,7 +267,7 @@ ONBOARDING_VERSION = 4 (engine.js:12) · BW_FALLBACK_KG = 80 (app.js:6472) · ge
 - Calorique : `getDailyCaloricTarget` (app.js:15316) → `calcTDEE` (engine.js:1144) · `calcTDEEKatchMcArdle` (engine.js:1137).
 - Arbitre/readiness : `collectIntensityContext`/`computeIntensityVerdict` (**app.js** 18827/18637, PAS coach.js) · `computeSRS` (coach.js:672).
 - Diagnostic : `calcWeeklyJointStress` (engine.js:3915) · `STRENGTH_RATIO_TARGETS` (engine.js:44) · `detectVolumeSpike` (engine.js:4680) · `classifyStagnation` (engine.js:2723).
-- Constantes : `BW_FALLBACK_KG=80` (app.js:6472) · `getUserBW` (**app.js:6476**, pas supabase.js) · `ONBOARDING_VERSION=4` (engine.js:12) · `MUSCLE_PARENT_MAP` (app.js:6396) · `ACTIVITY_SPEC_COEFFICIENTS` (engine.js:4274) · `VOLUME_SPIKE_THRESHOLD=0.20` (engine.js:4678).
+- Constantes : `BW_FALLBACK_KG=80` (app.js:6472) · `getUserBW` (**app.js:6476**, pas supabase.js) · `ONBOARDING_VERSION=4` (engine.js:16) · `MUSCLE_PARENT_MAP` (app.js:6396) · `ACTIVITY_SPEC_COEFFICIENTS` (engine.js:4274) · `VOLUME_SPIKE_THRESHOLD=0.20` (engine.js:4678).
 - Coach IA : `canUseAI`/`askCoachAI`/`buildCoachPrompt`/`showPaywall` · `renderWhyButton`/`openCoachQuestion`.
 - **N'existent PAS** (ou morts) : `wpCalcE1RM` comme record · `canUseAICoaching` · `askCoachWhy` · `buildUserAccessoryPool` · `getTDEEForDay` (supprimée) · `calibrateTDEE` (existe engine.js:1218 mais **dead code**) · `PROJECT-STATUS.md` · `js/stats.js` · `js/social.js` · `js/ui.js`.
 
@@ -393,6 +394,8 @@ le scope reste à ces 6.
 | v313-v321 | Chantier overlays A (cœur `_uiOpen/_uiClose`, `showSheet`, `showConfirm`, 16 dialogues routés, `--surface-solid`, scroll-lock réel) · garde-fou version SW (`getSWVersion`) |
 | **v322-v349** | Chantier Coach : **render pur**, calculs justes, Potentiel de Performance, **arbitre d'intensité** + profil agressivité + return-to-play + pain + deload cyan · **onboarding refondu v337** (niveau/discipline/coachingStyle séparés) · welcome-back boot local v338 · budget de blocs v340 · purge des contradictions v341 · ordre du Coach v342 · **justesse calorique + seuils** v343 (round 2 v344, round 3 v345 : diviseur 28j + projections) · fix matching deadlift v346 · message 6-cas + paliers en **PR réel** v348-v349 |
 | **v350** | Objectifs SBD éditables depuis le Coach (✎ inline, multi-user) + bump SW v350 |
+| v351-v362 | Fixes RGPD (suppression de compte exhaustive, boutons dé-confondus) · RC4 sync (gardes anti-appauvrissement, critère d'INTENTION `_isDefaultDB`, verrou d'hydratation 3 états, union des séances à l'adoption) |
+| **v363-v367** | **Chantier 7 bloc 1 — ordonnanceur d'entrée** : file `obSeq*` (profil → Magic Start → swipe → quiz archétype), timers d'entrée supprimés, dé-gating cloud/email (onboarding-first, garde D-B anti-flash), social hors tunnel (initSocialTab seul), RC4 1e : adoption du blob local au signup/'no-row' (`_claimLocalOnSignup`), uid anonymes exclus de `resolveIdentity` |
 
 ### Scores experts (historique, v149 — non actualisés)
 Gemini pondéré 9.4/10 · Claude Code (Playwright) 8.5/10 · Gemini Architecture 8.5 · Algorithmes 9.8 · Gamification 9.6.

@@ -1822,6 +1822,32 @@ function _isDefaultDB(d) {
   return !hasRealPR && u.onboarded !== true && !u.ownerUid;
 }
 
+// Chantier 7 (1e, décision D-D) — création de compte : le blob local est soit ADOPTÉ,
+// soit PURGÉ. Un blob REMPLI et NON tatoué (TOFU — onboarding complété en local avant
+// la création du compte) appartient à la personne qui tient l'appareil : tatouage au
+// nouvel uid, pas de purge. Tout le reste garde la purge d'origine (defaultDB →
+// repartir vierge ; tatoué à un AUTRE uid → anti-fuite inchangée). Critère
+// d'INTENTION UNIQUE : _isDefaultDB (aucune variante). Pur hors I/O → testé.
+function _claimLocalOnSignup(uid) {
+  if (!uid) return 'ignored';
+  var owner = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
+  if (!owner && !_isDefaultDB(db)) {
+    _stampOwner(uid);
+    if (typeof saveDBNow === 'function') saveDBNow(); else if (typeof saveDB === 'function') saveDB();
+    return 'adopted';
+  }
+  _resetLocalToOwner(uid);
+  return 'reset';
+}
+
+// Chantier 7 (1e, décision D-E) — SEULE une identité EMAIL résout l'identité (boot ET
+// handler onAuthStateChange, une seule règle). Un uid ANONYME change à chaque visite :
+// le laisser passer tatouerait/purgerait le blob local, et l'onboarding local
+// deviendrait un « blob d'autrui » au signup (la mine du diagnostic). Pure → testée.
+function _shouldResolveIdentityFor(user) {
+  return !!(user && user.id && user.email);
+}
+
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
 // RGPD : ne purger QUE si les données serveur sont parties (success), ou si elles SONT
 // parties même quand la fermeture du compte auth a échoué (dataDeleted). Pur → testé.
@@ -2291,6 +2317,19 @@ function loginBackFromOb() {
   if (typeof hideLoginScreen === 'function') hideLoginScreen();
   _obSeqWaitingHydration = false;
   if (_obSeqActive) obSeqAdvance(); else obSeqStart();
+}
+
+// Signup effectué pendant une pause de la file (« J'ai déjà un compte » → Inscription,
+// ou attente D-B) : PAS de session tant que l'email n'est pas confirmé → aucun hook
+// d'hydratation ne viendra. On reprend l'entrée en LOCAL, tout de suite (le blob vient
+// d'être adopté ou purgé par _claimLocalOnSignup) — plus jamais d'app vide post-signup
+// (le vécu +test2107 du diagnostic).
+function _obSeqResumeAfterSignup() {
+  if (!_obSeqWaitingHydration) return;
+  _obSeqWaitingHydration = false;
+  _obSeqHideLoading();
+  _obSeqActive = false; _obSeqCurrent = null;
+  obSeqStart();
 }
 
 // ── ONBOARDING FLOW V2 ───────────────────────────────────────
@@ -15217,8 +15256,10 @@ function syncRoutineWithSelectedDays() {
       if (!user) return;
       // RC4 — garde d'identité avant toute sync : un blob résiduel appartenant à un autre
       // compte ne doit être ni adopté ni poussé. Uniquement pour une vraie identité (email) ;
-      // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque boot).
-      if (user.email && typeof resolveIdentity === 'function') {
+      // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque
+      // boot). Règle UNIQUE partagée avec le handler auth : _shouldResolveIdentityFor (1e).
+      if ((typeof _shouldResolveIdentityFor === 'function' ? _shouldResolveIdentityFor(user) : !!user.email)
+          && typeof resolveIdentity === 'function') {
         // Adopt-first : ne détruit jamais le local avant d'avoir sécurisé le cloud (hors ligne
         // → ne touche à rien ; le blob non-tatoué reste non-poussable).
         try { await resolveIdentity(user.id); }

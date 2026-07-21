@@ -33103,11 +33103,10 @@ async function postLoginSync() {
       if (typeof syncToCloud === 'function') syncToCloud(true);
     }
     if (typeof ensureProfile === 'function') await ensureProfile();
-    if (!db.social || !db.social.onboardingCompleted) {
-      setTimeout(function() {
-        if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
-      }, 800);
-    }
+    // Chantier 7 (1d) : l'onboarding social n'est PLUS poussé après login (timer +800
+    // supprimé — il concurrençait la file d'entrée et passait devant l'onboarding,
+    // DOM-postérieur à z égal). Il vit à sa place naturelle : premier accès à
+    // l'onglet Social (initSocialTab), hors du tunnel d'entrée.
     // Notifications J1→J30
     if (typeof checkScheduledNotifications === 'function') checkScheduledNotifications();
     // RGPD — check health consent

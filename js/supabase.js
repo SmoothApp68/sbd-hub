@@ -1597,6 +1597,9 @@ async function initSocialTab() {
 
   // Check if social onboarding needed
   if (!db.social.onboardingCompleted) {
+    // Chantier 7 (1d) : jamais pendant la file d'entrée (un boot avec lastTab=social
+    // pouvait le peindre PAR-DESSUS l'onboarding — DOM-postérieur à z égal).
+    if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
     showSocialOnboarding();
     return;
   }

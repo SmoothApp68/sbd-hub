@@ -332,6 +332,37 @@ async function _adoptCloudForUid(uid) {
   } catch (e) { console.warn('_adoptCloudForUid:', e); return 'error'; }
 }
 
+// RC4 — UNION des séances à l'ADOPTION (TOFU). Quand on adopte le cloud sur un blob local SANS
+// ownerUid (1er login sur un appareil qui a loggé hors-ligne), _applyCloudBlob remplace db par le
+// blob cloud (db.logs vidé) : une séance loggée hors-ligne — présente uniquement dans le local
+// d'AVANT l'adoption, jamais poussée (un local non tatoué ne pousse pas), keyée par log.id
+// (= session_id de workout_sessions) — serait perdue. On la RÉUNIT avec l'historique cloud :
+//   1. réinjecter les séances locales pré-adoption dans db.logs (union par log.id),
+//   2. pull de l'historique cloud (reconcileLogsFromCloud ajoute les séances distantes manquantes),
+//   3. recalcBestPR depuis l'union (le PR découle des séances — aucun conflit à trancher),
+//   4. push des séances locales absentes du cloud vers workout_sessions (syncLogsToSupabase, keyé
+//      session_id ; blob tatoué + rempli → garde 1 / _canPushForOwner OK).
+// Séances immuables + identifiées → l'union est toujours correcte. preAdoptLogs est VIDE pour un
+// local tatoué à un AUTRE uid (capturé côté resolveIdentity) → jamais de fusion inter-comptes.
+async function _reconcileAdoptedSessions(uid, preAdoptLogs) {
+  var local = Array.isArray(preAdoptLogs) ? preAdoptLogs : [];
+  if (local.length === 0) return; // rien de local à préserver (appareil vierge, ou local d'un autre owner)
+  // 1) réinjecter les séances locales (l'adoption a laissé db.logs ≈ [] : le blob n'a pas de logs)
+  db.logs = _reconcileLogs(local, Array.isArray(db.logs) ? db.logs : []);
+  // 2) union avec l'historique cloud (workout_sessions) — ajoute les séances distantes manquantes
+  if (typeof reconcileLogsFromCloud === 'function') {
+    try { await reconcileLogsFromCloud(uid); } catch (e) { console.warn('[RC4] adoption: pull historique cloud échoué', e); }
+  }
+  // 3) bestPR depuis l'union (une séance offline qui bat un PR le fait monter)
+  if (typeof recalcBestPR === 'function') { try { recalcBestPR(); } catch (e) {} }
+  if (typeof saveDBNow === 'function') saveDBNow();
+  // 4) pousser les séances locales absentes du cloud (l'offline) → workout_sessions (keyé session_id)
+  if (typeof syncLogsToSupabase === 'function') {
+    try { await syncLogsToSupabase(uid); } catch (e) { console.warn('[RC4] adoption: push séances offline échoué', e); }
+  }
+  if (typeof refreshUI === 'function') { try { refreshUI(); } catch (e) {} }
+}
+
 // RC4 — résolution d'identité ADOPT-FIRST (jamais purge-à-l'aveugle). Appelée à chaque
 // transition authentifiée (boot session restaurée, SIGNED_IN, login/signup). On ne détruit
 // JAMAIS le local avant d'avoir sécurisé le cloud :
@@ -343,33 +374,43 @@ async function resolveIdentity(incomingUid) {
   if (!incomingUid) return 'ignore';
   var ownerUid = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
   if (_identityVerdict(ownerUid, incomingUid) === 'keep') {
+    // Même propriétaire → on garde le local (aucune adoption à l'aveugle). La priorité au pull
+    // cloud au login (GARDE 2) est assurée par le flux de boot (resolveIdentity → syncFromCloud
+    // si local vide/périmé) et par le merge INTENTION-conscient de syncFromCloud (garde 2b) ;
+    // l'anti-écrasement du push est assuré par la garde 1 (critère _isDefaultDB). Adopter ici via
+    // _applyCloudBlob écraserait des logs locaux non poussés (le blob cloud n'en porte pas).
+    // Appareil établi, même propriétaire → local fiable → verrou d'hydratation OUVERT.
     _stampOwner(incomingUid);
-    // RC4 GARDE 2 — même propriétaire, mais si le LOCAL est pauvre, vérifier que le cloud n'est
-    // pas PLUS RICHE (autre appareil / reset partiel) → l'adopter pour AFFICHER le riche au login
-    // (les données étaient déjà protégées côté push par la garde 1). Fetch seulement si local pauvre.
-    if (supaClient && typeof _localMightImpoverish === 'function' && _localMightImpoverish(db)) {
-      try {
-        const {data: _row} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', incomingUid).maybeSingle();
-        if (_row && _row.data && typeof isBlobRicher === 'function' && isBlobRicher(_row.data, db)) {
-          _applyCloudBlob(_row.data, incomingUid, _row.updated_at);
-          return 'adopted-richer';
-        }
-      } catch (e) { console.warn('[RC4] garde 2 (keep) lecture cloud échouée:', e); }
-    }
+    if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
     return 'kept';
   }
+  // RC4 — capturer les séances locales AVANT l'adoption, UNIQUEMENT si le local est NON TATOUÉ
+  // (TOFU : 1er login sur un blob sans owner → ces séances appartiennent à l'entrant). Un local
+  // tatoué à un AUTRE uid ne doit pas voir ses séances fusionnées dans le compte entrant (fuite) →
+  // capture vide. Sert à l'union anti-perte de la séance hors-ligne (cf. _reconcileAdoptedSessions).
+  var _preAdoptLogs = (!ownerUid && db && Array.isArray(db.logs)) ? db.logs.slice() : [];
   var res = await _adoptCloudForUid(incomingUid);
   if (res === 'has-data') {
     if (typeof _clearDeviceSyncMarkers === 'function') _clearDeviceSyncMarkers();
     if (typeof _clearLegacyDbKeys === 'function') _clearLegacyDbKeys();
     _cachedUid = null;
+    if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // cloud adopté → hydraté
+    // UNION anti-perte : réinjecte les séances offline (TOFU) + historique cloud, puis les pousse.
+    if (typeof _reconcileAdoptedSessions === 'function') {
+      try { await _reconcileAdoptedSessions(incomingUid, _preAdoptLogs); }
+      catch (e) { console.warn('[RC4] adoption: réconciliation des séances échouée', e); }
+    }
     return 'adopted';
   }
   if (res === 'no-row') {
     if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(incomingUid);
+    if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // aucun blob cloud confirmé EN LIGNE → hydraté (rien à écraser)
     return 'reset-new';
   }
-  return 'deferred'; // 'error' : hors-ligne — ne rien détruire, ne rien pousser
+  // 'error' : hors-ligne — ne rien détruire, ne rien pousser. Verrou → 'failed' + retry du pull
+  // (le seul chemin vers 'hydrated' est un pull réussi ; jamais un timeout).
+  if (typeof _markCloudHydrationFailed === 'function') _markCloudHydrationFailed();
+  return 'deferred';
 }
 
 async function syncToCloud(silent) {
@@ -377,6 +418,28 @@ async function syncToCloud(silent) {
   try {
     const {data:{user}} = await supaClient.auth.getUser();
     if (!user) return;
+    // RC4 CORRECTION v2 — CRITÈRE D'INTENTION (décision Aurélien). On ne bloque un push QUE si le
+    // local est un blob vide/non-hydraté (defaultDB), pas parce qu'il aurait « moins » que le
+    // cloud : une suppression VOLONTAIRE de séance sur un vrai profil doit être respectée (jamais
+    // annulée par un pull). Suppression de compte : cloudSyncEnabled=false → return tout en haut.
+    // VERROU D'HYDRATATION (3 états) — tant que le 1er pull n'a pas RÉUSSI (pending) ou a ÉCHOUÉ
+    // (failed), on NE pousse PAS (le local part au prochain pull réussi). db reste en localStorage
+    // (aucune perte). Le seul déblocage est un pull réussi (resolveIdentity/syncFromCloud posent
+    // 'hydrated') — jamais un timeout. Écriture locale non affectée (saveDB/_flushDB/IndexedDB).
+    if (typeof _canPushToCloud !== 'function' || !_canPushToCloud()) {
+      db.pendingSync = true;
+      updateSyncStatus('sync');
+      return;
+    }
+    // GARDE 1 (P0) — blob vide/non-hydraté (defaultDB : 0/0/0 ET pas onboarded ET pas d'ownerUid)
+    // → ne JAMAIS écraser le cloud ; pull pour réaligner (adopte le vrai profil). C'est le bug du
+    // jour : un defaultDB résiduel poussé sur le cloud d'un vrai user (145/140/170 → 0/0/0).
+    if (typeof _isDefaultDB === 'function' && _isDefaultDB(db)) {
+      console.warn('[RC4] garde 1 : local vide/non-hydraté → pull de réalignement (pas d\'écrasement)');
+      updateSyncStatus('sync');
+      if (typeof syncFromCloud === 'function') { try { await syncFromCloud(); } catch (e2) { console.warn('[RC4] garde 1 : pull de réalignement échoué', e2); } }
+      return;
+    }
     // RC4 — filet de sécurité (le blob sbd_profiles passe ici). Si le blob courant est
     // tatoué au nom d'une AUTRE identité, on refuse le push (jamais de fuite inter-comptes,
     // même si une transition d'identité a été manquée en amont). Le dual-write
@@ -394,28 +457,7 @@ async function syncToCloud(silent) {
       if (!silent) showToast('Déjà à jour');
       return;
     }
-    // RC4 GARDE 1 (P0) — FILET anti-appauvrissement : ne JAMAIS écraser un cloud PLUS RICHE
-    // que le local. Un defaultDB (bestPR 0/0/0) a déjà écrasé un vrai cloud 145/140/170.
-    // On ne lit le cloud que si le local pourrait appauvrir (coût nul pour un user établi).
-    // Exemption suppression de compte : elle met cloudSyncEnabled=false → return tout en haut.
-    if (typeof _localMightImpoverish === 'function' && _localMightImpoverish(db)) {
-      var _cloudReadOk = false, _cloudBlob = null;
-      try {
-        const {data: _row, error: _re} = await supaClient.from('sbd_profiles').select('data').eq('user_id', user.id).maybeSingle();
-        if (_re) throw _re;
-        _cloudReadOk = true;
-        _cloudBlob = (_row && _row.data) ? _row.data : null;
-      } catch (e) { console.warn('[RC4] garde 1 : lecture cloud échouée, push différé', e); }
-      // Fail-closed : sans avoir pu vérifier le cloud, on NE pousse PAS un local pauvre
-      // (retry au prochain debounce). N'affecte QUE les locaux pauvres (les riches sautent ce bloc).
-      if (!_cloudReadOk) { updateSyncStatus('sync'); return; }
-      if (_cloudBlob && typeof isBlobRicher === 'function' && isBlobRicher(_cloudBlob, db)) {
-        console.warn('[RC4] push refusé : cloud plus riche que local');
-        updateSyncStatus('sync');
-        return; // cloud préservé ; l'affichage se resynchronise au pull (garde 2 / boot)
-      }
-      // cloud absent (1er profil) OU local ≥ cloud → push autorisé
-    }
+    // (Le blocage anti-écrasement est en amont : critère d'intention — defaultDB seulement.)
     // FIX 3 (Gemini Q3.3): exclude derived weeklyPlan fields from sync payload
     var _weeklyPlanToSync = db.weeklyPlan
       ? (function() {
@@ -828,17 +870,18 @@ async function syncFromCloud() {
       var cloudData = data.data;
       var cloudTs = data.updated_at ? new Date(data.updated_at).getTime() : 0;
       if (!cloudTs) {
-        // No server timestamp — push local as fallback
+        // No server timestamp — push local as fallback (blob cloud présent → hydraté)
+        if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
         await syncToCloud(true);
         return true;
       }
       var lastPush = parseInt(localStorage.getItem('_lastCloudPush') || '0');
       if (cloudTs <= lastPush) {
-        // We pushed more recently — local is authoritative... SAUF si le cloud est PLUS RICHE
-        // (RC4 Garde 2 : un _lastCloudPush récent ne garantit pas la richesse — reset partiel /
-        // autre appareil). Alors on NE pousse PAS le local pauvre → on tombe dans le merge (qui
-        // adopte le cloud et hydrate les logs).
-        if (!(typeof isBlobRicher === 'function' && isBlobRicher(cloudData, db))) {
+        // We pushed more recently — local is authoritative... SAUF si le local est un defaultDB
+        // vide/non-hydraté (RC4 correction v2 : critère d'INTENTION, pas richesse — un vrai profil
+        // modifié hors-ligne, même « plus pauvre », doit être poussé, pas écrasé par le cloud).
+        // Un defaultDB → on ne le pousse pas ; on tombe dans le merge (qui adopte le cloud + logs).
+        if (!(typeof _isDefaultDB === 'function' && _isDefaultDB(db))) {
           await syncToCloud(true);
           return true;
         }
@@ -867,13 +910,13 @@ async function syncFromCloud() {
       var _mergedLogs = _reconcileLogs(_localLogsArr, _cloudLogsArr);
       var _mergedData = Object.assign({}, cloudData);
       _mergedData.logs = _mergedLogs;
-      // « vide comme null » + owner-match + RICHESSE : le local ne gagne le || sur le cloud
-      // pour exercises/bestPR que s'il appartient à la session, n'est pas vide, ET n'est pas
-      // plus pauvre que le cloud (Garde 2 : sinon un local appauvri — reset partiel — écraserait
-      // le cloud au merge même s'il est non-vide).
-      var _cloudRicher = (typeof isBlobRicher === 'function') && isBlobRicher(cloudData, db);
-      var _localExo = _ownerMatch && !_cloudRicher && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
-      var _localPR = _ownerMatch && !_cloudRicher && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
+      // « vide comme null » + owner-match + INTENTION : le local gagne le || sur le cloud pour
+      // exercises/bestPR s'il appartient à la session ET n'est pas vide — MÊME s'il a « moins »
+      // que le cloud (réduction VOLONTAIRE respectée, pas annulée). On ne bascule sur le cloud que
+      // si le local est un defaultDB non-hydraté (RC4 correction v2 : intention, pas richesse).
+      var _localEmpty = (typeof _isDefaultDB === 'function') && _isDefaultDB(db);
+      var _localExo = _ownerMatch && !_localEmpty && db.exercises && Object.keys(db.exercises).length ? db.exercises : null;
+      var _localPR = _ownerMatch && !_localEmpty && db.bestPR && (db.bestPR.squat || db.bestPR.bench || db.bestPR.deadlift) ? db.bestPR : null;
       _mergedData.exercises = _localExo || cloudData.exercises;
       _mergedData.bestPR = _localPR || cloudData.bestPR;
       db = _mergedData;
@@ -916,6 +959,7 @@ async function syncFromCloud() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
       localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt));
       localStorage.setItem('_lastCloudPush', String(cloudTs));
+      if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // pull réussi → verrou OUVERT
       refreshUI();
       // FIX 2 — toast contextuel selon le type de sync
       if (_hasActiveSession) {
@@ -927,11 +971,15 @@ async function syncFromCloud() {
       }
       return true;
     } else {
+      // Aucun blob cloud pour cet uid → rien à écraser → hydraté (le local pourra pousser).
+      if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
       showToast('Aucune donnée cloud trouvée');
       return false;
     }
   } catch(e) {
     console.error('Cloud pull:', e);
+    // Pull ÉCHOUÉ (réseau) → verrou 'failed' + retry planifié. JAMAIS de déblocage sans pull réussi.
+    if (typeof _markCloudHydrationFailed === 'function') _markCloudHydrationFailed();
     showToast('Erreur chargement cloud');
     return false;
   }

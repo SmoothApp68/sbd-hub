@@ -414,17 +414,51 @@ window.addEventListener('unhandledrejection', function(event) {
     }
   } catch(e) {}
 });
-// RC4 GARDE 0 (P0) — verrou pull-avant-push. L'auto-sync BACKGROUND (debounced) ne part pas
-// tant que le boot/login n'a pas fait sa réconciliation cloud initiale : sinon un saveDB
-// précoce pousserait un defaultDB post-reset AVANT le 1er pull. Les pushes EXPLICITES (login,
-// boot, retour online) ne passent PAS par ici → non bloqués. Filet anti-blocage : le verrou
-// s'ouvre au plus tard après 15 s, quoi qu'il arrive (jamais de sync gelée).
-var _bootSyncDone = false;
-try { setTimeout(function() { _bootSyncDone = true; }, 15000); } catch (e) { _bootSyncDone = true; }
+// RC4 GARDE 0 (P0) — VERROU D'HYDRATATION CLOUD à 3 états (durcissement « pull échoué »).
+// Protège le CLOUD : on ne POUSSE (syncToCloud / debouncedCloudSync) qu'après une hydratation
+// confirmée. Ne bloque JAMAIS l'écriture LOCALE : _flushDB (localStorage) et backupWorkoutToIDB
+// (IndexedDB) s'exécutent quoi qu'il arrive — « push bloqué » = un délai, pas une perte (les
+// données partiront au prochain pull réussi). États :
+//   'pending'  : pull pas encore tenté (défaut au load / avant résolution d'identité) → push bloqué.
+//   'hydrated' : pull réussi, OU aucun blob cloud (compte neuf confirmé en ligne), OU même
+//                propriétaire établi (resolveIdentity 'kept') → push autorisé.
+//   'failed'   : pull TENTÉ et ÉCHOUÉ (réseau) → push TOUJOURS bloqué + retry du PULL planifié
+//                (retour online + backoff). Le SEUL chemin failed→hydrated est un pull réussi —
+//                jamais un compteur/timeout (sinon un defaultDB partirait au cloud = le bug d'origine).
+// Plus de « déblocage après 15 s » : sécurité d'abord. Le local reste libre, la sync attend.
+var cloudHydrationState = 'pending';
+var _hydrationRetryArmed = false;
+function _canPushToCloud() {
+  return cloudHydrationState === 'hydrated';
+}
+function _markCloudHydrated() {
+  cloudHydrationState = 'hydrated';
+  _hydrationRetryArmed = false;
+}
+function _markCloudHydrationFailed() {
+  if (cloudHydrationState !== 'hydrated') cloudHydrationState = 'failed'; // ne JAMAIS rétrograder un hydraté
+  _scheduleHydrationRetry();
+}
+function _scheduleHydrationRetry() {
+  if (_hydrationRetryArmed || cloudHydrationState === 'hydrated') return;
+  _hydrationRetryArmed = true;
+  try { setTimeout(_retryHydration, 30000); } catch (e) { _hydrationRetryArmed = false; } // backoff de secours
+}
+function _retryHydration() {
+  _hydrationRetryArmed = false;
+  if (cloudHydrationState === 'hydrated' || !cloudSyncEnabled) return;
+  if (typeof navigator !== 'undefined' && navigator && navigator.onLine === false) { _scheduleHydrationRetry(); return; }
+  if (typeof syncFromCloud !== 'function') return;
+  // Re-tenter le PULL (jamais débloquer sans lui) : succès → syncFromCloud pose 'hydrated' ; échec
+  // → il re-pose 'failed' + re-planifie. Après hydratation, pousser les données locales en attente.
+  Promise.resolve(syncFromCloud()).then(function() {
+    if (cloudHydrationState === 'hydrated' && db && db.pendingSync && typeof syncToCloud === 'function') syncToCloud(true);
+  }).catch(function() {});
+}
 
 function debouncedCloudSync() {
   if (!cloudSyncEnabled) return;
-  if (!_bootSyncDone) { db.pendingSync = true; _flushDB(); return; } // pull initial pas encore confirmé
+  if (!_canPushToCloud()) { db.pendingSync = true; _flushDB(); return; } // pending/failed → push différé (local OK)
   if (!navigator.onLine) {
     db.pendingSync = true;
     _flushDB();
@@ -435,7 +469,11 @@ function debouncedCloudSync() {
 }
 
 window.addEventListener('online', function() {
-  if (db.pendingSync && cloudSyncEnabled) {
+  if (!cloudSyncEnabled) return;
+  // Verrou 'failed' → au retour du réseau, re-tenter le PULL d'abord (débloque via succès seul) ;
+  // le push suivra (pendingSync flushé après hydratation, cf. _retryHydration).
+  if (cloudHydrationState === 'failed') { _retryHydration(); return; }
+  if (db.pendingSync) {
     db.pendingSync = false;
     _flushDB();
     if (typeof syncToCloud === 'function') syncToCloud(true);
@@ -1758,42 +1796,22 @@ function _resetLocalToOwner(uid) {
   _stampOwner(uid);
 }
 
-// RC4 GARDES DE SYNC (P0 perte de données) — RICHESSE d'un blob sbd_profiles. DÉFINITION
-// UNIQUE réutilisée par les 3 gardes (pas trois heuristiques divergentes). NE compte PAS les
-// logs : le blob n'en contient pas (_buildSyncedBlob fait delete out.logs) ; les séances
-// vivent dans workout_sessions, protégées séparément (garde-fou anti-wipe de
-// computeWorkoutSessionsSyncPlan). Comparaison LEXICOGRAPHIQUE : bestPR réels (le champ
-// écrasé dans le P0 : 145/140/170 → 0) domine, puis registre d'exercices, puis check-ins
-// santé (readinessHistory), puis XP high-water-mark (invariante §13 : ne descend jamais).
-function _blobRichnessVec(blob) {
-  if (!blob || typeof blob !== 'object') return [-1, -1, -1, -1];
-  var pr = blob.bestPR || {};
-  var prCount = ((pr.squat || 0) > 0 ? 1 : 0) + ((pr.bench || 0) > 0 ? 1 : 0) + ((pr.deadlift || 0) > 0 ? 1 : 0);
-  return [
-    prCount,
-    Object.keys(blob.exercises || {}).length,
-    Array.isArray(blob.readinessHistory) ? blob.readinessHistory.length : 0,
-    (blob.gamification && blob.gamification.xpHighWaterMark) || 0
-  ];
-}
-
-// a STRICTEMENT plus riche que b (ordre lexicographique du vecteur). Égalité → false.
-function isBlobRicher(a, b) {
-  var ra = _blobRichnessVec(a), rb = _blobRichnessVec(b);
-  for (var i = 0; i < ra.length; i++) {
-    if (ra[i] > rb[i]) return true;
-    if (ra[i] < rb[i]) return false;
-  }
-  return false;
-}
-
-// Le local pourrait-il APPAUVRIR le cloud ? On ne paye la lecture de vérification (garde 1)
-// que si le local est pauvre sur un axe protégé (aucun PR réel OU registre d'exercices vide) :
-// un local riche (a des PR ET des exercices) ne peut pas appauvrir → push direct, coût nul
-// pour le cas nominal (utilisateur établi).
-function _localMightImpoverish(d) {
-  var v = _blobRichnessVec(d);
-  return v[0] === 0 || v[1] === 0;
+// RC4 GARDES DE SYNC (P0 perte de données) — CRITÈRE D'INTENTION (correction v2, décision
+// Aurélien). Le signal des gardes n'est PAS « le local est-il plus riche/pauvre » (une réduction
+// VOLONTAIRE d'un vrai profil serait annulée à tort) mais « le local est-il un blob vide/non
+// rempli (defaultDB) qui n'a jamais porté de vraies données ». Définition UNIQUE réutilisée par
+// les 3 gardes. Se fie à ce qui est RÉELLEMENT dans le blob sbd_profiles — PAS à db.logs (toujours
+// vide : les séances vivent dans workout_sessions, réhydratées par hydrateLogsFromCloud) :
+//   • aucun bestPR réel (0/0/0 — le champ écrasé dans le P0 : 145/140/170 → 0), ET
+//   • profil non abouti : onboarded !== true ET aucun ownerUid (un defaultDB a tout ça vide).
+// Un profil REMPLI (onboarded / ownerUid / un PR) qui aurait « moins » que le cloud reste un vrai
+// profil modifié → NON traité comme vide (push respecté). Aucun appel réseau (garde locale, rapide).
+function _isDefaultDB(d) {
+  if (!d || typeof d !== 'object') return true;                 // pas de blob → traiter comme vide
+  var u = d.user || {};
+  var pr = d.bestPR || {};
+  var hasRealPR = (pr.squat || 0) > 0 || (pr.bench || 0) > 0 || (pr.deadlift || 0) > 0;
+  return !hasRealPR && u.onboarded !== true && !u.ownerUid;
 }
 
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
@@ -15066,9 +15084,10 @@ function syncRoutineWithSelectedDays() {
         try { await resolveIdentity(user.id); }
         catch (e) { if (typeof sentryCaptureSilent === 'function') sentryCaptureSilent(e, 'resolveIdentity:boot'); }
       }
-      // RC4 GARDE 0 — identité résolue → ouvrir le verrou d'auto-sync background. Les branches
-      // de sync ci-dessous sont des pushes EXPLICITES (non gatés) ; Garde 1 protège la richesse.
-      _bootSyncDone = true;
+      // RC4 GARDE 0 — le verrou d'hydratation est posé par resolveIdentity ci-dessus ('kept'/
+      // 'adopted'/'reset-new' → hydrated ; 'deferred'/réseau KO → failed + retry). On NE force
+      // PLUS 'hydrated' ici : un pull échoué doit laisser le verrou fermé (push bloqué) jusqu'à un
+      // pull réussi. Les branches ci-dessous poussent SEULEMENT si le verrou est 'hydrated'.
       if ((db.logs || []).length === 0) {
         await syncFromCloud();
         if (typeof grantMonthlyFreeze === 'function') grantMonthlyFreeze();

@@ -434,10 +434,15 @@ function _canPushToCloud() {
 function _markCloudHydrated() {
   cloudHydrationState = 'hydrated';
   _hydrationRetryArmed = false;
+  // Chantier 7 (garde D-B) : préviens l'ordonnanceur d'entrée qui attend le verdict du pull.
+  if (typeof _obSeqOnHydrationSettled === 'function') _obSeqOnHydrationSettled('hydrated');
 }
 function _markCloudHydrationFailed() {
   if (cloudHydrationState !== 'hydrated') cloudHydrationState = 'failed'; // ne JAMAIS rétrograder un hydraté
   _scheduleHydrationRetry();
+  // Chantier 7 (garde D-B) : pull échoué → l'ordonnanceur masque son écran d'attente
+  // sans rien ouvrir (on ne sait toujours pas) ; le retry le rappellera au succès.
+  if (typeof _obSeqOnHydrationSettled === 'function') _obSeqOnHydrationSettled('failed');
 }
 function _scheduleHydrationRetry() {
   if (_hydrationRetryArmed || cloudHydrationState === 'hydrated') return;
@@ -2134,6 +2139,134 @@ function filtMat(ids, mat) {
     }
     return id;
   });
+}
+
+// ── ORDONNANCEUR D'ENTRÉE (chantier 7, bloc 1) ───────────────────────────────
+// Une seule autorité d'affichage pour les écrans de première visite. Aucun écran
+// d'entrée ne s'auto-déclenche : la file affiche UN écran à la fois, chaque écran
+// signale sa complétion (obSeqDone) et le suivant s'ouvre immédiatement, en local,
+// sans jamais attendre un événement réseau/auth (décisions D-A/D-B/D-C, 21/07/2026).
+// L'état de la file = les flags db existants (résumable au reload) ; aucun nouveau
+// champ persisté. Les étapes newUserOnly ne tournent que dans un tunnel de VRAI
+// nouvel utilisateur — jamais pour un compte établi ni un welcome-back.
+var _obSeqActive = false;           // file démarrée et non terminée
+var _obSeqCurrent = null;           // id de l'étape actuellement affichée
+var _obSeqFreshRun = false;         // true = vrai nouvel utilisateur (tunnel complet)
+var _obSeqWaitingHydration = false; // garde D-B : session email détectée → attendre le pull
+var _obSeqBroken = {};              // étapes dont show() a crashé (skippées, jamais bloquantes)
+
+var OB_SEQ_STEPS = [
+  { id: 'profile',
+    // Onboarding v337 — fast flow ou welcome-back selon les flags (showOnboarding route).
+    isDone: function() { return !needsOnboarding(); },
+    show: function() { showOnboarding(); } },
+  { id: 'plan', newUserOnly: true,
+    // Magic Start (retiré de la file au bloc 4 — une entrée à supprimer).
+    isDone: function() { return !!db._magicStartDone; },
+    show: function() { showMagicStart(); } },
+  { id: 'swipe', newUserOnly: true,
+    isDone: function() {
+      var hasPlan = !!(db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.length);
+      return !hasPlan || (db.user && db.user.trainingMode === 'powerlifting') || !!(db.user && db.user._swipeCompleted);
+    },
+    show: function() { renderSwipeOnboarding(); } },
+  { id: 'classQuiz', newUserOnly: true,
+    // Quiz archétype : APRÈS le profil, jamais par-dessus (décision D-A).
+    isDone: function() { return !!(db.user && db.user.quizDone); },
+    show: function() { showClassQuiz(); } },
+];
+
+function _obSeqFindNext() {
+  for (var i = 0; i < OB_SEQ_STEPS.length; i++) {
+    var s = OB_SEQ_STEPS[i];
+    if (s.newUserOnly && !_obSeqFreshRun) continue;
+    if (_obSeqBroken[s.id]) continue;
+    var done = true;
+    try { done = !!s.isDone(); } catch (e) { done = true; } // étape illisible → ne bloque pas l'entrée
+    if (!done) return s;
+  }
+  return null;
+}
+
+function obSeqStart() {
+  if (_obSeqWaitingHydration) return;              // garde D-B : on ne sait pas encore
+  if (_obSeqActive) { obSeqAdvance(); return; }    // idempotent (double boot, re-check)
+  // La file ne s'engage que si l'ENTRÉE est incomplète (profil manquant ou version en
+  // retard) — les étapes newUserOnly ne tournent jamais seules pour un compte établi.
+  if (!needsOnboarding()) return;
+  _obSeqFreshRun = !(db && db.user && db.user.onboarded);
+  _obSeqActive = true;
+  obSeqAdvance();
+}
+
+function obSeqAdvance() {
+  if (!_obSeqActive || _obSeqWaitingHydration) return;
+  var next = _obSeqFindNext();
+  if (!next) { _obSeqActive = false; _obSeqCurrent = null; return; }
+  if (_obSeqCurrent === next.id) return;           // déjà à l'écran (un seul à la fois)
+  _obSeqCurrent = next.id;
+  try { next.show(); }
+  catch (e) {
+    _obSeqBroken[next.id] = true;                  // un écran qui crashe ne bloque pas l'entrée
+    _obSeqCurrent = null;
+    if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'obSeq:' + next.id);
+    obSeqAdvance();
+  }
+}
+
+function obSeqDone(stepId) {
+  if (_obSeqCurrent === stepId) _obSeqCurrent = null;
+  if (!_obSeqActive) return;
+  obSeqAdvance();
+}
+
+function _obSeqShowLoading() { var el = document.getElementById('obSeqLoading'); if (el) el.style.display = 'flex'; }
+function _obSeqHideLoading() { var el = document.getElementById('obSeqLoading'); if (el) el.style.display = 'none'; }
+
+// Hook appelé par le verrou d'hydratation RC4 (_markCloudHydrated / _markCloudHydrationFailed).
+// 'hydrated' → re-décision COMPLÈTE depuis les flags frais : si le pull a posé un profil
+// onboardé (compte existant — scénario device du 21/07), AUCUN écran de collecte n'aura
+// jamais été affiché ; si le compte est réellement neuf, la file démarre ici.
+// 'failed' → on ne sait toujours pas : aucun écran de collecte, l'app locale reste
+// utilisable ; le retry du pull (30 s / retour online) rappellera ce hook au succès.
+function _obSeqOnHydrationSettled(state) {
+  if (!_obSeqWaitingHydration) return;
+  _obSeqHideLoading();
+  if (state !== 'hydrated') return;
+  _obSeqWaitingHydration = false;
+  _obSeqActive = false; _obSeqCurrent = null;
+  obSeqStart();
+}
+
+// Démarrage au boot LOCAL — garde D-B (décision Aurélien, non négociable) : on n'OUVRE
+// PAS un écran de collecte tant qu'on ne sait pas si l'utilisateur est déjà onboardé.
+//  • db local déjà onboardé (welcome-back version en retard) → on SAIT → affichage
+//    immédiat, indépendant du cloud/email (comportement v338 conservé).
+//  • db local vierge + session EMAIL persistée (compte existant possible, cache vidé) →
+//    attendre le verdict du pull (verrou d'hydratation) derrière l'écran neutre
+//    #obSeqLoading — jamais de flash d'écran de collecte.
+//  • aucune session persistée (vrai appareil vierge) → onboarding immédiat, sans attente.
+async function _obSeqBootStart() {
+  if (!needsOnboarding()) return;
+  var mustWait = false;
+  if (!(db && db.user && db.user.onboarded)) {
+    try {
+      if (typeof supaClient !== 'undefined' && supaClient
+          && typeof cloudHydrationState !== 'undefined' && cloudHydrationState !== 'hydrated') {
+        var r = await supaClient.auth.getSession();
+        var s = r && r.data && r.data.session;
+        mustWait = !!(s && s.user && s.user.email);
+      }
+    } catch (e) {}
+  }
+  if (mustWait) {
+    _obSeqWaitingHydration = true;
+    // Le verrou a pu se poser pendant le getSession — re-vérifier avant d'attendre.
+    if (cloudHydrationState !== 'pending') { _obSeqOnHydrationSettled(cloudHydrationState); return; }
+    _obSeqShowLoading();
+    return; // _obSeqOnHydrationSettled (hook du verrou) prend le relais
+  }
+  obSeqStart();
 }
 
 // ── ONBOARDING FLOW V2 ───────────────────────────────────────

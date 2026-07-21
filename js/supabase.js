@@ -345,11 +345,12 @@ async function resolveIdentity(incomingUid) {
   if (_identityVerdict(ownerUid, incomingUid) === 'keep') {
     // Même propriétaire → on garde le local (aucune adoption à l'aveugle). La priorité au pull
     // cloud au login (GARDE 2) est assurée par le flux de boot (resolveIdentity → syncFromCloud
-    // si local vide/périmé, app.js:15063-15104) et par le merge RICHESSE-conscient de
-    // syncFromCloud (garde 2b) ; la protection anti-écrasement du push est assurée par la garde 1
-    // (concurrence optimiste sur updated_at). Adopter ici via _applyCloudBlob écraserait des logs
-    // locaux non poussés (le blob cloud n'en porte pas) → on ne le fait pas.
+    // si local vide/périmé) et par le merge INTENTION-conscient de syncFromCloud (garde 2b) ;
+    // l'anti-écrasement du push est assuré par la garde 1 (critère _isDefaultDB). Adopter ici via
+    // _applyCloudBlob écraserait des logs locaux non poussés (le blob cloud n'en porte pas).
+    // Appareil établi, même propriétaire → local fiable → verrou d'hydratation OUVERT.
     _stampOwner(incomingUid);
+    if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
     return 'kept';
   }
   var res = await _adoptCloudForUid(incomingUid);
@@ -357,13 +358,18 @@ async function resolveIdentity(incomingUid) {
     if (typeof _clearDeviceSyncMarkers === 'function') _clearDeviceSyncMarkers();
     if (typeof _clearLegacyDbKeys === 'function') _clearLegacyDbKeys();
     _cachedUid = null;
+    if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // cloud adopté → hydraté
     return 'adopted';
   }
   if (res === 'no-row') {
     if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(incomingUid);
+    if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // aucun blob cloud confirmé EN LIGNE → hydraté (rien à écraser)
     return 'reset-new';
   }
-  return 'deferred'; // 'error' : hors-ligne — ne rien détruire, ne rien pousser
+  // 'error' : hors-ligne — ne rien détruire, ne rien pousser. Verrou → 'failed' + retry du pull
+  // (le seul chemin vers 'hydrated' est un pull réussi ; jamais un timeout).
+  if (typeof _markCloudHydrationFailed === 'function') _markCloudHydrationFailed();
+  return 'deferred';
 }
 
 async function syncToCloud(silent) {
@@ -375,8 +381,11 @@ async function syncToCloud(silent) {
     // local est un blob vide/non-hydraté (defaultDB), pas parce qu'il aurait « moins » que le
     // cloud : une suppression VOLONTAIRE de séance sur un vrai profil doit être respectée (jamais
     // annulée par un pull). Suppression de compte : cloudSyncEnabled=false → return tout en haut.
-    // (hydratation) — la réconciliation cloud du boot n'a pas eu lieu → différer (le boot pull).
-    if (typeof _bootSyncDone === 'undefined' || !_bootSyncDone) {
+    // VERROU D'HYDRATATION (3 états) — tant que le 1er pull n'a pas RÉUSSI (pending) ou a ÉCHOUÉ
+    // (failed), on NE pousse PAS (le local part au prochain pull réussi). db reste en localStorage
+    // (aucune perte). Le seul déblocage est un pull réussi (resolveIdentity/syncFromCloud posent
+    // 'hydrated') — jamais un timeout. Écriture locale non affectée (saveDB/_flushDB/IndexedDB).
+    if (typeof _canPushToCloud !== 'function' || !_canPushToCloud()) {
       db.pendingSync = true;
       updateSyncStatus('sync');
       return;
@@ -820,7 +829,8 @@ async function syncFromCloud() {
       var cloudData = data.data;
       var cloudTs = data.updated_at ? new Date(data.updated_at).getTime() : 0;
       if (!cloudTs) {
-        // No server timestamp — push local as fallback
+        // No server timestamp — push local as fallback (blob cloud présent → hydraté)
+        if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
         await syncToCloud(true);
         return true;
       }
@@ -908,6 +918,7 @@ async function syncFromCloud() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
       localStorage.setItem('_lastCloudSync', String(db._cloudUpdatedAt));
       localStorage.setItem('_lastCloudPush', String(cloudTs));
+      if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // pull réussi → verrou OUVERT
       refreshUI();
       // FIX 2 — toast contextuel selon le type de sync
       if (_hasActiveSession) {
@@ -919,11 +930,15 @@ async function syncFromCloud() {
       }
       return true;
     } else {
+      // Aucun blob cloud pour cet uid → rien à écraser → hydraté (le local pourra pousser).
+      if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
       showToast('Aucune donnée cloud trouvée');
       return false;
     }
   } catch(e) {
     console.error('Cloud pull:', e);
+    // Pull ÉCHOUÉ (réseau) → verrou 'failed' + retry planifié. JAMAIS de déblocage sans pull réussi.
+    if (typeof _markCloudHydrationFailed === 'function') _markCloudHydrationFailed();
     showToast('Erreur chargement cloud');
     return false;
   }

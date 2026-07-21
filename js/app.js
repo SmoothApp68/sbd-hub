@@ -1543,6 +1543,9 @@ function showSheet(opts) {
 // ── PRIORITÉ 1 — Consentement données de santé ──────────────
 
 function checkRequiredConsents() {
+  // Chantier 7 : jamais par-dessus la file d'entrée — le consentement y est posé par
+  // ob-consent au moment « Générer ». Filet conservé pour les comptes existants.
+  if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
   if (!db.user.consentHealth) {
     setTimeout(showConsentModal, 600);
   }
@@ -2395,6 +2398,9 @@ function obFinishWelcomeBack() {
   saveDB();
   hideOnboarding();
   showToast('Profil à jour !');
+  // Chantier 7 : fin de l'étape 'profile' (run welcome-back : la file s'arrête là,
+  // les étapes newUserOnly ne concernent pas un compte établi).
+  if (typeof obSeqDone === 'function') obSeqDone('profile');
 }
 
 // ── ONBOARDING V3 — flux découplé (niveau · discipline · objectif · matériel · style) ──
@@ -3499,37 +3505,18 @@ function obFinish() {
   refreshUI();
   renderProgramViewer();
   showToast('Bienvenue ' + (db.user.name||'') + ' ! 🚀');
-  // Bypass magicStart si le programme a déjà été généré + déclencher le swipe
-  // (Gemini : "Instant Value — jamais bloquer avant de montrer le programme")
+  // Bypass magicStart si le programme a déjà été généré (l'étape 'plan' de la file
+  // le constate via le flag). Gemini : "Instant Value — jamais bloquer avant de
+  // montrer le programme".
   var _hasPlan = !!(db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.length);
-  var _isPowerlifting = db.user && db.user.trainingMode === 'powerlifting';
   if (_hasPlan && !db._magicStartDone) {
     db._magicStartDone = true;
     saveDB();
   }
-  if (!db._magicStartDone) {
-    setTimeout(showMagicStart, 400);
-  }
-  if (_hasPlan && !_isPowerlifting && !db.user._swipeCompleted) {
-    setTimeout(function() {
-      try { renderSwipeOnboarding(); } catch (e) {
-        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderSwipeOnboarding');
-      }
-    }, 800);
-  }
-  // Enchaîner l'onboarding social si user connecté et pas encore de pseudo
-  setTimeout(async function() {
-    var isLoggedIn = false;
-    try {
-      if (typeof supaClient !== 'undefined' && supaClient) {
-        var session = await supaClient.auth.getSession();
-        isLoggedIn = !!(session && session.data && session.data.session);
-      }
-    } catch(e) {}
-    if (isLoggedIn && (!db.social || !db.social.onboardingCompleted)) {
-      if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
-    }
-  }, 500);
+  // Chantier 7 (bloc 1) : fin de l'étape 'profile' — la file d'entrée affiche la
+  // suite (plan → swipe → quiz), immédiatement, sans timer. Le social n'est PLUS
+  // enchaîné ici : il vit au premier accès à l'onglet Social (initSocialTab).
+  if (typeof obSeqDone === 'function') obSeqDone('profile');
 }
 
 // ============================================================
@@ -3628,6 +3615,9 @@ function handleMagicChoice(choice) {
       showTab('tab-dash');
       break;
   }
+  // Chantier 7 : fin de l'étape 'plan' — la file poursuit (swipe si un plan existe,
+  // sinon quiz archétype), sans timer.
+  if (typeof obSeqDone === 'function') obSeqDone('plan');
 }
 
 // ============================================================
@@ -5398,6 +5388,8 @@ function showClassQuiz() {
         if (typeof syncToCloud === 'function') syncToCloud();
         overlay.remove();
         if (typeof renderGamificationTab === 'function') renderGamificationTab();
+        // Chantier 7 : fin de l'étape 'classQuiz' (dernière de la file d'entrée).
+        if (typeof obSeqDone === 'function') obSeqDone('classQuiz');
       };
     }, 1200);
   }
@@ -11729,6 +11721,8 @@ window.skipSwipeOnboarding = function() {
     db.user._swipeCompleted = true;
     saveDB();
   }
+  // Chantier 7 : fin de l'étape 'swipe' (passée).
+  if (typeof obSeqDone === 'function') obSeqDone('swipe');
 };
 
 function applySwipeResults(results) {
@@ -11777,6 +11771,8 @@ function applySwipeResults(results) {
 
   saveDB();
   if (typeof showToast === 'function') showToast('✅ Préférences enregistrées — Programme personnalisé !');
+  // Chantier 7 : fin de l'étape 'swipe' (complétée).
+  if (typeof obSeqDone === 'function') obSeqDone('swipe');
 }
 
 // ── RENDU MÉSOCYCLE (v241) ────────────────────────────────────────────────────
@@ -15197,14 +15193,11 @@ function syncRoutineWithSelectedDays() {
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
-    // Helper: show onboarding then quiz — only for authenticated email users
+    // Chantier 7 (1b) : l'entrée passe par l'ordonnanceur — plus de showOnboarding
+    // direct ni de timer quiz (+400) ici. La garde email tombe au commit 1c.
     function _showFirstRunUI(user) {
       if (!user || !user.email) return; // skip for anonymous / no-auth
-      if (needsOnboarding()) showOnboarding();
-      db.gamification = db.gamification || {};
-      if (!db.user.quizDone) {
-        setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
-      }
+      obSeqStart();
     }
     cloudSignIn().then(async user => {
       if (!user) return;

@@ -1299,10 +1299,14 @@ function loginOffline() {
   if (banner) { banner.textContent = '📡 Mode hors-ligne'; banner.style.display = 'block'; }
 }
 
-function showLoginScreen() {
+function showLoginScreen(force) {
   // Don't show login screen on waitlist route — checkWaitlistRoute() manages display
   if (window.location.hash === '#waitlist' ||
       (window.location.search && window.location.search.includes('waitlist'))) return;
+  // Chantier 7 (D-B) : pendant la file d'entrée (ou l'attente d'hydratation), aucun
+  // login ne passe par-dessus les écrans de la file — seul le lien explicite
+  // « J'ai déjà un compte » (obSeqGotoLogin → force=true) l'ouvre.
+  if (!force && typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
   const el = document.getElementById('loginScreen');
   if (el) el.style.display = 'flex';
 }
@@ -1310,6 +1314,9 @@ function showLoginScreen() {
 function hideLoginScreen() {
   const el = document.getElementById('loginScreen');
   if (el) { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; }, 300); }
+  // Chantier 7 : le bouton « Retour à la configuration » ne survit pas à une fermeture.
+  const back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'none';
 }
 
 // Called during app init — checks session and shows login if needed
@@ -1325,6 +1332,10 @@ async function checkAuthGate() {
       return;
     }
     // No session — voluntary logout or full cache clear → show login
+    // Chantier 7 (D-B) : un appareil vierge non onboardé passe par la file d'entrée
+    // (onboarding-first) — le login reste accessible via « J'ai déjà un compte » (q1).
+    if (typeof needsOnboarding === 'function' && typeof db !== 'undefined' && db && db.user
+        && !db.user.onboarded && needsOnboarding()) return;
     showLoginScreen();
   } catch(e) {
     // Network error — let user continue offline
@@ -1338,6 +1349,9 @@ async function checkPasswordMigration(user) {
 
   // Anonymous user (no email) — sign out silently, show login screen
   if (!user.email) {
+    // Chantier 7 : pendant la file d'entrée (ou l'attente D-B), la session anonyme est
+    // le support cloud silencieux du boot — ne pas la couper ni ouvrir le login par-dessus.
+    if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
     await supaClient.auth.signOut();
     cloudSyncEnabled = false;
     updateCloudUI(null);

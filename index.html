@@ -1941,6 +1941,8 @@
 
       <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;margin-top:8px;">
         <button id="loginOfflineBtn" onclick="loginOffline()" style="width:100%;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#7878A8;font-size:13px;font-weight:600;cursor:pointer;">Continuer hors-ligne</button>
+        <!-- Chantier 7 (D-B) : visible uniquement quand le login est ouvert depuis la file (obSeqGotoLogin) -->
+        <button id="loginBackToOb" onclick="loginBackFromOb()" style="display:none;width:100%;padding:12px;background:none;border:none;color:#7878A8;font-size:13px;cursor:pointer;margin-top:8px;">← Retour à la configuration</button>
       </div>
     </div>
   </div>
@@ -2023,6 +2025,8 @@
           </div>
         </div>
         <button class="btn" id="ob-q1-continue" onclick="obSaveQ1()" disabled>Continuer →</button>
+        <!-- Chantier 7 (D-B) : échappatoire pour un utilisateur existant sur appareil neuf -->
+        <div class="ob-skip" onclick="obSeqGotoLogin()">J'ai déjà un compte — Se connecter</div>
       </div>
 
       <!-- Q1b : Discipline -->

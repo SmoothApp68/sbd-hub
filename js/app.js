@@ -2272,6 +2272,27 @@ async function _obSeqBootStart() {
   obSeqStart();
 }
 
+// « J'ai déjà un compte » (lien sur q1, décision D-B) : on met la file en pause —
+// AUCUN écran de collecte pendant que l'utilisateur se connecte — et on ouvre le
+// login (force=true : seul chemin qui passe la garde de showLoginScreen). Après un
+// login réussi, le pull décide via le hook d'hydratation (compte onboardé → la file
+// se referme sans avoir rien montré) ; le bouton retour reprend la file où elle était.
+function obSeqGotoLogin() {
+  hideOnboarding();
+  _obSeqCurrent = null;
+  _obSeqWaitingHydration = true;
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'block';
+  if (typeof showLoginScreen === 'function') showLoginScreen(true);
+}
+function loginBackFromOb() {
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'none';
+  if (typeof hideLoginScreen === 'function') hideLoginScreen();
+  _obSeqWaitingHydration = false;
+  if (_obSeqActive) obSeqAdvance(); else obSeqStart();
+}
+
 // ── ONBOARDING FLOW V2 ───────────────────────────────────────
 var OB_STEP_SEQUENCE = ['1','2','3','4','5','6','7'];
 
@@ -15181,24 +15202,17 @@ function syncRoutineWithSelectedDays() {
     }
   }, 0);
 
-  // Welcome-back v4 au boot LOCAL (indépendant du cloud/email) : un utilisateur
-  // DÉJÀ onboardé dont la version est en retard voit l'écran (pose coachingStyle)
-  // sans dépendre de cloudSignIn/email. Le db local est le point de vérité
-  // (déjà rehydraté + migré ici). Les NOUVEAUX utilisateurs (non onboardés) restent
-  // gérés par le flux cloud+email (_showFirstRunUI) — inscription inchangée.
-  // Idempotent (showOnboarding no-op si déjà ouvert) → un seul affichage par boot.
-  if (db.user && db.user.onboarded && needsOnboarding()) {
-    try { showOnboarding(); } catch (e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'welcomeBackBoot'); }
-  }
+  // Chantier 7 (1c) — DÉ-GATING : l'entrée démarre au boot LOCAL via l'ordonnanceur,
+  // pour TOUT utilisateur dont l'entrée est incomplète (nouveau : fast flow q1 ;
+  // onboardé version en retard : welcome-back v338 conservé) — plus aucune dépendance
+  // cloud/email. Garde D-B intégrée : session email persistée sur db vierge →
+  // _obSeqBootStart attend le verdict du pull (aucun écran de collecte, jamais de flash).
+  try {
+    _obSeqBootStart().catch(function(e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'obSeqBootStart'); });
+  } catch (e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'obSeqBootStart'); }
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
-    // Chantier 7 (1b) : l'entrée passe par l'ordonnanceur — plus de showOnboarding
-    // direct ni de timer quiz (+400) ici. La garde email tombe au commit 1c.
-    function _showFirstRunUI(user) {
-      if (!user || !user.email) return; // skip for anonymous / no-auth
-      obSeqStart();
-    }
     cloudSignIn().then(async user => {
       if (!user) return;
       // RC4 — garde d'identité avant toute sync : un blob résiduel appartenant à un autre
@@ -15220,7 +15234,6 @@ function syncRoutineWithSelectedDays() {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         setTimeout(_restoreLastTabFromCloud, 0);
-        _showFirstRunUI(user);
         return;
       }
       if (!db.lastSync) {
@@ -15262,8 +15275,8 @@ function syncRoutineWithSelectedDays() {
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
       }
-      // Onboarding + quiz after all sync paths resolve
-      _showFirstRunUI(user);
+      // Chantier 7 (1c) : plus d'affichage d'entrée ici — l'ordonnanceur (boot local +
+      // hook d'hydratation) est la seule autorité.
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause (heartbeats, pas sbd_profiles)

@@ -104,6 +104,17 @@ describe('showLoginScreen — garde maîtresse pendant la file', () => {
   });
 });
 
+describe('loginOffline — reprise locale d\'une file en pause', () => {
+  test('« Continuer hors-ligne » depuis le login ouvert via q1 → la file reprend (pas d\'app vide)', () => {
+    const { ctx } = build({ db: { user: { onboarded: false, onboardingVersion: 0 } } });
+    let resumed = 0;
+    ctx._obSeqResumeLocal = () => { resumed++; };
+    vm.runInContext(extractFn(SUPA, 'loginOffline'), ctx);
+    ctx.loginOffline();
+    expect(resumed).toBe(1);
+  });
+});
+
 describe('checkPasswordMigration — session anonyme pendant la file', () => {
   test('file active → la session anonyme n\'est NI coupée NI remplacée par le login', async () => {
     const { ctx, calls, loginEl } = build({ db: { user: { onboarded: false } }, fileActive: true });

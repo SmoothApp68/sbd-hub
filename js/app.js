@@ -2319,18 +2319,20 @@ function loginBackFromOb() {
   if (_obSeqActive) obSeqAdvance(); else obSeqStart();
 }
 
-// Signup effectué pendant une pause de la file (« J'ai déjà un compte » → Inscription,
-// ou attente D-B) : PAS de session tant que l'email n'est pas confirmé → aucun hook
-// d'hydratation ne viendra. On reprend l'entrée en LOCAL, tout de suite (le blob vient
-// d'être adopté ou purgé par _claimLocalOnSignup) — plus jamais d'app vide post-signup
-// (le vécu +test2107 du diagnostic).
-function _obSeqResumeAfterSignup() {
+// Reprise LOCALE d'une file en pause (« J'ai déjà un compte » puis Inscription ou
+// « Continuer hors-ligne ») : dans ces cas aucun hook d'hydratation ne viendra
+// (signup = pas de session tant que l'email n'est pas confirmé ; offline = pas de
+// pull). On re-décide tout de suite depuis les flags locaux — plus jamais d'app
+// vide post-signup (le vécu +test2107 du diagnostic).
+function _obSeqResumeLocal() {
   if (!_obSeqWaitingHydration) return;
   _obSeqWaitingHydration = false;
   _obSeqHideLoading();
   _obSeqActive = false; _obSeqCurrent = null;
   obSeqStart();
 }
+// Alias rétro-compatible (handlers signup) — même reprise.
+function _obSeqResumeAfterSignup() { _obSeqResumeLocal(); }
 
 // ── ONBOARDING FLOW V2 ───────────────────────────────────────
 var OB_STEP_SEQUENCE = ['1','2','3','4','5','6','7'];

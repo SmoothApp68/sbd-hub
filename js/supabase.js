@@ -1325,6 +1325,10 @@ async function loginForgotPwd() {
 
 function loginOffline() {
   hideLoginScreen();
+  // Chantier 7 : si le login avait été ouvert depuis la file (« J'ai déjà un compte »)
+  // ou pendant l'attente D-B, continuer hors-ligne = reprendre l'entrée en LOCAL —
+  // jamais d'app vide derrière une file restée en pause.
+  if (typeof _obSeqResumeLocal === 'function') _obSeqResumeLocal();
   // Show offline indicator
   const banner = document.getElementById('offlineBanner');
   if (banner) { banner.textContent = '📡 Mode hors-ligne'; banner.style.display = 'block'; }

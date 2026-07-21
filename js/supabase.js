@@ -332,6 +332,37 @@ async function _adoptCloudForUid(uid) {
   } catch (e) { console.warn('_adoptCloudForUid:', e); return 'error'; }
 }
 
+// RC4 — UNION des séances à l'ADOPTION (TOFU). Quand on adopte le cloud sur un blob local SANS
+// ownerUid (1er login sur un appareil qui a loggé hors-ligne), _applyCloudBlob remplace db par le
+// blob cloud (db.logs vidé) : une séance loggée hors-ligne — présente uniquement dans le local
+// d'AVANT l'adoption, jamais poussée (un local non tatoué ne pousse pas), keyée par log.id
+// (= session_id de workout_sessions) — serait perdue. On la RÉUNIT avec l'historique cloud :
+//   1. réinjecter les séances locales pré-adoption dans db.logs (union par log.id),
+//   2. pull de l'historique cloud (reconcileLogsFromCloud ajoute les séances distantes manquantes),
+//   3. recalcBestPR depuis l'union (le PR découle des séances — aucun conflit à trancher),
+//   4. push des séances locales absentes du cloud vers workout_sessions (syncLogsToSupabase, keyé
+//      session_id ; blob tatoué + rempli → garde 1 / _canPushForOwner OK).
+// Séances immuables + identifiées → l'union est toujours correcte. preAdoptLogs est VIDE pour un
+// local tatoué à un AUTRE uid (capturé côté resolveIdentity) → jamais de fusion inter-comptes.
+async function _reconcileAdoptedSessions(uid, preAdoptLogs) {
+  var local = Array.isArray(preAdoptLogs) ? preAdoptLogs : [];
+  if (local.length === 0) return; // rien de local à préserver (appareil vierge, ou local d'un autre owner)
+  // 1) réinjecter les séances locales (l'adoption a laissé db.logs ≈ [] : le blob n'a pas de logs)
+  db.logs = _reconcileLogs(local, Array.isArray(db.logs) ? db.logs : []);
+  // 2) union avec l'historique cloud (workout_sessions) — ajoute les séances distantes manquantes
+  if (typeof reconcileLogsFromCloud === 'function') {
+    try { await reconcileLogsFromCloud(uid); } catch (e) { console.warn('[RC4] adoption: pull historique cloud échoué', e); }
+  }
+  // 3) bestPR depuis l'union (une séance offline qui bat un PR le fait monter)
+  if (typeof recalcBestPR === 'function') { try { recalcBestPR(); } catch (e) {} }
+  if (typeof saveDBNow === 'function') saveDBNow();
+  // 4) pousser les séances locales absentes du cloud (l'offline) → workout_sessions (keyé session_id)
+  if (typeof syncLogsToSupabase === 'function') {
+    try { await syncLogsToSupabase(uid); } catch (e) { console.warn('[RC4] adoption: push séances offline échoué', e); }
+  }
+  if (typeof refreshUI === 'function') { try { refreshUI(); } catch (e) {} }
+}
+
 // RC4 — résolution d'identité ADOPT-FIRST (jamais purge-à-l'aveugle). Appelée à chaque
 // transition authentifiée (boot session restaurée, SIGNED_IN, login/signup). On ne détruit
 // JAMAIS le local avant d'avoir sécurisé le cloud :
@@ -353,12 +384,22 @@ async function resolveIdentity(incomingUid) {
     if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
     return 'kept';
   }
+  // RC4 — capturer les séances locales AVANT l'adoption, UNIQUEMENT si le local est NON TATOUÉ
+  // (TOFU : 1er login sur un blob sans owner → ces séances appartiennent à l'entrant). Un local
+  // tatoué à un AUTRE uid ne doit pas voir ses séances fusionnées dans le compte entrant (fuite) →
+  // capture vide. Sert à l'union anti-perte de la séance hors-ligne (cf. _reconcileAdoptedSessions).
+  var _preAdoptLogs = (!ownerUid && db && Array.isArray(db.logs)) ? db.logs.slice() : [];
   var res = await _adoptCloudForUid(incomingUid);
   if (res === 'has-data') {
     if (typeof _clearDeviceSyncMarkers === 'function') _clearDeviceSyncMarkers();
     if (typeof _clearLegacyDbKeys === 'function') _clearLegacyDbKeys();
     _cachedUid = null;
     if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // cloud adopté → hydraté
+    // UNION anti-perte : réinjecte les séances offline (TOFU) + historique cloud, puis les pousse.
+    if (typeof _reconcileAdoptedSessions === 'function') {
+      try { await _reconcileAdoptedSessions(incomingUid, _preAdoptLogs); }
+      catch (e) { console.warn('[RC4] adoption: réconciliation des séances échouée', e); }
+    }
     return 'adopted';
   }
   if (res === 'no-row') {

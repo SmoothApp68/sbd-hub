@@ -268,3 +268,124 @@ describe('RC4 — resolveIdentity pose le verrou d\'hydratation (vraie source)',
     expect(c.db.logs).toHaveLength(2);
   });
 });
+
+// ── FIX perte de séance à l'adoption : UNION par session_id (= log.id) ─────────────────────────
+// Le trou : à l'adoption TOFU, _applyCloudBlob remplace db par le blob cloud (db.logs vidé) → une
+// séance loggée hors-ligne (local pré-adoption, jamais poussée) était perdue. _reconcileAdoptedSessions
+// la réunit (union par log.id/session_id) avec l'historique cloud puis la pousse. Vraie source, vm.
+describe('RC4 — union des séances à l\'adoption (anti-perte offline)', () => {
+  function makeSupa(cloudBlob, cloudSessions) {
+    const calls = { upserts: [], deletes: [] };
+    function resolveQuery(q) {
+      if (q.table === 'sbd_profiles') {
+        if (q.op === 'select') return { data: cloudBlob ? { data: cloudBlob, updated_at: '2026-07-20T00:00:00Z' } : null, error: null };
+        if (q.op === 'upsert') return { data: { updated_at: '2026-07-20T00:00:00Z' }, error: null };
+      }
+      if (q.table === 'workout_sessions') {
+        if (q.op === 'select' && q.cols === 'session_id') return { data: (cloudSessions || []).map(function (s) { return { session_id: s.session_id }; }), error: null };
+        if (q.op === 'select' && q.cols === 'data') {
+          var list = q.inList ? (cloudSessions || []).filter(function (s) { return q.inList.indexOf(s.session_id) !== -1; }) : (cloudSessions || []);
+          return { data: list.map(function (s) { return { data: s.data }; }), error: null };
+        }
+        if (q.op === 'upsert') { (q.payload || []).forEach(function (r) { calls.upserts.push(r); }); return { data: null, error: null }; }
+        if (q.op === 'delete') { calls.deletes.push(q.inList || 'all'); return { data: null, error: null }; }
+      }
+      return { data: null, error: null };
+    }
+    function builder(table) {
+      var q = { table: table, op: 'select', cols: null, inList: null, payload: null };
+      var b = {
+        select: function (cols) { q.op = 'select'; q.cols = cols; return b; },
+        eq: function () { return b; }, in: function (col, list) { q.inList = list; return b; },
+        order: function () { return b; }, range: function () { return b; },
+        upsert: function (rows) { q.op = 'upsert'; q.payload = rows; return b; },
+        delete: function () { q.op = 'delete'; return b; },
+        maybeSingle: function () { return Promise.resolve(resolveQuery(q)); },
+        single: function () { return Promise.resolve(resolveQuery(q)); },
+        then: function (res, rej) { return Promise.resolve(resolveQuery(q)).then(res, rej); },
+      };
+      return b;
+    }
+    return { _calls: calls, auth: { getUser: async function () { return { data: { user: { id: 'A' } } }; } }, from: function (t) { return builder(t); } };
+  }
+  function ctx({ db, cloudBlob, cloudSessions }) {
+    const supa = makeSupa(cloudBlob, cloudSessions);
+    const c = {
+      JSON, Date, parseInt, String, Object, Array, Math, Promise, console: { warn() {}, error() {}, log() {} },
+      localStorage: lsStore(), STORAGE_KEY: 'SBD_HUB_V29', cloudSyncEnabled: true, navigator: { onLine: true },
+      setTimeout() { return 1; }, refreshUI() {}, showToast() {}, updateSyncStatus() {},
+      _clearDeviceSyncMarkers() {}, _clearLegacyDbKeys() {}, _invalidateCachedUid() {}, sentryCaptureSilent() {},
+      saveDB() {}, saveDBNow() {}, __recalcCalled: false, recalcBestPR() { c.__recalcCalled = true; },
+      supaClient: supa, __supa: supa, db,
+    };
+    vm.createContext(c);
+    vm.runInContext('var _cachedUid;', c);
+    vm.runInContext('var cloudHydrationState="pending"; var _hydrationRetryArmed=false;', c);
+    ['_identityVerdict', '_stampOwner', '_canPushForOwner', '_markCloudHydrated', '_markCloudHydrationFailed', '_scheduleHydrationRetry', '_retryHydration']
+      .forEach(function (n) { vm.runInContext(extractFn(APP, n), c); });
+    ['_applyCloudBlob', '_adoptCloudForUid', '_reconcileAdoptedSessions', 'resolveIdentity', 'reconcileLogsFromCloud', '_reconcileLogs', '_logEditClock', 'syncLogsToSupabase', 'computeWorkoutSessionsSyncPlan', '_wsLogHash']
+      .forEach(function (n) { vm.runInContext(extractFn(SUPA, n), c); });
+    return c;
+  }
+  const upsertedIds = (c) => c.__supa._calls.upserts.map(function (u) { return u.session_id; });
+  const logIds = (c) => vm.runInContext('db.logs.map(function(l){return l.id;})', c);
+
+  test('(a) 🔴 offline (session_id absent du cloud) → survit dans db.logs, poussée, + historique cloud réuni ; (e) bestPR recalculé', async () => {
+    const c = ctx({
+      db: { user: { ownerUid: 'A' }, logs: [], bestPR: {}, gamification: {} },
+      cloudSessions: [{ session_id: 'H1', data: { id: 'H1', timestamp: 3000 } }, { session_id: 'H2', data: { id: 'H2', timestamp: 2000 } }],
+    });
+    c._pre = [{ id: 'X', timestamp: 5000, volume: 100, exercises: [{}] }]; // séance hors-ligne
+    await vm.runInContext('_reconcileAdoptedSessions("A", _pre)', c);
+    expect(logIds(c)).toEqual(['X', 'H1', 'H2']);   // union par log.id/session_id (tri desc)
+    expect(upsertedIds(c)).toEqual(['X']);          // seule l'offline est poussée (keyée session_id)
+    expect(c.__recalcCalled).toBe(true);            // (e) bestPR depuis l'union
+  });
+  test('(b) collision session_id local↔cloud → une seule occurrence (la plus récente editedAt)', () => {
+    const c = ctx({ db: { user: { ownerUid: 'A' }, logs: [] }, cloudSessions: [] });
+    c._local = [{ id: 'X', timestamp: 200, editedAt: 200 }];
+    c._cloud = [{ id: 'X', timestamp: 200, editedAt: 100 }];
+    const merged = vm.runInContext('_reconcileLogs(_local, _cloud)', c);
+    expect(merged.length).toBe(1);
+    expect(merged[0].editedAt).toBe(200);
+  });
+  test('preAdoptLogs vide (nouvel appareil vierge OU local d\'un autre owner) → no-op : aucune fusion, aucun upsert', async () => {
+    const c = ctx({ db: { user: { ownerUid: 'A' }, logs: [], bestPR: {}, gamification: {} }, cloudSessions: [] });
+    c._pre = [];
+    await vm.runInContext('_reconcileAdoptedSessions("A", _pre)', c);
+    expect(upsertedIds(c).length).toBe(0);
+  });
+  test('(a bis) resolveIdentity TOFU (local NON tatoué + offline) → adopte, séance offline conservée ET poussée, historique cloud là', async () => {
+    const c = ctx({
+      db: { user: { ownerUid: null, onboarded: false }, logs: [{ id: 'X', timestamp: 5000, exercises: [{}] }], bestPR: {}, gamification: {} },
+      cloudBlob: { user: { name: 'Aurel', onboarded: true }, bestPR: { squat: 145 }, exercises: { a: {} } },
+      cloudSessions: [{ session_id: 'H1', data: { id: 'H1', timestamp: 3000 } }],
+    });
+    const r = await vm.runInContext("resolveIdentity('A')", c);
+    expect(r).toBe('adopted');
+    expect(logIds(c)).toContain('X');   // séance offline conservée
+    expect(logIds(c)).toContain('H1');  // historique cloud réuni
+    expect(upsertedIds(c)).toContain('X'); // offline poussée au cloud
+  });
+  test('(d) resolveIdentity local tatoué à un AUTRE uid → adopte le cloud SANS fusionner ses séances (pas de fuite)', async () => {
+    const c = ctx({
+      db: { user: { ownerUid: 'B', onboarded: true }, logs: [{ id: 'BSESSION', timestamp: 9000 }], bestPR: { squat: 200 }, gamification: {} },
+      cloudBlob: { user: { name: 'Aurel', onboarded: true }, bestPR: { squat: 145 }, exercises: {} },
+      cloudSessions: [{ session_id: 'H1', data: { id: 'H1', timestamp: 3000 } }],
+    });
+    const r = await vm.runInContext("resolveIdentity('A')", c);
+    expect(r).toBe('adopted');
+    expect(logIds(c)).not.toContain('BSESSION'); // la séance de B n'est PAS fusionnée
+    expect(upsertedIds(c)).not.toContain('BSESSION'); // ni poussée
+  });
+  test('(c) resolveIdentity keep (même owner) → local conservé, séance offline intacte (non-régression)', async () => {
+    const c = ctx({
+      db: { user: { ownerUid: 'A', onboarded: true }, logs: [{ id: 'X', timestamp: 5000 }], bestPR: { squat: 145 }, gamification: {} },
+      cloudBlob: { user: { name: 'Aurel' }, bestPR: { squat: 145 } },
+      cloudSessions: [],
+    });
+    const r = await vm.runInContext("resolveIdentity('A')", c);
+    expect(r).toBe('kept');
+    expect(logIds(c)).toEqual(['X']);
+  });
+});

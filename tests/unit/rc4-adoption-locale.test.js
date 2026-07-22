@@ -136,6 +136,60 @@ describe('D-D resserrée — _claimLocalOnSignup (signup : adopter ou purger)', 
   });
 });
 
+// VERROU DU FINDING P1-A/C (revue) — le scénario bêta-testeur, bout en bout, aux deux chemins
+// d'entrée. Un utilisateur A utilise l'app 100 % en local (onboarding + séances), SANS jamais
+// créer de compte → blob rempli, ownerUid null, construit dans une session ANTÉRIEURE (donc au
+// prochain boot, _obSeqFreshTunnelSession = false : le flag est par-session, remis à zéro au
+// reload). Une AUTRE personne B s'inscrit sur le même appareil. Les données santé + séances de A
+// ne doivent JAMAIS être adoptées, tatouées ni poussées dans le compte de B ; B repart vierge.
+describe('VERROU anti-fuite P1-A/C — blob d\'une session antérieure + inscription d\'un tiers', () => {
+  test('SIGNUP (_claimLocalOnSignup) : PAS d\'adoption, résiduel purgé, B vierge, rien de A en base', () => {
+    const ls = makeLS();
+    const aBlob = filledLocalOnboarding();          // A : Léa, onboardée, 65 kg
+    aBlob.logs = [{ id: 'seance-de-A' }];
+    ls.setItem('SBD_HUB_V29', JSON.stringify(aBlob));
+    // Boot d'une NOUVELLE session : aucun tunnel n'a tourné (freshTunnel:false)
+    const ctx = buildClaim(ls, JSON.parse(JSON.stringify(aBlob)), { freshTunnel: false });
+    const res = vm.runInContext("_claimLocalOnSignup('B-UID')", ctx);
+    expect(res).toBe('reset');                       // purge, PAS adoption
+    expect(ctx.db.user.ownerUid).toBe('B-UID');      // tatoué à B
+    expect(ctx.db.user.name || '').not.toBe('Léa');  // les données de A ont disparu du db
+    expect(ctx.db.user.onboarded).toBe(false);        // B repart vierge → onboarding
+    expect(ctx.db.logs.length).toBe(0);               // la séance de A n'est plus là
+    // _resetLocalToOwner PURGE la clé (le handler la ré-écrit ensuite via saveDB) : le profil
+    // de A a totalement disparu du localStorage — aucune trace exploitable (anti-fuite locale).
+    const persisted = ls.getItem('SBD_HUB_V29') || '';
+    expect(persisted).not.toContain('Léa');
+    expect(persisted).not.toContain('seance-de-A');
+    const sbdKeys = Object.keys(ls._store).filter((k) => k.indexOf('SBD_HUB') === 0);
+    expect(sbdKeys.length).toBe(0);                   // toutes les clés SBD_HUB* purgées
+  });
+
+  test('LOGIN \'no-row\' (resolveIdentity) : reset-new, AUCUN push du blob ni des séances de A', async () => {
+    const ls = makeLS();
+    const aBlob = filledLocalOnboarding();
+    aBlob.logs = [{ id: 'seance-de-A' }];
+    // B se connecte à SON compte (sans ligne sbd_profiles), sur l'appareil portant le blob de A,
+    // dans une session où aucun tunnel n'a tourné.
+    const { ctx, calls } = buildResolve(ls, JSON.parse(JSON.stringify(aBlob)), { data: null }, { freshTunnel: false });
+    const res = await vm.runInContext("resolveIdentity('B-UID')", ctx);
+    expect(res).toBe('reset-new');                   // purge sûre, PAS 'adopted-local'
+    expect(ctx.db.user.name || '').not.toBe('Léa');  // rien de A ne survit
+    expect(calls.pushBlob).toBe(0);                  // aucun profil poussé dans le compte de B
+    expect(calls.pushLogs).toBe(0);                  // aucune séance de A poussée
+    expect(calls.reconciled).toBe(0);                // aucune fusion des séances de A
+  });
+
+  test('CONTRASTE : le MÊME blob, mais construit dans la session courante (tunnel) → adopté (D-D légitime)', () => {
+    // Preuve que le discriminant est bien « cette session » : seul le contexte de session change.
+    const ls = makeLS();
+    const ctx = buildClaim(ls, filledLocalOnboarding(), { freshTunnel: true });
+    const res = vm.runInContext("_claimLocalOnSignup('MOI-UID')", ctx);
+    expect(res).toBe('adopted');                     // je viens de le saisir → il est à moi
+    expect(ctx.db.user.name).toBe('Léa');
+  });
+});
+
 describe('D-E — _shouldResolveIdentityFor (une seule règle boot + handler)', () => {
   const build = () => buildClaim(makeLS(), filledLocalOnboarding());
   test('identité email → true', () => {

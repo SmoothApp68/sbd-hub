@@ -434,10 +434,15 @@ function _canPushToCloud() {
 function _markCloudHydrated() {
   cloudHydrationState = 'hydrated';
   _hydrationRetryArmed = false;
+  // Chantier 7 (garde D-B) : préviens l'ordonnanceur d'entrée qui attend le verdict du pull.
+  if (typeof _obSeqOnHydrationSettled === 'function') _obSeqOnHydrationSettled('hydrated');
 }
 function _markCloudHydrationFailed() {
   if (cloudHydrationState !== 'hydrated') cloudHydrationState = 'failed'; // ne JAMAIS rétrograder un hydraté
   _scheduleHydrationRetry();
+  // Chantier 7 (garde D-B) : pull échoué → l'ordonnanceur masque son écran d'attente
+  // sans rien ouvrir (on ne sait toujours pas) ; le retry le rappellera au succès.
+  if (typeof _obSeqOnHydrationSettled === 'function') _obSeqOnHydrationSettled('failed');
 }
 function _scheduleHydrationRetry() {
   if (_hydrationRetryArmed || cloudHydrationState === 'hydrated') return;
@@ -1538,6 +1543,9 @@ function showSheet(opts) {
 // ── PRIORITÉ 1 — Consentement données de santé ──────────────
 
 function checkRequiredConsents() {
+  // Chantier 7 : jamais par-dessus la file d'entrée — le consentement y est posé par
+  // ob-consent au moment « Générer ». Filet conservé pour les comptes existants.
+  if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
   if (!db.user.consentHealth) {
     setTimeout(showConsentModal, 600);
   }
@@ -1812,6 +1820,34 @@ function _isDefaultDB(d) {
   var pr = d.bestPR || {};
   var hasRealPR = (pr.squat || 0) > 0 || (pr.bench || 0) > 0 || (pr.deadlift || 0) > 0;
   return !hasRealPR && u.onboarded !== true && !u.ownerUid;
+}
+
+// Chantier 7 (1e, décision D-D) — création de compte : le blob local est soit ADOPTÉ,
+// soit PURGÉ. Un blob REMPLI et NON tatoué (TOFU — onboarding complété en local avant
+// la création du compte) appartient à la personne qui tient l'appareil : tatouage au
+// nouvel uid, pas de purge. Tout le reste garde la purge d'origine (defaultDB →
+// repartir vierge ; tatoué à un AUTRE uid → anti-fuite inchangée). Critère
+// d'INTENTION UNIQUE : _isDefaultDB (aucune variante). Pur hors I/O → testé.
+function _claimLocalOnSignup(uid) {
+  if (!uid) return 'ignored';
+  // Anti-fuite (fix revue) : n'adopter que si le blob a été construit par le tunnel
+  // d'onboarding de CETTE session (_localBlobClaimable). Un résiduel rempli non tatoué
+  // (utilisateur hors-ligne établi, ou blob d'autrui sur appareil partagé) → purge.
+  if (_localBlobClaimable(db)) {
+    _stampOwner(uid);
+    if (typeof saveDBNow === 'function') saveDBNow(); else if (typeof saveDB === 'function') saveDB();
+    return 'adopted';
+  }
+  _resetLocalToOwner(uid);
+  return 'reset';
+}
+
+// Chantier 7 (1e, décision D-E) — SEULE une identité EMAIL résout l'identité (boot ET
+// handler onAuthStateChange, une seule règle). Un uid ANONYME change à chaque visite :
+// le laisser passer tatouerait/purgerait le blob local, et l'onboarding local
+// deviendrait un « blob d'autrui » au signup (la mine du diagnostic). Pure → testée.
+function _shouldResolveIdentityFor(user) {
+  return !!(user && user.id && user.email);
 }
 
 // Décide si le local peut être purgé après appel à l'Edge Function delete-account.
@@ -2136,6 +2172,282 @@ function filtMat(ids, mat) {
   });
 }
 
+// ── ORDONNANCEUR D'ENTRÉE (chantier 7, bloc 1) ───────────────────────────────
+// Une seule autorité d'affichage pour les écrans de première visite. Aucun écran
+// d'entrée ne s'auto-déclenche : la file affiche UN écran à la fois, chaque écran
+// signale sa complétion (obSeqDone) et le suivant s'ouvre immédiatement, en local,
+// sans jamais attendre un événement réseau/auth (décisions D-A/D-B/D-C, 21/07/2026).
+// L'état de la file = les flags db existants (résumable au reload) ; aucun nouveau
+// champ persisté. Les étapes newUserOnly ne tournent que dans un tunnel de VRAI
+// nouvel utilisateur — jamais pour un compte établi ni un welcome-back.
+var _obSeqActive = false;           // file démarrée et non terminée
+var _obSeqCurrent = null;           // id de l'étape actuellement affichée
+var _obSeqFreshRun = false;         // true = vrai nouvel utilisateur (tunnel complet)
+var _obSeqWaitingHydration = false; // garde D-B : session email détectée au BOOT → attendre le pull
+var _obSeqLoginPause = false;       // pause MANUELLE (« J'ai déjà un compte ») — distincte du wait D-B
+var _obSeqFreshTunnelSession = false; // un tunnel d'onboarding a RÉELLEMENT tourné dans CETTE session
+var _obSeqBroken = {};              // étapes dont show() a crashé (skippées, jamais bloquantes)
+
+// Une pause (attente d'hydratation D-B OU pause login manuelle) bloque toute ouverture d'écran.
+function _obSeqPaused() { return _obSeqWaitingHydration || _obSeqLoginPause; }
+
+// Chantier 7 (fix revue, anti-fuite RC4) — un blob local n'est ADOPTABLE par une création de
+// compte (signup) ou un 1er login sans ligne cloud ('no-row') que s'il a été RÉELLEMENT
+// construit par le tunnel d'onboarding de CETTE session : le porteur de l'appareil est présent
+// et vient de le remplir. Un blob rempli non tatoué qui n'a PAS été produit par le tunnel de
+// cette session est un RÉSIDUEL (utilisateur hors-ligne établi jamais tatoué, ou blob d'un
+// tiers) → jamais adopté (purge). Ferme la fuite trouvée en revue : `_isDefaultDB` seul ne
+// distingue pas « je viens d'onboarder » de « résiduel d'autrui ». Un blob TATOUÉ (à soi via
+// 'kept', ou à autrui) ne passe jamais ici. NB : décision D-D resserrée — coût assumé : un
+// nouvel utilisateur qui FINIT l'onboarding, RECHARGE, puis crée son compte reste non adopté
+// (le marqueur de session est perdu au reload une fois le tunnel terminé) → il repart vierge
+// (échec sûr, aucune fuite). Le chemin dominant (onboarding → compte dans la même session, ou
+// reload EN COURS de tunnel via le marqueur persisté db._obSeqTunnel) reste adopté.
+function _localBlobClaimable(d) {
+  if (!_obSeqFreshTunnelSession) return false;                 // aucun onboarding local cette session
+  if (d && d.user && d.user.ownerUid) return false;            // tatoué → traité ailleurs (jamais ici)
+  return (typeof _isDefaultDB === 'function') ? !_isDefaultDB(d) : false; // rempli (intention) ET non tatoué
+}
+
+var OB_SEQ_STEPS = [
+  { id: 'profile',
+    // Onboarding v337 — fast flow ou welcome-back selon les flags (showOnboarding route).
+    isDone: function() { return !needsOnboarding(); },
+    show: function() { showOnboarding(); } },
+  { id: 'plan', newUserOnly: true,
+    // Magic Start (retiré de la file au bloc 4 — une entrée à supprimer).
+    isDone: function() { return !!db._magicStartDone; },
+    show: function() { showMagicStart(); } },
+  { id: 'swipe', newUserOnly: true,
+    isDone: function() {
+      var hasPlan = !!(db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.length);
+      return !hasPlan || (db.user && db.user.trainingMode === 'powerlifting') || !!(db.user && db.user._swipeCompleted);
+    },
+    show: function() { renderSwipeOnboarding(); } },
+  { id: 'classQuiz', newUserOnly: true,
+    // Quiz archétype : APRÈS le profil, jamais par-dessus (décision D-A).
+    isDone: function() { return !!(db.user && db.user.quizDone); },
+    show: function() { showClassQuiz(); } },
+];
+
+function _obSeqFindNext() {
+  for (var i = 0; i < OB_SEQ_STEPS.length; i++) {
+    var s = OB_SEQ_STEPS[i];
+    if (s.newUserOnly && !_obSeqFreshRun) continue;
+    if (_obSeqBroken[s.id]) continue;
+    var done = true;
+    try { done = !!s.isDone(); } catch (e) { done = true; } // étape illisible → ne bloque pas l'entrée
+    if (!done) return s;
+  }
+  return null;
+}
+
+function obSeqStart() {
+  if (_obSeqPaused()) return;                       // garde D-B / pause login : on ne sait pas encore
+  if (_obSeqActive) { obSeqAdvance(); return; }    // idempotent (double boot, re-check)
+  // La file s'engage si l'ENTRÉE est incomplète (profil manquant ou version en retard)
+  // OU si un tunnel de nouvel utilisateur est resté inachevé (db._obSeqTunnel : posé au
+  // 1er run frais, effacé à la complétion, synchronisé dans le blob). Sans ce marqueur,
+  // un reload juste après obFinish perdrait Magic Start/swipe/quiz pour toujours —
+  // le risque pointé en D-A (« un écran sans rattrapage risque de n'être jamais vu »).
+  // Un compte établi (sans marqueur) ne reçoit JAMAIS les étapes newUserOnly.
+  var tunnelPending = !!(db && db._obSeqTunnel);
+  if (!needsOnboarding() && !tunnelPending) return;
+  _obSeqFreshRun = tunnelPending || !(db && db.user && db.user.onboarded);
+  if (_obSeqFreshRun) {
+    if (db) db._obSeqTunnel = true;               // persisté au prochain saveDB (obFinish au plus tard)
+    _obSeqFreshTunnelSession = true;              // un onboarding local a tourné cette session → blob adoptable
+  }
+  _obSeqActive = true;
+  obSeqAdvance();
+}
+
+function obSeqAdvance() {
+  if (!_obSeqActive || _obSeqPaused()) return;
+  var next = _obSeqFindNext();
+  if (!next) {
+    _obSeqActive = false; _obSeqCurrent = null;
+    // Tunnel frais terminé → effacer le marqueur de reprise (persisté).
+    if (db && db._obSeqTunnel) { delete db._obSeqTunnel; if (typeof saveDB === 'function') saveDB(); }
+    // À la clôture, ré-évaluer la porte d'auth : un compte établi déconnecté (welcome-back
+    // sans session email) doit revoir le login — la garde de showLoginScreen l'avait avalé
+    // pendant la file. Un nouveau tunnel sans compte (D-C) ne force jamais le login.
+    _obSeqReconcileAuthAtClose();
+    return;
+  }
+  if (_obSeqCurrent === next.id) return;           // déjà à l'écran (un seul à la fois)
+  _obSeqCurrent = next.id;
+  try { next.show(); }
+  catch (e) {
+    _obSeqBroken[next.id] = true;                  // un écran qui crashe ne bloque pas l'entrée
+    _obSeqCurrent = null;
+    if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'obSeq:' + next.id);
+    obSeqAdvance();
+  }
+}
+
+// P2-E — à la clôture de la file, un compte ÉTABLI déconnecté (welcome-back : onboardé mais
+// sans session email) doit revoir l'écran de connexion. Un vrai NOUVEAU tunnel (D-C : pas de
+// compte forcé) ne le voit jamais. Asynchrone (getSession), inoffensif si pas de supaClient.
+function _obSeqReconcileAuthAtClose() {
+  if (_obSeqFreshRun) return;                       // nouveau tunnel → pas de login forcé (D-C)
+  try {
+    if (typeof supaClient === 'undefined' || !supaClient) return;
+    Promise.resolve(supaClient.auth.getSession()).then(function(r) {
+      var s = r && r.data && r.data.session;
+      if (!s || !s.user || !s.user.email) {
+        if (typeof showLoginScreen === 'function') showLoginScreen(true);
+      }
+    }).catch(function() {});
+  } catch (e) {}
+}
+
+function obSeqDone(stepId) {
+  if (_obSeqCurrent === stepId) _obSeqCurrent = null;
+  if (!_obSeqActive) return;
+  obSeqAdvance();
+}
+
+function _obSeqShowLoading() { var el = document.getElementById('obSeqLoading'); if (el) el.style.display = 'flex'; }
+function _obSeqHideLoading() { var el = document.getElementById('obSeqLoading'); if (el) el.style.display = 'none'; }
+
+// Hook appelé par le verrou d'hydratation RC4 (_markCloudHydrated / _markCloudHydrationFailed).
+// Ne concerne QUE l'attente D-B du boot (_obSeqWaitingHydration) — jamais la pause login
+// manuelle (_obSeqLoginPause), sinon un settle d'un pull ANONYME romprait « J'ai déjà un
+// compte » et ré-ouvrirait un écran de collecte (fuite D-B trouvée en revue).
+// 'hydrated' → re-décision COMPLÈTE depuis les flags frais : si le pull a posé un profil
+//   onboardé (compte existant — scénario device du 21/07), AUCUN écran de collecte n'aura
+//   jamais été affiché ; si le compte est réellement neuf, la file démarre ici.
+// 'failed'  → session email présente mais pull non abouti → on NE flashe PAS d'écran de
+//   collecte (D-B). On garde l'attente armée (un retry du verrou peut encore résoudre) et on
+//   propose la connexion : re-auth résout proprement, « hors-ligne » reprend en local.
+function _obSeqOnHydrationSettled(state) {
+  if (!_obSeqWaitingHydration) return;
+  _obSeqHideLoading();
+  if (state === 'hydrated') {
+    _obSeqWaitingHydration = false;
+    _obSeqActive = false; _obSeqCurrent = null;
+    if (typeof hideLoginScreen === 'function') hideLoginScreen(); // au cas où un 'failed' l'aurait montré
+    obSeqStart();
+    return;
+  }
+  // 'failed' : ne pas lever l'attente (le retry peut résoudre) — proposer la connexion.
+  if (typeof showLoginScreen === 'function') showLoginScreen(true);
+}
+
+// Démarrage au boot LOCAL — garde D-B (décision Aurélien, non négociable) : on n'OUVRE
+// PAS un écran de collecte tant qu'on ne sait pas si l'utilisateur est déjà onboardé.
+//  • db local déjà onboardé (welcome-back version en retard) → on SAIT → affichage
+//    immédiat, indépendant du cloud/email (comportement v338 conservé).
+//  • db local vierge + session EMAIL persistée (compte existant possible, cache vidé) →
+//    attendre le verdict du pull (verrou d'hydratation) derrière l'écran neutre
+//    #obSeqLoading — jamais de flash d'écran de collecte.
+//  • aucune session persistée (vrai appareil vierge) → onboarding immédiat, sans attente.
+async function _obSeqBootStart() {
+  // P2-D — un logout volontaire vient de recharger : montrer le LOGIN (pas l'onboarding).
+  // Marqueur one-shot device-local (hors blob), consommé ici.
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('_obSeqPostLogout')) {
+      localStorage.removeItem('_obSeqPostLogout');
+      if (typeof showLoginScreen === 'function') showLoginScreen(true);
+      return;
+    }
+  } catch (e) {}
+  if (!needsOnboarding() && !(db && db._obSeqTunnel)) return;
+  var mustWait = false;
+  if (!(db && db.user && db.user.onboarded)) {
+    try {
+      if (typeof supaClient !== 'undefined' && supaClient
+          && typeof cloudHydrationState !== 'undefined' && cloudHydrationState !== 'hydrated') {
+        var r = await supaClient.auth.getSession();
+        var s = r && r.data && r.data.session;
+        mustWait = !!(s && s.user && s.user.email);
+      }
+    } catch (e) {}
+  }
+  if (mustWait) {
+    _obSeqWaitingHydration = true;
+    // Le verrou a pu se poser pendant le getSession — re-vérifier avant d'attendre.
+    if (cloudHydrationState !== 'pending') { _obSeqOnHydrationSettled(cloudHydrationState); return; }
+    _obSeqShowLoading();
+    // P3-A — WATCHDOG : si la chaîne cloud du boot meurt sans jamais poser le verrou
+    // (cloudSignIn null sur refresh token expiré → ni resolveIdentity ni syncFromCloud →
+    // aucun settle), l'état reste 'pending' → spinner à vie. Filet : au bout de 12 s encore
+    // 'pending', forcer 'failed' (→ hook : masque le spinner + propose la connexion, sans
+    // jamais flasher d'écran de collecte). Un pull réel qui aboutit avant annule le besoin.
+    try {
+      setTimeout(function() {
+        if (_obSeqWaitingHydration && typeof cloudHydrationState !== 'undefined'
+            && cloudHydrationState === 'pending'
+            && typeof _markCloudHydrationFailed === 'function') {
+          _markCloudHydrationFailed();
+        }
+      }, 12000);
+    } catch (e) {}
+    return; // _obSeqOnHydrationSettled (hook du verrou) prend le relais
+  }
+  obSeqStart();
+}
+
+// « J'ai déjà un compte » (lien sur q1, décision D-B) : on met la file en pause —
+// AUCUN écran de collecte pendant que l'utilisateur se connecte — et on ouvre le
+// login (force=true : seul chemin qui passe la garde de showLoginScreen). Après un
+// login réussi, le pull décide via le hook d'hydratation (compte onboardé → la file
+// se referme sans avoir rien montré) ; le bouton retour reprend la file où elle était.
+function obSeqGotoLogin() {
+  hideOnboarding();
+  _obSeqCurrent = null;
+  // Pause MANUELLE distincte de l'attente D-B : le hook d'hydratation (settle d'un pull
+  // anonyme) ne doit PAS la lever — sinon il ré-ouvrirait un écran de collecte par-dessus
+  // le login (fuite D-B trouvée en revue). Seuls loginBackFromOb, un login réussi
+  // (_obSeqOnLoginResolved) ou « hors-ligne » (_obSeqResumeLocal) la lèvent.
+  _obSeqLoginPause = true;
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'block';
+  if (typeof showLoginScreen === 'function') showLoginScreen(true);
+}
+function loginBackFromOb() {
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'none';
+  if (typeof hideLoginScreen === 'function') hideLoginScreen();
+  _obSeqLoginPause = false;
+  if (_obSeqActive) obSeqAdvance(); else obSeqStart();
+}
+
+// Login RÉUSSI depuis la pause manuelle (loginSubmit/authSubmit, branche login, APRÈS
+// resolveIdentity) : lever la pause et re-décider depuis les flags frais. Compte onboardé
+// (résolu par le pull/adoption) → la file ne s'engage pas ; compte neuf → onboarding.
+function _obSeqOnLoginResolved() {
+  _obSeqLoginPause = false;
+  _obSeqWaitingHydration = false;
+  _obSeqHideLoading();
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'none';
+  // Le login a résolu une identité : un marqueur de tunnel LOCAL abandonné (onboarding
+  // commencé AVANT « J'ai déjà un compte ») ne doit PAS relancer les étapes new-user pour
+  // un compte adopté déjà onboardé. resolveIdentity remplace en général db par le blob cloud
+  // (sans marqueur) ; on efface défensivement au cas où (verdict 'kept').
+  if (db && db._obSeqTunnel && db.user && db.user.onboarded) { try { delete db._obSeqTunnel; } catch (e) {} }
+  _obSeqActive = false; _obSeqCurrent = null;
+  obSeqStart();
+}
+
+// Reprise LOCALE d'une file en pause (« J'ai déjà un compte » puis Inscription ou
+// « Continuer hors-ligne ») : dans ces cas aucun hook d'hydratation ne viendra
+// (signup = pas de session tant que l'email n'est pas confirmé ; offline = pas de
+// pull). On re-décide tout de suite depuis les flags locaux — plus jamais d'app
+// vide post-signup (le vécu +test2107 du diagnostic).
+function _obSeqResumeLocal() {
+  if (!_obSeqWaitingHydration && !_obSeqLoginPause) return;
+  _obSeqWaitingHydration = false;
+  _obSeqLoginPause = false;
+  _obSeqHideLoading();
+  _obSeqActive = false; _obSeqCurrent = null;
+  obSeqStart();
+}
+// Alias rétro-compatible (handlers signup) — même reprise.
+function _obSeqResumeAfterSignup() { _obSeqResumeLocal(); }
+
 // ── ONBOARDING FLOW V2 ───────────────────────────────────────
 var OB_STEP_SEQUENCE = ['1','2','3','4','5','6','7'];
 
@@ -2262,6 +2574,9 @@ function obFinishWelcomeBack() {
   saveDB();
   hideOnboarding();
   showToast('Profil à jour !');
+  // Chantier 7 : fin de l'étape 'profile' (run welcome-back : la file s'arrête là,
+  // les étapes newUserOnly ne concernent pas un compte établi).
+  if (typeof obSeqDone === 'function') obSeqDone('profile');
 }
 
 // ── ONBOARDING V3 — flux découplé (niveau · discipline · objectif · matériel · style) ──
@@ -3366,37 +3681,18 @@ function obFinish() {
   refreshUI();
   renderProgramViewer();
   showToast('Bienvenue ' + (db.user.name||'') + ' ! 🚀');
-  // Bypass magicStart si le programme a déjà été généré + déclencher le swipe
-  // (Gemini : "Instant Value — jamais bloquer avant de montrer le programme")
+  // Bypass magicStart si le programme a déjà été généré (l'étape 'plan' de la file
+  // le constate via le flag). Gemini : "Instant Value — jamais bloquer avant de
+  // montrer le programme".
   var _hasPlan = !!(db.weeklyPlan && db.weeklyPlan.days && db.weeklyPlan.days.length);
-  var _isPowerlifting = db.user && db.user.trainingMode === 'powerlifting';
   if (_hasPlan && !db._magicStartDone) {
     db._magicStartDone = true;
     saveDB();
   }
-  if (!db._magicStartDone) {
-    setTimeout(showMagicStart, 400);
-  }
-  if (_hasPlan && !_isPowerlifting && !db.user._swipeCompleted) {
-    setTimeout(function() {
-      try { renderSwipeOnboarding(); } catch (e) {
-        if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'renderSwipeOnboarding');
-      }
-    }, 800);
-  }
-  // Enchaîner l'onboarding social si user connecté et pas encore de pseudo
-  setTimeout(async function() {
-    var isLoggedIn = false;
-    try {
-      if (typeof supaClient !== 'undefined' && supaClient) {
-        var session = await supaClient.auth.getSession();
-        isLoggedIn = !!(session && session.data && session.data.session);
-      }
-    } catch(e) {}
-    if (isLoggedIn && (!db.social || !db.social.onboardingCompleted)) {
-      if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
-    }
-  }, 500);
+  // Chantier 7 (bloc 1) : fin de l'étape 'profile' — la file d'entrée affiche la
+  // suite (plan → swipe → quiz), immédiatement, sans timer. Le social n'est PLUS
+  // enchaîné ici : il vit au premier accès à l'onglet Social (initSocialTab).
+  if (typeof obSeqDone === 'function') obSeqDone('profile');
 }
 
 // ============================================================
@@ -3495,6 +3791,9 @@ function handleMagicChoice(choice) {
       showTab('tab-dash');
       break;
   }
+  // Chantier 7 : fin de l'étape 'plan' — la file poursuit (swipe si un plan existe,
+  // sinon quiz archétype), sans timer.
+  if (typeof obSeqDone === 'function') obSeqDone('plan');
 }
 
 // ============================================================
@@ -5265,6 +5564,8 @@ function showClassQuiz() {
         if (typeof syncToCloud === 'function') syncToCloud();
         overlay.remove();
         if (typeof renderGamificationTab === 'function') renderGamificationTab();
+        // Chantier 7 : fin de l'étape 'classQuiz' (dernière de la file d'entrée).
+        if (typeof obSeqDone === 'function') obSeqDone('classQuiz');
       };
     }, 1200);
   }
@@ -11596,6 +11897,8 @@ window.skipSwipeOnboarding = function() {
     db.user._swipeCompleted = true;
     saveDB();
   }
+  // Chantier 7 : fin de l'étape 'swipe' (passée).
+  if (typeof obSeqDone === 'function') obSeqDone('swipe');
 };
 
 function applySwipeResults(results) {
@@ -11644,6 +11947,8 @@ function applySwipeResults(results) {
 
   saveDB();
   if (typeof showToast === 'function') showToast('✅ Préférences enregistrées — Programme personnalisé !');
+  // Chantier 7 : fin de l'étape 'swipe' (complétée).
+  if (typeof obSeqDone === 'function') obSeqDone('swipe');
 }
 
 // ── RENDU MÉSOCYCLE (v241) ────────────────────────────────────────────────────
@@ -15052,33 +15357,25 @@ function syncRoutineWithSelectedDays() {
     }
   }, 0);
 
-  // Welcome-back v4 au boot LOCAL (indépendant du cloud/email) : un utilisateur
-  // DÉJÀ onboardé dont la version est en retard voit l'écran (pose coachingStyle)
-  // sans dépendre de cloudSignIn/email. Le db local est le point de vérité
-  // (déjà rehydraté + migré ici). Les NOUVEAUX utilisateurs (non onboardés) restent
-  // gérés par le flux cloud+email (_showFirstRunUI) — inscription inchangée.
-  // Idempotent (showOnboarding no-op si déjà ouvert) → un seul affichage par boot.
-  if (db.user && db.user.onboarded && needsOnboarding()) {
-    try { showOnboarding(); } catch (e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'welcomeBackBoot'); }
-  }
+  // Chantier 7 (1c) — DÉ-GATING : l'entrée démarre au boot LOCAL via l'ordonnanceur,
+  // pour TOUT utilisateur dont l'entrée est incomplète (nouveau : fast flow q1 ;
+  // onboardé version en retard : welcome-back v338 conservé) — plus aucune dépendance
+  // cloud/email. Garde D-B intégrée : session email persistée sur db vierge →
+  // _obSeqBootStart attend le verdict du pull (aucun écran de collecte, jamais de flash).
+  try {
+    _obSeqBootStart().catch(function(e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'obSeqBootStart'); });
+  } catch (e) { if (typeof logErrorToSupabase === 'function') logErrorToSupabase('render_crash', String(e && e.message || e), 'obSeqBootStart'); }
 
   // Auth gate: show login screen if not authenticated
   checkAuthGate().then(() => {
-    // Helper: show onboarding then quiz — only for authenticated email users
-    function _showFirstRunUI(user) {
-      if (!user || !user.email) return; // skip for anonymous / no-auth
-      if (needsOnboarding()) showOnboarding();
-      db.gamification = db.gamification || {};
-      if (!db.user.quizDone) {
-        setTimeout(function() { if (typeof showClassQuiz === 'function') showClassQuiz(); }, 400);
-      }
-    }
     cloudSignIn().then(async user => {
       if (!user) return;
       // RC4 — garde d'identité avant toute sync : un blob résiduel appartenant à un autre
       // compte ne doit être ni adopté ni poussé. Uniquement pour une vraie identité (email) ;
-      // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque boot).
-      if (user.email && typeof resolveIdentity === 'function') {
+      // les uid anonymes changent à chaque visite (les garder purgerait le local à chaque
+      // boot). Règle UNIQUE partagée avec le handler auth : _shouldResolveIdentityFor (1e).
+      if ((typeof _shouldResolveIdentityFor === 'function' ? _shouldResolveIdentityFor(user) : !!user.email)
+          && typeof resolveIdentity === 'function') {
         // Adopt-first : ne détruit jamais le local avant d'avoir sécurisé le cloud (hors ligne
         // → ne touche à rien ; le blob non-tatoué reste non-poussable).
         try { await resolveIdentity(user.id); }
@@ -15094,7 +15391,6 @@ function syncRoutineWithSelectedDays() {
         if (typeof calcAndStoreLiftRanks === 'function') calcAndStoreLiftRanks();
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         setTimeout(_restoreLastTabFromCloud, 0);
-        _showFirstRunUI(user);
         return;
       }
       if (!db.lastSync) {
@@ -15136,8 +15432,8 @@ function syncRoutineWithSelectedDays() {
         if (typeof calcAndStoreMuscleRanks === 'function') calcAndStoreMuscleRanks(true);
         syncToCloud(true);
       }
-      // Onboarding + quiz after all sync paths resolve
-      _showFirstRunUI(user);
+      // Chantier 7 (1c) : plus d'affichage d'entrée ici — l'ordonnanceur (boot local +
+      // hook d'hydratation) est la seule autorité.
       // Check password migration for existing magic-link users
       checkPasswordMigration(user);
       // Keep-alive ping to prevent Supabase project pause (heartbeats, pas sbd_profiles)
@@ -32938,6 +33234,9 @@ async function appSignOut() {
       // La reconnexion re-pull le cloud (source de vérité). Le reload re-part d'un defaultDB.
       if (typeof _purgeLocalSession === 'function') _purgeLocalSession();
       else { if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb(); db = defaultDB(); }
+      // P2-D (fix revue) — marqueur one-shot : au reload, montrer le LOGIN (pas l'onboarding
+      // q1). Un logout volontaire ≠ un appareil vierge ; l'utilisateur veut se reconnecter.
+      try { localStorage.setItem('_obSeqPostLogout', '1'); } catch (e) {}
       setTimeout(function() { window.location.reload(); }, 300);
     },
     'Annuler'
@@ -32964,11 +33263,10 @@ async function postLoginSync() {
       if (typeof syncToCloud === 'function') syncToCloud(true);
     }
     if (typeof ensureProfile === 'function') await ensureProfile();
-    if (!db.social || !db.social.onboardingCompleted) {
-      setTimeout(function() {
-        if (typeof showSocialOnboarding === 'function') showSocialOnboarding();
-      }, 800);
-    }
+    // Chantier 7 (1d) : l'onboarding social n'est PLUS poussé après login (timer +800
+    // supprimé — il concurrençait la file d'entrée et passait devant l'onboarding,
+    // DOM-postérieur à z égal). Il vit à sa place naturelle : premier accès à
+    // l'onglet Social (initSocialTab), hors du tunnel d'entrée.
     // Notifications J1→J30
     if (typeof checkScheduledNotifications === 'function') checkScheduledNotifications();
     // RGPD — check health consent

@@ -68,6 +68,7 @@ function build(initialDb, opts) {
   vm.runInContext(extractFn(APP, 'loginBackFromOb'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqOnLoginResolved'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqResumeLocal'), ctx);
+  vm.runInContext(extractFn(APP, '_obSeqResumeAfterSignup'), ctx);
   // Écrans stubbés (spies) — la source appelle les vrais noms
   ctx.showOnboarding = () => { shows.profile++; };
   ctx.showMagicStart = () => { shows.plan++; };
@@ -383,6 +384,38 @@ describe('P2-D — logout ramène au login, pas à l\'onboarding (fix revue)', (
     expect(loginCalls.showForce).toBe(1);
     expect(totalShows(shows)).toBe(0); // onboarding NON démarré
     expect(removed).toBe(true);         // marqueur consommé (one-shot)
+  });
+});
+
+describe('FIX B1 — signup post-logout : l\'onboarding démarre SANS reload (device 22/07)', () => {
+  test('aucune pause armée (chemin logout → login screen → Inscription) → la file démarre quand même', () => {
+    // Reproduit le constat device : _claimLocalOnSignup vient de poser un defaultDB tatoué,
+    // AUCUNE pause n'a jamais été armée (ni lien q1, ni attente D-B).
+    const dbPostSignup = { user: { onboarded: false, onboardingVersion: 0, ownerUid: 'NEW-UID' }, _magicStartDone: false, weeklyPlan: null };
+    const { ctx, shows } = build(dbPostSignup);
+    expect(ctx._obSeqWaitingHydration).toBe(false);
+    expect(ctx._obSeqLoginPause).toBe(false);
+    ctx._obSeqResumeAfterSignup();
+    expect(shows.profile).toBe(1);        // q1 s'ouvre immédiatement — plus de reload nécessaire
+    expect(ctx._obSeqActive).toBe(true);
+  });
+
+  test('signup depuis une pause « J\'ai déjà un compte » → lève la pause et démarre (comportement conservé)', () => {
+    const { ctx, shows } = build(freshDb());
+    ctx.obSeqStart();
+    ctx.obSeqGotoLogin();                  // pause login armée
+    // _claimLocalOnSignup a purgé (blob mid-onboarding = defaultDB) puis :
+    ctx._obSeqResumeAfterSignup();
+    expect(ctx._obSeqLoginPause).toBe(false);
+    expect(ctx._obSeqActive).toBe(true);   // la file repart sur q1
+  });
+
+  test('compte qui n\'a pas besoin de la file (onboardé, pas de tunnel) → no-op sûr', () => {
+    const done = { user: { onboarded: true, onboardingVersion: 4, ownerUid: 'U1' } };
+    const { ctx, shows } = build(done);
+    ctx._obSeqResumeAfterSignup();
+    expect(totalShows(shows)).toBe(0);     // obSeqStart gardé par needsOnboarding
+    expect(ctx._obSeqActive).toBe(false);
   });
 });
 

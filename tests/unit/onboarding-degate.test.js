@@ -32,7 +32,7 @@ function build(opts) {
     setTimeout: (fn) => {},
   };
   vm.createContext(ctx);
-  vm.runInContext('var _obSeqActive=' + !!opts.fileActive + ', _obSeqWaitingHydration=' + !!opts.waiting + ';', ctx);
+  vm.runInContext('var _obSeqActive=' + !!opts.fileActive + ', _obSeqWaitingHydration=' + !!opts.waiting + ', _obSeqLoginPause=' + !!opts.loginPause + ';', ctx);
   vm.runInContext(extractFn(APP, 'needsOnboarding'), ctx);
   vm.runInContext(extractFn(SUPA, 'showLoginScreen'), ctx);
   vm.runInContext(extractFn(SUPA, 'hideLoginScreen'), ctx);
@@ -91,8 +91,14 @@ describe('showLoginScreen — garde maîtresse pendant la file', () => {
     expect(loginEl.style.display).toBe('none');
   });
 
-  test('force=true (lien « J\'ai déjà un compte ») → s\'affiche même pendant la file', () => {
-    const { ctx, loginEl } = build({ db: { user: {} }, fileActive: true, waiting: true });
+  test('pause login manuelle → no-op sans force', () => {
+    const { ctx, loginEl } = build({ db: { user: {} }, loginPause: true });
+    ctx.showLoginScreen();
+    expect(loginEl.style.display).toBe('none');
+  });
+
+  test('force=true (lien « J\'ai déjà un compte ») → s\'affiche même pendant la file/pause', () => {
+    const { ctx, loginEl } = build({ db: { user: {} }, fileActive: true, waiting: true, loginPause: true });
     ctx.showLoginScreen(true);
     expect(loginEl.style.display).toBe('flex');
   });

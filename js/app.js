@@ -1830,8 +1830,10 @@ function _isDefaultDB(d) {
 // d'INTENTION UNIQUE : _isDefaultDB (aucune variante). Pur hors I/O → testé.
 function _claimLocalOnSignup(uid) {
   if (!uid) return 'ignored';
-  var owner = (typeof db !== 'undefined' && db && db.user && db.user.ownerUid) || null;
-  if (!owner && !_isDefaultDB(db)) {
+  // Anti-fuite (fix revue) : n'adopter que si le blob a été construit par le tunnel
+  // d'onboarding de CETTE session (_localBlobClaimable). Un résiduel rempli non tatoué
+  // (utilisateur hors-ligne établi, ou blob d'autrui sur appareil partagé) → purge.
+  if (_localBlobClaimable(db)) {
     _stampOwner(uid);
     if (typeof saveDBNow === 'function') saveDBNow(); else if (typeof saveDB === 'function') saveDB();
     return 'adopted';
@@ -2181,8 +2183,31 @@ function filtMat(ids, mat) {
 var _obSeqActive = false;           // file démarrée et non terminée
 var _obSeqCurrent = null;           // id de l'étape actuellement affichée
 var _obSeqFreshRun = false;         // true = vrai nouvel utilisateur (tunnel complet)
-var _obSeqWaitingHydration = false; // garde D-B : session email détectée → attendre le pull
+var _obSeqWaitingHydration = false; // garde D-B : session email détectée au BOOT → attendre le pull
+var _obSeqLoginPause = false;       // pause MANUELLE (« J'ai déjà un compte ») — distincte du wait D-B
+var _obSeqFreshTunnelSession = false; // un tunnel d'onboarding a RÉELLEMENT tourné dans CETTE session
 var _obSeqBroken = {};              // étapes dont show() a crashé (skippées, jamais bloquantes)
+
+// Une pause (attente d'hydratation D-B OU pause login manuelle) bloque toute ouverture d'écran.
+function _obSeqPaused() { return _obSeqWaitingHydration || _obSeqLoginPause; }
+
+// Chantier 7 (fix revue, anti-fuite RC4) — un blob local n'est ADOPTABLE par une création de
+// compte (signup) ou un 1er login sans ligne cloud ('no-row') que s'il a été RÉELLEMENT
+// construit par le tunnel d'onboarding de CETTE session : le porteur de l'appareil est présent
+// et vient de le remplir. Un blob rempli non tatoué qui n'a PAS été produit par le tunnel de
+// cette session est un RÉSIDUEL (utilisateur hors-ligne établi jamais tatoué, ou blob d'un
+// tiers) → jamais adopté (purge). Ferme la fuite trouvée en revue : `_isDefaultDB` seul ne
+// distingue pas « je viens d'onboarder » de « résiduel d'autrui ». Un blob TATOUÉ (à soi via
+// 'kept', ou à autrui) ne passe jamais ici. NB : décision D-D resserrée — coût assumé : un
+// nouvel utilisateur qui FINIT l'onboarding, RECHARGE, puis crée son compte reste non adopté
+// (le marqueur de session est perdu au reload une fois le tunnel terminé) → il repart vierge
+// (échec sûr, aucune fuite). Le chemin dominant (onboarding → compte dans la même session, ou
+// reload EN COURS de tunnel via le marqueur persisté db._obSeqTunnel) reste adopté.
+function _localBlobClaimable(d) {
+  if (!_obSeqFreshTunnelSession) return false;                 // aucun onboarding local cette session
+  if (d && d.user && d.user.ownerUid) return false;            // tatoué → traité ailleurs (jamais ici)
+  return (typeof _isDefaultDB === 'function') ? !_isDefaultDB(d) : false; // rempli (intention) ET non tatoué
+}
 
 var OB_SEQ_STEPS = [
   { id: 'profile',
@@ -2218,7 +2243,7 @@ function _obSeqFindNext() {
 }
 
 function obSeqStart() {
-  if (_obSeqWaitingHydration) return;              // garde D-B : on ne sait pas encore
+  if (_obSeqPaused()) return;                       // garde D-B / pause login : on ne sait pas encore
   if (_obSeqActive) { obSeqAdvance(); return; }    // idempotent (double boot, re-check)
   // La file s'engage si l'ENTRÉE est incomplète (profil manquant ou version en retard)
   // OU si un tunnel de nouvel utilisateur est resté inachevé (db._obSeqTunnel : posé au
@@ -2229,18 +2254,25 @@ function obSeqStart() {
   var tunnelPending = !!(db && db._obSeqTunnel);
   if (!needsOnboarding() && !tunnelPending) return;
   _obSeqFreshRun = tunnelPending || !(db && db.user && db.user.onboarded);
-  if (_obSeqFreshRun && db) db._obSeqTunnel = true; // persisté au prochain saveDB (obFinish au plus tard)
+  if (_obSeqFreshRun) {
+    if (db) db._obSeqTunnel = true;               // persisté au prochain saveDB (obFinish au plus tard)
+    _obSeqFreshTunnelSession = true;              // un onboarding local a tourné cette session → blob adoptable
+  }
   _obSeqActive = true;
   obSeqAdvance();
 }
 
 function obSeqAdvance() {
-  if (!_obSeqActive || _obSeqWaitingHydration) return;
+  if (!_obSeqActive || _obSeqPaused()) return;
   var next = _obSeqFindNext();
   if (!next) {
     _obSeqActive = false; _obSeqCurrent = null;
     // Tunnel frais terminé → effacer le marqueur de reprise (persisté).
     if (db && db._obSeqTunnel) { delete db._obSeqTunnel; if (typeof saveDB === 'function') saveDB(); }
+    // À la clôture, ré-évaluer la porte d'auth : un compte établi déconnecté (welcome-back
+    // sans session email) doit revoir le login — la garde de showLoginScreen l'avait avalé
+    // pendant la file. Un nouveau tunnel sans compte (D-C) ne force jamais le login.
+    _obSeqReconcileAuthAtClose();
     return;
   }
   if (_obSeqCurrent === next.id) return;           // déjà à l'écran (un seul à la fois)
@@ -2254,6 +2286,22 @@ function obSeqAdvance() {
   }
 }
 
+// P2-E — à la clôture de la file, un compte ÉTABLI déconnecté (welcome-back : onboardé mais
+// sans session email) doit revoir l'écran de connexion. Un vrai NOUVEAU tunnel (D-C : pas de
+// compte forcé) ne le voit jamais. Asynchrone (getSession), inoffensif si pas de supaClient.
+function _obSeqReconcileAuthAtClose() {
+  if (_obSeqFreshRun) return;                       // nouveau tunnel → pas de login forcé (D-C)
+  try {
+    if (typeof supaClient === 'undefined' || !supaClient) return;
+    Promise.resolve(supaClient.auth.getSession()).then(function(r) {
+      var s = r && r.data && r.data.session;
+      if (!s || !s.user || !s.user.email) {
+        if (typeof showLoginScreen === 'function') showLoginScreen(true);
+      }
+    }).catch(function() {});
+  } catch (e) {}
+}
+
 function obSeqDone(stepId) {
   if (_obSeqCurrent === stepId) _obSeqCurrent = null;
   if (!_obSeqActive) return;
@@ -2264,18 +2312,27 @@ function _obSeqShowLoading() { var el = document.getElementById('obSeqLoading');
 function _obSeqHideLoading() { var el = document.getElementById('obSeqLoading'); if (el) el.style.display = 'none'; }
 
 // Hook appelé par le verrou d'hydratation RC4 (_markCloudHydrated / _markCloudHydrationFailed).
+// Ne concerne QUE l'attente D-B du boot (_obSeqWaitingHydration) — jamais la pause login
+// manuelle (_obSeqLoginPause), sinon un settle d'un pull ANONYME romprait « J'ai déjà un
+// compte » et ré-ouvrirait un écran de collecte (fuite D-B trouvée en revue).
 // 'hydrated' → re-décision COMPLÈTE depuis les flags frais : si le pull a posé un profil
-// onboardé (compte existant — scénario device du 21/07), AUCUN écran de collecte n'aura
-// jamais été affiché ; si le compte est réellement neuf, la file démarre ici.
-// 'failed' → on ne sait toujours pas : aucun écran de collecte, l'app locale reste
-// utilisable ; le retry du pull (30 s / retour online) rappellera ce hook au succès.
+//   onboardé (compte existant — scénario device du 21/07), AUCUN écran de collecte n'aura
+//   jamais été affiché ; si le compte est réellement neuf, la file démarre ici.
+// 'failed'  → session email présente mais pull non abouti → on NE flashe PAS d'écran de
+//   collecte (D-B). On garde l'attente armée (un retry du verrou peut encore résoudre) et on
+//   propose la connexion : re-auth résout proprement, « hors-ligne » reprend en local.
 function _obSeqOnHydrationSettled(state) {
   if (!_obSeqWaitingHydration) return;
   _obSeqHideLoading();
-  if (state !== 'hydrated') return;
-  _obSeqWaitingHydration = false;
-  _obSeqActive = false; _obSeqCurrent = null;
-  obSeqStart();
+  if (state === 'hydrated') {
+    _obSeqWaitingHydration = false;
+    _obSeqActive = false; _obSeqCurrent = null;
+    if (typeof hideLoginScreen === 'function') hideLoginScreen(); // au cas où un 'failed' l'aurait montré
+    obSeqStart();
+    return;
+  }
+  // 'failed' : ne pas lever l'attente (le retry peut résoudre) — proposer la connexion.
+  if (typeof showLoginScreen === 'function') showLoginScreen(true);
 }
 
 // Démarrage au boot LOCAL — garde D-B (décision Aurélien, non négociable) : on n'OUVRE
@@ -2287,6 +2344,15 @@ function _obSeqOnHydrationSettled(state) {
 //    #obSeqLoading — jamais de flash d'écran de collecte.
 //  • aucune session persistée (vrai appareil vierge) → onboarding immédiat, sans attente.
 async function _obSeqBootStart() {
+  // P2-D — un logout volontaire vient de recharger : montrer le LOGIN (pas l'onboarding).
+  // Marqueur one-shot device-local (hors blob), consommé ici.
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('_obSeqPostLogout')) {
+      localStorage.removeItem('_obSeqPostLogout');
+      if (typeof showLoginScreen === 'function') showLoginScreen(true);
+      return;
+    }
+  } catch (e) {}
   if (!needsOnboarding() && !(db && db._obSeqTunnel)) return;
   var mustWait = false;
   if (!(db && db.user && db.user.onboarded)) {
@@ -2304,6 +2370,20 @@ async function _obSeqBootStart() {
     // Le verrou a pu se poser pendant le getSession — re-vérifier avant d'attendre.
     if (cloudHydrationState !== 'pending') { _obSeqOnHydrationSettled(cloudHydrationState); return; }
     _obSeqShowLoading();
+    // P3-A — WATCHDOG : si la chaîne cloud du boot meurt sans jamais poser le verrou
+    // (cloudSignIn null sur refresh token expiré → ni resolveIdentity ni syncFromCloud →
+    // aucun settle), l'état reste 'pending' → spinner à vie. Filet : au bout de 12 s encore
+    // 'pending', forcer 'failed' (→ hook : masque le spinner + propose la connexion, sans
+    // jamais flasher d'écran de collecte). Un pull réel qui aboutit avant annule le besoin.
+    try {
+      setTimeout(function() {
+        if (_obSeqWaitingHydration && typeof cloudHydrationState !== 'undefined'
+            && cloudHydrationState === 'pending'
+            && typeof _markCloudHydrationFailed === 'function') {
+          _markCloudHydrationFailed();
+        }
+      }, 12000);
+    } catch (e) {}
     return; // _obSeqOnHydrationSettled (hook du verrou) prend le relais
   }
   obSeqStart();
@@ -2317,7 +2397,11 @@ async function _obSeqBootStart() {
 function obSeqGotoLogin() {
   hideOnboarding();
   _obSeqCurrent = null;
-  _obSeqWaitingHydration = true;
+  // Pause MANUELLE distincte de l'attente D-B : le hook d'hydratation (settle d'un pull
+  // anonyme) ne doit PAS la lever — sinon il ré-ouvrirait un écran de collecte par-dessus
+  // le login (fuite D-B trouvée en revue). Seuls loginBackFromOb, un login réussi
+  // (_obSeqOnLoginResolved) ou « hors-ligne » (_obSeqResumeLocal) la lèvent.
+  _obSeqLoginPause = true;
   var back = document.getElementById('loginBackToOb');
   if (back) back.style.display = 'block';
   if (typeof showLoginScreen === 'function') showLoginScreen(true);
@@ -2326,8 +2410,26 @@ function loginBackFromOb() {
   var back = document.getElementById('loginBackToOb');
   if (back) back.style.display = 'none';
   if (typeof hideLoginScreen === 'function') hideLoginScreen();
-  _obSeqWaitingHydration = false;
+  _obSeqLoginPause = false;
   if (_obSeqActive) obSeqAdvance(); else obSeqStart();
+}
+
+// Login RÉUSSI depuis la pause manuelle (loginSubmit/authSubmit, branche login, APRÈS
+// resolveIdentity) : lever la pause et re-décider depuis les flags frais. Compte onboardé
+// (résolu par le pull/adoption) → la file ne s'engage pas ; compte neuf → onboarding.
+function _obSeqOnLoginResolved() {
+  _obSeqLoginPause = false;
+  _obSeqWaitingHydration = false;
+  _obSeqHideLoading();
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'none';
+  // Le login a résolu une identité : un marqueur de tunnel LOCAL abandonné (onboarding
+  // commencé AVANT « J'ai déjà un compte ») ne doit PAS relancer les étapes new-user pour
+  // un compte adopté déjà onboardé. resolveIdentity remplace en général db par le blob cloud
+  // (sans marqueur) ; on efface défensivement au cas où (verdict 'kept').
+  if (db && db._obSeqTunnel && db.user && db.user.onboarded) { try { delete db._obSeqTunnel; } catch (e) {} }
+  _obSeqActive = false; _obSeqCurrent = null;
+  obSeqStart();
 }
 
 // Reprise LOCALE d'une file en pause (« J'ai déjà un compte » puis Inscription ou
@@ -2336,8 +2438,9 @@ function loginBackFromOb() {
 // pull). On re-décide tout de suite depuis les flags locaux — plus jamais d'app
 // vide post-signup (le vécu +test2107 du diagnostic).
 function _obSeqResumeLocal() {
-  if (!_obSeqWaitingHydration) return;
+  if (!_obSeqWaitingHydration && !_obSeqLoginPause) return;
   _obSeqWaitingHydration = false;
+  _obSeqLoginPause = false;
   _obSeqHideLoading();
   _obSeqActive = false; _obSeqCurrent = null;
   obSeqStart();
@@ -33131,6 +33234,9 @@ async function appSignOut() {
       // La reconnexion re-pull le cloud (source de vérité). Le reload re-part d'un defaultDB.
       if (typeof _purgeLocalSession === 'function') _purgeLocalSession();
       else { if (typeof purgeAllLocalDb === 'function') purgeAllLocalDb(); db = defaultDB(); }
+      // P2-D (fix revue) — marqueur one-shot : au reload, montrer le LOGIN (pas l'onboarding
+      // q1). Un logout volontaire ≠ un appareil vierge ; l'utilisateur veut se reconnecter.
+      try { localStorage.setItem('_obSeqPostLogout', '1'); } catch (e) {}
       setTimeout(function() { window.location.reload(); }, 300);
     },
     'Annuler'

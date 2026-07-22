@@ -97,6 +97,12 @@ if (supaClient) {
       // Only show login if this is a voluntary logout OR the user has no local data.
       // A network-triggered SIGNED_OUT (signInAnonymously failure) must not block
       // access to local data for an already-onboarded user.
+      // P3-B (fix revue) : une session qui meurt pendant une attente D-B doit lever la
+      // pause, sinon l'ordonnanceur resterait bloqué (aucun écran ne pourrait s'ouvrir).
+      if (typeof _obSeqWaitingHydration !== 'undefined' && _obSeqWaitingHydration) {
+        _obSeqWaitingHydration = false;
+        if (typeof _obSeqHideLoading === 'function') _obSeqHideLoading();
+      }
       var hasLocalData = typeof db !== 'undefined' && db && db.user && db.user.onboarded;
       if (_voluntaryLogout || !hasLocalData) showLoginScreen();
       _voluntaryLogout = false;
@@ -409,14 +415,13 @@ async function resolveIdentity(incomingUid) {
     return 'adopted';
   }
   if (res === 'no-row') {
-    // Chantier 7 (1e, décision D-D) : un blob local REMPLI et NON tatoué (TOFU —
-    // onboarding complété en local avant la création/confirmation du compte) est
-    // ADOPTÉ par l'entrant : tatouage + push (blob + séances pré-adoption conservées
-    // dans db.logs), pas de purge. Critère d'INTENTION unique (_isDefaultDB). Un blob
-    // vide garde le reset ; un blob tatoué garde le reset aussi (ownerUid non-null ici
-    // = « autrui », le cas « même owner » est sorti en 'kept' plus haut — anti-fuite
-    // inchangée, rien n'est fusionné ni poussé pour autrui via _canPushForOwner).
-    if (!ownerUid && typeof _isDefaultDB === 'function' && !_isDefaultDB(db)) {
+    // Chantier 7 (1e + fix revue, décision D-D resserrée) : un blob local REMPLI et NON
+    // tatoué est ADOPTÉ par l'entrant (tatouage + push blob + séances pré-adoption) UNIQUEMENT
+    // s'il a été construit par le tunnel d'onboarding de CETTE session (_localBlobClaimable) —
+    // sinon c'est un résiduel (utilisateur hors-ligne établi, ou blob d'autrui sur appareil
+    // partagé) et on garde la purge d'origine (anti-fuite : pas de fuite inter-comptes).
+    // Un blob tatoué garde le reset aussi (le cas « même owner » est sorti en 'kept' plus haut).
+    if (typeof _localBlobClaimable === 'function' && _localBlobClaimable(db)) {
       _stampOwner(incomingUid);
       if (typeof saveDBNow === 'function') saveDBNow();
       if (typeof _markCloudHydrated === 'function') _markCloudHydrated(); // no-row confirmé EN LIGNE → rien à écraser côté cloud
@@ -888,7 +893,13 @@ async function syncFromCloud() {
   if (!supaClient) return false;
   try {
     const {data:{user}} = await supaClient.auth.getUser();
-    if (!user) return false;
+    if (!user) {
+      // P2-A (fix revue) — session morte (getUser null) pendant une tentative d'hydratation :
+      // marquer l'échec du verrou (re-arme le retry + re-notifie l'ordonnanceur). Sans ça, la
+      // chaîne de retry mourait en silence → _obSeqWaitingHydration bloqué à vie (app coquille).
+      if (cloudSyncEnabled && typeof _markCloudHydrationFailed === 'function') _markCloudHydrationFailed();
+      return false;
+    }
     const {data, error} = await supaClient.from('sbd_profiles').select('data,updated_at').eq('user_id', user.id).maybeSingle();
     if (error) throw error;
     if (data && data.data) {
@@ -1083,12 +1094,19 @@ async function authSubmit() {
         }
         throw error;
       }
+      // P2-C (fix revue) — email DÉJÀ enregistré : GoTrue (anti-énumération) renvoie 200 +
+      // un user OBFUSQUÉ (identities vide), pas d'erreur. Ne PAS tatouer le blob à un uid
+      // fantôme qui ne s'authentifiera jamais → proposer la connexion.
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        showMagicLinkMigrationPrompt(email);
+        return;
+      }
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 + chantier 7 (1e, décision D-D) — 2e handler d'auth (Réglages > Sync Cloud).
-        // Signup : blob rempli non tatoué (onboarding local) → ADOPTÉ (tatouage, pas de
-        // purge) ; blob vide ou tatoué autrui → purge d'origine (_claimLocalOnSignup).
+        // RC4 + chantier 7 (1e + fix revue, décision D-D resserrée) — 2e handler d'auth
+        // (Réglages > Sync Cloud). Signup : blob construit par le tunnel de CETTE session
+        // → ADOPTÉ (tatouage, pas de purge) ; résiduel/vide/autrui → purge (_claimLocalOnSignup).
         if (typeof _claimLocalOnSignup === 'function') _claimLocalOnSignup(data.user.id);
         else if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
         if (typeof _obSeqResumeAfterSignup === 'function') _obSeqResumeAfterSignup();
@@ -1132,6 +1150,9 @@ async function authSubmit() {
         updateCloudUI(data.user);
         // RC4 — adopt-first (2e handler, Réglages > Sync Cloud).
         if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
+        // Chantier 7 : login réussi depuis la pause « J'ai déjà un compte » → lever la pause
+        // et re-décider (compte onboardé résolu par resolveIdentity → app ; sinon onboarding).
+        if (typeof _obSeqOnLoginResolved === 'function') _obSeqOnLoginResolved();
         await syncToCloud(true);
         await ensureProfile();
         showToast('Connecté !');
@@ -1264,14 +1285,21 @@ async function loginSubmit() {
         options: { emailRedirectTo: 'https://smoothapp68.github.io/sbd-hub/' }
       });
       if (error) throw error;
+      // P2-C (fix revue) — email DÉJÀ enregistré : GoTrue (anti-énumération) renvoie 200 +
+      // user OBFUSQUÉ (identities vide), sans erreur. Ne PAS tatouer le blob à un uid fantôme
+      // → proposer la connexion (lien magique / mot de passe existant).
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        showMagicLinkMigrationPrompt(email);
+        btn.disabled = false; btn.textContent = 'Créer un compte';
+        return;
+      }
       if (data.user) {
         cloudSyncEnabled = true;
         updateCloudUI(data.user);
-        // RC4 + chantier 7 (1e, décision D-D) — signup : un blob REMPLI et NON tatoué
-        // (onboarding complété en local, TOFU) est ADOPTÉ (tatoué au nouvel uid, pas de
-        // purge — il appartient au nouvel inscrit) ; un blob vide (defaultDB) ou tatoué
-        // à un AUTRE uid garde la purge d'origine (anti-fuite/anti-résurrection
-        // inchangées). Pas de dépendance réseau : décision 100 % locale.
+        // RC4 + chantier 7 (1e + fix revue, décision D-D resserrée) — signup : un blob REMPLI,
+        // NON tatoué et CONSTRUIT PAR LE TUNNEL DE CETTE SESSION est ADOPTÉ (tatoué au nouvel
+        // uid) ; un résiduel (hors-ligne établi/autrui), un blob vide ou tatoué autrui garde la
+        // purge d'origine (anti-fuite/anti-résurrection inchangées). Décision 100 % locale.
         if (typeof _claimLocalOnSignup === 'function') _claimLocalOnSignup(data.user.id);
         else if (typeof _resetLocalToOwner === 'function') _resetLocalToOwner(data.user.id);
         if (typeof _obSeqResumeAfterSignup === 'function') _obSeqResumeAfterSignup();
@@ -1296,6 +1324,9 @@ async function loginSubmit() {
         // RC4 — adopt-first : adopte le blob cloud du compte entrant en OVERWRITE (ou reset
         // sûr si compte neuf), sans jamais pousser un blob résiduel d'un autre compte.
         if (typeof resolveIdentity === 'function') await resolveIdentity(data.user.id);
+        // Chantier 7 : login réussi depuis la pause « J'ai déjà un compte » → lever la pause
+        // et re-décider (compte onboardé → app ; sinon onboarding).
+        if (typeof _obSeqOnLoginResolved === 'function') _obSeqOnLoginResolved();
         await syncToCloud(true);
         await ensureProfile();
         hideLoginScreen();
@@ -1325,10 +1356,12 @@ async function loginForgotPwd() {
 
 function loginOffline() {
   hideLoginScreen();
-  // Chantier 7 : si le login avait été ouvert depuis la file (« J'ai déjà un compte »)
-  // ou pendant l'attente D-B, continuer hors-ligne = reprendre l'entrée en LOCAL —
-  // jamais d'app vide derrière une file restée en pause.
+  // Chantier 7 : « Continuer hors-ligne » depuis le login.
+  //  • file en pause (« J'ai déjà un compte » / attente D-B) → reprendre en LOCAL.
+  //  • sinon (ex. post-logout : db purgé, onboarding requis) → démarrer la file.
+  // Jamais d'app vide derrière un login qu'on vient de fermer.
   if (typeof _obSeqResumeLocal === 'function') _obSeqResumeLocal();
+  if (typeof obSeqStart === 'function') obSeqStart();
   // Show offline indicator
   const banner = document.getElementById('offlineBanner');
   if (banner) { banner.textContent = '📡 Mode hors-ligne'; banner.style.display = 'block'; }
@@ -1338,10 +1371,11 @@ function showLoginScreen(force) {
   // Don't show login screen on waitlist route — checkWaitlistRoute() manages display
   if (window.location.hash === '#waitlist' ||
       (window.location.search && window.location.search.includes('waitlist'))) return;
-  // Chantier 7 (D-B) : pendant la file d'entrée (ou l'attente d'hydratation), aucun
+  // Chantier 7 (D-B) : pendant la file d'entrée (ou une pause d'attente D-B / login), aucun
   // login ne passe par-dessus les écrans de la file — seul le lien explicite
   // « J'ai déjà un compte » (obSeqGotoLogin → force=true) l'ouvre.
-  if (!force && typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
+  if (!force && typeof _obSeqActive !== 'undefined'
+      && (_obSeqActive || _obSeqWaitingHydration || _obSeqLoginPause)) return;
   const el = document.getElementById('loginScreen');
   if (el) el.style.display = 'flex';
 }

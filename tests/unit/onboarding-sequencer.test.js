@@ -29,31 +29,45 @@ function build(initialDb, opts) {
   opts = opts || {};
   const shows = { profile: 0, plan: 0, swipe: 0, classQuiz: 0 };
   const loading = { shown: 0, hidden: 0 };
+  const back = { style: { display: 'none' } };
+  const loginCalls = { show: 0, showForce: 0, hide: 0 };
   const ctx = {
     JSON, console: { warn() {}, log() {} },
     db: initialDb,
     ONBOARDING_VERSION: 4,
     cloudHydrationState: opts.hydration || 'pending',
-    document: { getElementById: () => null }, // les fns loading sont défensives (if el)
+    document: { getElementById: (id) => (id === 'loginBackToOb' ? back : null) },
     logErrorToSupabase: () => {},
     saveDB: () => {},
+    localStorage: opts.localStorage || { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    hideOnboarding: () => {},
+    showLoginScreen: (force) => { loginCalls.show++; if (force) loginCalls.showForce++; },
+    hideLoginScreen: () => { loginCalls.hide++; },
+    setTimeout: (fn, ms) => {}, // watchdog non exécuté dans les tests synchrones
   };
   vm.createContext(ctx);
   if (!opts.noSupa) {
     ctx.supaClient = { auth: { getSession: async () => ({ data: { session: opts.session || null } }) } };
   }
+  ctx._loginCalls = loginCalls;
   vm.runInContext(extractFn(APP, 'needsOnboarding'), ctx);
   // Vars d'état du séquenceur (déclarées hors fonctions dans la source)
-  vm.runInContext('var _obSeqActive=false,_obSeqCurrent=null,_obSeqFreshRun=false,_obSeqWaitingHydration=false,_obSeqBroken={};', ctx);
+  vm.runInContext('var _obSeqActive=false,_obSeqCurrent=null,_obSeqFreshRun=false,_obSeqWaitingHydration=false,_obSeqLoginPause=false,_obSeqFreshTunnelSession=false,_obSeqBroken={};', ctx);
+  vm.runInContext(extractFn(APP, '_obSeqPaused'), ctx);
   vm.runInContext(extractVarBlock(APP, 'OB_SEQ_STEPS'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqFindNext'), ctx);
   vm.runInContext(extractFn(APP, 'obSeqStart'), ctx);
   vm.runInContext(extractFn(APP, 'obSeqAdvance'), ctx);
+  vm.runInContext(extractFn(APP, '_obSeqReconcileAuthAtClose'), ctx);
   vm.runInContext(extractFn(APP, 'obSeqDone'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqShowLoading'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqHideLoading'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqOnHydrationSettled'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqBootStart'), ctx);
+  vm.runInContext(extractFn(APP, 'obSeqGotoLogin'), ctx);
+  vm.runInContext(extractFn(APP, 'loginBackFromOb'), ctx);
+  vm.runInContext(extractFn(APP, '_obSeqOnLoginResolved'), ctx);
+  vm.runInContext(extractFn(APP, '_obSeqResumeLocal'), ctx);
   // Écrans stubbés (spies) — la source appelle les vrais noms
   ctx.showOnboarding = () => { shows.profile++; };
   ctx.showMagicStart = () => { shows.plan++; };
@@ -61,7 +75,7 @@ function build(initialDb, opts) {
   ctx.showClassQuiz = () => { shows.classQuiz++; };
   ctx._obSeqShowLoading = () => { loading.shown++; };
   ctx._obSeqHideLoading = () => { loading.hidden++; };
-  return { ctx, shows, loading };
+  return { ctx, shows, loading, loginCalls };
 }
 
 const freshDb = () => ({ user: { onboarded: false, onboardingVersion: 0 }, _magicStartDone: false, weeklyPlan: null });
@@ -278,6 +292,97 @@ describe('garde D-B — jamais de flash d\'écran de collecte (scénario device 
     await ctx._obSeqBootStart();
     ctx.obSeqStart(); ctx.obSeqAdvance();
     expect(totalShows(shows)).toBe(0);
+  });
+});
+
+describe('P1-B — pause « J\'ai déjà un compte » distincte de l\'attente D-B (fix revue)', () => {
+  test('obSeqGotoLogin met _obSeqLoginPause (pas _obSeqWaitingHydration) + login force', () => {
+    const { ctx, loginCalls } = build(freshDb());
+    ctx.obSeqStart();          // file active, q1 affiché
+    ctx.obSeqGotoLogin();
+    expect(ctx._obSeqLoginPause).toBe(true);
+    expect(ctx._obSeqWaitingHydration).toBe(false);
+    expect(loginCalls.showForce).toBe(1);
+  });
+
+  test('un settle d\'hydratation ANONYME ne consomme PAS la pause login (pas de réouverture de q1)', () => {
+    const { ctx, shows } = build(freshDb());
+    ctx.obSeqStart();
+    const showsAfterQ1 = totalShows(shows); // 1 (profil)
+    ctx.obSeqGotoLogin();                    // pause login
+    // pull anonyme aboutit → _markCloudHydrated → hook
+    ctx._obSeqOnHydrationSettled('hydrated');
+    // La pause login n'est pas touchée : aucune réouverture d'écran de collecte
+    expect(ctx._obSeqLoginPause).toBe(true);
+    expect(totalShows(shows)).toBe(showsAfterQ1); // toujours 1, pas de q1 rouvert
+  });
+
+  test('loginBackFromOb lève la pause et reprend la file', () => {
+    const { ctx, shows } = build(freshDb());
+    ctx.obSeqStart();
+    ctx.obSeqGotoLogin();
+    ctx.loginBackFromOb();
+    expect(ctx._obSeqLoginPause).toBe(false);
+    expect(ctx._obSeqCurrent).toBe('profile'); // la file a repris sur q1 (showOnboarding idempotent en prod)
+    expect(ctx._obSeqActive).toBe(true);
+  });
+
+  test('_obSeqOnLoginResolved (login réussi) lève la pause ; compte onboardé → pas d\'onboarding', () => {
+    const { ctx, shows } = build(freshDb());
+    ctx.obSeqStart();
+    ctx.obSeqGotoLogin();
+    // resolveIdentity a adopté le blob cloud d'un compte onboardé (remplace db, sans marqueur ;
+    // ici on garde le marqueur du tunnel abandonné pour vérifier son effacement défensif).
+    ctx.db.user.onboarded = true; ctx.db.user.onboardingVersion = 4;
+    ctx._obSeqOnLoginResolved();
+    expect(ctx._obSeqLoginPause).toBe(false);
+    expect(ctx.db._obSeqTunnel).toBeUndefined(); // marqueur du tunnel abandonné effacé
+    expect(ctx._obSeqActive).toBe(false);         // file fermée : compte établi
+    expect(totalShows(shows)).toBe(1);            // seulement le q1 initial, pas de Magic Start
+  });
+
+  test('pendant la pause login, obSeqStart/obSeqAdvance sont inertes', () => {
+    const { ctx, shows } = build(freshDb());
+    ctx.obSeqStart();
+    const n = totalShows(shows);
+    ctx.obSeqGotoLogin();
+    ctx.obSeqStart(); ctx.obSeqAdvance();
+    expect(totalShows(shows)).toBe(n);
+  });
+});
+
+describe('P2-E — login ré-affiché à la clôture pour un établi déconnecté (fix revue)', () => {
+  test('welcome-back sans session email → login (force) à la fin de la file', async () => {
+    const dbWb = { user: { onboarded: true, onboardingVersion: 3 } };
+    const { ctx, loginCalls } = build(dbWb, { session: null });
+    ctx.obSeqStart();
+    ctx.db.user.onboardingVersion = 4; // obFinishWelcomeBack
+    ctx.obSeqDone('profile');           // file terminée → _obSeqReconcileAuthAtClose (async)
+    await new Promise((r) => setTimeout(r, 0)); // laisser la promesse getSession se résoudre
+    expect(loginCalls.showForce).toBeGreaterThanOrEqual(1);
+  });
+
+  test('nouveau tunnel terminé sans compte (D-C) → PAS de login forcé', async () => {
+    const { ctx, loginCalls } = build(freshDb(), { session: null });
+    ctx.obSeqStart();
+    ctx.db.user.onboarded = true; ctx.db.user.onboardingVersion = 4;
+    ctx.obSeqDone('profile');
+    ctx.db._magicStartDone = true; ctx.obSeqDone('plan');
+    ctx.db.user.quizDone = true; ctx.obSeqDone('classQuiz'); // file terminée (fresh run)
+    await new Promise((r) => setTimeout(r, 0));
+    expect(loginCalls.showForce).toBe(0); // D-C : pas de compte forcé
+  });
+});
+
+describe('P2-D — logout ramène au login, pas à l\'onboarding (fix revue)', () => {
+  test('marqueur _obSeqPostLogout au boot → login (force), file non démarrée', async () => {
+    let removed = false;
+    const ls = { getItem: (k) => (k === '_obSeqPostLogout' && !removed ? '1' : null), setItem: () => {}, removeItem: () => { removed = true; } };
+    const { ctx, shows, loginCalls } = build(freshDb(), { localStorage: ls });
+    await ctx._obSeqBootStart();
+    expect(loginCalls.showForce).toBe(1);
+    expect(totalShows(shows)).toBe(0); // onboarding NON démarré
+    expect(removed).toBe(true);         // marqueur consommé (one-shot)
   });
 });
 

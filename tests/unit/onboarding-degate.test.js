@@ -129,6 +129,17 @@ describe('checkPasswordMigration — session anonyme pendant la file', () => {
     expect(loginEl.style.display).toBe('none');
   });
 
+  test('FIX B2 — COURSE : file PAS ENCORE active + db vierge → ni signOut ni login (garde synchrone)', async () => {
+    // Reproduit le constat device « je recharge → écran de connexion » : au reload,
+    // checkPasswordMigration(anon) gagnait parfois la course contre _obSeqBootStart
+    // (flags de file encore faux, posés après un await getSession). La garde SYNCHRONE
+    // sur l'état du db doit tenir quel que soit le timing.
+    const { ctx, calls, loginEl } = build({ db: { user: { onboarded: false, onboardingVersion: 0 } } }); // file INACTIVE
+    await ctx.checkPasswordMigration({ id: 'anon-1', email: null });
+    expect(calls.signOut).toBe(0);            // la session anonyme survit
+    expect(loginEl.style.display).toBe('none'); // pas de login par-dessus le q1 à venir
+  });
+
   test('hors file → comportement actuel (signOut silencieux + login screen)', async () => {
     const { ctx, calls, loginEl } = build({ db: { user: { onboarded: true, onboardingVersion: 4 } } });
     await ctx.checkPasswordMigration({ id: 'anon-1', email: null });

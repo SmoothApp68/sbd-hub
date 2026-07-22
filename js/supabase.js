@@ -1437,9 +1437,18 @@ async function checkPasswordMigration(user) {
 
   // Anonymous user (no email) — sign out silently, show login screen
   if (!user.email) {
-    // Chantier 7 : pendant la file d'entrée (ou l'attente D-B), la session anonyme est
-    // le support cloud silencieux du boot — ne pas la couper ni ouvrir le login par-dessus.
-    if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
+    // Chantier 7 : pendant la file d'entrée (ou une pause), la session anonyme est le
+    // support cloud silencieux du boot — ne pas la couper ni ouvrir le login par-dessus.
+    if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration || _obSeqLoginPause)) return;
+    // FIX B2 (course, device 22/07, validé Aurélien) : garde SYNCHRONE sur l'état du db.
+    // La garde ci-dessus est asynchrone (les flags de la file sont posés par _obSeqBootStart
+    // APRÈS un await getSession) : quand ce chemin gagnait la course au reload, il coupait
+    // l'anonyme et affichait le login PAR-DESSUS le q1 qui s'ouvrait juste après — d'où
+    // « si je recharge plusieurs fois, j'atterris sur l'écran de connexion ». Un nouvel
+    // utilisateur non onboardé appartient à la file quel que soit le timing : même critère
+    // synchrone que checkAuthGate → ni signOut ni login screen.
+    if (typeof needsOnboarding === 'function' && typeof db !== 'undefined' && db && db.user
+        && !db.user.onboarded && needsOnboarding()) return;
     await supaClient.auth.signOut();
     cloudSyncEnabled = false;
     updateCloudUI(null);

@@ -908,6 +908,12 @@ async function syncFromCloud() {
       if (!cloudTs) {
         // No server timestamp — push local as fallback (blob cloud présent → hydraté)
         if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
+        // FIX A (P0 préexistant, 22/07) : ne JAMAIS sortir sans hydrater les séances d'un
+        // local vide — les logs vivent hors blob, cette sortie était l'un des 2 court-circuits
+        // de la SEULE hydratation complète (cf. commentaire de la branche ci-dessous).
+        if (_shouldHydrateLogs(db.logs)) {
+          try { await hydrateLogsFromCloud(user.id); } catch (he) { console.warn('hydrate on no-ts exit:', he); }
+        }
         await syncToCloud(true);
         return true;
       }
@@ -918,6 +924,19 @@ async function syncFromCloud() {
         // modifié hors-ligne, même « plus pauvre », doit être poussé, pas écrasé par le cloud).
         // Un defaultDB → on ne le pousse pas ; on tombe dans le merge (qui adopte le cloud + logs).
         if (!(typeof _isDefaultDB === 'function' && _isDefaultDB(db))) {
+          // FIX A (P0 préexistant, prouvé device 22/07) : cette sortie « local autoritaire »
+          // court-circuitait la SEULE hydratation complète des séances (chemin merge, plus bas).
+          // Or _lastCloudPush reçoit le updated_at RETOURNÉ par le serveur à chaque push
+          // (syncToCloud, _pushTs) → cloudTs === lastPush est STRUCTUREL après tout push, et
+          // chaque boot re-poussait sans jamais hydrater : un appareil frais / cache vidé
+          // restait à 0 séance pour toujours (compte principal : 553 séances invisibles,
+          // carte « Importe depuis Hevy »), auto-entretenu jusqu'à removeItem(SBD_HUB_V29).
+          // Hydrater AVANT de sortir : hydrateLogsFromCloud porte sa propre garde
+          // (« ne JAMAIS écraser un local peuplé ») → la priorité local/cloud des 7 tours
+          // RC4 est intacte, seul le cas local-vide change.
+          if (_shouldHydrateLogs(db.logs)) {
+            try { await hydrateLogsFromCloud(user.id); } catch (he) { console.warn('hydrate on authoritative exit:', he); }
+          }
           await syncToCloud(true);
           return true;
         }

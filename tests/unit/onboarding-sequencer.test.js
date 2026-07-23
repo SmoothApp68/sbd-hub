@@ -23,14 +23,34 @@ function extractVarBlock(src, name) {
 }
 
 // Contexte vm : séquenceur réel + écrans stubbés + db pilotable.
-// opts.session : session renvoyée par le stub supaClient.auth.getSession()
+// opts.session : session PERSISTÉE — matérialisée en clé sb-…-auth-token dans le stub
+//                localStorage (c'est ELLE qui décide depuis le fix fail-closed du 22/07 ;
+//                le stub getSession est rendu HOSTILE par défaut pour prouver que plus
+//                rien n'en dépend).
 // opts.noSupa  : supaClient absent (offline pur / SDK non chargé)
+// opts.rawSbToken : contenu BRUT de la clé sb- (tests opaque/chunké)
+// opts.getSession : comportement du stub réseau ('throw' | 'null' | fonction)
+function makeLS(seed) {
+  const store = Object.assign({}, seed || {});
+  return {
+    _store: store,
+    get length() { return Object.keys(store).length; },
+    key: (i) => Object.keys(store)[i] || null,
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; },
+  };
+}
 function build(initialDb, opts) {
   opts = opts || {};
   const shows = { profile: 0, plan: 0, swipe: 0, classQuiz: 0 };
   const loading = { shown: 0, hidden: 0 };
   const back = { style: { display: 'none' } };
   const loginCalls = { show: 0, showForce: 0, hide: 0 };
+  const seed = {};
+  if (opts.session) seed['sb-testref-auth-token'] = JSON.stringify({ user: { id: opts.session.user.id, email: opts.session.user.email } });
+  if (opts.rawSbToken !== undefined) seed[opts.rawSbKey || 'sb-testref-auth-token'] = opts.rawSbToken;
+  const ls = opts.localStorage || makeLS(seed);
   const ctx = {
     JSON, console: { warn() {}, log() {} },
     db: initialDb,
@@ -39,7 +59,7 @@ function build(initialDb, opts) {
     document: { getElementById: (id) => (id === 'loginBackToOb' ? back : null) },
     logErrorToSupabase: () => {},
     saveDB: () => {},
-    localStorage: opts.localStorage || { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    localStorage: ls,
     hideOnboarding: () => {},
     showLoginScreen: (force) => { loginCalls.show++; if (force) loginCalls.showForce++; },
     hideLoginScreen: () => { loginCalls.hide++; },
@@ -47,7 +67,11 @@ function build(initialDb, opts) {
   };
   vm.createContext(ctx);
   if (!opts.noSupa) {
-    ctx.supaClient = { auth: { getSession: async () => ({ data: { session: opts.session || null } }) } };
+    // Stub réseau HOSTILE par défaut : getSession jette. Le boot ne doit plus jamais en dépendre.
+    const gs = opts.getSession === 'null' ? (async () => ({ data: { session: null } }))
+      : (typeof opts.getSession === 'function' ? opts.getSession
+        : (async () => { throw new Error('LockManager contention (stub hostile)'); }));
+    ctx.supaClient = { auth: { getSession: gs } };
   }
   ctx._loginCalls = loginCalls;
   vm.runInContext(extractFn(APP, 'needsOnboarding'), ctx);
@@ -63,6 +87,7 @@ function build(initialDb, opts) {
   vm.runInContext(extractFn(APP, '_obSeqShowLoading'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqHideLoading'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqOnHydrationSettled'), ctx);
+  vm.runInContext(extractFn(APP, '_sbPersistedSessionKind'), ctx);
   vm.runInContext(extractFn(APP, '_obSeqBootStart'), ctx);
   vm.runInContext(extractFn(APP, 'obSeqGotoLogin'), ctx);
   vm.runInContext(extractFn(APP, 'loginBackFromOb'), ctx);
@@ -275,17 +300,21 @@ describe('garde D-B — jamais de flash d\'écran de collecte (scénario device 
     expect(shows.profile).toBe(1);
   });
 
-  test('course getSession vs pull : verrou déjà hydraté au retour → décision immédiate, pas d\'attente morte', async () => {
-    const { ctx, shows } = build(freshDb(), { session: { user: { id: 'U4', email: 'race@x.fr' } } });
-    // le pull se termine PENDANT le getSession du bootStart : le blob adopté est onboardé
-    ctx.supaClient = { auth: { getSession: async () => {
-      ctx.db.user.onboarded = true; ctx.db.user.onboardingVersion = 4;
-      ctx.cloudHydrationState = 'hydrated';
-      return { data: { session: { user: { id: 'U4', email: 'race@x.fr' } } } };
-    } } };
+  test('verrou déjà hydraté au moment du boot (boot re-entrant) → décision immédiate, pas d\'attente morte', async () => {
+    // Le pull a DÉJÀ tout réglé (blob adopté onboardé, verrou hydraté) quand bootStart tourne.
+    const dbAdopted = { user: { onboarded: true, onboardingVersion: 4, ownerUid: 'U4' } };
+    const { ctx, shows } = build(dbAdopted, { session: { user: { id: 'U4', email: 'race@x.fr' } }, hydration: 'hydrated' });
     await ctx._obSeqBootStart();
     expect(totalShows(shows)).toBe(0); // rien à faire, et surtout pas d'attente jamais résolue
     expect(ctx._obSeqActive).toBe(false);
+  });
+
+  test('verrou passé à « failed » avant le boot → re-check immédiat, attente conservée sans spinner mort', async () => {
+    const { ctx, shows, loading } = build(freshDb(), { session: { user: { id: 'U5', email: 'f@x.fr' } }, hydration: 'failed' });
+    await ctx._obSeqBootStart();
+    expect(totalShows(shows)).toBe(0);
+    expect(ctx._obSeqWaitingHydration).toBe(true); // l'attente reste armée (le retry décidera)
+    expect(loading.shown).toBe(0);                  // pas de spinner permanent sur un état déjà tranché
   });
 
   test('pendant l\'attente, obSeqStart/obSeqAdvance sont inertes (aucune ouverture possible)', async () => {
@@ -355,7 +384,9 @@ describe('P1-B — pause « J\'ai déjà un compte » distincte de l\'attente D-
 describe('P2-E — login ré-affiché à la clôture pour un établi déconnecté (fix revue)', () => {
   test('welcome-back sans session email → login (force) à la fin de la file', async () => {
     const dbWb = { user: { onboarded: true, onboardingVersion: 3 } };
-    const { ctx, loginCalls } = build(dbWb, { session: null });
+    // getSession 'null' : la réconciliation de clôture (P2-E) interroge légitimement la
+    // session — ici il n'y en a pas (c'est le seul usage réseau restant, non-critique).
+    const { ctx, loginCalls } = build(dbWb, { session: null, getSession: 'null' });
     ctx.obSeqStart();
     ctx.db.user.onboardingVersion = 4; // obFinishWelcomeBack
     ctx.obSeqDone('profile');           // file terminée → _obSeqReconcileAuthAtClose (async)

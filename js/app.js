@@ -2319,20 +2319,22 @@ function _obSeqHideLoading() { var el = document.getElementById('obSeqLoading');
 //   onboardé (compte existant — scénario device du 21/07), AUCUN écran de collecte n'aura
 //   jamais été affiché ; si le compte est réellement neuf, la file démarre ici.
 // 'failed'  → session email présente mais pull non abouti → on NE flashe PAS d'écran de
-//   collecte (D-B). On garde l'attente armée (un retry du verrou peut encore résoudre) et on
-//   propose la connexion : re-auth résout proprement, « hors-ligne » reprend en local.
+//   collecte (D-B) et on NE propose PAS le login (fix 22/07, validé Aurélien : la session
+//   est probablement VALIDE — pull transitoirement raté ; proposer des identifiants à
+//   quelqu'un de connecté est absurde). L'attente reste armée, l'app locale reste
+//   utilisable derrière, le retry silencieux du verrou (30 s / retour online) redécide.
+//   Le login n'arrive qu'en dernier recours, sur session réellement morte : SIGNED_OUT
+//   lève l'attente et l'affiche (handler auth, déjà en place).
 function _obSeqOnHydrationSettled(state) {
   if (!_obSeqWaitingHydration) return;
   _obSeqHideLoading();
   if (state === 'hydrated') {
     _obSeqWaitingHydration = false;
     _obSeqActive = false; _obSeqCurrent = null;
-    if (typeof hideLoginScreen === 'function') hideLoginScreen(); // au cas où un 'failed' l'aurait montré
     obSeqStart();
     return;
   }
-  // 'failed' : ne pas lever l'attente (le retry peut résoudre) — proposer la connexion.
-  if (typeof showLoginScreen === 'function') showLoginScreen(true);
+  // 'failed' : ne rien montrer, ne rien lever — le retry du pull tranchera.
 }
 
 // FIX D-B fail-closed (repro device 22/07, validé Aurélien) — sonde SYNCHRONE de la

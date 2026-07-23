@@ -137,6 +137,25 @@ describe('fail-closed — clé illisible = attendre (jamais collecter dans le do
   });
 });
 
+describe('verdict failed — session probablement valide : ni collecte, ni login (fix 22/07)', () => {
+  test('settled(failed) → aucun écran (ni collecte ni login), attente conservée ; le retry tranche', async () => {
+    let loginShown = 0;
+    const { ctx, shows, loading } = build(freshDb(), EMAIL_KEY, 'throw');
+    ctx.showLoginScreen = () => { loginShown++; };
+    await ctx._obSeqBootStart();               // attente armée
+    ctx._obSeqOnHydrationSettled('failed');    // pull transitoirement raté
+    expect(totalShows(shows)).toBe(0);         // pas de collecte
+    expect(loginShown).toBe(0);                // pas de login — la session est probablement valide
+    expect(ctx._obSeqWaitingHydration).toBe(true); // l'attente reste armée
+    expect(loading.hidden).toBeGreaterThan(0);     // l'app locale redevient utilisable derrière
+    // retry réussi → compte adopté → app directe
+    ctx.db.user.onboarded = true; ctx.db.user.onboardingVersion = 4;
+    ctx._obSeqOnHydrationSettled('hydrated');
+    expect(totalShows(shows)).toBe(0);
+    expect(ctx._obSeqActive).toBe(false);
+  });
+});
+
 describe('non-régressions D-B (confirmées par test, pas par raisonnement)', () => {
   test('vrai appareil vierge (aucune clé sb-) → onboarding-first IMMÉDIAT', async () => {
     const { ctx, shows, loading } = build(freshDb(), {}, 'throw');

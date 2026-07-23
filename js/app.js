@@ -2432,11 +2432,9 @@ function _obSeqOnLoginResolved() {
   obSeqStart();
 }
 
-// Reprise LOCALE d'une file en pause (« J'ai déjà un compte » puis Inscription ou
-// « Continuer hors-ligne ») : dans ces cas aucun hook d'hydratation ne viendra
-// (signup = pas de session tant que l'email n'est pas confirmé ; offline = pas de
-// pull). On re-décide tout de suite depuis les flags locaux — plus jamais d'app
-// vide post-signup (le vécu +test2107 du diagnostic).
+// Reprise LOCALE d'une file en pause (« Continuer hors-ligne » depuis le login ouvert
+// via le lien q1 ou l'attente D-B) : aucun hook d'hydratation ne viendra (offline =
+// pas de pull). On re-décide tout de suite depuis les flags locaux.
 function _obSeqResumeLocal() {
   if (!_obSeqWaitingHydration && !_obSeqLoginPause) return;
   _obSeqWaitingHydration = false;
@@ -2445,8 +2443,23 @@ function _obSeqResumeLocal() {
   _obSeqActive = false; _obSeqCurrent = null;
   obSeqStart();
 }
-// Alias rétro-compatible (handlers signup) — même reprise.
-function _obSeqResumeAfterSignup() { _obSeqResumeLocal(); }
+// FIX B1 (device 22/07, validé Aurélien) — signup : re-décision INCONDITIONNELLE.
+// Le chemin « logout compte principal → écran login → Inscription » n'arme AUCUNE pause
+// (les pauses n'existent que via le lien q1 ou l'attente D-B) : l'ancienne reprise, gatée
+// sur une pause, devenait un no-op → aucun onboarding avant reload (la variante +test2107
+// que le bloc 1 devait tuer — « j'ai dû recharger pour que l'onboarding se lance »).
+// Un signup = _claimLocalOnSignup vient de trancher (adopté ou defaultDB tatoué) : l'état
+// local est frais et sûr, on décide dessus. obSeqStart est idempotent et gardé par
+// needsOnboarding → sans effet si le compte n'a pas besoin d'entrer dans la file.
+function _obSeqResumeAfterSignup() {
+  _obSeqWaitingHydration = false;
+  _obSeqLoginPause = false;
+  _obSeqHideLoading();
+  var back = document.getElementById('loginBackToOb');
+  if (back) back.style.display = 'none';
+  _obSeqActive = false; _obSeqCurrent = null;
+  obSeqStart();
+}
 
 // ── ONBOARDING FLOW V2 ───────────────────────────────────────
 var OB_STEP_SEQUENCE = ['1','2','3','4','5','6','7'];

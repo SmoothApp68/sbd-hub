@@ -908,6 +908,12 @@ async function syncFromCloud() {
       if (!cloudTs) {
         // No server timestamp — push local as fallback (blob cloud présent → hydraté)
         if (typeof _markCloudHydrated === 'function') _markCloudHydrated();
+        // FIX A (P0 préexistant, 22/07) : ne JAMAIS sortir sans hydrater les séances d'un
+        // local vide — les logs vivent hors blob, cette sortie était l'un des 2 court-circuits
+        // de la SEULE hydratation complète (cf. commentaire de la branche ci-dessous).
+        if (_shouldHydrateLogs(db.logs)) {
+          try { await hydrateLogsFromCloud(user.id); } catch (he) { console.warn('hydrate on no-ts exit:', he); }
+        }
         await syncToCloud(true);
         return true;
       }
@@ -918,6 +924,19 @@ async function syncFromCloud() {
         // modifié hors-ligne, même « plus pauvre », doit être poussé, pas écrasé par le cloud).
         // Un defaultDB → on ne le pousse pas ; on tombe dans le merge (qui adopte le cloud + logs).
         if (!(typeof _isDefaultDB === 'function' && _isDefaultDB(db))) {
+          // FIX A (P0 préexistant, prouvé device 22/07) : cette sortie « local autoritaire »
+          // court-circuitait la SEULE hydratation complète des séances (chemin merge, plus bas).
+          // Or _lastCloudPush reçoit le updated_at RETOURNÉ par le serveur à chaque push
+          // (syncToCloud, _pushTs) → cloudTs === lastPush est STRUCTUREL après tout push, et
+          // chaque boot re-poussait sans jamais hydrater : un appareil frais / cache vidé
+          // restait à 0 séance pour toujours (compte principal : 553 séances invisibles,
+          // carte « Importe depuis Hevy »), auto-entretenu jusqu'à removeItem(SBD_HUB_V29).
+          // Hydrater AVANT de sortir : hydrateLogsFromCloud porte sa propre garde
+          // (« ne JAMAIS écraser un local peuplé ») → la priorité local/cloud des 7 tours
+          // RC4 est intacte, seul le cas local-vide change.
+          if (_shouldHydrateLogs(db.logs)) {
+            try { await hydrateLogsFromCloud(user.id); } catch (he) { console.warn('hydrate on authoritative exit:', he); }
+          }
           await syncToCloud(true);
           return true;
         }
@@ -1418,9 +1437,18 @@ async function checkPasswordMigration(user) {
 
   // Anonymous user (no email) — sign out silently, show login screen
   if (!user.email) {
-    // Chantier 7 : pendant la file d'entrée (ou l'attente D-B), la session anonyme est
-    // le support cloud silencieux du boot — ne pas la couper ni ouvrir le login par-dessus.
-    if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration)) return;
+    // Chantier 7 : pendant la file d'entrée (ou une pause), la session anonyme est le
+    // support cloud silencieux du boot — ne pas la couper ni ouvrir le login par-dessus.
+    if (typeof _obSeqActive !== 'undefined' && (_obSeqActive || _obSeqWaitingHydration || _obSeqLoginPause)) return;
+    // FIX B2 (course, device 22/07, validé Aurélien) : garde SYNCHRONE sur l'état du db.
+    // La garde ci-dessus est asynchrone (les flags de la file sont posés par _obSeqBootStart
+    // APRÈS un await getSession) : quand ce chemin gagnait la course au reload, il coupait
+    // l'anonyme et affichait le login PAR-DESSUS le q1 qui s'ouvrait juste après — d'où
+    // « si je recharge plusieurs fois, j'atterris sur l'écran de connexion ». Un nouvel
+    // utilisateur non onboardé appartient à la file quel que soit le timing : même critère
+    // synchrone que checkAuthGate → ni signOut ni login screen.
+    if (typeof needsOnboarding === 'function' && typeof db !== 'undefined' && db && db.user
+        && !db.user.onboarded && needsOnboarding()) return;
     await supaClient.auth.signOut();
     cloudSyncEnabled = false;
     updateCloudUI(null);

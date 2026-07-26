@@ -2319,20 +2319,54 @@ function _obSeqHideLoading() { var el = document.getElementById('obSeqLoading');
 //   onboardé (compte existant — scénario device du 21/07), AUCUN écran de collecte n'aura
 //   jamais été affiché ; si le compte est réellement neuf, la file démarre ici.
 // 'failed'  → session email présente mais pull non abouti → on NE flashe PAS d'écran de
-//   collecte (D-B). On garde l'attente armée (un retry du verrou peut encore résoudre) et on
-//   propose la connexion : re-auth résout proprement, « hors-ligne » reprend en local.
+//   collecte (D-B) et on NE propose PAS le login (fix 22/07, validé Aurélien : la session
+//   est probablement VALIDE — pull transitoirement raté ; proposer des identifiants à
+//   quelqu'un de connecté est absurde). L'attente reste armée, l'app locale reste
+//   utilisable derrière, le retry silencieux du verrou (30 s / retour online) redécide.
+//   Le login n'arrive qu'en dernier recours, sur session réellement morte : SIGNED_OUT
+//   lève l'attente et l'affiche (handler auth, déjà en place).
 function _obSeqOnHydrationSettled(state) {
   if (!_obSeqWaitingHydration) return;
   _obSeqHideLoading();
   if (state === 'hydrated') {
     _obSeqWaitingHydration = false;
     _obSeqActive = false; _obSeqCurrent = null;
-    if (typeof hideLoginScreen === 'function') hideLoginScreen(); // au cas où un 'failed' l'aurait montré
     obSeqStart();
     return;
   }
-  // 'failed' : ne pas lever l'attente (le retry peut résoudre) — proposer la connexion.
-  if (typeof showLoginScreen === 'function') showLoginScreen(true);
+  // 'failed' : ne rien montrer, ne rien lever — le retry du pull tranchera.
+}
+
+// FIX D-B fail-closed (repro device 22/07, validé Aurélien) — sonde SYNCHRONE de la
+// session persistée : lecture DIRECTE du token supabase en localStorage, AVANT toute
+// sonde réseau. Zéro réseau, zéro course, zéro verrou (philosophie B2 : le synchrone
+// bat l'asynchrone). Retourne :
+//   'email'  : session d'un COMPTE (user.email non nul) → la garde D-B doit attendre le pull
+//   'anon'   : session anonyme (support cloud du tunnel) → ne pas attendre
+//   'none'   : aucune session persistée (vrai appareil vierge) → onboarding immédiat
+//   'opaque' : clé présente mais illisible (token chunké sb-…-auth-token.0, format inconnu,
+//              parse en échec) → FAIL-CLOSED : traiter comme 'email'. Asymétrie des coûts :
+//              attendre à tort se résout par le watchdog (12 s) puis le pull (une session
+//              anonyme fait no-row → 'hydrated' → re-décision) ; collecter à tort viole D-B
+//              sur un vrai compte. Pure hors localStorage → testée.
+function _sbPersistedSessionKind() {
+  try {
+    if (typeof localStorage === 'undefined') return 'none';
+    var tokenKey = null;
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf('sb-') === 0 && k.indexOf('-auth-token') !== -1) { tokenKey = k; break; }
+    }
+    if (!tokenKey) return 'none';
+    var raw = localStorage.getItem(tokenKey);
+    if (!raw) return 'none';
+    var parsed = JSON.parse(raw);
+    // Formats supabase-js v2 : { user: {…} } (courant) ou { currentSession: { user } } (legacy).
+    var u = parsed && (parsed.user || (parsed.currentSession && parsed.currentSession.user));
+    if (u && u.email) return 'email';
+    if (u) return 'anon';
+    return 'opaque';
+  } catch (e) { return 'opaque'; }
 }
 
 // Démarrage au boot LOCAL — garde D-B (décision Aurélien, non négociable) : on n'OUVRE
@@ -2343,6 +2377,12 @@ function _obSeqOnHydrationSettled(state) {
 //    attendre le verdict du pull (verrou d'hydratation) derrière l'écran neutre
 //    #obSeqLoading — jamais de flash d'écran de collecte.
 //  • aucune session persistée (vrai appareil vierge) → onboarding immédiat, sans attente.
+// FIX fail-closed (22/07) : la décision d'attendre repose sur la sonde SYNCHRONE
+// _sbPersistedSessionKind — PAS sur un await getSession() : l'ancienne sonde asynchrone
+// (try/catch muet, mustWait=false par défaut) était FAIL-OPEN — token expiré en cours de
+// refresh ou contention LockManager → null/throw avalés → q1 ouvert sur un vrai compte
+// (repro device : cache vidé + session persistée → onboarding avant le pull). La présence
+// du token DÉCIDE ; aucun échec réseau ne peut dé-armer l'attente.
 async function _obSeqBootStart() {
   // P2-D — un logout volontaire vient de recharger : montrer le LOGIN (pas l'onboarding).
   // Marqueur one-shot device-local (hors blob), consommé ici.
@@ -2354,37 +2394,30 @@ async function _obSeqBootStart() {
     }
   } catch (e) {}
   if (!needsOnboarding() && !(db && db._obSeqTunnel)) return;
-  var mustWait = false;
   if (!(db && db.user && db.user.onboarded)) {
-    try {
-      if (typeof supaClient !== 'undefined' && supaClient
-          && typeof cloudHydrationState !== 'undefined' && cloudHydrationState !== 'hydrated') {
-        var r = await supaClient.auth.getSession();
-        var s = r && r.data && r.data.session;
-        mustWait = !!(s && s.user && s.user.email);
-      }
-    } catch (e) {}
-  }
-  if (mustWait) {
-    _obSeqWaitingHydration = true;
-    // Le verrou a pu se poser pendant le getSession — re-vérifier avant d'attendre.
-    if (cloudHydrationState !== 'pending') { _obSeqOnHydrationSettled(cloudHydrationState); return; }
-    _obSeqShowLoading();
-    // P3-A — WATCHDOG : si la chaîne cloud du boot meurt sans jamais poser le verrou
-    // (cloudSignIn null sur refresh token expiré → ni resolveIdentity ni syncFromCloud →
-    // aucun settle), l'état reste 'pending' → spinner à vie. Filet : au bout de 12 s encore
-    // 'pending', forcer 'failed' (→ hook : masque le spinner + propose la connexion, sans
-    // jamais flasher d'écran de collecte). Un pull réel qui aboutit avant annule le besoin.
-    try {
-      setTimeout(function() {
-        if (_obSeqWaitingHydration && typeof cloudHydrationState !== 'undefined'
-            && cloudHydrationState === 'pending'
-            && typeof _markCloudHydrationFailed === 'function') {
-          _markCloudHydrationFailed();
-        }
-      }, 12000);
-    } catch (e) {}
-    return; // _obSeqOnHydrationSettled (hook du verrou) prend le relais
+    var kind = _sbPersistedSessionKind();
+    if ((kind === 'email' || kind === 'opaque')
+        && typeof cloudHydrationState !== 'undefined' && cloudHydrationState !== 'hydrated') {
+      _obSeqWaitingHydration = true;
+      // Le verrou a pu se poser avant nous (boot re-entrant) — re-vérifier avant d'attendre.
+      if (cloudHydrationState !== 'pending') { _obSeqOnHydrationSettled(cloudHydrationState); return; }
+      _obSeqShowLoading();
+      // P3-A — WATCHDOG : si la chaîne cloud du boot meurt sans jamais poser le verrou
+      // (cloudSignIn null sur refresh token expiré → ni resolveIdentity ni syncFromCloud →
+      // aucun settle), l'état reste 'pending' → spinner à vie. Filet : au bout de 12 s
+      // encore 'pending', forcer 'failed' (→ hook : masque le spinner, garde l'attente —
+      // jamais de flash d'écran de collecte ; le retry du pull décide).
+      try {
+        setTimeout(function() {
+          if (_obSeqWaitingHydration && typeof cloudHydrationState !== 'undefined'
+              && cloudHydrationState === 'pending'
+              && typeof _markCloudHydrationFailed === 'function') {
+            _markCloudHydrationFailed();
+          }
+        }, 12000);
+      } catch (e) {}
+      return; // _obSeqOnHydrationSettled (hook du verrou) prend le relais
+    }
   }
   obSeqStart();
 }

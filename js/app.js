@@ -28422,45 +28422,6 @@ function startInstinctSession(mode) {
   if (typeof showToast === 'function') showToast('🎯 ' + _label + ' — ' + _desc, 5000);
 }
 
-// ── PONT PLAN → SÉANCE (chantier 22/07) ──────────────────────────────────────
-// Les annotations posées par le générateur sur l'exercice PRESCRIT (db.weeklyPlan)
-// ne traversaient pas _goDoStartWorkout : l'objet poussé dans activeWorkout ne
-// portait que 5 clés. Résultat, du code de rendu déjà écrit et correct ne pouvait
-// JAMAIS s'exécuter (_interferenceNote, isDoubleProgression, isPrimary), et les
-// consignes du coach (coachNote, gripNote, tempoEcc) n'avaient aucun rendu.
-// Les deux helpers ci-dessous sont PURS → testables hors DOM.
-
-// Champs d'annotation transférés tels quels, du plan vers la séance active.
-// N'écrit QUE ce qui a un consommateur : `notes` (champ UTILISATEUR éditable) est
-// volontairement absent — il ne doit jamais recevoir une consigne de coach.
-// targetReps/targetRepsMax accompagnent isDoubleProgression (son rendu les lit).
-function _goCarryPlanAnnotations(target, planExo) {
-  if (!target || !planExo) return target;
-  if (planExo.coachNote) target.coachNote = planExo.coachNote;
-  if (planExo.gripNote) target.gripNote = planExo.gripNote;
-  if (planExo.tempoEcc > 0) target.tempoEcc = planExo.tempoEcc;
-  if (planExo._interferenceNote) target._interferenceNote = planExo._interferenceNote;
-  if (planExo.isPrimary) target.isPrimary = true;
-  if (planExo.isDoubleProgression) {
-    target.isDoubleProgression = true;
-    target.targetReps = planExo.targetReps;
-    target.targetRepsMax = planExo.targetRepsMax;
-  }
-  return target;
-}
-
-// Consignes du COACH à afficher sur la carte GO, dans l'ordre. Les coachNote
-// portent déjà leur propre emoji (📈 ⚖️ ✅ 💡 🔧) → pas de préfixe ajouté ;
-// grip/tempo n'en ont pas → préfixe explicite.
-function _goCoachAnnotationLines(exo) {
-  var lines = [];
-  if (!exo) return lines;
-  if (exo.coachNote) lines.push(String(exo.coachNote));
-  if (exo.gripNote) lines.push('🤲 ' + exo.gripNote);
-  if (exo.tempoEcc > 0) lines.push('⏱ ' + exo.tempoEcc + ' s de descente (excentrique lent)');
-  return lines;
-}
-
 function _goDoStartWorkout(withProgram) {
   // Honore db._selectedProgramDay (sélection home) avant de retomber sur aujourd'hui.
   // Si auj. est repos et qu'aucun jour n'est sélectionné, getActiveProgramDay() pointe vers la prochaine séance.
@@ -28570,16 +28531,13 @@ function _goDoStartWorkout(withProgram) {
         }
       }
 
-      // PONT PLAN → SÉANCE : les 5 clés de base, puis les annotations du plan
-      // (cf. _goCarryPlanAnnotations). Sans ce transfert, elles restaient dans
-      // db.weeklyPlan et n'atteignaient jamais la carte GO.
-      activeWorkout.exercises.push(_goCarryPlanAnnotations({
+      activeWorkout.exercises.push({
         exoId: exoId,
         name: name,
         sets: initSets,
         restSeconds: restSec,
         notes: ''
-      }, planExo));
+      });
     });
   }
   _goSessionPaused = false;
@@ -29199,18 +29157,6 @@ function renderGoExoCard(exo, exoIdx, allE1RMs) {
     h += '<div style="background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.2);'
       + 'border-radius:8px;padding:8px 10px;margin:4px 8px 0;font-size:11px;color:var(--orange);">';
     h += '⚡ ' + exo._interferenceNote;
-    h += '</div>';
-  }
-
-  // Consignes du COACH sur CET exercice (coachNote / gripNote / tempoEcc) — distinctes
-  // du champ `notes` utilisateur ci-dessus, et du coachNote de JOUR (vue Plan app.js,
-  // carte home). Même motif visuel que l'interférence croisée, teinte accent.
-  var _coachLines = _goCoachAnnotationLines(exo);
-  if (_coachLines.length) {
-    h += '<div style="background:rgba(10,132,255,0.08);border:0.5px solid rgba(10,132,255,0.25);'
-      + 'border-radius:8px;padding:8px 10px;margin:4px 8px 0;font-size:11px;'
-      + 'color:var(--accent);line-height:1.5;">';
-    h += _coachLines.join('<div style="height:4px;"></div>');
     h += '</div>';
   }
 

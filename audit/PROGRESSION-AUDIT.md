@@ -95,4 +95,5 @@ Règle de comptage : ids générés en boucle regroupés en familles `×n` ; ids
 
 ## Reste à faire
 
-`audit/SYNTHESE-CABLAGE.md` (en cours).
+**Rien.** Les 5 vagues sont livrées et `audit/SYNTHESE-CABLAGE.md` est écrit.
+Total : **409 éléments inventoriés = 409 verdicts = 409 statuts runtime**, sur 101 états explorés.

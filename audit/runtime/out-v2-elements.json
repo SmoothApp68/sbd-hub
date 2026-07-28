@@ -1,0 +1,1242 @@
+[
+ {
+  "n": 1,
+  "fam": "tab-seances",
+  "cardinalite": 1,
+  "exemple": "tab-seances",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 2,
+  "fam": "s-coach",
+  "cardinalite": 1,
+  "exemple": "s-coach",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 3,
+  "fam": "coachHistoBadge",
+  "cardinalite": 1,
+  "exemple": "coachHistoBadge",
+  "tag": "span",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 4,
+  "fam": "coach-today",
+  "cardinalite": 1,
+  "exemple": "coach-today",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 5,
+  "fam": "coach-history",
+  "cardinalite": 1,
+  "exemple": "coach-history",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 6,
+  "fam": "s-plan",
+  "cardinalite": 1,
+  "exemple": "s-plan",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 7,
+  "fam": "programmeV2Content",
+  "cardinalite": 1,
+  "exemple": "programmeV2Content",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 8,
+  "fam": "programBuilderContent",
+  "cardinalite": 1,
+  "exemple": "programBuilderContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 9,
+  "fam": "s-go",
+  "cardinalite": 1,
+  "exemple": "s-go",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 10,
+  "fam": "goIdleView",
+  "cardinalite": 1,
+  "exemple": "goIdleView",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 11,
+  "fam": "goActiveView",
+  "cardinalite": 1,
+  "exemple": "goActiveView",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 12,
+  "fam": "s-log",
+  "cardinalite": 1,
+  "exemple": "s-log",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 13,
+  "fam": "prevWeekBtn",
+  "cardinalite": 1,
+  "exemple": "prevWeekBtn",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=navigateWeek(-1)"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 14,
+  "fam": "weekRangeLabel",
+  "cardinalite": 1,
+  "exemple": "weekRangeLabel",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 15,
+  "fam": "weekIndexLabel",
+  "cardinalite": 1,
+  "exemple": "weekIndexLabel",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 16,
+  "fam": "nextWeekBtn",
+  "cardinalite": 1,
+  "exemple": "nextWeekBtn",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=navigateWeek(1)"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 17,
+  "fam": "weekSessionsContainer",
+  "cardinalite": 1,
+  "exemple": "weekSessionsContainer",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 18,
+  "fam": "sc-cards-wrap",
+  "cardinalite": 1,
+  "exemple": "sc-cards-wrap",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 19,
+  "fam": "wrap-sc2-<n>-<ts>",
+  "cardinalite": 13,
+  "exemple": "wrap-sc2-0-1785181524978",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ]
+ },
+ {
+  "n": 20,
+  "fam": "ectip<alea>",
+  "cardinalite": 13,
+  "exemple": "ectipa6b99",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ]
+ },
+ {
+  "n": 21,
+  "fam": "sg<alea>",
+  "cardinalite": 13,
+  "exemple": "sgirlb3",
+  "tag": "lineargradient",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ]
+ },
+ {
+  "n": 22,
+  "fam": "menu-sc2-<n>-<ts>",
+  "cardinalite": 13,
+  "exemple": "menu-sc2-0-1785181524978",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ]
+ },
+ {
+  "n": 23,
+  "fam": "det-sc2-<n>-<ts>",
+  "cardinalite": 13,
+  "exemple": "det-sc2-0-1785181524978",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ]
+ },
+ {
+  "n": 24,
+  "fam": "s-analyse",
+  "cardinalite": 1,
+  "exemple": "s-analyse",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ]
+ },
+ {
+  "n": 25,
+  "fam": "meso-swipe-wrap",
+  "cardinalite": 1,
+  "exemple": "meso-swipe-wrap",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ]
+ },
+ {
+  "n": 26,
+  "fam": "meso-progress-bar",
+  "cardinalite": 1,
+  "exemple": "meso-progress-bar",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ]
+ },
+ {
+  "n": 27,
+  "fam": "meso-prev-btn",
+  "cardinalite": 1,
+  "exemple": "meso-prev-btn",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=mesoGoTo(window._mesoCur-1)"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ]
+ },
+ {
+  "n": 28,
+  "fam": "meso-nav-label",
+  "cardinalite": 1,
+  "exemple": "meso-nav-label",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ]
+ },
+ {
+  "n": 29,
+  "fam": "meso-next-btn",
+  "cardinalite": 1,
+  "exemple": "meso-next-btn",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=mesoGoTo(window._mesoCur+1)"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ]
+ },
+ {
+  "n": 30,
+  "fam": "meso-slide-content",
+  "cardinalite": 1,
+  "exemple": "meso-slide-content",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ]
+ },
+ {
+  "n": 31,
+  "fam": "go-fc-widget",
+  "cardinalite": 1,
+  "exemple": "go-fc-widget",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 32,
+  "fam": "go-t-recap",
+  "cardinalite": 1,
+  "exemple": "go-t-recap",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=goSwitchView('recap')"
+  ],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 33,
+  "fam": "go-t-debrief",
+  "cardinalite": 1,
+  "exemple": "go-t-debrief",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=goSwitchView('debrief')"
+  ],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 34,
+  "fam": "go-recap-view",
+  "cardinalite": 1,
+  "exemple": "go-recap-view",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 35,
+  "fam": "go-debrief-section",
+  "cardinalite": 1,
+  "exemple": "go-debrief-section",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 36,
+  "fam": "go-plan-chev",
+  "cardinalite": 1,
+  "exemple": "go-plan-chev",
+  "tag": "span",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 37,
+  "fam": "go-plan-body",
+  "cardinalite": 1,
+  "exemple": "go-plan-body",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 38,
+  "fam": "goTimerDisplay",
+  "cardinalite": 1,
+  "exemple": "goTimerDisplay",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 39,
+  "fam": "goCntTonnage",
+  "cardinalite": 1,
+  "exemple": "goCntTonnage",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 40,
+  "fam": "goCntExos",
+  "cardinalite": 1,
+  "exemple": "goCntExos",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 41,
+  "fam": "goCntSets",
+  "cardinalite": 1,
+  "exemple": "goCntSets",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ]
+ },
+ {
+  "n": 42,
+  "fam": "why-btn-squat_barre_",
+  "cardinalite": 1,
+  "exemple": "why-btn-squat_barre_",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=openCoachQuestion(0, this)"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 43,
+  "fam": "why-answer-squat_barre_",
+  "cardinalite": 1,
+  "exemple": "why-answer-squat_barre_",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 44,
+  "fam": "plates-<n>",
+  "cardinalite": 3,
+  "exemple": "plates-0",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 45,
+  "fam": "grind-btn-<n>-<n>",
+  "cardinalite": 11,
+  "exemple": "grind-btn-0-0",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=toggleGrind(0,0)",
+   "onclick=toggleGrind(0,1)",
+   "onclick=toggleGrind(0,2)",
+   "onclick=toggleGrind(0,3)",
+   "onclick=toggleGrind(0,4)",
+   "onclick=toggleGrind(0,5)",
+   "onclick=toggleGrind(0,6)",
+   "onclick=toggleGrind(0,7)",
+   "onclick=toggleGrind(1,0)",
+   "onclick=toggleGrind(1,1)",
+   "onclick=toggleGrind(1,2)"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 46,
+  "fam": "abandoned-btn-<n>-<n>",
+  "cardinalite": 11,
+  "exemple": "abandoned-btn-0-0",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=toggleAbandoned(0,0)",
+   "onclick=toggleAbandoned(0,1)",
+   "onclick=toggleAbandoned(0,2)",
+   "onclick=toggleAbandoned(0,3)",
+   "onclick=toggleAbandoned(0,4)",
+   "onclick=toggleAbandoned(0,5)",
+   "onclick=toggleAbandoned(0,6)",
+   "onclick=toggleAbandoned(0,7)",
+   "onclick=toggleAbandoned(1,0)",
+   "onclick=toggleAbandoned(1,1)",
+   "onclick=toggleAbandoned(1,2)"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 47,
+  "fam": "rpe-val-<n>-<n>",
+  "cardinalite": 9,
+  "exemple": "rpe-val-0-4",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 48,
+  "fam": "rpe-legend-<n>-<n>",
+  "cardinalite": 9,
+  "exemple": "rpe-legend-0-4",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 49,
+  "fam": "why-btn-d_velopp_couch_barre_",
+  "cardinalite": 1,
+  "exemple": "why-btn-d_velopp_couch_barre_",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=openCoachQuestion(1, this)"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 50,
+  "fam": "why-answer-d_velopp_couch_barre_",
+  "cardinalite": 1,
+  "exemple": "why-answer-d_velopp_couch_barre_",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 51,
+  "fam": "why-btn-rowing_barre",
+  "cardinalite": 1,
+  "exemple": "why-btn-rowing_barre",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=openCoachQuestion(2, this)"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 52,
+  "fam": "why-answer-rowing_barre",
+  "cardinalite": 1,
+  "exemple": "why-answer-rowing_barre",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 53,
+  "fam": "goRestDisplay",
+  "cardinalite": 1,
+  "exemple": "goRestDisplay",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO repos en cours"
+  ]
+ },
+ {
+  "n": 54,
+  "fam": "goRestProgress",
+  "cardinalite": 1,
+  "exemple": "goRestProgress",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "GO repos en cours"
+  ]
+ }
+]

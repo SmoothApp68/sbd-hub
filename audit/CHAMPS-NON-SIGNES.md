@@ -31,6 +31,7 @@ les clés listées ci-dessous sont donc **transportées mais non signées**. Ell
 | **`db.keyLifts`** | `saveKeyLifts` app.js:10125 | 1 | ✔ CONFIRMÉ : signature inchangée, 0 écriture |
 | **`db.routine`** + **`db.routineExos`** | `saveRoutine` app.js:3981-3984 · `wpApplyDay` 27379 · `wpApplyAll` 27391 · génération 14084 | 1 et 2 | ✔ CONFIRMÉ : signature inchangée, 0 écriture |
 | **`db.gamification.lastTab`** | `_updateLastTab` app.js:679 | 1 | ✔ CONFIRMÉ : signature inchangée malgré l'appel explicite à `debouncedCloudSync()` |
+| **`db.gamification.*`** — `unlockedTitles`, `activeTitle`, `questHistory`, `questStreak`, `secretQuestsCompleted`, `seenBadges`, `smartStreak`, `smartStreakRecord`, `lastTab` | quêtes, titres, streak intelligent | 5 | ✔ CONFIRMÉ par lecture des 14 termes : seuls `xpHighWaterMark` et `Object.keys(earnedBadges).length` sont signés dans `db.gamification`. Le reste ne l'est pas. |
 | **`db.lastModified`** | **personne** | 1 | ✔ CONFIRMÉ : vaut `undefined` avant et après une modification → contribue une **constante `0`** au 14ᵉ terme. Le champ réellement horodaté est `db.updatedAt` (app.js:374), qui n'est pas signé. |
 
 ## Hors périmètre de synchronisation (cas distinct)

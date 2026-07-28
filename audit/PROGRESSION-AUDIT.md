@@ -8,7 +8,7 @@ Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vag
 | **2** | **Séances** | ✅ **livrée** | **54** | **54** | **54** |
 | **3** | **Maison + Coach** | ✅ **livrée** | **62** | **62** | **62** |
 | **4** | **Stats** | ✅ **livrée** | **28** | **28** | **28** |
-| 5 | Social + Jeux | ⏳ à faire | — | — | — |
+| **5** | **Social + Jeux** | ✅ **livrée** | **89** | **89** | **89** |
 
 ## Vague 2 — findings majeurs
 
@@ -39,6 +39,22 @@ Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vag
   que CLAUDE.md dit « jamais branchée », **se rend** derrière « Voir plus ».
 - **H6 🔴** 14 conteneurs hérités dans un bloc `display:none` (index.html:2469) ; **6 sont encore
   alimentés** par du JS → du rendu calculé et jeté.
+
+## Vague 5 — findings majeurs
+
+- **J1 🔴** `renderFriendsTab` lève `Cannot read properties of null (reading 'style')` —
+  `socialFriendsBadge` n'existe dans aucun des 17 états. **Le fix #5 du scope de lancement est
+  confirmé au runtime.**
+- **J2 ⚠️** Le code d'invitation reste « --- » sur le chemin naturel : l'affichage est posé
+  **synchroniquement** depuis `db.friendCode` (null au 1er passage) et n'est rafraîchi que par
+  `renderFriendsTab` — la fonction qui lève J1. *Réserve : réseau stubbé, la part imputable au stub
+  n'est pas séparable.*
+- **J3 🔴** `social-feed` / `social-leaderboard` / `social-challenges` : invisibles dans les 17 états,
+  aucune pilule n'y mène, mais `showFeedSub` (supabase.js:1672-1675) conserve leurs branches.
+- **J4 ✘ RÉFUTÉ** — le quiz archétype est atteignable et fonctionne (7 questions, overlay 844 px).
+  Mon premier test cherchait le mauvais sélecteur.
+- **⚠️ Couverture la plus faible des 5 vagues** : 19 des 89 éléments dépendent d'une lecture réseau,
+  stubbée par construction → ⊘ NON TESTABLE assumé.
 
 ## Vague 4 — findings majeurs
 
@@ -79,4 +95,4 @@ Règle de comptage : ids générés en boucle regroupés en familles `×n` ; ids
 
 ## Reste à faire
 
-Vagues 4 et 5, puis `audit/SYNTHESE-CABLAGE.md`.
+`audit/SYNTHESE-CABLAGE.md` (en cours).

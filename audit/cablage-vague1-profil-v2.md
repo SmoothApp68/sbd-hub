@@ -9,7 +9,8 @@
 
 ## CONTRÔLE D'EXHAUSTIVITÉ
 
-> **Phase 1 : 176 éléments inventoriés. Phase 2 : 176 verdicts rendus.** Les deux nombres sont identiques.
+> **Phase 1 : 176 éléments inventoriés. Phase 2 : 176 verdicts rendus. Phase 5 : 176 statuts runtime.**
+> Les trois nombres sont identiques. **Aucune ligne sans statut runtime.**
 
 **Zone auditée, vérifiable :**
 
@@ -35,9 +36,14 @@ handlers inline du markup : **74**, appelant **44** fonctions distinctes — *le
 qui n'apparaissent dans aucun grep de `index.html`. La v1 les a manquées par construction.
 La phase 1 a donc été étendue au markup généré. Ce piège n'était pas dans la liste des 6 ; il s'y ajoute (n°7).
 
-**Ce que je n'ai pas pu vérifier** : rien n'a été exécuté ni ouvert sur device. Tous les verdicts sont
-issus de la **lecture du code**. Quand un effet à l'écran est déduit et non observé, c'est écrit
-`effet SUPPOSÉ`. Aucune donnée Supabase n'a été consultée (pas d'accès) — questions en fin de rapport.
+**Ce que je n'ai pas pu vérifier** : aucune donnée Supabase n'a été consultée (pas d'accès) — questions
+en fin de rapport. Rien n'a été ouvert sur un device Android réel : la phase 5 exécute l'app dans
+Chromium (viewport 390×844), réseau intégralement stubbé.
+
+> **Mise à jour après la phase 5** : les mentions `SUPPOSÉ` des phases 1-4 ont toutes été tranchées par
+> l'exécution. Le détail est en phase 5 ; les verdicts réfutés ont été corrigés **dans la table**, avec
+> la mention `✘ RÉFUTE` dans la colonne Runtime. Un constat nouveau, **F19**, n'existait dans aucune
+> version statique : c'est l'exécution qui l'a produit.
 
 ---
 
@@ -79,7 +85,7 @@ issus de la **lecture du code**. Quand un effet à l'écran est déduit et non o
 |---|---|---|---|
 | R1 | `settingsMenstrualSection` | app.js:18136 | `gender ∈ {F, female, femme}` |
 | R2 | `settingsHealthConnect` | app.js:18177 | (inconditionnel) |
-| R3 | `settingsWeightCut` | app.js:18208 | (inconditionnel) |
+| R3 | `settingsWeightCut` | app.js:18208 | `goals` contient `'competition'` **OU** `weightCut.active` — cf. F19 |
 | R4 | `settingsBarWeightSection` | app.js:18276 | (inconditionnel) |
 | R5 | `settingsHybridSection` | app.js:18310 | (inconditionnel) |
 | R6 | `settingsRGPDSection` | app.js:18334 | (inconditionnel) |
@@ -124,204 +130,204 @@ Les 71 autres handlers appellent une fonction nommée.
 
 ## A. Sous-onglet Corps (1-58)
 
-| # | Élément (`index.html:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict |
-|---|---|---|---|---|---|---|
-| 1 | `tab-profil` 2610 | — | — | `showTab` 4255 | oui | ➖ conteneur |
-| 2 | `tab-corps` 2615 | — | — | `showProfilSub` 4193 | oui | ✅ CÂBLÉ |
-| 3 | `formeScoreTag` 2619 | (dérivé logs) | `renderFormeScore` 16521 | — | oui | ✅ CÂBLÉ |
-| 4 | `chev-ca-forme` 2620 | — | `toggleCorpsAcc` 16657 | — | oui | ➖ COSMÉTIQUE |
-| 5 | `ca-forme` 2622 | — | `toggleCorpsAcc` 16654 | — | oui (ouvert par défaut) | ✅ CÂBLÉ |
-| 6 | `formeScoreContent` 2622 | (dérivé) | `renderFormeScore` 16520 | — | oui | ✅ CÂBLÉ |
-| 7 | `formeScoreTooltip` 2623 | — | handler inline 2619 | — | oui | ➖ COSMÉTIQUE |
-| 8 | `chev-ca-load` 2638 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 9 | `ca-load` 2640 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ |
-| 10 | `trainingLoadContent` 2640 | (dérivé TRIMP) | `renderTrainingLoad` 16562 | — | oui | ✅ CÂBLÉ |
-| 11 | `chev-ca-heatmap` 2647 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 12 | `ca-heatmap` 2649 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ |
-| 13 | `muscleHeatmapContent` 2649 | (dérivé logs) | `renderMuscleHeatmap` 9648 | — | oui | ✅ CÂBLÉ |
-| 14 | `chev-ca-joints` 2656 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 15 | `ca-joints` 2658 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ |
-| 16 | `jointHealthContent` 2658 | (dérivé) | `joints.js:415` | — | oui | ✅ CÂBLÉ |
-| 17 | `chev-ca-poids` 2665 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 18 | `ca-poids` 2667 | — | `toggleCorpsAcc` | — | oui (ouvert par défaut) | ✅ CÂBLÉ |
-| 19 | `inputBodyWeight` 2670 | `db.body[].bw` + `db.user.bw` | `saveBodyEntry` import.js:1596-1604 | 54 réf. `user.bw` | oui | ✅ CÂBLÉ |
-| 20 | `weightTrendDisplay` 2673 | `db.body[].bw` | `renderWeightTrend` 16620 | — | oui | ✅ CÂBLÉ |
-| 21 | `chartBodyWeight` 2674 | `db.body[].bw` | `renderBodyWeightChart` 16750 | — | oui (≥2 entrées) | ✅ CÂBLÉ |
-| 22 | `weightHistory` 2675 | `db.body[].bw` | `renderCorpsTab` 16730 | — | oui | ✅ CÂBLÉ |
-| 23 | `chev-ca-nutri` 2684 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 24 | `ca-nutri` 2686 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ |
-| 25 | `nutriCard` 2687 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) |
-| 26 | `nutriRingFill` 2691 | via `calcCalorieCible` | `renderCorpsTab` 16704 | — | oui | ⚠️ **DIVERGENT** — cf. F4 |
-| 27 | `nutriKcalRestantes` 2694 | via `calcCalorieCible` | 16707 | — | oui | ⚠️ **DIVERGENT** — cf. F4 |
-| 28 | `nutriKcalSub` 2696 | via `calcCalorieCible` | 16707 | — | oui | ⚠️ DIVERGENT |
-| 29 | `nutriDayTypeLabel` 2699 | (dérivé routine) | 16715 | — | oui | ✅ CÂBLÉ (label informatif) |
-| 30 | `nutriMangees` 2701 | `db.body[].kcal` | 16708 | — | oui | ✅ CÂBLÉ |
-| 31 | `nutriCible` 2702 | `calcCalorieCible(bw)` | 16708 | — | oui | ⚠️ **DIVERGENT** — cf. F4 |
-| 32 | `nutriBrulees` 2703 | `calcTDEE`/24×h | 16708 | — | oui | ✅ CÂBLÉ |
-| 33 | `nutriCarbLabel` 2705 | `calcMacrosCibles(cible)` | 16712 | — | oui | ⚠️ DIVERGENT (macros dérivées de F4) |
-| 34 | `nutriCarbBar` 2705 | idem | 16711 | — | oui | ⚠️ DIVERGENT |
-| 35 | `nutriProtLabel` 2706 | idem | 16712 | — | oui | ⚠️ DIVERGENT |
-| 36 | `nutriProtBar` 2706 | idem | 16711 | — | oui | ⚠️ DIVERGENT |
-| 37 | `nutriFatLabel` 2707 | idem | 16712 | — | oui | ⚠️ DIVERGENT |
-| 38 | `nutriFatBar` 2707 | idem | 16711 | — | oui | ⚠️ DIVERGENT |
-| 39 | `nutriTDEELabel` 2708 | **`calcTDEE(bw,tonnage7)`** | 16713 | — | oui | ⚠️ **DIVERGENT** — cf. F4 |
-| 40 | `nutriProtCible` 2708 | `calcMacrosCibles` | 16713 | — | oui | ⚠️ DIVERGENT |
-| 41 | `inputProt` 2712 | `db.body[].prot` | `saveMacroEntry` import.js:1619-1620 | 16699 | oui | ⚠️ **hors sync** — cf. F11 |
-| 42 | `inputCarb` 2712 | `db.body[].carb` | idem | 16699 | oui | ⚠️ **hors sync** — cf. F11 |
-| 43 | `inputFat` 2712 | `db.body[].fat` | idem | 16699 | oui | ⚠️ **hors sync** — cf. F11 |
-| 44 | `inputKcal` 2712 | `db.body[].kcal` | idem | 16699 | oui | ⚠️ **hors sync** — cf. F11 |
-| 45 | `macroHistoryDisplay` 2715 | `db.body[]` | `renderMacroHistory` 16584 | — | oui | ✅ CÂBLÉ |
-| 46 | `chev-ca-force` 2724 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 47 | `ca-force` 2726 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ |
-| 48 | `bodyMetricsGrid` 2728 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) |
-| 49 | `metricIPFCard` 2729 | — | 16717-16718 | `modeFeature('showIPF')` | selon mode | ✅ CÂBLÉ (`showIPF` réel, engine.js:315-435) |
-| 50 | `metricIPF` 2729 | `calcIPFGLTotal` | 16720 | — | modes SBD | ✅ CÂBLÉ |
-| 51 | `metricIPFsub` 2729 | seuils 300/400/500 | 16720 | — | modes SBD | ✅ CÂBLÉ |
-| 52 | `metricRatioCard` 2730 | — | 16723-16724 | `modeFeature('showBWRatio')` | selon mode | ✅ CÂBLÉ |
-| 53 | `metricRatio` 2730 | `ipf/bw` | 16726 | — | modes SBD | ✅ CÂBLÉ |
-| 54 | `metricRatioSub` 2730 | seuils 3/4 | 16726 | — | modes SBD | ✅ CÂBLÉ |
-| 55 | `plateauAlerts` 2732 | `detectPlateau` | 16733-16737 | `showPlateauDetection` | selon mode | ✅ CÂBLÉ |
-| 56 | `chev-ca-coach` 2741 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE |
-| 57 | `ca-coach` 2743 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ |
-| 58 | `coachAlgoContent` 2744 | `generateCoachAlgoMessage()` | 16739 | — | oui | ✅ CÂBLÉ |
+| # | Élément (`index.html:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict | Runtime |
+|---|---|---|---|---|---|---|---|
+| 1 | `tab-profil` 2610 | — | — | `showTab` 4255 | oui | ➖ conteneur | ✔ visible |
+| 2 | `tab-corps` 2615 | — | — | `showProfilSub` 4193 | oui | ✅ CÂBLÉ | ✔ visible |
+| 3 | `formeScoreTag` 2619 | (dérivé logs) | `renderFormeScore` 16521 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 4 | `chev-ca-forme` 2620 | — | `toggleCorpsAcc` 16657 | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 5 | `ca-forme` 2622 | — | `toggleCorpsAcc` 16654 | — | oui (ouvert par défaut) | ✅ CÂBLÉ | ✔ visible |
+| 6 | `formeScoreContent` 2622 | (dérivé) | `renderFormeScore` 16520 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 7 | `formeScoreTooltip` 2623 | — | handler inline 2619 | — | oui | ➖ COSMÉTIQUE | ✔ conditionnel |
+| 8 | `chev-ca-load` 2638 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 9 | `ca-load` 2640 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 10 | `trainingLoadContent` 2640 | (dérivé TRIMP) | `renderTrainingLoad` 16562 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 11 | `chev-ca-heatmap` 2647 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 12 | `ca-heatmap` 2649 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 13 | `muscleHeatmapContent` 2649 | (dérivé logs) | `renderMuscleHeatmap` 9648 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 14 | `chev-ca-joints` 2656 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 15 | `ca-joints` 2658 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 16 | `jointHealthContent` 2658 | (dérivé) | `joints.js:415` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 17 | `chev-ca-poids` 2665 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 18 | `ca-poids` 2667 | — | `toggleCorpsAcc` | — | oui (ouvert par défaut) | ✅ CÂBLÉ | ✔ visible |
+| 19 | `inputBodyWeight` 2670 | `db.body[].bw` + `db.user.bw` | `saveBodyEntry` import.js:1596-1604 | 54 réf. `user.bw` | oui | ✅ CÂBLÉ | ✔ visible |
+| 20 | `weightTrendDisplay` 2673 | `db.body[].bw` | `renderWeightTrend` 16620 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 21 | `chartBodyWeight` 2674 | `db.body[].bw` | `renderBodyWeightChart` 16750 | — | oui (≥2 entrées) | ✅ CÂBLÉ | ✔ visible |
+| 22 | `weightHistory` 2675 | `db.body[].bw` | `renderCorpsTab` 16730 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 23 | `chev-ca-nutri` 2684 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 24 | `ca-nutri` 2686 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 25 | `nutriCard` 2687 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) | ✔ visible |
+| 26 | `nutriRingFill` 2691 | via `calcCalorieCible` | `renderCorpsTab` 16704 | — | oui | ⚠️ **DIVERGENT** — cf. F4 | ✔ visible |
+| 27 | `nutriKcalRestantes` 2694 | via `calcCalorieCible` | 16707 | — | oui | ⚠️ **DIVERGENT** — cf. F4 | ✔ visible |
+| 28 | `nutriKcalSub` 2696 | via `calcCalorieCible` | 16707 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 29 | `nutriDayTypeLabel` 2699 | (dérivé routine) | 16715 | — | oui | ✅ CÂBLÉ (label informatif) | ✔ visible |
+| 30 | `nutriMangees` 2701 | `db.body[].kcal` | 16708 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 31 | `nutriCible` 2702 | `calcCalorieCible(bw)` | 16708 | — | oui | ⚠️ **DIVERGENT** — cf. F4 | ✔ visible |
+| 32 | `nutriBrulees` 2703 | `calcTDEE`/24×h | 16708 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 33 | `nutriCarbLabel` 2705 | `calcMacrosCibles(cible)` | 16712 | — | oui | ⚠️ DIVERGENT (macros dérivées de F4) | ✔ visible |
+| 34 | `nutriCarbBar` 2705 | idem | 16711 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 35 | `nutriProtLabel` 2706 | idem | 16712 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 36 | `nutriProtBar` 2706 | idem | 16711 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 37 | `nutriFatLabel` 2707 | idem | 16712 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 38 | `nutriFatBar` 2707 | idem | 16711 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 39 | `nutriTDEELabel` 2708 | **`calcTDEE(bw,tonnage7)`** | 16713 | — | oui | ⚠️ **DIVERGENT** — cf. F4 | ✔ visible |
+| 40 | `nutriProtCible` 2708 | `calcMacrosCibles` | 16713 | — | oui | ⚠️ DIVERGENT | ✔ visible |
+| 41 | `inputProt` 2712 | `db.body[].prot` | `saveMacroEntry` import.js:1619-1620 | 16699 | oui | ⚠️ **hors sync** — cf. F11 | ✔ visible |
+| 42 | `inputCarb` 2712 | `db.body[].carb` | idem | 16699 | oui | ⚠️ **hors sync** — cf. F11 | ✔ visible |
+| 43 | `inputFat` 2712 | `db.body[].fat` | idem | 16699 | oui | ⚠️ **hors sync** — cf. F11 | ✔ visible |
+| 44 | `inputKcal` 2712 | `db.body[].kcal` | idem | 16699 | oui | ⚠️ **hors sync** — cf. F11 | ✔ visible |
+| 45 | `macroHistoryDisplay` 2715 | `db.body[]` | `renderMacroHistory` 16584 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 46 | `chev-ca-force` 2724 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 47 | `ca-force` 2726 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 48 | `bodyMetricsGrid` 2728 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) | ✔ visible |
+| 49 | `metricIPFCard` 2729 | — | 16717-16718 | `modeFeature('showIPF')` | selon mode | ✅ CÂBLÉ (`showIPF` réel, engine.js:315-435) | ✔ visible |
+| 50 | `metricIPF` 2729 | `calcIPFGLTotal` | 16720 | — | modes SBD | ✅ CÂBLÉ | ✔ visible |
+| 51 | `metricIPFsub` 2729 | seuils 300/400/500 | 16720 | — | modes SBD | ✅ CÂBLÉ | ✔ visible |
+| 52 | `metricRatioCard` 2730 | — | 16723-16724 | `modeFeature('showBWRatio')` | selon mode | ✅ CÂBLÉ | ✔ visible |
+| 53 | `metricRatio` 2730 | `ipf/bw` | 16726 | — | modes SBD | ✅ CÂBLÉ | ✔ visible |
+| 54 | `metricRatioSub` 2730 | seuils 3/4 | 16726 | — | modes SBD | ✅ CÂBLÉ | ✔ visible |
+| 55 | `plateauAlerts` 2732 | `detectPlateau` | 16733-16737 | `showPlateauDetection` | selon mode | ✅ CÂBLÉ | ✔ visible |
+| 56 | `chev-ca-coach` 2741 | — | `toggleCorpsAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 57 | `ca-coach` 2743 | — | `toggleCorpsAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 58 | `coachAlgoContent` 2744 | `generateCoachAlgoMessage()` | 16739 | — | oui | ✅ CÂBLÉ | ✔ visible |
 
 ## B. Sous-onglet Réglages — Profil Athlète (59-99)
 
-| # | Élément (`index.html:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict |
-|---|---|---|---|---|---|---|
-| 59 | `tab-settings` 2749 | — | — | `showProfilSub` 4193 | oui | ✅ CÂBLÉ |
-| 60 | `chev-acc-profil` 2754 | — | `toggleAcc` 17567 | — | oui | ➖ COSMÉTIQUE |
-| 61 | `acc-profil` 2756 | — | `toggleAcc` | — | oui (ouvert par défaut) | ✅ CÂBLÉ |
-| 62 | `inputName` 2757 | `db.user.name` | `updateProfile` 10792 · `saveProfileSettings` 10800 | 21 réf. | oui | ✅ CÂBLÉ |
-| 63 | `inputBW` 2758 | `db.user.bw` | `updateProfile` 10793 · 10801 | 54 réf. | oui | ⚠️ **incohérence de garde** — cf. F16 |
-| 64 | `inputFatPct` 2759 | `db.user.fatPct` | **onchange inline** 2759 | `calcTDEE` engine.js:1181 | oui | ⚠️ **bornes divergentes** — cf. F17 |
-| 65 | `settingsLevel` 2763 | `db.user.level` + `programParams.level` | `updateProfileField` 17826-17827 | 67 réf. | oui | ✅ CÂBLÉ |
-| 66 | `settingsHeight` 2775 | `db.user.height` | `updateProfileField` 17831 | `calcTDEE` Mifflin 1190 | oui | ✅ CÂBLÉ |
-| 67 | `settingsAge` 2783 | `db.user.age` | `updateProfileField` 17831 | `calcTDEE` Mifflin 1190 | oui | ✅ CÂBLÉ |
-| 68 | `settingsGender` 2790 | `db.user.gender` | `setSettingsGender` 18743 | 36 réf. | oui | ✅ CÂBLÉ |
-| 69 | `settingsTargetBW` 2801 | `db.user.targetBW` | `updateProfileField` 17831 | **17589 seul (re-remplit le champ)** | oui | 🔴 **DONNÉE MORTE** — cf. F13 |
-| 70 | `settingsTargetsBlock` 2807 | — | `fillTargetSettings` 17863 | `!db.user.skipPRs` | oui | ✅ CÂBLÉ |
-| 71 | `tgtUnitLabel` 2809 | `db.user.units` | `fillTargetSettings` | — | oui | ✅ CÂBLÉ |
-| 72 | `tgtBench` 2812 | `db.user.targets.bench` | `updateTarget` 17850 | 19 réf. | oui | ✅ CÂBLÉ |
-| 73 | `tgtSquat` 2814 | `db.user.targets.squat` | `updateTarget` 17850 | 19 réf. | oui | ✅ CÂBLÉ |
-| 74 | `tgtDead` 2816 | `db.user.targets.deadlift` | `updateTarget` 17850 | 19 réf. | oui | ✅ CÂBLÉ |
-| 75 | `tgtPrHint` 2819 | `db.bestPR` | `fillTargetSettings` | — | oui | ✅ CÂBLÉ |
-| 76 | `settingsCycleBlock` 2823 | — | `setSettingsGender` 18747 · `fillSettingsFields` 17594 | `gender==='female'` | femmes | ⚠️ **DIVERGENT** — cf. F6 |
-| 77 | `settingsCycleEnabled` 2825 | `db.user.cycleTracking.enabled` | `toggleCycleTracking` 17887 | `getCyclePhaseModifier` 21464 | femmes | ⚠️ **DIVERGENT** — cf. F6 |
-| 78 | `settingsCycleDetails` 2828 | — | 17889 / 17596 | — | femmes | ✅ CÂBLÉ |
-| 79 | `settingsCycleLastDate` 2830 | `cycleTracking.lastPeriodDate` | `updateCycleField` 17896 | 21464, engine 1245/3290 | femmes | ⚠️ DIVERGENT — cf. F6 |
-| 80 | `settingsCycleLength` 2834 | `cycleTracking.cycleLength` | `updateCycleField` 17896 | 21467, engine 1249/3291 | femmes | ⚠️ DIVERGENT — cf. F6 |
-| 81 | `settingsInjuriesList` 2846 | `db.user.injuries[]` (objets) | `setInjuryLevel` 17933 | 27 réf. | oui | ⚠️ **DIVERGENT** — cf. F5 |
-| 82 | `settingsActivities` 2858 | `db.user.activities[]` | `addSettingsActivity` 17707 · `updateActivity` 17713 | 12 réf. | oui | ⚠️ **DIVERGENT** — cf. F7 |
-| 83 | `settingsTrainingMode` 2866 | `db.user.trainingMode` | `updateProfileField` 17829 | 61 réf., `getMode` engine.js:453 | oui | ✅ CÂBLÉ |
-| 84 | `settingsUIDetail` 2876 | `db.user.uiDetail` | **onchange inline** 2876 | `t()` app.js:12 · `shouldShow()` 59 | oui | ✅ CÂBLÉ |
-| 85 | `settingsVocabLevel` 2886 | `db.user.vocabLevel` | **onchange inline** 2886 | `getVocab` engine.js:38 + 5 sites | oui | ✅ CÂBLÉ |
-| 86 | `settingsGoals` 2895 | `programParams.goals[]` | `toggleSettingsGoal` | générateur | oui | ✅ CÂBLÉ |
-| 87 | `settingsFreq` 2900 | `programParams.freq` | `setSettingsFreq` 18795 | générateur, `calcTDEE` | oui | ✅ CÂBLÉ |
-| 88 | `settingsDays` 2905 | `programParams.selectedDays` | `toggleSettingsDay` | générateur | oui | ✅ CÂBLÉ |
-| 89 | `settingsMat` 2910 | `programParams.mat` | `setSettingsMat` | générateur | oui | ✅ CÂBLÉ |
-| 90 | `settingsDuration` 2915 | `programParams.duration` | `setSettingsDuration` 18818 | 6 sites, **précédés de `trainingDuration`** | oui | ⚠️ **FALLBACK/priorité** — cf. F12 |
-| 91 | `settingsSupersets` 2920 | `db.user.supersetPreference` | `setSupersetPref` 18822 | 5 réf. | oui | ✅ CÂBLÉ |
-| 92 | `settingsPrehabToggle` 2929 | `db.user.prehabEnabled` | `setPrehabEnabled` 18784 | 14567, 18074 | oui | ✅ CÂBLÉ |
-| 93 | `settingsPrehabSlider` 2930 | — | 18788 | — | oui | ➖ COSMÉTIQUE |
-| 94 | `settingsPrehabKnob` 2931 | — | 18789 | — | oui | ➖ COSMÉTIQUE |
-| 95 | `settingsProgramMode` 2937 | `programMode`, `coachProfile`, `coachingStyle` | `setProgramMode` 18600 · `setCoachProfile` 18676 · `setCoachingStyle` 18686 | 11 / 11 / 3 réf. | oui | ✅ CÂBLÉ |
-| 96 | `settingsInjuries` 2942 | `programParams.injuries[]` (chaînes) | `toggleSettingsInjury` 18868 | 7 réf. | oui | ⚠️ **DIVERGENT** — cf. F5 |
-| 97 | `settingsCardio` 2947 | `programParams.cardio` | `setSettingsCardio` 18819 | générateur | oui | ✅ CÂBLÉ |
-| 98 | `inputKcalBase` 2951 | `db.user.kcalBase` | `updateNutriTargets` 17553 · 10808 | **`calcCalorieCible` engine.js:1360 seul** | oui | ⚠️ **DIVERGENT** — cf. F4 |
-| 99 | `inputBWBase` 2952 | `db.user.bwBase` | `updateNutriTargets` 17554 · 10809 | **`calcCalorieCible` engine.js:1361 seul** | oui | ⚠️ **DIVERGENT** — cf. F4 |
+| # | Élément (`index.html:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict | Runtime |
+|---|---|---|---|---|---|---|---|
+| 59 | `tab-settings` 2749 | — | — | `showProfilSub` 4193 | oui | ✅ CÂBLÉ | ✔ visible |
+| 60 | `chev-acc-profil` 2754 | — | `toggleAcc` 17567 | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 61 | `acc-profil` 2756 | — | `toggleAcc` | — | oui (ouvert par défaut) | ✅ CÂBLÉ | ✔ visible |
+| 62 | `inputName` 2757 | `db.user.name` | `updateProfile` 10792 · `saveProfileSettings` 10800 | 21 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 63 | `inputBW` 2758 | `db.user.bw` | `updateProfile` 10793 · 10801 | 54 réf. | oui | ⚠️ **incohérence de garde** — cf. F16 | ✔ visible |
+| 64 | `inputFatPct` 2759 | `db.user.fatPct` | **onchange inline** 2759 | `calcTDEE` engine.js:1181 | oui | ⚠️ **bornes divergentes** — cf. F17 | ✔ visible |
+| 65 | `settingsLevel` 2763 | `db.user.level` + `programParams.level` | `updateProfileField` 17826-17827 | 67 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 66 | `settingsHeight` 2775 | `db.user.height` | `updateProfileField` 17831 | `calcTDEE` Mifflin 1190 | oui | ✅ CÂBLÉ | ✔ visible |
+| 67 | `settingsAge` 2783 | `db.user.age` | `updateProfileField` 17831 | `calcTDEE` Mifflin 1190 | oui | ✅ CÂBLÉ | ✔ visible |
+| 68 | `settingsGender` 2790 | `db.user.gender` | `setSettingsGender` 18743 | 36 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 69 | `settingsTargetBW` 2801 | `db.user.targetBW` | `updateProfileField` 17831 | **17589 seul (re-remplit le champ)** | oui | 🔴 **DONNÉE MORTE** — cf. F13 | ✔ visible |
+| 70 | `settingsTargetsBlock` 2807 | — | `fillTargetSettings` 17863 | `!db.user.skipPRs` | oui | ✅ CÂBLÉ | ✔ visible |
+| 71 | `tgtUnitLabel` 2809 | `db.user.units` | `fillTargetSettings` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 72 | `tgtBench` 2812 | `db.user.targets.bench` | `updateTarget` 17850 | 19 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 73 | `tgtSquat` 2814 | `db.user.targets.squat` | `updateTarget` 17850 | 19 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 74 | `tgtDead` 2816 | `db.user.targets.deadlift` | `updateTarget` 17850 | 19 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 75 | `tgtPrHint` 2819 | `db.bestPR` | `fillTargetSettings` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 76 | `settingsCycleBlock` 2823 | — | `setSettingsGender` 18747 · `fillSettingsFields` 17594 | `gender==='female'` | femmes | ⚠️ **DIVERGENT** — cf. F6 | ✔ conditionnel |
+| 77 | `settingsCycleEnabled` 2825 | `db.user.cycleTracking.enabled` | `toggleCycleTracking` 17887 | `getCyclePhaseModifier` 21464 | femmes | ⚠️ **DIVERGENT** — cf. F6 | ✔ conditionnel |
+| 78 | `settingsCycleDetails` 2828 | — | 17889 / 17596 | — | femmes | ✅ CÂBLÉ | ✔ conditionnel |
+| 79 | `settingsCycleLastDate` 2830 | `cycleTracking.lastPeriodDate` | `updateCycleField` 17896 | 21464, engine 1245/3290 | femmes | ⚠️ DIVERGENT — cf. F6 | ✔ conditionnel |
+| 80 | `settingsCycleLength` 2834 | `cycleTracking.cycleLength` | `updateCycleField` 17896 | 21467, engine 1249/3291 | femmes | ⚠️ DIVERGENT — cf. F6 | ✔ conditionnel |
+| 81 | `settingsInjuriesList` 2846 | `db.user.injuries[]` (objets) | `setInjuryLevel` 17933 | 27 réf. | oui | ⚠️ **DIVERGENT** — cf. F5 | ✔ visible |
+| 82 | `settingsActivities` 2858 | `db.user.activities[]` | `addSettingsActivity` 17707 · `updateActivity` 17713 | 12 réf. | oui | ⚠️ **DIVERGENT** — cf. F7 | ✔ visible |
+| 83 | `settingsTrainingMode` 2866 | `db.user.trainingMode` | `updateProfileField` 17829 | 61 réf., `getMode` engine.js:453 | oui | ✅ CÂBLÉ | ✔ visible |
+| 84 | `settingsUIDetail` 2876 | `db.user.uiDetail` | **onchange inline** 2876 | `t()` app.js:12 · `shouldShow()` 59 | oui | ✅ CÂBLÉ | ✔ visible |
+| 85 | `settingsVocabLevel` 2886 | `db.user.vocabLevel` | **onchange inline** 2886 | `getVocab` engine.js:38 + 5 sites | oui | ✅ CÂBLÉ | ✔ visible |
+| 86 | `settingsGoals` 2895 | `programParams.goals[]` | `toggleSettingsGoal` | générateur | oui | ✅ CÂBLÉ | ✔ visible |
+| 87 | `settingsFreq` 2900 | `programParams.freq` | `setSettingsFreq` 18795 | générateur, `calcTDEE` | oui | ✅ CÂBLÉ | ✔ visible |
+| 88 | `settingsDays` 2905 | `programParams.selectedDays` | `toggleSettingsDay` | générateur | oui | ✅ CÂBLÉ | ✔ visible |
+| 89 | `settingsMat` 2910 | `programParams.mat` | `setSettingsMat` | générateur | oui | ✅ CÂBLÉ | ✔ visible |
+| 90 | `settingsDuration` 2915 | `programParams.duration` | `setSettingsDuration` 18818 | 6 sites, **précédés de `trainingDuration`** | oui | ⚠️ **FALLBACK/priorité** — cf. F12 | ✔ visible |
+| 91 | `settingsSupersets` 2920 | `db.user.supersetPreference` | `setSupersetPref` 18822 | 5 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 92 | `settingsPrehabToggle` 2929 | `db.user.prehabEnabled` | `setPrehabEnabled` 18784 | 14567, 18074 | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 93 | `settingsPrehabSlider` 2930 | — | 18788 | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 94 | `settingsPrehabKnob` 2931 | — | 18789 | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 95 | `settingsProgramMode` 2937 | `programMode`, `coachProfile`, `coachingStyle` | `setProgramMode` 18600 · `setCoachProfile` 18676 · `setCoachingStyle` 18686 | 11 / 11 / 3 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 96 | `settingsInjuries` 2942 | `programParams.injuries[]` (chaînes) | `toggleSettingsInjury` 18868 | 7 réf. | oui | ⚠️ **DIVERGENT** — cf. F5 | ✔ visible |
+| 97 | `settingsCardio` 2947 | `programParams.cardio` | `setSettingsCardio` 18819 | générateur | oui | ✅ CÂBLÉ | ✔ visible |
+| 98 | `inputKcalBase` 2951 | `db.user.kcalBase` | `updateNutriTargets` 17553 · 10808 | **`calcCalorieCible` engine.js:1360 seul** | oui | ⚠️ **DIVERGENT** — cf. F4 | ✔ visible |
+| 99 | `inputBWBase` 2952 | `db.user.bwBase` | `updateNutriTargets` 17554 · 10809 | **`calcCalorieCible` engine.js:1361 seul** | oui | ⚠️ **DIVERGENT** — cf. F4 | ✔ visible |
 
 ## C. Réglages — autres accordéons (100-158)
 
-| # | Élément (`index.html:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict |
-|---|---|---|---|---|---|---|
-| 100 | `chev-acc-keylifts` 2962 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 101 | `acc-keylifts` 2964 | — | `toggleAcc` + lazy 17576 | — | oui | ✅ CÂBLÉ |
-| 102 | `keyLiftsEditor` 2966 | `db.keyLifts[]` | `saveKeyLifts` 10132-10135 | `renderPerfCard` | oui | ⚠️ **hors sync** — cf. F11 |
-| 103 | `chev-acc-prog` 2975 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 104 | `acc-prog` 2977 | — | `toggleAcc` + lazy 17577 | — | oui | ✅ CÂBLÉ |
-| 105 | `routineEditor` 2979 | `db.routine`, `db.routineExos` | `saveRoutine` 3981-3984 | `getRoutine` | oui | ⚠️ **hors sync** — cf. F11 |
-| 106 | `chev-acc-import` 2987 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 107 | `acc-import` 2989 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ |
-| 108 | `hevyPaste` 2992 | `db.logs` | `processHevy` import.js | — | oui | ✅ CÂBLÉ |
-| 109 | `importSummary` 2994 | — | import.js | — | oui | ✅ CÂBLÉ |
-| 110 | `importDetails` 2994 | — | import.js | — | oui | ✅ CÂBLÉ |
-| 111 | `aiImportAnalysis` 2995 | — | import.js | — | oui | ✅ CÂBLÉ |
-| 112 | `csvFileInput` 3000 | — | `previewCSV(this)` (passe `this`) | — | oui | ✅ CÂBLÉ |
-| 113 | `csvPreview` 3001 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 114 | `csvImportBtn` 3002 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 115 | `csvProgress` 3003 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 116 | `csvProgressBar` 3004 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 117 | `csvProgressText` 3005 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 118 | `chev-acc-cloud` 3015 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 119 | `acc-cloud` 3017 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ |
-| 120 | `cloudStatus` 3018 | session Supabase | `updateCloudUI` supabase.js:1057 | — | oui | ✅ CÂBLÉ |
-| 121 | `emailLoginSection` 3019 | — | supabase.js:1057 | — | oui | ✅ CÂBLÉ |
-| 122 | `authModeTabs` 3020 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) |
-| 123 | `authModeLogin` 3021 | — | `switchAuthMode` supabase.js | — | oui | ✅ CÂBLÉ |
-| 124 | `authModeSignup` 3022 | — | `switchAuthMode` | — | oui | ✅ CÂBLÉ |
-| 125 | `inputEmail` 3024 | (auth) | `authSubmit` supabase.js | — | oui | ✅ CÂBLÉ |
-| 126 | `inputPassword` 3025 | (auth) | `authSubmit` | — | oui | ✅ CÂBLÉ |
-| 127 | `inputPasswordConfirm` 3026 | (auth) | `switchAuthMode` / `authSubmit` | — | oui | ✅ CÂBLÉ |
-| 128 | `authSubmitBtn` 3027 | — | `switchAuthMode` | — | oui | ✅ CÂBLÉ |
-| 129 | `forgotPasswordBtn` 3029 | — | supabase.js | — | oui | ✅ CÂBLÉ |
-| 130 | `syncIndicator` 3031 | — | `updateSyncStatus` supabase.js:1059 | — | oui | ✅ CÂBLÉ |
-| 131 | `lastSyncDisplay` 3032 | `db.lastSync` | supabase.js:1066 | — | oui | ✅ CÂBLÉ |
-| 132 | `changePasswordSection` 3035 | — | supabase.js:1057 | `user.email` | connectés | ✅ CÂBLÉ |
-| 133 | `newPassword` 3037 | (auth) | `changePassword` | — | oui | ✅ CÂBLÉ |
-| 134 | `newPasswordConfirm` 3038 | (auth) | `changePassword` | — | oui | ✅ CÂBLÉ |
-| 135 | `chev-acc-backup` 3047 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 136 | `acc-backup` 3049 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ |
-| 137 | `restoreFileInput` 3055 | — | `previewRestore(this)` | — | oui | ✅ CÂBLÉ |
-| 138 | `restorePreview` 3056 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 139 | `restoreBtn` 3057 | — | app.js | — | oui | ✅ CÂBLÉ |
-| 140 | `storageGauge` 3064 | localStorage | `renderStorageGauge` supabase.js:4936 | — | oui | ✅ CÂBLÉ |
-| 141 | `chev-acc-records` 3069 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 142 | `acc-records` 3071 | — | `toggleAcc` + lazy 17575 | — | oui | ✅ CÂBLÉ |
-| 143 | `recordsCorrectionList` 3073 | `exo.maxRM` (e1RM) + `db.bestPR` | `renderRecordsCorrectionList` 18880 | — | oui | ⚠️ **e1RM affiché** — cf. F14 |
-| 144 | `chev-acc-glossary` 3080 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 145 | `acc-glossary` 3082 | — | `toggleAcc` + lazy 17578 | — | oui | ✅ CÂBLÉ |
-| 146 | `glossaryPageContent` 3084 | (statique) | `renderGlossaryPage` 1236 | — | oui | ✅ CÂBLÉ |
-| 147 | `acc-tier-card` 3089 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) |
-| 148 | `chev-acc-tier` 3091 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 149 | `acc-tier` 3093 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ |
-| 150 | `tierWelcomeSection` 3094 | `db.user.tier`, `db.isFounder` | `renderTierSection` **app.js:17753** | — | oui | ⚠️ **DIVERGENT** — cf. F9 |
-| 151 | `tierBadgesSection` 3095 | idem | **app.js:17777** | — | oui | ⚠️ **DIVERGENT** — cf. F9 |
-| 152 | `themeSelector` 3097 | `localStorage.selectedTheme` | **app.js:17787** | — | oui | ⚠️ DIVERGENT — cf. F9 |
-| 153 | `chev-acc-notif` 3104 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 154 | `acc-notif` 3106 | — | `toggleAcc` (classe `open`) | **`style="display:none"` inline jamais retiré** | **NON** | 🔴 **RENDU INATTEIGNABLE** — cf. F3 |
-| 155 | `push-status-label` 3109 | — | **aucun** (texte statique) | — | (dans #154) | 🔴 dans une section inatteignable ; jamais mis à jour |
-| 156 | `chev-acc-danger` 3117 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE |
-| 157 | `acc-danger` 3119 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ |
-| 158 | `appVersionLine` 3138 | version SW | `renderAppVersionLine` 4153 | — | oui | ✅ CÂBLÉ |
+| # | Élément (`index.html:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict | Runtime |
+|---|---|---|---|---|---|---|---|
+| 100 | `chev-acc-keylifts` 2962 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 101 | `acc-keylifts` 2964 | — | `toggleAcc` + lazy 17576 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 102 | `keyLiftsEditor` 2966 | `db.keyLifts[]` | `saveKeyLifts` 10132-10135 | `renderPerfCard` | oui | ⚠️ **hors sync** — cf. F11 | ✔ visible |
+| 103 | `chev-acc-prog` 2975 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 104 | `acc-prog` 2977 | — | `toggleAcc` + lazy 17577 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 105 | `routineEditor` 2979 | `db.routine`, `db.routineExos` | `saveRoutine` 3981-3984 | `getRoutine` | oui | ⚠️ **hors sync** — cf. F11 | ✔ visible |
+| 106 | `chev-acc-import` 2987 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 107 | `acc-import` 2989 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 108 | `hevyPaste` 2992 | `db.logs` | `processHevy` import.js | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 109 | `importSummary` 2994 | — | import.js | — | oui | ✅ CÂBLÉ | ⊘ non testable |
+| 110 | `importDetails` 2994 | — | import.js | — | oui | ✅ CÂBLÉ | ⊘ non testable |
+| 111 | `aiImportAnalysis` 2995 | — | import.js | — | oui | ✅ CÂBLÉ | ⊘ non testable |
+| 112 | `csvFileInput` 3000 | — | `previewCSV(this)` (passe `this`) | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 113 | `csvPreview` 3001 | — | app.js | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 114 | `csvImportBtn` 3002 | — | app.js | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 115 | `csvProgress` 3003 | — | app.js | — | oui | ✅ CÂBLÉ | ⊘ non testable |
+| 116 | `csvProgressBar` 3004 | — | app.js | — | oui | ✅ CÂBLÉ | ⊘ non testable |
+| 117 | `csvProgressText` 3005 | — | app.js | — | oui | ✅ CÂBLÉ | ⊘ non testable |
+| 118 | `chev-acc-cloud` 3015 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 119 | `acc-cloud` 3017 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 120 | `cloudStatus` 3018 | session Supabase | `updateCloudUI` supabase.js:1057 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 121 | `emailLoginSection` 3019 | — | supabase.js:1057 | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 122 | `authModeTabs` 3020 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) | ✔ conditionnel |
+| 123 | `authModeLogin` 3021 | — | `switchAuthMode` supabase.js | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 124 | `authModeSignup` 3022 | — | `switchAuthMode` | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 125 | `inputEmail` 3024 | (auth) | `authSubmit` supabase.js | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 126 | `inputPassword` 3025 | (auth) | `authSubmit` | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 127 | `inputPasswordConfirm` 3026 | (auth) | `switchAuthMode` / `authSubmit` | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 128 | `authSubmitBtn` 3027 | — | `switchAuthMode` | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 129 | `forgotPasswordBtn` 3029 | — | supabase.js | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 130 | `syncIndicator` 3031 | — | `updateSyncStatus` supabase.js:1059 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 131 | `lastSyncDisplay` 3032 | `db.lastSync` | supabase.js:1066 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 132 | `changePasswordSection` 3035 | — | supabase.js:1057 | `user.email` | connectés | ✅ CÂBLÉ | ✔ visible |
+| 133 | `newPassword` 3037 | (auth) | `changePassword` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 134 | `newPasswordConfirm` 3038 | (auth) | `changePassword` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 135 | `chev-acc-backup` 3047 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 136 | `acc-backup` 3049 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 137 | `restoreFileInput` 3055 | — | `previewRestore(this)` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 138 | `restorePreview` 3056 | — | app.js | — | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 139 | `restoreBtn` 3057 | — | app.js | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 140 | `storageGauge` 3064 | localStorage | `renderStorageGauge` supabase.js:4936 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 141 | `chev-acc-records` 3069 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 142 | `acc-records` 3071 | — | `toggleAcc` + lazy 17575 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 143 | `recordsCorrectionList` 3073 | `exo.maxRM` (e1RM) + `db.bestPR` | `renderRecordsCorrectionList` 18880 | — | oui | ⚠️ **e1RM affiché** — cf. F14 | ✔ visible |
+| 144 | `chev-acc-glossary` 3080 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 145 | `acc-glossary` 3082 | — | `toggleAcc` + lazy 17578 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 146 | `glossaryPageContent` 3084 | (statique) | `renderGlossaryPage` 1236 | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 147 | `acc-tier-card` 3089 | — | — | — | oui | ➖ COSMÉTIQUE (id jamais référencé) | ✔ visible |
+| 148 | `chev-acc-tier` 3091 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 149 | `acc-tier` 3093 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 150 | `tierWelcomeSection` 3094 | `db.user.tier`, `db.isFounder` | `renderTierSection` **app.js:17753** | — | oui | ⚠️ **DIVERGENT** — cf. F9 | ✔ visible |
+| 151 | `tierBadgesSection` 3095 | idem | **app.js:17777** | — | oui | ⚠️ **DIVERGENT** — cf. F9 | ✔ visible |
+| 152 | `themeSelector` 3097 | `localStorage.selectedTheme` | **app.js:17787** | — | oui | ⚠️ DIVERGENT — cf. F9 | ✔ visible |
+| 153 | `chev-acc-notif` 3104 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 154 | `acc-notif` 3106 | — | `toggleAcc` (classe `open`) | **`style="display:none"` inline jamais retiré** | **NON** | 🔴 **RENDU INATTEIGNABLE** — cf. F3 | ✔ inatteignable |
+| 155 | `push-status-label` 3109 | — | **aucun** (texte statique) | — | (dans #154) | 🔴 dans une section inatteignable ; jamais mis à jour | ✔ inatteignable |
+| 156 | `chev-acc-danger` 3117 | — | `toggleAcc` | — | oui | ➖ COSMÉTIQUE | ✔ visible |
+| 157 | `acc-danger` 3119 | — | `toggleAcc` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 158 | `appVersionLine` 3138 | version SW | `renderAppVersionLine` 4153 | — | oui | ✅ CÂBLÉ | ✔ visible |
 
 ## D. Sous-onglet Badges (159-160)
 
-| # | Élément | Champ db | Écrit par | Lu par | Atteignable | Verdict |
-|---|---|---|---|---|---|---|
-| 159 | `tab-profil-badges` 3144 | — | `showProfilSub` 4200-4206 | — | **NON** | 🔴 **RENDU INATTEIGNABLE** — cf. F2 |
-| 160 | `profil-badges-content` 3145 | copie de `tab-game.innerHTML` | 4205 | — | **NON** | 🔴 inatteignable (dans #159) |
+| # | Élément | Champ db | Écrit par | Lu par | Atteignable | Verdict | Runtime |
+|---|---|---|---|---|---|---|---|
+| 159 | `tab-profil-badges` 3144 | — | `showProfilSub` 4200-4206 | — | **NON** | 🔴 **RENDU INATTEIGNABLE** — cf. F2 | ✔ inatteignable |
+| 160 | `profil-badges-content` 3145 | copie de `tab-game.innerHTML` | 4205 | — | **NON** | 🔴 inatteignable (dans #159) | ✔ inatteignable |
 
 ## E. Sections injectées au runtime (161-176)
 
-| # | Élément (`js/app.js:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict |
-|---|---|---|---|---|---|---|
-| 161 | `settingsMenstrualSection` 18136 | — | `renderSettingsProfile` | `gender ∈ {F,female,femme}` | femmes | ⚠️ **DIVERGENT** — cf. F6 |
-| 162 | `menstrualStartDate` 18157 | `menstrualData.lastPeriodStart` | `saveMenstrualData` 18517 | `getCurrentMenstrualPhase` engine.js:3283 | femmes | ✅ CÂBLÉ |
-| 163 | `menstrualCycleLength` 18162 | `menstrualData.cycleLength` | `saveMenstrualData` 18520 | engine.js:3284 | femmes | ✅ CÂBLÉ |
-| 164 | `settingsHealthConnect` 18177 | `db.garminHealth` | `connectHealthConnect` | 23170, 29044 | oui | ❓ **NE SAIS PAS** — chaîne Garmin non auditée (hors zone) |
-| 165 | `settingsWeightCut` 18208 | `db.user.weightCut` | `toggleWeightCut` 18539 | 50 réf. | oui | ✅ CÂBLÉ |
-| 166 | `wc-start-weight` 18228 | `weightCut.startWeight` | `saveWeightCutData` 18560 | `calcWeightCutPenalty` | oui | ✅ CÂBLÉ |
-| 167 | `wc-target-weight` 18231 | `weightCut.targetWeight` | `saveWeightCutData` | idem | oui | ✅ CÂBLÉ |
-| 168 | `wc-current-weight` 18235 | `weightCut.currentWeight` | `saveWeightCutData` | idem | oui | ✅ CÂBLÉ |
-| 169 | `wc-competition-date` 18239 | `weightCut.competitionDate` | `saveWeightCutData` | Kill Switch compétition | oui | ✅ CÂBLÉ |
-| 170 | `toggle-creatine` 18258 | `db.user.takesCreatine` | **onchange inline** 18259 | `engine.js:4119` (−1 kg lissé) | oui | ✅ CÂBLÉ |
-| 171 | `settingsBarWeightSection` 18276 | — | `renderSettingsProfile` | — | oui | ✅ CÂBLÉ |
-| 172 | `settings-bar-weight` 18296 | `db.user.barWeight` | `saveBarWeight` | 6 réf. | oui | ✅ CÂBLÉ |
-| 173 | `settingsHybridSection` 18310 | — | `renderSettingsProfile` | — | oui | ✅ CÂBLÉ |
-| 174 | `toggle-hybrid` 18323 | `db.user.hybridAthlete` | **onchange inline** 18324 | `engine.js:132` (plafond ACWR) | oui | ✅ CÂBLÉ |
-| 175 | `settingsRGPDSection` 18334 | `consentHealth`, `consentHealthDate` | `renderRGPDSection` 1614 | 1616-1618 | oui | ⚠️ **promesse non tenue** — cf. F15 |
-| 176 | `settingsMorphoSection` 18347 | `db.user.morpho` | `openMorphoSettings` 18377 | `MORPHO_SUBSTITUTIONS` / `JOINT_MORPHO_COEFFS` | `level!=='debutant'` | ⚠️ **DIVERGENT** — cf. F18 |
+| # | Élément (`js/app.js:L`) | Champ db | Écrit par | Lu par | Atteignable | Verdict | Runtime |
+|---|---|---|---|---|---|---|---|
+| 161 | `settingsMenstrualSection` 18136 | — | `renderSettingsProfile` | `gender ∈ {F,female,femme}` | femmes | ⚠️ **DIVERGENT** — cf. F6 | ✔ conditionnel |
+| 162 | `menstrualStartDate` 18157 | `menstrualData.lastPeriodStart` | `saveMenstrualData` 18517 | `getCurrentMenstrualPhase` engine.js:3283 | femmes | ✅ CÂBLÉ | ✔ conditionnel |
+| 163 | `menstrualCycleLength` 18162 | `menstrualData.cycleLength` | `saveMenstrualData` 18520 | engine.js:3284 | femmes | ✅ CÂBLÉ | ✔ conditionnel |
+| 164 | `settingsHealthConnect` 18177 | `db.garminHealth` | `connectHealthConnect` | 23170, 29044 | oui | ❓ **NE SAIS PAS** — chaîne Garmin non auditée (hors zone) | ✔ visible |
+| 165 | `settingsWeightCut` 18208 | `db.user.weightCut` | `toggleWeightCut` 18539 | 50 réf. | **NON — porte circulaire** | 🔴 **RENDU INATTEIGNABLE** — cf. F19 | ✘ **RÉFUTE mon verdict statique** |
+| 166 | `wc-start-weight` 18228 | `weightCut.startWeight` | `saveWeightCutData` 18560 | `calcWeightCutPenalty` | **NON** (dans #165) | 🔴 **RENDU INATTEIGNABLE** — cf. F19 | ✘ **RÉFUTE** |
+| 167 | `wc-target-weight` 18231 | `weightCut.targetWeight` | `saveWeightCutData` | idem | **NON** (dans #165) | 🔴 **RENDU INATTEIGNABLE** — cf. F19 | ✘ **RÉFUTE** |
+| 168 | `wc-current-weight` 18235 | `weightCut.currentWeight` | `saveWeightCutData` | idem | **NON** (dans #165) | 🔴 **RENDU INATTEIGNABLE** — cf. F19 | ✘ **RÉFUTE** |
+| 169 | `wc-competition-date` 18239 | `weightCut.competitionDate` | `saveWeightCutData` | Kill Switch compétition | **NON** (dans #165) | 🔴 **RENDU INATTEIGNABLE** — cf. F19 | ✘ **RÉFUTE** |
+| 170 | `toggle-creatine` 18258 | `db.user.takesCreatine` | **onchange inline** 18259 | `engine.js:4119` (−1 kg lissé) | **NON** (dans #165) | 🔴 **RENDU INATTEIGNABLE** — cf. F19 | ✘ **RÉFUTE** |
+| 171 | `settingsBarWeightSection` 18276 | — | `renderSettingsProfile` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 172 | `settings-bar-weight` 18296 | `db.user.barWeight` | `saveBarWeight` | 6 réf. | oui | ✅ CÂBLÉ | ✔ visible |
+| 173 | `settingsHybridSection` 18310 | — | `renderSettingsProfile` | — | oui | ✅ CÂBLÉ | ✔ visible |
+| 174 | `toggle-hybrid` 18323 | `db.user.hybridAthlete` | **onchange inline** 18324 | `engine.js:132` (plafond ACWR) | oui | ✅ CÂBLÉ | ✔ conditionnel |
+| 175 | `settingsRGPDSection` 18334 | `consentHealth`, `consentHealthDate` | `renderRGPDSection` 1614 | 1616-1618 | oui | ⚠️ **promesse non tenue** — cf. F15 | ✔ visible |
+| 176 | `settingsMorphoSection` 18347 | `db.user.morpho` | `openMorphoSettings` 18377 | `MORPHO_SUBSTITUTIONS` / `JOINT_MORPHO_COEFFS` | `level!=='debutant'` | ⚠️ **DIVERGENT** — cf. F18 | ✔ visible |
 
 **Total : 176 verdicts. = 176 éléments inventoriés en phase 1. ✅ Contrat respecté.**
 
@@ -674,6 +680,46 @@ existe bien, en `onchange` inline (index.html:2759), invisible si l'on cherche u
 - `short_arms_long_torso` → substitutions ✅, charge articulaire ❌
 - `long_torso` (coefficient hanches ×1.1) → 🔴 **RENDU INATTEIGNABLE** : aucune UI ne produit cette clé
 
+### F19 — Weight Cut : la section n'est ouvrable que si elle est déjà ouverte (constat produit par l'exécution)
+
+**Ce constat n'existe dans aucune version statique de cet audit.** Les phases 1-4 avaient classé
+`settingsWeightCut` « inconditionnel » — c'est **faux**, et seule l'exécution l'a montré : la section
+est **absente du DOM** dans les 3 profils de base.
+
+Condition réelle (app.js:18202-18203) :
+```js
+var _showWC = (db.user.programParams && (db.user.programParams.goals || []).includes('competition'))
+  || (db.user.weightCut && db.user.weightCut.active);
+```
+Les deux branches sont vérifiées, par grep exhaustif :
+
+1. **`goals` ne peut pas contenir `'competition'`.** Les ids d'objectifs producibles sont les mêmes 6
+   partout — `obGoals` de l'onboarding (`force, masse, seche, recompo, maintien, reprise`) et le groupe
+   de boutons des Réglages (app.js:17972-17979, mêmes 6). `'competition'` n'apparaît que dans la table
+   de compatibilité `_GOAL_INCOMPATIBLE` (app.js:18698-18700), **jamais comme option sélectionnable**.
+2. **`weightCut.active` n'est posé que par `toggleWeightCut`** (app.js:18547), dont l'unique site
+   d'invocation est le bouton `onclick="toggleWeightCut()"` **à l'intérieur de la section** (app.js:18219).
+
+→ Porte circulaire : la section n'apparaît que si le weight cut est déjà actif, et il ne peut être
+activé que depuis la section.
+
+**Vérifié à l'exécution, dans les deux sens** :
+
+| État semé | `settingsWeightCut` | Champs `wc-*` |
+|---|---|---|
+| profils de base (aurel_like, vierge, debutant) | **absent du DOM** | absents |
+| `weightCut.active = true` | VISIBLE 322×432 | VISIBLE, et l'aller-retour passe (`wc-current-weight` 98 → 96.2, survit au reload) |
+| `goals = ['competition']` | VISIBLE 322×83 (le bouton d'activation seul) | absents tant que `active` est faux |
+
+La section **fonctionne** une fois déverrouillée — c'est sa porte d'entrée qui est absente.
+
+**Portée** : `db.user.weightCut` compte **50 références** dans le code (Weight Cut LPF, blocage APRE,
+Kill Switch compétition — CLAUDE.md §8, points 6, 10 et 11). `db.user.takesCreatine` (consommé par
+`engine.js:4119`) n'a lui aussi d'interface que dans cette section.
+
+**Réserve explicite** : `weightCut` fait partie du blob synchronisé (`_buildSyncedBlob` copie tout `db`
+sauf `logs`) — une valeur posée hors application (blob cloud, intervention en base) déverrouillerait la
+section. Ce que j'affirme est borné à ceci : **aucun parcours de l'interface ne permet de l'ouvrir.**
 ---
 
 # PHASE 3 — CROISEMENT INVERSE (données → UI)
@@ -755,13 +801,27 @@ Décompte extrait mécaniquement des tables ci-dessus (verdict le plus fort rete
 
 | Verdict | Nombre | Détail |
 |---|---|---|
-| ✅ CÂBLÉ | **106** | |
+| ✅ CÂBLÉ | **100** | |
 | ⚠️ DIVERGENT / FALLBACK MASQUANT | **37** | |
 | ➖ COSMÉTIQUE | **27** | chevrons, conteneurs de mise en page, ids jamais référencés |
-| 🔴 RENDU INATTEIGNABLE | **4** | #154 `acc-notif`, #155 `push-status-label`, #159 `tab-profil-badges`, #160 `profil-badges-content` |
+| 🔴 RENDU INATTEIGNABLE | **10** | #154-155 (Notifications Push) · #159-160 (Badges) · **#165-170 (Weight Cut — F19, découvert en phase 5)** |
 | 🔴 DONNÉE MORTE | **1** | #69 `settingsTargetBW` — *+ 5 autres hors table, en phase 3B* |
 | ❓ NE SAIS PAS | **1** | #164 `settingsHealthConnect` |
 | **Total** | **176** | = 176 éléments inventoriés ✅ |
+
+Colonne Runtime, sur les mêmes 176 lignes :
+
+| Statut | Nombre |
+|---|---|
+| ✔ visible au repos | 138 |
+| ✔ conditionnel (révélé par l'action ou le profil) | 22 |
+| ✔ inatteignable (confirmé après exécution de l'action) | 4 |
+| ✘ **RÉFUTE le verdict statique** (les 6 lignes Weight Cut) | 6 |
+| ⊘ non testable (raison donnée) | 6 |
+| **Total** | **176** |
+
+*Le décompte des verdicts ci-dessus intègre déjà les corrections de la phase 5 : 6 lignes sont passées
+de ✅ CÂBLÉ à 🔴 RENDU INATTEIGNABLE (F19).*
 
 Les champs 🔴 qui n'ont **pas** d'élément d'interface (donc absents de la table phase 2) sont recensés
 en phase 3 : `coachEnabled`, `navMode`, `medicalConsentDate`, `_swipeResults` (données mortes) ·
@@ -803,10 +863,295 @@ silencieusement. À chercher systématiquement dans les vagues suivantes : un gr
 
 ---
 
+---
+
+# PHASE 5 — VÉRIFICATION RUNTIME
+
+> Aucun verdict ne reste `SUPPOSÉ`. Chaque ligne de la phase 2 porte désormais un statut runtime.
+
+## Outillage et fidélité du banc
+
+| | |
+|---|---|
+| Navigateur | Chromium **1194** préinstallé, piloté par `@playwright/test` **1.56.0** (le paquet `playwright` 1.59 du `package.json` attend le build 1217, absent — `require('@playwright/test')` est le seul qui démarre) |
+| Serveur | serveur statique Node de 20 lignes écrit pour l'audit (`http-server` du `playwright.config.js` **n'est pas installé**) |
+| Réseau | **intégralement stubbé.** Tout ce qui ne pointe pas vers `127.0.0.1` est intercepté ; Supabase reçoit des réponses synthétiques. **Aucune requête ne sort, aucune donnée réelle n'est touchée.** |
+| Service Worker | `serviceWorkers: 'block'` — pas de cache qui masquerait la source |
+| Viewport | 390×844 (cible Android annoncée) |
+| Profils | `tests/fixtures/profiles/` (aurel_like, vierge, debutant) + variantes mutées au minimum (femme, femme+cycle, weightCut actif, goals=competition, débutant) |
+| Scripts | `audit/runtime/` — **aucun fichier applicatif touché** |
+
+**Note de rigueur — CLAUDE.md §17 est à jour à corriger** : « `npm test` n'a jamais tourné
+(`node_modules` absent) » est **faux aujourd'hui** — `node_modules` est présent, Playwright et Jest
+sont installés. C'est ce qui a rendu cette phase possible.
+
+### Trois défauts de MON banc, corrigés avant de conclure
+
+Je les documente parce qu'ils ont d'abord produit de faux résultats, et qu'un lecteur doit pouvoir
+juger de la fiabilité de ce qui suit.
+
+1. **`db` n'est pas sur `window`.** `let db = …` (app.js:108) crée une liaison lexicale globale :
+   `typeof window.db` vaut `'undefined'`. La sonde d'attente échouait ; corrigée en évaluant
+   l'identifiant nu.
+2. **`addInitScript` rejoue à chaque navigation.** Le premier passage de la phase 5b re-semait le blob
+   d'origine **au rechargement**, faisant échouer les 26 tests d'aller-retour pour une raison qui
+   n'appartenait pas à l'app. Corrigé par une sentinelle.
+3. **La garde anti-fuite RC4 purgeait mes profils.** Avec une session dont l'uid ne correspond pas au
+   `ownerUid` du blob, l'app remplace le blob local — **comportement voulu et correct**. Mesuré :
+   `{name:'', logs:0, bestPR:{0,0,0}, onboarded:false}` contre `{name:'Aurélien', logs:562,
+   bestPR:{140,145,170}}` une fois le blob tatoué. Toutes les passes ont été **rejouées** après
+   correction ; c'est cette correction qui a inversé le résultat de persistance de F1 (voir ci-dessous).
+
+## 5a — Visibilité réelle
+
+Sonde : `display`, `visibility`, `opacity`, boîte englobante, en accordéons fermés **puis** ouverts,
+sur 3 profils, puis sur 5 variantes ciblées.
+
+| Profil | Éléments visibles | Présents dans le DOM | /176 |
+|---|---|---|---|
+| aurel_like | 138 | 167 | 176 |
+| vierge | 138 | 167 | 176 |
+| debutant | 131 | 166 | 176 |
+
+**Hypothèse testée puis RÉFUTÉE** : `.acc-body.open` plafonne à `max-height:5000px` avec
+`overflow:hidden` (index.html:562-563) et le contenu des Réglages fait ~9 000 px — je soupçonnais un
+rognage. Mesure : `#acc-profil` `clientHeight = scrollHeight = 3531 px`. **Rien n'est rogné.** La
+dernière section injectée (`settingsMorphoSection`) est à l'offset 3041 px, largement sous la limite.
+
+### Bilan des statuts
+
+| Statut runtime | Nombre |
+|---|---|
+| ✔ CONFIRMÉ — visible au repos | 138 |
+| ✔ CONFIRMÉ — conditionnel (révélé par l'action ou le profil qui le déverrouille) | 28 |
+| ✔ CONFIRMÉ — inatteignable (action déclenchante exécutée, reste invisible) | 4 |
+| ⊘ NON TESTABLE (raison donnée) | 6 |
+| ❓ sans statut | **0** |
+
+Les 6 non testables, avec leur raison :
+
+| # | Élément | Pourquoi |
+|---|---|---|
+| 109 | `importSummary` | chemin de révélation présent (`import.js:1004`) mais mon échantillon Hevy n'a pas été parsé |
+| 110 | `importDetails` | conteneur enfant de #109 |
+| 111 | `aiImportAnalysis` | dépend d'une Edge Function IA — réseau stubbé |
+| 115 | `csvProgress` | `csvImportBtn` est resté `disabled` : mon échantillon CSV a été rejeté par `parseCSVData` |
+| 116-117 | `csvProgressBar`, `csvProgressText` | idem #115 |
+| 164 | `settingsHealthConnect` | dépend de l'appairage Garmin / Health Connect |
+
+### Les 4 inatteignables — confirmés après exécution de leur action déclenchante
+
+- **#154 `acc-notif` / #155 `push-status-label`** — `toggleAcc('acc-notif')` exécuté : reste
+  `display:none`, **style inline jamais retiré**. `.acc-body` n'agit que sur `max-height`. **CONFIRMÉ.**
+- **#159 `tab-profil-badges` / #160 `profil-badges-content`** — forcés à la main via
+  `showProfilSub('tab-profil-badges')` : **deviennent VISIBLES**. Le markup fonctionne ; ce qui manque,
+  c'est l'appelant (0 sur 16 invocations de `showProfilSub` dans tout le dépôt) et la pilule.
+  **Formulation précise : inatteignable par le parcours, pas cassé.**
+
+## 5a bis — F1 reproduit intégralement
+
+Parcours réel reproduit (`showTab('tab-profil'); showProfilSub('tab-profil-stats')`, tel qu'écrit aux
+5 sites d'appel) :
+
+| Observation | Mesure |
+|---|---|
+| Sous-sections `.active` après l'appel | **0** |
+| Blocs de hauteur non nulle restants dans `#tab-profil` | `["nav-fade-wrap"]` — **la barre de pilules seule** |
+| `sbd_lastTab` (localStorage) | `{…, "profil":"tab-profil-stats"}` |
+| `db.gamification.lastTab` | idem |
+| **Après rechargement complet** | onglet `tab-profil`, sous-sections `.active` = **0**, `activeProfilSub = 'tab-profil-stats'` |
+| Échappatoire | quitter l'onglet puis y revenir → 1 sous-section active, `activeProfilSub = 'tab-corps'` |
+
+→ **F1 CONFIRMÉ, persistance comprise.** L'écran vide survit au rechargement ; il se répare dès que
+l'utilisateur change d'onglet et revient.
+
+⚠️ **Correction d'une erreur intermédiaire de ma part** : un premier passage avait conclu que l'état ne
+survivait *pas* au rechargement. C'était le défaut n°3 de mon banc (profil purgé par la garde RC4). Le
+résultat ci-dessus, obtenu après correction, est celui qui fait foi — et il **confirme** l'analyse
+statique initiale.
+
+*Limite d'instrumentation* : mon traceur d'appels de `showProfilSub` a renvoyé une liste vide, parce que
+les appels internes d'`app.js` résolvent la liaison lexicale et non `window.showProfilSub`. L'**ordre**
+des appels au boot n'est donc pas prouvé ; seul le **résultat** l'est. Il suffit à établir le constat.
+
+## 5b — Aller-retour (écrire → persister → recharger → réafficher)
+
+Interactions réelles (`fill` + `change`/`input`, `selectOption`, `click`), jamais d'écriture directe en
+JS. Chaîne de sauvegarde réelle respectée : `_debouncedSaveSettings` (300 ms) → `saveDB` (2 000 ms) →
+`localStorage`.
+
+**25 champs sur 27 ✔ CONFIRMÉS** en passe groupée. Les 2 « échecs » se sont révélés être **des artefacts
+de mon propre test**, tous deux re-testés seuls et confirmés :
+
+| # | Champ | Cause de l'échec apparent | En isolation |
+|---|---|---|---|
+| 63 | `inputBW` | `inputBodyWeight` (#19) écrit le **même** chemin `user.bw` plus loin dans la passe | ✔ 98 → 91.5, survit au reload |
+| 88 | `settingsDays` | `setSettingsFreq(5)` exécuté juste avant réajuste `selectedDays` (app.js:18800-18808) | ✔ ajout de « Lundi », survit au reload |
+
+Champs injectés au runtime, testés dans le profil qui les déverrouille :
+
+| # | Champ | Résultat |
+|---|---|---|
+| 172 | `settings-bar-weight` | ✔ 20 → 15 (c'est un `<select>`, pas un `<input>`) |
+| 174 | `toggle-hybrid` | ✔ false → true |
+| 77 | `settingsCycleEnabled` (femme) | ✔ false → true |
+| 161 | `toggleMenstrualTracking` (femme) | ✔ false → true |
+| 168 | `wc-current-weight` (weightCut actif) | ✔ 98 → 96.2 |
+| 170 | `toggle-creatine` (weightCut actif) | ✔ false → true |
+
+## 5c — Consommation : la sortie dépendante bouge-t-elle ?
+
+### F4 — les deux chaînes caloriques, mesurées côte à côte
+
+`kcalBase` 2300 → 3000 et `bwBase` → 80 (entrées de `calcCalorieCible` **uniquement**) :
+
+| Élément affiché | Avant | Après |
+|---|---|---|
+| « Objectif » (`nutriCible`) | 2300 | **3675** ✔ réagit |
+| « TDEE estimé » (`nutriTDEELabel`) | 2672 kcal | **2672 kcal** ← inchangé |
+| « Restantes » | 0 | 1025 |
+
+Valeurs brutes pour le **même** poids de corps (98 kg) :
+`calcCalorieCible = 3675` contre `calcTDEE = 2672`.
+Au départ, avant toute manipulation : **Objectif 2300 / TDEE estimé 2672**, dans la même carte.
+(2672 est la cible de référence d'aurel_br au CLAUDE.md §15.) **F4 CONFIRMÉ à l'écran.**
+
+### F6 — activer « 🌙 Optimisation hormonale » (UI n°1), profil femme
+
+```
+cycleTracking.enabled = true          lastPeriodDate = "2026-07-10"
+menstrualEnabled      = false         menstrualData  = null
+getCurrentMenstrualPhase() = "luteale"    ← le pont de DATE fonctionne
+getCycleCoeff()            = 1            ← AUCUN ajustement de volume
+getMRVWithCycleAdjust(20)  = 20           ← MRV inchangé
+getCyclePhaseModifier()    = 5            ← le modificateur SRS, lui, RÉAGIT
+```
+**F6 CONFIRMÉ, avec sa nuance exacte** : effet partiel (SRS), pas nul, et pas l'ajustement
+volume/MRV/repos que le libellé laisse attendre.
+
+### F5 — étanchéité des deux UI blessures
+
+Niveau 2 sur « Genoux » via l'UI n°1 (`settingsInjuriesList`) :
+```
+db.user.injuries               = [{"zone":"genou","level":2,"active":true,"since":"2026-07-28"}]
+db.user.programParams.injuries = []
+bouton « Genoux » de l'UI n°2 allumé ?  false
+```
+**F5 CONFIRMÉ** : deux stores étanches, dans le même accordéon.
+
+### F13 — `targetBW`
+
+`targetBW = 82` persisté ; le texte intégral de l'onglet Corps est **identique caractère pour
+caractère** avant et après. **DONNÉE MORTE CONFIRMÉE à l'exécution.**
+
+### F12 — `trainingDuration` prime silencieusement
+
+Blob porteur de `trainingDuration = 45` et `programParams.duration = 90` :
+
+| | |
+|---|---|
+| Bouton allumé dans les Réglages | **1h30** |
+| Ce que lisent les 6 sites (`A \|\| B \|\| 90`) | **45** |
+
+**F12 CONFIRMÉ** : l'interface montre 1h30, l'algorithme utilise 45.
+
+### F17 — `fatPct` hors bornes moteur
+
+| Saisi | Stocké | `calcTDEE` | Katch pur |
+|---|---|---|---|
+| 15 | 15 | 2971 | 3471 |
+| 49 | 49 | 1819 | 2319 |
+| **55** | **55** | **2672** ← repli Mifflin | 2116 |
+
+L'UI accepte jusqu'à 60 ; au-delà de 50, la valeur est stockée, ré-affichée, et **silencieusement
+ignorée** par le calcul. **F17 CONFIRMÉ.**
+
+### F14 — ce que la section « Correction des Records » affiche vraiment
+
+```
+db.bestPR (vraies barres) = {"bench":140,"squat":145,"deadlift":170}
+
+  Presse à Cuisses
+  e1RM: 347kg — 26/07
+  Soulevé de Terre (Barre)
+  e1RM: 186kg — 30/12
+```
+Le deadlift est affiché **186 kg** là où le PR réel est **170 kg**. **F14 CONFIRMÉ à l'écran** — c'est
+exactement le motif que CLAUDE.md §7 décrit (« e1RM affiché au lieu du PR »). Le marquage `[VOULU ?]`
+reste : la section sert à repérer un import aberrant, et le libellé « e1RM » est honnête.
+
+## 5d — Persistance cloud : la signature bouge-t-elle ?
+
+Mesure de `_computeDataHash(db)` avant/après chaque écriture, **et** comptage des requêtes d'écriture
+vers `sbd_profiles` interceptées (delta sur la fenêtre de mesure).
+
+| Écriture de l'onglet Profil | Signature | Écritures `sbd_profiles` |
+|---|---|---|
+| **témoin** — champ de `db.user` (nom) | ✔ CHANGE | **1** |
+| Corps — poids du jour (`saveBodyEntry`) | ✔ CHANGE | **1** *(via `db.user.bw`)* |
+| **Corps — macros seules (`saveMacroEntry`)** | ✘ **INCHANGÉE** | **0** |
+| **Réglages — Exercices Clés (`saveKeyLifts`)** | ✘ **INCHANGÉE** | **0** |
+| **Réglages — Mon Programme (`saveRoutine`)** | ✘ **INCHANGÉE** | **0** |
+| **Navigation — sous-onglet mémorisé (`_updateLastTab`)** | ✘ **INCHANGÉE** | **0** |
+| Correction des Records (`db.bestPR`) | ✔ CHANGE | **1** |
+
+**Contrôle indispensable — l'écriture locale a bien eu lieu.** Pour écarter la confusion entre « non
+signé » et « non écrit », la saisie de macros a été re-mesurée seule :
+
+```
+entrée du jour AVANT              : {ts:…, bw:98, kcal:2650, prot:216}
+entrée du jour APRÈS (mémoire)    : {ts:…, bw:98, kcal:2605, prot:210, carb:250, fat:85}
+entrée du jour APRÈS (localStorage): {ts:…, bw:98, kcal:2605, prot:210, carb:250, fat:85}
+signature identique ?  true
+```
+La donnée est bien écrite **et** persistée localement ; c'est la **signature** qui ne bouge pas.
+**F11 CONFIRMÉ.**
+
+**F10 CONFIRMÉ** : `db.lastModified` vaut `undefined` avant **et** après une modification, alors que
+`db.updatedAt` passe de `1785269841163` à `1785269843509`. Le 14ᵉ terme de la signature est donc une
+**constante `0`**.
+
+Et le blob poussé transporte bien ces clés — `_buildSyncedBlob` → `{aBody:true, aKeyLifts:true,
+aRoutine:true, aLogs:false, nbClés:68}`. **Transporté ≠ signé** : elles ne partent que si une *autre*
+modification, elle signée, fait basculer la signature.
+
+## Ce que la phase 5 a changé par rapport aux phases 1-4
+
+| | |
+|---|---|
+| **Constat nouveau** | **F19** — porte circulaire du Weight Cut. Invisible en lecture statique ; produit par l'absence de la section dans le DOM. |
+| **Verdict réfuté** | #165-170 : « ✅ CÂBLÉ (inconditionnel) » → **🔴 RENDU INATTEIGNABLE**. 6 lignes corrigées dans la table. |
+| **Hypothèse réfutée** | le rognage par `max-height:5000px` : mesuré, **rien n'est rogné** (3531 px). |
+| **Nuance ajoutée** | #159-160 : le markup des Badges **fonctionne** (forcé à la main → visible) ; c'est l'appelant qui manque. |
+| **Nuance ajoutée** | F6 : effet **partiel** (le SRS réagit, pas le volume/MRV/repos) — chiffres à l'appui. |
+| **Confirmés sans changement** | F1, F3, F4, F5, F10, F11, F12, F13, F14, F17. |
+| **Faux positifs écartés** | 2 échecs d'aller-retour, imputables à mon test, re-testés et confirmés ✔. |
+
+## Reproduire
+
+```
+node audit/runtime/smoke.js              # l'app boote-t-elle sous le banc ?
+node audit/runtime/5a-visibilite.js      # visibilité des 176, 3 profils
+node audit/runtime/5a-variantes.js       # profils qui déverrouillent les sections gatées
+node audit/runtime/5a-conditionnels.js   # masqué par conception vs inatteignable
+node audit/runtime/5a-clipping.js        # mesure du rognage (hypothèse réfutée)
+node audit/runtime/5a-persistance-tab.js # F1 : survie au rechargement
+node audit/runtime/5b-allerretour.js     # 27 champs : écrire → persister → recharger
+node audit/runtime/5b-bis-isoles.js      # isolation + champs injectés
+node audit/runtime/5c-consommation.js    # la sortie dépendante bouge-t-elle ?
+node audit/runtime/5d-hash-sync.js       # signature de sync + push interceptés
+node audit/runtime/consolide.js          # fusionne → out-runtime.json (176 statuts)
+```
+
 ## Ce que ce rapport ne couvre PAS
 
-- **Aucune exécution, aucun device.** Tous les verdicts sont issus de la lecture du code. Les effets à
-  l'écran marqués `SUPPOSÉ` (F1, F3, F11) ne sont pas reproduits.
+- **Aucun device Android réel.** La phase 5 exécute l'app dans Chromium à 390×844 ; elle ne remplace
+  pas une vérification sur téléphone (perfs, Chart.js asynchrone, Service Worker actif — ce dernier est
+  volontairement bloqué sur le banc).
+- **Le rendu visuel n'est pas jugé.** La phase 5 mesure présence, visibilité, persistance et
+  consommation — pas la lisibilité, le contraste ni la mise en page.
+- **Les 6 lignes ⊘** listées en phase 5a : deux d'entre elles (aperçu Hevy, progression CSV) tiennent à
+  mes échantillons d'import, pas à l'app ; leur chemin de révélation existe dans le code.
 - **Chaîne Garmin / Health Connect** (#164) : `connectHealthConnect` et `db.garminHealth` n'ont pas été
   suivis hors de la zone Profil.
 - **Contenu interne** des sections rendues par une autre surface : `renderGamificationTab` (copiée dans

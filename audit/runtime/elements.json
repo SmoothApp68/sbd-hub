@@ -1,0 +1,1234 @@
+[
+ {
+  "n": 1,
+  "line": 2610,
+  "id": "tab-profil",
+  "sec": "Racine onglet",
+  "src": "markup"
+ },
+ {
+  "n": 2,
+  "line": 2615,
+  "id": "tab-corps",
+  "sec": "Corps · Score de Forme",
+  "src": "markup"
+ },
+ {
+  "n": 3,
+  "line": 2619,
+  "id": "formeScoreTag",
+  "sec": "Corps · Score de Forme",
+  "src": "markup"
+ },
+ {
+  "n": 4,
+  "line": 2620,
+  "id": "chev-ca-forme",
+  "sec": "Corps · Score de Forme",
+  "src": "markup"
+ },
+ {
+  "n": 5,
+  "line": 2622,
+  "id": "ca-forme",
+  "sec": "Corps · Score de Forme",
+  "src": "markup"
+ },
+ {
+  "n": 6,
+  "line": 2622,
+  "id": "formeScoreContent",
+  "sec": "Corps · Score de Forme",
+  "src": "markup"
+ },
+ {
+  "n": 7,
+  "line": 2623,
+  "id": "formeScoreTooltip",
+  "sec": "Corps · Score de Forme",
+  "src": "markup"
+ },
+ {
+  "n": 8,
+  "line": 2638,
+  "id": "chev-ca-load",
+  "sec": "Corps · Charge d'entraînement",
+  "src": "markup"
+ },
+ {
+  "n": 9,
+  "line": 2640,
+  "id": "ca-load",
+  "sec": "Corps · Charge d'entraînement",
+  "src": "markup"
+ },
+ {
+  "n": 10,
+  "line": 2640,
+  "id": "trainingLoadContent",
+  "sec": "Corps · Charge d'entraînement",
+  "src": "markup"
+ },
+ {
+  "n": 11,
+  "line": 2647,
+  "id": "chev-ca-heatmap",
+  "sec": "Corps · Heatmap musculaire",
+  "src": "markup"
+ },
+ {
+  "n": 12,
+  "line": 2649,
+  "id": "ca-heatmap",
+  "sec": "Corps · Heatmap musculaire",
+  "src": "markup"
+ },
+ {
+  "n": 13,
+  "line": 2649,
+  "id": "muscleHeatmapContent",
+  "sec": "Corps · Heatmap musculaire",
+  "src": "markup"
+ },
+ {
+  "n": 14,
+  "line": 2656,
+  "id": "chev-ca-joints",
+  "sec": "Corps · Santé articulaire",
+  "src": "markup"
+ },
+ {
+  "n": 15,
+  "line": 2658,
+  "id": "ca-joints",
+  "sec": "Corps · Santé articulaire",
+  "src": "markup"
+ },
+ {
+  "n": 16,
+  "line": 2658,
+  "id": "jointHealthContent",
+  "sec": "Corps · Santé articulaire",
+  "src": "markup"
+ },
+ {
+  "n": 17,
+  "line": 2665,
+  "id": "chev-ca-poids",
+  "sec": "Corps · Poids",
+  "src": "markup"
+ },
+ {
+  "n": 18,
+  "line": 2667,
+  "id": "ca-poids",
+  "sec": "Corps · Poids",
+  "src": "markup"
+ },
+ {
+  "n": 19,
+  "line": 2670,
+  "id": "inputBodyWeight",
+  "sec": "Corps · Poids",
+  "src": "markup"
+ },
+ {
+  "n": 20,
+  "line": 2673,
+  "id": "weightTrendDisplay",
+  "sec": "Corps · Poids",
+  "src": "markup"
+ },
+ {
+  "n": 21,
+  "line": 2674,
+  "id": "chartBodyWeight",
+  "sec": "Corps · Poids",
+  "src": "markup"
+ },
+ {
+  "n": 22,
+  "line": 2675,
+  "id": "weightHistory",
+  "sec": "Corps · Poids",
+  "src": "markup"
+ },
+ {
+  "n": 23,
+  "line": 2684,
+  "id": "chev-ca-nutri",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 24,
+  "line": 2686,
+  "id": "ca-nutri",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 25,
+  "line": 2687,
+  "id": "nutriCard",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 26,
+  "line": 2691,
+  "id": "nutriRingFill",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 27,
+  "line": 2694,
+  "id": "nutriKcalRestantes",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 28,
+  "line": 2696,
+  "id": "nutriKcalSub",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 29,
+  "line": 2699,
+  "id": "nutriDayTypeLabel",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 30,
+  "line": 2701,
+  "id": "nutriMangees",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 31,
+  "line": 2702,
+  "id": "nutriCible",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 32,
+  "line": 2703,
+  "id": "nutriBrulees",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 33,
+  "line": 2705,
+  "id": "nutriCarbLabel",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 34,
+  "line": 2705,
+  "id": "nutriCarbBar",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 35,
+  "line": 2706,
+  "id": "nutriProtLabel",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 36,
+  "line": 2706,
+  "id": "nutriProtBar",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 37,
+  "line": 2707,
+  "id": "nutriFatLabel",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 38,
+  "line": 2707,
+  "id": "nutriFatBar",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 39,
+  "line": 2708,
+  "id": "nutriTDEELabel",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 40,
+  "line": 2708,
+  "id": "nutriProtCible",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 41,
+  "line": 2712,
+  "id": "inputProt",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 42,
+  "line": 2712,
+  "id": "inputCarb",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 43,
+  "line": 2712,
+  "id": "inputFat",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 44,
+  "line": 2712,
+  "id": "inputKcal",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 45,
+  "line": 2715,
+  "id": "macroHistoryDisplay",
+  "sec": "Corps · Nutrition",
+  "src": "markup"
+ },
+ {
+  "n": 46,
+  "line": 2724,
+  "id": "chev-ca-force",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 47,
+  "line": 2726,
+  "id": "ca-force",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 48,
+  "line": 2728,
+  "id": "bodyMetricsGrid",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 49,
+  "line": 2729,
+  "id": "metricIPFCard",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 50,
+  "line": 2729,
+  "id": "metricIPF",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 51,
+  "line": 2729,
+  "id": "metricIPFsub",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 52,
+  "line": 2730,
+  "id": "metricRatioCard",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 53,
+  "line": 2730,
+  "id": "metricRatio",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 54,
+  "line": 2730,
+  "id": "metricRatioSub",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 55,
+  "line": 2732,
+  "id": "plateauAlerts",
+  "sec": "Corps · Métriques Force",
+  "src": "markup"
+ },
+ {
+  "n": 56,
+  "line": 2741,
+  "id": "chev-ca-coach",
+  "sec": "Corps · Coach Analyse",
+  "src": "markup"
+ },
+ {
+  "n": 57,
+  "line": 2743,
+  "id": "ca-coach",
+  "sec": "Corps · Coach Analyse",
+  "src": "markup"
+ },
+ {
+  "n": 58,
+  "line": 2744,
+  "id": "coachAlgoContent",
+  "sec": "Corps · Coach Analyse",
+  "src": "markup"
+ },
+ {
+  "n": 59,
+  "line": 2749,
+  "id": "tab-settings",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 60,
+  "line": 2754,
+  "id": "chev-acc-profil",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 61,
+  "line": 2756,
+  "id": "acc-profil",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 62,
+  "line": 2757,
+  "id": "inputName",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 63,
+  "line": 2758,
+  "id": "inputBW",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 64,
+  "line": 2759,
+  "id": "inputFatPct",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 65,
+  "line": 2763,
+  "id": "settingsLevel",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 66,
+  "line": 2775,
+  "id": "settingsHeight",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 67,
+  "line": 2783,
+  "id": "settingsAge",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 68,
+  "line": 2790,
+  "id": "settingsGender",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 69,
+  "line": 2801,
+  "id": "settingsTargetBW",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 70,
+  "line": 2807,
+  "id": "settingsTargetsBlock",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 71,
+  "line": 2809,
+  "id": "tgtUnitLabel",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 72,
+  "line": 2812,
+  "id": "tgtBench",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 73,
+  "line": 2814,
+  "id": "tgtSquat",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 74,
+  "line": 2816,
+  "id": "tgtDead",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 75,
+  "line": 2819,
+  "id": "tgtPrHint",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 76,
+  "line": 2823,
+  "id": "settingsCycleBlock",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 77,
+  "line": 2825,
+  "id": "settingsCycleEnabled",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 78,
+  "line": 2828,
+  "id": "settingsCycleDetails",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 79,
+  "line": 2830,
+  "id": "settingsCycleLastDate",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 80,
+  "line": 2834,
+  "id": "settingsCycleLength",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 81,
+  "line": 2846,
+  "id": "settingsInjuriesList",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 82,
+  "line": 2858,
+  "id": "settingsActivities",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 83,
+  "line": 2866,
+  "id": "settingsTrainingMode",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 84,
+  "line": 2876,
+  "id": "settingsUIDetail",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 85,
+  "line": 2886,
+  "id": "settingsVocabLevel",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 86,
+  "line": 2895,
+  "id": "settingsGoals",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 87,
+  "line": 2900,
+  "id": "settingsFreq",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 88,
+  "line": 2905,
+  "id": "settingsDays",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 89,
+  "line": 2910,
+  "id": "settingsMat",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 90,
+  "line": 2915,
+  "id": "settingsDuration",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 91,
+  "line": 2920,
+  "id": "settingsSupersets",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 92,
+  "line": 2929,
+  "id": "settingsPrehabToggle",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 93,
+  "line": 2930,
+  "id": "settingsPrehabSlider",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 94,
+  "line": 2931,
+  "id": "settingsPrehabKnob",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 95,
+  "line": 2937,
+  "id": "settingsProgramMode",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 96,
+  "line": 2942,
+  "id": "settingsInjuries",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 97,
+  "line": 2947,
+  "id": "settingsCardio",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 98,
+  "line": 2951,
+  "id": "inputKcalBase",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 99,
+  "line": 2952,
+  "id": "inputBWBase",
+  "sec": "Réglages · Profil Athlète",
+  "src": "markup"
+ },
+ {
+  "n": 100,
+  "line": 2962,
+  "id": "chev-acc-keylifts",
+  "sec": "Réglages · Exercices Clés",
+  "src": "markup"
+ },
+ {
+  "n": 101,
+  "line": 2964,
+  "id": "acc-keylifts",
+  "sec": "Réglages · Exercices Clés",
+  "src": "markup"
+ },
+ {
+  "n": 102,
+  "line": 2966,
+  "id": "keyLiftsEditor",
+  "sec": "Réglages · Exercices Clés",
+  "src": "markup"
+ },
+ {
+  "n": 103,
+  "line": 2975,
+  "id": "chev-acc-prog",
+  "sec": "Réglages · Mon Programme",
+  "src": "markup"
+ },
+ {
+  "n": 104,
+  "line": 2977,
+  "id": "acc-prog",
+  "sec": "Réglages · Mon Programme",
+  "src": "markup"
+ },
+ {
+  "n": 105,
+  "line": 2979,
+  "id": "routineEditor",
+  "sec": "Réglages · Mon Programme",
+  "src": "markup"
+ },
+ {
+  "n": 106,
+  "line": 2987,
+  "id": "chev-acc-import",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 107,
+  "line": 2989,
+  "id": "acc-import",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 108,
+  "line": 2992,
+  "id": "hevyPaste",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 109,
+  "line": 2994,
+  "id": "importSummary",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 110,
+  "line": 2994,
+  "id": "importDetails",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 111,
+  "line": 2995,
+  "id": "aiImportAnalysis",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 112,
+  "line": 3000,
+  "id": "csvFileInput",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 113,
+  "line": 3001,
+  "id": "csvPreview",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 114,
+  "line": 3002,
+  "id": "csvImportBtn",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 115,
+  "line": 3003,
+  "id": "csvProgress",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 116,
+  "line": 3004,
+  "id": "csvProgressBar",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 117,
+  "line": 3005,
+  "id": "csvProgressText",
+  "sec": "Réglages · Import",
+  "src": "markup"
+ },
+ {
+  "n": 118,
+  "line": 3015,
+  "id": "chev-acc-cloud",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 119,
+  "line": 3017,
+  "id": "acc-cloud",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 120,
+  "line": 3018,
+  "id": "cloudStatus",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 121,
+  "line": 3019,
+  "id": "emailLoginSection",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 122,
+  "line": 3020,
+  "id": "authModeTabs",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 123,
+  "line": 3021,
+  "id": "authModeLogin",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 124,
+  "line": 3022,
+  "id": "authModeSignup",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 125,
+  "line": 3024,
+  "id": "inputEmail",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 126,
+  "line": 3025,
+  "id": "inputPassword",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 127,
+  "line": 3026,
+  "id": "inputPasswordConfirm",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 128,
+  "line": 3027,
+  "id": "authSubmitBtn",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 129,
+  "line": 3029,
+  "id": "forgotPasswordBtn",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 130,
+  "line": 3031,
+  "id": "syncIndicator",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 131,
+  "line": 3032,
+  "id": "lastSyncDisplay",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 132,
+  "line": 3035,
+  "id": "changePasswordSection",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 133,
+  "line": 3037,
+  "id": "newPassword",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 134,
+  "line": 3038,
+  "id": "newPasswordConfirm",
+  "sec": "Réglages · Sync Cloud",
+  "src": "markup"
+ },
+ {
+  "n": 135,
+  "line": 3047,
+  "id": "chev-acc-backup",
+  "sec": "Réglages · Sauvegarde",
+  "src": "markup"
+ },
+ {
+  "n": 136,
+  "line": 3049,
+  "id": "acc-backup",
+  "sec": "Réglages · Sauvegarde",
+  "src": "markup"
+ },
+ {
+  "n": 137,
+  "line": 3055,
+  "id": "restoreFileInput",
+  "sec": "Réglages · Sauvegarde",
+  "src": "markup"
+ },
+ {
+  "n": 138,
+  "line": 3056,
+  "id": "restorePreview",
+  "sec": "Réglages · Sauvegarde",
+  "src": "markup"
+ },
+ {
+  "n": 139,
+  "line": 3057,
+  "id": "restoreBtn",
+  "sec": "Réglages · Sauvegarde",
+  "src": "markup"
+ },
+ {
+  "n": 140,
+  "line": 3064,
+  "id": "storageGauge",
+  "sec": "Réglages · Sauvegarde",
+  "src": "markup"
+ },
+ {
+  "n": 141,
+  "line": 3069,
+  "id": "chev-acc-records",
+  "sec": "Réglages · Correction Records",
+  "src": "markup"
+ },
+ {
+  "n": 142,
+  "line": 3071,
+  "id": "acc-records",
+  "sec": "Réglages · Correction Records",
+  "src": "markup"
+ },
+ {
+  "n": 143,
+  "line": 3073,
+  "id": "recordsCorrectionList",
+  "sec": "Réglages · Correction Records",
+  "src": "markup"
+ },
+ {
+  "n": 144,
+  "line": 3080,
+  "id": "chev-acc-glossary",
+  "sec": "Réglages · Glossaire",
+  "src": "markup"
+ },
+ {
+  "n": 145,
+  "line": 3082,
+  "id": "acc-glossary",
+  "sec": "Réglages · Glossaire",
+  "src": "markup"
+ },
+ {
+  "n": 146,
+  "line": 3084,
+  "id": "glossaryPageContent",
+  "sec": "Réglages · Glossaire",
+  "src": "markup"
+ },
+ {
+  "n": 147,
+  "line": 3089,
+  "id": "acc-tier-card",
+  "sec": "Réglages · Statut & Thèmes",
+  "src": "markup"
+ },
+ {
+  "n": 148,
+  "line": 3091,
+  "id": "chev-acc-tier",
+  "sec": "Réglages · Statut & Thèmes",
+  "src": "markup"
+ },
+ {
+  "n": 149,
+  "line": 3093,
+  "id": "acc-tier",
+  "sec": "Réglages · Statut & Thèmes",
+  "src": "markup"
+ },
+ {
+  "n": 150,
+  "line": 3094,
+  "id": "tierWelcomeSection",
+  "sec": "Réglages · Statut & Thèmes",
+  "src": "markup"
+ },
+ {
+  "n": 151,
+  "line": 3095,
+  "id": "tierBadgesSection",
+  "sec": "Réglages · Statut & Thèmes",
+  "src": "markup"
+ },
+ {
+  "n": 152,
+  "line": 3097,
+  "id": "themeSelector",
+  "sec": "Réglages · Statut & Thèmes",
+  "src": "markup"
+ },
+ {
+  "n": 153,
+  "line": 3104,
+  "id": "chev-acc-notif",
+  "sec": "Réglages · Notifications Push",
+  "src": "markup"
+ },
+ {
+  "n": 154,
+  "line": 3106,
+  "id": "acc-notif",
+  "sec": "Réglages · Notifications Push",
+  "src": "markup"
+ },
+ {
+  "n": 155,
+  "line": 3109,
+  "id": "push-status-label",
+  "sec": "Réglages · Notifications Push",
+  "src": "markup"
+ },
+ {
+  "n": 156,
+  "line": 3117,
+  "id": "chev-acc-danger",
+  "sec": "Réglages · Zone de Danger",
+  "src": "markup"
+ },
+ {
+  "n": 157,
+  "line": 3119,
+  "id": "acc-danger",
+  "sec": "Réglages · Zone de Danger",
+  "src": "markup"
+ },
+ {
+  "n": 158,
+  "line": 3138,
+  "id": "appVersionLine",
+  "sec": "Réglages · Pied (déco + version)",
+  "src": "markup"
+ },
+ {
+  "n": 159,
+  "line": 3144,
+  "id": "tab-profil-badges",
+  "sec": "Sous-onglet Badges",
+  "src": "markup"
+ },
+ {
+  "n": 160,
+  "line": 3145,
+  "id": "profil-badges-content",
+  "sec": "Sous-onglet Badges",
+  "src": "markup"
+ },
+ {
+  "n": 161,
+  "line": 18136,
+  "id": "settingsMenstrualSection",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 162,
+  "line": 18157,
+  "id": "menstrualStartDate",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 163,
+  "line": 18162,
+  "id": "menstrualCycleLength",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 164,
+  "line": 18177,
+  "id": "settingsHealthConnect",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 165,
+  "line": 18208,
+  "id": "settingsWeightCut",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 166,
+  "line": 18228,
+  "id": "wc-start-weight",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 167,
+  "line": 18231,
+  "id": "wc-target-weight",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 168,
+  "line": 18235,
+  "id": "wc-current-weight",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 169,
+  "line": 18239,
+  "id": "wc-competition-date",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 170,
+  "line": 18258,
+  "id": "toggle-creatine",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 171,
+  "line": 18276,
+  "id": "settingsBarWeightSection",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 172,
+  "line": 18296,
+  "id": "settings-bar-weight",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 173,
+  "line": 18310,
+  "id": "settingsHybridSection",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 174,
+  "line": 18323,
+  "id": "toggle-hybrid",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 175,
+  "line": 18334,
+  "id": "settingsRGPDSection",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ },
+ {
+  "n": 176,
+  "line": 18347,
+  "id": "settingsMorphoSection",
+  "sec": "Injecté au runtime",
+  "src": "runtime"
+ }
+]

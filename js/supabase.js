@@ -279,6 +279,21 @@ function _computeDataHash(d) {
     var _he = (_hl && (_hl.editedAt || _hl.timestamp)) || 0;
     if (_he > _maxLogEditedAt) _maxLogEditedAt = _he;
   }
+  // SYNC-HASH (fix 22/07, perte de données silencieuse) : signer le CONTENU, pas la
+  // LONGUEUR. `JSON.stringify(d.user).length` était aveugle à toute modification
+  // préservant la longueur — reproduit en device : objectifs SBD 155/150/220 →
+  // 150/145/175 (mêmes longueurs) → hash identique → syncToCloud court-circuite →
+  // modification jamais poussée, perdue au reload suivant. Idem bw 98→97, âge 28→29.
+  // djb2 32 bits sur la chaîne DÉJÀ sérialisée (aucun stringify supplémentaire : on
+  // remplace `.length` par une somme de contrôle du même texte) → coût inchangé, ~0ms.
+  // On émet « longueur:checksum » : le signal historique est conservé, la sensibilité
+  // au contenu s'y ajoute.
+  function _sig(v) {
+    var s = JSON.stringify(v || {});
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return s.length + ':' + (h >>> 0);
+  }
   return [
     (d.logs || []).length,
     (lastLog && lastLog.timestamp) || 0,
@@ -290,9 +305,9 @@ function _computeDataHash(d) {
     (d.readiness || []).length,
     (d.readinessHistory || []).length,
     (lastRh && lastRh.ts) || 0,
-    JSON.stringify(d.user || {}).length,
-    JSON.stringify(d.weeklyPlan || {}).length,
-    JSON.stringify(d.bestPR || {}).length,
+    _sig(d.user),
+    _sig(d.weeklyPlan),
+    _sig(d.bestPR),
     d.lastModified || 0
   ].join('|');
 }

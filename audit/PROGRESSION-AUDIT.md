@@ -6,7 +6,7 @@ Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vag
 |---|---|---|---|---|---|
 | 1 | Profil | ✅ livrée (branche `claude/audit-cablage-vague1`) | 176 | 176 | 176 |
 | **2** | **Séances** | ✅ **livrée** | **54** | **54** | **54** |
-| 3 | Maison + Coach | ⏳ à faire | — | — | — |
+| **3** | **Maison + Coach** | ✅ **livrée** | **62** | **62** | **62** |
 | 4 | Stats | ⏳ à faire | — | — | — |
 | 5 | Social + Jeux | ⏳ à faire | — | — | — |
 
@@ -24,6 +24,27 @@ Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vag
 - **G4** `activeWorkout` est hors `db` et hors blob de sync : une séance interrompue ne quitte pas
   l'appareil.
 - **G5 ✅** Le pont plan→séance de la PR #246 fonctionne (5 annotations transférées, vérifié).
+
+## Vague 3 — findings majeurs
+
+- **H1 🔴** L'accueil affiche « Test : 1 sept. » = **aujourd'hui + 35 jours**, repli de
+  `db.user.plannedTestDate` qui n'est **jamais écrit**. Une date glissante présentée comme une échéance.
+- **H2 🔴** `dashWeekCard` / `quickLogCard` / `perfCard` masqués en dur (app.js:9397, « v264 »).
+  `renderPerfCard` continue pourtant de les alimenter (4 appelants), et les Réglages promettent encore
+  « les exercices affichés dans la rubrique Performance sur l'accueil » (index.html:2965).
+- **H3 🔴** e1RM affiché en clair sur l'accueil (« e1RM estimé : 158 kg » à côté de « SQUAT 145kg ») —
+  3ᵉ point d'affichage d'e1RM relevé par l'audit (§7).
+- **H4 ✅ RÉFUTÉ** — l'hypothèse « des cartes du Coach ne s'affichent jamais » **ne se vérifie pas** :
+  sur 26 états, les 24 cartes apparaissent toutes au moins une fois. « 📐 Analyse morphologique »,
+  que CLAUDE.md dit « jamais branchée », **se rend** derrière « Voir plus ».
+- **H6 🔴** 14 conteneurs hérités dans un bloc `display:none` (index.html:2469) ; **6 sont encore
+  alimentés** par du JS → du rendu calculé et jeté.
+
+## 10ᵉ extension de méthode (vague 3)
+
+**Les cartes n'ont pas d'`id`.** Le Coach rend 10 cartes pour seulement 4 `id`. Un inventaire par `id`
+les manquerait toutes. L'inventaire recense donc **deux familles** : éléments identifiés **et** cartes
+identifiées par leur **titre visible**. À reconduire sur toute surface à cartes.
 
 ## 9ᵉ piège découvert en vague 2 — à appliquer aux vagues suivantes
 
@@ -44,4 +65,4 @@ Règle de comptage : ids générés en boucle regroupés en familles `×n` ; ids
 
 ## Reste à faire
 
-Vagues 3, 4, 5 puis `audit/SYNTHESE-CABLAGE.md`.
+Vagues 4 et 5, puis `audit/SYNTHESE-CABLAGE.md`.

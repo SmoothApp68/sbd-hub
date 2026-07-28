@@ -78,7 +78,7 @@ async function run(cfg) {
       if (cfg.prepare) await cfg.prepare(page, etat);
       if (etat.action) await etat.action(page);
       await page.waitForTimeout(etat.settle || 800);
-      const ids = await enumereIds(page, cfg.conteneur);
+      const ids = await enumereIds(page, etat.conteneur || cfg.conteneur);
       ids.forEach((e) => {
         const f = famille(e.id);
         if (!acc.has(f)) acc.set(f, { fam: f, ids: new Set(), tag: e.tag, vis: false, whys: new Set(), handlers: new Set(), etats: new Set() });

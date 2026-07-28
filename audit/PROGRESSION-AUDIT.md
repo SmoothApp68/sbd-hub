@@ -7,7 +7,7 @@ Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vag
 | 1 | Profil | ✅ livrée (branche `claude/audit-cablage-vague1`) | 176 | 176 | 176 |
 | **2** | **Séances** | ✅ **livrée** | **54** | **54** | **54** |
 | **3** | **Maison + Coach** | ✅ **livrée** | **62** | **62** | **62** |
-| 4 | Stats | ⏳ à faire | — | — | — |
+| **4** | **Stats** | ✅ **livrée** | **28** | **28** | **28** |
 | 5 | Social + Jeux | ⏳ à faire | — | — | — |
 
 ## Vague 2 — findings majeurs
@@ -39,6 +39,20 @@ Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vag
   que CLAUDE.md dit « jamais branchée », **se rend** derrière « Voir plus ».
 - **H6 🔴** 14 conteneurs hérités dans un bloc `display:none` (index.html:2469) ; **6 sont encore
   alimentés** par du JS → du rendu calculé et jeté.
+
+## Vague 4 — findings majeurs
+
+- **I1 ⚠️** Deux notions de « cardio » sur le même onglet : le sous-onglet Cardio fusionne
+  `db.logs` + `db.activityLogs` ; la ligne Cardio de « Volume par Muscle » (`mg-6`) ne lit que
+  `db.logs`. Une natation loggée en activité compte dans l'un, pas dans l'autre.
+- **I2 ✘ RÉFUTÉ ×2** — mes deux suspicions initiales étaient fausses : le cardio *se rend* bien
+  (mon test capturait le placeholder statique), et `mg-6` *se remplit* avec un exercice cardio.
+  Documenté dans le rapport pour ne pas laisser deux faux findings.
+- **I3** Test de consommation sur 9 historiques : **13 sorties variables, 15 invariantes toutes
+  légitimement statiques**. Aucune valeur figée sur un repli — le risque annoncé pour cette vague
+  ne se matérialise pas.
+- **I4 🔴** 4ᵉ surface d'affichage de l'e1RM (« 🏋️ 145 kg » et « est. 158 kg e1RM » côte à côte).
+- **I5 🔴** Aucune borne de plausibilité : « Squat 315 kg · ×3.94 bw » affiché sans signalement.
 
 ## 10ᵉ extension de méthode (vague 3)
 

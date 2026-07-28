@@ -1,0 +1,447 @@
+{
+ "contexte": {
+  "aurel_like": {
+   "logs": 562,
+   "bestPR": {
+    "bench": 140,
+    "squat": 145,
+    "deadlift": 170
+   },
+   "exos": 3
+  },
+  "vierge": {
+   "logs": 0,
+   "bestPR": {
+    "bench": 0,
+    "squat": 0,
+    "deadlift": 0
+   },
+   "exos": 0
+  },
+  "debutant": {
+   "logs": 3,
+   "bestPR": {
+    "bench": 50,
+    "squat": 70,
+    "deadlift": 90
+   },
+   "exos": 0
+  },
+  "mono_lift": {
+   "logs": 15,
+   "bestPR": {
+    "bench": 150,
+    "squat": 0,
+    "deadlift": 0
+   },
+   "exos": 0
+  },
+  "donnees_sales": {
+   "logs": 7,
+   "bestPR": {
+    "bench": 80,
+    "squat": 315,
+    "deadlift": 0
+   },
+   "exos": 0
+  },
+  "extreme_haut": {
+   "logs": 76,
+   "bestPR": {
+    "bench": 200,
+    "squat": 300,
+    "deadlift": 340
+   },
+   "exos": 0
+  },
+  "extreme_bas": {
+   "logs": 8,
+   "bestPR": {
+    "bench": 22,
+    "squat": 37,
+    "deadlift": 45
+   },
+   "exos": 0
+  },
+  "progression_nette": {
+   "logs": 18,
+   "bestPR": {
+    "bench": 60,
+    "squat": 105,
+    "deadlift": 127.5
+   },
+   "exos": 0
+  },
+  "retour_apres_pause": {
+   "logs": 53,
+   "bestPR": {
+    "bench": 120,
+    "squat": 160,
+    "deadlift": 200
+   },
+   "exos": 0
+  }
+ },
+ "valeurs": {
+  "reportButtons": {
+   "aurel_like": "7 Jours 30 Jours",
+   "vierge": "7 Jours 30 Jours",
+   "debutant": "7 Jours 30 Jours",
+   "mono_lift": "7 Jours 30 Jours",
+   "donnees_sales": "7 Jours 30 Jours",
+   "extreme_haut": "7 Jours 30 Jours",
+   "extreme_bas": "7 Jours 30 Jours",
+   "progression_nette": "7 Jours 30 Jours",
+   "retour_apres_pause": "7 Jours 30 Jours"
+  },
+  "reportDisplay": {
+   "aurel_like": "6 SÉANCES 41 SÉRIES 32.8t VOLUME 7 SÉRIES/SÉANCE",
+   "vierge": "Aucune séance enregistrée. Importer des séances →",
+   "debutant": "2 SÉANCES 6 SÉRIES 1.7t VOLUME 3 SÉRIES/SÉANCE",
+   "mono_lift": "2 SÉANCES 14 SÉRIES 5.5t VOLUME 7 SÉRIES/SÉANCE",
+   "donnees_sales": "4 SÉANCES 10 SÉRIES 3.7t VOLUME 3 SÉRIES/SÉANCE",
+   "extreme_haut": "15 SÉANCES 35 SÉRIES 15.5t VOLUME 2 SÉRIES/SÉANCE",
+   "extreme_bas": "2 SÉANCES 12 SÉRIES 2.5t VOLUME 6 SÉRIES/SÉANCE",
+   "progression_nette": "2 SÉANCES 16 SÉRIES 6.4t VOLUME 8 SÉRIES/SÉANCE",
+   "retour_apres_pause": "2 SÉANCES 8 SÉRIES 3.8t VOLUME 4 SÉRIES/SÉANCE"
+  },
+  "volumeButtons": {
+   "aurel_like": "7 Séances 30 Séances",
+   "vierge": "7 Séances 30 Séances",
+   "debutant": "7 Séances 30 Séances",
+   "mono_lift": "7 Séances 30 Séances",
+   "donnees_sales": "7 Séances 30 Séances",
+   "extreme_haut": "7 Séances 30 Séances",
+   "extreme_bas": "7 Séances 30 Séances",
+   "progression_nette": "7 Séances 30 Séances",
+   "retour_apres_pause": "7 Séances 30 Séances"
+  },
+  "stats-volume": {
+   "aurel_like": "RAPPORTS 7 Jours 30 Jours 6 SÉANCES 41 SÉRIES 32.8t VOLUME 7 SÉRIES/SÉANCE TONNAGE TOTAL 7",
+   "vierge": "RAPPORTS 7 Jours 30 Jours Aucune séance enregistrée. Importer des séances → TONNAGE TOTAL ",
+   "debutant": "RAPPORTS 7 Jours 30 Jours 2 SÉANCES 6 SÉRIES 1.7t VOLUME 3 SÉRIES/SÉANCE TONNAGE TOTAL 7 S",
+   "mono_lift": "RAPPORTS 7 Jours 30 Jours 2 SÉANCES 14 SÉRIES 5.5t VOLUME 7 SÉRIES/SÉANCE TONNAGE TOTAL 7 ",
+   "donnees_sales": "RAPPORTS 7 Jours 30 Jours 4 SÉANCES 10 SÉRIES 3.7t VOLUME 3 SÉRIES/SÉANCE TONNAGE TOTAL 7 ",
+   "extreme_haut": "RAPPORTS 7 Jours 30 Jours 15 SÉANCES 35 SÉRIES 15.5t VOLUME 2 SÉRIES/SÉANCE TONNAGE TOTAL ",
+   "extreme_bas": "RAPPORTS 7 Jours 30 Jours 2 SÉANCES 12 SÉRIES 2.5t VOLUME 6 SÉRIES/SÉANCE TONNAGE TOTAL 7 ",
+   "progression_nette": "RAPPORTS 7 Jours 30 Jours 2 SÉANCES 16 SÉRIES 6.4t VOLUME 8 SÉRIES/SÉANCE TONNAGE TOTAL 7 ",
+   "retour_apres_pause": "RAPPORTS 7 Jours 30 Jours 2 SÉANCES 8 SÉRIES 3.8t VOLUME 4 SÉRIES/SÉANCE TONNAGE TOTAL 7 S"
+  },
+  "radarBtn7": {
+   "aurel_like": "7j",
+   "vierge": "7j",
+   "debutant": "7j",
+   "mono_lift": "7j",
+   "donnees_sales": "7j",
+   "extreme_haut": "7j",
+   "extreme_bas": "7j",
+   "progression_nette": "7j",
+   "retour_apres_pause": "7j"
+  },
+  "radarBtn30": {
+   "aurel_like": "30j",
+   "vierge": "30j",
+   "debutant": "30j",
+   "mono_lift": "30j",
+   "donnees_sales": "30j",
+   "extreme_haut": "30j",
+   "extreme_bas": "30j",
+   "progression_nette": "30j",
+   "retour_apres_pause": "30j"
+  },
+  "radarContainer": {
+   "aurel_like": "4 7 11 14 Dos 4s Pecs 10s Abdos Quads 14s Fessiers Ischio 6s Épaules 2s Bras 2s Cardio Aut",
+   "vierge": "0 1 1 1 Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Cardio Autres",
+   "debutant": "2 3 5 6 Dos Pecs Abdos Quads 6s Fessiers Ischio Épaules Bras Cardio Autres",
+   "mono_lift": "4 7 11 14 Dos Pecs 14s Abdos Quads Fessiers Ischio Épaules Bras Cardio Autres",
+   "donnees_sales": "1 2 3 4 Dos Pecs 3s Abdos Quads 3s Fessiers Ischio Épaules Bras Cardio Autres 4s",
+   "extreme_haut": "4 8 11 15 Dos Pecs 10s Abdos Quads 15s Fessiers Ischio 10s Épaules Bras Cardio Autres",
+   "extreme_bas": "1 2 3 4 Dos Pecs 4s Abdos Quads 4s Fessiers Ischio 4s Épaules Bras Cardio Autres",
+   "progression_nette": "2 3 5 6 Dos Pecs 6s Abdos Quads 6s Fessiers Ischio 4s Épaules Bras Cardio Autres",
+   "retour_apres_pause": "1 2 3 4 Dos Pecs 4s Abdos Quads 4s Fessiers Ischio Épaules Bras Cardio Autres"
+  },
+  "radarLegend": {
+   "aurel_like": "Dos: 4 Pecs: 10 Abdos: 0 Quads: 14 Fessiers: 0 Ischio: 6 Épaules: 2 Bras: 2 Cardio: 0 Autr",
+   "vierge": "Dos: 0 Pecs: 0 Abdos: 0 Quads: 0 Fessiers: 0 Ischio: 0 Épaules: 0 Bras: 0 Cardio: 0 Autres",
+   "debutant": "Dos: 0 Pecs: 0 Abdos: 0 Quads: 6 Fessiers: 0 Ischio: 0 Épaules: 0 Bras: 0 Cardio: 0 Autres",
+   "mono_lift": "Dos: 0 Pecs: 14 Abdos: 0 Quads: 0 Fessiers: 0 Ischio: 0 Épaules: 0 Bras: 0 Cardio: 0 Autre",
+   "donnees_sales": "Dos: 0 Pecs: 3 Abdos: 0 Quads: 3 Fessiers: 0 Ischio: 0 Épaules: 0 Bras: 0 Cardio: 0 Autres",
+   "extreme_haut": "Dos: 0 Pecs: 10 Abdos: 0 Quads: 15 Fessiers: 0 Ischio: 10 Épaules: 0 Bras: 0 Cardio: 0 Aut",
+   "extreme_bas": "Dos: 0 Pecs: 4 Abdos: 0 Quads: 4 Fessiers: 0 Ischio: 4 Épaules: 0 Bras: 0 Cardio: 0 Autres",
+   "progression_nette": "Dos: 0 Pecs: 6 Abdos: 0 Quads: 6 Fessiers: 0 Ischio: 4 Épaules: 0 Bras: 0 Cardio: 0 Autres",
+   "retour_apres_pause": "Dos: 0 Pecs: 4 Abdos: 0 Quads: 4 Fessiers: 0 Ischio: 0 Épaules: 0 Bras: 0 Cardio: 0 Autres"
+  },
+  "muscleViewBarsBtn": {
+   "aurel_like": "Barres",
+   "vierge": "Barres",
+   "debutant": "Barres",
+   "mono_lift": "Barres",
+   "donnees_sales": "Barres",
+   "extreme_haut": "Barres",
+   "extreme_bas": "Barres",
+   "progression_nette": "Barres",
+   "retour_apres_pause": "Barres"
+  },
+  "muscleViewEvolBtn": {
+   "aurel_like": "Évolution",
+   "vierge": "Évolution",
+   "debutant": "Évolution",
+   "mono_lift": "Évolution",
+   "donnees_sales": "Évolution",
+   "extreme_haut": "Évolution",
+   "extreme_bas": "Évolution",
+   "progression_nette": "Évolution",
+   "retour_apres_pause": "Évolution"
+  },
+  "muscleViewBarsSection": {
+   "aurel_like": "7j 28j Jambes 27s ▾ Quadriceps 14s Fessiers 7s Ischio-jambiers 6s S-3 14.5 S-2 27 S-1 24 S",
+   "vierge": "7j 28j Importe des séances pour voir la répartition musculaire.",
+   "debutant": "7j 28j Jambes 9s ▾ Quadriceps 6s Fessiers 3s S-3 — S-2 — S-1 4.5 Sem. 9 Dos 3s ▾ Lombaires",
+   "mono_lift": "7j 28j Jambes 0s ▾ S-3 — S-2 — S-1 — Sem. — Dos 0s ▾ S-3 — S-2 — S-1 — Sem. — Pecs 14s ▾ P",
+   "donnees_sales": "7j 28j Jambes 4.5s ▾ Quadriceps 3s Fessiers 1.5s S-3 — S-2 — S-1 3 Sem. 4.5 Dos 1.5s ▾ Lom",
+   "extreme_haut": "7j 28j Jambes 37.5s ▾ Quadriceps 15s Fessiers 12.5s Ischio-jambiers 10s S-3 37.5 S-2 37.5 ",
+   "extreme_bas": "7j 28j Jambes 12s ▾ Quadriceps 4s Fessiers 4s Ischio-jambiers 4s S-3 6 S-2 12 S-1 18 Sem. ",
+   "progression_nette": "7j 28j Jambes 15s ▾ Quadriceps 6s Fessiers 5s Ischio-jambiers 4s S-3 7.5 S-2 15 S-1 — Sem.",
+   "retour_apres_pause": "7j 28j Jambes 6s ▾ Quadriceps 4s Fessiers 2s S-3 — S-2 — S-1 — Sem. 6 Dos 2s ▾ Lombaires 2"
+  },
+  "muscleList": {
+   "aurel_like": "Jambes 27s ▾ Quadriceps 14s Fessiers 7s Ischio-jambiers 6s S-3 14.5 S-2 27 S-1 24 Sem. 27 ",
+   "vierge": "Importe des séances pour voir la répartition musculaire.",
+   "debutant": "Jambes 9s ▾ Quadriceps 6s Fessiers 3s S-3 — S-2 — S-1 4.5 Sem. 9 Dos 3s ▾ Lombaires 3s S-3",
+   "mono_lift": "Jambes 0s ▾ S-3 — S-2 — S-1 — Sem. — Dos 0s ▾ S-3 — S-2 — S-1 — Sem. — Pecs 14s ▾ Pecs (ha",
+   "donnees_sales": "Jambes 4.5s ▾ Quadriceps 3s Fessiers 1.5s S-3 — S-2 — S-1 3 Sem. 4.5 Dos 1.5s ▾ Lombaires ",
+   "extreme_haut": "Jambes 37.5s ▾ Quadriceps 15s Fessiers 12.5s Ischio-jambiers 10s S-3 37.5 S-2 37.5 S-1 37.",
+   "extreme_bas": "Jambes 12s ▾ Quadriceps 4s Fessiers 4s Ischio-jambiers 4s S-3 6 S-2 12 S-1 18 Sem. 12 Dos ",
+   "progression_nette": "Jambes 15s ▾ Quadriceps 6s Fessiers 5s Ischio-jambiers 4s S-3 7.5 S-2 15 S-1 — Sem. 15 Dos",
+   "retour_apres_pause": "Jambes 6s ▾ Quadriceps 4s Fessiers 2s S-3 — S-2 — S-1 — Sem. 6 Dos 2s ▾ Lombaires 2s S-3 —"
+  },
+  "chev-mg-0": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-0": {
+   "aurel_like": "Quadriceps 14s Fessiers 7s Ischio-jambiers 6s S-3 14.5 S-2 27 S-1 24 Sem. 27",
+   "debutant": "Quadriceps 6s Fessiers 3s S-3 — S-2 — S-1 4.5 Sem. 9",
+   "mono_lift": "S-3 — S-2 — S-1 — Sem. —",
+   "donnees_sales": "Quadriceps 3s Fessiers 1.5s S-3 — S-2 — S-1 3 Sem. 4.5",
+   "extreme_haut": "Quadriceps 15s Fessiers 12.5s Ischio-jambiers 10s S-3 37.5 S-2 37.5 S-1 37.5 Sem. 37.5",
+   "extreme_bas": "Quadriceps 4s Fessiers 4s Ischio-jambiers 4s S-3 6 S-2 12 S-1 18 Sem. 12",
+   "progression_nette": "Quadriceps 6s Fessiers 5s Ischio-jambiers 4s S-3 7.5 S-2 15 S-1 — Sem. 15",
+   "retour_apres_pause": "Quadriceps 4s Fessiers 2s S-3 — S-2 — S-1 — Sem. 6"
+  },
+  "chev-mg-1": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-1": {
+   "aurel_like": "Lombaires 7s Grand dorsal 6s Haut du dos 2s Trapèzes 2s S-3 5.5 S-2 17 S-1 13 Sem. 17",
+   "debutant": "Lombaires 3s S-3 — S-2 — S-1 1.5 Sem. 3",
+   "mono_lift": "S-3 — S-2 — S-1 — Sem. —",
+   "donnees_sales": "Lombaires 1.5s S-3 — S-2 — S-1 2.5 Sem. 1.5",
+   "extreme_haut": "Lombaires 17.5s Grand dorsal 5s Trapèzes 5s S-3 27.5 S-2 27.5 S-1 27.5 Sem. 27.5",
+   "extreme_bas": "Lombaires 6s Grand dorsal 2s Trapèzes 2s S-3 5 S-2 10 S-1 15 Sem. 10",
+   "progression_nette": "Lombaires 7s Grand dorsal 2s Trapèzes 2s S-3 5.5 S-2 11 S-1 — Sem. 11",
+   "retour_apres_pause": "Lombaires 2s S-3 — S-2 — S-1 — Sem. 2"
+  },
+  "chev-mg-2": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-2": {
+   "aurel_like": "Pecs (haut) 0.5s S-3 — S-2 10.5 S-1 10.5 Sem. 10.5",
+   "debutant": "S-3 — S-2 — S-1 — Sem. —",
+   "mono_lift": "Pecs (haut) 4s S-3 14 S-2 7 S-1 14 Sem. 14",
+   "donnees_sales": "S-3 — S-2 — S-1 — Sem. 3",
+   "extreme_haut": "S-3 10 S-2 10 S-1 10 Sem. 10",
+   "extreme_bas": "S-3 2 S-2 4 S-1 6 Sem. 4",
+   "progression_nette": "S-3 3 S-2 6 S-1 — Sem. 6",
+   "retour_apres_pause": "S-3 — S-2 — S-1 — Sem. 4"
+  },
+  "chev-mg-3": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-3": {
+   "aurel_like": "Épaules (antérieur) 7s S-3 — S-2 7 S-1 7 Sem. 7",
+   "debutant": "S-3 — S-2 — S-1 — Sem. —",
+   "mono_lift": "Épaules (antérieur) 3s S-3 3 S-2 1.5 S-1 3 Sem. 3",
+   "donnees_sales": "Épaules (antérieur) 1.5s S-3 — S-2 — S-1 — Sem. 1.5",
+   "extreme_haut": "Épaules (antérieur) 5s S-3 5 S-2 5 S-1 5 Sem. 5",
+   "extreme_bas": "Épaules (antérieur) 2s S-3 1 S-2 2 S-1 3 Sem. 2",
+   "progression_nette": "Épaules (antérieur) 3s S-3 1.5 S-2 3 S-1 — Sem. 3",
+   "retour_apres_pause": "Épaules (antérieur) 2s S-3 — S-2 — S-1 — Sem. 2"
+  },
+  "chev-mg-4": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-4": {
+   "aurel_like": "Triceps 6s Biceps 4s Avant-bras 2.5s S-3 0.5 S-2 12.5 S-1 12 Sem. 12.5",
+   "debutant": "S-3 — S-2 — S-1 — Sem. —",
+   "mono_lift": "Triceps 3s S-3 3 S-2 1.5 S-1 3 Sem. 3",
+   "donnees_sales": "Triceps 1.5s S-3 — S-2 — S-1 0.3 Sem. 1.5",
+   "extreme_haut": "Triceps 5s Avant-bras 2.5s S-3 7.5 S-2 7.5 S-1 7.5 Sem. 7.5",
+   "extreme_bas": "Triceps 2s Avant-bras 1s S-3 1.5 S-2 3 S-1 4.5 Sem. 3",
+   "progression_nette": "Triceps 3s Avant-bras 1s S-3 2 S-2 4 S-1 — Sem. 4",
+   "retour_apres_pause": "Triceps 2s S-3 — S-2 — S-1 — Sem. 2"
+  },
+  "chev-mg-5": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-5": {
+   "aurel_like": "Abdos (frontal) 2s S-3 0.8 S-2 2 S-1 2 Sem. 2",
+   "debutant": "Abdos (frontal) 1.5s S-3 — S-2 — S-1 0.8 Sem. 1.5",
+   "mono_lift": "S-3 — S-2 — S-1 — Sem. —",
+   "donnees_sales": "Abdos (frontal) 0.8s S-3 — S-2 — S-1 0.3 Sem. 0.8",
+   "extreme_haut": "Abdos (frontal) 3.8s S-3 3.8 S-2 3.8 S-1 3.8 Sem. 3.8",
+   "extreme_bas": "Abdos (frontal) 1s S-3 0.5 S-2 1 S-1 1.5 Sem. 1",
+   "progression_nette": "Abdos (frontal) 1.5s S-3 0.8 S-2 1.5 S-1 — Sem. 1.5",
+   "retour_apres_pause": "Abdos (frontal) 1s S-3 — S-2 — S-1 — Sem. 1"
+  },
+  "chev-mg-6": {
+   "aurel_like": "▾",
+   "debutant": "▾",
+   "mono_lift": "▾",
+   "donnees_sales": "▾",
+   "extreme_haut": "▾",
+   "extreme_bas": "▾",
+   "progression_nette": "▾",
+   "retour_apres_pause": "▾"
+  },
+  "mg-6": {
+   "aurel_like": "S-3 — S-2 — S-1 — Sem. —",
+   "debutant": "S-3 — S-2 — S-1 — Sem. —",
+   "mono_lift": "S-3 — S-2 — S-1 — Sem. —",
+   "donnees_sales": "S-3 — S-2 — S-1 — Sem. —",
+   "extreme_haut": "S-3 — S-2 — S-1 — Sem. —",
+   "extreme_bas": "S-3 — S-2 — S-1 — Sem. —",
+   "progression_nette": "S-3 — S-2 — S-1 — Sem. —",
+   "retour_apres_pause": "S-3 — S-2 — S-1 — Sem. —"
+  },
+  "volumeLandmarksContent": {
+   "aurel_like": "Dos 11/25 sets · MEV→MAV ✅ ℹ️ Pecs 17/22 sets · MEV→MAV ✅ ℹ️ Abdos 0/18 sets · < MEV Quads",
+   "vierge": "Dos 0/25 sets · ⚠️ Volume insuffisant Pecs 0/22 sets · ⚠️ Volume insuffisant Abdos 0/18 se",
+   "debutant": "Dos 0/25 sets · ⚠️ Volume insuffisant Pecs 0/22 sets · ⚠️ Volume insuffisant Abdos 0/18 se",
+   "mono_lift": "Dos 0/25 sets · < MEV Pecs 14/22 sets · MEV→MAV ✅ ℹ️ Abdos 0/18 sets · < MEV Quads 0/20 se",
+   "donnees_sales": "Dos 0/25 sets · ⚠️ Volume insuffisant Pecs 0/22 sets · ⚠️ Volume insuffisant Abdos 0/18 se",
+   "extreme_haut": "Dos 3/25 sets · < MEV Pecs 6/22 sets · < MEV Abdos 0/18 sets · < MEV Quads 12/20 sets · ME",
+   "extreme_bas": "Dos 2/25 sets · ⚠️ Volume insuffisant Pecs 4/22 sets · ⚠️ Volume insuffisant Abdos 0/18 se",
+   "progression_nette": "Dos 3/25 sets · ⚠️ Volume insuffisant Pecs 9/22 sets · ✅ Volume suffisant Abdos 0/18 sets ",
+   "retour_apres_pause": "Dos 0/25 sets · < MEV Pecs 0/22 sets · < MEV Abdos 0/18 sets · < MEV Quads 0/20 sets · < M"
+  },
+  "strengthRatiosContent": {
+   "aurel_like": "Squat / Deadlift ℹ️ 0.83 ✅ Plage idéale : 0.80 – 0.85 Bench / Squat ℹ️ 0.94 ⚠️ Trop haut P",
+   "vierge": "Pas assez de données pour calculer les ratios",
+   "debutant": "Squat / Deadlift ℹ️ 0.76 ⚠️ Trop bas Plage idéale : 0.80 – 0.85 Bench / Squat ℹ️ 0.74 ⚠️ T",
+   "mono_lift": "Pas assez de données pour calculer les ratios",
+   "donnees_sales": "Bench / Squat ℹ️ 0.25 ⚠️ Trop bas Plage idéale : 0.60 – 0.70",
+   "extreme_haut": "Squat / Deadlift ℹ️ 0.94 ⚠️ Trop haut Plage idéale : 0.80 – 0.85 Bench / Squat ℹ️ 0.63 ✅ P",
+   "extreme_bas": "Squat / Deadlift ℹ️ 0.96 ⚠️ Trop haut Plage idéale : 0.80 – 0.85 Bench / Squat ℹ️ 0.59 ⚠️ ",
+   "progression_nette": "Squat / Deadlift ℹ️ 0.87 ⚠️ Trop haut Plage idéale : 0.80 – 0.85 Bench / Squat ℹ️ 0.58 ⚠️ ",
+   "retour_apres_pause": "Squat / Deadlift ℹ️ 0.80 ✅ Plage idéale : 0.80 – 0.85 Bench / Squat ℹ️ 0.76 ⚠️ Trop haut P"
+  },
+  "stats-muscles": {
+   "aurel_like": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 4 7 11 14 Dos 4s Pecs 10s Abdos Quads 14s Fessiers Ischi",
+   "vierge": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 0 1 1 1 Dos Pecs Abdos Quads Fessiers Ischio Épaules Bra",
+   "debutant": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 2 3 5 6 Dos Pecs Abdos Quads 6s Fessiers Ischio Épaules ",
+   "mono_lift": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 4 7 11 14 Dos Pecs 14s Abdos Quads Fessiers Ischio Épaul",
+   "donnees_sales": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 1 2 3 4 Dos Pecs 3s Abdos Quads 3s Fessiers Ischio Épaul",
+   "extreme_haut": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 4 8 11 15 Dos Pecs 10s Abdos Quads 15s Fessiers Ischio 1",
+   "extreme_bas": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 1 2 3 4 Dos Pecs 4s Abdos Quads 4s Fessiers Ischio 4s Ép",
+   "progression_nette": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 2 3 5 6 Dos Pecs 6s Abdos Quads 6s Fessiers Ischio 4s Ép",
+   "retour_apres_pause": "🕸️ RÉPARTITION MUSCULAIRE 7j 30j 1 2 3 4 Dos Pecs 4s Abdos Quads 4s Fessiers Ischio Épaul"
+  },
+  "liftsFilterRow": {
+   "aurel_like": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "vierge": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "debutant": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "mono_lift": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "donnees_sales": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "extreme_haut": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "extreme_bas": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "progression_nette": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres",
+   "retour_apres_pause": "Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres"
+  },
+  "liftsList": {
+   "aurel_like": "1 Squat (Barre) SBD ×1.48 bw 38 séances 🏋️ 145 kg est. 158 kg e1RM 30/03/2026 2 Développé",
+   "vierge": "Importe des séances depuis Réglages → 📥 Import",
+   "debutant": "1 Squat (Barre) SBD ×0.83 bw 3 séances 🏋️ 60 kg est. 68 kg e1RM 27/07/2026",
+   "mono_lift": "1 Développé Couché (Barre) SBD ×1.79 bw 15 séances 🏋️ 150 kg 28/06/2026 2 Développé Couch",
+   "donnees_sales": "1 Squat (Barre) SBD ×3.94 bw 4 séances 🏋️ 315 kg est. 354 kg e1RM 20/07/2026",
+   "extreme_haut": "1 Squat (Barre) SBD ×2.40 bw 26 séances 🏋️ 300 kg 18/06/2026 2 Développé Couché (Barre) S",
+   "extreme_bas": "1 Squat (Barre) SBD ×0.93 bw 8 séances 🏋️ 37 kg est. 46 kg e1RM 06/07/2026 2 Développé Co",
+   "progression_nette": "1 Squat (Barre) SBD ×1.54 bw 18 séances 🏋️ 105 kg est. 118 kg e1RM 27/07/2026 2 Développé",
+   "retour_apres_pause": "1 Squat (Barre) SBD ×1.82 bw 8 séances 🏋️ 160 kg 20/11/2025 2 Développé Couché (Barre) SB"
+  },
+  "stats-records": {
+   "aurel_like": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat (",
+   "vierge": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres Importe d",
+   "debutant": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat (",
+   "mono_lift": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Dévelop",
+   "donnees_sales": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat (",
+   "extreme_haut": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat (",
+   "extreme_bas": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat (",
+   "progression_nette": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat (",
+   "retour_apres_pause": "🏆 MEILLEURS LIFTS Tout Dos Pecs Abdos Quads Fessiers Ischio Épaules Bras Autres 1 Squat ("
+  },
+  "cardioStatsContent": {
+   "aurel_like": "🏊 Natation 2 SESSIONS 30J 1h25 DURÉE TOTALE 204 TRIMP 30J HISTORIQUE RÉCENT 🏊 🏊 Natatio",
+   "vierge": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "debutant": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "mono_lift": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "donnees_sales": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "extreme_haut": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "extreme_bas": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "progression_nette": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici",
+   "retour_apres_pause": "Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… apparaissent ici"
+  },
+  "stats-cardio": {
+   "aurel_like": "🏃 CARDIO 🏊 Natation 2 SESSIONS 30J 1h25 DURÉE TOTALE 204 TRIMP 30J HISTORIQUE RÉCENT 🏊 ",
+   "vierge": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "debutant": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "mono_lift": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "donnees_sales": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "extreme_haut": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "extreme_bas": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "progression_nette": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara",
+   "retour_apres_pause": "🏃 CARDIO Aucune session cardio détectée. Tapis, natation, vélo, activités loggées… appara"
+  }
+ }
+}

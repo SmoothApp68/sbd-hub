@@ -1,0 +1,2369 @@
+[
+ {
+  "n": 1,
+  "cle": "tab-game",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3151"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 2,
+  "cle": "jeux-profil-joueur",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3161"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 3,
+  "cle": "gamLevelCard",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3162"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 4,
+  "cle": "gamXPSources",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3163"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 5,
+  "cle": "gamChallenges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3164"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 6,
+  "cle": "gamMonthlyChallenges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3165"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 7,
+  "cle": "gamHeatmap",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3166"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 8,
+  "cle": "jeux-rangs",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3169"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 9,
+  "cle": "anatomyCard",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3170"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 10,
+  "cle": "btn-body-front",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3173"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=switchBodyView('front')"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 11,
+  "cle": "btn-body-back",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3174"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=switchBodyView('back')"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 12,
+  "cle": "btn-body-gender",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3175"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=switchBodyGender()"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 13,
+  "cle": "body-figure-container",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3177"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 14,
+  "cle": "muscle-list",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3178"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 15,
+  "cle": "antagonistAlerts",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3179"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 16,
+  "cle": "gamSBDRanks",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3181"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 17,
+  "cle": "gamStrengthContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3182"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 18,
+  "cle": "jeux-badges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3185"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 19,
+  "cle": "gamRecentBadges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3186"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 20,
+  "cle": "gamNextBadges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3187"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 21,
+  "cle": "gamBadgesOverview",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3188"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 22,
+  "cle": "gamBadgesSections",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3189"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 23,
+  "cle": "gamLeaderboard",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3194"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 24,
+  "cle": "tab-social",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3203"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 25,
+  "cle": "feedPills",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3205",
+   "supabase.js:2665 [renderFeedCard]"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 26,
+  "cle": "socialJeuxBadgeDot",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3220"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 27,
+  "cle": "feed-amis",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3224"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 28,
+  "cle": "feedAmisContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3225"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 29,
+  "cle": "feedAmisLoadMore",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3226"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 30,
+  "cle": "feedAmisInvite",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3229"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 31,
+  "cle": "feed-communaute",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3233"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 32,
+  "cle": "feedCommunauteContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3234"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 33,
+  "cle": "feedCommunauteLoadMore",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3235"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 34,
+  "cle": "feed-challenges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3241"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 35,
+  "cle": "feedChallengesContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3242"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 36,
+  "cle": "feed-classement",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3246"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 37,
+  "cle": "feedClassementContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3247"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 38,
+  "cle": "social-feed",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3252"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 39,
+  "cle": "feedPinnedSection",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3253"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 40,
+  "cle": "feedContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3254"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 41,
+  "cle": "feedLoadMore",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3255"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 42,
+  "cle": "social-leaderboard",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3256"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 43,
+  "cle": "lbExerciseFilter",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3258"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onchange=renderLeaderboard()"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 44,
+  "cle": "lbPodium",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3259"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 45,
+  "cle": "lbTable",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3260"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 46,
+  "cle": "lbEmpty",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3261"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 47,
+  "cle": "social-challenges",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3264"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 48,
+  "cle": "challengesCreateBtn",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3265"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 49,
+  "cle": "challengeTemplates",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3266"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 50,
+  "cle": "challengesActiveList",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3267"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 51,
+  "cle": "challengesFinishedList",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3268"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 52,
+  "cle": "social-friends",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3271"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 53,
+  "cle": "socialProfileCard",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3272"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 54,
+  "cle": "chev-ca-social-profile",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3276"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 55,
+  "cle": "ca-social-profile",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3278"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 56,
+  "cle": "socialProfileContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3278"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 57,
+  "cle": "myFriendCode",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3283"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 58,
+  "cle": "friendCodeInput",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3289"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 59,
+  "cle": "friendSearchInput",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3293"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "oninput=onFriendSearchInput(this.value)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 60,
+  "cle": "friendAutocomplete",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3295"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 61,
+  "cle": "pendingRequestsSection",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3298"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 62,
+  "cle": "pendingRequestsList",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3298"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 63,
+  "cle": "friendsListCard",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3299"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 64,
+  "cle": "friendsListTitle",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3299"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 65,
+  "cle": "friendsList",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3299"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 66,
+  "cle": "notifSection",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3300"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 67,
+  "cle": "notifList",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3300"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 68,
+  "cle": "blockedSection",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3301"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 69,
+  "cle": "blockedList",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:3301"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 70,
+  "cle": "socialEditUsername",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:3402 [renderSocialProfileCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 71,
+  "cle": "socialEditBio",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:3410 [renderSocialProfileCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 72,
+  "cle": "sg<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:8458 [_renderGamStrengthCards]",
+   "app.js:8459 [_renderGamStrengthCards]"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 73,
+  "cle": "bdgSec<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:8633 [_renderGamBadges]",
+   "app.js:8664 [_renderGamBadges]"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 74,
+  "cle": "bdgSec",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:8664 [_renderGamBadges]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 75,
+  "cle": "<var:badge>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:8676 [_renderGamBadges]",
+   "app.js:8688 [_renderGamBadges]",
+   "app.js:8701 [_renderGamBadges]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 76,
+  "cle": "lb2Body",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "supabase.js:5744 [renderFeedClassementV2]"
+  ],
+  "etats": [
+   "social · feed-classement",
+   "social avec amis · feed-classement"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 77,
+  "cle": "feed-session-detail<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2642 [renderFeedCard]",
+   "supabase.js:5083 [fv2RenderCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 78,
+  "cle": "feed-detail<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2675 [renderFeedCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 79,
+  "cle": "feed-reactions<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2676 [renderFeedCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 80,
+  "cle": "emoji-picker<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2679 [renderFeedCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 81,
+  "cle": "feed-comments<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2686 [renderFeedCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 82,
+  "cle": "del-erase",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:4336 [showAccountDeletionDialog]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 83,
+  "cle": "del-anon",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:4340 [showAccountDeletionDialog]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 84,
+  "cle": "del-confirm",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:4346 [showAccountDeletionDialog]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 85,
+  "cle": "titleList",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:7673 [showTitleModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 86,
+  "cle": "<var:badgeId>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:7723 [scrollToBadgeCategory]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 87,
+  "cle": "fv2-like<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5092 [fv2RenderCard]",
+   "supabase.js:5186 [fv2RenderCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 88,
+  "cle": "fv2-comment-btn<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5093 [fv2RenderCard]",
+   "supabase.js:5187 [fv2RenderCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 89,
+  "cle": "fv2<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5098 [fv2RenderCard]",
+   "supabase.js:5194 [fv2RenderCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 90,
+  "cle": "fv2-comments<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5110 [fv2RenderCard]",
+   "supabase.js:5207 [fv2RenderCard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 91,
+  "cle": "defi-exercise",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2364 [openDefiModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 92,
+  "cle": "defi-target",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2370 [openDefiModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 93,
+  "cle": "defi-deadline",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2371 [openDefiModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 94,
+  "cle": "fv2-popover-",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5015 [openFv2Menu]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 95,
+  "cle": "reaction-picker-",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5360 [openReactionPicker]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 96,
+  "cle": "comment-input<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:2867 [loadAndRenderComments]",
+   "supabase.js:5435 [loadFv2Comments]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 97,
+  "cle": "comment-row<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "supabase.js:5423 [loadFv2Comments]",
+   "supabase.js:1601 [appendRealtimeComment]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ }
+]

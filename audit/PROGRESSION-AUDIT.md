@@ -1,0 +1,99 @@
+# Progression — audit de câblage, vagues 2 à 5
+
+Branche : `claude/audit-cablage-vagues-2-5`. Commit + push après **chaque** vague.
+
+| Vague | Surface | État | N inventoriés | N verdicts | N runtime |
+|---|---|---|---|---|---|
+| 1 | Profil | ✅ livrée (branche `claude/audit-cablage-vague1`) | 176 | 176 | 176 |
+| **2** | **Séances** | ✅ **livrée** | **54** | **54** | **54** |
+| **3** | **Maison + Coach** | ✅ **livrée** | **62** | **62** | **62** |
+| **4** | **Stats** | ✅ **livrée** | **28** | **28** | **28** |
+| **5** | **Social + Jeux** | ✅ **livrée** | **89** | **89** | **89** |
+
+## Vague 2 — findings majeurs
+
+- **G1 🔴** « Appliquer ce jour au programme » (app.js:27347) et « Appliquer toutes les suggestions »
+  (27369) écrivent des **objets** dans `db.routineExos` là où les autres écrivains mettent des chaînes
+  → `matchExoName` lève `s.toLowerCase is not a function` → **démarrage de séance à 0 exercice**, et
+  **`renderCorpsTab` (onglet Corps, vague 1) casse aussi**. Reproduit de bout en bout.
+- **G2 ⚠️** La séance est construite depuis `db.routineExos`, pas depuis `db.weeklyPlan` : le plan ne
+  fournit que les séries, retrouvées **par nom**. 5 scénarios exécutés — un plan complet peut produire
+  une séance **vide** (routineExos vide) ou **une série vide** (nom de variante non rapproché).
+- **G3 ⚠️** `s-go` : 5 sous-vues pour 4 pilules, atteignable seulement par 9 appels programmés ;
+  `db.user.navMode` (prévu pour ça) est une donnée morte.
+- **G4** `activeWorkout` est hors `db` et hors blob de sync : une séance interrompue ne quitte pas
+  l'appareil.
+- **G5 ✅** Le pont plan→séance de la PR #246 fonctionne (5 annotations transférées, vérifié).
+
+## Vague 3 — findings majeurs
+
+- **H1 🔴** L'accueil affiche « Test : 1 sept. » = **aujourd'hui + 35 jours**, repli de
+  `db.user.plannedTestDate` qui n'est **jamais écrit**. Une date glissante présentée comme une échéance.
+- **H2 🔴** `dashWeekCard` / `quickLogCard` / `perfCard` masqués en dur (app.js:9397, « v264 »).
+  `renderPerfCard` continue pourtant de les alimenter (4 appelants), et les Réglages promettent encore
+  « les exercices affichés dans la rubrique Performance sur l'accueil » (index.html:2965).
+- **H3 🔴** e1RM affiché en clair sur l'accueil (« e1RM estimé : 158 kg » à côté de « SQUAT 145kg ») —
+  3ᵉ point d'affichage d'e1RM relevé par l'audit (§7).
+- **H4 ✅ RÉFUTÉ** — l'hypothèse « des cartes du Coach ne s'affichent jamais » **ne se vérifie pas** :
+  sur 26 états, les 24 cartes apparaissent toutes au moins une fois. « 📐 Analyse morphologique »,
+  que CLAUDE.md dit « jamais branchée », **se rend** derrière « Voir plus ».
+- **H6 🔴** 14 conteneurs hérités dans un bloc `display:none` (index.html:2469) ; **6 sont encore
+  alimentés** par du JS → du rendu calculé et jeté.
+
+## Vague 5 — findings majeurs
+
+- **J1 🔴** `renderFriendsTab` lève `Cannot read properties of null (reading 'style')` —
+  `socialFriendsBadge` n'existe dans aucun des 17 états. **Le fix #5 du scope de lancement est
+  confirmé au runtime.**
+- **J2 ⚠️** Le code d'invitation reste « --- » sur le chemin naturel : l'affichage est posé
+  **synchroniquement** depuis `db.friendCode` (null au 1er passage) et n'est rafraîchi que par
+  `renderFriendsTab` — la fonction qui lève J1. *Réserve : réseau stubbé, la part imputable au stub
+  n'est pas séparable.*
+- **J3 🔴** `social-feed` / `social-leaderboard` / `social-challenges` : invisibles dans les 17 états,
+  aucune pilule n'y mène, mais `showFeedSub` (supabase.js:1672-1675) conserve leurs branches.
+- **J4 ✘ RÉFUTÉ** — le quiz archétype est atteignable et fonctionne (7 questions, overlay 844 px).
+  Mon premier test cherchait le mauvais sélecteur.
+- **⚠️ Couverture la plus faible des 5 vagues** : 19 des 89 éléments dépendent d'une lecture réseau,
+  stubbée par construction → ⊘ NON TESTABLE assumé.
+
+## Vague 4 — findings majeurs
+
+- **I1 ⚠️** Deux notions de « cardio » sur le même onglet : le sous-onglet Cardio fusionne
+  `db.logs` + `db.activityLogs` ; la ligne Cardio de « Volume par Muscle » (`mg-6`) ne lit que
+  `db.logs`. Une natation loggée en activité compte dans l'un, pas dans l'autre.
+- **I2 ✘ RÉFUTÉ ×2** — mes deux suspicions initiales étaient fausses : le cardio *se rend* bien
+  (mon test capturait le placeholder statique), et `mg-6` *se remplit* avec un exercice cardio.
+  Documenté dans le rapport pour ne pas laisser deux faux findings.
+- **I3** Test de consommation sur 9 historiques : **13 sorties variables, 15 invariantes toutes
+  légitimement statiques**. Aucune valeur figée sur un repli — le risque annoncé pour cette vague
+  ne se matérialise pas.
+- **I4 🔴** 4ᵉ surface d'affichage de l'e1RM (« 🏋️ 145 kg » et « est. 158 kg e1RM » côte à côte).
+- **I5 🔴** Aucune borne de plausibilité : « Squat 315 kg · ×3.94 bw » affiché sans signalement.
+
+## 10ᵉ extension de méthode (vague 3)
+
+**Les cartes n'ont pas d'`id`.** Le Coach rend 10 cartes pour seulement 4 `id`. Un inventaire par `id`
+les manquerait toutes. L'inventaire recense donc **deux familles** : éléments identifiés **et** cartes
+identifiées par leur **titre visible**. À reconduire sur toute surface à cartes.
+
+## 9ᵉ piège découvert en vague 2 — à appliquer aux vagues suivantes
+
+**Divergence de TYPE sur un même store.** Plusieurs écrivains alimentent la même clé avec des
+structures différentes (ici `routineExos` : chaînes vs objets). Aucun n'est « faux » isolément ; c'est
+leur cohabitation qui casse le lecteur. **À chercher systématiquement** : pour chaque store à écrivains
+multiples, comparer le **type** de ce qu'ils écrivent, pas seulement le chemin.
+
+*(Rappel des 8 premiers : inline · fallback masquant · condition jamais satisfaisable · double chemin ·
+priorité silencieuse `A || B` · addEventListener · markup runtime · définition dupliquée.)*
+
+## Changement de méthode acté en vague 2
+
+L'inventaire par `grep 'id="'` sur `index.html` est **structurellement insuffisant** hors Profil :
+sur Séances, 36 des 54 éléments (67 %) sont générés au runtime. L'inventaire passe donc par
+`audit/runtime/inventaire-dom.js`, qui énumère le DOM réel dans N états et fait l'union.
+Règle de comptage : ids générés en boucle regroupés en familles `×n` ; ids aléatoires (SVG) regroupés.
+
+## Reste à faire
+
+**Rien.** Les 5 vagues sont livrées et `audit/SYNTHESE-CABLAGE.md` est écrit.
+Total : **409 éléments inventoriés = 409 verdicts = 409 statuts runtime**, sur 101 états explorés.

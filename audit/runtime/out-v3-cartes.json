@@ -1,0 +1,711 @@
+{
+ "parEtat": [
+  {
+   "etat": "maison · profil riche",
+   "sel": "#tab-dash",
+   "html": 10780,
+   "texte": 604,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · vierge",
+   "sel": "#tab-dash",
+   "html": 9746,
+   "texte": 533,
+   "nb": 2,
+   "noms": [
+    "Tout est prêt !",
+    "SEMAINE —"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · débutant",
+   "sel": "#tab-dash",
+   "html": 10777,
+   "texte": 601,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · retour après pause",
+   "sel": "#tab-dash",
+   "html": 10784,
+   "texte": 606,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · données sales",
+   "sel": "#tab-dash",
+   "html": 10694,
+   "texte": 605,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · check-in bas + douleur",
+   "sel": "#tab-dash",
+   "html": 10780,
+   "texte": 604,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · check-in haut",
+   "sel": "#tab-dash",
+   "html": 10780,
+   "texte": 604,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · deload",
+   "sel": "#tab-dash",
+   "html": 10780,
+   "texte": 604,
+   "nb": 2,
+   "noms": [
+    "SEMAINE 4",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "maison · femme + cycle",
+   "sel": "#tab-dash",
+   "html": 10780,
+   "texte": 604,
+   "nb": 2,
+   "noms": [
+    "SEMAINE —",
+    "💪"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · profil riche",
+   "sel": "#coach-today",
+   "html": 16931,
+   "texte": 3678,
+   "nb": 10,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "🔋",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · vierge",
+   "sel": "#coach-today",
+   "html": 1372,
+   "texte": 253,
+   "nb": 1,
+   "noms": [
+    "👋 Bienvenue — Semaine 1 de calibration"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · débutant",
+   "sel": "#coach-today",
+   "html": 16336,
+   "texte": 1899,
+   "nb": 9,
+   "noms": [
+    "☀️ Check-in du jour",
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · mono-lift",
+   "sel": "#coach-today",
+   "html": 14423,
+   "texte": 1639,
+   "nb": 9,
+   "noms": [
+    "☀️ Check-in du jour",
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte to",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · extreme haut",
+   "sel": "#coach-today",
+   "html": 15437,
+   "texte": 1742,
+   "nb": 9,
+   "noms": [
+    "☀️ Check-in du jour",
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte to",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · extreme bas",
+   "sel": "#coach-today",
+   "html": 15184,
+   "texte": 1628,
+   "nb": 9,
+   "noms": [
+    "☀️ Check-in du jour",
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "🌸 Phase folliculaire tardive",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · progression nette",
+   "sel": "#coach-today",
+   "html": 7553,
+   "texte": 1347,
+   "nb": 8,
+   "noms": [
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🔄 3 séances identiques détectées — tu sembles en pilote automatique. ",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · retour après pause",
+   "sel": "#coach-today",
+   "html": 16554,
+   "texte": 1863,
+   "nb": 9,
+   "noms": [
+    "☀️ Check-in du jour",
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · données sales",
+   "sel": "#coach-today",
+   "html": 17159,
+   "texte": 2136,
+   "nb": 9,
+   "noms": [
+    "☀️ Check-in du jour",
+    "LE POINT DU JOUR",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · ACWR élevé",
+   "sel": "#coach-today",
+   "html": 16584,
+   "texte": 3893,
+   "nb": 10,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "🔋",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🔄 3 séances identiques détectées — tu sembles en pilote automatique. ",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · blessure active",
+   "sel": "#coach-today",
+   "html": 16987,
+   "texte": 3567,
+   "nb": 10,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "⚠️ Alerte Récupération — epaule",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · deload",
+   "sel": "#coach-today",
+   "html": 16931,
+   "texte": 3678,
+   "nb": 10,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "🔋",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · peak",
+   "sel": "#coach-today",
+   "html": 16931,
+   "texte": 3678,
+   "nb": 10,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "🔋",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · check-in bas + douleur",
+   "sel": "#coach-today",
+   "html": 17069,
+   "texte": 3621,
+   "nb": 9,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · femme + cycle",
+   "sel": "#coach-today",
+   "html": 15158,
+   "texte": 3420,
+   "nb": 10,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "🔋",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "🌸 Phase lutéale",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · voir plus déplié",
+   "sel": "#coach-today",
+   "html": 18879,
+   "texte": 4085,
+   "nb": 13,
+   "noms": [
+    "LE POINT DU JOUR",
+    "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+    "🔋",
+    "Potentiel de Performance",
+    "⚡ Budget Récupération",
+    "💪 VOLUME / SEMAINE",
+    "📊 Diagnostic Athlétique",
+    "🍽️ NUTRITION — JOUR DE REPOS",
+    "🦍 RECOMMANDATIONS",
+    "📐 Analyse morphologique",
+    "🔥 20 séances sur 30j — constance pro. Mode Instinct dispo : fais conf",
+    "🔍 Exercice recommandé : Soulevé de Terre Roumain",
+    "Coach Algo · Calcul instantané · Sans IA"
+   ],
+   "err": []
+  },
+  {
+   "etat": "coach · historique",
+   "sel": "#coach-today",
+   "html": 16931,
+   "texte": 3589,
+   "nb": 0,
+   "noms": [],
+   "err": []
+  }
+ ],
+ "cartes": [
+  {
+   "titre": "SEMAINE —",
+   "etats": [
+    "maison · profil riche",
+    "maison · vierge",
+    "maison · débutant",
+    "maison · retour après pause",
+    "maison · données sales",
+    "maison · check-in bas + douleur",
+    "maison · check-in haut",
+    "maison · femme + cycle"
+   ]
+  },
+  {
+   "titre": "💪",
+   "etats": [
+    "maison · profil riche",
+    "maison · débutant",
+    "maison · retour après pause",
+    "maison · données sales",
+    "maison · check-in bas + douleur",
+    "maison · check-in haut",
+    "maison · deload",
+    "maison · femme + cycle"
+   ]
+  },
+  {
+   "titre": "Tout est prêt !",
+   "etats": [
+    "maison · vierge"
+   ]
+  },
+  {
+   "titre": "SEMAINE 4",
+   "etats": [
+    "maison · deload"
+   ]
+  },
+  {
+   "titre": "LE POINT DU JOUR",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "🦴 SANTÉ ARTICULAIRE (14 DERNIERS JOURS)",
+   "etats": [
+    "coach · profil riche",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "🔋",
+   "etats": [
+    "coach · profil riche",
+    "coach · ACWR élevé",
+    "coach · deload",
+    "coach · peak",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "Potentiel de Performance",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "⚡ Budget Récupération",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "💪 VOLUME / SEMAINE",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "📊 Diagnostic Athlétique",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "🍽️ NUTRITION — JOUR DE REPOS",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "🦍 RECOMMANDATIONS",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "Coach Algo · Calcul instantané · Sans IA",
+   "etats": [
+    "coach · profil riche",
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · progression nette",
+    "coach · retour après pause",
+    "coach · données sales",
+    "coach · ACWR élevé",
+    "coach · blessure active",
+    "coach · deload",
+    "coach · peak",
+    "coach · check-in bas + douleur",
+    "coach · femme + cycle",
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "👋 Bienvenue — Semaine 1 de calibration",
+   "etats": [
+    "coach · vierge"
+   ]
+  },
+  {
+   "titre": "☀️ Check-in du jour",
+   "etats": [
+    "coach · débutant",
+    "coach · mono-lift",
+    "coach · extreme haut",
+    "coach · extreme bas",
+    "coach · retour après pause",
+    "coach · données sales"
+   ]
+  },
+  {
+   "titre": "🏆 Compétition prévue ? Renseigne une date pour que le Coach adapte to",
+   "etats": [
+    "coach · mono-lift",
+    "coach · extreme haut"
+   ]
+  },
+  {
+   "titre": "🌸 Phase folliculaire tardive",
+   "etats": [
+    "coach · extreme bas"
+   ]
+  },
+  {
+   "titre": "🔄 3 séances identiques détectées — tu sembles en pilote automatique. ",
+   "etats": [
+    "coach · progression nette",
+    "coach · ACWR élevé"
+   ]
+  },
+  {
+   "titre": "⚠️ Alerte Récupération — epaule",
+   "etats": [
+    "coach · blessure active"
+   ]
+  },
+  {
+   "titre": "🌸 Phase lutéale",
+   "etats": [
+    "coach · femme + cycle"
+   ]
+  },
+  {
+   "titre": "📐 Analyse morphologique",
+   "etats": [
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "🔥 20 séances sur 30j — constance pro. Mode Instinct dispo : fais conf",
+   "etats": [
+    "coach · voir plus déplié"
+   ]
+  },
+  {
+   "titre": "🔍 Exercice recommandé : Soulevé de Terre Roumain",
+   "etats": [
+    "coach · voir plus déplié"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,7295 @@
+[
+ {
+  "n": 1,
+  "fam": "tab-profil",
+  "cardinalite": 1,
+  "exemple": "tab-profil",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 2,
+  "fam": "tab-corps",
+  "cardinalite": 1,
+  "exemple": "tab-corps",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 3,
+  "fam": "formeScoreTag",
+  "cardinalite": 1,
+  "exemple": "formeScoreTag",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 4,
+  "fam": "chev-ca-forme",
+  "cardinalite": 1,
+  "exemple": "chev-ca-forme",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 5,
+  "fam": "ca-forme",
+  "cardinalite": 1,
+  "exemple": "ca-forme",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 6,
+  "fam": "formeScoreContent",
+  "cardinalite": 1,
+  "exemple": "formeScoreContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 7,
+  "fam": "formeScoreTooltip",
+  "cardinalite": 1,
+  "exemple": "formeScoreTooltip",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 8,
+  "fam": "chev-ca-load",
+  "cardinalite": 1,
+  "exemple": "chev-ca-load",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 9,
+  "fam": "ca-load",
+  "cardinalite": 1,
+  "exemple": "ca-load",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 10,
+  "fam": "trainingLoadContent",
+  "cardinalite": 1,
+  "exemple": "trainingLoadContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 11,
+  "fam": "chev-ca-heatmap",
+  "cardinalite": 1,
+  "exemple": "chev-ca-heatmap",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 12,
+  "fam": "ca-heatmap",
+  "cardinalite": 1,
+  "exemple": "ca-heatmap",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 13,
+  "fam": "muscleHeatmapContent",
+  "cardinalite": 1,
+  "exemple": "muscleHeatmapContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 14,
+  "fam": "muscleFatigueTooltip",
+  "cardinalite": 1,
+  "exemple": "muscleFatigueTooltip",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 15,
+  "fam": "chev-ca-joints",
+  "cardinalite": 1,
+  "exemple": "chev-ca-joints",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 16,
+  "fam": "ca-joints",
+  "cardinalite": 1,
+  "exemple": "ca-joints",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 17,
+  "fam": "jointHealthContent",
+  "cardinalite": 1,
+  "exemple": "jointHealthContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 18,
+  "fam": "chev-ca-poids",
+  "cardinalite": 1,
+  "exemple": "chev-ca-poids",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 19,
+  "fam": "ca-poids",
+  "cardinalite": 1,
+  "exemple": "ca-poids",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 20,
+  "fam": "inputBodyWeight",
+  "cardinalite": 1,
+  "exemple": "inputBodyWeight",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 21,
+  "fam": "weightTrendDisplay",
+  "cardinalite": 1,
+  "exemple": "weightTrendDisplay",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 22,
+  "fam": "chartBodyWeight",
+  "cardinalite": 1,
+  "exemple": "chartBodyWeight",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 23,
+  "fam": "bwg<alea>",
+  "cardinalite": 11,
+  "exemple": "bwgtme18",
+  "tag": "lineargradient",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 24,
+  "fam": "weightHistory",
+  "cardinalite": 1,
+  "exemple": "weightHistory",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 25,
+  "fam": "chev-ca-nutri",
+  "cardinalite": 1,
+  "exemple": "chev-ca-nutri",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 26,
+  "fam": "ca-nutri",
+  "cardinalite": 1,
+  "exemple": "ca-nutri",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 27,
+  "fam": "nutriCard",
+  "cardinalite": 1,
+  "exemple": "nutriCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 28,
+  "fam": "nutriRingFill",
+  "cardinalite": 1,
+  "exemple": "nutriRingFill",
+  "tag": "circle",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 29,
+  "fam": "nutriKcalRestantes",
+  "cardinalite": 1,
+  "exemple": "nutriKcalRestantes",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 30,
+  "fam": "nutriKcalSub",
+  "cardinalite": 1,
+  "exemple": "nutriKcalSub",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 31,
+  "fam": "nutriDayTypeLabel",
+  "cardinalite": 1,
+  "exemple": "nutriDayTypeLabel",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 32,
+  "fam": "nutriMangees",
+  "cardinalite": 1,
+  "exemple": "nutriMangees",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 33,
+  "fam": "nutriCible",
+  "cardinalite": 1,
+  "exemple": "nutriCible",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 34,
+  "fam": "nutriBrulees",
+  "cardinalite": 1,
+  "exemple": "nutriBrulees",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 35,
+  "fam": "nutriCarbLabel",
+  "cardinalite": 1,
+  "exemple": "nutriCarbLabel",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 36,
+  "fam": "nutriCarbBar",
+  "cardinalite": 1,
+  "exemple": "nutriCarbBar",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 37,
+  "fam": "nutriProtLabel",
+  "cardinalite": 1,
+  "exemple": "nutriProtLabel",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 38,
+  "fam": "nutriProtBar",
+  "cardinalite": 1,
+  "exemple": "nutriProtBar",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 39,
+  "fam": "nutriFatLabel",
+  "cardinalite": 1,
+  "exemple": "nutriFatLabel",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 40,
+  "fam": "nutriFatBar",
+  "cardinalite": 1,
+  "exemple": "nutriFatBar",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 41,
+  "fam": "nutriTDEELabel",
+  "cardinalite": 1,
+  "exemple": "nutriTDEELabel",
+  "tag": "strong",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 42,
+  "fam": "nutriProtCible",
+  "cardinalite": 1,
+  "exemple": "nutriProtCible",
+  "tag": "strong",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 43,
+  "fam": "inputProt",
+  "cardinalite": 1,
+  "exemple": "inputProt",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "oninput=updateCalcCalories()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 44,
+  "fam": "inputCarb",
+  "cardinalite": 1,
+  "exemple": "inputCarb",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "oninput=updateCalcCalories()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 45,
+  "fam": "inputFat",
+  "cardinalite": 1,
+  "exemple": "inputFat",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "oninput=updateCalcCalories()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 46,
+  "fam": "inputKcal",
+  "cardinalite": 1,
+  "exemple": "inputKcal",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 47,
+  "fam": "macroHistoryDisplay",
+  "cardinalite": 1,
+  "exemple": "macroHistoryDisplay",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 48,
+  "fam": "chev-ca-force",
+  "cardinalite": 1,
+  "exemple": "chev-ca-force",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 49,
+  "fam": "ca-force",
+  "cardinalite": 1,
+  "exemple": "ca-force",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 50,
+  "fam": "bodyMetricsGrid",
+  "cardinalite": 1,
+  "exemple": "bodyMetricsGrid",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 51,
+  "fam": "metricIPFCard",
+  "cardinalite": 1,
+  "exemple": "metricIPFCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 52,
+  "fam": "metricIPF",
+  "cardinalite": 1,
+  "exemple": "metricIPF",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 53,
+  "fam": "metricIPFsub",
+  "cardinalite": 1,
+  "exemple": "metricIPFsub",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 54,
+  "fam": "metricRatioCard",
+  "cardinalite": 1,
+  "exemple": "metricRatioCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 55,
+  "fam": "metricRatio",
+  "cardinalite": 1,
+  "exemple": "metricRatio",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 56,
+  "fam": "metricRatioSub",
+  "cardinalite": 1,
+  "exemple": "metricRatioSub",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 57,
+  "fam": "plateauAlerts",
+  "cardinalite": 1,
+  "exemple": "plateauAlerts",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 58,
+  "fam": "chev-ca-coach",
+  "cardinalite": 1,
+  "exemple": "chev-ca-coach",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 59,
+  "fam": "ca-coach",
+  "cardinalite": 1,
+  "exemple": "ca-coach",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 60,
+  "fam": "coachAlgoContent",
+  "cardinalite": 1,
+  "exemple": "coachAlgoContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 61,
+  "fam": "tab-settings",
+  "cardinalite": 1,
+  "exemple": "tab-settings",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 62,
+  "fam": "chev-acc-profil",
+  "cardinalite": 1,
+  "exemple": "chev-acc-profil",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 63,
+  "fam": "acc-profil",
+  "cardinalite": 1,
+  "exemple": "acc-profil",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 64,
+  "fam": "inputName",
+  "cardinalite": 1,
+  "exemple": "inputName",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfile()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 65,
+  "fam": "inputBW",
+  "cardinalite": 1,
+  "exemple": "inputBW",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfile()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 66,
+  "fam": "inputFatPct",
+  "cardinalite": 1,
+  "exemple": "inputFatPct",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=db.user.fatPct=parseFloat(this.value)||null;saveDB();showToast('✓ Profil mis à jour');"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 67,
+  "fam": "settingsLevel",
+  "cardinalite": 1,
+  "exemple": "settingsLevel",
+  "tag": "select",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfileField('level', this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 68,
+  "fam": "settingsHeight",
+  "cardinalite": 1,
+  "exemple": "settingsHeight",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfileField('height', this.value ? parseInt(this.value) : null)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 69,
+  "fam": "settingsAge",
+  "cardinalite": 1,
+  "exemple": "settingsAge",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfileField('age', this.value ? parseInt(this.value) : null)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 70,
+  "fam": "settingsGender",
+  "cardinalite": 1,
+  "exemple": "settingsGender",
+  "tag": "select",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=setSettingsGender(this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 71,
+  "fam": "settingsTargetBW",
+  "cardinalite": 1,
+  "exemple": "settingsTargetBW",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfileField('targetBW', this.value ? parseFloat(this.value) : null)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 72,
+  "fam": "settingsTargetsBlock",
+  "cardinalite": 1,
+  "exemple": "settingsTargetsBlock",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 73,
+  "fam": "tgtUnitLabel",
+  "cardinalite": 1,
+  "exemple": "tgtUnitLabel",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 74,
+  "fam": "tgtBench",
+  "cardinalite": 1,
+  "exemple": "tgtBench",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateTarget('bench', this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 75,
+  "fam": "tgtSquat",
+  "cardinalite": 1,
+  "exemple": "tgtSquat",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateTarget('squat', this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 76,
+  "fam": "tgtDead",
+  "cardinalite": 1,
+  "exemple": "tgtDead",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateTarget('deadlift', this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 77,
+  "fam": "tgtPrHint",
+  "cardinalite": 1,
+  "exemple": "tgtPrHint",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 78,
+  "fam": "settingsCycleBlock",
+  "cardinalite": 1,
+  "exemple": "settingsCycleBlock",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 79,
+  "fam": "settingsCycleEnabled",
+  "cardinalite": 1,
+  "exemple": "settingsCycleEnabled",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=toggleCycleTracking(this.checked)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 80,
+  "fam": "settingsCycleDetails",
+  "cardinalite": 1,
+  "exemple": "settingsCycleDetails",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 81,
+  "fam": "settingsCycleLastDate",
+  "cardinalite": 1,
+  "exemple": "settingsCycleLastDate",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateCycleField('lastPeriodDate', this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 82,
+  "fam": "settingsCycleLength",
+  "cardinalite": 1,
+  "exemple": "settingsCycleLength",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateCycleField('cycleLength', parseInt(this.value)||28)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 83,
+  "fam": "settingsInjuriesList",
+  "cardinalite": 1,
+  "exemple": "settingsInjuriesList",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 84,
+  "fam": "settingsActivities",
+  "cardinalite": 1,
+  "exemple": "settingsActivities",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 85,
+  "fam": "settingsTrainingMode",
+  "cardinalite": 1,
+  "exemple": "settingsTrainingMode",
+  "tag": "select",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateProfileField('trainingMode', this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 86,
+  "fam": "settingsUIDetail",
+  "cardinalite": 1,
+  "exemple": "settingsUIDetail",
+  "tag": "select",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=db.user.uiDetail=this.value;saveDB();showToast('✓ Interface mise à jour');"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 87,
+  "fam": "settingsVocabLevel",
+  "cardinalite": 1,
+  "exemple": "settingsVocabLevel",
+  "tag": "select",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=db.user.vocabLevel=parseInt(this.value)||2;saveDB();showToast('✓ Vocabulaire mis à jour');"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 88,
+  "fam": "settingsGoals",
+  "cardinalite": 1,
+  "exemple": "settingsGoals",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 89,
+  "fam": "settingsFreq",
+  "cardinalite": 1,
+  "exemple": "settingsFreq",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 90,
+  "fam": "settingsDays",
+  "cardinalite": 1,
+  "exemple": "settingsDays",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 91,
+  "fam": "settingsMat",
+  "cardinalite": 1,
+  "exemple": "settingsMat",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 92,
+  "fam": "settingsDuration",
+  "cardinalite": 1,
+  "exemple": "settingsDuration",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 93,
+  "fam": "settingsSupersets",
+  "cardinalite": 1,
+  "exemple": "settingsSupersets",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 94,
+  "fam": "settingsPrehabToggle",
+  "cardinalite": 1,
+  "exemple": "settingsPrehabToggle",
+  "tag": "input",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=setPrehabEnabled(this.checked)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 95,
+  "fam": "settingsPrehabSlider",
+  "cardinalite": 1,
+  "exemple": "settingsPrehabSlider",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=var cb=document.getElementById('settingsPrehabToggle');cb.checked=!cb.checked;cb.dispatchEvent(new Event('chan"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 96,
+  "fam": "settingsPrehabKnob",
+  "cardinalite": 1,
+  "exemple": "settingsPrehabKnob",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 97,
+  "fam": "settingsProgramMode",
+  "cardinalite": 1,
+  "exemple": "settingsProgramMode",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 98,
+  "fam": "settingsInjuries",
+  "cardinalite": 1,
+  "exemple": "settingsInjuries",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 99,
+  "fam": "settingsCardio",
+  "cardinalite": 1,
+  "exemple": "settingsCardio",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 100,
+  "fam": "inputKcalBase",
+  "cardinalite": 1,
+  "exemple": "inputKcalBase",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateNutriTargets()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 101,
+  "fam": "inputBWBase",
+  "cardinalite": 1,
+  "exemple": "inputBWBase",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=updateNutriTargets()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 102,
+  "fam": "chev-acc-keylifts",
+  "cardinalite": 1,
+  "exemple": "chev-acc-keylifts",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 103,
+  "fam": "acc-keylifts",
+  "cardinalite": 1,
+  "exemple": "acc-keylifts",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 104,
+  "fam": "keyLiftsEditor",
+  "cardinalite": 1,
+  "exemple": "keyLiftsEditor",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 105,
+  "fam": "chev-acc-prog",
+  "cardinalite": 1,
+  "exemple": "chev-acc-prog",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 106,
+  "fam": "acc-prog",
+  "cardinalite": 1,
+  "exemple": "acc-prog",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 107,
+  "fam": "routineEditor",
+  "cardinalite": 1,
+  "exemple": "routineEditor",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 108,
+  "fam": "prog-section-Lundi",
+  "cardinalite": 1,
+  "exemple": "prog-section-Lundi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 109,
+  "fam": "prog-chev-Lundi",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Lundi",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 110,
+  "fam": "prog-body-Lundi",
+  "cardinalite": 1,
+  "exemple": "prog-body-Lundi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 111,
+  "fam": "prog-exo-list-Lundi",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Lundi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 112,
+  "fam": "prog-add-Lundi",
+  "cardinalite": 1,
+  "exemple": "prog-add-Lundi",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 113,
+  "fam": "prog-section-Mardi",
+  "cardinalite": 1,
+  "exemple": "prog-section-Mardi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 114,
+  "fam": "prog-chev-Mardi",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Mardi",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 115,
+  "fam": "prog-body-Mardi",
+  "cardinalite": 1,
+  "exemple": "prog-body-Mardi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 116,
+  "fam": "prog-exo-list-Mardi",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Mardi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 117,
+  "fam": "prog-add-Mardi",
+  "cardinalite": 1,
+  "exemple": "prog-add-Mardi",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 118,
+  "fam": "prog-section-Mercredi",
+  "cardinalite": 1,
+  "exemple": "prog-section-Mercredi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 119,
+  "fam": "prog-chev-Mercredi",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Mercredi",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 120,
+  "fam": "prog-body-Mercredi",
+  "cardinalite": 1,
+  "exemple": "prog-body-Mercredi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 121,
+  "fam": "prog-exo-list-Mercredi",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Mercredi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 122,
+  "fam": "prog-add-Mercredi",
+  "cardinalite": 1,
+  "exemple": "prog-add-Mercredi",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 123,
+  "fam": "prog-section-Jeudi",
+  "cardinalite": 1,
+  "exemple": "prog-section-Jeudi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 124,
+  "fam": "prog-chev-Jeudi",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Jeudi",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 125,
+  "fam": "prog-body-Jeudi",
+  "cardinalite": 1,
+  "exemple": "prog-body-Jeudi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 126,
+  "fam": "prog-exo-list-Jeudi",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Jeudi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 127,
+  "fam": "prog-add-Jeudi",
+  "cardinalite": 1,
+  "exemple": "prog-add-Jeudi",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 128,
+  "fam": "prog-section-Vendredi",
+  "cardinalite": 1,
+  "exemple": "prog-section-Vendredi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 129,
+  "fam": "prog-chev-Vendredi",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Vendredi",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 130,
+  "fam": "prog-body-Vendredi",
+  "cardinalite": 1,
+  "exemple": "prog-body-Vendredi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 131,
+  "fam": "prog-exo-list-Vendredi",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Vendredi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 132,
+  "fam": "prog-add-Vendredi",
+  "cardinalite": 1,
+  "exemple": "prog-add-Vendredi",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 133,
+  "fam": "prog-section-Samedi",
+  "cardinalite": 1,
+  "exemple": "prog-section-Samedi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 134,
+  "fam": "prog-chev-Samedi",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Samedi",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 135,
+  "fam": "prog-body-Samedi",
+  "cardinalite": 1,
+  "exemple": "prog-body-Samedi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 136,
+  "fam": "prog-exo-list-Samedi",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Samedi",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 137,
+  "fam": "prog-add-Samedi",
+  "cardinalite": 1,
+  "exemple": "prog-add-Samedi",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 138,
+  "fam": "prog-section-Dimanche",
+  "cardinalite": 1,
+  "exemple": "prog-section-Dimanche",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 139,
+  "fam": "prog-chev-Dimanche",
+  "cardinalite": 1,
+  "exemple": "prog-chev-Dimanche",
+  "tag": "span",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 140,
+  "fam": "prog-body-Dimanche",
+  "cardinalite": 1,
+  "exemple": "prog-body-Dimanche",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 141,
+  "fam": "prog-exo-list-Dimanche",
+  "cardinalite": 1,
+  "exemple": "prog-exo-list-Dimanche",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 142,
+  "fam": "prog-add-Dimanche",
+  "cardinalite": 1,
+  "exemple": "prog-add-Dimanche",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 143,
+  "fam": "chev-acc-import",
+  "cardinalite": 1,
+  "exemple": "chev-acc-import",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 144,
+  "fam": "acc-import",
+  "cardinalite": 1,
+  "exemple": "acc-import",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 145,
+  "fam": "hevyPaste",
+  "cardinalite": 1,
+  "exemple": "hevyPaste",
+  "tag": "textarea",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 146,
+  "fam": "importSummary",
+  "cardinalite": 1,
+  "exemple": "importSummary",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 147,
+  "fam": "importDetails",
+  "cardinalite": 1,
+  "exemple": "importDetails",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 148,
+  "fam": "aiImportAnalysis",
+  "cardinalite": 1,
+  "exemple": "aiImportAnalysis",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 149,
+  "fam": "csvFileInput",
+  "cardinalite": 1,
+  "exemple": "csvFileInput",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=previewCSV(this)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 150,
+  "fam": "csvPreview",
+  "cardinalite": 1,
+  "exemple": "csvPreview",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 151,
+  "fam": "csvImportBtn",
+  "cardinalite": 1,
+  "exemple": "csvImportBtn",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=importCSV()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 152,
+  "fam": "csvProgress",
+  "cardinalite": 1,
+  "exemple": "csvProgress",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 153,
+  "fam": "csvProgressBar",
+  "cardinalite": 1,
+  "exemple": "csvProgressBar",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 154,
+  "fam": "csvProgressText",
+  "cardinalite": 1,
+  "exemple": "csvProgressText",
+  "tag": "p",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 155,
+  "fam": "chev-acc-cloud",
+  "cardinalite": 1,
+  "exemple": "chev-acc-cloud",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 156,
+  "fam": "acc-cloud",
+  "cardinalite": 1,
+  "exemple": "acc-cloud",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 157,
+  "fam": "cloudStatus",
+  "cardinalite": 1,
+  "exemple": "cloudStatus",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 158,
+  "fam": "emailLoginSection",
+  "cardinalite": 1,
+  "exemple": "emailLoginSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 159,
+  "fam": "authModeTabs",
+  "cardinalite": 1,
+  "exemple": "authModeTabs",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 160,
+  "fam": "authModeLogin",
+  "cardinalite": 1,
+  "exemple": "authModeLogin",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchAuthMode('login')"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 161,
+  "fam": "authModeSignup",
+  "cardinalite": 1,
+  "exemple": "authModeSignup",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchAuthMode('signup')"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 162,
+  "fam": "inputEmail",
+  "cardinalite": 1,
+  "exemple": "inputEmail",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 163,
+  "fam": "inputPassword",
+  "cardinalite": 1,
+  "exemple": "inputPassword",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 164,
+  "fam": "inputPasswordConfirm",
+  "cardinalite": 1,
+  "exemple": "inputPasswordConfirm",
+  "tag": "input",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 165,
+  "fam": "authSubmitBtn",
+  "cardinalite": 1,
+  "exemple": "authSubmitBtn",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=authSubmit()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 166,
+  "fam": "forgotPasswordBtn",
+  "cardinalite": 1,
+  "exemple": "forgotPasswordBtn",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=forgotPassword()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 167,
+  "fam": "syncIndicator",
+  "cardinalite": 1,
+  "exemple": "syncIndicator",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 168,
+  "fam": "lastSyncDisplay",
+  "cardinalite": 1,
+  "exemple": "lastSyncDisplay",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 169,
+  "fam": "changePasswordSection",
+  "cardinalite": 1,
+  "exemple": "changePasswordSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 170,
+  "fam": "newPassword",
+  "cardinalite": 1,
+  "exemple": "newPassword",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 171,
+  "fam": "newPasswordConfirm",
+  "cardinalite": 1,
+  "exemple": "newPasswordConfirm",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 172,
+  "fam": "chev-acc-backup",
+  "cardinalite": 1,
+  "exemple": "chev-acc-backup",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 173,
+  "fam": "acc-backup",
+  "cardinalite": 1,
+  "exemple": "acc-backup",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 174,
+  "fam": "restoreFileInput",
+  "cardinalite": 1,
+  "exemple": "restoreFileInput",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=previewRestore(this)"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 175,
+  "fam": "restorePreview",
+  "cardinalite": 1,
+  "exemple": "restorePreview",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 176,
+  "fam": "restoreBtn",
+  "cardinalite": 1,
+  "exemple": "restoreBtn",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=importData()"
+  ],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 177,
+  "fam": "storageGauge",
+  "cardinalite": 1,
+  "exemple": "storageGauge",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 178,
+  "fam": "chev-acc-records",
+  "cardinalite": 1,
+  "exemple": "chev-acc-records",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 179,
+  "fam": "acc-records",
+  "cardinalite": 1,
+  "exemple": "acc-records",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 180,
+  "fam": "recordsCorrectionList",
+  "cardinalite": 1,
+  "exemple": "recordsCorrectionList",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 181,
+  "fam": "chev-acc-glossary",
+  "cardinalite": 1,
+  "exemple": "chev-acc-glossary",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 182,
+  "fam": "acc-glossary",
+  "cardinalite": 1,
+  "exemple": "acc-glossary",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 183,
+  "fam": "glossaryPageContent",
+  "cardinalite": 1,
+  "exemple": "glossaryPageContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 184,
+  "fam": "acc-tier-card",
+  "cardinalite": 1,
+  "exemple": "acc-tier-card",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 185,
+  "fam": "chev-acc-tier",
+  "cardinalite": 1,
+  "exemple": "chev-acc-tier",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 186,
+  "fam": "acc-tier",
+  "cardinalite": 1,
+  "exemple": "acc-tier",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 187,
+  "fam": "tierWelcomeSection",
+  "cardinalite": 1,
+  "exemple": "tierWelcomeSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 188,
+  "fam": "tierBadgesSection",
+  "cardinalite": 1,
+  "exemple": "tierBadgesSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 189,
+  "fam": "themeSelector",
+  "cardinalite": 1,
+  "exemple": "themeSelector",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 190,
+  "fam": "chev-acc-notif",
+  "cardinalite": 1,
+  "exemple": "chev-acc-notif",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 191,
+  "fam": "acc-notif",
+  "cardinalite": 1,
+  "exemple": "acc-notif",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 192,
+  "fam": "push-status-label",
+  "cardinalite": 1,
+  "exemple": "push-status-label",
+  "tag": "p",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 193,
+  "fam": "chev-acc-danger",
+  "cardinalite": 1,
+  "exemple": "chev-acc-danger",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 194,
+  "fam": "acc-danger",
+  "cardinalite": 1,
+  "exemple": "acc-danger",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 195,
+  "fam": "appVersionLine",
+  "cardinalite": 1,
+  "exemple": "appVersionLine",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 196,
+  "fam": "tab-profil-badges",
+  "cardinalite": 1,
+  "exemple": "tab-profil-badges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 197,
+  "fam": "profil-badges-content",
+  "cardinalite": 1,
+  "exemple": "profil-badges-content",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-corps",
+   "aurel_like · tab-settings",
+   "vierge · tab-corps",
+   "vierge · tab-settings",
+   "debutant · tab-corps",
+   "debutant · tab-settings",
+   "donnees_sales · tab-corps",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages",
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 198,
+  "fam": "settingsHealthConnect",
+  "cardinalite": 1,
+  "exemple": "settingsHealthConnect",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "debutant · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 199,
+  "fam": "settingsBarWeightSection",
+  "cardinalite": 1,
+  "exemple": "settingsBarWeightSection",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "debutant · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 200,
+  "fam": "settings-bar-weight",
+  "cardinalite": 1,
+  "exemple": "settings-bar-weight",
+  "tag": "select",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onchange=saveBarWeight(this.value)"
+  ],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "debutant · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 201,
+  "fam": "settingsHybridSection",
+  "cardinalite": 1,
+  "exemple": "settingsHybridSection",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "debutant · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 202,
+  "fam": "toggle-hybrid",
+  "cardinalite": 1,
+  "exemple": "toggle-hybrid",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=db.user.hybridAthlete=this.checked;saveDB();showToast(this.checked ? 'Mode Hybrid activé' : 'Mode Hybrid désac"
+  ],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "debutant · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 203,
+  "fam": "settingsRGPDSection",
+  "cardinalite": 1,
+  "exemple": "settingsRGPDSection",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "debutant · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "niveau débutant · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 204,
+  "fam": "settingsMorphoSection",
+  "cardinalite": 1,
+  "exemple": "settingsMorphoSection",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "aurel_like · tab-settings",
+   "vierge · tab-settings",
+   "donnees_sales · tab-settings",
+   "femme · réglages",
+   "femme+cycle · réglages",
+   "weightCut actif · réglages",
+   "goal competition · réglages",
+   "avec blessures · réglages",
+   "avec activités · réglages",
+   "anonyme · réglages"
+  ]
+ },
+ {
+  "n": 205,
+  "fam": "settingsMenstrualSection",
+  "cardinalite": 1,
+  "exemple": "settingsMenstrualSection",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "femme · réglages",
+   "femme+cycle · réglages"
+  ]
+ },
+ {
+  "n": 206,
+  "fam": "menstrualStartDate",
+  "cardinalite": 1,
+  "exemple": "menstrualStartDate",
+  "tag": "input",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onchange=saveMenstrualData()"
+  ],
+  "etats": [
+   "femme+cycle · réglages"
+  ]
+ },
+ {
+  "n": 207,
+  "fam": "menstrualCycleLength",
+  "cardinalite": 1,
+  "exemple": "menstrualCycleLength",
+  "tag": "input",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onchange=saveMenstrualData()"
+  ],
+  "etats": [
+   "femme+cycle · réglages"
+  ]
+ },
+ {
+  "n": 208,
+  "fam": "settingsWeightCut",
+  "cardinalite": 1,
+  "exemple": "settingsWeightCut",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "weightCut actif · réglages",
+   "goal competition · réglages"
+  ]
+ },
+ {
+  "n": 209,
+  "fam": "wc-start-weight",
+  "cardinalite": 1,
+  "exemple": "wc-start-weight",
+  "tag": "input",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "weightCut actif · réglages"
+  ]
+ },
+ {
+  "n": 210,
+  "fam": "wc-target-weight",
+  "cardinalite": 1,
+  "exemple": "wc-target-weight",
+  "tag": "input",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "weightCut actif · réglages"
+  ]
+ },
+ {
+  "n": 211,
+  "fam": "wc-current-weight",
+  "cardinalite": 1,
+  "exemple": "wc-current-weight",
+  "tag": "input",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "weightCut actif · réglages"
+  ]
+ },
+ {
+  "n": 212,
+  "fam": "wc-competition-date",
+  "cardinalite": 1,
+  "exemple": "wc-competition-date",
+  "tag": "input",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "weightCut actif · réglages"
+  ]
+ },
+ {
+  "n": 213,
+  "fam": "toggle-creatine",
+  "cardinalite": 1,
+  "exemple": "toggle-creatine",
+  "tag": "input",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=db.user.takesCreatine=this.checked;saveDB();showToast('Créatine mise à jour')"
+  ],
+  "etats": [
+   "weightCut actif · réglages"
+  ]
+ },
+ {
+  "n": 214,
+  "fam": "jeux-profil-joueur",
+  "cardinalite": 1,
+  "exemple": "jeux-profil-joueur",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 215,
+  "fam": "gamLevelCard",
+  "cardinalite": 1,
+  "exemple": "gamLevelCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 216,
+  "fam": "gamXPSources",
+  "cardinalite": 1,
+  "exemple": "gamXPSources",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 217,
+  "fam": "gamChallenges",
+  "cardinalite": 1,
+  "exemple": "gamChallenges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 218,
+  "fam": "gamMonthlyChallenges",
+  "cardinalite": 1,
+  "exemple": "gamMonthlyChallenges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 219,
+  "fam": "gamHeatmap",
+  "cardinalite": 1,
+  "exemple": "gamHeatmap",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 220,
+  "fam": "jeux-rangs",
+  "cardinalite": 1,
+  "exemple": "jeux-rangs",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 221,
+  "fam": "anatomyCard",
+  "cardinalite": 1,
+  "exemple": "anatomyCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 222,
+  "fam": "btn-body-front",
+  "cardinalite": 1,
+  "exemple": "btn-body-front",
+  "tag": "button",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchBodyView('front')"
+  ],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 223,
+  "fam": "btn-body-back",
+  "cardinalite": 1,
+  "exemple": "btn-body-back",
+  "tag": "button",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchBodyView('back')"
+  ],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 224,
+  "fam": "btn-body-gender",
+  "cardinalite": 1,
+  "exemple": "btn-body-gender",
+  "tag": "button",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchBodyGender()"
+  ],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 225,
+  "fam": "body-figure-container",
+  "cardinalite": 1,
+  "exemple": "body-figure-container",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 226,
+  "fam": "muscle-list",
+  "cardinalite": 1,
+  "exemple": "muscle-list",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 227,
+  "fam": "antagonistAlerts",
+  "cardinalite": 1,
+  "exemple": "antagonistAlerts",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 228,
+  "fam": "gamSBDRanks",
+  "cardinalite": 1,
+  "exemple": "gamSBDRanks",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 229,
+  "fam": "gamStrengthContent",
+  "cardinalite": 1,
+  "exemple": "gamStrengthContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 230,
+  "fam": "sgPages",
+  "cardinalite": 1,
+  "exemple": "sgPages",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 231,
+  "fam": "sgDots",
+  "cardinalite": 1,
+  "exemple": "sgDots",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 232,
+  "fam": "jeux-badges",
+  "cardinalite": 1,
+  "exemple": "jeux-badges",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 233,
+  "fam": "gamRecentBadges",
+  "cardinalite": 1,
+  "exemple": "gamRecentBadges",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 234,
+  "fam": "gamNextBadges",
+  "cardinalite": 1,
+  "exemple": "gamNextBadges",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 235,
+  "fam": "gamBadgesOverview",
+  "cardinalite": 1,
+  "exemple": "gamBadgesOverview",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 236,
+  "fam": "gamBadgesSections",
+  "cardinalite": 1,
+  "exemple": "gamBadgesSections",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 237,
+  "fam": "bdgSecSecret",
+  "cardinalite": 1,
+  "exemple": "bdgSecSecret",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 238,
+  "fam": "bdgSec0",
+  "cardinalite": 1,
+  "exemple": "bdgSec0",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 239,
+  "fam": "bdgSec1",
+  "cardinalite": 1,
+  "exemple": "bdgSec1",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 240,
+  "fam": "bdgSec2",
+  "cardinalite": 1,
+  "exemple": "bdgSec2",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 241,
+  "fam": "bdgSec3",
+  "cardinalite": 1,
+  "exemple": "bdgSec3",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 242,
+  "fam": "bdgSec4",
+  "cardinalite": 1,
+  "exemple": "bdgSec4",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 243,
+  "fam": "bdgSec5",
+  "cardinalite": 1,
+  "exemple": "bdgSec5",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 244,
+  "fam": "bdgSec6",
+  "cardinalite": 1,
+  "exemple": "bdgSec6",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 245,
+  "fam": "bdgSec7",
+  "cardinalite": 1,
+  "exemple": "bdgSec7",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 246,
+  "fam": "bdgSec8",
+  "cardinalite": 1,
+  "exemple": "bdgSec8",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 247,
+  "fam": "bdgSec9",
+  "cardinalite": 1,
+  "exemple": "bdgSec9",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 248,
+  "fam": "bdgSec10",
+  "cardinalite": 1,
+  "exemple": "bdgSec10",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 249,
+  "fam": "bdgSec11",
+  "cardinalite": 1,
+  "exemple": "bdgSec11",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 250,
+  "fam": "bdgSec12",
+  "cardinalite": 1,
+  "exemple": "bdgSec12",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 251,
+  "fam": "bdgSec13",
+  "cardinalite": 1,
+  "exemple": "bdgSec13",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 252,
+  "fam": "bdgSec14",
+  "cardinalite": 1,
+  "exemple": "bdgSec14",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 253,
+  "fam": "bdgSec15",
+  "cardinalite": 1,
+  "exemple": "bdgSec15",
+  "tag": "div",
+  "source": "runtime",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ },
+ {
+  "n": 254,
+  "fam": "gamLeaderboard",
+  "cardinalite": 1,
+  "exemple": "gamLeaderboard",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "badges (forcé)"
+  ]
+ }
+]

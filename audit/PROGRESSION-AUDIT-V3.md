@@ -10,14 +10,31 @@ l'inventaire. C'est l'angle mort exact du verdict 🔴 RENDU INATTEIGNABLE : **W
 
 | Vague | État | Estimation | v2 | **v3** | A∩B | **A seul** | B seul |
 |---|---|---|---|---|---|---|---|
+| **1 · Profil** | ✅ **livrée** | 256 | 176 | **260** | 183 | **3** | 24* |
 | 2 · Séances | ✅ livrée | 113 | 54 | **131** | 50 | **41** | 0 |
 | 3 · Maison + Coach | ✅ livrée | 90 | 62 | **53** | 29 | **9** | 5 |
 | 4 · Stats | ✅ livrée | 85 | 28 | **50** | 28 | **4** | 0 |
 | 5 · Social + Jeux | ✅ livrée | 130 | 89 | **129** | 72 | **25** | 0 |
-| **Total** | | 418 | **233** | **363** | 179 | **79** | 5 |
+| **Total** | | 674 | **409** | **623** | 362 | **82** | 29 |
 
-*(Les totaux v3 incluent les blocs sans `id` : 40 · 10 · 18 · 32. La vague 3 baisse parce que la v2 y
-recensait les cartes du Coach par leur titre — granularité plus fine, non comparable.)*
+*(Les totaux v3 incluent les blocs sans `id` : 50 · 40 · 10 · 18 · 32. La vague 3 baisse parce que la
+v2 y recensait les cartes du Coach par leur titre — granularité plus fine, non comparable.)*
+
+\* Les 24 « B seul » de la vague 1 sont des éléments de l'onglet **Jeux**, dupliqués dans le DOM du
+Profil par `showProfilSub('tab-profil-badges')` (`innerHTML = gameEl.innerHTML`, app.js:4205). Avec
+17 blocs de même origine : **41 hors périmètre**, net Profil = 219.
+
+## Vague 1 v3 — le point RGPD, résolu
+
+**Constat précédent corrigé** : je déclarais la chaîne RGPD « jamais rendue sur aucun passage ».
+**C'est faux.** Un clic réel sur « 🗑️ Supprimer définitivement mon compte » ouvre bien sa modale.
+J'avais conflaté deux chaînes distinctes : `requestAccountDeletion` (app.js:1862, RGPD, via `showModal`)
+et `showAccountDeletionDialog` (supabase.js:4336, « Quitter la communauté », via les ids `del-*`).
+**Les deux se rendent.** Reste non testé : au-delà de la confirmation (Edge Function, purge locale) —
+il faudrait une vraie suppression sur un compte jetable.
+
+**Aucun nouveau 🔴 sur la vague 1** : ses 3 « A seul » ont tous un point d'entrée réel. C'est la seule
+vague dont la reprise n'ajoute aucun rendu inatteignable — elle croisait déjà markup + runtime.
 
 ## Outils construits pour la v3
 
@@ -55,7 +72,7 @@ de Séances ramenait les sections des Réglages, les badges des Jeux et les grap
 
 ## Reste à faire
 
-**Rien.** Les 4 vagues sont livrées et `audit/SYNTHESE-CABLAGE-V3.md` est écrit.
+**Rien. L'audit est clos.** Les 5 vagues sont livrées et `audit/SYNTHESE-CABLAGE-V3.md` est écrit.
 
 ## Le gain le plus net de la reprise
 

@@ -30,7 +30,9 @@ const PREFIXES_FAMILLE = ['why-btn-', 'why-answer-', 'plates-', 'grind-btn-', 'a
   'checkin-coach-pain-', 'checkin-coach-sleep-', 'checkin-coach-energy-',
   'checkin-coach-motivation-', 'checkin-coach-fresh-', 'mg-', 'chev-mg-',
   // suffixe numérique SANS séparateur (bdgSec0, bdgSec1…) — famille() ne le voit pas
-  'bdgSec', 'sgPage', 'questCard'];
+  'bdgSec', 'sgPage', 'questCard',
+  // v1 v3 : suffixe = nom de jour (prog-section-Lundi…), généré par renderSettingsRoutineEditor
+  'prog-section-', 'prog-chev-', 'prog-body-', 'prog-exo-list-', 'prog-add-'];
 
 function norm(id) {
   if (!id) return id;

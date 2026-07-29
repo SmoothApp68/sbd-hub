@@ -71,6 +71,9 @@ const RE_ID_VAR = /id=\\?["']\s*\\?["']\s*\+\s*([A-Za-z_$][\w$]*)/g;
 // Sans lui, tout un générateur passe inaperçu — c'est ce qui faisait apparaître `mg-<n>`
 // en « B seul » alors que sa fonction était bien dans la fermeture.
 const RE_ID_TPL = /id=\\?["']\$\{\s*([A-Za-z_$][\w$]*)\s*\}/g;
+// Interpolation AVEC préfixe littéral : id="prog-section-${day}" (app.js:3877).
+// Distinct du motif précédent : ici le `${` ne suit pas immédiatement le guillemet.
+const RE_ID_TPL_PREFIXE = /id=\\?["']([A-Za-z][\w:.-]*?)-?\$\{/g;
 const RE_VAR_LITTERAL = (nom) => new RegExp('\\b' + nom + '\\s*=\\s*[\'"]([A-Za-z][\\w:.-]*)[\'"]\\s*\\+');
 
 function idsProduitsPar(fichier, debut, fin) {
@@ -85,6 +88,10 @@ function idsProduitsPar(fichier, debut, fin) {
     while ((m = RE_ID_ATTR_DYN.exec(ligne))) trouves.push({ id: m[1] + '<var>', ligne: n, dyn: true });
     RE_ID_PROP.lastIndex = 0;
     while ((m = RE_ID_PROP.exec(ligne))) trouves.push({ id: m[1], ligne: n, dyn: false });
+    RE_ID_TPL_PREFIXE.lastIndex = 0;
+    while ((m = RE_ID_TPL_PREFIXE.exec(ligne))) {
+      if (m[1]) trouves.push({ id: m[1] + '<var>', ligne: n, dyn: true });
+    }
     RE_ID_TPL.lastIndex = 0;
     while ((m = RE_ID_TPL.exec(ligne))) {
       const nomVar = m[1];

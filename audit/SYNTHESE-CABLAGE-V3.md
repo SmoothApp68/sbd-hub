@@ -1,4 +1,4 @@
-# Synthèse — audit de câblage v3 (inventaire par UNION), vagues 2 à 5
+# Synthèse — audit de câblage v3 (inventaire par UNION), **les 5 vagues**
 
 > **READ-ONLY.** Aucun code applicatif modifié. Aucune priorisation, aucune recommandation.
 > Date : 29/07/2026 · Base : `origin/main` = `a1c2444`.
@@ -11,13 +11,30 @@
 
 | Vague | Estimation | **v2** | **v3** | dont ids | dont blocs | A∩B | **A seul** | B seul | États |
 |---|---|---|---|---|---|---|---|---|---|
+| **1 · Profil** | 256 | **176** | **260** | 210 | 50 | 183 | **3** | 24* | 17 |
 | 2 · Séances | 113 | 54 | **131** | 91 | 40 | 50 | **41** | 0 | 14 |
 | 3 · Maison + Coach | 90 | 62 | **53** | 43 | 10 | 29 | **9** | 5 | 26 |
 | 4 · Stats | 85 | 28 | **50** | 32 | 18 | 28 | **4** | 0 | 36 |
 | 5 · Social + Jeux | 130 | 89 | **129** | 97 | 32 | 72 | **25** | 0 | 17 |
-| **Total** | 418 | **233** | **363** | 263 | 100 | 179 | **79** | 5 | 93 |
+| **Total** | 674 | **409** | **623** | 473 | 150 | 362 | **82** | 29 | 110 |
 
-**+130 éléments, soit +56 %.** L'écart de méthode n'était pas marginal.
+**+214 éléments, soit +52 %.** L'écart de méthode n'était marginal sur aucune vague.
+
+\* Les 24 « B seul » de la vague 1 ne sont pas des générateurs ratés : ce sont des éléments de
+**l'onglet Jeux**, présents dans le DOM du Profil parce que `showProfilSub('tab-profil-badges')` fait
+`badgesContainer.innerHTML = gameEl.innerHTML` (app.js:4205) — il **duplique l'onglet Jeux entier**.
+Avec 17 blocs de même origine, **41 éléments sont marqués hors périmètre** ; périmètre Profil net : 219.
+
+### Ce que la v3 apporte à la vague 1
+
+La vague 1 croisait déjà markup + runtime — d'où Weight Cut, et **aucun nouveau 🔴 n'apparaît** : ses
+3 « A seul » ont tous un point d'entrée réel. Le gain est ailleurs :
+- **+34 éléments à `id`** (176 → 210) : le **contenu** des 7 sections injectées, jamais détaillé en v2 ;
+- **+50 blocs sans `id`**, dont les **35 boutons de réglage** (objectifs, fréquence, jours, matériel,
+  durée, supersets, blessures, cardio) et les **19 entrées du Glossaire** — deux zones que la v2
+  listait explicitement comme « non auditées champ par champ ».
+- Un générateur entier retrouvé : l'éditeur de routine (`renderSettingsRoutineEditor`, 5 familles ×
+  7 jours), invisible à la source A tant que le motif `id="prefixe-${var}"` n'était pas détecté.
 
 ⚠️ **La vague 3 baisse (62 → 53)** : ce n'est pas une régression. La v2 y recensait les cartes du Coach
 **par leur titre visible** (24 titres) ; la v3 les recense par **signature de classe** (10 signatures).
@@ -73,9 +90,14 @@ Cartes de feed v1 et v2, commentaires, réactions, menus contextuels, profil soc
 dépendent d'une **lecture réseau**, stubbée par construction. Capteur FC Bluetooth (`go-hr-display`),
 PR battu (`prOverlayB`), check-in déjà saisi, sauvegardes de programme existantes.
 
-**À signaler** : `del-erase`, `del-anon`, `del-confirm` — les trois options du dialogue de **suppression
-de compte (RGPD)** n'ont été rendues sur **aucun des deux passages**. La chaîne RGPD reste non vérifiée
-à l'exécution.
+**Correction d'un constat que j'avais posé à tort.** J'écrivais que la chaîne RGPD n'avait jamais été
+rendue. **C'est faux, et la vague 1 v3 le corrige** : un clic réel sur « 🗑️ Supprimer définitivement
+mon compte » ouvre bien sa modale de confirmation. J'avais conflaté **deux chaînes distinctes** —
+`requestAccountDeletion` (app.js:1862, suppression de compte RGPD, via `showModal`) et
+`showAccountDeletionDialog` (supabase.js:4336, « Quitter la communauté » : effacement **ou**
+anonymisation du profil *social*, via les ids `del-*`). **Les deux se rendent** (vérifié).
+Ce qui reste non testé : le comportement **au-delà** de la confirmation (Edge Function `delete-account`,
+`_deleteAccountDecision`, purge locale) — il faudrait une vraie suppression sur un compte jetable.
 
 ### 2.4 ❓ Non tranchés — **5 éléments**
 
@@ -169,7 +191,7 @@ Hors périmètre : `activeWorkout` (séance en cours, hors `db` et hors blob).
 |---|---|---|
 | **Les ~40 overlays du groupe 2.2 n'ont pas été ouverts** | v2, v3, v5 | Mes états ne les déclenchent pas. Leur **existence** et leur **point d'entrée** sont établis ; leur **contenu interne** ne l'est pas. Une vague dédiée aux overlays serait nécessaire. |
 | **Réseau Supabase stubbé** | surtout v5 | 25 éléments A-seul + 19 conteneurs conditionnels. Contrainte volontaire : ne jamais toucher aux vraies données. |
-| **Chaîne RGPD de suppression de compte** | v5 | jamais rendue, ni en v2 ni en v3 |
+| ~~Chaîne RGPD de suppression de compte~~ | v1 v3 | ✔ **RÉSOLU** — voir ci-dessous |
 | **Capteur FC Bluetooth** | v2 | hors banc |
 | **Aucun device Android réel** | toutes | Chromium 390×844, Service Worker bloqué |
 | **Aucune donnée Supabase consultée** | toutes | pas d'accès — questions listées en fin de chaque rapport v2 |
@@ -189,17 +211,19 @@ Hors périmètre : `activeWorkout` (séance en cours, hors `db` et hors blob).
 
 ---
 
-## 8. CE QUE CETTE REPRISE DIT DE LA FIABILITÉ DE LA VAGUE 1
+## 8. LA FIABILITÉ DE LA VAGUE 1 — MESURÉE, PLUS SUPPOSÉE
 
-La vague 1 croisait **déjà** grep du markup + runtime + lecture manuelle des sections injectées : c'est
-pourquoi Weight Cut y a été trouvé. La reprise valide la méthode a posteriori — mais elle révèle aussi
-**un angle mort que la vague 1 partageait** : elle n'a pas recensé les **blocs sans `id`**. Le passage
-de la source A sur la zone Profil fait apparaître au moins un élément absent de ses 176
-(`muscleFatigueTooltip`, app.js:9719).
+Je supposais qu'une reprise v3 du Profil « donnerait un compte supérieur à 176 ». **Mesuré : 260**
+(219 hors recopie Jeux), soit **+48 %**.
 
-**Conclusion factuelle : la vague 1 est plus fiable que les v2 des vagues 2-5, mais elle n'est pas
-exhaustive au sens de la règle de comptage v3.** Une reprise v3 du Profil donnerait un compte supérieur
-à 176.
+**Ce que ça confirme** : la vague 1 était la plus fiable des cinq — c'est la seule dont la reprise ne
+produit **aucun nouveau 🔴**. Weight Cut y avait bien été trouvé, et l'union le confirme une troisième
+fois.
+
+**Ce que ça corrige** : elle partageait quand même l'angle mort des blocs sans `id` (50, dont 35 boutons
+de réglage et 19 entrées de glossaire) et ne détaillait pas le contenu des sections injectées.
+
+**Bilan de l'audit, les 5 vagues : 623 éléments inventoriés, 623 verdicts, 623 statuts runtime.**
 
 ---
 

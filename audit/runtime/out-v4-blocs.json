@@ -1,0 +1,128 @@
+[
+ {
+  "sig": "span.glossary-tip",
+  "n": 13,
+  "visible": true,
+  "exemple": "ℹ️",
+  "etats": 8
+ },
+ {
+  "sig": "div.vol-detail",
+  "n": 12,
+  "visible": false,
+  "exemple": "MEV: 10 · MAV: 22 · MRV: 25 sets/semActuel : 10 se",
+  "etats": 9
+ },
+ {
+  "sig": "div.lc",
+  "n": 10,
+  "visible": true,
+  "exemple": "1",
+  "etats": 8
+ },
+ {
+  "sig": "button.lifts-filter-chip",
+  "n": 9,
+  "visible": true,
+  "exemple": "Dos",
+  "etats": 9
+ },
+ {
+  "sig": "div.card",
+  "n": 8,
+  "visible": true,
+  "exemple": "RAPPORTS",
+  "etats": 36
+ },
+ {
+  "sig": "div.mg-card",
+  "n": 7,
+  "visible": true,
+  "exemple": "Jambes",
+  "etats": 8
+ },
+ {
+  "sig": "div.mg-weeks",
+  "n": 7,
+  "visible": true,
+  "exemple": "S-3",
+  "etats": 8
+ },
+ {
+  "sig": "div.mg-subs",
+  "n": 6,
+  "visible": true,
+  "exemple": "Quadriceps",
+  "etats": 8
+ },
+ {
+  "sig": "div.report-box",
+  "n": 4,
+  "visible": true,
+  "exemple": "6",
+  "etats": 32
+ },
+ {
+  "sig": "button.period-btn.active",
+  "n": 3,
+  "visible": true,
+  "exemple": "7 Jours",
+  "etats": 36
+ },
+ {
+  "sig": "button.period-btn",
+  "n": 3,
+  "visible": true,
+  "exemple": "30 Jours",
+  "etats": 36
+ },
+ {
+  "sig": "div.cardio-h-item",
+  "n": 2,
+  "visible": true,
+  "exemple": "🏊",
+  "etats": 1
+ },
+ {
+  "sig": "div.cardio-h-name",
+  "n": 2,
+  "visible": true,
+  "exemple": "🏊 Natation",
+  "etats": 1
+ },
+ {
+  "sig": "div.cardio-h-date",
+  "n": 2,
+  "visible": true,
+  "exemple": "24/07",
+  "etats": 1
+ },
+ {
+  "sig": "div.nav-fade-wrap",
+  "n": 1,
+  "visible": true,
+  "exemple": "📊 Volume",
+  "etats": 36
+ },
+ {
+  "sig": "div.breakdown-toggle",
+  "n": 1,
+  "visible": true,
+  "exemple": "📐 Voir les zones MEV/MAV/MRV",
+  "etats": 9
+ },
+ {
+  "sig": "button.lifts-filter-chip.active",
+  "n": 1,
+  "visible": true,
+  "exemple": "Tout",
+  "etats": 9
+ },
+ {
+  "sig": "div.cardio-sec",
+  "n": 1,
+  "visible": true,
+  "exemple": "🏊 Natation",
+  "etats": 1
+ }
+]

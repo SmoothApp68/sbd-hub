@@ -1,0 +1,282 @@
+[
+ {
+  "sig": "input.go-set-input",
+  "n": 42,
+  "visible": false,
+  "exemple": "",
+  "etats": 3
+ },
+ {
+  "sig": "tr.sc-wk",
+  "n": 14,
+  "visible": false,
+  "exemple": "4Travail130kg×5—",
+  "etats": 1
+ },
+ {
+  "sig": "span.go-set-prev",
+  "n": 14,
+  "visible": false,
+  "exemple": "105×5",
+  "etats": 3
+ },
+ {
+  "sig": "button.go-check-btn",
+  "n": 14,
+  "visible": false,
+  "exemple": "",
+  "etats": 3
+ },
+ {
+  "sig": "button.go-set-type-btn",
+  "n": 9,
+  "visible": false,
+  "exemple": "1",
+  "etats": 3
+ },
+ {
+  "sig": "tr.go-rpe-slider-row",
+  "n": 9,
+  "visible": false,
+  "exemple": "Effort ressenti7💪 Difficile, 3 reps en réserve",
+  "etats": 3
+ },
+ {
+  "sig": "div.sc-dd-item",
+  "n": 6,
+  "visible": false,
+  "exemple": "↩Copier dans GO",
+  "etats": 1
+ },
+ {
+  "sig": "tr.sc-wu",
+  "n": 5,
+  "visible": false,
+  "exemple": "1Échauff.20kg×8—",
+  "etats": 1
+ },
+ {
+  "sig": "button.go-set-type-btn.warmup",
+  "n": 5,
+  "visible": false,
+  "exemple": "W",
+  "etats": 3
+ },
+ {
+  "sig": "div.go-plan-exo",
+  "n": 3,
+  "visible": false,
+  "exemple": "🏋️Squat (Barre)4×5 @ 115kg",
+  "etats": 3
+ },
+ {
+  "sig": "div.go-exo-card",
+  "n": 3,
+  "visible": false,
+  "exemple": "🔗Squat (Barre)↓ Charge adaptée (115kg vs 150kg) ⓘ",
+  "etats": 3
+ },
+ {
+  "sig": "table.go-sets-table",
+  "n": 3,
+  "visible": false,
+  "exemple": "SÉRIEPRÉCÉDENTKG 🔢RÉPSRPE ℹ️ G✓W105×5G🚫W105×5G🚫",
+  "etats": 3
+ },
+ {
+  "sig": "span.glossary-tip",
+  "n": 3,
+  "visible": false,
+  "exemple": "ℹ️",
+  "etats": 3
+ },
+ {
+  "sig": "div.sc-topbar",
+  "n": 2,
+  "visible": false,
+  "exemple": "",
+  "etats": 1
+ },
+ {
+  "sig": "div.sc-body-wrap",
+  "n": 2,
+  "visible": false,
+  "exemple": "Lun 27 Jul9.0tvolumeQuadris42min · 3 exercicesQuad",
+  "etats": 1
+ },
+ {
+  "sig": "div.ec-spark",
+  "n": 2,
+  "visible": false,
+  "exemple": "",
+  "etats": 1
+ },
+ {
+  "sig": "div.sc-dd-sep",
+  "n": 2,
+  "visible": false,
+  "exemple": "",
+  "etats": 1
+ },
+ {
+  "sig": "div.sc-dd-item.sc-dd-danger",
+  "n": 2,
+  "visible": false,
+  "exemple": "🗑️Supprimer",
+  "etats": 1
+ },
+ {
+  "sig": "div.sc-detail-inner",
+  "n": 2,
+  "visible": false,
+  "exemple": "Détail · 3 exercices🦵Squat (Barre)146kg × ? repsS",
+  "etats": 1
+ },
+ {
+  "sig": "button.go-btn-sec",
+  "n": 2,
+  "visible": false,
+  "exemple": "💪 Répartition musculaire ▼",
+  "etats": 4
+ },
+ {
+  "sig": "div.seances-nav",
+  "n": 1,
+  "visible": false,
+  "exemple": "Coach",
+  "etats": 14
+ },
+ {
+  "sig": "div.nav-fade-wrap",
+  "n": 1,
+  "visible": false,
+  "exemple": "Aujourd'hui",
+  "etats": 14
+ },
+ {
+  "sig": "div.card",
+  "n": 1,
+  "visible": false,
+  "exemple": "←",
+  "etats": 14
+ },
+ {
+  "sig": "div.wk-stats-bar",
+  "n": 1,
+  "visible": false,
+  "exemple": "2Séances13.6tVolume1h21Durée",
+  "etats": 2
+ },
+ {
+  "sig": "div.coach-deload",
+  "n": 1,
+  "visible": false,
+  "exemple": "🔋Semaine de décharge19 semaines d'entraînement co",
+  "etats": 2
+ },
+ {
+  "sig": "div.coach-muscles",
+  "n": 1,
+  "visible": false,
+  "exemple": "💪 Volume / semaine33/100Volume insuffisant : Épau",
+  "etats": 2
+ },
+ {
+  "sig": "div.coach-reco-title",
+  "n": 1,
+  "visible": false,
+  "exemple": "💪 Volume / semaine",
+  "etats": 2
+ },
+ {
+  "sig": "div.coach-recos",
+  "n": 1,
+  "visible": false,
+  "exemple": "🦍 RecommandationsAujourd'hui (Mercredi) : Récupér",
+  "etats": 2
+ },
+ {
+  "sig": "div.ai-timestamp",
+  "n": 1,
+  "visible": false,
+  "exemple": "Coach Algo · Calcul instantané · Sans IA",
+  "etats": 2
+ },
+ {
+  "sig": "div.go-toggle",
+  "n": 1,
+  "visible": false,
+  "exemple": "📋 Récap séance✅ Débrief",
+  "etats": 5
+ },
+ {
+  "sig": "div.go-hero",
+  "n": 1,
+  "visible": false,
+  "exemple": "Aujourd'huiMercredi🏊 Récupération / Cardio0 exerc",
+  "etats": 5
+ },
+ {
+  "sig": "div.go-or",
+  "n": 1,
+  "visible": false,
+  "exemple": "— ou —",
+  "etats": 5
+ },
+ {
+  "sig": "div.go-alts",
+  "n": 1,
+  "visible": false,
+  "exemple": "📋Séance videChoisis tes exercices librement🎵Cour",
+  "etats": 5
+ },
+ {
+  "sig": "span.go-badge",
+  "n": 1,
+  "visible": false,
+  "exemple": "Dernière séance",
+  "etats": 5
+ },
+ {
+  "sig": "div.go-debrief-grid",
+  "n": 1,
+  "visible": false,
+  "exemple": "3Exercices4.6tVolume39minDurée",
+  "etats": 5
+ },
+ {
+  "sig": "div.go-header",
+  "n": 1,
+  "visible": false,
+  "exemple": "🦵 Squat & Jambes ✏️0:01⏱⏸✕✓0kgTonnage ℹ️3Exercice",
+  "etats": 4
+ },
+ {
+  "sig": "div.go-header-label",
+  "n": 1,
+  "visible": false,
+  "exemple": "🦵 Squat & Jambes ✏️",
+  "etats": 4
+ },
+ {
+  "sig": "button.go-add-exo",
+  "n": 1,
+  "visible": false,
+  "exemple": "➕ Ajouter un exercice",
+  "etats": 4
+ },
+ {
+  "sig": "button.go-finish-btn",
+  "n": 1,
+  "visible": false,
+  "exemple": "✓ Terminer la séance",
+  "etats": 4
+ },
+ {
+  "sig": "div.go-rest-timer",
+  "n": 1,
+  "visible": false,
+  "exemple": "⏱ ReposSquat (Barre)1:59-15s+15sPasser",
+  "etats": 1
+ }
+]

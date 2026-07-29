@@ -1,0 +1,352 @@
+[
+ {
+  "sig": "button.settings-toggle-btn",
+  "n": 35,
+  "visible": true,
+  "exemple": "💪 Masse",
+  "etats": 12
+ },
+ {
+  "sig": "div.glossary-item",
+  "n": 19,
+  "visible": true,
+  "exemple": "RPE (Rate of Perceived Exertion)ℹ️",
+  "etats": 16
+ },
+ {
+  "sig": "div.bdg-sec-head",
+  "n": 17,
+  "visible": false,
+  "exemple": "🔮 Quêtes secrètes 6/8▾",
+  "etats": 1
+ },
+ {
+  "sig": "button.btn",
+  "n": 16,
+  "visible": true,
+  "exemple": "OK",
+  "etats": 17
+ },
+ {
+  "sig": "div.bdg-sec-body",
+  "n": 16,
+  "visible": false,
+  "exemple": "🔒???Quête secrète non révélée🔒???Quête secrète n",
+  "etats": 1
+ },
+ {
+  "sig": "div.weight-history-item",
+  "n": 10,
+  "visible": true,
+  "exemple": "29/07",
+  "etats": 11
+ },
+ {
+  "sig": "div.acc-card",
+  "n": 10,
+  "visible": true,
+  "exemple": "👤Profil Athlète▾",
+  "etats": 17
+ },
+ {
+  "sig": "div.corps-acc",
+  "n": 8,
+  "visible": true,
+  "exemple": "⚡",
+  "etats": 17
+ },
+ {
+  "sig": "div.prog-day-section-header",
+  "n": 7,
+  "visible": true,
+  "exemple": "🦵 Lundi",
+  "etats": 16
+ },
+ {
+  "sig": "div.prog-exo-add-row",
+  "n": 7,
+  "visible": false,
+  "exemple": "+ Ajouter",
+  "etats": 16
+ },
+ {
+  "sig": "button.settings-toggle-btn.active",
+  "n": 7,
+  "visible": true,
+  "exemple": "🏋️ Force",
+  "etats": 12
+ },
+ {
+  "sig": "div.mc",
+  "n": 6,
+  "visible": true,
+  "exemple": "📊 Sources d'XP",
+  "etats": 1
+ },
+ {
+  "sig": "div.gam-separator",
+  "n": 4,
+  "visible": true,
+  "exemple": "✦ ─── ✦ ─── ✦",
+  "etats": 1
+ },
+ {
+  "sig": "div.sg-page",
+  "n": 4,
+  "visible": false,
+  "exemple": "Leg Curl AssisÉlie1RM 79kg · 0.81× BWDébNovIntAvÉl",
+  "etats": 1
+ },
+ {
+  "sig": "div.nutri-macro-bar",
+  "n": 3,
+  "visible": true,
+  "exemple": "Glucides",
+  "etats": 17
+ },
+ {
+  "sig": "span.voir-plus-btn",
+  "n": 3,
+  "visible": false,
+  "exemple": "voir +",
+  "etats": 1
+ },
+ {
+  "sig": "div.subkeys-panel",
+  "n": 3,
+  "visible": false,
+  "exemple": "Pectoraux hauts7.9tSculptéPectoraux bas17.5tSculpt",
+  "etats": 1
+ },
+ {
+  "sig": "div.sbd-rank-detail-tier",
+  "n": 3,
+  "visible": false,
+  "exemple": "Guerrier",
+  "etats": 1
+ },
+ {
+  "sig": "div.sbd-rank-detail-e1rm",
+  "n": 3,
+  "visible": false,
+  "exemple": "158 kg",
+  "etats": 1
+ },
+ {
+  "sig": "div.sbd-rank-detail-pct",
+  "n": 3,
+  "visible": false,
+  "exemple": "Top 43% mondial",
+  "etats": 1
+ },
+ {
+  "sig": "div.sg-dot",
+  "n": 3,
+  "visible": false,
+  "exemple": "",
+  "etats": 1
+ },
+ {
+  "sig": "div.nav-fade-wrap",
+  "n": 2,
+  "visible": true,
+  "exemple": "⚖️ Corps",
+  "etats": 17
+ },
+ {
+  "sig": "div.corps-acc-inner",
+  "n": 2,
+  "visible": true,
+  "exemple": "OK",
+  "etats": 17
+ },
+ {
+  "sig": "div.body-metric-label",
+  "n": 2,
+  "visible": true,
+  "exemple": "IPF GL POINTS",
+  "etats": 17
+ },
+ {
+  "sig": "div.corps-acc-info",
+  "n": 1,
+  "visible": true,
+  "exemple": "Score de Forme ⓘ",
+  "etats": 17
+ },
+ {
+  "sig": "div.forme-score-wrap",
+  "n": 1,
+  "visible": true,
+  "exemple": "65",
+  "etats": 15
+ },
+ {
+  "sig": "div.tl-numbers",
+  "n": 1,
+  "visible": true,
+  "exemple": "5",
+  "etats": 15
+ },
+ {
+  "sig": "div.tl-gauge-bg",
+  "n": 1,
+  "visible": true,
+  "exemple": "",
+  "etats": 15
+ },
+ {
+  "sig": "div.tl-gauge-labels",
+  "n": 1,
+  "visible": true,
+  "exemple": "Repos",
+  "etats": 15
+ },
+ {
+  "sig": "span.tl-status",
+  "n": 1,
+  "visible": true,
+  "exemple": "✓ Zone optimale",
+  "etats": 15
+ },
+ {
+  "sig": "div.weight-trend-row",
+  "n": 1,
+  "visible": true,
+  "exemple": "97.9 kg",
+  "etats": 11
+ },
+ {
+  "sig": "div.weight-avg",
+  "n": 1,
+  "visible": true,
+  "exemple": "97.9 kg",
+  "etats": 11
+ },
+ {
+  "sig": "div.weight-avg-sub",
+  "n": 1,
+  "visible": true,
+  "exemple": "Moyenne 7 jours",
+  "etats": 11
+ },
+ {
+  "sig": "div.nutri-ring-wrap",
+  "n": 1,
+  "visible": true,
+  "exemple": "0",
+  "etats": 17
+ },
+ {
+  "sig": "div.nutri-three-cols",
+  "n": 1,
+  "visible": true,
+  "exemple": "2650",
+  "etats": 17
+ },
+ {
+  "sig": "div.nutri-targets-row",
+  "n": 1,
+  "visible": true,
+  "exemple": "TDEE estimé: 2672 kcal",
+  "etats": 17
+ },
+ {
+  "sig": "div.macro-row",
+  "n": 1,
+  "visible": true,
+  "exemple": "PROT (G)",
+  "etats": 17
+ },
+ {
+  "sig": "div.macro-hist-wrap",
+  "n": 1,
+  "visible": true,
+  "exemple": "J",
+  "etats": 11
+ },
+ {
+  "sig": "div.ai-response-content",
+  "n": 1,
+  "visible": true,
+  "exemple": "💤 RÉCUPÉRATION",
+  "etats": 17
+ },
+ {
+  "sig": "div.ai-timestamp",
+  "n": 1,
+  "visible": true,
+  "exemple": "Coach Algo • Calcul instantané • Sans IA",
+  "etats": 17
+ },
+ {
+  "sig": "div.acc-header",
+  "n": 1,
+  "visible": true,
+  "exemple": "⭐Statut & Thèmes▾",
+  "etats": 17
+ },
+ {
+  "sig": "button.btn.btn-secondary",
+  "n": 1,
+  "visible": true,
+  "exemple": "🔄 Nettoyer le feed (migration)",
+  "etats": 17
+ },
+ {
+  "sig": "div.lvl-card.lvl-card-v2",
+  "n": 1,
+  "visible": true,
+  "exemple": "🏛️",
+  "etats": 1
+ },
+ {
+  "sig": "div.quest-card",
+  "n": 1,
+  "visible": true,
+  "exemple": "⚡ Quêtes de la semaine",
+  "etats": 1
+ },
+ {
+  "sig": "div.quest-arc",
+  "n": 1,
+  "visible": true,
+  "exemple": "🏔 Arcs du mois",
+  "etats": 1
+ },
+ {
+  "sig": "div.mc-title",
+  "n": 1,
+  "visible": false,
+  "exemple": "💪 Muscles",
+  "etats": 1
+ },
+ {
+  "sig": "div.sg-dot.active",
+  "n": 1,
+  "visible": false,
+  "exemple": "",
+  "etats": 1
+ },
+ {
+  "sig": "div.bdg-overview",
+  "n": 1,
+  "visible": false,
+  "exemple": "53 / 159Badges débloquésCommun 16/18Peu commun 17/",
+  "etats": 1
+ },
+ {
+  "sig": "div.bc-scroll",
+  "n": 1,
+  "visible": false,
+  "exemple": "🔮 Secrètes 6/8🎯 Séances 10/12💪 Volume par Séanc",
+  "etats": 1
+ },
+ {
+  "sig": "div.bdg-sec-body.open",
+  "n": 1,
+  "visible": false,
+  "exemple": "Commun🎯Première MarqueundefinedPremière séance — ",
+  "etats": 1
+ }
+]

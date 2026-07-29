@@ -1,0 +1,1939 @@
+[
+ {
+  "n": 1,
+  "cle": "tab-seances",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2488"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 2,
+  "cle": "s-coach",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2498"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 3,
+  "cle": "coachHistoBadge",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2502",
+   "app.js:20942 [renderCoachHistory]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 4,
+  "cle": "coach-today",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2505"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 5,
+  "cle": "coach-history",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2506"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 6,
+  "cle": "s-plan",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2510"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 7,
+  "cle": "programmeV2Content",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2511"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 8,
+  "cle": "programBuilderContent",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2512"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 9,
+  "cle": "s-go",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2516"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 10,
+  "cle": "goIdleView",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2517"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0",
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 11,
+  "cle": "goActiveView",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2518"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 12,
+  "cle": "s-log",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2522"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 13,
+  "cle": "prevWeekBtn",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2525"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=navigateWeek(-1)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 14,
+  "cle": "weekRangeLabel",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2527"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 15,
+  "cle": "weekIndexLabel",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2528"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 16,
+  "cle": "nextWeekBtn",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2530"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=navigateWeek(1)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 17,
+  "cle": "weekSessionsContainer",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2532"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 18,
+  "cle": "s-analyse",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "index.html:2537"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 19,
+  "cle": "pgmDaysContainer",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:12485 [renderProgrammeV2]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 20,
+  "cle": "prog-chev<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:15073 [renderProgramViewer]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 21,
+  "cle": "prog-body<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:15074 [renderProgramViewer]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 22,
+  "cle": "plates-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:29186 [renderGoExoCard]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 3,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 23,
+  "cle": "grind-btn-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:29347 [renderGoExoCard]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 11,
+  "handlers": [
+   "onclick=toggleGrind(0,0)",
+   "onclick=toggleGrind(0,1)",
+   "onclick=toggleGrind(0,2)",
+   "onclick=toggleGrind(0,3)",
+   "onclick=toggleGrind(0,4)",
+   "onclick=toggleGrind(0,5)",
+   "onclick=toggleGrind(0,6)",
+   "onclick=toggleGrind(0,7)",
+   "onclick=toggleGrind(1,0)",
+   "onclick=toggleGrind(1,1)",
+   "onclick=toggleGrind(1,2)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 24,
+  "cle": "abandoned-btn-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:29348 [renderGoExoCard]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 11,
+  "handlers": [
+   "onclick=toggleAbandoned(0,0)",
+   "onclick=toggleAbandoned(0,1)",
+   "onclick=toggleAbandoned(0,2)",
+   "onclick=toggleAbandoned(0,3)",
+   "onclick=toggleAbandoned(0,4)",
+   "onclick=toggleAbandoned(0,5)",
+   "onclick=toggleAbandoned(0,6)",
+   "onclick=toggleAbandoned(0,7)",
+   "onclick=toggleAbandoned(1,0)",
+   "onclick=toggleAbandoned(1,1)",
+   "onclick=toggleAbandoned(1,2)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 25,
+  "cle": "why-btn-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28871 [renderWhyButton]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=openCoachQuestion(2, this)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 26,
+  "cle": "why-answer-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28881 [renderWhyButton]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 27,
+  "cle": "rpe-val-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:30138 [_goRpeSliderHTML]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 9,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 28,
+  "cle": "rpe-legend-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:30145 [_goRpeSliderHTML]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 9,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 29,
+  "cle": "go-t-recap",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:27881 [buildGoIdleHtml]"
+  ],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=goSwitchView('recap')"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 30,
+  "cle": "go-t-debrief",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:27882 [buildGoIdleHtml]"
+  ],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=goSwitchView('debrief')"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 31,
+  "cle": "go-plan-chev",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:27945 [buildGoIdleHtml]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 32,
+  "cle": "go-plan-body",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:27947 [buildGoIdleHtml]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 33,
+  "cle": "go-debrief-section",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:27995 [buildGoIdleHtml]"
+  ],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 34,
+  "cle": "frt<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:28073 [buildGoIdleHtml]",
+   "app.js:28074 [buildGoIdleHtml]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 35,
+  "cle": "go-recap-view",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28115 [buildGoIdleHtml]"
+  ],
+  "etats": [
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 36,
+  "cle": "goTimerDisplay",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28715 [renderGoActiveView]",
+   "app.js:28741 [renderGoActiveView]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 37,
+  "cle": "goCntTonnage",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28749 [renderGoActiveView]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 38,
+  "cle": "goCntExos",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28750 [renderGoActiveView]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 39,
+  "cle": "goCntSets",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28751 [renderGoActiveView]"
+  ],
+  "etats": [
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 40,
+  "cle": "goRestDisplay",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28765 [renderGoActiveView]"
+  ],
+  "etats": [
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 41,
+  "cle": "goRestProgress",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:28768 [renderGoActiveView]"
+  ],
+  "etats": [
+   "GO repos en cours"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 42,
+  "cle": "go-hr-display",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:28777 [renderGoActiveView]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 43,
+  "cle": "sc-cards-wrap",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:16901 [renderSeancesTab]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "profil vierge",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 44,
+  "cle": "meso-swipe-wrap",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:12357 [renderMesoView]"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 45,
+  "cle": "meso-progress-bar",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:12363 [renderMesoView]"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 46,
+  "cle": "meso-prev-btn",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:12368 [renderMesoView]"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=mesoGoTo(window._mesoCur-1)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 47,
+  "cle": "meso-nav-label",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:12372 [renderMesoView]"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 48,
+  "cle": "meso-next-btn",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:12374 [renderMesoView]"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [
+   "onclick=mesoGoTo(window._mesoCur+1)"
+  ],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 49,
+  "cle": "meso-slide-content",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:12380 [renderMesoView]"
+  ],
+  "etats": [
+   "plan (programme riche)",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 50,
+  "cle": "v2BackupsChevron",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:12447 [buildBackupsCollapsibleHtml]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 51,
+  "cle": "v2BackupsList",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:12448 [buildBackupsCollapsibleHtml]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 52,
+  "cle": "adjustSessionOverlay",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:14803 [openAdjustSession]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 53,
+  "cle": "coachHist",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:20942 [renderCoachHistory]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 54,
+  "cle": "garmin-csv-input",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:18435 [showGarminCSVImport]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 55,
+  "cle": "go-fc-widget",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:27760 [renderFCWidget]"
+  ],
+  "etats": [
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 1,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 56,
+  "cle": "plateCalcOverlay",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31238 [goShowPlateCalc]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 57,
+  "cle": "plateCalcWeight",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31245 [goShowPlateCalc]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 58,
+  "cle": "plateCalcBarSelect",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31249 [goShowPlateCalc]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 59,
+  "cle": "plateCalcResult",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31255 [goShowPlateCalc]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 60,
+  "cle": "goSearchOverlay",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31687 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 61,
+  "cle": "goSearchInput",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31691 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 62,
+  "cle": "goEquipBtn",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31695 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 63,
+  "cle": "goEquipBtnLabel",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31695 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 64,
+  "cle": "goMuscleBtn",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31696 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 65,
+  "cle": "goMuscleBtnLabel",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31696 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 66,
+  "cle": "goEquipPanel",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31698 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 67,
+  "cle": "goMusclePanel",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31699 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 68,
+  "cle": "goSearchResults",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31700 [goOpenSearch]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 69,
+  "cle": "phasePill",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:12701 [renderProgramTab]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 70,
+  "cle": "phaseDropdown",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:12715 [renderProgramTab]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 71,
+  "cle": "glossaryModal",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:1226 [showGlossaryModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 72,
+  "cle": "live-coach-banner",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:30012 [showLiveCoachBanner]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 73,
+  "cle": "readinessModal",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:784 [showReadinessModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 74,
+  "cle": "checkin-save-btn-modal",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:800 [showReadinessModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 75,
+  "cle": "doms-modal-overlay",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:876 [showDOMSModal]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 76,
+  "cle": "goResultsItems",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:31999 [goRenderSearchResults]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 77,
+  "cle": "goResultsSentinel",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:32000 [goRenderSearchResults]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 78,
+  "cle": "exoLibraryPanel",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:13355 [renderExoLibrary]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 79,
+  "cle": "exoLibSearch",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:13381 [renderExoLibrary]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 80,
+  "cle": "ectip<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:10413 [_buildSparkSVG]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 13,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 81,
+  "cle": "sg<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:10415 [_buildSparkSVG]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ],
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 13,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 82,
+  "cle": "editTgtInput",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:20870 [editLiftTarget]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 83,
+  "cle": "checkin-save-btn-coach",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:23075 [renderMorningCheckin]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 84,
+  "cle": "checkin<n>",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:22967 [buildCheckinFormHtml]",
+   "app.js:22981 [buildCheckinFormHtml]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 85,
+  "cle": "goWizardOverlay",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:32134 [goOpenWizard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 86,
+  "cle": "goWizardContent",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:32159 [goOpenWizard]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 87,
+  "cle": "photoPickerOverlay",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:30680 [openSessionPhotoPicker]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 88,
+  "cle": "prOverlayB",
+  "dansA": true,
+  "dansB": false,
+  "origines": [
+   "app.js:33211 [showPROverlay]"
+  ],
+  "etats": [],
+  "visible": false,
+  "raisons": [],
+  "cardinalite": 0,
+  "handlers": [],
+  "provenance": "A seul"
+ },
+ {
+  "n": 89,
+  "cle": "wrap-sc2-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:17001 [renderSessionCard2]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 13,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 90,
+  "cle": "menu-sc2-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:17017 [renderSessionCard2]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ],
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "cardinalite": 13,
+  "handlers": [],
+  "provenance": "A∩B"
+ },
+ {
+  "n": 91,
+  "cle": "det-sc2-<n>",
+  "dansA": true,
+  "dansB": true,
+  "origines": [
+   "app.js:17024 [renderSessionCard2]"
+  ],
+  "etats": [
+   "log (défaut)",
+   "coach",
+   "coach-historique",
+   "plan (sans programme)",
+   "plan (programme riche)",
+   "analyse",
+   "GO au repos",
+   "GO séance active (plan riche)",
+   "GO série validée",
+   "GO repos en cours",
+   "GO séance vide (sans programme)",
+   "profil débutant",
+   "deload"
+  ],
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "cardinalite": 13,
+  "handlers": [],
+  "provenance": "A∩B"
+ }
+]

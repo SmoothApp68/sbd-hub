@@ -1,0 +1,2138 @@
+[
+ {
+  "n": 1,
+  "fam": "tab-game",
+  "cardinalite": 1,
+  "exemple": "tab-game",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 2,
+  "fam": "jeux-profil-joueur",
+  "cardinalite": 1,
+  "exemple": "jeux-profil-joueur",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 3,
+  "fam": "gamLevelCard",
+  "cardinalite": 1,
+  "exemple": "gamLevelCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 4,
+  "fam": "gamXPSources",
+  "cardinalite": 1,
+  "exemple": "gamXPSources",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 5,
+  "fam": "gamChallenges",
+  "cardinalite": 1,
+  "exemple": "gamChallenges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 6,
+  "fam": "gamMonthlyChallenges",
+  "cardinalite": 1,
+  "exemple": "gamMonthlyChallenges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 7,
+  "fam": "gamHeatmap",
+  "cardinalite": 1,
+  "exemple": "gamHeatmap",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 8,
+  "fam": "jeux-rangs",
+  "cardinalite": 1,
+  "exemple": "jeux-rangs",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 9,
+  "fam": "anatomyCard",
+  "cardinalite": 1,
+  "exemple": "anatomyCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 10,
+  "fam": "btn-body-front",
+  "cardinalite": 1,
+  "exemple": "btn-body-front",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchBodyView('front')"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 11,
+  "fam": "btn-body-back",
+  "cardinalite": 1,
+  "exemple": "btn-body-back",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchBodyView('back')"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 12,
+  "fam": "btn-body-gender",
+  "cardinalite": 1,
+  "exemple": "btn-body-gender",
+  "tag": "button",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onclick=switchBodyGender()"
+  ],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 13,
+  "fam": "body-figure-container",
+  "cardinalite": 1,
+  "exemple": "body-figure-container",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 14,
+  "fam": "muscle-list",
+  "cardinalite": 1,
+  "exemple": "muscle-list",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 15,
+  "fam": "antagonistAlerts",
+  "cardinalite": 1,
+  "exemple": "antagonistAlerts",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 16,
+  "fam": "gamSBDRanks",
+  "cardinalite": 1,
+  "exemple": "gamSBDRanks",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 17,
+  "fam": "gamStrengthContent",
+  "cardinalite": 1,
+  "exemple": "gamStrengthContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 18,
+  "fam": "sgPages",
+  "cardinalite": 1,
+  "exemple": "sgPages",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges"
+  ]
+ },
+ {
+  "n": 19,
+  "fam": "sgDots",
+  "cardinalite": 1,
+  "exemple": "sgDots",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges"
+  ]
+ },
+ {
+  "n": 20,
+  "fam": "jeux-badges",
+  "cardinalite": 1,
+  "exemple": "jeux-badges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 21,
+  "fam": "gamRecentBadges",
+  "cardinalite": 1,
+  "exemple": "gamRecentBadges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 22,
+  "fam": "gamNextBadges",
+  "cardinalite": 1,
+  "exemple": "gamNextBadges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 23,
+  "fam": "gamBadgesOverview",
+  "cardinalite": 1,
+  "exemple": "gamBadgesOverview",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 24,
+  "fam": "gamBadgesSections",
+  "cardinalite": 1,
+  "exemple": "gamBadgesSections",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 25,
+  "fam": "bdgSecSecret",
+  "cardinalite": 1,
+  "exemple": "bdgSecSecret",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 26,
+  "fam": "bdgSec0",
+  "cardinalite": 1,
+  "exemple": "bdgSec0",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 27,
+  "fam": "bdgSec1",
+  "cardinalite": 1,
+  "exemple": "bdgSec1",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 28,
+  "fam": "bdgSec2",
+  "cardinalite": 1,
+  "exemple": "bdgSec2",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 29,
+  "fam": "bdgSec3",
+  "cardinalite": 1,
+  "exemple": "bdgSec3",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 30,
+  "fam": "bdgSec4",
+  "cardinalite": 1,
+  "exemple": "bdgSec4",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 31,
+  "fam": "bdgSec5",
+  "cardinalite": 1,
+  "exemple": "bdgSec5",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 32,
+  "fam": "bdgSec6",
+  "cardinalite": 1,
+  "exemple": "bdgSec6",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 33,
+  "fam": "bdgSec7",
+  "cardinalite": 1,
+  "exemple": "bdgSec7",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 34,
+  "fam": "bdgSec8",
+  "cardinalite": 1,
+  "exemple": "bdgSec8",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 35,
+  "fam": "bdgSec9",
+  "cardinalite": 1,
+  "exemple": "bdgSec9",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 36,
+  "fam": "bdgSec10",
+  "cardinalite": 1,
+  "exemple": "bdgSec10",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 37,
+  "fam": "bdgSec11",
+  "cardinalite": 1,
+  "exemple": "bdgSec11",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 38,
+  "fam": "bdgSec12",
+  "cardinalite": 1,
+  "exemple": "bdgSec12",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges"
+  ]
+ },
+ {
+  "n": 39,
+  "fam": "bdgSec13",
+  "cardinalite": 1,
+  "exemple": "bdgSec13",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 40,
+  "fam": "bdgSec14",
+  "cardinalite": 1,
+  "exemple": "bdgSec14",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 41,
+  "fam": "bdgSec15",
+  "cardinalite": 1,
+  "exemple": "bdgSec15",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 42,
+  "fam": "gamLeaderboard",
+  "cardinalite": 1,
+  "exemple": "gamLeaderboard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "jeux · jeux-profil-joueur",
+   "jeux · jeux-rangs",
+   "jeux · jeux-badges",
+   "jeux XP haut · jeux-profil-joueur",
+   "jeux XP haut · jeux-rangs",
+   "jeux XP haut · jeux-badges",
+   "jeux · vierge"
+  ]
+ },
+ {
+  "n": 43,
+  "fam": "tab-social",
+  "cardinalite": 1,
+  "exemple": "tab-social",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 44,
+  "fam": "feedPills",
+  "cardinalite": 1,
+  "exemple": "feedPills",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 45,
+  "fam": "socialJeuxBadgeDot",
+  "cardinalite": 1,
+  "exemple": "socialJeuxBadgeDot",
+  "tag": "span",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 46,
+  "fam": "feed-amis",
+  "cardinalite": 1,
+  "exemple": "feed-amis",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 47,
+  "fam": "feedAmisContent",
+  "cardinalite": 1,
+  "exemple": "feedAmisContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 48,
+  "fam": "feedAmisLoadMore",
+  "cardinalite": 1,
+  "exemple": "feedAmisLoadMore",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 49,
+  "fam": "feedAmisInvite",
+  "cardinalite": 1,
+  "exemple": "feedAmisInvite",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 50,
+  "fam": "feed-communaute",
+  "cardinalite": 1,
+  "exemple": "feed-communaute",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 51,
+  "fam": "feedCommunauteContent",
+  "cardinalite": 1,
+  "exemple": "feedCommunauteContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 52,
+  "fam": "feedCommunauteLoadMore",
+  "cardinalite": 1,
+  "exemple": "feedCommunauteLoadMore",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 53,
+  "fam": "feed-challenges",
+  "cardinalite": 1,
+  "exemple": "feed-challenges",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 54,
+  "fam": "feedChallengesContent",
+  "cardinalite": 1,
+  "exemple": "feedChallengesContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 55,
+  "fam": "feed-classement",
+  "cardinalite": 1,
+  "exemple": "feed-classement",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 56,
+  "fam": "feedClassementContent",
+  "cardinalite": 1,
+  "exemple": "feedClassementContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 57,
+  "fam": "social-feed",
+  "cardinalite": 1,
+  "exemple": "social-feed",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 58,
+  "fam": "feedPinnedSection",
+  "cardinalite": 1,
+  "exemple": "feedPinnedSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 59,
+  "fam": "feedContent",
+  "cardinalite": 1,
+  "exemple": "feedContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 60,
+  "fam": "feedLoadMore",
+  "cardinalite": 1,
+  "exemple": "feedLoadMore",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 61,
+  "fam": "social-leaderboard",
+  "cardinalite": 1,
+  "exemple": "social-leaderboard",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 62,
+  "fam": "lbExerciseFilter",
+  "cardinalite": 1,
+  "exemple": "lbExerciseFilter",
+  "tag": "select",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "onchange=renderLeaderboard()"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 63,
+  "fam": "lbPodium",
+  "cardinalite": 1,
+  "exemple": "lbPodium",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 64,
+  "fam": "lbTable",
+  "cardinalite": 1,
+  "exemple": "lbTable",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 65,
+  "fam": "lbEmpty",
+  "cardinalite": 1,
+  "exemple": "lbEmpty",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 66,
+  "fam": "social-challenges",
+  "cardinalite": 1,
+  "exemple": "social-challenges",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 67,
+  "fam": "challengesCreateBtn",
+  "cardinalite": 1,
+  "exemple": "challengesCreateBtn",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 68,
+  "fam": "challengeTemplates",
+  "cardinalite": 1,
+  "exemple": "challengeTemplates",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 69,
+  "fam": "challengesActiveList",
+  "cardinalite": 1,
+  "exemple": "challengesActiveList",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 70,
+  "fam": "challengesFinishedList",
+  "cardinalite": 1,
+  "exemple": "challengesFinishedList",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 71,
+  "fam": "social-friends",
+  "cardinalite": 1,
+  "exemple": "social-friends",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 72,
+  "fam": "socialProfileCard",
+  "cardinalite": 1,
+  "exemple": "socialProfileCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 73,
+  "fam": "chev-ca-social-profile",
+  "cardinalite": 1,
+  "exemple": "chev-ca-social-profile",
+  "tag": "span",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 74,
+  "fam": "ca-social-profile",
+  "cardinalite": 1,
+  "exemple": "ca-social-profile",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 75,
+  "fam": "socialProfileContent",
+  "cardinalite": 1,
+  "exemple": "socialProfileContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 76,
+  "fam": "myFriendCode",
+  "cardinalite": 1,
+  "exemple": "myFriendCode",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 77,
+  "fam": "friendCodeInput",
+  "cardinalite": 1,
+  "exemple": "friendCodeInput",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 78,
+  "fam": "friendSearchInput",
+  "cardinalite": 1,
+  "exemple": "friendSearchInput",
+  "tag": "input",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [
+   "oninput=onFriendSearchInput(this.value)"
+  ],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 79,
+  "fam": "friendAutocomplete",
+  "cardinalite": 1,
+  "exemple": "friendAutocomplete",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 80,
+  "fam": "pendingRequestsSection",
+  "cardinalite": 1,
+  "exemple": "pendingRequestsSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 81,
+  "fam": "pendingRequestsList",
+  "cardinalite": 1,
+  "exemple": "pendingRequestsList",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 82,
+  "fam": "friendsListCard",
+  "cardinalite": 1,
+  "exemple": "friendsListCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 83,
+  "fam": "friendsListTitle",
+  "cardinalite": 1,
+  "exemple": "friendsListTitle",
+  "tag": "h2",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 84,
+  "fam": "friendsList",
+  "cardinalite": 1,
+  "exemple": "friendsList",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 85,
+  "fam": "notifSection",
+  "cardinalite": 1,
+  "exemple": "notifSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 86,
+  "fam": "notifList",
+  "cardinalite": 1,
+  "exemple": "notifList",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 87,
+  "fam": "blockedSection",
+  "cardinalite": 1,
+  "exemple": "blockedSection",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 88,
+  "fam": "blockedList",
+  "cardinalite": 1,
+  "exemple": "blockedList",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "social · feed-amis",
+   "social · feed-communaute",
+   "social · feed-challenges",
+   "social · feed-classement",
+   "social · social-friends",
+   "social avec amis · feed-amis",
+   "social avec amis · feed-communaute",
+   "social avec amis · feed-challenges",
+   "social avec amis · feed-classement",
+   "social avec amis · social-friends",
+   "social · vierge"
+  ]
+ },
+ {
+  "n": 89,
+  "fam": "lb2Body",
+  "cardinalite": 1,
+  "exemple": "lb2Body",
+  "tag": "div",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "social · feed-classement",
+   "social avec amis · feed-classement"
+  ]
+ }
+]

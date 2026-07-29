@@ -1,0 +1,1234 @@
+[
+ {
+  "n": 1,
+  "id": "tab-profil",
+  "sec": "Racine onglet",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 2,
+  "id": "tab-corps",
+  "sec": "Corps · Score de Forme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 3,
+  "id": "formeScoreTag",
+  "sec": "Corps · Score de Forme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 4,
+  "id": "chev-ca-forme",
+  "sec": "Corps · Score de Forme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 5,
+  "id": "ca-forme",
+  "sec": "Corps · Score de Forme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 6,
+  "id": "formeScoreContent",
+  "sec": "Corps · Score de Forme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 7,
+  "id": "formeScoreTooltip",
+  "sec": "Corps · Score de Forme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — clic sur ⓘ → VISIBLE"
+ },
+ {
+  "n": 8,
+  "id": "chev-ca-load",
+  "sec": "Corps · Charge d'entraînement",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 9,
+  "id": "ca-load",
+  "sec": "Corps · Charge d'entraînement",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 10,
+  "id": "trainingLoadContent",
+  "sec": "Corps · Charge d'entraînement",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 11,
+  "id": "chev-ca-heatmap",
+  "sec": "Corps · Heatmap musculaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 12,
+  "id": "ca-heatmap",
+  "sec": "Corps · Heatmap musculaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 13,
+  "id": "muscleHeatmapContent",
+  "sec": "Corps · Heatmap musculaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 14,
+  "id": "chev-ca-joints",
+  "sec": "Corps · Santé articulaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 15,
+  "id": "ca-joints",
+  "sec": "Corps · Santé articulaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 16,
+  "id": "jointHealthContent",
+  "sec": "Corps · Santé articulaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 17,
+  "id": "chev-ca-poids",
+  "sec": "Corps · Poids",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 18,
+  "id": "ca-poids",
+  "sec": "Corps · Poids",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 19,
+  "id": "inputBodyWeight",
+  "sec": "Corps · Poids",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 20,
+  "id": "weightTrendDisplay",
+  "sec": "Corps · Poids",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 21,
+  "id": "chartBodyWeight",
+  "sec": "Corps · Poids",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 22,
+  "id": "weightHistory",
+  "sec": "Corps · Poids",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 23,
+  "id": "chev-ca-nutri",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 24,
+  "id": "ca-nutri",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 25,
+  "id": "nutriCard",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 26,
+  "id": "nutriRingFill",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 27,
+  "id": "nutriKcalRestantes",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 28,
+  "id": "nutriKcalSub",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 29,
+  "id": "nutriDayTypeLabel",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 30,
+  "id": "nutriMangees",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 31,
+  "id": "nutriCible",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 32,
+  "id": "nutriBrulees",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 33,
+  "id": "nutriCarbLabel",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 34,
+  "id": "nutriCarbBar",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 35,
+  "id": "nutriProtLabel",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 36,
+  "id": "nutriProtBar",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 37,
+  "id": "nutriFatLabel",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 38,
+  "id": "nutriFatBar",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 39,
+  "id": "nutriTDEELabel",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 40,
+  "id": "nutriProtCible",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 41,
+  "id": "inputProt",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 42,
+  "id": "inputCarb",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 43,
+  "id": "inputFat",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 44,
+  "id": "inputKcal",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 45,
+  "id": "macroHistoryDisplay",
+  "sec": "Corps · Nutrition",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 46,
+  "id": "chev-ca-force",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 47,
+  "id": "ca-force",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 48,
+  "id": "bodyMetricsGrid",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 49,
+  "id": "metricIPFCard",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 50,
+  "id": "metricIPF",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 51,
+  "id": "metricIPFsub",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 52,
+  "id": "metricRatioCard",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 53,
+  "id": "metricRatio",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 54,
+  "id": "metricRatioSub",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 55,
+  "id": "plateauAlerts",
+  "sec": "Corps · Métriques Force",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 56,
+  "id": "chev-ca-coach",
+  "sec": "Corps · Coach Analyse",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 57,
+  "id": "ca-coach",
+  "sec": "Corps · Coach Analyse",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 58,
+  "id": "coachAlgoContent",
+  "sec": "Corps · Coach Analyse",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 59,
+  "id": "tab-settings",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 60,
+  "id": "chev-acc-profil",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 61,
+  "id": "acc-profil",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 62,
+  "id": "inputName",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 63,
+  "id": "inputBW",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 64,
+  "id": "inputFatPct",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 65,
+  "id": "settingsLevel",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 66,
+  "id": "settingsHeight",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 67,
+  "id": "settingsAge",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 68,
+  "id": "settingsGender",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 69,
+  "id": "settingsTargetBW",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 70,
+  "id": "settingsTargetsBlock",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 71,
+  "id": "tgtUnitLabel",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 72,
+  "id": "tgtBench",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 73,
+  "id": "tgtSquat",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 74,
+  "id": "tgtDead",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 75,
+  "id": "tgtPrHint",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 76,
+  "id": "settingsCycleBlock",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — profil femme → VISIBLE 322×71"
+ },
+ {
+  "n": 77,
+  "id": "settingsCycleEnabled",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — profil femme ; aller-retour ✔"
+ },
+ {
+  "n": 78,
+  "id": "settingsCycleDetails",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — femme + cycle activé → VISIBLE 296×191"
+ },
+ {
+  "n": 79,
+  "id": "settingsCycleLastDate",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — femme + cycle activé → éditable (aller-retour ✔)"
+ },
+ {
+  "n": 80,
+  "id": "settingsCycleLength",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — femme + cycle activé → éditable"
+ },
+ {
+  "n": 81,
+  "id": "settingsInjuriesList",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 82,
+  "id": "settingsActivities",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 83,
+  "id": "settingsTrainingMode",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 84,
+  "id": "settingsUIDetail",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 85,
+  "id": "settingsVocabLevel",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 86,
+  "id": "settingsGoals",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 87,
+  "id": "settingsFreq",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 88,
+  "id": "settingsDays",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 89,
+  "id": "settingsMat",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 90,
+  "id": "settingsDuration",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 91,
+  "id": "settingsSupersets",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 92,
+  "id": "settingsPrehabToggle",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — case 0×0 volontaire (switch iOS) ; aller-retour ✔"
+ },
+ {
+  "n": 93,
+  "id": "settingsPrehabSlider",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 94,
+  "id": "settingsPrehabKnob",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 95,
+  "id": "settingsProgramMode",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 96,
+  "id": "settingsInjuries",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 97,
+  "id": "settingsCardio",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 98,
+  "id": "inputKcalBase",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 99,
+  "id": "inputBWBase",
+  "sec": "Réglages · Profil Athlète",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 100,
+  "id": "chev-acc-keylifts",
+  "sec": "Réglages · Exercices Clés",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 101,
+  "id": "acc-keylifts",
+  "sec": "Réglages · Exercices Clés",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 102,
+  "id": "keyLiftsEditor",
+  "sec": "Réglages · Exercices Clés",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 103,
+  "id": "chev-acc-prog",
+  "sec": "Réglages · Mon Programme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 104,
+  "id": "acc-prog",
+  "sec": "Réglages · Mon Programme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 105,
+  "id": "routineEditor",
+  "sec": "Réglages · Mon Programme",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 106,
+  "id": "chev-acc-import",
+  "sec": "Réglages · Import",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 107,
+  "id": "acc-import",
+  "sec": "Réglages · Import",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 108,
+  "id": "hevyPaste",
+  "sec": "Réglages · Import",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 109,
+  "id": "importSummary",
+  "sec": "Réglages · Import",
+  "statut": "⊘ NON TESTABLE",
+  "note": "chemin de révélation présent (import.js:1004) mais mon échantillon Hevy n'a pas été parsé"
+ },
+ {
+  "n": 110,
+  "id": "importDetails",
+  "sec": "Réglages · Import",
+  "statut": "⊘ NON TESTABLE",
+  "note": "idem importSummary (conteneur enfant)"
+ },
+ {
+  "n": 111,
+  "id": "aiImportAnalysis",
+  "sec": "Réglages · Import",
+  "statut": "⊘ NON TESTABLE",
+  "note": "dépend d'une analyse IA (Edge Function) — réseau stubbé"
+ },
+ {
+  "n": 112,
+  "id": "csvFileInput",
+  "sec": "Réglages · Import",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 113,
+  "id": "csvPreview",
+  "sec": "Réglages · Import",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — choix d'un fichier → VISIBLE"
+ },
+ {
+  "n": 114,
+  "id": "csvImportBtn",
+  "sec": "Réglages · Import",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 115,
+  "id": "csvProgress",
+  "sec": "Réglages · Import",
+  "statut": "⊘ NON TESTABLE",
+  "note": "csvImportBtn resté disabled : mon échantillon CSV a été rejeté par parseCSVData"
+ },
+ {
+  "n": 116,
+  "id": "csvProgressBar",
+  "sec": "Réglages · Import",
+  "statut": "⊘ NON TESTABLE",
+  "note": "idem csvProgress"
+ },
+ {
+  "n": 117,
+  "id": "csvProgressText",
+  "sec": "Réglages · Import",
+  "statut": "⊘ NON TESTABLE",
+  "note": "idem csvProgress"
+ },
+ {
+  "n": 118,
+  "id": "chev-acc-cloud",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 119,
+  "id": "acc-cloud",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 120,
+  "id": "cloudStatus",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 121,
+  "id": "emailLoginSection",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 122,
+  "id": "authModeTabs",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 123,
+  "id": "authModeLogin",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 124,
+  "id": "authModeSignup",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 125,
+  "id": "inputEmail",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 126,
+  "id": "inputPassword",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 127,
+  "id": "inputPasswordConfirm",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — switchAuthMode('signup') → VISIBLE"
+ },
+ {
+  "n": 128,
+  "id": "authSubmitBtn",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 129,
+  "id": "forgotPasswordBtn",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — session anonyme → VISIBLE"
+ },
+ {
+  "n": 130,
+  "id": "syncIndicator",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 131,
+  "id": "lastSyncDisplay",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 132,
+  "id": "changePasswordSection",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 133,
+  "id": "newPassword",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 134,
+  "id": "newPasswordConfirm",
+  "sec": "Réglages · Sync Cloud",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 135,
+  "id": "chev-acc-backup",
+  "sec": "Réglages · Sauvegarde",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 136,
+  "id": "acc-backup",
+  "sec": "Réglages · Sauvegarde",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 137,
+  "id": "restoreFileInput",
+  "sec": "Réglages · Sauvegarde",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 138,
+  "id": "restorePreview",
+  "sec": "Réglages · Sauvegarde",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — choix d'un fichier → VISIBLE"
+ },
+ {
+  "n": 139,
+  "id": "restoreBtn",
+  "sec": "Réglages · Sauvegarde",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 140,
+  "id": "storageGauge",
+  "sec": "Réglages · Sauvegarde",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 141,
+  "id": "chev-acc-records",
+  "sec": "Réglages · Correction Records",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 142,
+  "id": "acc-records",
+  "sec": "Réglages · Correction Records",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 143,
+  "id": "recordsCorrectionList",
+  "sec": "Réglages · Correction Records",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 144,
+  "id": "chev-acc-glossary",
+  "sec": "Réglages · Glossaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 145,
+  "id": "acc-glossary",
+  "sec": "Réglages · Glossaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 146,
+  "id": "glossaryPageContent",
+  "sec": "Réglages · Glossaire",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 147,
+  "id": "acc-tier-card",
+  "sec": "Réglages · Statut & Thèmes",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 148,
+  "id": "chev-acc-tier",
+  "sec": "Réglages · Statut & Thèmes",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 149,
+  "id": "acc-tier",
+  "sec": "Réglages · Statut & Thèmes",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 150,
+  "id": "tierWelcomeSection",
+  "sec": "Réglages · Statut & Thèmes",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 151,
+  "id": "tierBadgesSection",
+  "sec": "Réglages · Statut & Thèmes",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 152,
+  "id": "themeSelector",
+  "sec": "Réglages · Statut & Thèmes",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 153,
+  "id": "chev-acc-notif",
+  "sec": "Réglages · Notifications Push",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 154,
+  "id": "acc-notif",
+  "sec": "Réglages · Notifications Push",
+  "statut": "✔ CONFIRMÉ",
+  "note": "inatteignable — toggleAcc('acc-notif') exécuté → reste display:none (style INLINE jamais retiré)"
+ },
+ {
+  "n": 155,
+  "id": "push-status-label",
+  "sec": "Réglages · Notifications Push",
+  "statut": "✔ CONFIRMÉ",
+  "note": "inatteignable — contenu de acc-notif → jamais atteint"
+ },
+ {
+  "n": 156,
+  "id": "chev-acc-danger",
+  "sec": "Réglages · Zone de Danger",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 157,
+  "id": "acc-danger",
+  "sec": "Réglages · Zone de Danger",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 158,
+  "id": "appVersionLine",
+  "sec": "Réglages · Pied (déco + version)",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 159,
+  "id": "tab-profil-badges",
+  "sec": "Sous-onglet Badges",
+  "statut": "✔ CONFIRMÉ",
+  "note": "inatteignable — aucun appelant : showProfilSub ne reçoit JAMAIS cette valeur (0/16 appels). Forcé à la main → VISIBLE, donc le markup fonctionne : c'est le parcours qui manque"
+ },
+ {
+  "n": 160,
+  "id": "profil-badges-content",
+  "sec": "Sous-onglet Badges",
+  "statut": "✔ CONFIRMÉ",
+  "note": "inatteignable — contenu de tab-profil-badges"
+ },
+ {
+  "n": 161,
+  "id": "settingsMenstrualSection",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — profil femme → VISIBLE 322×144"
+ },
+ {
+  "n": 162,
+  "id": "menstrualStartDate",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — femme + suivi activé → présent"
+ },
+ {
+  "n": 163,
+  "id": "menstrualCycleLength",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — femme + suivi activé → présent"
+ },
+ {
+  "n": 164,
+  "id": "settingsHealthConnect",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 165,
+  "id": "settingsWeightCut",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — weightCut.active=true → VISIBLE 322×432"
+ },
+ {
+  "n": 166,
+  "id": "wc-start-weight",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — weightCut.active=true → VISIBLE"
+ },
+ {
+  "n": 167,
+  "id": "wc-target-weight",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — weightCut.active=true → VISIBLE"
+ },
+ {
+  "n": 168,
+  "id": "wc-current-weight",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — weightCut.active=true → VISIBLE + aller-retour ✔"
+ },
+ {
+  "n": 169,
+  "id": "wc-competition-date",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — weightCut.active=true → VISIBLE"
+ },
+ {
+  "n": 170,
+  "id": "toggle-creatine",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — weightCut.active=true → aller-retour ✔ (case 0×0 : motif switch iOS)"
+ },
+ {
+  "n": 171,
+  "id": "settingsBarWeightSection",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 172,
+  "id": "settings-bar-weight",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 173,
+  "id": "settingsHybridSection",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 174,
+  "id": "toggle-hybrid",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "conditionnel — case 0×0 volontaire (switch iOS) ; aller-retour ✔"
+ },
+ {
+  "n": 175,
+  "id": "settingsRGPDSection",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ },
+ {
+  "n": 176,
+  "id": "settingsMorphoSection",
+  "sec": "Injecté au runtime",
+  "statut": "✔ CONFIRMÉ",
+  "note": "visible au repos dans ≥1 profil"
+ }
+]

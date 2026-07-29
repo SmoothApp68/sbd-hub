@@ -1,0 +1,924 @@
+[
+ {
+  "n": 1,
+  "fam": "tab-dash",
+  "cardinalite": 1,
+  "exemple": "tab-dash",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 2,
+  "fam": "welcomeCard",
+  "cardinalite": 1,
+  "exemple": "welcomeCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 3,
+  "fam": "welcomeTitle",
+  "cardinalite": 1,
+  "exemple": "welcomeTitle",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 4,
+  "fam": "todaySessionInline",
+  "cardinalite": 1,
+  "exemple": "todaySessionInline",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 5,
+  "fam": "dashWeekCard",
+  "cardinalite": 1,
+  "exemple": "dashWeekCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 6,
+  "fam": "dashWeekContent",
+  "cardinalite": 1,
+  "exemple": "dashWeekContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 7,
+  "fam": "quickLogCard",
+  "cardinalite": 1,
+  "exemple": "quickLogCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 8,
+  "fam": "doms-morning-card",
+  "cardinalite": 1,
+  "exemple": "doms-morning-card",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 9,
+  "fam": "perfCard",
+  "cardinalite": 1,
+  "exemple": "perfCard",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 10,
+  "fam": "perfDisplay",
+  "cardinalite": 1,
+  "exemple": "perfDisplay",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 11,
+  "fam": "routineDisplay",
+  "cardinalite": 1,
+  "exemple": "routineDisplay",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 12,
+  "fam": "readinessSparkline",
+  "cardinalite": 1,
+  "exemple": "readinessSparkline",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 13,
+  "fam": "dotsWilksContent",
+  "cardinalite": 1,
+  "exemple": "dotsWilksContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 14,
+  "fam": "formScoreContent",
+  "cardinalite": 1,
+  "exemple": "formScoreContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 15,
+  "fam": "programViewer",
+  "cardinalite": 1,
+  "exemple": "programViewer",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 16,
+  "fam": "trainingLogs",
+  "cardinalite": 1,
+  "exemple": "trainingLogs",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 17,
+  "fam": "dayButtonsContainer",
+  "cardinalite": 1,
+  "exemple": "dayButtonsContainer",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 18,
+  "fam": "dayExercisesContainer",
+  "cardinalite": 1,
+  "exemple": "dayExercisesContainer",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 19,
+  "fam": "sbdTotalDisplay",
+  "cardinalite": 1,
+  "exemple": "sbdTotalDisplay",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 20,
+  "fam": "todayProgramContent",
+  "cardinalite": 1,
+  "exemple": "todayProgramContent",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 21,
+  "fam": "acc-dash-reports-card",
+  "cardinalite": 1,
+  "exemple": "acc-dash-reports-card",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 22,
+  "fam": "acc-dash-weekly-card",
+  "cardinalite": 1,
+  "exemple": "acc-dash-weekly-card",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 23,
+  "fam": "acc-dash-reports",
+  "cardinalite": 1,
+  "exemple": "acc-dash-reports",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 24,
+  "fam": "acc-dash-weekly",
+  "cardinalite": 1,
+  "exemple": "acc-dash-weekly",
+  "tag": "div",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "boîte 0×0"
+  ],
+  "handlers": [],
+  "etats": [
+   "maison · profil riche",
+   "maison · vierge",
+   "maison · débutant",
+   "maison · retour après pause",
+   "maison · données sales",
+   "maison · check-in bas + douleur",
+   "maison · check-in haut",
+   "maison · deload",
+   "maison · femme + cycle"
+  ]
+ },
+ {
+  "n": 25,
+  "fam": "s-coach",
+  "cardinalite": 1,
+  "exemple": "s-coach",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [],
+  "handlers": [],
+  "etats": [
+   "coach · profil riche",
+   "coach · vierge",
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · progression nette",
+   "coach · retour après pause",
+   "coach · données sales",
+   "coach · ACWR élevé",
+   "coach · blessure active",
+   "coach · deload",
+   "coach · peak",
+   "coach · check-in bas + douleur",
+   "coach · femme + cycle",
+   "coach · voir plus déplié",
+   "coach · historique"
+  ]
+ },
+ {
+  "n": 26,
+  "fam": "coachHistoBadge",
+  "cardinalite": 1,
+  "exemple": "coachHistoBadge",
+  "tag": "span",
+  "source": "markup",
+  "visible": false,
+  "raisons": [
+   "display:none (inline)"
+  ],
+  "handlers": [],
+  "etats": [
+   "coach · profil riche",
+   "coach · vierge",
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · progression nette",
+   "coach · retour après pause",
+   "coach · données sales",
+   "coach · ACWR élevé",
+   "coach · blessure active",
+   "coach · deload",
+   "coach · peak",
+   "coach · check-in bas + douleur",
+   "coach · femme + cycle",
+   "coach · voir plus déplié",
+   "coach · historique"
+  ]
+ },
+ {
+  "n": 27,
+  "fam": "coach-today",
+  "cardinalite": 1,
+  "exemple": "coach-today",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "coach · profil riche",
+   "coach · vierge",
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · progression nette",
+   "coach · retour après pause",
+   "coach · données sales",
+   "coach · ACWR élevé",
+   "coach · blessure active",
+   "coach · deload",
+   "coach · peak",
+   "coach · check-in bas + douleur",
+   "coach · femme + cycle",
+   "coach · voir plus déplié",
+   "coach · historique"
+  ]
+ },
+ {
+  "n": 28,
+  "fam": "coach-history",
+  "cardinalite": 1,
+  "exemple": "coach-history",
+  "tag": "div",
+  "source": "markup",
+  "visible": true,
+  "raisons": [
+   "display:none"
+  ],
+  "handlers": [],
+  "etats": [
+   "coach · profil riche",
+   "coach · vierge",
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · progression nette",
+   "coach · retour après pause",
+   "coach · données sales",
+   "coach · ACWR élevé",
+   "coach · blessure active",
+   "coach · deload",
+   "coach · peak",
+   "coach · check-in bas + douleur",
+   "coach · femme + cycle",
+   "coach · voir plus déplié",
+   "coach · historique"
+  ]
+ },
+ {
+  "n": 29,
+  "fam": "checkin-coach-sleep-<n>",
+  "cardinalite": 5,
+  "exemple": "checkin-coach-sleep-1",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('sleep',1,'coach')",
+   "onclick=setCheckin('sleep',2,'coach')",
+   "onclick=setCheckin('sleep',3,'coach')",
+   "onclick=setCheckin('sleep',4,'coach')",
+   "onclick=setCheckin('sleep',5,'coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 30,
+  "fam": "checkin-coach-energy-<n>",
+  "cardinalite": 5,
+  "exemple": "checkin-coach-energy-1",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('energy',1,'coach')",
+   "onclick=setCheckin('energy',2,'coach')",
+   "onclick=setCheckin('energy',3,'coach')",
+   "onclick=setCheckin('energy',4,'coach')",
+   "onclick=setCheckin('energy',5,'coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 31,
+  "fam": "checkin-coach-motivation-<n>",
+  "cardinalite": 5,
+  "exemple": "checkin-coach-motivation-1",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('motivation',1,'coach')",
+   "onclick=setCheckin('motivation',2,'coach')",
+   "onclick=setCheckin('motivation',3,'coach')",
+   "onclick=setCheckin('motivation',4,'coach')",
+   "onclick=setCheckin('motivation',5,'coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 32,
+  "fam": "checkin-coach-fresh-<n>",
+  "cardinalite": 5,
+  "exemple": "checkin-coach-fresh-1",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('fresh',1,'coach')",
+   "onclick=setCheckin('fresh',2,'coach')",
+   "onclick=setCheckin('fresh',3,'coach')",
+   "onclick=setCheckin('fresh',4,'coach')",
+   "onclick=setCheckin('fresh',5,'coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 33,
+  "fam": "checkin-coach-pain-Aucune",
+  "cardinalite": 1,
+  "exemple": "checkin-coach-pain-Aucune",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('pain','Aucune','coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 34,
+  "fam": "checkin-coach-pain-Genou",
+  "cardinalite": 1,
+  "exemple": "checkin-coach-pain-Genou",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('pain','Genou','coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 35,
+  "fam": "checkin-coach-pain-Épaule",
+  "cardinalite": 1,
+  "exemple": "checkin-coach-pain-Épaule",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('pain','Épaule','coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 36,
+  "fam": "checkin-coach-pain-Dos",
+  "cardinalite": 1,
+  "exemple": "checkin-coach-pain-Dos",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('pain','Dos','coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 37,
+  "fam": "checkin-coach-pain-Hanche",
+  "cardinalite": 1,
+  "exemple": "checkin-coach-pain-Hanche",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=setCheckin('pain','Hanche','coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ },
+ {
+  "n": 38,
+  "fam": "checkin-save-btn-coach",
+  "cardinalite": 1,
+  "exemple": "checkin-save-btn-coach",
+  "tag": "button",
+  "source": "runtime",
+  "visible": true,
+  "raisons": [],
+  "handlers": [
+   "onclick=submitCheckin('coach')"
+  ],
+  "etats": [
+   "coach · débutant",
+   "coach · mono-lift",
+   "coach · extreme haut",
+   "coach · extreme bas",
+   "coach · retour après pause",
+   "coach · données sales"
+  ]
+ }
+]

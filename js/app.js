@@ -3852,13 +3852,11 @@ function renderSettingsRoutineEditor() {
   // Charger l'état actuel
   const currentRoutine = getRoutine();
   editingRoutine = JSON.parse(JSON.stringify(currentRoutine));
-  // Charger les exercices sauvegardés
-  const savedExos = db.routineExos || {};
+  // Charger les exercices sauvegardés (via le lecteur défensif : un blob pollué
+  // par d'anciens écrivains contient des objets, qui s'afficheraient [object Object])
   editingExos = {};
   DAYS_FULL.forEach(day => {
-    editingExos[day] = savedExos[day]
-      ? (Array.isArray(savedExos[day]) ? [...savedExos[day]] : savedExos[day].split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean))
-      : [];
+    editingExos[day] = getProgExosForDay(day);
   });
   renderExoEditor();
 }
@@ -15019,8 +15017,8 @@ function pbEditExisting() {
     var label = routine[day];
     if (label && !/repos|😴/i.test(label)) {
       dayNames.push(label);
-      // Récupérer les exercices existants
-      var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
+      // Récupérer les exercices existants (lecteur défensif : noms garantis)
+      var exos = getProgExosForDay(day);
       if (!exos.length && db.generatedProgram) {
         var gp = db.generatedProgram.find(function(p) { return p.day === day && !p.isRest; });
         if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return typeof e === 'string' ? e : (e && e.name) || 'Exercice'; });
@@ -27376,7 +27374,9 @@ function wpApplyDay(day) {
   const dayData = plan.days.find(d => d.day === day && !d.rest);
   if (!dayData || !dayData.exercises || !dayData.exercises.length) return;
   if (!db.routineExos) db.routineExos = {};
-  db.routineExos[day] = dayData.exercises;
+  // routineExos est un registre de NOMS (cf. normalizeExoName, engine.js) : y écrire
+  // les objets exercice du weeklyPlan faisait crasher le lancement de la séance.
+  db.routineExos[day] = dayData.exercises.map(normalizeExoName).filter(Boolean);
   saveDB();
   showToast('✓ Programme du ' + day + ' mis à jour');
 }
@@ -27388,7 +27388,7 @@ function wpApplyAll() {
     if (!db.routineExos) db.routineExos = {};
     plan.days.forEach(d => {
       if (d.rest || !d.exercises || !d.exercises.length) return;
-      db.routineExos[d.day] = d.exercises;
+      db.routineExos[d.day] = d.exercises.map(normalizeExoName).filter(Boolean);
     });
     saveDB();
     showToast('✓ Programme complet mis à jour');

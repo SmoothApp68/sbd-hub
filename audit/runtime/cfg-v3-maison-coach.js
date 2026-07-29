@@ -38,7 +38,7 @@ const femmeCycle = (db) => {
 module.exports = {
   nom: 'VAGUE 3 — Maison + Coach',
   conteneur: '#tab-dash',   // par défaut ; chaque état Coach surcharge via etat.conteneur
-  sortie: 'out-v3-elements.json',
+  sortieBlocs: 'out-v3-blocs.json', sortie: 'out-v3-elements.json',
   prepare: async () => {},
   etats: [
     // ── Maison ──

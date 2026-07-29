@@ -33,6 +33,7 @@ module.exports = {
   nom: 'VAGUE 2 — Séances',
   conteneur: '#tab-seances',
   sortie: 'out-v2-elements.json',
+  sortieBlocs: 'out-v2-blocs.json',
   prepare: async (page) => {
     await page.evaluate(() => { if (typeof showTab === 'function') showTab('tab-seances'); });
     await page.waitForTimeout(300);

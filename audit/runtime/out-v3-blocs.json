@@ -1,0 +1,72 @@
+[
+ {
+  "sig": "button.btn",
+  "n": 1,
+  "visible": true,
+  "exemple": "📥 Importer des séances",
+  "etats": 9
+ },
+ {
+  "sig": "div.perf-card-title",
+  "n": 1,
+  "visible": false,
+  "exemple": "Performance",
+  "etats": 9
+ },
+ {
+  "sig": "div.nav-fade-wrap",
+  "n": 1,
+  "visible": true,
+  "exemple": "Aujourd'hui",
+  "etats": 17
+ },
+ {
+  "sig": "div.coach-deload",
+  "n": 1,
+  "visible": true,
+  "exemple": "🔋",
+  "etats": 7
+ },
+ {
+  "sig": "div.coach-muscles",
+  "n": 1,
+  "visible": true,
+  "exemple": "💪 VOLUME / SEMAINE",
+  "etats": 15
+ },
+ {
+  "sig": "div.coach-reco-title",
+  "n": 1,
+  "visible": true,
+  "exemple": "💪 VOLUME / SEMAINE",
+  "etats": 15
+ },
+ {
+  "sig": "div.coach-recos",
+  "n": 1,
+  "visible": true,
+  "exemple": "🦍 RECOMMANDATIONS",
+  "etats": 11
+ },
+ {
+  "sig": "div.ai-timestamp",
+  "n": 1,
+  "visible": true,
+  "exemple": "Coach Algo · Calcul instantané · Sans IA",
+  "etats": 16
+ },
+ {
+  "sig": "div.coach-alert.coach-alert--info",
+  "n": 1,
+  "visible": true,
+  "exemple": "🏆 Compétition prévue ? Renseigne une date pour qu",
+  "etats": 2
+ },
+ {
+  "sig": "div.coach-alert.coach-alert--warning",
+  "n": 1,
+  "visible": true,
+  "exemple": "🔄 3 séances identiques détectées — tu sembles en ",
+  "etats": 3
+ }
+]

@@ -21,8 +21,8 @@ L'inventaire est désormais l'**UNION de deux sources indépendantes** :
 
 > **Estimation a priori : 113 éléments.** *(Plan ~35 · GO ~45 · Log ~20 · Coach ~8 · Analyse ~5,
 > écrite avant tout comptage.)*
-> **Inventorié : 91.** Écart **−19 %** → sous le seuil d'alerte de 30 %, jugé cohérent.
-> **Phase 1 : 91 · Phase 2 : 91 verdicts · Phase 5 : 91 statuts runtime.**
+> **Inventorié : 131** — 91 éléments à `id` + 40 blocs sans `id`. Écart **+16 %** → cohérent.
+> **Phase 1 : 131 · Phase 2 : 131 verdicts · Phase 5 : 131 statuts runtime.**
 
 | Provenance | Nombre | Lecture |
 |---|---|---|
@@ -30,7 +30,7 @@ L'inventaire est désormais l'**UNION de deux sources indépendantes** :
 | **A seul** | **41** | ⚠️ **jamais rendu sur les 14 états** — c'est la zone que la v2 ne pouvait pas voir |
 | **B seul** | **0** | ✔ la source A ne rate plus rien |
 
-**Comparaison v2 → v3 : 54 → 91 éléments (+37, +69 %).**
+**Comparaison v2 → v3 : 54 → 131 éléments.**
 
 ### Comment « B seul » est passé de 13 à 0
 
@@ -251,3 +251,56 @@ G4 `activeWorkout` hors sync · G5 pont PR #246 fonctionnel.
 - `go-hr-display` : capteur Bluetooth, hors banc.
 - `phasePill` / `phaseDropdown` / `frt<n>` : ❓ assumés, non tranchés.
 - **Aucun device Android réel.**
+
+## PHASE 2 bis — 40 BLOCS SANS `id` (recensés pour la comparabilité inter-vagues)
+
+| # | Bloc | Occ. | Visible à la capture | Contenu | Verdict |
+|---|---|---|---|---|---|
+| 92 | `input.go-set-input` | 42 | non | «  » | ✅ conditionnel |
+| 93 | `tr.sc-wk` | 14 | non | « 4Travail130kg×5— » | ✅ conditionnel |
+| 94 | `span.go-set-prev` | 14 | non | « 105×5 » | ✅ conditionnel |
+| 95 | `button.go-check-btn` | 14 | non | «  » | ✅ conditionnel |
+| 96 | `button.go-set-type-btn` | 9 | non | « 1 » | ✅ conditionnel |
+| 97 | `tr.go-rpe-slider-row` | 9 | non | « Effort ressenti7💪 Difficile, 3 reps e » | ✅ conditionnel |
+| 98 | `div.sc-dd-item` | 6 | non | « ↩Copier dans GO » | ✅ conditionnel |
+| 99 | `tr.sc-wu` | 5 | non | « 1Échauff.20kg×8— » | ✅ conditionnel |
+| 100 | `button.go-set-type-btn.warmup` | 5 | non | « W » | ✅ conditionnel |
+| 101 | `div.go-plan-exo` | 3 | non | « 🏋️Squat (Barre)4×5 @ 115kg » | ✅ conditionnel |
+| 102 | `div.go-exo-card` | 3 | non | « 🔗Squat (Barre)↓ Charge adaptée (115kg » | ✅ conditionnel |
+| 103 | `table.go-sets-table` | 3 | non | « SÉRIEPRÉCÉDENTKG 🔢RÉPSRPE ℹ️ G✓W105×5 » | ✅ conditionnel |
+| 104 | `span.glossary-tip` | 3 | non | « ℹ️ » | ✅ conditionnel |
+| 105 | `div.sc-topbar` | 2 | non | «  » | ✅ conditionnel |
+| 106 | `div.sc-body-wrap` | 2 | non | « Lun 27 Jul9.0tvolumeQuadris42min · 3 e » | ✅ conditionnel |
+| 107 | `div.ec-spark` | 2 | non | «  » | ✅ conditionnel |
+| 108 | `div.sc-dd-sep` | 2 | non | «  » | ✅ conditionnel |
+| 109 | `div.sc-dd-item.sc-dd-danger` | 2 | non | « 🗑️Supprimer » | ✅ conditionnel |
+| 110 | `div.sc-detail-inner` | 2 | non | « Détail · 3 exercices🦵Squat (Barre)146 » | ✅ conditionnel |
+| 111 | `button.go-btn-sec` | 2 | non | « 💪 Répartition musculaire ▼ » | ✅ conditionnel |
+| 112 | `div.seances-nav` | 1 | non | « Coach » | ✅ conditionnel |
+| 113 | `div.nav-fade-wrap` | 1 | non | « Aujourd'hui » | ✅ conditionnel |
+| 114 | `div.card` | 1 | non | « ← » | ✅ conditionnel |
+| 115 | `div.wk-stats-bar` | 1 | non | « 2Séances13.6tVolume1h21Durée » | ✅ conditionnel |
+| 116 | `div.coach-deload` | 1 | non | « 🔋Semaine de décharge19 semaines d'ent » | ✅ conditionnel |
+| 117 | `div.coach-muscles` | 1 | non | « 💪 Volume / semaine33/100Volume insuff » | ✅ conditionnel |
+| 118 | `div.coach-reco-title` | 1 | non | « 💪 Volume / semaine » | ✅ conditionnel |
+| 119 | `div.coach-recos` | 1 | non | « 🦍 RecommandationsAujourd'hui (Mercred » | ✅ conditionnel |
+| 120 | `div.ai-timestamp` | 1 | non | « Coach Algo · Calcul instantané · Sans  » | ✅ conditionnel |
+| 121 | `div.go-toggle` | 1 | non | « 📋 Récap séance✅ Débrief » | ✅ conditionnel |
+| 122 | `div.go-hero` | 1 | non | « Aujourd'huiMercredi🏊 Récupération / C » | ✅ conditionnel |
+| 123 | `div.go-or` | 1 | non | « — ou — » | ✅ conditionnel |
+| 124 | `div.go-alts` | 1 | non | « 📋Séance videChoisis tes exercices lib » | ✅ conditionnel |
+| 125 | `span.go-badge` | 1 | non | « Dernière séance » | ✅ conditionnel |
+| 126 | `div.go-debrief-grid` | 1 | non | « 3Exercices4.6tVolume39minDurée » | ✅ conditionnel |
+| 127 | `div.go-header` | 1 | non | « 🦵 Squat & Jambes ✏️0:01⏱⏸✕✓0kgTonnage » | ✅ conditionnel |
+| 128 | `div.go-header-label` | 1 | non | « 🦵 Squat & Jambes ✏️ » | ✅ conditionnel |
+| 129 | `button.go-add-exo` | 1 | non | « ➕ Ajouter un exercice » | ✅ conditionnel |
+| 130 | `button.go-finish-btn` | 1 | non | « ✓ Terminer la séance » | ✅ conditionnel |
+| 131 | `div.go-rest-timer` | 1 | non | « ⏱ ReposSquat (Barre)1:59-15s+15sPasser » | ✅ conditionnel |
+
+**Décompte total : 91 + 40 = 131 verdicts.**
+
+> ⚠️ **Réserve sur la colonne « visible »** : le recensement des blocs a été fait sur les 14
+> états d'inventaire, où la carte d'exercice GO n'est pas toujours dépliée au moment de la
+> capture. Un `non` signifie ici « pas visible à cet instant », pas « inatteignable ». Les
+> éléments de saisie de série ont été observés fonctionnels en phase 5b de la vague 2 v2
+> (saisie 117,5 kg × 5 @ RPE 8, série enregistrée, `db.logs` 562 → 563).

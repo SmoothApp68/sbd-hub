@@ -10,4 +10,4 @@ PROFILS.forEach((prof) => SUBS.forEach((sub) => etats.push({
   action: async (p) => { await p.evaluate((s) => { showTab('tab-stats'); showStatsSub(s); }, sub); },
 })));
 
-module.exports = { nom: 'VAGUE 4 — Stats', conteneur: '#tab-stats', sortie: 'out-v4-elements.json', etats };
+module.exports = { nom: 'VAGUE 4 — Stats', conteneur: '#tab-stats', sortie: 'out-v4-elements.json', sortieBlocs: 'out-v4-blocs.json', etats };

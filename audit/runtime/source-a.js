@@ -67,6 +67,10 @@ const RE_ID_PROP = /\.id\s*=\s*['"]([A-Za-z][\w:.-]*)['"]/g;
 // id="' + variable + '"  → id entièrement dynamique. On remonte au littéral de la variable
 // (`var _platesId = 'plates-' + exoIdx;`) pour ne pas perdre l'élément dans l'inventaire.
 const RE_ID_VAR = /id=\\?["']\s*\\?["']\s*\+\s*([A-Za-z_$][\w$]*)/g;
+// Interpolation de template literal : id="${mgId}"  (motif app.js:10762, entre autres).
+// Sans lui, tout un générateur passe inaperçu — c'est ce qui faisait apparaître `mg-<n>`
+// en « B seul » alors que sa fonction était bien dans la fermeture.
+const RE_ID_TPL = /id=\\?["']\$\{\s*([A-Za-z_$][\w$]*)\s*\}/g;
 const RE_VAR_LITTERAL = (nom) => new RegExp('\\b' + nom + '\\s*=\\s*[\'"]([A-Za-z][\\w:.-]*)[\'"]\\s*\\+');
 
 function idsProduitsPar(fichier, debut, fin) {
@@ -81,6 +85,16 @@ function idsProduitsPar(fichier, debut, fin) {
     while ((m = RE_ID_ATTR_DYN.exec(ligne))) trouves.push({ id: m[1] + '<var>', ligne: n, dyn: true });
     RE_ID_PROP.lastIndex = 0;
     while ((m = RE_ID_PROP.exec(ligne))) trouves.push({ id: m[1], ligne: n, dyn: false });
+    RE_ID_TPL.lastIndex = 0;
+    while ((m = RE_ID_TPL.exec(ligne))) {
+      const nomVar = m[1];
+      let prefixe = null;
+      for (let k = debut; k <= fin && k <= src.length; k++) {
+        const mm = src[k - 1].match(RE_VAR_LITTERAL(nomVar));
+        if (mm) { prefixe = mm[1]; break; }
+      }
+      trouves.push({ id: (prefixe ? prefixe + '<var>' : '<var:' + nomVar + '>'), ligne: n, dyn: true });
+    }
     RE_ID_VAR.lastIndex = 0;
     while ((m = RE_ID_VAR.exec(ligne))) {
       const nomVar = m[1];

@@ -26,4 +26,4 @@ SOCIAL.forEach((s) => etats.push({ nom: 'social avec amis · ' + s, mut: avecAmi
 etats.push({ nom: 'social · vierge', profil: 'vierge', conteneur: '#tab-social', settle: 1800,
   action: async (p) => { await p.evaluate(() => { showTab('tab-social'); showFeedSub('feed-amis'); }); } });
 
-module.exports = { nom: 'VAGUE 5 — Social + Jeux', conteneur: '#tab-game', sortie: 'out-v5-elements.json', etats };
+module.exports = { nom: 'VAGUE 5 — Social + Jeux', conteneur: '#tab-game', sortieBlocs: 'out-v5-blocs.json', sortie: 'out-v5-elements.json', etats };

@@ -1,0 +1,226 @@
+[
+ {
+  "sig": "div.bdg-sec-head",
+  "n": 17,
+  "visible": true,
+  "exemple": "🔮 Quêtes secrètes 6/8▾",
+  "etats": 7
+ },
+ {
+  "sig": "div.bdg-sec-body",
+  "n": 16,
+  "visible": false,
+  "exemple": "🔒???Quête secrète non révélée🔒???Quête secrète n",
+  "etats": 7
+ },
+ {
+  "sig": "div.mc",
+  "n": 6,
+  "visible": true,
+  "exemple": "📊 Sources d'XP",
+  "etats": 7
+ },
+ {
+  "sig": "button.stats-sub-pill",
+  "n": 5,
+  "visible": true,
+  "exemple": "Amis",
+  "etats": 11
+ },
+ {
+  "sig": "div.gam-separator",
+  "n": 4,
+  "visible": true,
+  "exemple": "✦ ─── ✦ ─── ✦",
+  "etats": 7
+ },
+ {
+  "sig": "div.sg-page",
+  "n": 4,
+  "visible": true,
+  "exemple": "Leg Curl AssisÉlie1RM 79kg · 0.81× BWDébNovIntAvÉl",
+  "etats": 6
+ },
+ {
+  "sig": "span.voir-plus-btn",
+  "n": 3,
+  "visible": true,
+  "exemple": "voir +",
+  "etats": 7
+ },
+ {
+  "sig": "div.subkeys-panel",
+  "n": 3,
+  "visible": false,
+  "exemple": "Pectoraux hauts7.9tSculptéPectoraux bas17.5tSculpt",
+  "etats": 7
+ },
+ {
+  "sig": "div.sbd-rank-detail-tier",
+  "n": 3,
+  "visible": true,
+  "exemple": "Guerrier",
+  "etats": 6
+ },
+ {
+  "sig": "div.sbd-rank-detail-e1rm",
+  "n": 3,
+  "visible": true,
+  "exemple": "158 kg",
+  "etats": 6
+ },
+ {
+  "sig": "div.sbd-rank-detail-pct",
+  "n": 3,
+  "visible": true,
+  "exemple": "Top 43% mondial",
+  "etats": 6
+ },
+ {
+  "sig": "div.sg-dot",
+  "n": 3,
+  "visible": true,
+  "exemple": "",
+  "etats": 6
+ },
+ {
+  "sig": "button.feed-load-more",
+  "n": 3,
+  "visible": false,
+  "exemple": "Voir plus",
+  "etats": 11
+ },
+ {
+  "sig": "div.card",
+  "n": 3,
+  "visible": true,
+  "exemple": "Classement",
+  "etats": 11
+ },
+ {
+  "sig": "div.nav-fade-wrap",
+  "n": 1,
+  "visible": true,
+  "exemple": "👤 Profil joueur",
+  "etats": 7
+ },
+ {
+  "sig": "div.lvl-card.lvl-card-v2",
+  "n": 1,
+  "visible": true,
+  "exemple": "🏛️",
+  "etats": 7
+ },
+ {
+  "sig": "div.quest-card",
+  "n": 1,
+  "visible": true,
+  "exemple": "⚡ Quêtes de la semaine",
+  "etats": 7
+ },
+ {
+  "sig": "div.quest-arc",
+  "n": 1,
+  "visible": true,
+  "exemple": "🏔 Arcs du mois",
+  "etats": 7
+ },
+ {
+  "sig": "div.mc-title",
+  "n": 1,
+  "visible": true,
+  "exemple": "💪 Muscles",
+  "etats": 7
+ },
+ {
+  "sig": "div.sg-dot.active",
+  "n": 1,
+  "visible": true,
+  "exemple": "",
+  "etats": 6
+ },
+ {
+  "sig": "div.bdg-overview",
+  "n": 1,
+  "visible": true,
+  "exemple": "53 / 159Badges débloquésCommun 16/18Peu commun 17/",
+  "etats": 7
+ },
+ {
+  "sig": "div.bc-scroll",
+  "n": 1,
+  "visible": true,
+  "exemple": "🔮 Secrètes 6/8🎯 Séances 10/12💪 Volume par Séanc",
+  "etats": 7
+ },
+ {
+  "sig": "div.bdg-sec-body.open",
+  "n": 1,
+  "visible": true,
+  "exemple": "Commun🎯Première MarqueundefinedPremière séance — ",
+  "etats": 7
+ },
+ {
+  "sig": "div.feed-empty",
+  "n": 1,
+  "visible": true,
+  "exemple": "🤝",
+  "etats": 9
+ },
+ {
+  "sig": "div.fv2-invite-card",
+  "n": 1,
+  "visible": true,
+  "exemple": "Code ami",
+  "etats": 3
+ },
+ {
+  "sig": "div.corps-acc-head",
+  "n": 1,
+  "visible": true,
+  "exemple": "👤",
+  "etats": 11
+ },
+ {
+  "sig": "div.corps-acc-info",
+  "n": 1,
+  "visible": true,
+  "exemple": "Mon Profil",
+  "etats": 11
+ },
+ {
+  "sig": "div.corps-acc-sub",
+  "n": 1,
+  "visible": true,
+  "exemple": "Pseudo, bio, vie privée",
+  "etats": 11
+ },
+ {
+  "sig": "button.btn",
+  "n": 1,
+  "visible": true,
+  "exemple": "Ajouter",
+  "etats": 11
+ },
+ {
+  "sig": "div.ch2-create",
+  "n": 1,
+  "visible": true,
+  "exemple": "➕",
+  "etats": 2
+ },
+ {
+  "sig": "div.lb2-period-pills",
+  "n": 1,
+  "visible": true,
+  "exemple": "Cette semaine",
+  "etats": 2
+ },
+ {
+  "sig": "div.lb2-category-pills",
+  "n": 1,
+  "visible": true,
+  "exemple": "Volume 🏋️",
+  "etats": 2
+ }
+]

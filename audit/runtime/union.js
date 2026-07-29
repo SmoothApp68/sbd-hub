@@ -25,7 +25,12 @@ const { famille } = require('./inventaire-dom');
 // Sans ce regroupement, `why-btn-squat_barre_` et `why-btn-rowing_barre` compteraient pour
 // deux éléments distincts côté B, et ne s'apparieraient pas au `why-btn-<n>` de la source A.
 const PREFIXES_FAMILLE = ['why-btn-', 'why-answer-', 'plates-', 'grind-btn-', 'abandoned-btn-',
-  'rpe-val-', 'rpe-legend-', 'sg', 'ectip', 'bwg', 'rc'];
+  'rpe-val-', 'rpe-legend-', 'sg', 'ectip', 'bwg', 'rc',
+  // v3 : suffixe = zone de douleur ou index de note (checkin-coach-pain-Genou, -sleep-3…)
+  'checkin-coach-pain-', 'checkin-coach-sleep-', 'checkin-coach-energy-',
+  'checkin-coach-motivation-', 'checkin-coach-fresh-', 'mg-', 'chev-mg-',
+  // suffixe numérique SANS séparateur (bdgSec0, bdgSec1…) — famille() ne le voit pas
+  'bdgSec', 'sgPage', 'questCard'];
 
 function norm(id) {
   if (!id) return id;

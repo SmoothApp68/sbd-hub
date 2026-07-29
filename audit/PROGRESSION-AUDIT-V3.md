@@ -10,10 +10,14 @@ l'inventaire. C'est l'angle mort exact du verdict 🔴 RENDU INATTEIGNABLE : **W
 
 | Vague | État | Estimation | v2 | **v3** | A∩B | **A seul** | B seul |
 |---|---|---|---|---|---|---|---|
-| 2 · Séances | ✅ livrée | 113 | 54 | **91** | 50 | **41** | 0 |
-| 3 · Maison + Coach | ⏳ | 90 | 62 | — | — | — | — |
-| 4 · Stats | ⏳ | 85 | 28 | — | — | — | — |
-| 5 · Social + Jeux | ⏳ | 130 | 89 | — | — | — | — |
+| 2 · Séances | ✅ livrée | 113 | 54 | **131** | 50 | **41** | 0 |
+| 3 · Maison + Coach | ✅ livrée | 90 | 62 | **53** | 29 | **9** | 5 |
+| 4 · Stats | ✅ livrée | 85 | 28 | **50** | 28 | **4** | 0 |
+| 5 · Social + Jeux | ✅ livrée | 130 | 89 | **129** | 72 | **25** | 0 |
+| **Total** | | 418 | **233** | **363** | 179 | **79** | 5 |
+
+*(Les totaux v3 incluent les blocs sans `id` : 40 · 10 · 18 · 32. La vague 3 baisse parce que la v2 y
+recensait les cartes du Coach par leur titre — granularité plus fine, non comparable.)*
 
 ## Outils construits pour la v3
 
@@ -51,4 +55,11 @@ de Séances ramenait les sections des Réglages, les badges des Jeux et les grap
 
 ## Reste à faire
 
-Vagues 3, 4, 5 puis `audit/SYNTHESE-CABLAGE-V3.md`.
+**Rien.** Les 4 vagues sont livrées et `audit/SYNTHESE-CABLAGE-V3.md` est écrit.
+
+## Le gain le plus net de la reprise
+
+`renderProgramViewer` (5 appelants) et `renderPerfCard` (4 appelants) **continuent de construire leur
+HTML — dont 2 graphiques Chart.js — dans des conteneurs masqués**. Les v2 avaient trouvé les
+conteneurs ; l'union montre ce qu'on y dessine encore. Plus 2 surfaces d'affichage de l'e1RM dans
+l'onglet Jeux, rendues par des blocs **sans `id`**, invisibles à tout inventaire d'ids.

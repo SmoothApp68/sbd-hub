@@ -539,6 +539,16 @@ if (!db.gamification._migratedFreezeV4) {
   db.gamification._migratedFreezeV4 = true;
 }
 
+// ── ROUTINE EXOS — migration de type ─────────────────────────
+// D'anciens wpApplyDay/wpApplyAll écrivaient les OBJETS exercice du weeklyPlan dans
+// db.routineExos, qui est un registre de NOMS. Le lecteur les tolère (getProgExosForDay),
+// mais le blob restait pollué — et repartirait vers Supabase dès que routineExos sera
+// signé par _computeDataHash. On normalise donc le STOCKAGE, ici au boot et sur les deux
+// chemins d'adoption d'un blob cloud (supabase.js) : sans ça, une ligne cloud polluée
+// écrase le db fraîchement migré (mesuré, audit/runtime/migration-routineexos-preuve.js).
+// No-op sans écriture si le blob est déjà propre ; format legacy chaîne laissé intact.
+if (typeof normalizeRoutineExosInPlace === 'function') normalizeRoutineExosInPlace(db);
+
 // ── WELLBEING — defensive init ───────────────────────────────
 if (db.todayWellbeing === undefined) db.todayWellbeing = null;
 if (db.garminHealth === undefined) db.garminHealth = null; // READY-C2-c : relogement RHR
@@ -27893,8 +27903,10 @@ function buildGoIdleHtml() {
     var wpToday = wpDays.find(function(d) { return d.day === today && !d.rest; });
     var todayExercises = wpToday ? (wpToday.exercises || []) : [];
 
-    // Fallback : routineExos (noms seulement)
-    var todayExos = (db.routineExos && db.routineExos[today]) || [];
+    // Fallback : routineExos (noms seulement). Lecteur défensif obligatoire — sur le
+    // format legacy CHAÎNE, l'accès direct rendait une chaîne et `todayExos.map` levait
+    // « map is not a function », donc toute la carte GO ne se rendait pas.
+    var todayExos = getProgExosForDay(today);
 
     var exosHtml = '';
     if (todayExercises.length > 0) {

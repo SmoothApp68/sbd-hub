@@ -898,6 +898,29 @@ function normalizeExoName(e) {
   return '';
 }
 
+// Migration — normalise db.routineExos EN PLACE : les objets exercice laissés par les
+// anciens wpApplyDay/wpApplyAll deviennent leur nom. Rend true si quelque chose a
+// changé, pour ne RIEN réécrire sur un blob déjà propre.
+// Le format legacy CHAÎNE n'est volontairement PAS converti : le transformer en tableau
+// figerait définitivement le split sur virgule (« Développé couché, prise serrée » →
+// 2 entrées), alors que le nom d'origine reste récupérable tant qu'il est stocké tel quel.
+// Appelée au boot (app.js) ET sur les deux chemins d'adoption d'un blob cloud
+// (supabase.js) — un blob cloud pollué écraserait sinon le db fraîchement migré.
+function normalizeRoutineExosInPlace(d) {
+  if (!d || !d.routineExos || typeof d.routineExos !== 'object') return false;
+  let change = false;
+  Object.keys(d.routineExos).forEach(function(jour) {
+    const v = d.routineExos[jour];
+    if (!Array.isArray(v)) return;                 // chaîne legacy / autre : intact
+    const norm = v.map(normalizeExoName).filter(Boolean);
+    if (norm.length !== v.length || norm.some(function(x, i) { return x !== v[i]; })) {
+      d.routineExos[jour] = norm;
+      change = true;
+    }
+  });
+  return change;
+}
+
 // Extraire la liste des exercices d'un jour depuis db.routineExos
 function getProgExosForDay(day) {
   const saved = (db.routineExos || {})[day];
@@ -5881,5 +5904,5 @@ function buildStaticFallback(question, exoContext) {
 
 // Conditional export for unit tests (no-op in the browser — module is undefined there).
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getDUPZone, computeACWR, calcActivityTRIMP, normalizeExoName, getProgExosForDay, matchExoName };
+  module.exports = { getDUPZone, computeACWR, calcActivityTRIMP, normalizeExoName, getProgExosForDay, matchExoName, normalizeRoutineExosInPlace };
 }

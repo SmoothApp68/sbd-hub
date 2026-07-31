@@ -339,6 +339,10 @@ function _applyCloudBlob(cloudBlob, uid, updatedAt) {
   if (!Array.isArray(db.reports)) db.reports = [];
   if (!db.gamification) db.gamification = {};
   if (!db.bestPR) db.bestPR = { bench: 0, squat: 0, deadlift: 0 };
+  // Le blob cloud peut porter des routineExos pollués (objets) écrits par un appareil
+  // pas encore à jour : sans ça, l'adoption écrase le db migré au boot et la pollution
+  // repartirait au cloud une fois routineExos signé.
+  if (typeof normalizeRoutineExosInPlace === 'function') normalizeRoutineExosInPlace(db);
   if (typeof _stampOwner === 'function') _stampOwner(uid);
   db.lastSync = updatedAt ? new Date(updatedAt).getTime() : Date.now();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
@@ -990,6 +994,9 @@ async function syncFromCloud() {
       _mergedData.exercises = _localExo || cloudData.exercises;
       _mergedData.bestPR = _localPR || cloudData.bestPR;
       db = _mergedData;
+      // Même raison que dans _applyCloudBlob : le blob cloud fusionné peut porter des
+      // routineExos pollués (objets) venus d'un appareil pas encore à jour.
+      if (typeof normalizeRoutineExosInPlace === 'function') normalizeRoutineExosInPlace(db);
       if (typeof _stampOwner === 'function') _stampOwner(user.id); // RC4 — le blob adopté appartient à user.id
       // P3-c — ne considérer un "merge offline" que si le cloud portait des logs.
       // Sans cette garde, cloudData.logs absent (logs hors blob) rendrait _didMergeLogs

@@ -3852,13 +3852,13 @@ function renderSettingsRoutineEditor() {
   // Charger l'état actuel
   const currentRoutine = getRoutine();
   editingRoutine = JSON.parse(JSON.stringify(currentRoutine));
-  // Charger les exercices sauvegardés via le lecteur défensif. L'affichage était déjà
-  // protégé (renderExoEditor 3893), mais pas la SAUVEGARDE : saveRoutine réécrit
-  // editingExos tel quel, donc un blob pollué d'objets se re-propageait à chaque
-  // passage dans l'éditeur — y compris quand l'utilisateur venait justement réparer.
+  // Charger les exercices sauvegardés
+  const savedExos = db.routineExos || {};
   editingExos = {};
   DAYS_FULL.forEach(day => {
-    editingExos[day] = getProgExosForDay(day);
+    editingExos[day] = savedExos[day]
+      ? (Array.isArray(savedExos[day]) ? [...savedExos[day]] : savedExos[day].split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean))
+      : [];
   });
   renderExoEditor();
 }
@@ -15019,9 +15019,8 @@ function pbEditExisting() {
     var label = routine[day];
     if (label && !/repos|😴/i.test(label)) {
       dayNames.push(label);
-      // Lecteur défensif : sinon pbSaveManualProgram (13995) réécrit dans routineExos
-      // les objets que ce chargement y aurait laissés passer.
-      var exos = getProgExosForDay(day);
+      // Récupérer les exercices existants
+      var exos = (db.routineExos && db.routineExos[day]) ? db.routineExos[day] : [];
       if (!exos.length && db.generatedProgram) {
         var gp = db.generatedProgram.find(function(p) { return p.day === day && !p.isRest; });
         if (gp && gp.exercises) exos = gp.exercises.map(function(e) { return typeof e === 'string' ? e : (e && e.name) || 'Exercice'; });
@@ -27377,9 +27376,7 @@ function wpApplyDay(day) {
   const dayData = plan.days.find(d => d.day === day && !d.rest);
   if (!dayData || !dayData.exercises || !dayData.exercises.length) return;
   if (!db.routineExos) db.routineExos = {};
-  // routineExos est un registre de NOMS (cf. normalizeExoName, engine.js) : y écrire
-  // les objets exercice du weeklyPlan faisait crasher le lancement de la séance.
-  db.routineExos[day] = dayData.exercises.map(normalizeExoName).filter(Boolean);
+  db.routineExos[day] = dayData.exercises;
   saveDB();
   showToast('✓ Programme du ' + day + ' mis à jour');
 }
@@ -27391,7 +27388,7 @@ function wpApplyAll() {
     if (!db.routineExos) db.routineExos = {};
     plan.days.forEach(d => {
       if (d.rest || !d.exercises || !d.exercises.length) return;
-      db.routineExos[d.day] = d.exercises.map(normalizeExoName).filter(Boolean);
+      db.routineExos[d.day] = d.exercises;
     });
     saveDB();
     showToast('✓ Programme complet mis à jour');

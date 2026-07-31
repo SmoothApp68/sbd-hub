@@ -886,25 +886,11 @@ function parseHevyDate(dateStr) {
 }
 
 
-// Normaliser une entrée de routineExos en NOM d'exercice (chaîne).
-// db.routineExos est un registre de NOMS : tous ses consommateurs finissent dans
-// matchExoName → norm → s.toLowerCase(). Des écrivains ont stocké les objets
-// exercice du weeklyPlan tels quels ({name, sets, ...}) → TypeError au lancement
-// de la séance. La normalisation est faite ici, à la LECTURE, pour réparer aussi
-// les blobs déjà pollués (le fix des écrivains ne nettoie pas le passé).
-function normalizeExoName(e) {
-  if (typeof e === 'string') return e.trim();
-  if (e && typeof e === 'object' && typeof e.name === 'string') return e.name.trim();
-  return '';
-}
-
 // Extraire la liste des exercices d'un jour depuis db.routineExos
 function getProgExosForDay(day) {
   const saved = (db.routineExos || {})[day];
   if (!saved) return [];
-  if (Array.isArray(saved)) return saved.map(normalizeExoName).filter(Boolean);
-  if (typeof saved === 'string') return saved.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
-  return [];
+  return Array.isArray(saved) ? saved.filter(Boolean) : saved.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean);
 }
 
 // Matcher un nom d'exercice Hevy avec un nom de programme (tolérant)
@@ -5881,5 +5867,5 @@ function buildStaticFallback(question, exoContext) {
 
 // Conditional export for unit tests (no-op in the browser — module is undefined there).
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getDUPZone, computeACWR, calcActivityTRIMP, normalizeExoName, getProgExosForDay, matchExoName };
+  module.exports = { getDUPZone, computeACWR, calcActivityTRIMP };
 }

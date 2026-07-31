@@ -3852,8 +3852,10 @@ function renderSettingsRoutineEditor() {
   // Charger l'état actuel
   const currentRoutine = getRoutine();
   editingRoutine = JSON.parse(JSON.stringify(currentRoutine));
-  // Charger les exercices sauvegardés (via le lecteur défensif : un blob pollué
-  // par d'anciens écrivains contient des objets, qui s'afficheraient [object Object])
+  // Charger les exercices sauvegardés via le lecteur défensif. L'affichage était déjà
+  // protégé (renderExoEditor 3893), mais pas la SAUVEGARDE : saveRoutine réécrit
+  // editingExos tel quel, donc un blob pollué d'objets se re-propageait à chaque
+  // passage dans l'éditeur — y compris quand l'utilisateur venait justement réparer.
   editingExos = {};
   DAYS_FULL.forEach(day => {
     editingExos[day] = getProgExosForDay(day);
@@ -15017,7 +15019,8 @@ function pbEditExisting() {
     var label = routine[day];
     if (label && !/repos|😴/i.test(label)) {
       dayNames.push(label);
-      // Récupérer les exercices existants (lecteur défensif : noms garantis)
+      // Lecteur défensif : sinon pbSaveManualProgram (13995) réécrit dans routineExos
+      // les objets que ce chargement y aurait laissés passer.
       var exos = getProgExosForDay(day);
       if (!exos.length && db.generatedProgram) {
         var gp = db.generatedProgram.find(function(p) { return p.day === day && !p.isRest; });

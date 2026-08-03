@@ -110,10 +110,11 @@ apparente, **sans vérification** au-delà de la lecture du site d'appel.
   fonction s'exécute entièrement **et ne fait rien**. La bascule vue avant / vue arrière
   de l'anatomie est inopérante.
 
-**Potentiellement bloquant**
-- `#ob-mode-continue` — `selectTrainingMode` (`app.js:2520`) : `continueBtn.disabled = false`
-  sous garde. Si le bouton n'existe pas, il n'est jamais activé. À regarder si l'onboarding
-  passe par cet écran.
+**`#ob-mode-continue` — tranché au runtime : PAS un bloquant** *(voir l'annexe en fin de doc)*
+- `selectTrainingMode` (`app.js:2520`) : `if (continueBtn) continueBtn.disabled = false;` est une
+  **ligne morte**. Le bouton « Continuer → » de l'écran existe bel et bien, sans id et
+  **jamais désactivé** : le parcours avance normalement. Vestige d'une version où il
+  démarrait désactivé.
 
 **Décoratif ou avec repli — sans conséquence apparente**
 - `#programViewerCard` — `renderProgramViewer` (`app.js:15067`) : sert seulement à
@@ -156,3 +157,58 @@ d'entrée disparaît, le code reste » compte maintenant **7 cas connus** — ma
 deux-ci ont la signature *garde d'id silencieuse*, la seule qui soit mécaniquement
 cherchable. Les cinq autres ont des causes différentes et ne se détectent pas par ce
 balayage.
+
+---
+
+## Backlog — points d'entrée perdus, à décider
+
+| | surface | décision à prendre |
+|---|---|---|
+| `renderWeeklyPlanUI` | plan hebdo + boutons « Appliquer » (onglet Coach) | rebrancher le conteneur ou supprimer le générateur |
+| `renderDaySelector` | sélecteur de jour du Dashboard | idem — perdu le 15/04, personne ne s'en est aperçu |
+| `svgToggleView` | **bascule vue avant / vue arrière de l'anatomie** | motif cousin (gardes `if (x)` sans `return`) : la fonction s'exécute et ne fait rien. Effet utilisateur identique — un bouton qui ne répond pas. Les 4 ids `#anatomyFront` `#anatomyBack` `#anatBtnFront` `#anatBtnBack` sont absents. |
+
+---
+
+## Annexe — `#ob-mode-continue`, vérifié au runtime
+
+Banc : `audit/runtime/ob-mode-continue.js`. Vrais clics Playwright, pas `page.evaluate` :
+`selectTrainingMode` lit le `event` global, que seul un vrai clic renseigne.
+
+```
+1) NOUVEL UTILISATEUR (profil vierge)
+   showOnboarding() → {"etape":"ob-step-q1","overlay":"flex"}
+   → l'écran ob-mode n'est même pas sur son chemin (fast flow 3 questions)
+
+2) UTILISATEUR EXISTANT — réouverture du profil (flux long)
+   showOnboarding() → ob-step-1  →  « Continuer » → ob-step-2
+   #ob-mode-continue absent        : true
+   boutons de mode d'entraînement  : 5
+   bouton « Continuer → »  id=(sans id)  disabled=false  onclick=obSaveStep2()
+
+3) PARCOURS RÉEL — clic sur un mode, puis sur « Continuer »
+   clic sur un mode : visible=true
+   → db.user.trainingMode = powerbuilding, boutons marqués sélectionnés = 1
+   bouton « Continuer » : 1 trouvé, visible=true, activable=true
+   après clic → ob-step-3
+   erreurs JS non capturées : 0
+```
+
+**Verdict : pas de bloquant.** Deux faits distincts :
+
+1. **`#ob-step-2` n'est pas sur le chemin d'un nouvel utilisateur.** `showOnboarding`
+   (`app.js:2543`) route les non-onboardés vers `gotoObStep('q1')` — le fast flow v337.
+   L'écran mode + objectif appartient au **flux long**, atteint depuis les Réglages
+   (`obSaveStep1` → `gotoObStep('2')`, `app.js:2894`).
+2. **Sur ce flux long, tout fonctionne.** Le bouton « Continuer → » existe, n'a pas d'id,
+   n'est **jamais** `disabled`, et fait avancer à l'étape 3. `selectTrainingMode` écrit
+   correctement `db.user.trainingMode` et marque le bouton sélectionné.
+
+La ligne `if (continueBtn) continueBtn.disabled = false;` est donc un **vestige** : le
+bouton démarrait désactivé dans une version antérieure et portait cet id. Aucun impact
+utilisateur — ligne morte à nettoyer, pas un bloquant du parcours d'entrée.
+
+⚠️ Ce qui reste à surveiller pour la refonte du tunnel : le parcours d'entrée a **deux
+chemins** (`ob-step-1..7` pour l'édition, `ob-step-q1..q4` + `qdisc`/`qstyle` pour les
+nouveaux), qui se partagent le même overlay et les mêmes handlers. Constat, pas
+investigation — hors périmètre de ce balayage.

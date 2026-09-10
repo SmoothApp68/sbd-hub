@@ -121,6 +121,18 @@
     blocs.forEach(function (b) { cible.appendChild(rendreBloc(b)); });
   }
 
+  // Indicateur discret : il dit d'où viennent les données, il n'alarme pas et
+  // ne bloque rien. Une app qui refuse de s'ouvrir faute de synchronisation est
+  // pire que le problème qu'elle résout.
+  function rendreEtat(cible, etat) {
+    if (!cible) return;
+    vider(cible);
+    if (!etat || !etat.libelle) return;
+    cible.className = 'etat-sync ' + (etat.code || '');
+    cible.appendChild(el('span', 'etat-pastille', ''));
+    cible.appendChild(el('span', null, etat.libelle));
+  }
+
   function message(cible, texte, genre) {
     vider(cible);
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
@@ -130,6 +142,7 @@
     el: el,
     vider: vider,
     dateCourte: dateCourte,
+    rendreEtat: rendreEtat,
     resumeSortie: resumeSortie,
     rendreListeSeances: rendreListeSeances,
     rendreBloc: rendreBloc,

@@ -40,6 +40,21 @@ body{
 }
 .entete h1{font-size:17px;font-weight:700;letter-spacing:.01em}
 .jalon{font-size:12px;color:var(--sourdine)}
+
+/* ── Indicateur de synchronisation ──────────────────────────────────────
+   Discret par construction : une pastille et deux mots. Il informe, il
+   n'alarme jamais — même hors réseau, ce n'est pas une erreur, c'est un état. */
+.entete-titre{min-width:0}
+.etat-sync{
+  display:flex;align-items:center;gap:5px;margin-top:2px;
+  font-size:11px;color:var(--sourdine);
+}
+.etat-sync:empty{display:none}
+.etat-pastille{width:6px;height:6px;border-radius:50%;background:var(--sourdine);flex:none}
+.etat-sync.a-jour .etat-pastille{background:#3fb950}
+.etat-sync.local .etat-pastille{background:var(--jaune)}
+.etat-sync.vide .etat-pastille{background:var(--sourdine)}
+.etat-sync.sync .etat-pastille{background:var(--bleu)}
 .actions{display:flex;gap:6px}
 
 /* ── Boutons ──────────────────────────────────────────────────────────── */

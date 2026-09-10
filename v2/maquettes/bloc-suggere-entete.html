@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — bloc, charge suggérée en en-tête</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Expanded:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fond:#121316;
+  --carte:#1b1d21;
+  --ligne:#2a2d33;
+  --texte:#e8e9eb;
+  --sourdine:#7e838c;
+  --jaune:#f2c318;      /* disque 15 kg — un seul par écran */
+  --bleu:#2f6fd0;       /* disque 20 kg */
+  --rouge:#c8352c;      /* disque 25 kg */
+  --valide:#ffffff;     /* lumière blanche du juge */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#0b0c0e;font-family:Archivo,system-ui,sans-serif;
+  color:var(--texte);display:flex;justify-content:center;
+  padding:24px 8px;-webkit-font-smoothing:antialiased;
+}
+.tel{width:380px;max-width:100%}
+.entete-ecran{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 14px}
+.entete-ecran h1{font-family:'Archivo Expanded',Archivo,sans-serif;font-size:17px;font-weight:700;letter-spacing:.01em}
+.entete-ecran span{font-size:12px;color:var(--sourdine)}
+
+.bloc{background:var(--carte);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.bloc.superset{border-left:3px solid var(--bleu)}
+
+/* en-tête du bloc : nom + palier suggéré */
+.exos{padding:11px 12px 9px;display:flex;flex-direction:column;gap:7px}
+.exo{display:flex;align-items:center;gap:8px}
+.lettre{
+  width:17px;height:17px;flex:none;border-radius:3px;background:var(--ligne);
+  font-size:10px;font-weight:700;display:grid;place-items:center;color:var(--sourdine);
+}
+.nom{font-size:13.5px;font-weight:600;line-height:1.25;flex:1;min-width:0}
+.palier{
+  font-size:12px;font-weight:600;color:var(--sourdine);white-space:nowrap;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;
+}
+.palier b{color:var(--texte);font-weight:700}
+.palier.muet{font-style:italic;font-weight:400}
+
+/* grille des séries */
+.entetes,.serie{
+  display:grid;
+  grid-template-columns:44px 62px 1fr 1fr 28px;
+  align-items:center;gap:6px;padding:0 12px;
+}
+.entetes{
+  height:22px;font-size:9.5px;color:var(--sourdine);
+  border-top:1px solid var(--ligne);letter-spacing:.04em;
+}
+.entetes span:nth-child(3),.entetes span:nth-child(4){text-align:center}
+.serie{height:38px;border-top:1px solid rgba(255,255,255,.04)}
+.serie.tour-actif{background:rgba(242,195,24,.07)}
+.serie.faite .champ{color:var(--sourdine)}
+
+.tag{font-size:10.5px;font-weight:700;color:var(--sourdine);font-variant-numeric:tabular-nums}
+.tag.chauffe{font-weight:500;font-size:10px;color:#5c6068}
+.prec{font-size:11.5px;color:var(--sourdine);font-variant-numeric:tabular-nums}
+.champ{
+  height:29px;border:1px solid var(--ligne);border-radius:5px;background:#141619;
+  color:var(--texte);font-family:'Archivo Expanded',Archivo,sans-serif;
+  font-size:14px;font-weight:600;text-align:center;width:100%;
+  font-variant-numeric:tabular-nums;
+}
+.champ::placeholder{color:#4a4e56;font-weight:400}
+.champ:focus{outline:none;border-color:var(--jaune)}
+.coche{
+  width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ligne);
+  background:none;cursor:pointer;display:grid;place-items:center;padding:0;
+}
+.coche svg{width:11px;height:11px;stroke:#4a4e56;stroke-width:2.6;fill:none}
+.serie.faite .coche{background:var(--valide);border-color:var(--valide)}
+.serie.faite .coche svg{stroke:#121316}
+.coche:focus-visible{outline:2px solid var(--jaune);outline-offset:2px}
+
+.note{padding:14px 6px 0;font-size:11.5px;line-height:1.55;color:var(--sourdine)}
+.note b{color:var(--texte);font-weight:600}
+@media (prefers-reduced-motion:no-preference){
+  .serie{transition:background .18s ease}
+  .coche{transition:background .14s ease,border-color .14s ease}
+}
+</style>
+</head>
+<body>
+<div class="tel">
+
+  <div class="entete-ecran">
+    <h1>Haut du corps</h1>
+    <span>Basic-Fit Guebwiller</span>
+  </div>
+
+  <!-- BLOC SIMPLE -->
+  <section class="bloc" data-bloc>
+    <div class="exos">
+      <div class="exo">
+        <span class="lettre">A</span>
+        <span class="nom">Développé couché barre</span>
+        <span class="palier">Palier <b>122,5</b> × 5</span>
+      </div>
+    </div>
+    <div class="entetes"><span></span><span>Précédent</span><span>kg</span><span>Reps</span><span></span></div>
+
+    <div class="serie" data-tour="0"><span class="tag chauffe">chauffe</span><span class="prec">60 × 10</span><input class="champ" value="60"><input class="champ" value="10"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="0"><span class="tag chauffe">chauffe</span><span class="prec">100 × 5</span><input class="champ" value="100"><input class="champ" value="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="1"><span class="tag">A1</span><span class="prec">120 × 5</span><input class="champ" placeholder="122,5"><input class="champ" placeholder="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="2"><span class="tag">A2</span><span class="prec">120 × 5</span><input class="champ" placeholder="122,5"><input class="champ" placeholder="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="3"><span class="tag">A3</span><span class="prec">120 × 4</span><input class="champ" placeholder="122,5"><input class="champ" placeholder="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+  </section>
+
+  <!-- BLOC SUPERSET À TROIS -->
+  <section class="bloc superset" data-bloc>
+    <div class="exos">
+      <div class="exo"><span class="lettre">A</span><span class="nom">Élévation latérale haltère</span><span class="palier">Palier <b>16</b> × 12</span></div>
+      <div class="exo"><span class="lettre">B</span><span class="nom">Écarté haltère</span><span class="palier">Palier <b>24</b> × 12</span></div>
+      <div class="exo"><span class="lettre">C</span><span class="nom">Extension triceps poulie</span><span class="palier muet">pas assez de séances</span></div>
+    </div>
+    <div class="entetes"><span></span><span>Précédent</span><span>kg</span><span>Reps</span><span></span></div>
+
+    <div class="serie" data-tour="1"><span class="tag">A1</span><span class="prec">16 × 12</span><input class="champ" placeholder="16"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="1"><span class="tag">B1</span><span class="prec">24 × 12</span><input class="champ" placeholder="24"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="1"><span class="tag chauffe">chauffe</span><span class="prec">—</span><input class="champ"><input class="champ"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="1"><span class="tag">C1</span><span class="prec">31,8 × 10</span><input class="champ"><input class="champ"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="2"><span class="tag">A2</span><span class="prec">16 × 11</span><input class="champ" placeholder="16"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="2"><span class="tag">B2</span><span class="prec">24 × 10</span><input class="champ" placeholder="24"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="2"><span class="tag">C2</span><span class="prec">31,8 × 9</span><input class="champ"><input class="champ"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="3"><span class="tag">A3</span><span class="prec">16 × 10</span><input class="champ" placeholder="16"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+    <div class="serie" data-tour="3"><span class="tag">B3</span><span class="prec">24 × 10</span><input class="champ" placeholder="24"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+  </section>
+
+  <p class="note">Le palier et la cible de reps sont écrits <b>une fois par exercice</b>, dans l'en-tête du bloc. Les séries de rampe et de chauffe ne reçoivent aucune suggestion — elles ne se prédisent pas. Un exercice sans palier établi le dit au lieu d'inventer un chiffre.</p>
+
+</div>
+
+<script>
+document.querySelectorAll('[data-bloc]').forEach(bloc=>{
+  const series=[...bloc.querySelectorAll('.serie')];
+  const travail=series.filter(s=>s.dataset.tour!=='0');
+  const tours=[...new Set(travail.map(s=>+s.dataset.tour))].sort((a,b)=>a-b);
+  let actif=tours[0];
+
+  const peindre=()=>{
+    series.forEach(s=>s.classList.toggle('tour-actif',
+      s.dataset.tour!=='0' && +s.dataset.tour===actif && !s.classList.contains('faite')));
+  };
+  const avancer=()=>{
+    while(actif!==undefined){
+      const reste=travail.filter(s=>+s.dataset.tour===actif && !s.classList.contains('faite'));
+      if(reste.length) break;
+      actif=tours[tours.indexOf(actif)+1];
+    }
+    peindre();
+  };
+  bloc.querySelectorAll('.coche').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const s=b.closest('.serie');
+      s.classList.toggle('faite');
+      s.setAttribute('aria-pressed',s.classList.contains('faite'));
+      avancer();
+    });
+  });
+  peindre();
+});
+</script>
+</body>
+</html>

@@ -76,6 +76,9 @@ button{font-family:inherit;cursor:pointer}
   padding:12px;margin-bottom:10px;color:var(--texte);
 }
 .seance:active{box-shadow:0 0 0 1.5px var(--jaune) inset}
+.seance.sortie{padding:9px 12px;background:transparent;border:1px solid var(--ligne)}
+.seance.sortie .seance-titre{font-size:12.5px;font-weight:500;color:var(--sourdine)}
+.seance.sortie .seance-meta{margin-top:2px;font-size:11px}
 .seance-haut{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .seance-titre{font-size:13.5px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
 .seance-date{font-size:11.5px;color:var(--sourdine);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -100,8 +103,8 @@ button{font-family:inherit;cursor:pointer}
 .resume{font-size:11px;color:var(--sourdine);padding:0 12px 9px;font-variant-numeric:tabular-nums}
 
 .entetes,.serie{
-  display:grid;grid-template-columns:34px 74px 1fr;
-  align-items:center;gap:8px;padding:0 12px;
+  display:grid;grid-template-columns:52px 1fr;
+  align-items:center;gap:10px;padding:0 12px;
 }
 .entetes{height:22px;font-size:9.5px;color:var(--sourdine);
   border-top:1px solid var(--ligne);letter-spacing:.04em}
@@ -109,9 +112,9 @@ button{font-family:inherit;cursor:pointer}
 /* Les séries qui ne sont pas du travail sont visuellement en retrait. */
 .serie.hors-travail{opacity:.62}
 
-.rang{font-size:10.5px;color:#5c6068;font-variant-numeric:tabular-nums}
-.tag{font-size:10.5px;font-weight:700;color:var(--sourdine);font-variant-numeric:tabular-nums}
-.tag.chauffe{font-weight:500;font-size:10px;color:#5c6068}
+.tag{font-size:11px;font-weight:700;color:var(--sourdine);font-variant-numeric:tabular-nums}
+/* §2.5 : une série qui n'est pas du travail n'est jamais surlignée. */
+.serie.hors-travail .tag{font-weight:500;color:#5c6068}
 .mesure{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 
 /* ── États ────────────────────────────────────────────────────────────── */

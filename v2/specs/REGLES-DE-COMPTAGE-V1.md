@@ -1,7 +1,18 @@
 # Règles de comptage — v1
 
 **Date :** 23 août 2026
-**Statut :** décisions prises en session vocale avec Aurélien. Rien n'est écrit en base.
+**Statut :** décisions prises en session vocale avec Aurélien.
+
+> ⚠️ **En-tête corrigé le 10/09/2026.** Ce document disait « rien n'est écrit en base ».
+> **C'est faux depuis le 28 août.** Les muscles primaires et secondaires, `coef_pdc`,
+> `masse_depart_kg` et la table `body_weight_log` (116 lignes) existent tous.
+>
+> **Les noms de colonnes de ce document étaient en anglais et sont faux.** Ils
+> précèdent l'écriture du schéma en français. Corrigés ci-dessous :
+> `load_kg` → **`charge_kg`**, `weight_kg` → **`poids_kg`**.
+>
+> Ce document reste la référence pour les **règles de comptage**. Pour l'état réel de
+> la base et les noms exacts : **`SCHEMA-REEL.md`**, régénéré depuis la base.
 **Portée :** ce document fixe **ce qu'un nombre veut dire** avant que le moindre algorithme le manipule. Il complète `CADRAGE-V2.md` (pour qui on construit) et `REFERENTIEL-BORNES-V1.md` (les bornes chiffrées).
 
 ---
@@ -267,7 +278,7 @@ Vérifié : sur tes 15 677 séries de travail, **zéro** série se retrouve sans
 
 ### Conséquence sur le schéma
 
-Une table `body_weight_log` — `user_id`, `date`, `weight_kg`, `source` — séparée du profil. Étage 1 : observé, jamais recalculé. Le champ `bw` du blob v1 devient sa première ligne.
+Une table `body_weight_log` — `user_id`, `date`, `poids_kg`, `source` — séparée du profil. Étage 1 : observé, jamais recalculé. Le champ `bw` du blob v1 devient sa première ligne.
 
 ### Comment on a établi la règle de Hevy
 
@@ -405,8 +416,8 @@ La grille arrête de juger, elle apprend. Et la forme de courbe de Nuzzo sert un
 | `exercises` | `muscles_primaires[]`, `muscles_secondaires[]`, `muscles_source` |
 | `exercises` | `coef_pdc` (**1.0 ou 0.0** — règle du suspendu, §4), `coef_pdc_source`, `compte_tonnage` |
 | `exercises` | `masse_depart_kg`, `masse_depart_reglable` |
-| `sets` | rien — `load_kg` reste la charge totale saisie, jamais dérivée |
-| **`body_weight_log`** *(nouvelle)* | `user_id`, `date`, `weight_kg`, `source`. Étage 1. 113 lignes à importer depuis Hevy |
+| `sets` | rien — `charge_kg` reste la charge totale saisie, jamais dérivée |
+| **`body_weight_log`** *(nouvelle)* | `user_id`, `date`, `poids_kg`, `source`. Étage 1. 113 lignes à importer depuis Hevy |
 | *(noté, hors périmètre)* | `equipment_id` / notion de salle, pour le décalage de masse de départ |
 
 > **Note sur `coef_pdc`.** Le champ ne prend plus que deux valeurs. Il aurait pu devenir un booléen `est_suspendu` ; on le garde en décimal pour que réintroduire des coefficients fins reste possible sans migration, si la règle binaire s'avère trop grossière à l'usage.

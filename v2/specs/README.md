@@ -61,19 +61,6 @@ Les documents `REGLE-PROGRESSION-V1*.md`, `REGLE-VOLUME-V1.md`, `SCHEMA-V2.md` e
 
 ## Divergences connues — signalées, pas arbitrées
 
-### ⚠️ Deux noms de colonne qui n'existent pas
-
-`REGLES-DE-COMPTAGE-V1.md` §7 (daté du 23/08, antérieur à l'écriture du schéma en
-français) nomme deux colonnes dans leur forme anglaise. **Coder d'après ce tableau
-produirait une erreur certaine.** Vérifié en base le 10/09/2026 :
-
-| Le document écrit | La base a |
-|---|---|
-| `sets.load_kg` | **`sets.charge_kg`** |
-| `body_weight_log.weight_kg` | **`body_weight_log.poids_kg`** |
-
-`body_weight_log` porte en outre `masse_grasse_pct`, que le document ne mentionne pas.
-
 ### Chiffres périmés
 
 Plusieurs documents citent une volumétrie antérieure aux imports. L'état au
@@ -81,18 +68,10 @@ Plusieurs documents citent une volumétrie antérieure aux imports. L'état au
 
 | Document | Ce qu'il annonce |
 |---|---|
-| `REGLES-DE-COMPTAGE-V1.md` | « Rien n'est écrit en base » (en-tête) — **faux depuis** : muscles, `coef_pdc`, `masse_depart_kg` et `body_weight_log` existent tous. C'est le défaut même qui fait rejeter `CATALOGUE-EXERCICES-V4.md` |
-| `REGLES-DE-COMPTAGE-V1.md` | 582 séances · 15 677 séries · 113 pesées · 164 exercices |
+| `REGLES-DE-COMPTAGE-V1.md` | 582 séances · 15 677 séries · 164 exercices — mesures datées du 23/08, présentées comme telles dans leur contexte |
 | `REFERENTIEL-BORNES-V1.md` | 891 séances · 557 pour aurel_br |
 | `REGLE-VOLUME-V2.md` §9.4 | 206 exercices au catalogue |
 | `ECRAN-SAISIE-V1.md` §9 | `v2_037` comme prochaine migration libre — `SCHEMA-REEL.md` dit **`v2_040`** |
-
-### Un chiffre que sa propre doctrine condamne
-
-`MODIFICATEURS-SERIE-V1.md` §4 écrit que les supersets « représentent 38 % des
-séries ». `ECRAN-SAISIE-V1.md` mesure **48,7 %** et en tire précisément la doctrine
-« un chiffre qui traîne dans les notes doit être remesuré avant d'être utilisé ».
-Le premier document conserve le chiffre que le second a corrigé.
 
 ### Résolu le 10/09/2026
 
@@ -104,3 +83,11 @@ Le premier document conserve le chiffre que le second a corrigé.
   quel critère a survécu et renvoie au §12.
 - **Périmètre du moteur ≠ périmètre de l'affichage** — `CADRAGE-V2.md` §2 ter :
   la v2 affiche randonnée, pilates, escalade et course ; le moteur ne les lit pas.
+- **Noms de colonnes** — `REGLES-DE-COMPTAGE-V1.md` §7 écrivait `sets.load_kg` et
+  `body_weight_log.weight_kg`, formes anglaises antérieures à l'écriture du schéma
+  en français. Corrigées en `charge_kg` et `poids_kg`, avec l'avertissement en tête.
+- **« Rien n'est écrit en base »** — en-tête du même document, faux depuis le 28 août.
+  Corrigé : muscles, `coef_pdc`, `masse_depart_kg` et `body_weight_log` existent tous.
+- **Supersets à 38 %** — `MODIFICATEURS-SERIE-V1.md` §4 portait un chiffre jamais
+  mesuré. Remesuré à **48,7 %** chez aurel_br, avec le détail par profil : la limite
+  qu'il documente s'en trouve aggravée, pas atténuée.

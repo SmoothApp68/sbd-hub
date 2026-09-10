@@ -167,7 +167,9 @@ Deux choses distinctes qui ne doivent jamais se mélanger :
 
 **Ce que ça règle définitivement.** Le modificateur « sans repos » n'existe pas : on cocherait une case précisément dans le cas où on a oublié de cocher.
 
-**Piste notée pour plus tard, pas retenue en v1.** Le repos moyen d'un bloc est plus solide que les intervalles individuels : durée totale du bloc, moins le temps d'exécution estimé, divisé par le nombre d'intervalles. Même avec des horodatages chaotiques, si le bloc a duré quinze minutes pour quatre séries, l'ordre de grandeur est bon. **Limite connue :** les supersets brouillent le calcul, et ils représentent 38 % des séries.
+**Piste notée pour plus tard, pas retenue en v1.** Le repos moyen d'un bloc est plus solide que les intervalles individuels : durée totale du bloc, moins le temps d'exécution estimé, divisé par le nombre d'intervalles. Même avec des horodatages chaotiques, si le bloc a duré quinze minutes pour quatre séries, l'ordre de grandeur est bon. **Limite connue :** les supersets brouillent le calcul, et ils représentent **48,7 % des séries de travail chez aurel_br** (19,8 % chez alexis, 16,2 % chez lea, 9,4 % chez melodie, 0,6 % chez jordan).
+
+> ⚠️ **Chiffre corrigé le 10/09/2026.** Ce paragraphe annonçait 38 %, chiffre qui traînait dans les notes sans avoir été mesuré. La mesure réelle donne 48,7 %, ce qui aggrave la limite au lieu de l'atténuer. Doctrine : **un chiffre qui traîne dans les notes doit être remesuré avant d'être utilisé.**
 
 ---
 

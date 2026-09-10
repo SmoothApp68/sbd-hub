@@ -1,9 +1,8 @@
 // tests/unit/v2-modele.test.js — socle v2, module pur de transformation.
 //
-// Ce que ces tests verrouillent :
-//   · l'ordre d'affichage vient de `rang`, jamais de `validee_a` ;
-//   · les séries se regroupent en blocs (superset ou exercice simple) ;
-//   · `type_serie` distingue le travail du reste.
+// Règle centrale vérifiée ici (ECRAN-SAISIE-V1 §2.3) :
+//   la LETTRE identifie l'exercice dans le bloc, le CHIFFRE identifie le TOUR.
+// Un bloc d'un seul exercice n'a pas de lettre du tout.
 
 const Modele = require('../../v2/js/modele.js');
 
@@ -12,7 +11,7 @@ function serie(o) {
   return Object.assign({
     id: 's' + (o.rang || 0),
     session_id: 'sess-1',
-    exercise_slug: 'developpe-couche-barre',
+    exercise_slug: 'dc',
     charge_kg: 100,
     reps: 5,
     duree_s: null,
@@ -23,23 +22,160 @@ function serie(o) {
     groupe_superset: null
   }, o);
 }
+// Une série saisie dans l'app : `validee_a` renseigné → la chronologie existe.
+function saisie(o) {
+  return serie(Object.assign({ validee_a: '2026-09-08T10:0' + (o.rang % 10) + ':00Z' }, o));
+}
 
 const CATALOGUE = [
-  { slug: 'developpe-couche-barre', nom: 'Développé couché barre' },
-  { slug: 'elevation-laterale-haltere', nom: 'Élévation latérale haltère' },
-  { slug: 'ecarte-haltere', nom: 'Écarté haltère' },
-  { slug: 'extension-triceps-poulie', nom: 'Extension triceps poulie' }
+  { slug: 'dc', nom: 'Développé couché barre', charge: 'absolue', mesure: 'charge_reps' },
+  { slug: 'el', nom: 'Élévation latérale haltère', charge: 'absolue', mesure: 'charge_reps' },
+  { slug: 'ec', nom: 'Écarté haltère', charge: 'absolue', mesure: 'charge_reps' },
+  { slug: 'rando', nom: 'Randonnée', charge: 'aucune', mesure: 'distance_temps' },
+  { slug: 'pilates', nom: 'Pilates', charge: 'aucune', mesure: 'temps' },
+  { slug: 'planche', nom: 'Planche', charge: 'aucune', mesure: 'temps' }
 ];
 
-describe('trierParRang', () => {
-  test('ordonne par rang croissant même si les lignes arrivent dans le désordre', () => {
-    const brut = [serie({ rang: 3 }), serie({ rang: 1 }), serie({ rang: 2 })];
-    expect(Modele.trierParRang(brut).map(s => s.rang)).toEqual([1, 2, 3]);
+const etiquettes = (bloc) => bloc.series.map(s => s.etiquette);
+
+// ── 1. Bloc simple : pas de lettre ──────────────────────────────────────────
+describe('bloc simple — aucune lettre, le chiffre est le tour', () => {
+  test('trois séries du même exercice donnent 1, 2, 3', () => {
+    const blocs = Modele.construireBlocs(
+      [serie({ rang: 1 }), serie({ rang: 2 }), serie({ rang: 3 })], CATALOGUE);
+
+    expect(blocs).toHaveLength(1);
+    expect(blocs[0].superset).toBe(false);
+    expect(etiquettes(blocs[0])).toEqual(['1', '2', '3']);
+    expect(blocs[0].exercices[0].lettre).toBe('');
   });
 
+  test('cinq exercices sans superset : aucun ne porte de lettre', () => {
+    const blocs = Modele.construireBlocs([
+      serie({ rang: 1, exercise_slug: 'dc' }), serie({ rang: 2, exercise_slug: 'dc' }),
+      serie({ rang: 3, exercise_slug: 'el' }), serie({ rang: 4, exercise_slug: 'el' }),
+      serie({ rang: 5, exercise_slug: 'ec' })
+    ], CATALOGUE);
+
+    expect(blocs).toHaveLength(3);
+    expect(blocs.map(b => etiquettes(b))).toEqual([['1', '2'], ['1', '2'], ['1']]);
+    expect(blocs.every(b => b.exercices.every(x => x.lettre === ''))).toBe(true);
+  });
+});
+
+// ── 2. Superset, tours complets ─────────────────────────────────────────────
+describe('superset — lettre par exercice, chiffre par tour', () => {
+  test('deux exercices, tours complets, saisis dans l’app → A1, B1, A2, B2', () => {
+    // Données groupées par exercice (comme Hevy les aplatit), mais chronologie
+    // présente : l'affichage doit les entrelacer.
+    const blocs = Modele.construireBlocs([
+      saisie({ rang: 1, exercise_slug: 'el', groupe_superset: 1 }),
+      saisie({ rang: 2, exercise_slug: 'el', groupe_superset: 1 }),
+      saisie({ rang: 3, exercise_slug: 'ec', groupe_superset: 1 }),
+      saisie({ rang: 4, exercise_slug: 'ec', groupe_superset: 1 })
+    ], CATALOGUE);
+
+    expect(blocs).toHaveLength(1);
+    expect(blocs[0].superset).toBe(true);
+    expect(blocs[0].exercices.map(x => x.lettre)).toEqual(['A', 'B']);
+    expect(etiquettes(blocs[0])).toEqual(['A1', 'B1', 'A2', 'B2']);
+  });
+
+  test('§7.3 — un superset IMPORTÉ (validee_a NULL) garde l’ordre de rang', () => {
+    // « Une série importée n'a pas de tours, on l'affiche dans l'ordre de rang. »
+    // Les étiquettes restent justes ; seul l'ordre des lignes ne s'entrelace pas.
+    const blocs = Modele.construireBlocs([
+      serie({ rang: 1, exercise_slug: 'el', groupe_superset: 1 }),
+      serie({ rang: 2, exercise_slug: 'el', groupe_superset: 1 }),
+      serie({ rang: 3, exercise_slug: 'ec', groupe_superset: 1 }),
+      serie({ rang: 4, exercise_slug: 'ec', groupe_superset: 1 })
+    ], CATALOGUE);
+
+    expect(blocs[0].chronologie).toBe(false);
+    expect(etiquettes(blocs[0])).toEqual(['A1', 'A2', 'B1', 'B2']);
+  });
+});
+
+// ── 3. Séries inégales, tours incomplets ────────────────────────────────────
+describe('tours incomplets — rien de fantôme', () => {
+  test('C n’a que deux séries : le tour 3 ne comporte que A3 et B3', () => {
+    const s = [];
+    ['el', 'ec'].forEach((slug, i) => {
+      for (let t = 1; t <= 3; t++) s.push(saisie({ rang: i * 3 + t, exercise_slug: slug, groupe_superset: 1 }));
+    });
+    s.push(saisie({ rang: 7, exercise_slug: 'dc', groupe_superset: 1 }));
+    s.push(saisie({ rang: 8, exercise_slug: 'dc', groupe_superset: 1 }));
+
+    const blocs = Modele.construireBlocs(s, CATALOGUE);
+    expect(etiquettes(blocs[0]))
+      .toEqual(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']);
+    expect(etiquettes(blocs[0])).not.toContain('C3');
+    expect(blocs[0].nbTours).toBe(3);
+  });
+});
+
+// ── 4. Échauffement ─────────────────────────────────────────────────────────
+describe('échauffement — lettre de son exercice, placé avant sa 1re série de travail', () => {
+  test('§2.5 — la chauffe de C se pose entre B1 et C1', () => {
+    const blocs = Modele.construireBlocs([
+      saisie({ rang: 1, exercise_slug: 'el', groupe_superset: 1 }),
+      saisie({ rang: 2, exercise_slug: 'el', groupe_superset: 1 }),
+      saisie({ rang: 3, exercise_slug: 'ec', groupe_superset: 1 }),
+      saisie({ rang: 4, exercise_slug: 'ec', groupe_superset: 1 }),
+      saisie({ rang: 5, exercise_slug: 'dc', groupe_superset: 1, type_serie: 'echauffement' }),
+      saisie({ rang: 6, exercise_slug: 'dc', groupe_superset: 1 }),
+      saisie({ rang: 7, exercise_slug: 'dc', groupe_superset: 1 })
+    ], CATALOGUE);
+
+    expect(etiquettes(blocs[0]))
+      .toEqual(['A1', 'B1', 'C', 'C1', 'A2', 'B2', 'C2']);
+  });
+
+  test('la chauffe ne consomme pas de numéro de tour et n’est pas du travail', () => {
+    const blocs = Modele.construireBlocs([
+      serie({ rang: 1, type_serie: 'echauffement', charge_kg: 60, reps: 10 }),
+      serie({ rang: 2, type_serie: 'echauffement', charge_kg: 100, reps: 5 }),
+      serie({ rang: 3 }), serie({ rang: 4 })
+    ], CATALOGUE);
+
+    // Bloc simple → aucune lettre, donc la chauffe n'a pas d'étiquette du tout.
+    expect(etiquettes(blocs[0])).toEqual(['', '', '1', '2']);
+    expect(blocs[0].series.map(s => s.estTravail)).toEqual([false, false, true, true]);
+    expect(blocs[0].nbTravail).toBe(2);
+  });
+
+  test('degressive et echec suivent la même règle que l’échauffement', () => {
+    const blocs = Modele.construireBlocs([
+      saisie({ rang: 1, exercise_slug: 'el', groupe_superset: 1 }),
+      saisie({ rang: 2, exercise_slug: 'el', groupe_superset: 1, type_serie: 'degressive' }),
+      saisie({ rang: 3, exercise_slug: 'ec', groupe_superset: 1 }),
+      saisie({ rang: 4, exercise_slug: 'ec', groupe_superset: 1, type_serie: 'echec' })
+    ], CATALOGUE);
+    // Aucune ne porte de libellé de type : la lettre seule, le style fera le reste.
+    expect(etiquettes(blocs[0])).toEqual(['A1', 'A', 'B1', 'B']);
+    expect(blocs[0].nbTravail).toBe(2);
+  });
+});
+
+// ── 5. Anomalie connue : superset à un seul exercice ────────────────────────
+describe('anomalie des 13 blocs superset à un seul exercice', () => {
+  test('§5.9 — traité comme un bloc simple, sans lettre', () => {
+    const blocs = Modele.construireBlocs([
+      serie({ rang: 1, exercise_slug: 'dc', groupe_superset: 7 }),
+      serie({ rang: 2, exercise_slug: 'dc', groupe_superset: 7 }),
+      serie({ rang: 3, exercise_slug: 'dc', groupe_superset: 7 })
+    ], CATALOGUE);
+
+    expect(blocs).toHaveLength(1);
+    expect(blocs[0].superset).toBe(false);
+    expect(blocs[0].exercices[0].lettre).toBe('');
+    expect(etiquettes(blocs[0])).toEqual(['1', '2', '3']);
+  });
+});
+
+// ── Ordre : rang, jamais validee_a ──────────────────────────────────────────
+describe('trierParRang', () => {
   test('IGNORE validee_a : un ordre chronologique inverse ne change rien', () => {
-    // Fixture piégée : validee_a est ordonné à l'envers de rang. Un tri qui
-    // retomberait sur la chronologie renverrait [3,2,1] et ferait échouer ce test.
     const brut = [
       serie({ rang: 1, validee_a: '2026-01-01T12:00:00Z' }),
       serie({ rang: 2, validee_a: '2026-01-01T11:00:00Z' }),
@@ -53,151 +189,115 @@ describe('trierParRang', () => {
     Modele.trierParRang(brut);
     expect(brut.map(s => s.rang)).toEqual([2, 1]);
   });
+});
 
-  test('une ligne sans rang exploitable part en fin, sans écraser les autres', () => {
-    const brut = [serie({ rang: 2 }), serie({ rang: null }), serie({ rang: 1 })];
-    expect(Modele.trierParRang(brut).map(s => s.rang)).toEqual([1, 2, null]);
+// ── Formatage des unités ────────────────────────────────────────────────────
+describe('formatDuree — bornes incluses', () => {
+  test.each([
+    [null, ''], [0, '0 s'], [45, '45 s'],
+    [59, '59 s'],
+    [60, '1 min'],                 // borne : 60 s bascule en minutes
+    [90, '1 min 30'],
+    [750, '12 min 30'],
+    [3540, '59 min'],              // borne : 59 min reste en minutes
+    [3600, '1 h'],                 // borne : 60 min bascule en heures
+    [23715, '6 h 35'],             // le cas réel « Alpes du Liechtenstein »
+    [3900, '1 h 05']               // minutes < 10 sur deux chiffres
+  ])('%s s → « %s »', (entree, attendu) => {
+    expect(Modele.formatDuree(entree)).toBe(attendu);
   });
 });
 
-describe('construireBlocs — bloc simple', () => {
-  test('trois séries du même exercice forment un seul bloc non-superset', () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1 }), serie({ rang: 2 }), serie({ rang: 3 })
-    ], CATALOGUE);
-
-    expect(blocs).toHaveLength(1);
-    expect(blocs[0].superset).toBe(false);
-    expect(blocs[0].exercices).toHaveLength(1);
-    expect(blocs[0].exercices[0].nom).toBe('Développé couché barre');
-    expect(blocs[0].exercices[0].lettre).toBe('A');
-    expect(blocs[0].nbTravail).toBe(3);
+describe('formatDistance — bornes incluses', () => {
+  test.each([
+    [null, ''], [0, '0 m'], [850, '850 m'],
+    [999, '999 m'],                // borne : sous 1 000 m, en mètres
+    [1000, '1 km'],                // borne : à 1 000 m, en kilomètres
+    [1500, '1,5 km'],
+    [22660, '22,7 km'],            // le cas réel « Alpes du Liechtenstein »
+    [12930, '12,9 km']
+  ])('%s m → « %s »', (entree, attendu) => {
+    expect(Modele.formatDistance(entree)).toBe(attendu);
   });
 
-  test('le même exercice repris plus loin ouvre un second bloc', () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1, exercise_slug: 'developpe-couche-barre' }),
-      serie({ rang: 2, exercise_slug: 'ecarte-haltere' }),
-      serie({ rang: 3, exercise_slug: 'developpe-couche-barre' })
-    ], CATALOGUE);
-
-    expect(blocs).toHaveLength(3);
-    expect(blocs.map(b => b.exercices[0].slug)).toEqual([
-      'developpe-couche-barre', 'ecarte-haltere', 'developpe-couche-barre'
-    ]);
+  test('le séparateur décimal est la virgule, jamais le point', () => {
+    expect(Modele.formatDistance(22660)).not.toContain('.');
+    expect(Modele.formatDistance(22660)).toContain(',');
   });
 });
 
-describe('construireBlocs — superset', () => {
-  test('un groupe_superset partagé réunit trois exercices en un bloc, lettres A/B/C', () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1, groupe_superset: 1, exercise_slug: 'elevation-laterale-haltere' }),
-      serie({ rang: 2, groupe_superset: 1, exercise_slug: 'ecarte-haltere' }),
-      serie({ rang: 3, groupe_superset: 1, exercise_slug: 'extension-triceps-poulie' }),
-      serie({ rang: 4, groupe_superset: 1, exercise_slug: 'elevation-laterale-haltere' })
-    ], CATALOGUE);
-
-    expect(blocs).toHaveLength(1);
-    expect(blocs[0].superset).toBe(true);
-    expect(blocs[0].exercices.map(x => x.lettre)).toEqual(['A', 'B', 'C']);
-    expect(blocs[0].exercices.map(x => x.nom)).toEqual([
-      'Élévation latérale haltère', 'Écarté haltère', 'Extension triceps poulie'
-    ]);
-    // 4 séries réparties : A en a deux, B et C une chacune.
-    expect(blocs[0].exercices.map(x => x.series.length)).toEqual([2, 1, 1]);
-    expect(blocs[0].resume).toBe('Superset · 4 séries de travail');
+describe('formatMesure', () => {
+  test('charge et reps : « 52 kg × 12 », virgule pour les décimaux', () => {
+    expect(Modele.formatMesure(serie({ charge_kg: 52, reps: 12 }))).toBe('52 kg × 12');
+    expect(Modele.formatMesure(serie({ charge_kg: 122.5, reps: 5 }))).toBe('122,5 kg × 5');
   });
 
-  test('un superset et un bloc simple ne se mélangent pas', () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1, groupe_superset: null, exercise_slug: 'developpe-couche-barre' }),
-      serie({ rang: 2, groupe_superset: 2, exercise_slug: 'ecarte-haltere' }),
-      serie({ rang: 3, groupe_superset: 2, exercise_slug: 'extension-triceps-poulie' })
-    ], CATALOGUE);
-
-    expect(blocs).toHaveLength(2);
-    expect(blocs[0].superset).toBe(false);
-    expect(blocs[1].superset).toBe(true);
+  test('une sortie : plus jamais « 23715 s 22660 m »', () => {
+    const rendu = Modele.formatMesure(serie({
+      charge_kg: null, reps: null, duree_s: 23715, distance_m: 22660 }));
+    expect(rendu).toBe('6 h 35 · 22,7 km');
+    expect(rendu).not.toMatch(/\d+ s\b/);
+    expect(rendu).not.toMatch(/\d+ m\b/);
   });
 
-  test('deux groupes de superset distincts font deux blocs', () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1, groupe_superset: 1, exercise_slug: 'elevation-laterale-haltere' }),
-      serie({ rang: 2, groupe_superset: 1, exercise_slug: 'ecarte-haltere' }),
-      serie({ rang: 3, groupe_superset: 2, exercise_slug: 'extension-triceps-poulie' }),
-      serie({ rang: 4, groupe_superset: 2, exercise_slug: 'developpe-couche-barre' })
-    ], CATALOGUE);
-    expect(blocs).toHaveLength(2);
+  test('une série sans rien affiche un tiret, pas du vide', () => {
+    expect(Modele.formatMesure(serie({ charge_kg: null, reps: null }))).toBe('—');
   });
 });
 
-describe('construireBlocs — type_serie', () => {
-  test("l'échauffement est marqué, compté à part, et n'entre pas dans la numérotation", () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1, type_serie: 'echauffement', charge_kg: 60, reps: 10 }),
-      serie({ rang: 2, type_serie: 'echauffement', charge_kg: 100, reps: 5 }),
-      serie({ rang: 3, type_serie: 'travail' }),
-      serie({ rang: 4, type_serie: 'travail' })
-    ], CATALOGUE);
-
-    expect(blocs).toHaveLength(1);
-    expect(blocs[0].series.map(s => s.estTravail)).toEqual([false, false, true, true]);
-    // Les deux séries de travail sont A1 et A2 : la chauffe ne consomme pas de numéro.
-    expect(blocs[0].series.map(s => s.etiquette))
-      .toEqual(['Échauffement', 'Échauffement', 'A1', 'A2']);
-    expect(blocs[0].nbTravail).toBe(2);
-    expect(blocs[0].resume).toBe('2 séries de travail');
-  });
-
-  test('les quatre valeurs réelles de type_serie sont reconnues', () => {
-    const blocs = Modele.construireBlocs([
-      serie({ rang: 1, type_serie: 'travail' }),
-      serie({ rang: 2, type_serie: 'echauffement' }),
-      serie({ rang: 3, type_serie: 'degressive' }),
-      serie({ rang: 4, type_serie: 'echec' })
-    ], CATALOGUE);
-    expect(blocs[0].series.map(s => s.libelleType))
-      .toEqual(['Travail', 'Échauffement', 'Dégressive', 'Échec']);
-    expect(blocs[0].nbTravail).toBe(1);
-  });
-});
-
-describe('nommage des exercices', () => {
-  test('le nom lisible vient de exercises.nom via exercise_slug', () => {
-    const blocs = Modele.construireBlocs(
-      [serie({ rang: 1, exercise_slug: 'ecarte-haltere' })], CATALOGUE);
-    expect(blocs[0].exercices[0].nom).toBe('Écarté haltère');
-  });
-
-  test('un slug absent du catalogue retombe sur le slug, jamais sur du vide', () => {
-    const blocs = Modele.construireBlocs(
-      [serie({ rang: 1, exercise_slug: 'exo-inconnu' })], CATALOGUE);
-    expect(blocs[0].exercices[0].nom).toBe('exo-inconnu');
+// ── Sorties ─────────────────────────────────────────────────────────────────
+describe('estExerciceSortie — critère établi par lecture du catalogue', () => {
+  test.each([
+    ['rando', true], ['pilates', true], ['planche', true],
+    ['dc', false], ['el', false]
+  ])('%s → sortie : %s', (slug, attendu) => {
+    const exo = CATALOGUE.filter(e => e.slug === slug)[0];
+    expect(Modele.estExerciceSortie(exo)).toBe(attendu);
   });
 });
 
 describe('resumerSeance', () => {
-  test('compte les exercices distincts et les seules séries de travail', () => {
+  test('une rando se résume en durée et distance, pas en séries', () => {
     const r = Modele.resumerSeance(
-      { id: 'sess-1', titre: 'Haut du corps', debut: '2026-07-30T18:00:00Z', salle_norme: 'Basic-Fit Guebwiller' },
-      [
-        serie({ rang: 1, type_serie: 'echauffement' }),
-        serie({ rang: 2, type_serie: 'travail' }),
-        serie({ rang: 3, type_serie: 'travail', exercise_slug: 'ecarte-haltere' })
-      ]);
+      { id: 'x', titre: 'Alpes du Liechtenstein', debut: '2026-07-30T08:00:00Z' },
+      [serie({ rang: 1, exercise_slug: 'rando', charge_kg: null, reps: null,
+               duree_s: 23715, distance_m: 22660 })],
+      CATALOGUE);
+
+    expect(r.estSortie).toBe(true);
+    expect(Modele.formatDuree(r.dureeTotale)).toBe('6 h 35');
+    expect(Modele.formatDistance(r.distanceTotale)).toBe('22,7 km');
+  });
+
+  test('une séance qui mêle rando et muscu n’est PAS une sortie', () => {
+    // Cas réel « Rando avec Léa + Pull 💪🏻 » : elle garde une carte pleine.
+    const r = Modele.resumerSeance({ id: 'y', titre: 'Rando avec Léa + Pull' }, [
+      serie({ rang: 1, exercise_slug: 'rando', charge_kg: null, reps: null, duree_s: 3600, distance_m: 4800 }),
+      serie({ rang: 2, exercise_slug: 'dc', charge_kg: 60, reps: 10 })
+    ], CATALOGUE);
+
+    expect(r.estSortie).toBe(false);
+    expect(r.nbExercices).toBe(2);
+  });
+
+  test('une séance de musculation reste comptée en séries de travail', () => {
+    const r = Modele.resumerSeance(
+      { id: 'z', titre: 'Haut du corps', salle_norme: 'Basic-Fit Guebwiller' },
+      [serie({ rang: 1, type_serie: 'echauffement' }), serie({ rang: 2 }), serie({ rang: 3, exercise_slug: 'ec' })],
+      CATALOGUE);
+
+    expect(r.estSortie).toBe(false);
     expect(r.nbExercices).toBe(2);
     expect(r.nbSeriesTravail).toBe(2);
-    expect(r.titre).toBe('Haut du corps');
     expect(r.salle).toBe('Basic-Fit Guebwiller');
   });
 
-  test('une séance sans titre reçoit un libellé de repli', () => {
-    const r = Modele.resumerSeance({ id: 'x', titre: null, debut: '2026-07-30T18:00:00Z' }, []);
-    expect(r.titre).toBe('Séance');
-    expect(r.nbExercices).toBe(0);
+  test('une séance vide n’est pas une sortie', () => {
+    expect(Modele.resumerSeance({ id: 'v', titre: null }, [], CATALOGUE).estSortie).toBe(false);
   });
 });
 
+// ── Cas limites ─────────────────────────────────────────────────────────────
 describe('cas limites', () => {
   test('une séance vide ne produit aucun bloc', () => {
     expect(Modele.construireBlocs([], CATALOGUE)).toEqual([]);
@@ -205,6 +305,15 @@ describe('cas limites', () => {
 
   test('un catalogue absent ne fait pas échouer le rendu', () => {
     const blocs = Modele.construireBlocs([serie({ rang: 1 })], null);
-    expect(blocs[0].exercices[0].nom).toBe('developpe-couche-barre');
+    expect(blocs[0].exercices[0].nom).toBe('dc');
+  });
+
+  test('le même exercice repris plus loin ouvre un second bloc', () => {
+    const blocs = Modele.construireBlocs([
+      serie({ rang: 1, exercise_slug: 'dc' }),
+      serie({ rang: 2, exercise_slug: 'ec' }),
+      serie({ rang: 3, exercise_slug: 'dc' })
+    ], CATALOGUE);
+    expect(blocs).toHaveLength(3);
   });
 });

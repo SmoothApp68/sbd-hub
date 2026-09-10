@@ -65,11 +65,19 @@
       }
       // Le résumé a besoin des séries : une requête par séance affichée.
       // Volontairement naïf — 20 séances, socle de vérification, pas de vue de production.
-      var resumes = [];
+      var parSeance = [];
+      var slugs = [];
       for (var i = 0; i < seances.length; i++) {
         var series = await Donnees.seriesDe(seances[i].id);
-        resumes.push(Modele.resumerSeance(seances[i], series));
+        parSeance.push(series);
+        series.forEach(function (s) { slugs.push(s.exercise_slug); });
       }
+      // Un seul appel au catalogue pour tous les slugs rencontrés : reconnaître
+      // une sortie demande `mesure` et `charge`.
+      var catalogue = await Donnees.exercicesDe(slugs);
+      var resumes = seances.map(function (seance, i) {
+        return Modele.resumerSeance(seance, parSeance[i], catalogue);
+      });
       Rendu.rendreListeSeances(cible, resumes, afficherDetail);
     } catch (err) {
       Rendu.message(cible, texteErreur(err), 'erreur');

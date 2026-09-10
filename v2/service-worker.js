@@ -1,21 +1,21 @@
 // v2/service-worker.js — service worker du socle v2.
 //
-// Scope : /sbd-hub/v2/ (dérivé de l'emplacement du fichier). Le service worker
-// du v1 a le scope /sbd-hub/ et fait du cache-first sur tout le statique : il
-// intercepterait donc /sbd-hub/v2/*. Le service worker le plus spécifique gagne
-// une fois actif, mais les copies déjà déposées par le v1 survivraient — d'où la
-// purge ciblée à l'activation.
+// Hébergement : Cloudflare Pages sert `v2/` **à la racine du domaine**. Le service
+// worker est donc servi depuis `/service-worker.js` et son scope est `/` — il n'y
+// a plus de préfixe `/sbd-hub/`, et le v1 n'est plus servi du tout.
 //
-// Règle du socle : AUCUNE réponse Supabase n'est mise en cache. Un service
-// worker trop zélé qui sert des données périmées coûte cher à diagnostiquer.
+// Règle du socle : AUCUNE réponse Supabase n'est mise en cache. Un service worker
+// trop zélé qui sert des données périmées coûte cher à diagnostiquer.
 
-const CACHE_V2 = 'trainhub-v2-001';
+const CACHE_V2 = 'trainhub-v2-002';
 
 const SHELL = [
   './',
   './index.html',
   './styles.css',
   './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   './vendor/supabase.js',
   './js/config.js',
   './js/client.js',
@@ -35,19 +35,10 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    // Suppression des caches v2 périmés. Rien à purger côté v1 : il n'est plus
+    // servi, donc son service worker ne peut plus rien intercepter.
     const noms = await caches.keys();
-    await Promise.all(noms.map(async (nom) => {
-      if (nom === CACHE_V2) return;
-      // Caches v2 périmés : suppression complète.
-      if (nom.startsWith('trainhub-v2-')) return caches.delete(nom);
-      // Caches du v1 : on ne supprime QUE les entrées /v2/ qu'il a pu happer
-      // avant que ce service worker ne prenne son scope. Le v1 reste intact.
-      const cache = await caches.open(nom);
-      const requetes = await cache.keys();
-      await Promise.all(requetes
-        .filter((r) => new URL(r.url).pathname.includes('/v2/'))
-        .map((r) => cache.delete(r)));
-    }));
+    await Promise.all(noms.map((nom) => (nom === CACHE_V2 ? null : caches.delete(nom))));
     await self.clients.claim();
   })());
 });
@@ -63,8 +54,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Shell v2 uniquement. Hors de notre scope, on laisse passer.
-  if (!url.pathname.includes('/v2/')) return;
+  // Notre propre origine uniquement. Le scope étant devenu `/`, un filtre sur un
+  // segment de chemin ne servirait plus à rien — il ne matcherait même plus.
+  if (url.origin !== self.location.origin) return;
 
   // Réseau d'abord, cache en repli : le socle doit montrer le code du jour,
   // et rester ouvrable hors réseau (pas d'écran blanc).

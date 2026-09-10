@@ -8,12 +8,36 @@
 
 ---
 
+## 0. ⚠️ LE CODE v1 EST UNE ARCHIVE — ET OÙ VIT LA VÉRITÉ
+
+> **Le code v1 (`app.js`, 31 000 lignes, et tout `js/`) est une archive.** Il n'est ni
+> réparé, ni étendu, ni pris pour modèle. **Tout se réécrit dans `v2/`.** Un `grep` qui
+> remonte du code v1 sert à **constater**, jamais à réparer. Si tu trouves un gestionnaire
+> v1 qui traite ton sujet, signale-le et ignore-le.
+
+Le risque est concret et s'est déjà matérialisé : un prompt qui demande de chercher un
+motif fait remonter du code mort, des surfaces non câblées et des gestionnaires à moitié
+écrits — et donne l'impression qu'il faut les réparer.
+
+**La source de vérité de l'implémentation v2, ce sont les specs de [`v2/specs/`](v2/specs/)**,
+pas ce fichier et pas le code v1. Quand le code et une spec divergent, c'est le code qui a
+tort. Lis [`v2/specs/README.md`](v2/specs/README.md) avant d'écrire dans `v2/`.
+
+> **`v2/specs/CADRAGE-V2.md` prime sur toutes les autres specs en cas de contradiction.**
+
+⚠️ **Tout ce qui suit (§4 à §18) décrit le v1 et vaut à titre d'archive.** Les valeurs, les
+algorithmes et le scope de lancement qui y figurent ne pilotent plus rien.
+
+---
+
 ## 1. IDENTITÉ
 
-**TrainHub** = nom **produit**. **SBD Hub** = nom du **repo** (`SmoothApp68/sbd-hub`, privé). Ne pas les opposer.
+**TrainHub** = nom **produit**. **SBD Hub** = nom du **repo** (`SmoothApp68/sbd-hub`, **public**). Ne pas les opposer.
 
 PWA fitness de powerlifting/powerbuilding (français), pour Aurélien et un petit groupe d'utilisateurs réels.
-- URL : https://smoothapp68.github.io/sbd-hub — cible : Android Chrome.
+- Hébergement : **Cloudflare Pages**, à la racine du domaine, avec **`v2/` comme dossier publié**.
+  Le préfixe `/sbd-hub/` de GitHub Pages n'a plus lieu d'être, et **le v1 n'est plus servi du tout**.
+  Cible : Android Chrome, PWA installée, 380 px (l'appareil est peut-être à 360).
 - Positionnement : « Data-Driven Powerbuilding — l'algorithme de force piloté par votre physiologie ».
 - Modèle : Freemium + Premium (gate IA en place, Stripe à venir).
 
@@ -23,9 +47,12 @@ PWA fitness de powerlifting/powerbuilding (français), pour Aurélien et un peti
 
 Deux Claude, rôles séparés :
 1. **Claude.ai (chat + MCP Supabase)** — fait **TOUT** ce qui touche Supabase : SQL, migrations, vérif des données, RLS. Diagnostics data + décisions coaching (avec Gemini) vivent là.
-2. **Toi, Claude Code** — fais **TOUT** le travail repo : commits, PR, tests, refactors. **Tu n'as PAS accès à Supabase.**
+2. **Toi, Claude Code** — fais **TOUT** le travail repo : commits, PR, tests, refactors.
+   **Écriture, migration et RLS sur Supabase : jamais.** En revanche la **lecture du schéma
+   est autorisée** (`v2/specs/SCHEMA-REEL.md`, « Règle de travail »), précisément pour ne jamais
+   coder sur des noms de colonnes non vérifiés.
 
-**Conséquence** : si une tâche exige une action/vérification Supabase (lire des données, patcher une ligne, vérifier une RLS), **signale-le explicitement** dans ton rapport et route cette partie via Claude.ai. Ne tente jamais d'accéder à Supabase directement. Les prompts de tâche arrivent en `.md` (préparés côté Claude.ai) — ton rôle : les exécuter avec rigueur.
+**Conséquence** : si une tâche exige une **écriture**, une migration ou une vérification de RLS, **signale-le explicitement** dans ton rapport et route cette partie via Claude.ai. Lire le schéma pour vérifier un nom de colonne est autorisé et attendu ; lire des données personnelles ne l'est pas. Les prompts de tâche arrivent en `.md` (préparés côté Claude.ai) — ton rôle : les exécuter avec rigueur.
 
 ---
 
@@ -294,7 +321,16 @@ Délègue architecture/coaching (« c'est toi le coach ») **mais** attend une *
 
 ---
 
-## 17. SCOPE DE LANCEMENT — FIGÉ (audit 00-12, juillet 2026)
+## 17. SCOPE DE LANCEMENT — 🗄️ ARCHIVÉ (audit 00-12, juillet 2026)
+
+> 🗄️ **ARCHIVÉ — ne plus exécuter.** Les six fixes bloquants ci-dessous portent tous sur
+> `app.js` : RGPD `SBD_HUB`, `calcCalorieCible`, `calcIPFGL`, cartes prescriptives,
+> `renderFriendsTab`, `isWorkSet()`. **Le v1 n'est plus servi** — Cloudflare Pages publie
+> `v2/` — donc aucun n'a d'utilisateur, et aucun ne bloque plus rien.
+>
+> La section est conservée telle quelle, comme le reste du v1, parce qu'elle documente des
+> défauts réels et la méthode qui les a trouvés. **Elle ne décrit plus un travail à faire.**
+> Le scope de la v2 vit dans [`v2/specs/`](v2/specs/).
 
 > **Règle : le scope est GELÉ.** Les 6 fixes ci-dessous, et rien d'autre, avant la bêta.
 > Tout le reste (~60 findings consolidés + le backlog produit) attend l'après-bêta — **y compris

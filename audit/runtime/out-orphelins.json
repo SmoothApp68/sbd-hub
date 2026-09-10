@@ -1,0 +1,241 @@
+{
+  "avecGarde": [
+    {
+      "id": "dashDaySelector",
+      "fichier": "js/app.js",
+      "ligne": 10153,
+      "fonction": "renderDaySelector",
+      "ligneFonction": 10152,
+      "garde": "if (!el) return;",
+      "brut": "var el = document.getElementById('dashDaySelector');"
+    },
+    {
+      "id": "wpGenerateBtn",
+      "fichier": "js/app.js",
+      "ligne": 27315,
+      "fonction": "renderWeeklyPlanUI",
+      "ligneFonction": 27313,
+      "garde": "if (!genBtn || !content) return;",
+      "brut": "const genBtn = document.getElementById('wpGenerateBtn');"
+    },
+    {
+      "id": "wpContent",
+      "fichier": "js/app.js",
+      "ligne": 27318,
+      "fonction": "renderWeeklyPlanUI",
+      "ligneFonction": 27313,
+      "garde": "if (!genBtn || !content) return;",
+      "brut": "const content = document.getElementById('wpContent');"
+    }
+  ],
+  "sansGarde": [
+    {
+      "id": "ob-mode-continue",
+      "fichier": "js/app.js",
+      "ligne": 2520,
+      "fonction": "selectTrainingMode",
+      "ligneFonction": 2515,
+      "garde": null,
+      "brut": "var continueBtn = document.getElementById('ob-mode-continue');"
+    },
+    {
+      "id": "anatomyFront",
+      "fichier": "js/app.js",
+      "ligne": 6076,
+      "fonction": "svgToggleView",
+      "ligneFonction": 6075,
+      "garde": null,
+      "brut": "var front = document.getElementById('anatomyFront');"
+    },
+    {
+      "id": "anatomyBack",
+      "fichier": "js/app.js",
+      "ligne": 6077,
+      "fonction": "svgToggleView",
+      "ligneFonction": 6075,
+      "garde": null,
+      "brut": "var back = document.getElementById('anatomyBack');"
+    },
+    {
+      "id": "anatBtnFront",
+      "fichier": "js/app.js",
+      "ligne": 6078,
+      "fonction": "svgToggleView",
+      "ligneFonction": 6075,
+      "garde": null,
+      "brut": "var btnF = document.getElementById('anatBtnFront');"
+    },
+    {
+      "id": "anatBtnBack",
+      "fichier": "js/app.js",
+      "ligne": 6079,
+      "fonction": "svgToggleView",
+      "ligneFonction": 6075,
+      "garde": null,
+      "brut": "var btnB = document.getElementById('anatBtnBack');"
+    },
+    {
+      "id": "sbdTotalCard",
+      "fichier": "js/app.js",
+      "ligne": 9448,
+      "fonction": "renderSBDTotal",
+      "ligneFonction": 9445,
+      "garde": null,
+      "brut": "var card = document.getElementById('sbdTotalCard');"
+    },
+    {
+      "id": "programViewerCard",
+      "fichier": "js/app.js",
+      "ligne": 15067,
+      "fonction": "renderProgramViewer",
+      "ligneFonction": 15065,
+      "garde": null,
+      "brut": "const card = document.getElementById('programViewerCard');"
+    },
+    {
+      "id": "coachTodayContent",
+      "fichier": "js/app.js",
+      "ligne": 19598,
+      "fonction": "confirmGhostLog",
+      "ligneFonction": 19559,
+      "garde": null,
+      "brut": "var el = document.getElementById('coachTodayContent');"
+    },
+    {
+      "id": "wpGenerateBtn",
+      "fichier": "js/app.js",
+      "ligne": 26765,
+      "fonction": "generateWeeklyPlan",
+      "ligneFonction": 26764,
+      "garde": null,
+      "brut": "var btn = document.getElementById('wpGenerateBtn');"
+    },
+    {
+      "id": "wpRegenBtn",
+      "fichier": "js/app.js",
+      "ligne": 27316,
+      "fonction": "renderWeeklyPlanUI",
+      "ligneFonction": 27313,
+      "garde": null,
+      "brut": "const regenBtn = document.getElementById('wpRegenBtn');"
+    },
+    {
+      "id": "wpMeta",
+      "fichier": "js/app.js",
+      "ligne": 27317,
+      "fonction": "renderWeeklyPlanUI",
+      "ligneFonction": 27313,
+      "garde": null,
+      "brut": "const meta = document.getElementById('wpMeta');"
+    },
+    {
+      "id": "wpBlocSelect",
+      "fichier": "js/app.js",
+      "ligne": 27319,
+      "fonction": "renderWeeklyPlanUI",
+      "ligneFonction": 27313,
+      "garde": null,
+      "brut": "const select = document.getElementById('wpBlocSelect');"
+    },
+    {
+      "id": "app-shell",
+      "fichier": "js/app.js",
+      "ligne": 32886,
+      "fonction": "checkWaitlistRoute",
+      "ligneFonction": 32882,
+      "garde": null,
+      "brut": "var app = document.getElementById('app-shell') || document.querySelector('.app-container');"
+    },
+    {
+      "id": "defi-type",
+      "fichier": "js/supabase.js",
+      "ligne": 2409,
+      "fonction": "createDefiFromModal",
+      "ligneFonction": 2406,
+      "garde": null,
+      "brut": "var type = document.getElementById('defi-type');"
+    },
+    {
+      "id": "defi-duration",
+      "fichier": "js/supabase.js",
+      "ligne": 2411,
+      "fonction": "createDefiFromModal",
+      "ligneFonction": 2406,
+      "garde": null,
+      "brut": "var duration = document.getElementById('defi-duration');"
+    },
+    {
+      "id": "modal-defi",
+      "fichier": "js/supabase.js",
+      "ligne": 2422,
+      "fonction": "createDefiFromModal",
+      "ligneFonction": 2406,
+      "garde": null,
+      "brut": "var modal = document.getElementById('modal-defi');"
+    },
+    {
+      "id": "socialFriendsBadge",
+      "fichier": "js/supabase.js",
+      "ligne": 3565,
+      "fonction": "renderFriendsTab",
+      "ligneFonction": 3460,
+      "garde": null,
+      "brut": "const badgeEl = document.getElementById('socialFriendsBadge');"
+    },
+    {
+      "id": "chalTitle",
+      "fichier": "js/supabase.js",
+      "ligne": 4743,
+      "fonction": "createChallenge",
+      "ligneFonction": 4731,
+      "garde": null,
+      "brut": "title = (document.getElementById('chalTitle').value || '').trim();"
+    },
+    {
+      "id": "chalType",
+      "fichier": "js/supabase.js",
+      "ligne": 4744,
+      "fonction": "createChallenge",
+      "ligneFonction": 4731,
+      "garde": null,
+      "brut": "type = document.getElementById('chalType').value;"
+    },
+    {
+      "id": "chalExercise",
+      "fichier": "js/supabase.js",
+      "ligne": 4745,
+      "fonction": "createChallenge",
+      "ligneFonction": 4731,
+      "garde": null,
+      "brut": "exercise = (document.getElementById('chalExercise').value || '').trim() || null;"
+    },
+    {
+      "id": "chalTarget",
+      "fichier": "js/supabase.js",
+      "ligne": 4746,
+      "fonction": "createChallenge",
+      "ligneFonction": 4731,
+      "garde": null,
+      "brut": "target = parseFloat(document.getElementById('chalTarget').value) || null;"
+    },
+    {
+      "id": "chalDuration",
+      "fichier": "js/supabase.js",
+      "ligne": 4747,
+      "fonction": "createChallenge",
+      "ligneFonction": 4731,
+      "garde": null,
+      "brut": "duration = parseInt(document.getElementById('chalDuration').value) || 7;"
+    },
+    {
+      "id": "challengeModalSheet",
+      "fichier": "js/supabase.js",
+      "ligne": 4774,
+      "fonction": "createChallenge",
+      "ligneFonction": 4731,
+      "garde": null,
+      "brut": "const sheet = document.getElementById('challengeModalSheet');"
+    }
+  ],
+  "indetermines": []
+}

@@ -60,6 +60,19 @@ contredit le moteur.** Contrainte d'interface, pas seulement de calcul.
 
 ---
 
+> ⚠️ **AVERTISSEMENT DE LECTURE — ce document se corrige en route.**
+>
+> Le critère posé dans cette section a été **retiré** au §12.1, et le critère de
+> concordance qui l'a remplacé a été retiré à son tour au §12.3. Le critère
+> effectivement retenu est celui du **§12.4** — « la montée tient-elle ».
+>
+> Les sections 3 à 11 conservent le raisonnement d'origine parce que la trace des
+> pistes abandonnées a de la valeur : plusieurs sont des recommandations classiques
+> de la littérature, et les revoir évite de les retenter. **Mais appliquer les
+> premières sections sans lire les dernières donne le contraire de la décision.**
+>
+> Lire le §12 en premier.
+
 ## 3. Le critère principal — le délai d'atteinte
 
 Le moteur émet une cible à une date. On cherche la première séance

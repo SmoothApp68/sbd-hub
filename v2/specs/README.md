@@ -20,8 +20,11 @@ Les autres fixent les bornes chiffrées.
 |---|---|
 | `CADRAGE-V2.md` | **Prime sur tous les autres.** Cible, périmètre, ce que le système peut affirmer |
 | `SCHEMA-REEL.md` | État réel de la base, régénéré le 10/09/2026 |
+| `REFERENTIEL-BORNES-V1.md` | Bornes scientifiques sourcées. Ce que l'algo n'a pas le droit d'affirmer |
 | `MOTEUR-PROGRESSION-V2.md` | Progression, palier, format, stagnation |
 | `REGLE-VOLUME-V2.md` | Volume par muscle, fenêtres, seuils |
+| `REGLES-DE-COMPTAGE-V1.md` | Ce qu'un nombre veut dire : séries dures, muscles, poids de corps |
+| `MODIFICATEURS-SERIE-V1.md` | Tempo et élastique. Liste fermée |
 | `ECRAN-SAISIE-V1.md` | Blocs, tours, routines, déviation |
 | `BANC-ESSAI-V1.md` | Méthode de validation et **pistes rejetées** |
 
@@ -36,45 +39,68 @@ jamais coder sur des noms non vérifiés ; écriture, migration et RLS : jamais.
 Le consulter **avant** de proposer une amélioration du moteur — plusieurs idées
 qui semblent évidentes y sont déjà mortes, chiffres à l'appui (conditionner la
 cible de reps à la charge, le délai d'atteinte comme critère principal, le
-critère de concordance). Sans cette lecture, on refait un travail déjà invalidé.
+critère de concordance). Le document porte en tête de son §3 un avertissement
+qui dit lequel des critères a survécu : **lire le §12 en premier**.
 
 **Une spec récente peut en contredire une plus ancienne.** Les documents portent
 leur date ; le plus récent l'emporte sur le point concerné, et `CADRAGE-V2.md`
 l'emporte sur tout. Les divergences connues au 10/09/2026 sont listées ci-dessous.
 
-## Documents cités mais absents de ce dossier
+## Un document délibérément exclu
 
-À connaître : plusieurs specs renvoient à des documents qui ne sont pas ici. Une
-règle qui en dépend ne peut pas être implémentée de mémoire — la demander avant.
+`CATALOGUE-EXERCICES-V4.md` est cité comme dépendance par `MOTEUR-PROGRESSION-V2.md`
+mais **n'est pas commité, et c'est volontaire** : il se déclare périmé en tête,
+annonce 172 exercices quand la base en compte 237, et affirme que rien n'est écrit
+en base. Le commiter installerait la même fausse vérité que `SCHEMA-V2_2.md`.
 
-| Document | Où il est cité |
-|---|---|
-| `REFERENTIEL-BORNES-V1.md` | `MOTEUR-PROGRESSION-V2.md` (dépendance déclarée) et **une dizaine de renvois** « référentiel §… » dans le moteur et `REGLE-VOLUME-V2.md` |
-| `REGLES-DE-COMPTAGE-V1.md` | dépendance déclarée du moteur — comptage des séries, poids de corps |
-| `MODIFICATEURS-SERIE-V1.md` | dégressive, rest-pause, amplitudes |
-| `CATALOGUE-EXERCICES-V4.md` | dépendance déclarée du moteur |
+**La cartographie muscles réelle est en base** — `exercises.muscles_primaires` et
+`muscles_secondaires` — et `SCHEMA-REEL.md` y renvoie.
 
 Les documents `REGLE-PROGRESSION-V1*.md`, `REGLE-VOLUME-V1.md`, `SCHEMA-V2.md` et
-`SCHEMA-V2_2.md` sont cités comme **remplacés** — leur absence est normale.
+`SCHEMA-V2_2.md` sont cités comme **remplacés** : leur absence est normale.
 
-## Divergences connues entre specs — non tranchées ici
+## Divergences connues — signalées, pas arbitrées
 
-Signalées, pas arbitrées. À trancher par Aurélien.
+### ⚠️ Deux noms de colonne qui n'existent pas
 
-**`validee_a` a-t-il un défaut ?** `ECRAN-SAISIE-V1.md` §7.1 écrit qu'il « vaut
-`now()` par défaut sur toute série saisie dans l'app ». `SCHEMA-REEL.md` écrit que
-le `DEFAULT now()` **a été retiré** par la migration `v2_039`, délibérément, parce
-qu'un défaut rendait la règle « écrire à la validation, jamais à l'insertion »
-impossible à tenir. `SCHEMA-REEL.md` est postérieur et régénéré depuis la base :
-c'est lui qui décrit l'état réel. La conséquence pratique est la même dans les
-deux textes — l'app doit écrire `validee_a` elle-même, au moment de la coche.
+`REGLES-DE-COMPTAGE-V1.md` §7 (daté du 23/08, antérieur à l'écriture du schéma en
+français) nomme deux colonnes dans leur forme anglaise. **Coder d'après ce tableau
+produirait une erreur certaine.** Vérifié en base le 10/09/2026 :
 
-**Chiffres périmés.** Le cadrage (23/08) parle de 891 séances et
-`REGLE-VOLUME-V2.md` §9.4 de 206 exercices ; l'état au 10/09 est de **1 221
-séances** et **237 exercices**. `ECRAN-SAISIE-V1.md` §9 annonce `v2_037` comme
-prochain numéro de migration libre, `SCHEMA-REEL.md` dit **`v2_040`**.
+| Le document écrit | La base a |
+|---|---|
+| `sets.load_kg` | **`sets.charge_kg`** |
+| `body_weight_log.weight_kg` | **`body_weight_log.poids_kg`** |
 
-**`BANC-ESSAI-V1.md` se corrige en cours de route.** Son §3 présente le délai
-d'atteinte comme critère principal ; son §12.1 le **retire**. De même le §8 pose
-un désaccord sur le seuil de stagnation que le §12.4 tranche à 4 séances. Lire
-les sections finales avant d'appliquer les premières.
+`body_weight_log` porte en outre `masse_grasse_pct`, que le document ne mentionne pas.
+
+### Chiffres périmés
+
+Plusieurs documents citent une volumétrie antérieure aux imports. L'état au
+10/09/2026 est de **1 221 séances · 28 103 séries · 237 exercices · 116 pesées**.
+
+| Document | Ce qu'il annonce |
+|---|---|
+| `REGLES-DE-COMPTAGE-V1.md` | « Rien n'est écrit en base » (en-tête) — **faux depuis** : muscles, `coef_pdc`, `masse_depart_kg` et `body_weight_log` existent tous. C'est le défaut même qui fait rejeter `CATALOGUE-EXERCICES-V4.md` |
+| `REGLES-DE-COMPTAGE-V1.md` | 582 séances · 15 677 séries · 113 pesées · 164 exercices |
+| `REFERENTIEL-BORNES-V1.md` | 891 séances · 557 pour aurel_br |
+| `REGLE-VOLUME-V2.md` §9.4 | 206 exercices au catalogue |
+| `ECRAN-SAISIE-V1.md` §9 | `v2_037` comme prochaine migration libre — `SCHEMA-REEL.md` dit **`v2_040`** |
+
+### Un chiffre que sa propre doctrine condamne
+
+`MODIFICATEURS-SERIE-V1.md` §4 écrit que les supersets « représentent 38 % des
+séries ». `ECRAN-SAISIE-V1.md` mesure **48,7 %** et en tire précisément la doctrine
+« un chiffre qui traîne dans les notes doit être remesuré avant d'être utilisé ».
+Le premier document conserve le chiffre que le second a corrigé.
+
+### Résolu le 10/09/2026
+
+- **`validee_a`** — `ECRAN-SAISIE-V1.md` §7.1 disait « vaut `now()` par défaut ».
+  La migration `v2_039` a retiré ce défaut ; la section porte désormais la
+  correction et sa raison.
+- **Volumétrie du cadrage** — 891 séances corrigées en 1 221.
+- **Auto-correction du banc d'essai** — un avertissement en tête du §3 dit
+  quel critère a survécu et renvoie au §12.
+- **Périmètre du moteur ≠ périmètre de l'affichage** — `CADRAGE-V2.md` §2 ter :
+  la v2 affiche randonnée, pilates, escalade et course ; le moteur ne les lit pas.

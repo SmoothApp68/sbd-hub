@@ -47,6 +47,23 @@ Randonnée, course et escalade sont différents : il y a bien charge et progress
 
 ---
 
+## 2 ter. Périmètre du moteur ≠ périmètre de l'affichage
+
+Le §2 exclut du périmètre la randonnée, le pilates, l'escalade et la course. Cette exclusion
+porte sur ce que le **moteur** lit, pas sur ce que l'**app** montre.
+
+> **La v2 les affiche, le moteur ne les lit pas.**
+
+Une séance de rando reste une séance de la personne : la masquer serait mentir sur son
+historique. Mais elle n'entre ni dans le volume par muscle, ni dans le palier, ni dans le
+compteur de stagnation — elle n'a pas de charge et fausserait tous les compteurs.
+
+Mesuré au 10/09/2026 : **64 séances sur 1 221** relèvent de ce cas, détectées par
+`exercises.charge = 'aucune'` et `mesure ∈ {temps, distance_temps}`. Une séance mixte
+(« Rando avec Léa + Pull ») reste une séance de musculation à part entière.
+
+---
+
 ## 2 bis. Règle permanente des prompts Claude Code
 
 > **Le code v1 est une archive, jamais une base.** `app.js` et ses 31 000 lignes ne sont ni
@@ -74,7 +91,7 @@ répétée dans chaque prompt sans exception.
 
 ### 3.1 Descriptif oui, prescriptif jamais (sur les données historiques)
 
-Question posée : peut-on tirer des 891 séances la logique d'entraînement idéale — « Aurélien a le mieux progressé en 5 séances/semaine avec tel split » ?
+Question posée : peut-on tirer des 1 221 séances la logique d'entraînement idéale — « Aurélien a le mieux progressé en 5 séances/semaine avec tel split » ?
 
 **Techniquement possible. Scientifiquement indéfendable.** Deux raisons :
 
@@ -122,7 +139,7 @@ Pendant cette période, l'utilisateur a le journal de bord : ses séances, ses c
 
 ### 3.2 Le vrai gisement : les seuils de détection
 
-Plutôt que chercher le programme idéal, utiliser les 891 séances pour répondre à : **combien de séances faut-il avant de pouvoir affirmer qu'un utilisateur progresse réellement, plutôt que de bouger dans le bruit ?**
+Plutôt que chercher le programme idéal, utiliser les 1 221 séances pour répondre à : **combien de séances faut-il avant de pouvoir affirmer qu'un utilisateur progresse réellement, plutôt que de bouger dans le bruit ?**
 
 C'est mesurable sur les données réelles, et c'est précisément ce dont l'algo a besoin pour cesser de crier au loup.
 

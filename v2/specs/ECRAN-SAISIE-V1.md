@@ -266,9 +266,16 @@ charges** (cf. 1.1). Et pas le nombre de séries fait ce jour-là : une séance
 exercice, seulement 18 à 37 % d'alternance réelle), vraie chronologie pour les
 séances saisies dans l'app.
 
-**7.1 — Résolu sans migration.** `validee_a` est **NULL sur les 28 103 séries
-importées** et vaut `now()` par défaut sur toute série saisie dans l'app. Les deux
-colonnes pour les deux sens existent déjà.
+**7.1 — Résolu sans migration de structure.** `validee_a` est **NULL sur les
+28 103 séries importées**, et se remplit **au moment où la série est validée** pour
+toute séance saisie dans l'app. Les deux colonnes pour les deux sens existent déjà.
+
+> ⚠️ **Corrigé le 10/09/2026.** Cette section disait que `validee_a` « vaut `now()`
+> par défaut ». C'était vrai de la structure, et c'était un piège : la migration
+> **`v2_039` a retiré le `DEFAULT now()`** précisément pour rendre impossible le
+> défaut décrit au §7.4 ci-dessous. Avec un défaut, une ligne pré-créée au démarrage
+> d'une séance recevait l'horodatage de la création. La base garantit désormais ce que
+> seule une discipline de code garantissait. Référence : `SCHEMA-REEL.md`.
 
 - **`rang`** = ordre d'affichage.
 - **`validee_a`** = chronologie.

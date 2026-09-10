@@ -321,7 +321,16 @@ Délègue architecture/coaching (« c'est toi le coach ») **mais** attend une *
 
 ---
 
-## 17. SCOPE DE LANCEMENT — FIGÉ (audit 00-12, juillet 2026)
+## 17. SCOPE DE LANCEMENT — 🗄️ ARCHIVÉ (audit 00-12, juillet 2026)
+
+> 🗄️ **ARCHIVÉ — ne plus exécuter.** Les six fixes bloquants ci-dessous portent tous sur
+> `app.js` : RGPD `SBD_HUB`, `calcCalorieCible`, `calcIPFGL`, cartes prescriptives,
+> `renderFriendsTab`, `isWorkSet()`. **Le v1 n'est plus servi** — Cloudflare Pages publie
+> `v2/` — donc aucun n'a d'utilisateur, et aucun ne bloque plus rien.
+>
+> La section est conservée telle quelle, comme le reste du v1, parce qu'elle documente des
+> défauts réels et la méthode qui les a trouvés. **Elle ne décrit plus un travail à faire.**
+> Le scope de la v2 vit dans [`v2/specs/`](v2/specs/).
 
 > **Règle : le scope est GELÉ.** Les 6 fixes ci-dessous, et rien d'autre, avant la bêta.
 > Tout le reste (~60 findings consolidés + le backlog produit) attend l'après-bêta — **y compris

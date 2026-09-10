@@ -1,0 +1,119 @@
+/* v2/styles.css — jetons visuels repris des maquettes de v2/maquettes/.
+   Police : pile système. Les maquettes chargent Archivo depuis Google Fonts ;
+   le dépôt interdit les CDN externes, donc le code de production s'en passe. */
+
+:root{
+  --fond:#0b0c0e;
+  --carte:#1b1d21;
+  --ligne:#2a2d33;
+  --texte:#e8e9eb;
+  --sourdine:#7e838c;
+  --jaune:#f2c318;
+  --bleu:#2f6fd0;
+  --rouge:#c8352c;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:var(--fond);
+  color:var(--texte);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:flex;
+  justify-content:center;
+  min-height:100vh;
+}
+
+.tel{
+  width:100%;
+  max-width:380px;
+  padding:20px 12px calc(40px + env(safe-area-inset-bottom));
+}
+
+[hidden]{display:none !important}
+
+/* ── En-têtes ─────────────────────────────────────────────────────────── */
+.entete{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:8px;padding:0 2px 14px;flex-wrap:wrap;
+}
+.entete h1{font-size:17px;font-weight:700;letter-spacing:.01em}
+.jalon{font-size:12px;color:var(--sourdine)}
+.actions{display:flex;gap:6px}
+
+/* ── Boutons ──────────────────────────────────────────────────────────── */
+button{font-family:inherit;cursor:pointer}
+
+.principal{
+  width:100%;height:42px;margin-top:14px;
+  background:var(--jaune);color:#121316;border:none;border-radius:8px;
+  font-size:14px;font-weight:700;
+}
+.principal:disabled{opacity:.6;cursor:default}
+
+.discret{
+  background:none;border:1px solid var(--ligne);color:var(--sourdine);
+  border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:600;
+}
+.discret:active{border-color:var(--jaune);color:var(--jaune)}
+
+/* ── Formulaire de connexion ──────────────────────────────────────────── */
+.carte{background:var(--carte);border-radius:10px;padding:16px}
+.carte label{display:block;font-size:11.5px;color:var(--sourdine);margin:10px 0 5px;font-weight:600}
+.carte label:first-child{margin-top:0}
+.carte input{
+  width:100%;height:38px;padding:0 10px;
+  background:#141619;border:1px solid var(--ligne);border-radius:6px;
+  color:var(--texte);font-family:inherit;font-size:15px;
+}
+.carte input:focus{outline:none;border-color:var(--jaune)}
+
+/* ── Liste des séances ────────────────────────────────────────────────── */
+.seance{
+  display:block;width:100%;text-align:left;
+  background:var(--carte);border:none;border-radius:10px;
+  padding:12px;margin-bottom:10px;color:var(--texte);
+}
+.seance:active{box-shadow:0 0 0 1.5px var(--jaune) inset}
+.seance-haut{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.seance-titre{font-size:13.5px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.seance-date{font-size:11.5px;color:var(--sourdine);white-space:nowrap;font-variant-numeric:tabular-nums}
+.seance-meta{font-size:11.5px;color:var(--sourdine);margin-top:5px;font-variant-numeric:tabular-nums}
+.seance-salle{font-size:11px;color:var(--sourdine);margin-top:3px;overflow-wrap:anywhere}
+
+/* ── Détail : blocs, exercices, séries ────────────────────────────────── */
+.detail-tete{padding:0 2px 12px}
+.detail-tete h2{font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.detail-meta{font-size:11.5px;color:var(--sourdine)}
+
+.bloc{background:var(--carte);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.bloc.superset{border-left:3px solid var(--bleu)}
+
+.exos{padding:11px 12px 9px;display:flex;flex-direction:column;gap:7px}
+.exo{display:flex;align-items:center;gap:8px}
+.lettre{
+  width:17px;height:17px;flex:none;border-radius:3px;background:var(--ligne);
+  font-size:10px;font-weight:700;display:grid;place-items:center;color:var(--sourdine);
+}
+.nom{font-size:13.5px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.resume{font-size:11px;color:var(--sourdine);padding:0 12px 9px;font-variant-numeric:tabular-nums}
+
+.entetes,.serie{
+  display:grid;grid-template-columns:34px 74px 1fr;
+  align-items:center;gap:8px;padding:0 12px;
+}
+.entetes{height:22px;font-size:9.5px;color:var(--sourdine);
+  border-top:1px solid var(--ligne);letter-spacing:.04em}
+.serie{min-height:34px;border-top:1px solid rgba(255,255,255,.04)}
+/* Les séries qui ne sont pas du travail sont visuellement en retrait. */
+.serie.hors-travail{opacity:.62}
+
+.rang{font-size:10.5px;color:#5c6068;font-variant-numeric:tabular-nums}
+.tag{font-size:10.5px;font-weight:700;color:var(--sourdine);font-variant-numeric:tabular-nums}
+.tag.chauffe{font-weight:500;font-size:10px;color:#5c6068}
+.mesure{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+/* ── États ────────────────────────────────────────────────────────────── */
+.vide{font-size:12.5px;color:var(--sourdine);padding:14px 4px;line-height:1.5}
+.erreur{font-size:12.5px;color:var(--rouge);padding:10px 0 0;line-height:1.5;min-height:1em}

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — mode édition</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Expanded:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fond:#0b0c0e;--carte:#1b1d21;--ligne:#2a2d33;--texte:#e8e9eb;
+  --sourdine:#7e838c;--jaune:#f2c318;--bleu:#2f6fd0;--rouge:#c8352c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--fond);font-family:Archivo,system-ui,sans-serif;color:var(--texte);
+  display:flex;justify-content:center;padding:20px 8px 60px;-webkit-font-smoothing:antialiased}
+.tel{width:380px;max-width:100%;position:relative}
+
+.barre{display:flex;justify-content:space-between;align-items:center;padding:0 4px 12px}
+.barre h1{font-family:'Archivo Expanded',Archivo,sans-serif;font-size:16px;font-weight:700}
+.bascule{background:none;border:1px solid var(--ligne);color:var(--sourdine);
+  border-radius:6px;padding:5px 10px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.bascule.on{border-color:var(--jaune);color:var(--jaune)}
+
+.bloc{background:var(--carte);border-radius:10px;margin-bottom:10px;position:relative}
+.bloc.superset{border-left:3px solid var(--bleu)}
+.bloc.glisse{opacity:.45}
+.bloc.cible{box-shadow:0 0 0 1.5px var(--jaune) inset}
+
+.tete{display:flex;align-items:flex-start;gap:8px;padding:11px 8px 10px 12px}
+.poignee{width:20px;flex:none;display:none;padding-top:1px;cursor:grab;touch-action:none}
+.poignee svg{width:13px;height:13px;stroke:#5c6068;stroke-width:2;fill:none}
+.exos{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.exo{display:flex;align-items:center;gap:8px}
+.exo .poignee-exo{width:16px;flex:none;display:none;cursor:grab;touch-action:none}
+.exo .poignee-exo svg{width:11px;height:11px;stroke:#5c6068;stroke-width:2;fill:none}
+.lettre{width:17px;height:17px;flex:none;border-radius:3px;background:var(--ligne);
+  font-size:10px;font-weight:700;display:grid;place-items:center;color:var(--sourdine)}
+.nom{font-size:13.5px;font-weight:600;line-height:1.25;flex:1;min-width:0}
+.palier{font-size:12px;font-weight:600;color:var(--sourdine);white-space:nowrap;font-variant-numeric:tabular-nums}
+.palier b{color:var(--texte);font-weight:700}
+.menu-btn{width:26px;height:24px;flex:none;background:none;border:none;cursor:pointer;
+  display:grid;place-items:center;padding:0}
+.menu-btn svg{width:15px;height:15px;fill:#5c6068}
+.avancement{font-size:11px;color:var(--sourdine);padding:0 12px 10px;font-variant-numeric:tabular-nums;display:none}
+
+.series{border-top:1px solid var(--ligne)}
+.entetes,.serie{display:grid;grid-template-columns:44px 62px 1fr 1fr 28px;align-items:center;gap:6px;padding:0 12px}
+.entetes{height:22px;font-size:9.5px;color:var(--sourdine);letter-spacing:.04em}
+.entetes span:nth-child(3),.entetes span:nth-child(4){text-align:center}
+.serie{height:38px;border-top:1px solid rgba(255,255,255,.04)}
+.serie.tour-actif{background:rgba(242,195,24,.07)}
+.tag{font-size:10.5px;font-weight:700;color:var(--sourdine);font-variant-numeric:tabular-nums}
+.tag.chauffe{font-weight:500;font-size:10px;color:#5c6068}
+.prec{font-size:11.5px;color:var(--sourdine);font-variant-numeric:tabular-nums}
+.champ{height:29px;border:1px solid var(--ligne);border-radius:5px;background:#141619;color:var(--texte);
+  font-family:'Archivo Expanded',Archivo,sans-serif;font-size:14px;font-weight:600;text-align:center;
+  width:100%;font-variant-numeric:tabular-nums}
+.champ::placeholder{color:#4a4e56;font-weight:400}
+.champ:focus{outline:none;border-color:var(--jaune)}
+.coche{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ligne);background:none;
+  cursor:pointer;display:grid;place-items:center;padding:0}
+.coche svg{width:11px;height:11px;stroke:#4a4e56;stroke-width:2.6;fill:none}
+.serie.faite .coche{background:#fff;border-color:#fff}
+.serie.faite .coche svg{stroke:#121316}
+.coche:focus-visible,.menu-btn:focus-visible{outline:2px solid var(--jaune);outline-offset:2px}
+
+/* mode édition */
+body.edition .poignee{display:block}
+body.edition .bloc.ouvert .exo .poignee-exo{display:block}
+body.edition .series{display:none}
+body.edition .palier{display:none}
+body.edition .avancement{display:block}
+body.edition .bloc.ouvert{box-shadow:0 0 0 1px var(--ligne)}
+
+.menu{position:absolute;right:10px;background:#23262b;border:1px solid var(--ligne);
+  border-radius:8px;padding:5px;min-width:172px;z-index:20;display:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.menu.on{display:block}
+.menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--texte);
+  font-family:inherit;font-size:13px;padding:8px 10px;border-radius:5px;cursor:pointer}
+.menu button:hover{background:#2e3238}
+.menu button[disabled]{color:#4a4e56;cursor:default}
+.menu button[disabled]:hover{background:none}
+.menu .sep{height:1px;background:var(--ligne);margin:4px 6px}
+.menu button.destructif{color:var(--rouge)}
+
+.ajout{width:100%;background:none;border:1px dashed var(--ligne);color:var(--sourdine);
+  border-radius:8px;padding:11px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:2px}
+.note{padding:16px 6px 0;font-size:11.5px;line-height:1.55;color:var(--sourdine)}
+.note b{color:var(--texte);font-weight:600}
+</style>
+</head>
+<body>
+<div class="tel">
+
+  <div class="barre">
+    <h1>Haut du corps</h1>
+    <button class="bascule" id="bascule">Modifier</button>
+  </div>
+
+  <div id="liste">
+
+    <section class="bloc" draggable="true">
+      <div class="tete">
+        <span class="poignee"><svg viewBox="0 0 14 14"><path d="M1 4h12M1 10h12"/></svg></span>
+        <div class="exos">
+          <div class="exo">
+            <span class="poignee-exo"><svg viewBox="0 0 12 12"><path d="M1 3.5h10M1 8.5h10"/></svg></span>
+            <span class="lettre">A</span><span class="nom">Développé couché barre</span>
+            <span class="palier">Palier <b>122,5</b> × 5</span>
+          </div>
+        </div>
+        <button class="menu-btn"><svg viewBox="0 0 16 16"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+      </div>
+      <div class="avancement">3 séries · 1 faite</div>
+      <div class="series">
+        <div class="entetes"><span></span><span>Précédent</span><span>kg</span><span>Reps</span><span></span></div>
+        <div class="serie faite"><span class="tag">A1</span><span class="prec">120 × 5</span><input class="champ" value="122,5"><input class="champ" value="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+        <div class="serie tour-actif"><span class="tag">A2</span><span class="prec">120 × 5</span><input class="champ" placeholder="122,5"><input class="champ" placeholder="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+        <div class="serie"><span class="tag">A3</span><span class="prec">120 × 4</span><input class="champ" placeholder="122,5"><input class="champ" placeholder="5"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+      </div>
+    </section>
+
+    <section class="bloc superset" draggable="true">
+      <div class="tete">
+        <span class="poignee"><svg viewBox="0 0 14 14"><path d="M1 4h12M1 10h12"/></svg></span>
+        <div class="exos">
+          <div class="exo"><span class="poignee-exo"><svg viewBox="0 0 12 12"><path d="M1 3.5h10M1 8.5h10"/></svg></span><span class="lettre">A</span><span class="nom">Élévation latérale haltère</span><span class="palier">Palier <b>16</b> × 12</span></div>
+          <div class="exo"><span class="poignee-exo"><svg viewBox="0 0 12 12"><path d="M1 3.5h10M1 8.5h10"/></svg></span><span class="lettre">B</span><span class="nom">Écarté haltère</span><span class="palier">Palier <b>24</b> × 12</span></div>
+          <div class="exo"><span class="poignee-exo"><svg viewBox="0 0 12 12"><path d="M1 3.5h10M1 8.5h10"/></svg></span><span class="lettre">C</span><span class="nom">Extension triceps poulie</span><span class="palier">Palier <b>31,8</b> × 10</span></div>
+        </div>
+        <button class="menu-btn"><svg viewBox="0 0 16 16"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+      </div>
+      <div class="avancement">Superset · 9 séries · 0 faite</div>
+      <div class="series">
+        <div class="entetes"><span></span><span>Précédent</span><span>kg</span><span>Reps</span><span></span></div>
+        <div class="serie"><span class="tag">A1</span><span class="prec">16 × 12</span><input class="champ" placeholder="16"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+        <div class="serie"><span class="tag">B1</span><span class="prec">24 × 12</span><input class="champ" placeholder="24"><input class="champ" placeholder="12"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+        <div class="serie"><span class="tag">C1</span><span class="prec">31,8 × 10</span><input class="champ" placeholder="31,8"><input class="champ" placeholder="10"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+      </div>
+    </section>
+
+    <section class="bloc" draggable="true">
+      <div class="tete">
+        <span class="poignee"><svg viewBox="0 0 14 14"><path d="M1 4h12M1 10h12"/></svg></span>
+        <div class="exos">
+          <div class="exo"><span class="poignee-exo"><svg viewBox="0 0 12 12"><path d="M1 3.5h10M1 8.5h10"/></svg></span><span class="lettre">A</span><span class="nom">Tirage vertical poulie</span><span class="palier">Palier <b>68</b> × 10</span></div>
+        </div>
+        <button class="menu-btn"><svg viewBox="0 0 16 16"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+      </div>
+      <div class="avancement">3 séries · 0 faite</div>
+      <div class="series">
+        <div class="entetes"><span></span><span>Précédent</span><span>kg</span><span>Reps</span><span></span></div>
+        <div class="serie"><span class="tag">A1</span><span class="prec">66 × 10</span><input class="champ" placeholder="68"><input class="champ" placeholder="10"><button class="coche"><svg viewBox="0 0 12 12"><path d="M1.5 6.2 4.5 9.2 10.5 2.8"/></svg></button></div>
+      </div>
+    </section>
+
+  </div>
+
+  <button class="ajout">+ Ajouter un exercice</button>
+
+  <div class="menu" id="menu">
+    <button data-a="grouper">Grouper en superset</button>
+    <button data-a="degrouper">Dégrouper</button>
+    <button data-a="deplacer">Déplacer</button>
+    <button data-a="remplacer">Remplacer</button>
+    <div class="sep"></div>
+    <button class="destructif" data-a="supprimer">Supprimer</button>
+  </div>
+
+  <p class="note">Appuie sur <b>Modifier</b> : les blocs se replient sur leur légende, les poignées apparaissent. Glisse une carte pour la déplacer. Tape une carte pour l'ouvrir et déplacer ses exercices un par un. Le menu fait les mêmes gestes, plus la suppression.</p>
+
+</div>
+
+<script>
+const liste=document.getElementById('liste'), menu=document.getElementById('menu');
+let courant=null;
+
+document.getElementById('bascule').addEventListener('click',e=>{
+  document.body.classList.toggle('edition');
+  e.target.classList.toggle('on');
+  e.target.textContent=document.body.classList.contains('edition')?'Terminé':'Modifier';
+  document.querySelectorAll('.bloc.ouvert').forEach(b=>b.classList.remove('ouvert'));
+  menu.classList.remove('on');
+});
+
+// ouvrir une carte pour manipuler ses exercices
+liste.addEventListener('click',e=>{
+  if(!document.body.classList.contains('edition')) return;
+  if(e.target.closest('.menu-btn')||e.target.closest('.poignee')) return;
+  const b=e.target.closest('.bloc'); if(!b) return;
+  const etait=b.classList.contains('ouvert');
+  document.querySelectorAll('.bloc.ouvert').forEach(x=>x.classList.remove('ouvert'));
+  if(!etait) b.classList.add('ouvert');
+});
+
+// menu trois points
+document.querySelectorAll('.menu-btn').forEach(btn=>{
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const b=btn.closest('.bloc');
+    if(courant===b && menu.classList.contains('on')){menu.classList.remove('on');courant=null;return;}
+    courant=b;
+    menu.querySelector('[data-a="degrouper"]').disabled=!b.classList.contains('superset');
+    const r=btn.getBoundingClientRect(), t=document.querySelector('.tel').getBoundingClientRect();
+    menu.style.top=(r.bottom-t.top+4)+'px';
+    menu.classList.add('on');
+  });
+});
+document.addEventListener('click',()=>{menu.classList.remove('on');courant=null});
+menu.addEventListener('click',e=>{
+  const a=e.target.dataset.a; if(!a) return;
+  if(a==='degrouper'&&courant) courant.classList.remove('superset');
+  if(a==='grouper'&&courant) courant.classList.add('superset');
+  if(a==='supprimer'&&courant) courant.remove();
+  menu.classList.remove('on');
+});
+
+// glissement des blocs
+let tire=null;
+liste.addEventListener('dragstart',e=>{
+  if(!document.body.classList.contains('edition')){e.preventDefault();return}
+  tire=e.target.closest('.bloc'); tire.classList.add('glisse');
+});
+liste.addEventListener('dragend',()=>{
+  if(tire) tire.classList.remove('glisse');
+  document.querySelectorAll('.cible').forEach(x=>x.classList.remove('cible'));
+  tire=null;
+});
+liste.addEventListener('dragover',e=>{
+  e.preventDefault(); if(!tire) return;
+  const sur=e.target.closest('.bloc'); if(!sur||sur===tire) return;
+  document.querySelectorAll('.cible').forEach(x=>x.classList.remove('cible'));
+  sur.classList.add('cible');
+  const r=sur.getBoundingClientRect();
+  liste.insertBefore(tire, e.clientY < r.top+r.height/2 ? sur : sur.nextSibling);
+});
+</script>
+</body>
+</html>

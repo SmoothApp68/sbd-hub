@@ -170,6 +170,19 @@ Le type est **saisi**, pas déduit : l'écran de saisie permet de le changer en 
 
 Le **contenu** de l'échauffement (combien de séries, à quelle charge) relève du chantier coaching, pas de ce document.
 
+> ✅ **Arbitré le 11/09/2026 — le tableau ci-dessus fait foi, le banc avait un trou.**
+> `banc_etage1.py` n'écartait que `warmup` et `dropset` : une série **ratée** entrait donc
+> dans les séries de travail et **votait** pour le palier. Mesuré sur les 97 séance-exercices
+> qui en contiennent une : **93 ont cet échec au-dessus de la plus lourde série de travail** —
+> c'est la définition d'un échec, on charge plus que ce qu'on tient (§6.4 le mesure à 105 %).
+> Le laisser voter remontait le palier au-dessus de la réalité de façon systématique.
+> Cas réel du 28/08/2026, développé militaire haltère : `92×1, [ratée] 100×0, 92×1` rendait
+> « palier 100 × 0 » — l'app affirmait qu'on avait tenu 100 kg le jour de l'échec à 100 kg.
+> **Coût mesuré de la correction : 0,1 point de taux de reconnaissance au plus**, sur les cinq
+> profils. Corrigé dans `v2/banc/banc_etage1.py` et dans `v2/js/palier.js`.
+
+---
+
 ### 4.1 La chauffe non taguée — trou mesuré
 
 Le tag existe, mais il n'est pas systématique. Mesuré sur l'historique importé :
@@ -191,6 +204,15 @@ Ces séries polluent trois choses : la médiane de charge de travail, le décomp
 Le seuil de 75 % est un **choix produit**, pas un résultat mesuré. Il est placé nettement en dessous de l'écart typique d'une montée en charge (un cran, soit 2 à 5 %) pour ne jamais confondre les deux.
 
 **Ceci ne remplace pas le tag.** Une série taguée est traitée par son tag, toujours. La détection ne s'applique qu'en son absence.
+
+> ⚠️ **Réserve signalée le 11/09/2026, non corrigée — les charges NÉGATIVES.** Le catalogue
+> en contient : une assistance se note en négatif (muscle up assisté, tirage assisté),
+> **42 séance-exercices sur 6 385, six exercices**. Sur elles, « ≤ 75 % de la plus lourde »
+> ne veut rien dire : avec −30 comme plus lourde, le seuil vaut −22,5, et toute charge plus
+> négative — c'est-à-dire **plus assistée, donc plus facile** — passe sous le seuil, mais une
+> charge moins assistée aussi selon l'ordre. Le banc Python a le même défaut ; le portage le
+> reproduit fidèlement. À traiter quand l'assistance aura un chantier — la règle devra
+> raisonner sur la difficulté, pas sur le signe de la charge.
 
 ---
 

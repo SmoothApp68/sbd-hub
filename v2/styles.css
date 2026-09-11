@@ -304,10 +304,22 @@ button{font-family:inherit;cursor:pointer}
 /* Une ligne par nom. Pas de grille tant que la colonne de droite est vide :
    elle y ferait passer un nom sur deux. */
 .seance-apercu{margin-top:var(--e2)}
-.apercu-exo{font-size:13px;line-height:1.45;color:var(--texte-2);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* DEUX COLONNES depuis le chantier 17 : « nom | palier × reps ». La colonne de
+   droite était vide au chantier 13 faute de palier, et une grille à moitié
+   vide faisait passer un nom sur deux — d'où la liste d'une colonne de
+   l'époque. Maintenant qu'elle porte quelque chose, la grille reprend. */
+.apercu-exo{display:flex;align-items:baseline;gap:var(--e2);
+  font-size:13px;line-height:1.45;color:var(--texte-2);min-width:0}
+/* Point de rupture assumé à 360 px : « Curl Poignets Paumes vers le Haut
+   Assis » se tronque. La charge, elle, ne bouge pas — c'est la colonne qui
+   doit s'aligner d'une séance à l'autre. */
+.apercu-nom{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apercu-val{flex:none;font-weight:600;color:var(--texte-2);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.apercu-val em{font-style:normal;font-weight:400;color:var(--texte-3);margin-left:3px}
 /* Un seul pivot par carte : le premier exercice en clair, les autres en gris. */
 .apercu-exo.pivot{color:var(--texte)}
+.apercu-exo.pivot .apercu-val{color:var(--texte)}
 .apercu-autres{font-size:12px;line-height:1.45;color:var(--texte-3);margin-top:2px}
 
 /* Une semaine sans séance le dit. Un constat, pas un encouragement. */

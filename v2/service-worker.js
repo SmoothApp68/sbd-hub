@@ -7,7 +7,7 @@
 // Règle du socle : AUCUNE réponse Supabase n'est mise en cache. Un service worker
 // trop zélé qui sert des données périmées coûte cher à diagnostiquer.
 
-const CACHE_V2 = 'trainhub-v2-015';
+const CACHE_V2 = 'trainhub-v2-016';
 
 const SHELL = [
   './',
@@ -24,6 +24,7 @@ const SHELL = [
   './js/modele.js',
   './js/sync.js',
   './js/semaine.js',
+  './js/palier.js',
   './js/periode.js',
   './js/poids.js',
   './js/calendrier.js',

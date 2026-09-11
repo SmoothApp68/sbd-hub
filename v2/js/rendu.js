@@ -14,8 +14,15 @@
   var doc = racine.document;
   function M() { return racine.THModele; }
 
-  // Séparateur décimal français, jamais de point à l'écran.
-  function nombreFr(n) { return String(n).replace('.', ','); }
+  // Séparateur décimal français, jamais de point à l'écran — et le vrai signe
+  // moins (U+2212), jamais le trait d'union du clavier. Les charges NÉGATIVES
+  // existent au catalogue : une assistance se note « −50 kg » (muscle up
+  // assisté, tirage assisté). Sur un chiffre, un trait d'union se lit comme une
+  // césure ; la colonne de palier du chantier 17 est le premier écran à en
+  // afficher.
+  function nombreFr(n) {
+    return String(n).replace('.', ',').replace(/^-/, '\u2212');
+  }
 
   function el(balise, classe, texte) {
     var n = doc.createElement(balise);
@@ -368,11 +375,29 @@
   // suivants en gris : un seul pivot par carte. UNE LIGNE PAR NOM, pas une
   // grille : tant que le palier n'est pas porté, la colonne de droite est vide
   // et une grille à deux colonnes y ferait passer un nom sur deux.
+  // La colonne de droite est REVENUE (chantier 17) : « nom | palier × reps ».
+  // Elle était vide au chantier 13 faute de palier, et la spec demandait alors
+  // une liste d'une colonne — une grille à moitié vide fait passer un nom sur
+  // deux. Maintenant que la colonne porte quelque chose, la grille reprend.
+  //
+  // Un exercice sans palier reconnaissable n'affiche QUE son nom. Le nom prend
+  // alors toute la largeur : pas de tiret, pas de « — », rien qui ressemble à
+  // une valeur manquante. Point de rupture connu à 360 px : les noms longs du
+  // catalogue se tronquent, c'est assumé (§7 bis.5).
   function rendreApercu(carte, apercu) {
     if (!apercu || !apercu.tete.length) return;
     var liste = el('div', 'seance-apercu');
     apercu.tete.forEach(function (e, i) {
-      liste.appendChild(el('div', 'apercu-exo' + (i === 0 ? ' pivot' : ''), e.nom));
+      var ligne = el('div', 'apercu-exo' + (i === 0 ? ' pivot' : ''));
+      ligne.appendChild(el('span', 'apercu-nom', e.nom));
+      if (e.palier !== null && e.palier !== undefined) {
+        var val = el('span', 'apercu-val', nombreFr(e.palier));
+        if (e.reps !== null && e.reps !== undefined) {
+          val.appendChild(el('em', null, '\u00d7 ' + e.reps));
+        }
+        ligne.appendChild(val);
+      }
+      liste.appendChild(ligne);
     });
     var autres = M().libelleAutres(apercu.autres);
     if (autres) liste.appendChild(el('div', 'apercu-autres', autres));

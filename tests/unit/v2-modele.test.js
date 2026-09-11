@@ -432,3 +432,33 @@ describe('libelleAutres — le compte et le pluriel', () => {
       });
   });
 });
+
+// ── Une séance sans série en cache est incomplète, pas vide ────────────────
+describe('resumerSeance — le manque se dit, il ne se déguise pas', () => {
+  const CAT = [
+    { slug: 'dc', nom: 'Développé Couché' },
+    { slug: 'rando', nom: 'Randonnée', charge: 'aucune', mesure: 'distance_temps' }
+  ];
+
+  test('aucune série en cache → incomplète, et PAS une sortie', () => {
+    const r = Modele.resumerSeance({ id: 'x', titre: 'Pecs' }, [], CAT);
+    expect(r.incomplet).toBe(true);
+    // Sans ça, elle passerait pour une séance vide légitime — ou pire, pour
+    // une sortie, puisque « aucun exercice » satisfait vacuement le critère.
+    expect(r.estSortie).toBe(false);
+    expect(r.nbExercices).toBe(0);
+  });
+
+  test('une séance avec ses séries n’est pas incomplète', () => {
+    const r = Modele.resumerSeance({ id: 'y', titre: 'Pecs' },
+      [{ exercise_slug: 'dc', rang: 1, type_serie: 'travail' }], CAT);
+    expect(r.incomplet).toBe(false);
+  });
+
+  test('une randonnée complète reste une sortie', () => {
+    const r = Modele.resumerSeance({ id: 'z', titre: 'Rando' },
+      [{ exercise_slug: 'rando', rang: 1, duree_s: 6480, distance_m: 8400 }], CAT);
+    expect(r.incomplet).toBe(false);
+    expect(r.estSortie).toBe(true);
+  });
+});

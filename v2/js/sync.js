@@ -30,7 +30,12 @@
   //
   // 2 — pagination par curseur de clé. La version 1 paginait sur `created_at`,
   //     non unique, et perdait 8 003 séries sur 28 103.
-  var VERSION_SYNC = 2;
+  // 3 — le cache ne peut plus se figer amputé. La version 2 laissait une
+  //     écriture interrompue définitive : curseur et marque déjà posés, la
+  //     synchro suivante passait en incrémental et réécrivait le partiel.
+  //     Incrémenter REPARE les appareils existants sans qu'ils aient rien à
+  //     faire : leur marque vaut 2, ils reprennent une passe complète.
+  var VERSION_SYNC = 3;
 
   // Un marqueur de version plutôt qu'un drapeau à usage unique : il est
   // idempotent, il survit aux rechargements, et le prochain défaut de ce genre
@@ -43,6 +48,40 @@
 
   // Ce qu'on a contre ce que le serveur annonce. Un compte injoignable ne
   // permet PAS de conclure à l'incomplétude : on ne crie pas dans le noir.
+  // Le compte AUTORISE, il ne constate plus. Le curseur et la marque de forme
+  // ne s'écrivent que si le magasin contient ce que le serveur annonce ; sinon
+  // le curseur reste vide et la synchronisation suivante recommence au lieu de
+  // se croire finie.
+  //
+  // Un compte serveur injoignable n'autorise ni n'interdit : on ne bloque pas
+  // un appareil hors ligne sur 15 Mo à retélécharger à chaque ouverture, mais
+  // on n'inscrit pas non plus d'attendu qu'on ne saurait pas justifier.
+  function decisionDeCommit(enMagasin, compteServeur) {
+    var c = verifierCompletude(enMagasin, compteServeur);
+    return {
+      autorise: !c.verifiable || c.complet,
+      verifiable: c.verifiable,
+      complet: c.complet,
+      manquantes: c.manquantes,
+      // On n'enregistre un attendu que sur une preuve.
+      attendu: (c.verifiable && c.complet) ? compteServeur : null
+    };
+  }
+
+  // Le filet : un magasin plus court que ce qu'on y a mis doit reprendre. Sans
+  // attendu enregistré — un cache d'avant ce commit — on ne conclut rien, et
+  // c'est l'incrément de VERSION_SYNC qui prend le relais.
+  function cacheEstCourt(enMagasin, attendu) {
+    var cible = attendu && attendu.series;
+    if (typeof cible !== 'number' || !isFinite(cible) || cible < 0) return false;
+    return (Number(enMagasin) || 0) < cible;
+  }
+
+  // La décision d'ouverture : faut-il repartir d'une passe complète ?
+  function doitReprendre(marque, enMagasin, attendu) {
+    return doitResynchroniser(marque) || cacheEstCourt(enMagasin, attendu);
+  }
+
   function verifierCompletude(nLocal, nServeur) {
     if (typeof nServeur !== 'number' || !isFinite(nServeur) || nServeur < 0) {
       return { verifiable: false, complet: true, manquantes: 0 };
@@ -130,6 +169,9 @@
     VERSION_SYNC: VERSION_SYNC,
     doitResynchroniser: doitResynchroniser,
     verifierCompletude: verifierCompletude,
+    decisionDeCommit: decisionDeCommit,
+    cacheEstCourt: cacheEstCourt,
+    doitReprendre: doitReprendre,
     cacheAppartientA: cacheAppartientA,
     fusionner: fusionner,
     remplacer: remplacer,

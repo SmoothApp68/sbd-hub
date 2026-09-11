@@ -88,7 +88,12 @@
   // exactement le défaut qu'on corrige.
   async function armerResynchronisation() {
     var marque = await Cache.lireMeta('formeSync');
-    if (!Sync.doitResynchroniser(marque)) return false;
+    var attendu = await Cache.lireMeta('attendu');
+    var enMagasin = await compteSur(function () { return Cache.compterMagasin('series'); });
+    // Deux raisons de reprendre une passe complète : la forme a changé, ou le
+    // magasin est plus court que ce qu'on y a mis. La seconde est le filet —
+    // elle casse le cliquet même pour un cas qu'on n'aurait pas prévu.
+    if (!Sync.doitReprendre(marque, enMagasin, attendu)) return false;
     await Cache.ecrireMeta('curseurSeries', null);
     return true;
   }
@@ -114,22 +119,34 @@
 
       local.seances = Sync.remplacer(seances);
       var listeComplete = Sync.verifierCompletude(local.seances.length, compteSeances).complet;
-      local.series = Sync.purgerSeriesOrphelines(
-        Sync.fusionner(local.series, nouvellesSeries), local.seances, listeComplete);
+      var fusionnees = Sync.fusionner(local.series, nouvellesSeries);
+      local.series = Sync.purgerSeriesOrphelines(fusionnees, local.seances, listeComplete);
       local.exercices = Sync.remplacer(exercices);
       indexerParSeance();
 
+      // Séances et exercices : petits, rafraîchis en entier, vider-puis-écrire
+      // dans UNE transaction. Séries : on n'efface plus rien d'abord — `put`
+      // est un upsert, et ce que la purge a retiré se supprime explicitement.
       await Cache.remplacerTout('seances', local.seances);
-      await Cache.remplacerTout('series', local.series);
       await Cache.remplacerTout('exercices', local.exercices);
+      await Cache.supprimer('series', idsRetires(fusionnees, local.series));
+      await Cache.ecrireLot('series', local.series);
 
-      var avance = Sync.curseurDe(nouvellesSeries);
-      if (avance) await Cache.ecrireMeta('curseurSeries', avance);
-      if (resync) await Cache.ecrireMeta('formeSync', { version: Sync.VERSION_SYNC });
+      // LE COMPTE AUTORISE. On relit le MAGASIN — une variable en mémoire ne
+      // prouve rien sur ce qui a été persisté. Sans preuve de complétude, le
+      // curseur reste vide : la synchro suivante recommence au lieu de se
+      // croire finie, et le cache ne peut plus se figer amputé.
+      var enMagasin = await Cache.compterMagasin('series');
+      var commit = Sync.decisionDeCommit(enMagasin, compteSeries);
+      if (commit.autorise) {
+        var avance = Sync.curseurDe(nouvellesSeries);
+        if (avance) await Cache.ecrireMeta('curseurSeries', avance);
+        if (resync) await Cache.ecrireMeta('formeSync', { version: Sync.VERSION_SYNC });
+        if (commit.attendu !== null) await Cache.ecrireMeta('attendu', { series: commit.attendu });
+      }
 
-      var completude = Sync.verifierCompletude(local.series.length, compteSeries);
       etat = Sync.deciderEtat({
-        syncOk: true, aDesDonnees: true, manquantes: completude.manquantes
+        syncOk: true, aDesDonnees: true, manquantes: commit.manquantes
       });
     } catch (e) {
       // Une synchronisation ratée n'est jamais bloquante : on garde ce qu'on a.
@@ -138,6 +155,15 @@
     } finally {
       syncEnCours = false;
     }
+  }
+
+  // Ce que la purge a retiré doit quitter le magasin : sans `clear()`, une
+  // série dont la séance a disparu y resterait.
+  function idsRetires(avant, apres) {
+    var restants = new Set((apres || []).map(function (s) { return s && s.id; }));
+    var retires = [];
+    (avant || []).forEach(function (s) { if (s && !restants.has(s.id)) retires.push(s.id); });
+    return retires;
   }
 
   // Un compte indisponible n'est pas un compte à zéro : on rend null, et

@@ -375,12 +375,14 @@
 
       j.seances.forEach(function (s) {
         var r = resumeDe(s);
-        var carte = el('button', r.estSortie ? 'seance sortie' : 'seance');
+        var carte = el('button', 'seance' + (r.estSortie ? ' sortie' : '') +
+          (r.incomplet ? ' incomplete' : ''));
         carte.type = 'button';
         var haut = el('div', 'seance-haut');
         haut.appendChild(el('span', 'seance-titre', r.titre));
         carte.appendChild(haut);
-        var meta = r.estSortie ? resumeSortie(r)
+        var meta = r.incomplet ? 'séries pas encore reçues'
+          : r.estSortie ? resumeSortie(r)
           : r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
             ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '');
         if (meta) carte.appendChild(el('div', 'seance-meta', meta));

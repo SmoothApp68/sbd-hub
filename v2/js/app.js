@@ -165,7 +165,7 @@
       Semaine.bilanSemaine(deLaSemaine, seriesSemaine),
       Semaine.volumeParMuscle(seriesSemaine, local.exercices));
 
-    Rendu.rendreJours($('liste-seances'), jours, function (s) {
+    Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(jours), function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices);
     }, afficherDetail);
   }

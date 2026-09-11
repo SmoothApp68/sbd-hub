@@ -175,17 +175,19 @@
 
   // Les trois premiers exercices d'une séance. Le premier en clair, les deux
   // suivants en gris : un seul pivot par carte. Jamais « et 0 autres ».
+  // UNE LIGNE PAR NOM, pas une grille. Le §7 bis.5 prévoit `nom | palier ×
+  // reps` ; tant que le palier n'est pas porté, la colonne de droite est vide
+  // et une grille à deux colonnes y fait passer un nom sur deux. La grille
+  // reviendra avec le moteur, et le palier avec elle.
   function rendreApercu(carte, apercu) {
     if (!apercu || !apercu.tete.length) return;
-    var grille = el('div', 'seance-apercu');
+    var liste = el('div', 'seance-apercu');
     apercu.tete.forEach(function (e, i) {
-      grille.appendChild(el('span', 'apercu-exo' + (i === 0 ? ' pivot' : ''), e.nom));
+      liste.appendChild(el('div', 'apercu-exo' + (i === 0 ? ' pivot' : ''), e.nom));
     });
-    if (apercu.autres > 0) {
-      grille.appendChild(el('span', 'apercu-autres',
-        'et ' + apercu.autres + ' autre' + (apercu.autres > 1 ? 's' : '') + ' exercices'));
-    }
-    carte.appendChild(grille);
+    var autres = M().libelleAutres(apercu.autres);
+    if (autres) liste.appendChild(el('div', 'apercu-autres', autres));
+    carte.appendChild(liste);
   }
 
   // L'onglet actif reflète la vue courante — une seule source, la route.
@@ -203,8 +205,18 @@
   // pas : le système ne commente jamais l'assiduité (CADRAGE-V2 §3.1 bis).
   function rendreJours(cible, jours, resumeDe, surChoix) {
     vider(cible);
+
+    // Une semaine entièrement vide dit qu'elle est vide, plutôt que de rendre
+    // un écran nu : sinon on ne distingue pas « je ne me suis pas entraîné »
+    // de « l'app a échoué ». Un constat, rien d'autre — le système ne commente
+    // jamais l'assiduité (CADRAGE-V2 §3.1 bis).
+    if (!jours.length) {
+      cible.appendChild(el('p', 'semaine-vide', 'Aucune séance cette semaine.'));
+      return;
+    }
+
     jours.forEach(function (j) {
-      var bloc = el('div', 'jour' + (j.seances.length ? '' : ' vide'));
+      var bloc = el('div', 'jour');
       var tete = el('div', 'jour-tete');
       tete.appendChild(el('span', 'jour-nom', j.nom));
       tete.appendChild(el('span', 'jour-date', j.date.getDate() + ' ' + MOIS[j.date.getMonth()]));

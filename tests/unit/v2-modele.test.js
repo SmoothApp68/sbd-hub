@@ -395,3 +395,40 @@ describe('resumerSeance — l’aperçu suit la carte', () => {
     expect(r.dureeTotale).toBe(6480);
   });
 });
+
+// ── « et N autres exercices » — les deux mots s'accordent ──────────────────
+describe('libelleAutres — le compte et le pluriel', () => {
+  test.each([
+    [0, ''], [-1, ''], [null, ''], [undefined, ''],
+    [1, 'et 1 autre exercice'],
+    [2, 'et 2 autres exercices'],
+    [5, 'et 5 autres exercices']
+  ])('%p -> %p', (n, attendu) => {
+    expect(Modele.libelleAutres(n)).toBe(attendu);
+  });
+
+  test('« et 0 autres » n’apparaît jamais — la phrase est vide, pas nulle', () => {
+    expect(Modele.libelleAutres(0)).toBe('');
+  });
+
+  // Configuration discriminante : à 1, « autre exercice » et « autres
+  // exercices » diffèrent. À 3, seul le premier mot départage — un accord
+  // fautif sur le second passerait inaperçu.
+  test('à UN autre, le second mot est au singulier lui aussi', () => {
+    expect(Modele.libelleAutres(1)).not.toMatch(/exercices/);
+    expect(Modele.libelleAutres(1).endsWith('exercice')).toBe(true);
+  });
+
+  test('le compte suit le nombre réel d’exercices de la séance', () => {
+    const CAT = [1, 2, 3, 4, 5].map((i) => ({ slug: 'e' + i, nom: 'Exercice ' + i }));
+    const seance = (n) => CAT.slice(0, n).map((e, i) => ({
+      exercise_slug: e.slug, rang: i + 1, type_serie: 'travail'
+    }));
+    [[1, ''], [2, ''], [3, ''], [4, 'et 1 autre exercice'], [5, 'et 2 autres exercices']]
+      .forEach(([n, attendu]) => {
+        const a = Modele.apercuExercices(seance(n), CAT);
+        expect(a.tete.length).toBe(Math.min(n, 3));
+        expect(Modele.libelleAutres(a.autres)).toBe(attendu);
+      });
+  });
+});

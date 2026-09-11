@@ -14,7 +14,7 @@
   var Rendu = racine.THRendu, Modele = racine.THModele;
   var Donnees = racine.THDonnees, Auth = racine.THAuth;
   var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
-  var Routeur = racine.THRouteur;
+  var Routeur = racine.THRouteur, Sortie = racine.THSortie;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], parSeance: null };
@@ -22,8 +22,7 @@
   var syncEnCours = false;
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
   var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
-  var sortieAutorisee = false;
-  var profondeur = 0;        // nos propres entrées d'historique, pour savoir quoi rembobiner
+  var sortie = null;         // mécanisme du bouton retour (v2/js/sortie.js)
 
   function $(id) { return doc.getElementById(id); }
   function montrer(nom) { Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); }); }
@@ -174,6 +173,11 @@
     if (local.seances.length) rendreRoute(routeInitiale);
     else { montrer('liste'); Rendu.message($('liste-seances'), 'Première synchronisation…'); }
 
+    // L'ancre s'installe dès l'ouverture : sur la vue racine, l'entrée de
+    // lancement est seule, et un retour qui frappe le fond de la pile ne
+    // déclenche aucun popstate — il ferme, sans laisser rien intercepter.
+    sortie.apresNavigation(routeInitiale, false);
+
     await synchroniser();
     if (!vues.detail.hidden) return;   // l'utilisateur a ouvert une séance entre-temps
     rendreRoute(Routeur.analyser(racine.location.pathname));
@@ -197,7 +201,6 @@
     local = { seances: [], series: [], exercices: [], parSeance: null };
     try { await Auth.deconnecter(); } catch (e) { montrer('connexion'); }
     allerA(Routeur.CONNEXION, {}, true);
-    profondeur = 0;
   }
 
   function enregistrerSW() {
@@ -219,9 +222,14 @@
 
   function allerA(vue, params, remplacer) {
     var chemin = Routeur.construire(vue, params);
-    if (chemin === racine.location.pathname) return;
-    if (remplacer) racine.history.replaceState({ vue: vue }, '', chemin);
-    else { racine.history.pushState({ vue: vue }, '', chemin); profondeur++; }
+    var empilee = false;
+    if (chemin !== racine.location.pathname) {
+      if (remplacer) racine.history.replaceState({ vue: vue }, '', chemin);
+      else { racine.history.pushState({ vue: vue }, '', chemin); empilee = true; }
+    }
+    // Même quand rien ne bouge : c'est une action explicite, elle ré-arme
+    // l'interception et remet l'ancre en place si la vue la réclame.
+    sortie.apresNavigation({ vue: vue, params: params || {} }, empilee);
   }
 
   // Une vue peut déclarer qu'elle refuse la sortie. C'est le point d'accroche
@@ -237,22 +245,11 @@
     return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
   }
 
-  function surRetour() {
-    if (sortieAutorisee) return;
-    var route = Routeur.analyser(racine.location.pathname);
-    var d = Routeur.decisionRetour(route, { gardes: gardes });
-
-    if (d.action === 'historique') { profondeur = Math.max(0, profondeur - 1); rendreRoute(route); return; }
-    if (d.action === 'quitter') { sortieAutorisee = true; return; }
-
-    // 'confirmer' ou 'garde' : on ré-ancre pour ne pas sortir, puis on demande.
-    racine.history.pushState({ ancre: true }, '', racine.location.pathname);
-    demanderSortie(d.garde);
-  }
-
   // Une question, deux choix. Aucune rétention, aucun message culpabilisant :
   // fermer l'app n'est pas un comportement à commenter (CADRAGE-V2 §3.1 bis).
-  function demanderSortie(garde) {
+  // Ce qui suit la réponse appartient au mécanisme (v2/js/sortie.js) : ici, on
+  // ne fait qu'afficher et rapporter le choix.
+  function demanderSortie(garde, surOui, surNon) {
     var boite = $('confirmation');
     $('confirmation-question').textContent =
       (garde && garde.question) || 'Quitter TrainHub ?';
@@ -261,23 +258,26 @@
 
     function fermer() {
       boite.hidden = true;
-      oui.removeEventListener('click', surOui);
-      non.removeEventListener('click', surNon);
+      oui.removeEventListener('click', clicOui);
+      non.removeEventListener('click', clicNon);
     }
-    function surOui() {
-      fermer();
-      sortieAutorisee = true;
-      // On rembobine nos propres entrées : une fois notre historique épuisé,
-      // le retour d'Android ferme l'app. On ne peut pas la fermer par script.
-      racine.history.go(-(profondeur + 2));
-    }
-    function surNon() { fermer(); }
-    oui.addEventListener('click', surOui);
-    non.addEventListener('click', surNon);
+    function clicOui() { fermer(); surOui(); }
+    function clicNon() { fermer(); surNon(); }
+    oui.addEventListener('click', clicOui);
+    non.addEventListener('click', clicNon);
   }
 
   async function demarrer() {
     vues = { connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail') };
+    sortie = Sortie.creer({
+      history: racine.history,
+      routeur: Routeur,
+      chemin: function () { return racine.location.pathname; },
+      etatHistorique: function () { return racine.history.state; },
+      gardes: function () { return gardes; },
+      demander: demanderSortie,
+      rendre: rendreRoute
+    });
     $('form-connexion').addEventListener('submit', soumettreConnexion);
     $('btn-deconnexion').addEventListener('click', deconnecter);
     $('btn-retour').addEventListener('click', function () { afficherSemaine(); });
@@ -292,7 +292,7 @@
       afficherSemaine();
     });
 
-    racine.addEventListener('popstate', surRetour);
+    racine.addEventListener('popstate', function () { sortie.surRetour(); });
 
     Auth.surChangement(function (session) {
       if (session) entrer(session);

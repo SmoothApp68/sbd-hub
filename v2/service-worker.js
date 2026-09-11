@@ -7,14 +7,37 @@
 // Règle du socle : AUCUNE réponse Supabase n'est mise en cache. Un service worker
 // trop zélé qui sert des données périmées coûte cher à diagnostiquer.
 //
-// COQUILLE SERVIE DEPUIS LE CACHE D'ABORD (chantier 18). Le réseau d'abord
-// tenait tant que le réseau ÉCHOUE — hors ligne, `fetch` rejette tout de suite
-// et le repli joue. Il ne tient pas quand le réseau RÉPOND MAL : un wifi de
-// salle qui s'associe sans donner d'accès ne fait pas échouer `fetch`, il le
-// fait PENDRE, et c'est alors l'app entière qui pend. La coquille est versionnée
-// par CACHE_V2 : la servir depuis le cache est sans risque, et une nouvelle
-// version prend la main par le cycle install/activate, pas par une requête.
-const CACHE_V2 = 'trainhub-v2-017';
+// ══ LA RÈGLE À RETENIR DE TOUT CE FICHIER ══════════════════════════════════
+//
+//   AUCUN `await` SANS ISSUE DANS LE GESTIONNAIRE `fetch`.
+//
+// Un service worker qui pend dans `respondWith` est le SEUL cas vraiment
+// irrécupérable : la navigation ne finit jamais, la trappe de sortie ci-dessous
+// pend avec elle, et la mise à jour du service worker peut ne jamais aboutir.
+// Tout `await` doit porter sur quelque chose qui se règle — un `fetch` (qui
+// échoue), une opération de cache — jamais sur une promesse qui peut ne jamais
+// se résoudre. Un service worker cassé se remplace ; un service worker figé
+// s'efface à la main, dans les réglages du téléphone.
+//
+// ══ POURQUOI LA COQUILLE EST SERVIE DEPUIS LE CACHE ════════════════════════
+//
+// Réseau d'abord tient tant que le réseau ÉCHOUE : `fetch` rejette aussitôt et
+// le repli joue. Ça ne tient pas quand le réseau RÉPOND MAL — un wifi de salle
+// qui s'associe sans donner d'accès ne fait pas échouer `fetch`, il le fait
+// PENDRE, et c'est alors l'app entière qui pend. La coquille est versionnée par
+// CACHE_V2 : la servir depuis le cache est sans risque, et une nouvelle version
+// prend la main par le cycle install/activate, pas par une requête.
+//
+// ══ ET POURQUOI LA RÉPONSE EN CACHE DOIT ÊTRE VALIDÉE ══════════════════════
+//
+// Parce que servir la coquille en cache sans la vérifier a rendu l'app
+// INACCESSIBLE EN LIGNE (chantier 19). Voir `utilisable` et `desempoisonner`.
+
+const CACHE_V2 = 'trainhub-v2-018';
+
+// Le chemin de la trappe de sortie. Tapé à la main dans la barre d'adresse
+// quand tout le reste est cassé : il doit rester court et mémorisable.
+const CHEMIN_SORTIE = '/__sw-off';
 
 const SHELL = [
   './',
@@ -47,33 +70,154 @@ const SHELL = [
 // qu'elle soit retentée, plutôt que de laisser croire à une coquille complète.
 const INDISPENSABLES = ['./index.html', './js/app.js'];
 
-self.addEventListener('install', (event) => {
-  // Le socle est en cours d'amorçage : on veut toujours la version fraîche,
-  // sans étape « mise à jour disponible ».
-  self.skipWaiting();
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_V2);
-    // Entrée par entrée, pas `addAll` : celui-ci est tout ou rien, et un seul
-    // fichier manqué sur un réseau capricieux laissait l'app SANS AUCUN cache.
-    await Promise.all(SHELL.map((url) => cache.add(url).catch(() => null)));
-    const presents = await Promise.all(INDISPENSABLES.map((u) => cache.match(u)));
-    if (presents.some((r) => !r)) throw new Error('coquille incomplète');
-  })());
-});
+// ── LA GARDE ────────────────────────────────────────────────────────────────
+//
+// ⚠️ `redirected` EST LA SEULE PROPRIÉTÉ QUI ATTRAPE CE CAS. Ne la retire pas,
+// et ne « simplifie » pas ce test en `!!r` ou en `r.ok`.
+//
+// La réponse empoisonnée est un **200**, elle est **`ok`**, elle est de type
+// **`basic`**, et son corps est le bon octet pour octet. Rien d'autre ne la
+// distingue d'une réponse saine. Un test sur le statut passe à côté ; un test
+// sur `r.ok` passe à côté. Mesuré au chantier 19 :
+//
+//     /index.html → { status: 200, ok: true, type: 'basic', redirected: true }
+//     /           → { status: 200, ok: true, type: 'basic', redirected: false }
+//
+// C'est un piège qui se réintroduit tout seul à la première relecture pressée.
+function utilisable(r) {
+  return !!r && r.ok && r.status === 200 &&
+         !r.redirected && r.type !== 'error' && r.type !== 'opaqueredirect';
+}
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    // Suppression des caches v2 périmés. Rien à purger côté v1 : il n'est plus
-    // servi, donc son service worker ne peut plus rien intercepter.
+// ── LE DÉSEMPOISONNEMENT ────────────────────────────────────────────────────
+//
+// Cloudflare Pages CANONICALISE les URL : `GET /index.html` répond **308 vers
+// `/`**. `fetch` suit la redirection et rend un 200 parfaitement valide — mais
+// marqué `redirected: true`.
+//
+// Or une requête de NAVIGATION a `redirect: "manual"`, et la spec interdit d'y
+// répondre par une réponse redirigée : le navigateur la convertit en erreur
+// réseau. Résultat mesuré au chantier 19 : `ERR_FAILED` sur `/` ET sur
+// `/semaine/…`, RÉSEAU PRÉSENT, sur un appareil où le service worker était
+// installé. Seule sortie : effacer les données du site à la main.
+//
+// On reconstruit donc la réponse à partir de son corps. La copie est identique
+// au même octet près (7 839 octets mesurés des deux côtés), sans la marque.
+// C'est le correctif retenu partout où ce défaut est connu.
+async function desempoisonner(reponse) {
+  if (!reponse || !reponse.redirected) return reponse;
+  const corps = await reponse.blob();
+  return new Response(corps, {
+    status: reponse.status,
+    statusText: reponse.statusText,
+    headers: reponse.headers
+  });
+}
+
+// ── LA TRAPPE DE SORTIE ─────────────────────────────────────────────────────
+//
+// Câblée en TÊTE du gestionnaire `fetch`, avant tout le reste. Elle vide les
+// caches, se désinscrit, et répond par une page construite EN MÉMOIRE — jamais
+// fetchée, donc incapable d'échouer.
+//
+// Ses limites, qui sont réelles :
+//   · elle demande de TAPER une URL. Personne ne la trouvera tout seul ;
+//   · un service worker qui ne s'ANALYSE pas n'est jamais installé : il
+//     n'intercepte rien, la trappe est inutile — mais le problème aussi, car
+//     l'ancien service worker reste en place ;
+//   · un service worker qui PEND est le seul cas irrécupérable. La trappe
+//     pendrait avec lui. D'où la règle en tête de fichier.
+//
+// Elle est une SECONDE LIGNE, pas la première : mesuré au chantier 19, un
+// commit de correction atteint bien un appareil cassé, au deuxième
+// rechargement, même avec un cache HTTP d'un an sur le script.
+const PAGE_SORTIE = (detail) =>
+  '<!doctype html><html lang="fr"><meta charset="utf-8">' +
+  '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+  '<title>TrainHub — service worker retiré</title>' +
+  '<style>body{background:#15171A;color:#E8EAED;font:16px/1.6 system-ui,sans-serif;' +
+  'margin:0;padding:32px 20px}h1{font-size:19px;margin:0 0 12px}' +
+  'p{color:#959BA5;margin:0 0 12px}code{color:#E8EAED}' +
+  'a{display:inline-block;margin-top:8px;color:#F2B705;font-weight:600}</style>' +
+  '<h1>Service worker retiré</h1>' +
+  '<p>' + detail + '</p>' +
+  '<p>Recharge l’application. Elle réinstallera une version propre.</p>' +
+  '<a href="/">Ouvrir TrainHub</a></html>';
+
+// Une fois la trappe tirée, ce service worker N'INTERCEPTE PLUS RIEN.
+//
+// Sans ce verrou, la trappe ne tient pas sa promesse : la désinscription
+// n'écarte le service worker que lorsque toutes les pages qu'il contrôle sont
+// fermées, et d'ici là il continue de répondre. Mesuré au banc — la requête de
+// favicon que Chrome émet sur la page de sortie était interceptée, mise en
+// cache, et RECRÉAIT le cache qu'on venait d'effacer.
+let retire = false;
+
+async function seDesinstaller() {
+  let detail;
+  retire = true;
+  try {
     const noms = await caches.keys();
-    await Promise.all(noms.map((nom) => (nom === CACHE_V2 ? null : caches.delete(nom))));
-    await self.clients.claim();
-  })());
-});
+    await Promise.all(noms.map((nom) => caches.delete(nom)));
+    await self.registration.unregister();
+    detail = noms.length + ' cache(s) effacé(s), service worker désinscrit.';
+  } catch (e) {
+    // Même en échec, on répond : une trappe qui lève laisserait l'utilisateur
+    // devant la même erreur réseau que celle qu'il essaie de fuir.
+    detail = 'Effacement partiel : ' + ((e && e.message) || 'erreur inconnue') + '.';
+  }
+  return new Response(PAGE_SORTIE(detail), {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+  });
+}
 
-self.addEventListener('fetch', (event) => {
+// ── Installation ────────────────────────────────────────────────────────────
+//
+// Entrée par entrée, pas `addAll` : celui-ci est tout ou rien, et un seul
+// fichier manqué sur un réseau capricieux laissait l'app SANS AUCUN cache.
+// Et chaque entrée passe par `desempoisonner` — c'est là que la marque est
+// retirée, une fois, plutôt qu'à chaque service.
+async function mettreEnCache(cache, url) {
+  const reponse = await fetch(url, { cache: 'reload' });
+  if (!reponse || !reponse.ok) throw new Error('réponse ' + (reponse && reponse.status));
+  await cache.put(url, await desempoisonner(reponse));
+}
+
+async function installer() {
+  const cache = await caches.open(CACHE_V2);
+  await Promise.all(SHELL.map((url) => mettreEnCache(cache, url).catch(() => null)));
+  const presents = await Promise.all(INDISPENSABLES.map((u) => cache.match(u)));
+  // On vérifie que les indispensables sont là ET utilisables : un cache qui
+  // contiendrait une coquille invalide vaut un cache vide, en pire — il se
+  // croirait complet.
+  if (presents.some((r) => !utilisable(r))) throw new Error('coquille incomplète ou invalide');
+}
+
+async function activer() {
+  // Suppression des caches v2 périmés. Rien à purger côté v1 : il n'est plus
+  // servi, donc son service worker ne peut plus rien intercepter.
+  const noms = await caches.keys();
+  await Promise.all(noms.map((nom) => (nom === CACHE_V2 ? null : caches.delete(nom))));
+  await self.clients.claim();
+}
+
+// ── Le gestionnaire de requêtes ─────────────────────────────────────────────
+function repondre(event) {
   const req = event.request;
   const url = new URL(req.url);
+
+  // Trappe déjà tirée : on ne répond plus, tout va au réseau. Le service worker
+  // est en sursis jusqu'à la fermeture des pages qu'il contrôle, et pendant ce
+  // sursis il ne doit plus rien remettre en cache.
+  if (retire) return;
+
+  // LA TRAPPE, EN PREMIER. Avant le filtre de méthode, avant tout : c'est le
+  // seul chemin qui doit fonctionner quand plus rien ne fonctionne.
+  if (url.origin === self.location.origin && url.pathname === CHEMIN_SORTIE) {
+    event.respondWith(seDesinstaller());
+    return;
+  }
 
   // Jamais de cache sur les données : Supabase, Edge Functions, non-GET.
   if (url.hostname.includes('supabase.co') ||
@@ -87,42 +231,81 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Les URL de vue (/semaine/…, /seance/…) ne sont pas des fichiers : le serveur
-  // y répond par la coquille. On sert donc TOUJOURS la coquille en cache, sans
-  // même tenter le réseau — et surtout on ne la met PAS en cache sous l'URL
-  // demandée, sinon chaque semaine visitée créerait une entrée et une coquille
-  // périmée survivrait à une mise à jour.
+  // y répond par la coquille. On sert donc la coquille en cache — et surtout on
+  // ne la met PAS en cache sous l'URL demandée, sinon chaque semaine visitée
+  // créerait une entrée et une coquille périmée survivrait à une mise à jour.
   if (req.mode === 'navigate') {
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_V2);
-      const coquille = await cache.match('./index.html');
-      if (coquille) return coquille;
-      // Pas encore de coquille (toute première visite) : le réseau, faute de mieux.
-      try { return await fetch(req); } catch (e) { return Response.error(); }
-    })());
+    event.respondWith(servirCoquille(req));
     return;
   }
 
-  // Coquille : CACHE D'ABORD, et rafraîchissement en arrière-plan. L'app démarre
-  // à la vitesse du disque, réseau ou pas, et la copie fraîche est prête pour
-  // l'ouverture suivante.
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE_V2);
-    const enCache = await cache.match(req);
-    if (enCache) {
-      // Volontairement PAS attendu : une mise à jour en arrière-plan ne doit
-      // jamais retarder une réponse qu'on a déjà.
-      fetch(req).then((r) => {
-        if (r && r.status === 200) cache.put(req, r.clone());
-      }).catch(() => {});
-      return enCache;
-    }
-    // Absent du cache : réseau, et on garde ce qu'on reçoit.
-    try {
-      const reponse = await fetch(req);
-      if (reponse && reponse.status === 200) cache.put(req, reponse.clone());
-      return reponse;
-    } catch (e) {
-      throw e;
-    }
-  })());
-});
+  event.respondWith(servirRessource(req));
+}
+
+async function servirCoquille(req) {
+  const cache = await caches.open(CACHE_V2);
+  const coquille = await cache.match('./index.html');
+  if (utilisable(coquille)) return coquille;
+
+  // LE RÉSEAU EST LA PORTE DE SORTIE. Une entrée absente, vide ou invalide
+  // n'enferme personne : le hors-ligne est un repli, jamais un mode par défaut.
+  // C'est ce chemin qui manquait — le chantier 18 servait l'entrée sans la
+  // regarder, et ne tentait le réseau que si elle était absente.
+  try {
+    const reponse = await fetch(req);
+    if (reponse) return reponse;
+  } catch (e) { /* réseau muet : on tombe sur l'erreur explicite ci-dessous */ }
+  return Response.error();
+}
+
+async function servirRessource(req) {
+  const cache = await caches.open(CACHE_V2);
+  const enCache = await cache.match(req);
+  if (utilisable(enCache)) {
+    // Volontairement PAS attendu : une mise à jour en arrière-plan ne doit
+    // jamais retarder une réponse qu'on a déjà. Et elle désempoisonne, pour que
+    // le cache ne se repollue pas par la bande.
+    fetch(req)
+      .then((r) => (r && r.status === 200 ? desempoisonner(r).then((n) => cache.put(req, n)) : null))
+      .catch(() => {});
+    return enCache;
+  }
+  // Absent ou invalide : réseau. On garde une copie propre, on rend l'originale
+  // — une réponse redirigée est parfaitement valide pour une sous-ressource,
+  // dont le mode de redirection est `follow`.
+  const reponse = await fetch(req);
+  if (reponse && reponse.status === 200) {
+    desempoisonner(reponse.clone()).then((n) => cache.put(req, n)).catch(() => {});
+  }
+  return reponse;
+}
+
+// Les écouteurs ne s'enregistrent que dans un vrai service worker. Ailleurs —
+// banc de test sous Node ou jsdom — le fichier se charge pour exposer ses
+// fonctions pures, sans rien intercepter. `caches` n'existe que dans un
+// contexte de service worker ou de page.
+if (typeof self !== 'undefined' && typeof caches !== 'undefined' &&
+    typeof self.addEventListener === 'function') {
+  self.addEventListener('install', (event) => {
+    // Le socle est en cours d'amorçage : on veut toujours la version fraîche,
+    // sans étape « mise à jour disponible ».
+    self.skipWaiting();
+    event.waitUntil(installer());
+  });
+  self.addEventListener('activate', (event) => { event.waitUntil(activer()); });
+  self.addEventListener('fetch', repondre);
+}
+
+// Export pour le banc. `installer`, `servirCoquille` et `servirRessource` lisent
+// `caches` et `fetch` dans la portée globale, au moment de l'appel : le banc leur
+// donne un cache de PAPIER et un réseau de papier, et les fait jouer sans
+// navigateur. Sans ça, la garde d'installation et « le réseau est la porte de
+// sortie » ne seraient couverts qu'au banc navigateur, donc jamais en CI.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    CACHE_V2: CACHE_V2, CHEMIN_SORTIE: CHEMIN_SORTIE, SHELL: SHELL,
+    INDISPENSABLES: INDISPENSABLES,
+    utilisable: utilisable, desempoisonner: desempoisonner, PAGE_SORTIE: PAGE_SORTIE,
+    installer: installer, servirCoquille: servirCoquille, servirRessource: servirRessource
+  };
+}

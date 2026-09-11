@@ -1,9 +1,14 @@
-# Banc d'essai — la référence exécutable du moteur
+# Banc d'essai
+
+Deux bancs vivent ici : celui du **moteur** (Python, quatre fichiers) et celui
+de l'**hébergeur** (`serveur-pages.js`). Aucun ne tourne dans l'app ; ils sont
+là pour que la prochaine session reparte de la bonne référence, pas d'une copie
+divergente.
+
+## Le banc du moteur
 
 Ces quatre fichiers ont servi à valider l'enchaînement `MOTEUR §4 → §7` sur les
-exports Hevy des cinq profils, **avant** qu'il soit porté en JavaScript. Ils ne
-tournent pas dans l'app : ils sont ici pour que la prochaine session reparte de
-la bonne référence, pas d'une copie divergente.
+exports Hevy des cinq profils, **avant** qu'il soit porté en JavaScript.
 
 | Fichier | Rôle |
 |---|---|
@@ -40,3 +45,32 @@ compris — alors que `analyse()` les écarte. Mesuré : quasi inerte (un exerci
 change d'état, et seulement parce qu'il retombe sous le seuil de 8 séances ; le
 tableau du §5.1 est inchangé). Laissée en l'état pour que les deux références
 restent alignées.
+
+
+---
+
+## Le banc de l'hébergeur — `serveur-pages.js`
+
+**Un serveur qui IMITE Cloudflare Pages**, canonicalisation comprise :
+`GET /index.html` répond **308 vers `/`**, et tout chemin sans fichier rend
+`index.html` en 200 (la règle `/* /index.html 200` de `v2/_redirects`).
+
+```
+node v2/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]
+```
+
+**Pourquoi il existe.** Le banc du chantier 18 servait `/index.html` avec un
+200. Le seul comportement de Cloudflare qu'il n'avait pas copié était
+précisément celui qui casse l'app : le service worker mettait en cache la
+réponse 308-suivie (marquée `redirected`), la servait aux navigations, et le
+navigateur la convertissait en erreur réseau. `ERR_FAILED` en ligne, sur
+appareil, sans autre sortie que d'effacer les données du site.
+
+> **Un banc qui n'imite pas la production ne prouve rien sur la production.**
+
+`--sans-canonicalisation` est le **témoin** : dans ce mode, la garde
+`redirected` et son absence donnent le même résultat. Un banc qui ne tourne que
+là ne prouve rien — c'est exactement ce qui s'est passé au chantier 18.
+
+Il sert `tests/banc/sw-navigation.js` (7 scénarios, navigateur réel). Les règles
+d'avant-fusion du service worker sont au **§4 bis de `CLAUDE.md`**.

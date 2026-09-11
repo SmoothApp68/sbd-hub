@@ -27,6 +27,7 @@ tort. Lis [`v2/specs/README.md`](v2/specs/README.md) avant d'écrire dans `v2/`.
 
 ⚠️ **Tout ce qui suit (§4 à §18) décrit le v1 et vaut à titre d'archive.** Les valeurs, les
 algorithmes et le scope de lancement qui y figurent ne pilotent plus rien.
+**Seule exception : le §4 bis, qui porte sur le service worker v2 et s'applique.**
 
 ---
 
@@ -76,6 +77,55 @@ Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (val
 2. **`npm test` vert.** Ajoute/inverse les tests dans le **même commit** que le fix ; vérifie que la fixture déclenche vraiment le chemin visé (un test qui ne teste pas ce qu'il prétend est pire qu'aucun test).
 3. **Bump le Service Worker** : `CACHE_NAME` (`service-worker.js:1`) → version suivante. Actuel : **`trainhub-v377`**. Plus de littéral `SW_VERSION` depuis v321 — version dérivée du SW via `getSWVersion` (app.js:3977).
 4. **Livre en PR — NE MERGE JAMAIS.** Aurélien vérifie sur **device** sur vraies données avant de merger. **Non optionnel** : un lot mergé sur CI verte seule a déjà laissé passer des bugs que les tests ne voyaient pas (facteur calorique volatile, e1RM affiché au lieu du PR).
+
+---
+
+## 4 bis. TOUT COMMIT QUI TOUCHE AU SERVICE WORKER v2
+
+> **Règle permanente, née du chantier 20.** Un service worker cassé ne se
+> constate pas en CI : il casse **l'app installée, sur l'appareil, réseau
+> présent**, et la seule sortie connue de l'utilisateur est d'effacer les
+> données du site. Le coût d'un service worker faux n'est pas celui d'un bug —
+> c'est celui d'une app qui ne s'ouvre plus.
+
+**Les quatre vérifications, avant de fusionner. Les points 1 et 3 sont
+OBLIGATOIRES ; le 3 est celui qui manquait.**
+
+| # | Vérification | |
+|---|---|---|
+| **1** | Fenêtre privée, première visite → installation → rechargement → l'app s'affiche. | **obligatoire** |
+| 2 | Dans la même session, en console : aucune entrée de cache ne porte `redirected: true`. | |
+| **3** | Profil normal, **service worker cassé en place** → deux rechargements → l'app revient **sans effacer les données**. | **obligatoire** |
+| 4 | Mode avion + rechargement → non-régression du chantier 18 (la coquille est servie, l'app démarre sans attendre le réseau). | |
+
+Pourquoi le 3 manquait : le banc du chantier 18 ne testait que **serveur
+coupé**. Or la garde qui manquait ne se voit QUE serveur allumé, sur un
+hébergeur qui **canonicalise** (`/index.html` → 308 → `/`). Hors ligne, la garde
+et son absence donnent exactement le même résultat — le défaut a traversé un
+chantier entier pour cette seule raison. La **configuration discriminante** d'un
+service worker est donc toujours : **serveur qui redirige · service worker
+installé · serveur allumé**.
+
+**En machine, avant l'appareil** (approche les quatre, ne les remplace pas) :
+
+```
+node tests/banc/sw-navigation.js        # 7 scénarios, navigateur réel, code de retour
+npx jest tests/unit/v2-service-worker.test.js
+```
+
+- Le serveur de banc `v2/banc/serveur-pages.js` **imite Cloudflare Pages**, la
+  canonicalisation comprise. Un banc qui sert les fichiers « normalement » teste
+  un hébergeur qui n'existe pas.
+- `tests/banc/fixtures/sw-chantier-18.js` est **le défaut, gardé exprès** : le
+  scénario 5 l'installe pour de vrai avant de déployer la correction. **Ne le
+  répare pas.**
+- Bump `CACHE_V2` (`v2/service-worker.js`) à chaque commit qui touche la
+  coquille. Actuel : **`trainhub-v2-018`**.
+
+**Et la règle du fichier lui-même : AUCUN `await` SANS ISSUE DANS LE
+GESTIONNAIRE `fetch`.** Un service worker cassé se remplace au rechargement
+suivant ; un service worker **qui pend** est le seul cas irrécupérable — la
+trappe `/__sw-off` pendrait avec lui.
 
 ---
 

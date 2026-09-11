@@ -74,11 +74,27 @@
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
 
+  // Un cache construit par une version défaillante est incomplet ET se croit à
+  // jour : son curseur est au maximum, l'incrémental ne redemandera rien. On
+  // efface donc le curseur UNE FOIS — le cache, lui, reste en place, pour que
+  // l'app s'ouvre sur ce qu'elle a pendant que le reste revient.
+  //
+  // La version n'est écrite qu'APRÈS une synchronisation réussie : marquer
+  // avant laisserait un cache toujours incomplet réputé à jour, c'est-à-dire
+  // exactement le défaut qu'on corrige.
+  async function armerResynchronisation() {
+    var marque = await Cache.lireMeta('formeSync');
+    if (!Sync.doitResynchroniser(marque)) return false;
+    await Cache.ecrireMeta('curseurSeries', null);
+    return true;
+  }
+
   // ── Synchronisation ──────────────────────────────────────────────────────
   async function synchroniser() {
     if (syncEnCours) return;
     syncEnCours = true;
     try {
+      var resync = await armerResynchronisation();
       var curseur = await Cache.lireMeta('curseurSeries');
 
       // sessions : complet (545 Ko, aucune colonne de modification, capte aussi
@@ -87,9 +103,15 @@
       var nouvellesSeries = await Donnees.seriesDepuis(curseur);
       var exercices = await Donnees.tousLesExercices();
 
+      // Le serveur annonce ce qu'il a. C'est ce qui autorise la purge, et c'est
+      // ce qui permet de dire qu'il manque quelque chose au lieu de l'ignorer.
+      var compteSeances = await compteSur(Donnees.compterSeances);
+      var compteSeries = await compteSur(Donnees.compterSeries);
+
       local.seances = Sync.remplacer(seances);
+      var listeComplete = Sync.verifierCompletude(local.seances.length, compteSeances).complet;
       local.series = Sync.purgerSeriesOrphelines(
-        Sync.fusionner(local.series, nouvellesSeries), local.seances);
+        Sync.fusionner(local.series, nouvellesSeries), local.seances, listeComplete);
       local.exercices = Sync.remplacer(exercices);
       indexerParSeance();
 
@@ -99,8 +121,12 @@
 
       var avance = Sync.curseurDe(nouvellesSeries);
       if (avance) await Cache.ecrireMeta('curseurSeries', avance);
+      if (resync) await Cache.ecrireMeta('formeSync', { version: Sync.VERSION_SYNC });
 
-      etat = Sync.deciderEtat({ syncOk: true, aDesDonnees: true });
+      var completude = Sync.verifierCompletude(local.series.length, compteSeries);
+      etat = Sync.deciderEtat({
+        syncOk: true, aDesDonnees: true, manquantes: completude.manquantes
+      });
     } catch (e) {
       // Une synchronisation ratée n'est jamais bloquante : on garde ce qu'on a.
       etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
@@ -108,6 +134,13 @@
     } finally {
       syncEnCours = false;
     }
+  }
+
+  // Un compte indisponible n'est pas un compte à zéro : on rend null, et
+  // `verifierCompletude` s'abstient plutôt que d'accuser.
+  async function compteSur(lire) {
+    try { return await lire(); }
+    catch (e) { console.warn('Compte serveur indisponible :', texteErreur(e)); return null; }
   }
 
   // ── Écrans ───────────────────────────────────────────────────────────────
@@ -161,7 +194,24 @@
   }
 
   // ── Entrée ───────────────────────────────────────────────────────────────
-  async function entrer(session) {
+  //
+  // L'entrée est appelée DEUX fois au démarrage : une fois par `demarrer` qui
+  // lit la session courante, une fois par le rappel d'authentification qui
+  // rejoue l'état initial. Sans garde, la seconde recharge un cache encore
+  // vide et ÉCRASE en mémoire ce que la première venait de synchroniser —
+  // puis réécrit ce vide dans le cache. Défaut révélé par le compte de
+  // contrôle de ce commit, qui annonçait « 2500 séries manquantes » sur un
+  // cache pourtant complet.
+  var entreeEnCours = null;
+
+  function entrer(session) {
+    if (entreeEnCours) return entreeEnCours;
+    entreeEnCours = entrerVraiment(session);
+    entreeEnCours.catch(function () {}).then(function () { entreeEnCours = null; });
+    return entreeEnCours;
+  }
+
+  async function entrerVraiment(session) {
     sessionActive = session || null;
     var userId = session && session.user && session.user.id;
     try {

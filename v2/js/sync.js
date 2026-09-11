@@ -22,6 +22,35 @@
 (function (racine) {
   'use strict';
 
+  // Version de la FORME de synchronisation — distincte de la version du store
+  // IndexedDB, qui décrit la structure, alors que celle-ci décrit la confiance
+  // qu'on accorde au contenu. On l'incrémente quand un défaut a pu laisser un
+  // cache incomplet : les caches d'une version antérieure effacent leur curseur
+  // et se resynchronisent UNE FOIS.
+  //
+  // 2 — pagination par curseur de clé. La version 1 paginait sur `created_at`,
+  //     non unique, et perdait 8 003 séries sur 28 103.
+  var VERSION_SYNC = 2;
+
+  // Un marqueur de version plutôt qu'un drapeau à usage unique : il est
+  // idempotent, il survit aux rechargements, et le prochain défaut de ce genre
+  // se traitera en incrémentant un chiffre au lieu d'inventer un mécanisme.
+  function doitResynchroniser(meta, version) {
+    var cible = typeof version === 'number' ? version : VERSION_SYNC;
+    var v = meta && meta.version;
+    return !(typeof v === 'number' && v >= cible);
+  }
+
+  // Ce qu'on a contre ce que le serveur annonce. Un compte injoignable ne
+  // permet PAS de conclure à l'incomplétude : on ne crie pas dans le noir.
+  function verifierCompletude(nLocal, nServeur) {
+    if (typeof nServeur !== 'number' || !isFinite(nServeur) || nServeur < 0) {
+      return { verifiable: false, complet: true, manquantes: 0 };
+    }
+    var manquantes = Math.max(0, nServeur - (Number(nLocal) || 0));
+    return { verifiable: true, complet: manquantes === 0, manquantes: manquantes };
+  }
+
   // Le cache appartient à un compte et à un seul. Un cache qui survivrait à un
   // changement de compte montrerait les séances de quelqu'un d'autre — la porte
   // même que le RLS ferme côté serveur.
@@ -66,7 +95,14 @@
   // Les séries d'une séance retirée du serveur n'ont plus de raison d'être.
   // C'est ce qui rattrape les suppressions côté `sets`, que l'incrémental ne
   // voit pas : quand la séance disparaît, ses séries partent avec elle.
-  function purgerSeriesOrphelines(series, seances) {
+  // `listeComplete` n'est pas une commodité : une liste de séances incertaine
+  // ne prouve pas une absence. Si une tranche a échoué, ou si le compte annoncé
+  // par le serveur ne correspond pas, on ne purge rien. Mieux vaut un cache
+  // avec du surplus — qui se corrige à la synchronisation suivante — qu'un
+  // cache amputé, qui ne se répare jamais : l'incrémental ne revient pas
+  // chercher des séries qu'il croit déjà passées.
+  function purgerSeriesOrphelines(series, seances, listeComplete) {
+    if (listeComplete !== true) return (series || []).slice();
     var vivantes = new Set((seances || []).map(function (s) { return s && s.id; }));
     return (series || []).filter(function (s) { return s && vivantes.has(s.session_id); });
   }
@@ -75,12 +111,25 @@
   // à montrer, on le montre, et l'état dit seulement d'où ça vient.
   function deciderEtat(situation) {
     var s = situation || {};
-    if (s.syncOk) return { code: 'a-jour', libelle: 'À jour', local: false };
+    if (s.syncOk) {
+      // Un écart se dit, il ne s'alarme pas : un fait, un chiffre, rien de plus.
+      if (s.manquantes > 0) {
+        return {
+          code: 'partiel', local: false,
+          libelle: s.manquantes + ' série' + (s.manquantes > 1 ? 's' : '') + ' manquante' +
+                   (s.manquantes > 1 ? 's' : '')
+        };
+      }
+      return { code: 'a-jour', libelle: 'À jour', local: false };
+    }
     if (s.aDesDonnees) return { code: 'local', libelle: 'Données locales', local: true };
     return { code: 'vide', libelle: 'Pas de réseau', local: false };
   }
 
   var api = {
+    VERSION_SYNC: VERSION_SYNC,
+    doitResynchroniser: doitResynchroniser,
+    verifierCompletude: verifierCompletude,
     cacheAppartientA: cacheAppartientA,
     fusionner: fusionner,
     remplacer: remplacer,

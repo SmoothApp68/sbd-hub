@@ -105,7 +105,7 @@ describe('cache vide — aucune erreur, comportement d’avant', () => {
   test('tout vide ne lève pas et ne produit rien', () => {
     expect(Sync.fusionner(null, null)).toEqual([]);
     expect(Sync.remplacer(null)).toEqual([]);
-    expect(Sync.purgerSeriesOrphelines(null, null)).toEqual([]);
+    expect(Sync.purgerSeriesOrphelines(null, null, true)).toEqual([]);
     expect(Sync.deciderEtat(null).code).toBe('vide');
   });
 });
@@ -147,11 +147,94 @@ describe('remplacer — ce que l’incrémental ne voit pas', () => {
       serie({ id: 's2', session_id: 'b' }),
       serie({ id: 's3', session_id: 'a' })
     ];
-    const restantes = Sync.purgerSeriesOrphelines(series, [seance({ id: 'a' })]);
+    const restantes = Sync.purgerSeriesOrphelines(series, [seance({ id: 'a' })], true);
     expect(restantes.map(s => s.id)).toEqual(['s1', 's3']);
   });
 
   test('aucune séance en cache → aucune série ne survit', () => {
-    expect(Sync.purgerSeriesOrphelines([serie({ session_id: 'a' })], [])).toEqual([]);
+    expect(Sync.purgerSeriesOrphelines([serie({ session_id: 'a' })], [], true)).toEqual([]);
+  });
+});
+
+// ── La purge ne s'exécute que sur une liste CERTAINE ───────────────────────
+describe('purgerSeriesOrphelines — une liste incertaine ne prouve pas une absence', () => {
+  const serie = (o) => Object.assign({ id: 's', session_id: 'a' }, o);
+
+  test.each([[false], [undefined], [null], ['oui'], [0]])(
+    'listeComplete=%p : rien n’est purgé', (drapeau) => {
+      const series = [serie({ id: '1', session_id: 'a' }), serie({ id: '2', session_id: 'disparue' })];
+      expect(Sync.purgerSeriesOrphelines(series, [{ id: 'a' }], drapeau)).toHaveLength(2);
+    });
+
+  test('listeComplete=true : l’orpheline part', () => {
+    const series = [serie({ id: '1', session_id: 'a' }), serie({ id: '2', session_id: 'disparue' })];
+    expect(Sync.purgerSeriesOrphelines(series, [{ id: 'a' }], true).map((s) => s.id)).toEqual(['1']);
+  });
+
+  test('mieux vaut du surplus qu’une amputation : le doute conserve TOUT', () => {
+    // Une liste vide et incertaine effacerait l'intégralité du cache.
+    const series = [serie({ id: '1' }), serie({ id: '2' })];
+    expect(Sync.purgerSeriesOrphelines(series, [], false)).toHaveLength(2);
+    expect(Sync.purgerSeriesOrphelines(series, [], true)).toHaveLength(0);
+  });
+});
+
+// ── Resynchronisation forcée : une fois, pas deux ──────────────────────────
+describe('doitResynchroniser — une seule fois', () => {
+  test('un cache sans marque se resynchronise', () => {
+    expect(Sync.doitResynchroniser(null)).toBe(true);
+    expect(Sync.doitResynchroniser({})).toBe(true);
+    expect(Sync.doitResynchroniser({ version: 1 })).toBe(true);
+  });
+
+  test('un cache à la version courante ne se resynchronise plus', () => {
+    expect(Sync.doitResynchroniser({ version: Sync.VERSION_SYNC })).toBe(false);
+    expect(Sync.doitResynchroniser({ version: Sync.VERSION_SYNC + 1 })).toBe(false);
+  });
+
+  test('le cycle complet : une fois oui, puis non — fermer et rouvrir ne relance pas', () => {
+    let marque = null;
+    const tour = () => {
+      const doit = Sync.doitResynchroniser(marque);
+      if (doit) marque = { version: Sync.VERSION_SYNC };   // écrit après succès
+      return doit;
+    };
+    expect([tour(), tour(), tour()]).toEqual([true, false, false]);
+  });
+
+  test('une marque non numérique ne vaut pas marque', () => {
+    expect(Sync.doitResynchroniser({ version: '2' })).toBe(true);
+    expect(Sync.doitResynchroniser({ version: true })).toBe(true);
+  });
+});
+
+// ── Compte de contrôle ─────────────────────────────────────────────────────
+describe('verifierCompletude — dire ce qui manque, sans crier dans le noir', () => {
+  test('cache complet', () => {
+    expect(Sync.verifierCompletude(28103, 28103)).toEqual({ verifiable: true, complet: true, manquantes: 0 });
+  });
+
+  test('cache amputé : l’écart est chiffré', () => {
+    expect(Sync.verifierCompletude(20100, 28103))
+      .toEqual({ verifiable: true, complet: false, manquantes: 8003 });
+  });
+
+  test('un compte serveur injoignable ne permet PAS de conclure', () => {
+    [null, undefined, 'beaucoup', NaN].forEach((c) => {
+      expect(Sync.verifierCompletude(10, c)).toEqual({ verifiable: false, complet: true, manquantes: 0 });
+    });
+  });
+
+  test('un cache en avance sur le compte ne rend pas un négatif', () => {
+    expect(Sync.verifierCompletude(30, 28).manquantes).toBe(0);
+  });
+
+  test('l’état l’affiche comme un fait, sans alarme et sans bloquer', () => {
+    const e = Sync.deciderEtat({ syncOk: true, aDesDonnees: true, manquantes: 8003 });
+    expect(e.code).toBe('partiel');
+    expect(e.libelle).toBe('8003 séries manquantes');
+    expect(e.local).toBe(false);
+    expect(Sync.deciderEtat({ syncOk: true, aDesDonnees: true, manquantes: 0 }).code).toBe('a-jour');
+    expect(Sync.deciderEtat({ syncOk: true, aDesDonnees: true }).code).toBe('a-jour');
   });
 });

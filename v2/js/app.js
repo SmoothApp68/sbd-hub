@@ -247,7 +247,17 @@
   }
 
   function barrePour(sem, avecSeances) {
+    // La barre est IDENTIQUE dans Séances et dans la vue Volume : une seule
+    // définition, deux emplacements. « Cette semaine » n'est fourni que si on a
+    // quitté la semaine courante — c'est l'absence de la fonction qui fait
+    // l'absence du bouton, pas un test dans le rendu.
+    var courante = Semaine.memeSemaine(sem.bornes.lundi, new Date());
     return {
+      surCetteSemaine: courante ? null : function () {
+        var lundi = Semaine.bornesSemaine(new Date()).lundi;
+        if (!vues.volume.hidden) { lundiAffiche = lundi; return rendreVolume(); }
+        afficherSemaine(lundi);
+      },
       libelle: Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche),
       sousTitre: (avecSeances ? sem.bilan.nbSeances + ' séance' +
         (sem.bilan.nbSeances > 1 ? 's' : '') + ' · ' : '') +
@@ -303,12 +313,11 @@
   // compte a vus passer. Un seul balayage des séances récentes — inutile de
   // parcourir trois ans pour trois noms.
   //
-  // Depuis le chantier 17, la valeur affichée est le PALIER et ses meilleures
-  // reps, comme sur la carte de séance. Avant, c'était la série la plus lourde
-  // — et les deux surfaces annonçaient alors deux chiffres différents pour le
-  // même exercice du même jour, ce qui est exactement la famille de défauts que
-  // l'audit v1 a cataloguée. Un exercice sans palier reconnaissable n'affiche
-  // pas de valeur : rien ne s'invente.
+  // La valeur affichée est la MEILLEURE SÉRIE, exactement comme sur la carte de
+  // séance. Les deux surfaces disent le même chiffre pour le même exercice du
+  // même jour — deux voix pour un seul chiffre est la famille de défauts que
+  // l'audit v1 a cataloguée. Un exercice sans meilleure série n'affiche pas de
+  // valeur : rien ne s'invente.
   function sommaireExercices() {
     var index = Modele.indexerExercices(local.exercices);
     var vus = {}, lignes = [];
@@ -325,7 +334,8 @@
                                 etatsExercices[serie.exercise_slug]);
         lignes.push({
           nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
-          mesure: r.palier === null ? '' : Modele.formatMesure({ charge_kg: r.palier, reps: r.reps }),
+          mesure: r.meilleure === null ? ''
+            : Modele.formatMesure({ charge_kg: r.meilleure.charge, reps: r.meilleure.reps }),
           jour: d && !isNaN(d.getTime()) ? d : null
         });
       });
@@ -671,20 +681,39 @@
 
     racine.addEventListener('popstate', function () { sortie.surRetour(); });
 
+    // Le SEUL chemin qui déconnecte. Une session nulle annoncée par le SDK ne
+    // suffit pas : hors réseau, il annonce « pas de session » sans que personne
+    // ne se soit déconnecté. On ne sort quelqu'un de ses données que si le
+    // jeton a VRAIMENT disparu du stockage — ce que fait `Auth.deconnecter`, et
+    // ce que fait le SDK quand le compte est réellement révoqué.
     Auth.surChangement(function (session) {
-      if (session) entrer(session);
-      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion', Routeur.CONNEXION); }
+      if (session) { entrer(session); return; }
+      if (Auth.sessionPersistee()) return;
+      sessionActive = null;
+      allerA(Routeur.CONNEXION, {}, true);
+      montrer('connexion', Routeur.CONNEXION);
     });
 
-    try {
-      var session = await Auth.sessionCourante();
-      if (session) await entrer(session);
-      else { sessionActive = null; allerA(Routeur.CONNEXION, {}, true); montrer('connexion', Routeur.CONNEXION); }
-    } catch (e) {
+    // ── DÉMARRAGE SANS RÉSEAU ────────────────────────────────────────────
+    //
+    // La sonde SYNCHRONE décide de ce qu'on affiche. Aucune attente, aucun
+    // appel réseau : c'est cette attente qui laissait l'écran noir au
+    // rechargement hors ligne, alors que les 28 000 séries étaient sur
+    // l'appareil (cf. le commentaire de `sessionPersistee`).
+    var persistee = Auth.sessionPersistee();
+    if (persistee) {
+      await entrer(persistee);
+    } else {
+      allerA(Routeur.CONNEXION, {}, true);
       montrer('connexion', Routeur.CONNEXION);
-      $('erreur-connexion').textContent = texteErreur(e);
     }
     enregistrerSW();
+
+    // Le verdict du SDK arrive après, et il ne bloque RIEN. Il rafraîchit le
+    // jeton, ce qui déclenche `surChangement` — c'est là que la vraie session
+    // remplace la sonde. Volontairement pas attendu : `.catch` vide parce qu'un
+    // réseau muet n'est pas une erreur à montrer.
+    Auth.sessionCourante().catch(function () {});
   }
 
   // Exposé pour l'écran de saisie à venir : une vue déclare ici qu'elle refuse

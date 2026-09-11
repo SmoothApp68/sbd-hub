@@ -164,7 +164,9 @@ describe('§7.3 — deux passes, et un cas où une seule passe se trompe', () =>
     // Il vaut 60 ici et le définitif aussi, mais rien dans la sortie ne le
     // nomme : il n'est ni rendu, ni stocké, ni comparable.
     const r = P.analyser(topSet, etat('indetermine'));
-    expect(Object.keys(r).sort()).toEqual(['erreur', 'palier', 'reps', 'retenues', 'series']);
+    expect(Object.keys(r).sort())
+      .toEqual(['erreur', 'meilleure', 'palier', 'reps', 'retenues', 'series', 'votantes']);
+    expect(Object.keys(r).join(' ')).not.toMatch(/provisoire/);
   });
 });
 
@@ -434,5 +436,123 @@ describe('RECETTE §6.1 — le squat du 2 février 2026', () => {
   test('moins de deux séries au palier : pas de verdict', () => {
     expect(P.palierTenu([{ reps: 5, rpe: null }], 5).tenu).toBe(false);
     expect(P.palierTenu([], 5).tenu).toBe(false);
+  });
+});
+
+// ── §7 bis.5 — LA MEILLEURE SÉRIE (chantier 18) ────────────────────────────
+//
+// CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : une séance dont la
+// DERNIÈRE SÉRIE EST PLUS LOURDE À REPS PLEINES. Sur une séance à charge
+// constante, « palier » et « meilleure série » rendent le même couple et rien
+// ne les sépare — c'est précisément pourquoi le défaut a traversé le chantier
+// 17 sans se voir.
+describe('meilleure série — distincte du palier, et les deux sont vraies', () => {
+  test('DISCRIMINANT : la dernière série plus lourde à reps pleines gagne', () => {
+    // Hack Squat du 24/08/2026, données réelles. Palier 122,6 — juste, c'est la
+    // charge tenue sur la majorité. Mais 127,6 × 10 est une performance.
+    const r = P.analyser(seance(
+      s(122.6, 10), s(122.6, 10), s(122.6, 10), s(127.6, 10)), etat('monte'));
+    expect(r.meilleure).toEqual({ charge: 127.6, reps: 10 });
+    // Le palier NE BOUGE PAS : c'est la grandeur du moteur.
+    expect(r.palier).toBe(122.6);
+    expect(r.reps).toBe(10);
+    expect(r.meilleure.charge).not.toBe(r.palier);
+  });
+
+  test('DISCRIMINANT : une dernière série plus lourde à reps un peu moindres gagne aussi', () => {
+    // Développé Couché Haltère du 29/08/2026. 8 reps sur une série la plus
+    // longue à 10 : au-dessus de la moitié, donc retenue.
+    const r = P.analyser(seance(
+      s(84, 10), s(84, 10), s(84, 10), s(88, 8)), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 88, reps: 8 });
+    expect(r.palier).toBe(84);
+  });
+
+  test('une exploration à une rep est ÉCARTÉE — c’est tout le garde-fou', () => {
+    // 1 rep sur une série la plus longue à 5 : sous la moitié.
+    const r = P.analyser(seance(
+      s(122.5, 5), s(122.5, 5), s(122.5, 5), s(140, 1)), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 122.5, reps: 5 });
+    expect(r.palier).toBe(122.5);
+  });
+
+  test('le seuil est « au moins la moitié » — fermé, pas strict', () => {
+    // Série la plus longue à 10 reps -> seuil 5. Une série à 5 passe, à 4 non.
+    expect(P.analyser(seance(s(100, 10), s(100, 10), s(120, 5)), etat('indetermine')).meilleure)
+      .toEqual({ charge: 120, reps: 5 });
+    expect(P.analyser(seance(s(100, 10), s(100, 10), s(120, 4)), etat('indetermine')).meilleure)
+      .toEqual({ charge: 100, reps: 10 });
+  });
+
+  test('le seuil se mesure sur la série LA PLUS LONGUE, pas sur une moyenne', () => {
+    // Reps 12, 4, 4 -> la plus longue vaut 12, seuil 6. Les deux séries à 4 sont
+    // sous le seuil, même si elles sont majoritaires — et même si elles portent
+    // le palier. (100 vaut 83 % de 120 : au-dessus du seuil de chauffe.)
+    const r = P.analyser(seance(s(100, 12), s(120, 4), s(120, 4)), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 100, reps: 12 });
+    expect(r.palier).toBe(120);   // le palier, lui, reste 120
+  });
+
+  test('SUR UNE SÉANCE À CHARGE CONSTANTE, palier et meilleure série coïncident', () => {
+    // C'est la configuration NON discriminante — celle qui a laissé passer le
+    // défaut. Elle est conservée pour que le banc le dise lui-même.
+    const r = P.analyser(seance(s(100, 10), s(100, 8), s(100, 12)), etat('indetermine'));
+    expect(r.palier).toBe(100);
+    expect(r.reps).toBe(12);
+    expect(r.meilleure).toEqual({ charge: 100, reps: 12 });
+  });
+
+  test('toutes les séries à la même charge -> cette charge, reps maximales', () => {
+    const r = P.analyser(seance(s(73, 15), s(73, 15), s(73, 15)), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 73, reps: 15 });
+  });
+
+  test('une seule série de travail -> elle-même', () => {
+    const r = P.analyser(seance(s(92, 1)), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 92, reps: 1 });
+    expect(r.palier).toBe(92);   // n = 1, requis = 1
+  });
+
+  test('aucune série de travail -> pas de meilleure série, jamais une invention', () => {
+    const r = P.analyser(seance(s(60, 8, 'echauffement')), etat('monte'));
+    expect(r.meilleure).toBeNull();
+    expect(r.palier).toBeNull();
+  });
+
+  test('les séries ÉCARTÉES ne concourent pas — chauffe, rampe, dégressive, échec', () => {
+    // 140 est la plus lourde de la séance mais elle est taguée chauffe ; 60 est
+    // une dégressive ; 100 un échec. Aucune des trois ne peut être la meilleure.
+    const r = P.analyser(seance(
+      s(140, 8, 'echauffement'), s(90, 10), s(90, 10), s(90, 10),
+      s(100, 3, 'echec'), s(60, 15, 'degressive')), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 90, reps: 10 });
+  });
+
+  test('la rampe ne vote pas, et ça change la meilleure série (§5.4)', () => {
+    // 100 × 20 en rampe, puis 110 × 10, 110 × 10, 130 × 6.
+    //   · état « ne monte pas » : la rampe reste, la série la plus longue fait
+    //     20 reps, le seuil monte à 10, et 130 × 6 se retrouve écarté.
+    //   · état « monte » : la rampe sort, la plus longue tombe à 10, le seuil à
+    //     5, et 130 × 6 devient la meilleure série.
+    // La même séance, deux réponses, selon une propriété MESURÉE de l'exercice.
+    const avecRampe = seance(s(100, 20), s(110, 10), s(110, 10), s(130, 6));
+    expect(P.analyser(avecRampe, etat('ne_monte_pas')).meilleure).toEqual({ charge: 110, reps: 10 });
+    expect(P.analyser(avecRampe, etat('monte')).meilleure).toEqual({ charge: 130, reps: 6 });
+  });
+
+  test('NON-RÉGRESSION chantier 17 — le développé militaire du 28/08', () => {
+    const r = P.analyser(seance(
+      s(64, 8, 'echauffement'), s(72, 4, 'echauffement'), s(80, 2, 'echauffement'),
+      s(92, 1), s(100, 0, 'echec'), s(92, 1)), etat('monte'));
+    expect(r.palier).toBe(92);
+    expect(r.meilleure).toEqual({ charge: 92, reps: 1 });
+  });
+
+  test('à charge égale, les reps retenues passent elles aussi le seuil', () => {
+    // 120 apparaît à 6 reps (au-dessus du seuil de 5) et à 2 reps (dessous).
+    // La série à 2 ne doit pas servir, mais elle ne doit pas non plus faire
+    // perdre la charge.
+    const r = P.analyser(seance(s(100, 10), s(100, 10), s(120, 6), s(120, 2)), etat('indetermine'));
+    expect(r.meilleure).toEqual({ charge: 120, reps: 6 });
   });
 });

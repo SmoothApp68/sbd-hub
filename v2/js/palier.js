@@ -218,7 +218,7 @@
       if (tag) roles.set(s, tag); else travail.push(s);
     });
 
-    if (!travail.length) return sortie(series, roles, null, 'aucune-serie-de-travail');
+    if (!travail.length) return sortie(series, roles, null, 'aucune-serie-de-travail', []);
 
     var plusLourde = Math.max.apply(null, travail.map(function (s) { return nombre(s.charge_kg); }));
 
@@ -242,7 +242,7 @@
     });
 
     var retenues = travail.filter(function (s) { return !roles.has(s); });
-    if (!retenues.length) return sortie(series, roles, null, 'tout-ecarte-par-la-chauffe');
+    if (!retenues.length) return sortie(series, roles, null, 'tout-ecarte-par-la-chauffe', []);
 
     // ── §5.2 / §5.4 — la rampe ne vote pas si l'exercice « monte » ─────────
     // Elle reste une série de travail entière (volume, tonnage, historique) :
@@ -284,6 +284,10 @@
     }
 
     // ── §7.2 — palier DÉFINITIF, sur les seules séries retenues ───────────
+    // `retenues` est ici l'ensemble qui VOTE : il comprend les séries que le
+    // §7.5 reclassera en exploration juste après. C'est aussi l'ensemble sur
+    // lequel se calcule la meilleure série — cf. `meilleureSerie`.
+    var votantes = retenues.slice();
     var palier = calculerPalier(retenues);
 
     // §7.5 — toute série plus lourde que le palier est une EXPLORATION. Elle
@@ -294,10 +298,63 @@
       else if (!roles.has(s)) roles.set(s, 'travail');
     });
 
-    return sortie(series, roles, palier, null);
+    return sortie(series, roles, palier, null, votantes);
   }
 
-  function sortie(series, roles, palier, erreur) {
+  // ── §7 bis.5 — LA MEILLEURE SÉRIE ───────────────────────────────────────
+  //
+  // GRANDEUR DISTINCTE DU PALIER, et les deux sont vraies. Le palier est la
+  // charge tenue sur la majorité des séries : c'est la grandeur du moteur, elle
+  // décide de la suite. La meilleure série est ce qui a été fait de mieux ce
+  // jour-là : c'est ce qu'on lit dans un journal. Ne pas en faire une seule.
+  //
+  // « La charge la plus lourde tenue sur AU MOINS LA MOITIÉ des reps de la
+  // série la plus longue. » Aucune formule.
+  //
+  // Le garde-fou des reps est tout le mécanisme : il retient une dernière série
+  // plus lourde à reps pleines — 127,6 × 10 après trois 122,6 × 10, qui est une
+  // performance — et il écarte une exploration à 140 × 1 quand on travaille à
+  // 10 reps, qui n'en est pas une.
+  //
+  // Elle se calcule sur les séries qui ONT VOTÉ pour le palier, explorations
+  // comprises : ce sont les séries de travail retenues par le §7, après les
+  // exclusions des §4, §4.1, §5 et §6. Une exploration reste une série faite ;
+  // c'est le compte de reps qui décide si elle vaut d'être montrée.
+  function meilleureSerie(votantes) {
+    var liste = votantes || [];
+    if (!liste.length) return null;
+
+    var repsMax = null;
+    liste.forEach(function (s) {
+      var r = nombre(s.reps);
+      if (r !== null && (repsMax === null || r > repsMax)) repsMax = r;
+    });
+    if (repsMax === null) return null;
+    var seuil = repsMax / 2;
+
+    var charge = null;
+    liste.forEach(function (s) {
+      if (nombre(s.reps) < seuil) return;
+      var kg = nombre(s.charge_kg);
+      if (kg !== null && (charge === null || kg > charge)) charge = kg;
+    });
+    if (charge === null) return null;
+
+    // À charge égale, les MEILLEURES reps. Pas de second test du seuil ici : la
+    // charge vient d'être choisie PARMI les séries qui le passent, donc au moins
+    // une série à cette charge le passe, et une série plus courte à la même
+    // charge ne peut pas être le maximum. Le banc de mutation l'a montré — le
+    // garde-fou qui s'y trouvait était inkillable, donc mort.
+    var reps = null;
+    liste.forEach(function (s) {
+      if (nombre(s.charge_kg) !== charge) return;
+      var r = nombre(s.reps);
+      if (reps === null || r > reps) reps = r;
+    });
+    return { charge: charge, reps: reps };
+  }
+
+  function sortie(series, roles, palier, erreur, votantes) {
     var decrites = series.map(function (s) {
       return { serie: s, role: roles.get(s) || null };
     });
@@ -317,7 +374,10 @@
 
     return {
       palier: palier, reps: reps, erreur: erreur || null,
-      series: decrites, retenues: retenues
+      // Deux grandeurs distinctes, jamais fusionnées : `palier`/`reps` pour le
+      // moteur, `meilleure` pour le journal.
+      meilleure: meilleureSerie(votantes),
+      series: decrites, retenues: retenues, votantes: (votantes || []).slice()
     };
   }
 
@@ -389,6 +449,7 @@
     seanceExercices: seanceExercices,
     etatsExercices: etatsExercices,
     analyser: analyser,
+    meilleureSerie: meilleureSerie,
     cranEffort: cranEffort,
     repsComptees: repsComptees,
     palierTenu: palierTenu

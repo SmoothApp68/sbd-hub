@@ -229,6 +229,22 @@
     barre.appendChild(suiv);
 
     cible.appendChild(barre);
+
+    // « Cette semaine » APPARAÎT dès qu'on a quitté la semaine courante, et
+    // disparaît quand on y est. Il vivait dans le pied du calendrier depuis le
+    // chantier 13 : mauvaise décision, vérifiée à l'usage — dès qu'on recule de
+    // deux ou trois semaines on veut revenir, et ouvrir le calendrier pour ça
+    // est un détour. Il reste AUSSI dans le pied du calendrier ; les deux ne se
+    // gênent pas.
+    //
+    // Absent sur la semaine courante plutôt que grisé : un bouton qui ne fait
+    // rien est un bouton de trop, et sa disparition dit à elle seule « tu y es ».
+    if (vue.surCetteSemaine) {
+      var retour = el('button', 'barre-retour', 'Cette semaine');
+      retour.type = 'button';
+      retour.addEventListener('click', vue.surCetteSemaine);
+      cible.appendChild(retour);
+    }
   }
 
   // ── La ligne de rappel (Séances) ────────────────────────────────────────
@@ -375,7 +391,9 @@
   // suivants en gris : un seul pivot par carte. UNE LIGNE PAR NOM, pas une
   // grille : tant que le palier n'est pas porté, la colonne de droite est vide
   // et une grille à deux colonnes y ferait passer un nom sur deux.
-  // La colonne de droite est REVENUE (chantier 17) : « nom | palier × reps ».
+  // La colonne de droite : « nom | meilleure série ». Revenue au chantier 17,
+  // corrigée au 18 — elle portait le palier, qui est la grandeur du moteur et
+  // pas celle du journal (§7 bis.5).
   // Elle était vide au chantier 13 faute de palier, et la spec demandait alors
   // une liste d'une colonne — une grille à moitié vide fait passer un nom sur
   // deux. Maintenant que la colonne porte quelque chose, la grille reprend.
@@ -390,8 +408,8 @@
     apercu.tete.forEach(function (e, i) {
       var ligne = el('div', 'apercu-exo' + (i === 0 ? ' pivot' : ''));
       ligne.appendChild(el('span', 'apercu-nom', e.nom));
-      if (e.palier !== null && e.palier !== undefined) {
-        var val = el('span', 'apercu-val', nombreFr(e.palier));
+      if (e.charge !== null && e.charge !== undefined) {
+        var val = el('span', 'apercu-val', nombreFr(e.charge));
         if (e.reps !== null && e.reps !== undefined) {
           val.appendChild(el('em', null, '\u00d7 ' + e.reps));
         }

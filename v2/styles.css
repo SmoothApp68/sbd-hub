@@ -85,6 +85,8 @@ body{
 .etat-sync.a-jour .etat-pastille{background:#3fb950}
 .etat-sync.local .etat-pastille{background:var(--texte-2)}
 .etat-sync.vide .etat-pastille{background:var(--texte-3)}
+/* Un écart se constate, il ne s'alarme pas : pastille neutre, le texte dit le fait. */
+.etat-sync.partiel .etat-pastille{background:var(--texte-2)}
 .etat-sync.sync .etat-pastille{background:var(--texte)}
 .actions{display:flex;gap:6px}
 

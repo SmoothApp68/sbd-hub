@@ -4,8 +4,9 @@
 // mettre à jour. On affiche TOUJOURS ce qu'on a d'abord, puis on rafraîchit en
 // arrière-plan. Aucun écran d'attente quand quelque chose peut déjà être montré.
 //
-// Aucune écriture vers Supabase. Ce commit rend l'app lisible hors ligne, pas
-// modifiable hors ligne — l'écriture hors ligne est un autre problème.
+// L'app ÉCRIT désormais, mais pour les routines seulement, et EN DIRECT — pas
+// par le cache. Voir `chargerRoutines` pour le pourquoi. Le corpus importé
+// (séances, séries) reste lu depuis le cache et n'est jamais modifié.
 
 (function (racine) {
   'use strict';
@@ -17,7 +18,7 @@
   var Routeur = racine.THRouteur, Sortie = racine.THSortie;
   var Calendrier = racine.THCalendrier;
   var Periode = racine.THPeriode, Poids = racine.THPoids;
-  var Palier = racine.THPalier;
+  var Palier = racine.THPalier, Routines = racine.THRoutines;
 
   var vues = {};
   var local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
@@ -33,6 +34,31 @@
   var periodeRadar = Periode.PERIODE_DEFAUT;   // fenêtre comparée du radar
   var periodePoids = Poids.PERIODE_DEFAUT;     // fenêtre de la courbe de poids
   var etatsExercices = {};   // §5.2 : « monte » / « ne monte pas », par exercice
+
+  // ── Routines ─────────────────────────────────────────────────────────────
+  //
+  // ⚠️ ELLES NE PASSENT PAS PAR LE CACHE, et c'est un choix.
+  //
+  // Le cache local est un MIROIR EN LECTURE d'un corpus qu'on ne modifie pas,
+  // avec tout l'appareillage que ça demande : curseur incrémental, compte de
+  // contrôle, cliquet de complétude. Il répond à une seule question — « ai-je
+  // tout reçu ». Y verser une table qu'on écrit y ajouterait la question
+  // inverse — « ai-je tout envoyé » — pour laquelle il n'a aucune réponse : ni
+  // identité locale, ni file d'attente, ni résolution de conflit. À moitié
+  // fait, on obtiendrait le pire : une bibliothèque locale qui diverge en
+  // silence de ce qui est en base.
+  //
+  // Une routine se crée au calme, avec du réseau ; une SÉANCE se saisit à la
+  // salle, où le réseau tombe. L'écriture hors ligne est le vrai problème, et
+  // il se posera au commit suivant, avec la séance en cours — entier, pas
+  // entamé de travers ici.
+  //
+  // La contrepartie est assumée et visible à l'écran : sans réseau, la
+  // bibliothèque le DIT au lieu de faire semblant.
+  var routines = [];
+  var etatRoutines = { code: 'jamais', message: '' };
+  var brouillon = null;      // la routine en cours d'édition, en mémoire
+  var enregistrementEnCours = false;
 
   function $(id) { return doc.getElementById(id); }
 
@@ -111,6 +137,10 @@
     var meta = await Cache.lireMeta('proprietaire');
     if (Sync.cacheAppartientA(meta, userId)) return;
     await Cache.viderTout();
+    // Les routines ne sont pas dans le cache, mais elles appartiennent au
+    // compte précédent : les laisser en mémoire montrerait la bibliothèque de
+    // quelqu'un d'autre le temps d'une requête.
+    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
 
@@ -353,6 +383,246 @@
     return { quand: n ? n + ' exercices' : '', lignes: lignes };
   }
 
+  // ── Saisie : la bibliothèque de routines ─────────────────────────────────
+
+  // PostgREST rend les exercices imbriqués sous le nom de la table. On traduit
+  // ICI, une fois : le rendu et le module pur ne connaissent que `exercices`,
+  // triés par rang. Un seul endroit sait à quoi ressemble une réponse.
+  function normaliserRoutine(brute) {
+    var exos = (brute && brute.routine_exercises) || [];
+    return {
+      id: brute.id, nom: brute.nom, note: brute.note,
+      archivee_a: brute.archivee_a,
+      exercices: exos.slice().sort(function (a, b) { return a.rang - b.rang; })
+    };
+  }
+
+  async function chargerRoutines() {
+    etatRoutines = { code: 'charge', message: '' };
+    try {
+      var brutes = await Donnees.mesRoutines();
+      routines = brutes.map(normaliserRoutine);
+      etatRoutines = { code: 'ok', message: '' };
+      return true;
+    } catch (e) {
+      // On ne vide pas `routines` : ce qu'on avait affiché reste affiché. Un
+      // écran qui se vide sur une panne de réseau fait croire à une perte.
+      etatRoutines = { code: 'echec', message: texteErreur(e) };
+      console.warn('Routines indisponibles :', texteErreur(e));
+      return false;
+    }
+  }
+
+  function rendreSaisie() {
+    montrer('saisie', Routeur.SAISIE);
+    var cible = $('liste-routines');
+    // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
+    // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
+    // annoncerait une bibliothèque vide à quelqu'un qui a des routines. Trouvé
+    // au banc d'écran, réseau coupé — pas en test.
+    if ((etatRoutines.code === 'jamais' || etatRoutines.code === 'charge') && !routines.length) {
+      return Rendu.message(cible, 'Chargement…');
+    }
+    if (etatRoutines.code === 'echec' && !routines.length) {
+      Rendu.message(cible, etatRoutines.message + ' Les routines vivent en ligne.', 'erreur');
+      var reessayer = Rendu.el('button', 'discret', 'Réessayer');
+      reessayer.type = 'button';
+      reessayer.addEventListener('click', async function () {
+        Rendu.message(cible, 'Chargement…');
+        await chargerRoutines();
+        rendreSaisie();
+      });
+      cible.appendChild(reessayer);
+      return;
+    }
+    Rendu.rendreListeRoutines(cible, routines, {
+      surChoix: ouvrirRoutine,
+      surNouvelle: function () { ouvrirRoutine(null); }
+    });
+  }
+
+  async function afficherSaisie() {
+    allerA(Routeur.SAISIE, {});
+    rendreSaisie();
+    if (etatRoutines.code === 'ok') return;   // déjà chargé : pas de requête de plus
+    await chargerRoutines();
+    if (vues.saisie.hidden) return;           // l'utilisateur est parti ailleurs
+    rendreSaisie();
+  }
+
+  // ── L'éditeur ────────────────────────────────────────────────────────────
+  //
+  // Tout se passe EN MÉMOIRE jusqu'au bouton Enregistrer. Écrire à chaque
+  // frappe multiplierait les allers-retours, rendrait chaque geste faillible,
+  // et surtout empêcherait de calculer le plan de renumérotation d'un coup —
+  // celui qui évite de heurter `routine_exos_rang_uniq`.
+  function brouillonDe(routine) {
+    if (!routine) return { id: null, nom: '', exercices: [], existantes: [], nomChange: false };
+    return {
+      id: routine.id,
+      nom: routine.nom,
+      nomChange: false,
+      // Copie : on édite le brouillon, jamais la routine chargée. Sans ça, un
+      // enregistrement raté laisserait la liste montrant des valeurs qui ne
+      // sont pas en base.
+      exercices: routine.exercices.map(function (e) {
+        return {
+          id: e.id, exercise_slug: e.exercise_slug, series: e.series,
+          reps_visees: e.reps_visees, repos_cible_s: e.repos_cible_s
+        };
+      }),
+      existantes: routine.exercices.slice()
+    };
+  }
+
+  async function ouvrirRoutine(id) {
+    allerA(Routeur.ROUTINE, id ? { id: id } : { neuve: true });
+    await prepererEditeur(id);
+  }
+
+  // Ouvrable par URL directe : la routine peut ne pas être chargée.
+  async function prepererEditeur(id) {
+    montrer('routine', Routeur.ROUTINE);
+    if (id && etatRoutines.code !== 'ok') {
+      Rendu.message($('exos-routine'), 'Chargement…');
+      await chargerRoutines();
+      if (vues.routine.hidden) return;
+    }
+    var routine = id ? routines.filter(function (r) { return r.id === id; })[0] : null;
+    if (id && !routine) {
+      // Une routine qui n'existe plus, ou qu'on n'a pas pu charger. On ne
+      // fabrique pas un éditeur vide qui créerait un doublon à l'enregistrement.
+      allerA(Routeur.SAISIE, {}, true);
+      return rendreSaisie();
+    }
+    brouillon = brouillonDe(routine);
+    $('champ-nom-routine').value = brouillon.nom;
+    $('btn-archiver-routine').hidden = !brouillon.id;
+    $('erreur-routine').textContent = '';
+    rendreEditeur();
+  }
+
+  function rendreEditeur() {
+    var index = Modele.indexerExercices(local.exercices);
+    Rendu.rendreExosRoutine($('exos-routine'), brouillon.exercices,
+      function (slug) { return Modele.nommer(index, slug); }, {
+        // Les champs MUTENT le brouillon sans redessiner : redessiner à chaque
+        // frappe arracherait le focus et le clavier d'Android avec lui.
+        surChamp: function (i, champ, valeur) {
+          if (brouillon.exercices[i]) brouillon.exercices[i][champ] = valeur;
+        },
+        surMonter: function (i) { echanger(i, i - 1); },
+        surDescendre: function (i) { echanger(i, i + 1); },
+        surRetirer: function (i) { brouillon.exercices.splice(i, 1); rendreEditeur(); }
+      });
+  }
+
+  function echanger(i, j) {
+    var liste = brouillon.exercices;
+    if (i < 0 || j < 0 || i >= liste.length || j >= liste.length) return;
+    var tmp = liste[i]; liste[i] = liste[j]; liste[j] = tmp;
+    rendreEditeur();
+  }
+
+  async function enregistrerBrouillon() {
+    if (enregistrementEnCours) return;
+    var bouton = $('btn-enregistrer-routine'), erreur = $('erreur-routine');
+    brouillon.nom = $('champ-nom-routine').value;
+
+    var routineDOrigine = brouillon.id
+      ? routines.filter(function (r) { return r.id === brouillon.id; })[0] : null;
+    brouillon.nomChange = !routineDOrigine ||
+      Routines.nomPropre(brouillon.nom) !== Routines.nomPropre(routineDOrigine.nom);
+
+    var verdict = Routines.valider(brouillon, routines);
+    if (!verdict.valide) { erreur.textContent = messageVerdict(verdict); return; }
+
+    enregistrementEnCours = true;
+    erreur.textContent = '';
+    bouton.disabled = true; bouton.textContent = 'Enregistrement…';
+    try {
+      var r = await Routines.enregistrer(brouillon, Donnees, {
+        userId: sessionActive && sessionActive.user && sessionActive.user.id
+      });
+      if (!r.ok) {
+        // Le brouillon reste À L'ÉCRAN, intact. Rien n'est vidé, rien n'est
+        // perdu — c'est la première question de quelqu'un dont l'enregistrement
+        // vient d'échouer, et la réponse doit être visible.
+        erreur.textContent = Routines.messageErreur(r);
+        return;
+      }
+      await chargerRoutines();
+      allerA(Routeur.SAISIE, {}, true);
+      rendreSaisie();
+    } finally {
+      enregistrementEnCours = false;
+      bouton.disabled = false; bouton.textContent = 'Enregistrer';
+    }
+  }
+
+  // Un message par cause, jamais la liste brute des soucis : on nomme le
+  // premier problème, celui qu'il faut corriger maintenant.
+  function messageVerdict(verdict) {
+    var s = verdict.soucis[0];
+    if (s.champ === 'nom' && s.raison === 'vide') return 'Donne un nom à ta routine.';
+    if (s.champ === 'nom' && s.raison === 'trop-long') return 'Le nom fait plus de ' + Routines.NOM_MAX + ' caractères.';
+    if (s.champ === 'nom' && s.raison === 'doublon') return Routines.MESSAGES.doublon;
+    if (s.champ === 'series') return 'Les séries vont de ' + Routines.SERIES_MIN + ' à ' + Routines.SERIES_MAX + '.';
+    if (s.champ === 'reps_visees') return 'Les reps visées vont de ' + Routines.REPS_MIN + ' à ' + Routines.REPS_MAX + ', ou restent vides.';
+    if (s.champ === 'repos_cible_s') return 'Le repos va de ' + Routines.REPOS_MIN + ' à ' + Routines.REPOS_MAX + ' secondes, ou reste vide.';
+    return 'Il manque un exercice sur une ligne.';
+  }
+
+  // Archiver, pas supprimer : les séances qui référencent la routine gardent
+  // leur lien, et le nom redevient libre.
+  async function archiverCourante() {
+    if (!brouillon || !brouillon.id) return;
+    var erreur = $('erreur-routine');
+    erreur.textContent = '';
+    try {
+      await Donnees.archiverRoutine(brouillon.id);
+      await chargerRoutines();
+      allerA(Routeur.SAISIE, {}, true);
+      rendreSaisie();
+    } catch (e) {
+      erreur.textContent = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
+    }
+  }
+
+  // ── Le catalogue ─────────────────────────────────────────────────────────
+  //
+  // Il vit dans le cache local (237 entrées, synchronisées avec le reste) :
+  // chercher un exercice marche donc HORS LIGNE, contrairement à
+  // l'enregistrement. C'est la moitié du problème que le cache résout déjà.
+  function ouvrirCatalogue() {
+    $('champ-recherche-exo').value = '';
+    rendreCatalogue();
+    ouvrirVoile($('catalogue'));
+    $('champ-recherche-exo').focus();
+  }
+
+  function rendreCatalogue() {
+    // « Aucun exercice ne correspond » serait FAUX tant que le catalogue n'est
+    // pas arrivé — il dirait que la recherche a échoué alors que c'est la
+    // synchronisation qui n'a pas fini. Trouvé au banc d'écran, pas en test.
+    if (!local.exercices.length) {
+      return Rendu.message($('resultats-exo'), 'Le catalogue arrive… Il est enregistré sur l\u2019appareil à la première synchronisation.');
+    }
+    Rendu.rendreResultatsExo($('resultats-exo'),
+      Routines.chercher(local.exercices, $('champ-recherche-exo').value),
+      function (exo) {
+        fermerVoile();
+        brouillon.exercices.push({
+          id: null, exercise_slug: exo.slug,
+          series: Routines.SERIES_DEFAUT,
+          // Ni reps ni repos par défaut : une valeur inventée se lirait comme
+          // une prescription, et serait pire qu'une absence.
+          reps_visees: null, repos_cible_s: null
+        });
+        rendreEditeur();
+      });
+  }
+
   // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────
   function rendreVolume(lundi) {
     if (lundi) lundiAffiche = lundi;
@@ -533,7 +803,10 @@
     sortie.apresNavigation(false);
 
     await synchroniser();
-    if (!vues.detail.hidden) return;   // l'utilisateur a ouvert une séance entre-temps
+    // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
+    // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
+    // de remplir. Une synchronisation de fond ne reprend jamais la main.
+    if (!vues.detail.hidden || !vues.routine.hidden) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 
@@ -556,6 +829,9 @@
     sessionActive = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { seances: [], series: [], exercices: [], pesees: [], parSeance: null };
+    // Les routines vivent en mémoire, pas dans le cache — mais elles
+    // appartiennent quand même au compte qui part.
+    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     try { await Auth.deconnecter(); } catch (e) { montrer('connexion', Routeur.CONNEXION); }
     allerA(Routeur.CONNEXION, {}, true);
   }
@@ -597,10 +873,11 @@
 
   // Un onglet sans contenu n'a rien à rendre : sa section est écrite en clair
   // dans index.html. Montrer la vue suffit.
+  // Saisie n'y figure plus : elle a un contenu depuis le chantier 21, et donc
+  // un rendu. Profil est le dernier onglet encore écrit en clair dans le HTML.
   var VUES_ONGLET = {};
-  VUES_ONGLET[Routeur.SAISIE] = 'saisie';
-  VUES_ONGLET[Routeur.PROGRESSION] = 'progression';
   VUES_ONGLET[Routeur.PROFIL] = 'profil';
+  VUES_ONGLET[Routeur.PROGRESSION] = 'progression';
 
   function rendreRoute(route) {
     var cible = Routeur.routeAffichable(route, { session: sessionActive });
@@ -608,6 +885,8 @@
     // /semaine/… dans la barre d'adresse rejouerait le défaut au rechargement.
     if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
     if (cible.vue === Routeur.CONNEXION) return montrer('connexion', Routeur.CONNEXION);
+    if (cible.vue === Routeur.SAISIE) { rendreSaisie(); return chargerSiBesoin(); }
+    if (cible.vue === Routeur.ROUTINE) return prepererEditeur(cible.params.id || null);
     if (cible.vue === Routeur.PROGRESSION) return rendreProgression();
     if (cible.vue === Routeur.VOLUME) return rendreVolume();
     if (cible.vue === Routeur.POIDS) return rendrePoids();
@@ -617,10 +896,19 @@
     return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
   }
 
+  // Une seule requête par session, sauf échec : revenir sur l'onglet ne
+  // redemande rien tant que la liste est bonne.
+  async function chargerSiBesoin() {
+    if (etatRoutines.code === 'ok' || etatRoutines.code === 'charge') return;
+    await chargerRoutines();
+    if (!vues.saisie.hidden) rendreSaisie();
+  }
+
   async function demarrer() {
     vues = {
       connexion: $('vue-connexion'), liste: $('vue-liste'), detail: $('vue-detail'),
-      saisie: $('vue-saisie'), progression: $('vue-progression'),
+      saisie: $('vue-saisie'), routine: $('vue-routine'),
+      progression: $('vue-progression'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil')
     };
     sortie = Sortie.creer({
@@ -640,6 +928,16 @@
         rendreProgression();
       });
     });
+    $('btn-nouvelle-routine').addEventListener('click', function () { ouvrirRoutine(null); });
+    $('btn-retour-routine').addEventListener('click', function () {
+      allerA(Routeur.SAISIE, {});
+      rendreSaisie();
+    });
+    $('btn-ajouter-exo').addEventListener('click', ouvrirCatalogue);
+    $('btn-enregistrer-routine').addEventListener('click', enregistrerBrouillon);
+    $('btn-archiver-routine').addEventListener('click', archiverCourante);
+    $('btn-fermer-catalogue').addEventListener('click', fermerVoile);
+    $('champ-recherche-exo').addEventListener('input', rendreCatalogue);
     $('btn-fermer-muscle').addEventListener('click', fermerVoile);
     $('btn-fermer-calendrier').addEventListener('click', fermerVoile);
     $('btn-cette-semaine').addEventListener('click', function () {
@@ -655,7 +953,7 @@
       rendreCalendrier();
     });
     // Toucher le voile ferme, toucher la boîte ne ferme pas.
-    ['fenetre-muscle', 'calendrier'].forEach(function (id) {
+    ['fenetre-muscle', 'calendrier', 'catalogue'].forEach(function (id) {
       $(id).addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
     });
     $('btn-rafraichir').addEventListener('click', async function () {
@@ -674,6 +972,7 @@
         // Séances revient sur la semaine courante ; Progression garde celle
         // qu'on regardait, pour que l'aller-retour soit sans surprise.
         if (vue === Routeur.RACINE) return afficherSemaine(Semaine.bornesSemaine(new Date()).lundi);
+        if (vue === Routeur.SAISIE) return afficherSaisie();
         allerA(vue, {});
         rendreRoute({ vue: vue, params: {} });
       });

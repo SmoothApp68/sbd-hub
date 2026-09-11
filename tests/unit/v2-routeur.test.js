@@ -297,3 +297,50 @@ describe('Progression est un sommaire, et ses blocs ont leur propre chemin', () 
     expect(R.analyser('/progression/volume/2026').vue).toBe(R.RACINE);
   });
 });
+
+// ── L'éditeur de routine (chantier 21) ─────────────────────────────────────
+//
+// Il est une VUE avec son URL, sur le modèle de `/seance/<uuid>` : un
+// rechargement direct la rouvre, et le retour d'Android remonte à la
+// bibliothèque sans qu'on ait à l'écrire.
+
+describe('l’éditeur de routine a son propre chemin', () => {
+  const UUID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+  test('/routine/<uuid> et /routine/nouvelle sont deux formes de la même vue', () => {
+    expect(R.analyser('/routine/' + UUID)).toEqual({ vue: R.ROUTINE, params: { id: UUID } });
+    expect(R.analyser('/routine/nouvelle')).toEqual({ vue: R.ROUTINE, params: { neuve: true } });
+  });
+
+  test('l’aller-retour construire/analyser est idempotent', () => {
+    expect(R.construire(R.ROUTINE, { id: UUID })).toBe('/routine/' + UUID);
+    expect(R.construire(R.ROUTINE, { neuve: true })).toBe('/routine/nouvelle');
+    expect(R.analyser(R.construire(R.ROUTINE, { id: UUID })).params.id).toBe(UUID);
+  });
+
+  test('un id malformé retombe sur la BIBLIOTHÈQUE, pas sur la racine', () => {
+    // Un lien qui a vieilli reste dans l'onglet où on l'a suivi : c'est le
+    // moins surprenant, et c'est déjà la règle des sous-chemins de Progression.
+    const r = R.analyser('/routine/bidon');
+    expect(r.vue).toBe(R.SAISIE);
+    expect(r.repli).toBe('id-invalide');
+    expect(R.construire(R.ROUTINE, {})).toBe('/saisie');
+  });
+
+  test('elle allume l’onglet SAISIE, et n’ajoute pas un onglet à elle', () => {
+    expect(R.ongletDe(R.ROUTINE)).toBe(R.SAISIE);
+    expect(R.ONGLETS).toHaveLength(4);
+    expect(R.ONGLETS).not.toContain(R.ROUTINE);
+  });
+
+  test('elle exige une session : une routine est une donnée de compte', () => {
+    expect(R.routeAffichable({ vue: R.ROUTINE, params: { id: UUID } }, { session: null }).vue)
+      .toBe(R.CONNEXION);
+  });
+
+  test('« routine » ne mange pas « seance » : les deux motifs cohabitent', () => {
+    expect(R.analyser('/seance/' + UUID).vue).toBe(R.SEANCE);
+    expect(R.ongletDe(R.SEANCE)).toBe(R.RACINE);
+    expect(R.analyser('/routine/' + UUID + '/extra').vue).toBe(R.RACINE);
+  });
+});

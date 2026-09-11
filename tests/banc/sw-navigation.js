@@ -271,7 +271,11 @@ const SCENARIOS = [
     await installerSW(page);
     await new Promise((r) => serveur.close(r));      // le serveur meurt pour de bon
     await attendre(600);
-    for (const chemin of ['/', '/semaine/2026-08-24', '/progression']) {
+    // `/saisie` et `/routine/nouvelle` sont des URL de NAVIGATION comme les
+    // autres : le service worker doit leur servir la coquille. Ajoutées au
+    // chantier 21, avec les vues qui les portent.
+    for (const chemin of ['/', '/semaine/2026-08-24', '/progression',
+                          '/saisie', '/routine/nouvelle']) {
       const v = await ouvrir(page, chemin);
       verifier('hors ligne ' + chemin, !v.erreur && v.sections > 0,
         v.erreur || v.sections + ' sections');

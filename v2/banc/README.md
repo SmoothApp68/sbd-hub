@@ -74,3 +74,25 @@ là ne prouve rien — c'est exactement ce qui s'est passé au chantier 18.
 
 Il sert `tests/banc/sw-navigation.js` (7 scénarios, navigateur réel). Les règles
 d'avant-fusion du service worker sont au **§4 bis de `CLAUDE.md`**.
+
+---
+
+## Les bancs navigateur — `tests/banc/`
+
+Deux bancs y vivent, tous deux autonomes et rendant un code de retour non nul en
+cas d'échec, pour qu'une campagne de mutation puisse s'en servir :
+
+| Banc | Ce qu'il éprouve |
+|---|---|
+| `sw-navigation.js` | le service worker : 7 scénarios, dont la sortie de l'état cassé du chantier 19 |
+| `routines-ecran.js` | la bibliothèque de routines : l'app réelle, session truquée, **Supabase de papier** |
+
+**`routines-ecran.js` applique les deux index uniques de la vraie base** —
+`routine_exos_rang_uniq (routine_id, rang)` et
+`routines_user_nom_actif_uniq (user_id, lower(btrim(nom))) WHERE archivee_a IS NULL`.
+Sans eux il serait plus permissif que Postgres, et « renuméroter proprement »
+deviendrait indistinguable de « écrire n'importe comment ».
+
+Il a trouvé trois défauts que les tests purs ne voyaient pas — dont la
+bibliothèque qui annonçait « aucune routine » hors ligne, c'est-à-dire
+« je ne sais pas » présenté comme « il n'y en a pas ».

@@ -1,9 +1,11 @@
-// v2/js/donnees.js — accès Supabase, LECTURE SEULE.
+// v2/js/donnees.js — accès Supabase.
 //
-// Ce module n'écrit jamais. En particulier il n'écrit jamais `validee_a` :
-// cette colonne est NULL sur les 28 103 séries importées. Elle est en revanche
-// LUE, parce qu'elle dit à elle seule si la chronologie existe pour une série
-// (ECRAN-SAISIE-V1 §7.3).
+// LECTURE pour tout le corpus importé, et ÉCRITURE pour les routines seulement
+// (section en bas de fichier). Le corpus reste intouchable : ce module n'écrit
+// jamais dans `sessions` ni dans `sets`. En particulier il n'écrit jamais
+// `validee_a` : cette colonne est NULL sur les 28 103 séries importées. Elle est
+// en revanche LUE, parce qu'elle dit à elle seule si la chronologie existe pour
+// une série (ECRAN-SAISIE-V1 §7.3).
 //
 // Aucune requête ne filtre sur `user_id`. C'est délibéré : le cloisonnement est
 // le travail du RLS, et filtrer côté client masquerait un RLS défaillant au lieu
@@ -130,11 +132,101 @@
     }, 'slug'), 'slug');
   }
 
+  // ══ ROUTINES — la première écriture du projet v2 ═════════════════════════
+  //
+  // Lecture ET écriture. Le corpus importé, lui, reste en lecture seule.
+  //
+  // Aucun `.eq('user_id', …)` ici non plus, pas même sur une table qu'on écrit :
+  // le cloisonnement est le travail du RLS. `routines.user_id` est en revanche
+  // RENSEIGNÉ à l'insertion — sans lui, le WITH CHECK de la policy refuse la
+  // ligne, ce qui est exactement ce qu'on veut d'une valeur obligatoire.
+  //
+  // `routine_exercises` n'a pas de `user_id` : sa propriété est héritée de
+  // `routines` par un EXISTS. Une insertion sur la routine d'autrui est refusée
+  // côté serveur, et l'erreur remonte — elle n'est jamais avalée.
+  //
+  // Pas de pagination ici, contrairement à tout le reste du fichier. Le volume
+  // est d'un autre ordre : une bibliothèque de routines se compte en dizaines,
+  // pas en dizaines de milliers. La pagination par curseur existe pour les
+  // 28 103 séries, pas par principe.
+
+  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, created_at, modifiee_a';
+  var COLONNES_ROUTINE_EXO =
+    'id, routine_id, exercise_slug, rang, series, reps_visees, repos_cible_s, groupe_superset';
+
+  // Les routines AVEC leurs exercices, en une requête. L'imbrication PostgREST
+  // suit la clé étrangère `routine_exercises.routine_id`.
+  async function mesRoutines() {
+    var r = await client().from('routines')
+      .select(COLONNES_ROUTINE + ', routine_exercises(' + COLONNES_ROUTINE_EXO + ')')
+      .order('nom', { ascending: true });
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+
+  // `select().single()` après l'insertion : on a besoin de l'`id` généré pour
+  // écrire les exercices dans la foulée.
+  async function creerRoutine(champs) {
+    var r = await client().from('routines').insert(champs).select(COLONNES_ROUTINE).single();
+    if (r.error) throw r.error;
+    return r.data;
+  }
+
+  // ⚠️ `modifiee_a` est écrite À LA MAIN. Relevé en base : la colonne a
+  // `DEFAULT now()` mais AUCUN trigger ne la met à jour. Sans cette ligne, elle
+  // dirait la date de création et mentirait à la première modification.
+  async function majRoutine(id, champs) {
+    var avec = Object.assign({}, champs, { modifiee_a: new Date().toISOString() });
+    var r = await client().from('routines').update(avec).eq('id', id).select(COLONNES_ROUTINE).single();
+    if (r.error) throw r.error;
+    return r.data;
+  }
+
+  // Archiver, pas supprimer : les séances qui référencent la routine
+  // (`sessions.routine_id`) gardent leur lien.
+  function archiverRoutine(id) {
+    return majRoutine(id, { archivee_a: new Date().toISOString() });
+  }
+
+  async function insererExercices(lignes) {
+    if (!lignes || !lignes.length) return [];
+    var r = await client().from('routine_exercises').insert(lignes).select(COLONNES_ROUTINE_EXO);
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+
+  async function majExercice(id, champs) {
+    var r = await client().from('routine_exercises').update(champs).eq('id', id);
+    if (r.error) throw r.error;
+  }
+
+  async function supprimerExercices(ids) {
+    if (!ids || !ids.length) return;
+    var r = await client().from('routine_exercises').delete().in('id', ids);
+    if (r.error) throw r.error;
+  }
+
+  // Supprimer une routine entière. Utilisé UNIQUEMENT pour défaire une création
+  // dont les exercices ont échoué : sans ça, un réseau qui lâche au mauvais
+  // moment laisserait une routine vide et un nom pris pour rien.
+  async function supprimerRoutine(id) {
+    var r = await client().from('routines').delete().eq('id', id);
+    if (r.error) throw r.error;
+  }
+
   var api = {
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
+    mesRoutines: mesRoutines,
+    creerRoutine: creerRoutine,
+    majRoutine: majRoutine,
+    archiverRoutine: archiverRoutine,
+    supprimerRoutine: supprimerRoutine,
+    insererExercices: insererExercices,
+    majExercice: majExercice,
+    supprimerExercices: supprimerExercices,
     compterSeances: compterSeances,
     compterSeries: compterSeries,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut

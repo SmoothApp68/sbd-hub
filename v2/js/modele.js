@@ -368,6 +368,7 @@
     trierParRang: trierParRang,
     paqueter: paqueter,
     indexerExercices: indexerExercices,
+    nommer: nommer,
     construireBlocs: construireBlocs,
     resumerSeance: resumerSeance,
     apercuExercices: apercuExercices,
